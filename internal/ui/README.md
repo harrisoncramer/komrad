@@ -24,13 +24,13 @@ agentsScreen and the rest, holding its state and implementing screenModel: updat
 message the root did not claim, view draws the screen, enter lands it on a target,
 doesDrawFromListing says whether it draws the watch's listings, and takesEveryKey says whether
 the screen is being typed at.
-A screen also implements whichever of the facets it draws: detailed for a record under its
-list, filtered for a search over it, tabbed for a strip over it, columned for a block beside it,
-and staged for a row it puts on the stage. The root holds the six screens by value and
-m.active() is the switch from the screen enum to a pointer into the one that is up; it carries
-no default, so the exhaustive check refuses a screen with no arm, and screens_test.go pins
-which facets each implements. Every method on a screen takes a pointer to the root, which it reads
-freely and writes only through the root's own methods; a screen changes screens through
+A screen also returns a screenSpec from its spec method, which is the one place a screen says
+what else it does: detailed for a record under its list, filtered for a search over it, tabbed
+for a strip over it, column for a block beside it, stage for a row it puts on the stage, and the
+rest, with a nil field for whatever the screen lacks. The root holds the screens by value and
+m.active() is the switch from the screen enum to the spec of the one that is up; it carries no
+default, so the exhaustive check refuses a screen with no arm. Every method on a screen takes a
+pointer to the root, which it reads freely and writes only through the root's own methods; a screen changes screens through
 enter and never by writing into another screen. The root's own state is what routeAsyncMessage
 still switches on: the watch, the write result, the ticks, focus and blur, and the
 inspections.
@@ -126,7 +126,7 @@ reviewed, the transcript of a search hit, an archived agent's notes, a schedule'
 worktree directory's entries, the folder context or the reason a row has no pane, or a form
 somebody is filling in.
 
-column.go owns all of it. A screen names a columnSpec through the columned facet and the
+column.go owns all of it. A screen names a columnSpec through its spec's column and the
 machinery does the rest: columnGeometry divides the window and refuses one too narrow to hold
 both halves, columnSplit takes off whatever stands over the block, and joinColumns squares each
 half off and puts the sidebar on the side the frame wants it. Whether the panel is drawing a

@@ -160,12 +160,12 @@ func (m *model) columnOf() (columnSpec, bool) {
 		return formColumn(m.form.kind)
 	}
 
-	c, ok := m.active().(columned)
-	if !ok {
+	column := m.active().column
+	if column == nil {
 		return columnSpec{}, false
 	}
 
-	spec := c.column()
+	spec := column()
 	if m.isScratchOpen() {
 		spec.holds = func(*model) bool { return false }
 	}
@@ -337,7 +337,7 @@ func (m *model) docColumnView(split columnSplit) string {
 // changes.
 func (m *model) docShown() string {
 	hovered := m.hoveredDetails().id
-	if f, ok := m.active().(filtered); ok {
+	if f := m.active().filtered; f != nil {
 		hovered = f.hoveredKey(m)
 	}
 

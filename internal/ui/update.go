@@ -492,14 +492,8 @@ func (m *model) reconcileEditor() tea.Cmd {
 		return cmd
 	}
 
-	switch m.screen {
-	case screenReview:
-		return m.review.reconcileEditor(m)
-	case screenDocuments:
-		return m.documents.reconcileEditor(m)
-	case screenAgents:
-		return m.agents.reconcileEditor(m)
-	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenLogs:
+	if reconcileEditor := m.active().reconcileEditor; reconcileEditor != nil {
+		return reconcileEditor(m)
 	}
 
 	return nil
@@ -519,11 +513,6 @@ func (m *model) isTyping() bool {
 type columnScroller interface {
 	doesScrollColumn(m *model) bool
 	scrollColumn(m *model, rows int) tea.Cmd
-}
-
-// listScroller is a screen whose scroll key does not move its list.
-type listScroller interface {
-	scrollList(m *model, rows int) tea.Cmd
 }
 
 // columnWheelStep is how many rows one turn of the wheel moves the block beside the list.

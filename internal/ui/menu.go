@@ -8,23 +8,18 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// itemMenued is a screen whose hovered row has a band of its own in the menu.
-type itemMenued interface {
-	itemMenu(m *model) (submenu, bool)
-}
-
 // openMenu draws the menu, the hovered row's band over the screen's and the panel's own.
 func (m *model) openMenu() tea.Cmd {
 	menu := panelMenu(m)
 
-	if screen, ok := m.active().(screenMenued); ok && !m.isDetailsFocused() {
-		if band, ok := screen.screenMenu(m); ok {
+	if screenMenu := m.active().screenMenu; screenMenu != nil && !m.isDetailsFocused() {
+		if band, ok := screenMenu(m); ok {
 			menu = joinMenus(band, menu)
 		}
 	}
 
-	if screen, ok := m.active().(itemMenued); ok && !m.isDetailsFocused() {
-		if item, ok := screen.itemMenu(m); ok {
+	if itemMenu := m.active().itemMenu; itemMenu != nil && !m.isDetailsFocused() {
+		if item, ok := itemMenu(m); ok {
 			menu = joinMenus(item, menu)
 		}
 	}
@@ -121,8 +116,6 @@ func (w *schedulesScreen) screenMenu(m *model) (submenu, bool) {
 	}, true
 }
 
-var _ screenMenued = (*schedulesScreen)(nil)
-
 // scheduleMenu is the band on the hovered schedule.
 func scheduleMenu(m *model, schedule panel.Schedule) submenu {
 	toggle := "pause"
@@ -162,14 +155,6 @@ func (a *archiveScreen) itemMenu(m *model) (submenu, bool) {
 
 	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archive), true
 }
-
-var (
-	_ itemMenued = (*agentsScreen)(nil)
-	_ itemMenued = (*archiveScreen)(nil)
-	_ itemMenued = (*schedulesScreen)(nil)
-	_ itemMenued = (*documentsScreen)(nil)
-	_ itemMenued = (*worktreesScreen)(nil)
-)
 
 // openScratch leaves the menu for the scratch, or closes the scratch when it is open.
 func (m *model) openScratch() tea.Cmd {

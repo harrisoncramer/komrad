@@ -12,9 +12,9 @@ import (
 
 // activeKinds is the kinded facet of the screen that is up, and false on a screen listing one kind.
 func (m *model) activeKinds() (kinded, bool) {
-	k, ok := m.active().(kinded)
+	k := m.active().kinded
 
-	return k, ok
+	return k, k != nil
 }
 
 func (m *model) isKindsDrawn() bool {

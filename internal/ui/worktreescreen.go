@@ -526,15 +526,6 @@ func commitLines(commits []worktreeCommit) []string {
 	return lines
 }
 
-var (
-	_ detailed = (*worktreesScreen)(nil)
-	_ filtered = (*worktreesScreen)(nil)
-	_ kinded   = (*worktreesScreen)(nil)
-	_ tabbed   = (*worktreesScreen)(nil)
-	_ columned = (*worktreesScreen)(nil)
-	_ staged   = (*worktreesScreen)(nil)
-)
-
 func (w *worktreesScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -590,5 +581,23 @@ func (w *worktreesScreen) column() columnSpec {
 		docRows: func(m *model, width int) []string {
 			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m), max(width, 1), columnStyle()), width)
 		},
+	}
+}
+
+func (w *worktreesScreen) spec() screenSpec {
+	return screenSpec{
+		screenModel:     w,
+		column:          w.column,
+		detailed:        w,
+		filtered:        w,
+		kinded:          w,
+		tabbed:          w,
+		stage:           w.stage,
+		hoveredName:     w.hoveredName,
+		itemMenu:        w.itemMenu,
+		stageResting:    w.stageResting,
+		screenedAgentID: w.screenedAgentID,
+		notice:          w.notice,
+		dispatches:      func(*model) []dispatching { return []dispatching{w.actions()} },
 	}
 }

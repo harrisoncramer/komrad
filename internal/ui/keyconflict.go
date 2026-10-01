@@ -37,26 +37,14 @@ type dispatching interface {
 // actionsOf is the tables each screen dispatches through, one at a time, walked behind the global
 // keys.
 func actionsOf(s screen) []dispatching {
-	switch s {
-	case screenAgents:
-		return []dispatching{(&agentsScreen{}).actions()}
-	case screenSchedules:
-		return []dispatching{(&schedulesScreen{}).actions()}
-	case screenArchive:
-		return []dispatching{(&archiveScreen{}).actions()}
-	case screenReview:
-		return []dispatching{(&reviewScreen{}).diffActions(), (&reviewScreen{}).filesActions()}
-	case screenWorktrees:
-		return []dispatching{(&worktreesScreen{}).actions()}
-	case screenDocuments:
-		return []dispatching{(&documentsScreen{}).listActions(), (&documentsScreen{}).diffActions(), (&model{}).docActions(), (&documentsScreen{}).docKeys()}
-	case screenLogs:
-		return []dispatching{(&logsScreen{}).listActions(), (&logsScreen{}).logActions()}
-	case screenSearch:
-		return []dispatching{(&searchScreen{}).listActions(), (&searchScreen{}).previewActions()}
+	var zero model
+
+	dispatches := zero.screenOf(s).dispatches
+	if dispatches == nil {
+		return nil
 	}
 
-	return nil
+	return dispatches(&zero)
 }
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
@@ -278,17 +266,17 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	var zero model
 
-	if _, ok := zero.screenOf(s).(tabbed); ok {
+	if zero.screenOf(s).tabbed != nil {
 		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})
 	}
 
-	if _, ok := zero.screenOf(s).(kinded); ok {
+	if zero.screenOf(s).kinded != nil {
 		arms = append(arms, dispatchArm{describe: "the kinds focus", keys: keys.Kinds.Focus})
 	}
 
 	arms = append(arms, dispatchArm{describe: "the menu", keys: keys.Menu.Open})
 
-	if _, ok := zero.screenOf(s).(detailed); ok {
+	if zero.screenOf(s).detailed != nil {
 		arms = append(arms,
 			// Both are read ahead of the screen's own keys.
 			dispatchArm{describe: "the key that pushes a fixture into the messages", keys: []string{messagesMockKey}},

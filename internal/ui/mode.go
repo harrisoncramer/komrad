@@ -92,11 +92,6 @@ func (m *model) isEditing() bool {
 	return m.isTyping()
 }
 
-// lineTyper is a screen that can have a one-row field of its own taking the keys.
-type lineTyper interface {
-	typedLine() (lineInput, bool)
-}
-
 // typedLine is the one-row field taking the keys, if one is.
 func (m *model) typedLine() (lineInput, bool) {
 	switch {
@@ -106,8 +101,8 @@ func (m *model) typedLine() (lineInput, bool) {
 		return m.reading.filter.input, true
 	}
 
-	if typer, ok := m.active().(lineTyper); ok {
-		return typer.typedLine()
+	if typedLine := m.active().typedLine; typedLine != nil {
+		return typedLine()
 	}
 
 	return lineInput{}, false

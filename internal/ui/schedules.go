@@ -326,13 +326,6 @@ func scheduleLines(m *model, pane listPane, params scheduleLinesParams) []string
 	return rows
 }
 
-var (
-	_ detailed = (*schedulesScreen)(nil)
-	_ filtered = (*schedulesScreen)(nil)
-	_ columned = (*schedulesScreen)(nil)
-	_ renamer  = (*schedulesScreen)(nil)
-)
-
 func (w *schedulesScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -395,5 +388,22 @@ func (w *schedulesScreen) reconcileRename(m *model) {
 func (w *schedulesScreen) settleRename(m *model, row string, err error) {
 	if w.settleField(row, err) {
 		w.reconcileRename(m)
+	}
+}
+
+func (w *schedulesScreen) spec() screenSpec {
+	return screenSpec{
+		screenModel:   w,
+		column:        w.column,
+		detailed:      w,
+		filtered:      w,
+		hoveredName:   w.hoveredName,
+		screenMenu:    w.screenMenu,
+		itemMenu:      w.itemMenu,
+		typedLine:     w.typedLine,
+		isRenaming:    w.isRenaming,
+		stageResting:  w.stageResting,
+		dispatches:    func(*model) []dispatching { return []dispatching{w.actions()} },
+		opensTerminal: true,
 	}
 }

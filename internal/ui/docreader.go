@@ -29,11 +29,6 @@ type docReader struct {
 	tail bool
 }
 
-// docKeyed is a screen with keys of its own that answer while its document holds the keys.
-type docKeyed interface {
-	docKeys() screenActionSpec
-}
-
 // isDocReadable reports whether the block beside the list is a document the panel walks itself.
 func (m *model) isDocReadable() bool {
 	if m.isMessagesFocused() {
@@ -231,7 +226,7 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 	m.reading.said = ""
 
 	k := key.String()
-	if _, ok := m.active().(detailed); ok && isBound(k, m.quitKeys()) {
+	if m.active().detailed != nil && isBound(k, m.quitKeys()) {
 		return m.hide()
 	}
 
@@ -240,8 +235,8 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 		return own.dispatch(m, k)
 	}
 
-	if keyed, ok := m.active().(docKeyed); ok {
-		return keyed.docKeys().dispatch(m, k)
+	if docKeys := m.active().docKeys; docKeys != nil {
+		return docKeys().dispatch(m, k)
 	}
 
 	return nil
@@ -361,8 +356,8 @@ func (m *model) docActions() screenActionSpec {
 // docHelp is the legend while the document beside the list holds the keys.
 func (m *model) docHelp() keyMap {
 	own := m.docActions().help(m)
-	if keyed, ok := m.active().(docKeyed); ok {
-		screen := keyed.docKeys().help(m)
+	if docKeys := m.active().docKeys; docKeys != nil {
+		screen := docKeys().help(m)
 		own = keyMap{
 			short: slices.Concat(own.short, screen.short),
 			full:  slices.Concat(own.full, screen.full),

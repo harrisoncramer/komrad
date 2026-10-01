@@ -219,22 +219,23 @@ func countStyle(count int, style lipgloss.Style) lipgloss.Style {
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, and
 // none on any other screen or row.
 func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
-	var row agentRow
-	var ok bool
-	switch m.screen {
-	case screenAgents:
-		row, ok = m.agents.hoveredRow(m)
-	case screenArchive:
-		if m.archive.kind == archiveSchedules {
-			return panel.AgentRow{}, false
-		}
-		row, ok = rowAt(m.archive.listRows(m), m.archive.cursor)
-	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
+	hoveredRecord := m.active().hoveredRecord
+	if hoveredRecord == nil {
 		return panel.AgentRow{}, false
 	}
+
+	row, ok := hoveredRecord(m)
 	if !ok || row.header {
 		return panel.AgentRow{}, false
 	}
 
 	return row.item, true
+}
+
+func (a *archiveScreen) hoveredRecord(m *model) (agentRow, bool) {
+	if a.kind == archiveSchedules {
+		return agentRow{}, false
+	}
+
+	return rowAt(a.listRows(m), a.cursor)
 }

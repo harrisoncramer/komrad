@@ -26,19 +26,6 @@ type crumbed interface {
 	crumbs(m *model) crumbs
 }
 
-// hovering is a view whose trail runs on to the row the cursor is on.
-type hovering interface {
-	hoveredName(m *model) string
-}
-
-var (
-	_ hovering = (*agentsScreen)(nil)
-	_ hovering = (*schedulesScreen)(nil)
-	_ hovering = (*archiveScreen)(nil)
-	_ hovering = (*worktreesScreen)(nil)
-	_ hovering = (*searchScreen)(nil)
-)
-
 func (c crumbs) view(palette paint.Palette, width int) string {
 	if len(c.trail) == 0 {
 		return ""
@@ -74,7 +61,7 @@ func (m *model) activeCrumbs() (crumbs, screen, bool) {
 // pageCrumbs is the trail under the view, from the page that is up or from the form open over a
 // view.
 func (m *model) pageCrumbs() (screen, crumbs, bool) {
-	if c, ok := m.active().(crumbed); ok {
+	if c := m.active().crumbed; c != nil {
 		return c.parent(), c.crumbs(m), true
 	}
 
@@ -86,12 +73,12 @@ func (m *model) pageCrumbs() (screen, crumbs, bool) {
 }
 
 func (m *model) hoveredCrumbs() crumbs {
-	h, ok := m.active().(hovering)
-	if !ok {
+	hoveredName := m.active().hoveredName
+	if hoveredName == nil {
 		return crumbs{}
 	}
 
-	name := h.hoveredName(m)
+	name := hoveredName(m)
 	if name == "" {
 		return crumbs{}
 	}

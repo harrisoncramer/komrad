@@ -172,11 +172,6 @@ func renameHelp() keyMap {
 	return keyMap{short: []key.Binding{save, cancel}, full: []key.Binding{save, cancel}}
 }
 
-// renamer is a screen that types over a row's name in its list.
-type renamer interface {
-	isRenaming() bool
-}
-
 // drawnName is the typed name in a row's lettering, cut to fit around the cursor.
 func drawnName(e *nameEdit, style lipgloss.Style) string {
 	if e.saving || e.landed {

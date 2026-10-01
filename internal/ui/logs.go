@@ -552,15 +552,6 @@ func (l *logsScreen) move(lines int) tea.Cmd {
 	return nil
 }
 
-var (
-	_ columned       = (*logsScreen)(nil)
-	_ crumbed        = (*logsScreen)(nil)
-	_ columnScroller = (*logsScreen)(nil)
-	_ blocked        = (*logsScreen)(nil)
-	_ leaving        = (*logsScreen)(nil)
-	_ filtered       = (*logsScreen)(nil)
-)
-
 func (l *logsScreen) hoveredKey(m *model) string {
 	return l.list().hovered(m)
 }
@@ -575,4 +566,19 @@ func (l *logsScreen) filterRows(m *model) []filterRow {
 
 func (l *logsScreen) typedLine() (lineInput, bool) {
 	return l.logFilter.input, l.logFilter.typing
+}
+
+func (l *logsScreen) spec() screenSpec {
+	return screenSpec{
+		screenModel:    l,
+		column:         l.column,
+		filtered:       l,
+		blocked:        l,
+		crumbed:        l,
+		columnScroller: l,
+		leave:          l.leave,
+		typedLine:      l.typedLine,
+		stageResting:   l.stageResting,
+		dispatches:     func(*model) []dispatching { return []dispatching{l.listActions(), l.logActions()} },
+	}
 }

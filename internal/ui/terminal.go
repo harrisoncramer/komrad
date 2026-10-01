@@ -159,7 +159,7 @@ func (m *model) findTerminalPane() string {
 
 // closeTerminalLeaving closes the shell when the screen being entered cannot hold it.
 func (m *model) closeTerminalLeaving(next screen) {
-	if next.opensTerminal() || m.terminalDir == "" {
+	if m.screenOf(next).opensTerminal || m.terminalDir == "" {
 		return
 	}
 

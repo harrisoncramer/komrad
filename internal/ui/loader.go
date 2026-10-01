@@ -29,18 +29,14 @@ func (l loadingState) frame() string {
 	return l.style.Frame(l.step)
 }
 
-type loaderScreen interface {
-	isLoading(m *model) bool
-}
-
 func (m *model) isLoading() bool {
 	if len(m.writes.inflight) > 0 {
 		return true
 	}
 
-	screen, ok := m.active().(loaderScreen)
+	isLoading := m.active().isLoading
 
-	return ok && screen.isLoading(m)
+	return isLoading != nil && isLoading(m)
 }
 
 func (a *agentsScreen) isLoading(m *model) bool {
@@ -51,7 +47,7 @@ func (a *archiveScreen) isLoading(m *model) bool {
 	return a.kind == archiveAgents && slices.ContainsFunc(a.listRows(m), isRowLoading)
 }
 
-func (r reviewScreen) isLoading(m *model) bool {
+func (r *reviewScreen) isLoading(m *model) bool {
 	if r.loading {
 		return true
 	}

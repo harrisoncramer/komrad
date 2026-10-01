@@ -106,8 +106,8 @@ func (m *model) afterListing() tea.Cmd {
 
 	// A screen that draws what it holds beside its own list stages nothing at all.
 	active := m.active()
-	if s, ok := active.(staged); ok && active.doesDrawFromListing() && !m.form.isActive() {
-		s.stage(m)
+	if active.stage != nil && active.doesDrawFromListing() && !m.form.isActive() {
+		active.stage(m)
 	}
 
 	return inspect

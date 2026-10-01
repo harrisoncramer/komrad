@@ -815,11 +815,6 @@ func (w *searchScreen) help(m *model) keyMap {
 	}
 }
 
-var (
-	_ columned = (*searchScreen)(nil)
-	_ blocked  = (*searchScreen)(nil)
-)
-
 func (w *searchScreen) doesDrawFromListing() bool {
 	return false
 }
@@ -849,4 +844,18 @@ func (w *searchScreen) query() string {
 
 func (w *searchScreen) typedLine() (lineInput, bool) {
 	return w.input, w.typing
+}
+
+func (w *searchScreen) spec() screenSpec {
+	return screenSpec{
+		screenModel:    w,
+		column:         w.column,
+		blocked:        w,
+		columnScroller: w,
+		hoveredName:    w.hoveredName,
+		typedLine:      w.typedLine,
+		scrollList:     w.scrollList,
+		stageResting:   w.stageResting,
+		dispatches:     func(*model) []dispatching { return []dispatching{w.listActions(), w.previewActions()} },
+	}
 }

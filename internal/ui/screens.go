@@ -20,20 +20,6 @@ const (
 	screenLogs
 )
 
-// opensTerminal reports whether the key that opens a shell beside the panel acts on a screen.
-func (s screen) opensTerminal() bool {
-	switch s {
-	case screenAgents, screenSchedules:
-		return true
-	case screenArchive, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
-		return false
-	}
-
-	// The switch carries every screen and no default, so this is what a screen added without an
-	// arm compiles to until the exhaustive check refuses it.
-	return false
-}
-
 // screenModel is what the panel asks of whichever screen is up.
 type screenModel interface {
 	// update takes a message the panel's own bindings did not claim.
@@ -127,11 +113,6 @@ type tabbed interface {
 	tabsFit(m *model) bool
 }
 
-// columned is a screen that draws a block beside its own list.
-type columned interface {
-	column() columnSpec
-}
-
 // blocked is a screen whose block beside the list can take the keys from it.
 type blocked interface {
 	// isBlockDrawn is whether the block is drawn with something in it to take the keys.
@@ -144,45 +125,83 @@ type blocked interface {
 	blurBlock()
 }
 
-// leaving is a screen with something to put down when another screen goes up.
-type leaving interface {
-	leave(m *model) tea.Cmd
-}
+// screenSpec is one screen as the panel dispatches to it, a nil field being one the screen lacks.
+type screenSpec struct {
+	screenModel
 
-// staged is a screen that puts the row the cursor is on into the stage pane.
-type staged interface {
-	stage(m *model)
+	// column is the block the screen draws beside its own list.
+	column func() columnSpec
+
+	detailed       detailed
+	filtered       filtered
+	kinded         kinded
+	tabbed         tabbed
+	blocked        blocked
+	crumbed        crumbed
+	columnScroller columnScroller
+
+	// leave puts down what the screen had open when another screen goes up.
+	leave func(m *model) tea.Cmd
+
+	// stage puts the row the cursor is on into the stage pane.
+	stage func(m *model)
+
+	// hoveredName is the row the view's trail runs on to.
+	hoveredName func(m *model) string
+
+	screenMenu      func(m *model) (submenu, bool)
+	itemMenu        func(m *model) (submenu, bool)
+	docKeys         func() screenActionSpec
+	isLoading       func(m *model) bool
+	typedLine       func() (lineInput, bool)
+	isRenaming      func() bool
+	scrollPopupAt   func(m *model, x, y, rows int) bool
+	scrollList      func(m *model, rows int) tea.Cmd
+	stageResting    func(m *model) tea.Cmd
+	reconcileEditor func(m *model) tea.Cmd
+	hoveredAgentID  func(m *model) string
+	hoveredRecord   func(m *model) (agentRow, bool)
+	screenedAgentID func(m *model) (string, bool)
+	notice          func(m *model) string
+	isPausing       func(agentID string) bool
+
+	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
+	// global keys.
+	dispatches func(m *model) []dispatching
+
+	// opensTerminal is whether the key that opens a shell beside the panel acts on the screen.
+	opensTerminal bool
 }
 
 // active is the screen that is up.
-func (m *model) active() screenModel {
+func (m *model) active() screenSpec {
 	return m.screenOf(m.screen)
 }
 
 // screenOf is the screen behind the enum, held by value on the root.
-func (m *model) screenOf(s screen) screenModel {
+func (m *model) screenOf(s screen) screenSpec {
 	switch s {
 	case screenAgents:
-		return &m.agents
+		return m.agents.spec()
 	case screenSchedules:
-		return &m.schedules
+		return m.schedules.spec()
 	case screenArchive:
-		return &m.archive
+		return m.archive.spec()
 	case screenSearch:
-		return &m.search
+		return m.search.spec()
 	case screenReview:
-		return &m.review
+		return m.review.spec()
 	case screenWorktrees:
-		return &m.worktrees
+		return m.worktrees.spec()
 	case screenDocuments:
-		return &m.documents
+		return m.documents.spec()
 	case screenLogs:
-		return &m.logs
+		return m.logs.spec()
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an
 	// arm compiles to until the exhaustive check refuses it.
-	return nil
+	return screenSpec{}
 }
 
 func (m *model) getHostPath() string {

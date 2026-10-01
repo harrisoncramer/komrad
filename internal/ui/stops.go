@@ -58,7 +58,7 @@ func (m *model) enterStop(to stop) tea.Cmd {
 	case stopBlock:
 		m.enterSidebar(to)
 		m.blurDetails()
-		if b, ok := m.active().(blocked); ok && m.isScreenBlockDrawn() {
+		if b := m.active().blocked; b != nil && m.isScreenBlockDrawn() {
 			b.focusBlock(m)
 		} else {
 			m.focusDoc()
@@ -79,7 +79,7 @@ func (m *model) enterSidebar(to stop) {
 
 	m.blurTabs()
 	m.blurKinds()
-	if b, ok := m.active().(blocked); ok && to != stopBlock {
+	if b := m.active().blocked; b != nil && to != stopBlock {
 		b.blurBlock()
 	}
 	if to != stopBlock {
@@ -96,7 +96,7 @@ func (m *model) atStop() stop {
 		return stopBlock
 	}
 
-	if b, ok := m.active().(blocked); ok && b.isBlockFocused(m) {
+	if b := m.active().blocked; b != nil && b.isBlockFocused(m) {
 		return stopBlock
 	}
 
@@ -142,9 +142,9 @@ func (m *model) isDormantHovered() bool {
 
 // isScreenBlockDrawn reports whether the screen is drawing a block of its own beside the list.
 func (m *model) isScreenBlockDrawn() bool {
-	b, ok := m.active().(blocked)
+	b := m.active().blocked
 
-	return ok && b.isBlockDrawn(m)
+	return b != nil && b.isBlockDrawn(m)
 }
 
 // findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or

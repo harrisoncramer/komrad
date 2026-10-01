@@ -6,11 +6,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// screenMenued is a screen with a band of its own between the hovered row's and the panel's.
-type screenMenued interface {
-	screenMenu(m *model) (submenu, bool)
-}
-
 // screenMenu is the agents list's own band, for starting an agent or a workflow.
 func (a *agentsScreen) screenMenu(m *model) (submenu, bool) {
 	in := a.enclosingWorkflow(m)
@@ -85,5 +80,3 @@ func workflowEntries(m *model, workflow panel.Workflow) []submenuEntry {
 		openEntry("adopt", m.keys.Menu.Adopt, func(m *model) tea.Cmd { return openAdopt(m, &workflow) }),
 	}
 }
-
-var _ screenMenued = (*agentsScreen)(nil)

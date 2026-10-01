@@ -423,16 +423,6 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 	)
 }
 
-var (
-	_ detailed = (*agentsScreen)(nil)
-	_ filtered = (*agentsScreen)(nil)
-	_ tabbed   = (*agentsScreen)(nil)
-	_ columned = (*agentsScreen)(nil)
-	_ staged   = (*agentsScreen)(nil)
-	_ leaving  = (*agentsScreen)(nil)
-	_ renamer  = (*agentsScreen)(nil)
-)
-
 func (a *agentsScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -515,5 +505,32 @@ func (a *agentsScreen) reconcileRename(m *model) {
 func (a *agentsScreen) settleRename(m *model, row string, err error) {
 	if a.settleField(row, err) {
 		a.reconcileRename(m)
+	}
+}
+
+func (a *agentsScreen) spec() screenSpec {
+	return screenSpec{
+		screenModel:     a,
+		column:          a.column,
+		detailed:        a,
+		filtered:        a,
+		tabbed:          a,
+		leave:           a.leave,
+		stage:           a.stage,
+		hoveredName:     a.hoveredName,
+		screenMenu:      a.screenMenu,
+		itemMenu:        a.itemMenu,
+		isLoading:       a.isLoading,
+		typedLine:       a.typedLine,
+		isRenaming:      a.isRenaming,
+		stageResting:    a.stageResting,
+		reconcileEditor: a.reconcileEditor,
+		hoveredAgentID:  a.hoveredAgentID,
+		hoveredRecord:   a.hoveredRow,
+		screenedAgentID: a.screenedAgentID,
+		notice:          a.notice,
+		isPausing:       a.isPausing,
+		dispatches:      func(*model) []dispatching { return []dispatching{a.actions()} },
+		opensTerminal:   true,
 	}
 }

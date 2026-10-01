@@ -501,16 +501,6 @@ func archiveTabs() tabStrip {
 	}
 }
 
-var (
-	_ detailed = (*archiveScreen)(nil)
-	_ filtered = (*archiveScreen)(nil)
-	_ kinded   = (*archiveScreen)(nil)
-	_ tabbed   = (*archiveScreen)(nil)
-	_ columned = (*archiveScreen)(nil)
-	_ staged   = (*archiveScreen)(nil)
-	_ renamer  = (*archiveScreen)(nil)
-)
-
 func (a *archiveScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -617,5 +607,28 @@ func (a *archiveScreen) reconcileRename(m *model) {
 func (a *archiveScreen) settleRename(m *model, row string, err error) {
 	if a.settleField(row, err) {
 		a.reconcileRename(m)
+	}
+}
+
+func (a *archiveScreen) spec() screenSpec {
+	return screenSpec{
+		screenModel:     a,
+		column:          a.column,
+		detailed:        a,
+		filtered:        a,
+		kinded:          a,
+		tabbed:          a,
+		stage:           a.stage,
+		hoveredName:     a.hoveredName,
+		itemMenu:        a.itemMenu,
+		isLoading:       a.isLoading,
+		typedLine:       a.typedLine,
+		isRenaming:      a.isRenaming,
+		stageResting:    a.stageResting,
+		hoveredAgentID:  a.hoveredAgentID,
+		hoveredRecord:   a.hoveredRecord,
+		screenedAgentID: a.screenedAgentID,
+		notice:          a.notice,
+		dispatches:      func(*model) []dispatching { return []dispatching{a.actions()} },
 	}
 }

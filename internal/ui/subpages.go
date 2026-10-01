@@ -74,7 +74,7 @@ func subpageEntry(m *model, from screen, item panel.AgentRow, page subpage) subm
 		return submenuEntry{
 			label: "terminal",
 			keys:  m.keys.Menu.Terminal,
-			isOff: terminalRefusal(from, item.Agent) != nil,
+			isOff: m.terminalRefusal(from, item.Agent) != nil,
 		}
 	}
 
@@ -98,9 +98,9 @@ func reviewRefusal(from screen, agent panel.Agent) error {
 
 // terminalRefusal is why a shell cannot open on an agent from where the menu was opened, nil when
 // it can.
-func terminalRefusal(from screen, agent panel.Agent) error {
+func (m *model) terminalRefusal(from screen, agent panel.Agent) error {
 	switch {
-	case !from.opensTerminal():
+	case !m.screenOf(from).opensTerminal:
 		return errTerminalHere
 	case agent.Cwd == "":
 		return errNoAgentDir
@@ -141,7 +141,7 @@ func (m *model) enterSubpage(from screen, agentID string, picked subpage) tea.Cm
 
 		return m.enter(screenLogs, screenTarget{agentID: agentID, from: from})
 	case subpageTerminal:
-		if err := terminalRefusal(from, item.Agent); err != nil {
+		if err := m.terminalRefusal(from, item.Agent); err != nil {
 			return m.refuseSubpage("Could not open a terminal", err)
 		}
 
