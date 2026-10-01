@@ -88,7 +88,9 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 		}
 		menu.entries = append(menu.entries, workflowEntries(s, workflow)...)
 
-		return withNested(withNested(menu, "hide", s.keys.Menu.Hide, a.hideMenu(s, nil)), "archive", s.keys.Menu.Archive, workflowArchiveMenu(s, workflow)), true
+		menu = withNested(menu, "hide", s.keys.Menu.Hide, a.hideMenu(s, nil))
+
+		return withNested(menu, "archive", s.keys.Menu.Archive, workflowArchiveMenu(s, workflow)), true
 	}
 
 	if !hasAgent {
