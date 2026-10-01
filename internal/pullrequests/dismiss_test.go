@@ -44,7 +44,11 @@ func TestDismissForgeThread(t *testing.T) {
 
 			dismisser := NewDismisser(NewDismisserParams{Threads: f.threads})
 			require.NoError(t, f.threads.SetDismissed(t.Context(), threads[0].ID, tt.before))
-			err := dismisser.DismissForgeThread(t.Context(), DismissForgeThreadParams{ID: threads[0].ID, Restore: tt.restore, AgentID: tt.agentID})
+			err := dismisser.DismissForgeThread(t.Context(), DismissForgeThreadParams{
+				ID:      threads[0].ID,
+				Restore: tt.restore,
+				AgentID: tt.agentID,
+			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 			} else {

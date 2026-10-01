@@ -40,8 +40,7 @@ type searchScreen struct {
 	paging  bool
 	problem searchProblem
 	// preview is the transcript of the agent the cursor is standing on, drawn beside the list.
-	preview searchPreview
-
+	preview        searchPreview
 	previewFocused bool
 }
 

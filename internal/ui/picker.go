@@ -87,10 +87,20 @@ func (m model) freeze() (tea.Model, tea.Cmd) {
 			screens[rect.Pane] = tmux.CaptureScreen(rect.Pane)
 		}
 
-		window := frozenWindow{shown: shown, screens: screens, sidebar: sidebar, labelEnd: labelEnd, palette: palette}
+		window := frozenWindow{
+			shown:    shown,
+			screens:  screens,
+			sidebar:  sidebar,
+			labelEnd: labelEnd,
+			palette:  palette,
+		}
 		targets := findPickTargets(shown, sidebar, blocks)
 
-		return pickerFrozenMsg{frozen: window.drawPicker(targets), returnTo: returnTo, targets: targets}
+		return pickerFrozenMsg{
+			frozen:   window.drawPicker(targets),
+			returnTo: returnTo,
+			targets:  targets,
+		}
 	}
 }
 
@@ -152,7 +162,11 @@ func (m model) applyFreeze(msg pickerFrozenMsg) model {
 		return m
 	}
 
-	m.picker = pickerState{frozen: msg.frozen, returnTo: msg.returnTo, targets: msg.targets}
+	m.picker = pickerState{
+		frozen:   msg.frozen,
+		returnTo: msg.returnTo,
+		targets:  msg.targets,
+	}
 	m.frame.Freeze()
 
 	return m

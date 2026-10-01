@@ -128,9 +128,24 @@ func TestPanePicker(t *testing.T) {
 
 		return panesShown, screens
 	}
-	sidebarRect := panes.Rect{Pane: sidebar, Width: 140, Height: 40}
-	agentRect := panes.Rect{Pane: agent, Left: 141, Width: 80, Height: 28}
-	infoRect := panes.Rect{Pane: info, Left: 141, Top: 29, Width: 80, Height: 11}
+	sidebarRect := panes.Rect{
+		Pane:   sidebar,
+		Width:  140,
+		Height: 40,
+	}
+	agentRect := panes.Rect{
+		Pane:   agent,
+		Left:   141,
+		Width:  80,
+		Height: 28,
+	}
+	infoRect := panes.Rect{
+		Pane:   info,
+		Left:   141,
+		Top:    29,
+		Width:  80,
+		Height: 11,
+	}
 
 	tests := []struct {
 		name         string

@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/scripts"
@@ -34,6 +36,12 @@ var ErrWorktreeUnsafePath = fail.InvalidArgument("a worktree copy or symlink pat
 var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment komrad fires")
 
 var ErrUnknownHookScript = fail.InvalidArgument("a hook must name a script in the hooks directory")
+
+var ErrUnknownEventPrompt = fail.InvalidArgument("a prompt must name an event komrad sends")
+
+var ErrDuplicateEventPrompt = fail.InvalidArgument("a workflow holds one prompt per event")
+
+var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at most %d characters", eventprompts.MaxPrompt))
 
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
@@ -161,6 +169,12 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	}
 	cfg.Hooks = hooks
 
+	prompts, err := normalizeEventPrompts(cfg.EventPrompts)
+	if err != nil {
+		return nil, err
+	}
+	cfg.EventPrompts = prompts
+
 	if cfg.Worktree.Enabled {
 		if err := requireWorktreeRepo(cfg); err != nil {
 			return nil, err
@@ -218,6 +232,12 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	}
 	cfg.Hooks = hooks
 
+	prompts, promptsErr := normalizeEventPrompts(cfg.EventPrompts)
+	if promptsErr != nil {
+		return promptsErr
+	}
+	cfg.EventPrompts = prompts
+
 	if cfg.Worktree.Enabled {
 		if err := requireWorktreeRepo(cfg); err != nil {
 			return err
@@ -254,6 +274,32 @@ func (w *WorkflowService) normalizeHooks(hooks []workflowstore.Hook) ([]workflow
 		}
 
 		kept = append(kept, hook)
+	}
+
+	return kept, nil
+}
+
+// normalizeEventPrompts trims what a caller sent, drops the blank entries, and refuses an event komrad
+// does not send or one named twice.
+func normalizeEventPrompts(prompts []workflowstore.EventPrompt) ([]workflowstore.EventPrompt, error) {
+	kept := make([]workflowstore.EventPrompt, 0, len(prompts))
+	for _, prompt := range prompts {
+		prompt.Event = strings.TrimSpace(prompt.Event)
+		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
+		if prompt.Prompt == "" {
+			continue
+		}
+		if !eventprompts.IsKnown(prompt.Event) {
+			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownEventPrompt, prompt.Event, strings.Join(eventprompts.Names(), ", "))
+		}
+		if slices.ContainsFunc(kept, func(k workflowstore.EventPrompt) bool { return k.Event == prompt.Event }) {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateEventPrompt, prompt.Event)
+		}
+		if utf8.RuneCountInString(prompt.Prompt) > eventprompts.MaxPrompt {
+			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Event, utf8.RuneCountInString(prompt.Prompt))
+		}
+
+		kept = append(kept, prompt)
 	}
 
 	return kept, nil

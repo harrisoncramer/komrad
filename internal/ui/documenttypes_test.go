@@ -353,8 +353,16 @@ func answerDocumentTypes(harness *panelHarness) {
 		}
 
 		return connect.NewResponse(&agentv1.ListDocumentTypeVersionsResponse{Versions: []*agentv1.DocumentTypeVersion{
-			{Version: 2, Name: name, CreatedAt: "2026-09-25T12:00:00Z"},
-			{Version: 1, Name: first, CreatedAt: "2026-09-24T12:00:00Z"},
+			{
+				Version:   2,
+				Name:      name,
+				CreatedAt: "2026-09-25T12:00:00Z",
+			},
+			{
+				Version:   1,
+				Name:      first,
+				CreatedAt: "2026-09-24T12:00:00Z",
+			},
 		}}), nil
 	})
 	harness.answer(agentv1connect.AgentServiceGetDocumentTypeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {

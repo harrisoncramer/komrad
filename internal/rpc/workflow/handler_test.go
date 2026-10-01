@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/agents"
+	"komrad/internal/eventprompts"
 	"komrad/internal/rpc/render"
 	"komrad/internal/store"
 	"komrad/lib/xptr"
@@ -17,6 +18,7 @@ import (
 
 	workflowstore "komrad/internal/store/workflow"
 
+	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -285,6 +287,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				Script: "warm-cache",
 			},
 		},
+		EventPrompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
 	}
 	worktree := &workflowv1.WorktreeConfig{
 		Enabled:      true,
@@ -300,6 +303,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			Script: "warm-cache",
 		},
 	}
+	prompts := []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}}
 
 	tests := []struct {
 		name string
@@ -319,6 +323,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 					ReviewerFlags:   cfg.ReviewerFlags,
 					Worktree:        worktree,
 					Hooks:           hooks,
+					EventPrompts:    &workflowv1.WorkflowEventPrompts{Prompts: prompts},
 				}))
 
 				return err
@@ -339,6 +344,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 					ReviewerFlags:   cfg.ReviewerFlags,
 					Worktree:        worktree,
 					Hooks:           hooks,
+					EventPrompts:    prompts,
 				}))
 
 				return err
@@ -378,6 +384,52 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			assert.Equal(t, tt.want, *recorded)
 		})
 	}
+}
+
+// TestCreatingAWorkflowWithoutPromptsGivesTheDefaults pins that a create leaving its prompts unset
+// hands down every event's default, and one sending an empty list hands down none.
+func TestCreatingAWorkflowWithoutPromptsGivesTheDefaults(t *testing.T) {
+	tests := []struct {
+		name         string
+		prompts      *workflowv1.WorkflowEventPrompts
+		wantCount    int
+		wantApproved string
+	}{
+		{
+			name:         "prompts left unset take each event's default",
+			wantCount:    len(eventprompts.All()),
+			wantApproved: "The reviewer is finished. Carry on with your next step.",
+		},
+		{
+			name:    "an empty list takes none",
+			prompts: &workflowv1.WorkflowEventPrompts{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorded := &fakeWorkflows{}
+
+			_, err := newWorkflowHandler(recorded).CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+				Name:         "backend",
+				EventPrompts: tt.prompts,
+			}))
+			require.NoError(t, err)
+
+			require.Len(t, recorded.created, 1)
+			assert.Len(t, recorded.created[0].EventPrompts, tt.wantCount)
+			assert.Equal(t, tt.wantApproved, workflowstore.Workflow{EventPrompts: recorded.created[0].EventPrompts}.GetEventPrompt(eventprompts.ReviewApproved))
+		})
+	}
+}
+
+// TestEventPromptEventsAreTheEventsKomradSends pins the events the wire accepts to the ones komrad sends.
+func TestEventPromptEventsAreTheEventsKomradSends(t *testing.T) {
+	field := (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor().Fields().ByName("event")
+	rules, ok := proto.GetExtension(field.Options(), validate.E_Field).(*validate.FieldRules)
+	require.True(t, ok)
+
+	assert.Equal(t, eventprompts.Names(), rules.GetString().GetIn())
 }
 
 // TestWorkflowReadsRender pins that every read answers with the workflow the service handed back, context whole.

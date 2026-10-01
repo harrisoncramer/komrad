@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -43,6 +44,8 @@ type workflowFormValues struct {
 	WorktreeSymlinkPaths string
 	WorktreeDiffExclude  string
 	WorktreeDir          string
+	// EventPrompts are the workflow's prompts keyed by event.
+	EventPrompts map[string]*string
 }
 
 func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
@@ -75,6 +78,7 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 		WorktreeDir:          cfg.Worktree.Dir,
+		EventPrompts:         eventPromptsByEvent(cfg.EventPrompts),
 	}
 }
 
@@ -107,6 +111,7 @@ func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 			hookOn(v.PreDeleteHook, config.HookPreDelete),
 			hookOn(v.PostDeleteHook, config.HookPostDelete),
 		),
+		EventPrompts: v.eventPromptList(),
 	}
 
 	return cfg
@@ -131,6 +136,44 @@ func hookOn(name, event string) []panel.Hook {
 	}
 
 	return []panel.Hook{{Event: event, Script: name}}
+}
+
+// eventPromptsByEvent is every event's prompt, blank for an event the workflow attaches none to.
+func eventPromptsByEvent(prompts []panel.EventPrompt) map[string]*string {
+	byEvent := make(map[string]*string, len(prompts))
+	for _, prompt := range prompts {
+		byEvent[prompt.Event] = &prompt.Prompt
+	}
+
+	return byEvent
+}
+
+// eventPromptFor is where the form holds one event's prompt.
+func (v *workflowFormValues) eventPromptFor(event string) *string {
+	if v.EventPrompts == nil {
+		v.EventPrompts = make(map[string]*string)
+	}
+	if v.EventPrompts[event] == nil {
+		v.EventPrompts[event] = new(string)
+	}
+
+	return v.EventPrompts[event]
+}
+
+// eventPromptList is the prompts as the wire takes them, in the order the events are listed and
+// leaving out the blank ones.
+func (v workflowFormValues) eventPromptList() []panel.EventPrompt {
+	var prompts []panel.EventPrompt
+	for _, event := range eventprompts.All() {
+		prompt, ok := v.EventPrompts[event.Name]
+		if !ok || strings.TrimSpace(*prompt) == "" {
+			continue
+		}
+
+		prompts = append(prompts, panel.EventPrompt{Event: event.Name, Prompt: strings.TrimSpace(*prompt)})
+	}
+
+	return prompts
 }
 
 func splitLines(text string) []string {
@@ -193,6 +236,7 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []st
 	}
 
 	fields = append(fields, hookFields(values, params.Hooks)...)
+	fields = append(fields, eventPromptFields(values, keys)...)
 
 	// The form is taller than most terminals now, so it takes its height from the resize the panel
 	// sends it and huh scrolls it around whichever field has the cursor.
@@ -335,6 +379,23 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 	}
 
 	return fields
+}
+
+// eventPromptKey is the form key of one event's prompt.
+func eventPromptKey(event string) string {
+	return "event_prompt." + event
+}
+
+// eventPromptFields are what the workflow asks of its agents on each event, under a heading of their own.
+func eventPromptFields(values *workflowFormValues, keys config.FormKeys) []huh.Field {
+	heading := huh.NewNote().Title("Event prompts").
+		Description(fmt.Sprintf("added to the mail komrad sends an agent on each event, and followed over what komrad says; %s opens $EDITOR", keyLabel(keys.Editor)))
+
+	return append([]huh.Field{heading}, xslice.Map(eventprompts.All(), func(event eventprompts.Event) huh.Field {
+		return textField(eventPromptKey(event.Name)).Title(event.Title).
+			Description("when " + event.Description).
+			CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event.Name))
+	})...)
 }
 
 // hookFieldDescription leads with the empty case rather than appending it.

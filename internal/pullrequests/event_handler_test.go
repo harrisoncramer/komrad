@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/forge"
 	"komrad/internal/mail"
@@ -24,14 +25,16 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 	pending := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
 
 	tests := []struct {
-		name      string
-		standings []forge.Standing
-		wantLines []string
+		name       string
+		standings  []forge.Standing
+		wantLines  []string
+		wantEvents []string
 	}{
 		{
-			name:      "checks failing",
-			standings: []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
-			wantLines: []string{"  checks: failing\n"},
+			name:       "checks failing",
+			standings:  []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
+			wantLines:  []string{"  checks: failing\n"},
+			wantEvents: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
 			name:      "an approval",
@@ -107,6 +110,9 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			assert.Equal(t, mailstore.KindPullRequestChanged, told[0].Kind)
 			for _, line := range tt.wantLines {
 				assert.Contains(t, told[0].Body, line)
+			}
+			if tt.wantEvents != nil {
+				assert.Equal(t, tt.wantEvents, told[0].Events, "the mail names the events the change started")
 			}
 		})
 	}

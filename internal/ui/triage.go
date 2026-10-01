@@ -380,7 +380,11 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 				}
 			}
 
-			zone = append(zone, agentRow{item: child, workflow: workflows[child.Agent.WorkflowID], child: true})
+			zone = append(zone, agentRow{
+				item:     child,
+				workflow: workflows[child.Agent.WorkflowID],
+				child:    true,
+			})
 		}
 	}
 

@@ -47,13 +47,22 @@ func TestWriteDocumentType(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "a rewrite with no version is refused",
-			params:  documents.WriteDocumentTypeParams{ID: &created.ID, Name: "postmortem", Context: "Again."},
+			name: "a rewrite with no version is refused",
+			params: documents.WriteDocumentTypeParams{
+				ID:      &created.ID,
+				Name:    "postmortem",
+				Context: "Again.",
+			},
 			wantErr: documents.ErrNoTypeVersion,
 		},
 		{
-			name:   "a rewrite from the version read is taken",
-			params: documents.WriteDocumentTypeParams{ID: &created.ID, Version: xptr.Ptr(int32(1)), Name: "incident", Context: "What broke."},
+			name: "a rewrite from the version read is taken",
+			params: documents.WriteDocumentTypeParams{
+				ID:      &created.ID,
+				Version: xptr.Ptr(int32(1)),
+				Name:    "incident",
+				Context: "What broke.",
+			},
 		},
 	}
 

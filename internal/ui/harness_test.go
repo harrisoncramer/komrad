@@ -387,17 +387,27 @@ func (h *panelHarness) readRequests() []request {
 
 func (h *panelHarness) assertSent(want ...request) {
 	h.t.Helper()
+	h.assertSentWith(nil, want...)
+}
+
+func (h *panelHarness) assertSentWith(opts []cmp.Option, want ...request) {
+	h.t.Helper()
 	h.recorder.mu.Lock()
 	defer h.recorder.mu.Unlock()
 
-	diff := cmp.Diff(want, h.recorder.seen, cmp.AllowUnexported(request{}), protocmp.Transform(), cmpopts.EquateEmpty())
+	diff := cmp.Diff(want, h.recorder.seen, append([]cmp.Option{cmp.AllowUnexported(request{}), protocmp.Transform(), cmpopts.EquateEmpty()}, opts...)...)
 	assert.Empty(h.t, diff, "the requests sent (-want +got)")
 }
 
 func (h *panelHarness) assertSentTo(procedure string, want ...proto.Message) {
 	h.t.Helper()
+	h.assertSentToWith(procedure, nil, want...)
+}
 
-	diff := cmp.Diff(want, h.readSent(procedure), protocmp.Transform(), cmpopts.EquateEmpty())
+func (h *panelHarness) assertSentToWith(procedure string, opts []cmp.Option, want ...proto.Message) {
+	h.t.Helper()
+
+	diff := cmp.Diff(want, h.readSent(procedure), append([]cmp.Option{protocmp.Transform(), cmpopts.EquateEmpty()}, opts...)...)
 	assert.Empty(h.t, diff, "the requests sent to %s (-want +got)", procedure)
 }
 

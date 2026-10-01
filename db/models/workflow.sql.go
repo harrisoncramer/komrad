@@ -61,6 +61,16 @@ func (q *Queries) DeleteWorkflowConfig(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteWorkflowEventPrompts = `-- name: DeleteWorkflowEventPrompts :exec
+DELETE FROM workflow_event_prompts
+WHERE workflow_id = $1
+`
+
+func (q *Queries) DeleteWorkflowEventPrompts(ctx context.Context, workflowID string) error {
+	_, err := q.db.Exec(ctx, deleteWorkflowEventPrompts, workflowID)
+	return err
+}
+
 const deleteWorkflowHooks = `-- name: DeleteWorkflowHooks :exec
 DELETE FROM workflow_hooks
 WHERE workflow_id = $1
@@ -268,6 +278,36 @@ func (q *Queries) InsertWorkflowHook(ctx context.Context, arg InsertWorkflowHook
 	return err
 }
 
+const insertWorkflowPrompt = `-- name: InsertWorkflowPrompt :exec
+INSERT INTO workflow_event_prompts(
+    workflow_id,
+    event,
+    prompt,
+    position)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4)
+`
+
+type InsertWorkflowPromptParams struct {
+	WorkflowID string
+	Event      string
+	Prompt     string
+	Position   int32
+}
+
+func (q *Queries) InsertWorkflowPrompt(ctx context.Context, arg InsertWorkflowPromptParams) error {
+	_, err := q.db.Exec(ctx, insertWorkflowPrompt,
+		arg.WorkflowID,
+		arg.Event,
+		arg.Prompt,
+		arg.Position,
+	)
+	return err
+}
+
 const insertWorkflowProvisionerConfig = `-- name: InsertWorkflowProvisionerConfig :one
 INSERT INTO workflow_provisioner_configs(
     worktree_enabled,
@@ -319,6 +359,83 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 		&i.EngineID,
 	)
 	return &i, err
+}
+
+const listEventPromptsForWorkflow = `-- name: ListEventPromptsForWorkflow :many
+SELECT
+    event,
+    prompt
+FROM
+    workflow_event_prompts
+WHERE
+    workflow_id = $1
+ORDER BY
+    position
+`
+
+type ListEventPromptsForWorkflowRow struct {
+	Event  string
+	Prompt string
+}
+
+func (q *Queries) ListEventPromptsForWorkflow(ctx context.Context, workflowID string) ([]*ListEventPromptsForWorkflowRow, error) {
+	rows, err := q.db.Query(ctx, listEventPromptsForWorkflow, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListEventPromptsForWorkflowRow
+	for rows.Next() {
+		var i ListEventPromptsForWorkflowRow
+		if err := rows.Scan(&i.Event, &i.Prompt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEventPromptsForWorkflows = `-- name: ListEventPromptsForWorkflows :many
+SELECT
+    workflow_id,
+    event,
+    prompt
+FROM
+    workflow_event_prompts
+WHERE
+    workflow_id = ANY ($1::uuid[])
+ORDER BY
+    workflow_id,
+    position
+`
+
+type ListEventPromptsForWorkflowsRow struct {
+	WorkflowID string
+	Event      string
+	Prompt     string
+}
+
+func (q *Queries) ListEventPromptsForWorkflows(ctx context.Context, workflowIds []string) ([]*ListEventPromptsForWorkflowsRow, error) {
+	rows, err := q.db.Query(ctx, listEventPromptsForWorkflows, workflowIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListEventPromptsForWorkflowsRow
+	for rows.Next() {
+		var i ListEventPromptsForWorkflowsRow
+		if err := rows.Scan(&i.WorkflowID, &i.Event, &i.Prompt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listHooksForWorkflow = `-- name: ListHooksForWorkflow :many

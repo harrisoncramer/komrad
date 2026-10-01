@@ -141,7 +141,12 @@ func TestArchiveSavesTheScreen(t *testing.T) {
 			tmux.Commands["%1"] = tt.command
 			tmux.Screens["%1"] = "❯ last words"
 			tmux.Sizes["%1"] = tmuxtest.Size{Width: 100, Height: 30}
-			require.NoError(t, st.Screens.Upsert(t.Context(), screenstore.UpsertParams{AgentID: agent.ID, Frame: "❯ earlier", Width: 80, Height: 24}))
+			require.NoError(t, st.Screens.Upsert(t.Context(), screenstore.UpsertParams{
+				AgentID: agent.ID,
+				Frame:   "❯ earlier",
+				Width:   80,
+				Height:  24,
+			}))
 
 			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
 

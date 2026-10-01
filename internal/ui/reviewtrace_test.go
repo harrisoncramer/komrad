@@ -334,7 +334,13 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 func TestTraceOffers(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 	offer := func(id string, line int32, sha string, oldSide bool) *pullrequestv1.ForgeThread {
-		return &pullrequestv1.ForgeThread{Id: id, Path: tracedFile, Line: line, CommitSha: sha, OldSide: oldSide}
+		return &pullrequestv1.ForgeThread{
+			Id:        id,
+			Path:      tracedFile,
+			Line:      line,
+			CommitSha: sha,
+			OldSide:   oldSide,
+		}
 	}
 
 	traced := traceOffers(t.Context(), traceOffersParams{
@@ -352,8 +358,12 @@ func TestTraceOffers(t *testing.T) {
 	})
 
 	assert.Equal(t, map[string]diffview.Traced{
-		"earlier":   {FilePath: tracedFile, NewStart: 8},
-		"on-screen": {FilePath: tracedFile, NewStart: 2, Exact: true},
+		"earlier": {FilePath: tracedFile, NewStart: 8},
+		"on-screen": {
+			FilePath: tracedFile,
+			NewStart: 2,
+			Exact:    true,
+		},
 	}, traced)
 	assert.Len(t, repo.MappingsAsked(), 2, "one diff for each commit the comments were counted in")
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/mail"
 	"komrad/internal/store"
@@ -63,6 +64,7 @@ func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailServ
 		Kind:      mailstore.KindDocumentEdited,
 		SubjectID: document.ID,
 		Body:      body,
+		Events:    []string{eventprompts.DocumentWrittenByPerson},
 	})
 }
 

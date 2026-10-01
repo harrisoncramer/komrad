@@ -49,5 +49,8 @@ func Workflow(w workflowstore.Workflow, options WorkflowOptions) *workflowv1.Wor
 		Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
 			return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 		}),
+		EventPrompts: xslice.Map(w.EventPrompts, func(prompt workflowstore.EventPrompt) *workflowv1.WorkflowEventPrompt {
+			return &workflowv1.WorkflowEventPrompt{Event: prompt.Event, Prompt: prompt.Prompt}
+		}),
 	}
 }

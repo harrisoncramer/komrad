@@ -155,7 +155,11 @@ func TestReviewOpen(t *testing.T) {
 		harness.press("space", "r")
 
 		for _, x := range []int{1, reviewWidth - 1} {
-			harness.send(tea.MouseWheelMsg{X: x, Y: 2, Button: tea.MouseWheelDown})
+			harness.send(tea.MouseWheelMsg{
+				X:      x,
+				Y:      2,
+				Button: tea.MouseWheelDown,
+			})
 		}
 
 		assert.Contains(t, readStageText(harness.readFrame()), "loading the diff")
@@ -402,7 +406,13 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("the agent under review and its reviewer are each named by role in the thread", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.children = []*agentv1.Agent{{Id: "r1", Name: "review-auth", ParentAgentId: xptr.Ptr("a1"), WorkflowId: "w1", Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER}}
+		server.children = []*agentv1.Agent{{
+			Id:            "r1",
+			Name:          "review-auth",
+			ParentAgentId: xptr.Ptr("a1"),
+			WorkflowId:    "w1",
+			Role:          agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+		}}
 		asked := newAgentMessage("m1", "this drops the error")
 		asked.AuthorAgentId = xptr.Ptr("r1")
 		answered := newAgentMessage("m2", "wrapped it")
@@ -576,7 +586,11 @@ func TestReviewPopupScroll(t *testing.T) {
 		harness := openLongThread(t)
 		x, y := readPopupMiddle(harness.readDrawn())
 
-		harness.send(tea.MouseWheelMsg{X: x, Y: y, Button: tea.MouseWheelUp})
+		harness.send(tea.MouseWheelMsg{
+			X:      x,
+			Y:      y,
+			Button: tea.MouseWheelUp,
+		})
 
 		frame := harness.readFrame()
 		assert.NotContains(t, readPopupProse(frame), "note 5")
@@ -588,7 +602,11 @@ func TestReviewPopupScroll(t *testing.T) {
 			harness := openLongThread(t)
 			require.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
 
-			harness.send(tea.MouseWheelMsg{X: x, Y: 2, Button: tea.MouseWheelDown})
+			harness.send(tea.MouseWheelMsg{
+				X:      x,
+				Y:      2,
+				Button: tea.MouseWheelDown,
+			})
 
 			assert.NotEqual(t, "greet.go:1", readReviewCursor(harness.readFrame()), "at column %d", x)
 		}
@@ -605,7 +623,11 @@ func TestReviewPopupScroll(t *testing.T) {
 		require.Equal(t, "greet.go:3", readReviewCursor(frame))
 		require.NotEmpty(t, readPopup(frame))
 
-		harness.send(tea.MouseWheelMsg{X: reviewWidth - 1, Y: 2, Button: tea.MouseWheelDown})
+		harness.send(tea.MouseWheelMsg{
+			X:      reviewWidth - 1,
+			Y:      2,
+			Button: tea.MouseWheelDown,
+		})
 
 		assert.NotEqual(t, "greet.go:3", readReviewCursor(harness.readFrame()))
 	})

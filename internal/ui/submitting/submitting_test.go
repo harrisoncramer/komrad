@@ -68,7 +68,12 @@ func TestNotice(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := tt.write.Notice(submitting.Params{Palette: paint.Panel, Frame: "⠋", Now: tt.now, Width: tt.width})
+			got := tt.write.Notice(submitting.Params{
+				Palette: paint.Panel,
+				Frame:   "⠋",
+				Now:     tt.now,
+				Width:   tt.width,
+			})
 			assert.Equal(t, tt.want, ansi.Strip(got))
 		})
 	}
@@ -125,7 +130,12 @@ func TestBadge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := submitting.Badge(tt.writes, submitting.Params{Palette: paint.Panel, Frame: "⠋", Now: since, Width: tt.width})
+			got := submitting.Badge(tt.writes, submitting.Params{
+				Palette: paint.Panel,
+				Frame:   "⠋",
+				Now:     since,
+				Width:   tt.width,
+			})
 			assert.Equal(t, tt.want, ansi.Strip(got))
 		})
 	}

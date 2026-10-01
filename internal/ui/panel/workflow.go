@@ -18,6 +18,7 @@ type Workflow struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
+	EventPrompts    []EventPrompt
 	ArchivedAt      *time.Time
 }
 
@@ -32,6 +33,7 @@ type WorkflowConfig struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
+	EventPrompts    []EventPrompt
 }
 
 // Config is the workflow with its id left off.
@@ -46,6 +48,7 @@ func (w Workflow) Config() WorkflowConfig {
 		ReviewerFlags:   w.ReviewerFlags,
 		Worktree:        w.Worktree,
 		Hooks:           w.Hooks,
+		EventPrompts:    w.EventPrompts,
 	}
 }
 
@@ -62,6 +65,7 @@ func (c WorkflowConfig) Workflow(id string) Workflow {
 		ReviewerFlags:   c.ReviewerFlags,
 		Worktree:        c.Worktree,
 		Hooks:           c.Hooks,
+		EventPrompts:    c.EventPrompts,
 	}
 }
 
@@ -79,6 +83,12 @@ type WorktreeConfig struct {
 type Hook struct {
 	Event  string
 	Script string
+}
+
+// EventPrompt is what a workflow asks of its agents when komrad mails them one event.
+type EventPrompt struct {
+	Event  string
+	Prompt string
 }
 
 // ByName orders workflows by name, ignoring case, and by id between two of one name.

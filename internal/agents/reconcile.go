@@ -181,7 +181,11 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	activity := observed.Activity
 	r.recordFrame(ctx, agent, observed.Frame, activity)
 	if r.screens != nil {
-		r.screens.Keep(ctx, KeepParams{Agent: agent, Frame: observed.Frame, Activity: activity})
+		r.screens.Keep(ctx, KeepParams{
+			Agent:    agent,
+			Frame:    observed.Frame,
+			Activity: activity,
+		})
 	}
 
 	switch activity {

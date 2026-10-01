@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"komrad/config"
@@ -1079,6 +1080,87 @@ func TestListWorkflows(t *testing.T) {
 			assert.Equal(t, tt.wantNames, xslice.Map(listed, func(w workflowstore.Workflow) string {
 				return w.Name
 			}))
+		})
+	}
+}
+
+// TestWorkflowEventPromptsAreCleanedOrRefused pins that prompts are trimmed and blank ones dropped, and an unknown, repeated or overlong one refused.
+func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
+	tests := []struct {
+		name    string
+		prompts []workflowstore.EventPrompt
+		want    []workflowstore.EventPrompt
+		wantErr error
+	}{
+		{
+			name: "prompts are trimmed and blank ones dropped",
+			prompts: []workflowstore.EventPrompt{
+				{Event: " review.approved ", Prompt: "  open the pull request \n"},
+				{Event: "pull_request.behind", Prompt: "   "},
+			},
+			want: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
+		},
+		{
+			name:    "an event komrad does not send",
+			prompts: []workflowstore.EventPrompt{{Event: "review.aproved", Prompt: "open the pull request"}},
+			wantErr: ErrUnknownEventPrompt,
+		},
+		{
+			name: "an event named twice",
+			prompts: []workflowstore.EventPrompt{
+				{Event: "review.approved", Prompt: "open the pull request"},
+				{Event: "review.approved", Prompt: "mark it ready"},
+			},
+			wantErr: ErrDuplicateEventPrompt,
+		},
+		{
+			name:    "a prompt past the limit",
+			prompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: strings.Repeat("é", 501)}},
+			wantErr: ErrPromptTooLong,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			workflows := newWorkflowService(st, tmuxtest.NewFake())
+
+			created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+				Name:         "backend",
+				Worktree:     workflowstore.WorktreeConfig{BaseBranch: "main"},
+				EventPrompts: tt.prompts,
+			})
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				created, err = workflows.NewWorkflow(t.Context(), workflowstore.Config{
+					Name:     "backend",
+					Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+				})
+				require.NoError(t, err)
+
+				err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+					Name:         "backend",
+					Worktree:     workflowstore.WorktreeConfig{BaseBranch: "main"},
+					EventPrompts: tt.prompts,
+				})
+				require.ErrorIs(t, err, tt.wantErr, "an update is refused the same")
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, created.EventPrompts)
+
+			err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+				Name:         "backend",
+				Worktree:     workflowstore.WorktreeConfig{BaseBranch: "main"},
+				EventPrompts: tt.prompts,
+			})
+			require.NoError(t, err)
+
+			stored, err := st.GetWorkflow(t.Context(), created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, stored.EventPrompts, "an update cleans them the same")
 		})
 	}
 }

@@ -261,7 +261,11 @@ func TestSetForgePullRequestAutoMerge(t *testing.T) {
 				On:      true,
 			}))
 
-			assert.Equal(t, []forge.SetAutoMergeParams{{URL: address, HeadSHA: "abc123", On: true}}, writer.autoMerged)
+			assert.Equal(t, []forge.SetAutoMergeParams{{
+				URL:     address,
+				HeadSHA: "abc123",
+				On:      true,
+			}}, writer.autoMerged)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))

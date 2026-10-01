@@ -25,10 +25,27 @@ func TestModeLabel(t *testing.T) {
 		send  []tea.Msg
 		want  string
 	}{
-		{name: "the picker is jump mode", press: []string{"ctrl+space", "j"}, want: "  JUMP  "},
-		{name: "a pane entering copy-mode is visual mode", press: []string{"ctrl+space", "f11"}, want: " VISUAL "},
-		{name: "a pane leaving copy-mode is normal mode", press: []string{"ctrl+space", "f11", "ctrl+space", "f12"}, want: " NORMAL "},
-		{name: "the sidebar taking the keys is normal mode", press: []string{"ctrl+space", "f11"}, send: []tea.Msg{tea.FocusMsg{}}, want: " NORMAL "},
+		{
+			name:  "the picker is jump mode",
+			press: []string{"ctrl+space", "j"},
+			want:  "  JUMP  ",
+		},
+		{
+			name:  "a pane entering copy-mode is visual mode",
+			press: []string{"ctrl+space", "f11"},
+			want:  " VISUAL ",
+		},
+		{
+			name:  "a pane leaving copy-mode is normal mode",
+			press: []string{"ctrl+space", "f11", "ctrl+space", "f12"},
+			want:  " NORMAL ",
+		},
+		{
+			name:  "the sidebar taking the keys is normal mode",
+			press: []string{"ctrl+space", "f11"},
+			send:  []tea.Msg{tea.FocusMsg{}},
+			want:  " NORMAL ",
+		},
 	}
 
 	for _, tt := range tests {

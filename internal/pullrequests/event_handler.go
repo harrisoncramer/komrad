@@ -44,6 +44,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 	var followUps []river.JobArgs
 	body := render(*pullRequest)
+	started, holding := eventsOf(change, *pullRequest)
 	for _, recipient := range recipients {
 		err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 			ToAgentID:   recipient,
@@ -51,6 +52,8 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			SubjectID:   pullRequest.ID,
 			Body:        body,
 			OnlyRewrite: !change.Opens(),
+			Events:      started,
+			Holding:     holding,
 		})
 		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == "" {
 			retry, err := events.NewEvent(Change{
@@ -75,13 +78,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 }
 
 func render(pullRequest pullrequeststore.PullRequest) string {
-	now := map[Field]string{
-		FieldState:        pullRequest.State,
-		FieldDecision:     pullRequest.LastKnownDecision,
-		FieldChecks:       pullRequest.LastKnownChecks,
-		FieldMergeability: pullRequest.LastKnownMergeability,
-		FieldAutoMerge:    xptr.Deref(autoMergeWord(pullRequest.AutoMerge)),
-	}
+	now := fieldValues(pullRequest)
 
 	var body strings.Builder
 	fmt.Fprintf(&body, "komrad: pull request #%d (%s) on %s changed. It stands at:\n", pullRequest.Number, pullRequest.URL, pullRequest.HeadBranch)
@@ -91,6 +88,17 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 	fmt.Fprintf(&body, "Read its checks with gh pr checks %d. Review comments reach you through the person's review in komrad, so do not fetch them from the forge.", pullRequest.Number)
 
 	return body.String()
+}
+
+// fieldValues is the value each field of the pull request stands at.
+func fieldValues(pullRequest pullrequeststore.PullRequest) map[Field]string {
+	return map[Field]string{
+		FieldState:        pullRequest.State,
+		FieldDecision:     pullRequest.LastKnownDecision,
+		FieldChecks:       pullRequest.LastKnownChecks,
+		FieldMergeability: pullRequest.LastKnownMergeability,
+		FieldAutoMerge:    xptr.Deref(autoMergeWord(pullRequest.AutoMerge)),
+	}
 }
 
 func describe(field Field, value string, pullRequest pullrequeststore.PullRequest) string {

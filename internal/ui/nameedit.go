@@ -39,7 +39,11 @@ const (
 )
 
 func openNameEdit(key, name string) *nameEdit {
-	return &nameEdit{key: key, was: name, input: newLineInput(name)}
+	return &nameEdit{
+		key:   key,
+		was:   name,
+		input: newLineInput(name),
+	}
 }
 
 func (e *nameEdit) take(h host, register *vim.Register, msg tea.Msg) nameEditStep {

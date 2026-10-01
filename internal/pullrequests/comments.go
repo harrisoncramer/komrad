@@ -156,7 +156,12 @@ func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentH
 		return nil
 	}
 
-	return &commentHost{host: hostname, connectionID: connection.ID, login: viewerOf(*connection), forge: f}
+	return &commentHost{
+		host:         hostname,
+		connectionID: connection.ID,
+		login:        viewerOf(*connection),
+		forge:        f,
+	}
 }
 
 // viewerOf is the person a connection reads as, or empty for one made from an App, whose login is

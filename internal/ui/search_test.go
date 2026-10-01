@@ -900,7 +900,11 @@ func TestSearchPreview(t *testing.T) {
 		at := findPreviewCursor(before)
 		require.GreaterOrEqual(t, at, 0)
 
-		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelDown})
+		harness.send(tea.MouseWheelMsg{
+			X:      defaultHarnessWidth - 1,
+			Y:      5,
+			Button: tea.MouseWheelDown,
+		})
 
 		after := harness.readRawFrame()
 		assert.Equal(t, at, findPreviewCursor(after))
