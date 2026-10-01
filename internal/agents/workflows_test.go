@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"komrad/config"
@@ -1079,6 +1080,87 @@ func TestListWorkflows(t *testing.T) {
 			assert.Equal(t, tt.wantNames, xslice.Map(listed, func(w workflowstore.Workflow) string {
 				return w.Name
 			}))
+		})
+	}
+}
+
+// TestWorkflowPromptsAreCleanedOrRefused pins that prompts are trimmed and blank ones dropped, and an unknown, repeated or overlong one refused.
+func TestWorkflowPromptsAreCleanedOrRefused(t *testing.T) {
+	tests := []struct {
+		name    string
+		prompts []workflowstore.Prompt
+		want    []workflowstore.Prompt
+		wantErr error
+	}{
+		{
+			name: "prompts are trimmed and blank ones dropped",
+			prompts: []workflowstore.Prompt{
+				{Notice: " review.approved ", Prompt: "  open the pull request \n"},
+				{Notice: "pull_request.behind", Prompt: "   "},
+			},
+			want: []workflowstore.Prompt{{Notice: "review.approved", Prompt: "open the pull request"}},
+		},
+		{
+			name:    "a notice komrad does not send",
+			prompts: []workflowstore.Prompt{{Notice: "review.aproved", Prompt: "open the pull request"}},
+			wantErr: ErrUnknownPromptNotice,
+		},
+		{
+			name: "a notice named twice",
+			prompts: []workflowstore.Prompt{
+				{Notice: "review.approved", Prompt: "open the pull request"},
+				{Notice: "review.approved", Prompt: "mark it ready"},
+			},
+			wantErr: ErrDuplicatePromptNotice,
+		},
+		{
+			name:    "a prompt past the limit",
+			prompts: []workflowstore.Prompt{{Notice: "review.approved", Prompt: strings.Repeat("é", 2001)}},
+			wantErr: ErrPromptTooLong,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			workflows := newWorkflowService(st, tmuxtest.NewFake())
+
+			created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+				Name:     "backend",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+				Prompts:  tt.prompts,
+			})
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				created, err = workflows.NewWorkflow(t.Context(), workflowstore.Config{
+					Name:     "backend",
+					Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+				})
+				require.NoError(t, err)
+
+				err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+					Name:     "backend",
+					Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+					Prompts:  tt.prompts,
+				})
+				require.ErrorIs(t, err, tt.wantErr, "an update is refused the same")
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, created.Prompts)
+
+			err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+				Name:     "backend",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+				Prompts:  tt.prompts,
+			})
+			require.NoError(t, err)
+
+			stored, err := st.GetWorkflow(t.Context(), created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, stored.Prompts, "an update cleans them the same")
 		})
 	}
 }

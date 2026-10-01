@@ -38,6 +38,7 @@ type workflowConfigGetter interface {
 	GetReviewerFlags() string
 	GetWorktree() *workflowv1.WorktreeConfig
 	GetHooks() []*workflowv1.WorkflowHook
+	GetPrompts() []*workflowv1.WorkflowPrompt
 }
 
 type NewHandlerParams struct {
@@ -153,12 +154,19 @@ func buildConfigFromRequest(req workflowConfigGetter) workflowstore.Config {
 		ReviewerFlags:   req.GetReviewerFlags(),
 		Worktree:        buildWorktreeConfigFromProto(req.GetWorktree()),
 		Hooks:           buildHooksFromProto(req.GetHooks()),
+		Prompts:         buildPromptsFromProto(req.GetPrompts()),
 	}
 }
 
 func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
 	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
 		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
+	})
+}
+
+func buildPromptsFromProto(prompts []*workflowv1.WorkflowPrompt) []workflowstore.Prompt {
+	return xslice.Map(prompts, func(prompt *workflowv1.WorkflowPrompt) workflowstore.Prompt {
+		return workflowstore.Prompt{Notice: prompt.GetNotice(), Prompt: prompt.GetPrompt()}
 	})
 }
 

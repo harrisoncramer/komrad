@@ -173,6 +173,9 @@ func workflowFrom(w *workflowv1.Workflow) panel.Workflow {
 		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) panel.Hook {
 			return panel.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),
+		Prompts: xslice.Map(w.GetPrompts(), func(prompt *workflowv1.WorkflowPrompt) panel.Prompt {
+			return panel.Prompt{Notice: prompt.GetNotice(), Prompt: prompt.GetPrompt()}
+		}),
 		ArchivedAt: dates.ParsePtr(w.GetArchivedAt()),
 	}
 }

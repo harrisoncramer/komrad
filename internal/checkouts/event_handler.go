@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/events"
 	"komrad/internal/mail"
+	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -63,6 +64,7 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 		Kind:      mailstore.KindWorktreeRebased,
 		SubjectID: rebased.AgentID,
 		Body:      body,
+		Notices:   []string{outcome.notice()},
 	})
 }
 
@@ -123,4 +125,18 @@ func handleAborted(ctx context.Context, _ store.DBTX, mailer *mail.MailService, 
 		SubjectID: aborted.AgentID,
 		Body:      abortedMail(aborted),
 	})
+}
+
+// notice is the notice the outcome starts.
+func (o rebaseOutcome) notice() string {
+	switch {
+	case o.Result == nil:
+		return notices.WorktreeRebaseFailed
+	case o.Result.Conflicted:
+		return notices.WorktreeRebaseConflicted
+	case o.Result.Moved:
+		return notices.WorktreeLanded
+	default:
+		return notices.WorktreeRebased
+	}
 }

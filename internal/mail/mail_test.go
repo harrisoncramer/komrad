@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -501,6 +502,153 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.ID, notify(one, "third edit").ID, "an edit after the mail was read sends another")
+}
+
+// TestSendFromKomradCarriesTheWorkflowsPrompts pins which of the workflow's prompts mail from komrad carries as its notices start and stop holding.
+func TestSendFromKomradCarriesTheWorkflowsPrompts(t *testing.T) {
+	const (
+		failing  = "pull_request.checks_failing"
+		behind   = "pull_request.behind"
+		approved = "pull_request.approved"
+	)
+
+	heading := "\n\n" + promptsHeading + "\n\n"
+
+	type send struct {
+		notices []string
+		holding []string
+		read    bool
+	}
+
+	tests := []struct {
+		name     string
+		sends    []send
+		wantBody string
+	}{
+		{
+			name:     "a notice with a prompt carries it after the body",
+			sends:    []send{{notices: []string{failing}}},
+			wantBody: "changed" + heading + failing + ": fix the checks",
+		},
+		{
+			name:     "a notice the workflow attaches nothing to carries no section",
+			sends:    []send{{notices: []string{approved}}},
+			wantBody: "changed",
+		},
+		{
+			name: "a rewrite keeps the prompts of notices started earlier that still hold",
+			sends: []send{
+				{notices: []string{failing}},
+				{notices: []string{behind}, holding: []string{failing, behind}},
+			},
+			wantBody: "changed" + heading + failing + ": fix the checks\n\n" + behind + ": rebase onto main",
+		},
+		{
+			name: "a rewrite drops the prompt of a notice that no longer holds",
+			sends: []send{
+				{notices: []string{failing, behind}},
+				{holding: []string{behind}},
+			},
+			wantBody: "changed" + heading + behind + ": rebase onto main",
+		},
+		{
+			name: "a notice still holding after the mail was read is not started again",
+			sends: []send{
+				{notices: []string{failing}},
+				{read: true, holding: []string{failing}},
+			},
+			wantBody: "changed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			ctx := t.Context()
+			workflow := st.SeedWorkflow(t, workflowstore.Config{
+				Name: "backend",
+				Prompts: []workflowstore.Prompt{
+					{Notice: failing, Prompt: "fix the checks"},
+					{Notice: behind, Prompt: "rebase onto main"},
+				},
+			})
+			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
+			subject := uuid.NewString()
+
+			var sent *mailstore.Mail
+			for _, s := range tt.sends {
+				if s.read {
+					_, err := svc.ClaimMail(ctx, recipient.ID)
+					require.NoError(t, err)
+				}
+
+				var err error
+				sent, err = svc.SendFromKomrad(ctx, SendFromKomradParams{
+					ToAgentID: recipient.ID,
+					Body:      "changed",
+					Kind:      mailstore.KindPullRequestChanged,
+					SubjectID: subject,
+					Notices:   s.notices,
+					Holding:   s.holding,
+				})
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.wantBody, sent.Body)
+		})
+	}
+}
+
+// TestSendFromKomradSendsNoPromptsOfAnArchivedWorkflow pins that an archived workflow's prompts are not sent.
+func TestSendFromKomradSendsNoPromptsOfAnArchivedWorkflow(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	ctx := t.Context()
+	workflow := st.SeedWorkflow(t, workflowstore.Config{
+		Name:    "backend",
+		Prompts: []workflowstore.Prompt{{Notice: "review.approved", Prompt: "open the pull request"}},
+	})
+	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
+	require.NoError(t, st.Workflows.Archive(ctx, workflow.ID))
+
+	sent, err := svc.SendFromKomrad(ctx, SendFromKomradParams{
+		ToAgentID: recipient.ID,
+		Body:      "approved",
+		Kind:      mailstore.KindReviewActivity,
+		SubjectID: uuid.NewString(),
+		Notices:   []string{"review.approved"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "approved", sent.Body)
+}
+
+// TestSendFromKomradCutsThePromptsToFit pins that prompts too long for the mail are cut rather than refused.
+func TestSendFromKomradCutsThePromptsToFit(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	workflow := st.SeedWorkflow(t, workflowstore.Config{
+		Name: "backend",
+		Prompts: []workflowstore.Prompt{
+			{Notice: "pull_request.checks_failing", Prompt: strings.Repeat("a", 2000)},
+			{Notice: "pull_request.behind", Prompt: strings.Repeat("b", 2000)},
+		},
+	})
+	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
+	body := strings.Repeat("x", MaxMailBody-3000)
+
+	sent, err := svc.SendFromKomrad(t.Context(), SendFromKomradParams{
+		ToAgentID: recipient.ID,
+		Body:      body,
+		Kind:      mailstore.KindPullRequestChanged,
+		SubjectID: uuid.NewString(),
+		Notices:   []string{"pull_request.checks_failing", "pull_request.behind"},
+	})
+	require.NoError(t, err)
+
+	assert.Len(t, sent.Body, MaxMailBody)
+	assert.True(t, strings.HasPrefix(sent.Body, body+"\n\n"+promptsHeading), "the body komrad wrote is kept whole")
+	assert.True(t, strings.HasSuffix(sent.Body, promptsCut), "and the cut is marked")
 }
 
 // TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.

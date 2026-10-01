@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/events"
 	"komrad/internal/mail"
+	"komrad/internal/notices"
 	"komrad/internal/store"
 	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
@@ -63,6 +64,7 @@ func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailServ
 		Kind:      mailstore.KindDocumentEdited,
 		SubjectID: document.ID,
 		Body:      body,
+		Notices:   []string{notices.DocumentWrittenByPerson},
 	})
 }
 

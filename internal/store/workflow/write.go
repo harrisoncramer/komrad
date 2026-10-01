@@ -50,7 +50,12 @@ func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, erro
 		return nil, err
 	}
 
+	if err := s.setPrompts(ctx, row.ID, cfg.Prompts); err != nil {
+		return nil, err
+	}
+
 	workflow := workflowFromRow(*row, *config, *provisioner, cfg.Hooks)
+	workflow.Prompts = cfg.Prompts
 
 	return &workflow, nil
 }
@@ -68,8 +73,8 @@ func (s *WorkflowStore) Rename(ctx context.Context, id, name string) error {
 	return nil
 }
 
-// Update rewrites a workflow's name, context, hooks and linked config, keyed by id, taking a
-// transaction through InTx when the caller is outside one.
+// Update rewrites a workflow's name, context, hooks, prompts and linked config, keyed by id,
+// taking a transaction through InTx when the caller is outside one.
 func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
 		return nil
@@ -106,7 +111,11 @@ func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error
 		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
 	}
 
-	return s.setHooks(ctx, id, cfg.Hooks)
+	if err := s.setHooks(ctx, id, cfg.Hooks); err != nil {
+		return err
+	}
+
+	return s.setPrompts(ctx, id, cfg.Prompts)
 }
 
 // Delete permanently removes a workflow row along with the config rows it alone owns, and is

@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"komrad/config"
 	"komrad/internal/fail"
 	"komrad/internal/git"
+	"komrad/internal/notices"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -34,6 +36,12 @@ var ErrWorktreeUnsafePath = fail.InvalidArgument("a worktree copy or symlink pat
 var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment komrad fires")
 
 var ErrUnknownHookScript = fail.InvalidArgument("a hook must name a script in the hooks directory")
+
+var ErrUnknownPromptNotice = fail.InvalidArgument("a prompt must name a notice komrad sends")
+
+var ErrDuplicatePromptNotice = fail.InvalidArgument("a workflow holds one prompt per notice")
+
+var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at most %d characters", notices.MaxPrompt))
 
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
@@ -161,6 +169,12 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	}
 	cfg.Hooks = hooks
 
+	prompts, err := normalizePrompts(cfg.Prompts)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Prompts = prompts
+
 	if cfg.Worktree.Enabled {
 		if err := requireWorktreeRepo(cfg); err != nil {
 			return nil, err
@@ -218,6 +232,12 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	}
 	cfg.Hooks = hooks
 
+	prompts, promptsErr := normalizePrompts(cfg.Prompts)
+	if promptsErr != nil {
+		return promptsErr
+	}
+	cfg.Prompts = prompts
+
 	if cfg.Worktree.Enabled {
 		if err := requireWorktreeRepo(cfg); err != nil {
 			return err
@@ -254,6 +274,32 @@ func (w *WorkflowService) normalizeHooks(hooks []workflowstore.Hook) ([]workflow
 		}
 
 		kept = append(kept, hook)
+	}
+
+	return kept, nil
+}
+
+// normalizePrompts trims what a caller sent, drops the blank entries, and refuses a notice komrad
+// does not send or one named twice.
+func normalizePrompts(prompts []workflowstore.Prompt) ([]workflowstore.Prompt, error) {
+	kept := make([]workflowstore.Prompt, 0, len(prompts))
+	for _, prompt := range prompts {
+		prompt.Notice = strings.TrimSpace(prompt.Notice)
+		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
+		if prompt.Prompt == "" {
+			continue
+		}
+		if !notices.Known(prompt.Notice) {
+			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownPromptNotice, prompt.Notice, strings.Join(notices.Names(), ", "))
+		}
+		if slices.ContainsFunc(kept, func(k workflowstore.Prompt) bool { return k.Notice == prompt.Notice }) {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicatePromptNotice, prompt.Notice)
+		}
+		if utf8.RuneCountInString(prompt.Prompt) > notices.MaxPrompt {
+			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Notice, utf8.RuneCountInString(prompt.Prompt))
+		}
+
+		kept = append(kept, prompt)
 	}
 
 	return kept, nil

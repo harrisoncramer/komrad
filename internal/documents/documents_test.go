@@ -15,6 +15,7 @@ import (
 	"komrad/internal/documents"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/mail"
+	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
@@ -494,6 +495,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			require.NotNil(t, waiting[0].SubjectID)
 			assert.Equal(t, written.ID, *waiting[0].SubjectID)
 			assert.Contains(t, waiting[0].Body, tt.wantMail)
+			assert.Equal(t, []string{notices.DocumentWrittenByPerson}, waiting[0].Notices)
 		})
 	}
 }

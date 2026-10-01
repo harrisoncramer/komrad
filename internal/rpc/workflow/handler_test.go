@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/agents"
+	"komrad/internal/notices"
 	"komrad/internal/rpc/render"
 	"komrad/internal/store"
 	"komrad/lib/xptr"
@@ -17,6 +18,7 @@ import (
 
 	workflowstore "komrad/internal/store/workflow"
 
+	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -285,6 +287,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				Script: "warm-cache",
 			},
 		},
+		Prompts: []workflowstore.Prompt{{Notice: "review.approved", Prompt: "open the pull request"}},
 	}
 	worktree := &workflowv1.WorktreeConfig{
 		Enabled:      true,
@@ -300,6 +303,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			Script: "warm-cache",
 		},
 	}
+	prompts := []*workflowv1.WorkflowPrompt{{Notice: "review.approved", Prompt: "open the pull request"}}
 
 	tests := []struct {
 		name string
@@ -319,6 +323,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 					ReviewerFlags:   cfg.ReviewerFlags,
 					Worktree:        worktree,
 					Hooks:           hooks,
+					Prompts:         prompts,
 				}))
 
 				return err
@@ -339,6 +344,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 					ReviewerFlags:   cfg.ReviewerFlags,
 					Worktree:        worktree,
 					Hooks:           hooks,
+					Prompts:         prompts,
 				}))
 
 				return err
@@ -378,6 +384,15 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			assert.Equal(t, tt.want, *recorded)
 		})
 	}
+}
+
+// TestPromptNoticesAreTheNoticesKomradSends pins the notices the wire accepts to the ones komrad sends.
+func TestPromptNoticesAreTheNoticesKomradSends(t *testing.T) {
+	field := (&workflowv1.WorkflowPrompt{}).ProtoReflect().Descriptor().Fields().ByName("notice")
+	rules, ok := proto.GetExtension(field.Options(), validate.E_Field).(*validate.FieldRules)
+	require.True(t, ok)
+
+	assert.Equal(t, notices.Names(), rules.GetString().GetIn())
 }
 
 // TestWorkflowReadsRender pins that every read answers with the workflow the service handed back, context whole.

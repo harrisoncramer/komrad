@@ -435,6 +435,12 @@ func hooksToProto(hooks []panel.Hook) []*workflowv1.WorkflowHook {
 	})
 }
 
+func promptsToProto(prompts []panel.Prompt) []*workflowv1.WorkflowPrompt {
+	return xslice.Map(prompts, func(prompt panel.Prompt) *workflowv1.WorkflowPrompt {
+		return &workflowv1.WorkflowPrompt{Notice: prompt.Notice, Prompt: prompt.Prompt}
+	})
+}
+
 func (a api) createWorkflow(cfg panel.WorkflowConfig) (*workflowv1.Workflow, error) {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
@@ -452,6 +458,7 @@ func (a api) createWorkflow(cfg panel.WorkflowConfig) (*workflowv1.Workflow, err
 			ReviewerFlags:   cfg.ReviewerFlags,
 			Worktree:        worktreeConfigToProto(cfg.Worktree),
 			Hooks:           hooksToProto(cfg.Hooks),
+			Prompts:         promptsToProto(cfg.Prompts),
 		}))
 		if err != nil {
 			return nil, err
@@ -479,6 +486,7 @@ func (a api) updateWorkflow(w panel.Workflow) error {
 			ReviewerFlags:   w.ReviewerFlags,
 			Worktree:        worktreeConfigToProto(w.Worktree),
 			Hooks:           hooksToProto(w.Hooks),
+			Prompts:         promptsToProto(w.Prompts),
 		}))
 	})
 }

@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/mail"
+	"komrad/internal/notices"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/clock"
@@ -198,6 +199,8 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 		assert.Contains(t, rung[i].Body, "or read "+released.Path)
 	}
 	assert.Contains(t, rung[0].Body, "changes requested")
+	assert.Equal(t, []string{notices.ReviewChangesRequested}, rung[0].Notices)
+	assert.Equal(t, []string{notices.ReviewCommentedByPerson}, rung[1].Notices, "a person's release is told apart from a reviewer's")
 	assert.Contains(t, rung[1].Body, "released: 0 comment(s).")
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }

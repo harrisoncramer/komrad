@@ -640,6 +640,8 @@ type Mail struct {
 	IdempotencyKey *string
 	// The thing mail from komrad is about, null on mail an agent sent. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread mail of a kind about one subject, and later mail rewrites it. There is no foreign key here on purpose. The mail has to keep naming its subject after the subject is gone.
 	SubjectID *string
+	// The notices mail from komrad named, whose workflow prompts were appended to its body. A rewrite keeps those that still hold.
+	Notices []string
 }
 
 // A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
@@ -915,6 +917,17 @@ type WorkflowHook struct {
 	Script     string
 	Position   int32
 	CreatedAt  time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
+}
+
+// What a workflow asks of its agents when komrad sends them a notice, appended to that mail.
+type WorkflowPrompt struct {
+	WorkflowID string
+	// The notice the prompt rides on, such as pull_request.checks_failing.
+	Notice   string
+	Prompt   string
+	Position int32
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
 }

@@ -105,7 +105,13 @@ func (s *WorkflowStore) get(ctx context.Context, id string, includeArchived bool
 		return nil, err
 	}
 
+	prompts, err := s.promptsFor(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
 	workflow := workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks)
+	workflow.Prompts = prompts
 
 	return &workflow, nil
 }
