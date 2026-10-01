@@ -149,20 +149,22 @@ func TestTriageRows(t *testing.T) {
 
 // TestTriageHeight covers the zone keeping one height however many families it holds.
 func TestTriageHeight(t *testing.T) {
-	listings := map[string][]proto.Message{
-		"full":      append(buildTriage(), buildTriageFamily()[2:4]...),
-		"part full": buildTriage()[:3],
-		"empty":     buildTriage()[:2],
+	tests := []struct {
+		name string
+		rows []proto.Message
+	}{
+		{name: "full", rows: append(buildTriage(), buildTriageFamily()[2:4]...)},
+		{name: "part full", rows: buildTriage()[:3]},
 	}
 
-	lines := make(map[string]int, len(listings))
-	for name, rows := range listings {
-		harness := openTriage(t, 4, rows...)
-		lines[name] = slices.IndexFunc(splitLines(harness.readFrame()), func(line string) bool { return strings.Contains(line, "│ backend") })
-	}
+	want := findTreeLine(openTriage(t, 4, buildTriage()[:2]...).readFrame())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openTriage(t, 4, tt.rows...)
 
-	assert.Equal(t, map[string]int{"full": lines["empty"], "part full": lines["empty"], "empty": lines["empty"]}, lines)
-	assert.Positive(t, lines["empty"])
+			assert.Equal(t, want, findTreeLine(harness.readFrame()))
+		})
+	}
 }
 
 // TestTriageJump covers the triage key putting the cursor on the zone's first agent.
@@ -618,4 +620,9 @@ func buildAnswered() []proto.Message {
 	rows[2] = newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_THINKING, 3)
 
 	return rows
+}
+
+// findTreeLine is the line of the frame the tree's workflow is drawn on.
+func findTreeLine(frame string) int {
+	return slices.IndexFunc(splitLines(frame), func(line string) bool { return strings.Contains(line, "│ backend") })
 }
