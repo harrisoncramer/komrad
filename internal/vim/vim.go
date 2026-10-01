@@ -69,7 +69,6 @@ type Engine struct {
 
 	// last is the buffer the engine last left.
 	last Buffer
-	seen bool
 
 	// before is the buffer ahead of the command that began the current insert.
 	before Buffer
@@ -95,7 +94,6 @@ func New(b Buffer, singleLine bool, register *Register) *Engine {
 		before:     b,
 		typedFrom:  b,
 		last:       b,
-		seen:       true,
 	}
 }
 
@@ -124,7 +122,7 @@ func (e *Engine) Normal(b Buffer) Buffer {
 	}
 
 	b = e.settle(b)
-	e.last, e.seen = b, true
+	e.last = b
 
 	return b
 }
@@ -141,7 +139,7 @@ func (e *Engine) Key(key string, b Buffer) Result {
 		return Result{Outcome: Pass, Buffer: b}
 	}
 
-	if e.seen && b.Text != e.last.Text {
+	if b.Text != e.last.Text {
 		e.record(e.last)
 	}
 
@@ -204,7 +202,7 @@ func isEsc(key string) bool {
 }
 
 func (e *Engine) done(outcome Outcome, b Buffer) Result {
-	e.last, e.seen = b, true
+	e.last = b
 
 	return Result{Outcome: outcome, Buffer: b}
 }
