@@ -320,15 +320,40 @@ func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
-// splitTriage takes the most urgent agents in triage the zone has room for out of the listing.
-func splitTriage(z triageZone, s panelShared) (zone []agentRow, waiting int, rest []panel.AgentRow) {
-	queued := xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool {
-		_, ok := z.entries[item.Agent.ID]
+// splitTriage takes the most urgent families in triage the zone has room for out of the listing,
+// each head with its children under it.
+func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
+	byID := xslice.KeyBy(s.listing.agents, func(item panel.AgentRow) string { return item.Agent.ID })
+	headOf := func(item panel.AgentRow) panel.AgentRow {
+		if parentID := item.Agent.ParentAgentID; parentID != nil {
+			if parent, ok := byID[*parentID]; ok {
+				return parent
+			}
+		}
 
-		return ok
-	})
-	slices.SortFunc(queued, func(a, b panel.AgentRow) int {
-		left, right := z.entries[a.Agent.ID], z.entries[b.Agent.ID]
+		return item
+	}
+
+	families := make(map[string]triageEntry)
+	var heads []panel.AgentRow
+	for _, item := range s.listing.agents {
+		entry, ok := z.entries[item.Agent.ID]
+		head := headOf(item)
+		if !ok || (head.Agent.Hidden && !showHidden) {
+			continue
+		}
+
+		best, seen := families[head.Agent.ID]
+		if !seen {
+			heads = append(heads, head)
+		}
+		if !seen || isMoreUrgent(entry, best) {
+			families[head.Agent.ID] = entry
+		}
+	}
+
+	slices.SortFunc(heads, func(a, b panel.AgentRow) int {
+		left, right := families[a.Agent.ID], families[b.Agent.ID]
 
 		return cmp.Or(
 			cmp.Compare(left.rule.tier, right.rule.tier),
@@ -337,21 +362,31 @@ func splitTriage(z triageZone, s panelShared) (zone []agentRow, waiting int, res
 		)
 	})
 
-	slotted := queued[:min(z.capacity, len(queued))]
-	byID := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
-	zone = xslice.Map(slotted, func(item panel.AgentRow) agentRow {
-		rule := z.entries[item.Agent.ID].rule
+	slotted := heads[:min(z.capacity, len(heads))]
+	inZone := make(map[string]bool)
+	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
+	for _, head := range slotted {
+		inZone[head.Agent.ID] = true
+		zone = append(zone, agentRow{item: head, workflow: workflows[head.Agent.WorkflowID]})
+		for _, item := range s.listing.agents {
+			isChild := item.Agent.ParentAgentID != nil && *item.Agent.ParentAgentID == head.Agent.ID
+			if !isChild || (item.Agent.Hidden && !showHidden) {
+				continue
+			}
 
-		return agentRow{item: item, workflow: byID[item.Agent.WorkflowID], triage: &rule}
-	})
-
-	inZone := make(map[string]bool, len(slotted))
-	for _, item := range slotted {
-		inZone[item.Agent.ID] = true
+			inZone[item.Agent.ID] = true
+			zone = append(zone, agentRow{item: item, workflow: workflows[item.Agent.WorkflowID], child: true})
+		}
 	}
+
 	rest = xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
 
-	return zone, len(queued) - len(slotted), rest
+	return zone, len(heads) - len(slotted), rest
+}
+
+// isMoreUrgent reports whether one entry in triage comes ahead of another.
+func isMoreUrgent(entry, than triageEntry) bool {
+	return entry.rule.tier < than.rule.tier || (entry.rule.tier == than.rule.tier && entry.since.Before(than.since))
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
@@ -382,7 +417,9 @@ func triageRows(params snapshotParams) []view.Row {
 	var rows []view.Row
 	for _, r := range queue.zone {
 		row := params.renaming.drawnOver(snapshotRow(r, params))
-		row.Kind = view.KindAgent
+		if !r.child {
+			row.Kind = view.KindAgent
+		}
 		if r.item.Agent.Role == panel.RoleOrchestrator {
 			row.Name = r.workflow.Name
 		}

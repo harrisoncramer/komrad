@@ -41,8 +41,6 @@ type agentRow struct {
 	child bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
-	// triage is why a row in triage is there, nil on every row of the tree.
-	triage *triageRule
 }
 
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
@@ -243,7 +241,7 @@ func (a *agentsScreen) layout(s panelShared) agentsLayout {
 }
 
 func (a *agentsScreen) buildLayout(s panelShared) agentsLayout {
-	zone, waiting, rest := splitTriage(a.triage, s)
+	zone, waiting, rest := splitTriage(a.triage, s, a.showHidden)
 	tree := treeRows(treeRowsParams{
 		workflows:         s.listing.workflows,
 		agents:            sortedAgents(rest, agentSorts, agentsTabs().order(a.sort)),

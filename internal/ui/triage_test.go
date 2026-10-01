@@ -47,6 +47,33 @@ func TestTriageRows(t *testing.T) {
 			want: []string{"backend", "backend"},
 		},
 		{
+			name:     "a parent in triage brings its children with it",
+			capacity: 2,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+				newChild("reviewer", "reviewer", "asker"),
+			},
+			want: []string{"asker", "└ reviewer", "backend", "quiet"},
+		},
+		{
+			name:     "a child in triage brings its parent with it",
+			capacity: 2,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				newTriageAgent("parent", agentv1.AgentState_AGENT_STATE_IDLE, 2),
+				func() *agentv1.Agent {
+					reviewer := newTriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
+					reviewer.ParentAgentId = xptr.Ptr("parent")
+
+					return reviewer
+				}(),
+			},
+			want: []string{"parent", "└ reviewer", "backend", "quiet"},
+		},
+		{
 			name:     "the most urgent tier takes the slots and the rest wait in the tree",
 			capacity: 2,
 			rows:     buildTriage(),
