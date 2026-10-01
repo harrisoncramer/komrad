@@ -8775,7 +8775,7 @@
           "oneof": "",
           "rules": [
             "required",
-            "at most 2000 characters"
+            "at most 500 characters"
           ],
           "description": "The text added to the mail carrying that notice."
         }

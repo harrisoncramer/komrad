@@ -1101,7 +1101,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x0eWorkflowPrompt\x12\xaa\x03\n" +
 	"\x06notice\x18\x01 \x01(\tB\x91\x03\xbaH\x8d\x03r\x8a\x03R\x1bpull_request.checks_failingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x16worktree.rebase_failedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x0freview.answeredR\x06notice\x12\"\n" +
 	"\x06prompt\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xd0\x0fR\x06prompt\"W\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x06prompt\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +
 	"\x05event\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18(R\x05event\x12&\n" +
 	"\x06script\x18\x02 \x01(\tB\x0e\xbaH\vr\tȻ\x18\x01\x10\x01\x18\xff\x01R\x06script\"\xa1\x02\n" +

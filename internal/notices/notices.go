@@ -4,7 +4,7 @@ package notices
 import "slices"
 
 // MaxPrompt is the most characters one workflow prompt carries.
-const MaxPrompt = 2000
+const MaxPrompt = 500
 
 // The notices komrad sends.
 const (

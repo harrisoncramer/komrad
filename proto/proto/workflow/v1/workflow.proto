@@ -68,7 +68,7 @@ message WorkflowPrompt {
   // The text added to the mail carrying that notice.
   string prompt = 2 [(buf.validate.field).string = {
     min_len: 1
-    max_len: 2000
+    max_len: 500
   }];
 }
 

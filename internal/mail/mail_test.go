@@ -634,19 +634,19 @@ func TestSendFromKomradCutsThePromptsToFit(t *testing.T) {
 	}{
 		{
 			name:    "prompts past the room left are cut",
-			body:    strings.Repeat("x", MaxMailBody-3000),
-			prompt:  strings.Repeat("a", 2000),
+			body:    strings.Repeat("x", MaxMailBody-500),
+			prompt:  strings.Repeat("a", 500),
 			wantCut: true,
 		},
 		{
 			name:   "prompts are measured in characters rather than bytes",
-			body:   "changed",
-			prompt: strings.Repeat("検", 2000),
+			body:   strings.Repeat("x", MaxMailBody-1500),
+			prompt: strings.Repeat("検", 500),
 		},
 		{
 			name:    "and cut in characters",
-			body:    strings.Repeat("é", MaxMailBody-3000),
-			prompt:  strings.Repeat("検", 2000),
+			body:    strings.Repeat("é", MaxMailBody-500),
+			prompt:  strings.Repeat("検", 500),
 			wantCut: true,
 		},
 	}

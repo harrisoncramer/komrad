@@ -1115,7 +1115,7 @@ func TestWorkflowPromptsAreCleanedOrRefused(t *testing.T) {
 		},
 		{
 			name:    "a prompt past the limit",
-			prompts: []workflowstore.Prompt{{Notice: "review.approved", Prompt: strings.Repeat("é", 2001)}},
+			prompts: []workflowstore.Prompt{{Notice: "review.approved", Prompt: strings.Repeat("é", 501)}},
 			wantErr: ErrPromptTooLong,
 		},
 	}
