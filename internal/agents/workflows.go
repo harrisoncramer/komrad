@@ -8,11 +8,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"komrad/config"
 	"komrad/internal/agenterr"
-	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/scripts"
@@ -32,17 +30,9 @@ var ErrWorktreeNeedsCwd = fail.InvalidArgument("a worktree-enabled workflow need
 
 var ErrWorktreeCwdNotPrimaryCheckout = fail.InvalidArgument("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
 
-var ErrWorktreeUnsafePath = fail.InvalidArgument("a worktree copy or symlink path must be a relative path inside the repo")
-
 var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment komrad fires")
 
 var ErrUnknownHookScript = fail.InvalidArgument("a hook must name a script in the hooks directory")
-
-var ErrUnknownEventPrompt = fail.InvalidArgument("a prompt must name an event komrad sends")
-
-var ErrDuplicateEventPrompt = fail.InvalidArgument("a workflow holds one prompt per event")
-
-var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at most %d characters", eventprompts.MaxPrompt))
 
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
@@ -51,7 +41,6 @@ type workflowScheduleCounter interface {
 }
 
 type workflowAgentLister interface {
-	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 	ListRestorableInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
@@ -76,12 +65,9 @@ type NewWorkflowServiceParams struct {
 	AgentDeleter workflowAgentDeleter
 	Emptied      *EmptyWorkflowDeleter
 	Schedules    workflowScheduleCounter
-	Tmux         paneKiller
-	Screens      screenKeeper
+	Lifecycle    *LifecycleService
 	Tx           txRunner
-	Scripts      agentScriptRunner
 	Hooks        workflowHookFinder
-	Usage        config.Usage
 }
 
 type WorkflowService struct {
@@ -91,12 +77,9 @@ type WorkflowService struct {
 	agentDeleter workflowAgentDeleter
 	emptied      *EmptyWorkflowDeleter
 	schedules    workflowScheduleCounter
-	tmux         paneKiller
-	screens      screenKeeper
+	lifecycle    *LifecycleService
 	tx           txRunner
-	scripts      agentScriptRunner
 	hooks        workflowHookFinder
-	usage        config.Usage
 }
 
 // NewWorkflowService builds the service from its dependencies.
@@ -108,12 +91,9 @@ func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 		agentDeleter: params.AgentDeleter,
 		emptied:      params.Emptied,
 		schedules:    params.Schedules,
-		tmux:         params.Tmux,
-		screens:      params.Screens,
+		lifecycle:    params.Lifecycle,
 		tx:           params.Tx,
-		scripts:      params.Scripts,
 		hooks:        params.Hooks,
-		usage:        params.Usage,
 	}
 }
 
@@ -146,46 +126,22 @@ func (w *WorkflowService) ListWorkflows(ctx context.Context, params ListWorkflow
 // NewWorkflow creates a workflow, defaulting a blank name so the list always has a label and a
 // blank base branch to what the cwd's clone names.
 func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
-	cfg.Name = strings.TrimSpace(cfg.Name)
+	cfg.Normalize()
 	if cfg.Name == "" {
 		cfg.Name = "workflow"
 	}
-
-	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
-	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.ReviewerHarness = strings.TrimSpace(cfg.ReviewerHarness)
-	cfg.ReviewerFlags = strings.TrimSpace(cfg.ReviewerFlags)
-	normalizeWorktree(&cfg)
 	if cfg.Worktree.BaseBranch == "" {
 		cfg.Worktree.BaseBranch = git.DefaultBase(ctx, cfg.Cwd)
 	}
 
-	if err := validateWorktreePaths(cfg); err != nil {
+	if err := w.normalizeConfig(&cfg); err != nil {
 		return nil, err
-	}
-
-	hooks, err := w.normalizeHooks(cfg.Hooks)
-	if err != nil {
-		return nil, err
-	}
-	cfg.Hooks = hooks
-
-	prompts, err := normalizeEventPrompts(cfg.EventPrompts)
-	if err != nil {
-		return nil, err
-	}
-	cfg.EventPrompts = prompts
-
-	if cfg.Worktree.Enabled {
-		if err := requireWorktreeRepo(cfg); err != nil {
-			return nil, err
-		}
 	}
 
 	// The workflow, its blueprint, and its provisioner config are three rows, so a failure partway
 	// through must not leave any of them half-written.
 	var created *workflowstore.Workflow
-	err = w.tx.InTx(ctx, func(db store.DBTX) error {
+	err := w.tx.InTx(ctx, func(db store.DBTX) error {
 		var txErr error
 		created, txErr = workflowstore.NewWorkflowStore(db).Create(ctx, cfg)
 
@@ -209,40 +165,16 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 		return err
 	}
 
-	cfg.Name = strings.TrimSpace(cfg.Name)
+	cfg.Normalize()
 	if cfg.Name == "" {
 		cfg.Name = existing.Name
 	}
-
-	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
-	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.ReviewerHarness = strings.TrimSpace(cfg.ReviewerHarness)
-	cfg.ReviewerFlags = strings.TrimSpace(cfg.ReviewerFlags)
-	normalizeWorktree(&cfg)
 	if cfg.Worktree.BaseBranch == "" {
 		return ErrWorktreeNeedsBase
 	}
 
-	if err := validateWorktreePaths(cfg); err != nil {
+	if err := w.normalizeConfig(&cfg); err != nil {
 		return err
-	}
-
-	hooks, hooksErr := w.normalizeHooks(cfg.Hooks)
-	if hooksErr != nil {
-		return hooksErr
-	}
-	cfg.Hooks = hooks
-
-	prompts, promptsErr := normalizeEventPrompts(cfg.EventPrompts)
-	if promptsErr != nil {
-		return promptsErr
-	}
-	cfg.EventPrompts = prompts
-
-	if cfg.Worktree.Enabled {
-		if err := requireWorktreeRepo(cfg); err != nil {
-			return err
-		}
 	}
 
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
@@ -250,6 +182,28 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update workflow %q: %w", id, err)
+	}
+
+	return nil
+}
+
+func (w *WorkflowService) normalizeConfig(cfg *workflowstore.Config) error {
+	if err := cfg.Worktree.ValidatePaths(); err != nil {
+		return err
+	}
+
+	hooks, err := w.normalizeHooks(cfg.Hooks)
+	if err != nil {
+		return err
+	}
+	cfg.Hooks = hooks
+
+	if err := cfg.NormalizeEventPrompts(); err != nil {
+		return err
+	}
+
+	if cfg.Worktree.Enabled {
+		return requireWorktreeRepo(*cfg)
 	}
 
 	return nil
@@ -278,96 +232,6 @@ func (w *WorkflowService) normalizeHooks(hooks []workflowstore.Hook) ([]workflow
 	}
 
 	return kept, nil
-}
-
-// normalizeEventPrompts trims what a caller sent, drops the blank entries, and refuses an event komrad
-// does not send or one named twice.
-func normalizeEventPrompts(prompts []workflowstore.EventPrompt) ([]workflowstore.EventPrompt, error) {
-	kept := make([]workflowstore.EventPrompt, 0, len(prompts))
-	for _, prompt := range prompts {
-		prompt.Event = strings.TrimSpace(prompt.Event)
-		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
-		if prompt.Prompt == "" {
-			continue
-		}
-		if !eventprompts.IsKnown(prompt.Event) {
-			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownEventPrompt, prompt.Event, strings.Join(eventprompts.Names(), ", "))
-		}
-		if slices.ContainsFunc(kept, func(k workflowstore.EventPrompt) bool { return k.Event == prompt.Event }) {
-			return nil, fmt.Errorf("%w: %s", ErrDuplicateEventPrompt, prompt.Event)
-		}
-		if utf8.RuneCountInString(prompt.Prompt) > eventprompts.MaxPrompt {
-			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Event, utf8.RuneCountInString(prompt.Prompt))
-		}
-
-		kept = append(kept, prompt)
-	}
-
-	return kept, nil
-}
-
-func normalizeWorktree(cfg *workflowstore.Config) {
-	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
-	cfg.Worktree.Dir = strings.TrimSpace(cfg.Worktree.Dir)
-	cfg.Worktree.CopyPaths = cleanPaths(cfg.Worktree.CopyPaths)
-	cfg.Worktree.SymlinkPaths = cleanPaths(cfg.Worktree.SymlinkPaths)
-	cfg.Worktree.DiffExclude = cleanPaths(cfg.Worktree.DiffExclude)
-}
-
-// cleanPaths drops the blank entries and stores the shortest spelling of the rest.
-func cleanPaths(paths []string) []string {
-	if paths == nil {
-		return nil
-	}
-
-	kept := make([]string, 0, len(paths))
-	for _, path := range paths {
-		trimmed := strings.TrimSpace(path)
-		if trimmed == "" {
-			continue
-		}
-
-		kept = append(kept, filepath.Clean(trimmed))
-	}
-
-	return kept
-}
-
-func validateWorktreePaths(cfg workflowstore.Config) error {
-	for _, list := range [][]string{cfg.Worktree.CopyPaths, cfg.Worktree.SymlinkPaths, cfg.Worktree.DiffExclude} {
-		for _, path := range list {
-			if err := validateWorktreePath(path); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func validateWorktreePath(path string) error {
-	if strings.ContainsAny(path, "\n\r") {
-		return fmt.Errorf("%w: %q holds a line break, which is what separates the entries", ErrWorktreeUnsafePath, path)
-	}
-	if filepath.IsAbs(path) || strings.HasPrefix(path, "~") {
-		return fmt.Errorf("%w: %q is not relative to the repo", ErrWorktreeUnsafePath, path)
-	}
-
-	segments := strings.Split(path, "/")
-	for _, segment := range segments {
-		if segment == ".." {
-			return fmt.Errorf("%w: %q climbs out of the repo", ErrWorktreeUnsafePath, path)
-		}
-		if segment == "." {
-			return fmt.Errorf("%w: %q is the repo rather than something in it", ErrWorktreeUnsafePath, path)
-		}
-	}
-
-	if strings.EqualFold(segments[0], ".git") {
-		return fmt.Errorf("%w: %q is the worktree's own link to the repo", ErrWorktreeUnsafePath, path)
-	}
-
-	return nil
 }
 
 // requireWorktreeRepo holds a workflow that provisions worktrees to a cwd it can cut them from.
@@ -413,29 +277,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 		return err
 	}
 
-	if err := archiveBatch(ctx, archiveBatchParams{
-		tmux:      w.tmux,
-		scripts:   w.scripts,
-		workflows: w.store,
-		live:      inside,
-		owned:     inside,
-		screens:   w.screens,
-		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
-			var taken []agentstore.AgentPane
-			err := w.tx.InTx(ctx, func(db store.DBTX) error {
-				if err := workflowstore.NewWorkflowStore(db).Archive(ctx, id); err != nil {
-					return err
-				}
-
-				archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, id)
-				taken = archived
-
-				return err
-			})
-
-			return taken, err
-		},
-	}); err != nil {
+	if err := w.lifecycle.archiveWorkflow(ctx, id, inside); err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", existing.Name, err)
 	}
 
@@ -461,24 +303,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		return nil, fmt.Errorf("failed to list the archived agents of workflow %q: %w", existing.Name, err)
 	}
 
-	if err := restoreBatch(ctx, restoreBatchParams{
-		tx:        w.tx,
-		usage:     w.usage,
-		scripts:   w.scripts,
-		workflows: w.store,
-		agents:    w.agents,
-		archived:  archived,
-		relist: func(ctx context.Context, agents *agentstore.AgentStore) ([]agentstore.Agent, error) {
-			return agents.ListRestorableInWorkflow(ctx, id)
-		},
-		restore: func(ctx context.Context, db store.DBTX) error {
-			if err := workflowstore.NewWorkflowStore(db).Restore(ctx, id); err != nil {
-				return err
-			}
-
-			return agentstore.NewAgentStore(db).RestoreWorkflowAgents(ctx, id)
-		},
-	}); err != nil {
+	if err := w.lifecycle.restoreWorkflow(ctx, id, archived); err != nil {
 		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
 	}
 

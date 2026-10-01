@@ -213,12 +213,9 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		AgentDeleter: agentDelete,
 		Emptied:      emptyWorkflows,
 		Schedules:    st.schedules,
-		Tmux:         params.Tmux,
-		Screens:      screenKeeper,
+		Lifecycle:    lifecycleService,
 		Tx:           st.pool,
-		Scripts:      scriptService,
 		Hooks:        scriptService,
-		Usage:        params.Usage,
 	})
 
 	builders := params.ForgeBuilders

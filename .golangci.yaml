@@ -535,6 +535,7 @@ linters:
               - Lock
               - Mark
               - Move
+              - Normalize
               - Observe
               - Open
               - Prune
