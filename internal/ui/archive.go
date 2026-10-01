@@ -172,7 +172,7 @@ func confirmDeleteSchedule(h host, schedule panel.Schedule) tea.Cmd {
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}
@@ -333,7 +333,7 @@ func confirmDeleteArchived(h host, s panelShared, agents []panel.Agent) tea.Cmd 
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}
@@ -355,7 +355,7 @@ func confirmDeleteWorkflow(h host, s panelShared, workflow panel.Workflow) tea.C
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}

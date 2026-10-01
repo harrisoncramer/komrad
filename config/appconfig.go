@@ -132,6 +132,8 @@ type Keybindings struct {
 	Diff DiffKeys `mapstructure:"diff"`
 	// The documents screen, which reads what the hovered agent has written for a person.
 	Documents DocumentsKeys `mapstructure:"documents"`
+	// The menu on the hovered document or document type, over the panel's own entries.
+	DocumentMenu DocumentMenuKeys `mapstructure:"document_menu"`
 	// The documents menu, nested under the menu on the hovered agent.
 	DocumentsMenu DocumentsMenuKeys `mapstructure:"documents_menu"`
 	// The document types screen, where a person defines the sorts of document agents write.
@@ -146,6 +148,8 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu, nested under the menu on the hovered row, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
+	// The hide menu, nested under the menu on the agents list.
+	HideMenu HideMenuKeys `mapstructure:"hide_menu"`
 	// The merge menu, nested under the git menu, which merges the hovered agent's pull request.
 	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the service logged about one agent.
@@ -296,8 +300,6 @@ type AgentsKeys struct {
 	// agent is paused while the editor is open, and quitting the editor, pressing the key again or
 	// leaving the agents list closes it and unpauses the agent.
 	Edit []string `mapstructure:"edit" default:"e"`
-	// Hide the hovered agent from this list.
-	Hide []string `mapstructure:"hide" default:"h"`
 	// Start a new agent.
 	New []string `mapstructure:"new" default:"c"`
 	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
@@ -313,8 +315,6 @@ type AgentsKeys struct {
 	// Retry the launch of an agent that failed to create, opening a form where the flags can be
 	// corrected before confirming.
 	Retry []string `mapstructure:"retry" default:"R"`
-	// Toggles visibility of hidden agents alongside the rest.
-	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 
 // GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and
@@ -334,6 +334,14 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 	// Mark the hovered agent's pull request a draft, or ready for review when it is one.
 	ToggleDraft []string `mapstructure:"toggle_draft" default:"d"`
+}
+
+// HideMenuKeys are the bindings for the hide menu, which opens from the menu on the agents list.
+type HideMenuKeys struct {
+	// Hide the hovered agent from the list, or unhide it when it is hidden.
+	Hide []string `mapstructure:"hide" default:"h"`
+	// Show the hidden agents alongside the rest, or put them away again.
+	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 
 // MergeKeys are the bindings for the merge menu, which opens from the git menu.
@@ -368,6 +376,9 @@ type MenuKeys struct {
 	// Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
 	// schedule or every chosen agent, or for restoring or deleting a row of the archive.
 	Archive []string `mapstructure:"archive" default:"a"`
+	// Open the hide menu to the right of this one, for hiding the hovered agent or showing the
+	// hidden ones. The entry is only on the agents list.
+	Hide []string `mapstructure:"hide" default:"h"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
@@ -411,48 +422,47 @@ type DocumentTypesMenuKeys struct {
 	New []string `mapstructure:"new" default:"c"`
 }
 
+// DocumentMenuKeys are the bindings for the menu on the hovered document or document type.
+type DocumentMenuKeys struct {
+	// Open the document or type in your editor, in place of the text drawn beside the list.
+	// Quitting the editor, or picking the entry again to close it, saves what it has written.
+	Edit []string `mapstructure:"edit" default:"e"`
+	// Rename the document or type, typing over its name in the list. Every document written as a
+	// type is renamed with it.
+	Rename []string `mapstructure:"rename" default:"r"`
+	// Write a new document for the agent whose documents are listed, or define a new type, from a
+	// form.
+	New []string `mapstructure:"new" default:"c"`
+	// Delete the type, which is refused while documents are written as it. The entry is only on
+	// the document types.
+	Delete []string `mapstructure:"delete" default:"d"`
+}
+
 // DocumentsKeys are the bindings for the documents screen, which lists the documents one
-// agent has written and draws the one under the cursor beside the list.
+// agent has written and draws the one under the cursor beside the list. Editing, renaming and
+// writing a new one are in the menu on the hovered document.
 type DocumentsKeys struct {
 	// Leave the documents screen for the view it was opened from.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Open the document under the cursor in your editor, in place of the document drawn
-	// beside the list. Quitting the editor, or pressing the key again to close it, saves what it
-	// has written to the file.
-	Edit []string `mapstructure:"edit" default:"e"`
 	// Step back to an earlier write of the document under the cursor, drawing what that write
 	// changed.
 	Older []string `mapstructure:"older" default:"<"`
 	// Step forward to a later write, and past the newest back to the document as it stands.
 	Newer []string `mapstructure:"newer" default:">"`
-	// Write a new document for the agent whose documents are listed, from a form asking its name
-	// and type. It starts with a line saying it is empty, for you to edit.
-	New []string `mapstructure:"new" default:"c"`
-	// Rename the document under the cursor, typing over its name in the list.
-	Rename []string `mapstructure:"rename" default:"r"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
 
 // DocumentTypesKeys are the bindings for the document types screen, which lists the sorts of
 // document agents write and draws the context of the one under the cursor beside the list.
+// Editing, renaming, defining and deleting a type are in the menu on the hovered type.
 type DocumentTypesKeys struct {
 	// Leave the document types for the screen they were opened from.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Open the context of the type under the cursor in your editor. Quitting the editor, or
-	// pressing the key again to close it, saves what it has written.
-	Edit []string `mapstructure:"edit" default:"e"`
 	// Step back to an earlier write of the type under the cursor, drawing what that write changed.
 	Older []string `mapstructure:"older" default:"<"`
 	// Step forward to a later write, and past the newest back to the type as it stands.
 	Newer []string `mapstructure:"newer" default:">"`
-	// Define a new type, from a form asking its name and its context.
-	New []string `mapstructure:"new" default:"c"`
-	// Rename the type under the cursor, typing over its name in the list. Every document written
-	// as it is renamed with it.
-	Rename []string `mapstructure:"rename" default:"r"`
-	// Delete the type under the cursor, which is refused while documents are written as it.
-	Delete []string `mapstructure:"delete" default:"d"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

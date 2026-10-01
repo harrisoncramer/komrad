@@ -278,7 +278,7 @@ func confirmDeleteWorktrees(h host, s panelShared, deletion worktreeDeletion) te
 		kind:   formWorktreesDelete,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}

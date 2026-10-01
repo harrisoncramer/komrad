@@ -110,14 +110,14 @@ func archiveMenu(s panelShared, target archived) submenu {
 func (m model) runArchiveChoice(target archived, choice archiveMenuChoice) (tea.Model, tea.Cmd) {
 	switch choice {
 	case archiveMenuRestore:
-		return m.closeMenuThen(func(h host) tea.Cmd { return restoreArchived(h, target) })
+		return m.submitMenu(func(h host) tea.Cmd { return restoreArchived(h, target) })
 	case archiveMenuRestoreOpen:
 		agent, err := target.opensAgent()
 		if err != nil {
 			return m.refuseSubpage("Could not restore and open "+target.name(m.listing), err)
 		}
 
-		return m.closeMenuThen(func(h host) tea.Cmd { return restoreAndResumeCmd(h, *agent) })
+		return m.submitMenu(func(h host) tea.Cmd { return restoreAndResumeCmd(h, *agent) })
 	case archiveMenuDelete:
 		m.leaveForm()
 		cmd := confirmDeleteArchivedRow(&m, m.shared(), target)
@@ -162,13 +162,13 @@ func confirmDeleteArchivedRow(h host, s panelShared, target archived) tea.Cmd {
 	return confirmDeleteArchived(h, s, target.agents)
 }
 
-// closeMenuThen takes the menu down and runs what was picked over the screen it was opened on.
-func (m model) closeMenuThen(run func(host) tea.Cmd) (tea.Model, tea.Cmd) {
-	closed, back := m.closeForm()
-	next, _ := closed.(model)
-	cmd := run(&next)
+// submitMenu runs what was picked, holding the menu up while a write it began is in flight.
+func (m model) submitMenu(run func(host) tea.Cmd) (tea.Model, tea.Cmd) {
+	return holdSubmit(func(m model) (model, tea.Cmd) {
+		cmd := run(&m)
 
-	return next, tea.Batch(back, cmd)
+		return m, cmd
+	})(m)
 }
 
 // liveArchive is one entry of the archive menu on a row that is not archived yet.
@@ -204,7 +204,7 @@ func agentsArchiveMenu(s panelShared, agents []panel.Agent, chosen bool) submenu
 			label: archive,
 			keys:  s.keys.ArchiveMenu.Archive,
 			run: func(m model) (tea.Model, tea.Cmd) {
-				return m.closeMenuWith(func(next model) (model, tea.Cmd) { return next.archiveAgents(agents) })
+				return holdSubmit(func(next model) (model, tea.Cmd) { return next.archiveAgents(agents) })(m)
 			},
 		},
 		liveArchive{
@@ -225,7 +225,7 @@ func workflowArchiveMenu(s panelShared, workflow panel.Workflow) submenu {
 		label: "archive with its agents",
 		keys:  s.keys.ArchiveMenu.Archive,
 		run: func(m model) (tea.Model, tea.Cmd) {
-			return m.closeMenuWith(func(next model) (model, tea.Cmd) { return next.archiveWorkflow(workflow) })
+			return holdSubmit(func(next model) (model, tea.Cmd) { return next.archiveWorkflow(workflow) })(m)
 		},
 	})
 }
@@ -235,7 +235,7 @@ func scheduleArchiveMenu(s panelShared, schedule panel.Schedule) submenu {
 		label: "archive",
 		keys:  s.keys.ArchiveMenu.Archive,
 		run: func(m model) (tea.Model, tea.Cmd) {
-			return m.closeMenuWith(func(next model) (model, tea.Cmd) { return next.archiveSchedule(schedule) })
+			return holdSubmit(func(next model) (model, tea.Cmd) { return next.archiveSchedule(schedule) })(m)
 		},
 	})
 }
@@ -248,7 +248,7 @@ func confirmArchiveDeleteAgents(h host, live []panel.Agent, agents []panel.Agent
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}
@@ -256,13 +256,4 @@ func confirmArchiveDeleteAgents(h host, live []panel.Agent, agents []panel.Agent
 			return m.archiveAndDeleteAgents(agents)
 		}),
 	})
-}
-
-// closeMenuWith takes the menu down and makes the write that was picked.
-func (m model) closeMenuWith(write func(model) (model, tea.Cmd)) (tea.Model, tea.Cmd) {
-	closed, back := m.closeForm()
-	next, _ := closed.(model)
-	written, cmd := write(next)
-
-	return written, tea.Batch(back, cmd)
 }

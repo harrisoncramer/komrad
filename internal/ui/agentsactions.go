@@ -27,11 +27,6 @@ func (a *agentsScreen) modeActions() []screenAction {
 
 	return append(list.actions(),
 		screenAction{
-			id:   actionAgentShowHidden,
-			keys: func(k config.Keybindings) []string { return k.Agents.ShowHidden },
-			run:  a.toggleHidden,
-		},
-		screenAction{
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
 			when: list.isBrowsing,
@@ -93,12 +88,6 @@ func (a *agentsScreen) rowActions() []screenAction {
 			keys: func(k config.Keybindings) []string { return k.Agents.Edit },
 			when: a.isEditable,
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.pressEdit(h, s) },
-		},
-		{
-			id:   actionAgentHide,
-			keys: func(k config.Keybindings) []string { return k.Agents.Hide },
-			when: a.isHoveringAgent,
-			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return hideAgent(h, item.Agent) }),
 		},
 		{
 			id:   actionAgentChild,
@@ -178,20 +167,7 @@ func (a *agentsScreen) onHoveredAgentIn(fn func(host, panelShared, panel.AgentRo
 }
 
 func (a *agentsScreen) legend() []screenLegendRow {
-	return append(a.selectionLegend(), a.browsingLegend()...)
-}
-
-// selectionLegend is what the screen names while a selection stands.
-func (a *agentsScreen) selectionLegend() []screenLegendRow {
-	list := a.list()
-
-	return append(list.selectionLegend(),
-		screenLegendRow{
-			of:   []actionID{actionAgentShowHidden},
-			desc: a.showHiddenDescOf,
-			show: list.isSelecting,
-		},
-	)
+	return append(a.list().selectionLegend(), a.browsingLegend()...)
 }
 
 // browsingLegend is the ordinary legend, in reading order.
@@ -216,16 +192,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			of:   []actionID{actionAgentEdit},
 			desc: a.editDesc,
 			show: a.isEditable,
-		},
-		{
-			of:   []actionID{actionAgentHide, actionAgentShowHidden},
-			desc: a.hideDesc,
-			show: a.isHoveringAgent,
-		},
-		{
-			of:   []actionID{actionAgentShowHidden},
-			desc: a.showHiddenDescOf,
-			show: a.isHoveringWorkflow,
 		},
 		{
 			of:   []actionID{actionAgentNew, actionWorkflowNew},
@@ -271,23 +237,10 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 	}, screenNavLegend())
 }
 
-func (a *agentsScreen) showHiddenDescOf(panelShared) string {
-	return a.showHiddenDesc()
-}
-
 func (a *agentsScreen) showHiddenDesc() string {
 	if a.showHidden {
 		return "put hidden away"
 	}
 
 	return "show hidden"
-}
-
-func (a *agentsScreen) hideDesc(s panelShared) string {
-	hide := "hide"
-	if item, ok := a.selectedAgent(s); ok && item.Agent.Hidden {
-		hide = "unhide"
-	}
-
-	return hide + "/" + a.showHiddenDesc()
 }

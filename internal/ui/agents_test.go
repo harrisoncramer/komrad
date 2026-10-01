@@ -195,7 +195,8 @@ func TestAgentsRows(t *testing.T) {
 	})
 }
 
-// TestAgentsShowHidden covers the key that shows and puts away the hidden agents.
+// TestAgentsShowHidden covers the hide menu, which hides the hovered agent and shows and puts away
+// the hidden ones.
 func TestAgentsShowHidden(t *testing.T) {
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
@@ -210,7 +211,7 @@ func TestAgentsShowHidden(t *testing.T) {
 		harness.press("j", "j")
 		require.Equal(t, "  ui", readHoveredRow(harness.readFrame()))
 
-		harness.press("H")
+		harness.press("space", "h", "H")
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"backend", "  chore" + hiddenMark, "  auth", "frontend", "  ui"}, readListRows(frame))
@@ -220,33 +221,56 @@ func TestAgentsShowHidden(t *testing.T) {
 	t.Run("the hidden parent's family comes back whole", func(t *testing.T) {
 		harness := openAgents(t, hideAgent(buildFamily(), "author")...)
 
-		harness.press("H")
+		harness.press("space", "h", "H")
 
 		assert.Equal(t, []string{"komrad", "  fix-gutter", "  author" + hiddenMark, "  └ test-runner", "  └ reviewer"}, readListRows(harness.readFrame()))
 	})
 
+	t.Run("the toggle gives the window back to an open scratch file", func(t *testing.T) {
+		harness, _ := openScratchPanel(t, rows...)
+		harness.press("space", "s")
+		require.False(t, harness.panel.IsZoomed())
+
+		harness.press("space", "h", "H")
+
+		assert.False(t, harness.panel.IsZoomed())
+	})
+
+	t.Run("the hide entry hides the hovered agent", func(t *testing.T) {
+		harness := openAgents(t, rows...)
+
+		harness.press("space", "h", "h")
+
+		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a1", Hidden: true})
+	})
+
+	t.Run("the hide entry unhides a revealed agent", func(t *testing.T) {
+		harness := openAgents(t, rows...)
+
+		harness.press("space", "h", "H", "k", "space", "h", "h")
+
+		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a2", Hidden: false})
+	})
+
 	tests := []struct {
-		name       string
-		press      []string
-		want       string
-		wantAbsent string
+		name  string
+		press []string
+		want  []string
 	}{
 		{
-			name:       "on a workflow header the legend offers only the toggle",
-			press:      []string{"k"},
-			want:       "show hidden",
-			wantAbsent: "hide/show hidden",
+			name:  "on a listed agent the menu offers to hide it and show the rest",
+			press: nil,
+			want:  []string{"› hide", "show hidden"},
 		},
 		{
-			name:       "on a listed agent the two keys share a line",
-			press:      nil,
-			want:       "hide/show hidden",
-			wantAbsent: "unhide",
+			name:  "on a revealed agent the menu offers to unhide it and put the rest away",
+			press: []string{"space", "h", "H", "k"},
+			want:  []string{"› unhide", "put hidden away"},
 		},
 		{
-			name:  "on a revealed agent the line offers to unhide it",
-			press: []string{"H", "k"},
-			want:  "unhide/put hidden away",
+			name:  "on a workflow header only the toggle is live",
+			press: []string{"k"},
+			want:  []string{"› show hidden"},
 		},
 	}
 
@@ -254,12 +278,11 @@ func TestAgentsShowHidden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, rows...)
 
-			harness.press(append(append(tt.press, widenListPresses...), "?")...)
+			harness.press(append(tt.press, "space", "h")...)
 
-			legend := readLegend(harness.readFrame())
-			assert.Contains(t, legend, tt.want)
-			if tt.wantAbsent != "" {
-				assert.NotContains(t, legend, tt.wantAbsent)
+			frame := harness.readFrame()
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
 			}
 		})
 	}
@@ -1133,10 +1156,17 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		assert.Negative(t, findRecordLine(frame, "commits"))
 	})
 
-	t.Run("the top rule carries the lines the branch changed", func(t *testing.T) {
+	t.Run("the top rule carries where the directory stands left of the lines the branch changed", func(t *testing.T) {
+		changed := &agentv1.DiffStat{Added: 200, Removed: 100}
+		unpushed := buildWorktreeRead()
+		unpushed.Modified, unpushed.Untracked, unpushed.Unpulled = nil, nil, 0
+		unpulledLanded := buildWorktreeRead()
+		unpulledLanded.UnpulledLanded = true
 		tests := []struct {
 			name     string
+			read     *worktreev1.GetWorktreeResponse
 			diffStat *agentv1.DiffStat
+			presses  []string
 			want     string
 		}{
 			{
@@ -1149,7 +1179,51 @@ func TestAgentsRecordWorktree(t *testing.T) {
 			},
 			{
 				name:     "a branch with changes counts the lines added and removed",
-				diffStat: &agentv1.DiffStat{Added: 200, Removed: 100},
+				diffStat: changed,
+				want:     "+200 −100",
+			},
+			{
+				name:     "a directory with nothing waiting carries only the lines",
+				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true},
+				diffStat: changed,
+				want:     "+200 −100",
+			},
+			{
+				name:     "a branch never pushed says so",
+				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Ahead: 1},
+				diffStat: changed,
+				want:     "not pushed · +200 −100",
+			},
+			{
+				name:     "commits not on origin are counted",
+				read:     unpushed,
+				diffStat: changed,
+				want:     "↑2 unpushed · +200 −100",
+			},
+			{
+				name:     "a narrow rule gives up the leftmost of what is waiting first",
+				read:     buildWorktreeRead(),
+				diffStat: changed,
+				want:     "↑2 unpushed · ↓1 unpulled · +200 −100",
+			},
+			{
+				name:     "a wide rule carries every change waiting in the directory",
+				read:     buildWorktreeRead(),
+				diffStat: changed,
+				presses:  widenListPresses,
+				want:     "2 modified · 1 untracked · ↑2 unpushed · ↓1 unpulled · +200 −100",
+			},
+			{
+				name:     "unpulled commits the base already holds are left off",
+				read:     unpulledLanded,
+				diffStat: changed,
+				presses:  widenListPresses,
+				want:     "2 modified · 1 untracked · ↑2 unpushed · +200 −100",
+			},
+			{
+				name:     "a branch the base already holds whole has nothing to push",
+				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true, Unpushed: 2, Unpulled: 1, UnpulledLanded: true},
+				diffStat: changed,
 				want:     "+200 −100",
 			},
 		}
@@ -1159,8 +1233,14 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				recorded := buildRecorded()
 				recorded[1].(*agentv1.Agent).DiffStat = tt.diffStat
 				harness := newPanelHarness(t, panelHarnessParams{})
-				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+				if tt.read == nil {
+					harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+				} else {
+					harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(tt.read))
+				}
 				harness.watch(buildSnapshot(recorded...))
+
+				harness.press(tt.presses...)
 
 				assert.Equal(t, tt.want, readRecordTag(harness.readFrame()))
 			})
@@ -2135,18 +2215,18 @@ func TestAgentsChildren(t *testing.T) {
 	}{
 		{
 			name:  "one agent with nothing attached",
-			press: []string{"space", "a"},
-			want:  `Archive agent "fix-gutter"?`,
+			press: []string{"space", "a", "d"},
+			want:  `Permanently delete agent "fix-gutter"?`,
 		},
 		{
 			name:  "one agent with children",
-			press: []string{"j", "space", "a"},
-			want:  `Archive agent "author" and its 2 children?`,
+			press: []string{"j", "space", "a", "d"},
+			want:  `Permanently delete agent "author" and its 2 children?`,
 		},
 		{
 			name:  "a selection of agents counts every child that goes with it",
-			press: []string{"v", "j", "v", "space", "a"},
-			want:  "Archive 2 agents and 2 children?",
+			press: []string{"v", "j", "v", "space", "a", "d"},
+			want:  "Permanently delete 2 agents and 2 children?",
 		},
 	}
 
@@ -2390,7 +2470,7 @@ func TestAgentsSelection(t *testing.T) {
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
-		harness.press("H", "v", "j", "j", "j", "v", "H")
+		harness.press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
 
 		harness.press("space", "a", "ctrl+s")
 

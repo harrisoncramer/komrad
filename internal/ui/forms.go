@@ -43,6 +43,12 @@ type formState struct {
 
 	// order lists the keys of the fields the cursor can reach, in the order they are drawn.
 	order []string
+
+	// frozen is the form as it was drawn before the key that finished it.
+	frozen string
+
+	// keepsOnRefusal says a refused write leaves the form up to be fixed and submitted again.
+	keepsOnRefusal bool
 }
 
 // formKind names the form on screen, for the legend and for what closing it means.
@@ -59,6 +65,7 @@ const (
 	formAgentRetry
 	formGit
 	formArchiveMenu
+	formHideMenu
 	formDocumentsMenu
 	formDocumentTypesMenu
 	formMenu
@@ -100,12 +107,13 @@ func (m *model) openForm(f formState) tea.Cmd {
 // redrawnForm is a form the panel can draw again from one builder.
 func redrawnForm(params redrawnFormParams) formState {
 	return formState{
-		kind:     params.Kind,
-		update:   model.updateForm,
-		submit:   params.Submit,
-		rebuild:  params.Build,
-		reshaped: params.Reshaped,
-		editable: params.Editable,
+		kind:           params.Kind,
+		keepsOnRefusal: true,
+		update:         model.updateForm,
+		submit:         params.Submit,
+		rebuild:        params.Build,
+		reshaped:       params.Reshaped,
+		editable:       params.Editable,
 	}
 }
 
@@ -129,7 +137,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formAgentRetry, formWorkflow, formSchedule,
 		formDocument, formDocumentType:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formArchiveMenu, formDocumentsMenu, formDocumentTypesMenu, formMerge, formMenu, formAgentArchive, formAgentRebase, formWorkflowArchive, formScheduleArchive,
+	case formGit, formArchiveMenu, formHideMenu, formDocumentsMenu, formDocumentTypesMenu, formMerge, formMenu, formAgentArchive, formAgentRebase, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete, formDocumentTypeDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -202,13 +210,13 @@ func (m model) formLeading() ([]string, int) {
 	return views, used
 }
 
-// confirmSubmit answers a prompt by running what it asked for, holding it up while a write it began is in flight.
-func confirmSubmit(write func(model) (model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
+// holdSubmit answers a form by running what it asked for, holding it up while a write it began is in flight.
+func holdSubmit(write func(model) (model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
 	return func(m model) (tea.Model, tea.Cmd) {
 		began := m.writes
 		written, writeCmd := write(m)
 
-		if written.writes != began && written.form.rebuild != nil {
+		if written.writes != began && written.form.isActive() {
 			return written, tea.Batch(writeCmd, written.holdForm())
 		}
 
@@ -347,6 +355,8 @@ func (m *model) rebuildForm() tea.Cmd {
 // detachForm gives the keyboard back while the write the form was held for runs on, and
 // remembers which write that was.
 func (m model) detachForm() (tea.Model, tea.Cmd) {
+	m.warm.closesForm = false
+
 	if m.held.write != 0 {
 		if m.detached == nil {
 			m.detached = map[int]struct{}{}
@@ -383,10 +393,7 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.answerForm()
 	}
 
-	form, cmd := m.form.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form.form = updated
-	}
+	cmd := m.stepForm(msg)
 
 	switch m.form.form.State {
 	case huh.StateCompleted:
@@ -406,6 +413,20 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+// stepForm hands a message to huh, keeping the form as drawn before a key that may finish it.
+func (m *model) stepForm(msg tea.Msg) tea.Cmd {
+	if _, ok := msg.(tea.KeyPressMsg); ok && m.form.rebuild == nil {
+		m.form.frozen = m.form.form.View()
+	}
+
+	form, cmd := m.form.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form.form = updated
+	}
+
+	return cmd
 }
 
 // formSizeOf turns a resize into the room the form has rather than the room the panel has, and

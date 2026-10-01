@@ -137,7 +137,7 @@ func (a *agentsScreen) openAgent(h host, s panelShared) tea.Cmd {
 	})
 }
 
-func (a *agentsScreen) toggleHidden(h host, s panelShared, _ string) tea.Cmd {
+func (a *agentsScreen) toggleHidden(h host, s panelShared) {
 	selected := a.list().hovered(s)
 
 	a.showHidden = !a.showHidden
@@ -146,8 +146,6 @@ func (a *agentsScreen) toggleHidden(h host, s panelShared, _ string) tea.Cmd {
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
 	a.stage(h, s)
-
-	return nil
 }
 
 func hideAgent(h host, agent panel.Agent) tea.Cmd {
@@ -176,7 +174,7 @@ func (a *agentsScreen) details(s panelShared) details {
 		id:      r.item.Agent.ID,
 		notices: agentNotices(s.glyphs, s.loaderFrame, r),
 		fields:  agentDetailFields(s, r.item),
-		tag:     buildDiffStatTag(r.item.DiffStat),
+		tags:    agentDetailsTags(s, r.item),
 	}
 }
 

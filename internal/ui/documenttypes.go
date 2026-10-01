@@ -21,34 +21,6 @@ type documentTypeFormValues struct {
 	Context string
 }
 
-// shelfActions is the keys only the document types have: renaming and deleting a type.
-func (d *documentsScreen) shelfActions() []screenAction {
-	if d.shelf != shelfDocumentTypes {
-		return nil
-	}
-
-	return []screenAction{
-		{
-			id:   actionDocumentTypesDelete,
-			keys: func(k config.Keybindings) []string { return k.DocumentTypes.Delete },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return d.confirmDeleteType(h, s) },
-		},
-	}
-}
-
-func (d *documentsScreen) shelfLegend() []screenLegendRow {
-	if d.shelf != shelfDocumentTypes {
-		return nil
-	}
-
-	return []screenLegendRow{
-		{
-			of:   []actionID{actionDocumentTypesDelete},
-			desc: func(panelShared) string { return "delete" },
-		},
-	}
-}
-
 // back leaves for the screen the shelf was opened from.
 func (d *documentsScreen) back(h host, s panelShared) tea.Cmd {
 	if d.shelf == shelfDocumentTypes {
@@ -91,9 +63,9 @@ func newTypeForm(h host) tea.Cmd {
 		Kind:     formDocumentType,
 		Build:    func(model) (*huh.Form, []string) { return documentTypeForm(values, formKeys()) },
 		Editable: []editableText{{key: "context", value: &values.Context}},
-		Submit: func(m model) (tea.Model, tea.Cmd) {
+		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if checkDocumentTypeName(values.Name) != nil || checkDocumentTypeContext(values.Context) != nil {
-				return m.closeForm()
+				return m, nil
 			}
 
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
@@ -103,8 +75,8 @@ func newTypeForm(h host) tea.Cmd {
 				func(a api) error { return a.createDocumentType(name, typeContext) },
 			)
 
-			return m, tea.Batch(cmd, m.holdForm())
-		},
+			return m, cmd
+		}),
 	}))
 }
 
@@ -135,7 +107,7 @@ func (d *documentsScreen) confirmDeleteType(h host, s panelShared) tea.Cmd {
 		kind:   formDocumentTypeDelete,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}

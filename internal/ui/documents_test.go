@@ -159,7 +159,7 @@ func TestDocumentsEdit(t *testing.T) {
 		{
 			name:      "the key again saves what changed",
 			write:     "# Design the cache\n\nKeep the cache cold.",
-			close:     func(h *panelHarness) { h.press("e") },
+			close:     func(h *panelHarness) { h.press("space", "e") },
 			wantSaved: "# Design the cache\n\nKeep the cache cold.",
 		},
 		{
@@ -194,7 +194,7 @@ func TestDocumentsEdit(t *testing.T) {
 			name:      "a refused write keeps the copy",
 			write:     "Rewritten.",
 			refuse:    true,
-			close:     func(h *panelHarness) { h.press("e") },
+			close:     func(h *panelHarness) { h.press("space", "e") },
 			wantSaved: "Rewritten.",
 			wantKept:  true,
 		},
@@ -208,19 +208,19 @@ func TestDocumentsEdit(t *testing.T) {
 				h.watch(buildPuts(author))
 			},
 			refuse:    true,
-			close:     func(h *panelHarness) { h.press("e") },
+			close:     func(h *panelHarness) { h.press("space", "e") },
 			wantSaved: "Rewritten.",
 			wantKept:  true,
 		},
 		{
 			name:  "nothing changed saves nothing",
 			write: "# Design the cache\n\nKeep the cache warm.",
-			close: func(h *panelHarness) { h.press("e") },
+			close: func(h *panelHarness) { h.press("space", "e") },
 		},
 		{
 			name:  "an emptied document is not saved",
 			write: "  \n",
-			close: func(h *panelHarness) { h.press("e") },
+			close: func(h *panelHarness) { h.press("space", "e") },
 		},
 	}
 
@@ -236,7 +236,7 @@ func TestDocumentsEdit(t *testing.T) {
 
 				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 			})
-			harness.press("e")
+			harness.press("space", "e")
 
 			respawns := harness.panel.ReadRespawns()
 			require.NotEmpty(t, respawns)
@@ -284,7 +284,7 @@ func TestDocumentsNew(t *testing.T) {
 	}{
 		{
 			name:    "a name and the type left alone write an RFC saying it is empty",
-			presses: []string{"c", "P", "l", "a", "n", "ctrl+s"},
+			presses: []string{"space", "c", "P", "l", "a", "n", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Plan",
@@ -294,7 +294,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "the type chosen names what the document says it is",
-			presses: []string{"c", "L", "o", "g", "tab", "up", "up", "ctrl+s"},
+			presses: []string{"space", "c", "L", "o", "g", "tab", "up", "up", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
@@ -304,7 +304,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "a blank name writes nothing",
-			presses: []string{"c", " ", "ctrl+s"},
+			presses: []string{"space", "c", " ", "ctrl+s"},
 		},
 	}
 
@@ -334,7 +334,7 @@ func TestDocumentsNewRedrawsTheTypes(t *testing.T) {
 	t.Parallel()
 
 	harness, _ := openDocuments(t)
-	harness.press("c")
+	harness.press("space", "c")
 	require.NotContains(t, harness.readFrame(), "brief")
 
 	harness.watch(buildPuts(newDocumentType("t5", "brief")))
@@ -361,6 +361,69 @@ func TestDocumentsNewFromTheMenu(t *testing.T) {
 		Type:    "RFC",
 		Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
 	})
+}
+
+// TestDocumentsMenu covers the menu space opens on a document or a type, over the panel's own.
+func TestDocumentsMenu(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		open     func(*testing.T) *panelHarness
+		presses  []string
+		wantOn   []*regexp.Regexp
+		wantOff  []*regexp.Regexp
+		wantGone []*regexp.Regexp
+	}{
+		{
+			name: "a document's band is titled for it and has no delete",
+			open: func(t *testing.T) *panelHarness {
+				harness, _ := openDocuments(t)
+
+				return harness
+			},
+			presses:  []string{"space"},
+			wantOn:   []*regexp.Regexp{regexp.MustCompile(`Design the cache`), regexp.MustCompile(`edit +e`), regexp.MustCompile(`rename +r`), regexp.MustCompile(`new document +c`)},
+			wantGone: []*regexp.Regexp{regexp.MustCompile(`delete +d`)},
+		},
+		{
+			name:    "a type's band has delete",
+			open:    func(t *testing.T) *panelHarness { return openDocumentTypes(t, "author") },
+			presses: []string{"space"},
+			wantOn:  []*regexp.Regexp{regexp.MustCompile(`explainer`), regexp.MustCompile(`new type +c`), regexp.MustCompile(`delete +d`)},
+		},
+		{
+			name: "an open editor turns edit into closing it and grays the rest",
+			open: func(t *testing.T) *panelHarness {
+				harness, _ := openDocuments(t)
+
+				return harness
+			},
+			presses: []string{"space", "e", "space"},
+			wantOn:  []*regexp.Regexp{regexp.MustCompile(`close editor +e`)},
+			wantOff: []*regexp.Regexp{readOffEntry("rename", "r"), readOffEntry("new document", "c")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := tt.open(t)
+			harness.press(tt.presses...)
+
+			frame := harness.readFrame()
+			for _, want := range tt.wantOn {
+				assert.Regexp(t, want, frame)
+			}
+			for _, want := range tt.wantOff {
+				assert.Regexp(t, want, harness.readRawFrame())
+			}
+			for _, gone := range tt.wantGone {
+				assert.NotRegexp(t, gone, frame)
+			}
+		})
+	}
 }
 
 // TestDocumentsHistory covers stepping back and forward through a document's writes, drawing

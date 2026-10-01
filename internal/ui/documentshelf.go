@@ -34,17 +34,7 @@ func (f documentShelf) screen() screen {
 // keys is the shelf's bindings, in the shape both shelves share.
 func (f documentShelf) keys(k config.Keybindings) config.DocumentsKeys {
 	if f == shelfDocumentTypes {
-		t := k.DocumentTypes
-
-		return config.DocumentsKeys{
-			Back:   t.Back,
-			Edit:   t.Edit,
-			Older:  t.Older,
-			Newer:  t.Newer,
-			New:    t.New,
-			Rename: t.Rename,
-			Quit:   t.Quit,
-		}
+		return config.DocumentsKeys(k.DocumentTypes)
 	}
 
 	return k.Documents

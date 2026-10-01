@@ -371,12 +371,3 @@ func hookOptions(available []hookChoice, chosen string) []huh.Option[string] {
 type hookChoice struct {
 	name string
 }
-
-func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
-	return confirmForm(
-		fmt.Sprintf("Archive workflow %q and its agents?", name),
-		"Their transcripts are kept and stay searchable.",
-		"Archive",
-		keys,
-	)
-}

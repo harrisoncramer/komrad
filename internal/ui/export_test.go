@@ -17,6 +17,7 @@ import (
 	"komrad/internal/loader"
 	"komrad/internal/panes"
 	"komrad/internal/ui/layout"
+	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -709,11 +710,7 @@ func (t *recordingTmux) SendKeys(target string, keys ...string) error {
 // MovePanes replays a change's pane moves onto the fake, so a test asserting on swaps and
 // zooms sees what the frame asked for whether or not they were collected first.
 func (t *recordingTmux) MovePanes(moves []panes.Move) {
-	batch := make([]panes.Kind, 0, len(moves))
-	for _, move := range moves {
-		batch = append(batch, move.Kind)
-	}
-	t.moveBatches = append(t.moveBatches, batch)
+	t.moveBatches = append(t.moveBatches, xslice.Map(moves, func(move panes.Move) panes.Kind { return move.Kind }))
 
 	for _, move := range moves {
 		switch move.Kind {

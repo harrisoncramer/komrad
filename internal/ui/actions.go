@@ -34,8 +34,6 @@ const (
 	actionAgentChild
 	actionAgentRename
 	actionAgentEdit
-	actionAgentHide
-	actionAgentShowHidden
 	actionAgentNew
 	actionAgentRetry
 	actionSearchOpen
@@ -61,12 +59,8 @@ const (
 	actionWorktreesDelete
 	actionWorktreesClear
 	actionDocumentsBack
-	actionDocumentsEdit
-	actionDocumentsNew
 	actionDocumentsOlder
 	actionDocumentsNewer
-	actionDocumentsRename
-	actionDocumentTypesDelete
 	actionLogsBack
 	actionLogsCopy
 	actionDiffFile

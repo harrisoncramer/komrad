@@ -47,7 +47,7 @@ func openAgentForm(h host, workflow panel.Workflow, values *agentFormValues) tea
 			return newAgentForm(formKeys(), values, workflow.Worktree.Enabled)
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
+		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitAgent(workflow, *values) }),
 	}))
 }
 
@@ -74,12 +74,12 @@ func openChildForm(h host, parent panel.Agent, values *agentFormValues) tea.Cmd 
 		Kind:     formChild,
 		Build:    func(m model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
+		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitChild(parent, *values) }),
 	}))
 }
 
 // submitChild launches the child without a directory or a provisioner.
-func (m model) submitChild(parent panel.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitChild(parent panel.Agent, values agentFormValues) (model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,
 		Title:         values.Title,
@@ -89,7 +89,7 @@ func (m model) submitChild(parent panel.Agent, values agentFormValues) (tea.Mode
 		ParentAgentID: parent.ID,
 	})
 
-	return m, tea.Batch(cmd, m.holdForm())
+	return m, cmd
 }
 
 func openRetryForm(h host, agent panel.Agent) tea.Cmd {
@@ -103,14 +103,14 @@ func openRetryForm(h host, agent panel.Agent) tea.Cmd {
 		Kind:     formAgentRetry,
 		Build:    func(m model) (*huh.Form, []string) { return retryAgentForm(formKeys(), &values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitRetry(agent, values) },
+		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitRetry(agent, values) }),
 	}))
 }
 
-func (m model) submitRetry(agent panel.Agent, values retryFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitRetry(agent panel.Agent, values retryFormValues) (model, tea.Cmd) {
 	cmd := m.retryCmd(agent, values)
 
-	return m, tea.Batch(cmd, m.holdForm())
+	return m, cmd
 }
 
 func openAdopt(h host, workflow *panel.Workflow) tea.Cmd {
@@ -135,11 +135,11 @@ func openAdoptForm(h host, workflow panel.Workflow, values *adoptFormValues) tea
 		Kind:     formAdopt,
 		Build:    func(m model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
+		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitAdopt(workflow, *values) }),
 	}))
 }
 
-func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (model, tea.Cmd) {
 	cmd := m.adoptCmd(adoptParams{
 		Ref:        values.Ref,
 		Prompt:     values.Prompt,
@@ -149,10 +149,10 @@ func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (tea
 		WorkflowID: workflow.ID,
 	})
 
-	return m, tea.Batch(cmd, m.holdForm())
+	return m, cmd
 }
 
-func (m model) submitAgent(workflow panel.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitAgent(workflow panel.Workflow, values agentFormValues) (model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:           values.Prompt,
 		Title:            values.Title,
@@ -163,7 +163,7 @@ func (m model) submitAgent(workflow panel.Workflow, values agentFormValues) (tea
 		WorkflowID:       workflow.ID,
 	})
 
-	return m, tea.Batch(cmd, m.holdForm())
+	return m, cmd
 }
 
 // worktreeOverride is what the form says about the agent's directory: nil to follow the
@@ -184,7 +184,7 @@ func (m model) openRebaseConfirm(plan rebasePlan) (tea.Model, tea.Cmd) {
 		kind:   formAgentRebase,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}
@@ -325,7 +325,7 @@ func confirmArchiveAgents(h host, live []panel.Agent, agents []panel.Agent) tea.
 		kind:   formAgentArchive,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			switch *answer {
 			case archiveChoiceArchive:
 				return m.archiveAgents(agents)
