@@ -353,11 +353,12 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	if data.Repository == nil || data.Repository.PullRequest == nil {
 		return noPullRequest(number, owner, name)
 	}
-	switch data.Repository.PullRequest.State {
-	case "MERGED":
-		return forge.ErrNotMergeable.Saying("github will not merge #%d: it has already merged", number)
-	case "CLOSED":
+	state := data.Repository.PullRequest.State
+	if state == "CLOSED" {
 		return forge.ErrNotMergeable.Saying("github will not merge #%d: it was closed without merging", number)
+	}
+	if err := refuseFinished(forge.ErrNotMergeable, "merge", state, number); err != nil {
+		return err
 	}
 
 	var merged struct{}
@@ -404,11 +405,8 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return noPullRequest(number, owner, name)
 	}
 	target := data.Repository.PullRequest
-	switch target.State {
-	case "MERGED":
-		return forge.ErrNotDraftable.Saying("github will not change #%d: it has already merged", number)
-	case "CLOSED":
-		return forge.ErrNotDraftable.Saying("github will not change #%d: it was closed", number)
+	if err := refuseFinished(forge.ErrNotDraftable, "change", target.State, number); err != nil {
+		return err
 	}
 	if target.IsDraft == draft {
 		return nil
@@ -437,19 +435,12 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 		return err
 	}
 
-	target, err := f.readAutoMergeTarget(ctx, readAutoMergeTargetParams{
-		owner:  owner,
-		name:   name,
-		number: number,
-	})
+	target, err := f.readAutoMergeTarget(ctx, owner, name, number)
 	if err != nil {
 		return err
 	}
-	switch target.State {
-	case "MERGED":
-		return forge.ErrNoAutoMerge.Saying("github will not change #%d: it has already merged", number)
-	case "CLOSED":
-		return forge.ErrNoAutoMerge.Saying("github will not change #%d: it was closed", number)
+	if err := refuseFinished(forge.ErrNoAutoMerge, "change", target.State, number); err != nil {
+		return err
 	}
 	if (target.AutoMergeRequest != nil) == params.On {
 		return nil
@@ -472,15 +463,8 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	return mutationRefusal{sentinel: forge.ErrNoAutoMerge, verb: "change auto-merge on"}.explain(answer, params.URL, number)
 }
 
-// readAutoMergeTargetParams names the pull request whose auto-merge is read.
-type readAutoMergeTargetParams struct {
-	owner  string
-	name   string
-	number int
-}
-
 // readAutoMergeTarget reads the pull request whose auto-merge is about to change.
-func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTargetParams) (*autoMergeTarget, error) {
+func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, number int) (*autoMergeTarget, error) {
 	var data struct {
 		Repository *struct {
 			ViewerDefaultMergeMethod string           `json:"viewerDefaultMergeMethod"`
@@ -488,9 +472,9 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTar
 		} `json:"repository"`
 	}
 	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{
-		"owner":  params.owner,
-		"name":   params.name,
-		"number": params.number,
+		"owner":  owner,
+		"name":   name,
+		"number": number,
 	}, &data)
 	if err != nil {
 		return nil, err
@@ -499,7 +483,7 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTar
 		return nil, err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
-		return nil, noPullRequest(params.number, params.owner, params.name)
+		return nil, noPullRequest(number, owner, name)
 	}
 
 	target := data.Repository.PullRequest
@@ -515,6 +499,17 @@ func noRepository(variables map[string]any) error {
 
 func noPullRequest(number int, owner, name string) error {
 	return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+}
+
+func refuseFinished(sentinel *fail.Error, verb, state string, number int) error {
+	switch state {
+	case "MERGED":
+		return sentinel.Saying("github will not %s #%d: it has already merged", verb, number)
+	case "CLOSED":
+		return sentinel.Saying("github will not %s #%d: it was closed", verb, number)
+	}
+
+	return nil
 }
 
 type mutationRefusal struct {
