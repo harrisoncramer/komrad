@@ -1024,3 +1024,65 @@ func TestListRecipients(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{onBranch}, recipients, "only the live parent on the branch is told")
 }
+
+// TestSetStandingRecordsAutoMerge covers auto-merge being recorded with the rest of a read, an
+// unanswered read leaving it as it was, and the value before and after each write.
+func TestSetStandingRecordsAutoMerge(t *testing.T) {
+	type testCase struct {
+		name              string
+		autoMerge         forge.AutoMerge
+		unanswered        bool
+		wantOld           *bool
+		wantKnown         *bool
+		wantAutoMergeable bool
+	}
+
+	tests := []testCase{
+		{
+			name:              "the first read of a pull request that may be queued",
+			autoMerge:         forge.AutoMerge{Allowed: true},
+			wantKnown:         xptr.Ptr(false),
+			wantAutoMergeable: true,
+		},
+		{
+			name:      "a read after it was queued",
+			autoMerge: forge.AutoMerge{On: true},
+			wantOld:   xptr.Ptr(false),
+			wantKnown: xptr.Ptr(true),
+		},
+		{
+			name:       "a read the forge did not answer",
+			unanswered: true,
+			wantOld:    xptr.Ptr(true),
+			wantKnown:  xptr.Ptr(true),
+		},
+		{
+			name:              "a read after it was withdrawn",
+			autoMerge:         forge.AutoMerge{Allowed: true},
+			wantOld:           xptr.Ptr(true),
+			wantKnown:         xptr.Ptr(false),
+			wantAutoMergeable: true,
+		},
+	}
+
+	h := open(t)
+	written, err := h.Upsert(t.Context(), openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+
+	for _, tt := range tests {
+		change, err := h.SetStanding(t.Context(), SetStandingParams{
+			ID:         written.ID,
+			Standing:   forge.Standing{HeadSHA: "abc", AutoMerge: tt.autoMerge},
+			ReadAt:     time.Now(),
+			Unanswered: tt.unanswered,
+		})
+		require.NoError(t, err, tt.name)
+		assert.Equal(t, tt.wantOld, change.OldAutoMerge, tt.name)
+		assert.Equal(t, tt.wantKnown, change.KnownAutoMerge, tt.name)
+
+		stored, err := h.GetByIdentity(t.Context(), "github.com", "PR_1")
+		require.NoError(t, err, tt.name)
+		assert.Equal(t, tt.wantKnown, stored.AutoMerge, tt.name)
+		assert.Equal(t, tt.wantAutoMergeable, stored.AutoMergeable, tt.name)
+	}
+}

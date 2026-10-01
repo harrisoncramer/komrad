@@ -28,10 +28,11 @@ import (
 )
 
 type rebaseFixture struct {
-	stores       *storetest.Stores
-	events       *eventstest.Queue
-	workflowID   string
-	checkoutSync *waketest.Counter
+	stores          *storetest.Stores
+	events          *eventstest.Queue
+	workflowID      string
+	checkoutSync    *waketest.Counter
+	pullRequestSync *waketest.Counter
 }
 
 // TestRebaseRefusals covers every state of the row a rebase declines.
@@ -46,7 +47,7 @@ func TestRebaseRefusals(t *testing.T) {
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp})
 			},
-			wantErr: ErrRebaseBusy,
+			wantErr: ErrBusy,
 		},
 		{
 			name: "a branch a human made, whose history is not komrad's to rewrite",
@@ -62,14 +63,14 @@ func TestRebaseRefusals(t *testing.T) {
 
 				return fixture.seed(t, agentstore.Agent{ParentAgentID: &parent.ID})
 			},
-			wantErr: ErrRebaseNoWorktree,
+			wantErr: ErrNoWorktree,
 		},
 		{
 			name: "an agent told to keep the directory it was given",
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{ProvisionEnabled: xptr.Ptr(false)})
 			},
-			wantErr: ErrRebaseNoWorktree,
+			wantErr: ErrNoWorktree,
 		},
 		{
 			name: "an agent whose directory is gone",
@@ -79,7 +80,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 				return agent
 			},
-			wantErr: ErrRebaseNoWorktree,
+			wantErr: ErrNoWorktree,
 		},
 		{
 			name: "an agent in a workflow that makes no worktrees",
@@ -88,7 +89,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 				return fixture.seed(t, agentstore.Agent{WorkflowID: flow.ID})
 			},
-			wantErr: ErrRebaseNoWorktree,
+			wantErr: ErrNoWorktree,
 		},
 		{
 			name: "an archived agent",
@@ -117,7 +118,7 @@ func TestRebaseRefusals(t *testing.T) {
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{Cwd: "/locked"})
 			},
-			wantErr: ErrRebaseBusy,
+			wantErr: ErrBusy,
 		},
 	}
 
@@ -131,7 +132,7 @@ func TestRebaseRefusals(t *testing.T) {
 			t.Cleanup(release)
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser, Locks: locks}).Rebase(t.Context(), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Rebaser: rebaser, Locks: locks}).Rebase(t.Context(), agent.ID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
@@ -200,7 +201,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 			channel := &harnesstest.Channel{}
 			observer := harnesstest.NewActivityObserver(harness.ActivityWorking)
 
-			_, err := fixture.newService(NewRebaseServiceParams{
+			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Rebaser: &gittest.Rebaser{State: tt.state},
 			}).Rebase(t.Context(), agent.ID)
@@ -258,7 +259,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
 
-			result, err := fixture.newService(NewRebaseServiceParams{Rebaser: tt.rebaser}).Rebase(t.Context(), agent.ID)
+			result, err := fixture.newService(NewServiceParams{Rebaser: tt.rebaser}).Rebase(t.Context(), agent.ID)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantCalls, tt.rebaser.Calls)
@@ -271,7 +272,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 
 			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantStopped, stored.SequenceInProgress)
+			assert.Equal(t, tt.wantStopped, stored.Sequence.IsInProgress())
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 		})
 	}
@@ -287,7 +288,7 @@ func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 		ReplayErr:  errors.New("the post-rewrite hook failed"),
 	}
 
-	_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(t.Context(), agent.ID)
+	_, err := fixture.newService(NewServiceParams{Rebaser: rebaser}).Rebase(t.Context(), agent.ID)
 
 	require.Error(t, err)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
@@ -329,7 +330,7 @@ func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 			observer.Err = tt.observeErr
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := fixture.newService(NewRebaseServiceParams{
+			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
@@ -400,7 +401,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 				BeforeReadTree: func() { readsBeforeTree = observer.Reads },
 			}
 
-			result, err := fixture.newService(NewRebaseServiceParams{
+			result, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
@@ -464,7 +465,7 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			observer.BeforeFirst = func() { tt.settling(t, fixture, agent.ID) }
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := fixture.newService(NewRebaseServiceParams{
+			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
@@ -566,27 +567,27 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			asker: func(targetID string) caller.Caller {
 				return caller.Caller{AgentID: targetID}
 			},
-			wantErr: ErrRebaseSelf,
+			wantErr: ErrSelf,
 		},
 		{
 			name:     "an agent in the same checkout",
 			askerCwd: target,
-			wantErr:  ErrRebaseSelf,
+			wantErr:  ErrSelf,
 		},
 		{
 			name:     "an agent in the same checkout spelled with a trailing slash",
 			askerCwd: target + "/",
-			wantErr:  ErrRebaseSelf,
+			wantErr:  ErrSelf,
 		},
 		{
 			name:     "an agent in the same checkout spelled with a dot segment",
 			askerCwd: target + "/./",
-			wantErr:  ErrRebaseSelf,
+			wantErr:  ErrSelf,
 		},
 		{
 			name:     "an agent in the same checkout reached through a symlink",
 			askerCwd: linked,
-			wantErr:  ErrRebaseSelf,
+			wantErr:  ErrSelf,
 		},
 		{
 			name:     "an agent working somewhere else",
@@ -611,7 +612,7 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			}
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), from), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), from), agent.ID)
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
@@ -655,7 +656,7 @@ func TestRebaseLetsThroughAnAskerWithNoCheckout(t *testing.T) {
 			agent := fixture.seed(t, agentstore.Agent{})
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), agent.ID)
 			require.NoError(t, err)
 
 			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
@@ -669,12 +670,13 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 	stores := storetest.Open(t)
 
 	return &rebaseFixture{
-		stores:       stores,
-		checkoutSync: &waketest.Counter{},
-		events:       eventstest.NewQueue(t, stores, NewEventHandler()),
+		stores:          stores,
+		checkoutSync:    &waketest.Counter{},
+		pullRequestSync: &waketest.Counter{},
+		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",
-			Worktree: workflowstore.WorktreeConfig{Enabled: true},
+			Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 		}).ID,
 	}
 }
@@ -696,8 +698,8 @@ func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.A
 	return f.stores.SeedAgent(t, agent)
 }
 
-// newService builds a rebase service over the real stores.
-func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService {
+// newService builds the service over the real stores.
+func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	params.Agents = f.stores.Agents
 	params.Workflows = f.stores.Workflows
 	if params.Events == nil {
@@ -709,8 +711,18 @@ func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService
 	if params.Rebaser == nil {
 		params.Rebaser = &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 	}
+	if params.Pusher == nil {
+		params.Pusher = &gittest.Pusher{State: git.TreeState{Branch: "agent/a1"}, Own: 1}
+	}
+	if params.Aborter == nil {
+		params.Aborter = &gittest.Aborter{Sequence: git.SequenceRebase, Branch: "agent/a1"}
+	}
+	if params.PullRequestSync == nil {
+		params.PullRequestSync = f.pullRequestSync
+	}
+	params.PullRequests = f.stores.PullRequests
 
-	return NewRebaseService(params)
+	return NewService(params)
 }
 
 func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
@@ -758,10 +770,10 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 	queue := fixture.events
-	service := fixture.newService(NewRebaseServiceParams{})
+	service := fixture.newService(NewServiceParams{})
 
-	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Failure: "the older rebase failed"}))
-	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
+	require.NoError(t, service.recordRebase(t.Context(), agent.ID, rebaseOutcome{Failure: "the older rebase failed"}))
+	require.NoError(t, service.recordRebase(t.Context(), agent.ID, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
 	stale := queue.ListEvents()[0]
 	require.NoError(t, queue.InsertTx(t.Context(), stale))
 

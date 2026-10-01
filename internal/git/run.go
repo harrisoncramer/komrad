@@ -85,3 +85,29 @@ func runAllowing(ctx context.Context, dir string, allowed int, args ...string) (
 
 	return "", fmt.Errorf("failed to run git %s: %w", strings.Join(args, " "), err)
 }
+
+// runReporting is git run under the caller's own deadline with everything it printed folded into
+// the error, for the commands whose failure a person reads, a hook's output included.
+func runReporting(ctx context.Context, dir string, env []string, args ...string) (string, error) {
+	cmd := command(ctx, dir, env, args...)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return stdout.String(), fmt.Errorf("failed to run git %s: %w\n%s", strings.Join(args, " "), err, strings.TrimSpace(stdout.String()+"\n"+stderr.String()))
+	}
+
+	return stdout.String(), nil
+}
+
+// readGitDir is the absolute git directory of the checkout at dir.
+func readGitDir(ctx context.Context, dir string) (string, error) {
+	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
+	if err != nil {
+		return "", fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
+	}
+
+	return gitDir, nil
+}

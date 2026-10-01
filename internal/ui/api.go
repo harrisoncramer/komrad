@@ -190,6 +190,21 @@ func (a api) mergePullRequest(address string) error {
 	return err
 }
 
+// setPullRequestAutoMerge asks the forge to merge the pull request at the address on its own once
+// its checks and reviews pass, or to stop waiting to, refusing when its head has moved past
+// headSHA.
+func (a api) setPullRequestAutoMerge(address, headSHA string, on bool) error {
+	_, err := call(autoMergeTimeout, func(ctx context.Context) (any, error) {
+		return a.forges.SetForgePullRequestAutoMerge(ctx, connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
+			Url:     address,
+			HeadSha: headSHA,
+			On:      on,
+		}))
+	})
+
+	return err
+}
+
 // setPullRequestDraft asks the forge to mark the pull request at the address a draft or ready.
 func (a api) setPullRequestDraft(address string, draft bool) error {
 	_, err := call(draftTimeout, func(ctx context.Context) (any, error) {
@@ -290,6 +305,39 @@ func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) 
 		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to rebase the worktree of agent %q: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) planPush(id string) (*agentv1.PlanPushResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanPushResponse, error) {
+		resp, err := a.agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to work out what a push of agent %q would do: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) pushWorktree(id string) (*agentv1.PushWorktreeResponse, error) {
+	return call(pushTimeout, func(ctx context.Context) (*agentv1.PushWorktreeResponse, error) {
+		resp, err := a.agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to push the branch of agent %q: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) abortSequence(id string) (*agentv1.AbortSequenceResponse, error) {
+	return call(rebaseTimeout, func(ctx context.Context) (*agentv1.AbortSequenceResponse, error) {
+		resp, err := a.agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to abort what the worktree of agent %q has in progress: %w", id, err)
 		}
 
 		return resp.Msg, nil

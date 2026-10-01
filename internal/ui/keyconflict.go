@@ -74,6 +74,8 @@ func ValidateKeybindings(keys config.Keybindings) error {
 
 	if err := validateSubmenuKeys("git menu", []submenuKeys{
 		{name: "rebase", keys: keys.Git.Rebase},
+		{name: "push", keys: keys.Git.Push},
+		{name: "abort", keys: keys.Git.Abort},
 		{name: "open_pull_request", keys: keys.Git.OpenPullRequest},
 		{name: "copy_pull_request_url", keys: keys.Git.CopyPullRequestURL},
 		{name: "toggle_draft", keys: keys.Git.ToggleDraft},
@@ -138,6 +140,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	if err := validateSubmenuKeys("merge menu", []submenuKeys{
 		{name: "merge", keys: keys.Merge.Merge},
 		{name: "merge_archive", keys: keys.Merge.MergeArchive},
+		{name: "auto_merge", keys: keys.Merge.AutoMerge},
 	}); err != nil {
 		return err
 	}

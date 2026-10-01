@@ -194,6 +194,10 @@ func ForgeCell(row Row) Cell {
 		return Cell{}
 	}
 
+	if row.AutoMerge && isQueueable(row.Forge) {
+		return Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted}
+	}
+
 	switch row.Forge {
 	case ForgeUnread, ForgeNone, ForgeEnd:
 		return Cell{}
@@ -220,6 +224,12 @@ func ForgeCell(row Row) Cell {
 	}
 
 	return Cell{}
+}
+
+// isQueueable is whether a pull request in the state is only waiting, so the merge it is queued
+// for is worth more to the person than the state itself.
+func isQueueable(forge Forge) bool {
+	return forge == ForgeOpen || forge == ForgeApprovedWaiting || forge == ForgeApproved
 }
 
 // StatusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed

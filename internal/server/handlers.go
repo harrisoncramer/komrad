@@ -111,7 +111,9 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Review:        params.Services.review,
 			Documents:     params.Services.documents,
 			DocumentTypes: params.Services.documents,
-			Rebaser:       params.Services.rebase,
+			Rebaser:       params.Services.checkout,
+			Pusher:        params.Services.checkout,
+			Aborter:       params.Services.checkout,
 			Orchestrator:  params.Services.orchestrator,
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(

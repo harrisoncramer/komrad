@@ -96,6 +96,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Repo = snapshotRepo(item.Agent)
 	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
 	row.Forge = snapshotForge(item)
+	row.AutoMerge = item.PullRequest.AutoMerge
 	row.LoaderFrame = params.loaderFrame
 	row.Selected = params.selected.has(key)
 
@@ -213,7 +214,7 @@ func snapshotRepo(agent panel.Agent) view.Repo {
 	switch {
 	case agent.WorktreeRemoved:
 		return view.RepoGone
-	case agent.SequenceInProgress:
+	case agent.Sequence.IsInProgress():
 		return view.RepoRebasing
 	}
 

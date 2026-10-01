@@ -152,7 +152,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		assert.Regexp(t, readOffEntry("terminal", "t"), harness.readRawFrame())
 	})
 
-	t.Run("git holds rebase gray, since an archived branch is not rebased", func(t *testing.T) {
+	t.Run("git holds rebase gray, since an archived worktree is not touched", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
@@ -162,7 +162,7 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		harness.press("r")
 
-		assert.Contains(t, readOpenMessages(harness), "an archived agent's branch is not rebased")
+		assert.Contains(t, readOpenMessages(harness), "an archived agent's worktree is not touched")
 	})
 
 	t.Run("documents open, and back returns to the archive", func(t *testing.T) {

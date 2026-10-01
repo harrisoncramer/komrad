@@ -76,6 +76,7 @@ type pullRequest struct {
 	openedAgo            time.Duration
 	merged               bool
 	closed               bool
+	autoMerge            bool
 }
 
 func (p pullRequest) row() *pullrequestv1.PullRequest {
@@ -92,6 +93,8 @@ func (p pullRequest) row() *pullrequestv1.PullRequest {
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		Checks:            pullrequestv1.Checks_CHECKS_PASSING,
 		Mergeability:      pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
+		AutoMerge:         p.autoMerge,
+		AutoMergeable:     !p.autoMerge,
 	}
 	if p.merged {
 		row.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
@@ -122,12 +125,15 @@ func currentStanding(p pullRequest) *agentv1.PullRequestStanding {
 	row := p.row()
 
 	return &agentv1.PullRequestStanding{
-		State:        row.GetState(),
-		Number:       xptr.Ptr(row.GetNumber()),
-		Url:          xptr.Ptr(row.GetUrl()),
-		Title:        xptr.Ptr(row.GetTitle()),
-		Checks:       row.GetChecks(),
-		Mergeability: row.GetMergeability(),
+		State:         row.GetState(),
+		Number:        xptr.Ptr(row.GetNumber()),
+		Url:           xptr.Ptr(row.GetUrl()),
+		Title:         xptr.Ptr(row.GetTitle()),
+		Checks:        row.GetChecks(),
+		Mergeability:  row.GetMergeability(),
+		AutoMerge:     row.GetAutoMerge(),
+		AutoMergeable: row.GetAutoMergeable(),
+		HeadSha:       xptr.Ptr(row.GetHeadSha()),
 	}
 }
 
@@ -158,6 +164,7 @@ func TestAgentRows(t *testing.T) {
 		branch:    "agent/" + newer,
 		number:    2,
 		openedAgo: 2 * time.Hour,
+		autoMerge: true,
 	}
 	latest := pullRequest{
 		id:        "p3",

@@ -202,6 +202,17 @@ table "pull_requests" {
     type    = text
     comment = "The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too."
   }
+  column "auto_merge" {
+    null    = true
+    type    = boolean
+    comment = "Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks and kept fresh the same way."
+  }
+  column "auto_mergeable" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge would let komrad's credential turn auto-merge on now, which it will not for a draft, a pull request with nothing left to wait for or a repository that does not allow it."
+  }
   column "last_known_mergeability" {
     null    = true
     type    = text

@@ -39,11 +39,12 @@ func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Pag
 	}, nil
 }
 
-// fakeWriter records each merge and draft change and answers err.
+// fakeWriter records each merge, draft change and auto-merge change and answers err.
 type fakeWriter struct {
-	err     error
-	merged  []string
-	drafted []bool
+	err        error
+	merged     []string
+	drafted    []bool
+	autoMerged []forge.SetAutoMergeParams
 }
 
 func (f *fakeWriter) MergePullRequest(_ context.Context, address string) error {
@@ -54,6 +55,12 @@ func (f *fakeWriter) MergePullRequest(_ context.Context, address string) error {
 
 func (f *fakeWriter) SetPullRequestDraft(_ context.Context, _ string, draft bool) error {
 	f.drafted = append(f.drafted, draft)
+
+	return f.err
+}
+
+func (f *fakeWriter) SetPullRequestAutoMerge(_ context.Context, params forge.SetAutoMergeParams) error {
+	f.autoMerged = append(f.autoMerged, params)
 
 	return f.err
 }
@@ -212,6 +219,49 @@ func TestSetForgePullRequestDraft(t *testing.T) {
 			_, err := service.SetForgePullRequestDraft(t.Context(), connect.NewRequest(&forgev1.SetForgePullRequestDraftRequest{Url: address, Draft: true}))
 
 			assert.Equal(t, []bool{true}, writer.drafted)
+			if tt.wantCode != 0 {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestSetForgePullRequestAutoMerge covers the request reaching the writer whole and a forge's
+// refusal coming back as failed_precondition.
+func TestSetForgePullRequestAutoMerge(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	tests := []struct {
+		name     string
+		refuse   error
+		wantCode connect.Code
+	}{
+		{
+			name:     "a pull request the forge will not queue",
+			refuse:   forge.ErrNoAutoMerge.Saying("github will not change auto-merge on #1: Pull request is in clean status"),
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a pull request the forge queues",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := &fakeWriter{err: tt.refuse}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+
+			_, err := service.SetForgePullRequestAutoMerge(t.Context(), connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
+				Url:     address,
+				HeadSha: "abc123",
+				On:      true,
+			}))
+
+			assert.Equal(t, []forge.SetAutoMergeParams{{URL: address, HeadSHA: "abc123", On: true}}, writer.autoMerged)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))

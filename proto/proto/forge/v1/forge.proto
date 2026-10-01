@@ -147,6 +147,19 @@ message SetForgePullRequestDraftRequest {
   bool draft = 2;
 }
 
+message SetForgePullRequestAutoMergeRequest {
+  // The pull request's web address, whose host picks the forge connection.
+  string url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  // The head commit the person saw, which the forge refuses to queue once the branch has moved
+  // past it. Empty queues whatever the head is.
+  string head_sha = 2 [(buf.validate.field).string.max_len = 64];
+  // Whether it should merge on its own once its checks and reviews pass, false to stop that.
+  bool on = 3;
+}
+
 message ListForgePullRequestsResponse {
   // One page of pull requests, as the forge orders them.
   repeated ForgePullRequest pull_requests = 1;
@@ -210,6 +223,16 @@ service ForgeService {
       name: "set_forge_pull_request_draft"
       description: "Mark a pull request a draft, or ready for review, through the forge connection for its host. A pull request already standing that way is left alone, and one that has merged or closed is refused as failed_precondition."
       reason: "Saying a pull request is ready for review is for a person to decide."
+    };
+  }
+  rpc SetForgePullRequestAutoMerge(SetForgePullRequestAutoMergeRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "set_forge_pull_request_auto_merge"
+      description: "Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host. A pull request already standing that way is left alone. One that has merged or closed, one the forge would merge at once, a draft and one whose branch has moved past head_sha are refused as failed_precondition with what the forge said."
+      reason: "Letting work land on the base without a person there is for a person to decide."
     };
   }
   rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {

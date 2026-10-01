@@ -51,6 +51,24 @@ enum AgentRole {
   AGENT_ROLE_ORCHESTRATOR = 3;
 }
 
+// Sequence is what git has part-way through an agent's checkout and waiting on somebody.
+enum Sequence {
+  // Nothing was recorded, which no stored agent answers with.
+  SEQUENCE_UNSPECIFIED = 0;
+  // Nothing is part-way through.
+  SEQUENCE_NONE = 1;
+  // A rebase stopped on a commit it could not replay.
+  SEQUENCE_REBASE = 2;
+  // An am stopped on a patch it could not apply.
+  SEQUENCE_AM = 3;
+  // A merge stopped on conflicts.
+  SEQUENCE_MERGE = 4;
+  // A cherry-pick stopped on conflicts or resting between its picks.
+  SEQUENCE_CHERRY_PICK = 5;
+  // A revert stopped on conflicts or resting between its picks.
+  SEQUENCE_REVERT = 6;
+}
+
 // DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
 message DiffStat {
   // The lines it adds.
@@ -106,9 +124,8 @@ message Agent {
   optional string head_sha = 41;
   // Whether its checkout has been taken away, which leaves the record and the transcript.
   bool worktree_removed = 23;
-  // Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
-  // somebody to settle it.
-  bool sequence_in_progress = 36;
+  // What git has part-way through its checkout, waiting on somebody to settle it.
+  Sequence sequence = 36;
   // Whether a script komrad fired for the agent failed and nobody has looked at it since.
   bool failed_run = 27;
   // The run log that failure was written to, which is the run the panel opens on.
@@ -192,6 +209,15 @@ message PullRequestStanding {
   // Where the forge says the current pull request stands against its base and rules,
   // UNSPECIFIED for UNREAD and NONE.
   pullrequest.v1.Mergeability mergeability = 6;
+  // Whether the forge says the current pull request will merge on its own once its checks and
+  // reviews pass, false for UNREAD and NONE.
+  bool auto_merge = 7;
+  // Whether the forge would let komrad turn auto-merge on for the current pull request now,
+  // false for UNREAD and NONE.
+  bool auto_mergeable = 8;
+  // The commit the forge holds at the head of the current pull request, unset for UNREAD and
+  // NONE.
+  optional string head_sha = 9;
 }
 
 message ListAgentsRequest {
@@ -437,6 +463,56 @@ message RebaseWorktreeResponse {
   int32 landed_commits = 7;
   // How many were replayed onto the new base.
   int32 replay_commits = 8;
+}
+
+// PlanPushRequest asks what a push would do without doing it.
+message PlanPushRequest {
+  // Whose branch the push would send.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message PlanPushResponse {
+  // Which branch would go up.
+  string branch = 1;
+  // How many commits would go up, counted against origin's copy of the branch, or against the
+  // base when origin has none.
+  int32 commits = 2;
+  // Whether origin's copy holds commits the branch does not, so the push would overwrite it.
+  bool forced = 3;
+  // How many files would stay behind because nothing has committed them.
+  int32 uncommitted_files = 4;
+}
+
+message PushWorktreeRequest {
+  // Whose branch to send to origin.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message PushWorktreeResponse {
+  // Which branch went up.
+  string branch = 1;
+  // How many commits went up.
+  int32 commits = 2;
+  // Whether origin's copy was overwritten.
+  bool forced = 3;
+  // The commit origin's copy of the branch now names.
+  string sha = 4;
+}
+
+message AbortSequenceRequest {
+  // Whose worktree to abort the sequence in.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message AbortSequenceResponse {
+  // What was undone.
+  Sequence sequence = 1;
+  // Where the checkout stands now, empty when it is detached.
+  string branch = 2;
+  // The ref holding the checkout as it stood before the abort, conflicts and all.
+  string parked_ref = 3;
+  // Whether the agent's turn was cut so the abort could run.
+  bool interrupted = 4;
 }
 
 message SetHiddenRequest {
@@ -1108,6 +1184,33 @@ service AgentService {
       destructive: true
       idempotent: false
       roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc PlanPush(PlanPushRequest) returns (PlanPushResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "plan_push"
+      description: "Preview what pushing an agent's branch to origin would do, without sending anything. It reports the branch, how many commits would go up, whether origin's copy would be overwritten because a rebase moved the branch apart from it, and how many uncommitted files would stay behind. It refuses for the same reasons push_worktree does."
+      reason: "Agents push their own branches with git, so pushing one from outside is for the person at the panel or the command line."
+    };
+  }
+  rpc PushWorktree(PushWorktreeRequest) returns (PushWorktreeResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "push_worktree"
+      description: "Send an agent's branch to origin under its own name. When a rebase moved the branch apart from origin's copy, the push overwrites it, but only if the branch already holds everything origin has, so a commit somebody added on the forge is never lost. Pre-push hooks run and their output comes back on failure. The push runs to the end even if the caller stops waiting. An agent whose branch is detached, part-way through a sequence, the workflow's base, empty against the base, or whose pull request has merged or closed is refused as failed_precondition, as is a branch komrad did not cut whose push would overwrite origin. After a push that overwrote origin, the agent is mailed the new commit."
+      reason: "Agents push their own branches with git, so pushing one from outside is for the person at the panel or the command line."
+    };
+  }
+  rpc AbortSequence(AbortSequenceRequest) returns (AbortSequenceResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "abort_sequence"
+      description: "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, putting its branch back where it stood before that began. The kind is read from the checkout itself. The worktree is first kept as it stands, conflicts and any resolution included, under a ref the agent is told of, and the agent's turn is cut if it is working. A worktree with nothing in progress is refused as failed_precondition, as is one another git command holds. The agent is mailed what was undone, and told whether it was the rebase komrad left stopped on conflicts or one of its own."
+      reason: "The agent is told not to settle a conflicted rebase itself, so undoing one is for the person at the panel or the command line."
     };
   }
   rpc StartOrchestrator(StartOrchestratorRequest) returns (StartOrchestratorResponse) {

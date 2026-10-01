@@ -70,6 +70,11 @@ message PullRequest {
   Mergeability mergeability = 21;
   // True when mergeability is the last answer for this head rather than the latest read.
   bool mergeability_unconfirmed = 22;
+  // Whether the forge says it will merge on its own once its checks and reviews pass.
+  bool auto_merge = 23;
+  // Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one
+  // with nothing left to wait for, or a repository that does not allow it.
+  bool auto_mergeable = 24;
 }
 
 // Repository is one repository the pull request sync reads.

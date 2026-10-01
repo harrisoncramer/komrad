@@ -321,6 +321,12 @@ type GitKeys struct {
 	// its branch that is not finished, else the newest finished one. The entry says so rather
 	// than acting on an agent with none.
 	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
+	// Send the hovered agent's branch to origin, which asks first and says how many commits go
+	// up, whether origin's copy is overwritten after a rebase, and what stays uncommitted.
+	Push []string `mapstructure:"push" default:"p"`
+	// Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered agent's
+	// worktree, which asks first. The entry names the kind and is off when nothing is in progress.
+	Abort []string `mapstructure:"abort" default:"x"`
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
@@ -342,6 +348,9 @@ type MergeKeys struct {
 	Merge []string `mapstructure:"merge" default:"m"`
 	// Merge the pull request, then archive the agent once the forge has merged it.
 	MergeArchive []string `mapstructure:"merge_archive" default:"a"`
+	// Have the forge merge the pull request on its own once its checks and reviews pass, or stop it
+	// when it is already waiting to.
+	AutoMerge []string `mapstructure:"auto_merge" default:"u"`
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the

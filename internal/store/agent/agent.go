@@ -73,6 +73,32 @@ func (r Role) orDefault() Role {
 	return r
 }
 
+// Sequence is what git has part-way through an agent's checkout.
+type Sequence string
+
+const (
+	SequenceNone       Sequence = Sequence(models.AgentSequenceNone)
+	SequenceRebase     Sequence = Sequence(models.AgentSequenceRebase)
+	SequenceApply      Sequence = Sequence(models.AgentSequenceAm)
+	SequenceMerge      Sequence = Sequence(models.AgentSequenceMerge)
+	SequenceCherryPick Sequence = Sequence(models.AgentSequenceCherryPick)
+	SequenceRevert     Sequence = Sequence(models.AgentSequenceRevert)
+)
+
+// IsInProgress reports whether anything is part-way through.
+func (s Sequence) IsInProgress() bool {
+	return s != SequenceNone && s != ""
+}
+
+// orNone is the sequence a checkout that names none is given.
+func (s Sequence) orNone() Sequence {
+	if s == "" {
+		return SequenceNone
+	}
+
+	return s
+}
+
 type Agent struct {
 	ID    string
 	Name  string
@@ -137,9 +163,8 @@ type Agent struct {
 	WorktreeRemoved bool
 	InterruptedAt   *time.Time
 
-	// SequenceInProgress is whether a merge, a rebase or a cherry-pick is part-way through the
-	// agent's checkout and waiting on somebody.
-	SequenceInProgress bool
+	// Sequence is what git has part-way through the agent's checkout and waiting on somebody.
+	Sequence Sequence
 
 	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
 	HeldAt *time.Time
@@ -232,50 +257,50 @@ func IDs(agents []Agent) []string {
 // FromRow is the agent one stored row describes.
 func FromRow(agent models.Agent) Agent {
 	return Agent{
-		ID:                 agent.ID,
-		Name:               agent.Name,
-		Pane:               agent.PaneID,
-		Cwd:                agent.Cwd,
-		Flags:              agent.Flags,
-		ProvisionEnabled:   agent.ProvisionEnabled,
-		Prompt:             agent.Prompt,
-		Role:               Role(agent.Role),
-		State:              State(agent.State),
-		StateChangedAt:     agent.StateChangedAt,
-		StateSeenAt:        agent.StateSeenAt,
-		TurnEndedAt:        agent.TurnEndedAt,
-		TurnFailedAt:       agent.TurnFailedAt,
-		TurnError:          agent.TurnError,
-		ReportedReason:     agent.ReportedReason,
-		FailureReason:      agent.FailureReason,
-		Harness:            agent.Harness,
-		SessionID:          agent.SessionID,
-		WorkflowID:         agent.WorkflowID,
-		ScheduleID:         agent.ScheduleID,
-		IdempotencyKey:     agent.IdempotencyKey,
-		ArchivedAt:         agent.ArchivedAt,
-		ArchiveBatchID:     agent.ArchiveBatchID,
-		DeletingAt:         agent.DeletingAt,
-		NudgedAt:           agent.NudgedAt,
-		NudgeSentAt:        agent.NudgeSentAt,
-		Hidden:             agent.IsHidden,
-		SpawnedByAgentID:   agent.SpawnedByAgentID,
-		ParentAgentID:      agent.ParentAgentID,
-		CreatedAt:          agent.CreatedAt,
-		UpdatedAt:          agent.UpdatedAt,
-		Branch:             agent.Branch,
-		RepositoryURL:      agent.RepositoryUrl,
-		HeadSHA:            agent.HeadSha,
-		AdoptedBranch:      agent.AdoptedBranch,
-		WorktreeRemoved:    agent.WorktreeRemoved,
-		InterruptedAt:      agent.InterruptedAt,
-		SequenceInProgress: agent.SequenceInProgress,
-		HeldAt:             agent.HeldAt,
-		HeldMidTurn:        agent.HeldMidTurn,
-		HeldByAgentID:      agent.HeldByAgentID,
-		Alive:              agent.Alive,
-		MovedSinceRound:    agent.MovedSinceRound,
-		DiffStat:           diffStatFrom(agent.LinesAdded, agent.LinesRemoved),
+		ID:               agent.ID,
+		Name:             agent.Name,
+		Pane:             agent.PaneID,
+		Cwd:              agent.Cwd,
+		Flags:            agent.Flags,
+		ProvisionEnabled: agent.ProvisionEnabled,
+		Prompt:           agent.Prompt,
+		Role:             Role(agent.Role),
+		State:            State(agent.State),
+		StateChangedAt:   agent.StateChangedAt,
+		StateSeenAt:      agent.StateSeenAt,
+		TurnEndedAt:      agent.TurnEndedAt,
+		TurnFailedAt:     agent.TurnFailedAt,
+		TurnError:        agent.TurnError,
+		ReportedReason:   agent.ReportedReason,
+		FailureReason:    agent.FailureReason,
+		Harness:          agent.Harness,
+		SessionID:        agent.SessionID,
+		WorkflowID:       agent.WorkflowID,
+		ScheduleID:       agent.ScheduleID,
+		IdempotencyKey:   agent.IdempotencyKey,
+		ArchivedAt:       agent.ArchivedAt,
+		ArchiveBatchID:   agent.ArchiveBatchID,
+		DeletingAt:       agent.DeletingAt,
+		NudgedAt:         agent.NudgedAt,
+		NudgeSentAt:      agent.NudgeSentAt,
+		Hidden:           agent.IsHidden,
+		SpawnedByAgentID: agent.SpawnedByAgentID,
+		ParentAgentID:    agent.ParentAgentID,
+		CreatedAt:        agent.CreatedAt,
+		UpdatedAt:        agent.UpdatedAt,
+		Branch:           agent.Branch,
+		RepositoryURL:    agent.RepositoryUrl,
+		HeadSHA:          agent.HeadSha,
+		AdoptedBranch:    agent.AdoptedBranch,
+		WorktreeRemoved:  agent.WorktreeRemoved,
+		InterruptedAt:    agent.InterruptedAt,
+		Sequence:         Sequence(agent.Sequence),
+		HeldAt:           agent.HeldAt,
+		HeldMidTurn:      agent.HeldMidTurn,
+		HeldByAgentID:    agent.HeldByAgentID,
+		Alive:            agent.Alive,
+		MovedSinceRound:  agent.MovedSinceRound,
+		DiffStat:         diffStatFrom(agent.LinesAdded, agent.LinesRemoved),
 	}
 }
 

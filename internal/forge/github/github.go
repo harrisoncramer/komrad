@@ -57,6 +57,18 @@ const markReadyMutation = `mutation MarkReady($id: ID!) {
   markPullRequestReadyForReview(input: {pullRequestId: $id}) { clientMutationId }
 }`
 
+const autoMergeTargetQuery = `query AutoMergeTarget($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) { viewerDefaultMergeMethod pullRequest(number: $number) { id state autoMergeRequest { enabledAt } } }
+}`
+
+const enableAutoMergeMutation = `mutation EnableAutoMerge($id: ID!, $method: PullRequestMergeMethod!, $head: GitObjectID) {
+  enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: $method, expectedHeadOid: $head}) { clientMutationId }
+}`
+
+const disableAutoMergeMutation = `mutation DisableAutoMerge($id: ID!) {
+  disablePullRequestAutoMerge(input: {pullRequestId: $id}) { clientMutationId }
+}`
+
 const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $after: String, $branch: String, $states: [PullRequestState!]) {
   repository(owner: $owner, name: $name) {
     pullRequests(first: $first, after: $after, headRefName: $branch, states: $states, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -85,10 +97,11 @@ const listChangedQuery = `query ListChanged($query: String!, $first: Int!, $afte
 }
 ` + pullRequestFragment
 
-// standingFields is what the reviews, checks and mergeability of a pull request are read
-// from: GitHub's computed review decision, the rollup of every check on the head commit and
-// its computed merge state.
-const standingFields = `reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`
+// standingFields is what the reviews, checks, mergeability and auto-merge of a pull request
+// are read from: GitHub's computed review decision, the rollup of every check on the head
+// commit, its computed merge state, the auto-merge request on it and whether the credential
+// may make one.
+const standingFields = `reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
 
 // dialect is what GitHub does differently on the wire.
 var dialect = graphql.Dialect{
@@ -435,6 +448,86 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 	return mutationRefusal{sentinel: forge.ErrNotDraftable, verb: "change"}.explain(answer, address, number)
 }
 
+// SetAutoMerge asks GitHub to merge the pull request with the credential's default method once
+// it may, holding it to the head the person saw, or withdraws that request, asking nothing of
+// GitHub when it already stands that way.
+func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
+	owner, name, number, err := parsePullURL(params.URL)
+	if err != nil {
+		return err
+	}
+
+	target, err := f.readAutoMergeTarget(ctx, readAutoMergeTargetParams{
+		owner:  owner,
+		name:   name,
+		number: number,
+	})
+	if err != nil {
+		return err
+	}
+	switch target.State {
+	case "MERGED":
+		return forge.ErrNoAutoMerge.Saying("github will not change #%d: it has already merged", number)
+	case "CLOSED":
+		return forge.ErrNoAutoMerge.Saying("github will not change #%d: it was closed", number)
+	}
+	if (target.AutoMergeRequest != nil) == params.On {
+		return nil
+	}
+
+	mutation := disableAutoMergeMutation
+	variables := map[string]any{"id": target.ID}
+	if params.On {
+		mutation = enableAutoMergeMutation
+		variables["method"] = target.method
+		variables["head"] = xptr.NonEmpty(params.HeadSHA)
+	}
+
+	var changed struct{}
+	answer, err := f.client.Query(ctx, mutation, variables, &changed)
+	if err != nil {
+		return err
+	}
+
+	return mutationRefusal{sentinel: forge.ErrNoAutoMerge, verb: "change auto-merge on"}.explain(answer, params.URL, number)
+}
+
+// readAutoMergeTargetParams names the pull request whose auto-merge is read.
+type readAutoMergeTargetParams struct {
+	owner  string
+	name   string
+	number int
+}
+
+// readAutoMergeTarget reads the pull request whose auto-merge is about to change.
+func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTargetParams) (*autoMergeTarget, error) {
+	var data struct {
+		Repository *struct {
+			ViewerDefaultMergeMethod string           `json:"viewerDefaultMergeMethod"`
+			PullRequest              *autoMergeTarget `json:"pullRequest"`
+		} `json:"repository"`
+	}
+	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{
+		"owner":  params.owner,
+		"name":   params.name,
+		"number": params.number,
+	}, &data)
+	if err != nil {
+		return nil, err
+	}
+	if err := failureOf(answer, ""); err != nil {
+		return nil, err
+	}
+	if data.Repository == nil || data.Repository.PullRequest == nil {
+		return nil, noPullRequest(params.number, params.owner, params.name)
+	}
+
+	target := data.Repository.PullRequest
+	target.method = data.Repository.ViewerDefaultMergeMethod
+
+	return target, nil
+}
+
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query
 // shapes it.
 func (f *Forge) listPullRequests(ctx context.Context, operation string, variables map[string]any) (*forge.Page, error) {
@@ -598,6 +691,15 @@ type repositoryNode struct {
 	URL string `json:"url"`
 }
 
+// autoMergeTarget is a pull request whose auto-merge is about to change, with the method the
+// credential merges with by default.
+type autoMergeTarget struct {
+	ID               string    `json:"id"`
+	State            string    `json:"state"`
+	AutoMergeRequest *struct{} `json:"autoMergeRequest"`
+	method           string
+}
+
 // standingNode is what GitHub says about a pull request's reviews, the checks on its head and
 // its merge state.
 type standingNode struct {
@@ -611,6 +713,8 @@ type standingNode struct {
 			} `json:"commit"`
 		} `json:"nodes"`
 	} `json:"commits"`
+	AutoMergeRequest         *struct{} `json:"autoMergeRequest"`
+	ViewerCanEnableAutoMerge bool      `json:"viewerCanEnableAutoMerge"`
 }
 
 type rollupNode struct {
@@ -624,6 +728,17 @@ func (n standingNode) standing() forge.Standing {
 		Checks:       n.checks(),
 		Mergeability: mergeabilityOf(n.MergeStateStatus),
 		HeadSHA:      n.HeadRefOid,
+		AutoMerge:    n.autoMerge(),
+	}
+}
+
+// autoMerge is whether the pull request carries an auto-merge request and whether the
+// credential may make one, which GitHub refuses on a draft, a pull request that can merge now
+// and a repository that does not allow it.
+func (n standingNode) autoMerge() forge.AutoMerge {
+	return forge.AutoMerge{
+		On:      n.AutoMergeRequest != nil,
+		Allowed: n.ViewerCanEnableAutoMerge,
 	}
 }
 
@@ -690,6 +805,7 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		pullRequest.Decision = xptr.Ptr(reviewDecisionOf(n.ReviewDecision))
 		pullRequest.Checks = xptr.Ptr(n.checks())
 		pullRequest.Mergeability = xptr.Ptr(mergeabilityOf(n.MergeStateStatus))
+		pullRequest.AutoMerge = xptr.Ptr(n.autoMerge())
 	}
 
 	return pullRequest

@@ -709,6 +709,54 @@
           "response": "agent.v1.RebaseWorktreeResponse"
         },
         {
+          "slug": "plan-push",
+          "name": "PlanPush",
+          "path": "/agent.v1.AgentService/PlanPush",
+          "command": "komrad rpc plan-push",
+          "tool": "plan_push",
+          "mcp": false,
+          "roles": [],
+          "summary": "Preview what pushing an agent's branch to origin would do, without sending anything.",
+          "description": "Preview what pushing an agent's branch to origin would do, without sending anything. It reports the branch, how many commits would go up, whether origin's copy would be overwritten because a rebase moved the branch apart from it, and how many uncommitted files would stay behind. It refuses for the same reasons push_worktree does.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.PlanPushRequest",
+          "response": "agent.v1.PlanPushResponse"
+        },
+        {
+          "slug": "push-worktree",
+          "name": "PushWorktree",
+          "path": "/agent.v1.AgentService/PushWorktree",
+          "command": "komrad rpc push-worktree",
+          "tool": "push_worktree",
+          "mcp": false,
+          "roles": [],
+          "summary": "Send an agent's branch to origin under its own name.",
+          "description": "Send an agent's branch to origin under its own name. When a rebase moved the branch apart from origin's copy, the push overwrites it, but only if the branch already holds everything origin has, so a commit somebody added on the forge is never lost. Pre-push hooks run and their output comes back on failure. The push runs to the end even if the caller stops waiting. An agent whose branch is detached, part-way through a sequence, the workflow's base, empty against the base, or whose pull request has merged or closed is refused as failed_precondition, as is a branch komrad did not cut whose push would overwrite origin. After a push that overwrote origin, the agent is mailed the new commit.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.PushWorktreeRequest",
+          "response": "agent.v1.PushWorktreeResponse"
+        },
+        {
+          "slug": "abort-sequence",
+          "name": "AbortSequence",
+          "path": "/agent.v1.AgentService/AbortSequence",
+          "command": "komrad rpc abort-sequence",
+          "tool": "abort_sequence",
+          "mcp": false,
+          "roles": [],
+          "summary": "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, putting its branch back where it stood before that began.",
+          "description": "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, putting its branch back where it stood before that began. The kind is read from the checkout itself. The worktree is first kept as it stands, conflicts and any resolution included, under a ref the agent is told of, and the agent's turn is cut if it is working. A worktree with nothing in progress is refused as failed_precondition, as is one another git command holds. The agent is mailed what was undone, and told whether it was the rebase komrad left stopped on conflicts or one of its own.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.AbortSequenceRequest",
+          "response": "agent.v1.AbortSequenceResponse"
+        },
+        {
           "slug": "start-orchestrator",
           "name": "StartOrchestrator",
           "path": "/agent.v1.AgentService/StartOrchestrator",
@@ -1401,6 +1449,22 @@
           "response": "google.protobuf.Empty"
         },
         {
+          "slug": "set-forge-pull-request-auto-merge",
+          "name": "SetForgePullRequestAutoMerge",
+          "path": "/forge.v1.ForgeService/SetForgePullRequestAutoMerge",
+          "command": "komrad rpc set-forge-pull-request-auto-merge",
+          "tool": "set_forge_pull_request_auto_merge",
+          "mcp": false,
+          "roles": [],
+          "summary": "Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host.",
+          "description": "Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host. A pull request already standing that way is left alone. One that has merged or closed, one the forge would merge at once, a draft and one whose branch has moved past head_sha are refused as failed_precondition with what the forge said.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "forge.v1.SetForgePullRequestAutoMergeRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
           "slug": "disconnect-forge",
           "name": "DisconnectForge",
           "path": "/forge.v1.ForgeService/DisconnectForge",
@@ -1525,6 +1589,70 @@
     }
   ],
   "messages": {
+    "agent.v1.AbortSequenceRequest": {
+      "name": "AbortSequenceRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Whose worktree to abort the sequence in."
+        }
+      ]
+    },
+    "agent.v1.AbortSequenceResponse": {
+      "name": "AbortSequenceResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "sequence",
+          "type": "Sequence",
+          "ref": "agent.v1.Sequence",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What was undone."
+        },
+        {
+          "name": "branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the checkout stands now, empty when it is detached."
+        },
+        {
+          "name": "parked_ref",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The ref holding the checkout as it stood before the abort, conflicts and all."
+        },
+        {
+          "name": "interrupted",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the agent's turn was cut so the abort could run."
+        }
+      ]
+    },
     "agent.v1.AddReviewMessageRequest": {
       "name": "AddReviewMessageRequest",
       "description": "",
@@ -1945,14 +2073,14 @@
           "description": "Whether its checkout has been taken away, which leaves the record and the transcript."
         },
         {
-          "name": "sequence_in_progress",
-          "type": "bool",
-          "ref": "",
+          "name": "sequence",
+          "type": "Sequence",
+          "ref": "agent.v1.Sequence",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on somebody to settle it."
+          "description": "What git has part-way through its checkout, waiting on somebody to settle it."
         },
         {
           "name": "failed_run",
@@ -3870,6 +3998,70 @@
         }
       ]
     },
+    "agent.v1.PlanPushRequest": {
+      "name": "PlanPushRequest",
+      "description": "PlanPushRequest asks what a push would do without doing it.",
+      "fields": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Whose branch the push would send."
+        }
+      ]
+    },
+    "agent.v1.PlanPushResponse": {
+      "name": "PlanPushResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Which branch would go up."
+        },
+        {
+          "name": "commits",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many commits would go up, counted against origin's copy of the branch, or against the base when origin has none."
+        },
+        {
+          "name": "forced",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether origin's copy holds commits the branch does not, so the push would overwrite it."
+        },
+        {
+          "name": "uncommitted_files",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many files would stay behind because nothing has committed them."
+        }
+      ]
+    },
     "agent.v1.PlanRebaseRequest": {
       "name": "PlanRebaseRequest",
       "description": "PlanRebaseRequest asks what a rebase would do without doing it.",
@@ -4037,6 +4229,100 @@
           "oneof": "",
           "rules": [],
           "description": "Where the forge says the current pull request stands against its base and rules, UNSPECIFIED for UNREAD and NONE."
+        },
+        {
+          "name": "auto_merge",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge says the current pull request will merge on its own once its checks and reviews pass, false for UNREAD and NONE."
+        },
+        {
+          "name": "auto_mergeable",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge would let komrad turn auto-merge on for the current pull request now, false for UNREAD and NONE."
+        },
+        {
+          "name": "head_sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit the forge holds at the head of the current pull request, unset for UNREAD and NONE."
+        }
+      ]
+    },
+    "agent.v1.PushWorktreeRequest": {
+      "name": "PushWorktreeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Whose branch to send to origin."
+        }
+      ]
+    },
+    "agent.v1.PushWorktreeResponse": {
+      "name": "PushWorktreeResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Which branch went up."
+        },
+        {
+          "name": "commits",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many commits went up."
+        },
+        {
+          "name": "forced",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether origin's copy was overwritten."
+        },
+        {
+          "name": "sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit origin's copy of the branch now names."
         }
       ]
     },
@@ -6353,6 +6639,47 @@
         }
       ]
     },
+    "forge.v1.SetForgePullRequestAutoMergeRequest": {
+      "name": "SetForgePullRequestAutoMergeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 2048 characters"
+          ],
+          "description": "The pull request's web address, whose host picks the forge connection."
+        },
+        {
+          "name": "head_sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 64 characters"
+          ],
+          "description": "The head commit the person saw, which the forge refuses to queue once the branch has moved past it. Empty queues whatever the head is."
+        },
+        {
+          "name": "on",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether it should merge on its own once its checks and reviews pass, false to stop that."
+        }
+      ]
+    },
     "forge.v1.SetForgePullRequestDraftRequest": {
       "name": "SetForgePullRequestDraftRequest",
       "description": "",
@@ -7118,6 +7445,26 @@
           "oneof": "",
           "rules": [],
           "description": "True when mergeability is the last answer for this head rather than the latest read."
+        },
+        {
+          "name": "auto_merge",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge says it will merge on its own once its checks and reviews pass."
+        },
+        {
+          "name": "auto_mergeable",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one with nothing left to wait for, or a repository that does not allow it."
         }
       ]
     },
@@ -9146,6 +9493,14 @@
         {
           "name": "MAIL_KIND_WORKTREE_REBASED",
           "description": "Komrad telling an agent that it rebased the agent's worktree, or tried to."
+        },
+        {
+          "name": "MAIL_KIND_WORKTREE_PUSHED",
+          "description": "Komrad telling an agent that its branch was force-pushed to origin from the panel."
+        },
+        {
+          "name": "MAIL_KIND_WORKTREE_ABORTED",
+          "description": "Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted."
         }
       ]
     },
@@ -9196,6 +9551,36 @@
         {
           "name": "REVIEW_VERDICT_COMMENTED",
           "description": "Notes without a conclusion either way."
+        }
+      ]
+    },
+    "agent.v1.Sequence": {
+      "name": "Sequence",
+      "description": "Sequence is what git has part-way through an agent's checkout and waiting on somebody.",
+      "values": [
+        {
+          "name": "SEQUENCE_NONE",
+          "description": "Nothing is part-way through."
+        },
+        {
+          "name": "SEQUENCE_REBASE",
+          "description": "A rebase stopped on a commit it could not replay."
+        },
+        {
+          "name": "SEQUENCE_AM",
+          "description": "An am stopped on a patch it could not apply."
+        },
+        {
+          "name": "SEQUENCE_MERGE",
+          "description": "A merge stopped on conflicts."
+        },
+        {
+          "name": "SEQUENCE_CHERRY_PICK",
+          "description": "A cherry-pick stopped on conflicts or resting between its picks."
+        },
+        {
+          "name": "SEQUENCE_REVERT",
+          "description": "A revert stopped on conflicts or resting between its picks."
         }
       ]
     },

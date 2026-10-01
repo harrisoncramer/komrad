@@ -427,8 +427,13 @@ type PullRequest struct {
 	Mergeability Mergeability `protobuf:"varint,21,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
 	// True when mergeability is the last answer for this head rather than the latest read.
 	MergeabilityUnconfirmed bool `protobuf:"varint,22,opt,name=mergeability_unconfirmed,json=mergeabilityUnconfirmed,proto3" json:"mergeability_unconfirmed,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Whether the forge says it will merge on its own once its checks and reviews pass.
+	AutoMerge bool `protobuf:"varint,23,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
+	// Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one
+	// with nothing left to wait for, or a repository that does not allow it.
+	AutoMergeable bool `protobuf:"varint,24,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PullRequest) Reset() {
@@ -611,6 +616,20 @@ func (x *PullRequest) GetMergeability() Mergeability {
 func (x *PullRequest) GetMergeabilityUnconfirmed() bool {
 	if x != nil {
 		return x.MergeabilityUnconfirmed
+	}
+	return false
+}
+
+func (x *PullRequest) GetAutoMerge() bool {
+	if x != nil {
+		return x.AutoMerge
+	}
+	return false
+}
+
+func (x *PullRequest) GetAutoMergeable() bool {
+	if x != nil {
+		return x.AutoMergeable
 	}
 	return false
 }
@@ -1038,7 +1057,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\xc3\x06\n" +
+	"\v_pagination\"\x89\a\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -1066,7 +1085,10 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x0freview_decision\x18\x13 \x01(\x0e2\x1e.pullrequest.v1.ReviewDecisionR\x0ereviewDecision\x12.\n" +
 	"\x06checks\x18\x14 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
 	"\fmergeability\x18\x15 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability\x129\n" +
-	"\x18mergeability_unconfirmed\x18\x16 \x01(\bR\x17mergeabilityUnconfirmedB\f\n" +
+	"\x18mergeability_unconfirmed\x18\x16 \x01(\bR\x17mergeabilityUnconfirmed\x12\x1d\n" +
+	"\n" +
+	"auto_merge\x18\x17 \x01(\bR\tautoMerge\x12%\n" +
+	"\x0eauto_mergeable\x18\x18 \x01(\bR\rautoMergeableB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +

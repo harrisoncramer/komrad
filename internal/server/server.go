@@ -136,6 +136,8 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 				pullrequests.NewEventHandler(),
 				documents.NewEventHandler(),
 				checkouts.NewEventHandler(),
+				checkouts.NewPushedHandler(),
+				checkouts.NewAbortedHandler(),
 				reviews.NewReleasedHandler(),
 				reviews.NewAnsweredHandler(),
 			},

@@ -35,6 +35,10 @@ const (
 	KindPullRequestChanged Kind = Kind(models.MailKindPullRequestChanged)
 	// KindWorktreeRebased tells an agent that komrad rebased its worktree, or tried to.
 	KindWorktreeRebased Kind = Kind(models.MailKindWorktreeRebased)
+	// KindWorktreePushed tells an agent that its branch was force-pushed to origin from the panel.
+	KindWorktreePushed Kind = Kind(models.MailKindWorktreePushed)
+	// KindWorktreeAborted tells an agent that the rebase, merge or pick part-way through its worktree was aborted.
+	KindWorktreeAborted Kind = Kind(models.MailKindWorktreeAborted)
 )
 
 type Mail struct {

@@ -41,6 +41,10 @@ const (
 	MailKind_MAIL_KIND_PULL_REQUEST_CHANGED MailKind = 5
 	// Komrad telling an agent that it rebased the agent's worktree, or tried to.
 	MailKind_MAIL_KIND_WORKTREE_REBASED MailKind = 6
+	// Komrad telling an agent that its branch was force-pushed to origin from the panel.
+	MailKind_MAIL_KIND_WORKTREE_PUSHED MailKind = 7
+	// Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted.
+	MailKind_MAIL_KIND_WORKTREE_ABORTED MailKind = 8
 )
 
 // Enum value maps for MailKind.
@@ -53,6 +57,8 @@ var (
 		4: "MAIL_KIND_DOCUMENT_EDITED",
 		5: "MAIL_KIND_PULL_REQUEST_CHANGED",
 		6: "MAIL_KIND_WORKTREE_REBASED",
+		7: "MAIL_KIND_WORKTREE_PUSHED",
+		8: "MAIL_KIND_WORKTREE_ABORTED",
 	}
 	MailKind_value = map[string]int32{
 		"MAIL_KIND_UNSPECIFIED":          0,
@@ -62,6 +68,8 @@ var (
 		"MAIL_KIND_DOCUMENT_EDITED":      4,
 		"MAIL_KIND_PULL_REQUEST_CHANGED": 5,
 		"MAIL_KIND_WORKTREE_REBASED":     6,
+		"MAIL_KIND_WORKTREE_PUSHED":      7,
+		"MAIL_KIND_WORKTREE_ABORTED":     8,
 	}
 )
 
@@ -889,7 +897,7 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"/\n" +
 	"\x11DeleteMailRequest\x12\x1a\n" +
-	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\xdb\x01\n" +
+	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\x9a\x02\n" +
 	"\bMailKind\x12\x19\n" +
 	"\x15MAIL_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fMAIL_KIND_PLAIN\x10\x01\x12\x1d\n" +
@@ -897,7 +905,9 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x19MAIL_KIND_EXCHANGE_CAPPED\x10\x03\x12\x1d\n" +
 	"\x19MAIL_KIND_DOCUMENT_EDITED\x10\x04\x12\"\n" +
 	"\x1eMAIL_KIND_PULL_REQUEST_CHANGED\x10\x05\x12\x1e\n" +
-	"\x1aMAIL_KIND_WORKTREE_REBASED\x10\x06*e\n" +
+	"\x1aMAIL_KIND_WORKTREE_REBASED\x10\x06\x12\x1d\n" +
+	"\x19MAIL_KIND_WORKTREE_PUSHED\x10\a\x12\x1e\n" +
+	"\x1aMAIL_KIND_WORKTREE_ABORTED\x10\b*e\n" +
 	"\rMailDirection\x12\x1e\n" +
 	"\x1aMAIL_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MAIL_DIRECTION_RECEIVED\x10\x01\x12\x17\n" +

@@ -34,10 +34,11 @@ const mergedMergeRequest = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"2
 const forkMergeRequest = `{"id":"gid://gitlab/MergeRequest/535500829","iid":"256485","title":"Draft: feat(reports): one template for the blockers page","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256485","state":"closed","draft":true,"createdAt":"2026-09-18T21:41:21Z","updatedAt":"2026-09-20T17:09:26Z","mergedAt":null,"closedAt":"2026-09-19T20:09:45Z","sourceBranch":"blockers-page-single-template","targetBranch":"master","diffHeadSha":"d636bcb279bab23588cf8973100bc7e6387e9b54","sourceProject":{"webUrl":"https://gitlab.com/acme-forks/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"859512950cbe65e422c71a10bdcbfd9c929769aa"}}`
 
 // standingsBatch is the shape GitLab answers the aliased standings query with, recorded on 21
-// September against acme/widgets: a running pipeline, an approved merge request whose
-// pipeline passed, one asked for changes whose pipeline failed, a skipped pipeline, one with
-// no pipeline, and an iid GitLab does not have.
-const standingsBatch = `{"data":{"project":{"m256666":{"detailedMergeStatus":"NOT_APPROVED","diffHeadSha":"834a90786a4b4f6e35100f1f588c56df17a02887","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"}},"m255110":{"detailedMergeStatus":"MERGEABLE","diffHeadSha":"b90fb22355180c048573dec4dbdc0c82ef92e31b","approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"}},"m252724":{"detailedMergeStatus":"CONFLICT","diffHeadSha":"2586500f614ad3dc5c9ee538eaaa0303aa8f076a","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":{"status":"FAILED"}},"m256649":{"detailedMergeStatus":"DRAFT_STATUS","diffHeadSha":"66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[]},"headPipeline":{"status":"SKIPPED"}},"m254626":{"detailedMergeStatus":"UNCHECKED","diffHeadSha":"0abc488fc8123613c802cac85f1f7d5c4f9d0725","approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":null},"m999999999":null},"queryComplexity":{"score":118,"limit":200}}}`
+// September against acme/widgets with made-up auto-merge fields: a running pipeline set to merge
+// when it passes, an approved merge request whose pipeline passed with nothing left to wait for,
+// one asked for changes whose pipeline failed, a skipped pipeline, one with no pipeline, and an
+// iid GitLab does not have.
+const standingsBatch = `{"data":{"project":{"m256666":{"detailedMergeStatus":"NOT_APPROVED","autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"],"diffHeadSha":"834a90786a4b4f6e35100f1f588c56df17a02887","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"}},"m255110":{"detailedMergeStatus":"MERGEABLE","autoMergeEnabled":false,"availableAutoMergeStrategies":[],"diffHeadSha":"b90fb22355180c048573dec4dbdc0c82ef92e31b","approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"}},"m252724":{"detailedMergeStatus":"CONFLICT","diffHeadSha":"2586500f614ad3dc5c9ee538eaaa0303aa8f076a","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":{"status":"FAILED"}},"m256649":{"detailedMergeStatus":"DRAFT_STATUS","diffHeadSha":"66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[]},"headPipeline":{"status":"SKIPPED"}},"m254626":{"detailedMergeStatus":"UNCHECKED","diffHeadSha":"0abc488fc8123613c802cac85f1f7d5c4f9d0725","approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":null},"m999999999":null},"queryComplexity":{"score":118,"limit":200}}}`
 
 const tooComplex = `{"errors":[{"message":"Query has complexity of 294, which exceeds max complexity of 200"}]}`
 
@@ -60,6 +61,7 @@ func (f *fakeAuth) Invalidate(context.Context) error {
 type call struct {
 	Path      string
 	Method    string
+	Body      map[string]any
 	Operation string
 	Query     string
 	Variables map[string]any
@@ -98,6 +100,8 @@ func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		seen.Query = posted.Query
 		seen.Variables = posted.Variables
 		key = seen.Operation
+	} else {
+		_ = json.NewDecoder(r.Body).Decode(&seen.Body)
 	}
 	g.calls = append(g.calls, seen)
 
@@ -625,6 +629,113 @@ func TestSetDraft(t *testing.T) {
 	}
 }
 
+// TestSetAutoMerge covers queueing a merge request held to the head the person saw, cancelling
+// it, leaving one alone that already stands that way, and refusing one GitLab would merge at once
+// or that has finished before GitLab is asked to change it.
+func TestSetAutoMerge(t *testing.T) {
+	t.Parallel()
+
+	const (
+		address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
+		path    = "/projects/harrisoncramer%2Fkomrad/merge_requests/7"
+	)
+
+	target := func(state string, enabled bool, strategies string) answer {
+		return answer{body: `{"data":{"project":{"mergeRequest":{"state":"` + state + `","autoMergeEnabled":` + strconv.FormatBool(enabled) + `,"availableAutoMergeStrategies":` + strategies + `}}}}`}
+	}
+	waiting := `["merge_when_checks_pass"]`
+
+	tests := []struct {
+		name       string
+		params     forge.SetAutoMergeParams
+		answers    map[string]answer
+		wantErr    error
+		wantMethod string
+		wantPath   string
+		wantBody   map[string]any
+	}{
+		{
+			name:    "a merge request gitlab does not have",
+			params:  forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": {body: `{"data":{"project":{"mergeRequest":null}}}`}},
+			wantErr: forge.ErrNotFound,
+		},
+		{
+			name:    "a merged merge request is refused",
+			params:  forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": target("merged", false, "[]")},
+			wantErr: forge.ErrNoAutoMerge,
+		},
+		{
+			name:    "a merge request with nothing to wait for is refused rather than merged at once",
+			params:  forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": target("opened", false, "[]")},
+			wantErr: forge.ErrNoAutoMerge,
+		},
+		{
+			name:   "a merge request whose branch moved past the head the person saw",
+			params: forge.SetAutoMergeParams{URL: address, HeadSHA: "abc123", On: true},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("opened", false, waiting),
+				path + "/merge":   {status: http.StatusConflict, body: `{"message":"SHA does not match HEAD of source branch"}`},
+			},
+			wantErr: forge.ErrNoAutoMerge,
+		},
+		{
+			name:    "a queued merge request asked to be queued is left alone",
+			params:  forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": target("opened", true, waiting)},
+		},
+		{
+			name:   "an open merge request is queued at the head the person saw",
+			params: forge.SetAutoMergeParams{URL: address, HeadSHA: "abc123", On: true},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("opened", false, waiting),
+				path + "/merge":   {body: `{"iid":7,"state":"opened","merge_when_pipeline_succeeds":true}`},
+			},
+			wantMethod: http.MethodPut,
+			wantPath:   path + "/merge",
+			wantBody:   map[string]any{"auto_merge": true, "merge_when_pipeline_succeeds": true, "sha": "abc123"},
+		},
+		{
+			name:   "a queued merge request is cancelled",
+			params: forge.SetAutoMergeParams{URL: address},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("opened", true, waiting),
+				path + "/cancel_merge_when_pipeline_succeeds": {status: http.StatusCreated, body: `{"iid":7,"merge_when_pipeline_succeeds":false}`},
+			},
+			wantMethod: http.MethodPost,
+			wantPath:   path + "/cancel_merge_when_pipeline_succeeds",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, tt.answers)
+
+			err := f.SetAutoMerge(t.Context(), tt.params)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			sent := xslice.Filter(fake.calls, func(c call) bool { return c.Operation == "" })
+			if tt.wantPath == "" {
+				assert.Empty(t, sent)
+
+				return
+			}
+			require.Len(t, sent, 1)
+			assert.Equal(t, tt.wantMethod, sent[0].Method)
+			assert.Equal(t, tt.wantPath, sent[0].Path)
+			assert.Equal(t, tt.wantBody, sent[0].Body)
+		})
+	}
+}
+
 // TestGetRefusesWhatIsNotAMergeRequest covers the addresses Get will not ask GitLab about.
 func TestGetRefusesWhatIsNotAMergeRequest(t *testing.T) {
 	t.Parallel()
@@ -800,6 +911,7 @@ func TestStandings(t *testing.T) {
 			Checks:       forge.ChecksPending,
 			Mergeability: forge.MergeabilityBlocked,
 			HeadSHA:      "834a90786a4b4f6e35100f1f588c56df17a02887",
+			AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
 		},
 		255110: {
 			Decision:     forge.ReviewDecisionApproved,

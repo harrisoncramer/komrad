@@ -35,6 +35,8 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 		Checks:                  ChecksOf(stored.Checks),
 		Mergeability:            MergeabilityOf(mergeability),
 		MergeabilityUnconfirmed: unconfirmed,
+		AutoMerge:               xptr.Deref(stored.AutoMerge),
+		AutoMergeable:           stored.AutoMergeable,
 	}
 }
 

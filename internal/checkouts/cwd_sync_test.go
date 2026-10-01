@@ -177,15 +177,15 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	repo := makeCheckout(t)
 	agent := fixture.seed(t, "a", repo)
 
-	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", SequenceInProgress: true})}).Sync(t.Context()))
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", Sequence: git.SequenceMerge})}).Sync(t.Context()))
 
 	got := fixture.read(t, agent.ID)
-	assert.True(t, got.SequenceInProgress)
+	assert.Equal(t, agentstore.SequenceMerge, got.Sequence)
 	assert.Equal(t, xptr.Ptr("topic"), got.Branch)
 
 	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic"})}).Sync(t.Context()))
 
-	assert.False(t, fixture.read(t, agent.ID).SequenceInProgress)
+	assert.Equal(t, agentstore.SequenceNone, fixture.read(t, agent.ID).Sequence)
 }
 
 // TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers a cwd that is gone never being asked for its branch.

@@ -107,11 +107,11 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 		return nil, err
 	}
 
-	gitDir, err := Run(ctx, root, "rev-parse", "--absolute-git-dir")
+	gitDir, err := readGitDir(ctx, root)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find the git directory of %q: %w", root, err)
+		return nil, err
 	}
-	if hasSequenceMarker(gitDir) {
+	if readSequence(gitDir).IsInProgress() {
 		return nil, ErrSequenceInProgress
 	}
 

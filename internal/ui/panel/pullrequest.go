@@ -7,8 +7,8 @@ import (
 )
 
 // PullRequestStanding is where the pull request opened from an agent's branch stands: the
-// state, the checks on its head, its mergeability, and the current one's number, address and
-// title when there is one.
+// state, the checks on its head, its mergeability, and the current one's number, address, title,
+// head and auto-merge when there is one.
 type PullRequestStanding struct {
 	State        pullrequestv1.PullRequestState
 	Checks       pullrequestv1.Checks
@@ -16,6 +16,13 @@ type PullRequestStanding struct {
 	Number       int32
 	URL          string
 	Title        string
+	// HeadSHA is the commit the forge holds at the head of the current one.
+	HeadSHA string
+	// AutoMerge says the forge will merge the current one on its own once its checks and reviews
+	// pass.
+	AutoMerge bool
+	// AutoMergeable says the forge would let komrad turn auto-merge on for the current one now.
+	AutoMergeable bool
 }
 
 // PullRequest is one pull request opened from an agent's branch as the service stored it.

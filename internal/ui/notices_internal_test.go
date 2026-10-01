@@ -74,7 +74,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "a stopped rebase",
-			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{SequenceInProgress: true}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{Sequence: panel.SequenceRebase}}),
 			want: []string{sequenceNotice},
 		},
 		{
@@ -220,8 +220,8 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "an agent without a worktree still says a rebase stopped in it",
 			row: buildPlainRow(panel.AgentRow{Agent: panel.Agent{
-				ID:                 "a1",
-				SequenceInProgress: true,
+				ID:       "a1",
+				Sequence: panel.SequenceRebase,
 			}}),
 			want: []string{sequenceNotice},
 		},
@@ -246,9 +246,9 @@ func TestAgentNotices(t *testing.T) {
 func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	item := panel.AgentRow{
 		Agent: panel.Agent{
-			State:              panel.StateWaiting,
-			SequenceInProgress: true,
-			HeldAt:             xptr.Ptr(time.Now()),
+			State:    panel.StateWaiting,
+			Sequence: panel.SequenceRebase,
+			HeldAt:   xptr.Ptr(time.Now()),
 		},
 		Alive:      true,
 		UnreadMail: true,

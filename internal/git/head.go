@@ -18,8 +18,8 @@ type HeadState struct {
 	Branch string
 	// SHA is the commit HEAD points at.
 	SHA string
-	// SequenceInProgress is whether a merge, a rebase or a cherry-pick is part-way through.
-	SequenceInProgress bool
+	// Sequence is what git has part-way through in the checkout.
+	Sequence Sequence
 	// RepositoryURL is the canonical address of the repository origin points at, empty when
 	// there is no origin or it names no forge.
 	RepositoryURL string
@@ -69,12 +69,12 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 	}
 
 	return HeadState{
-		Branch:             branch,
-		SHA:                sha,
-		SequenceInProgress: hasSequenceMarker(gitDir),
-		RepositoryURL:      readRepositoryURL(ctx, params.Dir),
-		Root:               root,
-		SnapshotTree:       snapshotTree,
+		Branch:        branch,
+		SHA:           sha,
+		Sequence:      readSequence(gitDir),
+		RepositoryURL: readRepositoryURL(ctx, params.Dir),
+		Root:          root,
+		SnapshotTree:  snapshotTree,
 	}
 }
 
@@ -114,14 +114,4 @@ func rebasingBranch(gitDir string) string {
 	}
 
 	return ""
-}
-
-func hasSequenceMarker(gitDir string) bool {
-	for _, marker := range sequenceMarkers {
-		if _, err := os.Stat(filepath.Join(gitDir, marker)); err == nil {
-			return true
-		}
-	}
-
-	return false
 }

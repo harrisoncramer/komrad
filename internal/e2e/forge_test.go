@@ -5,6 +5,7 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,11 +30,14 @@ import (
 // live test skips without one so the suite never needs the network.
 const forgeTokenEnv = "KOMRAD_E2E_GITHUB_TOKEN"
 
-// fakeForge is a forge answering a fixed pair of pull requests from one branch of one
-// repository, counting how often it was asked for the open one's review decision.
+// fakeForge is a forge answering a pair of pull requests from one branch of one repository,
+// counting how often it was asked for the open one's review decision and holding whether the
+// open one merges on its own.
 type fakeForge struct {
 	server    *httptest.Server
 	standings atomic.Int32
+	autoMerge atomic.Bool
+	changes   atomic.Int32
 }
 
 // TestIntegrationForges walks a person connecting a forge, using it, and disconnecting it.
@@ -159,10 +163,27 @@ func readOperation(r *http.Request) string {
 		return ""
 	}
 
-	name, _, _ := strings.Cut(strings.TrimPrefix(posted.Query, "query "), "(")
+	_, name, _ := strings.Cut(posted.Query, " ")
+	name, _, _ = strings.Cut(name, "(")
 	name, _, _ = strings.Cut(name, " ")
 
 	return name
+}
+
+// setAutoMerge turns the open pull request's auto-merge on or off, as a change the next sync reads.
+func (f *fakeForge) setAutoMerge(on bool) {
+	f.autoMerge.Store(on)
+	f.changes.Add(1)
+}
+
+// readUpdatedAt is when pull request number last changed, an hour later for each auto-merge change to the open one.
+func (f *fakeForge) readUpdatedAt(number int) string {
+	hour := 11
+	if number == 12 {
+		hour += int(f.changes.Load())
+	}
+
+	return fmt.Sprintf("2026-09-%02dT%02d:00:00Z", number, hour)
 }
 
 // buildConnection is a page of nodes as either forge's GraphQL answers it.
@@ -178,7 +199,8 @@ func buildConnection(nodes ...map[string]any) map[string]any {
 }
 
 // startFakeGitHub answers GitHub's GraphQL for two pull requests from feature/widgets of
-// acme/widgets: #12 open and approved, #9 merged, and a search that never answers.
+// acme/widgets, #12 open and approved and #9 merged, and the auto-merge requests on #12, which
+// the search for changes answers once one has been made.
 func startFakeGitHub(t *testing.T) *fakeForge {
 	t.Helper()
 
@@ -198,7 +220,7 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 			"state":          state,
 			"isDraft":        false,
 			"createdAt":      fmt.Sprintf("2026-09-%02dT10:00:00Z", number),
-			"updatedAt":      fmt.Sprintf("2026-09-%02dT11:00:00Z", number),
+			"updatedAt":      fake.readUpdatedAt(number),
 			"mergedAt":       mergedAt,
 			"closedAt":       closedAt,
 			"headRefName":    "feature/widgets",
@@ -209,10 +231,23 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 			"baseRepository": repository,
 		}
 	}
-	listing := buildConnection(
-		pullRequest(12, "ship the widgets", "OPEN", false),
-		pullRequest(9, "first cut", "MERGED", true),
-	)
+	readAutoMergeRequest := func() any {
+		if !fake.autoMerge.Load() {
+			return nil
+		}
+
+		return map[string]any{"enabledAt": "2026-09-19T12:00:00Z"}
+	}
+	readStanding := func() map[string]any {
+		return map[string]any{
+			"headRefOid":               "aaa",
+			"reviewDecision":           "APPROVED",
+			"mergeStateStatus":         "CLEAN",
+			"commits":                  map[string]any{"nodes": []any{map[string]any{"commit": map[string]any{"statusCheckRollup": map[string]any{"state": "SUCCESS"}}}}},
+			"autoMergeRequest":         readAutoMergeRequest(),
+			"viewerCanEnableAutoMerge": true,
+		}
+	}
 
 	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/graphql" {
@@ -225,17 +260,33 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 		case "Verify":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"viewer": map[string]any{"login": "harrisoncramer"}}})
 		case "ListUpdated", "List":
+			listing := buildConnection(
+				pullRequest(12, "ship the widgets", "OPEN", false),
+				pullRequest(9, "first cut", "MERGED", true),
+			)
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"pullRequests": listing}}})
 		case "ListChanged":
-			writeJSON(t, w, map[string]any{"data": map[string]any{"search": buildConnection()}})
+			changed := buildConnection()
+			if fake.changes.Load() > 0 {
+				node := pullRequest(12, "ship the widgets", "OPEN", false)
+				maps.Copy(node, readStanding())
+				changed = buildConnection(node)
+			}
+			writeJSON(t, w, map[string]any{"data": map[string]any{"search": changed}})
 		case "Standings":
 			fake.standings.Add(1)
-			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"p12": map[string]any{
-				"headRefOid":       "aaa",
-				"reviewDecision":   "APPROVED",
-				"mergeStateStatus": "CLEAN",
-				"commits":          map[string]any{"nodes": []any{map[string]any{"commit": map[string]any{"statusCheckRollup": map[string]any{"state": "SUCCESS"}}}}},
-			}}}})
+			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"p12": readStanding()}}})
+		case "AutoMergeTarget":
+			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{
+				"viewerDefaultMergeMethod": "SQUASH",
+				"pullRequest":              map[string]any{"id": "PR_12", "state": "OPEN", "autoMergeRequest": readAutoMergeRequest()},
+			}}})
+		case "EnableAutoMerge":
+			fake.setAutoMerge(true)
+			writeJSON(t, w, map[string]any{"data": map[string]any{"enablePullRequestAutoMerge": map[string]any{"clientMutationId": nil}}})
+		case "DisableAutoMerge":
+			fake.setAutoMerge(false)
+			writeJSON(t, w, map[string]any{"data": map[string]any{"disablePullRequestAutoMerge": map[string]any{"clientMutationId": nil}}})
 		default:
 			http.NotFound(w, r)
 		}
@@ -245,8 +296,9 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 	return fake
 }
 
-// startFakeGitLab answers GitLab's GraphQL for two merge requests from feature/widgets of
-// acme/widgets: !12 open and approved, !9 merged, and no changes since.
+// startFakeGitLab answers GitLab for two merge requests from feature/widgets of acme/widgets,
+// !12 open and approved and !9 merged, and the auto-merge requests on !12, which the read of
+// changes answers once one has been made.
 func startFakeGitLab(t *testing.T) *fakeForge {
 	t.Helper()
 
@@ -266,7 +318,7 @@ func startFakeGitLab(t *testing.T) *fakeForge {
 			"state":         state,
 			"draft":         false,
 			"createdAt":     fmt.Sprintf("2026-09-%02dT10:00:00Z", iid),
-			"updatedAt":     fmt.Sprintf("2026-09-%02dT11:00:00Z", iid),
+			"updatedAt":     fake.readUpdatedAt(iid),
 			"mergedAt":      mergedAt,
 			"closedAt":      nil,
 			"sourceBranch":  "feature/widgets",
@@ -277,22 +329,34 @@ func startFakeGitLab(t *testing.T) *fakeForge {
 			"diffRefs":      map[string]any{"baseSha": "bbb"},
 		}
 	}
-	listing := buildConnection(
-		mergeRequest(12, "ship the widgets", "opened", false),
-		mergeRequest(9, "first cut", "merged", true),
-	)
-	approved := map[string]any{
-		"approvalsRequired":   1,
-		"approvalsLeft":       0,
-		"approvedBy":          map[string]any{"count": 1},
-		"reviewers":           map[string]any{"nodes": []map[string]any{{"mergeRequestInteraction": map[string]any{"reviewState": "APPROVED"}}}},
-		"diffHeadSha":         "aaa",
-		"headPipeline":        map[string]any{"status": "SUCCESS"},
-		"detailedMergeStatus": "MERGEABLE",
+	strategies := []string{"merge_when_checks_pass"}
+	readStanding := func() map[string]any {
+		return map[string]any{
+			"approvalsRequired":            1,
+			"approvalsLeft":                0,
+			"approvedBy":                   map[string]any{"count": 1},
+			"reviewers":                    map[string]any{"nodes": []map[string]any{{"mergeRequestInteraction": map[string]any{"reviewState": "APPROVED"}}}},
+			"diffHeadSha":                  "aaa",
+			"headPipeline":                 map[string]any{"status": "SUCCESS"},
+			"detailedMergeStatus":          "MERGEABLE",
+			"autoMergeEnabled":             fake.autoMerge.Load(),
+			"availableAutoMergeStrategies": strategies,
+		}
 	}
 
 	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/graphql" {
+		switch {
+		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/merge_requests/12/merge"):
+			fake.setAutoMerge(true)
+			writeJSON(t, w, map[string]any{})
+
+			return
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/merge_requests/12/cancel_merge_when_pipeline_succeeds"):
+			fake.setAutoMerge(false)
+			writeJSON(t, w, map[string]any{})
+
+			return
+		case r.URL.Path != "/graphql":
 			http.NotFound(w, r)
 
 			return
@@ -302,18 +366,34 @@ func startFakeGitLab(t *testing.T) *fakeForge {
 		case "Verify":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"currentUser": map[string]any{"username": "harrisoncramer"}}})
 		case "ListUpdated", "List":
+			listing := buildConnection(
+				mergeRequest(12, "ship the widgets", "opened", false),
+				mergeRequest(9, "first cut", "merged", true),
+			)
 			writeJSON(t, w, map[string]any{"data": map[string]any{"project": map[string]any{"mergeRequests": listing}}})
 		case "ListChanged":
+			changed := buildConnection()
+			if fake.changes.Load() > 0 {
+				node := mergeRequest(12, "ship the widgets", "opened", false)
+				maps.Copy(node, readStanding())
+				changed = buildConnection(node)
+			}
 			writeJSON(t, w, map[string]any{"data": map[string]any{
-				"r0":              map[string]any{"mergeRequests": buildConnection()},
+				"r0":              map[string]any{"mergeRequests": changed},
 				"queryComplexity": map[string]any{"score": 52, "limit": 200},
 			}})
 		case "Standings":
 			fake.standings.Add(1)
 			writeJSON(t, w, map[string]any{"data": map[string]any{
-				"project":         map[string]any{"m12": approved},
+				"project":         map[string]any{"m12": readStanding()},
 				"queryComplexity": map[string]any{"score": 20, "limit": 200},
 			}})
+		case "AutoMergeTarget":
+			writeJSON(t, w, map[string]any{"data": map[string]any{"project": map[string]any{"mergeRequest": map[string]any{
+				"state":                        "opened",
+				"autoMergeEnabled":             fake.autoMerge.Load(),
+				"availableAutoMergeStrategies": strategies,
+			}}}})
 		default:
 			http.NotFound(w, r)
 		}

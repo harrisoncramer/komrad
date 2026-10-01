@@ -17,6 +17,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/checkouts"
+	"komrad/internal/git"
 	"komrad/internal/interceptors"
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
@@ -273,7 +274,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      checkouts.ErrRebaseNoWorktree,
+			err:      checkouts.ErrNoWorktree,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -284,6 +285,26 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 				return err
 			},
 			err:      checkouts.ErrRebaseDirty,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a push origin turned away because it moved on",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+				_, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: alphaID}))
+
+				return err
+			},
+			err:      git.ErrPushRejected,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "an abort of a worktree with nothing in progress",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+				_, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: alphaID}))
+
+				return err
+			},
+			err:      checkouts.ErrAbortNothing,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -617,6 +638,51 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			wantAnswer: "agent/alpha onto origin/main, conflicted true",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, ids[:1], services.rebased)
+			},
+		},
+		{
+			name: "planning a push",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				planned, err := svc.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: ids[0]}))
+				if err != nil {
+					return "", err
+				}
+
+				return fmt.Sprintf("%s, %d up, forced %t, %d left behind", planned.Msg.GetBranch(), planned.Msg.GetCommits(), planned.Msg.GetForced(), planned.Msg.GetUncommittedFiles()), nil
+			},
+			wantAnswer: "agent/alpha, 2 up, forced true, 1 left behind",
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.pushPlanned)
+			},
+		},
+		{
+			name: "pushing",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				pushed, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: ids[0]}))
+				if err != nil {
+					return "", err
+				}
+
+				return fmt.Sprintf("%s at %s, forced %t", pushed.Msg.GetBranch(), pushed.Msg.GetSha(), pushed.Msg.GetForced()), nil
+			},
+			wantAnswer: "agent/alpha at pushedsha, forced true",
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.pushed)
+			},
+		},
+		{
+			name: "aborting",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				aborted, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: ids[0]}))
+				if err != nil {
+					return "", err
+				}
+
+				return fmt.Sprintf("%s on %s, parked at %s, interrupted %t", aborted.Msg.GetSequence(), aborted.Msg.GetBranch(), aborted.Msg.GetParkedRef(), aborted.Msg.GetInterrupted()), nil
+			},
+			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/aborted/alpha/1, interrupted true",
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.aborted)
 			},
 		},
 		{
@@ -1194,6 +1260,9 @@ type recordingAgentServices struct {
 	orchestrated  []string
 	planned       []string
 	rebased       []string
+	pushPlanned   []string
+	pushed        []string
+	aborted       []string
 	deleted       []string
 	archived      []string
 	restored      []string
@@ -1311,6 +1380,36 @@ func (f *recordingAgentServices) Rebase(_ context.Context, agentID string) (*che
 	}, nil
 }
 
+func (f *recordingAgentServices) PlanPush(_ context.Context, agentID string) (*checkouts.PushPlan, error) {
+	f.pushPlanned = append(f.pushPlanned, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &checkouts.PushPlan{
+		Branch:      "agent/alpha",
+		Commits:     2,
+		Forced:      true,
+		Uncommitted: 1,
+	}, nil
+}
+
+func (f *recordingAgentServices) Push(_ context.Context, agentID string) (*checkouts.PushResult, error) {
+	f.pushed = append(f.pushed, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &checkouts.PushResult{
+		PushPlan: checkouts.PushPlan{
+			Branch:  "agent/alpha",
+			Commits: 2,
+			Forced:  true,
+		},
+		SHA: "pushedsha",
+	}, nil
+}
+
 func (f *recordingAgentServices) DeleteAgents(_ context.Context, ids []string) error {
 	f.deleted = append(f.deleted, ids...)
 
@@ -1410,6 +1509,8 @@ func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recor
 		Deleter:      services,
 		Orchestrator: services,
 		Rebaser:      services,
+		Pusher:       services,
+		Aborter:      services,
 	})}, services
 }
 
@@ -1637,4 +1738,18 @@ func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *recordin
 	t.Cleanup(server.Close)
 
 	return agentv1connect.NewAgentServiceClient(server.Client(), server.URL), services
+}
+
+func (f *recordingAgentServices) Abort(_ context.Context, agentID string) (*checkouts.AbortResult, error) {
+	f.aborted = append(f.aborted, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &checkouts.AbortResult{
+		Sequence:    agentstore.SequenceCherryPick,
+		Branch:      "agent/alpha",
+		ParkedRef:   "refs/komrad/aborted/alpha/1",
+		Interrupted: true,
+	}, nil
 }

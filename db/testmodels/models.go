@@ -54,6 +54,52 @@ func (ns NullAgentRole) Value() (driver.Value, error) {
 	return string(ns.AgentRole), nil
 }
 
+type AgentSequence string
+
+const (
+	AgentSequenceNone       AgentSequence = "none"
+	AgentSequenceRebase     AgentSequence = "rebase"
+	AgentSequenceAm         AgentSequence = "am"
+	AgentSequenceMerge      AgentSequence = "merge"
+	AgentSequenceCherryPick AgentSequence = "cherry_pick"
+	AgentSequenceRevert     AgentSequence = "revert"
+)
+
+func (e *AgentSequence) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AgentSequence(s)
+	case string:
+		*e = AgentSequence(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AgentSequence: %T", src)
+	}
+	return nil
+}
+
+type NullAgentSequence struct {
+	AgentSequence AgentSequence
+	Valid         bool // Valid is true if AgentSequence is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAgentSequence) Scan(value interface{}) error {
+	if value == nil {
+		ns.AgentSequence, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AgentSequence.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAgentSequence) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AgentSequence), nil
+}
+
 type AgentState string
 
 const (
@@ -111,6 +157,8 @@ const (
 	MailKindDocumentEdited     MailKind = "document_edited"
 	MailKindPullRequestChanged MailKind = "pull_request_changed"
 	MailKindWorktreeRebased    MailKind = "worktree_rebased"
+	MailKindWorktreePushed     MailKind = "worktree_pushed"
+	MailKindWorktreeAborted    MailKind = "worktree_aborted"
 )
 
 func (e *MailKind) Scan(src interface{}) error {
@@ -314,8 +362,6 @@ type Agent struct {
 	// Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it.
 	HeldMidTurn bool
 	NudgeSentAt pgtype.Timestamptz
-	// Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
-	SequenceInProgress bool
 	// The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/komrad. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.
 	RepositoryUrl *string
 	// When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one.
@@ -344,6 +390,8 @@ type Agent struct {
 	LinesRemoved *int32
 	// The agent that took the hold, null when the panel took it.
 	HeldByAgentID pgtype.UUID
+	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
+	Sequence AgentSequence
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
@@ -654,6 +702,10 @@ type PullRequest struct {
 	LastKnownMergeabilitySha *string
 	// When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly.
 	MergeabilityBlankSince pgtype.Timestamptz
+	// Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks and kept fresh the same way.
+	AutoMerge *bool
+	// Whether the forge would let komrad's credential turn auto-merge on now, which it will not for a draft, a pull request with nothing left to wait for or a repository that does not allow it.
+	AutoMergeable bool
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

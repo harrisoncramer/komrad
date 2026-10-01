@@ -78,7 +78,7 @@ var triageRules = []triageRule{
 		kind:  kindAgent,
 		clock: clockSeen,
 		is: func(s triageSubject) bool {
-			return s.item.Agent.SequenceInProgress && s.item.Agent.ParentAgentID == nil
+			return s.item.Agent.Sequence.IsInProgress() && s.item.Agent.ParentAgentID == nil
 		},
 	},
 	{

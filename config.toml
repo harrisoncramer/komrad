@@ -240,6 +240,12 @@ merge                 = ["m"]
 # its branch that is not finished, else the newest finished one. The entry says so rather
 # than acting on an agent with none.
 open_pull_request     = ["o"]
+# Send the hovered agent's branch to origin, which asks first and says how many commits go
+# up, whether origin's copy is overwritten after a rebase, and what stays uncommitted.
+push                  = ["p"]
+# Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered agent's
+# worktree, which asks first. The entry names the kind and is off when nothing is in progress.
+abort                 = ["x"]
 # Bring the hovered agent's worktree up to date on the latest base, which asks first and
 # says what it would do to the branch and to the files.
 rebase                = ["r"]
@@ -259,6 +265,9 @@ show_hidden = ["H"]
 merge         = ["m"]
 # Merge the pull request, then archive the agent once the forge has merged it.
 merge_archive = ["a"]
+# Have the forge merge the pull request on its own once its checks and reviews pass, or stop it
+# when it is already waiting to.
+auto_merge    = ["u"]
 
 # The logs screen, which tails what the service logged about one agent.
 [keybindings.logs]

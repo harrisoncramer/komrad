@@ -80,6 +80,23 @@ func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft 
 	return nil
 }
 
+// SetPullRequestAutoMerge asks the forge to merge the pull request once its checks and reviews
+// pass, or stops it, and wakes the pull request sync.
+func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
+	f, err := w.forgeFor(ctx, params.URL)
+	if err != nil {
+		return err
+	}
+
+	if err := f.SetAutoMerge(ctx, params); err != nil {
+		return err
+	}
+
+	w.wakeUntilSettled()
+
+	return nil
+}
+
 // forgeFor is the forge connected for the pull request address's host.
 func (w *Writer) forgeFor(ctx context.Context, address string) (forge.Forge, error) {
 	parsed, err := url.Parse(address)

@@ -162,6 +162,75 @@ func (AgentRole) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{1}
 }
 
+// Sequence is what git has part-way through an agent's checkout and waiting on somebody.
+type Sequence int32
+
+const (
+	// Nothing was recorded, which no stored agent answers with.
+	Sequence_SEQUENCE_UNSPECIFIED Sequence = 0
+	// Nothing is part-way through.
+	Sequence_SEQUENCE_NONE Sequence = 1
+	// A rebase stopped on a commit it could not replay.
+	Sequence_SEQUENCE_REBASE Sequence = 2
+	// An am stopped on a patch it could not apply.
+	Sequence_SEQUENCE_AM Sequence = 3
+	// A merge stopped on conflicts.
+	Sequence_SEQUENCE_MERGE Sequence = 4
+	// A cherry-pick stopped on conflicts or resting between its picks.
+	Sequence_SEQUENCE_CHERRY_PICK Sequence = 5
+	// A revert stopped on conflicts or resting between its picks.
+	Sequence_SEQUENCE_REVERT Sequence = 6
+)
+
+// Enum value maps for Sequence.
+var (
+	Sequence_name = map[int32]string{
+		0: "SEQUENCE_UNSPECIFIED",
+		1: "SEQUENCE_NONE",
+		2: "SEQUENCE_REBASE",
+		3: "SEQUENCE_AM",
+		4: "SEQUENCE_MERGE",
+		5: "SEQUENCE_CHERRY_PICK",
+		6: "SEQUENCE_REVERT",
+	}
+	Sequence_value = map[string]int32{
+		"SEQUENCE_UNSPECIFIED": 0,
+		"SEQUENCE_NONE":        1,
+		"SEQUENCE_REBASE":      2,
+		"SEQUENCE_AM":          3,
+		"SEQUENCE_MERGE":       4,
+		"SEQUENCE_CHERRY_PICK": 5,
+		"SEQUENCE_REVERT":      6,
+	}
+)
+
+func (x Sequence) Enum() *Sequence {
+	p := new(Sequence)
+	*p = x
+	return p
+}
+
+func (x Sequence) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Sequence) Descriptor() protoreflect.EnumDescriptor {
+	return file_agent_v1_agent_proto_enumTypes[2].Descriptor()
+}
+
+func (Sequence) Type() protoreflect.EnumType {
+	return &file_agent_v1_agent_proto_enumTypes[2]
+}
+
+func (x Sequence) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Sequence.Descriptor instead.
+func (Sequence) EnumDescriptor() ([]byte, []int) {
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{2}
+}
+
 // DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
 type DiffStat struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -265,9 +334,8 @@ type Agent struct {
 	HeadSha *string `protobuf:"bytes,41,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
 	// Whether its checkout has been taken away, which leaves the record and the transcript.
 	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
-	// Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
-	// somebody to settle it.
-	SequenceInProgress bool `protobuf:"varint,36,opt,name=sequence_in_progress,json=sequenceInProgress,proto3" json:"sequence_in_progress,omitempty"`
+	// What git has part-way through its checkout, waiting on somebody to settle it.
+	Sequence Sequence `protobuf:"varint,36,opt,name=sequence,proto3,enum=agent.v1.Sequence" json:"sequence,omitempty"`
 	// Whether a script komrad fired for the agent failed and nobody has looked at it since.
 	FailedRun bool `protobuf:"varint,27,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
 	// The run log that failure was written to, which is the run the panel opens on.
@@ -485,11 +553,11 @@ func (x *Agent) GetWorktreeRemoved() bool {
 	return false
 }
 
-func (x *Agent) GetSequenceInProgress() bool {
+func (x *Agent) GetSequence() Sequence {
 	if x != nil {
-		return x.SequenceInProgress
+		return x.Sequence
 	}
-	return false
+	return Sequence_SEQUENCE_UNSPECIFIED
 }
 
 func (x *Agent) GetFailedRun() bool {
@@ -779,7 +847,16 @@ type PullRequestStanding struct {
 	Checks v1.Checks `protobuf:"varint,5,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
 	// Where the forge says the current pull request stands against its base and rules,
 	// UNSPECIFIED for UNREAD and NONE.
-	Mergeability  v1.Mergeability `protobuf:"varint,6,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
+	Mergeability v1.Mergeability `protobuf:"varint,6,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
+	// Whether the forge says the current pull request will merge on its own once its checks and
+	// reviews pass, false for UNREAD and NONE.
+	AutoMerge bool `protobuf:"varint,7,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
+	// Whether the forge would let komrad turn auto-merge on for the current pull request now,
+	// false for UNREAD and NONE.
+	AutoMergeable bool `protobuf:"varint,8,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
+	// The commit the forge holds at the head of the current pull request, unset for UNREAD and
+	// NONE.
+	HeadSha       *string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -854,6 +931,27 @@ func (x *PullRequestStanding) GetMergeability() v1.Mergeability {
 		return x.Mergeability
 	}
 	return v1.Mergeability(0)
+}
+
+func (x *PullRequestStanding) GetAutoMerge() bool {
+	if x != nil {
+		return x.AutoMerge
+	}
+	return false
+}
+
+func (x *PullRequestStanding) GetAutoMergeable() bool {
+	if x != nil {
+		return x.AutoMergeable
+	}
+	return false
+}
+
+func (x *PullRequestStanding) GetHeadSha() string {
+	if x != nil && x.HeadSha != nil {
+		return *x.HeadSha
+	}
+	return ""
 }
 
 type ListAgentsRequest struct {
@@ -1992,6 +2090,359 @@ func (x *RebaseWorktreeResponse) GetReplayCommits() int32 {
 	return 0
 }
 
+// PlanPushRequest asks what a push would do without doing it.
+type PlanPushRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose branch the push would send.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlanPushRequest) Reset() {
+	*x = PlanPushRequest{}
+	mi := &file_agent_v1_agent_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlanPushRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlanPushRequest) ProtoMessage() {}
+
+func (x *PlanPushRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_agent_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlanPushRequest.ProtoReflect.Descriptor instead.
+func (*PlanPushRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *PlanPushRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+type PlanPushResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which branch would go up.
+	Branch string `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
+	// How many commits would go up, counted against origin's copy of the branch, or against the
+	// base when origin has none.
+	Commits int32 `protobuf:"varint,2,opt,name=commits,proto3" json:"commits,omitempty"`
+	// Whether origin's copy holds commits the branch does not, so the push would overwrite it.
+	Forced bool `protobuf:"varint,3,opt,name=forced,proto3" json:"forced,omitempty"`
+	// How many files would stay behind because nothing has committed them.
+	UncommittedFiles int32 `protobuf:"varint,4,opt,name=uncommitted_files,json=uncommittedFiles,proto3" json:"uncommitted_files,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *PlanPushResponse) Reset() {
+	*x = PlanPushResponse{}
+	mi := &file_agent_v1_agent_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlanPushResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlanPushResponse) ProtoMessage() {}
+
+func (x *PlanPushResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_agent_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlanPushResponse.ProtoReflect.Descriptor instead.
+func (*PlanPushResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *PlanPushResponse) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *PlanPushResponse) GetCommits() int32 {
+	if x != nil {
+		return x.Commits
+	}
+	return 0
+}
+
+func (x *PlanPushResponse) GetForced() bool {
+	if x != nil {
+		return x.Forced
+	}
+	return false
+}
+
+func (x *PlanPushResponse) GetUncommittedFiles() int32 {
+	if x != nil {
+		return x.UncommittedFiles
+	}
+	return 0
+}
+
+type PushWorktreeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose branch to send to origin.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushWorktreeRequest) Reset() {
+	*x = PushWorktreeRequest{}
+	mi := &file_agent_v1_agent_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushWorktreeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushWorktreeRequest) ProtoMessage() {}
+
+func (x *PushWorktreeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_agent_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushWorktreeRequest.ProtoReflect.Descriptor instead.
+func (*PushWorktreeRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *PushWorktreeRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+type PushWorktreeResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which branch went up.
+	Branch string `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
+	// How many commits went up.
+	Commits int32 `protobuf:"varint,2,opt,name=commits,proto3" json:"commits,omitempty"`
+	// Whether origin's copy was overwritten.
+	Forced bool `protobuf:"varint,3,opt,name=forced,proto3" json:"forced,omitempty"`
+	// The commit origin's copy of the branch now names.
+	Sha           string `protobuf:"bytes,4,opt,name=sha,proto3" json:"sha,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushWorktreeResponse) Reset() {
+	*x = PushWorktreeResponse{}
+	mi := &file_agent_v1_agent_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushWorktreeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushWorktreeResponse) ProtoMessage() {}
+
+func (x *PushWorktreeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_agent_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushWorktreeResponse.ProtoReflect.Descriptor instead.
+func (*PushWorktreeResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *PushWorktreeResponse) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *PushWorktreeResponse) GetCommits() int32 {
+	if x != nil {
+		return x.Commits
+	}
+	return 0
+}
+
+func (x *PushWorktreeResponse) GetForced() bool {
+	if x != nil {
+		return x.Forced
+	}
+	return false
+}
+
+func (x *PushWorktreeResponse) GetSha() string {
+	if x != nil {
+		return x.Sha
+	}
+	return ""
+}
+
+type AbortSequenceRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose worktree to abort the sequence in.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AbortSequenceRequest) Reset() {
+	*x = AbortSequenceRequest{}
+	mi := &file_agent_v1_agent_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AbortSequenceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AbortSequenceRequest) ProtoMessage() {}
+
+func (x *AbortSequenceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_agent_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AbortSequenceRequest.ProtoReflect.Descriptor instead.
+func (*AbortSequenceRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *AbortSequenceRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+type AbortSequenceResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What was undone.
+	Sequence Sequence `protobuf:"varint,1,opt,name=sequence,proto3,enum=agent.v1.Sequence" json:"sequence,omitempty"`
+	// Where the checkout stands now, empty when it is detached.
+	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
+	// The ref holding the checkout as it stood before the abort, conflicts and all.
+	ParkedRef string `protobuf:"bytes,3,opt,name=parked_ref,json=parkedRef,proto3" json:"parked_ref,omitempty"`
+	// Whether the agent's turn was cut so the abort could run.
+	Interrupted   bool `protobuf:"varint,4,opt,name=interrupted,proto3" json:"interrupted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AbortSequenceResponse) Reset() {
+	*x = AbortSequenceResponse{}
+	mi := &file_agent_v1_agent_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AbortSequenceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AbortSequenceResponse) ProtoMessage() {}
+
+func (x *AbortSequenceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_agent_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AbortSequenceResponse.ProtoReflect.Descriptor instead.
+func (*AbortSequenceResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *AbortSequenceResponse) GetSequence() Sequence {
+	if x != nil {
+		return x.Sequence
+	}
+	return Sequence_SEQUENCE_UNSPECIFIED
+}
+
+func (x *AbortSequenceResponse) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *AbortSequenceResponse) GetParkedRef() string {
+	if x != nil {
+		return x.ParkedRef
+	}
+	return ""
+}
+
+func (x *AbortSequenceResponse) GetInterrupted() bool {
+	if x != nil {
+		return x.Interrupted
+	}
+	return false
+}
+
 type SetHiddenRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which agent to hide or unhide.
@@ -2004,7 +2455,7 @@ type SetHiddenRequest struct {
 
 func (x *SetHiddenRequest) Reset() {
 	*x = SetHiddenRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[21]
+	mi := &file_agent_v1_agent_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2016,7 +2467,7 @@ func (x *SetHiddenRequest) String() string {
 func (*SetHiddenRequest) ProtoMessage() {}
 
 func (x *SetHiddenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[21]
+	mi := &file_agent_v1_agent_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2029,7 +2480,7 @@ func (x *SetHiddenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetHiddenRequest.ProtoReflect.Descriptor instead.
 func (*SetHiddenRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{21}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *SetHiddenRequest) GetId() string {
@@ -2060,7 +2511,7 @@ type RecordReportRequest struct {
 
 func (x *RecordReportRequest) Reset() {
 	*x = RecordReportRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[22]
+	mi := &file_agent_v1_agent_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2072,7 +2523,7 @@ func (x *RecordReportRequest) String() string {
 func (*RecordReportRequest) ProtoMessage() {}
 
 func (x *RecordReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[22]
+	mi := &file_agent_v1_agent_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2085,7 +2536,7 @@ func (x *RecordReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordReportRequest.ProtoReflect.Descriptor instead.
 func (*RecordReportRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{22}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RecordReportRequest) GetReason() string {
@@ -2119,7 +2570,7 @@ type MarkRunsReadRequest struct {
 
 func (x *MarkRunsReadRequest) Reset() {
 	*x = MarkRunsReadRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[23]
+	mi := &file_agent_v1_agent_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2131,7 +2582,7 @@ func (x *MarkRunsReadRequest) String() string {
 func (*MarkRunsReadRequest) ProtoMessage() {}
 
 func (x *MarkRunsReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[23]
+	mi := &file_agent_v1_agent_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2144,7 +2595,7 @@ func (x *MarkRunsReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkRunsReadRequest.ProtoReflect.Descriptor instead.
 func (*MarkRunsReadRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{23}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *MarkRunsReadRequest) GetId() string {
@@ -2168,7 +2619,7 @@ type LogRequest struct {
 
 func (x *LogRequest) Reset() {
 	*x = LogRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[24]
+	mi := &file_agent_v1_agent_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2180,7 +2631,7 @@ func (x *LogRequest) String() string {
 func (*LogRequest) ProtoMessage() {}
 
 func (x *LogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[24]
+	mi := &file_agent_v1_agent_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2193,7 +2644,7 @@ func (x *LogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRequest.ProtoReflect.Descriptor instead.
 func (*LogRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{24}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *LogRequest) GetId() string {
@@ -2228,7 +2679,7 @@ type ArchiveAgentsRequest struct {
 
 func (x *ArchiveAgentsRequest) Reset() {
 	*x = ArchiveAgentsRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[25]
+	mi := &file_agent_v1_agent_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2240,7 +2691,7 @@ func (x *ArchiveAgentsRequest) String() string {
 func (*ArchiveAgentsRequest) ProtoMessage() {}
 
 func (x *ArchiveAgentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[25]
+	mi := &file_agent_v1_agent_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2253,7 +2704,7 @@ func (x *ArchiveAgentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArchiveAgentsRequest.ProtoReflect.Descriptor instead.
 func (*ArchiveAgentsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{25}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ArchiveAgentsRequest) GetIds() []string {
@@ -2273,7 +2724,7 @@ type RestoreAgentsRequest struct {
 
 func (x *RestoreAgentsRequest) Reset() {
 	*x = RestoreAgentsRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[26]
+	mi := &file_agent_v1_agent_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2285,7 +2736,7 @@ func (x *RestoreAgentsRequest) String() string {
 func (*RestoreAgentsRequest) ProtoMessage() {}
 
 func (x *RestoreAgentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[26]
+	mi := &file_agent_v1_agent_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2298,7 +2749,7 @@ func (x *RestoreAgentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreAgentsRequest.ProtoReflect.Descriptor instead.
 func (*RestoreAgentsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{26}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RestoreAgentsRequest) GetIds() []string {
@@ -2318,7 +2769,7 @@ type RestoreAgentsResponse struct {
 
 func (x *RestoreAgentsResponse) Reset() {
 	*x = RestoreAgentsResponse{}
-	mi := &file_agent_v1_agent_proto_msgTypes[27]
+	mi := &file_agent_v1_agent_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2330,7 +2781,7 @@ func (x *RestoreAgentsResponse) String() string {
 func (*RestoreAgentsResponse) ProtoMessage() {}
 
 func (x *RestoreAgentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[27]
+	mi := &file_agent_v1_agent_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2343,7 +2794,7 @@ func (x *RestoreAgentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreAgentsResponse.ProtoReflect.Descriptor instead.
 func (*RestoreAgentsResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{27}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RestoreAgentsResponse) GetAgents() []*Agent {
@@ -2369,7 +2820,7 @@ type RetryAgentRequest struct {
 
 func (x *RetryAgentRequest) Reset() {
 	*x = RetryAgentRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[28]
+	mi := &file_agent_v1_agent_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2381,7 +2832,7 @@ func (x *RetryAgentRequest) String() string {
 func (*RetryAgentRequest) ProtoMessage() {}
 
 func (x *RetryAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[28]
+	mi := &file_agent_v1_agent_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2394,7 +2845,7 @@ func (x *RetryAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryAgentRequest.ProtoReflect.Descriptor instead.
 func (*RetryAgentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{28}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *RetryAgentRequest) GetId() string {
@@ -2435,7 +2886,7 @@ type RetryAgentResponse struct {
 
 func (x *RetryAgentResponse) Reset() {
 	*x = RetryAgentResponse{}
-	mi := &file_agent_v1_agent_proto_msgTypes[29]
+	mi := &file_agent_v1_agent_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2447,7 +2898,7 @@ func (x *RetryAgentResponse) String() string {
 func (*RetryAgentResponse) ProtoMessage() {}
 
 func (x *RetryAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[29]
+	mi := &file_agent_v1_agent_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2460,7 +2911,7 @@ func (x *RetryAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryAgentResponse.ProtoReflect.Descriptor instead.
 func (*RetryAgentResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{29}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *RetryAgentResponse) GetAgent() *Agent {
@@ -2480,7 +2931,7 @@ type ResumeAgentRequest struct {
 
 func (x *ResumeAgentRequest) Reset() {
 	*x = ResumeAgentRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[30]
+	mi := &file_agent_v1_agent_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2492,7 +2943,7 @@ func (x *ResumeAgentRequest) String() string {
 func (*ResumeAgentRequest) ProtoMessage() {}
 
 func (x *ResumeAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[30]
+	mi := &file_agent_v1_agent_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2505,7 +2956,7 @@ func (x *ResumeAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeAgentRequest.ProtoReflect.Descriptor instead.
 func (*ResumeAgentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{30}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ResumeAgentRequest) GetId() string {
@@ -2525,7 +2976,7 @@ type ResumeAgentResponse struct {
 
 func (x *ResumeAgentResponse) Reset() {
 	*x = ResumeAgentResponse{}
-	mi := &file_agent_v1_agent_proto_msgTypes[31]
+	mi := &file_agent_v1_agent_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2537,7 +2988,7 @@ func (x *ResumeAgentResponse) String() string {
 func (*ResumeAgentResponse) ProtoMessage() {}
 
 func (x *ResumeAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[31]
+	mi := &file_agent_v1_agent_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2550,7 +3001,7 @@ func (x *ResumeAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeAgentResponse.ProtoReflect.Descriptor instead.
 func (*ResumeAgentResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{31}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ResumeAgentResponse) GetAgent() *Agent {
@@ -2570,7 +3021,7 @@ type HoldAgentRequest struct {
 
 func (x *HoldAgentRequest) Reset() {
 	*x = HoldAgentRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[32]
+	mi := &file_agent_v1_agent_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2582,7 +3033,7 @@ func (x *HoldAgentRequest) String() string {
 func (*HoldAgentRequest) ProtoMessage() {}
 
 func (x *HoldAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[32]
+	mi := &file_agent_v1_agent_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2595,7 +3046,7 @@ func (x *HoldAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HoldAgentRequest.ProtoReflect.Descriptor instead.
 func (*HoldAgentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{32}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *HoldAgentRequest) GetId() string {
@@ -2615,7 +3066,7 @@ type HoldAgentResponse struct {
 
 func (x *HoldAgentResponse) Reset() {
 	*x = HoldAgentResponse{}
-	mi := &file_agent_v1_agent_proto_msgTypes[33]
+	mi := &file_agent_v1_agent_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2627,7 +3078,7 @@ func (x *HoldAgentResponse) String() string {
 func (*HoldAgentResponse) ProtoMessage() {}
 
 func (x *HoldAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[33]
+	mi := &file_agent_v1_agent_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2640,7 +3091,7 @@ func (x *HoldAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HoldAgentResponse.ProtoReflect.Descriptor instead.
 func (*HoldAgentResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{33}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *HoldAgentResponse) GetAgent() *Agent {
@@ -2663,7 +3114,7 @@ type ReleaseAgentRequest struct {
 
 func (x *ReleaseAgentRequest) Reset() {
 	*x = ReleaseAgentRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[34]
+	mi := &file_agent_v1_agent_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2675,7 +3126,7 @@ func (x *ReleaseAgentRequest) String() string {
 func (*ReleaseAgentRequest) ProtoMessage() {}
 
 func (x *ReleaseAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[34]
+	mi := &file_agent_v1_agent_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2688,7 +3139,7 @@ func (x *ReleaseAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseAgentRequest.ProtoReflect.Descriptor instead.
 func (*ReleaseAgentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{34}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ReleaseAgentRequest) GetId() string {
@@ -2715,7 +3166,7 @@ type ReleaseAgentResponse struct {
 
 func (x *ReleaseAgentResponse) Reset() {
 	*x = ReleaseAgentResponse{}
-	mi := &file_agent_v1_agent_proto_msgTypes[35]
+	mi := &file_agent_v1_agent_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2727,7 +3178,7 @@ func (x *ReleaseAgentResponse) String() string {
 func (*ReleaseAgentResponse) ProtoMessage() {}
 
 func (x *ReleaseAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[35]
+	mi := &file_agent_v1_agent_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2740,7 +3191,7 @@ func (x *ReleaseAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseAgentResponse.ProtoReflect.Descriptor instead.
 func (*ReleaseAgentResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{35}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ReleaseAgentResponse) GetAgent() *Agent {
@@ -2760,7 +3211,7 @@ type DeleteAgentsRequest struct {
 
 func (x *DeleteAgentsRequest) Reset() {
 	*x = DeleteAgentsRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[36]
+	mi := &file_agent_v1_agent_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2772,7 +3223,7 @@ func (x *DeleteAgentsRequest) String() string {
 func (*DeleteAgentsRequest) ProtoMessage() {}
 
 func (x *DeleteAgentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[36]
+	mi := &file_agent_v1_agent_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2785,7 +3236,7 @@ func (x *DeleteAgentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAgentsRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAgentsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{36}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *DeleteAgentsRequest) GetIds() []string {
@@ -2808,7 +3259,7 @@ type UpdateAgentRequest struct {
 
 func (x *UpdateAgentRequest) Reset() {
 	*x = UpdateAgentRequest{}
-	mi := &file_agent_v1_agent_proto_msgTypes[37]
+	mi := &file_agent_v1_agent_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2820,7 +3271,7 @@ func (x *UpdateAgentRequest) String() string {
 func (*UpdateAgentRequest) ProtoMessage() {}
 
 func (x *UpdateAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_agent_proto_msgTypes[37]
+	mi := &file_agent_v1_agent_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2833,7 +3284,7 @@ func (x *UpdateAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAgentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAgentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_agent_proto_rawDescGZIP(), []int{37}
+	return file_agent_v1_agent_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *UpdateAgentRequest) GetId() string {
@@ -2857,7 +3308,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xaa\f\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xa8\f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2886,8 +3337,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x06branch\x18\x16 \x01(\tH\x06R\x06branch\x88\x01\x01\x12*\n" +
 	"\x0erepository_url\x18% \x01(\tH\aR\rrepositoryUrl\x88\x01\x01\x12\x1e\n" +
 	"\bhead_sha\x18) \x01(\tH\bR\aheadSha\x88\x01\x01\x12)\n" +
-	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x120\n" +
-	"\x14sequence_in_progress\x18$ \x01(\bR\x12sequenceInProgress\x12\x1d\n" +
+	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x12.\n" +
+	"\bsequence\x18$ \x01(\x0e2\x12.agent.v1.SequenceR\bsequence\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12)\n" +
 	"\x0efailed_run_log\x18\x1c \x01(\x05H\tR\ffailedRunLog\x88\x01\x01\x12\x1c\n" +
@@ -2934,17 +3385,22 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x04open\x18\x01 \x01(\x05R\x04open\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\x05R\bresolved\x12\x16\n" +
 	"\x06unread\x18\x03 \x01(\x05R\x06unread\x12\x1a\n" +
-	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\xab\x02\n" +
+	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\x9e\x03\n" +
 	"\x13PullRequestStanding\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
 	"\x06number\x18\x02 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x15\n" +
 	"\x03url\x18\x03 \x01(\tH\x01R\x03url\x88\x01\x01\x12\x19\n" +
 	"\x05title\x18\x04 \x01(\tH\x02R\x05title\x88\x01\x01\x12.\n" +
 	"\x06checks\x18\x05 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
-	"\fmergeability\x18\x06 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeabilityB\t\n" +
+	"\fmergeability\x18\x06 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability\x12\x1d\n" +
+	"\n" +
+	"auto_merge\x18\a \x01(\bR\tautoMerge\x12%\n" +
+	"\x0eauto_mergeable\x18\b \x01(\bR\rautoMergeable\x12\x1e\n" +
+	"\bhead_sha\x18\t \x01(\tH\x03R\aheadSha\x88\x01\x01B\t\n" +
 	"\a_numberB\x06\n" +
 	"\x04_urlB\b\n" +
-	"\x06_title\"\xab\x01\n" +
+	"\x06_titleB\v\n" +
+	"\t_head_sha\"\xab\x01\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -3046,7 +3502,29 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"conflicted\x12\x14\n" +
 	"\x05moved\x18\x06 \x01(\bR\x05moved\x12%\n" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
-	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"C\n" +
+	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"5\n" +
+	"\x0fPlanPushRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x89\x01\n" +
+	"\x10PlanPushResponse\x12\x16\n" +
+	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
+	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
+	"\x06forced\x18\x03 \x01(\bR\x06forced\x12+\n" +
+	"\x11uncommitted_files\x18\x04 \x01(\x05R\x10uncommittedFiles\"9\n" +
+	"\x13PushWorktreeRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"r\n" +
+	"\x14PushWorktreeResponse\x12\x16\n" +
+	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
+	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
+	"\x06forced\x18\x03 \x01(\bR\x06forced\x12\x10\n" +
+	"\x03sha\x18\x04 \x01(\tR\x03sha\":\n" +
+	"\x14AbortSequenceRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xa0\x01\n" +
+	"\x15AbortSequenceResponse\x12.\n" +
+	"\bsequence\x18\x01 \x01(\x0e2\x12.agent.v1.SequenceR\bsequence\x12\x16\n" +
+	"\x06branch\x18\x02 \x01(\tR\x06branch\x12\x1d\n" +
+	"\n" +
+	"parked_ref\x18\x03 \x01(\tR\tparkedRef\x12 \n" +
+	"\vinterrupted\x18\x04 \x01(\bR\vinterrupted\"C\n" +
 	"\x10SetHiddenRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x16\n" +
 	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\xdd\x02\n" +
@@ -3118,7 +3596,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
-	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\xad\xd3\x01\n" +
+	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x03*\xa0\x01\n" +
+	"\bSequence\x12\x18\n" +
+	"\x14SEQUENCE_UNSPECIFIED\x10\x00\x12\x11\n" +
+	"\rSEQUENCE_NONE\x10\x01\x12\x13\n" +
+	"\x0fSEQUENCE_REBASE\x10\x02\x12\x0f\n" +
+	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
+	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
+	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\x9e\xe5\x01\n" +
 	"\fAgentService\x12\x81\x04\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb7\x03\x9a\xb5\x18\xaf\x03\b\x01\x10\x01\x1a\vlist_agents\"\x96\x03List the agents komrad is tracking. Start here when you need an agent's id or name for another call. Agents come back a page at a time, most recently updated first. Each carries its name, state, working directory, flags and workflow, plus the opening of its prompt. To read a prompt in full, fetch that agent with get_agent. Archived agents are left out unless archived is set, which then lists only those.B\x03\x01\x02\x03\x90\x02\x01\x12\xd0\x01\n" +
@@ -3166,7 +3652,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01:\xce\x01What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read.\x90\x02\x02\x12\xdf\x05\n" +
 	"\n" +
 	"PlanRebase\x12\x1b.agent.v1.PlanRebaseRequest\x1a\x1c.agent.v1.PlanRebaseResponse\"\x95\x05\x9a\xb5\x18\x90\x05\b\x01\x10\x01\x1a\vplan_rebase\"\xf5\x04Preview what rebasing an agent's branch onto its base would do, without moving anything. Call this before rebase_worktree. It reports the ref and commit the branch would land on, how many of the agent's commits would be replayed, how many the base already holds and so would be dropped, how many merge commits would be flattened away, and the paths a merge of the base could not settle. Those paths are a warning rather than a verdict, since a rebase replays commit by commit and can conflict where a merge would not. It refuses for the same reasons rebase_worktree does, so it also tells you whether a rebase is possible at all.(\x000\x01B\x01\x03\x12\xd6\a\n" +
-	"\x0eRebaseWorktree\x12\x1f.agent.v1.RebaseWorktreeRequest\x1a .agent.v1.RebaseWorktreeResponse\"\x80\a\x9a\xb5\x18\xfb\x06\b\x01\x10\x01\x1a\x0frebase_worktree\"\xdc\x06Move an agent's branch onto the latest commit of its base, rewriting history in the agent's own checkout. Use it when an agent's work has fallen behind the base and needs to sit on top of what has landed since. Komrad fetches the base, parks the whole checkout at a ref of its own first so nothing is lost, skips the commits the base already holds, replays the rest, and mails the agent to say its files moved. Read plan_rebase first. An agent part-way through a turn is interrupted first and mailed to carry on once its files have moved. One still setting up, held, archived, holding uncommitted changes, or already mid-rebase is refused as failed_precondition. You cannot rebase your own checkout, nor your parent's if you are a child. A rebase that hits conflicts stops there and is left for the agent to settle, which the response says rather than failing.(\x010\x00B\x01\x03\x12\xb1\x04\n" +
+	"\x0eRebaseWorktree\x12\x1f.agent.v1.RebaseWorktreeRequest\x1a .agent.v1.RebaseWorktreeResponse\"\x80\a\x9a\xb5\x18\xfb\x06\b\x01\x10\x01\x1a\x0frebase_worktree\"\xdc\x06Move an agent's branch onto the latest commit of its base, rewriting history in the agent's own checkout. Use it when an agent's work has fallen behind the base and needs to sit on top of what has landed since. Komrad fetches the base, parks the whole checkout at a ref of its own first so nothing is lost, skips the commits the base already holds, replays the rest, and mails the agent to say its files moved. Read plan_rebase first. An agent part-way through a turn is interrupted first and mailed to carry on once its files have moved. One still setting up, held, archived, holding uncommitted changes, or already mid-rebase is refused as failed_precondition. You cannot rebase your own checkout, nor your parent's if you are a child. A rebase that hits conflicts stops there and is left for the agent to settle, which the response says rather than failing.(\x010\x00B\x01\x03\x12\x9e\x04\n" +
+	"\bPlanPush\x12\x19.agent.v1.PlanPushRequest\x1a\x1a.agent.v1.PlanPushResponse\"\xda\x03\x9a\xb5\x18\xd5\x03\b\x01\x1a\tplan_push\"\xcb\x02Preview what pushing an agent's branch to origin would do, without sending anything. It reports the branch, how many commits would go up, whether origin's copy would be overwritten because a rebase moved the branch apart from it, and how many uncommitted files would stay behind. It refuses for the same reasons push_worktree does.:xAgents push their own branches with git, so pushing one from outside is for the person at the panel or the command line.\x12\x99\a\n" +
+	"\fPushWorktree\x12\x1d.agent.v1.PushWorktreeRequest\x1a\x1e.agent.v1.PushWorktreeResponse\"\xc9\x06\x9a\xb5\x18\xc4\x06\b\x01\x1a\rpush_worktree\"\xb6\x05Send an agent's branch to origin under its own name. When a rebase moved the branch apart from origin's copy, the push overwrites it, but only if the branch already holds everything origin has, so a commit somebody added on the forge is never lost. Pre-push hooks run and their output comes back on failure. The push runs to the end even if the caller stops waiting. An agent whose branch is detached, part-way through a sequence, the workflow's base, empty against the base, or whose pull request has merged or closed is refused as failed_precondition, as is a branch komrad did not cut whose push would overwrite origin. After a push that overwrote origin, the agent is mailed the new commit.:xAgents push their own branches with git, so pushing one from outside is for the person at the panel or the command line.\x12\xb1\x06\n" +
+	"\rAbortSequence\x12\x1e.agent.v1.AbortSequenceRequest\x1a\x1f.agent.v1.AbortSequenceResponse\"\xde\x05\x9a\xb5\x18\xd9\x05\b\x01\x1a\x0eabort_sequence\"\xc4\x04Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, putting its branch back where it stood before that began. The kind is read from the checkout itself. The worktree is first kept as it stands, conflicts and any resolution included, under a ref the agent is told of, and the agent's turn is cut if it is working. A worktree with nothing in progress is refused as failed_precondition, as is one another git command holds. The agent is mailed what was undone, and told whether it was the rebase komrad left stopped on conflicts or one of its own.:~The agent is told not to settle a conflicted rebase itself, so undoing one is for the person at the panel or the command line.\x12\xb1\x04\n" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"\xd2\x03\x9a\xb5\x18\xca\x03\b\x01\x10\x01\x1a\x12start_orchestrator\"\xaa\x03Bring a workflow's orchestrator back, or start one if the workflow has never had one. An orchestrator is the agent drawn on the workflow's own row, which hands work out across that workflow rather than writing any itself. This restores and resumes whichever orchestrator the workflow already has, and launches a fresh one only when none has ever existed. One already running is returned as it stands, so calling again is safe.(\x00B\x01\x03\x90\x02\x02\x12\xe0\x01\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"y\x9a\xb5\x18r:pCatching up on a review thread is a person's own reading, and the handler refuses a caller that is not a person.\x90\x02\x02\x12\x9b\x04\n" +
 	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\xaa\x03\x9a\xb5\x18\xa2\x03\b\x01\x10\x01\x1a\x15resolve_review_thread\"\xfd\x02Settle a review thread you wrote once its answer is good enough, or reopen one you settled too early. A review is finished when its threads are, not when a verdict is given, so this is how a finding is closed. Only the thread's author may settle it: a comment about your own work is not yours to resolve, however well you have answered it. The person reviewing may settle anything.(\x000\x01B\x01\x02\x90\x02\x02\x12\x85\x04\n" +
@@ -3191,252 +3680,267 @@ func file_agent_v1_agent_proto_rawDescGZIP() []byte {
 	return file_agent_v1_agent_proto_rawDescData
 }
 
-var file_agent_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_agent_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_agent_v1_agent_proto_goTypes = []any{
 	(AgentState)(0),                          // 0: agent.v1.AgentState
 	(AgentRole)(0),                           // 1: agent.v1.AgentRole
-	(*DiffStat)(nil),                         // 2: agent.v1.DiffStat
-	(*Agent)(nil),                            // 3: agent.v1.Agent
-	(*AgentRow)(nil),                         // 4: agent.v1.AgentRow
-	(*CommentCounts)(nil),                    // 5: agent.v1.CommentCounts
-	(*PullRequestStanding)(nil),              // 6: agent.v1.PullRequestStanding
-	(*ListAgentsRequest)(nil),                // 7: agent.v1.ListAgentsRequest
-	(*ListAgentsResponse)(nil),               // 8: agent.v1.ListAgentsResponse
-	(*CreateAgentRequest)(nil),               // 9: agent.v1.CreateAgentRequest
-	(*CreateAgentResponse)(nil),              // 10: agent.v1.CreateAgentResponse
-	(*RequestReviewRequest)(nil),             // 11: agent.v1.RequestReviewRequest
-	(*RequestReviewResponse)(nil),            // 12: agent.v1.RequestReviewResponse
-	(*AdoptRequest)(nil),                     // 13: agent.v1.AdoptRequest
-	(*AdoptResponse)(nil),                    // 14: agent.v1.AdoptResponse
-	(*GetAgentRequest)(nil),                  // 15: agent.v1.GetAgentRequest
-	(*GetAgentResponse)(nil),                 // 16: agent.v1.GetAgentResponse
-	(*PlanRebaseRequest)(nil),                // 17: agent.v1.PlanRebaseRequest
-	(*PlanRebaseResponse)(nil),               // 18: agent.v1.PlanRebaseResponse
-	(*StartOrchestratorRequest)(nil),         // 19: agent.v1.StartOrchestratorRequest
-	(*StartOrchestratorResponse)(nil),        // 20: agent.v1.StartOrchestratorResponse
-	(*RebaseWorktreeRequest)(nil),            // 21: agent.v1.RebaseWorktreeRequest
-	(*RebaseWorktreeResponse)(nil),           // 22: agent.v1.RebaseWorktreeResponse
-	(*SetHiddenRequest)(nil),                 // 23: agent.v1.SetHiddenRequest
-	(*RecordReportRequest)(nil),              // 24: agent.v1.RecordReportRequest
-	(*MarkRunsReadRequest)(nil),              // 25: agent.v1.MarkRunsReadRequest
-	(*LogRequest)(nil),                       // 26: agent.v1.LogRequest
-	(*ArchiveAgentsRequest)(nil),             // 27: agent.v1.ArchiveAgentsRequest
-	(*RestoreAgentsRequest)(nil),             // 28: agent.v1.RestoreAgentsRequest
-	(*RestoreAgentsResponse)(nil),            // 29: agent.v1.RestoreAgentsResponse
-	(*RetryAgentRequest)(nil),                // 30: agent.v1.RetryAgentRequest
-	(*RetryAgentResponse)(nil),               // 31: agent.v1.RetryAgentResponse
-	(*ResumeAgentRequest)(nil),               // 32: agent.v1.ResumeAgentRequest
-	(*ResumeAgentResponse)(nil),              // 33: agent.v1.ResumeAgentResponse
-	(*HoldAgentRequest)(nil),                 // 34: agent.v1.HoldAgentRequest
-	(*HoldAgentResponse)(nil),                // 35: agent.v1.HoldAgentResponse
-	(*ReleaseAgentRequest)(nil),              // 36: agent.v1.ReleaseAgentRequest
-	(*ReleaseAgentResponse)(nil),             // 37: agent.v1.ReleaseAgentResponse
-	(*DeleteAgentsRequest)(nil),              // 38: agent.v1.DeleteAgentsRequest
-	(*UpdateAgentRequest)(nil),               // 39: agent.v1.UpdateAgentRequest
-	(*v1.PullRequest)(nil),                   // 40: pullrequest.v1.PullRequest
-	(v1.PullRequestState)(0),                 // 41: pullrequest.v1.PullRequestState
-	(v1.Checks)(0),                           // 42: pullrequest.v1.Checks
-	(v1.Mergeability)(0),                     // 43: pullrequest.v1.Mergeability
-	(*v11.Pagination)(nil),                   // 44: pagination.v1.Pagination
-	(v12.View)(0),                            // 45: view.v1.View
-	(*SendMailRequest)(nil),                  // 46: agent.v1.SendMailRequest
-	(*ForwardLastTurnsRequest)(nil),          // 47: agent.v1.ForwardLastTurnsRequest
-	(*ReadMailRequest)(nil),                  // 48: agent.v1.ReadMailRequest
-	(*ListMailRequest)(nil),                  // 49: agent.v1.ListMailRequest
-	(*DeleteMailRequest)(nil),                // 50: agent.v1.DeleteMailRequest
-	(*SearchTranscriptsRequest)(nil),         // 51: agent.v1.SearchTranscriptsRequest
-	(*GetTranscriptRequest)(nil),             // 52: agent.v1.GetTranscriptRequest
-	(*GetLastTurnsRequest)(nil),              // 53: agent.v1.GetLastTurnsRequest
-	(*GetLastScreenRequest)(nil),             // 54: agent.v1.GetLastScreenRequest
-	(*WriteDocumentRequest)(nil),             // 55: agent.v1.WriteDocumentRequest
-	(*ListDocumentsRequest)(nil),             // 56: agent.v1.ListDocumentsRequest
-	(*GetDocumentRequest)(nil),               // 57: agent.v1.GetDocumentRequest
-	(*ListDocumentVersionsRequest)(nil),      // 58: agent.v1.ListDocumentVersionsRequest
-	(*emptypb.Empty)(nil),                    // 59: google.protobuf.Empty
-	(*GetDocumentTypeRequest)(nil),           // 60: agent.v1.GetDocumentTypeRequest
-	(*ListDocumentTypeVersionsRequest)(nil),  // 61: agent.v1.ListDocumentTypeVersionsRequest
-	(*WriteDocumentTypeRequest)(nil),         // 62: agent.v1.WriteDocumentTypeRequest
-	(*DeleteDocumentTypeRequest)(nil),        // 63: agent.v1.DeleteDocumentTypeRequest
-	(*ListReviewThreadsRequest)(nil),         // 64: agent.v1.ListReviewThreadsRequest
-	(*CreateReviewThreadRequest)(nil),        // 65: agent.v1.CreateReviewThreadRequest
-	(*AddReviewMessageRequest)(nil),          // 66: agent.v1.AddReviewMessageRequest
-	(*EditReviewMessageRequest)(nil),         // 67: agent.v1.EditReviewMessageRequest
-	(*MarkReviewThreadReadRequest)(nil),      // 68: agent.v1.MarkReviewThreadReadRequest
-	(*SetReviewThreadResolvedRequest)(nil),   // 69: agent.v1.SetReviewThreadResolvedRequest
-	(*OpenReviewRoundRequest)(nil),           // 70: agent.v1.OpenReviewRoundRequest
-	(*ListReviewRoundsRequest)(nil),          // 71: agent.v1.ListReviewRoundsRequest
-	(*ListReviewsRequest)(nil),               // 72: agent.v1.ListReviewsRequest
-	(*GetReviewRequest)(nil),                 // 73: agent.v1.GetReviewRequest
-	(*ReleaseReviewRequest)(nil),             // 74: agent.v1.ReleaseReviewRequest
-	(*SetReviewFileViewedRequest)(nil),       // 75: agent.v1.SetReviewFileViewedRequest
-	(*ListReviewViewedFilesRequest)(nil),     // 76: agent.v1.ListReviewViewedFilesRequest
-	(*SendMailResponse)(nil),                 // 77: agent.v1.SendMailResponse
-	(*ForwardLastTurnsResponse)(nil),         // 78: agent.v1.ForwardLastTurnsResponse
-	(*ReadMailResponse)(nil),                 // 79: agent.v1.ReadMailResponse
-	(*ListMailResponse)(nil),                 // 80: agent.v1.ListMailResponse
-	(*SearchTranscriptsResponse)(nil),        // 81: agent.v1.SearchTranscriptsResponse
-	(*GetTranscriptResponse)(nil),            // 82: agent.v1.GetTranscriptResponse
-	(*GetLastTurnsResponse)(nil),             // 83: agent.v1.GetLastTurnsResponse
-	(*GetLastScreenResponse)(nil),            // 84: agent.v1.GetLastScreenResponse
-	(*WriteDocumentResponse)(nil),            // 85: agent.v1.WriteDocumentResponse
-	(*ListDocumentsResponse)(nil),            // 86: agent.v1.ListDocumentsResponse
-	(*GetDocumentResponse)(nil),              // 87: agent.v1.GetDocumentResponse
-	(*ListDocumentVersionsResponse)(nil),     // 88: agent.v1.ListDocumentVersionsResponse
-	(*ListDocumentTypesResponse)(nil),        // 89: agent.v1.ListDocumentTypesResponse
-	(*GetDocumentTypeResponse)(nil),          // 90: agent.v1.GetDocumentTypeResponse
-	(*ListDocumentTypeVersionsResponse)(nil), // 91: agent.v1.ListDocumentTypeVersionsResponse
-	(*WriteDocumentTypeResponse)(nil),        // 92: agent.v1.WriteDocumentTypeResponse
-	(*ListReviewThreadsResponse)(nil),        // 93: agent.v1.ListReviewThreadsResponse
-	(*CreateReviewThreadResponse)(nil),       // 94: agent.v1.CreateReviewThreadResponse
-	(*AddReviewMessageResponse)(nil),         // 95: agent.v1.AddReviewMessageResponse
-	(*EditReviewMessageResponse)(nil),        // 96: agent.v1.EditReviewMessageResponse
-	(*MarkReviewThreadReadResponse)(nil),     // 97: agent.v1.MarkReviewThreadReadResponse
-	(*SetReviewThreadResolvedResponse)(nil),  // 98: agent.v1.SetReviewThreadResolvedResponse
-	(*OpenReviewRoundResponse)(nil),          // 99: agent.v1.OpenReviewRoundResponse
-	(*ListReviewRoundsResponse)(nil),         // 100: agent.v1.ListReviewRoundsResponse
-	(*ListReviewsResponse)(nil),              // 101: agent.v1.ListReviewsResponse
-	(*GetReviewResponse)(nil),                // 102: agent.v1.GetReviewResponse
-	(*ReleaseReviewResponse)(nil),            // 103: agent.v1.ReleaseReviewResponse
-	(*SetReviewFileViewedResponse)(nil),      // 104: agent.v1.SetReviewFileViewedResponse
-	(*ListReviewViewedFilesResponse)(nil),    // 105: agent.v1.ListReviewViewedFilesResponse
+	(Sequence)(0),                            // 2: agent.v1.Sequence
+	(*DiffStat)(nil),                         // 3: agent.v1.DiffStat
+	(*Agent)(nil),                            // 4: agent.v1.Agent
+	(*AgentRow)(nil),                         // 5: agent.v1.AgentRow
+	(*CommentCounts)(nil),                    // 6: agent.v1.CommentCounts
+	(*PullRequestStanding)(nil),              // 7: agent.v1.PullRequestStanding
+	(*ListAgentsRequest)(nil),                // 8: agent.v1.ListAgentsRequest
+	(*ListAgentsResponse)(nil),               // 9: agent.v1.ListAgentsResponse
+	(*CreateAgentRequest)(nil),               // 10: agent.v1.CreateAgentRequest
+	(*CreateAgentResponse)(nil),              // 11: agent.v1.CreateAgentResponse
+	(*RequestReviewRequest)(nil),             // 12: agent.v1.RequestReviewRequest
+	(*RequestReviewResponse)(nil),            // 13: agent.v1.RequestReviewResponse
+	(*AdoptRequest)(nil),                     // 14: agent.v1.AdoptRequest
+	(*AdoptResponse)(nil),                    // 15: agent.v1.AdoptResponse
+	(*GetAgentRequest)(nil),                  // 16: agent.v1.GetAgentRequest
+	(*GetAgentResponse)(nil),                 // 17: agent.v1.GetAgentResponse
+	(*PlanRebaseRequest)(nil),                // 18: agent.v1.PlanRebaseRequest
+	(*PlanRebaseResponse)(nil),               // 19: agent.v1.PlanRebaseResponse
+	(*StartOrchestratorRequest)(nil),         // 20: agent.v1.StartOrchestratorRequest
+	(*StartOrchestratorResponse)(nil),        // 21: agent.v1.StartOrchestratorResponse
+	(*RebaseWorktreeRequest)(nil),            // 22: agent.v1.RebaseWorktreeRequest
+	(*RebaseWorktreeResponse)(nil),           // 23: agent.v1.RebaseWorktreeResponse
+	(*PlanPushRequest)(nil),                  // 24: agent.v1.PlanPushRequest
+	(*PlanPushResponse)(nil),                 // 25: agent.v1.PlanPushResponse
+	(*PushWorktreeRequest)(nil),              // 26: agent.v1.PushWorktreeRequest
+	(*PushWorktreeResponse)(nil),             // 27: agent.v1.PushWorktreeResponse
+	(*AbortSequenceRequest)(nil),             // 28: agent.v1.AbortSequenceRequest
+	(*AbortSequenceResponse)(nil),            // 29: agent.v1.AbortSequenceResponse
+	(*SetHiddenRequest)(nil),                 // 30: agent.v1.SetHiddenRequest
+	(*RecordReportRequest)(nil),              // 31: agent.v1.RecordReportRequest
+	(*MarkRunsReadRequest)(nil),              // 32: agent.v1.MarkRunsReadRequest
+	(*LogRequest)(nil),                       // 33: agent.v1.LogRequest
+	(*ArchiveAgentsRequest)(nil),             // 34: agent.v1.ArchiveAgentsRequest
+	(*RestoreAgentsRequest)(nil),             // 35: agent.v1.RestoreAgentsRequest
+	(*RestoreAgentsResponse)(nil),            // 36: agent.v1.RestoreAgentsResponse
+	(*RetryAgentRequest)(nil),                // 37: agent.v1.RetryAgentRequest
+	(*RetryAgentResponse)(nil),               // 38: agent.v1.RetryAgentResponse
+	(*ResumeAgentRequest)(nil),               // 39: agent.v1.ResumeAgentRequest
+	(*ResumeAgentResponse)(nil),              // 40: agent.v1.ResumeAgentResponse
+	(*HoldAgentRequest)(nil),                 // 41: agent.v1.HoldAgentRequest
+	(*HoldAgentResponse)(nil),                // 42: agent.v1.HoldAgentResponse
+	(*ReleaseAgentRequest)(nil),              // 43: agent.v1.ReleaseAgentRequest
+	(*ReleaseAgentResponse)(nil),             // 44: agent.v1.ReleaseAgentResponse
+	(*DeleteAgentsRequest)(nil),              // 45: agent.v1.DeleteAgentsRequest
+	(*UpdateAgentRequest)(nil),               // 46: agent.v1.UpdateAgentRequest
+	(*v1.PullRequest)(nil),                   // 47: pullrequest.v1.PullRequest
+	(v1.PullRequestState)(0),                 // 48: pullrequest.v1.PullRequestState
+	(v1.Checks)(0),                           // 49: pullrequest.v1.Checks
+	(v1.Mergeability)(0),                     // 50: pullrequest.v1.Mergeability
+	(*v11.Pagination)(nil),                   // 51: pagination.v1.Pagination
+	(v12.View)(0),                            // 52: view.v1.View
+	(*SendMailRequest)(nil),                  // 53: agent.v1.SendMailRequest
+	(*ForwardLastTurnsRequest)(nil),          // 54: agent.v1.ForwardLastTurnsRequest
+	(*ReadMailRequest)(nil),                  // 55: agent.v1.ReadMailRequest
+	(*ListMailRequest)(nil),                  // 56: agent.v1.ListMailRequest
+	(*DeleteMailRequest)(nil),                // 57: agent.v1.DeleteMailRequest
+	(*SearchTranscriptsRequest)(nil),         // 58: agent.v1.SearchTranscriptsRequest
+	(*GetTranscriptRequest)(nil),             // 59: agent.v1.GetTranscriptRequest
+	(*GetLastTurnsRequest)(nil),              // 60: agent.v1.GetLastTurnsRequest
+	(*GetLastScreenRequest)(nil),             // 61: agent.v1.GetLastScreenRequest
+	(*WriteDocumentRequest)(nil),             // 62: agent.v1.WriteDocumentRequest
+	(*ListDocumentsRequest)(nil),             // 63: agent.v1.ListDocumentsRequest
+	(*GetDocumentRequest)(nil),               // 64: agent.v1.GetDocumentRequest
+	(*ListDocumentVersionsRequest)(nil),      // 65: agent.v1.ListDocumentVersionsRequest
+	(*emptypb.Empty)(nil),                    // 66: google.protobuf.Empty
+	(*GetDocumentTypeRequest)(nil),           // 67: agent.v1.GetDocumentTypeRequest
+	(*ListDocumentTypeVersionsRequest)(nil),  // 68: agent.v1.ListDocumentTypeVersionsRequest
+	(*WriteDocumentTypeRequest)(nil),         // 69: agent.v1.WriteDocumentTypeRequest
+	(*DeleteDocumentTypeRequest)(nil),        // 70: agent.v1.DeleteDocumentTypeRequest
+	(*ListReviewThreadsRequest)(nil),         // 71: agent.v1.ListReviewThreadsRequest
+	(*CreateReviewThreadRequest)(nil),        // 72: agent.v1.CreateReviewThreadRequest
+	(*AddReviewMessageRequest)(nil),          // 73: agent.v1.AddReviewMessageRequest
+	(*EditReviewMessageRequest)(nil),         // 74: agent.v1.EditReviewMessageRequest
+	(*MarkReviewThreadReadRequest)(nil),      // 75: agent.v1.MarkReviewThreadReadRequest
+	(*SetReviewThreadResolvedRequest)(nil),   // 76: agent.v1.SetReviewThreadResolvedRequest
+	(*OpenReviewRoundRequest)(nil),           // 77: agent.v1.OpenReviewRoundRequest
+	(*ListReviewRoundsRequest)(nil),          // 78: agent.v1.ListReviewRoundsRequest
+	(*ListReviewsRequest)(nil),               // 79: agent.v1.ListReviewsRequest
+	(*GetReviewRequest)(nil),                 // 80: agent.v1.GetReviewRequest
+	(*ReleaseReviewRequest)(nil),             // 81: agent.v1.ReleaseReviewRequest
+	(*SetReviewFileViewedRequest)(nil),       // 82: agent.v1.SetReviewFileViewedRequest
+	(*ListReviewViewedFilesRequest)(nil),     // 83: agent.v1.ListReviewViewedFilesRequest
+	(*SendMailResponse)(nil),                 // 84: agent.v1.SendMailResponse
+	(*ForwardLastTurnsResponse)(nil),         // 85: agent.v1.ForwardLastTurnsResponse
+	(*ReadMailResponse)(nil),                 // 86: agent.v1.ReadMailResponse
+	(*ListMailResponse)(nil),                 // 87: agent.v1.ListMailResponse
+	(*SearchTranscriptsResponse)(nil),        // 88: agent.v1.SearchTranscriptsResponse
+	(*GetTranscriptResponse)(nil),            // 89: agent.v1.GetTranscriptResponse
+	(*GetLastTurnsResponse)(nil),             // 90: agent.v1.GetLastTurnsResponse
+	(*GetLastScreenResponse)(nil),            // 91: agent.v1.GetLastScreenResponse
+	(*WriteDocumentResponse)(nil),            // 92: agent.v1.WriteDocumentResponse
+	(*ListDocumentsResponse)(nil),            // 93: agent.v1.ListDocumentsResponse
+	(*GetDocumentResponse)(nil),              // 94: agent.v1.GetDocumentResponse
+	(*ListDocumentVersionsResponse)(nil),     // 95: agent.v1.ListDocumentVersionsResponse
+	(*ListDocumentTypesResponse)(nil),        // 96: agent.v1.ListDocumentTypesResponse
+	(*GetDocumentTypeResponse)(nil),          // 97: agent.v1.GetDocumentTypeResponse
+	(*ListDocumentTypeVersionsResponse)(nil), // 98: agent.v1.ListDocumentTypeVersionsResponse
+	(*WriteDocumentTypeResponse)(nil),        // 99: agent.v1.WriteDocumentTypeResponse
+	(*ListReviewThreadsResponse)(nil),        // 100: agent.v1.ListReviewThreadsResponse
+	(*CreateReviewThreadResponse)(nil),       // 101: agent.v1.CreateReviewThreadResponse
+	(*AddReviewMessageResponse)(nil),         // 102: agent.v1.AddReviewMessageResponse
+	(*EditReviewMessageResponse)(nil),        // 103: agent.v1.EditReviewMessageResponse
+	(*MarkReviewThreadReadResponse)(nil),     // 104: agent.v1.MarkReviewThreadReadResponse
+	(*SetReviewThreadResolvedResponse)(nil),  // 105: agent.v1.SetReviewThreadResolvedResponse
+	(*OpenReviewRoundResponse)(nil),          // 106: agent.v1.OpenReviewRoundResponse
+	(*ListReviewRoundsResponse)(nil),         // 107: agent.v1.ListReviewRoundsResponse
+	(*ListReviewsResponse)(nil),              // 108: agent.v1.ListReviewsResponse
+	(*GetReviewResponse)(nil),                // 109: agent.v1.GetReviewResponse
+	(*ReleaseReviewResponse)(nil),            // 110: agent.v1.ReleaseReviewResponse
+	(*SetReviewFileViewedResponse)(nil),      // 111: agent.v1.SetReviewFileViewedResponse
+	(*ListReviewViewedFilesResponse)(nil),    // 112: agent.v1.ListReviewViewedFilesResponse
 }
 var file_agent_v1_agent_proto_depIdxs = []int32{
 	0,   // 0: agent.v1.Agent.state:type_name -> agent.v1.AgentState
-	1,   // 1: agent.v1.Agent.role:type_name -> agent.v1.AgentRole
-	2,   // 2: agent.v1.Agent.diff_stat:type_name -> agent.v1.DiffStat
-	3,   // 3: agent.v1.AgentRow.agent:type_name -> agent.v1.Agent
-	6,   // 4: agent.v1.AgentRow.pull_request:type_name -> agent.v1.PullRequestStanding
-	40,  // 5: agent.v1.AgentRow.pull_requests:type_name -> pullrequest.v1.PullRequest
-	5,   // 6: agent.v1.AgentRow.reviewer_comments:type_name -> agent.v1.CommentCounts
-	5,   // 7: agent.v1.AgentRow.person_comments:type_name -> agent.v1.CommentCounts
-	41,  // 8: agent.v1.PullRequestStanding.state:type_name -> pullrequest.v1.PullRequestState
-	42,  // 9: agent.v1.PullRequestStanding.checks:type_name -> pullrequest.v1.Checks
-	43,  // 10: agent.v1.PullRequestStanding.mergeability:type_name -> pullrequest.v1.Mergeability
-	44,  // 11: agent.v1.ListAgentsRequest.pagination:type_name -> pagination.v1.Pagination
-	45,  // 12: agent.v1.ListAgentsRequest.view:type_name -> view.v1.View
-	4,   // 13: agent.v1.ListAgentsResponse.agents:type_name -> agent.v1.AgentRow
-	3,   // 14: agent.v1.CreateAgentResponse.agent:type_name -> agent.v1.Agent
-	3,   // 15: agent.v1.RequestReviewResponse.reviewer:type_name -> agent.v1.Agent
-	3,   // 16: agent.v1.AdoptResponse.agent:type_name -> agent.v1.Agent
-	3,   // 17: agent.v1.GetAgentResponse.agent:type_name -> agent.v1.Agent
-	6,   // 18: agent.v1.GetAgentResponse.pull_request:type_name -> agent.v1.PullRequestStanding
-	40,  // 19: agent.v1.GetAgentResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	5,   // 20: agent.v1.GetAgentResponse.reviewer_comments:type_name -> agent.v1.CommentCounts
-	5,   // 21: agent.v1.GetAgentResponse.person_comments:type_name -> agent.v1.CommentCounts
-	3,   // 22: agent.v1.StartOrchestratorResponse.agent:type_name -> agent.v1.Agent
-	3,   // 23: agent.v1.RestoreAgentsResponse.agents:type_name -> agent.v1.Agent
-	3,   // 24: agent.v1.RetryAgentResponse.agent:type_name -> agent.v1.Agent
-	3,   // 25: agent.v1.ResumeAgentResponse.agent:type_name -> agent.v1.Agent
-	3,   // 26: agent.v1.HoldAgentResponse.agent:type_name -> agent.v1.Agent
-	3,   // 27: agent.v1.ReleaseAgentResponse.agent:type_name -> agent.v1.Agent
-	7,   // 28: agent.v1.AgentService.ListAgents:input_type -> agent.v1.ListAgentsRequest
-	15,  // 29: agent.v1.AgentService.GetAgent:input_type -> agent.v1.GetAgentRequest
-	9,   // 30: agent.v1.AgentService.CreateAgent:input_type -> agent.v1.CreateAgentRequest
-	11,  // 31: agent.v1.AgentService.RequestReview:input_type -> agent.v1.RequestReviewRequest
-	13,  // 32: agent.v1.AgentService.Adopt:input_type -> agent.v1.AdoptRequest
-	23,  // 33: agent.v1.AgentService.SetHidden:input_type -> agent.v1.SetHiddenRequest
-	26,  // 34: agent.v1.AgentService.Log:input_type -> agent.v1.LogRequest
-	46,  // 35: agent.v1.AgentService.SendMail:input_type -> agent.v1.SendMailRequest
-	47,  // 36: agent.v1.AgentService.ForwardLastTurns:input_type -> agent.v1.ForwardLastTurnsRequest
-	48,  // 37: agent.v1.AgentService.ReadMail:input_type -> agent.v1.ReadMailRequest
-	49,  // 38: agent.v1.AgentService.ListMail:input_type -> agent.v1.ListMailRequest
-	50,  // 39: agent.v1.AgentService.DeleteMail:input_type -> agent.v1.DeleteMailRequest
-	27,  // 40: agent.v1.AgentService.ArchiveAgents:input_type -> agent.v1.ArchiveAgentsRequest
-	28,  // 41: agent.v1.AgentService.RestoreAgents:input_type -> agent.v1.RestoreAgentsRequest
-	34,  // 42: agent.v1.AgentService.HoldAgent:input_type -> agent.v1.HoldAgentRequest
-	36,  // 43: agent.v1.AgentService.ReleaseAgent:input_type -> agent.v1.ReleaseAgentRequest
-	32,  // 44: agent.v1.AgentService.ResumeAgent:input_type -> agent.v1.ResumeAgentRequest
-	30,  // 45: agent.v1.AgentService.RetryAgent:input_type -> agent.v1.RetryAgentRequest
-	38,  // 46: agent.v1.AgentService.DeleteAgents:input_type -> agent.v1.DeleteAgentsRequest
-	39,  // 47: agent.v1.AgentService.UpdateAgent:input_type -> agent.v1.UpdateAgentRequest
-	51,  // 48: agent.v1.AgentService.SearchTranscripts:input_type -> agent.v1.SearchTranscriptsRequest
-	52,  // 49: agent.v1.AgentService.GetTranscript:input_type -> agent.v1.GetTranscriptRequest
-	53,  // 50: agent.v1.AgentService.GetLastTurns:input_type -> agent.v1.GetLastTurnsRequest
-	54,  // 51: agent.v1.AgentService.GetLastScreen:input_type -> agent.v1.GetLastScreenRequest
-	55,  // 52: agent.v1.AgentService.WriteDocument:input_type -> agent.v1.WriteDocumentRequest
-	56,  // 53: agent.v1.AgentService.ListDocuments:input_type -> agent.v1.ListDocumentsRequest
-	57,  // 54: agent.v1.AgentService.GetDocument:input_type -> agent.v1.GetDocumentRequest
-	58,  // 55: agent.v1.AgentService.ListDocumentVersions:input_type -> agent.v1.ListDocumentVersionsRequest
-	59,  // 56: agent.v1.AgentService.ListDocumentTypes:input_type -> google.protobuf.Empty
-	60,  // 57: agent.v1.AgentService.GetDocumentType:input_type -> agent.v1.GetDocumentTypeRequest
-	61,  // 58: agent.v1.AgentService.ListDocumentTypeVersions:input_type -> agent.v1.ListDocumentTypeVersionsRequest
-	62,  // 59: agent.v1.AgentService.WriteDocumentType:input_type -> agent.v1.WriteDocumentTypeRequest
-	63,  // 60: agent.v1.AgentService.DeleteDocumentType:input_type -> agent.v1.DeleteDocumentTypeRequest
-	24,  // 61: agent.v1.AgentService.RecordReport:input_type -> agent.v1.RecordReportRequest
-	25,  // 62: agent.v1.AgentService.MarkRunsRead:input_type -> agent.v1.MarkRunsReadRequest
-	64,  // 63: agent.v1.AgentService.ListReviewThreads:input_type -> agent.v1.ListReviewThreadsRequest
-	65,  // 64: agent.v1.AgentService.CreateReviewThread:input_type -> agent.v1.CreateReviewThreadRequest
-	66,  // 65: agent.v1.AgentService.AddReviewMessage:input_type -> agent.v1.AddReviewMessageRequest
-	67,  // 66: agent.v1.AgentService.EditReviewMessage:input_type -> agent.v1.EditReviewMessageRequest
-	17,  // 67: agent.v1.AgentService.PlanRebase:input_type -> agent.v1.PlanRebaseRequest
-	21,  // 68: agent.v1.AgentService.RebaseWorktree:input_type -> agent.v1.RebaseWorktreeRequest
-	19,  // 69: agent.v1.AgentService.StartOrchestrator:input_type -> agent.v1.StartOrchestratorRequest
-	68,  // 70: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
-	69,  // 71: agent.v1.AgentService.SetReviewThreadResolved:input_type -> agent.v1.SetReviewThreadResolvedRequest
-	70,  // 72: agent.v1.AgentService.OpenReviewRound:input_type -> agent.v1.OpenReviewRoundRequest
-	71,  // 73: agent.v1.AgentService.ListReviewRounds:input_type -> agent.v1.ListReviewRoundsRequest
-	72,  // 74: agent.v1.AgentService.ListReviews:input_type -> agent.v1.ListReviewsRequest
-	73,  // 75: agent.v1.AgentService.GetReview:input_type -> agent.v1.GetReviewRequest
-	74,  // 76: agent.v1.AgentService.ReleaseReview:input_type -> agent.v1.ReleaseReviewRequest
-	75,  // 77: agent.v1.AgentService.SetReviewFileViewed:input_type -> agent.v1.SetReviewFileViewedRequest
-	76,  // 78: agent.v1.AgentService.ListReviewViewedFiles:input_type -> agent.v1.ListReviewViewedFilesRequest
-	8,   // 79: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
-	16,  // 80: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
-	10,  // 81: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
-	12,  // 82: agent.v1.AgentService.RequestReview:output_type -> agent.v1.RequestReviewResponse
-	14,  // 83: agent.v1.AgentService.Adopt:output_type -> agent.v1.AdoptResponse
-	59,  // 84: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
-	59,  // 85: agent.v1.AgentService.Log:output_type -> google.protobuf.Empty
-	77,  // 86: agent.v1.AgentService.SendMail:output_type -> agent.v1.SendMailResponse
-	78,  // 87: agent.v1.AgentService.ForwardLastTurns:output_type -> agent.v1.ForwardLastTurnsResponse
-	79,  // 88: agent.v1.AgentService.ReadMail:output_type -> agent.v1.ReadMailResponse
-	80,  // 89: agent.v1.AgentService.ListMail:output_type -> agent.v1.ListMailResponse
-	59,  // 90: agent.v1.AgentService.DeleteMail:output_type -> google.protobuf.Empty
-	59,  // 91: agent.v1.AgentService.ArchiveAgents:output_type -> google.protobuf.Empty
-	29,  // 92: agent.v1.AgentService.RestoreAgents:output_type -> agent.v1.RestoreAgentsResponse
-	35,  // 93: agent.v1.AgentService.HoldAgent:output_type -> agent.v1.HoldAgentResponse
-	37,  // 94: agent.v1.AgentService.ReleaseAgent:output_type -> agent.v1.ReleaseAgentResponse
-	33,  // 95: agent.v1.AgentService.ResumeAgent:output_type -> agent.v1.ResumeAgentResponse
-	31,  // 96: agent.v1.AgentService.RetryAgent:output_type -> agent.v1.RetryAgentResponse
-	59,  // 97: agent.v1.AgentService.DeleteAgents:output_type -> google.protobuf.Empty
-	59,  // 98: agent.v1.AgentService.UpdateAgent:output_type -> google.protobuf.Empty
-	81,  // 99: agent.v1.AgentService.SearchTranscripts:output_type -> agent.v1.SearchTranscriptsResponse
-	82,  // 100: agent.v1.AgentService.GetTranscript:output_type -> agent.v1.GetTranscriptResponse
-	83,  // 101: agent.v1.AgentService.GetLastTurns:output_type -> agent.v1.GetLastTurnsResponse
-	84,  // 102: agent.v1.AgentService.GetLastScreen:output_type -> agent.v1.GetLastScreenResponse
-	85,  // 103: agent.v1.AgentService.WriteDocument:output_type -> agent.v1.WriteDocumentResponse
-	86,  // 104: agent.v1.AgentService.ListDocuments:output_type -> agent.v1.ListDocumentsResponse
-	87,  // 105: agent.v1.AgentService.GetDocument:output_type -> agent.v1.GetDocumentResponse
-	88,  // 106: agent.v1.AgentService.ListDocumentVersions:output_type -> agent.v1.ListDocumentVersionsResponse
-	89,  // 107: agent.v1.AgentService.ListDocumentTypes:output_type -> agent.v1.ListDocumentTypesResponse
-	90,  // 108: agent.v1.AgentService.GetDocumentType:output_type -> agent.v1.GetDocumentTypeResponse
-	91,  // 109: agent.v1.AgentService.ListDocumentTypeVersions:output_type -> agent.v1.ListDocumentTypeVersionsResponse
-	92,  // 110: agent.v1.AgentService.WriteDocumentType:output_type -> agent.v1.WriteDocumentTypeResponse
-	59,  // 111: agent.v1.AgentService.DeleteDocumentType:output_type -> google.protobuf.Empty
-	59,  // 112: agent.v1.AgentService.RecordReport:output_type -> google.protobuf.Empty
-	59,  // 113: agent.v1.AgentService.MarkRunsRead:output_type -> google.protobuf.Empty
-	93,  // 114: agent.v1.AgentService.ListReviewThreads:output_type -> agent.v1.ListReviewThreadsResponse
-	94,  // 115: agent.v1.AgentService.CreateReviewThread:output_type -> agent.v1.CreateReviewThreadResponse
-	95,  // 116: agent.v1.AgentService.AddReviewMessage:output_type -> agent.v1.AddReviewMessageResponse
-	96,  // 117: agent.v1.AgentService.EditReviewMessage:output_type -> agent.v1.EditReviewMessageResponse
-	18,  // 118: agent.v1.AgentService.PlanRebase:output_type -> agent.v1.PlanRebaseResponse
-	22,  // 119: agent.v1.AgentService.RebaseWorktree:output_type -> agent.v1.RebaseWorktreeResponse
-	20,  // 120: agent.v1.AgentService.StartOrchestrator:output_type -> agent.v1.StartOrchestratorResponse
-	97,  // 121: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse
-	98,  // 122: agent.v1.AgentService.SetReviewThreadResolved:output_type -> agent.v1.SetReviewThreadResolvedResponse
-	99,  // 123: agent.v1.AgentService.OpenReviewRound:output_type -> agent.v1.OpenReviewRoundResponse
-	100, // 124: agent.v1.AgentService.ListReviewRounds:output_type -> agent.v1.ListReviewRoundsResponse
-	101, // 125: agent.v1.AgentService.ListReviews:output_type -> agent.v1.ListReviewsResponse
-	102, // 126: agent.v1.AgentService.GetReview:output_type -> agent.v1.GetReviewResponse
-	103, // 127: agent.v1.AgentService.ReleaseReview:output_type -> agent.v1.ReleaseReviewResponse
-	104, // 128: agent.v1.AgentService.SetReviewFileViewed:output_type -> agent.v1.SetReviewFileViewedResponse
-	105, // 129: agent.v1.AgentService.ListReviewViewedFiles:output_type -> agent.v1.ListReviewViewedFilesResponse
-	79,  // [79:130] is the sub-list for method output_type
-	28,  // [28:79] is the sub-list for method input_type
-	28,  // [28:28] is the sub-list for extension type_name
-	28,  // [28:28] is the sub-list for extension extendee
-	0,   // [0:28] is the sub-list for field type_name
+	2,   // 1: agent.v1.Agent.sequence:type_name -> agent.v1.Sequence
+	1,   // 2: agent.v1.Agent.role:type_name -> agent.v1.AgentRole
+	3,   // 3: agent.v1.Agent.diff_stat:type_name -> agent.v1.DiffStat
+	4,   // 4: agent.v1.AgentRow.agent:type_name -> agent.v1.Agent
+	7,   // 5: agent.v1.AgentRow.pull_request:type_name -> agent.v1.PullRequestStanding
+	47,  // 6: agent.v1.AgentRow.pull_requests:type_name -> pullrequest.v1.PullRequest
+	6,   // 7: agent.v1.AgentRow.reviewer_comments:type_name -> agent.v1.CommentCounts
+	6,   // 8: agent.v1.AgentRow.person_comments:type_name -> agent.v1.CommentCounts
+	48,  // 9: agent.v1.PullRequestStanding.state:type_name -> pullrequest.v1.PullRequestState
+	49,  // 10: agent.v1.PullRequestStanding.checks:type_name -> pullrequest.v1.Checks
+	50,  // 11: agent.v1.PullRequestStanding.mergeability:type_name -> pullrequest.v1.Mergeability
+	51,  // 12: agent.v1.ListAgentsRequest.pagination:type_name -> pagination.v1.Pagination
+	52,  // 13: agent.v1.ListAgentsRequest.view:type_name -> view.v1.View
+	5,   // 14: agent.v1.ListAgentsResponse.agents:type_name -> agent.v1.AgentRow
+	4,   // 15: agent.v1.CreateAgentResponse.agent:type_name -> agent.v1.Agent
+	4,   // 16: agent.v1.RequestReviewResponse.reviewer:type_name -> agent.v1.Agent
+	4,   // 17: agent.v1.AdoptResponse.agent:type_name -> agent.v1.Agent
+	4,   // 18: agent.v1.GetAgentResponse.agent:type_name -> agent.v1.Agent
+	7,   // 19: agent.v1.GetAgentResponse.pull_request:type_name -> agent.v1.PullRequestStanding
+	47,  // 20: agent.v1.GetAgentResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	6,   // 21: agent.v1.GetAgentResponse.reviewer_comments:type_name -> agent.v1.CommentCounts
+	6,   // 22: agent.v1.GetAgentResponse.person_comments:type_name -> agent.v1.CommentCounts
+	4,   // 23: agent.v1.StartOrchestratorResponse.agent:type_name -> agent.v1.Agent
+	2,   // 24: agent.v1.AbortSequenceResponse.sequence:type_name -> agent.v1.Sequence
+	4,   // 25: agent.v1.RestoreAgentsResponse.agents:type_name -> agent.v1.Agent
+	4,   // 26: agent.v1.RetryAgentResponse.agent:type_name -> agent.v1.Agent
+	4,   // 27: agent.v1.ResumeAgentResponse.agent:type_name -> agent.v1.Agent
+	4,   // 28: agent.v1.HoldAgentResponse.agent:type_name -> agent.v1.Agent
+	4,   // 29: agent.v1.ReleaseAgentResponse.agent:type_name -> agent.v1.Agent
+	8,   // 30: agent.v1.AgentService.ListAgents:input_type -> agent.v1.ListAgentsRequest
+	16,  // 31: agent.v1.AgentService.GetAgent:input_type -> agent.v1.GetAgentRequest
+	10,  // 32: agent.v1.AgentService.CreateAgent:input_type -> agent.v1.CreateAgentRequest
+	12,  // 33: agent.v1.AgentService.RequestReview:input_type -> agent.v1.RequestReviewRequest
+	14,  // 34: agent.v1.AgentService.Adopt:input_type -> agent.v1.AdoptRequest
+	30,  // 35: agent.v1.AgentService.SetHidden:input_type -> agent.v1.SetHiddenRequest
+	33,  // 36: agent.v1.AgentService.Log:input_type -> agent.v1.LogRequest
+	53,  // 37: agent.v1.AgentService.SendMail:input_type -> agent.v1.SendMailRequest
+	54,  // 38: agent.v1.AgentService.ForwardLastTurns:input_type -> agent.v1.ForwardLastTurnsRequest
+	55,  // 39: agent.v1.AgentService.ReadMail:input_type -> agent.v1.ReadMailRequest
+	56,  // 40: agent.v1.AgentService.ListMail:input_type -> agent.v1.ListMailRequest
+	57,  // 41: agent.v1.AgentService.DeleteMail:input_type -> agent.v1.DeleteMailRequest
+	34,  // 42: agent.v1.AgentService.ArchiveAgents:input_type -> agent.v1.ArchiveAgentsRequest
+	35,  // 43: agent.v1.AgentService.RestoreAgents:input_type -> agent.v1.RestoreAgentsRequest
+	41,  // 44: agent.v1.AgentService.HoldAgent:input_type -> agent.v1.HoldAgentRequest
+	43,  // 45: agent.v1.AgentService.ReleaseAgent:input_type -> agent.v1.ReleaseAgentRequest
+	39,  // 46: agent.v1.AgentService.ResumeAgent:input_type -> agent.v1.ResumeAgentRequest
+	37,  // 47: agent.v1.AgentService.RetryAgent:input_type -> agent.v1.RetryAgentRequest
+	45,  // 48: agent.v1.AgentService.DeleteAgents:input_type -> agent.v1.DeleteAgentsRequest
+	46,  // 49: agent.v1.AgentService.UpdateAgent:input_type -> agent.v1.UpdateAgentRequest
+	58,  // 50: agent.v1.AgentService.SearchTranscripts:input_type -> agent.v1.SearchTranscriptsRequest
+	59,  // 51: agent.v1.AgentService.GetTranscript:input_type -> agent.v1.GetTranscriptRequest
+	60,  // 52: agent.v1.AgentService.GetLastTurns:input_type -> agent.v1.GetLastTurnsRequest
+	61,  // 53: agent.v1.AgentService.GetLastScreen:input_type -> agent.v1.GetLastScreenRequest
+	62,  // 54: agent.v1.AgentService.WriteDocument:input_type -> agent.v1.WriteDocumentRequest
+	63,  // 55: agent.v1.AgentService.ListDocuments:input_type -> agent.v1.ListDocumentsRequest
+	64,  // 56: agent.v1.AgentService.GetDocument:input_type -> agent.v1.GetDocumentRequest
+	65,  // 57: agent.v1.AgentService.ListDocumentVersions:input_type -> agent.v1.ListDocumentVersionsRequest
+	66,  // 58: agent.v1.AgentService.ListDocumentTypes:input_type -> google.protobuf.Empty
+	67,  // 59: agent.v1.AgentService.GetDocumentType:input_type -> agent.v1.GetDocumentTypeRequest
+	68,  // 60: agent.v1.AgentService.ListDocumentTypeVersions:input_type -> agent.v1.ListDocumentTypeVersionsRequest
+	69,  // 61: agent.v1.AgentService.WriteDocumentType:input_type -> agent.v1.WriteDocumentTypeRequest
+	70,  // 62: agent.v1.AgentService.DeleteDocumentType:input_type -> agent.v1.DeleteDocumentTypeRequest
+	31,  // 63: agent.v1.AgentService.RecordReport:input_type -> agent.v1.RecordReportRequest
+	32,  // 64: agent.v1.AgentService.MarkRunsRead:input_type -> agent.v1.MarkRunsReadRequest
+	71,  // 65: agent.v1.AgentService.ListReviewThreads:input_type -> agent.v1.ListReviewThreadsRequest
+	72,  // 66: agent.v1.AgentService.CreateReviewThread:input_type -> agent.v1.CreateReviewThreadRequest
+	73,  // 67: agent.v1.AgentService.AddReviewMessage:input_type -> agent.v1.AddReviewMessageRequest
+	74,  // 68: agent.v1.AgentService.EditReviewMessage:input_type -> agent.v1.EditReviewMessageRequest
+	18,  // 69: agent.v1.AgentService.PlanRebase:input_type -> agent.v1.PlanRebaseRequest
+	22,  // 70: agent.v1.AgentService.RebaseWorktree:input_type -> agent.v1.RebaseWorktreeRequest
+	24,  // 71: agent.v1.AgentService.PlanPush:input_type -> agent.v1.PlanPushRequest
+	26,  // 72: agent.v1.AgentService.PushWorktree:input_type -> agent.v1.PushWorktreeRequest
+	28,  // 73: agent.v1.AgentService.AbortSequence:input_type -> agent.v1.AbortSequenceRequest
+	20,  // 74: agent.v1.AgentService.StartOrchestrator:input_type -> agent.v1.StartOrchestratorRequest
+	75,  // 75: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
+	76,  // 76: agent.v1.AgentService.SetReviewThreadResolved:input_type -> agent.v1.SetReviewThreadResolvedRequest
+	77,  // 77: agent.v1.AgentService.OpenReviewRound:input_type -> agent.v1.OpenReviewRoundRequest
+	78,  // 78: agent.v1.AgentService.ListReviewRounds:input_type -> agent.v1.ListReviewRoundsRequest
+	79,  // 79: agent.v1.AgentService.ListReviews:input_type -> agent.v1.ListReviewsRequest
+	80,  // 80: agent.v1.AgentService.GetReview:input_type -> agent.v1.GetReviewRequest
+	81,  // 81: agent.v1.AgentService.ReleaseReview:input_type -> agent.v1.ReleaseReviewRequest
+	82,  // 82: agent.v1.AgentService.SetReviewFileViewed:input_type -> agent.v1.SetReviewFileViewedRequest
+	83,  // 83: agent.v1.AgentService.ListReviewViewedFiles:input_type -> agent.v1.ListReviewViewedFilesRequest
+	9,   // 84: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
+	17,  // 85: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
+	11,  // 86: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
+	13,  // 87: agent.v1.AgentService.RequestReview:output_type -> agent.v1.RequestReviewResponse
+	15,  // 88: agent.v1.AgentService.Adopt:output_type -> agent.v1.AdoptResponse
+	66,  // 89: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
+	66,  // 90: agent.v1.AgentService.Log:output_type -> google.protobuf.Empty
+	84,  // 91: agent.v1.AgentService.SendMail:output_type -> agent.v1.SendMailResponse
+	85,  // 92: agent.v1.AgentService.ForwardLastTurns:output_type -> agent.v1.ForwardLastTurnsResponse
+	86,  // 93: agent.v1.AgentService.ReadMail:output_type -> agent.v1.ReadMailResponse
+	87,  // 94: agent.v1.AgentService.ListMail:output_type -> agent.v1.ListMailResponse
+	66,  // 95: agent.v1.AgentService.DeleteMail:output_type -> google.protobuf.Empty
+	66,  // 96: agent.v1.AgentService.ArchiveAgents:output_type -> google.protobuf.Empty
+	36,  // 97: agent.v1.AgentService.RestoreAgents:output_type -> agent.v1.RestoreAgentsResponse
+	42,  // 98: agent.v1.AgentService.HoldAgent:output_type -> agent.v1.HoldAgentResponse
+	44,  // 99: agent.v1.AgentService.ReleaseAgent:output_type -> agent.v1.ReleaseAgentResponse
+	40,  // 100: agent.v1.AgentService.ResumeAgent:output_type -> agent.v1.ResumeAgentResponse
+	38,  // 101: agent.v1.AgentService.RetryAgent:output_type -> agent.v1.RetryAgentResponse
+	66,  // 102: agent.v1.AgentService.DeleteAgents:output_type -> google.protobuf.Empty
+	66,  // 103: agent.v1.AgentService.UpdateAgent:output_type -> google.protobuf.Empty
+	88,  // 104: agent.v1.AgentService.SearchTranscripts:output_type -> agent.v1.SearchTranscriptsResponse
+	89,  // 105: agent.v1.AgentService.GetTranscript:output_type -> agent.v1.GetTranscriptResponse
+	90,  // 106: agent.v1.AgentService.GetLastTurns:output_type -> agent.v1.GetLastTurnsResponse
+	91,  // 107: agent.v1.AgentService.GetLastScreen:output_type -> agent.v1.GetLastScreenResponse
+	92,  // 108: agent.v1.AgentService.WriteDocument:output_type -> agent.v1.WriteDocumentResponse
+	93,  // 109: agent.v1.AgentService.ListDocuments:output_type -> agent.v1.ListDocumentsResponse
+	94,  // 110: agent.v1.AgentService.GetDocument:output_type -> agent.v1.GetDocumentResponse
+	95,  // 111: agent.v1.AgentService.ListDocumentVersions:output_type -> agent.v1.ListDocumentVersionsResponse
+	96,  // 112: agent.v1.AgentService.ListDocumentTypes:output_type -> agent.v1.ListDocumentTypesResponse
+	97,  // 113: agent.v1.AgentService.GetDocumentType:output_type -> agent.v1.GetDocumentTypeResponse
+	98,  // 114: agent.v1.AgentService.ListDocumentTypeVersions:output_type -> agent.v1.ListDocumentTypeVersionsResponse
+	99,  // 115: agent.v1.AgentService.WriteDocumentType:output_type -> agent.v1.WriteDocumentTypeResponse
+	66,  // 116: agent.v1.AgentService.DeleteDocumentType:output_type -> google.protobuf.Empty
+	66,  // 117: agent.v1.AgentService.RecordReport:output_type -> google.protobuf.Empty
+	66,  // 118: agent.v1.AgentService.MarkRunsRead:output_type -> google.protobuf.Empty
+	100, // 119: agent.v1.AgentService.ListReviewThreads:output_type -> agent.v1.ListReviewThreadsResponse
+	101, // 120: agent.v1.AgentService.CreateReviewThread:output_type -> agent.v1.CreateReviewThreadResponse
+	102, // 121: agent.v1.AgentService.AddReviewMessage:output_type -> agent.v1.AddReviewMessageResponse
+	103, // 122: agent.v1.AgentService.EditReviewMessage:output_type -> agent.v1.EditReviewMessageResponse
+	19,  // 123: agent.v1.AgentService.PlanRebase:output_type -> agent.v1.PlanRebaseResponse
+	23,  // 124: agent.v1.AgentService.RebaseWorktree:output_type -> agent.v1.RebaseWorktreeResponse
+	25,  // 125: agent.v1.AgentService.PlanPush:output_type -> agent.v1.PlanPushResponse
+	27,  // 126: agent.v1.AgentService.PushWorktree:output_type -> agent.v1.PushWorktreeResponse
+	29,  // 127: agent.v1.AgentService.AbortSequence:output_type -> agent.v1.AbortSequenceResponse
+	21,  // 128: agent.v1.AgentService.StartOrchestrator:output_type -> agent.v1.StartOrchestratorResponse
+	104, // 129: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse
+	105, // 130: agent.v1.AgentService.SetReviewThreadResolved:output_type -> agent.v1.SetReviewThreadResolvedResponse
+	106, // 131: agent.v1.AgentService.OpenReviewRound:output_type -> agent.v1.OpenReviewRoundResponse
+	107, // 132: agent.v1.AgentService.ListReviewRounds:output_type -> agent.v1.ListReviewRoundsResponse
+	108, // 133: agent.v1.AgentService.ListReviews:output_type -> agent.v1.ListReviewsResponse
+	109, // 134: agent.v1.AgentService.GetReview:output_type -> agent.v1.GetReviewResponse
+	110, // 135: agent.v1.AgentService.ReleaseReview:output_type -> agent.v1.ReleaseReviewResponse
+	111, // 136: agent.v1.AgentService.SetReviewFileViewed:output_type -> agent.v1.SetReviewFileViewedResponse
+	112, // 137: agent.v1.AgentService.ListReviewViewedFiles:output_type -> agent.v1.ListReviewViewedFilesResponse
+	84,  // [84:138] is the sub-list for method output_type
+	30,  // [30:84] is the sub-list for method input_type
+	30,  // [30:30] is the sub-list for extension type_name
+	30,  // [30:30] is the sub-list for extension extendee
+	0,   // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_agent_proto_init() }
@@ -3458,14 +3962,14 @@ func file_agent_v1_agent_proto_init() {
 	file_agent_v1_agent_proto_msgTypes[9].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[11].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[14].OneofWrappers = []any{}
-	file_agent_v1_agent_proto_msgTypes[24].OneofWrappers = []any{}
+	file_agent_v1_agent_proto_msgTypes[30].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_agent_proto_rawDesc), len(file_agent_v1_agent_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   38,
+			NumEnums:      3,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

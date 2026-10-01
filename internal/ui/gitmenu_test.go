@@ -138,7 +138,25 @@ func TestGitMenuRefusals(t *testing.T) {
 			name:        "the rebase of an agent with no worktree of its own",
 			rows:        buildUncutAgent(),
 			press:       []string{"r"},
-			wantRefusal: "this agent has no worktree of its own, so there is no base to move it onto",
+			wantRefusal: "this agent has no worktree of its own for komrad to act on",
+		},
+		{
+			name:        "the push of an agent with no worktree of its own",
+			rows:        buildUncutAgent(),
+			press:       []string{"p"},
+			wantRefusal: "this agent has no worktree of its own for komrad to act on",
+		},
+		{
+			name:        "the push of a worktree part-way through a rebase",
+			rows:        buildRebasingGitAgent(),
+			press:       []string{"p"},
+			wantRefusal: "part-way through a rebase, merge or pick",
+		},
+		{
+			name:        "the abort of a worktree with nothing in progress",
+			rows:        buildGitAgent(),
+			press:       []string{"x"},
+			wantRefusal: "nothing is part-way through in this worktree",
 		},
 		{
 			name:        "the pull request of a repository not read yet",
@@ -178,6 +196,18 @@ func TestGitMenuRefusals(t *testing.T) {
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
 			press:       []string{"m", "m"},
 			wantRefusal: "its pull request has already merged",
+		},
+		{
+			name:        "the merge when ready of a draft",
+			rows:        append(buildGitAgent(), newQueueableDraft()),
+			press:       []string{"m", "u"},
+			wantRefusal: "its pull request is a draft, so mark it ready first",
+		},
+		{
+			name:        "the merge when ready of a pull request the forge will not queue",
+			rows:        append(buildGitAgent(), newOpenPullRequest()),
+			press:       []string{"m", "u"},
+			wantRefusal: "the forge will not queue it now",
 		},
 		{
 			name:        "the draft toggle of a pull request that has already merged",
@@ -258,6 +288,281 @@ func TestGitMenuMerges(t *testing.T) {
 			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
 			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, tt.wantArchive...)
 			assert.NotContains(t, harness.readFrame(), "merge and archive")
+			if tt.wantMessage != "" {
+				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			}
+		})
+	}
+}
+
+// TestGitMenuMergesWhenReady covers the merge menu entry naming which way it goes, asking the
+// forge to merge on its own at the head the panel holds, and stopping it again.
+func TestGitMenuMergesWhenReady(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		pullRequest *pullrequestv1.PullRequest
+		refuse      error
+		wantLabel   string
+		wantSent    proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "a queue the forge refuses says why",
+			pullRequest: newQueueablePullRequest(),
+			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github will not change auto-merge on #740: Head sha didn't match expected")),
+			wantLabel:   "merge when ready",
+			wantSent: &forgev1.SetForgePullRequestAutoMergeRequest{
+				Url:     pullRequestURL,
+				HeadSha: "new",
+				On:      true,
+			},
+			wantMessage: "Head sha didn't match expected",
+		},
+		{
+			name:        "a pull request the forge would queue is queued at the head the panel holds",
+			pullRequest: newQueueablePullRequest(),
+			wantLabel:   "merge when ready",
+			wantSent: &forgev1.SetForgePullRequestAutoMergeRequest{
+				Url:     pullRequestURL,
+				HeadSha: "new",
+				On:      true,
+			},
+			wantMessage: "api: #740 merges when ready",
+		},
+		{
+			name:        "a queued pull request stops waiting",
+			pullRequest: newAutoMergedPullRequest(),
+			wantLabel:   "cancel auto-merge",
+			wantSent:    &forgev1.SetForgePullRequestAutoMergeRequest{Url: pullRequestURL, HeadSha: "new"},
+			wantMessage: "api: #740 no longer merges on its own",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
+			if tt.refuse != nil {
+				harness.refuse(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.refuse)
+			}
+			harness.press("m")
+			require.Contains(t, harness.readFrame(), tt.wantLabel)
+
+			harness.press("u")
+
+			harness.assertSentTo(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.wantSent)
+			assert.NotContains(t, harness.readFrame(), tt.wantLabel)
+			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+		})
+	}
+}
+
+// TestGitMenuPushes covers the push entry asking first with what the push would do, then sending
+// the branch and saying what went up.
+func TestGitMenuPushes(t *testing.T) {
+	t.Parallel()
+
+	plan := &agentv1.PlanPushRequest{AgentId: "a1"}
+	push := &agentv1.PushWorktreeRequest{AgentId: "a1"}
+
+	tests := []struct {
+		name        string
+		pullRequest *pullrequestv1.PullRequest
+		planned     *agentv1.PlanPushResponse
+		refusePlan  error
+		refusePush  error
+		press       []string
+		wantButton  string
+		wantWarning string
+		wantUnsaid  string
+		wantPushes  []proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "a plan the server refuses opens no confirmation",
+			refusePlan:  connect.NewError(connect.CodeFailedPrecondition, errors.New("the branch holds nothing the base does not")),
+			wantMessage: "the branch holds nothing the base does not",
+		},
+		{
+			name: "a push origin rejects says so",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			refusePush:  connect.NewError(connect.CodeFailedPrecondition, errors.New("origin has commits this branch never took in")),
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "origin has commits this branch never took in",
+		},
+		{
+			name: "declining sends nothing",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			press:      []string{"esc"},
+			wantButton: "Push",
+		},
+		{
+			name: "a rebased branch is force-pushed",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 3,
+				Forced:  true,
+			},
+			press:       []string{"y"},
+			wantButton:  "Force push",
+			wantWarning: "will be overwritten",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: force-pushed agent/a1",
+		},
+		{
+			name:        "a branch queued to merge warns that what goes up may land",
+			pullRequest: newAutoMergedPullRequest(),
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantWarning: "Auto-merge is on",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: pushed agent/a1",
+		},
+		{
+			name: "files nothing has committed are named as staying behind",
+			planned: &agentv1.PlanPushResponse{
+				Branch:           "agent/a1",
+				Commits:          2,
+				UncommittedFiles: 4,
+			},
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantWarning: "4 files nothing has committed",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: pushed agent/a1",
+		},
+		{
+			name: "a branch is pushed",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantWarning: "2 commits will go up",
+			wantUnsaid:  "overwritten",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: pushed agent/a1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rows := buildGitAgent()
+			if tt.pullRequest != nil {
+				rows = append(rows, tt.pullRequest)
+			}
+			harness := openGitMenu(t, rows...)
+			if tt.refusePlan != nil {
+				harness.refuse(agentv1connect.AgentServicePlanPushProcedure, tt.refusePlan)
+			}
+			if tt.planned != nil {
+				harness.answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+					return connect.NewResponse(tt.planned), nil
+				})
+			}
+			harness.answerPushed(tt.planned)
+			if tt.refusePush != nil {
+				harness.refuse(agentv1connect.AgentServicePushWorktreeProcedure, tt.refusePush)
+			}
+
+			harness.press("p")
+
+			harness.assertSentTo(agentv1connect.AgentServicePlanPushProcedure, plan)
+			if tt.wantButton != "" {
+				require.Contains(t, harness.readFrame(), tt.wantButton)
+			}
+			if tt.wantWarning != "" {
+				require.Contains(t, harness.readFrame(), tt.wantWarning)
+			}
+			if tt.wantUnsaid != "" {
+				require.NotContains(t, harness.readFrame(), tt.wantUnsaid)
+			}
+			harness.press(tt.press...)
+
+			harness.assertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, tt.wantPushes...)
+			assert.NotContains(t, harness.readFrame(), "Push the branch of")
+			if tt.wantMessage != "" {
+				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			}
+		})
+	}
+}
+
+// TestGitMenuAborts covers the abort entry naming what is in progress, asking first, then undoing
+// it and saying where the branch stands.
+func TestGitMenuAborts(t *testing.T) {
+	t.Parallel()
+
+	abort := &agentv1.AbortSequenceRequest{AgentId: "a1"}
+
+	tests := []struct {
+		name        string
+		refuse      error
+		press       []string
+		wantAborts  []proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "an abort the server refuses says why",
+			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("another git command is running in this worktree")),
+			press:       []string{"y"},
+			wantAborts:  []proto.Message{abort},
+			wantMessage: "another git command is running in this worktree",
+		},
+		{
+			name:  "declining sends nothing",
+			press: []string{"esc"},
+		},
+		{
+			name:        "an abort says where the branch stands and where the copy is",
+			press:       []string{"y"},
+			wantAborts:  []proto.Message{abort},
+			wantMessage: "api: aborted the rebase agent/a1 is back where it stood before. A copy of the worktree from before the abort is kept at refs/komrad/aborted/a1/1.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, buildRebasingGitAgent()...)
+			harness.answer(agentv1connect.AgentServiceAbortSequenceProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.AbortSequenceResponse{
+					Sequence:  agentv1.Sequence_SEQUENCE_REBASE,
+					Branch:    "agent/a1",
+					ParkedRef: "refs/komrad/aborted/a1/1",
+				}), nil
+			})
+			if tt.refuse != nil {
+				harness.refuse(agentv1connect.AgentServiceAbortSequenceProcedure, tt.refuse)
+			}
+			require.Contains(t, harness.readFrame(), "abort rebase")
+
+			harness.press("x")
+
+			require.Contains(t, harness.readFrame(), "Abort the rebase in the worktree of api?")
+			harness.press(tt.press...)
+
+			harness.assertSentTo(agentv1connect.AgentServiceAbortSequenceProcedure, tt.wantAborts...)
+			assert.NotContains(t, harness.readFrame(), "Abort the rebase in")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}
@@ -456,4 +761,52 @@ func newCurrentMergedPullRequest() *pullrequestv1.PullRequest {
 	merged.HeadSha = "new"
 
 	return merged
+}
+
+func buildRebasingGitAgent() []proto.Message {
+	rows := buildGitAgent()
+	rows[1].(*agentv1.Agent).Sequence = agentv1.Sequence_SEQUENCE_REBASE
+
+	return rows
+}
+
+// answerPushed has the push answer with what the plan said it would send.
+func (h *panelHarness) answerPushed(planned *agentv1.PlanPushResponse) {
+	if planned == nil {
+		return
+	}
+
+	h.answer(agentv1connect.AgentServicePushWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.PushWorktreeResponse{
+			Branch:  planned.GetBranch(),
+			Commits: planned.GetCommits(),
+			Forced:  planned.GetForced(),
+			Sha:     "abcdef1234567",
+		}), nil
+	})
+}
+
+func newQueueablePullRequest() *pullrequestv1.PullRequest {
+	queueable := newOpenPullRequest()
+	queueable.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
+	queueable.HeadSha = "new"
+	queueable.AutoMergeable = true
+
+	return queueable
+}
+
+func newAutoMergedPullRequest() *pullrequestv1.PullRequest {
+	queued := newQueueablePullRequest()
+	queued.AutoMerge = true
+	queued.AutoMergeable = false
+
+	return queued
+}
+
+func newQueueableDraft() *pullrequestv1.PullRequest {
+	draft := newQueueablePullRequest()
+	draft.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
+	draft.Draft = true
+
+	return draft
 }

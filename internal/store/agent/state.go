@@ -142,8 +142,8 @@ type SetCheckoutParams struct {
 	HeadSHA *string
 	// WorktreeRemoved says the cwd no longer exists on disk.
 	WorktreeRemoved bool
-	// SequenceInProgress says a merge, a rebase or a cherry-pick is part-way through the checkout.
-	SequenceInProgress bool
+	// Sequence is what git has part-way through the checkout.
+	Sequence Sequence
 }
 
 // SetCheckout records what the cwd syncer read of an agent's checkout.
@@ -153,12 +153,12 @@ func (s *AgentStore) SetCheckout(ctx context.Context, id string, params SetCheck
 	}
 
 	err := s.queries.SetAgentCheckoutByID(ctx, models.SetAgentCheckoutByIDParams{
-		ID:                 id,
-		Branch:             params.Branch,
-		RepositoryUrl:      params.RepositoryURL,
-		HeadSha:            params.HeadSHA,
-		WorktreeRemoved:    params.WorktreeRemoved,
-		SequenceInProgress: params.SequenceInProgress,
+		ID:              id,
+		Branch:          params.Branch,
+		RepositoryUrl:   params.RepositoryURL,
+		HeadSha:         params.HeadSHA,
+		WorktreeRemoved: params.WorktreeRemoved,
+		Sequence:        models.AgentSequence(params.Sequence.orNone()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to set the checkout for id %q: %w", id, err)
@@ -167,15 +167,14 @@ func (s *AgentStore) SetCheckout(ctx context.Context, id string, params SetCheck
 	return nil
 }
 
-// SetSequenceInProgressByID records whether a merge, a rebase or a cherry-pick is part-way
-// through an agent's checkout.
-func (s *AgentStore) SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error {
+// SetSequenceByID records what git has part-way through an agent's checkout.
+func (s *AgentStore) SetSequenceByID(ctx context.Context, id string, sequence Sequence) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
-	if err := s.queries.SetAgentSequenceInProgressByID(ctx, models.SetAgentSequenceInProgressByIDParams{ID: id, SequenceInProgress: inProgress}); err != nil {
-		return fmt.Errorf("failed to set sequence_in_progress for id %q: %w", id, err)
+	if err := s.queries.SetAgentSequenceByID(ctx, models.SetAgentSequenceByIDParams{ID: id, Sequence: models.AgentSequence(sequence.orNone())}); err != nil {
+		return fmt.Errorf("failed to set the sequence for id %q: %w", id, err)
 	}
 
 	return nil
