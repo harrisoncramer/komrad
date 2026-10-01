@@ -179,7 +179,7 @@ func TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel(t *testing.T) {
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 }
 
-// TestNew pins the code an interceptor's refusal is answered with for each kind.
+// TestNew pins the connect code New carries for each kind.
 func TestNew(t *testing.T) {
 	type newCase struct {
 		name string
