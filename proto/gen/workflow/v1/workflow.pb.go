@@ -609,7 +609,8 @@ type CreateWorkflowRequest struct {
 	ReviewerHarness string `protobuf:"bytes,11,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
 	// Flags for each new reviewer, blank for the other agents' flags when the CLI is the same.
 	ReviewerFlags string `protobuf:"bytes,12,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
-	// What its agents are asked to do when komrad mails them an event.
+	// What its agents are asked to do when komrad mails them an event, komrad's defaults when none
+	// are given.
 	EventPrompts  []*WorkflowEventPrompt `protobuf:"bytes,13,rep,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

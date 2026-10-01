@@ -1084,6 +1084,42 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
+// TestNewWorkflowStartsWithTheDefaultEventPrompts pins that a workflow created without prompts takes the defaults, which an update can clear.
+func TestNewWorkflowStartsWithTheDefaultEventPrompts(t *testing.T) {
+	tests := []struct {
+		name    string
+		prompts []workflowstore.EventPrompt
+	}{
+		{name: "no prompts"},
+		{name: "only blank prompts", prompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "   "}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			workflows := newWorkflowService(st, tmuxtest.NewFake())
+
+			created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+				Name:         "backend",
+				Worktree:     workflowstore.WorktreeConfig{BaseBranch: "main"},
+				EventPrompts: tt.prompts,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, defaultEventPrompts(), created.EventPrompts)
+
+			err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+				Name:     "backend",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+			})
+			require.NoError(t, err)
+
+			stored, err := st.GetWorkflow(t.Context(), created.ID)
+			require.NoError(t, err)
+			assert.Empty(t, stored.EventPrompts, "an update without prompts clears them")
+		})
+	}
+}
+
 // TestWorkflowEventPromptsAreCleanedOrRefused pins that prompts are trimmed and blank ones dropped, and an unknown, repeated or overlong one refused.
 func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 	tests := []struct {

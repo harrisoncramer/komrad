@@ -18,6 +18,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xslice"
 )
 
 const (
@@ -172,6 +173,9 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	prompts, err := normalizeEventPrompts(cfg.EventPrompts)
 	if err != nil {
 		return nil, err
+	}
+	if len(prompts) == 0 {
+		prompts = defaultEventPrompts()
 	}
 	cfg.EventPrompts = prompts
 
@@ -580,4 +584,11 @@ func requireNamesFree(ctx context.Context, agents nameChecker, archived []agents
 type agentName struct {
 	workflowID string
 	name       string
+}
+
+// defaultEventPrompts are the prompts a workflow created without any starts with.
+func defaultEventPrompts() []workflowstore.EventPrompt {
+	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) workflowstore.EventPrompt {
+		return workflowstore.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
+	})
 }

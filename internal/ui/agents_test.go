@@ -2181,8 +2181,9 @@ func TestAgentsOrchestrator(t *testing.T) {
 			request{
 				procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 				msg: &workflowv1.CreateWorkflowRequest{
-					Name:     "api",
-					Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+					Name:         "api",
+					Worktree:     &workflowv1.WorktreeConfig{Enabled: true},
+					EventPrompts: defaultEventPrompts(),
 				},
 			},
 			request{

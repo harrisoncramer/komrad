@@ -8281,7 +8281,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What its agents are asked to do when komrad mails them an event."
+          "description": "What its agents are asked to do when komrad mails them an event, komrad's defaults when none are given."
         }
       ]
     },

@@ -14,7 +14,11 @@ import (
 )
 
 func newWorkflowForm(h host, s panelShared) tea.Cmd {
-	values := workflowFormValues{}
+	values := workflowFormValues{
+		EventPrompts: eventPromptsByEvent(xslice.Map(eventprompts.All(), func(event eventprompts.Event) panel.EventPrompt {
+			return panel.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
+		})),
+	}
 	if len(s.listing.workflows) == 0 {
 		values.Cwd = h.getHostPath()
 	}

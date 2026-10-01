@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -93,9 +94,10 @@ func TestFormsSubmit(t *testing.T) {
 			press:     slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
-				Name:     "web",
-				Cwd:      "/work/from-tmux",
-				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+				Name:         "web",
+				Cwd:          "/work/from-tmux",
+				Worktree:     &workflowv1.WorktreeConfig{Enabled: true},
+				EventPrompts: defaultEventPrompts(),
 			},
 		},
 		{
@@ -112,6 +114,7 @@ func TestFormsSubmit(t *testing.T) {
 				ReviewerHarness: "codex",
 				ReviewerFlags:   "--model gpt-5",
 				Worktree:        &workflowv1.WorktreeConfig{},
+				EventPrompts:    defaultEventPrompts(),
 			},
 		},
 		{
@@ -128,6 +131,7 @@ func TestFormsSubmit(t *testing.T) {
 					CopyPaths:    []string{".env", "config/local.json"},
 					SymlinkPaths: []string{"node_modules"},
 				},
+				EventPrompts: defaultEventPrompts(),
 			},
 		},
 		{
@@ -756,9 +760,10 @@ func TestFormsFieldEditor(t *testing.T) {
 			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 7), []string{"up"}, slices.Repeat([]string{"shift+tab"}, 6)),
 			field: "context",
 			want: &workflowv1.CreateWorkflowRequest{
-				Name:     "web",
-				Context:  "what the editor wrote!",
-				Worktree: &workflowv1.WorktreeConfig{},
+				Name:         "web",
+				Context:      "what the editor wrote!",
+				Worktree:     &workflowv1.WorktreeConfig{},
+				EventPrompts: defaultEventPrompts(),
 			},
 		},
 		{
@@ -771,6 +776,7 @@ func TestFormsFieldEditor(t *testing.T) {
 					Enabled:   true,
 					CopyPaths: []string{"what the editor wrote!"},
 				},
+				EventPrompts: defaultEventPrompts(),
 			},
 		},
 	}
@@ -1118,4 +1124,10 @@ func findLastFilled(lines []string) string {
 	}
 
 	return ""
+}
+
+func defaultEventPrompts() []*workflowv1.WorkflowEventPrompt {
+	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) *workflowv1.WorkflowEventPrompt {
+		return &workflowv1.WorkflowEventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
+	})
 }
