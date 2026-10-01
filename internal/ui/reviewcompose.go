@@ -10,6 +10,7 @@ import (
 
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/vim"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -81,7 +82,8 @@ func (r *reviewScreen) refuseLine(h host) {
 }
 
 func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
-	if r.threads.editor.updateVim(key) {
+	outcome := r.threads.editor.updateVim(key)
+	if outcome != vim.Pass && outcome != vim.Leave {
 		return nil
 	}
 
@@ -90,7 +92,7 @@ func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg
 	// Every other key is a character being typed into the message, so the keys that leave it, and
 	// the one that opens it in an editor, come from the form keymap.
 	switch {
-	case isBound(k, formKeys().Back):
+	case outcome == vim.Leave || isBound(k, formKeys().Back):
 		r.threads.cancelMessage()
 
 		return nil
@@ -414,14 +416,15 @@ func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 // updateRelease takes every key while the panel is up: the submit key sends, escape abandons,
 // and everything else is a word being typed about the work.
 func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
-	if r.threads.editor.updateVim(key) {
+	outcome := r.threads.editor.updateVim(key)
+	if outcome != vim.Pass && outcome != vim.Leave {
 		return nil
 	}
 
 	k := key.String()
 
 	switch {
-	case isBound(k, formKeys().Back):
+	case outcome == vim.Leave || isBound(k, formKeys().Back):
 		r.threads.closeRelease()
 
 		return nil

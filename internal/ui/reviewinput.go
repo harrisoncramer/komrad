@@ -134,20 +134,23 @@ func reviewInputKeyMap(keys config.FormKeys) *huh.KeyMap {
 	return km
 }
 
-// updateVim hands a key to vim, and reports whether vim kept it.
-func (i reviewInput) updateVim(key tea.KeyPressMsg) bool {
+// updateVim hands a key to vim, and is what the box does with it.
+func (i reviewInput) updateVim(key tea.KeyPressMsg) vim.Outcome {
 	if i.form == nil || i.vim == nil {
-		return false
+		return vim.Pass
 	}
 
 	focused := i.form.GetFocusedField()
 	if focused == nil {
-		return false
+		return vim.Pass
 	}
 
 	outcome, ok := i.vim.press(focused, key.String())
+	if !ok {
+		return vim.Pass
+	}
 
-	return ok && (outcome == vim.Consumed || outcome == vim.EdgeUp || outcome == vim.EdgeDown)
+	return outcome
 }
 
 // modeLabel names the mode the field is in.

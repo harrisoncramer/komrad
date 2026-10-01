@@ -218,7 +218,11 @@ func (m model) updateFormVim(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case vim.EdgeDown, vim.EdgeUp:
 		return m, m.stepVimField(focused.GetKey(), outcome == vim.EdgeDown), true
-	case vim.Pass, vim.Leave:
+	case vim.Leave:
+		next, cmd := m.closeForm()
+
+		return next, cmd, true
+	case vim.Pass:
 	}
 
 	return m, nil, false

@@ -36,6 +36,28 @@ func TestVimEditing(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "Initial prompt")
 	})
 
+	t.Run("ctrl+[ counts as esc in a form", func(t *testing.T) {
+		harness := openVimForms(t)
+
+		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), []string{"ctrl+["})...)
+		assert.Contains(t, harness.readFrame(), "Initial prompt")
+
+		harness.press("ctrl+[")
+		assert.NotContains(t, harness.readFrame(), "Initial prompt")
+	})
+
+	t.Run("ctrl+[ counts as esc in the review box", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+
+		harness.press("c")
+		typeText(harness, "gone")
+		harness.press("ctrl+[")
+		assert.Contains(t, harness.readFrame(), "  Comment")
+
+		harness.press("ctrl+[")
+		assert.NotContains(t, harness.readFrame(), "  Comment")
+	})
+
 	t.Run("an edit made in normal mode is what the form sends", func(t *testing.T) {
 		harness := openVimForms(t)
 
