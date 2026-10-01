@@ -52,11 +52,6 @@ type summaryField struct {
 	value string
 }
 
-// openSectionedForm puts up a sectioned form's top form, its cursor on the first field.
-func openSectionedForm(h host, form sectionedForm) tea.Cmd {
-	return h.openForm(form.topState())
-}
-
 func (s sectionedForm) topState() formState {
 	return formState{
 		kind:           s.kind,

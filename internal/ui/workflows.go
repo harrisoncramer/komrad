@@ -38,7 +38,7 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 		title = "Workflow name"
 	}
 
-	return openSectionedForm(h, workflowForm(workflowFormParams{
+	return h.openForm(workflowForm(workflowFormParams{
 		NameTitle: title,
 		Values:    values,
 		Editing:   target != nil,
@@ -57,7 +57,7 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 
 			return m, cmd
 		}),
-	}))
+	}).topState())
 }
 
 // getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
