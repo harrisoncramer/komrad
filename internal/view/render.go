@@ -95,6 +95,10 @@ func (d drawer) trailing(line Line) string {
 		b.WriteString(" " + d.cell(line.Schedule))
 	}
 
+	if line.Workflow != "" {
+		b.WriteString(" " + palette.Style(paint.ToneMuted).Render(line.Workflow))
+	}
+
 	return b.String()
 }
 

@@ -806,6 +806,7 @@ func TestPrepareClipsName(t *testing.T) {
 		pane         int
 		want         []string
 		wantComments []int
+		wantWorkflow []string
 	}{
 		{
 			name: "a name past the column ends in an ellipsis",
@@ -847,6 +848,20 @@ func TestPrepareClipsName(t *testing.T) {
 			want:         []string{"en…"},
 			wantComments: []int{0},
 		},
+		{
+			name:         "a name with room for its workflow keeps both",
+			rows:         []Row{{Name: "iss-582", Workflow: "backend"}},
+			pane:         25,
+			want:         []string{"iss-582"},
+			wantWorkflow: []string{"backend"},
+		},
+		{
+			name:         "a name that fits only alone drops its workflow rather than being cut",
+			rows:         []Row{{Name: "fix-login-redi", Workflow: "backend"}},
+			pane:         25,
+			want:         []string{"fix-login-redi"},
+			wantWorkflow: []string{""},
+		},
 	}
 
 	for _, tt := range tests {
@@ -858,6 +873,9 @@ func TestPrepareClipsName(t *testing.T) {
 				assert.Equal(t, want, list.Lines[i].Name)
 				if tt.wantComments != nil {
 					assert.Len(t, list.Lines[i].Comments, tt.wantComments[i])
+				}
+				if tt.wantWorkflow != nil {
+					assert.Equal(t, tt.wantWorkflow[i], list.Lines[i].Workflow)
 				}
 			}
 		})

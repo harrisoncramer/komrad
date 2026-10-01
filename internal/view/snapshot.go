@@ -173,6 +173,8 @@ type Row struct {
 	Scheduled bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
+	// Workflow is the name of the workflow the row is filed under, drawn greyed after its marks.
+	Workflow string
 	// Faded greys a row the keyboard cannot reach.
 	Faded bool
 }
