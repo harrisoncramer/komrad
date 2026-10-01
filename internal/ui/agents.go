@@ -9,7 +9,6 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
-	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -120,6 +119,10 @@ func (a *agentsScreen) openAgent(m *model) tea.Cmd {
 		return nil
 	}
 
+	if _, waking := a.resuming[item.Agent.ID]; waking {
+		return nil
+	}
+
 	if !item.Alive && !item.Agent.State.DoesPaneDecide() {
 		return nil
 	}
@@ -133,9 +136,50 @@ func (a *agentsScreen) openAgent(m *model) tea.Cmd {
 		return nil
 	}
 
-	return m.openingWriteCmd("resuming "+item.Agent.Name, fmt.Sprintf("Could not resume agent %q", item.Agent.Name), func(c api) (*agentv1.Agent, error) {
-		return c.resumeAgent(item.Agent.ID)
-	})
+	return a.resume(m, item.Agent)
+}
+
+// resume wakes a dormant agent in the background.
+func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
+	if a.resuming == nil {
+		a.resuming = map[string]struct{}{}
+	}
+	a.resuming[agent.ID] = struct{}{}
+
+	return stampResume(m.announcedCmd(
+		"resuming "+agent.Name,
+		fmt.Sprintf("Could not resume agent %q", agent.Name),
+		message{
+			kind:    messageInfo,
+			summary: agent.Name + " is back up",
+			detail:  "Press enter on it to open its pane.",
+		},
+		func(c api) error {
+			_, err := c.resumeAgent(agent.ID)
+
+			return err
+		},
+	), agent.ID)
+}
+
+// stampResume says on a write's result which agent it resumed.
+func stampResume(cmd tea.Cmd, id string) tea.Cmd {
+	return func() tea.Msg {
+		msg := cmd()
+
+		result, ok := msg.(writeResult)
+		if !ok {
+			return msg
+		}
+
+		result.resumed = id
+
+		return result
+	}
+}
+
+func (a *agentsScreen) settleResume(id string) {
+	delete(a.resuming, id)
 }
 
 func (a *agentsScreen) toggleHidden(m *model) {
