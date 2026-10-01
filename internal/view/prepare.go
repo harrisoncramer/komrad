@@ -134,13 +134,13 @@ func buildCommentCells(row Row) []Cell {
 		return nil
 	}
 
-	reviewerOpen, personOpen, external, unread := 0, 0, 0, 0
+	reviewerOpen, personOpen, forgeOpen, unread := 0, 0, 0, 0
 	if row.ReviewerComments != nil {
 		reviewerOpen = row.ReviewerComments.Open
 	}
 	if row.PersonComments != nil {
 		personOpen = row.PersonComments.Open
-		external = row.PersonComments.External
+		forgeOpen = row.PersonComments.External
 		unread = row.PersonComments.Unread
 	}
 
@@ -148,7 +148,7 @@ func buildCommentCells(row Row) []Cell {
 	for _, cell := range []Cell{
 		countCell(glyph.ReviewerComments, reviewerOpen, paint.ToneMuted),
 		countCell(glyph.PersonComments, personOpen, paint.ToneMuted),
-		countCell(glyph.ForgeComments, external, paint.ToneUserGithub),
+		countCell(glyph.ForgeComments, forgeOpen, paint.ToneUserGithub),
 		countCell(glyph.Unread, unread, paint.ToneWarning),
 	} {
 		if !cell.IsBlank() {
