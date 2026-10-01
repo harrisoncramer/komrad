@@ -49,7 +49,6 @@ type services struct {
 
 type agentServices struct {
 	liveness     *agents.PaneLiveness
-	settler      *agents.Settler
 	screens      *agents.ScreenKeeper
 	launch       *agents.LaunchService
 	resume       *agents.ResumeService
@@ -121,6 +120,10 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
 
 	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
+	settler := agents.NewSettler(agents.NewSettlerParams{
+		Channel:  paneChannel,
+		Observer: paneChannel,
+	})
 	agentGroup := buildAgents(buildAgentsParams{
 		Server:     params,
 		Stores:     st,
@@ -129,6 +132,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Queue:      queue,
 		Scripts:    scriptService,
 		Panes:      paneChannel,
+		Settler:    settler,
 		LoadConfig: loadConfig,
 	})
 	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
@@ -199,7 +203,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			checkout: checkouts.NewService(checkouts.NewServiceParams{
 				Agents:          st.agents,
 				Workflows:       st.workflows,
-				Settler:         agentGroup.settler,
+				Settler:         settler,
 				Events:          queue,
 				Git:             gitClient,
 				PullRequests:    st.pullRequests,
@@ -270,6 +274,7 @@ type buildAgentsParams struct {
 	Queue      *jobs.Enqueuer
 	Scripts    *scriptrun.ScriptService
 	Panes      *pane.Pane
+	Settler    *agents.Settler
 	LoadConfig func() (*config.Config, error)
 }
 
@@ -308,10 +313,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Scripts:            params.Scripts,
 		FallbackResumeRoot: server.FallbackResumeRoot,
 	})
-	settler := agents.NewSettler(agents.NewSettlerParams{
-		Channel:  params.Panes,
-		Observer: params.Panes,
-	})
 	agentDelete := jobs.NewAgentDelete(params.Queue)
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
@@ -344,7 +345,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 
 	return agentServices{
 		liveness:  agents.NewPaneLiveness(server.Tmux),
-		settler:   settler,
 		screens:   screenKeeper,
 		launch:    launchService,
 		resume:    resumeService,
@@ -378,7 +378,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		holder: agents.NewHolder(agents.NewHolderParams{
 			Agents:  st.agents,
 			Channel: params.Panes,
-			Settler: settler,
+			Settler: params.Settler,
 		}),
 		reconciler: reconciler,
 		rowReader: agents.NewRowReader(agents.NewRowReaderParams{
