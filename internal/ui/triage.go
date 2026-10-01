@@ -121,7 +121,7 @@ var triageRules = []triageRule{
 
 // triageZone is the agents waiting on a person, drawn ahead of the tree while it has room for any.
 type triageZone struct {
-	// capacity is how many rows the zone draws, and zero turns it off.
+	// capacity is how many families the zone draws, and zero turns it off.
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
@@ -247,13 +247,6 @@ func (s triageSnooze) isFor(entry triageEntry) bool {
 // isSnoozed reports whether the family under the head is snoozed.
 func (z *triageZone) isSnoozed(headID string) bool {
 	_, ok := z.snoozed[headID]
-
-	return ok
-}
-
-// isInTriage reports whether the agent is in triage.
-func (z *triageZone) isInTriage(id string) bool {
-	_, ok := z.entries[id]
 
 	return ok
 }
@@ -472,36 +465,18 @@ func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
-// buildZone draws the most urgent families in triage the zone has room for, leaving the snoozed out,
-// and counts the families still waiting for a slot.
+// buildZone draws the most urgent families in triage, as many as the zone has slots for and each
+// with all of its children, leaving the snoozed out, and counts the families still waiting for a slot.
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	children := childrenByParent(m.listing.agents)
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
 		return (!f.head.Agent.Hidden || showHidden) && !z.isSnoozed(f.head.Agent.ID)
 	})
-	var slotted []triageSlot
-	used := 0
-	for _, family := range z.orderFamilies(families) {
-		rows := buildFamilyRows(family.head, children[family.head.Agent.ID], showHidden)
-		asking := z.countAsking(rows[1:])
-		if used >= z.capacity || (len(slotted) > 0 && used+1+asking > z.capacity) {
-			break
-		}
-
-		slotted = append(slotted, triageSlot{family: family, rows: rows, asking: asking})
-		used += 1 + asking
-	}
-
-	spare := z.capacity - used
+	slotted := z.orderFamilies(families)
+	slotted = slotted[:min(len(slotted), z.capacity)]
 	workflows := xslice.KeyBy(m.listing.workflows, func(w panel.Workflow) string { return w.ID })
-	for _, slot := range slotted {
-		drawn := z.pickChildren(slot.rows[1:], slot.asking+spare)
-		spare -= len(drawn) - slot.asking
-		for _, row := range slot.rows {
-			if row.child && !drawn[row.item.Agent.ID] {
-				continue
-			}
-
+	for _, family := range slotted {
+		for _, row := range buildFamilyRows(family.head, children[family.head.Agent.ID], showHidden) {
 			row.workflow = workflows[row.item.Agent.WorkflowID]
 			row.triage = true
 			zone = append(zone, row)
@@ -509,33 +484,6 @@ func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waitin
 	}
 
 	return zone, len(families) - len(slotted)
-}
-
-// triageSlot is a family the zone draws, with its rows and how many of its children are in triage.
-type triageSlot struct {
-	family triageFamily
-	rows   []agentRow
-	asking int
-}
-
-// countAsking is how many of a family's child rows are in triage.
-func (z triageZone) countAsking(rows []agentRow) int {
-	return len(xslice.Filter(rows, func(row agentRow) bool { return z.isInTriage(row.item.Agent.ID) }))
-}
-
-// pickChildren is the ids of as many of a family's child rows as fit in room, those in triage first.
-func (z triageZone) pickChildren(rows []agentRow, room int) map[string]bool {
-	ranked := slices.Clone(rows)
-	slices.SortStableFunc(ranked, func(a, b agentRow) int {
-		return compareBools(!z.isInTriage(a.item.Agent.ID), !z.isInTriage(b.item.Agent.ID))
-	})
-
-	picked := make(map[string]bool)
-	for _, row := range ranked[:min(len(ranked), room)] {
-		picked[row.item.Agent.ID] = true
-	}
-
-	return picked
 }
 
 // orderFamilies is the families in the order the zone draws them, the order it was frozen in while
@@ -568,18 +516,6 @@ func (z triageZone) compareFamilies(a, b triageFamily) int {
 		compareUrgency(a.entry, b.entry),
 		cmp.Compare(a.head.Agent.ID, b.head.Agent.ID),
 	)
-}
-
-// compareBools orders false ahead of true.
-func compareBools(a, b bool) int {
-	switch {
-	case a == b:
-		return 0
-	case b:
-		return -1
-	default:
-		return 1
-	}
 }
 
 // compareUrgency orders two entries in triage, the more urgent first.
@@ -698,14 +634,13 @@ func (a *agentsScreen) jumpToTriage(m *model) {
 
 // triageSnapshot is the zone as the agents list draws it.
 type triageSnapshot struct {
-	// height is how many rows of agents the zone draws, zero when it is off.
+	// height is the fewest rows of agents the zone draws, zero when it is off.
 	height  int
 	zone    []agentRow
 	waiting int
 }
 
-// triageRows are the lines the zone draws ahead of the tree, the same number whether it is full or
-// empty.
+// triageRows are the lines the zone draws ahead of the tree, padded to its height when it holds fewer.
 func triageRows(params snapshotParams) []view.Row {
 	queue := params.triage
 	if queue.height == 0 {
