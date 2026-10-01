@@ -183,7 +183,12 @@ func (r *reviewScreen) saveMessage(h host, s panelShared) tea.Cmd {
 	if accepting := r.threads.accepting; accepting != nil {
 		r.threads.cancelMessage()
 
-		return keepUnsent(reviewUnsent{body: body, accept: accepting}, r.acceptCmd(h, s, *accepting, body))
+		accept := r.acceptCmd(h, s, *accepting, body)
+		if accept == nil {
+			return nil
+		}
+
+		return keepUnsent(reviewUnsent{body: body, accept: accepting}, accept)
 	}
 
 	if body == "" {

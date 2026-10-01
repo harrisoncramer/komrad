@@ -14,11 +14,10 @@ import (
 	"connectrpc.com/connect"
 )
 
-// reviewAccept is a forge thread being copied into the reader's review, as they read it.
+// reviewAccept is a forge thread being accepted into the reader's review.
 type reviewAccept struct {
 	offerID string
 	title   string
-	seen    []*agentv1.SeenForgeComment
 	place   reviewPlace
 }
 
@@ -82,10 +81,7 @@ func (r *reviewScreen) acceptOffer(h host, s panelShared) tea.Cmd {
 	r.threads.accepting = &reviewAccept{
 		offerID: offer.GetId(),
 		title:   acceptTitle(offer),
-		seen: xslice.Map(offer.GetComments(), func(comment *pullrequestv1.ForgeComment) *agentv1.SeenForgeComment {
-			return &agentv1.SeenForgeComment{Id: comment.GetId(), EditedAt: comment.EditedAt}
-		}),
-		place: *place,
+		place:   *place,
 	}
 
 	title, said := r.threads.inputHead()
@@ -135,14 +131,25 @@ func acceptTitle(offer *pullrequestv1.ForgeThread) string {
 	return "Accept " + logins[0] + "'s comments"
 }
 
+// acceptCmd sends the forge thread as the popup draws it now, with the note written under it.
 func (r reviewScreen) acceptCmd(h host, s panelShared, accept reviewAccept, note string) tea.Cmd {
+	offer, ok := r.acceptingOffer(s, accept.offerID)
+	if !ok {
+		h.note(messageWarning, "that comment is gone from the forge")
+
+		return nil
+	}
+
 	agents, agentID, anchor := h.clients().agents, r.agentID, accept.place.anchor
+	seen := xslice.Map(offer.GetComments(), func(comment *pullrequestv1.ForgeComment) *agentv1.SeenForgeComment {
+		return &agentv1.SeenForgeComment{Id: comment.GetId(), EditedAt: comment.EditedAt}
+	})
 
 	return r.writeCmd(s, h.beginWrite("accepting the forge comment"), "accepted into your review", func(ctx context.Context) error {
 		_, err := agents.AcceptForgeThread(ctx, connect.NewRequest(&agentv1.AcceptForgeThreadRequest{
 			AgentId:       agentID,
 			ForgeThreadId: accept.offerID,
-			Seen:          accept.seen,
+			Seen:          seen,
 			BaseSha:       accept.place.base,
 			SnapshotSha:   accept.place.snapshot,
 			FilePath:      anchor.FilePath,
@@ -160,17 +167,16 @@ func (r reviewScreen) acceptCmd(h host, s panelShared, accept reviewAccept, note
 
 // acceptingView is the forge thread being accepted above the composer.
 func (r reviewScreen) acceptingView(s panelShared, width int) string {
-	accepting := r.threads.accepting
-	if accepting == nil {
+	if r.threads.accepting == nil {
 		return ""
 	}
 
-	at := slices.IndexFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return offer.GetId() == accepting.offerID })
-	if at < 0 {
+	offer, ok := r.acceptingOffer(s, r.threads.accepting.offerID)
+	if !ok {
 		return ""
 	}
 
-	return r.offerView(s, r.listOffers(s)[at], width)
+	return r.offerView(s, offer, width)
 }
 
 func anchorOfThread(thread *agentv1.ReviewThread) diffview.Anchor {
@@ -182,4 +188,14 @@ func anchorOfThread(thread *agentv1.ReviewThread) diffview.Anchor {
 		NewEnd:      int(thread.GetNewEnd()),
 		QuotedLines: thread.GetQuotedLines(),
 	}
+}
+
+func (r reviewScreen) acceptingOffer(s panelShared, offerID string) (*pullrequestv1.ForgeThread, bool) {
+	offers := r.listOffers(s)
+	at := slices.IndexFunc(offers, func(offer *pullrequestv1.ForgeThread) bool { return offer.GetId() == offerID })
+	if at < 0 {
+		return nil, false
+	}
+
+	return offers[at], true
 }

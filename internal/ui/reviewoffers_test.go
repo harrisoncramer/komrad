@@ -261,6 +261,23 @@ func TestReviewOffers(t *testing.T) {
 		})
 	})
 
+	t.Run("A sends the offer as the popup draws it when the forge moves on during the note", func(t *testing.T) {
+		offer := newOffer("f1", "dana", "rename this", 1)
+		server := newOfferedReviewServer(t, offer)
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		harness.press("A")
+		offer.Comments[0].Body = "rename this, please"
+		offer.Comments[0].EditedAt = xptr.Ptr("2026-09-19T13:00:00Z")
+		harness.watch(server.buildSnapshot())
+		require.Contains(t, readPopupProse(harness.readFrame()), "rename this, please")
+		harness.press("ctrl+s")
+
+		sent := harness.readSent(agentv1connect.AgentServiceAcceptForgeThreadProcedure)
+		require.Len(t, sent, 1)
+		assert.True(t, proto.Equal(&agentv1.SeenForgeComment{Id: "f1-c", EditedAt: xptr.Ptr("2026-09-19T13:00:00Z")}, sent[0].(*agentv1.AcceptForgeThreadRequest).GetSeen()[0]))
+	})
+
 	t.Run("an accepted offer is drawn in the thread it went into and A is not offered", func(t *testing.T) {
 		offer := newOffer("f1", "dana", "rename this", 1)
 		offer.AcceptedThreadId = xptr.Ptr("t1")
