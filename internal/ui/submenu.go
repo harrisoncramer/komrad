@@ -262,8 +262,7 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 	return append(options, huh.NewOption(last, submenuCancel))
 }
 
-// submenuLeading is the menus under the one on top drawn gray, as many of the nearest as leave the
-// top its own width and the document it previews the room a document needs.
+// submenuLeading is the menus under the one on top drawn gray, as many as fit beside it and its preview.
 func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
 	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
 	if top.menu.preview != nil {
