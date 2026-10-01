@@ -113,7 +113,7 @@ func RunCopyStandIn(ctx context.Context, file string) (err error) {
 
 	attach := exec.CommandContext(ctx, tmuxPath, "-L", name, "-f", os.DevNull, "attach-session", "-t", visualSession)
 	attach.Stdin, attach.Stdout, attach.Stderr = os.Stdin, os.Stdout, os.Stderr
-	attach.Env = xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
+	attach.Env = environWithoutTmux()
 	if err := attach.Start(); err != nil {
 		inner.run("kill-server")
 

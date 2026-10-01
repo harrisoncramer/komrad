@@ -30,6 +30,24 @@ func (p *Pane) IsRunning(_ context.Context, target harness.Target) (bool, error)
 	return p.terminal.CheckPaneRunningCLI(target.Pane)
 }
 
+// DoesFrameShowHarness reports whether a pane holds a frame its harness reads as one of its own.
+func (p *Pane) DoesFrameShowHarness(pane, harnessID string) bool {
+	// A harness komrad cannot look up is taken at its word.
+	found, err := p.harnesses.GetByID(harnessID)
+	if err != nil {
+		return true
+	}
+
+	switch found.ReadInput(p.terminal.CapturePane(pane)).Activity {
+	case harness.ActivityWorking, harness.ActivityWaiting, harness.ActivityIdle, harness.ActivityComposing:
+		return true
+	case harness.ActivityUnknown, harness.ActivityUnrecognized:
+		return false
+	}
+
+	return false
+}
+
 // readFrame is what the named harness reads out of one capture.
 func (p *Pane) readFrame(harnessID, frame string) (harness.Input, error) {
 	found, err := p.harnesses.GetByID(harnessID)

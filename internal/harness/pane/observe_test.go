@@ -64,3 +64,49 @@ func TestObserveRefusesAHarnessItCannotLookUp(t *testing.T) {
 	_, err := pane.Observe(t.Context(), target)
 	require.Error(t, err)
 }
+
+// TestDoesFrameShowHarness pins which frames read as a harness that has drawn.
+func TestDoesFrameShowHarness(t *testing.T) {
+	tests := []struct {
+		name      string
+		harnesses harnesstest.Registry
+		frame     string
+		want      bool
+	}{
+		{
+			name:      "a harness nothing implements is taken at its word",
+			harnesses: harnesstest.Registry{},
+			frame:     "$ ",
+			want:      true,
+		},
+		{
+			name:      "a frame the harness reads as none of its own has yet to draw",
+			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+			frame:     harnesstest.FrameUnrecognized,
+			want:      false,
+		},
+		{
+			name:      "a frame the harness is working in has drawn",
+			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+			frame:     harnesstest.FrameWorking,
+			want:      true,
+		},
+		{
+			name:      "a frame the harness is idle in has drawn",
+			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+			frame:     harnesstest.FrameIdle,
+			want:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewPane(NewPaneParams{
+				Terminal:  terminalShowing(tt.frame),
+				Harnesses: tt.harnesses,
+			})
+
+			assert.Equal(t, tt.want, p.DoesFrameShowHarness(target.Pane, target.HarnessID))
+		})
+	}
+}
