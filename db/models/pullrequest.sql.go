@@ -497,19 +497,29 @@ WHERE
     AND p.head_repository_url = p.repository_url
     AND p.merged_at IS NULL
     AND p.closed_at IS NULL
-    AND NOT p.draft
-    AND (p.decision_changed_at IS NULL
-        OR p.decision_changed_at < p.changed_at
-        OR p.checks_sha IS DISTINCT FROM p.head_sha
-        OR (p.checks = 'pending'
-            AND p.checks_read_at < $2::timestamptz)
-        OR (p.checks IS NULL
-            AND p.changed_at > $3::timestamptz
-            AND p.checks_read_at < $2::timestamptz)
-        OR (p.mergeability IS NULL
-            AND p.mergeability_blank_since > $4::timestamptz
-            AND p.checks_read_at < $5::timestamptz)
-        OR (p.checks_read_at < $6::timestamptz))
+    AND ((NOT p.draft
+            AND (p.decision_changed_at IS NULL
+                OR p.decision_changed_at < p.changed_at
+                OR p.checks_sha IS DISTINCT FROM p.head_sha
+                OR (p.checks = 'pending'
+                    AND p.checks_read_at < $2::timestamptz)
+                OR (p.checks IS NULL
+                    AND p.changed_at > $3::timestamptz
+                    AND p.checks_read_at < $2::timestamptz)
+                OR (p.mergeability IS NULL
+                    AND p.mergeability_blank_since > $4::timestamptz
+                    AND p.checks_read_at < $5::timestamptz)
+                OR (p.checks_read_at < $6::timestamptz)))
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                agents pushed
+            WHERE
+                pushed.repository_url = p.repository_url
+                AND pushed.branch = p.head_branch
+                AND pushed.pushed_sha IS DISTINCT FROM p.checks_sha
+                AND pushed.pushed_at > $7::timestamptz))
     AND EXISTS (
         SELECT
             1
@@ -529,6 +539,7 @@ type ListStaleStandingsParams struct {
 	MergeabilityBlankSince  time.Time
 	MergeabilityBlankBefore time.Time
 	SettledBefore           time.Time
+	PushedSince             time.Time
 }
 
 func (q *Queries) ListStaleStandings(ctx context.Context, arg ListStaleStandingsParams) ([]*PullRequest, error) {
@@ -539,6 +550,7 @@ func (q *Queries) ListStaleStandings(ctx context.Context, arg ListStaleStandings
 		arg.MergeabilityBlankSince,
 		arg.MergeabilityBlankBefore,
 		arg.SettledBefore,
+		arg.PushedSince,
 	)
 	if err != nil {
 		return nil, err

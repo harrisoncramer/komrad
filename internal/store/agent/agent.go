@@ -158,6 +158,9 @@ type Agent struct {
 	// HeadSHA is the commit the checkout has checked out.
 	HeadSHA *string
 
+	// PushedSHA is the commit the checkout last saw origin's copy of its branch at.
+	PushedSHA *string
+
 	// AdoptedBranch is the branch an agent was put on rather than one komrad made for it.
 	AdoptedBranch   string
 	WorktreeRemoved bool
@@ -291,6 +294,7 @@ func FromRow(agent models.Agent) Agent {
 		Branch:           agent.Branch,
 		RepositoryURL:    agent.RepositoryUrl,
 		HeadSHA:          agent.HeadSha,
+		PushedSHA:        agent.PushedSha,
 		AdoptedBranch:    agent.AdoptedBranch,
 		WorktreeRemoved:  agent.WorktreeRemoved,
 		InterruptedAt:    agent.InterruptedAt,

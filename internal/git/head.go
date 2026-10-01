@@ -18,6 +18,9 @@ type HeadState struct {
 	Branch string
 	// SHA is the commit HEAD points at.
 	SHA string
+	// PushedSHA is the commit origin's copy of the branch stood at when last pushed or fetched,
+	// empty when origin has no such branch.
+	PushedSHA string
 	// Sequence is what git has part-way through in the checkout.
 	Sequence Sequence
 	// RepositoryURL is the canonical address of the repository origin points at, empty when
@@ -71,6 +74,7 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 	return HeadState{
 		Branch:        branch,
 		SHA:           sha,
+		PushedSHA:     readPushedSHA(ctx, params.Dir, branch),
 		Sequence:      readSequence(gitDir),
 		RepositoryURL: readRepositoryURL(ctx, params.Dir),
 		Root:          root,
@@ -95,6 +99,19 @@ func readRepositoryURL(ctx context.Context, dir string) string {
 	}
 
 	return remote.Canonical()
+}
+
+func readPushedSHA(ctx context.Context, dir, branch string) string {
+	if branch == "" {
+		return ""
+	}
+
+	sha, err := Run(ctx, dir, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+branch)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(sha)
 }
 
 // rebasingBranch is the branch a stopped rebase belongs to.

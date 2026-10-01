@@ -36,6 +36,10 @@ const checksSettleWithin = 10 * time.Minute
 // is read again.
 const checksSettledAfter = 10 * time.Minute
 
+// pushSettleWithin is how long after an agent pushes its branch the pull request is read again
+// every pass until the forge answers for the pushed commit.
+const pushSettleWithin = 5 * time.Minute
+
 // mergeabilityBlankAfter is how long after a read that found mergeability not yet computed it
 // is read again, however long ago the pull request last changed.
 const mergeabilityBlankAfter = 10 * time.Second
@@ -751,6 +755,7 @@ func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, r
 		MergeabilityBlankAfter:  mergeabilityBlankAfter,
 		MergeabilityBlankWithin: mergeabilityBlankWithin,
 		SettledAfter:            checksSettledAfter,
+		PushedWithin:            pushSettleWithin,
 	})
 	if err != nil {
 		return err

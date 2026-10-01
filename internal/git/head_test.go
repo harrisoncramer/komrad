@@ -116,6 +116,26 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 	}
 }
 
+// TestIntegrationReadHeadStateReadsWhatWasPushed covers origin's copy of the branch, which a
+// local commit leaves where it was and a push moves.
+func TestIntegrationReadHeadStateReadsWhatWasPushed(t *testing.T) {
+	t.Parallel()
+
+	_, clone := newClonePair(t)
+	run(t, clone, "checkout", "--quiet", "-b", "agent/x")
+
+	unpushed := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: clone})
+	assert.Empty(t, unpushed.PushedSHA, "origin has no such branch yet")
+
+	pushed := commitFile(t, clone, "a.txt", "a", "a")
+	run(t, clone, "push", "--quiet", "origin", "agent/x")
+	local := commitFile(t, clone, "b.txt", "b", "b")
+
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: clone})
+	assert.Equal(t, local, head.SHA)
+	assert.Equal(t, pushed, head.PushedSHA)
+}
+
 // TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo covers the case the row draws from,
 // where git has detached HEAD and the branch is only recoverable from the stopped sequence.
 func TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testing.T) {

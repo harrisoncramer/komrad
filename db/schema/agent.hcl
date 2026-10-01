@@ -755,6 +755,16 @@ table "agents" {
     type    = text
     comment = "The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch."
   }
+  column "pushed_sha" {
+    null    = true
+    type    = text
+    comment = "The commit the checkout last saw origin's copy of its branch at, which moves when the branch is pushed or fetched. Null when origin has no such branch or the checkout is gone."
+  }
+  column "pushed_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the cwd syncer saw pushed_sha move. The pull request sync reads the standing of the branch's pull request directly while the forge has not yet answered for that commit, rather than waiting for search to notice the push."
+  }
   column "repository_url" {
     null    = true
     type    = text

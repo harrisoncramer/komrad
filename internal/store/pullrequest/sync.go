@@ -65,8 +65,9 @@ func NewPullRequestSyncStore(db store.DBTX) *PullRequestSyncStore {
 // ListStaleStandingsParams says how long a read of the checks and mergeability is trusted: a
 // pending run is read again after PendingAfter, so is a head with no checks while the row
 // changed within SettleWithin, a mergeability the forge had not computed after
-// MergeabilityBlankAfter while the blank began within MergeabilityBlankWithin, and any row after
-// SettledAfter.
+// MergeabilityBlankAfter while the blank began within MergeabilityBlankWithin, any row after
+// SettledAfter, and, drafts included, a branch an agent pushed within PushedWithin until its
+// checks are read for what was pushed.
 type ListStaleStandingsParams struct {
 	RepositoryURL           string
 	Now                     time.Time
@@ -75,11 +76,13 @@ type ListStaleStandingsParams struct {
 	MergeabilityBlankAfter  time.Duration
 	MergeabilityBlankWithin time.Duration
 	SettledAfter            time.Duration
+	PushedWithin            time.Duration
 }
 
 // ListStaleStandings is every open pull request on a branch a live agent sits on in a
 // repository whose review decision has not been read since it last changed, or whose checks
-// were read for another head or have aged past what the params trust, newest change first.
+// were read for another head, for a commit older than an agent pushed, or have aged past what
+// the params trust, newest change first.
 func (s *PullRequestSyncStore) ListStaleStandings(ctx context.Context, params ListStaleStandingsParams) ([]PullRequest, error) {
 	rows, err := s.queries.ListStaleStandings(ctx, models.ListStaleStandingsParams{
 		RepositoryUrl:           params.RepositoryURL,
@@ -88,6 +91,7 @@ func (s *PullRequestSyncStore) ListStaleStandings(ctx context.Context, params Li
 		MergeabilityBlankBefore: params.Now.Add(-params.MergeabilityBlankAfter),
 		MergeabilityBlankSince:  params.Now.Add(-params.MergeabilityBlankWithin),
 		SettledBefore:           params.Now.Add(-params.SettledAfter),
+		PushedSince:             params.Now.Add(-params.PushedWithin),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the stale standings of %s: %w", params.RepositoryURL, err)

@@ -391,6 +391,10 @@ type Agent struct {
 	HeldByAgentID *string
 	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	Sequence AgentSequence
+	// The commit the checkout last saw origin's copy of its branch at, which moves when the branch is pushed or fetched. Null when origin has no such branch or the checkout is gone.
+	PushedSha *string
+	// When the cwd syncer saw pushed_sha move. The pull request sync reads the standing of the branch's pull request directly while the forge has not yet answered for that commit, rather than waiting for search to notice the push.
+	PushedAt *time.Time
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

@@ -63,23 +63,25 @@ type pullRequestObserver interface {
 
 // NewCwdSyncerParams is what a cwd syncer is built over.
 type NewCwdSyncerParams struct {
-	Agents       cwdSetter
-	Heads        headReader
-	Trees        treeReader
-	Rounds       roundLister
-	Workflows    workflowLister
-	PullRequests pullRequestObserver
+	Agents          cwdSetter
+	Heads           headReader
+	Trees           treeReader
+	Rounds          roundLister
+	Workflows       workflowLister
+	PullRequests    pullRequestObserver
+	PullRequestSync loopWaker
 }
 
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents       cwdSetter
-	heads        headReader
-	trees        treeReader
-	rounds       roundLister
-	workflows    workflowLister
-	pullRequests pullRequestObserver
+	agents          cwdSetter
+	heads           headReader
+	trees           treeReader
+	rounds          roundLister
+	workflows       workflowLister
+	pullRequests    pullRequestObserver
+	pullRequestSync loopWaker
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
 	// walked is the base tip and newest unlanded round each agent's landing was last walked at,
@@ -92,14 +94,15 @@ type CwdSyncer struct {
 // NewCwdSyncer builds a syncer over the agent store.
 func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	return &CwdSyncer{
-		agents:       params.Agents,
-		heads:        params.Heads,
-		trees:        params.Trees,
-		rounds:       params.Rounds,
-		workflows:    params.Workflows,
-		pullRequests: params.PullRequests,
-		walked:       map[string]string{},
-		fetched:      map[string]time.Time{},
+		agents:          params.Agents,
+		heads:           params.Heads,
+		trees:           params.Trees,
+		rounds:          params.Rounds,
+		workflows:       params.Workflows,
+		pullRequests:    params.PullRequests,
+		pullRequestSync: params.PullRequestSync,
+		walked:          map[string]string{},
+		fetched:         map[string]time.Time{},
 	}
 }
 
@@ -123,7 +126,8 @@ type cwdLook struct {
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
 // repository when the cwd names no git checkout, leaving an agent with no cwd alone, and
-// observing the pull requests when any agent moved onto a branch.
+// observing the pull requests when any agent moved onto a branch and waking their sync when
+// any agent's branch was pushed.
 func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	agents, err := cs.agents.List(ctx)
 	if err != nil {
@@ -156,9 +160,10 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	}
 
 	var failures []error
-	isObserving := false
+	isObserving, isPushed := false, false
 	for _, look := range looks {
 		isObserving = isObserving || look.hasMovedBranch()
+		isPushed = isPushed || look.hasPushed()
 		if look.err != nil {
 			failures = append(failures, look.err)
 		}
@@ -180,6 +185,10 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if _, err := cs.pullRequests.Observe(ctx); err != nil {
 			failures = append(failures, err)
 		}
+	}
+
+	if isPushed {
+		cs.pullRequestSync.Wake()
 	}
 
 	return errors.Join(failures...)
@@ -309,6 +318,13 @@ func (cl cwdLook) hasMovedBranch() bool {
 	return !xptr.Equal(cl.agent.Branch, branch) || !xptr.Equal(cl.agent.RepositoryURL, xptr.NonEmpty(cl.head.RepositoryURL))
 }
 
+// hasPushed is whether the look found origin's copy of the branch at a commit the row does not hold.
+func (cl cwdLook) hasPushed() bool {
+	pushed := xptr.NonEmpty(cl.head.PushedSHA)
+
+	return pushed != nil && !xptr.Equal(cl.agent.PushedSHA, pushed)
+}
+
 // write records what the look found, when any of it differs from the row.
 func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 	agent, head := look.agent, look.head
@@ -316,12 +332,14 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 		Branch:          xptr.NonEmpty(head.Branch),
 		RepositoryURL:   xptr.NonEmpty(head.RepositoryURL),
 		HeadSHA:         xptr.NonEmpty(head.SHA),
+		PushedSHA:       xptr.NonEmpty(head.PushedSHA),
 		WorktreeRemoved: look.removed,
 		Sequence:        sequenceOf(head.Sequence),
 	}
 	unchanged := xptr.Equal(agent.Branch, checkout.Branch) &&
 		xptr.Equal(agent.RepositoryURL, checkout.RepositoryURL) &&
 		xptr.Equal(agent.HeadSHA, checkout.HeadSHA) &&
+		xptr.Equal(agent.PushedSHA, checkout.PushedSHA) &&
 		agent.WorktreeRemoved == checkout.WorktreeRemoved &&
 		agent.Sequence == checkout.Sequence
 	if unchanged {

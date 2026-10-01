@@ -352,19 +352,29 @@ WHERE
     AND p.head_repository_url = p.repository_url
     AND p.merged_at IS NULL
     AND p.closed_at IS NULL
-    AND NOT p.draft
-    AND (p.decision_changed_at IS NULL
-        OR p.decision_changed_at < p.changed_at
-        OR p.checks_sha IS DISTINCT FROM p.head_sha
-        OR (p.checks = 'pending'
-            AND p.checks_read_at < @pending_before::timestamptz)
-        OR (p.checks IS NULL
-            AND p.changed_at > @changed_since::timestamptz
-            AND p.checks_read_at < @pending_before::timestamptz)
-        OR (p.mergeability IS NULL
-            AND p.mergeability_blank_since > @mergeability_blank_since::timestamptz
-            AND p.checks_read_at < @mergeability_blank_before::timestamptz)
-        OR (p.checks_read_at < @settled_before::timestamptz))
+    AND ((NOT p.draft
+            AND (p.decision_changed_at IS NULL
+                OR p.decision_changed_at < p.changed_at
+                OR p.checks_sha IS DISTINCT FROM p.head_sha
+                OR (p.checks = 'pending'
+                    AND p.checks_read_at < @pending_before::timestamptz)
+                OR (p.checks IS NULL
+                    AND p.changed_at > @changed_since::timestamptz
+                    AND p.checks_read_at < @pending_before::timestamptz)
+                OR (p.mergeability IS NULL
+                    AND p.mergeability_blank_since > @mergeability_blank_since::timestamptz
+                    AND p.checks_read_at < @mergeability_blank_before::timestamptz)
+                OR (p.checks_read_at < @settled_before::timestamptz)))
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                agents pushed
+            WHERE
+                pushed.repository_url = p.repository_url
+                AND pushed.branch = p.head_branch
+                AND pushed.pushed_sha IS DISTINCT FROM p.checks_sha
+                AND pushed.pushed_at > @pushed_since::timestamptz))
     AND EXISTS (
         SELECT
             1

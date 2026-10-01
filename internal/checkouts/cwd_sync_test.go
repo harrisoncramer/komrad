@@ -16,6 +16,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/waketest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -146,6 +147,31 @@ func TestCwdSyncerSyncObservesANewBranch(t *testing.T) {
 	heads.States[cwd] = git.HeadState{Branch: "agent/y"}
 	require.NoError(t, syncer.Sync(t.Context()))
 	assert.Equal(t, 2, observations.passes, "moving branch observes again")
+}
+
+// TestCwdSyncerSyncWakesThePullRequestSyncOnAPush covers a pass waking the pull request sync only
+// when origin's copy of a branch moved, and recording where it moved to.
+func TestCwdSyncerSyncWakesThePullRequestSyncOnAPush(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+
+	heads := buildHeads(cwd, git.HeadState{Branch: "agent/x", SHA: "local"})
+	wakes := &waketest.Counter{}
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: heads, PullRequestSync: wakes})
+
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 0, wakes.Wakes, "a branch origin does not hold wakes nothing")
+
+	heads.States[cwd] = git.HeadState{Branch: "agent/x", SHA: "local", PushedSHA: "local"}
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 1, wakes.Wakes, "a push wakes the sync")
+
+	heads.States[cwd] = git.HeadState{Branch: "agent/x", SHA: "newer", PushedSHA: "local"}
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 1, wakes.Wakes, "a local commit wakes nothing")
+
+	assert.Equal(t, xptr.Ptr("local"), fixture.read(t, agent.ID).PushedSHA)
 }
 
 // TestCwdSyncerSyncLooksAtEveryAgent covers the fan-out: a pass over more agents than it has
@@ -627,6 +653,9 @@ func (f *syncFixture) newSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	}
 	if params.PullRequests == nil {
 		params.PullRequests = &countingPullRequestObserver{}
+	}
+	if params.PullRequestSync == nil {
+		params.PullRequestSync = &waketest.Counter{}
 	}
 	params.Rounds = f.reviews
 	params.Workflows = f.stores.Workflows

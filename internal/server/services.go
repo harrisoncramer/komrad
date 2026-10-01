@@ -263,12 +263,13 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Recheck:      wakers.pullRequestSync,
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
-		Agents:       st.agents,
-		Heads:        gitClient,
-		Trees:        gitClient,
-		Rounds:       st.review,
-		Workflows:    st.workflows,
-		PullRequests: st.pullRequests,
+		Agents:          st.agents,
+		Heads:           gitClient,
+		Trees:           gitClient,
+		Rounds:          st.review,
+		Workflows:       st.workflows,
+		PullRequests:    st.pullRequests,
+		PullRequestSync: wakers.pullRequestSync,
 	})
 
 	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{

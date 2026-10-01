@@ -714,6 +714,12 @@ SET
     branch = sqlc.narg('branch'),
     repository_url = sqlc.narg('repository_url'),
     head_sha = sqlc.narg('head_sha'),
+    pushed_at = CASE WHEN pushed_sha IS DISTINCT FROM sqlc.narg('pushed_sha') AND sqlc.narg('pushed_sha')::text IS NOT NULL THEN
+        now()
+    ELSE
+        pushed_at
+    END,
+    pushed_sha = sqlc.narg('pushed_sha'),
     worktree_removed = @worktree_removed,
     "sequence" = @sequence
 WHERE

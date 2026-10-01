@@ -487,6 +487,77 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	assert.Equal(t, 3, list(now)[0], "newest change first")
 }
 
+// TestListStaleStandingsReadsWhatAnAgentPushed covers a push reading the branch's pull request,
+// a draft included, until its checks are read for the pushed commit or the push is too old.
+func TestListStaleStandingsReadsWhatAnAgentPushed(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t)
+	agent := h.createAgent(t, workflow, "a", komrad, "agent/x")
+
+	ready := openPullRequest("PR_1", 1, "agent/x")
+	draft := openPullRequest("PR_2", 2, "agent/x")
+	draft.Draft = true
+	now := time.Now()
+	for _, params := range []UpsertParams{ready, draft} {
+		written, err := h.Upsert(ctx, params)
+		require.NoError(t, err)
+		_, err = h.SetStanding(ctx, SetStandingParams{
+			ID:       written.ID,
+			Standing: forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean, HeadSHA: "abc"},
+			ReadAt:   now,
+		})
+		require.NoError(t, err)
+	}
+
+	list := func(now time.Time) []int {
+		t.Helper()
+		stale, err := h.syncs.ListStaleStandings(ctx, ListStaleStandingsParams{
+			RepositoryURL:           komrad,
+			Now:                     now,
+			PendingAfter:            time.Minute,
+			SettleWithin:            10 * time.Minute,
+			MergeabilityBlankAfter:  10 * time.Second,
+			MergeabilityBlankWithin: 2 * time.Minute,
+			SettledAfter:            10 * time.Minute,
+			PushedWithin:            5 * time.Minute,
+		})
+		require.NoError(t, err)
+
+		return xslice.Map(stale, func(pullRequest PullRequest) int {
+			return pullRequest.Number
+		})
+	}
+
+	assert.Empty(t, list(now), "nothing was pushed")
+
+	push := func(sha string) {
+		t.Helper()
+		require.NoError(t, h.agents.SetCheckout(ctx, agent, agentstore.SetCheckoutParams{
+			RepositoryURL: xptr.Ptr(komrad),
+			Branch:        xptr.Ptr("agent/x"),
+			PushedSHA:     xptr.Ptr(sha),
+		}))
+	}
+	push("abc")
+	assert.Empty(t, list(now), "a push the checks were already read for reads nothing")
+
+	push("def")
+	assert.ElementsMatch(t, []int{1, 2}, list(now), "a push past the checks reads both, the draft included")
+	assert.Empty(t, list(now.Add(6*time.Minute)), "a push older than the params trust reads nothing")
+
+	stored, err := h.GetByIdentity(ctx, "github.com", "PR_2")
+	require.NoError(t, err)
+	_, err = h.SetStanding(ctx, SetStandingParams{
+		ID:       stored.ID,
+		Standing: forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean, HeadSHA: "def"},
+		ReadAt:   now,
+	})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []int{1}, list(now), "checks read for the pushed commit settle the draft")
+}
+
 // TestSetStandingStampsTheRead covers the standing round trip, none for the decision and the
 // checks clearing their columns while still counting as read, and the read stamp moving on
 // every write.
