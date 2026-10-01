@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
@@ -380,26 +381,25 @@ func (r *reviewScreen) settleFilesFilter(h navHost, s panelShared) tea.Cmd {
 }
 
 // jumpFilesMatch walks to the next file whose name the pattern matches, the way direction says,
-// wrapping at either end, the current file counting for a step of nothing.
+// wrapping at either end and leaving the cursor where it is when that file is the current one.
 func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) tea.Cmd {
 	tree := r.readFilesTree()
-	if r.filesFilter.pattern == nil || len(tree.rows) == 0 {
+	n := len(tree.rows)
+	if r.filesFilter.pattern == nil || n == 0 {
 		return nil
 	}
 
-	start, step, walk := tree.current, 1, direction
+	walk := cmp.Or(direction, 1)
+	origin, first := tree.current, 1
 	switch {
-	case direction == 0:
-		step, walk = 0, 1
-	case start < 0 && direction > 0:
-		start, step = 0, 0
-	case start < 0:
-		start, step = len(tree.rows)-1, 0
+	case origin >= 0 && direction == 0:
+		first = 0
+	case origin < 0 && walk < 0:
+		origin = n
 	}
-	start = max(start, 0)
 
-	for ; step <= len(tree.rows); step++ {
-		at := ((start+walk*step)%len(tree.rows) + len(tree.rows)) % len(tree.rows)
+	for offset := first; offset <= n; offset++ {
+		at := ((origin+walk*offset)%n + n) % n
 		row := tree.rows[at]
 		if row.Folder || !r.filesFilter.doesMatch(row.Name) {
 			continue
