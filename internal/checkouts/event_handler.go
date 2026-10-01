@@ -59,13 +59,15 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 		body = rebaseMail(*outcome.Result)
 	}
 
-	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
+	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: rebased.AgentID,
 		Kind:      mailstore.KindWorktreeRebased,
 		SubjectID: rebased.AgentID,
 		Body:      body,
 		Events:    []string{outcome.event()},
 	})
+
+	return nil, err
 }
 
 const pushedTopic = "worktree_pushed"
@@ -89,12 +91,14 @@ func NewPushedHandler() events.HandlerFor[Pushed] {
 
 // handlePushed tells the agent its branch on origin was overwritten.
 func handlePushed(ctx context.Context, _ store.DBTX, mailer *mail.MailService, pushed Pushed) ([]river.JobArgs, error) {
-	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
+	_, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: pushed.AgentID,
 		Kind:      mailstore.KindWorktreePushed,
 		SubjectID: pushed.AgentID,
 		Body:      pushedMail(pushed),
 	})
+
+	return nil, err
 }
 
 const abortedTopic = "worktree_aborted"
@@ -119,12 +123,14 @@ func NewAbortedHandler() events.HandlerFor[Aborted] {
 
 // handleAborted tells the agent what became of the sequence it had part-way through.
 func handleAborted(ctx context.Context, _ store.DBTX, mailer *mail.MailService, aborted Aborted) ([]river.JobArgs, error) {
-	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
+	_, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: aborted.AgentID,
 		Kind:      mailstore.KindWorktreeAborted,
 		SubjectID: aborted.AgentID,
 		Body:      abortedMail(aborted),
 	})
+
+	return nil, err
 }
 
 // event is the event the outcome starts.
