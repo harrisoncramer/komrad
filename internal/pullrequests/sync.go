@@ -220,7 +220,7 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) bool {
 		case err == nil:
 			read = true
 			s.said.forget(saidMissing, repository.repositoryURL)
-		case s.settleHostError(ctx, host, err):
+		case s.hosts.settle(ctx, host.forgeHost, err):
 		case errors.Is(err, forge.ErrNotFound):
 			s.pacing.fail(repository)
 			if s.said.first(saidMissing, repository.repositoryURL) {
@@ -234,7 +234,7 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) bool {
 		}
 	}
 	if !host.throttled {
-		s.said.forget(saidRefused, host.host)
+		s.hosts.forgetRefusal(host.forgeHost)
 	}
 
 	return read
@@ -274,55 +274,14 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, 
 	return nil
 }
 
-// settleHostError stops the host for the pass when the error says its rate limit or its
-// credential did, and says whether it was one of those.
-func (s *PullRequestSyncer) settleHostError(ctx context.Context, host *hostRead, err error) bool {
-	var throttled *forge.ThrottledError
-	switch {
-	case errors.As(err, &throttled):
-		s.throttleHost(ctx, host, throttled.RetryAt)
-	case errors.Is(err, forge.ErrUnauthorized):
-		s.refuseHost(ctx, host, err)
-	default:
-		return false
-	}
-
-	return true
-}
-
-// throttleHost stops a host for the pass after a rate limit refusal, records when to try it
-// again, and says so.
-func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, retryAt time.Time) {
-	until := s.hosts.throttle(ctx, host.forgeHost, retryAt)
-	if until.IsZero() {
-		return
-	}
-
-	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge is rate limiting the connection",
-		slog.String(logging.ForgeHost, host.host),
-		slog.Time(logging.ThrottledUntil, until))
-}
-
-// refuseHost stops a host for the pass after the forge refused its credential, backs off the
-// way a rate limit refusal that named no time does, and says so once per host.
-func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err error) {
-	s.hosts.throttle(ctx, host.forgeHost, time.Time{})
-	if !s.said.first(saidRefused, host.host) {
-		return
-	}
-
-	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so its pull requests wait for it to be accepted again",
-		append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)
-}
-
 // noteRateLimit stops the host for the pass and records the reset on its connection once its
 // budget is spent, and keeps it in the slow lane until the reset once the budget runs low.
 func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, limit forge.RateLimit) {
 	if limit.Known {
-		s.hosts.reset(host.host)
+		s.hosts.resetBackOff(host.forgeHost)
 	}
 	if limit.IsExhausted() {
-		s.throttleHost(ctx, host, limit.ResetAt)
+		s.hosts.throttle(ctx, host.forgeHost, limit.ResetAt)
 
 		return
 	}

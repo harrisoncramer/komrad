@@ -24,6 +24,7 @@ type hostGate struct {
 	now    func() time.Time
 	// refusals counts rate limit refusals in a row per host that named no time to wait.
 	refusals map[string]int
+	said     onceLog
 }
 
 // forgeHost is one forge host being read in a pass, with the connection and forge it is read
@@ -41,6 +42,7 @@ func newHostGate(forges *forge.Service, now func() time.Time) *hostGate {
 		forges:   forges,
 		now:      now,
 		refusals: map[string]int{},
+		said:     onceLog{},
 	}
 }
 
@@ -75,8 +77,48 @@ func (g *hostGate) open(ctx context.Context, hostname string) (host *forgeHost, 
 	}, false
 }
 
-// throttle stops the host for the pass and records when to try it again, answering that time or zero when the write failed.
-func (g *hostGate) throttle(ctx context.Context, host *forgeHost, retryAt time.Time) time.Time {
+// settle stops the host for the pass when the error says its rate limit or its credential did,
+// and says whether it was one of those.
+func (g *hostGate) settle(ctx context.Context, host *forgeHost, err error) bool {
+	var throttled *forge.ThrottledError
+	switch {
+	case errors.As(err, &throttled):
+		g.throttle(ctx, host, throttled.RetryAt)
+	case errors.Is(err, forge.ErrUnauthorized):
+		g.refuse(ctx, host, err)
+	default:
+		return false
+	}
+
+	return true
+}
+
+// throttle stops a host for the pass after a rate limit refusal, records when to try it again,
+// and says so.
+func (g *hostGate) throttle(ctx context.Context, host *forgeHost, retryAt time.Time) {
+	until := g.backOff(ctx, host, retryAt)
+	if until.IsZero() {
+		return
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge is rate limiting the connection",
+		slog.String(logging.ForgeHost, host.host),
+		slog.Time(logging.ThrottledUntil, until))
+}
+
+// refuse stops a host for the pass after the forge refused its credential, and says so once per host.
+func (g *hostGate) refuse(ctx context.Context, host *forgeHost, err error) {
+	g.backOff(ctx, host, time.Time{})
+	if !g.said.first(saidRefused, host.host) {
+		return
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so the host is not read until it is accepted again",
+		append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)
+}
+
+// backOff stops the host for the pass and records when to try it again, answering that time or zero when the write failed.
+func (g *hostGate) backOff(ctx context.Context, host *forgeHost, retryAt time.Time) time.Time {
 	host.throttled = true
 	until := retryAt
 	if until.IsZero() {
@@ -97,6 +139,11 @@ func (g *hostGate) throttle(ctx context.Context, host *forgeHost, retryAt time.T
 	return until
 }
 
-func (g *hostGate) reset(host string) {
-	delete(g.refusals, host)
+// forgetRefusal lets a refusal be said again.
+func (g *hostGate) forgetRefusal(host *forgeHost) {
+	g.said.forget(saidRefused, host.host)
+}
+
+func (g *hostGate) resetBackOff(host *forgeHost) {
+	delete(g.refusals, host.host)
 }

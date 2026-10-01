@@ -93,8 +93,8 @@ func (s *CommentSyncer) Sync(ctx context.Context) error {
 
 	for _, host := range hosts {
 		if host != nil && !host.throttled {
-			s.hosts.reset(host.host)
-			s.said.forget(saidRefused, host.host)
+			s.hosts.resetBackOff(host.forgeHost)
+			s.hosts.forgetRefusal(host.forgeHost)
 		}
 	}
 
@@ -164,16 +164,8 @@ func (s *CommentSyncer) readThreads(ctx context.Context, host *commentHost, remo
 }
 
 func (s *CommentSyncer) settle(ctx context.Context, host *commentHost, remote git.RemoteURL, err error) {
-	var throttled *forge.ThrottledError
 	switch {
-	case errors.As(err, &throttled):
-		s.hosts.throttle(ctx, host.forgeHost, throttled.RetryAt)
-	case errors.Is(err, forge.ErrUnauthorized):
-		s.hosts.throttle(ctx, host.forgeHost, time.Time{})
-		if s.said.first(saidRefused, host.host) {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so review comments wait for it to be accepted again",
-				append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)
-		}
+	case s.hosts.settle(ctx, host.forgeHost, err):
 	case errors.Is(err, forge.ErrNotFound), errors.Is(err, errors.ErrUnsupported):
 	default:
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to sync the review comments",
