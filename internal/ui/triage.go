@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 const (
@@ -362,9 +363,22 @@ func (r triageRule) startedAt(item panel.AgentRow, now time.Time) time.Time {
 	return now
 }
 
-// isAgentOnIt reports whether the agent is working, or holds mail that will set it working.
+// isAgentOnIt reports whether the agent is working, or is owed something that will set it working.
 func isAgentOnIt(item panel.AgentRow) bool {
-	return displayState(item) == panel.StateThinking || (item.Alive && item.UnreadMail)
+	//nolint:godox,fussy // follow-ups kept beside the rule they would change
+	// TODO(@harrisoncramer): A check that never finishes, like a required check that never
+	// reports, keeps the agent out of triage until something else on its pull request changes.
+	//
+	// TODO(@harrisoncramer): An agent that keeps failing its checks is mailed, pushes and waits
+	// again each time, so a person never sees it however many rounds it burns.
+	//
+	// TODO(@harrisoncramer): Mail the agent never reads keeps it out of triage for as long as it
+	// sits there unread.
+	if displayState(item) == panel.StateThinking {
+		return true
+	}
+
+	return item.Alive && (item.UnreadMail || item.PullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING)
 }
 
 // isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing

@@ -126,6 +126,22 @@ func TestTriageRefresh(t *testing.T) {
 			want: "",
 		},
 		{
+			name: "an implementer waiting on its checks is not in triage",
+			item: implementer(func(item *panel.AgentRow) {
+				item.PullRequest.Checks = pullrequestv1.Checks_CHECKS_PENDING
+			}),
+			want: "",
+		},
+		{
+			name: "pending checks do not clear what only a person can",
+			item: idle(func(item *panel.AgentRow) {
+				item.FailedRun = true
+				item.PullRequest.Checks = pullrequestv1.Checks_CHECKS_PENDING
+			}),
+			want:  "script failed",
+			since: seen,
+		},
+		{
 			name:   "an idle implementer with a child at work is not in triage",
 			item:   implementer(func(*panel.AgentRow) {}),
 			others: []panel.AgentRow{child(panel.StateThinking)},
