@@ -22,6 +22,7 @@ func foldAll(reads []read) (Known, Known) {
 	return before, after
 }
 
+// TestKnownFold covers which answers a read keeps and which head each is tied to.
 func TestKnownFold(t *testing.T) {
 	t.Parallel()
 
@@ -102,6 +103,7 @@ func TestKnownFold(t *testing.T) {
 	}
 }
 
+// TestKnownFoldBlankSince covers the blank clock starting only on a new blank, never on every read.
 func TestKnownFoldBlankSince(t *testing.T) {
 	t.Parallel()
 
@@ -165,6 +167,7 @@ func TestKnownFoldBlankSince(t *testing.T) {
 	}
 }
 
+// TestKnownMoves covers what counts as news between two folds.
 func TestKnownMoves(t *testing.T) {
 	t.Parallel()
 
@@ -266,6 +269,7 @@ func TestKnownMoves(t *testing.T) {
 	}
 }
 
+// TestKnownAt covers which answers hold for a head and which are only remembered.
 func TestKnownAt(t *testing.T) {
 	t.Parallel()
 
