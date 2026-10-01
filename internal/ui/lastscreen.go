@@ -35,22 +35,22 @@ type lastScreenMsg struct {
 }
 
 // screenedAgentID is the agent whose saved screen the column draws.
-func (m model) screenedAgentID() (string, bool) {
+func (m *model) screenedAgentID() (string, bool) {
 	switch m.screen {
 	case screenArchive:
 		if m.archive.kind != archiveAgents {
 			return "", false
 		}
 
-		agent, ok := m.archive.hoveredAgent(&m)
+		agent, ok := m.archive.hoveredAgent(m)
 
 		return agent.ID, ok
 	case screenAgents:
-		item, ok := m.agents.hoveredResting(&m)
+		item, ok := m.agents.hoveredResting(m)
 
 		return item.Agent.ID, ok
 	case screenWorktrees:
-		row, ok := m.worktrees.hovered(&m)
+		row, ok := m.worktrees.hovered(m)
 		if !ok || row.item.agent == nil {
 			return "", false
 		}
@@ -66,7 +66,7 @@ func (m model) screenedAgentID() (string, bool) {
 	return "", false
 }
 
-func (m model) isScreenShown() bool {
+func (m *model) isScreenShown() bool {
 	_, ok := m.screenedAgentID()
 
 	return ok
@@ -171,11 +171,11 @@ func noticeRows(notice string, width int) []string {
 	return []string{bar, fill.Bold(true).PaddingLeft(padding).Render(text), bar}
 }
 
-func (m model) screenNotice() string {
+func (m *model) screenNotice() string {
 	switch m.screen {
 	case screenArchive:
 		restore := m.keys.ArchiveMenu.Restore
-		if target, ok := m.archive.menuTarget(&m); ok {
+		if target, ok := m.archive.menuTarget(m); ok {
 			if _, err := target.opensAgent(); err == nil {
 				restore = m.keys.ArchiveMenu.RestoreOpen
 			}
@@ -183,7 +183,7 @@ func (m model) screenNotice() string {
 
 		return "archived" + separated + "press " + keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Menu.Archive) + " " + keyLabel(restore) + " to restore"
 	case screenAgents:
-		item, ok := m.agents.hoveredResting(&m)
+		item, ok := m.agents.hoveredResting(m)
 		if ok && item.Agent.HeldAt != nil {
 			return "paused"
 		}
@@ -198,7 +198,7 @@ func (m model) screenNotice() string {
 }
 
 // columnHeight is the rows the block beside the list is drawn in.
-func (m model) columnHeight() int {
+func (m *model) columnHeight() int {
 	split, ok := m.columnSplit()
 	if !ok {
 		return 0
@@ -213,7 +213,7 @@ const minScreenRows = 8
 
 // withLastScreen is a column's rows under a notice saying the agent is not running, with the
 // saved screen of the agent it screens drawn under them.
-func (m model) withLastScreen(rows []string, width int) []string {
+func (m *model) withLastScreen(rows []string, width int) []string {
 	agentID, ok := m.screenedAgentID()
 	if !ok {
 		return rows

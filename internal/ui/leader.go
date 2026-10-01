@@ -25,7 +25,7 @@ const (
 // leaderPanelKeys are the leader's keys the panel answers itself.
 var leaderPanelKeys = []string{pickerKey}
 
-func (m model) holdLeader() {
+func (m *model) holdLeader() {
 	if m.session == nil {
 		return
 	}
@@ -34,54 +34,50 @@ func (m model) holdLeader() {
 }
 
 // routeLeader answers the leader and the key after it.
-func (m model) routeLeader(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+func (m *model) routeLeader(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	pressed := key.String()
 
 	if !m.leading {
 		if pressed != leaderKey {
-			return m, nil, false
+			return nil, false
 		}
 
 		m.leading = true
 
-		return m, nil, true
+		return nil, true
 	}
 
 	m.leading = false
 
 	switch pressed {
 	case copyKey:
-		next, cmd := m.toggleCopy()
-
-		return next, cmd, true
+		return m.toggleCopy(), true
 	case strings.ToLower(paneCopyKey):
-		m.paneCopying = true
+		m.term.paneCopying = true
 
-		return m, nil, true
+		return nil, true
 	case strings.ToLower(paneNormalKey):
-		m.paneCopying = false
+		m.term.paneCopying = false
 
-		return m, nil, true
+		return nil, true
 	case pickerKey:
-		next, cmd := m.togglePicker()
-
-		return next, cmd, true
+		return m.togglePicker(), true
 	case leaderKey:
-		next, cmd := m.toggleStop()
-
-		return next, cmd, true
+		return m.toggleStop(), true
 	}
 
-	return m, nil, true
+	return nil, true
 }
 
 // togglePicker freezes the window under the pane picker, or thaws it when the picker holds it.
-func (m model) togglePicker() (tea.Model, tea.Cmd) {
+func (m *model) togglePicker() tea.Cmd {
 	switch {
-	case m.picker.freezing, m.copying:
-		return m, nil
+	case m.picker.freezing, m.term.copying:
+		return nil
 	case m.picker.frozen != "":
-		return m.thaw(), nil
+		m.thaw()
+
+		return nil
 	}
 
 	return m.freeze()

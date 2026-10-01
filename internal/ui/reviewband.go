@@ -48,8 +48,8 @@ func (r reviewScreen) bandRows(m *model) []string {
 	const pinned = 2
 
 	room := len(rows)
-	if m.height > 0 {
-		room = max(pinned, m.height-reviewBandFloor)
+	if m.term.height > 0 {
+		room = max(pinned, m.term.height-reviewBandFloor)
 	}
 
 	if room >= len(rows) {

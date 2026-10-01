@@ -37,8 +37,8 @@ var (
 func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 	agent := item.Agent
 	agentID := agent.ID
-	run := func(choice gitChoice) func(model) (model, tea.Cmd) {
-		return func(m model) (model, tea.Cmd) { return m.runGitChoice(from, agentID, choice) }
+	run := func(choice gitChoice) func(*model) tea.Cmd {
+		return func(m *model) tea.Cmd { return m.runGitChoice(from, agentID, choice) }
 	}
 
 	return submenu{
@@ -61,7 +61,7 @@ func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 				label: abortLabel(agent),
 				keys:  m.keys.Git.Abort,
 				isOff: abortRefusal(m.listing, from, agent) != nil,
-				open:  func(m model) (tea.Model, tea.Cmd) { return m.openGitAbort(from, agentID) },
+				open:  func(m *model) tea.Cmd { return m.openGitAbort(from, agentID) },
 			},
 			{
 				label: "open pr",
@@ -169,12 +169,12 @@ func openPullRequestRefusal(item panel.AgentRow) error {
 }
 
 // runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
-func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (model, tea.Cmd) {
+func (m *model) runGitChoice(from screen, agentID string, choice gitChoice) tea.Cmd {
 	item, ok := m.findGitAgent(from, agentID)
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)
 
-		return m, nil
+		return nil
 	}
 
 	agent := item.Agent
@@ -184,22 +184,18 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 		if err := worktreeRefusal(m.listing, from, agent); err != nil {
 			m.report("Could not rebase the worktree of "+agent.Name, err)
 
-			return m, nil
+			return nil
 		}
 
-		cmd := m.planGitCmd(rebaseOp(agent.ID, agent.Name))
-
-		return m, cmd
+		return m.planGitCmd(rebaseOp(agent.ID, agent.Name))
 	case gitChoicePush:
 		if err := pushRefusal(m.listing, from, agent); err != nil {
 			m.report("Could not push the branch of "+agent.Name, err)
 
-			return m, nil
+			return nil
 		}
 
-		cmd := m.planGitCmd(pushOp(item))
-
-		return m, cmd
+		return m.planGitCmd(pushOp(item))
 	case gitChoiceOpenPullRequest:
 		return m.openPullRequest(item)
 	case gitChoiceCopyPullRequestURL:
@@ -210,7 +206,7 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 		return m.requestRereview(item)
 	}
 
-	return m, nil
+	return nil
 }
 
 // hasOwnWorktree reports whether an agent sits in a worktree komrad cut for it alone.
@@ -233,7 +229,7 @@ func (l listing) hasOwnWorktree(agent panel.Agent) bool {
 }
 
 // findGitAgent is the agent the menu was opened on, as the list holds it now.
-func (m model) findGitAgent(from screen, agentID string) (panel.AgentRow, bool) {
+func (m *model) findGitAgent(from screen, agentID string) (panel.AgentRow, bool) {
 	// The list may have moved under the open menu.
 	if from == screenArchive {
 		return m.listing.anyAgent(agentID)
@@ -243,7 +239,7 @@ func (m model) findGitAgent(from screen, agentID string) (panel.AgentRow, bool) 
 }
 
 // openGitAbort leaves the menu for the abort's confirmation, or says why there is nothing to abort.
-func (m model) openGitAbort(from screen, agentID string) (tea.Model, tea.Cmd) {
+func (m *model) openGitAbort(from screen, agentID string) tea.Cmd {
 	item, ok := m.findGitAgent(from, agentID)
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)

@@ -53,23 +53,23 @@ func (r detailsRow) key() string {
 	return r.id
 }
 
-func (m model) hoveredDetails() details {
+func (m *model) hoveredDetails() details {
 	d, ok := m.active().(detailed)
 	if !ok {
 		return details{}
 	}
 
-	return d.details(&m)
+	return d.details(m)
 }
 
-func (m model) isDetailsScreen() bool {
+func (m *model) isDetailsScreen() bool {
 	_, ok := m.active().(detailed)
 
 	return ok
 }
 
 // detailsRows is the record's fields as its search leaves them.
-func (m model) detailsRows(held details) []detailsRow {
+func (m *model) detailsRows(held details) []detailsRow {
 	rows := make([]detailsRow, 0, len(held.fields))
 	group := ""
 	for i, field := range held.fields {
@@ -92,7 +92,7 @@ func (m model) detailsRows(held details) []detailsRow {
 	return rows
 }
 
-func (m model) detailsCursor(held details) int {
+func (m *model) detailsCursor(held details) int {
 	if m.details.row != held.id {
 		return 0
 	}
@@ -100,7 +100,7 @@ func (m model) detailsCursor(held details) int {
 	return cursor.Clamp(m.details.cursor, len(m.detailsRows(held)))
 }
 
-func (m model) isDetailsDrawn(held details) bool {
+func (m *model) isDetailsDrawn(held details) bool {
 	if len(held.fields) == 0 || m.detailsLines() == 0 {
 		return false
 	}
@@ -110,42 +110,43 @@ func (m model) isDetailsDrawn(held details) bool {
 		return true
 	}
 
-	return d.detailsFit(&m)
+	return d.detailsFit(m)
 }
 
 // listFitsDetails is whether the record's share fits under a list, judged with the keys on the
 // list.
-func (m model) listFitsDetails(params screenListParams) bool {
-	m.details.focused = false
-	header := m.tabbedHeader(params.title, params.tally)
-	legend := m.renderHelp(m.listHelpOf(params), header)
+func (m *model) listFitsDetails(params screenListParams) bool {
+	probe := *m
+	probe.details.focused = false
+	header := probe.tabbedHeader(params.title, params.tally)
+	legend := probe.renderHelp(probe.listHelpOf(params), header)
 
 	// Only the list's legend is measured with the search; a focused record shrinks to the room
 	// its own legend leaves.
-	m.filter = filterState{}
-	if focused := m.renderHelp(m.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
+	probe.filter = filterState{}
+	if focused := probe.renderHelp(probe.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
 		legend = focused
 	}
 
-	return m.spareLines(header, legend) > m.detailsLines()+detailsChromeLines
+	return probe.spareLines(header, legend) > probe.detailsLines()+detailsChromeLines
 }
 
 // listRecordRoom is the lines a list screen has under its header and the legend it is drawing.
-func (m model) listRecordRoom(params screenListParams) int {
+func (m *model) listRecordRoom(params screenListParams) int {
 	header := m.tabbedHeader(params.title, params.tally)
 
 	return m.spareLines(header, m.renderHelp(m.listHelpOf(params), header))
 }
 
-func (m model) isDetailsFocused() bool {
+func (m *model) isDetailsFocused() bool {
 	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
 }
 
 // focusDetails gives the record the keys, reading its directory again on the way in.
-func (m model) focusDetails() (model, tea.Cmd) {
+func (m *model) focusDetails() tea.Cmd {
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {
-		return m, nil
+		return nil
 	}
 
 	m.details.focused = true
@@ -156,35 +157,31 @@ func (m model) focusDetails() (model, tea.Cmd) {
 	}
 	m.details.row = held.id
 
-	return m, tea.Batch(m.rereadAgentWorktreeCmd(), m.wakeCwdSyncCmd())
+	return tea.Batch(m.rereadAgentWorktreeCmd(), m.wakeCwdSyncCmd())
 }
 
 // releaseHiddenDetails hands the keys back from a record the pane no longer draws.
-func (m model) releaseHiddenDetails() model {
+func (m *model) releaseHiddenDetails() {
 	if !m.details.focused || m.isDetailsDrawn(m.hoveredDetails()) {
-		return m
+		return
 	}
 
-	return m.blurDetails()
+	m.blurDetails()
 }
 
 // blurDetails hands the keys back to the list.
-func (m model) blurDetails() model {
+func (m *model) blurDetails() {
 	m.details.focused = false
-
-	return m
 }
 
-func (m model) updateDetails(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateDetails(key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
 	if isBound(k, m.quitKeys()) {
-		return m, m.hide()
+		return m.hide()
 	}
 
-	cmd := m.detailsActions().dispatch(&m, k)
-
-	return m, cmd
+	return m.detailsActions().dispatch(m, k)
 }
 
 func (m *model) detailsActions() screenActionSpec {
@@ -315,8 +312,8 @@ func (m *model) detailsActions() screenActionSpec {
 	}
 }
 
-func (m model) detailsHelp() keyMap {
-	own := m.detailsActions().help(&m)
+func (m *model) detailsHelp() keyMap {
+	own := m.detailsActions().help(m)
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),
@@ -326,7 +323,7 @@ func (m model) detailsHelp() keyMap {
 
 // hoveredDetailsKey is the field the record's cursor is on, read before the search's pattern
 // changes.
-func (m model) hoveredDetailsKey() string {
+func (m *model) hoveredDetailsKey() string {
 	held := m.hoveredDetails()
 
 	return rowKeyAt(m.detailsRows(held), m.detailsCursor(held))
@@ -342,7 +339,7 @@ func (m *model) placeDetailsAt(key string) {
 }
 
 // detailsFilterRows is the record's fields as the search drives them.
-func (m model) detailsFilterRows() []filterRow {
+func (m *model) detailsFilterRows() []filterRow {
 	return xslice.Map(m.detailsRows(m.hoveredDetails()), func(row detailsRow) filterRow {
 		return filterRow{key: row.id, name: row.text}
 	})
@@ -382,7 +379,7 @@ func (m *model) setDetailsCursor(held details, idx int) {
 	m.details.row = held.id
 }
 
-func (m model) quitKeys() []string {
+func (m *model) quitKeys() []string {
 	d, ok := m.active().(detailed)
 	if !ok {
 		return m.keys.Agents.Quit
@@ -404,22 +401,22 @@ func (m *model) copyDetailsField() tea.Cmd {
 	return tea.Batch(m.copyCmd(rows[cursor].field.value), flashRevertTick())
 }
 
-func (m model) detailsLines() int {
-	if m.height <= 0 {
+func (m *model) detailsLines() int {
+	if m.term.height <= 0 {
 		return 0
 	}
 
 	lines := int(m.detailsHeight)
 	if m.detailsHeight < 1 {
-		lines = int(float64(m.height) * m.detailsHeight)
+		lines = int(float64(m.term.height) * m.detailsHeight)
 	}
 
-	return min(lines, max(m.height/2-detailsChromeLines, 0))
+	return min(lines, max(m.term.height/2-detailsChromeLines, 0))
 }
 
 // grownDetailsLines is every line the record needs once it holds the keys, as far as the rows
 // left under the header and the legend allow with one kept back for the list.
-func (m model) grownDetailsLines(held details) int {
+func (m *model) grownDetailsLines(held details) int {
 	lines := max(m.detailsLines(), m.detailsWanted(held))
 
 	d, ok := m.active().(detailed)
@@ -427,21 +424,21 @@ func (m model) grownDetailsLines(held details) int {
 		return lines
 	}
 
-	return max(min(lines, d.detailsRoom(&m)-detailsChromeLines-1), 0)
+	return max(min(lines, d.detailsRoom(m)-detailsChromeLines-1), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every
 // field its search leaves.
-func (m model) detailsWanted(held details) int {
+func (m *model) detailsWanted(held details) int {
 	wanted := len(m.detailsRows(held))
-	if notices := m.detailsNotices(held, m.height); len(notices) > 0 {
+	if notices := m.detailsNotices(held, m.term.height); len(notices) > 0 {
 		wanted += len(notices) + 1
 	}
 
 	return wanted
 }
 
-func (m model) detailsView() string {
+func (m *model) detailsView() string {
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {
 		return ""
@@ -475,13 +472,13 @@ func (m model) detailsView() string {
 		m.detailsRule(), m.paneWidth())
 }
 
-func (m model) drawRecord(above ...string) string {
+func (m *model) drawRecord(above ...string) string {
 	if record := m.detailsView(); record != "" {
 		return record
 	}
 
 	rule := m.detailsRule()
-	if m.height > 0 && m.spareLines(append(slices.Clone(above), rule)...) < legendRuleFloor {
+	if m.term.height > 0 && m.spareLines(append(slices.Clone(above), rule)...) < legendRuleFloor {
 		return ""
 	}
 
@@ -490,7 +487,7 @@ func (m model) drawRecord(above ...string) string {
 
 // detailsRule is the rule over the record, carrying as many of its tags as fit with the leftmost
 // given up first.
-func (m model) detailsRule(tags ...string) string {
+func (m *model) detailsRule(tags ...string) string {
 	width := m.paneWidth()
 	if width <= 0 {
 		return "\n"
@@ -513,7 +510,7 @@ func (m model) detailsRule(tags ...string) string {
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice
 // that does not fit rather than the fields under it.
-func (m model) detailsNotices(held details, budget int) []string {
+func (m *model) detailsNotices(held details, budget int) []string {
 	if budget <= 0 {
 		return nil
 	}
@@ -538,7 +535,7 @@ func (m model) detailsNotices(held details, budget int) []string {
 
 // noticeLines is one notice as it is drawn: the glyph the row carries, then the sentence wrapped
 // under it in the column the glyph left, cut off at a number of lines when given one.
-func (m model) noticeLines(n notice, most int) []string {
+func (m *model) noticeLines(n notice, most int) []string {
 	const indent = "    "
 
 	// A notice that is going to be cut keeps a cell back for the ellipsis.
@@ -566,7 +563,7 @@ func (m model) noticeLines(n notice, most int) []string {
 	return lines
 }
 
-func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
+func (m *model) detailFieldRows(fields []detailsRow, cursor int) []string {
 	labels := labelColumn(xslice.Map(fields, func(row detailsRow) recordField { return row.field }))
 	rows := make([]string, 0, len(fields))
 
@@ -599,7 +596,7 @@ func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
 	return rows
 }
 
-func (m model) lineWidth() int {
+func (m *model) lineWidth() int {
 	return lineWidthOf(m.paneWidth())
 }
 

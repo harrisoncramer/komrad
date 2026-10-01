@@ -38,11 +38,11 @@ func draftLabel(item panel.AgentRow) string {
 
 // toggleDraft asks the forge to flip whether the agent's pull request is a draft, or says why it
 // cannot.
-func (m model) toggleDraft(item panel.AgentRow) (model, tea.Cmd) {
+func (m *model) toggleDraft(item panel.AgentRow) tea.Cmd {
 	if err := openPullRequestRefusal(item); err != nil {
 		m.report("Could not change the pull request of "+item.Agent.Name, err)
 
-		return m, nil
+		return nil
 	}
 
 	clients := m.api
@@ -55,7 +55,7 @@ func (m model) toggleDraft(item panel.AgentRow) (model, tea.Cmd) {
 	}
 	drafted.write = m.beginWrite(draftingLabel(drafted))
 
-	return m, func() tea.Msg {
+	return func() tea.Msg {
 		drafted.err = clients.setPullRequestDraft(standing.URL, drafted.draft)
 
 		return drafted
@@ -63,7 +63,7 @@ func (m model) toggleDraft(item panel.AgentRow) (model, tea.Cmd) {
 }
 
 // applyDrafted reports the draft change and takes down the menu held for it.
-func (m model) applyDrafted(msg draftedMsg) (tea.Model, tea.Cmd) {
+func (m *model) applyDrafted(msg draftedMsg) tea.Cmd {
 	held := m.landHeld(msg.write)
 
 	switch {
@@ -84,7 +84,7 @@ func (m model) applyDrafted(msg draftedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if !held {
-		return m, nil
+		return nil
 	}
 
 	return m.closeForm()

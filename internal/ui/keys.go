@@ -40,7 +40,7 @@ func pastedLine(paste tea.PasteMsg) string {
 }
 
 // isTopHeld reports whether the last press opened the doubled top key and is waiting on its pair.
-func (m model) isTopHeld() bool {
+func (m *model) isTopHeld() bool {
 	return m.topHeld
 }
 

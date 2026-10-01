@@ -27,16 +27,16 @@ type formFieldEditedMsg struct {
 
 // openFormFieldEditor opens the editor on the field with the cursor, and reports whether the
 // key belonged to the panel.
-func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
+func (m *model) openFormFieldEditor() (tea.Cmd, bool) {
 	focused := m.form.form.GetFocusedField()
 	if focused == nil {
-		return m, nil, false
+		return nil, false
 	}
 
 	key := focused.GetKey()
 	index := slices.IndexFunc(m.form.editable, func(field editableText) bool { return field.key == key })
 	if index < 0 {
-		return m, nil, false
+		return nil, false
 	}
 
 	field := m.form.editable[index]
@@ -44,7 +44,7 @@ func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 	if err := os.WriteFile(path, []byte(*field.value), 0o600); err != nil {
 		m.report("Your editor could not be opened on that field", err)
 
-		return m, nil, true
+		return nil, true
 	}
 
 	kind := m.form.kind
@@ -53,7 +53,7 @@ func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 	//nolint:noctx // the editor runs until the field is closed, so it takes no deadline
 	open := exec.Command("sh", "-c", editorShell(m.settings.Editor, path, 1))
 
-	return m, tea.ExecProcess(open, func(err error) tea.Msg {
+	return tea.ExecProcess(open, func(err error) tea.Msg {
 		if err != nil {
 			return formFieldEditedMsg{
 				kind: kind,
@@ -79,24 +79,24 @@ func formFieldDraftPath(key string) string {
 }
 
 // applyFormFieldEdited writes what the editor wrote back into the field it was opened on.
-func (m model) applyFormFieldEdited(msg formFieldEditedMsg) (tea.Model, tea.Cmd) {
+func (m *model) applyFormFieldEdited(msg formFieldEditedMsg) tea.Cmd {
 	if !m.form.isActive() || m.form.kind != msg.kind {
-		return m, nil
+		return nil
 	}
 	if msg.err != nil {
 		m.report("Your editor could not be opened on that field", msg.err)
 
-		return m, nil
+		return nil
 	}
 
 	index := slices.IndexFunc(m.form.editable, func(field editableText) bool { return field.key == msg.key })
 	if index < 0 {
-		return m, nil
+		return nil
 	}
 
 	*m.form.editable[index].value = strings.TrimRight(msg.text, "\n")
 
-	return m, m.redrawFormOn(msg.key)
+	return m.redrawFormOn(msg.key)
 }
 
 // redrawFormOn draws the form again and leaves the cursor on the field named.

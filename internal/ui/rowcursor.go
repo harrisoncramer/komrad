@@ -30,12 +30,12 @@ func newRowCursor() cursor.Model {
 
 // updateRowCursor carries the bubble's own blink timer, and puts the arrow back on for a
 // keypress.
-func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
+func (m *model) updateRowCursor(msg tea.Msg) tea.Cmd {
 	// The bubble stops its timer on a blur, and the working bars pulse on that timer whether or
 	// not the panel has the keyboard, so the caret alone reads blurred.
 	switch msg.(type) {
 	case tea.BlurMsg, tea.FocusMsg:
-		return m, nil
+		return nil
 	}
 
 	next, cmd := m.rowCursor.Update(msg)
@@ -46,19 +46,19 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 	if _, ok := msg.(tea.KeyPressMsg); ok && m.rowCursor.BlinkSpeed > 0 {
 		m.rowCursor.IsBlinked = false
 
-		return m, tea.Batch(cmd, m.rowCursor.Blink())
+		return tea.Batch(cmd, m.rowCursor.Blink())
 	}
 
-	return m, cmd
+	return cmd
 }
 
 // focusPalette is the panel's palette on the blink's beat, for whatever holds the keys.
-func (m model) focusPalette() paint.Palette {
+func (m *model) focusPalette() paint.Palette {
 	return paint.Panel.Blinking(m.rowCursor.IsBlinked)
 }
 
 // isCursorBlinkedOut reports whether the blink has the row cursor out of sight this frame.
-func (m model) isCursorBlinkedOut(focused bool) bool {
+func (m *model) isCursorBlinkedOut(focused bool) bool {
 	return focused && !m.isTyping() && m.rowCursor.IsBlinked
 }
 
@@ -73,7 +73,7 @@ const (
 )
 
 // keyholder is the section whose cursor the arrow keys would move.
-func (m model) keyholder() sidebarSection {
+func (m *model) keyholder() sidebarSection {
 	switch {
 	case m.isViewsOpen():
 		return sectionViews
@@ -87,12 +87,12 @@ func (m model) keyholder() sidebarSection {
 }
 
 // doKeysMoveCursors reports whether the keyboard is on a sidebar cursor at all.
-func (m model) doKeysMoveCursors() bool {
-	return !m.keysElsewhere && !m.form.isActive() && !m.isMessagesFocused()
+func (m *model) doKeysMoveCursors() bool {
+	return !m.term.keysElsewhere && !m.form.isActive() && !m.isMessagesFocused()
 }
 
 // caretOf is how a section's arrow stands this frame.
-func (m model) caretOf(section sidebarSection) view.Caret {
+func (m *model) caretOf(section sidebarSection) view.Caret {
 	if m.keyholder() != section {
 		return view.CaretAbsent
 	}
@@ -101,7 +101,7 @@ func (m model) caretOf(section sidebarSection) view.Caret {
 }
 
 // blinkingCaret is the arrow as the blink leaves it on a cursor the keyboard is or is not on.
-func (m model) blinkingCaret(held bool) view.Caret {
+func (m *model) blinkingCaret(held bool) view.Caret {
 	if m.isCursorBlinkedOut(held) {
 		return view.CaretBlinkedOut
 	}
@@ -110,7 +110,7 @@ func (m model) blinkingCaret(held bool) view.Caret {
 }
 
 // cursorPrefix is the arrow a section draws on its hovered row.
-func (m model) cursorPrefix(section sidebarSection) string {
+func (m *model) cursorPrefix(section sidebarSection) string {
 	return caretGlyph(m.caretOf(section))
 }
 
@@ -123,6 +123,6 @@ func caretGlyph(caret view.Caret) string {
 }
 
 // isListFocused reports whether the keys are the list's.
-func (m model) isListFocused() bool {
+func (m *model) isListFocused() bool {
 	return m.doKeysMoveCursors() && m.keyholder() == sectionList
 }

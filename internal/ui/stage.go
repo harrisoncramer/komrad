@@ -138,30 +138,30 @@ func (m *model) sizeAgentWindow(pane string) {
 		return
 	}
 
-	width, height := m.frame.StageCols(), m.height+paneStatusRows
+	width, height := m.frame.StageCols(), m.term.height+paneStatusRows
 
 	// The guest is standing in the panel's own window, so resizing its window would resize the
 	// terminal komrad is drawn in.
-	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || m.height <= 0 {
+	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || m.term.height <= 0 {
 		return
 	}
 
-	if m.sized == nil {
-		m.sized = map[string]string{}
+	if m.term.sized == nil {
+		m.term.sized = map[string]string{}
 	}
 
 	want := fmt.Sprintf("%dx%d", width, height)
-	if m.sized[pane] == want {
+	if m.term.sized[pane] == want {
 		return
 	}
 
 	m.tmux.ResizeWindow(pane, width, height)
-	m.sized[pane] = want
+	m.term.sized[pane] = want
 }
 
 // isGuestLive reports whether the pane parked in the stage still belongs to an agent the last
 // listing found running.
-func (m model) isGuestLive() bool {
+func (m *model) isGuestLive() bool {
 	guest := m.frame.GuestPane()
 	if guest == "" {
 		return true

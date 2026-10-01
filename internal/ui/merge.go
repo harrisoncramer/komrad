@@ -31,8 +31,8 @@ var (
 func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
 	refused := openPullRequestRefusal(item) != nil
-	run := func(choice mergeChoice) func(model) (model, tea.Cmd) {
-		return func(m model) (model, tea.Cmd) { return m.runMerge(from, agentID, choice) }
+	run := func(choice mergeChoice) func(*model) tea.Cmd {
+		return func(m *model) tea.Cmd { return m.runMerge(from, agentID, choice) }
 	}
 
 	return submenu{
@@ -62,7 +62,7 @@ func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
 }
 
 // runMerge asks the forge to merge the agent's pull request, or says why it cannot.
-func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model, tea.Cmd) {
+func (m *model) runMerge(from screen, agentID string, choice mergeChoice) tea.Cmd {
 	// The list may have moved under the open menu.
 	item, ok := m.listing.liveAgent(agentID)
 	if from == screenArchive {
@@ -72,7 +72,7 @@ func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model,
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)
 
-		return m, nil
+		return nil
 	}
 
 	if choice == mergeChoiceAutoMerge {
@@ -83,17 +83,15 @@ func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model,
 	if err := openPullRequestRefusal(item); err != nil {
 		m.report("Could not merge the pull request of "+item.Agent.Name, err)
 
-		return m, nil
+		return nil
 	}
 	if archive && from == screenArchive {
 		m.report("Could not archive "+item.Agent.Name, errArchiveArchived)
 
-		return m, nil
+		return nil
 	}
 
-	cmd := m.runGitCmd(mergeOp(item, archive))
-
-	return m, cmd
+	return m.runGitCmd(mergeOp(item, archive))
 }
 
 func mergeOp(item panel.AgentRow, archive bool) gitOp {
@@ -128,8 +126,5 @@ func (m *model) reportMerged(item panel.AgentRow, archive bool, err error) tea.C
 		return nil
 	}
 
-	archived, archiving := m.archiveAgents([]panel.Agent{live.Agent})
-	*m = archived
-
-	return archiving
+	return m.archiveAgents([]panel.Agent{live.Agent})
 }

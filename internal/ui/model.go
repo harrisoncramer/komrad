@@ -66,7 +66,7 @@ func Run(ctx context.Context, deps Deps) error {
 	wheel := newWheelFilter(time.Now, func(msg tea.Msg) {
 		time.AfterFunc(wheelFrame, func() { post.send(msg) })
 	})
-	program := tea.NewProgram(m, tea.WithColorProfile(colorprofile.TrueColor), tea.WithFilter(wheel.filter))
+	program := tea.NewProgram(&m, tea.WithColorProfile(colorprofile.TrueColor), tea.WithFilter(wheel.filter))
 	post.attach(program)
 
 	defer post.close()
@@ -249,21 +249,14 @@ type model struct {
 	unreachable   error
 	engineStatus  EngineStatus
 	engineBuild   EngineBuild
-	// writes counts the writes sent, and a write's own count is what its landing answers to.
-	writes int
-	// inflight is the writes sent that have not landed, by their count.
-	inflight        map[int]submitting.Write
+	writes        writeTracker
+	term          terminalState
+
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding
 	screen          screen
-	height          int
-	width           int
-	paneCols        int
 
-	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
-	// has not moved costs no tmux calls.
-	sized       map[string]string
 	terminalDir string
 	// scratch is the scratch editor on the stage, nil while it is closed.
 	scratch       *scratchEditor
@@ -288,49 +281,22 @@ type model struct {
 	form        formState
 	// register is the text vim last yanked or deleted in any field, nil when vim is off.
 	register *vim.Register
-	held     heldWrite
-	// detached holds the writes a person escaped out of, which land without taking the screen to
-	// what they made.
-	detached map[int]struct{}
-	landing  landing
 	// edited is the files a reader opened an editor on over an agent's worktree while it was
 	// paused, keyed by agent, so whoever lets that agent go can tell it where to look.
-	edited map[string][]string
-	// blurred is whether another pane holds the keyboard.
-	blurred bool
-
-	// keysElsewhere is whether the keyboard sits on a pane beside the panel, which the terminal
-	// itself losing focus is not.
-	keysElsewhere bool
-	helpExpanded  bool
-	topHeld       bool
-	viewsOpen     bool
-	keys          config.Keybindings
-	glyphs        glyph.Set
-	// paneMeasure is the column one half of a split is laid out in once the split has been chosen.
-	paneMeasure int
+	edited       map[string][]string
+	helpExpanded bool
+	topHeld      bool
+	viewsOpen    bool
+	keys         config.Keybindings
+	glyphs       glyph.Set
 	// shell is what tmux starts a pane's process with, read once.
 	shell string
 	clip  clipboardWriter
-
-	// isDark is the terminal's background as it last reported it.
-	isDark bool
-	post   *postbox
+	post  *postbox
 
 	// staging counts the cursor moves waiting to be staged, so the panes are moved for the row the
 	// cursor came to rest on rather than for every row it passed.
 	staging int
-
-	// awaitingSince is when the panel moved its own pane without yet being told the size that
-	// leaves it, and zero while it is not waiting.
-	awaitingSince time.Time
-
-	// windowCols is how wide the window was when the divider was last read.
-	windowCols int
-
-	// drawn is the last frame the panel put on screen, held through a pointer so a view can keep
-	// what it drew.
-	drawn *lastFrame
 
 	// reading is where the reader stands in the document beside the list.
 	reading docReader
@@ -343,20 +309,55 @@ type model struct {
 	// picker is the window as the pane picker froze it.
 	picker pickerState
 
-	// copying is whether a stand-in in copy-mode has the sidebar's place.
-	copying bool
-
-	// paneCopying is whether the pane holding the keys, other than the sidebar, is in copy-mode.
-	paneCopying bool
-
-	// markingZones is whether this frame carries the marks that say where each block was drawn.
-	markingZones bool
-
 	// leading is whether the leader was pressed and the key after it is still to come.
 	leading bool
 
 	// leftStop is the stop the keys last left.
 	leftStop stop
+}
+
+type writeTracker struct {
+	// count counts the writes sent, and a write's own count is what its landing answers to.
+	count int
+	// inflight is the writes sent that have not landed, by their count.
+	inflight map[int]submitting.Write
+	held     heldWrite
+	// detached holds the writes a person escaped out of, which land without taking the screen to
+	// what they made.
+	detached map[int]struct{}
+	landing  landing
+}
+
+type terminalState struct {
+	height   int
+	width    int
+	paneCols int
+	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
+	// has not moved costs no tmux calls.
+	sized map[string]string
+	// blurred is whether another pane holds the keyboard.
+	blurred bool
+	// keysElsewhere is whether the keyboard sits on a pane beside the panel, which the terminal
+	// itself losing focus is not.
+	keysElsewhere bool
+	// paneMeasure is the column one half of a split is laid out in once the split has been chosen.
+	paneMeasure int
+	// isDark is the terminal's background as it last reported it.
+	isDark bool
+	// awaitingSince is when the panel moved its own pane without yet being told the size that
+	// leaves it, and zero while it is not waiting.
+	awaitingSince time.Time
+	// windowCols is how wide the window was when the divider was last read.
+	windowCols int
+	// drawn is the last frame the panel put on screen, held through a pointer so a view can keep
+	// what it drew.
+	drawn *lastFrame
+	// copying is whether a stand-in in copy-mode has the sidebar's place.
+	copying bool
+	// paneCopying is whether the pane holding the keys, other than the sidebar, is in copy-mode.
+	paneCopying bool
+	// markingZones is whether this frame carries the marks that say where each block was drawn.
+	markingZones bool
 }
 
 // lastFrame is the frame on screen, which the panel draws again rather than drawing a new one at
@@ -366,17 +367,20 @@ type lastFrame struct {
 }
 
 // measuredAt hands back a model that measures its own chrome in the column given.
-func (m model) measuredAt(width int) model {
-	m.paneMeasure = width
+func (m *model) measuredAt(width int) *model {
+	measured := *m
+	measured.term.paneMeasure = width
 
-	return m
+	return &measured
 }
 
 func newModel(deps Deps, isDark bool, post *postbox) model {
 	m := model{
-		isDark: isDark,
-		post:   post,
-		drawn:  &lastFrame{},
+		term: terminalState{
+			isDark: isDark,
+			drawn:  &lastFrame{},
+		},
+		post: post,
 		api: api{
 			agents:       deps.Agents,
 			workflows:    deps.Workflows,

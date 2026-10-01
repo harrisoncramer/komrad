@@ -135,28 +135,28 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 
 // openPullRequest hands the agent's current pull request to the browser, or says why there is
 // none to open.
-func (m model) openPullRequest(item panel.AgentRow) (model, tea.Cmd) {
+func (m *model) openPullRequest(item panel.AgentRow) tea.Cmd {
 	standing := item.PullRequest
 	if standing.URL == "" {
 		m.report("Could not open the pull request of "+item.Agent.Name, pullRequestRefusal(item))
 
-		return m, nil
+		return nil
 	}
 
-	return m, m.openURLCmd(standing.URL)
+	return m.openURLCmd(standing.URL)
 }
 
 // copyPullRequestURL puts the agent's current pull request's address on the clipboard, or says
 // why there is none to copy.
-func (m model) copyPullRequestURL(item panel.AgentRow) (model, tea.Cmd) {
+func (m *model) copyPullRequestURL(item panel.AgentRow) tea.Cmd {
 	standing := item.PullRequest
 	if standing.URL == "" {
 		m.report("Could not copy the pull request of "+item.Agent.Name, pullRequestRefusal(item))
 
-		return m, nil
+		return nil
 	}
 
-	return m, m.copyCmd(standing.URL)
+	return m.copyCmd(standing.URL)
 }
 
 // urlOpenedMsg is the browser having been asked to open an address.

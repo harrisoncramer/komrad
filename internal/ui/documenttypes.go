@@ -66,9 +66,9 @@ func documentTypeFormState(params documentTypeFormStateParams) formState {
 
 	return redrawnForm(redrawnFormParams{
 		Kind:     formDocumentType,
-		Build:    func(model) (*huh.Form, []string) { return documentTypeForm(values, params.title, formKeys()) },
+		Build:    func(*model) (*huh.Form, []string) { return documentTypeForm(values, params.title, formKeys()) },
 		Editable: []editableText{{key: "context", value: &values.Context}},
-		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		Submit: holdSubmit(func(m *model) tea.Cmd {
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
 			doing, summary := params.doing+" a document type", params.refused+" a document type"
 			if name != "" {
@@ -86,7 +86,7 @@ func documentTypeFormState(params documentTypeFormStateParams) formState {
 				},
 			)
 
-			return m, cmd
+			return cmd
 		}),
 	})
 }
@@ -112,13 +112,13 @@ func deleteTypeForm(item documentItem) formState {
 	return formState{
 		kind:   formDocumentTypeDelete,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			if !*confirmed {
-				return m, nil
+				return nil
 			}
 
-			return m, m.writeCmd(
+			return m.writeCmd(
 				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
 				func(a api) error { return a.deleteDocumentType(item.id) },

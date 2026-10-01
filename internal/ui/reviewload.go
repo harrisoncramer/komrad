@@ -545,7 +545,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 
 	r.root = msg.patch.Root
 	r.round = msg.round
-	r.diff.load(msg, m.isDark, m.glyphs)
+	r.diff.load(msg, m.term.isDark, m.glyphs)
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(m)

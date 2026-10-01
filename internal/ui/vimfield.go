@@ -204,34 +204,32 @@ func writeArea(t *textarea.Model, b vim.Buffer) {
 
 // updateFormVim hands a key to vim when the field with the cursor is a text field, and reports
 // whether vim kept it.
-func (m model) updateFormVim(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+func (m *model) updateFormVim(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.form.vim == nil {
-		return m, nil, false
+		return nil, false
 	}
 
 	focused := m.form.form.GetFocusedField()
 	if focused == nil {
-		return m, nil, false
+		return nil, false
 	}
 
 	outcome, ok := m.form.vim.press(m.form.form, focused, key.String())
 	if !ok {
-		return m, nil, false
+		return nil, false
 	}
 
 	switch outcome {
 	case vim.Consumed:
-		return m, nil, true
+		return nil, true
 	case vim.EdgeDown, vim.EdgeUp:
-		return m, m.stepVimField(focused.GetKey(), outcome == vim.EdgeDown), true
+		return m.stepVimField(focused.GetKey(), outcome == vim.EdgeDown), true
 	case vim.Leave:
-		next, cmd := m.leaveFormBack()
-
-		return next, cmd, true
+		return m.leaveFormBack(), true
 	case vim.Pass:
 	}
 
-	return m, nil, false
+	return nil, false
 }
 
 // stepVimField moves the cursor to the nearest text field that way, arriving in normal mode,

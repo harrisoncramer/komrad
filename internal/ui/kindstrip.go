@@ -17,19 +17,19 @@ func (m *model) activeKinds() (kinded, bool) {
 	return k, ok
 }
 
-func (m model) isKindsDrawn() bool {
+func (m *model) isKindsDrawn() bool {
 	k, ok := m.activeKinds()
 
-	return ok && k.kindsFit(&m)
+	return ok && k.kindsFit(m)
 }
 
-func (m model) isKindsFocused() bool {
+func (m *model) isKindsFocused() bool {
 	k, ok := m.activeKinds()
 
-	return ok && *k.kindsFocused() && k.kindsFit(&m)
+	return ok && *k.kindsFocused() && k.kindsFit(m)
 }
 
-func (m model) kindsLine() string {
+func (m *model) kindsLine() string {
 	k, _ := m.activeKinds()
 	row := k.kinds()
 	if *k.kindsFocused() {
@@ -50,39 +50,37 @@ func (m *model) blurKinds() {
 	}
 }
 
-func (m model) focusKinds() model {
+func (m *model) focusKinds() {
 	k, ok := m.activeKinds()
-	if !ok || !k.kindsFit(&m) || !k.kindsSwitch(&m) {
-		return m
+	if !ok || !k.kindsFit(m) || !k.kindsSwitch(m) {
+		return
 	}
 
 	m.blurTabs()
 	*k.kindsFocused() = true
 	m.details.focused = false
-
-	return m
 }
 
-func (m model) updateKinds(press tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {
 	k, _ := m.activeKinds()
 
 	cmd := m.pressStrip(press.String(), stripKeys{
-		step:  func(delta int) tea.Cmd { return k.stepKind(&m, delta) },
+		step:  func(delta int) tea.Cmd { return k.stepKind(m, delta) },
 		close: func() { *k.kindsFocused() = false },
 	})
 
-	return m, cmd
+	return cmd
 }
 
-func (m model) kindsBinding() key.Binding {
-	if k, ok := m.activeKinds(); !ok || !k.kindsSwitch(&m) {
+func (m *model) kindsBinding() key.Binding {
+	if k, ok := m.activeKinds(); !ok || !k.kindsSwitch(m) {
 		return key.Binding{}
 	}
 
 	return binding(m.keys.Kinds.Focus, "kind")
 }
 
-func (m model) kindsHelp() keyMap {
+func (m *model) kindsHelp() keyMap {
 	kind := stopsMoveBinding("switch")
 	back := binding([]string{"esc"}, "back to the list")
 

@@ -108,53 +108,45 @@ type popupScroller interface {
 }
 
 // routeWheel scrolls the popup, the block beside the list or the list, whichever the mouse is over.
-func (m model) routeWheel(x, y, rows int) (tea.Model, tea.Cmd) {
+func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	if rows == 0 || len(m.wheelKeys(rows)) == 0 {
-		return m, nil
+		return nil
 	}
 
-	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.held.active && !m.isMessagesFocused() && screen.scrollPopupAt(&m, x-m.countInsetLeft(), y, rows) {
-		return m, nil
+	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && screen.scrollPopupAt(m, x-m.countInsetLeft(), y, rows) {
+		return nil
 	}
 
-	if m.form.isActive() || m.held.active || !m.isOverColumn(x) {
+	if m.form.isActive() || m.writes.held.active || !m.isOverColumn(x) {
 		if screen, ok := m.active().(listScroller); ok {
-			return m, screen.scrollList(&m, rows)
+			return screen.scrollList(m, rows)
 		}
 
 		return m.pressWheel(rows)
 	}
 
-	if screen, ok := m.active().(columnScroller); ok && screen.doesScrollColumn(&m) {
-		return m, screen.scrollColumn(&m, rows*columnWheelStep)
+	if screen, ok := m.active().(columnScroller); ok && screen.doesScrollColumn(m) {
+		return screen.scrollColumn(m, rows*columnWheelStep)
 	}
 
 	m.scrollDoc(rows * columnWheelStep)
 
-	return m, nil
+	return nil
 }
 
 // pressWheel presses the scroll key once for every row.
-func (m model) pressWheel(rows int) (tea.Model, tea.Cmd) {
+func (m *model) pressWheel(rows int) tea.Cmd {
 	pressed := keyMsg(m.wheelKeys(rows)[0])
 
 	var cmds []tea.Cmd
 	for range max(rows, -rows) {
-		next, cmd := m.route(pressed)
-		cmds = append(cmds, cmd)
-
-		routed, ok := next.(model)
-		if !ok {
-			return next, tea.Batch(cmds...)
-		}
-
-		m = routed
+		cmds = append(cmds, m.route(pressed))
 	}
 
-	return m, tea.Batch(cmds...)
+	return tea.Batch(cmds...)
 }
 
-func (m model) wheelKeys(rows int) []string {
+func (m *model) wheelKeys(rows int) []string {
 	if rows < 0 {
 		return m.keys.Column.ScrollUp
 	}

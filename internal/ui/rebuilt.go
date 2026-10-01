@@ -9,9 +9,9 @@ type BinaryWatcher interface {
 	IsReplaced() bool
 }
 
-func (m model) noticeRebuild() model {
+func (m *model) noticeRebuild() {
 	if m.binary == nil || m.isBusy() || !m.binary.IsReplaced() {
-		return m
+		return
 	}
 
 	if m.frame != nil {
@@ -19,13 +19,11 @@ func (m model) noticeRebuild() model {
 	}
 
 	m.startupErr = errui.ErrRebuilt
-
-	return m
 }
 
-func (m model) isBusy() bool {
-	return len(m.inflight) > 0 ||
-		m.held.active ||
+func (m *model) isBusy() bool {
+	return len(m.writes.inflight) > 0 ||
+		m.writes.held.active ||
 		m.form.isActive() ||
 		m.review.isBusy()
 }

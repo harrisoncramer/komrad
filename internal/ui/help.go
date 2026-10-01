@@ -30,7 +30,7 @@ func byLabel(bindings []key.Binding) []key.Binding {
 	return sorted
 }
 
-func (m model) renderHelp(k keyMap, above ...string) string {
+func (m *model) renderHelp(k keyMap, above ...string) string {
 	if m.isDetailsFocused() {
 		k = m.detailsHelp()
 	}
@@ -79,7 +79,7 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 }
 
 // cornerWrites draws the writes in flight at the right of the legend's last row.
-func (m model) cornerWrites(legend string, width int) string {
+func (m *model) cornerWrites(legend string, width int) string {
 	loose := m.looseWrites()
 	if len(loose) == 0 {
 		return legend
@@ -110,8 +110,8 @@ func (m model) cornerWrites(legend string, width int) string {
 	return strings.Join(lines, "\n")
 }
 
-func (m model) doesLegendLeaveARow(legend string, above []string) bool {
-	if m.height <= 0 {
+func (m *model) doesLegendLeaveARow(legend string, above []string) bool {
+	if m.term.height <= 0 {
 		return true
 	}
 
@@ -120,7 +120,7 @@ func (m model) doesLegendLeaveARow(legend string, above []string) bool {
 
 // refusedExpansion re-labels the legend's own key for the short form drawn in place of an
 // expansion there was no room for.
-func (m model) refusedExpansion(bindings []key.Binding) []key.Binding {
+func (m *model) refusedExpansion(bindings []key.Binding) []key.Binding {
 	out := slices.Clone(bindings)
 	for i, b := range out {
 		if slices.Equal(b.Keys(), m.keys.Help.Toggle) {
@@ -195,7 +195,7 @@ func headLabel(keys []string) string {
 	return keyLabel(keys[:1])
 }
 
-func (m model) moveBinding() key.Binding {
+func (m *model) moveBinding() key.Binding {
 	keys := slices.Concat(m.keys.Nav.Up, m.keys.Nav.Down)
 
 	return key.NewBinding(
@@ -222,7 +222,7 @@ func filterHelp(mode filterMode) keyMap {
 	return keyMap{short: []key.Binding{done, flip, drop}, full: []key.Binding{done, flip, drop}}
 }
 
-func (m model) helpBinding() key.Binding {
+func (m *model) helpBinding() key.Binding {
 	desc := "show help"
 	if m.helpExpanded {
 		desc = "hide help"
@@ -231,11 +231,11 @@ func (m model) helpBinding() key.Binding {
 	return binding(m.keys.Help.Toggle, desc)
 }
 
-func (m model) menuBinding() key.Binding {
+func (m *model) menuBinding() key.Binding {
 	return binding(m.keys.Menu.Open, "menu")
 }
 
-func (m model) globalHelp() []key.Binding {
+func (m *model) globalHelp() []key.Binding {
 	if !m.screen.picksViews() {
 		return []key.Binding{m.menuBinding(), m.helpBinding()}
 	}
@@ -244,7 +244,7 @@ func (m model) globalHelp() []key.Binding {
 }
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
-func (m model) fullGlobalHelp() []key.Binding {
+func (m *model) fullGlobalHelp() []key.Binding {
 	full := m.globalHelp()
 	if m.screen.picksViews() {
 		full = append(full, binding(m.keys.Views.Previous, "previous view"))

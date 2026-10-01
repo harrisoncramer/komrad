@@ -130,12 +130,12 @@ func (m *model) holdReveal(guest layout.Guest, harnessID string, focus bool, wri
 
 // applyWarmupTick shows the pane a write is holding the stage for once it is warm, and otherwise
 // stages the selection again so a cursor sitting on a pane that has just come up catches it.
-func (m model) applyWarmupTick() (model, tea.Cmd) {
+func (m *model) applyWarmupTick() tea.Cmd {
 	m.warm.polling = false
 
 	if pane := m.warm.pending; pane != "" {
 		if !m.isPaneWarm(pane, m.warm.pendingHarness) {
-			return m, nil
+			return nil
 		}
 
 		guest := layout.Guest{Agent: m.warm.pendingAgent, Pane: pane}
@@ -157,17 +157,17 @@ func (m model) applyWarmupTick() (model, tea.Cmd) {
 		m.stageSelection()
 	}
 
-	return m, nil
+	return nil
 }
 
 // selectedAgentPane is the pane of the row the cursor is standing on, empty when that row has
 // none to give the stage.
-func (m model) selectedAgentPane() (pane, harnessID string) {
+func (m *model) selectedAgentPane() (pane, harnessID string) {
 	if m.screen != screenAgents {
 		return "", ""
 	}
 
-	item, ok := m.agents.hoveredPane(&m)
+	item, ok := m.agents.hoveredPane(m)
 	if !ok {
 		return "", ""
 	}
@@ -177,18 +177,15 @@ func (m model) selectedAgentPane() (pane, harnessID string) {
 
 // revealCreated gives an agent its pane and takes down the form that made it in one
 // change, so the panel is never drawn across the whole window between the two.
-func (m model) revealCreated(guest layout.Guest, focus bool) (model, tea.Cmd) {
+func (m *model) revealCreated(guest layout.Guest, focus bool) tea.Cmd {
 	m.frame.Begin()
 
 	var cmd tea.Cmd
 	if m.warm.closesForm {
 		m.warm.closesForm = false
-		m.held = heldWrite{}
+		m.writes.held = heldWrite{}
 
-		closed, closing := m.closeForm()
-		if next, ok := closed.(model); ok {
-			m = next
-		}
+		closing := m.closeForm()
 
 		cmd = closing
 	}
@@ -202,7 +199,7 @@ func (m model) revealCreated(guest layout.Guest, focus bool) (model, tea.Cmd) {
 		m.tmux.SelectPane(guest.Pane)
 	}
 
-	return m, cmd
+	return cmd
 }
 
 // poll keeps a tick going while a pane is still being waited on.

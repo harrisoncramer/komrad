@@ -68,32 +68,30 @@ type messagesFlashDoneMsg struct {
 }
 
 // pulseMessages blinks the summary when the stack has grown since the count it is given.
-func (m model) pulseMessages(before int) (model, tea.Cmd) {
+func (m *model) pulseMessages(before int) tea.Cmd {
 	if m.messages.landed == before {
-		return m, nil
+		return nil
 	}
 
 	m.messages.flashing = true
 	landed := m.messages.landed
 	done := startTimer(messagesFlashFor, func(time.Time) tea.Msg { return messagesFlashDoneMsg{landed: landed} })
 
-	return m, tea.Batch(m.startPulse(&m.messages.pulse, messagesPulseBlinks), done)
+	return tea.Batch(m.startPulse(&m.messages.pulse, messagesPulseBlinks), done)
 }
 
-func (m model) endMessagesFlash(msg messagesFlashDoneMsg) model {
+func (m *model) endMessagesFlash(msg messagesFlashDoneMsg) {
 	if msg.landed == m.messages.landed {
 		m.messages.flashing = false
 	}
-
-	return m
 }
 
 // isMessagesPulseOn reports whether the newest message is in the lit half of a blink.
-func (m model) isMessagesPulseOn() bool {
+func (m *model) isMessagesPulseOn() bool {
 	return m.messages.pulse.isLit()
 }
 
-func (m model) drawMessagesFlash(width int) (string, bool) {
+func (m *model) drawMessagesFlash(width int) (string, bool) {
 	if !m.messages.flashing || len(m.messages.items) == 0 || width < 3 {
 		return "", false
 	}
@@ -107,7 +105,7 @@ func (m model) drawMessagesFlash(width int) (string, bool) {
 	return paint.Panel.Style(kindTone(held.kind)).Render(kindIcon(m.glyphs, held.kind)) + " " + words.Render(paint.Clip(held.summary, width-2)), true
 }
 
-func (m model) drawMessagesTally() string {
+func (m *model) drawMessagesTally() string {
 	worst, count := messageInfo, 0
 	for _, held := range m.messages.items {
 		if held.kind < messageWarning {
@@ -131,7 +129,7 @@ func buildMessagesColumn() columnSpec {
 	return columnSpec{floor: columnFloor}
 }
 
-func (m model) buildMessagesWindow(width, rows int) docWindow {
+func (m *model) buildMessagesWindow(width, rows int) docWindow {
 	body := max(width-messagesBodyIndent, 1)
 	count := len(m.messages.items)
 	at := m.messages.clampedCursor()
@@ -166,7 +164,7 @@ func (m model) buildMessagesWindow(width, rows int) docWindow {
 	return doc
 }
 
-func (m model) drawMessagesHeading(width, count, at int) string {
+func (m *model) drawMessagesHeading(width, count, at int) string {
 	title := paint.Panel.Header().Render("messages")
 	if count == 0 {
 		return title
@@ -178,7 +176,7 @@ func (m model) drawMessagesHeading(width, count, at int) string {
 	return title + strings.Repeat(" ", pad) + dimStyle().Render(tally)
 }
 
-func (m model) drawMessageRows(at, width int) []string {
+func (m *model) drawMessageRows(at, width int) []string {
 	held := m.messages.items[at]
 	hovered := at == m.messages.clampedCursor()
 	summary := lipgloss.NewStyle()
@@ -229,7 +227,7 @@ func (m model) drawMessageRows(at, width int) []string {
 }
 
 // messagesCursorPrefix is the gutter the cursor stands in, which is the record's.
-func (m model) messagesCursorPrefix(hovered bool) string {
+func (m *model) messagesCursorPrefix(hovered bool) string {
 	if !hovered {
 		return strings.Repeat(" ", messagesIndent)
 	}
@@ -252,15 +250,15 @@ func formatMessageText(held message) string {
 
 // copyMessage puts the message under the cursor on the clipboard, flashing it the way the
 // record flashes a field it has copied.
-func (m model) copyMessage() (tea.Model, tea.Cmd) {
+func (m *model) copyMessage() tea.Cmd {
 	if len(m.messages.items) == 0 {
-		return m, nil
+		return nil
 	}
 
 	at := m.messages.clampedCursor()
 	m.messages.flashed = at + 1
 
-	return m, tea.Batch(m.copyCmd(formatMessageText(m.messages.items[at])), flashRevertTick())
+	return tea.Batch(m.copyCmd(formatMessageText(m.messages.items[at])), flashRevertTick())
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
@@ -303,18 +301,18 @@ func (s messagesState) clampedCursor() int {
 	return cursor.Clamp(s.cursor, len(s.items))
 }
 
-func (m model) canReadMessages() bool {
+func (m *model) canReadMessages() bool {
 	return !m.active().takesEveryKey()
 }
 
-func (m model) isMessagesFocused() bool {
+func (m *model) isMessagesFocused() bool {
 	return m.messages.focused && m.canReadMessages()
 }
 
 // toggleMessagesFocus opens the messages in the main pane, and closes them again.
-func (m model) toggleMessagesFocus() model {
+func (m *model) toggleMessagesFocus() {
 	if !m.messages.focused && len(m.messages.items) == 0 {
-		return m
+		return
 	}
 
 	entering := !m.messages.focused
@@ -332,22 +330,28 @@ func (m model) toggleMessagesFocus() model {
 
 	m.reconcileSolo()
 	m.restageScreen()
-
-	return m
 }
 
-func (m model) updateMessages(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateMessages(key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
 	switch {
 	case isBound(k, m.keys.Messages.Open), k == "esc":
-		return m.toggleMessagesFocus(), nil
+		m.toggleMessagesFocus()
+
+		return nil
 	case isBound(k, m.keys.Messages.Dismiss):
-		return m.dismissMessage(), nil
+		m.dismissMessage()
+
+		return nil
 	case isBound(k, m.keys.Messages.DismissAll):
-		return m.dismissAllMessages(), nil
+		m.dismissAllMessages()
+
+		return nil
 	case k == messagesMockKey:
-		return m.pushMockMessage(), nil
+		m.pushMockMessage()
+
+		return nil
 	case isBound(k, m.keys.Details.Copy):
 		return m.copyMessage()
 	case isBound(k, m.keys.Nav.Up):
@@ -360,14 +364,16 @@ func (m model) updateMessages(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.messages.cursor = len(m.messages.items) - 1
 	}
 
-	return m, nil
+	return nil
 }
 
 // dismissMessage drops the message on screen and lands on the one behind it, handing the keys
 // back to the list once the stack is empty.
-func (m model) dismissMessage() model {
+func (m *model) dismissMessage() {
 	if len(m.messages.items) == 0 {
-		return m.toggleMessagesFocus()
+		m.toggleMessagesFocus()
+
+		return
 	}
 
 	at := m.messages.clampedCursor()
@@ -378,29 +384,25 @@ func (m model) dismissMessage() model {
 	m.messages.cursor = cursor.Clamp(at, len(m.messages.items))
 
 	if len(m.messages.items) == 0 {
-		return m.toggleMessagesFocus()
+		m.toggleMessagesFocus()
 	}
-
-	return m
 }
 
-func (m model) dismissAllMessages() model {
+func (m *model) dismissAllMessages() {
 	m.messages.items = nil
 	m.messages.cursor = 0
 	m.messages.flashing = false
 
-	return m.toggleMessagesFocus()
+	m.toggleMessagesFocus()
 }
 
 // pushMockMessage pushes a message from the fixtures.
-func (m model) pushMockMessage() model {
+func (m *model) pushMockMessage() {
 	m.pushMessage(mockMessages[len(m.messages.items)%len(mockMessages)])
 	m.restageScreen()
-
-	return m
 }
 
-func (m model) messagesHelp() keyMap {
+func (m *model) messagesHelp() keyMap {
 	copyMessage := binding(m.keys.Details.Copy, "copy")
 	dismiss := binding(m.keys.Messages.Dismiss, "dismiss")
 	dismissAll := binding(m.keys.Messages.DismissAll, "dismiss all")
@@ -413,7 +415,7 @@ func (m model) messagesHelp() keyMap {
 }
 
 // messagesBinding is the messages key as the legend names it.
-func (m model) messagesBinding() key.Binding {
+func (m *model) messagesBinding() key.Binding {
 	desc := "messages"
 	if m.isMessagesFocused() {
 		desc = "back to the list"

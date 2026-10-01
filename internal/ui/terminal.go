@@ -43,11 +43,11 @@ func remoteTerminalContent(argv []string) layout.Content {
 
 // openTerminal puts a shell in the pane below the stage, rooted at the agent's directory, and
 // hands the keyboard to the shell already there when it is rooted in the same place.
-func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
-	focus := func() (tea.Model, tea.Cmd) {
+func (m *model) openTerminal(agent panel.Agent) tea.Cmd {
+	focus := func() tea.Cmd {
 		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
-		return m, nil
+		return nil
 	}
 
 	up := m.terminalDir != "" && m.frame.IsOpen(layout.RegionInfo)
@@ -66,18 +66,18 @@ func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
 			return focus()
 		}
 
-		return m, nil
+		return nil
 	}
 
 	if !m.claimTerminal(agent.Cwd) {
-		return m, nil
+		return nil
 	}
 	m.stageTerminal()
 
 	return focus()
 }
 
-func (m model) checkTerminalDir(dir string) error {
+func (m *model) checkTerminalDir(dir string) error {
 	if dir == "" {
 		return errNoAgentDir
 	}
@@ -113,12 +113,10 @@ func (m *model) claimTerminal(dir string) bool {
 	return true
 }
 
-func (m model) closeTerminal() model {
+func (m *model) closeTerminal() {
 	m.frame.Close(layout.RegionInfo)
 	m.forgetTerminal()
 	m.restageScreen()
-
-	return m
 }
 
 func (m *model) forgetTerminal() {
@@ -151,7 +149,7 @@ func (m *model) reconcileTerminal() {
 }
 
 // findTerminalPane is the shell the picker stops at, empty while none is open.
-func (m model) findTerminalPane() string {
+func (m *model) findTerminalPane() string {
 	if m.frame == nil || m.terminalDir == "" {
 		return ""
 	}
@@ -165,5 +163,5 @@ func (m *model) closeTerminalLeaving(next screen) {
 		return
 	}
 
-	*m = m.closeTerminal()
+	m.closeTerminal()
 }

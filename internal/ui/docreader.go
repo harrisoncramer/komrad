@@ -35,7 +35,7 @@ type docKeyed interface {
 }
 
 // isDocReadable reports whether the block beside the list is a document the panel walks itself.
-func (m model) isDocReadable() bool {
+func (m *model) isDocReadable() bool {
 	if m.isMessagesFocused() {
 		return false
 	}
@@ -51,13 +51,13 @@ func (m model) isDocReadable() bool {
 }
 
 // isDocFocused reports whether the document beside the list holds the keys.
-func (m model) isDocFocused() bool {
+func (m *model) isDocFocused() bool {
 	return m.reading.focused && m.isDocReadable() && m.isListFocused()
 }
 
 // docHead is the rows over the document while it holds the keys or a search: the search and what
 // the last key said.
-func (m model) docHead(rows []string, width int) []string {
+func (m *model) docHead(rows []string, width int) []string {
 	r := m.reading
 	if !m.isDocFocused() && !r.filter.typing && !r.filter.isStanding() {
 		return nil
@@ -73,7 +73,7 @@ func (m model) docHead(rows []string, width int) []string {
 
 // docBlock is the document at the width of the block beside the list, under the search over it,
 // from where the reader has moved to.
-func (m model) docBlock(split columnSplit) []string {
+func (m *model) docBlock(split columnSplit) []string {
 	rows := m.columnRows(split)
 	head := m.docHead(rows, split.column)
 	height := max(split.rows-len(head), 1)
@@ -102,7 +102,7 @@ func (m model) docBlock(split columnSplit) []string {
 
 // docLayout is the document rendered for the block beside the list, and the rows of the window
 // under the search.
-func (m model) docLayout() ([]string, int, bool) {
+func (m *model) docLayout() ([]string, int, bool) {
 	split, ok := m.screenColumnSplit()
 	if !ok || !m.isDocReadable() {
 		return nil, 0, false
@@ -163,7 +163,7 @@ func (m *model) scrollDoc(delta int) {
 
 // dropStaleDoc forgets where the reader stood once the block shows another row, and hands the
 // keys back from a document the block no longer draws.
-func (m model) dropStaleDoc() model {
+func (m *model) dropStaleDoc() {
 	if shown := m.docShown(); m.reading.shown != shown {
 		m.reading = docReader{shown: shown, tail: m.isScreenShown()}
 	}
@@ -171,38 +171,36 @@ func (m model) dropStaleDoc() model {
 	if m.reading.focused && !m.isDocReadable() {
 		m.reading.focused = false
 	}
-
-	return m
 }
 
 // updateDocFilter is the search prompt over the document taking keys, moving to the first match
 // from where it opened as the pattern grows.
-func (m model) updateDocFilter(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateDocFilter(key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
-		return m, m.hide()
+		return m.hide()
 	}
 
 	r := &m.reading
 	if !r.filter.takeKey(key, m.register) {
-		return m, nil
+		return nil
 	}
 
 	if !r.filter.isStanding() {
 		m.moveDocTo(r.origin)
 
-		return m, nil
+		return nil
 	}
 
 	rows, _, ok := m.docLayout()
 	if !ok {
-		return m, nil
+		return nil
 	}
 
 	if line, found := reader.From(reader.Matches(r.filter.pattern, rows), r.origin); found {
 		m.moveDocTo(line)
 	}
 
-	return m, nil
+	return nil
 }
 
 // jumpDocMatch steps to the next or previous row the search found, wrapping at the ends.
@@ -229,28 +227,24 @@ func (m *model) jumpDocMatch(pressed string) {
 
 // updateDoc is the document taking the keys, handing what it does not answer to the screen's own
 // keys on it.
-func (m model) updateDoc(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 	m.reading.said = ""
 
 	k := key.String()
 	if _, ok := m.active().(detailed); ok && isBound(k, m.quitKeys()) {
-		return m, m.hide()
+		return m.hide()
 	}
 
 	own := m.docActions()
 	if slices.ContainsFunc(own.table, func(a screenAction) bool { return isBound(k, a.keys(m.keys)) }) {
-		cmd := own.dispatch(&m, k)
-
-		return m, cmd
+		return own.dispatch(m, k)
 	}
 
 	if keyed, ok := m.active().(docKeyed); ok {
-		cmd := keyed.docKeys().dispatch(&m, k)
-
-		return m, cmd
+		return keyed.docKeys().dispatch(m, k)
 	}
 
-	return m, nil
+	return nil
 }
 
 // docActions is the keys on the document beside the list once the picker has handed them to it.
@@ -365,10 +359,10 @@ func (m *model) docActions() screenActionSpec {
 }
 
 // docHelp is the legend while the document beside the list holds the keys.
-func (m model) docHelp() keyMap {
-	own := m.docActions().help(&m)
+func (m *model) docHelp() keyMap {
+	own := m.docActions().help(m)
 	if keyed, ok := m.active().(docKeyed); ok {
-		screen := keyed.docKeys().help(&m)
+		screen := keyed.docKeys().help(m)
 		own = keyMap{
 			short: slices.Concat(own.short, screen.short),
 			full:  slices.Concat(own.full, screen.full),
@@ -382,6 +376,6 @@ func (m model) docHelp() keyMap {
 }
 
 // isAlwaysRead is the read of a block that is a document whatever the screen is showing.
-func isAlwaysRead(model) bool {
+func isAlwaysRead(*model) bool {
 	return true
 }

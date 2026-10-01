@@ -45,31 +45,31 @@ type pickerFrozenMsg struct {
 }
 
 // routePicker answers every key while the picker holds the window.
-func (m model) routePicker(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+func (m *model) routePicker(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	if !m.picker.isActive() {
-		return m, nil, false
+		return nil, false
 	}
 
 	if m.picker.freezing {
-		return m, nil, true
+		return nil, true
 	}
 
 	pressed := key.String()
 	if pressed == "esc" || pressed == "q" {
-		return m.thaw(), nil, true
+		m.thaw()
+
+		return nil, true
 	}
 
 	at := slices.IndexFunc(m.picker.targets, func(t pickTarget) bool { return t.letter == pressed })
 	if at < 0 {
-		return m, nil, true
+		return nil, true
 	}
 
-	next, cmd := m.land(m.picker.targets[at])
-
-	return next, cmd, true
+	return m.land(m.picker.targets[at]), true
 }
 
-func (m model) freeze() (tea.Model, tea.Cmd) {
+func (m *model) freeze() tea.Cmd {
 	m.picker = pickerState{freezing: true}
 
 	blocks := m.findSidebarBlocks()
@@ -78,7 +78,7 @@ func (m model) freeze() (tea.Model, tea.Cmd) {
 	palette := paint.Panel
 	labelEnd := m.findModeEnd()
 
-	return m, func() tea.Msg {
+	return func() tea.Msg {
 		returnTo := tmux.GetActivePane(sidebar)
 		shown := tmux.GetShownPanes(sidebar)
 
@@ -151,15 +151,15 @@ func findPickTargets(shown []panes.Rect, sidebar string, blocks []sidebarBlock) 
 	return targets
 }
 
-func (m model) applyFreeze(msg pickerFrozenMsg) model {
+func (m *model) applyFreeze(msg pickerFrozenMsg) {
 	if !m.picker.freezing {
-		return m
+		return
 	}
 
 	if msg.frozen == "" {
 		m.picker = pickerState{}
 
-		return m
+		return
 	}
 
 	m.picker = pickerState{
@@ -168,40 +168,34 @@ func (m model) applyFreeze(msg pickerFrozenMsg) model {
 		targets:  msg.targets,
 	}
 	m.frame.Freeze()
-
-	return m
 }
 
-func (m model) thaw() model {
+func (m *model) thaw() {
 	returnTo := m.picker.returnTo
-	m = m.unfreeze()
+	m.unfreeze()
 
 	if returnTo != "" && returnTo != m.settings.Pane {
 		m.tmux.SelectPane(returnTo)
 	}
-
-	return m
 }
 
 // land thaws the window and hands the keys to a target.
-func (m model) land(target pickTarget) (tea.Model, tea.Cmd) {
-	m = m.unfreeze()
+func (m *model) land(target pickTarget) tea.Cmd {
+	m.unfreeze()
 
 	if target.pane != "" {
 		m.tmux.SelectPane(target.pane)
-		m.keysElsewhere = target.pane != m.settings.Pane
+		m.term.keysElsewhere = target.pane != m.settings.Pane
 
-		return m, nil
+		return nil
 	}
 
-	m.keysElsewhere = false
+	m.term.keysElsewhere = false
 
 	return m.enterStop(target.stop)
 }
 
-func (m model) unfreeze() model {
+func (m *model) unfreeze() {
 	m.picker = pickerState{}
 	m.frame.Thaw()
-
-	return m
 }

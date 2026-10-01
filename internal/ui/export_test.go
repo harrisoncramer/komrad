@@ -224,10 +224,7 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 		p.tmux.panelSize = size
 	}
 
-	next, cmd := p.model.Update(msg)
-	if updated, ok := next.(model); ok {
-		p.model = updated
-	}
+	_, cmd := p.model.Update(msg)
 
 	size := p.post.takePending()
 	if size == nil {
@@ -237,7 +234,7 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 	read := func() tea.Msg {
 		return sizeReadMsg{size: *size}
 	}
-	if size.Width == p.model.paneCols && size.Height == p.model.height {
+	if size.Width == p.model.term.paneCols && size.Height == p.model.term.height {
 		return tea.Batch(cmd, read)
 	}
 
@@ -259,7 +256,7 @@ const SidebarCols = config.DefaultSidebarWidth - dividerCols
 // Inside is the columns left of the frame the panel draws inside its gutter and edge, and how wide
 // that frame is.
 func (p *Panel) Inside() (int, int) {
-	return p.model.countInsetLeft(), p.model.width
+	return p.model.countInsetLeft(), p.model.term.width
 }
 
 // NewKeyPress is the press bubbletea delivers for a key as a binding spells it.
@@ -513,14 +510,16 @@ func (p *Panel) IsKeyTaken(key string) bool {
 		keyProbe = nil
 	}()
 
-	p.model.route(keyMsg(key))
+	probe := p.model
+	probe.route(keyMsg(key))
 
 	return isTaken
 }
 
 // IsGlobalKey reports whether the router answers a press of the key ahead of the screen that is up.
 func (p *Panel) IsGlobalKey(key string) bool {
-	_, _, isTaken := p.model.routeGlobalKey(keyMsg(key))
+	probe := p.model
+	_, isTaken := probe.routeGlobalKey(keyMsg(key))
 
 	return isTaken
 }
@@ -602,7 +601,7 @@ func (p *Panel) SetHostPath(path string) {
 
 // ExpireLanding runs out the wait a write's landing holds the cursor for.
 func (p *Panel) ExpireLanding() {
-	p.model.landing.until = time.Time{}
+	p.model.writes.landing.until = time.Time{}
 }
 
 // AgeWorktreeReads makes every directory read the panel holds older by the given time.

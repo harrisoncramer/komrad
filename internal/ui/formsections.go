@@ -21,14 +21,14 @@ type sectionedForm struct {
 	kind  formKind
 	title string
 	// top is the fields drawn above the list of sections.
-	top         func(m model) []huh.Field
+	top         func(m *model) []huh.Field
 	topEditable []editableText
 	// reshaped reports whether an answer on the top form has changed which sections are off.
 	reshaped func() bool
 	sections []formSection
 	// choice is the section the list's cursor is on.
 	choice *string
-	submit func(model) (tea.Model, tea.Cmd)
+	submit func(*model) tea.Cmd
 }
 
 // formSection is one section of a sectioned form.
@@ -37,7 +37,7 @@ type formSection struct {
 	title string
 	// isOff says the section has nothing to ask, nil for never.
 	isOff    func() bool
-	fields   func(m model) []huh.Field
+	fields   func(m *model) []huh.Field
 	editable []editableText
 }
 
@@ -53,7 +53,7 @@ func (s sectionedForm) topState() formState {
 	}
 }
 
-func (s sectionedForm) buildTop(m model) (*huh.Form, []string) {
+func (s sectionedForm) buildTop(m *model) (*huh.Form, []string) {
 	return formOf(formKeys(), append(s.top(m), s.sectionsField())...)
 }
 
@@ -73,7 +73,7 @@ func (s sectionedForm) sectionsField() huh.Field {
 }
 
 // updateTop opens the section under the cursor on enter, and hands every other message to the form.
-func (s sectionedForm) updateTop(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func (s sectionedForm) updateTop(m *model, msg tea.Msg) tea.Cmd {
 	press, ok := msg.(tea.KeyPressMsg)
 	if !ok || press.String() != "enter" {
 		return m.updateForm(msg)
@@ -86,21 +86,19 @@ func (s sectionedForm) updateTop(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	index := slices.IndexFunc(s.sections, func(section formSection) bool { return section.key == *s.choice })
 	if index < 0 || s.sections[index].off() {
-		return m, nil
+		return nil
 	}
 
-	cmd := m.openForm(s.sectionState(s.sections[index], drawnGray(m.form.form)))
-
-	return m, cmd
+	return m.openForm(s.sectionState(s.sections[index], drawnGray(m.form.form)))
 }
 
 func (s sectionedForm) sectionState(section formSection, top []string) formState {
 	return formState{
 		kind:           s.kind,
 		keepsOnRefusal: true,
-		update:         model.updateForm,
+		update:         (*model).updateForm,
 		submit:         s.submit,
-		rebuild: func(m model) (*huh.Form, []string) {
+		rebuild: func(m *model) (*huh.Form, []string) {
 			return formOf(formKeys(), section.fields(m)...)
 		},
 		editable: section.editable,
@@ -112,10 +110,10 @@ func (s sectionedForm) sectionState(section formSection, top []string) formState
 }
 
 // backToTop closes the open section and puts the cursor back on the list of sections.
-func (s sectionedForm) backToTop(m model) (tea.Model, tea.Cmd) {
+func (s sectionedForm) backToTop(m *model) tea.Cmd {
 	cmd := m.openForm(s.topState())
 
-	return m, tea.Batch(append([]tea.Cmd{cmd}, m.focusFieldCmds(sectionsKey)...)...)
+	return tea.Batch(append([]tea.Cmd{cmd}, m.focusFieldCmds(sectionsKey)...)...)
 }
 
 func (f formSection) off() bool {

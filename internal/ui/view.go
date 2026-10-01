@@ -15,7 +15,7 @@ import (
 )
 
 // View is the frame, under the terminal modes the panel runs in.
-func (m model) View() tea.View {
+func (m *model) View() tea.View {
 	view := tea.NewView(m.render())
 	view.AltScreen = true
 	view.ReportFocus = true
@@ -25,7 +25,7 @@ func (m model) View() tea.View {
 }
 
 // render renders the active screen inside its gutters.
-func (m model) render() string {
+func (m *model) render() string {
 	if m.configErr != nil || m.startupErr != nil {
 		return m.drawInset(m.insideView())
 	}
@@ -34,27 +34,27 @@ func (m model) render() string {
 		return m.fitFrame(m.picker.frozen)
 	}
 
-	if m.isAwaitingSize() && m.drawn != nil && m.drawn.text != "" {
-		return m.drawn.text
+	if m.isAwaitingSize() && m.term.drawn != nil && m.term.drawn.text != "" {
+		return m.term.drawn.text
 	}
 
 	drawn := m.drawInMode(m.findMode())
 
-	if m.drawn != nil {
-		m.drawn.text = drawn
+	if m.term.drawn != nil {
+		m.term.drawn.text = drawn
 	}
 
 	return drawn
 }
 
 // insideView is the frame the gutters surround, taking the failures in the order they happen.
-func (m model) insideView() string {
+func (m *model) insideView() string {
 	if m.configErr != nil {
-		return errui.RenderConfigError(m.width, m.configErr)
+		return errui.RenderConfigError(m.term.width, m.configErr)
 	}
 
 	if m.startupErr != nil {
-		return errui.RenderStartupError(m.width, m.startupErr, m.startupFindings)
+		return errui.RenderStartupError(m.term.width, m.startupErr, m.startupFindings)
 	}
 
 	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
@@ -62,27 +62,27 @@ func (m model) insideView() string {
 
 // fitFrame pads the panel out to the height of its pane, so a shorter frame covers the rows the
 // one before it left behind.
-func (m model) fitFrame(view string) string {
-	if m.height <= 0 || m.width <= 0 {
+func (m *model) fitFrame(view string) string {
+	if m.term.height <= 0 || m.term.width <= 0 {
 		return view
 	}
 
 	rows := strings.Count(view, "\n") + 1
-	if rows >= m.height {
+	if rows >= m.term.height {
 		return view
 	}
 
 	// Spaces rather than empty rows.
-	blank := strings.Repeat(" ", m.width)
+	blank := strings.Repeat(" ", m.term.width)
 
-	return view + strings.Repeat("\n"+blank, m.height-rows)
+	return view + strings.Repeat("\n"+blank, m.term.height-rows)
 }
 
 // gutter is the blank cells left of what the panel draws.
 const gutter = 1
 
 // countInsetCols is the columns the gutter and the divider beside the stage take from the panel.
-func (m model) countInsetCols() int {
+func (m *model) countInsetCols() int {
 	if m.frame.IsSolo() {
 		return gutter
 	}
@@ -91,7 +91,7 @@ func (m model) countInsetCols() int {
 }
 
 // countSidebarChrome is the columns the gutter and the divider take from a sidebar beside the stage.
-func (m model) countSidebarChrome() int {
+func (m *model) countSidebarChrome() int {
 	if m.frame.IsSidebarOnRight() {
 		return gutter + 1
 	}
@@ -100,7 +100,7 @@ func (m model) countSidebarChrome() int {
 }
 
 // countInsetLeft is the columns between the left edge of the pane and what the panel draws.
-func (m model) countInsetLeft() int {
+func (m *model) countInsetLeft() int {
 	if !m.frame.IsSolo() && m.frame.IsSidebarOnRight() {
 		return gutter + 1
 	}
@@ -109,8 +109,8 @@ func (m model) countInsetLeft() int {
 }
 
 // drawInset puts the gutter left of the frame, and the divider on the side facing the stage.
-func (m model) drawInset(view string) string {
-	if m.width <= 0 {
+func (m *model) drawInset(view string) string {
+	if m.term.width <= 0 {
 		return view
 	}
 
@@ -120,8 +120,8 @@ func (m model) drawInset(view string) string {
 
 	lines := strings.Split(view, "\n")
 	for i, line := range lines {
-		line = ansi.Truncate(line, m.width, "")
-		line += strings.Repeat(" ", max(0, m.width-ansi.StringWidth(line)))
+		line = ansi.Truncate(line, m.term.width, "")
+		line += strings.Repeat(" ", max(0, m.term.width-ansi.StringWidth(line)))
 
 		left, right := pad, ""
 		switch {
@@ -155,14 +155,14 @@ func drawEdgeRow(rule, facingLeft bool) string {
 	return dimStyle().Render(strings.Repeat(glyph.Rule, gutter) + glyph.TeeRight)
 }
 
-func (m model) screenView() string {
+func (m *model) screenView() string {
 	if !m.form.isActive() && !m.isMessagesFocused() {
-		return m.active().view(&m)
+		return m.active().view(m)
 	}
 
 	split, ok := m.columnSplit()
 	if !ok && m.isMessagesFocused() {
-		return m.buildMessagesWindow(m.width, m.height).view(m.height)
+		return m.buildMessagesWindow(m.term.width, m.term.height).view(m.term.height)
 	}
 	if !ok {
 		return m.heldFormView()
@@ -173,17 +173,17 @@ func (m model) screenView() string {
 	held := m.measuredAt(split.sidebar)
 
 	if m.isMessagesFocused() {
-		return m.joinColumns(split, held.active().view(&held), m.docColumnView(split))
+		return m.joinColumns(split, held.active().view(held), m.docColumnView(split))
 	}
 
 	// The list is drawn beside the form as the context the form was opened from, and takes none of
 	// the keys while it is there.
-	return m.joinColumns(split, held.active().view(&held), m.heldFormView())
+	return m.joinColumns(split, held.active().view(held), m.heldFormView())
 }
 
 // heldFormView is the form with the submitting notice under it, a row the form gives up rather
 // than one taken off the top of the panel.
-func (m model) heldFormView() string {
+func (m *model) heldFormView() string {
 	view := m.form.form.View()
 	if m.form.form.State == huh.StateCompleted {
 		view = m.form.frozen

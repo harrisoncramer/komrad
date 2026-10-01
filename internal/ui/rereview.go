@@ -41,11 +41,11 @@ func rereviewRefusal(item panel.AgentRow) error {
 
 // requestRereview asks the forge to put the agent's pull request back in front of everyone who
 // asked for changes on it, or says why it cannot.
-func (m model) requestRereview(item panel.AgentRow) (model, tea.Cmd) {
+func (m *model) requestRereview(item panel.AgentRow) tea.Cmd {
 	if err := rereviewRefusal(item); err != nil {
 		m.report("Could not ask for another review of the pull request of "+item.Agent.Name, err)
 
-		return m, nil
+		return nil
 	}
 
 	clients := m.api
@@ -57,7 +57,7 @@ func (m model) requestRereview(item panel.AgentRow) (model, tea.Cmd) {
 	}
 	rereviewed.write = m.beginWrite(fmt.Sprintf("asking for another review of #%d", standing.Number))
 
-	return m, func() tea.Msg {
+	return func() tea.Msg {
 		rereviewed.err = clients.requestPullRequestRereview(standing.URL)
 
 		return rereviewed
@@ -65,7 +65,7 @@ func (m model) requestRereview(item panel.AgentRow) (model, tea.Cmd) {
 }
 
 // applyRereviewed reports the request for another review and takes down the menu held for it.
-func (m model) applyRereviewed(msg rereviewedMsg) (tea.Model, tea.Cmd) {
+func (m *model) applyRereviewed(msg rereviewedMsg) tea.Cmd {
 	held := m.landHeld(msg.write)
 
 	if msg.err != nil {
@@ -79,7 +79,7 @@ func (m model) applyRereviewed(msg rereviewedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if !held {
-		return m, nil
+		return nil
 	}
 
 	return m.closeForm()

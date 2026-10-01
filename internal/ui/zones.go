@@ -26,8 +26,8 @@ var zoneMark = regexp.MustCompile("\x1b_kz([se]):([a-z]+):([0-9]*)\x1b\\\\")
 
 // markZone wraps a block in the marks that say where it was drawn, while the panel is drawing a
 // marked frame.
-func (m model) markZone(name zone, block string, width int) string {
-	if !m.markingZones || block == "" {
+func (m *model) markZone(name zone, block string, width int) string {
+	if !m.term.markingZones || block == "" {
 		return block
 	}
 
@@ -35,8 +35,8 @@ func (m model) markZone(name zone, block string, width int) string {
 }
 
 // isMarkingZones reports whether this frame is drawn to find where its blocks landed.
-func (m model) isMarkingZones() bool {
-	return m.markingZones
+func (m *model) isMarkingZones() bool {
+	return m.term.markingZones
 }
 
 // scanZones finds where each marked zone sits in a frame, in cells from its top left.
@@ -98,13 +98,13 @@ type sidebarBlock struct {
 }
 
 // findSidebarBlocks draws the panel once with its blocks marked and reads where each one landed.
-func (m model) findSidebarBlocks() []sidebarBlock {
-	marked := m
-	marked.markingZones = true
+func (m *model) findSidebarBlocks() []sidebarBlock {
+	marked := *m
+	marked.term.markingZones = true
 
 	zones := scanZones(marked.drawInset(marked.insideView()))
 	stops := m.listStops()
-	height := m.height
+	height := m.term.height
 
 	var blocks []sidebarBlock
 
@@ -117,7 +117,7 @@ func (m model) findSidebarBlocks() []sidebarBlock {
 	list := panes.Rect{
 		Left:   0,
 		Top:    0,
-		Width:  m.width,
+		Width:  m.term.width,
 		Height: height,
 	}
 	column, hasColumn := zones[zoneColumn]
@@ -126,7 +126,7 @@ func (m model) findSidebarBlocks() []sidebarBlock {
 			list.Width = column.Left - dividerCols
 		} else {
 			list.Left = column.Left + column.Width + dividerCols
-			list.Width = m.width - list.Left
+			list.Width = m.term.width - list.Left
 		}
 	}
 

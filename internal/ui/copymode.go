@@ -19,57 +19,55 @@ type copyOpenedMsg struct {
 // toggleCopy puts a stand-in drawn as the sidebar in the sidebar's place in tmux's copy-mode, copying
 // only from the block that has the keys, or lets the window move again once the stand-in says
 // copy-mode has ended.
-func (m model) toggleCopy() (tea.Model, tea.Cmd) {
-	if m.copying {
-		return m.endCopy(), nil
+func (m *model) toggleCopy() tea.Cmd {
+	if m.term.copying {
+		m.endCopy()
+
+		return nil
 	}
 
 	if m.session == nil || m.picker.isActive() {
-		return m, nil
+		return nil
 	}
 
 	standIn := m.drawCopyLayout()
-	m.copying = true
+	m.term.copying = true
 	m.frame.Hold()
 
 	session, sidebar := m.session, m.settings.Pane
 
-	return m, func() tea.Msg {
+	return func() tea.Msg {
 		return copyOpenedMsg{err: session.OpenCopyStandIn(sidebar, standIn)}
 	}
 }
 
-func (m model) applyCopyOpened(msg copyOpenedMsg) model {
-	if msg.err == nil || !m.copying {
-		return m
+func (m *model) applyCopyOpened(msg copyOpenedMsg) {
+	if msg.err == nil || !m.term.copying {
+		return
 	}
 
-	m = m.endCopy()
+	m.endCopy()
 	m.report("Could not start visual mode", msg.err)
-
-	return m
 }
 
-func (m model) endCopy() model {
-	m.copying = false
+func (m *model) endCopy() {
+	m.term.copying = false
 	m.frame.Thaw()
-
-	return m
 }
 
 // drawCopyLayout is the sidebar as it draws itself, where the borders between its blocks fall, the
 // block holding the keys, and the cell that block's cursor is on.
-func (m model) drawCopyLayout() panes.CopyStandIn {
+func (m *model) drawCopyLayout() panes.CopyStandIn {
 	focused := m.atStop()
 
-	rect := panes.Rect{Width: m.width, Height: m.height}
+	rect := panes.Rect{Width: m.term.width, Height: m.term.height}
 	for _, block := range m.findSidebarBlocks() {
 		if block.stop == focused {
 			rect = block.rect
 		}
 	}
 
-	drawn := m
+	drawn := *m
 	drawn.rowCursor.IsBlinked = false
 	lines := strings.Split(drawn.drawInMode(paint.ToneModeVisual, visualModeLabel), "\n")
 
@@ -93,8 +91,8 @@ func (m model) drawCopyLayout() panes.CopyStandIn {
 		Col:      col,
 	}
 
-	marked := m
-	marked.markingZones = true
+	marked := *m
+	marked.term.markingZones = true
 	zones := scanZones(marked.drawInset(marked.insideView()))
 
 	if column, ok := zones[zoneColumn]; ok {

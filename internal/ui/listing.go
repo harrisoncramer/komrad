@@ -373,14 +373,14 @@ func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
 // beginWrite counts a write out under what it is doing and answers with its number, which tells
 // a landing result apart from one an earlier submit is still waiting on.
 func (m *model) beginWrite(doing string) int {
-	m.writes++
+	m.writes.count++
 
-	if m.inflight == nil {
-		m.inflight = map[int]submitting.Write{}
+	if m.writes.inflight == nil {
+		m.writes.inflight = map[int]submitting.Write{}
 	}
-	m.inflight[m.writes] = submitting.Write{Doing: doing, Since: time.Now()}
+	m.writes.inflight[m.writes.count] = submitting.Write{Doing: doing, Since: time.Now()}
 
-	return m.writes
+	return m.writes.count
 }
 
 // clients is the service a write that lands its own message is sent through.
@@ -403,17 +403,17 @@ func (w reviewPausedMsg) countedWrite() int {
 
 // landWrite counts a write back in.
 func (m *model) landWrite(write int) {
-	delete(m.inflight, write)
+	delete(m.writes.inflight, write)
 }
 
-func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
+func (m *model) applyWrite(result writeResult) tea.Cmd {
 	m.report(result.summary, result.err)
 
 	if result.renamed != "" {
-		m.agents.settleRename(&m, result.renamed, result.err)
-		m.documents.settleRename(&m, result.renamed, result.err)
-		m.archive.settleRename(&m, result.renamed, result.err)
-		m.schedules.settleRename(&m, result.renamed, result.err)
+		m.agents.settleRename(m, result.renamed, result.err)
+		m.documents.settleRename(m, result.renamed, result.err)
+		m.archive.settleRename(m, result.renamed, result.err)
+		m.schedules.settleRename(m, result.renamed, result.err)
 	}
 
 	if result.queued != nil && result.err == nil {
@@ -424,8 +424,8 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.forgetSpoken(result.released.id, result.released.files)
 	}
 
-	_, walkedAway := m.detached[result.write]
-	delete(m.detached, result.write)
+	_, walkedAway := m.writes.detached[result.write]
+	delete(m.writes.detached, result.write)
 
 	if result.written != nil && result.written.notice != nil {
 		m.pushMessage(*result.written.notice)
@@ -441,19 +441,16 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.landOn(*result.written, time.Now())
 
 		if result.written.pane != "" {
-			left = tea.Batch(left, m.agents.closeEdit(&m))
+			left = tea.Batch(left, m.agents.closeEdit(m))
 			m.dropScratch()
 			guest := layout.Guest{Agent: result.written.agent, Pane: result.written.pane}
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
 				m.frame.Begin()
 
-				if m.held.owns(result.write) {
-					m.held = heldWrite{}
+				if m.writes.held.owns(result.write) {
+					m.writes.held = heldWrite{}
 
-					closed, closing := m.closeForm()
-					if next, ok := closed.(model); ok {
-						m = next
-					}
+					closing := m.closeForm()
 
 					left = tea.Batch(left, closing)
 				}
@@ -475,21 +472,19 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.landWrite(result.write)
 	}
 
-	if m.held.owns(result.write) {
+	if m.writes.held.owns(result.write) {
 		// A form taken down now would leave the panel drawn over the whole window until the pane
 		// it made turns up, so it is left standing and closed by the reveal instead.
 		if result.err == nil && m.warm.pendingWrite == result.write {
 			m.warm.closesForm = true
 
-			return m, left
+			return left
 		}
 
-		m.held = heldWrite{}
+		m.writes.held = heldWrite{}
 
 		if result.err == nil || !m.form.keepsOnRefusal {
-			closed, cmd := m.closeForm()
-
-			return closed, tea.Batch(left, cmd)
+			return tea.Batch(left, m.closeForm())
 		}
 
 		m.messages.setNewestHint("fix and submit again")
@@ -498,10 +493,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	// A refusal is reported into the region under the record, so the form is told to lay itself
 	// out again.
 	if m.form.isActive() {
-		return m, tea.Batch(left, formResized())
+		return tea.Batch(left, formResized())
 	}
 
-	return m, left
+	return left
 }
 
 // landingWait is how long a write's landing waits for the watch to deliver the row it made.
@@ -516,25 +511,25 @@ type landing struct {
 // landOn puts the cursor on the row a write made, or holds it for the watch to deliver.
 func (m *model) landOn(row written, now time.Time) {
 	if rowIndexOfKey(m.agents.rows(m), row.row) >= 0 {
-		m.landing = landing{}
+		m.writes.landing = landing{}
 		m.agents.apply(m, row.row)
 
 		return
 	}
 
-	m.landing = landing{row: row.row, until: now.Add(landingWait)}
+	m.writes.landing = landing{row: row.row, until: now.Add(landingWait)}
 }
 
 // isLandingHeld reports whether a write's landing is still waiting for the watch to deliver its row.
 func (m *model) isLandingHeld(now time.Time) bool {
-	return m.landing.row != "" && !now.After(m.landing.until)
+	return m.writes.landing.row != "" && !now.After(m.writes.landing.until)
 }
 
 // landedRow is the row a held landing goes to once the listing holds it, or the hovered row.
 func (m *model) landedRow(hovered string, now time.Time) string {
-	target := m.landing
+	target := m.writes.landing
 	if !m.isLandingHeld(now) {
-		m.landing = landing{}
+		m.writes.landing = landing{}
 
 		return hovered
 	}
@@ -543,7 +538,7 @@ func (m *model) landedRow(hovered string, now time.Time) string {
 		return hovered
 	}
 
-	m.landing = landing{}
+	m.writes.landing = landing{}
 
 	return target.row
 }
