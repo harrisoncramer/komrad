@@ -633,8 +633,7 @@ func (l *listing) assemble(now time.Time) {
 	l.documentTypes = documentTypesFrom(l.world.DocumentTypes)
 }
 
-// revealAgent puts the cursor on an agent's tree row, or its zone row when the tree draws none, unless
-// it is already on the agent, showing the hidden rows when it is one of them.
+// revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.
 func (a *agentsScreen) revealAgent(m *model, id string) {
 	if a.hoveredAgentID(m) == id {
 		return
@@ -646,13 +645,8 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 		}
 	}
 
-	layout := a.layout(m)
-	if idx := rowIndexOfAgentID(layout.tree, id); idx >= 0 {
-		a.cursor = len(layout.zone) + idx
-
-		return
-	}
-	if idx := rowIndexOfAgentID(layout.zone, id); idx >= 0 {
+	rows := a.rows(m)
+	if idx := rowIndexOfKey(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
 		a.cursor = idx
 	}
 }
