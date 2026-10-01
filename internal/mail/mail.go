@@ -282,7 +282,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	}
 
 	carried := carryEvents(held, params)
-	prompts, err := s.eventPromptsFor(ctx, recipient.WorkflowID, carried)
+	prompts, err := s.listEventPrompts(ctx, recipient.WorkflowID, carried)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +290,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	return s.mailReadWriter.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
 		ToAgentID: recipient.ID,
-		Body:      withEventPrompts(params.Body, prompts),
+		Body:      appendEventPrompts(params.Body, prompts),
 		Kind:      params.Kind,
 		SubjectID: params.SubjectID,
 		Events:    carried,
@@ -585,8 +585,8 @@ func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
 	return carried
 }
 
-func (s *MailService) eventPromptsFor(ctx context.Context, workflowID string, named []string) ([]eventPrompt, error) {
-	if len(named) == 0 {
+func (s *MailService) listEventPrompts(ctx context.Context, workflowID string, events []string) ([]eventPrompt, error) {
+	if len(events) == 0 {
 		return nil, nil
 	}
 
@@ -599,7 +599,7 @@ func (s *MailService) eventPromptsFor(ctx context.Context, workflowID string, na
 	}
 
 	var prompts []eventPrompt
-	for _, event := range named {
+	for _, event := range events {
 		if prompt := workflow.GetEventPrompt(event); prompt != "" {
 			prompts = append(prompts, eventPrompt{event: event, prompt: prompt})
 		}
@@ -608,7 +608,7 @@ func (s *MailService) eventPromptsFor(ctx context.Context, workflowID string, na
 	return prompts, nil
 }
 
-func withEventPrompts(body string, prompts []eventPrompt) string {
+func appendEventPrompts(body string, prompts []eventPrompt) string {
 	if len(prompts) == 0 {
 		return body
 	}
