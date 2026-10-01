@@ -167,7 +167,10 @@ func (p Palette) Mark(show bool, icon string, tone Tone) string {
 // Clip cuts text to a width, ending it in an ellipsis.
 func Clip(text string, width int) string {
 	runes := []rune(text)
-	if len(runes) <= width {
+	switch {
+	case width <= 0:
+		return ""
+	case len(runes) <= width:
 		return text
 	}
 
@@ -227,9 +230,30 @@ func (p Palette) TmuxSelection() string {
 // ClipStart cuts text to a width from its start, beginning it in an ellipsis.
 func ClipStart(text string, width int) string {
 	runes := []rune(text)
-	if len(runes) <= width {
+	switch {
+	case width <= 0:
+		return ""
+	case len(runes) <= width:
 		return text
 	}
 
 	return "…" + string(runes[len(runes)-width+1:])
+}
+
+// ClipAround cuts the text either side of a cursor to a width between them, keeping the cursor
+// in view: the start goes while the cursor is near the end, and the end goes otherwise.
+func ClipAround(before, after string, width int) (string, string) {
+	head, tail := len([]rune(before)), len([]rune(after))
+	switch {
+	case width <= 0:
+		return "", ""
+	case head+tail <= width:
+		return before, after
+	case tail < width:
+		return ClipStart(before, width-tail), after
+	}
+
+	kept := min(head, max(width/2, 1))
+
+	return ClipStart(before, kept), Clip(after, width-kept)
 }
