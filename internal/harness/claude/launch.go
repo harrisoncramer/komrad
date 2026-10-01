@@ -176,11 +176,13 @@ func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
 }
 
 func mcpConfigFileName(endpoint string) string {
-	return "komrad-mcp-" + strings.Map(func(char rune) rune {
+	safe := strings.Map(func(char rune) rune {
 		if char == '.' || char == '-' || unicode.IsLetter(char) || unicode.IsDigit(char) {
 			return char
 		}
 
 		return '-'
-	}, endpoint) + ".json"
+	}, endpoint)
+
+	return fmt.Sprintf("komrad-mcp-%s.json", safe)
 }
