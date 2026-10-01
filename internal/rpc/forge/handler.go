@@ -4,8 +4,6 @@ package forge
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/forge"
@@ -23,9 +21,8 @@ type connector interface {
 	Connect(ctx context.Context, params forge.ConnectParams) (*forgestore.Connection, error)
 	ListConnections(ctx context.Context) ([]forgestore.Connection, error)
 	Disconnect(ctx context.Context, host string) error
-	Check(ctx context.Context, connection forgestore.Connection) (string, error)
+	RecheckConnection(ctx context.Context, connection forgestore.Connection) (*forge.CheckResult, error)
 	HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error)
-	SetVerifiedAt(ctx context.Context, id string, at *time.Time) error
 	ForHost(ctx context.Context, host string) (forge.Forge, error)
 }
 
@@ -40,7 +37,6 @@ type pullRequestWriter interface {
 type Handler struct {
 	forges connector
 	writer pullRequestWriter
-	now    func() time.Time
 }
 
 // NewHandler constructs the handler over the forge service and the pull request writer.
@@ -48,7 +44,6 @@ func NewHandler(forges connector, writer pullRequestWriter) *Handler {
 	return &Handler{
 		forges: forges,
 		writer: writer,
-		now:    time.Now,
 	}
 }
 
@@ -102,32 +97,22 @@ func (s *Handler) CheckForges(ctx context.Context, _ *emptypb.Empty) (*forgev1.C
 
 	checks := make([]*forgev1.ForgeCheck, 0, len(connections))
 	for _, connection := range connections {
-		check := &forgev1.ForgeCheck{}
-		if _, err := s.forges.Check(ctx, connection); err != nil {
-			check.Problem = err.Error()
-			check.ProblemKind = problemKind(err)
-			if check.ProblemKind != ProblemUnreachable {
-				if err := s.forges.SetVerifiedAt(ctx, connection.ID, nil); err != nil {
-					return nil, rpcerr.From(err, "failed to record the refusal")
-				}
-
-				connection.VerifiedAt = nil
-			}
-		} else {
-			at := s.now()
-			if err := s.forges.SetVerifiedAt(ctx, connection.ID, &at); err != nil {
-				return nil, rpcerr.From(err, "failed to record the check")
-			}
-
-			connection.VerifiedAt = &at
+		result, err := s.forges.RecheckConnection(ctx, connection)
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to record the check")
 		}
 
-		resource, err := s.render(ctx, connection)
+		resource, err := s.render(ctx, result.Connection)
 		if err != nil {
 			return nil, rpcerr.From(err, "failed to read a connection")
 		}
 
-		check.Forge = resource
+		check := &forgev1.ForgeCheck{Forge: resource}
+		if result.Problem != nil {
+			check.Problem = result.Problem.Error()
+			check.ProblemKind = result.ProblemKind
+		}
+
 		checks = append(checks, check)
 	}
 
@@ -141,25 +126,6 @@ func (s *Handler) DisconnectForge(ctx context.Context, req *forgev1.DisconnectFo
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-// The kinds of trouble a check reports.
-const (
-	ProblemRefused      = "refused"
-	ProblemNoCredential = "no_credential"
-	ProblemUnreachable  = "unreachable"
-)
-
-// problemKind says which kind of trouble a connection is in.
-func problemKind(err error) string {
-	switch {
-	case errors.Is(err, forge.ErrNoCredential):
-		return ProblemNoCredential
-	case errors.Is(err, forge.ErrUnauthorized), errors.Is(err, forge.ErrAppReachesNothing):
-		return ProblemRefused
-	default:
-		return ProblemUnreachable
-	}
 }
 
 func (s *Handler) render(ctx context.Context, connection forgestore.Connection) (*forgev1.Forge, error) {

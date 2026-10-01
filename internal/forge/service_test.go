@@ -670,3 +670,94 @@ func TestCheckPassesAMintOutageThrough(t *testing.T) {
 func (f *fakeForge) ReviewThreads(context.Context, git.RemoteURL, int) (*Threads, error) {
 	return &Threads{}, nil
 }
+
+// TestRecheckConnection pins which answers of a check clear the connection's stamp and which restore it.
+func TestRecheckConnection(t *testing.T) {
+	stampedAt := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+	checkedAt := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name         string
+		verifyErr    error
+		dropToken    bool
+		stampBefore  *time.Time
+		wantKind     string
+		wantProblem  bool
+		wantVerified *time.Time
+	}{
+		{
+			name:        "a refusal clears the stamp",
+			verifyErr:   ErrUnauthorized.Saying("Bad credentials"),
+			stampBefore: &stampedAt,
+			wantKind:    ProblemRefused,
+			wantProblem: true,
+		},
+		{
+			name:        "a missing credential clears the stamp",
+			dropToken:   true,
+			stampBefore: &stampedAt,
+			wantKind:    ProblemNoCredential,
+			wantProblem: true,
+		},
+		{
+			name:         "an unreachable forge leaves the stamp alone",
+			verifyErr:    errors.New("dial tcp: no such host"),
+			stampBefore:  &stampedAt,
+			wantKind:     ProblemUnreachable,
+			wantProblem:  true,
+			wantVerified: &stampedAt,
+		},
+		{
+			name:         "an accepted credential restores the stamp",
+			wantVerified: &checkedAt,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t, "harrisoncramer", nil)
+			ctx := t.Context()
+
+			connected, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
+			require.NoError(t, err)
+			require.NoError(t, f.store.SetVerifiedAt(ctx, connected.ID, tt.stampBefore))
+			if tt.dropToken {
+				require.NoError(t, f.credentials.Delete(ctx, connected.ID))
+			}
+
+			f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {
+				return &fakeForge{
+					auth:  auth,
+					login: "harrisoncramer",
+					err:   tt.verifyErr,
+				}
+			}
+
+			connection, err := f.store.Get(ctx, connected.ID)
+			require.NoError(t, err)
+
+			result, err := f.service.RecheckConnection(ctx, *connection)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantProblem, result.Problem != nil)
+			assert.Equal(t, tt.wantKind, result.ProblemKind)
+			assertSameStamp(t, tt.wantVerified, result.Connection.VerifiedAt)
+
+			row, err := f.store.Get(ctx, connected.ID)
+			require.NoError(t, err)
+			assertSameStamp(t, tt.wantVerified, row.VerifiedAt)
+		})
+	}
+}
+
+func assertSameStamp(t *testing.T, want, got *time.Time) {
+	t.Helper()
+
+	if want == nil {
+		assert.Nil(t, got)
+
+		return
+	}
+
+	require.NotNil(t, got)
+	assert.True(t, want.Equal(*got), "want %s, got %s", want, *got)
+}

@@ -26,11 +26,10 @@ type fakeConnector struct {
 	connections  []forgestore.Connection
 	forge        forge.Forge
 	err          error
-	checkErr     error
+	checked      forge.CheckResult
 	held         bool
 	connected    []forge.ConnectParams
 	disconnected []string
-	stamped      []*time.Time
 	hosts        []string
 }
 
@@ -60,21 +59,18 @@ func (f *fakeConnector) Disconnect(_ context.Context, host string) error {
 	return f.err
 }
 
-// Check answers checkErr.
-func (f *fakeConnector) Check(context.Context, forgestore.Connection) (string, error) {
-	return "", f.checkErr
+// RecheckConnection answers checked unless err refuses it.
+func (f *fakeConnector) RecheckConnection(context.Context, forgestore.Connection) (*forge.CheckResult, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.checked, nil
 }
 
 // HasCredential answers held.
 func (f *fakeConnector) HasCredential(context.Context, forgestore.Connection) (bool, error) {
 	return f.held, nil
-}
-
-// SetVerifiedAt records the stamp.
-func (f *fakeConnector) SetVerifiedAt(_ context.Context, _ string, at *time.Time) error {
-	f.stamped = append(f.stamped, at)
-
-	return nil
 }
 
 // ForHost records the host and answers forge unless err refuses it.
@@ -231,39 +227,31 @@ func TestDisconnectForge(t *testing.T) {
 	assert.Equal(t, []string{"github.com"}, connector.disconnected)
 }
 
-// TestCheckForges pins which answers of a check clear the connection's stamp.
+// TestCheckForges pins how each check's answer renders.
 func TestCheckForges(t *testing.T) {
+	refused := newConnection()
+	refused.VerifiedAt = nil
+
 	tests := []struct {
 		name         string
-		checkErr     error
+		checked      forge.CheckResult
+		wantProblem  string
 		wantKind     string
-		wantStamped  bool
 		wantVerified bool
 	}{
 		{
-			name:         "a refusal clears the stamp",
-			checkErr:     forge.ErrUnauthorized.Saying("Bad credentials"),
-			wantKind:     ProblemRefused,
-			wantStamped:  true,
-			wantVerified: false,
+			name: "a refusal carries its problem and kind",
+			checked: forge.CheckResult{
+				Connection:  refused,
+				Problem:     forge.ErrUnauthorized.Saying("Bad credentials"),
+				ProblemKind: forge.ProblemRefused,
+			},
+			wantProblem: "Bad credentials",
+			wantKind:    forge.ProblemRefused,
 		},
 		{
-			name:         "a missing credential clears the stamp",
-			checkErr:     forge.ErrNoCredential.Saying("no file"),
-			wantKind:     ProblemNoCredential,
-			wantStamped:  true,
-			wantVerified: false,
-		},
-		{
-			name:         "an unreachable forge leaves the stamp alone",
-			checkErr:     errors.New("dial tcp: no such host"),
-			wantKind:     ProblemUnreachable,
-			wantStamped:  false,
-			wantVerified: true,
-		},
-		{
-			name:         "an accepted credential restores the stamp",
-			wantStamped:  true,
+			name:         "an accepted credential carries no problem",
+			checked:      forge.CheckResult{Connection: newConnection()},
 			wantVerified: true,
 		},
 	}
@@ -272,7 +260,7 @@ func TestCheckForges(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			connector := &fakeConnector{
 				connections: []forgestore.Connection{newConnection()},
-				checkErr:    tt.checkErr,
+				checked:     tt.checked,
 			}
 			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
@@ -281,8 +269,8 @@ func TestCheckForges(t *testing.T) {
 			require.Len(t, resp.Msg.GetChecks(), 1)
 
 			check := resp.Msg.GetChecks()[0]
+			assert.Equal(t, tt.wantProblem, check.GetProblem())
 			assert.Equal(t, tt.wantKind, check.GetProblemKind())
-			assert.Equal(t, tt.wantStamped, len(connector.stamped) == 1)
 			assert.Equal(t, tt.wantVerified, check.GetForge().VerifiedAt != nil)
 		})
 	}
