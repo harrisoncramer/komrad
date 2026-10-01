@@ -142,9 +142,9 @@ func paramsArgument(function *ast.FuncDecl) string {
 func ownParams(function *ast.FuncDecl) string {
 	want := function.Name.Name + paramsSuffix
 	for _, field := range function.Type.Params.List {
-		name, ok := field.Type.(*ast.Ident)
-		if ok && strings.EqualFold(name.Name, want) {
-			return name.Name
+		name := localTypeName(field.Type)
+		if strings.EqualFold(name, want) {
+			return name
 		}
 	}
 
@@ -185,19 +185,24 @@ func receiverName(function *ast.FuncDecl) string {
 		return ""
 	}
 
-	receiver := function.Recv.List[0].Type
-	if pointer, ok := receiver.(*ast.StarExpr); ok {
-		receiver = pointer.X
+	return localTypeName(function.Recv.List[0].Type)
+}
+
+// localTypeName is the name of the package's own type an expression refers to, through a pointer
+// or type arguments, or empty when it names none.
+func localTypeName(expr ast.Expr) string {
+	if pointer, ok := expr.(*ast.StarExpr); ok {
+		expr = pointer.X
 	}
 
-	switch generic := receiver.(type) {
+	switch generic := expr.(type) {
 	case *ast.IndexExpr:
-		receiver = generic.X
+		expr = generic.X
 	case *ast.IndexListExpr:
-		receiver = generic.X
+		expr = generic.X
 	}
 
-	name, ok := receiver.(*ast.Ident)
+	name, ok := expr.(*ast.Ident)
 	if !ok {
 		return ""
 	}
