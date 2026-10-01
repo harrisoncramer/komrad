@@ -185,9 +185,7 @@ func (m *model) revealCreated(guest layout.Guest, focus bool) tea.Cmd {
 		m.warm.closesForm = false
 		m.writes.held = heldWrite{}
 
-		closing := m.closeForm()
-
-		cmd = closing
+		cmd = m.closeForm()
 	}
 
 	m.dropScratch()
