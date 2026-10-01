@@ -321,6 +321,9 @@ type GitKeys struct {
 	// its branch that is not finished, else the newest finished one. The entry says so rather
 	// than acting on an agent with none.
 	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
+	// Send the hovered agent's branch to origin, which asks first and says how many commits go
+	// up, whether origin's copy is overwritten after a rebase, and what stays uncommitted.
+	Push []string `mapstructure:"push" default:"p"`
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`

@@ -7,26 +7,18 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
-	"komrad/internal/agents"
-	"komrad/internal/caller"
 	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	workflowstore "komrad/internal/store/workflow"
-	"komrad/lib/xpath"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
 
 var (
-	// ErrRebaseNoWorktree says the agent sits in a directory komrad did not cut.
-	ErrRebaseNoWorktree = fail.Precondition("this agent has no worktree of its own to rebase")
 
 	// ErrRebaseAdopted says the branch belongs to whoever made it.
 	ErrRebaseAdopted = fail.Precondition("this agent is on a branch komrad did not cut, so its history is not komrad's to rewrite")
@@ -40,96 +32,12 @@ var (
 	// ErrRebaseDetached says the checkout is on no branch, so a rebase would move nothing.
 	ErrRebaseDetached = fail.Precondition("the worktree is on no branch, so a rebase would move nothing")
 
-	// ErrRebaseBusy says something else is already moving the worktree.
-	ErrRebaseBusy = fail.Precondition("something else is already moving this worktree")
-
-	// ErrRebaseSelf says an agent asked to rebase the checkout it is working in.
-	ErrRebaseSelf = fail.InvalidArgument("an agent cannot rebase the checkout it is working in")
-
 	// ErrRebaseShallow says the clone cannot answer what the branch and the base share.
 	ErrRebaseShallow = fail.Precondition("the clone is shallow, so what this branch shares with the base cannot be read")
 
 	// ErrRebaseHiddenPaths says the index is holding a path's content back on purpose.
 	ErrRebaseHiddenPaths = fail.Precondition("these paths are marked assume-unchanged or skip-worktree, so their contents cannot be read back if the move goes wrong")
 )
-
-// rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
-type rebaseAgentReadWriter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-	SetSequenceByID(ctx context.Context, id string, sequence agentstore.Sequence) error
-}
-
-// workflowReader reads the workflow an agent belongs to.
-type workflowReader interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
-// agentSettler brings an agent to rest, reporting whether a turn was cut to do it.
-type agentSettler interface {
-	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
-}
-
-// eventRecorder queues the event that tells an agent what became of its worktree.
-type eventRecorder interface {
-	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
-}
-
-// worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
-type worktreeRebaser interface {
-	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
-	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
-	CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error)
-	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
-	Park(ctx context.Context, dir, ref string) (string, error)
-	ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error
-	Rebase(ctx context.Context, dir, ref string) error
-	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
-}
-
-// loopWaker asks a background loop to run before its next tick.
-type loopWaker interface {
-	Wake()
-}
-
-// NewRebaseServiceParams is what a rebase service is built over.
-type NewRebaseServiceParams struct {
-	Agents       rebaseAgentReadWriter
-	Workflows    workflowReader
-	Settler      agentSettler
-	Events       eventRecorder
-	Rebaser      worktreeRebaser
-	Locks        *TreeLocks
-	CheckoutSync loopWaker
-}
-
-// RebaseService moves an agent's existing worktree onto the latest base without replacing it.
-type RebaseService struct {
-	agents       rebaseAgentReadWriter
-	workflows    workflowReader
-	settler      agentSettler
-	events       eventRecorder
-	rebaser      worktreeRebaser
-	locks        *TreeLocks
-	checkoutSync loopWaker
-}
-
-// NewRebaseService builds the service from its dependencies.
-func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
-	locks := params.Locks
-	if locks == nil {
-		locks = NewTreeLocks()
-	}
-
-	return &RebaseService{
-		agents:       params.Agents,
-		workflows:    params.Workflows,
-		settler:      params.Settler,
-		events:       params.Events,
-		rebaser:      params.Rebaser,
-		locks:        locks,
-		checkoutSync: params.CheckoutSync,
-	}
-}
 
 // RebasePlan is what a rebase would do.
 type RebasePlan struct {
@@ -168,8 +76,8 @@ type RebaseResult struct {
 }
 
 // PlanRebase reads what a rebase would do without touching anything.
-func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*RebasePlan, error) {
-	agent, err := s.eligible(ctx, agentID)
+func (s *Service) PlanRebase(ctx context.Context, agentID string) (*RebasePlan, error) {
+	agent, err := s.rebaseEligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +85,23 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 	return s.plan(ctx, *agent)
 }
 
+// rebaseEligible answers the agent when a rebase is its to have, which a branch komrad did not
+// cut never is.
+func (s *Service) rebaseEligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+	agent, err := s.eligible(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+
+	if agent.AdoptedBranch != "" {
+		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, agent.AdoptedBranch)
+	}
+
+	return agent, nil
+}
+
 // readTreeState reads the checkout and refuses one a rebase may not start on.
-func (s *RebaseService) readTreeState(ctx context.Context, agent agentstore.Agent) (git.TreeState, error) {
+func (s *Service) readTreeState(ctx context.Context, agent agentstore.Agent) (git.TreeState, error) {
 	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return git.TreeState{}, err
@@ -191,7 +114,7 @@ func (s *RebaseService) readTreeState(ctx context.Context, agent agentstore.Agen
 }
 
 // plan reads the checkout and the base and says what a rebase would do to them.
-func (s *RebaseService) plan(ctx context.Context, agent agentstore.Agent) (*RebasePlan, error) {
+func (s *Service) plan(ctx context.Context, agent agentstore.Agent) (*RebasePlan, error) {
 	state, err := s.readTreeState(ctx, agent)
 	if err != nil {
 		return nil, err
@@ -232,15 +155,15 @@ func (s *RebaseService) plan(ctx context.Context, agent agentstore.Agent) (*Reba
 }
 
 // Rebase moves the agent's branch onto the latest base in place.
-func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResult, error) {
-	agent, err := s.eligible(ctx, agentID)
+func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, error) {
+	agent, err := s.rebaseEligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 
 	unlock, taken := s.locks.TryLock(agent.Cwd)
 	if !taken {
-		return nil, fmt.Errorf("%w: %s", ErrRebaseBusy, agent.Cwd)
+		return nil, fmt.Errorf("%w: %s", ErrBusy, agent.Cwd)
 	}
 	defer unlock()
 
@@ -272,17 +195,8 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	return result, nil
 }
 
-// settle brings the agent to rest before its files move, reporting whether a turn was cut.
-func (s *RebaseService) settle(ctx context.Context, agent agentstore.Agent) (bool, error) {
-	if agent.Pane == "" {
-		return false, nil
-	}
-
-	return s.settler.Settle(ctx, agent)
-}
-
 // rebase plans the move and makes it.
-func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseResult, error) {
+func (s *Service) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseResult, error) {
 	if _, err := s.read(ctx, agent.ID); err != nil {
 		return nil, err
 	}
@@ -313,13 +227,8 @@ func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*Re
 	return result, nil
 }
 
-// buildParkRef names where a checkout is held before it is moved.
-func buildParkRef(agentID string) string {
-	return fmt.Sprintf("refs/komrad/prerefresh/%s/%d", agentID, time.Now().UnixNano())
-}
-
 // releaseOlderParks drops the parks this agent left behind before this one.
-func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
+func (s *Service) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
 	prefix := fmt.Sprintf("refs/komrad/prerefresh/%s/", agent.ID)
 	if err := s.rebaser.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased agent",
@@ -329,7 +238,7 @@ func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.
 
 // move brings the branch onto the base, replaying its commits from the cutoff when the base
 // already holds some of them.
-func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResult) error {
+func (s *Service) move(ctx context.Context, dir string, result *RebaseResult) error {
 	replay := func() error { return s.rebaser.Rebase(ctx, dir, result.BaseRef) }
 	if result.Cutoff != "" {
 		replay = func() error { return s.rebaser.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
@@ -349,7 +258,7 @@ func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResu
 }
 
 // recordStopped puts the stopped rebase on the agent's row.
-func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agent) {
+func (s *Service) recordStopped(ctx context.Context, agent agentstore.Agent) {
 	if err := s.agents.SetSequenceByID(ctx, agent.ID, agentstore.SequenceRebase); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's rebase stopped part-way",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
@@ -357,7 +266,7 @@ func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agen
 }
 
 // tell says what happened in the agent's mailbox.
-func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
+func (s *Service) tell(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
 	if err := s.record(ctx, agent.ID, rebaseOutcome{Result: &result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
@@ -365,7 +274,7 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 }
 
 // tellCut says in the agent's mailbox that its turn was cut for a rebase that then failed.
-func (s *RebaseService) tellCut(ctx context.Context, agent agentstore.Agent, failure error) {
+func (s *Service) tellCut(ctx context.Context, agent agentstore.Agent, failure error) {
 	if err := s.record(ctx, agent.ID, rebaseOutcome{Failure: failure.Error()}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
@@ -484,92 +393,6 @@ func replayedMail(result RebaseResult) string {
 	return body.String()
 }
 
-// eligible answers the agent when a rebase is its to have, or the reason it is not.
-func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
-	agent, err := s.read(ctx, agentID)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.refuseTheCaller(ctx, *agent); err != nil {
-		return nil, err
-	}
-
-	if agent.State == agentstore.StateSettingUp {
-		return nil, fmt.Errorf("%w: %q is still being set up", ErrRebaseBusy, agent.Name)
-	}
-	if agent.AdoptedBranch != "" {
-		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, agent.AdoptedBranch)
-	}
-
-	// A child runs in its parent's checkout, so this would rewrite the parent's branch.
-	if agent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: it runs in its parent's checkout", ErrRebaseNoWorktree)
-	}
-	if agent.IsProvisionerDisabled() {
-		return nil, fmt.Errorf("%w: it was told to keep the directory it was given", ErrRebaseNoWorktree)
-	}
-	if agent.Cwd == "" || agent.WorktreeRemoved {
-		return nil, fmt.Errorf("%w: it has no directory on disk", ErrRebaseNoWorktree)
-	}
-
-	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the workflow of agent %q: %w", agent.Name, err)
-	}
-	if !flow.Worktree.Enabled {
-		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrRebaseNoWorktree)
-	}
-
-	return agent, nil
-}
-
-// read fetches the row, refusing an agent that is archived or that a person is holding.
-func (s *RebaseService) read(ctx context.Context, agentID string) (*agentstore.Agent, error) {
-	agent, err := s.agents.GetByID(ctx, agentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", agents.ErrAgentArchived, agent.Name)
-	}
-
-	if agent.HeldAt != nil {
-		return nil, agents.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
-	}
-
-	return agent, nil
-}
-
-// refuseTheCaller turns down an agent asking for the checkout it is itself working in, which a
-// child shares with its parent.
-func (s *RebaseService) refuseTheCaller(ctx context.Context, agent agentstore.Agent) error {
-	from := caller.From(ctx).AgentID
-	if from == "" {
-		return nil
-	}
-	if from == agent.ID {
-		return fmt.Errorf("%w: %q is the one it is working in", ErrRebaseSelf, agent.Name)
-	}
-
-	asker, err := s.agents.GetByID(ctx, from)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("failed to read the agent asking to rebase %q: %w", agent.Name, err)
-	}
-	if asker.Cwd == "" || !xpath.IsSameDir(asker.Cwd, agent.Cwd) {
-		return nil
-	}
-
-	return fmt.Errorf("%w: %q sits in %s", ErrRebaseSelf, agent.Name, asker.Cwd)
-}
-
 // refuseTreeState is what the checkout itself has to say before a rebase may start.
 func refuseTreeState(state git.TreeState) error {
 	switch {
@@ -588,7 +411,7 @@ func refuseTreeState(state git.TreeState) error {
 	return nil
 }
 
-func (s *RebaseService) record(ctx context.Context, agentID string, outcome rebaseOutcome) error {
+func (s *Service) record(ctx context.Context, agentID string, outcome rebaseOutcome) error {
 	raw, err := json.Marshal(outcome)
 	if err != nil {
 		return fmt.Errorf("failed to encode the rebase of agent %q: %w", agentID, err)

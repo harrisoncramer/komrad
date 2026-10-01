@@ -296,6 +296,28 @@ func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) 
 	})
 }
 
+func (a api) planPush(id string) (*agentv1.PlanPushResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanPushResponse, error) {
+		resp, err := a.agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to work out what a push of agent %q would do: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) pushWorktree(id string) (*agentv1.PushWorktreeResponse, error) {
+	return call(pushTimeout, func(ctx context.Context) (*agentv1.PushWorktreeResponse, error) {
+		resp, err := a.agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to push the branch of agent %q: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
 func (a api) deleteAgents(ids []string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))

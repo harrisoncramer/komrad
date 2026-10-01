@@ -23,6 +23,12 @@ enum MailKind {
   MAIL_KIND_PULL_REQUEST_CHANGED = 5;
   // Komrad telling an agent that it rebased the agent's worktree, or tried to.
   MAIL_KIND_WORKTREE_REBASED = 6;
+  // Komrad telling an agent that its branch was force-pushed to origin from the panel.
+  MAIL_KIND_WORKTREE_PUSHED = 7;
+  // Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted.
+  MAIL_KIND_WORKTREE_ABORTED = 8;
+  // Komrad telling an agent that auto-merge was turned on or off for its pull request.
+  MAIL_KIND_AUTO_MERGE_CHANGED = 9;
 }
 
 // MailDirection is which half of an agent's correspondence a listing asks for.

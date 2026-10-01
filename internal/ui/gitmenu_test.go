@@ -141,6 +141,18 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "this agent has no worktree of its own, so there is no base to move it onto",
 		},
 		{
+			name:        "the push of an agent with no worktree of its own",
+			rows:        buildUncutAgent(),
+			press:       []string{"p"},
+			wantRefusal: "there is no branch of its own to push",
+		},
+		{
+			name:        "the push of a worktree part-way through a rebase",
+			rows:        buildRebasingGitAgent(),
+			press:       []string{"p"},
+			wantRefusal: "part-way through a rebase, merge or pick",
+		},
+		{
 			name:        "the pull request of a repository not read yet",
 			rows:        buildUncutAgent(),
 			press:       []string{"o"},
@@ -258,6 +270,110 @@ func TestGitMenuMerges(t *testing.T) {
 			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
 			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, tt.wantArchive...)
 			assert.NotContains(t, harness.readFrame(), "merge and archive")
+			if tt.wantMessage != "" {
+				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			}
+		})
+	}
+}
+
+// TestGitMenuPushes covers the push entry asking first with what the push would do, then sending
+// the branch and saying what went up.
+func TestGitMenuPushes(t *testing.T) {
+	t.Parallel()
+
+	plan := &agentv1.PlanPushRequest{AgentId: "a1"}
+	push := &agentv1.PushWorktreeRequest{AgentId: "a1"}
+
+	tests := []struct {
+		name        string
+		planned     *agentv1.PlanPushResponse
+		refusePlan  error
+		refusePush  error
+		press       []string
+		wantButton  string
+		wantPushes  []proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "a plan the server refuses opens no confirmation",
+			refusePlan:  connect.NewError(connect.CodeFailedPrecondition, errors.New("the branch holds nothing the base does not")),
+			wantMessage: "the branch holds nothing the base does not",
+		},
+		{
+			name: "a push origin rejects says so",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			refusePush:  connect.NewError(connect.CodeFailedPrecondition, errors.New("origin has commits this branch never took in")),
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "origin has commits this branch never took in",
+		},
+		{
+			name: "declining sends nothing",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			press:      []string{"esc"},
+			wantButton: "Push",
+		},
+		{
+			name: "a rebased branch is force-pushed",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 3,
+				Forced:  true,
+			},
+			press:       []string{"y"},
+			wantButton:  "Force push",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: force-pushed agent/a1",
+		},
+		{
+			name: "a branch is pushed",
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: pushed agent/a1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, buildGitAgent()...)
+			if tt.refusePlan != nil {
+				harness.refuse(agentv1connect.AgentServicePlanPushProcedure, tt.refusePlan)
+			}
+			if tt.planned != nil {
+				harness.answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+					return connect.NewResponse(tt.planned), nil
+				})
+			}
+			harness.answerPushed(tt.planned)
+			if tt.refusePush != nil {
+				harness.refuse(agentv1connect.AgentServicePushWorktreeProcedure, tt.refusePush)
+			}
+
+			harness.press("p")
+
+			harness.assertSentTo(agentv1connect.AgentServicePlanPushProcedure, plan)
+			if tt.wantButton != "" {
+				require.Contains(t, harness.readFrame(), tt.wantButton)
+			}
+			harness.press(tt.press...)
+
+			harness.assertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, tt.wantPushes...)
+			assert.NotContains(t, harness.readFrame(), "Push the branch of")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}
@@ -456,4 +572,27 @@ func newCurrentMergedPullRequest() *pullrequestv1.PullRequest {
 	merged.HeadSha = "new"
 
 	return merged
+}
+
+func buildRebasingGitAgent() []proto.Message {
+	rows := buildGitAgent()
+	rows[1].(*agentv1.Agent).Sequence = agentv1.Sequence_SEQUENCE_REBASE
+
+	return rows
+}
+
+// answerPushed has the push answer with what the plan said it would send.
+func (h *panelHarness) answerPushed(planned *agentv1.PlanPushResponse) {
+	if planned == nil {
+		return
+	}
+
+	h.answer(agentv1connect.AgentServicePushWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.PushWorktreeResponse{
+			Branch:  planned.GetBranch(),
+			Commits: planned.GetCommits(),
+			Forced:  planned.GetForced(),
+			Sha:     "abcdef1234567",
+		}), nil
+	})
 }

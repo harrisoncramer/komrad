@@ -51,7 +51,7 @@ type services struct {
 	reconciler       *agents.Reconciler
 	documents        *documents.DocumentService
 	holder           *agents.Holder
-	rebase           *checkouts.RebaseService
+	checkout         *checkouts.Service
 	cwdSync          *checkouts.CwdSyncer
 	transcriptSync   *transcripts.TranscriptSyncer
 	forge            *forge.Service
@@ -178,13 +178,16 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Channel:  paneChannel,
 		Observer: paneChannel,
 	})
-	rebaseService := checkouts.NewRebaseService(checkouts.NewRebaseServiceParams{
-		Agents:       st.agents,
-		Workflows:    st.workflows,
-		Settler:      settler,
-		Events:       queue,
-		Rebaser:      gitClient,
-		CheckoutSync: wakers.cwdSync,
+	checkoutService := checkouts.NewService(checkouts.NewServiceParams{
+		Agents:          st.agents,
+		Workflows:       st.workflows,
+		Settler:         settler,
+		Events:          queue,
+		Rebaser:         gitClient,
+		Pusher:          gitClient,
+		PullRequests:    st.pullRequests,
+		CheckoutSync:    wakers.cwdSync,
+		PullRequestSync: wakers.pullRequestSync,
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
 		Agents:          st.agents,
@@ -323,7 +326,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Types:     st.documentTypes,
 			Events:    queue,
 		}),
-		rebase:          rebaseService,
+		checkout:        checkoutService,
 		cwdSync:         cwdSyncer,
 		transcriptSync:  transcriptSyncer,
 		forge:           forgeService,

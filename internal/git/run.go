@@ -85,3 +85,19 @@ func runAllowing(ctx context.Context, dir string, allowed int, args ...string) (
 
 	return "", fmt.Errorf("failed to run git %s: %w", strings.Join(args, " "), err)
 }
+
+// runReporting is git run under the caller's own deadline with everything it printed folded into
+// the error, for the commands whose failure a person reads, a hook's output included.
+func runReporting(ctx context.Context, dir string, env []string, args ...string) (string, error) {
+	cmd := command(ctx, dir, env, args...)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return stdout.String(), fmt.Errorf("failed to run git %s: %w\n%s", strings.Join(args, " "), err, strings.TrimSpace(stdout.String()+"\n"+stderr.String()))
+	}
+
+	return stdout.String(), nil
+}

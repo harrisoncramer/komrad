@@ -145,6 +145,11 @@ const (
 	// AgentServiceRebaseWorktreeProcedure is the fully-qualified name of the AgentService's
 	// RebaseWorktree RPC.
 	AgentServiceRebaseWorktreeProcedure = "/agent.v1.AgentService/RebaseWorktree"
+	// AgentServicePlanPushProcedure is the fully-qualified name of the AgentService's PlanPush RPC.
+	AgentServicePlanPushProcedure = "/agent.v1.AgentService/PlanPush"
+	// AgentServicePushWorktreeProcedure is the fully-qualified name of the AgentService's PushWorktree
+	// RPC.
+	AgentServicePushWorktreeProcedure = "/agent.v1.AgentService/PushWorktree"
 	// AgentServiceStartOrchestratorProcedure is the fully-qualified name of the AgentService's
 	// StartOrchestrator RPC.
 	AgentServiceStartOrchestratorProcedure = "/agent.v1.AgentService/StartOrchestrator"
@@ -219,6 +224,8 @@ type AgentServiceClient interface {
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
+	PlanPush(context.Context, *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error)
+	PushWorktree(context.Context, *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
@@ -513,6 +520,18 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("RebaseWorktree")),
 			connect.WithClientOptions(opts...),
 		),
+		planPush: connect.NewClient[v1.PlanPushRequest, v1.PlanPushResponse](
+			httpClient,
+			baseURL+AgentServicePlanPushProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("PlanPush")),
+			connect.WithClientOptions(opts...),
+		),
+		pushWorktree: connect.NewClient[v1.PushWorktreeRequest, v1.PushWorktreeResponse](
+			httpClient,
+			baseURL+AgentServicePushWorktreeProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("PushWorktree")),
+			connect.WithClientOptions(opts...),
+		),
 		startOrchestrator: connect.NewClient[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse](
 			httpClient,
 			baseURL+AgentServiceStartOrchestratorProcedure,
@@ -627,6 +646,8 @@ type agentServiceClient struct {
 	editReviewMessage        *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
 	planRebase               *connect.Client[v1.PlanRebaseRequest, v1.PlanRebaseResponse]
 	rebaseWorktree           *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
+	planPush                 *connect.Client[v1.PlanPushRequest, v1.PlanPushResponse]
+	pushWorktree             *connect.Client[v1.PushWorktreeRequest, v1.PushWorktreeResponse]
 	startOrchestrator        *connect.Client[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse]
 	markReviewThreadRead     *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
 	setReviewThreadResolved  *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
@@ -844,6 +865,16 @@ func (c *agentServiceClient) RebaseWorktree(ctx context.Context, req *connect.Re
 	return c.rebaseWorktree.CallUnary(ctx, req)
 }
 
+// PlanPush calls agent.v1.AgentService.PlanPush.
+func (c *agentServiceClient) PlanPush(ctx context.Context, req *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error) {
+	return c.planPush.CallUnary(ctx, req)
+}
+
+// PushWorktree calls agent.v1.AgentService.PushWorktree.
+func (c *agentServiceClient) PushWorktree(ctx context.Context, req *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error) {
+	return c.pushWorktree.CallUnary(ctx, req)
+}
+
 // StartOrchestrator calls agent.v1.AgentService.StartOrchestrator.
 func (c *agentServiceClient) StartOrchestrator(ctx context.Context, req *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error) {
 	return c.startOrchestrator.CallUnary(ctx, req)
@@ -937,6 +968,8 @@ type AgentServiceHandler interface {
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
+	PlanPush(context.Context, *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error)
+	PushWorktree(context.Context, *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
@@ -1227,6 +1260,18 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("RebaseWorktree")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServicePlanPushHandler := connect.NewUnaryHandler(
+		AgentServicePlanPushProcedure,
+		svc.PlanPush,
+		connect.WithSchema(agentServiceMethods.ByName("PlanPush")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServicePushWorktreeHandler := connect.NewUnaryHandler(
+		AgentServicePushWorktreeProcedure,
+		svc.PushWorktree,
+		connect.WithSchema(agentServiceMethods.ByName("PushWorktree")),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceStartOrchestratorHandler := connect.NewUnaryHandler(
 		AgentServiceStartOrchestratorProcedure,
 		svc.StartOrchestrator,
@@ -1379,6 +1424,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServicePlanRebaseHandler.ServeHTTP(w, r)
 		case AgentServiceRebaseWorktreeProcedure:
 			agentServiceRebaseWorktreeHandler.ServeHTTP(w, r)
+		case AgentServicePlanPushProcedure:
+			agentServicePlanPushHandler.ServeHTTP(w, r)
+		case AgentServicePushWorktreeProcedure:
+			agentServicePushWorktreeHandler.ServeHTTP(w, r)
 		case AgentServiceStartOrchestratorProcedure:
 			agentServiceStartOrchestratorHandler.ServeHTTP(w, r)
 		case AgentServiceMarkReviewThreadReadProcedure:
@@ -1570,6 +1619,14 @@ func (UnimplementedAgentServiceHandler) PlanRebase(context.Context, *connect.Req
 
 func (UnimplementedAgentServiceHandler) RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RebaseWorktree is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) PlanPush(context.Context, *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.PlanPush is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) PushWorktree(context.Context, *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.PushWorktree is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error) {

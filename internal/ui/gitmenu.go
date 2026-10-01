@@ -15,6 +15,7 @@ type gitChoice int
 
 const (
 	gitChoiceRebase gitChoice = iota
+	gitChoicePush
 	gitChoiceOpenPullRequest
 	gitChoiceCopyPullRequestURL
 	gitChoiceToggleDraft
@@ -23,6 +24,9 @@ const (
 var (
 	errNoWorktree           = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
 	errRebaseArchived       = errors.New("an archived agent's branch is not rebased")
+	errPushArchived         = errors.New("an archived agent's branch is not pushed")
+	errPushNoWorktree       = errors.New("this agent has no worktree of its own, so there is no branch of its own to push")
+	errPushInProgress       = errors.New("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
 	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
 	errNoPullRequest        = errors.New("komrad has read the repository and nothing has been opened from this branch")
 	errMovedPastPullRequest = errors.New("the branch has moved on since its last pull request finished and nothing has been opened from it since")
@@ -47,6 +51,11 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				keys:  s.keys.Git.Rebase,
 				isOff: rebaseRefusal(s.listing, from, agent) != nil,
 				write: run(gitChoiceRebase),
+			},
+			{
+				label: "push",
+				keys:  s.keys.Git.Push,
+				isOff: pushRefusal(s.listing, from, agent) != nil,
 			},
 			{
 				label: "open pr",
@@ -79,6 +88,21 @@ func rebaseRefusal(l listing, from screen, agent panel.Agent) error {
 		return errRebaseArchived
 	case !l.isRebaseable(agent):
 		return errNoWorktree
+	}
+
+	return nil
+}
+
+// pushRefusal is why an agent's branch cannot be pushed from where the menu was opened, nil when
+// it can.
+func pushRefusal(l listing, from screen, agent panel.Agent) error {
+	switch {
+	case from == screenArchive:
+		return errPushArchived
+	case !l.isRebaseable(agent):
+		return errPushNoWorktree
+	case agent.Sequence.IsInProgress():
+		return errPushInProgress
 	}
 
 	return nil
@@ -137,6 +161,16 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 		}
 
 		cmd := m.planRebaseCmd(agent.ID, agent.Name)
+
+		return m, cmd
+	case gitChoicePush:
+		if err := pushRefusal(m.listing, from, agent); err != nil {
+			m.report("Could not push the branch of "+agent.Name, err)
+
+			return m, nil
+		}
+
+		cmd := m.planPushCmd(agent.ID, agent.Name)
 
 		return m, cmd
 	case gitChoiceOpenPullRequest:

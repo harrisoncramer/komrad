@@ -456,6 +456,40 @@ message RebaseWorktreeResponse {
   int32 replay_commits = 8;
 }
 
+// PlanPushRequest asks what a push would do without doing it.
+message PlanPushRequest {
+  // Whose branch the push would send.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message PlanPushResponse {
+  // Which branch would go up.
+  string branch = 1;
+  // How many commits would go up, counted against origin's copy of the branch, or against the
+  // base when origin has none.
+  int32 commits = 2;
+  // Whether origin's copy holds commits the branch does not, so the push would overwrite it.
+  bool forced = 3;
+  // How many files would stay behind because nothing has committed them.
+  int32 uncommitted_files = 4;
+}
+
+message PushWorktreeRequest {
+  // Whose branch to send to origin.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message PushWorktreeResponse {
+  // Which branch went up.
+  string branch = 1;
+  // How many commits went up.
+  int32 commits = 2;
+  // Whether origin's copy was overwritten.
+  bool forced = 3;
+  // The commit origin's copy of the branch now names.
+  string sha = 4;
+}
+
 message SetHiddenRequest {
   // Which agent to hide or unhide.
   string id = 1 [(buf.validate.field).string.min_len = 1];
@@ -1125,6 +1159,24 @@ service AgentService {
       destructive: true
       idempotent: false
       roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc PlanPush(PlanPushRequest) returns (PlanPushResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "plan_push"
+      description: "Preview what pushing an agent's branch to origin would do, without sending anything. It reports the branch, how many commits would go up, whether origin's copy would be overwritten because a rebase moved the branch apart from it, and how many uncommitted files would stay behind. It refuses for the same reasons push_worktree does."
+      reason: "Agents push their own branches with git, so pushing one from outside is for the person at the panel or the command line."
+    };
+  }
+  rpc PushWorktree(PushWorktreeRequest) returns (PushWorktreeResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "push_worktree"
+      description: "Send an agent's branch to origin under its own name. When a rebase moved the branch apart from origin's copy, the push overwrites it, but only if the branch already holds everything origin has, so a commit somebody added on the forge is never lost. Pre-push hooks run and their output comes back on failure. The push runs to the end even if the caller stops waiting. An agent whose branch is detached, part-way through a sequence, the workflow's base, empty against the base, or whose pull request has merged or closed is refused as failed_precondition, as is a branch komrad did not cut whose push would overwrite origin. After a push that overwrote origin, the agent is mailed the new commit."
+      reason: "Agents push their own branches with git, so pushing one from outside is for the person at the panel or the command line."
     };
   }
   rpc StartOrchestrator(StartOrchestratorRequest) returns (StartOrchestratorResponse) {

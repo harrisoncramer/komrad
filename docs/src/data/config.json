@@ -596,6 +596,13 @@
               "default": "[\"o\"]"
             },
             {
+              "key": "push",
+              "path": "keybindings.git.push",
+              "type": "array",
+              "description": "Send the hovered agent's branch to origin, which asks first and says how many commits go\nup, whether origin's copy is overwritten after a rebase, and what stays uncommitted.",
+              "default": "[\"p\"]"
+            },
+            {
               "key": "rebase",
               "path": "keybindings.git.rebase",
               "type": "array",

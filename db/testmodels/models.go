@@ -157,6 +157,9 @@ const (
 	MailKindDocumentEdited     MailKind = "document_edited"
 	MailKindPullRequestChanged MailKind = "pull_request_changed"
 	MailKindWorktreeRebased    MailKind = "worktree_rebased"
+	MailKindWorktreePushed     MailKind = "worktree_pushed"
+	MailKindWorktreeAborted    MailKind = "worktree_aborted"
+	MailKindAutoMergeChanged   MailKind = "auto_merge_changed"
 )
 
 func (e *MailKind) Scan(src interface{}) error {

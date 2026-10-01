@@ -65,3 +65,32 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 		Body:      body,
 	})
 }
+
+const pushedTopic = "worktree_pushed"
+
+// Pushed is an agent's branch having been force-pushed to origin from the panel.
+type Pushed struct {
+	AgentID string `json:"agent_id"`
+	Branch  string `json:"branch"`
+	SHA     string `json:"sha"`
+}
+
+// Topic names the handler that tells the agent.
+func (Pushed) Topic() string {
+	return pushedTopic
+}
+
+// NewPushedHandler builds the handler the router is given for force-pushes.
+func NewPushedHandler() events.HandlerFor[Pushed] {
+	return handlePushed
+}
+
+// handlePushed tells the agent its branch on origin was overwritten.
+func handlePushed(ctx context.Context, _ store.DBTX, mailer *mail.MailService, pushed Pushed) ([]river.JobArgs, error) {
+	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
+		ToAgentID: pushed.AgentID,
+		Kind:      mailstore.KindWorktreePushed,
+		SubjectID: pushed.AgentID,
+		Body:      pushedMail(pushed),
+	})
+}

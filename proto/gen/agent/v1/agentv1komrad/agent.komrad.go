@@ -57,6 +57,8 @@ type AgentServiceImpl interface {
 	EditReviewMessage(context.Context, *v1.EditReviewMessageRequest) (*v1.EditReviewMessageResponse, *fail.Error)
 	PlanRebase(context.Context, *v1.PlanRebaseRequest) (*v1.PlanRebaseResponse, *fail.Error)
 	RebaseWorktree(context.Context, *v1.RebaseWorktreeRequest) (*v1.RebaseWorktreeResponse, *fail.Error)
+	PlanPush(context.Context, *v1.PlanPushRequest) (*v1.PlanPushResponse, *fail.Error)
+	PushWorktree(context.Context, *v1.PushWorktreeRequest) (*v1.PushWorktreeResponse, *fail.Error)
 	StartOrchestrator(context.Context, *v1.StartOrchestratorRequest) (*v1.StartOrchestratorResponse, *fail.Error)
 	MarkReviewThreadRead(context.Context, *v1.MarkReviewThreadReadRequest) (*v1.MarkReviewThreadReadResponse, *fail.Error)
 	SetReviewThreadResolved(context.Context, *v1.SetReviewThreadResolvedRequest) (*v1.SetReviewThreadResolvedResponse, *fail.Error)
@@ -278,6 +280,16 @@ func (a AgentServiceAdapter) PlanRebase(ctx context.Context, req *connect.Reques
 // RebaseWorktree answers the request as connect serves it.
 func (a AgentServiceAdapter) RebaseWorktree(ctx context.Context, req *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {
 	return rpcerr.Answer(a.Impl.RebaseWorktree(ctx, req.Msg))
+}
+
+// PlanPush answers the request as connect serves it.
+func (a AgentServiceAdapter) PlanPush(ctx context.Context, req *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error) {
+	return rpcerr.Answer(a.Impl.PlanPush(ctx, req.Msg))
+}
+
+// PushWorktree answers the request as connect serves it.
+func (a AgentServiceAdapter) PushWorktree(ctx context.Context, req *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error) {
+	return rpcerr.Answer(a.Impl.PushWorktree(ctx, req.Msg))
 }
 
 // StartOrchestrator answers the request as connect serves it.

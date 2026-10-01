@@ -96,6 +96,7 @@ type NewHandlerParams struct {
 	Documents     documentReadWriter
 	DocumentTypes documentTypeKeeper
 	Rebaser       worktreeRebaser
+	Pusher        worktreePusher
 	Orchestrator  orchestratorStarter
 	Clock         func() time.Time
 }
@@ -118,6 +119,7 @@ type Handler struct {
 	documents     documentReadWriter
 	documentTypes documentTypeKeeper
 	rebaser       worktreeRebaser
+	pusher        worktreePusher
 	orchestrator  orchestratorStarter
 	now           func() time.Time
 }
@@ -148,6 +150,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		documents:     params.Documents,
 		documentTypes: params.DocumentTypes,
 		rebaser:       params.Rebaser,
+		pusher:        params.Pusher,
 		orchestrator:  params.Orchestrator,
 		now:           now,
 	}

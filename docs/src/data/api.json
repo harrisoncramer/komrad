@@ -709,6 +709,38 @@
           "response": "agent.v1.RebaseWorktreeResponse"
         },
         {
+          "slug": "plan-push",
+          "name": "PlanPush",
+          "path": "/agent.v1.AgentService/PlanPush",
+          "command": "komrad rpc plan-push",
+          "tool": "plan_push",
+          "mcp": false,
+          "roles": [],
+          "summary": "Preview what pushing an agent's branch to origin would do, without sending anything.",
+          "description": "Preview what pushing an agent's branch to origin would do, without sending anything. It reports the branch, how many commits would go up, whether origin's copy would be overwritten because a rebase moved the branch apart from it, and how many uncommitted files would stay behind. It refuses for the same reasons push_worktree does.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.PlanPushRequest",
+          "response": "agent.v1.PlanPushResponse"
+        },
+        {
+          "slug": "push-worktree",
+          "name": "PushWorktree",
+          "path": "/agent.v1.AgentService/PushWorktree",
+          "command": "komrad rpc push-worktree",
+          "tool": "push_worktree",
+          "mcp": false,
+          "roles": [],
+          "summary": "Send an agent's branch to origin under its own name.",
+          "description": "Send an agent's branch to origin under its own name. When a rebase moved the branch apart from origin's copy, the push overwrites it, but only if the branch already holds everything origin has, so a commit somebody added on the forge is never lost. Pre-push hooks run and their output comes back on failure. The push runs to the end even if the caller stops waiting. An agent whose branch is detached, part-way through a sequence, the workflow's base, empty against the base, or whose pull request has merged or closed is refused as failed_precondition, as is a branch komrad did not cut whose push would overwrite origin. After a push that overwrote origin, the agent is mailed the new commit.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.PushWorktreeRequest",
+          "response": "agent.v1.PushWorktreeResponse"
+        },
+        {
           "slug": "start-orchestrator",
           "name": "StartOrchestrator",
           "path": "/agent.v1.AgentService/StartOrchestrator",
@@ -3870,6 +3902,70 @@
         }
       ]
     },
+    "agent.v1.PlanPushRequest": {
+      "name": "PlanPushRequest",
+      "description": "PlanPushRequest asks what a push would do without doing it.",
+      "fields": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Whose branch the push would send."
+        }
+      ]
+    },
+    "agent.v1.PlanPushResponse": {
+      "name": "PlanPushResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Which branch would go up."
+        },
+        {
+          "name": "commits",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many commits would go up, counted against origin's copy of the branch, or against the base when origin has none."
+        },
+        {
+          "name": "forced",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether origin's copy holds commits the branch does not, so the push would overwrite it."
+        },
+        {
+          "name": "uncommitted_files",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many files would stay behind because nothing has committed them."
+        }
+      ]
+    },
     "agent.v1.PlanRebaseRequest": {
       "name": "PlanRebaseRequest",
       "description": "PlanRebaseRequest asks what a rebase would do without doing it.",
@@ -4037,6 +4133,70 @@
           "oneof": "",
           "rules": [],
           "description": "Where the forge says the current pull request stands against its base and rules, UNSPECIFIED for UNREAD and NONE."
+        }
+      ]
+    },
+    "agent.v1.PushWorktreeRequest": {
+      "name": "PushWorktreeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Whose branch to send to origin."
+        }
+      ]
+    },
+    "agent.v1.PushWorktreeResponse": {
+      "name": "PushWorktreeResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Which branch went up."
+        },
+        {
+          "name": "commits",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many commits went up."
+        },
+        {
+          "name": "forced",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether origin's copy was overwritten."
+        },
+        {
+          "name": "sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit origin's copy of the branch now names."
         }
       ]
     },
@@ -9146,6 +9306,18 @@
         {
           "name": "MAIL_KIND_WORKTREE_REBASED",
           "description": "Komrad telling an agent that it rebased the agent's worktree, or tried to."
+        },
+        {
+          "name": "MAIL_KIND_WORKTREE_PUSHED",
+          "description": "Komrad telling an agent that its branch was force-pushed to origin from the panel."
+        },
+        {
+          "name": "MAIL_KIND_WORKTREE_ABORTED",
+          "description": "Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted."
+        },
+        {
+          "name": "MAIL_KIND_AUTO_MERGE_CHANGED",
+          "description": "Komrad telling an agent that auto-merge was turned on or off for its pull request."
         }
       ]
     },
