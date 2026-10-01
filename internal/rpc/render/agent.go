@@ -63,8 +63,8 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
 		MovedSinceRound:    stored.MovedSinceRound,
 		DiffStat:           diffStatOf(stored.DiffStat),
-		HeldAt:             heldStamp(stored.HeldAt),
-		HeldByAgentId:      xptr.Deref(stored.HeldByAgentID),
+		HeldAt:             heldStamp(stored.Hold.At),
+		HeldByAgentId:      xptr.Deref(stored.Hold.ByAgentID),
 	}
 }
 
@@ -167,9 +167,9 @@ func AgentSequenceOf(sequence agentstore.Sequence) agentv1.Sequence {
 }
 
 func readTurnError(stored agentstore.Agent) string {
-	if !stored.IsLastTurnFailed() {
+	if !stored.Turn.IsFailed() {
 		return ""
 	}
 
-	return stored.TurnError
+	return stored.Turn.Error
 }

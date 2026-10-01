@@ -299,19 +299,19 @@ func TestAFailedTurnStandsUntilAnotherEnds(t *testing.T) {
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
-	require.False(t, created.IsLastTurnFailed(), "a fresh agent has failed nothing")
+	require.False(t, created.Turn.IsFailed(), "a fresh agent has failed nothing")
 
 	require.NoError(t, st.SetTurnFailed(ctx, created.ID, "Overloaded"))
 	failed, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
-	require.NotNil(t, failed.TurnEndedAt)
-	assert.True(t, failed.IsLastTurnFailed())
-	assert.Equal(t, "Overloaded", failed.TurnError)
+	require.NotNil(t, failed.Turn.EndedAt)
+	assert.True(t, failed.Turn.IsFailed())
+	assert.Equal(t, "Overloaded", failed.Turn.Error)
 
 	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
 	ended, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
-	assert.False(t, ended.IsLastTurnFailed(), "a later turn ended without an error")
+	assert.False(t, ended.Turn.IsFailed(), "a later turn ended without an error")
 }
 
 // TestSetStateByIDClearsTheReportedReason pins that a reason lives as long as the turn rather
@@ -613,10 +613,10 @@ func TestHoldSettlesTheState(t *testing.T) {
 			after, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, after)
-			assert.NotNil(t, after.HeldAt)
+			assert.NotNil(t, after.Hold.At)
 			assert.Equal(t, tt.wantState, after.State)
 			assert.Equal(t, tt.wantReason, after.ReportedReason)
-			assert.Equal(t, tt.wantTurnEnds, after.TurnEndedAt != nil)
+			assert.Equal(t, tt.wantTurnEnds, after.Turn.EndedAt != nil)
 		})
 	}
 }

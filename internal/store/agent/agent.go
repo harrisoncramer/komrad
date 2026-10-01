@@ -3,10 +3,12 @@
 package agent
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"komrad/db/models"
+	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 )
@@ -115,11 +117,7 @@ type Agent struct {
 	State          State
 	StateChangedAt time.Time
 	StateSeenAt    time.Time
-	// TurnEndedAt is when a turn of the agent's last ended, reported by its own CLI or, when
-	// nothing reported one, settled off the pane by the reconciler.
-	TurnEndedAt  *time.Time
-	TurnFailedAt *time.Time
-	TurnError    string
+	Turn           Turn
 
 	// ReportedReason is what the agent's own CLI last said it was doing, cleared whenever the
 	// state changes.
@@ -166,12 +164,7 @@ type Agent struct {
 	// Sequence is what git has part-way through the agent's checkout and waiting on somebody.
 	Sequence Sequence
 
-	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
-	HeldAt *time.Time
-	// HeldMidTurn says the hold cut a turn that was still running.
-	HeldMidTurn bool
-	// HeldByAgentID is the agent that took the hold, nil when the panel took it.
-	HeldByAgentID *string
+	Hold Hold
 
 	// Alive is whether the agent still owns the pane its row names.
 	Alive bool
@@ -188,13 +181,50 @@ type DiffStat struct {
 	Removed int
 }
 
-// IsLastTurnFailed reports whether an API error ended the agent's last turn.
-func (a Agent) IsLastTurnFailed() bool {
-	if a.TurnFailedAt == nil {
+// Turn is how the agent's last turn ended.
+type Turn struct {
+	// EndedAt is when a turn of the agent's last ended, reported by its own CLI or, when
+	// nothing reported one, settled off the pane by the reconciler.
+	EndedAt  *time.Time
+	FailedAt *time.Time
+	Error    string
+}
+
+// IsFailed reports whether an API error ended the agent's last turn.
+func (t Turn) IsFailed() bool {
+	if t.FailedAt == nil {
 		return false
 	}
 
-	return a.TurnEndedAt == nil || !a.TurnFailedAt.Before(*a.TurnEndedAt)
+	return t.EndedAt == nil || !t.FailedAt.Before(*t.EndedAt)
+}
+
+// Hold is who stopped the agent and took its worktree.
+type Hold struct {
+	// At is when a person stopped this agent and took its worktree, nil while nobody holds it.
+	At *time.Time
+	// MidTurn says the hold cut a turn that was still running.
+	MidTurn bool
+	// ByAgentID is the agent that took the hold, nil when the panel took it.
+	ByAgentID *string
+}
+
+// IsHeld reports whether somebody is holding the agent.
+func (h Hold) IsHeld() bool {
+	return h.At != nil
+}
+
+// ValidateActionable refuses an agent that is archived or that a person is holding.
+func (a Agent) ValidateActionable() error {
+	if a.ArchivedAt != nil {
+		return fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, a.Name)
+	}
+
+	if a.Hold.IsHeld() {
+		return agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", a.Name)
+	}
+
+	return nil
 }
 
 // IsStateUnconfirmed reports whether the agent's state was last read longer ago than the bound.
@@ -268,9 +298,11 @@ func FromRow(agent models.Agent) Agent {
 		State:            State(agent.State),
 		StateChangedAt:   agent.StateChangedAt,
 		StateSeenAt:      agent.StateSeenAt,
-		TurnEndedAt:      agent.TurnEndedAt,
-		TurnFailedAt:     agent.TurnFailedAt,
-		TurnError:        agent.TurnError,
+		Turn: Turn{
+			EndedAt:  agent.TurnEndedAt,
+			FailedAt: agent.TurnFailedAt,
+			Error:    agent.TurnError,
+		},
 		ReportedReason:   agent.ReportedReason,
 		FailureReason:    agent.FailureReason,
 		Harness:          agent.Harness,
@@ -295,12 +327,14 @@ func FromRow(agent models.Agent) Agent {
 		WorktreeRemoved:  agent.WorktreeRemoved,
 		InterruptedAt:    agent.InterruptedAt,
 		Sequence:         Sequence(agent.Sequence),
-		HeldAt:           agent.HeldAt,
-		HeldMidTurn:      agent.HeldMidTurn,
-		HeldByAgentID:    agent.HeldByAgentID,
-		Alive:            agent.Alive,
-		MovedSinceRound:  agent.MovedSinceRound,
-		DiffStat:         diffStatFrom(agent.LinesAdded, agent.LinesRemoved),
+		Hold: Hold{
+			At:        agent.HeldAt,
+			MidTurn:   agent.HeldMidTurn,
+			ByAgentID: agent.HeldByAgentID,
+		},
+		Alive:           agent.Alive,
+		MovedSinceRound: agent.MovedSinceRound,
+		DiffStat:        diffStatFrom(agent.LinesAdded, agent.LinesRemoved),
 	}
 }
 
