@@ -30,7 +30,7 @@ func TestHandlerCallerRole(t *testing.T) {
 			name:       "an agent komrad does not know is refused",
 			agentID:    "gone",
 			lookup:     rpcapi.ErrUnknownCaller,
-			wantStatus: http.StatusForbidden,
+			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "an agent whose role cannot be read is refused until it can",
