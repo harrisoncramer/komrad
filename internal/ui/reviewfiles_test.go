@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -110,39 +111,54 @@ func TestReviewFiles(t *testing.T) {
 	})
 
 	t.Run("the search over the tree lands on the files it matches", func(t *testing.T) {
+		leader := []string{"ctrl+space", "ctrl+space"}
+		filter := []string{"/", "f", "0", "[", "13", "]", "tab", "enter"}
+
 		tests := []struct {
-			name string
-			keys []string
-			want []string
+			name   string
+			keys   []string
+			want   []string
+			cursor string
 		}{
 			{
+				name: "a filter matching nothing says so",
+				keys: slices.Concat(leader, []string{"/", "z", "tab", "enter"}),
+				want: []string{"▽ z", "no file matches"},
+			},
+			{
 				name: "a search keeps every file and lands on the first match",
-				keys: []string{"/", "f", "0", "2", "enter"},
+				keys: slices.Concat(leader, []string{"/", "f", "0", "2", "enter"}),
 				want: []string{"/ f02", "f00.go +1 −1", "f01.go +1 −1", "› f02.go +1 −1", "f03.go +1 −1"},
 			},
 			{
+				name:   "a search matching the file the cursor is in leaves the cursor where it is",
+				keys:   slices.Concat([]string{"j"}, leader, []string{"/", "f", "0", "0", "enter"}),
+				want:   []string{"/ f00", "› f00.go +1 −1", "f01.go +1 −1", "f02.go +1 −1", "f03.go +1 −1"},
+				cursor: "f00.go:1",
+			},
+			{
 				name: "the next match key walks to the next file the search matches",
-				keys: []string{"/", "f", "0", "[", "13", "]", "enter", "n"},
+				keys: slices.Concat(leader, []string{"/", "f", "0", "[", "13", "]", "enter", "n"}),
 				want: []string{"/ f0[13]", "f00.go +1 −1", "f01.go +1 −1", "f02.go +1 −1", "› f03.go +1 −1"},
 			},
 			{
 				name: "tab turns the search into a filter that keeps only the files it matches",
-				keys: []string{"/", "f", "0", "[", "13", "]", "tab", "enter"},
+				keys: slices.Concat(leader, filter),
 				want: []string{"▽ f0[13]", "› f01.go +1 −1", "f03.go +1 −1"},
 			},
 			{
 				name: "moving in a filtered tree skips the files it took away",
-				keys: []string{"/", "f", "0", "[", "13", "]", "tab", "enter", "j"},
+				keys: slices.Concat(leader, filter, []string{"j"}),
 				want: []string{"▽ f0[13]", "f01.go +1 −1", "› f03.go +1 −1"},
 			},
 			{
-				name: "a filter matching nothing says so",
-				keys: []string{"/", "z", "tab", "enter"},
-				want: []string{"▽ z", "no file matches"},
+				name: "the next match key from a file the filter took away lands on the first match",
+				keys: slices.Concat(leader, filter, leader, []string{"]"}, leader, []string{"n"}),
+				want: []string{"▽ f0[13]", "› f01.go +1 −1", "f03.go +1 −1"},
 			},
 			{
 				name: "the back key clears a standing filter",
-				keys: []string{"/", "f", "0", "1", "tab", "enter", "esc"},
+				keys: slices.Concat(leader, []string{"/", "f", "0", "1", "tab", "enter", "esc"}),
 				want: []string{"/", "f00.go +1 −1", "› f01.go +1 −1", "f02.go +1 −1", "f03.go +1 −1"},
 			},
 		}
@@ -153,10 +169,13 @@ func TestReviewFiles(t *testing.T) {
 				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfFiles(4)
 				harness := openReview(t, server)
 
-				harness.press("ctrl+space", "ctrl+space")
 				harness.press(tt.keys...)
 
-				assert.Equal(t, tt.want, readFilesBlock(harness.readFrame()))
+				frame := harness.readFrame()
+				assert.Equal(t, tt.want, readFilesBlock(frame))
+				if tt.cursor != "" {
+					assert.Equal(t, tt.cursor, readReviewCursor(frame))
+				}
 			})
 		}
 	})
