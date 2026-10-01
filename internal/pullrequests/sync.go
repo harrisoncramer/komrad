@@ -233,7 +233,9 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) bool {
 				append([]slog.Attr{slog.String(logging.RepositoryURL, repository.repositoryURL)}, logging.Err(err)...)...)
 		}
 	}
-	s.hosts.forgetRefusal(host.forgeHost)
+	if !host.throttled {
+		s.hosts.forgetRefusal(host.forgeHost)
+	}
 
 	return read
 }
