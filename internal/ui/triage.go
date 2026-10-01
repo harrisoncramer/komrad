@@ -347,7 +347,7 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 		if !seen {
 			heads = append(heads, head)
 		}
-		if !seen || isMoreUrgent(entry, best) {
+		if !seen || compareUrgency(entry, best) < 0 {
 			families[head.Agent.ID] = entry
 		}
 	}
@@ -355,11 +355,7 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	slices.SortFunc(heads, func(a, b panel.AgentRow) int {
 		left, right := families[a.Agent.ID], families[b.Agent.ID]
 
-		return cmp.Or(
-			cmp.Compare(left.rule.tier, right.rule.tier),
-			left.since.Compare(right.since),
-			cmp.Compare(a.Agent.ID, b.Agent.ID),
-		)
+		return cmp.Or(compareUrgency(left, right), cmp.Compare(a.Agent.ID, b.Agent.ID))
 	})
 
 	slotted := heads[:min(z.capacity, len(heads))]
@@ -384,9 +380,9 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	return zone, len(heads) - len(slotted), rest
 }
 
-// isMoreUrgent reports whether one entry in triage comes ahead of another.
-func isMoreUrgent(entry, than triageEntry) bool {
-	return entry.rule.tier < than.rule.tier || (entry.rule.tier == than.rule.tier && entry.since.Before(than.since))
+// compareUrgency orders two entries in triage, the more urgent first.
+func compareUrgency(a, b triageEntry) int {
+	return cmp.Or(cmp.Compare(a.rule.tier, b.rule.tier), a.since.Compare(b.since))
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
