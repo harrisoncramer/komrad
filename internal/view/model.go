@@ -70,6 +70,8 @@ type Line struct {
 	// Comments are the comment counts, drawn against the right edge of the pane.
 	Comments []Cell
 	Selected bool
+	// Divider draws the row as a rule across the pane in place of everything else.
+	Divider bool
 }
 
 // ColumnKind is what a column of the gutter holds.

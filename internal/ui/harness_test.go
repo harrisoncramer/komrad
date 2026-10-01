@@ -189,6 +189,7 @@ type panelHarnessParams struct {
 	detailsHeight float64
 	sidebarSide   string
 	sidebarWidth  int
+	hotZoneRows   int
 	keys          *config.Keybindings
 	git           *gittest.Repo
 	settings      ui.PanelSettings
@@ -289,6 +290,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			DetailsHeight:   params.detailsHeight,
 			SidebarSide:     params.sidebarSide,
 			SidebarWidth:    params.sidebarWidth,
+			HotZoneRows:     params.hotZoneRows,
 			Width:           width,
 			Height:          height,
 			Settings:        draftedSettings(t, params.settings),

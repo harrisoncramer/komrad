@@ -22,8 +22,9 @@ type agentsScreen struct {
 	placed     bool
 	showHidden bool
 	sort       tabsState
-	// drawn is the rows built once for the frame being drawn, and nil between frames.
-	drawn   []agentRow
+	// drawn is the list built once for the frame being drawn, and nil between frames.
+	drawn   *agentsLayout
+	hot     hotZone
 	editing *agentEdit
 	renameSlot
 }
@@ -40,6 +41,8 @@ type agentRow struct {
 	child bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
+	// hot is why a row in the hot zone is there, nil on every row of the tree.
+	hot *hotRule
 }
 
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
@@ -225,25 +228,35 @@ func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], 
 	return sorted
 }
 
-// rows is the tree as drawn, or as it would be drawn when nothing has cached it.
+// rows are the rows the keyboard can reach.
 func (a *agentsScreen) rows(s panelShared) []agentRow {
-	if a.drawn != nil {
-		return a.drawn
-	}
-
-	return a.buildRows(s)
+	return a.layout(s).cursorRows(a.hot)
 }
 
-func (a *agentsScreen) buildRows(s panelShared) []agentRow {
-	rows := treeRows(treeRowsParams{
+// layout is the list as drawn, or as it would be drawn when nothing has cached it.
+func (a *agentsScreen) layout(s panelShared) agentsLayout {
+	if a.drawn != nil {
+		return *a.drawn
+	}
+
+	return a.buildLayout(s)
+}
+
+func (a *agentsScreen) buildLayout(s panelShared) agentsLayout {
+	zone, waiting, rest := splitHot(a.hot, s)
+	tree := treeRows(treeRowsParams{
 		workflows:         s.listing.workflows,
-		agents:            sortedAgents(s.listing.agents, agentSorts, agentsTabs().order(a.sort)),
+		agents:            sortedAgents(rest, agentSorts, agentsTabs().order(a.sort)),
 		showHidden:        a.showHidden,
 		foldOrchestrators: true,
 		flat:              a.sort.flat,
 	})
 
-	return narrowedAgentRows(s.chrome.filter, rows)
+	return agentsLayout{
+		zone:    zone,
+		waiting: waiting,
+		tree:    narrowedAgentRows(s.chrome.filter, tree),
+	}
 }
 
 func narrowedAgentRows(filter filterState, rows []agentRow) []agentRow {

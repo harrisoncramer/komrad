@@ -27,6 +27,26 @@ func (a *agentsScreen) modeActions() []screenAction {
 
 	return append(list.actions(),
 		screenAction{
+			id:   actionAgentHotZone,
+			keys: func(k config.Keybindings) []string { return k.Agents.HotZone },
+			when: a.isHotZoneReachable,
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				a.toggleHotZone(h, s)
+
+				return nil
+			},
+		},
+		screenAction{
+			id:   actionAgentHotZoneBack,
+			keys: func(k config.Keybindings) []string { return k.Agents.Back },
+			when: func(s panelShared) bool { return a.hot.focused && list.isBrowsing(s) },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				a.toggleHotZone(h, s)
+
+				return nil
+			},
+		},
+		screenAction{
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
 			when: list.isBrowsing,
@@ -114,6 +134,11 @@ func (a *agentsScreen) isBrowsing(s panelShared) bool {
 	return a.list().isBrowsing(s)
 }
 
+// isHotZoneReachable reports whether the hot zone key has a zone to move into.
+func (a *agentsScreen) isHotZoneReachable(s panelShared) bool {
+	return a.hot.isOn() && a.isBrowsing(s)
+}
+
 func (a *agentsScreen) isHoveringWorkflow(s panelShared) bool {
 	_, ok := a.hoveredWorkflow(s)
 
@@ -194,6 +219,11 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isEditable,
 		},
 		{
+			of:   []actionID{actionAgentHotZone},
+			desc: a.hotZoneDesc,
+			show: a.isHotZoneReachable,
+		},
+		{
 			of:   []actionID{actionAgentNew, actionWorkflowNew},
 			desc: func(panelShared) string { return "new agent/workflow" },
 			show: a.isBrowsing,
@@ -235,6 +265,14 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			desc: filterClearDescOf,
 		},
 	}, screenNavLegend())
+}
+
+func (a *agentsScreen) hotZoneDesc(panelShared) string {
+	if a.hot.focused {
+		return "leave hot zone"
+	}
+
+	return "hot zone"
 }
 
 func (a *agentsScreen) showHiddenDesc() string {

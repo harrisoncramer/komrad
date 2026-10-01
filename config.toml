@@ -81,32 +81,36 @@ info_side      = "below"
 info_height    = 0.4
 # How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 details_height = 9
+# How many agents the hot zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.
+hot_zone_rows  = 0
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
 # The agents list, the panel's main screen.
 [keybindings.agents]
 # Step out of a workflow scope, or open the view switcher at the root.
-back   = ["esc"]
+back     = ["esc"]
 # Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
 # agent is paused while the editor is open, and quitting the editor, pressing the key again or
 # leaving the agents list closes it and unpauses the agent.
-edit   = ["e"]
+edit     = ["e"]
+# Move the keyboard into the hot zone at the top of the list, or back out of it into the tree.
+hot_zone = ["h"]
 # Start a new agent.
-new    = ["c"]
+new      = ["c"]
 # Attach a child agent to the hovered agent, which runs in that agent's own checkout
 # with no worktree of its own and is archived along with it.
-child  = ["C"]
+child    = ["C"]
 # Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
 # workflow. Either one is started first if it is not running.
-open   = ["enter"]
+open     = ["enter"]
 # Quit the panel.
-quit   = ["ctrl+c"]
+quit     = ["ctrl+c"]
 # Rename the hovered agent.
-rename = ["r"]
+rename   = ["r"]
 # Retry the launch of an agent that failed to create, opening a form where the flags can be
 # corrected before confirming.
-retry  = ["R"]
+retry    = ["R"]
 
 # The archive screen.
 [keybindings.archive]

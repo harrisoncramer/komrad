@@ -176,6 +176,13 @@
           "type": "number",
           "description": "How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.",
           "default": "9"
+        },
+        {
+          "key": "hot_zone_rows",
+          "path": "layout.hot_zone_rows",
+          "type": "integer",
+          "description": "How many agents the hot zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.",
+          "default": "0"
         }
       ],
       "sections": []
@@ -202,6 +209,13 @@
               "type": "array",
               "description": "Open your editor on the hovered agent's worktree, in place of its pane beside the list. The\nagent is paused while the editor is open, and quitting the editor, pressing the key again or\nleaving the agents list closes it and unpauses the agent.",
               "default": "[\"e\"]"
+            },
+            {
+              "key": "hot_zone",
+              "path": "keybindings.agents.hot_zone",
+              "type": "array",
+              "description": "Move the keyboard into the hot zone at the top of the list, or back out of it into the tree.",
+              "default": "[\"h\"]"
             },
             {
               "key": "new",

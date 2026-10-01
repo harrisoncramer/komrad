@@ -52,7 +52,7 @@ func prepareLine(params prepareLineParams) Line {
 		Focused:  focused,
 		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.TonePrimary),
 		Columns:  columnCells(row, params.columns),
-		Status:   blinkBar(StatusCell(row), row, params.blinkedOut),
+		Status:   fadedCell(blinkBar(StatusCell(row), row, params.blinkedOut), row),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
 		Lead:     row.Lead,
@@ -70,6 +70,7 @@ func prepareLine(params prepareLineParams) Line {
 		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
 		Comments: buildCommentCells(row),
 		Selected: row.Selected,
+		Divider:  row.Kind == KindDivider,
 	}
 }
 
@@ -92,9 +93,9 @@ func columnCells(row Row, columns Columns) []Cell {
 	return cells
 }
 
-// isDim reports whether the process behind a row is gone.
+// isDim reports whether the process behind a row is gone or the keyboard cannot reach it.
 func isDim(row Row) bool {
-	return row.Process == ProcessStopped || row.Archived
+	return row.Process == ProcessStopped || row.Archived || row.Faded
 }
 
 // isFocused reports whether a row is the one the snapshot named, an unnamed row never being it.
@@ -104,7 +105,7 @@ func isFocused(row Row, focused string) bool {
 
 // isOwn reports whether a row is an agent's own rather than a header's or a child's.
 func isOwn(row Row) bool {
-	return row.Kind == KindAgent || row.Kind == KindResult
+	return row.Kind == KindAgent || row.Kind == KindResult || row.Kind == KindHot
 }
 
 // RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
@@ -126,10 +127,21 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// buildCommentCells lays out what is outstanding on an agent's work against the right edge: the
-// open comments of reviewer agents, the open comments of the person with any the forge offers
-// them, and the replies the person has not read, each drawn only while it is above zero.
+// buildCommentCells lays out what is drawn against the right edge: the comment counts, then the
+// row's note.
 func buildCommentCells(row Row) []Cell {
+	cells := buildCountCells(row)
+	if !row.Note.IsBlank() {
+		cells = append(cells, row.Note)
+	}
+
+	return cells
+}
+
+// buildCountCells lays out what is outstanding on an agent's work: the open comments of reviewer
+// agents, the open comments of the person with any the forge offers them, and the replies the
+// person has not read, each drawn only while it is above zero.
+func buildCountCells(row Row) []Cell {
 	if !isOwn(row) {
 		return nil
 	}
@@ -237,6 +249,15 @@ func StatusCell(row Row) Cell {
 	return Cell{Text: glyph.Quiet, Tone: paint.ToneMuted}
 }
 
+// fadedCell greys a cell on a row the keyboard cannot reach.
+func fadedCell(cell Cell, row Row) Cell {
+	if row.Faded && !cell.IsBlank() {
+		cell.Tone = paint.ToneMuted
+	}
+
+	return cell
+}
+
 // blinkBar thins a working agent's bar on the off half of the blink.
 func blinkBar(cell Cell, row Row, out bool) Cell {
 	if out && row.Status == StatusThinking && cell.Text == glyph.Busy {
@@ -297,7 +318,7 @@ func textCell(text string, tone paint.Tone) Cell {
 // weightFor is the lettering a row's place in the tree is carried by, spending no glyph on it.
 func weightFor(kind RowKind) Weight {
 	switch kind {
-	case KindWorkflow:
+	case KindWorkflow, KindHotHeader:
 		return WeightBold
 	case KindAgent:
 		return WeightRegular
@@ -307,6 +328,8 @@ func weightFor(kind RowKind) Weight {
 		return WeightRegular
 	case KindHit:
 		return WeightRegular
+	case KindHot, KindHotMore, KindDivider:
+		return WeightRegular
 	}
 
 	return WeightRegular
@@ -315,7 +338,7 @@ func weightFor(kind RowKind) Weight {
 // indentFor is how far a row's name is set in from the gutter, an agent under its workflow and
 // a child under its agent.
 func indentFor(kind RowKind) int {
-	if kind == KindWorkflow || kind == KindResult {
+	if kind == KindWorkflow || kind == KindResult || kind == KindHotHeader || kind == KindDivider {
 		return 0
 	}
 

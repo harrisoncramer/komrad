@@ -15,6 +15,14 @@ const (
 	KindChild
 	KindResult
 	KindHit
+	// KindHotHeader heads the hot zone, the agents waiting on a person drawn ahead of the tree.
+	KindHotHeader
+	// KindHot is an agent in the hot zone, out of its place in the tree.
+	KindHot
+	// KindHotMore counts the hot agents the zone has no room for.
+	KindHotMore
+	// KindDivider is the rule between the hot zone and the tree.
+	KindDivider
 )
 
 // Process is how much of a process stands behind a row.
@@ -161,4 +169,8 @@ type Row struct {
 	Scheduled bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
+	// Note is drawn against the right edge after the comment counts.
+	Note Cell
+	// Faded greys a row the keyboard cannot reach.
+	Faded bool
 }
