@@ -139,7 +139,9 @@ type Row struct {
 	Matches []Span
 	// Editing says the name is text a person is typing into.
 	Editing bool
-	Status  Status
+	// Behind is how many runes of the name follow the cursor while it is typed into.
+	Behind int
+	Status Status
 	// Process says whether anything ever stood behind the row, which the bar leaves blank where
 	// nothing did and the weight greys once it has gone.
 	Process     Process

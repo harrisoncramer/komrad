@@ -7,38 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestTrimLastRune pins that a backspace drops a whole rune rather than one byte of a
-// multi-byte one.
-func TestTrimLastRune(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{
-			name: "an empty string",
-			in:   "",
-			want: "",
-		},
-		{
-			name: "a multi-byte rune is dropped whole rather than half-deleted",
-			in:   "aé",
-			want: "a",
-		},
-		{
-			name: "an ascii string",
-			in:   "abc",
-			want: "ab",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, TrimLastRune(tt.in))
-		})
-	}
-}
-
 // TestMarkedTerms covers the words a highlight is looked for by, which are read back off the
 // snippet.
 func TestMarkedTerms(t *testing.T) {

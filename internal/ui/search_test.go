@@ -113,6 +113,16 @@ func TestSearchQuery(t *testing.T) {
 			want:  "pos",
 		},
 		{
+			name:  "left moves the cursor back so what is typed lands before it",
+			press: []string{"a", "c", "left", "b", "end"},
+			want:  "abc",
+		},
+		{
+			name:  "ctrl+w takes the last word back",
+			press: []string{"f", "o", "o", "space", "b", "a", "r", "ctrl+w"},
+			want:  "foo ",
+		},
+		{
 			name:  "space is part of the query rather than a command",
 			press: []string{"p", "o", "space", "g", "r"},
 			want:  "po gr",
