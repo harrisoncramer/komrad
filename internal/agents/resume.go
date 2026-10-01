@@ -47,6 +47,7 @@ type NewResumeServiceParams struct {
 }
 
 type ResumeService struct {
+	tmux               paneController
 	starter            *agentStarter
 	agents             resumeAgentReadWriter
 	workflows          workflowReader
@@ -64,6 +65,7 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 	}
 
 	return &ResumeService{
+		tmux: params.Tmux,
 		starter: &agentStarter{
 			tmux:     params.Tmux,
 			launcher: params.Launcher,
@@ -92,7 +94,7 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 		return nil, agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
-	if s.starter.isRunning(*agent) {
+	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {
 		return agent, nil
 	}
 

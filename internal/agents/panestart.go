@@ -30,10 +30,6 @@ type paneLaunch struct {
 	verb    string
 }
 
-func (s *agentStarter) isRunning(agent agentstore.Agent) bool {
-	return isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID)
-}
-
 func (s *agentStarter) start(ctx context.Context, agent agentstore.Agent, mode paneStart) (startErr error) {
 	var pane string
 	launched := false
