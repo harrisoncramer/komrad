@@ -701,7 +701,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		}
 		harness := openForms(t, workflow, newFormAuthor())
 
-		harness.press("e", "ctrl+s")
+		harness.press("space", "E", "ctrl+s")
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
 			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
