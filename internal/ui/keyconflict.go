@@ -91,6 +91,13 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
+	if err := validateSubmenuKeys("hide menu", []submenuKeys{
+		{name: "hide", keys: keys.HideMenu.Hide},
+		{name: "show_hidden", keys: keys.HideMenu.ShowHidden},
+	}); err != nil {
+		return err
+	}
+
 	if err := validateSubmenuKeys("documents menu", []submenuKeys{
 		{name: "view", keys: keys.DocumentsMenu.View},
 		{name: "new", keys: keys.DocumentsMenu.New},
@@ -119,6 +126,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "terminal", keys: keys.Menu.Terminal},
 		{name: "git", keys: keys.Menu.Git},
 		{name: "archive", keys: keys.Menu.Archive},
+		{name: "hide", keys: keys.Menu.Hide},
 		{name: "scratch", keys: keys.Menu.Scratch},
 		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	})

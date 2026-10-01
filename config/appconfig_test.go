@@ -656,7 +656,7 @@ func TestLoadMergesLayers(t *testing.T) {
 				assert.Equal(t, []string{"c"}, cfg.Keybindings.Agents.New)
 				assert.Equal(t, []string{"b"}, cfg.Keybindings.Agents.Rename,
 					"a binding the later layer did not mention keeps the earlier one's")
-				assert.Equal(t, []string{"h"}, cfg.Keybindings.Agents.Hide,
+				assert.Equal(t, []string{"e"}, cfg.Keybindings.Agents.Edit,
 					"and one no layer mentioned keeps its built-in default")
 			},
 		},
