@@ -133,7 +133,7 @@ func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.A
 		workflowFlags:   workflowFlags,
 	})
 
-	agent.SessionID = hn.MintSessionID()
+	agent.SessionID = harness.MintSessionID(hn)
 
 	return s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
 		ID:        agent.ID,

@@ -5,14 +5,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"komrad/internal/harness"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestMintSessionID pins that Codex takes no session id on the command line, so the panel has
+// TestSessionNaming pins that Codex takes no session id on the command line, so the panel has
 // to adopt the conversation Codex chose.
-func TestMintSessionID(t *testing.T) {
-	assert.Empty(t, NewHarness(NewHarnessParams{Home: t.TempDir()}).MintSessionID())
+func TestSessionNaming(t *testing.T) {
+	assert.Equal(t, harness.SessionDiscovered, NewHarness(NewHarnessParams{Home: t.TempDir()}).SessionNaming())
 }
 
 // TestFindSession covers adopting that conversation by the originator its launch stamped, the

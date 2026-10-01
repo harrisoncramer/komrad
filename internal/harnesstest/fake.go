@@ -9,8 +9,6 @@ import (
 
 	"komrad/internal/harness"
 	"komrad/lib/xslice"
-
-	"github.com/google/uuid"
 )
 
 const FakeID = "claude"
@@ -86,13 +84,13 @@ func (f *Fake) TrustDir(dir string) error {
 	return f.TrustErr
 }
 
-// MintSessionID is a fresh id, or nothing for a harness standing in for Codex.
-func (f *Fake) MintSessionID() string {
+// SessionNaming is SessionDiscovered for a harness standing in for Codex, and SessionMinted otherwise.
+func (f *Fake) SessionNaming() harness.SessionNaming {
 	if f.NoSession {
-		return ""
+		return harness.SessionDiscovered
 	}
 
-	return uuid.NewString()
+	return harness.SessionMinted
 }
 
 // InterruptKeys is InterruptWith, or Escape when the test gave none.

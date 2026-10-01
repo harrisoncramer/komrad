@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"komrad/internal/harness"
-
-	"github.com/google/uuid"
 )
 
 const ID = "fake"
@@ -112,15 +110,9 @@ func (h *Harness) Binary() string {
 	return h.script
 }
 
-// MintSessionID names the conversation before it exists, the way a CLI that takes an id on
-// its command line lets the panel do.
-func (h *Harness) MintSessionID() string {
-	return uuid.NewString()
-}
-
-// FindSession has nothing to find, every conversation being named at launch.
-func (h *Harness) FindSession(string) (string, error) {
-	return "", nil
+// SessionNaming is SessionMinted.
+func (h *Harness) SessionNaming() harness.SessionNaming {
+	return harness.SessionMinted
 }
 
 // TrustDir has nothing to record, the fake agent asking no question at startup.
