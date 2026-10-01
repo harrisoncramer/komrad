@@ -3,7 +3,6 @@ package pullrequests
 import (
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
-	"komrad/lib/xptr"
 )
 
 // State is where a pull request stands.
@@ -29,11 +28,8 @@ const (
 // forge's own word on whether it would merge it now, with an approval held at waiting until that
 // word is clean.
 func StateOf(pullRequest pullrequeststore.PullRequest) State {
-	checks := forge.ChecksNone
-	if pullRequest.Checks != nil {
-		checks = *pullRequest.Checks
-	}
-	mergeability, _ := ResolveMergeability(pullRequest)
+	displayed := pullRequest.Standing.DisplayForHead(pullRequest.HeadSHA)
+	checks, mergeability, decision := displayed.Checks.Value, displayed.Mergeability.Value, displayed.Decision.Value
 
 	switch {
 	case pullRequest.MergedAt != nil:
@@ -44,13 +40,8 @@ func StateOf(pullRequest pullrequeststore.PullRequest) State {
 		return StateDraft
 	case checks == forge.ChecksFailing:
 		return StateFailing
-	case mergeability != nil && *mergeability == forge.MergeabilityConflicting:
+	case mergeability == forge.MergeabilityConflicting:
 		return StateConflicting
-	}
-
-	decision := forge.ReviewDecisionNone
-	if pullRequest.ReviewDecision != nil {
-		decision = *pullRequest.ReviewDecision
 	}
 
 	switch {
@@ -60,25 +51,11 @@ func StateOf(pullRequest pullrequeststore.PullRequest) State {
 		return StateRereviewRequested
 	case checks == forge.ChecksPending:
 		return StateChecksRunning
-	case mergeability != nil && *mergeability == forge.MergeabilityClean:
+	case mergeability == forge.MergeabilityClean:
 		return StateApproved
 	case decision == forge.ReviewDecisionApproved:
 		return StateApprovedWaiting
 	}
 
 	return StateOpen
-}
-
-// ResolveMergeability returns the mergeability a pull request stands at and whether it is
-// unconfirmed: the latest read, or while the forge is working it out again the last answer it
-// gave for the same head.
-func ResolveMergeability(pullRequest pullrequeststore.PullRequest) (*forge.Mergeability, bool) {
-	if pullRequest.Mergeability != nil {
-		return pullRequest.Mergeability, false
-	}
-	if pullRequest.LastKnownMergeability == "" || pullRequest.LastKnownMergeabilitySHA != pullRequest.HeadSHA {
-		return nil, false
-	}
-
-	return xptr.Ptr(forge.Mergeability(pullRequest.LastKnownMergeability)), true
 }

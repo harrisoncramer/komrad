@@ -3,15 +3,10 @@ package pullrequests
 import (
 	"slices"
 
-	"komrad/lib/xptr"
+	"komrad/internal/forge"
 )
 
 const changeTopic = "pull_request_changed"
-
-const (
-	autoMergeOn  = "on"
-	autoMergeOff = "off"
-)
 
 // Field is one part of a pull request whose change is reported.
 type Field string
@@ -20,13 +15,13 @@ const (
 	// FieldState is whether the pull request is open, merged or closed.
 	FieldState Field = "state"
 	// FieldDecision is where the reviews stand.
-	FieldDecision Field = "review"
+	FieldDecision = Field(forge.StandingFieldDecision)
 	// FieldChecks is where the checks on the head stand.
-	FieldChecks Field = "checks"
+	FieldChecks = Field(forge.StandingFieldChecks)
 	// FieldMergeability is where the branch stands against its base.
-	FieldMergeability Field = "mergeability"
+	FieldMergeability = Field(forge.StandingFieldMergeability)
 	// FieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
-	FieldAutoMerge Field = "auto-merge"
+	FieldAutoMerge = Field(forge.StandingFieldAutoMerge)
 )
 
 var fieldOrder = []Field{FieldState, FieldDecision, FieldChecks, FieldMergeability, FieldAutoMerge}
@@ -65,12 +60,8 @@ func (c Change) Opens() bool {
 	})
 }
 
-// Moved is the move between two values of a field, nil when they are the same or when either
-// is unknown and the new one does not alarm.
+// Moved is the move between two values of a field, nil when they are the same or either is unknown.
 func Moved(field Field, from, to *string) *Move {
-	if from == nil && to != nil && slices.Contains(alarming[field], *to) {
-		return &Move{Field: field, To: *to}
-	}
 	if from == nil || to == nil || *from == *to {
 		return nil
 	}
@@ -83,29 +74,10 @@ func Moved(field Field, from, to *string) *Move {
 }
 
 // NewChange is the change for the fields of a pull request that moved, nil when none did.
-func NewChange(id string, moved ...*Move) *Change {
-	var moves []Move
-	for _, move := range moved {
-		if move != nil {
-			moves = append(moves, *move)
-		}
-	}
+func NewChange(id string, moves []Move) *Change {
 	if len(moves) == 0 {
 		return nil
 	}
 
 	return &Change{ID: id, Moves: moves}
-}
-
-// autoMergeWord is whether auto-merge is on in the words a change carries, nil while it has not
-// been read.
-func autoMergeWord(on *bool) *string {
-	switch {
-	case on == nil:
-		return nil
-	case *on:
-		return xptr.Ptr(autoMergeOn)
-	default:
-		return xptr.Ptr(autoMergeOff)
-	}
 }

@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/eventprompts"
+	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
@@ -24,7 +25,7 @@ var eventOf = map[Field]map[string]string{
 		"behind":      eventprompts.PullRequestBehind,
 	},
 	FieldAutoMerge: {
-		autoMergeOn: eventprompts.PullRequestAutoMergeOn,
+		forge.AutoMergeOn: eventprompts.PullRequestAutoMergeOn,
 	},
 }
 

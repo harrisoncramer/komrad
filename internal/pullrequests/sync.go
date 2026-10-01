@@ -360,15 +360,17 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				result.hotUntil = until
 			}
 
-			standingMoved := standingMoves(change)
+			moves := standingMoves(change)
 			if upsert.State != "OPEN" {
-				standingMoved = slices.DeleteFunc(standingMoved, func(move *Move) bool {
-					return move != nil && move.From == ""
+				moves = slices.DeleteFunc(moves, func(move Move) bool {
+					return move.From == ""
 				})
 			}
-			moved := append([]*Move{Moved(FieldState, outcome.OldState, &upsert.State)}, standingMoved...)
+			if stateMove := Moved(FieldState, outcome.OldState, &upsert.State); stateMove != nil {
+				moves = append([]Move{*stateMove}, moves...)
+			}
 
-			if change := NewChange(outcome.ID, moved...); change != nil {
+			if change := NewChange(outcome.ID, moves); change != nil {
 				event, err := events.NewEvent(change)
 				if err != nil {
 					return nil, err
@@ -386,30 +388,21 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 	return result, nil
 }
 
-func standingMoves(change *pullrequeststore.StandingChange) []*Move {
-	return []*Move{
-		Moved(FieldDecision, change.OldDecision, change.KnownDecision),
-		checksMoved(change),
-		Moved(FieldMergeability, change.OldMergeability, change.KnownMergeability),
-		Moved(FieldAutoMerge, autoMergeWord(change.OldAutoMerge), autoMergeWord(change.KnownAutoMerge)),
-	}
-}
-
-// checksMoved is the move of the checks, counting the same verdict on a new head as a move so
-// that a push the checks fail again is not taken for no change.
-func checksMoved(change *pullrequeststore.StandingChange) *Move {
-	if move := Moved(FieldChecks, change.OldChecks, change.KnownChecks); move != nil {
-		return move
-	}
-	if change.OldChecks == nil || change.KnownChecks == nil || Moved(FieldChecks, change.OldChecksSHA, change.KnownChecksSHA) == nil {
-		return nil
+func standingMoves(change *pullrequeststore.StandingChange) []Move {
+	var moves []Move
+	for _, move := range change.After.ListMovesSince(change.Before) {
+		field := Field(move.Field)
+		if move.From == "" && !slices.Contains(alarming[field], move.To) {
+			continue
+		}
+		moves = append(moves, Move{
+			Field: field,
+			From:  move.From,
+			To:    move.To,
+		})
 	}
 
-	return &Move{
-		Field: FieldChecks,
-		From:  *change.OldChecks,
-		To:    *change.KnownChecks,
-	}
+	return moves
 }
 
 // toUpsert is a pull request as the forge described it, in the store's terms.

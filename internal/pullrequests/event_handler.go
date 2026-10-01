@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"komrad/internal/events"
+	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
-	"komrad/lib/xptr"
 
 	"github.com/riverqueue/river"
 )
@@ -93,12 +93,14 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 
 // fieldValues is the value each field of the pull request stands at.
 func fieldValues(pullRequest pullrequeststore.PullRequest) map[Field]string {
+	displayed := pullRequest.Standing.DisplayForHead(pullRequest.HeadSHA)
+
 	return map[Field]string{
 		FieldState:        pullRequest.State,
-		FieldDecision:     pullRequest.LastKnownDecision,
-		FieldChecks:       pullRequest.LastKnownChecks,
-		FieldMergeability: pullRequest.LastKnownMergeability,
-		FieldAutoMerge:    xptr.Deref(autoMergeWord(pullRequest.AutoMerge)),
+		FieldDecision:     string(displayed.Decision.Value),
+		FieldChecks:       string(displayed.Checks.Value),
+		FieldMergeability: string(displayed.Mergeability.Value),
+		FieldAutoMerge:    forge.DescribeAutoMerge(pullRequest.Standing.AutoMerge),
 	}
 }
 
@@ -108,9 +110,9 @@ func describe(field Field, value string, pullRequest pullrequeststore.PullReques
 		return strings.ToLower(value)
 	case field == FieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
-	case field == FieldChecks && value != "" && pullRequest.LastKnownChecksSHA != "":
-		return strings.ReplaceAll(value, "_", " ") + " on " + git.ShortSHA(pullRequest.LastKnownChecksSHA)
-	case field == FieldAutoMerge && value == autoMergeOn:
+	case field == FieldChecks && value != "" && pullRequest.HeadSHA != "":
+		return strings.ReplaceAll(value, "_", " ") + " on " + git.ShortSHA(pullRequest.HeadSHA)
+	case field == FieldAutoMerge && value == forge.AutoMergeOn:
 		return "on, so whatever is on the branch merges once its checks and reviews pass"
 	case value == "":
 		return "unknown"
