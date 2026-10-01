@@ -36,7 +36,7 @@ func TestListingLandsWrites(t *testing.T) {
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 
-		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "ctrl+s")
 		require.Equal(t, "  old", readHoveredRow(harness.readFrame()), "the write puts nothing on the list and the cursor waits")
 
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
@@ -50,7 +50,7 @@ func TestListingLandsWrites(t *testing.T) {
 		harness := openLanding(t)
 		answerWorkflowCreate(harness, "w2")
 
-		harness.press("w", "w", "e", "b", "ctrl+s")
+		harness.press("space", "w", "w", "e", "b", "ctrl+s")
 		harness.watch(buildPuts(newLiveWorkflow("w2", "web")))
 
 		assert.Equal(t, "web", readHoveredRow(harness.readFrame()))
@@ -64,7 +64,7 @@ func TestListingLandsWrites(t *testing.T) {
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 		require.Equal(t, "  old", readHoveredRow(harness.readFrame()))
 
-		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "ctrl+s")
 
 		assert.Equal(t, "  new", readHoveredRow(harness.readFrame()))
 	})
@@ -75,7 +75,7 @@ func TestListingLandsWrites(t *testing.T) {
 		harness := openLanding(t)
 		harness.refuse(agentv1connect.AgentServiceCreateAgentProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")))
 
-		harness.press("c", "h", "i", "ctrl+s", "esc")
+		harness.press("space", "c", "h", "i", "ctrl+s", "esc")
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 
 		assert.Equal(t, "  old", readHoveredRow(harness.readFrame()))
@@ -87,7 +87,7 @@ func TestListingLandsWrites(t *testing.T) {
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 
-		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "ctrl+s")
 		harness.panel.ExpireLanding()
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 
@@ -100,7 +100,7 @@ func TestListingLandsWrites(t *testing.T) {
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 
-		harness.press("c", "h", "i", "ctrl+s", "k")
+		harness.press("space", "c", "h", "i", "ctrl+s", "k")
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 
 		assert.Equal(t, "api", readHoveredRow(harness.readFrame()))
@@ -113,7 +113,7 @@ func TestListingLandsWrites(t *testing.T) {
 		answerAgentCreate(harness, "")
 
 		harness.press("/", "tab", "^", "o", "l", "d", "$", "enter")
-		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "ctrl+s")
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 
 		assert.Equal(t, "  old", readHoveredRow(harness.readFrame()))
@@ -130,7 +130,7 @@ func TestListingLandsWrites(t *testing.T) {
 		require.Equal(t, "%1", harness.panel.ReadGuestPane())
 		answerAgentCreate(harness, "%9")
 
-		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "ctrl+s")
 		require.Equal(t, "%9", harness.panel.ReadGuestPane())
 
 		renamed := proto.CloneOf(old)
@@ -232,7 +232,7 @@ func TestListingFocus(t *testing.T) {
 		harness := openLanding(t)
 		answerAgentCreate(harness, "%9")
 
-		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "ctrl+s")
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 		assert.Empty(t, harness.panel.ReadSelectedPanes())

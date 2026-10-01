@@ -58,6 +58,20 @@ func writeEntry(label string, keys []string, run func(host) tea.Cmd) submenuEntr
 	}
 }
 
+// openEntry is an entry that leaves the menu for the form or screen run opens.
+func openEntry(label string, keys []string, run func(host, panelShared) tea.Cmd) submenuEntry {
+	return submenuEntry{
+		label: label,
+		keys:  keys,
+		open: func(m model) (tea.Model, tea.Cmd) {
+			m.leaveForm()
+			cmd := run(&m, m.shared())
+
+			return m, cmd
+		},
+	}
+}
+
 // submenuLevel is one menu of an open stack, and where its cursor sits.
 type submenuLevel struct {
 	menu   submenu

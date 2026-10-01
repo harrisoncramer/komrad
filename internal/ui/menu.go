@@ -13,10 +13,16 @@ type itemMenued interface {
 	itemMenu(s panelShared) (submenu, bool)
 }
 
-// openMenu draws the menu, the hovered row's band over the panel's own.
+// openMenu draws the menu, the hovered row's band over the screen's and the panel's own.
 func (m *model) openMenu() tea.Cmd {
 	s := m.shared()
 	menu := panelMenu(s, m.isScratchOpen(), m.menuReturn())
+
+	if screen, ok := m.active().(screenMenued); ok && !m.isDetailsFocused() {
+		if band, ok := screen.screenMenu(s); ok {
+			menu = joinMenus(band, menu)
+		}
+	}
 
 	if screen, ok := m.active().(itemMenued); ok && !m.isDetailsFocused() {
 		if item, ok := screen.itemMenu(s); ok {
@@ -99,8 +105,9 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 	if workflow, ok := a.hoveredWorkflow(s); ok {
 		menu := rowMenu(workflow.Name)
 		if hasAgent {
-			menu = agentMenu(s, screenAgents, item)
+			menu = agentMenu(s, screenAgents, item, a.editEntries(s)...)
 		}
+		menu.entries = append(menu.entries, workflowEntries(s, workflow)...)
 
 		return withArchive(withHide(menu, s, a.hideMenu(s, nil)), s, workflowArchiveMenu(s, workflow)), true
 	}
@@ -109,7 +116,7 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	return withArchive(withHide(agentMenu(s, screenAgents, item), s, a.hideMenu(s, &item.Agent)), s, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
+	return withArchive(withHide(agentMenu(s, screenAgents, item, a.agentEntries(s, item)...), s, a.hideMenu(s, &item.Agent)), s, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
 }
 
 func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {

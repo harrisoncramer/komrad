@@ -33,18 +33,11 @@ const (
 	actionAgentTriage
 	actionAgentTriageBack
 	actionAgentOpen
-	actionAgentChild
 	actionAgentRename
-	actionAgentEdit
-	actionAgentNew
-	actionAgentRetry
 	actionSearchOpen
 	actionSearchEdit
 	actionSearchBack
-	actionWorkflowNew
-	actionWorkflowAdopt
 	actionWorkflowRename
-	actionWorkflowEdit
 	actionSelectToggle
 	actionSelectRange
 	actionSelectClear

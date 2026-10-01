@@ -259,7 +259,7 @@ const heldPlaceholder = "Paused."
 const stillPaused = "it is still paused"
 
 func welcomeText(keys config.Keybindings) string {
-	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' to set up your first workflow", firstKey(keys.Workflows.New, "w"))
+	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' then '%s' to set up your first workflow", firstKey(keys.Menu.Open, "space"), firstKey(keys.Menu.NewWorkflow, "w"))
 }
 
 func firstKey(keys []string, fallback string) string {

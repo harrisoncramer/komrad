@@ -38,7 +38,7 @@ Komrad has three types of agents, and you've already seen one: the [orchestrator
                     '-- reviewer
 ```
 
-Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press <Key name="agents.new" /> to spawn the implementer directly.
+Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator, open the menu with <Key name="menu.open" /> and press <Key name="menu.new_agent" /> to spawn the implementer directly.
 
 <figure>
   <video
@@ -86,7 +86,7 @@ Reviewer agents share the implementer's checkout. They make no changes of their 
 
 If you need to resume work that started outside of komrad (such as reviewing a pull request from a colleague, or resuming work from another machine) you can _adopt_ the branch. Adopting the branch lets komrad spawn an implementer agent into that branch responsible for resuming work on it.
 
-To adopt a branch, press <Key name="workflows.adopt" /> when hovering over a workflow.
+To adopt a branch, hover over a workflow, open the menu with <Key name="menu.open" /> and press <Key name="menu.adopt" />.
 
 Because adoption creates a new implementer agent, the adopted branch must be available in the repository controlled by the workflow you are adopting work into.
 

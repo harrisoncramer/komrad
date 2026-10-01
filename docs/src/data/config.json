@@ -211,32 +211,11 @@
               "default": "[\"esc\"]"
             },
             {
-              "key": "edit",
-              "path": "keybindings.agents.edit",
-              "type": "array",
-              "description": "Open your editor on the hovered agent's worktree, in place of its pane beside the list. The\nagent is paused while the editor is open, and quitting the editor, pressing the key again or\nleaving the agents list closes it and unpauses the agent.",
-              "default": "[\"e\"]"
-            },
-            {
               "key": "triage",
               "path": "keybindings.agents.triage",
               "type": "array",
               "description": "Move the keyboard into the triage zone at the top of the list, or back out of it into the tree.",
               "default": "[\"t\"]"
-            },
-            {
-              "key": "new",
-              "path": "keybindings.agents.new",
-              "type": "array",
-              "description": "Start a new agent.",
-              "default": "[\"c\"]"
-            },
-            {
-              "key": "child",
-              "path": "keybindings.agents.child",
-              "type": "array",
-              "description": "Attach a child agent to the hovered agent, which runs in that agent's own checkout\nwith no worktree of its own and is archived along with it.",
-              "default": "[\"C\"]"
             },
             {
               "key": "open",
@@ -258,13 +237,6 @@
               "type": "array",
               "description": "Rename the hovered agent.",
               "default": "[\"r\"]"
-            },
-            {
-              "key": "retry",
-              "path": "keybindings.agents.retry",
-              "type": "array",
-              "description": "Retry the launch of an agent that failed to create, opening a form where the flags can be\ncorrected before confirming.",
-              "default": "[\"R\"]"
             }
           ],
           "sections": []
@@ -1086,6 +1058,55 @@
               "default": "[\"h\"]"
             },
             {
+              "key": "edit",
+              "path": "keybindings.menu.edit",
+              "type": "array",
+              "description": "Open your editor on the hovered agent's worktree, in place of its pane beside the list. The\nagent is paused while the editor is open, and quitting the editor, picking the entry again\nor leaving the agents list closes it and unpauses the agent. The entry is only on the agents\nlist.",
+              "default": "[\"e\"]"
+            },
+            {
+              "key": "child",
+              "path": "keybindings.menu.child",
+              "type": "array",
+              "description": "Attach a child agent to the hovered agent, which runs in that agent's own checkout with no\nworktree of its own and is archived along with it. The entry is only on the agents list.",
+              "default": "[\"C\"]"
+            },
+            {
+              "key": "retry",
+              "path": "keybindings.menu.retry",
+              "type": "array",
+              "description": "Retry the launch of an agent that failed to create, opening a form where the flags can be\ncorrected before confirming. The entry is only on such an agent.",
+              "default": "[\"R\"]"
+            },
+            {
+              "key": "edit_workflow",
+              "path": "keybindings.menu.edit_workflow",
+              "type": "array",
+              "description": "Edit the hovered workflow.",
+              "default": "[\"E\"]"
+            },
+            {
+              "key": "adopt",
+              "path": "keybindings.menu.adopt",
+              "type": "array",
+              "description": "Put an agent on a branch that already exists, in the hovered workflow.",
+              "default": "[\"A\"]"
+            },
+            {
+              "key": "new_agent",
+              "path": "keybindings.menu.new_agent",
+              "type": "array",
+              "description": "Start a new agent, in the workflow the cursor is in. The entry is only on the agents list.",
+              "default": "[\"c\"]"
+            },
+            {
+              "key": "new_workflow",
+              "path": "keybindings.menu.new_workflow",
+              "type": "array",
+              "description": "Create a workflow. The entry is only on the agents list.",
+              "default": "[\"w\"]"
+            },
+            {
               "key": "scratch",
               "path": "keybindings.menu.scratch",
               "type": "array",
@@ -1155,27 +1176,6 @@
           "path": "keybindings.workflows",
           "description": "The bindings that create and change workflows, from the agents list.",
           "settings": [
-            {
-              "key": "adopt",
-              "path": "keybindings.workflows.adopt",
-              "type": "array",
-              "description": "Put an agent on a branch that already exists, in the workflow under the\ncursor.",
-              "default": "[\"a\"]"
-            },
-            {
-              "key": "edit",
-              "path": "keybindings.workflows.edit",
-              "type": "array",
-              "description": "Edit the workflow under the cursor.",
-              "default": "[\"e\"]"
-            },
-            {
-              "key": "new",
-              "path": "keybindings.workflows.new",
-              "type": "array",
-              "description": "Create a workflow. Works from anywhere in the list.",
-              "default": "[\"w\"]"
-            },
             {
               "key": "rename",
               "path": "keybindings.workflows.rename",
