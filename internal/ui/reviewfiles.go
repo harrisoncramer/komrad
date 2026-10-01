@@ -365,18 +365,11 @@ func (r *reviewScreen) settleFilesFilter(h navHost, s panelShared) tea.Cmd {
 		return r.jumpFilesMatch(h, s, 0)
 	}
 
-	tree := r.readFilesTree()
-	if tree.current >= 0 {
+	if r.readFilesTree().current >= 0 {
 		return nil
 	}
 
-	for _, row := range tree.rows {
-		if !row.Folder {
-			return r.landOnFile(h, s, row)
-		}
-	}
-
-	return nil
+	return r.stepFile(h, s, 1)
 }
 
 // jumpFilesMatch walks to the next file whose name the pattern matches, the way direction says,
