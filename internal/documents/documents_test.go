@@ -100,7 +100,7 @@ func TestWrite(t *testing.T) {
 		{
 			name:    "an agent naming another agent it writes for is refused",
 			params:  documents.WriteDocumentParams{Name: "elsewhere", Body: "# Elsewhere", For: uuid.NewString()},
-			wantErr: documents.ErrWritingForAnother,
+			wantErr: documents.ErrAgentWritingForAnother,
 		},
 		{
 			name:     "an agent naming itself writes its own",

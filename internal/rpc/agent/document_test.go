@@ -212,7 +212,7 @@ func TestDocumentErrors(t *testing.T) {
 		{
 			name:     "an agent writing a document for another agent",
 			call:     write,
-			err:      documents.ErrWritingForAnother,
+			err:      documents.ErrAgentWritingForAnother,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
