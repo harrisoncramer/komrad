@@ -31,23 +31,11 @@ type claimedDirLister interface {
 	ListClaimedDirs(ctx context.Context) ([]string, error)
 }
 
-type worktreeReadWriter interface {
-	List(ctx context.Context) ([]worktreestore.Worktree, error)
-	Upsert(ctx context.Context, worktree worktreestore.Worktree) error
-	RecordSize(ctx context.Context, size worktreestore.Size) error
-	RecordStanding(ctx context.Context, standing worktreestore.Standing) error
-	Delete(ctx context.Context, dirs []string) error
-}
-
-type standingReader interface {
-	ReadStanding(ctx context.Context, worktree Worktree) worktreestore.Standing
-}
-
 type NewMeasurerParams struct {
 	Lister    worktreeLister
 	Claimed   claimedDirLister
-	Worktrees worktreeReadWriter
-	Standings standingReader
+	Worktrees *worktreestore.WorktreeStore
+	Standings *Inspector
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -57,8 +45,8 @@ type NewMeasurerParams struct {
 type Measurer struct {
 	lister    worktreeLister
 	claimed   claimedDirLister
-	worktrees worktreeReadWriter
-	standings standingReader
+	worktrees *worktreestore.WorktreeStore
+	standings *Inspector
 	now       func() time.Time
 }
 
