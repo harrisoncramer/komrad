@@ -360,26 +360,6 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	return connection.Login, nil
 }
 
-// ConnectionFor is the connection a host has, or ErrNotFound.
-func (s *Service) ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error) {
-	return s.connections.GetByHost(ctx, strings.ToLower(host))
-}
-
-// ForHost is the forge for a host's connection.
-func (s *Service) ForHost(ctx context.Context, host string) (Forge, error) {
-	connection, err := s.ConnectionFor(ctx, host)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find the forge for %s: %w", host, err)
-	}
-
-	hostForge, err := s.ForConnection(*connection)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build the forge for %s: %w", host, err)
-	}
-
-	return hostForge, nil
-}
-
 // RecheckConnection checks a connection and records the forge's answer on its verified stamp.
 func (s *Service) RecheckConnection(ctx context.Context, connection forgestore.Connection) (*CheckResult, error) {
 	if _, err := s.Check(ctx, connection); err != nil {
@@ -407,6 +387,26 @@ func (s *Service) RecheckConnection(ctx context.Context, connection forgestore.C
 	connection.VerifiedAt = &at
 
 	return &CheckResult{Connection: connection}, nil
+}
+
+// ConnectionFor is the connection a host has, or ErrNotFound.
+func (s *Service) ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error) {
+	return s.connections.GetByHost(ctx, strings.ToLower(host))
+}
+
+// ForHost is the forge for a host's connection.
+func (s *Service) ForHost(ctx context.Context, host string) (Forge, error) {
+	connection, err := s.ConnectionFor(ctx, host)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the forge for %s: %w", host, err)
+	}
+
+	hostForge, err := s.ForConnection(*connection)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build the forge for %s: %w", host, err)
+	}
+
+	return hostForge, nil
 }
 
 // HasCredential says whether a connection still has what it needs to speak, which for an App
