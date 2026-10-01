@@ -264,11 +264,11 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
-			name:   "a divider is a rule across the pane and nothing else",
+			name:   "a divider is a rule across the pane titled by its name and nothing else",
 			golden: "row-divider",
 			row: Row{
 				Kind:   KindDivider,
-				Name:   "unseen",
+				Name:   "Triage",
 				Status: StatusBroken,
 			},
 		},

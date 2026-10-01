@@ -640,6 +640,9 @@ func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.
 func readTriageList(frame string) []string {
 	var rows []string
 	for _, line := range splitLines(frame) {
+		if strings.HasPrefix(line, "─── Triage") || strings.HasPrefix(line, "─── All Agents") {
+			continue
+		}
 		if strings.HasPrefix(line, "─") {
 			break
 		}

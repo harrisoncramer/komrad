@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"komrad/config"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
@@ -466,10 +465,10 @@ func (m *model) detailsView() string {
 		rows = []string{dimStyle().Render("  nothing matches")}
 	}
 
-	return m.markZone(zoneDetails, m.detailsRule(held.tags...)+
+	return m.markZone(zoneDetails, m.detailsRule("Info", held.tags...)+
 		block+
 		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle()), lines)+
-		m.detailsRule(), m.paneWidth())
+		m.detailsRule(""), m.paneWidth())
 }
 
 func (m *model) drawRecord(above ...string) string {
@@ -477,7 +476,7 @@ func (m *model) drawRecord(above ...string) string {
 		return record
 	}
 
-	rule := m.detailsRule()
+	rule := m.detailsRule("")
 	if m.term.height > 0 && m.spareLines(append(slices.Clone(above), rule)...) < legendRuleFloor {
 		return ""
 	}
@@ -485,27 +484,23 @@ func (m *model) drawRecord(above ...string) string {
 	return rule
 }
 
-// detailsRule is the rule over the record, carrying as many of its tags as fit with the leftmost
-// given up first.
-func (m *model) detailsRule(tags ...string) string {
+// detailsRule is a rule of the record titled by title, carrying as many of its tags as fit with
+// the leftmost given up first.
+func (m *model) detailsRule(title string, tags ...string) string {
 	width := m.paneWidth()
 	if width <= 0 {
 		return "\n"
 	}
 
 	tags = slices.DeleteFunc(slices.Clone(tags), func(tag string) bool { return tag == "" })
-	tag := strings.Join(tags, dimStyle().Render(separated))
-	for len(tags) > 1 && lipgloss.Width(tag)+4 > width {
+	label := dimStyle().Render(title)
+	tail := strings.Join(tags, dimStyle().Render(separated))
+	for len(tags) > 0 && !paint.TitledRuleFits(label, tail, width) {
 		tags = tags[1:]
-		tag = strings.Join(tags, dimStyle().Render(separated))
+		tail = strings.Join(tags, dimStyle().Render(separated))
 	}
 
-	tagWidth := lipgloss.Width(tag)
-	if tag == "" || tagWidth+4 > width {
-		return dimStyle().Render(strings.Repeat(glyph.Rule, width)) + "\n"
-	}
-
-	return dimStyle().Render(strings.Repeat(glyph.Rule, width-tagWidth-3)+" ") + tag + dimStyle().Render(" "+glyph.Rule) + "\n"
+	return paint.Panel.TitledRule(label, tail, width) + "\n"
 }
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice

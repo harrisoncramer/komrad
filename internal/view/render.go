@@ -24,7 +24,7 @@ func Rows(list List, palette paint.Palette, width int) []string {
 // colours it already carries read through.
 func renderLine(line Line, list List, palette paint.Palette, width int) string {
 	if line.Divider {
-		return drawDivider(palette, width)
+		return drawDivider(palette, line.Name, width)
 	}
 
 	draw := drawer{palette: palette, glyphs: list.Glyphs}
@@ -127,9 +127,9 @@ func drawLead(palette paint.Palette, lead string) string {
 	return palette.Style(paint.ToneMuted).Render(lead) + " "
 }
 
-// drawDivider is a rule across the pane, set in a column from either edge.
-func drawDivider(palette paint.Palette, width int) string {
-	return " " + palette.Style(paint.ToneMuted).Render(strings.Repeat(glyph.Rule, max(width-2, 1)))
+// drawDivider is a rule across the pane titled by name.
+func drawDivider(palette paint.Palette, name string, width int) string {
+	return palette.TitledRule(palette.Style(paint.ToneMuted).Render(name), "", max(width-1, 1))
 }
 
 // drawRule is the corner a child hangs off its parent by.

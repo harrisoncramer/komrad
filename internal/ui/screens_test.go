@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode"
 
 	"komrad/config"
 	"komrad/internal/engine"
@@ -249,7 +250,7 @@ func TestScreensDivider(t *testing.T) {
 
 				rules := 0
 				for _, row := range splitLines(harness.readDrawn()) {
-					if strings.Contains(row, "──") {
+					if strings.Contains(row, "──") && !strings.ContainsFunc(row, unicode.IsLetter) {
 						rules++
 						assert.Equal(t, tt.rule, tt.edge(row), "a rule meets the edge in a junction")
 

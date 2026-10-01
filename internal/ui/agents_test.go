@@ -1256,7 +1256,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				name:     "a narrow rule gives up the leftmost of what is waiting first",
 				read:     buildWorktreeRead(),
 				diffStat: changed,
-				want:     "↑2 unpushed · ↓1 unpulled · +200 −100",
+				want:     "↓1 unpulled · +200 −100",
 			},
 			{
 				name:     "a wide rule carries every change waiting in the directory",
@@ -2770,7 +2770,9 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 func readRecordTag(frame string) string {
 	for _, line := range splitLines(frame) {
 		if strings.HasPrefix(line, "─") {
-			return strings.Trim(strings.TrimRight(line, " │┤┼"), "─ ")
+			tag := strings.TrimPrefix(strings.Trim(strings.TrimRight(line, " │┤┼"), "─ "), "Info")
+
+			return strings.Trim(tag, "─ ")
 		}
 	}
 

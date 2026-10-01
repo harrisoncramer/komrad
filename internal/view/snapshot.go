@@ -17,7 +17,7 @@ const (
 	KindHit
 	// KindTriageMore counts the agents in triage the zone has no room for.
 	KindTriageMore
-	// KindDivider is the rule between triage and the tree.
+	// KindDivider is a rule across the list titled by its name.
 	KindDivider
 )
 
