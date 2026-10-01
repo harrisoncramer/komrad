@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
 	"komrad/config"
@@ -117,7 +118,7 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			}
 
 			entry := level.menu.entries[*level.choice]
-			stack := append(parents[:len(parents):len(parents)], level)
+			stack := slices.Concat(parents, []submenuLevel{level})
 
 			switch {
 			case entry.opens != nil:
