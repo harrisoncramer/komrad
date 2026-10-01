@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -28,10 +29,10 @@ func TestTriageRows(t *testing.T) {
 			want:     []string{"backend", "third", "asker", "broken", "quiet"},
 		},
 		{
-			name:     "a zone with nothing in triage is not drawn",
+			name:     "a zone with nothing in triage says so",
 			capacity: 2,
 			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newTriageAgent("quiet", agentv1.AgentState_AGENT_STATE_IDLE, 1)},
-			want:     []string{"backend", "quiet"},
+			want:     []string{"nothing to triage", "backend", "quiet"},
 		},
 		{
 			name:     "an orchestrator is named for its workflow",
@@ -102,6 +103,18 @@ func TestTriageRows(t *testing.T) {
 			rows:     buildTriage(),
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
 		},
+		{
+			name:     "a family with no room for its children waits for a slot",
+			capacity: 2,
+			rows:     append(buildTriage()[:3], buildTriageFamily()[2:4]...),
+			want:     []string{"asker", "+1 more waiting for a slot", "backend", "parent", "└ reviewer", "quiet"},
+		},
+		{
+			name:     "a family taller than the zone leaves the children it has no room for in the tree",
+			capacity: 1,
+			rows:     buildTriageFamily()[:4],
+			want:     []string{"parent", "backend", "reviewer", "quiet"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -111,6 +124,25 @@ func TestTriageRows(t *testing.T) {
 			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
 		})
 	}
+}
+
+// TestTriageHeight covers the zone keeping one height however many families it holds, so the tree
+// under it stays put.
+func TestTriageHeight(t *testing.T) {
+	listings := map[string][]proto.Message{
+		"full":      append(buildTriage(), buildTriageFamily()[2:4]...),
+		"part full": buildTriage()[:3],
+		"empty":     buildTriage()[:2],
+	}
+
+	lines := make(map[string]int, len(listings))
+	for name, rows := range listings {
+		harness := openTriage(t, 4, rows...)
+		lines[name] = slices.IndexFunc(splitLines(harness.readFrame()), func(line string) bool { return strings.Contains(line, "│ backend") })
+	}
+
+	assert.Equal(t, map[string]int{"full": lines["empty"], "part full": lines["empty"], "empty": lines["empty"]}, lines)
+	assert.Positive(t, lines["empty"])
 }
 
 // TestTriageJump covers the triage key putting the cursor on the zone's first agent.
@@ -231,7 +263,7 @@ func TestTriageSnooze(t *testing.T) {
 			name:     "waking a snoozed family puts it back in its place",
 			capacity: 3,
 			rows:     buildTriage(),
-			press:    []string{"t", "space", "z", "space", "z"},
+			press:    []string{"t", "space", "z", "j", "j", "space", "z"},
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
 		},
 		{
@@ -301,6 +333,8 @@ func TestTriageFreeze(t *testing.T) {
 		want []string
 		// hovered is the row the cursor is on once the zone has settled or held.
 		hovered string
+		// note is what the messages region says, unchecked when empty.
+		note string
 	}{
 		{
 			name:     "an agent that needs triage while the zone is read waits for a slot",
@@ -324,10 +358,35 @@ func TestTriageFreeze(t *testing.T) {
 			hovered: "asker",
 		},
 		{
-			name:     "a family snoozed while the zone is read keeps its place",
+			name:     "a family snoozed while the zone is read sinks and the cursor moves on to the next",
 			capacity: 3,
 			rows:     buildTriage(),
 			press:    []string{"space", "z"},
+			want:     []string{"third", "broken", "asker", "backend", "quiet"},
+			hovered:  "third",
+		},
+		{
+			name:     "the last family awake snoozed takes the cursor back to the first",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"j", "j", "space", "z"},
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			hovered:  "asker",
+		},
+		{
+			name:     "every family snoozed leaves the cursor where it is and says so",
+			capacity: 3,
+			rows:     buildTriage()[:3],
+			press:    []string{"space", "z"},
+			want:     []string{"asker", "backend", "quiet"},
+			hovered:  "asker",
+			note:     "nothing left to triage",
+		},
+		{
+			name:     "a family woken while the zone is read goes back to its place with the cursor on it",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"space", "z", "j", "j", "space", "z"},
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
 			hovered:  "asker",
 		},
@@ -433,6 +492,7 @@ func TestTriageFreeze(t *testing.T) {
 				assert.Equal(t, tt.want, readTriageList(frame))
 			}
 			assert.Equal(t, tt.hovered, strings.TrimSpace(readHoveredRow(frame)))
+			assert.Contains(t, frame, tt.note)
 		})
 	}
 }

@@ -159,8 +159,7 @@ func (a *agentsScreen) seeFinished(s panelShared, item panel.AgentRow) {
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 }
 
-// toggleSnooze snoozes the hovered agent's family in triage, or wakes it, keeping the cursor on
-// the agent as its family moves.
+// toggleSnooze snoozes the hovered agent's family in triage, or wakes it.
 func (a *agentsScreen) toggleSnooze(h host, s panelShared) {
 	item, ok := a.selectedAgent(s)
 	if !ok {
@@ -168,13 +167,40 @@ func (a *agentsScreen) toggleSnooze(h host, s panelShared) {
 	}
 
 	selected := a.list().hovered(s)
+	slot := a.findZoneSlot(s)
+	snoozing := slot >= 0 && !findZoneHead(a.layout(s).zone, a.cursor).snoozed
 	if !a.triage.toggleSnooze(item, s.listing.agents) {
 		return
 	}
 
 	rows := a.rows(s)
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
+	if snoozing {
+		a.moveToAwake(h, s, slot)
+	}
+
 	a.stage(h, s)
+}
+
+// moveToAwake puts the cursor on the family now in the zone's slot, or on the first family awake.
+func (a *agentsScreen) moveToAwake(h navHost, s panelShared, slot int) {
+	zone := a.layout(s).zone
+	heads := zoneHeads(zone)
+	if len(heads) == 0 {
+		return
+	}
+
+	next := heads[min(slot, len(heads)-1)]
+	if zone[next].snoozed {
+		next = heads[0]
+	}
+	if zone[next].snoozed {
+		h.note(messageInfo, "nothing left to triage")
+
+		return
+	}
+
+	a.cursor = next
 }
 
 func hideAgent(h host, agent panel.Agent) tea.Cmd {
@@ -355,6 +381,7 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	return agentsSnapshot(snapshotParams{
 		rows: layout.tree,
 		triage: triageSnapshot{
+			height:  a.triage.capacity,
 			zone:    layout.zone,
 			waiting: layout.waiting,
 		},
