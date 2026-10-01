@@ -230,8 +230,8 @@ func workflowForm(params workflowFormParams) sectionedForm {
 
 			return workflowTopFields(params.NameTitle, values)
 		},
-		frozen: func() []frozenField {
-			return []frozenField{
+		topSummary: func() []summaryField {
+			return []summaryField{
 				{title: params.NameTitle, value: values.Name},
 				{title: "Context", value: values.Context},
 				{title: "Default Directory", value: values.Cwd},

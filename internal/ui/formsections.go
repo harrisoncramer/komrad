@@ -15,8 +15,8 @@ import (
 // sectionsKey is the form key of the list of sections on a sectioned form's top form.
 const sectionsKey = "sections"
 
-// frozenTopCols is how wide the top form is drawn beside an open section.
-const frozenTopCols = 26
+// topSummaryCols is how wide the top form is drawn beside an open section.
+const topSummaryCols = 26
 
 // sectionedForm is a form whose top fields are always drawn and whose other fields are kept in
 // sections, each opened from the top form on its own.
@@ -25,15 +25,15 @@ type sectionedForm struct {
 	title string
 	// top is the fields drawn above the list of sections.
 	top func(m model) []huh.Field
-	// frozen is the top fields as they are drawn gray beside an open section.
-	frozen      func() []frozenField
+	// topSummary is the top fields as they are drawn gray beside an open section.
+	topSummary  func() []summaryField
 	topEditable []editableText
 	// reshaped reports whether an answer on the top form has changed which sections are off.
 	reshaped func() bool
 	sections []formSection
-	submit   func(model) (tea.Model, tea.Cmd)
 	// choice is the section the list's cursor is on.
 	choice *string
+	submit func(model) (tea.Model, tea.Cmd)
 }
 
 // formSection is one section of a sectioned form.
@@ -46,8 +46,8 @@ type formSection struct {
 	editable []editableText
 }
 
-// frozenField is one top field as the gray top form draws it.
-type frozenField struct {
+// summaryField is one top field as the gray top form draws it.
+type summaryField struct {
 	title string
 	value string
 }
@@ -120,7 +120,7 @@ func (s sectionedForm) sectionState(section formSection) formState {
 			return formOf(formKeys(), section.fields(m)...)
 		},
 		editable: section.editable,
-		leading:  s.frozenTop,
+		leading:  s.drawTopSummary,
 		back:     s.backToTop,
 	}
 }
@@ -137,15 +137,15 @@ func (s sectionedForm) backToTop(m model) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// frozenTop is the top form drawn gray to the left of an open section, or nothing when the
+// drawTopSummary is the top form drawn gray to the left of an open section, or nothing when the
 // section would be left too narrow.
-func (s sectionedForm) frozenTop(width, height int) []string {
-	if width-frozenTopCols-dividerCols < formColumnFloor {
+func (s sectionedForm) drawTopSummary(width, height int) []string {
+	if width-topSummaryCols-dividerCols < formColumnFloor {
 		return nil
 	}
 
 	var lines []string
-	for _, field := range s.frozen() {
+	for _, field := range s.topSummary() {
 		value, _, _ := strings.Cut(field.value, "\n")
 		lines = append(lines, field.title, "  "+value, "")
 	}
@@ -162,7 +162,7 @@ func (s sectionedForm) frozenTop(width, height int) []string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 
 	return []string{strings.Join(xslice.Map(lines[:min(len(lines), max(height, 0))], func(line string) string {
-		return muted.Render(ansi.Truncate(line, frozenTopCols, "…"))
+		return muted.Render(ansi.Truncate(line, topSummaryCols, "…"))
 	}), "\n")}
 }
 
