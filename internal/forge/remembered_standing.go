@@ -93,7 +93,7 @@ func (rs RememberedStanding) ListMovesSince(before RememberedStanding) []Standin
 			To:    string(rs.Decision.Value),
 		})
 	}
-	if rs.Checks.Value != before.Checks.Value || isSameVerdictOnNewHead(before.Checks, rs.Checks) {
+	if rs.Checks.Value != before.Checks.Value || isOnNewHead(before.Checks, rs.Checks) {
 		moves = append(moves, StandingMove{
 			Field: StandingFieldChecks,
 			From:  string(before.Checks.Value),
@@ -118,8 +118,8 @@ func (rs RememberedStanding) ListMovesSince(before RememberedStanding) []Standin
 	return moves
 }
 
-// isSameVerdictOnNewHead says whether the checks gave the same verdict again on a different head.
-func isSameVerdictOnNewHead(before, after RememberedAnswer[Checks]) bool {
+// isOnNewHead says whether the checks were read for a different head than before.
+func isOnNewHead(before, after RememberedAnswer[Checks]) bool {
 	return before.HeadSHA != "" && after.HeadSHA != "" && before.HeadSHA != after.HeadSHA
 }
 
