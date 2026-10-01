@@ -366,11 +366,14 @@ func (f *Forge) RequestRereview(ctx context.Context, address string) error {
 	}
 
 	target := data.Project.MergeRequest
-	switch target.State {
-	case "merged":
-		return forge.ErrNoRereview.Saying("gitlab will not change !%d: it has already merged", number)
-	case "closed":
-		return forge.ErrNoRereview.Saying("gitlab will not change !%d: it was closed", number)
+	if _, err := forge.ShouldChange(forge.ShouldChangeParams{
+		Sentinel: forge.ErrNoRereview,
+		Forge:    forge.KindGitLab,
+		Ref:      "!" + strconv.Itoa(number),
+		Merged:   target.State == "merged",
+		Closed:   target.State == "closed",
+	}); err != nil {
+		return err
 	}
 
 	var users []string
