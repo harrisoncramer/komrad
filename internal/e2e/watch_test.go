@@ -348,10 +348,7 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 	return got
 }
 
-// worldFromStores reads the watched set the way the agent handler reads a page: the live and
-// archived rows, the unclaimed mail, the pull requests an agent was seen with,
-// the repositories they sit on, the reviews of their work and the threads on it, the forge's threads on
-// their pull requests and their workflows, with the live schedules beside them.
+// worldFromStores reads the watched set the way the agent handler reads a page.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	t.Helper()
 	ctx := t.Context()
