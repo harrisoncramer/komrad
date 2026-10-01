@@ -753,7 +753,7 @@
               "key": "answer",
               "path": "keybindings.review.answer",
               "type": "array",
-              "description": "Show the change that answered the comment under the cursor, from the work the\ncomment was written on to the work the agent's addressed reply carried, or go back\nto all changes from there.",
+              "description": "Show only the change that answered the comment under the cursor, from the work as\nit stood just before the agent's addressed reply to the work that reply carried, or\ngo back to all changes from there.",
               "default": "[\"a\"]"
             },
             {
