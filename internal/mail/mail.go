@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"komrad/internal/fail"
 	"komrad/internal/logging"
@@ -615,16 +616,15 @@ func withPrompts(body string, prompts []notedPrompt) string {
 	lines := xslice.Map(prompts, func(p notedPrompt) string { return p.notice + ": " + p.prompt })
 	section := "\n\n" + promptsHeading + "\n\n" + strings.Join(lines, "\n\n")
 
-	room := MaxMailBody - len(body)
-	if len(section) <= room {
+	room := MaxMailBody - utf8.RuneCountInString(body)
+	if utf8.RuneCountInString(section) <= room {
 		return body + section
 	}
 
-	if room <= len(promptsCut) {
+	kept := room - utf8.RuneCountInString(promptsCut)
+	if kept <= 0 {
 		return body
 	}
 
-	cut, _ := xstr.Head(section, room-len(promptsCut))
-
-	return body + cut + promptsCut
+	return body + string([]rune(section)[:kept]) + promptsCut
 }

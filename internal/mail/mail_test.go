@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"komrad/config"
 	agentstore "komrad/internal/store/agent"
@@ -625,30 +626,63 @@ func TestSendFromKomradSendsNoPromptsOfAnArchivedWorkflow(t *testing.T) {
 
 // TestSendFromKomradCutsThePromptsToFit pins that prompts too long for the mail are cut rather than refused.
 func TestSendFromKomradCutsThePromptsToFit(t *testing.T) {
-	st := storetest.Open(t)
-	svc := newMailService(st, config.DefaultMaxExchange)
-	workflow := st.SeedWorkflow(t, workflowstore.Config{
-		Name: "backend",
-		Prompts: []workflowstore.Prompt{
-			{Notice: "pull_request.checks_failing", Prompt: strings.Repeat("a", 2000)},
-			{Notice: "pull_request.behind", Prompt: strings.Repeat("b", 2000)},
+	tests := []struct {
+		name    string
+		body    string
+		prompt  string
+		wantCut bool
+	}{
+		{
+			name:    "prompts past the room left are cut",
+			body:    strings.Repeat("x", MaxMailBody-3000),
+			prompt:  strings.Repeat("a", 2000),
+			wantCut: true,
 		},
-	})
-	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
-	body := strings.Repeat("x", MaxMailBody-3000)
+		{
+			name:   "prompts are measured in characters rather than bytes",
+			body:   "changed",
+			prompt: strings.Repeat("検", 2000),
+		},
+		{
+			name:    "and cut in characters",
+			body:    strings.Repeat("é", MaxMailBody-3000),
+			prompt:  strings.Repeat("検", 2000),
+			wantCut: true,
+		},
+	}
 
-	sent, err := svc.SendFromKomrad(t.Context(), SendFromKomradParams{
-		ToAgentID: recipient.ID,
-		Body:      body,
-		Kind:      mailstore.KindPullRequestChanged,
-		SubjectID: uuid.NewString(),
-		Notices:   []string{"pull_request.checks_failing", "pull_request.behind"},
-	})
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			workflow := st.SeedWorkflow(t, workflowstore.Config{
+				Name: "backend",
+				Prompts: []workflowstore.Prompt{
+					{Notice: "pull_request.checks_failing", Prompt: tt.prompt},
+					{Notice: "pull_request.behind", Prompt: tt.prompt},
+				},
+			})
+			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
 
-	assert.Len(t, sent.Body, MaxMailBody)
-	assert.True(t, strings.HasPrefix(sent.Body, body+"\n\n"+promptsHeading), "the body komrad wrote is kept whole")
-	assert.True(t, strings.HasSuffix(sent.Body, promptsCut), "and the cut is marked")
+			sent, err := svc.SendFromKomrad(t.Context(), SendFromKomradParams{
+				ToAgentID: recipient.ID,
+				Body:      tt.body,
+				Kind:      mailstore.KindPullRequestChanged,
+				SubjectID: uuid.NewString(),
+				Notices:   []string{"pull_request.checks_failing", "pull_request.behind"},
+			})
+			require.NoError(t, err)
+
+			assert.True(t, strings.HasPrefix(sent.Body, tt.body+"\n\n"+promptsHeading), "the body komrad wrote is kept whole")
+			if !tt.wantCut {
+				assert.True(t, strings.HasSuffix(sent.Body, tt.prompt), "every prompt fits")
+
+				return
+			}
+			assert.Equal(t, MaxMailBody, utf8.RuneCountInString(sent.Body))
+			assert.True(t, strings.HasSuffix(sent.Body, promptsCut), "and the cut is marked")
+		})
+	}
 }
 
 // TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.
