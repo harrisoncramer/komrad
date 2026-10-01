@@ -523,6 +523,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		archived bool
 		sends    []send
 		wantBody string
 	}{
@@ -560,6 +561,12 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 			},
 			wantBody: "changed",
 		},
+		{
+			name:     "an archived workflow's prompts are not carried",
+			archived: true,
+			sends:    []send{{events: []string{failing}}},
+			wantBody: "changed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -575,6 +582,9 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				},
 			})
 			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
+			if tt.archived {
+				require.NoError(t, st.Workflows.Archive(ctx, workflow.ID))
+			}
 			subject := uuid.NewString()
 
 			var sent *mailstore.Mail
@@ -599,29 +609,6 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 			assert.Equal(t, tt.wantBody, sent.Body)
 		})
 	}
-}
-
-// TestSendFromKomradSendsNoEventPromptsOfAnArchivedWorkflow pins that an archived workflow's prompts are not sent.
-func TestSendFromKomradSendsNoEventPromptsOfAnArchivedWorkflow(t *testing.T) {
-	st := storetest.Open(t)
-	svc := newMailService(st, config.DefaultMaxExchange)
-	ctx := t.Context()
-	workflow := st.SeedWorkflow(t, workflowstore.Config{
-		Name:         "backend",
-		EventPrompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
-	})
-	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
-	require.NoError(t, st.Workflows.Archive(ctx, workflow.ID))
-
-	sent, err := svc.SendFromKomrad(ctx, SendFromKomradParams{
-		ToAgentID: recipient.ID,
-		Body:      "approved",
-		Kind:      mailstore.KindReviewActivity,
-		SubjectID: uuid.NewString(),
-		Events:    []string{"review.approved"},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "approved", sent.Body)
 }
 
 // TestSendFromKomradCutsTheEventPromptsToFit pins that prompts too long for the mail are cut rather than refused.
