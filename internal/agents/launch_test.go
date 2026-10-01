@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
@@ -64,7 +65,7 @@ func TestNewAgent(t *testing.T) {
 			dir:         func(t *testing.T) string { return t.TempDir() },
 			title:       "orphan",
 			badWorkflow: true,
-			wantErrIs:   ErrWorkflowNotFound,
+			wantErrIs:   agenterr.ErrWorkflowNotFound,
 		},
 		{
 			name:           "a window tmux refuses",
@@ -186,7 +187,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 			first:    "schedule:s1:2026-07-28T09:00:00Z",
 			second:   "schedule:s1:2026-07-28T09:00:00Z",
 			wantSame: true,
-			wantErr:  ErrAlreadyLaunched,
+			wantErr:  agenterr.ErrAlreadyLaunched,
 		},
 		{
 			name:   "the next occurrence is a different agent",
@@ -296,7 +297,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			require.NoError(t, listErr)
 
 			if !tt.wantRelaunch {
-				require.ErrorIs(t, err, ErrAlreadyLaunched)
+				require.ErrorIs(t, err, agenterr.ErrAlreadyLaunched)
 				assert.Equal(t, first.ID, second.ID, "the retry is answered with the agent already under the key")
 				assert.Len(t, all, 1, "and records no second agent")
 				assert.Len(t, tmux.Respawned, 1, "nor starts one")
@@ -329,7 +330,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 		{
 			name:           "a caller header naming no agent is refused",
 			unknownSpawner: true,
-			wantErrIs:      ErrSpawnerUnknown,
+			wantErrIs:      agenterr.ErrSpawnerUnknown,
 		},
 		{
 			name: "a person creating from the panel records no parent",
@@ -672,7 +673,7 @@ func TestNewAgentCeiling(t *testing.T) {
 			name:      "the create that would reach the ceiling is refused",
 			maxAgents: 2,
 			existing:  2,
-			wantErr:   ErrTooManyAgents,
+			wantErr:   agenterr.ErrTooManyAgents,
 		},
 		{
 			name:            "archiving one makes room again",
@@ -753,13 +754,13 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 	require.NotNil(t, first)
 
 	second, err := manager.launch.NewAgent(t.Context(), params)
-	require.ErrorIs(t, err, ErrAlreadyLaunched)
+	require.ErrorIs(t, err, agenterr.ErrAlreadyLaunched)
 	require.NotNil(t, second)
 	assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
 
 	params.IdempotencyKey = ""
 	_, err = manager.launch.NewAgent(t.Context(), params)
-	require.ErrorIs(t, err, ErrTooManyAgents)
+	require.ErrorIs(t, err, agenterr.ErrTooManyAgents)
 }
 
 // TestNewAgentCleansUpAfterASetupThatRan pins every refusal past the provisioner undoing its
@@ -1105,7 +1106,7 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 
 	for i, err := range errs {
 		if err != nil {
-			require.ErrorIs(t, err, ErrTooManyAgents, "caller %d", i)
+			require.ErrorIs(t, err, agenterr.ErrTooManyAgents, "caller %d", i)
 		}
 	}
 
@@ -1169,7 +1170,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 				return params
 			},
-			wantErrIs: ErrChildOwnsLaunch,
+			wantErrIs: agenterr.ErrChildOwnsLaunch,
 		},
 		{
 			name: "a provisioner of its own",
@@ -1179,7 +1180,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 				return params
 			},
-			wantErrIs: ErrChildOwnsLaunch,
+			wantErrIs: agenterr.ErrChildOwnsLaunch,
 		},
 		{
 			name: "a workflow other than its parent's",
@@ -1189,7 +1190,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 				return params
 			},
-			wantErrIs: ErrChildOwnsLaunch,
+			wantErrIs: agenterr.ErrChildOwnsLaunch,
 		},
 		{
 			name: "a parent nothing answers to",
@@ -1199,7 +1200,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 				return params
 			},
-			wantErrIs: ErrParentNotFound,
+			wantErrIs: agenterr.ErrParentNotFound,
 		},
 		{
 			name: "a parent already archived",
@@ -1209,7 +1210,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 				return parent
 			},
-			wantErrIs: ErrAgentArchived,
+			wantErrIs: agenterr.ErrAgentArchived,
 		},
 		{
 			name: "a parent with no directory",
@@ -1219,7 +1220,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 				return parent
 			},
-			wantErrIs: ErrChildNeedsParentDirectory,
+			wantErrIs: agenterr.ErrChildNeedsParentDirectory,
 		},
 		{
 			name: "a parent that is itself a child",
@@ -1228,7 +1229,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 				return seedChild(t, st, tmuxtest.NewFake(), parent)
 			},
-			wantErrIs: ErrParentIsChild,
+			wantErrIs: agenterr.ErrParentIsChild,
 		},
 	}
 
@@ -1285,7 +1286,7 @@ func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 	}
 
 	require.NoError(t, attach("reviewer"))
-	require.ErrorIs(t, attach("second-reviewer"), ErrTooManyChildren)
+	require.ErrorIs(t, attach("second-reviewer"), agenterr.ErrTooManyChildren)
 }
 
 // TestNewAgentUnderTheOrchestratorCeiling pins the cap on agents one orchestrator runs, which
@@ -1300,7 +1301,7 @@ func TestNewAgentUnderTheOrchestratorCeiling(t *testing.T) {
 		{
 			name:       "a second agent past a limit of one is refused",
 			maxSpawned: 1,
-			wantErrIs:  ErrTooManySpawned,
+			wantErrIs:  agenterr.ErrTooManySpawned,
 		},
 		{
 			name:       "a child hung under the agent it spawned does not count",
@@ -1392,7 +1393,7 @@ func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
 	spawn("second")
 
 	_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{first.ID})
-	require.ErrorIs(t, err, ErrTooManySpawned)
+	require.ErrorIs(t, err, agenterr.ErrTooManySpawned)
 }
 
 func childOf(parent agentstore.Agent, title string) NewAgentParams {
@@ -1422,7 +1423,7 @@ func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
 	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
 
 	created, err := manager.launch.NewAgent(ctx, childOf(parent, "reader"))
-	require.ErrorIs(t, err, ErrParentIsOrchestrator)
+	require.ErrorIs(t, err, agenterr.ErrParentIsOrchestrator)
 	assert.Nil(t, created)
 	require.ErrorContains(t, err, "provision_enabled false", "the refusal names the shape to use instead")
 

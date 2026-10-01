@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/eventprompts"
 	"komrad/internal/rpc/render"
@@ -194,13 +195,13 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "updating a workflow nothing holds",
 			call:     update,
-			err:      agents.ErrWorkflowNotFound,
+			err:      agenterr.ErrWorkflowNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "archiving a workflow nothing holds",
 			call:     archive,
-			err:      agents.ErrWorkflowNotFound,
+			err:      agenterr.ErrWorkflowNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -212,19 +213,19 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "restoring a workflow that is not archived",
 			call:     restore,
-			err:      agents.ErrWorkflowNotFound,
+			err:      agenterr.ErrWorkflowNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "restoring past the agent ceiling",
 			call:     restore,
-			err:      agents.ErrTooManyAgents,
+			err:      agenterr.ErrTooManyAgents,
 			wantCode: connect.CodeResourceExhausted,
 		},
 		{
 			name:     "deleting a workflow that is not archived",
 			call:     deleteWorkflow,
-			err:      agents.ErrWorkflowNotFound,
+			err:      agenterr.ErrWorkflowNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{

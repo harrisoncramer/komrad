@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/logging"
 	transcriptstore "komrad/internal/store/transcript"
 )
@@ -138,7 +138,7 @@ func (r *TranscriptReader) requireAgent(ctx context.Context, agentID string) err
 		return fmt.Errorf("failed to look up agent %q: %w", agentID, err)
 	}
 	if !exists {
-		return agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 
 	return nil

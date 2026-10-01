@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
@@ -93,7 +94,7 @@ func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {
 	observer := harnesstest.NewActivityObserver(harness.ActivityWorking)
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
-	require.ErrorIs(t, err, ErrUnsettled)
+	require.ErrorIs(t, err, agenterr.ErrUnsettled)
 	assert.Contains(t, err.Error(), "had not stopped")
 
 	after := agentByID(t, st, agent.ID)
@@ -109,7 +110,7 @@ func TestHoldRefusesAPaneItCannotRead(t *testing.T) {
 	observer := &harnesstest.Observer{Err: errors.New("the frame could not be captured")}
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
-	require.ErrorIs(t, err, ErrUnsettled)
+	require.ErrorIs(t, err, agenterr.ErrUnsettled)
 	assert.Contains(t, err.Error(), "could not be read")
 
 	after := agentByID(t, st, agent.ID)
@@ -129,7 +130,7 @@ func TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt(t *testing.T) {
 			observer := harnesstest.NewActivityObserver(activity)
 
 			_, err := newHolder(st, channel, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
-			require.ErrorIs(t, err, ErrUnsettled)
+			require.ErrorIs(t, err, agenterr.ErrUnsettled)
 			assert.Contains(t, err.Error(), "could not be read")
 
 			assert.Zero(t, channel.Interrupts, "nothing said there was a turn to cut")
@@ -248,7 +249,7 @@ func TestResumingAHeldAgentIsRefused(t *testing.T) {
 	manager := st.agentService(agentServiceOptions{tmux: tmux, harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
 	_, err = manager.resume.ResumeAgent(t.Context(), agent.ID)
-	require.ErrorIs(t, err, ErrAgentHeld)
+	require.ErrorIs(t, err, agenterr.ErrAgentHeld)
 }
 
 // TestHoldingAWaitingAgentWaitsForThePromptToGo is the case a stored state gets wrong twice over:
@@ -283,7 +284,7 @@ func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
 	observer := harnesstest.NewActivityObserver(harness.ActivityWaiting)
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
-	require.ErrorIs(t, err, ErrUnsettled)
+	require.ErrorIs(t, err, agenterr.ErrUnsettled)
 
 	after := agentByID(t, st, agent.ID)
 	assert.Nil(t, after.HeldAt, "the prompt is still there, so nobody has the tree")

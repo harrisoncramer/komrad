@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/events/eventstest"
@@ -100,7 +101,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 				return agent
 			},
-			wantErr: agents.ErrAgentArchived,
+			wantErr: agenterr.ErrAgentArchived,
 		},
 		{
 			name: "a held agent, before anything types at it or moves the branch",
@@ -111,7 +112,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 				return agent
 			},
-			wantErr: agents.ErrAgentHeld,
+			wantErr: agenterr.ErrAgentHeld,
 		},
 		{
 			name: "an agent whose tree something else is working in",
@@ -335,7 +336,7 @@ func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
 
-			require.ErrorIs(t, err, agents.ErrUnsettled)
+			require.ErrorIs(t, err, agenterr.ErrUnsettled)
 			require.ErrorContains(t, err, tt.wantSaid)
 			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
 			assert.Empty(t, rebaser.Calls, "nothing is parked or moved under an agent still working")
@@ -436,14 +437,14 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			name:     "a hold landing on an agent whose turn was cut",
 			settling: holdWhileSettling,
 			readings: []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
-			wantErr:  agents.ErrAgentHeld,
+			wantErr:  agenterr.ErrAgentHeld,
 			wantMail: "interrupted",
 		},
 		{
 			name:     "a hold landing on an agent that was already at rest",
 			settling: holdWhileSettling,
 			readings: []harness.Activity{harness.ActivityIdle},
-			wantErr:  agents.ErrAgentHeld,
+			wantErr:  agenterr.ErrAgentHeld,
 		},
 		{
 			name: "a row stamped thinking after the interrupt",

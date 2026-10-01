@@ -14,6 +14,7 @@ import (
 
 	agentv1komrad "komrad/proto/gen/agent/v1/agentv1komrad"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/checkouts"
@@ -166,7 +167,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      agents.ErrReviewerAlreadyRunning,
+			err:      agenterr.ErrReviewerAlreadyRunning,
 			wantCode: connect.CodeAlreadyExists,
 		},
 		{
@@ -186,7 +187,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      agents.ErrAgentArchived,
+			err:      agenterr.ErrAgentArchived,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -206,7 +207,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      agents.ErrUnsettled,
+			err:      agenterr.ErrUnsettled,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -226,7 +227,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      fmt.Errorf("%w: %s", agents.ErrAgentNotFound, alphaID),
+			err:      fmt.Errorf("%w: %s", agenterr.ErrAgentNotFound, alphaID),
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -236,13 +237,13 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      fmt.Errorf("%w: %s", agents.ErrAgentNotFound, alphaID),
+			err:      fmt.Errorf("%w: %s", agenterr.ErrAgentNotFound, alphaID),
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "a restore past the panel's ceiling",
 			call:     restoreAlpha,
-			err:      agents.ErrTooManyAgents,
+			err:      agenterr.ErrTooManyAgents,
 			wantCode: connect.CodeResourceExhausted,
 		},
 		{
@@ -254,7 +255,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "a restore of a child before its parent",
 			call:     restoreAlpha,
-			err:      agents.ErrParentStillArchived,
+			err:      agenterr.ErrParentStillArchived,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -264,7 +265,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      agents.ErrWorkflowNotFound,
+			err:      agenterr.ErrWorkflowNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -330,7 +331,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      agents.ErrAgentNotFound,
+			err:      agenterr.ErrAgentNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -402,7 +403,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return created.Msg.GetAgent().GetName(), nil
 			},
-			err:        agents.ErrAlreadyLaunched,
+			err:        agenterr.ErrAlreadyLaunched,
 			wantAnswer: "spawned",
 			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
 				assert.Equal(t, "triage:ENG-5260", services.created.IdempotencyKey)
@@ -1285,7 +1286,7 @@ func (f *recordingAgentServices) spawn() *agentstore.Agent {
 
 // answer returns the spawned agent, or err in its place unless err is a spent idempotency key.
 func (f *recordingAgentServices) answer() (*agentstore.Agent, error) {
-	if f.err != nil && !errors.Is(f.err, agents.ErrAlreadyLaunched) {
+	if f.err != nil && !errors.Is(f.err, agenterr.ErrAlreadyLaunched) {
 		return nil, f.err
 	}
 

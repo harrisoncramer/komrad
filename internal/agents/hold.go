@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/fail"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
@@ -23,9 +24,6 @@ var ErrAlreadyHeld = fail.AlreadyExists("this agent is already held")
 
 // ErrHoldSelf is an agent holding itself, which would stop it with nobody who knows to let it go.
 var ErrHoldSelf = fail.InvalidArgument("an agent cannot hold itself")
-
-// ErrAgentHeld is anything else komrad was asked to do to an agent a person is holding.
-var ErrAgentHeld = fail.Precondition("this agent is held")
 
 type holdStore interface {
 	agentGetter
@@ -84,7 +82,7 @@ func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent
 	}
 
 	if agent.Pane == "" {
-		return nil, ErrUnsettled.Saying("%q is not in a pane", agent.Name)
+		return nil, agenterr.ErrUnsettled.Saying("%q is not in a pane", agent.Name)
 	}
 
 	interrupted, err := h.settler.Settle(ctx, *agent)
@@ -148,7 +146,7 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 func (h *Holder) get(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := h.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrAgentNotFound, agentID)
 	}
 	if err != nil {
 		return nil, err

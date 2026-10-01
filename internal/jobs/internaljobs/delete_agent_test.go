@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -64,12 +64,12 @@ func TestDeleteAgentWorker(t *testing.T) {
 		},
 		{
 			name:      "a delete whose teardown failed is done, since the failure is already on the agent",
-			deleteErr: fmt.Errorf("%w: agent a1: worktree is dirty", agents.ErrTeardownFailed),
+			deleteErr: fmt.Errorf("%w: agent a1: worktree is dirty", agenterr.ErrTeardownFailed),
 			attempt:   1,
 		},
 		{
 			name:       "a delete waiting on a child's is snoozed, even on its last attempt",
-			deleteErr:  agents.ErrChildDeleting,
+			deleteErr:  agenterr.ErrChildDeleting,
 			attempt:    3,
 			wantErr:    true,
 			wantSnooze: true,

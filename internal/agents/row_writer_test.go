@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
@@ -49,14 +50,14 @@ func TestRowWriterRefusals(t *testing.T) {
 			write: func(ctx context.Context, writer *RowWriter, _ agentstore.Agent) error {
 				return writer.SetHidden(ctx, uuid.NewString(), true)
 			},
-			wantErr: ErrAgentNotFound,
+			wantErr: agenterr.ErrAgentNotFound,
 		},
 		{
 			name: "renaming an id nobody holds",
 			write: func(ctx context.Context, writer *RowWriter, _ agentstore.Agent) error {
 				return writer.Rename(ctx, uuid.NewString(), "renamed")
 			},
-			wantErr: ErrAgentNotFound,
+			wantErr: agenterr.ErrAgentNotFound,
 		},
 		{
 			name: "renaming onto a name a live agent in the workflow holds",

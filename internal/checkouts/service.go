@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"time"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/events"
 	"komrad/internal/fail"
@@ -224,18 +224,18 @@ func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget
 func (s *Service) read(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", agents.ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	if agent.HeldAt != nil {
-		return nil, agents.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
+		return nil, agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
 	return agent, nil

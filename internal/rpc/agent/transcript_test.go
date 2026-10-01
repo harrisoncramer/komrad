@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
@@ -225,7 +225,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "the transcript of an agent nobody holds",
 			call:     getTranscript(""),
-			err:      agents.ErrAgentNotFound,
+			err:      agenterr.ErrAgentNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -242,7 +242,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "the last turns of an agent nobody holds",
 			call:     getLastTurns,
-			err:      agents.ErrAgentNotFound,
+			err:      agenterr.ErrAgentNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{

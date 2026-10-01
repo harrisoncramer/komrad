@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/frames"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
@@ -123,7 +124,7 @@ func (s *LifecycleService) DeleteAgent(ctx context.Context, id string, claim tim
 	agents := named
 	for _, child := range children {
 		if child.DeletingAt != nil && !child.DeletingAt.Equal(claim) {
-			return ErrChildDeleting.Saying("agent %s waits on the delete of its child %s", id, child.ID)
+			return agenterr.ErrChildDeleting.Saying("agent %s waits on the delete of its child %s", id, child.ID)
 		}
 
 		agents = append(agents, child)
@@ -157,7 +158,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 		hooks[agent.ID] = agentHooks(ctx, s.workflows, agent)
 		if err := s.tearDown(ctx, agent, hooks[agent.ID]); err != nil {
 			s.failCleanup(context.WithoutCancel(ctx), agent, err)
-			failed = append(failed, fmt.Errorf("%w: agent %s: %w", ErrTeardownFailed, agent.ID, err))
+			failed = append(failed, fmt.Errorf("%w: agent %s: %w", agenterr.ErrTeardownFailed, agent.ID, err))
 
 			continue
 		}
@@ -408,7 +409,7 @@ func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []a
 		}
 		if !live[*agent.ParentAgentID] {
 			return fmt.Errorf("%w: restore %s to bring %q back with it",
-				ErrParentStillArchived, describeParent(names[*agent.ParentAgentID]), agent.Name)
+				agenterr.ErrParentStillArchived, describeParent(names[*agent.ParentAgentID]), agent.Name)
 		}
 	}
 
@@ -475,7 +476,7 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 		return !ok
 	})
 
-	return nil, ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, namedMissing))
+	return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, namedMissing))
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {

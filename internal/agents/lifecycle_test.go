@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/frames"
 	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
@@ -398,7 +399,7 @@ func TestArchiveAgent(t *testing.T) {
 		{
 			name:      "an id nobody holds is not a quiet success",
 			missing:   true,
-			wantErrIs: ErrAgentNotFound,
+			wantErrIs: agenterr.ErrAgentNotFound,
 		},
 		{
 			name: "a live agent is stopped and hidden",
@@ -716,7 +717,7 @@ func TestRestoreCeiling(t *testing.T) {
 
 	_, err := manager.lifecycle.RestoreAgents(ctx, []string{archived.ID})
 
-	require.ErrorIs(t, err, ErrTooManyAgents)
+	require.ErrorIs(t, err, agenterr.ErrTooManyAgents)
 	still := agentByID(t, st, archived.ID)
 	assert.NotNil(t, still.ArchivedAt, "the refused restore leaves it in the archive")
 
@@ -935,7 +936,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 
 			err := manager.lifecycle.ArchiveAgents(ctx, []string{auth.ID, tt.stray, api.ID})
 
-			require.ErrorIs(t, err, ErrAgentNotFound)
+			require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
 			require.ErrorContains(t, err, tt.stray, "the refusal names what it could not find")
 			assert.Empty(t, tmux.KilledPanes, "nothing was stopped")
 
@@ -1050,7 +1051,7 @@ func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 
 	_, err := manager.lifecycle.RestoreAgents(ctx, []string{archived.ID, uuid.NewString()})
 
-	require.ErrorIs(t, err, ErrAgentNotFound)
+	require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
 	assert.NotNil(t, agentByID(t, st, archived.ID).ArchivedAt, "the agent stays in the archive")
 }
 
@@ -1074,7 +1075,7 @@ func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 	seedInWorkflow(t, st, workflowID, "live", "%1", agentstore.StateThinking)
 
 	_, err := manager.lifecycle.RestoreAgents(ctx, archived)
-	require.ErrorIs(t, err, ErrTooManyAgents, "three back into a panel of three holding one is refused")
+	require.ErrorIs(t, err, agenterr.ErrTooManyAgents, "three back into a panel of three holding one is refused")
 
 	for _, id := range archived {
 		assert.NotNil(t, agentByID(t, st, id).ArchivedAt, "the refused batch stays in the archive whole")
@@ -1215,7 +1216,7 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 
 	err := manager.lifecycle.ArchiveAgents(t.Context(), ids)
 
-	require.ErrorIs(t, err, ErrAgentNotFound)
+	require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
 	require.ErrorContains(t, err, ids[0], "the first few are named")
 	require.ErrorContains(t, err, "and 15 more", "and the rest are counted")
 	assert.NotContains(t, err.Error(), ids[19], "rather than spelled out")
@@ -1245,7 +1246,7 @@ func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
 	require.NoError(t, err, "the ceiling frees up once one child is archived")
 
 	_, err = manager.lifecycle.RestoreAgents(ctx, []string{first.ID})
-	require.ErrorIs(t, err, ErrTooManyChildren)
+	require.ErrorIs(t, err, agenterr.ErrTooManyChildren)
 	assert.NotNil(t, agentByID(t, st, first.ID).ArchivedAt, "the refusal restores nothing")
 
 	held, err := st.Agents.CountLiveChildren(ctx, parent.ID)
@@ -1409,7 +1410,7 @@ func TestRestoreOfAChildNeedsItsParentBack(t *testing.T) {
 		},
 		{
 			name:      "the parent is still archived",
-			wantErrIs: ErrParentStillArchived,
+			wantErrIs: agenterr.ErrParentStillArchived,
 		},
 	}
 
@@ -1548,7 +1549,7 @@ func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
 	require.Len(t, parentClaims, 1, "the child is not taken twice")
 
 	err = manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt)
-	require.ErrorIs(t, err, ErrChildDeleting)
+	require.ErrorIs(t, err, agenterr.ErrChildDeleting)
 	assert.Empty(t, lifecycle.deprovision, "nothing is torn down while the child's delete runs")
 	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)

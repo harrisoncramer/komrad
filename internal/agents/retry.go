@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/fail"
 	"komrad/internal/harness"
 	"komrad/internal/store"
@@ -27,13 +28,13 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	agent, err := s.agents.GetByID(ctx, params.ID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, ErrAgentNotFound.Saying("no agent with id %q", params.ID)
+			return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", params.ID)
 		}
 
 		return nil, err
 	}
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived", ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q is archived", agenterr.ErrAgentArchived, agent.Name)
 	}
 	if agent.State != agentstore.StateFailedToCreate {
 		return nil, ErrAgentNotFailed.Saying("%q is %s, not failed_to_create", agent.Name, agent.State)

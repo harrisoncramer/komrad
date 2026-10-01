@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"komrad/db"
+	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 )
@@ -127,7 +128,7 @@ func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID
 	// orchestrator.
 	if _, err := s.workflows.Get(ctx, workflowID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, workflowID)
+			return nil, fmt.Errorf("%w: %q", agenterr.ErrWorkflowNotFound, workflowID)
 		}
 
 		return nil, err

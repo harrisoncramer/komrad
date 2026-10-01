@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/logging"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
@@ -52,7 +52,7 @@ func TestTranscriptReaderRefusesAnAgentNobodyHolds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.ErrorIs(t, tt.read(t, newTranscriptReader(storetest.Open(t))), agents.ErrAgentNotFound)
+			require.ErrorIs(t, tt.read(t, newTranscriptReader(storetest.Open(t))), agenterr.ErrAgentNotFound)
 		})
 	}
 }

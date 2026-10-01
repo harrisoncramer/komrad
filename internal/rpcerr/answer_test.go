@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/agentdirs"
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/checkouts"
 	"komrad/internal/git"
@@ -36,18 +37,18 @@ func TestWrapCodes(t *testing.T) {
 		want     connect.Code
 	}{
 		{store.ErrNotFound, connect.CodeNotFound},
-		{agents.ErrAgentNotFound, connect.CodeNotFound},
-		{agents.ErrWorkflowNotFound, connect.CodeNotFound},
+		{agenterr.ErrAgentNotFound, connect.CodeNotFound},
+		{agenterr.ErrWorkflowNotFound, connect.CodeNotFound},
 		{schedules.ErrScheduleNotFound, connect.CodeNotFound},
 		{agents.ErrScriptNotFound, connect.CodeNotFound},
 		{mail.ErrMailNotFound, connect.CodeNotFound},
 		{mail.ErrRecipientNotFound, connect.CodeNotFound},
 		{reviews.ErrReviewThreadNotFound, connect.CodeNotFound},
 		{reviews.ErrReviewMessageNotFound, connect.CodeNotFound},
-		{agents.ErrParentNotFound, connect.CodeNotFound},
+		{agenterr.ErrParentNotFound, connect.CodeNotFound},
 		{store.ErrNameTaken, connect.CodeAlreadyExists},
-		{agents.ErrAlreadyLaunched, connect.CodeAlreadyExists},
-		{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
+		{agenterr.ErrAlreadyLaunched, connect.CodeAlreadyExists},
+		{agenterr.ErrAgentArchived, connect.CodeFailedPrecondition},
 		{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
 		{agents.ErrScriptNotExecutable, connect.CodeFailedPrecondition},
 		{agents.ErrScriptNotStartable, connect.CodeFailedPrecondition},
@@ -56,13 +57,13 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrWorkflowHasSchedules, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
-		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
-		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
+		{agenterr.ErrParentStillArchived, connect.CodeFailedPrecondition},
+		{agenterr.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 		{reviews.ErrReviewNoRound, connect.CodeFailedPrecondition},
 		{checkouts.ErrRebaseShallow, connect.CodeFailedPrecondition},
 		{checkouts.ErrRebaseHiddenPaths, connect.CodeFailedPrecondition},
 		{agents.ErrHookFailed, connect.CodeFailedPrecondition},
-		{agents.ErrNoLiveReviewer, connect.CodeFailedPrecondition},
+		{agenterr.ErrNoLiveReviewer, connect.CodeFailedPrecondition},
 		{git.ErrBaseMissing, connect.CodeFailedPrecondition},
 		{git.ErrBaseUnrelated, connect.CodeFailedPrecondition},
 		{reviews.ErrReviewEmpty, connect.CodeFailedPrecondition},
@@ -78,9 +79,9 @@ func TestWrapCodes(t *testing.T) {
 		{agentdirs.ErrNoDirectory, connect.CodeInvalidArgument},
 		{agents.ErrAdoptNotABranch, connect.CodeInvalidArgument},
 		{agents.ErrHarnessUnknown, connect.CodeInvalidArgument},
-		{agents.ErrSpawnerUnknown, connect.CodeInvalidArgument},
-		{agents.ErrParentIsChild, connect.CodeInvalidArgument},
-		{agents.ErrChildOwnsLaunch, connect.CodeInvalidArgument},
+		{agenterr.ErrSpawnerUnknown, connect.CodeInvalidArgument},
+		{agenterr.ErrParentIsChild, connect.CodeInvalidArgument},
+		{agenterr.ErrChildOwnsLaunch, connect.CodeInvalidArgument},
 		{mail.ErrSelfAddressed, connect.CodeInvalidArgument},
 		{mail.ErrRecipientAmbiguous, connect.CodeInvalidArgument},
 		{mail.ErrSenderUnknown, connect.CodeInvalidArgument},
@@ -89,16 +90,16 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsBase, connect.CodeInvalidArgument},
-		{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
+		{agenterr.ErrTooManyAgents, connect.CodeResourceExhausted},
 		{mail.ErrMailboxFull, connect.CodeResourceExhausted},
 		{mail.ErrExchangeCapped, connect.CodeResourceExhausted},
-		{agents.ErrTooManyChildren, connect.CodeResourceExhausted},
+		{agenterr.ErrTooManyChildren, connect.CodeResourceExhausted},
 		{reviews.ErrReviewNotYours, connect.CodePermissionDenied},
 		{reviews.ErrReviewHumanOnly, connect.CodePermissionDenied},
 		{reviews.ErrReviewNotEntitled, connect.CodePermissionDenied},
 		{reviews.ErrReviewOwnWork, connect.CodePermissionDenied},
 		{mail.ErrOutsideFamily, connect.CodePermissionDenied},
-		{agents.ErrOutsideWorkflow, connect.CodePermissionDenied},
+		{agenterr.ErrOutsideWorkflow, connect.CodePermissionDenied},
 		{agentdirs.ErrOutsideAgents, connect.CodePermissionDenied},
 	}
 

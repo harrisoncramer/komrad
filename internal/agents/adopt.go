@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/store"
@@ -94,7 +95,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
+		return nil, agenterr.ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
@@ -165,7 +166,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 
 	create.RepositoryURL = s.worktrees.ReadRepositoryURL(ctx, repo)
 	created, err := s.launch.NewAgent(ctx, create)
-	if errors.Is(err, ErrAlreadyLaunched) {
+	if errors.Is(err, agenterr.ErrAlreadyLaunched) {
 		return &Adoption{Agent: created}, nil
 	}
 	if err != nil {
