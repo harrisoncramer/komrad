@@ -32,7 +32,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		{
 			name:       "checks failing",
 			standings:  []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
-			wantLines:  []string{"  checks: failing\n"},
+			wantLines:  []string{"  checks: failing on abc\n"},
 			wantEvents: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
@@ -54,7 +54,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 					Mergeability: forge.MergeabilityConflicting,
 				},
 			},
-			wantLines: []string{"  checks: failing\n", "  mergeability: conflicting with main\n"},
+			wantLines: []string{"  checks: failing on abc\n", "  mergeability: conflicting with main\n"},
 		},
 		{
 			name: "a later change rewrites the mail to where things stand",
@@ -62,7 +62,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing},
 			},
-			wantLines: []string{"  checks: passing\n"},
+			wantLines: []string{"  checks: passing on abc\n"},
 		},
 		{
 			name: "auto-merge turned on",
@@ -136,7 +136,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 				Checks:   forge.ChecksFailing,
 				HeadSHA:  "aaa",
 			},
-			wantLines: []string{"  review: approved\n", "  checks: failing\n"},
+			wantLines: []string{"  review: approved\n", "  checks: failing on aaa\n"},
 		},
 		{
 			name: "the checks failing again on a new head",
@@ -145,7 +145,16 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 				Checks:   forge.ChecksFailing,
 				HeadSHA:  "bbb",
 			},
-			wantLines: []string{"  checks: failing\n"},
+			wantLines: []string{"  checks: failing on bbb\n"},
+		},
+		{
+			name: "an approval on a new head with no checks yet names the head the checks failed on",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionApproved,
+				Checks:   forge.ChecksNone,
+				HeadSHA:  "bbb",
+			},
+			wantLines: []string{"  review: approved\n", "  checks: failing on aaa\n"},
 		},
 		{
 			name:  "the checks failing again on the same head is not news",
@@ -249,7 +258,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 		}
 	}
 	require.Len(t, pullRequestMail, 1)
-	assert.Contains(t, pullRequestMail[0].Body, "  checks: failing\n")
+	assert.Contains(t, pullRequestMail[0].Body, "  checks: failing on abc\n")
 }
 
 func (f *syncFixture) fillMailbox(t *testing.T, agentID string) {

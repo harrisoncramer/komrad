@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"komrad/internal/events"
+	"komrad/internal/git"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
@@ -107,6 +108,8 @@ func describe(field Field, value string, pullRequest pullrequeststore.PullReques
 		return strings.ToLower(value)
 	case field == FieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
+	case field == FieldChecks && value != "" && pullRequest.LastKnownChecksSHA != "":
+		return strings.ReplaceAll(value, "_", " ") + " on " + git.ShortSHA(pullRequest.LastKnownChecksSHA)
 	case field == FieldAutoMerge && value == autoMergeOn:
 		return "on, so whatever is on the branch merges once its checks and reviews pass"
 	case value == "":
