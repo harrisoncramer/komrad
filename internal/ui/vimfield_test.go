@@ -173,7 +173,9 @@ func TestVimEditing(t *testing.T) {
 		typeText(harness, "still here")
 		harness.press("esc", "b", "d", "w")
 
-		assert.NotContains(t, harness.readFrame(), "here")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "still")
+		assert.NotContains(t, frame, "still here")
 	})
 
 	t.Run("a normal-mode edit in a form is drawn at once", func(t *testing.T) {
@@ -181,7 +183,9 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("still here"), []string{"esc", "b", "d", "w"})...)
 
-		assert.NotContains(t, harness.readFrame(), "here")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "still")
+		assert.NotContains(t, frame, "still here")
 	})
 
 	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
