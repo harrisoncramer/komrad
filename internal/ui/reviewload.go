@@ -90,7 +90,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 		filesFocused: true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.
-		diff: reviewDiff{chapter: -1},
+		diff: reviewDiff{spec: wholeChange()},
 	}
 
 	return r.loadWholeCmd(m)
@@ -149,14 +149,8 @@ type loadReviewCmdParams struct {
 	AgentID string
 	Dir     string
 	Exclude []string
-	// Base is the commit to measure the round from, empty for the point the branch left main.
-	Base string
-	// Head is the commit to measure it to, empty for the round's own snapshot.
-	Head string
-	// Answer is the answer to measure between, found among the rounds the load lists.
-	Answer *reviewAnswer
-	Origin *reviewOrigin
-	Fresh  bool
+	Spec    diffSpec
+	Fresh   bool
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
@@ -182,7 +176,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		span, err := resolveReviewRange(record.rounds, params)
+		span, err := resolveReviewRange(record.rounds, params.Spec)
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
@@ -323,9 +317,9 @@ type reviewRange struct {
 	origin     originDiff
 }
 
-func resolveReviewRange(rounds []*agentv1.ReviewRound, params loadReviewCmdParams) (*reviewRange, error) {
-	span := &reviewRange{base: params.Base, head: params.Head}
-	if answer := params.Answer; answer != nil {
+func resolveReviewRange(rounds []*agentv1.ReviewRound, spec diffSpec) (*reviewRange, error) {
+	span := &reviewRange{base: spec.base, head: spec.head}
+	if answer := spec.answer; answer != nil {
 		from, to := findRound(rounds, answer.FromRound), findRound(rounds, answer.ToRound)
 		if from == nil || to == nil {
 			return nil, errAnswerGone
@@ -338,8 +332,8 @@ func resolveReviewRange(rounds []*agentv1.ReviewRound, params loadReviewCmdParam
 		span.fromBase, span.toBase = from.GetBaseSha(), to.GetBaseSha()
 	}
 
-	if params.Origin != nil {
-		found, ok := findOriginDiff(rounds, params.Origin)
+	if spec.origin != nil {
+		found, ok := findOriginDiff(rounds, spec.origin)
 		if !ok {
 			return nil, errCommentRoundGone
 		}
@@ -504,9 +498,9 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && (r.diff.base != "" || r.diff.answer != nil || r.diff.origin != nil) {
-		said := "nothing written " + r.diff.baseLabel
-		if r.diff.origin != nil {
+	if drewNothing && r.diff.spec.isScoped() {
+		said := "nothing written " + r.diff.spec.label
+		if r.diff.spec.origin != nil {
 			said = "nothing to draw where this comment was written"
 		}
 
@@ -521,7 +515,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return r.refuse(m, msg.err)
 	}
 
-	if msg.patch == nil && r.diff.origin != nil {
+	if msg.patch == nil && r.diff.spec.origin != nil {
 		r.diff.widen()
 		m.note(messageWarning, "could not draw where this comment was written: "+msg.err.Error())
 
@@ -537,7 +531,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		m.report("Could not read the whole review of "+r.agentName, msg.err)
 	}
 
-	if r.diff.chapter >= len(msg.chapters) {
+	if r.diff.spec.chapter >= len(msg.chapters) {
 		r.diff.chapters = msg.chapters
 		r.diff.widen()
 		r.threads.cancelMessage()
@@ -578,24 +572,13 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	d.rounds = msg.rounds
 	d.since = msg.since
 
-	if d.answer != nil {
-		d.base, d.head = msg.answerBase, msg.answerHead
-		d.baseLabel = "the answer to this comment"
-		if msg.replayed {
-			d.baseLabel += ", replayed across the rebase"
-		}
-	}
-
-	if d.origin != nil {
-		d.base, d.head = msg.originBase, msg.originHead
-		d.baseLabel = originLabel(d.origin, msg.originFellBack)
-	}
+	d.spec.settle(msg)
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
 	view := diffview.NewView(msg.patch, isDark)
 	view.SetGlyphs(glyphs)
-	view.SetNarrowed(d.base != "")
+	view.SetNarrowed(d.spec.base != "")
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
 	if d.View() != nil {
@@ -712,10 +695,7 @@ func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 		AgentID: r.agentID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
-		Base:    r.diff.base,
-		Head:    r.diff.head,
-		Answer:  r.diff.answer,
-		Origin:  r.diff.origin,
+		Spec:    r.diff.spec,
 		Fresh:   fresh,
 	})
 }

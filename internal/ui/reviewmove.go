@@ -48,7 +48,7 @@ func (r reviewScreen) doesFollowLive(m *model) bool {
 		return false
 	}
 
-	return !r.threads.holdsUnsent() && r.diff.chapter < 0 && !r.diff.pinned
+	return !r.threads.holdsUnsent() && !r.diff.spec.isChapter() && !r.diff.pinned
 }
 
 // isAgentWriting reports whether the agent whose diff is on screen is putting words in its

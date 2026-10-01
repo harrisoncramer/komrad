@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"komrad/internal/ui/diffview"
@@ -23,14 +24,7 @@ type reviewDiff struct {
 	// since says how much of the diff is new to the reader.
 	since string
 
-	// base is the commit the diff on screen is measured from, empty for the point the branch
-	// left main.
-	base string
-	// baseLabel names that commit for the band, empty while the diff is measured from the fork
-	// point.
-	baseLabel string
-	// head is the commit the diff on screen is measured to, empty for the newest snapshot.
-	head string
+	spec diffSpec
 	// baseRound is the round the narrowed base came from, nil while there is none to offer.
 	baseRound *agentv1.ReviewRound
 	// baseAt is when the person released the review that round was given against, in clock terms.
@@ -41,17 +35,93 @@ type reviewDiff struct {
 
 	// chapters are the rounds of the review the two step keys walk, oldest first.
 	chapters []reviewChapter
-	// chapter is which of those is on screen, negative for the whole change.
-	chapter int
 	// rounds are every round of the review, which the answer key finds a comment's two ends in.
 	rounds []*agentv1.ReviewRound
-	// answer is the answer to a comment on screen, nil while the diff is anything else.
-	answer *reviewAnswer
-	origin *reviewOrigin
 	landOn string
 
 	// followedMove is the move the diff last caught up on.
 	followedMove string
+}
+
+type diffSpec struct {
+	// base is the commit the diff on screen is measured from, empty for the point the branch
+	// left main.
+	base string
+	// label names that commit for the band, empty while the diff is measured from the fork
+	// point.
+	label string
+	// head is the commit the diff on screen is measured to, empty for the newest snapshot.
+	head string
+	// chapter is which of the review's chapters is on screen, negative for the whole change.
+	chapter int
+	// answer is the answer to a comment on screen, nil while the diff is anything else.
+	answer *reviewAnswer
+	origin *reviewOrigin
+}
+
+func wholeChange() diffSpec {
+	return diffSpec{chapter: -1}
+}
+
+func answerSpec(answer *reviewAnswer) diffSpec {
+	return diffSpec{
+		label:   "the answer to this comment",
+		chapter: -1,
+		answer:  answer,
+	}
+}
+
+func originSpec(origin *reviewOrigin) diffSpec {
+	return diffSpec{
+		label:   originLabel(origin, false),
+		chapter: -1,
+		origin:  origin,
+	}
+}
+
+func (d diffSpec) isChapter() bool {
+	return d.chapter >= 0
+}
+
+// isNarrowed reports whether the diff on screen is one chapter of the change rather than the
+// whole of it.
+func (d diffSpec) isNarrowed() bool {
+	return d.base != "" || d.head != ""
+}
+
+func (d diffSpec) isScoped() bool {
+	return d.base != "" || d.answer != nil || d.origin != nil
+}
+
+func (d diffSpec) doesSplitReplies() bool {
+	return d.isChapter() || d.origin != nil
+}
+
+func (d diffSpec) historySaid(chapters []reviewChapter) string {
+	if d.origin != nil {
+		return fmt.Sprintf("round %d", d.origin.Ordinal)
+	}
+
+	if !d.isChapter() || d.chapter >= len(chapters) {
+		return "an earlier chapter"
+	}
+
+	return fmt.Sprintf("chapter %d of %d", d.chapter+1, len(chapters))
+}
+
+func (d *diffSpec) settle(msg reviewLoadedMsg) {
+	if d.answer != nil {
+		d.base, d.head = msg.answerBase, msg.answerHead
+		d.label = "the answer to this comment"
+		if msg.replayed {
+			d.label += ", replayed across the rebase"
+		}
+	}
+
+	if d.origin != nil {
+		d.base, d.head = msg.originBase, msg.originHead
+		d.label = originLabel(d.origin, msg.originFellBack)
+	}
 }
 
 // reviewColumn is the diff drawn beside the review's own threads, whose row budget is what the

@@ -384,7 +384,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			{
 				of:   []actionID{actionReviewViewed},
 				desc: func(*model) string { return r.diff.viewedDesc() },
-				show: func(*model) bool { return !r.diff.isNarrowed() },
+				show: func(*model) bool { return !r.diff.spec.isNarrowed() },
 			},
 			{
 				of:    []actionID{actionReviewBack},
