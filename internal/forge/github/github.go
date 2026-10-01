@@ -353,12 +353,11 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	if data.Repository == nil || data.Repository.PullRequest == nil {
 		return noPullRequest(number, owner, name)
 	}
-	state := data.Repository.PullRequest.State
-	if state == "CLOSED" {
+	switch data.Repository.PullRequest.State {
+	case "MERGED":
+		return forge.ErrNotMergeable.Saying("github will not merge #%d: it has already merged", number)
+	case "CLOSED":
 		return forge.ErrNotMergeable.Saying("github will not merge #%d: it was closed without merging", number)
-	}
-	if err := refuseFinished(forge.ErrNotMergeable, "merge", state, number); err != nil {
-		return err
 	}
 
 	var merged struct{}
