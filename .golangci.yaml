@@ -428,7 +428,6 @@ linters:
             sources:
               - komrad/internal/ui.model.quitKeys
             dispatchers:
-              - komrad/internal/ui.directionOf
               - komrad/internal/ui.actionSpec.dispatch
               - komrad/internal/ui.screenActionSpec.dispatch
               - komrad/internal/ui.model.updateDoc

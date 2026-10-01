@@ -19,7 +19,7 @@ func TestBoundKey(t *testing.T) {
 		Compares:    []string{"slices.Contains"},
 		Navigation:  []string{"Nav", "Messages.Open", "Form.Back"},
 		Sources:     []string{"boundkey.model.quitKeys"},
-		Dispatchers: []string{"boundkey.directionOf", "boundkey.model.dispatch"},
+		Dispatchers: []string{"boundkey.model.dispatch"},
 		Inputs:      []string{"boundkey.model.save"},
 	})
 	if err != nil {

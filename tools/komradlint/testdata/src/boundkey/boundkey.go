@@ -93,3 +93,10 @@ func (m model) save(k string) bool {
 func (m model) contains(k string, names []string) bool {
 	return slices.Contains(names, k) || slices.Contains(m.keys.Nav.Up, k) || slices.Contains(m.keys.Messages.Dismiss, k) // want `Contains matches the action key Messages.Dismiss`
 }
+
+func (m model) reassigns(k string) bool {
+	keys := m.keys.Nav.Up
+	keys = m.keys.Messages.Dismiss
+
+	return isBound(k, keys) // want `isBound matches keys that cannot be traced to the keybindings`
+}

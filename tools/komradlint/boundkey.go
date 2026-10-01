@@ -82,6 +82,10 @@ func (b boundKey) reportFunc(pass *analysis.Pass, fn *ast.FuncDecl) {
 		return
 	}
 
+	if _, ok := b.matchers[name]; ok {
+		return
+	}
+
 	defined := definitions(pass, fn.Body)
 	ast.Inspect(fn.Body, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
@@ -231,25 +235,39 @@ func (b boundKey) isNavigation(key string) bool {
 	return false
 }
 
-// definitions maps each variable a body declares once with a value to that value.
+// definitions maps each variable a body declares with a value and never assigns again to that value.
 func definitions(pass *analysis.Pass, body *ast.BlockStmt) map[types.Object]ast.Expr {
 	defined := map[types.Object]ast.Expr{}
+	reassigned := map[types.Object]struct{}{}
 	ast.Inspect(body, func(node ast.Node) bool {
 		assign, ok := node.(*ast.AssignStmt)
-		if !ok || assign.Tok != token.DEFINE || len(assign.Lhs) != len(assign.Rhs) {
+		if !ok {
 			return true
 		}
 
 		for i, lhs := range assign.Lhs {
-			if ident, ok := lhs.(*ast.Ident); ok {
-				if obj := pass.TypesInfo.Defs[ident]; obj != nil {
-					defined[obj] = assign.Rhs[i]
-				}
+			ident, ok := lhs.(*ast.Ident)
+			if !ok {
+				continue
+			}
+
+			if obj := pass.TypesInfo.Defs[ident]; obj != nil && assign.Tok == token.DEFINE && len(assign.Lhs) == len(assign.Rhs) {
+				defined[obj] = assign.Rhs[i]
+
+				continue
+			}
+
+			if obj := pass.TypesInfo.Uses[ident]; obj != nil {
+				reassigned[obj] = struct{}{}
 			}
 		}
 
 		return true
 	})
+
+	for obj := range reassigned {
+		delete(defined, obj)
+	}
 
 	return defined
 }
