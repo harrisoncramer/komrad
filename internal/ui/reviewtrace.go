@@ -165,8 +165,7 @@ type traceAnchorsParams struct {
 	Anchors []traceAnchor
 }
 
-// traceAnchors moves every place of one snapshot pair, keeping the file when the lines are gone
-// so a comment whose code was rewritten still says which file it was about.
+// traceAnchors moves every place of one snapshot pair, keeping the file when the lines are gone.
 func traceAnchors(ctx context.Context, params traceAnchorsParams) (map[string]diffview.Traced, error) {
 	mappings, err := params.Git.MapRanges(ctx, git.MapRangesParams{
 		Dir:     params.Dir,
