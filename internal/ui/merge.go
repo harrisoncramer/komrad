@@ -97,37 +97,37 @@ func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model,
 }
 
 func mergeOp(item panel.AgentRow, archive bool) gitOp {
-	agentID, name := item.Agent.ID, item.Agent.Name
-	standing := item.PullRequest
-
 	return gitOp{
-		running: fmt.Sprintf("merging #%d", standing.Number),
+		running: fmt.Sprintf("merging #%d", item.PullRequest.Number),
 		run: func(clients api) gitReport {
-			err := clients.mergePullRequest(standing.URL)
+			err := clients.mergePullRequest(item.PullRequest.URL)
 
-			return func(m *model) tea.Cmd {
-				if err != nil {
-					m.report(fmt.Sprintf("Could not merge #%d of %s", standing.Number, name), err)
-
-					return nil
-				}
-
-				m.pushMessage(message{
-					kind:    messageInfo,
-					summary: fmt.Sprintf("%s: merged #%d", name, standing.Number),
-					detail:  standing.Title,
-				})
-
-				live, ok := m.listing.liveAgent(agentID)
-				if !ok || !archive {
-					return nil
-				}
-
-				archived, archiving := m.archiveAgents([]panel.Agent{live.Agent})
-				*m = archived
-
-				return archiving
-			}
+			return func(m *model) tea.Cmd { return m.reportMerged(item, archive, err) }
 		},
 	}
+}
+
+func (m *model) reportMerged(item panel.AgentRow, archive bool, err error) tea.Cmd {
+	standing := item.PullRequest
+	if err != nil {
+		m.report(fmt.Sprintf("Could not merge #%d of %s", standing.Number, item.Agent.Name), err)
+
+		return nil
+	}
+
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: fmt.Sprintf("%s: merged #%d", item.Agent.Name, standing.Number),
+		detail:  standing.Title,
+	})
+
+	live, ok := m.listing.liveAgent(item.Agent.ID)
+	if !ok || !archive {
+		return nil
+	}
+
+	archived, archiving := m.archiveAgents([]panel.Agent{live.Agent})
+	*m = archived
+
+	return archiving
 }
