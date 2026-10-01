@@ -107,16 +107,6 @@ func (a api) renameAgent(agent panel.Agent, name string) error {
 	})
 }
 
-type createAgentParams struct {
-	Prompt           string
-	Title            string
-	Harness          string
-	Flags            string
-	ProvisionEnabled *bool
-	WorkflowID       string
-	ParentAgentID    string
-}
-
 // nilIfBlank leaves an optional field unset rather than sending it empty, which the request's
 // own validation would refuse.
 func nilIfBlank(value string) *string {
@@ -125,6 +115,16 @@ func nilIfBlank(value string) *string {
 	}
 
 	return &value
+}
+
+type createAgentParams struct {
+	Prompt           string
+	Title            string
+	Harness          string
+	Flags            string
+	ProvisionEnabled *bool
+	WorkflowID       string
+	ParentAgentID    string
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {

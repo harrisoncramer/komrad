@@ -1,0 +1,25 @@
+package paramsskip
+
+type ServerParams struct {
+	Addr string
+}
+
+type Server struct {
+	addr string
+}
+
+func NewServer(p ServerParams) *Server {
+	return &Server{addr: p.Addr}
+}
+
+type FetchParams struct {
+	URL string
+}
+
+type timeout int
+
+func Fetch(params FetchParams) string {
+	return params.URL
+}
+
+var _ timeout

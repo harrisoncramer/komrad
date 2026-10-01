@@ -45,14 +45,6 @@ type Recorder struct {
 	written int
 }
 
-// RecordParams is one reading of one agent.
-type RecordParams struct {
-	AgentID  string
-	Frame    string
-	Activity string
-	Disputes bool
-}
-
 // NewRecorder builds a recorder writing under dir, reading settings on every record.
 func NewRecorder(dir string, settings func() Settings) *Recorder {
 	return &Recorder{
@@ -61,6 +53,14 @@ func NewRecorder(dir string, settings func() Settings) *Recorder {
 		now:      time.Now,
 		last:     map[string]uint64{},
 	}
+}
+
+// RecordParams is one reading of one agent.
+type RecordParams struct {
+	AgentID  string
+	Frame    string
+	Activity string
+	Disputes bool
 }
 
 // Record writes the frame an agent was read from when that reading says something new.

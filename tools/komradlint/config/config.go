@@ -3,20 +3,20 @@ package config
 
 // Config is every rule's settings.
 type Config struct {
-	SentinelKind     SentinelKindConfig     `json:"sentinel_kind"`
-	SentinelInline   SentinelInlineConfig   `json:"sentinel_inline"`
-	WrapPhrase       WrapPhraseConfig       `json:"wrap_phrase"`
-	HandlerShape     HandlerShapeConfig     `json:"handler_shape"`
-	SecretExpose     SecretExposeConfig     `json:"secret_expose"`
-	BareHTTP         BareHTTPConfig         `json:"bare_http"`
-	OnelineFunc      OnelineFuncConfig      `json:"oneline_func"`
-	ConversionName   ConversionNameConfig   `json:"conversion_name"`
-	SingleAppend     SingleAppendConfig     `json:"single_append"`
-	ConstructorShape ConstructorShapeConfig `json:"constructor_shape"`
-	BlackBox         BlackBoxConfig         `json:"black_box"`
-	FakeStore        FakeStoreConfig        `json:"fake_store"`
-	TestBeside       BesideConfig           `json:"test_beside"`
-	BoundKey         BoundKeyConfig         `json:"bound_key"`
+	SentinelKind   SentinelKindConfig   `json:"sentinel_kind"`
+	SentinelInline SentinelInlineConfig `json:"sentinel_inline"`
+	WrapPhrase     WrapPhraseConfig     `json:"wrap_phrase"`
+	HandlerShape   HandlerShapeConfig   `json:"handler_shape"`
+	SecretExpose   SecretExposeConfig   `json:"secret_expose"`
+	BareHTTP       BareHTTPConfig       `json:"bare_http"`
+	OnelineFunc    OnelineFuncConfig    `json:"oneline_func"`
+	ConversionName ConversionNameConfig `json:"conversion_name"`
+	SingleAppend   SingleAppendConfig   `json:"single_append"`
+	ParamsShape    ParamsShapeConfig    `json:"params_shape"`
+	BlackBox       BlackBoxConfig       `json:"black_box"`
+	FakeStore      FakeStoreConfig      `json:"fake_store"`
+	TestBeside     BesideConfig         `json:"test_beside"`
+	BoundKey       BoundKeyConfig       `json:"bound_key"`
 }
 
 // BlackBoxConfig settles which types a test inside their package may not drive.
@@ -47,8 +47,8 @@ type BesideConfig struct {
 	Exclude []string `json:"exclude"`
 }
 
-// ConstructorShapeConfig settles where the constructor rule applies.
-type ConstructorShapeConfig struct {
+// ParamsShapeConfig settles where the params struct rule applies.
+type ParamsShapeConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`
 	// Exclude is unanchored regexps over the file path.

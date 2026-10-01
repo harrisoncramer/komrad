@@ -194,6 +194,16 @@ func (s *AgentStore) SetInterruptedAtByID(ctx context.Context, id string, at *ti
 	return nil
 }
 
+// HoldParams is the agent being held and what holding it interrupted.
+type HoldParams struct {
+	ID string
+	At time.Time
+	// MidTurn says the interrupt cut a turn that was still running.
+	MidTurn bool
+	// ByAgentID is the agent taking the hold, nil for the panel.
+	ByAgentID *string
+}
+
 // Hold records that a person has stopped an agent, and reports false when somebody already had it.
 func (s *AgentStore) Hold(ctx context.Context, params HoldParams) (bool, error) {
 	if !store.IsID(params.ID) {
@@ -211,16 +221,6 @@ func (s *AgentStore) Hold(ctx context.Context, params HoldParams) (bool, error) 
 	}
 
 	return len(held) > 0, nil
-}
-
-// HoldParams is the agent being held and what holding it interrupted.
-type HoldParams struct {
-	ID string
-	At time.Time
-	// MidTurn says the interrupt cut a turn that was still running.
-	MidTurn bool
-	// ByAgentID is the agent taking the hold, nil for the panel.
-	ByAgentID *string
 }
 
 // Release lets go of an agent, and reports false when nobody was holding it.

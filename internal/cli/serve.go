@@ -131,12 +131,6 @@ func shutdownSignal(parent context.Context) (context.Context, func()) {
 	}
 }
 
-type serveParams struct {
-	App    *app
-	Logger *slog.Logger
-	Addr   string
-}
-
 func getHookBinaryPath(ctx context.Context) string {
 	path, err := os.Executable()
 	if err != nil {
@@ -148,6 +142,12 @@ func getHookBinaryPath(ctx context.Context) string {
 	}
 
 	return path
+}
+
+type serveParams struct {
+	App    *app
+	Logger *slog.Logger
+	Addr   string
 }
 
 func serve(ctx context.Context, params serveParams) error {

@@ -34,14 +34,6 @@ var snapshotIdentity = []string{
 	"GIT_COMMITTER_DATE=@0 +0000",
 }
 
-// TakeSnapshotParams says which worktree to freeze and what to measure it against.
-type TakeSnapshotParams struct {
-	// Dir is anywhere inside the agent's worktree.
-	Dir string
-	// Base is the branch the worktree was cut from.
-	Base string
-}
-
 // Snapshot is one frozen picture of a worktree and the base it is measured against.
 type Snapshot struct {
 	Root    string
@@ -93,6 +85,14 @@ func writeTreeSeeded(ctx context.Context, root string, fill seed) (string, error
 	}
 
 	return tree, nil
+}
+
+// TakeSnapshotParams says which worktree to freeze and what to measure it against.
+type TakeSnapshotParams struct {
+	// Dir is anywhere inside the agent's worktree.
+	Dir string
+	// Base is the branch the worktree was cut from.
+	Base string
 }
 
 // TakeSnapshot writes an agent's whole worktree, tracked and untracked alike, as a commit off

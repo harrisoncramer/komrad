@@ -37,6 +37,18 @@ type WatchStream interface {
 	Close() error
 }
 
+// OpenWatch is the Open a connect client answers.
+func OpenWatch(watches watchv1connect.WatchServiceClient) func(ctx context.Context) (WatchStream, error) {
+	return func(ctx context.Context) (WatchStream, error) {
+		stream, err := watches.Watch(ctx, connect.NewRequest(&emptypb.Empty{}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to open the watch: %w", err)
+		}
+
+		return stream, nil
+	}
+}
+
 // WatchParams says how a watch is opened and who is told what it carries.
 type WatchParams struct {
 	// Open starts one stream.
@@ -51,18 +63,6 @@ type WatchParams struct {
 	Silence  time.Duration
 	Retry    time.Duration
 	MaxRetry time.Duration
-}
-
-// OpenWatch is the Open a connect client answers.
-func OpenWatch(watches watchv1connect.WatchServiceClient) func(ctx context.Context) (WatchStream, error) {
-	return func(ctx context.Context) (WatchStream, error) {
-		stream, err := watches.Watch(ctx, connect.NewRequest(&emptypb.Empty{}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to open the watch: %w", err)
-		}
-
-		return stream, nil
-	}
 }
 
 // Watch holds a watch open for the life of ctx, opening a fresh one after every close.
