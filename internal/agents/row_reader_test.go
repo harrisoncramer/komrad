@@ -26,13 +26,15 @@ func newRowReader(st *storetest.Stores) *RowReader {
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
 	return NewRowReader(NewRowReaderParams{
-		Agents:       st.Agents,
-		Rows:         st.Rows,
-		Mail:         st.Mail,
-		PullRequests: st.PullRequests,
-		Repositories: st.PullRequestSyncs,
-		Reviews:      reviews,
-		Workflows:    st.Workflows,
+		Agents:        st.Agents,
+		Rows:          st.Rows,
+		Mail:          st.Mail,
+		PullRequests:  st.PullRequests,
+		Repositories:  st.PullRequestSyncs,
+		Reviews:       reviews,
+		ReviewThreads: reviewstore.NewThreadStore(st.Pool.GetDB()),
+		ForgeThreads:  pullrequeststore.NewForgeThreadStore(st.Pool.GetDB()),
+		Workflows:     st.Workflows,
 	})
 }
 
@@ -81,7 +83,25 @@ func TestListSurroundings(t *testing.T) {
 	require.NoError(t, err)
 
 	reviewed := seedReview(t, st, opened.ID)
-	seedReview(t, st, elsewhere.ID)
+	threaded := seedThread(t, st, reviewed)
+	seedThread(t, st, seedReview(t, st, elsewhere.ID))
+
+	forgeThreads := pullrequeststore.NewForgeThreadStore(st.Pool.GetDB())
+	require.NoError(t, forgeThreads.SetThreads(ctx, pullrequeststore.SetThreadsParams{
+		PullRequestID: written.ID,
+		Viewer:        "harrisoncramer",
+		Threads: []forge.ReviewThread{{
+			ProviderID: "T_1",
+			Path:       "main.go",
+			Line:       3,
+			Comments: []forge.ReviewComment{{
+				ProviderID: "C_1",
+				Login:      "dana",
+				Body:       "rename this",
+				WrittenAt:  openedAt,
+			}},
+		}},
+	}))
 
 	rows, err := reader.ListRowsByID(ctx, []string{opened.ID})
 	require.NoError(t, err)
@@ -102,11 +122,19 @@ func TestListSurroundings(t *testing.T) {
 	assert.Equal(t, []string{reviewed}, xslice.Map(surroundings.Reviews, func(r reviewstore.Review) string {
 		return r.ID
 	}), "only the reviews of the agents on the page")
+	assert.Equal(t, []string{threaded}, xslice.Map(surroundings.ReviewThreads, func(thread reviewstore.ThreadWithMessages) string {
+		return thread.ID
+	}), "only the review threads on the work of the agents on the page")
+	assert.Equal(t, []string{"T_1"}, xslice.Map(surroundings.ForgeThreads, func(thread pullrequeststore.ForgeThread) string {
+		return thread.ProviderID
+	}), "the forge threads on the pull requests the agents on the page were seen with")
 
 	nothing, err := reader.ListSurroundings(ctx, []rowstore.Row{})
 	require.NoError(t, err)
 	assert.Empty(t, nothing.PullRequests, "a page of nobody reads no pull request")
 	assert.Empty(t, nothing.Workflows)
+	assert.Empty(t, nothing.ReviewThreads)
+	assert.Empty(t, nothing.ForgeThreads)
 }
 
 // TestListRowsByID pins that a listing reads only the agents it names.
@@ -163,6 +191,30 @@ func seedReview(t *testing.T, st *storetest.Stores, agentID string) string {
 	require.NoError(t, err)
 
 	return review.ID
+}
+
+func seedThread(t *testing.T, st *storetest.Stores, reviewID string) string {
+	t.Helper()
+
+	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+	review, err := reviews.GetReview(t.Context(), reviewID)
+	require.NoError(t, err)
+
+	thread, err := reviews.CreateThread(t.Context(), reviewstore.CreateThreadParams{
+		AgentID:     review.AgentID,
+		ReviewID:    review.ID,
+		RoundID:     review.RoundID,
+		BaseSHA:     "base",
+		FilePath:    "main.go",
+		NewStart:    3,
+		NewEnd:      3,
+		QuotedLines: []string{"func rename() {}"},
+		Body:        "rename this",
+		AuthorKind:  reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	return thread.ID
 }
 
 // seedAgentOnBranch is a live agent whose checkout is on a branch of a repository.

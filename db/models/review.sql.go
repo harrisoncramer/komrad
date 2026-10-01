@@ -1021,6 +1021,37 @@ func (q *Queries) ListReviewTallies(ctx context.Context) ([]*ListReviewTalliesRo
 	return items, nil
 }
 
+const listReviewThreadIDsOfAgents = `-- name: ListReviewThreadIDsOfAgents :many
+SELECT
+    t.id
+FROM
+    review_threads t
+WHERE
+    t.agent_id = ANY ($1::uuid[])
+ORDER BY
+    t.id
+`
+
+func (q *Queries) ListReviewThreadIDsOfAgents(ctx context.Context, agentIds []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listReviewThreadIDsOfAgents, agentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewThreads = `-- name: ListReviewThreads :many
 SELECT
     t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id,

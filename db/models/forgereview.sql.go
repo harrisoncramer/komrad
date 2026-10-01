@@ -177,6 +177,37 @@ func (q *Queries) ListForgeReviewThreadIDs(ctx context.Context, pullRequestID st
 	return items, nil
 }
 
+const listForgeReviewThreadIDsOfPullRequests = `-- name: ListForgeReviewThreadIDsOfPullRequests :many
+SELECT
+    t.id
+FROM
+    forge_review_threads t
+WHERE
+    t.pull_request_id = ANY ($1::uuid[])
+ORDER BY
+    t.id
+`
+
+func (q *Queries) ListForgeReviewThreadIDsOfPullRequests(ctx context.Context, pullRequestIds []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listForgeReviewThreadIDsOfPullRequests, pullRequestIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWatchedForgeReviewThreads = `-- name: ListWatchedForgeReviewThreads :many
 SELECT
     t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote, t.dismissed_at

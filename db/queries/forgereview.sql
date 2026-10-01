@@ -81,6 +81,16 @@ WHERE
 ORDER BY
     t.id;
 
+-- name: ListForgeReviewThreadIDsOfPullRequests :many
+SELECT
+    t.id
+FROM
+    forge_review_threads t
+WHERE
+    t.pull_request_id = ANY (@pull_request_ids::uuid[])
+ORDER BY
+    t.id;
+
 -- name: DeleteForgeReviewThreadsExcept :exec
 DELETE FROM forge_review_threads
 WHERE pull_request_id = @pull_request_id

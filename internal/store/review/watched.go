@@ -174,3 +174,18 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 		return ThreadWithMessages{Thread: thread, Messages: byThread[row.ID]}
 	}), nil
 }
+
+// ListIDsOfAgents returns the ids of every review thread on the given agents' work.
+func (s *ThreadStore) ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error) {
+	storable := store.KeepIDs(agentIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	ids, err := s.queries.ListReviewThreadIDsOfAgents(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the review threads of %d agents: %w", len(storable), err)
+	}
+
+	return ids, nil
+}
