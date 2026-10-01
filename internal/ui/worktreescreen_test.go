@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -238,12 +239,13 @@ func TestWorktreesMenu(t *testing.T) {
 		name  string
 		row   string
 		press []string
-		want  string
+		label string
+		key   string
 	}{
-		{name: "a live agent's directory offers the archive", row: "treeview", want: "archive the agent"},
-		{name: "an archived agent's directory offers the agent delete", row: "reviewer", want: "delete the agent"},
-		{name: "a directory nothing answers for offers the remover", row: "broken", want: "remove"},
-		{name: "a selection offers to delete it all", row: "treeview", press: []string{"v", "j", "v"}, want: "delete all"},
+		{name: "a live agent's directory offers the archive", row: "treeview", label: "archive the agent", key: "a"},
+		{name: "an archived agent's directory offers the agent delete", row: "reviewer", label: "delete the agent", key: "d"},
+		{name: "a directory nothing answers for offers the remover", row: "broken", label: "remove", key: "d"},
+		{name: "a selection offers to delete it all", row: "treeview", press: []string{"v", "j", "v"}, label: "delete all", key: "d"},
 	}
 
 	for _, tt := range tests {
@@ -255,7 +257,8 @@ func TestWorktreesMenu(t *testing.T) {
 
 			harness.press(append(tt.press, "space", "a")...)
 
-			assert.Contains(t, harness.readFrame(), tt.want)
+			entry := regexp.MustCompile(`(?m)› ` + regexp.QuoteMeta(tt.label) + ` +` + tt.key + `\s*$`)
+			assert.Regexp(t, entry, harness.readFrame())
 		})
 	}
 }
