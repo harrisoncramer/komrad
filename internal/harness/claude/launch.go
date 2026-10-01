@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 
 	"komrad/internal/caller"
 	"komrad/internal/harness"
+	"komrad/lib/xfile"
 )
 
 const mcpConfigJSON = `{"mcpServers":{"komrad":{"type":"http","url":"http://%s/mcp","alwaysLoad":true,` +
@@ -164,10 +167,20 @@ func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
 		return "", fmt.Errorf("failed to create mcp config dir: %w", err)
 	}
 
-	path := filepath.Join(configDir, "komrad-mcp.json")
-	if err := os.WriteFile(path, []byte(fmt.Sprintf(mcpConfigJSON, endpoint)), 0o644); err != nil {
+	path := filepath.Join(configDir, mcpConfigFileName(endpoint))
+	if err := xfile.WriteAtomic(path, []byte(fmt.Sprintf(mcpConfigJSON, endpoint)), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write mcp config: %w", err)
 	}
 
 	return path, nil
+}
+
+func mcpConfigFileName(endpoint string) string {
+	return "komrad-mcp-" + strings.Map(func(char rune) rune {
+		if char == '.' || char == '-' || unicode.IsLetter(char) || unicode.IsDigit(char) {
+			return char
+		}
+
+		return '-'
+	}, endpoint) + ".json"
 }

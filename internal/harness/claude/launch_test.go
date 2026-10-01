@@ -254,7 +254,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 			match := mcpConfigRef.FindStringSubmatch(command)
 			require.Len(t, match, 2, "the launch carries a config path")
-			assert.Equal(t, filepath.Join(configDir, "komrad-mcp.json"), match[1])
+			assert.Equal(t, filepath.Join(configDir, "komrad-mcp-127.0.0.1-9999.json"), match[1])
 
 			raw, err := os.ReadFile(match[1])
 			require.NoError(t, err)
@@ -275,6 +275,40 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			assert.True(t, server.AlwaysLoad, "the panel's tools sit in context rather than behind a tool search")
 		})
 	}
+}
+
+// TestBuildCommandKeepsEachInstancesMCPConfig covers two instances sharing one Claude config dir.
+func TestBuildCommandKeepsEachInstancesMCPConfig(t *testing.T) {
+	configDir := t.TempDir()
+	claude := NewHarness(NewHarnessParams{ConfigDir: configDir})
+
+	urls := map[string]string{}
+	for _, endpoint := range []string{"127.0.0.1:8787", "127.0.0.1:8790", "127.0.0.1:8787"} {
+		command, err := claude.BuildCommand(harness.Launch{
+			CacheDir:    t.TempDir(),
+			MCPEndpoint: endpoint,
+		})
+		require.NoError(t, err)
+
+		match := mcpConfigRef.FindStringSubmatch(command)
+		require.Len(t, match, 2)
+
+		raw, err := os.ReadFile(match[1])
+		require.NoError(t, err)
+
+		var config struct {
+			MCPServers map[string]struct {
+				URL string `json:"url"`
+			} `json:"mcpServers"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &config))
+		urls[filepath.Base(match[1])] = config.MCPServers["komrad"].URL
+	}
+
+	assert.Equal(t, map[string]string{
+		"komrad-mcp-127.0.0.1-8787.json": "http://127.0.0.1:8787/mcp",
+		"komrad-mcp-127.0.0.1-8790.json": "http://127.0.0.1:8790/mcp",
+	}, urls)
 }
 
 var mcpConfigRef = regexp.MustCompile(` --mcp-config '([^']+)'`)
@@ -374,8 +408,8 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 
 	match := mcpConfigRef.FindStringSubmatch(command)
 	require.Len(t, match, 2)
-	assert.Equal(t, filepath.Join(home, ".claude", "komrad-mcp.json"), match[1],
-		"one file for every agent, since the headers name no agent")
+	assert.Equal(t, filepath.Join(home, ".claude", "komrad-mcp-127.0.0.1-9999.json"), match[1],
+		"one file for every agent of an instance, since the headers name no agent")
 
 	raw, err := os.ReadFile(match[1])
 	require.NoError(t, err)

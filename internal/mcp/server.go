@@ -74,7 +74,7 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		role, err := getCallerRole(request, params.RoleOf)
 		if errors.Is(err, rpcapi.ErrUnknownCaller) {
-			http.Error(writer, err.Error(), http.StatusForbidden)
+			http.Error(writer, err.Error(), http.StatusBadRequest)
 
 			return
 		}
