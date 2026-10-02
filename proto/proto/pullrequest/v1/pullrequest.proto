@@ -62,14 +62,11 @@ message PullRequest {
   // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
   optional string closed_at = 18;
   // Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
-  MergeReadiness merge_readiness = 25;
+  MergeReadiness merge_readiness = 19;
   // The login of whoever opened it, empty when the forge no longer has that account.
-  string author = 26;
+  string author = 20;
   // The description as the forge has it, empty when none was written.
-  string body = 27;
-
-  reserved 19 to 24;
-  reserved "review_decision", "checks", "mergeability", "mergeability_unconfirmed", "auto_merge", "auto_mergeable";
+  string body = 21;
 }
 
 // MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.

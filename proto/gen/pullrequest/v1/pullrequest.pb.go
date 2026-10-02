@@ -427,11 +427,11 @@ type PullRequest struct {
 	// When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
 	ClosedAt *string `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
 	// Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
-	MergeReadiness *MergeReadiness `protobuf:"bytes,25,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
+	MergeReadiness *MergeReadiness `protobuf:"bytes,19,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
 	// The login of whoever opened it, empty when the forge no longer has that account.
-	Author string `protobuf:"bytes,26,opt,name=author,proto3" json:"author,omitempty"`
+	Author string `protobuf:"bytes,20,opt,name=author,proto3" json:"author,omitempty"`
 	// The description as the forge has it, empty when none was written.
-	Body          string `protobuf:"bytes,27,opt,name=body,proto3" json:"body,omitempty"`
+	Body          string `protobuf:"bytes,21,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1129,7 +1129,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\xa5\x06\n" +
+	"\v_pagination\"\xc2\x05\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -1154,14 +1154,13 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"changed_at\x18\x10 \x01(\tR\tchangedAt\x12 \n" +
 	"\tmerged_at\x18\x11 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
 	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
-	"\x0fmerge_readiness\x18\x19 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x16\n" +
-	"\x06author\x18\x1a \x01(\tR\x06author\x12\x12\n" +
-	"\x04body\x18\x1b \x01(\tR\x04bodyB\f\n" +
+	"\x0fmerge_readiness\x18\x13 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x16\n" +
+	"\x06author\x18\x14 \x01(\tR\x06author\x12\x12\n" +
+	"\x04body\x18\x15 \x01(\tR\x04bodyB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
-	"_closed_atJ\x04\b\x13\x10\x19R\x0freview_decisionR\x06checksR\fmergeabilityR\x18mergeability_unconfirmedR\n" +
-	"auto_mergeR\x0eauto_mergeable\"\xbf\x02\n" +
+	"_closed_at\"\xbf\x02\n" +
 	"\x0eMergeReadiness\x12:\n" +
 	"\bdecision\x18\x01 \x01(\x0e2\x1e.pullrequest.v1.ReviewDecisionR\bdecision\x12.\n" +
 	"\x06checks\x18\x02 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +

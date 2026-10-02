@@ -63,9 +63,6 @@ message ScheduleRun {
 }
 
 message Schedule {
-  reserved 11, 12, 13;
-  reserved "last_result_status", "last_result_message", "last_result_at";
-
   // The handle every other call names this schedule by.
   string id = 1;
   // What the panel lists it as.
@@ -77,25 +74,25 @@ message Schedule {
   // Whether it is armed, since a paused schedule keeps its record and stops firing.
   bool enabled = 5;
   // Whether its launches stay out of the panel's sidebar while still running.
-  bool hide_agents = 8;
+  bool hide_agents = 6;
   // The opening prompt every agent it launches is given, or the mail its orchestrator is sent.
-  string prompt = 6;
+  string prompt = 7;
   // Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's.
-  string workflow_id = 7;
+  string workflow_id = 8;
   // Whether it launches an implementer or mails an orchestrator.
-  ScheduleKind kind = 17;
+  ScheduleKind kind = 9;
   // The orchestrator it mails, set only on an orchestrator schedule.
-  optional string orchestrator_agent_id = 18;
+  optional string orchestrator_agent_id = 10;
   // When the expression next matches, unset while the schedule is paused.
-  optional google.protobuf.Timestamp next_run_at = 10;
+  optional google.protobuf.Timestamp next_run_at = 11;
   // Whether prompt holds only its opening, which a summary listing returns.
-  bool prompt_truncated = 14;
+  bool prompt_truncated = 12;
   // The newest firing still on record, unset when it has never fired or the record has aged out.
-  optional ScheduleRun latest_run = 15;
+  optional ScheduleRun latest_run = 13;
   // The newest firings on record, newest first, which only the watch fills.
-  repeated ScheduleRun recent_runs = 16;
+  repeated ScheduleRun recent_runs = 14;
   // When it was archived, unset while it is live.
-  optional google.protobuf.Timestamp archived_at = 19;
+  optional google.protobuf.Timestamp archived_at = 15;
 }
 
 message ListSchedulesRequest {

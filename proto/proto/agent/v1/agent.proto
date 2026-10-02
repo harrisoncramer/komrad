@@ -95,69 +95,66 @@ message Agent {
   // The CLI's own conversation id, which is the handle a resume needs.
   string session_id = 8;
   // Which CLI it runs, such as claude or codex.
-  string harness = 18;
+  string harness = 9;
   // Which workflow it is filed under, whose context it took at launch.
-  string workflow_id = 9;
+  string workflow_id = 10;
   // When it was launched, in RFC 3339.
-  string created_at = 10;
+  string created_at = 11;
   // When it was hidden from the panel, unset while it is live.
-  optional string archived_at = 19;
+  optional string archived_at = 12;
   // The schedule that launched it, unset for an agent a person or another agent spawned.
-  optional string schedule_id = 12;
+  optional string schedule_id = 13;
   // Whether its pane is still there, which a dormant agent's is not.
-  optional bool alive = 11;
+  optional bool alive = 14;
   // Whether the panel draws a row for it, which changes nothing about the agent itself.
   bool hidden = 15;
   // The key a retry of its create carried, which is what answers a repeat with this agent.
-  optional string idempotency_key = 17;
+  optional string idempotency_key = 16;
   // Which agent called create, unset for one a person spawned.
-  optional string spawned_by_agent_id = 20;
+  optional string spawned_by_agent_id = 17;
   // The agent this one is a child of, unset for an agent standing on its own.
-  optional string parent_agent_id = 26;
+  optional string parent_agent_id = 18;
   // The git branch its worktree is on, unset for an agent that provisions none.
-  optional string branch = 22;
+  optional string branch = 19;
   // The canonical web address of the repository its checkout pushes to, such as
   // https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin
   // is not a forge.
-  optional string repository_url = 37;
+  optional string repository_url = 20;
   // The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
-  optional string head_sha = 41;
+  optional string head_sha = 21;
   // Whether its checkout has been taken away, which leaves the record and the transcript.
-  bool worktree_removed = 23;
+  bool worktree_removed = 22;
   // What git has part-way through its checkout, waiting on somebody to settle it.
-  Sequence sequence = 36;
+  Sequence sequence = 23;
   // Whether a script komrad fired for the agent failed and nobody has looked at it since.
-  bool failed_run = 27;
+  bool failed_run = 24;
   // The run log that failure was written to, which is the run the panel opens on.
-  optional int32 failed_run_log = 28;
+  optional int32 failed_run_log = 25;
   // How many documents it has written, which list_documents returns.
-  int32 documents = 44;
+  int32 documents = 26;
   // When the newest of its documents was last written, in RFC 3339, unset when it has none.
-  optional string documents_updated_at = 45;
+  optional string documents_updated_at = 27;
   // When the state above last moved, in RFC 3339.
-  string state_changed_at = 25;
+  string state_changed_at = 28;
   // What the agent's own CLI last reported it was doing, alongside the state the pane decided.
   string reported_reason = 29;
   // Why its create or cleanup last failed, empty when neither has.
-  string failure_reason = 43;
+  string failure_reason = 30;
   // What its CLI printed when an API error ended its last turn, empty when that turn did not fail.
-  string turn_error = 46;
+  string turn_error = 31;
   // What the agent was launched to do.
-  AgentRole role = 30;
+  AgentRole role = 32;
   // Whether prompt holds only its opening, as a summary listing returns it.
-  bool prompt_truncated = 32;
+  bool prompt_truncated = 33;
   // The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
-  string moved_since_round = 42;
+  string moved_since_round = 34;
   // How many lines its checkout adds and removes since it left its base, unset where there is no
   // base to measure against.
-  optional DiffStat diff_stat = 47;
+  optional DiffStat diff_stat = 35;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
-  string held_at = 35;
+  string held_at = 36;
   // The agent that took the hold, empty when the panel took it or nobody is holding it.
-  string held_by_agent_id = 48;
-
-  reserved 31, 33;
-  reserved "tree_standing", "tree_standing_sha";
+  string held_by_agent_id = 37;
 }
 
 // AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests
@@ -166,20 +163,17 @@ message AgentRow {
   // The agent itself.
   Agent agent = 1;
   // Whether mail is waiting that it has not taken.
-  bool unread_mail = 3;
+  bool unread_mail = 2;
   // Where the pull request opened from its branch stands.
-  PullRequestStanding pull_request = 4;
+  PullRequestStanding pull_request = 3;
   // Every pull request opened from its branch, the current one first.
-  repeated pullrequest.v1.PullRequest pull_requests = 5;
+  repeated pullrequest.v1.PullRequest pull_requests = 4;
   // How many rounds of local review its own work has been through.
-  int32 local_review_rounds = 6;
+  int32 local_review_rounds = 5;
   // Comments reviewer agents have left on its work. Absent while there are none to count.
-  optional CommentCounts reviewer_comments = 9;
+  optional CommentCounts reviewer_comments = 6;
   // Comments the person has left on its work. Absent while there are none to count.
-  optional CommentCounts person_comments = 10;
-
-  reserved 7, 8;
-  reserved "local_review_verdict", "local_review_tree";
+  optional CommentCounts person_comments = 7;
 }
 
 // CommentCounts is how the comments on an agent's work stand.
@@ -205,15 +199,12 @@ message PullRequestStanding {
   // The title of the current pull request, unset for UNREAD and NONE.
   optional string title = 4;
   // Whether the forge would merge the current pull request, unset for UNREAD and NONE.
-  pullrequest.v1.MergeReadiness merge_readiness = 10;
+  pullrequest.v1.MergeReadiness merge_readiness = 5;
   // The commit the forge holds at the head of the current pull request, unset for UNREAD and
   // NONE.
-  optional string head_sha = 9;
+  optional string head_sha = 6;
   // Which forge the current pull request lives on, such as github, unset for UNREAD and NONE.
-  optional string forge = 11;
-
-  reserved 5 to 8;
-  reserved "checks", "mergeability", "auto_merge", "auto_mergeable";
+  optional string forge = 7;
 }
 
 message ListAgentsRequest {
@@ -377,20 +368,17 @@ message GetAgentResponse {
   // The agent, its prompt whole.
   Agent agent = 1;
   // Whether mail is waiting that it has not taken.
-  bool unread_mail = 3;
+  bool unread_mail = 2;
   // Where the pull request opened from its branch stands.
-  PullRequestStanding pull_request = 4;
+  PullRequestStanding pull_request = 3;
   // Every pull request opened from its branch, the current one first.
-  repeated pullrequest.v1.PullRequest pull_requests = 5;
+  repeated pullrequest.v1.PullRequest pull_requests = 4;
   // How many rounds of local review its own work has been through.
-  int32 local_review_rounds = 6;
+  int32 local_review_rounds = 5;
   // Comments reviewer agents have left on its work. Absent while there are none to count.
-  optional CommentCounts reviewer_comments = 9;
+  optional CommentCounts reviewer_comments = 6;
   // Comments the person has left on its work. Absent while there are none to count.
-  optional CommentCounts person_comments = 10;
-
-  reserved 7, 8;
-  reserved "local_review_verdict", "local_review_tree";
+  optional CommentCounts person_comments = 7;
 }
 
 // PlanRebaseRequest asks what a rebase would do without doing it.
