@@ -14,7 +14,7 @@ import (
 // unstaged is the agents whose panes were taken off the stage ahead of a write that kills them.
 type unstaged struct {
 	agents []panel.Agent
-	// archived says the write's archive step landed, whatever came after it.
+	// archived is whether the write's archive step landed.
 	archived bool
 }
 
