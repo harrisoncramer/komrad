@@ -524,6 +524,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
 		harness.press("j")
 		harness.fireTimers()
+		require.Equal(t, "%9", harness.panel.ReadGuestPane())
 		harness.refuse(agentv1connect.AgentServiceDeleteAgentsProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
 
 		harness.press("space", "a", "down", "ctrl+s", "y")
@@ -536,6 +537,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
 		harness.press("j")
 		harness.fireTimers()
+		require.Equal(t, "%9", harness.panel.ReadGuestPane())
 		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
 
 		harness.press("space", "a", "a")
