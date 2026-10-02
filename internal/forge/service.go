@@ -241,6 +241,11 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, err
 	}
 
+	if params.Method == MethodRotatingToken {
+		s.rotation.Lock()
+		defer s.rotation.Unlock()
+	}
+
 	connection, err := s.connections.Create(ctx, forgestore.CreateParams{
 		Kind:       params.Kind,
 		Host:       params.Host,
@@ -263,6 +268,10 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 
 	if params.Method != MethodGitHubApp {
 		if err := s.credentials.Set(ctx, connection.ID, token); err != nil {
+			if params.Method == MethodRotatingToken {
+				err = fmt.Errorf("failed to keep the token gitlab rotated the pasted one into, so make a new token: %w", err)
+			}
+
 			return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
 		}
 	}
@@ -362,6 +371,11 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 // token belongs to for a pasted token, and whether the installation still reaches a repository
 // for an App, whose login is the row's own.
 func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
+	if connection.Method == MethodRotatingToken {
+		s.rotation.Lock()
+		defer s.rotation.Unlock()
+	}
+
 	held, err := s.HasCredential(ctx, connection)
 	if err != nil {
 		return "", err
@@ -376,9 +390,6 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	}
 
 	if connection.Method == MethodRotatingToken {
-		s.rotation.Lock()
-		defer s.rotation.Unlock()
-
 		login, err := f.Verify(ctx)
 		if err != nil {
 			return "", err
