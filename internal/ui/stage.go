@@ -250,8 +250,8 @@ func (m *model) isGuestLive() bool {
 // vanishing is an archive whose agents are still in the listing, with the write kept in flight
 // until they leave it.
 type vanishing struct {
-	write   int
-	pending *unstaged
+	write    int
+	unstaged *unstaged
 }
 
 // vanishTimeoutMsg gives up waiting on the watch for the agents a held archive killed.
@@ -279,11 +279,11 @@ func (m *model) hasVanished(pending *unstaged) bool {
 // awaitVanish keeps a landed archive's form up for the watch, and gives up after landingWait.
 func (m *model) awaitVanish(result writeResult) tea.Cmd {
 	var earlier tea.Cmd
-	if m.writes.vanishing.pending != nil {
+	if m.writes.vanishing.unstaged != nil {
 		earlier = m.landVanished()
 	}
 
-	m.writes.vanishing = vanishing{write: result.write, pending: result.unstaged}
+	m.writes.vanishing = vanishing{write: result.write, unstaged: result.unstaged}
 	write := result.write
 
 	return tea.Batch(earlier, startTimer(landingWait, func(time.Time) tea.Msg { return vanishTimeoutMsg{write: write} }))
@@ -291,20 +291,20 @@ func (m *model) awaitVanish(result writeResult) tea.Cmd {
 
 // landVanished takes down the form held for an archive and stages what is left in one change.
 func (m *model) landVanished() tea.Cmd {
-	held := m.writes.vanishing
+	vanished := m.writes.vanishing
 	m.writes.vanishing = vanishing{}
-	m.landWrite(held.write)
-	delete(m.writes.detached, held.write)
+	m.landWrite(vanished.write)
+	delete(m.writes.detached, vanished.write)
 
 	m.frame.Begin()
 	defer m.frame.Flush()
 
 	var closing tea.Cmd
-	if m.writes.held.owns(held.write) {
+	if m.writes.held.owns(vanished.write) {
 		closing = m.closeForm()
 	}
 
-	m.settleUnstaged(held.pending)
+	m.settleUnstaged(vanished.unstaged)
 
 	return closing
 }
@@ -320,7 +320,7 @@ func (m *model) applyVanishTimeout(msg vanishTimeoutMsg) tea.Cmd {
 
 // landVanishedOnWatch lands an archive once the listing no longer holds its agents.
 func (m *model) landVanishedOnWatch() tea.Cmd {
-	if m.writes.vanishing.pending == nil || !m.hasVanished(m.writes.vanishing.pending) {
+	if m.writes.vanishing.unstaged == nil || !m.hasVanished(m.writes.vanishing.unstaged) {
 		return nil
 	}
 
