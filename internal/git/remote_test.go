@@ -645,6 +645,7 @@ func TestParseRemoteURL(t *testing.T) {
 	}
 }
 
+// TestClientParseRemoteURL covers which remote forms take a named web host and which keep their own.
 func TestClientParseRemoteURL(t *testing.T) {
 	t.Parallel()
 
