@@ -1040,16 +1040,6 @@ func TestLoadReadsSSHHosts(t *testing.T) {
 		refused bool
 	}{
 		{
-			name:  "none",
-			hosts: `[]`,
-			want:  map[string]string{},
-		},
-		{
-			name:  "a pair, lowercased and trimmed",
-			hosts: `["SSH.GitLab.example.com = gitlab.example.com"]`,
-			want:  map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"},
-		},
-		{
 			name:    "no web host",
 			hosts:   `["ssh.gitlab.example.com="]`,
 			refused: true,
@@ -1088,6 +1078,16 @@ func TestLoadReadsSSHHosts(t *testing.T) {
 			name:    "an ssh host named twice",
 			hosts:   `["ssh.example.com=a.example.com", "SSH.example.com=b.example.com"]`,
 			refused: true,
+		},
+		{
+			name:  "none",
+			hosts: `[]`,
+			want:  map[string]string{},
+		},
+		{
+			name:  "a pair, lowercased and trimmed",
+			hosts: `["SSH.GitLab.example.com = gitlab.example.com"]`,
+			want:  map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"},
 		},
 	}
 
