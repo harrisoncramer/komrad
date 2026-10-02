@@ -40,6 +40,9 @@ func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 // in a popup over them.
 func (r reviewScreen) view(m *model) string {
 	split, ok := m.screenColumnSplit()
+	if !ok && m.term.paneMeasure > 0 {
+		return r.sidebarView(m)
+	}
 	if !ok {
 		band := r.bandView(m, m.paneWidth())
 		layout := r.layoutSidebar(m, band)
@@ -47,19 +50,22 @@ func (r reviewScreen) view(m *model) string {
 		return r.overlayThread(m, strings.TrimRight(band+r.drawSidebar(layout), "\n"))
 	}
 
-	layout := r.layoutSidebar(m)
-	layout.files = m.markZone(zoneBlock, layout.files, lineWidthOf(m.paneWidth()))
-
-	// Trimmed so the two halves are the same height.
-	sidebar := strings.TrimRight(r.drawSidebar(layout), "\n")
-
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
 	band := r.bandView(m, split.column)
 	area := band + r.diffView(m, split)
 	diff := m.markZone(zoneList, area, split.column)
 
-	return r.overlayThread(m, m.joinColumns(split, sidebar, diff))
+	return r.overlayThread(m, m.joinColumns(split, r.sidebarView(m), diff))
+}
+
+// sidebarView is the sidebar drawn as one half of a split, trimmed so the two halves are the same
+// height.
+func (r reviewScreen) sidebarView(m *model) string {
+	layout := r.layoutSidebar(m)
+	layout.files = m.markZone(zoneBlock, layout.files, lineWidthOf(m.paneWidth()))
+
+	return strings.TrimRight(r.drawSidebar(layout), "\n")
 }
 
 // overlayThread draws the popup over an area, and leaves the area alone where the popup has

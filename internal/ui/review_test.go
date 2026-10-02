@@ -1490,6 +1490,18 @@ func TestReviewLayout(t *testing.T) {
 		assert.Contains(t, frame, "greet.go:1")
 	})
 
+	t.Run("the menu stands over the diff and leaves the sidebar as it was", func(t *testing.T) {
+		harness := openReview(t, newDescribedReviewServer(t, "Why it changed."))
+		before := readSidebar(harness.readFrame())
+
+		harness.press("space")
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "package greet")
+		assert.NotContains(t, readSidebarProse(frame), "Review · auth")
+		assert.Equal(t, before, readSidebar(frame))
+	})
+
 	t.Run("an expanded legend stays inside every pane height", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 		harness.press("?")
