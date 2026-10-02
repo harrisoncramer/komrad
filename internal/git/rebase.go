@@ -307,7 +307,7 @@ func readMergedTree(ctx context.Context, params readMergedTreeParams) (tree stri
 	args = append(args, left, right)
 
 	// A conflict is reported by exiting 1 with the paths on stdout.
-	out, err := runAllowing(ctx, dir, 1, args...)
+	out, err := runAllowing(ctx, dir, args...)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to test-merge %s into %s in %q: %w", left, right, dir, err)
 	}

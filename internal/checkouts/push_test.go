@@ -224,12 +224,13 @@ func TestPushSendsTheBranch(t *testing.T) {
 			plan, err := service.PlanPush(t.Context(), agent.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantPlan, *plan)
+			assert.NotContains(t, tt.pusher.Calls, "refresh", "a preview leaves origin's copy alone")
 
 			result, err := service.Push(t.Context(), agent.ID)
 			require.NoError(t, err)
 
 			assert.Equal(t, "abcdef1234567", result.SHA)
-			assert.Equal(t, tt.landed, slices.Contains(tt.pusher.Calls, "refresh"), "origin's copy is read afresh only once its pull request has finished")
+			assert.Equal(t, tt.landed, slices.Contains(tt.pusher.Calls, "refresh"), "a push reads origin's copy afresh only once its pull request has finished")
 			assert.Equal(t, []git.PushParams{{
 				Dir:    "/tree",
 				Branch: tt.wantPlan.Branch,

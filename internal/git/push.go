@@ -35,13 +35,12 @@ func (c *Client) Push(ctx context.Context, params PushParams) (string, error) {
 	defer cancel()
 
 	ref := "refs/heads/" + params.Branch
-	args := []string{"-c", "credential.interactive=never", "push", "--porcelain"}
+	args := append(promptless(), "push", "--porcelain")
 	if params.Force {
 		args = append(args, "--force-with-lease", "--force-if-includes")
 	}
 
-	env := append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
-	out, err := runReporting(ctx, params.Dir, env, append(args, "origin", ref+":"+ref)...)
+	out, err := runReporting(ctx, params.Dir, promptlessEnv(), append(args, "origin", ref+":"+ref)...)
 	if isPushRejected(out) {
 		return "", fmt.Errorf("%w: %s", ErrPushRejected, params.Branch)
 	}
@@ -55,6 +54,16 @@ func (c *Client) Push(ctx context.Context, params PushParams) (string, error) {
 	}
 
 	return sha, nil
+}
+
+// promptless is the flags that keep a command talking to origin from asking for credentials.
+func promptless() []string {
+	return []string{"-c", "credential.interactive=never"}
+}
+
+// promptlessEnv is the environment that keeps a command talking to origin from prompting on the terminal.
+func promptlessEnv() []string {
+	return append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 }
 
 // isPushRejected reads git push --porcelain for a ref turned away because origin moved on.

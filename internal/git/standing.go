@@ -165,7 +165,7 @@ func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*
 // other way round, as the clone last fetched it.
 func (c *Client) CountAgainstRemote(ctx context.Context, dir, branch string) (*RemoteStanding, error) {
 	ref := "refs/remotes/origin/" + branch
-	sha, err := runAllowing(ctx, dir, 1, "rev-parse", "--verify", "--quiet", ref)
+	sha, err := runAllowing(ctx, dir, "rev-parse", "--verify", "--quiet", ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find origin's copy of %s: %w", branch, err)
 	}
@@ -369,7 +369,7 @@ func (c *Client) RefreshRemoteBranch(ctx context.Context, dir, branch string) er
 	head := "refs/heads/" + branch
 	tracking := "refs/remotes/origin/" + branch
 
-	listed, err := runAllowing(ctx, dir, 2, "ls-remote", "--exit-code", "origin", head)
+	listed, err := runEnv(ctx, dir, promptlessEnv(), append(promptless(), "ls-remote", "origin", head)...)
 	if err != nil {
 		return fmt.Errorf("failed to ask origin for %s: %w", branch, err)
 	}
@@ -382,7 +382,7 @@ func (c *Client) RefreshRemoteBranch(ctx context.Context, dir, branch string) er
 		return nil
 	}
 
-	if _, err := Run(ctx, dir, "fetch", "--quiet", "origin", "+"+head+":"+tracking); err != nil {
+	if _, err := runEnv(ctx, dir, promptlessEnv(), append(promptless(), "fetch", "--quiet", "origin", "+"+head+":"+tracking)...); err != nil {
 		return fmt.Errorf("failed to fetch %s from origin: %w", branch, err)
 	}
 
@@ -391,7 +391,7 @@ func (c *Client) RefreshRemoteBranch(ctx context.Context, dir, branch string) er
 
 // HoldsCommit reports whether HEAD's history holds sha, answering false for a commit the clone never fetched.
 func (c *Client) HoldsCommit(ctx context.Context, dir, sha string) (bool, error) {
-	known, err := runAllowing(ctx, dir, 1, "rev-parse", "--verify", "--quiet", sha+"^{commit}")
+	known, err := runAllowing(ctx, dir, "rev-parse", "--verify", "--quiet", sha+"^{commit}")
 	if err != nil {
 		return false, fmt.Errorf("failed to look for %s: %w", sha, err)
 	}

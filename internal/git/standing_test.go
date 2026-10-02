@@ -540,7 +540,7 @@ func TestIntegrationRefreshRemoteBranch(t *testing.T) {
 
 			require.NoError(t, client.RefreshRemoteBranch(t.Context(), root, "feature"))
 
-			tracked, err := runAllowing(t.Context(), root, 1, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/feature")
+			tracked, err := runAllowing(t.Context(), root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/feature")
 			require.NoError(t, err)
 			if tt.wantGone {
 				assert.Empty(t, tracked)
