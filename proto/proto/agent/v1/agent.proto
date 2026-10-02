@@ -729,7 +729,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "request_review"
-      description: "Spawn a reviewer for your committed work, as your child in your checkout. The prompt is its whole briefing. Call it once per change: answering its threads is what tells it there is more to read. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person."
+      description: "Spawn a reviewer for your committed work, as your child in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person."
       destructive: false
       roles: [ROLE_IMPLEMENTER]
     };
