@@ -128,3 +128,27 @@ func (m *model) reportMerged(item panel.AgentRow, archive bool, err error) tea.C
 
 	return m.archiveAgents([]panel.Agent{live.Agent})
 }
+
+func mergeRebaseOp(item panel.AgentRow) gitOp {
+	agentID, name := item.Agent.ID, item.Agent.Name
+
+	return gitOp{
+		running: fmt.Sprintf("merging #%d and rebasing %s", item.PullRequest.Number, name),
+		run: func(clients api) gitReport {
+			if err := clients.mergePullRequest(item.PullRequest.URL); err != nil {
+				return func(m *model) tea.Cmd {
+					return m.reportMerged(item, false, err)
+				}
+			}
+
+			result, err := clients.rebaseWorktree(agentID)
+
+			return func(m *model) tea.Cmd {
+				m.reportMerged(item, false, nil)
+				m.reportRebased(name, result, err)
+
+				return nil
+			}
+		},
+	}
+}
