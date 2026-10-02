@@ -295,8 +295,7 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 }
 
 // SetAutoMerge asks GitLab to merge the merge request once its pipeline passes, held to the head
-// the person saw, or cancels that, refusing a draft and one GitLab offers no strategy for since
-// GitLab would merge it at once.
+// the person saw, or cancels that, refusing a draft or one GitLab would merge at once.
 func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
 	path, number, err := parseMergeRequestURL(params.URL)
 	if err != nil {
