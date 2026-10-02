@@ -28,7 +28,7 @@ func (q *Queries) EnsurePullRequestSync(ctx context.Context, repositoryUrl strin
 
 const getPullRequest = `-- name: GetPullRequest :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, read_decision, read_checks, read_head_sha, read_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_checks, latest_head_sha, latest_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision
 FROM
     pull_requests
 WHERE
@@ -63,10 +63,10 @@ func (q *Queries) GetPullRequest(ctx context.Context, id string) (*PullRequest, 
 		&i.MergeabilityBlankSince,
 		&i.AutoMerge,
 		&i.AutoMergeable,
-		&i.ReadDecision,
-		&i.ReadChecks,
-		&i.ReadHeadSha,
-		&i.ReadMergeability,
+		&i.LatestDecision,
+		&i.LatestChecks,
+		&i.LatestHeadSha,
+		&i.LatestMergeability,
 		&i.KnownChecks,
 		&i.KnownChecksSha,
 		&i.KnownMergeability,
@@ -78,7 +78,7 @@ func (q *Queries) GetPullRequest(ctx context.Context, id string) (*PullRequest, 
 
 const getPullRequestByIdentity = `-- name: GetPullRequestByIdentity :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, read_decision, read_checks, read_head_sha, read_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_checks, latest_head_sha, latest_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision
 FROM
     pull_requests
 WHERE
@@ -119,10 +119,10 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 		&i.MergeabilityBlankSince,
 		&i.AutoMerge,
 		&i.AutoMergeable,
-		&i.ReadDecision,
-		&i.ReadChecks,
-		&i.ReadHeadSha,
-		&i.ReadMergeability,
+		&i.LatestDecision,
+		&i.LatestChecks,
+		&i.LatestHeadSha,
+		&i.LatestMergeability,
 		&i.KnownChecks,
 		&i.KnownChecksSha,
 		&i.KnownMergeability,
@@ -134,7 +134,7 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 
 const getPullRequestForUpdate = `-- name: GetPullRequestForUpdate :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, read_decision, read_checks, read_head_sha, read_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_checks, latest_head_sha, latest_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision
 FROM
     pull_requests
 WHERE
@@ -170,10 +170,10 @@ func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*Pull
 		&i.MergeabilityBlankSince,
 		&i.AutoMerge,
 		&i.AutoMergeable,
-		&i.ReadDecision,
-		&i.ReadChecks,
-		&i.ReadHeadSha,
-		&i.ReadMergeability,
+		&i.LatestDecision,
+		&i.LatestChecks,
+		&i.LatestHeadSha,
+		&i.LatestMergeability,
 		&i.KnownChecks,
 		&i.KnownChecksSha,
 		&i.KnownMergeability,
@@ -301,7 +301,7 @@ func (q *Queries) ListPullRequestRecipients(ctx context.Context, id string) ([]s
 
 const listPullRequestsPage = `-- name: ListPullRequestsPage :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.read_decision, p.read_checks, p.read_head_sha, p.read_mergeability, p.known_checks, p.known_checks_sha, p.known_mergeability, p.known_mergeability_sha, p.known_decision
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_checks, p.latest_head_sha, p.latest_mergeability, p.known_checks, p.known_checks_sha, p.known_mergeability, p.known_mergeability_sha, p.known_decision
 FROM
     pull_requests p
 WHERE
@@ -374,10 +374,10 @@ func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequests
 			&i.MergeabilityBlankSince,
 			&i.AutoMerge,
 			&i.AutoMergeable,
-			&i.ReadDecision,
-			&i.ReadChecks,
-			&i.ReadHeadSha,
-			&i.ReadMergeability,
+			&i.LatestDecision,
+			&i.LatestChecks,
+			&i.LatestHeadSha,
+			&i.LatestMergeability,
 			&i.KnownChecks,
 			&i.KnownChecksSha,
 			&i.KnownMergeability,
@@ -445,7 +445,7 @@ func (q *Queries) ListSyncTargets(ctx context.Context) ([]*ListSyncTargetsRow, e
 
 const listWatchedPullRequests = `-- name: ListWatchedPullRequests :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.read_decision, p.read_checks, p.read_head_sha, p.read_mergeability, p.known_checks, p.known_checks_sha, p.known_mergeability, p.known_mergeability_sha, p.known_decision
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_checks, p.latest_head_sha, p.latest_mergeability, p.known_checks, p.known_checks_sha, p.known_mergeability, p.known_mergeability_sha, p.known_decision
 FROM
     pull_requests p
 WHERE
@@ -496,10 +496,10 @@ func (q *Queries) ListWatchedPullRequests(ctx context.Context, keys []string) ([
 			&i.MergeabilityBlankSince,
 			&i.AutoMerge,
 			&i.AutoMergeable,
-			&i.ReadDecision,
-			&i.ReadChecks,
-			&i.ReadHeadSha,
-			&i.ReadMergeability,
+			&i.LatestDecision,
+			&i.LatestChecks,
+			&i.LatestHeadSha,
+			&i.LatestMergeability,
 			&i.KnownChecks,
 			&i.KnownChecksSha,
 			&i.KnownMergeability,
@@ -781,10 +781,10 @@ const writeStanding = `-- name: WriteStanding :exec
 UPDATE
     pull_requests
 SET
-    read_decision = $1::text,
-    read_checks = $2::text,
-    read_mergeability = $3::text,
-    read_head_sha = $4::text,
+    latest_decision = $1::text,
+    latest_checks = $2::text,
+    latest_mergeability = $3::text,
+    latest_head_sha = $4::text,
     known_checks = $5::text,
     known_checks_sha = $6::text,
     known_mergeability = $7::text,
@@ -795,10 +795,10 @@ SET
     auto_mergeable = $12::boolean
 WHERE
     id = $13
-    AND (read_decision,
-        read_checks,
-        read_mergeability,
-        read_head_sha,
+    AND (latest_decision,
+        latest_checks,
+        latest_mergeability,
+        latest_head_sha,
         known_checks,
         known_checks_sha,
         known_mergeability,
@@ -821,10 +821,10 @@ WHERE
 `
 
 type WriteStandingParams struct {
-	ReadDecision           *string
-	ReadChecks             *string
-	ReadMergeability       *string
-	ReadHeadSha            *string
+	LatestDecision         *string
+	LatestChecks           *string
+	LatestMergeability     *string
+	LatestHeadSha          *string
 	KnownChecks            *string
 	KnownChecksSha         *string
 	KnownMergeability      *string
@@ -838,10 +838,10 @@ type WriteStandingParams struct {
 
 func (q *Queries) WriteStanding(ctx context.Context, arg WriteStandingParams) error {
 	_, err := q.db.Exec(ctx, writeStanding,
-		arg.ReadDecision,
-		arg.ReadChecks,
-		arg.ReadMergeability,
-		arg.ReadHeadSha,
+		arg.LatestDecision,
+		arg.LatestChecks,
+		arg.LatestMergeability,
+		arg.LatestHeadSha,
 		arg.KnownChecks,
 		arg.KnownChecksSha,
 		arg.KnownMergeability,

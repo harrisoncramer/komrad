@@ -162,25 +162,25 @@ table "pull_requests" {
     default = sql("now()")
     comment = "When komrad first inserted the row."
   }
-  column "read_decision" {
+  column "latest_decision" {
     null    = true
     type    = text
-    comment = "Where the latest read says the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing."
+    comment = "Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing."
   }
-  column "read_checks" {
+  column "latest_checks" {
     null    = true
     type    = text
-    comment = "Where the latest read says the checks on read_head_sha stand, in komrad's own words: pending, passing or failing, null when it reported none."
+    comment = "Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing or failing, null when it reported none."
   }
-  column "read_head_sha" {
+  column "latest_head_sha" {
     null    = true
     type    = text
     comment = "The head commit the latest standing read was for, null before the first read."
   }
-  column "read_mergeability" {
+  column "latest_mergeability" {
     null    = true
     type    = text
-    comment = "Where the latest read says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it."
+    comment = "Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it."
   }
   column "known_checks" {
     null    = true
@@ -216,7 +216,7 @@ table "pull_requests" {
   column "mergeability_blank_since" {
     null    = true
     type    = timestamptz
-    comment = "When the forge first answered a blank mergeability for read_head_sha, which bounds how long a blank is read again quickly."
+    comment = "When the forge first answered a blank mergeability for latest_head_sha, which bounds how long a blank is read again quickly."
   }
   column "known_decision" {
     null    = true

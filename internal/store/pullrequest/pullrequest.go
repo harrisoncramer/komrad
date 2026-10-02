@@ -319,23 +319,23 @@ func fromRow(row *models.PullRequest) PullRequest {
 }
 
 func rememberedStandingOf(row *models.PullRequest) forge.RememberedStanding {
-	wasRead := row.ReadHeadSha != nil
+	wasRead := row.LatestHeadSha != nil
 	standing := forge.RememberedStanding{
 		Decision: forge.RememberedAnswer[forge.ReviewDecision]{
 			Value:              forge.ReviewDecision(xptr.Deref(row.KnownDecision)),
-			WasLatestReadBlank: wasRead && row.ReadDecision == nil,
+			WasLatestReadBlank: wasRead && row.LatestDecision == nil,
 		},
 		Checks: forge.RememberedAnswer[forge.Checks]{
 			Value:              forge.Checks(xptr.Deref(row.KnownChecks)),
 			HeadSHA:            xptr.Deref(row.KnownChecksSha),
-			WasLatestReadBlank: wasRead && row.ReadChecks == nil,
+			WasLatestReadBlank: wasRead && row.LatestChecks == nil,
 		},
 		Mergeability: forge.RememberedAnswer[forge.Mergeability]{
 			Value:              forge.Mergeability(xptr.Deref(row.KnownMergeability)),
 			HeadSHA:            xptr.Deref(row.KnownMergeabilitySha),
-			WasLatestReadBlank: wasRead && row.ReadMergeability == nil,
+			WasLatestReadBlank: wasRead && row.LatestMergeability == nil,
 		},
-		LatestReadHeadSHA:      xptr.Deref(row.ReadHeadSha),
+		LatestReadHeadSHA:      xptr.Deref(row.LatestHeadSha),
 		MergeabilityBlankSince: row.MergeabilityBlankSince,
 	}
 	if row.AutoMerge != nil {
@@ -348,10 +348,10 @@ func rememberedStandingOf(row *models.PullRequest) forge.RememberedStanding {
 func toWriteStanding(id string, standing forge.RememberedStanding) models.WriteStandingParams {
 	params := models.WriteStandingParams{
 		ID:                     id,
-		ReadDecision:           latestReadOf(standing.Decision),
-		ReadChecks:             latestReadOf(standing.Checks),
-		ReadMergeability:       latestReadOf(standing.Mergeability),
-		ReadHeadSha:            &standing.LatestReadHeadSHA,
+		LatestDecision:         latestReadOf(standing.Decision),
+		LatestChecks:           latestReadOf(standing.Checks),
+		LatestMergeability:     latestReadOf(standing.Mergeability),
+		LatestHeadSha:          &standing.LatestReadHeadSHA,
 		KnownChecks:            xptr.NonEmpty(string(standing.Checks.Value)),
 		KnownChecksSha:         xptr.NonEmpty(standing.Checks.HeadSHA),
 		KnownMergeability:      xptr.NonEmpty(string(standing.Mergeability.Value)),

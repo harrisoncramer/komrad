@@ -238,10 +238,10 @@ FOR UPDATE;
 UPDATE
     pull_requests
 SET
-    read_decision = sqlc.narg('read_decision')::text,
-    read_checks = sqlc.narg('read_checks')::text,
-    read_mergeability = sqlc.narg('read_mergeability')::text,
-    read_head_sha = sqlc.narg('read_head_sha')::text,
+    latest_decision = sqlc.narg('latest_decision')::text,
+    latest_checks = sqlc.narg('latest_checks')::text,
+    latest_mergeability = sqlc.narg('latest_mergeability')::text,
+    latest_head_sha = sqlc.narg('latest_head_sha')::text,
     known_checks = sqlc.narg('known_checks')::text,
     known_checks_sha = sqlc.narg('known_checks_sha')::text,
     known_mergeability = sqlc.narg('known_mergeability')::text,
@@ -252,10 +252,10 @@ SET
     auto_mergeable = @auto_mergeable::boolean
 WHERE
     id = @id
-    AND (read_decision,
-        read_checks,
-        read_mergeability,
-        read_head_sha,
+    AND (latest_decision,
+        latest_checks,
+        latest_mergeability,
+        latest_head_sha,
         known_checks,
         known_checks_sha,
         known_mergeability,
@@ -263,10 +263,10 @@ WHERE
         mergeability_blank_since,
         known_decision,
         auto_merge,
-        auto_mergeable) IS DISTINCT FROM (sqlc.narg('read_decision')::text,
-        sqlc.narg('read_checks')::text,
-        sqlc.narg('read_mergeability')::text,
-        sqlc.narg('read_head_sha')::text,
+        auto_mergeable) IS DISTINCT FROM (sqlc.narg('latest_decision')::text,
+        sqlc.narg('latest_checks')::text,
+        sqlc.narg('latest_mergeability')::text,
+        sqlc.narg('latest_head_sha')::text,
         sqlc.narg('known_checks')::text,
         sqlc.narg('known_checks_sha')::text,
         sqlc.narg('known_mergeability')::text,

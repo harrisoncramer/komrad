@@ -669,20 +669,20 @@ type PullRequest struct {
 	FirstSeenAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
-	// When the forge first answered a blank mergeability for read_head_sha, which bounds how long a blank is read again quickly.
+	// When the forge first answered a blank mergeability for latest_head_sha, which bounds how long a blank is read again quickly.
 	MergeabilityBlankSince *time.Time
 	// Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks.
 	AutoMerge *bool
 	// Whether the forge would let komrad's credential turn auto-merge on now, which it will not for a draft, a pull request with nothing left to wait for or a repository that does not allow it.
 	AutoMergeable bool
-	// Where the latest read says the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing.
-	ReadDecision *string
-	// Where the latest read says the checks on read_head_sha stand, in komrad's own words: pending, passing or failing, null when it reported none.
-	ReadChecks *string
+	// Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing.
+	LatestDecision *string
+	// Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing or failing, null when it reported none.
+	LatestChecks *string
 	// The head commit the latest standing read was for, null before the first read.
-	ReadHeadSha *string
-	// Where the latest read says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it.
-	ReadMergeability *string
+	LatestHeadSha *string
+	// Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it.
+	LatestMergeability *string
 	// The last checks a read reported, which a blank read leaves alone.
 	KnownChecks *string
 	// The head commit known_checks was read for.
