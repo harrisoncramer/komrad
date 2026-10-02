@@ -19,6 +19,7 @@ type Fake struct {
 	Sizes           map[string]Size
 	Commands        map[string]string
 	InMode          map[string]bool
+	Exited          map[string]bool
 	ClientDir       string
 	Sent            map[string][][]string
 	Globals         map[string]string
@@ -77,6 +78,7 @@ func NewFake() *Fake {
 		Sizes:          map[string]Size{},
 		Commands:       map[string]string{},
 		InMode:         map[string]bool{},
+		Exited:         map[string]bool{},
 		Sent:           map[string][][]string{},
 		Globals:        map[string]string{},
 		NewWindows:     map[string]string{},
@@ -176,6 +178,14 @@ func (f *Fake) CapturePane(pane string) string {
 	}
 
 	return f.Captures[pane]
+}
+
+// HasCLIExited answers Exited for the pane.
+func (f *Fake) HasCLIExited(pane string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.Exited[pane]
 }
 
 // GetHostPath answers ClientDir.

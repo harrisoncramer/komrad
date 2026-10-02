@@ -36,6 +36,7 @@ type NewLaunchServiceParams struct {
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	Usage              config.Usage
+	Wait               func(time.Duration) <-chan time.Time
 }
 
 type LaunchService struct {
@@ -49,10 +50,16 @@ type LaunchService struct {
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	usage              config.Usage
+	wait               func(time.Duration) <-chan time.Time
 }
 
 // NewLaunchService builds the service from its dependencies.
 func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
+	wait := params.Wait
+	if wait == nil {
+		wait = time.After
+	}
+
 	return &LaunchService{
 		tmux:      params.Tmux,
 		agents:    params.Agents,
@@ -68,6 +75,7 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 		userDefaultHarness: params.UserDefaultHarness,
 		userDefaultFlags:   params.UserDefaultFlags,
 		usage:              params.Usage,
+		wait:               wait,
 	}
 }
 
@@ -517,6 +525,7 @@ func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		hooks:   c.resolved.hooks,
 		event:   workflowstore.HookPostLaunch,
 	})
+	c.service.watchStartup(ctx, agent)
 
 	return nil
 }

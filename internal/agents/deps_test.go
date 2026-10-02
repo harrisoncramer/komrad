@@ -138,12 +138,22 @@ type agentServiceOptions struct {
 	framesDir string
 	tx        txRunner
 	stateDir  string
+	wait      func(time.Duration) <-chan time.Time
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	tx := options.tx
 	if tx == nil {
 		tx = s.Pool
+	}
+	wait := options.wait
+	if wait == nil {
+		wait = func(time.Duration) <-chan time.Time {
+			rested := make(chan time.Time, 1)
+			rested <- time.Now()
+
+			return rested
+		}
 	}
 
 	launcher := NewLauncher(NewLauncherParams{
@@ -169,6 +179,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		UserDefaultHarness: harnesstest.FakeID,
 		UserDefaultFlags:   map[string]string{harnesstest.FakeID: options.flags},
 		Usage:              options.usage,
+		Wait:               wait,
 	})
 
 	snapshots := &gittest.Snapshots{}

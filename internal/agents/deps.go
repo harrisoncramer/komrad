@@ -44,9 +44,16 @@ type paneOwnerReader interface {
 	GetPaneOwner(pane string) string
 }
 
+// paneExitReader asks tmux whether the CLI launched in a pane has exited, and what it left on screen.
+type paneExitReader interface {
+	HasCLIExited(pane string) bool
+	CapturePane(pane string) string
+}
+
 type paneController interface {
 	paneKiller
 	paneOwnerReader
+	paneExitReader
 	NewWindow(session, name, dir string) (string, error)
 	SetPaneOwner(pane, agentID string) error
 	GetHostPath() string

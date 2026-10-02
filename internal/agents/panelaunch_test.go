@@ -81,6 +81,9 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 			rest, ok := strings.CutSuffix(script, "; exec '/bin/zsh' -l -i")
 			require.True(t, ok, "the pane is left holding a shell once the agent exits")
 
+			rest, ok = strings.CutSuffix(rest, "; tmux set-option -p -t 'pane' @komrad_cli_exited 1")
+			require.True(t, ok, "the pane is marked once the agent exits")
+
 			path, ok := strings.CutPrefix(rest, ". ")
 			require.True(t, ok, "the pane sources a file, rather than being handed the command")
 			path = strings.Trim(path, "'")

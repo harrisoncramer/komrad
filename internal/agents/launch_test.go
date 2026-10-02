@@ -1718,6 +1718,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 		"the flags configured for the harness it runs, then its own")
 }
 
+// TestLaunchFlags pins that the user defaults are never prepended to flags already holding them.
 func TestLaunchFlags(t *testing.T) {
 	tests := []struct {
 		name   string
