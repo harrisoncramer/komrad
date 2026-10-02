@@ -357,7 +357,7 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 
 	var revoked error
 	if connection.Method == MethodRotatingToken {
-		revoked = s.revoke(ctx, *connection)
+		revoked = s.revokeRotatingToken(ctx, *connection)
 	}
 
 	if err := s.credentials.Delete(ctx, connection.ID); err != nil {

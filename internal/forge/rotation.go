@@ -110,8 +110,8 @@ func utcDay(t time.Time) time.Time {
 	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }
 
-// revoke ends a rotating token at the forge, letting one the forge already refuses go.
-func (s *Service) revoke(ctx context.Context, connection forgestore.Connection) error {
+// revokeRotatingToken ends a rotating token at the forge, counting one the forge already refuses as ended.
+func (s *Service) revokeRotatingToken(ctx context.Context, connection forgestore.Connection) error {
 	held, err := s.HasCredential(ctx, connection)
 	if err != nil || !held {
 		return err
