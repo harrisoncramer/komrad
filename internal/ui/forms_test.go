@@ -654,8 +654,21 @@ func TestFormsWorkflowSections(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Default Agent")
-		assert.Contains(t, frame, "where agents start, and the checkout worktrees are cut from", "the top form keeps its width")
+		assert.Contains(t, frame, "where agents start, and the checkout worktrees are cut", "the top form keeps its width")
 		assert.Contains(t, frame, "› agents ›", "with the section that is open marked")
+	})
+
+	t.Run("a long value folds at the form's widest", func(t *testing.T) {
+		longContext := "Nobody archives anybody; the rows retire when the pull request merges or closes."
+		workflow := newConfiguredWorkflow()
+		workflow.Context = longContext
+		harness := openWideForms(t, workflow, newFormAuthor())
+
+		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(1)...)...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Worktree base branch", "the section still opens beside the top form")
+		assert.NotContains(t, frame, longContext, "the context folds rather than running on one line")
 	})
 
 	t.Run("back keeps what the section was given and lands on the list of sections", func(t *testing.T) {
@@ -815,7 +828,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(3)...)...)
 		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"tab"})...)
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "only rewrites mail the agent still holds")
+		assert.Contains(t, frame, "only rewrites mail")
 
 		harness.press("down", "enter")
 
