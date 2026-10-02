@@ -21,6 +21,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/waketest"
+	"komrad/lib/clock/clocktest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -755,12 +756,7 @@ func buildSettler(channel harness.Channel, observer harness.Observer) *agents.Se
 
 			return at
 		},
-		Wait: func(time.Duration) <-chan time.Time {
-			rested := make(chan time.Time, 1)
-			rested <- at
-
-			return rested
-		},
+		Sleeper: &clocktest.Sleeper{},
 	})
 }
 

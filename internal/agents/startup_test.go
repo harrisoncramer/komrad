@@ -2,7 +2,6 @@ package agents
 
 import (
 	"slices"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/clock/clocktest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,17 +53,13 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 			tmux.Captures["%agent"] = tt.screen
 			st := newStore(t)
 
-			var polls atomic.Int32
+			sleeper := &clocktest.Sleeper{}
 			manager := st.agentService(agentServiceOptions{
 				tmux:      tmux,
 				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 				addr:      "127.0.0.1:9999",
 				lifecycle: &fakeLifecycle{},
-				wait: func(interval time.Duration) <-chan time.Time {
-					polls.Add(1)
-
-					return restNow(interval)
-				},
+				sleeper:   sleeper,
 			})
 
 			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
@@ -87,7 +83,7 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 
 				return agents[0].State == tt.wantState &&
 					slices.Equal(tmux.ReadKilledPanes(), tt.wantKilled) &&
-					polls.Load() == tt.wantPolls
+					sleeper.CountSleeps() == tt.wantPolls
 			}, 5*time.Second, 10*time.Millisecond)
 
 			agents, err := st.Agents.List(t.Context())

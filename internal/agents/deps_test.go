@@ -29,6 +29,8 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/clock"
+	"komrad/lib/clock/clocktest"
 	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
@@ -138,7 +140,7 @@ type agentServiceOptions struct {
 	framesDir string
 	tx        txRunner
 	stateDir  string
-	wait      func(time.Duration) <-chan time.Time
+	sleeper   clock.Sleeper
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
@@ -146,9 +148,9 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	if tx == nil {
 		tx = s.Pool
 	}
-	wait := options.wait
-	if wait == nil {
-		wait = restNow
+	sleeper := options.sleeper
+	if sleeper == nil {
+		sleeper = &clocktest.Sleeper{}
 	}
 
 	launcher := NewLauncher(NewLauncherParams{
@@ -174,7 +176,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		UserDefaultHarness: harnesstest.FakeID,
 		UserDefaultFlags:   map[string]string{harnesstest.FakeID: options.flags},
 		Usage:              options.usage,
-		Wait:               wait,
+		Sleeper:            sleeper,
 	})
 
 	snapshots := &gittest.Snapshots{}
@@ -680,11 +682,4 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	require.FailNowf(t, "no record was written", "wanted %q, got %v", body, records)
 
 	return nil
-}
-
-func restNow(time.Duration) <-chan time.Time {
-	rested := make(chan time.Time, 1)
-	rested <- time.Now()
-
-	return rested
 }

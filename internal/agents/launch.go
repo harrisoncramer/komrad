@@ -19,6 +19,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
@@ -36,7 +37,7 @@ type NewLaunchServiceParams struct {
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	Usage              config.Usage
-	Wait               func(time.Duration) <-chan time.Time
+	Sleeper            clock.Sleeper
 }
 
 type LaunchService struct {
@@ -50,14 +51,14 @@ type LaunchService struct {
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	usage              config.Usage
-	wait               func(time.Duration) <-chan time.Time
+	sleeper            clock.Sleeper
 }
 
 // NewLaunchService builds the service from its dependencies.
 func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
-	wait := params.Wait
-	if wait == nil {
-		wait = time.After
+	sleeper := params.Sleeper
+	if sleeper == nil {
+		sleeper = clock.Wall{}
 	}
 
 	return &LaunchService{
@@ -75,7 +76,7 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 		userDefaultHarness: params.UserDefaultHarness,
 		userDefaultFlags:   params.UserDefaultFlags,
 		usage:              params.Usage,
-		wait:               wait,
+		sleeper:            sleeper,
 	}
 }
 

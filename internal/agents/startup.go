@@ -26,7 +26,7 @@ func (s *LaunchService) watchStartup(ctx context.Context, launched agentstore.Ag
 
 	go func() {
 		for range startupPolls {
-			<-s.wait(startupPollInterval)
+			s.sleeper.Sleep(bg, startupPollInterval)
 
 			if s.tmux.HasCLIExited(launched.Pane) {
 				s.failExitedStartup(bg, launched)
