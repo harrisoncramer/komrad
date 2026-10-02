@@ -234,9 +234,7 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 				return nil
 			}
 
-			m.releasePanes(deletion.live)
-
-			return deleteWorktreesCmd(m, deletion)
+			return m.unstageAhead(deletion.live, deleteWorktreesCmd(m, deletion))
 		}),
 	})
 }

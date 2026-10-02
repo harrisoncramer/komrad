@@ -127,6 +127,8 @@ type writeResult struct {
 	renamed string
 	// resumed is the agent a resume was written for.
 	resumed string
+	// unstaged is the agents whose panes were taken off the stage ahead of the write.
+	unstaged []string
 }
 
 type released struct {
@@ -410,6 +412,10 @@ func (m *model) landWrite(write int) {
 
 func (m *model) applyWrite(result writeResult) tea.Cmd {
 	m.report(result.summary, result.err)
+
+	if len(result.unstaged) > 0 {
+		m.settleUnstaged(result.unstaged, result.err)
+	}
 
 	if result.renamed != "" {
 		m.agents.settleRename(m, result.renamed, result.err)

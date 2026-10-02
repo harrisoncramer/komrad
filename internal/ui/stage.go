@@ -11,17 +11,54 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// releasePanes swaps the given agents' panes out of the stage and marks them locally as no
-// longer alive.
-func (m *model) releasePanes(agents []panel.Agent) {
+// unstageAhead swaps the given agents' panes out of the stage ahead of a write that kills them.
+func (m *model) unstageAhead(agents []panel.Agent, write tea.Cmd) tea.Cmd {
+	staged := m.frame.GuestPane()
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
-		if held, ok := m.listing.world.Agents[agent.ID]; ok {
+	}
+
+	if staged != "" && m.frame.GuestPane() == "" {
+		m.frame.Show(layout.RegionStage, newBlankContent())
+	}
+
+	return stampUnstaged(write, agents)
+}
+
+// settleUnstaged marks the agents a landed write killed as no longer alive, or stages again
+// what a refused write left running.
+func (m *model) settleUnstaged(ids []string, err error) {
+	if err != nil {
+		m.stageSelection()
+
+		return
+	}
+
+	for _, id := range ids {
+		if held, ok := m.listing.world.Agents[id]; ok {
 			held.Alive = xptr.Ptr(false)
 		}
 	}
 
 	m.listing.assemble(time.Now())
+}
+
+// stampUnstaged says on a write's result which agents' panes were released ahead of it.
+func stampUnstaged(cmd tea.Cmd, agents []panel.Agent) tea.Cmd {
+	ids := panel.IDs(agents)
+
+	return func() tea.Msg {
+		msg := cmd()
+
+		result, ok := msg.(writeResult)
+		if !ok {
+			return msg
+		}
+
+		result.unstaged = ids
+
+		return result
+	}
 }
 
 // stageDelay is how long a cursor has to rest before the panes are moved to what it is standing
