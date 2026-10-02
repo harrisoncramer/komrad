@@ -25,8 +25,8 @@ const (
 // StateOf decides where a stored pull request stands: finished by its two stamps
 // first, then draft, then a failing check, then a conflict with the base, then a change request,
 // then a re-review asked of everyone who requested changes, then checks still running, then the
-// forge's own word on whether it would merge it now, with an approval held at waiting until that
-// word is clean.
+// forge's own word on whether it would merge it now, given passing checks, with an approval held
+// at waiting until that word is clean and its checks have passed.
 func StateOf(pullRequest pullrequeststore.PullRequest) State {
 	displayed := pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA)
 	checks, mergeability, decision := displayed.Checks.Value, displayed.Mergeability.Value, displayed.Decision.Value
@@ -51,7 +51,7 @@ func StateOf(pullRequest pullrequeststore.PullRequest) State {
 		return StateRereviewRequested
 	case checks == forge.ChecksPending:
 		return StateChecksRunning
-	case mergeability == forge.MergeabilityClean:
+	case mergeability == forge.MergeabilityClean && checks == forge.ChecksPassing:
 		return StateApproved
 	case decision == forge.ReviewDecisionApproved:
 		return StateApprovedWaiting
