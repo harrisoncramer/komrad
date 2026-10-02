@@ -271,25 +271,25 @@ type Schedule struct {
 	// Whether it is armed, since a paused schedule keeps its record and stops firing.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Whether its launches stay out of the panel's sidebar while still running.
-	HideAgents bool `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	HideAgents bool `protobuf:"varint,6,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	// The opening prompt every agent it launches is given, or the mail its orchestrator is sent.
-	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Prompt string `protobuf:"bytes,7,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's.
-	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	WorkflowId string `protobuf:"bytes,8,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	// Whether it launches an implementer or mails an orchestrator.
-	Kind ScheduleKind `protobuf:"varint,17,opt,name=kind,proto3,enum=schedule.v1.ScheduleKind" json:"kind,omitempty"`
+	Kind ScheduleKind `protobuf:"varint,9,opt,name=kind,proto3,enum=schedule.v1.ScheduleKind" json:"kind,omitempty"`
 	// The orchestrator it mails, set only on an orchestrator schedule.
-	OrchestratorAgentId *string `protobuf:"bytes,18,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof" json:"orchestrator_agent_id,omitempty"`
+	OrchestratorAgentId *string `protobuf:"bytes,10,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof" json:"orchestrator_agent_id,omitempty"`
 	// When the expression next matches, unset while the schedule is paused.
-	NextRunAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
+	NextRunAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
 	// Whether prompt holds only its opening, which a summary listing returns.
-	PromptTruncated bool `protobuf:"varint,14,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
+	PromptTruncated bool `protobuf:"varint,12,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
 	// The newest firing still on record, unset when it has never fired or the record has aged out.
-	LatestRun *ScheduleRun `protobuf:"bytes,15,opt,name=latest_run,json=latestRun,proto3,oneof" json:"latest_run,omitempty"`
+	LatestRun *ScheduleRun `protobuf:"bytes,13,opt,name=latest_run,json=latestRun,proto3,oneof" json:"latest_run,omitempty"`
 	// The newest firings on record, newest first, which only the watch fills.
-	RecentRuns []*ScheduleRun `protobuf:"bytes,16,rep,name=recent_runs,json=recentRuns,proto3" json:"recent_runs,omitempty"`
+	RecentRuns []*ScheduleRun `protobuf:"bytes,14,rep,name=recent_runs,json=recentRuns,proto3" json:"recent_runs,omitempty"`
 	// When it was archived, unset while it is live.
-	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1272,33 +1272,33 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\fmax_attempts\x18\x05 \x01(\x05R\vmaxAttempts\x12B\n" +
 	"\ffinalized_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\vfinalizedAt\x88\x01\x01\x12\x18\n" +
 	"\amessage\x18\a \x01(\tR\amessageB\x0f\n" +
-	"\r_finalized_at\"\xf5\x05\n" +
+	"\r_finalized_at\"\xaa\x05\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04cron\x18\x03 \x01(\tR\x04cron\x12\x1a\n" +
 	"\btimezone\x18\x04 \x01(\tR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x1f\n" +
-	"\vhide_agents\x18\b \x01(\bR\n" +
+	"\vhide_agents\x18\x06 \x01(\bR\n" +
 	"hideAgents\x12\x16\n" +
-	"\x06prompt\x18\x06 \x01(\tR\x06prompt\x12\x1f\n" +
-	"\vworkflow_id\x18\a \x01(\tR\n" +
+	"\x06prompt\x18\a \x01(\tR\x06prompt\x12\x1f\n" +
+	"\vworkflow_id\x18\b \x01(\tR\n" +
 	"workflowId\x12-\n" +
-	"\x04kind\x18\x11 \x01(\x0e2\x19.schedule.v1.ScheduleKindR\x04kind\x127\n" +
-	"\x15orchestrator_agent_id\x18\x12 \x01(\tH\x00R\x13orchestratorAgentId\x88\x01\x01\x12?\n" +
-	"\vnext_run_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampH\x01R\tnextRunAt\x88\x01\x01\x12)\n" +
-	"\x10prompt_truncated\x18\x0e \x01(\bR\x0fpromptTruncated\x12<\n" +
+	"\x04kind\x18\t \x01(\x0e2\x19.schedule.v1.ScheduleKindR\x04kind\x127\n" +
+	"\x15orchestrator_agent_id\x18\n" +
+	" \x01(\tH\x00R\x13orchestratorAgentId\x88\x01\x01\x12?\n" +
+	"\vnext_run_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x01R\tnextRunAt\x88\x01\x01\x12)\n" +
+	"\x10prompt_truncated\x18\f \x01(\bR\x0fpromptTruncated\x12<\n" +
 	"\n" +
-	"latest_run\x18\x0f \x01(\v2\x18.schedule.v1.ScheduleRunH\x02R\tlatestRun\x88\x01\x01\x129\n" +
-	"\vrecent_runs\x18\x10 \x03(\v2\x18.schedule.v1.ScheduleRunR\n" +
+	"latest_run\x18\r \x01(\v2\x18.schedule.v1.ScheduleRunH\x02R\tlatestRun\x88\x01\x01\x129\n" +
+	"\vrecent_runs\x18\x0e \x03(\v2\x18.schedule.v1.ScheduleRunR\n" +
 	"recentRuns\x12@\n" +
-	"\varchived_at\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampH\x03R\n" +
+	"\varchived_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampH\x03R\n" +
 	"archivedAt\x88\x01\x01B\x18\n" +
 	"\x16_orchestrator_agent_idB\x0e\n" +
 	"\f_next_run_atB\r\n" +
 	"\v_latest_runB\x0e\n" +
-	"\f_archived_atJ\x04\b\v\x10\fJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eR\x12last_result_statusR\x13last_result_messageR\x0elast_result_at\"\xae\x01\n" +
+	"\f_archived_at\"\xae\x01\n" +
 	"\x14ListSchedulesRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +

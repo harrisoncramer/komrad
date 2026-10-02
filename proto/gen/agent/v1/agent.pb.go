@@ -305,66 +305,66 @@ type Agent struct {
 	// The CLI's own conversation id, which is the handle a resume needs.
 	SessionId string `protobuf:"bytes,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// Which CLI it runs, such as claude or codex.
-	Harness string `protobuf:"bytes,18,opt,name=harness,proto3" json:"harness,omitempty"`
+	Harness string `protobuf:"bytes,9,opt,name=harness,proto3" json:"harness,omitempty"`
 	// Which workflow it is filed under, whose context it took at launch.
-	WorkflowId string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	WorkflowId string `protobuf:"bytes,10,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	// When it was launched, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When it was hidden from the panel, unset while it is live.
-	ArchivedAt *string `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	ArchivedAt *string `protobuf:"bytes,12,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// The schedule that launched it, unset for an agent a person or another agent spawned.
-	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
+	ScheduleId *string `protobuf:"bytes,13,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
 	// Whether its pane is still there, which a dormant agent's is not.
-	Alive *bool `protobuf:"varint,11,opt,name=alive,proto3,oneof" json:"alive,omitempty"`
+	Alive *bool `protobuf:"varint,14,opt,name=alive,proto3,oneof" json:"alive,omitempty"`
 	// Whether the panel draws a row for it, which changes nothing about the agent itself.
 	Hidden bool `protobuf:"varint,15,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	// The key a retry of its create carried, which is what answers a repeat with this agent.
-	IdempotencyKey *string `protobuf:"bytes,17,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	IdempotencyKey *string `protobuf:"bytes,16,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	// Which agent called create, unset for one a person spawned.
-	SpawnedByAgentId *string `protobuf:"bytes,20,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
+	SpawnedByAgentId *string `protobuf:"bytes,17,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
 	// The agent this one is a child of, unset for an agent standing on its own.
-	ParentAgentId *string `protobuf:"bytes,26,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
+	ParentAgentId *string `protobuf:"bytes,18,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
 	// The git branch its worktree is on, unset for an agent that provisions none.
-	Branch *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
+	Branch *string `protobuf:"bytes,19,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
 	// The canonical web address of the repository its checkout pushes to, such as
 	// https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin
 	// is not a forge.
-	RepositoryUrl *string `protobuf:"bytes,37,opt,name=repository_url,json=repositoryUrl,proto3,oneof" json:"repository_url,omitempty"`
+	RepositoryUrl *string `protobuf:"bytes,20,opt,name=repository_url,json=repositoryUrl,proto3,oneof" json:"repository_url,omitempty"`
 	// The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
-	HeadSha *string `protobuf:"bytes,41,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
+	HeadSha *string `protobuf:"bytes,21,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
 	// Whether its checkout has been taken away, which leaves the record and the transcript.
-	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
+	WorktreeRemoved bool `protobuf:"varint,22,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	// What git has part-way through its checkout, waiting on somebody to settle it.
-	Sequence Sequence `protobuf:"varint,36,opt,name=sequence,proto3,enum=agent.v1.Sequence" json:"sequence,omitempty"`
+	Sequence Sequence `protobuf:"varint,23,opt,name=sequence,proto3,enum=agent.v1.Sequence" json:"sequence,omitempty"`
 	// Whether a script komrad fired for the agent failed and nobody has looked at it since.
-	FailedRun bool `protobuf:"varint,27,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
+	FailedRun bool `protobuf:"varint,24,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
 	// The run log that failure was written to, which is the run the panel opens on.
-	FailedRunLog *int32 `protobuf:"varint,28,opt,name=failed_run_log,json=failedRunLog,proto3,oneof" json:"failed_run_log,omitempty"`
+	FailedRunLog *int32 `protobuf:"varint,25,opt,name=failed_run_log,json=failedRunLog,proto3,oneof" json:"failed_run_log,omitempty"`
 	// How many documents it has written, which list_documents returns.
-	Documents int32 `protobuf:"varint,44,opt,name=documents,proto3" json:"documents,omitempty"`
+	Documents int32 `protobuf:"varint,26,opt,name=documents,proto3" json:"documents,omitempty"`
 	// When the newest of its documents was last written, in RFC 3339, unset when it has none.
-	DocumentsUpdatedAt *string `protobuf:"bytes,45,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
+	DocumentsUpdatedAt *string `protobuf:"bytes,27,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
 	// When the state above last moved, in RFC 3339.
-	StateChangedAt string `protobuf:"bytes,25,opt,name=state_changed_at,json=stateChangedAt,proto3" json:"state_changed_at,omitempty"`
+	StateChangedAt string `protobuf:"bytes,28,opt,name=state_changed_at,json=stateChangedAt,proto3" json:"state_changed_at,omitempty"`
 	// What the agent's own CLI last reported it was doing, alongside the state the pane decided.
 	ReportedReason string `protobuf:"bytes,29,opt,name=reported_reason,json=reportedReason,proto3" json:"reported_reason,omitempty"`
 	// Why its create or cleanup last failed, empty when neither has.
-	FailureReason string `protobuf:"bytes,43,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
+	FailureReason string `protobuf:"bytes,30,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
 	// What its CLI printed when an API error ended its last turn, empty when that turn did not fail.
-	TurnError string `protobuf:"bytes,46,opt,name=turn_error,json=turnError,proto3" json:"turn_error,omitempty"`
+	TurnError string `protobuf:"bytes,31,opt,name=turn_error,json=turnError,proto3" json:"turn_error,omitempty"`
 	// What the agent was launched to do.
-	Role AgentRole `protobuf:"varint,30,opt,name=role,proto3,enum=agent.v1.AgentRole" json:"role,omitempty"`
+	Role AgentRole `protobuf:"varint,32,opt,name=role,proto3,enum=agent.v1.AgentRole" json:"role,omitempty"`
 	// Whether prompt holds only its opening, as a summary listing returns it.
-	PromptTruncated bool `protobuf:"varint,32,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
+	PromptTruncated bool `protobuf:"varint,33,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
 	// The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
-	MovedSinceRound string `protobuf:"bytes,42,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
+	MovedSinceRound string `protobuf:"bytes,34,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
 	// How many lines its checkout adds and removes since it left its base, unset where there is no
 	// base to measure against.
-	DiffStat *DiffStat `protobuf:"bytes,47,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
+	DiffStat *DiffStat `protobuf:"bytes,35,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
-	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
+	HeldAt string `protobuf:"bytes,36,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
 	// The agent that took the hold, empty when the panel took it or nobody is holding it.
-	HeldByAgentId string `protobuf:"bytes,48,opt,name=held_by_agent_id,json=heldByAgentId,proto3" json:"held_by_agent_id,omitempty"`
+	HeldByAgentId string `protobuf:"bytes,37,opt,name=held_by_agent_id,json=heldByAgentId,proto3" json:"held_by_agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -665,17 +665,17 @@ type AgentRow struct {
 	// The agent itself.
 	Agent *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	// Whether mail is waiting that it has not taken.
-	UnreadMail bool `protobuf:"varint,3,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
+	UnreadMail bool `protobuf:"varint,2,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
 	// Where the pull request opened from its branch stands.
-	PullRequest *PullRequestStanding `protobuf:"bytes,4,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
+	PullRequest *PullRequestStanding `protobuf:"bytes,3,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
 	// Every pull request opened from its branch, the current one first.
-	PullRequests []*v1.PullRequest `protobuf:"bytes,5,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
+	PullRequests []*v1.PullRequest `protobuf:"bytes,4,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// How many rounds of local review its own work has been through.
-	LocalReviewRounds int32 `protobuf:"varint,6,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
+	LocalReviewRounds int32 `protobuf:"varint,5,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
 	// Comments reviewer agents have left on its work. Absent while there are none to count.
-	ReviewerComments *CommentCounts `protobuf:"bytes,9,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
+	ReviewerComments *CommentCounts `protobuf:"bytes,6,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
 	// Comments the person has left on its work. Absent while there are none to count.
-	PersonComments *CommentCounts `protobuf:"bytes,10,opt,name=person_comments,json=personComments,proto3,oneof" json:"person_comments,omitempty"`
+	PersonComments *CommentCounts `protobuf:"bytes,7,opt,name=person_comments,json=personComments,proto3,oneof" json:"person_comments,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -844,12 +844,12 @@ type PullRequestStanding struct {
 	// The title of the current pull request, unset for UNREAD and NONE.
 	Title *string `protobuf:"bytes,4,opt,name=title,proto3,oneof" json:"title,omitempty"`
 	// Whether the forge would merge the current pull request, unset for UNREAD and NONE.
-	MergeReadiness *v1.MergeReadiness `protobuf:"bytes,10,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
+	MergeReadiness *v1.MergeReadiness `protobuf:"bytes,5,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
 	// The commit the forge holds at the head of the current pull request, unset for UNREAD and
 	// NONE.
-	HeadSha *string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
+	HeadSha *string `protobuf:"bytes,6,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
 	// Which forge the current pull request lives on, such as github, unset for UNREAD and NONE.
-	Forge         *string `protobuf:"bytes,11,opt,name=forge,proto3,oneof" json:"forge,omitempty"`
+	Forge         *string `protobuf:"bytes,7,opt,name=forge,proto3,oneof" json:"forge,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1558,17 +1558,17 @@ type GetAgentResponse struct {
 	// The agent, its prompt whole.
 	Agent *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	// Whether mail is waiting that it has not taken.
-	UnreadMail bool `protobuf:"varint,3,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
+	UnreadMail bool `protobuf:"varint,2,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
 	// Where the pull request opened from its branch stands.
-	PullRequest *PullRequestStanding `protobuf:"bytes,4,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
+	PullRequest *PullRequestStanding `protobuf:"bytes,3,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
 	// Every pull request opened from its branch, the current one first.
-	PullRequests []*v1.PullRequest `protobuf:"bytes,5,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
+	PullRequests []*v1.PullRequest `protobuf:"bytes,4,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// How many rounds of local review its own work has been through.
-	LocalReviewRounds int32 `protobuf:"varint,6,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
+	LocalReviewRounds int32 `protobuf:"varint,5,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
 	// Comments reviewer agents have left on its work. Absent while there are none to count.
-	ReviewerComments *CommentCounts `protobuf:"bytes,9,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
+	ReviewerComments *CommentCounts `protobuf:"bytes,6,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
 	// Comments the person has left on its work. Absent while there are none to count.
-	PersonComments *CommentCounts `protobuf:"bytes,10,opt,name=person_comments,json=personComments,proto3,oneof" json:"person_comments,omitempty"`
+	PersonComments *CommentCounts `protobuf:"bytes,7,opt,name=person_comments,json=personComments,proto3,oneof" json:"person_comments,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -3278,7 +3278,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xa8\f\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xfa\v\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -3289,43 +3289,43 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05state\x18\a \x01(\x0e2\x14.agent.v1.AgentStateR\x05state\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\b \x01(\tR\tsessionId\x12\x18\n" +
-	"\aharness\x18\x12 \x01(\tR\aharness\x12\x1f\n" +
-	"\vworkflow_id\x18\t \x01(\tR\n" +
+	"\aharness\x18\t \x01(\tR\aharness\x12\x1f\n" +
+	"\vworkflow_id\x18\n" +
+	" \x01(\tR\n" +
 	"workflowId\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\n" +
-	" \x01(\tR\tcreatedAt\x12$\n" +
-	"\varchived_at\x18\x13 \x01(\tH\x00R\n" +
+	"created_at\x18\v \x01(\tR\tcreatedAt\x12$\n" +
+	"\varchived_at\x18\f \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12$\n" +
-	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
+	"\vschedule_id\x18\r \x01(\tH\x01R\n" +
 	"scheduleId\x88\x01\x01\x12\x19\n" +
-	"\x05alive\x18\v \x01(\bH\x02R\x05alive\x88\x01\x01\x12\x16\n" +
+	"\x05alive\x18\x0e \x01(\bH\x02R\x05alive\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x12,\n" +
-	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
-	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
-	"\x0fparent_agent_id\x18\x1a \x01(\tH\x05R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
-	"\x06branch\x18\x16 \x01(\tH\x06R\x06branch\x88\x01\x01\x12*\n" +
-	"\x0erepository_url\x18% \x01(\tH\aR\rrepositoryUrl\x88\x01\x01\x12\x1e\n" +
-	"\bhead_sha\x18) \x01(\tH\bR\aheadSha\x88\x01\x01\x12)\n" +
-	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x12.\n" +
-	"\bsequence\x18$ \x01(\x0e2\x12.agent.v1.SequenceR\bsequence\x12\x1d\n" +
+	"\x0fidempotency_key\x18\x10 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
+	"\x13spawned_by_agent_id\x18\x11 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
+	"\x0fparent_agent_id\x18\x12 \x01(\tH\x05R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
+	"\x06branch\x18\x13 \x01(\tH\x06R\x06branch\x88\x01\x01\x12*\n" +
+	"\x0erepository_url\x18\x14 \x01(\tH\aR\rrepositoryUrl\x88\x01\x01\x12\x1e\n" +
+	"\bhead_sha\x18\x15 \x01(\tH\bR\aheadSha\x88\x01\x01\x12)\n" +
+	"\x10worktree_removed\x18\x16 \x01(\bR\x0fworktreeRemoved\x12.\n" +
+	"\bsequence\x18\x17 \x01(\x0e2\x12.agent.v1.SequenceR\bsequence\x12\x1d\n" +
 	"\n" +
-	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12)\n" +
-	"\x0efailed_run_log\x18\x1c \x01(\x05H\tR\ffailedRunLog\x88\x01\x01\x12\x1c\n" +
-	"\tdocuments\x18, \x01(\x05R\tdocuments\x125\n" +
-	"\x14documents_updated_at\x18- \x01(\tH\n" +
+	"failed_run\x18\x18 \x01(\bR\tfailedRun\x12)\n" +
+	"\x0efailed_run_log\x18\x19 \x01(\x05H\tR\ffailedRunLog\x88\x01\x01\x12\x1c\n" +
+	"\tdocuments\x18\x1a \x01(\x05R\tdocuments\x125\n" +
+	"\x14documents_updated_at\x18\x1b \x01(\tH\n" +
 	"R\x12documentsUpdatedAt\x88\x01\x01\x12(\n" +
-	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
+	"\x10state_changed_at\x18\x1c \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReason\x12%\n" +
-	"\x0efailure_reason\x18+ \x01(\tR\rfailureReason\x12\x1d\n" +
+	"\x0efailure_reason\x18\x1e \x01(\tR\rfailureReason\x12\x1d\n" +
 	"\n" +
-	"turn_error\x18. \x01(\tR\tturnError\x12'\n" +
-	"\x04role\x18\x1e \x01(\x0e2\x13.agent.v1.AgentRoleR\x04role\x12)\n" +
-	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncated\x12*\n" +
-	"\x11moved_since_round\x18* \x01(\tR\x0fmovedSinceRound\x124\n" +
-	"\tdiff_stat\x18/ \x01(\v2\x12.agent.v1.DiffStatH\vR\bdiffStat\x88\x01\x01\x12\x17\n" +
-	"\aheld_at\x18# \x01(\tR\x06heldAt\x12'\n" +
-	"\x10held_by_agent_id\x180 \x01(\tR\rheldByAgentIdB\x0e\n" +
+	"turn_error\x18\x1f \x01(\tR\tturnError\x12'\n" +
+	"\x04role\x18  \x01(\x0e2\x13.agent.v1.AgentRoleR\x04role\x12)\n" +
+	"\x10prompt_truncated\x18! \x01(\bR\x0fpromptTruncated\x12*\n" +
+	"\x11moved_since_round\x18\" \x01(\tR\x0fmovedSinceRound\x124\n" +
+	"\tdiff_stat\x18# \x01(\v2\x12.agent.v1.DiffStatH\vR\bdiffStat\x88\x01\x01\x12\x17\n" +
+	"\aheld_at\x18$ \x01(\tR\x06heldAt\x12'\n" +
+	"\x10held_by_agent_id\x18% \x01(\tR\rheldByAgentIdB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\x12\n" +
@@ -3338,39 +3338,36 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0f_failed_run_logB\x17\n" +
 	"\x15_documents_updated_atB\f\n" +
 	"\n" +
-	"_diff_statJ\x04\b\x1f\x10 J\x04\b!\x10\"R\rtree_standingR\x11tree_standing_sha\"\xf7\x03\n" +
+	"_diff_stat\"\xc2\x03\n" +
 	"\bAgentRow\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1f\n" +
-	"\vunread_mail\x18\x03 \x01(\bR\n" +
+	"\vunread_mail\x18\x02 \x01(\bR\n" +
 	"unreadMail\x12@\n" +
-	"\fpull_request\x18\x04 \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest\x12@\n" +
-	"\rpull_requests\x18\x05 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12.\n" +
-	"\x13local_review_rounds\x18\x06 \x01(\x05R\x11localReviewRounds\x12I\n" +
-	"\x11reviewer_comments\x18\t \x01(\v2\x17.agent.v1.CommentCountsH\x00R\x10reviewerComments\x88\x01\x01\x12E\n" +
-	"\x0fperson_comments\x18\n" +
-	" \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01B\x14\n" +
+	"\fpull_request\x18\x03 \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest\x12@\n" +
+	"\rpull_requests\x18\x04 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12.\n" +
+	"\x13local_review_rounds\x18\x05 \x01(\x05R\x11localReviewRounds\x12I\n" +
+	"\x11reviewer_comments\x18\x06 \x01(\v2\x17.agent.v1.CommentCountsH\x00R\x10reviewerComments\x88\x01\x01\x12E\n" +
+	"\x0fperson_comments\x18\a \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01B\x14\n" +
 	"\x12_reviewer_commentsB\x12\n" +
-	"\x10_person_commentsJ\x04\b\a\x10\bJ\x04\b\b\x10\tR\x14local_review_verdictR\x11local_review_tree\"s\n" +
+	"\x10_person_comments\"s\n" +
 	"\rCommentCounts\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\x05R\x04open\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\x05R\bresolved\x12\x16\n" +
 	"\x06unread\x18\x03 \x01(\x05R\x06unread\x12\x1a\n" +
-	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\x8c\x03\n" +
+	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\xd4\x02\n" +
 	"\x13PullRequestStanding\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
 	"\x06number\x18\x02 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x15\n" +
 	"\x03url\x18\x03 \x01(\tH\x01R\x03url\x88\x01\x01\x12\x19\n" +
 	"\x05title\x18\x04 \x01(\tH\x02R\x05title\x88\x01\x01\x12G\n" +
-	"\x0fmerge_readiness\x18\n" +
-	" \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x1e\n" +
-	"\bhead_sha\x18\t \x01(\tH\x03R\aheadSha\x88\x01\x01\x12\x19\n" +
-	"\x05forge\x18\v \x01(\tH\x04R\x05forge\x88\x01\x01B\t\n" +
+	"\x0fmerge_readiness\x18\x05 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x1e\n" +
+	"\bhead_sha\x18\x06 \x01(\tH\x03R\aheadSha\x88\x01\x01\x12\x19\n" +
+	"\x05forge\x18\a \x01(\tH\x04R\x05forge\x88\x01\x01B\t\n" +
 	"\a_numberB\x06\n" +
 	"\x04_urlB\b\n" +
 	"\x06_titleB\v\n" +
 	"\t_head_shaB\b\n" +
-	"\x06_forgeJ\x04\b\x05\x10\tR\x06checksR\fmergeabilityR\n" +
-	"auto_mergeR\x0eauto_mergeable\"\xab\x01\n" +
+	"\x06_forge\"\xab\x01\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -3429,19 +3426,18 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1a\n" +
 	"\bexisting\x18\x02 \x01(\bR\bexisting\"*\n" +
 	"\x0fGetAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xff\x03\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xca\x03\n" +
 	"\x10GetAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1f\n" +
-	"\vunread_mail\x18\x03 \x01(\bR\n" +
+	"\vunread_mail\x18\x02 \x01(\bR\n" +
 	"unreadMail\x12@\n" +
-	"\fpull_request\x18\x04 \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest\x12@\n" +
-	"\rpull_requests\x18\x05 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12.\n" +
-	"\x13local_review_rounds\x18\x06 \x01(\x05R\x11localReviewRounds\x12I\n" +
-	"\x11reviewer_comments\x18\t \x01(\v2\x17.agent.v1.CommentCountsH\x00R\x10reviewerComments\x88\x01\x01\x12E\n" +
-	"\x0fperson_comments\x18\n" +
-	" \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01B\x14\n" +
+	"\fpull_request\x18\x03 \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest\x12@\n" +
+	"\rpull_requests\x18\x04 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12.\n" +
+	"\x13local_review_rounds\x18\x05 \x01(\x05R\x11localReviewRounds\x12I\n" +
+	"\x11reviewer_comments\x18\x06 \x01(\v2\x17.agent.v1.CommentCountsH\x00R\x10reviewerComments\x88\x01\x01\x12E\n" +
+	"\x0fperson_comments\x18\a \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01B\x14\n" +
 	"\x12_reviewer_commentsB\x12\n" +
-	"\x10_person_commentsJ\x04\b\a\x10\bJ\x04\b\b\x10\tR\x14local_review_verdictR\x11local_review_tree\"7\n" +
+	"\x10_person_comments\"7\n" +
 	"\x11PlanRebaseRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x89\x02\n" +
 	"\x12PlanRebaseResponse\x12\x19\n" +
