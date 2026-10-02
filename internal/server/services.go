@@ -31,6 +31,7 @@ import (
 
 type services struct {
 	loadConfig   func() (*config.Config, error)
+	git          *git.Client
 	queue        *jobs.Enqueuer
 	script       *scriptrun.ScriptService
 	agents       agentServices
@@ -215,6 +216,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			}),
 		},
 		pullRequests: pullRequestGroup,
+		git:          gitClient,
 		checkouts: checkoutServices{
 			service: checkouts.NewService(checkouts.NewServiceParams{
 				Agents:          st.agents,

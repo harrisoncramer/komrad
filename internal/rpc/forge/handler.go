@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/forge"
+	"komrad/internal/git"
 	"komrad/internal/rpcerr"
 	forgestore "komrad/internal/store/forge"
 	"komrad/lib/dates"
@@ -34,16 +35,23 @@ type pullRequestWriter interface {
 	RequestPullRequestRereview(ctx context.Context, address string) error
 }
 
-type Handler struct {
-	forges connector
-	writer pullRequestWriter
+// remoteParser takes a git remote apart, swapping a named SSH host for its web host.
+type remoteParser interface {
+	ParseRemoteURL(ctx context.Context, raw string) (git.RemoteURL, error)
 }
 
-// NewHandler constructs the handler over the forge service and the pull request writer.
-func NewHandler(forges connector, writer pullRequestWriter) *Handler {
+type Handler struct {
+	forges  connector
+	writer  pullRequestWriter
+	remotes remoteParser
+}
+
+// NewHandler constructs the handler over the forge service, the pull request writer and the remote parser.
+func NewHandler(forges connector, writer pullRequestWriter, remotes remoteParser) *Handler {
 	return &Handler{
-		forges: forges,
-		writer: writer,
+		forges:  forges,
+		writer:  writer,
+		remotes: remotes,
 	}
 }
 
