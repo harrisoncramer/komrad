@@ -106,6 +106,7 @@ func TestStateOf(t *testing.T) {
 			name: "clean beats an approval that would otherwise wait",
 			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionApproved,
+				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityClean,
 			},
 			want: StateApproved,
@@ -113,9 +114,25 @@ func TestStateOf(t *testing.T) {
 		{
 			name: "clean with no decision is ready, since the forge's rules asked for no review",
 			read: forge.MergeReadiness{
+				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityClean,
 			},
 			want: StateApproved,
+		},
+		{
+			name: "clean with no checks reported is open, since checks may not have started",
+			read: forge.MergeReadiness{
+				Mergeability: forge.MergeabilityClean,
+			},
+			want: StateOpen,
+		},
+		{
+			name: "approved and clean with no checks reported is waiting",
+			read: forge.MergeReadiness{
+				Decision:     forge.ReviewDecisionApproved,
+				Mergeability: forge.MergeabilityClean,
+			},
+			want: StateApprovedWaiting,
 		},
 		{
 			name: "approved and behind is waiting though its checks pass",
