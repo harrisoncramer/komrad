@@ -178,6 +178,7 @@ func (n noteNode) toComment() forge.ReviewComment {
 		Body:       n.Body,
 		WrittenAt:  n.CreatedAt,
 	}
+	// GitLab sets lastEditedAt on notes nobody edited, so only an editor marks a real edit.
 	if n.LastEditedBy != nil {
 		comment.EditedAt = n.LastEditedAt
 	}
