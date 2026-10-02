@@ -481,20 +481,35 @@
       }
     ],
     "children": [
-      "gitlab/credential",
-      "gitlab/env"
+      "gitlab/config",
+      "gitlab/credential"
     ]
   },
   {
-    "slug": "gitlab/credential",
-    "path": "komrad gitlab credential",
+    "slug": "gitlab/config",
+    "path": "komrad gitlab config",
     "parent": "gitlab",
-    "usage": "komrad gitlab credential",
+    "usage": "komrad gitlab config [flags]",
     "aliases": [],
-    "short": "Answer git's credential helper protocol with a GitLab connection's token",
-    "long": "Answer git when it asks for a password.\n\nGit runs this and describes what it wants to reach. This answers only for https to\na host connected as a GitLab forge with a token. Anything else gets no answer, so\ngit falls back to whatever else the account has configured.\n\nSet it up for each GitLab host with:\n\n    git config --global credential.https://gitlab.com.helper '!komrad gitlab credential'",
+    "short": "Print the glab config a checkout's GitLab is reached with",
+    "long": "Print the glab config a checkout's GitLab is reached with, as glab's config.yml.\n\nThe stand-in komrad puts ahead of an agent's PATH as glab runs this for every call.\n--checkout names the tree it was run in, whose origin says which host to answer\nfor. The config names that host alone, so glab hands the token to no other host.\n--if-configured prints nothing and succeeds when the origin is not on a\nconnected GitLab host, which leaves glab the credential the machine was logged in\nwith.",
     "example": "",
-    "flags": [],
+    "flags": [
+      {
+        "name": "checkout",
+        "shorthand": "",
+        "type": "string",
+        "default": ".",
+        "usage": "the checkout whose origin names the gitlab host"
+      },
+      {
+        "name": "if-configured",
+        "shorthand": "",
+        "type": "bool",
+        "default": "false",
+        "usage": "print nothing and succeed when the host has no gitlab connection"
+      }
+    ],
     "inherited": [
       {
         "name": "config",
@@ -514,30 +529,15 @@
     "children": []
   },
   {
-    "slug": "gitlab/env",
-    "path": "komrad gitlab env",
+    "slug": "gitlab/credential",
+    "path": "komrad gitlab credential",
     "parent": "gitlab",
-    "usage": "komrad gitlab env [flags]",
+    "usage": "komrad gitlab credential",
     "aliases": [],
-    "short": "Print the variables glab reaches a checkout's GitLab with",
-    "long": "Print the variables glab reaches a checkout's GitLab with, one NAME=value a line.\n\nThe stand-in komrad puts ahead of an agent's PATH as glab runs this for every call.\n--checkout names the tree it was run in, whose origin says which host to answer\nfor. --if-configured prints nothing and succeeds when the origin is not on a\nconnected GitLab host, which leaves glab the credential the machine was logged in\nwith.",
+    "short": "Answer git's credential helper protocol with a GitLab connection's token",
+    "long": "Answer git when it asks for a password.\n\nGit runs this and describes what it wants to reach. This answers only for https to\na host connected as a GitLab forge with a token. Anything else gets no answer, so\ngit falls back to whatever else the account has configured.\n\nSet it up for each GitLab host with:\n\n    git config --global credential.https://gitlab.com.helper '!komrad gitlab credential'",
     "example": "",
-    "flags": [
-      {
-        "name": "checkout",
-        "shorthand": "",
-        "type": "string",
-        "default": ".",
-        "usage": "the checkout whose origin names the gitlab host"
-      },
-      {
-        "name": "if-configured",
-        "shorthand": "",
-        "type": "bool",
-        "default": "false",
-        "usage": "print nothing and succeed when the host has no gitlab connection"
-      }
-    ],
+    "flags": [],
     "inherited": [
       {
         "name": "config",

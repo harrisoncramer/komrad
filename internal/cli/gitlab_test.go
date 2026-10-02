@@ -63,46 +63,58 @@ func TestGitLabCredentialReply(t *testing.T) {
 	assert.Equal(t, "username=oauth2\npassword=glpat-fake\n", gitlabCredentialReply(forge.NewSecret("glpat-fake")))
 }
 
-// TestGlabEnv covers what glab is handed, naming the API host only where it is not the
+// TestGlabConfig covers the config glab is handed, naming the API host only where it is not the
 // connection's own.
-func TestGlabEnv(t *testing.T) {
+func TestGlabConfig(t *testing.T) {
 	token := forge.NewSecret("glpat-fake")
 
 	tests := []struct {
 		name       string
 		connection *forgev1.Forge
+		token      forge.Secret
 		want       string
 	}{
 		{
 			name:       "gitlab.com",
 			connection: &forgev1.Forge{Host: "gitlab.com"},
-			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=gitlab.com\n",
+			token:      token,
+			want:       "host: \"gitlab.com\"\nhosts:\n  \"gitlab.com\":\n    token: \"glpat-fake\"\n",
 		},
 		{
 			name:       "a self-hosted gitlab answering on its own host",
 			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "https://git.example.com/api/v4"},
-			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\n",
+			token:      token,
+			want:       "host: \"git.example.com\"\nhosts:\n  \"git.example.com\":\n    token: \"glpat-fake\"\n",
 		},
 		{
 			name:       "a self-hosted gitlab whose api answers on a host of its own",
 			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "https://api.git.example.com/api/v4"},
-			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\nGITLAB_API_HOST=api.git.example.com\n",
+			token:      token,
+			want:       "host: \"git.example.com\"\nhosts:\n  \"git.example.com\":\n    token: \"glpat-fake\"\n    api_host: \"api.git.example.com\"\n",
 		},
 		{
 			name:       "an api host spelled in another case",
 			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "https://Git.Example.com/api/v4"},
-			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\n",
+			token:      token,
+			want:       "host: \"git.example.com\"\nhosts:\n  \"git.example.com\":\n    token: \"glpat-fake\"\n",
 		},
 		{
 			name:       "a self-hosted gitlab whose api answers over plain http",
 			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "http://git.example.com/api/v4"},
-			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\nGLAB_API_PROTOCOL=http\n",
+			token:      token,
+			want:       "host: \"git.example.com\"\nhosts:\n  \"git.example.com\":\n    token: \"glpat-fake\"\n    api_protocol: http\n",
+		},
+		{
+			name:       "a token yaml would read as more than a string",
+			connection: &forgev1.Forge{Host: "gitlab.com"},
+			token:      forge.NewSecret(`glpat"x: #y`),
+			want:       "host: \"gitlab.com\"\nhosts:\n  \"gitlab.com\":\n    token: \"glpat\\\"x: #y\"\n",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, glabEnv(tt.connection, token))
+			assert.Equal(t, tt.want, glabConfig(tt.connection, tt.token))
 		})
 	}
 }
@@ -115,7 +127,7 @@ func TestHandable(t *testing.T) {
 		want  error
 	}{
 		{name: "a token on one line", token: "glpat-fake"},
-		{name: "a token with a newline in it", token: "glpat-fake\nGITLAB_API_HOST=evil.example.com", want: errTokenSpansLines},
+		{name: "a token with a newline in it", token: "glpat-fake\nhost=evil.example.com", want: errTokenSpansLines},
 		{name: "a token with a carriage return in it", token: "glpat\r-fake", want: errTokenSpansLines},
 	}
 

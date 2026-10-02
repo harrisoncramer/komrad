@@ -19,7 +19,7 @@ type toolShim struct {
 	tool string
 	// presets are the variables the tool reads a token from itself, any one of which leaves it be.
 	presets []string
-	// handoff is the shell that asks komrad for the credential and exports it.
+	// handoff is the shell that asks komrad for the credential and hands it to the tool.
 	handoff string
 }
 
@@ -37,12 +37,17 @@ fi`,
 	{
 		tool:    "glab",
 		presets: []string{"GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN", "OAUTH_TOKEN"},
-		handoff: `handed=$("$komrad" gitlab env --checkout "$(pwd)" --if-configured) || exit 1
-while IFS= read -r line; do
-	[ -z "$line" ] || export "$line"
-done <<EOF
-$handed
-EOF`,
+		handoff: `config=$("$komrad" gitlab config --checkout "$(pwd)" --if-configured) || exit 1
+if [ -n "$config" ]; then
+	scoped=$(mktemp -d) || exit 1
+	trap 'rm -rf "$scoped"' EXIT
+	trap 'exit 129' HUP
+	trap 'exit 130' INT
+	trap 'exit 143' TERM
+	(umask 077 && printf '%s\n' "$config" >"$scoped/config.yml") || exit 1
+	GLAB_CONFIG_DIR=$scoped "$real" "$@"
+	exit
+fi`,
 	},
 }
 

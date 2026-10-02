@@ -50,7 +50,7 @@ Terminals are HTTP/2 streams, so the forward has to carry HTTP/2. An SSH forward
 
 On our engine, GitHub access comes from a GitHub App, so no person's token sits on a shared box. <Command path="github credential" /> mints short-lived tokens from the App's key, and git picks them up through the credential helper. An engine without the App still runs on whatever credentials the box has.
 
-GitLab has no App, so <Command path="gitlab credential" /> hands git the token its forge connection holds, and the `glab` komrad puts ahead of an agent's PATH reads the same token through <Command path="gitlab env" />. The image sets the helper up for gitlab.com. A self-hosted GitLab needs a line of its own, such as `git config --system credential.https://git.example.com.helper '!komrad gitlab credential'`.
+GitLab has no App, so <Command path="gitlab credential" /> hands git the token its forge connection holds, and the `glab` komrad puts ahead of an agent's PATH reads the same token through <Command path="gitlab config" />, in a config naming that host alone. The image sets the helper up for gitlab.com. A self-hosted GitLab needs a line of its own, such as `git config --system credential.https://git.example.com.helper '!komrad gitlab credential'`.
 
 ## Stop and replace
 

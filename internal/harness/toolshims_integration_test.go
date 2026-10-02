@@ -59,6 +59,7 @@ func runCase(t *testing.T, tt shimCase) {
 	cache := filepath.Join(root, "cache")
 	asked := filepath.Join(root, "asked")
 	saw := filepath.Join(root, "saw")
+	scoped := filepath.Join(root, "scoped")
 
 	komrad := writeFakeBinary(t, filepath.Join(root, "komrad"), "echo \"$@\" >"+asked+"\n"+tt.komrad)
 
@@ -69,7 +70,7 @@ func runCase(t *testing.T, tt shimCase) {
 		if body == "" {
 			body = "echo \"" + handedOver[shim.tool] + " $*\" >" + saw + "\n"
 		}
-		writeFakeBinary(t, filepath.Join(beyond, shim.tool), body)
+		writeFakeBinary(t, filepath.Join(beyond, shim.tool), "echo \"${GLAB_CONFIG_DIR:-}\" >"+scoped+"\n"+body)
 	}
 
 	dir, err := WriteToolShims(cache, komrad)
@@ -81,7 +82,7 @@ func runCase(t *testing.T, tt shimCase) {
 
 	cmd := exec.Command(filepath.Join(dir, shim.tool), tt.args...) //nolint:gosec // the stand-in this test wrote
 	cmd.Dir = work
-	cmd.Env = append([]string{"PATH=" + dir + ":" + beyond, "HOME=" + root}, tt.env...)
+	cmd.Env = append([]string{"PATH=" + dir + ":" + beyond + ":/usr/bin:/bin", "HOME=" + root}, tt.env...)
 
 	var stdout, stderr strings.Builder
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -99,12 +100,16 @@ func runCase(t *testing.T, tt shimCase) {
 	assert.Equal(t, strings.ReplaceAll(tt.wantAsked, "{dir}", work), readIfThere(t, asked))
 	assert.Equal(t, tt.wantStdout, stdout.String())
 	assert.Equal(t, tt.wantStderr, stderr.String())
+
+	if config := readIfThere(t, scoped); config != "" {
+		assert.NoDirExists(t, config)
+	}
 }
 
 // handedOver is what each tool beyond writes down of the credential it was handed.
 var handedOver = map[string]string{
 	"gh":   "$GH_TOKEN",
-	"glab": "$GITLAB_TOKEN${GITLAB_API_HOST:+ $GITLAB_API_HOST}",
+	"glab": `${GLAB_CONFIG_DIR:+$(ls -l "$GLAB_CONFIG_DIR/config.yml" | cut -c1-10) $(cat "$GLAB_CONFIG_DIR/config.yml")}`,
 }
 
 func shimFor(t *testing.T, tool string) toolShim {
@@ -208,36 +213,39 @@ func TestIntegrationGHShim(t *testing.T) {
 // TestIntegrationGLabShim covers the glab stand-in end to end, under the shell an agent would run
 // it with.
 func TestIntegrationGLabShim(t *testing.T) {
-	const read = "echo GITLAB_TOKEN=glpat_connected\n"
+	const read = "echo 'token: glpat_connected'\n"
 
 	tests := []shimCase{
 		{
-			name:      "the connection's token handed over rather than printed",
+			name:      "the connection's config handed over in a file only its owner reads",
 			komrad:    read,
 			args:      []string{"mr", "create", "--title", "a change"},
-			wantSaw:   "glpat_connected mr create --title a change",
-			wantAsked: "gitlab env --checkout {dir} --if-configured",
+			wantSaw:   "-rw------- token: glpat_connected mr create --title a change",
+			wantAsked: "gitlab config --checkout {dir} --if-configured",
 		},
 		{
-			name:      "a self-hosted gitlab whose api answers on a host of its own",
-			komrad:    "echo GITLAB_TOKEN=glpat_connected\necho GITLAB_API_HOST=api.git.example.com\n",
+			name:      "a config the shell would expand, handed over as written",
+			komrad:    "echo 'token: glpat_$(touch pwned)'\n",
 			args:      []string{"mr", "list"},
-			wantSaw:   "glpat_connected api.git.example.com mr list",
-			wantAsked: "gitlab env --checkout {dir} --if-configured",
+			wantSaw:   "-rw------- token: glpat_$(touch pwned) mr list",
+			wantAsked: "gitlab config --checkout {dir} --if-configured",
 		},
 		{
-			name:      "a token the shell would expand, handed over as written",
-			komrad:    "echo 'GITLAB_TOKEN=glpat_$(touch pwned)'\n",
-			args:      []string{"mr", "list"},
-			wantSaw:   "glpat_$(touch pwned) mr list",
-			wantAsked: "gitlab env --checkout {dir} --if-configured",
+			name:       "the exit code and both streams are the real binary's, the config gone after it",
+			komrad:     read,
+			beyond:     "echo 'pipeline passed'\necho 'a warning' >&2\nexit 3\n",
+			args:       []string{"ci", "status"},
+			wantExit:   3,
+			wantAsked:  "gitlab config --checkout {dir} --if-configured",
+			wantStdout: "pipeline passed\n",
+			wantStderr: "a warning\n",
 		},
 		{
 			name:       "komrad holds the credential and will not give it",
 			komrad:     "echo 'the gitlab connection has no credential' >&2\nexit 1\n",
 			args:       []string{"mr", "create"},
 			wantExit:   1,
-			wantAsked:  "gitlab env --checkout {dir} --if-configured",
+			wantAsked:  "gitlab config --checkout {dir} --if-configured",
 			wantStderr: "the gitlab connection has no credential\n",
 		},
 		{
@@ -245,14 +253,14 @@ func TestIntegrationGLabShim(t *testing.T) {
 			komrad:    "exit 0\n",
 			args:      []string{"mr", "list"},
 			wantSaw:   "mr list",
-			wantAsked: "gitlab env --checkout {dir} --if-configured",
+			wantAsked: "gitlab config --checkout {dir} --if-configured",
 		},
 		{
 			name:    "a GITLAB_TOKEN somebody else set",
 			env:     []string{"GITLAB_TOKEN=glpat_mine"},
 			komrad:  read,
 			args:    []string{"mr", "list"},
-			wantSaw: "glpat_mine mr list",
+			wantSaw: "mr list",
 		},
 		{
 			name:    "a GITLAB_ACCESS_TOKEN somebody else set, which glab reads itself",

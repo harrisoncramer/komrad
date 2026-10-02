@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"komrad/internal/fail"
@@ -41,25 +42,26 @@ keeps a copy of its own.`,
 		SilenceErrors: true,
 	}
 
-	cmd.AddCommand(gitlabEnvCmd(state), gitlabCredentialCmd(state))
+	cmd.AddCommand(gitlabConfigCmd(state), gitlabCredentialCmd(state))
 
 	return cmd
 }
 
-func gitlabEnvCmd(state *app) *cobra.Command {
+func gitlabConfigCmd(state *app) *cobra.Command {
 	var (
 		checkout     string
 		ifConfigured bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "env",
-		Short: "Print the variables glab reaches a checkout's GitLab with",
-		Long: `Print the variables glab reaches a checkout's GitLab with, one NAME=value a line.
+		Use:   "config",
+		Short: "Print the glab config a checkout's GitLab is reached with",
+		Long: `Print the glab config a checkout's GitLab is reached with, as glab's config.yml.
 
 The stand-in komrad puts ahead of an agent's PATH as glab runs this for every call.
 --checkout names the tree it was run in, whose origin says which host to answer
-for. --if-configured prints nothing and succeeds when the origin is not on a
+for. The config names that host alone, so glab hands the token to no other host.
+--if-configured prints nothing and succeeds when the origin is not on a
 connected GitLab host, which leaves glab the credential the machine was logged in
 with.`,
 		Args:          cobra.NoArgs,
@@ -83,7 +85,7 @@ with.`,
 				return err
 			}
 
-			fmt.Fprint(cmd.OutOrStdout(), glabEnv(connection, token)) //nolint:errcheck // a closed stdout is the caller going away
+			fmt.Fprint(cmd.OutOrStdout(), glabConfig(connection, token)) //nolint:errcheck // a closed stdout is the caller going away
 
 			return nil
 		},
@@ -222,22 +224,25 @@ func gitlabCredentialReply(token forge.Secret) string {
 	return "username=oauth2\npassword=" + tokenForTheWire(token) + "\n"
 }
 
-// glabEnv is the environment glab reaches a connection with, one NAME=value a line.
-func glabEnv(connection *forgev1.Forge, token forge.Secret) string {
-	env := "GITLAB_TOKEN=" + tokenForTheWire(token) + "\nGITLAB_HOST=" + connection.GetHost() + "\n"
+// glabConfig is a glab config.yml that knows only the connection's host and its token.
+func glabConfig(connection *forgev1.Forge, token forge.Secret) string {
+	host := strconv.Quote(connection.GetHost())
+
+	var config strings.Builder
+	fmt.Fprintf(&config, "host: %s\nhosts:\n  %s:\n    token: %s\n", host, host, strconv.Quote(tokenForTheWire(token)))
 
 	api, err := url.Parse(connection.GetApiUrl())
 	if err != nil || api.Host == "" {
-		return env
+		return config.String()
 	}
 	if !strings.EqualFold(api.Host, connection.GetHost()) {
-		env += "GITLAB_API_HOST=" + api.Host + "\n"
+		fmt.Fprintf(&config, "    api_host: %s\n", strconv.Quote(api.Host))
 	}
 	if strings.EqualFold(api.Scheme, "http") {
-		env += "GLAB_API_PROTOCOL=http\n"
+		config.WriteString("    api_protocol: http\n")
 	}
 
-	return env
+	return config.String()
 }
 
 // handable refuses a token holding a line break, which would spill into the lines after it.
