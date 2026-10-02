@@ -1,13 +1,13 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
 	"komrad/config"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -44,15 +44,17 @@ func (r reviewScreen) pullRequestView(m *model, rows int) string {
 		return ""
 	}
 
-	body := windowBodyRows(pullRequestBodyRows(pullRequest.Body, width), r.pullRequestTop, countPullRequestWindow(head, rows))
+	body := xslice.Map(pullRequestBodyRows(pullRequest.Body, width), func(row string) string {
+		return dimStyle().Render(paint.Clip(row, width))
+	})
+	shown := paint.WindowRows(body, countPullRequestWindow(head, rows), func(visible int) int {
+		return max(min(r.pullRequestTop, len(body)-visible), 0)
+	}, dimStyle())
 
 	var out strings.Builder
 	out.WriteString(head)
-	if len(body) > 0 {
-		out.WriteString("\n")
-		for _, row := range body {
-			out.WriteString(dimStyle().Render(paint.Clip(row, width)) + "\n")
-		}
+	if shown != "" {
+		out.WriteString("\n" + shown)
 	}
 
 	return out.String() + "\n"
@@ -84,33 +86,7 @@ func countPullRequestWindow(head string, rows int) int {
 		return pullRequestWindowRows
 	}
 
-	return min(pullRequestWindowRows, rows-paint.CountLines(head)-2)
-}
-
-// countPullRequestTopMax is the furthest a description of total rows scrolls in a window whose last
-// row is the count.
-func countPullRequestTopMax(total, window int) int {
-	if total <= window || window < 2 {
-		return 0
-	}
-
-	return total - window + 1
-}
-
-// windowBodyRows is window rows of the description from top, the last row counting what is shown
-// when it does not all fit.
-func windowBodyRows(body []string, top, window int) []string {
-	if len(body) <= window {
-		return body
-	}
-	if window < 2 {
-		return nil
-	}
-
-	top = max(min(top, countPullRequestTopMax(len(body), window)), 0)
-	shown := slices.Clone(body[top : top+window-1])
-
-	return append(shown, fmt.Sprintf("rows %d-%d of %d", top+1, top+window-1, len(body)))
+	return max(min(pullRequestWindowRows, rows-paint.CountLines(head)-2), 0)
 }
 
 // pullRequestBodyRows is a description wrapped to width, its runs of blank lines kept to one
@@ -168,7 +144,8 @@ func (r *reviewScreen) scrollPullRequest(m *model, rows int) {
 
 	width := lineWidthOf(m.paneWidth())
 	window := countPullRequestWindow(r.pullRequestHeadView(m, pullRequest, width), r.layoutSidebar(m).pullRequestRows)
-	topMax := countPullRequestTopMax(len(pullRequestBodyRows(pullRequest.Body, width)), window)
+	total := len(pullRequestBodyRows(pullRequest.Body, width))
+	topMax := paint.WindowOf(total, window, func(visible int) int { return total - visible }).Start
 	from := min(r.pullRequestTop, topMax)
 	r.pullRequestTop = max(min(from+rows, topMax), 0)
 }
