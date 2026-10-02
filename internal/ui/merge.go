@@ -144,10 +144,10 @@ func mergeRebaseOp(item panel.AgentRow) gitOp {
 			result, err := clients.rebaseWorktree(agentID)
 
 			return func(m *model) tea.Cmd {
-				merged := m.reportMerged(item, false, nil)
+				m.reportMerged(item, false, nil)
 				m.reportRebased(name, result, err)
 
-				return merged
+				return nil
 			}
 		},
 	}

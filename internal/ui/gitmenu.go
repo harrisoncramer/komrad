@@ -125,8 +125,8 @@ func pushRefusal(l listing, from screen, agent panel.Agent) error {
 	return nil
 }
 
-// mergeRebaseRefusal is why an agent's pull request cannot be merged and its worktree rebased
-// after from where the menu was opened, nil when it can.
+// mergeRebaseRefusal is why an agent's pull request cannot be merged and its worktree rebased,
+// nil when both can run.
 func mergeRebaseRefusal(l listing, from screen, item panel.AgentRow) error {
 	if err := pushRefusal(l, from, item.Agent); err != nil {
 		return err
