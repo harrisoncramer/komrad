@@ -239,7 +239,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewOffer},
-			desc: func(*model) string { return "next comment from the forge" },
+			desc: func(*model) string { return "next forge comment" },
 			show: r.doesStepOffers,
 		},
 		{

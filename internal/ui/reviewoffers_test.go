@@ -319,7 +319,7 @@ func TestReviewOffers(t *testing.T) {
 	t.Run("a review with no offers leaves J to the comment under the cursor", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
 
-		assert.NotContains(t, readLegend(harness.readFrame()), "next comment from the forge")
+		assert.NotContains(t, readLegend(harness.readFrame()), "next forge comment")
 	})
 }
 
