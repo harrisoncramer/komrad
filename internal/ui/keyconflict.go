@@ -5,8 +5,6 @@ import (
 	"slices"
 
 	"komrad/config"
-
-	"charm.land/bubbles/v2/key"
 )
 
 // screenNames are the screens as an error names them.
@@ -152,18 +150,17 @@ func submenuReserved() map[string]string {
 
 	arms := []struct {
 		describe string
-		binding  key.Binding
+		keys     []string
 	}{
-		{describe: "the key that takes a form down", binding: km.Quit},
-		{describe: "the key that picks the entry under the cursor", binding: km.Select.Submit},
-		{describe: "the key that picks the entry under the cursor", binding: km.Select.Next},
-		{describe: "the key that moves up a form's list", binding: km.Select.Up},
-		{describe: "the key that moves down a form's list", binding: km.Select.Down},
+		{describe: "the key that takes a form down", keys: km.Quit.Keys()},
+		{describe: "the key that picks the entry under the cursor", keys: slices.Concat(km.Select.Submit.Keys(), km.Select.Next.Keys())},
+		{describe: "the key that moves up a form's list", keys: km.Select.Up.Keys()},
+		{describe: "the key that moves down a form's list", keys: km.Select.Down.Keys()},
 	}
 
 	reserved := map[string]string{}
 	for _, arm := range arms {
-		for _, k := range arm.binding.Keys() {
+		for _, k := range arm.keys {
 			reserved[k] = arm.describe
 		}
 	}
