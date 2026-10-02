@@ -142,6 +142,9 @@ func redrawnForm(params redrawnFormParams) formState {
 // title and the prose under it without either folding.
 const formColumnFloor = 50
 
+// formMaxWidth is the widest a form draws its fields, so a long value folds rather than pushing what stands beside it.
+const formMaxWidth = 72
+
 // formColumn is the form drawn beside the list it was opened over, so the row it is about is
 // still on screen while it is answered.
 func formColumn(kind formKind) (columnSpec, bool) {
@@ -458,7 +461,7 @@ func (m *model) formSizeOf(msg tea.Msg) tea.Msg {
 	case formResizedMsg, tea.WindowSizeMsg:
 		width, height := m.formBox()
 
-		return tea.WindowSizeMsg{Width: width, Height: height}
+		return tea.WindowSizeMsg{Width: min(width, formMaxWidth), Height: height}
 	default:
 		return msg
 	}
