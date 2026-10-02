@@ -13,6 +13,33 @@ import (
 // rotationScope is the scope a GitLab token needs to rotate itself.
 const rotationScope = "api"
 
+// RotateTokens rechecks every rotating token connection, rotating each token near its expiry.
+func (s *Service) RotateTokens(ctx context.Context) error {
+	connections, err := s.connections.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, connection := range connections {
+		if connection.Method != MethodRotatingToken {
+			continue
+		}
+
+		result, err := s.RecheckConnection(ctx, connection)
+		if err != nil {
+			errs = append(errs, err)
+
+			continue
+		}
+		if result.Problem != nil {
+			errs = append(errs, result.Problem)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
 // proveRotatingToken asks GitLab who a pasted token belongs to and refuses one that cannot
 // rotate itself.
 func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params ConnectParams) (string, error) {
@@ -104,38 +131,6 @@ func (s *Service) rotateIfDue(ctx context.Context, connection forgestore.Connect
 	return s.credentials.Set(ctx, connection.ID, token)
 }
 
-// pastedRotator is the pasted token, as a rotator.
-func pastedRotator(build Builder, params ConnectParams) (TokenRotator, error) {
-	return rotatorFor(build(params.APIURL, staticCredential{Header: HeaderPrivateToken, Token: params.Token}))
-}
-
-// rotatorFor is the forge as one that rotates its token, or ErrNoRotation.
-func rotatorFor(f Forge) (TokenRotator, error) {
-	rotator, ok := f.(TokenRotator)
-	if !ok {
-		return nil, ErrNoRotation
-	}
-
-	return rotator, nil
-}
-
-// isRotationDue says whether a token expiring at expiresAt has to be rotated by now.
-func isRotationDue(expiresAt, now time.Time) bool {
-	return !expiresAt.IsZero() && !expiresAt.After(utcDay(now).AddDate(0, 0, 1))
-}
-
-// rotatedExpiry is the day a token rotated now expires.
-func rotatedExpiry(now time.Time) time.Time {
-	return utcDay(now).AddDate(0, 0, 2)
-}
-
-// utcDay is the start of the UTC day t falls on.
-func utcDay(t time.Time) time.Time {
-	year, month, day := t.UTC().Date()
-
-	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
-}
-
 // revokeRotatingToken ends a rotating token at the forge, counting one the forge already refuses as ended.
 func (s *Service) revokeRotatingToken(ctx context.Context, connection forgestore.Connection) error {
 	held, err := s.HasCredential(ctx, connection)
@@ -166,29 +161,34 @@ func (s *Service) revokeRotatingToken(ctx context.Context, connection forgestore
 	return nil
 }
 
-// RotateTokens checks every rotating token connection, which rotates each token that is due.
-func (s *Service) RotateTokens(ctx context.Context) error {
-	connections, err := s.connections.List(ctx)
-	if err != nil {
-		return err
+// pastedRotator is the pasted token, as a rotator.
+func pastedRotator(build Builder, params ConnectParams) (TokenRotator, error) {
+	return rotatorFor(build(params.APIURL, staticCredential{Header: HeaderPrivateToken, Token: params.Token}))
+}
+
+// rotatorFor is the forge as one that rotates its token, or ErrNoRotation.
+func rotatorFor(f Forge) (TokenRotator, error) {
+	rotator, ok := f.(TokenRotator)
+	if !ok {
+		return nil, ErrNoRotation
 	}
 
-	var errs []error
-	for _, connection := range connections {
-		if connection.Method != MethodRotatingToken {
-			continue
-		}
+	return rotator, nil
+}
 
-		result, err := s.RecheckConnection(ctx, connection)
-		if err != nil {
-			errs = append(errs, err)
+// isRotationDue says whether a token expiring at expiresAt has to be rotated by now.
+func isRotationDue(expiresAt, now time.Time) bool {
+	return !expiresAt.IsZero() && !expiresAt.After(utcDay(now).AddDate(0, 0, 1))
+}
 
-			continue
-		}
-		if result.Problem != nil {
-			errs = append(errs, result.Problem)
-		}
-	}
+// rotatedExpiry is the day a token rotated now expires.
+func rotatedExpiry(now time.Time) time.Time {
+	return utcDay(now).AddDate(0, 0, 2)
+}
 
-	return errors.Join(errs...)
+// utcDay is the start of the UTC day t falls on.
+func utcDay(t time.Time) time.Time {
+	year, month, day := t.UTC().Date()
+
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }
