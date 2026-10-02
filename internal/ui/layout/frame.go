@@ -36,9 +36,10 @@ type Frame struct {
 
 	// pending is the pane moves of the change being worked out, sent together by Flush, and
 	// sent one at a time while nothing is collecting them.
-	pending    []panes.Move
-	collecting bool
-	shown      map[Region]shown
+	pending []panes.Move
+	// batches is how many Begins are still waiting on their Flush.
+	batches int
+	shown   map[Region]shown
 
 	// zoomed says the change being collected moves the sidebar's zoom.
 	zoomed bool
@@ -166,13 +167,24 @@ func (f *Frame) FocusPane() string {
 // Begin collects the frame's pane moves for Flush to send together, so a change that moves
 // several panes is one invocation of tmux and so one repaint rather than one for each.
 func (f *Frame) Begin() {
-	f.collecting = true
+	f.batches++
 }
 
-// Flush sends the pane moves collected since Begin, and does nothing when there were none.
+// Flush ends a Begin, sending the collected pane moves once the outermost one ends.
 func (f *Frame) Flush() {
+	if f.batches > 0 {
+		f.batches--
+	}
+
+	if f.batches == 0 {
+		f.send()
+	}
+}
+
+// send sends the pending pane moves, and does nothing when there are none.
+func (f *Frame) send() {
 	moves, zoomed := f.pending, f.zoomed
-	f.pending, f.collecting, f.zoomed = nil, false, false
+	f.pending, f.zoomed = nil, false
 
 	if len(moves) == 0 {
 		return
@@ -215,8 +227,8 @@ func (f *Frame) move(m panes.Move) {
 		f.zoomed = true
 	}
 
-	if !f.collecting {
-		f.Flush()
+	if f.batches == 0 {
+		f.send()
 	}
 }
 
@@ -342,7 +354,7 @@ func (f *Frame) Freeze() {
 	}
 
 	f.move(panes.Zoom(f.sidebar, true))
-	f.Flush()
+	f.send()
 	f.frozen = true
 }
 
