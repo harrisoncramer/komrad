@@ -8,6 +8,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/clock"
 )
 
 // settleBudget is how long komrad waits for an interrupted agent to come to rest before it gives
@@ -22,8 +23,8 @@ type NewSettlerParams struct {
 	Channel  harness.Channel
 	Observer harness.Observer
 	Clock    func() time.Time
-	// Wait is how the settle rests between readings, time.After when nothing else is given.
-	Wait func(time.Duration) <-chan time.Time
+	// Sleeper is how the settle rests between readings, the wall clock when nothing else is given.
+	Sleeper clock.Sleeper
 }
 
 // Settler stops an agent and says so only once its pane confirms it.
@@ -31,7 +32,7 @@ type Settler struct {
 	channel  harness.Channel
 	observer harness.Observer
 	now      func() time.Time
-	wait     func(time.Duration) <-chan time.Time
+	sleeper  clock.Sleeper
 }
 
 // NewSettler builds the settler over the channel that reaches an agent and the observer that
@@ -42,16 +43,16 @@ func NewSettler(params NewSettlerParams) *Settler {
 		now = time.Now
 	}
 
-	wait := params.Wait
-	if wait == nil {
-		wait = time.After
+	sleeper := params.Sleeper
+	if sleeper == nil {
+		sleeper = clock.Wall{}
 	}
 
 	return &Settler{
 		channel:  params.Channel,
 		observer: params.Observer,
 		now:      now,
-		wait:     wait,
+		sleeper:  sleeper,
 	}
 }
 
@@ -108,10 +109,9 @@ func (s *Settler) waitForRest(ctx context.Context, target harness.Target, name s
 			return agenterr.ErrUnsettled.Saying("%q %s", name, describeUnsettled(last))
 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-s.wait(settleInterval):
+		s.sleeper.Sleep(ctx, settleInterval)
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 	}
 }

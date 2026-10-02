@@ -31,6 +31,9 @@ const hostPathOption = "@komrad_host_path"
 
 const InfoPaneOption = "@komrad_info_pane"
 
+// CLIExitedOption is set on a pane once the CLI its launch script ran has exited.
+const CLIExitedOption = "@komrad_cli_exited"
+
 const panelPaneOption = "@komrad_panel_pane"
 
 const panelBuildOption = "@komrad_panel_build"
@@ -143,6 +146,15 @@ func (c *Client) GetPaneOwner(pane string) string {
 	}
 
 	return c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
+}
+
+// HasCLIExited reports whether the CLI launched in a pane has exited.
+func (c *Client) HasCLIExited(pane string) bool {
+	if pane == "" {
+		return false
+	}
+
+	return c.value("show-options", "-p", "-qv", "-t", pane, CLIExitedOption) == "1"
 }
 
 // IsPaneInMode reports whether a pane is in one of tmux's own modes, where keys reach the mode

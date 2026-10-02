@@ -12,6 +12,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/tmux"
 	"komrad/lib/xslice"
 )
 
@@ -257,7 +258,9 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 		shell = fallbackShell
 	}
 
-	script := ". " + harness.QuoteArg(path) + "; exec " + harness.QuoteArg(shell) + " -l -i"
+	script := ". " + harness.QuoteArg(path) +
+		"; tmux set-option -p -t " + harness.QuoteArg(params.Pane) + " " + tmux.CLIExitedOption + " 1" +
+		"; exec " + harness.QuoteArg(shell) + " -l -i"
 	if err := l.tmux.RespawnPane(params.Pane, params.Dir, shell, "-l", "-i", "-c", script); err != nil {
 		return fmt.Errorf("failed to start the agent in its pane: %w", err)
 	}

@@ -29,6 +29,8 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/clock"
+	"komrad/lib/clock/clocktest"
 	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
@@ -138,12 +140,17 @@ type agentServiceOptions struct {
 	framesDir string
 	tx        txRunner
 	stateDir  string
+	sleeper   clock.Sleeper
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	tx := options.tx
 	if tx == nil {
 		tx = s.Pool
+	}
+	sleeper := options.sleeper
+	if sleeper == nil {
+		sleeper = &clocktest.Sleeper{}
 	}
 
 	launcher := NewLauncher(NewLauncherParams{
@@ -169,6 +176,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		UserDefaultHarness: harnesstest.FakeID,
 		UserDefaultFlags:   map[string]string{harnesstest.FakeID: options.flags},
 		Usage:              options.usage,
+		Sleeper:            sleeper,
 	})
 
 	snapshots := &gittest.Snapshots{}

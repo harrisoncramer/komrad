@@ -19,6 +19,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
@@ -36,6 +37,7 @@ type NewLaunchServiceParams struct {
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	Usage              config.Usage
+	Sleeper            clock.Sleeper
 }
 
 type LaunchService struct {
@@ -49,10 +51,16 @@ type LaunchService struct {
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	usage              config.Usage
+	sleeper            clock.Sleeper
 }
 
 // NewLaunchService builds the service from its dependencies.
 func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
+	sleeper := params.Sleeper
+	if sleeper == nil {
+		sleeper = clock.Wall{}
+	}
+
 	return &LaunchService{
 		tmux:      params.Tmux,
 		agents:    params.Agents,
@@ -68,6 +76,7 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 		userDefaultHarness: params.UserDefaultHarness,
 		userDefaultFlags:   params.UserDefaultFlags,
 		usage:              params.Usage,
+		sleeper:            sleeper,
 	}
 }
 
@@ -309,7 +318,12 @@ func (s *LaunchService) launchFlags(params launchFlagsParams) string {
 		flags = strings.TrimSpace(params.workflowFlags)
 	}
 
-	return strings.TrimSpace(s.userDefaultFlags[params.harnessID] + " " + flags)
+	defaults := strings.TrimSpace(s.userDefaultFlags[params.harnessID])
+	if strings.Contains(" "+flags+" ", " "+defaults+" ") {
+		return flags
+	}
+
+	return strings.TrimSpace(defaults + " " + flags)
 }
 
 // workflowHarness is the CLI a workflow's agents take when they name none of their own.
@@ -512,6 +526,7 @@ func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		hooks:   c.resolved.hooks,
 		event:   workflowstore.HookPostLaunch,
 	})
+	c.service.watchStartup(ctx, agent)
 
 	return nil
 }

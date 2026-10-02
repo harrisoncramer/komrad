@@ -10,6 +10,7 @@ import (
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/clock/clocktest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,12 +38,7 @@ func settlerOver(channel harness.Channel, observer harness.Observer) *Settler {
 
 			return at
 		},
-		Wait: func(time.Duration) <-chan time.Time {
-			rested := make(chan time.Time, 1)
-			rested <- at
-
-			return rested
-		},
+		Sleeper: &clocktest.Sleeper{},
 	})
 }
 
