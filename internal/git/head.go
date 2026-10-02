@@ -97,6 +97,31 @@ func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
 	return remote.Canonical()
 }
 
+// ReadOriginHost is the host a checkout's origin is on, empty when it has none komrad can read.
+func ReadOriginHost(ctx context.Context, dir string) string {
+	remote := readOrigin(ctx, dir)
+	if remote == nil {
+		return ""
+	}
+
+	return remote.Host
+}
+
+// readOrigin is a checkout's origin remote, nil when it has none komrad can read.
+func readOrigin(ctx context.Context, dir string) *RemoteURL {
+	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return nil
+	}
+
+	remote, err := ParseRemoteURL(raw)
+	if err != nil {
+		return nil
+	}
+
+	return &remote
+}
+
 // rebasingBranch is the branch a stopped rebase belongs to.
 func rebasingBranch(gitDir string) string {
 	for _, dir := range rebaseDirs {

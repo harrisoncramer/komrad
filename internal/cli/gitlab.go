@@ -68,7 +68,7 @@ with.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			host := originHost(cmd.Context(), checkout)
+			host := git.ReadOriginHost(cmd.Context(), checkout)
 			if host == "" {
 				if ifConfigured {
 					return nil
@@ -141,21 +141,6 @@ Set it up for each GitLab host with:
 			return nil
 		},
 	}
-}
-
-// originHost is the host a checkout's origin is on, empty when it has none komrad can read.
-func originHost(ctx context.Context, dir string) string {
-	raw, err := git.Run(ctx, dir, "config", "--get", "remote.origin.url")
-	if err != nil {
-		return ""
-	}
-
-	remote, err := git.ParseRemoteURL(raw)
-	if err != nil {
-		return ""
-	}
-
-	return remote.Host
 }
 
 // withoutPort is a host git described, less any port it was reached on.
