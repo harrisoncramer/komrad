@@ -270,7 +270,7 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel:  forge.ErrNotDraftable,
 		Forge:     forge.KindGitLab,
-		Ref:       "!" + strconv.Itoa(number),
+		Ref:       forge.Ref(forge.KindGitLab, number),
 		Merged:    target.MergedAt != nil,
 		Closed:    target.ClosedAt != nil,
 		IsSettled: target.Draft == draft,
@@ -322,7 +322,7 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel:  forge.ErrNoAutoMerge,
 		Forge:     forge.KindGitLab,
-		Ref:       "!" + strconv.Itoa(number),
+		Ref:       forge.Ref(forge.KindGitLab, number),
 		Merged:    target.State == "merged",
 		Closed:    target.State == "closed",
 		IsSettled: target.AutoMergeEnabled == params.On,
@@ -380,7 +380,7 @@ func (f *Forge) RequestRereview(ctx context.Context, address string) error {
 	if _, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel: forge.ErrNoRereview,
 		Forge:    forge.KindGitLab,
-		Ref:      "!" + strconv.Itoa(number),
+		Ref:      forge.Ref(forge.KindGitLab, number),
 		Merged:   target.State == "merged",
 		Closed:   target.State == "closed",
 	}); err != nil {

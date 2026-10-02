@@ -64,13 +64,13 @@ func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 				open:  func(m *model) tea.Cmd { return m.openGitAbort(from, agentID) },
 			},
 			{
-				label: "open pr",
+				label: "open " + item.PullRequest.Abbrev(),
 				keys:  m.keys.Git.OpenPullRequest,
 				isOff: item.PullRequest.URL == "",
 				write: run(gitChoiceOpenPullRequest),
 			},
 			{
-				label: "copy pr url",
+				label: "copy " + item.PullRequest.Abbrev() + " url",
 				keys:  m.keys.Git.CopyPullRequestURL,
 				isOff: item.PullRequest.URL == "",
 				write: run(gitChoiceCopyPullRequestURL),
@@ -87,7 +87,7 @@ func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 				isOff: rereviewRefusal(item) != nil,
 				write: run(gitChoiceRequestRereview),
 			},
-			nestedEntry("merge pr", m.keys.Git.Merge, mergeMenu(m, from, item)),
+			nestedEntry("merge "+item.PullRequest.Abbrev(), m.keys.Git.Merge, mergeMenu(m, from, item)),
 		},
 	}
 }
@@ -165,10 +165,10 @@ func pullRequestRefusal(item panel.AgentRow) error {
 // openPullRequestRefusal is why an agent has no open pull request to act on, nil when it has one.
 func openPullRequestRefusal(item panel.AgentRow) error {
 	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
-		return errAlreadyMerged
+		return errors.New(describePullRequest(item.PullRequest, "has already merged"))
 	}
 	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
-		return errPullRequestClosed
+		return errors.New(describePullRequest(item.PullRequest, "was closed without merging"))
 	}
 
 	if item.PullRequest.URL == "" {

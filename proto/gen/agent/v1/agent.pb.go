@@ -847,7 +847,9 @@ type PullRequestStanding struct {
 	MergeReadiness *v1.MergeReadiness `protobuf:"bytes,10,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
 	// The commit the forge holds at the head of the current pull request, unset for UNREAD and
 	// NONE.
-	HeadSha       *string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
+	HeadSha *string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
+	// Which forge the current pull request lives on, such as github, unset for UNREAD and NONE.
+	Forge         *string `protobuf:"bytes,11,opt,name=forge,proto3,oneof" json:"forge,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -920,6 +922,13 @@ func (x *PullRequestStanding) GetMergeReadiness() *v1.MergeReadiness {
 func (x *PullRequestStanding) GetHeadSha() string {
 	if x != nil && x.HeadSha != nil {
 		return *x.HeadSha
+	}
+	return ""
+}
+
+func (x *PullRequestStanding) GetForge() string {
+	if x != nil && x.Forge != nil {
+		return *x.Forge
 	}
 	return ""
 }
@@ -3346,7 +3355,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x04open\x18\x01 \x01(\x05R\x04open\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\x05R\bresolved\x12\x16\n" +
 	"\x06unread\x18\x03 \x01(\x05R\x06unread\x12\x1a\n" +
-	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\xe7\x02\n" +
+	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\x8c\x03\n" +
 	"\x13PullRequestStanding\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
 	"\x06number\x18\x02 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x15\n" +
@@ -3354,11 +3363,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05title\x18\x04 \x01(\tH\x02R\x05title\x88\x01\x01\x12G\n" +
 	"\x0fmerge_readiness\x18\n" +
 	" \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x1e\n" +
-	"\bhead_sha\x18\t \x01(\tH\x03R\aheadSha\x88\x01\x01B\t\n" +
+	"\bhead_sha\x18\t \x01(\tH\x03R\aheadSha\x88\x01\x01\x12\x19\n" +
+	"\x05forge\x18\v \x01(\tH\x04R\x05forge\x88\x01\x01B\t\n" +
 	"\a_numberB\x06\n" +
 	"\x04_urlB\b\n" +
 	"\x06_titleB\v\n" +
-	"\t_head_shaJ\x04\b\x05\x10\tR\x06checksR\fmergeabilityR\n" +
+	"\t_head_shaB\b\n" +
+	"\x06_forgeJ\x04\b\x05\x10\tR\x06checksR\fmergeabilityR\n" +
 	"auto_mergeR\x0eauto_mergeable\"\xab\x01\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +

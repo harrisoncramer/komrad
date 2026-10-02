@@ -31,17 +31,6 @@ const (
 	heldWorkingNotice     = "paused, but it has started working again"
 	heldUnreadableNotice  = "paused, but its pane cannot be read, so it may be writing"
 	heldPromptedNotice    = "paused, but stopped at a prompt, so a write lands if anybody answers"
-	prFailingNotice       = "its pull request has a failing check"
-	prConflictingNotice   = "its pull request no longer merges cleanly"
-	prChangesNotice       = "its pull request has changes requested"
-	prChecksNotice        = "its pull request has checks running"
-	prApprovedNotice      = "its pull request is approved and ready to merge"
-	prWaitingNotice       = "its pull request is approved but cannot merge yet"
-	prOpenNotice          = "its pull request is open and waiting on a review"
-	prRereviewNotice      = "its pull request is waiting on another review"
-	prDraftNotice         = "its pull request is still a draft"
-	prMergedNotice        = "its pull request is merged"
-	prClosedNotice        = "its pull request was closed without merging"
 )
 
 var (
@@ -57,21 +46,21 @@ var (
 		view.RepoRebasing: sequenceNotice,
 	}
 	forgeAlertSaid = map[view.Forge]string{
-		view.ForgeFailing:     prFailingNotice,
-		view.ForgeConflicting: prConflictingNotice,
+		view.ForgeFailing:     "has a failing check",
+		view.ForgeConflicting: "no longer merges cleanly",
 	}
 	forgeReviewSaid = map[view.Forge]string{
-		view.ForgeChangesRequested: prChangesNotice,
-		view.ForgeApproved:         prApprovedNotice,
+		view.ForgeChangesRequested: "has changes requested",
+		view.ForgeApproved:         "is approved and ready to merge",
 	}
 	forgeSaid = map[view.Forge]string{
-		view.ForgeOpen:              prOpenNotice,
-		view.ForgeRereviewRequested: prRereviewNotice,
-		view.ForgeChecksRunning:     prChecksNotice,
-		view.ForgeApprovedWaiting:   prWaitingNotice,
-		view.ForgeDraft:             prDraftNotice,
-		view.ForgeMerged:            prMergedNotice,
-		view.ForgeClosed:            prClosedNotice,
+		view.ForgeOpen:              "is open and waiting on a review",
+		view.ForgeRereviewRequested: "is waiting on another review",
+		view.ForgeChecksRunning:     "has checks running",
+		view.ForgeApprovedWaiting:   "is approved but cannot merge yet",
+		view.ForgeDraft:             "is still a draft",
+		view.ForgeMerged:            "is merged",
+		view.ForgeClosed:            "was closed without merging",
 	}
 )
 
@@ -82,14 +71,14 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 
 	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), describeFailure(item))
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeAlertSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeAlertSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeReviewSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeReviewSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, glyphs, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeSaid[row.Forge]))
 	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
 	notices = appendCommentsNotice(notices, row.PersonComments, "your comments")
 

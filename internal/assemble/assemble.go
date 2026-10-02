@@ -328,6 +328,7 @@ func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv
 		Title:          xptr.Ptr(current.GetTitle()),
 		MergeReadiness: current.GetMergeReadiness(),
 		HeadSha:        xptr.NonEmpty(current.GetHeadSha()),
+		Forge:          xptr.NonEmpty(current.GetForge()),
 	}
 }
 
