@@ -535,7 +535,7 @@
             "orchestrator"
           ],
           "summary": "List the document types with their contexts.",
-          "description": "List the document types with their contexts. Read this before write_document, since a person keeps them up to date.",
+          "description": "List the document types with their contexts. Read this before write_document.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,

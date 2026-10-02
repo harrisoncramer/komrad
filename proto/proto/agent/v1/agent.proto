@@ -1040,7 +1040,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_document_types"
-      description: "List the document types with their contexts. Read this before write_document, since a person keeps them up to date."
+      description: "List the document types with their contexts. Read this before write_document."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
