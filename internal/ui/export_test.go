@@ -71,12 +71,15 @@ type recordingTmux struct {
 	globals      map[string]string
 	infoPane     string
 	selected     []string
-	respawnPanes []string
-	respawnDirs  []string
-	deadPanes    map[string]bool
-	zoomed       bool
-	zooms        []bool
-	moveBatches  [][]panes.Kind
+	// selectedUnswapped is every pane handed the keyboard before any swap moved it.
+	selectedUnswapped []string
+	swapped           map[string]bool
+	respawnPanes      []string
+	respawnDirs       []string
+	deadPanes         map[string]bool
+	zoomed            bool
+	zooms             []bool
+	moveBatches       [][]panes.Kind
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
 	// activePane is the pane the window sends keys to, where a test has put them somewhere named.
@@ -372,6 +375,11 @@ func (p *Panel) RefuseStandIns(err error) {
 // ReadSelectedPanes is every pane the panel has handed the keyboard to.
 func (p *Panel) ReadSelectedPanes() []string {
 	return p.tmux.selected
+}
+
+// ReadSelectedUnswapped is every pane the panel handed the keyboard to before a swap had moved it.
+func (p *Panel) ReadSelectedUnswapped() []string {
+	return p.tmux.selectedUnswapped
 }
 
 // ReadRespawns is every command the panel has respawned a pane with.
@@ -830,6 +838,10 @@ func (t *recordingTmux) GetActivePane(pane string) string {
 
 func (t *recordingTmux) SelectPane(pane string) {
 	t.selected = append(t.selected, pane)
+
+	if !t.swapped[pane] {
+		t.selectedUnswapped = append(t.selectedUnswapped, pane)
+	}
 }
 
 func (t *recordingTmux) SetGlobal(name, value string) {
@@ -849,8 +861,15 @@ func (t *recordingTmux) GetPaneOwner(string) string {
 }
 
 // SwapPanes, BreakPane, KillPane and ResizePane each drop the zoom, the way tmux does.
-func (t *recordingTmux) SwapPanes(string, string) {
+func (t *recordingTmux) SwapPanes(pane, other string) {
 	t.swaps++
+
+	if t.swapped == nil {
+		t.swapped = map[string]bool{}
+	}
+
+	t.swapped[pane] = true
+	t.swapped[other] = true
 	t.zoomed = false
 }
 

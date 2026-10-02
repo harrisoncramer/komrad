@@ -406,6 +406,10 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applyStageTick(msg), true
 	case settleTickMsg:
 		return m.applySettleTick(), true
+	case focusGuestMsg:
+		m.selectGuest(msg.pane)
+
+		return nil, true
 	case lastScreenMsg:
 		m.applyLastScreen(msg)
 

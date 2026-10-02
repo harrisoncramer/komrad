@@ -48,7 +48,7 @@ func TestListingLandsWrites(t *testing.T) {
 		t.Parallel()
 
 		harness := openLanding(t)
-		answerWorkflowCreate(harness, "w2")
+		answerWorkflowCreate(harness)
 
 		harness.press("space", "w", "w", "e", "b", "enter")
 		harness.watch(buildPuts(newLiveWorkflow("w2", "web")))
@@ -105,6 +105,49 @@ func TestListingLandsWrites(t *testing.T) {
 		harness.watch(buildPuts(newRunning()))
 
 		assert.Equal(t, "api", readHoveredRow(harness.readFrame()))
+	})
+
+	t.Run("a key pressed while a focused landing waits still shows and selects its pane", func(t *testing.T) {
+		t.Parallel()
+
+		frames := &drawReporter{}
+		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newAgent("a1", "telescope", "w1")))
+		answerOrchestratorStart(harness)
+
+		harness.press("k", "enter", "j")
+		harness.fireTimers()
+		harness.watch(buildPuts(newOrchestrator()))
+		frames.isDrawn = true
+		harness.fireTimers()
+
+		assert.Equal(t, "  telescope", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, []string{"%9"}, harness.panel.ReadSelectedPanes())
+	})
+
+	t.Run("a focused landing settled by a watch batch selects its pane once it is swapped in", func(t *testing.T) {
+		t.Parallel()
+
+		frames := &drawReporter{isDrawn: true}
+		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
+		answerWorkflowCreate(harness)
+		answerOrchestratorStart(harness)
+
+		harness.press("space", "w", "a", "p", "i", "enter")
+		harness.fireTimers()
+		require.Empty(t, harness.panel.ReadSelectedPanes(), "the landing waits for the workflow's row")
+
+		orch := newOrchestrator()
+		orch.WorkflowId = "w2"
+		harness.watch(buildPuts(newLiveWorkflow("w2", "api"), orch))
+
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, []string{"%9"}, harness.panel.ReadSelectedPanes())
+		assert.Empty(t, harness.panel.ReadSelectedUnswapped())
 	})
 
 	t.Run("a row the filter hides leaves the cursor on a row it can see", func(t *testing.T) {
@@ -360,4 +403,10 @@ func newDormant(name string) *agentv1.Agent {
 		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		Alive:      xptr.Ptr(false),
 	}
+}
+
+func answerOrchestratorStart(harness *panelHarness) {
+	harness.answer(agentv1connect.AgentServiceStartOrchestratorProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.StartOrchestratorResponse{Agent: &agentv1.Agent{Id: "o1", PaneId: "%9", Harness: "claude"}}), nil
+	})
 }

@@ -2173,7 +2173,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 
 	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
-		answerWorkflowCreate(harness, "w2")
+		answerWorkflowCreate(harness)
 
 		harness.press("space", "w", "a", "p", "i", "enter")
 
@@ -2194,7 +2194,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 
 	t.Run("a workflow stands when its orchestrator will not start", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
-		answerWorkflowCreate(harness, "w2")
+		answerWorkflowCreate(harness)
 		harness.refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
 
 		harness.press("space", "w", "a", "p", "i", "enter")
@@ -2810,9 +2810,9 @@ func recordRelease(harness *panelHarness) *[]*agentv1.ReleaseAgentRequest {
 	return &said
 }
 
-func answerWorkflowCreate(harness *panelHarness, id string) {
+func answerWorkflowCreate(harness *panelHarness) {
 	harness.answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: id}}), nil
+		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
 	})
 }
 

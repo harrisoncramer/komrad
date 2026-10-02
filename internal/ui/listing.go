@@ -430,11 +430,16 @@ func (m *model) finishWrite(result writeResult, claimsCursor bool) tea.Cmd {
 	cmd, focus := m.landResult(result, claimsCursor)
 	m.frame.Flush()
 
-	if focus != "" {
-		m.selectGuest(focus)
+	if focus == "" {
+		return cmd
 	}
 
-	return cmd
+	return tea.Batch(cmd, func() tea.Msg { return focusGuestMsg{pane: focus} })
+}
+
+// focusGuestMsg hands the keyboard to a pane once the batch that put it on the stage is sent.
+type focusGuestMsg struct {
+	pane string
 }
 
 // landResult does what finishWrite batches, answering with the pane to hand the keyboard once the batch is sent.
@@ -490,14 +495,16 @@ func (m *model) landResult(result writeResult, claimsCursor bool) (tea.Cmd, stri
 
 	var focus string
 	switch {
-	case result.written == nil || walkedAway || !claimsCursor:
+	case result.written == nil || walkedAway:
+	case result.written.archived && !claimsCursor:
+		cmds = append(cmds, m.enterScreen(screenArchive))
 	case result.written.archived:
 		cmds = append(cmds, m.enter(screenArchive, screenTarget{agentID: result.written.agent}))
 	default:
 		cmds = append(cmds, m.enterScreen(screenAgents))
 
 		rows := m.agents.rows(m)
-		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); rowIndexOfKey(rows, key) >= 0 {
+		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); claimsCursor && rowIndexOfKey(rows, key) >= 0 {
 			m.agents.apply(m, key)
 		}
 
