@@ -138,6 +138,14 @@ func (f *Fake) ReadKilledSessions() []string {
 	return slices.Clone(f.killedSessions)
 }
 
+// ReadKilledPanes is every pane killed so far.
+func (f *Fake) ReadKilledPanes() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.KilledPanes)
+}
+
 // SetGlobal records a global option.
 func (f *Fake) SetGlobal(name, value string) {
 	f.mu.Lock()

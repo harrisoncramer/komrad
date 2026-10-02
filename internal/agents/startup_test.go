@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 		screen     string
 		wantState  agentstore.State
 		wantReason string
+		wantKilled []string
 	}
 
 	tests := []test{
@@ -31,6 +33,7 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 			screen:     "\x1b[31mError: the argument '--dangerously-bypass-approvals-and-sandbox' cannot be used multiple times\x1b[0m\n\nuser@host ~ %\n",
 			wantState:  agentstore.StateFailedToCreate,
 			wantReason: "the CLI exited while starting: Error: the argument '--dangerously-bypass-approvals-and-sandbox' cannot be used multiple times user@host ~ %",
+			wantKilled: []string{"%agent"},
 		},
 		{
 			name:      "a CLI that keeps running",
@@ -81,13 +84,14 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 					return false
 				}
 
-				return agents[0].State == tt.wantState && (tt.exited || polls.Load() == startupPolls)
+				return agents[0].State == tt.wantState && slices.Equal(tmux.ReadKilledPanes(), tt.wantKilled) && (tt.exited || polls.Load() == startupPolls)
 			}, 5*time.Second, 10*time.Millisecond)
 
 			agents, err := st.Agents.List(t.Context())
 			require.NoError(t, err)
 			require.Len(t, agents, 1)
 			assert.Equal(t, tt.wantReason, agents[0].FailureReason)
+			assert.Equal(t, tt.wantKilled, tmux.ReadKilledPanes())
 		})
 	}
 }

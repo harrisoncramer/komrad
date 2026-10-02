@@ -53,6 +53,7 @@ func (s *LaunchService) failExitedStartup(ctx context.Context, launched agentsto
 
 	screen := getLastLines(ansi.Strip(s.tmux.CapturePane(agent.Pane)), startupTailLines)
 	s.failCreate(ctx, *agent, fmt.Errorf("the CLI exited while starting: %s", screen))
+	s.tmux.KillPane(agent.Pane)
 }
 
 func getLastLines(screen string, count int) string {
