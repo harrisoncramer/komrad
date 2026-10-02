@@ -20,7 +20,6 @@ const (
 	gitChoiceCopyPullRequestURL
 	gitChoiceToggleDraft
 	gitChoiceRequestRereview
-	gitChoiceMergeRebase
 )
 
 var (
@@ -89,12 +88,6 @@ func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 				write: run(gitChoiceRequestRereview),
 			},
 			nestedEntry("merge pr", m.keys.Git.Merge, mergeMenu(m, from, item)),
-			{
-				label: "merge then rebase",
-				keys:  m.keys.Git.MergeRebase,
-				isOff: mergeRebaseRefusal(m.listing, from, item) != nil,
-				write: run(gitChoiceMergeRebase),
-			},
 		},
 	}
 }
@@ -221,14 +214,6 @@ func (m *model) runGitChoice(from screen, agentID string, choice gitChoice) tea.
 		return m.toggleDraft(item)
 	case gitChoiceRequestRereview:
 		return m.requestRereview(item)
-	case gitChoiceMergeRebase:
-		if err := mergeRebaseRefusal(m.listing, from, item); err != nil {
-			m.report("Could not merge and rebase "+agent.Name, err)
-
-			return nil
-		}
-
-		return m.runGitCmd(mergeRebaseOp(item))
 	}
 
 	return nil

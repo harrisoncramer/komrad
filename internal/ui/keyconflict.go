@@ -59,7 +59,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "toggle_draft", keys: keys.Git.ToggleDraft},
 		{name: "request_rereview", keys: keys.Git.RequestRereview},
 		{name: "merge", keys: keys.Git.Merge},
-		{name: "merge_rebase", keys: keys.Git.MergeRebase},
 	}); err != nil {
 		return err
 	}
@@ -121,6 +120,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "merge", keys: keys.Merge.Merge},
 		{name: "merge_archive", keys: keys.Merge.MergeArchive},
 		{name: "auto_merge", keys: keys.Merge.AutoMerge},
+		{name: "merge_rebase", keys: keys.Merge.MergeRebase},
 	}); err != nil {
 		return err
 	}

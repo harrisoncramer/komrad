@@ -554,13 +554,6 @@
               "default": "[\"m\"]"
             },
             {
-              "key": "merge_rebase",
-              "path": "keybindings.git.merge_rebase",
-              "type": "array",
-              "description": "Merge the hovered agent's pull request on the forge, then bring its worktree up to date on\nthe base, which now holds its work.",
-              "default": "[\"R\"]"
-            },
-            {
               "key": "open_pull_request",
               "path": "keybindings.git.open_pull_request",
               "type": "array",
@@ -650,6 +643,13 @@
               "type": "array",
               "description": "Have the forge merge the pull request on its own once its checks and reviews pass, or stop it\nwhen it is already waiting to.",
               "default": "[\"u\"]"
+            },
+            {
+              "key": "merge_rebase",
+              "path": "keybindings.merge.merge_rebase",
+              "type": "array",
+              "description": "Merge the pull request on the forge, then bring the agent's worktree up to date on the base,\nwhich now holds its work.",
+              "default": "[\"r\"]"
             }
           ],
           "sections": []

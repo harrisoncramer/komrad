@@ -19,6 +19,7 @@ const (
 	mergeChoiceMerge mergeChoice = iota
 	mergeChoiceMergeArchive
 	mergeChoiceAutoMerge
+	mergeChoiceMergeRebase
 )
 
 var (
@@ -57,6 +58,12 @@ func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
 				isOff: autoMergeRefusal(item) != nil,
 				write: run(mergeChoiceAutoMerge),
 			},
+			{
+				label: "merge then rebase",
+				keys:  m.keys.Merge.MergeRebase,
+				isOff: mergeRebaseRefusal(m.listing, from, item) != nil,
+				write: run(mergeChoiceMergeRebase),
+			},
 		},
 	}
 }
@@ -77,6 +84,16 @@ func (m *model) runMerge(from screen, agentID string, choice mergeChoice) tea.Cm
 
 	if choice == mergeChoiceAutoMerge {
 		return m.toggleAutoMerge(item)
+	}
+
+	if choice == mergeChoiceMergeRebase {
+		if err := mergeRebaseRefusal(m.listing, from, item); err != nil {
+			m.report("Could not merge and rebase "+item.Agent.Name, err)
+
+			return nil
+		}
+
+		return m.runGitCmd(mergeRebaseOp(item))
 	}
 
 	archive := choice == mergeChoiceMergeArchive

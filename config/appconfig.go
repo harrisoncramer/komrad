@@ -315,9 +315,6 @@ type GitKeys struct {
 	// Open the merge menu to the right of this one, for merging the hovered agent's pull request
 	// on the forge and archiving the agent after.
 	Merge []string `mapstructure:"merge" default:"m"`
-	// Merge the hovered agent's pull request on the forge, then bring its worktree up to date on
-	// the base, which now holds its work.
-	MergeRebase []string `mapstructure:"merge_rebase" default:"R"`
 	// Open the hovered agent's current pull request in your browser: the newest one opened from
 	// its branch that is not finished, else the newest finished one. The entry says so rather
 	// than acting on an agent with none.
@@ -354,6 +351,9 @@ type MergeKeys struct {
 	// Have the forge merge the pull request on its own once its checks and reviews pass, or stop it
 	// when it is already waiting to.
 	AutoMerge []string `mapstructure:"auto_merge" default:"u"`
+	// Merge the pull request on the forge, then bring the agent's worktree up to date on the base,
+	// which now holds its work.
+	MergeRebase []string `mapstructure:"merge_rebase" default:"r"`
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the

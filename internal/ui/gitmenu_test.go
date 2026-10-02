@@ -209,13 +209,13 @@ func TestGitMenuRefusals(t *testing.T) {
 		{
 			name:        "the merge then rebase of a worktree part-way through a rebase",
 			rows:        append(buildRebasingGitAgent(), newOpenPullRequest()),
-			press:       []string{"R"},
+			press:       []string{"m", "r"},
 			wantRefusal: "part-way through a rebase, merge or pick",
 		},
 		{
 			name:        "the merge then rebase of a branch with no pull request",
 			rows:        buildGitAgent(),
-			press:       []string{"R"},
+			press:       []string{"m", "r"},
 			wantRefusal: "komrad has not read this agent's repository yet",
 		},
 		{
@@ -339,7 +339,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 				return connect.NewResponse(&agentv1.RebaseWorktreeResponse{BaseRef: "main", BaseSha: "abcdef1234567", Moved: true}), nil
 			})
 
-			harness.press("R")
+			harness.press("m", "r")
 
 			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{Url: pullRequestURL})
 			harness.assertSentTo(agentv1connect.AgentServiceRebaseWorktreeProcedure, tt.wantRebases...)
