@@ -284,7 +284,7 @@ func TestDocumentsNew(t *testing.T) {
 	}{
 		{
 			name:    "a name and the type left alone write an RFC saying it is empty",
-			presses: []string{"space", "c", "P", "l", "a", "n", "ctrl+s"},
+			presses: []string{"space", "c", "P", "l", "a", "n", "enter"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Plan",
@@ -294,7 +294,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "the type chosen names what the document says it is",
-			presses: []string{"space", "c", "L", "o", "g", "tab", "up", "up", "ctrl+s"},
+			presses: []string{"space", "c", "L", "o", "g", "tab", "up", "up", "enter"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
@@ -304,7 +304,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "a blank name writes nothing",
-			presses: []string{"space", "c", " ", "ctrl+s"},
+			presses: []string{"space", "c", " ", "enter"},
 		},
 	}
 
@@ -352,7 +352,7 @@ func TestDocumentsNewFromTheMenu(t *testing.T) {
 		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 	})
 	moveToAgentRow(t, harness, "quiet")
-	harness.press("space", "d", "c", "P", "l", "a", "n", "ctrl+s")
+	harness.press("space", "d", "c", "P", "l", "a", "n", "enter")
 
 	assert.Equal(t, agentsScreen, harness.readScreen())
 	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{

@@ -13,12 +13,12 @@ Type "leaves a short"
 Enter
 Type "c"
 Type "Check the marker too: a string exactly width long should come back untouched."
-Ctrl+S
+Enter
 Sleep 2s
-Ctrl+S
+Type "s"
 Wait+Screen@10s /about the work as/
 Type "Close. One more edge case."
-Ctrl+S
+Enter
 Wait+Screen@10s /1 comment sent/
 Sleep 2s
 Hide

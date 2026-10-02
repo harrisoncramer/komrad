@@ -72,7 +72,7 @@ func TestVimEditing(t *testing.T) {
 		harness := openVimForms(t)
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"esc", "c", "i", "w"}, spellKeys("it"),
-			[]string{"esc", "0", "~", "ctrl+s"})...)
+			[]string{"esc", "0", "~", "enter"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -84,7 +84,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "ctrl+s"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "enter"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -96,7 +96,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("k on the first field stays on it", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc", "k", "x", "ctrl+s"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc", "k", "x", "enter"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -115,7 +115,7 @@ func TestVimEditing(t *testing.T) {
 		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.readFrame(), "Worktree")
 
-		harness.press("x", "ctrl+s")
+		harness.press("x", "enter")
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -133,7 +133,7 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press("space", "E", "tab", "esc", "ctrl+e")
 		harness.send(harness.panel.NewFieldEdited("context", "what the editor wrote\n"))
-		harness.press("u", "ctrl+s")
+		harness.press("u", "enter")
 
 		sent := harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
 		require.Len(t, sent, 1)
@@ -147,7 +147,7 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "still here")
-		harness.press("esc", "b", "d", "w", "ctrl+s")
+		harness.press("esc", "b", "d", "w", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			AgentId:     "a1",
@@ -190,7 +190,7 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press("c")
 		harness.send(ui.NewMessageEdited("a1", "still here\n"))
-		harness.press("esc", "b", "d", "w", "ctrl+s")
+		harness.press("esc", "b", "d", "w", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			AgentId:     "a1",

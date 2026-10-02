@@ -876,6 +876,13 @@
               "default": "[\"r\"]"
             },
             {
+              "key": "send",
+              "path": "keybindings.review.send",
+              "type": "array",
+              "description": "Send the comments waiting in your review to the agent, with a word on the work as a whole.",
+              "default": "[\"s\"]"
+            },
+            {
               "key": "toggle_viewed",
               "path": "keybindings.review.toggle_viewed",
               "type": "array",

@@ -122,10 +122,10 @@ func (i reviewInput) value() string {
 	return *i.body
 }
 
-// reviewInputKeyMap keeps the return key inside the field.
+// reviewInputKeyMap leaves submitting to the composer around the field.
 func reviewInputKeyMap(keys config.FormKeys) *huh.KeyMap {
 	km := formKeyMap(keys)
-	km.Text.NewLine = key.NewBinding(key.WithKeys("enter", "ctrl+j", "alt+enter"))
+	km.Text.NewLine = key.NewBinding(key.WithKeys("ctrl+j", "alt+enter"))
 	km.Text.Next = key.NewBinding()
 	km.Text.Prev = key.NewBinding()
 	km.Text.Submit = key.NewBinding()

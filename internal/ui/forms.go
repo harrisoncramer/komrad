@@ -287,7 +287,7 @@ func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	km.Input.Next = next
 	km.Input.Submit = submit
 	km.Text.Next = next
-	km.Text.NewLine = key.NewBinding(key.WithKeys("enter", "ctrl+j", "alt+enter"), key.WithHelp("enter", "new line"))
+	km.Text.NewLine = key.NewBinding(key.WithKeys("ctrl+j", "alt+enter"), key.WithHelp("ctrl+j", "new line"))
 	km.Text.Submit = submit
 	km.Select.Submit = submit
 	km.Confirm.Submit = submit

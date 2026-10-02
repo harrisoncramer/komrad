@@ -69,7 +69,7 @@ func TestGitMenu(t *testing.T) {
 
 		harness := openGitMenu(t, buildGitAgent()...)
 
-		harness.press("k", "ctrl+s")
+		harness.press("k", "enter")
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, gitMenuEntry)

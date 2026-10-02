@@ -69,10 +69,10 @@ with an agent on the stage `Ctrl+Space`, `j`, `d` is the list, `f` the details a
     Wait+Screen@30s /Welcome, komrad!/
     Type "w"
     Type "neovim"
-    Ctrl+S
+    Enter
     Wait+Screen@4m /done \d+:\d+ [AP]M/
 
-- `Type` types text and `Enter`, `Escape`, `Down`, `Ctrl+S` and the like press keys.
+- `Type` types text and `Enter`, `Escape`, `Down`, `Tab` and the like press keys.
 - `Sleep` waits and keeps recording.
 
 The recorder paces a tape itself. Every key or `Type` the tape shows is followed by the pause

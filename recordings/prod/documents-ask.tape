@@ -7,7 +7,7 @@ Type "c"
 Type "Write an RFC for adding vim.text.truncate(), which shortens a string to a width in display columns. Save it as a komrad document named truncate-rfc, and change no code."
 Tab
 Type "truncate-rfc"
-Ctrl+S
+Enter
 Wait+Screen@10s /truncate-rfc/
 Sleep 2s
 Hide

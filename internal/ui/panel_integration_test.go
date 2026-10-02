@@ -42,8 +42,8 @@ func TestIntegrationPanel(t *testing.T) {
 		require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
 
 		harness.press("space", "a")
-		require.Contains(t, harness.readFrame(), "C-s submit", "the key opens the confirm prompt rather than archiving outright")
-		harness.press("ctrl+s")
+		require.Contains(t, harness.readFrame(), "enter submit", "the key opens the confirm prompt rather than archiving outright")
+		harness.press("enter")
 
 		listed, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
 		require.NoError(t, err)

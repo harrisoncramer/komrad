@@ -9,7 +9,7 @@ Type "/tmp"
 Enter
 Enter
 Up
-Ctrl+S
+Enter
 Sleep 2s
 Ctrl+Space
 Type "j"
@@ -17,7 +17,7 @@ Sleep 1s
 Type "d"
 Type "c"
 Type "reply with the single word ok"
-Ctrl+S
+Enter
 Sleep 3s
 Type "o"
 Type "s"
@@ -28,5 +28,5 @@ Type "0 9 * * 1-5"
 Enter
 Enter
 Type "say ok"
-Ctrl+S
+Enter
 Sleep 2s

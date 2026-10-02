@@ -243,7 +243,7 @@ func TestReviewOffers(t *testing.T) {
 		assert.Contains(t, frame, "Accept @dana's comment")
 		assert.Contains(t, readPopupProse(frame), "rename this")
 		typeText(harness, "agreed")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceAcceptForgeThreadProcedure, &agentv1.AcceptForgeThreadRequest{
 			AgentId:       "a1",
@@ -271,7 +271,7 @@ func TestReviewOffers(t *testing.T) {
 		offer.Comments[0].EditedAt = xptr.Ptr("2026-09-19T13:00:00Z")
 		harness.watch(server.buildSnapshot())
 		require.Contains(t, readPopupProse(harness.readFrame()), "rename this, please")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		sent := harness.readSent(agentv1connect.AgentServiceAcceptForgeThreadProcedure)
 		require.Len(t, sent, 1)
@@ -303,7 +303,7 @@ func TestReviewOffers(t *testing.T) {
 		harness.press("?")
 
 		harness.press("A")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceAcceptForgeThreadProcedure, &agentv1.AcceptForgeThreadRequest{
 			AgentId:       "a1",

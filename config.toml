@@ -344,6 +344,8 @@ quit             = ["ctrl+c"]
 reload           = ["R"]
 # Settle the thread under the cursor, which marks it resolved without deleting it.
 resolve          = ["r"]
+# Send the comments waiting in your review to the agent, with a word on the work as a whole.
+send             = ["s"]
 # Fold away the file the cursor is in once you have read it, or open it again. A file
 # the agent writes to afterwards comes back on its own.
 toggle_viewed    = ["v"]
