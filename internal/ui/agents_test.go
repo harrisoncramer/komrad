@@ -41,7 +41,6 @@ var (
 	recordAgentLine  = regexp.MustCompile(`agent\s+—`)
 	recordBranchLine = regexp.MustCompile(`branch\s+agent/auth`)
 	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
-	recordRemoteLine = regexp.MustCompile(`remote\s+↑2 unpushed`)
 )
 
 // TestAgentsRows covers which rows the agents tree draws and where.
@@ -830,16 +829,6 @@ func TestAgentsRecordCopy(t *testing.T) {
 			want:  strings.Repeat("--append-system-prompt read every file on the branch ", 4),
 		},
 		{
-			name: "a coloured value is copied as its plain text",
-			open: func(t *testing.T) *panelHarness {
-				t.Helper()
-
-				return openWorktreeRecord(t, panelHarnessParams{})
-			},
-			press: []string{"/", "u", "n", "p", "u", "s", "h", "e", "d", "enter"},
-			want:  "↑2 unpushed ↓1 unpulled",
-		},
-		{
 			name: "a narrowed record copies from the rows that are left",
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
@@ -893,7 +882,7 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 		assert.Contains(t, findRawLine(harness.readRawFrame(), recordChangeLine), paint.Panel.Match().Render("modified"))
 	})
 
-	t.Run("the tag and the counts wear the tone of what they count", func(t *testing.T) {
+	t.Run("the counts wear the tone of what they count", func(t *testing.T) {
 		recorded := buildRecorded()
 		recorded[1].(*agentv1.Agent).DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
 		harness := openWorktreeRecord(t, panelHarnessParams{}, recorded...)
@@ -903,63 +892,9 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 		for _, want := range []string{
 			paint.Panel.Style(paint.ToneSuccess).Render("+200"),
 			paint.Panel.Style(paint.ToneDanger).Render("−100"),
-			paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed"),
-			paint.Panel.Style(paint.ToneWarning).Render("↓1 unpulled"),
 		} {
 			assert.Contains(t, frame, want)
 		}
-	})
-
-	t.Run("a count of nothing is dimmed", func(t *testing.T) {
-		read := buildWorktreeRead()
-		read.Unpulled = 0
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
-		harness.watch(buildSnapshot(buildRecorded()...))
-		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
-
-		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneMuted).Render("↓0 unpulled"))
-	})
-
-	t.Run("a remote whose unpulled commits landed on the base dims what landed", func(t *testing.T) {
-		tests := []struct {
-			name  string
-			ahead int32
-			want  string
-		}{
-			{
-				name:  "a branch carrying work of its own keeps the warning on what it has not pushed",
-				ahead: 3,
-				want:  paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed") + " " + paint.Panel.Style(paint.ToneMuted).Render("↓1 unpulled · landed on main"),
-			},
-			{
-				name:  "a branch carrying nothing of its own is dimmed whole",
-				ahead: 0,
-				want:  paint.Panel.Style(paint.ToneMuted).Render("↑2 unpushed") + " " + paint.Panel.Style(paint.ToneMuted).Render("↓1 unpulled · landed on main"),
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				read := buildWorktreeRead()
-				read.UnpulledLanded, read.Ahead = true, tt.ahead
-				harness := newPanelHarness(t, panelHarnessParams{})
-				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
-				harness.watch(buildSnapshot(buildRecorded()...))
-				harness.press(append([]string{"pick:record"}, widenListPresses...)...)
-
-				assert.Contains(t, harness.readRawFrame(), tt.want)
-			})
-		}
-	})
-
-	t.Run("a search over a coloured value lights its match in the plain text", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
-		harness.press(append([]string{"/", "u", "n", "p", "u", "s", "h", "e", "d", "enter"}, widenListPresses...)...)
-
-		line := findRawLine(harness.readRawFrame(), recordRemoteLine)
-		assert.Contains(t, line, paint.Panel.Match().Render("unpushed"))
-		assert.NotContains(t, line, paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed"))
 	})
 
 	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
@@ -1139,7 +1074,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		{
 			name:       "a directory komrad does not hold draws no worktree rows and no error",
 			answer:     refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
-			wantAbsent: []string{"worktree", "size", "remote"},
+			wantAbsent: []string{"worktree", "size", "changes"},
 		},
 		{
 			name:   "a directory git refuses says why",
@@ -1150,69 +1085,18 @@ func TestAgentsRecordWorktree(t *testing.T) {
 			name:       "a registration git cannot read has a size and no standing",
 			answer:     answerWith(unreadable),
 			want:       map[string]string{"size": "1.2G, measured 5m ago"},
-			wantAbsent: []string{"remote", "commits"},
+			wantAbsent: []string{"changes", "commits"},
 		},
 		{
-			name:   "a readable worktree says where its branch stands against its remote and leaves the base to the worktree screen",
+			name:   "a readable worktree says what is uncommitted and leaves the base to the worktree screen",
 			answer: answerWith(buildWorktreeRead()),
 			want: map[string]string{
-				"remote":    "↑2 unpushed ↓1 unpulled",
 				"changes":   "2 modified, 1 untracked",
 				"landed":    "1 commit the base already holds",
 				"sequence":  "a merge or rebase is part-way through",
 				"also here": "reader",
 			},
-			wantAbsent: []string{"uncommitted", "base"},
-		},
-		{
-			name: "a branch with no commits of its own has nothing to push",
-			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-				read := buildWorktreeRead()
-				read.Pushed, read.Ahead = false, 0
-
-				return read
-			}()),
-			want: map[string]string{"remote": "nothing to push"},
-		},
-		{
-			name: "a branch never pushed says so",
-			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-				read := buildWorktreeRead()
-				read.Pushed = false
-
-				return read
-			}()),
-			want: map[string]string{"remote": "not pushed"},
-		},
-		{
-			name: "a branch level with its remote reads even",
-			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-				read := buildWorktreeRead()
-				read.Unpushed, read.Unpulled = 0, 0
-
-				return read
-			}()),
-			want: map[string]string{"remote": "even"},
-		},
-		{
-			name: "a remote whose unpulled commits landed on the base says so",
-			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-				read := buildWorktreeRead()
-				read.UnpulledLanded = true
-
-				return read
-			}()),
-			want: map[string]string{"remote": "↑2 unpushed ↓1 unpulled · landed on main"},
-		},
-		{
-			name: "a detached head has no remote row",
-			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-				read := buildWorktreeRead()
-				read.Worktree.Branch = ""
-
-				return read
-			}()),
-			wantAbsent: []string{"remote"},
+			wantAbsent: []string{"remote", "uncommitted", "base"},
 		},
 	}
 
@@ -1242,9 +1126,9 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
 
 		frame := harness.readFrame()
-		directory, remote, size, flags := findRecordLine(frame, "directory"), findRecordLine(frame, "remote"), findRecordLine(frame, "size"), findRecordLine(frame, "flags")
+		directory, changes, size, flags := findRecordLine(frame, "directory"), findRecordLine(frame, "changes"), findRecordLine(frame, "size"), findRecordLine(frame, "flags")
 		require.Positive(t, directory)
-		assert.Less(t, directory, remote)
+		assert.Less(t, directory, changes)
 		assert.Less(t, size, flags, "the standing comes before the ids")
 		assert.Negative(t, findRecordLine(frame, "commits"))
 	})
@@ -1414,7 +1298,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "could not read: context deadline exceeded", readRecordField(frame, "worktree"))
-		assert.Equal(t, "↑2 unpushed ↓1 unpulled", readRecordField(frame, "remote"))
+		assert.Equal(t, "2 modified, 1 untracked", readRecordField(frame, "changes"))
 	})
 
 	t.Run("the cursor coming to rest asks again only for a read gone stale", func(t *testing.T) {

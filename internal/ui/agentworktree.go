@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"komrad/internal/errui"
@@ -80,9 +79,8 @@ func agentWorktree(inspections map[string]worktreeInspection, cwd string) (workt
 	return read, true
 }
 
-// worktreeStandingFields are the record's rows for where the directory stands: against its remote
-// branch, what is uncommitted in it, and what it takes on disk, with the refusal above them when
-// the last read failed.
+// worktreeStandingFields are the record's rows for where the directory stands: what is uncommitted
+// in it and what it takes on disk, with the refusal above them when the last read failed.
 func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
 	fields := []recordField{}
 	if read.err != nil {
@@ -93,9 +91,6 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	}
 
 	if read.item.readable {
-		if read.item.branch != "" {
-			fields = append(fields, buildRemoteField(read))
-		}
 		fields = append(fields, recordField{label: "changes", value: changesField(read)})
 		if read.landed > 0 {
 			fields = append(fields, recordField{label: "landed", value: fmt.Sprintf("%s the base already holds", label.Count(read.landed, "commit", "commits"))})
@@ -111,53 +106,6 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	}
 
 	return fields
-}
-
-// buildRemoteField is where the branch stands against its copy on origin.
-func buildRemoteField(read worktreeInspection) recordField {
-	warning := paint.Panel.Style(paint.ToneWarning)
-	switch {
-	case !read.pushed && read.baseRef != "" && read.ahead == 0:
-		return recordField{
-			label:  "remote",
-			value:  "nothing to push",
-			styled: dimStyle().Render("nothing to push"),
-		}
-	case !read.pushed:
-		return recordField{
-			label:  "remote",
-			value:  "not pushed",
-			styled: warning.Render("not pushed"),
-		}
-	case read.unpushed == 0 && read.unpulled == 0:
-		return recordField{
-			label:  "remote",
-			value:  "even",
-			styled: dimStyle().Render("even"),
-		}
-	}
-
-	unpushed := fmt.Sprintf("%s%d unpushed", glyph.Up, read.unpushed)
-	unpulled := fmt.Sprintf("%s%d unpulled", glyph.Down, read.unpulled)
-	if read.unpulledLanded {
-		landed := fmt.Sprintf("%s"+separated+"landed on %s", unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
-		pushing := dimStyle()
-		if read.ahead > 0 {
-			pushing = countStyle(read.unpushed, warning.Bold(true))
-		}
-
-		return recordField{
-			label:  "remote",
-			value:  unpushed + " " + landed,
-			styled: pushing.Render(unpushed) + " " + dimStyle().Render(landed),
-		}
-	}
-
-	return recordField{
-		label:  "remote",
-		value:  unpushed + " " + unpulled,
-		styled: countStyle(read.unpushed, warning.Bold(true)).Render(unpushed) + " " + countStyle(read.unpulled, paint.Panel.Style(paint.ToneWarning)).Render(unpulled),
-	}
 }
 
 // agentDetailsTags is what the record's rule carries for an agent.
