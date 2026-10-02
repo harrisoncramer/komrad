@@ -1842,6 +1842,20 @@
       "sections": []
     },
     {
+      "path": "forge",
+      "description": "How komrad reads the review threads on the pull requests its agents open.",
+      "settings": [
+        {
+          "key": "bot_names",
+          "path": "forge.bot_names",
+          "type": "array",
+          "description": "Logins whose review comments are left out of the threads mirrored onto an agent, such as a\nCI bot or a code review App. A thread whose every comment is from one of them is not mirrored\nat all. Names are matched without regard to case.",
+          "default": "[]"
+        }
+      ],
+      "sections": []
+    },
+    {
       "path": "github_app",
       "description": "The GitHub App an engine fetches and pushes as.",
       "settings": [
