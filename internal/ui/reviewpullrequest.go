@@ -198,7 +198,7 @@ func (r *reviewScreen) pullRequestActions() screenActionSpec {
 				id:   actionReviewBack,
 				keys: func(k config.Keybindings) []string { return k.Review.Back },
 				nav: func(*model, string) tea.Cmd {
-					r.focus = reviewFocusDiff
+					r.blurPullRequest()
 
 					return nil
 				},
