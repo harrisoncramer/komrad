@@ -136,7 +136,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 // the base brought with it.
 func TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
 	rounds := reviewAcrossARebase(t, "// main moved\n"+greetBefore, false)
-	client := git.NewClient()
+	client := git.NewClient(git.NewClientParams{})
 
 	naive := readGitOutput(t, rounds.tree, "diff", "--name-only",
 		rounds.first.GetSnapshotSha(), rounds.second.GetSnapshotSha())
@@ -186,7 +186,7 @@ func TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testi
 func TestIntegrationRoundsEitherSideOfAConflictedRebaseNameThePath(t *testing.T) {
 	rounds := reviewAcrossARebase(t, "package greet\n\nfunc Hello() {}\n\nfunc Main() {}\n", true)
 
-	replayed, err := git.NewClient().Replay(t.Context(), git.ReplayParams{
+	replayed, err := git.NewClient(git.NewClientParams{}).Replay(t.Context(), git.ReplayParams{
 		Dir:         rounds.tree,
 		FromBase:    rounds.first.GetBaseSha(),
 		OntoBase:    rounds.second.GetBaseSha(),

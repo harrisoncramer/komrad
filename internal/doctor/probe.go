@@ -131,7 +131,7 @@ func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) 
 
 // resolveWorkflowBase is the ref a workflow's clone holds for its base, read without a fetch.
 func resolveWorkflowBase(ctx context.Context, dir, base string) (string, error) {
-	client := git.NewClient()
+	client := git.NewClient(git.NewClientParams{})
 
 	root, err := client.GetRoot(ctx, dir)
 	if err != nil {

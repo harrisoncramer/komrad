@@ -47,7 +47,7 @@ func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 	head := readGitOutput(t, tree, "rev-parse", "HEAD")
 
 	engine := git.NewEngineClient(instance.Git)
-	local := git.NewClient()
+	local := git.NewClient(git.NewClientParams{})
 
 	t.Run("the panel reads the agent's change as the engine's own git does", func(t *testing.T) {
 		root, err := engine.GetRoot(ctx, filepath.Join(tree, "proto"))

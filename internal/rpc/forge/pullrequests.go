@@ -6,7 +6,6 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/forge"
-	"komrad/internal/git"
 	"komrad/internal/rpcerr"
 	"komrad/lib/dates"
 	"komrad/lib/pagination"
@@ -38,7 +37,7 @@ func (c pageCursor) Validate() error {
 // ListForgePullRequests is one page of a repository's pull requests, read through the
 // connection for the repository's host.
 func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListForgePullRequestsRequest) (*forgev1.ListForgePullRequestsResponse, *fail.Error) {
-	repo, err := git.ParseRemoteURL(req.GetRemoteUrl())
+	repo, err := s.remotes.ParseRemoteURL(ctx, req.GetRemoteUrl())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the remote")
 	}

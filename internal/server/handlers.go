@@ -110,7 +110,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	}), options...)
 	configv1komrad.RegisterConfigService(mux, rpcconfig.NewHandler(svc.loadConfig), options...)
 	hookv1komrad.RegisterHookService(mux, rpchook.NewHandler(svc.script), options...)
-	forgev1komrad.RegisterForgeService(mux, rpcforge.NewHandler(svc.pullRequests.forge, svc.pullRequests.writer), options...)
+	forgev1komrad.RegisterForgeService(mux, rpcforge.NewHandler(svc.pullRequests.forge, svc.pullRequests.writer, svc.git), options...)
 	pullrequestv1komrad.RegisterPullRequestService(mux, rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{
 		PullRequests: svc.pullRequests.lister,
 		Dismisser:    svc.pullRequests.dismisser,

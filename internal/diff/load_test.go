@@ -18,7 +18,7 @@ import (
 )
 
 // gitClient is the git these tests drive.
-var gitClient = git.NewClient()
+var gitClient = git.NewClient(git.NewClientParams{})
 
 func write(t *testing.T, root, path, content string) {
 	t.Helper()

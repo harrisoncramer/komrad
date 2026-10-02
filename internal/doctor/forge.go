@@ -4,7 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"komrad/internal/forge"
 )
+
+// connectFirstFix is how a person connects either public forge.
+const connectFirstFix = "gh auth token | komrad forge connect github.com, or for GitLab, " +
+	"komrad forge connect gitlab.com --token-file <a personal access token with the api scope>"
 
 var errForgesUnreadable = &ProblemError{
 	Code:    "forges_unreadable",
@@ -63,6 +69,10 @@ func worseForgeProblem(current, candidate *ProblemError) *ProblemError {
 type ForgeStatus struct {
 	Host  string
 	Login string
+	// Kind is which forge the host runs, github or gitlab.
+	Kind string
+	// Method is how the credential was obtained, token or github_app.
+	Method string
 	// Problem is what went wrong, empty when the forge accepted the credential.
 	Problem string
 	// ProblemKind is refused, no_credential or unreachable when Problem is set.
@@ -82,10 +92,10 @@ func newForgesCheck() Check {
 				return warn(fmt.Errorf("%w: %w", errForgesUnreadable, err), "")
 			}
 			if len(statuses) == 0 {
-				return warn(errNoForges, "gh auth token | komrad forge connect github.com")
+				return Result{Status: StatusWarn, Err: errNoForges, Fix: connectFirstFix}
 			}
 
-			var lines, failed []string
+			var lines, failed, fixes []string
 			var worst *ProblemError
 			for _, status := range statuses {
 				if status.Problem == "" {
@@ -96,16 +106,43 @@ func newForgesCheck() Check {
 
 				failed = append(failed, fmt.Sprintf("%s: %s", status.Host, status.Problem))
 				worst = worseForgeProblem(worst, classifyForgeProblem(status.ProblemKind))
+				if fix := reconnectFix(status); fix != "" {
+					fixes = append(fixes, fix)
+				}
 			}
 
 			if worst != nil {
-				return warn(
-					fmt.Errorf("%w: %s", worst, strings.Join(failed, "; ")),
-					strings.Join(lines, ", "),
-				)
+				return Result{
+					Status: StatusWarn,
+					Detail: strings.Join(lines, ", "),
+					Err:    fmt.Errorf("%w: %s", worst, strings.Join(failed, "; ")),
+					Fix:    strings.Join(fixes, "; "),
+				}
 			}
 
 			return pass(strings.Join(lines, ", "))
 		},
+	}
+}
+
+// reconnectFix is how a person gives a connection that lost its credential a new one, empty when
+// the trouble is reaching the forge rather than the credential.
+func reconnectFix(status ForgeStatus) string {
+	if status.ProblemKind != "refused" && status.ProblemKind != "no_credential" {
+		return ""
+	}
+
+	connect := "komrad forge connect " + status.Host
+	if _, err := forge.KindForHost(status.Host); err != nil {
+		connect += " --kind " + status.Kind
+	}
+
+	switch {
+	case status.Method == forge.MethodGitHubApp:
+		return connect + " --method github-app"
+	case status.Kind == forge.KindGitLab:
+		return connect + " --token-file <a personal access token with the api scope>"
+	default:
+		return "gh auth token --hostname " + status.Host + " | " + connect
 	}
 }

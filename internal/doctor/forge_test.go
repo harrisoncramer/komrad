@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestForgesCheck covers no forges, every forge answering, and one that refuses, which warns
-// and still names the ones that answered.
+// TestForgesCheck covers no forges, every forge answering, and ones in trouble, which warn with
+// the fix their kind of forge takes and still name the ones that answered.
 func TestForgesCheck(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -17,13 +17,14 @@ func TestForgesCheck(t *testing.T) {
 		err        error
 		wantStatus Status
 		wantDetail string
+		wantFix    string
 		wantCode   string
 		wantErr    string
 	}{
 		{
 			name:       "nothing connected",
 			wantStatus: StatusWarn,
-			wantDetail: "gh auth token | komrad forge connect github.com",
+			wantFix:    connectFirstFix,
 			wantCode:   "no_forges",
 		},
 		{
@@ -41,12 +42,15 @@ func TestForgesCheck(t *testing.T) {
 				{Host: "github.com", Login: "harrisoncramer"},
 				{
 					Host:        "gitlab.com",
+					Kind:        "gitlab",
+					Method:      "token",
 					Problem:     "Bad credentials",
 					ProblemKind: "refused",
 				},
 			},
 			wantStatus: StatusWarn,
 			wantDetail: "github.com as harrisoncramer",
+			wantFix:    "komrad forge connect gitlab.com --token-file <a personal access token with the api scope>",
 			wantCode:   "forge_refused",
 		},
 		{
@@ -54,6 +58,8 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "ghe.example.com",
+					Kind:        "github",
+					Method:      "token",
 					Problem:     "dial tcp: no such host",
 					ProblemKind: "unreachable",
 				},
@@ -66,16 +72,21 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "github.com",
+					Kind:        "github",
+					Method:      "token",
 					Problem:     "no credential file for github.com; connect it again",
 					ProblemKind: "no_credential",
 				},
 				{
 					Host:        "gitlab.com",
+					Kind:        "gitlab",
+					Method:      "token",
 					Problem:     "Bad credentials",
 					ProblemKind: "refused",
 				},
 			},
 			wantStatus: StatusWarn,
+			wantFix:    "gh auth token --hostname github.com | komrad forge connect github.com; komrad forge connect gitlab.com --token-file <a personal access token with the api scope>",
 			wantCode:   "forge_refused",
 			wantErr:    "github.com: no credential file for github.com; connect it again; gitlab.com: Bad credentials",
 		},
@@ -84,12 +95,45 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "github.com",
+					Kind:        "github",
+					Method:      "token",
 					Problem:     "no credential file for github.com; connect it again",
 					ProblemKind: "no_credential",
 				},
 			},
 			wantStatus: StatusWarn,
+			wantFix:    "gh auth token --hostname github.com | komrad forge connect github.com",
 			wantCode:   "forge_no_credential",
+		},
+		{
+			name: "a self-hosted gitlab names its kind",
+			statuses: []ForgeStatus{
+				{
+					Host:        "gitlab.example.com",
+					Kind:        "gitlab",
+					Method:      "token",
+					Problem:     "401 Unauthorized",
+					ProblemKind: "refused",
+				},
+			},
+			wantStatus: StatusWarn,
+			wantFix:    "komrad forge connect gitlab.example.com --kind gitlab --token-file <a personal access token with the api scope>",
+			wantCode:   "forge_refused",
+		},
+		{
+			name: "a github app is connected as the app again",
+			statuses: []ForgeStatus{
+				{
+					Host:        "github.com",
+					Kind:        "github",
+					Method:      "github_app",
+					Problem:     "installation removed",
+					ProblemKind: "refused",
+				},
+			},
+			wantStatus: StatusWarn,
+			wantFix:    "komrad forge connect github.com --method github-app",
+			wantCode:   "forge_refused",
 		},
 		{
 			name:       "the connections cannot be read",
@@ -109,6 +153,7 @@ func TestForgesCheck(t *testing.T) {
 
 			assert.Equal(t, tt.wantStatus, result.Status)
 			assert.Equal(t, tt.wantDetail, result.Detail)
+			assert.Equal(t, tt.wantFix, result.Fix)
 			if tt.wantCode != "" {
 				assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			}

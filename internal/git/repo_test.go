@@ -15,7 +15,7 @@ import (
 )
 
 // client is the git these tests drive.
-var client = NewClient()
+var client = NewClient(NewClientParams{})
 
 // TestMain keeps background gc and maintenance out of every repository these tests build.
 func TestMain(m *testing.M) {

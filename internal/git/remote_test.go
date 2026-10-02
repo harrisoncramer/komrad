@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -284,6 +285,38 @@ func TestParseRemoteURL(t *testing.T) {
 				Path:   "harrisoncramer/komrad",
 			},
 			canonical: komrad,
+		},
+		{
+			name: "ssh.github.com over 443 is github.com",
+			raw:  "ssh://git@ssh.github.com:443/harrisoncramer/komrad.git",
+			want: RemoteURL{
+				Scheme: "ssh",
+				Host:   "github.com",
+				Port:   "443",
+				Path:   "harrisoncramer/komrad",
+			},
+			canonical: komrad,
+		},
+		{
+			name: "scp-like ssh.github.com is github.com",
+			raw:  "git@ssh.github.com:harrisoncramer/komrad.git",
+			want: RemoteURL{
+				Scheme: "ssh",
+				Host:   "github.com",
+				Path:   "harrisoncramer/komrad",
+			},
+			canonical: komrad,
+		},
+		{
+			name: "altssh.gitlab.com over 443 is gitlab.com",
+			raw:  "ssh://git@altssh.gitlab.com:443/group/sub/repo.git",
+			want: RemoteURL{
+				Scheme: "ssh",
+				Host:   "gitlab.com",
+				Port:   "443",
+				Path:   "group/sub/repo",
+			},
+			canonical: "https://gitlab.com/group/sub/repo",
 		},
 		{
 			name: "www is kept on any other host",
@@ -608,6 +641,70 @@ func TestParseRemoteURL(t *testing.T) {
 			tt.want.Raw = tt.raw
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.canonical, got.Canonical())
+		})
+	}
+}
+
+// TestClientParseRemoteURL covers which remote forms take a named web host and which keep their own.
+func TestClientParseRemoteURL(t *testing.T) {
+	t.Parallel()
+
+	named := func() (map[string]string, error) {
+		return map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"}, nil
+	}
+
+	tests := []struct {
+		name     string
+		raw      string
+		sshHosts SSHHostsReader
+		want     string
+	}{
+		{
+			name:     "an ssh remote on a named host reads as its web host, without the ssh port",
+			raw:      "ssh://git@ssh.gitlab.example.com:2222/group/repo.git",
+			sshHosts: named,
+			want:     "https://gitlab.example.com/group/repo",
+		},
+		{
+			name:     "an scp-like remote on a named host reads as its web host",
+			raw:      "git@ssh.gitlab.example.com:group/repo.git",
+			sshHosts: named,
+			want:     "https://gitlab.example.com/group/repo",
+		},
+		{
+			name:     "an https remote keeps its host even when it is named",
+			raw:      "https://ssh.gitlab.example.com/group/repo.git",
+			sshHosts: named,
+			want:     "https://ssh.gitlab.example.com/group/repo",
+		},
+		{
+			name:     "an ssh remote on an unnamed host keeps its host",
+			raw:      "git@gitlab.other.com:group/repo.git",
+			sshHosts: named,
+			want:     "https://gitlab.other.com/group/repo",
+		},
+		{
+			name: "an ssh remote keeps its host when the ssh hosts cannot be read",
+			raw:  "git@ssh.gitlab.example.com:group/repo.git",
+			sshHosts: func() (map[string]string, error) {
+				return nil, errors.New("config is broken")
+			},
+			want: "https://ssh.gitlab.example.com/group/repo",
+		},
+		{
+			name: "an ssh remote keeps its host when the client reads no ssh hosts",
+			raw:  "git@ssh.gitlab.example.com:group/repo.git",
+			want: "https://ssh.gitlab.example.com/group/repo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			remote, err := NewClient(NewClientParams{SSHHosts: tt.sshHosts}).ParseRemoteURL(t.Context(), tt.raw)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, remote.Canonical())
 		})
 	}
 }
