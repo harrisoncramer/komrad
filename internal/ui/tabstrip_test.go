@@ -109,7 +109,7 @@ func TestTabStrip(t *testing.T) {
 	t.Run("a pane too short for the strip and a row draws no strip and takes no keys", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
-			height: 6,
+			height: 7,
 		})
 		harness.press("shift+tab", "G")
 		frame := harness.readFrame()
@@ -117,37 +117,37 @@ func TestTabStrip(t *testing.T) {
 		assert.Contains(t, frame, "/trees/agent39", "to the row the cursor stands on")
 
 		harness.press("f")
-		assert.NotContains(t, readLastLine(harness.readFrame()), stripLegend)
+		assert.NotContains(t, harness.readFrame(), stripLegend)
 
-		resize(harness, 80, 7)
-		assert.NotContains(t, readLastLine(harness.readFrame()), stripLegend, "and the refused press does not wake once the pane grows")
+		resize(harness, 80, 8)
+		assert.NotContains(t, harness.readFrame(), stripLegend, "and the refused press does not wake once the pane grows")
 	})
 
 	t.Run("a pane one row taller draws the strip and still the cursor's row", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
-			height: 7,
+			height: 8,
 		})
 		harness.press("shift+tab", "G")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame)[1], "f ")
 		assert.Contains(t, frame, "/trees/agent39")
-		assert.Len(t, splitLines(frame), 7)
+		assert.Len(t, splitLines(frame), 8)
 	})
 
 	t.Run("a shrink past the strip gives the keys back to the list for good", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
-			height: 7,
+			height: 8,
 		})
 		harness.press("shift+tab", "G", "f")
-		require.Contains(t, readLastLine(harness.readFrame()), stripLegend)
-
-		resize(harness, 80, 6)
-		assert.NotContains(t, readLastLine(harness.readFrame()), stripLegend)
+		require.Contains(t, harness.readFrame(), stripLegend)
 
 		resize(harness, 80, 7)
+		assert.NotContains(t, harness.readFrame(), stripLegend)
+
+		resize(harness, 80, 8)
 		harness.press("k")
 		assert.Contains(t, harness.readFrame(), "/trees/agent38", "the next press moves the list")
 	})
@@ -219,10 +219,4 @@ func buildPinnedArchive() []proto.Message {
 	}
 
 	return rows
-}
-
-func readLastLine(frame string) string {
-	lines := splitLines(frame)
-
-	return lines[len(lines)-1]
 }

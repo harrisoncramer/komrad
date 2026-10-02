@@ -18,7 +18,6 @@
 
 
 
-
                                                              Welcome, komrad!
 
                                            Press 'space' then 'w' to set up your first workflow
@@ -37,4 +36,5 @@
 
 
 [90m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m
-[90mspace[m [90mmenu[m[90m • [m[90menter[m [90mopen[m[90m • [m[90m?[m [90mshow help[m[90m • [m[90mtab[m [90mswitch view[m                                                                            [1;34m NORMAL [m
+[90mspace[m [90mmenu[m[90m • [m[90menter[m [90mopen[m[90m • [m[90m?[m [90mshow help[m[90m • [m[90mtab[m [90mswitch view[m
+                                                                                                                                   [1;34m NORMAL [m
