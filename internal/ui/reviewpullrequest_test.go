@@ -14,12 +14,32 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
+
+func newPullRequestReviewServer(t *testing.T) *reviewServer {
+	t.Helper()
+
+	server := newReviewServer(t)
+	server.agent.RepositoryUrl = xptr.Ptr(repositoryURL)
+	server.agent.Branch = xptr.Ptr("agent/auth")
+	server.forge = []proto.Message{&pullrequestv1.PullRequest{
+		Id:                "pr-1",
+		RepositoryUrl:     repositoryURL,
+		HeadRepositoryUrl: repositoryURL,
+		HeadBranch:        "agent/auth",
+		Number:            7,
+		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		OpenedAt:          "2026-09-19T12:00:00Z",
+	}}
+
+	return server
+}
 
 func newDescribedReviewServer(t *testing.T, body string) *reviewServer {
 	t.Helper()
 
-	server := newOfferedReviewServer(t)
+	server := newPullRequestReviewServer(t)
 	pullRequest := server.forge[0].(*pullrequestv1.PullRequest)
 	pullRequest.Title = "fix the greeting"
 	pullRequest.Author = "dana"
@@ -38,7 +58,7 @@ func TestReviewPullRequest(t *testing.T) {
 	})
 
 	t.Run("a pull request whose title is not read yet draws no block", func(t *testing.T) {
-		harness := openReviewAt(t, newOfferedReviewServer(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newPullRequestReviewServer(t), panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readSidebarProse(harness.readFrame()), "#7")
 	})

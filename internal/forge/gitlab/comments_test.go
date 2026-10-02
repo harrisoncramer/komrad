@@ -60,12 +60,14 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "gid://gitlab/DiffNote/1",
+					ReviewID:   "gid://gitlab/Discussion/d1",
 					Login:      "dana",
 					Body:       "charlie should be capitalised",
 					WrittenAt:  time.Date(2026, 10, 2, 12, 25, 57, 0, time.UTC),
 				},
 				{
 					ProviderID: "gid://gitlab/DiffNote/2",
+					ReviewID:   "gid://gitlab/Discussion/d1",
 					Login:      "harrisoncramer",
 					Body:       "agreed, will fix",
 					WrittenAt:  time.Date(2026, 10, 2, 12, 26, 1, 0, time.UTC),
@@ -83,6 +85,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "gid://gitlab/DiffNote/3",
+					ReviewID:   "gid://gitlab/Discussion/d2",
 					Login:      "lint-bot",
 					Bot:        true,
 					Body:       "echo will change",
@@ -101,6 +104,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "gid://gitlab/DiffNote/5",
+					ReviewID:   "gid://gitlab/Discussion/d3",
 					Login:      "dana",
 					Body:       "why drop the title",
 					WrittenAt:  time.Date(2026, 10, 2, 12, 25, 59, 0, time.UTC),
@@ -114,6 +118,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "gid://gitlab/DiffNote/6",
+					ReviewID:   "gid://gitlab/Discussion/d4",
 					Login:      "dana",
 					Body:       "whole file remark",
 					WrittenAt:  time.Date(2026, 10, 2, 12, 26, 0, 0, time.UTC),
@@ -126,6 +131,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "gid://gitlab/Note/7",
+					ReviewID:   "gid://gitlab/Discussion/d5",
 					Login:      "dana",
 					Body:       "overall looks fine",
 					WrittenAt:  time.Date(2026, 10, 2, 12, 25, 59, 0, time.UTC),
@@ -168,6 +174,7 @@ func TestReviewThreadsReadsEveryPage(t *testing.T) {
 		URL:        "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_2",
 		Comments: []forge.ReviewComment{{
 			ProviderID: "gid://gitlab/Note/2",
+			ReviewID:   "gid://gitlab/Discussion/d2",
 			Login:      "dana",
 			Body:       "overall looks fine",
 			WrittenAt:  time.Date(2026, 10, 2, 12, 25, 59, 0, time.UTC),

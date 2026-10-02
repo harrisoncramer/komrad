@@ -4,7 +4,6 @@ package pullrequest
 import (
 	"context"
 
-	"komrad/internal/caller"
 	"komrad/internal/fail"
 	"komrad/internal/pullrequests"
 	"komrad/internal/rpc/render"
@@ -13,8 +12,6 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
-
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // pullRequestLister is what the handler reads of what the sync has stored.
@@ -22,40 +19,19 @@ type pullRequestLister interface {
 	ListPullRequests(ctx context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error)
 }
 
-// forgeThreadDismisser is what the handler asks to dismiss a forge comment in the review.
-type forgeThreadDismisser interface {
-	DismissForgeThread(ctx context.Context, params pullrequests.DismissForgeThreadParams) error
-}
-
 type NewHandlerParams struct {
 	PullRequests pullRequestLister
-	Dismisser    forgeThreadDismisser
 }
 
 type Handler struct {
 	pullRequests pullRequestLister
-	dismisser    forgeThreadDismisser
 }
 
-// NewHandler constructs the handler over the lister and the dismisser.
+// NewHandler constructs the handler over the lister.
 func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{
 		pullRequests: params.PullRequests,
-		dismisser:    params.Dismisser,
 	}
-}
-
-// DismissForgeThread marks one forge thread dismissed in the person's review, or active again.
-func (s *Handler) DismissForgeThread(ctx context.Context, req *pullrequestv1.DismissForgeThreadRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.dismisser.DismissForgeThread(ctx, pullrequests.DismissForgeThreadParams{
-		ID:      req.GetId(),
-		Restore: req.GetRestore(),
-		AgentID: caller.From(ctx).AgentID,
-	}); err != nil {
-		return nil, rpcerr.From(err, "failed to dismiss the forge thread")
-	}
-
-	return &emptypb.Empty{}, nil
 }
 
 // ListPullRequests is one page of a repository's stored pull requests, the unfinished ones

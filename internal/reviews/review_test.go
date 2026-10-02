@@ -41,7 +41,6 @@ type reviewFixture struct {
 	worker    *agentstore.Agent
 	reviewer  *agentstore.Agent
 	stranger  *agentstore.Agent
-	offerID   string
 }
 
 // TestReviewEntitlement pins who may make each review call on whose work.
@@ -1059,14 +1058,13 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	})
 
 	service := NewReviewService(NewReviewServiceParams{
-		Reviews:      reviews,
-		Snapshots:    snapshots,
-		Workflows:    stores.Workflows,
-		Agents:       stores.Agents,
-		Events:       events,
-		Interrupter:  noInterrupter{},
-		ForgeThreads: stores.ForgeThreads,
-		StateDir:     t.TempDir(),
+		Reviews:     reviews,
+		Snapshots:   snapshots,
+		Workflows:   stores.Workflows,
+		Agents:      stores.Agents,
+		Events:      events,
+		Interrupter: noInterrupter{},
+		StateDir:    t.TempDir(),
 	})
 
 	_, err := service.OpenRound(t.Context(), worker.ID, personAuthor)

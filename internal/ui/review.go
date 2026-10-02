@@ -32,10 +32,6 @@ type reviewScreen struct {
 	// hold is the reader's own hold over the work, and the editor it may hold open.
 	hold reviewHold
 
-	// offer is the forge thread J last chose, empty until it has chosen one.
-	offer  string
-	offers reviewOffers
-
 	focus reviewFocus
 
 	// pullRequestTop is the first row of the description in view.
@@ -99,10 +95,6 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
 		return r.applyPaused(m, msg)
 	case reviewWroteMsg:
 		return r.applyWrote(m, msg)
-	case reviewOffersTracedMsg:
-		r.applyOffersTraced(msg)
-
-		return nil
 	case messageEditedMsg:
 		return r.applyMessageEdited(m, msg)
 	case tea.KeyPressMsg:

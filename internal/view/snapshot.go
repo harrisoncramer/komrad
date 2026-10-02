@@ -122,7 +122,6 @@ type Comments struct {
 	Open     int
 	Resolved int
 	Unread   int
-	External int
 }
 
 // Row is one line of the agents list as the panel found it.

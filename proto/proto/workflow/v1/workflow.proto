@@ -63,6 +63,7 @@ message WorkflowEventPrompt {
       "review.changes_requested",
       "review.commented",
       "review.commented_by_person",
+      "review.forge_commented",
       "review.answered"
     ]
   }];

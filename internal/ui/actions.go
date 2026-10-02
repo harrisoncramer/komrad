@@ -56,9 +56,6 @@ const (
 	actionReviewBaseForward
 	actionReviewAnswer
 	actionReviewJump
-	actionReviewOffer
-	actionReviewDismiss
-	actionReviewAccept
 	actionReviewCompose
 	actionReviewSend
 )

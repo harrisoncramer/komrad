@@ -92,9 +92,6 @@ func appendCommentsNotice(notices []notice, comments *view.Comments, whose strin
 	}
 
 	text := fmt.Sprintf("%s: %d open, %d resolved", whose, comments.Open, comments.Resolved)
-	if comments.External > 0 {
-		text += fmt.Sprintf(", %d from the forge", comments.External)
-	}
 
 	return appendNotice(notices, true, "", paint.ToneMuted, text)
 }

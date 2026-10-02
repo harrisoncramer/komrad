@@ -33,6 +33,9 @@ type Released struct {
 	Reopens  int                 `json:"reopens"`
 	Path     string              `json:"path"`
 	HasBody  bool                `json:"has_body"`
+	// ForgeLogin is the forge reviewer whose mirrored comments were released, blank for a review
+	// written in komrad.
+	ForgeLogin string `json:"forge_login"`
 }
 
 // Topic names the handler that tells the agent under review.
@@ -74,6 +77,8 @@ func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 // event is the event the release starts.
 func (r Released) event() string {
 	switch {
+	case r.ForgeLogin != "":
+		return eventprompts.ReviewForgeCommented
 	case r.ByPerson:
 		return eventprompts.ReviewCommentedByPerson
 	case r.Verdict == reviewstore.VerdictApproved:

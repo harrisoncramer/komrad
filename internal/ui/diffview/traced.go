@@ -16,7 +16,7 @@ type Traced struct {
 	Exact bool
 }
 
-// tracedByID is where git says each thread's or offer's lines went, keyed by its id.
+// tracedByID is where git says each thread's lines went, keyed by its id.
 type tracedByID map[string]Traced
 
 // pathOf is the file an id is about in the snapshot on screen.

@@ -23,7 +23,6 @@ func All() []watch.Resource {
 		mailstore.WatchedMail,
 		pullrequeststore.WatchedPullRequests,
 		pullrequeststore.WatchedRepositories,
-		pullrequeststore.WatchedForgeThreads,
 		reviewstore.WatchedReviews,
 		reviewstore.WatchedReviewThreads,
 		worktreestore.WatchedWorktrees,

@@ -9,7 +9,6 @@ import (
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	reviewstore "komrad/internal/store/review"
-	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -20,7 +19,6 @@ type reviewConversation interface {
 		params reviews.ListReviewThreadsParams,
 	) ([]reviews.ReviewThreadWithMessages, error)
 	CreateReviewThread(ctx context.Context, params reviews.CreateReviewThreadParams) (*reviews.ReviewThreadWithMessages, error)
-	AcceptForgeThread(ctx context.Context, params reviews.AcceptForgeThreadParams) (*reviews.ReviewThreadWithMessages, error)
 	AddReviewMessage(ctx context.Context, params reviews.AddReviewMessageParams) (*reviews.AddReviewMessageResult, error)
 	EditReviewMessage(ctx context.Context, params reviews.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
@@ -86,32 +84,6 @@ func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1.CreateRev
 	}
 
 	return &agentv1.CreateReviewThreadResponse{Thread: render.ReviewThread(thread.Thread, thread.Messages)}, nil
-}
-
-// AcceptForgeThread copies the forge comments the person read into their review.
-func (s *Handler) AcceptForgeThread(ctx context.Context, req *agentv1.AcceptForgeThreadRequest) (*agentv1.AcceptForgeThreadResponse, *fail.Error) {
-	thread, err := s.review.AcceptForgeThread(ctx, reviews.AcceptForgeThreadParams{
-		AgentID:       req.GetAgentId(),
-		ForgeThreadID: req.GetForgeThreadId(),
-		Seen: xslice.Map(req.GetSeen(), func(seen *agentv1.SeenForgeComment) reviews.SeenForgeComment {
-			return reviews.SeenForgeComment{ID: seen.GetId(), EditedAt: dates.ParsePtr(seen.GetEditedAt())}
-		}),
-		BaseSHA:     req.GetBaseSha(),
-		SnapshotSHA: req.GetSnapshotSha(),
-		FilePath:    req.GetFilePath(),
-		OldStart:    req.GetOldStart(),
-		OldEnd:      req.GetOldEnd(),
-		NewStart:    req.GetNewStart(),
-		NewEnd:      req.GetNewEnd(),
-		QuotedLines: req.GetQuotedLines(),
-		Note:        req.GetNote(),
-		Author:      reviewAuthorFrom(ctx),
-	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to accept the forge thread")
-	}
-
-	return &agentv1.AcceptForgeThreadResponse{Thread: render.ReviewThread(thread.Thread, thread.Messages)}, nil
 }
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.

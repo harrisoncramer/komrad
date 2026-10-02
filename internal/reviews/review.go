@@ -10,7 +10,6 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/clock"
@@ -59,7 +58,7 @@ type ReviewAuthor struct {
 
 // IsHuman reports whether the call came from the person reviewing rather than from an agent.
 func (a ReviewAuthor) IsHuman() bool {
-	return a.Kind != reviewstore.AuthorAgent
+	return a.Kind == reviewstore.AuthorHuman
 }
 
 // ReviewThreadWithMessages is a thread and everything said in it.
@@ -70,13 +69,12 @@ type ReviewThreadWithMessages struct {
 
 // NewReviewServiceParams is everything the review service reads and tells.
 type NewReviewServiceParams struct {
-	Reviews      *reviewstore.ReviewStore
-	Snapshots    reviewSnapshotter
-	Workflows    *workflowstore.WorkflowStore
-	Agents       *agentstore.AgentStore
-	Events       eventRecorder
-	Interrupter  agentInterrupter
-	ForgeThreads *pullrequeststore.ForgeThreadStore
+	Reviews     *reviewstore.ReviewStore
+	Snapshots   reviewSnapshotter
+	Workflows   *workflowstore.WorkflowStore
+	Agents      *agentstore.AgentStore
+	Events      eventRecorder
+	Interrupter agentInterrupter
 	// StateDir is where komrad keeps its own files.
 	StateDir string
 }
@@ -84,29 +82,27 @@ type NewReviewServiceParams struct {
 // ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
 // only copy.
 type ReviewService struct {
-	reviews      *reviewstore.ReviewStore
-	snapshots    reviewSnapshotter
-	workflows    *workflowstore.WorkflowStore
-	agents       *agentstore.AgentStore
-	events       eventRecorder
-	interrupter  agentInterrupter
-	forgeThreads *pullrequeststore.ForgeThreadStore
-	stateDir     string
-	roundLocks   *agentLocks
+	reviews     *reviewstore.ReviewStore
+	snapshots   reviewSnapshotter
+	workflows   *workflowstore.WorkflowStore
+	agents      *agentstore.AgentStore
+	events      eventRecorder
+	interrupter agentInterrupter
+	stateDir    string
+	roundLocks  *agentLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
 func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		reviews:      params.Reviews,
-		snapshots:    params.Snapshots,
-		workflows:    params.Workflows,
-		agents:       params.Agents,
-		events:       params.Events,
-		interrupter:  params.Interrupter,
-		forgeThreads: params.ForgeThreads,
-		stateDir:     params.StateDir,
-		roundLocks:   newAgentLocks(),
+		reviews:     params.Reviews,
+		snapshots:   params.Snapshots,
+		workflows:   params.Workflows,
+		agents:      params.Agents,
+		events:      params.Events,
+		interrupter: params.Interrupter,
+		stateDir:    params.StateDir,
+		roundLocks:  newAgentLocks(),
 	}
 }
 
@@ -414,6 +410,11 @@ func (s *ReviewService) AddReviewMessage(
 		})
 		if err != nil {
 			return nil, err
+		}
+		if params.Author.IsHuman() && thread.ForgeThreadID != nil {
+			_, held, err := releaseHeldForge(ctx, tx, thread.AgentID)
+
+			return held, err
 		}
 		if !answering {
 			return nil, nil

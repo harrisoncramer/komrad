@@ -14,6 +14,8 @@ enum ReviewAuthorKind {
   REVIEW_AUTHOR_KIND_HUMAN = 1;
   // The agent whose work is being read, or the reviewer reading it.
   REVIEW_AUTHOR_KIND_AGENT = 2;
+  // Someone on the forge, whose comment komrad mirrored from the pull request.
+  REVIEW_AUTHOR_KIND_FORGE = 3;
 }
 
 // ReviewDeliveryState is how far one of the person's comments has got towards the agent reading
@@ -74,7 +76,7 @@ message Review {
   string round_id = 3;
   // Which round that is, counting from one, so a caller need not fetch the round to say.
   int32 round_ordinal = 4;
-  // Whether a person or an agent wrote it.
+  // Whether a person, an agent or someone on the forge wrote it.
   ReviewAuthorKind author_kind = 5;
   // The agent giving the review, absent when the person reviewing is.
   optional string author_agent_id = 6;
@@ -97,6 +99,8 @@ message Review {
   // finished, which the verdict does not say, since a verdict is what its author concluded at
   // the time rather than what has happened since.
   int32 open_threads = 14;
+  // The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
+  string external_login = 15;
 }
 
 // WatchedReview is a review as the watch carries it, without its body.
@@ -111,7 +115,7 @@ message WatchedReview {
   int32 round_ordinal = 4;
   // The commit that round froze the agent's checkout as.
   string round_snapshot_sha = 5;
-  // Whether a person or an agent wrote it.
+  // Whether a person, an agent or someone on the forge wrote it.
   ReviewAuthorKind author_kind = 6;
   // The agent giving the review, absent when the person reviewing is.
   optional string author_agent_id = 7;
@@ -127,6 +131,8 @@ message WatchedReview {
   string updated_at = 12;
   // When the base branch was first seen holding the round whole, empty until then.
   string round_landed_at = 13;
+  // The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
+  string external_login = 14;
 }
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
@@ -176,7 +182,7 @@ message ReviewMessage {
   string id = 1;
   // Which conversation it belongs to.
   string thread_id = 2;
-  // Whether a person or an agent wrote it.
+  // Whether a person, an agent or someone on the forge wrote it.
   ReviewAuthorKind author_kind = 3;
   // The agent that wrote it, absent for the person reviewing and cleared if that agent is
   // deleted. author_kind, not this, is what says who wrote it.
@@ -201,11 +207,11 @@ message ReviewMessage {
   optional string review_id = 12;
   // The round an addressed reply was taken of. Absent on every other message.
   optional string round_id = 13;
-  // The forge comment the person passed on as this message, absent for anything written in komrad.
+  // The forge comment this message was mirrored from, absent for anything written in komrad.
   optional ForgeOrigin forge = 14;
 }
 
-// ForgeOrigin is a forge comment as it stood when the person accepted it into their review.
+// ForgeOrigin is the forge comment a message was mirrored from.
 message ForgeOrigin {
   // The forge login of whoever wrote it, empty when the forge no longer knew them.
   string login = 1;
@@ -262,49 +268,6 @@ message CreateReviewThreadRequest {
 
 message CreateReviewThreadResponse {
   // The thread as opened, private until the batch is released.
-  ReviewThread thread = 1;
-}
-
-message AcceptForgeThreadRequest {
-  // Whose diff the forge thread is on.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The forge thread to accept.
-  string forge_thread_id = 2 [(buf.validate.field).string.min_len = 1];
-  // Every comment of the thread the person read, as they read it. Refused when the forge has
-  // changed one since.
-  repeated SeenForgeComment seen = 3 [(buf.validate.field).repeated.min_items = 1];
-  // Which file the new thread is pinned to, relative to the checkout.
-  string file_path = 4 [(buf.validate.field).string.min_len = 1];
-  // The commit the old side of these line numbers was read against, empty for the round's own
-  // base.
-  string base_sha = 5;
-  // The commit the new side of these line numbers was read against.
-  string snapshot_sha = 6;
-  // Where the range begins on the old side of the diff, counting from one.
-  int32 old_start = 7;
-  // Where it ends on the old side, inclusive.
-  int32 old_end = 8;
-  // Where the range begins on the new side.
-  int32 new_start = 9;
-  // Where it ends on the new side, inclusive.
-  int32 new_end = 10;
-  // The diff lines the thread is pinned to, each keeping its leading marker.
-  repeated string quoted_lines = 11;
-  // What the person adds under the forge's comments, empty for nothing.
-  string note = 12 [(buf.validate.field).string.max_len = 1000];
-}
-
-// SeenForgeComment is one forge comment as the person read it.
-message SeenForgeComment {
-  // The handle komrad keys the comment by.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  // When it had last been edited, in RFC 3339, unset while it never had been.
-  optional string edited_at = 2;
-}
-
-message AcceptForgeThreadResponse {
-  // The review thread the forge's comments were copied into, private until the review is
-  // released.
   ReviewThread thread = 1;
 }
 

@@ -13,7 +13,6 @@ import (
 
 	"komrad/internal/assemble"
 	"komrad/internal/client"
-	"komrad/internal/forge"
 	"komrad/internal/komradtest"
 	"komrad/internal/rpc/render"
 	"komrad/internal/storetest"
@@ -151,30 +150,6 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 			took: func(t *testing.T, stores view) {
 				assert.Equal(t, int32(3), stores.agents[quiet.ID].GetPullRequest().GetNumber())
-			},
-		},
-		{
-			name: "a person on the forge opens a thread on an agent's open pull request",
-			write: func(t *testing.T) {
-				require.NoError(t, pullrequeststore.NewForgeThreadStore(st.Pool.GetDB()).SetThreads(ctx, pullrequeststore.SetThreadsParams{
-					PullRequestID: openPR,
-					Viewer:        "harrisoncramer",
-					Threads: []forge.ReviewThread{{
-						ProviderID: "T_1",
-						Path:       "main.go",
-						Line:       3,
-						CommitSHA:  "head2",
-						Comments: []forge.ReviewComment{{
-							ProviderID: "C_1",
-							Login:      "dana",
-							Body:       "rename this",
-							WrittenAt:  time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC),
-						}},
-					}},
-				}))
-			},
-			took: func(t *testing.T, stores view) {
-				assert.Equal(t, int32(1), stores.agents[api.ID].GetPersonComments().GetExternal())
 			},
 		},
 		{
@@ -378,9 +353,6 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	reviewThreads, err := reviewstore.NewThreadStore(st.Pool.GetDB()).ListWatched(ctx, nil)
 	require.NoError(t, err)
 
-	forgeThreads, err := pullrequeststore.NewForgeThreadStore(st.Pool.GetDB()).ListWatched(ctx, nil)
-	require.NoError(t, err)
-
 	workflows, err := st.Workflows.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	require.NoError(t, err)
 
@@ -411,9 +383,6 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		}),
 		ReviewThreads: xslice.KeyBy(xslice.Map(reviewThreads, render.WatchedReviewThread), func(r *agentv1.ReviewThread) string {
 			return r.GetId()
-		}),
-		ForgeThreads: xslice.KeyBy(xslice.Map(forgeThreads, render.ForgeThread), func(f *pullrequestv1.ForgeThread) string {
-			return f.GetId()
 		}),
 	}
 }

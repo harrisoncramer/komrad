@@ -134,9 +134,6 @@ const (
 	// AgentServiceCreateReviewThreadProcedure is the fully-qualified name of the AgentService's
 	// CreateReviewThread RPC.
 	AgentServiceCreateReviewThreadProcedure = "/agent.v1.AgentService/CreateReviewThread"
-	// AgentServiceAcceptForgeThreadProcedure is the fully-qualified name of the AgentService's
-	// AcceptForgeThread RPC.
-	AgentServiceAcceptForgeThreadProcedure = "/agent.v1.AgentService/AcceptForgeThread"
 	// AgentServiceAddReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// AddReviewMessage RPC.
 	AgentServiceAddReviewMessageProcedure = "/agent.v1.AgentService/AddReviewMessage"
@@ -226,7 +223,6 @@ type AgentServiceClient interface {
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
-	AcceptForgeThread(context.Context, *connect.Request[v1.AcceptForgeThreadRequest]) (*connect.Response[v1.AcceptForgeThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
@@ -503,12 +499,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("CreateReviewThread")),
 			connect.WithClientOptions(opts...),
 		),
-		acceptForgeThread: connect.NewClient[v1.AcceptForgeThreadRequest, v1.AcceptForgeThreadResponse](
-			httpClient,
-			baseURL+AgentServiceAcceptForgeThreadProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("AcceptForgeThread")),
-			connect.WithClientOptions(opts...),
-		),
 		addReviewMessage: connect.NewClient[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse](
 			httpClient,
 			baseURL+AgentServiceAddReviewMessageProcedure,
@@ -662,7 +652,6 @@ type agentServiceClient struct {
 	markRunsRead             *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
 	listReviewThreads        *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
 	createReviewThread       *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
-	acceptForgeThread        *connect.Client[v1.AcceptForgeThreadRequest, v1.AcceptForgeThreadResponse]
 	addReviewMessage         *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
 	editReviewMessage        *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
 	planRebase               *connect.Client[v1.PlanRebaseRequest, v1.PlanRebaseResponse]
@@ -867,11 +856,6 @@ func (c *agentServiceClient) CreateReviewThread(ctx context.Context, req *connec
 	return c.createReviewThread.CallUnary(ctx, req)
 }
 
-// AcceptForgeThread calls agent.v1.AgentService.AcceptForgeThread.
-func (c *agentServiceClient) AcceptForgeThread(ctx context.Context, req *connect.Request[v1.AcceptForgeThreadRequest]) (*connect.Response[v1.AcceptForgeThreadResponse], error) {
-	return c.acceptForgeThread.CallUnary(ctx, req)
-}
-
 // AddReviewMessage calls agent.v1.AgentService.AddReviewMessage.
 func (c *agentServiceClient) AddReviewMessage(ctx context.Context, req *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error) {
 	return c.addReviewMessage.CallUnary(ctx, req)
@@ -996,7 +980,6 @@ type AgentServiceHandler interface {
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
-	AcceptForgeThread(context.Context, *connect.Request[v1.AcceptForgeThreadRequest]) (*connect.Response[v1.AcceptForgeThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
@@ -1269,12 +1252,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("CreateReviewThread")),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceAcceptForgeThreadHandler := connect.NewUnaryHandler(
-		AgentServiceAcceptForgeThreadProcedure,
-		svc.AcceptForgeThread,
-		connect.WithSchema(agentServiceMethods.ByName("AcceptForgeThread")),
-		connect.WithHandlerOptions(opts...),
-	)
 	agentServiceAddReviewMessageHandler := connect.NewUnaryHandler(
 		AgentServiceAddReviewMessageProcedure,
 		svc.AddReviewMessage,
@@ -1462,8 +1439,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceListReviewThreadsHandler.ServeHTTP(w, r)
 		case AgentServiceCreateReviewThreadProcedure:
 			agentServiceCreateReviewThreadHandler.ServeHTTP(w, r)
-		case AgentServiceAcceptForgeThreadProcedure:
-			agentServiceAcceptForgeThreadHandler.ServeHTTP(w, r)
 		case AgentServiceAddReviewMessageProcedure:
 			agentServiceAddReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceEditReviewMessageProcedure:
@@ -1653,10 +1628,6 @@ func (UnimplementedAgentServiceHandler) ListReviewThreads(context.Context, *conn
 
 func (UnimplementedAgentServiceHandler) CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.CreateReviewThread is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) AcceptForgeThread(context.Context, *connect.Request[v1.AcceptForgeThreadRequest]) (*connect.Response[v1.AcceptForgeThreadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.AcceptForgeThread is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error) {

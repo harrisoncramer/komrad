@@ -5,32 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"komrad/db"
 	"komrad/db/models"
-	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/internal/store"
-	"komrad/internal/watch"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
-	watchv1 "komrad/proto/gen/watch/v1"
 )
-
-// ErrAcceptedMoved is a forge thread accepted into another review thread since it was read.
-var ErrAcceptedMoved = fail.Precondition("the forge thread was accepted into another review thread since it was read")
-
-// WatchedForgeThreads declares the forge's review threads on watched pull requests to the watch.
-var WatchedForgeThreads = watch.Resource{
-	Enum:      watchv1.Resource_RESOURCE_FORGE_THREAD,
-	Table:     "forge_review_threads",
-	KeyColumn: "id",
-	Feeders: []watch.Feeder{
-		{
-			Table:  "forge_review_comments",
-			Column: "thread_id",
-		},
-	},
-}
 
 // CommentSyncTarget is an open pull request a live agent is linked to.
 type CommentSyncTarget struct {
@@ -52,10 +32,7 @@ type ForgeThread struct {
 	URL           string
 	Resolved      bool
 	WrittenAt     time.Time
-	Dismissed     bool
-	// AcceptedThreadID is the review thread the person copied this into, nil while they never have.
-	AcceptedThreadID *string
-	Comments         []ForgeComment
+	Comments      []ForgeComment
 }
 
 // ForgeComment is one comment in a forge review thread.
@@ -65,9 +42,13 @@ type ForgeComment struct {
 	AuthorLogin string
 	AuthorIsBot bool
 	Yours       bool
-	Body        string
-	WrittenAt   time.Time
-	EditedAt    *time.Time
+	// Trusted is whether the comment goes to the agent without the person releasing it.
+	Trusted bool
+	// ForgeReviewID is the forge review the comment was submitted in.
+	ForgeReviewID string
+	Body          string
+	WrittenAt     time.Time
+	EditedAt      *time.Time
 }
 
 // ForgeThreadStore holds the forge's copy of the review threads on the pull requests agents are linked to.
@@ -154,15 +135,18 @@ type setCommentsParams struct {
 
 func (s *ForgeThreadStore) setComments(ctx context.Context, params setCommentsParams) error {
 	for _, comment := range params.Comments {
+		yours := comment.Login != "" && comment.Login == params.Viewer
 		if err := s.queries.UpsertForgeReviewComment(ctx, models.UpsertForgeReviewCommentParams{
-			ThreadID:    params.ThreadID,
-			ProviderID:  comment.ProviderID,
-			AuthorLogin: comment.Login,
-			AuthorIsBot: comment.Bot,
-			Yours:       comment.Login != "" && comment.Login == params.Viewer,
-			Body:        comment.Body,
-			WrittenAt:   comment.WrittenAt,
-			EditedAt:    comment.EditedAt,
+			ThreadID:      params.ThreadID,
+			ProviderID:    comment.ProviderID,
+			AuthorLogin:   comment.Login,
+			AuthorIsBot:   comment.Bot,
+			Yours:         yours,
+			Trusted:       comment.Trusted || yours,
+			ForgeReviewID: comment.ReviewID,
+			Body:          comment.Body,
+			WrittenAt:     comment.WrittenAt,
+			EditedAt:      comment.EditedAt,
 		}); err != nil {
 			return fmt.Errorf("failed to write forge comment %s: %w", comment.ProviderID, err)
 		}
@@ -182,87 +166,45 @@ func (s *ForgeThreadStore) setComments(ctx context.Context, params setCommentsPa
 	return nil
 }
 
-// ListWatched returns whichever of keys are still forge threads on a watched pull request, or every one when keys is nil.
-func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]ForgeThread, error) {
-	if keys != nil {
-		keys = store.KeepIDs(keys)
+// ListOfPullRequest is every forge thread on a pull request with its comments, oldest first.
+func (s *ForgeThreadStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]ForgeThread, error) {
+	if !store.IsID(pullRequestID) {
+		return nil, nil
 	}
 
-	rows, err := s.queries.ListWatchedForgeReviewThreads(ctx, keys)
+	rows, err := s.queries.ListForgeReviewThreadsOfPullRequest(ctx, pullRequestID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the watched forge threads: %w", err)
+		return nil, fmt.Errorf("failed to list the forge threads of pull request %s: %w", pullRequestID, err)
 	}
 	if len(rows) == 0 {
 		return nil, nil
 	}
 
-	return s.withComments(ctx, rows)
-}
-
-// GetForAgent is one forge thread on a pull request the agent is linked to, or ErrNotFound.
-func (s *ForgeThreadStore) GetForAgent(ctx context.Context, id, agentID string) (*ForgeThread, error) {
-	if !store.IsID(id) || !store.IsID(agentID) {
-		return nil, store.ErrNotFound.Saying("no forge thread %s on agent %s", id, agentID)
-	}
-
-	row, err := s.queries.GetForgeReviewThreadOfAgent(ctx, models.GetForgeReviewThreadOfAgentParams{ID: id, AgentID: agentID})
-	if db.IsNoRows(err) {
-		return nil, store.ErrNotFound.Saying("no forge thread %s on agent %s", id, agentID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read forge thread %s: %w", id, err)
-	}
-
-	threads, err := s.withComments(ctx, []*models.ForgeReviewThread{row})
-	if err != nil {
-		return nil, err
-	}
-
-	return &threads[0], nil
-}
-
-func (s *ForgeThreadStore) withComments(ctx context.Context, rows []*models.ForgeReviewThread) ([]ForgeThread, error) {
 	ids := xslice.Map(rows, func(row *models.ForgeReviewThread) string { return row.ID })
-
 	comments, err := s.queries.ListForgeReviewCommentsOfThreads(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the comments of %d forge thread(s): %w", len(ids), err)
 	}
 
 	byThread := map[string][]ForgeComment{}
-	stored := map[string]time.Time{}
 	for _, row := range comments {
-		stored[row.ThreadID] = latest(stored[row.ThreadID], row.CreatedAt)
 		byThread[row.ThreadID] = append(byThread[row.ThreadID], ForgeComment{
-			ID:          row.ID,
-			ProviderID:  row.ProviderID,
-			AuthorLogin: row.AuthorLogin,
-			AuthorIsBot: row.AuthorIsBot,
-			Yours:       row.Yours,
-			Body:        row.Body,
-			WrittenAt:   row.WrittenAt,
-			EditedAt:    row.EditedAt,
+			ID:            row.ID,
+			ProviderID:    row.ProviderID,
+			AuthorLogin:   row.AuthorLogin,
+			AuthorIsBot:   row.AuthorIsBot,
+			Yours:         row.Yours,
+			Trusted:       row.Trusted,
+			ForgeReviewID: row.ForgeReviewID,
+			Body:          row.Body,
+			WrittenAt:     row.WrittenAt,
+			EditedAt:      row.EditedAt,
 		})
 	}
 
 	return xslice.Map(rows, func(row *models.ForgeReviewThread) ForgeThread {
-		return threadFromRow(row, byThread[row.ID], stored[row.ID])
+		return threadFromRow(row, byThread[row.ID])
 	}), nil
-}
-
-// ListIDsOfPullRequests returns the ids of every forge thread on the given pull requests.
-func (s *ForgeThreadStore) ListIDsOfPullRequests(ctx context.Context, pullRequestIDs []string) ([]string, error) {
-	storable := store.KeepIDs(pullRequestIDs)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	ids, err := s.queries.ListForgeReviewThreadIDsOfPullRequests(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the forge threads of %d pull requests: %w", len(storable), err)
-	}
-
-	return ids, nil
 }
 
 func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.UpsertForgeReviewThreadParams {
@@ -286,83 +228,19 @@ func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.Upse
 	return params
 }
 
-func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment, stored time.Time) ForgeThread {
+func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment) ForgeThread {
 	return ForgeThread{
-		ID:               row.ID,
-		PullRequestID:    row.PullRequestID,
-		ProviderID:       row.ProviderID,
-		Path:             row.Path,
-		Line:             int(xptr.Deref(row.Line)),
-		OldSide:          row.OldSide,
-		CommitSHA:        row.CommitSha,
-		Quote:            row.Quote,
-		URL:              row.Url,
-		Resolved:         row.Resolved,
-		WrittenAt:        row.WrittenAt,
-		Dismissed:        row.DismissedAt != nil && !stored.After(*row.DismissedAt),
-		AcceptedThreadID: row.AcceptedThreadID,
-		Comments:         comments,
+		ID:            row.ID,
+		PullRequestID: row.PullRequestID,
+		ProviderID:    row.ProviderID,
+		Path:          row.Path,
+		Line:          int(xptr.Deref(row.Line)),
+		OldSide:       row.OldSide,
+		CommitSHA:     row.CommitSha,
+		Quote:         row.Quote,
+		URL:           row.Url,
+		Resolved:      row.Resolved,
+		WrittenAt:     row.WrittenAt,
+		Comments:      comments,
 	}
-}
-
-// latest is the later of two times.
-func latest(a, b time.Time) time.Time {
-	if b.After(a) {
-		return b
-	}
-
-	return a
-}
-
-// SetDismissed stamps a forge thread dismissed, or clears the stamp, or ErrNotFound.
-func (s *ForgeThreadStore) SetDismissed(ctx context.Context, id string, dismissed bool) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no forge thread %s", id)
-	}
-
-	_, err := s.queries.SetForgeReviewThreadDismissed(ctx, models.SetForgeReviewThreadDismissedParams{
-		Dismissed: dismissed,
-		ID:        id,
-	})
-	if db.IsNoRows(err) {
-		return store.ErrNotFound.Saying("no forge thread %s", id)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to set forge thread %s dismissed: %w", id, err)
-	}
-
-	return nil
-}
-
-// LockAccepted holds a forge thread still accepted into the thread named until the transaction ends.
-func (s *ForgeThreadStore) LockAccepted(ctx context.Context, id, threadID string) error {
-	_, err := s.queries.LockForgeReviewThreadAccepted(ctx, models.LockForgeReviewThreadAcceptedParams{
-		ID:       id,
-		ThreadID: &threadID,
-	})
-	if db.IsNoRows(err) {
-		return ErrAcceptedMoved
-	}
-	if err != nil {
-		return fmt.Errorf("failed to lock forge thread %s: %w", id, err)
-	}
-
-	return nil
-}
-
-// SetAccepted links a forge thread to the review thread it was accepted into and clears its dismissal.
-func (s *ForgeThreadStore) SetAccepted(ctx context.Context, id, threadID string, previousThreadID *string) error {
-	_, err := s.queries.SetForgeReviewThreadAccepted(ctx, models.SetForgeReviewThreadAcceptedParams{
-		ThreadID:         &threadID,
-		ID:               id,
-		PreviousThreadID: previousThreadID,
-	})
-	if db.IsNoRows(err) {
-		return ErrAcceptedMoved
-	}
-	if err != nil {
-		return fmt.Errorf("failed to accept forge thread %s: %w", id, err)
-	}
-
-	return nil
 }

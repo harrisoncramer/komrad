@@ -80,16 +80,6 @@ WHERE
 ORDER BY
     t.id;
 
--- name: ListForgeReviewThreadIDsOfPullRequests :many
-SELECT
-    t.id
-FROM
-    forge_review_threads t
-WHERE
-    t.pull_request_id = ANY (@pull_request_ids::uuid[])
-ORDER BY
-    t.id;
-
 -- name: DeleteForgeReviewThreadsExcept :exec
 DELETE FROM forge_review_threads
 WHERE pull_request_id = @pull_request_id
@@ -102,6 +92,8 @@ INSERT INTO forge_review_comments(
     author_login,
     author_is_bot,
     yours,
+    trusted,
+    forge_review_id,
     body,
     written_at,
     edited_at)
@@ -111,6 +103,8 @@ VALUES (
     @author_login,
     @author_is_bot,
     @yours,
+    @trusted,
+    @forge_review_id,
     @body,
     @written_at,
     sqlc.narg('edited_at'))
@@ -122,14 +116,18 @@ ON CONFLICT (
         author_login = excluded.author_login,
         author_is_bot = excluded.author_is_bot,
         yours = excluded.yours,
+        trusted = excluded.trusted,
+        forge_review_id = excluded.forge_review_id,
         body = excluded.body,
         written_at = excluded.written_at,
         edited_at = excluded.edited_at
     WHERE (
-        forge_review_comments.author_login, forge_review_comments.author_is_bot, forge_review_comments.yours, forge_review_comments.body, forge_review_comments.written_at, forge_review_comments.edited_at) IS DISTINCT FROM (
+        forge_review_comments.author_login, forge_review_comments.author_is_bot, forge_review_comments.yours, forge_review_comments.trusted, forge_review_comments.forge_review_id, forge_review_comments.body, forge_review_comments.written_at, forge_review_comments.edited_at) IS DISTINCT FROM (
         excluded.author_login,
         excluded.author_is_bot,
         excluded.yours,
+        excluded.trusted,
+        excluded.forge_review_id,
         excluded.body,
         excluded.written_at,
         excluded.edited_at);
@@ -138,24 +136,6 @@ ON CONFLICT (
 DELETE FROM forge_review_comments
 WHERE thread_id = @thread_id
     AND NOT (provider_id = ANY (@kept::text[]));
-
--- name: ListWatchedForgeReviewThreads :many
-SELECT
-    t.*
-FROM
-    forge_review_threads t
-WHERE
-    EXISTS (
-        SELECT
-            1
-        FROM
-            agent_pull_requests o
-        WHERE
-            o.pull_request_id = t.pull_request_id)
-    AND (sqlc.narg('keys')::text[] IS NULL
-        OR t.id = ANY (sqlc.narg('keys')::uuid[]))
-ORDER BY
-    t.id;
 
 -- name: ListForgeReviewCommentsOfThreads :many
 SELECT
@@ -169,52 +149,14 @@ ORDER BY
     c.written_at,
     c.id;
 
--- name: SetForgeReviewThreadDismissed :one
-UPDATE
-    forge_review_threads t
-SET
-    dismissed_at = CASE WHEN @dismissed::boolean THEN
-        NOW()
-    END
-WHERE
-    t.id = @id
-RETURNING
-    t.id;
-
--- name: GetForgeReviewThreadOfAgent :one
+-- name: ListForgeReviewThreadsOfPullRequest :many
 SELECT
     t.*
 FROM
     forge_review_threads t
 WHERE
-    t.id = @id
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agent_pull_requests o
-        WHERE
-            o.pull_request_id = t.pull_request_id
-            AND o.agent_id = @agent_id);
-
--- name: LockForgeReviewThreadAccepted :one
-SELECT
-    t.id
-FROM
-    forge_review_threads t
-WHERE
-    t.id = @id
-    AND t.accepted_thread_id = @thread_id
-FOR UPDATE;
-
--- name: SetForgeReviewThreadAccepted :one
-UPDATE
-    forge_review_threads t
-SET
-    accepted_thread_id = @thread_id,
-    dismissed_at = NULL
-WHERE
-    t.id = @id
-    AND t.accepted_thread_id IS NOT DISTINCT FROM sqlc.narg('previous_thread_id')::uuid
-RETURNING
+    t.pull_request_id = @pull_request_id
+ORDER BY
+    t.written_at,
     t.id;
+

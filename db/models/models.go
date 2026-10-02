@@ -200,6 +200,7 @@ type ReviewAuthorKind string
 const (
 	ReviewAuthorKindHuman ReviewAuthorKind = "human"
 	ReviewAuthorKindAgent ReviewAuthorKind = "agent"
+	ReviewAuthorKindForge ReviewAuthorKind = "forge"
 )
 
 func (e *ReviewAuthorKind) Scan(src interface{}) error {
@@ -555,7 +556,7 @@ type ForgeConnection struct {
 	EngineID string
 }
 
-// One comment in a forge review thread, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it.
+// One comment in a forge review thread, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it.
 type ForgeReviewComment struct {
 	ID       string
 	ThreadID string
@@ -576,9 +577,13 @@ type ForgeReviewComment struct {
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// Whether the forge says the author may write to the repository, which releases their comments to the agent without the person sending them.
+	Trusted bool
+	// The forge's identifier for the review the comment was submitted in, empty when it names none.
+	ForgeReviewID string
 }
 
-// A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it.
+// A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it.
 type ForgeReviewThread struct {
 	ID            string
 	PullRequestID string
@@ -603,10 +608,6 @@ type ForgeReviewThread struct {
 	CommitSha string
 	// The text of the line the thread was written on as the forge's diff drew it, with its diff marker taken off.
 	Quote string
-	// When the person dismissed the thread in their review, null while they never have. A dismissed thread is still drawn but no longer counted. The sync leaves it alone, and a comment written on the forge after it makes the thread active again.
-	DismissedAt *time.Time
-	// The review thread the person accepted this thread into, null while they never have. Deleting that review thread, as discarding an unsent review does, makes this an offer again.
-	AcceptedThreadID *string
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.
@@ -730,6 +731,8 @@ type Review struct {
 	Body string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// The forge login of whoever wrote a review on the forge, empty when the forge no longer knew them. Null for a review written in komrad.
+	ExternalLogin *string
 }
 
 // One message in a review thread, written either by the reviewer or by the agent answering them.
@@ -752,11 +755,11 @@ type ReviewMessage struct {
 	EngineID string
 	// The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else.
 	RoundID *string
-	// The forge login of whoever wrote this on the forge, for a comment the person accepted from there, empty when the forge no longer knew them. Null for anything written in komrad.
+	// The forge login of whoever wrote this on the forge, for a comment that came from there, empty when the forge no longer knew them. Null for anything written in komrad.
 	ExternalLogin *string
-	// The forge comment this was copied from, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there.
+	// The forge comment this mirrors, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there.
 	ForgeCommentID *string
-	// When the forge comment had last been edited at the moment it was copied, null when it never had been. A later edit on the forge is told apart by this.
+	// When the forge comment had last been edited as of the last sync, null when it never had been.
 	ForgeEditedAt *time.Time
 }
 
@@ -813,6 +816,8 @@ type ReviewThread struct {
 	ResolvedByAgentID *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// The forge thread this thread mirrors, null for a thread written in komrad or once the forge has deleted it.
+	ForgeThreadID *string
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.

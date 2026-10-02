@@ -226,8 +226,8 @@ func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge
 		Prune:         true,
 	}))
 
-	stored, err := s.ForgeThreads.ListWatched(ctx, nil)
+	stored, err := s.ForgeThreads.ListOfPullRequest(ctx, pullRequest.ID)
 	require.NoError(t, err)
 
-	return xslice.Filter(stored, func(thread pullrequeststore.ForgeThread) bool { return thread.PullRequestID == pullRequest.ID })
+	return stored
 }

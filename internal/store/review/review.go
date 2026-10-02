@@ -22,6 +22,8 @@ const (
 	AuthorHuman AuthorKind = AuthorKind(models.ReviewAuthorKindHuman)
 	// AuthorAgent is the agent whose diff is being reviewed.
 	AuthorAgent AuthorKind = AuthorKind(models.ReviewAuthorKindAgent)
+	// AuthorForge is someone commenting on the pull request on the forge.
+	AuthorForge AuthorKind = AuthorKind(models.ReviewAuthorKindForge)
 )
 
 // Thread is one conversation pinned to a place in an agent's diff.
@@ -43,6 +45,8 @@ type Thread struct {
 	// ReviewAuthorAgentID is the agent that gave the review this thread was opened in, nil when
 	// the person reviewing did.
 	ReviewAuthorAgentID *string
+	// ForgeThreadID is the forge thread this one mirrors, nil for one opened in komrad.
+	ForgeThreadID       *string
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -139,6 +143,8 @@ type CreateThreadParams struct {
 	AuthorAgentID *string
 	// External is the forge comment the first message is copied from, nil for one written in komrad.
 	External *External
+	// ForgeThreadID is the forge thread this one mirrors, nil for one opened in komrad.
+	ForgeThreadID *string
 }
 
 // CreateThread pins a conversation to a place in a diff and writes its first message in one
@@ -162,6 +168,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 		ExternalLogin:  externalLogin(params.External),
 		ForgeCommentID: externalCommentID(params.External),
 		ForgeEditedAt:  externalEditedAt(params.External),
+		ForgeThreadID:  params.ForgeThreadID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a review thread on %q: %w", params.FilePath, err)
@@ -211,6 +218,7 @@ func (s *ReviewStore) ListThreads(ctx context.Context, agentID string) ([]Thread
 			RoundOrdinal:        row.RoundOrdinal,
 			ReviewReleasedAt:    row.ReviewReleasedAt,
 			ReviewAuthorAgentID: row.ReviewAuthorAgentID,
+			ForgeThreadID:       row.ForgeThreadID,
 			FilePath:            row.FilePath,
 			OldStart:            row.OldStart,
 			OldEnd:              row.OldEnd,
@@ -267,6 +275,7 @@ func (s *ReviewStore) GetThread(ctx context.Context, id string) (*Thread, error)
 		ResolvedAt:          row.ResolvedAt,
 		ResolvedByKind:      row.ResolvedByKind,
 		ResolvedByAgentID:   row.ResolvedByAgentID,
+		ForgeThreadID:       row.ForgeThreadID,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	})
@@ -566,6 +575,7 @@ func threadFromRow(row models.ReviewThread) Thread {
 		ResolvedAt:          row.ResolvedAt,
 		ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
 		ResolvedByAgentID:   row.ResolvedByAgentID,
+		ForgeThreadID:       row.ForgeThreadID,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	}

@@ -10,7 +10,6 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	_ "komrad/proto/gen/annotation/v1"
 	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
@@ -807,320 +806,11 @@ func (x *ListPullRequestsResponse) GetNextPageToken() string {
 	return ""
 }
 
-type DismissForgeThreadRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which forge thread to dismiss in the person's review.
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whether to make the thread active again rather than dismiss it.
-	Restore       bool `protobuf:"varint,2,opt,name=restore,proto3" json:"restore,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DismissForgeThreadRequest) Reset() {
-	*x = DismissForgeThreadRequest{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DismissForgeThreadRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DismissForgeThreadRequest) ProtoMessage() {}
-
-func (x *DismissForgeThreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DismissForgeThreadRequest.ProtoReflect.Descriptor instead.
-func (*DismissForgeThreadRequest) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *DismissForgeThreadRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *DismissForgeThreadRequest) GetRestore() bool {
-	if x != nil {
-		return x.Restore
-	}
-	return false
-}
-
-// ForgeThread is a review thread as the forge holds it on a pull request an agent is linked to,
-// which the panel offers the person and never hands an agent.
-type ForgeThread struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle komrad keys the row by.
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The pull request the thread is on.
-	PullRequestId string `protobuf:"bytes,2,opt,name=pull_request_id,json=pullRequestId,proto3" json:"pull_request_id,omitempty"`
-	// The file the thread is on, empty for a comment on the change as a whole.
-	Path string `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// The line of the file the thread was written against, counted in commit_sha on the side old_side names, zero when it names none.
-	Line int32 `protobuf:"varint,4,opt,name=line,proto3" json:"line,omitempty"`
-	// The web address of the thread's first comment on the forge.
-	Url string `protobuf:"bytes,5,opt,name=url,proto3" json:"url,omitempty"`
-	// Whether the forge reports the thread resolved.
-	Resolved bool `protobuf:"varint,6,opt,name=resolved,proto3" json:"resolved,omitempty"`
-	// When the thread's first comment was written, in RFC 3339.
-	WrittenAt string `protobuf:"bytes,7,opt,name=written_at,json=writtenAt,proto3" json:"written_at,omitempty"`
-	// The comments in the thread, oldest first.
-	Comments []*ForgeComment `protobuf:"bytes,8,rep,name=comments,proto3" json:"comments,omitempty"`
-	// Whether the line is counted on the old side of the forge's diff rather than the new one.
-	OldSide bool `protobuf:"varint,9,opt,name=old_side,json=oldSide,proto3" json:"old_side,omitempty"`
-	// The commit the forge counted the line in, empty when it names none.
-	CommitSha string `protobuf:"bytes,10,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
-	// The text of the line the thread was written on, as the forge's diff drew it, with its diff marker taken off.
-	Quote string `protobuf:"bytes,11,opt,name=quote,proto3" json:"quote,omitempty"`
-	// Whether the person dismissed the thread in their review and no comment has come in on it since. A dismissed thread is still drawn but no longer counted.
-	Dismissed bool `protobuf:"varint,12,opt,name=dismissed,proto3" json:"dismissed,omitempty"`
-	// The review thread the person accepted this thread into, unset while they never have.
-	AcceptedThreadId *string `protobuf:"bytes,13,opt,name=accepted_thread_id,json=acceptedThreadId,proto3,oneof" json:"accepted_thread_id,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *ForgeThread) Reset() {
-	*x = ForgeThread{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ForgeThread) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ForgeThread) ProtoMessage() {}
-
-func (x *ForgeThread) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ForgeThread.ProtoReflect.Descriptor instead.
-func (*ForgeThread) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ForgeThread) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *ForgeThread) GetPullRequestId() string {
-	if x != nil {
-		return x.PullRequestId
-	}
-	return ""
-}
-
-func (x *ForgeThread) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *ForgeThread) GetLine() int32 {
-	if x != nil {
-		return x.Line
-	}
-	return 0
-}
-
-func (x *ForgeThread) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
-func (x *ForgeThread) GetResolved() bool {
-	if x != nil {
-		return x.Resolved
-	}
-	return false
-}
-
-func (x *ForgeThread) GetWrittenAt() string {
-	if x != nil {
-		return x.WrittenAt
-	}
-	return ""
-}
-
-func (x *ForgeThread) GetComments() []*ForgeComment {
-	if x != nil {
-		return x.Comments
-	}
-	return nil
-}
-
-func (x *ForgeThread) GetOldSide() bool {
-	if x != nil {
-		return x.OldSide
-	}
-	return false
-}
-
-func (x *ForgeThread) GetCommitSha() string {
-	if x != nil {
-		return x.CommitSha
-	}
-	return ""
-}
-
-func (x *ForgeThread) GetQuote() string {
-	if x != nil {
-		return x.Quote
-	}
-	return ""
-}
-
-func (x *ForgeThread) GetDismissed() bool {
-	if x != nil {
-		return x.Dismissed
-	}
-	return false
-}
-
-func (x *ForgeThread) GetAcceptedThreadId() string {
-	if x != nil && x.AcceptedThreadId != nil {
-		return *x.AcceptedThreadId
-	}
-	return ""
-}
-
-// ForgeComment is one comment in a forge review thread.
-type ForgeComment struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle komrad keys the row by.
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The forge login of whoever wrote it, empty when the forge no longer knows them.
-	AuthorLogin string `protobuf:"bytes,2,opt,name=author_login,json=authorLogin,proto3" json:"author_login,omitempty"`
-	// Whether the forge says the author is a bot.
-	Bot bool `protobuf:"varint,3,opt,name=bot,proto3" json:"bot,omitempty"`
-	// Whether the author is the login a token connection was verified as. A connection made from an App marks nothing yours.
-	Yours bool `protobuf:"varint,4,opt,name=yours,proto3" json:"yours,omitempty"`
-	// What the comment says.
-	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	// When it was written on the forge, in RFC 3339.
-	WrittenAt string `protobuf:"bytes,6,opt,name=written_at,json=writtenAt,proto3" json:"written_at,omitempty"`
-	// When it was last edited on the forge, in RFC 3339, unset while it never has been.
-	EditedAt      *string `protobuf:"bytes,7,opt,name=edited_at,json=editedAt,proto3,oneof" json:"edited_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ForgeComment) Reset() {
-	*x = ForgeComment{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ForgeComment) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ForgeComment) ProtoMessage() {}
-
-func (x *ForgeComment) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ForgeComment.ProtoReflect.Descriptor instead.
-func (*ForgeComment) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *ForgeComment) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *ForgeComment) GetAuthorLogin() string {
-	if x != nil {
-		return x.AuthorLogin
-	}
-	return ""
-}
-
-func (x *ForgeComment) GetBot() bool {
-	if x != nil {
-		return x.Bot
-	}
-	return false
-}
-
-func (x *ForgeComment) GetYours() bool {
-	if x != nil {
-		return x.Yours
-	}
-	return false
-}
-
-func (x *ForgeComment) GetBody() string {
-	if x != nil {
-		return x.Body
-	}
-	return ""
-}
-
-func (x *ForgeComment) GetWrittenAt() string {
-	if x != nil {
-		return x.WrittenAt
-	}
-	return ""
-}
-
-func (x *ForgeComment) GetEditedAt() string {
-	if x != nil && x.EditedAt != nil {
-		return *x.EditedAt
-	}
-	return ""
-}
-
 var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
 	"\x17ListPullRequestsRequest\x121\n" +
 	"\x0erepository_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +
@@ -1175,39 +865,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"N\n" +
-	"\x19DismissForgeThreadRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
-	"\arestore\x18\x02 \x01(\bR\arestore\"\xac\x03\n" +
-	"\vForgeThread\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
-	"\x0fpull_request_id\x18\x02 \x01(\tR\rpullRequestId\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\x12\x12\n" +
-	"\x04line\x18\x04 \x01(\x05R\x04line\x12\x10\n" +
-	"\x03url\x18\x05 \x01(\tR\x03url\x12\x1a\n" +
-	"\bresolved\x18\x06 \x01(\bR\bresolved\x12\x1d\n" +
-	"\n" +
-	"written_at\x18\a \x01(\tR\twrittenAt\x128\n" +
-	"\bcomments\x18\b \x03(\v2\x1c.pullrequest.v1.ForgeCommentR\bcomments\x12\x19\n" +
-	"\bold_side\x18\t \x01(\bR\aoldSide\x12\x1d\n" +
-	"\n" +
-	"commit_sha\x18\n" +
-	" \x01(\tR\tcommitSha\x12\x14\n" +
-	"\x05quote\x18\v \x01(\tR\x05quote\x12\x1c\n" +
-	"\tdismissed\x18\f \x01(\bR\tdismissed\x121\n" +
-	"\x12accepted_thread_id\x18\r \x01(\tH\x00R\x10acceptedThreadId\x88\x01\x01B\x15\n" +
-	"\x13_accepted_thread_id\"\xcc\x01\n" +
-	"\fForgeComment\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
-	"\fauthor_login\x18\x02 \x01(\tR\vauthorLogin\x12\x10\n" +
-	"\x03bot\x18\x03 \x01(\bR\x03bot\x12\x14\n" +
-	"\x05yours\x18\x04 \x01(\bR\x05yours\x12\x12\n" +
-	"\x04body\x18\x05 \x01(\tR\x04body\x12\x1d\n" +
-	"\n" +
-	"written_at\x18\x06 \x01(\tR\twrittenAt\x12 \n" +
-	"\tedited_at\x18\a \x01(\tH\x00R\beditedAt\x88\x01\x01B\f\n" +
-	"\n" +
-	"_edited_at*\xf5\x03\n" +
+	"\x10_next_page_token*\xf5\x03\n" +
 	"\x10PullRequestState\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
@@ -1244,10 +902,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\xc0\x04\n" +
+	"\x0eCHECKS_FAILING\x10\x042\xd8\x02\n" +
 	"\x12PullRequestService\x12\xc1\x02\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\xe5\x01\n" +
-	"\x12DismissForgeThread\x12).pullrequest.v1.DismissForgeThreadRequest\x1a\x16.google.protobuf.Empty\"\x8b\x01\x9a\xb5\x18\x83\x01:\x80\x01Dismissing a comment from the forge is a person tidying their own review, and the handler refuses a caller that is not a person.\x90\x02\x02B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
@@ -1262,41 +919,34 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 }
 
 var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
-	(PullRequestState)(0),             // 0: pullrequest.v1.PullRequestState
-	(Mergeability)(0),                 // 1: pullrequest.v1.Mergeability
-	(ReviewDecision)(0),               // 2: pullrequest.v1.ReviewDecision
-	(Checks)(0),                       // 3: pullrequest.v1.Checks
-	(*ListPullRequestsRequest)(nil),   // 4: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),               // 5: pullrequest.v1.PullRequest
-	(*MergeReadiness)(nil),            // 6: pullrequest.v1.MergeReadiness
-	(*Repository)(nil),                // 7: pullrequest.v1.Repository
-	(*ListPullRequestsResponse)(nil),  // 8: pullrequest.v1.ListPullRequestsResponse
-	(*DismissForgeThreadRequest)(nil), // 9: pullrequest.v1.DismissForgeThreadRequest
-	(*ForgeThread)(nil),               // 10: pullrequest.v1.ForgeThread
-	(*ForgeComment)(nil),              // 11: pullrequest.v1.ForgeComment
-	(*v1.Pagination)(nil),             // 12: pagination.v1.Pagination
-	(*emptypb.Empty)(nil),             // 13: google.protobuf.Empty
+	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
+	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
+	(ReviewDecision)(0),              // 2: pullrequest.v1.ReviewDecision
+	(Checks)(0),                      // 3: pullrequest.v1.Checks
+	(*ListPullRequestsRequest)(nil),  // 4: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),              // 5: pullrequest.v1.PullRequest
+	(*MergeReadiness)(nil),           // 6: pullrequest.v1.MergeReadiness
+	(*Repository)(nil),               // 7: pullrequest.v1.Repository
+	(*ListPullRequestsResponse)(nil), // 8: pullrequest.v1.ListPullRequestsResponse
+	(*v1.Pagination)(nil),            // 9: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	12, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	6,  // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
-	2,  // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
-	3,  // 4: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
-	1,  // 5: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
-	5,  // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	11, // 7: pullrequest.v1.ForgeThread.comments:type_name -> pullrequest.v1.ForgeComment
-	4,  // 8: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	9,  // 9: pullrequest.v1.PullRequestService.DismissForgeThread:input_type -> pullrequest.v1.DismissForgeThreadRequest
-	8,  // 10: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	13, // 11: pullrequest.v1.PullRequestService.DismissForgeThread:output_type -> google.protobuf.Empty
-	10, // [10:12] is the sub-list for method output_type
-	8,  // [8:10] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	9, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	0, // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
+	6, // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
+	2, // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
+	3, // 4: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
+	1, // 5: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
+	5, // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	4, // 7: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	8, // 8: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	8, // [8:9] is the sub-list for method output_type
+	7, // [7:8] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -1307,15 +957,13 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[4].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[6].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   8,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

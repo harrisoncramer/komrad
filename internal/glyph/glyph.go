@@ -37,7 +37,6 @@ const (
 	Document
 	ReviewerComments
 	PersonComments
-	ForgeComments
 	Unread
 	Workflow
 	Archive
@@ -47,7 +46,6 @@ const (
 	ThreadRead
 	ThreadSettled
 	ThreadUnsent
-	ThreadDismissed
 	FileCurrent
 	Delivered
 	Held
@@ -86,7 +84,6 @@ var defined = [count]struct {
 	Document:         {"marks.document", ""},
 	ReviewerComments: {"marks.reviewer_comments", ""},
 	PersonComments:   {"marks.person_comments", ""},
-	ForgeComments:    {"marks.forge_comments", "\uf4ac"},
 	Unread:           {"marks.unread", "\uf49a"},
 	Workflow:         {"lists.workflow", ""},
 	Archive:          {"lists.archive", ""},
@@ -96,7 +93,6 @@ var defined = [count]struct {
 	ThreadRead:       {"review.read", "○"},
 	ThreadSettled:    {"review.settled", "✓"},
 	ThreadUnsent:     {"review.unsent", "◇"},
-	ThreadDismissed:  {"review.dismissed", "\uf517"},
 	FileCurrent:      {"review.current", "▸"},
 	Delivered:        {"review.delivered", "✓"},
 	Held:             {"review.held", "◇"},

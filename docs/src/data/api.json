@@ -1502,7 +1502,7 @@
       "slug": "pull-request",
       "title": "Pull Request",
       "name": "pullrequest.v1.PullRequestService",
-      "description": "PullRequestService reads the pull requests komrad has stored from its forges, and lets the person dismiss the forge's comments in their review or restore them.",
+      "description": "PullRequestService reads the pull requests komrad has stored from its forges.",
       "methods": [
         {
           "slug": "list-pull-requests",
@@ -2367,16 +2367,6 @@
           "oneof": "",
           "rules": [],
           "description": "How many of the comments hold a reply the person has not read."
-        },
-        {
-          "name": "external",
-          "type": "int32",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Open threads from people on the forge, offered to the person and not yet counted in open."
         }
       ]
     },
@@ -2949,7 +2939,7 @@
     },
     "agent.v1.ForgeOrigin": {
       "name": "ForgeOrigin",
-      "description": "ForgeOrigin is a forge comment as it stood when the person accepted it into their review.",
+      "description": "ForgeOrigin is the forge comment a message was mirrored from.",
       "fields": [
         {
           "name": "login",
@@ -4907,7 +4897,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a person or an agent wrote it."
+          "description": "Whether a person, an agent or someone on the forge wrote it."
         },
         {
           "name": "author_agent_id",
@@ -4998,6 +4988,16 @@
           "oneof": "",
           "rules": [],
           "description": "How many of this review's comments nobody has settled. A released review with none left is finished, which the verdict does not say, since a verdict is what its author concluded at the time rather than what has happened since."
+        },
+        {
+          "name": "external_login",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The forge login of whoever wrote a review mirrored from the forge, empty otherwise."
         }
       ]
     },
@@ -5033,7 +5033,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a person or an agent wrote it."
+          "description": "Whether a person, an agent or someone on the forge wrote it."
         },
         {
           "name": "author_agent_id",
@@ -5143,7 +5143,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge comment the person passed on as this message, absent for anything written in komrad."
+          "description": "The forge comment this message was mirrored from, absent for anything written in komrad."
         }
       ]
     },
@@ -9684,6 +9684,10 @@
         {
           "name": "REVIEW_AUTHOR_KIND_AGENT",
           "description": "The agent whose work is being read, or the reviewer reading it."
+        },
+        {
+          "name": "REVIEW_AUTHOR_KIND_FORGE",
+          "description": "Someone on the forge, whose comment komrad mirrored from the pull request."
         }
       ]
     },

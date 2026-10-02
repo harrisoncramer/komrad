@@ -50,11 +50,11 @@ The draft is not submitted to the agent until you submit the entire review. Take
 
 ## Comments from the forge
 
-When the agent's pull request or merge request has review comments, the sidebar lists them under "From the forge", each with its author and line. Press <Key name="review.jump" /> away from a comment of your own to move to the next one and read it out, with a link to it on the forge. Nothing from them reaches the agent on its own.
+When the agent's pull request or merge request has review comments, komrad copies them into the review as threads of their own, each under its author and line. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
 
-Press <Key name="review.accept" /> on one to accept it. Komrad copies the comments you read into your review as a thread of your own, quoted under their authors, with a note from you if you want to add one. The agent gets it with the rest of your review when you send it. If someone writes or edits a comment there after you accepted it, the comment is offered again, and accepting it brings what changed into the same thread.
+Comments from someone who can push to the repository reach the agent on their own. Comments from anyone else are held until you send your review, or until you reply in their thread, so nothing from a stranger reaches the agent without you seeing it first.
 
-Press <Key name="review.dismiss" /> to set one aside instead. It stays drawn but stops being counted, and a new reply on the forge brings it back.
+The agent answers forge comments in the review, never on the forge itself.
 
 ## Editing the code yourself
 

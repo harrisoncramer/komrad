@@ -35,7 +35,7 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
 	case r.threads.composing:
-		return r.acceptingView(m, inner) + r.threads.editor.view(), 0
+		return r.threads.editor.view(), 0
 	case r.threads.releasing:
 		return r.releaseView(inner), 0
 	}
@@ -48,15 +48,10 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 	return body, r.threads.scroll.back(id)
 }
 
-// conversationAtCursor is the conversation on the cursor's row, a thread of the reader's ahead of
-// the forge's, wrapped to inner.
+// conversationAtCursor is the conversation on the cursor's row, wrapped to inner.
 func (r reviewScreen) conversationAtCursor(m *model, inner int) (string, string, bool) {
 	if thread, ok := r.diff.threadAtCursor(); ok {
 		return thread.GetId(), r.threadView(m, thread, inner), true
-	}
-
-	if offer, ok := r.offerAtCursor(m); ok {
-		return offer.GetId(), r.offerView(m, offer, inner), true
 	}
 
 	return "", "", false

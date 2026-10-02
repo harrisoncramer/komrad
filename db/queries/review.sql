@@ -250,6 +250,7 @@ WITH opened AS (
         new_start,
         new_end,
         quoted_lines,
+        forge_thread_id,
         last_agent_activity_at)
     VALUES (
         @agent_id,
@@ -262,6 +263,7 @@ WITH opened AS (
         @new_start,
         @new_end,
         @quoted_lines,
+        sqlc.narg('forge_thread_id')::uuid,
         CASE WHEN @author_kind::review_author_kind = 'agent' THEN
             NOW()
         END)
@@ -718,3 +720,89 @@ WHERE
         ORDER BY
             v.released_at DESC
         LIMIT 1) IS DISTINCT FROM 'approved';
+
+-- name: InsertForgeReview :one
+INSERT INTO reviews(
+    agent_id,
+    round_id,
+    author_kind,
+    external_login,
+    released_at)
+VALUES (
+    @agent_id,
+    @round_id,
+    'forge',
+    @external_login,
+    CASE WHEN @released::boolean THEN
+        NOW()
+    END)
+RETURNING
+    *;
+
+-- name: ReleaseForgeReviews :many
+UPDATE
+    reviews v
+SET
+    released_at = NOW()
+WHERE
+    v.agent_id = @agent_id
+    AND v.author_kind = 'forge'
+    AND v.released_at IS NULL
+RETURNING
+    *;
+
+-- name: UpdateForgeReviewMessage :exec
+UPDATE
+    review_messages
+SET
+    body = @body,
+    forge_edited_at = sqlc.narg('forge_edited_at')
+WHERE
+    id = @id;
+
+-- name: ListForgeMirroredMessages :many
+SELECT
+    t.id AS thread_id,
+    t.forge_thread_id::uuid AS forge_thread_id,
+    t.resolved_at,
+    t.resolved_by_kind,
+    m.id AS message_id,
+    m.forge_comment_id,
+    m.forge_edited_at
+FROM
+    review_threads t
+    LEFT JOIN review_messages m ON m.thread_id = t.id
+        AND m.forge_comment_id IS NOT NULL
+WHERE
+    t.agent_id = @agent_id
+    AND t.forge_thread_id IS NOT NULL
+ORDER BY
+    t.id,
+    m.id;
+
+-- name: ListForgeMirrorAgents :many
+SELECT
+    a.id AS agent_id,
+    a.cwd,
+    r.id AS round_id,
+    r.base_sha,
+    r.snapshot_sha
+FROM
+    agent_pull_requests o
+    JOIN agents a ON a.id = o.agent_id
+    JOIN LATERAL (
+        SELECT
+            *
+        FROM
+            review_rounds r
+        WHERE
+            r.agent_id = a.id
+        ORDER BY
+            r.ordinal DESC
+        LIMIT 1) r ON TRUE
+WHERE
+    o.pull_request_id = @pull_request_id
+    AND a.archived_at IS NULL
+    AND a.deleting_at IS NULL
+ORDER BY
+    a.id;

@@ -331,7 +331,7 @@ func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, para
 
 	body := message.GetBody()
 	if message.GetForge() != nil {
-		body = plainOfferText(body)
+		body = plainForgeText(body)
 	}
 
 	return head + "\n" + reviewWrap(params.width, body) + "\n" + reviewDeliveryBadge(paint.Panel, m.glyphs, message) + "\n"
@@ -339,7 +339,7 @@ func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, para
 
 func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
 	if forge := message.GetForge(); forge != nil {
-		return describeForgeLogin(forge.GetLogin()) + " on the forge", diffview.OfferTone
+		return describeForgeLogin(forge.GetLogin()) + " on the forge", diffview.ForgeTone
 	}
 
 	if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {

@@ -83,24 +83,6 @@ func (r *reviewScreen) ownTable() []screenAction {
 			nav:  func(m *model, _ string) tea.Cmd { return r.toggleJump(m) },
 		},
 		{
-			id:   actionReviewOffer,
-			keys: func(k config.Keybindings) []string { return k.Review.Jump },
-			when: r.doesStepOffers,
-			nav:  func(m *model, _ string) tea.Cmd { return r.stepOffer(m) },
-		},
-		{
-			id:     actionReviewDismiss,
-			keys:   func(k config.Keybindings) []string { return k.Review.Dismiss },
-			when:   r.doesDismissOffer,
-			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return r.dismissOfferCmd(m) }),
-		},
-		{
-			id:     actionReviewAccept,
-			keys:   func(k config.Keybindings) []string { return k.Review.Accept },
-			when:   r.doesAcceptOffer,
-			direct: directly(composerSurface, r.orRefuseWrite(func(m *model) tea.Cmd { return r.acceptOffer(m) })),
-		},
-		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
 			nav:  func(m *model, _ string) tea.Cmd { return r.reloadFresh(m) },
@@ -237,21 +219,6 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:   []actionID{actionReviewJump},
 			desc: func(*model) string { return r.diff.jumpDesc() },
 			show: func(*model) bool { return r.doesOfferJump() },
-		},
-		{
-			of:   []actionID{actionReviewOffer},
-			desc: func(*model) string { return "next forge comment" },
-			show: r.doesStepOffers,
-		},
-		{
-			of:   []actionID{actionReviewDismiss},
-			desc: r.dismissOfferDesc,
-			show: r.doesDismissOffer,
-		},
-		{
-			of:   []actionID{actionReviewAccept},
-			desc: r.acceptOfferDesc,
-			show: func(m *model) bool { return offered(m) && r.doesAcceptOffer(m) },
 		},
 		{
 			of:   []actionID{actionReviewReload},

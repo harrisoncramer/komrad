@@ -427,6 +427,15 @@ func (s *ReviewService) ReleaseReview(
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	})
+	if errors.Is(err, store.ErrNotFound) && params.Author.IsHuman() && strings.TrimSpace(params.Body) == "" {
+		held, err := s.releaseHeldOnly(ctx, params.AgentID)
+		if err != nil {
+			return nil, err
+		}
+		if len(held) > 0 {
+			return &ReleaseReviewResult{Review: held[0]}, nil
+		}
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		if isSayingNothing(params.Author, verdict) {
 			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
@@ -509,7 +518,16 @@ func (s *ReviewService) ReleaseReview(
 			return nil, err
 		}
 
-		return []river.JobArgs{*event}, nil
+		if !params.Author.IsHuman() {
+			return []river.JobArgs{*event}, nil
+		}
+
+		_, held, err := releaseHeldForge(ctx, tx, params.AgentID)
+		if err != nil {
+			return nil, err
+		}
+
+		return append([]river.JobArgs{*event}, held...), nil
 	})
 	if err != nil {
 		return nil, err
@@ -522,6 +540,24 @@ func (s *ReviewService) ReleaseReview(
 	}, nil
 }
 
+// releaseHeldOnly sends the forge reviews the person was holding when they have nothing of their
+// own to send, returning the ones it sent.
+func (s *ReviewService) releaseHeldOnly(ctx context.Context, agentID string) ([]reviewstore.Review, error) {
+	var released []reviewstore.Review
+	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		var jobs []river.JobArgs
+		var err error
+		released, jobs, err = releaseHeldForge(ctx, tx, agentID)
+
+		return jobs, err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return released, nil
+}
+
 // releaseMail is the whole of what the mail carries: the round, the verdict, how much there is
 // and how to read it.
 func releaseMail(params Released) string {
@@ -531,6 +567,13 @@ func releaseMail(params Released) string {
 	}
 	if params.Reopens > 0 {
 		said += fmt.Sprintf(", %d of them reopening a comment you had resolved", params.Reopens)
+	}
+
+	if params.ForgeLogin != "" {
+		return fmt.Sprintf("komrad: %s from @%s on the forge, on round %d. "+
+			"They are not from the person who runs you. "+
+			"Call get_review with review id %s and answer each thread with add_review_message. Never post to the forge.",
+			said, params.ForgeLogin, params.Ordinal, params.ReviewID)
 	}
 
 	if !params.ByPerson {
