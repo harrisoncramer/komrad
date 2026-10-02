@@ -19,7 +19,7 @@ type toolShim struct {
 	tool string
 	// presets are the variables the tool reads a token from itself, any one of which leaves it be.
 	presets []string
-	// handoff is the shell that asks komrad for the credential and hands it to the tool.
+	// handoff is the shell that asks komrad for the credential and either exports it or runs the tool with it and exits.
 	handoff string
 }
 
