@@ -503,6 +503,7 @@ func (s *ReviewService) ReleaseReview(
 			Replies:  tally.Replies,
 			Reopens:  tally.Reopens,
 			Path:     path,
+			HasBody:  strings.TrimSpace(params.Body) != "",
 		})
 		if err != nil {
 			return nil, err
@@ -536,9 +537,12 @@ func releaseMail(params Released) string {
 		said = strings.ReplaceAll(string(params.Verdict), "_", " ") + ", " + said
 	}
 
+	if params.Verdict == reviewstore.VerdictApproved && params.Comments == 0 && params.Replies == 0 && !params.HasBody {
+		return fmt.Sprintf("komrad: review of round %d released: %s. There is nothing to read or answer.", params.Ordinal, said)
+	}
+
 	return fmt.Sprintf("komrad: review of round %d released: %s. "+
-		"Call get_review with review id %s, or read %s. Make the change each thread asks for, "+
-		"then answer it with add_review_message and addressed set; reply without addressed to push back or ask.",
+		"Call get_review with review id %s, or read %s, and answer each thread with add_review_message.",
 		params.Ordinal, said, params.ReviewID, params.Path)
 }
 

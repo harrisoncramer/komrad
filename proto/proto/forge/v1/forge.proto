@@ -190,7 +190,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "list_forges"
-      description: "List the forges komrad is connected to, one per host, with who komrad acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrad forge connect and is what the pull request sync reads through."
+      description: "List the forges komrad is connected to and who it acts as on each. Tokens are never returned."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -199,7 +199,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "check_forges"
-      description: "Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again."
+      description: "Check that every connected forge's credential still works, recording the answer on each connection."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -210,7 +210,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "list_forge_pull_requests"
-      description: "List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what komrad has stored."
+      description: "List a repository's pull requests by asking its forge, either every one from a named branch or the open ones. list_pull_requests reads what komrad has stored instead."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -219,7 +219,7 @@ service ForgeService {
       cli: true
       mcp: false
       name: "merge_forge_pull_request"
-      description: "Merge a pull request through the forge connection for its host, the way the repository merges by default. A pull request the forge will not merge, because of its checks, its reviews, its branch rules or a conflict, is refused as failed_precondition with what the forge said."
+      description: "Merge a pull request through its forge, the way the repository merges by default."
       reason: "Landing work on the base is for a person to decide."
     };
   }
@@ -229,7 +229,7 @@ service ForgeService {
       cli: true
       mcp: false
       name: "set_forge_pull_request_draft"
-      description: "Mark a pull request a draft, or ready for review, through the forge connection for its host. A pull request already standing that way is left alone, and one that has merged or closed is refused as failed_precondition."
+      description: "Mark a pull request a draft or ready for review through its forge."
       reason: "Saying a pull request is ready for review is for a person to decide."
     };
   }
@@ -239,7 +239,7 @@ service ForgeService {
       cli: true
       mcp: false
       name: "set_forge_pull_request_auto_merge"
-      description: "Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host. A pull request already standing that way is left alone. One that has merged or closed, one the forge would merge at once, a draft and one whose branch has moved past head_sha are refused as failed_precondition with what the forge said."
+      description: "Turn a pull request's auto-merge on or off through its forge."
       reason: "Letting work land on the base without a person there is for a person to decide."
     };
   }
@@ -248,7 +248,7 @@ service ForgeService {
       cli: true
       mcp: false
       name: "request_forge_pull_request_rereview"
-      description: "Ask every reviewer whose latest review of a pull request asks for changes to review it again, through the forge connection for its host. A pull request nobody has asked for changes on, or one that has merged or closed, is refused as failed_precondition."
+      description: "Ask every reviewer who requested changes on a pull request to review it again."
       reason: "Telling a colleague the work is ready for them again is for a person to decide."
     };
   }
@@ -257,7 +257,7 @@ service ForgeService {
       cli: true
       mcp: false
       name: "disconnect_forge"
-      description: "Forget a forge and the credential it was connected with."
+      description: "Forget a forge and its credential."
       reason: "A person gave the credential and is the one to take it away."
     };
   }

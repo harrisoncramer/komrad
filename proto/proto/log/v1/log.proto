@@ -116,7 +116,7 @@ service LogService {
       cli: true
       mcp: true
       name: "get_log_lines"
-      description: "Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to."
+      description: "Read every log line written under one trace id, in order. A failed call answers its trace id."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -126,7 +126,7 @@ service LogService {
       cli: true
       mcp: true
       name: "list_recent_traces"
-      description: "List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines."
+      description: "List the traces the service log ends with, oldest first, to find the one to read with get_log_lines."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -136,7 +136,7 @@ service LogService {
       cli: true
       mcp: true
       name: "read_agent_logs"
-      description: "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more. Pass a source from list_agent_log_sources to read what one of its scripts printed instead."
+      description: "Read what the service logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -146,7 +146,7 @@ service LogService {
       cli: true
       mcp: true
       name: "list_agent_log_sources"
-      description: "List where an agent's logs can be read from: the service log, then each script run the agent recorded, newest first. Read one with read_agent_logs by passing its id as the source, which is how to see what a failed provision or hook script printed."
+      description: "List where an agent's logs can be read from, the service log and each script run it recorded."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

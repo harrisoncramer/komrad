@@ -288,10 +288,10 @@ const file_doctor_v1_doctor_proto_rawDesc = "" +
 	"\ahealthy\x18\x06 \x01(\bR\ahealthy\"q\n" +
 	"\x11RunDoctorResponse\x12.\n" +
 	"\bfindings\x18\x01 \x03(\v2\x12.doctor.v1.FindingR\bfindings\x12,\n" +
-	"\asummary\x18\x02 \x01(\v2\x12.doctor.v1.SummaryR\asummary2\x88\x04\n" +
-	"\rDoctorService\x12\xf6\x03\n" +
-	"\tRunDoctor\x12\x16.google.protobuf.Empty\x1a\x1c.doctor.v1.RunDoctorResponse\"\xb2\x03\x9a\xb5\x18\xaa\x03\b\x01\x10\x01\x1a\n" +
-	"run_doctor\"\x94\x03Check the machine the service runs on for what its agents need: tmux and its shell, the config, the harness binaries, the hooks and worktree directories, the database and its schema. Each check answers ok, warn, fail or skip with what was found and what to do about it. This is what komrad doctor asks an engine for, and it is how to find out whether an engine is fit to run agents without a shell on it.B\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/doctor/v1;doctorv1b\x06proto3"
+	"\asummary\x18\x02 \x01(\v2\x12.doctor.v1.SummaryR\asummary2\x85\x02\n" +
+	"\rDoctorService\x12\xf3\x01\n" +
+	"\tRunDoctor\x12\x16.google.protobuf.Empty\x1a\x1c.doctor.v1.RunDoctorResponse\"\xaf\x01\x9a\xb5\x18\xa7\x01\b\x01\x10\x01\x1a\n" +
+	"run_doctor\"\x91\x01Check whether the machine the service runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.B\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/doctor/v1;doctorv1b\x06proto3"
 
 var (
 	file_doctor_v1_doctor_proto_rawDescOnce sync.Once

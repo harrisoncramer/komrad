@@ -98,10 +98,10 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\x12&\n" +
 	"\fconfig_error\x18\x02 \x01(\tH\x00R\vconfigError\x88\x01\x01\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversionB\x0f\n" +
-	"\r_config_error2\xb5\x05\n" +
-	"\rConfigService\x12\xa3\x05\n" +
-	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xdf\x04\x9a\xb5\x18\xd7\x04\b\x01\x10\x01\x1a\n" +
-	"get_config\"\xc1\x04Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense.B\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
+	"\r_config_error2\xab\x02\n" +
+	"\rConfigService\x12\x99\x02\n" +
+	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xd5\x01\x9a\xb5\x18\xcd\x01\b\x01\x10\x01\x1a\n" +
+	"get_config\"\xb7\x01Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file would not parse and defaults are running.B\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

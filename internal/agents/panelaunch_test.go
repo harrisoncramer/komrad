@@ -470,7 +470,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 			name:         "an agent with a checkout of its own is told to get its work read",
 			role:         agentstore.RoleImplementer,
 			ownsCheckout: true,
-			wantContain:  []string{asking, answering, "Commit on your branch and stop there"},
+			wantContain:  []string{asking, answering, "Commit on your branch, then call request_review"},
 			wantAbsent:   []string{giving, "open_review_round"},
 		},
 		{
@@ -680,8 +680,7 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 	})
 
 	assert.Contains(t, prompt, "You are a child of agent author (agent-parent)")
-	assert.Contains(t, prompt, "do not commit")
-	assert.Contains(t, prompt, "you go when the parent goes")
+	assert.Contains(t, prompt, "never commit")
 	assert.NotContains(t, prompt, "You were spawned by agent",
 		"the spawner paragraph would understate what a child runs under")
 }

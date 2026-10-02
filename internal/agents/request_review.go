@@ -24,8 +24,8 @@ type RequestReviewParams struct {
 	IdempotencyKey string
 }
 
-// RequestReview spawns the reviewer for an agent's own work and hands back the half of the
-// review briefing that agent was not launched with.
+// RequestReview spawns the reviewer for an agent's own work and hands back how to settle what it
+// raises.
 func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewParams) (*agentstore.Agent, string, error) {
 	author, err := s.agents.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -58,7 +58,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		// A key spent on the reviewer that exists is a retry of the call that made it, which is
 		// asking for that reviewer rather than for a second one.
 		if params.IdempotencyKey != "" && running.IdempotencyKey != nil && *running.IdempotencyKey == params.IdempotencyKey {
-			return running, implementerDoc, nil
+			return running, settlingDoc, nil
 		}
 
 		return nil, "", fmt.Errorf(
@@ -80,7 +80,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		return nil, "", err
 	}
 
-	return reviewer, implementerDoc, nil
+	return reviewer, settlingDoc, nil
 }
 
 // liveReviewerFor is the reviewer an agent still has to answer to, skipping one that has

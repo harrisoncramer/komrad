@@ -205,6 +205,47 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }
 
+// TestReleaseReviewApprovalMail pins when an approval sends the agent to read the review.
+func TestReleaseReviewApprovalMail(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		wantSaid    string
+		wantNotSaid string
+	}{
+		{
+			name:        "an approval with nothing in it sends the agent nowhere",
+			wantSaid:    "There is nothing to read or answer.",
+			wantNotSaid: "get_review",
+		},
+		{
+			name:        "an approval with a note sends the agent to read it",
+			body:        "keep this report on your row",
+			wantSaid:    "get_review with review id",
+			wantNotSaid: "nothing to read",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+
+			_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+				AgentID: fx.worker.ID,
+				Verdict: reviewstore.VerdictApproved,
+				Body:    tt.body,
+				Author:  newAgentAuthor(fx.reviewer),
+			})
+			require.NoError(t, err)
+
+			rung := fx.listMail(t, fx.worker.ID)
+			require.Len(t, rung, 1)
+			assert.Contains(t, rung[0].Body, tt.wantSaid)
+			assert.NotContains(t, rung[0].Body, tt.wantNotSaid)
+		})
+	}
+}
+
 // TestReleaseReviewIntoAFullMailbox pins that a release stands while its mail waits for room.
 func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	fx := newReviewFixture(t)

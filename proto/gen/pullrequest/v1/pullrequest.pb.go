@@ -1225,9 +1225,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\xc5\b\n" +
-	"\x12PullRequestService\x12\xc6\x06\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xde\x05\x9a\xb5\x18\xd6\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb7\x05List the pull requests komrad has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\xe5\x01\n" +
+	"\x0eCHECKS_FAILING\x10\x042\xc0\x04\n" +
+	"\x12PullRequestService\x12\xc1\x02\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\xe5\x01\n" +
 	"\x12DismissForgeThread\x12).pullrequest.v1.DismissForgeThreadRequest\x1a\x16.google.protobuf.Empty\"\x8b\x01\x9a\xb5\x18\x83\x01:\x80\x01Dismissing a comment from the forge is a person tidying their own review, and the handler refuses a caller that is not a person.\x90\x02\x02B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (

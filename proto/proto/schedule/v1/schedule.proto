@@ -256,7 +256,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "list_schedules"
-      description: "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page. Archived schedules are excluded unless archived is set, which lists those and only those."
+      description: "List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -266,7 +266,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "get_schedule"
-      description: "Fetch one schedule by id. Returns not_found if no schedule has that id."
+      description: "Fetch one schedule by id."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -276,7 +276,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "list_schedule_runs"
-      description: "List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed. A completed run launched its agent or delivered its mail, a cancelled one was skipped on purpose, a discarded one ran out of attempts, and a retryable one is still being tried. Firings are kept for 90 days. Returns not_found if no schedule has that id."
+      description: "List a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -285,7 +285,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "create_schedule"
-      description: "Create a schedule that fires on a cron expression. Give workflowId to launch a new implementer into that workflow on every match, or orchestratorAgentId to mail the prompt to that live orchestrator instead. Nothing fires at create time. Create it with enabled false to write it down without arming it. A firing whose orchestrator has since been archived or deleted is skipped, and its run says why."
+      description: "Create a schedule that fires on a cron expression, launching an implementer into workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -296,7 +296,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "update_schedule"
-      description: "Replace a schedule's name, cron expression, timezone, prompt, target, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing, giving workflowId for an implementer schedule and orchestratorAgentId for an orchestrator one. Agents already launched are untouched."
+      description: "Replace every field of a schedule, so read it first and send back what you are not changing."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -307,7 +307,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "set_schedule_enabled"
-      description: "Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing."
+      description: "Pause or resume one schedule."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -318,7 +318,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "archive_schedule"
-      description: "Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. restore_schedule brings it back."
+      description: "Archive a schedule so it stops firing, keeping its record. The agents it launched keep running."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -329,7 +329,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "restore_schedule"
-      description: "Take a schedule out of the archive, keyed by id. It comes back paused or armed as it was when archived. Returns not_found if the schedule is not archived, failed_precondition if its workflow or orchestrator has since been archived, and already_exists if a live schedule has taken its name."
+      description: "Take a schedule out of the archive, paused or armed as it was."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -340,7 +340,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "delete_schedule"
-      description: "Permanently delete an archived schedule and its firing history. The agents it launched are left alone and no longer record the schedule that made them. Returns not_found if the schedule does not exist or is not archived."
+      description: "Permanently delete an archived schedule and its history."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
