@@ -523,6 +523,11 @@ func TestAgentsResume(t *testing.T) {
 		require.NotContains(t, readOpenMessages(harness), "old is back up", "a CLI still starting is not back up")
 		require.Contains(t, harness.readFrame(), "Its CLI is coming up in a new pane.")
 
+		settledBeforeAlive := newRunning()
+		settledBeforeAlive.Alive = xptr.Ptr(false)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settledBeforeAlive))
+		require.NotContains(t, readOpenMessages(harness), "old is back up", "an idle row not yet alive is not back up")
+
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
 		assert.Contains(t, readOpenMessages(harness), "old is back up")
 	})

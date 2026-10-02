@@ -81,7 +81,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.agents.triage.refresh(m.listing.agents, now)
 	selected := m.landedRow(treeRow, now)
 	m.agents.apply(m, selected)
-	m.agents.announceWoken(m)
+	m.agents.followAwaitingCLI(m)
 	m.agents.landInTriage(m, selected, triageSlot)
 	m.schedules.apply(m, scheduleRow)
 	m.archive.place(m, archiveRow)
