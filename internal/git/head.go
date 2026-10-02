@@ -2,10 +2,13 @@ package git
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"komrad/internal/logging"
 )
 
 // rebaseDirs are the sequences that leave HEAD detached for as long as they are unfinished.
@@ -94,8 +97,13 @@ func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
 		return ""
 	}
 
-	if web, ok := c.sshHosts[remote.Host]; ok {
-		remote.Host = web
+	if c.sshHosts != nil {
+		hosts, err := c.sshHosts()
+		if err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "could not read the SSH hosts, so none were swapped", logging.Err(err)...)
+		} else if web, ok := hosts[remote.Host]; ok {
+			remote.Host = web
+		}
 	}
 
 	return remote.Canonical()

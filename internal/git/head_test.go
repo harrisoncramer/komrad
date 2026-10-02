@@ -3,6 +3,7 @@
 package git_test
 
 import (
+	"errors"
 	"testing"
 
 	"komrad/internal/git"
@@ -82,7 +83,7 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 	tests := []struct {
 		name     string
 		origin   string
-		sshHosts map[string]string
+		sshHosts func() (map[string]string, error)
 		want     string
 	}{
 		{
@@ -101,10 +102,20 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 			want:   "",
 		},
 		{
-			name:     "an origin on a named ssh host reads as its web host",
-			origin:   "ssh://git@ssh.gitlab.example.com:2222/group/repo.git",
-			sshHosts: map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"},
-			want:     "https://gitlab.example.com/group/repo",
+			name:   "an origin on a named ssh host reads as its web host",
+			origin: "ssh://git@ssh.gitlab.example.com:2222/group/repo.git",
+			sshHosts: func() (map[string]string, error) {
+				return map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"}, nil
+			},
+			want: "https://gitlab.example.com/group/repo",
+		},
+		{
+			name:   "an origin keeps its host when the ssh hosts cannot be read",
+			origin: "git@ssh.gitlab.example.com:group/repo.git",
+			sshHosts: func() (map[string]string, error) {
+				return nil, errors.New("config is broken")
+			},
+			want: "https://ssh.gitlab.example.com/group/repo",
 		},
 		{
 			name:   "an origin on an unnamed ssh host keeps its host",
