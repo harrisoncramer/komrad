@@ -56,12 +56,10 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 				addr:      "127.0.0.1:9999",
 				lifecycle: &fakeLifecycle{},
-				wait: func(time.Duration) <-chan time.Time {
+				wait: func(interval time.Duration) <-chan time.Time {
 					polls.Add(1)
-					rested := make(chan time.Time, 1)
-					rested <- time.Now()
 
-					return rested
+					return restNow(interval)
 				},
 			})
 

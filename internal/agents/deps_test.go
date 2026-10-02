@@ -148,12 +148,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	}
 	wait := options.wait
 	if wait == nil {
-		wait = func(time.Duration) <-chan time.Time {
-			rested := make(chan time.Time, 1)
-			rested <- time.Now()
-
-			return rested
-		}
+		wait = restNow
 	}
 
 	launcher := NewLauncher(NewLauncherParams{
@@ -685,4 +680,11 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	require.FailNowf(t, "no record was written", "wanted %q, got %v", body, records)
 
 	return nil
+}
+
+func restNow(time.Duration) <-chan time.Time {
+	rested := make(chan time.Time, 1)
+	rested <- time.Now()
+
+	return rested
 }
