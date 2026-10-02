@@ -112,6 +112,12 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return nil
 	}
 
+	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isOverColumn(x) {
+		if cmd, ok := m.review.scrollSidebarAt(m, y, rows); ok {
+			return cmd
+		}
+	}
+
 	if m.form.isActive() || m.writes.held.active || !m.isOverColumn(x) {
 		if screen, ok := m.active().(listScroller); ok {
 			return screen.scrollList(m, rows)

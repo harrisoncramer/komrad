@@ -196,8 +196,8 @@ func (r *reviewScreen) legend() []screenLegendRow {
 	}
 
 	return []screenLegendRow{
-		diffMoveRow(),
-		diffPageRow(),
+		navMoveRow("move"),
+		navPageRow(),
 		diffFileRow(),
 		{
 			of:   []actionID{actionReviewThread, actionReviewOpenThread},
@@ -210,7 +210,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		diffSearchRow(),
 		diffMatchRow(),
 		diffPanRow(),
-		diffJumpRow(),
+		navJumpRow(),
 		{
 			of:   []actionID{actionReviewEdit},
 			desc: func(*model) string { return r.hold.editorDesc() },
@@ -310,14 +310,12 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 	standing := func(*model) bool { return r.filesFilter.isStanding() }
 
 	return screenActionSpec{
-		table: []screenAction{
+		table: append(navActions(filesNav{r}, navSteps{page: navPageStep, scroll: 1}), []screenAction{
 			{
-				id: actionMove,
-				keys: func(k config.Keybindings) []string {
-					return slices.Concat(k.Nav.Up, k.Nav.Down, k.Diff.NextFile, k.Diff.PrevFile)
-				},
+				id:   actionDiffFile,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
 				nav: func(m *model, pressed string) tea.Cmd {
-					return r.stepFile(m, directionOf(pressed, slices.Concat(m.keys.Nav.Up, m.keys.Diff.PrevFile)))
+					return r.stepFile(m, directionOf(pressed, m.keys.Diff.PrevFile))
 				},
 			},
 			{
@@ -362,14 +360,12 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys:   func(k config.Keybindings) []string { return k.Review.ToggleViewed },
 				direct: directly(viewedIsLocal, func(m *model, _ string) tea.Cmd { return r.toggleViewed(m) }),
 			},
-		},
+		}...),
 		legend: []screenLegendRow{
-			{
-				of:    []actionID{actionMove},
-				desc:  func(*model) string { return "move between files" },
-				label: moveLabel,
-				strip: true,
-			},
+			navMoveRow("move between files"),
+			navPageRow(),
+			navJumpRow(),
+			diffFileRow(),
 			{
 				of:   []actionID{actionFilterOpen},
 				desc: func(*model) string { return r.filesFilter.openDesc() },

@@ -208,35 +208,7 @@ func (w *searchScreen) movePreview(m *model, delta int) tea.Cmd {
 // previewActions is the keys on the transcript while it holds them.
 func (w *searchScreen) previewActions() screenActionSpec {
 	return screenActionSpec{
-		table: []screenAction{
-			{
-				id:   actionMove,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return w.movePreview(m, directionOf(pressed, m.keys.Nav.Up))
-				},
-			},
-			{
-				id:   actionNavPage,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return w.movePreview(m, directionOf(pressed, m.keys.Nav.PageUp)*navPageStep)
-				},
-			},
-			{
-				id:   actionColumnScroll,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return w.movePreview(m, directionOf(pressed, m.keys.Column.ScrollUp)*previewWheelStep)
-				},
-			},
-			{
-				id:   actionJump,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return w.movePreview(m, directionOf(pressed, m.keys.Nav.Top)*len(w.preview.doc.rows))
-				},
-			},
+		table: append(navActions(previewNav{w}, navSteps{page: navPageStep, scroll: previewWheelStep}), []screenAction{
 			{
 				id:   actionSearchOpen,
 				keys: func(config.Keybindings) []string { return []string{"enter"} },
@@ -256,11 +228,11 @@ func (w *searchScreen) previewActions() screenActionSpec {
 				keys: func(config.Keybindings) []string { return []string{"ctrl+c"} },
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
-		},
+		}...),
 		legend: []screenLegendRow{
-			diffMoveRow(),
-			diffPageRow(),
-			diffJumpRow(),
+			navMoveRow("move"),
+			navPageRow(),
+			navJumpRow(),
 			{
 				of:    []actionID{actionSearchOpen},
 				desc:  func(*model) string { return "go to it" },
@@ -280,4 +252,15 @@ func (w *searchScreen) previewLine(height int) int {
 	doc := w.preview.doc
 
 	return max(min(doc.top+w.preview.row, doc.top+height-1, len(doc.rows)-1), 0)
+}
+
+// previewNav is the movement keys walking the transcript beside the results.
+type previewNav struct{ w *searchScreen }
+
+func (p previewNav) moveBy(m *model, rows int) tea.Cmd {
+	return p.w.movePreview(m, rows)
+}
+
+func (p previewNav) moveToEnd(m *model, direction int) tea.Cmd {
+	return p.w.movePreview(m, direction*len(p.w.preview.doc.rows))
 }

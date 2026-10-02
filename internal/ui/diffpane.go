@@ -36,39 +36,7 @@ type diffKeys struct {
 }
 
 func (k diffKeys) table() []screenAction {
-	return []screenAction{
-		{
-			id:   actionMove,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
-			nav: func(m *model, pressed string) tea.Cmd {
-				return k.step(m, directionOf(pressed, m.keys.Nav.Up), 1)
-			},
-		},
-		{
-			id:   actionJump,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
-			nav: func(m *model, pressed string) tea.Cmd {
-				if isBound(pressed, m.keys.Nav.Bottom) {
-					return k.moveTo(m, k.pane.View().GetLastRow())
-				}
-
-				return k.moveTo(m, k.pane.View().GetFirstRow())
-			},
-		},
-		{
-			id:   actionNavPage,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
-			nav: func(m *model, pressed string) tea.Cmd {
-				return k.step(m, directionOf(pressed, m.keys.Nav.PageUp), navPageStep)
-			},
-		},
-		{
-			id:   actionColumnScroll,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
-			nav: func(m *model, pressed string) tea.Cmd {
-				return k.step(m, directionOf(pressed, m.keys.Column.ScrollUp), diffWheelStep)
-			},
-		},
+	return append(navActions(k, navSteps{page: navPageStep, scroll: diffWheelStep}), []screenAction{
 		{
 			id:   actionDiffFile,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
@@ -120,7 +88,7 @@ func (k diffKeys) table() []screenAction {
 			keys: func(b config.Keybindings) []string { return b.Diff.Expand },
 			nav:  func(m *model, _ string) tea.Cmd { return k.toggleExpanded(m) },
 		},
-	}
+	}...)
 }
 
 // directionOf is back for a press of the backward keys and forward for any other.
@@ -135,34 +103,17 @@ func directionOf(pressed string, backward []string) int {
 // legend is the diff's own rows of a screen's legend, in reading order.
 func (k diffKeys) legend() []screenLegendRow {
 	return []screenLegendRow{
-		diffMoveRow(),
-		diffPageRow(),
+		navMoveRow("move"),
+		navPageRow(),
 		diffFileRow(),
 		diffSearchRow(),
 		diffMatchRow(),
 		diffPanRow(),
-		diffJumpRow(),
+		navJumpRow(),
 		{
 			of:   []actionID{actionDiffExpand},
 			desc: func(*model) string { return k.expandDesc() },
 		},
-	}
-}
-
-func diffMoveRow() screenLegendRow {
-	return screenLegendRow{
-		of:    []actionID{actionMove},
-		desc:  func(*model) string { return "move" },
-		label: moveLabel,
-		strip: true,
-	}
-}
-
-func diffPageRow() screenLegendRow {
-	return screenLegendRow{
-		of:    []actionID{actionNavPage},
-		desc:  func(*model) string { return "page" },
-		label: navPageLabel,
 	}
 }
 
@@ -201,14 +152,6 @@ func diffPanRow() screenLegendRow {
 		label: func(k config.Keybindings) string {
 			return headLabel(k.Diff.PanLeft) + "/" + headLabel(k.Diff.PanRight) + "/" + keyLabel(k.Diff.PanReset)
 		},
-	}
-}
-
-func diffJumpRow() screenLegendRow {
-	return screenLegendRow{
-		of:    []actionID{actionJump},
-		desc:  func(*model) string { return "top/bottom" },
-		label: jumpLabel,
 	}
 }
 
@@ -321,14 +264,20 @@ func (k diffKeys) land(m *model) tea.Cmd {
 	return k.moved(m)
 }
 
-// scrollColumn moves the cursor a number of rows up the diff for a negative count and down it
-// for a positive one.
-func (k diffKeys) scrollColumn(m *model, rows int) tea.Cmd {
+func (k diffKeys) moveBy(m *model, rows int) tea.Cmd {
 	if rows < 0 {
 		return k.step(m, -1, -rows)
 	}
 
 	return k.step(m, 1, rows)
+}
+
+func (k diffKeys) moveToEnd(m *model, direction int) tea.Cmd {
+	if direction > 0 {
+		return k.moveTo(m, k.pane.View().GetLastRow())
+	}
+
+	return k.moveTo(m, k.pane.View().GetFirstRow())
 }
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.

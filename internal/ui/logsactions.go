@@ -64,39 +64,7 @@ func (l *logsScreen) legend() []screenLegendRow {
 // logActions is the keys on the log once the picker has handed them to it.
 func (l *logsScreen) logActions() screenActionSpec {
 	return screenActionSpec{
-		table: []screenAction{
-			{
-				id:   actionMove,
-				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return l.move(directionOf(pressed, m.keys.Nav.Up))
-				},
-			},
-			{
-				id:   actionNavPage,
-				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return l.move(directionOf(pressed, m.keys.Nav.PageUp) * navPageStep)
-				},
-			},
-			{
-				id:   actionColumnScroll,
-				keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return l.move(directionOf(pressed, m.keys.Column.ScrollUp) * columnWheelStep)
-				},
-			},
-			{
-				id:   actionJump,
-				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					if isBound(pressed, m.keys.Nav.Bottom) {
-						return l.move(l.viewer.Len())
-					}
-
-					return l.move(-l.viewer.Len())
-				},
-			},
+		table: append(navActions(l, navSteps{page: navPageStep, scroll: columnWheelStep}), []screenAction{
 			{
 				id:   actionLogsCopy,
 				keys: func(k config.Keybindings) []string { return k.Logs.Copy },
@@ -136,11 +104,11 @@ func (l *logsScreen) logActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return k.Logs.Quit },
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
-		},
+		}...),
 		legend: []screenLegendRow{
-			diffMoveRow(),
-			diffPageRow(),
-			diffJumpRow(),
+			navMoveRow("move"),
+			navPageRow(),
+			navJumpRow(),
 			{
 				of:   []actionID{actionFilterOpen},
 				desc: func(*model) string { return "filter" },

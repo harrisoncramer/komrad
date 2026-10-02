@@ -144,7 +144,7 @@ func TestViews(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, schedulesScreen, harness.readScreen())
 		assert.NotEmpty(t, readHoveredRow(frame), "the switcher let the list have the keys")
-		assert.Equal(t, "schedules › agent39", readTrail(frame), "and the list took the key")
+		assert.Equal(t, "schedules › agent00", readTrail(frame), "and the list took the key")
 	})
 
 	t.Run("the legend names the switcher's keys while it is open", func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestTrail(t *testing.T) {
 		{
 			name:      "the schedules trail runs to the hovered schedule",
 			press:     []string{"tab", "tab", "G"},
-			wantTrail: "schedules › agent39",
+			wantTrail: "schedules › agent00",
 		},
 		{
 			name:      "the archive trail runs to the hovered agent",
@@ -229,6 +229,6 @@ func TestTrail(t *testing.T) {
 		harness.press("tab", "tab", "G")
 
 		muted := paint.Panel.Style(paint.ToneMuted)
-		assert.Contains(t, harness.readRawFrame(), muted.Render("schedules › agent39"))
+		assert.Contains(t, harness.readRawFrame(), muted.Render("schedules › agent00"))
 	})
 }

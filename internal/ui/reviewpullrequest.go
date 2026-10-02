@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"slices"
 	"strings"
 
 	"komrad/config"
@@ -137,41 +136,58 @@ func (r *reviewScreen) blurPullRequest() {
 
 // scrollPullRequest moves the description's window by rows, held inside what it has to show.
 func (r *reviewScreen) scrollPullRequest(m *model, rows int) {
-	pullRequest, ok := r.currentPullRequest(m)
+	topMax, ok := r.pullRequestTopMax(m)
 	if !ok {
 		return
 	}
 
-	width := lineWidthOf(m.paneWidth())
-	window := countPullRequestWindow(r.pullRequestHeadView(m, pullRequest, width), r.layoutSidebar(m).pullRequestRows)
-	total := len(pullRequestBodyRows(pullRequest.Body, width))
-	topMax := paint.WindowOf(total, window, func(visible int) int { return total - visible }).Start
 	from := min(r.pullRequestTop, topMax)
 	r.pullRequestTop = max(min(from+rows, topMax), 0)
+}
+
+// pullRequestTopMax is the furthest the description's window can scroll, and false with no pull
+// request to show.
+func (r *reviewScreen) pullRequestTopMax(m *model) (int, bool) {
+	pullRequest, ok := r.currentPullRequest(m)
+	if !ok {
+		return 0, false
+	}
+
+	width := lineWidthOf(m.paneWidth())
+	window := countPullRequestWindow(r.pullRequestHeadView(m, pullRequest, width), r.layoutSidebar(m).pullRequestRows)
+
+	total := len(pullRequestBodyRows(pullRequest.Body, width))
+
+	return paint.WindowOf(total, window, func(visible int) int { return total - visible }).Start, true
+}
+
+// pullRequestNav is the movement keys scrolling the pull request's description.
+type pullRequestNav struct{ r *reviewScreen }
+
+func (p pullRequestNav) moveBy(m *model, rows int) tea.Cmd {
+	p.r.scrollPullRequest(m, rows)
+
+	return nil
+}
+
+func (p pullRequestNav) moveToEnd(m *model, direction int) tea.Cmd {
+	topMax, ok := p.r.pullRequestTopMax(m)
+	if !ok {
+		return nil
+	}
+
+	p.r.pullRequestTop = 0
+	if direction > 0 {
+		p.r.pullRequestTop = topMax
+	}
+
+	return nil
 }
 
 // pullRequestActions is the keys on the pull request, which scroll its description.
 func (r *reviewScreen) pullRequestActions() screenActionSpec {
 	return screenActionSpec{
-		table: []screenAction{
-			{
-				id:   actionMove,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					r.scrollPullRequest(m, directionOf(pressed, m.keys.Nav.Up))
-
-					return nil
-				},
-			},
-			{
-				id:   actionNavPage,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					r.scrollPullRequest(m, directionOf(pressed, m.keys.Nav.PageUp)*pullRequestWindowRows/2)
-
-					return nil
-				},
-			},
+		table: append(navActions(pullRequestNav{r}, navSteps{page: pullRequestWindowRows / 2, scroll: 1}), []screenAction{
 			{
 				id:   actionReviewBack,
 				keys: func(k config.Keybindings) []string { return k.Review.Back },
@@ -186,19 +202,11 @@ func (r *reviewScreen) pullRequestActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return k.Review.Quit },
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
-		},
+		}...),
 		legend: []screenLegendRow{
-			{
-				of:    []actionID{actionMove},
-				desc:  func(*model) string { return "scroll the description" },
-				label: moveLabel,
-				strip: true,
-			},
-			{
-				of:    []actionID{actionNavPage},
-				desc:  func(*model) string { return "page" },
-				label: navPageLabel,
-			},
+			navMoveRow("scroll the description"),
+			navPageRow(),
+			navJumpRow(),
 			{
 				of:    []actionID{actionReviewBack},
 				desc:  func(*model) string { return "back to the diff" },

@@ -4,26 +4,38 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
+	if cmd, ok := r.takeKey(m, key); ok {
+		m.dropTopPress()
+
+		return cmd
+	}
+
+	return r.actions(m).dispatchTop(m, key.String())
+}
+
+// takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
+func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 	if r.threads.composing {
-		return r.updateComposer(m, key)
+		return r.updateComposer(m, key), true
 	}
 
 	if r.threads.releasing {
-		return r.updateRelease(m, key)
+		return r.updateRelease(m, key), true
 	}
 
 	if r.filesFilter.typing {
-		return r.updateFilesFilter(m, key)
+		return r.updateFilesFilter(m, key), true
 	}
 
 	if r.diff.filter.typing {
-		return r.diffKeys().updateFilter(m, key)
+		return r.diffKeys().updateFilter(m, key), true
 	}
 
 	k := key.String()
@@ -32,17 +44,17 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
 	// something to draw.
 	if r.diff.View() == nil {
 		if isBound(k, m.keys.Review.Back) {
-			return r.back(m)
+			return r.back(m), true
 		}
 
-		return nil
+		return nil, true
 	}
 
 	if isBound(k, slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)) && r.scrollPopup(m, directionOf(k, m.keys.Column.ScrollUp)*diffWheelStep) {
-		return nil
+		return nil, true
 	}
 
-	return r.actions(m).dispatch(m, k)
+	return nil, false
 }
 
 // refuseWrite says why a key that would write to the agent did nothing.
@@ -187,7 +199,7 @@ func (r *reviewScreen) scrollColumn(m *model, rows int) tea.Cmd {
 		return nil
 	}
 
-	return r.diffKeys().scrollColumn(m, rows)
+	return r.diffKeys().moveBy(m, rows)
 }
 
 // scrollList presses the scroll key once for every row, past the popup.
@@ -207,7 +219,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) tea.Cmd {
 
 	var cmds []tea.Cmd
 	for range max(rows, -rows) {
-		cmds = append(cmds, r.actions(m).dispatch(m, pressed[0]))
+		cmds = append(cmds, r.diffActions().dispatch(m, pressed[0]))
 	}
 
 	return tea.Batch(cmds...)
@@ -243,4 +255,39 @@ func (r *reviewScreen) scrollPopup(m *model, rows int) bool {
 	r.threads.scroll.move(id, body, rows, r.placeThread(m, body).room())
 
 	return true
+}
+
+// scrollSidebarAt walks the file tree or the pull request description when row y is inside it,
+// without focusing it.
+func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (tea.Cmd, bool) {
+	section, ok := r.sidebarNavAt(m, y)
+	if !ok {
+		return nil, false
+	}
+
+	if r.isWriting() {
+		return nil, true
+	}
+
+	return section.moveBy(m, rows), true
+}
+
+// sidebarNavAt is the sidebar section drawn on row y, and false for a row the wheel leaves alone.
+func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
+	if _, ok := m.screenColumnSplit(); !ok {
+		return nil, false
+	}
+
+	layout := r.layoutSidebar(m)
+	pullRequestTop := paint.CountLines(layout.bar)
+	filesTop := pullRequestTop + paint.CountLines(layout.pullRequest)
+
+	switch {
+	case y >= pullRequestTop && y < filesTop && r.isPullRequestDrawn(m):
+		return pullRequestNav{r}, true
+	case y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockDrawn(m):
+		return filesNav{r}, true
+	}
+
+	return nil, false
 }
