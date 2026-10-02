@@ -207,6 +207,18 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "the forge will not queue it now",
 		},
 		{
+			name:        "the merge then rebase of a worktree part-way through a rebase",
+			rows:        append(buildRebasingGitAgent(), newOpenPullRequest()),
+			press:       []string{"R"},
+			wantRefusal: "part-way through a rebase, merge or pick",
+		},
+		{
+			name:        "the merge then rebase of a branch with no pull request",
+			rows:        buildGitAgent(),
+			press:       []string{"R"},
+			wantRefusal: "komrad has not read this agent's repository yet",
+		},
+		{
 			name:        "the draft toggle of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
 			press:       []string{"d"},
@@ -287,6 +299,55 @@ func TestGitMenuMerges(t *testing.T) {
 			assert.NotContains(t, harness.readFrame(), "merge and archive")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			}
+		})
+	}
+}
+
+// TestGitMenuMergesThenRebases covers the entry that merges a pull request on the forge and then
+// brings its worktree up to date on the base, rebasing nothing when the forge refuses.
+func TestGitMenuMergesThenRebases(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		refuse       error
+		wantRebases  []proto.Message
+		wantMessages []string
+	}{
+		{
+			name:         "a merged pull request has its worktree moved onto the base",
+			wantRebases:  []proto.Message{&agentv1.RebaseWorktreeRequest{AgentId: "a1"}},
+			wantMessages: []string{"api: merged #740", "api: moved onto main"},
+		},
+		{
+			name:         "a merge the forge refuses rebases nothing",
+			refuse:       connect.NewError(connect.CodeFailedPrecondition, errors.New("github refused to merge it: Pull Request is not mergeable")),
+			wantMessages: []string{"Pull Request is not mergeable"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+			if tt.refuse != nil {
+				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
+			}
+			harness.answer(agentv1connect.AgentServiceRebaseWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.RebaseWorktreeResponse{BaseRef: "main", BaseSha: "abcdef1234567", Moved: true}), nil
+			})
+
+			harness.press("R")
+
+			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{Url: pullRequestURL})
+			harness.assertSentTo(agentv1connect.AgentServiceRebaseWorktreeProcedure, tt.wantRebases...)
+			harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
+			assert.NotContains(t, harness.readFrame(), "merge then rebase")
+			messages := readOpenMessages(harness)
+			for _, want := range tt.wantMessages {
+				assert.Contains(t, messages, want)
 			}
 		})
 	}

@@ -59,6 +59,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "toggle_draft", keys: keys.Git.ToggleDraft},
 		{name: "request_rereview", keys: keys.Git.RequestRereview},
 		{name: "merge", keys: keys.Git.Merge},
+		{name: "merge_rebase", keys: keys.Git.MergeRebase},
 	}); err != nil {
 		return err
 	}
