@@ -254,7 +254,7 @@ type vanishing struct {
 	pending *unstaged
 }
 
-// vanishTimeoutMsg is the longest a held form waits on the watch for the agents its write killed.
+// vanishTimeoutMsg gives up waiting on the watch for the agents a held archive killed.
 type vanishTimeoutMsg struct {
 	write int
 }
