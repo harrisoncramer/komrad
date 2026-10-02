@@ -64,15 +64,18 @@ func (u *unstaged) noteArchive(err error) error {
 
 // settleUnstaged marks the agents an archive killed as no longer alive and stages the screen
 // again.
-func (m *model) settleUnstaged(pending unstaged) {
+func (m *model) settleUnstaged(pending *unstaged) {
 	for _, agent := range pending.agents {
 		delete(m.unstaging, agent.Pane)
-		if held, ok := m.listing.world.Agents[agent.ID]; ok && pending.archived {
-			held.Alive = xptr.Ptr(false)
-		}
 	}
 
 	if pending.archived {
+		for _, agent := range pending.agents {
+			if held, ok := m.listing.world.Agents[agent.ID]; ok {
+				held.Alive = xptr.Ptr(false)
+			}
+		}
+
 		m.listing.assemble(time.Now())
 	}
 

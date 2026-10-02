@@ -413,7 +413,7 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 	m.report(result.summary, result.err)
 
 	if result.unstaged != nil {
-		m.settleUnstaged(*result.unstaged)
+		m.settleUnstaged(result.unstaged)
 	}
 
 	if result.renamed != "" {
