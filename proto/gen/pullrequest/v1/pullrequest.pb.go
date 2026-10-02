@@ -429,7 +429,9 @@ type PullRequest struct {
 	// Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
 	MergeReadiness *MergeReadiness `protobuf:"bytes,25,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
 	// The login of whoever opened it, empty when the forge no longer has that account.
-	Author        string `protobuf:"bytes,26,opt,name=author,proto3" json:"author,omitempty"`
+	Author string `protobuf:"bytes,26,opt,name=author,proto3" json:"author,omitempty"`
+	// The description as the forge has it, empty when none was written.
+	Body          string `protobuf:"bytes,27,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -600,6 +602,13 @@ func (x *PullRequest) GetMergeReadiness() *MergeReadiness {
 func (x *PullRequest) GetAuthor() string {
 	if x != nil {
 		return x.Author
+	}
+	return ""
+}
+
+func (x *PullRequest) GetBody() string {
+	if x != nil {
+		return x.Body
 	}
 	return ""
 }
@@ -1120,7 +1129,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\x91\x06\n" +
+	"\v_pagination\"\xa5\x06\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -1146,7 +1155,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\tmerged_at\x18\x11 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
 	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
 	"\x0fmerge_readiness\x18\x19 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x16\n" +
-	"\x06author\x18\x1a \x01(\tR\x06authorB\f\n" +
+	"\x06author\x18\x1a \x01(\tR\x06author\x12\x12\n" +
+	"\x04body\x18\x1b \x01(\tR\x04bodyB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +

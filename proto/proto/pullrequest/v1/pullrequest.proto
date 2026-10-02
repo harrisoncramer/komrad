@@ -65,6 +65,8 @@ message PullRequest {
   MergeReadiness merge_readiness = 25;
   // The login of whoever opened it, empty when the forge no longer has that account.
   string author = 26;
+  // The description as the forge has it, empty when none was written.
+  string body = 27;
 
   reserved 19 to 24;
   reserved "review_decision", "checks", "mergeability", "mergeability_unconfirmed", "auto_merge", "auto_mergeable";

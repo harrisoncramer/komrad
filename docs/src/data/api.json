@@ -7530,6 +7530,16 @@
           "oneof": "",
           "rules": [],
           "description": "The login of whoever opened it, empty when the forge no longer has that account."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The description as the forge has it, empty when none was written."
         }
       ]
     },

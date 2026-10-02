@@ -24,6 +24,7 @@ type PullRequest struct {
 	URL            string
 	Title          string
 	Author         string
+	Body           string
 	State          pullrequestv1.PullRequestState
 	MergeReadiness MergeReadiness
 	OpenedAt       time.Time
