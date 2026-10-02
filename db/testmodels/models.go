@@ -762,6 +762,10 @@ type ReviewMessage struct {
 	ForgeCommentID pgtype.UUID
 	// When the forge comment had last been edited as of the last sync, null when it never had been.
 	ForgeEditedAt pgtype.Timestamptz
+	// Whether the forge author could not write to the repository when the text was written or last edited, which keeps it from the agent. A held first message holds its whole thread until the person accepts it.
+	Held bool
+	// The held forge message the person accepted this copy of, which releases that message's thread to the agent once the copy's review is sent. Null on everything else.
+	AcceptedFrom pgtype.UUID
 }
 
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.

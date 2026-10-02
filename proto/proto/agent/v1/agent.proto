@@ -1133,6 +1133,13 @@ service AgentService {
       ]
     };
   }
+  rpc AcceptForgeMessage(AcceptForgeMessageRequest) returns (AcceptForgeMessageResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Passing a stranger's words on to an agent as review is the person's call alone, made in the panel where they read those words."
+    };
+  }
   rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {

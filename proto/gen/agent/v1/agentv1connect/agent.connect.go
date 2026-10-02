@@ -137,6 +137,9 @@ const (
 	// AgentServiceAddReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// AddReviewMessage RPC.
 	AgentServiceAddReviewMessageProcedure = "/agent.v1.AgentService/AddReviewMessage"
+	// AgentServiceAcceptForgeMessageProcedure is the fully-qualified name of the AgentService's
+	// AcceptForgeMessage RPC.
+	AgentServiceAcceptForgeMessageProcedure = "/agent.v1.AgentService/AcceptForgeMessage"
 	// AgentServiceEditReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// EditReviewMessage RPC.
 	AgentServiceEditReviewMessageProcedure = "/agent.v1.AgentService/EditReviewMessage"
@@ -224,6 +227,7 @@ type AgentServiceClient interface {
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
+	AcceptForgeMessage(context.Context, *connect.Request[v1.AcceptForgeMessageRequest]) (*connect.Response[v1.AcceptForgeMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
@@ -505,6 +509,12 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("AddReviewMessage")),
 			connect.WithClientOptions(opts...),
 		),
+		acceptForgeMessage: connect.NewClient[v1.AcceptForgeMessageRequest, v1.AcceptForgeMessageResponse](
+			httpClient,
+			baseURL+AgentServiceAcceptForgeMessageProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("AcceptForgeMessage")),
+			connect.WithClientOptions(opts...),
+		),
 		editReviewMessage: connect.NewClient[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse](
 			httpClient,
 			baseURL+AgentServiceEditReviewMessageProcedure,
@@ -653,6 +663,7 @@ type agentServiceClient struct {
 	listReviewThreads        *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
 	createReviewThread       *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
 	addReviewMessage         *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
+	acceptForgeMessage       *connect.Client[v1.AcceptForgeMessageRequest, v1.AcceptForgeMessageResponse]
 	editReviewMessage        *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
 	planRebase               *connect.Client[v1.PlanRebaseRequest, v1.PlanRebaseResponse]
 	rebaseWorktree           *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
@@ -861,6 +872,11 @@ func (c *agentServiceClient) AddReviewMessage(ctx context.Context, req *connect.
 	return c.addReviewMessage.CallUnary(ctx, req)
 }
 
+// AcceptForgeMessage calls agent.v1.AgentService.AcceptForgeMessage.
+func (c *agentServiceClient) AcceptForgeMessage(ctx context.Context, req *connect.Request[v1.AcceptForgeMessageRequest]) (*connect.Response[v1.AcceptForgeMessageResponse], error) {
+	return c.acceptForgeMessage.CallUnary(ctx, req)
+}
+
 // EditReviewMessage calls agent.v1.AgentService.EditReviewMessage.
 func (c *agentServiceClient) EditReviewMessage(ctx context.Context, req *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error) {
 	return c.editReviewMessage.CallUnary(ctx, req)
@@ -981,6 +997,7 @@ type AgentServiceHandler interface {
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
+	AcceptForgeMessage(context.Context, *connect.Request[v1.AcceptForgeMessageRequest]) (*connect.Response[v1.AcceptForgeMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
@@ -1258,6 +1275,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("AddReviewMessage")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceAcceptForgeMessageHandler := connect.NewUnaryHandler(
+		AgentServiceAcceptForgeMessageProcedure,
+		svc.AcceptForgeMessage,
+		connect.WithSchema(agentServiceMethods.ByName("AcceptForgeMessage")),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceEditReviewMessageHandler := connect.NewUnaryHandler(
 		AgentServiceEditReviewMessageProcedure,
 		svc.EditReviewMessage,
@@ -1441,6 +1464,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceCreateReviewThreadHandler.ServeHTTP(w, r)
 		case AgentServiceAddReviewMessageProcedure:
 			agentServiceAddReviewMessageHandler.ServeHTTP(w, r)
+		case AgentServiceAcceptForgeMessageProcedure:
+			agentServiceAcceptForgeMessageHandler.ServeHTTP(w, r)
 		case AgentServiceEditReviewMessageProcedure:
 			agentServiceEditReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServicePlanRebaseProcedure:
@@ -1632,6 +1657,10 @@ func (UnimplementedAgentServiceHandler) CreateReviewThread(context.Context, *con
 
 func (UnimplementedAgentServiceHandler) AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.AddReviewMessage is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) AcceptForgeMessage(context.Context, *connect.Request[v1.AcceptForgeMessageRequest]) (*connect.Response[v1.AcceptForgeMessageResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.AcceptForgeMessage is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error) {

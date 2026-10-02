@@ -427,15 +427,6 @@ func (s *ReviewService) ReleaseReview(
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	})
-	if errors.Is(err, store.ErrNotFound) && params.Author.IsHuman() && strings.TrimSpace(params.Body) == "" {
-		held, err := s.releaseHeldOnly(ctx, params.AgentID)
-		if err != nil {
-			return nil, err
-		}
-		if len(held) > 0 {
-			return &ReleaseReviewResult{Review: held[0]}, nil
-		}
-	}
 	if errors.Is(err, store.ErrNotFound) {
 		if isSayingNothing(params.Author, verdict) {
 			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
@@ -518,16 +509,7 @@ func (s *ReviewService) ReleaseReview(
 			return nil, err
 		}
 
-		if !params.Author.IsHuman() {
-			return []river.JobArgs{*event}, nil
-		}
-
-		_, held, err := releaseHeldForge(ctx, tx, params.AgentID)
-		if err != nil {
-			return nil, err
-		}
-
-		return append([]river.JobArgs{*event}, held...), nil
+		return []river.JobArgs{*event}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -538,24 +520,6 @@ func (s *ReviewService) ReleaseReview(
 		Comments: comments,
 		Path:     path,
 	}, nil
-}
-
-// releaseHeldOnly sends the forge reviews the person was holding when they have nothing of their
-// own to send, returning the ones it sent.
-func (s *ReviewService) releaseHeldOnly(ctx context.Context, agentID string) ([]reviewstore.Review, error) {
-	var released []reviewstore.Review
-	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		var jobs []river.JobArgs
-		var err error
-		released, jobs, err = releaseHeldForge(ctx, tx, agentID)
-
-		return jobs, err
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return released, nil
 }
 
 // releaseMail is the whole of what the mail carries: the round, the verdict, how much there is
@@ -739,9 +703,14 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 		return nil, err
 	}
 	if !author.IsHuman() {
-		for i := range threads {
-			threads[i].Messages = releasedMessages(threads[i].Messages, author)
+		readable := make([]ReviewThreadWithMessages, 0, len(threads))
+		for _, thread := range threads {
+			thread.Messages = releasedMessages(thread.Messages, author)
+			if len(thread.Messages) > 0 {
+				readable = append(readable, thread)
+			}
 		}
+		threads = readable
 	}
 
 	return &ReviewInFull{

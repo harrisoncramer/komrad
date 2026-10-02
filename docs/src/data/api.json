@@ -5144,6 +5144,16 @@
           "oneof": "",
           "rules": [],
           "description": "The forge comment this message was mirrored from, absent for anything written in komrad."
+        },
+        {
+          "name": "accepted_from",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The held forge message the person accepted this message as a copy of, absent on everything else."
         }
       ]
     },
@@ -9706,6 +9716,10 @@
         {
           "name": "REVIEW_DELIVERY_STATE_DELIVERED",
           "description": "Released, and the agent has claimed the doorbell."
+        },
+        {
+          "name": "REVIEW_DELIVERY_STATE_HELD",
+          "description": "Kept from the agent, because someone on the forge without write access to the repository wrote it or the thread it sits in, until the person accepts the thread's first comment."
         }
       ]
     },

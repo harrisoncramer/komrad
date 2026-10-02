@@ -36,7 +36,4 @@ COMMENT ON INDEX "review_threads_agent_forge_thread" IS 'Holds each agent to one
 CREATE UNIQUE INDEX "review_messages_thread_forge_comment" ON "review_messages" ("thread_id", "forge_comment_id") WHERE (forge_comment_id IS NOT NULL);
 -- Set comment to index: "review_messages_thread_forge_comment" on table: "review_messages"
 COMMENT ON INDEX "review_messages_thread_forge_comment" IS 'Holds each mirrored thread to one copy of a forge comment.';
-CREATE POLICY forge_released ON reviews AS RESTRICTIVE FOR SELECT TO komrad_reader USING (author_kind IN ('human', 'agent') OR released_at IS NOT NULL);
-CREATE POLICY forge_released ON review_threads AS RESTRICTIVE FOR SELECT TO komrad_reader USING (EXISTS (SELECT 1 FROM reviews WHERE reviews.id = review_threads.review_id));
-CREATE POLICY forge_released ON review_messages AS RESTRICTIVE FOR SELECT TO komrad_reader USING (review_messages.review_id IS NULL OR EXISTS (SELECT 1 FROM reviews WHERE reviews.id = review_messages.review_id));
 SELECT attach_updated_at_triggers();

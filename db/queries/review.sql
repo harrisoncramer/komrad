@@ -280,7 +280,8 @@ said AS (
         suggestion,
         external_login,
         forge_comment_id,
-        forge_edited_at)
+        forge_edited_at,
+        held)
     SELECT
         o.id,
         @review_id,
@@ -290,7 +291,8 @@ said AS (
         @suggestion,
         sqlc.narg('external_login')::text,
         sqlc.narg('forge_comment_id')::uuid,
-        sqlc.narg('forge_edited_at')::timestamptz
+        sqlc.narg('forge_edited_at')::timestamptz,
+        @held
     FROM
         opened o
     RETURNING
@@ -410,7 +412,9 @@ WITH written AS (
         suggestion,
         external_login,
         forge_comment_id,
-        forge_edited_at)
+        forge_edited_at,
+        held,
+        accepted_from)
     VALUES (
         @thread_id,
         sqlc.narg('review_id'),
@@ -421,7 +425,9 @@ WITH written AS (
         @suggestion,
         sqlc.narg('external_login'),
         sqlc.narg('forge_comment_id'),
-        sqlc.narg('forge_edited_at'))
+        sqlc.narg('forge_edited_at'),
+        @held,
+        sqlc.narg('accepted_from'))
 RETURNING
     *
 ),
@@ -733,47 +739,7 @@ VALUES (
     @round_id,
     'forge',
     @external_login,
-    CASE WHEN @released::boolean THEN
-        NOW()
-    END)
-RETURNING
-    *;
-
--- name: ReleaseForgeReviews :many
-UPDATE
-    reviews v
-SET
-    released_at = NOW()
-WHERE
-    v.agent_id = @agent_id
-    AND v.author_kind = 'forge'
-    AND v.released_at IS NULL
-RETURNING
-    *;
-
--- name: ReleaseForgeReviewsInThread :many
-UPDATE
-    reviews v
-SET
-    released_at = NOW()
-WHERE
-    v.author_kind = 'forge'
-    AND v.released_at IS NULL
-    AND v.id IN (
-        SELECT
-            t.review_id
-        FROM
-            review_threads t
-        WHERE
-            t.id = @thread_id
-        UNION
-        SELECT
-            m.review_id
-        FROM
-            review_messages m
-        WHERE
-            m.thread_id = @thread_id
-            AND m.review_id IS NOT NULL)
+    NOW())
 RETURNING
     *;
 
@@ -783,7 +749,7 @@ UPDATE
 SET
     body = @body,
     forge_edited_at = sqlc.narg('forge_edited_at'),
-    review_id = @review_id
+    held = @held
 WHERE
     id = @id;
 

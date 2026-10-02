@@ -446,6 +446,17 @@ table "review_messages" {
     type    = timestamptz
     comment = "When the forge comment had last been edited as of the last sync, null when it never had been."
   }
+  column "held" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge author could not write to the repository when the text was written or last edited, which keeps it from the agent. A held first message holds its whole thread until the person accepts it."
+  }
+  column "accepted_from" {
+    null    = true
+    type    = uuid
+    comment = "The held forge message the person accepted this copy of, which releases that message's thread to the agent once the copy's review is sent. Null on everything else."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -453,6 +464,9 @@ table "review_messages" {
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "review_messages_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
   foreign_key "review_messages_engine_id_fkey" {
     columns     = [column.engine_id]
@@ -478,6 +492,12 @@ table "review_messages" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "review_messages_accepted_from_fkey" {
+    columns     = [column.engine_id, column.accepted_from]
+    ref_columns = [table.review_messages.column.engine_id, table.review_messages.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
   foreign_key "review_messages_author_agent_id_fkey" {
     columns     = [column.engine_id, column.author_agent_id]
     ref_columns = [table.agents.column.engine_id, table.agents.column.id]
@@ -486,6 +506,9 @@ table "review_messages" {
   }
   index "review_messages_thread_id" {
     columns = [column.thread_id, column.id]
+  }
+  index "review_messages_accepted_from" {
+    columns = [column.accepted_from]
   }
   index "review_messages_review_id" {
     columns = [column.review_id]

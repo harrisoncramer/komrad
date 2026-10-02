@@ -147,10 +147,9 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 			}
 
 			review, err := reviews.OpenForgeReview(ctx, reviewstore.OpenForgeReviewParams{
-				AgentID:  target.AgentID,
-				RoundID:  target.RoundID,
-				Login:    comment.AuthorLogin,
-				Released: comment.Trusted,
+				AgentID: target.AgentID,
+				RoundID: target.RoundID,
+				Login:   comment.AuthorLogin,
 			})
 			if err != nil {
 				return nil, err
@@ -233,6 +232,7 @@ func createForgeThread(ctx context.Context, reviews *reviewstore.ReviewStore, pa
 		AuthorKind:    reviewstore.AuthorForge,
 		External:      externalOf(first),
 		ForgeThreadID: &params.Thread.ID,
+		Held:          !first.Trusted,
 	})
 	if err != nil {
 		return nil, err
@@ -259,22 +259,22 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 			continue
 		}
 
-		review, err := params.ReviewFor(comment)
-		if err != nil {
-			return err
-		}
-
 		if ok {
 			if err := reviews.UpdateForgeMessage(ctx, reviewstore.UpdateForgeMessageParams{
 				ID:       held.MessageID,
 				Body:     comment.Body,
 				EditedAt: comment.EditedAt,
-				ReviewID: review.ID,
+				Held:     !comment.Trusted,
 			}); err != nil {
 				return err
 			}
 
 			continue
+		}
+
+		review, err := params.ReviewFor(comment)
+		if err != nil {
+			return err
 		}
 
 		// A reply is written with no round so it does not reopen the thread.
@@ -284,6 +284,7 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 			AuthorKind: reviewstore.AuthorForge,
 			Body:       comment.Body,
 			External:   externalOf(comment),
+			Held:       !comment.Trusted,
 		}); err != nil {
 			return err
 		}
@@ -319,10 +320,10 @@ func syncResolved(ctx context.Context, reviews *reviewstore.ReviewStore, mirrore
 	return err
 }
 
-// releasedForgeEvents tells the agent about each of the forge reviews that went out released.
+// releasedForgeEvents tells the agent about each of the forge reviews a sync opened that holds
+// something it may read.
 func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, agentID string, opened []reviewstore.Review) ([]river.JobArgs, error) {
-	released := xslice.Filter(opened, func(review reviewstore.Review) bool { return review.ReleasedAt != nil })
-	if len(released) == 0 {
+	if len(opened) == 0 {
 		return nil, nil
 	}
 
@@ -336,14 +337,17 @@ func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, 
 		return nil, err
 	}
 
-	jobs := make([]river.JobArgs, 0, len(released))
-	for _, review := range released {
+	jobs := make([]river.JobArgs, 0, len(opened))
+	for _, review := range opened {
+		tally := tallyForge(review.ID, threads, messages)
+		if tally.Comments == 0 && tally.Replies == 0 {
+			continue
+		}
+
 		round, err := reviews.GetRound(ctx, review.RoundID)
 		if err != nil {
 			return nil, err
 		}
-
-		tally := tallyForge(review.ID, threads, messages)
 
 		event, err := events.NewEvent(Released{
 			ReviewID:   review.ID,
@@ -364,22 +368,24 @@ func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, 
 	return jobs, nil
 }
 
-// tallyForge counts the threads a forge review opened and the earlier threads it replied in.
+// tallyForge counts the threads a forge review opened and the earlier threads it replied in,
+// leaving out whatever is held from the agent.
 func tallyForge(reviewID string, threads []reviewstore.Thread, messages []reviewstore.Message) batchTally {
 	var tally batchTally
 
 	replied := map[string]bool{}
 	for _, message := range messages {
-		if message.ReviewID != nil && *message.ReviewID == reviewID {
+		if message.ReviewID != nil && *message.ReviewID == reviewID && message.Delivery != reviewstore.DeliveryHeld {
 			replied[message.ThreadID] = true
 		}
 	}
 
 	for _, thread := range threads {
 		switch {
+		case !replied[thread.ID]:
 		case thread.ReviewID == reviewID:
 			tally.Comments++
-		case replied[thread.ID]:
+		default:
 			tally.Replies++
 		}
 	}
@@ -483,35 +489,4 @@ func isSameEdit(a, b *time.Time) bool {
 // externalOf is who wrote a forge comment and which comment it was.
 func externalOf(comment pullrequeststore.ForgeComment) *reviewstore.External {
 	return &reviewstore.External{Login: comment.AuthorLogin, CommentID: comment.ID, EditedAt: comment.EditedAt}
-}
-
-// releaseHeldForge sends every forge review the person was holding on an agent, with an event
-// for each.
-func releaseHeldForge(ctx context.Context, tx pgx.Tx, agentID string) ([]reviewstore.Review, []river.JobArgs, error) {
-	reviews := reviewstore.NewReviewStore(tx)
-
-	released, err := reviews.ReleaseForgeReviews(ctx, agentID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	jobs, err := releasedForgeEvents(ctx, reviews, agentID, released)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return released, jobs, nil
-}
-
-// releaseHeldForgeInThread sends the forge reviews the person was holding that wrote in one
-// thread, with an event for each.
-func releaseHeldForgeInThread(ctx context.Context, tx pgx.Tx, agentID, threadID string) ([]river.JobArgs, error) {
-	reviews := reviewstore.NewReviewStore(tx)
-
-	released, err := reviews.ReleaseForgeReviewsInThread(ctx, threadID)
-	if err != nil {
-		return nil, err
-	}
-
-	return releasedForgeEvents(ctx, reviews, agentID, released)
 }

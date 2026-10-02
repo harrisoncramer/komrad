@@ -108,6 +108,16 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodePermissionDenied,
 		},
 		{
+			name: "accepting a forge comment already accepted",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+				_, err := svc.AcceptForgeMessage(ctx, connect.NewRequest(&agentv1.AcceptForgeMessageRequest{MessageId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrForgeMessageAccepted,
+			wantCode: connect.CodeAlreadyExists,
+		},
+		{
 			name: "an agent marking a thread read",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: betaID}))
@@ -615,6 +625,15 @@ func (f *fakeReviewer) AddReviewMessage(context.Context, reviews.AddReviewMessag
 	}
 
 	return &reviews.AddReviewMessageResult{Message: f.message}, nil
+}
+
+// AcceptForgeMessage answers the message it holds.
+func (f *fakeReviewer) AcceptForgeMessage(context.Context, reviews.AcceptForgeMessageParams) (*reviewstore.Message, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.message, nil
 }
 
 // EditReviewMessage answers the message it holds.

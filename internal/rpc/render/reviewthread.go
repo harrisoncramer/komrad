@@ -53,6 +53,7 @@ func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		Body:          message.Body,
 		Suggestion:    message.Suggestion,
 		Delivery:      reviewDeliveryStateOf(message.Delivery),
+		AcceptedFrom:  message.AcceptedFrom,
 		CreatedAt:     dates.Stamp(message.CreatedAt),
 		UpdatedAt:     dates.Stamp(message.UpdatedAt),
 	}
@@ -82,6 +83,8 @@ func reviewDeliveryStateOf(state reviewstore.DeliveryState) agentv1.ReviewDelive
 		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
 	case reviewstore.DeliveryDelivered:
 		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED
+	case reviewstore.DeliveryHeld:
+		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD
 	case reviewstore.DeliveryNone:
 		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
 	default:

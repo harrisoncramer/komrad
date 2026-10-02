@@ -32,6 +32,9 @@ enum ReviewDeliveryState {
   REVIEW_DELIVERY_STATE_SENT = 2;
   // Released, and the agent has claimed the doorbell.
   REVIEW_DELIVERY_STATE_DELIVERED = 3;
+  // Kept from the agent, because someone on the forge without write access to the repository
+  // wrote it or the thread it sits in, until the person accepts the thread's first comment.
+  REVIEW_DELIVERY_STATE_HELD = 4;
 }
 
 // ReviewVerdict is what an author concluded about a round, which is what tells the agent
@@ -209,6 +212,9 @@ message ReviewMessage {
   optional string round_id = 13;
   // The forge comment this message was mirrored from, absent for anything written in komrad.
   optional ForgeOrigin forge = 14;
+  // The held forge message the person accepted this message as a copy of, absent on everything
+  // else.
+  optional string accepted_from = 15;
 }
 
 // ForgeOrigin is the forge comment a message was mirrored from.
@@ -294,6 +300,17 @@ message AddReviewMessageResponse {
   // A nudge towards addressed, given when a plain reply lands on a thread whose worktree has
   // moved since it was written. Empty otherwise.
   string hint = 2;
+}
+
+message AcceptForgeMessageRequest {
+  // The held forge message to accept.
+  string message_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message AcceptForgeMessageResponse {
+  // The copy written into the person's open review, which releases the thread once that review
+  // is sent.
+  ReviewMessage message = 1;
 }
 
 message EditReviewMessageRequest {

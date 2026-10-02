@@ -16,8 +16,6 @@ type OpenForgeReviewParams struct {
 	RoundID string
 	// Login is the forge login of whoever wrote the comments.
 	Login string
-	// Released is whether the review goes to the agent at once rather than waiting on the person.
-	Released bool
 }
 
 // OpenForgeReview starts a review holding comments mirrored from the forge.
@@ -26,7 +24,6 @@ func (s *ReviewStore) OpenForgeReview(ctx context.Context, params OpenForgeRevie
 		AgentID:       params.AgentID,
 		RoundID:       params.RoundID,
 		ExternalLogin: &params.Login,
-		Released:      params.Released,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a forge review on agent %q: %w", params.AgentID, err)
@@ -37,42 +34,13 @@ func (s *ReviewStore) OpenForgeReview(ctx context.Context, params OpenForgeRevie
 	return &review, nil
 }
 
-// ReleaseForgeReviews sends every forge review the person has been holding on an agent.
-func (s *ReviewStore) ReleaseForgeReviews(ctx context.Context, agentID string) ([]Review, error) {
-	if !store.IsID(agentID) {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ReleaseForgeReviews(ctx, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to release the forge reviews on agent %q: %w", agentID, err)
-	}
-
-	return xslice.Map(rows, func(row *models.Review) Review { return reviewFromRow(*row) }), nil
-}
-
-// ReleaseForgeReviewsInThread sends the held forge reviews that wrote in one thread, leaving the
-// agent's others held.
-func (s *ReviewStore) ReleaseForgeReviewsInThread(ctx context.Context, threadID string) ([]Review, error) {
-	if !store.IsID(threadID) {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ReleaseForgeReviewsInThread(ctx, threadID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to release the forge reviews in thread %q: %w", threadID, err)
-	}
-
-	return xslice.Map(rows, func(row *models.Review) Review { return reviewFromRow(*row) }), nil
-}
-
-// UpdateForgeMessageParams is a forge comment's edit and the review it now goes out in.
+// UpdateForgeMessageParams is a forge comment's edit.
 type UpdateForgeMessageParams struct {
 	ID       string
 	Body     string
 	EditedAt *time.Time
-	// ReviewID is the review the edit goes out in, which holds it when the person must see it first.
-	ReviewID string
+	// Held is whether the author could not write to the repository when they made the edit.
+	Held bool
 }
 
 // UpdateForgeMessage rewrites a mirrored comment the forge reports was edited.
@@ -81,7 +49,7 @@ func (s *ReviewStore) UpdateForgeMessage(ctx context.Context, params UpdateForge
 		ID:            params.ID,
 		Body:          params.Body,
 		ForgeEditedAt: params.EditedAt,
-		ReviewID:      &params.ReviewID,
+		Held:          params.Held,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update the forge message %q: %w", params.ID, err)

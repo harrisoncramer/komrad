@@ -52,6 +52,7 @@ const (
 	actionReviewBase
 	actionReviewReload
 	actionReviewResolve
+	actionReviewAccept
 	actionReviewViewed
 	actionReviewBaseForward
 	actionReviewAnswer

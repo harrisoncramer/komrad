@@ -29,6 +29,7 @@ const (
 	reviewUnsentTone    = paint.TonePrimary
 	reviewSentTone      = paint.ToneWarning
 	reviewDeliveredTone = paint.ToneSuccess
+	reviewForgeHeldTone = paint.ToneDanger
 )
 
 // reviewArchivedStyle paints the row saying the agent is archived.
@@ -268,7 +269,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 			out += "\n" + dimStyle().Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
 		}
 
-		note := ""
+		note := heldForgeSaid(thread, message)
 		if i == answered {
 			note = r.diff.addressedSaid(message)
 		}

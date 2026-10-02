@@ -100,6 +100,12 @@ func (r *reviewScreen) ownTable() []screenAction {
 			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return r.resolveThread(m) }),
 		},
 		{
+			id:     actionReviewAccept,
+			keys:   func(k config.Keybindings) []string { return k.Review.Accept },
+			when:   func(*model) bool { return r.doesOfferAccept() },
+			direct: directly(notInMenu, r.orRefuseWrite(func(m *model) tea.Cmd { return r.acceptForge(m) })),
+		},
+		{
 			id:     actionReviewViewed,
 			keys:   func(k config.Keybindings) []string { return k.Review.ToggleViewed },
 			direct: directly(viewedIsLocal, func(m *model, _ string) tea.Cmd { return r.toggleViewed(m) }),
@@ -227,6 +233,11 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionReviewResolve},
 			desc: func(*model) string { return r.diff.resolveDesc() },
+		},
+		{
+			of:   []actionID{actionReviewAccept},
+			desc: func(*model) string { return "accept the forge comment" },
+			show: func(*model) bool { return r.doesOfferAccept() },
 		},
 		{
 			of:   []actionID{actionReviewViewed, actionDiffExpand},

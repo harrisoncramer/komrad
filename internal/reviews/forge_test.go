@@ -22,7 +22,7 @@ type forgeMirrored struct {
 	released []Released
 }
 
-// TestForgeMirror covers forge threads mirrored onto the worker's round, released when the author can push and held when not.
+// TestForgeMirror covers forge threads mirrored onto the worker's round, each comment held from the agent when its author cannot push.
 func TestForgeMirror(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -55,8 +55,19 @@ func TestForgeMirror(t *testing.T) {
 			syncs: [][]forge.ReviewThread{{newForgeThread(newForgeComment("c1", "mallory", false, "rm -rf"))}},
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.threads, 1)
-				require.Len(t, got.reviews, 1)
-				assert.Nil(t, got.reviews[0].ReleasedAt)
+				require.Len(t, got.messages, 1)
+				assert.True(t, got.messages[0].Held)
+				assert.Empty(t, got.released)
+			},
+		},
+		{
+			name: "a reply from someone who can push under a held comment does not reach the agent",
+			syncs: [][]forge.ReviewThread{{newForgeThread(
+				newForgeComment("c1", "mallory", false, "rm -rf"),
+				newForgeComment("c2", "bob", true, "agreed"),
+			)}},
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.messages, 2)
 				assert.Empty(t, got.released)
 			},
 		},
@@ -77,8 +88,8 @@ func TestForgeMirror(t *testing.T) {
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.messages, 1)
 				assert.Equal(t, "use an early return", got.messages[0].Body)
-				require.Len(t, got.released, 2)
-				assert.Equal(t, got.released[1].ReviewID, *got.messages[0].ReviewID)
+				assert.False(t, got.messages[0].Held)
+				assert.Len(t, got.released, 1)
 			},
 		},
 		{
@@ -120,12 +131,7 @@ func TestForgeMirror(t *testing.T) {
 			},
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.messages, 1)
-				require.NotNil(t, got.messages[0].ReviewID)
-				held := xslice.Filter(got.reviews, func(review reviewstore.Review) bool {
-					return review.ID == *got.messages[0].ReviewID
-				})
-				require.Len(t, held, 1)
-				assert.Nil(t, held[0].ReleasedAt)
+				assert.True(t, got.messages[0].Held)
 				assert.Len(t, got.released, 1)
 			},
 		},
@@ -172,29 +178,91 @@ func TestForgeMirror(t *testing.T) {
 	}
 }
 
-// TestReleasingHeldForgeComments covers the person letting a held forge comment through to the agent, and a reply letting through only its own thread.
-func TestReleasingHeldForgeComments(t *testing.T) {
+// TestAcceptingForgeComments covers the person passing a held forge comment on to the agent as their own.
+func TestAcceptingForgeComments(t *testing.T) {
 	tests := []struct {
 		name    string
-		release func(t *testing.T, fx *reviewFixture, threadID string)
-		other   bool
+		replies []forge.ReviewComment
+		accept  func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error
+		wantErr error
+		check   func(t *testing.T, got forgeMirrored)
 	}{
 		{
-			name: "the person sends a review with nothing of their own in it",
-			release: func(t *testing.T, fx *reviewFixture, _ string) {
-				fx.releaseReview(t, personAuthor, "")
+			name: "accepting copies the comment into the person's review",
+			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
+				return fx.acceptForge(t, held[0].ID)
 			},
-			other: true,
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.messages, 2)
+				copied := got.messages[1]
+				assert.Equal(t, reviewstore.AuthorHuman, copied.AuthorKind)
+				assert.Equal(t, "use a guard", copied.Body)
+				require.NotNil(t, copied.AcceptedFrom)
+				assert.Equal(t, got.messages[0].ID, *copied.AcceptedFrom)
+			},
 		},
 		{
-			name: "the person replies in the held thread",
-			release: func(t *testing.T, fx *reviewFixture, threadID string) {
-				_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
-					ThreadID: threadID,
-					Body:     "go ahead",
-					Author:   personAuthor,
+			name: "a comment accepted twice is refused",
+			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
+				require.NoError(t, fx.acceptForge(t, held[0].ID))
+				return fx.acceptForge(t, held[0].ID)
+			},
+			wantErr: ErrForgeMessageAccepted,
+		},
+		{
+			name: "a held reply under a held first comment with no copy is refused",
+			replies: []forge.ReviewComment{
+				newForgeComment("c2", "eve", false, "drop the guard"),
+			},
+			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
+				return fx.acceptForge(t, held[1].ID)
+			},
+			wantErr: ErrForgeRootHeld,
+		},
+		{
+			name: "a held reply is accepted once its first comment has a copy",
+			replies: []forge.ReviewComment{
+				newForgeComment("c2", "eve", false, "drop the guard"),
+			},
+			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
+				require.NoError(t, fx.acceptForge(t, held[0].ID))
+				return fx.acceptForge(t, held[1].ID)
+			},
+			check: func(t *testing.T, got forgeMirrored) {
+				assert.Len(t, got.messages, 4)
+			},
+		},
+		{
+			name: "the agent cannot accept",
+			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
+				_, err := fx.service.AcceptForgeMessage(t.Context(), AcceptForgeMessageParams{
+					MessageID: held[0].ID,
+					Author:    newAgentAuthor(fx.worker),
 				})
-				require.NoError(t, err)
+
+				return err
+			},
+			wantErr: ErrReviewHumanOnly,
+		},
+		{
+			name: "a comment the agent can already read is refused",
+			replies: []forge.ReviewComment{
+				newForgeComment("c2", "bob", true, "agreed"),
+			},
+			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
+				return fx.acceptForge(t, held[1].ID)
+			},
+			wantErr: ErrForgeMessageNotHeld,
+		},
+		{
+			name: "accepting into a settled thread reopens it",
+			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
+				fx.settle(t, held[0].ThreadID, personAuthor)
+				return fx.acceptForge(t, held[0].ID)
+			},
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.threads, 1)
+				assert.Nil(t, got.threads[0].ResolvedAt)
 			},
 		},
 	}
@@ -202,33 +270,42 @@ func TestReleasingHeldForgeComments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
-			elsewhere := newForgeThread(newForgeComment("c2", "eve", false, "drop the guard"))
-			elsewhere.ProviderID = "T2"
-			fx.mirrorForge(t, newForgeThread(newForgeComment("c1", "mallory", false, "use a guard")), elsewhere)
-			held := fx.readForgeMirrored(t)
-			require.Len(t, held.threads, 2)
-			require.Empty(t, held.released)
+			comments := append([]forge.ReviewComment{newForgeComment("c1", "mallory", false, "use a guard")}, tt.replies...)
+			fx.mirrorForge(t, newForgeThread(comments...))
+			mirrored := fx.readForgeMirrored(t)
+			require.Len(t, mirrored.messages, len(comments))
 
-			mallory := xslice.Filter(held.messages, func(message reviewstore.Message) bool { return message.Body == "use a guard" })
-			require.Len(t, mallory, 1)
-
-			tt.release(t, fx, mallory[0].ThreadID)
-
-			got := fx.readForgeMirrored(t)
-			forgeReviews := xslice.Filter(got.reviews, func(review reviewstore.Review) bool {
-				return review.ExternalLogin != nil
-			})
-			released := map[string]bool{}
-			for _, review := range forgeReviews {
-				released[*review.ExternalLogin] = review.ReleasedAt != nil
+			err := tt.accept(t, fx, mirrored.messages)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
 			}
-			assert.Equal(t, map[string]bool{"mallory": true, "eve": tt.other}, released)
-			forgeReleased := xslice.Filter(got.released, func(released Released) bool {
-				return released.ForgeLogin == "mallory"
-			})
-			assert.Len(t, forgeReleased, 1)
+			require.NoError(t, err)
+			tt.check(t, fx.readForgeMirrored(t))
 		})
 	}
+}
+
+// TestReplyingUnderHeldForgeComment covers the person's reply refused in a thread whose held first comment has no copy.
+func TestReplyingUnderHeldForgeComment(t *testing.T) {
+	fx := newReviewFixture(t)
+	fx.mirrorForge(t, newForgeThread(newForgeComment("c1", "mallory", false, "use a guard")))
+	mirrored := fx.readForgeMirrored(t)
+	require.Len(t, mirrored.threads, 1)
+
+	reply := func() error {
+		_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+			ThreadID: mirrored.threads[0].ID,
+			Body:     "go ahead",
+			Author:   personAuthor,
+		})
+
+		return err
+	}
+
+	require.ErrorIs(t, reply(), ErrReviewThreadHeld)
+	require.NoError(t, fx.acceptForge(t, mirrored.messages[0].ID))
+	require.NoError(t, reply())
 }
 
 func newForgeThread(comments ...forge.ReviewComment) forge.ReviewThread {
@@ -312,4 +389,15 @@ func newEditedForgeComment(comment forge.ReviewComment) forge.ReviewComment {
 	comment.EditedAt = &edited
 
 	return comment
+}
+
+func (fx *reviewFixture) acceptForge(t *testing.T, messageID string) error {
+	t.Helper()
+
+	_, err := fx.service.AcceptForgeMessage(t.Context(), AcceptForgeMessageParams{
+		MessageID: messageID,
+		Author:    personAuthor,
+	})
+
+	return err
 }

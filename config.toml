@@ -296,6 +296,10 @@ up        = ["k"]
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
+# Pass a held comment from the forge on to the agent, copied into your review as your own
+# words. A comment is held when its author cannot push to the repository, and the agent
+# reads nothing in its thread until the comment opening it is accepted and the review sent.
+accept           = ["A"]
 # Show only the change that answered the comment under the cursor, from the work as
 # it stood just before the agent's addressed reply to the work that reply carried, or
 # go back to all changes from there.

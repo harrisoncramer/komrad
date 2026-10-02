@@ -20,6 +20,7 @@ type reviewConversation interface {
 	) ([]reviews.ReviewThreadWithMessages, error)
 	CreateReviewThread(ctx context.Context, params reviews.CreateReviewThreadParams) (*reviews.ReviewThreadWithMessages, error)
 	AddReviewMessage(ctx context.Context, params reviews.AddReviewMessageParams) (*reviews.AddReviewMessageResult, error)
+	AcceptForgeMessage(ctx context.Context, params reviews.AcceptForgeMessageParams) (*reviewstore.Message, error)
 	EditReviewMessage(ctx context.Context, params reviews.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
@@ -118,6 +119,19 @@ func (s *Handler) EditReviewMessage(ctx context.Context, req *agentv1.EditReview
 	}
 
 	return &agentv1.EditReviewMessageResponse{Message: render.ReviewMessage(*message)}, nil
+}
+
+// AcceptForgeMessage copies a held forge comment into the person's open review.
+func (s *Handler) AcceptForgeMessage(ctx context.Context, req *agentv1.AcceptForgeMessageRequest) (*agentv1.AcceptForgeMessageResponse, *fail.Error) {
+	message, err := s.review.AcceptForgeMessage(ctx, reviews.AcceptForgeMessageParams{
+		MessageID: req.GetMessageId(),
+		Author:    reviewAuthorFrom(ctx),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to accept the forge comment")
+	}
+
+	return &agentv1.AcceptForgeMessageResponse{Message: render.ReviewMessage(*message)}, nil
 }
 
 // MarkReviewThreadRead catches the calling side up on one conversation.

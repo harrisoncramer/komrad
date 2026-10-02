@@ -509,6 +509,10 @@ type WorktreesKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
+	// Pass a held comment from the forge on to the agent, copied into your review as your own
+	// words. A comment is held when its author cannot push to the repository, and the agent
+	// reads nothing in its thread until the comment opening it is accepted and the review sent.
+	Accept []string `mapstructure:"accept" default:"A"`
 	// Show only the change that answered the comment under the cursor, from the work as
 	// it stood just before the agent's addressed reply to the work that reply carried, or
 	// go back to all changes from there.

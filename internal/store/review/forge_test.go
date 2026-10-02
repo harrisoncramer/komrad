@@ -4,96 +4,203 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
-	"komrad/lib/xslice"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestReleaseForgeReviews covers releasing the agent's held forge reviews and nothing else.
-func TestReleaseForgeReviews(t *testing.T) {
-	st := openFixture(t)
+// heldThread is a forge thread under a held root, with a trusted forge reply and the agent's answer.
+type heldThread struct {
+	thread *Thread
+	rootID string
+	round  *Round
+}
+
+func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldThread {
+	t.Helper()
 	ctx := t.Context()
+
 	agentID := st.seedAgent(t, "worker")
-	otherID := st.seedAgent(t, "other")
 	round := st.openRound(t, agentID, "tree-one")
-	otherRound := st.openRound(t, otherID, "tree-one")
+	opener := st.openForgeReview(t, round, "mallory")
+	replier := st.openForgeReview(t, round, "alice")
 
-	held := st.openForgeReview(t, round, "mallory", false)
-	sent := st.openForgeReview(t, round, "alice", true)
-	elsewhere := st.openForgeReview(t, otherRound, "mallory", false)
-	person := st.openReview(t, round)
-
-	released, err := st.ReleaseForgeReviews(ctx, agentID)
+	thread, err := st.CreateThread(ctx, CreateThreadParams{
+		AgentID:     agentID,
+		ReviewID:    opener.ID,
+		RoundID:     round.ID,
+		FilePath:    "internal/thing.go",
+		NewStart:    41,
+		NewEnd:      41,
+		QuotedLines: []string{"+\tdoThing()"},
+		Body:        "root",
+		AuthorKind:  AuthorForge,
+		Held:        rootHeld,
+	})
 	require.NoError(t, err)
-	assert.Equal(t, []string{held.ID}, xslice.Map(released, func(review Review) string { return review.ID }))
+	_, err = st.CreateMessage(ctx, CreateMessageParams{
+		ThreadID:   thread.ID,
+		ReviewID:   &replier.ID,
+		AuthorKind: AuthorForge,
+		Body:       "reply",
+		Held:       replyHeld,
+	})
+	require.NoError(t, err)
+	_, err = st.CreateMessage(ctx, CreateMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &agentID,
+		Body:          "answer",
+	})
+	require.NoError(t, err)
 
-	for _, tt := range []struct {
+	messages, err := st.ListMessages(ctx, []string{thread.ID})
+	require.NoError(t, err)
+
+	return heldThread{thread: thread, rootID: messages[0].ID, round: round}
+}
+
+func (st *fixture) acceptRoot(t *testing.T, held heldThread) *Review {
+	t.Helper()
+
+	review := st.openReview(t, held.round)
+	_, err := st.CreateMessage(t.Context(), CreateMessageParams{
+		ThreadID:     held.thread.ID,
+		ReviewID:     &review.ID,
+		AuthorKind:   AuthorHuman,
+		Body:         "copy",
+		AcceptedFrom: &held.rootID,
+	})
+	require.NoError(t, err)
+
+	return review
+}
+
+// TestHeldForgeThreads covers which of a forge thread's messages are held from the agent, as the
+// panel lists them and as the agent's reader login can query them.
+func TestHeldForgeThreads(t *testing.T) {
+	tests := []struct {
 		name     string
-		review   *Review
-		released bool
+		seed     func(t *testing.T, st *fixture) heldThread
+		held     []string
+		readable []string
 	}{
 		{
-			name:     "another agent's held forge review stays held",
-			review:   elsewhere,
-			released: false,
+			name: "a held root holds the trusted reply under it but not the agent's answer",
+			seed: func(t *testing.T, st *fixture) heldThread {
+				return st.seedHeldThread(t, true, false)
+			},
+			held:     []string{"root", "reply"},
+			readable: []string{"answer"},
 		},
 		{
-			name:     "the person's open review stays open",
-			review:   person,
-			released: false,
+			name: "an unsent copy of the root releases nothing",
+			seed: func(t *testing.T, st *fixture) heldThread {
+				held := st.seedHeldThread(t, true, false)
+				st.acceptRoot(t, held)
+
+				return held
+			},
+			held:     []string{"root", "reply"},
+			readable: []string{"answer"},
 		},
 		{
-			name:     "a held forge review is released",
-			review:   held,
-			released: true,
+			name: "a sent copy of the root releases the thread but never the root itself",
+			seed: func(t *testing.T, st *fixture) heldThread {
+				held := st.seedHeldThread(t, true, false)
+				st.releaseReview(t, st.acceptRoot(t, held), VerdictCommented)
+
+				return held
+			},
+			held:     []string{"root"},
+			readable: []string{"reply", "answer", "copy"},
 		},
 		{
-			name:     "a forge review already sent stays as it was",
-			review:   sent,
-			released: true,
+			name: "the person's sent reply under a held root with no copy is held with it",
+			seed: func(t *testing.T, st *fixture) heldThread {
+				held := st.seedHeldThread(t, true, false)
+				review := st.openReview(t, held.round)
+				_, err := st.CreateMessage(t.Context(), CreateMessageParams{
+					ThreadID:   held.thread.ID,
+					ReviewID:   &review.ID,
+					AuthorKind: AuthorHuman,
+					Body:       "mine",
+				})
+				require.NoError(t, err)
+				st.releaseReview(t, review, VerdictCommented)
+
+				return held
+			},
+			held:     []string{"root", "reply", "mine"},
+			readable: []string{"answer"},
 		},
-	} {
+		{
+			name: "a held reply under a trusted root is held on its own",
+			seed: func(t *testing.T, st *fixture) heldThread {
+				return st.seedHeldThread(t, false, true)
+			},
+			held:     []string{"reply"},
+			readable: []string{"root", "answer"},
+		},
+	}
+
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := st.GetReview(ctx, tt.review.ID)
+			st := openFixture(t)
+			ctx := t.Context()
+			held := tt.seed(t, st)
+
+			messages, err := st.ListMessages(ctx, []string{held.thread.ID})
 			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.released, got.ReleasedAt != nil)
+			var listed []string
+			for _, message := range messages {
+				if message.Delivery == DeliveryHeld {
+					listed = append(listed, message.Body)
+				}
+			}
+			assert.ElementsMatch(t, tt.held, listed)
+
+			reader := st.openReader(t)
+			rows, err := reader.Query(ctx, "SELECT body FROM review_messages WHERE thread_id = $1", held.thread.ID)
+			require.NoError(t, err)
+			readable, err := pgx.CollectRows(rows, pgx.RowTo[string])
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tt.readable, readable)
 		})
 	}
 }
 
-// TestReleaseForgeReviewsInThread covers releasing the held forge reviews that wrote in one thread
-// and leaving the agent's others held.
-func TestReleaseForgeReviewsInThread(t *testing.T) {
+// TestHeldForgeThreadHiddenFromReader covers a thread whose only message is a held root, which the
+// reader cannot see at all.
+func TestHeldForgeThreadHiddenFromReader(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
 	round := st.openRound(t, agentID, "tree-one")
+	opener := st.openForgeReview(t, round, "mallory")
 
-	opener := st.openForgeReview(t, round, "mallory", false)
-	replier := st.openForgeReview(t, round, "eve", false)
-	elsewhere := st.openForgeReview(t, round, "trudy", false)
-	thread := st.openThread(t, opener, "use a guard")
-	st.openThread(t, elsewhere, "drop the guard")
-	_, err := st.CreateMessage(ctx, CreateMessageParams{
-		ThreadID:   thread.ID,
-		ReviewID:   &replier.ID,
-		AuthorKind: AuthorForge,
-		Body:       "agreed",
+	thread, err := st.CreateThread(ctx, CreateThreadParams{
+		AgentID:     agentID,
+		ReviewID:    opener.ID,
+		RoundID:     round.ID,
+		FilePath:    "internal/thing.go",
+		NewStart:    41,
+		NewEnd:      41,
+		QuotedLines: []string{"+\tdoThing()"},
+		Body:        "root",
+		AuthorKind:  AuthorForge,
+		Held:        true,
 	})
 	require.NoError(t, err)
 
-	released, err := st.ReleaseForgeReviewsInThread(ctx, thread.ID)
-	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{opener.ID, replier.ID}, xslice.Map(released, func(review Review) string { return review.ID }))
-
-	got, err := st.GetReview(ctx, elsewhere.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Nil(t, got.ReleasedAt)
+	var count int
+	require.NoError(t, st.openReader(t).QueryRow(ctx, "SELECT count(*) FROM review_threads WHERE id = $1", thread.ID).Scan(&count))
+	assert.Zero(t, count)
 }
 
 // TestListForgeMirrorTargets covers the agents a pull request's forge threads are mirrored onto.
@@ -150,14 +257,13 @@ func TestListForgeMirrorTargets(t *testing.T) {
 	}
 }
 
-func (st *fixture) openForgeReview(t *testing.T, round *Round, login string, released bool) *Review {
+func (st *fixture) openForgeReview(t *testing.T, round *Round, login string) *Review {
 	t.Helper()
 
 	review, err := st.OpenForgeReview(t.Context(), OpenForgeReviewParams{
-		AgentID:  round.AgentID,
-		RoundID:  round.ID,
-		Login:    login,
-		Released: released,
+		AgentID: round.AgentID,
+		RoundID: round.ID,
+		Login:   login,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, review)
@@ -202,4 +308,15 @@ func (st *fixture) seedPullRequest(t *testing.T, agentID string) string {
 	require.NotNil(t, pullRequest)
 
 	return pullRequest.ID
+}
+
+// openReader opens the engine's read-only login, which the agent's database queries run as.
+func (st *fixture) openReader(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
+	reader, err := store.OpenReadOnly(t.Context(), st.reader, st.engineID)
+	require.NoError(t, err)
+	t.Cleanup(reader.Close)
+
+	return reader
 }

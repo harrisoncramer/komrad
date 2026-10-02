@@ -80,6 +80,8 @@ const (
 	DeliverySent DeliveryState = "sent"
 	// DeliveryDelivered is a comment in a released review whose mail the agent has claimed.
 	DeliveryDelivered DeliveryState = "delivered"
+	// DeliveryHeld is a forge comment kept from the agent until the person accepts its thread.
+	DeliveryHeld DeliveryState = "held"
 )
 
 // Message is one thing said in a thread, carrying how far it has got towards being read.
@@ -99,6 +101,11 @@ type Message struct {
 	Suggestion []string
 	// External is the forge comment the person copied this from, nil for anything written in komrad.
 	External *External
+	// Held is whether the forge author could not write to the repository when they wrote or last
+	// edited this.
+	Held bool
+	// AcceptedFrom is the held forge message this is the person's accepted copy of, nil otherwise.
+	AcceptedFrom *string
 	// SentAt is when the review carrying this comment was released, nil until then.
 	SentAt *time.Time
 	// DeliveredAt is when the agent claimed the mail raised for that review, nil until it has.
@@ -145,6 +152,8 @@ type CreateThreadParams struct {
 	External *External
 	// ForgeThreadID is the forge thread this one mirrors, nil for one opened in komrad.
 	ForgeThreadID *string
+	// Held is whether the forge author of the first message could not write to the repository.
+	Held bool
 }
 
 // CreateThread pins a conversation to a place in a diff and writes its first message in one
@@ -169,6 +178,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 		ForgeCommentID: externalCommentID(params.External),
 		ForgeEditedAt:  externalEditedAt(params.External),
 		ForgeThreadID:  params.ForgeThreadID,
+		Held:           params.Held,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a review thread on %q: %w", params.FilePath, err)
@@ -352,6 +362,10 @@ type CreateMessageParams struct {
 	Body          string
 	// External is the forge comment the message is copied from, nil for one written in komrad.
 	External *External
+	// Held is whether the forge author could not write to the repository.
+	Held bool
+	// AcceptedFrom is the held forge message this is the person's accepted copy of.
+	AcceptedFrom *string
 }
 
 // CreateMessage writes a message into a thread and moves the writer's activity stamp in one
@@ -368,6 +382,8 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 		ExternalLogin:  externalLogin(params.External),
 		ForgeCommentID: externalCommentID(params.External),
 		ForgeEditedAt:  externalEditedAt(params.External),
+		Held:           params.Held,
+		AcceptedFrom:   params.AcceptedFrom,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to write a message in the review thread %q: %w", params.ThreadID, err)
@@ -383,6 +399,8 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
 		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
+		Held:          row.Held,
+		AcceptedFrom:  row.AcceptedFrom,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -419,6 +437,8 @@ func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, sugges
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
 		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
+		Held:          row.Held,
+		AcceptedFrom:  row.AcceptedFrom,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -469,6 +489,8 @@ func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]M
 			AuthorAgentID: row.AuthorAgentID,
 			Body:          row.Body,
 			External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
+			Held:          row.Held,
+			AcceptedFrom:  row.AcceptedFrom,
 			SentAt:        row.ReviewReleasedAt,
 			DeliveredAt:   row.DeliveredAt,
 			CreatedAt:     row.CreatedAt,
@@ -479,7 +501,30 @@ func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]M
 		messages = append(messages, message)
 	}
 
-	return messages, nil
+	return holdThreads(messages), nil
+}
+
+func holdThreads(messages []Message) []Message {
+	roots := map[string]Message{}
+	accepted := map[string]bool{}
+	for _, message := range messages {
+		if root, ok := roots[message.ThreadID]; !ok || message.ID < root.ID {
+			roots[message.ThreadID] = message
+		}
+		if message.AcceptedFrom != nil && message.SentAt != nil {
+			accepted[*message.AcceptedFrom] = true
+		}
+	}
+
+	for i, message := range messages {
+		root := roots[message.ThreadID]
+		if !root.Held || accepted[root.ID] || message.AuthorKind == AuthorAgent || message.SentAt == nil {
+			continue
+		}
+		messages[i].Delivery = DeliveryHeld
+	}
+
+	return messages
 }
 
 // ViewedFile is one file of an agent's diff that the person reviewing has read.
@@ -600,6 +645,8 @@ func undeliveredMessageFromRow(row models.ReviewMessage) Message {
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
 		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
+		Held:          row.Held,
+		AcceptedFrom:  row.AcceptedFrom,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -608,6 +655,8 @@ func undeliveredMessageFromRow(row models.ReviewMessage) Message {
 // deliveryOf reads a comment's state off the review it belongs to.
 func deliveryOf(message Message) DeliveryState {
 	switch {
+	case message.Held:
+		return DeliveryHeld
 	case message.ReviewID == nil:
 		return DeliveryNone
 	case message.SentAt == nil:

@@ -888,6 +888,11 @@ func TestReviewDeliveryCount(t *testing.T) {
 			messages: []*agentv1.ReviewMessage{newUnsentComment(), newSentComment("m2"), newDeliveredComment("m3")},
 			want:     "1 unsent · 1 waiting · 1 delivered",
 		},
+		{
+			name:     "a forge comment its author could not push is counted as held",
+			messages: []*agentv1.ReviewMessage{newHeldForgeComment("f1", "use a map"), newUnsentComment()},
+			want:     "1 held · 1 unsent",
+		},
 	}
 
 	for _, tt := range tests {
@@ -939,6 +944,12 @@ func TestReviewDeliveryBadge(t *testing.T) {
 			message: newDeliveredComment("m1"),
 			want:    "✓ delivered",
 			absent:  "waiting",
+		},
+		{
+			name:    "a forge comment its author could not push is held from the agent",
+			message: newHeldForgeComment("f1", "use a map"),
+			want:    "! held",
+			absent:  "delivered",
 		},
 	}
 
@@ -2684,6 +2695,15 @@ func newDeliveredComment(id string) *agentv1.ReviewMessage {
 	message.DeliveredAt = "2026-09-02T10:01:00Z"
 
 	return message
+}
+
+func newHeldForgeComment(id, body string) *agentv1.ReviewMessage {
+	return &agentv1.ReviewMessage{
+		Id:         id,
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
+		Body:       body,
+		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD,
+	}
 }
 
 func newRoundWrittenOver() gittest.WroteParams {

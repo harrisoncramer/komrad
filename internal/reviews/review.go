@@ -41,6 +41,10 @@ var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 // quotes them, or suggests replacing them, which only a comment on a file can.
 var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
 
+// ErrReviewThreadHeld is answered when a reply is written in a forge thread whose first comment is
+// still held and not yet accepted, which the agent could not read the reply alongside.
+var ErrReviewThreadHeld = fail.Precondition("this thread opens with a held forge comment, so accept it before replying")
+
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
@@ -187,6 +191,8 @@ func releasedMessages(messages []reviewstore.Message, author ReviewAuthor) []rev
 // isReadableBy reports whether one message has been released, or is the reader's own.
 func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 	switch {
+	case message.Delivery == reviewstore.DeliveryHeld:
+		return false
 	case message.ReviewID == nil:
 		return true
 	case message.SentAt != nil:
@@ -373,6 +379,14 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, ErrReviewAddressedByOwner
 	}
 
+	held, err := s.isThreadHeld(ctx, thread.ID)
+	if err != nil {
+		return nil, err
+	}
+	if held {
+		return nil, ErrReviewThreadHeld
+	}
+
 	var reviewID *string
 	if !answering {
 		open, err := s.openReviewFor(ctx, openReviewForParams{
@@ -410,9 +424,6 @@ func (s *ReviewService) AddReviewMessage(
 		})
 		if err != nil {
 			return nil, err
-		}
-		if params.Author.IsHuman() && thread.ForgeThreadID != nil {
-			return releaseHeldForgeInThread(ctx, tx, thread.AgentID, thread.ID)
 		}
 		if !answering {
 			return nil, nil
@@ -647,4 +658,34 @@ func doesOwnAgent(author ReviewAuthor, agentID string) bool {
 func isAnchoredToLines(params CreateReviewThreadParams) bool {
 	return params.OldStart != 0 || params.OldEnd != 0 || params.NewStart != 0 || params.NewEnd != 0 ||
 		len(params.QuotedLines) > 0 || len(params.Suggestion) > 0
+}
+
+// isThreadHeld reports whether a thread opens with a held forge comment that no copy, sent or
+// unsent, has accepted.
+func (s *ReviewService) isThreadHeld(ctx context.Context, threadID string) (bool, error) {
+	messages, err := s.reviews.ListMessages(ctx, []string{threadID})
+	if err != nil {
+		return false, err
+	}
+	if len(messages) == 0 {
+		return false, nil
+	}
+
+	root := messages[0]
+	for _, message := range messages {
+		if message.ID < root.ID {
+			root = message
+		}
+	}
+	if !root.Held {
+		return false, nil
+	}
+
+	for _, message := range messages {
+		if message.AcceptedFrom != nil && *message.AcceptedFrom == root.ID {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
