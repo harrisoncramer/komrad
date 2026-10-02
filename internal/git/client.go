@@ -7,14 +7,17 @@ import (
 	"komrad/internal/logging"
 )
 
-// NewClientParams says where a client reads the SSH hosts that stand in for a forge's web host, keyed by the SSH host.
-type NewClientParams struct {
-	SSHHosts func() (map[string]string, error)
-}
+// SSHHostsReader reads the SSH hosts that stand in for a forge's web host, keyed by the SSH host.
+type SSHHostsReader func() (map[string]string, error)
 
 // Client is git as a dependency a caller can take.
 type Client struct {
-	sshHosts func() (map[string]string, error)
+	sshHosts SSHHostsReader
+}
+
+// NewClientParams holds where a client reads its named SSH hosts.
+type NewClientParams struct {
+	SSHHosts SSHHostsReader
 }
 
 // NewClient returns a client that runs git in whichever directory a call names.

@@ -82,7 +82,7 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 	tests := []struct {
 		name     string
 		origin   string
-		sshHosts func() (map[string]string, error)
+		sshHosts git.SSHHostsReader
 		want     string
 	}{
 		{

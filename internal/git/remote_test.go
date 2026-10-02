@@ -656,7 +656,7 @@ func TestClientParseRemoteURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		raw      string
-		sshHosts func() (map[string]string, error)
+		sshHosts SSHHostsReader
 		want     string
 	}{
 		{
