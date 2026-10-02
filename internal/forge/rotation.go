@@ -55,15 +55,12 @@ func (s *Service) rotateAtConnect(ctx context.Context, build Builder, params Con
 	return token, nil
 }
 
-// rotateIfDue rotates a connection's token when it expires tomorrow or sooner, and keeps the new one.
+// rotateIfDue rotates a connection's token when it expires tomorrow or sooner, with s.rotation held.
 func (s *Service) rotateIfDue(ctx context.Context, connection forgestore.Connection, f Forge) error {
 	rotator, err := rotatorFor(f)
 	if err != nil {
 		return err
 	}
-
-	s.rotation.Lock()
-	defer s.rotation.Unlock()
 
 	info, err := rotator.ReadToken(ctx)
 	if err != nil {

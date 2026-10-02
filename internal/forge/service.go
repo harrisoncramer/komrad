@@ -376,6 +376,9 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	}
 
 	if connection.Method == MethodRotatingToken {
+		s.rotation.Lock()
+		defer s.rotation.Unlock()
+
 		login, err := f.Verify(ctx)
 		if err != nil {
 			return "", err
