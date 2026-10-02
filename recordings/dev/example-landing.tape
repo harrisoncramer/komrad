@@ -2,12 +2,10 @@
 Source recordings/panel.tape
 Type "w"
 Type "landing"
-Enter
-Enter
-Enter
+Tab
+Tab
 Type "/tmp"
-Enter
-Enter
+Tab
 Up
 Enter
 Sleep 2s
@@ -23,10 +21,10 @@ Type "o"
 Type "s"
 Type "c"
 Type "landing-probe"
-Enter
+Tab
 Type "0 9 * * 1-5"
-Enter
-Enter
+Tab
+Tab
 Type "say ok"
 Enter
 Sleep 2s
