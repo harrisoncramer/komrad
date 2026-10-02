@@ -258,25 +258,23 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, err
 	}
 
-	token := params.Token
-	if params.Method == MethodRotatingToken {
-		token, err = s.rotateAtConnect(ctx, build, params)
-		if err != nil {
-			return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
-		}
-	}
-
-	if params.Method != MethodGitHubApp {
-		if err := s.credentials.Set(ctx, connection.ID, token); err != nil {
-			if params.Method == MethodRotatingToken {
-				err = fmt.Errorf("failed to keep the token gitlab rotated the pasted one into, so make a new token: %w", err)
-			}
-
-			return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
-		}
+	if err := s.keepCredential(ctx, build, params, connection.ID); err != nil {
+		return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
 	}
 
 	return connection, nil
+}
+
+// keepCredential stores what a new connection sends the forge, which an App mints rather than keeps.
+func (s *Service) keepCredential(ctx context.Context, build Builder, params ConnectParams, connectionID string) error {
+	switch params.Method {
+	case MethodToken:
+		return s.credentials.Set(ctx, connectionID, params.Token)
+	case MethodRotatingToken:
+		return s.keepRotatedToken(ctx, build, params, connectionID)
+	default:
+		return nil
+	}
 }
 
 // proveToken asks the forge who a pasted token belongs to.

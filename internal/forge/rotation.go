@@ -40,19 +40,23 @@ func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params 
 	return login, nil
 }
 
-// rotateAtConnect trades a pasted token for the first one komrad keeps.
-func (s *Service) rotateAtConnect(ctx context.Context, build Builder, params ConnectParams) (Secret, error) {
+// keepRotatedToken trades a pasted token for the first one komrad keeps, and stores that one.
+func (s *Service) keepRotatedToken(ctx context.Context, build Builder, params ConnectParams, connectionID string) error {
 	rotator, err := pastedRotator(build, params)
 	if err != nil {
-		return Secret{}, err
+		return err
 	}
 
 	token, err := rotator.RotateToken(ctx, rotatedExpiry(s.now()))
 	if err != nil {
-		return Secret{}, fmt.Errorf("failed to rotate the token with %s: %w", params.Host, err)
+		return fmt.Errorf("failed to rotate the token with %s: %w", params.Host, err)
 	}
 
-	return token, nil
+	if err := s.credentials.Set(ctx, connectionID, token); err != nil {
+		return fmt.Errorf("failed to keep the token gitlab rotated the pasted one into, so make a new token: %w", err)
+	}
+
+	return nil
 }
 
 // rotateIfDue rotates a connection's token when it expires tomorrow or sooner, with s.rotation held.
