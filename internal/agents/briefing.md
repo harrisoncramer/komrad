@@ -14,8 +14,6 @@ list_tables, describe_table and query run read-only SQL over the panel's whole P
 
 Spawn agents with create_agent, never with your CLI's own subagent tools, which are denied. An agent that only reads your tree is a child, made by passing your id as parent_agent_id. An agent that writes needs a checkout of its own, so spawn it standalone. A reviewer is a child too, but spawn that one with request_review rather than create_agent, since only that call briefs it to review.
 
-Anything you write for a person to read goes into the panel with write_document, not into a file or your reply.
-
 ## Mail
 
 Mail is handed to you as one of your turns ends, or by a line typed into your idle pane saying mail is waiting, when you call read_mail. Reading empties the mailbox. Never poll, sleep or loop waiting for mail, since ending your turn is the wait.
