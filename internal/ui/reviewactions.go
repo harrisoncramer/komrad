@@ -142,7 +142,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 // did not, when the agent it would reach is no longer there.
 func (r *reviewScreen) orRefuseWrite(fn func(*model) tea.Cmd) func(*model, string) tea.Cmd {
 	return func(m *model, _ string) tea.Cmd {
-		if _, dead := r.isReadOnly(m); dead {
+		if _, archived := r.isReadOnly(m); archived {
 			r.refuseWrite(m)
 
 			return nil
@@ -164,7 +164,7 @@ func (r *reviewScreen) orRefuseComment(fn func(*model) tea.Cmd) func(*model, str
 			return r.orRefuseWrite(fn)(m, pressed)
 		}
 
-		if _, dead := r.isReadOnly(m); dead {
+		if _, archived := r.isReadOnly(m); archived {
 			r.refuseWrite(m)
 
 			return nil
@@ -175,12 +175,12 @@ func (r *reviewScreen) orRefuseComment(fn func(*model) tea.Cmd) func(*model, str
 }
 
 func (r *reviewScreen) legend() []screenLegendRow {
-	// A dead agent keeps every key that reads and loses every key that sends, so the ones that
+	// An archived agent keeps every key that reads and loses every key that sends, so the ones that
 	// would only explain their own refusal are not offered.
 	reachable := func(m *model) bool {
-		_, dead := r.isReadOnly(m)
+		_, archived := r.isReadOnly(m)
 
-		return !dead
+		return !archived
 	}
 
 	// An older round holds no line a comment could ask to be changed, so the keys that write are

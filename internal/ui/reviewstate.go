@@ -23,7 +23,7 @@ func (r reviewScreen) statusView(m *model) string {
 		return bandRow(m, reviewWritingTone, "editing", "stopping the agent"+separated+"the editor opens once it has")
 	}
 
-	if _, dead := r.isReadOnly(m); dead {
+	if _, archived := r.isReadOnly(m); archived {
 		return bandRow(m, reviewHeldTone, "archived", "this agent is archived, nothing can be sent")
 	}
 
