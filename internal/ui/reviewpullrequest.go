@@ -167,8 +167,9 @@ func (r *reviewScreen) scrollPullRequest(m *model, rows int) {
 
 	width := lineWidthOf(m.paneWidth())
 	window := countPullRequestWindow(r.pullRequestHeadView(m, pullRequest, width), r.layoutSidebar(m).pullRequestRows)
-	top := countPullRequestTopMax(len(pullRequestBodyRows(pullRequest.Body, width)), window)
-	r.pullRequestTop = max(min(min(r.pullRequestTop, top)+rows, top), 0)
+	topMax := countPullRequestTopMax(len(pullRequestBodyRows(pullRequest.Body, width)), window)
+	from := min(r.pullRequestTop, topMax)
+	r.pullRequestTop = max(min(from+rows, topMax), 0)
 }
 
 // pullRequestActions is the keys on the pull request, which scroll its description.
