@@ -72,11 +72,11 @@ func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	return m.unstageAhead(agents, func(took *unstaged) tea.Cmd {
+	return m.unstageAhead(agents, func(pending *unstaged) tea.Cmd {
 		return m.writeCmd(
 			"archiving "+describeAgents(agents),
 			fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-			func(a api) error { return took.noteArchive(a.archiveAgents(panel.IDs(agents))) },
+			func(a api) error { return pending.noteArchive(a.archiveAgents(panel.IDs(agents))) },
 		)
 	})
 }
@@ -88,12 +88,12 @@ func (m *model) archiveAndDeleteAgents(agents []panel.Agent) tea.Cmd {
 
 	ids := panel.IDs(agents)
 
-	return m.unstageAhead(agents, func(took *unstaged) tea.Cmd {
+	return m.unstageAhead(agents, func(pending *unstaged) tea.Cmd {
 		return m.writeCmd(
 			"archiving and deleting "+describeAgents(agents),
 			fmt.Sprintf("Could not archive and delete %s", describeAgents(agents)),
 			func(a api) error {
-				if err := took.noteArchive(a.archiveAgents(ids)); err != nil {
+				if err := pending.noteArchive(a.archiveAgents(ids)); err != nil {
 					return err
 				}
 

@@ -19,7 +19,7 @@ type unstaged struct {
 }
 
 // unstageAhead takes the given agents' panes off the stage before a write that kills them.
-func (m *model) unstageAhead(agents []panel.Agent, write func(took *unstaged) tea.Cmd) tea.Cmd {
+func (m *model) unstageAhead(agents []panel.Agent, write func(pending *unstaged) tea.Cmd) tea.Cmd {
 	if m.unstaging == nil {
 		m.unstaging = map[string]struct{}{}
 	}
@@ -36,8 +36,8 @@ func (m *model) unstageAhead(agents []panel.Agent, write func(took *unstaged) te
 		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
 
-	took := &unstaged{agents: agents}
-	cmd := write(took)
+	pending := &unstaged{agents: agents}
+	cmd := write(pending)
 
 	return func() tea.Msg {
 		msg := cmd()
@@ -47,7 +47,7 @@ func (m *model) unstageAhead(agents []panel.Agent, write func(took *unstaged) te
 			return msg
 		}
 
-		result.unstaged = took
+		result.unstaged = pending
 
 		return result
 	}
@@ -62,15 +62,15 @@ func (u *unstaged) noteArchive(err error) error {
 
 // settleUnstaged marks the agents an archive killed as no longer alive and stages the screen
 // again.
-func (m *model) settleUnstaged(took unstaged) {
-	for _, agent := range took.agents {
+func (m *model) settleUnstaged(pending unstaged) {
+	for _, agent := range pending.agents {
 		delete(m.unstaging, agent.Pane)
-		if held, ok := m.listing.world.Agents[agent.ID]; ok && took.archived {
+		if held, ok := m.listing.world.Agents[agent.ID]; ok && pending.archived {
 			held.Alive = xptr.Ptr(false)
 		}
 	}
 
-	if took.archived {
+	if pending.archived {
 		m.listing.assemble(time.Now())
 	}
 
