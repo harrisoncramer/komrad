@@ -136,7 +136,6 @@ func (p *pacing) fail(repository candidate) {
 	defer p.mu.Unlock()
 
 	last := p.record(repository)
-	last.hotUntil = time.Time{}
 	last.failed = true
 }
 
