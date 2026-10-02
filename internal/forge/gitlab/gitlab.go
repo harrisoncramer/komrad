@@ -595,7 +595,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 	return reading, nil
 }
 
-// branchesPage is one page of the merge requests from a set of branches and the budget after it.
+// branchesPage is one page of the merge requests from a set of branches and the rate limit after it.
 type branchesPage struct {
 	MergeRequests connection
 	RateLimit     forge.RateLimit
