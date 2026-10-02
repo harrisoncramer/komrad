@@ -699,6 +699,14 @@ func (g Git) GetSSHHosts() (map[string]string, error) {
 	return hosts, nil
 }
 
+// Forge is how komrad reads the review threads on the pull requests its agents open.
+type Forge struct {
+	// Logins whose review comments are left out of the threads mirrored onto an agent, such as a
+	// CI bot or a code review App. A thread whose every comment is from one of them is not mirrored
+	// at all. Names are matched without regard to case.
+	BotNames []string `mapstructure:"bot_names"`
+}
+
 // isBareHost says whether a host carries no port, scheme, user or path.
 func isBareHost(host string) bool {
 	return host != "" && !strings.ContainsAny(host, ":/@= \t")
@@ -992,6 +1000,8 @@ type Config struct {
 	Worktrees Worktrees `mapstructure:"worktrees"`
 	// How komrad reads the git checkouts its agents work in.
 	Git Git `mapstructure:"git"`
+	// How komrad reads the review threads on the pull requests its agents open.
+	Forge Forge `mapstructure:"forge"`
 	// The GitHub App an engine fetches and pushes as.
 	GitHubApp GitHubApp `mapstructure:"github_app"`
 	// The standing text every agent is started with, whatever workflow it is in.

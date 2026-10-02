@@ -480,6 +480,14 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 				ForgeThreads: st.forgeThreads,
 				Git:          params.Git,
 				Events:       params.Queue,
+				BotNames: func() ([]string, error) {
+					cfg, err := params.LoadConfig()
+					if err != nil {
+						return nil, err
+					}
+
+					return cfg.Forge.BotNames, nil
+				},
 			}),
 		}),
 		lister: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),

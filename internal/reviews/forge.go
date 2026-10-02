@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"komrad/internal/events"
@@ -32,6 +33,8 @@ type NewForgeMirrorParams struct {
 	ForgeThreads *pullrequeststore.ForgeThreadStore
 	Git          rangeMapper
 	Events       eventRecorder
+	// BotNames is the logins whose comments are left out of the mirror, read on each pass.
+	BotNames func() ([]string, error)
 }
 
 // ForgeMirror copies the forge's review threads into the reviews of the agents on a pull request.
@@ -40,6 +43,7 @@ type ForgeMirror struct {
 	forgeThreads *pullrequeststore.ForgeThreadStore
 	git          rangeMapper
 	events       eventRecorder
+	botNames     func() ([]string, error)
 }
 
 // NewForgeMirror builds a forge mirror over the review and forge thread stores.
@@ -49,12 +53,17 @@ func NewForgeMirror(params NewForgeMirrorParams) *ForgeMirror {
 		forgeThreads: params.ForgeThreads,
 		git:          params.Git,
 		events:       params.Events,
+		botNames:     params.BotNames,
 	}
 }
 
 // Mirror brings every live agent on a pull request up to date with the forge's threads on it.
 func (m *ForgeMirror) Mirror(ctx context.Context, pullRequestID string) error {
 	threads, err := m.forgeThreads.ListOfPullRequest(ctx, pullRequestID)
+	if err != nil {
+		return err
+	}
+	threads, err = m.withoutBots(threads)
 	if err != nil {
 		return err
 	}
@@ -75,6 +84,33 @@ func (m *ForgeMirror) Mirror(ctx context.Context, pullRequestID string) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// withoutBots drops the comments of the configured bot logins from each thread, so a thread opened
+// by a bot is mirrored from its first comment by anyone else.
+func (m *ForgeMirror) withoutBots(threads []pullrequeststore.ForgeThread) ([]pullrequeststore.ForgeThread, error) {
+	if m.botNames == nil {
+		return threads, nil
+	}
+	names, err := m.botNames()
+	if err != nil {
+		return nil, err
+	}
+	if len(names) == 0 {
+		return threads, nil
+	}
+
+	bots := make(map[string]bool, len(names))
+	for _, name := range names {
+		bots[strings.ToLower(name)] = true
+	}
+	for i := range threads {
+		threads[i].Comments = xslice.Filter(threads[i].Comments, func(comment pullrequeststore.ForgeComment) bool {
+			return !bots[strings.ToLower(comment.AuthorLogin)]
+		})
+	}
+
+	return threads, nil
 }
 
 // mirroredThread is a forge thread an agent already holds, with its forge comments by id.

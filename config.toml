@@ -684,6 +684,13 @@ dir = ""
 # user. Public aliases such as ssh.github.com and altssh.gitlab.com are already known.
 ssh_hosts = []
 
+# How komrad reads the review threads on the pull requests its agents open.
+[forge]
+# Logins whose review comments are left out of the threads mirrored onto an agent, such as a
+# CI bot or a code review App. A thread whose every comment is from one of them is not mirrored
+# at all. Names are matched without regard to case.
+bot_names = []
+
 # The GitHub App an engine fetches and pushes as.
 [github_app]
 # The App's own id, from its settings page. Left empty the engine has no GitHub identity

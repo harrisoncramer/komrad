@@ -72,6 +72,39 @@ func TestForgeMirror(t *testing.T) {
 			},
 		},
 		{
+			name: "a reply from a configured bot is left out",
+			syncs: [][]forge.ReviewThread{{newForgeThread(
+				newForgeComment("c1", "alice", true, "use a guard"),
+				newForgeComment("c2", "review-bot", true, "lgtm"),
+			)}},
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.messages, 1)
+				assert.Equal(t, "use a guard", got.messages[0].Body)
+			},
+		},
+		{
+			name: "a thread a configured bot opened starts at the first comment from anyone else",
+			syncs: [][]forge.ReviewThread{{newForgeThread(
+				newForgeComment("c1", "review-bot", true, "lint failed"),
+				newForgeComment("c2", "alice", true, "use a guard"),
+			)}},
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.threads, 1)
+				require.Len(t, got.messages, 1)
+				assert.Equal(t, "use a guard", got.messages[0].Body)
+				require.Len(t, got.released, 1)
+				assert.Equal(t, "alice", got.released[0].ForgeLogin)
+			},
+		},
+		{
+			name:  "a thread of only configured bot comments is left out",
+			syncs: [][]forge.ReviewThread{{newForgeThread(newForgeComment("c1", "review-bot", true, "lint failed"))}},
+			check: func(t *testing.T, got forgeMirrored) {
+				assert.Empty(t, got.threads)
+				assert.Empty(t, got.released)
+			},
+		},
+		{
 			name:  "a thread resolved on the forge before it was seen is left out",
 			syncs: [][]forge.ReviewThread{{newResolvedForgeThread(newForgeComment("c1", "alice", true, "use a guard"))}},
 			check: func(t *testing.T, got forgeMirrored) {
@@ -341,6 +374,7 @@ func (fx *reviewFixture) mirrorForge(t *testing.T, threads ...forge.ReviewThread
 		ForgeThreads: fx.stores.ForgeThreads,
 		Git:          gittest.NoRepo{},
 		Events:       fx.events,
+		BotNames:     func() ([]string, error) { return []string{"Review-Bot"}, nil },
 	})
 	require.NoError(t, mirror.Mirror(t.Context(), stored[0].PullRequestID))
 }
