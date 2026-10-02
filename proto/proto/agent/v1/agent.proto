@@ -805,7 +805,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "read_mail"
-      description: "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing."
+      description: "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which is almost never what you want."
       destructive: false
       idempotent: false
       roles: [

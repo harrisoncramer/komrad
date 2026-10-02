@@ -3594,7 +3594,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\x86q\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xefq\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3605,8 +3605,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8d\x01\x9a\xb5\x18\x85\x01\b\x01\x10\x01\x1a\x10set_agent_hidden\"hHide an agent's row from the panel, or show it again. The agent keeps running. Hide one only when asked.(\x00B\x01\x03\x90\x02\x02\x12\xd0\x01\n" +
 	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\x9a\x01\x9a\xb5\x18\x95\x01\b\x01\x10\x01\x1a\x03log\"\x80\x01Write one line to komrad's log, filed under the calling agent unless id names another. This is how a hook script leaves a trace.(\x000\x00B\x03\x01\x02\x03\x12\x93\x02\n" +
 	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\xcf\x01\x9a\xb5\x18\xca\x01\b\x01\x10\x01\x1a\tsend_mail\"\xaf\x01Send mail to another agent by id or name, setting reply_to when answering. A name held in more than one workflow is refused, and a child may mail only its parent and siblings.(\x000\x00B\x03\x01\x02\x03\x12\xc7\x02\n" +
-	"\x10ForwardLastTurns\x12!.agent.v1.ForwardLastTurnsRequest\x1a\".agent.v1.ForwardLastTurnsResponse\"\xeb\x01\x9a\xb5\x18\xe6\x01\b\x01\x10\x01\x1a\x12forward_last_turns\"\xc2\x01Send an agent's latest turns to another agent as mail without the text passing through your context. Mail holds at most 10000 characters, so pass fewer turns or a smaller max_bytes when refused.(\x000\x00B\x03\x01\x02\x03\x12\xbb\x01\n" +
-	"\bReadMail\x12\x19.agent.v1.ReadMailRequest\x1a\x1a.agent.v1.ReadMailResponse\"x\x9a\xb5\x18t\b\x01\x10\x01\x1a\tread_mail\"ZTake your waiting mail, oldest first. Reading claims it, so a second call returns nothing.(\x000\x00B\x03\x01\x02\x03\x12\xc0\x01\n" +
+	"\x10ForwardLastTurns\x12!.agent.v1.ForwardLastTurnsRequest\x1a\".agent.v1.ForwardLastTurnsResponse\"\xeb\x01\x9a\xb5\x18\xe6\x01\b\x01\x10\x01\x1a\x12forward_last_turns\"\xc2\x01Send an agent's latest turns to another agent as mail without the text passing through your context. Mail holds at most 10000 characters, so pass fewer turns or a smaller max_bytes when refused.(\x000\x00B\x03\x01\x02\x03\x12\xa4\x02\n" +
+	"\bReadMail\x12\x19.agent.v1.ReadMailRequest\x1a\x1a.agent.v1.ReadMailResponse\"\xe0\x01\x9a\xb5\x18\xdb\x01\b\x01\x10\x01\x1a\tread_mail\"\xc0\x01Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which is almost never what you want.(\x000\x00B\x03\x01\x02\x03\x12\xc0\x01\n" +
 	"\bListMail\x12\x19.agent.v1.ListMailRequest\x1a\x1a.agent.v1.ListMailResponse\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\tlist_mail\"`List an agent's mail without claiming it, most recent first. Set direction to list what it sent.B\x03\x01\x02\x03\x90\x02\x01\x12\xa9\x01\n" +
 	"\n" +
 	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"f\x9a\xb5\x18_\b\x01\x10\x01\x1a\vdelete_mail\"GErase mail for good by id, read or not. One unknown id deletes nothing.(\x01B\x01\x03\x90\x02\x02\x12\x95\x02\n" +

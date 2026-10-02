@@ -193,7 +193,7 @@
             "orchestrator"
           ],
           "summary": "Take your waiting mail, oldest first.",
-          "description": "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing.",
+          "description": "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which is almost never what you want.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
