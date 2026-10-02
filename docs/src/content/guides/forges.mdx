@@ -46,7 +46,7 @@ komrad forge connect gitlab.com --token-file ~/.config/gitlab-token
 komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token
 ```
 
-GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as the remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once. From then on it makes a new token each day and lets the old one go. Each token expires two days after it was made, so a token copied off the machine is soon useless. <Command path="forge disconnect" /> revokes the current token with GitLab before forgetting it.
+GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as the remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once. From then on it makes a new token each day and lets the old one go. Each token expires within two days of being made, so a token copied off the machine is soon useless. <Command path="forge disconnect" /> revokes the current token with GitLab before forgetting it.
 
 ```sh
 komrad forge connect gitlab.com --method rotating-token --token-file ~/.config/gitlab-token --engine remote
