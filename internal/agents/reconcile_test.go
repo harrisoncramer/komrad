@@ -27,6 +27,7 @@ func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string
 		fromState agentstore.State
+		pane      *string
 		owned     bool
 		command   string
 		frame     string
@@ -135,12 +136,24 @@ func TestReconcileSinglePass(t *testing.T) {
 			owned:     false,
 			want:      agentstore.StateIdle,
 		},
+		{
+			name:      "a setup with no pane recorded is left to its launch",
+			fromState: agentstore.StateSettingUp,
+			pane:      xptr.Ptr(""),
+			owned:     true,
+			frame:     harnesstest.FrameIdle,
+			want:      agentstore.StateSettingUp,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			agent := seed(t, st, "agent", "%1", tt.fromState)
+			recorded := "%1"
+			if tt.pane != nil {
+				recorded = *tt.pane
+			}
+			agent := seed(t, st, "agent", recorded, tt.fromState)
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = ""
@@ -1072,7 +1085,7 @@ func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
 }
 
-// TestReconcileStampsNoTurnForARelaunchComingUp pins that a resumed CLI reaching its input box ended no turn.
+// TestReconcileStampsNoTurnForARelaunchComingUp pins that the idle a resumed CLI comes up at skips the miss debounce.
 func TestReconcileStampsNoTurnForARelaunchComingUp(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "agent", "%1", agentstore.StateSettingUp)
@@ -1090,25 +1103,6 @@ func TestReconcileStampsNoTurnForARelaunchComingUp(t *testing.T) {
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt)
-}
-
-// TestReconcileLeavesALaunchWithNoPaneRecorded pins that a setup with no pane on its row is left to its launch.
-func TestReconcileLeavesALaunchWithNoPaneRecorded(t *testing.T) {
-	st := newStore(t)
-	agent := seed(t, st, "agent", "", agentstore.StateSettingUp)
-
-	tmux := tmuxtest.NewFake()
-	tmux.Owners["%1"] = agent.ID
-	tmux.Captures["%1"] = harnesstest.FrameIdle
-
-	rec := NewReconciler(NewReconcilerParams{
-		Panes:    tmux,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
-		States:   st.Agents,
-	})
-	require.NoError(t, rec.Reconcile(t.Context()))
-
-	assert.Equal(t, agentstore.StateSettingUp, stateOf(t, st, "agent"))
 }
 
 // TestReconcileStampsNoTurnForAPaneItForgot pins that an agent whose pane went away is not
