@@ -701,13 +701,13 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x1aListAgentLogSourcesRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"J\n" +
 	"\x1bListAgentLogSourcesResponse\x12+\n" +
-	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\xf7\f\n" +
+	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\xbe\a\n" +
 	"\n" +
-	"LogService\x12\xae\x03\n" +
-	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"\xe5\x02\x9a\xb5\x18\xdd\x02\b\x01\x10\x01\x1a\rget_log_lines\"\xc4\x02Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to.B\x01\x03\x90\x02\x01\x12\xec\x02\n" +
-	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01\x12\xc3\x03\n" +
-	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xf4\x02\x9a\xb5\x18\xec\x02\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xd1\x02Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more. Pass a source from list_agent_log_sources to read what one of its scripts printed instead.B\x01\x03\x90\x02\x01\x12\x82\x03\n" +
-	"\x13ListAgentLogSources\x12\".log.v1.ListAgentLogSourcesRequest\x1a#.log.v1.ListAgentLogSourcesResponse\"\xa1\x02\x9a\xb5\x18\x99\x02\b\x01\x10\x01\x1a\x16list_agent_log_sources\"\xf7\x01List where an agent's logs can be read from: the service log, then each script run the agent recorded, newest first. Read one with read_agent_logs by passing its id as the source, which is how to see what a failed provision or hook script printed.B\x01\x03\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"
+	"LogService\x12\xc4\x01\n" +
+	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"|\x9a\xb5\x18u\b\x01\x10\x01\x1a\rget_log_lines\"]Read every log line written under one trace id, in order. A failed call answers its trace id.B\x01\x03\x90\x02\x01\x12\xe1\x01\n" +
+	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x89\x01\x9a\xb5\x18\x81\x01\b\x01\x10\x01\x1a\x12list_recent_traces\"dList the traces the service log ends with, oldest first, to find the one to read with get_log_lines.B\x01\x03\x90\x02\x01\x12\x9b\x02\n" +
+	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xcc\x01\x9a\xb5\x18\xc4\x01\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xa9\x01Read what the service logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output.B\x01\x03\x90\x02\x01\x12\xe6\x01\n" +
+	"\x13ListAgentLogSources\x12\".log.v1.ListAgentLogSourcesRequest\x1a#.log.v1.ListAgentLogSourcesResponse\"\x85\x01\x9a\xb5\x18~\b\x01\x10\x01\x1a\x16list_agent_log_sources\"]List where an agent's logs can be read from, the service log and each script run it recorded.B\x01\x03\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"
 
 var (
 	file_log_v1_log_proto_rawDescOnce sync.Once

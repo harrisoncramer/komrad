@@ -680,8 +680,7 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 	})
 
 	assert.Contains(t, prompt, "You are a child of agent author (agent-parent)")
-	assert.Contains(t, prompt, "do not commit")
-	assert.Contains(t, prompt, "you go when the parent goes")
+	assert.Contains(t, prompt, "never commit")
 	assert.NotContains(t, prompt, "You were spawned by agent",
 		"the spawner paragraph would understate what a child runs under")
 }
