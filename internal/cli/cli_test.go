@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/version"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -224,4 +225,16 @@ func TestIntegrationQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
 
 	assert.False(t, IsQuiet(nil))
 	assert.False(t, IsQuiet(assert.AnError), "an ordinary failure is main's to print")
+}
+
+// TestIntegrationVersionFlag covers --version printing this binary's build before any config is read.
+func TestIntegrationVersionFlag(t *testing.T) {
+	root := NewRootCommand()
+	var out strings.Builder
+	root.SetOut(&out)
+	root.SetArgs([]string{"--version", "--config", filepath.Join(t.TempDir(), "missing.toml")})
+
+	require.NoError(t, root.Execute())
+
+	assert.Equal(t, "komrad version "+version.Describe(version.Version(), version.Commit())+"\n", out.String())
 }
