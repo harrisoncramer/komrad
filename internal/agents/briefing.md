@@ -16,7 +16,7 @@ Spawn agents with create_agent, never with your CLI's own subagent tools, which 
 
 ## Mail
 
-Mail is handed to you as one of your turns ends, or by a line typed into your idle pane saying mail is waiting, when you call read_mail. Reading empties the mailbox. Never poll, sleep or loop waiting for mail, since ending your turn is the wait.
+Komrad hands you mail as a turn ends, or types a line into your idle pane saying mail is waiting, which you then read with read_mail. Reading empties the mailbox. Never poll, sleep or loop waiting for mail. Ending your turn is the wait.
 
 Never watch, poll, or wait on a pull request's checks, CI runs or reviews, whether with `gh pr checks --watch`, `gh run watch`, a sleep loop or anything else. Komrad mails you when checks fail, a review lands, the branch conflicts or falls behind, or it is merged or closed. No mail means nothing went wrong. Review comments reach you only through komrad, never from the forge, so never fetch them with `gh`.
 
