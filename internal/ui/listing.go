@@ -126,7 +126,7 @@ type writeResult struct {
 	// renamed is the row a rename typed over it was written for.
 	renamed string
 	// resumed is the agent a resume was written for.
-	resumed string
+	resumed  string
 	unstaged *unstaged
 }
 
