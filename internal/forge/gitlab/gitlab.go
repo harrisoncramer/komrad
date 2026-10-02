@@ -556,7 +556,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 	reading := &forge.Reading{}
 	first := maxPerPage
 	for batch := range slices.Chunk(branches, maxSourceBranches) {
-		read := make(map[string]int, len(batch))
+		seen := make(map[string]int, len(batch))
 		after := ""
 		for len(batch) > 0 {
 			page, err := f.readBranchesPage(ctx, readBranchesPageParams{path: path, branches: batch, first: first, after: after})
@@ -571,10 +571,10 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 
 			reading.RateLimit = page.RateLimit
 			for _, node := range page.MergeRequests.Nodes {
-				if read[node.SourceBranch] == mergeRequestsPerBranch {
+				if seen[node.SourceBranch] == mergeRequestsPerBranch {
 					continue
 				}
-				read[node.SourceBranch]++
+				seen[node.SourceBranch]++
 
 				pullRequest := node.toPullRequest(true)
 				if pullRequest.IsFromItsOwnRepository() {
@@ -587,7 +587,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 			}
 			after = page.MergeRequests.PageInfo.EndCursor
 			batch = xslice.Filter(batch, func(branch string) bool {
-				return read[branch] < mergeRequestsPerBranch
+				return seen[branch] < mergeRequestsPerBranch
 			})
 		}
 	}
