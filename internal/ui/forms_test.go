@@ -659,16 +659,16 @@ func TestFormsWorkflowSections(t *testing.T) {
 	})
 
 	t.Run("a long value folds at the form's widest", func(t *testing.T) {
-		long := "Nobody archives anybody; the rows retire when the pull request merges or closes."
+		longContext := "Nobody archives anybody; the rows retire when the pull request merges or closes."
 		workflow := newConfiguredWorkflow()
-		workflow.Context = long
+		workflow.Context = longContext
 		harness := openWideForms(t, workflow, newFormAuthor())
 
 		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(1)...)...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "Worktree base branch")
-		assert.NotContains(t, frame, long)
+		assert.Contains(t, frame, "Worktree base branch", "the section still opens beside the top form")
+		assert.NotContains(t, frame, longContext, "the context folds rather than running on one line")
 	})
 
 	t.Run("back keeps what the section was given and lands on the list of sections", func(t *testing.T) {

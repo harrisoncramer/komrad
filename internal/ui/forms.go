@@ -142,7 +142,7 @@ func redrawnForm(params redrawnFormParams) formState {
 // title and the prose under it without either folding.
 const formColumnFloor = 50
 
-// formMaxWidth is the widest a form draws its fields, so a long value folds rather than pushing what stands beside it.
+// formMaxWidth is the widest a form draws its fields at.
 const formMaxWidth = 72
 
 // formColumn is the form drawn beside the list it was opened over, so the row it is about is
