@@ -158,6 +158,23 @@ func TestPullRequestFields(t *testing.T) {
 			pullRequests: []panel.PullRequest{current},
 		},
 		{
+			name: "the current one's title and author",
+			pullRequests: []panel.PullRequest{
+				{Number: 742, Title: "Read pull request authors", Author: "harrisoncramer"},
+			},
+			want: []recordField{
+				{label: "title", value: "Read pull request authors"},
+				{label: "author", value: "@harrisoncramer"},
+			},
+		},
+		{
+			name: "an empty title and author left out",
+			pullRequests: []panel.PullRequest{
+				{Number: 742, Author: "harrisoncramer"},
+			},
+			want: []recordField{{label: "author", value: "@harrisoncramer"}},
+		},
+		{
 			name: "the earlier ones folded into one row",
 			pullRequests: []panel.PullRequest{
 				current,
@@ -194,7 +211,7 @@ func TestAgentFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
 		Branch: xptr.Ptr("agent/x"),
 	}
 	pullRequests := []panel.PullRequest{
-		{Number: 7, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN},
+		{Number: 7, Title: "Fix", Author: "octocat", State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN},
 		{Number: 5, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED},
 	}
 
@@ -205,13 +222,14 @@ func TestAgentFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
 
 	branch := indexOf(labels, "branch")
 	require.NotEqual(t, -1, branch)
-	assert.Equal(t, "pull requests", labels[branch+1])
+	assert.Equal(t, []string{"title", "author", "pull requests"}, labels[branch+1:branch+4])
 
 	agent.Branch = nil
 	labels = xslice.Map(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}), func(field recordField) string {
 		return field.label
 	})
 	assert.NotContains(t, labels, "pull requests")
+	assert.NotContains(t, labels, "author")
 }
 
 func indexOf(labels []string, label string) int {

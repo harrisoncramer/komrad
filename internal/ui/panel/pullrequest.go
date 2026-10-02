@@ -23,6 +23,7 @@ type PullRequest struct {
 	Number         int32
 	URL            string
 	Title          string
+	Author         string
 	State          pullrequestv1.PullRequestState
 	MergeReadiness MergeReadiness
 	OpenedAt       time.Time

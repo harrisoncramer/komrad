@@ -12,17 +12,29 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// pullRequestFields are the record's rows for the branch's pull requests before the current one.
+// pullRequestFields are the record's rows for the branch's pull requests.
 func pullRequestFields(pullRequests []panel.PullRequest) []recordField {
-	if len(pullRequests) < 2 {
+	if len(pullRequests) == 0 {
 		return nil
+	}
+
+	var fields []recordField
+	current := pullRequests[0]
+	if current.Title != "" {
+		fields = append(fields, recordField{label: "title", value: current.Title})
+	}
+	if current.Author != "" {
+		fields = append(fields, recordField{label: "author", value: "@" + current.Author})
+	}
+	if len(pullRequests) < 2 {
+		return fields
 	}
 
 	rest := xslice.Map(pullRequests[1:], func(pullRequest panel.PullRequest) string {
 		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest))
 	})
 
-	return []recordField{{label: "pull requests", value: strings.Join(rest, ", ")}}
+	return append(fields, recordField{label: "pull requests", value: strings.Join(rest, ", ")})
 }
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in

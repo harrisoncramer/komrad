@@ -19,6 +19,7 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 		HeadRepositoryUrl: stored.HeadRepositoryURL,
 		Number:            int32(stored.Number),
 		Title:             stored.Title,
+		Author:            stored.Author,
 		HeadBranch:        stored.HeadBranch,
 		HeadSha:           stored.HeadSHA,
 		BaseBranch:        stored.BaseBranch,
