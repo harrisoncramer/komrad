@@ -180,29 +180,31 @@ func (a *agentsScreen) settleResume(m *model, id string, err error) {
 	}
 
 	if a.waking == nil {
-		a.waking = map[string]struct{}{}
+		a.waking = map[string]bool{}
 	}
-	a.waking[id] = struct{}{}
+	a.waking[id] = false
 	a.announceWoken(m)
 }
 
 func (a *agentsScreen) announceWoken(m *model) {
-	for id := range a.waking {
+	for id, started := range a.waking {
 		item, ok := m.listing.liveAgent(id)
-		if ok && (!item.Alive || !item.Agent.State.DoesPaneDecide()) {
-			continue
-		}
 
-		delete(a.waking, id)
-		if !ok {
-			continue
+		switch {
+		case !ok:
+			delete(a.waking, id)
+		case item.Alive && item.Agent.State.DoesPaneDecide():
+			delete(a.waking, id)
+			m.pushMessage(message{
+				kind:    messageInfo,
+				summary: item.Agent.Name + " is back up",
+				detail:  "Press enter on it to open its pane.",
+			})
+		case item.Alive || (item.Agent.State == panel.StateSettingUp && item.Agent.Pane != ""):
+			a.waking[id] = true
+		case started:
+			delete(a.waking, id)
 		}
-
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: item.Agent.Name + " is back up",
-			detail:  "Press enter on it to open its pane.",
-		})
 	}
 }
 

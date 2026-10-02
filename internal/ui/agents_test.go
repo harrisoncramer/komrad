@@ -527,6 +527,23 @@ func TestAgentsResume(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "old is back up")
 	})
 
+	t.Run("a resume whose pane went before its CLI came up is never said to be back up", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
+		answerResume(harness)
+
+		harness.press("j", "enter")
+
+		settingUp := newRunning()
+		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settingUp))
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+
+		assert.NotContains(t, readOpenMessages(harness), "old is back up")
+	})
+
 	t.Run("a refused resume never says the agent is back up", func(t *testing.T) {
 		t.Parallel()
 
