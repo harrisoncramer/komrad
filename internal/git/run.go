@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -62,6 +63,16 @@ func runEnv(ctx context.Context, dir string, env []string, args ...string) (stri
 	out, err := runWithEnv(ctx, dir, env, args...)
 
 	return strings.TrimSpace(string(out)), err
+}
+
+// promptless is the flags that keep a command talking to origin from asking for credentials.
+func promptless() []string {
+	return []string{"-c", "credential.interactive=never"}
+}
+
+// promptlessEnv is the environment that keeps a command talking to origin from prompting on the terminal.
+func promptlessEnv() []string {
+	return append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 }
 
 // runAllowing is git run where exit code 1 carries an answer rather than a failure, so the

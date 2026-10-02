@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -54,16 +53,6 @@ func (c *Client) Push(ctx context.Context, params PushParams) (string, error) {
 	}
 
 	return sha, nil
-}
-
-// promptless is the flags that keep a command talking to origin from asking for credentials.
-func promptless() []string {
-	return []string{"-c", "credential.interactive=never"}
-}
-
-// promptlessEnv is the environment that keeps a command talking to origin from prompting on the terminal.
-func promptlessEnv() []string {
-	return append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 }
 
 // isPushRejected reads git push --porcelain for a ref turned away because origin moved on.
