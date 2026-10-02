@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"komrad/internal/fail"
+	"komrad/lib/xfile"
 )
 
 // ErrNoCredential says a connection has no credential in the store.
@@ -100,11 +101,11 @@ func (f *FileStore) Set(_ context.Context, connectionID string, secret Secret) e
 		return fmt.Errorf("failed to make the credential directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, []byte(secret.Expose()+"\n"), 0o600); err != nil {
+	if err := xfile.WriteAtomic(path, []byte(secret.Expose()+"\n"), 0o600); err != nil {
 		return fmt.Errorf("failed to write the credential for connection %s: %w", connectionID, err)
 	}
 
-	return os.Chmod(path, 0o600)
+	return nil
 }
 
 // Delete takes a connection's token off disk.

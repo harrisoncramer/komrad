@@ -89,6 +89,9 @@ const KindGitLab = "gitlab"
 // MethodToken is the method for a credential a person supplied.
 const MethodToken = "token"
 
+// MethodRotatingToken is the method for a GitLab token komrad rotates itself before it expires.
+const MethodRotatingToken = "rotating_token"
+
 // ReviewDecision is where a forge says a pull request's reviews stand, in komrad's own words.
 type ReviewDecision string
 
@@ -288,6 +291,23 @@ type Reading struct {
 type InstallationVerifier interface {
 	// VerifyInstallation is how many repositories the credential's installation covers.
 	VerifyInstallation(ctx context.Context) (int, error)
+}
+
+// TokenInfo is what a forge says of the token it was shown.
+type TokenInfo struct {
+	Scopes []string
+	// ExpiresAt is the day the token stops working, zero for one that does not expire.
+	ExpiresAt time.Time
+}
+
+// TokenRotator is a forge whose token can describe, rotate and revoke itself.
+type TokenRotator interface {
+	// ReadToken is what the forge says of the token it was shown.
+	ReadToken(ctx context.Context) (*TokenInfo, error)
+	// RotateToken trades the token it was shown for a new one that expires on the day given.
+	RotateToken(ctx context.Context, expiresAt time.Time) (Secret, error)
+	// RevokeToken ends the token it was shown.
+	RevokeToken(ctx context.Context) error
 }
 
 // Transport sends every request with the connection's credential and tells the

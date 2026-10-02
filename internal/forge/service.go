@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"komrad/internal/fail"
@@ -53,6 +54,15 @@ var ErrAppNotGitHub = fail.InvalidArgument("a github app connects only to github
 // ErrNoInstallationCheck says the forge has no way to check an installation.
 var ErrNoInstallationCheck = fail.InvalidArgument("this forge cannot check an installation")
 
+// ErrRotatingNotGitLab says the rotating token method was asked for on a forge that is not GitLab.
+var ErrRotatingNotGitLab = fail.InvalidArgument("a rotating token connects only to gitlab")
+
+// ErrNoRotation says the forge has no way to rotate a token.
+var ErrNoRotation = fail.InvalidArgument("this forge cannot rotate a token")
+
+// ErrTokenCannotRotate says a token lacks the scope it needs to rotate itself.
+var ErrTokenCannotRotate = fail.InvalidArgument("the token lacks the scope to rotate itself")
+
 // Builder makes the forge for one kind, reaching the API at api as auth.
 type Builder func(api string, auth Authenticator) Forge
 
@@ -86,6 +96,7 @@ type Service struct {
 	verified    verifiedSetter
 	loadApp     func() (App, error)
 	now         func() time.Time
+	rotation    sync.Mutex
 }
 
 // NewService builds the service.
@@ -156,7 +167,7 @@ func (p ConnectParams) ResolveAPIURL() (string, error) {
 
 // HeaderFor is the header a credential obtained one way is sent in on one kind of forge.
 func HeaderFor(kind, method string) string {
-	if kind == KindGitLab && method == MethodToken {
+	if kind == KindGitLab && method != MethodGitHubApp {
 		return HeaderPrivateToken
 	}
 
@@ -173,7 +184,7 @@ type ConnectParams struct {
 	APIURL string
 	// Method is how the credential comes, MethodToken when empty.
 	Method string
-	// Token is the credential for MethodToken, and ignored for MethodGitHubApp.
+	// Token is the credential for MethodToken and MethodRotatingToken, and ignored for MethodGitHubApp.
 	Token Secret
 }
 
@@ -221,11 +232,18 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		login, err = s.proveToken(ctx, build, params)
 	case MethodGitHubApp:
 		login, err = s.proveApp(ctx, build, params)
+	case MethodRotatingToken:
+		login, err = s.proveRotatingToken(ctx, build, params)
 	default:
 		return nil, ErrUnknownMethod.Saying("%q is not a way to connect", params.Method)
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if params.Method == MethodRotatingToken {
+		s.rotation.Lock()
+		defer s.rotation.Unlock()
 	}
 
 	connection, err := s.connections.Create(ctx, forgestore.CreateParams{
@@ -240,13 +258,23 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, err
 	}
 
-	if params.Method == MethodToken {
-		if err := s.credentials.Set(ctx, connection.ID, params.Token); err != nil {
-			return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
-		}
+	if err := s.keepCredential(ctx, build, params, connection.ID); err != nil {
+		return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
 	}
 
 	return connection, nil
+}
+
+// keepCredential stores what a new connection sends the forge, which an App mints rather than keeps.
+func (s *Service) keepCredential(ctx context.Context, build Builder, params ConnectParams, connectionID string) error {
+	switch params.Method {
+	case MethodToken:
+		return s.credentials.Set(ctx, connectionID, params.Token)
+	case MethodRotatingToken:
+		return s.keepRotatedToken(ctx, build, params, connectionID)
+	default:
+		return nil
+	}
 }
 
 // proveToken asks the forge who a pasted token belongs to.
@@ -325,26 +353,27 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 		return err
 	}
 
-	if err := s.credentials.Delete(ctx, connection.ID); err != nil {
-		return err
+	var revoked error
+	if connection.Method == MethodRotatingToken {
+		revoked = s.revokeRotatingToken(ctx, *connection)
 	}
 
-	return s.connections.Delete(ctx, connection.ID)
+	if err := s.credentials.Delete(ctx, connection.ID); err != nil {
+		return errors.Join(revoked, err)
+	}
+
+	return errors.Join(revoked, s.connections.Delete(ctx, connection.ID))
 }
 
 // Check asks the forge whether a connection still works, the way its method allows: who the
-// token belongs to for a pasted token, and whether the installation still reaches a repository
-// for an App, whose login is the row's own.
+// token belongs to for a pasted token, which a rotating one also rotates when due, and whether
+// the installation still reaches a repository for an App, whose login is the row's own.
 func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
-	held, err := s.HasCredential(ctx, connection)
-	if err != nil {
-		return "", err
-	}
-	if !held {
-		return "", ErrNoCredential.Saying("no credential file for %s; connect it again", connection.Host)
+	if connection.Method == MethodRotatingToken {
+		return s.checkRotating(ctx, connection)
 	}
 
-	f, err := s.ForConnection(connection)
+	f, err := s.heldForge(ctx, connection)
 	if err != nil {
 		return "", err
 	}
@@ -358,6 +387,19 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	}
 
 	return connection.Login, nil
+}
+
+// heldForge is the forge for a connection whose credential komrad still holds.
+func (s *Service) heldForge(ctx context.Context, connection forgestore.Connection) (Forge, error) {
+	held, err := s.HasCredential(ctx, connection)
+	if err != nil {
+		return nil, err
+	}
+	if !held {
+		return nil, ErrNoCredential.Saying("no credential file for %s; connect it again", connection.Host)
+	}
+
+	return s.ForConnection(connection)
 }
 
 // RecheckConnection checks a connection and records the forge's answer on its verified stamp.
