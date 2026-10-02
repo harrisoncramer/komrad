@@ -19,3 +19,12 @@ func Noun(kind string) string {
 
 	return "pull request"
 }
+
+// Abbrev is the short form a forge of the kind gives a pull request.
+func Abbrev(kind string) string {
+	if kind == KindGitLab {
+		return "mr"
+	}
+
+	return "pr"
+}

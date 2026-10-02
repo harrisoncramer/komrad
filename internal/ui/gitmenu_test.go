@@ -100,6 +100,18 @@ func TestGitMenu(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{AgentId: "a1"})
 	})
 
+	t.Run("a merge request's entries are named the way GitLab does", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, append(buildGitAgent(), onGitLab(newOpenPullRequest()))...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "open mr")
+		assert.Contains(t, frame, "copy mr url")
+		assert.Contains(t, frame, "merge mr")
+		assert.NotContains(t, frame, "open pr")
+	})
+
 	t.Run("the menu takes no filter, so the letters stay the entries'", func(t *testing.T) {
 		t.Parallel()
 

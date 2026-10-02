@@ -46,6 +46,11 @@ func (s PullRequestStanding) Noun() string {
 	return forge.Noun(s.Forge)
 }
 
+// Abbrev is the short form its forge gives a pull request, such as pr or mr.
+func (s PullRequestStanding) Abbrev() string {
+	return forge.Abbrev(s.Forge)
+}
+
 // Ref names it the way its forge writes it, such as #12 or !12.
 func (p PullRequest) Ref() string {
 	return forge.Ref(p.Forge, int(p.Number))
