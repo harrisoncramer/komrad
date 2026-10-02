@@ -1069,6 +1069,26 @@ func TestLoadReadsSSHHosts(t *testing.T) {
 			hosts:   `["a=b=c"]`,
 			refused: true,
 		},
+		{
+			name:    "an ssh host with a port",
+			hosts:   `["ssh.gitlab.example.com:2222=gitlab.example.com"]`,
+			refused: true,
+		},
+		{
+			name:    "an ssh host with a user",
+			hosts:   `["git@ssh.gitlab.example.com=gitlab.example.com"]`,
+			refused: true,
+		},
+		{
+			name:    "a web host with a scheme",
+			hosts:   `["ssh.gitlab.example.com=https://gitlab.example.com"]`,
+			refused: true,
+		},
+		{
+			name:    "an ssh host named twice",
+			hosts:   `["ssh.example.com=a.example.com", "SSH.example.com=b.example.com"]`,
+			refused: true,
+		},
 	}
 
 	for _, tt := range tests {

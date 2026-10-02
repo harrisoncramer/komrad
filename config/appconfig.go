@@ -676,8 +676,8 @@ type Worktrees struct {
 type Git struct {
 	// SSH hosts that stand in for a forge's web host, each written as "ssh_host=web_host", such
 	// as "ssh.gitlab.example.com=gitlab.example.com". A remote on the SSH host is then matched to
-	// the forge connected for the web host. Public aliases such as ssh.github.com and
-	// altssh.gitlab.com are already known.
+	// the forge connected for the web host. Write host names only, with no port, scheme or
+	// user. Public aliases such as ssh.github.com and altssh.gitlab.com are already known.
 	SSHHosts []string `mapstructure:"ssh_hosts"`
 }
 
@@ -687,14 +687,22 @@ func (g Git) GetSSHHosts() (map[string]string, error) {
 	for _, entry := range g.SSHHosts {
 		ssh, web, ok := strings.Cut(entry, "=")
 		ssh, web = strings.ToLower(strings.TrimSpace(ssh)), strings.ToLower(strings.TrimSpace(web))
-		if !ok || ssh == "" || web == "" || strings.Contains(web, "=") {
-			return nil, fmt.Errorf("%q is not written as ssh_host=web_host", entry)
+		if !ok || !bareHost(ssh) || !bareHost(web) {
+			return nil, fmt.Errorf("%q is not written as ssh_host=web_host, with host names only", entry)
+		}
+		if _, seen := hosts[ssh]; seen {
+			return nil, fmt.Errorf("%q names %s a second time", entry, ssh)
 		}
 
 		hosts[ssh] = web
 	}
 
 	return hosts, nil
+}
+
+// bareHost says whether a host carries no port, scheme, user or path.
+func bareHost(host string) bool {
+	return host != "" && !strings.ContainsAny(host, ":/@= \t")
 }
 
 // GitHubApp is the App an engine fetches and pushes as.
