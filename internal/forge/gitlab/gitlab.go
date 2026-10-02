@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
 	"komrad/lib/xhttp"
+	"komrad/lib/xslice"
 )
 
 // defaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
@@ -25,8 +27,8 @@ const defaultAPI = "https://gitlab.com/api/v4"
 // maxPerPage is the most GitLab hands over in one page, above which it silently trims.
 const maxPerPage = 100
 
-// branchesPerQuery is how many branches the first ReadBranches query aliases.
-const branchesPerQuery = 2
+// maxSourceBranches is the most branches GitLab filters merge requests by in one query.
+const maxSourceBranches = 1000
 
 // mergeRequestsPerBranch is how many of a branch's newest merge requests ReadBranches reads.
 const mergeRequestsPerBranch = 5
@@ -73,6 +75,16 @@ const listQuery = `query List($path: ID!, $first: Int!, $after: String, $branche
     mergeRequests(sourceBranches: $branches, state: $state, sort: CREATED_DESC, first: $first, after: $after) {
       pageInfo { hasNextPage endCursor }
       nodes { ...mergeRequestFields }
+    }
+  }
+}
+` + mergeRequestFragment
+
+const readBranchesQuery = `query ReadBranches($path: ID!, $branches: [String!], $first: Int!, $after: String) {
+  project(fullPath: $path) {
+    mergeRequests(sourceBranches: $branches, sort: CREATED_DESC, first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ...mergeRequestFields ` + mergeReadinessFields + ` }
     }
   }
 }
@@ -533,8 +545,8 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) 
 }
 
 // ReadBranches reads the newest merge requests opened from each branch, with their merge readiness,
-// aliased into as few queries as GitLab's complexity limit allows, keeping only those whose
-// source is the project itself.
+// paging until every branch has its newest five and keeping only those whose source is the project
+// itself.
 func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	path, err := projectPath(repo.Path)
 	if err != nil {
@@ -542,76 +554,87 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 	}
 
 	reading := &forge.Reading{}
-	err = sendInBatches(ctx, branches, func(ctx context.Context, batch []string) (complexity, error) {
-		variables := map[string]any{"path": path}
-		var declared, fields strings.Builder
-		for i, branch := range batch {
-			variables["b"+strconv.Itoa(i)] = []string{branch}
-			fmt.Fprintf(&declared, ", $b%d: [String!]", i)
-			fmt.Fprintf(&fields, "\n    b%d: mergeRequests(sourceBranches: $b%d, sort: CREATED_DESC, first: %d) { nodes { ...mergeRequestFields %s } }", i, i, mergeRequestsPerBranch, mergeReadinessFields)
-		}
-		operation := "query ReadBranches($path: ID!" + declared.String() + ") {\n  project(fullPath: $path) {" + fields.String() + "\n  }\n  queryComplexity { score limit }\n}\n" + mergeRequestFragment
+	first := maxPerPage
+	for batch := range slices.Chunk(branches, maxSourceBranches) {
+		seen := make(map[string]int, len(batch))
+		after := ""
+		for len(batch) > 0 {
+			page, err := f.readBranchesPage(ctx, readBranchesPageParams{path: path, branches: batch, first: first, after: after})
+			if errors.Is(err, errTooComplex) && first > 1 {
+				first /= 2
 
-		var data struct {
-			Project         map[string]*graphql.Nodes[mergeRequestNode] `json:"project"`
-			QueryComplexity complexity                                  `json:"queryComplexity"`
-		}
-		answer, err := f.client.Query(ctx, operation, variables, &data)
-		if err != nil {
-			return complexity{}, err
-		}
-		if err := failureOf(answer); err != nil {
-			return complexity{}, err
-		}
-		if data.Project == nil {
-			return complexity{}, noProject(path)
-		}
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
 
-		reading.RateLimit = answer.RateLimit
-		reading.PullRequests = append(reading.PullRequests, graphql.OwnPullRequestsOf(data.Project, len(batch), func(node mergeRequestNode) forge.PullRequest {
-			return node.toPullRequest(true)
-		})...)
+			reading.RateLimit = page.RateLimit
+			for _, node := range page.MergeRequests.Nodes {
+				if seen[node.SourceBranch] == mergeRequestsPerBranch {
+					continue
+				}
+				seen[node.SourceBranch]++
 
-		return data.QueryComplexity, nil
-	})
-	if err != nil {
-		return nil, err
+				pullRequest := node.toPullRequest(true)
+				if pullRequest.IsFromItsOwnRepository() {
+					reading.PullRequests = append(reading.PullRequests, pullRequest)
+				}
+			}
+
+			if !page.MergeRequests.PageInfo.HasNextPage {
+				break
+			}
+			after = page.MergeRequests.PageInfo.EndCursor
+			batch = xslice.Filter(batch, func(branch string) bool {
+				return seen[branch] < mergeRequestsPerBranch
+			})
+		}
 	}
 
 	return reading, nil
 }
 
-// sendInBatches sends one query per batch of branches, sized from what GitLab last said about its
-// complexity budget, halved when it refuses a batch for exceeding it and never again as large.
-func sendInBatches(ctx context.Context, branches []string, send func(context.Context, []string) (complexity, error)) error {
-	size := branchesPerQuery
-	ceiling := len(branches)
-	for len(branches) > 0 {
-		count := min(size, ceiling, len(branches))
-		measured, err := send(ctx, branches[:count])
-		if errors.Is(err, errTooComplex) && count > 1 {
-			ceiling = count - 1
-			size = count / 2
-
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
-		branches = branches[count:]
-		if measured.Score > 0 && measured.Limit > 0 {
-			size = max(1, count*measured.Limit/measured.Score)
-		}
-	}
-
-	return nil
+// mergeRequestPage is one page of the merge requests from a set of branches and the rate limit after it.
+type mergeRequestPage struct {
+	MergeRequests connection
+	RateLimit     forge.RateLimit
 }
 
-// complexity is what GitLab said one query cost against its limit.
-type complexity struct {
-	Score int `json:"score"`
-	Limit int `json:"limit"`
+// readBranchesPageParams is the project, the branches and which page of their merge requests to read.
+type readBranchesPageParams struct {
+	path     string
+	branches []string
+	first    int
+	after    string
+}
+
+// readBranchesPage is one page of the merge requests opened from any of the branches, newest first.
+func (f *Forge) readBranchesPage(ctx context.Context, params readBranchesPageParams) (*mergeRequestPage, error) {
+	variables := map[string]any{
+		"path":     params.path,
+		"branches": params.branches,
+		"first":    params.first,
+		"after":    graphql.CursorOf(params.after),
+	}
+
+	var data struct {
+		Project *struct {
+			MergeRequests connection `json:"mergeRequests"`
+		} `json:"project"`
+	}
+	answer, err := f.client.Query(ctx, readBranchesQuery, variables, &data)
+	if err != nil {
+		return nil, err
+	}
+	if err := failureOf(answer); err != nil {
+		return nil, err
+	}
+	if data.Project == nil {
+		return nil, noProject(params.path)
+	}
+
+	return &mergeRequestPage{MergeRequests: data.Project.MergeRequests, RateLimit: answer.RateLimit}, nil
 }
 
 // failureOf is the first error the answer carries as komrad's, nil when it carries none.

@@ -283,20 +283,16 @@ func TestListAddressesANestedGroup(t *testing.T) {
 }
 
 // readBranchesAnswer is GitLab answering a read of branches, recorded on 21 September against
-// acme/widgets with made-up auto-merge fields: a running pipeline set to merge when it passes
-// beside a fork's merge request on the same branch, an approved merge request whose pipeline
-// passed.
-const readBranchesAnswer = `{"data":{"project":{` +
-	`"b0":{"nodes":[` + openMergeRequestRunning + `,` + forkMergeRequest + `]},` +
-	`"b1":{"nodes":[` + mergedMergeRequestPassed + `]}},` +
-	`"queryComplexity":{"score":118,"limit":200}}}`
+// acme/widgets with made-up auto-merge fields: a running pipeline set to merge when it passes,
+// a fork's merge request, and an approved merge request whose pipeline passed.
+var readBranchesAnswer = listing(false, "end", openMergeRequestRunning, forkMergeRequest, mergedMergeRequestPassed)
 
 const openMergeRequestRunning = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from the settings","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"},"detailedMergeStatus":"NOT_APPROVED","autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"]}`
 
 const mergedMergeRequestPassed = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"},"approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"},"detailedMergeStatus":"MERGEABLE","autoMergeEnabled":false,"availableAutoMergeStrategies":[]}`
 
-// TestReadBranches covers the aliased query, each answer folded into komrad's words, the rate
-// limit off GitLab's headers, and a fork's merge request on the same branch left out.
+// TestReadBranches covers the query, each answer folded into komrad's words, the rate limit off
+// GitLab's headers, and a fork's merge request left out.
 func TestReadBranches(t *testing.T) {
 	t.Parallel()
 
@@ -305,20 +301,18 @@ func TestReadBranches(t *testing.T) {
 		body:   readBranchesAnswer,
 	}})
 
-	reading, err := f.ReadBranches(t.Context(), gitlabOrg, []string{"settings-cleanup", "qa-report-update"})
+	reading, err := f.ReadBranches(t.Context(), gitlabOrg, []string{"settings-cleanup", "qa-report-update", "blockers-page-single-template"})
 	require.NoError(t, err)
 
 	require.Len(t, fake.calls, 1)
 	seen := fake.last(t)
-	assert.Equal(t, "ReadBranches", seen.Operation)
+	assert.Equal(t, readBranchesQuery, seen.Query)
 	assert.Equal(t, map[string]any{
-		"path": "acme/widgets",
-		"b0":   []any{"settings-cleanup"},
-		"b1":   []any{"qa-report-update"},
+		"path":     "acme/widgets",
+		"branches": []any{"settings-cleanup", "qa-report-update", "blockers-page-single-template"},
+		"first":    float64(maxPerPage),
+		"after":    nil,
 	}, seen.Variables)
-	assert.Contains(t, seen.Query, "query ReadBranches($path: ID!, $b0: [String!], $b1: [String!])")
-	assert.Contains(t, seen.Query, "b0: mergeRequests(sourceBranches: $b0, sort: CREATED_DESC, first: 5) { nodes { ...mergeRequestFields "+mergeReadinessFields+" } }")
-	assert.Contains(t, seen.Query, "queryComplexity { score limit }")
 
 	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 1999, Limit: 2000, ResetAt: time.Unix(1789900000, 0)}, reading.RateLimit)
 
@@ -340,29 +334,149 @@ func TestReadBranches(t *testing.T) {
 	}, merged.MergeReadiness)
 }
 
-// TestReadBranchesSplitsOnComplexity covers GitLab refusing too many branches in one query: the
-// batch is halved until it fits, and what fits sizes the batches after it.
-func TestReadBranchesSplitsOnComplexity(t *testing.T) {
+// mergeRequestFrom is the running merge request renumbered and moved to a branch, in a fork when
+// fork is set.
+func mergeRequestFrom(branch string, iid int, fork bool) string {
+	node := strings.ReplaceAll(openMergeRequestRunning, "256538", strconv.Itoa(iid))
+	node = strings.Replace(node, `"sourceBranch":"settings-cleanup"`, `"sourceBranch":"`+branch+`"`, 1)
+	if fork {
+		node = strings.Replace(node, `"sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"}`, `"sourceProject":{"webUrl":"https://gitlab.com/acme-forks/widgets"}`, 1)
+	}
+
+	return node
+}
+
+// TestReadBranchesPages covers following the cursor across pages, the newest five merge requests
+// of a branch kept with a fork's counted among them, a branch left out of the query once it has
+// five, and branches beyond GitLab's filter limit sent in further queries.
+func TestReadBranchesPages(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		branches  []string
+		pages     map[string]string
+		wantSent  []int
+		wantAfter []any
+		wantRead  []int
+	}{
+		{
+			name:      "no branches asks nothing",
+			wantSent:  []int{},
+			wantAfter: []any{},
+			wantRead:  []int{},
+		},
+		{
+			name:      "one branch with nothing open",
+			branches:  []string{"quiet"},
+			pages:     map[string]string{"": listing(false, "")},
+			wantSent:  []int{1},
+			wantAfter: []any{nil},
+			wantRead:  []int{},
+		},
+		{
+			name:     "a branch keeps its five newest across pages, a fork among them",
+			branches: []string{"busy", "other"},
+			pages: map[string]string{
+				"": listing(true, "p1",
+					mergeRequestFrom("busy", 10, true),
+					mergeRequestFrom("busy", 9, false),
+					mergeRequestFrom("other", 8, false),
+					mergeRequestFrom("busy", 7, false),
+				),
+				"p1": listing(false, "p2",
+					mergeRequestFrom("busy", 6, false),
+					mergeRequestFrom("busy", 5, false),
+					mergeRequestFrom("busy", 4, false),
+					mergeRequestFrom("other", 3, false),
+				),
+			},
+			wantSent:  []int{2, 2},
+			wantAfter: []any{nil, "p1"},
+			wantRead:  []int{9, 8, 7, 6, 5, 3},
+		},
+		{
+			name:     "a branch with its five read leaves the query",
+			branches: []string{"busy", "other"},
+			pages: map[string]string{
+				"": listing(true, "p1",
+					mergeRequestFrom("busy", 6, false),
+					mergeRequestFrom("busy", 5, false),
+					mergeRequestFrom("busy", 4, false),
+					mergeRequestFrom("busy", 3, false),
+					mergeRequestFrom("busy", 2, false),
+				),
+				"p1": listing(false, "", mergeRequestFrom("other", 1, false)),
+			},
+			wantSent:  []int{2, 1},
+			wantAfter: []any{nil, "p1"},
+			wantRead:  []int{6, 5, 4, 3, 2, 1},
+		},
+		{
+			name:      "more branches than gitlab filters by at once",
+			branches:  xslice.Map(make([]string, maxSourceBranches+1), func(string) string { return "b" }),
+			pages:     map[string]string{"": listing(false, "")},
+			wantSent:  []int{maxSourceBranches, 1},
+			wantAfter: []any{nil, nil},
+			wantRead:  []int{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, nil)
+			fake.handle = func(seen call) (answer, bool) {
+				after, _ := seen.Variables["after"].(string)
+				body, ok := tt.pages[after]
+
+				return answer{body: body}, ok
+			}
+
+			reading, err := f.ReadBranches(t.Context(), gitlabOrg, tt.branches)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantSent, xslice.Map(fake.calls, func(seen call) int {
+				return len(seen.Variables["branches"].([]any))
+			}))
+			assert.Equal(t, tt.wantAfter, xslice.Map(fake.calls, func(seen call) any {
+				return seen.Variables["after"]
+			}))
+			assert.Equal(t, tt.wantRead, xslice.Map(reading.PullRequests, func(pr forge.PullRequest) int {
+				return pr.Number
+			}))
+		})
+	}
+}
+
+// TestReadBranchesShrinksOnComplexity covers GitLab refusing a page for its complexity: the page
+// is halved until it fits and stays that size, and a page of one refused is an error.
+func TestReadBranchesShrinksOnComplexity(t *testing.T) {
 	t.Parallel()
 
 	f, _, fake := serve(t, nil)
 	fake.handle = func(seen call) (answer, bool) {
-		if strings.Count(seen.Query, "mergeRequests(sourceBranches:") > 1 {
+		if seen.Variables["first"].(float64) > 25 {
 			return answer{body: tooComplex}, true
 		}
+		if seen.Variables["after"] == nil {
+			return answer{body: listing(true, "p1", mergeRequestFrom("one", 2, false))}, true
+		}
 
-		return answer{body: `{"data":{"project":{"b0":{"nodes":[` + openMergeRequestRunning + `]}},"queryComplexity":{"score":100,"limit":100}}}`}, true
+		return answer{body: listing(false, "", mergeRequestFrom("two", 1, false))}, true
 	}
 
-	reading, err := f.ReadBranches(t.Context(), gitlabOrg, []string{"one", "two", "three"})
+	reading, err := f.ReadBranches(t.Context(), gitlabOrg, []string{"one", "two"})
 	require.NoError(t, err)
-	assert.Len(t, reading.PullRequests, 3, "every branch is read once the batch fits")
+	assert.Len(t, reading.PullRequests, 2)
+	assert.Equal(t, []any{100.0, 50.0, 25.0, 25.0}, xslice.Map(fake.calls, func(seen call) any {
+		return seen.Variables["first"]
+	}))
 
-	batches := xslice.Map(fake.calls, func(seen call) int {
-		return strings.Count(seen.Query, "mergeRequests(sourceBranches:")
-	})
-	assert.Equal(t, []int{2, 1, 1, 1}, batches, "two are refused, then one at a time since one filled the limit")
-	assert.Equal(t, []any{"three"}, fake.last(t).Variables["b0"])
+	refused, _, _ := serve(t, map[string]answer{"ReadBranches": {body: tooComplex}})
+	_, err = refused.ReadBranches(t.Context(), gitlabOrg, []string{"one"})
+	require.ErrorIs(t, err, errTooComplex)
 }
 
 // TestReadMergeRequest covers one merge request by its web address.
