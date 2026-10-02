@@ -128,7 +128,7 @@ type writeResult struct {
 	// resumed is the agent a resume was written for.
 	resumed string
 	// unstaged is the agents whose panes were taken off the stage ahead of the write.
-	unstaged []string
+	unstaged []panel.Agent
 }
 
 type released struct {

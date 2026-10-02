@@ -531,6 +531,11 @@ func TestFormsArchivePrompt(t *testing.T) {
 		require.Empty(t, harness.panel.ReadGuestPane())
 		require.True(t, harness.panel.IsAgentAlive("a1"))
 
+		harness.press("esc")
+		harness.fireTimers()
+
+		require.Empty(t, harness.panel.ReadGuestPane(), "walking away from the form does not stage the pane the write is killing")
+
 		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
 
 		assert.False(t, harness.panel.IsAgentAlive("a1"))

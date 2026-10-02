@@ -13,9 +13,16 @@ import (
 
 // unstageAhead swaps the given agents' panes out of the stage ahead of a write that kills them.
 func (m *model) unstageAhead(agents []panel.Agent, write tea.Cmd) tea.Cmd {
+	if m.unstaging == nil {
+		m.unstaging = map[string]struct{}{}
+	}
+
 	staged := m.frame.GuestPane()
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
+		if agent.Pane != "" {
+			m.unstaging[agent.Pane] = struct{}{}
+		}
 	}
 
 	if staged != "" && m.frame.GuestPane() == "" {
@@ -25,28 +32,27 @@ func (m *model) unstageAhead(agents []panel.Agent, write tea.Cmd) tea.Cmd {
 	return stampUnstaged(write, agents)
 }
 
-// settleUnstaged marks the agents a landed write killed as no longer alive, or stages again
-// what a refused write left running.
-func (m *model) settleUnstaged(ids []string, err error) {
-	if err != nil {
-		m.stageSelection()
-
-		return
-	}
-
-	for _, id := range ids {
-		if held, ok := m.listing.world.Agents[id]; ok {
+// settleUnstaged marks the agents a landed write killed as no longer alive and stages the
+// screen again.
+func (m *model) settleUnstaged(agents []panel.Agent, err error) {
+	for _, agent := range agents {
+		delete(m.unstaging, agent.Pane)
+		if held, ok := m.listing.world.Agents[agent.ID]; ok && err == nil {
 			held.Alive = xptr.Ptr(false)
 		}
 	}
 
-	m.listing.assemble(time.Now())
+	if err == nil {
+		m.listing.assemble(time.Now())
+	}
+
+	if stager, ok := m.active().(rowStager); ok {
+		stager.stage(m)
+	}
 }
 
 // stampUnstaged says on a write's result which agents' panes were released ahead of it.
 func stampUnstaged(cmd tea.Cmd, agents []panel.Agent) tea.Cmd {
-	ids := panel.IDs(agents)
-
 	return func() tea.Msg {
 		msg := cmd()
 
@@ -55,7 +61,7 @@ func stampUnstaged(cmd tea.Cmd, agents []panel.Agent) tea.Cmd {
 			return msg
 		}
 
-		result.unstaged = ids
+		result.unstaged = agents
 
 		return result
 	}

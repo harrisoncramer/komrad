@@ -97,9 +97,13 @@ func (m *model) hasHarnessDrawn(pane, harnessID string) bool {
 }
 
 // isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back
-// only a launch still in flight.
+// a launch or a kill still in flight.
 func (m *model) isPaneStageable(pane, harnessID string) bool {
 	if pane == "" {
+		return false
+	}
+
+	if _, inFlight := m.unstaging[pane]; inFlight {
 		return false
 	}
 
