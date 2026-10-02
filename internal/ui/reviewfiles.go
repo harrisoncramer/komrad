@@ -282,15 +282,17 @@ func (r *reviewScreen) isBlockDrawn(m *model) bool {
 }
 
 func (r *reviewScreen) isBlockFocused(m *model) bool {
-	return r.filesFocused && m.isListFocused() && !r.isWriting() && r.isBlockDrawn(m)
+	return r.focus == reviewFocusFiles && m.isListFocused() && !r.isWriting() && r.isBlockDrawn(m)
 }
 
 func (r *reviewScreen) focusBlock(*model) {
-	r.filesFocused = true
+	r.focus = reviewFocusFiles
 }
 
 func (r *reviewScreen) blurBlock() {
-	r.filesFocused = false
+	if r.focus == reviewFocusFiles {
+		r.focus = reviewFocusDiff
+	}
 }
 
 // stepFile moves the diff to the next file the tree draws, or the previous one for a negative
