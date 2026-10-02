@@ -76,13 +76,14 @@ func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 		return err
 	}
 
+	var errs []error
 	for _, agentID := range mailboxes {
 		if _, err := s.Deliver(ctx, agentID); err != nil {
-			return err
+			errs = append(errs, fmt.Errorf("failed to deliver to agent %q: %w", agentID, err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // Deliver makes one attempt at getting an agent to read what is waiting for it, and reports
