@@ -207,6 +207,18 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "the forge will not queue it now",
 		},
 		{
+			name:        "the merge then rebase of a worktree part-way through a rebase",
+			rows:        append(buildRebasingGitAgent(), newOpenPullRequest()),
+			press:       []string{"R"},
+			wantRefusal: "part-way through a rebase, merge or pick",
+		},
+		{
+			name:        "the merge then rebase of a branch with no pull request",
+			rows:        buildGitAgent(),
+			press:       []string{"R"},
+			wantRefusal: "komrad has not read this agent's repository yet",
+		},
+		{
 			name:        "the draft toggle of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
 			press:       []string{"d"},
