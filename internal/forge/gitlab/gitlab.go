@@ -40,10 +40,10 @@ const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
   sourceBranch targetBranch diffHeadSha sourceProject { webUrl } targetProject { webUrl } diffRefs { baseSha }
 }`
 
-// standingFields is what the decision, checks, mergeability and auto-merge of a merge request
+// mergeReadinessFields is what the decision, checks, mergeability and auto-merge of a merge request
 // are folded from: its approvals, its reviewers' states, the status of the pipeline on its
 // head, its detailed merge status, whether it is set to merge on its own and how it could be.
-const standingFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
+const mergeReadinessFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
 
 const verifyQuery = `query Verify { currentUser { username } }`
 
@@ -489,16 +489,16 @@ func (f *Forge) sendAutoMerge(ctx context.Context, params sendAutoMergeParams) e
 
 // mergeRefusal is why GitLab says a merge request cannot merge, in a person's words.
 func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) string {
-	var standing struct {
+	var mergeRequest struct {
 		State               string `json:"state"`
 		Draft               bool   `json:"draft"`
 		DetailedMergeStatus string `json:"detailed_merge_status"`
 	}
-	if _, err := f.client.Send(ctx, xhttp.JSONParams{Method: http.MethodGet, URL: endpoint}, &standing); err != nil {
+	if _, err := f.client.Send(ctx, xhttp.JSONParams{Method: http.MethodGet, URL: endpoint}, &mergeRequest); err != nil {
 		return said
 	}
 
-	switch standing.State {
+	switch mergeRequest.State {
 	case "merged":
 		return "it has already merged"
 	case "closed":
@@ -506,11 +506,11 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) 
 	case "locked":
 		return "it is already being merged"
 	}
-	if standing.Draft {
+	if mergeRequest.Draft {
 		return "it is still a draft"
 	}
 
-	switch standing.DetailedMergeStatus {
+	switch mergeRequest.DetailedMergeStatus {
 	case "unchecked", "checking", "approvals_syncing", "preparing":
 		return "gitlab is still checking whether it can merge, so try again in a moment"
 	case "conflict":
@@ -529,10 +529,10 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) 
 		return said
 	}
 
-	return "its merge status is " + strings.ReplaceAll(standing.DetailedMergeStatus, "_", " ")
+	return "its merge status is " + strings.ReplaceAll(mergeRequest.DetailedMergeStatus, "_", " ")
 }
 
-// ReadBranches reads the newest merge requests opened from each branch, with their standing,
+// ReadBranches reads the newest merge requests opened from each branch, with their merge readiness,
 // aliased into as few queries as GitLab's complexity limit allows, keeping only those whose
 // source is the project itself.
 func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
@@ -548,7 +548,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 		for i, branch := range batch {
 			variables["b"+strconv.Itoa(i)] = []string{branch}
 			fmt.Fprintf(&declared, ", $b%d: [String!]", i)
-			fmt.Fprintf(&fields, "\n    b%d: mergeRequests(sourceBranches: $b%d, sort: CREATED_DESC, first: %d) { nodes { ...mergeRequestFields %s } }", i, i, mergeRequestsPerBranch, standingFields)
+			fmt.Fprintf(&fields, "\n    b%d: mergeRequests(sourceBranches: $b%d, sort: CREATED_DESC, first: %d) { nodes { ...mergeRequestFields %s } }", i, i, mergeRequestsPerBranch, mergeReadinessFields)
 		}
 		operation := "query ReadBranches($path: ID!" + declared.String() + ") {\n  project(fullPath: $path) {" + fields.String() + "\n  }\n  queryComplexity { score limit }\n}\n" + mergeRequestFragment
 
@@ -672,7 +672,7 @@ type connection = graphql.Connection[mergeRequestNode]
 
 // mergeRequestNode is the slice of GitLab's merge request node the record is built from.
 type mergeRequestNode struct {
-	standingNode
+	mergeReadinessNode
 	ID            string       `json:"id"`
 	IID           string       `json:"iid"`
 	Title         string       `json:"title"`
@@ -712,9 +712,9 @@ type autoMergeTarget struct {
 	AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
 }
 
-// standingNode is what GitLab says about a merge request's reviews and the pipeline on its
+// mergeReadinessNode is what GitLab says about a merge request's reviews and the pipeline on its
 // head.
-type standingNode struct {
+type mergeReadinessNode struct {
 	DiffHeadSha       string `json:"diffHeadSha"`
 	ApprovalsRequired int    `json:"approvalsRequired"`
 	ApprovalsLeft     int    `json:"approvalsLeft"`
@@ -739,7 +739,7 @@ type standingNode struct {
 // autoMerge is whether the merge request is set to merge on its own, and whether GitLab offers a
 // way to set it, which it does only while there is a pipeline to wait for and the credential
 // may merge.
-func (n standingNode) autoMerge() forge.AutoMerge {
+func (n mergeReadinessNode) autoMerge() forge.AutoMerge {
 	return forge.AutoMerge{
 		On:      n.AutoMergeEnabled,
 		Allowed: len(n.AvailableAutoMergeStrategies) > 0,
@@ -747,7 +747,7 @@ func (n standingNode) autoMerge() forge.AutoMerge {
 }
 
 // mergeability is the detailed merge status in komrad's words.
-func (n standingNode) mergeability() forge.Mergeability {
+func (n mergeReadinessNode) mergeability() forge.Mergeability {
 	switch n.DetailedMergeStatus {
 	case "":
 		return forge.MergeabilityUnknown
@@ -767,7 +767,7 @@ func (n standingNode) mergeability() forge.Mergeability {
 }
 
 // checks is the head pipeline's status in komrad's words.
-func (n standingNode) checks() forge.Checks {
+func (n mergeReadinessNode) checks() forge.Checks {
 	if n.HeadPipeline == nil {
 		return forge.ChecksNone
 	}
@@ -786,7 +786,7 @@ func (n standingNode) checks() forge.Checks {
 
 // decision folds the approvals into komrad's word, a change request first, then approvals
 // still owed, then an approval given.
-func (n standingNode) decision() forge.ReviewDecision {
+func (n mergeReadinessNode) decision() forge.ReviewDecision {
 	for _, reviewer := range n.Reviewers.Nodes {
 		if reviewer.MergeRequestInteraction != nil && reviewer.MergeRequestInteraction.ReviewState == reviewStateRequestedChanges {
 			return forge.ReviewDecisionChangesRequested
@@ -805,7 +805,7 @@ func (n standingNode) decision() forge.ReviewDecision {
 
 // toPullRequest is the node as the record, carrying its decision and checks when the query
 // asked for them.
-func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
+func (n mergeRequestNode) toPullRequest(withMergeReadiness bool) forge.PullRequest {
 	baseSHA := ""
 	if n.DiffRefs != nil {
 		baseSHA = n.DiffRefs.BaseSha
@@ -830,8 +830,8 @@ func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		MergedAt:   n.MergedAt,
 		ClosedAt:   n.closedAt(),
 	}
-	if withStanding {
-		pullRequest.Standing = &forge.Standing{
+	if withMergeReadiness {
+		pullRequest.MergeReadiness = &forge.MergeReadiness{
 			Decision:     n.decision(),
 			Checks:       n.checks(),
 			Mergeability: n.mergeability(),

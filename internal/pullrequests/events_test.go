@@ -17,7 +17,7 @@ func TestEventsOf(t *testing.T) {
 		name        string
 		moves       []Move
 		pullRequest pullrequeststore.PullRequest
-		read        forge.Standing
+		read        forge.MergeReadiness
 		wantStarted []string
 		wantHolding []string
 	}{
@@ -29,7 +29,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			read:        forge.Standing{Checks: forge.ChecksFailing},
+			read:        forge.MergeReadiness{Checks: forge.ChecksFailing},
 			wantStarted: []string{eventprompts.PullRequestChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
@@ -41,7 +41,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "passing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityBehind,
 			},
@@ -55,7 +55,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "on",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			read:        forge.Standing{AutoMerge: forge.AutoMerge{On: true}},
+			read:        forge.MergeReadiness{AutoMerge: forge.AutoMerge{On: true}},
 			wantStarted: []string{eventprompts.PullRequestAutoMergeOn},
 			wantHolding: []string{eventprompts.PullRequestAutoMergeOn},
 		},
@@ -74,7 +74,7 @@ func TestEventsOf(t *testing.T) {
 				},
 			},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionApproved,
 				Checks:   forge.ChecksFailing,
 			},
@@ -89,7 +89,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
-			read:        forge.Standing{Checks: forge.ChecksFailing},
+			read:        forge.MergeReadiness{Checks: forge.ChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestMerged},
 		},
 		{
@@ -100,7 +100,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "CLOSED",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "CLOSED"},
-			read:        forge.Standing{Mergeability: forge.MergeabilityConflicting},
+			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityConflicting},
 			wantStarted: []string{eventprompts.PullRequestClosed},
 			wantHolding: []string{eventprompts.PullRequestClosed},
 		},
@@ -109,7 +109,7 @@ func TestEventsOf(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := tt.pullRequest
-			pullRequest.Standing = forge.RememberedStanding{}.RememberRead(tt.read, pullRequest.HeadSHA, time.Time{})
+			pullRequest.MergeReadiness = forge.RememberedMergeReadiness{}.RememberRead(tt.read, pullRequest.HeadSHA, time.Time{})
 
 			started, holding := eventsOf(Change{Moves: tt.moves}, pullRequest)
 			assert.Equal(t, tt.wantStarted, started)

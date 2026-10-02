@@ -139,9 +139,9 @@ const (
 	MergeabilityConflicting Mergeability = "conflicting"
 )
 
-// Standing is what a forge says about one pull request's reviews, checks, mergeability and
+// MergeReadiness is what a forge says about one pull request's reviews, checks, mergeability and
 // auto-merge.
-type Standing struct {
+type MergeReadiness struct {
 	Decision     ReviewDecision
 	Checks       Checks
 	Mergeability Mergeability
@@ -180,9 +180,9 @@ type PullRequest struct {
 	UpdatedAt time.Time
 	MergedAt  *time.Time
 	ClosedAt  *time.Time
-	// Standing is where the reviews, checks, mergeability and auto-merge stand, nil when the call
+	// MergeReadiness is where the reviews, checks, mergeability and auto-merge stand, nil when the call
 	// did not ask.
-	Standing *Standing
+	MergeReadiness *MergeReadiness
 }
 
 // IsFinished says whether the pull request has merged or closed.
@@ -229,7 +229,7 @@ type Forge interface {
 	// whatever its state, or the open ones when the branch is empty.
 	List(ctx context.Context, params ListParams) (*Page, error)
 	// ReadBranches is the newest pull requests opened from each branch within the repository
-	// itself, each carrying its standing.
+	// itself, each carrying its merge readiness.
 	ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*Reading, error)
 	// ReviewThreads is the review threads on one pull request with the comments they hold.
 	ReviewThreads(ctx context.Context, repo git.RemoteURL, number int) (*Threads, error)

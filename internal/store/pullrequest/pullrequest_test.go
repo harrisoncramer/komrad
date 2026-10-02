@@ -343,17 +343,17 @@ func TestListPageOrdersCurrentFirst(t *testing.T) {
 	assert.Empty(t, elsewhere)
 }
 
-// TestSetStandingOnAMissingRowChangesNothing pins that a row gone since it was read reports no change.
-func TestSetStandingOnAMissingRowChangesNothing(t *testing.T) {
+// TestSetMergeReadinessOnAMissingRowChangesNothing pins that a row gone since it was read reports no change.
+func TestSetMergeReadinessOnAMissingRowChangesNothing(t *testing.T) {
 	h := open(t)
 
-	change, err := h.SetStanding(t.Context(), SetStandingParams{
-		ID:       uuid.NewString(),
-		Standing: forge.Standing{Checks: forge.ChecksFailing},
-		ReadAt:   time.Now(),
+	change, err := h.SetMergeReadiness(t.Context(), SetMergeReadinessParams{
+		ID:             uuid.NewString(),
+		MergeReadiness: forge.MergeReadiness{Checks: forge.ChecksFailing},
+		ReadAt:         time.Now(),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, StandingChange{}, *change)
+	assert.Equal(t, MergeReadinessChange{}, *change)
 }
 
 // TestListRecipients pins which agents hear about a pull request.
@@ -388,63 +388,63 @@ func TestListRecipients(t *testing.T) {
 	assert.Equal(t, []string{onBranch}, recipients, "only the live parent on the branch is told")
 }
 
-// TestSetStandingRemembersWhatEveryReadLeaves covers the remembered standing reading back from the row as it was after each read.
-func TestSetStandingRemembersWhatEveryReadLeaves(t *testing.T) {
+// TestSetMergeReadinessRemembersWhatEveryReadLeaves covers the remembered merge readiness reading back from the row as it was after each read.
+func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
-	failing := forge.Standing{
+	failing := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
 		Checks:       forge.ChecksFailing,
 		Mergeability: forge.MergeabilityUnstable,
 		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
 	}
-	passing := forge.Standing{
+	passing := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionApproved,
 		Checks:       forge.ChecksPassing,
 		Mergeability: forge.MergeabilityClean,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 	}
-	type standingRead struct {
-		standing forge.Standing
-		head     string
+	type mergeReadinessRead struct {
+		readiness forge.MergeReadiness
+		head      string
 	}
-	type setStandingTest struct {
+	type setMergeReadinessTest struct {
 		name  string
-		reads []standingRead
+		reads []mergeReadinessRead
 	}
 
-	tests := []setStandingTest{
+	tests := []setMergeReadinessTest{
 		{
 			name: "a blank first read",
-			reads: []standingRead{
+			reads: []mergeReadinessRead{
 				{head: "abc"},
-				{standing: failing, head: "abc"},
+				{readiness: failing, head: "abc"},
 			},
 		},
 		{
 			name:  "a read with no head",
-			reads: []standingRead{{standing: failing}},
+			reads: []mergeReadinessRead{{readiness: failing}},
 		},
 		{
 			name: "blanks on the same head",
-			reads: []standingRead{
-				{standing: failing, head: "abc"},
+			reads: []mergeReadinessRead{
+				{readiness: failing, head: "abc"},
 				{head: "abc"},
 				{head: "abc"},
 			},
 		},
 		{
 			name: "a blank on a new head",
-			reads: []standingRead{
-				{standing: failing, head: "abc"},
+			reads: []mergeReadinessRead{
+				{readiness: failing, head: "abc"},
 				{head: "def"},
 			},
 		},
 		{
 			name: "an answer after a blank",
-			reads: []standingRead{
-				{standing: failing, head: "abc"},
+			reads: []mergeReadinessRead{
+				{readiness: failing, head: "abc"},
 				{head: "abc"},
-				{standing: passing, head: "def"},
+				{readiness: passing, head: "def"},
 			},
 		},
 	}
@@ -456,31 +456,31 @@ func TestSetStandingRemembersWhatEveryReadLeaves(t *testing.T) {
 			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 			require.NoError(t, err)
 
-			var want forge.RememberedStanding
+			var want forge.RememberedMergeReadiness
 			for i, read := range tt.reads {
 				at := began.Add(time.Duration(i) * time.Minute)
-				change, err := h.SetStanding(ctx, SetStandingParams{
-					ID:       written.ID,
-					Standing: read.standing,
-					HeadSHA:  read.head,
-					ReadAt:   at,
+				change, err := h.SetMergeReadiness(ctx, SetMergeReadinessParams{
+					ID:             written.ID,
+					MergeReadiness: read.readiness,
+					HeadSHA:        read.head,
+					ReadAt:         at,
 				})
 				require.NoError(t, err)
 				assert.Equal(t, want, inUTC(change.Before))
 
-				want = want.RememberRead(read.standing, read.head, at)
+				want = want.RememberRead(read.readiness, read.head, at)
 				assert.Equal(t, want, inUTC(change.After))
 
 				stored, err := h.GetByID(ctx, written.ID)
 				require.NoError(t, err)
-				assert.Equal(t, want, inUTC(stored.Standing))
+				assert.Equal(t, want, inUTC(stored.MergeReadiness))
 			}
 		})
 	}
 }
 
-// TestSetStandingWritesNothingNew covers a read that leaves the remembered standing as it was writing nothing.
-func TestSetStandingWritesNothingNew(t *testing.T) {
+// TestSetMergeReadinessWritesNothingNew covers a read that leaves the remembered merge readiness as it was writing nothing.
+func TestSetMergeReadinessWritesNothingNew(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
@@ -492,25 +492,25 @@ func TestSetStandingWritesNothingNew(t *testing.T) {
 
 		return xmin
 	}
-	params := SetStandingParams{
-		ID:       written.ID,
-		Standing: forge.Standing{Checks: forge.ChecksFailing},
-		HeadSHA:  "abc",
-		ReadAt:   time.Now(),
+	params := SetMergeReadinessParams{
+		ID:             written.ID,
+		MergeReadiness: forge.MergeReadiness{Checks: forge.ChecksFailing},
+		HeadSHA:        "abc",
+		ReadAt:         time.Now(),
 	}
 
-	_, err = h.SetStanding(ctx, params)
+	_, err = h.SetMergeReadiness(ctx, params)
 	require.NoError(t, err)
 	before := version()
-	_, err = h.SetStanding(ctx, params)
+	_, err = h.SetMergeReadiness(ctx, params)
 	require.NoError(t, err)
 	assert.Equal(t, before, version())
 }
 
-func inUTC(standing forge.RememberedStanding) forge.RememberedStanding {
-	if standing.MergeabilityBlankSince != nil {
-		standing.MergeabilityBlankSince = xptr.Ptr(standing.MergeabilityBlankSince.UTC())
+func inUTC(readiness forge.RememberedMergeReadiness) forge.RememberedMergeReadiness {
+	if readiness.MergeabilityBlankSince != nil {
+		readiness.MergeabilityBlankSince = xptr.Ptr(readiness.MergeabilityBlankSince.UTC())
 	}
 
-	return standing
+	return readiness
 }

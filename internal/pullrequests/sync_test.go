@@ -262,16 +262,16 @@ func pullRequestIn(repository git.RemoteURL, providerID, branch string, updatedA
 		State:      "OPEN",
 		CreatedAt:  updatedAt.Add(-time.Hour),
 		UpdatedAt:  updatedAt,
-		Standing: &forge.Standing{
+		MergeReadiness: &forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionPending,
 			Mergeability: forge.MergeabilityClean,
 		},
 	}
 }
 
-// standing is the pull request as the forge answers it standing so.
-func standing(pullRequest forge.PullRequest, answered forge.Standing) forge.PullRequest {
-	pullRequest.Standing = &answered
+// readiness is the pull request as the forge answers its merge readiness.
+func withMergeReadiness(pullRequest forge.PullRequest, answered forge.MergeReadiness) forge.PullRequest {
+	pullRequest.MergeReadiness = &answered
 
 	return pullRequest
 }
@@ -353,8 +353,8 @@ func TestSyncReadsAQuietRepositoryOnceAMinute(t *testing.T) {
 // TestSyncReadsAHotRepositoryEveryFiveSeconds covers what puts a repository in the fast lane
 // after a read, and what keeps it out.
 func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
-	pending := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}
-	blank := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityUnknown}
+	pending := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}
+	blank := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityUnknown}
 
 	tests := []struct {
 		name      string
@@ -365,17 +365,17 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 	}{
 		{
 			name:     "pending checks on a fresh change",
-			held:     standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending),
+			held:     withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending),
 			wantRead: true,
 		},
 		{
 			name: "pending checks on a change older than twenty minutes",
-			held: standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-21*time.Minute)), pending),
+			held: withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-21*time.Minute)), pending),
 		},
 		{
 			name: "pending checks on a finished pull request",
 			held: func() forge.PullRequest {
-				merged := standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending)
+				merged := withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending)
 				merged.State = "MERGED"
 				merged.MergedAt = xptr.Ptr(syncNow.Add(-time.Minute))
 
@@ -384,14 +384,14 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 		},
 		{
 			name:     "a mergeability the forge has not computed",
-			held:     standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), blank),
+			held:     withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), blank),
 			wantRead: true,
 		},
 		{
-			name: "a pull request read without its standing",
+			name: "a pull request read without its merge readiness",
 			held: func() forge.PullRequest {
 				unasked := pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))
-				unasked.Standing = nil
+				unasked.MergeReadiness = nil
 
 				return unasked
 			}(),
@@ -427,7 +427,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 		},
 		{
 			name: "pending checks on a host whose budget runs low",
-			held: standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending),
+			held: withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending),
 			rateLimit: forge.RateLimit{
 				Known:     true,
 				Limit:     5000,
@@ -466,7 +466,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 func TestSyncStopsHurryingABlankThatStaysBlank(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
-	f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.Standing{
+	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
 		Checks:       forge.ChecksNone,
 		Mergeability: forge.MergeabilityUnknown,
@@ -505,29 +505,29 @@ func TestSyncWakeReadsEveryRepository(t *testing.T) {
 }
 
 // TestSyncRecordsWhatMovedOnAPullRequest covers the events a read records: a pull request
-// first seen standing badly, a standing that moved, the same verdict on a new head, and nothing
+// first seen alarming, a readiness that moved, the same verdict on a new head, and nothing
 // for an answer that did not change.
 func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
-	merged := standing(pullRequestAt("PR_4", "agent/x", syncNow.Add(-4*time.Hour)), forge.Standing{
+	merged := withMergeReadiness(pullRequestAt("PR_4", "agent/x", syncNow.Add(-4*time.Hour)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
 		Checks:       forge.ChecksFailing,
 		Mergeability: forge.MergeabilityClean,
 	})
 	merged.State = "MERGED"
 	f.hold(
-		standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.Standing{
+		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionPending,
 			Checks:       forge.ChecksPending,
 			Mergeability: forge.MergeabilityClean,
 		}),
-		standing(pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)), forge.Standing{
+		withMergeReadiness(pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionApproved,
 			Checks:       forge.ChecksPassing,
 			Mergeability: forge.MergeabilityClean,
 		}),
-		standing(pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour)), forge.Standing{
+		withMergeReadiness(pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionChangesRequested,
 			Checks:       forge.ChecksFailing,
 			Mergeability: forge.MergeabilityConflicting,
@@ -542,19 +542,19 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 		{Field: FieldChecks, To: string(forge.ChecksFailing)},
 		{Field: FieldMergeability, To: string(forge.MergeabilityConflicting)},
 	}}
-	assert.Equal(t, []Change{firstSeen}, f.changes(t), "only the open pull request first seen standing badly moved")
+	assert.Equal(t, []Change{firstSeen}, f.changes(t), "only the open pull request first seen alarming moved")
 	id := f.stored(t, "PR_1").ID
 
 	f.syncer.Wake()
 	f.pass(t, syncNow.Add(time.Minute))
 	assert.Equal(t, []Change{firstSeen}, f.changes(t), "an unchanged answer records nothing")
 
-	failing := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityClean}
-	f.forge.pullRequests["harrisoncramer/komrad"][0] = standing(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
+	failing := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityClean}
+	f.forge.pullRequests["harrisoncramer/komrad"][0] = withMergeReadiness(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
 	f.syncer.Wake()
 	f.pass(t, syncNow.Add(2*time.Minute))
 
-	pushed := standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(time.Hour)), failing)
+	pushed := withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(time.Hour)), failing)
 	pushed.HeadSHA = "def"
 	f.forge.pullRequests["harrisoncramer/komrad"][0] = pushed
 	f.syncer.Wake()

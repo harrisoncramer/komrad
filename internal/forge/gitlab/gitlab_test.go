@@ -219,7 +219,7 @@ func TestList(t *testing.T) {
 		CreatedAt:  time.Date(2026, 9, 20, 8, 58, 11, 0, time.UTC),
 		UpdatedAt:  time.Date(2026, 9, 20, 17, 54, 15, 0, time.UTC),
 	}, pullRequests[0])
-	assert.Nil(t, pullRequests[0].Standing, "a listing does not ask for the standing")
+	assert.Nil(t, pullRequests[0].MergeReadiness, "a listing does not ask for the merge readiness")
 
 	stamp := time.Date(2026, 9, 20, 6, 24, 5, 0, time.UTC)
 	assert.Equal(t, "535718519", pullRequests[1].ProviderID)
@@ -313,7 +313,7 @@ func TestReadBranches(t *testing.T) {
 		"b1":   []any{"qa-report-update"},
 	}, seen.Variables)
 	assert.Contains(t, seen.Query, "query ReadBranches($path: ID!, $b0: [String!], $b1: [String!])")
-	assert.Contains(t, seen.Query, "b0: mergeRequests(sourceBranches: $b0, sort: CREATED_DESC, first: 5) { nodes { ...mergeRequestFields "+standingFields+" } }")
+	assert.Contains(t, seen.Query, "b0: mergeRequests(sourceBranches: $b0, sort: CREATED_DESC, first: 5) { nodes { ...mergeRequestFields "+mergeReadinessFields+" } }")
 	assert.Contains(t, seen.Query, "queryComplexity { score limit }")
 
 	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 1999, Limit: 2000, ResetAt: time.Unix(1789900000, 0)}, reading.RateLimit)
@@ -321,19 +321,19 @@ func TestReadBranches(t *testing.T) {
 	require.Len(t, reading.PullRequests, 2, "the fork's merge request is left out")
 	running, merged := reading.PullRequests[0], reading.PullRequests[1]
 	assert.Equal(t, 256538, running.Number)
-	assert.Equal(t, &forge.Standing{
+	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionNone,
 		Checks:       forge.ChecksPending,
 		Mergeability: forge.MergeabilityBlocked,
 		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
-	}, running.Standing)
+	}, running.MergeReadiness)
 	assert.Equal(t, 256531, merged.Number)
-	assert.Equal(t, &forge.Standing{
+	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionApproved,
 		Checks:       forge.ChecksPassing,
 		Mergeability: forge.MergeabilityClean,
 		AutoMerge:    forge.AutoMerge{},
-	}, merged.Standing)
+	}, merged.MergeReadiness)
 }
 
 // TestReadBranchesSplitsOnComplexity covers GitLab refusing too many branches in one query: the
@@ -965,7 +965,7 @@ func TestMergeabilityFolds(t *testing.T) {
 		t.Run("status "+tt.status, func(t *testing.T) {
 			t.Parallel()
 
-			node := standingNode{DetailedMergeStatus: tt.status}
+			node := mergeReadinessNode{DetailedMergeStatus: tt.status}
 			assert.Equal(t, tt.want, node.mergeability())
 		})
 	}
@@ -998,13 +998,13 @@ func TestChecksFolds(t *testing.T) {
 		t.Run(tt.status, func(t *testing.T) {
 			t.Parallel()
 
-			var node standingNode
+			var node mergeReadinessNode
 			require.NoError(t, json.Unmarshal([]byte(`{"headPipeline":{"status":"`+tt.status+`"}}`), &node))
 			assert.Equal(t, tt.want, node.checks())
 		})
 	}
 
-	var node standingNode
+	var node mergeReadinessNode
 	require.NoError(t, json.Unmarshal([]byte(`{"headPipeline":null}`), &node))
 	assert.Equal(t, forge.ChecksNone, node.checks())
 }
@@ -1045,7 +1045,7 @@ func TestDecisionFolds(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var node standingNode
+			var node mergeReadinessNode
 			require.NoError(t, json.Unmarshal([]byte(tt.node), &node))
 			assert.Equal(t, tt.want, node.decision())
 		})

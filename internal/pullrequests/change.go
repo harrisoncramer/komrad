@@ -15,13 +15,13 @@ const (
 	// FieldState is whether the pull request is open, merged or closed.
 	FieldState Field = "state"
 	// FieldDecision is where the reviews stand.
-	FieldDecision = Field(forge.StandingFieldDecision)
+	FieldDecision = Field(forge.MergeReadinessFieldDecision)
 	// FieldChecks is where the checks on the head stand.
-	FieldChecks = Field(forge.StandingFieldChecks)
+	FieldChecks = Field(forge.MergeReadinessFieldChecks)
 	// FieldMergeability is where the branch stands against its base.
-	FieldMergeability = Field(forge.StandingFieldMergeability)
+	FieldMergeability = Field(forge.MergeReadinessFieldMergeability)
 	// FieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
-	FieldAutoMerge = Field(forge.StandingFieldAutoMerge)
+	FieldAutoMerge = Field(forge.MergeReadinessFieldAutoMerge)
 )
 
 var fieldOrder = []Field{FieldState, FieldDecision, FieldChecks, FieldMergeability, FieldAutoMerge}

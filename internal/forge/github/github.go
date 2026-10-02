@@ -83,11 +83,11 @@ const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $af
 }
 ` + pullRequestFragment
 
-// standingFields is what the reviews, checks, mergeability and auto-merge of a pull request
+// mergeReadinessFields is what the reviews, checks, mergeability and auto-merge of a pull request
 // are read from: GitHub's computed review decision, each reviewer's latest verdict and who is
 // asked to review now, the rollup of every check on the head commit, its computed merge state,
 // the auto-merge request on it and whether the credential may make one.
-const standingFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
+const mergeReadinessFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
 
 // dialect is what GitHub does differently on the wire.
 var dialect = graphql.Dialect{
@@ -228,7 +228,7 @@ const branchesPerQuery = 50
 // pullRequestsPerBranch is how many of a branch's newest pull requests ReadBranches reads.
 const pullRequestsPerBranch = 5
 
-// ReadBranches reads the newest pull requests opened from each branch, with their standing,
+// ReadBranches reads the newest pull requests opened from each branch, with their merge readiness,
 // a batch of branches to a query by alias, keeping only those whose head is the repository itself.
 func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	owner, name, err := ownerAndName(repo.Path)
@@ -256,7 +256,7 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 	for i, branch := range branches {
 		variables["b"+strconv.Itoa(i)] = branch
 		fmt.Fprintf(&declared, ", $b%d: String!", i)
-		fmt.Fprintf(&fields, "\n    b%d: pullRequests(headRefName: $b%d, first: %d, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields %s } }", i, i, pullRequestsPerBranch, standingFields)
+		fmt.Fprintf(&fields, "\n    b%d: pullRequests(headRefName: $b%d, first: %d, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields %s } }", i, i, pullRequestsPerBranch, mergeReadinessFields)
 	}
 	operation := "query ReadBranches($owner: String!, $name: String!" + declared.String() + ") {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}\n" + pullRequestFragment
 
@@ -636,7 +636,7 @@ type connection = graphql.Connection[pullRequestNode]
 
 // pullRequestNode is the slice of GitHub's pull request node the record is built from.
 type pullRequestNode struct {
-	standingNode
+	mergeReadinessNode
 	ID             string          `json:"id"`
 	Number         int             `json:"number"`
 	Title          string          `json:"title"`
@@ -667,9 +667,9 @@ type autoMergeTarget struct {
 	method           string
 }
 
-// standingNode is what GitHub says about a pull request's reviews, the checks on its head and
+// mergeReadinessNode is what GitHub says about a pull request's reviews, the checks on its head and
 // its merge state.
-type standingNode struct {
+type mergeReadinessNode struct {
 	HeadRefOid               string  `json:"headRefOid"`
 	ReviewDecision           *string `json:"reviewDecision"`
 	LatestOpinionatedReviews struct {
@@ -710,7 +710,7 @@ type actorNode struct {
 
 // decision is GitHub's review decision, read as a re-review requested once every user whose
 // latest verdict asks for changes has been asked to review again.
-func (n standingNode) decision() forge.ReviewDecision {
+func (n mergeReadinessNode) decision() forge.ReviewDecision {
 	decision := reviewDecisionOf(n.ReviewDecision)
 	if decision != forge.ReviewDecisionChangesRequested {
 		return decision
@@ -755,7 +755,7 @@ func changeRequesters(opinions []opinionNode) []actorNode {
 // autoMerge is whether the pull request carries an auto-merge request and whether the
 // credential may make one, which GitHub refuses on a draft, a pull request that can merge now
 // and a repository that does not allow it.
-func (n standingNode) autoMerge() forge.AutoMerge {
+func (n mergeReadinessNode) autoMerge() forge.AutoMerge {
 	return forge.AutoMerge{
 		On:      n.AutoMergeRequest != nil,
 		Allowed: n.ViewerCanEnableAutoMerge,
@@ -782,7 +782,7 @@ func mergeabilityOf(status string) forge.Mergeability {
 
 // checks is the rollup of the head commit in komrad's words, none when the query carried no
 // commit.
-func (n standingNode) checks() forge.Checks {
+func (n mergeReadinessNode) checks() forge.Checks {
 	if len(n.Commits.Nodes) == 0 {
 		return forge.ChecksNone
 	}
@@ -801,7 +801,7 @@ func (n *repositoryNode) remote() git.RemoteURL {
 
 // toPullRequest is the node as the record, carrying its decision and checks when the query
 // asked for them.
-func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
+func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullRequest {
 	pullRequest := forge.PullRequest{
 		Forge:      forge.KindGitHub,
 		ProviderID: n.ID,
@@ -821,8 +821,8 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		MergedAt:   n.MergedAt,
 		ClosedAt:   n.ClosedAt,
 	}
-	if withStanding {
-		pullRequest.Standing = &forge.Standing{
+	if withMergeReadiness {
+		pullRequest.MergeReadiness = &forge.MergeReadiness{
 			Decision:     n.decision(),
 			Checks:       n.checks(),
 			Mergeability: mergeabilityOf(n.MergeStateStatus),

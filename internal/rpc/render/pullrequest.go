@@ -10,7 +10,7 @@ import (
 
 // PullRequest draws one stored pull request as the wire carries it.
 func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest {
-	displayed := stored.Standing.DisplayForHead(stored.HeadSHA)
+	displayed := stored.MergeReadiness.DisplayForHead(stored.HeadSHA)
 
 	return &pullrequestv1.PullRequest{
 		Id:                      stored.ID,
