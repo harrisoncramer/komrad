@@ -61,7 +61,7 @@ var ErrRotatingNotGitLab = fail.InvalidArgument("a rotating token connects only 
 var ErrNoRotation = fail.InvalidArgument("this forge cannot rotate a token")
 
 // ErrTokenCannotRotate says a token lacks the scope it needs to rotate itself.
-var ErrTokenCannotRotate = fail.InvalidArgument("the token needs the api scope to rotate itself")
+var ErrTokenCannotRotate = fail.InvalidArgument("the token lacks the scope to rotate itself")
 
 // Builder makes the forge for one kind, reaching the API at api as auth.
 type Builder func(api string, auth Authenticator) Forge

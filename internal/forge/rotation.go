@@ -25,7 +25,7 @@ func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params 
 		return "", err
 	}
 
-	rotator, err := rotatorFor(build(params.APIURL, staticCredential{Header: HeaderPrivateToken, Token: params.Token}))
+	rotator, err := pastedRotator(build, params)
 	if err != nil {
 		return "", err
 	}
@@ -34,7 +34,7 @@ func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params 
 		return "", fmt.Errorf("failed to read the token from %s: %w", params.Host, err)
 	}
 	if !slices.Contains(info.Scopes, rotationScope) {
-		return "", ErrTokenCannotRotate.Saying("the token for %s has scopes %v", params.Host, info.Scopes)
+		return "", ErrTokenCannotRotate.Saying("the token for %s needs the %s scope to rotate itself but has %v", params.Host, rotationScope, info.Scopes)
 	}
 
 	return login, nil
@@ -42,7 +42,7 @@ func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params 
 
 // rotateAtConnect trades a pasted token for the first one komrad keeps.
 func (s *Service) rotateAtConnect(ctx context.Context, build Builder, params ConnectParams) (Secret, error) {
-	rotator, err := rotatorFor(build(params.APIURL, staticCredential{Header: HeaderPrivateToken, Token: params.Token}))
+	rotator, err := pastedRotator(build, params)
 	if err != nil {
 		return Secret{}, err
 	}
@@ -76,6 +76,11 @@ func (s *Service) rotateIfDue(ctx context.Context, connection forgestore.Connect
 	}
 
 	return s.credentials.Set(ctx, connection.ID, token)
+}
+
+// pastedRotator is the pasted token, as a rotator.
+func pastedRotator(build Builder, params ConnectParams) (TokenRotator, error) {
+	return rotatorFor(build(params.APIURL, staticCredential{Header: HeaderPrivateToken, Token: params.Token}))
 }
 
 // rotatorFor is the forge as one that rotates its token, or ErrNoRotation.
