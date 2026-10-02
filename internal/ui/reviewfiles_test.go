@@ -10,7 +10,6 @@ import (
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -277,7 +276,7 @@ func TestReviewFiles(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
 
-		wheelOverSidebar(harness, "▸ greet.go", tea.MouseWheelDown)
+		wheelOverSidebar(harness, "▸ greet.go")
 
 		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()))
 	})
@@ -288,7 +287,7 @@ func TestReviewFiles(t *testing.T) {
 		harness := openReview(t, server)
 		harness.press("ctrl+space", "ctrl+space")
 
-		wheelOverSidebar(harness, "greet.go:1", tea.MouseWheelDown)
+		wheelOverSidebar(harness, "greet.go:1")
 
 		frame := harness.readFrame()
 		assert.NotEqual(t, "greet.go:1", readReviewCursor(frame))

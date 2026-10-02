@@ -113,7 +113,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	}
 
 	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isOverColumn(x) {
-		if cmd, ok := m.review.scrollSidebarAt(m, x, y, rows); ok {
+		if cmd, ok := m.review.scrollSidebarAt(m, y, rows); ok {
 			return cmd
 		}
 	}

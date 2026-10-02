@@ -185,12 +185,20 @@ func TestReviewPullRequest(t *testing.T) {
 	t.Run("the wheel over the description scrolls it and leaves the keys with the diff", func(t *testing.T) {
 		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(40)), panelHarnessParams{height: 40})
 
-		wheelOverSidebar(harness, "line 05", tea.MouseWheelDown)
+		wheelOverSidebar(harness, "line 05")
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame), "  ↑ 1 more")
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 
 		harness.press("j")
+		assert.Contains(t, readSidebar(harness.readFrame()), "  ↑ 1 more")
+	})
+
+	t.Run("the wheel over the title scrolls the description", func(t *testing.T) {
+		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(40)), panelHarnessParams{height: 40})
+
+		wheelOverSidebar(harness, "#7 fix the greeting")
+
 		assert.Contains(t, readSidebar(harness.readFrame()), "  ↑ 1 more")
 	})
 
@@ -205,13 +213,13 @@ func TestReviewPullRequest(t *testing.T) {
 	})
 }
 
-// wheelOverSidebar turns the wheel over the first sidebar row holding text.
-func wheelOverSidebar(harness *panelHarness, text string, button tea.MouseButton) {
+// wheelOverSidebar turns the wheel down over the first sidebar row holding text.
+func wheelOverSidebar(harness *panelHarness, text string) {
 	harness.t.Helper()
 
 	for y, line := range splitLines(harness.readFrame()) {
 		if strings.Contains(ansi.Truncate(line, ui.SidebarCols, ""), text) {
-			harness.send(tea.MouseWheelMsg{X: 4, Y: y, Button: button})
+			harness.send(tea.MouseWheelMsg{X: 4, Y: y, Button: tea.MouseWheelDown})
 
 			return
 		}

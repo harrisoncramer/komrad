@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -246,39 +247,37 @@ func (r *reviewScreen) scrollPopup(m *model, rows int) bool {
 	return true
 }
 
-// scrollSidebarAt walks the file tree or the pull request description when the cell at x and y is
-// inside it, without focusing it.
-func (r *reviewScreen) scrollSidebarAt(m *model, x, y, rows int) (tea.Cmd, bool) {
-	for _, block := range m.findSidebarBlocks() {
-		if !rectContains(block.rect, x, y) {
-			continue
-		}
+// scrollSidebarAt walks the file tree or the pull request description when row y is inside it,
+// without focusing it.
+func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (tea.Cmd, bool) {
+	n, ok := r.sidebarNavAt(m, y)
+	if !ok {
+		return nil, false
+	}
 
-		n := r.sidebarNav(block.stop)
-		if n == nil {
-			continue
-		}
+	if r.isWriting() {
+		return nil, true
+	}
 
-		if r.isWriting() {
-			return nil, true
-		}
+	return n.moveBy(m, rows), true
+}
 
-		return n.moveBy(m, rows), true
+// sidebarNavAt is the sidebar section drawn on row y, and false for a row the wheel leaves alone.
+func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
+	if _, ok := m.screenColumnSplit(); !ok {
+		return nil, false
+	}
+
+	layout := r.layoutSidebar(m)
+	top := paint.CountLines(layout.bar)
+	files := top + paint.CountLines(layout.pullRequest)
+
+	switch {
+	case y >= top && y < files && r.isPullRequestDrawn(m):
+		return pullRequestNav{r}, true
+	case y >= files && y < files+paint.CountLines(layout.files) && r.isBlockDrawn(m):
+		return filesNav{r}, true
 	}
 
 	return nil, false
-}
-
-// sidebarNav is the sidebar section a stop walks, and nil for a stop the wheel leaves alone.
-func (r *reviewScreen) sidebarNav(at stop) navigable {
-	switch at {
-	case stopBlock:
-		return filesNav{r}
-	case stopPullRequest:
-		return pullRequestNav{r}
-	case stopList, stopAgent, stopRecord, stopTerminal:
-		return nil
-	}
-
-	return nil
 }
