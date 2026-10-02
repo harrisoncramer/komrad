@@ -23,6 +23,9 @@ import (
 // errNoGitLabConnection says komrad holds no GitLab token for a host.
 var errNoGitLabConnection = fail.Precondition("no gitlab forge with a token is connected for this host")
 
+// errTokenSpansLines refuses a token that would break out of the line it is handed over on.
+var errTokenSpansLines = fail.Precondition("the gitlab connection's token holds a line break, so komrad will not hand it out")
+
 func gitlabCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gitlab",
@@ -189,6 +192,10 @@ func gitlabToken(ctx context.Context, state *app, host string) (*forgev1.Forge, 
 		return nil, forge.Secret{}, err
 	}
 
+	if err := handable(token); err != nil {
+		return nil, forge.Secret{}, err
+	}
+
 	return connection, token, nil
 }
 
@@ -217,20 +224,27 @@ func gitlabCredentialReply(token forge.Secret) string {
 
 // glabEnv is the environment glab reaches a connection with, one NAME=value a line.
 func glabEnv(connection *forgev1.Forge, token forge.Secret) string {
-	env := "GITLAB_TOKEN=" + tokenForTheWire(token) + "\n"
-	if host := gitlabAPIHost(connection); host != "" {
-		env += "GITLAB_API_HOST=" + host + "\n"
+	env := "GITLAB_TOKEN=" + tokenForTheWire(token) + "\nGITLAB_HOST=" + connection.GetHost() + "\n"
+
+	api, err := url.Parse(connection.GetApiUrl())
+	if err != nil || api.Host == "" {
+		return env
+	}
+	if !strings.EqualFold(api.Host, connection.GetHost()) {
+		env += "GITLAB_API_HOST=" + api.Host + "\n"
+	}
+	if strings.EqualFold(api.Scheme, "http") {
+		env += "GLAB_API_PROTOCOL=http\n"
 	}
 
 	return env
 }
 
-// gitlabAPIHost is the host a connection's API answers on, empty when it is the connection's own.
-func gitlabAPIHost(connection *forgev1.Forge) string {
-	parsed, err := url.Parse(connection.GetApiUrl())
-	if err != nil || parsed.Host == "" || strings.EqualFold(parsed.Host, connection.GetHost()) {
-		return ""
+// handable refuses a token holding a line break, which would spill into the lines after it.
+func handable(token forge.Secret) error {
+	if strings.ContainsAny(tokenForTheWire(token), "\r\n") {
+		return errTokenSpansLines
 	}
 
-	return parsed.Host
+	return nil
 }

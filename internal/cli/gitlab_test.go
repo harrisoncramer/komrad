@@ -76,28 +76,52 @@ func TestGlabEnv(t *testing.T) {
 		{
 			name:       "gitlab.com",
 			connection: &forgev1.Forge{Host: "gitlab.com"},
-			want:       "GITLAB_TOKEN=glpat-fake\n",
+			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=gitlab.com\n",
 		},
 		{
 			name:       "a self-hosted gitlab answering on its own host",
 			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "https://git.example.com/api/v4"},
-			want:       "GITLAB_TOKEN=glpat-fake\n",
+			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\n",
 		},
 		{
 			name:       "a self-hosted gitlab whose api answers on a host of its own",
 			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "https://api.git.example.com/api/v4"},
-			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_API_HOST=api.git.example.com\n",
+			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\nGITLAB_API_HOST=api.git.example.com\n",
 		},
 		{
 			name:       "an api host spelled in another case",
 			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "https://Git.Example.com/api/v4"},
-			want:       "GITLAB_TOKEN=glpat-fake\n",
+			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\n",
+		},
+		{
+			name:       "a self-hosted gitlab whose api answers over plain http",
+			connection: &forgev1.Forge{Host: "git.example.com", ApiUrl: "http://git.example.com/api/v4"},
+			want:       "GITLAB_TOKEN=glpat-fake\nGITLAB_HOST=git.example.com\nGLAB_API_PROTOCOL=http\n",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, glabEnv(tt.connection, token))
+		})
+	}
+}
+
+// TestHandable covers which tokens komrad hands out on a line of their own.
+func TestHandable(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+		want  error
+	}{
+		{name: "a token on one line", token: "glpat-fake"},
+		{name: "a token with a newline in it", token: "glpat-fake\nGITLAB_API_HOST=evil.example.com", want: errTokenSpansLines},
+		{name: "a token with a carriage return in it", token: "glpat\r-fake", want: errTokenSpansLines},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.ErrorIs(t, handable(forge.NewSecret(tt.token)), tt.want)
 		})
 	}
 }
