@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -134,27 +135,68 @@ func TestReviewThreads(t *testing.T) {
 	}}, answer)
 
 	seen := fake.last(t)
-	assert.Equal(t, map[string]any{"path": "harrisoncramer/komrad", "iid": "1"}, seen.Variables)
+	assert.Equal(t, map[string]any{"path": "harrisoncramer/komrad", "iid": "1", "after": nil}, seen.Variables)
 }
 
-// TestReviewThreadsSaysWhenTheAnswerIsCut covers a page of discussions or of one discussion's
-// notes GitLab did not return marking the answer truncated.
+// TestReviewThreadsReadsEveryPage covers a merge request whose discussions run past one page, read
+// from each page's end cursor until GitLab says there are no more.
+func TestReviewThreadsReadsEveryPage(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, nil)
+	fake.handle = func(seen call) (answer, bool) {
+		if seen.Variables["after"] == nil {
+			return answer{body: `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":true,"endCursor":"p1"},"nodes":[
+			  {"id":"gid://gitlab/Discussion/d1","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
+			    {"id":"gid://gitlab/Note/1","system":true,"internal":false,"body":"added 1 commit","createdAt":"2026-10-02T12:25:57Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_1","author":{"username":"harrisoncramer","bot":false},"position":null}
+			  ]}}
+			]}}}}}`}, true
+		}
+
+		return answer{body: `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":false,"endCursor":"p2"},"nodes":[
+		  {"id":"gid://gitlab/Discussion/d2","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
+		    {"id":"gid://gitlab/Note/2","system":false,"internal":false,"body":"overall looks fine","createdAt":"2026-10-02T12:25:59Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_2","author":{"username":"dana","bot":false},"position":null}
+		  ]}}
+		]}}}}}`}, true
+	}
+
+	answer, err := f.ReviewThreads(t.Context(), komrad, 1)
+	require.NoError(t, err)
+
+	assert.Equal(t, &forge.Threads{Threads: []forge.ReviewThread{{
+		ProviderID: "gid://gitlab/Discussion/d2",
+		URL:        "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_2",
+		Comments: []forge.ReviewComment{{
+			ProviderID: "gid://gitlab/Note/2",
+			Login:      "dana",
+			Body:       "overall looks fine",
+			WrittenAt:  time.Date(2026, 10, 2, 12, 25, 59, 0, time.UTC),
+		}},
+	}}}, answer)
+	assert.Equal(t, []any{nil, "p1"}, xslice.Map(fake.calls, func(seen call) any { return seen.Variables["after"] }))
+}
+
+// TestReviewThreadsSaysWhenTheAnswerIsCut covers discussions running past the pages one read
+// takes, or one discussion's notes running past a page, marking the answer truncated.
 func TestReviewThreadsSaysWhenTheAnswerIsCut(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		body string
+		name  string
+		body  string
+		calls int
 	}{
 		{
-			name: "more discussions",
-			body: `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":true},"nodes":[]}}}}}`,
+			name:  "more discussions",
+			body:  `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":true,"endCursor":"next"},"nodes":[]}}}}}`,
+			calls: maxDiscussionPages,
 		},
 		{
 			name: "more notes in a discussion",
 			body: `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":false},"nodes":[
 			  {"id":"gid://gitlab/Discussion/d1","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":true},"nodes":[]}}
 			]}}}}}`,
+			calls: 1,
 		},
 	}
 
@@ -162,11 +204,12 @@ func TestReviewThreadsSaysWhenTheAnswerIsCut(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, _, _ := serve(t, map[string]answer{"ReviewThreads": {body: tt.body}})
+			f, _, fake := serve(t, map[string]answer{"ReviewThreads": {body: tt.body}})
 
 			answer, err := f.ReviewThreads(t.Context(), komrad, 1)
 			require.NoError(t, err)
 			assert.True(t, answer.Truncated)
+			assert.Len(t, fake.calls, tt.calls)
 		})
 	}
 }

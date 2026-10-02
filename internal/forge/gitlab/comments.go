@@ -7,15 +7,20 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
 	"komrad/lib/xslice"
 )
 
-const reviewThreadsQuery = `query ReviewThreads($path: ID!, $iid: String!) {
+// maxDiscussionPages is the most pages of discussions one read takes, past which the answer is
+// marked truncated.
+const maxDiscussionPages = 10
+
+const reviewThreadsQuery = `query ReviewThreads($path: ID!, $iid: String!, $after: String) {
   project(fullPath: $path) {
     mergeRequest(iid: $iid) {
-      discussions(first: 100) {
-        pageInfo { hasNextPage }
+      discussions(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
         nodes {
           id resolved
           truncatedDiffLines { text }
@@ -41,12 +46,34 @@ func (f *Forge) ReviewThreads(ctx context.Context, repo git.RemoteURL, number in
 		return nil, err
 	}
 
+	var discussions []discussionNode
+	cursor := ""
+	for range maxDiscussionPages {
+		page, err := f.readDiscussions(ctx, path, number, cursor)
+		if err != nil {
+			return nil, err
+		}
+		discussions = append(discussions, page.Nodes...)
+		if !page.PageInfo.HasNextPage {
+			return threadsOf(discussions, false), nil
+		}
+		cursor = page.PageInfo.EndCursor
+	}
+
+	return threadsOf(discussions, true), nil
+}
+
+// readDiscussions is one page of a merge request's discussions, starting after the cursor.
+func (f *Forge) readDiscussions(ctx context.Context, path string, number int, cursor string) (*discussionsPage, error) {
 	var data struct {
 		Project *struct {
-			MergeRequest *discussionsNode `json:"mergeRequest"`
+			MergeRequest *struct {
+				Discussions discussionsPage `json:"discussions"`
+			} `json:"mergeRequest"`
 		} `json:"project"`
 	}
-	answer, err := f.client.Query(ctx, reviewThreadsQuery, map[string]any{"path": path, "iid": strconv.Itoa(number)}, &data)
+	variables := map[string]any{"path": path, "iid": strconv.Itoa(number), "after": graphql.CursorOf(cursor)}
+	answer, err := f.client.Query(ctx, reviewThreadsQuery, variables, &data)
 	if err != nil {
 		return nil, err
 	}
@@ -57,13 +84,13 @@ func (f *Forge) ReviewThreads(ctx context.Context, repo git.RemoteURL, number in
 		return nil, noMergeRequest(number, path)
 	}
 
-	return data.Project.MergeRequest.threads(), nil
+	return &data.Project.MergeRequest.Discussions, nil
 }
 
 type pageInfo struct {
-	HasNextPage bool `json:"hasNextPage"`
+	HasNextPage bool   `json:"hasNextPage"`
+	EndCursor   string `json:"endCursor"`
 }
-
 type authorNode struct {
 	Username string `json:"username"`
 	Bot      bool   `json:"bot"`
@@ -104,17 +131,15 @@ type discussionNode struct {
 	} `json:"notes"`
 }
 
-type discussionsNode struct {
-	Discussions struct {
-		PageInfo pageInfo         `json:"pageInfo"`
-		Nodes    []discussionNode `json:"nodes"`
-	} `json:"discussions"`
+type discussionsPage struct {
+	PageInfo pageInfo         `json:"pageInfo"`
+	Nodes    []discussionNode `json:"nodes"`
 }
 
-func (n discussionsNode) threads() *forge.Threads {
-	answer := &forge.Threads{Truncated: n.Discussions.PageInfo.HasNextPage}
+func threadsOf(discussions []discussionNode, truncated bool) *forge.Threads {
+	answer := &forge.Threads{Truncated: truncated}
 
-	for _, node := range n.Discussions.Nodes {
+	for _, node := range discussions {
 		answer.Truncated = answer.Truncated || node.Notes.PageInfo.HasNextPage
 
 		written := xslice.Filter(node.Notes.Nodes, noteNode.isWritten)
