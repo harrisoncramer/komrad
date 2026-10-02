@@ -26,7 +26,7 @@ func (r reviewScreen) bandView(m *model, width int) string {
 	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 
 	if r.diff.View() != nil && r.diff.View().Len() > 0 {
-		out += r.deadView(m, width)
+		out += r.archivedView(m, width)
 	}
 
 	return out
@@ -59,14 +59,13 @@ func (r reviewScreen) bandRows(m *model) []string {
 	return rows[:room]
 }
 
-// deadView says there is nobody on the other end.
-func (r reviewScreen) deadView(m *model, width int) string {
-	reason, dead := r.isReadOnly(m)
-	if !dead {
+// archivedView says the agent is archived.
+func (r reviewScreen) archivedView(m *model, width int) string {
+	if !r.isArchived(m) {
 		return ""
 	}
 
-	return reviewDeadStyle(paint.Panel).Render(reviewFill(" "+reason+" ", width)) + "\n"
+	return reviewArchivedStyle(paint.Panel).Render(reviewFill(" "+archivedSaid+" ", width)) + "\n"
 }
 
 // staleView says the worktree has moved since the diff on screen was read.

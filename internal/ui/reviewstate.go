@@ -23,8 +23,8 @@ func (r reviewScreen) statusView(m *model) string {
 		return bandRow(m, reviewWritingTone, "editing", "stopping the agent"+separated+"the editor opens once it has")
 	}
 
-	if _, dead := r.isReadOnly(m); dead {
-		return bandRow(m, reviewHeldTone, "gone", "this agent is gone, nothing can be sent")
+	if r.isArchived(m) {
+		return bandRow(m, reviewHeldTone, "archived", "this agent is archived, nothing can be sent")
 	}
 
 	if r.threads.holdsUnsent() {
@@ -41,21 +41,14 @@ func (t reviewThreads) unsentCount() int {
 	return t.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
 }
 
-// isReadOnly reports whether there is nobody there to receive a comment.
-func (r reviewScreen) isReadOnly(m *model) (string, bool) {
-	for _, item := range m.listing.agents {
-		if item.Agent.ID != r.agentID {
-			continue
-		}
+// archivedSaid is why a write on an archived agent's review did nothing.
+const archivedSaid = "this agent is archived" + separated + "restore it before writing to it"
 
-		if item.Alive {
-			return "", false
-		}
+// isArchived reports whether the agent has left the listing and can take no writes.
+func (r reviewScreen) isArchived(m *model) bool {
+	_, ok := r.agentRow(m)
 
-		return "this agent is dormant" + separated + "resume it before writing to it", true
-	}
-
-	return "this agent is archived" + separated + "restore it before writing to it", true
+	return !ok
 }
 
 // holdsUnsent says whether the reader has comments nobody has seen.

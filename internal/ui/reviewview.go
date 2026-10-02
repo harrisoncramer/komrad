@@ -31,8 +31,8 @@ const (
 	reviewDeliveredTone = paint.ToneSuccess
 )
 
-// reviewDeadStyle says there is nobody left to send a review to.
-func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
+// reviewArchivedStyle paints the row saying the agent is archived.
+func reviewArchivedStyle(palette paint.Palette) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(palette.Color(paint.ToneInverse)).Background(palette.Color(paint.ToneMuted)).Bold(true)
 }
 

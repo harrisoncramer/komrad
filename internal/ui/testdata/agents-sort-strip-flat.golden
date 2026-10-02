@@ -13,7 +13,6 @@
 
 
 
-
 [90m─── [m[90mInfo[m[90m [m[90m────────────────────────────────[m
   [90magent     [m claude
   [90mdirectory [m /trees/live
@@ -25,4 +24,5 @@
 
 
 [90m─────────────────────────────────────────[m
-[90mspace[m [90mmenu[m[90m • [m[90menter[m [90mopen[m [90m…[m        [90m[m[1;34m NORMAL [m
+[90mspace[m [90mmenu[m[90m • [m[90menter[m [90mopen[m[90m • [m[90m?[m [90mshow help[m [90m…[m
+                                 [90m[m[1;34m NORMAL [m

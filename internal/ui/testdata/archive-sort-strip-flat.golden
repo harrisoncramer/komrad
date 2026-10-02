@@ -13,7 +13,6 @@
 
 
 
-
 [90m─── [m[90mInfo[m[90m [m[90m──────────────────────────────────[m
   [90magent     [m claude
   [90mdirectory [m /trees/archived
@@ -25,4 +24,5 @@
 
 
 [90m───────────────────────────────────────────[m
-[90mspace[m [90mmenu[m[90m • [m[90mr[m [90mrename[m[90m • [m[90m?[m [90mshow hel…[m[90m[m[90m[m[90m[m[1;34m NORMAL [m
+[90mspace[m [90mmenu[m[90m • [m[90mr[m [90mrename[m[90m • [m[90m?[m [90mshow help[m [90m…[m
+                                   [1;34m NORMAL [m
