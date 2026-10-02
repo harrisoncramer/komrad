@@ -8,6 +8,10 @@ import (
 	"komrad/internal/forge"
 )
 
+// connectFirstFix is how a person connects either public forge.
+const connectFirstFix = "gh auth token | komrad forge connect github.com, or for GitLab, " +
+	"komrad forge connect gitlab.com --token-file <a personal access token with the api scope>"
+
 var errForgesUnreadable = &ProblemError{
 	Code:    "forges_unreadable",
 	Message: "the service could not check its forges",
@@ -120,10 +124,6 @@ func newForgesCheck() Check {
 		},
 	}
 }
-
-// connectFirstFix is how a person connects either public forge.
-const connectFirstFix = "gh auth token | komrad forge connect github.com, or for GitLab, " +
-	"komrad forge connect gitlab.com --token-file <a personal access token with the api scope>"
 
 // reconnectFix is how a person gives a connection that lost its credential a new one, empty when
 // the trouble is reaching the forge rather than the credential.
