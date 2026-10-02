@@ -20,6 +20,8 @@ var ErrBaseUnrelated = fail.Precondition("the base shares no history with this b
 type TreeState struct {
 	// Branch is the branch the checkout stands on, empty for a detached head.
 	Branch string
+	// HeadSHA is the commit the checkout stands on, empty before its first commit.
+	HeadSHA string
 	// TrackedChanges is whether anything git already knows about differs from HEAD.
 	TrackedChanges bool
 	// InProgress is whether a merge, a rebase or a cherry-pick is already part-way through.
@@ -55,6 +57,9 @@ func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, erro
 
 	if branch := c.GetCurrentBranch(ctx, dir); branch != nil {
 		state.Branch = *branch
+	}
+	if sha, err := Run(ctx, dir, "rev-parse", "--verify", "--quiet", "HEAD"); err == nil {
+		state.HeadSHA = sha
 	}
 
 	// Read before the index is touched, so an unmerged index is reported as the sequence it
@@ -302,7 +307,7 @@ func readMergedTree(ctx context.Context, params readMergedTreeParams) (tree stri
 	args = append(args, left, right)
 
 	// A conflict is reported by exiting 1 with the paths on stdout.
-	out, err := runAllowing(ctx, dir, 1, args...)
+	out, err := runAllowing(ctx, dir, args...)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to test-merge %s into %s in %q: %w", left, right, dir, err)
 	}

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -64,9 +65,19 @@ func runEnv(ctx context.Context, dir string, env []string, args ...string) (stri
 	return strings.TrimSpace(string(out)), err
 }
 
-// runAllowing is git run where one exit code carries an answer rather than a failure, so the
+// promptless is the flags that keep a command talking to origin from asking for credentials.
+func promptless() []string {
+	return []string{"-c", "credential.interactive=never"}
+}
+
+// promptlessEnv is the environment that keeps a command talking to origin from prompting on the terminal.
+func promptlessEnv() []string {
+	return append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+}
+
+// runAllowing is git run where exit code 1 carries an answer rather than a failure, so the
 // output of a command that reports its finding by exiting non-zero is not thrown away.
-func runAllowing(ctx context.Context, dir string, allowed int, args ...string) (string, error) {
+func runAllowing(ctx context.Context, dir string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 
@@ -79,7 +90,7 @@ func runAllowing(ctx context.Context, dir string, allowed int, args ...string) (
 	}
 
 	var exit *exec.ExitError
-	if errors.As(err, &exit) && exit.ExitCode() == allowed {
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
 		return trimmed, nil
 	}
 

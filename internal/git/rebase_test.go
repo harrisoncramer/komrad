@@ -32,6 +32,7 @@ func TestIntegrationReadTreeStateIgnoresUntrackedFiles(t *testing.T) {
 	assert.False(t, state.TrackedChanges, "an untracked file is not a tracked change")
 	assert.False(t, state.InProgress)
 	assert.Equal(t, "main", state.Branch)
+	assert.Equal(t, out(t, repo, "rev-parse", "HEAD"), state.HeadSHA)
 }
 
 // TestIntegrationReadTreeStateSeesTrackedChanges covers the half that does block a rebase, staged or not.

@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -35,13 +34,12 @@ func (c *Client) Push(ctx context.Context, params PushParams) (string, error) {
 	defer cancel()
 
 	ref := "refs/heads/" + params.Branch
-	args := []string{"-c", "credential.interactive=never", "push", "--porcelain"}
+	args := append(promptless(), "push", "--porcelain")
 	if params.Force {
 		args = append(args, "--force-with-lease", "--force-if-includes")
 	}
 
-	env := append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
-	out, err := runReporting(ctx, params.Dir, env, append(args, "origin", ref+":"+ref)...)
+	out, err := runReporting(ctx, params.Dir, promptlessEnv(), append(args, "origin", ref+":"+ref)...)
 	if isPushRejected(out) {
 		return "", fmt.Errorf("%w: %s", ErrPushRejected, params.Branch)
 	}

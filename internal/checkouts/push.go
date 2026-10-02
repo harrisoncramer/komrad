@@ -21,8 +21,8 @@ var (
 	// ErrPushBase says the checkout stands on the branch everything else is measured against.
 	ErrPushBase = fail.Precondition("the worktree is on the workflow's base branch, which komrad never pushes")
 
-	// ErrPushFinished says the branch's pull request has merged or closed.
-	ErrPushFinished = fail.Precondition("the pull request from this branch has merged or closed, so there is nothing left to push it for")
+	// ErrPushFinished says the branch's pull request has merged or closed and the checkout still stands where it ended.
+	ErrPushFinished = fail.Precondition("the pull request from this branch has merged or closed and the checkout holds nothing newer, so there is nothing left to push")
 
 	// ErrPushNothing says the branch holds nothing the base does not.
 	ErrPushNothing = fail.Precondition("the branch holds nothing the base does not, so pushing it would leave its pull request empty")
@@ -60,7 +60,7 @@ func (s *Service) PlanPush(ctx context.Context, agentID string) (*PushPlan, erro
 		return nil, err
 	}
 
-	return s.planPush(ctx, *target)
+	return s.planPush(ctx, *target, false)
 }
 
 // Push sends the agent's branch to origin, overwriting origin's copy when a rebase moved the
@@ -78,7 +78,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	}
 	defer unlock()
 
-	plan, err := s.planPush(ctx, *target)
+	plan, err := s.planPush(ctx, *target, true)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +110,9 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	return result, nil
 }
 
-// planPush reads the checkout and says what a push of it would do, or why it may not have one.
-func (s *Service) planPush(ctx context.Context, target checkoutTarget) (*PushPlan, error) {
+// planPush reads the checkout and says what a push of it would do, or why it may not have one,
+// reading origin's copy of a finished branch afresh first when refresh is set.
+func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh bool) (*PushPlan, error) {
 	agent, flow := *target.agent, target.workflow
 	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
@@ -129,8 +130,14 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget) (*PushPla
 		return nil, fmt.Errorf("%w: %s", ErrPushBase, state.Branch)
 	}
 
-	if err := s.refuseFinished(ctx, agent, state.Branch); err != nil {
+	finished, err := s.refuseFinished(ctx, agent, state)
+	if err != nil {
 		return nil, err
+	}
+	if finished && refresh {
+		if err := s.git.RefreshRemoteBranch(ctx, agent.Cwd, state.Branch); err != nil {
+			return nil, err
+		}
 	}
 
 	plan, err := s.countPush(ctx, agent.Cwd, state.Branch, flow.Worktree.BaseBranch)
@@ -187,31 +194,44 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 	}, nil
 }
 
-// refuseFinished turns down a branch whose pull request has merged or closed, which the forge
-// may already have deleted.
-func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, branch string) error {
+// refuseFinished turns down a branch whose pull request has merged or closed until the checkout
+// moves past where it ended, and says whether there was such a pull request.
+func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, state git.TreeState) (bool, error) {
 	if agent.RepositoryURL == nil || *agent.RepositoryURL == "" {
-		return nil
+		return false, nil
 	}
 
 	listed, err := s.pullRequests.ListPage(ctx, pullrequeststore.ListPageParams{
 		RepositoryURL: *agent.RepositoryURL,
-		HeadBranch:    branch,
+		HeadBranch:    state.Branch,
 		Limit:         1,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if len(listed) == 0 || !listed[0].IsFinished() {
-		return nil
+		return false, nil
+	}
+	pr := listed[0]
+	if state.HeadSHA == "" || state.HeadSHA == pr.HeadSHA {
+		return false, fmt.Errorf("%w: %s", ErrPushFinished, pr.URL)
+	}
+	if pr.MergedAt != nil && pr.HeadSHA != "" {
+		held, err := s.git.HoldsCommit(ctx, agent.Cwd, pr.HeadSHA)
+		if err != nil {
+			return false, err
+		}
+		if held {
+			return false, fmt.Errorf("%w: %s", ErrPushFinished, pr.URL)
+		}
 	}
 
-	return fmt.Errorf("%w: %s", ErrPushFinished, listed[0].URL)
+	return true, nil
 }
 
 // pushedMail is what an agent is told once its branch on origin was overwritten from the panel.
 func pushedMail(pushed Pushed) string {
-	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, after a rebase rewrote it. "+
+	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, replacing the copy origin held. "+
 		"Origin's copy now matches your checkout at %s.\n\n"+
 		"Carry on from here and push as you normally would. Do not pull or reset to the copy origin held before.",
 		pushed.Branch, git.ShortSHA(pushed.SHA))

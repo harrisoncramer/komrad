@@ -165,7 +165,7 @@ func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*
 // other way round, as the clone last fetched it.
 func (c *Client) CountAgainstRemote(ctx context.Context, dir, branch string) (*RemoteStanding, error) {
 	ref := "refs/remotes/origin/" + branch
-	sha, err := runAllowing(ctx, dir, 1, "rev-parse", "--verify", "--quiet", ref)
+	sha, err := runAllowing(ctx, dir, "rev-parse", "--verify", "--quiet", ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find origin's copy of %s: %w", branch, err)
 	}
@@ -362,4 +362,42 @@ func hashTree(ctx context.Context, dir, tree string) (string, error) {
 	}
 
 	return writeTree(ctx, root)
+}
+
+// RefreshRemoteBranch reads origin's copy of branch afresh, dropping the clone's copy when origin no longer has one.
+func (c *Client) RefreshRemoteBranch(ctx context.Context, dir, branch string) error {
+	head := "refs/heads/" + branch
+	tracking := "refs/remotes/origin/" + branch
+
+	listed, err := runEnv(ctx, dir, promptlessEnv(), append(promptless(), "ls-remote", "origin", head)...)
+	if err != nil {
+		return fmt.Errorf("failed to ask origin for %s: %w", branch, err)
+	}
+
+	if listed == "" {
+		if _, err := Run(ctx, dir, "update-ref", "-d", tracking); err != nil {
+			return fmt.Errorf("failed to drop the clone's copy of %s: %w", branch, err)
+		}
+
+		return nil
+	}
+
+	if _, err := runEnv(ctx, dir, promptlessEnv(), append(promptless(), "fetch", "--quiet", "origin", "+"+head+":"+tracking)...); err != nil {
+		return fmt.Errorf("failed to fetch %s from origin: %w", branch, err)
+	}
+
+	return nil
+}
+
+// HoldsCommit reports whether HEAD's history holds sha, answering false for a commit the clone never fetched.
+func (c *Client) HoldsCommit(ctx context.Context, dir, sha string) (bool, error) {
+	known, err := runAllowing(ctx, dir, "rev-parse", "--verify", "--quiet", sha+"^{commit}")
+	if err != nil {
+		return false, fmt.Errorf("failed to look for %s: %w", sha, err)
+	}
+	if known == "" {
+		return false, nil
+	}
+
+	return isAncestor(ctx, IsAncestorParams{Dir: dir, MaybeAncestor: known, Of: "HEAD"})
 }

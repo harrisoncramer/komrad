@@ -497,3 +497,96 @@ func TestIntegrationPeekChangesLeavesTheIndexAlone(t *testing.T) {
 	assert.Equal(t, []string{"proto/gen/api.pb.go", "staged.go"}, changes.Modified)
 	assert.Equal(t, []string{"notes/todo.txt"}, changes.Untracked)
 }
+
+// TestIntegrationRefreshRemoteBranch covers the clone's copy of a branch catching up with what origin did to it.
+func TestIntegrationRefreshRemoteBranch(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		change   func(t *testing.T, origin string)
+		wantGone bool
+	}{
+		{
+			name: "a branch origin deleted leaves the clone no copy",
+			change: func(t *testing.T, origin string) {
+				run(t, origin, "branch", "-q", "-D", "feature")
+			},
+			wantGone: true,
+		},
+		{
+			name: "a branch origin moved is read where origin left it",
+			change: func(t *testing.T, origin string) {
+				run(t, origin, "branch", "-q", "-f", "feature", "main")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := clonedRepo(t)
+			run(t, root, "config", "user.email", "test@example.com")
+			run(t, root, "config", "user.name", "test")
+			run(t, root, "checkout", "-q", "-b", "feature")
+			write(t, root, "one.go", "package main\n")
+			run(t, root, "add", "-A")
+			run(t, root, "commit", "-q", "-m", "one")
+			run(t, root, "push", "-q", "origin", "feature")
+			origin, err := Run(t.Context(), root, "config", "remote.origin.url")
+			require.NoError(t, err)
+			tt.change(t, origin)
+
+			require.NoError(t, client.RefreshRemoteBranch(t.Context(), root, "feature"))
+
+			tracked, err := runAllowing(t.Context(), root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/feature")
+			require.NoError(t, err)
+			if tt.wantGone {
+				assert.Empty(t, tracked)
+
+				return
+			}
+			want, err := Run(t.Context(), origin, "rev-parse", "feature")
+			require.NoError(t, err)
+			assert.Equal(t, want, tracked)
+		})
+	}
+}
+
+// TestIntegrationHoldsCommit covers telling a commit HEAD's history holds from one it does not, or one the clone never saw.
+func TestIntegrationHoldsCommit(t *testing.T) {
+	t.Parallel()
+
+	root := repo(t)
+	base, err := Run(t.Context(), root, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	run(t, root, "checkout", "-q", "-b", "aside")
+	write(t, root, "aside.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-q", "-m", "aside")
+	aside, err := Run(t.Context(), root, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	run(t, root, "checkout", "-q", "main")
+
+	tests := []struct {
+		name string
+		sha  string
+		want bool
+	}{
+		{name: "a commit HEAD descends from", sha: base, want: true},
+		{name: "a commit on another branch", sha: aside},
+		{name: "a commit the clone never fetched", sha: "0123456789abcdef0123456789abcdef01234567"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			held, err := client.HoldsCommit(t.Context(), root, tt.sha)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, held)
+		})
+	}
+}
