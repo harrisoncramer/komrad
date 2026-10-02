@@ -11,20 +11,32 @@ import (
 )
 
 func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
+	if cmd, ok := r.takeKey(m, key); ok {
+		m.dropTopPress()
+
+		return cmd
+	}
+
+	return r.actions(m).dispatchTop(m, key.String())
+}
+
+// takeKey answers a key whatever holds it ahead of the screen's actions, and false for one it
+// leaves to them.
+func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 	if r.threads.composing {
-		return r.updateComposer(m, key)
+		return r.updateComposer(m, key), true
 	}
 
 	if r.threads.releasing {
-		return r.updateRelease(m, key)
+		return r.updateRelease(m, key), true
 	}
 
 	if r.filesFilter.typing {
-		return r.updateFilesFilter(m, key)
+		return r.updateFilesFilter(m, key), true
 	}
 
 	if r.diff.filter.typing {
-		return r.diffKeys().updateFilter(m, key)
+		return r.diffKeys().updateFilter(m, key), true
 	}
 
 	k := key.String()
@@ -33,17 +45,17 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
 	// something to draw.
 	if r.diff.View() == nil {
 		if isBound(k, m.keys.Review.Back) {
-			return r.back(m)
+			return r.back(m), true
 		}
 
-		return nil
+		return nil, true
 	}
 
 	if isBound(k, slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)) && r.scrollPopup(m, directionOf(k, m.keys.Column.ScrollUp)*diffWheelStep) {
-		return nil
+		return nil, true
 	}
 
-	return r.actions(m).dispatchTop(m, k)
+	return nil, false
 }
 
 // refuseWrite says why a key that would write to the agent did nothing.

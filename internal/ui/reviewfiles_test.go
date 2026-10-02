@@ -271,6 +271,16 @@ func TestReviewFiles(t *testing.T) {
 		}
 	})
 
+	t.Run("the top key twice on the first file brings the diff back to its top", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.press("j", "j")
+		require.Equal(t, "greet.go:3", readReviewCursor(harness.readFrame()))
+
+		harness.press("ctrl+space", "ctrl+space", "g", "g")
+
+		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
+	})
+
 	t.Run("the wheel over the tree walks the diff a file at a time and leaves the keys with the diff", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles

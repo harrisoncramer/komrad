@@ -51,6 +51,10 @@ func (m *model) takeTopPress(pressed string) bool {
 	return held && isBound(pressed, m.keys.Nav.Top)
 }
 
+func (m *model) dropTopPress() {
+	m.topHeld = false
+}
+
 // formKeys is what a form answers, fixed rather than configured.
 func formKeys() config.FormKeys {
 	return config.FixedFormKeys()

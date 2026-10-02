@@ -351,7 +351,19 @@ func (f filesNav) moveBy(m *model, files int) tea.Cmd {
 }
 
 func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
-	return f.r.walkFiles(m, direction*len(f.r.readFilesTree().rows))
+	rows := f.r.readFilesTree().rows
+	for i := range rows {
+		at := i
+		if direction > 0 {
+			at = len(rows) - 1 - i
+		}
+
+		if !rows[at].Folder {
+			return f.r.landOnFile(m, rows[at])
+		}
+	}
+
+	return nil
 }
 
 // landOnFile moves the diff to the top of a file in the tree.

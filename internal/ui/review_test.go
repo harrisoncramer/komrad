@@ -582,6 +582,21 @@ func TestReviewPopupScroll(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), "note 5")
 	})
 
+	t.Run("a scroll key into the conversation drops a top key pressed once before it", func(t *testing.T) {
+		server := newReviewServer(t)
+		thread := newLongThread()
+		thread.OldStart, thread.NewStart = 3, 3
+		thread.QuotedLines = []string{" func Hello() string {"}
+		server.threads = []*agentv1.ReviewThread{thread}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 24})
+		harness.press("j", "j")
+		require.Contains(t, readPopupProse(harness.readFrame()), "note 5")
+
+		harness.press("g", "ctrl+p", "g")
+
+		assert.Contains(t, readPopupProse(harness.readFrame()), "note")
+	})
+
 	t.Run("the wheel over the popup scrolls the conversation and leaves the diff", func(t *testing.T) {
 		harness := openLongThread(t)
 		x, y := readPopupMiddle(harness.readDrawn())
