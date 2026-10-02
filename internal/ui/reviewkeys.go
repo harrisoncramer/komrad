@@ -20,8 +20,7 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
 	return r.actions(m).dispatchTop(m, key.String())
 }
 
-// takeKey answers a key whatever holds it ahead of the screen's actions, and false for one it
-// leaves to them.
+// takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
 func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 	if r.threads.composing {
 		return r.updateComposer(m, key), true
@@ -262,7 +261,7 @@ func (r *reviewScreen) scrollPopup(m *model, rows int) bool {
 // scrollSidebarAt walks the file tree or the pull request description when row y is inside it,
 // without focusing it.
 func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (tea.Cmd, bool) {
-	n, ok := r.sidebarNavAt(m, y)
+	section, ok := r.sidebarNavAt(m, y)
 	if !ok {
 		return nil, false
 	}
@@ -271,7 +270,7 @@ func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (tea.Cmd, bool) {
 		return nil, true
 	}
 
-	return n.moveBy(m, rows), true
+	return section.moveBy(m, rows), true
 }
 
 // sidebarNavAt is the sidebar section drawn on row y, and false for a row the wheel leaves alone.
@@ -281,13 +280,13 @@ func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
 	}
 
 	layout := r.layoutSidebar(m)
-	top := paint.CountLines(layout.bar)
-	files := top + paint.CountLines(layout.pullRequest)
+	pullRequestTop := paint.CountLines(layout.bar)
+	filesTop := pullRequestTop + paint.CountLines(layout.pullRequest)
 
 	switch {
-	case y >= top && y < files && r.isPullRequestDrawn(m):
+	case y >= pullRequestTop && y < filesTop && r.isPullRequestDrawn(m):
 		return pullRequestNav{r}, true
-	case y >= files && y < files+paint.CountLines(layout.files) && r.isBlockDrawn(m):
+	case y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockDrawn(m):
 		return filesNav{r}, true
 	}
 

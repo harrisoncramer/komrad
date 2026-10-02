@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"komrad/internal/diff"
@@ -351,15 +352,14 @@ func (f filesNav) moveBy(m *model, files int) tea.Cmd {
 }
 
 func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
-	rows := f.r.readFilesTree().rows
-	for i := range rows {
-		at := i
-		if direction > 0 {
-			at = len(rows) - 1 - i
-		}
+	rows := slices.Clone(f.r.readFilesTree().rows)
+	if direction > 0 {
+		slices.Reverse(rows)
+	}
 
-		if !rows[at].Folder {
-			return f.r.landOnFile(m, rows[at])
+	for _, row := range rows {
+		if !row.Folder {
+			return f.r.landOnFile(m, row)
 		}
 	}
 

@@ -75,11 +75,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				desc:  func(*model) string { return "move" },
 				label: moveLabel,
 			},
-			{
-				of:    []actionID{actionNavPage},
-				desc:  func(*model) string { return "page" },
-				label: navPageLabel,
-			},
+			navPageRow(),
 			navJumpRow(),
 			{
 				of:    []actionID{actionColumnScroll},
