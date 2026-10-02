@@ -31,7 +31,7 @@ func written(b Buffer) string {
 func keys(s string) []string {
 	named := map[string]string{
 		"esc": "esc", "c-[": "ctrl+[", "cr": "enter", "space": "space", "bs": "backspace",
-		"c-r": "ctrl+r", "c-w": "ctrl+w", "tab": "tab", "c-s": "ctrl+s", "c-e": "ctrl+e", "up": "up",
+		"c-r": "ctrl+r", "c-w": "ctrl+w", "tab": "tab", "c-e": "ctrl+e", "up": "up",
 		"down": "down", "left": "left", "right": "right", "del": "delete",
 	}
 
@@ -60,7 +60,6 @@ func keys(s string) []string {
 type field struct {
 	engine *Engine
 	buf    Buffer
-	single bool
 	last   Outcome
 }
 
@@ -78,16 +77,9 @@ func (f *field) typeKey(key string) {
 	r := []rune(f.buf.Text)
 	p := f.buf.Cursor
 
-	switch key {
-	case "backspace":
+	if key == "backspace" {
 		if p > 0 {
 			f.buf = Buffer{Text: string(splice(r, p-1, p, nil)), Cursor: p - 1}
-		}
-
-		return
-	case "enter":
-		if !f.single {
-			f.buf = Buffer{Text: string(splice(r, p, p, []rune{'\n'})), Cursor: p + 1}
 		}
 
 		return
@@ -99,7 +91,7 @@ func (f *field) typeKey(key string) {
 }
 
 // passed is the keys a test caller asks the engine to hand on in normal mode.
-var passed = []string{"tab", "ctrl+s", "ctrl+e", "enter"}
+var passed = []string{"tab", "ctrl+e", "enter"}
 
 // inNormal is a field on start with its engine already in normal mode.
 func inNormal(t *testing.T, start string, single bool) *field {
@@ -112,7 +104,6 @@ func inNormal(t *testing.T, start string, single bool) *field {
 	return &field{
 		engine: e,
 		buf:    e.Normal(b),
-		single: single,
 	}
 }
 
@@ -258,13 +249,6 @@ func TestMotions(t *testing.T) {
 			start: "abc\nd|ef",
 			keys:  "k",
 			want:  "a|bc\ndef",
-			mode:  Normal,
-		},
-		{
-			name:  "enter moves to the first non-blank of the next line",
-			start: "a|bc\n  def",
-			keys:  "<cr>",
-			want:  "abc\n  |def",
 			mode:  Normal,
 		},
 		{
@@ -1049,13 +1033,6 @@ func TestOperators(t *testing.T) {
 			want:  "ab\n|x\ncd",
 			mode:  Normal,
 		},
-		{
-			name:  "enter in insert types a new line",
-			start: "a|b",
-			keys:  "i<cr><esc>",
-			want:  "a\n|b",
-			mode:  Normal,
-		},
 	}, false)
 }
 
@@ -1604,14 +1581,6 @@ func TestModes(t *testing.T) {
 			mode:    Normal,
 		},
 		{
-			name:    "the submit key passes to the field",
-			start:   "a|b",
-			keys:    "<c-s>",
-			want:    "a|b",
-			outcome: Pass,
-			mode:    Normal,
-		},
-		{
 			name:    "the editor key passes to the field",
 			start:   "a|b",
 			keys:    "<c-e>",
@@ -1628,20 +1597,11 @@ func TestModes(t *testing.T) {
 			mode:    Normal,
 		},
 		{
-			name:    "enter passes on a one-line field",
+			name:    "the submit key passes to the field",
 			start:   "a|b",
-			single:  true,
 			keys:    "<cr>",
 			want:    "a|b",
 			outcome: Pass,
-			mode:    Normal,
-		},
-		{
-			name:    "enter on the last line of a multi-line field does nothing",
-			start:   "a\n|b",
-			keys:    "<cr>",
-			want:    "a\n|b",
-			outcome: Consumed,
 			mode:    Normal,
 		},
 	}
@@ -1682,14 +1642,12 @@ func TestModes(t *testing.T) {
 		source := &field{
 			engine: from,
 			buf:    from.Normal(Buffer{Text: "word"}),
-			single: true,
 		}
 		source.press("yiw")
 
 		target := &field{
 			engine: to,
 			buf:    to.Normal(Buffer{Text: "x"}),
-			single: true,
 		}
 		target.press("p")
 
@@ -1712,13 +1670,6 @@ func TestSwallowed(t *testing.T) {
 			start: "a|b",
 			keys:  "gzx",
 			want:  "|a",
-			mode:  Normal,
-		},
-		{
-			name:  "enter on a multi-line field moves rather than types",
-			start: "|a\nb",
-			keys:  "<cr>",
-			want:  "a\n|b",
 			mode:  Normal,
 		},
 		{
@@ -1836,7 +1787,6 @@ func TestSingleLine(t *testing.T) {
 		f := &field{
 			engine: e,
 			buf:    e.Normal(Buffer{Text: "x"}),
-			single: true,
 		}
 		f.press("p")
 

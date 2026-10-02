@@ -202,8 +202,6 @@ func (e *Engine) owns(key string) bool {
 	switch key {
 	case "space", "left", "right", "up", "down", "backspace", "delete", "ctrl+r":
 		return true
-	case "enter":
-		return !e.singleLine
 	}
 
 	_, ok := keyChar(key)

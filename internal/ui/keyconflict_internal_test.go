@@ -175,11 +175,6 @@ func TestValidateSubmenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
 			names:  "the key that picks the entry under the cursor",
 		},
 		{
-			name:   "the key that answers it",
-			rebind: func(k *config.Keybindings) { k.Git.Rebase = []string{"ctrl+s"} },
-			names:  "the key that answers a form",
-		},
-		{
 			name:   "the key that walks the entries",
 			rebind: func(k *config.Keybindings) { k.Git.Rebase = []string{"j"} },
 			names:  "the key that moves down a form's list",

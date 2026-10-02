@@ -129,7 +129,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 			id: actionReviewSend,
 			// Comments wait in a batch until sent, so this is offered while reading as well as
 			// while writing.
-			keys:   func(config.Keybindings) []string { return formKeys().Submit },
+			keys:   func(k config.Keybindings) []string { return k.Review.Send },
 			direct: directly(composerSurface, r.orRefuseWrite(func(m *model) tea.Cmd { return r.openRelease(m) })),
 		},
 	}

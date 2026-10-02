@@ -2175,7 +2175,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 		answerWorkflowCreate(harness, "w2")
 
-		harness.press("space", "w", "a", "p", "i", "ctrl+s")
+		harness.press("space", "w", "a", "p", "i", "enter")
 
 		harness.assertSentWith(ignoringEventPrompts,
 			request{
@@ -2197,7 +2197,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		answerWorkflowCreate(harness, "w2")
 		harness.refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
 
-		harness.press("space", "w", "a", "p", "i", "ctrl+s")
+		harness.press("space", "w", "a", "p", "i", "enter")
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newLiveWorkflow("w2", "api")))
 
 		frame := harness.readFrame()
@@ -2257,7 +2257,7 @@ func TestAgentsChildren(t *testing.T) {
 
 		harness.press(append([]string{"G", "space", "C"}, widenListPresses...)...)
 
-		assert.NotContains(t, harness.readFrame(), "C-s submit")
+		assert.NotContains(t, harness.readFrame(), "enter submit")
 		assert.Contains(t, readOpenMessages(harness), "may not have children")
 	})
 
@@ -2459,7 +2459,7 @@ func TestAgentsSelection(t *testing.T) {
 
 			harness.press("space", "a")
 			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure)
-			harness.press("ctrl+s")
+			harness.press("enter")
 
 			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: tt.wantIDs})
 		})
@@ -2480,7 +2480,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness.press("v")
 
 		harness.press("r")
-		assert.NotContains(t, harness.readFrame(), "C-s submit", "rename does not open its form")
+		assert.NotContains(t, harness.readFrame(), "enter submit", "rename does not open its form")
 
 		harness.press("j")
 		assert.Equal(t, "  api", readHoveredRow(harness.readFrame()), "the cursor still moves")
@@ -2494,7 +2494,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness.press("v", "G", "v")
 
 		harness.watch(buildSnapshot(newLiveWorkflow("w2", "frontend"), newAgentAt("ui", "w2", 1)))
-		harness.press("space", "a", "ctrl+s")
+		harness.press("space", "a", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"ui"}})
 	})
@@ -2503,7 +2503,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 		harness.press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
 
-		harness.press("space", "a", "ctrl+s")
+		harness.press("space", "a", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}})
 	})

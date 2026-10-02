@@ -6,7 +6,7 @@ Type "c"
 Type "You are an avid neovim fan, and need someone to debate. Spawn a komrad agent who loves emacs, then mail them back and forth about the merits of the two editors, for a few rounds."
 Tab
 Type "neovim-fan"
-Ctrl+S
+Enter
 Wait+Screen@30s /neovim-fan/
 Sleep 60s
 Type "j"

@@ -155,13 +155,13 @@ func TestDocumentTypesWrite(t *testing.T) {
 		},
 		{
 			name:      "a name and a context define a type",
-			presses:   []string{"space", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s"},
+			presses:   []string{"space", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "enter"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 			want:      &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"},
 		},
 		{
 			name:      "an edit writes the name and context over the type's version",
-			presses:   []string{"space", "e", "s", "ctrl+s"},
+			presses:   []string{"space", "e", "s", "enter"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 			want: &agentv1.WriteDocumentTypeRequest{
 				Id:      xptr.Ptr("t3"),
@@ -209,12 +209,12 @@ func TestDocumentTypesRefused(t *testing.T) {
 	}{
 		{
 			name:    "a type with no context is refused",
-			presses: []string{"space", "c", "b", "ctrl+s"},
+			presses: []string{"space", "c", "b", "enter"},
 			want:    []string{`Could not define document type "b"`, "a document type needs the context an agent reads"},
 		},
 		{
 			name:    "a type with no name is refused without quoting one",
-			presses: []string{"space", "c", "ctrl+s"},
+			presses: []string{"space", "c", "enter"},
 			want:    []string{"Could not define a document type", "a document type needs a name"},
 		},
 	}

@@ -14,7 +14,7 @@ Tab
 Tab
 Type "Summarize the newest entries in runtime/doc/news.txt in three bullets."
 Tab
-Ctrl+S
+Enter
 Wait+Screen@10s /news-digest/
 Sleep 2s
 Shift+Tab

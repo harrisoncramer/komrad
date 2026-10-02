@@ -30,7 +30,7 @@ func (r reviewScreen) statusView(m *model) string {
 	if r.threads.holdsUnsent() {
 		return bandRow(m, reviewWritingTone, "unsent",
 			label.Counted(r.threads.unsentCount(), "comment")+" not sent"+separated+
-				keyLabel(formKeys().Submit)+" sends them to the agent")
+				keyLabel(m.keys.Review.Send)+" sends them to the agent")
 	}
 
 	return ""

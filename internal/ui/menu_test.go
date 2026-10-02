@@ -183,7 +183,7 @@ func TestScratch(t *testing.T) {
 		answerAgentCreate(harness, "%9")
 		harness.press("j", "space", "s")
 
-		harness.press("space", "c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "enter")
 		harness.press("space")
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())

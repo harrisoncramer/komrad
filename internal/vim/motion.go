@@ -34,7 +34,7 @@ func (e *Engine) motion(r []rune, p int, c command) (int, reach, bool) {
 		}
 
 		return min(p+count, limit), exclusive, true
-	case "j", "k", "enter":
+	case "j", "k":
 		line, last := lineOf(r, p), lastLine(r)
 		target := min(line+count, last)
 		if c.name == "k" {
@@ -42,9 +42,6 @@ func (e *Engine) motion(r []rune, p int, c command) (int, reach, bool) {
 		}
 		if target == line {
 			return p, linewise, false
-		}
-		if c.name == "enter" {
-			return firstNonBlank(r, lineStartOf(r, target)), linewise, true
 		}
 
 		if !e.held {
