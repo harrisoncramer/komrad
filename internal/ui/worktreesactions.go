@@ -261,14 +261,10 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion, pending *unstaged) 
 	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
-	return awaitingCmd(m.announcedCmd(
+	deleting := m.awaitingWriteCmd(
 		"deleting "+subject,
 		"Could not delete "+subject,
-		message{
-			kind:    messageInfo,
-			summary: "Deleting " + subject,
-			detail:  "A background job is taking the directories. The rows are out of the list now, and one it refuses comes back, with the reason in the log.",
-		},
+		&awaits{gone: rowsIn(listWorktrees, dirs...)},
 		func(a api) error {
 			if len(deletion.live) > 0 {
 				if err := pending.noteArchive(a.archiveAgents(panel.IDs(deletion.live))); err != nil {
@@ -278,7 +274,13 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion, pending *unstaged) 
 
 			return a.deleteWorktrees(dirs)
 		},
-	), rowsGone{dirs: dirs})
+	)
+
+	return announced(deleting, message{
+		kind:    messageInfo,
+		summary: "Deleting " + subject,
+		detail:  "A background job is taking the directories. The rows are out of the list now, and one it refuses comes back, with the reason in the log.",
+	})
 }
 
 func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {

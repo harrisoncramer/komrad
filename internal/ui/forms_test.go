@@ -38,6 +38,7 @@ func TestFormsSubmit(t *testing.T) {
 		empty     bool
 		hostPath  string
 		press     []string
+		answer    connect.AnyResponse
 		settle    []*watchv1.WatchEvent
 		procedure string
 		want      proto.Message
@@ -45,6 +46,7 @@ func TestFormsSubmit(t *testing.T) {
 		{
 			name:      "the new-agent form sends an overridden harness",
 			press:     slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"tab"}, spellKeys("ci"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"enter"}),
+			answer:    connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2"}}),
 			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "ci", "w1"))},
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
@@ -57,6 +59,7 @@ func TestFormsSubmit(t *testing.T) {
 		{
 			name:      "the child form sends its parent and the parent's harness but not its flags",
 			press:     slices.Concat([]string{"j", "space", "C"}, spellKeys("run the tests"), []string{"enter"}),
+			answer:    connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2"}}),
 			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "child", "w1"))},
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
@@ -70,6 +73,7 @@ func TestFormsSubmit(t *testing.T) {
 			name: "the adopt form sends the ref and prompt into the workflow",
 			press: slices.Concat([]string{"space", "A"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"tab"},
 				spellKeys("pick it up"), []string{"enter"}),
+			answer:    connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{Id: "a2"}}),
 			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "adopted", "w1"))},
 			procedure: agentv1connect.AgentServiceAdoptProcedure,
 			want: &agentv1.AdoptRequest{
@@ -84,6 +88,8 @@ func TestFormsSubmit(t *testing.T) {
 			empty:     true,
 			hostPath:  "/work/from-tmux",
 			press:     slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"}),
+			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
+			settle:    []*watchv1.WatchEvent{buildPuts(newLiveWorkflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:     "web",
@@ -96,6 +102,8 @@ func TestFormsSubmit(t *testing.T) {
 			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"tab"}, spellKeys("the frontend"), []string{"tab"},
 				spellKeys("/work/web"), []string{"tab", "up", "tab", "enter", "tab"}, spellKeys("--model sonnet"), []string{"tab"}, spellKeys("codex"),
 				[]string{"tab"}, spellKeys("--model gpt-5"), []string{"enter"}),
+			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
+			settle:    []*watchv1.WatchEvent{buildPuts(newLiveWorkflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:            "web",
@@ -112,6 +120,8 @@ func TestFormsSubmit(t *testing.T) {
 			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(1),
 				spellKeys("develop"), []string{"tab", "tab"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
 				[]string{"tab"}, spellKeys("node_modules"), []string{"enter"}),
+			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
+			settle:    []*watchv1.WatchEvent{buildPuts(newLiveWorkflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
@@ -178,17 +188,16 @@ func TestFormsSubmit(t *testing.T) {
 				harness = openForms(t, workflow, author)
 			}
 			harness.panel.SetHostPath(tt.hostPath)
-			answerAgentCreate(harness, "")
-			harness.answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-				return connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{Id: "a2"}}), nil
-			})
+			if tt.answer != nil {
+				harness.answer(tt.procedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+					return tt.answer, nil
+				})
+			}
 
 			harness.press(tt.press...)
 			if len(tt.settle) > 0 {
 				harness.watch(tt.settle...)
 			}
-
-			harness.fireTimers()
 
 			harness.assertSentToWith(tt.procedure, ignoringEventPrompts, tt.want)
 			assert.NotContains(t, harness.readFrame(), "Could not", "the service accepted the write")
@@ -504,7 +513,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "archive with its agents")
 	})
 
-	t.Run("a landed archive and delete keeps the form up until the watch drops the agent", func(t *testing.T) {
+	t.Run("an archive and delete keeps its form up until the watch drops the agent", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press("j", "space", "a", "down", "enter", "y")
@@ -517,14 +526,14 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "enter submit")
 	})
 
-	t.Run("a landed archive the watch never drops closes its form after a while", func(t *testing.T) {
+	t.Run("an archive the watch never drops closes its form once the wait runs out", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press("j", "space", "a", "down", "enter", "y")
 		require.Contains(t, harness.readFrame(), `archiving and deleting agent "author"`)
 
-		harness.panel.ExpireSettling()
-		harness.fireMatching(ui.IsSettleTick)
+		harness.panel.ExpireParked()
+		harness.fireMatching(ui.IsWarmupTick)
 
 		assert.NotContains(t, harness.readFrame(), `archiving and deleting agent "author"`)
 	})

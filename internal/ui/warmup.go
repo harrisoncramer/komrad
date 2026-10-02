@@ -109,13 +109,13 @@ func (w *warmupState) markWarm(pane string) {
 }
 
 // applyWarmupTick stages the selection again so a cursor sitting on a pane that has just come up
-// catches it.
-func (m *model) applyWarmupTick() {
+// catches it, and finishes the parked writes that have settled.
+func (m *model) applyWarmupTick() tea.Cmd {
 	m.warm.polling = false
 
 	selected, _ := m.selectedAgentPane()
 	for pane := range m.warm.since {
-		if pane != selected {
+		if pane != selected && !m.isPaneAwaited(pane) {
 			delete(m.warm.since, pane)
 		}
 	}
@@ -123,6 +123,8 @@ func (m *model) applyWarmupTick() {
 	if selected != "" && !m.warm.ready[selected] {
 		m.stageSelection()
 	}
+
+	return m.finishParked()
 }
 
 // selectedAgentPane is the pane of the row the cursor is standing on, empty when that row has
@@ -140,13 +142,13 @@ func (m *model) selectedAgentPane() (pane, harnessID string) {
 	return item.Agent.Pane, item.Agent.Harness
 }
 
-// poll keeps a tick going while a pane is still being waited on.
-func (w *warmupState) poll() tea.Cmd {
-	if w.polling || len(w.since) == 0 {
+// pollWarmup keeps a tick going while a pane is still being waited on or a write is parked.
+func (m *model) pollWarmup() tea.Cmd {
+	if m.warm.polling || (len(m.warm.since) == 0 && len(m.writes.parked) == 0) {
 		return nil
 	}
 
-	w.polling = true
+	m.warm.polling = true
 
 	return warmupTick()
 }

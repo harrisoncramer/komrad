@@ -116,17 +116,19 @@ func restoreArchived(m *model, target archived) tea.Cmd {
 	case target.schedule != nil:
 		schedule := *target.schedule
 
-		return m.writeCmd(
+		return m.awaitingWriteCmd(
 			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
+			&awaits{gone: rowsIn(listArchivedSchedules, schedule.ID)},
 			func(c api) error { return c.restoreSchedule(schedule.ID) },
 		)
 	case target.workflow != nil:
 		workflow := *target.workflow
 
-		return m.writeCmd(
+		return m.awaitingWriteCmd(
 			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
+			&awaits{gone: rowsIn(listArchivedWorkflows, workflow.ID)},
 			func(c api) error { return c.restoreWorkflow(workflow.ID) },
 		)
 	}

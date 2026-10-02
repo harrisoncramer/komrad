@@ -46,7 +46,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.settleTriage()
 	blink := m.updateRowCursor(msg)
-	warming := m.warm.poll()
+	warming := m.pollWarmup()
 	spinning := m.spinLoader()
 	pulse := m.pulseMessages(landed)
 	m.releaseHiddenDetails()
@@ -399,13 +399,9 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case sizeFallbackMsg:
 		return m.applySizeFallback(msg), true
 	case warmupTickMsg:
-		m.applyWarmupTick()
-
-		return nil, true
+		return m.applyWarmupTick(), true
 	case stageTickMsg:
 		return m.applyStageTick(msg), true
-	case settleTickMsg:
-		return m.applySettleTick(), true
 	case focusGuestMsg:
 		m.selectGuest(msg.pane)
 

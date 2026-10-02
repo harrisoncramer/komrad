@@ -325,10 +325,8 @@ type writeTracker struct {
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
-	// settling is the landed writes held until the panel shows what they did, by their count.
-	settling map[int]parked
-	// settlePolling is whether a tick is already coming for the parked writes.
-	settlePolling bool
+	// parked is the answered writes held until the panel shows what they did, by their count.
+	parked map[int]parkedWrite
 }
 
 type terminalState struct {

@@ -54,9 +54,10 @@ func (u *unstaged) attach(cmd tea.Cmd) tea.Cmd {
 
 		result.unstaged = u
 		if u.archived {
-			gone, _ := result.awaits.(rowsGone)
-			gone.agents = append(gone.agents, panel.IDs(u.agents)...)
-			result.awaits = gone
+			if result.awaits == nil {
+				result.awaits = &awaits{}
+			}
+			result.awaits.gone = append(result.awaits.gone, rowsIn(listAgents, panel.IDs(u.agents)...)...)
 		}
 
 		return result

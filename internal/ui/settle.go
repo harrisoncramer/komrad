@@ -6,85 +6,104 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
 
-// settleWait is how long a landed write waits for the panel to show what it did before it lands regardless.
+// settleWait is how long an answered write waits for the panel to show what it did before it finishes regardless.
 const settleWait = warmupCap
 
-// settle says when the panel shows what a landed write did.
-type settle interface {
-	isSettled(m *model) bool
+// rowList is which of the listing's lists a row is looked for in.
+type rowList int
+
+const (
+	listAgents rowList = iota
+	listArchivedAgents
+	listWorkflows
+	listArchivedWorkflows
+	listSchedules
+	listArchivedSchedules
+	listWorktrees
+)
+
+// listedRow is one row of the listing, by the list it sits in and its id.
+type listedRow struct {
+	list rowList
+	id   string
 }
 
-// rowShown settles once the listing holds every row a write made.
-type rowShown struct {
-	agents   []string
-	workflow string
-	// archived says the agents are looked for in the archive rather than the agents list.
-	archived bool
+// awaits is what the panel shows once a write is answered, and the write is held until it does.
+type awaits struct {
+	shown []listedRow
+	gone  []listedRow
+	// pane is the pane whose harness is to have drawn itself, empty when there is none to wait on.
+	pane    string
+	harness string
 }
 
-func (r rowShown) isSettled(m *model) bool {
-	if r.workflow != "" && !hasWorkflow(m.listing.workflows, r.workflow) {
+// parkedWrite is an answered write waiting for the panel to show what it did.
+type parkedWrite struct {
+	result   writeResult
+	deadline time.Time
+}
+
+// rowsIn names the given ids as rows of one list.
+func rowsIn(list rowList, ids ...string) []listedRow {
+	return xslice.Map(ids, func(id string) listedRow { return listedRow{list: list, id: id} })
+}
+
+// awaitShown waits for the listing to hold the row a write made, with its pane warm when it has one to show.
+func (w written) awaitShown() *awaits {
+	if w.archived {
+		return &awaits{shown: rowsIn(listArchivedAgents, w.agent)}
+	}
+
+	shown := rowsIn(listAgents, w.agent)
+	if id, ok := strings.CutPrefix(w.row, workflowRowPrefix); ok {
+		shown = rowsIn(listWorkflows, id)
+	}
+
+	return &awaits{
+		shown:   shown,
+		pane:    w.pane,
+		harness: w.harness,
+	}
+}
+
+// isSettled reports whether the panel shows everything a write waits on.
+func (a *awaits) isSettled(m *model) bool {
+	if slices.ContainsFunc(a.shown, func(row listedRow) bool { return !m.listing.holds(row) }) {
 		return false
 	}
 
-	rows := m.listing.agents
-	if r.archived {
-		rows = m.listing.archivedAgents
+	if slices.ContainsFunc(a.gone, m.listing.holds) {
+		return false
 	}
 
-	return !slices.ContainsFunc(r.agents, func(id string) bool { return !hasAgentRow(rows, id) })
+	return a.pane == "" || m.isPaneWarm(a.pane, a.harness)
 }
 
-// paneWarm settles once a write's row is shown and the harness in its pane has drawn itself.
-type paneWarm struct {
-	pane    string
-	harness string
-	row     rowShown
-}
-
-func (p paneWarm) isSettled(m *model) bool {
-	return p.row.isSettled(m) && m.isPaneWarm(p.pane, p.harness)
-}
-
-// rowsGone settles once the listing holds none of the rows a write took away.
-type rowsGone struct {
-	agents            []string
-	archivedAgents    []string
-	workflows         []string
-	archivedWorkflows []string
-	dirs              []string
-}
-
-func (r rowsGone) isSettled(m *model) bool {
-	for _, id := range r.agents {
-		if hasAgentRow(m.listing.agents, id) {
-			return false
-		}
+// holds reports whether the listing has a row.
+func (l listing) holds(row listedRow) bool {
+	switch row.list {
+	case listAgents:
+		return hasAgentRow(l.agents, row.id)
+	case listArchivedAgents:
+		return hasAgentRow(l.archivedAgents, row.id)
+	case listWorkflows:
+		return hasWorkflow(l.workflows, row.id)
+	case listArchivedWorkflows:
+		return hasWorkflow(l.archivedWorkflows, row.id)
+	case listSchedules:
+		return hasSchedule(l.schedules, row.id)
+	case listArchivedSchedules:
+		return hasSchedule(l.archivedSchedules, row.id)
+	case listWorktrees:
+		return slices.ContainsFunc(l.worktrees, func(item worktreeItem) bool { return item.dir == row.id })
 	}
 
-	for _, id := range r.archivedAgents {
-		if hasAgentRow(m.listing.archivedAgents, id) {
-			return false
-		}
-	}
-
-	for _, id := range r.workflows {
-		if hasWorkflow(m.listing.workflows, id) {
-			return false
-		}
-	}
-
-	for _, id := range r.archivedWorkflows {
-		if hasWorkflow(m.listing.archivedWorkflows, id) {
-			return false
-		}
-	}
-
-	return !slices.ContainsFunc(m.listing.worktrees, func(item worktreeItem) bool { return slices.Contains(r.dirs, item.dir) })
+	return false
 }
 
 func hasAgentRow(rows []panel.AgentRow, id string) bool {
@@ -95,113 +114,70 @@ func hasWorkflow(workflows []panel.Workflow, id string) bool {
 	return slices.ContainsFunc(workflows, func(workflow panel.Workflow) bool { return workflow.ID == id })
 }
 
-// shownOf is what settles once the listing holds the row a write made.
-func shownOf(row written) rowShown {
-	if id, ok := strings.CutPrefix(row.row, workflowRowPrefix); ok {
-		return rowShown{workflow: id}
-	}
-
-	return rowShown{agents: []string{row.agent}, archived: row.archived}
+func hasSchedule(items []scheduleItem, id string) bool {
+	return slices.ContainsFunc(items, func(item scheduleItem) bool { return item.key() == id })
 }
 
-// awaitsOf is what settles once the panel shows the row a write made, with its pane warm when it has one to show.
-func awaitsOf(row written) settle {
-	shown := shownOf(row)
-	if row.pane == "" || row.archived {
-		return shown
+// parkWrite keeps an answered write in flight, and its form up, until the panel shows what it did.
+func (m *model) parkWrite(result writeResult) {
+	if m.writes.parked == nil {
+		m.writes.parked = map[int]parkedWrite{}
 	}
 
-	return paneWarm{pane: row.pane, harness: row.harness, row: shown}
-}
-
-// awaitingCmd has a write's result wait on awaits before it lands.
-func awaitingCmd(cmd tea.Cmd, awaits settle) tea.Cmd {
-	return func() tea.Msg {
-		msg := cmd()
-
-		result, ok := msg.(writeResult)
-		if !ok {
-			return msg
-		}
-
-		result.awaits = awaits
-
-		return result
+	m.writes.parked[result.write] = parkedWrite{
+		result:   result,
+		deadline: time.Now().Add(settleWait),
 	}
 }
 
-// parked is a landed write waiting for the panel to show what it did.
-type parked struct {
-	result   writeResult
-	deadline time.Time
-	// claimsCursor says the cursor still goes to the row the write made once it lands.
-	claimsCursor bool
-}
-
-type settleTickMsg struct{}
-
-// parkWrite keeps a landed write in flight, and its form up, until the panel shows what it did.
-func (m *model) parkWrite(result writeResult) tea.Cmd {
-	if m.writes.settling == nil {
-		m.writes.settling = map[int]parked{}
-	}
-
-	m.writes.settling[result.write] = parked{result: result, deadline: time.Now().Add(settleWait), claimsCursor: true}
-
-	return m.pollSettling()
-}
-
-// pollSettling keeps a tick going while a write is parked.
-func (m *model) pollSettling() tea.Cmd {
-	if m.writes.settlePolling || len(m.writes.settling) == 0 {
-		return nil
-	}
-
-	m.writes.settlePolling = true
-
-	return startTimer(warmupPoll, func(time.Time) tea.Msg { return settleTickMsg{} })
-}
-
-// applySettleTick lands the parked writes that have settled and keeps polling for the rest.
-func (m *model) applySettleTick() tea.Cmd {
-	m.writes.settlePolling = false
-
-	return tea.Batch(m.settleParked(), m.pollSettling())
-}
-
-// settleParked lands, in the order they were sent, the parked writes that have settled or run out of time.
-func (m *model) settleParked() tea.Cmd {
-	if len(m.writes.settling) == 0 {
+// finishParked finishes, in the order they were sent and in one change, the parked writes that have
+// settled or run out of time.
+func (m *model) finishParked() tea.Cmd {
+	if len(m.writes.parked) == 0 {
 		return nil
 	}
 
 	now := time.Now()
 	var ready []int
-	for write, held := range m.writes.settling {
+	for write, held := range m.writes.parked {
 		if held.result.awaits.isSettled(m) || now.After(held.deadline) {
 			ready = append(ready, write)
 		}
 	}
 	slices.Sort(ready)
 
+	m.frame.Begin()
+	defer m.frame.Flush()
+
 	var cmds []tea.Cmd
 	for _, write := range ready {
-		held := m.writes.settling[write]
-		delete(m.writes.settling, write)
-		cmds = append(cmds, m.finishWrite(held.result, held.claimsCursor))
+		held := m.writes.parked[write]
+		delete(m.writes.parked, write)
+		cmds = append(cmds, m.finishWrite(held.result))
 	}
 
 	return tea.Batch(cmds...)
 }
 
-// releaseCursor lets the cursor stay where a key moved it when a parked write no form owns lands.
+// isPaneAwaited reports whether a parked write is waiting on a pane's harness to draw itself.
+func (m *model) isPaneAwaited(pane string) bool {
+	for _, held := range m.writes.parked {
+		if held.result.awaits.pane == pane {
+			return true
+		}
+	}
+
+	return false
+}
+
+// releaseCursor lets the cursor stay where a key moved it when a parked write no form owns finishes.
 func (m *model) releaseCursor() {
-	for write, held := range m.writes.settling {
+	for write, held := range m.writes.parked {
 		if m.writes.held.owns(write) {
 			continue
 		}
 
-		held.claimsCursor = false
-		m.writes.settling[write] = held
+		held.result.keyMoved = true
+		m.writes.parked[write] = held
 	}
 }

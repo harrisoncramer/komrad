@@ -11,6 +11,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
+	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,7 @@ func TestSchedulesKeys(t *testing.T) {
 		wantScreen string
 		wantDrawn  []string
 		wantAbsent []string
+		gone       *watchv1.WatchEvent
 		wantSent   []request
 	}{
 		{
@@ -88,6 +90,7 @@ func TestSchedulesKeys(t *testing.T) {
 			name:       "archive from its menu archives the hovered schedule and lands back on the schedules",
 			rows:       buildSchedules(),
 			press:      []string{"space", "a", "a"},
+			gone:       buildDeleted(watchv1.Resource_RESOURCE_SCHEDULE, "s1"),
 			wantScreen: schedulesScreen,
 			wantAbsent: []string{archiveMenu},
 			wantSent: []request{{
@@ -157,6 +160,10 @@ func TestSchedulesKeys(t *testing.T) {
 			harness := openSchedules(t, tt.rows...)
 
 			harness.press(tt.press...)
+			if tt.gone != nil {
+				require.Contains(t, harness.readTypedFrame(), archiveMenu, "the menu waits for the schedule to leave")
+				harness.watch(tt.gone)
+			}
 
 			if tt.wantScreen != "" {
 				assert.Equal(t, tt.wantScreen, harness.readScreen())

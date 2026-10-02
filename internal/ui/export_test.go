@@ -281,8 +281,9 @@ func IsLoaderTick(msg tea.Msg) bool {
 	return ok
 }
 
-func IsSettleTick(msg tea.Msg) bool {
-	_, ok := msg.(settleTickMsg)
+// IsWarmupTick reports whether msg is the tick a pane being waited on or a parked write polls on.
+func IsWarmupTick(msg tea.Msg) bool {
+	_, ok := msg.(warmupTickMsg)
 
 	return ok
 }
@@ -620,11 +621,11 @@ func (p *Panel) SetHostPath(path string) {
 	p.tmux.path = path
 }
 
-// ExpireSettling runs out the wait every parked write holds for the panel to show what it did.
-func (p *Panel) ExpireSettling() {
-	for write, held := range p.model.writes.settling {
+// ExpireParked runs out the wait every parked write holds for the panel to show what it did.
+func (p *Panel) ExpireParked() {
+	for write, held := range p.model.writes.parked {
 		held.deadline = time.Time{}
-		p.model.writes.settling[write] = held
+		p.model.writes.parked[write] = held
 	}
 }
 

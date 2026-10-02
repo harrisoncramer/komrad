@@ -950,6 +950,7 @@ func TestArchiveSchedules(t *testing.T) {
 		press      []string
 		want       []string
 		wantAbsent []string
+		gone       *watchv1.WatchEvent
 		wantSent   []request
 	}{
 		{
@@ -986,6 +987,7 @@ func TestArchiveSchedules(t *testing.T) {
 		{
 			name:       "confirming the delete destroys the schedule",
 			press:      []string{"F", "tab", "esc", "space", "a", "d", "y"},
+			gone:       buildDeleted(watchv1.Resource_RESOURCE_SCHEDULE, "s2"),
 			wantAbsent: []string{deletePrompt},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceDeleteScheduleProcedure,
@@ -1016,7 +1018,12 @@ func TestArchiveSchedules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openGroupedArchive(t, rows...)
 
-			harness.press(append(tt.press, widenListPresses...)...)
+			harness.press(tt.press...)
+			if tt.gone != nil {
+				require.Contains(t, harness.readFrame(), deletePrompt, "the prompt waits for the schedule to leave")
+				harness.watch(tt.gone)
+			}
+			harness.press(widenListPresses...)
 
 			frame := ansi.Strip(harness.readFrame())
 			assert.Equal(t, archiveScreen, harness.readScreen())

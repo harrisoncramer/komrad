@@ -257,9 +257,10 @@ func (l listing) liveOrchestrators() []panel.Agent {
 }
 
 func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {
-	return m.writeCmd(
+	return m.awaitingWriteCmd(
 		"archiving "+schedule.Name,
 		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
+		&awaits{gone: rowsIn(listSchedules, schedule.ID)},
 		func(a api) error { return a.archiveSchedule(schedule.ID) },
 	)
 }

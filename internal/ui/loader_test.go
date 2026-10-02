@@ -9,8 +9,10 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
+	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -169,6 +171,9 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	})
 	answerWorktreeReads(harness)
 	harness.watch(buildSnapshot(newFormWorkflow()))
+	harness.answer(create, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
+	})
 	harness.hold(create)
 	harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
 
@@ -181,6 +186,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	assert.Equal(t, []string{"◜", "◝", "◞"}, drawn)
 
 	harness.release(create)
+	harness.watch(buildPuts(newLiveWorkflow("w2", "web")))
 	harness.fireLoader()
 	assert.False(t, harness.fireLoader(), "the loader goes quiet once the write lands")
 }

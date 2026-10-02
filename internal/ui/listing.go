@@ -100,7 +100,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 		redrawn = m.redrawOpenForm()
 	}
 
-	return tea.Batch(preview, redrawn, m.settleParked(), m.afterListing())
+	return tea.Batch(preview, redrawn, m.finishParked(), m.afterListing())
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
@@ -131,8 +131,16 @@ type writeResult struct {
 	// resumed is the agent a resume was written for.
 	resumed  string
 	unstaged *unstaged
-	// awaits is what the panel shows once the write has landed, and the write is held until it does.
-	awaits settle
+	// awaits is what the panel shows once the write is answered, and the write is held until it does.
+	awaits *awaits
+	// keyMoved says a key moved the cursor while the write was parked, so the cursor stays where the
+	// key left it.
+	keyMoved bool
+}
+
+// focusGuestMsg hands the keyboard to a pane once the change that put it on the stage is sent.
+type focusGuestMsg struct {
+	pane string
 }
 
 type released struct {
@@ -157,6 +165,11 @@ type written struct {
 }
 
 func (m *model) writeCmd(doing, summary string, write func(api) error) tea.Cmd {
+	return m.awaitingWriteCmd(doing, summary, nil, write)
+}
+
+// awaitingWriteCmd sends a write that is held, once it lands, until the panel shows what it did.
+func (m *model) awaitingWriteCmd(doing, summary string, awaits *awaits, write func(api) error) tea.Cmd {
 	clients := m.api
 	id := m.beginWrite(doing)
 
@@ -165,6 +178,7 @@ func (m *model) writeCmd(doing, summary string, write func(api) error) tea.Cmd {
 			summary: summary,
 			err:     write(clients),
 			write:   id,
+			awaits:  awaits,
 		}
 	}
 }
@@ -215,10 +229,8 @@ func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.C
 	}), let)
 }
 
-// announcedCmd runs a write and says announce once it has landed.
-func (m *model) announcedCmd(doing, summary string, announce message, write func(api) error) tea.Cmd {
-	cmd := m.writeCmd(doing, summary, write)
-
+// announced says announce once the write cmd runs has landed.
+func announced(cmd tea.Cmd, announce message) tea.Cmd {
 	return func() tea.Msg {
 		msg := cmd()
 
@@ -268,7 +280,7 @@ func (m *model) rowWriteCmd(doing, summary string, write func(api) (written, err
 			summary: summary,
 			written: &row,
 			write:   id,
-			awaits:  awaitsOf(row),
+			awaits:  row.awaitShown(),
 		}
 	}
 }
@@ -418,32 +430,19 @@ func (m *model) landWrite(write int) {
 // applyWrite lands a write once the panel shows what it did, parking it until then.
 func (m *model) applyWrite(result writeResult) tea.Cmd {
 	if result.err == nil && result.awaits != nil && !result.awaits.isSettled(m) {
-		return m.parkWrite(result)
+		m.parkWrite(result)
+
+		return nil
 	}
 
-	return m.finishWrite(result, true)
+	return m.finishWrite(result)
 }
 
 // finishWrite reports a write, takes down its form and shows what it made in one change.
-func (m *model) finishWrite(result writeResult, claimsCursor bool) tea.Cmd {
+func (m *model) finishWrite(result writeResult) tea.Cmd {
 	m.frame.Begin()
-	cmd, focus := m.landResult(result, claimsCursor)
-	m.frame.Flush()
+	defer m.frame.Flush()
 
-	if focus == "" {
-		return cmd
-	}
-
-	return tea.Batch(cmd, func() tea.Msg { return focusGuestMsg{pane: focus} })
-}
-
-// focusGuestMsg hands the keyboard to a pane once the batch that put it on the stage is sent.
-type focusGuestMsg struct {
-	pane string
-}
-
-// landResult does what finishWrite batches, answering with the pane to hand the keyboard once the batch is sent.
-func (m *model) landResult(result writeResult, claimsCursor bool) (tea.Cmd, string) {
 	m.report(result.summary, result.err)
 
 	if result.renamed != "" {
@@ -493,10 +492,9 @@ func (m *model) landResult(result writeResult, claimsCursor bool) (tea.Cmd, stri
 		cmds = append(cmds, formResized())
 	}
 
-	var focus string
 	switch {
 	case result.written == nil || walkedAway:
-	case result.written.archived && !claimsCursor:
+	case result.written.archived && result.keyMoved:
 		cmds = append(cmds, m.enterScreen(screenArchive))
 	case result.written.archived:
 		cmds = append(cmds, m.enter(screenArchive, screenTarget{agentID: result.written.agent}))
@@ -504,7 +502,7 @@ func (m *model) landResult(result writeResult, claimsCursor bool) (tea.Cmd, stri
 		cmds = append(cmds, m.enterScreen(screenAgents))
 
 		rows := m.agents.rows(m)
-		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); claimsCursor && rowIndexOfKey(rows, key) >= 0 {
+		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); !result.keyMoved && rowIndexOfKey(rows, key) >= 0 {
 			m.agents.apply(m, key)
 		}
 
@@ -516,7 +514,7 @@ func (m *model) landResult(result writeResult, claimsCursor bool) (tea.Cmd, stri
 			delete(m.warm.since, pane)
 
 			if result.written.focus {
-				focus = pane
+				cmds = append(cmds, func() tea.Msg { return focusGuestMsg{pane: pane} })
 			}
 		} else {
 			m.stageSelection()
@@ -525,5 +523,5 @@ func (m *model) landResult(result writeResult, claimsCursor bool) (tea.Cmd, stri
 
 	m.landWrite(result.write)
 
-	return tea.Batch(cmds...), focus
+	return tea.Batch(cmds...)
 }
