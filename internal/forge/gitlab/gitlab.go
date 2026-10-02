@@ -43,7 +43,7 @@ const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
 // mergeReadinessFields is what the decision, checks, mergeability and auto-merge of a merge request
 // are folded from: its approvals, its reviewers' states, the status of the pipeline on its
 // head, its detailed merge status, whether it is set to merge on its own and how it could be.
-const mergeReadinessFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
+const mergeReadinessFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { sha status mergeRequestEventType } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
 
 const verifyQuery = `query Verify { currentUser { username } }`
 
@@ -65,7 +65,7 @@ const rereviewMutation = `mutation Rereview($path: ID!, $iid: String!, $user: Us
 }`
 
 const autoMergeTargetQuery = `query AutoMergeTarget($path: ID!, $iid: String!) {
-  project(fullPath: $path) { mergeRequest(iid: $iid) { state autoMergeEnabled availableAutoMergeStrategies } }
+  project(fullPath: $path) { mergeRequest(iid: $iid) { state draft autoMergeEnabled availableAutoMergeStrategies } }
 }`
 
 const listQuery = `query List($path: ID!, $first: Int!, $after: String, $branches: [String!], $state: MergeRequestState) {
@@ -295,8 +295,8 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 }
 
 // SetAutoMerge asks GitLab to merge the merge request once its pipeline passes, held to the head
-// the person saw, or cancels that, refusing one GitLab offers no strategy for since GitLab would
-// merge it at once.
+// the person saw, or cancels that, refusing a draft and one GitLab offers no strategy for since
+// GitLab would merge it at once.
 func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
 	path, number, err := parseMergeRequestURL(params.URL)
 	if err != nil {
@@ -317,6 +317,9 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	})
 	if err != nil || !shouldChange {
 		return err
+	}
+	if params.On && target.Draft {
+		return forge.ErrNoAutoMerge.Saying("gitlab will not queue !%d: it is still a draft", number)
 	}
 	if params.On && len(target.AvailableAutoMergeStrategies) == 0 {
 		return forge.ErrNoAutoMerge.Saying("gitlab will not queue !%d: it has no running pipeline to wait for, or the credential cannot merge it", number)
@@ -722,6 +725,7 @@ func (n *projectNode) remote() git.RemoteURL {
 // autoMergeTarget is a merge request whose auto-merge is about to change.
 type autoMergeTarget struct {
 	State                        string   `json:"state"`
+	Draft                        bool     `json:"draft"`
 	AutoMergeEnabled             bool     `json:"autoMergeEnabled"`
 	AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
 }
@@ -743,25 +747,32 @@ type mergeReadinessNode struct {
 		} `json:"nodes"`
 	} `json:"reviewers"`
 	HeadPipeline *struct {
-		Status string `json:"status"`
+		Sha                   string `json:"sha"`
+		Status                string `json:"status"`
+		MergeRequestEventType string `json:"mergeRequestEventType"`
 	} `json:"headPipeline"`
 	DetailedMergeStatus          string   `json:"detailedMergeStatus"`
 	AutoMergeEnabled             bool     `json:"autoMergeEnabled"`
 	AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
 }
 
-// autoMerge is whether the merge request is set to merge on its own, and whether GitLab offers a
-// way to set it, which it does only while there is a pipeline to wait for and the credential
-// may merge.
-func (n mergeReadinessNode) autoMerge() forge.AutoMerge {
+// autoMerge is whether the merge request is set to merge on its own, and whether it may be set,
+// which GitLab offers only while there is a pipeline to wait for and the credential may merge
+// and komrad refuses while it is a draft.
+func (n mergeRequestNode) autoMerge() forge.AutoMerge {
 	return forge.AutoMerge{
 		On:      n.AutoMergeEnabled,
-		Allowed: len(n.AvailableAutoMergeStrategies) > 0,
+		Allowed: !n.Draft && len(n.AvailableAutoMergeStrategies) > 0,
 	}
 }
 
-// mergeability is the detailed merge status in komrad's words.
-func (n mergeReadinessNode) mergeability() forge.Mergeability {
+// mergeability is the detailed merge status in komrad's words, unknown once the merge request
+// has merged or closed.
+func (n mergeRequestNode) mergeability() forge.Mergeability {
+	if n.State == "merged" || n.State == "closed" {
+		return forge.MergeabilityUnknown
+	}
+
 	switch n.DetailedMergeStatus {
 	case "":
 		return forge.MergeabilityUnknown
@@ -780,9 +791,9 @@ func (n mergeReadinessNode) mergeability() forge.Mergeability {
 	return forge.MergeabilityBlocked
 }
 
-// checks is the head pipeline's status in komrad's words.
+// checks is the head pipeline's status in komrad's words, none for a pipeline on another commit.
 func (n mergeReadinessNode) checks() forge.Checks {
-	if n.HeadPipeline == nil {
+	if n.HeadPipeline == nil || !n.isPipelineOnHead() {
 		return forge.ChecksNone
 	}
 
@@ -791,11 +802,22 @@ func (n mergeReadinessNode) checks() forge.Checks {
 		return forge.ChecksPassing
 	case "FAILED", "CANCELED", "CANCELING":
 		return forge.ChecksFailing
-	case "CREATED", "WAITING_FOR_RESOURCE", "PREPARING", "WAITING_FOR_CALLBACK", "PENDING", "RUNNING", "SCHEDULED", "MANUAL":
+	case "CREATED", "WAITING_FOR_RESOURCE", "PREPARING", "WAITING_FOR_CALLBACK", "PENDING", "RUNNING", "SCHEDULED":
 		return forge.ChecksPending
 	}
 
 	return forge.ChecksNone
+}
+
+// isPipelineOnHead says whether the head pipeline ran on the head commit, trusting GitLab for a
+// merged-results pipeline whose sha is the merge ref instead.
+func (n mergeReadinessNode) isPipelineOnHead() bool {
+	switch n.HeadPipeline.MergeRequestEventType {
+	case "MERGED_RESULT", "MERGE_TRAIN":
+		return true
+	}
+
+	return n.HeadPipeline.Sha == n.DiffHeadSha
 }
 
 // decision folds the approvals into komrad's word, a change request first, then approvals
