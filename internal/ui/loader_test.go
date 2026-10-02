@@ -86,6 +86,46 @@ func TestLoaderStopsTicking(t *testing.T) {
 	}
 }
 
+// TestLoaderSpinsWhileAnAgentSetsUp covers the placeholder beside a setting-up agent drawing the configured loader a frame a tick.
+func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
+	tests := []struct {
+		name  string
+		pane  string
+		doing string
+	}{
+		{
+			name:  "a worktree still being made",
+			doing: "setting up…",
+		},
+		{
+			name:  "a CLI still starting in its pane",
+			pane:  "%9",
+			doing: "starting…",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := newAgent("a1", "old", "w1")
+			agent.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
+			agent.PaneId = tt.pane
+			harness := openNoticed(t, panelHarnessParams{loader: loader.Arcs}, agent)
+
+			var drawn []string
+			for range 3 {
+				drawn = append(drawn, readWriteFrame(t, harness.readFrame(), tt.doing))
+				require.True(t, harness.fireLoader(), "the loader stopped ticking with the agent still setting up")
+			}
+
+			assert.Equal(t, []string{"◜", "◝", "◞"}, drawn)
+
+			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newRunning()))
+			harness.fireLoader()
+			assert.False(t, harness.fireLoader(), "the loader goes quiet once the agent is up")
+		})
+	}
+}
+
 func openAgentsWithPullRequest(state pullrequestv1.PullRequestState) func(t *testing.T) *panelHarness {
 	return func(t *testing.T) *panelHarness {
 		t.Helper()

@@ -58,7 +58,7 @@ func (r reviewScreen) isLoading(m *model) bool {
 }
 
 func isRowLoading(r agentRow) bool {
-	return !r.header && isChecksRunning(r.item)
+	return !r.header && (isChecksRunning(r.item) || r.item.Agent.State == panel.StateSettingUp)
 }
 
 func isChecksRunning(row panel.AgentRow) bool {

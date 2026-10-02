@@ -324,9 +324,9 @@ func (a *agentsScreen) doc(m *model) string {
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.Agent.State == panel.StateSettingUp && item.Agent.Pane != "":
-		return startingPlaceholder
+		return startingPlaceholder(m.loading.frame())
 	case item.Agent.State == panel.StateSettingUp:
-		return settingUpPlaceholder
+		return settingUpPlaceholder(m.loading.frame())
 	case item.Agent.HeldAt != nil:
 		return heldPlaceholder
 	case item.Agent.State.IsFailed():
@@ -382,9 +382,13 @@ func firstKey(keys []string, fallback string) string {
 	return keyLabel(keys[:1])
 }
 
-const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
+func settingUpPlaceholder(frame string) string {
+	return frame + " _setting up…_\n\nMaking this agent's worktree. It has no pane yet."
+}
 
-const startingPlaceholder = "_starting…_\n\nIts CLI is coming up in a new pane."
+func startingPlaceholder(frame string) string {
+	return frame + " _starting…_\n\nIts CLI is coming up in a new pane."
+}
 
 func failedPlaceholder(agent panel.Agent) string {
 	label := "setup"
