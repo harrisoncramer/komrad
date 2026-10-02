@@ -13,6 +13,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
+	pullrequeststore "komrad/internal/store/pullrequest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -111,6 +112,36 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			}
 			if tt.wantEvents != nil {
 				assert.Equal(t, tt.wantEvents, told[0].Events, "the mail names the events the change started")
+			}
+		})
+	}
+}
+
+// TestTheMailNamesTheForgesOwnTool pins that the mail uses the noun, the number and the checks
+// command of the forge the pull request is on.
+func TestTheMailNamesTheForgesOwnTool(t *testing.T) {
+	tests := []struct {
+		name      string
+		forge     string
+		wantLines []string
+	}{
+		{
+			name:      "github",
+			forge:     forge.KindGitHub,
+			wantLines: []string{"komrad: pull request #7 (", "Read its checks with gh pr checks 7."},
+		},
+		{
+			name:      "gitlab",
+			forge:     forge.KindGitLab,
+			wantLines: []string{"komrad: merge request !7 (", "Read its checks with glab ci status --branch agent/x."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := render(pullrequeststore.PullRequest{Forge: tt.forge, Number: 7, HeadBranch: "agent/x"})
+			for _, line := range tt.wantLines {
+				assert.Contains(t, body, line)
 			}
 		})
 	}

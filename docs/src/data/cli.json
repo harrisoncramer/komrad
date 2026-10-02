@@ -31,6 +31,7 @@
       "engine",
       "forge",
       "github",
+      "gitlab",
       "hook",
       "log",
       "migrate",
@@ -245,7 +246,7 @@
     "usage": "komrad forge connect \u003chost\u003e [flags]",
     "aliases": [],
     "short": "Connect a forge with a token read from stdin, or as the engine's GitHub App",
-    "long": "Connect a forge with a token read from stdin, or as the engine's GitHub App.\n\nWith --method token, the default, the token is read from standard input, or from\nthe file --token-file names. It is never taken as an argument, since arguments are\nvisible to every process on the machine. Pipe it in:\n\n    gh auth token | komrad forge connect github.com\n    op read op://vault/github/token | komrad forge connect github.com\n    komrad forge connect gitlab.com --token-file ~/.config/gitlab-token\n    komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token\n\nA GitLab token is a personal access token with the api scope. A remote on an SSH\nhost of its own, such as ssh.gitlab.example.com, reaches the connection for its web\nhost once [git] ssh_hosts in the config names the pair.\n\nWith --method github-app nothing is read. The service mints a token from the App\nnamed under [github_app] in its own config, checks the installation reaches at\nleast one repository, and records the App's own name as the login. That is the\nengine's path, where nobody is there to paste a token and the App's key is already\non the machine: komrad forge connect github.com --method github-app --engine remote.\n\nThe service asks the forge who the credential belongs to before storing anything,\nso a token that is wrong or expired is refused here rather than found out later.\nThat proves the token is real, not that it can read your repositories: a token with\nno permissions answers the same question, and shows up later as a repository the\nforge says it cannot find. github.com and gitlab.com say which forge they run; any\nother host needs --kind, and --api-url when the API is not at https://\u003chost\u003e/api/v3\nfor GitHub or /api/v4 for GitLab. The address has to be https.",
+    "long": "Connect a forge with a token read from stdin, or as the engine's GitHub App.\n\nWith --method token, the default, the token is read from standard input, or from\nthe file --token-file names. It is never taken as an argument, since arguments are\nvisible to every process on the machine. Pipe it in:\n\n    gh auth token | komrad forge connect github.com\n    op read op://vault/github/token | komrad forge connect github.com\n    komrad forge connect gitlab.com --token-file ~/.config/gitlab-token\n    komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token\n\nA GitLab token is a personal access token with the api scope. A remote on an SSH\nhost of its own, such as ssh.gitlab.example.com, reaches the connection for its web\nhost once [git] ssh_hosts in the config names the pair.\n\nWith --method github-app nothing is read. The service mints a token from the App\nnamed under [github_app] in its own config, checks the installation reaches at\nleast one repository, and records the App's own name as the login. That is the\nengine's path, where nobody is there to paste a token and the App's key is already\non the machine: komrad forge connect github.com --method github-app --engine remote.\n\nWith --method rotating-token the token is read as for token, and the host has to\nrun GitLab. The token needs the api scope. The service rotates it at once and keeps\nonly the new one, then rotates it again each day before it expires, so the token\nyou pasted stops working as soon as the connection is made.\n\nThe service asks the forge who the credential belongs to before storing anything,\nso a token that is wrong or expired is refused here rather than found out later.\nThat proves the token is real, not that it can read your repositories: a token with\nno permissions answers the same question, and shows up later as a repository the\nforge says it cannot find. github.com and gitlab.com say which forge they run; any\nother host needs --kind, and --api-url when the API is not at https://\u003chost\u003e/api/v3\nfor GitHub or /api/v4 for GitLab. The address has to be https.",
     "example": "",
     "flags": [
       {
@@ -267,7 +268,7 @@
         "shorthand": "",
         "type": "string",
         "default": "token",
-        "usage": "how the credential comes: token from stdin, or github-app from the App in the service's config"
+        "usage": "how the credential comes: token or rotating-token from stdin, or github-app from the App in the service's config"
       },
       {
         "name": "token-file",
@@ -435,6 +436,108 @@
         "usage": "print nothing and succeed when the config names no app"
       }
     ],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "gitlab",
+    "path": "komrad gitlab",
+    "parent": "",
+    "usage": "komrad gitlab",
+    "aliases": [],
+    "short": "Reach GitLab with the token its forge connection holds",
+    "long": "Reach GitLab with the token its forge connection holds.\n\nGitLab has no App to mint short-lived tokens from, so komrad hands out the token the\nhost was connected with through komrad forge connect. The glab stand-in komrad puts\nahead of an agent's PATH and git's credential helper both read it here, so neither\nkeeps a copy of its own.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": [
+      "gitlab/config",
+      "gitlab/credential"
+    ]
+  },
+  {
+    "slug": "gitlab/config",
+    "path": "komrad gitlab config",
+    "parent": "gitlab",
+    "usage": "komrad gitlab config [flags]",
+    "aliases": [],
+    "short": "Print the glab config a checkout's GitLab is reached with",
+    "long": "Print the glab config a checkout's GitLab is reached with, as glab's config.yml.\n\nThe stand-in komrad puts ahead of an agent's PATH as glab runs this for every call.\n--checkout names the tree it was run in, whose origin says which host to answer\nfor. The config names that host alone, so glab hands the token to no other host.\n--if-configured prints nothing and succeeds when the origin is not on a\nconnected GitLab host, which leaves glab the credential the machine was logged in\nwith.",
+    "example": "",
+    "flags": [
+      {
+        "name": "checkout",
+        "shorthand": "",
+        "type": "string",
+        "default": ".",
+        "usage": "the checkout whose origin names the gitlab host"
+      },
+      {
+        "name": "if-configured",
+        "shorthand": "",
+        "type": "bool",
+        "default": "false",
+        "usage": "print nothing and succeed when the host has no gitlab connection"
+      }
+    ],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "gitlab/credential",
+    "path": "komrad gitlab credential",
+    "parent": "gitlab",
+    "usage": "komrad gitlab credential",
+    "aliases": [],
+    "short": "Answer git's credential helper protocol with a GitLab connection's token",
+    "long": "Answer git when it asks for a password.\n\nGit runs this and describes what it wants to reach. This answers only for https to\na host connected as a GitLab forge with a token. Anything else gets no answer, so\ngit falls back to whatever else the account has configured.\n\nSet it up for each GitLab host with:\n\n    git config --global credential.https://gitlab.com.helper '!komrad gitlab credential'",
+    "example": "",
+    "flags": [],
     "inherited": [
       {
         "name": "config",

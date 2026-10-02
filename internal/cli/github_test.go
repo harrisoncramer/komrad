@@ -3,6 +3,8 @@ package cli
 import (
 	"testing"
 
+	"komrad/internal/git"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,9 +13,10 @@ import (
 // another forge getting a refusal naming it rather than a gh that fails later.
 func TestRequireGitHubRemote(t *testing.T) {
 	tests := []struct {
-		name    string
-		remote  string
-		wantErr string
+		name     string
+		remote   string
+		sshHosts git.SSHHostsReader
+		wantErr  string
 	}{
 		{
 			name:   "an https remote on github",
@@ -22,6 +25,13 @@ func TestRequireGitHubRemote(t *testing.T) {
 		{
 			name:   "an ssh remote on github",
 			remote: "git@github.com:harrisoncramer/komrad.git",
+		},
+		{
+			name:   "an ssh remote on an alias the config names for github",
+			remote: "git@github-work:harrisoncramer/komrad.git",
+			sshHosts: func() (map[string]string, error) {
+				return map[string]string{"github-work": "github.com"}, nil
+			},
 		},
 		{
 			name:   "a remote git cannot be asked about",
@@ -41,7 +51,8 @@ func TestRequireGitHubRemote(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := requireGitHubRemote(tt.remote)
+			client := git.NewClient(git.NewClientParams{SSHHosts: tt.sshHosts})
+			err := requireGitHubRemote(t.Context(), client, tt.remote)
 
 			if tt.wantErr == "" {
 				require.NoError(t, err)

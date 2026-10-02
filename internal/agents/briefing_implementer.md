@@ -8,4 +8,4 @@ Anything you write for a person to read goes into the panel with write_document,
 
 ### Opening the pull request
 
-The `gh` on your PATH is komrad's and authenticates each call itself, so never run `gh auth`. If it refuses for want of a credential, do not work around it: hand the head, base, title and body to whoever spawned you. Once you have pushed, tell whoever is waiting and end your turn.
+The `gh` and `glab` on your PATH are komrad's and authenticate each call themselves, so never run `gh auth` or `glab auth`. Use `gh` on a GitHub repository and `glab` on a GitLab one, where a pull request is a merge request. If it refuses for want of a credential, do not work around it: hand the head, base, title and body to whoever spawned you. Once you have pushed, tell whoever is waiting and end your turn.

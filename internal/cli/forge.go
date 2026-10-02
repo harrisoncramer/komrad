@@ -66,6 +66,11 @@ least one repository, and records the App's own name as the login. That is the
 engine's path, where nobody is there to paste a token and the App's key is already
 on the machine: komrad forge connect github.com --method github-app --engine remote.
 
+With --method rotating-token the token is read as for token, and the host has to
+run GitLab. The token needs the api scope. The service rotates it at once and keeps
+only the new one, then rotates it again each day before it expires, so the token
+you pasted stops working as soon as the connection is made.
+
 The service asks the forge who the credential belongs to before storing anything,
 so a token that is wrong or expired is refused here rather than found out later.
 That proves the token is real, not that it can read your repositories: a token with
@@ -90,10 +95,17 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 				}
 
 				req.Method, req.Token = forge.MethodToken, tokenForTheWire(token)
+			case "rotating-token":
+				token, err := readToken(cmd.InOrStdin(), tokenFile)
+				if err != nil {
+					return err
+				}
+
+				req.Method, req.Token = forge.MethodRotatingToken, tokenForTheWire(token)
 			case "github-app":
 				req.Method = forge.MethodGitHubApp
 			default:
-				return fmt.Errorf("--method is token or github-app, not %q", method)
+				return fmt.Errorf("--method is token, rotating-token or github-app, not %q", method)
 			}
 
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
@@ -112,7 +124,7 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 	cmd.Flags().StringVar(&kind, "kind", "", "which forge the host runs, github or gitlab, when the host does not say")
 	cmd.Flags().StringVar(&apiURL, "api-url", "", "where the forge answers API calls, for an enterprise host")
 	cmd.Flags().StringVar(&tokenFile, "token-file", "", "read the token from this file instead of stdin")
-	cmd.Flags().StringVar(&method, "method", "token", "how the credential comes: token from stdin, or github-app from the App in the service's config")
+	cmd.Flags().StringVar(&method, "method", "token", "how the credential comes: token or rotating-token from stdin, or github-app from the App in the service's config")
 
 	return cmd
 }
