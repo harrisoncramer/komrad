@@ -93,7 +93,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 			t.Parallel()
 
 			dir := tt.build(t)
-			client := git.NewClient()
+			client := git.NewClient(git.NewClientParams{})
 			if tt.lock {
 				gitDir := out(t, dir, "rev-parse", "--absolute-git-dir")
 				require.NoError(t, os.WriteFile(filepath.Join(gitDir, "index.lock"), nil, 0o600))
@@ -119,7 +119,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 func TestIntegrationReadRebaseOnto(t *testing.T) {
 	t.Parallel()
 
-	client := git.NewClient()
+	client := git.NewClient(git.NewClientParams{})
 
 	idle, err := client.ReadRebaseOnto(t.Context(), newRepo(t))
 	require.NoError(t, err)

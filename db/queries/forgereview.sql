@@ -6,8 +6,7 @@ SELECT
 FROM
     pull_requests p
 WHERE
-    p.forge = 'github'
-    AND p.merged_at IS NULL
+    p.merged_at IS NULL
     AND p.closed_at IS NULL
     AND EXISTS (
         SELECT

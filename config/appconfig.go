@@ -274,7 +274,7 @@ type FormKeys struct {
 	Editor []string
 	// Abort the form and quit the panel.
 	Quit []string
-	// Submit the form, plain enter belonging to the text inputs.
+	// Submit the form from any field.
 	Submit []string
 	// Send a review as it stands and stop the agent where it is, beside the submit key that
 	// sends without interrupting.
@@ -287,7 +287,7 @@ func FixedFormKeys() FormKeys {
 		Back:    []string{"esc"},
 		Editor:  []string{"ctrl+e"},
 		Quit:    []string{"ctrl+c"},
-		Submit:  []string{"ctrl+s"},
+		Submit:  []string{"enter"},
 		SendNow: []string{"ctrl+x"},
 	}
 }
@@ -557,6 +557,8 @@ type ReviewKeys struct {
 	Reload []string `mapstructure:"reload" default:"R"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
+	// Send the comments waiting in your review to the agent, after asking for a note on the work as a whole.
+	Send []string `mapstructure:"send" default:"s"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
 	// the agent writes to afterwards comes back on its own.
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`
@@ -670,6 +672,39 @@ type Worktrees struct {
 	// Directory generated worktrees are created under, one subdirectory per agent.
 	// Left empty this is ~/.local/state/komrad/worktrees.
 	Dir string `mapstructure:"dir"`
+}
+
+// Git is how komrad reads the checkouts its agents work in.
+type Git struct {
+	// SSH hosts that stand in for a forge's web host, each written as "ssh_host=web_host", such
+	// as "ssh.gitlab.example.com=gitlab.example.com". A remote on the SSH host is then matched to
+	// the forge connected for the web host. Write host names only, with no port, scheme or
+	// user. Public aliases such as ssh.github.com and altssh.gitlab.com are already known.
+	SSHHosts []string `mapstructure:"ssh_hosts"`
+}
+
+// GetSSHHosts is the SSH hosts keyed to the web host each stands in for, lowercased.
+func (g Git) GetSSHHosts() (map[string]string, error) {
+	hosts := make(map[string]string, len(g.SSHHosts))
+	for _, entry := range g.SSHHosts {
+		ssh, web, ok := strings.Cut(entry, "=")
+		ssh, web = strings.ToLower(strings.TrimSpace(ssh)), strings.ToLower(strings.TrimSpace(web))
+		if !ok || !isBareHost(ssh) || !isBareHost(web) {
+			return nil, fmt.Errorf("%q is not written as ssh_host=web_host, with host names only", entry)
+		}
+		if _, seen := hosts[ssh]; seen {
+			return nil, fmt.Errorf("%q names %s a second time", entry, ssh)
+		}
+
+		hosts[ssh] = web
+	}
+
+	return hosts, nil
+}
+
+// isBareHost says whether a host carries no port, scheme, user or path.
+func isBareHost(host string) bool {
+	return host != "" && !strings.ContainsAny(host, ":/@= \t")
 }
 
 // GitHubApp is the App an engine fetches and pushes as.
@@ -958,6 +993,8 @@ type Config struct {
 	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
+	// How komrad reads the git checkouts its agents work in.
+	Git Git `mapstructure:"git"`
 	// The GitHub App an engine fetches and pushes as.
 	GitHubApp GitHubApp `mapstructure:"github_app"`
 	// The standing text every agent is started with, whatever workflow it is in.
@@ -1123,6 +1160,9 @@ func (c Config) validate() error {
 	}
 	if err := validateMail(c.Mail); err != nil {
 		return err
+	}
+	if _, err := c.Git.GetSSHHosts(); err != nil {
+		return fmt.Errorf("git.ssh_hosts: %w", err)
 	}
 	if err := validateGlyphs(c.Glyphs); err != nil {
 		return err

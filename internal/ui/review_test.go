@@ -236,7 +236,7 @@ func TestReviewCursor(t *testing.T) {
 		typeText(harness, "still here")
 
 		wheelOver(harness, defaultHarnessWidth-1)
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			AgentId:     "a1",
@@ -326,7 +326,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "this should say hello")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			AgentId:     "a1",
@@ -350,7 +350,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "this should say hello")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "  Comment")
@@ -365,10 +365,10 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "this should say hello")
-		harness.press("ctrl+s")
+		harness.press("enter")
 		harness.press("j", "j", "j")
 		harness.release(agentv1connect.AgentServiceCreateReviewThreadProcedure)
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure)
 		require.Len(t, sent, 2)
@@ -435,7 +435,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "yes, that is it")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceAddReviewMessageProcedure, &agentv1.AddReviewMessageRequest{
 			ThreadId: "t1",
@@ -476,7 +476,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("t", "c")
 		typeText(harness, "because")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceAddReviewMessageProcedure, &agentv1.AddReviewMessageRequest{
 			ThreadId: "t1",
@@ -1016,9 +1016,9 @@ func TestReviewRelease(t *testing.T) {
 	t.Run("the panel sends with no verdict and says how many comments went", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		harness.press("ctrl+s")
+		harness.press("s")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
 			AgentId: "a1",
@@ -1029,9 +1029,9 @@ func TestReviewRelease(t *testing.T) {
 	t.Run("the panel carries a word about the whole change", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		harness.press("ctrl+s")
+		harness.press("s")
 		typeText(harness, "the shape is right")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
 			AgentId: "a1",
@@ -1042,7 +1042,7 @@ func TestReviewRelease(t *testing.T) {
 	t.Run("escape puts the panel away and sends nothing", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		harness.press("ctrl+s", "esc", "ctrl+s")
+		harness.press("s", "esc", "s")
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
 	})
@@ -1161,7 +1161,7 @@ func TestReviewOfAnAgentThatIsGone(t *testing.T) {
 
 			harness.press("c")
 			assert.NotContains(t, harness.readFrame(), "  Comment")
-			harness.press("ctrl+s", "ctrl+s")
+			harness.press("s", "enter")
 			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
 			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceAddReviewMessageProcedure))
 
@@ -1352,7 +1352,7 @@ func TestReviewOwnComments(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "still reads like a changelog")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceAddReviewMessageProcedure, &agentv1.AddReviewMessageRequest{
 			ThreadId: "greet.go:1",
@@ -1565,7 +1565,7 @@ func TestReviewExpand(t *testing.T) {
 		harness.press("E", "G", "c")
 		require.Equal(t, "tall.go:13", readReviewCursor(harness.readFrame()))
 		typeText(harness, "unchanged and wrong")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure)
 		require.Len(t, sent, 1)
@@ -1673,7 +1673,7 @@ func TestReviewRounds(t *testing.T) {
 
 		harness.press("<", "c")
 		typeText(harness, "this line")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			AgentId:     "a1",
@@ -1696,7 +1696,7 @@ func TestReviewRounds(t *testing.T) {
 		assert.NotContains(t, readLegend(harness.readFrame()), "send to the agent")
 		harness.press("?")
 
-		for _, key := range []string{"c", "ctrl+s"} {
+		for _, key := range []string{"c", "s"} {
 			harness.press(key)
 
 			frame := harness.readFrame()
@@ -1751,7 +1751,7 @@ func TestReviewRounds(t *testing.T) {
 		harness.release(agentv1connect.AgentServiceListReviewRoundsProcedure)
 
 		assert.NotContains(t, harness.readFrame(), "  Comment")
-		harness.press("ctrl+s")
+		harness.press("enter")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
@@ -1942,10 +1942,10 @@ func TestReviewComposer(t *testing.T) {
 		assert.Contains(t, sidebar, "opens $EDITOR")
 	})
 
-	t.Run("return makes a line rather than sending", func(t *testing.T) {
+	t.Run("ctrl+j makes a line rather than sending", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		harness.press("c", "o", "n", "e", "enter", "t", "w", "o")
+		harness.press("c", "o", "n", "e", "ctrl+j", "t", "w", "o")
 
 		assert.Contains(t, readPopupProse(harness.readFrame()), "one")
 		assert.Contains(t, readPopupProse(harness.readFrame()), "two")
@@ -1977,10 +1977,10 @@ func TestReviewComposer(t *testing.T) {
 	t.Run("every line typed is drawn at a narrow sidebar", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 22, height: 60})
 
-		harness.press("ctrl+s")
+		harness.press("s")
 		typeText(harness, "one")
 		for _, line := range []string{"two", "three", "four"} {
-			harness.press("enter")
+			harness.press("ctrl+j")
 			typeText(harness, line)
 		}
 
@@ -2792,7 +2792,7 @@ func TestReviewChange(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "split this in two")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			AgentId:     "a1",

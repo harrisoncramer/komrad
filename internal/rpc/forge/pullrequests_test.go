@@ -95,7 +95,7 @@ func TestListForgePullRequests(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
 
 	resp, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl: "git@github.com:harrisoncramer/komrad.git",
@@ -124,6 +124,23 @@ func TestListForgePullRequests(t *testing.T) {
 	assert.Empty(t, cmp.Diff(want, resp.Msg, protocmp.Transform()))
 }
 
+// TestListForgePullRequestsReadsTheRemoteThroughTheParser pins that the host the parser answers is the connection asked for.
+func TestListForgePullRequestsReadsTheRemoteThroughTheParser(t *testing.T) {
+	connector := &fakeConnector{
+		connections: []forgestore.Connection{newConnection()},
+		forge:       &fakeForge{},
+	}
+	remotes := &fakeRemoteURLParser{host: "gitlab.example.com"}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, remotes)}
+
+	_, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
+		RemoteUrl: "git@ssh.gitlab.example.com:group/repo.git",
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"gitlab.example.com"}, connector.hosts)
+}
+
 // TestListForgePullRequestsPages pins that a page token carries the forge's cursor and the page size.
 func TestListForgePullRequestsPages(t *testing.T) {
 	listing := &fakeForge{hasMore: true}
@@ -131,7 +148,7 @@ func TestListForgePullRequestsPages(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
 
 	first, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl:  "git@github.com:harrisoncramer/komrad.git",
@@ -182,7 +199,7 @@ func TestMergeForgePullRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			writer := &fakeWriter{err: tt.refuse}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer, &fakeRemoteURLParser{})}
 
 			_, err := service.MergeForgePullRequest(t.Context(), connect.NewRequest(&forgev1.MergeForgePullRequestRequest{Url: address}))
 
@@ -221,7 +238,7 @@ func TestSetForgePullRequestDraft(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			writer := &fakeWriter{err: tt.refuse}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer, &fakeRemoteURLParser{})}
 
 			_, err := service.SetForgePullRequestDraft(t.Context(), connect.NewRequest(&forgev1.SetForgePullRequestDraftRequest{Url: address, Draft: true}))
 
@@ -260,7 +277,7 @@ func TestRequestForgePullRequestRereview(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			writer := &fakeWriter{err: tt.refuse}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer, &fakeRemoteURLParser{})}
 
 			_, err := service.RequestForgePullRequestRereview(t.Context(), connect.NewRequest(&forgev1.RequestForgePullRequestRereviewRequest{Url: address}))
 
@@ -299,7 +316,7 @@ func TestSetForgePullRequestAutoMerge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			writer := &fakeWriter{err: tt.refuse}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer, &fakeRemoteURLParser{})}
 
 			_, err := service.SetForgePullRequestAutoMerge(t.Context(), connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
 				Url:     address,

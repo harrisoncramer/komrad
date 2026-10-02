@@ -31,6 +31,7 @@ import (
 
 type services struct {
 	loadConfig   func() (*config.Config, error)
+	git          *git.Client
 	queue        *jobs.Enqueuer
 	script       *scriptrun.ScriptService
 	agents       agentServices
@@ -107,7 +108,14 @@ func BuiltinScriptsDir(cacheDir string) string {
 
 func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
-	gitClient := git.NewClient()
+	gitClient := git.NewClient(git.NewClientParams{SSHHosts: func() (map[string]string, error) {
+		cfg, err := loadConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		return cfg.Git.GetSSHHosts()
+	}})
 
 	runLogsDir := params.Env.RunLogsDir()
 	scriptService, err := buildScripts(buildScriptsParams{
@@ -208,6 +216,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			}),
 		},
 		pullRequests: pullRequestGroup,
+		git:          gitClient,
 		checkouts: checkoutServices{
 			service: checkouts.NewService(checkouts.NewServiceParams{
 				Agents:          st.agents,

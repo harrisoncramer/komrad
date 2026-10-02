@@ -61,11 +61,12 @@ func (e *nameEdit) take(m *model, msg tea.Msg) nameEditStep {
 			return nameEditHidden
 		}
 
-		switch step := e.input.take(msg, m.register); {
-		case step == lineLeft:
+		switch e.input.take(msg, m.register) {
+		case lineLeft:
 			return nameEditCancelled
-		case step == lineEntered || (step == lineIgnored && isBound(msg.String(), formKeys().Submit)):
+		case lineEntered:
 			return nameEditSubmitted
+		case lineIgnored, lineKept, lineChanged:
 		}
 	}
 
@@ -82,7 +83,7 @@ func (e *nameEdit) takeGone(m *model, msg tea.Msg) nameEditStep {
 	switch k := key.String(); {
 	case k == "ctrl+c":
 		return nameEditHidden
-	case k == "esc" || k == "enter" || isBound(k, formKeys().Submit):
+	case k == "esc" || isBound(k, formKeys().Submit):
 		return nameEditCancelled
 	}
 
@@ -166,7 +167,7 @@ func stampRename(cmd tea.Cmd, row string) tea.Cmd {
 }
 
 func renameHelp() keyMap {
-	save := binding(append([]string{"enter"}, formKeys().Submit...), "save")
+	save := binding(formKeys().Submit, "save")
 	cancel := binding([]string{"esc"}, "cancel")
 
 	return keyMap{short: []key.Binding{save, cancel}, full: []key.Binding{save, cancel}}

@@ -53,6 +53,12 @@ visible to every process on the machine. Pipe it in:
 
     gh auth token | komrad forge connect github.com
     op read op://vault/github/token | komrad forge connect github.com
+    komrad forge connect gitlab.com --token-file ~/.config/gitlab-token
+    komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token
+
+A GitLab token is a personal access token with the api scope. A remote on an SSH
+host of its own, such as ssh.gitlab.example.com, reaches the connection for its web
+host once [git] ssh_hosts in the config names the pair.
 
 With --method github-app nothing is read. The service mints a token from the App
 named under [github_app] in its own config, checks the installation reaches at

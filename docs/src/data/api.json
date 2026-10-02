@@ -4269,6 +4269,16 @@
           "oneof": "",
           "rules": [],
           "description": "The commit the forge holds at the head of the current pull request, unset for UNREAD and NONE."
+        },
+        {
+          "name": "forge",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Which forge the current pull request lives on, such as github, unset for UNREAD and NONE."
         }
       ]
     },

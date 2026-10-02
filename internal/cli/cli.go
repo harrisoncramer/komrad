@@ -22,6 +22,7 @@ import (
 	"komrad/internal/tmux"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
+	"komrad/internal/version"
 
 	"github.com/spf13/cobra"
 )
@@ -54,6 +55,7 @@ anything. Every other command here is a client of the same service.
 ` + "`komrad open`" + ` brings the panel up in this terminal, and the other commands are
 for the times something has to be done by hand: check the machine, start or stop
 the service, or call an endpoint from a script.`,
+		Version:       version.Describe(version.Version(), version.Commit()),
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

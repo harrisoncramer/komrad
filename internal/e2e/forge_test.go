@@ -329,7 +329,7 @@ func startFakeGitLab(t *testing.T) *fakeForge {
 			"approvedBy":                   map[string]any{"count": 1},
 			"reviewers":                    map[string]any{"nodes": []map[string]any{{"mergeRequestInteraction": map[string]any{"reviewState": "APPROVED"}}}},
 			"diffHeadSha":                  "aaa",
-			"headPipeline":                 map[string]any{"status": "SUCCESS"},
+			"headPipeline":                 map[string]any{"sha": "aaa", "status": "SUCCESS"},
 			"detailedMergeStatus":          "MERGEABLE",
 			"autoMergeEnabled":             fake.autoMerge.Load(),
 			"availableAutoMergeStrategies": strategies,
@@ -367,10 +367,7 @@ func startFakeGitLab(t *testing.T) *fakeForge {
 			open, merged := mergeRequest(12, "ship the widgets", "opened", false), mergeRequest(9, "first cut", "merged", true)
 			maps.Copy(open, readStanding())
 			maps.Copy(merged, readStanding())
-			writeJSON(t, w, map[string]any{"data": map[string]any{
-				"project":         map[string]any{"b0": buildConnection(open, merged)},
-				"queryComplexity": map[string]any{"score": 20, "limit": 200},
-			}})
+			writeJSON(t, w, map[string]any{"data": map[string]any{"project": map[string]any{"mergeRequests": buildConnection(open, merged)}}})
 		case "AutoMergeTarget":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"project": map[string]any{"mergeRequest": map[string]any{
 				"state":                        "opened",

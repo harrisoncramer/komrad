@@ -100,22 +100,30 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "a failing pull request",
 			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING)),
-			want: []string{prFailingNotice},
+			want: []string{"its pull request has a failing check"},
 		},
 		{
 			name: "a conflicting pull request",
 			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING)),
-			want: []string{prConflictingNotice},
+			want: []string{"its pull request no longer merges cleanly"},
 		},
 		{
 			name: "a pull request with changes requested",
 			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED)),
-			want: []string{prChangesNotice},
+			want: []string{"its pull request has changes requested"},
 		},
 		{
 			name: "a draft pull request",
 			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT)),
-			want: []string{prDraftNotice},
+			want: []string{"its pull request is still a draft"},
+		},
+		{
+			name: "a draft merge request",
+			row: buildNoticeRow(panel.AgentRow{PullRequest: panel.PullRequestStanding{
+				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
+				Forge: "gitlab",
+			}}),
+			want: []string{"its merge request is still a draft"},
 		},
 		{
 			name: "a branch with no pull request",
@@ -152,7 +160,7 @@ func TestAgentNotices(t *testing.T) {
 				Documents:   1,
 				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING},
 			}),
-			want: []string{failedRunNotice, prConflictingNotice, unreadMailNotice, documentsNotice},
+			want: []string{failedRunNotice, "its pull request no longer merges cleanly", unreadMailNotice, documentsNotice},
 		},
 		{
 			name: "an approved pull request comes after mail and before the directory",
@@ -161,7 +169,7 @@ func TestAgentNotices(t *testing.T) {
 				UnreadMail:  true,
 				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED},
 			}),
-			want: []string{unreadMailNotice, prApprovedNotice, worktreeRemovedNotice},
+			want: []string{unreadMailNotice, "its pull request is approved and ready to merge", worktreeRemovedNotice},
 		},
 		{
 			name: "an open pull request comes after documents",
@@ -169,7 +177,7 @@ func TestAgentNotices(t *testing.T) {
 				Documents:   1,
 				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN},
 			}),
-			want: []string{documentsNotice, prOpenNotice},
+			want: []string{documentsNotice, "its pull request is open and waiting on a review"},
 		},
 		{
 			name: "the person's comments read",

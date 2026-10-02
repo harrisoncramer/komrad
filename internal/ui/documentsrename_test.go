@@ -75,7 +75,7 @@ func TestDocumentsRenameField(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readHoveredRow(frame), "Design the cachejec▏")
-		assert.Contains(t, readLegend(frame), "enter/C-s save")
+		assert.Contains(t, readLegend(frame), "enter save")
 		assert.Equal(t, documentsScreen, harness.readScreen())
 	})
 

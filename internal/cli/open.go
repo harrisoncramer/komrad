@@ -273,7 +273,7 @@ func setUpWorkflowHere(ctx context.Context, state *app) {
 	httpClient := xhttp.NewClient(0)
 	if err := autoSetup(ctx, autoSetupParams{
 		Dir:       dir,
-		Git:       git.NewClient(),
+		Git:       git.NewClient(git.NewClientParams{}),
 		Workflows: workflowv1connect.NewWorkflowServiceClient(httpClient, base),
 		Agents:    agentv1connect.NewAgentServiceClient(httpClient, base),
 	}); err != nil {

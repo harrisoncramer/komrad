@@ -99,7 +99,7 @@ func TestSchedulesKeys(t *testing.T) {
 			name:      "rename types over the hovered schedule's name",
 			rows:      buildSchedules(),
 			press:     slices.Concat([]string{"r"}, spellKeys("-2")),
-			wantDrawn: []string{"morning-ci-2▏", "enter/C-s save"},
+			wantDrawn: []string{"morning-ci-2▏", "enter save"},
 		},
 		{
 			name:      "rename on a long name keeps the cursor in view near its start",
@@ -477,7 +477,7 @@ func TestSchedulesForm(t *testing.T) {
 		typeText(harness, "x")
 		harness.press("tab")
 		typeText(harness, "0 9 * * *")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
 			Name:    "x",
@@ -505,7 +505,7 @@ func TestSchedulesForm(t *testing.T) {
 		typeText(harness, "nightly")
 		harness.press("tab")
 		typeText(harness, "0 9 * * *")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
 			Name:    "nightly",
@@ -528,7 +528,7 @@ func TestSchedulesForm(t *testing.T) {
 		typeText(harness, "nightly")
 		harness.press("tab")
 		typeText(harness, "0 9 * * *")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
 			Name:    "nightly",
@@ -559,7 +559,7 @@ func TestSchedulesForm(t *testing.T) {
 		assert.Contains(t, form, "check CI")
 		harness.press("tab")
 		typeText(harness, "-brief")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
 			Name:    "nightly-brief",
@@ -578,7 +578,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.press("space", "e")
 		require.Contains(t, readStageText(harness.readFrame()), "› orchestrator  api")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
 			Id:      "s1",
@@ -607,7 +607,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.press("space", "e", "tab", "tab", "tab", "tab")
 		typeText(harness, " harder")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
 			Id:         "s1",
@@ -655,7 +655,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.watch(buildSnapshot(newLiveWorkflow("w2", "other"), newSchedule("s1", "morning-ci")))
 		require.Contains(t, readStageText(harness.readFrame()), "w1  gone")
-		harness.press("ctrl+s")
+		harness.press("enter")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
 			Id:      "s1",

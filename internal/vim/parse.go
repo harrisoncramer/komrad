@@ -43,7 +43,7 @@ const (
 var (
 	operators = []string{"d", "c", "y"}
 	simples   = []string{"x", "X", "s", "S", "~", "p", "P", "J", "D", "C", "Y", "i", "a", "I", "A", "o", "O", "u", "ctrl+r", "."}
-	motions   = []string{"h", "l", "j", "k", "w", "b", "e", "W", "B", "E", "0", "^", "$", "G", ";", ",", "enter"}
+	motions   = []string{"h", "l", "j", "k", "w", "b", "e", "W", "B", "E", "0", "^", "$", "G", ";", ","}
 	finds     = []string{"f", "F", "t", "T"}
 )
 

@@ -80,7 +80,7 @@ func NewForgeThreadStore(db store.DBTX) *ForgeThreadStore {
 	return &ForgeThreadStore{queries: models.New(db)}
 }
 
-// ListCommentSyncTargets returns every open GitHub pull request a live agent is linked to, drafts included.
+// ListCommentSyncTargets returns every open pull request a live agent is linked to, drafts included.
 func (s *ForgeThreadStore) ListCommentSyncTargets(ctx context.Context) ([]CommentSyncTarget, error) {
 	rows, err := s.queries.ListCommentSyncPullRequests(ctx)
 	if err != nil {

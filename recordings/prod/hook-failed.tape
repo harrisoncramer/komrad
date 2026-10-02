@@ -12,7 +12,7 @@ Type "c"
 Type "Build neovim and run the unit tests."
 Tab
 Type "build"
-Ctrl+S
+Enter
 Wait+Screen@30s /a hook failed/
 Sleep 1s
 Escape

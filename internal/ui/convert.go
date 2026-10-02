@@ -133,12 +133,14 @@ func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) panel.PullRe
 		URL:            standing.GetUrl(),
 		Title:          standing.GetTitle(),
 		HeadSHA:        standing.GetHeadSha(),
+		Forge:          standing.GetForge(),
 		MergeReadiness: mergeReadinessFrom(standing.GetMergeReadiness()),
 	}
 }
 
 func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
 	return panel.PullRequest{
+		Forge:          pullRequest.GetForge(),
 		Number:         pullRequest.GetNumber(),
 		URL:            pullRequest.GetUrl(),
 		Title:          pullRequest.GetTitle(),

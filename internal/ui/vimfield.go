@@ -59,7 +59,7 @@ func (v *fieldVim) engineFor(key string, b vim.Buffer, singleLine bool) *vim.Eng
 func vimPasses() []string {
 	keys := formKeys()
 
-	return slices.Concat([]string{"tab", "shift+tab", "enter", "pgup", "pgdown"}, keys.Submit, keys.Editor, keys.SendNow, keys.Quit)
+	return slices.Concat([]string{"tab", "shift+tab", "pgup", "pgdown"}, keys.Submit, keys.Editor, keys.SendNow, keys.Quit)
 }
 
 // press hands a key to the engine of the field with the cursor, and reports whether it was a

@@ -242,7 +242,7 @@ func reviewGit(remote engine.Remote, engineGit gitv1connect.GitServiceClient) ui
 		return git.NewEngineClient(engineGit)
 	}
 
-	return git.NewClient()
+	return git.NewClient(git.NewClientParams{})
 }
 
 // scratchDir is where the panel keeps each engine's scratch file, empty when there is no home.

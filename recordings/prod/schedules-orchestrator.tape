@@ -22,7 +22,7 @@ Tab
 Tab
 Type "List the agents in your workflow and say in one sentence what each is doing."
 Tab
-Ctrl+S
+Enter
 Wait+Screen@10s /standup/
 Sleep 2s
 Shift+Tab

@@ -209,6 +209,8 @@ message PullRequestStanding {
   // The commit the forge holds at the head of the current pull request, unset for UNREAD and
   // NONE.
   optional string head_sha = 9;
+  // Which forge the current pull request lives on, such as github, unset for UNREAD and NONE.
+  optional string forge = 11;
 
   reserved 5 to 8;
   reserved "checks", "mergeability", "auto_merge", "auto_mergeable";

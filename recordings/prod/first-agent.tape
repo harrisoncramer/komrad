@@ -12,7 +12,7 @@ Type "c"
 Type "Where is :checkhealth implemented?"
 Tab
 Type "find-checkhealth"
-Ctrl+S
+Enter
 Sleep 2s
 Enter
 Wait+Screen@4m /done \d+:\d+ [AP]M/

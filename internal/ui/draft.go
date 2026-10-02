@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"time"
 
 	"komrad/internal/ui/panel"
@@ -14,12 +13,12 @@ const draftTimeout = 30 * time.Second
 
 // draftedMsg is a draft change come back.
 type draftedMsg struct {
-	name   string
-	number int32
-	title  string
-	draft  bool
-	err    error
-	write  int
+	name  string
+	ref   string
+	title string
+	draft bool
+	err   error
+	write int
 }
 
 // isDraft says whether the agent's pull request is a draft.
@@ -40,7 +39,7 @@ func draftLabel(item panel.AgentRow) string {
 // cannot.
 func (m *model) toggleDraft(item panel.AgentRow) tea.Cmd {
 	if err := openPullRequestRefusal(item); err != nil {
-		m.report("Could not change the pull request of "+item.Agent.Name, err)
+		m.report("Could not change the "+item.PullRequest.Noun()+" of "+item.Agent.Name, err)
 
 		return nil
 	}
@@ -48,10 +47,10 @@ func (m *model) toggleDraft(item panel.AgentRow) tea.Cmd {
 	clients := m.api
 	standing := item.PullRequest
 	drafted := draftedMsg{
-		name:   item.Agent.Name,
-		number: standing.Number,
-		title:  standing.Title,
-		draft:  !isDraft(item),
+		name:  item.Agent.Name,
+		ref:   standing.Ref(),
+		title: standing.Title,
+		draft: !isDraft(item),
 	}
 	drafted.write = m.beginWrite(draftingLabel(drafted))
 
@@ -68,17 +67,17 @@ func (m *model) applyDrafted(msg draftedMsg) tea.Cmd {
 
 	switch {
 	case msg.err != nil:
-		m.report(fmt.Sprintf("Could not change #%d of %s", msg.number, msg.name), msg.err)
+		m.report("Could not change "+msg.ref+" of "+msg.name, msg.err)
 	case msg.draft:
 		m.pushMessage(message{
 			kind:    messageInfo,
-			summary: fmt.Sprintf("%s: #%d is a draft", msg.name, msg.number),
+			summary: msg.name + ": " + msg.ref + " is a draft",
 			detail:  msg.title,
 		})
 	default:
 		m.pushMessage(message{
 			kind:    messageInfo,
-			summary: fmt.Sprintf("%s: #%d is ready for review", msg.name, msg.number),
+			summary: msg.name + ": " + msg.ref + " is ready for review",
 			detail:  msg.title,
 		})
 	}
@@ -92,8 +91,8 @@ func (m *model) applyDrafted(msg draftedMsg) tea.Cmd {
 
 func draftingLabel(drafted draftedMsg) string {
 	if drafted.draft {
-		return fmt.Sprintf("marking #%d a draft", drafted.number)
+		return "marking " + drafted.ref + " a draft"
 	}
 
-	return fmt.Sprintf("marking #%d ready", drafted.number)
+	return "marking " + drafted.ref + " ready"
 }
