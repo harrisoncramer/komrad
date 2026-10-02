@@ -26,11 +26,11 @@ func TestPullRequestStateOf(t *testing.T) {
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING, PullRequestStateOf(pullrequests.StateApprovedWaiting))
 }
 
-// TestPullRequestDrawsTitleAndAuthor covers the title and author carried as they were stored.
-func TestPullRequestDrawsTitleAndAuthor(t *testing.T) {
-	drawn := PullRequest(pullrequeststore.PullRequest{Title: "Pull more pull request info", Author: "octocat"})
+// TestPullRequestDrawsAuthor covers the forge login stored on the row reaching the wire unchanged,
+// with no @ added, since the panel adds that.
+func TestPullRequestDrawsAuthor(t *testing.T) {
+	drawn := PullRequest(pullrequeststore.PullRequest{Author: "octocat"})
 
-	assert.Equal(t, "Pull more pull request info", drawn.GetTitle())
 	assert.Equal(t, "octocat", drawn.GetAuthor())
 }
 

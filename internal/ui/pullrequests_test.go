@@ -147,7 +147,7 @@ func TestPullRequestFields(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		standing     pullrequestv1.PullRequestState
+		state        pullrequestv1.PullRequestState
 		pullRequests []panel.PullRequest
 		want         []recordField
 	}{
@@ -161,7 +161,11 @@ func TestPullRequestFields(t *testing.T) {
 		{
 			name: "the current one's title and author",
 			pullRequests: []panel.PullRequest{
-				{Number: 742, Title: "Read pull request authors", Author: "harrisoncramer"},
+				{
+					Number: 742,
+					Title:  "Read pull request authors",
+					Author: "harrisoncramer",
+				},
 			},
 			want: []recordField{
 				{label: "title", value: "Read pull request authors"},
@@ -196,8 +200,8 @@ func TestPullRequestFields(t *testing.T) {
 			want: []recordField{{label: "pull requests", value: "#711 merged, #708 closed"}},
 		},
 		{
-			name:     "a branch moved past its last one shows no current title or author",
-			standing: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+			name:  "a branch moved past its last one shows no current title or author",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
 			pullRequests: []panel.PullRequest{
 				{
 					Number:   711,
@@ -215,7 +219,7 @@ func TestPullRequestFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pullRequestFields(panel.PullRequestStanding{State: tt.standing}, tt.pullRequests))
+			assert.Equal(t, tt.want, pullRequestFields(panel.PullRequestStanding{State: tt.state}, tt.pullRequests))
 		})
 	}
 }
@@ -228,25 +232,32 @@ func TestAgentFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
 		Branch: xptr.Ptr("agent/x"),
 	}
 	pullRequests := []panel.PullRequest{
-		{Number: 7, Title: "Fix", Author: "octocat", State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN},
+		{
+			Number: 7,
+			Title:  "Fix",
+			Author: "octocat",
+			State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		},
 		{Number: 5, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED},
 	}
 
-	fields := agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests})
-	labels := xslice.Map(fields, func(field recordField) string {
-		return field.label
-	})
+	labels := readLabels(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}))
 
 	branch := indexOf(labels, "branch")
 	require.NotEqual(t, -1, branch)
 	assert.Equal(t, []string{"title", "author", "pull requests"}, labels[branch+1:branch+4])
 
 	agent.Branch = nil
-	labels = xslice.Map(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}), func(field recordField) string {
+	labels = readLabels(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}))
+	for _, absent := range []string{"title", "author", "pull requests"} {
+		assert.NotContains(t, labels, absent)
+	}
+}
+
+func readLabels(fields []recordField) []string {
+	return xslice.Map(fields, func(field recordField) string {
 		return field.label
 	})
-	assert.NotContains(t, labels, "pull requests")
-	assert.NotContains(t, labels, "author")
 }
 
 func indexOf(labels []string, label string) int {

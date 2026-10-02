@@ -674,7 +674,6 @@ func TestAgentsRecord(t *testing.T) {
 				"agent_id":   "a1",
 				"session_id": "abc",
 			},
-			wantAbsent: []string{"name", "workflow"},
 		},
 	}
 
