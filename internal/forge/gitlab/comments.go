@@ -55,12 +55,15 @@ func (f *Forge) ReviewThreads(ctx context.Context, repo git.RemoteURL, number in
 		}
 		discussions = append(discussions, page.Nodes...)
 		if !page.PageInfo.HasNextPage {
-			return threadsOf(discussions, false), nil
+			return threadsOf(discussions), nil
 		}
 		cursor = page.PageInfo.EndCursor
 	}
 
-	return threadsOf(discussions, true), nil
+	answer := threadsOf(discussions)
+	answer.Truncated = true
+
+	return answer, nil
 }
 
 // readDiscussions is one page of a merge request's discussions, starting after the cursor.
@@ -136,8 +139,8 @@ type discussionsPage struct {
 	Nodes    []discussionNode `json:"nodes"`
 }
 
-func threadsOf(discussions []discussionNode, truncated bool) *forge.Threads {
-	answer := &forge.Threads{Truncated: truncated}
+func threadsOf(discussions []discussionNode) *forge.Threads {
+	answer := &forge.Threads{}
 
 	for _, node := range discussions {
 		answer.Truncated = answer.Truncated || node.Notes.PageInfo.HasNextPage
