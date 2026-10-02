@@ -15,7 +15,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 	standing := func(m *model) bool { return m.filter.isStanding() }
 
 	return screenActionSpec{
-		table: []screenAction{
+		table: append([]screenAction{
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
@@ -52,26 +52,11 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 			},
 			{
-				id:   actionMove,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav:  list.movePressed,
-			},
-			{
-				id:   actionNavPage,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav:  list.pagePressed,
-			},
-			{
-				id:   actionColumnScroll,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav:  list.scrollPressed,
-			},
-			{
 				id:     actionScheduleRename,
 				keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
 				direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return w.openRename(m) }),
 			},
-		},
+		}, navActions(list, navSteps{page: navPageStep, scroll: 1})...),
 		legend: []screenLegendRow{
 			{
 				of:   []actionID{actionScheduleRename},
@@ -95,6 +80,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				desc:  func(*model) string { return "page" },
 				label: navPageLabel,
 			},
+			navJumpRow(),
 			{
 				of:    []actionID{actionColumnScroll},
 				desc:  func(*model) string { return "scroll" },

@@ -42,7 +42,7 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
-	return r.actions(m).dispatch(m, k)
+	return r.actions(m).dispatchTop(m, k)
 }
 
 // refuseWrite says why a key that would write to the agent did nothing.
@@ -188,7 +188,7 @@ func (r *reviewScreen) scrollColumn(m *model, rows int) tea.Cmd {
 		return nil
 	}
 
-	return r.diffKeys().scrollColumn(m, rows)
+	return r.diffKeys().moveBy(m, rows)
 }
 
 // scrollList presses the scroll key once for every row, past the popup.
@@ -244,4 +244,41 @@ func (r *reviewScreen) scrollPopup(m *model, rows int) bool {
 	r.threads.scroll.move(id, body, rows, r.placeThread(m, body).room())
 
 	return true
+}
+
+// scrollSidebarAt walks the file tree or the pull request description when the cell at x and y is
+// inside it, without focusing it.
+func (r *reviewScreen) scrollSidebarAt(m *model, x, y, rows int) (tea.Cmd, bool) {
+	for _, block := range m.findSidebarBlocks() {
+		if !rectContains(block.rect, x, y) {
+			continue
+		}
+
+		n := r.sidebarNav(block.stop)
+		if n == nil {
+			continue
+		}
+
+		if r.isWriting() {
+			return nil, true
+		}
+
+		return n.moveBy(m, rows), true
+	}
+
+	return nil, false
+}
+
+// sidebarNav is the sidebar section a stop walks, and nil for a stop the wheel leaves alone.
+func (r *reviewScreen) sidebarNav(at stop) navigable {
+	switch at {
+	case stopBlock:
+		return filesNav{r}
+	case stopPullRequest:
+		return pullRequestNav{r}
+	case stopList, stopAgent, stopRecord, stopTerminal:
+		return nil
+	}
+
+	return nil
 }

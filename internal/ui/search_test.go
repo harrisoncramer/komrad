@@ -867,7 +867,7 @@ func TestSearchPreview(t *testing.T) {
 		harness.press("enter")
 		hovered := readHoveredSearchRow(harness.readFrame())
 
-		harness.press("ctrl+space", "ctrl+space", "g")
+		harness.press("ctrl+space", "ctrl+space", "g", "g")
 		frame := harness.readFrame()
 		assert.Contains(t, readStageText(frame), "line 0 of the conversation before")
 		assert.Equal(t, hovered, readHoveredSearchRow(frame))

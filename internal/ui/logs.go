@@ -330,7 +330,7 @@ func (l *logsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	}
 
 	if l.isBlockFocused(m) {
-		return l.actions(m).dispatch(m, key.String())
+		return l.actions(m).dispatchTop(m, key.String())
 	}
 
 	return l.list().update(m, key, l.actions(m))
@@ -582,4 +582,12 @@ func (l *logsScreen) typedLine() (lineInput, bool) {
 
 func (l *logsScreen) dispatches(*model) []dispatching {
 	return []dispatching{l.listActions(), l.logActions()}
+}
+
+func (l *logsScreen) moveBy(_ *model, rows int) tea.Cmd {
+	return l.move(rows)
+}
+
+func (l *logsScreen) moveToEnd(_ *model, direction int) tea.Cmd {
+	return l.move(direction * l.viewer.Len())
 }

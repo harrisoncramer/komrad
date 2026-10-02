@@ -251,54 +251,23 @@ func (l screenList[T]) jump(m *model, idx int) tea.Cmd {
 	return l.landed(m)
 }
 
-// update settles the doubled top key ahead of the table.
+// update hands a key to the list's table.
 func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions screenActionSpec) tea.Cmd {
-	k := key.String()
-
-	if m.takeTopPress(k) {
-		return l.jump(m, 0)
-	}
-	if m.isTopHeld() {
-		return nil
-	}
-
-	return actions.dispatch(m, k)
+	return actions.dispatchTop(m, key.String())
 }
 
 // actions are the keys every list answers, in dispatch order.
 func (l screenList[T]) actions() []screenAction {
-	shared := []screenAction{
-		{
-			id:   actionJump,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-			nav:  l.jumpPressed,
-		},
-	}
+	var shared []screenAction
 	if l.refs != nil {
 		shared = append(shared, l.selectionActions()...)
 	}
-	shared = append(shared,
-		screenAction{
-			id:   actionQuit,
-			keys: l.quit,
-			nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
-		},
-		screenAction{
-			id:   actionMove,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-			nav:  l.movePressed,
-		},
-		screenAction{
-			id:   actionNavPage,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-			nav:  l.pagePressed,
-		},
-		screenAction{
-			id:   actionColumnScroll,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-			nav:  l.scrollPressed,
-		},
-	)
+	shared = append(shared, screenAction{
+		id:   actionQuit,
+		keys: l.quit,
+		nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+	})
+	shared = append(shared, navActions(l, navSteps{page: navPageStep, scroll: 1})...)
 	if l.name != nil {
 		shared = append(shared, l.filterActions()...)
 	}
@@ -360,33 +329,20 @@ func (l screenList[T]) filterActions() []screenAction {
 	}
 }
 
-// jumpPressed answers the bottom key.
-func (l screenList[T]) jumpPressed(m *model, pressed string) tea.Cmd {
-	if isBound(pressed, m.keys.Nav.Bottom) {
+func (l screenList[T]) moveBy(m *model, rows int) tea.Cmd {
+	if rows == 1 || rows == -1 {
+		return l.move(m, rows)
+	}
+
+	return l.jump(m, l.cursor().cursor+rows)
+}
+
+func (l screenList[T]) moveToEnd(m *model, direction int) tea.Cmd {
+	if direction > 0 {
 		return l.jump(m, len(l.rows(m))-1)
 	}
 
-	return nil
-}
-
-func (l screenList[T]) pagePressed(m *model, pressed string) tea.Cmd {
-	return l.jump(m, l.cursor().cursor+navPageDeltaOf(m.keys, pressed))
-}
-
-func (l screenList[T]) movePressed(m *model, pressed string) tea.Cmd {
-	if isBound(pressed, m.keys.Nav.Down) {
-		return l.move(m, 1)
-	}
-
-	return l.move(m, -1)
-}
-
-func (l screenList[T]) scrollPressed(m *model, pressed string) tea.Cmd {
-	if isBound(pressed, m.keys.Column.ScrollDown) {
-		return l.move(m, 1)
-	}
-
-	return l.move(m, -1)
+	return l.jump(m, 0)
 }
 
 func (l screenList[T]) clearSelection(*model, string) tea.Cmd {
@@ -765,15 +721,7 @@ func rowAt[T any](rows []T, cursor int) (T, bool) {
 
 // navPageDelta is how far a page key moves the cursor, signed by which of the two it is.
 func (m *model) navPageDelta(pressed string) int {
-	return navPageDeltaOf(m.keys, pressed)
-}
-
-func navPageDeltaOf(keys config.Keybindings, pressed string) int {
-	if isBound(pressed, keys.Nav.PageUp) {
-		return -navPageStep
-	}
-
-	return navPageStep
+	return directionOf(pressed, m.keys.Nav.PageUp) * navPageStep
 }
 
 // directly declares an arm that acts straight off its key, and why it is not in the menu.

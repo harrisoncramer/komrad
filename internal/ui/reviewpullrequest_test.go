@@ -6,10 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -179,6 +181,43 @@ func TestReviewPullRequest(t *testing.T) {
 
 		assert.Contains(t, readSidebar(harness.readFrame()), "rows 2-10 of 40")
 	})
+
+	t.Run("the wheel over the description scrolls it and leaves the keys with the diff", func(t *testing.T) {
+		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(40)), panelHarnessParams{height: 40})
+
+		wheelOverSidebar(harness, "line 05", tea.MouseWheelDown)
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebar(frame), "rows 2-10 of 40")
+		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
+
+		harness.press("j")
+		assert.Contains(t, readSidebar(harness.readFrame()), "rows 2-10 of 40")
+	})
+
+	t.Run("the top and bottom keys jump the description to its ends", func(t *testing.T) {
+		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(40)), panelHarnessParams{height: 40})
+
+		harness.press("pick:pullrequest", "G")
+		assert.Contains(t, readSidebar(harness.readFrame()), "rows 32-40 of 40")
+
+		harness.press("g", "g")
+		assert.Contains(t, readSidebar(harness.readFrame()), "rows 1-9 of 40")
+	})
+}
+
+// wheelOverSidebar turns the wheel over the first sidebar row holding text.
+func wheelOverSidebar(harness *panelHarness, text string, button tea.MouseButton) {
+	harness.t.Helper()
+
+	for y, line := range splitLines(harness.readFrame()) {
+		if strings.Contains(ansi.Truncate(line, ui.SidebarCols, ""), text) {
+			harness.send(tea.MouseWheelMsg{X: 4, Y: y, Button: button})
+
+			return
+		}
+	}
+
+	harness.t.Fatalf("no sidebar row holds %q", text)
 }
 
 func newNumberedBody(count int) string {

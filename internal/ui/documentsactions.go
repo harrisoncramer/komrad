@@ -161,7 +161,7 @@ func (d *documentsScreen) diffKeys() diffKeys {
 
 // updateDiff is the diff taking the keys.
 func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) tea.Cmd {
-	return d.actions(m).dispatch(m, key.String())
+	return d.actions(m).dispatchTop(m, key.String())
 }
 
 // isDiffDrawn reports whether a write's change is drawn as a diff beside the list.
@@ -207,7 +207,7 @@ func (d *documentsScreen) doesScrollColumn(m *model) bool {
 }
 
 func (d *documentsScreen) scrollColumn(m *model, rows int) tea.Cmd {
-	return d.diffKeys().scrollColumn(m, rows)
+	return d.diffKeys().moveBy(m, rows)
 }
 
 // docKeys steps through the writes from the document as it stands, handing the keys to the diff.

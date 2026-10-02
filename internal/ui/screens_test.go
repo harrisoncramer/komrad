@@ -340,20 +340,32 @@ func TestScreensSidebarWidth(t *testing.T) {
 
 // TestScreensFitTheLegend covers a list screen fitting its title, its hovered row and its whole legend into the pane.
 func TestScreensFitTheLegend(t *testing.T) {
-	tests := []listScreen{
+	tests := []struct {
+		listScreen
+		bottom string
+	}{
 		{
-			name:   "the agents tree",
-			screen: agentsScreen,
+			listScreen: listScreen{
+				name:   "the agents tree",
+				screen: agentsScreen,
+			},
+			bottom: "agent39",
 		},
 		{
-			name:   "the archive",
-			press:  []string{"shift+tab", "shift+tab"},
-			screen: archiveScreen,
+			listScreen: listScreen{
+				name:   "the archive",
+				press:  []string{"shift+tab", "shift+tab"},
+				screen: archiveScreen,
+			},
+			bottom: "agent39",
 		},
 		{
-			name:   "the schedules",
-			press:  []string{"tab", "tab"},
-			screen: schedulesScreen,
+			listScreen: listScreen{
+				name:   "the schedules",
+				press:  []string{"tab", "tab"},
+				screen: schedulesScreen,
+			},
+			bottom: "agent00",
 		},
 	}
 
@@ -367,7 +379,7 @@ func TestScreensFitTheLegend(t *testing.T) {
 			assert.LessOrEqual(t, len(splitLines(frame)), 29)
 			assert.Equal(t, tt.screen, harness.readScreen())
 			assert.Contains(t, frame, "hide help")
-			assert.Contains(t, readHoveredRow(frame), "agent39", "the hovered row is on screen")
+			assert.Contains(t, readHoveredRow(frame), tt.bottom, "the hovered row is on screen")
 		})
 	}
 }
@@ -417,23 +429,27 @@ func TestScreensPromptSitsInTheListColumn(t *testing.T) {
 // TestScreensRecordGivesWay covers the record standing down at the height it would leave the list no row.
 func TestScreensRecordGivesWay(t *testing.T) {
 	tests := []struct {
-		name  string
-		press []string
-		fills int
+		name   string
+		press  []string
+		fills  int
+		bottom string
 	}{
 		{
-			name:  "the agents tree",
-			fills: 8,
+			name:   "the agents tree",
+			fills:  8,
+			bottom: "agent39",
 		},
 		{
-			name:  "the archive",
-			press: []string{"shift+tab", "shift+tab"},
-			fills: 10,
+			name:   "the archive",
+			press:  []string{"shift+tab", "shift+tab"},
+			fills:  10,
+			bottom: "agent39",
 		},
 		{
-			name:  "the schedules",
-			press: []string{"tab", "tab"},
-			fills: 6,
+			name:   "the schedules",
+			press:  []string{"tab", "tab"},
+			fills:  6,
+			bottom: "agent00",
 		},
 	}
 
@@ -445,12 +461,12 @@ func TestScreensRecordGivesWay(t *testing.T) {
 			resize(harness, defaultHarnessWidth, tt.fills)
 			frame := harness.readFrame()
 			assert.False(t, isRecordDrawn(frame), "the record gives up its rows")
-			assert.Contains(t, readHoveredRow(frame), "agent39", "to the row the cursor stands on")
+			assert.Contains(t, readHoveredRow(frame), tt.bottom, "to the row the cursor stands on")
 
 			resize(harness, defaultHarnessWidth, tt.fills+1)
 			frame = harness.readFrame()
 			assert.True(t, isRecordDrawn(frame), "the record is drawn once the list keeps a row beside it")
-			assert.Contains(t, readHoveredRow(frame), "agent39")
+			assert.Contains(t, readHoveredRow(frame), tt.bottom)
 		})
 	}
 }

@@ -307,19 +307,51 @@ func (r *reviewScreen) stepFile(m *model, direction int) tea.Cmd {
 		return keys.land(m)
 	}
 
+	return r.walkFiles(m, direction)
+}
+
+// walkFiles moves the diff down the tree by files, up it when files is negative, stopping at the
+// last file there is.
+func (r *reviewScreen) walkFiles(m *model, files int) tea.Cmd {
+	direction := 1
+	if files < 0 {
+		direction = -1
+	}
+
 	tree := r.readFilesTree()
 	at := tree.current
 	if at < 0 && direction < 0 {
 		at = len(tree.rows)
 	}
 
-	for at += direction; at >= 0 && at < len(tree.rows); at += direction {
+	landed := -1
+	for at += direction; at >= 0 && at < len(tree.rows) && files != 0; at += direction {
 		if !tree.rows[at].Folder {
-			return r.landOnFile(m, tree.rows[at])
+			landed = at
+			files -= direction
 		}
 	}
 
-	return nil
+	if landed < 0 {
+		return nil
+	}
+
+	return r.landOnFile(m, tree.rows[landed])
+}
+
+// filesNav is the movement keys walking the diff a file at a time from the file tree.
+type filesNav struct{ r *reviewScreen }
+
+func (f filesNav) moveBy(m *model, files int) tea.Cmd {
+	if files == 1 || files == -1 {
+		return f.r.stepFile(m, files)
+	}
+
+	return f.r.walkFiles(m, files)
+}
+
+func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
+	return f.r.walkFiles(m, direction*len(f.r.readFilesTree().rows))
 }
 
 // landOnFile moves the diff to the top of a file in the tree.

@@ -530,7 +530,7 @@ func (w *searchScreen) update(m *model, msg tea.Msg) tea.Cmd {
 		}
 
 		if w.isBlockFocused(m) {
-			return w.previewActions().dispatch(m, msg.String())
+			return w.previewActions().dispatchTop(m, msg.String())
 		}
 
 		return w.list().update(m, msg, w.listActions())

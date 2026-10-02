@@ -57,7 +57,7 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) tea.Cmd {
 		return w.updateRename(m, msg)
 	}
 
-	return w.actions().dispatch(m, key.String())
+	return w.actions().dispatchTop(m, key.String())
 }
 
 func (w *schedulesScreen) list() screenList[scheduleItem] {

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -221,6 +222,64 @@ func TestReviewFiles(t *testing.T) {
 
 		require.Len(t, server.viewed, 1)
 		assert.Equal(t, "second.go", server.viewed[0].GetFilePath())
+	})
+
+	t.Run("the movement keys on the tree walk the diff by files", func(t *testing.T) {
+		leader := []string{"ctrl+space", "ctrl+space"}
+
+		tests := []struct {
+			name string
+			keys []string
+			want string
+		}{
+			{
+				name: "the bottom key lands on the last file",
+				keys: slices.Concat(leader, []string{"G"}),
+				want: "› f29.go +1 −1",
+			},
+			{
+				name: "the top key twice lands on the first file",
+				keys: slices.Concat(leader, []string{"G", "g", "g"}),
+				want: "› f00.go +1 −1",
+			},
+			{
+				name: "the page key walks a page of files",
+				keys: slices.Concat(leader, []string{"ctrl+d"}),
+				want: "› f10.go +1 −1",
+			},
+			{
+				name: "the page up key walks back a page of files",
+				keys: slices.Concat(leader, []string{"ctrl+d", "ctrl+d", "ctrl+u"}),
+				want: "› f10.go +1 −1",
+			},
+			{
+				name: "the next file key walks one file",
+				keys: slices.Concat(leader, []string{"]"}),
+				want: "› f01.go +1 −1",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := newReviewServer(t)
+				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfFiles(30)
+				harness := openReview(t, server)
+
+				harness.press(tt.keys...)
+
+				assert.Contains(t, readFilesBlock(harness.readFrame()), tt.want)
+			})
+		}
+	})
+
+	t.Run("the wheel over the tree walks the diff a file at a time and leaves the keys with the diff", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
+		harness := openReview(t, server)
+
+		wheelOverSidebar(harness, "▸ greet.go", tea.MouseWheelDown)
+
+		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()))
 	})
 }
 
