@@ -87,7 +87,7 @@ const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $af
 // are read from: GitHub's computed review decision, each reviewer's latest verdict and who is
 // asked to review now, the rollup of every check on the head commit, its computed merge state,
 // the auto-merge request on it and whether the credential may make one.
-const mergeReadinessFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
+const mergeReadinessFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 0) { checkRunCountsByState { state count } statusContextCountsByState { state count } } } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
 
 // dialect is what GitHub does differently on the wire.
 var dialect = graphql.Dialect{
@@ -575,6 +575,10 @@ func checksOf(rollup *rollupNode) forge.Checks {
 	case "SUCCESS":
 		return forge.ChecksPassing
 	case "FAILURE", "ERROR":
+		if rollup.isRunning() {
+			return forge.ChecksFailingRunning
+		}
+
 		return forge.ChecksFailing
 	case "PENDING", "EXPECTED":
 		return forge.ChecksPending
@@ -695,7 +699,38 @@ type mergeReadinessNode struct {
 }
 
 type rollupNode struct {
+	State    string         `json:"state"`
+	Contexts rollupContexts `json:"contexts"`
+}
+
+type rollupContexts struct {
+	CheckRunCountsByState      []stateCount `json:"checkRunCountsByState"`
+	StatusContextCountsByState []stateCount `json:"statusContextCountsByState"`
+}
+
+type stateCount struct {
 	State string `json:"state"`
+	Count int    `json:"count"`
+}
+
+// isRunning says whether any check run on the rollup is queued or in progress, or any status
+// context is pending.
+func (n *rollupNode) isRunning() bool {
+	for _, count := range n.Contexts.CheckRunCountsByState {
+		switch count.State {
+		case "QUEUED", "IN_PROGRESS", "PENDING":
+			if count.Count > 0 {
+				return true
+			}
+		}
+	}
+	for _, count := range n.Contexts.StatusContextCountsByState {
+		if count.State == "PENDING" && count.Count > 0 {
+			return true
+		}
+	}
+
+	return false
 }
 
 // opinionNode is one reviewer's latest approval or change request.

@@ -34,6 +34,30 @@ func TestEventsOf(t *testing.T) {
 			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
+			name: "a failure while others still run starts the early event",
+			moves: []Move{{
+				Field: FieldChecks,
+				From:  "pending",
+				To:    "failing_running",
+			}},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			read:        forge.MergeReadiness{Checks: forge.ChecksFailingRunning},
+			wantStarted: []string{eventprompts.PullRequestChecksFailingRunning},
+			wantHolding: []string{eventprompts.PullRequestChecksFailingRunning},
+		},
+		{
+			name: "the run finishing swaps the early event for the settled one",
+			moves: []Move{{
+				Field: FieldChecks,
+				From:  "failing_running",
+				To:    "failing",
+			}},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			read:        forge.MergeReadiness{Checks: forge.ChecksFailing},
+			wantStarted: []string{eventprompts.PullRequestChecksFailing},
+			wantHolding: []string{eventprompts.PullRequestChecksFailing},
+		},
+		{
 			name: "a move away starts nothing and leaves what still holds",
 			moves: []Move{{
 				Field: fieldChecks,

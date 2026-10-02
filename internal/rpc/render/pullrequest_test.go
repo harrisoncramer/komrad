@@ -86,4 +86,5 @@ func TestChecksOf(t *testing.T) {
 	assert.Equal(t, pullrequestv1.Checks_CHECKS_PENDING, checksOf(forge.ChecksPending))
 	assert.Equal(t, pullrequestv1.Checks_CHECKS_PASSING, checksOf(forge.ChecksPassing))
 	assert.Equal(t, pullrequestv1.Checks_CHECKS_FAILING, checksOf(forge.ChecksFailing))
+	assert.Equal(t, pullrequestv1.Checks_CHECKS_FAILING_RUNNING, checksOf(forge.ChecksFailingRunning))
 }

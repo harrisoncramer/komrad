@@ -38,7 +38,7 @@ func StateOf(pullRequest pullrequeststore.PullRequest) State {
 		return StateClosed
 	case pullRequest.Draft:
 		return StateDraft
-	case checks == forge.ChecksFailing:
+	case checks == forge.ChecksFailing, checks == forge.ChecksFailingRunning:
 		return StateFailing
 	case mergeability == forge.MergeabilityConflicting:
 		return StateConflicting

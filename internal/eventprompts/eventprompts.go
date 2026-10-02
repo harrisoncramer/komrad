@@ -8,25 +8,26 @@ const MaxPrompt = 500
 
 // The events komrad sends.
 const (
-	PullRequestChecksFailing    = "pull_request.checks_failing"
-	PullRequestChangesRequested = "pull_request.changes_requested"
-	PullRequestApproved         = "pull_request.approved"
-	PullRequestConflicting      = "pull_request.conflicting"
-	PullRequestBehind           = "pull_request.behind"
-	PullRequestMerged           = "pull_request.merged"
-	PullRequestClosed           = "pull_request.closed"
-	PullRequestAutoMergeOn      = "pull_request.auto_merge_on"
-	WorktreeRebased             = "worktree.rebased"
-	WorktreeLanded              = "worktree.landed"
-	WorktreeRebaseConflicted    = "worktree.rebase_conflicted"
-	WorktreeRebaseFailed        = "worktree.rebase_failed"
-	DocumentWrittenByPerson     = "document.written_by_person"
-	ReviewApproved              = "review.approved"
-	ReviewChangesRequested      = "review.changes_requested"
-	ReviewCommented             = "review.commented"
-	ReviewCommentedByPerson     = "review.commented_by_person"
-	ReviewForgeCommented        = "review.forge_commented"
-	ReviewAnswered              = "review.answered"
+	PullRequestChecksFailing        = "pull_request.checks_failing"
+	PullRequestChecksFailingRunning = "pull_request.checks_failing_running"
+	PullRequestChangesRequested     = "pull_request.changes_requested"
+	PullRequestApproved             = "pull_request.approved"
+	PullRequestConflicting          = "pull_request.conflicting"
+	PullRequestBehind               = "pull_request.behind"
+	PullRequestMerged               = "pull_request.merged"
+	PullRequestClosed               = "pull_request.closed"
+	PullRequestAutoMergeOn          = "pull_request.auto_merge_on"
+	WorktreeRebased                 = "worktree.rebased"
+	WorktreeLanded                  = "worktree.landed"
+	WorktreeRebaseConflicted        = "worktree.rebase_conflicted"
+	WorktreeRebaseFailed            = "worktree.rebase_failed"
+	DocumentWrittenByPerson         = "document.written_by_person"
+	ReviewApproved                  = "review.approved"
+	ReviewChangesRequested          = "review.changes_requested"
+	ReviewCommented                 = "review.commented"
+	ReviewCommentedByPerson         = "review.commented_by_person"
+	ReviewForgeCommented            = "review.forge_commented"
+	ReviewAnswered                  = "review.answered"
 )
 
 // Event is one event as the panel offers it.
@@ -41,8 +42,12 @@ type Event struct {
 func All() []Event {
 	return []Event{
 		{
-			Name: PullRequestChecksFailing, Title: "Checks failing", Description: "checks on the head are failing",
-			DefaultPrompt: "Read the failing job's logs, reproduce the failure locally, fix it, run the tests, and push.",
+			Name: PullRequestChecksFailingRunning, Title: "Checks failing, run unfinished", Description: "some checks on the head failed while others still run",
+			DefaultPrompt: "Some checks failed while others are still running. Read the failed jobs' logs and start fixing locally, but do not push. Pushing now cancels the checks still running and hides their failures. Komrad mails you again when the run finishes.",
+		},
+		{
+			Name: PullRequestChecksFailing, Title: "Checks failing", Description: "checks on the head failed and the run has finished",
+			DefaultPrompt: "The run has finished. Read every failed job's logs, fix them all, run the tests, and push once.",
 		},
 		{
 			Name: PullRequestChangesRequested, Title: "Changes requested on the forge", Description: "the forge review decision asks for changes",

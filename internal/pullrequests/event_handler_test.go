@@ -41,6 +41,21 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			wantEvents: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
+			name:       "checks failing while others still run",
+			reads:      []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailingRunning}},
+			wantLines:  []string{"  checks: failing on abc, others still running\n"},
+			wantEvents: []string{eventprompts.PullRequestChecksFailingRunning},
+		},
+		{
+			name: "the run finishing before the agent reads folds the early word into the settled one",
+			reads: []forge.MergeReadiness{
+				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailingRunning},
+				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
+			},
+			wantLines:  []string{"  checks: failing on abc\n"},
+			wantEvents: []string{eventprompts.PullRequestChecksFailing},
+		},
+		{
 			name:      "an approval",
 			reads:     []forge.MergeReadiness{{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending}},
 			wantLines: []string{"  review: approved\n", "do not fetch them from the forge"},

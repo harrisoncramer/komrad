@@ -9825,7 +9825,11 @@
         },
         {
           "name": "CHECKS_FAILING",
-          "description": "At least one check failed."
+          "description": "At least one check failed and the run has finished."
+        },
+        {
+          "name": "CHECKS_FAILING_RUNNING",
+          "description": "At least one check failed while others are still running."
         }
       ]
     },

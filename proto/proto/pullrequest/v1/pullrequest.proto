@@ -181,8 +181,10 @@ enum Checks {
   CHECKS_PENDING = 2;
   // Every check passed.
   CHECKS_PASSING = 3;
-  // At least one check failed.
+  // At least one check failed and the run has finished.
   CHECKS_FAILING = 4;
+  // At least one check failed while others are still running.
+  CHECKS_FAILING_RUNNING = 5;
 }
 
 // PullRequestService reads the pull requests komrad has stored from its forges.

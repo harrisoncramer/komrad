@@ -134,6 +134,14 @@ func TestTriageRefresh(t *testing.T) {
 			want: "",
 		},
 		{
+			name: "an implementer with a failure while checks still run is not in triage",
+			item: implementer(func(item *panel.AgentRow) {
+				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
+				item.PullRequest.MergeReadiness.Checks = pullrequestv1.Checks_CHECKS_FAILING_RUNNING
+			}),
+			want: "",
+		},
+		{
 			name: "an implementer whose reviewers were asked to look again is not in triage",
 			item: implementer(func(item *panel.AgentRow) {
 				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED

@@ -119,8 +119,11 @@ const (
 	ChecksPending Checks = "pending"
 	// ChecksPassing is every check the forge counts having succeeded.
 	ChecksPassing Checks = "passing"
-	// ChecksFailing is at least one check the forge counts having failed.
+	// ChecksFailing is at least one check the forge counts having failed, with the run finished.
 	ChecksFailing Checks = "failing"
+	// ChecksFailingRunning is at least one check the forge counts having failed while others still
+	// run.
+	ChecksFailingRunning Checks = "failing_running"
 )
 
 // Mergeability is where a forge says a pull request stands against its base and its branch
