@@ -90,7 +90,7 @@ Komrad puts its own `gh` and `glab` ahead of every agent's PATH. Each one asks k
 
 For GitHub, `gh` gets a token from the App when <Setting path="github_app" label="[github_app]" /> is set. Otherwise it uses the login `gh` already has on the machine. Git reaches GitHub through <Command path="github credential" />, which the engine sets up for you. On your laptop, git uses whatever credential you already have.
 
-For GitLab, `glab` gets the token of the connection for the checkout's host, in a config that names that host alone, so the token is never sent anywhere else. With no connection for that host, it uses the login `glab` already has. Git reaches GitLab through <Command path="gitlab credential" />. The engine sets it up for gitlab.com. A self-hosted GitLab, or your laptop, needs a line for each host.
+For GitLab, `glab` gets the token of the connection for the checkout's host, in a config that names that host alone, so the token is never sent anywhere else. With no connection for that host, it uses the login `glab` already has. Git reaches GitLab through <Command path="gitlab credential" /> once you add a line for each host.
 
 ```sh
 git config --global credential.https://gitlab.example.com.helper '!komrad gitlab credential'
