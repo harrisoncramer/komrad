@@ -90,8 +90,6 @@ type agentFieldsParams struct {
 	agent        panel.Agent
 	schedule     string
 	parent       string
-	workflow     string
-	standing     panel.PullRequestStanding
 	pullRequests []panel.PullRequest
 	// worktree is what the service has answered about the agent's directory, and read says
 	// whether it has answered that the directory is a worktree at all.
@@ -102,7 +100,7 @@ type agentFieldsParams struct {
 
 func agentFields(params agentFieldsParams) []recordField {
 	agent, schedule, parent := params.agent, params.schedule, params.parent
-	fields := []recordField{{label: "name", value: label.OrDash(agent.Name)}}
+	var fields []recordField
 	// What a child is attached to comes early, and for a reviewer that same row is whose work it
 	// is reading.
 	if agent.ParentAgentID != nil {
@@ -111,13 +109,12 @@ func agentFields(params agentFieldsParams) []recordField {
 
 	fields = append(fields,
 		recordField{label: "agent", value: label.OrDash(agent.Harness)},
-		recordField{label: "workflow", value: label.OrDash(params.workflow)},
 		recordField{label: "directory", value: label.OrDash(agent.Cwd)},
 	)
 
 	if agent.Branch != nil {
 		fields = append(fields, recordField{label: branchFieldKey, value: *agent.Branch})
-		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
+		fields = append(fields, pullRequestFields(params.pullRequests)...)
 	}
 	if params.read {
 		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)

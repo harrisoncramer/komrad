@@ -79,7 +79,7 @@ func TestRowCursor(t *testing.T) {
 
 		shown := harness.readFrame()
 		assert.False(t, strings.HasPrefix(findRowWith(t, shown, "auth"), "›"), "the list draws no arrow")
-		assert.Equal(t, "name       auth", readRecordCursor(shown))
+		assert.Equal(t, "agent      —", readRecordCursor(shown))
 
 		harness.fireTimers()
 

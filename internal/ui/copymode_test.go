@@ -33,7 +33,7 @@ func TestVisualMode(t *testing.T) {
 			name:       "the record is copied from without the list above it",
 			open:       openFocus,
 			from:       []string{"pick:record"},
-			wantCursor: "name",
+			wantCursor: "agent",
 			wantAbsent: []string{"komrad › agents"},
 		},
 		{
