@@ -294,6 +294,7 @@ func (m *model) landVanished() tea.Cmd {
 	held := m.writes.vanishing
 	m.writes.vanishing = vanishing{}
 	m.landWrite(held.write)
+	delete(m.writes.detached, held.write)
 
 	m.frame.Begin()
 	defer m.frame.Flush()
