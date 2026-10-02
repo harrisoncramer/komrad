@@ -168,6 +168,8 @@ func TestFormsSubmit(t *testing.T) {
 
 			harness.press(tt.press...)
 
+			harness.fireTimers()
+
 			harness.assertSentToWith(tt.procedure, ignoringEventPrompts, tt.want)
 			assert.NotContains(t, harness.readFrame(), "Could not", "the service accepted the write")
 			assert.NotContains(t, harness.readFrame(), "enter submit", "and the form it closed is gone")
@@ -467,7 +469,35 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		harness.release(archive)
 
+		require.Contains(t, harness.readFrame(), "archive with its agents", "the agents are still on the list")
+
+		harness.watch(buildSnapshot())
+
 		assert.NotContains(t, harness.readFrame(), "archive with its agents")
+	})
+
+	t.Run("a landed archive and delete keeps the form up until the watch drops the agent", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press("j", "space", "a", "down", "enter", "y")
+
+		require.Contains(t, harness.readFrame(), `archiving and deleting agent "author"`)
+
+		harness.watch(buildSnapshot(newFormWorkflow()))
+
+		assert.NotContains(t, harness.readFrame(), `archiving and deleting agent "author"`)
+		assert.NotContains(t, harness.readFrame(), "enter submit")
+	})
+
+	t.Run("a landed archive the watch never drops closes its form after a while", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press("j", "space", "a", "down", "enter", "y")
+		require.Contains(t, harness.readFrame(), `archiving and deleting agent "author"`)
+
+		harness.fireTimers()
+
+		assert.NotContains(t, harness.readFrame(), `archiving and deleting agent "author"`)
 	})
 
 	t.Run("a refused archive takes the menu down", func(t *testing.T) {
@@ -493,6 +523,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		require.NotContains(t, harness.readFrame(), "komrad was rebuilt", "the write is still in flight")
 
 		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.watch(buildSnapshot(newFormWorkflow()))
 		harness.fireTimers()
 		assert.Contains(t, harness.readFrame(), "komrad was rebuilt")
 	})

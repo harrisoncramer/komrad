@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"komrad/internal/ui/layout"
@@ -25,6 +26,7 @@ func (m *model) unstageAhead(agents []panel.Agent) *unstaged {
 	}
 
 	staged := m.frame.GuestPane()
+	m.frame.Begin()
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
 		if agent.Pane != "" {
@@ -35,6 +37,7 @@ func (m *model) unstageAhead(agents []panel.Agent) *unstaged {
 	if staged != "" && m.frame.GuestPane() == "" {
 		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
+	m.frame.Flush()
 
 	return &unstaged{agents: agents}
 }
@@ -242,4 +245,83 @@ func (m *model) isGuestLive() bool {
 	}
 
 	return false
+}
+
+// vanishing is an archive whose agents are still in the listing, with the write kept in flight
+// until they leave it.
+type vanishing struct {
+	write   int
+	pending *unstaged
+}
+
+// vanishTimeoutMsg is the longest a held form waits on the watch for the agents its write killed.
+type vanishTimeoutMsg struct {
+	write int
+}
+
+// holdsVanish reports whether a landed write's form stays up until the watch drops the agents it
+// archived.
+func (m *model) holdsVanish(result writeResult) bool {
+	return result.err == nil &&
+		result.unstaged != nil &&
+		result.unstaged.archived &&
+		m.writes.held.owns(result.write) &&
+		!m.hasVanished(result.unstaged)
+}
+
+// hasVanished reports whether none of an archive's agents is left in the listing.
+func (m *model) hasVanished(pending *unstaged) bool {
+	return !slices.ContainsFunc(m.listing.agents, func(row panel.AgentRow) bool {
+		return slices.ContainsFunc(pending.agents, func(agent panel.Agent) bool { return agent.ID == row.Agent.ID })
+	})
+}
+
+// awaitVanish keeps a landed archive's form up for the watch, and gives up after landingWait.
+func (m *model) awaitVanish(result writeResult) tea.Cmd {
+	var earlier tea.Cmd
+	if m.writes.vanishing.pending != nil {
+		earlier = m.landVanished()
+	}
+
+	m.writes.vanishing = vanishing{write: result.write, pending: result.unstaged}
+	write := result.write
+
+	return tea.Batch(earlier, startTimer(landingWait, func(time.Time) tea.Msg { return vanishTimeoutMsg{write: write} }))
+}
+
+// landVanished takes down the form held for an archive and stages what is left in one change.
+func (m *model) landVanished() tea.Cmd {
+	held := m.writes.vanishing
+	m.writes.vanishing = vanishing{}
+	m.landWrite(held.write)
+
+	m.frame.Begin()
+	defer m.frame.Flush()
+
+	var closing tea.Cmd
+	if m.writes.held.owns(held.write) {
+		closing = m.closeForm()
+	}
+
+	m.settleUnstaged(held.pending)
+
+	return closing
+}
+
+// applyVanishTimeout lands an archive the watch has not yet confirmed.
+func (m *model) applyVanishTimeout(msg vanishTimeoutMsg) tea.Cmd {
+	if m.writes.vanishing.write != msg.write || msg.write == 0 {
+		return nil
+	}
+
+	return m.landVanished()
+}
+
+// landVanishedOnWatch lands an archive once the listing no longer holds its agents.
+func (m *model) landVanishedOnWatch() tea.Cmd {
+	if m.writes.vanishing.pending == nil || !m.hasVanished(m.writes.vanishing.pending) {
+		return nil
+	}
+
+	return m.landVanished()
 }

@@ -98,7 +98,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 		redrawn = m.redrawOpenForm()
 	}
 
-	return tea.Batch(preview, redrawn, m.afterListing())
+	return tea.Batch(preview, redrawn, m.afterListing(), m.landVanishedOnWatch())
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
@@ -413,7 +413,8 @@ func (m *model) landWrite(write int) {
 func (m *model) applyWrite(result writeResult) tea.Cmd {
 	m.report(result.summary, result.err)
 
-	if result.unstaged != nil {
+	vanishes := m.holdsVanish(result)
+	if result.unstaged != nil && !vanishes {
 		m.settleUnstaged(result.unstaged)
 	}
 
@@ -480,7 +481,7 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		}
 	}
 
-	if m.warm.pendingWrite != result.write {
+	if m.warm.pendingWrite != result.write && !vanishes {
 		m.landWrite(result.write)
 	}
 
@@ -491,6 +492,10 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 			m.warm.closesForm = true
 
 			return left
+		}
+
+		if vanishes {
+			return tea.Batch(left, m.awaitVanish(result))
 		}
 
 		m.writes.held = heldWrite{}

@@ -419,6 +419,10 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 
 	switch m.form.form.State {
 	case huh.StateCompleted:
+		if m.writes.held.active {
+			return cmd
+		}
+
 		return m.answerForm()
 	case huh.StateAborted:
 		return m.closeForm()

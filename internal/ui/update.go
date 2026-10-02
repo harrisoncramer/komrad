@@ -402,6 +402,8 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applyWarmupTick(), true
 	case stageTickMsg:
 		return m.applyStageTick(msg), true
+	case vanishTimeoutMsg:
+		return m.applyVanishTimeout(msg), true
 	case lastScreenMsg:
 		m.applyLastScreen(msg)
 

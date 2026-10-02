@@ -326,6 +326,8 @@ type writeTracker struct {
 	// what they made.
 	detached map[int]struct{}
 	landing  landing
+	// vanishing is the archive a held form stays up for until the watch drops the agents it killed.
+	vanishing vanishing
 }
 
 type terminalState struct {
