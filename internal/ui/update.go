@@ -73,7 +73,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 
 	key, isKey := msg.(tea.KeyPressMsg)
 	if isKey {
-		m.writes.landing = landing{}
+		m.releaseCursor()
 	}
 
 	if m.fatal() != nil {
@@ -399,11 +399,13 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case sizeFallbackMsg:
 		return m.applySizeFallback(msg), true
 	case warmupTickMsg:
-		return m.applyWarmupTick(), true
+		m.applyWarmupTick()
+
+		return nil, true
 	case stageTickMsg:
 		return m.applyStageTick(msg), true
-	case vanishTimeoutMsg:
-		return m.applyVanishTimeout(msg), true
+	case settleTickMsg:
+		return m.applySettleTick(), true
 	case lastScreenMsg:
 		m.applyLastScreen(msg)
 

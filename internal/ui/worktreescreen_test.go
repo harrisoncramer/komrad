@@ -366,6 +366,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 		refusal  error
 		answer   string
 		wantSent []proto.Message
+		gone     []string
 		want     string
 	}{
 		{
@@ -384,6 +385,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			name:     "confirming queues every directory that can go in one call",
 			answer:   "y",
 			wantSent: []proto.Message{&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"}}},
+			gone:     []string{"/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"},
 			want:     "Deleting 4 worktrees",
 		},
 	}
@@ -399,6 +401,9 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			harness.press(widenListPresses...)
 
 			harness.press("space", "a", "c", tt.answer)
+			if len(tt.gone) > 0 {
+				harness.watch(buildDeletedWorktrees(tt.gone...))
+			}
 
 			harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
 			frame := harness.readFrame()

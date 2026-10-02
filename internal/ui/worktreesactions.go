@@ -261,7 +261,7 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion, pending *unstaged) 
 	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
-	return m.announcedCmd(
+	return awaitingCmd(m.announcedCmd(
 		"deleting "+subject,
 		"Could not delete "+subject,
 		message{
@@ -278,7 +278,7 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion, pending *unstaged) 
 
 			return a.deleteWorktrees(dirs)
 		},
-	)
+	), rowsGone{dirs: dirs})
 }
 
 func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {

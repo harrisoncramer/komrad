@@ -62,6 +62,7 @@ func TestMessagesHeader(t *testing.T) {
 		harness := openWorktrees(t)
 
 		harness.press("space", "a", "c", "y")
+		harness.watch(buildDeletedWorktrees("/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"))
 		require.Contains(t, readEngineLine(harness.readFrame()), "·")
 		settleFlash(harness)
 

@@ -325,9 +325,10 @@ type writeTracker struct {
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
-	landing  landing
-	// vanishing is the archive a held form stays up for until the watch drops the agents it killed.
-	vanishing vanishing
+	// settling is the landed writes held until the panel shows what they did, by their count.
+	settling map[int]parked
+	// settlePolling is whether a tick is already coming for the parked writes.
+	settlePolling bool
 }
 
 type terminalState struct {

@@ -65,6 +65,9 @@ func (m *model) unreachableHint() string {
 
 // withListing changes the listing the screens draw from and puts each cursor back where it was.
 func (m *model) withListing(change func(*listing)) tea.Cmd {
+	m.frame.Begin()
+	defer m.frame.Flush()
+
 	treeRow := m.agents.list().hovered(m)
 	triageSlot := m.agents.findZoneSlot(m)
 	scheduleRow := m.schedules.list().hovered(m)
@@ -79,10 +82,9 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 
 	now := time.Now()
 	m.agents.triage.refresh(m.listing.agents, now)
-	selected := m.landedRow(treeRow, now)
-	m.agents.apply(m, selected)
+	m.agents.apply(m, treeRow)
 	m.agents.followAwaitingCLI(m)
-	m.agents.landInTriage(m, selected, triageSlot)
+	m.agents.landInTriage(m, treeRow, triageSlot)
 	m.schedules.apply(m, scheduleRow)
 	m.archive.place(m, archiveRow)
 	m.archive.placeSchedule(m, archiveScheduleRow)
@@ -98,7 +100,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 		redrawn = m.redrawOpenForm()
 	}
 
-	return tea.Batch(preview, redrawn, m.afterListing(), m.landVanishedOnWatch())
+	return tea.Batch(preview, redrawn, m.settleParked(), m.afterListing())
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
@@ -129,6 +131,8 @@ type writeResult struct {
 	// resumed is the agent a resume was written for.
 	resumed  string
 	unstaged *unstaged
+	// awaits is what the panel shows once the write has landed, and the write is held until it does.
+	awaits settle
 }
 
 type released struct {
@@ -264,6 +268,7 @@ func (m *model) rowWriteCmd(doing, summary string, write func(api) (written, err
 			summary: summary,
 			written: &row,
 			write:   id,
+			awaits:  awaitsOf(row),
 		}
 	}
 }
@@ -410,13 +415,31 @@ func (m *model) landWrite(write int) {
 	delete(m.writes.inflight, write)
 }
 
+// applyWrite lands a write once the panel shows what it did, parking it until then.
 func (m *model) applyWrite(result writeResult) tea.Cmd {
-	m.report(result.summary, result.err)
-
-	awaitsVanish := m.shouldAwaitVanish(result)
-	if result.unstaged != nil && !awaitsVanish {
-		m.settleUnstaged(result.unstaged)
+	if result.err == nil && result.awaits != nil && !result.awaits.isSettled(m) {
+		return m.parkWrite(result)
 	}
+
+	return m.finishWrite(result, true)
+}
+
+// finishWrite reports a write, takes down its form and shows what it made in one change.
+func (m *model) finishWrite(result writeResult, claimsCursor bool) tea.Cmd {
+	m.frame.Begin()
+	cmd, focus := m.landResult(result, claimsCursor)
+	m.frame.Flush()
+
+	if focus != "" {
+		m.selectGuest(focus)
+	}
+
+	return cmd
+}
+
+// landResult does what finishWrite batches, answering with the pane to hand the keyboard once the batch is sent.
+func (m *model) landResult(result writeResult, claimsCursor bool) (tea.Cmd, string) {
+	m.report(result.summary, result.err)
 
 	if result.renamed != "" {
 		m.agents.settleRename(m, result.renamed, result.err)
@@ -437,6 +460,10 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		m.forgetSpoken(result.released.id, result.released.files)
 	}
 
+	if result.unstaged != nil {
+		m.settleUnstaged(result.unstaged)
+	}
+
 	_, walkedAway := m.writes.detached[result.write]
 	delete(m.writes.detached, result.write)
 
@@ -444,121 +471,52 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		m.pushMessage(*result.written.notice)
 	}
 
-	var left tea.Cmd
-	switch {
-	case result.written == nil || walkedAway:
-	case result.written.archived:
-		left = m.enter(screenArchive, screenTarget{agentID: result.written.agent})
-	default:
-		left = m.enterScreen(screenAgents)
-		m.landOn(*result.written, time.Now())
-
-		if result.written.pane != "" {
-			left = tea.Batch(left, m.agents.closeEdit(m))
-			m.dropScratch()
-			guest := layout.Guest{Agent: result.written.agent, Pane: result.written.pane}
-			if m.isPaneWarm(result.written.pane, result.written.harness) {
-				m.frame.Begin()
-
-				if m.writes.held.owns(result.write) {
-					m.writes.held = heldWrite{}
-
-					closing := m.closeForm()
-
-					left = tea.Batch(left, closing)
-				}
-
-				m.frame.Solo(false)
-				m.frame.ShowGuest(guest)
-				m.frame.Flush()
-
-				if result.written.focus && m.frame.GuestPane() == result.written.pane {
-					m.tmux.SelectPane(result.written.pane)
-				}
-			} else {
-				m.holdReveal(guest, result.written.harness, result.written.focus, result.write)
-			}
-		}
-	}
-
-	if m.warm.pendingWrite != result.write && !awaitsVanish {
-		m.landWrite(result.write)
-	}
-
+	var cmds []tea.Cmd
 	if m.writes.held.owns(result.write) {
-		// A form taken down now would leave the panel drawn over the whole window until the pane
-		// it made turns up, so it is left standing and closed by the reveal instead.
-		if result.err == nil && m.warm.pendingWrite == result.write {
-			m.warm.closesForm = true
-
-			return left
-		}
-
-		if awaitsVanish {
-			return tea.Batch(left, m.awaitVanish(result))
-		}
-
 		m.writes.held = heldWrite{}
 
 		if result.err == nil || !m.form.keepsOnRefusal {
-			return tea.Batch(left, m.closeForm())
+			cmds = append(cmds, m.closeForm())
+		} else {
+			m.messages.setNewestHint("fix and submit again")
 		}
-
-		m.messages.setNewestHint("fix and submit again")
 	}
 
 	// A refusal is reported into the region under the record, so the form is told to lay itself
 	// out again.
 	if m.form.isActive() {
-		return tea.Batch(left, formResized())
+		cmds = append(cmds, formResized())
 	}
 
-	return left
-}
+	var focus string
+	switch {
+	case result.written == nil || walkedAway || !claimsCursor:
+	case result.written.archived:
+		cmds = append(cmds, m.enter(screenArchive, screenTarget{agentID: result.written.agent}))
+	default:
+		cmds = append(cmds, m.enterScreen(screenAgents))
 
-// landingWait is how long a write's landing waits for the watch to deliver the row it made.
-const landingWait = 2 * time.Second
+		rows := m.agents.rows(m)
+		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); rowIndexOfKey(rows, key) >= 0 {
+			m.agents.apply(m, key)
+		}
 
-// landing is the row a write made, which the cursor goes to once the watch delivers it.
-type landing struct {
-	row   string
-	until time.Time
-}
+		if pane := result.written.pane; pane != "" {
+			cmds = append(cmds, m.agents.closeEdit(m))
+			m.dropScratch()
+			m.frame.Solo(false)
+			m.frame.ShowGuest(layout.Guest{Agent: result.written.agent, Pane: pane})
+			delete(m.warm.since, pane)
 
-// landOn puts the cursor on the row a write made, or holds it for the watch to deliver.
-func (m *model) landOn(row written, now time.Time) {
-	rows := m.agents.rows(m)
-	if key := findLandingKey(rows, m.agents.list().hovered(m), row.row); rowIndexOfKey(rows, key) >= 0 {
-		m.writes.landing = landing{}
-		m.agents.apply(m, key)
-
-		return
+			if result.written.focus {
+				focus = pane
+			}
+		} else {
+			m.stageSelection()
+		}
 	}
 
-	m.writes.landing = landing{row: row.row, until: now.Add(landingWait)}
-}
+	m.landWrite(result.write)
 
-// isLandingHeld reports whether a write's landing is still waiting for the watch to deliver its row.
-func (m *model) isLandingHeld(now time.Time) bool {
-	return m.writes.landing.row != "" && !now.After(m.writes.landing.until)
-}
-
-// landedRow is the row a held landing goes to once the listing holds it, or the hovered row.
-func (m *model) landedRow(hovered string, now time.Time) string {
-	target := m.writes.landing
-	if !m.isLandingHeld(now) {
-		m.writes.landing = landing{}
-
-		return hovered
-	}
-
-	rows := m.agents.rows(m)
-	key := findLandingKey(rows, hovered, target.row)
-	if rowIndexOfKey(rows, key) < 0 {
-		return hovered
-	}
-
-	m.writes.landing = landing{}
-
-	return key
+	return tea.Batch(cmds...), focus
 }

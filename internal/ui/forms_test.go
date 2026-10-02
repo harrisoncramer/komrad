@@ -17,6 +17,7 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	hookv1 "komrad/proto/gen/hook/v1"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
@@ -37,12 +38,14 @@ func TestFormsSubmit(t *testing.T) {
 		empty     bool
 		hostPath  string
 		press     []string
+		settle    []*watchv1.WatchEvent
 		procedure string
 		want      proto.Message
 	}{
 		{
 			name:      "the new-agent form sends an overridden harness",
 			press:     slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"tab"}, spellKeys("ci"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"enter"}),
+			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "ci", "w1"))},
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:     "check CI",
@@ -54,6 +57,7 @@ func TestFormsSubmit(t *testing.T) {
 		{
 			name:      "the child form sends its parent and the parent's harness but not its flags",
 			press:     slices.Concat([]string{"j", "space", "C"}, spellKeys("run the tests"), []string{"enter"}),
+			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "child", "w1"))},
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:        "run the tests",
@@ -66,6 +70,7 @@ func TestFormsSubmit(t *testing.T) {
 			name: "the adopt form sends the ref and prompt into the workflow",
 			press: slices.Concat([]string{"space", "A"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"tab"},
 				spellKeys("pick it up"), []string{"enter"}),
+			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "adopted", "w1"))},
 			procedure: agentv1connect.AgentServiceAdoptProcedure,
 			want: &agentv1.AdoptRequest{
 				Ref:        "https://github.com/acmecorp/admin/pull/1069",
@@ -134,15 +139,23 @@ func TestFormsSubmit(t *testing.T) {
 			},
 		},
 		{
-			name:      "the workflow archive prompt archives the workflow",
-			press:     []string{"space", "a", "enter"},
+			name:  "the workflow archive prompt archives the workflow",
+			press: []string{"space", "a", "enter"},
+			settle: []*watchv1.WatchEvent{
+				buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
+				buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
+			},
 			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
 			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
 		},
 		{
-			name:      "the workflow archive prompt archives the workflow from its orchestrator's menu",
-			author:    newOrchestrator(),
-			press:     []string{"space", "a", "enter"},
+			name:   "the workflow archive prompt archives the workflow from its orchestrator's menu",
+			author: newOrchestrator(),
+			press:  []string{"space", "a", "enter"},
+			settle: []*watchv1.WatchEvent{
+				buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
+				buildDeleted(watchv1.Resource_RESOURCE_AGENT, "o1"),
+			},
 			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
 			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
 		},
@@ -165,8 +178,15 @@ func TestFormsSubmit(t *testing.T) {
 				harness = openForms(t, workflow, author)
 			}
 			harness.panel.SetHostPath(tt.hostPath)
+			answerAgentCreate(harness, "")
+			harness.answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{Id: "a2"}}), nil
+			})
 
 			harness.press(tt.press...)
+			if len(tt.settle) > 0 {
+				harness.watch(tt.settle...)
+			}
 
 			harness.fireTimers()
 
@@ -310,6 +330,7 @@ func TestFormsInFlight(t *testing.T) {
 
 	t.Run("the form stays up saying it is submitting until the create lands", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		answerAgentCreate(harness, "")
 		harness.hold(create)
 
 		harness.press(submit...)
@@ -321,9 +342,13 @@ func TestFormsInFlight(t *testing.T) {
 
 		harness.release(create)
 
+		assert.Contains(t, harness.readFrame(), "check CI", "the form waits for the row the create made")
+
+		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
+
 		frame = harness.readFrame()
 		assert.NotContains(t, frame, "starting the agent…")
-		assert.NotContains(t, frame, "check CI", "the form goes once the create has landed")
+		assert.NotContains(t, frame, "check CI", "the form goes once the row is shown")
 	})
 
 	t.Run("the form keeps saying so while the pane the create made warms up", func(t *testing.T) {
@@ -339,6 +364,9 @@ func TestFormsInFlight(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "starting the agent…")
 		assert.Contains(t, frame, "check CI", "the form is still up")
+
+		harness.watch(buildPuts(newCreatedAgent()))
+		assert.Contains(t, harness.readFrame(), "check CI", "the row alone does not close it")
 
 		frames.isDrawn = true
 		harness.fireTimers()
@@ -495,7 +523,8 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness.press("j", "space", "a", "down", "enter", "y")
 		require.Contains(t, harness.readFrame(), `archiving and deleting agent "author"`)
 
-		harness.fireTimers()
+		harness.panel.ExpireSettling()
+		harness.fireMatching(ui.IsSettleTick)
 
 		assert.NotContains(t, harness.readFrame(), `archiving and deleting agent "author"`)
 	})
@@ -583,8 +612,12 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
 
+		assert.True(t, harness.panel.IsAgentAlive("a1"), "the agent stays until the watch drops it")
+
+		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
+
 		assert.False(t, harness.panel.IsAgentAlive("a1"))
-		assert.Contains(t, harness.readFrame(), "dormant")
+		assert.NotContains(t, readListRows(harness.readFrame()), "author")
 	})
 
 	t.Run("a refused archive destroys nothing", func(t *testing.T) {

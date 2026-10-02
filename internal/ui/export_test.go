@@ -278,6 +278,12 @@ func IsLoaderTick(msg tea.Msg) bool {
 	return ok
 }
 
+func IsSettleTick(msg tea.Msg) bool {
+	_, ok := msg.(settleTickMsg)
+
+	return ok
+}
+
 // IsStageTick reports whether msg is the rest a cursor move waited for.
 func IsStageTick(msg tea.Msg) bool {
 	_, ok := msg.(stageTickMsg)
@@ -606,9 +612,12 @@ func (p *Panel) SetHostPath(path string) {
 	p.tmux.path = path
 }
 
-// ExpireLanding runs out the wait a write's landing holds the cursor for.
-func (p *Panel) ExpireLanding() {
-	p.model.writes.landing.until = time.Time{}
+// ExpireSettling runs out the wait every parked write holds for the panel to show what it did.
+func (p *Panel) ExpireSettling() {
+	for write, held := range p.model.writes.settling {
+		held.deadline = time.Time{}
+		p.model.writes.settling[write] = held
+	}
 }
 
 // AgeWorktreeReads makes every directory read the panel holds older by the given time.

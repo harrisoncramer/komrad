@@ -310,11 +310,11 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	return m.writeCmd(
+	return awaitingCmd(m.writeCmd(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
-	)
+	), rowShown{agents: panel.IDs(agents)})
 }
 
 // confirmDeleteArchived asks before the agents are deleted for good.
@@ -334,11 +334,11 @@ func confirmDeleteArchived(m *model, agents []panel.Agent) tea.Cmd {
 				return nil
 			}
 
-			return m.writeCmd(
+			return awaitingCmd(m.writeCmd(
 				"deleting "+describeAgents(agents),
 				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
 				func(a api) error { return a.deleteAgents(panel.IDs(agents)) },
-			)
+			), rowsGone{archivedAgents: panel.IDs(agents)})
 		}),
 	})
 }
@@ -356,11 +356,11 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 				return nil
 			}
 
-			return m.writeCmd(
+			return awaitingCmd(m.writeCmd(
 				"deleting "+workflow.Name,
 				fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 				func(a api) error { return a.deleteWorkflow(workflow.ID) },
-			)
+			), rowsGone{archivedWorkflows: []string{workflow.ID}})
 		}),
 	})
 }

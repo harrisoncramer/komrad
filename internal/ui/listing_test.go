@@ -81,14 +81,15 @@ func TestListingLandsWrites(t *testing.T) {
 		assert.Equal(t, "  old", readHoveredRow(harness.readFrame()))
 	})
 
-	t.Run("a row arriving after the landing gave up leaves the cursor where it was", func(t *testing.T) {
+	t.Run("a row arriving after the wait ran out leaves the cursor where it was", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 
 		harness.press("space", "c", "h", "i", "enter")
-		harness.panel.ExpireLanding()
+		harness.panel.ExpireSettling()
+		harness.fireMatching(ui.IsSettleTick)
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 
 		assert.Equal(t, "  old", readHoveredRow(harness.readFrame()))
@@ -97,11 +98,11 @@ func TestListingLandsWrites(t *testing.T) {
 	t.Run("a key pressed while the landing waits takes the cursor back", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openLanding(t)
-		answerAgentCreate(harness, "")
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
+		answerResume(harness)
 
-		harness.press("space", "c", "h", "i", "enter", "k")
-		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
+		harness.press("j", "enter", "k")
+		harness.watch(buildPuts(newRunning()))
 
 		assert.Equal(t, "api", readHoveredRow(harness.readFrame()))
 	})
@@ -131,20 +132,15 @@ func TestListingLandsWrites(t *testing.T) {
 		answerAgentCreate(harness, "%9")
 
 		harness.press("space", "c", "h", "i", "enter")
+		harness.watch(buildPuts(newCreatedAgent()))
 		require.Equal(t, "%9", harness.panel.ReadGuestPane())
 
 		renamed := proto.CloneOf(old)
 		renamed.Name = "renamed"
 		harness.watch(buildPuts(renamed))
+
+		assert.Equal(t, "  check-ci", readHoveredRow(harness.readFrame()))
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane(), "the old row's pane is not swapped back over the new one")
-
-		created := newAgent("a2", "new", "w1")
-		created.PaneId = "%9"
-		created.Alive = xptr.Ptr(true)
-		harness.watch(buildPuts(created))
-
-		assert.Equal(t, "  new", readHoveredRow(harness.readFrame()))
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 	})
 
 	t.Run("a write with nothing to do with an open info pane leaves it up", func(t *testing.T) {
@@ -221,6 +217,7 @@ func TestListingFocus(t *testing.T) {
 		answerAgentCreate(harness, "%9")
 
 		harness.press("space", "c", "h", "i", "enter")
+		harness.watch(buildPuts(newCreatedAgent()))
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
@@ -252,6 +249,14 @@ func answerAgentCreate(harness *panelHarness, pane string) {
 	harness.answer(agentv1connect.AgentServiceCreateAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2", PaneId: pane}}), nil
 	})
+}
+
+func newCreatedAgent() *agentv1.Agent {
+	agent := newAgent("a2", "check-ci", "w1")
+	agent.PaneId = "%9"
+	agent.Alive = xptr.Ptr(true)
+
+	return agent
 }
 
 func answerResume(harness *panelHarness) {

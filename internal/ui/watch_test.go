@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -150,6 +151,12 @@ func buildDeleted(resource watchv1.Resource, key string) *watchv1.WatchEvent {
 		Resource: resource,
 		Key:      key,
 	}}}}}
+}
+
+func buildDeletedWorktrees(dirs ...string) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: xslice.Map(dirs, func(dir string) *watchv1.Deleted {
+		return &watchv1.Deleted{Resource: watchv1.Resource_RESOURCE_WORKTREE, Key: dir}
+	})}}}
 }
 
 func findOrphanDir(t *testing.T) string {

@@ -17,6 +17,7 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
+	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
@@ -46,6 +47,7 @@ func TestArchiveMenu(t *testing.T) {
 		name       string
 		rows       []proto.Message
 		press      []string
+		watch      []*watchv1.WatchEvent
 		wantScreen string
 		wantFrame  string
 		wantSent   []request
@@ -118,6 +120,7 @@ func TestArchiveMenu(t *testing.T) {
 			name:       "restore and open puts the agent back and opens it",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "space", "a", "o"},
+			watch:      []*watchv1.WatchEvent{buildPuts(newRestoredAgent())},
 			wantScreen: agentsScreen,
 			wantSent: []request{
 				{
@@ -166,8 +169,12 @@ func TestArchiveMenu(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openGroupedArchive(t, tt.rows...)
+			answerResume(harness)
 
 			harness.press(tt.press...)
+			if len(tt.watch) > 0 {
+				harness.watch(tt.watch...)
+			}
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
@@ -187,6 +194,7 @@ func TestArchivePrompts(t *testing.T) {
 		name     string
 		rows     []proto.Message
 		press    []string
+		gone     *watchv1.WatchEvent
 		wantSent []request
 	}{
 		{
@@ -203,6 +211,7 @@ func TestArchivePrompts(t *testing.T) {
 			name:  "confirming the delete destroys the agent it was opened on",
 			rows:  buildOneArchivedAgent(),
 			press: []string{"j", "space", "a", "d", "y"},
+			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
 				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a1"}},
@@ -212,6 +221,7 @@ func TestArchivePrompts(t *testing.T) {
 			name:  "confirming the workflow delete destroys the workflow it was opened on",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press: []string{"space", "a", "d", "y"},
+			gone:  buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
 				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
@@ -224,6 +234,10 @@ func TestArchivePrompts(t *testing.T) {
 			harness := openGroupedArchive(t, tt.rows...)
 
 			harness.press(tt.press...)
+			if tt.gone != nil {
+				require.Contains(t, harness.readFrame(), deletePrompt, "the prompt waits for the row to leave")
+				harness.watch(tt.gone)
+			}
 
 			frame := harness.readFrame()
 			assert.Equal(t, archiveScreen, harness.readScreen(), "the prompt returns to the archive it was opened from")
@@ -753,6 +767,7 @@ func TestArchiveWindow(t *testing.T) {
 		answerResume(harness)
 
 		harness.press("j", "space", "a", "o")
+		harness.watch(buildPuts(newRestoredAgent()))
 
 		assert.False(t, harness.panel.IsZoomed(), "the pane it made is not left under the archive's own zoom")
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
@@ -1079,6 +1094,15 @@ func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
 		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		ArchivedAt: xptr.Ptr(archivedAt),
 	}
+}
+
+func newRestoredAgent() *agentv1.Agent {
+	agent := newArchivedAgent("a1", "api-refactor", "w1")
+	agent.ArchivedAt = nil
+	agent.PaneId = "%9"
+	agent.Alive = xptr.Ptr(true)
+
+	return agent
 }
 
 func newArchivedAgentAt(name, at string) *agentv1.Agent {
