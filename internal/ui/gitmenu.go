@@ -20,6 +20,7 @@ const (
 	gitChoiceCopyPullRequestURL
 	gitChoiceToggleDraft
 	gitChoiceRequestRereview
+	gitChoiceMergeRebase
 )
 
 var (
@@ -88,6 +89,12 @@ func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 				write: run(gitChoiceRequestRereview),
 			},
 			nestedEntry("merge pr", m.keys.Git.Merge, mergeMenu(m, from, item)),
+			{
+				label: "merge then rebase",
+				keys:  m.keys.Git.MergeRebase,
+				isOff: mergeRebaseRefusal(m.listing, from, item) != nil,
+				write: run(gitChoiceMergeRebase),
+			},
 		},
 	}
 }
@@ -116,6 +123,16 @@ func pushRefusal(l listing, from screen, agent panel.Agent) error {
 	}
 
 	return nil
+}
+
+// mergeRebaseRefusal is why an agent's pull request cannot be merged and its worktree rebased
+// after from where the menu was opened, nil when it can.
+func mergeRebaseRefusal(l listing, from screen, item panel.AgentRow) error {
+	if err := worktreeRefusal(l, from, item.Agent); err != nil {
+		return err
+	}
+
+	return openPullRequestRefusal(item)
 }
 
 // abortRefusal is why what an agent's worktree has part-way through cannot be aborted from where
@@ -204,6 +221,14 @@ func (m *model) runGitChoice(from screen, agentID string, choice gitChoice) tea.
 		return m.toggleDraft(item)
 	case gitChoiceRequestRereview:
 		return m.requestRereview(item)
+	case gitChoiceMergeRebase:
+		if err := mergeRebaseRefusal(m.listing, from, item); err != nil {
+			m.report("Could not merge and rebase "+agent.Name, err)
+
+			return nil
+		}
+
+		return m.runGitCmd(mergeRebaseOp(item))
 	}
 
 	return nil
