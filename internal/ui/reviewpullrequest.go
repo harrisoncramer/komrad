@@ -1,12 +1,20 @@
 package ui
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 
+	"komrad/config"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+
+	tea "charm.land/bubbletea/v2"
 )
+
+// pullRequestWindowRows is the most rows the description takes before it scrolls.
+const pullRequestWindowRows = 10
 
 // currentPullRequest is the pull request open from the branch under review, as the list holds it,
 // once its title has been read from the forge.
@@ -22,8 +30,8 @@ func (r reviewScreen) currentPullRequest(m *model) (panel.PullRequest, bool) {
 	return item.PullRequests[0], true
 }
 
-// pullRequestView is the pull request's number, title, author and description cut to rows, the
-// description giving way first and the whole block when even the title does not fit.
+// pullRequestView is the pull request's number, title, author and a window on its description
+// cut to rows, the whole block giving way when even the title does not fit.
 func (r reviewScreen) pullRequestView(m *model, rows int) string {
 	pullRequest, ok := r.currentPullRequest(m)
 	if !ok || rows == 0 {
@@ -31,45 +39,78 @@ func (r reviewScreen) pullRequestView(m *model, rows int) string {
 	}
 
 	width := lineWidthOf(m.paneWidth())
-	var out strings.Builder
-	for _, row := range paint.WrapRows(pullRequest.Ref()+" "+pullRequest.Title, width) {
-		out.WriteString(paint.Panel.Title(row) + "\n")
-	}
-	if pullRequest.Author != "" {
-		out.WriteString(dimStyle().Render(paint.Clip("@"+pullRequest.Author, width)) + "\n")
-	}
-
-	head := paint.CountLines(out.String())
-	if rows > 0 && head+1 > rows {
+	head := r.pullRequestHeadView(m, pullRequest, width)
+	if rows > 0 && paint.CountLines(head)+1 > rows {
 		return ""
 	}
 
-	body := pullRequestBodyRows(pullRequest.Body, width)
-	if rows > 0 {
-		body = cutBodyRows(body, rows-head-2, width)
-	}
+	body := windowBodyRows(pullRequestBodyRows(pullRequest.Body, width), r.pullRequestTop, countPullRequestWindow(head, rows))
+
+	var out strings.Builder
+	out.WriteString(head)
 	if len(body) > 0 {
 		out.WriteString("\n")
 		for _, row := range body {
-			out.WriteString(dimStyle().Render(row) + "\n")
+			out.WriteString(dimStyle().Render(paint.Clip(row, width)) + "\n")
 		}
 	}
 
 	return out.String() + "\n"
 }
 
-func cutBodyRows(body []string, rows, width int) []string {
-	if rows <= 0 {
-		return nil
+// pullRequestHeadView is the pull request's number, title and author, the title lit while the
+// block holds the keys.
+func (r reviewScreen) pullRequestHeadView(m *model, pullRequest panel.PullRequest, width int) string {
+	title := paint.Panel.Title
+	if r.isPullRequestFocused(m) {
+		lit := paint.Panel.Style(paint.TonePrimary).Bold(true)
+		title = func(row string) string { return lit.Render(row) }
 	}
-	if len(body) <= rows {
+
+	var out strings.Builder
+	for _, row := range paint.WrapRows(pullRequest.Ref()+" "+pullRequest.Title, width) {
+		out.WriteString(title(row) + "\n")
+	}
+	if pullRequest.Author != "" {
+		out.WriteString(dimStyle().Render(paint.Clip("@"+pullRequest.Author, width)) + "\n")
+	}
+
+	return out.String()
+}
+
+// countPullRequestWindow is the rows the description may take under head in a block of rows.
+func countPullRequestWindow(head string, rows int) int {
+	if rows == paint.Unbounded {
+		return pullRequestWindowRows
+	}
+
+	return min(pullRequestWindowRows, rows-paint.CountLines(head)-2)
+}
+
+// countPullRequestTopMax is the furthest a description of total rows scrolls in a window whose last
+// row is the count.
+func countPullRequestTopMax(total, window int) int {
+	if total <= window || window < 2 {
+		return 0
+	}
+
+	return total - window + 1
+}
+
+// windowBodyRows is window rows of the description from top, the last row counting what is shown
+// when it does not all fit.
+func windowBodyRows(body []string, top, window int) []string {
+	if len(body) <= window {
 		return body
 	}
+	if window < 2 {
+		return nil
+	}
 
-	body = body[:rows]
-	body[rows-1] = paint.Clip(body[rows-1]+"…", width)
+	top = max(min(top, countPullRequestTopMax(len(body), window)), 0)
+	shown := slices.Clone(body[top : top+window-1])
 
-	return body
+	return append(shown, fmt.Sprintf("rows %d-%d of %d", top+1, top+window-1, len(body)))
 }
 
 // pullRequestBodyRows is a description wrapped to width, its runs of blank lines kept to one
@@ -92,4 +133,100 @@ func pullRequestBodyRows(body string, width int) []string {
 	}
 
 	return rows
+}
+
+func (r *reviewScreen) isPullRequestDrawn(m *model) bool {
+	if _, ok := m.screenColumnSplit(); !ok {
+		return false
+	}
+
+	_, ok := r.currentPullRequest(m)
+
+	return ok
+}
+
+func (r *reviewScreen) isPullRequestFocused(m *model) bool {
+	return r.focus == reviewFocusPullRequest && m.isListFocused() && !r.isWriting() && r.isPullRequestDrawn(m)
+}
+
+func (r *reviewScreen) focusPullRequest(*model) {
+	r.focus = reviewFocusPullRequest
+}
+
+func (r *reviewScreen) blurPullRequest() {
+	if r.focus == reviewFocusPullRequest {
+		r.focus = reviewFocusDiff
+	}
+}
+
+// scrollPullRequest moves the description's window by rows, held inside what it has to show.
+func (r *reviewScreen) scrollPullRequest(m *model, rows int) {
+	pullRequest, ok := r.currentPullRequest(m)
+	if !ok {
+		return
+	}
+
+	width := lineWidthOf(m.paneWidth())
+	window := countPullRequestWindow(r.pullRequestHeadView(m, pullRequest, width), r.layoutSidebar(m).pullRequestRows)
+	topMax := countPullRequestTopMax(len(pullRequestBodyRows(pullRequest.Body, width)), window)
+	from := min(r.pullRequestTop, topMax)
+	r.pullRequestTop = max(min(from+rows, topMax), 0)
+}
+
+// pullRequestActions is the keys on the pull request, which scroll its description.
+func (r *reviewScreen) pullRequestActions() screenActionSpec {
+	return screenActionSpec{
+		table: []screenAction{
+			{
+				id:   actionMove,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
+				nav: func(m *model, pressed string) tea.Cmd {
+					r.scrollPullRequest(m, directionOf(pressed, m.keys.Nav.Up))
+
+					return nil
+				},
+			},
+			{
+				id:   actionNavPage,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
+				nav: func(m *model, pressed string) tea.Cmd {
+					r.scrollPullRequest(m, directionOf(pressed, m.keys.Nav.PageUp)*pullRequestWindowRows/2)
+
+					return nil
+				},
+			},
+			{
+				id:   actionReviewBack,
+				keys: func(k config.Keybindings) []string { return k.Review.Back },
+				nav: func(*model, string) tea.Cmd {
+					r.blurPullRequest()
+
+					return nil
+				},
+			},
+			{
+				id:   actionQuit,
+				keys: func(k config.Keybindings) []string { return k.Review.Quit },
+				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+			},
+		},
+		legend: []screenLegendRow{
+			{
+				of:    []actionID{actionMove},
+				desc:  func(*model) string { return "scroll the description" },
+				label: moveLabel,
+				strip: true,
+			},
+			{
+				of:    []actionID{actionNavPage},
+				desc:  func(*model) string { return "page" },
+				label: navPageLabel,
+			},
+			{
+				of:    []actionID{actionReviewBack},
+				desc:  func(*model) string { return "back to the diff" },
+				strip: true,
+			},
+		},
+	}
 }

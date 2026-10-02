@@ -8,8 +8,11 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// actions is the keys of whichever of the diff and the file tree holds them.
+// actions is the keys of whichever of the diff, the file tree and the pull request holds them.
 func (r *reviewScreen) actions(m *model) screenActionSpec {
+	if r.isPullRequestFocused(m) {
+		return r.pullRequestActions()
+	}
 	if r.isBlockFocused(m) {
 		return r.filesActions()
 	}

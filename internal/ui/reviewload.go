@@ -82,12 +82,11 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 	worktree := m.listing.worktreeFor(agent)
 
 	*r = reviewScreen{
-		agentID:      agent.ID,
-		agentName:    agent.Name,
-		dir:          agent.Cwd,
-		exclude:      worktree.DiffExclude,
-		loading:      true,
-		filesFocused: true,
+		agentID:   agent.ID,
+		agentName: agent.Name,
+		dir:       agent.Cwd,
+		exclude:   worktree.DiffExclude,
+		loading:   true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.
 		diff: reviewDiff{spec: wholeChange()},

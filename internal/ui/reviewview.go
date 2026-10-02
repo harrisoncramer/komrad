@@ -40,6 +40,9 @@ func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 // in a popup over them.
 func (r reviewScreen) view(m *model) string {
 	split, ok := m.screenColumnSplit()
+	if !ok && m.term.paneMeasure > 0 {
+		return r.sidebarView(m)
+	}
 	if !ok {
 		band := r.bandView(m, m.paneWidth())
 		layout := r.layoutSidebar(m, band)
@@ -47,19 +50,23 @@ func (r reviewScreen) view(m *model) string {
 		return r.overlayThread(m, strings.TrimRight(band+r.drawSidebar(layout), "\n"))
 	}
 
-	layout := r.layoutSidebar(m)
-	layout.files = m.markZone(zoneBlock, layout.files, lineWidthOf(m.paneWidth()))
-
-	// Trimmed so the two halves are the same height.
-	sidebar := strings.TrimRight(r.drawSidebar(layout), "\n")
-
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
 	band := r.bandView(m, split.column)
 	area := band + r.diffView(m, split)
 	diff := m.markZone(zoneList, area, split.column)
 
-	return r.overlayThread(m, m.joinColumns(split, sidebar, diff))
+	return r.overlayThread(m, m.joinColumns(split, r.sidebarView(m), diff))
+}
+
+// sidebarView is the sidebar drawn as one half of a split, trimmed so the two halves are the same
+// height.
+func (r reviewScreen) sidebarView(m *model) string {
+	layout := r.layoutSidebar(m)
+	layout.files = m.markZone(zoneBlock, layout.files, lineWidthOf(m.paneWidth()))
+	layout.pullRequest = m.markZone(zonePullRequest, layout.pullRequest, lineWidthOf(m.paneWidth()))
+
+	return strings.TrimRight(r.drawSidebar(layout), "\n")
 }
 
 // overlayThread draws the popup over an area, and leaves the area alone where the popup has
@@ -91,9 +98,11 @@ type sidebarLayout struct {
 	rule        string
 	help        string
 	pullRequest string
-	files       string
-	notes       string
-	spare       int
+	// pullRequestRows is the rows the pull request was given, paint.Unbounded when it was given all it wants.
+	pullRequestRows int
+	files           string
+	notes           string
+	spare           int
 }
 
 // layoutSidebar gives the column to the file tree, the bar over it giving way before the tree
@@ -132,14 +141,16 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	}
 
 	if spare < 0 {
-		layout.pullRequest = r.pullRequestView(m, paint.Unbounded)
+		layout.pullRequestRows = paint.Unbounded
+		layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
 		layout.files = r.filesView(m, paint.Unbounded)
 
 		return layout
 	}
 
 	room := spare - paint.CountLines(r.placeView())
-	layout.pullRequest = r.pullRequestView(m, max(room-r.countFilesFloor(spare), 0))
+	layout.pullRequestRows = max(room-r.countFilesFloor(spare), 0)
+	layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
 	room -= paint.CountLines(layout.pullRequest)
 	lines := max(room-paint.CountLines(layout.notes), r.countFilesFloor(spare))
 	layout.files = r.filesView(m, max(min(lines, room), 0))
