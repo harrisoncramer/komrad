@@ -41,6 +41,7 @@ var (
 	recordAgentLine  = regexp.MustCompile(`agent\s+—`)
 	recordBranchLine = regexp.MustCompile(`branch\s+agent/auth`)
 	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
+	recordBaseLine   = regexp.MustCompile(`base\s+origin/main`)
 )
 
 // TestAgentsRows covers which rows the agents tree draws and where.

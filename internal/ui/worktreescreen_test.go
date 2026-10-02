@@ -502,17 +502,7 @@ func TestWorktreesRecord(t *testing.T) {
 	t.Run("the read of the directory adds where the branch stands and what it changed", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t)
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
-			Worktree:  &worktreev1.Worktree{Dir: "/trees/archived"},
-			BaseRef:   "origin/main",
-			Ahead:     2,
-			Behind:    12,
-			Modified:  []string{"a.go"},
-			Untracked: []string{"b.txt", "c.txt"},
-		}))
-		moveToWorktree(t, harness, "reviewer")
-		harness.fireTimers()
+		harness := openReadWorktree(t)
 		harness.press(widenListPresses...)
 
 		frame := harness.readFrame()
@@ -522,6 +512,44 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Contains(t, raw, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
 		assert.Contains(t, raw, paint.Panel.Style(paint.ToneWarning).Render("↓12"))
 	})
+
+	t.Run("a coloured value is copied as its plain text", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openReadWorktree(t)
+		harness.press("pick:record", "/", "m", "a", "i", "n", "enter", "y")
+
+		assert.Equal(t, []string{"origin/main  ↑2 ↓12"}, harness.panel.ReadCopied())
+	})
+
+	t.Run("a search over a coloured value lights its match in the plain text", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openReadWorktree(t)
+		harness.press(append([]string{"pick:record", "/", "m", "a", "i", "n", "enter"}, widenListPresses...)...)
+
+		line := findRawLine(harness.readRawFrame(), recordBaseLine)
+		assert.Contains(t, line, paint.Panel.Match().Render("main"))
+		assert.NotContains(t, line, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
+	})
+}
+
+func openReadWorktree(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := openWorktrees(t)
+	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		Worktree:  &worktreev1.Worktree{Dir: "/trees/archived"},
+		BaseRef:   "origin/main",
+		Ahead:     2,
+		Behind:    12,
+		Modified:  []string{"a.go"},
+		Untracked: []string{"b.txt", "c.txt"},
+	}))
+	moveToWorktree(t, harness, "reviewer")
+	harness.fireTimers()
+
+	return harness
 }
 
 // TestWorktreesRecordActivity covers the record saying what a directory takes and when it was last active.
