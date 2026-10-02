@@ -80,7 +80,7 @@ func runCase(t *testing.T, tool string, tt shimCase) {
 
 	cmd := exec.Command(filepath.Join(dir, shim.tool), tt.args...) //nolint:gosec // the stand-in this test wrote
 	cmd.Dir = work
-	cmd.Env = append([]string{"PATH=" + dir + ":" + beyond + ":/usr/bin:/bin", "HOME=" + root}, tt.env...)
+	cmd.Env = append([]string{"PATH=" + dir + ":" + beyond + ":" + systemDir(t, root), "HOME=" + root}, tt.env...)
 
 	var stdout, stderr strings.Builder
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -102,6 +102,24 @@ func runCase(t *testing.T, tool string, tt shimCase) {
 	if config := readIfThere(t, scoped); config != "" {
 		assert.NoDirExists(t, config)
 	}
+}
+
+// systemTools are the only programs the stand-ins and the fakes beyond them find on the PATH.
+var systemTools = []string{"cat", "cut", "ls", "mktemp", "rm", "touch"}
+
+func systemDir(t *testing.T, root string) string {
+	t.Helper()
+
+	dir := filepath.Join(root, "system")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+
+	for _, tool := range systemTools {
+		path, err := exec.LookPath(tool)
+		require.NoError(t, err)
+		require.NoError(t, os.Symlink(path, filepath.Join(dir, tool)))
+	}
+
+	return dir
 }
 
 // handedOver is what each tool beyond writes down of the credential it was handed.
