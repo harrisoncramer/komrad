@@ -481,7 +481,6 @@ func (cs *CwdSyncer) fetchMergedBase(ctx context.Context, params walkLandingPara
 
 	cs.walkedMu.Lock()
 	isFetched := cs.fetched[params.Agent.ID].Equal(*merged)
-	cs.fetched[params.Agent.ID] = *merged
 	cs.walkedMu.Unlock()
 	if isFetched {
 		return nil
@@ -494,6 +493,10 @@ func (cs *CwdSyncer) fetchMergedBase(ctx context.Context, params walkLandingPara
 	if err != nil && !errors.Is(err, git.ErrBaseMissing) {
 		return fmt.Errorf("failed to fetch the base of %q: %w", params.Agent.Name, err)
 	}
+
+	cs.walkedMu.Lock()
+	cs.fetched[params.Agent.ID] = *merged
+	cs.walkedMu.Unlock()
 
 	return nil
 }

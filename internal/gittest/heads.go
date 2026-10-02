@@ -33,6 +33,7 @@ type Trees struct {
 	Probed   []string
 	Tips     map[string]string
 	Fetched  []string
+	FetchErr error
 	Landed   map[string]bool
 	Walked   []string
 	// DiffStats is what each directory measures against its base.
@@ -77,11 +78,15 @@ func (t *Trees) ReadBaseTip(_ context.Context, dir, _ string) (string, error) {
 	return tip, nil
 }
 
-// FetchBase records the directory whose base was fetched and answers its origin ref.
+// FetchBase records the directory whose base was fetched and answers its origin ref, or FetchErr.
 func (t *Trees) FetchBase(_ context.Context, dir, base string) (string, string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.Fetched = append(t.Fetched, dir)
+
+	if t.FetchErr != nil {
+		return "", "", t.FetchErr
+	}
 
 	return "origin/" + base, "", nil
 }
