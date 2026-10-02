@@ -43,7 +43,7 @@ func autoMergeRefusal(item panel.AgentRow) error {
 	case item.PullRequest.MergeReadiness.AutoMerge:
 		return nil
 	case isDraft(item):
-		return errors.New(itsPullRequest(item.PullRequest, "is a draft, so mark it ready first"))
+		return errors.New(describePullRequest(item.PullRequest, "is a draft, so mark it ready first"))
 	case !item.PullRequest.MergeReadiness.AutoMergeable:
 		return errNoAutoMerge
 	}

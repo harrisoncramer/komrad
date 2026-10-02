@@ -83,6 +83,15 @@ func pullRequestWords(pullRequest panel.PullRequest) string {
 	return word
 }
 
+// describePullRequest says something of an agent's pull request in its forge's words.
+func describePullRequest(standing panel.PullRequestStanding, said string) string {
+	if said == "" {
+		return ""
+	}
+
+	return "its " + standing.Noun() + " " + said
+}
+
 // pullRequestStateWord is the one word the record uses for a state.
 func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 	switch state {
@@ -162,14 +171,4 @@ func (m *model) openURLCmd(target string) tea.Cmd {
 
 func (m *model) applyURLOpened(msg urlOpenedMsg) {
 	m.report("Could not open "+msg.target, msg.err)
-}
-
-// itsPullRequest says something of an agent's pull request in its forge's words, and nothing
-// when there is nothing to say.
-func itsPullRequest(standing panel.PullRequestStanding, said string) string {
-	if said == "" {
-		return ""
-	}
-
-	return "its " + standing.Noun() + " " + said
 }

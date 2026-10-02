@@ -165,10 +165,10 @@ func pullRequestRefusal(item panel.AgentRow) error {
 // openPullRequestRefusal is why an agent has no open pull request to act on, nil when it has one.
 func openPullRequestRefusal(item panel.AgentRow) error {
 	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
-		return errors.New(itsPullRequest(item.PullRequest, "has already merged"))
+		return errors.New(describePullRequest(item.PullRequest, "has already merged"))
 	}
 	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
-		return errors.New(itsPullRequest(item.PullRequest, "was closed without merging"))
+		return errors.New(describePullRequest(item.PullRequest, "was closed without merging"))
 	}
 
 	if item.PullRequest.URL == "" {
