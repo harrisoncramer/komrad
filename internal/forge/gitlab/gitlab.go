@@ -698,6 +698,14 @@ type userNode struct {
 	Username string `json:"username"`
 }
 
+func (n *userNode) username() string {
+	if n == nil {
+		return ""
+	}
+
+	return n.Username
+}
+
 type projectNode struct {
 	WebURL string `json:"webUrl"`
 }
@@ -825,7 +833,7 @@ func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		Head:       n.SourceProject.remote(),
 		Number:     numberOf(n.IID),
 		Title:      n.Title,
-		Author:     n.author(),
+		Author:     n.Author.username(),
 		Body:       n.Description,
 		HeadBranch: n.SourceBranch,
 		HeadSHA:    n.DiffHeadSha,
@@ -868,14 +876,6 @@ func (n mergeRequestNode) closedAt() *time.Time {
 	}
 
 	return n.MergedAt
-}
-
-func (n mergeRequestNode) author() string {
-	if n.Author == nil {
-		return ""
-	}
-
-	return n.Author.Username
 }
 
 // stateOf is GitLab's state in the words GitHub's enum uses.
