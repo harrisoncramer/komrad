@@ -74,11 +74,13 @@ func (m *model) getAvailableHooks() []string {
 }
 
 func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
-	return m.unstageAhead(m.listing.agentsOf(workflow.ID), m.writeCmd(
-		"archiving "+workflow.Name,
-		fmt.Sprintf("Could not archive workflow %q", workflow.Name),
-		func(a api) error { return a.archiveWorkflow(workflow.ID) },
-	))
+	return m.unstageAhead(m.listing.agentsOf(workflow.ID), func(archived *bool) tea.Cmd {
+		return m.writeCmd(
+			"archiving "+workflow.Name,
+			fmt.Sprintf("Could not archive workflow %q", workflow.Name),
+			func(a api) error { return markArchived(archived, a.archiveWorkflow(workflow.ID)) },
+		)
+	})
 }
 
 // agentsOf is the agents the last listing found inside a workflow.

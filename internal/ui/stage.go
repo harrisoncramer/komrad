@@ -11,8 +11,16 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// unstageAhead swaps the given agents' panes out of the stage ahead of a write that kills them.
-func (m *model) unstageAhead(agents []panel.Agent, write tea.Cmd) tea.Cmd {
+// unstaged is the agents whose panes were taken off the stage ahead of a write that kills them.
+type unstaged struct {
+	agents []panel.Agent
+	// archived says the write's archive step landed, whatever came after it.
+	archived bool
+}
+
+// unstageAhead swaps the given agents' panes out of the stage ahead of a write that kills them,
+// the write marking archived once its archive step lands.
+func (m *model) unstageAhead(agents []panel.Agent, write func(archived *bool) tea.Cmd) tea.Cmd {
 	if m.unstaging == nil {
 		m.unstaging = map[string]struct{}{}
 	}
@@ -29,30 +37,9 @@ func (m *model) unstageAhead(agents []panel.Agent, write tea.Cmd) tea.Cmd {
 		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
 
-	return stampUnstaged(write, agents)
-}
+	took := &unstaged{agents: agents}
+	cmd := write(&took.archived)
 
-// settleUnstaged marks the agents a landed write killed as no longer alive and stages the
-// screen again.
-func (m *model) settleUnstaged(agents []panel.Agent, err error) {
-	for _, agent := range agents {
-		delete(m.unstaging, agent.Pane)
-		if held, ok := m.listing.world.Agents[agent.ID]; ok && err == nil {
-			held.Alive = xptr.Ptr(false)
-		}
-	}
-
-	if err == nil {
-		m.listing.assemble(time.Now())
-	}
-
-	if stager, ok := m.active().(rowStager); ok {
-		stager.stage(m)
-	}
-}
-
-// stampUnstaged says on a write's result which agents' panes were released ahead of it.
-func stampUnstaged(cmd tea.Cmd, agents []panel.Agent) tea.Cmd {
 	return func() tea.Msg {
 		msg := cmd()
 
@@ -61,9 +48,35 @@ func stampUnstaged(cmd tea.Cmd, agents []panel.Agent) tea.Cmd {
 			return msg
 		}
 
-		result.unstaged = agents
+		result.unstaged = took
 
 		return result
+	}
+}
+
+// markArchived records whether an archive step landed and passes its error on.
+func markArchived(archived *bool, err error) error {
+	*archived = err == nil
+
+	return err
+}
+
+// settleUnstaged marks the agents an archive killed as no longer alive and stages the screen
+// again.
+func (m *model) settleUnstaged(took unstaged) {
+	for _, agent := range took.agents {
+		delete(m.unstaging, agent.Pane)
+		if held, ok := m.listing.world.Agents[agent.ID]; ok && took.archived {
+			held.Alive = xptr.Ptr(false)
+		}
+	}
+
+	if took.archived {
+		m.listing.assemble(time.Now())
+	}
+
+	if stager, ok := m.active().(rowStager); ok {
+		stager.stage(m)
 	}
 }
 

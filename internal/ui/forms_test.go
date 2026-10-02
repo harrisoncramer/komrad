@@ -520,6 +520,18 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "dormant")
 	})
 
+	t.Run("an archive that lands before its delete is refused leaves the agent dormant", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+		harness.press("j")
+		harness.fireTimers()
+		harness.refuse(agentv1connect.AgentServiceDeleteAgentsProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
+
+		harness.press("space", "a", "down", "ctrl+s", "y")
+
+		assert.Empty(t, harness.panel.ReadGuestPane())
+		assert.False(t, harness.panel.IsAgentAlive("a1"))
+	})
+
 	t.Run("an archive in flight takes the pane off the stage and leaves the agent live until it lands", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
 		harness.press("j")
