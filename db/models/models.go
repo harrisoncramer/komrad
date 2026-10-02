@@ -818,6 +818,8 @@ type ReviewThread struct {
 	EngineID string
 	// The forge thread this thread mirrors, null for a thread written in komrad or once the forge has deleted it.
 	ForgeThreadID *string
+	// Whether the forge said the thread was resolved as of the last sync, so only a change there resolves or reopens it here.
+	ForgeResolved bool
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.

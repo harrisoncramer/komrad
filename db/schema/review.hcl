@@ -308,6 +308,12 @@ table "review_threads" {
     type    = uuid
     comment = "The forge thread this thread mirrors, null for a thread written in komrad or once the forge has deleted it."
   }
+  column "forge_resolved" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge said the thread was resolved as of the last sync, so only a change there resolves or reopens it here."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

@@ -2,6 +2,7 @@ package reviews
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -65,13 +66,14 @@ func (m *ForgeMirror) Mirror(ctx context.Context, pullRequestID string) error {
 		return err
 	}
 
+	var errs []error
 	for _, target := range targets {
 		if err := m.mirrorOnto(ctx, target, threads); err != nil {
-			return fmt.Errorf("failed to mirror the forge threads onto agent %q: %w", target.AgentID, err)
+			errs = append(errs, fmt.Errorf("failed to mirror the forge threads onto agent %q: %w", target.AgentID, err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // mirroredThread is a forge thread an agent already holds, with its forge comments by id.
@@ -79,6 +81,7 @@ type mirroredThread struct {
 	ThreadID       string
 	ResolvedAt     *time.Time
 	ResolvedByKind reviewstore.AuthorKind
+	ForgeResolved  bool
 	Comments       map[string]mirroredComment
 }
 
@@ -96,6 +99,7 @@ func indexMirrored(rows []reviewstore.ForgeMirrored) map[string]*mirroredThread 
 				ThreadID:       row.ThreadID,
 				ResolvedAt:     row.ResolvedAt,
 				ResolvedByKind: row.ResolvedByKind,
+				ForgeResolved:  row.ForgeResolved,
 				Comments:       map[string]mirroredComment{},
 			}
 			byForge[row.ForgeThreadID] = thread
@@ -255,7 +259,17 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 				continue
 			}
 
-			if err := reviews.UpdateForgeMessage(ctx, held.MessageID, comment.Body, comment.EditedAt); err != nil {
+			review, err := params.ReviewFor(comment)
+			if err != nil {
+				return err
+			}
+
+			if err := reviews.UpdateForgeMessage(ctx, reviewstore.UpdateForgeMessageParams{
+				ID:       held.MessageID,
+				Body:     comment.Body,
+				EditedAt: comment.EditedAt,
+				ReviewID: review.ID,
+			}); err != nil {
 				return err
 			}
 
@@ -283,10 +297,18 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 	return nil
 }
 
-// syncResolved resolves a thread the forge resolved, and reopens one only the forge had resolved.
+// syncResolved follows the forge when it resolves or reopens a thread, leaving alone a thread the
+// person changed while the forge stayed put.
 func syncResolved(ctx context.Context, reviews *reviewstore.ReviewStore, mirrored *mirroredThread, thread pullrequeststore.ForgeThread) error {
-	resolved := mirrored.ResolvedAt != nil
+	if thread.Resolved == mirrored.ForgeResolved {
+		return nil
+	}
 
+	if err := reviews.SetForgeResolved(ctx, mirrored.ThreadID, thread.Resolved); err != nil {
+		return err
+	}
+
+	resolved := mirrored.ResolvedAt != nil
 	switch {
 	case thread.Resolved && !resolved:
 	case !thread.Resolved && resolved && mirrored.ResolvedByKind == reviewstore.AuthorForge:
@@ -493,4 +515,17 @@ func releaseHeldForge(ctx context.Context, tx pgx.Tx, agentID string) ([]reviews
 	}
 
 	return released, jobs, nil
+}
+
+// releaseHeldForgeInThread sends the forge reviews the person was holding that wrote in one
+// thread, with an event for each.
+func releaseHeldForgeInThread(ctx context.Context, tx pgx.Tx, agentID, threadID string) ([]river.JobArgs, error) {
+	reviews := reviewstore.NewReviewStore(tx)
+
+	released, err := reviews.ReleaseForgeReviewsInThread(ctx, threadID)
+	if err != nil {
+		return nil, err
+	}
+
+	return releasedForgeEvents(ctx, reviews, agentID, released)
 }

@@ -27,9 +27,10 @@ func TestForgeMirror(t *testing.T) {
 	edited := time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name  string
-		syncs [][]forge.ReviewThread
-		check func(t *testing.T, got forgeMirrored)
+		name      string
+		syncs     [][]forge.ReviewThread
+		meanwhile func(t *testing.T, fx *reviewFixture)
+		check     func(t *testing.T, got forgeMirrored)
 	}{
 		{
 			name:  "a comment from someone who can push reaches the agent on its own",
@@ -88,7 +89,8 @@ func TestForgeMirror(t *testing.T) {
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.messages, 1)
 				assert.Equal(t, "use an early return", got.messages[0].Body)
-				assert.Len(t, got.released, 1)
+				require.Len(t, got.released, 2)
+				assert.Equal(t, got.released[1].ReviewID, *got.messages[0].ReviewID)
 			},
 		},
 		{
@@ -127,13 +129,63 @@ func TestForgeMirror(t *testing.T) {
 				assert.Equal(t, reviewstore.AuthorForge, got.threads[0].ResolvedByKind)
 			},
 		},
+		{
+			name: "an edit from someone who can no longer push is held",
+			syncs: [][]forge.ReviewThread{
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
+				{newForgeThread(func() forge.ReviewComment {
+					comment := newForgeComment("c1", "alice", false, "rm -rf")
+					comment.EditedAt = &edited
+
+					return comment
+				}())},
+			},
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.messages, 1)
+				require.NotNil(t, got.messages[0].ReviewID)
+				held := xslice.Filter(got.reviews, func(review reviewstore.Review) bool {
+					return review.ID == *got.messages[0].ReviewID
+				})
+				require.Len(t, held, 1)
+				assert.Nil(t, held[0].ReleasedAt)
+				assert.Len(t, got.released, 1)
+			},
+		},
+		{
+			name: "a thread the person reopened stays open while the forge still says resolved",
+			syncs: [][]forge.ReviewThread{
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
+				{newResolvedForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
+				{newResolvedForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
+			},
+			meanwhile: func(t *testing.T, fx *reviewFixture) {
+				threads, err := fx.reviews.ListThreads(t.Context(), fx.worker.ID)
+				require.NoError(t, err)
+				require.Len(t, threads, 1)
+				require.NotNil(t, threads[0].ResolvedAt)
+
+				_, err = fx.service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+					ID:       threads[0].ID,
+					Resolved: false,
+					Author:   personAuthor,
+				})
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.threads, 1)
+				assert.Nil(t, got.threads[0].ResolvedAt)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
 
-			for _, sync := range tt.syncs {
+			for i, sync := range tt.syncs {
+				if i == len(tt.syncs)-1 && tt.meanwhile != nil {
+					tt.meanwhile(t, fx)
+				}
 				fx.mirrorForge(t, sync...)
 			}
 
@@ -142,17 +194,19 @@ func TestForgeMirror(t *testing.T) {
 	}
 }
 
-// TestReleasingHeldForgeComments covers the person letting a held forge comment through to the agent.
+// TestReleasingHeldForgeComments covers the person letting a held forge comment through to the agent, and a reply letting through only its own thread.
 func TestReleasingHeldForgeComments(t *testing.T) {
 	tests := []struct {
 		name    string
 		release func(t *testing.T, fx *reviewFixture, threadID string)
+		other   bool
 	}{
 		{
 			name: "the person sends a review with nothing of their own in it",
 			release: func(t *testing.T, fx *reviewFixture, _ string) {
 				fx.releaseReview(t, personAuthor, "")
 			},
+			other: true,
 		},
 		{
 			name: "the person replies in the held thread",
@@ -170,19 +224,27 @@ func TestReleasingHeldForgeComments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
-			fx.mirrorForge(t, newForgeThread(newForgeComment("c1", "mallory", false, "use a guard")))
+			elsewhere := newForgeThread(newForgeComment("c2", "eve", false, "drop the guard"))
+			elsewhere.ProviderID = "T2"
+			fx.mirrorForge(t, newForgeThread(newForgeComment("c1", "mallory", false, "use a guard")), elsewhere)
 			held := fx.readForgeMirrored(t)
-			require.Len(t, held.threads, 1)
+			require.Len(t, held.threads, 2)
 			require.Empty(t, held.released)
 
-			tt.release(t, fx, held.threads[0].ID)
+			mallory := xslice.Filter(held.messages, func(message reviewstore.Message) bool { return message.Body == "use a guard" })
+			require.Len(t, mallory, 1)
+
+			tt.release(t, fx, mallory[0].ThreadID)
 
 			got := fx.readForgeMirrored(t)
 			forgeReviews := xslice.Filter(got.reviews, func(review reviewstore.Review) bool {
 				return review.ExternalLogin != nil
 			})
-			require.Len(t, forgeReviews, 1)
-			assert.NotNil(t, forgeReviews[0].ReleasedAt)
+			released := map[string]bool{}
+			for _, review := range forgeReviews {
+				released[*review.ExternalLogin] = review.ReleasedAt != nil
+			}
+			assert.Equal(t, map[string]bool{"mallory": true, "eve": tt.other}, released)
 			forgeReleased := xslice.Filter(got.released, func(released Released) bool {
 				return released.ForgeLogin == "mallory"
 			})
@@ -258,4 +320,11 @@ func (fx *reviewFixture) readForgeMirrored(t *testing.T) forgeMirrored {
 		reviews:  xslice.Filter(reviews, func(review reviewstore.Review) bool { return review.ExternalLogin != nil || review.ReleasedAt != nil }),
 		released: released,
 	}
+}
+
+func newResolvedForgeThread(comments ...forge.ReviewComment) forge.ReviewThread {
+	thread := newForgeThread(comments...)
+	thread.Resolved = true
+
+	return thread
 }

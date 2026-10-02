@@ -49,6 +49,37 @@ func TestReleaseForgeReviews(t *testing.T) {
 	}
 }
 
+// TestReleaseForgeReviewsInThread covers releasing the held forge reviews that wrote in one thread
+// and leaving the agent's others held.
+func TestReleaseForgeReviewsInThread(t *testing.T) {
+	st := openFixture(t)
+	ctx := t.Context()
+	agentID := st.seedAgent(t, "worker")
+	round := st.openRound(t, agentID, "tree-one")
+
+	opener := st.openForgeReview(t, round, "mallory", false)
+	replier := st.openForgeReview(t, round, "eve", false)
+	elsewhere := st.openForgeReview(t, round, "trudy", false)
+	thread := st.openThread(t, opener, "use a guard")
+	st.openThread(t, elsewhere, "drop the guard")
+	_, err := st.CreateMessage(ctx, CreateMessageParams{
+		ThreadID:   thread.ID,
+		ReviewID:   &replier.ID,
+		AuthorKind: AuthorForge,
+		Body:       "agreed",
+	})
+	require.NoError(t, err)
+
+	released, err := st.ReleaseForgeReviewsInThread(ctx, thread.ID)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{opener.ID, replier.ID}, xslice.Map(released, func(review Review) string { return review.ID }))
+
+	got, err := st.GetReview(ctx, elsewhere.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Nil(t, got.ReleasedAt)
+}
+
 // TestListForgeMirrorTargets covers the agents a pull request's forge threads are mirrored onto.
 func TestListForgeMirrorTargets(t *testing.T) {
 	tests := []struct {

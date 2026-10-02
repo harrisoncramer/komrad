@@ -412,9 +412,7 @@ func (s *ReviewService) AddReviewMessage(
 			return nil, err
 		}
 		if params.Author.IsHuman() && thread.ForgeThreadID != nil {
-			_, held, err := releaseHeldForge(ctx, tx, thread.AgentID)
-
-			return held, err
+			return releaseHeldForgeInThread(ctx, tx, thread.AgentID, thread.ID)
 		}
 		if !answering {
 			return nil, nil

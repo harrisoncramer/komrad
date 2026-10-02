@@ -751,12 +751,39 @@ WHERE
 RETURNING
     *;
 
+-- name: ReleaseForgeReviewsInThread :many
+UPDATE
+    reviews v
+SET
+    released_at = NOW()
+WHERE
+    v.author_kind = 'forge'
+    AND v.released_at IS NULL
+    AND v.id IN (
+        SELECT
+            t.review_id
+        FROM
+            review_threads t
+        WHERE
+            t.id = @thread_id
+        UNION
+        SELECT
+            m.review_id
+        FROM
+            review_messages m
+        WHERE
+            m.thread_id = @thread_id
+            AND m.review_id IS NOT NULL)
+RETURNING
+    *;
+
 -- name: UpdateForgeReviewMessage :exec
 UPDATE
     review_messages
 SET
     body = @body,
-    forge_edited_at = sqlc.narg('forge_edited_at')
+    forge_edited_at = sqlc.narg('forge_edited_at'),
+    review_id = @review_id
 WHERE
     id = @id;
 
@@ -766,6 +793,7 @@ SELECT
     t.forge_thread_id::uuid AS forge_thread_id,
     t.resolved_at,
     t.resolved_by_kind,
+    t.forge_resolved,
     m.id AS message_id,
     m.forge_comment_id,
     m.forge_edited_at
@@ -806,3 +834,11 @@ WHERE
     AND a.deleting_at IS NULL
 ORDER BY
     a.id;
+
+-- name: SetForgeThreadResolved :exec
+UPDATE
+    review_threads
+SET
+    forge_resolved = @forge_resolved
+WHERE
+    id = @id;
