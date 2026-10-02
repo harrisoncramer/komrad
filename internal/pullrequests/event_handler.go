@@ -81,12 +81,17 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 func render(pullRequest pullrequeststore.PullRequest) string {
 	now := fieldValues(pullRequest)
 
+	noun, ref, checks := "pull request", fmt.Sprintf("#%d", pullRequest.Number), fmt.Sprintf("gh pr checks %d", pullRequest.Number)
+	if pullRequest.Forge == forge.KindGitLab {
+		noun, ref, checks = "merge request", fmt.Sprintf("!%d", pullRequest.Number), "glab ci status --branch "+pullRequest.HeadBranch
+	}
+
 	var body strings.Builder
-	fmt.Fprintf(&body, "komrad: pull request #%d (%s) on %s changed. It stands at:\n", pullRequest.Number, pullRequest.URL, pullRequest.HeadBranch)
+	fmt.Fprintf(&body, "komrad: %s %s (%s) on %s changed. It stands at:\n", noun, ref, pullRequest.URL, pullRequest.HeadBranch)
 	for _, field := range fieldOrder {
 		fmt.Fprintf(&body, "  %s: %s\n", field, describe(field, now[field], pullRequest))
 	}
-	fmt.Fprintf(&body, "Read its checks with gh pr checks %d. Review comments reach you through the person's review in komrad, so do not fetch them from the forge.", pullRequest.Number)
+	fmt.Fprintf(&body, "Read its checks with %s. Review comments reach you through the person's review in komrad, so do not fetch them from the forge.", checks)
 
 	return body.String()
 }
