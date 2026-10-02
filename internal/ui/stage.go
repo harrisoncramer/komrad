@@ -311,7 +311,7 @@ func (m *model) landVanished() tea.Cmd {
 
 // applyVanishTimeout lands an archive the watch has not yet confirmed.
 func (m *model) applyVanishTimeout(msg vanishTimeoutMsg) tea.Cmd {
-	if m.writes.vanishing.write != msg.write || msg.write == 0 {
+	if m.writes.vanishing.unstaged == nil || m.writes.vanishing.write != msg.write {
 		return nil
 	}
 
