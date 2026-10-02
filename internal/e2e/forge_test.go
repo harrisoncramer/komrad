@@ -329,7 +329,7 @@ func startFakeGitLab(t *testing.T) *fakeForge {
 			"approvedBy":                   map[string]any{"count": 1},
 			"reviewers":                    map[string]any{"nodes": []map[string]any{{"mergeRequestInteraction": map[string]any{"reviewState": "APPROVED"}}}},
 			"diffHeadSha":                  "aaa",
-			"headPipeline":                 map[string]any{"status": "SUCCESS"},
+			"headPipeline":                 map[string]any{"sha": "aaa", "status": "SUCCESS"},
 			"detailedMergeStatus":          "MERGEABLE",
 			"autoMergeEnabled":             fake.autoMerge.Load(),
 			"availableAutoMergeStrategies": strategies,

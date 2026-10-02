@@ -1,6 +1,7 @@
 package gitlab
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -287,9 +288,9 @@ func TestListAddressesANestedGroup(t *testing.T) {
 // a fork's merge request, and an approved merge request whose pipeline passed.
 var readBranchesAnswer = listing(false, "end", openMergeRequestRunning, forkMergeRequest, mergedMergeRequestPassed)
 
-const openMergeRequestRunning = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from the settings","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"},"detailedMergeStatus":"NOT_APPROVED","autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"]}`
+const openMergeRequestRunning = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from the settings","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"sha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","status":"RUNNING","mergeRequestEventType":null},"detailedMergeStatus":"NOT_APPROVED","autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"]}`
 
-const mergedMergeRequestPassed = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"},"approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"},"detailedMergeStatus":"MERGEABLE","autoMergeEnabled":false,"availableAutoMergeStrategies":[]}`
+const mergedMergeRequestPassed = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"},"approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"sha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","status":"SUCCESS","mergeRequestEventType":null},"detailedMergeStatus":"MERGEABLE","autoMergeEnabled":false,"availableAutoMergeStrategies":[]}`
 
 // TestReadBranches covers the query, each answer folded into komrad's words, the rate limit off
 // GitLab's headers, and a fork's merge request left out.
@@ -329,7 +330,7 @@ func TestReadBranches(t *testing.T) {
 	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionApproved,
 		Checks:       forge.ChecksPassing,
-		Mergeability: forge.MergeabilityClean,
+		Mergeability: forge.MergeabilityUnknown,
 		AutoMerge:    forge.AutoMerge{},
 	}, merged.MergeReadiness)
 }
@@ -822,6 +823,22 @@ func TestSetAutoMerge(t *testing.T) {
 			wantErr: forge.ErrNoAutoMerge,
 		},
 		{
+			name:    "a draft gitlab offers a strategy for is refused",
+			params:  forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": {body: `{"data":{"project":{"mergeRequest":{"state":"opened","draft":true,"autoMergeEnabled":false,"availableAutoMergeStrategies":["merge_when_checks_pass"]}}}}`}},
+			wantErr: forge.ErrNoAutoMerge,
+		},
+		{
+			name:   "a queued draft is cancelled",
+			params: forge.SetAutoMergeParams{URL: address},
+			answers: map[string]answer{
+				"AutoMergeTarget": {body: `{"data":{"project":{"mergeRequest":{"state":"opened","draft":true,"autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"]}}}}`},
+				path + "/cancel_merge_when_pipeline_succeeds": {status: http.StatusCreated, body: `{"iid":7,"merge_when_pipeline_succeeds":false}`},
+			},
+			wantMethod: http.MethodPost,
+			wantPath:   path + "/cancel_merge_when_pipeline_succeeds",
+		},
+		{
 			name: "a merge request whose branch moved past the head the person saw",
 			params: forge.SetAutoMergeParams{
 				URL:     address,
@@ -1061,11 +1078,12 @@ func TestRateLimitRefusals(t *testing.T) {
 
 // TestMergeabilityFolds covers the detailed merge statuses GitLab documents: one word each for
 // mergeable, checks in the way, behind and conflicting, unknown while GitLab is still working
-// it out, and blocked for every other rule.
+// it out or once the merge request has finished, and blocked for every other rule.
 func TestMergeabilityFolds(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		state  string
 		status string
 		want   forge.Mergeability
 	}{
@@ -1086,25 +1104,31 @@ func TestMergeabilityFolds(t *testing.T) {
 		{status: "BLOCKED_STATUS", want: forge.MergeabilityBlocked},
 		{status: "POLICIES_DENIED", want: forge.MergeabilityBlocked},
 		{status: "REQUESTED_CHANGES", want: forge.MergeabilityBlocked},
+		{state: "merged", status: "MERGEABLE", want: forge.MergeabilityUnknown},
+		{state: "closed", status: "NOT_OPEN", want: forge.MergeabilityUnknown},
 	}
 	for _, tt := range tests {
-		t.Run("status "+tt.status, func(t *testing.T) {
+		state := cmp.Or(tt.state, "opened")
+		t.Run(state+" status "+tt.status, func(t *testing.T) {
 			t.Parallel()
 
-			node := mergeReadinessNode{DetailedMergeStatus: tt.status}
+			node := mergeRequestNode{mergeReadinessNode: mergeReadinessNode{DetailedMergeStatus: tt.status}, State: state}
 			assert.Equal(t, tt.want, node.mergeability())
 		})
 	}
 }
 
-// TestChecksFolds covers every pipeline status GitLab documents: a cancelled pipeline is a
-// failure, a manual one is still waiting, and a skipped one says nothing about the branch.
+// TestChecksFolds covers every pipeline status GitLab documents and the commit it ran on: a
+// cancelled pipeline is a failure, a skipped or manual one says nothing about the branch, and so
+// does one on another commit, save a merged-results or merge train pipeline built for the head.
 func TestChecksFolds(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		status string
-		want   forge.Checks
+		status    string
+		sha       string
+		eventType string
+		want      forge.Checks
 	}{
 		{status: "SUCCESS", want: forge.ChecksPassing},
 		{status: "FAILED", want: forge.ChecksFailing},
@@ -1118,14 +1142,20 @@ func TestChecksFolds(t *testing.T) {
 		{status: "CANCELED", want: forge.ChecksFailing},
 		{status: "CANCELING", want: forge.ChecksFailing},
 		{status: "SKIPPED", want: forge.ChecksNone},
-		{status: "MANUAL", want: forge.ChecksPending},
+		{status: "MANUAL", want: forge.ChecksNone},
+		{status: "FAILED", eventType: "DETACHED", want: forge.ChecksFailing},
+		{status: "FAILED", sha: "def", want: forge.ChecksNone},
+		{status: "SUCCESS", sha: "def", eventType: "MERGED_RESULT", want: forge.ChecksPassing},
+		{status: "RUNNING", sha: "def", eventType: "MERGE_TRAIN", want: forge.ChecksPending},
 	}
 	for _, tt := range tests {
-		t.Run(tt.status, func(t *testing.T) {
+		sha := cmp.Or(tt.sha, "abc")
+		t.Run(tt.status+" "+tt.eventType+" on "+sha, func(t *testing.T) {
 			t.Parallel()
 
 			var node mergeReadinessNode
-			require.NoError(t, json.Unmarshal([]byte(`{"headPipeline":{"status":"`+tt.status+`"}}`), &node))
+			body := `{"diffHeadSha":"abc","headPipeline":{"sha":"` + sha + `","status":"` + tt.status + `","mergeRequestEventType":"` + tt.eventType + `"}}`
+			require.NoError(t, json.Unmarshal([]byte(body), &node))
 			assert.Equal(t, tt.want, node.checks())
 		})
 	}
@@ -1133,6 +1163,18 @@ func TestChecksFolds(t *testing.T) {
 	var node mergeReadinessNode
 	require.NoError(t, json.Unmarshal([]byte(`{"headPipeline":null}`), &node))
 	assert.Equal(t, forge.ChecksNone, node.checks())
+}
+
+// TestAutoMergeOnADraft covers a draft never being offered auto-merge, though GitLab offers a
+// strategy, while one already queued still reads on.
+func TestAutoMergeOnADraft(t *testing.T) {
+	t.Parallel()
+
+	node := mergeRequestNode{
+		mergeReadinessNode: mergeReadinessNode{AutoMergeEnabled: true, AvailableAutoMergeStrategies: []string{"merge_when_checks_pass"}},
+		Draft:              true,
+	}
+	assert.Equal(t, forge.AutoMerge{On: true, Allowed: false}, node.autoMerge())
 }
 
 // TestDecisionFolds covers how the approvals become komrad's word: a reviewer asking for
