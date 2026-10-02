@@ -274,7 +274,7 @@ type FormKeys struct {
 	Editor []string
 	// Abort the form and quit the panel.
 	Quit []string
-	// Submit the form, from a text field as from any other.
+	// Submit the form from any field.
 	Submit []string
 	// Send a review as it stands and stop the agent where it is, beside the submit key that
 	// sends without interrupting.
@@ -557,7 +557,7 @@ type ReviewKeys struct {
 	Reload []string `mapstructure:"reload" default:"R"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
-	// Send the comments waiting in your review to the agent, with a word on the work as a whole.
+	// Send the comments waiting in your review to the agent, after asking for a note on the work as a whole.
 	Send []string `mapstructure:"send" default:"s"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
 	// the agent writes to afterwards comes back on its own.

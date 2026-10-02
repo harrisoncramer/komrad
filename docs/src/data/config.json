@@ -879,7 +879,7 @@
               "key": "send",
               "path": "keybindings.review.send",
               "type": "array",
-              "description": "Send the comments waiting in your review to the agent, with a word on the work as a whole.",
+              "description": "Send the comments waiting in your review to the agent, after asking for a note on the work as a whole.",
               "default": "[\"s\"]"
             },
             {
