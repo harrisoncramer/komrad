@@ -19,7 +19,7 @@ type unstaged struct {
 }
 
 // unstageAhead takes the given agents' panes off the stage before a write that kills them.
-func (m *model) unstageAhead(agents []panel.Agent, write func(pending *unstaged) tea.Cmd) tea.Cmd {
+func (m *model) unstageAhead(agents []panel.Agent) *unstaged {
 	if m.unstaging == nil {
 		m.unstaging = map[string]struct{}{}
 	}
@@ -36,9 +36,11 @@ func (m *model) unstageAhead(agents []panel.Agent, write func(pending *unstaged)
 		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
 
-	pending := &unstaged{agents: agents}
-	cmd := write(pending)
+	return &unstaged{agents: agents}
+}
 
+// attach hands the write's result the panes taken off the stage for it.
+func (u *unstaged) attach(cmd tea.Cmd) tea.Cmd {
 	return func() tea.Msg {
 		msg := cmd()
 
@@ -47,7 +49,7 @@ func (m *model) unstageAhead(agents []panel.Agent, write func(pending *unstaged)
 			return msg
 		}
 
-		result.unstaged = pending
+		result.unstaged = u
 
 		return result
 	}

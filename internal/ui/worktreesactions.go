@@ -234,9 +234,9 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 				return nil
 			}
 
-			return m.unstageAhead(deletion.live, func(pending *unstaged) tea.Cmd {
-				return deleteWorktreesCmd(m, deletion, pending)
-			})
+			pending := m.unstageAhead(deletion.live)
+
+			return pending.attach(deleteWorktreesCmd(m, deletion, pending))
 		}),
 	})
 }
