@@ -31,17 +31,6 @@ const (
 	heldWorkingNotice     = "paused, but it has started working again"
 	heldUnreadableNotice  = "paused, but its pane cannot be read, so it may be writing"
 	heldPromptedNotice    = "paused, but stopped at a prompt, so a write lands if anybody answers"
-	prFailingNotice       = "has a failing check"
-	prConflictingNotice   = "no longer merges cleanly"
-	prChangesNotice       = "has changes requested"
-	prChecksNotice        = "has checks running"
-	prApprovedNotice      = "is approved and ready to merge"
-	prWaitingNotice       = "is approved but cannot merge yet"
-	prOpenNotice          = "is open and waiting on a review"
-	prRereviewNotice      = "is waiting on another review"
-	prDraftNotice         = "is still a draft"
-	prMergedNotice        = "is merged"
-	prClosedNotice        = "was closed without merging"
 )
 
 var (
@@ -57,21 +46,21 @@ var (
 		view.RepoRebasing: sequenceNotice,
 	}
 	forgeAlertSaid = map[view.Forge]string{
-		view.ForgeFailing:     prFailingNotice,
-		view.ForgeConflicting: prConflictingNotice,
+		view.ForgeFailing:     "has a failing check",
+		view.ForgeConflicting: "no longer merges cleanly",
 	}
 	forgeReviewSaid = map[view.Forge]string{
-		view.ForgeChangesRequested: prChangesNotice,
-		view.ForgeApproved:         prApprovedNotice,
+		view.ForgeChangesRequested: "has changes requested",
+		view.ForgeApproved:         "is approved and ready to merge",
 	}
 	forgeSaid = map[view.Forge]string{
-		view.ForgeOpen:              prOpenNotice,
-		view.ForgeRereviewRequested: prRereviewNotice,
-		view.ForgeChecksRunning:     prChecksNotice,
-		view.ForgeApprovedWaiting:   prWaitingNotice,
-		view.ForgeDraft:             prDraftNotice,
-		view.ForgeMerged:            prMergedNotice,
-		view.ForgeClosed:            prClosedNotice,
+		view.ForgeOpen:              "is open and waiting on a review",
+		view.ForgeRereviewRequested: "is waiting on another review",
+		view.ForgeChecksRunning:     "has checks running",
+		view.ForgeApprovedWaiting:   "is approved but cannot merge yet",
+		view.ForgeDraft:             "is still a draft",
+		view.ForgeMerged:            "is merged",
+		view.ForgeClosed:            "was closed without merging",
 	}
 )
 
