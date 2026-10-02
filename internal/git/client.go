@@ -10,14 +10,14 @@ import (
 // SSHHostsReader reads the SSH hosts that stand in for a forge's web host, keyed by the SSH host.
 type SSHHostsReader func() (map[string]string, error)
 
-// Client is git as a dependency a caller can take.
-type Client struct {
-	sshHosts SSHHostsReader
-}
-
 // NewClientParams holds where a client reads its named SSH hosts.
 type NewClientParams struct {
 	SSHHosts SSHHostsReader
+}
+
+// Client is git as a dependency a caller can take.
+type Client struct {
+	sshHosts SSHHostsReader
 }
 
 // NewClient returns a client that runs git in whichever directory a call names.
