@@ -84,22 +84,17 @@ func (c *Client) ReadRepositoryURL(ctx context.Context, dir string) string {
 }
 
 func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
-	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
-	if err != nil {
-		return ""
-	}
-
-	remote, err := c.ParseRemoteURL(ctx, raw)
-	if err != nil {
+	remote := c.readOrigin(ctx, dir)
+	if remote == nil {
 		return ""
 	}
 
 	return remote.Canonical()
 }
 
-// ReadOriginHost is the host a checkout's origin is on, empty when it has none komrad can read.
-func ReadOriginHost(ctx context.Context, dir string) string {
-	remote := readOrigin(ctx, dir)
+// ReadOriginHost is the web host a checkout's origin is on, empty when it has none komrad can read.
+func (c *Client) ReadOriginHost(ctx context.Context, dir string) string {
+	remote := c.readOrigin(ctx, dir)
 	if remote == nil {
 		return ""
 	}
@@ -108,13 +103,13 @@ func ReadOriginHost(ctx context.Context, dir string) string {
 }
 
 // readOrigin is a checkout's origin remote, nil when it has none komrad can read.
-func readOrigin(ctx context.Context, dir string) *RemoteURL {
+func (c *Client) readOrigin(ctx context.Context, dir string) *RemoteURL {
 	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
 	if err != nil {
 		return nil
 	}
 
-	remote, err := ParseRemoteURL(raw)
+	remote, err := c.ParseRemoteURL(ctx, raw)
 	if err != nil {
 		return nil
 	}

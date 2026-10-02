@@ -80,7 +80,7 @@ that names no App, which leaves gh the credential the machine was logged in with
 				return nil
 			}
 
-			if err := requireGitHubCheckout(cmd.Context(), checkout); err != nil {
+			if err := requireGitHubCheckout(cmd.Context(), state.gitClient(), checkout); err != nil {
 				return err
 			}
 
@@ -113,7 +113,7 @@ func isGitHubAppConfigured(state *app) (bool, error) {
 
 // requireGitHubCheckout refuses a checkout whose origin names another forge, and answers for
 // one that names no origin at all.
-func requireGitHubCheckout(ctx context.Context, dir string) error {
+func requireGitHubCheckout(ctx context.Context, client *git.Client, dir string) error {
 	if strings.TrimSpace(dir) == "" {
 		return nil
 	}
@@ -123,11 +123,11 @@ func requireGitHubCheckout(ctx context.Context, dir string) error {
 		return nil
 	}
 
-	return requireGitHubRemote(raw)
+	return requireGitHubRemote(ctx, client, raw)
 }
 
-func requireGitHubRemote(raw string) error {
-	remote, err := git.ParseRemoteURL(raw)
+func requireGitHubRemote(ctx context.Context, client *git.Client, raw string) error {
+	remote, err := client.ParseRemoteURL(ctx, raw)
 	if err != nil || remote.Host == githubHost {
 		return nil
 	}

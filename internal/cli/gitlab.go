@@ -12,7 +12,6 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/forge"
-	"komrad/internal/git"
 	githubapp "komrad/internal/github/app"
 	forgev1 "komrad/proto/gen/forge/v1"
 
@@ -68,7 +67,7 @@ with.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			host := git.ReadOriginHost(cmd.Context(), checkout)
+			host := state.gitClient().ReadOriginHost(cmd.Context(), checkout)
 			if host == "" {
 				if ifConfigured {
 					return nil
