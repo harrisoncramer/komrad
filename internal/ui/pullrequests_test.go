@@ -139,14 +139,15 @@ func TestPullRequestWords(t *testing.T) {
 	}
 }
 
-// TestPullRequestFields covers the record's row for the pull requests before the current one,
-// which is left out while there is at most one.
+// TestPullRequestFields covers the current pull request's title and author and the row for the
+// rest, which takes every one once the branch has moved past its last.
 func TestPullRequestFields(t *testing.T) {
 	yesterday := time.Now().Add(-26 * time.Hour)
 	current := panel.PullRequest{Number: 742, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED}
 
 	tests := []struct {
 		name         string
+		standing     pullrequestv1.PullRequestState
 		pullRequests []panel.PullRequest
 		want         []recordField
 	}{
@@ -194,11 +195,27 @@ func TestPullRequestFields(t *testing.T) {
 			},
 			want: []recordField{{label: "pull requests", value: "#711 merged, #708 closed"}},
 		},
+		{
+			name:     "a branch moved past its last one shows no current title or author",
+			standing: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+			pullRequests: []panel.PullRequest{
+				{
+					Number:   711,
+					Title:    "Read pull request authors",
+					Author:   "harrisoncramer",
+					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+					OpenedAt: yesterday,
+					MergedAt: &yesterday,
+					ClosedAt: &yesterday,
+				},
+			},
+			want: []recordField{{label: "pull requests", value: "#711 merged"}},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pullRequestFields(tt.pullRequests))
+			assert.Equal(t, tt.want, pullRequestFields(panel.PullRequestStanding{State: tt.standing}, tt.pullRequests))
 		})
 	}
 }

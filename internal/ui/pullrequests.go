@@ -12,29 +12,34 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// pullRequestFields are the record's rows for the branch's pull requests.
-func pullRequestFields(pullRequests []panel.PullRequest) []recordField {
+// pullRequestFields are the record's rows for the branch's pull requests: the current one's title
+// and author, then the rest, all of them when the branch has moved past its last one.
+func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.PullRequest) []recordField {
 	if len(pullRequests) == 0 {
 		return nil
 	}
 
 	var fields []recordField
-	current := pullRequests[0]
-	if current.Title != "" {
-		fields = append(fields, recordField{label: "title", value: current.Title})
+	rest := pullRequests
+	if standing.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
+		current := pullRequests[0]
+		rest = pullRequests[1:]
+		if current.Title != "" {
+			fields = append(fields, recordField{label: "title", value: current.Title})
+		}
+		if current.Author != "" {
+			fields = append(fields, recordField{label: "author", value: "@" + current.Author})
+		}
 	}
-	if current.Author != "" {
-		fields = append(fields, recordField{label: "author", value: "@" + current.Author})
-	}
-	if len(pullRequests) < 2 {
+	if len(rest) == 0 {
 		return fields
 	}
 
-	rest := xslice.Map(pullRequests[1:], func(pullRequest panel.PullRequest) string {
+	words := xslice.Map(rest, func(pullRequest panel.PullRequest) string {
 		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest))
 	})
 
-	return append(fields, recordField{label: "pull requests", value: strings.Join(rest, ", ")})
+	return append(fields, recordField{label: "pull requests", value: strings.Join(words, ", ")})
 }
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in

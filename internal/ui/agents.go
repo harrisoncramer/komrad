@@ -296,6 +296,7 @@ func agentDetailFields(m *model, item panel.AgentRow) []recordField {
 		agent:        item.Agent,
 		schedule:     m.listing.scheduleName(item.Agent),
 		parent:       m.listing.parentName(item.Agent),
+		standing:     item.PullRequest,
 		pullRequests: item.PullRequests,
 		worktree:     worktree,
 		read:         read,

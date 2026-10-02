@@ -90,6 +90,7 @@ type agentFieldsParams struct {
 	agent        panel.Agent
 	schedule     string
 	parent       string
+	standing     panel.PullRequestStanding
 	pullRequests []panel.PullRequest
 	// worktree is what the service has answered about the agent's directory, and read says
 	// whether it has answered that the directory is a worktree at all.
@@ -114,7 +115,7 @@ func agentFields(params agentFieldsParams) []recordField {
 
 	if agent.Branch != nil {
 		fields = append(fields, recordField{label: branchFieldKey, value: *agent.Branch})
-		fields = append(fields, pullRequestFields(params.pullRequests)...)
+		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
 	}
 	if params.read {
 		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)
