@@ -98,7 +98,7 @@ type sidebarLayout struct {
 	rule        string
 	help        string
 	pullRequest string
-	// pullRequestRows is the rows the pull request was given, below zero when it was given all it wants.
+	// pullRequestRows is the rows the pull request was given, paint.Unbounded when it was given all it wants.
 	pullRequestRows int
 	files           string
 	notes           string

@@ -155,7 +155,7 @@ type columnFocuser interface {
 	scrollColumn(m *model, rows int) tea.Cmd
 }
 
-// pullRequestFocuser is a screen whose pull request beside the list can take the keys and be scrolled.
+// pullRequestFocuser is a screen whose pull request beside the list can take the keys.
 type pullRequestFocuser interface {
 	isPullRequestDrawn(m *model) bool
 	isPullRequestFocused(m *model) bool

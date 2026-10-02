@@ -80,14 +80,15 @@ func (r reviewScreen) pullRequestHeadView(m *model, pullRequest panel.PullReques
 
 // countPullRequestWindow is the rows the description may take under head in a block of rows.
 func countPullRequestWindow(head string, rows int) int {
-	if rows < 0 {
+	if rows == paint.Unbounded {
 		return pullRequestWindowRows
 	}
 
 	return min(pullRequestWindowRows, rows-paint.CountLines(head)-2)
 }
 
-// countPullRequestTopMax is the furthest a description of total rows scrolls in a window.
+// countPullRequestTopMax is the furthest a description of total rows scrolls in a window whose last
+// row is the count.
 func countPullRequestTopMax(total, window int) int {
 	if total <= window || window < 2 {
 		return 0
@@ -96,8 +97,8 @@ func countPullRequestTopMax(total, window int) int {
 	return total - window + 1
 }
 
-// windowBodyRows is the description from top in a window, its last row the count of rows shown
-// when it does not fit whole.
+// windowBodyRows is window rows of the description from top, the last row counting what is shown
+// when it does not all fit.
 func windowBodyRows(body []string, top, window int) []string {
 	if len(body) <= window {
 		return body

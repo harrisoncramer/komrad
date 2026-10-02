@@ -36,7 +36,6 @@ type reviewScreen struct {
 	offer  string
 	offers reviewOffers
 
-	// focus is which of the diff, the file tree and the pull request holds the keys while the list does.
 	focus reviewFocus
 
 	// pullRequestTop is the first row of the description in view.
@@ -46,7 +45,7 @@ type reviewScreen struct {
 	filesFilter filterState
 }
 
-// reviewFocus is which part of the review holds the keys while the list does.
+// reviewFocus is which of the diff, the file tree and the pull request holds the review's keys.
 type reviewFocus int
 
 const (

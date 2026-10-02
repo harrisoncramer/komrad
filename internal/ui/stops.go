@@ -134,7 +134,10 @@ func (m *model) toggleStop() tea.Cmd {
 		return m.agents.openHovered(m)
 	}
 
-	stops := slices.DeleteFunc(m.listStops(), func(s stop) bool { return s == stopPullRequest && s != at })
+	stops := m.listStops()
+	if at != stopPullRequest {
+		stops = slices.DeleteFunc(stops, func(s stop) bool { return s == stopPullRequest })
+	}
 
 	to := m.leftStop
 	if to == at || !slices.Contains(stops, to) {
