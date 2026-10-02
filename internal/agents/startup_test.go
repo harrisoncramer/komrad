@@ -24,6 +24,7 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 		wantState  agentstore.State
 		wantReason string
 		wantKilled []string
+		wantPolls  int32
 	}
 
 	tests := []test{
@@ -34,12 +35,14 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 			wantState:  agentstore.StateFailedToCreate,
 			wantReason: "the CLI exited while starting: Error: the argument '--dangerously-bypass-approvals-and-sandbox' cannot be used multiple times user@host ~ %",
 			wantKilled: []string{"%agent"},
+			wantPolls:  1,
 		},
 		{
 			name:      "a CLI that keeps running",
 			exited:    false,
 			screen:    "ready\n",
 			wantState: agentstore.StateIdle,
+			wantPolls: startupPolls,
 		},
 	}
 
@@ -82,7 +85,9 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 					return false
 				}
 
-				return agents[0].State == tt.wantState && slices.Equal(tmux.ReadKilledPanes(), tt.wantKilled) && (tt.exited || polls.Load() == startupPolls)
+				return agents[0].State == tt.wantState &&
+					slices.Equal(tmux.ReadKilledPanes(), tt.wantKilled) &&
+					polls.Load() == tt.wantPolls
 			}, 5*time.Second, 10*time.Millisecond)
 
 			agents, err := st.Agents.List(t.Context())
