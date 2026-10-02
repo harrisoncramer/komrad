@@ -16,6 +16,7 @@ func TestGitLabConnection(t *testing.T) {
 	selfHosted := &forgev1.Forge{Id: "self", Kind: forge.KindGitLab, Host: "git.example.com", Method: forge.MethodToken, HasCredential: true}
 	github := &forgev1.Forge{Id: "gh", Kind: forge.KindGitHub, Host: "github.com", Method: forge.MethodToken, HasCredential: true}
 	tokenless := &forgev1.Forge{Id: "gone", Kind: forge.KindGitLab, Host: "gitlab.com", Method: forge.MethodToken}
+	rotating := &forgev1.Forge{Id: "rot", Kind: forge.KindGitLab, Host: "gitlab.com", Method: forge.MethodRotatingToken, HasCredential: true}
 
 	tests := []struct {
 		name   string
@@ -25,6 +26,7 @@ func TestGitLabConnection(t *testing.T) {
 	}{
 		{name: "gitlab.com", forges: []*forgev1.Forge{github, gitlab}, host: "gitlab.com", want: gitlab},
 		{name: "a self-hosted gitlab", forges: []*forgev1.Forge{gitlab, selfHosted}, host: "git.example.com", want: selfHosted},
+		{name: "a token komrad rotates", forges: []*forgev1.Forge{github, rotating}, host: "gitlab.com", want: rotating},
 		{name: "a host spelled in another case", forges: []*forgev1.Forge{gitlab}, host: "GitLab.com", want: gitlab},
 		{name: "a github host", forges: []*forgev1.Forge{github, gitlab}, host: "github.com"},
 		{name: "a connection whose token is gone", forges: []*forgev1.Forge{tokenless}, host: "gitlab.com"},
