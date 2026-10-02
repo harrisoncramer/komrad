@@ -81,9 +81,13 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 func render(pullRequest pullrequeststore.PullRequest) string {
 	now := fieldValues(pullRequest)
 
-	noun, ref, checks := "pull request", fmt.Sprintf("#%d", pullRequest.Number), fmt.Sprintf("gh pr checks %d", pullRequest.Number)
+	noun := "pull request"
+	ref := fmt.Sprintf("#%d", pullRequest.Number)
+	checks := fmt.Sprintf("gh pr checks %d", pullRequest.Number)
 	if pullRequest.Forge == forge.KindGitLab {
-		noun, ref, checks = "merge request", fmt.Sprintf("!%d", pullRequest.Number), "glab ci status --branch "+pullRequest.HeadBranch
+		noun = "merge request"
+		ref = fmt.Sprintf("!%d", pullRequest.Number)
+		checks = "glab ci status --branch " + pullRequest.HeadBranch
 	}
 
 	var body strings.Builder
