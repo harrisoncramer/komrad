@@ -10,28 +10,33 @@ import (
 
 // PullRequest draws one stored pull request as the wire carries it.
 func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest {
-	displayed := stored.Standing.DisplayForHead(stored.HeadSHA)
-
 	return &pullrequestv1.PullRequest{
-		Id:                      stored.ID,
-		Forge:                   stored.Forge,
-		ProviderId:              stored.ProviderID,
-		Url:                     stored.URL,
-		RepositoryUrl:           stored.RepositoryURL,
-		HeadRepositoryUrl:       stored.HeadRepositoryURL,
-		Number:                  int32(stored.Number),
-		Title:                   stored.Title,
-		HeadBranch:              stored.HeadBranch,
-		HeadSha:                 stored.HeadSHA,
-		BaseBranch:              stored.BaseBranch,
-		BaseSha:                 stored.BaseSHA,
-		Draft:                   stored.Draft,
-		State:                   PullRequestStateOf(pullrequests.StateOf(stored)),
-		OpenedAt:                dates.Stamp(stored.OpenedAt),
-		ChangedAt:               dates.Stamp(stored.ChangedAt),
-		MergedAt:                dates.StampPtr(stored.MergedAt),
-		ClosedAt:                dates.StampPtr(stored.ClosedAt),
-		ReviewDecision:          ReviewDecisionOf(displayed.Decision.Value),
+		Id:                stored.ID,
+		Forge:             stored.Forge,
+		ProviderId:        stored.ProviderID,
+		Url:               stored.URL,
+		RepositoryUrl:     stored.RepositoryURL,
+		HeadRepositoryUrl: stored.HeadRepositoryURL,
+		Number:            int32(stored.Number),
+		Title:             stored.Title,
+		HeadBranch:        stored.HeadBranch,
+		HeadSha:           stored.HeadSHA,
+		BaseBranch:        stored.BaseBranch,
+		BaseSha:           stored.BaseSHA,
+		Draft:             stored.Draft,
+		State:             PullRequestStateOf(pullrequests.StateOf(stored)),
+		OpenedAt:          dates.Stamp(stored.OpenedAt),
+		ChangedAt:         dates.Stamp(stored.ChangedAt),
+		MergedAt:          dates.StampPtr(stored.MergedAt),
+		ClosedAt:          dates.StampPtr(stored.ClosedAt),
+		MergeReadiness:    MergeReadiness(stored.MergeReadiness.DisplayForHead(stored.HeadSHA)),
+	}
+}
+
+// MergeReadiness draws what komrad shows of a pull request's merge readiness as the wire carries it.
+func MergeReadiness(displayed forge.DisplayedMergeReadiness) *pullrequestv1.MergeReadiness {
+	return &pullrequestv1.MergeReadiness{
+		Decision:                ReviewDecisionOf(displayed.Decision.Value),
 		Checks:                  ChecksOf(displayed.Checks.Value),
 		Mergeability:            MergeabilityOf(displayed.Mergeability.Value),
 		MergeabilityUnconfirmed: displayed.Mergeability.IsUnconfirmed,

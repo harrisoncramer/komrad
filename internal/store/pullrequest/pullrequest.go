@@ -50,9 +50,9 @@ type PullRequest struct {
 	MergedAt    *time.Time
 	ClosedAt    *time.Time
 	FirstSeenAt time.Time
-	// Standing is what komrad remembers of where the forge said the reviews, checks,
+	// MergeReadiness is what komrad remembers of where the forge said the reviews, checks,
 	// mergeability and auto-merge stand.
-	Standing forge.RememberedStanding
+	MergeReadiness forge.RememberedMergeReadiness
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -71,10 +71,10 @@ type Outcome struct {
 	OldState *string
 }
 
-// StandingChange is what komrad remembers of a pull request's standing before and after one read.
-type StandingChange struct {
-	Before forge.RememberedStanding
-	After  forge.RememberedStanding
+// MergeReadinessChange is what komrad remembers of a pull request's merge readiness before and after one read.
+type MergeReadinessChange struct {
+	Before forge.RememberedMergeReadiness
+	After  forge.RememberedMergeReadiness
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -219,32 +219,32 @@ func (s *PullRequestStore) ListPage(ctx context.Context, params ListPageParams) 
 	return xslice.Map(rows, fromRow), nil
 }
 
-// SetStandingParams is one read of a pull request's standing.
-type SetStandingParams struct {
-	ID       string
-	Standing forge.Standing
-	// HeadSHA is the head the standing was read for.
+// SetMergeReadinessParams is one read of a pull request's merge readiness.
+type SetMergeReadinessParams struct {
+	ID             string
+	MergeReadiness forge.MergeReadiness
+	// HeadSHA is the head the merge readiness was read for.
 	HeadSHA string
 	ReadAt  time.Time
 }
 
-// SetStanding records one read of a pull request's standing and must run on a store built inside InTx.
-func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingParams) (*StandingChange, error) {
+// SetMergeReadiness records one read of a pull request's merge readiness and must run on a store built inside InTx.
+func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMergeReadinessParams) (*MergeReadinessChange, error) {
 	row, err := s.queries.GetPullRequestForUpdate(ctx, params.ID)
 	if db.IsNoRows(err) {
-		return &StandingChange{}, nil
+		return &MergeReadinessChange{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to lock pull request %s to record its standing: %w", params.ID, err)
+		return nil, fmt.Errorf("failed to lock pull request %s to record its merge readiness: %w", params.ID, err)
 	}
 
-	before := rememberedStandingOf(row)
-	after := before.RememberRead(params.Standing, params.HeadSHA, params.ReadAt)
-	if err := s.queries.WriteStanding(ctx, toWriteStanding(params.ID, after)); err != nil {
-		return nil, fmt.Errorf("failed to record the standing of pull request %s: %w", params.ID, err)
+	before := rememberedMergeReadinessOf(row)
+	after := before.RememberRead(params.MergeReadiness, params.HeadSHA, params.ReadAt)
+	if err := s.queries.WriteMergeReadiness(ctx, toWriteMergeReadiness(params.ID, after)); err != nil {
+		return nil, fmt.Errorf("failed to record the merge readiness of pull request %s: %w", params.ID, err)
 	}
 
-	return &StandingChange{Before: before, After: after}, nil
+	return &MergeReadinessChange{Before: before, After: after}, nil
 }
 
 // Observe records every agent not being deleted beside every stored pull request opened from
@@ -322,13 +322,13 @@ func fromRow(row *models.PullRequest) PullRequest {
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
-		Standing:          rememberedStandingOf(row),
+		MergeReadiness:    rememberedMergeReadinessOf(row),
 	}
 }
 
-func rememberedStandingOf(row *models.PullRequest) forge.RememberedStanding {
+func rememberedMergeReadinessOf(row *models.PullRequest) forge.RememberedMergeReadiness {
 	wasRead := row.LatestHeadSha != nil
-	standing := forge.RememberedStanding{
+	readiness := forge.RememberedMergeReadiness{
 		Decision: forge.RememberedAnswer[forge.ReviewDecision]{
 			Value:              forge.ReviewDecision(xptr.Deref(row.KnownDecision)),
 			WasLatestReadBlank: wasRead && row.LatestDecision == nil,
@@ -347,29 +347,29 @@ func rememberedStandingOf(row *models.PullRequest) forge.RememberedStanding {
 		MergeabilityBlankSince: row.MergeabilityBlankSince,
 	}
 	if row.AutoMerge != nil {
-		standing.AutoMerge = &forge.AutoMerge{On: *row.AutoMerge, Allowed: row.AutoMergeable}
+		readiness.AutoMerge = &forge.AutoMerge{On: *row.AutoMerge, Allowed: row.AutoMergeable}
 	}
 
-	return standing
+	return readiness
 }
 
-func toWriteStanding(id string, standing forge.RememberedStanding) models.WriteStandingParams {
-	params := models.WriteStandingParams{
+func toWriteMergeReadiness(id string, readiness forge.RememberedMergeReadiness) models.WriteMergeReadinessParams {
+	params := models.WriteMergeReadinessParams{
 		ID:                     id,
-		LatestDecision:         latestReadOf(standing.Decision),
-		LatestChecks:           latestReadOf(standing.Checks),
-		LatestMergeability:     latestReadOf(standing.Mergeability),
-		LatestHeadSha:          &standing.LatestReadHeadSHA,
-		KnownChecks:            xptr.NonEmpty(string(standing.Checks.Value)),
-		KnownChecksSha:         xptr.NonEmpty(standing.Checks.HeadSHA),
-		KnownMergeability:      xptr.NonEmpty(string(standing.Mergeability.Value)),
-		KnownMergeabilitySha:   xptr.NonEmpty(standing.Mergeability.HeadSHA),
-		MergeabilityBlankSince: standing.MergeabilityBlankSince,
-		KnownDecision:          xptr.NonEmpty(string(standing.Decision.Value)),
+		LatestDecision:         latestReadOf(readiness.Decision),
+		LatestChecks:           latestReadOf(readiness.Checks),
+		LatestMergeability:     latestReadOf(readiness.Mergeability),
+		LatestHeadSha:          &readiness.LatestReadHeadSHA,
+		KnownChecks:            xptr.NonEmpty(string(readiness.Checks.Value)),
+		KnownChecksSha:         xptr.NonEmpty(readiness.Checks.HeadSHA),
+		KnownMergeability:      xptr.NonEmpty(string(readiness.Mergeability.Value)),
+		KnownMergeabilitySha:   xptr.NonEmpty(readiness.Mergeability.HeadSHA),
+		MergeabilityBlankSince: readiness.MergeabilityBlankSince,
+		KnownDecision:          xptr.NonEmpty(string(readiness.Decision.Value)),
 	}
-	if standing.AutoMerge != nil {
-		params.AutoMerge = &standing.AutoMerge.On
-		params.AutoMergeable = standing.AutoMerge.Allowed
+	if readiness.AutoMerge != nil {
+		params.AutoMerge = &readiness.AutoMerge.On
+		params.AutoMergeable = readiness.AutoMerge.Allowed
 	}
 
 	return params

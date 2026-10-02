@@ -17,7 +17,7 @@ func TestStateOf(t *testing.T) {
 	tests := []struct {
 		name        string
 		pullRequest pullrequeststore.PullRequest
-		read        forge.Standing
+		read        forge.MergeReadiness
 		readHead    string
 		want        State
 	}{
@@ -40,14 +40,14 @@ func TestStateOf(t *testing.T) {
 		{
 			name:        "a draft beats failing checks",
 			pullRequest: pullrequeststore.PullRequest{Draft: true},
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Checks: forge.ChecksFailing,
 			},
 			want: StateDraft,
 		},
 		{
 			name: "failing checks beat a conflict",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Checks:       forge.ChecksFailing,
 				Mergeability: forge.MergeabilityConflicting,
 			},
@@ -55,7 +55,7 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "a conflict beats a change request",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionChangesRequested,
 				Mergeability: forge.MergeabilityConflicting,
 			},
@@ -63,7 +63,7 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "a change request stands over a clean branch",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionChangesRequested,
 				Mergeability: forge.MergeabilityClean,
 			},
@@ -71,7 +71,7 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "a change request beats checks running",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionChangesRequested,
 				Checks:   forge.ChecksPending,
 			},
@@ -79,7 +79,7 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "a re-review request beats checks running",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionRereviewRequested,
 				Checks:   forge.ChecksPending,
 			},
@@ -87,7 +87,7 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "failing checks beat a re-review request",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionRereviewRequested,
 				Checks:   forge.ChecksFailing,
 			},
@@ -95,7 +95,7 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "checks running beat an approval on a clean branch",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionApproved,
 				Checks:       forge.ChecksPending,
 				Mergeability: forge.MergeabilityClean,
@@ -104,7 +104,7 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "clean beats an approval that would otherwise wait",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionApproved,
 				Mergeability: forge.MergeabilityClean,
 			},
@@ -112,14 +112,14 @@ func TestStateOf(t *testing.T) {
 		},
 		{
 			name: "clean with no decision is ready, since the forge's rules asked for no review",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Mergeability: forge.MergeabilityClean,
 			},
 			want: StateApproved,
 		},
 		{
 			name: "approved and behind is waiting though its checks pass",
-			read: forge.Standing{
+			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionApproved,
 				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityBehind,
@@ -129,25 +129,25 @@ func TestStateOf(t *testing.T) {
 		{
 			name:        "a conflict read for an older head is not a conflict",
 			pullRequest: pullrequeststore.PullRequest{HeadSHA: "bbb"},
-			read:        forge.Standing{Mergeability: forge.MergeabilityConflicting},
+			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityConflicting},
 			readHead:    "aaa",
 			want:        StateOpen,
 		},
 		{
 			name: "a change request the forge no longer reports is open",
 			pullRequest: pullrequeststore.PullRequest{
-				Standing: forge.RememberedStanding{}.RememberRead(
-					forge.Standing{Decision: forge.ReviewDecisionChangesRequested},
+				MergeReadiness: forge.RememberedMergeReadiness{}.RememberRead(
+					forge.MergeReadiness{Decision: forge.ReviewDecisionChangesRequested},
 					"",
 					stamp,
 				),
 			},
-			read: forge.Standing{Decision: forge.ReviewDecisionNone},
+			read: forge.MergeReadiness{Decision: forge.ReviewDecisionNone},
 			want: StateOpen,
 		},
 		{
 			name: "a pending review is open",
-			read: forge.Standing{Decision: forge.ReviewDecisionPending},
+			read: forge.MergeReadiness{Decision: forge.ReviewDecisionPending},
 			want: StateOpen,
 		},
 	}
@@ -155,7 +155,7 @@ func TestStateOf(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := tt.pullRequest
-			pullRequest.Standing = pullRequest.Standing.RememberRead(tt.read, tt.readHead, stamp)
+			pullRequest.MergeReadiness = pullRequest.MergeReadiness.RememberRead(tt.read, tt.readHead, stamp)
 
 			assert.Equal(t, tt.want, StateOf(pullRequest))
 		})

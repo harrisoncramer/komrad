@@ -21,32 +21,32 @@ import (
 
 // TestAPullRequestChangeTellsTheAgentsOnItsBranch pins what the one unread mail about a pull request says after each pass.
 func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
-	pending := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}
+	pending := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}
 
 	tests := []struct {
 		name       string
-		standings  []forge.Standing
+		reads      []forge.MergeReadiness
 		wantLines  []string
 		wantEvents []string
 	}{
 		{
 			name:       "checks failing",
-			standings:  []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
+			reads:      []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
 			wantLines:  []string{"  checks: failing on abc\n"},
 			wantEvents: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
 			name:      "an approval",
-			standings: []forge.Standing{{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending}},
+			reads:     []forge.MergeReadiness{{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending}},
 			wantLines: []string{"  review: approved\n", "do not fetch them from the forge"},
 		},
 		{
-			name:      "checks passing is not news on its own",
-			standings: []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing}},
+			name:  "checks passing is not news on its own",
+			reads: []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing}},
 		},
 		{
 			name: "two changes before the agent reads are one mail",
-			standings: []forge.Standing{
+			reads: []forge.MergeReadiness{
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{
 					Decision:     forge.ReviewDecisionPending,
@@ -58,7 +58,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		},
 		{
 			name: "a later change rewrites the mail to where things stand",
-			standings: []forge.Standing{
+			reads: []forge.MergeReadiness{
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing},
 			},
@@ -66,7 +66,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		},
 		{
 			name: "auto-merge turned on",
-			standings: []forge.Standing{{
+			reads: []forge.MergeReadiness{{
 				Decision:  forge.ReviewDecisionPending,
 				Checks:    forge.ChecksPending,
 				AutoMerge: forge.AutoMerge{On: true},
@@ -75,7 +75,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		},
 		{
 			name: "auto-merge turned off again rewrites the mail",
-			standings: []forge.Standing{
+			reads: []forge.MergeReadiness{
 				{
 					Decision:  forge.ReviewDecisionPending,
 					Checks:    forge.ChecksPending,
@@ -91,11 +91,11 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newSyncFixture(t)
 			agentID := f.agentOn(t, "a", "agent/x")
-			f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending))
+			f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending))
 			f.sync(t)
 
-			for i, standing := range tt.standings {
-				f.setStanding(t, standing, "", syncNow.Add(time.Duration(i+1)*time.Minute))
+			for i, readiness := range tt.reads {
+				f.setMergeReadiness(t, readiness, "", syncNow.Add(time.Duration(i+1)*time.Minute))
 			}
 
 			told := f.listMail(t, agentID)
@@ -118,20 +118,20 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 
 // TestAPullRequestChangeAfterTheMailWasReadStartsAnother pins that mail the agent read is left alone.
 func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
-	failingOnA := forge.Standing{
+	failingOnA := forge.MergeReadiness{
 		Decision: forge.ReviewDecisionPending,
 		Checks:   forge.ChecksFailing,
 	}
 
 	tests := []struct {
 		name      string
-		after     forge.Standing
+		after     forge.MergeReadiness
 		afterHead string
 		wantLines []string
 	}{
 		{
 			name: "an approval",
-			after: forge.Standing{
+			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionApproved,
 				Checks:   forge.ChecksFailing,
 			},
@@ -140,7 +140,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		},
 		{
 			name: "the checks failing again on a new head",
-			after: forge.Standing{
+			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionPending,
 				Checks:   forge.ChecksFailing,
 			},
@@ -149,7 +149,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		},
 		{
 			name: "an approval on a new head with no checks yet leaves the checks unknown",
-			after: forge.Standing{
+			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionApproved,
 				Checks:   forge.ChecksNone,
 			},
@@ -163,7 +163,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		},
 		{
 			name: "the checks passing on a new head is not news",
-			after: forge.Standing{
+			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionPending,
 				Checks:   forge.ChecksPassing,
 			},
@@ -175,15 +175,15 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newSyncFixture(t)
 			agentID := f.agentOn(t, "a", "agent/x")
-			f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
+			f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
 			f.sync(t)
 
-			f.setStanding(t, failingOnA, "aaa", syncNow.Add(time.Minute))
+			f.setMergeReadiness(t, failingOnA, "aaa", syncNow.Add(time.Minute))
 			claimed, err := f.stores.Mail.Claim(t.Context(), agentID, 10)
 			require.NoError(t, err)
 			require.Len(t, claimed, 1)
 
-			f.setStanding(t, tt.after, tt.afterHead, syncNow.Add(2*time.Minute))
+			f.setMergeReadiness(t, tt.after, tt.afterHead, syncNow.Add(2*time.Minute))
 
 			told := f.listMail(t, agentID)
 			if tt.wantLines == nil {
@@ -210,15 +210,15 @@ func (f *syncFixture) listMail(t *testing.T, agentID string) []mailstore.Mail {
 	return listed
 }
 
-// setStanding has the forge say this of PR_1, on a new head when one is named, and reads it then.
-func (f *syncFixture) setStanding(t *testing.T, said forge.Standing, head string, readAt time.Time) {
+// setMergeReadiness has the forge say this of PR_1, on a new head when one is named, and reads it then.
+func (f *syncFixture) setMergeReadiness(t *testing.T, said forge.MergeReadiness, head string, readAt time.Time) {
 	t.Helper()
 
 	if said.Mergeability == forge.MergeabilityUnknown {
 		said.Mergeability = forge.MergeabilityClean
 	}
 	held := f.forge.pullRequests["harrisoncramer/komrad"]
-	held[0] = standing(held[0], said)
+	held[0] = withMergeReadiness(held[0], said)
 	if head != "" {
 		held[0].HeadSHA = head
 	}
@@ -231,11 +231,11 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	f := newSyncFixture(t)
 	told := f.agentOn(t, "a", "agent/x")
 	full := f.agentOn(t, "b", "agent/x")
-	f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
+	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
 	f.sync(t)
 	f.fillMailbox(t, full)
 
-	f.setStanding(t, forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}, "", syncNow.Add(time.Minute))
+	f.setMergeReadiness(t, forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}, "", syncNow.Add(time.Minute))
 
 	assert.Empty(t, f.events.TakeErrors())
 	require.Len(t, f.listMail(t, told), 1)

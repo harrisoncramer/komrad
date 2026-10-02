@@ -318,7 +318,7 @@ type written struct {
 	hotUntil time.Time
 }
 
-// write upserts each pull request with its standing, and an event for each that moved, in one
+// write upserts each pull request with its merge readiness, and an event for each that moved, in one
 // transaction.
 func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.PullRequest) (*written, error) {
 	result := &written{}
@@ -344,13 +344,13 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				result.updated++
 			}
 
-			change := &pullrequeststore.StandingChange{}
-			if pullRequest.Standing != nil {
-				change, err = st.SetStanding(ctx, pullrequeststore.SetStandingParams{
-					ID:       outcome.ID,
-					Standing: *pullRequest.Standing,
-					HeadSHA:  pullRequest.HeadSHA,
-					ReadAt:   readAt,
+			change := &pullrequeststore.MergeReadinessChange{}
+			if pullRequest.MergeReadiness != nil {
+				change, err = st.SetMergeReadiness(ctx, pullrequeststore.SetMergeReadinessParams{
+					ID:             outcome.ID,
+					MergeReadiness: *pullRequest.MergeReadiness,
+					HeadSHA:        pullRequest.HeadSHA,
+					ReadAt:         readAt,
 				})
 				if err != nil {
 					return nil, err
@@ -360,7 +360,7 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				result.hotUntil = until
 			}
 
-			moves := standingMoves(change)
+			moves := mergeReadinessMoves(change)
 			if upsert.State != "OPEN" {
 				moves = slices.DeleteFunc(moves, func(move Move) bool {
 					return move.From == ""
@@ -388,7 +388,7 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 	return result, nil
 }
 
-func standingMoves(change *pullrequeststore.StandingChange) []Move {
+func mergeReadinessMoves(change *pullrequeststore.MergeReadinessChange) []Move {
 	var moves []Move
 	for _, move := range change.After.ListMovesSince(change.Before) {
 		field := Field(move.Field)

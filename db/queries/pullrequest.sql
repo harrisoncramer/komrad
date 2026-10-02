@@ -244,7 +244,7 @@ WHERE
     id = @id
 FOR UPDATE;
 
--- name: WriteStanding :exec
+-- name: WriteMergeReadiness :exec
 UPDATE
     pull_requests
 SET

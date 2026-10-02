@@ -170,13 +170,13 @@ func (p *pacing) wake() {
 }
 
 // hotUntil is how long a pull request keeps its repository hot.
-func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.StandingChange) time.Time {
+func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.MergeReadinessChange) time.Time {
 	if pullRequest.IsFinished() {
 		return time.Time{}
 	}
 
 	until := time.Time{}
-	if pullRequest.Standing != nil && pullRequest.Standing.Checks == forge.ChecksPending {
+	if pullRequest.MergeReadiness != nil && pullRequest.MergeReadiness.Checks == forge.ChecksPending {
 		until = pullRequest.UpdatedAt.Add(pendingHotWithin)
 	}
 	if change.After.MergeabilityBlankSince != nil {

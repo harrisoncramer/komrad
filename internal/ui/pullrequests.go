@@ -62,7 +62,7 @@ const pullRequestFieldKey = "pull request"
 // flight, a branch behind or conflicting, or a rule an approval is waiting on, and a ready
 // branch the forge is checking again.
 func pullRequestWords(pullRequest panel.PullRequest) string {
-	state, checks, mergeability := pullRequest.State, pullRequest.Checks, pullRequest.Mergeability
+	state, checks, mergeability := pullRequest.State, pullRequest.MergeReadiness.Checks, pullRequest.MergeReadiness.Mergeability
 	word := pullRequestStateWord(state)
 	switch state {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
@@ -83,7 +83,7 @@ func pullRequestWords(pullRequest panel.PullRequest) string {
 	}
 
 	switch {
-	case state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED && pullRequest.MergeabilityUnconfirmed:
+	case state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED && pullRequest.MergeReadiness.MergeabilityUnconfirmed:
 		return word + ", forge rechecking"
 	case mergeability == pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING:
 		return word + ", conflicts with the base"

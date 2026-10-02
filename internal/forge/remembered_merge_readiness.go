@@ -2,18 +2,18 @@ package forge
 
 import "time"
 
-// StandingField is one part of a pull request's standing whose move is reported.
-type StandingField string
+// MergeReadinessField is one part of a pull request's merge readiness whose move is reported.
+type MergeReadinessField string
 
 const (
-	// StandingFieldDecision is where the reviews stand.
-	StandingFieldDecision StandingField = "review"
-	// StandingFieldChecks is where the checks on the head stand.
-	StandingFieldChecks StandingField = "checks"
-	// StandingFieldMergeability is where the branch stands against its base.
-	StandingFieldMergeability StandingField = "mergeability"
-	// StandingFieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
-	StandingFieldAutoMerge StandingField = "auto-merge"
+	// MergeReadinessFieldDecision is where the reviews stand.
+	MergeReadinessFieldDecision MergeReadinessField = "review"
+	// MergeReadinessFieldChecks is where the checks on the head stand.
+	MergeReadinessFieldChecks MergeReadinessField = "checks"
+	// MergeReadinessFieldMergeability is where the branch stands against its base.
+	MergeReadinessFieldMergeability MergeReadinessField = "mergeability"
+	// MergeReadinessFieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
+	MergeReadinessFieldAutoMerge MergeReadinessField = "auto-merge"
 )
 
 const (
@@ -22,14 +22,14 @@ const (
 	autoMergeOff = "off"
 )
 
-// StandingMove is one part of a pull request's standing going from one value to another.
-type StandingMove struct {
-	Field StandingField
+// MergeReadinessMove is one part of a pull request's merge readiness going from one value to another.
+type MergeReadinessMove struct {
+	Field MergeReadinessField
 	From  string
 	To    string
 }
 
-// RememberedAnswer is what komrad remembers of one part of a pull request's standing.
+// RememberedAnswer is what komrad remembers of one part of a pull request's merge readiness.
 type RememberedAnswer[T comparable] struct {
 	// Value is the last answer the forge gave that was not blank.
 	Value T
@@ -39,8 +39,8 @@ type RememberedAnswer[T comparable] struct {
 	WasLatestReadBlank bool
 }
 
-// RememberedStanding is what komrad remembers of a pull request's standing across its reads.
-type RememberedStanding struct {
+// RememberedMergeReadiness is what komrad remembers of a pull request's merge readiness across its reads.
+type RememberedMergeReadiness struct {
 	Decision     RememberedAnswer[ReviewDecision]
 	Checks       RememberedAnswer[Checks]
 	Mergeability RememberedAnswer[Mergeability]
@@ -53,8 +53,8 @@ type RememberedStanding struct {
 }
 
 // RememberRead takes a read of head made at a moment into what komrad remembers.
-func (rs RememberedStanding) RememberRead(read Standing, head string, at time.Time) RememberedStanding {
-	next := RememberedStanding{
+func (rs RememberedMergeReadiness) RememberRead(read MergeReadiness, head string, at time.Time) RememberedMergeReadiness {
+	next := RememberedMergeReadiness{
 		Decision:          rememberAnswer(rs.Decision, read.Decision, ""),
 		Checks:            rememberAnswer(rs.Checks, read.Checks, head),
 		Mergeability:      rememberAnswer(rs.Mergeability, read.Mergeability, head),
@@ -84,33 +84,33 @@ func rememberAnswer[T comparable](answer RememberedAnswer[T], read T, head strin
 	return RememberedAnswer[T]{Value: read, HeadSHA: head}
 }
 
-// ListMovesSince lists every part of the standing that moved since before.
-func (rs RememberedStanding) ListMovesSince(before RememberedStanding) []StandingMove {
-	var moves []StandingMove
+// ListMovesSince lists every part of the merge readiness that moved since before.
+func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadiness) []MergeReadinessMove {
+	var moves []MergeReadinessMove
 	if rs.Decision.Value != before.Decision.Value {
-		moves = append(moves, StandingMove{
-			Field: StandingFieldDecision,
+		moves = append(moves, MergeReadinessMove{
+			Field: MergeReadinessFieldDecision,
 			From:  string(before.Decision.Value),
 			To:    string(rs.Decision.Value),
 		})
 	}
 	if rs.Checks.Value != before.Checks.Value || isOnNewHead(before.Checks, rs.Checks) {
-		moves = append(moves, StandingMove{
-			Field: StandingFieldChecks,
+		moves = append(moves, MergeReadinessMove{
+			Field: MergeReadinessFieldChecks,
 			From:  string(before.Checks.Value),
 			To:    string(rs.Checks.Value),
 		})
 	}
 	if rs.Mergeability.Value != before.Mergeability.Value {
-		moves = append(moves, StandingMove{
-			Field: StandingFieldMergeability,
+		moves = append(moves, MergeReadinessMove{
+			Field: MergeReadinessFieldMergeability,
 			From:  string(before.Mergeability.Value),
 			To:    string(rs.Mergeability.Value),
 		})
 	}
 	if from, to := DescribeAutoMerge(before.AutoMerge), DescribeAutoMerge(rs.AutoMerge); from != to {
-		moves = append(moves, StandingMove{
-			Field: StandingFieldAutoMerge,
+		moves = append(moves, MergeReadinessMove{
+			Field: MergeReadinessFieldAutoMerge,
 			From:  from,
 			To:    to,
 		})
@@ -136,7 +136,7 @@ func DescribeAutoMerge(autoMerge *AutoMerge) string {
 	}
 }
 
-// DisplayedAnswer is one part of a pull request's standing as komrad shows it for a head.
+// DisplayedAnswer is one part of a pull request's merge readiness as komrad shows it for a head.
 type DisplayedAnswer[T comparable] struct {
 	// Value is the answer to show for the head.
 	Value T
@@ -144,17 +144,17 @@ type DisplayedAnswer[T comparable] struct {
 	IsUnconfirmed bool
 }
 
-// DisplayedStanding is a pull request's standing as komrad shows it for one head.
-type DisplayedStanding struct {
+// DisplayedMergeReadiness is a pull request's merge readiness as komrad shows it for one head.
+type DisplayedMergeReadiness struct {
 	Decision     DisplayedAnswer[ReviewDecision]
 	Checks       DisplayedAnswer[Checks]
 	Mergeability DisplayedAnswer[Mergeability]
 	AutoMerge    AutoMerge
 }
 
-// DisplayForHead says what to show for each part of the standing on head.
-func (rs RememberedStanding) DisplayForHead(head string) DisplayedStanding {
-	displayed := DisplayedStanding{
+// DisplayForHead says what to show for each part of the merge readiness on head.
+func (rs RememberedMergeReadiness) DisplayForHead(head string) DisplayedMergeReadiness {
+	displayed := DisplayedMergeReadiness{
 		Decision:     displayLatestDecision(rs.Decision),
 		Checks:       displayAnswerForHead(rs.Checks, head),
 		Mergeability: displayAnswerForHead(rs.Mergeability, head),

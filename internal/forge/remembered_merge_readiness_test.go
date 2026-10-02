@@ -8,15 +8,15 @@ import (
 )
 
 type read struct {
-	standing Standing
-	head     string
-	at       time.Time
+	readiness MergeReadiness
+	head      string
+	at        time.Time
 }
 
-func rememberEveryRead(reads []read) (RememberedStanding, RememberedStanding) {
-	var before, after RememberedStanding
+func rememberEveryRead(reads []read) (RememberedMergeReadiness, RememberedMergeReadiness) {
+	var before, after RememberedMergeReadiness
 	for _, next := range reads {
-		before, after = after, after.RememberRead(next.standing, next.head, next.at)
+		before, after = after, after.RememberRead(next.readiness, next.head, next.at)
 	}
 
 	return before, after
@@ -28,7 +28,7 @@ func TestRememberRead(t *testing.T) {
 
 	began := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	later := began.Add(time.Minute)
-	failing := Standing{
+	failing := MergeReadiness{
 		Decision:     ReviewDecisionPending,
 		Checks:       ChecksFailing,
 		Mergeability: MergeabilityUnstable,
@@ -37,16 +37,16 @@ func TestRememberRead(t *testing.T) {
 	tests := []struct {
 		name  string
 		reads []read
-		want  RememberedStanding
+		want  RememberedMergeReadiness
 	}{
 		{
 			name: "an answer is remembered with the head it was read for",
 			reads: []read{{
-				standing: failing,
-				head:     "aaa",
-				at:       began,
+				readiness: failing,
+				head:      "aaa",
+				at:        began,
 			}},
-			want: RememberedStanding{
+			want: RememberedMergeReadiness{
 				Decision:          RememberedAnswer[ReviewDecision]{Value: ReviewDecisionPending},
 				Checks:            RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
 				Mergeability:      RememberedAnswer[Mergeability]{Value: MergeabilityUnstable, HeadSHA: "aaa"},
@@ -58,13 +58,13 @@ func TestRememberRead(t *testing.T) {
 			name: "a blank keeps the last answer and its head",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       began,
+					readiness: failing,
+					head:      "aaa",
+					at:        began,
 				},
 				{head: "bbb", at: later},
 			},
-			want: RememberedStanding{
+			want: RememberedMergeReadiness{
 				Decision: RememberedAnswer[ReviewDecision]{Value: ReviewDecisionPending, WasLatestReadBlank: true},
 				Checks: RememberedAnswer[Checks]{
 					Value:              ChecksFailing,
@@ -85,13 +85,13 @@ func TestRememberRead(t *testing.T) {
 			name: "an answer after a blank is no longer blank",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       began,
+					readiness: failing,
+					head:      "aaa",
+					at:        began,
 				},
 				{head: "aaa", at: later},
 				{
-					standing: Standing{
+					readiness: MergeReadiness{
 						Decision:     ReviewDecisionApproved,
 						Checks:       ChecksPassing,
 						Mergeability: MergeabilityClean,
@@ -100,7 +100,7 @@ func TestRememberRead(t *testing.T) {
 					at:   later,
 				},
 			},
-			want: RememberedStanding{
+			want: RememberedMergeReadiness{
 				Decision:          RememberedAnswer[ReviewDecision]{Value: ReviewDecisionApproved},
 				Checks:            RememberedAnswer[Checks]{Value: ChecksPassing, HeadSHA: "aaa"},
 				Mergeability:      RememberedAnswer[Mergeability]{Value: MergeabilityClean, HeadSHA: "aaa"},
@@ -112,13 +112,13 @@ func TestRememberRead(t *testing.T) {
 			name: "auto-merge is taken from every read",
 			reads: []read{
 				{
-					standing: Standing{AutoMerge: AutoMerge{On: true, Allowed: true}},
-					head:     "aaa",
-					at:       began,
+					readiness: MergeReadiness{AutoMerge: AutoMerge{On: true, Allowed: true}},
+					head:      "aaa",
+					at:        began,
 				},
 				{head: "aaa", at: later},
 			},
-			want: RememberedStanding{
+			want: RememberedMergeReadiness{
 				Decision:               RememberedAnswer[ReviewDecision]{WasLatestReadBlank: true},
 				Checks:                 RememberedAnswer[Checks]{WasLatestReadBlank: true},
 				Mergeability:           RememberedAnswer[Mergeability]{WasLatestReadBlank: true},
@@ -145,7 +145,7 @@ func TestRememberReadMergeabilityBlankSince(t *testing.T) {
 
 	began := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	later := began.Add(time.Minute)
-	clean := Standing{Mergeability: MergeabilityClean}
+	clean := MergeReadiness{Mergeability: MergeabilityClean}
 
 	tests := []struct {
 		name  string
@@ -161,9 +161,9 @@ func TestRememberReadMergeabilityBlankSince(t *testing.T) {
 			name: "a blank that stays blank on the same head keeps when it began",
 			reads: []read{
 				{
-					standing: clean,
-					head:     "aaa",
-					at:       began.Add(-time.Minute),
+					readiness: clean,
+					head:      "aaa",
+					at:        began.Add(-time.Minute),
 				},
 				{head: "aaa", at: began},
 				{head: "aaa", at: later},
@@ -184,9 +184,9 @@ func TestRememberReadMergeabilityBlankSince(t *testing.T) {
 			reads: []read{
 				{head: "aaa", at: began},
 				{
-					standing: clean,
-					head:     "aaa",
-					at:       later,
+					readiness: clean,
+					head:      "aaa",
+					at:        later,
 				},
 			},
 		},
@@ -195,9 +195,9 @@ func TestRememberReadMergeabilityBlankSince(t *testing.T) {
 			reads: []read{
 				{head: "aaa", at: began},
 				{
-					standing: clean,
-					head:     "aaa",
-					at:       began.Add(time.Second),
+					readiness: clean,
+					head:      "aaa",
+					at:        began.Add(time.Second),
 				},
 				{head: "aaa", at: later},
 			},
@@ -220,7 +220,7 @@ func TestListMovesSince(t *testing.T) {
 	t.Parallel()
 
 	at := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
-	failing := Standing{
+	failing := MergeReadiness{
 		Decision:     ReviewDecisionPending,
 		Checks:       ChecksFailing,
 		Mergeability: MergeabilityClean,
@@ -229,29 +229,29 @@ func TestListMovesSince(t *testing.T) {
 	tests := []struct {
 		name  string
 		reads []read
-		want  []StandingMove
+		want  []MergeReadinessMove
 	}{
 		{
 			name: "a first answer moves from nothing",
 			reads: []read{{
-				standing: failing,
-				head:     "aaa",
-				at:       at,
+				readiness: failing,
+				head:      "aaa",
+				at:        at,
 			}},
-			want: []StandingMove{
-				{Field: StandingFieldDecision, To: "pending"},
-				{Field: StandingFieldChecks, To: "failing"},
-				{Field: StandingFieldMergeability, To: "clean"},
-				{Field: StandingFieldAutoMerge, To: "off"},
+			want: []MergeReadinessMove{
+				{Field: MergeReadinessFieldDecision, To: "pending"},
+				{Field: MergeReadinessFieldChecks, To: "failing"},
+				{Field: MergeReadinessFieldMergeability, To: "clean"},
+				{Field: MergeReadinessFieldAutoMerge, To: "off"},
 			},
 		},
 		{
 			name: "a blank is never a move",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 				{head: "aaa", at: at},
 			},
@@ -260,9 +260,9 @@ func TestListMovesSince(t *testing.T) {
 			name: "a blank on a new head is never a move",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 				{head: "bbb", at: at},
 			},
@@ -271,14 +271,14 @@ func TestListMovesSince(t *testing.T) {
 			name: "the same answer again is not a move",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 			},
 		},
@@ -286,18 +286,18 @@ func TestListMovesSince(t *testing.T) {
 			name: "the same checks verdict on a new head is a move",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 				{
-					standing: failing,
-					head:     "bbb",
-					at:       at,
+					readiness: failing,
+					head:      "bbb",
+					at:        at,
 				},
 			},
-			want: []StandingMove{{
-				Field: StandingFieldChecks,
+			want: []MergeReadinessMove{{
+				Field: MergeReadinessFieldChecks,
 				From:  "failing",
 				To:    "failing",
 			}},
@@ -306,19 +306,19 @@ func TestListMovesSince(t *testing.T) {
 			name: "the same checks verdict after a blank on a new head is a move",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 				{head: "bbb", at: at},
 				{
-					standing: failing,
-					head:     "bbb",
-					at:       at,
+					readiness: failing,
+					head:      "bbb",
+					at:        at,
 				},
 			},
-			want: []StandingMove{{
-				Field: StandingFieldChecks,
+			want: []MergeReadinessMove{{
+				Field: MergeReadinessFieldChecks,
 				From:  "failing",
 				To:    "failing",
 			}},
@@ -327,35 +327,35 @@ func TestListMovesSince(t *testing.T) {
 			name: "a changed answer moves from the last one",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
-				{standing: Standing{
+				{readiness: MergeReadiness{
 					Decision:     ReviewDecisionApproved,
 					Checks:       ChecksPassing,
 					Mergeability: MergeabilityConflicting,
 					AutoMerge:    AutoMerge{On: true},
 				}, head: "aaa", at: at},
 			},
-			want: []StandingMove{
+			want: []MergeReadinessMove{
 				{
-					Field: StandingFieldDecision,
+					Field: MergeReadinessFieldDecision,
 					From:  "pending",
 					To:    "approved",
 				},
 				{
-					Field: StandingFieldChecks,
+					Field: MergeReadinessFieldChecks,
 					From:  "failing",
 					To:    "passing",
 				},
 				{
-					Field: StandingFieldMergeability,
+					Field: MergeReadinessFieldMergeability,
 					From:  "clean",
 					To:    "conflicting",
 				},
 				{
-					Field: StandingFieldAutoMerge,
+					Field: MergeReadinessFieldAutoMerge,
 					From:  "off",
 					To:    "on",
 				},
@@ -365,11 +365,11 @@ func TestListMovesSince(t *testing.T) {
 			name: "auto-merge becoming allowed is not a move",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
-				{standing: Standing{
+				{readiness: MergeReadiness{
 					Decision:     ReviewDecisionPending,
 					Checks:       ChecksFailing,
 					Mergeability: MergeabilityClean,
@@ -394,7 +394,7 @@ func TestDisplayForHead(t *testing.T) {
 	t.Parallel()
 
 	at := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
-	failing := Standing{
+	failing := MergeReadiness{
 		Decision:     ReviewDecisionApproved,
 		Checks:       ChecksFailing,
 		Mergeability: MergeabilityBehind,
@@ -405,7 +405,7 @@ func TestDisplayForHead(t *testing.T) {
 		name  string
 		reads []read
 		head  string
-		want  DisplayedStanding
+		want  DisplayedMergeReadiness
 	}{
 		{
 			name: "nothing read shows nothing",
@@ -414,12 +414,12 @@ func TestDisplayForHead(t *testing.T) {
 		{
 			name: "an answer for the head is confirmed",
 			reads: []read{{
-				standing: failing,
-				head:     "aaa",
-				at:       at,
+				readiness: failing,
+				head:      "aaa",
+				at:        at,
 			}},
 			head: "aaa",
-			want: DisplayedStanding{
+			want: DisplayedMergeReadiness{
 				Decision:     DisplayedAnswer[ReviewDecision]{Value: ReviewDecisionApproved},
 				Checks:       DisplayedAnswer[Checks]{Value: ChecksFailing},
 				Mergeability: DisplayedAnswer[Mergeability]{Value: MergeabilityBehind},
@@ -430,14 +430,14 @@ func TestDisplayForHead(t *testing.T) {
 			name: "a blank read leaves checks and mergeability unconfirmed and the decision none",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 				{head: "aaa", at: at},
 			},
 			head: "aaa",
-			want: DisplayedStanding{
+			want: DisplayedMergeReadiness{
 				Checks:       DisplayedAnswer[Checks]{Value: ChecksFailing, IsUnconfirmed: true},
 				Mergeability: DisplayedAnswer[Mergeability]{Value: MergeabilityBehind, IsUnconfirmed: true},
 			},
@@ -446,9 +446,9 @@ func TestDisplayForHead(t *testing.T) {
 			name: "a blank read on a new head shows nothing",
 			reads: []read{
 				{
-					standing: failing,
-					head:     "aaa",
-					at:       at,
+					readiness: failing,
+					head:      "aaa",
+					at:        at,
 				},
 				{head: "bbb", at: at},
 			},

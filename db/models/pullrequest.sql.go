@@ -801,7 +801,7 @@ func (q *Queries) UpsertPullRequest(ctx context.Context, arg UpsertPullRequestPa
 	return &i, err
 }
 
-const writeStanding = `-- name: WriteStanding :exec
+const writeMergeReadiness = `-- name: WriteMergeReadiness :exec
 UPDATE
     pull_requests
 SET
@@ -844,7 +844,7 @@ WHERE
         $12::boolean)
 `
 
-type WriteStandingParams struct {
+type WriteMergeReadinessParams struct {
 	LatestDecision         *string
 	LatestChecks           *string
 	LatestMergeability     *string
@@ -860,8 +860,8 @@ type WriteStandingParams struct {
 	ID                     string
 }
 
-func (q *Queries) WriteStanding(ctx context.Context, arg WriteStandingParams) error {
-	_, err := q.db.Exec(ctx, writeStanding,
+func (q *Queries) WriteMergeReadiness(ctx context.Context, arg WriteMergeReadinessParams) error {
+	_, err := q.db.Exec(ctx, writeMergeReadiness,
 		arg.LatestDecision,
 		arg.LatestChecks,
 		arg.LatestMergeability,

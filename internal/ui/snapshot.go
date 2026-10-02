@@ -100,7 +100,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.InWorkflowDir = isInWorkflowDir(item.Agent, params.workflowDirs)
 	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
 	row.Forge = snapshotForge(item)
-	row.AutoMerge = item.PullRequest.AutoMerge
+	row.AutoMerge = item.PullRequest.MergeReadiness.AutoMerge
 	row.LoaderFrame = params.loaderFrame
 	row.Selected = params.selected.has(toTreeRowKey(key))
 

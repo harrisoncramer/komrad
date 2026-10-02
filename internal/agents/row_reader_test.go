@@ -73,10 +73,10 @@ func TestListSurroundings(t *testing.T) {
 		ChangedAt:         openedAt,
 	})
 	require.NoError(t, err)
-	_, err = st.PullRequests.SetStanding(ctx, pullrequeststore.SetStandingParams{
-		ID:       written.ID,
-		Standing: forge.Standing{Decision: forge.ReviewDecisionApproved},
-		ReadAt:   openedAt,
+	_, err = st.PullRequests.SetMergeReadiness(ctx, pullrequeststore.SetMergeReadinessParams{
+		ID:             written.ID,
+		MergeReadiness: forge.MergeReadiness{Decision: forge.ReviewDecisionApproved},
+		ReadAt:         openedAt,
 	})
 	require.NoError(t, err)
 	_, err = st.PullRequests.Observe(ctx)

@@ -128,30 +128,36 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 // pullRequestStandingFrom is the standing as the wire carries it.
 func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) panel.PullRequestStanding {
 	return panel.PullRequestStanding{
-		State:         standing.GetState(),
-		Checks:        standing.GetChecks(),
-		Mergeability:  standing.GetMergeability(),
-		Number:        standing.GetNumber(),
-		URL:           standing.GetUrl(),
-		Title:         standing.GetTitle(),
-		HeadSHA:       standing.GetHeadSha(),
-		AutoMerge:     standing.GetAutoMerge(),
-		AutoMergeable: standing.GetAutoMergeable(),
+		State:          standing.GetState(),
+		Number:         standing.GetNumber(),
+		URL:            standing.GetUrl(),
+		Title:          standing.GetTitle(),
+		HeadSHA:        standing.GetHeadSha(),
+		MergeReadiness: mergeReadinessFrom(standing.GetMergeReadiness()),
 	}
 }
 
 func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
 	return panel.PullRequest{
-		Number:                  pullRequest.GetNumber(),
-		URL:                     pullRequest.GetUrl(),
-		Title:                   pullRequest.GetTitle(),
-		State:                   pullRequest.GetState(),
-		Checks:                  pullRequest.GetChecks(),
-		Mergeability:            pullRequest.GetMergeability(),
-		MergeabilityUnconfirmed: pullRequest.GetMergeabilityUnconfirmed(),
-		OpenedAt:                dates.Parse(pullRequest.GetOpenedAt()),
-		MergedAt:                dates.ParsePtr(pullRequest.GetMergedAt()),
-		ClosedAt:                dates.ParsePtr(pullRequest.GetClosedAt()),
+		Number:         pullRequest.GetNumber(),
+		URL:            pullRequest.GetUrl(),
+		Title:          pullRequest.GetTitle(),
+		State:          pullRequest.GetState(),
+		MergeReadiness: mergeReadinessFrom(pullRequest.GetMergeReadiness()),
+		OpenedAt:       dates.Parse(pullRequest.GetOpenedAt()),
+		MergedAt:       dates.ParsePtr(pullRequest.GetMergedAt()),
+		ClosedAt:       dates.ParsePtr(pullRequest.GetClosedAt()),
+	}
+}
+
+func mergeReadinessFrom(mergeReadiness *pullrequestv1.MergeReadiness) panel.MergeReadiness {
+	return panel.MergeReadiness{
+		Decision:                mergeReadiness.GetDecision(),
+		Checks:                  mergeReadiness.GetChecks(),
+		Mergeability:            mergeReadiness.GetMergeability(),
+		MergeabilityUnconfirmed: mergeReadiness.GetMergeabilityUnconfirmed(),
+		AutoMerge:               mergeReadiness.GetAutoMerge(),
+		AutoMergeable:           mergeReadiness.GetAutoMergeable(),
 	}
 }
 

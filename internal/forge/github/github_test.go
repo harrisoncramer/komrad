@@ -20,7 +20,7 @@ import (
 
 // The fixtures carry the shape GitHub answered on 20 September 2026, with the rows from other
 // repositories made up: komrad-forge-fixture#1 open, komrad#742 merged, widgets#55 from a fork,
-// widgets#13 from a fork since deleted, widgets#81544 a draft, and the standing fields GitHub
+// widgets#13 from a fork since deleted, widgets#81544 a draft, and the merge readiness fields GitHub
 // answers beside each on a read of branches.
 
 const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","body":"Opens the fixture.","author":{"login":"harrisoncramer"},"url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
@@ -224,7 +224,7 @@ func TestList(t *testing.T) {
 		UpdatedAt:  time.Date(2026, 9, 18, 19, 14, 17, 0, time.UTC),
 	}, pullRequests[0])
 	assert.False(t, pullRequests[0].IsFinished())
-	assert.Nil(t, pullRequests[0].Standing, "a listing does not ask for the standing")
+	assert.Nil(t, pullRequests[0].MergeReadiness, "a listing does not ask for the merge readiness")
 
 	stamp := time.Date(2026, 9, 20, 18, 0, 7, 0, time.UTC)
 	assert.Equal(t, "PR_kwDOTgPfPc8AAAABEU5L_Q", pullRequests[1].ProviderID)
@@ -271,17 +271,17 @@ func TestListReadsTheNextPage(t *testing.T) {
 	assert.Equal(t, "Y3Vyc29yOnYyOpK0", listed.Cursor)
 }
 
-// failingStanding and passingStanding are the standing fields GitHub answers beside a pull
+// failingMergeReadiness and passingMergeReadiness are the merge readiness fields GitHub answers beside a pull
 // request on a read of branches, the recorded shape with the values made up.
-const failingStanding = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
+const failingMergeReadiness = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
 
-const passingStanding = `"reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false`
+const passingMergeReadiness = `"reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false`
 
 const closedFixturePull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmIA","number":2,"title":"fixture: closed","url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/2","state":"CLOSED","isDraft":false,"createdAt":"2026-09-17T10:00:00Z","updatedAt":"2026-09-17T11:00:00Z","mergedAt":null,"closedAt":"2026-09-17T11:00:00Z","headRefName":"fixture/closed","headRefOid":"5555555555555555555555555555555555555555","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
 
-// withStanding is a pull request node carrying the standing fields.
-func withStanding(node, standing string) string {
-	return strings.TrimSuffix(node, "}") + "," + standing + "}"
+// withMergeReadiness is a pull request node carrying the merge readiness fields.
+func withMergeReadiness(node, readiness string) string {
+	return strings.TrimSuffix(node, "}") + "," + readiness + "}"
 }
 
 // branchesRead is GitHub answering a read of branches, one alias per branch.
@@ -294,7 +294,7 @@ func branchesRead(aliases ...string) string {
 	return data(`{"repository":{` + strings.Join(fields, ",") + `}}`)
 }
 
-// TestReadBranches covers the aliased query, each answer carrying its standing, the rate limit
+// TestReadBranches covers the aliased query, each answer carrying its merge readiness, the rate limit
 // off the headers, and only pull requests from the repository itself kept.
 func TestReadBranches(t *testing.T) {
 	t.Parallel()
@@ -302,9 +302,9 @@ func TestReadBranches(t *testing.T) {
 	f, _, fake := serve(t, map[string]answer{"ReadBranches": {
 		header: map[string]string{"X-RateLimit-Remaining": "4321", "X-RateLimit-Limit": "5000", "X-RateLimit-Reset": "1789900000"},
 		body: branchesRead(
-			withStanding(openPull, failingStanding)+","+withStanding(forkPull, failingStanding),
-			withStanding(deletedForkPull, passingStanding),
-			withStanding(closedFixturePull, passingStanding),
+			withMergeReadiness(openPull, failingMergeReadiness)+","+withMergeReadiness(forkPull, failingMergeReadiness),
+			withMergeReadiness(deletedForkPull, passingMergeReadiness),
+			withMergeReadiness(closedFixturePull, passingMergeReadiness),
 		),
 	}})
 
@@ -322,7 +322,7 @@ func TestReadBranches(t *testing.T) {
 		"b2":    "fixture/closed",
 	}, seen.Variables)
 	assert.Contains(t, seen.Query, "query ReadBranches($owner: String!, $name: String!, $b0: String!, $b1: String!, $b2: String!)")
-	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields "+standingFields+" } }")
+	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields "+mergeReadinessFields+" } }")
 	assert.Contains(t, seen.Query, pullRequestFragment)
 
 	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 4321, Limit: 5000, ResetAt: time.Unix(1789900000, 0)}, reading.RateLimit)
@@ -330,26 +330,26 @@ func TestReadBranches(t *testing.T) {
 	require.Len(t, reading.PullRequests, 2, "the fork and the deleted fork are left out")
 	open, closed := reading.PullRequests[0], reading.PullRequests[1]
 	assert.Equal(t, 1, open.Number)
-	assert.Equal(t, &forge.Standing{
+	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
 		Checks:       forge.ChecksFailing,
 		Mergeability: forge.MergeabilityUnstable,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
-	}, open.Standing)
+	}, open.MergeReadiness)
 	assert.Equal(t, 2, closed.Number)
-	assert.Equal(t, &forge.Standing{
+	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionApproved,
 		Checks:       forge.ChecksPassing,
 		Mergeability: forge.MergeabilityClean,
 		AutoMerge:    forge.AutoMerge{On: true},
-	}, closed.Standing)
+	}, closed.MergeReadiness)
 }
 
 // TestReadBranchesBatches covers more branches than one query takes going out as a second query.
 func TestReadBranchesBatches(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"ReadBranches": {body: branchesRead(withStanding(openPull, failingStanding))}})
+	f, _, fake := serve(t, map[string]answer{"ReadBranches": {body: branchesRead(withMergeReadiness(openPull, failingMergeReadiness))}})
 
 	branches := make([]string, branchesPerQuery+1)
 	for i := range branches {
@@ -1009,52 +1009,52 @@ func TestDecision(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		standing string
-		want     forge.ReviewDecision
+		name      string
+		readiness string
+		want      forge.ReviewDecision
 	}{
 		{
-			name:     "every user asking for changes asked again",
-			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"APPROVED","author":{"login":"bob"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"cy"}},{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:     forge.ReviewDecisionRereviewRequested,
+			name:      "every user asking for changes asked again",
+			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"APPROVED","author":{"login":"bob"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"cy"}},{"requestedReviewer":{"login":"ada"}}]}}`,
+			want:      forge.ReviewDecisionRereviewRequested,
 		},
 		{
-			name:     "one user asking for changes not asked again",
-			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"CHANGES_REQUESTED","author":{"login":"bob"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:     forge.ReviewDecisionChangesRequested,
+			name:      "one user asking for changes not asked again",
+			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"CHANGES_REQUESTED","author":{"login":"bob"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
+			want:      forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:     "a team asked to review is not the user who asked for changes",
-			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{}}]}}`,
-			want:     forge.ReviewDecisionChangesRequested,
+			name:      "a team asked to review is not the user who asked for changes",
+			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{}}]}}`,
+			want:      forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:     "a bot asking for changes is left out, as it cannot be asked again",
-			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:     forge.ReviewDecisionRereviewRequested,
+			name:      "a bot asking for changes is left out, as it cannot be asked again",
+			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
+			want:      forge.ReviewDecisionRereviewRequested,
 		},
 		{
-			name:     "only a bot asking for changes",
-			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[]}}`,
-			want:     forge.ReviewDecisionChangesRequested,
+			name:      "only a bot asking for changes",
+			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[]}}`,
+			want:      forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:     "changes requested with no verdict naming who asked",
-			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:     forge.ReviewDecisionChangesRequested,
+			name:      "changes requested with no verdict naming who asked",
+			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
+			want:      forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:     "an approval asked to review again stays approved",
-			standing: `{"reviewDecision":"APPROVED","latestOpinionatedReviews":{"nodes":[{"state":"APPROVED","author":{"login":"ada"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:     forge.ReviewDecisionApproved,
+			name:      "an approval asked to review again stays approved",
+			readiness: `{"reviewDecision":"APPROVED","latestOpinionatedReviews":{"nodes":[{"state":"APPROVED","author":{"login":"ada"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
+			want:      forge.ReviewDecisionApproved,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var node standingNode
-			require.NoError(t, json.Unmarshal([]byte(tt.standing), &node))
+			var node mergeReadinessNode
+			require.NoError(t, json.Unmarshal([]byte(tt.readiness), &node))
 			assert.Equal(t, tt.want, node.decision())
 		})
 	}

@@ -41,12 +41,12 @@ func TestPullRequestDrawsAutoMerge(t *testing.T) {
 		},
 		{
 			name:              "a pull request the forge would queue",
-			pullRequest:       pullrequeststore.PullRequest{Standing: forge.RememberedStanding{AutoMerge: &forge.AutoMerge{Allowed: true}}},
+			pullRequest:       pullrequeststore.PullRequest{MergeReadiness: forge.RememberedMergeReadiness{AutoMerge: &forge.AutoMerge{Allowed: true}}},
 			wantAutoMergeable: true,
 		},
 		{
 			name:          "a pull request the forge has queued",
-			pullRequest:   pullrequeststore.PullRequest{Standing: forge.RememberedStanding{AutoMerge: &forge.AutoMerge{On: true}}},
+			pullRequest:   pullrequeststore.PullRequest{MergeReadiness: forge.RememberedMergeReadiness{AutoMerge: &forge.AutoMerge{On: true}}},
 			wantAutoMerge: true,
 		},
 	}
@@ -55,8 +55,8 @@ func TestPullRequestDrawsAutoMerge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			drawn := PullRequest(tt.pullRequest)
 
-			assert.Equal(t, tt.wantAutoMerge, drawn.GetAutoMerge())
-			assert.Equal(t, tt.wantAutoMergeable, drawn.GetAutoMergeable())
+			assert.Equal(t, tt.wantAutoMerge, drawn.GetMergeReadiness().GetAutoMerge())
+			assert.Equal(t, tt.wantAutoMergeable, drawn.GetMergeReadiness().GetAutoMergeable())
 		})
 	}
 }

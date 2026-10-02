@@ -426,22 +426,10 @@ type PullRequest struct {
 	MergedAt *string `protobuf:"bytes,17,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
 	// When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
 	ClosedAt *string `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
-	// Where the forge says the reviews stand.
-	ReviewDecision ReviewDecision `protobuf:"varint,19,opt,name=review_decision,json=reviewDecision,proto3,enum=pullrequest.v1.ReviewDecision" json:"review_decision,omitempty"`
-	// Where the checks on its head stand.
-	Checks Checks `protobuf:"varint,20,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
-	// Where the forge says it stands against its base and rules. While the forge is working it
-	// out again, this is the last answer it gave for the same head.
-	Mergeability Mergeability `protobuf:"varint,21,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
-	// True when mergeability is the last answer for this head rather than the latest read.
-	MergeabilityUnconfirmed bool `protobuf:"varint,22,opt,name=mergeability_unconfirmed,json=mergeabilityUnconfirmed,proto3" json:"mergeability_unconfirmed,omitempty"`
-	// Whether the forge says it will merge on its own once its checks and reviews pass.
-	AutoMerge bool `protobuf:"varint,23,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
-	// Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one
-	// with nothing left to wait for, or a repository that does not allow it.
-	AutoMergeable bool `protobuf:"varint,24,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
+	MergeReadiness *MergeReadiness `protobuf:"bytes,25,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PullRequest) Reset() {
@@ -600,42 +588,100 @@ func (x *PullRequest) GetClosedAt() string {
 	return ""
 }
 
-func (x *PullRequest) GetReviewDecision() ReviewDecision {
+func (x *PullRequest) GetMergeReadiness() *MergeReadiness {
 	if x != nil {
-		return x.ReviewDecision
+		return x.MergeReadiness
+	}
+	return nil
+}
+
+// MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.
+type MergeReadiness struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where the forge says the reviews stand.
+	Decision ReviewDecision `protobuf:"varint,1,opt,name=decision,proto3,enum=pullrequest.v1.ReviewDecision" json:"decision,omitempty"`
+	// Where the checks on the head stand, unspecified when the forge last answered for an older head.
+	Checks Checks `protobuf:"varint,2,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
+	// Where the forge says it stands against its base and rules. While the forge is working it
+	// out again, this is the last answer it gave for the same head.
+	Mergeability Mergeability `protobuf:"varint,3,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
+	// True when mergeability is the last answer for this head rather than the latest read.
+	MergeabilityUnconfirmed bool `protobuf:"varint,4,opt,name=mergeability_unconfirmed,json=mergeabilityUnconfirmed,proto3" json:"mergeability_unconfirmed,omitempty"`
+	// Whether the forge says it will merge on its own once its checks and reviews pass.
+	AutoMerge bool `protobuf:"varint,5,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
+	// Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one
+	// with nothing left to wait for, or a repository that does not allow it.
+	AutoMergeable bool `protobuf:"varint,6,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeReadiness) Reset() {
+	*x = MergeReadiness{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeReadiness) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeReadiness) ProtoMessage() {}
+
+func (x *MergeReadiness) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeReadiness.ProtoReflect.Descriptor instead.
+func (*MergeReadiness) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *MergeReadiness) GetDecision() ReviewDecision {
+	if x != nil {
+		return x.Decision
 	}
 	return ReviewDecision_REVIEW_DECISION_UNSPECIFIED
 }
 
-func (x *PullRequest) GetChecks() Checks {
+func (x *MergeReadiness) GetChecks() Checks {
 	if x != nil {
 		return x.Checks
 	}
 	return Checks_CHECKS_UNSPECIFIED
 }
 
-func (x *PullRequest) GetMergeability() Mergeability {
+func (x *MergeReadiness) GetMergeability() Mergeability {
 	if x != nil {
 		return x.Mergeability
 	}
 	return Mergeability_MERGEABILITY_UNSPECIFIED
 }
 
-func (x *PullRequest) GetMergeabilityUnconfirmed() bool {
+func (x *MergeReadiness) GetMergeabilityUnconfirmed() bool {
 	if x != nil {
 		return x.MergeabilityUnconfirmed
 	}
 	return false
 }
 
-func (x *PullRequest) GetAutoMerge() bool {
+func (x *MergeReadiness) GetAutoMerge() bool {
 	if x != nil {
 		return x.AutoMerge
 	}
 	return false
 }
 
-func (x *PullRequest) GetAutoMergeable() bool {
+func (x *MergeReadiness) GetAutoMergeable() bool {
 	if x != nil {
 		return x.AutoMergeable
 	}
@@ -653,7 +699,7 @@ type Repository struct {
 
 func (x *Repository) Reset() {
 	*x = Repository{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -665,7 +711,7 @@ func (x *Repository) String() string {
 func (*Repository) ProtoMessage() {}
 
 func (x *Repository) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -678,7 +724,7 @@ func (x *Repository) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Repository.ProtoReflect.Descriptor instead.
 func (*Repository) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Repository) GetUrl() string {
@@ -701,7 +747,7 @@ type ListPullRequestsResponse struct {
 
 func (x *ListPullRequestsResponse) Reset() {
 	*x = ListPullRequestsResponse{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -713,7 +759,7 @@ func (x *ListPullRequestsResponse) String() string {
 func (*ListPullRequestsResponse) ProtoMessage() {}
 
 func (x *ListPullRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -726,7 +772,7 @@ func (x *ListPullRequestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPullRequestsResponse.ProtoReflect.Descriptor instead.
 func (*ListPullRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListPullRequestsResponse) GetPullRequests() []*PullRequest {
@@ -755,7 +801,7 @@ type DismissForgeThreadRequest struct {
 
 func (x *DismissForgeThreadRequest) Reset() {
 	*x = DismissForgeThreadRequest{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -767,7 +813,7 @@ func (x *DismissForgeThreadRequest) String() string {
 func (*DismissForgeThreadRequest) ProtoMessage() {}
 
 func (x *DismissForgeThreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -780,7 +826,7 @@ func (x *DismissForgeThreadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DismissForgeThreadRequest.ProtoReflect.Descriptor instead.
 func (*DismissForgeThreadRequest) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DismissForgeThreadRequest) GetId() string {
@@ -833,7 +879,7 @@ type ForgeThread struct {
 
 func (x *ForgeThread) Reset() {
 	*x = ForgeThread{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -845,7 +891,7 @@ func (x *ForgeThread) String() string {
 func (*ForgeThread) ProtoMessage() {}
 
 func (x *ForgeThread) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -858,7 +904,7 @@ func (x *ForgeThread) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgeThread.ProtoReflect.Descriptor instead.
 func (*ForgeThread) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ForgeThread) GetId() string {
@@ -975,7 +1021,7 @@ type ForgeComment struct {
 
 func (x *ForgeComment) Reset() {
 	*x = ForgeComment{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -987,7 +1033,7 @@ func (x *ForgeComment) String() string {
 func (*ForgeComment) ProtoMessage() {}
 
 func (x *ForgeComment) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1000,7 +1046,7 @@ func (x *ForgeComment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgeComment.ProtoReflect.Descriptor instead.
 func (*ForgeComment) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{6}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ForgeComment) GetId() string {
@@ -1065,7 +1111,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\x89\a\n" +
+	"\v_pagination\"\xf9\x05\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -1090,17 +1136,20 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"changed_at\x18\x10 \x01(\tR\tchangedAt\x12 \n" +
 	"\tmerged_at\x18\x11 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
 	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
-	"\x0freview_decision\x18\x13 \x01(\x0e2\x1e.pullrequest.v1.ReviewDecisionR\x0ereviewDecision\x12.\n" +
-	"\x06checks\x18\x14 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
-	"\fmergeability\x18\x15 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability\x129\n" +
-	"\x18mergeability_unconfirmed\x18\x16 \x01(\bR\x17mergeabilityUnconfirmed\x12\x1d\n" +
-	"\n" +
-	"auto_merge\x18\x17 \x01(\bR\tautoMerge\x12%\n" +
-	"\x0eauto_mergeable\x18\x18 \x01(\bR\rautoMergeableB\f\n" +
+	"\x0fmerge_readiness\x18\x19 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadinessB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
-	"_closed_at\"\x1e\n" +
+	"_closed_atJ\x04\b\x13\x10\x19R\x0freview_decisionR\x06checksR\fmergeabilityR\x18mergeability_unconfirmedR\n" +
+	"auto_mergeR\x0eauto_mergeable\"\xbf\x02\n" +
+	"\x0eMergeReadiness\x12:\n" +
+	"\bdecision\x18\x01 \x01(\x0e2\x1e.pullrequest.v1.ReviewDecisionR\bdecision\x12.\n" +
+	"\x06checks\x18\x02 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
+	"\fmergeability\x18\x03 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability\x129\n" +
+	"\x18mergeability_unconfirmed\x18\x04 \x01(\bR\x17mergeabilityUnconfirmed\x12\x1d\n" +
+	"\n" +
+	"auto_merge\x18\x05 \x01(\bR\tautoMerge\x12%\n" +
+	"\x0eauto_mergeable\x18\x06 \x01(\bR\rautoMergeable\"\x1e\n" +
 	"\n" +
 	"Repository\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\"\x9d\x01\n" +
@@ -1194,7 +1243,7 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 }
 
 var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(PullRequestState)(0),             // 0: pullrequest.v1.PullRequestState
 	(Mergeability)(0),                 // 1: pullrequest.v1.Mergeability
@@ -1202,31 +1251,33 @@ var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(Checks)(0),                       // 3: pullrequest.v1.Checks
 	(*ListPullRequestsRequest)(nil),   // 4: pullrequest.v1.ListPullRequestsRequest
 	(*PullRequest)(nil),               // 5: pullrequest.v1.PullRequest
-	(*Repository)(nil),                // 6: pullrequest.v1.Repository
-	(*ListPullRequestsResponse)(nil),  // 7: pullrequest.v1.ListPullRequestsResponse
-	(*DismissForgeThreadRequest)(nil), // 8: pullrequest.v1.DismissForgeThreadRequest
-	(*ForgeThread)(nil),               // 9: pullrequest.v1.ForgeThread
-	(*ForgeComment)(nil),              // 10: pullrequest.v1.ForgeComment
-	(*v1.Pagination)(nil),             // 11: pagination.v1.Pagination
-	(*emptypb.Empty)(nil),             // 12: google.protobuf.Empty
+	(*MergeReadiness)(nil),            // 6: pullrequest.v1.MergeReadiness
+	(*Repository)(nil),                // 7: pullrequest.v1.Repository
+	(*ListPullRequestsResponse)(nil),  // 8: pullrequest.v1.ListPullRequestsResponse
+	(*DismissForgeThreadRequest)(nil), // 9: pullrequest.v1.DismissForgeThreadRequest
+	(*ForgeThread)(nil),               // 10: pullrequest.v1.ForgeThread
+	(*ForgeComment)(nil),              // 11: pullrequest.v1.ForgeComment
+	(*v1.Pagination)(nil),             // 12: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),             // 13: google.protobuf.Empty
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	11, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	12, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	2,  // 2: pullrequest.v1.PullRequest.review_decision:type_name -> pullrequest.v1.ReviewDecision
-	3,  // 3: pullrequest.v1.PullRequest.checks:type_name -> pullrequest.v1.Checks
-	1,  // 4: pullrequest.v1.PullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
-	5,  // 5: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	10, // 6: pullrequest.v1.ForgeThread.comments:type_name -> pullrequest.v1.ForgeComment
-	4,  // 7: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	8,  // 8: pullrequest.v1.PullRequestService.DismissForgeThread:input_type -> pullrequest.v1.DismissForgeThreadRequest
-	7,  // 9: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	12, // 10: pullrequest.v1.PullRequestService.DismissForgeThread:output_type -> google.protobuf.Empty
-	9,  // [9:11] is the sub-list for method output_type
-	7,  // [7:9] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	6,  // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
+	2,  // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
+	3,  // 4: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
+	1,  // 5: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
+	5,  // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	11, // 7: pullrequest.v1.ForgeThread.comments:type_name -> pullrequest.v1.ForgeComment
+	4,  // 8: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	9,  // 9: pullrequest.v1.PullRequestService.DismissForgeThread:input_type -> pullrequest.v1.DismissForgeThreadRequest
+	8,  // 10: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	13, // 11: pullrequest.v1.PullRequestService.DismissForgeThread:output_type -> google.protobuf.Empty
+	10, // [10:12] is the sub-list for method output_type
+	8,  // [8:10] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -1236,16 +1287,16 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[3].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[5].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[4].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[6].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

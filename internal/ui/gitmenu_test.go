@@ -850,15 +850,14 @@ func newQueueablePullRequest() *pullrequestv1.PullRequest {
 	queueable := newOpenPullRequest()
 	queueable.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
 	queueable.HeadSha = "new"
-	queueable.AutoMergeable = true
+	queueable.MergeReadiness = &pullrequestv1.MergeReadiness{AutoMergeable: true}
 
 	return queueable
 }
 
 func newAutoMergedPullRequest() *pullrequestv1.PullRequest {
 	queued := newQueueablePullRequest()
-	queued.AutoMerge = true
-	queued.AutoMergeable = false
+	queued.MergeReadiness = &pullrequestv1.MergeReadiness{AutoMerge: true}
 
 	return queued
 }

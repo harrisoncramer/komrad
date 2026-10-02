@@ -28,7 +28,7 @@ const (
 // forge's own word on whether it would merge it now, with an approval held at waiting until that
 // word is clean.
 func StateOf(pullRequest pullrequeststore.PullRequest) State {
-	displayed := pullRequest.Standing.DisplayForHead(pullRequest.HeadSHA)
+	displayed := pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA)
 	checks, mergeability, decision := displayed.Checks.Value, displayed.Mergeability.Value, displayed.Decision.Value
 
 	switch {
