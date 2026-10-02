@@ -38,7 +38,8 @@ const (
 )
 
 var (
-	recordNameLine   = regexp.MustCompile(`name\s+auth`)
+	recordAgentLine  = regexp.MustCompile(`agent\s+—`)
+	recordBranchLine = regexp.MustCompile(`branch\s+agent/auth`)
 	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
 	recordRemoteLine = regexp.MustCompile(`remote\s+↑2 unpushed`)
 )
@@ -663,14 +664,12 @@ func TestAgentsRecord(t *testing.T) {
 			name:  "a child leads with the parent it is attached to",
 			rows:  buildFamily(),
 			press: []string{"G"},
-			want:  map[string]string{"name": "reviewer", "attached to": "author"},
+			want:  map[string]string{"attached to": "author"},
 		},
 		{
 			name: "an agent shows what it was launched with",
 			rows: buildRecorded(),
 			want: map[string]string{
-				"name":       "auth",
-				"workflow":   "backend",
 				"directory":  "/repo",
 				"agent_id":   "a1",
 				"session_id": "abc",
@@ -703,7 +702,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 		harness.press("pick:record", "j")
 
 		frame := harness.readFrame()
-		assert.Regexp(t, `^agent\s+—$`, readRecordCursor(frame))
+		assert.Regexp(t, `^directory\s+/repo$`, readRecordCursor(frame))
 		assert.Contains(t, readLegend(frame), "esc back to the list")
 
 		harness.press("pick:list")
@@ -827,7 +826,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 				return harness
 			},
-			press: []string{"pick:record", "j", "j", "j", "j", "j"},
+			press: []string{"pick:record", "j", "j", "j"},
 			want:  strings.Repeat("--append-system-prompt read every file on the branch ", 4),
 		},
 		{
@@ -877,11 +876,13 @@ func TestAgentsRecordCopy(t *testing.T) {
 // TestAgentsRecordEmphasis covers what the record says in colour rather than in text.
 func TestAgentsRecordEmphasis(t *testing.T) {
 	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
-		harness := openAgents(t, buildRecorded()...)
+		rows := buildRecorded()
+		rows[1].(*agentv1.Agent).Branch = xptr.Ptr("agent/auth")
+		harness := openAgents(t, rows...)
 
 		harness.press("/", "a", "u", "t", "h")
 
-		assert.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), paint.Panel.Match().Render("auth"))
+		assert.Contains(t, findRawLine(harness.readRawFrame(), recordBranchLine), paint.Panel.Match().Render("auth"))
 	})
 
 	t.Run("a search standing over the record lights the matched run of a value", func(t *testing.T) {
@@ -963,12 +964,12 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 
 	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		label := "name      "
-		require.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), paint.Panel.Style(paint.ToneMuted).Render(label))
+		label := "agent     "
+		require.Contains(t, findRawLine(harness.readRawFrame(), recordAgentLine), paint.Panel.Style(paint.ToneMuted).Render(label))
 
 		harness.press("pick:record")
 
-		lit := findRawLine(harness.readRawFrame(), recordNameLine)
+		lit := findRawLine(harness.readRawFrame(), recordAgentLine)
 		assert.Contains(t, lit, paint.Panel.Cursor().Render(label))
 		assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
 	})
@@ -1051,14 +1052,16 @@ func TestAgentsRecordHeight(t *testing.T) {
 		rows := buildRecorded()
 		agent, _ := rows[1].(*agentv1.Agent)
 		agent.Branch = xptr.Ptr("agent/auth")
-		harness := openAgents(t, rows...)
-		require.Equal(t, "  ↓ 3 more", readRecord(harness.readFrame())[8])
+		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 7})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(rows...))
+		require.Equal(t, "  ↓ 2 more", readRecord(harness.readFrame())[6])
 
 		harness.press("pick:record", "G", "pick:list")
 
 		record := readRecord(harness.readFrame())
-		assert.Equal(t, "  ↑ 3 more", record[0])
-		assert.NotContains(t, record, "  ↓ 3 more")
+		assert.Equal(t, "  ↑ 2 more", record[0])
+		assert.NotContains(t, record, "  ↓ 2 more")
 	})
 }
 
@@ -1494,7 +1497,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.press("/", "s", "i", "z")
 
 		frame := harness.readFrame()
-		assert.Regexp(t, `^name\s`, readRecordCursor(frame))
+		assert.Regexp(t, `^agent\s`, readRecordCursor(frame))
 		assert.Contains(t, frame, "/ siz", "the header's search line is the record's")
 
 		harness.press("enter")
@@ -1505,7 +1508,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
 		harness.press("n")
-		require.Regexp(t, `^name\s`, readRecordCursor(harness.readFrame()), "nothing stands to step through")
+		require.Regexp(t, `^agent\s`, readRecordCursor(harness.readFrame()), "nothing stands to step through")
 
 		harness.press("/", "_", "i", "d", "enter")
 		assert.Regexp(t, `^agent_id\s`, readRecordCursor(harness.readFrame()))
@@ -1548,7 +1551,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "/", readSearch(frame))
-		assert.Regexp(t, `^name\s`, readRecordCursor(frame), "the record keeps the keys and its cursor")
+		assert.Regexp(t, `^agent\s`, readRecordCursor(frame), "the record keeps the keys and its cursor")
 
 		harness.press("/", "s", "i", "z", "enter", "esc")
 
@@ -2439,8 +2442,17 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			Number:            7,
 			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 			OpenedAt:          "2026-09-19T12:00:00Z",
+		}, &pullrequestv1.PullRequest{
+			Id:                "pr-0",
+			RepositoryUrl:     repositoryURL,
+			HeadRepositoryUrl: repositoryURL,
+			HeadBranch:        "agent/other",
+			Number:            5,
+			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
+			OpenedAt:          "2026-09-18T12:00:00Z",
+			ClosedAt:          xptr.Ptr("2026-09-18T13:00:00Z"),
 		}))
-		require.Equal(t, "none from this branch", readRecordField(harness.readFrame(), "pull request"), "the row on another branch is untouched")
+		require.Negative(t, findRecordLine(harness.readFrame(), "pull requests"), "the row on another branch is untouched")
 
 		arrived := newBranchAgent("a2", "web", "agent/other")
 		arrived.CreatedAt = "2026-09-20T12:00:00Z"
@@ -2449,7 +2461,32 @@ func TestAgentsWatchedEdits(t *testing.T) {
 
 		frame := harness.readFrame()
 		require.Equal(t, "  web", readHoveredRow(frame))
-		assert.True(t, strings.HasPrefix(readRecordField(frame, "pull request"), "#7 open"))
+		assert.Equal(t, "#5 closed", readRecordField(frame, "pull requests"))
+	})
+
+	t.Run("a pull request's title and author reach the record of the agent on its branch", func(t *testing.T) {
+		harness := openAgents(t,
+			newLiveWorkflow("w1", "api"),
+			newBranchAgent("a1", "api", "agent/x"),
+			&pullrequestv1.Repository{Url: repositoryURL},
+		)
+		harness.press(widenListPresses...)
+
+		harness.watch(buildPuts(&pullrequestv1.PullRequest{
+			Id:                "pr-1",
+			RepositoryUrl:     repositoryURL,
+			HeadRepositoryUrl: repositoryURL,
+			HeadBranch:        "agent/x",
+			Number:            7,
+			Title:             "Pull more pull request info",
+			Author:            "octocat",
+			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			OpenedAt:          "2026-09-19T12:00:00Z",
+		}))
+
+		frame := harness.readFrame()
+		assert.Equal(t, "Pull more pull request info", readRecordField(frame, "title"))
+		assert.Equal(t, "@octocat", readRecordField(frame, "author"))
 	})
 }
 

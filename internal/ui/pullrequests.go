@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -13,50 +12,35 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// pullRequestFields are the record's rows for the branch's pull requests: why there is none,
-// or the current one and then the rest when there are any.
+// pullRequestFields are the record's rows for the branch's pull requests: the current one's title
+// and author, then the rest, all of them when the branch has moved past its last one.
 func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.PullRequest) []recordField {
-	isNone := standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
 	if len(pullRequests) == 0 {
-		if isNone {
-			return []recordField{{label: pullRequestFieldKey, value: "none from this branch"}}
+		return nil
+	}
+
+	var fields []recordField
+	rest := pullRequests
+	if standing.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
+		current := pullRequests[0]
+		rest = pullRequests[1:]
+		if current.Title != "" {
+			fields = append(fields, recordField{label: "title", value: current.Title})
 		}
-
-		return []recordField{{label: pullRequestFieldKey, value: "not read yet"}}
+		if current.Author != "" {
+			fields = append(fields, recordField{label: "author", value: "@" + current.Author})
+		}
+	}
+	if len(rest) == 0 {
+		return fields
 	}
 
-	current := currentPullRequestField(pullRequests[0])
-	if isNone {
-		current = "none since " + current
-	}
-
-	fields := []recordField{{label: pullRequestFieldKey, value: current}}
-	rest := xslice.Map(pullRequests[1:], func(pullRequest panel.PullRequest) string {
+	words := xslice.Map(rest, func(pullRequest panel.PullRequest) string {
 		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest))
 	})
-	if len(rest) > 0 {
-		fields = append(fields, recordField{label: "pull requests", value: strings.Join(rest, ", ")})
-	}
 
-	return fields
+	return append(fields, recordField{label: "pull requests", value: strings.Join(words, ", ")})
 }
-
-// currentPullRequestField is the current pull request with how long ago it reached where it
-// stands: when it finished for a finished one, when it was opened otherwise.
-func currentPullRequestField(pullRequest panel.PullRequest) string {
-	word := pullRequestWords(pullRequest)
-	switch {
-	case pullRequest.MergedAt != nil:
-		return fmt.Sprintf("#%d %s %s ago", pullRequest.Number, word, label.Age(*pullRequest.MergedAt))
-	case pullRequest.ClosedAt != nil:
-		return fmt.Sprintf("#%d %s %s ago", pullRequest.Number, word, label.Age(*pullRequest.ClosedAt))
-	}
-
-	return fmt.Sprintf("#%d %s, opened %s ago", pullRequest.Number, word, label.Age(pullRequest.OpenedAt))
-}
-
-// pullRequestFieldKey labels the pull request an agent's row stands for.
-const pullRequestFieldKey = "pull request"
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in
 // flight, a branch behind or conflicting, or a rule an approval is waiting on, and a ready

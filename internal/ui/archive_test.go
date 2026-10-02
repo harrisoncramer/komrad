@@ -618,7 +618,7 @@ func TestArchiveDocument(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agent/a1")
-		assert.Contains(t, frame, "#42 merged")
+		assert.Contains(t, frame, "its pull request is merged")
 		assert.Contains(t, frame, "your comments: 1 open, 0 resolved")
 		created, archived := findRecordLine(frame, "created"), findRecordLine(frame, "archived")
 		require.Positive(t, created)

@@ -428,8 +428,10 @@ type PullRequest struct {
 	ClosedAt *string `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
 	// Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
 	MergeReadiness *MergeReadiness `protobuf:"bytes,25,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The login of whoever opened it, empty when the forge no longer has that account.
+	Author        string `protobuf:"bytes,26,opt,name=author,proto3" json:"author,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PullRequest) Reset() {
@@ -593,6 +595,13 @@ func (x *PullRequest) GetMergeReadiness() *MergeReadiness {
 		return x.MergeReadiness
 	}
 	return nil
+}
+
+func (x *PullRequest) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
 }
 
 // MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.
@@ -1111,7 +1120,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\xf9\x05\n" +
+	"\v_pagination\"\x91\x06\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -1136,7 +1145,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"changed_at\x18\x10 \x01(\tR\tchangedAt\x12 \n" +
 	"\tmerged_at\x18\x11 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
 	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
-	"\x0fmerge_readiness\x18\x19 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadinessB\f\n" +
+	"\x0fmerge_readiness\x18\x19 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x16\n" +
+	"\x06author\x18\x1a \x01(\tR\x06authorB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +

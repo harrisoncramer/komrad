@@ -139,85 +139,50 @@ func TestPullRequestWords(t *testing.T) {
 	}
 }
 
-// TestPullRequestFields covers the record's rows for the branch's pull requests: what the two
-// blank standings say, the current one with how long ago it got where it is, and the rest
-// folded into one row.
+// TestPullRequestFields covers the current pull request's title and author and the row for the
+// rest, which takes every one once the branch has moved past its last.
 func TestPullRequestFields(t *testing.T) {
-	now := time.Now()
-	twoHoursAgo := now.Add(-2 * time.Hour)
-	yesterday := now.Add(-26 * time.Hour)
+	yesterday := time.Now().Add(-26 * time.Hour)
+	current := panel.PullRequest{Number: 742, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED}
 
 	tests := []struct {
 		name         string
-		standing     panel.PullRequestStanding
+		state        pullrequestv1.PullRequestState
 		pullRequests []panel.PullRequest
 		want         []recordField
 	}{
 		{
-			name:     "a repository not read yet",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD},
-			want:     []recordField{{label: "pull request", value: "not read yet"}},
+			name: "none",
 		},
 		{
-			name:     "a branch with none",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
-			want:     []recordField{{label: "pull request", value: "none from this branch"}},
+			name:         "only the current one",
+			pullRequests: []panel.PullRequest{current},
 		},
 		{
-			name:     "one pull request with how long ago it merged",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, Number: 740},
-			pullRequests: []panel.PullRequest{{
-				Number:   740,
-				State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-				OpenedAt: yesterday,
-				MergedAt: &twoHoursAgo,
-				ClosedAt: &twoHoursAgo,
-			}},
-			want: []recordField{{label: "pull request", value: "#740 merged 2h ago"}},
-		},
-		{
-			name:     "none since a merged one the branch has moved past",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
+			name: "the current one's title and author",
 			pullRequests: []panel.PullRequest{
 				{
-					Number:   740,
-					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-					OpenedAt: yesterday,
-					MergedAt: &twoHoursAgo,
-					ClosedAt: &twoHoursAgo,
-				},
-				{
-					Number:   711,
-					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
-					OpenedAt: yesterday,
-					ClosedAt: &yesterday,
+					Number: 742,
+					Title:  "Read pull request authors",
+					Author: "harrisoncramer",
 				},
 			},
 			want: []recordField{
-				{label: "pull request", value: "none since #740 merged 2h ago"},
-				{label: "pull requests", value: "#711 closed"},
+				{label: "title", value: "Read pull request authors"},
+				{label: "author", value: "@harrisoncramer"},
 			},
 		},
 		{
-			name:     "one closed with how long ago it closed",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED, Number: 740},
-			pullRequests: []panel.PullRequest{{
-				Number:   740,
-				State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
-				OpenedAt: yesterday,
-				ClosedAt: &twoHoursAgo,
-			}},
-			want: []recordField{{label: "pull request", value: "#740 closed 2h ago"}},
+			name: "an empty title and author left out",
+			pullRequests: []panel.PullRequest{
+				{Number: 742, Author: "harrisoncramer"},
+			},
+			want: []recordField{{label: "author", value: "@harrisoncramer"}},
 		},
 		{
-			name:     "several, the current one open with the rest on their own row",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED, Number: 742},
+			name: "the earlier ones folded into one row",
 			pullRequests: []panel.PullRequest{
-				{
-					Number:   742,
-					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-					OpenedAt: twoHoursAgo,
-				},
+				current,
 				{
 					Number:   711,
 					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
@@ -232,43 +197,67 @@ func TestPullRequestFields(t *testing.T) {
 					ClosedAt: &yesterday,
 				},
 			},
-			want: []recordField{
-				{label: "pull request", value: "#742 ready to merge, opened 2h ago"},
-				{label: "pull requests", value: "#711 merged, #708 closed"},
+			want: []recordField{{label: "pull requests", value: "#711 merged, #708 closed"}},
+		},
+		{
+			name:  "a branch moved past its last one shows no current title or author",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+			pullRequests: []panel.PullRequest{
+				{
+					Number:   711,
+					Title:    "Read pull request authors",
+					Author:   "harrisoncramer",
+					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+					OpenedAt: yesterday,
+					MergedAt: &yesterday,
+					ClosedAt: &yesterday,
+				},
 			},
+			want: []recordField{{label: "pull requests", value: "#711 merged"}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pullRequestFields(tt.standing, tt.pullRequests))
+			assert.Equal(t, tt.want, pullRequestFields(panel.PullRequestStanding{State: tt.state}, tt.pullRequests))
 		})
 	}
 }
 
-// TestAgentFieldsPlaceThePullRequestAfterTheBranch covers the rows landing under the branch
+// TestAgentFieldsPlaceThePullRequestsAfterTheBranch covers the rows landing under the branch
 // they are about, and not at all on an agent whose checkout is on no branch.
-func TestAgentFieldsPlaceThePullRequestAfterTheBranch(t *testing.T) {
+func TestAgentFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
 	agent := panel.Agent{
 		Name:   "worker",
 		Branch: xptr.Ptr("agent/x"),
 	}
+	pullRequests := []panel.PullRequest{
+		{
+			Number: 7,
+			Title:  "Fix",
+			Author: "octocat",
+			State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		},
+		{Number: 5, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED},
+	}
 
-	fields := agentFields(agentFieldsParams{
-		agent:        agent,
-		standing:     panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN, Number: 7},
-		pullRequests: []panel.PullRequest{{Number: 7, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN}},
-	})
-	labels := xslice.Map(fields, func(field recordField) string {
-		return field.label
-	})
+	labels := readLabels(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}))
 
 	branch := indexOf(labels, "branch")
 	require.NotEqual(t, -1, branch)
-	assert.Equal(t, "pull request", labels[branch+1])
+	assert.Equal(t, []string{"title", "author", "pull requests"}, labels[branch+1:branch+4])
 
 	agent.Branch = nil
-	assert.NotContains(t, agentFields(agentFieldsParams{agent: agent}), recordField{label: "pull request", value: "not read yet"})
+	labels = readLabels(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}))
+	for _, absent := range []string{"title", "author", "pull requests"} {
+		assert.NotContains(t, labels, absent)
+	}
+}
+
+func readLabels(fields []recordField) []string {
+	return xslice.Map(fields, func(field recordField) string {
+		return field.label
+	})
 }
 
 func indexOf(labels []string, label string) int {

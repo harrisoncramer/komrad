@@ -7520,6 +7520,16 @@
           "oneof": "",
           "rules": [],
           "description": "Whether the forge would merge it: its reviews, checks, mergeability and auto-merge."
+        },
+        {
+          "name": "author",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The login of whoever opened it, empty when the forge no longer has that account."
         }
       ]
     },

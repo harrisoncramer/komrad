@@ -120,8 +120,9 @@ func TestAgentFields(t *testing.T) {
 	}{
 		{
 			name:       "what it was launched with, in the order it was launched with",
-			wantLabels: []string{"name", "agent", "directory", "flags", "agent_id", "session_id"},
-			wantValues: []string{"auth", "—", "/repo", "—", "a1", "abc"},
+			wantLabels: []string{"agent", "directory", "flags", "agent_id", "session_id"},
+			wantValues: []string{"—", "/repo", "—", "a1", "abc"},
+			wantAbsent: []string{"name", "workflow"},
 		},
 		{
 			name:       "an agent a schedule launched names the schedule",
@@ -158,7 +159,7 @@ func TestAgentFields(t *testing.T) {
 
 			fields := agentFields(agentFieldsParams{agent: agent, schedule: tt.schedule})
 			require.NotEmpty(t, fields)
-			assert.Equal(t, "name", fields[0].label, "the name it is filed under leads")
+			assert.Equal(t, "agent", fields[0].label, "the harness leads")
 
 			labels := make([]string, 0, len(fields))
 			values := make([]string, 0, len(fields))

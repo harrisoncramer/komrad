@@ -24,7 +24,7 @@ func TestNotices(t *testing.T) {
 		assert.Contains(t, record, "a script komrad fired failed, log unread")
 		assert.Contains(t, record, "mail waiting, it has not read it")
 		assert.Contains(t, record, "its directory no longer exists")
-		assert.Equal(t, "worker", readRecordField(harness.readFrame(), "name"))
+		assert.Equal(t, "/repo", readRecordField(harness.readFrame(), "directory"))
 	})
 
 	t.Run("a row carrying no mark says nothing", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestNotices(t *testing.T) {
 				height: 13,
 			},
 			rows:       []proto.Message{newMarked(), newUnreadMail("n1")},
-			want:       []string{"name", "a script komrad fired failed"},
+			want:       []string{"agent", "a script komrad fired failed"},
 			wantAbsent: []string{"no longer exists"},
 		},
 		{
@@ -75,7 +75,7 @@ func TestNotices(t *testing.T) {
 				height: 20,
 			},
 			rows: []proto.Message{newFailedRun()},
-			want: []string{"name", "more"},
+			want: []string{"agent", "more"},
 		},
 	}
 
@@ -254,7 +254,7 @@ func readNoticeBlock(harness *panelHarness) []string {
 		if rules != 1 {
 			continue
 		}
-		if strings.HasPrefix(strings.TrimLeft(line, "› "), "name ") {
+		if strings.HasPrefix(strings.TrimLeft(line, "› "), "agent ") {
 			break
 		}
 

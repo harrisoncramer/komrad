@@ -26,6 +26,14 @@ func TestPullRequestStateOf(t *testing.T) {
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING, PullRequestStateOf(pullrequests.StateApprovedWaiting))
 }
 
+// TestPullRequestDrawsAuthor covers the forge login stored on the row reaching the wire unchanged,
+// with no @ added, since the panel adds that.
+func TestPullRequestDrawsAuthor(t *testing.T) {
+	drawn := PullRequest(pullrequeststore.PullRequest{Author: "octocat"})
+
+	assert.Equal(t, "octocat", drawn.GetAuthor())
+}
+
 // TestPullRequestDrawsAutoMerge covers a row the forge has not been asked about drawn as off, and
 // the forge's word drawn as it was stored.
 func TestPullRequestDrawsAutoMerge(t *testing.T) {
