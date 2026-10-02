@@ -47,7 +47,7 @@ func (r reviewScreen) pullRequestView(m *model, rows int) string {
 	body := xslice.Map(pullRequestBodyRows(pullRequest.Body, width), func(row string) string {
 		return dimStyle().Render(paint.Clip(row, width))
 	})
-	shown := paint.WindowRows(body, max(countPullRequestWindow(head, rows), 0), func(visible int) int {
+	shown := paint.WindowRows(body, countPullRequestWindow(head, rows), func(visible int) int {
 		return max(min(r.pullRequestTop, len(body)-visible), 0)
 	}, dimStyle())
 
@@ -86,17 +86,7 @@ func countPullRequestWindow(head string, rows int) int {
 		return pullRequestWindowRows
 	}
 
-	return min(pullRequestWindowRows, rows-paint.CountLines(head)-2)
-}
-
-// countPullRequestTopMax is the furthest a description of total rows scrolls in a window, the count
-// of the rows above it taking the window's first row.
-func countPullRequestTopMax(total, window int) int {
-	if total <= window || window < 2 {
-		return 0
-	}
-
-	return total - window + 1
+	return max(min(pullRequestWindowRows, rows-paint.CountLines(head)-2), 0)
 }
 
 // pullRequestBodyRows is a description wrapped to width, its runs of blank lines kept to one
@@ -154,7 +144,8 @@ func (r *reviewScreen) scrollPullRequest(m *model, rows int) {
 
 	width := lineWidthOf(m.paneWidth())
 	window := countPullRequestWindow(r.pullRequestHeadView(m, pullRequest, width), r.layoutSidebar(m).pullRequestRows)
-	topMax := countPullRequestTopMax(len(pullRequestBodyRows(pullRequest.Body, width)), window)
+	total := len(pullRequestBodyRows(pullRequest.Body, width))
+	topMax := paint.WindowOf(total, window, func(visible int) int { return total - visible }).Start
 	from := min(r.pullRequestTop, topMax)
 	r.pullRequestTop = max(min(from+rows, topMax), 0)
 }
