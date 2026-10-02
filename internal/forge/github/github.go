@@ -801,6 +801,14 @@ func (n *repositoryNode) remote() git.RemoteURL {
 	return graphql.RemoteOf(n.URL)
 }
 
+func (n *actorNode) login() string {
+	if n == nil {
+		return ""
+	}
+
+	return n.Login
+}
+
 // toPullRequest is the node as the record, carrying its decision and checks when the query
 // asked for them.
 func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
@@ -812,7 +820,7 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		Head:       n.HeadRepository.remote(),
 		Number:     n.Number,
 		Title:      n.Title,
-		Author:     n.author(),
+		Author:     n.Author.login(),
 		Body:       n.Body,
 		HeadBranch: n.HeadRefName,
 		HeadSHA:    n.HeadRefOid,
@@ -835,14 +843,6 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 	}
 
 	return pullRequest
-}
-
-func (n pullRequestNode) author() string {
-	if n.Author == nil {
-		return ""
-	}
-
-	return n.Author.Login
 }
 
 // Build is the Builder for GitHub.
