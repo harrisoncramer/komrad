@@ -145,16 +145,16 @@ func (r *reviewScreen) isPullRequestDrawn(m *model) bool {
 }
 
 func (r *reviewScreen) isPullRequestFocused(m *model) bool {
-	return r.focus == sidebarFocusPullRequest && m.isListFocused() && !r.isWriting() && r.isPullRequestDrawn(m)
+	return r.focus == reviewFocusPullRequest && m.isListFocused() && !r.isWriting() && r.isPullRequestDrawn(m)
 }
 
 func (r *reviewScreen) focusPullRequest(*model) {
-	r.focus = sidebarFocusPullRequest
+	r.focus = reviewFocusPullRequest
 }
 
 func (r *reviewScreen) blurPullRequest() {
-	if r.focus == sidebarFocusPullRequest {
-		r.focus = sidebarFocusDiff
+	if r.focus == reviewFocusPullRequest {
+		r.focus = reviewFocusDiff
 	}
 }
 
@@ -197,7 +197,7 @@ func (r *reviewScreen) pullRequestActions() screenActionSpec {
 				id:   actionReviewBack,
 				keys: func(k config.Keybindings) []string { return k.Review.Back },
 				nav: func(*model, string) tea.Cmd {
-					r.focus = sidebarFocusDiff
+					r.focus = reviewFocusDiff
 
 					return nil
 				},

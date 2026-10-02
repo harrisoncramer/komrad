@@ -282,16 +282,16 @@ func (r *reviewScreen) isBlockDrawn(m *model) bool {
 }
 
 func (r *reviewScreen) isBlockFocused(m *model) bool {
-	return r.focus == sidebarFocusFiles && m.isListFocused() && !r.isWriting() && r.isBlockDrawn(m)
+	return r.focus == reviewFocusFiles && m.isListFocused() && !r.isWriting() && r.isBlockDrawn(m)
 }
 
 func (r *reviewScreen) focusBlock(*model) {
-	r.focus = sidebarFocusFiles
+	r.focus = reviewFocusFiles
 }
 
 func (r *reviewScreen) blurBlock() {
-	if r.focus == sidebarFocusFiles {
-		r.focus = sidebarFocusDiff
+	if r.focus == reviewFocusFiles {
+		r.focus = reviewFocusDiff
 	}
 }
 

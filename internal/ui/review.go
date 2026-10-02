@@ -37,7 +37,7 @@ type reviewScreen struct {
 	offers reviewOffers
 
 	// focus is which of the diff, the file tree and the pull request holds the keys while the list does.
-	focus sidebarFocus
+	focus reviewFocus
 
 	// pullRequestTop is the first row of the description in view.
 	pullRequestTop int
@@ -46,13 +46,13 @@ type reviewScreen struct {
 	filesFilter filterState
 }
 
-// sidebarFocus is which part of the review holds the keys while the list does.
-type sidebarFocus int
+// reviewFocus is which part of the review holds the keys while the list does.
+type reviewFocus int
 
 const (
-	sidebarFocusDiff sidebarFocus = iota
-	sidebarFocusFiles
-	sidebarFocusPullRequest
+	reviewFocusDiff reviewFocus = iota
+	reviewFocusFiles
+	reviewFocusPullRequest
 )
 
 func (r reviewScreen) parent() screen {
