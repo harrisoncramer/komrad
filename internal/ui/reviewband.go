@@ -65,7 +65,7 @@ func (r reviewScreen) archivedView(m *model, width int) string {
 		return ""
 	}
 
-	return reviewDeadStyle(paint.Panel).Render(reviewFill(" "+archivedSaid+" ", width)) + "\n"
+	return reviewArchivedStyle(paint.Panel).Render(reviewFill(" "+archivedSaid+" ", width)) + "\n"
 }
 
 // staleView says the worktree has moved since the diff on screen was read.
