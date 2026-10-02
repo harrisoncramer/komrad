@@ -470,7 +470,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 			name:         "an agent with a checkout of its own is told to get its work read",
 			role:         agentstore.RoleImplementer,
 			ownsCheckout: true,
-			wantContain:  []string{asking, answering, "Commit on your branch and stop there"},
+			wantContain:  []string{asking, answering, "Commit on your branch, then call request_review"},
 			wantAbsent:   []string{giving, "open_review_round"},
 		},
 		{
