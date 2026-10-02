@@ -610,7 +610,7 @@ func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
 }
 
 // TestCwdSyncerSyncFetchesTheBaseOncePerMerge covers the base being fetched when the agent's pull
-// request merges, and not again until another does.
+// request merges, and not again until another does or the fetch failed.
 func TestCwdSyncerSyncFetchesTheBaseOncePerMerge(t *testing.T) {
 	fixture := newSyncFixture(t)
 	cwd := makeCheckout(t)
@@ -624,9 +624,14 @@ func TestCwdSyncerSyncFetchesTheBaseOncePerMerge(t *testing.T) {
 	assert.Empty(t, trees.Fetched, "an open pull request fetches nothing")
 
 	fixture.merge(t, agent.ID, time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
+	trees.FetchErr = errors.New("network unreachable")
+	require.Error(t, syncer.Sync(t.Context()))
+	assert.Equal(t, []string{cwd}, trees.Fetched, "a merge fetches the base")
+
+	trees.FetchErr = nil
 	require.NoError(t, syncer.Sync(t.Context()))
 	require.NoError(t, syncer.Sync(t.Context()))
-	assert.Equal(t, []string{cwd}, trees.Fetched, "one merge is one fetch")
+	assert.Equal(t, []string{cwd, cwd}, trees.Fetched, "a failed fetch is tried again, and a fetched merge is not")
 }
 
 func newSyncFixture(t *testing.T) *syncFixture {
