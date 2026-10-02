@@ -687,7 +687,7 @@ func (g Git) GetSSHHosts() (map[string]string, error) {
 	for _, entry := range g.SSHHosts {
 		ssh, web, ok := strings.Cut(entry, "=")
 		ssh, web = strings.ToLower(strings.TrimSpace(ssh)), strings.ToLower(strings.TrimSpace(web))
-		if !ok || !bareHost(ssh) || !bareHost(web) {
+		if !ok || !isBareHost(ssh) || !isBareHost(web) {
 			return nil, fmt.Errorf("%q is not written as ssh_host=web_host, with host names only", entry)
 		}
 		if _, seen := hosts[ssh]; seen {
@@ -700,8 +700,8 @@ func (g Git) GetSSHHosts() (map[string]string, error) {
 	return hosts, nil
 }
 
-// bareHost says whether a host carries no port, scheme, user or path.
-func bareHost(host string) bool {
+// isBareHost says whether a host carries no port, scheme, user or path.
+func isBareHost(host string) bool {
 	return host != "" && !strings.ContainsAny(host, ":/@= \t")
 }
 
