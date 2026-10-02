@@ -49,6 +49,10 @@ chmod 0644 /etc/komrad/rds-ca.pem
 git config --system credential.https://github.com.helper '!komrad github credential'
 git config --system credential.https://github.com.username x-access-token
 
+# Git reaches gitlab.com with the token its forge connection holds.
+git config --system credential.https://gitlab.com.helper '!komrad gitlab credential'
+git config --system credential.https://gitlab.com.username oauth2
+
 sed 's/^/export /' /tmp/files/komrad.env >/etc/profile.d/komrad-env.sh
 chmod 0644 /etc/profile.d/komrad-env.sh
 

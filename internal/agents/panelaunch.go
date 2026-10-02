@@ -46,7 +46,7 @@ type NewLauncherParams struct {
 	CacheDir    string
 	LogPath     string
 	ContextPath string
-	// BinPath is komrad's own binary, which an agent's hooks and its gh stand-in both run.
+	// BinPath is komrad's own binary, which an agent's hooks and its gh and glab stand-ins run.
 	BinPath         string
 	Usage           config.Usage
 	TrustLaunchDirs map[string]bool
@@ -172,9 +172,9 @@ func (l *Launcher) globalContext(ctx context.Context) string {
 // toolsDir is where komrad's stand-ins for the tools an agent calls are written, empty when
 // they could not be.
 func (l *Launcher) toolsDir(ctx context.Context) string {
-	dir, err := harness.WriteGHShim(l.cacheDir, l.binPath)
+	dir, err := harness.WriteToolShims(l.cacheDir, l.binPath)
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "gh could not be given a stand-in, so this agent reaches github as the machine is logged in",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "gh and glab could not be given stand-ins, so this agent reaches its forge as the machine is logged in",
 			logging.Err(err)...)
 
 		return ""

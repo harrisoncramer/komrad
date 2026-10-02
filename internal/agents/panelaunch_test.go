@@ -628,9 +628,9 @@ func TestContextBriefing(t *testing.T) {
 	}
 }
 
-// TestLaunchGivesTheAgentAStandInForGH covers the tools directory reaching the harness, which
-// is how gh is handed a credential the agent never holds itself.
-func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
+// TestLaunchGivesTheAgentStandInsForItsForgeTools covers the tools directory reaching the
+// harness, which is how gh and glab are handed a credential the agent never holds itself.
+func TestLaunchGivesTheAgentStandInsForItsForgeTools(t *testing.T) {
 	cache := t.TempDir()
 	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{
@@ -646,14 +646,16 @@ func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
 	tools := fakeHarness.Launches[0].ToolsDir
 	assert.Equal(t, filepath.Join(cache, harness.ToolsDirName), tools)
 
-	body, err := os.ReadFile(filepath.Join(tools, "gh"))
-	require.NoError(t, err)
-	assert.Contains(t, string(body), "'/usr/local/bin/komrad'")
-	assert.NotContains(t, string(body), "ghs_", "the stand-in holds no token of its own")
+	for _, tool := range []string{"gh", "glab"} {
+		body, err := os.ReadFile(filepath.Join(tools, tool))
+		require.NoError(t, err)
+		assert.Contains(t, string(body), "'/usr/local/bin/komrad'")
+		assert.NotContains(t, string(body), "ghs_", "the stand-in holds no token of its own")
+	}
 }
 
 // TestLaunchWithoutAKomradBinaryGivesNoStandIn covers a launcher that cannot name komrad, whose
-// agent reaches github the way it always did rather than through a stand-in that cannot mint.
+// agent reaches its forge the way it always did rather than through a stand-in that cannot mint.
 func TestLaunchWithoutAKomradBinaryGivesNoStandIn(t *testing.T) {
 	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), CacheDir: t.TempDir()})

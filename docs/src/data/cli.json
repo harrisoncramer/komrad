@@ -31,6 +31,7 @@
       "engine",
       "forge",
       "github",
+      "gitlab",
       "hook",
       "log",
       "migrate",
@@ -435,6 +436,108 @@
         "usage": "print nothing and succeed when the config names no app"
       }
     ],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "gitlab",
+    "path": "komrad gitlab",
+    "parent": "",
+    "usage": "komrad gitlab",
+    "aliases": [],
+    "short": "Reach GitLab with the token its forge connection holds",
+    "long": "Reach GitLab with the token its forge connection holds.\n\nGitLab has no App to mint short-lived tokens from, so komrad hands out the token the\nhost was connected with through komrad forge connect. The glab stand-in komrad puts\nahead of an agent's PATH and git's credential helper both read it here, so neither\nkeeps a copy of its own.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": [
+      "gitlab/config",
+      "gitlab/credential"
+    ]
+  },
+  {
+    "slug": "gitlab/config",
+    "path": "komrad gitlab config",
+    "parent": "gitlab",
+    "usage": "komrad gitlab config [flags]",
+    "aliases": [],
+    "short": "Print the glab config a checkout's GitLab is reached with",
+    "long": "Print the glab config a checkout's GitLab is reached with, as glab's config.yml.\n\nThe stand-in komrad puts ahead of an agent's PATH as glab runs this for every call.\n--checkout names the tree it was run in, whose origin says which host to answer\nfor. The config names that host alone, so glab hands the token to no other host.\n--if-configured prints nothing and succeeds when the origin is not on a\nconnected GitLab host, which leaves glab the credential the machine was logged in\nwith.",
+    "example": "",
+    "flags": [
+      {
+        "name": "checkout",
+        "shorthand": "",
+        "type": "string",
+        "default": ".",
+        "usage": "the checkout whose origin names the gitlab host"
+      },
+      {
+        "name": "if-configured",
+        "shorthand": "",
+        "type": "bool",
+        "default": "false",
+        "usage": "print nothing and succeed when the host has no gitlab connection"
+      }
+    ],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "gitlab/credential",
+    "path": "komrad gitlab credential",
+    "parent": "gitlab",
+    "usage": "komrad gitlab credential",
+    "aliases": [],
+    "short": "Answer git's credential helper protocol with a GitLab connection's token",
+    "long": "Answer git when it asks for a password.\n\nGit runs this and describes what it wants to reach. This answers only for https to\na host connected as a GitLab forge with a token. Anything else gets no answer, so\ngit falls back to whatever else the account has configured.\n\nSet it up for each GitLab host with:\n\n    git config --global credential.https://gitlab.com.helper '!komrad gitlab credential'",
+    "example": "",
+    "flags": [],
     "inherited": [
       {
         "name": "config",

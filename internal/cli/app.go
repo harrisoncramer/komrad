@@ -3,6 +3,7 @@ package cli
 import (
 	"komrad/config"
 	"komrad/internal/engine"
+	"komrad/internal/git"
 	"komrad/internal/glyph"
 	"komrad/internal/harness"
 	"komrad/internal/loader"
@@ -26,6 +27,7 @@ type app struct {
 	logLevel       string
 	layout         config.Layout
 	githubApp      config.GitHubApp
+	gitConfig      config.Git
 	configErr      error
 	contextPath    string
 	configStack    config.Stack
@@ -41,6 +43,11 @@ func (a *app) selfPath() string {
 	}
 
 	return getSelfPath()
+}
+
+// gitClient reads checkouts with the SSH hosts the config names as standing in for a web host.
+func (a *app) gitClient() *git.Client {
+	return git.NewClient(git.NewClientParams{SSHHosts: a.gitConfig.GetSSHHosts})
 }
 
 // engine says where the agents are running, which the panel needs so it can show a terminal it

@@ -215,3 +215,51 @@ func stoppedRebase(t *testing.T, checkout ...string) string {
 
 	return dir
 }
+
+// TestIntegrationReadOriginHostReadsTheWebHost covers the host a checkout's forge credential is
+// looked up under, an origin on an SSH alias reading as the web host it stands in for.
+func TestIntegrationReadOriginHostReadsTheWebHost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		origin   string
+		sshHosts git.SSHHostsReader
+		want     string
+	}{
+		{
+			name:   "an https origin",
+			origin: "https://gitlab.com/group/repo.git",
+			want:   "gitlab.com",
+		},
+		{
+			name:   "an origin on gitlab's ssh over 443 host",
+			origin: "ssh://git@altssh.gitlab.com:443/group/repo.git",
+			want:   "gitlab.com",
+		},
+		{
+			name:   "an origin on a named ssh host",
+			origin: "ssh://git@ssh.gitlab.example.com:2222/group/repo.git",
+			sshHosts: func() (map[string]string, error) {
+				return map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"}, nil
+			},
+			want: "gitlab.example.com",
+		},
+		{
+			name:   "a local origin",
+			origin: "/tmp/somewhere/else.git",
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := newRepo(t)
+			run(t, dir, "remote", "add", "origin", tt.origin)
+
+			assert.Equal(t, tt.want, git.NewClient(git.NewClientParams{SSHHosts: tt.sshHosts}).ReadOriginHost(t.Context(), dir))
+		})
+	}
+}

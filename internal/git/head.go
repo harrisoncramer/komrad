@@ -84,17 +84,37 @@ func (c *Client) ReadRepositoryURL(ctx context.Context, dir string) string {
 }
 
 func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
-	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
-	if err != nil {
-		return ""
-	}
-
-	remote, err := c.ParseRemoteURL(ctx, raw)
-	if err != nil {
+	remote := c.readOrigin(ctx, dir)
+	if remote == nil {
 		return ""
 	}
 
 	return remote.Canonical()
+}
+
+// ReadOriginHost is the web host a checkout's origin is on, empty when it has none komrad can read.
+func (c *Client) ReadOriginHost(ctx context.Context, dir string) string {
+	remote := c.readOrigin(ctx, dir)
+	if remote == nil {
+		return ""
+	}
+
+	return remote.Host
+}
+
+// readOrigin is a checkout's origin remote, nil when it has none komrad can read.
+func (c *Client) readOrigin(ctx context.Context, dir string) *RemoteURL {
+	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return nil
+	}
+
+	remote, err := c.ParseRemoteURL(ctx, raw)
+	if err != nil {
+		return nil
+	}
+
+	return &remote
 }
 
 // rebasingBranch is the branch a stopped rebase belongs to.

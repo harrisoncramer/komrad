@@ -102,6 +102,7 @@ the service, or call an endpoint from a script.`,
 
 			app.layout = cfg.Layout
 			app.githubApp = cfg.GitHubApp
+			app.gitConfig = cfg.Git
 			app.logLevel = cfg.Log.Level
 			app.configStack = stack
 			app.env = env
@@ -174,6 +175,7 @@ the service, or call an endpoint from a script.`,
 		openCmd(app),
 		attachCmd(app),
 		githubCmd(app),
+		gitlabCmd(app),
 		forgeCmd(app),
 		prCmd(app),
 		serveCmd(app),
