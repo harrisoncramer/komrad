@@ -595,8 +595,8 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 	return reading, nil
 }
 
-// branchesPage is one page of the merge requests from a set of branches and the rate limit after it.
-type branchesPage struct {
+// mergeRequestPage is one page of the merge requests from a set of branches and the rate limit after it.
+type mergeRequestPage struct {
 	MergeRequests connection
 	RateLimit     forge.RateLimit
 }
@@ -610,7 +610,7 @@ type readBranchesPageParams struct {
 }
 
 // readBranchesPage is one page of the merge requests opened from any of the branches, newest first.
-func (f *Forge) readBranchesPage(ctx context.Context, params readBranchesPageParams) (*branchesPage, error) {
+func (f *Forge) readBranchesPage(ctx context.Context, params readBranchesPageParams) (*mergeRequestPage, error) {
 	variables := map[string]any{
 		"path":     params.path,
 		"branches": params.branches,
@@ -634,7 +634,7 @@ func (f *Forge) readBranchesPage(ctx context.Context, params readBranchesPagePar
 		return nil, noProject(params.path)
 	}
 
-	return &branchesPage{MergeRequests: data.Project.MergeRequests, RateLimit: answer.RateLimit}, nil
+	return &mergeRequestPage{MergeRequests: data.Project.MergeRequests, RateLimit: answer.RateLimit}, nil
 }
 
 // failureOf is the first error the answer carries as komrad's, nil when it carries none.
