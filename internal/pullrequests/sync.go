@@ -421,6 +421,8 @@ func toUpsert(pullRequest forge.PullRequest) pullrequeststore.UpsertParams {
 		HeadRepositoryURL: head,
 		Number:            pullRequest.Number,
 		Title:             pullRequest.Title,
+		Author:            pullRequest.Author,
+		Body:              pullRequest.Body,
 		HeadBranch:        pullRequest.HeadBranch,
 		HeadSHA:           pullRequest.HeadSHA,
 		BaseBranch:        pullRequest.BaseBranch,

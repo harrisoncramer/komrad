@@ -88,6 +88,8 @@ func openPullRequest(providerID string, number int, branch string) UpsertParams 
 		HeadRepositoryURL: komrad,
 		Number:            number,
 		Title:             "one",
+		Author:            "harrisoncramer",
+		Body:              "Why it exists.",
 		HeadBranch:        branch,
 		HeadSHA:           "abc",
 		BaseBranch:        "main",
@@ -117,6 +119,17 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	assert.False(t, again.Changed, "the same row again is not written")
 	assert.Nil(t, first.OldState, "a new row replaced nothing")
 	assert.Nil(t, again.OldState, "an untouched row replaced nothing")
+
+	edited := openPullRequest("PR_1", 1, "agent/x")
+	edited.Body = "Why it exists, said better."
+	rewritten, err := h.Upsert(ctx, edited)
+	require.NoError(t, err)
+	assert.True(t, rewritten.Changed, "an edited description is written")
+
+	read, err := h.GetByIdentity(ctx, "github.com", "PR_1")
+	require.NoError(t, err)
+	assert.Equal(t, "harrisoncramer", read.Author)
+	assert.Equal(t, "Why it exists, said better.", read.Body)
 
 	merged := openPullRequest("PR_1", 1, "agent/x")
 	mergedAt := merged.ChangedAt.Add(time.Hour)

@@ -255,6 +255,8 @@ func pullRequestIn(repository git.RemoteURL, providerID, branch string, updatedA
 		Head:       repository,
 		Number:     numberOf(providerID),
 		Title:      providerID,
+		Author:     "harrisoncramer",
+		Body:       "Why " + providerID + " exists.",
 		HeadBranch: branch,
 		HeadSHA:    scriptedHeadSHA,
 		BaseBranch: "main",
@@ -315,7 +317,10 @@ func TestSyncReadsEveryLiveBranchOnTheFirstPass(t *testing.T) {
 	f.sync(t)
 
 	assert.Equal(t, []string{"read:harrisoncramer/komrad:agent/x,agent/y"}, f.forge.requests)
-	assert.Equal(t, "agent/x", f.stored(t, "PR_1").HeadBranch)
+	stored := f.stored(t, "PR_1")
+	assert.Equal(t, "agent/x", stored.HeadBranch)
+	assert.Equal(t, "harrisoncramer", stored.Author)
+	assert.Equal(t, "Why PR_1 exists.", stored.Body)
 	assert.True(t, f.isRead(t, syncRepository))
 }
 

@@ -36,7 +36,7 @@ const reviewStateRequestedChanges = "REQUESTED_CHANGES"
 
 // mergeRequestFragment is every field of a merge request the record is built from.
 const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
-  id iid title webUrl state draft createdAt updatedAt mergedAt closedAt
+  id iid title description author { username } webUrl state draft createdAt updatedAt mergedAt closedAt
   sourceBranch targetBranch diffHeadSha sourceProject { webUrl } targetProject { webUrl } diffRefs { baseSha }
 }`
 
@@ -676,6 +676,8 @@ type mergeRequestNode struct {
 	ID            string       `json:"id"`
 	IID           string       `json:"iid"`
 	Title         string       `json:"title"`
+	Description   string       `json:"description"`
+	Author        *userNode    `json:"author"`
 	WebURL        string       `json:"webUrl"`
 	State         string       `json:"state"`
 	Draft         bool         `json:"draft"`
@@ -690,6 +692,18 @@ type mergeRequestNode struct {
 	DiffRefs      *struct {
 		BaseSha string `json:"baseSha"`
 	} `json:"diffRefs"`
+}
+
+type userNode struct {
+	Username string `json:"username"`
+}
+
+func (n *userNode) username() string {
+	if n == nil {
+		return ""
+	}
+
+	return n.Username
 }
 
 type projectNode struct {
@@ -819,6 +833,8 @@ func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		Head:       n.SourceProject.remote(),
 		Number:     numberOf(n.IID),
 		Title:      n.Title,
+		Author:     n.Author.username(),
+		Body:       n.Description,
 		HeadBranch: n.SourceBranch,
 		HeadSHA:    n.DiffHeadSha,
 		BaseBranch: n.TargetBranch,

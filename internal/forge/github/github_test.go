@@ -23,13 +23,13 @@ import (
 // widgets#13 from a fork since deleted, widgets#81544 a draft, and the standing fields GitHub
 // answers beside each on a read of branches.
 
-const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
+const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","body":"Opens the fixture.","author":{"login":"harrisoncramer"},"url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
 
 const mergedPull = `{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrad/pull/742","state":"MERGED","isDraft":false,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}}`
 
 const forkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDE=","number":55,"title":"Typo correction","url":"https://github.com/acme/widgets/pull/55","state":"CLOSED","isDraft":false,"createdAt":"2014-06-11T05:07:11Z","updatedAt":"2014-06-13T12:41:36Z","mergedAt":null,"closedAt":"2014-06-11T05:07:37Z","headRefName":"fix-typo","headRefOid":"7a97b155f47ac6fc34eaa630d96ba9caf244d80c","baseRefName":"master","baseRefOid":"fd5d98f21b5008f27513d52ac2faa78292a8a3a8","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
-const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDI=","number":13,"title":"client: add the service tests","url":"https://github.com/acme/widgets/pull/13","state":"CLOSED","isDraft":false,"createdAt":"2014-06-07T11:41:26Z","updatedAt":"2014-06-20T06:20:42Z","mergedAt":null,"closedAt":"2014-06-20T06:20:42Z","headRefName":"client-tests","headRefOid":"2c8de7699fd79407246011a82201718588a06a08","baseRefName":"master","baseRefOid":"ba7fe835ce990977997bfc6b6c914d235d9ae72f","headRepository":null,"baseRepository":{"url":"https://github.com/acme/widgets"}}`
+const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDI=","number":13,"title":"client: add the service tests","body":null,"author":null,"url":"https://github.com/acme/widgets/pull/13","state":"CLOSED","isDraft":false,"createdAt":"2014-06-07T11:41:26Z","updatedAt":"2014-06-20T06:20:42Z","mergedAt":null,"closedAt":"2014-06-20T06:20:42Z","headRefName":"client-tests","headRefOid":"2c8de7699fd79407246011a82201718588a06a08","baseRefName":"master","baseRefOid":"ba7fe835ce990977997bfc6b6c914d235d9ae72f","headRepository":null,"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
 const draftPull = `{"id":"PR_kwDOAAAAAAAAAAABAAAAAA","number":81544,"title":"unicode: widen the pair members","url":"https://github.com/acme/widgets/pull/81544","state":"OPEN","isDraft":true,"createdAt":"2026-09-15T17:53:12Z","updatedAt":"2026-09-15T18:47:47Z","mergedAt":null,"closedAt":null,"headRefName":"widen-pairs","headRefOid":"695f59abb90db534d1ce005c6b2fc1779728d2b1","baseRefName":"master","baseRefOid":"d90cb4e010dbbf7f39b993db5e64e2904c74e4a4","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
@@ -213,6 +213,8 @@ func TestList(t *testing.T) {
 		Head:       repository,
 		Number:     1,
 		Title:      "fixture: open",
+		Author:     "harrisoncramer",
+		Body:       "Opens the fixture.",
 		HeadBranch: "fixture/open",
 		HeadSHA:    "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
 		BaseBranch: "main",
@@ -234,6 +236,8 @@ func TestList(t *testing.T) {
 	assert.Equal(t, "someone/widgets", pullRequests[2].Head.Path)
 
 	assert.True(t, pullRequests[3].Head.IsZero())
+	assert.Empty(t, pullRequests[3].Author, "an account GitHub no longer has")
+	assert.Empty(t, pullRequests[3].Body)
 	assert.True(t, pullRequests[3].IsFinished())
 
 	assert.True(t, pullRequests[4].Draft)

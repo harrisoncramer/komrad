@@ -113,6 +113,18 @@ table "pull_requests" {
     null = false
     type = text
   }
+  column "author" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The login of whoever opened it, empty when the forge no longer has them."
+  }
+  column "body" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The description as the forge has it, in markdown."
+  }
   column "head_branch" {
     null = false
     type = text
