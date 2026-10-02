@@ -139,8 +139,8 @@ func (m *model) finishParked() tea.Cmd {
 
 	now := time.Now()
 	var ready []int
-	for write, held := range m.writes.parked {
-		if held.result.awaits.isSettled(m) || now.After(held.deadline) {
+	for write, parked := range m.writes.parked {
+		if parked.result.awaits.isSettled(m) || now.After(parked.deadline) {
 			ready = append(ready, write)
 		}
 	}
@@ -151,9 +151,9 @@ func (m *model) finishParked() tea.Cmd {
 
 	var cmds []tea.Cmd
 	for _, write := range ready {
-		held := m.writes.parked[write]
+		parked := m.writes.parked[write]
 		delete(m.writes.parked, write)
-		cmds = append(cmds, m.finishWrite(held.result))
+		cmds = append(cmds, m.finishWrite(parked.result))
 	}
 
 	return tea.Batch(cmds...)
@@ -161,8 +161,8 @@ func (m *model) finishParked() tea.Cmd {
 
 // isPaneAwaited reports whether a parked write is waiting on a pane's harness to draw itself.
 func (m *model) isPaneAwaited(pane string) bool {
-	for _, held := range m.writes.parked {
-		if held.result.awaits.pane == pane {
+	for _, parked := range m.writes.parked {
+		if parked.result.awaits.pane == pane {
 			return true
 		}
 	}
@@ -172,12 +172,12 @@ func (m *model) isPaneAwaited(pane string) bool {
 
 // releaseCursor lets the cursor stay where a key moved it when a parked write no form owns finishes.
 func (m *model) releaseCursor() {
-	for write, held := range m.writes.parked {
+	for write, parked := range m.writes.parked {
 		if m.writes.held.owns(write) {
 			continue
 		}
 
-		held.result.keyMoved = true
-		m.writes.parked[write] = held
+		parked.result.keyMoved = true
+		m.writes.parked[write] = parked
 	}
 }

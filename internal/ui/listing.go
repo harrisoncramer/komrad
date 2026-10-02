@@ -133,8 +133,7 @@ type writeResult struct {
 	unstaged *unstaged
 	// awaits is what the panel shows once the write is answered, and the write is held until it does.
 	awaits *awaits
-	// keyMoved says a key moved the cursor while the write was parked, so the cursor stays where the
-	// key left it.
+	// keyMoved says a key moved the cursor while the write was parked.
 	keyMoved bool
 }
 
@@ -229,7 +228,7 @@ func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.C
 	}), let)
 }
 
-// announced says announce once the write cmd runs has landed.
+// announced says on a write's result the message to show once it finishes.
 func announced(cmd tea.Cmd, announce message) tea.Cmd {
 	return func() tea.Msg {
 		msg := cmd()
