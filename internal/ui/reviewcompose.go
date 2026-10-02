@@ -467,6 +467,8 @@ func (r *reviewScreen) send(m *model, interrupt bool) tea.Cmd {
 	r.threads.closeRelease()
 
 	agents, agentID := m.clients().agents, r.agentID
+	item, _ := r.agentRow(m)
+	interrupt = interrupt && item.Alive
 
 	return r.sendCmd(m, "sending the review", func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
@@ -478,7 +480,7 @@ func (r *reviewScreen) send(m *model, interrupt bool) tea.Cmd {
 			return "", err
 		}
 
-		return releasedNotice(resp.Msg.GetComments(), interrupt), nil
+		return releasedNotice(resp.Msg.GetComments(), interrupt, item.Alive), nil
 	})
 }
 
@@ -489,13 +491,16 @@ func (t *reviewThreads) closeRelease() {
 }
 
 // releasedNotice says what went.
-func releasedNotice(count int32, interrupt bool) string {
-	sent := label.Counted(int(count), "comment") + " sent"
-	if interrupt {
-		sent += " and the agent stopped to read them"
+func releasedNotice(count int32, interrupt, alive bool) string {
+	counted := label.Counted(int(count), "comment")
+	switch {
+	case !alive:
+		return counted + " queued for resume"
+	case interrupt:
+		return counted + " sent and the agent stopped to read them"
 	}
 
-	return sent
+	return counted + " sent"
 }
 
 // writeCmd runs one write on the review, landing the write that beginWrite counted out.

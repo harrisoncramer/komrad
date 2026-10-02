@@ -73,11 +73,12 @@ type reviewPausedMsg struct {
 
 // startHold stops the agent and opens the editor once it has.
 func (r *reviewScreen) startHold(m *model) tea.Cmd {
-	if _, dead := r.isReadOnly(m); dead {
+	item, ok := r.agentRow(m)
+	if !ok || !item.Alive {
 		return r.editFile(m)
 	}
 
-	if item, ok := r.agentRow(m); ok && item.Agent.HeldAt != nil {
+	if item.Agent.HeldAt != nil {
 		m.reportBrief("could not edit "+r.agentName, stillPaused)
 
 		return nil

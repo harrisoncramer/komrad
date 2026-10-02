@@ -24,7 +24,7 @@ func (r reviewScreen) statusView(m *model) string {
 	}
 
 	if _, dead := r.isReadOnly(m); dead {
-		return bandRow(m, reviewHeldTone, "gone", "this agent is gone, nothing can be sent")
+		return bandRow(m, reviewHeldTone, "archived", "this agent is archived, nothing can be sent")
 	}
 
 	if r.threads.holdsUnsent() {
@@ -43,16 +43,8 @@ func (t reviewThreads) unsentCount() int {
 
 // isReadOnly reports whether there is nobody there to receive a comment.
 func (r reviewScreen) isReadOnly(m *model) (string, bool) {
-	for _, item := range m.listing.agents {
-		if item.Agent.ID != r.agentID {
-			continue
-		}
-
-		if item.Alive {
-			return "", false
-		}
-
-		return "this agent is dormant" + separated + "resume it before writing to it", true
+	if _, ok := r.agentRow(m); ok {
+		return "", false
 	}
 
 	return "this agent is archived" + separated + "restore it before writing to it", true

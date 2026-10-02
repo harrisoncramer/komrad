@@ -1046,6 +1046,19 @@ func TestReviewRelease(t *testing.T) {
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
 	})
+
+	t.Run("a dormant agent takes the review without an interrupt and the panel says it is queued", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.Alive = xptr.Ptr(false)
+		harness := openReview(t, server)
+
+		harness.press("s", "ctrl+x")
+
+		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
+			AgentId: "a1",
+		})
+		assert.Contains(t, readEngineLine(harness.readFrame()), "0 comments queued for resume")
+	})
 }
 
 // TestReviewWatch covers the conversation following the watch without a keypress.
@@ -1119,58 +1132,37 @@ func TestReviewWatch(t *testing.T) {
 	})
 }
 
-// TestReviewOfAnAgentThatIsGone covers the diff of a dormant or archived agent opening read only.
-func TestReviewOfAnAgentThatIsGone(t *testing.T) {
-	tests := []struct {
-		name  string
-		leave func(*agentv1.Agent)
-		want  string
-	}{
-		{
-			name:  "a dormant agent",
-			leave: func(agent *agentv1.Agent) { agent.Alive = xptr.Ptr(false) },
-			want:  "this agent is dormant",
-		},
-		{
-			name:  "an archived agent",
-			leave: func(agent *agentv1.Agent) { agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z") },
-			want:  "this agent is archived",
-		},
-	}
+// TestReviewOfAnArchivedAgent covers the diff of an archived agent opening read only.
+func TestReviewOfAnArchivedAgent(t *testing.T) {
+	server := newReviewServer(t)
+	server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+	harness := openReviewAt(t, server, panelHarnessParams{height: 50})
+	server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
+	harness.watch(server.buildSnapshot())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := newReviewServer(t)
-			server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
-			harness := openReviewAt(t, server, panelHarnessParams{height: 50})
-			tt.leave(server.agent)
-			harness.watch(server.buildSnapshot())
+	frame := harness.readFrame()
+	assert.NotContains(t, frame, "reply in this thread")
 
-			frame := harness.readFrame()
-			assert.NotContains(t, frame, "reply in this thread")
+	harness.press("j")
+	assert.Contains(t, readStageText(harness.readFrame()), "this agent is archived")
+	harness.press("k")
 
-			harness.press("j")
-			assert.Contains(t, readStageText(harness.readFrame()), tt.want)
-			harness.press("k")
+	harness.press("?")
+	legend := readLegend(harness.readFrame())
+	assert.NotContains(t, legend, "send to the agent")
+	assert.Contains(t, legend, "settle the thread")
+	harness.press("?")
 
-			harness.press("?")
-			legend := readLegend(harness.readFrame())
-			assert.NotContains(t, legend, "send to the agent")
-			assert.Contains(t, legend, "settle the thread")
-			harness.press("?")
+	harness.press("c")
+	assert.NotContains(t, harness.readFrame(), "  Comment")
+	harness.press("s", "enter")
+	assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
+	assert.Empty(t, harness.readSent(agentv1connect.AgentServiceAddReviewMessageProcedure))
 
-			harness.press("c")
-			assert.NotContains(t, harness.readFrame(), "  Comment")
-			harness.press("s", "enter")
-			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceAddReviewMessageProcedure))
-
-			harness.press("r", "v")
-			harness.assertSentTo(agentv1connect.AgentServiceSetReviewThreadResolvedProcedure,
-				&agentv1.SetReviewThreadResolvedRequest{Id: "t1", Resolved: true})
-			assert.Len(t, harness.readSent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
-		})
-	}
+	harness.press("r", "v")
+	harness.assertSentTo(agentv1connect.AgentServiceSetReviewThreadResolvedProcedure,
+		&agentv1.SetReviewThreadResolvedRequest{Id: "t1", Resolved: true})
+	assert.Len(t, harness.readSent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
 }
 
 // TestReviewReload covers reading the worktree again, by the reload key and by the watch reporting a move.
