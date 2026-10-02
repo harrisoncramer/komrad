@@ -848,9 +848,10 @@ func TestNotFound(t *testing.T) {
 	t.Parallel()
 
 	f, auth, _ := serve(t, map[string]answer{
-		"Get":          {body: `{"data":{"project":null}}`},
-		"List":         {body: `{"data":{"project":null}}`},
-		"ReadBranches": {body: `{"data":{"project":null}}`},
+		"Get":           {body: `{"data":{"project":null}}`},
+		"List":          {body: `{"data":{"project":null}}`},
+		"ReadBranches":  {body: `{"data":{"project":null}}`},
+		"ReviewThreads": {body: `{"data":{"project":null}}`},
 	})
 
 	_, err := f.readMergeRequest(t.Context(), "https://gitlab.com/acme/no-such-project-xyz/-/merge_requests/1")
@@ -859,10 +860,17 @@ func TestNotFound(t *testing.T) {
 	require.ErrorIs(t, err, forge.ErrNotFound)
 	_, err = f.ReadBranches(t.Context(), komrad, []string{"main"})
 	require.ErrorIs(t, err, forge.ErrNotFound)
+	_, err = f.ReviewThreads(t.Context(), komrad, 1)
+	require.ErrorIs(t, err, forge.ErrNotFound)
 	assert.Equal(t, 0, auth.invalidated)
 
-	gone, _, _ := serve(t, map[string]answer{"Get": {body: `{"data":{"project":{"mergeRequest":null}}}`}})
+	gone, _, _ := serve(t, map[string]answer{
+		"Get":           {body: `{"data":{"project":{"mergeRequest":null}}}`},
+		"ReviewThreads": {body: `{"data":{"project":{"mergeRequest":null}}}`},
+	})
 	_, err = gone.readMergeRequest(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/999999999")
+	require.ErrorIs(t, err, forge.ErrNotFound)
+	_, err = gone.ReviewThreads(t.Context(), komrad, 1)
 	require.ErrorIs(t, err, forge.ErrNotFound)
 
 	misrouted, _, _ := serve(t, nil)
