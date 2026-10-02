@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"komrad/internal/fail"
@@ -53,6 +54,15 @@ var ErrAppNotGitHub = fail.InvalidArgument("a github app connects only to github
 // ErrNoInstallationCheck says the forge has no way to check an installation.
 var ErrNoInstallationCheck = fail.InvalidArgument("this forge cannot check an installation")
 
+// ErrRotatingNotGitLab says the rotating token method was asked for on a forge that is not GitLab.
+var ErrRotatingNotGitLab = fail.InvalidArgument("a rotating token connects only to gitlab")
+
+// ErrNoRotation says the forge has no way to rotate a token.
+var ErrNoRotation = fail.InvalidArgument("this forge cannot rotate a token")
+
+// ErrTokenCannotRotate says a token lacks the scope it needs to rotate itself.
+var ErrTokenCannotRotate = fail.InvalidArgument("the token needs the api scope to rotate itself")
+
 // Builder makes the forge for one kind, reaching the API at api as auth.
 type Builder func(api string, auth Authenticator) Forge
 
@@ -86,6 +96,7 @@ type Service struct {
 	verified    verifiedSetter
 	loadApp     func() (App, error)
 	now         func() time.Time
+	rotation    sync.Mutex
 }
 
 // NewService builds the service.
@@ -156,7 +167,7 @@ func (p ConnectParams) ResolveAPIURL() (string, error) {
 
 // HeaderFor is the header a credential obtained one way is sent in on one kind of forge.
 func HeaderFor(kind, method string) string {
-	if kind == KindGitLab && method == MethodToken {
+	if kind == KindGitLab && method != MethodGitHubApp {
 		return HeaderPrivateToken
 	}
 
@@ -173,7 +184,7 @@ type ConnectParams struct {
 	APIURL string
 	// Method is how the credential comes, MethodToken when empty.
 	Method string
-	// Token is the credential for MethodToken, and ignored for MethodGitHubApp.
+	// Token is the credential for MethodToken and MethodRotatingToken, and ignored for MethodGitHubApp.
 	Token Secret
 }
 
@@ -221,6 +232,8 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		login, err = s.proveToken(ctx, build, params)
 	case MethodGitHubApp:
 		login, err = s.proveApp(ctx, build, params)
+	case MethodRotatingToken:
+		login, err = s.proveRotatingToken(ctx, build, params)
 	default:
 		return nil, ErrUnknownMethod.Saying("%q is not a way to connect", params.Method)
 	}
@@ -240,8 +253,16 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, err
 	}
 
-	if params.Method == MethodToken {
-		if err := s.credentials.Set(ctx, connection.ID, params.Token); err != nil {
+	token := params.Token
+	if params.Method == MethodRotatingToken {
+		token, err = s.rotateAtConnect(ctx, build, params)
+		if err != nil {
+			return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
+		}
+	}
+
+	if params.Method != MethodGitHubApp {
+		if err := s.credentials.Set(ctx, connection.ID, token); err != nil {
 			return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
 		}
 	}
@@ -325,6 +346,12 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 		return err
 	}
 
+	if connection.Method == MethodRotatingToken {
+		if err := s.revoke(ctx, *connection); err != nil {
+			return err
+		}
+	}
+
 	if err := s.credentials.Delete(ctx, connection.ID); err != nil {
 		return err
 	}
@@ -347,6 +374,19 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	f, err := s.ForConnection(connection)
 	if err != nil {
 		return "", err
+	}
+
+	if connection.Method == MethodRotatingToken {
+		login, err := f.Verify(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		if err := s.rotateIfDue(ctx, connection, f); err != nil {
+			return "", err
+		}
+
+		return login, nil
 	}
 
 	if connection.Method != MethodGitHubApp {

@@ -9,7 +9,7 @@ import (
 )
 
 // TestFileStoreRoundTrip covers the file: written with a mode only the owner can read, read
-// back trimmed, and gone after deletion.
+// back trimmed, replaced whole, and gone after deletion.
 func TestFileStoreRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -24,6 +24,14 @@ func TestFileStoreRoundTrip(t *testing.T) {
 	token, err := store.Get(ctx, "conn-1")
 	require.NoError(t, err)
 	assert.Equal(t, "ghp_secret", token.Expose())
+
+	require.NoError(t, store.Set(ctx, "conn-1", NewSecret("ghp_replaced")))
+	token, err = store.Get(ctx, "conn-1")
+	require.NoError(t, err)
+	assert.Equal(t, "ghp_replaced", token.Expose())
+	entries, err := os.ReadDir(store.Path(""))
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "a replaced token leaves no temporary file behind")
 
 	require.NoError(t, store.Delete(ctx, "conn-1"))
 	_, err = store.Get(ctx, "conn-1")

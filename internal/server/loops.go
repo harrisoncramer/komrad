@@ -19,6 +19,8 @@ const (
 	commentSyncInterval = time.Minute
 	// worktreeSizeInterval is how often a few worktree directories are walked for their size.
 	worktreeSizeInterval = 30 * time.Second
+	// forgeRotationInterval is how often rotating forge tokens are checked for being near expiry.
+	forgeRotationInterval = time.Hour
 )
 
 // localLoopFloor is the least time between the starts of two runs of a loop that reads only this
@@ -41,6 +43,7 @@ const (
 	PullRequestSyncLoop = "pull request sync"
 	CommentSyncLoop     = "review comment sync"
 	WorktreeSizeLoop    = "worktree sizes"
+	forgeRotationLoop   = "forge token rotation"
 )
 
 type loopWakers struct {
@@ -115,6 +118,12 @@ func buildLoops(params buildLoopsParams) []*Loop {
 				Worktrees: params.Stores.worktrees,
 				Standings: params.Services.worktrees.inspector,
 			}).Measure,
+		}),
+		newLoop(newLoopParams{
+			Name:     forgeRotationLoop,
+			Interval: forgeRotationInterval,
+			Floor:    pullRequestSyncFloor,
+			Run:      params.Services.pullRequests.forge.RotateTokens,
 		}),
 	}
 }
