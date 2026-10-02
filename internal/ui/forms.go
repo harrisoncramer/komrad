@@ -143,7 +143,7 @@ func redrawnForm(params redrawnFormParams) formState {
 const formColumnFloor = 50
 
 // formMaxWidth is the widest a form draws its fields at.
-const formMaxWidth = 72
+const formMaxWidth = 60
 
 // formColumn is the form drawn beside the list it was opened over, so the row it is about is
 // still on screen while it is answered.
