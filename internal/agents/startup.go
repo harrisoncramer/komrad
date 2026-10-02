@@ -51,12 +51,12 @@ func (s *LaunchService) failExitedStartup(ctx context.Context, launched agentsto
 		return
 	}
 
-	screen := getLastLines(ansi.Strip(s.tmux.CapturePane(agent.Pane)), startupTailLines)
+	screen := tailScreen(ansi.Strip(s.tmux.CapturePane(agent.Pane)), startupTailLines)
 	s.failCreate(ctx, *agent, fmt.Errorf("the CLI exited while starting: %s", screen))
 	s.tmux.KillPane(agent.Pane)
 }
 
-func getLastLines(screen string, count int) string {
+func tailScreen(screen string, count int) string {
 	var lines []string
 	for line := range strings.Lines(screen) {
 		if trimmed := strings.TrimSpace(line); trimmed != "" {
