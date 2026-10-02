@@ -96,8 +96,8 @@ func countPullRequestTopMax(total, window int) int {
 	return total - window + 1
 }
 
-// windowBodyRows is the description from top in a window, closed by where it stands when it does
-// not fit whole.
+// windowBodyRows is the description from top in a window, its last row the count of rows shown
+// when it does not fit whole.
 func windowBodyRows(body []string, top, window int) []string {
 	if len(body) <= window {
 		return body
