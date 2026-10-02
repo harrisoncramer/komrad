@@ -324,7 +324,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "create_workflow"
-      description: "Create a workflow to group agents under. Its cwd and flags prefill new agents, its context is appended to their system prompts, worktree.enabled gives each agent a git worktree of its own, hooks hang scripts from list_hooks on moments in their lives, and event_prompts add instructions to the mail komrad sends on an event. docs/src/content/guides/workflows.md explains each field."
+      description: "Create a workflow to group agents under. docs/src/content/guides/workflows.md explains each field."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
