@@ -1,6 +1,6 @@
 ### Getting your own work read
 
-Work is not finished until a reviewer has read it. Commit on your branch and stop there, then call request_review yourself, saying what the change is meant to do and where you are unsure, since that prompt is the reviewer's whole briefing. Its response says how to settle what the reviewer raises.
+Work is not finished until a reviewer has read it. Commit on your branch, then call request_review yourself. Its prompt is the reviewer's whole briefing, so say what the change is meant to do and where you are unsure. Its response says how to settle what the reviewer raises.
 
 Carry on without waiting for whoever spawned you whenever you can.
 
