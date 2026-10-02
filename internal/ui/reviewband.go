@@ -61,12 +61,11 @@ func (r reviewScreen) bandRows(m *model) []string {
 
 // archivedView says the agent is archived.
 func (r reviewScreen) archivedView(m *model, width int) string {
-	reason, archived := r.isReadOnly(m)
-	if !archived {
+	if !r.isArchived(m) {
 		return ""
 	}
 
-	return reviewDeadStyle(paint.Panel).Render(reviewFill(" "+reason+" ", width)) + "\n"
+	return reviewDeadStyle(paint.Panel).Render(reviewFill(" "+archivedSaid+" ", width)) + "\n"
 }
 
 // staleView says the worktree has moved since the diff on screen was read.

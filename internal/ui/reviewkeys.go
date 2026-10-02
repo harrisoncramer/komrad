@@ -47,8 +47,7 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
 
 // refuseWrite says why a key that would write to the agent did nothing.
 func (r *reviewScreen) refuseWrite(m *model) {
-	reason, _ := r.isReadOnly(m)
-	m.note(messageWarning, reason)
+	m.note(messageWarning, archivedSaid)
 }
 
 // refuseHistory says why a write did not happen on a round the agent has moved past, and names
