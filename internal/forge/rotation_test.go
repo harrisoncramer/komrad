@@ -359,7 +359,7 @@ func TestDisconnectRevokesARotatingToken(t *testing.T) {
 			lostToken: true,
 		},
 		{
-			name:      "gitlab fails to revoke",
+			name:      "gitlab fails to revoke, and the connection goes anyway",
 			revokeErr: errors.New("500 Internal Server Error"),
 			wantErr:   true,
 		},
@@ -387,13 +387,10 @@ func TestDisconnectRevokesARotatingToken(t *testing.T) {
 			_, rowErr := f.store.GetByHost(ctx, "gitlab.com")
 			_, fileErr := f.credentials.Get(ctx, connection.ID)
 			if tt.wantErr {
-				require.Error(t, err)
-				require.NoError(t, rowErr)
-				require.NoError(t, fileErr)
-
-				return
+				require.ErrorContains(t, err, "gitlab.com")
+			} else {
+				require.NoError(t, err)
 			}
-			require.NoError(t, err)
 			require.ErrorIs(t, rowErr, store.ErrNotFound)
 			require.ErrorIs(t, fileErr, ErrNoCredential)
 		})

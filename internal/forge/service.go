@@ -346,17 +346,16 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 		return err
 	}
 
+	var revoked error
 	if connection.Method == MethodRotatingToken {
-		if err := s.revoke(ctx, *connection); err != nil {
-			return err
-		}
+		revoked = s.revoke(ctx, *connection)
 	}
 
 	if err := s.credentials.Delete(ctx, connection.ID); err != nil {
-		return err
+		return errors.Join(revoked, err)
 	}
 
-	return s.connections.Delete(ctx, connection.ID)
+	return errors.Join(revoked, s.connections.Delete(ctx, connection.ID))
 }
 
 // Check asks the forge whether a connection still works, the way its method allows: who the

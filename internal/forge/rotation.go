@@ -132,7 +132,7 @@ func (s *Service) revoke(ctx context.Context, connection forgestore.Connection) 
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("failed to revoke the token for %s: %w", connection.Host, err)
+		return fmt.Errorf("failed to revoke the token for %s, so revoke it on GitLab by hand: %w", connection.Host, err)
 	}
 
 	return nil
