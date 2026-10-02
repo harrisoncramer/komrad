@@ -545,8 +545,8 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) 
 }
 
 // ReadBranches reads the newest merge requests opened from each branch, with their merge readiness,
-// paging through the merge requests from the branches still short of their newest and keeping only
-// those whose source is the project itself.
+// paging until every branch has its newest five and keeping only those whose source is the project
+// itself.
 func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	path, err := projectPath(repo.Path)
 	if err != nil {
