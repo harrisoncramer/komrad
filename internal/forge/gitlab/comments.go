@@ -190,8 +190,8 @@ func (n noteNode) toComment() forge.ReviewComment {
 	return comment
 }
 
-// line is the line a diff note stands on and whether it is counted in the old file, zero for a
-// note on a whole file or an image.
+// line is the line a diff note stands on and whether that line is on the old side, zero for a note
+// on a whole file or an image.
 func (p positionNode) line() (int, bool) {
 	switch {
 	case p.PositionType != "text":
@@ -205,8 +205,8 @@ func (p positionNode) line() (int, bool) {
 	return 0, false
 }
 
-// quote is the line a diff note was written on, which GitLab's excerpt of the diff ends with,
-// with its diff marker taken off.
+// quote is the last line of GitLab's excerpt of the diff, the line the note was written on,
+// without its diff marker.
 func (n discussionNode) quote() string {
 	if len(n.TruncatedDiffLines) == 0 {
 		return ""
