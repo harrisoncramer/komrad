@@ -150,7 +150,7 @@ func threadsOf(discussions []discussionNode) *forge.Threads {
 			ProviderID: node.ID,
 			URL:        written[0].URL,
 			Resolved:   node.Resolved,
-			Comments:   xslice.Map(written, noteNode.toComment),
+			Comments:   xslice.Map(written, func(note noteNode) forge.ReviewComment { return note.toComment(node.ID) }),
 		}
 		if position := written[0].Position; position != nil {
 			thread.Path = position.FilePath
@@ -172,9 +172,10 @@ func (n noteNode) isWritten() bool {
 	return !n.System && !n.Internal && strings.TrimSpace(n.Body) != ""
 }
 
-func (n noteNode) toComment() forge.ReviewComment {
+func (n noteNode) toComment(discussionID string) forge.ReviewComment {
 	comment := forge.ReviewComment{
 		ProviderID: n.ID,
+		ReviewID:   discussionID,
 		Body:       n.Body,
 		WrittenAt:  n.CreatedAt,
 	}

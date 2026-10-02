@@ -296,8 +296,9 @@ up        = ["k"]
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
-# Accept the comment from the forge under the cursor into your review, as a thread of your
-# own the agent reads with the rest of it, or bring in what changed on the forge since you did.
+# Pass a held comment from the forge on to the agent, copied into your review as your own
+# words. A comment is held when its author cannot push to the repository, and the agent
+# reads nothing in its thread until the comment opening it is accepted and the review sent.
 accept           = ["A"]
 # Show only the change that answered the comment under the cursor, from the work as
 # it stood just before the agent's addressed reply to the work that reply carried, or
@@ -314,10 +315,6 @@ base_forward     = [">"]
 # Write a message on the line under the cursor, replying in the thread already there
 # or opening a new one.
 compose          = ["c"]
-# Dismiss the comment from the forge under the cursor, or restore one you dismissed. A
-# dismissed comment is still drawn, marked apart and no longer counted. Nothing is written to
-# the forge, and a reply written there afterwards makes it active again.
-dismiss          = ["x"]
 # Open the file under the cursor in your editor, beside the diff, on the line the
 # cursor is on. This is the agent's own worktree rather than a copy of it, so what
 # you write is what the agent finds there, and the key is refused while the agent is
@@ -536,8 +533,6 @@ document          = ""
 reviewer_comments = ""
 # Beside the count of comments you left on the agent's work.
 person_comments   = ""
-# Beside the count of open comments on the agent's pull request you have not taken up.
-forge_comments    = ""
 # Beside the count of your comments holding a reply you have not read.
 unread            = ""
 
@@ -564,8 +559,6 @@ read      = "○"
 settled   = "✓"
 # A thread holding a comment nobody has sent yet.
 unsent    = "◇"
-# A comment from the forge you dismissed, drawn but no longer counted.
-dismissed = ""
 # The row of the file tree beside the diff that the cursor is in.
 current   = "▸"
 # A comment the agent has been given.

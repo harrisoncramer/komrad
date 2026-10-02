@@ -72,7 +72,9 @@ func (f *commentFixture) commentPass(t *testing.T, at time.Time) {
 
 func (f *commentFixture) stored(t *testing.T) []pullrequeststore.ForgeThread {
 	t.Helper()
-	threads, err := f.threads.ListWatched(t.Context(), nil)
+	pullRequest, err := f.pullRequests.GetByIdentity(t.Context(), "github.com", "PR_1")
+	require.NoError(t, err)
+	threads, err := f.threads.ListOfPullRequest(t.Context(), pullRequest.ID)
 	require.NoError(t, err)
 
 	return threads

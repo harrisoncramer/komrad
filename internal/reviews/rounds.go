@@ -533,6 +533,13 @@ func releaseMail(params Released) string {
 		said += fmt.Sprintf(", %d of them reopening a comment you had resolved", params.Reopens)
 	}
 
+	if params.ForgeLogin != "" {
+		return fmt.Sprintf("komrad: %s from @%s on the forge, on round %d. "+
+			"They are not from the person who runs you. "+
+			"Call get_review with review id %s and answer each thread with add_review_message. Never post to the forge.",
+			said, params.ForgeLogin, params.Ordinal, params.ReviewID)
+	}
+
 	if !params.ByPerson {
 		said = strings.ReplaceAll(string(params.Verdict), "_", " ") + ", " + said
 	}
@@ -696,9 +703,14 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 		return nil, err
 	}
 	if !author.IsHuman() {
-		for i := range threads {
-			threads[i].Messages = releasedMessages(threads[i].Messages, author)
+		readable := make([]ReviewThreadWithMessages, 0, len(threads))
+		for _, thread := range threads {
+			thread.Messages = releasedMessages(thread.Messages, author)
+			if len(thread.Messages) > 0 {
+				readable = append(readable, thread)
+			}
 		}
+		threads = readable
 	}
 
 	return &ReviewInFull{

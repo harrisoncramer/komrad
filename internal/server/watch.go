@@ -29,7 +29,6 @@ func buildWatchLoaders(st *stores) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW, st.review, renderWatchedReview),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW_THREAD, st.reviewThreads, renderWatchedReviewThread),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKTREE, st.worktrees, renderWatchedWorktree),
-		watch.NewLoader(watchv1.Resource_RESOURCE_FORGE_THREAD, st.forgeThreads, renderWatchedForgeThread),
 		watch.NewLoader(watchv1.Resource_RESOURCE_DOCUMENT_TYPE, st.documentTypes, renderWatchedDocumentType),
 	}
 }
@@ -86,12 +85,6 @@ func renderWatchedWorktree(row worktreestore.Worktree) (string, *watchv1.Row) {
 	worktree := render.WatchedWorktree(row)
 
 	return worktree.GetDir(), &watchv1.Row{Row: &watchv1.Row_Worktree{Worktree: worktree}}
-}
-
-func renderWatchedForgeThread(row pullrequeststore.ForgeThread) (string, *watchv1.Row) {
-	thread := render.ForgeThread(row)
-
-	return thread.GetId(), &watchv1.Row{Row: &watchv1.Row_ForgeThread{ForgeThread: thread}}
 }
 
 func renderWatchedDocumentType(row documenttypestore.Type) (string, *watchv1.Row) {

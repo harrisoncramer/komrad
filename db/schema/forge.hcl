@@ -345,7 +345,7 @@ table "pull_request_syncs" {
 
 table "forge_review_threads" {
   schema  = schema.public
-  comment = "A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it."
+  comment = "A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it."
   column "id" {
     null    = false
     type    = uuid
@@ -405,16 +405,6 @@ table "forge_review_threads" {
     type    = timestamptz
     comment = "When the thread's first comment was written on the forge."
   }
-  column "dismissed_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When the person dismissed the thread in their review, null while they never have. A dismissed thread is still drawn but no longer counted. The sync leaves it alone, and a comment written on the forge after it makes the thread active again."
-  }
-  column "accepted_thread_id" {
-    null    = true
-    type    = uuid
-    comment = "The review thread the person accepted this thread into, null while they never have. Deleting that review thread, as discarding an unsent review does, makes this an offer again."
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -451,12 +441,6 @@ table "forge_review_threads" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
-  foreign_key "forge_review_threads_accepted_thread_id_fkey" {
-    columns     = [column.engine_id, column.accepted_thread_id]
-    ref_columns = [table.review_threads.column.engine_id, table.review_threads.column.id]
-    on_delete   = SET_NULL
-    on_update   = NO_ACTION
-  }
   index "forge_review_threads_pull_request_id" {
     columns = [column.pull_request_id]
   }
@@ -464,7 +448,7 @@ table "forge_review_threads" {
 
 table "forge_review_comments" {
   schema  = schema.public
-  comment = "One comment in a forge review thread, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it."
+  comment = "One comment in a forge review thread, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it."
   column "id" {
     null    = false
     type    = uuid
@@ -495,6 +479,18 @@ table "forge_review_comments" {
     type    = boolean
     default = false
     comment = "Whether the author is the login the forge connection was verified as."
+  }
+  column "trusted" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge says the author may write to the repository, which releases their comments to the agent without the person sending them."
+  }
+  column "forge_review_id" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The forge's identifier for the review the comment was submitted in, empty when it names none."
   }
   column "body" {
     null = false

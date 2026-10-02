@@ -52,13 +52,11 @@ const (
 	actionReviewBase
 	actionReviewReload
 	actionReviewResolve
+	actionReviewAccept
 	actionReviewViewed
 	actionReviewBaseForward
 	actionReviewAnswer
 	actionReviewJump
-	actionReviewOffer
-	actionReviewDismiss
-	actionReviewAccept
 	actionReviewCompose
 	actionReviewSend
 )

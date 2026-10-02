@@ -767,9 +767,7 @@ type CommentCounts struct {
 	// Comments resolved on rounds not yet merged into the base branch.
 	Resolved int32 `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
 	// How many of the comments hold a reply the person has not read.
-	Unread int32 `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
-	// Open threads from people on the forge, offered to the person and not yet counted in open.
-	External      int32 `protobuf:"varint,4,opt,name=external,proto3" json:"external,omitempty"`
+	Unread        int32 `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -821,13 +819,6 @@ func (x *CommentCounts) GetResolved() int32 {
 func (x *CommentCounts) GetUnread() int32 {
 	if x != nil {
 		return x.Unread
-	}
-	return 0
-}
-
-func (x *CommentCounts) GetExternal() int32 {
-	if x != nil {
-		return x.External
 	}
 	return 0
 }
@@ -3349,12 +3340,11 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11reviewer_comments\x18\x06 \x01(\v2\x17.agent.v1.CommentCountsH\x00R\x10reviewerComments\x88\x01\x01\x12E\n" +
 	"\x0fperson_comments\x18\a \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01B\x14\n" +
 	"\x12_reviewer_commentsB\x12\n" +
-	"\x10_person_comments\"s\n" +
+	"\x10_person_comments\"W\n" +
 	"\rCommentCounts\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\x05R\x04open\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\x05R\bresolved\x12\x16\n" +
-	"\x06unread\x18\x03 \x01(\x05R\x06unread\x12\x1a\n" +
-	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\xd4\x02\n" +
+	"\x06unread\x18\x03 \x01(\x05R\x06unread\"\xd4\x02\n" +
 	"\x13PullRequestStanding\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
 	"\x06number\x18\x02 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x15\n" +
@@ -3569,7 +3559,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xfap\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xfdp\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3611,9 +3601,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\fRecordReport\x12\x1d.agent.v1.RecordReportRequest\x1a\x16.google.protobuf.Empty\"\xce\x01\x9a\xb5\x18\xc6\x01:\xc3\x01Komrad's own hook binary is the only caller, relaying what an agent's CLI said about itself, and an agent that could call it directly could tell the reconciler its turn had ended when it had not.\x90\x02\x02\x12\xd7\x01\n" +
 	"\fMarkRunsRead\x12\x1d.agent.v1.MarkRunsReadRequest\x1a\x16.google.protobuf.Empty\"\x8f\x01\x9a\xb5\x18\x87\x01:\x84\x01Whether a person has looked at an agent's failed script runs is that person's own reading, which no agent can claim on their behalf.\x90\x02\x02\x12\xa8\x02\n" +
 	"\x11ListReviewThreads\x12\".agent.v1.ListReviewThreadsRequest\x1a#.agent.v1.ListReviewThreadsResponse\"\xc9\x01\x9a\xb5\x18\xc1\x01\b\x01\x10\x01\x1a\x13list_review_threads\"\xa0\x01List the comment threads on an agent's diff, yours by default. Line numbers are true of each thread's round, so search for the quoted lines once code has moved.B\x03\x01\x02\x03\x90\x02\x01\x12\xe2\x02\n" +
-	"\x12CreateReviewThread\x12#.agent.v1.CreateReviewThreadRequest\x1a$.agent.v1.CreateReviewThreadResponse\"\x80\x02\x9a\xb5\x18\xfb\x01\b\x01\x10\x01\x1a\x14create_review_thread\"\xd7\x01Pin a review comment to a line range of the diff you are reviewing, with the diff lines as quoted_lines and the round's snapshot_sha. Pass suggestion for exact replacement lines. Nobody sees it until release_review.(\x000\x00B\x01\x02\x12\xe4\x01\n" +
-	"\x11AcceptForgeThread\x12\".agent.v1.AcceptForgeThreadRequest\x1a#.agent.v1.AcceptForgeThreadResponse\"\x85\x01\x9a\xb5\x18\x80\x01:~Passing a stranger's words on to an agent as review is the person's call alone, made in the panel where they read those words.\x12\xb5\x02\n" +
-	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xd9\x01\x9a\xb5\x18\xd4\x01\b\x01\x10\x01\x1a\x12add_review_message\"\xb0\x01Reply in a review thread on your own diff. Make the change first and set addressed, which pins a round of your worktree to the reply. Leave addressed unset to push back or ask.(\x000\x00B\x03\x01\x02\x03\x12\xb8\x02\n" +
+	"\x12CreateReviewThread\x12#.agent.v1.CreateReviewThreadRequest\x1a$.agent.v1.CreateReviewThreadResponse\"\x80\x02\x9a\xb5\x18\xfb\x01\b\x01\x10\x01\x1a\x14create_review_thread\"\xd7\x01Pin a review comment to a line range of the diff you are reviewing, with the diff lines as quoted_lines and the round's snapshot_sha. Pass suggestion for exact replacement lines. Nobody sees it until release_review.(\x000\x00B\x01\x02\x12\xb5\x02\n" +
+	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xd9\x01\x9a\xb5\x18\xd4\x01\b\x01\x10\x01\x1a\x12add_review_message\"\xb0\x01Reply in a review thread on your own diff. Make the change first and set addressed, which pins a round of your worktree to the reply. Leave addressed unset to push back or ask.(\x000\x00B\x03\x01\x02\x03\x12\xe7\x01\n" +
+	"\x12AcceptForgeMessage\x12#.agent.v1.AcceptForgeMessageRequest\x1a$.agent.v1.AcceptForgeMessageResponse\"\x85\x01\x9a\xb5\x18\x80\x01:~Passing a stranger's words on to an agent as review is the person's call alone, made in the panel where they read those words.\x12\xb8\x02\n" +
 	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01:\xce\x01What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read.\x90\x02\x02\x12\x80\x02\n" +
 	"\n" +
 	"PlanRebase\x12\x1b.agent.v1.PlanRebaseRequest\x1a\x1c.agent.v1.PlanRebaseResponse\"\xb6\x01\x9a\xb5\x18\xb1\x01\b\x01\x10\x01\x1a\vplan_rebase\"\x96\x01Preview rebasing an agent's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.(\x000\x01B\x01\x03\x12\xe1\x02\n" +
@@ -3720,8 +3710,8 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*DeleteDocumentTypeRequest)(nil),        // 69: agent.v1.DeleteDocumentTypeRequest
 	(*ListReviewThreadsRequest)(nil),         // 70: agent.v1.ListReviewThreadsRequest
 	(*CreateReviewThreadRequest)(nil),        // 71: agent.v1.CreateReviewThreadRequest
-	(*AcceptForgeThreadRequest)(nil),         // 72: agent.v1.AcceptForgeThreadRequest
-	(*AddReviewMessageRequest)(nil),          // 73: agent.v1.AddReviewMessageRequest
+	(*AddReviewMessageRequest)(nil),          // 72: agent.v1.AddReviewMessageRequest
+	(*AcceptForgeMessageRequest)(nil),        // 73: agent.v1.AcceptForgeMessageRequest
 	(*EditReviewMessageRequest)(nil),         // 74: agent.v1.EditReviewMessageRequest
 	(*MarkReviewThreadReadRequest)(nil),      // 75: agent.v1.MarkReviewThreadReadRequest
 	(*SetReviewThreadResolvedRequest)(nil),   // 76: agent.v1.SetReviewThreadResolvedRequest
@@ -3750,8 +3740,8 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*WriteDocumentTypeResponse)(nil),        // 99: agent.v1.WriteDocumentTypeResponse
 	(*ListReviewThreadsResponse)(nil),        // 100: agent.v1.ListReviewThreadsResponse
 	(*CreateReviewThreadResponse)(nil),       // 101: agent.v1.CreateReviewThreadResponse
-	(*AcceptForgeThreadResponse)(nil),        // 102: agent.v1.AcceptForgeThreadResponse
-	(*AddReviewMessageResponse)(nil),         // 103: agent.v1.AddReviewMessageResponse
+	(*AddReviewMessageResponse)(nil),         // 102: agent.v1.AddReviewMessageResponse
+	(*AcceptForgeMessageResponse)(nil),       // 103: agent.v1.AcceptForgeMessageResponse
 	(*EditReviewMessageResponse)(nil),        // 104: agent.v1.EditReviewMessageResponse
 	(*MarkReviewThreadReadResponse)(nil),     // 105: agent.v1.MarkReviewThreadReadResponse
 	(*SetReviewThreadResolvedResponse)(nil),  // 106: agent.v1.SetReviewThreadResolvedResponse
@@ -3830,8 +3820,8 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	32,  // 63: agent.v1.AgentService.MarkRunsRead:input_type -> agent.v1.MarkRunsReadRequest
 	70,  // 64: agent.v1.AgentService.ListReviewThreads:input_type -> agent.v1.ListReviewThreadsRequest
 	71,  // 65: agent.v1.AgentService.CreateReviewThread:input_type -> agent.v1.CreateReviewThreadRequest
-	72,  // 66: agent.v1.AgentService.AcceptForgeThread:input_type -> agent.v1.AcceptForgeThreadRequest
-	73,  // 67: agent.v1.AgentService.AddReviewMessage:input_type -> agent.v1.AddReviewMessageRequest
+	72,  // 66: agent.v1.AgentService.AddReviewMessage:input_type -> agent.v1.AddReviewMessageRequest
+	73,  // 67: agent.v1.AgentService.AcceptForgeMessage:input_type -> agent.v1.AcceptForgeMessageRequest
 	74,  // 68: agent.v1.AgentService.EditReviewMessage:input_type -> agent.v1.EditReviewMessageRequest
 	18,  // 69: agent.v1.AgentService.PlanRebase:input_type -> agent.v1.PlanRebaseRequest
 	22,  // 70: agent.v1.AgentService.RebaseWorktree:input_type -> agent.v1.RebaseWorktreeRequest
@@ -3885,8 +3875,8 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	65,  // 118: agent.v1.AgentService.MarkRunsRead:output_type -> google.protobuf.Empty
 	100, // 119: agent.v1.AgentService.ListReviewThreads:output_type -> agent.v1.ListReviewThreadsResponse
 	101, // 120: agent.v1.AgentService.CreateReviewThread:output_type -> agent.v1.CreateReviewThreadResponse
-	102, // 121: agent.v1.AgentService.AcceptForgeThread:output_type -> agent.v1.AcceptForgeThreadResponse
-	103, // 122: agent.v1.AgentService.AddReviewMessage:output_type -> agent.v1.AddReviewMessageResponse
+	102, // 121: agent.v1.AgentService.AddReviewMessage:output_type -> agent.v1.AddReviewMessageResponse
+	103, // 122: agent.v1.AgentService.AcceptForgeMessage:output_type -> agent.v1.AcceptForgeMessageResponse
 	104, // 123: agent.v1.AgentService.EditReviewMessage:output_type -> agent.v1.EditReviewMessageResponse
 	19,  // 124: agent.v1.AgentService.PlanRebase:output_type -> agent.v1.PlanRebaseResponse
 	23,  // 125: agent.v1.AgentService.RebaseWorktree:output_type -> agent.v1.RebaseWorktreeResponse

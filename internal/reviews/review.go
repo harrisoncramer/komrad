@@ -10,7 +10,6 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/clock"
@@ -42,6 +41,10 @@ var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 // quotes them, or suggests replacing them, which only a comment on a file can.
 var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
 
+// ErrReviewThreadHeld is answered when a reply is written in a forge thread whose first comment is
+// still held and not yet accepted, which the agent could not read the reply alongside.
+var ErrReviewThreadHeld = fail.Precondition("this thread opens with a held forge comment, so accept it before replying")
+
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
@@ -59,7 +62,7 @@ type ReviewAuthor struct {
 
 // IsHuman reports whether the call came from the person reviewing rather than from an agent.
 func (a ReviewAuthor) IsHuman() bool {
-	return a.Kind != reviewstore.AuthorAgent
+	return a.Kind == reviewstore.AuthorHuman
 }
 
 // ReviewThreadWithMessages is a thread and everything said in it.
@@ -70,13 +73,12 @@ type ReviewThreadWithMessages struct {
 
 // NewReviewServiceParams is everything the review service reads and tells.
 type NewReviewServiceParams struct {
-	Reviews      *reviewstore.ReviewStore
-	Snapshots    reviewSnapshotter
-	Workflows    *workflowstore.WorkflowStore
-	Agents       *agentstore.AgentStore
-	Events       eventRecorder
-	Interrupter  agentInterrupter
-	ForgeThreads *pullrequeststore.ForgeThreadStore
+	Reviews     *reviewstore.ReviewStore
+	Snapshots   reviewSnapshotter
+	Workflows   *workflowstore.WorkflowStore
+	Agents      *agentstore.AgentStore
+	Events      eventRecorder
+	Interrupter agentInterrupter
 	// StateDir is where komrad keeps its own files.
 	StateDir string
 }
@@ -84,29 +86,27 @@ type NewReviewServiceParams struct {
 // ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
 // only copy.
 type ReviewService struct {
-	reviews      *reviewstore.ReviewStore
-	snapshots    reviewSnapshotter
-	workflows    *workflowstore.WorkflowStore
-	agents       *agentstore.AgentStore
-	events       eventRecorder
-	interrupter  agentInterrupter
-	forgeThreads *pullrequeststore.ForgeThreadStore
-	stateDir     string
-	roundLocks   *agentLocks
+	reviews     *reviewstore.ReviewStore
+	snapshots   reviewSnapshotter
+	workflows   *workflowstore.WorkflowStore
+	agents      *agentstore.AgentStore
+	events      eventRecorder
+	interrupter agentInterrupter
+	stateDir    string
+	roundLocks  *agentLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
 func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		reviews:      params.Reviews,
-		snapshots:    params.Snapshots,
-		workflows:    params.Workflows,
-		agents:       params.Agents,
-		events:       params.Events,
-		interrupter:  params.Interrupter,
-		forgeThreads: params.ForgeThreads,
-		stateDir:     params.StateDir,
-		roundLocks:   newAgentLocks(),
+		reviews:     params.Reviews,
+		snapshots:   params.Snapshots,
+		workflows:   params.Workflows,
+		agents:      params.Agents,
+		events:      params.Events,
+		interrupter: params.Interrupter,
+		stateDir:    params.StateDir,
+		roundLocks:  newAgentLocks(),
 	}
 }
 
@@ -191,6 +191,8 @@ func releasedMessages(messages []reviewstore.Message, author ReviewAuthor) []rev
 // isReadableBy reports whether one message has been released, or is the reader's own.
 func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 	switch {
+	case message.Delivery == reviewstore.DeliveryHeld:
+		return false
 	case message.ReviewID == nil:
 		return true
 	case message.SentAt != nil:
@@ -375,6 +377,14 @@ func (s *ReviewService) AddReviewMessage(
 	answering := !params.Author.IsHuman() && doesOwnAgent(params.Author, thread.AgentID)
 	if params.Addressed && !answering {
 		return nil, ErrReviewAddressedByOwner
+	}
+
+	held, err := s.isThreadHeld(ctx, thread.ID)
+	if err != nil {
+		return nil, err
+	}
+	if held {
+		return nil, ErrReviewThreadHeld
 	}
 
 	var reviewID *string
@@ -648,4 +658,34 @@ func doesOwnAgent(author ReviewAuthor, agentID string) bool {
 func isAnchoredToLines(params CreateReviewThreadParams) bool {
 	return params.OldStart != 0 || params.OldEnd != 0 || params.NewStart != 0 || params.NewEnd != 0 ||
 		len(params.QuotedLines) > 0 || len(params.Suggestion) > 0
+}
+
+// isThreadHeld reports whether a thread opens with a held forge comment that no copy, sent or
+// unsent, has accepted.
+func (s *ReviewService) isThreadHeld(ctx context.Context, threadID string) (bool, error) {
+	messages, err := s.reviews.ListMessages(ctx, []string{threadID})
+	if err != nil {
+		return false, err
+	}
+	if len(messages) == 0 {
+		return false, nil
+	}
+
+	root := messages[0]
+	for _, message := range messages {
+		if message.ID < root.ID {
+			root = message
+		}
+	}
+	if !root.Held {
+		return false, nil
+	}
+
+	for _, message := range messages {
+		if message.AcceptedFrom != nil && *message.AcceptedFrom == root.ID {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }

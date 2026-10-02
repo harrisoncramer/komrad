@@ -80,7 +80,6 @@ type pullRequestServices struct {
 	commentSync *pullrequests.CommentSyncer
 	lister      *pullrequests.Lister
 	writer      *pullrequests.Writer
-	dismisser   *pullrequests.Dismisser
 }
 
 type checkoutServices struct {
@@ -154,6 +153,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
 		Server:     params,
 		Stores:     st,
+		Git:        gitClient,
 		Queue:      queue,
 		Wakers:     wakers,
 		LoadConfig: loadConfig,
@@ -180,13 +180,12 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			}),
 		},
 		review: reviews.NewReviewService(reviews.NewReviewServiceParams{
-			Reviews:      st.review,
-			Snapshots:    gitClient,
-			Workflows:    st.workflows,
-			Agents:       st.agents,
-			Events:       queue,
-			ForgeThreads: st.forgeThreads,
-			StateDir:     params.Env.StateDir,
+			Reviews:   st.review,
+			Snapshots: gitClient,
+			Workflows: st.workflows,
+			Agents:    st.agents,
+			Events:    queue,
+			StateDir:  params.Env.StateDir,
 			Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
 				Agents:   st.agents,
 				Channel:  paneChannel,
@@ -418,7 +417,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 			Repositories:  st.pullRequestSyncs,
 			Reviews:       st.review,
 			ReviewThreads: st.reviewThreads,
-			ForgeThreads:  st.forgeThreads,
 			Workflows:     st.workflows,
 		}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
@@ -436,6 +434,7 @@ type buildPullRequestsParams struct {
 	Server     NewServerParams
 	Stores     *stores
 	Queue      *jobs.Enqueuer
+	Git        *git.Client
 	Wakers     *loopWakers
 	LoadConfig func() (*config.Config, error)
 }
@@ -476,9 +475,14 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 			Forges:  forgeService,
 			Threads: st.forgeThreads,
 			Tx:      st.pool,
+			Mirror: reviews.NewForgeMirror(reviews.NewForgeMirrorParams{
+				Reviews:      st.review,
+				ForgeThreads: st.forgeThreads,
+				Git:          params.Git,
+				Events:       params.Queue,
+			}),
 		}),
-		lister:    pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
-		dismisser: pullrequests.NewDismisser(pullrequests.NewDismisserParams{Threads: st.forgeThreads}),
+		lister: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
 		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
 			Forges: forgeService,
 			Sync:   pullRequestSyncer,

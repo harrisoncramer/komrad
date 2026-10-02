@@ -25,13 +25,16 @@ type NewCommentSyncerParams struct {
 	Forges  *forge.Service
 	Threads *pullrequeststore.ForgeThreadStore
 	Tx      *store.Pool
-	Now     func() time.Time
+	// Mirror copies a pull request's threads into the reviews of the agents on it once they are stored.
+	Mirror forgeMirror
+	Now    func() time.Time
 }
 
 // CommentSyncer keeps the forge's review threads in step on the open pull requests live agents are linked to.
 type CommentSyncer struct {
 	threads *pullrequeststore.ForgeThreadStore
 	tx      *store.Pool
+	mirror  forgeMirror
 	hosts   *hostGate
 	said    onceLog
 	next    int
@@ -47,9 +50,14 @@ func NewCommentSyncer(params NewCommentSyncerParams) *CommentSyncer {
 	return &CommentSyncer{
 		threads: params.Threads,
 		tx:      params.Tx,
+		mirror:  params.Mirror,
 		hosts:   newHostGate(params.Forges, now),
 		said:    onceLog{},
 	}
+}
+
+type forgeMirror interface {
+	Mirror(ctx context.Context, pullRequestID string) error
 }
 
 type commentHost struct {
@@ -153,7 +161,7 @@ func (s *CommentSyncer) readThreads(ctx context.Context, host *commentHost, remo
 			slog.String(logging.RepositoryURL, remote.Canonical()), slog.Int(logging.PullRequestNumber, target.Number))
 	}
 
-	return s.tx.InTx(ctx, func(db store.DBTX) error {
+	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		return pullrequeststore.NewForgeThreadStore(db).SetThreads(ctx, pullrequeststore.SetThreadsParams{
 			PullRequestID: target.ID,
 			Viewer:        host.login,
@@ -161,6 +169,14 @@ func (s *CommentSyncer) readThreads(ctx context.Context, host *commentHost, remo
 			Prune:         !answer.Truncated,
 		})
 	})
+	if err != nil {
+		return err
+	}
+	if s.mirror == nil {
+		return nil
+	}
+
+	return s.mirror.Mirror(ctx, target.ID)
 }
 
 func (s *CommentSyncer) settle(ctx context.Context, host *commentHost, remote git.RemoteURL, err error) {

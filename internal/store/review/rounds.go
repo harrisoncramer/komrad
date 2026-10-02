@@ -50,6 +50,8 @@ type Review struct {
 	RoundOrdinal  int32
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
+	// ExternalLogin is the forge login of whoever wrote a review on the forge, nil for one written in komrad.
+	ExternalLogin *string
 
 	// RoundSnapshotSHA is the commit the round froze the checkout as, empty when it was not read.
 	RoundSnapshotSHA string
@@ -402,6 +404,7 @@ func reviewFromRow(row models.Review) Review {
 		RoundID:        row.RoundID,
 		AuthorKind:     AuthorKind(row.AuthorKind),
 		AuthorAgentID:  row.AuthorAgentID,
+		ExternalLogin:  row.ExternalLogin,
 		ReleasedAt:     row.ReleasedAt,
 		Body:           row.Body,
 		Path:           row.Path,

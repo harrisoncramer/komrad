@@ -509,8 +509,9 @@ type WorktreesKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
-	// Accept the comment from the forge under the cursor into your review, as a thread of your
-	// own the agent reads with the rest of it, or bring in what changed on the forge since you did.
+	// Pass a held comment from the forge on to the agent, copied into your review as your own
+	// words. A comment is held when its author cannot push to the repository, and the agent
+	// reads nothing in its thread until the comment opening it is accepted and the review sent.
 	Accept []string `mapstructure:"accept" default:"A"`
 	// Show only the change that answered the comment under the cursor, from the work as
 	// it stood just before the agent's addressed reply to the work that reply carried, or
@@ -527,10 +528,6 @@ type ReviewKeys struct {
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose" default:"c"`
-	// Dismiss the comment from the forge under the cursor, or restore one you dismissed. A
-	// dismissed comment is still drawn, marked apart and no longer counted. Nothing is written to
-	// the forge, and a reply written there afterwards makes it active again.
-	Dismiss []string `mapstructure:"dismiss" default:"x"`
 	// Open the file under the cursor in your editor, beside the diff, on the line the
 	// cursor is on. This is the agent's own worktree rather than a copy of it, so what
 	// you write is what the agent finds there, and the key is refused while the agent is

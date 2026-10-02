@@ -113,7 +113,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	forgev1komrad.RegisterForgeService(mux, rpcforge.NewHandler(svc.pullRequests.forge, svc.pullRequests.writer, svc.git), options...)
 	pullrequestv1komrad.RegisterPullRequestService(mux, rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{
 		PullRequests: svc.pullRequests.lister,
-		Dismisser:    svc.pullRequests.dismisser,
 	}), options...)
 	worktreev1komrad.RegisterWorktreeService(mux, rpcworktree.NewHandler(rpcworktree.NewHandlerParams{
 		Lister:    svc.worktrees.lister,

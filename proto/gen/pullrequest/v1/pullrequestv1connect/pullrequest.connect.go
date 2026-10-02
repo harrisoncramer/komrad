@@ -8,7 +8,6 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	v1 "komrad/proto/gen/pullrequest/v1"
 	http "net/http"
 	strings "strings"
@@ -37,15 +36,11 @@ const (
 	// PullRequestServiceListPullRequestsProcedure is the fully-qualified name of the
 	// PullRequestService's ListPullRequests RPC.
 	PullRequestServiceListPullRequestsProcedure = "/pullrequest.v1.PullRequestService/ListPullRequests"
-	// PullRequestServiceDismissForgeThreadProcedure is the fully-qualified name of the
-	// PullRequestService's DismissForgeThread RPC.
-	PullRequestServiceDismissForgeThreadProcedure = "/pullrequest.v1.PullRequestService/DismissForgeThread"
 )
 
 // PullRequestServiceClient is a client for the pullrequest.v1.PullRequestService service.
 type PullRequestServiceClient interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
-	DismissForgeThread(context.Context, *connect.Request[v1.DismissForgeThreadRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewPullRequestServiceClient constructs a client for the pullrequest.v1.PullRequestService
@@ -66,20 +61,12 @@ func NewPullRequestServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
-		dismissForgeThread: connect.NewClient[v1.DismissForgeThreadRequest, emptypb.Empty](
-			httpClient,
-			baseURL+PullRequestServiceDismissForgeThreadProcedure,
-			connect.WithSchema(pullRequestServiceMethods.ByName("DismissForgeThread")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // pullRequestServiceClient implements PullRequestServiceClient.
 type pullRequestServiceClient struct {
-	listPullRequests   *connect.Client[v1.ListPullRequestsRequest, v1.ListPullRequestsResponse]
-	dismissForgeThread *connect.Client[v1.DismissForgeThreadRequest, emptypb.Empty]
+	listPullRequests *connect.Client[v1.ListPullRequestsRequest, v1.ListPullRequestsResponse]
 }
 
 // ListPullRequests calls pullrequest.v1.PullRequestService.ListPullRequests.
@@ -87,15 +74,9 @@ func (c *pullRequestServiceClient) ListPullRequests(ctx context.Context, req *co
 	return c.listPullRequests.CallUnary(ctx, req)
 }
 
-// DismissForgeThread calls pullrequest.v1.PullRequestService.DismissForgeThread.
-func (c *pullRequestServiceClient) DismissForgeThread(ctx context.Context, req *connect.Request[v1.DismissForgeThreadRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.dismissForgeThread.CallUnary(ctx, req)
-}
-
 // PullRequestServiceHandler is an implementation of the pullrequest.v1.PullRequestService service.
 type PullRequestServiceHandler interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
-	DismissForgeThread(context.Context, *connect.Request[v1.DismissForgeThreadRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewPullRequestServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -112,19 +93,10 @@ func NewPullRequestServiceHandler(svc PullRequestServiceHandler, opts ...connect
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
-	pullRequestServiceDismissForgeThreadHandler := connect.NewUnaryHandler(
-		PullRequestServiceDismissForgeThreadProcedure,
-		svc.DismissForgeThread,
-		connect.WithSchema(pullRequestServiceMethods.ByName("DismissForgeThread")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/pullrequest.v1.PullRequestService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PullRequestServiceListPullRequestsProcedure:
 			pullRequestServiceListPullRequestsHandler.ServeHTTP(w, r)
-		case PullRequestServiceDismissForgeThreadProcedure:
-			pullRequestServiceDismissForgeThreadHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -136,8 +108,4 @@ type UnimplementedPullRequestServiceHandler struct{}
 
 func (UnimplementedPullRequestServiceHandler) ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ListPullRequests is not implemented"))
-}
-
-func (UnimplementedPullRequestServiceHandler) DismissForgeThread(context.Context, *connect.Request[v1.DismissForgeThreadRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.DismissForgeThread is not implemented"))
 }

@@ -33,7 +33,6 @@ func newRowReader(st *storetest.Stores) *RowReader {
 		Repositories:  st.PullRequestSyncs,
 		Reviews:       reviews,
 		ReviewThreads: reviewstore.NewThreadStore(st.Pool.GetDB()),
-		ForgeThreads:  pullrequeststore.NewForgeThreadStore(st.Pool.GetDB()),
 		Workflows:     st.Workflows,
 	})
 }
@@ -86,23 +85,6 @@ func TestListSurroundings(t *testing.T) {
 	threaded := seedThread(t, st, reviewed)
 	seedThread(t, st, seedReview(t, st, elsewhere.ID))
 
-	forgeThreads := pullrequeststore.NewForgeThreadStore(st.Pool.GetDB())
-	require.NoError(t, forgeThreads.SetThreads(ctx, pullrequeststore.SetThreadsParams{
-		PullRequestID: written.ID,
-		Viewer:        "harrisoncramer",
-		Threads: []forge.ReviewThread{{
-			ProviderID: "T_1",
-			Path:       "main.go",
-			Line:       3,
-			Comments: []forge.ReviewComment{{
-				ProviderID: "C_1",
-				Login:      "dana",
-				Body:       "rename this",
-				WrittenAt:  openedAt,
-			}},
-		}},
-	}))
-
 	rows, err := reader.ListRowsByID(ctx, []string{opened.ID})
 	require.NoError(t, err)
 
@@ -125,16 +107,12 @@ func TestListSurroundings(t *testing.T) {
 	assert.Equal(t, []string{threaded}, xslice.Map(surroundings.ReviewThreads, func(thread reviewstore.ThreadWithMessages) string {
 		return thread.ID
 	}), "only the review threads on the work of the agents on the page")
-	assert.Equal(t, []string{"T_1"}, xslice.Map(surroundings.ForgeThreads, func(thread pullrequeststore.ForgeThread) string {
-		return thread.ProviderID
-	}), "the forge threads on the pull requests the agents on the page were seen with")
 
 	nothing, err := reader.ListSurroundings(ctx, []rowstore.Row{})
 	require.NoError(t, err)
 	assert.Empty(t, nothing.PullRequests, "a page of nobody reads no pull request")
 	assert.Empty(t, nothing.Workflows)
 	assert.Empty(t, nothing.ReviewThreads)
-	assert.Empty(t, nothing.ForgeThreads)
 }
 
 // TestListRowsByID pins that a listing reads only the agents it names.

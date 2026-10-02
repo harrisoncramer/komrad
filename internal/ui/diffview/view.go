@@ -92,11 +92,7 @@ type View struct {
 	// headless leaves out the row for the change as a whole and each file's header.
 	headless bool
 	// glyphs is what the marks on threads and files are drawn in.
-	glyphs      glyph.Set
-	offers      []Offer
-	offerTraced tracedByID
-	offered     map[int][]Offer
-	offerRows   map[string]int
+	glyphs glyph.Set
 }
 
 // SetHeadless draws the hunks alone, with no row for the change as a whole and no file headers.
@@ -327,7 +323,6 @@ func (v *View) redraw() {
 
 	v.build()
 	v.PinThreads(v.threads)
-	v.PinOffers(v.offers)
 }
 
 // patchFile is a file as the patch holds it, before anything the reader has opened out.
@@ -678,10 +673,10 @@ func (v *View) GetFileTopRow(y int) int {
 	return y
 }
 
-// JumpThread moves to the next or previous row carrying a thread or a comment from the forge.
+// JumpThread moves to the next or previous row carrying a thread.
 func (v *View) JumpThread(y, direction int) int {
 	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
-		if _, ok := v.GetThreadAt(next); ok || len(v.offered[next]) > 0 {
+		if _, ok := v.GetThreadAt(next); ok {
 			return next
 		}
 	}

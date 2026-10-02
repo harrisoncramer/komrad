@@ -29,9 +29,7 @@ type reviewThreads struct {
 	editing string
 	// retrying is the refused message the composer was opened again on, nil otherwise.
 	retrying *reviewUnsent
-	// accepting is the forge thread a composed message goes in with, nil otherwise.
-	accepting *reviewAccept
-	scroll    popupScroll
+	scroll   popupScroll
 }
 
 // set holds the conversation and its delivery counts together.
@@ -45,7 +43,7 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 func (r *reviewScreen) followWorld(m *model) tea.Cmd {
 	r.followThreads(m)
 
-	return tea.Batch(r.followMove(m), r.followOffers(m))
+	return r.followMove(m)
 }
 
 // followThreads draws the conversation the world holds on a live agent, once the reader has stopped

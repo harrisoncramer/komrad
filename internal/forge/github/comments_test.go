@@ -13,7 +13,7 @@ import (
 const reviewThreadsAnswer = `{"repository":{"pullRequest":{
   "reviewThreads":{"pageInfo":{"hasNextPage":false},"nodes":[
     {"id":"T_1","isResolved":false,"path":"main.go","line":3,"originalLine":2,"diffSide":"RIGHT","subjectType":"LINE","comments":{"pageInfo":{"hasNextPage":false},"nodes":[
-      {"id":"C_1","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r1","body":"rename this","createdAt":"2026-09-20T10:00:00Z","lastEditedAt":null,"state":"SUBMITTED","author":{"__typename":"User","login":"dana"},"diffHunk":"@@ -1,2 +1,3 @@\n package main\n+func rename() {}","commit":{"oid":"c2"},"originalCommit":{"oid":"c1"}},
+      {"id":"C_1","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r1","body":"rename this","createdAt":"2026-09-20T10:00:00Z","lastEditedAt":null,"state":"SUBMITTED","authorAssociation":"MEMBER","author":{"__typename":"User","login":"dana"},"pullRequestReview":{"id":"R_1"},"diffHunk":"@@ -1,2 +1,3 @@\n package main\n+func rename() {}","commit":{"oid":"c2"},"originalCommit":{"oid":"c1"}},
       {"id":"C_2","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r2","body":"draft reply","createdAt":"2026-09-20T11:00:00Z","lastEditedAt":null,"state":"PENDING","author":{"__typename":"User","login":"harrisoncramer"}}
     ]}},
     {"id":"T_2","isResolved":true,"path":"main.go","line":null,"originalLine":2,"diffSide":"RIGHT","subjectType":"LINE","comments":{"pageInfo":{"hasNextPage":false},"nodes":[
@@ -60,6 +60,8 @@ func TestReviewThreads(t *testing.T) {
 				{
 					ProviderID: "C_1",
 					Login:      "dana",
+					Trusted:    true,
+					ReviewID:   "R_1",
 					Body:       "rename this",
 					WrittenAt:  time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC),
 				},
@@ -76,6 +78,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "C_3",
+					ReviewID:   "C_3",
 					Login:      "coderabbitai",
 					Bot:        true,
 					Body:       "lint",
@@ -95,6 +98,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "C_5",
+					ReviewID:   "C_5",
 					Login:      "dana",
 					Body:       "why drop this",
 					WrittenAt:  time.Date(2026, 9, 20, 10, 50, 0, 0, time.UTC),
@@ -108,6 +112,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "C_6",
+					ReviewID:   "C_6",
 					Login:      "dana",
 					Body:       "bump this",
 					WrittenAt:  time.Date(2026, 9, 20, 10, 55, 0, 0, time.UTC),
@@ -120,6 +125,7 @@ func TestReviewThreads(t *testing.T) {
 			Comments: []forge.ReviewComment{
 				{
 					ProviderID: "IC_1",
+					ReviewID:   "IC_1",
 					Body:       "looks close",
 					WrittenAt:  time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC),
 				},

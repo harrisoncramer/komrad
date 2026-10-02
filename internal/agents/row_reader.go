@@ -28,7 +28,6 @@ type NewRowReaderParams struct {
 	Repositories  *pullrequeststore.PullRequestSyncStore
 	Reviews       *reviewstore.ReviewStore
 	ReviewThreads *reviewstore.ThreadStore
-	ForgeThreads  *pullrequeststore.ForgeThreadStore
 	Workflows     *workflowstore.WorkflowStore
 }
 
@@ -41,7 +40,6 @@ type RowReader struct {
 	repositories  *pullrequeststore.PullRequestSyncStore
 	reviews       *reviewstore.ReviewStore
 	reviewThreads *reviewstore.ThreadStore
-	forgeThreads  *pullrequeststore.ForgeThreadStore
 	workflows     *workflowstore.WorkflowStore
 }
 
@@ -55,7 +53,6 @@ func NewRowReader(params NewRowReaderParams) *RowReader {
 		repositories:  params.Repositories,
 		reviews:       params.Reviews,
 		reviewThreads: params.ReviewThreads,
-		forgeThreads:  params.ForgeThreads,
 		workflows:     params.Workflows,
 	}
 }
@@ -67,7 +64,6 @@ type Surroundings struct {
 	Repositories  []pullrequeststore.Sync
 	Reviews       []reviewstore.Review
 	ReviewThreads []reviewstore.ThreadWithMessages
-	ForgeThreads  []pullrequeststore.ForgeThread
 	Workflows     []workflowstore.Workflow
 }
 
@@ -112,7 +108,7 @@ func (r *RowReader) GetRow(ctx context.Context, id string) (*rowstore.Row, error
 }
 
 // ListSurroundings reads every unclaimed mail, and the pull requests, repositories, reviews, review
-// threads, forge threads and workflows of the agents on the rows.
+// threads and workflows of the agents on the rows.
 func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (*Surroundings, error) {
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 
@@ -160,18 +156,6 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the review threads: %w", err)
 	}
 
-	forgeThreadIDs, err := r.forgeThreads.ListIDsOfPullRequests(ctx, xslice.Map(pullRequests, func(pullRequest pullrequeststore.PullRequest) string {
-		return pullRequest.ID
-	}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the forge threads of the pull requests: %w", err)
-	}
-
-	forgeThreads, err := listWatchedByKey(ctx, r.forgeThreads, forgeThreadIDs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the forge threads: %w", err)
-	}
-
 	workflows, err := listWatchedByKey(ctx, r.workflows, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the workflows: %w", err)
@@ -183,7 +167,6 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		Repositories:  repositories,
 		Reviews:       reviews,
 		ReviewThreads: reviewThreads,
-		ForgeThreads:  forgeThreads,
 		Workflows:     workflows,
 	}, nil
 }

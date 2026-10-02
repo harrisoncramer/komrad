@@ -250,6 +250,7 @@ WITH opened AS (
         new_start,
         new_end,
         quoted_lines,
+        forge_thread_id,
         last_agent_activity_at)
     VALUES (
         @agent_id,
@@ -262,6 +263,7 @@ WITH opened AS (
         @new_start,
         @new_end,
         @quoted_lines,
+        sqlc.narg('forge_thread_id')::uuid,
         CASE WHEN @author_kind::review_author_kind = 'agent' THEN
             NOW()
         END)
@@ -278,7 +280,8 @@ said AS (
         suggestion,
         external_login,
         forge_comment_id,
-        forge_edited_at)
+        forge_edited_at,
+        held)
     SELECT
         o.id,
         @review_id,
@@ -288,7 +291,8 @@ said AS (
         @suggestion,
         sqlc.narg('external_login')::text,
         sqlc.narg('forge_comment_id')::uuid,
-        sqlc.narg('forge_edited_at')::timestamptz
+        sqlc.narg('forge_edited_at')::timestamptz,
+        @held
     FROM
         opened o
     RETURNING
@@ -408,7 +412,9 @@ WITH written AS (
         suggestion,
         external_login,
         forge_comment_id,
-        forge_edited_at)
+        forge_edited_at,
+        held,
+        accepted_from)
     VALUES (
         @thread_id,
         sqlc.narg('review_id'),
@@ -419,7 +425,9 @@ WITH written AS (
         @suggestion,
         sqlc.narg('external_login'),
         sqlc.narg('forge_comment_id'),
-        sqlc.narg('forge_edited_at'))
+        sqlc.narg('forge_edited_at'),
+        @held,
+        sqlc.narg('accepted_from'))
 RETURNING
     *
 ),
@@ -718,3 +726,85 @@ WHERE
         ORDER BY
             v.released_at DESC
         LIMIT 1) IS DISTINCT FROM 'approved';
+
+-- name: InsertForgeReview :one
+INSERT INTO reviews(
+    agent_id,
+    round_id,
+    author_kind,
+    external_login,
+    released_at)
+VALUES (
+    @agent_id,
+    @round_id,
+    'forge',
+    @external_login,
+    NOW())
+RETURNING
+    *;
+
+-- name: UpdateForgeReviewMessage :exec
+UPDATE
+    review_messages
+SET
+    body = @body,
+    forge_edited_at = sqlc.narg('forge_edited_at'),
+    held = @held
+WHERE
+    id = @id;
+
+-- name: ListForgeMirroredMessages :many
+SELECT
+    t.id AS thread_id,
+    t.forge_thread_id::uuid AS forge_thread_id,
+    t.resolved_at,
+    t.resolved_by_kind,
+    t.forge_resolved,
+    m.id AS message_id,
+    m.forge_comment_id,
+    m.forge_edited_at
+FROM
+    review_threads t
+    LEFT JOIN review_messages m ON m.thread_id = t.id
+        AND m.forge_comment_id IS NOT NULL
+WHERE
+    t.agent_id = @agent_id
+    AND t.forge_thread_id IS NOT NULL
+ORDER BY
+    t.id,
+    m.id;
+
+-- name: ListForgeMirrorAgents :many
+SELECT
+    a.id AS agent_id,
+    a.cwd,
+    r.id AS round_id,
+    r.base_sha,
+    r.snapshot_sha
+FROM
+    agent_pull_requests o
+    JOIN agents a ON a.id = o.agent_id
+    JOIN LATERAL (
+        SELECT
+            *
+        FROM
+            review_rounds r
+        WHERE
+            r.agent_id = a.id
+        ORDER BY
+            r.ordinal DESC
+        LIMIT 1) r ON TRUE
+WHERE
+    o.pull_request_id = @pull_request_id
+    AND a.archived_at IS NULL
+    AND a.deleting_at IS NULL
+ORDER BY
+    a.id;
+
+-- name: SetForgeThreadResolved :exec
+UPDATE
+    review_threads
+SET
+    forge_resolved = @forge_resolved
+WHERE
+    id = @id;

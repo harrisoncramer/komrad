@@ -95,13 +95,7 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 	if v.isCollapsed(current.file) {
 		text += style.Render("  " + v.fileSummary(current.file))
 	}
-	var offered string
-	if offers := v.GetOffersAt(y); len(offers) > 0 {
-		mark, markStyle := v.offerMarkFor(offers)
-		offered = style.Render("  ") + markStyle.Background(background).Render(fmt.Sprintf("%s %d", mark, len(offers)))
-	}
-
-	text = ansi.Truncate(ansi.Truncate(text, max(width-lipgloss.Width(offered), 0), "…")+offered, width, "…")
+	text = ansi.Truncate(text, width, "…")
 	if padding := width - lipgloss.Width(text); cursor != NoCursor && padding > 0 {
 		text += style.Render(strings.Repeat(" ", padding))
 	}
@@ -140,8 +134,6 @@ func (v *View) renderGutter(y int, line diff.Line, background color.Color) strin
 	mark, markStyle := " ", paint.Panel.Style(paint.ToneMuted)
 	if thread, ok := v.GetThreadAt(y); ok {
 		mark, markStyle = v.markFor(thread)
-	} else if offers := v.GetOffersAt(y); len(offers) > 0 {
-		mark, markStyle = v.offerMarkFor(offers)
 	}
 
 	numbers := fmt.Sprintf("%4s %4s %s",

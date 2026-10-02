@@ -184,8 +184,6 @@ message CommentCounts {
   int32 resolved = 2;
   // How many of the comments hold a reply the person has not read.
   int32 unread = 3;
-  // Open threads from people on the forge, offered to the person and not yet counted in open.
-  int32 external = 4;
 }
 
 message PullRequestStanding {
@@ -1120,13 +1118,6 @@ service AgentService {
       roles: [ROLE_REVIEWER]
     };
   }
-  rpc AcceptForgeThread(AcceptForgeThreadRequest) returns (AcceptForgeThreadResponse) {
-    option (annotation.v1.surfaces) = {
-      cli: false
-      mcp: false
-      reason: "Passing a stranger's words on to an agent as review is the person's call alone, made in the panel where they read those words."
-    };
-  }
   rpc AddReviewMessage(AddReviewMessageRequest) returns (AddReviewMessageResponse) {
     option (annotation.v1.surfaces) = {
       cli: true
@@ -1140,6 +1131,13 @@ service AgentService {
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
+    };
+  }
+  rpc AcceptForgeMessage(AcceptForgeMessageRequest) returns (AcceptForgeMessageResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Passing a stranger's words on to an agent as review is the person's call alone, made in the panel where they read those words."
     };
   }
   rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {

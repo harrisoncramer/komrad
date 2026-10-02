@@ -1,6 +1,6 @@
 enum "review_author_kind" {
   schema = schema.public
-  values = ["human", "agent"]
+  values = ["human", "agent", "forge"]
 }
 
 enum "review_verdict" {
@@ -137,6 +137,11 @@ table "reviews" {
     type    = text
     default = ""
     comment = "What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first."
+  }
+  column "external_login" {
+    null    = true
+    type    = text
+    comment = "The forge login of whoever wrote a review on the forge, empty when the forge no longer knew them. Null for a review written in komrad."
   }
   column "engine_id" {
     null    = false
@@ -298,6 +303,17 @@ table "review_threads" {
     type    = uuid
     comment = "The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling."
   }
+  column "forge_thread_id" {
+    null    = true
+    type    = uuid
+    comment = "The forge thread this thread mirrors, null for a thread written in komrad or once the forge has deleted it."
+  }
+  column "forge_resolved" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge said the thread was resolved as of the last sync, so only a change there resolves or reopens it here."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -339,11 +355,26 @@ table "review_threads" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
+  foreign_key "review_threads_forge_thread_id_fkey" {
+    columns     = [column.engine_id, column.forge_thread_id]
+    ref_columns = [table.forge_review_threads.column.engine_id, table.forge_review_threads.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
   index "review_threads_agent_id" {
     columns = [column.agent_id, column.file_path, column.new_start, column.old_start]
   }
   index "review_threads_review_id" {
     columns = [column.review_id, column.id]
+  }
+  index "review_threads_forge_thread_id" {
+    columns = [column.forge_thread_id]
+  }
+  index "review_threads_agent_forge_thread" {
+    columns = [column.agent_id, column.forge_thread_id]
+    unique  = true
+    where   = "forge_thread_id IS NOT NULL"
+    comment = "Holds each agent to one mirror of a forge thread."
   }
 }
 
@@ -403,17 +434,28 @@ table "review_messages" {
   column "external_login" {
     null    = true
     type    = text
-    comment = "The forge login of whoever wrote this on the forge, for a comment the person accepted from there, empty when the forge no longer knew them. Null for anything written in komrad."
+    comment = "The forge login of whoever wrote this on the forge, for a comment that came from there, empty when the forge no longer knew them. Null for anything written in komrad."
   }
   column "forge_comment_id" {
     null    = true
     type    = uuid
-    comment = "The forge comment this was copied from, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there."
+    comment = "The forge comment this mirrors, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there."
   }
   column "forge_edited_at" {
     null    = true
     type    = timestamptz
-    comment = "When the forge comment had last been edited at the moment it was copied, null when it never had been. A later edit on the forge is told apart by this."
+    comment = "When the forge comment had last been edited as of the last sync, null when it never had been."
+  }
+  column "held" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge author could not write to the repository when the text was written or last edited, which keeps it from the agent. A held first message holds its whole thread until the person accepts it."
+  }
+  column "accepted_from" {
+    null    = true
+    type    = uuid
+    comment = "The held forge message the person accepted this copy of, which releases that message's thread to the agent once the copy's review is sent. Null on everything else."
   }
   column "engine_id" {
     null    = false
@@ -422,6 +464,9 @@ table "review_messages" {
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "review_messages_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
   foreign_key "review_messages_engine_id_fkey" {
     columns     = [column.engine_id]
@@ -447,6 +492,12 @@ table "review_messages" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "review_messages_accepted_from_fkey" {
+    columns     = [column.engine_id, column.accepted_from]
+    ref_columns = [table.review_messages.column.engine_id, table.review_messages.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
   foreign_key "review_messages_author_agent_id_fkey" {
     columns     = [column.engine_id, column.author_agent_id]
     ref_columns = [table.agents.column.engine_id, table.agents.column.id]
@@ -456,8 +507,17 @@ table "review_messages" {
   index "review_messages_thread_id" {
     columns = [column.thread_id, column.id]
   }
+  index "review_messages_accepted_from" {
+    columns = [column.accepted_from]
+  }
   index "review_messages_review_id" {
     columns = [column.review_id]
+  }
+  index "review_messages_thread_forge_comment" {
+    columns = [column.thread_id, column.forge_comment_id]
+    unique  = true
+    where   = "forge_comment_id IS NOT NULL"
+    comment = "Holds each mirrored thread to one copy of a forge comment."
   }
 }
 

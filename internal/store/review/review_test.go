@@ -24,6 +24,8 @@ type fixture struct {
 	agents   *agentstore.AgentStore
 	mail     *mailstore.MailStore
 	pool     store.DBTX
+	reader   string
+	engineID string
 	workflow string
 }
 
@@ -1051,7 +1053,8 @@ func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 func openFixture(t *testing.T) *fixture {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	engine := dbtest.NewEngine(t, dbtest.New(t))
+	pool, err := store.Open(t.Context(), engine.URL)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
@@ -1067,6 +1070,8 @@ func openFixture(t *testing.T) *fixture {
 		agents:      agentstore.NewAgentStore(pool.GetDB()),
 		mail:        mailstore.NewMailStore(pool.GetDB()),
 		pool:        pool.GetDB(),
+		reader:      engine.ReaderURL,
+		engineID:    pool.GetEngine().ID,
 		workflow:    created.ID,
 	}
 }

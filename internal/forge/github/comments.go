@@ -20,17 +20,17 @@ const reviewThreadsQuery = `query ReviewThreads($owner: String!, $name: String!,
           id isResolved path line originalLine diffSide subjectType
           comments(first: 100) {
             pageInfo { hasNextPage }
-            nodes { id url body createdAt lastEditedAt state author { __typename login } diffHunk commit { oid } originalCommit { oid } }
+            nodes { id url body createdAt lastEditedAt state authorAssociation author { __typename login } pullRequestReview { id } diffHunk commit { oid } originalCommit { oid } }
           }
         }
       }
       comments(last: 100) {
         pageInfo { hasPreviousPage }
-        nodes { id url body createdAt lastEditedAt author { __typename login } }
+        nodes { id url body createdAt lastEditedAt authorAssociation author { __typename login } }
       }
       reviews(last: 100, states: [COMMENTED, APPROVED, CHANGES_REQUESTED, DISMISSED]) {
         pageInfo { hasPreviousPage }
-        nodes { id url body createdAt lastEditedAt author { __typename login } }
+        nodes { id url body createdAt lastEditedAt authorAssociation author { __typename login } }
       }
     }
   }
@@ -73,16 +73,22 @@ type authorNode struct {
 }
 
 type commentNode struct {
-	ID             string      `json:"id"`
-	URL            string      `json:"url"`
-	Body           string      `json:"body"`
-	CreatedAt      time.Time   `json:"createdAt"`
-	LastEditedAt   *time.Time  `json:"lastEditedAt"`
-	State          string      `json:"state"`
-	Author         *authorNode `json:"author"`
-	DiffHunk       string      `json:"diffHunk"`
-	Commit         *commitNode `json:"commit"`
-	OriginalCommit *commitNode `json:"originalCommit"`
+	ID                string      `json:"id"`
+	URL               string      `json:"url"`
+	Body              string      `json:"body"`
+	CreatedAt         time.Time   `json:"createdAt"`
+	LastEditedAt      *time.Time  `json:"lastEditedAt"`
+	State             string      `json:"state"`
+	AuthorAssociation string      `json:"authorAssociation"`
+	Author            *authorNode `json:"author"`
+	PullRequestReview *reviewNode `json:"pullRequestReview"`
+	DiffHunk          string      `json:"diffHunk"`
+	Commit            *commitNode `json:"commit"`
+	OriginalCommit    *commitNode `json:"originalCommit"`
+}
+
+type reviewNode struct {
+	ID string `json:"id"`
 }
 
 type pageInfo struct {
@@ -173,9 +179,14 @@ func (n reviewThreadsNode) threads() *forge.Threads {
 func (n commentNode) toComment() forge.ReviewComment {
 	comment := forge.ReviewComment{
 		ProviderID: n.ID,
+		Trusted:    isTrustedAssociation(n.AuthorAssociation),
+		ReviewID:   n.ID,
 		Body:       n.Body,
 		WrittenAt:  n.CreatedAt,
 		EditedAt:   n.LastEditedAt,
+	}
+	if n.PullRequestReview != nil {
+		comment.ReviewID = n.PullRequestReview.ID
 	}
 	if n.Author != nil {
 		comment.Login = n.Author.Login
@@ -183,6 +194,16 @@ func (n commentNode) toComment() forge.ReviewComment {
 	}
 
 	return comment
+}
+
+// isTrustedAssociation reports whether GitHub counts the author as one who may push to the repository.
+func isTrustedAssociation(association string) bool {
+	switch association {
+	case "OWNER", "MEMBER", "COLLABORATOR":
+		return true
+	}
+
+	return false
 }
 
 // anchorOf is the line a thread stands on and the commit that line is counted in: where GitHub

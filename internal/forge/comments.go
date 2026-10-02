@@ -26,6 +26,8 @@ type ReviewComment struct {
 	ProviderID string
 	Login      string
 	Bot        bool
+	Trusted    bool
+	ReviewID   string
 	Body       string
 	WrittenAt  time.Time
 	EditedAt   *time.Time

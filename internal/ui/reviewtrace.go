@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
-	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // traceTimeout is how long every pair together may take, kept apart from the load's own budget
@@ -143,19 +142,6 @@ func traceAnchorOfThread(thread *agentv1.ReviewThread) traceAnchor {
 	}
 }
 
-// traceAnchorOfOffer is a forge comment's line as a place to trace.
-func traceAnchorOfOffer(offer *pullrequestv1.ForgeThread) traceAnchor {
-	line := int(offer.GetLine())
-
-	return traceAnchor{
-		ID: offer.GetId(),
-		Position: position.Position{
-			Path:  offer.GetPath(),
-			Lines: position.Range{Start: line, End: line + 1},
-		},
-	}
-}
-
 // traceAnchorsParams is one pair of snapshots and the places written against the earlier one.
 type traceAnchorsParams struct {
 	Git     ReviewGit
@@ -242,56 +228,4 @@ func threadRange(thread *agentv1.ReviewThread) position.Range {
 	}
 
 	return position.Range{Start: int(start), End: int(end) + 1}
-}
-
-// traceOffersParams says which of the forge's comments to trace, where to read the repository,
-// and which snapshot the diff on screen was drawn to.
-type traceOffersParams struct {
-	Git    ReviewGit
-	Dir    string
-	ToSHA  string
-	Offers []*pullrequestv1.ForgeThread
-}
-
-// traceOffers asks git where each forge comment's line went between the commit the forge counted
-// it in and the snapshot on screen, leaving a commit this checkout does not hold to be placed by
-// its text.
-func traceOffers(ctx context.Context, params traceOffersParams) map[string]diffview.Traced {
-	traced := map[string]diffview.Traced{}
-	if params.ToSHA == "" {
-		return traced
-	}
-
-	byFrom := map[string][]*pullrequestv1.ForgeThread{}
-	for _, offer := range params.Offers {
-		from := offer.GetCommitSha()
-		if offer.GetPath() == "" || offer.GetLine() <= 0 || offer.GetOldSide() || from == "" {
-			continue
-		}
-
-		if from == params.ToSHA {
-			traced[offer.GetId()] = tracedExactly(offer.GetPath(), offer.GetLine())
-
-			continue
-		}
-
-		byFrom[from] = append(byFrom[from], offer)
-	}
-
-	for from, offers := range byFrom {
-		found, err := traceAnchors(ctx, traceAnchorsParams{
-			Git:     params.Git,
-			Dir:     params.Dir,
-			FromSHA: from,
-			ToSHA:   params.ToSHA,
-			Anchors: xslice.Map(offers, traceAnchorOfOffer),
-		})
-		if err != nil {
-			continue
-		}
-
-		maps.Copy(traced, found)
-	}
-
-	return traced
 }

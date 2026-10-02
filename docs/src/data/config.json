@@ -767,7 +767,7 @@
               "key": "accept",
               "path": "keybindings.review.accept",
               "type": "array",
-              "description": "Accept the comment from the forge under the cursor into your review, as a thread of your\nown the agent reads with the rest of it, or bring in what changed on the forge since you did.",
+              "description": "Pass a held comment from the forge on to the agent, copied into your review as your own\nwords. A comment is held when its author cannot push to the repository, and the agent\nreads nothing in its thread until the comment opening it is accepted and the review sent.",
               "default": "[\"A\"]"
             },
             {
@@ -804,13 +804,6 @@
               "type": "array",
               "description": "Write a message on the line under the cursor, replying in the thread already there\nor opening a new one.",
               "default": "[\"c\"]"
-            },
-            {
-              "key": "dismiss",
-              "path": "keybindings.review.dismiss",
-              "type": "array",
-              "description": "Dismiss the comment from the forge under the cursor, or restore one you dismissed. A\ndismissed comment is still drawn, marked apart and no longer counted. Nothing is written to\nthe forge, and a reply written there afterwards makes it active again.",
-              "default": "[\"x\"]"
             },
             {
               "key": "edit_file",
@@ -1402,13 +1395,6 @@
               "default": "\"\""
             },
             {
-              "key": "forge_comments",
-              "path": "glyphs.marks.forge_comments",
-              "type": "string",
-              "description": "Beside the count of open comments on the agent's pull request you have not taken up.",
-              "default": "\"\""
-            },
-            {
               "key": "unread",
               "path": "glyphs.marks.unread",
               "type": "string",
@@ -1491,13 +1477,6 @@
               "type": "string",
               "description": "A thread holding a comment nobody has sent yet.",
               "default": "\"◇\""
-            },
-            {
-              "key": "dismissed",
-              "path": "glyphs.review.dismissed",
-              "type": "string",
-              "description": "A comment from the forge you dismissed, drawn but no longer counted.",
-              "default": "\"\""
             },
             {
               "key": "current",

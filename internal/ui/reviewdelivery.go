@@ -9,9 +9,10 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// reviewDeliveryOrder is the three states a comment can stand in, ordered by how much they are
-// owed: what never went, what is waiting, what landed.
+// reviewDeliveryOrder is the states a comment can stand in, ordered by how much they are owed: what
+// the forge holds back, what never went, what is waiting, what landed.
 var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
+	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD,
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT,
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
@@ -43,6 +44,11 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 			word: "delivered",
 			tone: reviewDeliveredTone,
 		}
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD:
+		return reviewDelivery{
+			word: "held",
+			tone: reviewForgeHeldTone,
+		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
 		return reviewDelivery{}
 	}
@@ -69,6 +75,8 @@ func reviewDeliveryBadge(palette paint.Palette, glyphs glyph.Set, message *agent
 // reviewDeliveryMark is the mark a badge opens with.
 func reviewDeliveryMark(glyphs glyph.Set, state agentv1.ReviewDeliveryState) string {
 	switch state {
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD:
+		return glyphs.Spell(glyph.MessageWarning)
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
 		return glyphs.Spell(glyph.Held)
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:

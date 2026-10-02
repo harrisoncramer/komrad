@@ -37,7 +37,6 @@ func (r *reviewScreen) compose(m *model) tea.Cmd {
 
 	r.threads.composing = true
 	r.threads.retrying = nil
-	r.threads.accepting = nil
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       reviewInputTitle(replying),
@@ -179,17 +178,6 @@ func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) tea.Cm
 
 func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 	body := strings.TrimSpace(r.threads.editor.value())
-	if accepting := r.threads.accepting; accepting != nil {
-		r.threads.cancelMessage()
-
-		accept := r.acceptCmd(m, *accepting, body)
-		if accept == nil {
-			return nil
-		}
-
-		return keepUnsent(reviewUnsent{body: body, accept: accepting}, accept)
-	}
-
 	if body == "" {
 		r.threads.cancelMessage()
 
@@ -247,8 +235,6 @@ type reviewUnsent struct {
 	body    string
 	// place is where a new thread goes, nil for a reply.
 	place *reviewPlace
-	// accept is the forge thread the message went in with, nil for a message of the reader's own.
-	accept *reviewAccept
 }
 
 func (u *reviewUnsent) getPlace() *reviewPlace {
@@ -291,7 +277,6 @@ func (r *reviewScreen) restoreMessage(m *model, unsent reviewUnsent) tea.Cmd {
 	r.threads.editing = unsent.editing
 	r.threads.composing = true
 	r.threads.retrying = &unsent
-	r.threads.accepting = unsent.accept
 
 	title, said := r.threads.inputHead()
 
@@ -307,7 +292,6 @@ func (t *reviewThreads) cancelMessage() {
 	t.editor = reviewInput{}
 	t.composing = false
 	t.retrying = nil
-	t.accepting = nil
 }
 
 func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, body string) tea.Cmd {
@@ -549,9 +533,5 @@ func (r reviewScreen) writeMsgCmd(m *model, counted int, write func(context.Cont
 
 // inputHead is the composer's title and what its submit key is said to do.
 func (t reviewThreads) inputHead() (string, string) {
-	if t.accepting != nil {
-		return t.accepting.title, "accept"
-	}
-
 	return reviewInputTitle(t.editing != ""), "save"
 }

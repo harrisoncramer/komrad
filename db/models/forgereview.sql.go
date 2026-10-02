@@ -42,52 +42,6 @@ func (q *Queries) DeleteForgeReviewThreadsExcept(ctx context.Context, arg Delete
 	return err
 }
 
-const getForgeReviewThreadOfAgent = `-- name: GetForgeReviewThreadOfAgent :one
-SELECT
-    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote, t.dismissed_at, t.accepted_thread_id
-FROM
-    forge_review_threads t
-WHERE
-    t.id = $1
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agent_pull_requests o
-        WHERE
-            o.pull_request_id = t.pull_request_id
-            AND o.agent_id = $2)
-`
-
-type GetForgeReviewThreadOfAgentParams struct {
-	ID      string
-	AgentID string
-}
-
-func (q *Queries) GetForgeReviewThreadOfAgent(ctx context.Context, arg GetForgeReviewThreadOfAgentParams) (*ForgeReviewThread, error) {
-	row := q.db.QueryRow(ctx, getForgeReviewThreadOfAgent, arg.ID, arg.AgentID)
-	var i ForgeReviewThread
-	err := row.Scan(
-		&i.ID,
-		&i.PullRequestID,
-		&i.ProviderID,
-		&i.Path,
-		&i.Line,
-		&i.Url,
-		&i.Resolved,
-		&i.WrittenAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.EngineID,
-		&i.OldSide,
-		&i.CommitSha,
-		&i.Quote,
-		&i.DismissedAt,
-		&i.AcceptedThreadID,
-	)
-	return &i, err
-}
-
 const listCommentSyncPullRequests = `-- name: ListCommentSyncPullRequests :many
 SELECT
     p.id,
@@ -141,7 +95,7 @@ func (q *Queries) ListCommentSyncPullRequests(ctx context.Context) ([]*ListComme
 
 const listForgeReviewCommentsOfThreads = `-- name: ListForgeReviewCommentsOfThreads :many
 SELECT
-    c.id, c.thread_id, c.provider_id, c.author_login, c.author_is_bot, c.yours, c.body, c.written_at, c.edited_at, c.created_at, c.updated_at, c.engine_id
+    c.id, c.thread_id, c.provider_id, c.author_login, c.author_is_bot, c.yours, c.body, c.written_at, c.edited_at, c.created_at, c.updated_at, c.engine_id, c.trusted, c.forge_review_id
 FROM
     forge_review_comments c
 WHERE
@@ -174,6 +128,8 @@ func (q *Queries) ListForgeReviewCommentsOfThreads(ctx context.Context, threadId
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EngineID,
+			&i.Trusted,
+			&i.ForgeReviewID,
 		); err != nil {
 			return nil, err
 		}
@@ -222,58 +178,20 @@ func (q *Queries) ListForgeReviewThreadIDs(ctx context.Context, pullRequestID st
 	return items, nil
 }
 
-const listForgeReviewThreadIDsOfPullRequests = `-- name: ListForgeReviewThreadIDsOfPullRequests :many
+const listForgeReviewThreadsOfPullRequest = `-- name: ListForgeReviewThreadsOfPullRequest :many
 SELECT
-    t.id
+    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote
 FROM
     forge_review_threads t
 WHERE
-    t.pull_request_id = ANY ($1::uuid[])
+    t.pull_request_id = $1
 ORDER BY
+    t.written_at,
     t.id
 `
 
-func (q *Queries) ListForgeReviewThreadIDsOfPullRequests(ctx context.Context, pullRequestIds []string) ([]string, error) {
-	rows, err := q.db.Query(ctx, listForgeReviewThreadIDsOfPullRequests, pullRequestIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listWatchedForgeReviewThreads = `-- name: ListWatchedForgeReviewThreads :many
-SELECT
-    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote, t.dismissed_at, t.accepted_thread_id
-FROM
-    forge_review_threads t
-WHERE
-    EXISTS (
-        SELECT
-            1
-        FROM
-            agent_pull_requests o
-        WHERE
-            o.pull_request_id = t.pull_request_id)
-    AND ($1::text[] IS NULL
-        OR t.id = ANY ($1::uuid[]))
-ORDER BY
-    t.id
-`
-
-func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []string) ([]*ForgeReviewThread, error) {
-	rows, err := q.db.Query(ctx, listWatchedForgeReviewThreads, keys)
+func (q *Queries) ListForgeReviewThreadsOfPullRequest(ctx context.Context, pullRequestID string) ([]*ForgeReviewThread, error) {
+	rows, err := q.db.Query(ctx, listForgeReviewThreadsOfPullRequest, pullRequestID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,8 +214,6 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 			&i.OldSide,
 			&i.CommitSha,
 			&i.Quote,
-			&i.DismissedAt,
-			&i.AcceptedThreadID,
 		); err != nil {
 			return nil, err
 		}
@@ -309,80 +225,6 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 	return items, nil
 }
 
-const lockForgeReviewThreadAccepted = `-- name: LockForgeReviewThreadAccepted :one
-SELECT
-    t.id
-FROM
-    forge_review_threads t
-WHERE
-    t.id = $1
-    AND t.accepted_thread_id = $2
-FOR UPDATE
-`
-
-type LockForgeReviewThreadAcceptedParams struct {
-	ID       string
-	ThreadID *string
-}
-
-func (q *Queries) LockForgeReviewThreadAccepted(ctx context.Context, arg LockForgeReviewThreadAcceptedParams) (string, error) {
-	row := q.db.QueryRow(ctx, lockForgeReviewThreadAccepted, arg.ID, arg.ThreadID)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
-const setForgeReviewThreadAccepted = `-- name: SetForgeReviewThreadAccepted :one
-UPDATE
-    forge_review_threads t
-SET
-    accepted_thread_id = $1,
-    dismissed_at = NULL
-WHERE
-    t.id = $2
-    AND t.accepted_thread_id IS NOT DISTINCT FROM $3::uuid
-RETURNING
-    t.id
-`
-
-type SetForgeReviewThreadAcceptedParams struct {
-	ThreadID         *string
-	ID               string
-	PreviousThreadID *string
-}
-
-func (q *Queries) SetForgeReviewThreadAccepted(ctx context.Context, arg SetForgeReviewThreadAcceptedParams) (string, error) {
-	row := q.db.QueryRow(ctx, setForgeReviewThreadAccepted, arg.ThreadID, arg.ID, arg.PreviousThreadID)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
-const setForgeReviewThreadDismissed = `-- name: SetForgeReviewThreadDismissed :one
-UPDATE
-    forge_review_threads t
-SET
-    dismissed_at = CASE WHEN $1::boolean THEN
-        NOW()
-    END
-WHERE
-    t.id = $2
-RETURNING
-    t.id
-`
-
-type SetForgeReviewThreadDismissedParams struct {
-	Dismissed bool
-	ID        string
-}
-
-func (q *Queries) SetForgeReviewThreadDismissed(ctx context.Context, arg SetForgeReviewThreadDismissedParams) (string, error) {
-	row := q.db.QueryRow(ctx, setForgeReviewThreadDismissed, arg.Dismissed, arg.ID)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
 const upsertForgeReviewComment = `-- name: UpsertForgeReviewComment :exec
 INSERT INTO forge_review_comments(
     thread_id,
@@ -390,6 +232,8 @@ INSERT INTO forge_review_comments(
     author_login,
     author_is_bot,
     yours,
+    trusted,
+    forge_review_id,
     body,
     written_at,
     edited_at)
@@ -401,7 +245,9 @@ VALUES (
     $5,
     $6,
     $7,
-    $8)
+    $8,
+    $9,
+    $10)
 ON CONFLICT (
     engine_id,
     thread_id,
@@ -410,28 +256,34 @@ ON CONFLICT (
         author_login = excluded.author_login,
         author_is_bot = excluded.author_is_bot,
         yours = excluded.yours,
+        trusted = excluded.trusted,
+        forge_review_id = excluded.forge_review_id,
         body = excluded.body,
         written_at = excluded.written_at,
         edited_at = excluded.edited_at
     WHERE (
-        forge_review_comments.author_login, forge_review_comments.author_is_bot, forge_review_comments.yours, forge_review_comments.body, forge_review_comments.written_at, forge_review_comments.edited_at) IS DISTINCT FROM (
+        forge_review_comments.author_login, forge_review_comments.author_is_bot, forge_review_comments.yours, forge_review_comments.trusted, forge_review_comments.forge_review_id, forge_review_comments.body, forge_review_comments.written_at, forge_review_comments.edited_at) IS DISTINCT FROM (
         excluded.author_login,
         excluded.author_is_bot,
         excluded.yours,
+        excluded.trusted,
+        excluded.forge_review_id,
         excluded.body,
         excluded.written_at,
         excluded.edited_at)
 `
 
 type UpsertForgeReviewCommentParams struct {
-	ThreadID    string
-	ProviderID  string
-	AuthorLogin string
-	AuthorIsBot bool
-	Yours       bool
-	Body        string
-	WrittenAt   time.Time
-	EditedAt    *time.Time
+	ThreadID      string
+	ProviderID    string
+	AuthorLogin   string
+	AuthorIsBot   bool
+	Yours         bool
+	Trusted       bool
+	ForgeReviewID string
+	Body          string
+	WrittenAt     time.Time
+	EditedAt      *time.Time
 }
 
 func (q *Queries) UpsertForgeReviewComment(ctx context.Context, arg UpsertForgeReviewCommentParams) error {
@@ -441,6 +293,8 @@ func (q *Queries) UpsertForgeReviewComment(ctx context.Context, arg UpsertForgeR
 		arg.AuthorLogin,
 		arg.AuthorIsBot,
 		arg.Yours,
+		arg.Trusted,
+		arg.ForgeReviewID,
 		arg.Body,
 		arg.WrittenAt,
 		arg.EditedAt,

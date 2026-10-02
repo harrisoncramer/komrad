@@ -29,6 +29,7 @@ const (
 	reviewUnsentTone    = paint.TonePrimary
 	reviewSentTone      = paint.ToneWarning
 	reviewDeliveredTone = paint.ToneSuccess
+	reviewForgeHeldTone = paint.ToneDanger
 )
 
 // reviewArchivedStyle paints the row saying the agent is archived.
@@ -268,7 +269,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 			out += "\n" + dimStyle().Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
 		}
 
-		note := ""
+		note := heldForgeSaid(thread, message)
 		if i == answered {
 			note = r.diff.addressedSaid(message)
 		}
@@ -331,7 +332,7 @@ func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, para
 
 	body := message.GetBody()
 	if message.GetForge() != nil {
-		body = plainOfferText(body)
+		body = plainForgeText(body)
 	}
 
 	return head + "\n" + reviewWrap(params.width, body) + "\n" + reviewDeliveryBadge(paint.Panel, m.glyphs, message) + "\n"
@@ -339,7 +340,7 @@ func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, para
 
 func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
 	if forge := message.GetForge(); forge != nil {
-		return describeForgeLogin(forge.GetLogin()) + " on the forge", diffview.OfferTone
+		return describeForgeLogin(forge.GetLogin()) + " on the forge", diffview.ForgeTone
 	}
 
 	if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
