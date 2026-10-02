@@ -64,6 +64,7 @@ func (r reviewScreen) view(m *model) string {
 func (r reviewScreen) sidebarView(m *model) string {
 	layout := r.layoutSidebar(m)
 	layout.files = m.markZone(zoneBlock, layout.files, lineWidthOf(m.paneWidth()))
+	layout.pullRequest = m.markZone(zonePullRequest, layout.pullRequest, lineWidthOf(m.paneWidth()))
 
 	return strings.TrimRight(r.drawSidebar(layout), "\n")
 }
@@ -97,9 +98,11 @@ type sidebarLayout struct {
 	rule        string
 	help        string
 	pullRequest string
-	files       string
-	notes       string
-	spare       int
+	// pullRequestRows is the rows the pull request was given, below zero when it was given all it wants.
+	pullRequestRows int
+	files           string
+	notes           string
+	spare           int
 }
 
 // layoutSidebar gives the column to the file tree, the bar over it giving way before the tree
@@ -138,14 +141,16 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	}
 
 	if spare < 0 {
-		layout.pullRequest = r.pullRequestView(m, paint.Unbounded)
+		layout.pullRequestRows = paint.Unbounded
+		layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
 		layout.files = r.filesView(m, paint.Unbounded)
 
 		return layout
 	}
 
 	room := spare - paint.CountLines(r.placeView())
-	layout.pullRequest = r.pullRequestView(m, max(room-r.countFilesFloor(spare), 0))
+	layout.pullRequestRows = max(room-r.countFilesFloor(spare), 0)
+	layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
 	room -= paint.CountLines(layout.pullRequest)
 	lines := max(room-paint.CountLines(layout.notes), r.countFilesFloor(spare))
 	layout.files = r.filesView(m, max(min(lines, room), 0))

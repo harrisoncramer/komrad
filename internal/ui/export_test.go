@@ -557,10 +557,10 @@ func (p *Panel) SetScreens(shown []panes.Rect, screens map[string]string) {
 	p.tmux.shown, p.tmux.screens = shown, screens
 }
 
-// ReadPickLetter is the letter the pane picker drew over a sidebar block, list, record or block, or
+// ReadPickLetter is the letter the pane picker drew over a sidebar list, record, block or pull request, or
 // over a pane.
 func (p *Panel) ReadPickLetter(to string) string {
-	block, isBlock := map[string]stop{"list": stopList, "record": stopRecord, "block": stopBlock}[to]
+	block, isBlock := map[string]stop{"list": stopList, "record": stopRecord, "block": stopBlock, "pullrequest": stopPullRequest}[to]
 	for _, target := range p.model.picker.targets {
 		if isBlock && target.pane == "" && target.stop == block || !isBlock && target.pane == to {
 			return target.letter

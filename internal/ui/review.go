@@ -33,13 +33,27 @@ type reviewScreen struct {
 	hold reviewHold
 
 	// offer is the forge thread J last chose, empty until it has chosen one.
-	offer        string
-	offers       reviewOffers
-	filesFocused bool
+	offer  string
+	offers reviewOffers
+
+	// focus is which of the diff, the file tree and the pull request holds the keys while the list does.
+	focus sidebarFocus
+
+	// pullRequestTop is the first row of the description in view.
+	pullRequestTop int
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.
 	filesFilter filterState
 }
+
+// sidebarFocus is which part of the review holds the keys while the list does.
+type sidebarFocus int
+
+const (
+	sidebarFocusDiff sidebarFocus = iota
+	sidebarFocusFiles
+	sidebarFocusPullRequest
+)
 
 func (r reviewScreen) parent() screen {
 	return screenAgents
@@ -68,7 +82,7 @@ func (r reviewScreen) isBusy() bool {
 
 // isDiffFocused is whether the patch holds the keys.
 func (r reviewScreen) isDiffFocused(m *model) bool {
-	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m)
+	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m) && !r.isPullRequestFocused(m)
 }
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
@@ -112,18 +126,20 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 	}
 
 	left := m.enterScreen(screenReview)
+	m.leftStop = stopList
 
 	return tea.Batch(left, m.review.open(m, agent))
 }
 
 var (
-	_ columnFocuser    = (*reviewScreen)(nil)
-	_ crumbDrawer      = (*reviewScreen)(nil)
-	_ loadingReporter  = (*reviewScreen)(nil)
-	_ lineTyper        = (*reviewScreen)(nil)
-	_ listScroller     = (*reviewScreen)(nil)
-	_ editorReconciler = (*reviewScreen)(nil)
-	_ agentPauser      = (*reviewScreen)(nil)
+	_ columnFocuser      = (*reviewScreen)(nil)
+	_ pullRequestFocuser = (*reviewScreen)(nil)
+	_ crumbDrawer        = (*reviewScreen)(nil)
+	_ loadingReporter    = (*reviewScreen)(nil)
+	_ lineTyper          = (*reviewScreen)(nil)
+	_ listScroller       = (*reviewScreen)(nil)
+	_ editorReconciler   = (*reviewScreen)(nil)
+	_ agentPauser        = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) drawsSwitcher() bool {
@@ -147,5 +163,5 @@ func (r reviewScreen) typedLine() (lineInput, bool) {
 }
 
 func (r *reviewScreen) dispatches(*model) []dispatching {
-	return []dispatching{r.diffActions(), r.filesActions()}
+	return []dispatching{r.diffActions(), r.filesActions(), r.pullRequestActions()}
 }
