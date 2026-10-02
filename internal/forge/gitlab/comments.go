@@ -90,10 +90,6 @@ func (f *Forge) readDiscussions(ctx context.Context, path string, number int, cu
 	return &data.Project.MergeRequest.Discussions, nil
 }
 
-type pageInfo struct {
-	HasNextPage bool   `json:"hasNextPage"`
-	EndCursor   string `json:"endCursor"`
-}
 type authorNode struct {
 	Username string `json:"username"`
 	Bot      bool   `json:"bot"`
@@ -129,15 +125,15 @@ type discussionNode struct {
 		Text string `json:"text"`
 	} `json:"truncatedDiffLines"`
 	Notes struct {
-		PageInfo pageInfo   `json:"pageInfo"`
-		Nodes    []noteNode `json:"nodes"`
+		PageInfo struct {
+			HasNextPage bool `json:"hasNextPage"`
+		} `json:"pageInfo"`
+		Nodes []noteNode `json:"nodes"`
 	} `json:"notes"`
 }
 
-type discussionsPage struct {
-	PageInfo pageInfo         `json:"pageInfo"`
-	Nodes    []discussionNode `json:"nodes"`
-}
+// discussionsPage is one page of a merge request's discussions as GitLab answers it.
+type discussionsPage = graphql.Connection[discussionNode]
 
 func threadsOf(discussions []discussionNode) *forge.Threads {
 	answer := &forge.Threads{}
