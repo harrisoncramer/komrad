@@ -139,7 +139,7 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	}
 
 	room := spare - paint.CountLines(r.placeView())
-	layout.pullRequest = r.pullRequestView(m, room-r.countFilesFloor(spare))
+	layout.pullRequest = r.pullRequestView(m, max(room-r.countFilesFloor(spare), 0))
 	room -= paint.CountLines(layout.pullRequest)
 	lines := max(room-paint.CountLines(layout.notes), r.countFilesFloor(spare))
 	layout.files = r.filesView(m, max(min(lines, room), 0))

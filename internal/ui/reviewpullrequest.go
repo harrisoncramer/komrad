@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"math"
 	"strings"
 
 	"komrad/internal/ui/paint"
@@ -27,52 +26,51 @@ func (r reviewScreen) currentPullRequest(m *model) (panel.PullRequest, bool) {
 // pullRequestView is the pull request's number, title, author and description cut to rows, the
 // description giving way first and the whole block when even the title does not fit.
 func (r reviewScreen) pullRequestView(m *model, rows int) string {
-	if rows == paint.Unbounded {
-		rows = math.MaxInt
-	}
-
 	pullRequest, ok := r.currentPullRequest(m)
-	if !ok || rows <= 0 {
+	if !ok || rows == 0 {
 		return ""
 	}
 
 	width := lineWidthOf(m.paneWidth())
-	head := paint.WrapRows(fmt.Sprintf("#%d %s", pullRequest.Number, pullRequest.Title), width)
+	var out strings.Builder
+	for _, row := range paint.WrapRows(fmt.Sprintf("#%d %s", pullRequest.Number, pullRequest.Title), width) {
+		out.WriteString(paint.Panel.Title(row) + "\n")
+	}
 	if pullRequest.Author != "" {
-		head = append(head, "@"+pullRequest.Author)
+		out.WriteString(dimStyle().Render(paint.Clip("@"+pullRequest.Author, width)) + "\n")
 	}
 
-	if len(head)+1 > rows {
+	head := paint.CountLines(out.String())
+	if rows > 0 && head+1 > rows {
 		return ""
 	}
 
-	var out strings.Builder
-	for at, row := range head {
-		if at == len(head)-1 && pullRequest.Author != "" {
-			out.WriteString(dimStyle().Render(row) + "\n")
-
-			continue
-		}
-		out.WriteString(paint.Panel.Title(row) + "\n")
-	}
-
 	body := pullRequestBodyRows(pullRequest.Body, width)
-	room := rows - len(head) - 2
-	if len(body) == 0 || room <= 0 {
-		return out.String() + "\n"
+	if rows > 0 {
+		body = cutBodyRows(body, rows-head-2, width)
 	}
-
-	if len(body) > room {
-		body = body[:room]
-		body[room-1] = paint.Clip(body[room-1]+"…", width)
-	}
-
-	out.WriteString("\n")
-	for _, row := range body {
-		out.WriteString(dimStyle().Render(row) + "\n")
+	if len(body) > 0 {
+		out.WriteString("\n")
+		for _, row := range body {
+			out.WriteString(dimStyle().Render(row) + "\n")
+		}
 	}
 
 	return out.String() + "\n"
+}
+
+func cutBodyRows(body []string, rows, width int) []string {
+	if rows <= 0 {
+		return nil
+	}
+	if len(body) <= rows {
+		return body
+	}
+
+	body = body[:rows]
+	body[rows-1] = paint.Clip(body[rows-1]+"…", width)
+
+	return body
 }
 
 // pullRequestBodyRows is a description wrapped to width, its runs of blank lines kept to one
@@ -80,8 +78,8 @@ func (r reviewScreen) pullRequestView(m *model, rows int) string {
 func pullRequestBodyRows(body string, width int) []string {
 	var rows []string
 	blank := false
-	for _, line := range strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n") {
-		line = strings.TrimRight(line, " \t")
+	for line := range strings.Lines(body) {
+		line = strings.TrimRight(line, " \t\r\n")
 		if line == "" {
 			blank = len(rows) > 0
 
