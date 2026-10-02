@@ -119,8 +119,8 @@ func TestGlabConfig(t *testing.T) {
 	}
 }
 
-// TestHandable covers which tokens komrad hands out on a line of their own.
-func TestHandable(t *testing.T) {
+// TestRequireSingleLineToken covers which tokens komrad hands out on a line of their own.
+func TestRequireSingleLineToken(t *testing.T) {
 	tests := []struct {
 		name  string
 		token string
@@ -133,7 +133,7 @@ func TestHandable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.ErrorIs(t, handable(forge.NewSecret(tt.token)), tt.want)
+			assert.ErrorIs(t, requireSingleLineToken(forge.NewSecret(tt.token)), tt.want)
 		})
 	}
 }

@@ -194,7 +194,7 @@ func gitlabToken(ctx context.Context, state *app, host string) (*forgev1.Forge, 
 		return nil, forge.Secret{}, err
 	}
 
-	if err := handable(token); err != nil {
+	if err := requireSingleLineToken(token); err != nil {
 		return nil, forge.Secret{}, err
 	}
 
@@ -245,8 +245,8 @@ func glabConfig(connection *forgev1.Forge, token forge.Secret) string {
 	return config.String()
 }
 
-// handable refuses a token holding a line break, which would spill into the lines after it.
-func handable(token forge.Secret) error {
+// requireSingleLineToken refuses a token holding a line break, which would spill into the lines after it.
+func requireSingleLineToken(token forge.Secret) error {
 	if strings.ContainsAny(tokenForTheWire(token), "\r\n") {
 		return errTokenSpansLines
 	}
