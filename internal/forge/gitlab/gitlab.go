@@ -755,9 +755,7 @@ type mergeReadinessNode struct {
 	AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
 }
 
-// autoMerge is whether the merge request is set to merge on its own, and whether it may be set,
-// which GitLab offers only while there is a pipeline to wait for and the credential may merge
-// and komrad refuses while it is a draft.
+// autoMerge is whether the merge request is set to merge on its own and whether komrad may set it.
 func (n mergeRequestNode) autoMerge() forge.AutoMerge {
 	return forge.AutoMerge{
 		On:      n.AutoMergeEnabled,
