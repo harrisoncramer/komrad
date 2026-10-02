@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -30,6 +31,24 @@ func TestReviewPullRequest(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readSidebarProse(harness.readFrame()), "#7")
+	})
+
+	t.Run("a pull request whose title is not read yet draws no block", func(t *testing.T) {
+		harness := openReviewAt(t, newOfferedReviewServer(t), panelHarnessParams{height: 40})
+
+		assert.NotContains(t, readSidebarProse(harness.readFrame()), "#7")
+	})
+
+	t.Run("a branch moved past its last pull request draws no block", func(t *testing.T) {
+		server := newDescribedReviewServer(t, "Why it changed.")
+		pullRequest := server.forge[0].(*pullrequestv1.PullRequest)
+		pullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
+		pullRequest.MergedAt = xptr.Ptr("2026-09-20T12:00:00Z")
+		pullRequest.HeadSha = "old"
+		server.agent.HeadSha = xptr.Ptr("new")
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		assert.NotContains(t, readSidebarProse(harness.readFrame()), "fix the greeting")
 	})
 
 	t.Run("the number, title, author and description stand over the files", func(t *testing.T) {
