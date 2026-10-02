@@ -127,6 +127,19 @@ func TestReviewPullRequest(t *testing.T) {
 		assert.Contains(t, readFilesBlock(harness.readFrame()), "▸ greet.go +1 −1")
 	})
 
+	t.Run("a taller pane pulls the description's end up and the next key scrolls from there", func(t *testing.T) {
+		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(40)), panelHarnessParams{height: 20})
+
+		harness.press("pick:pullrequest")
+		harness.press(slices.Repeat([]string{"ctrl+d"}, 20)...)
+		require.NotContains(t, readSidebar(harness.readFrame()), "rows 32-40 of 40")
+
+		harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: 40})
+		harness.press("k")
+
+		assert.Contains(t, readSidebar(harness.readFrame()), "rows 31-39 of 40")
+	})
+
 	t.Run("the back key hands the keys from the pull request to the diff", func(t *testing.T) {
 		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(40)), panelHarnessParams{height: 40})
 
