@@ -344,22 +344,86 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	assert.Equal(t, expired.ID, written[0][logging.MailID])
 }
 
+// firstSendFailer is a pane channel whose first send fails, whichever agent it is for.
+type firstSendFailer struct {
+	*pane.Pane
+	failed string
+}
+
+// Send fails for the first agent it is handed and passes every later send through.
+func (f *firstSendFailer) Send(ctx context.Context, target harness.Target, text string) (bool, error) {
+	if f.failed == "" {
+		f.failed = target.Pane
+
+		return false, errors.New("pane gone")
+	}
+
+	return f.Pane.Send(ctx, target, text)
+}
+
 // TestDeliverAll pins that a sweep tells every agent holding mail and leaves the rest alone.
 func TestDeliverAll(t *testing.T) {
-	st := storetest.Open(t)
-	terminal := tmuxtest.NewFake()
-	first := seedListeningAgent(t, st, terminal)
-	second := seedListeningAgent(t, st, terminal)
-	empty := seedListeningAgent(t, st, terminal)
-	sendTo(t, st, first.ID)
-	sendTo(t, st, second.ID)
+	tests := []struct {
+		name       string
+		failFirst  bool
+		wantErr    bool
+		wantNudged int
+	}{
+		{
+			name:       "one mailbox whose delivery fails",
+			failFirst:  true,
+			wantErr:    true,
+			wantNudged: 3,
+		},
+		{
+			name:       "every mailbox delivered",
+			wantNudged: 4,
+		},
+	}
 
-	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			terminal := tmuxtest.NewFake()
+			empty := seedListeningAgent(t, st, terminal)
 
-	require.NoError(t, svc.DeliverAll(t.Context()))
-	assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[first.Pane])
-	assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[second.Pane])
-	assert.Empty(t, terminal.Sent[empty.Pane])
+			var holding []agentstore.Agent
+			for range 4 {
+				agent := seedListeningAgent(t, st, terminal)
+				sendTo(t, st, agent.ID)
+				holding = append(holding, agent)
+			}
+
+			paneChannel := newPaneChannel(terminal)
+			failer := &firstSendFailer{Pane: paneChannel}
+			var channel harness.Channel = paneChannel
+			if tt.failFirst {
+				channel = failer
+			}
+
+			svc := newDeliveryService(st, terminal, channel)
+
+			err := svc.DeliverAll(t.Context())
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			var nudged int
+			for _, agent := range holding {
+				if agent.Pane == failer.failed {
+					assert.Empty(t, terminal.Sent[agent.Pane])
+
+					continue
+				}
+				assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[agent.Pane], "one agent's failure holds up no other")
+				nudged++
+			}
+			assert.Equal(t, tt.wantNudged, nudged)
+			assert.Empty(t, terminal.Sent[empty.Pane])
+		})
+	}
 }
 
 // TestDeliverRetriesANudgeTheAgentNeverActedOn pins that unread mail puts the nudge back once the retry window has passed.
