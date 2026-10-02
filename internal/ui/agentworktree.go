@@ -16,7 +16,6 @@ import (
 	loopv1 "komrad/proto/gen/loop/v1"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
 // worktreeReadTTL is how long a reading of an agent's directory stands before the cursor resting
@@ -154,14 +153,6 @@ func buildDiffStatTag(stat *agentv1.DiffStat) string {
 	}
 
 	return paint.Panel.Style(paint.ToneSuccess).Render(fmt.Sprintf("+%d", stat.GetAdded())) + " " + paint.Panel.Style(paint.ToneDanger).Render(fmt.Sprintf("−%d", stat.GetRemoved()))
-}
-
-func countStyle(count int, style lipgloss.Style) lipgloss.Style {
-	if count == 0 {
-		return dimStyle()
-	}
-
-	return style
 }
 
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, and

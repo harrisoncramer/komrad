@@ -534,24 +534,6 @@ func TestWorktreesRecord(t *testing.T) {
 	})
 }
 
-func openReadWorktree(t *testing.T) *panelHarness {
-	t.Helper()
-
-	harness := openWorktrees(t)
-	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
-		Worktree:  &worktreev1.Worktree{Dir: "/trees/archived"},
-		BaseRef:   "origin/main",
-		Ahead:     2,
-		Behind:    12,
-		Modified:  []string{"a.go"},
-		Untracked: []string{"b.txt", "c.txt"},
-	}))
-	moveToWorktree(t, harness, "reviewer")
-	harness.fireTimers()
-
-	return harness
-}
-
 // TestWorktreesRecordActivity covers the record saying what a directory takes and when it was last active.
 func TestWorktreesRecordActivity(t *testing.T) {
 	t.Parallel()
@@ -1075,6 +1057,24 @@ func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
 
 	harness := openAgents(t, rows...)
 	harness.press("shift+tab", "esc")
+
+	return harness
+}
+
+func openReadWorktree(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := openWorktrees(t)
+	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		Worktree:  &worktreev1.Worktree{Dir: "/trees/archived"},
+		BaseRef:   "origin/main",
+		Ahead:     2,
+		Behind:    12,
+		Modified:  []string{"a.go"},
+		Untracked: []string{"b.txt", "c.txt"},
+	}))
+	moveToWorktree(t, harness, "reviewer")
+	harness.fireTimers()
 
 	return harness
 }

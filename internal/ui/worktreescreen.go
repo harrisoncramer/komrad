@@ -15,6 +15,7 @@ import (
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // entriesShown is how many of a directory's entries the document lists before counting the rest.
@@ -353,6 +354,14 @@ func buildBaseField(read worktreeInspection) recordField {
 		value:  read.baseRef + "  " + ahead + " " + behind,
 		styled: read.baseRef + "  " + countStyle(read.ahead, paint.Panel.Style(paint.ToneSuccess)).Render(ahead) + " " + countStyle(read.behind, paint.Panel.Style(paint.ToneWarning)).Render(behind),
 	}
+}
+
+func countStyle(count int, style lipgloss.Style) lipgloss.Style {
+	if count == 0 {
+		return dimStyle()
+	}
+
+	return style
 }
 
 func changesField(read worktreeInspection) string {
