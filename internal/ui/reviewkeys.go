@@ -208,7 +208,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) tea.Cmd {
 
 	var cmds []tea.Cmd
 	for range max(rows, -rows) {
-		cmds = append(cmds, r.actions(m).dispatch(m, pressed[0]))
+		cmds = append(cmds, r.diffActions().dispatch(m, pressed[0]))
 	}
 
 	return tea.Batch(cmds...)

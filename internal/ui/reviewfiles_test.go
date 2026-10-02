@@ -281,6 +281,19 @@ func TestReviewFiles(t *testing.T) {
 
 		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()))
 	})
+
+	t.Run("the wheel beside the tree walks the diff while the tree holds the keys", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
+		harness := openReview(t, server)
+		harness.press("ctrl+space", "ctrl+space")
+
+		wheelOverSidebar(harness, "greet.go:1", tea.MouseWheelDown)
+
+		frame := harness.readFrame()
+		assert.NotEqual(t, "greet.go:1", readReviewCursor(frame))
+		assert.Contains(t, readFilesBlock(frame), "› greet.go +1 −1")
+	})
 }
 
 func readFilesBlock(frame string) []string {
