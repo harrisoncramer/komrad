@@ -32,7 +32,7 @@ type Released struct {
 	Replies  int                 `json:"replies"`
 	Reopens  int                 `json:"reopens"`
 	Path     string              `json:"path"`
-	Noted    bool                `json:"noted"`
+	HasBody  bool                `json:"has_body"`
 }
 
 // Topic names the handler that tells the agent under review.

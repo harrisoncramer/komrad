@@ -503,7 +503,7 @@ func (s *ReviewService) ReleaseReview(
 			Replies:  tally.Replies,
 			Reopens:  tally.Reopens,
 			Path:     path,
-			Noted:    strings.TrimSpace(params.Body) != "",
+			HasBody:  strings.TrimSpace(params.Body) != "",
 		})
 		if err != nil {
 			return nil, err
@@ -537,7 +537,7 @@ func releaseMail(params Released) string {
 		said = strings.ReplaceAll(string(params.Verdict), "_", " ") + ", " + said
 	}
 
-	if params.Verdict == reviewstore.VerdictApproved && params.Comments == 0 && params.Replies == 0 && !params.Noted {
+	if params.Verdict == reviewstore.VerdictApproved && params.Comments == 0 && params.Replies == 0 && !params.HasBody {
 		return fmt.Sprintf("komrad: review of round %d released: %s. There is nothing to read or answer.", params.Ordinal, said)
 	}
 
