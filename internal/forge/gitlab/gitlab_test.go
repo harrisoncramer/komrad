@@ -347,8 +347,8 @@ func mergeRequestFrom(branch string, iid int, fork bool) string {
 }
 
 // TestReadBranchesPages covers following the cursor across pages, the newest five merge requests
-// of a branch kept with a fork's counted among them, and branches beyond GitLab's filter limit
-// sent in further queries.
+// of a branch kept with a fork's counted among them, a branch left out of the query once it has
+// five, and branches beyond GitLab's filter limit sent in further queries.
 func TestReadBranchesPages(t *testing.T) {
 	t.Parallel()
 
@@ -394,6 +394,23 @@ func TestReadBranchesPages(t *testing.T) {
 			wantSent:  []int{2, 2},
 			wantAfter: []any{nil, "p1"},
 			wantRead:  []int{9, 8, 7, 6, 5, 3},
+		},
+		{
+			name:     "a branch with its five read leaves the query",
+			branches: []string{"busy", "other"},
+			pages: map[string]string{
+				"": listing(true, "p1",
+					mergeRequestFrom("busy", 6, false),
+					mergeRequestFrom("busy", 5, false),
+					mergeRequestFrom("busy", 4, false),
+					mergeRequestFrom("busy", 3, false),
+					mergeRequestFrom("busy", 2, false),
+				),
+				"p1": listing(false, "", mergeRequestFrom("other", 1, false)),
+			},
+			wantSent:  []int{2, 1},
+			wantAfter: []any{nil, "p1"},
+			wantRead:  []int{6, 5, 4, 3, 2, 1},
 		},
 		{
 			name:      "more branches than gitlab filters by at once",

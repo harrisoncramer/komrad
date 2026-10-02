@@ -18,6 +18,7 @@ import (
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
 	"komrad/lib/xhttp"
+	"komrad/lib/xslice"
 )
 
 // defaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
@@ -544,8 +545,8 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) 
 }
 
 // ReadBranches reads the newest merge requests opened from each branch, with their merge readiness,
-// paging through every merge request from the branches at once and keeping only those whose
-// source is the project itself.
+// paging through the merge requests from the branches still short of their newest and keeping only
+// those whose source is the project itself.
 func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	path, err := projectPath(repo.Path)
 	if err != nil {
@@ -557,7 +558,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 	for batch := range slices.Chunk(branches, maxSourceBranches) {
 		read := make(map[string]int, len(batch))
 		after := ""
-		for {
+		for len(batch) > 0 {
 			page, err := f.readBranchesPage(ctx, readBranchesPageParams{path: path, branches: batch, first: first, after: after})
 			if errors.Is(err, errTooComplex) && first > 1 {
 				first /= 2
@@ -585,6 +586,9 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 				break
 			}
 			after = page.MergeRequests.PageInfo.EndCursor
+			batch = xslice.Filter(batch, func(branch string) bool {
+				return read[branch] < mergeRequestsPerBranch
+			})
 		}
 	}
 
