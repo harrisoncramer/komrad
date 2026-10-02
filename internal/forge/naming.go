@@ -1,0 +1,21 @@
+package forge
+
+import "strconv"
+
+// Ref names a pull request the way its forge writes it, such as #12 on GitHub or !12 on GitLab.
+func Ref(kind string, number int) string {
+	if kind == KindGitLab {
+		return "!" + strconv.Itoa(number)
+	}
+
+	return "#" + strconv.Itoa(number)
+}
+
+// Noun is what a forge of the kind calls a pull request.
+func Noun(kind string) string {
+	if kind == KindGitLab {
+		return "merge request"
+	}
+
+	return "pull request"
+}

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"komrad/internal/ui/panel"
@@ -12,19 +11,16 @@ import (
 
 const autoMergeTimeout = 30 * time.Second
 
-var (
-	errAutoMergeDraft = errors.New("its pull request is a draft, so mark it ready first")
-	errNoAutoMerge    = errors.New("the forge will not queue it now: merge it if nothing is left to wait for, or check the repository allows auto-merge")
-)
+var errNoAutoMerge = errors.New("the forge will not queue it now: merge it if nothing is left to wait for, or check the repository allows auto-merge")
 
 // autoMergedMsg is an auto-merge change come back.
 type autoMergedMsg struct {
-	name   string
-	number int32
-	title  string
-	on     bool
-	err    error
-	write  int
+	name  string
+	ref   string
+	title string
+	on    bool
+	err   error
+	write int
 }
 
 // autoMergeLabel is the merge menu entry that turns auto-merge on or off, naming which way it goes.
@@ -47,7 +43,7 @@ func autoMergeRefusal(item panel.AgentRow) error {
 	case item.PullRequest.MergeReadiness.AutoMerge:
 		return nil
 	case isDraft(item):
-		return errAutoMergeDraft
+		return errors.New(itsPullRequest(item.PullRequest, "is a draft, so mark it ready first"))
 	case !item.PullRequest.MergeReadiness.AutoMergeable:
 		return errNoAutoMerge
 	}
@@ -59,7 +55,7 @@ func autoMergeRefusal(item panel.AgentRow) error {
 // pass, or to stop waiting to, or says why it cannot.
 func (m *model) toggleAutoMerge(item panel.AgentRow) tea.Cmd {
 	if err := autoMergeRefusal(item); err != nil {
-		m.report("Could not change auto-merge on the pull request of "+item.Agent.Name, err)
+		m.report("Could not change auto-merge on the "+item.PullRequest.Noun()+" of "+item.Agent.Name, err)
 
 		return nil
 	}
@@ -67,10 +63,10 @@ func (m *model) toggleAutoMerge(item panel.AgentRow) tea.Cmd {
 	clients := m.api
 	standing := item.PullRequest
 	autoMerged := autoMergedMsg{
-		name:   item.Agent.Name,
-		number: standing.Number,
-		title:  standing.Title,
-		on:     !standing.MergeReadiness.AutoMerge,
+		name:  item.Agent.Name,
+		ref:   standing.Ref(),
+		title: standing.Title,
+		on:    !standing.MergeReadiness.AutoMerge,
 	}
 	autoMerged.write = m.beginWrite(autoMergingLabel(autoMerged))
 
@@ -87,17 +83,17 @@ func (m *model) applyAutoMerged(msg autoMergedMsg) tea.Cmd {
 
 	switch {
 	case msg.err != nil:
-		m.report(fmt.Sprintf("Could not change auto-merge on #%d of %s", msg.number, msg.name), msg.err)
+		m.report("Could not change auto-merge on "+msg.ref+" of "+msg.name, msg.err)
 	case msg.on:
 		m.pushMessage(message{
 			kind:    messageInfo,
-			summary: fmt.Sprintf("%s: #%d merges when ready", msg.name, msg.number),
+			summary: msg.name + ": " + msg.ref + " merges when ready",
 			detail:  msg.title,
 		})
 	default:
 		m.pushMessage(message{
 			kind:    messageInfo,
-			summary: fmt.Sprintf("%s: #%d no longer merges on its own", msg.name, msg.number),
+			summary: msg.name + ": " + msg.ref + " no longer merges on its own",
 			detail:  msg.title,
 		})
 	}
@@ -111,8 +107,8 @@ func (m *model) applyAutoMerged(msg autoMergedMsg) tea.Cmd {
 
 func autoMergingLabel(autoMerged autoMergedMsg) string {
 	if autoMerged.on {
-		return fmt.Sprintf("queueing #%d to merge", autoMerged.number)
+		return "queueing " + autoMerged.ref + " to merge"
 	}
 
-	return fmt.Sprintf("cancelling auto-merge on #%d", autoMerged.number)
+	return "cancelling auto-merge on " + autoMerged.ref
 }

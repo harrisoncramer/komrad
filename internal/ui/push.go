@@ -26,9 +26,8 @@ type pushPlan struct {
 	// forced says origin's copy holds commits the branch does not, so the push overwrites it.
 	forced      bool
 	uncommitted int
-	// autoMerge says the forge merges the pull request on its own once its checks and reviews pass,
-	// so what goes up may land.
-	autoMerge bool
+	// pullRequest is the branch's pull request, whose auto-merge may land what goes up.
+	pullRequest panel.PullRequestStanding
 }
 
 func pushOp(item panel.AgentRow) gitOp {
@@ -50,7 +49,7 @@ func pushOp(item panel.AgentRow) gitOp {
 				commits:     int(response.GetCommits()),
 				forced:      response.GetForced(),
 				uncommitted: int(response.GetUncommittedFiles()),
-				autoMerge:   item.PullRequest.MergeReadiness.AutoMerge,
+				pullRequest: item.PullRequest,
 			}
 
 			return pushForm(plan), nil
@@ -116,8 +115,8 @@ func pushDescription(plan pushPlan) string {
 			"overwritten. The push is refused if origin has moved since komrad last read it.")
 	}
 
-	if plan.autoMerge {
-		lines = append(lines, "Auto-merge is on for its pull request, so what goes up merges by itself once its checks and "+
+	if plan.pullRequest.MergeReadiness.AutoMerge {
+		lines = append(lines, "Auto-merge is on for its "+plan.pullRequest.Noun()+", so what goes up merges by itself once its checks and "+
 			"reviews pass.")
 	}
 

@@ -82,6 +82,7 @@ type pullRequest struct {
 func (p pullRequest) row() *pullrequestv1.PullRequest {
 	row := &pullrequestv1.PullRequest{
 		Id:                p.id,
+		Forge:             "github",
 		RepositoryUrl:     repo,
 		HeadRepositoryUrl: p.headRepo,
 		HeadBranch:        p.branch,
@@ -133,6 +134,7 @@ func currentStanding(p pullRequest) *agentv1.PullRequestStanding {
 		Title:          xptr.Ptr(row.GetTitle()),
 		MergeReadiness: row.GetMergeReadiness(),
 		HeadSha:        xptr.Ptr(row.GetHeadSha()),
+		Forge:          xptr.Ptr(row.GetForge()),
 	}
 }
 

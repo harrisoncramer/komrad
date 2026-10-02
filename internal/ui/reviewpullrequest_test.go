@@ -62,6 +62,14 @@ func TestReviewPullRequest(t *testing.T) {
 		assert.Less(t, strings.Index(sidebar, "More context."), strings.Index(sidebar, "greet.go"))
 	})
 
+	t.Run("a merge request is numbered the way GitLab does", func(t *testing.T) {
+		server := newDescribedReviewServer(t, "Why it changed.")
+		server.forge[0].(*pullrequestv1.PullRequest).Forge = "gitlab"
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		assert.Contains(t, readSidebarProse(harness.readFrame()), "!7 fix the greeting")
+	})
+
 	t.Run("a short pane cuts the description and keeps the files", func(t *testing.T) {
 		server := newDescribedReviewServer(t, strings.Repeat("A line of the description.\n", 40))
 		harness := openReviewAt(t, server, panelHarnessParams{height: 24})

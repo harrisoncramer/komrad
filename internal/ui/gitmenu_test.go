@@ -224,6 +224,12 @@ func TestGitMenuRefusals(t *testing.T) {
 			press:       []string{"d"},
 			wantRefusal: "its pull request has already merged",
 		},
+		{
+			name:        "the merge of a merge request that has already merged",
+			rows:        append(buildGitAgent(), onGitLab(newCurrentMergedPullRequest())),
+			press:       []string{"m", "m"},
+			wantRefusal: "its merge request has already merged",
+		},
 	}
 
 	for _, tt := range tests {
@@ -249,6 +255,7 @@ func TestGitMenuMerges(t *testing.T) {
 
 	tests := []struct {
 		name        string
+		forge       string
 		press       []string
 		refuse      error
 		wantMerges  []proto.Message
@@ -260,6 +267,13 @@ func TestGitMenuMerges(t *testing.T) {
 			press:       []string{"m"},
 			wantMerges:  []proto.Message{merge},
 			wantMessage: "api: merged #740",
+		},
+		{
+			name:        "merge names a merge request the way GitLab does",
+			forge:       "gitlab",
+			press:       []string{"m"},
+			wantMerges:  []proto.Message{merge},
+			wantMessage: "api: merged !740",
 		},
 		{
 			name:        "merge and archive archives the agent once the forge has merged",
@@ -285,7 +299,9 @@ func TestGitMenuMerges(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+			pullRequest := newOpenPullRequest()
+			pullRequest.Forge = tt.forge
+			harness := openGitMenu(t, append(buildGitAgent(), pullRequest)...)
 			if tt.refuse != nil {
 				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
 			}
@@ -929,4 +945,10 @@ func newQueueableDraft() *pullrequestv1.PullRequest {
 	draft.Draft = true
 
 	return draft
+}
+
+func onGitLab(pullRequest *pullrequestv1.PullRequest) *pullrequestv1.PullRequest {
+	pullRequest.Forge = "gitlab"
+
+	return pullRequest
 }

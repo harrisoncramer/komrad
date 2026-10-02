@@ -31,17 +31,17 @@ const (
 	heldWorkingNotice     = "paused, but it has started working again"
 	heldUnreadableNotice  = "paused, but its pane cannot be read, so it may be writing"
 	heldPromptedNotice    = "paused, but stopped at a prompt, so a write lands if anybody answers"
-	prFailingNotice       = "its pull request has a failing check"
-	prConflictingNotice   = "its pull request no longer merges cleanly"
-	prChangesNotice       = "its pull request has changes requested"
-	prChecksNotice        = "its pull request has checks running"
-	prApprovedNotice      = "its pull request is approved and ready to merge"
-	prWaitingNotice       = "its pull request is approved but cannot merge yet"
-	prOpenNotice          = "its pull request is open and waiting on a review"
-	prRereviewNotice      = "its pull request is waiting on another review"
-	prDraftNotice         = "its pull request is still a draft"
-	prMergedNotice        = "its pull request is merged"
-	prClosedNotice        = "its pull request was closed without merging"
+	prFailingNotice       = "has a failing check"
+	prConflictingNotice   = "no longer merges cleanly"
+	prChangesNotice       = "has changes requested"
+	prChecksNotice        = "has checks running"
+	prApprovedNotice      = "is approved and ready to merge"
+	prWaitingNotice       = "is approved but cannot merge yet"
+	prOpenNotice          = "is open and waiting on a review"
+	prRereviewNotice      = "is waiting on another review"
+	prDraftNotice         = "is still a draft"
+	prMergedNotice        = "is merged"
+	prClosedNotice        = "was closed without merging"
 )
 
 var (
@@ -82,14 +82,14 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 
 	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), describeFailure(item))
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeAlertSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), itsPullRequest(item.PullRequest, forgeAlertSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeReviewSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), itsPullRequest(item.PullRequest, forgeReviewSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, glyphs, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), itsPullRequest(item.PullRequest, forgeSaid[row.Forge]))
 	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
 	notices = appendCommentsNotice(notices, row.PersonComments, "your comments")
 

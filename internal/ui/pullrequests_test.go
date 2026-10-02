@@ -215,6 +215,21 @@ func TestPullRequestFields(t *testing.T) {
 			},
 			want: []recordField{{label: "pull requests", value: "#711 merged"}},
 		},
+		{
+			name:  "a branch on GitLab names its merge requests the way GitLab does",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+			pullRequests: []panel.PullRequest{
+				{
+					Forge:    "gitlab",
+					Number:   711,
+					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+					OpenedAt: yesterday,
+					MergedAt: &yesterday,
+					ClosedAt: &yesterday,
+				},
+			},
+			want: []recordField{{label: "merge requests", value: "!711 merged"}},
+		},
 	}
 
 	for _, tt := range tests {

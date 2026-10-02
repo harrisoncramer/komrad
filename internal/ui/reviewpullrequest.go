@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"komrad/internal/ui/paint"
@@ -33,7 +32,7 @@ func (r reviewScreen) pullRequestView(m *model, rows int) string {
 
 	width := lineWidthOf(m.paneWidth())
 	var out strings.Builder
-	for _, row := range paint.WrapRows(fmt.Sprintf("#%d %s", pullRequest.Number, pullRequest.Title), width) {
+	for _, row := range paint.WrapRows(pullRequest.Ref()+" "+pullRequest.Title, width) {
 		out.WriteString(paint.Panel.Title(row) + "\n")
 	}
 	if pullRequest.Author != "" {

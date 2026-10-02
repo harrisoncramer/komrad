@@ -2,7 +2,6 @@ package ui
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"komrad/internal/ui/panel"
@@ -22,11 +21,7 @@ const (
 	mergeChoiceMergeRebase
 )
 
-var (
-	errAlreadyMerged     = errors.New("its pull request has already merged")
-	errPullRequestClosed = errors.New("its pull request was closed without merging")
-	errArchiveArchived   = errors.New("an archived agent is already archived")
-)
+var errArchiveArchived = errors.New("an archived agent is already archived")
 
 // mergeMenu is the ways to merge an agent's pull request, opened from the git menu.
 func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
@@ -98,7 +93,7 @@ func (m *model) runMerge(from screen, agentID string, choice mergeChoice) tea.Cm
 
 	archive := choice == mergeChoiceMergeArchive
 	if err := openPullRequestRefusal(item); err != nil {
-		m.report("Could not merge the pull request of "+item.Agent.Name, err)
+		m.report("Could not merge the "+item.PullRequest.Noun()+" of "+item.Agent.Name, err)
 
 		return nil
 	}
@@ -113,7 +108,7 @@ func (m *model) runMerge(from screen, agentID string, choice mergeChoice) tea.Cm
 
 func mergeOp(item panel.AgentRow, archive bool) gitOp {
 	return gitOp{
-		running: fmt.Sprintf("merging #%d", item.PullRequest.Number),
+		running: "merging " + item.PullRequest.Ref(),
 		run: func(clients api) gitReport {
 			err := clients.mergePullRequest(item.PullRequest.URL)
 
@@ -127,14 +122,14 @@ func mergeOp(item panel.AgentRow, archive bool) gitOp {
 func (m *model) reportMerged(item panel.AgentRow, archive bool, err error) tea.Cmd {
 	standing := item.PullRequest
 	if err != nil {
-		m.report(fmt.Sprintf("Could not merge #%d of %s", standing.Number, item.Agent.Name), err)
+		m.report("Could not merge "+standing.Ref()+" of "+item.Agent.Name, err)
 
 		return nil
 	}
 
 	m.pushMessage(message{
 		kind:    messageInfo,
-		summary: fmt.Sprintf("%s: merged #%d", item.Agent.Name, standing.Number),
+		summary: item.Agent.Name + ": merged " + standing.Ref(),
 		detail:  standing.Title,
 	})
 
@@ -150,7 +145,7 @@ func mergeRebaseOp(item panel.AgentRow) gitOp {
 	agentID, name := item.Agent.ID, item.Agent.Name
 
 	return gitOp{
-		running: fmt.Sprintf("merging #%d and rebasing %s", item.PullRequest.Number, name),
+		running: "merging " + item.PullRequest.Ref() + " and rebasing " + name,
 		run: func(clients api) gitReport {
 			if err := clients.mergePullRequest(item.PullRequest.URL); err != nil {
 				return func(m *model) tea.Cmd {

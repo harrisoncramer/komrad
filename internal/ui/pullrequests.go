@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"komrad/internal/ui/panel"
@@ -36,10 +35,10 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 	}
 
 	words := xslice.Map(rest, func(pullRequest panel.PullRequest) string {
-		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest))
+		return pullRequest.Ref() + " " + pullRequestWords(pullRequest)
 	})
 
-	return append(fields, recordField{label: "pull requests", value: strings.Join(words, ", ")})
+	return append(fields, recordField{label: rest[0].Noun() + "s", value: strings.Join(words, ", ")})
 }
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in
@@ -163,4 +162,14 @@ func (m *model) openURLCmd(target string) tea.Cmd {
 
 func (m *model) applyURLOpened(msg urlOpenedMsg) {
 	m.report("Could not open "+msg.target, msg.err)
+}
+
+// itsPullRequest says something of an agent's pull request in its forge's words, and nothing
+// when there is nothing to say.
+func itsPullRequest(standing panel.PullRequestStanding, said string) string {
+	if said == "" {
+		return ""
+	}
+
+	return "its " + standing.Noun() + " " + said
 }
