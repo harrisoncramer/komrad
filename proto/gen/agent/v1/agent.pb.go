@@ -3594,7 +3594,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xefq\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\x8ar\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3611,9 +3611,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
 	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"f\x9a\xb5\x18_\b\x01\x10\x01\x1a\vdelete_mail\"GErase mail for good by id, read or not. One unknown id deletes nothing.(\x01B\x01\x03\x90\x02\x02\x12\x95\x02\n" +
 	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xcb\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0earchive_agents\"\xa6\x01Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Children go with their parent, and a child named alone goes alone.(\x00B\x02\x01\x03\x90\x02\x02\x12\xe6\x01\n" +
-	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\x0erestore_agents\"pBring archived agents back, dormant, along with their workflows. Call resume_agent on each one you want running.(\x00B\x01\x03\x90\x02\x02\x12\xe1\x01\n" +
-	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\x9a\x01\x9a\xb5\x18\x95\x01\b\x01\x10\x01\x1a\n" +
-	"hold_agent\"~Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself.(\x00B\x01\x03\x12\xaf\x01\n" +
+	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\x0erestore_agents\"pBring archived agents back, dormant, along with their workflows. Call resume_agent on each one you want running.(\x00B\x01\x03\x90\x02\x02\x12\xfc\x01\n" +
+	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xb5\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\n" +
+	"hold_agent\"\x98\x01Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.(\x00B\x01\x03\x12\xaf\x01\n" +
 	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00B\x01\x03\x12\xe5\x01\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x98\x01\x9a\xb5\x18\x90\x01\b\x01\x10\x01\x1a\fresume_agent\"wRelaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first.(\x00B\x01\x03\x90\x02\x02\x12\xbf\x01\n" +
 	"\n" +

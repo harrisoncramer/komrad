@@ -870,7 +870,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "hold_agent"
-      description: "Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself."
+      description: "Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

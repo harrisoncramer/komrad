@@ -286,7 +286,7 @@
             "orchestrator"
           ],
           "summary": "Interrupt an agent and hold it still, such as before editing files it works in, until release_agent.",
-          "description": "Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself.",
+          "description": "Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
