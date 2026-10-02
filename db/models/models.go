@@ -667,32 +667,32 @@ type PullRequest struct {
 	ClosedAt  *time.Time
 	// When komrad first inserted the row.
 	FirstSeenAt time.Time
-	// Where the forge says the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null while it has said nothing.
-	ReviewDecision *string
-	// Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none.
-	Checks *string
-	// The head commit the checks were read for.
-	ChecksSha *string
-	// Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks.
-	Mergeability *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
-	// The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. An event compares against this so that a moment without an answer is not taken for a change.
-	LastKnownChecks *string
-	// The mergeability as the forge last reported it when it reported anything, which a blank reading leaves alone.
-	LastKnownMergeability *string
-	// The review decision as the forge last reported it when it reported anything, which a blank reading leaves alone.
-	LastKnownDecision *string
-	// The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too.
-	LastKnownChecksSha *string
-	// The head commit last_known_mergeability was read for. The panel draws the last known mergeability through a blank reading only while this is still the head.
-	LastKnownMergeabilitySha *string
-	// When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly.
+	// When the forge first answered a blank mergeability for latest_head_sha, which bounds how long a blank is read again quickly.
 	MergeabilityBlankSince *time.Time
 	// Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks.
 	AutoMerge *bool
 	// Whether the forge would let komrad's credential turn auto-merge on now, which it will not for a draft, a pull request with nothing left to wait for or a repository that does not allow it.
 	AutoMergeable bool
+	// Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing.
+	LatestDecision *string
+	// Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing or failing, null when it reported none.
+	LatestChecks *string
+	// The head commit the latest standing read was for, null before the first read.
+	LatestHeadSha *string
+	// Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it.
+	LatestMergeability *string
+	// The last checks a read reported, which a blank read leaves alone.
+	KnownChecks *string
+	// The head commit known_checks was read for.
+	KnownChecksSha *string
+	// The last mergeability a read reported, which a blank read leaves alone.
+	KnownMergeability *string
+	// The head commit known_mergeability was read for.
+	KnownMergeabilitySha *string
+	// The last review decision a read reported, which a blank read leaves alone.
+	KnownDecision *string
 }
 
 // A repository the pull request sync has read at least once, which is what turns its pull request state from unread to none when it has no pull requests.

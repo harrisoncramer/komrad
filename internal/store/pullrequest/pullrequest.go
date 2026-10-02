@@ -319,23 +319,23 @@ func fromRow(row *models.PullRequest) PullRequest {
 }
 
 func rememberedStandingOf(row *models.PullRequest) forge.RememberedStanding {
-	wasRead := row.ChecksSha != nil
+	wasRead := row.LatestHeadSha != nil
 	standing := forge.RememberedStanding{
 		Decision: forge.RememberedAnswer[forge.ReviewDecision]{
-			Value:              forge.ReviewDecision(xptr.Deref(row.LastKnownDecision)),
-			WasLatestReadBlank: wasRead && row.ReviewDecision == nil,
+			Value:              forge.ReviewDecision(xptr.Deref(row.KnownDecision)),
+			WasLatestReadBlank: wasRead && row.LatestDecision == nil,
 		},
 		Checks: forge.RememberedAnswer[forge.Checks]{
-			Value:              forge.Checks(xptr.Deref(row.LastKnownChecks)),
-			HeadSHA:            xptr.Deref(row.LastKnownChecksSha),
-			WasLatestReadBlank: wasRead && row.Checks == nil,
+			Value:              forge.Checks(xptr.Deref(row.KnownChecks)),
+			HeadSHA:            xptr.Deref(row.KnownChecksSha),
+			WasLatestReadBlank: wasRead && row.LatestChecks == nil,
 		},
 		Mergeability: forge.RememberedAnswer[forge.Mergeability]{
-			Value:              forge.Mergeability(xptr.Deref(row.LastKnownMergeability)),
-			HeadSHA:            xptr.Deref(row.LastKnownMergeabilitySha),
-			WasLatestReadBlank: wasRead && row.Mergeability == nil,
+			Value:              forge.Mergeability(xptr.Deref(row.KnownMergeability)),
+			HeadSHA:            xptr.Deref(row.KnownMergeabilitySha),
+			WasLatestReadBlank: wasRead && row.LatestMergeability == nil,
 		},
-		LatestReadHeadSHA:      xptr.Deref(row.ChecksSha),
+		LatestReadHeadSHA:      xptr.Deref(row.LatestHeadSha),
 		MergeabilityBlankSince: row.MergeabilityBlankSince,
 	}
 	if row.AutoMerge != nil {
@@ -347,17 +347,17 @@ func rememberedStandingOf(row *models.PullRequest) forge.RememberedStanding {
 
 func toWriteStanding(id string, standing forge.RememberedStanding) models.WriteStandingParams {
 	params := models.WriteStandingParams{
-		ID:                       id,
-		ReviewDecision:           latestReadOf(standing.Decision),
-		Checks:                   latestReadOf(standing.Checks),
-		Mergeability:             latestReadOf(standing.Mergeability),
-		ChecksSha:                &standing.LatestReadHeadSHA,
-		LastKnownChecks:          xptr.NonEmpty(string(standing.Checks.Value)),
-		LastKnownChecksSha:       xptr.NonEmpty(standing.Checks.HeadSHA),
-		LastKnownMergeability:    xptr.NonEmpty(string(standing.Mergeability.Value)),
-		LastKnownMergeabilitySha: xptr.NonEmpty(standing.Mergeability.HeadSHA),
-		MergeabilityBlankSince:   standing.MergeabilityBlankSince,
-		LastKnownDecision:        xptr.NonEmpty(string(standing.Decision.Value)),
+		ID:                     id,
+		LatestDecision:         latestReadOf(standing.Decision),
+		LatestChecks:           latestReadOf(standing.Checks),
+		LatestMergeability:     latestReadOf(standing.Mergeability),
+		LatestHeadSha:          &standing.LatestReadHeadSHA,
+		KnownChecks:            xptr.NonEmpty(string(standing.Checks.Value)),
+		KnownChecksSha:         xptr.NonEmpty(standing.Checks.HeadSHA),
+		KnownMergeability:      xptr.NonEmpty(string(standing.Mergeability.Value)),
+		KnownMergeabilitySha:   xptr.NonEmpty(standing.Mergeability.HeadSHA),
+		MergeabilityBlankSince: standing.MergeabilityBlankSince,
+		KnownDecision:          xptr.NonEmpty(string(standing.Decision.Value)),
 	}
 	if standing.AutoMerge != nil {
 		params.AutoMerge = &standing.AutoMerge.On

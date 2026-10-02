@@ -162,35 +162,35 @@ table "pull_requests" {
     default = sql("now()")
     comment = "When komrad first inserted the row."
   }
-  column "review_decision" {
+  column "latest_decision" {
     null    = true
     type    = text
-    comment = "Where the forge says the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null while it has said nothing."
+    comment = "Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing."
   }
-  column "checks" {
+  column "latest_checks" {
     null    = true
     type    = text
-    comment = "Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none."
+    comment = "Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing or failing, null when it reported none."
   }
-  column "checks_sha" {
+  column "latest_head_sha" {
     null    = true
     type    = text
-    comment = "The head commit the checks were read for."
+    comment = "The head commit the latest standing read was for, null before the first read."
   }
-  column "mergeability" {
+  column "latest_mergeability" {
     null    = true
     type    = text
-    comment = "Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks."
+    comment = "Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it."
   }
-  column "last_known_checks" {
+  column "known_checks" {
     null    = true
     type    = text
-    comment = "The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. An event compares against this so that a moment without an answer is not taken for a change."
+    comment = "The last checks a read reported, which a blank read leaves alone."
   }
-  column "last_known_checks_sha" {
+  column "known_checks_sha" {
     null    = true
     type    = text
-    comment = "The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too."
+    comment = "The head commit known_checks was read for."
   }
   column "auto_merge" {
     null    = true
@@ -203,25 +203,25 @@ table "pull_requests" {
     default = false
     comment = "Whether the forge would let komrad's credential turn auto-merge on now, which it will not for a draft, a pull request with nothing left to wait for or a repository that does not allow it."
   }
-  column "last_known_mergeability" {
+  column "known_mergeability" {
     null    = true
     type    = text
-    comment = "The mergeability as the forge last reported it when it reported anything, which a blank reading leaves alone."
+    comment = "The last mergeability a read reported, which a blank read leaves alone."
   }
-  column "last_known_mergeability_sha" {
+  column "known_mergeability_sha" {
     null    = true
     type    = text
-    comment = "The head commit last_known_mergeability was read for. The panel draws the last known mergeability through a blank reading only while this is still the head."
+    comment = "The head commit known_mergeability was read for."
   }
   column "mergeability_blank_since" {
     null    = true
     type    = timestamptz
-    comment = "When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly."
+    comment = "When the forge first answered a blank mergeability for latest_head_sha, which bounds how long a blank is read again quickly."
   }
-  column "last_known_decision" {
+  column "known_decision" {
     null    = true
     type    = text
-    comment = "The review decision as the forge last reported it when it reported anything, which a blank reading leaves alone."
+    comment = "The last review decision a read reported, which a blank read leaves alone."
   }
   column "engine_id" {
     null    = false
