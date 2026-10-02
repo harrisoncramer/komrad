@@ -78,7 +78,9 @@ func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
 		return m.writeCmd(
 			"archiving "+workflow.Name,
 			fmt.Sprintf("Could not archive workflow %q", workflow.Name),
-			func(a api) error { return pending.noteArchive(a.archiveWorkflow(workflow.ID)) },
+			func(a api) error {
+				return pending.noteArchive(a.archiveWorkflow(workflow.ID))
+			},
 		)
 	})
 }

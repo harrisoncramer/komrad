@@ -76,7 +76,9 @@ func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 		return m.writeCmd(
 			"archiving "+describeAgents(agents),
 			fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-			func(a api) error { return pending.noteArchive(a.archiveAgents(panel.IDs(agents))) },
+			func(a api) error {
+				return pending.noteArchive(a.archiveAgents(panel.IDs(agents)))
+			},
 		)
 	})
 }
