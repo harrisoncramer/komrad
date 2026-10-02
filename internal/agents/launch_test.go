@@ -1717,3 +1717,75 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	assert.Equal(t, "--sandbox read-only --extra", stored.Flags,
 		"the flags configured for the harness it runs, then its own")
 }
+
+func TestLaunchFlags(t *testing.T) {
+	tests := []struct {
+		name   string
+		params launchFlagsParams
+		want   string
+	}{
+		{
+			name: "flags that already carry the defaults are not given them twice",
+			params: launchFlagsParams{
+				harnessID:  "codex",
+				agentFlags: "--dangerously-bypass-approvals-and-sandbox -c 'approval=\"approve\"' --extra",
+			},
+			want: "--dangerously-bypass-approvals-and-sandbox -c 'approval=\"approve\"' --extra",
+		},
+		{
+			name: "workflow flags that already carry the defaults are not given them twice",
+			params: launchFlagsParams{
+				harnessID:       "codex",
+				workflowHarness: "codex",
+				workflowFlags:   "--dangerously-bypass-approvals-and-sandbox -c 'approval=\"approve\"'",
+			},
+			want: "--dangerously-bypass-approvals-and-sandbox -c 'approval=\"approve\"'",
+		},
+		{
+			name: "a flag that only starts like the defaults still gets them",
+			params: launchFlagsParams{
+				harnessID:  harnesstest.FakeID,
+				agentFlags: "--model opusplan",
+			},
+			want: "--model opus --model opusplan",
+		},
+		{
+			name: "workflow flags for another CLI are dropped",
+			params: launchFlagsParams{
+				harnessID:       "codex",
+				workflowHarness: harnesstest.FakeID,
+				workflowFlags:   "--model opus",
+			},
+			want: "--dangerously-bypass-approvals-and-sandbox -c 'approval=\"approve\"'",
+		},
+		{
+			name: "a CLI with no defaults takes its own flags",
+			params: launchFlagsParams{
+				harnessID:  "gemini",
+				agentFlags: "--yolo",
+			},
+			want: "--yolo",
+		},
+		{
+			name: "the defaults go ahead of the agent's own flags",
+			params: launchFlagsParams{
+				harnessID:  "codex",
+				agentFlags: "--extra",
+			},
+			want: "--dangerously-bypass-approvals-and-sandbox -c 'approval=\"approve\"' --extra",
+		},
+	}
+
+	service := &LaunchService{
+		userDefaultFlags: map[string]string{
+			"codex":            "--dangerously-bypass-approvals-and-sandbox -c 'approval=\"approve\"'",
+			harnesstest.FakeID: "--model opus",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, service.launchFlags(tt.params))
+		})
+	}
+}

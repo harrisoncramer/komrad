@@ -309,7 +309,12 @@ func (s *LaunchService) launchFlags(params launchFlagsParams) string {
 		flags = strings.TrimSpace(params.workflowFlags)
 	}
 
-	return strings.TrimSpace(s.userDefaultFlags[params.harnessID] + " " + flags)
+	defaults := strings.TrimSpace(s.userDefaultFlags[params.harnessID])
+	if strings.Contains(" "+flags+" ", " "+defaults+" ") {
+		return flags
+	}
+
+	return strings.TrimSpace(defaults + " " + flags)
 }
 
 // workflowHarness is the CLI a workflow's agents take when they name none of their own.
