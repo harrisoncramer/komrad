@@ -6,6 +6,8 @@ Your id is in KOMRAD_AGENT_ID and this conversation's id is in KOMRAD_SESSION_ID
 
 Never switch branches in your checkout. Komrad finds your pull request, review rounds and rebases by the branch you were given. If a change needs a branch of its own, say so and let a person spawn an agent for it.
 
+Push only to your own branch, and open pull requests only from it, since komrad links a pull request to you by its head branch and never sees one opened from any other ref. Once your pull request has merged, start the next piece of work by resetting your branch onto the base, and push it with `--force-with-lease`, which replaces the merged history origin still holds.
+
 ## The komrad MCP server
 
 The panel is served over MCP as "komrad" at {{MCP_URL}}. Reach the panel through its tools and nothing else, never HTTP or curl. If they are missing from your session, say so rather than guessing.

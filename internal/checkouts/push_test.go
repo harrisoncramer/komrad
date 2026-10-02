@@ -49,7 +49,13 @@ func TestPushRefusals(t *testing.T) {
 			wantErr: ErrPushBase,
 		},
 		{
-			name:    "a branch whose pull request has merged",
+			name:    "a branch whose pull request has merged, still on the commit it merged from",
+			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1", HeadSHA: "merged"}, Own: 1},
+			landed:  true,
+			wantErr: ErrPushFinished,
+		},
+		{
+			name:    "a branch whose pull request has merged, read from a checkout with no commit",
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1"}, Own: 1},
 			landed:  true,
 			wantErr: ErrPushFinished,
@@ -98,7 +104,7 @@ func TestPushRefusals(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seedPushable(t, tt.agent)
 			if tt.landed {
-				fixture.seedPullRequest(t, tt.pusher.State.Branch, xptr.Ptr(time.Now()))
+				fixture.seedMerged(t, tt.pusher.State.Branch)
 			}
 			locks := NewTreeLocks()
 			release, taken := locks.TryLock("/locked")
@@ -120,6 +126,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 		name       string
 		agent      agentstore.Agent
 		pusher     gittest.Mover
+		landed     bool
 		wantPlan   PushPlan
 		wantMailed bool
 	}
@@ -143,6 +150,26 @@ func TestPushSendsTheBranch(t *testing.T) {
 				Commits:     3,
 				Forced:      true,
 				Uncommitted: 2,
+			},
+			wantMailed: true,
+		},
+		{
+			name: "a branch reset onto the base after its pull request merged overwrites origin's copy",
+			pusher: gittest.Mover{
+				State: git.TreeState{Branch: "agent/a1", HeadSHA: "followup"},
+				Own:   1,
+				Remote: git.RemoteStanding{
+					Pushed:   true,
+					Unpushed: 1,
+					Unpulled: 4,
+				},
+				SHA: "abcdef1234567",
+			},
+			landed: true,
+			wantPlan: PushPlan{
+				Branch:  "agent/a1",
+				Commits: 1,
+				Forced:  true,
 			},
 			wantMailed: true,
 		},
@@ -178,6 +205,9 @@ func TestPushSendsTheBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seedPushable(t, tt.agent)
+			if tt.landed {
+				fixture.seedMerged(t, tt.pusher.State.Branch)
+			}
 			service := fixture.newService(NewServiceParams{Git: &tt.pusher})
 
 			plan, err := service.PlanPush(t.Context(), agent.ID)
@@ -242,8 +272,8 @@ func (f *rebaseFixture) seedPushable(t *testing.T, agent agentstore.Agent) *agen
 	return seeded
 }
 
-// seedPullRequest stores a pull request from branch in the test repository.
-func (f *rebaseFixture) seedPullRequest(t *testing.T, branch string, mergedAt *time.Time) {
+// seedMerged stores a pull request from branch in the test repository that merged from the commit named merged.
+func (f *rebaseFixture) seedMerged(t *testing.T, branch string) {
 	t.Helper()
 
 	_, err := f.stores.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
@@ -254,11 +284,12 @@ func (f *rebaseFixture) seedPullRequest(t *testing.T, branch string, mergedAt *t
 		RepositoryURL: pushRepository,
 		Number:        1,
 		HeadBranch:    branch,
+		HeadSHA:       "merged",
 		BaseBranch:    "main",
 		State:         "MERGED",
 		OpenedAt:      time.Now(),
 		ChangedAt:     time.Now(),
-		MergedAt:      mergedAt,
+		MergedAt:      xptr.Ptr(time.Now()),
 	})
 	require.NoError(t, err)
 }

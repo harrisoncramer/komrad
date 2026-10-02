@@ -21,8 +21,8 @@ var (
 	// ErrPushBase says the checkout stands on the branch everything else is measured against.
 	ErrPushBase = fail.Precondition("the worktree is on the workflow's base branch, which komrad never pushes")
 
-	// ErrPushFinished says the branch's pull request has merged or closed.
-	ErrPushFinished = fail.Precondition("the pull request from this branch has merged or closed, so there is nothing left to push it for")
+	// ErrPushFinished says the branch's pull request has merged or closed and the checkout still stands where it ended.
+	ErrPushFinished = fail.Precondition("the pull request from this branch has merged or closed and the checkout holds nothing newer, so there is nothing left to push")
 
 	// ErrPushNothing says the branch holds nothing the base does not.
 	ErrPushNothing = fail.Precondition("the branch holds nothing the base does not, so pushing it would leave its pull request empty")
@@ -129,7 +129,7 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget) (*PushPla
 		return nil, fmt.Errorf("%w: %s", ErrPushBase, state.Branch)
 	}
 
-	if err := s.refuseFinished(ctx, agent, state.Branch); err != nil {
+	if err := s.refuseFinished(ctx, agent, state); err != nil {
 		return nil, err
 	}
 
@@ -187,22 +187,25 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 	}, nil
 }
 
-// refuseFinished turns down a branch whose pull request has merged or closed, which the forge
-// may already have deleted.
-func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, branch string) error {
+// refuseFinished turns down a branch whose pull request has merged or closed while the checkout
+// still stands on the commit it ended on.
+func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, state git.TreeState) error {
 	if agent.RepositoryURL == nil || *agent.RepositoryURL == "" {
 		return nil
 	}
 
 	listed, err := s.pullRequests.ListPage(ctx, pullrequeststore.ListPageParams{
 		RepositoryURL: *agent.RepositoryURL,
-		HeadBranch:    branch,
+		HeadBranch:    state.Branch,
 		Limit:         1,
 	})
 	if err != nil {
 		return err
 	}
 	if len(listed) == 0 || !listed[0].IsFinished() {
+		return nil
+	}
+	if state.HeadSHA != "" && state.HeadSHA != listed[0].HeadSHA {
 		return nil
 	}
 
