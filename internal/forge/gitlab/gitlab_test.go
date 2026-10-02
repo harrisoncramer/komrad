@@ -1,6 +1,7 @@
 package gitlab
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -955,11 +956,12 @@ func TestRateLimitRefusals(t *testing.T) {
 
 // TestMergeabilityFolds covers the detailed merge statuses GitLab documents: one word each for
 // mergeable, checks in the way, behind and conflicting, unknown while GitLab is still working
-// it out, and blocked for every other rule.
+// it out or once the merge request has finished, and blocked for every other rule.
 func TestMergeabilityFolds(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		state  string
 		status string
 		want   forge.Mergeability
 	}{
@@ -980,25 +982,31 @@ func TestMergeabilityFolds(t *testing.T) {
 		{status: "BLOCKED_STATUS", want: forge.MergeabilityBlocked},
 		{status: "POLICIES_DENIED", want: forge.MergeabilityBlocked},
 		{status: "REQUESTED_CHANGES", want: forge.MergeabilityBlocked},
+		{state: "merged", status: "MERGEABLE", want: forge.MergeabilityUnknown},
+		{state: "closed", status: "NOT_OPEN", want: forge.MergeabilityUnknown},
 	}
 	for _, tt := range tests {
-		t.Run("status "+tt.status, func(t *testing.T) {
+		state := cmp.Or(tt.state, "opened")
+		t.Run(state+" status "+tt.status, func(t *testing.T) {
 			t.Parallel()
 
-			node := mergeRequestNode{mergeReadinessNode: mergeReadinessNode{DetailedMergeStatus: tt.status}, State: "opened"}
+			node := mergeRequestNode{mergeReadinessNode: mergeReadinessNode{DetailedMergeStatus: tt.status}, State: state}
 			assert.Equal(t, tt.want, node.mergeability())
 		})
 	}
 }
 
-// TestChecksFolds covers every pipeline status GitLab documents: a cancelled pipeline is a
-// failure, a manual one is still waiting, and a skipped one says nothing about the branch.
+// TestChecksFolds covers every pipeline status GitLab documents and the commit it ran on: a
+// cancelled pipeline is a failure, a skipped or manual one says nothing about the branch, and so
+// does one on another commit, save a merged-results or merge train pipeline built for the head.
 func TestChecksFolds(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		status string
-		want   forge.Checks
+		status    string
+		sha       string
+		eventType string
+		want      forge.Checks
 	}{
 		{status: "SUCCESS", want: forge.ChecksPassing},
 		{status: "FAILED", want: forge.ChecksFailing},
@@ -1013,13 +1021,19 @@ func TestChecksFolds(t *testing.T) {
 		{status: "CANCELING", want: forge.ChecksFailing},
 		{status: "SKIPPED", want: forge.ChecksNone},
 		{status: "MANUAL", want: forge.ChecksNone},
+		{status: "FAILED", eventType: "DETACHED", want: forge.ChecksFailing},
+		{status: "FAILED", sha: "def", want: forge.ChecksNone},
+		{status: "SUCCESS", sha: "def", eventType: "MERGED_RESULT", want: forge.ChecksPassing},
+		{status: "RUNNING", sha: "def", eventType: "MERGE_TRAIN", want: forge.ChecksPending},
 	}
 	for _, tt := range tests {
-		t.Run(tt.status, func(t *testing.T) {
+		sha := cmp.Or(tt.sha, "abc")
+		t.Run(tt.status+" "+tt.eventType+" on "+sha, func(t *testing.T) {
 			t.Parallel()
 
 			var node mergeReadinessNode
-			require.NoError(t, json.Unmarshal([]byte(`{"diffHeadSha":"abc","headPipeline":{"sha":"abc","status":"`+tt.status+`"}}`), &node))
+			body := `{"diffHeadSha":"abc","headPipeline":{"sha":"` + sha + `","status":"` + tt.status + `","mergeRequestEventType":"` + tt.eventType + `"}}`
+			require.NoError(t, json.Unmarshal([]byte(body), &node))
 			assert.Equal(t, tt.want, node.checks())
 		})
 	}
@@ -1027,59 +1041,6 @@ func TestChecksFolds(t *testing.T) {
 	var node mergeReadinessNode
 	require.NoError(t, json.Unmarshal([]byte(`{"headPipeline":null}`), &node))
 	assert.Equal(t, forge.ChecksNone, node.checks())
-}
-
-// TestChecksReadTheHead covers a pipeline on another commit saying nothing, save a merged-results
-// or merge train pipeline, whose sha is the merge ref GitLab built for the head.
-func TestChecksReadTheHead(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		body string
-		want forge.Checks
-	}{
-		{
-			name: "a pipeline on the head",
-			body: `{"diffHeadSha":"abc","headPipeline":{"sha":"abc","status":"FAILED","mergeRequestEventType":"DETACHED"}}`,
-			want: forge.ChecksFailing,
-		},
-		{
-			name: "a pipeline on an older commit",
-			body: `{"diffHeadSha":"abc","headPipeline":{"sha":"def","status":"FAILED","mergeRequestEventType":null}}`,
-			want: forge.ChecksNone,
-		},
-		{
-			name: "a merged-results pipeline",
-			body: `{"diffHeadSha":"abc","headPipeline":{"sha":"def","status":"SUCCESS","mergeRequestEventType":"MERGED_RESULT"}}`,
-			want: forge.ChecksPassing,
-		},
-		{
-			name: "a merge train pipeline",
-			body: `{"diffHeadSha":"abc","headPipeline":{"sha":"def","status":"RUNNING","mergeRequestEventType":"MERGE_TRAIN"}}`,
-			want: forge.ChecksPending,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			var node mergeReadinessNode
-			require.NoError(t, json.Unmarshal([]byte(tt.body), &node))
-			assert.Equal(t, tt.want, node.checks())
-		})
-	}
-}
-
-// TestMergeabilityOnceFinished covers a merged or closed merge request having no mergeability,
-// whatever status GitLab still reports.
-func TestMergeabilityOnceFinished(t *testing.T) {
-	t.Parallel()
-
-	for _, state := range []string{"merged", "closed"} {
-		node := mergeRequestNode{mergeReadinessNode: mergeReadinessNode{DetailedMergeStatus: "NOT_OPEN"}, State: state}
-		assert.Equal(t, forge.MergeabilityUnknown, node.mergeability(), state)
-	}
 }
 
 // TestAutoMergeOnADraft covers a draft never being offered auto-merge, though GitLab offers a
