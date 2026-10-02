@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"strings"
 
@@ -122,7 +123,7 @@ Set it up for each GitLab host with:
 				return nil
 			}
 
-			_, token, err := gitlabToken(cmd.Context(), state, query["host"])
+			_, token, err := gitlabToken(cmd.Context(), state, withoutPort(query["host"]))
 			if isNoGitLabToken(err) {
 				return nil
 			}
@@ -150,6 +151,16 @@ func originHost(ctx context.Context, dir string) string {
 	}
 
 	return remote.Host
+}
+
+// withoutPort is a host git described, less any port it was reached on.
+func withoutPort(host string) string {
+	name, _, err := net.SplitHostPort(host)
+	if err != nil {
+		return host
+	}
+
+	return name
 }
 
 // gitlabToken is the GitLab connection a host has and its token, or errNoGitLabConnection.

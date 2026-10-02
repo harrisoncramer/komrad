@@ -38,6 +38,25 @@ func TestGitLabConnection(t *testing.T) {
 	}
 }
 
+// TestWithoutPort covers the host a git credential query is matched on.
+func TestWithoutPort(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		want string
+	}{
+		{name: "a host alone", host: "gitlab.com", want: "gitlab.com"},
+		{name: "a self-hosted gitlab on a port of its own", host: "git.example.com:8443", want: "git.example.com"},
+		{name: "an ipv6 address on a port", host: "[::1]:8443", want: "::1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, withoutPort(tt.host))
+		})
+	}
+}
+
 // TestGitLabCredentialReply covers the answer git is given, under the username GitLab's docs
 // use for a token.
 func TestGitLabCredentialReply(t *testing.T) {
