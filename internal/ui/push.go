@@ -50,7 +50,7 @@ func pushOp(item panel.AgentRow) gitOp {
 				commits:     int(response.GetCommits()),
 				forced:      response.GetForced(),
 				uncommitted: int(response.GetUncommittedFiles()),
-				autoMerge:   item.PullRequest.AutoMerge,
+				autoMerge:   item.PullRequest.MergeReadiness.AutoMerge,
 			}
 
 			return pushForm(plan), nil

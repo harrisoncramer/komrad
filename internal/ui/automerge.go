@@ -29,7 +29,7 @@ type autoMergedMsg struct {
 
 // autoMergeLabel is the merge menu entry that turns auto-merge on or off, naming which way it goes.
 func autoMergeLabel(item panel.AgentRow) string {
-	if item.PullRequest.AutoMerge {
+	if item.PullRequest.MergeReadiness.AutoMerge {
 		return "cancel auto-merge"
 	}
 
@@ -44,11 +44,11 @@ func autoMergeRefusal(item panel.AgentRow) error {
 	}
 
 	switch {
-	case item.PullRequest.AutoMerge:
+	case item.PullRequest.MergeReadiness.AutoMerge:
 		return nil
 	case isDraft(item):
 		return errAutoMergeDraft
-	case !item.PullRequest.AutoMergeable:
+	case !item.PullRequest.MergeReadiness.AutoMergeable:
 		return errNoAutoMerge
 	}
 
@@ -70,7 +70,7 @@ func (m *model) toggleAutoMerge(item panel.AgentRow) tea.Cmd {
 		name:   item.Agent.Name,
 		number: standing.Number,
 		title:  standing.Title,
-		on:     !standing.AutoMerge,
+		on:     !standing.MergeReadiness.AutoMerge,
 	}
 	autoMerged.write = m.beginWrite(autoMergingLabel(autoMerged))
 

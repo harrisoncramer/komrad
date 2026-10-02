@@ -403,7 +403,7 @@ func isAgentOnIt(item panel.AgentRow) bool {
 
 // isAwaitingChecks reports whether an open pull request has checks still running on its head.
 func isAwaitingChecks(pullRequest panel.PullRequestStanding) bool {
-	return pullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING && isPullRequestOpen(pullRequest.State)
+	return pullRequest.MergeReadiness.Checks == pullrequestv1.Checks_CHECKS_PENDING && isPullRequestOpen(pullRequest.State)
 }
 
 func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {

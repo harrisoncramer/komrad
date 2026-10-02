@@ -4251,44 +4251,14 @@
           "description": "The title of the current pull request, unset for UNREAD and NONE."
         },
         {
-          "name": "checks",
-          "type": "Checks",
-          "ref": "pullrequest.v1.Checks",
+          "name": "merge_readiness",
+          "type": "MergeReadiness",
+          "ref": "pullrequest.v1.MergeReadiness",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the checks on the current pull request's head stand, UNSPECIFIED for UNREAD and NONE."
-        },
-        {
-          "name": "mergeability",
-          "type": "Mergeability",
-          "ref": "pullrequest.v1.Mergeability",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Where the forge says the current pull request stands against its base and rules, UNSPECIFIED for UNREAD and NONE."
-        },
-        {
-          "name": "auto_merge",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether the forge says the current pull request will merge on its own once its checks and reviews pass, false for UNREAD and NONE."
-        },
-        {
-          "name": "auto_mergeable",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether the forge would let komrad turn auto-merge on for the current pull request now, false for UNREAD and NONE."
+          "description": "Whether the forge would merge the current pull request, unset for UNREAD and NONE."
         },
         {
           "name": "head_sha",
@@ -7291,6 +7261,72 @@
         }
       ]
     },
+    "pullrequest.v1.MergeReadiness": {
+      "name": "MergeReadiness",
+      "description": "MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.",
+      "fields": [
+        {
+          "name": "decision",
+          "type": "ReviewDecision",
+          "ref": "pullrequest.v1.ReviewDecision",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the forge says the reviews stand."
+        },
+        {
+          "name": "checks",
+          "type": "Checks",
+          "ref": "pullrequest.v1.Checks",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the checks on the head stand, unspecified when the forge last answered for an older head."
+        },
+        {
+          "name": "mergeability",
+          "type": "Mergeability",
+          "ref": "pullrequest.v1.Mergeability",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the forge says it stands against its base and rules. While the forge is working it out again, this is the last answer it gave for the same head."
+        },
+        {
+          "name": "mergeability_unconfirmed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "True when mergeability is the last answer for this head rather than the latest read."
+        },
+        {
+          "name": "auto_merge",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge says it will merge on its own once its checks and reviews pass."
+        },
+        {
+          "name": "auto_mergeable",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one with nothing left to wait for, or a repository that does not allow it."
+        }
+      ]
+    },
     "pullrequest.v1.PullRequest": {
       "name": "PullRequest",
       "description": "",
@@ -7476,64 +7512,14 @@
           "description": "When it closed, in RFC 3339, unset while it is open; a merged one carries this too."
         },
         {
-          "name": "review_decision",
-          "type": "ReviewDecision",
-          "ref": "pullrequest.v1.ReviewDecision",
+          "name": "merge_readiness",
+          "type": "MergeReadiness",
+          "ref": "pullrequest.v1.MergeReadiness",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the forge says the reviews stand."
-        },
-        {
-          "name": "checks",
-          "type": "Checks",
-          "ref": "pullrequest.v1.Checks",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Where the checks on its head stand."
-        },
-        {
-          "name": "mergeability",
-          "type": "Mergeability",
-          "ref": "pullrequest.v1.Mergeability",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Where the forge says it stands against its base and rules. While the forge is working it out again, this is the last answer it gave for the same head."
-        },
-        {
-          "name": "mergeability_unconfirmed",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "True when mergeability is the last answer for this head rather than the latest read."
-        },
-        {
-          "name": "auto_merge",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether the forge says it will merge on its own once its checks and reviews pass."
-        },
-        {
-          "name": "auto_mergeable",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one with nothing left to wait for, or a repository that does not allow it."
+          "description": "Whether the forge would merge it: its reviews, checks, mergeability and auto-merge."
         }
       ]
     },

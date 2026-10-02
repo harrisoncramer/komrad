@@ -55,8 +55,8 @@ func TestPullRequestDrawsAutoMerge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			drawn := PullRequest(tt.pullRequest)
 
-			assert.Equal(t, tt.wantAutoMerge, drawn.GetAutoMerge())
-			assert.Equal(t, tt.wantAutoMergeable, drawn.GetAutoMergeable())
+			assert.Equal(t, tt.wantAutoMerge, drawn.GetMergeReadiness().GetAutoMerge())
+			assert.Equal(t, tt.wantAutoMergeable, drawn.GetMergeReadiness().GetAutoMergeable())
 		})
 	}
 }

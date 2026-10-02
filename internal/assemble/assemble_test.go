@@ -91,10 +91,12 @@ func (p pullRequest) row() *pullrequestv1.PullRequest {
 		HeadSha:           "sha-" + p.id,
 		OpenedAt:          stamp(-p.openedAgo),
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-		Checks:            pullrequestv1.Checks_CHECKS_PASSING,
-		Mergeability:      pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
-		AutoMerge:         p.autoMerge,
-		AutoMergeable:     !p.autoMerge,
+		MergeReadiness: &pullrequestv1.MergeReadiness{
+			Checks:        pullrequestv1.Checks_CHECKS_PASSING,
+			Mergeability:  pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
+			AutoMerge:     p.autoMerge,
+			AutoMergeable: !p.autoMerge,
+		},
 	}
 	if p.merged {
 		row.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
@@ -125,15 +127,12 @@ func currentStanding(p pullRequest) *agentv1.PullRequestStanding {
 	row := p.row()
 
 	return &agentv1.PullRequestStanding{
-		State:         row.GetState(),
-		Number:        xptr.Ptr(row.GetNumber()),
-		Url:           xptr.Ptr(row.GetUrl()),
-		Title:         xptr.Ptr(row.GetTitle()),
-		Checks:        row.GetChecks(),
-		Mergeability:  row.GetMergeability(),
-		AutoMerge:     row.GetAutoMerge(),
-		AutoMergeable: row.GetAutoMergeable(),
-		HeadSha:       xptr.Ptr(row.GetHeadSha()),
+		State:          row.GetState(),
+		Number:         xptr.Ptr(row.GetNumber()),
+		Url:            xptr.Ptr(row.GetUrl()),
+		Title:          xptr.Ptr(row.GetTitle()),
+		MergeReadiness: row.GetMergeReadiness(),
+		HeadSha:        xptr.Ptr(row.GetHeadSha()),
 	}
 }
 

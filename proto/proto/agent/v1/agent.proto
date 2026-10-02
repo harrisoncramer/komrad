@@ -204,20 +204,14 @@ message PullRequestStanding {
   optional string url = 3;
   // The title of the current pull request, unset for UNREAD and NONE.
   optional string title = 4;
-  // Where the checks on the current pull request's head stand, UNSPECIFIED for UNREAD and NONE.
-  pullrequest.v1.Checks checks = 5;
-  // Where the forge says the current pull request stands against its base and rules,
-  // UNSPECIFIED for UNREAD and NONE.
-  pullrequest.v1.Mergeability mergeability = 6;
-  // Whether the forge says the current pull request will merge on its own once its checks and
-  // reviews pass, false for UNREAD and NONE.
-  bool auto_merge = 7;
-  // Whether the forge would let komrad turn auto-merge on for the current pull request now,
-  // false for UNREAD and NONE.
-  bool auto_mergeable = 8;
+  // Whether the forge would merge the current pull request, unset for UNREAD and NONE.
+  pullrequest.v1.MergeReadiness merge_readiness = 10;
   // The commit the forge holds at the head of the current pull request, unset for UNREAD and
   // NONE.
   optional string head_sha = 9;
+
+  reserved 5 to 8;
+  reserved "checks", "mergeability", "auto_merge", "auto_mergeable";
 }
 
 message ListAgentsRequest {

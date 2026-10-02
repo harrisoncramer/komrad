@@ -61,20 +61,29 @@ message PullRequest {
   optional string merged_at = 17;
   // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
   optional string closed_at = 18;
+  // Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
+  MergeReadiness merge_readiness = 25;
+
+  reserved 19 to 24;
+  reserved "review_decision", "checks", "mergeability", "mergeability_unconfirmed", "auto_merge", "auto_mergeable";
+}
+
+// MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.
+message MergeReadiness {
   // Where the forge says the reviews stand.
-  ReviewDecision review_decision = 19;
-  // Where the checks on its head stand.
-  Checks checks = 20;
+  ReviewDecision decision = 1;
+  // Where the checks on the head stand, unspecified when the forge last answered for an older head.
+  Checks checks = 2;
   // Where the forge says it stands against its base and rules. While the forge is working it
   // out again, this is the last answer it gave for the same head.
-  Mergeability mergeability = 21;
+  Mergeability mergeability = 3;
   // True when mergeability is the last answer for this head rather than the latest read.
-  bool mergeability_unconfirmed = 22;
+  bool mergeability_unconfirmed = 4;
   // Whether the forge says it will merge on its own once its checks and reviews pass.
-  bool auto_merge = 23;
+  bool auto_merge = 5;
   // Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one
   // with nothing left to wait for, or a repository that does not allow it.
-  bool auto_mergeable = 24;
+  bool auto_mergeable = 6;
 }
 
 // Repository is one repository the pull request sync reads.
