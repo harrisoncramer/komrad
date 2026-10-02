@@ -51,6 +51,8 @@ type repositoryPace struct {
 	movedAt time.Time
 	// hotUntil is how long what the forge last answered keeps the repository hot.
 	hotUntil time.Time
+	// failed says the last read failed.
+	failed bool
 }
 
 func newPacing() *pacing {
@@ -104,7 +106,7 @@ func (p *pacing) isDue(next candidate, now time.Time) bool {
 
 // gapFor is how long after its last read a repository is read again.
 func (p *pacing) gapFor(last *repositoryPace, host string, now time.Time) time.Duration {
-	if now.Before(p.slowed[host]) {
+	if last.failed || now.Before(p.slowed[host]) {
 		return coldGap
 	}
 
@@ -123,6 +125,22 @@ func (p *pacing) read(repository candidate, hotUntil time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	last := p.record(repository)
+	last.hotUntil = hotUntil
+	last.failed = false
+}
+
+// fail records a repository whose read failed as read and cold, keeping when it last moved.
+func (p *pacing) fail(repository candidate) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	last := p.record(repository)
+	last.failed = true
+}
+
+// record marks a repository read at the fingerprint it was asked with, noting a move.
+func (p *pacing) record(repository candidate) *repositoryPace {
 	last, ok := p.repositories[repository.repositoryURL]
 	if !ok {
 		last = &repositoryPace{}
@@ -134,15 +152,8 @@ func (p *pacing) read(repository candidate, hotUntil time.Time) {
 
 	last.readAt = repository.askedAt
 	last.fingerprint = repository.fingerprint
-	last.hotUntil = hotUntil
-}
 
-// fail records a repository whose read failed as read and cold.
-func (p *pacing) fail(repository candidate) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.repositories[repository.repositoryURL] = &repositoryPace{readAt: repository.askedAt, fingerprint: repository.fingerprint}
+	return last
 }
 
 // heat keeps every repository on the host hot for a while from now.

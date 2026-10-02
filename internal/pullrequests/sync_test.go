@@ -675,7 +675,8 @@ func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
 }
 
 // TestSyncRetriesAFailedReadOnceAMinute covers a read the forge refuses: the repository waits out the
-// slow lane before it is asked again, even when its branches had just moved.
+// slow lane before it is asked again, even when its branches had just moved, and is hot from that
+// move once a read succeeds.
 func TestSyncRetriesAFailedReadOnceAMinute(t *testing.T) {
 	f := newSyncFixture(t)
 	agentID := f.agentOn(t, "a", "agent/x")
@@ -694,8 +695,12 @@ func TestSyncRetriesAFailedReadOnceAMinute(t *testing.T) {
 	f.pass(t, syncNow.Add(time.Minute+5*time.Second))
 	assert.Empty(t, f.forge.requests)
 
+	f.forge.refuse = nil
 	f.pass(t, syncNow.Add(2*time.Minute))
 	assert.Len(t, f.forge.requests, 1)
+
+	f.pass(t, syncNow.Add(2*time.Minute+5*time.Second))
+	assert.Len(t, f.forge.requests, 1, "the move the failed read saw keeps the repository hot")
 }
 
 // TestSyncSaysARenamedRepositoryOnce covers a read answered under another name: the rows are
