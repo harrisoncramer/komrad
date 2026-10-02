@@ -184,6 +184,7 @@ func TestScratch(t *testing.T) {
 		harness.press("j", "space", "s")
 
 		harness.press("space", "c", "h", "i", "enter")
+		harness.watch(buildPuts(newCreatedAgent()))
 		harness.press("space")
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())

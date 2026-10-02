@@ -325,7 +325,8 @@ type writeTracker struct {
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
-	landing  landing
+	// parked is the answered writes held until the panel shows what they did, by their count.
+	parked map[int]parkedWrite
 }
 
 type terminalState struct {

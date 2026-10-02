@@ -370,8 +370,6 @@ func (m *model) rebuildForm() tea.Cmd {
 // detachForm gives the keyboard back while the write the form was held for runs on, and
 // remembers which write that was.
 func (m *model) detachForm() tea.Cmd {
-	m.warm.closesForm = false
-
 	if m.writes.held.write != 0 {
 		if m.writes.detached == nil {
 			m.writes.detached = map[int]struct{}{}
@@ -422,6 +420,10 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 
 	switch m.form.form.State {
 	case huh.StateCompleted:
+		if m.writes.held.active {
+			return cmd
+		}
+
 		return m.answerForm()
 	case huh.StateAborted:
 		return m.closeForm()

@@ -3,8 +3,6 @@ package ui
 import (
 	"time"
 
-	"komrad/internal/ui/layout"
-
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -22,22 +20,11 @@ func warmupTick() tea.Cmd {
 }
 
 // warmupState is what the panel knows about panes whose harness may not have started yet: the
-// ones it has confirmed, the ones it is still waiting on, and the pane a create is holding the
-// stage for.
+// ones it has confirmed and the ones it is still waiting on.
 type warmupState struct {
-	ready          map[string]bool
-	since          map[string]time.Time
-	polling        bool
-	pending        string
-	pendingAgent   string
-	pendingHarness string
-	// closesForm says the create's own form is still up behind the wait, so the reveal takes it
-	// down in the same change.
-	closesForm bool
-	// pendingFocus says the reveal hands the pane the keyboard.
-	pendingFocus bool
-	// pendingWrite is the write kept in flight until the reveal.
-	pendingWrite int
+	ready   map[string]bool
+	since   map[string]time.Time
+	polling bool
 }
 
 func newWarmupState() warmupState {
@@ -121,38 +108,14 @@ func (w *warmupState) markWarm(pane string) {
 	delete(w.since, pane)
 }
 
-// holdReveal remembers the pane a write wants shown once its harness is up, keeping the write in flight until it is.
-func (m *model) holdReveal(guest layout.Guest, harnessID string, focus bool, write int) {
-	m.landWrite(m.warm.pendingWrite)
-
-	m.warm.pending = guest.Pane
-	m.warm.pendingAgent = guest.Agent
-	m.warm.pendingHarness = harnessID
-	m.warm.pendingFocus = focus
-	m.warm.pendingWrite = write
-}
-
-// applyWarmupTick shows the pane a write is holding the stage for once it is warm, and otherwise
-// stages the selection again so a cursor sitting on a pane that has just come up catches it.
+// applyWarmupTick stages the selection again so a cursor sitting on a pane that has just come up
+// catches it, and finishes the parked writes that have settled.
 func (m *model) applyWarmupTick() tea.Cmd {
 	m.warm.polling = false
 
-	if pane := m.warm.pending; pane != "" {
-		if !m.isPaneWarm(pane, m.warm.pendingHarness) {
-			return nil
-		}
-
-		guest := layout.Guest{Agent: m.warm.pendingAgent, Pane: pane}
-		focus := m.warm.pendingFocus
-		m.landWrite(m.warm.pendingWrite)
-		m.warm.pending, m.warm.pendingAgent, m.warm.pendingHarness, m.warm.pendingFocus, m.warm.pendingWrite = "", "", "", false, 0
-
-		return m.revealCreated(guest, focus)
-	}
-
 	selected, _ := m.selectedAgentPane()
 	for pane := range m.warm.since {
-		if pane != selected {
+		if pane != selected && !m.isPaneAwaited(pane) {
 			delete(m.warm.since, pane)
 		}
 	}
@@ -161,7 +124,7 @@ func (m *model) applyWarmupTick() tea.Cmd {
 		m.stageSelection()
 	}
 
-	return nil
+	return m.finishParked()
 }
 
 // selectedAgentPane is the pane of the row the cursor is standing on, empty when that row has
@@ -179,38 +142,13 @@ func (m *model) selectedAgentPane() (pane, harnessID string) {
 	return item.Agent.Pane, item.Agent.Harness
 }
 
-// revealCreated gives an agent its pane and takes down the form that made it in one
-// change, so the panel is never drawn across the whole window between the two.
-func (m *model) revealCreated(guest layout.Guest, focus bool) tea.Cmd {
-	m.frame.Begin()
-
-	var cmd tea.Cmd
-	if m.warm.closesForm {
-		m.warm.closesForm = false
-		m.writes.held = heldWrite{}
-
-		cmd = m.closeForm()
-	}
-
-	m.dropScratch()
-	m.frame.Solo(false)
-	m.frame.ShowGuest(guest)
-	m.frame.Flush()
-
-	if focus && m.frame.GuestPane() == guest.Pane {
-		m.tmux.SelectPane(guest.Pane)
-	}
-
-	return cmd
-}
-
-// poll keeps a tick going while a pane is still being waited on.
-func (w *warmupState) poll() tea.Cmd {
-	if w.polling || (len(w.since) == 0 && w.pending == "") {
+// pollWarmup keeps a tick going while a pane is still being waited on or a write is parked.
+func (m *model) pollWarmup() tea.Cmd {
+	if m.warm.polling || (len(m.warm.since) == 0 && len(m.writes.parked) == 0) {
 		return nil
 	}
 
-	w.polling = true
+	m.warm.polling = true
 
 	return warmupTick()
 }

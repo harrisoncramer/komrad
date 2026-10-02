@@ -46,7 +46,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.settleTriage()
 	blink := m.updateRowCursor(msg)
-	warming := m.warm.poll()
+	warming := m.pollWarmup()
 	spinning := m.spinLoader()
 	pulse := m.pulseMessages(landed)
 	m.releaseHiddenDetails()
@@ -73,7 +73,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 
 	key, isKey := msg.(tea.KeyPressMsg)
 	if isKey {
-		m.writes.landing = landing{}
+		m.releaseCursor()
 	}
 
 	if m.fatal() != nil {
@@ -402,6 +402,10 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applyWarmupTick(), true
 	case stageTickMsg:
 		return m.applyStageTick(msg), true
+	case focusGuestMsg:
+		m.selectGuest(msg.pane)
+
+		return nil, true
 	case lastScreenMsg:
 		m.applyLastScreen(msg)
 

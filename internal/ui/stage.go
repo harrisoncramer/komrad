@@ -25,6 +25,7 @@ func (m *model) unstageAhead(agents []panel.Agent) *unstaged {
 	}
 
 	staged := m.frame.GuestPane()
+	m.frame.Begin()
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
 		if agent.Pane != "" {
@@ -35,11 +36,13 @@ func (m *model) unstageAhead(agents []panel.Agent) *unstaged {
 	if staged != "" && m.frame.GuestPane() == "" {
 		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
+	m.frame.Flush()
 
 	return &unstaged{agents: agents}
 }
 
-// attach hands the write's result the panes taken off the stage for it.
+// attach hands the write's result the panes taken off the stage for it, and has it wait for
+// their rows to leave the list once the archive lands.
 func (u *unstaged) attach(cmd tea.Cmd) tea.Cmd {
 	return func() tea.Msg {
 		msg := cmd()
@@ -50,6 +53,12 @@ func (u *unstaged) attach(cmd tea.Cmd) tea.Cmd {
 		}
 
 		result.unstaged = u
+		if u.archived {
+			if result.awaits == nil {
+				result.awaits = &awaits{}
+			}
+			result.awaits.gone = append(result.awaits.gone, rowsIn(listAgents, panel.IDs(u.agents)...)...)
+		}
 
 		return result
 	}
@@ -170,7 +179,7 @@ func (m *model) sizeAgentWindows() {
 
 // stageSelection puts the pane of whatever the agents cursor is standing on beside the list.
 func (m *model) stageSelection() {
-	if m.isScratchOpen() || m.agents.isEditorOpen() || m.isLandingHeld(time.Now()) {
+	if m.isScratchOpen() || m.agents.isEditorOpen() {
 		return
 	}
 

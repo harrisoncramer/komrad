@@ -177,9 +177,10 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 				return nil
 			}
 
-			return m.writeCmd(
+			return m.awaitingWriteCmd(
 				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
+				&awaits{gone: rowsIn(listArchivedSchedules, schedule.ID)},
 				func(c api) error { return c.deleteSchedule(schedule.ID) },
 			)
 		}),
@@ -310,9 +311,10 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	return m.writeCmd(
+	return m.awaitingWriteCmd(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
+		&awaits{shown: rowsIn(listAgents, panel.IDs(agents)...)},
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
 	)
 }
@@ -334,9 +336,10 @@ func confirmDeleteArchived(m *model, agents []panel.Agent) tea.Cmd {
 				return nil
 			}
 
-			return m.writeCmd(
+			return m.awaitingWriteCmd(
 				"deleting "+describeAgents(agents),
 				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
+				&awaits{gone: rowsIn(listArchivedAgents, panel.IDs(agents)...)},
 				func(a api) error { return a.deleteAgents(panel.IDs(agents)) },
 			)
 		}),
@@ -356,9 +359,10 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 				return nil
 			}
 
-			return m.writeCmd(
+			return m.awaitingWriteCmd(
 				"deleting "+workflow.Name,
 				fmt.Sprintf("Could not delete workflow %q", workflow.Name),
+				&awaits{gone: rowsIn(listArchivedWorkflows, workflow.ID)},
 				func(a api) error { return a.deleteWorkflow(workflow.ID) },
 			)
 		}),

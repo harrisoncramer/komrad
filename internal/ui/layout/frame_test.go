@@ -490,11 +490,15 @@ type recordingTmux struct {
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
 	zooms         []bool
+	// moveCalls is how many times the frame sent tmux a change.
+	moveCalls int
 }
 
 // MovePanes replays a change's pane moves onto the fake, so a test asserting on swaps and
 // zooms sees what the frame asked for whether or not they were collected first.
 func (t *recordingTmux) MovePanes(moves []panes.Move) {
+	t.moveCalls++
+
 	for _, move := range moves {
 		switch move.Kind {
 		case panes.KindZoom:
@@ -989,6 +993,47 @@ func TestRemoteGuestAttachesOverTheAPI(t *testing.T) {
 			frame.ShowGuest(tt.guest)
 
 			assert.Equal(t, tt.want, tmux.respawns)
+		})
+	}
+}
+
+// TestFrameBegin covers the pane moves made between a Begin and its Flush going to tmux as one change.
+func TestFrameBegin(t *testing.T) {
+	tests := []struct {
+		name     string
+		begins   int
+		wantSent []int
+	}{
+		{
+			name:     "a flush sends every move since its begin at once",
+			begins:   1,
+			wantSent: []int{1},
+		},
+		{
+			name:     "a nested flush leaves the moves to the outer one",
+			begins:   2,
+			wantSent: []int{0, 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{}
+			frame := New(tmux, config.DefaultLayout())
+			frame.Attach("%0")
+			frame.Open(RegionStage)
+			before := tmux.moveCalls
+
+			for range tt.begins {
+				frame.Begin()
+			}
+			frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+			frame.ReleaseGuest("%9")
+
+			for _, want := range tt.wantSent {
+				frame.Flush()
+				assert.Equal(t, want, tmux.moveCalls-before)
+			}
 		})
 	}
 }
