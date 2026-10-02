@@ -1,6 +1,7 @@
 package checkouts
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -51,6 +52,16 @@ func TestPushRefusals(t *testing.T) {
 		{
 			name:    "a branch whose pull request has merged, still on the commit it merged from",
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1", HeadSHA: "merged"}, Own: 1},
+			landed:  true,
+			wantErr: ErrPushFinished,
+		},
+		{
+			name: "a branch whose pull request has merged, with new work on top of the merged commits",
+			pusher: gittest.Mover{
+				State: git.TreeState{Branch: "agent/a1", HeadSHA: "followup"},
+				Own:   1,
+				Holds: []string{"merged"},
+			},
 			landed:  true,
 			wantErr: ErrPushFinished,
 		},
@@ -218,6 +229,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, "abcdef1234567", result.SHA)
+			assert.Equal(t, tt.landed, slices.Contains(tt.pusher.Calls, "refresh"), "origin's copy is read afresh only once its pull request has finished")
 			assert.Equal(t, []git.PushParams{{
 				Dir:    "/tree",
 				Branch: tt.wantPlan.Branch,

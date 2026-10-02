@@ -70,6 +70,8 @@ type branchMover interface {
 	Rebase(ctx context.Context, dir, ref string) error
 	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
 	CountAgainstRemote(ctx context.Context, dir, branch string) (*git.RemoteStanding, error)
+	RefreshRemoteBranch(ctx context.Context, dir, branch string) error
+	HoldsCommit(ctx context.Context, dir, sha string) (bool, error)
 	ResolveBase(ctx context.Context, dir, base string) (string, error)
 	CountAheadBehind(ctx context.Context, dir, ref string) (ahead, behind int, err error)
 	PeekChanges(ctx context.Context, dir string) (git.Changes, error)

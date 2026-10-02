@@ -2,6 +2,7 @@ package gittest
 
 import (
 	"context"
+	"slices"
 
 	"komrad/internal/git"
 )
@@ -33,6 +34,8 @@ type Mover struct {
 	Calls []string
 	// BeforeReadTree runs ahead of every read of the tree.
 	BeforeReadTree func()
+	// Holds is every commit HEAD's history holds.
+	Holds []string
 }
 
 // ReadTreeState answers State.
@@ -136,4 +139,16 @@ func (f *Mover) AbortSequence(_ context.Context, _ string, sequence git.Sequence
 	f.Sequence = git.SequenceNone
 
 	return nil
+}
+
+// RefreshRemoteBranch records the refresh.
+func (f *Mover) RefreshRemoteBranch(context.Context, string, string) error {
+	f.Calls = append(f.Calls, "refresh")
+
+	return nil
+}
+
+// HoldsCommit answers whether Holds names sha.
+func (f *Mover) HoldsCommit(_ context.Context, _, sha string) (bool, error) {
+	return slices.Contains(f.Holds, sha), nil
 }

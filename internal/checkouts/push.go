@@ -187,8 +187,8 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 	}, nil
 }
 
-// refuseFinished turns down a branch whose pull request has merged or closed while the checkout
-// still stands on the commit it ended on.
+// refuseFinished turns down a branch whose pull request has merged or closed until the checkout
+// moves past where it ended, then reads origin's copy afresh for the count.
 func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, state git.TreeState) error {
 	if agent.RepositoryURL == nil || *agent.RepositoryURL == "" {
 		return nil
@@ -205,16 +205,26 @@ func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, st
 	if len(listed) == 0 || !listed[0].IsFinished() {
 		return nil
 	}
-	if state.HeadSHA != "" && state.HeadSHA != listed[0].HeadSHA {
-		return nil
+	pr := listed[0]
+	if state.HeadSHA == "" || state.HeadSHA == pr.HeadSHA {
+		return fmt.Errorf("%w: %s", ErrPushFinished, pr.URL)
+	}
+	if pr.MergedAt != nil && pr.HeadSHA != "" {
+		held, err := s.git.HoldsCommit(ctx, agent.Cwd, pr.HeadSHA)
+		if err != nil {
+			return err
+		}
+		if held {
+			return fmt.Errorf("%w: %s", ErrPushFinished, pr.URL)
+		}
 	}
 
-	return fmt.Errorf("%w: %s", ErrPushFinished, listed[0].URL)
+	return s.git.RefreshRemoteBranch(ctx, agent.Cwd, state.Branch)
 }
 
 // pushedMail is what an agent is told once its branch on origin was overwritten from the panel.
 func pushedMail(pushed Pushed) string {
-	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, after a rebase rewrote it. "+
+	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, replacing the copy origin held. "+
 		"Origin's copy now matches your checkout at %s.\n\n"+
 		"Carry on from here and push as you normally would. Do not pull or reset to the copy origin held before.",
 		pushed.Branch, git.ShortSHA(pushed.SHA))
