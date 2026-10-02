@@ -645,7 +645,6 @@ func TestParseRemoteURL(t *testing.T) {
 	}
 }
 
-// TestClientParseRemoteURL covers which remotes have their SSH host swapped for the web host it stands in for.
 func TestClientParseRemoteURL(t *testing.T) {
 	t.Parallel()
 
