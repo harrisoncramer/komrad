@@ -528,7 +528,7 @@ func TestWorktreesRecord(t *testing.T) {
 		harness := openReadWorktree(t)
 		harness.press(append([]string{"pick:record", "/", "m", "a", "i", "n", "enter"}, widenListPresses...)...)
 
-		line := findRawLine(harness.readRawFrame(), recordBaseLine)
+		line := findRawLine(harness.readRawFrame(), regexp.MustCompile(`base\s+origin/main`))
 		assert.Contains(t, line, paint.Panel.Match().Render("main"))
 		assert.NotContains(t, line, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
 	})
