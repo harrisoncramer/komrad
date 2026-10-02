@@ -35,10 +35,26 @@ func TestReleaseForgeReviews(t *testing.T) {
 		review   *Review
 		released bool
 	}{
-		{name: "a held forge review is released", review: held, released: true},
-		{name: "a forge review already sent stays as it was", review: sent, released: true},
-		{name: "another agent's held forge review stays held", review: elsewhere, released: false},
-		{name: "the person's open review stays open", review: person, released: false},
+		{
+			name:     "another agent's held forge review stays held",
+			review:   elsewhere,
+			released: false,
+		},
+		{
+			name:     "the person's open review stays open",
+			review:   person,
+			released: false,
+		},
+		{
+			name:     "a held forge review is released",
+			review:   held,
+			released: true,
+		},
+		{
+			name:     "a forge review already sent stays as it was",
+			review:   sent,
+			released: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := st.GetReview(ctx, tt.review.ID)
@@ -88,19 +104,6 @@ func TestListForgeMirrorTargets(t *testing.T) {
 		check func(t *testing.T, targets []ForgeMirrorTarget, agentID string)
 	}{
 		{
-			name: "an agent on the pull request is mirrored onto at its newest round",
-			seed: func(t *testing.T, st *fixture, agentID string) {
-				st.openRound(t, agentID, "tree-one")
-				st.openRound(t, agentID, "tree-two")
-			},
-			check: func(t *testing.T, targets []ForgeMirrorTarget, agentID string) {
-				require.Len(t, targets, 1)
-				assert.Equal(t, agentID, targets[0].AgentID)
-				assert.Equal(t, "snapshot-tree-two", targets[0].SnapshotSHA)
-				assert.Equal(t, "base-tree-two", targets[0].BaseSHA)
-			},
-		},
-		{
 			name: "an agent with no round has nothing to mirror onto",
 			seed: func(*testing.T, *fixture, string) {},
 			check: func(t *testing.T, targets []ForgeMirrorTarget, _ string) {
@@ -116,6 +119,19 @@ func TestListForgeMirrorTargets(t *testing.T) {
 			},
 			check: func(t *testing.T, targets []ForgeMirrorTarget, _ string) {
 				assert.Empty(t, targets)
+			},
+		},
+		{
+			name: "an agent on the pull request is mirrored onto at its newest round",
+			seed: func(t *testing.T, st *fixture, agentID string) {
+				st.openRound(t, agentID, "tree-one")
+				st.openRound(t, agentID, "tree-two")
+			},
+			check: func(t *testing.T, targets []ForgeMirrorTarget, agentID string) {
+				require.Len(t, targets, 1)
+				assert.Equal(t, agentID, targets[0].AgentID)
+				assert.Equal(t, "snapshot-tree-two", targets[0].SnapshotSHA)
+				assert.Equal(t, "base-tree-two", targets[0].BaseSHA)
 			},
 		},
 	}

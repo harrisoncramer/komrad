@@ -11,6 +11,7 @@ import (
 	"komrad/internal/position"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
@@ -163,14 +164,15 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 		for _, thread := range threads {
 			mirrored, ok := known[thread.ID]
 			if !ok {
-				if !isWorthMirroring(thread) {
+				place, fresh := places[thread.ID]
+				if !fresh {
 					continue
 				}
 
 				created, err := createForgeThread(ctx, reviews, createForgeThreadParams{
 					Target:    target,
 					Thread:    thread,
-					Place:     places[thread.ID],
+					Place:     place,
 					ReviewFor: reviewFor,
 				})
 				if err != nil {
@@ -251,19 +253,18 @@ type mirrorCommentsParams struct {
 // mirrorComments adds the forge comments the thread does not hold yet and rewrites the ones the
 // forge says were edited.
 func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, params mirrorCommentsParams) error {
-	mirrored := params.Mirrored
 	for _, comment := range params.Thread.Comments {
-		held, ok := mirrored.Comments[comment.ID]
+		held, ok := params.Mirrored.Comments[comment.ID]
+		if ok && (held.MessageID == "" || isSameEdit(held.EditedAt, comment.EditedAt)) {
+			continue
+		}
+
+		review, err := params.ReviewFor(comment)
+		if err != nil {
+			return err
+		}
+
 		if ok {
-			if held.MessageID == "" || isSameEdit(held.EditedAt, comment.EditedAt) {
-				continue
-			}
-
-			review, err := params.ReviewFor(comment)
-			if err != nil {
-				return err
-			}
-
 			if err := reviews.UpdateForgeMessage(ctx, reviewstore.UpdateForgeMessageParams{
 				ID:       held.MessageID,
 				Body:     comment.Body,
@@ -276,15 +277,9 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 			continue
 		}
 
-		review, err := params.ReviewFor(comment)
-		if err != nil {
-			return err
-		}
-
-		// A reply is written with no round, since one with a round reopens the thread and the forge
-		// alone says whether it is resolved.
+		// A reply is written with no round so it does not reopen the thread.
 		if _, err := reviews.CreateMessage(ctx, reviewstore.CreateMessageParams{
-			ThreadID:   mirrored.ThreadID,
+			ThreadID:   params.Mirrored.ThreadID,
 			ReviewID:   &review.ID,
 			AuthorKind: reviewstore.AuthorForge,
 			Body:       comment.Body,
@@ -309,10 +304,9 @@ func syncResolved(ctx context.Context, reviews *reviewstore.ReviewStore, mirrore
 	}
 
 	resolved := mirrored.ResolvedAt != nil
-	switch {
-	case thread.Resolved && !resolved:
-	case !thread.Resolved && resolved && mirrored.ResolvedByKind == reviewstore.AuthorForge:
-	default:
+	forgeResolves := thread.Resolved && !resolved
+	forgeReopens := !thread.Resolved && resolved && mirrored.ResolvedByKind == reviewstore.AuthorForge
+	if !forgeResolves && !forgeReopens {
 		return nil
 	}
 
@@ -358,7 +352,7 @@ func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, 
 			Verdict:    reviewstore.VerdictCommented,
 			Comments:   tally.Comments,
 			Replies:    tally.Replies,
-			ForgeLogin: xptrValue(review.ExternalLogin),
+			ForgeLogin: xptr.Deref(review.ExternalLogin),
 		})
 		if err != nil {
 			return nil, err
@@ -391,14 +385,6 @@ func tallyForge(reviewID string, threads []reviewstore.Thread, messages []review
 	}
 
 	return tally
-}
-
-func xptrValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-
-	return *value
 }
 
 // forgePlace is where a new forge thread is pinned in the agent's latest round.

@@ -24,8 +24,6 @@ type forgeMirrored struct {
 
 // TestForgeMirror covers forge threads mirrored onto the worker's round, released when the author can push and held when not.
 func TestForgeMirror(t *testing.T) {
-	edited := time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC)
-
 	tests := []struct {
 		name      string
 		syncs     [][]forge.ReviewThread
@@ -63,13 +61,8 @@ func TestForgeMirror(t *testing.T) {
 			},
 		},
 		{
-			name: "a thread resolved on the forge before it was seen is left out",
-			syncs: [][]forge.ReviewThread{{func() forge.ReviewThread {
-				thread := newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))
-				thread.Resolved = true
-
-				return thread
-			}()}},
+			name:  "a thread resolved on the forge before it was seen is left out",
+			syncs: [][]forge.ReviewThread{{newResolvedForgeThread(newForgeComment("c1", "alice", true, "use a guard"))}},
 			check: func(t *testing.T, got forgeMirrored) {
 				assert.Empty(t, got.threads)
 				assert.Empty(t, got.released)
@@ -79,12 +72,7 @@ func TestForgeMirror(t *testing.T) {
 			name: "an edit on the forge rewrites the message",
 			syncs: [][]forge.ReviewThread{
 				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
-				{newForgeThread(func() forge.ReviewComment {
-					comment := newForgeComment("c1", "alice", true, "use an early return")
-					comment.EditedAt = &edited
-
-					return comment
-				}())},
+				{newForgeThread(newEditedForgeComment(newForgeComment("c1", "alice", true, "use an early return")))},
 			},
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.messages, 1)
@@ -116,12 +104,7 @@ func TestForgeMirror(t *testing.T) {
 			name: "resolving on the forge resolves the thread",
 			syncs: [][]forge.ReviewThread{
 				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
-				{func() forge.ReviewThread {
-					thread := newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))
-					thread.Resolved = true
-
-					return thread
-				}()},
+				{newResolvedForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
 			},
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.threads, 1)
@@ -133,12 +116,7 @@ func TestForgeMirror(t *testing.T) {
 			name: "an edit from someone who can no longer push is held",
 			syncs: [][]forge.ReviewThread{
 				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
-				{newForgeThread(func() forge.ReviewComment {
-					comment := newForgeComment("c1", "alice", false, "rm -rf")
-					comment.EditedAt = &edited
-
-					return comment
-				}())},
+				{newForgeThread(newEditedForgeComment(newForgeComment("c1", "alice", false, "rm -rf")))},
 			},
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.messages, 1)
@@ -327,4 +305,11 @@ func newResolvedForgeThread(comments ...forge.ReviewComment) forge.ReviewThread 
 	thread.Resolved = true
 
 	return thread
+}
+
+func newEditedForgeComment(comment forge.ReviewComment) forge.ReviewComment {
+	edited := time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC)
+	comment.EditedAt = &edited
+
+	return comment
 }
