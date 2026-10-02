@@ -189,7 +189,7 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 				err:         tt.err,
 			}
 
-			err := tt.call(t.Context(), forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemotes{})})
+			err := tt.call(t.Context(), forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})})
 			require.Error(t, err)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 		})
@@ -202,7 +202,7 @@ func TestConnectForge(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		held:        true,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemotes{})}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
 
 	resp, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{
 		Host:  "github.com",
@@ -220,7 +220,7 @@ func TestConnectForge(t *testing.T) {
 // TestDisconnectForge pins that the host asked for reaches the service.
 func TestDisconnectForge(t *testing.T) {
 	connector := &fakeConnector{}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemotes{})}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
 
 	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
 	require.NoError(t, err)
@@ -263,7 +263,7 @@ func TestCheckForges(t *testing.T) {
 				connections: []forgestore.Connection{newConnection()},
 				checked:     tt.checked,
 			}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemotes{})}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
 
 			resp, err := service.CheckForges(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -291,12 +291,12 @@ func newConnection() forgestore.Connection {
 	}
 }
 
-// fakeRemotes parses a remote as git does, answering host in place of the remote's own when one is set.
-type fakeRemotes struct {
+// fakeRemoteURLParser parses a remote as git does, answering host in place of the remote's own when one is set.
+type fakeRemoteURLParser struct {
 	host string
 }
 
-func (f *fakeRemotes) ParseRemoteURL(_ context.Context, raw string) (git.RemoteURL, error) {
+func (f *fakeRemoteURLParser) ParseRemoteURL(_ context.Context, raw string) (git.RemoteURL, error) {
 	remote, err := git.ParseRemoteURL(raw)
 	if err != nil {
 		return git.RemoteURL{}, err

@@ -35,19 +35,19 @@ type pullRequestWriter interface {
 	RequestPullRequestRereview(ctx context.Context, address string) error
 }
 
-// remoteParser takes a git remote apart, swapping a named SSH host for its web host.
-type remoteParser interface {
+// remoteURLParser takes a git remote apart, swapping a named SSH host for its web host.
+type remoteURLParser interface {
 	ParseRemoteURL(ctx context.Context, raw string) (git.RemoteURL, error)
 }
 
 type Handler struct {
 	forges  connector
 	writer  pullRequestWriter
-	remotes remoteParser
+	remotes remoteURLParser
 }
 
-// NewHandler constructs the handler over the forge service, the pull request writer and the remote parser.
-func NewHandler(forges connector, writer pullRequestWriter, remotes remoteParser) *Handler {
+// NewHandler constructs the handler over the forge service, the pull request writer and the remote URL parser.
+func NewHandler(forges connector, writer pullRequestWriter, remotes remoteURLParser) *Handler {
 	return &Handler{
 		forges:  forges,
 		writer:  writer,
