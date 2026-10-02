@@ -26,6 +26,14 @@ func TestPullRequestStateOf(t *testing.T) {
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING, PullRequestStateOf(pullrequests.StateApprovedWaiting))
 }
 
+// TestPullRequestDrawsTitleAndAuthor covers the title and author carried as they were stored.
+func TestPullRequestDrawsTitleAndAuthor(t *testing.T) {
+	drawn := PullRequest(pullrequeststore.PullRequest{Title: "Pull more pull request info", Author: "octocat"})
+
+	assert.Equal(t, "Pull more pull request info", drawn.GetTitle())
+	assert.Equal(t, "octocat", drawn.GetAuthor())
+}
+
 // TestPullRequestDrawsAutoMerge covers a row the forge has not been asked about drawn as off, and
 // the forge's word drawn as it was stored.
 func TestPullRequestDrawsAutoMerge(t *testing.T) {

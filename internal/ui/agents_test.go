@@ -2464,6 +2464,31 @@ func TestAgentsWatchedEdits(t *testing.T) {
 		require.Equal(t, "  web", readHoveredRow(frame))
 		assert.Equal(t, "#5 closed", readRecordField(frame, "pull requests"))
 	})
+
+	t.Run("a pull request's title and author reach the record of the agent on its branch", func(t *testing.T) {
+		harness := openAgents(t,
+			newLiveWorkflow("w1", "api"),
+			newBranchAgent("a1", "api", "agent/x"),
+			&pullrequestv1.Repository{Url: repositoryURL},
+		)
+		harness.press(widenListPresses...)
+
+		harness.watch(buildPuts(&pullrequestv1.PullRequest{
+			Id:                "pr-1",
+			RepositoryUrl:     repositoryURL,
+			HeadRepositoryUrl: repositoryURL,
+			HeadBranch:        "agent/x",
+			Number:            7,
+			Title:             "Pull more pull request info",
+			Author:            "octocat",
+			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			OpenedAt:          "2026-09-19T12:00:00Z",
+		}))
+
+		frame := harness.readFrame()
+		assert.Equal(t, "Pull more pull request info", readRecordField(frame, "title"))
+		assert.Equal(t, "@octocat", readRecordField(frame, "author"))
+	})
 }
 
 // TestAgentsSelection covers choosing several agents and acting on them at once.
