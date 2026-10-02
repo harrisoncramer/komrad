@@ -761,3 +761,23 @@ func assertSameStamp(t *testing.T, want, got *time.Time) {
 	require.NotNil(t, got)
 	assert.True(t, want.Equal(*got), "want %s, got %s", want, *got)
 }
+
+// TestHeaderFor covers which header each kind and method sends its token in.
+func TestHeaderFor(t *testing.T) {
+	tests := []struct {
+		kind   string
+		method string
+		want   string
+	}{
+		{kind: KindGitHub, method: MethodToken, want: HeaderBearer},
+		{kind: KindGitHub, method: MethodGitHubApp, want: HeaderBearer},
+		{kind: KindGitLab, method: MethodToken, want: HeaderPrivateToken},
+		{kind: KindGitLab, method: MethodRotatingToken, want: HeaderPrivateToken},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.kind+" "+tt.method, func(t *testing.T) {
+			assert.Equal(t, tt.want, HeaderFor(tt.kind, tt.method))
+		})
+	}
+}
