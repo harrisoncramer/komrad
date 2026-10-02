@@ -286,6 +286,38 @@ func TestParseRemoteURL(t *testing.T) {
 			canonical: komrad,
 		},
 		{
+			name: "ssh.github.com over 443 is github.com",
+			raw:  "ssh://git@ssh.github.com:443/harrisoncramer/komrad.git",
+			want: RemoteURL{
+				Scheme: "ssh",
+				Host:   "github.com",
+				Port:   "443",
+				Path:   "harrisoncramer/komrad",
+			},
+			canonical: komrad,
+		},
+		{
+			name: "scp-like ssh.github.com is github.com",
+			raw:  "git@ssh.github.com:harrisoncramer/komrad.git",
+			want: RemoteURL{
+				Scheme: "ssh",
+				Host:   "github.com",
+				Path:   "harrisoncramer/komrad",
+			},
+			canonical: komrad,
+		},
+		{
+			name: "altssh.gitlab.com over 443 is gitlab.com",
+			raw:  "ssh://git@altssh.gitlab.com:443/group/sub/repo.git",
+			want: RemoteURL{
+				Scheme: "ssh",
+				Host:   "gitlab.com",
+				Port:   "443",
+				Path:   "group/sub/repo",
+			},
+			canonical: "https://gitlab.com/group/sub/repo",
+		},
+		{
 			name: "www is kept on any other host",
 			raw:  "https://www.ghe.example.com/owner/repo",
 			want: RemoteURL{

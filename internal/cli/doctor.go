@@ -214,6 +214,8 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 			return doctor.ForgeStatus{
 				Host:        check.GetForge().GetHost(),
 				Login:       check.GetForge().GetLogin(),
+				Kind:        check.GetForge().GetKind(),
+				Method:      check.GetForge().GetMethod(),
 				Problem:     check.GetProblem(),
 				ProblemKind: check.GetProblemKind(),
 			}

@@ -672,6 +672,31 @@ type Worktrees struct {
 	Dir string `mapstructure:"dir"`
 }
 
+// Git is how komrad reads the checkouts its agents work in.
+type Git struct {
+	// SSH hosts that stand in for a forge's web host, each written as "ssh_host=web_host", such
+	// as "ssh.gitlab.example.com=gitlab.example.com". A remote on the SSH host is then matched to
+	// the forge connected for the web host. Public aliases such as ssh.github.com and
+	// altssh.gitlab.com are already known.
+	SSHHosts []string `mapstructure:"ssh_hosts"`
+}
+
+// GetSSHHosts is the SSH hosts keyed to the web host each stands in for, lowercased.
+func (g Git) GetSSHHosts() (map[string]string, error) {
+	hosts := make(map[string]string, len(g.SSHHosts))
+	for _, entry := range g.SSHHosts {
+		ssh, web, ok := strings.Cut(entry, "=")
+		ssh, web = strings.ToLower(strings.TrimSpace(ssh)), strings.ToLower(strings.TrimSpace(web))
+		if !ok || ssh == "" || web == "" || strings.Contains(web, "=") {
+			return nil, fmt.Errorf("%q is not written as ssh_host=web_host", entry)
+		}
+
+		hosts[ssh] = web
+	}
+
+	return hosts, nil
+}
+
 // GitHubApp is the App an engine fetches and pushes as.
 type GitHubApp struct {
 	// The App's own id, from its settings page. Left empty the engine has no GitHub identity
@@ -958,6 +983,8 @@ type Config struct {
 	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
+	// How komrad reads the git checkouts its agents work in.
+	Git Git `mapstructure:"git"`
 	// The GitHub App an engine fetches and pushes as.
 	GitHubApp GitHubApp `mapstructure:"github_app"`
 	// The standing text every agent is started with, whatever workflow it is in.
@@ -1123,6 +1150,9 @@ func (c Config) validate() error {
 	}
 	if err := validateMail(c.Mail); err != nil {
 		return err
+	}
+	if _, err := c.Git.GetSSHHosts(); err != nil {
+		return fmt.Errorf("git.ssh_hosts: %w", err)
 	}
 	if err := validateGlyphs(c.Glyphs); err != nil {
 		return err

@@ -1029,3 +1029,62 @@ func TestLoadTakesEitherPostgresScheme(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadReadsSSHHosts covers the SSH hosts a self-hosted forge answers git on, each keyed to its
+// web host, and every spelling that names no pair.
+func TestLoadReadsSSHHosts(t *testing.T) {
+	tests := []struct {
+		name    string
+		hosts   string
+		want    map[string]string
+		refused bool
+	}{
+		{
+			name:  "none",
+			hosts: `[]`,
+			want:  map[string]string{},
+		},
+		{
+			name:  "a pair, lowercased and trimmed",
+			hosts: `["SSH.GitLab.example.com = gitlab.example.com"]`,
+			want:  map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"},
+		},
+		{
+			name:    "no web host",
+			hosts:   `["ssh.gitlab.example.com="]`,
+			refused: true,
+		},
+		{
+			name:    "no ssh host",
+			hosts:   `["=gitlab.example.com"]`,
+			refused: true,
+		},
+		{
+			name:    "no separator",
+			hosts:   `["ssh.gitlab.example.com"]`,
+			refused: true,
+		},
+		{
+			name:    "two separators",
+			hosts:   `["a=b=c"]`,
+			refused: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := loadStrict(t, "[git]\nssh_hosts = "+tt.hosts+"\n")
+			if tt.refused {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "git.ssh_hosts")
+
+				return
+			}
+
+			require.NoError(t, err)
+			hosts, err := cfg.Git.GetSSHHosts()
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, hosts)
+		})
+	}
+}

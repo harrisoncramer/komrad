@@ -11,6 +11,13 @@ import (
 // ErrNotForgeRemote says a remote names no repository on a forge.
 var ErrNotForgeRemote = fail.InvalidArgument("remote is not a forge repository")
 
+// hostAliases maps the public hosts a forge also answers git on to the web host it serves.
+var hostAliases = map[string]string{
+	"www.github.com":    "github.com",
+	"ssh.github.com":    "github.com",
+	"altssh.gitlab.com": "gitlab.com",
+}
+
 // RemoteURL is a git remote taken apart into the pieces a forge repository is named by.
 type RemoteURL struct {
 	// Raw is the remote exactly as git had it, such as git@github.com:harrisoncramer/komrad.git.
@@ -95,8 +102,8 @@ func ParseRemoteURL(raw string) (RemoteURL, error) {
 	}
 
 	remote.Host = strings.ToLower(remote.Host)
-	if remote.Host == "www.github.com" {
-		remote.Host = "github.com"
+	if web, ok := hostAliases[remote.Host]; ok {
+		remote.Host = web
 	}
 
 	path := strings.ToLower(strings.Trim(remote.Path, "/"))

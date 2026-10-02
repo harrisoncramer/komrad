@@ -1842,6 +1842,20 @@
       "sections": []
     },
     {
+      "path": "git",
+      "description": "How komrad reads the git checkouts its agents work in.",
+      "settings": [
+        {
+          "key": "ssh_hosts",
+          "path": "git.ssh_hosts",
+          "type": "array",
+          "description": "SSH hosts that stand in for a forge's web host, each written as \"ssh_host=web_host\", such\nas \"ssh.gitlab.example.com=gitlab.example.com\". A remote on the SSH host is then matched to\nthe forge connected for the web host. Public aliases such as ssh.github.com and\naltssh.gitlab.com are already known.",
+          "default": "[]"
+        }
+      ],
+      "sections": []
+    },
+    {
       "path": "github_app",
       "description": "The GitHub App an engine fetches and pushes as.",
       "settings": [

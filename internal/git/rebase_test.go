@@ -17,7 +17,7 @@ import (
 )
 
 // client is the git these tests drive.
-var client = git.NewClient()
+var client = git.NewClient(git.NewClientParams{})
 
 // TestIntegrationReadTreeStateIgnoresUntrackedFiles pins the fact the dirty refusal turns on.
 func TestIntegrationReadTreeStateIgnoresUntrackedFiles(t *testing.T) {

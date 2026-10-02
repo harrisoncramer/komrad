@@ -80,9 +80,10 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		origin string
-		want   string
+		name     string
+		origin   string
+		sshHosts map[string]string
+		want     string
 	}{
 		{
 			name:   "an scp-like origin reads as its canonical address",
@@ -99,6 +100,17 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 			origin: "/tmp/somewhere/else.git",
 			want:   "",
 		},
+		{
+			name:     "an origin on a named ssh host reads as its web host",
+			origin:   "ssh://git@ssh.gitlab.example.com:2222/group/repo.git",
+			sshHosts: map[string]string{"ssh.gitlab.example.com": "gitlab.example.com"},
+			want:     "https://gitlab.example.com/group/repo",
+		},
+		{
+			name:   "an origin on an unnamed ssh host keeps its host",
+			origin: "git@ssh.gitlab.example.com:group/repo.git",
+			want:   "https://ssh.gitlab.example.com/group/repo",
+		},
 	}
 
 	for _, tt := range tests {
@@ -108,7 +120,7 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 			dir := newRepo(t)
 			run(t, dir, "remote", "add", "origin", tt.origin)
 
-			head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+			head := git.NewClient(git.NewClientParams{SSHHosts: tt.sshHosts}).ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 			assert.Equal(t, "main", head.Branch)
 			assert.Equal(t, tt.want, head.RepositoryURL)
