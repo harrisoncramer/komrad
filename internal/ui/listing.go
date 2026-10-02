@@ -413,8 +413,8 @@ func (m *model) landWrite(write int) {
 func (m *model) applyWrite(result writeResult) tea.Cmd {
 	m.report(result.summary, result.err)
 
-	vanishes := m.holdsVanish(result)
-	if result.unstaged != nil && !vanishes {
+	awaitsVanish := m.shouldAwaitVanish(result)
+	if result.unstaged != nil && !awaitsVanish {
 		m.settleUnstaged(result.unstaged)
 	}
 
@@ -481,7 +481,7 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		}
 	}
 
-	if m.warm.pendingWrite != result.write && !vanishes {
+	if m.warm.pendingWrite != result.write && !awaitsVanish {
 		m.landWrite(result.write)
 	}
 
@@ -494,7 +494,7 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 			return left
 		}
 
-		if vanishes {
+		if awaitsVanish {
 			return tea.Batch(left, m.awaitVanish(result))
 		}
 

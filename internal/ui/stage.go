@@ -259,9 +259,9 @@ type vanishTimeoutMsg struct {
 	write int
 }
 
-// holdsVanish reports whether a landed write's form stays up until the watch drops the agents it
-// archived.
-func (m *model) holdsVanish(result writeResult) bool {
+// shouldAwaitVanish reports whether a landed write's form stays up until the watch drops the
+// agents it archived.
+func (m *model) shouldAwaitVanish(result writeResult) bool {
 	return result.err == nil &&
 		result.unstaged != nil &&
 		result.unstaged.archived &&
