@@ -18,9 +18,8 @@ type unstaged struct {
 	archived bool
 }
 
-// unstageAhead swaps the given agents' panes out of the stage ahead of a write that kills them,
-// the write marking archived once its archive step lands.
-func (m *model) unstageAhead(agents []panel.Agent, write func(archived *bool) tea.Cmd) tea.Cmd {
+// unstageAhead takes the given agents' panes off the stage before a write that kills them.
+func (m *model) unstageAhead(agents []panel.Agent, write func(took *unstaged) tea.Cmd) tea.Cmd {
 	if m.unstaging == nil {
 		m.unstaging = map[string]struct{}{}
 	}
@@ -38,7 +37,7 @@ func (m *model) unstageAhead(agents []panel.Agent, write func(archived *bool) te
 	}
 
 	took := &unstaged{agents: agents}
-	cmd := write(&took.archived)
+	cmd := write(took)
 
 	return func() tea.Msg {
 		msg := cmd()
@@ -54,9 +53,9 @@ func (m *model) unstageAhead(agents []panel.Agent, write func(archived *bool) te
 	}
 }
 
-// markArchived records whether an archive step landed and passes its error on.
-func markArchived(archived *bool, err error) error {
-	*archived = err == nil
+// noteArchive records whether an archive step landed and passes its error on.
+func (u *unstaged) noteArchive(err error) error {
+	u.archived = err == nil
 
 	return err
 }

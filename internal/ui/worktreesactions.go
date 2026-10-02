@@ -234,8 +234,8 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 				return nil
 			}
 
-			return m.unstageAhead(deletion.live, func(archived *bool) tea.Cmd {
-				return deleteWorktreesCmd(m, deletion, archived)
+			return m.unstageAhead(deletion.live, func(took *unstaged) tea.Cmd {
+				return deleteWorktreesCmd(m, deletion, took)
 			})
 		}),
 	})
@@ -257,7 +257,7 @@ func keepsBranch(m *model, deletion worktreeDeletion) *bool {
 }
 
 // deleteWorktreesCmd queues the deletion as one background job.
-func deleteWorktreesCmd(m *model, deletion worktreeDeletion, archived *bool) tea.Cmd {
+func deleteWorktreesCmd(m *model, deletion worktreeDeletion, took *unstaged) tea.Cmd {
 	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
@@ -271,7 +271,7 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion, archived *bool) tea
 		},
 		func(a api) error {
 			if len(deletion.live) > 0 {
-				if err := markArchived(archived, a.archiveAgents(panel.IDs(deletion.live))); err != nil {
+				if err := took.noteArchive(a.archiveAgents(panel.IDs(deletion.live))); err != nil {
 					return err
 				}
 			}
