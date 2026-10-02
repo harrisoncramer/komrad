@@ -455,7 +455,7 @@
             "orchestrator"
           ],
           "summary": "Write a markdown document for a person to read, as a type from list_document_types and following its context.",
-          "description": "Write a markdown document for a person to read, as a type from list_document_types and following its context. Pass id and the version you last saw to rewrite one of yours. failed_precondition means a person edited it since, so read it again and keep their changes.",
+          "description": "Write a markdown document for a person to read, as a type from list_document_types and following its context. Pass id and the version you last saw to rewrite one of yours. failed_precondition means it was written since, perhaps by a person, so read it again and keep their changes.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
