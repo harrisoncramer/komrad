@@ -146,14 +146,9 @@ func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
 	}
 	a.resuming[agent.ID] = struct{}{}
 
-	return stampResume(m.announcedCmd(
+	return stampResume(m.writeCmd(
 		"resuming "+agent.Name,
 		fmt.Sprintf("Could not resume agent %q", agent.Name),
-		message{
-			kind:    messageInfo,
-			summary: agent.Name + " is back up",
-			detail:  "Press enter on it to open its pane.",
-		},
 		func(c api) error {
 			_, err := c.resumeAgent(agent.ID)
 
@@ -178,8 +173,37 @@ func stampResume(cmd tea.Cmd, id string) tea.Cmd {
 	}
 }
 
-func (a *agentsScreen) settleResume(id string) {
+func (a *agentsScreen) settleResume(m *model, id string, err error) {
 	delete(a.resuming, id)
+	if err != nil {
+		return
+	}
+
+	if a.waking == nil {
+		a.waking = map[string]struct{}{}
+	}
+	a.waking[id] = struct{}{}
+	a.announceWoken(m)
+}
+
+func (a *agentsScreen) announceWoken(m *model) {
+	for id := range a.waking {
+		item, ok := m.listing.liveAgent(id)
+		if ok && (!item.Alive || !item.Agent.State.DoesPaneDecide()) {
+			continue
+		}
+
+		delete(a.waking, id)
+		if !ok {
+			continue
+		}
+
+		m.pushMessage(message{
+			kind:    messageInfo,
+			summary: item.Agent.Name + " is back up",
+			detail:  "Press enter on it to open its pane.",
+		})
+	}
 }
 
 func (a *agentsScreen) toggleHidden(m *model) {
@@ -295,6 +319,8 @@ func (a *agentsScreen) doc(m *model) string {
 		return ""
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
+	case item.Agent.State == panel.StateSettingUp && item.Agent.Pane != "":
+		return startingPlaceholder
 	case item.Agent.State == panel.StateSettingUp:
 		return settingUpPlaceholder
 	case item.Agent.HeldAt != nil:
@@ -353,6 +379,8 @@ func firstKey(keys []string, fallback string) string {
 }
 
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
+
+const startingPlaceholder = "_starting…_\n\nIts CLI is coming up in a new pane."
 
 func failedPlaceholder(agent panel.Agent) string {
 	label := "setup"

@@ -108,6 +108,33 @@ func TestReconcileSinglePass(t *testing.T) {
 			frame:     harnesstest.FrameWorking,
 			want:      agentstore.StateThinking,
 		},
+		{
+			name:      "a relaunched CLI at its input box is idle in one pass",
+			fromState: agentstore.StateSettingUp,
+			owned:     true,
+			frame:     harnesstest.FrameIdle,
+			want:      agentstore.StateIdle,
+		},
+		{
+			name:      "a relaunched CLI already at work is thinking",
+			fromState: agentstore.StateSettingUp,
+			owned:     true,
+			frame:     harnesstest.FrameWorking,
+			want:      agentstore.StateThinking,
+		},
+		{
+			name:      "a relaunched CLI that has drawn nothing yet is still setting up",
+			fromState: agentstore.StateSettingUp,
+			owned:     true,
+			frame:     "",
+			want:      agentstore.StateSettingUp,
+		},
+		{
+			name:      "a relaunch whose pane went before its CLI came up settles to idle",
+			fromState: agentstore.StateSettingUp,
+			owned:     false,
+			want:      agentstore.StateIdle,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1043,6 +1070,45 @@ func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 	require.NoError(t, rec.Reconcile(ctx))
 
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+}
+
+// TestReconcileStampsNoTurnForARelaunchComingUp pins that a resumed CLI reaching its input box ended no turn.
+func TestReconcileStampsNoTurnForARelaunchComingUp(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "agent", "%1", agentstore.StateSettingUp)
+
+	tmux := tmuxtest.NewFake()
+	tmux.Owners["%1"] = agent.ID
+	tmux.Captures["%1"] = harnesstest.FrameIdle
+
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:    tmux,
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
+		States:   st.Agents,
+	})
+	require.NoError(t, rec.Reconcile(t.Context()))
+
+	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt)
+}
+
+// TestReconcileLeavesALaunchWithNoPaneRecorded pins that a setup with no pane on its row is left to its launch.
+func TestReconcileLeavesALaunchWithNoPaneRecorded(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "agent", "", agentstore.StateSettingUp)
+
+	tmux := tmuxtest.NewFake()
+	tmux.Owners["%1"] = agent.ID
+	tmux.Captures["%1"] = harnesstest.FrameIdle
+
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:    tmux,
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
+		States:   st.Agents,
+	})
+	require.NoError(t, rec.Reconcile(t.Context()))
+
+	assert.Equal(t, agentstore.StateSettingUp, stateOf(t, st, "agent"))
 }
 
 // TestReconcileStampsNoTurnForAPaneItForgot pins that an agent whose pane went away is not

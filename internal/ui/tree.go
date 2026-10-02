@@ -28,6 +28,7 @@ type agentsScreen struct {
 	editing *agentEdit
 	// resuming is the agents a resume is in flight for.
 	resuming map[string]struct{}
+	waking   map[string]struct{}
 	renameSlot
 }
 

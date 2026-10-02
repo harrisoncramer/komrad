@@ -143,7 +143,7 @@ func (r *Reconciler) setAlive(ctx context.Context, ids []string, alive bool) {
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {
-	if !agent.State.DoesPaneDecide() {
+	if !agent.State.DoesPaneDecide() && !isRelaunching(agent) {
 		return
 	}
 
@@ -202,11 +202,21 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 			break
 		}
 
+		if agent.State == agentstore.StateSettingUp {
+			r.apply(ctx, agent, agentstore.StateIdle)
+
+			break
+		}
+
 		r.settle(ctx, agent, agentstore.StateIdle)
 
 	case harness.ActivityUnrecognized:
 		r.observeUnrecognized(ctx, agent, observed.Frame)
 	}
+}
+
+func isRelaunching(agent agentstore.Agent) bool {
+	return agent.State == agentstore.StateSettingUp && agent.Pane != ""
 }
 
 // recordFrame keeps the capture a reading was taken from, marking the ones that dispute the

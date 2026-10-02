@@ -207,7 +207,7 @@ func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 	}
 
 	agent.Pane = pane
-	agent.State = agentstore.StateIdle
+	agent.State = agentstore.StateSettingUp
 	// An archive or a delete takes the row without reading the resume mark, so this write is where
 	// a resume finds out it lost and has to take away the pane it opened.
 	written, err := r.service.agents.UpdateIfLive(ctx, *agent)

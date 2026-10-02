@@ -721,7 +721,7 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, harness.Launches, 2, "the second resume reaches the CLI rather than reporting a pane that is already running")
-	assert.Equal(t, agentstore.StateIdle, resumed.State)
+	assert.Equal(t, agentstore.StateSettingUp, resumed.State)
 }
 
 // TestResumeCompactsAtItsRolesPoint pins that a relaunch keeps the role's compaction point.
