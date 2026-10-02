@@ -169,6 +169,8 @@ type PullRequest struct {
 	Head       git.RemoteURL
 	Number     int
 	Title      string
+	Author     string
+	Body       string
 	HeadBranch string
 	HeadSHA    string
 	BaseBranch string

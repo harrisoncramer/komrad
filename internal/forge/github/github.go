@@ -27,7 +27,7 @@ const maxPerPage = 100
 
 // pullRequestFragment is every field of a pull request the record is built from.
 const pullRequestFragment = `fragment pullRequestFields on PullRequest {
-  id number title url state isDraft createdAt updatedAt mergedAt closedAt
+  id number title body author { login } url state isDraft createdAt updatedAt mergedAt closedAt
   headRefName headRefOid baseRefName baseRefOid headRepository { url } baseRepository { url }
 }`
 
@@ -640,6 +640,8 @@ type pullRequestNode struct {
 	ID             string          `json:"id"`
 	Number         int             `json:"number"`
 	Title          string          `json:"title"`
+	Body           string          `json:"body"`
+	Author         *actorNode      `json:"author"`
 	URL            string          `json:"url"`
 	State          string          `json:"state"`
 	IsDraft        bool            `json:"isDraft"`
@@ -810,6 +812,8 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		Head:       n.HeadRepository.remote(),
 		Number:     n.Number,
 		Title:      n.Title,
+		Author:     n.author(),
+		Body:       n.Body,
 		HeadBranch: n.HeadRefName,
 		HeadSHA:    n.HeadRefOid,
 		BaseBranch: n.BaseRefName,
@@ -831,6 +835,14 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 	}
 
 	return pullRequest
+}
+
+func (n pullRequestNode) author() string {
+	if n.Author == nil {
+		return ""
+	}
+
+	return n.Author.Login
 }
 
 // Build is the Builder for GitHub.

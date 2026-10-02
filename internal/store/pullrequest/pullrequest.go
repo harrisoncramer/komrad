@@ -34,6 +34,8 @@ type PullRequest struct {
 	// Number is the per-repository number a person sees.
 	Number     int
 	Title      string
+	Author     string
+	Body       string
 	HeadBranch string
 	HeadSHA    string
 	BaseBranch string
@@ -104,6 +106,8 @@ type UpsertParams struct {
 	HeadRepositoryURL string
 	Number            int
 	Title             string
+	Author            string
+	Body              string
 	HeadBranch        string
 	HeadSHA           string
 	BaseBranch        string
@@ -128,6 +132,8 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 		HeadRepositoryUrl: params.HeadRepositoryURL,
 		Number:            int32(params.Number),
 		Title:             params.Title,
+		Author:            params.Author,
+		Body:              params.Body,
 		HeadBranch:        params.HeadBranch,
 		HeadSha:           params.HeadSHA,
 		BaseBranch:        params.BaseBranch,
@@ -303,6 +309,8 @@ func fromRow(row *models.PullRequest) PullRequest {
 		HeadRepositoryURL: row.HeadRepositoryUrl,
 		Number:            int(row.Number),
 		Title:             row.Title,
+		Author:            row.Author,
+		Body:              row.Body,
 		HeadBranch:        row.HeadBranch,
 		HeadSHA:           row.HeadSha,
 		BaseBranch:        row.BaseBranch,

@@ -694,6 +694,10 @@ type PullRequest struct {
 	KnownMergeabilitySha *string
 	// The last review decision a read reported, which a blank read leaves alone.
 	KnownDecision *string
+	// The login of whoever opened it, empty when the forge no longer has them.
+	Author string
+	// The description as the forge has it, in markdown.
+	Body string
 }
 
 // A repository the pull request sync has read at least once, which is what turns its pull request state from unread to none when it has no pull requests.
