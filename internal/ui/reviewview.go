@@ -77,22 +77,23 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 	return overlayPopup(area, body, back, r.placeThread(m, body))
 }
 
-// drawSidebar is the panel's own column: the files the change touches, where the cursor is
-// standing, and what the reader was last told.
+// drawSidebar is the panel's own column: the pull request open from the branch, the files the
+// change touches, where the cursor is standing, and what the reader was last told.
 func (r reviewScreen) drawSidebar(layout sidebarLayout) string {
-	column := paint.PadRows(layout.files+r.placeView()+layout.notes, layout.spare)
+	column := paint.PadRows(layout.pullRequest+layout.files+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
 }
 
 // sidebarLayout is the sidebar measured once.
 type sidebarLayout struct {
-	bar   string
-	rule  string
-	help  string
-	files string
-	notes string
-	spare int
+	bar         string
+	rule        string
+	help        string
+	pullRequest string
+	files       string
+	notes       string
+	spare       int
 }
 
 // layoutSidebar gives the column to the file tree, the bar over it giving way before the tree
@@ -105,7 +106,7 @@ func (r reviewScreen) layoutSidebar(m *model, above ...string) sidebarLayout {
 		return bare
 	}
 
-	if barred.spare >= 0 && paint.CountLines(barred.files+r.placeView()) > barred.spare {
+	if barred.spare >= 0 && paint.CountLines(barred.pullRequest+barred.files+r.placeView()) > barred.spare {
 		return bare
 	}
 
@@ -131,12 +132,15 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	}
 
 	if spare < 0 {
+		layout.pullRequest = r.pullRequestView(m, paint.Unbounded)
 		layout.files = r.filesView(m, paint.Unbounded)
 
 		return layout
 	}
 
 	room := spare - paint.CountLines(r.placeView())
+	layout.pullRequest = r.pullRequestView(m, max(room-r.countFilesFloor(spare), 0))
+	room -= paint.CountLines(layout.pullRequest)
 	lines := max(room-paint.CountLines(layout.notes), r.countFilesFloor(spare))
 	layout.files = r.filesView(m, max(min(lines, room), 0))
 	layout.notes = cutNotes(layout.notes, room-paint.CountLines(layout.files))

@@ -143,6 +143,7 @@ func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
 		URL:            pullRequest.GetUrl(),
 		Title:          pullRequest.GetTitle(),
 		Author:         pullRequest.GetAuthor(),
+		Body:           pullRequest.GetBody(),
 		State:          pullRequest.GetState(),
 		MergeReadiness: mergeReadinessFrom(pullRequest.GetMergeReadiness()),
 		OpenedAt:       dates.Parse(pullRequest.GetOpenedAt()),

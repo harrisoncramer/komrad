@@ -20,6 +20,7 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 		Number:            int32(stored.Number),
 		Title:             stored.Title,
 		Author:            stored.Author,
+		Body:              stored.Body,
 		HeadBranch:        stored.HeadBranch,
 		HeadSha:           stored.HeadSHA,
 		BaseBranch:        stored.BaseBranch,
