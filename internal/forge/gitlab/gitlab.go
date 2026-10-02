@@ -745,14 +745,31 @@ type mergeReadinessNode struct {
 			} `json:"mergeRequestInteraction"`
 		} `json:"nodes"`
 	} `json:"reviewers"`
-	HeadPipeline *struct {
-		Sha                   string `json:"sha"`
-		Status                string `json:"status"`
-		MergeRequestEventType string `json:"mergeRequestEventType"`
-	} `json:"headPipeline"`
-	DetailedMergeStatus          string   `json:"detailedMergeStatus"`
-	AutoMergeEnabled             bool     `json:"autoMergeEnabled"`
-	AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
+	HeadPipeline                 *pipelineNode `json:"headPipeline"`
+	DetailedMergeStatus          string        `json:"detailedMergeStatus"`
+	AutoMergeEnabled             bool          `json:"autoMergeEnabled"`
+	AvailableAutoMergeStrategies []string      `json:"availableAutoMergeStrategies"`
+}
+
+type pipelineNode struct {
+	Sha                   string `json:"sha"`
+	Status                string `json:"status"`
+	MergeRequestEventType string `json:"mergeRequestEventType"`
+}
+
+// isOn says whether the pipeline ran on sha, trusting GitLab for a merged-results pipeline whose
+// sha is the merge ref instead.
+func (p *pipelineNode) isOn(sha string) bool {
+	if p == nil {
+		return false
+	}
+
+	switch p.MergeRequestEventType {
+	case "MERGED_RESULT", "MERGE_TRAIN":
+		return true
+	}
+
+	return p.Sha == sha
 }
 
 // autoMerge is whether the merge request is set to merge on its own and whether komrad may set it.
@@ -790,7 +807,7 @@ func (n mergeRequestNode) mergeability() forge.Mergeability {
 
 // checks is the head pipeline's status in komrad's words, none for a pipeline on another commit.
 func (n mergeReadinessNode) checks() forge.Checks {
-	if n.HeadPipeline == nil || !n.isPipelineOnHead() {
+	if !n.HeadPipeline.isOn(n.DiffHeadSha) {
 		return forge.ChecksNone
 	}
 
@@ -804,17 +821,6 @@ func (n mergeReadinessNode) checks() forge.Checks {
 	}
 
 	return forge.ChecksNone
-}
-
-// isPipelineOnHead says whether the head pipeline ran on the head commit, trusting GitLab for a
-// merged-results pipeline whose sha is the merge ref instead.
-func (n mergeReadinessNode) isPipelineOnHead() bool {
-	switch n.HeadPipeline.MergeRequestEventType {
-	case "MERGED_RESULT", "MERGE_TRAIN":
-		return true
-	}
-
-	return n.HeadPipeline.Sha == n.DiffHeadSha
 }
 
 // decision folds the approvals into komrad's word, a change request first, then approvals
