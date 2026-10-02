@@ -158,6 +158,9 @@ func TestReviewPullRequest(t *testing.T) {
 
 		harness.press("pick:pullrequest", "ctrl+space", "ctrl+space", "j")
 		assert.Contains(t, readSidebar(harness.readFrame()), "rows 1-9 of 40")
+
+		harness.press("ctrl+space", "ctrl+space", "j")
+		assert.Contains(t, readSidebar(harness.readFrame()), "rows 1-9 of 40")
 	})
 
 	t.Run("a pane too narrow for the diff gives the picker no pull request", func(t *testing.T) {
