@@ -1890,6 +1890,8 @@ UPDATE
     agents
 SET
     state = 'setting_up',
+    pane_id = '',
+    alive = FALSE,
     state_changed_at = NOW(),
     reported_reason = '',
     failure_reason = '',
@@ -1927,6 +1929,8 @@ UPDATE
     agents
 SET
     state = 'setting_up',
+    pane_id = '',
+    alive = FALSE,
     state_changed_at = CASE WHEN state IS DISTINCT FROM 'setting_up' THEN
         NOW()
     ELSE

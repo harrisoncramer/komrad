@@ -508,6 +508,60 @@ func TestAgentsResume(t *testing.T) {
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceResumeAgentProcedure), 1)
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
 	})
+	t.Run("a resume says the agent is back up only once its pane decides its state", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
+		answerResume(harness)
+
+		harness.press("j", "enter")
+		require.NotContains(t, readOpenMessages(harness), "old is back up", "the write landing says nothing yet")
+
+		settingUp := newRunning()
+		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settingUp))
+		require.NotContains(t, readOpenMessages(harness), "old is back up", "a CLI still starting is not back up")
+		require.Contains(t, harness.readFrame(), "Its CLI is coming up in a new pane.")
+
+		settledBeforeAlive := newRunning()
+		settledBeforeAlive.Alive = xptr.Ptr(false)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settledBeforeAlive))
+		require.NotContains(t, readOpenMessages(harness), "old is back up", "an idle row not yet alive is not back up")
+
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+		assert.Contains(t, readOpenMessages(harness), "old is back up")
+	})
+
+	t.Run("a resume whose pane went before its CLI came up is never said to be back up", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
+		answerResume(harness)
+
+		harness.press("j", "enter")
+
+		settingUp := newRunning()
+		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settingUp))
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+
+		assert.NotContains(t, readOpenMessages(harness), "old is back up")
+	})
+
+	t.Run("a refused resume never says the agent is back up", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
+		harness.answer(agentv1connect.AgentServiceResumeAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("held"))
+		})
+
+		harness.press("j", "enter")
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+
+		assert.NotContains(t, readOpenMessages(harness), "old is back up")
+	})
 }
 
 // TestAgentsCursorAcrossListings covers the cursor keeping its row as the watch reshapes the tree.

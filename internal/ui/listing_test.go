@@ -236,7 +236,6 @@ func TestListingFocus(t *testing.T) {
 
 		assert.Empty(t, harness.panel.ReadGuestPane())
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
-		assert.Contains(t, readOpenMessages(harness), "old is back up")
 	})
 }
 

@@ -27,7 +27,8 @@ type agentsScreen struct {
 	triage  triageZone
 	editing *agentEdit
 	// resuming is the agents a resume is in flight for.
-	resuming map[string]struct{}
+	resuming    map[string]struct{}
+	awaitingCLI map[string]bool
 	renameSlot
 }
 

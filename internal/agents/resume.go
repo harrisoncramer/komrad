@@ -140,6 +140,17 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		return err
 	}
 
+	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
+	// the interrupted turn is stamped here rather than left to the reconciler.
+	if agent.InterruptedAt == nil && agent.State.IsTurnUnfinished() {
+		at := time.Now()
+		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
+			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
+		}
+
+		agent.InterruptedAt = &at
+	}
+
 	// Until this write the row reads as a dormant agent nobody is touching.
 	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
 	if err != nil {
@@ -195,19 +206,8 @@ func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 }
 
 func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
-	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
-	// the interrupted turn is stamped here rather than left to the reconciler.
-	if agent.InterruptedAt == nil && agent.State.IsTurnUnfinished() {
-		at := time.Now()
-		if err := r.service.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
-			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
-		}
-
-		agent.InterruptedAt = &at
-	}
-
 	agent.Pane = pane
-	agent.State = agentstore.StateIdle
+	agent.State = agentstore.StateSettingUp
 	// An archive or a delete takes the row without reading the resume mark, so this write is where
 	// a resume finds out it lost and has to take away the pane it opened.
 	written, err := r.service.agents.UpdateIfLive(ctx, *agent)

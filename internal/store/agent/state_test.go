@@ -430,6 +430,25 @@ func TestAliveFollowsThePane(t *testing.T) {
 			},
 		},
 		{
+			name: "marking a resume setting up",
+			clear: func(ctx context.Context, st *fixture, agent Agent) error {
+				_, err := st.MarkSettingUpIfLive(ctx, agent.ID)
+
+				return err
+			},
+		},
+		{
+			name: "marking a retry setting up",
+			clear: func(ctx context.Context, st *fixture, agent Agent) error {
+				if err := st.SetStateByID(ctx, agent.ID, StateFailedToCreate); err != nil {
+					return err
+				}
+				_, err := st.MarkSettingUpIfFailedToCreate(ctx, agent.ID)
+
+				return err
+			},
+		},
+		{
 			name: "archiving",
 			clear: func(ctx context.Context, st *fixture, agent Agent) error {
 				_, err := st.Archive(ctx, []string{agent.ID})
