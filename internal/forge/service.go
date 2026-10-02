@@ -366,38 +366,16 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 }
 
 // Check asks the forge whether a connection still works, the way its method allows: who the
-// token belongs to for a pasted token, and whether the installation still reaches a repository
-// for an App, whose login is the row's own.
+// token belongs to for a pasted token, which a rotating one also rotates when due, and whether
+// the installation still reaches a repository for an App, whose login is the row's own.
 func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
 	if connection.Method == MethodRotatingToken {
-		s.rotation.Lock()
-		defer s.rotation.Unlock()
+		return s.checkRotating(ctx, connection)
 	}
 
-	held, err := s.HasCredential(ctx, connection)
+	f, err := s.heldForge(ctx, connection)
 	if err != nil {
 		return "", err
-	}
-	if !held {
-		return "", ErrNoCredential.Saying("no credential file for %s; connect it again", connection.Host)
-	}
-
-	f, err := s.ForConnection(connection)
-	if err != nil {
-		return "", err
-	}
-
-	if connection.Method == MethodRotatingToken {
-		login, err := f.Verify(ctx)
-		if err != nil {
-			return "", err
-		}
-
-		if err := s.rotateIfDue(ctx, connection, f); err != nil {
-			return "", err
-		}
-
-		return login, nil
 	}
 
 	if connection.Method != MethodGitHubApp {
@@ -409,6 +387,19 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	}
 
 	return connection.Login, nil
+}
+
+// heldForge is the forge for a connection whose credential komrad still holds.
+func (s *Service) heldForge(ctx context.Context, connection forgestore.Connection) (Forge, error) {
+	held, err := s.HasCredential(ctx, connection)
+	if err != nil {
+		return nil, err
+	}
+	if !held {
+		return nil, ErrNoCredential.Saying("no credential file for %s; connect it again", connection.Host)
+	}
+
+	return s.ForConnection(connection)
 }
 
 // RecheckConnection checks a connection and records the forge's answer on its verified stamp.

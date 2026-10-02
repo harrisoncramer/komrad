@@ -59,6 +59,28 @@ func (s *Service) keepRotatedToken(ctx context.Context, build Builder, params Co
 	return nil
 }
 
+// checkRotating verifies a rotating token and rotates it when due, as the one writer.
+func (s *Service) checkRotating(ctx context.Context, connection forgestore.Connection) (string, error) {
+	s.rotation.Lock()
+	defer s.rotation.Unlock()
+
+	f, err := s.heldForge(ctx, connection)
+	if err != nil {
+		return "", err
+	}
+
+	login, err := f.Verify(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if err := s.rotateIfDue(ctx, connection, f); err != nil {
+		return "", err
+	}
+
+	return login, nil
+}
+
 // rotateIfDue rotates a connection's token when it expires tomorrow or sooner, with s.rotation held.
 func (s *Service) rotateIfDue(ctx context.Context, connection forgestore.Connection, f Forge) error {
 	rotator, err := rotatorFor(f)
