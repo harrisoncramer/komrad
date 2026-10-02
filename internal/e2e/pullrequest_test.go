@@ -105,8 +105,8 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			assert.Equal(t, onBranch[0].GetId(), pullRequests.Msg.GetPullRequests()[0].GetId())
 			assert.Equal(t, onBranch[1].GetId(), pullRequests.Msg.GetPullRequests()[1].GetId())
 
-			assert.True(t, standing.GetAutoMergeable())
-			assert.False(t, standing.GetAutoMerge())
+			assert.True(t, standing.GetMergeReadiness().GetAutoMergeable())
+			assert.False(t, standing.GetMergeReadiness().GetAutoMerge())
 
 			t.Run("merge when ready reaches the forge and comes back on the row", func(t *testing.T) {
 				_, err := instance.Forges.SetForgePullRequestAutoMerge(ctx, connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
@@ -121,7 +121,7 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 
 				got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 				require.NoError(t, err)
-				assert.True(t, got.Msg.GetPullRequest().GetAutoMerge())
+				assert.True(t, got.Msg.GetPullRequest().GetMergeReadiness().GetAutoMerge())
 			})
 
 			t.Run("the agent hears its branch will merge on its own", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 
 				got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 				require.NoError(t, err)
-				assert.False(t, got.Msg.GetPullRequest().GetAutoMerge())
+				assert.False(t, got.Msg.GetPullRequest().GetMergeReadiness().GetAutoMerge())
 			})
 		})
 	}
