@@ -6,13 +6,53 @@ order: 9
 ---
 
 import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
-Komrad connects to a forge, like Github or Gitlab, for two reasons. It wants to show you, beside each agent, the pull request that agent's branch has open. Agents also need to push and open pull requests, and other information, to do their jobs.
+Komrad connects to a forge, like GitHub or GitLab, for two reasons. It wants to show you, beside each agent, the pull request that agent's branch has open. Agents also need to push and open pull requests, and other information, to do their jobs.
 
 ## Connecting a forge
 
-You connect a forge once, by handing komrad a token. Komrad checks it with the forge straight away and refuses one that is wrong. Give the token access to the pull requests of the repositories your agents work in. GitHub and GitLab are both supported, including self-hosted. <Command path="forge" /> and <Command path="doctor" /> show what is connected and whether it still works.
+You connect a forge once with <Command path="forge connect" />, naming its host. Komrad asks the forge who the credential belongs to straight away and refuses one that is wrong. That proves the token is real, but not that it can read your repositories, so give it access to the repositories your agents work in. <Command path="forge list" /> and <Command path="doctor" /> show what is connected and whether it still works.
+
+The token is read from standard input or from a file, never from an argument, since arguments are visible to every process on the machine.
+
+A self-hosted forge needs two more things. Komrad cannot tell which forge a host runs from its name, so pass `--kind github` or `--kind gitlab`. If its API is somewhere other than `https://<host>/api/v3` for GitHub or `https://<host>/api/v4` for GitLab, pass `--api-url` as well.
+
+Some hosts take SSH on a name of their own, such as `ssh.gitlab.example.com`. List each pair in <Setting path="git.ssh_hosts" label="ssh_hosts" /> so a remote on the SSH name finds the connection for the web host. Public names such as `ssh.github.com` and `altssh.gitlab.com` are already known.
+
+### GitHub
+
+On your laptop, the simplest way is to hand komrad the token the GitHub CLI already holds.
+
+```sh
+gh auth token | komrad forge connect github.com
+```
+
+Any personal access token works the same way, as long as it can read the pull requests of your repositories. For GitHub Enterprise, add `--kind github` and, if needed, `--api-url`.
+
+The remote engine connects through a GitHub App instead, so nobody has to paste a token there. With the App set up in <Setting path="github_app" label="[github_app]" />, connect it with `--method github-app`. Nothing is read. Komrad makes a token from the App, which expires after an hour, and makes a new one whenever it needs to. [Administering the engine](../engine-admin/) covers registering the App.
+
+```sh
+komrad forge connect github.com --method github-app --engine remote
+```
+
+### GitLab
+
+GitLab takes a personal access token with the `api` scope.
+
+```sh
+komrad forge connect gitlab.com --token-file ~/.config/gitlab-token
+komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token
+```
+
+GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as the remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once. From then on it makes a new token each day and lets the old one go. Each token expires two days after it was made, so a token copied off the machine is soon useless. <Command path="forge disconnect" /> revokes the current token with GitLab before forgetting it.
+
+```sh
+komrad forge connect gitlab.com --method rotating-token --token-file ~/.config/gitlab-token --engine remote
+```
+
+If a rotation is ever refused, the connection shows as refused in <Command path="forge list" />. Connect it again with a fresh token.
 
 ## What komrad reads
 
@@ -44,6 +84,14 @@ The database holds only which forge and which account. The token itself sits in 
 
 ## How agents push
 
-Agents never hold a credential of their own. When an agent's git needs to authenticate, komrad hands it a short-lived token. No token is ever typed into a pane, so none can leak into a transcript.
+Agents never hold a credential of their own, and no token is ever typed into a pane, so none can leak into a transcript. Komrad hands each tool the credential when it runs.
 
-On your laptop, agents use whatever git and GitHub logins you already have. On our remote engine, komrad uses a GitHub App, which makes tokens that expire after an hour. [Administering the engine](../engine-admin/) sets that up.
+Komrad puts its own `gh` and `glab` ahead of every agent's PATH. Each one asks komrad for a credential and then runs the real tool. If the agent's environment already sets a token the tool reads, such as `GH_TOKEN` or `GITLAB_TOKEN`, komrad leaves the tool alone.
+
+For GitHub, `gh` gets a token from the App when <Setting path="github_app" label="[github_app]" /> is set. Otherwise it uses the login `gh` already has on the machine. Git reaches GitHub through <Command path="github credential" />, which the engine sets up for you. On your laptop, git uses whatever credential you already have.
+
+For GitLab, `glab` gets the token of the connection for the checkout's host, in a config that names that host alone, so the token is never sent anywhere else. With no connection for that host, it uses the login `glab` already has. Git reaches GitLab through <Command path="gitlab credential" />. The engine sets it up for gitlab.com. A self-hosted GitLab, or your laptop, needs a line for each host.
+
+```sh
+git config --global credential.https://gitlab.example.com.helper '!komrad gitlab credential'
+```
