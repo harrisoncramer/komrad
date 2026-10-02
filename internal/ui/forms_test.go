@@ -507,6 +507,55 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "agents still running")
 	})
 
+	t.Run("a refused archive puts the agent's pane back on the stage", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+		harness.press("j")
+		harness.fireTimers()
+		require.Equal(t, "%9", harness.panel.ReadGuestPane())
+		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("pre-archive hook refused")))
+
+		harness.press("space", "a", "a")
+
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.NotContains(t, harness.readFrame(), "dormant")
+	})
+
+	t.Run("an archive that lands before its delete is refused leaves the agent dormant", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+		harness.press("j")
+		harness.fireTimers()
+		require.Equal(t, "%9", harness.panel.ReadGuestPane())
+		harness.refuse(agentv1connect.AgentServiceDeleteAgentsProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
+
+		harness.press("space", "a", "down", "ctrl+s", "y")
+
+		assert.Empty(t, harness.panel.ReadGuestPane())
+		assert.False(t, harness.panel.IsAgentAlive("a1"))
+	})
+
+	t.Run("an archive in flight takes the pane off the stage and leaves the agent live until it lands", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+		harness.press("j")
+		harness.fireTimers()
+		require.Equal(t, "%9", harness.panel.ReadGuestPane())
+		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
+
+		harness.press("space", "a", "a")
+
+		assert.Empty(t, harness.panel.ReadGuestPane())
+		assert.True(t, harness.panel.IsAgentAlive("a1"))
+
+		harness.press("esc")
+		harness.fireTimers()
+
+		assert.Empty(t, harness.panel.ReadGuestPane(), "walking away from the form does not stage the pane the write is killing")
+
+		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+
+		assert.False(t, harness.panel.IsAgentAlive("a1"))
+		assert.Contains(t, harness.readFrame(), "dormant")
+	})
+
 	t.Run("a refused archive destroys nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))

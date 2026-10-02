@@ -346,6 +346,13 @@ func (p *Panel) ReadGuestPane() string {
 	return p.model.frame.GuestPane()
 }
 
+// IsAgentAlive reports whether the listing holds the agent as running.
+func (p *Panel) IsAgentAlive(id string) bool {
+	item, ok := p.model.listing.liveAgent(id)
+
+	return ok && item.Alive
+}
+
 // ReadStandIns is every stand-in the panel has put in a pane's place.
 func (p *Panel) ReadStandIns() []CopyStandIn {
 	return p.tmux.standIns

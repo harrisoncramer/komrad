@@ -11,17 +11,77 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// releasePanes swaps the given agents' panes out of the stage and marks them locally as no
-// longer alive.
-func (m *model) releasePanes(agents []panel.Agent) {
+// unstaged is the agents whose panes were taken off the stage ahead of a write that kills them.
+type unstaged struct {
+	agents []panel.Agent
+	// archived is whether the write's archive step landed.
+	archived bool
+}
+
+// unstageAhead takes the given agents' panes off the stage before a write that kills them.
+func (m *model) unstageAhead(agents []panel.Agent) *unstaged {
+	if m.unstaging == nil {
+		m.unstaging = map[string]struct{}{}
+	}
+
+	staged := m.frame.GuestPane()
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
-		if held, ok := m.listing.world.Agents[agent.ID]; ok {
-			held.Alive = xptr.Ptr(false)
+		if agent.Pane != "" {
+			m.unstaging[agent.Pane] = struct{}{}
 		}
 	}
 
-	m.listing.assemble(time.Now())
+	if staged != "" && m.frame.GuestPane() == "" {
+		m.frame.Show(layout.RegionStage, newBlankContent())
+	}
+
+	return &unstaged{agents: agents}
+}
+
+// attach hands the write's result the panes taken off the stage for it.
+func (u *unstaged) attach(cmd tea.Cmd) tea.Cmd {
+	return func() tea.Msg {
+		msg := cmd()
+
+		result, ok := msg.(writeResult)
+		if !ok {
+			return msg
+		}
+
+		result.unstaged = u
+
+		return result
+	}
+}
+
+// noteArchive records whether an archive step landed and passes its error on.
+func (u *unstaged) noteArchive(err error) error {
+	u.archived = err == nil
+
+	return err
+}
+
+// settleUnstaged marks the agents an archive killed as no longer alive and stages the screen
+// again.
+func (m *model) settleUnstaged(pending *unstaged) {
+	for _, agent := range pending.agents {
+		delete(m.unstaging, agent.Pane)
+	}
+
+	if pending.archived {
+		for _, agent := range pending.agents {
+			if held, ok := m.listing.world.Agents[agent.ID]; ok {
+				held.Alive = xptr.Ptr(false)
+			}
+		}
+
+		m.listing.assemble(time.Now())
+	}
+
+	if stager, ok := m.active().(rowStager); ok {
+		stager.stage(m)
+	}
 }
 
 // stageDelay is how long a cursor has to rest before the panes are moved to what it is standing

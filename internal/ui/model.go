@@ -281,7 +281,9 @@ type model struct {
 	register *vim.Register
 	// edited is the files a reader opened an editor on over an agent's worktree while it was
 	// paused, keyed by agent, so whoever lets that agent go can tell it where to look.
-	edited       map[string][]string
+	edited map[string][]string
+	// unstaging is the panes taken off the stage for a write still in flight that kills them.
+	unstaging    map[string]struct{}
 	helpExpanded bool
 	topHeld      bool
 	viewsOpen    bool
