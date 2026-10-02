@@ -188,8 +188,7 @@ func gitlabToken(ctx context.Context, state *app, host string) (*forgev1.Forge, 
 // gitlabConnection is the GitLab connection holding a token for a host, nil when there is none.
 func gitlabConnection(forges []*forgev1.Forge, host string) *forgev1.Forge {
 	for _, f := range forges {
-		if f.GetKind() == forge.KindGitLab && f.GetMethod() == forge.MethodToken &&
-			f.GetHasCredential() && strings.EqualFold(f.GetHost(), host) {
+		if f.GetKind() == forge.KindGitLab && f.GetHasCredential() && strings.EqualFold(f.GetHost(), host) {
 			return f
 		}
 	}
