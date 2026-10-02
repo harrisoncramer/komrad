@@ -27,8 +27,6 @@ func writeFakeBinary(t *testing.T, path, body string) string {
 // the tool beyond it does, and what all of that should come to.
 type shimCase struct {
 	name string
-	// tool is the stand-in run, gh when empty.
-	tool string
 	env  []string
 	// komrad is the body of the komrad command the stand-in asks for a credential.
 	komrad string
@@ -48,10 +46,10 @@ type shimCase struct {
 	wantStderr string
 }
 
-func runCase(t *testing.T, tt shimCase) {
+func runCase(t *testing.T, tool string, tt shimCase) {
 	t.Helper()
 
-	shim := shimFor(t, tt.tool)
+	shim := shimFor(t, tool)
 
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
@@ -114,10 +112,6 @@ var handedOver = map[string]string{
 
 func shimFor(t *testing.T, tool string) toolShim {
 	t.Helper()
-
-	if tool == "" {
-		tool = "gh"
-	}
 
 	for _, shim := range toolShims {
 		if shim.tool == tool {
@@ -205,7 +199,7 @@ func TestIntegrationGHShim(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runCase(t, tt)
+			runCase(t, "gh", tt)
 		})
 	}
 }
@@ -288,8 +282,7 @@ func TestIntegrationGLabShim(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.tool = "glab"
-			runCase(t, tt)
+			runCase(t, "glab", tt)
 		})
 	}
 }
