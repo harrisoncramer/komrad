@@ -1,4 +1,4 @@
-// Package clock holds a sleep that ends with its context.
+// Package clock holds sleeps that end with their context.
 package clock
 
 import (
