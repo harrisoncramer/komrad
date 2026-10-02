@@ -66,7 +66,7 @@ func (s *Service) rotateIfDue(ctx context.Context, connection forgestore.Connect
 	if err != nil {
 		return fmt.Errorf("failed to read the token for %s: %w", connection.Host, err)
 	}
-	if !rotationDue(info.ExpiresAt, s.now()) {
+	if !isRotationDue(info.ExpiresAt, s.now()) {
 		return nil
 	}
 
@@ -93,8 +93,8 @@ func rotatorFor(f Forge) (TokenRotator, error) {
 	return rotator, nil
 }
 
-// rotationDue says whether a token expiring at expiresAt has to be rotated by now.
-func rotationDue(expiresAt, now time.Time) bool {
+// isRotationDue says whether a token expiring at expiresAt has to be rotated by now.
+func isRotationDue(expiresAt, now time.Time) bool {
 	return !expiresAt.IsZero() && !expiresAt.After(utcDay(now).AddDate(0, 0, 1))
 }
 
