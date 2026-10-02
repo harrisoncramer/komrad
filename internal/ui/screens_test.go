@@ -423,17 +423,17 @@ func TestScreensRecordGivesWay(t *testing.T) {
 	}{
 		{
 			name:  "the agents tree",
-			fills: 8,
+			fills: 10,
 		},
 		{
 			name:  "the archive",
 			press: []string{"shift+tab", "shift+tab"},
-			fills: 10,
+			fills: 12,
 		},
 		{
 			name:  "the schedules",
 			press: []string{"tab", "tab"},
-			fills: 6,
+			fills: 8,
 		},
 	}
 

@@ -57,57 +57,42 @@ func (m *model) renderHelp(k keyMap, above ...string) string {
 	}
 
 	width := m.paneWidth()
-	if width > 0 {
-		width = max(width-lipgloss.Width(normalModeLabel), 1)
-	}
 	view := helpView(width)
+	status := "\n" + m.statusRow(width) + "\n"
 
 	if !m.helpExpanded {
-		return m.cornerWrites(fitLegend(view.ShortHelpView(byLabel(k.short)), width), width) + "\n"
+		return fitLegend(view.ShortHelpView(byLabel(k.short)), width) + status
 	}
 
 	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
 	// it, so a legend the sidebar cannot hold gives way to its short form, a width of zero being a
 	// panel that has not been told how wide it is and which bubbles reads as no limit.
 	columns := helpColumns(byLabel(k.full), width)
-	full := fitLegend(view.FullHelpView(columns), width) + "\n"
+	full := fitLegend(view.FullHelpView(columns), width) + status
 	if (width > 0 && helpWidth(columns) > width) || !m.doesLegendLeaveARow(full, above) {
-		return m.cornerWrites(fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.short))), width), width) + "\n"
+		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.short))), width) + status
 	}
 
-	return m.cornerWrites(strings.TrimSuffix(full, "\n"), width) + "\n"
+	return full
 }
 
-// cornerWrites draws the writes in flight at the right of the legend's last row.
-func (m *model) cornerWrites(legend string, width int) string {
+// statusRow is the row under the legend, holding the writes in flight left of the mode's label.
+func (m *model) statusRow(width int) string {
 	loose := m.looseWrites()
 	if len(loose) == 0 {
-		return legend
+		return ""
 	}
 
 	const gap = 2
 
-	lines := strings.Split(legend, "\n")
-	last := lines[len(lines)-1]
-
 	if width <= 0 {
-		lines[len(lines)-1] = last + strings.Repeat(" ", gap) + submitting.Badge(loose, m.submittingParams(0))
-
-		return strings.Join(lines, "\n")
+		return submitting.Badge(loose, m.submittingParams(0))
 	}
 
-	room := max(width-ansi.StringWidth(last)-gap, width/2)
+	room := max(width-lipgloss.Width(normalModeLabel)-gap, 1)
 	badge := submitting.Badge(loose, m.submittingParams(room))
-	pad := max(width-ansi.StringWidth(badge), 0)
-	if legendRoom := width - ansi.StringWidth(badge) - gap; legendRoom > 0 {
-		last = fitLegend(last, legendRoom)
-		pad = max(width-ansi.StringWidth(last)-ansi.StringWidth(badge), gap)
-	} else {
-		last = ""
-	}
-	lines[len(lines)-1] = last + strings.Repeat(" ", pad) + badge
 
-	return strings.Join(lines, "\n")
+	return strings.Repeat(" ", max(room-ansi.StringWidth(badge), 0)) + badge
 }
 
 func (m *model) doesLegendLeaveARow(legend string, above []string) bool {
