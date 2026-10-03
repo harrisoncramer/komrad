@@ -41,6 +41,9 @@ func New(t *testing.T) *Server {
 
 	server := &Server{t: t, socket: fmt.Sprintf("komradtest-%d-%d", os.Getpid(), created.Add(1))}
 
+	// Explainer: t.Cleanup never runs when the test binary is killed, which would leave this server running for good.
+	// The watchdog is a shell in a session of its own, so killing the test does not kill it too.
+	// It checks once a second whether this test process is alive, and kills the server once it is gone.
 	watchdog := exec.Command("sh", "-c", watchdogScript, "watchdog", strconv.Itoa(os.Getpid()), server.socket)
 	watchdog.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	require.NoError(t, watchdog.Start(), "failed to start the tmux server's watchdog")
