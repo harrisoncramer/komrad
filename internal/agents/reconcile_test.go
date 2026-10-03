@@ -518,9 +518,12 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 // hurries a state change the frame already supports rather than overriding what the pane says.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
-		name   string
-		frames []string
-		want   agentstore.State
+		name       string
+		frames     []string
+		passGap    time.Duration
+		seenAge    time.Duration
+		want       agentstore.State
+		wantMisses int
 	}{
 		{
 			name:   "a boundary against a frame still showing work does not move it",
@@ -528,14 +531,28 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			want:   agentstore.StateThinking,
 		},
 		{
+			name:       "a boundary the agent worked on past does not settle a later idle frame",
+			frames:     []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			passGap:    turnBoundaryGrace,
+			want:       agentstore.StateThinking,
+			wantMisses: 1,
+		},
+		{
 			name:   "a boundary against an idle frame skips the miss counter",
 			frames: []string{harnesstest.FrameIdle},
 			want:   agentstore.StateIdle,
 		},
 		{
-			name:   "a boundary outlasts a frame still showing work until the idle frame comes",
-			frames: []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
-			want:   agentstore.StateIdle,
+			name:    "a boundary outlasts a frame still showing work until the idle frame comes",
+			frames:  []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			passGap: 2 * time.Second,
+			want:    agentstore.StateIdle,
+		},
+		{
+			name:    "a boundary outlasts a working frame that refreshes the row",
+			frames:  []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			seenAge: stateSeenCoalesce + time.Minute,
+			want:    agentstore.StateIdle,
 		},
 	}
 
@@ -544,6 +561,9 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			if tt.seenAge > 0 {
+				backdateStateSeen(t, st, agent.ID, tt.seenAge)
+			}
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = agent.ID
@@ -553,22 +573,24 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 				States:   st.Agents,
 			})
-			rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+			now := time.Now()
+			rec.tally.now = func() time.Time { return now }
 			rec.RecordTurnBoundary(agent.ID)
 
 			for _, frame := range tt.frames {
 				tmux.Captures["%1"] = frame
 				require.NoError(t, rec.Reconcile(ctx))
+				now = now.Add(tt.passGap)
 			}
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
-			assert.Zero(t, rec.tally.read(agent.ID).misses, "the boundary settles it in one pass rather than accruing a miss")
+			assert.Equal(t, tt.wantMisses, rec.tally.read(agent.ID).misses)
 		})
 	}
 }
 
-// TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing pins that a boundary from
-// before the last look is stale and is ignored.
-func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.T) {
+// TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing pins that a boundary from
+// before the state last changed is stale and is ignored.
+func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
@@ -582,7 +604,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 		States:   st.Agents,
 	})
-	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(-time.Second) }
+	rec.tally.now = func() time.Time { return agent.StateChangedAt.Add(-time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
 	rec.tally.now = time.Now
 

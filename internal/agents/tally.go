@@ -16,6 +16,9 @@ const reconcileShellGrace = 10 * time.Second
 // is believed gone.
 const listingsBeforePaneGone = 3
 
+// turnBoundaryGrace is how long a reported turn end may hurry an idle frame along.
+const turnBoundaryGrace = 5 * time.Second
+
 // tally is what the reconcile passes have accrued about each agent, all of it counters and
 // timestamps the panes drove.
 type tally struct {
@@ -92,7 +95,9 @@ func (t *tally) recordReportedReason(agentID, reason string) {
 }
 
 func (t *tally) hasFreshTurnBoundary(agentID string, since time.Time) bool {
-	return t.read(agentID).turnBoundary.After(since)
+	boundary := t.read(agentID).turnBoundary
+
+	return boundary.After(since) && t.now().Sub(boundary) < turnBoundaryGrace
 }
 
 func (t *tally) recordMiss(agentID string, state agentstore.State) int {
