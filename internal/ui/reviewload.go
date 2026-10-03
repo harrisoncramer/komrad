@@ -79,7 +79,7 @@ type reviewWroteMsg struct {
 
 // open puts the review on an agent's diff and reads it.
 func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
-	m.dropMessage(r.moved)
+	m.dropMessage(r.notices.moved)
 
 	worktree := m.listing.worktreeFor(agent)
 
@@ -550,7 +550,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(m)
-	r.raiseNotices(m)
+	r.followNotices(m)
 
 	return nil
 }

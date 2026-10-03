@@ -103,7 +103,7 @@ type sidebarLayout struct {
 func (r reviewScreen) layoutSidebar(m *model, above ...string) sidebarLayout {
 	bare := r.layoutUnder(m, "", above)
 	for _, bar := range m.viewsBars() {
-		if barred := r.layoutUnder(m, bar, above); r.fitsUnderBar(barred, bare) {
+		if barred := r.layoutUnder(m, bar, above); r.doesFitUnderBar(barred, bare) {
 			return barred
 		}
 	}
@@ -111,7 +111,8 @@ func (r reviewScreen) layoutSidebar(m *model, above ...string) sidebarLayout {
 	return bare
 }
 
-func (r reviewScreen) fitsUnderBar(barred, bare sidebarLayout) bool {
+// doesFitUnderBar reports whether a bar costs the sidebar neither its legend nor its file tree's floor.
+func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 	if barred.help != bare.help {
 		return false
 	}

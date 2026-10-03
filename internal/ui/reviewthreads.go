@@ -42,7 +42,7 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 // agent has moved past the round on screen.
 func (r *reviewScreen) followWorld(m *model) tea.Cmd {
 	r.followThreads(m)
-	r.raiseNotices(m)
+	r.followNotices(m)
 
 	return r.followMove(m)
 }

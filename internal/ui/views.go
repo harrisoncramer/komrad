@@ -59,10 +59,11 @@ func (m *model) viewsBar() string {
 	return m.viewsBars()[0]
 }
 
+// viewsBars is every form the bar can take, tallest first.
 func (m *model) viewsBars() []string {
 	trail, _, opened := m.activeCrumbs()
 	if m.term.height > 0 && m.term.height < viewsBarFloor {
-		if _, ok := m.drawMessagesFlash(m.paneWidth()); ok {
+		if m.isMessagesFlashing() && m.paneWidth() >= 3 {
 			return []string{m.engineLine(m.paneWidth()) + "\n"}
 		}
 
@@ -74,11 +75,12 @@ func (m *model) viewsBars() []string {
 	}
 
 	lines := m.switcherLines(trail)
+	logo, engine := lines[0], lines[1]
 
 	return slices.Compact([]string{
 		strings.Join(lines, "\n") + "\n",
-		strings.Join(lines[:2], "\n") + "\n",
-		lines[1] + "\n",
+		logo + "\n" + engine + "\n",
+		engine + "\n",
 	})
 }
 
