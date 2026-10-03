@@ -129,7 +129,7 @@ func carryStyle(lines []string) []string {
 	open := ""
 	for i, line := range lines {
 		line = open + line
-		open = openStyleAt(line)
+		open = findOpenStyle(line)
 		if open != "" {
 			line += ansi.ResetStyle
 		}
@@ -140,8 +140,8 @@ func carryStyle(lines []string) []string {
 	return carried
 }
 
-// openStyleAt is the run of style sequences still in force at the end of a line.
-func openStyleAt(line string) string {
+// findOpenStyle is the run of style sequences still in force at the end of a line.
+func findOpenStyle(line string) string {
 	var open strings.Builder
 
 	parser := ansi.NewParser()
