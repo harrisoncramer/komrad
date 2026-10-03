@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+#MISE description="Lint the migrations a branch adds, refusing a change an older build would break on."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+
+usage() {
+	echo "Usage: mise run db:lint [--against <ref>]"
+	echo
+	echo "Runs squawk over the migrations added or changed since <ref>. The ref must"
+	echo "already be fetched. Without one it lints against where this branch left"
+	echo "origin/main, so a migration main gained since is not read as this branch's."
+	echo
+	echo "Older migrations are left alone, since every database already holds them."
+}
+
+against=""
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--against)
+		against="$2"
+		shift 2
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*)
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+if [ -z "$against" ]; then
+	against=$(git merge-base origin/main HEAD)
+fi
+
+mapfile -t migrations < <(git diff --name-only --diff-filter=AM "$against" -- 'db/migrations/*.sql')
+
+if [ "${#migrations[@]}" -eq 0 ]; then
+	echo "No migrations to lint."
+	exit 0
+fi
+
+squawk "${migrations[@]}"

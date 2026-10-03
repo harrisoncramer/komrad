@@ -18,7 +18,7 @@ every upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE
 naming the owner, which falls back to database_url on a database no engine has joined.
 
 It refuses while another komrad is connected and the build holds migrations the database
-has not seen, since those engines would stop matching. It is safe to run against a
+has not seen, since a change it makes could break them. It is safe to run against a
 database that is already current; it says so and exits zero.`,
 		Args:          cobra.NoArgs,
 		Hidden:        true,

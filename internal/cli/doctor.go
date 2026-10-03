@@ -54,7 +54,7 @@ not there, and whether the font has a glyph at all is not tested.
 Pointed at an engine with --engine, the checks about this machine run here and the
 ones about the engine are asked of its service, which makes them on its own
 machine; they are printed under an "on the engine" heading, and marked not checked
-when the service cannot be reached or is running a different build.
+when the service cannot be reached.
 
 The exit status is non-zero when any check failed, so it can gate a script, and
 --json prints the report rather than the summary. Run this first when the panel is

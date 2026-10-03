@@ -24,7 +24,7 @@ Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers
 <Command path="open" /> opens your laptop's panel. <Command path="open" args="--engine remote" /> opens the engine named
 `remote`, and `--engine local` names your laptop.
 
-Every panel shows which engine it is on at the top of the sidebar, with the release its server runs, or its commit when it runs no release. The dot beside it is green while the engine's heartbeat arrives, red once it stops, and yellow while the engine runs a different build from yours. The message it flashes beside the engine says why, and <Key name="messages.open" /> opens it whole with what to do.
+Every panel shows which engine it is on at the top of the sidebar, with the release its server runs, or its commit when it runs no release. The dot beside it is green while the engine's heartbeat arrives, and red once it stops. The message it flashes beside the engine says why, and <Key name="messages.open" /> opens it whole with what to do.
 
 To move to another engine, close the panel and run <Command path="open" args="--engine" /> with that engine's name.
 
@@ -41,10 +41,6 @@ The exception is a window someone fixed at a size on the engine itself, for exam
 Agents on the engine run a CLI that has to be logged in. Do that once on the engine: start the CLI and log in. The login lives on the engine's data disk.
 
 Each agent also works in a fresh worktree, and the CLI asks whether to trust every directory it has not seen. Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI the engine runs, so komrad answers that question before the agent starts. Without it, every new agent sits waiting at that question.
-
-## Keeping the two builds in step
-
-Your komrad and the engine's do not have to be the same build. The engine line shows which build the engine runs, and <Command path="version" /> shows yours. The engine moves when a release is published, so if your laptop is missing something the engine offers, install the release the engine runs.
 
 ## When the engine is off
 
