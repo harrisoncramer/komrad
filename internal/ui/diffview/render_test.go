@@ -63,8 +63,8 @@ func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
 
 	for width := 1; width <= 40; width++ {
 		for y := range view.Len() {
-			for _, cursor := range []Cursor{NoCursor, LiveCursor, DimCursor} {
-				drawn := view.RenderRow(y, cursor, width, 0)
+			for _, cursor := range []Cursor{noCursor, LiveCursor, DimCursor} {
+				drawn := view.renderRow(y, cursor, width, 0)
 				assert.LessOrEqual(t, lipgloss.Width(drawn), width,
 					"row %d at width %d: %q", y, width, ansi.Strip(drawn))
 			}

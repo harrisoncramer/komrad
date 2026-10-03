@@ -55,7 +55,7 @@ type Prediction struct {
 func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, error) {
 	state := TreeState{}
 
-	if branch := c.GetCurrentBranch(ctx, dir); branch != nil {
+	if branch := c.getCurrentBranch(ctx, dir); branch != nil {
 		state.Branch = *branch
 	}
 	if sha, err := Run(ctx, dir, "rev-parse", "--verify", "--quiet", "HEAD"); err == nil {

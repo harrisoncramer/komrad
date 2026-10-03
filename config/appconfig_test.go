@@ -125,11 +125,11 @@ func TestLoadLayout(t *testing.T) {
 			name: "the width the user chose, with the rest left at the defaults",
 			file: "[layout]\nsidebar_width = 40\n",
 			want: Layout{
-				SidebarSide:   DefaultSidebarSide,
+				SidebarSide:   defaultSidebarSide,
 				SidebarWidth:  40,
-				InfoSide:      DefaultInfoSide,
+				InfoSide:      defaultInfoSide,
 				InfoHeight:    DefaultInfoHeight,
-				DetailsHeight: DefaultDetailsHeight,
+				DetailsHeight: defaultDetailsHeight,
 			},
 		},
 		{
@@ -140,27 +140,27 @@ func TestLoadLayout(t *testing.T) {
 				SidebarWidth:  DefaultSidebarWidth,
 				InfoSide:      InfoSideAbove,
 				InfoHeight:    DefaultInfoHeight,
-				DetailsHeight: DefaultDetailsHeight,
+				DetailsHeight: defaultDetailsHeight,
 			},
 		},
 		{
 			name: "the height the user chose for the info pane",
 			file: "[layout]\ninfo_height = 0.6\n",
 			want: Layout{
-				SidebarSide:   DefaultSidebarSide,
+				SidebarSide:   defaultSidebarSide,
 				SidebarWidth:  DefaultSidebarWidth,
-				InfoSide:      DefaultInfoSide,
+				InfoSide:      defaultInfoSide,
 				InfoHeight:    0.6,
-				DetailsHeight: DefaultDetailsHeight,
+				DetailsHeight: defaultDetailsHeight,
 			},
 		},
 		{
 			name: "the height the user chose for the details under the list",
 			file: "[layout]\ndetails_height = 12\n",
 			want: Layout{
-				SidebarSide:   DefaultSidebarSide,
+				SidebarSide:   defaultSidebarSide,
 				SidebarWidth:  DefaultSidebarWidth,
-				InfoSide:      DefaultInfoSide,
+				InfoSide:      defaultInfoSide,
 				InfoHeight:    DefaultInfoHeight,
 				DetailsHeight: 12,
 			},
@@ -221,10 +221,10 @@ func TestLoadUsage(t *testing.T) {
 			name: "zero hands a role's compaction back to the CLI and one role changed leaves the rest",
 			file: "[usage.reviewer]\nauto_compaction = 120000\n[usage.orchestrator]\nauto_compaction = 0\nmax_children = 4\n",
 			want: Usage{
-				MaxAgents: DefaultMaxAgents,
+				MaxAgents: defaultMaxAgents,
 				Implementer: ImplementerUsage{
-					AutoCompaction: DefaultImplementerAutoCompaction,
-					MaxChildren:    DefaultMaxChildren,
+					AutoCompaction: defaultImplementerAutoCompaction,
+					MaxChildren:    defaultMaxChildren,
 				},
 				Reviewer:     ReviewerUsage{AutoCompaction: 120000},
 				Orchestrator: OrchestratorUsage{MaxChildren: 4},
@@ -263,7 +263,7 @@ func TestLoadMaxAgents(t *testing.T) {
 		{
 			name: "a file naming none takes the built-in",
 			file: "default_harness = \"claude\"\n",
-			want: DefaultMaxAgents,
+			want: defaultMaxAgents,
 		},
 		{
 			name: "the ceiling the user chose",
@@ -274,7 +274,7 @@ func TestLoadMaxAgents(t *testing.T) {
 			// Zero reads the same as the key being absent, so it cannot mean no ceiling.
 			name: "zero is an omitted key rather than a ceiling of none",
 			file: "[usage]\nmax_agents = 0\n",
-			want: DefaultMaxAgents,
+			want: defaultMaxAgents,
 		},
 		{
 			name:    "a negative ceiling is not a number of agents",
@@ -444,7 +444,7 @@ func TestLoadLogLevel(t *testing.T) {
 	}{
 		{
 			name: "a file that says nothing about logging",
-			want: DefaultLogLevel,
+			want: defaultLogLevel,
 		},
 		{
 			name: "a level spelled as slog spells it",
@@ -710,7 +710,7 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
-	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
+	assert.Equal(t, sourceEnvironment, report.Sources["addr"])
 }
 
 // TestLoadDerivesConnectionValuesAfterPrecedence pins that a derived value is worked out from
@@ -732,11 +732,11 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 		"postgres://komrad_reader:secret@db.internal:5432/panel?sslmode=require",
 		cfg.Connection.ReadOnlyDatabaseURL,
 	)
-	assert.Equal(t, SourceDerived, report.Sources["readonly_database_url"])
+	assert.Equal(t, sourceDerived, report.Sources["readonly_database_url"])
 	assert.Equal(t, "postgres://komrad:secret@db.internal:5432/panel?sslmode=require", cfg.Connection.OwnerDatabaseURL)
-	assert.Equal(t, SourceDerived, report.Sources["owner_database_url"])
+	assert.Equal(t, sourceDerived, report.Sources["owner_database_url"])
 	assert.NotEmpty(t, cfg.Connection.CacheDir)
-	assert.Equal(t, SourceDerived, report.Sources["cache_dir"])
+	assert.Equal(t, sourceDerived, report.Sources["cache_dir"])
 }
 
 // TestLoadTakesTheLocalOwnerWithTheDefaultEngine pins komrad migrate working on a checkout that sets nothing.
@@ -749,8 +749,8 @@ func TestLoadTakesTheLocalOwnerWithTheDefaultEngine(t *testing.T) {
 	cfg, err := LoadStack(Stack{Paths: []string{path}})
 	require.NoError(t, err)
 
-	assert.Equal(t, DefaultDatabaseURL, cfg.Connection.DatabaseURL)
-	assert.Equal(t, DefaultOwnerDatabaseURL, cfg.Connection.OwnerDatabaseURL)
+	assert.Equal(t, defaultDatabaseURL, cfg.Connection.DatabaseURL)
+	assert.Equal(t, defaultOwnerDatabaseURL, cfg.Connection.OwnerDatabaseURL)
 }
 
 // TestLoadRefusesAnEmptyBinding pins the one collection an empty list cannot clear, a binding
@@ -947,9 +947,9 @@ func TestLoadTakesTheDefaultForAnEmptyConnection(t *testing.T) {
 	cfg, err := loadStrict(t, "[connection]\naddr = \"\"\ndatabase_url = \"\"\ntmux_socket = \"\"\n")
 
 	require.NoError(t, err, "an empty value is how an unset setting reads, so it takes the default")
-	assert.Equal(t, DefaultAddr, cfg.Connection.Addr)
-	assert.Equal(t, DefaultDatabaseURL, cfg.Connection.DatabaseURL)
-	assert.Equal(t, DefaultTmuxSocket, cfg.Connection.TmuxSocket)
+	assert.Equal(t, defaultAddr, cfg.Connection.Addr)
+	assert.Equal(t, defaultDatabaseURL, cfg.Connection.DatabaseURL)
+	assert.Equal(t, defaultTmuxSocket, cfg.Connection.TmuxSocket)
 }
 
 // TestValidateAddrRefusesNothing covers the address arriving as a flag rather than a setting,

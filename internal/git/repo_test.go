@@ -131,7 +131,7 @@ func TestIntegrationGetCurrentBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := client.GetCurrentBranch(t.Context(), tt.dir)
+			got := client.getCurrentBranch(t.Context(), tt.dir)
 
 			if tt.want == nil {
 				assert.Nil(t, got)

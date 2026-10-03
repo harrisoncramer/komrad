@@ -271,8 +271,8 @@ type AgentPane struct {
 	Pane    string
 }
 
-// FromRows is the agents the stored rows describe, in the order given.
-func FromRows(rows []*models.Agent) []Agent {
+// fromRows is the agents the stored rows describe, in the order given.
+func fromRows(rows []*models.Agent) []Agent {
 	return xslice.Map(rows, func(row *models.Agent) Agent {
 		return FromRow(*row)
 	})

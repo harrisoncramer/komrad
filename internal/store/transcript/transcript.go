@@ -17,8 +17,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Session is one conversation an agent has held.
-type Session struct {
+// session is one conversation an agent has held.
+type session struct {
 	ID           string
 	SyncedOffset int64
 	OpenedAt     time.Time
@@ -56,8 +56,8 @@ const unknownTimeKey = -1e18
 
 const minNearTermRunes = 3
 
-// ErrSortChanged is a cursor passed back under a sort other than the one it was handed out for.
-var ErrSortChanged = fail.InvalidArgument("the cursor was handed out under another sort; search again from the first page")
+// errSortChanged is a cursor passed back under a sort other than the one it was handed out for.
+var errSortChanged = fail.InvalidArgument("the cursor was handed out under another sort; search again from the first page")
 
 type TranscriptStore struct {
 	queries *models.Queries
@@ -85,7 +85,7 @@ func (s *TranscriptStore) Get(ctx context.Context, agentID string) (string, erro
 	return content, nil
 }
 
-type StoredTurn struct {
+type storedTurn struct {
 	Seq     int32
 	Role    string
 	Content string
@@ -99,7 +99,7 @@ type ListLastTurnsParams struct {
 
 // ListLastTurns returns the newest turns spoken in one role and every turn between them, oldest
 // first.
-func (s *TranscriptStore) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]StoredTurn, error) {
+func (s *TranscriptStore) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]storedTurn, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, nil
 	}
@@ -113,8 +113,8 @@ func (s *TranscriptStore) ListLastTurns(ctx context.Context, params ListLastTurn
 		return nil, fmt.Errorf("failed to list the last turns of %q: %w", params.AgentID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListLastTranscriptTurnsRow) StoredTurn {
-		return StoredTurn{
+	return xslice.Map(rows, func(row *models.ListLastTranscriptTurnsRow) storedTurn {
+		return storedTurn{
 			Seq:     row.Seq,
 			Role:    row.Role,
 			Content: row.Content,
@@ -128,10 +128,10 @@ type OpenSessionParams struct {
 }
 
 // OpenSession returns the session an agent's current conversation is copied under.
-func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionParams) (Session, error) {
+func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionParams) (session, error) {
 	id, err := store.NewID()
 	if err != nil {
-		return Session{}, err
+		return session{}, err
 	}
 
 	row, err := s.queries.OpenTranscriptSession(ctx, models.OpenTranscriptSessionParams{
@@ -140,10 +140,10 @@ func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionPar
 		SessionID: params.SessionID,
 	})
 	if err != nil {
-		return Session{}, fmt.Errorf("failed to open a transcript session for %q: %w", params.AgentID, err)
+		return session{}, fmt.Errorf("failed to open a transcript session for %q: %w", params.AgentID, err)
 	}
 
-	return Session{
+	return session{
 		ID:           row.ID,
 		SyncedOffset: row.SyncedOffset,
 		OpenedAt:     row.OpenedAt,
@@ -265,13 +265,13 @@ type Sort string
 const (
 	SortBest   Sort = "best"
 	SortNewest Sort = "new"
-	SortOldest Sort = "old"
+	sortOldest Sort = "old"
 )
 
 // Validate refuses a sort this server does not know.
 func (s Sort) Validate() error {
 	switch s {
-	case SortBest, SortNewest, SortOldest:
+	case SortBest, SortNewest, sortOldest:
 		return nil
 	}
 
@@ -399,7 +399,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 		return Results{}, err
 	}
 	if params.Cursor != nil && params.Cursor.Sort != sort {
-		return Results{}, ErrSortChanged.Saying("the cursor was handed out for sort %q, not %q; search again from the first page", params.Cursor.Sort, sort)
+		return Results{}, errSortChanged.Saying("the cursor was handed out for sort %q, not %q; search again from the first page", params.Cursor.Sort, sort)
 	}
 
 	wanted, excluded := quoteTerms(terms.wanted, ""), quoteTerms(terms.excluded, "-")

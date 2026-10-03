@@ -23,7 +23,7 @@ func TestAddressedReply(t *testing.T) {
 				return personAuthor
 			},
 			snapshot: secondSnapshot,
-			wantErr:  ErrReviewAddressedByOwner,
+			wantErr:  errReviewAddressedByOwner,
 		},
 		{
 			name: "the agent under review with no worktree",
@@ -32,7 +32,7 @@ func TestAddressedReply(t *testing.T) {
 			},
 			homeless: true,
 			snapshot: secondSnapshot,
-			wantErr:  ErrReviewNoAnswerRound,
+			wantErr:  errReviewNoAnswerRound,
 		},
 		{
 			name: "the agent under review with nothing changed",
@@ -40,7 +40,7 @@ func TestAddressedReply(t *testing.T) {
 				return newAgentAuthor(fx.worker)
 			},
 			snapshot: firstSnapshot,
-			wantErr:  ErrReviewNothingAddressed,
+			wantErr:  errReviewNothingAddressed,
 		},
 		{
 			name: "the agent under review after changing its worktree",

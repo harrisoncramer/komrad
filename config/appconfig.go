@@ -32,15 +32,15 @@ var errLayerAbsent = errors.New("config layer is absent")
 // readerSuffix turns an engine's login into the name of its read-only login.
 const readerSuffix = "_reader"
 
-// DefaultLogLevel is how much the service writes when the config says nothing. Failures
+// defaultLogLevel is how much the service writes when the config says nothing. Failures
 // are written at error and everything else at debug, so the file stays empty while the
 // service works.
-const DefaultLogLevel = "info"
+const defaultLogLevel = "info"
 
-// DefaultDeliveryDeadline is how long mail stays deliverable when the config names no
+// defaultDeliveryDeadline is how long mail stays deliverable when the config names no
 // duration. Long enough that an agent left alone over lunch still gets its mail, short
 // enough that nothing chases a recipient nobody is coming back to.
-const DefaultDeliveryDeadline = "3h"
+const defaultDeliveryDeadline = "3h"
 
 // DefaultMaxExchange is how much mail two agents may write each other when the config names no
 // limit, set at more than twice the longest exchange the panel has recorded finishing, since a
@@ -53,24 +53,24 @@ const DefaultMaxExchange = 40
 // or reading data off of an agent panel.
 const DefaultFrameHistory = 500
 
-// DefaultMaxAgents is how many agents may exist at once when the config names no number,
+// defaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
-const DefaultMaxAgents = 50
+const defaultMaxAgents = 50
 
-// DefaultMaxChildren is how many children one agent may hold at once when the config names no
+// defaultMaxChildren is how many children one agent may hold at once when the config names no
 // number. It is far lower than the panel's own ceiling because they all work in the one
 // checkout, so a third is usually a sign an orchestrator is fanning out where it wanted agents
 // of their own.
-const DefaultMaxChildren = 3
+const defaultMaxChildren = 3
 
-// DefaultImplementerAutoCompaction is the conversation size an implementer compacts at.
-const DefaultImplementerAutoCompaction = 250_000
+// defaultImplementerAutoCompaction is the conversation size an implementer compacts at.
+const defaultImplementerAutoCompaction = 250_000
 
-// DefaultReviewerAutoCompaction is the conversation size a reviewer compacts at.
-const DefaultReviewerAutoCompaction = 250_000
+// defaultReviewerAutoCompaction is the conversation size a reviewer compacts at.
+const defaultReviewerAutoCompaction = 250_000
 
-// DefaultOrchestratorAutoCompaction is the conversation size an orchestrator compacts at.
-const DefaultOrchestratorAutoCompaction = 150_000
+// defaultOrchestratorAutoCompaction is the conversation size an orchestrator compacts at.
+const defaultOrchestratorAutoCompaction = 150_000
 
 // The connection settings a config that names none runs on. They live here rather than as
 // envDefault tags on the runtime config so that the built-in default sits underneath the
@@ -83,13 +83,13 @@ const DefaultOrchestratorAutoCompaction = 150_000
 const (
 	// The default engine's login on the Postgres `mise run docker:up` starts and provisions,
 	// so a checkout works with nothing exported.
-	DefaultDatabaseURL = "postgres://komrad_engine_default:komrad@localhost:5460/komrad?sslmode=disable"
+	defaultDatabaseURL = "postgres://komrad_engine_default:komrad@localhost:5460/komrad?sslmode=disable"
 	// The login that owns that Postgres's schema, used while database_url is the default.
-	DefaultOwnerDatabaseURL = "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable"
+	defaultOwnerDatabaseURL = "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable"
 	// Loopback, because the endpoint has no auth and its writes can spawn agents.
-	DefaultAddr = "127.0.0.1:8787"
+	defaultAddr = "127.0.0.1:8787"
 	// The socket komrad's own tmux server listens on, named for the tool.
-	DefaultTmuxSocket = "komrad"
+	defaultTmuxSocket = "komrad"
 )
 
 // DefaultHarness is the CLI a new agent runs when the config names none, spelled here
@@ -99,18 +99,18 @@ const DefaultHarness = "claude"
 // The layout the panel lays itself out at when the config names none. The info pane opens
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
-	DefaultSidebarSide   = SidebarSideLeft
+	defaultSidebarSide   = SidebarSideLeft
 	DefaultSidebarWidth  = 47
-	DefaultInfoSide      = InfoSideBelow
+	defaultInfoSide      = infoSideBelow
 	DefaultInfoHeight    = 0.4
-	DefaultDetailsHeight = 9
+	defaultDetailsHeight = 9
 )
 
 // Where each region of the panel's layout can sit.
 const (
 	SidebarSideLeft  = "left"
 	SidebarSideRight = "right"
-	InfoSideBelow    = "below"
+	infoSideBelow    = "below"
 	InfoSideAbove    = "above"
 )
 
@@ -819,13 +819,13 @@ type OrchestratorUsage struct {
 // NewUsage is the usage limits a config that names none runs on.
 func NewUsage() Usage {
 	return Usage{
-		MaxAgents: DefaultMaxAgents,
+		MaxAgents: defaultMaxAgents,
 		Implementer: ImplementerUsage{
-			AutoCompaction: DefaultImplementerAutoCompaction,
-			MaxChildren:    DefaultMaxChildren,
+			AutoCompaction: defaultImplementerAutoCompaction,
+			MaxChildren:    defaultMaxChildren,
 		},
-		Reviewer:     ReviewerUsage{AutoCompaction: DefaultReviewerAutoCompaction},
-		Orchestrator: OrchestratorUsage{AutoCompaction: DefaultOrchestratorAutoCompaction},
+		Reviewer:     ReviewerUsage{AutoCompaction: defaultReviewerAutoCompaction},
+		Orchestrator: OrchestratorUsage{AutoCompaction: defaultOrchestratorAutoCompaction},
 	}
 }
 
@@ -877,7 +877,7 @@ type Mail struct {
 // quietly ignored is worse than one it refuses.
 func (m Mail) GetDeliveryDeadline() (time.Duration, error) {
 	if m.DeliveryDeadline == "" {
-		m.DeliveryDeadline = DefaultDeliveryDeadline
+		m.DeliveryDeadline = defaultDeliveryDeadline
 	}
 
 	parsed, err := time.ParseDuration(strings.TrimSpace(m.DeliveryDeadline))
@@ -1024,10 +1024,10 @@ func Defaults() *Config {
 		Usage:          NewUsage(),
 		Layout:         DefaultLayout(),
 		Keybindings:    DefaultKeybindings(),
-		Glyphs:         DefaultGlyphs(),
-		Palette:        DefaultPalette(),
-		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
-		Log:            Log{Level: DefaultLogLevel},
+		Glyphs:         defaultGlyphs(),
+		Palette:        defaultPalette(),
+		Mail:           Mail{DeliveryDeadline: defaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
+		Log:            Log{Level: defaultLogLevel},
 		Debug:          Debug{FrameHistory: DefaultFrameHistory},
 		Connection:     defaultConnection(),
 	}
@@ -1036,20 +1036,20 @@ func Defaults() *Config {
 // defaultConnection is the instance a config that names none points at.
 func defaultConnection() Connection {
 	return Connection{
-		DatabaseURL: DefaultDatabaseURL,
-		Addr:        DefaultAddr,
-		TmuxSocket:  DefaultTmuxSocket,
+		DatabaseURL: defaultDatabaseURL,
+		Addr:        defaultAddr,
+		TmuxSocket:  defaultTmuxSocket,
 	}
 }
 
 // DefaultLayout is the layout used when the config omits it.
 func DefaultLayout() Layout {
 	return Layout{
-		SidebarSide:   DefaultSidebarSide,
+		SidebarSide:   defaultSidebarSide,
 		SidebarWidth:  DefaultSidebarWidth,
-		InfoSide:      DefaultInfoSide,
+		InfoSide:      defaultInfoSide,
 		InfoHeight:    DefaultInfoHeight,
-		DetailsHeight: DefaultDetailsHeight,
+		DetailsHeight: defaultDetailsHeight,
 	}
 }
 
@@ -1127,7 +1127,7 @@ func validateLayout(layout Layout) error {
 		return err
 	}
 
-	return validateSide("layout.info_side", layout.InfoSide, InfoSideBelow, InfoSideAbove)
+	return validateSide("layout.info_side", layout.InfoSide, infoSideBelow, InfoSideAbove)
 }
 
 // validatePaneSize rejects a size that is neither a share of what it divides nor a whole
@@ -1454,10 +1454,10 @@ func LoadStack(stack Stack) (*Config, error) {
 type Source string
 
 const (
-	SourceDefault     Source = "built-in default"
-	SourceFile        Source = "config file"
-	SourceEnvironment Source = "environment"
-	SourceDerived     Source = "derived default"
+	sourceDefault     Source = "built-in default"
+	sourceFile        Source = "config file"
+	sourceEnvironment Source = "environment"
+	sourceDerived     Source = "derived default"
 )
 
 // Report describes how a configuration was resolved without mixing provenance into Config.
@@ -1527,10 +1527,10 @@ func (c *Config) normalizeZeroValues() {
 		c.DefaultHarness = DefaultHarness
 	}
 	if c.Usage.MaxAgents == 0 {
-		c.Usage.MaxAgents = DefaultMaxAgents
+		c.Usage.MaxAgents = defaultMaxAgents
 	}
 	if c.Usage.Implementer.MaxChildren == 0 {
-		c.Usage.Implementer.MaxChildren = DefaultMaxChildren
+		c.Usage.Implementer.MaxChildren = defaultMaxChildren
 	}
 	if c.Layout.SidebarWidth == 0 {
 		c.Layout.SidebarWidth = DefaultSidebarWidth
@@ -1539,25 +1539,25 @@ func (c *Config) normalizeZeroValues() {
 		c.Layout.InfoHeight = DefaultInfoHeight
 	}
 	if c.Layout.DetailsHeight == 0 {
-		c.Layout.DetailsHeight = DefaultDetailsHeight
+		c.Layout.DetailsHeight = defaultDetailsHeight
 	}
 	if strings.TrimSpace(c.Layout.SidebarSide) == "" {
-		c.Layout.SidebarSide = DefaultSidebarSide
+		c.Layout.SidebarSide = defaultSidebarSide
 	}
 	if strings.TrimSpace(c.Layout.InfoSide) == "" {
-		c.Layout.InfoSide = DefaultInfoSide
+		c.Layout.InfoSide = defaultInfoSide
 	}
 	if strings.TrimSpace(c.Connection.Addr) == "" {
-		c.Connection.Addr = DefaultAddr
+		c.Connection.Addr = defaultAddr
 	}
 	if strings.TrimSpace(c.Connection.DatabaseURL) == "" {
-		c.Connection.DatabaseURL = DefaultDatabaseURL
+		c.Connection.DatabaseURL = defaultDatabaseURL
 	}
 	if strings.TrimSpace(c.Connection.TmuxSocket) == "" {
-		c.Connection.TmuxSocket = DefaultTmuxSocket
+		c.Connection.TmuxSocket = defaultTmuxSocket
 	}
 	if strings.TrimSpace(c.Log.Level) == "" {
-		c.Log.Level = DefaultLogLevel
+		c.Log.Level = defaultLogLevel
 	}
 	if c.Debug.FrameHistory <= 0 {
 		c.Debug.FrameHistory = DefaultFrameHistory
@@ -1615,11 +1615,11 @@ func connectionSources(cfg *viper.Viper) map[string]Source {
 	for path, variable := range connectionEnvironment {
 		key := strings.TrimPrefix(path, "connection.")
 		if _, set := LookupEnv(variable); set {
-			sources[key] = SourceEnvironment
+			sources[key] = sourceEnvironment
 		} else if cfg.InConfig(path) {
-			sources[key] = SourceFile
+			sources[key] = sourceFile
 		} else {
-			sources[key] = SourceDefault
+			sources[key] = sourceDefault
 		}
 	}
 
@@ -1634,29 +1634,29 @@ func (c *Config) resolveDerived(report *Report) error {
 		}
 
 		c.Connection.CacheDir = filepath.Join(dir, "komrad")
-		report.Sources["cache_dir"] = SourceDerived
+		report.Sources["cache_dir"] = sourceDerived
 	} else {
 		c.Connection.CacheDir = ExpandHome(c.Connection.CacheDir)
 	}
 
 	if c.Connection.ReadOnlyDatabaseURL == "" {
-		c.Connection.ReadOnlyDatabaseURL = DeriveReadOnlyURL(c.Connection.DatabaseURL)
-		report.Sources["readonly_database_url"] = SourceDerived
+		c.Connection.ReadOnlyDatabaseURL = deriveReadOnlyURL(c.Connection.DatabaseURL)
+		report.Sources["readonly_database_url"] = sourceDerived
 	}
 
 	if c.Connection.OwnerDatabaseURL == "" {
 		c.Connection.OwnerDatabaseURL = c.Connection.DatabaseURL
-		if report.Sources["database_url"] == SourceDefault {
-			c.Connection.OwnerDatabaseURL = DefaultOwnerDatabaseURL
+		if report.Sources["database_url"] == sourceDefault {
+			c.Connection.OwnerDatabaseURL = defaultOwnerDatabaseURL
 		}
-		report.Sources["owner_database_url"] = SourceDerived
+		report.Sources["owner_database_url"] = sourceDerived
 	}
 
 	return nil
 }
 
-// DeriveReadOnlyURL is the url of the reader login belonging to the engine login databaseURL names.
-func DeriveReadOnlyURL(databaseURL string) string {
+// deriveReadOnlyURL is the url of the reader login belonging to the engine login databaseURL names.
+func deriveReadOnlyURL(databaseURL string) string {
 	parsed, err := url.Parse(databaseURL)
 	if err != nil {
 		return ""

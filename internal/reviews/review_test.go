@@ -331,7 +331,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: ErrReviewVerdictMissing,
+			wantErr: errReviewVerdictMissing,
 		},
 		{
 			name: "the person releasing with a verdict",
@@ -521,7 +521,7 @@ func TestListReviewThreads(t *testing.T) {
 			})
 			assert.Equal(t, tt.wantThreads, bodies)
 
-			if reader.IsHuman() {
+			if reader.isHuman() {
 				assert.NotNil(t, threads[0].Messages[0].SentAt, "the person keeps their record of when")
 
 				return
@@ -612,7 +612,7 @@ func TestCommentOnTheChangeAsAWhole(t *testing.T) {
 					NewEnd:   3,
 				})
 			},
-			wantErr: ErrReviewWholeChangeAnchored,
+			wantErr: errReviewWholeChangeAnchored,
 		},
 		{
 			name: "opened quoting a line",
@@ -621,7 +621,7 @@ func TestCommentOnTheChangeAsAWhole(t *testing.T) {
 					QuotedLines: []string{"+func Hello() {}"},
 				})
 			},
-			wantErr: ErrReviewWholeChangeAnchored,
+			wantErr: errReviewWholeChangeAnchored,
 		},
 		{
 			name: "opened suggesting a replacement",
@@ -630,7 +630,7 @@ func TestCommentOnTheChangeAsAWhole(t *testing.T) {
 					Suggestion: []string{"func Hello(name string) {}"},
 				})
 			},
-			wantErr: ErrReviewWholeChangeAnchored,
+			wantErr: errReviewWholeChangeAnchored,
 		},
 		{
 			name: "answered with a suggested replacement",
@@ -651,7 +651,7 @@ func TestCommentOnTheChangeAsAWhole(t *testing.T) {
 
 				return err
 			},
-			wantErr: ErrReviewWholeChangeAnchored,
+			wantErr: errReviewWholeChangeAnchored,
 		},
 		{
 			name: "edited to suggest a replacement",
@@ -672,7 +672,7 @@ func TestCommentOnTheChangeAsAWhole(t *testing.T) {
 
 				return err
 			},
-			wantErr: ErrReviewWholeChangeAnchored,
+			wantErr: errReviewWholeChangeAnchored,
 		},
 		{
 			name: "saying something about the whole of it",
@@ -738,7 +738,7 @@ func TestASecondReview(t *testing.T) {
 
 				return fx.tryComment(t, newAgentAuthor(fx.reviewer), secondSnapshot)
 			},
-			wantErr:     ErrReviewInFlight,
+			wantErr:     errReviewInFlight,
 			wantErrText: "round 1",
 		},
 		{

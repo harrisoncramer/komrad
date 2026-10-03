@@ -22,7 +22,7 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 		UpdatedAt:        dates.Stamp(review.UpdatedAt),
 	}
 	if review.Verdict != nil {
-		watched.Verdict = ReviewVerdictOf(*review.Verdict)
+		watched.Verdict = reviewVerdictOf(*review.Verdict)
 	}
 	if at := review.ReleasedAt; at != nil {
 		watched.ReleasedAt = dates.Stamp(*at)
@@ -54,7 +54,7 @@ func Review(review reviewstore.Review) *agentv1.Review {
 	}
 
 	if review.Verdict != nil {
-		answered.Verdict = ReviewVerdictOf(*review.Verdict)
+		answered.Verdict = reviewVerdictOf(*review.Verdict)
 	}
 	if at := review.ReleasedAt; at != nil {
 		answered.ReleasedAt = dates.Stamp(*at)

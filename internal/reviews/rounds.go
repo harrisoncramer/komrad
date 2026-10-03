@@ -38,16 +38,16 @@ var ErrReviewOwnWork = fail.Denied("an agent cannot review its own work")
 // ErrReviewAlreadyGiven is answered when an agent asks to review a round it has reviewed once.
 var ErrReviewAlreadyGiven = fail.Precondition("that round has already been reviewed; wait for the agent to write something")
 
-// ErrReviewInFlight is answered when a reviewing agent writes a comment on one snapshot while
+// errReviewInFlight is answered when a reviewing agent writes a comment on one snapshot while
 // holding unsent comments on another.
-var ErrReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
+var errReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
 
 // ErrReviewVerdictFromPerson is answered when a person sends a verdict.
 var ErrReviewVerdictFromPerson = fail.InvalidArgument("a person's review carries comments and no verdict")
 
-// ErrReviewVerdictMissing is answered when a reviewing agent releases a review without saying
+// errReviewVerdictMissing is answered when a reviewing agent releases a review without saying
 // what it concluded.
-var ErrReviewVerdictMissing = fail.InvalidArgument("a review from an agent needs a verdict")
+var errReviewVerdictMissing = fail.InvalidArgument("a review from an agent needs a verdict")
 
 // ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot no
 // round of that agent was taken of.
@@ -144,8 +144,8 @@ func (s *ReviewService) releaseUnheldRef(ctx context.Context, params releaseUnhe
 	}
 }
 
-// GetLatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
-func (s *ReviewService) GetLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
+// getLatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
+func (s *ReviewService) getLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
 	round, err := s.reviews.GetLatestRound(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNoRound, agentID)
@@ -185,7 +185,7 @@ func (s *ReviewService) ListReviews(
 	if err != nil {
 		return nil, err
 	}
-	if author.IsHuman() {
+	if author.isHuman() {
 		return reviews, nil
 	}
 
@@ -247,7 +247,7 @@ func (s *ReviewService) roundFor(
 		return nil, err
 	}
 
-	return s.GetLatestRound(ctx, params.AgentID)
+	return s.getLatestRound(ctx, params.AgentID)
 }
 
 // openReviewForParams says whose work an author is writing about, and from where.
@@ -285,7 +285,7 @@ func (s *ReviewService) openReviewFor(
 
 	round := params.Round
 	if round == nil {
-		round, err = s.GetLatestRound(ctx, params.AgentID)
+		round, err = s.getLatestRound(ctx, params.AgentID)
 		if err != nil {
 			return nil, err
 		}
@@ -341,7 +341,7 @@ func (s *ReviewService) requireEntitled(
 	agentID string,
 	author ReviewAuthor,
 ) error {
-	if !author.IsHuman() && author.AgentID != nil && *author.AgentID == agentID {
+	if !author.isHuman() && author.AgentID != nil && *author.AgentID == agentID {
 		return ErrReviewOwnWork
 	}
 
@@ -354,7 +354,7 @@ func (s *ReviewService) requireMayRead(
 	agentID string,
 	author ReviewAuthor,
 ) error {
-	if author.IsHuman() {
+	if author.isHuman() {
 		return nil
 	}
 	if author.AgentID == nil {
@@ -493,7 +493,7 @@ func (s *ReviewService) ReleaseReview(
 			ReviewID: open.ID,
 			AgentID:  params.AgentID,
 			Ordinal:  round.Ordinal,
-			ByPerson: params.Author.IsHuman(),
+			ByPerson: params.Author.isHuman(),
 			Verdict:  verdict,
 			Comments: tally.Comments,
 			Replies:  tally.Replies,
@@ -553,12 +553,12 @@ func releaseMail(params Released) string {
 // requiring one from an agent.
 func resolveVerdict(params ReleaseReviewParams) (reviewstore.Verdict, error) {
 	switch {
-	case params.Author.IsHuman() && params.Verdict != "":
+	case params.Author.isHuman() && params.Verdict != "":
 		return "", ErrReviewVerdictFromPerson
-	case params.Author.IsHuman():
+	case params.Author.isHuman():
 		return reviewstore.VerdictCommented, nil
 	case params.Verdict == "":
-		return "", ErrReviewVerdictMissing
+		return "", errReviewVerdictMissing
 	}
 
 	return params.Verdict, nil
@@ -567,7 +567,7 @@ func resolveVerdict(params ReleaseReviewParams) (reviewstore.Verdict, error) {
 // isSayingNothing reports whether an empty release would be refused, which is true only of an
 // agent releasing as commented.
 func isSayingNothing(author ReviewAuthor, verdict reviewstore.Verdict) bool {
-	return !author.IsHuman() && verdict == reviewstore.VerdictCommented
+	return !author.isHuman() && verdict == reviewstore.VerdictCommented
 }
 
 // batchTally is what one batch said, split by whether it opened a thread or added to one.
@@ -658,13 +658,13 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 	}
 
 	// An unreleased review is not found before it is refused.
-	if review.ReleasedAt == nil && !author.IsHuman() && !doesOwnReviewBatch(author, *review) {
+	if review.ReleasedAt == nil && !author.isHuman() && !doesOwnReviewBatch(author, *review) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotFound, reviewID)
 	}
 	if err := s.requireMayRead(ctx, review.AgentID, author); err != nil {
 		return nil, err
 	}
-	if !author.IsHuman() && !doesOwnReviewBatch(author, *review) {
+	if !author.isHuman() && !doesOwnReviewBatch(author, *review) {
 		review.Path = ""
 	}
 
@@ -685,7 +685,7 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 	if err != nil {
 		return nil, err
 	}
-	if !author.IsHuman() {
+	if !author.isHuman() {
 		readable := make([]ReviewThreadWithMessages, 0, len(threads))
 		for _, thread := range threads {
 			thread.Messages = releasedMessages(thread.Messages, author)

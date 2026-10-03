@@ -309,8 +309,8 @@ func TestAgentLogsWithoutALog(t *testing.T) {
 	reader := New(filepath.Join(t.TempDir(), "missing.log"))
 
 	_, err := reader.NewestAboutAgents(t.Context(), []string{"a1"}, Query{Limit: 10})
-	require.ErrorIs(t, err, ErrNoLog)
+	require.ErrorIs(t, err, errNoLog)
 
 	_, err = reader.AboutAgentsSince(t.Context(), []string{"a1"}, 0, Query{Limit: 10})
-	require.ErrorIs(t, err, ErrNoLog)
+	require.ErrorIs(t, err, errNoLog)
 }

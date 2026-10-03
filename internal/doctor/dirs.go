@@ -56,7 +56,7 @@ var (
 	}
 )
 
-type DirState struct {
+type dirState struct {
 	Present     bool
 	Directory   bool
 	Writable    bool
@@ -64,7 +64,7 @@ type DirState struct {
 	Directories []string
 }
 
-type WorktreeOwners struct {
+type worktreeOwners struct {
 	AgentIDs     []string
 	AgentDirs    []string
 	WorkflowDirs []string
@@ -182,7 +182,7 @@ type worktreeDir struct {
 	resolved string
 }
 
-func reportOrphans(env Env, owners WorktreeOwners, dirs []worktreeDir) Result {
+func reportOrphans(env Env, owners worktreeOwners, dirs []worktreeDir) Result {
 	ids := toSet(owners.AgentIDs)
 	held := toSet(owners.AgentDirs)
 

@@ -12,7 +12,7 @@ import (
 )
 
 // prepareOne runs one row through Prepare and hands back the single line it made.
-func prepareOne(t *testing.T, row Row) Line {
+func prepareOne(t *testing.T, row Row) line {
 	t.Helper()
 
 	list := Prepare(Snapshot{Rows: []Row{row}})
@@ -104,7 +104,7 @@ func TestPrepareDim(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
-		want Emphasis
+		want emphasis
 	}{
 		{
 			name: "an agent whose process has stopped is dim",
@@ -124,7 +124,7 @@ func TestPrepareDim(t *testing.T) {
 		{
 			name: "a hidden agent still running is bright",
 			row:  Row{Hidden: true},
-			want: EmphasisNormal,
+			want: emphasisNormal,
 		},
 		{
 			name: "a hidden agent whose process has stopped is dim",
@@ -134,12 +134,12 @@ func TestPrepareDim(t *testing.T) {
 		{
 			name: "an idle agent is alive and stays bright",
 			row:  Row{Status: StatusIdle},
-			want: EmphasisNormal,
+			want: emphasisNormal,
 		},
 		{
 			name: "a row with no process behind it is bright",
 			row:  Row{Process: ProcessNone},
-			want: EmphasisNormal,
+			want: emphasisNormal,
 		},
 	}
 
@@ -550,25 +550,25 @@ func TestPrepareWeight(t *testing.T) {
 	tests := []struct {
 		name     string
 		kind     RowKind
-		want     Weight
+		want     weight
 		wantRule bool
 	}{
 		{
 			name:     "a child is italic and hangs off a corner",
 			kind:     KindChild,
-			want:     WeightItalic,
+			want:     weightItalic,
 			wantRule: true,
 		},
 		{
 			name:     "an ordinary agent is regular",
 			kind:     KindAgent,
-			want:     WeightRegular,
+			want:     weightRegular,
 			wantRule: false,
 		},
 		{
 			name:     "a workflow is bold",
 			kind:     KindWorkflow,
-			want:     WeightBold,
+			want:     weightBold,
 			wantRule: false,
 		},
 	}
@@ -588,7 +588,7 @@ func TestPrepareEmphasis(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
-		want Emphasis
+		want emphasis
 	}{
 		{
 			name: "an archived row with unread mail stays dim, since dim is the stronger fact",
@@ -603,12 +603,12 @@ func TestPrepareEmphasis(t *testing.T) {
 		{
 			name: "a row with unread mail is not brightened, since the envelope says it",
 			row:  Row{UnreadMail: true},
-			want: EmphasisNormal,
+			want: emphasisNormal,
 		},
 		{
 			name: "an ordinary row is neither",
 			row:  Row{},
-			want: EmphasisNormal,
+			want: emphasisNormal,
 		},
 	}
 
@@ -677,42 +677,42 @@ func TestPrepareTrailingMarks(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
-		want Line
+		want line
 	}{
 		{
 			name: "a row with nothing after its name draws no trailing cell at all",
 			row:  Row{},
-			want: Line{},
+			want: line{},
 		},
 		{
 			name: "a failed nobody has read is the danger alert",
 			row:  Row{FailedRun: true},
-			want: Line{Alert: Cell{Glyph: glyph.FailedScript, Tone: paint.ToneDanger}},
+			want: line{Alert: Cell{Glyph: glyph.FailedScript, Tone: paint.ToneDanger}},
 		},
 		{
 			name: "unread mail is the muted envelope",
 			row:  Row{UnreadMail: true},
-			want: Line{Mail: Cell{Glyph: glyph.Mail, Tone: paint.ToneMuted}},
+			want: line{Mail: Cell{Glyph: glyph.Mail, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a paused agent is the muted pause",
 			row:  Row{Held: true},
-			want: Line{Held: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted}},
+			want: line{Held: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a hidden agent is the muted closed eye",
 			row:  Row{Hidden: true},
-			want: Line{Hidden: Cell{Glyph: glyph.Hidden, Tone: paint.ToneMuted}},
+			want: line{Hidden: Cell{Glyph: glyph.Hidden, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a schedule targeting the row is the muted calendar",
 			row:  Row{Scheduled: true},
-			want: Line{Schedule: Cell{Glyph: glyph.Schedule, Tone: paint.ToneMuted}},
+			want: line{Schedule: Cell{Glyph: glyph.Schedule, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "rows standing in for hidden ones carry the count",
 			row:  Row{HiddenCount: 3},
-			want: Line{Tally: 3},
+			want: line{Tally: 3},
 		},
 	}
 
@@ -885,22 +885,22 @@ func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
-		want Emphasis
+		want emphasis
 	}{
 		{
 			name: "a greyed row under the cursor is still the row under the cursor",
 			row:  Row{Key: "one", Process: ProcessStopped},
-			want: EmphasisFocused,
+			want: emphasisFocused,
 		},
 		{
 			name: "so is one nobody has read",
 			row:  Row{Key: "one", UnreadMail: true},
-			want: EmphasisFocused,
+			want: emphasisFocused,
 		},
 		{
 			name: "an ordinary row under the cursor",
 			row:  Row{Key: "one"},
-			want: EmphasisFocused,
+			want: emphasisFocused,
 		},
 	}
 
@@ -921,25 +921,25 @@ func TestPrepareCaretStates(t *testing.T) {
 		name     string
 		caret    Caret
 		blank    bool
-		emphasis Emphasis
+		emphasis emphasis
 	}{
 		{
 			name:     "absent takes the accent too",
 			caret:    CaretAbsent,
 			blank:    true,
-			emphasis: EmphasisNormal,
+			emphasis: emphasisNormal,
 		},
 		{
 			name:     "blinked out keeps the row lit",
 			caret:    CaretBlinkedOut,
 			blank:    true,
-			emphasis: EmphasisFocused,
+			emphasis: emphasisFocused,
 		},
 		{
 			name:     "drawn",
 			caret:    CaretDrawn,
 			blank:    false,
-			emphasis: EmphasisFocused,
+			emphasis: emphasisFocused,
 		},
 	}
 
@@ -1165,8 +1165,8 @@ func TestPrepareDrawsTheColumnsAScreenDeclares(t *testing.T) {
 		{
 			name: "a screen naming nothing draws the agents list's two",
 			want: Columns{
-				{Kind: ColumnRepo, Width: 1},
-				{Kind: ColumnForge, Width: 1},
+				{Kind: columnRepo, Width: 1},
+				{Kind: columnForge, Width: 1},
 			},
 		},
 		{
@@ -1178,11 +1178,11 @@ func TestPrepareDrawsTheColumnsAScreenDeclares(t *testing.T) {
 			name: "a screen may declare a text column of its own",
 			columns: Columns{
 				{Kind: ColumnText, Width: 4},
-				{Kind: ColumnRepo, Width: 1},
+				{Kind: columnRepo, Width: 1},
 			},
 			want: Columns{
 				{Kind: ColumnText, Width: 4},
-				{Kind: ColumnRepo, Width: 1},
+				{Kind: columnRepo, Width: 1},
 			},
 		},
 	}
@@ -1206,7 +1206,7 @@ func TestPrepareDrawsTheColumnsAScreenDeclares(t *testing.T) {
 func TestPrepareFillsATextColumnFromTheRow(t *testing.T) {
 	columns := Columns{
 		{Kind: ColumnText, Width: 4},
-		{Kind: ColumnRepo, Width: 1},
+		{Kind: columnRepo, Width: 1},
 		{Kind: ColumnText, Width: 3},
 	}
 	size := Cell{Text: "49M", Tone: paint.ToneMuted}
@@ -1350,7 +1350,7 @@ func TestResultRowOpensAtTheGutter(t *testing.T) {
 		}
 
 		assert.Equal(t, 0, line.Indent, "row %q", drawn[i])
-		assert.Equal(t, WeightRegular, line.Weight, "row %q", drawn[i])
+		assert.Equal(t, weightRegular, line.Weight, "row %q", drawn[i])
 		assert.Equal(t, drawnResultNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
 	}
 }
@@ -1374,7 +1374,7 @@ func TestHitRowHangsUnderItsResult(t *testing.T) {
 		hits++
 
 		assert.Equal(t, indentColumns, line.Indent, "row %q", drawn[i])
-		assert.Equal(t, WeightRegular, line.Weight, "row %q", drawn[i])
+		assert.Equal(t, weightRegular, line.Weight, "row %q", drawn[i])
 		assert.False(t, line.Rule, "row %q", drawn[i])
 		lead := strings.Index(drawn[i], line.Lead)
 		require.GreaterOrEqual(t, lead, 0, "row %q", drawn[i])

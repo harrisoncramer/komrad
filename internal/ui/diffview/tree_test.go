@@ -189,7 +189,7 @@ func TestCountThreads(t *testing.T) {
 		Open:    2,
 		Settled: 1,
 	}
-	assert.Equal(t, want, view.CountThreads())
+	assert.Equal(t, want, view.countThreads())
 	assert.Equal(t, want, view.GetFileTree()[0].Counts)
 }
 

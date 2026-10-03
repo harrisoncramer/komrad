@@ -59,15 +59,15 @@ func SpellKey(key string) string {
 	return key
 }
 
-// GetRootKeys returns every key bound in the root table with its command as tmux prints it.
-func (c *Client) GetRootKeys() (map[string]string, error) {
+// getRootKeys returns every key bound in the root table with its command as tmux prints it.
+func (c *Client) getRootKeys() (map[string]string, error) {
 	return c.getKeys("root")
 }
 
 // TakePanelKeys rebinds every panel key the root table holds to reach the panel on its own pane
 // and keep the user's command everywhere else.
 func (c *Client) TakePanelKeys(keys []string) error {
-	held, err := c.GetRootKeys()
+	held, err := c.getRootKeys()
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (c *Client) TakePanelKeys(keys []string) error {
 // TakePanelWheel rebinds the mouse wheel to hand the panel's own pane the mouse event and keep
 // the user's command everywhere else.
 func (c *Client) TakePanelWheel() error {
-	held, err := c.GetRootKeys()
+	held, err := c.getRootKeys()
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (c *Client) TakePanelWheel() error {
 				continue
 			}
 
-			command = c.ShowGlobal(option)
+			command = c.showGlobal(option)
 			if command == "" {
 				continue
 			}

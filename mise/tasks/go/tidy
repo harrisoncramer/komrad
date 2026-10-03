@@ -4,3 +4,4 @@ set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 go mod tidy
 (cd tools/komradlint && go mod tidy)
+(cd tools/komradexport && go mod tidy)

@@ -37,8 +37,8 @@ var (
 
 var errNoFingerprint = fail.Precondition("the file has no fingerprint header")
 
-// Unit is one file's worth of trigger SQL, applied as a whole.
-type Unit struct {
+// unit is one file's worth of trigger SQL, applied as a whole.
+type unit struct {
 	Name string
 	SQL  string
 }
@@ -49,9 +49,9 @@ type existingFile struct {
 	fingerprint string
 }
 
-// Render writes the SQL for every unit, the functions first and then each table by name.
-func Render() ([]Unit, error) {
-	tables := Tables()
+// render writes the SQL for every unit, the functions first and then each table by name.
+func render() ([]unit, error) {
+	tables := tables()
 	functions := Functions()
 	if err := validateFunctions(functions); err != nil {
 		return nil, err
@@ -64,14 +64,14 @@ func Render() ([]Unit, error) {
 	if err := templates.ExecuteTemplate(&functionsSQL, "functions.sql.tmpl", functions); err != nil {
 		return nil, fmt.Errorf("failed to render the trigger functions: %w", err)
 	}
-	units := []Unit{{Name: db.TriggerFunctionsUnit, SQL: functionsSQL.String()}}
+	units := []unit{{Name: db.TriggerFunctionsUnit, SQL: functionsSQL.String()}}
 
 	for _, table := range tables {
 		var tableSQL bytes.Buffer
 		if err := templates.ExecuteTemplate(&tableSQL, "table.sql.tmpl", table); err != nil {
 			return nil, fmt.Errorf("failed to render the triggers on %s: %w", table.Name, err)
 		}
-		units = append(units, Unit{Name: table.Name, SQL: tableSQL.String()})
+		units = append(units, unit{Name: table.Name, SQL: tableSQL.String()})
 	}
 
 	return units, nil
@@ -171,7 +171,7 @@ func fingerprintOf(sql string) string {
 
 // Sync rewrites dir to hold one file per unit, bumping a unit's version whenever its SQL changes.
 func Sync(dir string) error {
-	units, err := Render()
+	units, err := render()
 	if err != nil {
 		return err
 	}

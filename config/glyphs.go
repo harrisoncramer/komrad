@@ -131,8 +131,8 @@ type ScheduleGlyphs struct {
 	Disabled string `mapstructure:"disabled"`
 }
 
-// DefaultGlyphs are the icons used when the config omits them, read from the glyph package.
-func DefaultGlyphs() Glyphs {
+// defaultGlyphs are the icons used when the config omits them, read from the glyph package.
+func defaultGlyphs() Glyphs {
 	glyphs := Glyphs{Loader: string(loader.Braille)}
 	defaults := glyph.Defaults()
 

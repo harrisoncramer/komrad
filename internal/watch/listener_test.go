@@ -147,7 +147,7 @@ func TestALostConnectionDropsEveryWatcher(t *testing.T) {
 	}
 
 	_, err = l.broker.Subscribe(t.Context())
-	require.ErrorIs(t, err, ErrNotListening, "no snapshot is taken over the gap")
+	require.ErrorIs(t, err, errNotListening, "no snapshot is taken over the gap")
 
 	var again *Subscription
 	require.Eventually(t, func() bool {
@@ -449,7 +449,7 @@ func TestALookupFeederMatchesAcrossColumnTypes(t *testing.T) {
 	}, waitForPayloads(t, conn, 3))
 }
 
-func attachSQL(trigger Trigger) string {
+func attachSQL(trigger trigger) string {
 	args := make([]string, len(trigger.Args))
 	for i, arg := range trigger.Args {
 		args[i] = "'" + strings.ReplaceAll(arg, "'", "''") + "'"

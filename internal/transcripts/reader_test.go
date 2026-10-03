@@ -246,5 +246,5 @@ func TestSearchTranscriptsRefusesABadQualifier(t *testing.T) {
 	reader := newTranscriptReader(storetest.Open(t))
 
 	_, err := reader.SearchTranscripts(t.Context(), SearchTranscriptsParams{Query: "since:yesterdy"})
-	require.ErrorIs(t, err, ErrBadQualifier)
+	require.ErrorIs(t, err, errBadQualifier)
 }

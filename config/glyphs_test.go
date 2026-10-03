@@ -16,7 +16,7 @@ import (
 // TestEveryGlyphHasAKey covers the config and the glyph package naming the same glyphs.
 func TestEveryGlyphHasAKey(t *testing.T) {
 	keys := map[string]bool{}
-	defaults := DefaultGlyphs()
+	defaults := defaultGlyphs()
 	eachGlyphField(&defaults, func(key string, _ reflect.Value) {
 		keys[key] = true
 	})

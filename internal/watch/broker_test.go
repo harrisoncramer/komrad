@@ -326,7 +326,7 @@ func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	broker := NewBroker(t.Context(), NewBrokerParams{})
 
 	_, err := broker.Subscribe(t.Context())
-	require.ErrorIs(t, err, ErrNotListening)
+	require.ErrorIs(t, err, errNotListening)
 
 	broker.signal(t.Context(), watchv1.Resource_RESOURCE_AGENT, "a")
 	broker.Close()

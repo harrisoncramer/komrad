@@ -172,7 +172,7 @@ func TestConnectRefusals(t *testing.T) {
 		{
 			name:    "an enterprise host with no kind",
 			params:  ConnectParams{Host: "ghe.example.com", Token: NewSecret("tok")},
-			wantErr: ErrKindUnknownForHost,
+			wantErr: errKindUnknownForHost,
 		},
 		{
 			name: "a kind this build does not have",
@@ -181,7 +181,7 @@ func TestConnectRefusals(t *testing.T) {
 				Kind:  "gitea",
 				Token: NewSecret("tok"),
 			},
-			wantErr: ErrUnknownKind,
+			wantErr: errUnknownKind,
 		},
 		{
 			name:      "a token the forge refuses",
@@ -257,27 +257,27 @@ func TestResolveAPIURL(t *testing.T) {
 			kind:    KindGitHub,
 			host:    "ghe.example.com",
 			given:   "http://ghe.example.com/api/v3",
-			wantErr: ErrInsecureAPI,
+			wantErr: errInsecureAPI,
 		},
 		{
 			name:    "an address with no host is refused",
 			kind:    KindGitHub,
 			host:    "ghe.example.com",
 			given:   "https:///api/v3",
-			wantErr: ErrInsecureAPI,
+			wantErr: errInsecureAPI,
 		},
 		{
 			name:    "not a url is refused",
 			kind:    KindGitHub,
 			host:    "ghe.example.com",
 			given:   "::nope::",
-			wantErr: ErrInsecureAPI,
+			wantErr: errInsecureAPI,
 		},
 		{
 			name:    "an unknown kind on an unknown host is refused",
 			kind:    "gitea",
 			host:    "git.example.com",
-			wantErr: ErrUnknownKind,
+			wantErr: errUnknownKind,
 		},
 	}
 
@@ -289,7 +289,7 @@ func TestResolveAPIURL(t *testing.T) {
 				Kind:   tt.kind,
 				Host:   tt.host,
 				APIURL: tt.given,
-			}.ResolveAPIURL()
+			}.resolveAPIURL()
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
@@ -322,7 +322,7 @@ func TestConnectSendsTheTokenWhereTheHostSays(t *testing.T) {
 		APIURL: "http://other.example.com/api/v3",
 		Token:  NewSecret("tok"),
 	})
-	require.ErrorIs(t, err, ErrInsecureAPI)
+	require.ErrorIs(t, err, errInsecureAPI)
 	assert.Len(t, f.apis, 1, "an insecure address is refused before any token is sent")
 }
 
@@ -394,7 +394,7 @@ func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders:    map[string]Builder{KindGitHub: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},
-		Verified:    NoRecord{},
+		Verified:    noRecord{},
 	})
 	reported, err := reporting.ForConnection(*connection)
 	require.NoError(t, err)
@@ -532,7 +532,7 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 		f := newFixture(t, "", nil)
 
 		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
-		require.ErrorIs(t, err, ErrNoApp)
+		require.ErrorIs(t, err, errNoApp)
 	})
 
 	t.Run("an app the config cannot be read as", func(t *testing.T) {
@@ -542,7 +542,7 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 		}
 
 		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
-		require.ErrorIs(t, err, ErrBadApp)
+		require.ErrorIs(t, err, errBadApp)
 		assert.ErrorContains(t, err, "installation_id")
 	})
 
@@ -555,7 +555,7 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 		}
 
 		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
-		require.ErrorIs(t, err, ErrAppReachesNothing)
+		require.ErrorIs(t, err, errAppReachesNothing)
 	})
 
 	t.Run("a way to connect that does not exist", func(t *testing.T) {
@@ -602,7 +602,7 @@ func TestCheck(t *testing.T) {
 		}
 	}
 	_, err = f.service.Check(ctx, *app)
-	require.ErrorIs(t, err, ErrAppReachesNothing)
+	require.ErrorIs(t, err, errAppReachesNothing)
 }
 
 // TestCheckReportsARefusedMint covers the App's key or installation no longer being accepted:
@@ -696,14 +696,14 @@ func TestRecheckConnection(t *testing.T) {
 			name:        "a missing credential clears the stamp",
 			dropToken:   true,
 			stampBefore: &stampedAt,
-			wantKind:    ProblemNoCredential,
+			wantKind:    problemNoCredential,
 			wantProblem: true,
 		},
 		{
 			name:         "an unreachable forge leaves the stamp alone",
 			verifyErr:    errors.New("dial tcp: no such host"),
 			stampBefore:  &stampedAt,
-			wantKind:     ProblemUnreachable,
+			wantKind:     problemUnreachable,
 			wantProblem:  true,
 			wantVerified: &stampedAt,
 		},
@@ -793,7 +793,7 @@ func TestHeaderFor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.kind+" "+tt.method, func(t *testing.T) {
-			assert.Equal(t, tt.want, HeaderFor(tt.kind, tt.method))
+			assert.Equal(t, tt.want, headerFor(tt.kind, tt.method))
 		})
 	}
 }

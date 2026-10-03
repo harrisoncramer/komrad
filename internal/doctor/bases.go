@@ -20,8 +20,8 @@ var (
 	}
 )
 
-// WorkflowBase is one live workflow's directory and the base branch it names.
-type WorkflowBase struct {
+// workflowBase is one live workflow's directory and the base branch it names.
+type workflowBase struct {
 	Name string
 	Cwd  string
 	Base string
@@ -44,7 +44,7 @@ func newBasesCheck() Check {
 	}
 }
 
-func reportBases(ctx context.Context, env Env, bases []WorkflowBase) Result {
+func reportBases(ctx context.Context, env Env, bases []workflowBase) Result {
 	var missing []string
 	checked := 0
 

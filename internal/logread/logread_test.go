@@ -101,6 +101,6 @@ func TestLinesWithoutALog(t *testing.T) {
 	t.Parallel()
 
 	_, err := New(filepath.Join(t.TempDir(), "missing.log")).Lines("trace-one")
-	require.ErrorIs(t, err, ErrNoLog)
+	require.ErrorIs(t, err, errNoLog)
 	assert.ErrorContains(t, err, "missing.log")
 }

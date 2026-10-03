@@ -29,8 +29,8 @@ var sweepEnginesSQL string
 
 var sweepOnce sync.Once
 
-// Database is a migrated database of this test's own.
-type Database struct {
+// database is a migrated database of this test's own.
+type database struct {
 	OwnerURL string
 }
 
@@ -49,17 +49,17 @@ func URL(t *testing.T) string {
 }
 
 // New is a migrated database of this test's own, dropped when the test ends.
-func New(t *testing.T) Database {
+func New(t *testing.T) database {
 	t.Helper()
 
 	version, err := db.SchemaVersion()
 	require.NoError(t, err)
 
-	return Database{OwnerURL: pgtest.Migrated(t, pgtest.Schema{Version: version, Apply: migrate})}
+	return database{OwnerURL: pgtest.Migrated(t, pgtest.Schema{Version: version, Apply: migrate})}
 }
 
 // NewEngine adds an engine to database, its logins dropped when the test ends.
-func NewEngine(t *testing.T, database Database) Engine {
+func NewEngine(t *testing.T, database database) Engine {
 	t.Helper()
 
 	ctx := t.Context()
@@ -84,7 +84,7 @@ func NewEngine(t *testing.T, database Database) Engine {
 }
 
 // EngineName is a fresh engine name whose logins are dropped when the test ends, whoever creates them.
-func EngineName(t *testing.T, database Database) string {
+func EngineName(t *testing.T, database database) string {
 	t.Helper()
 
 	name := "t" + randomHex(t, 12)
@@ -94,14 +94,14 @@ func EngineName(t *testing.T, database Database) string {
 }
 
 // DropEngineWhenDone drops an engine's logins and whatever they own in database when the test ends.
-func DropEngineWhenDone(t *testing.T, database Database, name string) {
+func DropEngineWhenDone(t *testing.T, database database, name string) {
 	t.Helper()
 
 	t.Cleanup(func() { dropEngine(t, database.OwnerURL, db.EngineLogin(name)) })
 }
 
 // EngineURL is the url an engine's login connects to this database with.
-func (d Database) EngineURL(t *testing.T, name, password string) string {
+func (d database) EngineURL(t *testing.T, name, password string) string {
 	t.Helper()
 
 	return withLogin(t, d.OwnerURL, db.EngineLogin(name), password)

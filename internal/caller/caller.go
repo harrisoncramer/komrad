@@ -26,8 +26,8 @@ type Caller struct {
 	SessionID string
 }
 
-// IsKnown reports whether the request named an agent at all.
-func (c Caller) IsKnown() bool {
+// isKnown reports whether the request named an agent at all.
+func (c Caller) isKnown() bool {
 	return c.AgentID != "" || c.SessionID != ""
 }
 
@@ -76,7 +76,7 @@ func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 
 	from, trace := From(ctx), Trace(ctx)
-	if !from.IsKnown() && trace == "" {
+	if !from.isKnown() && trace == "" {
 		return f.next.RoundTrip(req)
 	}
 

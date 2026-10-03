@@ -10,15 +10,15 @@ import (
 	reviewstore "komrad/internal/store/review"
 )
 
-// ErrForgeMessageNotHeld is answered when the person accepts a message the agent can already read.
-var ErrForgeMessageNotHeld = fail.Precondition("only a held forge comment needs accepting")
+// errForgeMessageNotHeld is answered when the person accepts a message the agent can already read.
+var errForgeMessageNotHeld = fail.Precondition("only a held forge comment needs accepting")
 
 // ErrForgeMessageAccepted is answered when the person accepts a forge comment a second time.
 var ErrForgeMessageAccepted = fail.AlreadyExists("that forge comment is already accepted")
 
-// ErrForgeRootHeld is answered when the person accepts a held reply in a thread whose held first
+// errForgeRootHeld is answered when the person accepts a held reply in a thread whose held first
 // comment is not yet accepted, which the agent could not read the reply alongside.
-var ErrForgeRootHeld = fail.Precondition("this thread opens with a held forge comment, so accept that first")
+var errForgeRootHeld = fail.Precondition("this thread opens with a held forge comment, so accept that first")
 
 // AcceptForgeMessageParams is the held forge message the person is passing on to the agent.
 type AcceptForgeMessageParams struct {
@@ -32,7 +32,7 @@ func (s *ReviewService) AcceptForgeMessage(
 	ctx context.Context,
 	params AcceptForgeMessageParams,
 ) (*reviewstore.Message, error) {
-	if !params.Author.IsHuman() {
+	if !params.Author.isHuman() {
 		return nil, ErrReviewHumanOnly
 	}
 
@@ -44,7 +44,7 @@ func (s *ReviewService) AcceptForgeMessage(
 		return nil, err
 	}
 	if message.AuthorKind != reviewstore.AuthorForge || !message.Held {
-		return nil, fmt.Errorf("%w: %q", ErrForgeMessageNotHeld, params.MessageID)
+		return nil, fmt.Errorf("%w: %q", errForgeMessageNotHeld, params.MessageID)
 	}
 
 	messages, err := s.reviews.ListMessages(ctx, []string{message.ThreadID})
@@ -117,7 +117,7 @@ func requireAcceptable(message reviewstore.Message, thread []reviewstore.Message
 	}
 
 	if root.ID != message.ID && !rootAccepted {
-		return fmt.Errorf("%w: %q", ErrForgeRootHeld, message.ID)
+		return fmt.Errorf("%w: %q", errForgeRootHeld, message.ID)
 	}
 
 	return nil

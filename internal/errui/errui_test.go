@@ -22,28 +22,28 @@ import (
 func TestScreenSections(t *testing.T) {
 	tests := []struct {
 		name   string
-		screen Screen
+		screen screen
 		want   []string
 	}{
 		{
 			name:   "a screen with only a title and body",
-			screen: Screen{Title: "Something broke", Body: []string{"One line."}},
+			screen: screen{Title: "Something broke", Body: []string{"One line."}},
 			want:   []string{"Something broke", "", "One line."},
 		},
 		{
 			name: "details sit under the body they explain",
-			screen: Screen{
+			screen: screen{
 				Title:   "Something broke",
 				Body:    []string{"One line."},
-				Details: []Detail{{Label: "error", Value: "boom"}},
+				Details: []detail{{Label: "error", Value: "boom"}},
 			},
 			want: []string{"Something broke", "", "One line.", "", "error    boom"},
 		},
 		{
 			name: "hints close the screen, separated from the detail above them",
-			screen: Screen{
+			screen: screen{
 				Title:   "Something broke",
-				Details: []Detail{{Label: "error", Value: "boom"}},
+				Details: []detail{{Label: "error", Value: "boom"}},
 				Hints:   []string{"Try again."},
 			},
 			want: []string{"Something broke", "", "error    boom", "", "Try again."},

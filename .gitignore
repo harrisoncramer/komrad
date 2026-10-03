@@ -18,6 +18,7 @@ crash.*.log
 !.claude/
 .claude/*
 !.claude/skills/
+tools/komradexport/komradexport
 tools/komradpkg/komradpkg
 tools/komradslot/komradslot
 

@@ -55,8 +55,8 @@ func (a App) now() time.Time {
 	return time.Now()
 }
 
-// Slug is the name GitHub knows the App by.
-func (a App) Slug(ctx context.Context) (string, error) {
+// slug is the name GitHub knows the App by.
+func (a App) slug(ctx context.Context) (string, error) {
 	return a.Cache.Identity.Slug(ctx, a.client(), a.now())
 }
 

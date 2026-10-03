@@ -250,7 +250,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
 				return fx.acceptForge(t, held[1].ID)
 			},
-			wantErr: ErrForgeRootHeld,
+			wantErr: errForgeRootHeld,
 		},
 		{
 			name: "a held reply is accepted once its first comment has a copy",
@@ -285,7 +285,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
 				return fx.acceptForge(t, held[1].ID)
 			},
-			wantErr: ErrForgeMessageNotHeld,
+			wantErr: errForgeMessageNotHeld,
 		},
 		{
 			name: "accepting into a settled thread reopens it",
@@ -336,7 +336,7 @@ func TestReplyingUnderHeldForgeComment(t *testing.T) {
 		return err
 	}
 
-	require.ErrorIs(t, reply(), ErrReviewThreadHeld)
+	require.ErrorIs(t, reply(), errReviewThreadHeld)
 	require.NoError(t, fx.acceptForge(t, mirrored.messages[0].ID))
 	require.NoError(t, reply())
 }

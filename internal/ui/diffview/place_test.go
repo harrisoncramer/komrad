@@ -678,10 +678,10 @@ func TestCommentsOnTheChangeWaitAtTheFoot(t *testing.T) {
 
 	_, ok := view.GetThreadAt(0)
 	assert.False(t, ok, "the row is left to start another comment")
-	assert.Contains(t, ansi.Strip(view.RenderRow(0, NoCursor, 60, 0)), "the change as a whole  2 at the end of the diff")
+	assert.Contains(t, ansi.Strip(view.renderRow(0, noCursor, 60, 0)), "the change as a whole  2 at the end of the diff")
 
 	notice := view.Len() - 3
-	assert.Contains(t, ansi.Strip(view.RenderRow(notice, NoCursor, 60, 0)), "on the change as a whole")
+	assert.Contains(t, ansi.Strip(view.renderRow(notice, noCursor, 60, 0)), "on the change as a whole")
 
 	for at, want := range []string{"t1", "t2"} {
 		found, ok := view.GetThreadAt(notice + 1 + at)

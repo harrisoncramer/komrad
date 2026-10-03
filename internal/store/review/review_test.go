@@ -618,7 +618,7 @@ func TestListTallies(t *testing.T) {
 		name      string
 		releases  []tallyRelease
 		openOn    string
-		wantTally *Tally
+		wantTally *tally
 	}{
 		{
 			name: "work nobody has released anything about",
@@ -631,7 +631,7 @@ func TestListTallies(t *testing.T) {
 					verdict: VerdictCommented,
 				},
 			},
-			wantTally: &Tally{
+			wantTally: &tally{
 				Rounds: 1,
 			},
 		},
@@ -650,7 +650,7 @@ func TestListTallies(t *testing.T) {
 				},
 			},
 			openOn: "tree-three",
-			wantTally: &Tally{
+			wantTally: &tally{
 				Rounds:      2,
 				Verdict:     xptr.Ptr(VerdictChangesRequested),
 				SnapshotSHA: "snapshot-tree-two",
@@ -669,7 +669,7 @@ func TestListTallies(t *testing.T) {
 					verdict:    VerdictChangesRequested,
 				},
 			},
-			wantTally: &Tally{
+			wantTally: &tally{
 				Rounds:      1,
 				Verdict:     xptr.Ptr(VerdictChangesRequested),
 				SnapshotSHA: "snapshot-tree-one",
@@ -689,7 +689,7 @@ func TestListTallies(t *testing.T) {
 					verdict:    VerdictApproved,
 				},
 			},
-			wantTally: &Tally{
+			wantTally: &tally{
 				Rounds:      2,
 				Verdict:     xptr.Ptr(VerdictApproved),
 				SnapshotSHA: "snapshot-tree-two",
@@ -708,7 +708,7 @@ func TestListTallies(t *testing.T) {
 					verdict: VerdictCommented,
 				},
 			},
-			wantTally: &Tally{
+			wantTally: &tally{
 				Rounds:      2,
 				Verdict:     xptr.Ptr(VerdictApproved),
 				SnapshotSHA: "snapshot-tree-one",
@@ -742,7 +742,7 @@ func TestListTallies(t *testing.T) {
 				}
 			}
 
-			tallies, err := st.ListTallies(t.Context())
+			tallies, err := st.listTallies(t.Context())
 			require.NoError(t, err)
 
 			if tt.wantTally == nil {
@@ -752,7 +752,7 @@ func TestListTallies(t *testing.T) {
 			}
 
 			tt.wantTally.AgentID = agentID
-			assert.Equal(t, []Tally{*tt.wantTally}, tallies, "the reviewer holds no diff of its own to have gone round")
+			assert.Equal(t, []tally{*tt.wantTally}, tallies, "the reviewer holds no diff of its own to have gone round")
 		})
 	}
 }
@@ -771,7 +771,7 @@ func TestNewestRoundsAreEachAgentsLastRound(t *testing.T) {
 	newest, err := st.ListNewestRounds(t.Context())
 	require.NoError(t, err)
 
-	assert.ElementsMatch(t, []NewestRound{
+	assert.ElementsMatch(t, []newestRound{
 		{
 			AgentID:     agentID,
 			SnapshotSHA: "snapshot-tree-two",
@@ -1017,7 +1017,7 @@ func TestLiveReviewers(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			live, err := st.ListLiveReviewers(ctx)
+			live, err := st.listLiveReviewers(ctx)
 			require.NoError(t, err)
 
 			if !tt.wantLive {
@@ -1026,11 +1026,11 @@ func TestLiveReviewers(t *testing.T) {
 				return
 			}
 
-			want := LiveReviewer{
+			want := liveReviewer{
 				AgentID:    seeded.agentID,
 				ReviewerID: seeded.reviewerID,
 			}
-			assert.Equal(t, []LiveReviewer{want}, live)
+			assert.Equal(t, []liveReviewer{want}, live)
 			assert.Equal(t, &want, reading)
 		})
 	}
@@ -1044,7 +1044,7 @@ func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 
 	listed := st.findListedReview(t, review)
 	assert.Zero(t, listed.OpenThreads, "a batch with no comments in it owes nothing")
-	assert.False(t, listed.IsSettled(), "but an unsent review is not a finished one")
+	assert.False(t, listed.isSettled(), "but an unsent review is not a finished one")
 
 	first := st.openThread(t, review, "this needs a nil check")
 	second := st.openThread(t, review, "and this reads the flag twice")
@@ -1052,19 +1052,19 @@ func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 
 	listed = st.findListedReview(t, review)
 	assert.Equal(t, int32(2), listed.OpenThreads, "both comments are owed an answer")
-	assert.False(t, listed.IsSettled())
+	assert.False(t, listed.isSettled())
 
 	st.settle(t, first, nil)
 
 	listed = st.findListedReview(t, review)
 	assert.Equal(t, int32(1), listed.OpenThreads)
-	assert.False(t, listed.IsSettled(), "a review is not finished while one comment stands")
+	assert.False(t, listed.isSettled(), "a review is not finished while one comment stands")
 
 	st.settle(t, second, nil)
 
 	listed = st.findListedReview(t, review)
 	assert.Zero(t, listed.OpenThreads)
-	assert.True(t, listed.IsSettled(), "and is finished once none do")
+	assert.True(t, listed.isSettled(), "and is finished once none do")
 }
 
 func openFixture(t *testing.T) *fixture {

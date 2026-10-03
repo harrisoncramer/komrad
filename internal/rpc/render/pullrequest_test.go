@@ -13,17 +13,17 @@ import (
 
 // TestPullRequestStateOf covers each state a pull request can stand at.
 func TestPullRequestStateOf(t *testing.T) {
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN, PullRequestStateOf(pullrequests.StateOpen))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT, PullRequestStateOf(pullrequests.StateDraft))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, PullRequestStateOf(pullrequests.StateMerged))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED, PullRequestStateOf(pullrequests.StateClosed))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING, PullRequestStateOf(pullrequests.StateFailing))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING, PullRequestStateOf(pullrequests.StateConflicting))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED, PullRequestStateOf(pullrequests.StateChangesRequested))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED, PullRequestStateOf(pullrequests.StateRereviewRequested))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING, PullRequestStateOf(pullrequests.StateChecksRunning))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED, PullRequestStateOf(pullrequests.StateApproved))
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING, PullRequestStateOf(pullrequests.StateApprovedWaiting))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN, pullRequestStateOf(pullrequests.StateOpen))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT, pullRequestStateOf(pullrequests.StateDraft))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, pullRequestStateOf(pullrequests.StateMerged))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED, pullRequestStateOf(pullrequests.StateClosed))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING, pullRequestStateOf(pullrequests.StateFailing))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING, pullRequestStateOf(pullrequests.StateConflicting))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED, pullRequestStateOf(pullrequests.StateChangesRequested))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED, pullRequestStateOf(pullrequests.StateRereviewRequested))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING, pullRequestStateOf(pullrequests.StateChecksRunning))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED, pullRequestStateOf(pullrequests.StateApproved))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING, pullRequestStateOf(pullrequests.StateApprovedWaiting))
 }
 
 // TestPullRequestDrawsAuthorAndBody covers the forge login and description stored on the row
@@ -72,18 +72,18 @@ func TestPullRequestDrawsAutoMerge(t *testing.T) {
 
 // TestMergeabilityOf covers each stored word and a row the forge has not computed.
 func TestMergeabilityOf(t *testing.T) {
-	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN, MergeabilityOf(forge.MergeabilityUnknown))
-	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_CLEAN, MergeabilityOf(forge.MergeabilityClean))
-	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE, MergeabilityOf(forge.MergeabilityUnstable))
-	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_BLOCKED, MergeabilityOf(forge.MergeabilityBlocked))
-	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_BEHIND, MergeabilityOf(forge.MergeabilityBehind))
-	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING, MergeabilityOf(forge.MergeabilityConflicting))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN, mergeabilityOf(forge.MergeabilityUnknown))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_CLEAN, mergeabilityOf(forge.MergeabilityClean))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE, mergeabilityOf(forge.MergeabilityUnstable))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_BLOCKED, mergeabilityOf(forge.MergeabilityBlocked))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_BEHIND, mergeabilityOf(forge.MergeabilityBehind))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING, mergeabilityOf(forge.MergeabilityConflicting))
 }
 
 // TestChecksOf covers each stored word and a row the forge reports no checks on.
 func TestChecksOf(t *testing.T) {
-	assert.Equal(t, pullrequestv1.Checks_CHECKS_NONE, ChecksOf(forge.ChecksNone))
-	assert.Equal(t, pullrequestv1.Checks_CHECKS_PENDING, ChecksOf(forge.ChecksPending))
-	assert.Equal(t, pullrequestv1.Checks_CHECKS_PASSING, ChecksOf(forge.ChecksPassing))
-	assert.Equal(t, pullrequestv1.Checks_CHECKS_FAILING, ChecksOf(forge.ChecksFailing))
+	assert.Equal(t, pullrequestv1.Checks_CHECKS_NONE, checksOf(forge.ChecksNone))
+	assert.Equal(t, pullrequestv1.Checks_CHECKS_PENDING, checksOf(forge.ChecksPending))
+	assert.Equal(t, pullrequestv1.Checks_CHECKS_PASSING, checksOf(forge.ChecksPassing))
+	assert.Equal(t, pullrequestv1.Checks_CHECKS_FAILING, checksOf(forge.ChecksFailing))
 }

@@ -551,9 +551,9 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f.sync(t)
 	badly := f.stored(t, "PR_3").ID
 	firstSeen := Change{ID: badly, Moves: []Move{
-		{Field: FieldDecision, To: string(forge.ReviewDecisionChangesRequested)},
-		{Field: FieldChecks, To: string(forge.ChecksFailing)},
-		{Field: FieldMergeability, To: string(forge.MergeabilityConflicting)},
+		{Field: fieldDecision, To: string(forge.ReviewDecisionChangesRequested)},
+		{Field: fieldChecks, To: string(forge.ChecksFailing)},
+		{Field: fieldMergeability, To: string(forge.MergeabilityConflicting)},
 	}}
 	assert.Equal(t, []Change{firstSeen}, f.changes(t), "only the open pull request first seen alarming moved")
 	id := f.stored(t, "PR_1").ID
@@ -580,12 +580,12 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	assert.Equal(t, []Change{
 		firstSeen,
 		{ID: id, Moves: []Move{{
-			Field: FieldChecks,
+			Field: fieldChecks,
 			From:  string(forge.ChecksPending),
 			To:    string(forge.ChecksFailing),
 		}}},
 		{ID: id, Moves: []Move{{
-			Field: FieldChecks,
+			Field: fieldChecks,
 			From:  string(forge.ChecksFailing),
 			To:    string(forge.ChecksFailing),
 		}}},

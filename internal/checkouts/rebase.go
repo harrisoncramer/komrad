@@ -19,17 +19,17 @@ import (
 )
 
 var (
-	// ErrRebaseAdopted says the branch belongs to whoever made it.
-	ErrRebaseAdopted = fail.Precondition("this agent is on a branch komrad did not cut, so its history is not komrad's to rewrite")
+	// errRebaseAdopted says the branch belongs to whoever made it.
+	errRebaseAdopted = fail.Precondition("this agent is on a branch komrad did not cut, so its history is not komrad's to rewrite")
 
 	// ErrRebaseDirty says the checkout holds tracked changes.
 	ErrRebaseDirty = fail.Precondition("the worktree holds tracked changes, so commit or discard them first")
 
-	// ErrRebaseInProgress says something already owns the index.
-	ErrRebaseInProgress = fail.Precondition("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
+	// errRebaseInProgress says something already owns the index.
+	errRebaseInProgress = fail.Precondition("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
 
-	// ErrRebaseDetached says the checkout is on no branch, so a rebase would move nothing.
-	ErrRebaseDetached = fail.Precondition("the worktree is on no branch, so a rebase would move nothing")
+	// errRebaseDetached says the checkout is on no branch, so a rebase would move nothing.
+	errRebaseDetached = fail.Precondition("the worktree is on no branch, so a rebase would move nothing")
 
 	// ErrRebaseShallow says the clone cannot answer what the branch and the base share.
 	ErrRebaseShallow = fail.Precondition("the clone is shallow, so what this branch shares with the base cannot be read")
@@ -93,7 +93,7 @@ func (s *Service) rebaseEligible(ctx context.Context, agentID string) (*checkout
 	}
 
 	if target.agent.AdoptedBranch != "" {
-		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, target.agent.AdoptedBranch)
+		return nil, fmt.Errorf("%w: %s", errRebaseAdopted, target.agent.AdoptedBranch)
 	}
 
 	return target, nil
@@ -394,9 +394,9 @@ func replayedMail(result RebaseResult) string {
 func refuseTreeState(state git.TreeState) error {
 	switch {
 	case state.InProgress:
-		return ErrRebaseInProgress
+		return errRebaseInProgress
 	case state.Branch == "":
-		return ErrRebaseDetached
+		return errRebaseDetached
 	case state.Shallow:
 		return ErrRebaseShallow
 	case len(state.HiddenPaths) > 0:
@@ -414,7 +414,7 @@ func (s *Service) recordRebase(ctx context.Context, agentID string, outcome reba
 		return fmt.Errorf("failed to encode the rebase of agent %q: %w", agentID, err)
 	}
 
-	event, err := events.NewEvent(Rebased{AgentID: agentID})
+	event, err := events.NewEvent(rebased{AgentID: agentID})
 	if err != nil {
 		return err
 	}

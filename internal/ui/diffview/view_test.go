@@ -277,7 +277,7 @@ func TestHeaderFoundByASearchIsHeldAcrossARebuild(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
 
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile("wave.go")))
-	header, ok := view.JumpMatch(-1, 1)
+	header, ok := view.jumpMatch(-1, 1)
 	require.True(t, ok)
 
 	place, ok := view.GetPlace(header)
@@ -447,7 +447,7 @@ func TestHeadlessViewDrawsItsHunksAlone(t *testing.T) {
 
 	rows := make([]string, 0, view.Len())
 	for y := range view.Len() {
-		rows = append(rows, strings.TrimRight(ansi.Strip(view.RenderRow(y, NoCursor, 40, 0)), " "))
+		rows = append(rows, strings.TrimRight(ansi.Strip(view.renderRow(y, noCursor, 40, 0)), " "))
 	}
 
 	assert.Equal(t, []string{

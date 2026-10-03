@@ -19,8 +19,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// DefaultTimeout bounds one call to a forge.
-const DefaultTimeout = 30 * time.Second
+// defaultTimeout bounds one call to a forge.
+const defaultTimeout = 30 * time.Second
 
 // Dialect is what one forge does differently from the others on the wire.
 type Dialect struct {
@@ -60,7 +60,7 @@ type Client struct {
 func NewClient(params NewClientParams) *Client {
 	timeout := params.Timeout
 	if timeout == 0 {
-		timeout = DefaultTimeout
+		timeout = defaultTimeout
 	}
 
 	now := params.Now

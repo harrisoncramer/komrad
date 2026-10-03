@@ -229,7 +229,7 @@ func TestListMovesSince(t *testing.T) {
 	tests := []struct {
 		name  string
 		reads []read
-		want  []MergeReadinessMove
+		want  []mergeReadinessMove
 	}{
 		{
 			name: "a first answer moves from nothing",
@@ -238,7 +238,7 @@ func TestListMovesSince(t *testing.T) {
 				head:      "aaa",
 				at:        at,
 			}},
-			want: []MergeReadinessMove{
+			want: []mergeReadinessMove{
 				{Field: MergeReadinessFieldDecision, To: "pending"},
 				{Field: MergeReadinessFieldChecks, To: "failing"},
 				{Field: MergeReadinessFieldMergeability, To: "clean"},
@@ -296,7 +296,7 @@ func TestListMovesSince(t *testing.T) {
 					at:        at,
 				},
 			},
-			want: []MergeReadinessMove{{
+			want: []mergeReadinessMove{{
 				Field: MergeReadinessFieldChecks,
 				From:  "failing",
 				To:    "failing",
@@ -317,7 +317,7 @@ func TestListMovesSince(t *testing.T) {
 					at:        at,
 				},
 			},
-			want: []MergeReadinessMove{{
+			want: []mergeReadinessMove{{
 				Field: MergeReadinessFieldChecks,
 				From:  "failing",
 				To:    "failing",
@@ -338,7 +338,7 @@ func TestListMovesSince(t *testing.T) {
 					AutoMerge:    AutoMerge{On: true},
 				}, head: "aaa", at: at},
 			},
-			want: []MergeReadinessMove{
+			want: []mergeReadinessMove{
 				{
 					Field: MergeReadinessFieldDecision,
 					From:  "pending",
@@ -420,9 +420,9 @@ func TestDisplayForHead(t *testing.T) {
 			}},
 			head: "aaa",
 			want: DisplayedMergeReadiness{
-				Decision:     DisplayedAnswer[ReviewDecision]{Value: ReviewDecisionApproved},
-				Checks:       DisplayedAnswer[Checks]{Value: ChecksFailing},
-				Mergeability: DisplayedAnswer[Mergeability]{Value: MergeabilityBehind},
+				Decision:     displayedAnswer[ReviewDecision]{Value: ReviewDecisionApproved},
+				Checks:       displayedAnswer[Checks]{Value: ChecksFailing},
+				Mergeability: displayedAnswer[Mergeability]{Value: MergeabilityBehind},
 				AutoMerge:    AutoMerge{On: true, Allowed: true},
 			},
 		},
@@ -438,8 +438,8 @@ func TestDisplayForHead(t *testing.T) {
 			},
 			head: "aaa",
 			want: DisplayedMergeReadiness{
-				Checks:       DisplayedAnswer[Checks]{Value: ChecksFailing, IsUnconfirmed: true},
-				Mergeability: DisplayedAnswer[Mergeability]{Value: MergeabilityBehind, IsUnconfirmed: true},
+				Checks:       displayedAnswer[Checks]{Value: ChecksFailing, IsUnconfirmed: true},
+				Mergeability: displayedAnswer[Mergeability]{Value: MergeabilityBehind, IsUnconfirmed: true},
 			},
 		},
 		{

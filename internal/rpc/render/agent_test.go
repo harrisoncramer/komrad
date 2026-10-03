@@ -206,7 +206,7 @@ func TestAgentRoleOf(t *testing.T) {
 		agentstore.RoleOrchestrator: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	}
 	for stored, wire := range roles {
-		assert.Equal(t, wire, AgentRoleOf(stored), string(stored))
+		assert.Equal(t, wire, agentRoleOf(stored), string(stored))
 	}
-	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, AgentRoleOf(""))
+	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentRoleOf(""))
 }

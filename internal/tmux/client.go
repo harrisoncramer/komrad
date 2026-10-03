@@ -29,7 +29,7 @@ const hostSocketOption = "@komrad_host_socket"
 
 const hostPathOption = "@komrad_host_path"
 
-const InfoPaneOption = "@komrad_info_pane"
+const infoPaneOption = "@komrad_info_pane"
 
 // CLIExitedOption is set on a pane once the CLI its launch script ran has exited.
 const CLIExitedOption = "@komrad_cli_exited"
@@ -213,8 +213,8 @@ func (c *Client) GetClientPath() string {
 	return c.value("display-message", "-p", "#{pane_current_path}")
 }
 
-// GetSessionClient returns a client attached to the given session, empty when none is.
-func (c *Client) GetSessionClient(session string) string {
+// getSessionClient returns a client attached to the given session, empty when none is.
+func (c *Client) getSessionClient(session string) string {
 	clients, err := c.query("list-clients", "-t", session, "-F", "#{client_name}")
 	if err != nil || clients == "" {
 		return ""
@@ -441,15 +441,15 @@ func (c *Client) BlankBorders() {
 	c.SetGlobal("fill-character", " ")
 }
 
-// GutterCells is the blank column right of the panel's window and the blank row under it.
-const GutterCells = 1
+// gutterCells is the blank column right of the panel's window and the blank row under it.
+const gutterCells = 1
 
 // InsetPanelWindow keeps the panel's window a column narrower and a row shorter than each client
 // of the session shows it at.
 func (c *Client) InsetPanelWindow(session string) {
 	resize := fmt.Sprintf(
 		"run-shell -C \"resize-window -t #{%s} -x #{e|-:#{client_width},%d} -y #{e|-:#{client_height},%d}\"",
-		panelPaneOption, GutterCells, GutterCells,
+		panelPaneOption, gutterCells, gutterCells,
 	)
 
 	for _, hook := range []string{"client-attached", "client-resized", "client-session-changed"} {
@@ -472,8 +472,8 @@ func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)
 }
 
-// GetSocketPath returns the path of the socket this client's server listens on.
-func (c *Client) GetSocketPath() (string, error) {
+// getSocketPath returns the path of the socket this client's server listens on.
+func (c *Client) getSocketPath() (string, error) {
 	path, err := c.query("display-message", "-p", "#{socket_path}")
 	if err != nil {
 		return "", err
@@ -482,20 +482,20 @@ func (c *Client) GetSocketPath() (string, error) {
 	return path, nil
 }
 
-// ShowGlobal returns a global tmux option's value, empty if it is unset.
-func (c *Client) ShowGlobal(name string) string {
+// showGlobal returns a global tmux option's value, empty if it is unset.
+func (c *Client) showGlobal(name string) string {
 	return c.value("show-option", "-gqv", name)
 }
 
 // SetInfoPane records which pane the panel opened its info region in, and clears it when given
 // nothing.
 func (c *Client) SetInfoPane(pane string) {
-	c.SetGlobal(InfoPaneOption, pane)
+	c.SetGlobal(infoPaneOption, pane)
 }
 
 // GetInfoPane reads that pane back, from the same server it was written on.
 func (c *Client) GetInfoPane() string {
-	return c.ShowGlobal(InfoPaneOption)
+	return c.showGlobal(infoPaneOption)
 }
 
 // RecordPanelPane stores the pane the panel itself draws in, so a later open can tell a panel
@@ -510,7 +510,7 @@ func (c *Client) RecordPanelPane(pane string) {
 
 // GetPanelPane reads that pane back, empty when no panel has recorded one.
 func (c *Client) GetPanelPane() string {
-	return c.ShowGlobal(panelPaneOption)
+	return c.showGlobal(panelPaneOption)
 }
 
 // RecordHostSocket stores the socket path of the user's server, so the panel and everything
@@ -525,7 +525,7 @@ func (c *Client) RecordHostSocket(path string) {
 
 // GetHostSocket is the socket path of the user's server as the last open recorded it.
 func (c *Client) GetHostSocket() string {
-	return c.ShowGlobal(hostSocketOption)
+	return c.showGlobal(hostSocketOption)
 }
 
 // RecordHostPath stores where the client that opened the panel was sitting, an empty value being
@@ -536,7 +536,7 @@ func (c *Client) RecordHostPath(path string) {
 
 // GetHostPath returns the working directory of the pane the panel was opened over.
 func (c *Client) GetHostPath() string {
-	return c.ShowGlobal(hostPathOption)
+	return c.showGlobal(hostPathOption)
 }
 
 // EnableFocusEvents has tmux tell a pane when it gains or loses the keys, so the panel hears an
@@ -552,7 +552,7 @@ func (c *Client) SetSessionOption(target, name, value string) {
 
 // GetDefaultShell returns the shell tmux starts a pane's process with.
 func (c *Client) GetDefaultShell() string {
-	return c.ShowGlobal("default-shell")
+	return c.showGlobal("default-shell")
 }
 
 // DetachSession detaches every client from the named session, leaving its pane processes

@@ -167,7 +167,7 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 			return nil, nil
 		}
 
-		event, err := events.NewEvent(PersonWrote{DocumentID: written.ID})
+		event, err := events.NewEvent(personWrote{DocumentID: written.ID})
 		if err != nil {
 			return nil, err
 		}

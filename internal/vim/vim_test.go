@@ -67,7 +67,7 @@ func (f *field) press(sequence string) {
 	for _, key := range keys(sequence) {
 		result := f.engine.Key(key, f.buf)
 		f.buf, f.last = result.Buffer, result.Outcome
-		if result.Outcome == Pass && f.engine.Mode() == Insert {
+		if result.Outcome == Pass && f.engine.Mode() == insert {
 			f.typeKey(key)
 		}
 	}
@@ -112,7 +112,7 @@ type editCase struct {
 	start string
 	keys  string
 	want  string
-	mode  Mode
+	mode  mode
 }
 
 func runEdits(t *testing.T, tests []editCase, single bool) {
@@ -786,7 +786,7 @@ func TestOperators(t *testing.T) {
 			start: "|foo",
 			keys:  "cw",
 			want:  "|",
-			mode:  Insert,
+			mode:  insert,
 		},
 		{
 			name:  "yw then P puts the word before the cursor",
@@ -1436,7 +1436,7 @@ func TestModes(t *testing.T) {
 	t.Run("a new engine starts in insert", func(t *testing.T) {
 		e := New(Buffer{}, true, nil, nil)
 
-		assert.Equal(t, Insert, e.Mode())
+		assert.Equal(t, insert, e.Mode())
 	})
 
 	t.Run("insert passes typed keys to the field", func(t *testing.T) {
@@ -1445,7 +1445,7 @@ func TestModes(t *testing.T) {
 		result := e.Key("j", Buffer{Text: "ab", Cursor: 2})
 
 		assert.Equal(t, Pass, result.Outcome)
-		assert.Equal(t, Insert, e.Mode())
+		assert.Equal(t, insert, e.Mode())
 	})
 
 	tests := []struct {
@@ -1455,7 +1455,7 @@ func TestModes(t *testing.T) {
 		keys    string
 		want    string
 		outcome Outcome
-		mode    Mode
+		mode    mode
 	}{
 		{
 			name:    "esc leaves insert and steps back",

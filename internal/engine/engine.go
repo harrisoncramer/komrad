@@ -27,7 +27,7 @@ func (r Remote) IsRemote() bool {
 // Placeholders a forward's argv may carry, replaced with the two ends of the forward.
 const (
 	LocalPortPlaceholder  = "{{local_port}}"
-	RemotePortPlaceholder = "{{remote_port}}"
+	remotePortPlaceholder = "{{remote_port}}"
 )
 
 // ViewSession is the name of the session a stage pane attaches to for one agent's pane.

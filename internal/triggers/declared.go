@@ -101,8 +101,8 @@ END;
 	},
 }
 
-// Tables lists every table in the schema with the triggers it carries, each table's sorted by name.
-func Tables() []Table {
+// tables lists every table in the schema with the triggers it carries, each table's sorted by name.
+func tables() []Table {
 	tables := xslice.Map(declared, func(table Table) Table {
 		return Table{Name: table.Name, Triggers: slices.Clone(table.Triggers)}
 	})

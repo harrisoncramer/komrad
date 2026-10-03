@@ -32,9 +32,9 @@ const retryAfter = time.Second
 // ErrClosed says the broker has stopped and takes no more watchers.
 var ErrClosed = fail.Precondition("the service is stopping, so no watch can be opened")
 
-// ErrNotListening says the broker has no connection listening on the database, so a snapshot taken
+// errNotListening says the broker has no connection listening on the database, so a snapshot taken
 // now could miss a change.
-var ErrNotListening = fail.Precondition("the watch is not listening to the database")
+var errNotListening = fail.Precondition("the watch is not listening to the database")
 
 // Change is one row as a watcher should now hold it, or a tombstone for one it should drop.
 type Change struct {
@@ -209,7 +209,7 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 		return nil, ErrClosed
 	}
 	if !b.listening {
-		return nil, ErrNotListening
+		return nil, errNotListening
 	}
 
 	readCtx, cancel := context.WithTimeout(ctx, readTimeout)

@@ -29,8 +29,8 @@ const (
 	EventSessionStart harness.Event = "SessionStart"
 )
 
-// CompactMatcher narrows the SessionStart hook to a conversation that has just compacted.
-const CompactMatcher = "compact"
+// compactMatcher narrows the SessionStart hook to a conversation that has just compacted.
+const compactMatcher = "compact"
 
 const apiErrorPrefix = "API Error: "
 

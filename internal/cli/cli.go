@@ -29,7 +29,7 @@ import (
 
 // IsQuiet reports whether an error leaves main nothing to print.
 func IsQuiet(err error) bool {
-	return errors.Is(err, ErrLogged) || errors.Is(err, ErrReported)
+	return errors.Is(err, errLogged) || errors.Is(err, errReported)
 }
 
 // NewRootCommand builds the komrad command tree, which opens the panel when run with no

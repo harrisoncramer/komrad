@@ -5,22 +5,22 @@ import (
 	"komrad/internal/ui/paint"
 )
 
-// Weight is the structure a row carries in its own lettering.
-type Weight int
+// weight is the structure a row carries in its own lettering.
+type weight int
 
 const (
-	WeightRegular Weight = iota
-	WeightBold
-	WeightItalic
+	weightRegular weight = iota
+	weightBold
+	weightItalic
 )
 
-// Emphasis is how brightly a row's name is drawn.
-type Emphasis int
+// emphasis is how brightly a row's name is drawn.
+type emphasis int
 
 const (
-	EmphasisNormal Emphasis = iota
+	emphasisNormal emphasis = iota
 	EmphasisDim
-	EmphasisFocused
+	emphasisFocused
 )
 
 // Cell is one drawn position, carrying either a named glyph or text, in a tone the palette turns
@@ -38,8 +38,8 @@ func (c Cell) IsBlank() bool {
 	return c.Glyph == glyph.None && c.Text == "" && len(c.Parts) == 0
 }
 
-// Line is one row of the agents list with every decision already made.
-type Line struct {
+// line is one row of the agents list with every decision already made.
+type line struct {
 	// Focused says the keyboard is standing on this row, which the caret in Focus is drawn from.
 	Focused bool
 	Focus   Cell
@@ -59,8 +59,8 @@ type Line struct {
 	Editing bool
 	// Behind is how many runes of the name follow the text cursor.
 	Behind   int
-	Weight   Weight
-	Emphasis Emphasis
+	Weight   weight
+	Emphasis emphasis
 	Held     Cell
 	Hidden   Cell
 	Document Cell
@@ -78,19 +78,19 @@ type Line struct {
 	Divider bool
 }
 
-// ColumnKind is what a column of the gutter holds.
-type ColumnKind int
+// columnKind is what a column of the gutter holds.
+type columnKind int
 
 const (
-	ColumnRepo ColumnKind = iota
-	ColumnForge
+	columnRepo columnKind = iota
+	columnForge
 	// ColumnText is a column the row fills itself, right-aligned in the width the list declares.
 	ColumnText
 )
 
 // Column is one column of the gutter a list draws between the mark and the bar.
 type Column struct {
-	Kind  ColumnKind
+	Kind  columnKind
 	Width int
 }
 
@@ -100,8 +100,8 @@ type Columns []Column
 // workColumns is the gutter of the agents list: repo and forge, one glyph each.
 func workColumns() Columns {
 	return Columns{
-		{Kind: ColumnRepo, Width: plainColumns},
-		{Kind: ColumnForge, Width: plainColumns},
+		{Kind: columnRepo, Width: plainColumns},
+		{Kind: columnForge, Width: plainColumns},
 	}
 }
 
@@ -112,7 +112,7 @@ func NoColumns() Columns {
 
 // List is the agents list resolved to glyphs and tones.
 type List struct {
-	Lines   []Line
+	Lines   []line
 	Columns Columns
 	// Glyphs is the character each glyph in a cell is drawn with.
 	Glyphs glyph.Set

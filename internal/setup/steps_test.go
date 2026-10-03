@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func fakeChecker(findings ...doctor.Finding) Checker {
+func fakeChecker(findings ...doctor.Finding) checker {
 	return func(_ context.Context, names ...string) doctor.Report {
 		report := doctor.Report{}
 		for _, finding := range findings {
@@ -41,12 +41,12 @@ func TestHarnessStep(t *testing.T) {
 	tests := []struct {
 		name     string
 		findings []doctor.Finding
-		verdict  Verdict
+		verdict  verdict
 	}{
 		{
 			name:     "default installed",
 			findings: []doctor.Finding{ok(doctor.CheckDefaultHarness, "claude"), ok("claude", ""), ok("codex", "")},
-			verdict:  VerdictDone,
+			verdict:  verdictDone,
 		},
 		{
 			name: "default missing and one other installed still asks",
@@ -55,7 +55,7 @@ func TestHarnessStep(t *testing.T) {
 				{Name: "claude", Status: doctor.StatusFail},
 				ok("codex", ""),
 			},
-			verdict: VerdictAsk,
+			verdict: verdictAsk,
 		},
 		{
 			name: "an unknown default with both installed asks",
@@ -64,7 +64,7 @@ func TestHarnessStep(t *testing.T) {
 				ok("claude", ""),
 				ok("codex", ""),
 			},
-			verdict: VerdictAsk,
+			verdict: verdictAsk,
 		},
 		{
 			name: "none installed stops",
@@ -77,7 +77,7 @@ func TestHarnessStep(t *testing.T) {
 				},
 				{Name: "codex", Status: doctor.StatusWarn},
 			},
-			verdict: VerdictStop,
+			verdict: verdictStop,
 		},
 	}
 
@@ -98,7 +98,7 @@ func TestHarnessStepUnattendedNamesTheFlag(t *testing.T) {
 
 	err := step.answerUnattended()
 
-	require.ErrorIs(t, err, ErrNeedsAnswer)
+	require.ErrorIs(t, err, errNeedsAnswer)
 	assert.ErrorContains(t, err, "--harness")
 }
 
@@ -130,9 +130,9 @@ func TestContextStep(t *testing.T) {
 
 	t.Run("an empty answer writes nothing", func(t *testing.T) {
 		step := &ContextStep{Stack: stack}
-		assert.Equal(t, VerdictAsk, step.observe(t.Context(), check).Verdict)
+		assert.Equal(t, verdictAsk, step.observe(t.Context(), check).Verdict)
 
-		require.ErrorIs(t, step.repair(t.Context()), ErrSkipped)
+		require.ErrorIs(t, step.repair(t.Context()), errSkipped)
 		assert.NoFileExists(t, path)
 	})
 
@@ -151,7 +151,7 @@ func TestContextStep(t *testing.T) {
 	t.Run("a file already there is left alone", func(t *testing.T) {
 		step := &ContextStep{Stack: stack}
 
-		assert.Equal(t, VerdictDone, step.observe(t.Context(), check).Verdict)
+		assert.Equal(t, verdictDone, step.observe(t.Context(), check).Verdict)
 	})
 }
 
@@ -164,9 +164,9 @@ func TestAutoSetupStep(t *testing.T) {
 
 	t.Run("a no writes nothing", func(t *testing.T) {
 		step := &AutoSetupStep{Path: configPath, Stack: stack}
-		assert.Equal(t, VerdictAsk, step.observe(t.Context(), check).Verdict)
+		assert.Equal(t, verdictAsk, step.observe(t.Context(), check).Verdict)
 
-		require.ErrorIs(t, step.repair(t.Context()), ErrSkipped)
+		require.ErrorIs(t, step.repair(t.Context()), errSkipped)
 
 		written, err := os.ReadFile(configPath)
 		require.NoError(t, err)
@@ -185,6 +185,6 @@ func TestAutoSetupStep(t *testing.T) {
 		written, err := os.ReadFile(configPath)
 		require.NoError(t, err)
 		assert.Equal(t, "default_harness = \"claude\"\nauto_setup = true\n", string(written))
-		assert.Equal(t, VerdictDone, step.observe(t.Context(), check).Verdict)
+		assert.Equal(t, verdictDone, step.observe(t.Context(), check).Verdict)
 	})
 }

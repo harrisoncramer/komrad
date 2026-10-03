@@ -25,8 +25,8 @@ const canonicalPane = 36
 // test measuring the gutter does not borrow the package's own idea of what fills it.
 func everyColumn() Columns {
 	return Columns{
-		{Kind: ColumnRepo, Width: 1},
-		{Kind: ColumnForge, Width: 1},
+		{Kind: columnRepo, Width: 1},
+		{Kind: columnForge, Width: 1},
 	}
 }
 
@@ -764,7 +764,7 @@ const octiconColumns = 1
 
 // nameColumnOf is the column a drawn row opens its own name at, past the corner a child hangs
 // off rather than at it.
-func nameColumnOf(drawn string, line Line) int {
+func nameColumnOf(drawn string, line line) int {
 	at := strings.Index(drawn, line.Name)
 	if at < 0 {
 		return -1

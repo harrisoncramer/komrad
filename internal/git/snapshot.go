@@ -13,9 +13,9 @@ import (
 	"komrad/internal/fail"
 )
 
-// ErrSequenceInProgress is a snapshot refused while a rebase, merge, cherry-pick or revert is
+// errSequenceInProgress is a snapshot refused while a rebase, merge, cherry-pick or revert is
 // part way through.
-var ErrSequenceInProgress = fail.Precondition("a rebase or merge is part way through in that checkout; finish or abort it first")
+var errSequenceInProgress = fail.Precondition("a rebase or merge is part way through in that checkout; finish or abort it first")
 
 // snapshotMessage is what the round's commit says.
 const snapshotMessage = "komrad review round"
@@ -109,7 +109,7 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 		return nil, err
 	}
 	if readSequence(gitDir).IsInProgress() {
-		return nil, ErrSequenceInProgress
+		return nil, errSequenceInProgress
 	}
 
 	base, err := resolveBase(ctx, root, params.Base)
@@ -354,9 +354,9 @@ func removeIndex(path string) {
 	}
 }
 
-// GetTree is the tree one snapshot commit holds, which a probe of the worktree is compared
+// getTree is the tree one snapshot commit holds, which a probe of the worktree is compared
 // against to say whether the agent has written anything since.
-func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
+func (c *Client) getTree(ctx context.Context, dir, sha string) (string, error) {
 	tree, err := Run(ctx, dir, "rev-parse", sha+"^{tree}")
 	if err != nil {
 		return "", fmt.Errorf("failed to read the tree of %q: %w", sha, err)
@@ -380,12 +380,12 @@ func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, e
 		return false, err
 	}
 
-	held, err := c.GetTree(ctx, root, params.SnapshotSHA)
+	held, err := c.getTree(ctx, root, params.SnapshotSHA)
 	if err != nil {
 		return false, err
 	}
 
-	started, err := c.GetTree(ctx, root, params.BaseSHA)
+	started, err := c.getTree(ctx, root, params.BaseSHA)
 	if err != nil || held == started {
 		return false, err
 	}

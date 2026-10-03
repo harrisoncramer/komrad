@@ -9,7 +9,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-var ErrShellUnsupported = fail.Internal("unsupported pane shell")
+var errShellUnsupported = fail.Internal("unsupported pane shell")
 
 var posixShells = map[string]bool{
 	"ash":   true,
@@ -88,6 +88,6 @@ func RequirePOSIXShell(shell string) error {
 	return fmt.Errorf(
 		"%w: tmux default-shell is %s, which cannot parse the command that starts an agent; "+
 			"set default-shell to a POSIX shell such as /bin/sh",
-		ErrShellUnsupported, shell,
+		errShellUnsupported, shell,
 	)
 }

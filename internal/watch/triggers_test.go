@@ -35,7 +35,7 @@ func TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, []Trigger{
+	assert.Equal(t, []trigger{
 		{
 			Name:     "watch_notify",
 			Table:    "schedules",

@@ -33,7 +33,7 @@ const (
 // ErrNotFound is what a single-row lookup returns when the row is absent.
 var ErrNotFound = fail.NotFound("not found")
 
-var ErrNoReadOnlyURL = fail.Internal(
+var errNoReadOnlyURL = fail.Internal(
 	"no read-only database url: set KOMRAD_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 
 type DBTX = models.DBTX
@@ -158,7 +158,7 @@ func OpenReadOnly(ctx context.Context, url, engineID string) (*pgxpool.Pool, err
 	// It takes a url of its own because a read-only transaction stops writes and nothing
 	// else, so the role that url connects as decides everything a statement can read.
 	if url == "" {
-		return nil, ErrNoReadOnlyURL
+		return nil, errNoReadOnlyURL
 	}
 
 	cfg, err := parseConfig(url, readerMaxConns)

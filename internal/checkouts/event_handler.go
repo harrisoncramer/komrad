@@ -18,13 +18,13 @@ import (
 
 const rebasedTopic = "worktree_rebased"
 
-// Rebased is an agent's worktree having been rebased, or a rebase of it having failed.
-type Rebased struct {
+// rebased is an agent's worktree having been rebased, or a rebase of it having failed.
+type rebased struct {
 	AgentID string `json:"agent_id"`
 }
 
 // Topic names the handler that tells the agent.
-func (Rebased) Topic() string {
+func (rebased) Topic() string {
 	return rebasedTopic
 }
 
@@ -35,12 +35,12 @@ type rebaseOutcome struct {
 }
 
 // NewEventHandler builds the handler the router is given for rebases.
-func NewEventHandler() events.HandlerFor[Rebased] {
+func NewEventHandler() events.HandlerFor[rebased] {
 	return handleRebased
 }
 
 // handleRebased tells the agent what the latest rebase of its worktree came to.
-func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, rebased Rebased) ([]river.JobArgs, error) {
+func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, rebased rebased) ([]river.JobArgs, error) {
 	raw, err := agentstore.NewAgentStore(tx).GetLastRebaseByID(ctx, rebased.AgentID)
 	if errors.Is(err, store.ErrNotFound) || (err == nil && raw == nil) {
 		return nil, nil
@@ -72,25 +72,25 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 
 const pushedTopic = "worktree_pushed"
 
-// Pushed is an agent's branch having been force-pushed to origin from the panel.
-type Pushed struct {
+// pushed is an agent's branch having been force-pushed to origin from the panel.
+type pushed struct {
 	AgentID string `json:"agent_id"`
 	Branch  string `json:"branch"`
 	SHA     string `json:"sha"`
 }
 
 // Topic names the handler that tells the agent.
-func (Pushed) Topic() string {
+func (pushed) Topic() string {
 	return pushedTopic
 }
 
 // NewPushedHandler builds the handler the router is given for force-pushes.
-func NewPushedHandler() events.HandlerFor[Pushed] {
+func NewPushedHandler() events.HandlerFor[pushed] {
 	return handlePushed
 }
 
 // handlePushed tells the agent its branch on origin was overwritten.
-func handlePushed(ctx context.Context, _ store.DBTX, mailer *mail.MailService, pushed Pushed) ([]river.JobArgs, error) {
+func handlePushed(ctx context.Context, _ store.DBTX, mailer *mail.MailService, pushed pushed) ([]river.JobArgs, error) {
 	_, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: pushed.AgentID,
 		Kind:      mailstore.KindWorktreePushed,
@@ -103,26 +103,26 @@ func handlePushed(ctx context.Context, _ store.DBTX, mailer *mail.MailService, p
 
 const abortedTopic = "worktree_aborted"
 
-// Aborted is what an agent's worktree had part-way through having been aborted from the panel,
+// aborted is what an agent's worktree had part-way through having been aborted from the panel,
 // or an abort that cut the agent's turn having failed.
-type Aborted struct {
+type aborted struct {
 	AgentID string       `json:"agent_id"`
 	Result  *AbortResult `json:"result,omitempty"`
 	Failure string       `json:"failure,omitempty"`
 }
 
 // Topic names the handler that tells the agent.
-func (Aborted) Topic() string {
+func (aborted) Topic() string {
 	return abortedTopic
 }
 
 // NewAbortedHandler builds the handler the router is given for aborts.
-func NewAbortedHandler() events.HandlerFor[Aborted] {
+func NewAbortedHandler() events.HandlerFor[aborted] {
 	return handleAborted
 }
 
 // handleAborted tells the agent what became of the sequence it had part-way through.
-func handleAborted(ctx context.Context, _ store.DBTX, mailer *mail.MailService, aborted Aborted) ([]river.JobArgs, error) {
+func handleAborted(ctx context.Context, _ store.DBTX, mailer *mail.MailService, aborted aborted) ([]river.JobArgs, error) {
 	_, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: aborted.AgentID,
 		Kind:      mailstore.KindWorktreeAborted,

@@ -115,7 +115,7 @@ func newDefaultHarnessCheck() Check {
 
 // newHarnessBinaryCheck asserts one agent CLI is on PATH, a missing one leaving the pane idle at
 // a "command not found" the reconciler reads as finished.
-func newHarnessBinaryCheck(agent HarnessInfo) Check {
+func newHarnessBinaryCheck(agent harnessInfo) Check {
 	return Check{
 		Name:        agent.ID,
 		Description: "agents on the " + agent.ID + " harness run this command",
@@ -151,6 +151,6 @@ func effectiveDefaultHarness(env Env) string {
 	return cfg.DefaultHarness
 }
 
-func listNames(harnesses []HarnessInfo) string {
-	return joinWords(xslice.Map(harnesses, func(agent HarnessInfo) string { return agent.ID }))
+func listNames(harnesses []harnessInfo) string {
+	return joinWords(xslice.Map(harnesses, func(agent harnessInfo) string { return agent.ID }))
 }

@@ -23,11 +23,11 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 
 	client.TuneCopyMode("fg=colour0,bg=colour5")
 
-	assert.Equal(t, "vi", client.ShowGlobal("mode-keys"))
-	assert.Equal(t, "fg=colour0,bg=colour5", client.ShowGlobal("mode-style"), "a selection is drawn in the visual mode's colour")
-	assert.Equal(t, "on", client.ShowGlobal("set-clipboard"))
+	assert.Equal(t, "vi", client.showGlobal("mode-keys"))
+	assert.Equal(t, "fg=colour0,bg=colour5", client.showGlobal("mode-style"), "a selection is drawn in the visual mode's colour")
+	assert.Equal(t, "on", client.showGlobal("set-clipboard"))
 	if _, err := client.query("show-options", "-g", "copy-mode-position-format"); err == nil {
-		assert.Empty(t, client.ShowGlobal("copy-mode-position-format"), "the sidebar names the mode, not the pane")
+		assert.Empty(t, client.showGlobal("copy-mode-position-format"), "the sidebar names the mode, not the pane")
 	}
 
 	bindings, err := client.getKeys(copyModeTable)
@@ -110,7 +110,7 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 				return inner.value("display-message", "-p", "-t", "%1", "#{pane_in_mode} #{copy_cursor_x} #{copy_cursor_y}") == "1 0 1"
 			}, 5*time.Second, 20*time.Millisecond, "the block holding the keys is in copy-mode at the row and column asked for")
 
-			socket, err := inner.GetSocketPath()
+			socket, err := inner.getSocketPath()
 			require.NoError(t, err)
 			assert.Equal(t, []string{"list", "list", "list"}, strings.Split(strings.TrimSpace(inner.CapturePane("%0")), "\n"), "the list is drawn in a tile of its own")
 			assert.Contains(t, inner.CapturePane("%1"), "two", "the block is drawn without the list beside it")

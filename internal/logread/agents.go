@@ -13,12 +13,12 @@ import (
 var agentKeys = []string{logging.AgentID, logging.TargetAgentID, logging.ScriptAgentID}
 
 // NewestAboutAgents is the newest lines about any of the agents that the query asks for, oldest first.
-func (r *Reader) NewestAboutAgents(ctx context.Context, agentIDs []string, query Query) (*Window, error) {
+func (r *reader) NewestAboutAgents(ctx context.Context, agentIDs []string, query Query) (*Window, error) {
 	return r.newest(ctx, matching(query.Pattern, aboutAny(agentIDs)), query.Limit)
 }
 
 // AboutAgentsSince is the lines about any of the agents written after offset that the query asks for, oldest first.
-func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, query Query) (*Window, error) {
+func (r *reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, query Query) (*Window, error) {
 	return r.since(ctx, matching(query.Pattern, aboutAny(agentIDs)), offset, query.Limit)
 }
 

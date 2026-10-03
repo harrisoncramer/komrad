@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+#MISE description="Report exported identifiers nothing outside their package uses."
+
+usage() {
+	echo "Usage: mise run go:export [--fix] [--methods]"
+	echo
+	echo "Runs tools/komradexport over komrad, reporting every exported identifier"
+	echo "that only its own package uses. Pass --fix to unexport them in place."
+	echo "Methods are left out unless --methods is passed, since a method may"
+	echo "satisfy an interface that is only asserted at run time."
+	echo
+	echo "It reads every package together, which a golangci-lint analyzer cannot,"
+	echo "so it runs beside go:lint rather than inside it."
+}
+
+ARGS=()
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--fix | --methods)
+		ARGS+=("$arg")
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+(cd tools/komradexport && go build -o komradexport .)
+tools/komradexport/komradexport --keep .golangci.yaml ${ARGS[@]+"${ARGS[@]}"}

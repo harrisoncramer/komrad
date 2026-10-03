@@ -46,8 +46,8 @@ func (w *loopWaker) drain() {
 	}
 }
 
-// Loop is a function the server runs on an interval, and sooner when woken.
-type Loop struct {
+// loop is a function the server runs on an interval, and sooner when woken.
+type loop struct {
 	name     string
 	interval time.Duration
 	floor    time.Duration
@@ -67,13 +67,13 @@ type newLoopParams struct {
 }
 
 // newLoop builds a loop that runs on its interval and whenever its waker is woken.
-func newLoop(params newLoopParams) *Loop {
+func newLoop(params newLoopParams) *loop {
 	waker := params.Waker
 	if waker == nil {
 		waker = newLoopWaker()
 	}
 
-	return &Loop{
+	return &loop{
 		name:     params.Name,
 		interval: params.Interval,
 		floor:    params.Floor,
@@ -83,12 +83,12 @@ func newLoop(params newLoopParams) *Loop {
 }
 
 // Name returns the loop's name.
-func (l *Loop) Name() string {
+func (l *loop) Name() string {
 	return l.name
 }
 
 // Run calls the loop's run function once.
-func (l *Loop) Run(ctx context.Context) error {
+func (l *loop) Run(ctx context.Context) error {
 	return l.run(ctx)
 }
 
@@ -131,7 +131,7 @@ type backgroundWork struct {
 	logger    *slog.Logger
 }
 
-func startBackground(ctx context.Context, runner jobRunner, loops []*Loop, logger *slog.Logger) (*backgroundWork, error) {
+func startBackground(ctx context.Context, runner jobRunner, loops []*loop, logger *slog.Logger) (*backgroundWork, error) {
 	uncancelled := context.WithoutCancel(ctx)
 
 	if err := runner.Start(uncancelled); err != nil {
@@ -180,7 +180,7 @@ func shutdownDeadline(ctx context.Context, within time.Duration) (context.Contex
 	return context.WithTimeout(context.WithoutCancel(ctx), within)
 }
 
-func runLoop(ctx context.Context, loop *Loop, logger *slog.Logger) {
+func runLoop(ctx context.Context, loop *loop, logger *slog.Logger) {
 	ticker := time.NewTicker(loop.interval)
 	defer ticker.Stop()
 

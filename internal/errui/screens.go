@@ -13,13 +13,13 @@ type Finding struct {
 
 // RenderConfigError is shown instead of the panel when the config file could not be read.
 func RenderConfigError(width int, err error) string {
-	return Screen{
+	return screen{
 		Width: width,
 		Title: "Your configuration could not be read",
 		Body: []string{
 			"The panel did not start. Nothing about your agents has changed, and the file is only read at startup, so nothing else has acted on it.",
 		},
-		Details: []Detail{{Label: "error", Value: err.Error()}},
+		Details: []detail{{Label: "error", Value: err.Error()}},
 		Hints: []string{
 			"Fix the file, then reopen the panel.",
 			"Press any key to close.",
@@ -29,7 +29,7 @@ func RenderConfigError(width int, err error) string {
 
 // RenderStartupError is shown instead of the panel when it has no server it can talk to.
 func RenderStartupError(width int, err error, findings []Finding) string {
-	screen := Screen{
+	screen := screen{
 		Width: width,
 		Title: "The agent server could not be started",
 		Body: []string{
@@ -45,13 +45,13 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 	}
 
 	for _, finding := range findings {
-		screen.Details = append(screen.Details, Detail{Label: finding.Name, Value: finding.Reason})
+		screen.Details = append(screen.Details, detail{Label: finding.Name, Value: finding.Reason})
 		if finding.Fix != "" {
 			screen.Hints = append(screen.Hints, finding.Name+": "+finding.Fix)
 		}
 	}
 
-	screen.Details = append(screen.Details, Detail{Label: "error", Value: err.Error()})
+	screen.Details = append(screen.Details, detail{Label: "error", Value: err.Error()})
 
 	if len(findings) == 0 && !errors.Is(err, ErrRebuilt) {
 		screen.Hints = append(screen.Hints, "Run komrad doctor for what this machine is missing.")

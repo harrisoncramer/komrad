@@ -53,7 +53,7 @@ func TestRunReportsEveryCheck(t *testing.T) {
 	})
 
 	require.Len(t, report.Findings, 3)
-	assert.Equal(t, Summary{
+	assert.Equal(t, summary{
 		OK:    1,
 		Warn:  1,
 		Fail:  1,
@@ -191,8 +191,8 @@ func TestWithEngineMarksAndCountsTheEngineFindings(t *testing.T) {
 
 	require.Len(t, report.Findings, 3)
 	assert.Empty(t, report.Findings[0].Where)
-	assert.Equal(t, WhereEngine, report.Findings[1].Where)
-	assert.Equal(t, WhereEngine, report.Findings[2].Where)
+	assert.Equal(t, whereEngine, report.Findings[1].Where)
+	assert.Equal(t, whereEngine, report.Findings[2].Where)
 	assert.Equal(t, 3, report.Summary.Total)
 	assert.Equal(t, 1, report.Summary.Fail)
 	assert.False(t, report.Summary.Healthy)
@@ -206,12 +206,12 @@ func TestEngineStandIns(t *testing.T) {
 
 	notChecked := EngineNotChecked()
 	assert.Equal(t, StatusSkip, notChecked.Status)
-	assert.Equal(t, WhereEngine, notChecked.Where)
+	assert.Equal(t, whereEngine, notChecked.Where)
 	assert.Contains(t, notChecked.Detail, "server has to pass first")
 
 	unanswered := EngineUnanswered(errors.New("connection reset"))
 	assert.Equal(t, StatusFail, unanswered.Status)
-	assert.Equal(t, WhereEngine, unanswered.Where)
+	assert.Equal(t, whereEngine, unanswered.Where)
 	assert.Equal(t, "engine_unanswered", unanswered.Code)
 	assert.Contains(t, unanswered.Error, "connection reset")
 }

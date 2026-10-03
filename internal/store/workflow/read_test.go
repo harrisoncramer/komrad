@@ -330,7 +330,7 @@ func TestListPageOrderMatchesByName(t *testing.T) {
 		require.NoError(t, err)
 		want = append(want, *created)
 	}
-	slices.SortStableFunc(want, ByName)
+	slices.SortStableFunc(want, byName)
 
 	var (
 		got    []Workflow

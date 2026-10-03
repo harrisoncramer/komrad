@@ -48,8 +48,8 @@ func (v *View) GetFileTree() []TreeRow {
 	return v.tree
 }
 
-// CountThreads counts every thread in the review by the state it stands in.
-func (v *View) CountThreads() ThreadCounts {
+// countThreads counts every thread in the review by the state it stands in.
+func (v *View) countThreads() ThreadCounts {
 	var counts ThreadCounts
 	for _, thread := range v.threads {
 		counts.add(thread)

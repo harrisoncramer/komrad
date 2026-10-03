@@ -10,8 +10,8 @@ import (
 	"komrad/internal/fail"
 )
 
-// ErrBadColor marks a colour spelled neither as a terminal colour number nor as a hex code.
-var ErrBadColor = fail.InvalidArgument("not a terminal colour number from 0 to 255 or a hex code like #1e3a5f")
+// errBadColor marks a colour spelled neither as a terminal colour number nor as a hex code.
+var errBadColor = fail.InvalidArgument("not a terminal colour number from 0 to 255 or a hex code like #1e3a5f")
 
 // Colors spells every colour the panel draws in.
 type Colors struct {
@@ -139,7 +139,7 @@ func (c Colors) named() []namedColor {
 func checkColor(spelled string) error {
 	if hex, ok := strings.CutPrefix(spelled, "#"); ok {
 		if _, err := strconv.ParseUint(hex, 16, 32); err != nil || len(hex) != 6 {
-			return fmt.Errorf("%w: %q", ErrBadColor, spelled)
+			return fmt.Errorf("%w: %q", errBadColor, spelled)
 		}
 
 		return nil
@@ -147,7 +147,7 @@ func checkColor(spelled string) error {
 
 	number, err := strconv.Atoi(spelled)
 	if err != nil || number < 0 || number > 255 {
-		return fmt.Errorf("%w: %q", ErrBadColor, spelled)
+		return fmt.Errorf("%w: %q", errBadColor, spelled)
 	}
 
 	return nil

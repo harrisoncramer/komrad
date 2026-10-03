@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	TriggerProvision   = config.TriggerProvision
-	TriggerResume      = config.TriggerResume
-	TriggerDeprovision = config.TriggerDeprovision
+	triggerProvision   = config.TriggerProvision
+	triggerResume      = config.TriggerResume
+	triggerDeprovision = config.TriggerDeprovision
 )
 
 type tmuxReadWriter interface {

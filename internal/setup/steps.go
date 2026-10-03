@@ -25,17 +25,17 @@ func (s *ConfigStep) name() string {
 	return "config"
 }
 
-func (s *ConfigStep) observe(ctx context.Context, check Checker) Observation {
+func (s *ConfigStep) observe(ctx context.Context, check checker) observation {
 	report := check(ctx, doctor.CheckConfig)
 	if failed := firstFailing(report); failed != nil {
 		return stopOn(failed)
 	}
 
 	if _, err := os.Stat(s.Path); errors.Is(err, fs.ErrNotExist) {
-		return Observation{Verdict: VerdictDone, Detail: shortenHome(s.Path) + " will be created"}
+		return observation{Verdict: verdictDone, Detail: shortenHome(s.Path) + " will be created"}
 	}
 
-	return Observation{Verdict: VerdictDone, Detail: shortenHome(s.Path)}
+	return observation{Verdict: verdictDone, Detail: shortenHome(s.Path)}
 }
 
 func (s *ConfigStep) question() *huh.Form {
@@ -57,7 +57,7 @@ func (s *TmuxStep) name() string {
 	return "tmux"
 }
 
-func (s *TmuxStep) observe(ctx context.Context, check Checker) Observation {
+func (s *TmuxStep) observe(ctx context.Context, check checker) observation {
 	report := check(ctx, doctor.CheckTmux, doctor.CheckTmuxVersion, doctor.CheckTmuxShell)
 	if failed := firstFailing(report); failed != nil {
 		return stopOn(failed)
@@ -65,7 +65,7 @@ func (s *TmuxStep) observe(ctx context.Context, check Checker) Observation {
 
 	version := findingNamed(report, doctor.CheckTmuxVersion)
 
-	return Observation{Verdict: VerdictDone, Detail: version.Detail}
+	return observation{Verdict: verdictDone, Detail: version.Detail}
 }
 
 func (s *TmuxStep) question() *huh.Form {
@@ -94,7 +94,7 @@ func (s *HarnessStep) name() string {
 	return "harness"
 }
 
-func (s *HarnessStep) observe(ctx context.Context, check Checker) Observation {
+func (s *HarnessStep) observe(ctx context.Context, check checker) observation {
 	report := check(ctx, append([]string{doctor.CheckConfig, doctor.CheckDefaultHarness}, s.Harnesses...)...)
 
 	s.installed = s.installed[:0]
@@ -112,11 +112,11 @@ func (s *HarnessStep) observe(ctx context.Context, check Checker) Observation {
 
 	defaulted := findingNamed(report, doctor.CheckDefaultHarness)
 	if defaulted.Status == doctor.StatusOK && missing == nil {
-		return Observation{Verdict: VerdictDone, Detail: describeHarnesses(defaulted.Detail, s.installed)}
+		return observation{Verdict: verdictDone, Detail: describeHarnesses(defaulted.Detail, s.installed)}
 	}
 
 	if len(s.installed) > 0 {
-		return Observation{Verdict: VerdictAsk, Detail: "the default harness is not on PATH"}
+		return observation{Verdict: verdictAsk, Detail: "the default harness is not on PATH"}
 	}
 	if missing != nil {
 		return stopOn(missing)
@@ -138,7 +138,7 @@ func (s *HarnessStep) question() *huh.Form {
 
 func (s *HarnessStep) answerUnattended() error {
 	if s.Flag == "" {
-		return fmt.Errorf("%w: pass --harness, one of %s", ErrNeedsAnswer, strings.Join(s.installed, ", "))
+		return fmt.Errorf("%w: pass --harness, one of %s", errNeedsAnswer, strings.Join(s.installed, ", "))
 	}
 
 	s.chosen = s.Flag
@@ -147,7 +147,7 @@ func (s *HarnessStep) answerUnattended() error {
 }
 
 func (s *HarnessStep) repair(context.Context) error {
-	if err := SetTopLevelKey(s.Path, "default_harness", s.chosen); err != nil {
+	if err := setTopLevelKey(s.Path, "default_harness", s.chosen); err != nil {
 		return err
 	}
 
@@ -182,7 +182,7 @@ func (s *ContextStep) name() string {
 	return "context"
 }
 
-func (s *ContextStep) observe(ctx context.Context, check Checker) Observation {
+func (s *ContextStep) observe(ctx context.Context, check checker) observation {
 	report := check(ctx, doctor.CheckConfig, doctor.CheckContext)
 	if failed := firstFailing(report); failed != nil {
 		return stopOn(failed)
@@ -192,18 +192,18 @@ func (s *ContextStep) observe(ctx context.Context, check Checker) Observation {
 
 	cfg, err := config.LoadStack(s.Stack)
 	if err != nil {
-		return Observation{Verdict: VerdictStop, Detail: err.Error()}
+		return observation{Verdict: verdictStop, Detail: err.Error()}
 	}
 	s.path, err = cfg.GetContextFile()
 	if err != nil {
-		return Observation{Verdict: VerdictStop, Detail: err.Error()}
+		return observation{Verdict: verdictStop, Detail: err.Error()}
 	}
 
 	if _, err := os.Stat(s.path); err == nil {
-		return Observation{Verdict: VerdictDone, Detail: found.Detail}
+		return observation{Verdict: verdictDone, Detail: found.Detail}
 	}
 
-	return Observation{Verdict: VerdictAsk, Detail: "no standing context yet"}
+	return observation{Verdict: verdictAsk, Detail: "no standing context yet"}
 }
 
 func (s *ContextStep) question() *huh.Form {
@@ -223,7 +223,7 @@ func (s *ContextStep) answerUnattended() error {
 
 func (s *ContextStep) repair(context.Context) error {
 	if strings.TrimSpace(s.text) == "" {
-		return ErrSkipped
+		return errSkipped
 	}
 
 	return writeAtomically(s.path, []byte(strings.TrimRight(s.text, "\n")+"\n"))
@@ -240,7 +240,7 @@ func (s *AutoSetupStep) name() string {
 	return "workflow"
 }
 
-func (s *AutoSetupStep) observe(ctx context.Context, check Checker) Observation {
+func (s *AutoSetupStep) observe(ctx context.Context, check checker) observation {
 	report := check(ctx, doctor.CheckConfig)
 	if failed := firstFailing(report); failed != nil {
 		return stopOn(failed)
@@ -248,13 +248,13 @@ func (s *AutoSetupStep) observe(ctx context.Context, check Checker) Observation 
 
 	cfg, err := config.LoadStack(s.Stack)
 	if err != nil {
-		return Observation{Verdict: VerdictStop, Detail: err.Error()}
+		return observation{Verdict: verdictStop, Detail: err.Error()}
 	}
 	if cfg.AutoSetup {
-		return Observation{Verdict: VerdictDone, Detail: "set up wherever komrad is opened"}
+		return observation{Verdict: verdictDone, Detail: "set up wherever komrad is opened"}
 	}
 
-	return Observation{Verdict: VerdictAsk, Detail: "set up by hand"}
+	return observation{Verdict: verdictAsk, Detail: "set up by hand"}
 }
 
 func (s *AutoSetupStep) question() *huh.Form {
@@ -272,10 +272,10 @@ func (s *AutoSetupStep) answerUnattended() error {
 
 func (s *AutoSetupStep) repair(context.Context) error {
 	if !s.chosen {
-		return ErrSkipped
+		return errSkipped
 	}
 
-	if err := SetTopLevelBool(s.Path, "auto_setup", true); err != nil {
+	if err := setTopLevelBool(s.Path, "auto_setup", true); err != nil {
 		return err
 	}
 

@@ -67,8 +67,8 @@ type buildLoopsParams struct {
 	Wakers   *loopWakers
 }
 
-func buildLoops(params buildLoopsParams) []*Loop {
-	return []*Loop{
+func buildLoops(params buildLoopsParams) []*loop {
+	return []*loop{
 		newLoop(newLoopParams{
 			Name:     ReconcileLoop,
 			Interval: reconcileInterval,

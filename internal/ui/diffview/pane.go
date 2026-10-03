@@ -102,14 +102,14 @@ func (p *Pane) JumpFile(direction, height int) bool {
 		return false
 	}
 
-	p.pinFile(next, p.view.GetFileTopRow(next), height)
+	p.pinFile(next, p.view.getFileTopRow(next), height)
 
 	return true
 }
 
 // JumpToFile moves to the file whose header is on row and puts that header at the top of the pane.
 func (p *Pane) JumpToFile(row, height int) bool {
-	next := p.view.GetFileLanding(row)
+	next := p.view.getFileLanding(row)
 	if next == p.cursor {
 		return false
 	}
@@ -134,7 +134,7 @@ func (p *Pane) Search(pattern *regexp.Regexp, height int) {
 		return
 	}
 
-	if next, ok := p.view.JumpMatch(p.cursor-1, 1); ok {
+	if next, ok := p.view.jumpMatch(p.cursor-1, 1); ok {
 		p.cursor = next
 		p.pinTop = false
 	}
@@ -145,7 +145,7 @@ func (p *Pane) Search(pattern *regexp.Regexp, height int) {
 // JumpMatch steps to the next or previous line the search found, wrapping at the ends, and
 // reports false while nothing was found.
 func (p *Pane) JumpMatch(direction, height int) (bool, bool) {
-	next, ok := p.view.JumpMatch(p.cursor, direction)
+	next, ok := p.view.jumpMatch(p.cursor, direction)
 	if !ok {
 		return false, false
 	}
@@ -170,12 +170,12 @@ func (p *Pane) Keep(place Place, ok bool) {
 	}
 }
 
-// Expansion is what toggling the file under the cursor did.
-type Expansion int
+// expansion is what toggling the file under the cursor did.
+type expansion int
 
 const (
 	// ExpandNothing is a cursor standing in no file.
-	ExpandNothing Expansion = iota
+	ExpandNothing expansion = iota
 	// ExpandWhole is a file now drawn whole.
 	ExpandWhole
 	// ExpandChanged is a file drawn as its changed lines again.
@@ -186,7 +186,7 @@ const (
 
 // ToggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines and
 // the few around them, keeping the reader on the line they were on.
-func (p *Pane) ToggleExpanded(height int) Expansion {
+func (p *Pane) ToggleExpanded(height int) expansion {
 	file, ok := p.view.GetDrawnFileAt(p.cursor)
 	if !ok {
 		return ExpandNothing
@@ -198,7 +198,7 @@ func (p *Pane) ToggleExpanded(height int) Expansion {
 	// Where the cursor is standing is taken before the rows are built again.
 	place, located := p.view.GetPlace(p.cursor)
 
-	p.view.SetFileExpanded(path, expanding)
+	p.view.setFileExpanded(path, expanding)
 	if p.view.IsExpanded(path) != expanding {
 		return ExpandNoMore
 	}
@@ -253,12 +253,12 @@ func (p *Pane) Render(width, height int, held Cursor) []string {
 	// second to draw whole.
 	rows := make([]string, 0, height)
 	for y := start; y < min(start+height, p.view.Len()); y++ {
-		mark := NoCursor
+		mark := noCursor
 		if y == p.cursor {
 			mark = held
 		}
 
-		rows = append(rows, p.view.RenderRow(y, mark, width, p.pan))
+		rows = append(rows, p.view.renderRow(y, mark, width, p.pan))
 	}
 
 	for len(rows) < height {

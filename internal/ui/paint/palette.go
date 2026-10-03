@@ -41,11 +41,11 @@ const (
 	ToneModeEdit
 )
 
-// Shade is the part a background plays, which the palette turns into a colour.
-type Shade int
+// shade is the part a background plays, which the palette turns into a colour.
+type shade int
 
 const (
-	ShadeDiffAdded Shade = iota
+	ShadeDiffAdded shade = iota
 	ShadeDiffDeleted
 	ShadeSelection
 	ShadeSelectionDim
@@ -86,16 +86,16 @@ func (p Palette) Color(tone Tone) color.Color {
 	return lipgloss.Color(p.spell(tone))
 }
 
-// ANSIColor is a tone in the form glamour's style config wants it.
-func (p Palette) ANSIColor(tone Tone) *string {
+// ansiColor is a tone in the form glamour's style config wants it.
+func (p Palette) ansiColor(tone Tone) *string {
 	return xptr.Ptr(p.spell(tone))
 }
 
 // Background is what a shade looks like in this palette on the terminal's own background.
-func (p Palette) Background(shade Shade) Adaptive {
+func (p Palette) Background(shade shade) adaptive {
 	pair := p.pair(shade)
 
-	return Adaptive{Light: lipgloss.Color(pair.Light), Dark: lipgloss.Color(pair.Dark)}
+	return adaptive{Light: lipgloss.Color(pair.Light), Dark: lipgloss.Color(pair.Dark)}
 }
 
 // Style is a foreground of one tone and nothing else.
@@ -169,7 +169,7 @@ func (p Palette) spell(tone Tone) string {
 	return p.colors.Muted
 }
 
-func (p Palette) pair(shade Shade) theme.Pair {
+func (p Palette) pair(shade shade) theme.Pair {
 	switch shade {
 	case ShadeDiffAdded:
 		return p.colors.DiffAdded
@@ -249,37 +249,37 @@ func stageStyle(palette Palette) ansi.StyleConfig {
 	style.Document.BlockSuffix = ""
 	style.Document.Margin = nil
 	style.Text.Color = nil
-	style.Heading.Color = palette.ANSIColor(TonePrimary)
-	style.H1.Color = palette.ANSIColor(TonePrimary)
+	style.Heading.Color = palette.ansiColor(TonePrimary)
+	style.H1.Color = palette.ansiColor(TonePrimary)
 	style.H1.BackgroundColor = nil
-	style.H2.Color = palette.ANSIColor(TonePrimary)
-	style.H3.Color = palette.ANSIColor(TonePrimary)
-	style.H4.Color = palette.ANSIColor(TonePrimary)
-	style.H5.Color = palette.ANSIColor(TonePrimary)
-	style.H6.Color = palette.ANSIColor(TonePrimary)
-	style.BlockQuote.Color = palette.ANSIColor(ToneMuted)
-	style.Item.Color = palette.ANSIColor(ToneSecondary)
-	style.Enumeration.Color = palette.ANSIColor(ToneSecondary)
+	style.H2.Color = palette.ansiColor(TonePrimary)
+	style.H3.Color = palette.ansiColor(TonePrimary)
+	style.H4.Color = palette.ansiColor(TonePrimary)
+	style.H5.Color = palette.ansiColor(TonePrimary)
+	style.H6.Color = palette.ansiColor(TonePrimary)
+	style.BlockQuote.Color = palette.ansiColor(ToneMuted)
+	style.Item.Color = palette.ansiColor(ToneSecondary)
+	style.Enumeration.Color = palette.ansiColor(ToneSecondary)
 
 	style.Enumeration.BlockPrefix = ") "
-	style.Task.Color = palette.ANSIColor(ToneSecondary)
-	style.Emph.Color = palette.ANSIColor(ToneSecondary)
-	style.Strong.Color = palette.ANSIColor(ToneSecondary)
-	style.HorizontalRule.Color = palette.ANSIColor(ToneMuted)
-	style.Link.Color = palette.ANSIColor(ToneMuted)
-	style.LinkText.Color = palette.ANSIColor(TonePrimary)
-	style.Image.Color = palette.ANSIColor(ToneMuted)
-	style.ImageText.Color = palette.ANSIColor(TonePrimary)
-	style.Code.Color = palette.ANSIColor(ToneSecondary)
+	style.Task.Color = palette.ansiColor(ToneSecondary)
+	style.Emph.Color = palette.ansiColor(ToneSecondary)
+	style.Strong.Color = palette.ansiColor(ToneSecondary)
+	style.HorizontalRule.Color = palette.ansiColor(ToneMuted)
+	style.Link.Color = palette.ansiColor(ToneMuted)
+	style.LinkText.Color = palette.ansiColor(TonePrimary)
+	style.Image.Color = palette.ansiColor(ToneMuted)
+	style.ImageText.Color = palette.ansiColor(TonePrimary)
+	style.Code.Color = palette.ansiColor(ToneSecondary)
 	style.Code.BackgroundColor = nil
 	style.CodeBlock.Color = nil
 
 	style.CodeBlock.Chroma = nil
 	style.Table.Color = nil
-	style.DefinitionTerm.Color = palette.ANSIColor(TonePrimary)
+	style.DefinitionTerm.Color = palette.ansiColor(TonePrimary)
 	style.DefinitionDescription.Color = nil
-	style.HTMLBlock.Color = palette.ANSIColor(ToneMuted)
-	style.HTMLSpan.Color = palette.ANSIColor(ToneMuted)
+	style.HTMLBlock.Color = palette.ansiColor(ToneMuted)
+	style.HTMLSpan.Color = palette.ansiColor(ToneMuted)
 
 	return style
 }

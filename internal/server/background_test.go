@@ -228,7 +228,7 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 	var runs atomic.Int64
 	runner := &fakeRunner{}
 
-	work, err := startBackground(t.Context(), runner, []*Loop{newLoop(newLoopParams{
+	work, err := startBackground(t.Context(), runner, []*loop{newLoop(newLoopParams{
 		Name:     "reconcile",
 		Interval: time.Millisecond,
 		Run: func(context.Context) error {
@@ -363,7 +363,7 @@ func (r *runStarts) count() int {
 	return len(r.read())
 }
 
-func startLoop(t *testing.T, loop *Loop) (context.CancelFunc, <-chan struct{}) {
+func startLoop(t *testing.T, loop *loop) (context.CancelFunc, <-chan struct{}) {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -382,7 +382,7 @@ func startLoop(t *testing.T, loop *Loop) (context.CancelFunc, <-chan struct{}) {
 	return cancel, done
 }
 
-func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *loopWaker) *Loop {
+func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *loopWaker) *loop {
 	return newLoop(newLoopParams{
 		Name:     "pull request sync",
 		Interval: interval,
@@ -396,7 +396,7 @@ func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *
 	})
 }
 
-func buildHeldLoop(starts *runStarts, interval time.Duration, waker *loopWaker, release <-chan struct{}) *Loop {
+func buildHeldLoop(starts *runStarts, interval time.Duration, waker *loopWaker, release <-chan struct{}) *loop {
 	return newLoop(newLoopParams{
 		Name:     "pull request sync",
 		Interval: interval,

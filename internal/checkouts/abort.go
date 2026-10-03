@@ -59,14 +59,14 @@ func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, erro
 	result, err := s.abort(ctx, *agent)
 	if err != nil {
 		if interrupted {
-			s.queueEvent(ctx, agent.ID, Aborted{AgentID: agent.ID, Failure: err.Error()})
+			s.queueEvent(ctx, agent.ID, aborted{AgentID: agent.ID, Failure: err.Error()})
 		}
 
 		return nil, err
 	}
 	result.Interrupted = interrupted
 
-	s.queueEvent(ctx, agent.ID, Aborted{AgentID: agent.ID, Result: result})
+	s.queueEvent(ctx, agent.ID, aborted{AgentID: agent.ID, Result: result})
 
 	return result, nil
 }
@@ -100,7 +100,7 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 
 	err = s.git.AbortSequence(ctx, agent.Cwd, sequence)
 	if errors.Is(err, git.ErrIndexLocked) {
-		return nil, fmt.Errorf("%w: %w", ErrBusy, err)
+		return nil, fmt.Errorf("%w: %w", errBusy, err)
 	}
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func (s *Service) recordAborted(ctx context.Context, agent agentstore.Agent) {
 
 // abortedMail is what an agent is told once the panel aborted what its worktree had part-way
 // through, which turns on whether komrad or the agent started it.
-func abortedMail(aborted Aborted) string {
+func abortedMail(aborted aborted) string {
 	if aborted.Result == nil {
 		return fmt.Sprintf("Your turn was interrupted so that what was part-way through your worktree could be aborted, "+
 			"but the abort failed: %s\n\n"+

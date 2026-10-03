@@ -15,15 +15,15 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// SetTopLevelKey writes a string key above the file's first table, keeping every other line as
+// setTopLevelKey writes a string key above the file's first table, keeping every other line as
 // it was.
-func SetTopLevelKey(path, key, value string) error {
+func setTopLevelKey(path, key, value string) error {
 	return setTopLevel(path, key, strconv.Quote(value))
 }
 
-// SetTopLevelBool writes a boolean key above the file's first table, keeping every other line as
+// setTopLevelBool writes a boolean key above the file's first table, keeping every other line as
 // it was.
-func SetTopLevelBool(path, key string, value bool) error {
+func setTopLevelBool(path, key string, value bool) error {
 	return setTopLevel(path, key, strconv.FormatBool(value))
 }
 

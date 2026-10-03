@@ -41,7 +41,7 @@ func twoChangePane() Pane {
 }
 
 func readCursorText(p *Pane) string {
-	return strings.TrimSpace(ansi.Strip(p.View().RenderRow(p.Cursor(), NoCursor, 80, 0)))
+	return strings.TrimSpace(ansi.Strip(p.View().renderRow(p.Cursor(), noCursor, 80, 0)))
 }
 
 // TestNewPaneStandsOnTheFirstLine covers where a reader starts.
@@ -125,7 +125,7 @@ func TestPaneJumpFilePutsTheFileAtTheTop(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "b.md", file.Path())
 
-	header := pane.View().GetFileTopRow(pane.Cursor())
+	header := pane.View().getFileTopRow(pane.Cursor())
 	assert.Equal(t, header, pane.Top())
 
 	pane.Step(1, 2, height)
@@ -194,7 +194,7 @@ func TestPaneKeepsItsPlace(t *testing.T) {
 		pane.Step(1, 1, paneHeight)
 
 		place, ok := pane.View().GetPlace(pane.Cursor())
-		pane.View().SetFileExpanded("notes.md", true)
+		pane.View().setFileExpanded("notes.md", true)
 		pane.Keep(place, ok)
 
 		assert.Equal(t, "1 +  first", readCursorText(&pane))
@@ -244,14 +244,14 @@ func TestPaneRender(t *testing.T) {
 	rows := pane.Render(40, height, LiveCursor)
 
 	require.Len(t, rows, height)
-	assert.Equal(t, pane.View().RenderRow(pane.Cursor(), LiveCursor, 40, 0), rows[pane.Cursor()])
-	assert.Equal(t, pane.View().RenderRow(0, NoCursor, 40, 0), rows[0])
+	assert.Equal(t, pane.View().renderRow(pane.Cursor(), LiveCursor, 40, 0), rows[pane.Cursor()])
+	assert.Equal(t, pane.View().renderRow(0, noCursor, 40, 0), rows[0])
 	assert.Equal(t, strings.Repeat(" ", 40), rows[height-1])
 
 	pane.MoveTo(pane.View().GetLastRow(), paneHeight)
 	window := pane.Render(40, paneHeight, DimCursor)
 	require.Len(t, window, paneHeight)
 	start := min(pane.Top(), pane.View().Len()-paneHeight)
-	assert.Equal(t, pane.View().RenderRow(start, NoCursor, 40, 0), window[0], "the window never runs past the last row")
-	assert.Equal(t, pane.View().RenderRow(pane.Cursor(), DimCursor, 40, 0), window[pane.Cursor()-start])
+	assert.Equal(t, pane.View().renderRow(start, noCursor, 40, 0), window[0], "the window never runs past the last row")
+	assert.Equal(t, pane.View().renderRow(pane.Cursor(), DimCursor, 40, 0), window[pane.Cursor()-start])
 }

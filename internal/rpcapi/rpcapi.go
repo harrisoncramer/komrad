@@ -124,8 +124,8 @@ func GetSurfaces(method protoreflect.MethodDescriptor) *annotationv1.Surfaces {
 	return surfaces
 }
 
-// GetRules returns the validation rules declared on a field, nil when it carries none.
-func GetRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
+// getRules returns the validation rules declared on a field, nil when it carries none.
+func getRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	opts, ok := field.Options().(*descriptorpb.FieldOptions)
 	if !ok || !proto.HasExtension(opts, validate.E_Field) {
 		return nil
@@ -204,7 +204,7 @@ func EnumNames(values protoreflect.EnumDescriptor) []string {
 // IsRequired reports whether the service would refuse the field left empty, which the validation
 // rules decide rather than proto3 field presence.
 func IsRequired(field protoreflect.FieldDescriptor) bool {
-	rules := GetRules(field)
+	rules := getRules(field)
 	if rules == nil || field.ContainingOneof() != nil {
 		return false
 	}
@@ -223,7 +223,7 @@ func DescribeRules(field protoreflect.FieldDescriptor) []string {
 		parts = append(parts, "required")
 	}
 
-	rules := GetRules(field)
+	rules := getRules(field)
 	if text := rules.GetString(); text != nil {
 		if limit := text.GetMaxLen(); limit > 0 {
 			parts = append(parts, fmt.Sprintf("at most %d characters", limit))

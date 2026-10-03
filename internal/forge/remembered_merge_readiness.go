@@ -2,18 +2,18 @@ package forge
 
 import "time"
 
-// MergeReadinessField is one part of a pull request's merge readiness whose move is reported.
-type MergeReadinessField string
+// mergeReadinessField is one part of a pull request's merge readiness whose move is reported.
+type mergeReadinessField string
 
 const (
 	// MergeReadinessFieldDecision is where the reviews stand.
-	MergeReadinessFieldDecision MergeReadinessField = "review"
+	MergeReadinessFieldDecision mergeReadinessField = "review"
 	// MergeReadinessFieldChecks is where the checks on the head stand.
-	MergeReadinessFieldChecks MergeReadinessField = "checks"
+	MergeReadinessFieldChecks mergeReadinessField = "checks"
 	// MergeReadinessFieldMergeability is where the branch stands against its base.
-	MergeReadinessFieldMergeability MergeReadinessField = "mergeability"
+	MergeReadinessFieldMergeability mergeReadinessField = "mergeability"
 	// MergeReadinessFieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
-	MergeReadinessFieldAutoMerge MergeReadinessField = "auto-merge"
+	MergeReadinessFieldAutoMerge mergeReadinessField = "auto-merge"
 )
 
 const (
@@ -22,9 +22,9 @@ const (
 	autoMergeOff = "off"
 )
 
-// MergeReadinessMove is one part of a pull request's merge readiness going from one value to another.
-type MergeReadinessMove struct {
-	Field MergeReadinessField
+// mergeReadinessMove is one part of a pull request's merge readiness going from one value to another.
+type mergeReadinessMove struct {
+	Field mergeReadinessField
 	From  string
 	To    string
 }
@@ -85,31 +85,31 @@ func rememberAnswer[T comparable](answer RememberedAnswer[T], read T, head strin
 }
 
 // ListMovesSince lists every part of the merge readiness that moved since before.
-func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadiness) []MergeReadinessMove {
-	var moves []MergeReadinessMove
+func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadiness) []mergeReadinessMove {
+	var moves []mergeReadinessMove
 	if rs.Decision.Value != before.Decision.Value {
-		moves = append(moves, MergeReadinessMove{
+		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldDecision,
 			From:  string(before.Decision.Value),
 			To:    string(rs.Decision.Value),
 		})
 	}
 	if rs.Checks.Value != before.Checks.Value || isOnNewHead(before.Checks, rs.Checks) {
-		moves = append(moves, MergeReadinessMove{
+		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldChecks,
 			From:  string(before.Checks.Value),
 			To:    string(rs.Checks.Value),
 		})
 	}
 	if rs.Mergeability.Value != before.Mergeability.Value {
-		moves = append(moves, MergeReadinessMove{
+		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldMergeability,
 			From:  string(before.Mergeability.Value),
 			To:    string(rs.Mergeability.Value),
 		})
 	}
 	if from, to := DescribeAutoMerge(before.AutoMerge), DescribeAutoMerge(rs.AutoMerge); from != to {
-		moves = append(moves, MergeReadinessMove{
+		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldAutoMerge,
 			From:  from,
 			To:    to,
@@ -136,8 +136,8 @@ func DescribeAutoMerge(autoMerge *AutoMerge) string {
 	}
 }
 
-// DisplayedAnswer is one part of a pull request's merge readiness as komrad shows it for a head.
-type DisplayedAnswer[T comparable] struct {
+// displayedAnswer is one part of a pull request's merge readiness as komrad shows it for a head.
+type displayedAnswer[T comparable] struct {
 	// Value is the answer to show for the head.
 	Value T
 	// IsUnconfirmed says Value is shown through a blank read.
@@ -146,9 +146,9 @@ type DisplayedAnswer[T comparable] struct {
 
 // DisplayedMergeReadiness is a pull request's merge readiness as komrad shows it for one head.
 type DisplayedMergeReadiness struct {
-	Decision     DisplayedAnswer[ReviewDecision]
-	Checks       DisplayedAnswer[Checks]
-	Mergeability DisplayedAnswer[Mergeability]
+	Decision     displayedAnswer[ReviewDecision]
+	Checks       displayedAnswer[Checks]
+	Mergeability displayedAnswer[Mergeability]
 	AutoMerge    AutoMerge
 }
 
@@ -166,19 +166,19 @@ func (rs RememberedMergeReadiness) DisplayForHead(head string) DisplayedMergeRea
 	return displayed
 }
 
-func displayLatestDecision(answer RememberedAnswer[ReviewDecision]) DisplayedAnswer[ReviewDecision] {
+func displayLatestDecision(answer RememberedAnswer[ReviewDecision]) displayedAnswer[ReviewDecision] {
 	if answer.WasLatestReadBlank {
-		return DisplayedAnswer[ReviewDecision]{}
+		return displayedAnswer[ReviewDecision]{}
 	}
 
-	return DisplayedAnswer[ReviewDecision]{Value: answer.Value}
+	return displayedAnswer[ReviewDecision]{Value: answer.Value}
 }
 
-func displayAnswerForHead[T comparable](answer RememberedAnswer[T], head string) DisplayedAnswer[T] {
+func displayAnswerForHead[T comparable](answer RememberedAnswer[T], head string) displayedAnswer[T] {
 	var blank T
 	if answer.Value == blank || head != "" && answer.HeadSHA != head {
-		return DisplayedAnswer[T]{}
+		return displayedAnswer[T]{}
 	}
 
-	return DisplayedAnswer[T]{Value: answer.Value, IsUnconfirmed: answer.WasLatestReadBlank}
+	return displayedAnswer[T]{Value: answer.Value, IsUnconfirmed: answer.WasLatestReadBlank}
 }

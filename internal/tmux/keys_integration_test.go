@@ -96,7 +96,7 @@ func TestIntegrationGetRootKeysReadsBackWhatWasBound(t *testing.T) {
 	client.BindRootKey("F9", "if-shell", "/usr/local/bin/komrad attach --config /etc/komrad.toml",
 		"run-shell -b 'detach'", "display-message -d 0 'not attached'")
 
-	bound, err := client.GetRootKeys()
+	bound, err := client.getRootKeys()
 	require.NoError(t, err)
 
 	for _, tt := range keys {
@@ -113,7 +113,7 @@ func TestIntegrationGetRootKeysReadsBackWhatWasBound(t *testing.T) {
 		}
 	}
 
-	bound, err = client.GetRootKeys()
+	bound, err = client.getRootKeys()
 	require.NoError(t, err)
 
 	for _, tt := range keys {
@@ -161,7 +161,7 @@ func TestIntegrationInfoPaneRoundTripsAndClears(t *testing.T) {
 func TestIntegrationSocketPathNamesTheServerTheClientIsOn(t *testing.T) {
 	client := testServer(t, "socket")
 
-	path, err := client.GetSocketPath()
+	path, err := client.getSocketPath()
 	require.NoError(t, err)
 
 	assert.Contains(t, path, "komrad-test-", "the socket is the one this client was opened on")
@@ -180,7 +180,7 @@ func TestIntegrationSessionOptionIsScopedToItsSession(t *testing.T) {
 	assert.Equal(t, "off", sessionOption(t, client, "scoped", "status"))
 	assert.Empty(t, sessionOption(t, client, "other", "status"),
 		"the other session is left to inherit rather than written to")
-	assert.Equal(t, "on", client.ShowGlobal("status"), "and the global it inherits is untouched")
+	assert.Equal(t, "on", client.showGlobal("status"), "and the global it inherits is untouched")
 }
 
 func sessionOption(t *testing.T, c *Client, session, name string) string {
@@ -223,7 +223,7 @@ func TestIntegrationTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 
 	require.NoError(t, client.TakePanelKeys([]string{"ctrl+d", "ctrl+u", "ctrl+t", "ctrl+n", "j", ";", "'"}))
 
-	rebound, err := client.GetRootKeys()
+	rebound, err := client.getRootKeys()
 	require.NoError(t, err)
 
 	for _, key := range []string{"C-d", "C-u", "C-t", ";", "'"} {
@@ -235,7 +235,7 @@ func TestIntegrationTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 
 	require.NoError(t, client.TakePanelKeys([]string{"ctrl+d", "ctrl+u", "ctrl+t"}))
 
-	again, err := client.GetRootKeys()
+	again, err := client.getRootKeys()
 	require.NoError(t, err)
 	assert.Equal(t, rebound, again, "a second panel finds the keys taken and leaves them be")
 
@@ -274,7 +274,7 @@ func TestIntegrationTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 	press("C-t")
 
 	require.Eventually(t, func() bool {
-		return client.ShowGlobal("@first") == "one" && client.ShowGlobal("@second") == "two"
+		return client.showGlobal("@first") == "one" && client.showGlobal("@second") == "two"
 	}, 5*time.Second, 20*time.Millisecond, "both commands of the user's binding run")
 	assert.NotContains(t, client.CapturePane(pane), "^T", "and the pane itself never saw the key")
 }
@@ -312,7 +312,7 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 
 	require.NoError(t, client.TakePanelWheel())
 
-	rebound, err := client.GetRootKeys()
+	rebound, err := client.getRootKeys()
 	require.NoError(t, err)
 
 	for _, wheel := range []string{"WheelUpPane", "WheelDownPane"} {
@@ -327,7 +327,7 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 
 	require.NoError(t, client.TakePanelWheel())
 
-	again, err := client.GetRootKeys()
+	again, err := client.getRootKeys()
 	require.NoError(t, err)
 	assert.Equal(t, rebound, again, "a second panel finds the wheel taken and leaves it be")
 
@@ -385,12 +385,12 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	require.Eventually(t, func() bool {
 		return strings.Contains(client.CapturePane(pane), "[<64;")
 	}, 5*time.Second, 20*time.Millisecond, "the wheel over the panel reaches it as a mouse event")
-	assert.Empty(t, client.ShowGlobal("@turned"), "and the user's binding did not run")
+	assert.Empty(t, client.showGlobal("@turned"), "and the user's binding did not run")
 
 	wheelUp(20)
 
 	require.Eventually(t, func() bool {
-		return client.ShowGlobal("@turned") == "yes"
+		return client.showGlobal("@turned") == "yes"
 	}, 5*time.Second, 20*time.Millisecond, "the wheel over any other pane runs the user's binding")
 	assert.NotContains(t, client.CapturePane(other), "[<64;")
 }

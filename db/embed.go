@@ -88,11 +88,11 @@ ON CONFLICT (unit) DO UPDATE SET version = EXCLUDED.version`
 
 var triggerFileName = regexp.MustCompile(`^(.+)\.v(\d+)\.sql$`)
 
-// ErrSchemaBehind is returned when the database is missing migrations or triggers this build carries.
-var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run komrad migrate as the database owner")
+// errSchemaBehind is returned when the database is missing migrations or triggers this build carries.
+var errSchemaBehind = errors.New("the database is missing migrations this build carries; run komrad migrate as the database owner")
 
-// ErrDatabaseInUse is returned rather than migrating a database another komrad is on.
-var ErrDatabaseInUse = errors.New("another komrad is using this database")
+// errDatabaseInUse is returned rather than migrating a database another komrad is on.
+var errDatabaseInUse = errors.New("another komrad is using this database")
 
 // sources is where a pass reads its migrations and trigger units from.
 type sources struct {
@@ -240,7 +240,7 @@ func checkSchema(ctx context.Context, pool *pgxpool.Pool, src *sources) error {
 		return err
 	}
 	if !plan.empty() {
-		return fmt.Errorf("%w: %s", ErrSchemaBehind, strings.Join(plan.names(), ", "))
+		return fmt.Errorf("%w: %s", errSchemaBehind, strings.Join(plan.names(), ", "))
 	}
 
 	return nil
@@ -464,7 +464,7 @@ func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []str
 
 	return fmt.Errorf("%w: %s is connected to it, and this build holds %d schema change(s) it has not seen (%s). "+
 		"Stop that komrad, or point KOMRAD_DATABASE_URL at a database of this checkout's own",
-		ErrDatabaseInUse, strings.Join(others, ", "), len(pending), strings.Join(pending, ", "))
+		errDatabaseInUse, strings.Join(others, ", "), len(pending), strings.Join(pending, ", "))
 }
 
 // releaseMigrateLock unlocks on a context of its own.

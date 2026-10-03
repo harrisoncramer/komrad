@@ -455,7 +455,7 @@ func TestSendFromKomradRefusesIncompleteMail(t *testing.T) {
 		{
 			name:    "no subject",
 			params:  SendFromKomradParams{Body: "hello", Kind: mailstore.KindDocumentEdited},
-			wantErr: ErrSubjectMissing,
+			wantErr: errSubjectMissing,
 		},
 	}
 

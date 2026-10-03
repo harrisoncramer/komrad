@@ -206,7 +206,7 @@ func (c *Client) DoesBaseHoldRemote(ctx context.Context, params DoesBaseHoldRemo
 		return false, nil
 	}
 
-	baseTree, err := c.GetTree(ctx, params.Dir, params.Base)
+	baseTree, err := c.getTree(ctx, params.Dir, params.Base)
 	if err != nil {
 		return false, fmt.Errorf("failed to read the tree of %s against origin's copy of %s: %w", params.Base, params.Branch, err)
 	}

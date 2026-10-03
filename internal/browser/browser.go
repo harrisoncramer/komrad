@@ -20,7 +20,7 @@ const (
 	detailCap   = 400
 )
 
-var ErrNotAWebURL = fail.InvalidArgument("not an http or https URL")
+var errNotAWebURL = fail.InvalidArgument("not an http or https URL")
 
 // Opener is what anything with a URL to show a person calls.
 type Opener interface {
@@ -41,7 +41,7 @@ func (*Desktop) OpenURL(ctx context.Context, target string) error {
 	// An opener given a path or an app's own scheme acts on it, and a URL komrad was handed is
 	// not always one komrad wrote, so only a web address is passed on.
 	if !isWebURL(target) {
-		return fmt.Errorf("%w: %q", ErrNotAWebURL, target)
+		return fmt.Errorf("%w: %q", errNotAWebURL, target)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, openTimeout)

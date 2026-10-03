@@ -9,8 +9,8 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 )
 
-// WorktreeConfigToProto writes a worktree config in the shape it crosses the wire in.
-func WorktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
+// worktreeConfigToProto writes a worktree config in the shape it crosses the wire in.
+func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
 	return &workflowv1.WorktreeConfig{
 		Enabled:      w.Enabled,
 		BaseBranch:   w.BaseBranch,
@@ -45,7 +45,7 @@ func Workflow(w workflowstore.Workflow, options WorkflowOptions) *workflowv1.Wor
 		ReviewerFlags:    w.ReviewerFlags,
 		ArchivedAt:       dates.StampPtr(w.ArchivedAt),
 		ContextTruncated: contextTruncated,
-		Worktree:         WorktreeConfigToProto(w.Worktree),
+		Worktree:         worktreeConfigToProto(w.Worktree),
 		Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
 			return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 		}),

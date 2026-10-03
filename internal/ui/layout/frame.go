@@ -39,7 +39,7 @@ type Frame struct {
 	pending []panes.Move
 	// batches is how many Begins are still waiting on their Flush.
 	batches int
-	shown   map[Region]shown
+	shown   map[region]shown
 
 	// zoomed says the change being collected moves the sidebar's zoom.
 	zoomed bool
@@ -78,31 +78,31 @@ type Guest struct {
 	Pane  string
 }
 
-// Option is a setting New takes beyond the geometry, so the common case names none of them.
-type Option func(*Frame)
+// option is a setting New takes beyond the geometry, so the common case names none of them.
+type option func(*Frame)
 
 // WithEngine says the agents are running somewhere this tmux server cannot reach.
-func WithEngine(remote engine.Remote) Option {
+func WithEngine(remote engine.Remote) option {
 	return func(f *Frame) { f.remote = remote }
 }
 
 // WithShellCommand says what opens a shell on the engine, before the directory it is rooted in.
-func WithShellCommand(command []string) Option {
+func WithShellCommand(command []string) option {
 	return func(f *Frame) { f.shellCommand = command }
 }
 
 // WithTerminalCommand says what attaches to an agent's terminal on the engine, before the agent
 // it is given.
-func WithTerminalCommand(command []string) Option {
+func WithTerminalCommand(command []string) option {
 	return func(f *Frame) { f.terminalCommand = command }
 }
 
 // New builds the frame the panel lays out around itself, at the geometry the config asks for.
-func New(tmux Tmux, layout config.Layout, options ...Option) *Frame {
+func New(tmux Tmux, layout config.Layout, options ...option) *Frame {
 	frame := &Frame{
 		tmux:  tmux,
 		spec:  newSpec(layout),
-		shown: map[Region]shown{},
+		shown: map[region]shown{},
 	}
 
 	for _, option := range options {
@@ -131,7 +131,7 @@ func (f *Frame) Attach(sidebar string) {
 
 // Pane is the pane the frame holds for a region, which for the stage is its own pane even while
 // a guest is swapped into it.
-func (f *Frame) Pane(region Region) string {
+func (f *Frame) Pane(region region) string {
 	switch region {
 	case RegionSidebar:
 		return f.sidebar
@@ -139,7 +139,7 @@ func (f *Frame) Pane(region Region) string {
 		return f.stage
 	case RegionInfo:
 		return f.info
-	case RegionNone:
+	case regionNone:
 	}
 
 	return ""
@@ -204,7 +204,7 @@ func (f *Frame) reportSize() {
 		return
 	}
 
-	width, height := f.SidebarSize()
+	width, height := f.sidebarSize()
 
 	if width <= 0 || height <= 0 {
 		return
@@ -234,34 +234,34 @@ func (f *Frame) move(m panes.Move) {
 
 // Open opens a region and returns the pane it landed in, opening the stage on the way since
 // every region hangs off it.
-func (f *Frame) Open(region Region) string {
+func (f *Frame) Open(region region) string {
 	defer f.holdSolo()
 
 	return f.open(region)
 }
 
-func (f *Frame) open(region Region) string {
+func (f *Frame) open(region region) string {
 	switch region {
 	case RegionStage:
 		f.claimStage()
 	case RegionInfo:
 		f.claimStage()
 		f.claimInfo()
-	case RegionSidebar, RegionNone:
+	case RegionSidebar, regionNone:
 	}
 
 	return f.Pane(region)
 }
 
 // IsOpen reports whether a region's pane is still running.
-func (f *Frame) IsOpen(region Region) bool {
+func (f *Frame) IsOpen(region region) bool {
 	pane := f.Pane(region)
 
 	return pane != "" && f.tmux.IsPaneAlive(pane)
 }
 
 // Close takes a region away.
-func (f *Frame) Close(region Region) {
+func (f *Frame) Close(region region) {
 	if region == RegionInfo {
 		f.closeInfo()
 		f.holdSolo()
@@ -270,13 +270,13 @@ func (f *Frame) Close(region Region) {
 
 // Claimed records that another process has taken a region over, so the next content is drawn
 // rather than skipped as already shown.
-func (f *Frame) Claimed(region Region) {
+func (f *Frame) Claimed(region region) {
 	f.forget(region)
 }
 
 // Show draws content in a region, opening it first when needed, and refuses the sidebar since
 // filling it would replace the panel itself.
-func (f *Frame) Show(region Region, content Content) {
+func (f *Frame) Show(region region, content Content) {
 	if region != RegionStage && region != RegionInfo {
 		return
 	}
@@ -464,8 +464,8 @@ func (f *Frame) HasKeys() bool {
 	return f.keys
 }
 
-// SidebarSize is how big tmux has the panel's own pane right now.
-func (f *Frame) SidebarSize() (width, height int) {
+// sidebarSize is how big tmux has the panel's own pane right now.
+func (f *Frame) sidebarSize() (width, height int) {
 	if f.sidebar == "" {
 		return 0, 0
 	}
@@ -484,7 +484,7 @@ func (f *Frame) SidebarWidth(total int) (int, bool) {
 		return min(f.cols, total), true
 	}
 
-	return f.spec.SidebarWidth(total), false
+	return f.spec.sidebarWidth(total), false
 }
 
 // StageCols is how wide the pane beside the sidebar was last measured at.
@@ -524,14 +524,14 @@ func (f *Frame) SyncSplit() {
 	}
 }
 
-// ForgetSplit drops the measured divider.
-func (f *Frame) ForgetSplit() {
+// forgetSplit drops the measured divider.
+func (f *Frame) forgetSplit() {
 	f.stageCols = 0
 }
 
 // RestoreSplit gives the sidebar its chosen width again.
 func (f *Frame) RestoreSplit() {
-	f.ForgetSplit()
+	f.forgetSplit()
 
 	if f.sidebar == "" || !f.hasStage() {
 		return
@@ -634,7 +634,7 @@ func (f *Frame) holdSolo() {
 	f.move(panes.Zoom(f.sidebar, true))
 }
 
-func (f *Frame) isShowing(region Region, content Content, target Target) bool {
+func (f *Frame) isShowing(region region, content Content, target Target) bool {
 	if content.Key == "" {
 		return false
 	}
@@ -774,7 +774,7 @@ func (f *Frame) closeInfo() {
 	f.forget(RegionInfo)
 }
 
-func (f *Frame) forget(region Region) {
+func (f *Frame) forget(region region) {
 	delete(f.shown, region)
 }
 

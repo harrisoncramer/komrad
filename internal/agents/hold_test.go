@@ -91,7 +91,7 @@ func TestHoldRefusesAnAgentHoldingItself(t *testing.T) {
 		AgentID:   agent.ID,
 		ByAgentID: agent.ID,
 	})
-	require.ErrorIs(t, err, ErrHoldSelf)
+	require.ErrorIs(t, err, errHoldSelf)
 	assert.Zero(t, channel.Interrupts, "the agent was never interrupted")
 
 	after := agentByID(t, st, agent.ID)
@@ -230,7 +230,7 @@ func TestHoldingAnAgentTwiceIsRefused(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = holder.Hold(t.Context(), HoldParams{AgentID: agent.ID})
-	require.ErrorIs(t, err, ErrAlreadyHeld)
+	require.ErrorIs(t, err, errAlreadyHeld)
 
 	after := agentByID(t, st, agent.ID)
 	assert.Equal(t, first.Hold.At.UTC(), after.Hold.At.UTC(), "the first hold stands")

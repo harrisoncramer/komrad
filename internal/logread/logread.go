@@ -17,14 +17,14 @@ import (
 // ErrNoSuchTrace says nothing in the log was written under the trace asked for.
 var ErrNoSuchTrace = fail.NotFound("no line was written under that trace")
 
-// ErrNoLog says the service has written no log yet.
-var ErrNoLog = fail.Precondition("the service has no log yet")
+// errNoLog says the service has written no log yet.
+var errNoLog = fail.Precondition("the service has no log yet")
 
 // scanBuffer is the longest line the log is read with.
 const scanBuffer = 1 << 20
 
-// DefaultRecent is how many traces are listed when the caller names no count.
-const DefaultRecent = 20
+// defaultRecent is how many traces are listed when the caller names no count.
+const defaultRecent = 20
 
 // Line is one line of the log, with the fields every line carries pulled out of the rest.
 type Line struct {
@@ -43,16 +43,16 @@ type Summary struct {
 	Lines     int
 }
 
-// Reader reads one log file.
-type Reader struct {
+// reader reads one log file.
+type reader struct {
 	path    string
 	maxLine int
 	budget  int
 }
 
 // New builds a reader over the log at path.
-func New(path string) *Reader {
-	return &Reader{
+func New(path string) *reader {
+	return &reader{
 		path:    path,
 		maxLine: scanBuffer,
 		budget:  ScanBudget,
@@ -60,7 +60,7 @@ func New(path string) *Reader {
 }
 
 // Lines is every line written under one trace id, in the order the log holds them.
-func (r *Reader) Lines(trace string) ([]Line, error) {
+func (r *reader) Lines(trace string) ([]Line, error) {
 	var lines []Line
 	err := r.each(func(line Line) {
 		if line.Trace == trace {
@@ -78,9 +78,9 @@ func (r *Reader) Lines(trace string) ([]Line, error) {
 }
 
 // RecentTraces is the trace ids the log ends with, oldest first.
-func (r *Reader) RecentTraces(limit int) ([]Summary, error) {
+func (r *reader) RecentTraces(limit int) ([]Summary, error) {
 	if limit <= 0 {
-		limit = DefaultRecent
+		limit = defaultRecent
 	}
 
 	seen := map[string]*Summary{}
@@ -95,7 +95,7 @@ func (r *Reader) RecentTraces(limit int) ([]Summary, error) {
 			held = &Summary{
 				Trace:     line.Trace,
 				StartedAt: line.Time,
-				What:      Describe(line),
+				What:      describe(line),
 			}
 			seen[line.Trace] = held
 			order = append(order, line.Trace)
@@ -103,7 +103,7 @@ func (r *Reader) RecentTraces(limit int) ([]Summary, error) {
 
 		held.Lines++
 		if held.What == "" {
-			held.What = Describe(line)
+			held.What = describe(line)
 		}
 	})
 	if err != nil {
@@ -121,8 +121,8 @@ func (r *Reader) RecentTraces(limit int) ([]Summary, error) {
 	return summaries, nil
 }
 
-// Describe is what a line says its trace was about: the RPC method, or the loop.
-func Describe(line Line) string {
+// describe is what a line says its trace was about: the RPC method, or the loop.
+func describe(line Line) string {
 	if method, ok := line.Fields[logging.RPCMethod].(string); ok && method != "" {
 		return method
 	}
@@ -134,10 +134,10 @@ func Describe(line Line) string {
 	return ""
 }
 
-func (r *Reader) each(visit func(Line)) error {
+func (r *reader) each(visit func(Line)) error {
 	file, err := os.Open(r.path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return ErrNoLog.Saying("nothing has been written to %s", r.path)
+		return errNoLog.Saying("nothing has been written to %s", r.path)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to read the log at %s: %w", r.path, err)

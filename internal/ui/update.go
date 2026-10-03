@@ -14,7 +14,7 @@ func (m *model) hide() tea.Cmd {
 	session := m.session
 
 	return func() tea.Msg {
-		session.Hide()
+		session.hide()
 		return nil
 	}
 }

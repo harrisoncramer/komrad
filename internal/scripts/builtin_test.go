@@ -54,7 +54,7 @@ func TestInstallBuiltinsRefusesRelativePath(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(theirs, "deploy.sh"), []byte("#!/bin/sh\n"), 0o755))
 
 	err := InstallBuiltins(filepath.Join(".", "scripts"))
-	require.ErrorIs(t, err, ErrDirNotAbsolute)
+	require.ErrorIs(t, err, errDirNotAbsolute)
 
 	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory komrad did not name is not emptied")
 }
@@ -67,7 +67,7 @@ func TestInstallBuiltinsRefusesDirectoryItDoesNotOwn(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(theirs, "deploy.sh"), []byte("#!/bin/sh\n"), 0o755))
 
 	err := InstallBuiltins(theirs)
-	require.ErrorIs(t, err, ErrDirNotOurs)
+	require.ErrorIs(t, err, errDirNotOurs)
 
 	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory komrad did not write is not emptied")
 }

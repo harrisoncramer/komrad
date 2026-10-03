@@ -44,7 +44,7 @@ func (d *WorktreeDelete) DeleteWorktrees(ctx context.Context, dirs []string) err
 
 // ListClaimedDirs is every directory an unfinished worktree delete names.
 func (d *WorktreeDelete) ListClaimedDirs(ctx context.Context) ([]string, error) {
-	jobs, err := d.queue.ListUnfinished(ctx, internaljobs.DeleteWorktreesArgs{}.Kind())
+	jobs, err := d.queue.listUnfinished(ctx, internaljobs.DeleteWorktreesArgs{}.Kind())
 	if err != nil {
 		return nil, err
 	}
