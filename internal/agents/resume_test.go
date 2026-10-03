@@ -776,6 +776,24 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 		wantErrIs error
 	}{
 		{
+			name:      "an agent waking another workflow's orchestrator",
+			from:      "stranger",
+			resume:    "orchestrator",
+			wantErrIs: ErrResumeNotYours,
+		},
+		{
+			name:      "an implementer waking a peer",
+			from:      "implementer",
+			resume:    "peer",
+			wantErrIs: ErrResumeNotYours,
+		},
+		{
+			name:      "a reviewer waking a peer of its parent",
+			from:      "reviewer",
+			resume:    "peer",
+			wantErrIs: ErrResumeNotYours,
+		},
+		{
 			name:   "an implementer waking its workflow's orchestrator",
 			from:   "implementer",
 			resume: "orchestrator",
@@ -798,24 +816,6 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 		{
 			name:   "the panel waking anybody",
 			resume: "stranger",
-		},
-		{
-			name:      "an agent waking another workflow's orchestrator",
-			from:      "stranger",
-			resume:    "orchestrator",
-			wantErrIs: ErrResumeNotYours,
-		},
-		{
-			name:      "an implementer waking a peer",
-			from:      "implementer",
-			resume:    "peer",
-			wantErrIs: ErrResumeNotYours,
-		},
-		{
-			name:      "a reviewer waking a peer of its parent",
-			from:      "reviewer",
-			resume:    "peer",
-			wantErrIs: ErrResumeNotYours,
 		},
 	}
 
