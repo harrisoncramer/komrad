@@ -7,7 +7,6 @@ import (
 
 	paginationv1 "komrad/proto/gen/pagination/v1"
 
-	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -78,7 +77,7 @@ func TestNewCursor(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+				assert.ErrorIs(t, err, ErrBadCursor)
 
 				return
 			}
@@ -95,11 +94,7 @@ func TestNewCursorErrorCarriesTheReason(t *testing.T) {
 	cursor := token(t, `{"i":"not-an-id"}`)
 
 	_, err := New[testCursor, testResource](&paginationv1.Pagination{Cursor: &cursor})
-	require.Error(t, err)
-
-	var connectErr *connect.Error
-	require.ErrorAs(t, err, &connectErr)
-	assert.Contains(t, connectErr.Message(), `cursor id "not-an-id" is not an id`)
+	assert.ErrorContains(t, err, `cursor id "not-an-id" is not an id`)
 }
 
 // TestNextTokenRoundTrips pins that the token a page ends with is one the next request is served

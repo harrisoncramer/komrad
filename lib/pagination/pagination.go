@@ -14,10 +14,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"komrad/internal/fail"
 	paginationv1 "komrad/proto/gen/pagination/v1"
-
-	"connectrpc.com/connect"
 )
+
+var ErrBadCursor = fail.InvalidArgument("failed to decode the pagination cursor")
 
 // Cursor is a decoded cursor that can say whether it holds a position this server could
 // have handed out.
@@ -50,7 +51,7 @@ const (
 func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to decode the pagination cursor: %w", err))
+		return nil, fmt.Errorf("%w: %w", ErrBadCursor, err)
 	}
 
 	return &Paginator[C, M]{limit: Bound(p.GetLimit()), cursor: cursor}, nil
@@ -114,7 +115,7 @@ func Token[C Cursor](cursor C) (*string, error) {
 func Decode[C Cursor](token string) (*C, error) {
 	cursor, err := decode[C](token)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to decode the pagination cursor: %w", err))
+		return nil, fmt.Errorf("%w: %w", ErrBadCursor, err)
 	}
 
 	return cursor, nil
