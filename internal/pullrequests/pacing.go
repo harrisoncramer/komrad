@@ -187,7 +187,7 @@ func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.MergeReadi
 	}
 
 	until := time.Time{}
-	if pullRequest.MergeReadiness != nil && pullRequest.MergeReadiness.Checks == forge.ChecksPending {
+	if pullRequest.MergeReadiness != nil && isRunning(pullRequest.MergeReadiness.Checks) {
 		until = pullRequest.UpdatedAt.Add(pendingHotWithin)
 	}
 	if change.After.MergeabilityBlankSince != nil {
@@ -197,4 +197,9 @@ func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.MergeReadi
 	}
 
 	return until
+}
+
+// isRunning says whether checks still have a run going on the head.
+func isRunning(checks forge.Checks) bool {
+	return checks == forge.ChecksPending || checks == forge.ChecksFailingRunning
 }

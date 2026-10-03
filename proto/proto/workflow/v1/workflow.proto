@@ -46,6 +46,7 @@ message WorkflowEventPrompt {
   // Which event it answers, such as pull_request.checks_failing or review.approved.
   string event = 1 [(buf.validate.field).string = {
     in: [
+      "pull_request.checks_failing_running",
       "pull_request.checks_failing",
       "pull_request.changes_requested",
       "pull_request.approved",

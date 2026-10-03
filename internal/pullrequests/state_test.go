@@ -46,6 +46,13 @@ func TestStateOf(t *testing.T) {
 			want: StateDraft,
 		},
 		{
+			name: "a failure with others still running is failing",
+			read: forge.MergeReadiness{
+				Checks: forge.ChecksFailingRunning,
+			},
+			want: StateFailing,
+		},
+		{
 			name: "failing checks beat a conflict",
 			read: forge.MergeReadiness{
 				Checks:       forge.ChecksFailing,

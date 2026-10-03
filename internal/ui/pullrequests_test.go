@@ -108,6 +108,16 @@ func TestPullRequestWords(t *testing.T) {
 			want: "checks failing",
 		},
 		{
+			name: "a failing run with checks still going says so",
+			pullRequest: panel.PullRequest{
+				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+				MergeReadiness: panel.MergeReadiness{
+					Checks: pullrequestv1.Checks_CHECKS_FAILING_RUNNING,
+				},
+			},
+			want: "checks failing, others still running",
+		},
+		{
 			name: "a ready branch the forge is rechecking says so",
 			pullRequest: panel.PullRequest{
 				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,

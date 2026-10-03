@@ -405,9 +405,13 @@ func isAgentOnIt(item panel.AgentRow) bool {
 	return item.Alive && (item.UnreadMail || isAwaitingChecks(item.PullRequest))
 }
 
-// isAwaitingChecks reports whether an open pull request has checks still running on its head.
+// isAwaitingChecks reports whether an open pull request has checks still running on its head,
+// failed ones among them or not.
 func isAwaitingChecks(pullRequest panel.PullRequestStanding) bool {
-	return pullRequest.MergeReadiness.Checks == pullrequestv1.Checks_CHECKS_PENDING && isPullRequestOpen(pullRequest.State)
+	checks := pullRequest.MergeReadiness.Checks
+	running := checks == pullrequestv1.Checks_CHECKS_PENDING || checks == pullrequestv1.Checks_CHECKS_FAILING_RUNNING
+
+	return running && isPullRequestOpen(pullRequest.State)
 }
 
 func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {

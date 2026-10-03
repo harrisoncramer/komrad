@@ -102,6 +102,8 @@ func checksOf(checks forge.Checks) pullrequestv1.Checks {
 		return pullrequestv1.Checks_CHECKS_PASSING
 	case forge.ChecksFailing:
 		return pullrequestv1.Checks_CHECKS_FAILING
+	case forge.ChecksFailingRunning:
+		return pullrequestv1.Checks_CHECKS_FAILING_RUNNING
 	case forge.ChecksNone:
 	}
 

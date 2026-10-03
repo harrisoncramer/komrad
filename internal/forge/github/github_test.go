@@ -273,7 +273,7 @@ func TestListReadsTheNextPage(t *testing.T) {
 
 // failingMergeReadiness and passingMergeReadiness are the merge readiness fields GitHub answers beside a pull
 // request on a read of branches, the recorded shape with the values made up.
-const failingMergeReadiness = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
+const failingMergeReadiness = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE","contexts":{"checkRunCountsByState":[{"state":"FAILURE","count":1},{"state":"IN_PROGRESS","count":0},{"state":"SUCCESS","count":2}],"statusContextCountsByState":[{"state":"PENDING","count":0}]}}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
 
 const passingMergeReadiness = `"reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false`
 
@@ -977,6 +977,48 @@ func TestChecksOf(t *testing.T) {
 			name:   "error is failing",
 			rollup: &rollupNode{State: "ERROR"},
 			want:   forge.ChecksFailing,
+		},
+		{
+			name: "failure with a check run in progress is failing while running",
+			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
+				CheckRunCountsByState: []stateCount{{State: "FAILURE", Count: 1}, {State: "IN_PROGRESS", Count: 2}},
+			}},
+			want: forge.ChecksFailingRunning,
+		},
+		{
+			name: "failure with a check run queued is failing while running",
+			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
+				CheckRunCountsByState: []stateCount{{State: "QUEUED", Count: 1}},
+			}},
+			want: forge.ChecksFailingRunning,
+		},
+		{
+			name: "error with a status context pending is failing while running",
+			rollup: &rollupNode{State: "ERROR", Contexts: rollupContexts{
+				StatusContextCountsByState: []stateCount{{State: "ERROR", Count: 1}, {State: "PENDING", Count: 1}},
+			}},
+			want: forge.ChecksFailingRunning,
+		},
+		{
+			name: "failure with every check run finished is failing",
+			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
+				CheckRunCountsByState: []stateCount{{State: "FAILURE", Count: 1}, {State: "SUCCESS", Count: 3}, {State: "IN_PROGRESS", Count: 0}},
+			}},
+			want: forge.ChecksFailing,
+		},
+		{
+			name: "failure with a run waiting on approval is failing",
+			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
+				CheckRunCountsByState: []stateCount{{State: "FAILURE", Count: 1}, {State: "WAITING", Count: 1}},
+			}},
+			want: forge.ChecksFailing,
+		},
+		{
+			name: "failure with a required status never reported is failing",
+			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
+				StatusContextCountsByState: []stateCount{{State: "EXPECTED", Count: 1}},
+			}},
+			want: forge.ChecksFailing,
 		},
 		{
 			name:   "pending is pending",

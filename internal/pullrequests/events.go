@@ -18,7 +18,8 @@ var eventOf = map[field]map[string]string{
 		"changes_requested": eventprompts.PullRequestChangesRequested,
 	},
 	fieldChecks: {
-		"failing": eventprompts.PullRequestChecksFailing,
+		"failing":         eventprompts.PullRequestChecksFailing,
+		"failing_running": eventprompts.PullRequestChecksFailingRunning,
 	},
 	fieldMergeability: {
 		"conflicting": eventprompts.PullRequestConflicting,

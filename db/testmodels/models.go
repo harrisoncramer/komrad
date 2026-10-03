@@ -680,7 +680,7 @@ type PullRequest struct {
 	AutoMergeable bool
 	// Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing.
 	LatestDecision *string
-	// Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing or failing, null when it reported none.
+	// Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing, failing or failing_running, null when it reported none.
 	LatestChecks *string
 	// The head commit the latest standing read was for, null before the first read.
 	LatestHeadSha *string

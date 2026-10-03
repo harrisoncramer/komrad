@@ -873,12 +873,12 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 
 		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(3)...)...)
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "when checks on the head are failing")
+		assert.Contains(t, frame, "when some checks on the head failed while others still run")
 
 		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"enter"})...)
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
-			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+			{Event: "pull_request.checks_failing_running", Prompt: "fix the checks"},
 		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
 
@@ -907,7 +907,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
 			{
-				Event:  "pull_request.checks_failing",
+				Event:  "pull_request.checks_failing_running",
 				Prompt: "fix the checks",
 				Muted:  true,
 			},
@@ -924,7 +924,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
 		require.True(t, ok)
 		require.Len(t, create.GetEventPrompts().GetPrompts(), len(eventprompts.All()))
-		assert.Contains(t, create.GetEventPrompts().GetPrompts()[0].GetPrompt(), "Read the failing job's logs")
+		assert.Contains(t, create.GetEventPrompts().GetPrompts()[0].GetPrompt(), "Read the failed jobs' logs")
 	})
 }
 

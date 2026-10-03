@@ -42,8 +42,8 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 }
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in
-// flight, a branch behind or conflicting, or a rule an approval is waiting on, and a ready
-// branch the forge is checking again.
+// flight, a branch behind or conflicting, or a rule an approval is waiting on, a ready branch
+// the forge is checking again, and failing checks with others still running.
 func pullRequestWords(pullRequest panel.PullRequest) string {
 	state, checks, mergeability := pullRequest.State, pullRequest.MergeReadiness.Checks, pullRequest.MergeReadiness.Mergeability
 	word := pullRequestStateWord(state)
@@ -54,10 +54,15 @@ func pullRequestWords(pullRequest panel.PullRequest) string {
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING:
+		if checks == pullrequestv1.Checks_CHECKS_FAILING_RUNNING {
+			return word + ", others still running"
+		}
+
+		return word
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,

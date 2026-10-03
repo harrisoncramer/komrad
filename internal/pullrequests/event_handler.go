@@ -119,6 +119,8 @@ func describe(field field, value string, pullRequest pullrequeststore.PullReques
 		return strings.ToLower(value)
 	case field == fieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
+	case field == fieldChecks && value == string(forge.ChecksFailingRunning) && pullRequest.HeadSHA != "":
+		return "failing on " + git.ShortSHA(pullRequest.HeadSHA) + ", others still running"
 	case field == fieldChecks && value != "" && pullRequest.HeadSHA != "":
 		return strings.ReplaceAll(value, "_", " ") + " on " + git.ShortSHA(pullRequest.HeadSHA)
 	case field == fieldAutoMerge && value == forge.AutoMergeOn:

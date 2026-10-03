@@ -28,7 +28,7 @@ var fieldOrder = []field{fieldState, fieldDecision, fieldChecks, fieldMergeabili
 
 var alarming = map[field][]string{
 	fieldDecision:     {"changes_requested"},
-	fieldChecks:       {"failing"},
+	fieldChecks:       {"failing", "failing_running"},
 	fieldMergeability: {"conflicting", "behind"},
 }
 
