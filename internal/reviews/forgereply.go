@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"komrad/internal/fail"
@@ -16,7 +17,10 @@ import (
 
 // errForgeReplyLost is the error a reply is failed with when komrad stopped while posting it and
 // the forge shows no comment it made.
-const errForgeReplyLost = "komrad stopped while posting this reply and the forge shows no comment from it"
+var errForgeReplyLost = fail.Internal("komrad stopped while posting this reply and the forge shows no comment from it")
+
+// refusalKinds are the failures a forge answers with when it turned a reply down without posting it.
+var refusalKinds = []fail.Kind{fail.KindNotFound, fail.KindDenied, fail.KindExhausted, fail.KindPrecondition, fail.KindInvalidArgument}
 
 // clockSkew is how far the forge's clock may run behind komrad's when matching a posted reply.
 const clockSkew = time.Minute
@@ -174,61 +178,78 @@ func (s *ForgeReplyService) ReconcileForgeReplies(ctx context.Context) error {
 }
 
 func (s *ForgeReplyService) reconcile(ctx context.Context, reply reviewstore.ForgeReply) error {
-	target, err := s.reviews.GetForgeReplyTarget(ctx, reply.ThreadID)
-	if err != nil {
-		return err
-	}
-	remote, err := git.ParseRemoteURL(target.RepositoryURL)
-	if err != nil {
-		return err
-	}
-	client, err := s.forges.ForHost(ctx, remote.Host)
+	destination, err := s.resolveForgeReply(ctx, reply.ThreadID)
 	if err != nil {
 		return err
 	}
 
 	_, err = s.settle(ctx, settleParams{
-		Client: client,
-		Remote: remote,
-		Target: *target,
-		Reply:  reply,
-		Cause:  errors.New(errForgeReplyLost),
+		Destination: *destination,
+		Reply:       reply,
+		Cause:       errForgeReplyLost,
 	})
 
 	return err
 }
 
-type settleParams struct {
-	Client forge.Forge
-	Remote git.RemoteURL
+type forgeReplyDestination struct {
 	Target reviewstore.ForgeReplyTarget
-	Reply  reviewstore.ForgeReply
-	Cause  error
+	Remote git.RemoteURL
+	Client forge.Forge
+}
+
+// resolveForgeReply returns the forge thread, repository and client a reply on a review thread goes through.
+func (s *ForgeReplyService) resolveForgeReply(ctx context.Context, threadID string) (*forgeReplyDestination, error) {
+	target, err := s.reviews.GetForgeReplyTarget(ctx, threadID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve the forge for review thread %q: %w", threadID, err)
+	}
+	remote, err := git.ParseRemoteURL(target.RepositoryURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve the forge for review thread %q: %w", threadID, err)
+	}
+	client, err := s.forges.ForHost(ctx, remote.Host)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve the forge for review thread %q: %w", threadID, err)
+	}
+
+	return &forgeReplyDestination{
+		Target: *target,
+		Remote: remote,
+		Client: client,
+	}, nil
+}
+
+type settleParams struct {
+	Destination forgeReplyDestination
+	Reply       reviewstore.ForgeReply
+	Cause       error
 }
 
 // settle marks a reply being posted sent when the forge holds its comment and failed with the
 // cause when a whole read of the forge shows none, leaving it being sent when the read falls short.
 func (s *ForgeReplyService) settle(ctx context.Context, params settleParams) (*reviewstore.ForgeReply, error) {
-	connection, err := s.forges.ConnectionFor(ctx, params.Remote.Host)
+	destination := params.Destination
+	connection, err := s.forges.ConnectionFor(ctx, destination.Remote.Host)
 	if err != nil {
 		return nil, errors.Join(params.Cause, err)
 	}
-	threads, err := params.Client.ReviewThreads(ctx, params.Remote, params.Target.Number)
+	threads, err := destination.Client.ReviewThreads(ctx, destination.Remote, destination.Target.Number)
 	if err != nil {
 		return nil, errors.Join(params.Cause, err)
 	}
 
 	posted := findPostedReply(findPostedReplyParams{
 		Threads: threads.Threads,
-		Target:  params.Target,
+		Target:  destination.Target,
 		Reply:   params.Reply,
-		Viewer:  viewerOf(*connection),
+		Viewer:  getViewerLogin(*connection),
 	})
 	if posted != "" {
 		return s.reviews.MarkForgeReplySent(ctx, params.Reply.ID, posted)
 	}
 	if threads.Truncated {
-		return nil, fmt.Errorf("%w: the forge answered only part of pull request %d's threads", params.Cause, params.Target.Number)
+		return nil, fmt.Errorf("%w: the forge answered only part of pull request %d's threads", params.Cause, destination.Target.Number)
 	}
 
 	return s.reviews.MarkForgeReplyFailed(ctx, params.Reply.ID, params.Cause.Error())
@@ -241,11 +262,11 @@ type findPostedReplyParams struct {
 	Viewer  string
 }
 
-// findPostedReply is the id of the forge comment a reply being posted became, or empty when the
-// forge holds none with the reply's words by komrad's identity written later than clockSkew before
-// the posting began.
+// findPostedReply returns the id of the forge comment a reply being posted became, or empty when
+// the forge holds none with the reply's words by komrad's identity written later than clockSkew
+// before the posting began.
 func findPostedReply(params findPostedReplyParams) string {
-	began := time.Time{}
+	var began time.Time
 	if params.Reply.SendingStartedAt != nil {
 		began = params.Reply.SendingStartedAt.Truncate(time.Second).Add(-clockSkew)
 	}
@@ -269,7 +290,8 @@ func findPostedReply(params findPostedReplyParams) string {
 	return ""
 }
 
-func viewerOf(connection forgestore.Connection) string {
+// getViewerLogin returns the login komrad posts as, empty for a GitHub App whose login is unknown.
+func getViewerLogin(connection forgestore.Connection) string {
 	if connection.Method == forge.MethodGitHubApp {
 		return ""
 	}
@@ -280,15 +302,7 @@ func viewerOf(connection forgestore.Connection) string {
 // send posts an approved or failed reply to the forge at most once, reading the forge back rather
 // than posting again when its answer leaves unknown whether the reply landed.
 func (s *ForgeReplyService) send(ctx context.Context, reply *reviewstore.ForgeReply) (*reviewstore.ForgeReply, error) {
-	target, err := s.reviews.GetForgeReplyTarget(ctx, reply.ThreadID)
-	if err != nil {
-		return nil, err
-	}
-	remote, err := git.ParseRemoteURL(target.RepositoryURL)
-	if err != nil {
-		return nil, err
-	}
-	client, err := s.forges.ForHost(ctx, remote.Host)
+	destination, err := s.resolveForgeReply(ctx, reply.ThreadID)
 	if err != nil {
 		return nil, err
 	}
@@ -298,11 +312,11 @@ func (s *ForgeReplyService) send(ctx context.Context, reply *reviewstore.ForgeRe
 		return nil, err
 	}
 
-	posted, err := client.ReplyToThread(ctx, forge.ReplyToThreadParams{
-		Repo:     remote,
-		Number:   target.Number,
-		ThreadID: target.ProviderID,
-		OnCode:   target.Path != "",
+	posted, err := destination.Client.ReplyToThread(ctx, forge.ReplyToThreadParams{
+		Repo:     destination.Remote,
+		Number:   destination.Target.Number,
+		ThreadID: destination.Target.ProviderID,
+		OnCode:   destination.Target.Path != "",
 		Body:     sending.Body,
 	})
 	if err == nil {
@@ -313,11 +327,9 @@ func (s *ForgeReplyService) send(ctx context.Context, reply *reviewstore.ForgeRe
 	}
 
 	return s.settle(context.WithoutCancel(ctx), settleParams{
-		Client: client,
-		Remote: remote,
-		Target: *target,
-		Reply:  *sending,
-		Cause:  err,
+		Destination: *destination,
+		Reply:       *sending,
+		Cause:       err,
 	})
 }
 
@@ -325,16 +337,6 @@ func (s *ForgeReplyService) send(ctx context.Context, reply *reviewstore.ForgeRe
 // answer that leaves unknown whether the reply landed.
 func isRefusal(err error) bool {
 	failure := fail.Of(err)
-	if failure == nil {
-		return false
-	}
 
-	switch failure.Kind() {
-	case fail.KindNotFound, fail.KindDenied, fail.KindExhausted, fail.KindPrecondition, fail.KindInvalidArgument:
-		return true
-	case fail.KindInternal, fail.KindAlreadyExists:
-		return false
-	}
-
-	return false
+	return failure != nil && slices.Contains(refusalKinds, failure.Kind())
 }

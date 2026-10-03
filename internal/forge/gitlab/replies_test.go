@@ -79,7 +79,8 @@ func TestReplyToThread(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
-			assert.Equal(t, call{Path: path, Method: http.MethodPost, Body: map[string]any{"body": "renamed"}}, call{Path: fake.last(t).Path, Method: fake.last(t).Method, Body: fake.last(t).Body})
+			seen := fake.last(t)
+			assert.Equal(t, call{Path: path, Method: http.MethodPost, Body: map[string]any{"body": "renamed"}}, call{Path: seen.Path, Method: seen.Method, Body: seen.Body})
 		})
 	}
 }

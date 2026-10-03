@@ -61,6 +61,14 @@ type ForgeReply struct {
 	CreatedAt              time.Time
 }
 
+// ForgeReplyTarget is the forge thread a review thread mirrors and the pull request it is on.
+type ForgeReplyTarget struct {
+	ProviderID    string
+	Path          string
+	RepositoryURL string
+	Number        int
+}
+
 // CreateAgentForgeReplyParams is an agent's proposed reply on a mirrored thread.
 type CreateAgentForgeReplyParams struct {
 	ThreadID string
@@ -235,6 +243,28 @@ func (s *ReviewStore) ListSendingForgeReplies(ctx context.Context) ([]ForgeReply
 	}), nil
 }
 
+// GetForgeReplyTarget returns where a reply on a mirrored review thread goes on the forge.
+func (s *ReviewStore) GetForgeReplyTarget(ctx context.Context, threadID string) (*ForgeReplyTarget, error) {
+	if !store.IsID(threadID) {
+		return nil, notMirrored(threadID)
+	}
+
+	row, err := s.queries.GetForgeReplyTarget(ctx, threadID)
+	if db.IsNoRows(err) {
+		return nil, notMirrored(threadID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the forge thread review thread %q mirrors: %w", threadID, err)
+	}
+
+	return &ForgeReplyTarget{
+		ProviderID:    row.ProviderID,
+		Path:          row.Path,
+		RepositoryURL: row.RepositoryUrl,
+		Number:        int(row.Number),
+	}, nil
+}
+
 func (s *ReviewStore) finishForgeReplyMove(ctx context.Context, id string, row *models.ReviewForgeReply, err error) (*ForgeReply, error) {
 	if db.IsNoRows(err) {
 		return nil, s.explainForgeReplyRefusal(ctx, id)
@@ -280,34 +310,4 @@ func notMirrored(threadID string) error {
 
 func forgeReplyNotFound(id string) error {
 	return fmt.Errorf("%w: forge reply %q", store.ErrNotFound, id)
-}
-
-// ForgeReplyTarget is the forge thread a review thread mirrors and the pull request it is on.
-type ForgeReplyTarget struct {
-	ProviderID    string
-	Path          string
-	RepositoryURL string
-	Number        int
-}
-
-// GetForgeReplyTarget is where a reply on a mirrored review thread goes on the forge.
-func (s *ReviewStore) GetForgeReplyTarget(ctx context.Context, threadID string) (*ForgeReplyTarget, error) {
-	if !store.IsID(threadID) {
-		return nil, notMirrored(threadID)
-	}
-
-	row, err := s.queries.GetForgeReplyTarget(ctx, threadID)
-	if db.IsNoRows(err) {
-		return nil, notMirrored(threadID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to find the forge thread review thread %q mirrors: %w", threadID, err)
-	}
-
-	return &ForgeReplyTarget{
-		ProviderID:    row.ProviderID,
-		Path:          row.Path,
-		RepositoryURL: row.RepositoryUrl,
-		Number:        int(row.Number),
-	}, nil
 }
