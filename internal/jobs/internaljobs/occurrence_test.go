@@ -50,7 +50,7 @@ func TestOccurrenceFor(t *testing.T) {
 			want: nine,
 		},
 		{
-			name: "even two hours late, after the machine slept through it",
+			name: "and even two hours late, after the machine slept through it, still belongs to the morning",
 			cron: "0 9 * * *",
 			at:   nine.Add(2 * time.Hour),
 			want: nine,
