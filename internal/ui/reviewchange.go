@@ -13,21 +13,21 @@ import (
 // reviewChangeFolds is how many ways the change block can be drawn, roomiest first.
 const reviewChangeFolds = 3
 
-// changeView is what the sidebar says about the change under review, drawn in fewer rows the
-// higher fold is.
+// changeView is what the sidebar says about the change under review, which a higher fold joins
+// onto fewer rows before they wrap.
 func (r reviewScreen) changeView(m *model, fold int) string {
-	stat, delivery := r.diff.statSaid(), r.threads.deliveryCountView()
+	stat, delivery := r.diff.statView(), r.threads.deliveryCountView()
 
 	var rows []string
 	switch fold {
 	case 0:
-		rows = []string{r.scopeView(m), stat, delivery}
+		rows = []string{r.scopeStepView(m), stat, delivery}
 	case 1:
-		rows = []string{r.scopeView(m), joinSaid(stat, delivery)}
+		rows = []string{r.scopeStepView(m), joinViews(stat, delivery)}
 	default:
-		rows = []string{joinSaid(r.scopeSaid(), stat, delivery)}
+		rows = []string{joinViews(r.scopeView(), stat, delivery)}
 	}
-	rows = append(rows, r.sendSaid(m))
+	rows = append(rows, r.sendView(m))
 
 	width := lineWidthOf(m.paneWidth())
 
@@ -44,8 +44,8 @@ func (r reviewScreen) changeView(m *model, fold int) string {
 	return out.String() + "\n"
 }
 
-// joinSaid strings the parts that say something together on one row.
-func joinSaid(parts ...string) string {
+// joinViews strings the parts that say something together on one row.
+func joinViews(parts ...string) string {
 	said := make([]string, 0, len(parts))
 	for _, part := range parts {
 		if part != "" {
@@ -56,8 +56,8 @@ func joinSaid(parts ...string) string {
 	return strings.Join(said, dimStyle().Render(separated))
 }
 
-// sendSaid is how many comments the reader is holding and the key that sends them.
-func (r reviewScreen) sendSaid(m *model) string {
+// sendView is how many comments the reader is holding and the key that sends them.
+func (r reviewScreen) sendView(m *model) string {
 	if !r.threads.holdsUnsent() {
 		return ""
 	}
@@ -66,8 +66,8 @@ func (r reviewScreen) sendSaid(m *model) string {
 		label.Counted(r.threads.unsentCount(), "comment") + " to the agent")
 }
 
-// statSaid is how big the change is, with the counts coloured the way the lines themselves are.
-func (d reviewDiff) statSaid() string {
+// statView is how big the change is, with the counts coloured the way the lines themselves are.
+func (d reviewDiff) statView() string {
 	if d.View() == nil {
 		return ""
 	}
@@ -88,10 +88,10 @@ func (d reviewDiff) statSaid() string {
 	return out
 }
 
-// scopeView says what the diff on screen is measured between and the other thing the base key
+// scopeStepView says what the diff on screen is measured between and the other thing the base key
 // could show beside it.
-func (r reviewScreen) scopeView(m *model) string {
-	out := r.scopeSaid()
+func (r reviewScreen) scopeStepView(m *model) string {
+	out := r.scopeView()
 	if out != "" && r.doesFitBaseLegend(m) {
 		out += dimStyle().Render(separated + r.stepSaid(m))
 	}
@@ -99,8 +99,8 @@ func (r reviewScreen) scopeView(m *model) string {
 	return out
 }
 
-// scopeSaid is what the diff on screen is measured between.
-func (r reviewScreen) scopeSaid() string {
+// scopeView is what the diff on screen is measured between.
+func (r reviewScreen) scopeView() string {
 	if r.diff.View() == nil {
 		return ""
 	}
