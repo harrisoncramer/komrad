@@ -69,7 +69,7 @@ func (c IDCursor) Validate() error {
 	return nil
 }
 
-// Open connects to the Postgres at url as an engine's login, refusing a schema this build does not match.
+// Open connects to the Postgres at url as an engine's login, refusing a schema missing migrations this build carries.
 func Open(ctx context.Context, url string) (*Pool, error) {
 	cfg, err := parseConfig(url, writerMaxConns)
 	if err != nil {
