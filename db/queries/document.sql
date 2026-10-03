@@ -137,3 +137,7 @@ FROM
 WHERE
     document_id = @document_id
     AND version = @version;
+
+-- name: DeleteDocument :execrows
+DELETE FROM documents
+WHERE id = @id;

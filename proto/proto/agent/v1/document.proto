@@ -185,6 +185,11 @@ message WriteDocumentTypeResponse {
   DocumentType document_type = 1;
 }
 
+message DeleteDocumentRequest {
+  // The document to delete.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
 message DeleteDocumentTypeRequest {
   // The type to delete.
   string id = 1 [(buf.validate.field).string.min_len = 1];

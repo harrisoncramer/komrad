@@ -259,3 +259,20 @@ func (s *DocumentStore) GetVersion(ctx context.Context, documentID string, versi
 		CreatedAt: row.CreatedAt,
 	}, nil
 }
+
+// Delete removes a document and every write of it.
+func (s *DocumentStore) Delete(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: document %q", store.ErrNotFound, id)
+	}
+
+	deleted, err := s.queries.DeleteDocument(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete document %q: %w", id, err)
+	}
+	if deleted == 0 {
+		return fmt.Errorf("%w: document %q", store.ErrNotFound, id)
+	}
+
+	return nil
+}

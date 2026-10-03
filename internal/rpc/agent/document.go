@@ -21,6 +21,7 @@ type documentReadWriter interface {
 	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
 	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
 	ListDocuments(ctx context.Context, agentID string, typeName *string) ([]documentstore.Document, error)
+	DeleteDocument(ctx context.Context, params documents.DeleteDocumentParams) error
 }
 
 type documentTypeKeeper interface {
@@ -138,6 +139,18 @@ func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1.WriteDocum
 	}
 
 	return &agentv1.WriteDocumentTypeResponse{DocumentType: render.DocumentType(*written)}, nil
+}
+
+// DeleteDocument removes a document and every write of it.
+func (s *Handler) DeleteDocument(ctx context.Context, req *agentv1.DeleteDocumentRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.documents.DeleteDocument(ctx, documents.DeleteDocumentParams{
+		ID:        req.GetId(),
+		ByAgentID: caller.From(ctx).AgentID,
+	}); err != nil {
+		return nil, rpcerr.From(err, "failed to delete the document")
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
 // DeleteDocumentType removes a document type no document is written as.

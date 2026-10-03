@@ -279,6 +279,34 @@ func TestGet(t *testing.T) {
 	}
 }
 
+// TestDelete pins that deleting a document takes every write of it, and that an id holding none is not found.
+func TestDelete(t *testing.T) {
+	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes")
+	ctx := t.Context()
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+
+	created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+		AgentID: author.ID,
+		Name:    "gone",
+		Type:    "notes",
+		Body:    "soon",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, stores.Documents.Delete(ctx, created.ID))
+
+	_, err = stores.Documents.Get(ctx, created.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	versions, err := stores.Documents.ListVersions(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Empty(t, versions, "and every write of it")
+
+	for _, id := range []string{created.ID, uuid.NewString(), "not-an-id"} {
+		assert.ErrorIs(t, stores.Documents.Delete(ctx, id), store.ErrNotFound, id)
+	}
+}
+
 // TestList pins whose documents a listing holds and in what order.
 func TestList(t *testing.T) {
 	stores := storetest.Open(t)

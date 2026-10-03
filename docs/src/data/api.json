@@ -599,6 +599,22 @@
           "response": "agent.v1.WriteDocumentTypeResponse"
         },
         {
+          "slug": "delete-document",
+          "name": "DeleteDocument",
+          "path": "/agent.v1.AgentService/DeleteDocument",
+          "command": "komrad rpc delete-document",
+          "tool": "delete_document",
+          "mcp": false,
+          "roles": [],
+          "summary": "Delete a document and every earlier version of it.",
+          "description": "Delete a document and every earlier version of it.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "agent.v1.DeleteDocumentRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
           "slug": "delete-document-type",
           "name": "DeleteDocumentType",
           "path": "/agent.v1.AgentService/DeleteDocumentType",
@@ -2638,6 +2654,24 @@
             "required"
           ],
           "description": "The agents to remove for good, transcripts and worktrees with them."
+        }
+      ]
+    },
+    "agent.v1.DeleteDocumentRequest": {
+      "name": "DeleteDocumentRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The document to delete."
         }
       ]
     },
