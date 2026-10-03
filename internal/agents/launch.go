@@ -124,9 +124,12 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		if err != nil {
 			return nil, err
 		}
-		spawner = found
-
 		if err := requireOwnWorkflow(*found, params); err != nil {
+			return nil, err
+		}
+
+		spawner, err = s.answersTo(ctx, *found, params)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -168,6 +171,27 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 	}
 
 	return fmt.Errorf("%w: %q stands behind workflow %q", agenterr.ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
+}
+
+// answersTo is the agent a new one reports to, which for a standalone agent an implementer
+// splits off is its workflow's orchestrator, keeping implementers from answering to each other.
+func (s *LaunchService) answersTo(ctx context.Context, spawner agentstore.Agent, params NewAgentParams) (*agentstore.Agent, error) {
+	if spawner.Role != agentstore.RoleImplementer || params.ParentAgentID != "" {
+		return &spawner, nil
+	}
+
+	orchestrator, err := s.agents.GetWorkflowOrchestrator(ctx, spawner.WorkflowID)
+	if errors.Is(err, store.ErrNotFound) {
+		return &spawner, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if orchestrator.ArchivedAt != nil {
+		return &spawner, nil
+	}
+
+	return orchestrator, nil
 }
 
 func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {

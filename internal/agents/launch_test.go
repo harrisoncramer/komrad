@@ -322,10 +322,14 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 // which the panel sends none of so what it creates has no parent.
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
-		name           string
-		spawnerName    string
-		unknownSpawner bool
-		wantErrIs      error
+		name                 string
+		spawnerRole          agentstore.Role
+		orchestrator         bool
+		archivedOrchestrator bool
+		child                bool
+		unknownSpawner       bool
+		wantOrchestrator     bool
+		wantErrIs            error
 	}{
 		{
 			name:           "a caller header naming no agent is refused",
@@ -336,8 +340,31 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			name: "a person creating from the panel records no parent",
 		},
 		{
-			name:        "an agent creating another records its own id as the parent",
-			spawnerName: "reviewer",
+			name:        "an implementer in a workflow with no orchestrator answers for what it spawns",
+			spawnerRole: agentstore.RoleImplementer,
+		},
+		{
+			name:             "an implementer's standalone agent answers to the workflow's orchestrator",
+			spawnerRole:      agentstore.RoleImplementer,
+			orchestrator:     true,
+			wantOrchestrator: true,
+		},
+		{
+			name:                 "an implementer whose orchestrator is archived answers for what it spawns",
+			spawnerRole:          agentstore.RoleImplementer,
+			orchestrator:         true,
+			archivedOrchestrator: true,
+		},
+		{
+			name:         "an implementer's child answers to the implementer",
+			spawnerRole:  agentstore.RoleImplementer,
+			orchestrator: true,
+			child:        true,
+		},
+		{
+			name:         "a reviewer's standalone agent answers to the reviewer",
+			spawnerRole:  agentstore.RoleReviewer,
+			orchestrator: true,
 		},
 	}
 
@@ -348,22 +375,55 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 
 			ctx := t.Context()
+			workflowID := seedWorkflow(t, st)
+			params := NewAgentParams{
+				Title:      "delegate",
+				Dir:        t.TempDir(),
+				Prompt:     "do the thing",
+				WorkflowID: workflowID,
+			}
+
+			var orchestrator *agentstore.Agent
+			if tt.orchestrator {
+				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
+					Name:       "orchestrator",
+					Pane:       "%orchestrator",
+					State:      agentstore.StateIdle,
+					WorkflowID: workflowID,
+					Role:       agentstore.RoleOrchestrator,
+				}))
+				found, err := st.Agents.GetWorkflowOrchestrator(ctx, workflowID)
+				require.NoError(t, err)
+				orchestrator = found
+				if tt.archivedOrchestrator {
+					_, err := st.Agents.Archive(ctx, []string{found.ID})
+					require.NoError(t, err)
+				}
+			}
+
 			var spawner *agentstore.Agent
 			switch {
 			case tt.unknownSpawner:
 				ctx = caller.With(ctx, caller.Caller{AgentID: "no-such-agent"})
-			case tt.spawnerName != "":
-				seeded := seed(t, st, tt.spawnerName, "%"+tt.spawnerName, agentstore.StateIdle)
-				spawner = &seeded
-				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
+			case tt.spawnerRole != "":
+				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
+					Name:       "spawner",
+					Pane:       "%spawner",
+					Cwd:        t.TempDir(),
+					State:      agentstore.StateIdle,
+					WorkflowID: workflowID,
+					Role:       tt.spawnerRole,
+				}))
+				found, err := st.Agents.GetInWorkflow(ctx, workflowID, "spawner")
+				require.NoError(t, err)
+				spawner = found
+				ctx = caller.With(ctx, caller.Caller{AgentID: found.ID})
+				if tt.child {
+					params = childOf(*found, "reader")
+				}
 			}
 
-			created, err := manager.launch.NewAgent(ctx, NewAgentParams{
-				Title:      "delegate",
-				Dir:        t.TempDir(),
-				Prompt:     "do the thing",
-				WorkflowID: seedWorkflow(t, st),
-			})
+			created, err := manager.launch.NewAgent(ctx, params)
 
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
@@ -387,10 +447,16 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				return
 			}
 
+			want := spawner
+			if tt.wantOrchestrator {
+				want = orchestrator
+			}
 			require.NotNil(t, created.SpawnedByAgentID)
-			assert.Equal(t, spawner.ID, *created.SpawnedByAgentID)
-			assert.Contains(t, launch.Context, fmt.Sprintf("spawned by agent %s (%s)", spawner.Name, spawner.ID))
-			assert.Contains(t, launch.Context, "tell it when you are done")
+			assert.Equal(t, want.ID, *created.SpawnedByAgentID)
+			if !tt.child {
+				assert.Contains(t, launch.Context, fmt.Sprintf("spawned by agent %s (%s)", want.Name, want.ID))
+				assert.Contains(t, launch.Context, "tell it when you are done")
+			}
 		})
 	}
 }
