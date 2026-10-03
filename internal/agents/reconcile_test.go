@@ -531,7 +531,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			want:   agentstore.StateThinking,
 		},
 		{
-			name:       "a boundary the agent worked on past does not settle a later idle frame",
+			name:       "a boundary older than the grace does not settle a later idle frame",
 			frames:     []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
 			passGap:    turnBoundaryGrace,
 			want:       agentstore.StateThinking,
