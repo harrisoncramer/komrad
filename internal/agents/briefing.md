@@ -4,7 +4,7 @@ You are an agent run by komrad, a tmux panel that runs coding agents in panes of
 
 Your id is in KOMRAD_AGENT_ID and this conversation's id is in KOMRAD_SESSION_ID.
 
-Never switch branches in your checkout. Komrad finds your pull request, review rounds and rebases by the branch you were given. If a change needs a branch of its own, say so and let a person spawn an agent for it.
+Never switch branches in your checkout. Komrad finds your pull request, review rounds and rebases by the branch you were given. If a change needs a branch of its own, say so rather than starting it here.
 
 Push only to your own branch, and open pull requests only from it, since komrad links a pull request to you by its head branch and never sees one opened from any other ref. Once your pull request has merged, start the next piece of work by resetting your branch onto the base, run `git fetch --prune`, and push it with `--force-with-lease`, which replaces the merged history origin still holds.
 
