@@ -166,7 +166,11 @@ func isGeneratedPackage(module, path string) bool {
 // newCandidate is the candidate an exported definition makes, or false when it has to stay
 // exported whoever uses it.
 func newCandidate(pkg *packages.Package, obj types.Object, interfaceMethods map[string]bool, methods bool) (*candidate, bool) {
-	c := &candidate{obj: obj, pkg: pkg.PkgPath, newName: unexported(obj.Name())}
+	c := &candidate{
+		obj:     obj,
+		pkg:     pkg.PkgPath,
+		newName: unexported(obj.Name()),
+	}
 	scope := pkg.Types.Scope()
 	name := obj.Name()
 

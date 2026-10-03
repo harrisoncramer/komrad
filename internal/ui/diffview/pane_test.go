@@ -260,7 +260,11 @@ func TestPaneRender(t *testing.T) {
 }
 
 // wrappedWindow is a pane narrow enough that every line of longText wraps.
-var wrappedWindow = Window{Width: GutterWidth + 10, Height: 6, Wrap: true}
+var wrappedWindow = Window{
+	Width:  GutterWidth + 10,
+	Height: 6,
+	Wrap:   true,
+}
 
 // longText is ten lines each long enough to wrap in wrappedWindow.
 func longText(word string) string {
@@ -321,7 +325,11 @@ func TestPaneFileJumpGivesWayToWrappedRows(t *testing.T) {
 
 // TestPaneShowsTheTopOfARowTallerThanTheWindow covers a cursor row that cannot fit whole.
 func TestPaneShowsTheTopOfARowTallerThanTheWindow(t *testing.T) {
-	window := Window{Width: wrappedWindow.Width, Height: 2, Wrap: true}
+	window := Window{
+		Width:  wrappedWindow.Width,
+		Height: 2,
+		Wrap:   true,
+	}
 	pane := NewPane(NewView(patchWith(diff.FromTexts("notes.md", longText("old"), longText("new"))), false))
 
 	pane.MoveTo(pane.View().GetLastRow(), window)

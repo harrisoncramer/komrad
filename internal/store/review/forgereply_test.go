@@ -70,7 +70,11 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 	})
 	require.NoError(t, err)
 
-	return replyThreads{agentID: agentID, mirrored: mirrored.ID, local: local.ID}
+	return replyThreads{
+		agentID:  agentID,
+		mirrored: mirrored.ID,
+		local:    local.ID,
+	}
 }
 
 func (st *fixture) propose(t *testing.T, threads replyThreads, body string) *forgeReply {
@@ -543,15 +547,51 @@ func TestForgeReplyChecks(t *testing.T) {
 		state  forgeReplyState
 		update string
 	}{
-		{name: "the agent is never an approver", state: forgeReplyDraft, update: "state = 'approved', approver_kind = 'agent', approved_at = NOW()"},
-		{name: "an approved reply names its approver", state: forgeReplyDraft, update: "state = 'approved'"},
-		{name: "a draft has no approver", state: forgeReplyApproved, update: "state = 'draft'"},
-		{name: "a reply being sent says when sending began", state: forgeReplyApproved, update: "state = 'sending'"},
-		{name: "a sent reply holds the forge's comment id", state: forgeReplySending, update: "state = 'sent', sent_at = NOW()"},
-		{name: "a failed reply holds the forge's error", state: forgeReplySending, update: "state = 'failed'"},
-		{name: "a reply has text to post", state: forgeReplyDraft, update: "body = ''"},
-		{name: "the person's reply has no proposal", state: forgeReplyDraft, update: "author_kind = 'human', author_agent_id = NULL"},
-		{name: "the forge never writes a reply", state: forgeReplyDraft, update: "author_kind = 'forge'"},
+		{
+			name:   "the agent is never an approver",
+			state:  forgeReplyDraft,
+			update: "state = 'approved', approver_kind = 'agent', approved_at = NOW()",
+		},
+		{
+			name:   "an approved reply names its approver",
+			state:  forgeReplyDraft,
+			update: "state = 'approved'",
+		},
+		{
+			name:   "a draft has no approver",
+			state:  forgeReplyApproved,
+			update: "state = 'draft'",
+		},
+		{
+			name:   "a reply being sent says when sending began",
+			state:  forgeReplyApproved,
+			update: "state = 'sending'",
+		},
+		{
+			name:   "a sent reply holds the forge's comment id",
+			state:  forgeReplySending,
+			update: "state = 'sent', sent_at = NOW()",
+		},
+		{
+			name:   "a failed reply holds the forge's error",
+			state:  forgeReplySending,
+			update: "state = 'failed'",
+		},
+		{
+			name:   "a reply has text to post",
+			state:  forgeReplyDraft,
+			update: "body = ''",
+		},
+		{
+			name:   "the person's reply has no proposal",
+			state:  forgeReplyDraft,
+			update: "author_kind = 'human', author_agent_id = NULL",
+		},
+		{
+			name:   "the forge never writes a reply",
+			state:  forgeReplyDraft,
+			update: "author_kind = 'forge'",
+		},
 	}
 
 	for _, tt := range tests {

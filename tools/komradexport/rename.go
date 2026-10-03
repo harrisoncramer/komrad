@@ -24,7 +24,11 @@ func rename(loaded *program, found []*candidate) error {
 	for _, c := range found {
 		byDefinition[c.defined] = c
 		for use := range c.uses {
-			edits[use.file] = append(edits[use.file], edit{offset: use.offset, oldName: c.obj.Name(), newName: c.newName})
+			edits[use.file] = append(edits[use.file], edit{
+				offset:  use.offset,
+				oldName: c.obj.Name(),
+				newName: c.newName,
+			})
 		}
 	}
 
@@ -66,7 +70,11 @@ func docEdits(loaded *program, byDefinition map[position]*candidate) []docEdit {
 		}
 
 		seen[at] = true
-		edits = append(edits, docEdit{file: at.file, edit: edit{offset: at.offset, oldName: c.obj.Name(), newName: c.newName}})
+		edits = append(edits, docEdit{file: at.file, edit: edit{
+			offset:  at.offset,
+			oldName: c.obj.Name(),
+			newName: c.newName,
+		}})
 	}
 
 	for _, pkg := range loaded.packages {

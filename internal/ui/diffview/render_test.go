@@ -71,7 +71,11 @@ func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
 				assert.LessOrEqual(t, lipgloss.Width(drawn), width,
 					"row %d at width %d: %q", y, width, ansi.Strip(drawn))
 
-				window := Window{Width: width, Height: 1, Wrap: true}
+				window := Window{
+					Width:  width,
+					Height: 1,
+					Wrap:   true,
+				}
 				wrapped := view.renderLines(y, cursor, window, 0)
 				assert.Len(t, wrapped, view.measureRow(y, window), "row %d at width %d", y, width)
 				for _, line := range wrapped {
@@ -190,7 +194,11 @@ func TestAWrappedLineReadsBackWhole(t *testing.T) {
 	view.SetHeadless(true)
 
 	y := view.GetLastRow()
-	window := Window{Width: GutterWidth + 10, Height: 10, Wrap: true}
+	window := Window{
+		Width:  GutterWidth + 10,
+		Height: 10,
+		Wrap:   true,
+	}
 	lines := view.renderLines(y, noCursor, window, 0)
 
 	var read strings.Builder
@@ -219,7 +227,11 @@ func TestAWrappedLineIsMeasuredAsDrawn(t *testing.T) {
 	view.SetHeadless(true)
 
 	y := view.GetLastRow()
-	window := Window{Width: GutterWidth + 10, Height: 10, Wrap: true}
+	window := Window{
+		Width:  GutterWidth + 10,
+		Height: 10,
+		Wrap:   true,
+	}
 
 	assert.Len(t, view.renderLines(y, noCursor, window, 0), view.measureRow(y, window))
 	assert.Greater(t, view.measureRow(y, window), 1)
