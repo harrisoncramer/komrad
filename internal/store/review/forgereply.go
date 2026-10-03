@@ -114,8 +114,7 @@ func (s *ReviewStore) CreateHumanForgeReply(ctx context.Context, threadID, body 
 
 // MarkForgeReplyApprovedParams is an approval of a draft, with the text to post.
 type MarkForgeReplyApprovedParams struct {
-	ID string
-	// Body is the text to post, which may differ from the agent's proposal.
+	ID           string
 	Body         string
 	ApproverKind forgeReplyApproverKind
 }
