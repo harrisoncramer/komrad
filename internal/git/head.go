@@ -62,7 +62,7 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		lines = slices.Delete(lines, 1, 2)
 	}
 
-	sha, branch := strings.TrimSpace(lines[0]), branchOf(lines[1])
+	sha, branch := strings.TrimSpace(lines[0]), parseBranch(lines[1])
 	gitDir, root := strings.TrimSpace(lines[2]), strings.TrimSpace(lines[3])
 	if branch == "" {
 		branch = rebasingBranch(gitDir)
@@ -125,14 +125,14 @@ func rebasingBranch(gitDir string) string {
 			continue
 		}
 
-		return branchOf(string(name))
+		return parseBranch(string(name))
 	}
 
 	return ""
 }
 
-// branchOf is the branch a full ref name points at, empty for anything that is not a branch.
-func branchOf(ref string) string {
+// parseBranch is the branch a full ref name points at, empty for anything that is not a branch.
+func parseBranch(ref string) string {
 	branch, ok := strings.CutPrefix(strings.TrimSpace(ref), "refs/heads/")
 	if !ok {
 		return ""
