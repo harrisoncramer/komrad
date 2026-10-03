@@ -20,8 +20,12 @@ import (
 func TestFindTightenings(t *testing.T) {
 	t.Parallel()
 
-	minLen := &validate.FieldRules{Type: &validate.FieldRules_String_{String_: &validate.StringRules{MinLen: xptr.Ptr(uint64(1))}}}
+	minLen := stringRules(&validate.StringRules{MinLen: xptr.Ptr(uint64(1))})
 	definedOnly := &validate.FieldRules{Type: &validate.FieldRules_Enum{Enum: &validate.EnumRules{DefinedOnly: xptr.Ptr(true)}}}
+	ignoreZero := &validate.FieldRules{
+		Ignore: validate.Ignore_IGNORE_IF_ZERO_VALUE.Enum(),
+		Type:   &validate.FieldRules_String_{String_: &validate.StringRules{MinLen: xptr.Ptr(uint64(1))}},
+	}
 
 	tests := []struct {
 		name    string
@@ -33,18 +37,61 @@ func TestFindTightenings(t *testing.T) {
 			name:    "an existing string that starts refusing empty is flagged",
 			against: []*descriptorpb.FieldDescriptorProto{stringField(nil, false)},
 			message: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false)},
-			want:    []string{"refuses it empty"},
+			want:    []string{"carries a rule it did not"},
 		},
 		{
 			name:    "an existing enum that starts refusing undefined values is flagged",
 			against: []*descriptorpb.FieldDescriptorProto{enumField(nil)},
 			message: []*descriptorpb.FieldDescriptorProto{enumField(definedOnly)},
-			want:    []string{"refuses a value its enum does not define"},
+			want:    []string{"carries a rule it did not"},
 		},
 		{
 			name:    "an existing field whose validation loosens is allowed",
 			against: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false), enumField(definedOnly)},
 			message: []*descriptorpb.FieldDescriptorProto{stringField(nil, false), enumField(nil)},
+		},
+		{
+			name:    "an existing string whose minimum length rises is flagged",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{MinLen: xptr.Ptr(uint64(3))}), false)},
+			want:    []string{"carries a rule it did not"},
+		},
+		{
+			name:    "an existing string that gains a pattern is flagged",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{MinLen: xptr.Ptr(uint64(1)), Pattern: xptr.Ptr("^a")}), false)},
+			want:    []string{"carries a rule it did not"},
+		},
+		{
+			name:    "an existing string that stops skipping its zero value is flagged",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(ignoreZero, false)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false)},
+			want:    []string{"skips fewer values than it did"},
+		},
+		{
+			name:    "an existing string that skips its zero value and becomes required is flagged",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(ignoreZero, false)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(&validate.FieldRules{
+				Required: xptr.Ptr(true),
+				Ignore:   validate.Ignore_IGNORE_IF_ZERO_VALUE.Enum(),
+				Type:     &validate.FieldRules_String_{String_: &validate.StringRules{MinLen: xptr.Ptr(uint64(1))}},
+			}, false)},
+			want: []string{"carries a rule it did not"},
+		},
+		{
+			name:    "an existing string that starts skipping its zero value is allowed",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(ignoreZero, false)},
+		},
+		{
+			name:    "an existing string that drops one of its rules is allowed",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{MinLen: xptr.Ptr(uint64(1)), Pattern: xptr.Ptr("^a")}), false)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false)},
+		},
+		{
+			name:    "an existing field whose rules are unchanged is allowed",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false), enumField(definedOnly)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(minLen, false), enumField(definedOnly)},
 		},
 		{
 			name:    "a new required field is flagged",
@@ -61,11 +108,8 @@ func TestFindTightenings(t *testing.T) {
 			message: []*descriptorpb.FieldDescriptorProto{stringField(minLen, true)},
 		},
 		{
-			name: "a new string that ignores its zero value is allowed",
-			message: []*descriptorpb.FieldDescriptorProto{stringField(&validate.FieldRules{
-				Ignore: validate.Ignore_IGNORE_IF_ZERO_VALUE.Enum(),
-				Type:   &validate.FieldRules_String_{String_: &validate.StringRules{MinLen: xptr.Ptr(uint64(1))}},
-			}, false)},
+			name:    "a new string that ignores its zero value is allowed",
+			message: []*descriptorpb.FieldDescriptorProto{stringField(ignoreZero, false)},
 		},
 		{
 			name:    "a new enum that refuses undefined values is allowed",
@@ -156,4 +200,8 @@ func buildRequest(t *testing.T, fields []*descriptorpb.FieldDescriptorProto) pro
 	require.NoError(t, err)
 
 	return built.Messages().Get(0)
+}
+
+func stringRules(rules *validate.StringRules) *validate.FieldRules {
+	return &validate.FieldRules{Type: &validate.FieldRules_String_{String_: rules}}
 }

@@ -5,6 +5,7 @@ import (
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"buf.build/go/bufplugin/check"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -67,16 +68,70 @@ func findTightenings(message, against protoreflect.MessageDescriptor) []tighteni
 			continue
 		}
 
-		if refusesEmpty(field) && !refusesEmpty(previous) {
-			found = append(found, tightening{field: field, against: previous, rule: "refuses it empty"})
-		}
-
-		if isDefinedOnly(field) && !isDefinedOnly(previous) {
-			found = append(found, tightening{field: field, against: previous, rule: "refuses a value its enum does not define"})
+		if rule := tightenedRule(fieldRules(field), fieldRules(previous)); rule != "" {
+			found = append(found, tightening{field: field, against: previous, rule: rule})
 		}
 	}
 
 	return found
+}
+
+// tightenedRule names how rules refuse something previous accepted, or is empty when they do not.
+func tightenedRule(rules, previous *validate.FieldRules) string {
+	if rules == nil || rules.GetIgnore() == validate.Ignore_IGNORE_ALWAYS {
+		return ""
+	}
+
+	if previous == nil {
+		previous = &validate.FieldRules{}
+	}
+
+	if ignoreReach(rules.GetIgnore()) < ignoreReach(previous.GetIgnore()) {
+		return "skips fewer values than it did"
+	}
+
+	rules, previous = proto.CloneOf(rules), proto.CloneOf(previous)
+	rules.ClearIgnore()
+	previous.ClearIgnore()
+
+	if !isCoveredBy(rules.ProtoReflect(), previous.ProtoReflect()) {
+		return "carries a rule it did not"
+	}
+
+	return ""
+}
+
+// ignoreReach orders the ignore settings by how many values each skips validating.
+func ignoreReach(ignore validate.Ignore) int {
+	switch ignore {
+	case validate.Ignore_IGNORE_ALWAYS:
+		return 2
+	case validate.Ignore_IGNORE_IF_ZERO_VALUE:
+		return 1
+	case validate.Ignore_IGNORE_UNSPECIFIED:
+	}
+
+	return 0
+}
+
+// isCoveredBy reports whether every rule set on rules is set to the same value on previous.
+func isCoveredBy(rules, previous protoreflect.Message) bool {
+	covered := true
+
+	rules.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+		switch {
+		case !previous.Has(field):
+			covered = false
+		case field.Message() != nil && !field.IsList() && !field.IsMap():
+			covered = isCoveredBy(value.Message(), previous.Get(field).Message())
+		default:
+			covered = value.Equal(previous.Get(field))
+		}
+
+		return covered
+	})
+
+	return covered
 }
 
 func refusesAbsent(field protoreflect.FieldDescriptor) bool {
