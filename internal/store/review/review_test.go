@@ -577,7 +577,7 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 				Path:    "/tmp/round-1.md",
 			})
 			require.NoError(t, err)
-			assert.Equal(t, !tt.wantSettled, released.Reopens == 1)
+			assert.Equal(t, tt.wantSettled, released.Reopens == 0)
 
 			got, err := st.GetThread(ctx, thread.ID)
 			require.NoError(t, err)
