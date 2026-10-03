@@ -97,10 +97,10 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 
 // cwdLook is what one pass found at an agent's directory.
 type cwdLook struct {
-	agent   agentstore.Agent
-	removed bool
-	unread  bool
-	head    git.HeadState
+	agent      agentstore.Agent
+	removed    bool
+	headUnread bool
+	head       git.HeadState
 	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	movedSinceRound string
 	// landed is the newest round the base holds whole, zero when it holds none.
@@ -162,6 +162,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		isObserving = isObserving || look.hasMovedBranch()
 		if look.err != nil {
 			failures = append(failures, look.err)
+		}
+		if look.headUnread {
+			continue
 		}
 		if err := cs.write(ctx, look); err != nil {
 			failures = append(failures, err)
@@ -247,7 +250,7 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
 			look := cs.look(ctx, agent, params.Rounds[agent.ID])
-			if look.unread {
+			if look.headUnread {
 				return look, nil
 			}
 
@@ -310,10 +313,8 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, newest st
 
 	head, err := cs.readHead(ctx, agent.Cwd, newest)
 	if err != nil {
-		look.unread = true
-		look.movedSinceRound = agent.MovedSinceRound
-		look.diffStat = agent.DiffStat
-		look.err = fmt.Errorf("failed to read the head of %q: %w", agent.Name, err)
+		look.headUnread = true
+		look.err = fmt.Errorf("failed to read the checkout of %q: %w", agent.Name, err)
 
 		return look
 	}
@@ -347,10 +348,6 @@ func (cl cwdLook) hasMovedBranch() bool {
 
 // write records what the look found, when any of it differs from the row.
 func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
-	if look.unread {
-		return nil
-	}
-
 	agent, head := look.agent, look.head
 	checkout := agentstore.SetCheckoutParams{
 		Branch:          xptr.NonEmpty(head.Branch),
