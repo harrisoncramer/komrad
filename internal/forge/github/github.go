@@ -875,7 +875,7 @@ func (n checkNode) check() (forge.Check, bool) {
 		}
 		switch n.State {
 		case "EXPECTED":
-			check.State = forge.CheckStateQueued
+			check.State = forge.CheckStateWaiting
 		case "PENDING":
 			check.State = forge.CheckStateRunning
 			check.StartedAt = n.CreatedAt
@@ -914,6 +914,8 @@ func checkRunStateOf(status string, conclusion *string) (forge.CheckState, strin
 		return forge.CheckStateRunning, ""
 	case "COMPLETED":
 		return forge.CheckStateCompleted, strings.ToLower(xptr.Deref(conclusion))
+	case "WAITING", "REQUESTED":
+		return forge.CheckStateWaiting, ""
 	}
 
 	return forge.CheckStateQueued, ""

@@ -451,12 +451,14 @@ func TestReadBranchesCheckListing(t *testing.T) {
 			want:   &forge.CheckListing{},
 		},
 		{
-			name:   "a pending status has started and a running check run has not finished",
-			checks: `{"p0":{"commits":{"nodes":[{"commit":{"oid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","statusCheckRollup":{"contexts":{"nodes":[{"__typename":"CheckRun","id":"CR_1","name":"test","status":"IN_PROGRESS","startedAt":"2026-09-20T11:00:00Z"},{"__typename":"StatusContext","id":"SC_1","context":"ci/legacy","state":"PENDING","createdAt":"2026-09-20T11:01:00Z"},{"__typename":"StatusContext","id":"SC_2","context":"ci/deploy","state":"EXPECTED"}]}}}}]}}}`,
+			name:   "checks in flight are queued or running and checks that cannot start alone are waiting",
+			checks: `{"p0":{"commits":{"nodes":[{"commit":{"oid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","statusCheckRollup":{"contexts":{"nodes":[{"__typename":"CheckRun","id":"CR_1","name":"test","status":"IN_PROGRESS","startedAt":"2026-09-20T11:00:00Z"},{"__typename":"StatusContext","id":"SC_1","context":"ci/legacy","state":"PENDING","createdAt":"2026-09-20T11:01:00Z"},{"__typename":"StatusContext","id":"SC_2","context":"ci/deploy","state":"EXPECTED"},{"__typename":"CheckRun","id":"CR_2","name":"deploy","status":"WAITING"},{"__typename":"CheckRun","id":"CR_3","name":"lint","status":"PENDING"}]}}}}]}}}`,
 			want: &forge.CheckListing{Checks: []forge.Check{
 				{ProviderID: "CR_1", Kind: forge.CheckKindRun, Name: "test", State: forge.CheckStateRunning, StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC))},
 				{ProviderID: "SC_1", Kind: forge.CheckKindStatus, Name: "ci/legacy", State: forge.CheckStateRunning, StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 1, 0, 0, time.UTC))},
-				{ProviderID: "SC_2", Kind: forge.CheckKindStatus, Name: "ci/deploy", State: forge.CheckStateQueued},
+				{ProviderID: "SC_2", Kind: forge.CheckKindStatus, Name: "ci/deploy", State: forge.CheckStateWaiting},
+				{ProviderID: "CR_2", Kind: forge.CheckKindRun, Name: "deploy", State: forge.CheckStateWaiting},
+				{ProviderID: "CR_3", Kind: forge.CheckKindRun, Name: "lint", State: forge.CheckStateQueued},
 			}},
 		},
 	}
