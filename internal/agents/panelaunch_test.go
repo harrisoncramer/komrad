@@ -612,7 +612,11 @@ func TestSpawningBriefing(t *testing.T) {
 
 	t.Run("a reviewer is never told to call create_agent", func(t *testing.T) {
 		launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), LogPath: briefedLogPath})
-		prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{Role: agentstore.RoleReviewer, ParentAgentID: "parent", ParentName: "author"})
+		prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
+			Role:          agentstore.RoleReviewer,
+			ParentAgentID: "parent",
+			ParentName:    "author",
+		})
 
 		assert.NotContains(t, prompt, "create_agent")
 	})
