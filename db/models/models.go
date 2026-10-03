@@ -833,7 +833,7 @@ type ReviewForgeReply struct {
 	AuthorKind ReviewAuthorKind
 	// The agent that proposed the reply, null when the person wrote it or when that agent has since been deleted.
 	AuthorAgentID *string
-	// The agent's text as it proposed it, kept so it can be told whether its draft went out as written. Null on a reply the person wrote.
+	// The agent's text as it proposed it, kept so the agent can learn whether its draft went out as written. Null on a reply the person wrote.
 	ProposedBody *string
 	// The text to post, as markdown, which the person may have edited from the proposal. Once sent it is what the forge received.
 	Body string

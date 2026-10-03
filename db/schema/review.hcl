@@ -562,7 +562,7 @@ table "review_forge_replies" {
   column "proposed_body" {
     null    = true
     type    = text
-    comment = "The agent's text as it proposed it, kept so it can be told whether its draft went out as written. Null on a reply the person wrote."
+    comment = "The agent's text as it proposed it, kept so the agent can learn whether its draft went out as written. Null on a reply the person wrote."
   }
   column "body" {
     null    = false

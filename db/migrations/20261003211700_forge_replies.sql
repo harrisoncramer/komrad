@@ -53,7 +53,7 @@ COMMENT ON COLUMN "review_forge_replies"."author_kind" IS 'Whether the person or
 -- Set comment to column: "author_agent_id" on table: "review_forge_replies"
 COMMENT ON COLUMN "review_forge_replies"."author_agent_id" IS 'The agent that proposed the reply, null when the person wrote it or when that agent has since been deleted.';
 -- Set comment to column: "proposed_body" on table: "review_forge_replies"
-COMMENT ON COLUMN "review_forge_replies"."proposed_body" IS 'The agent''s text as it proposed it, kept so it can be told whether its draft went out as written. Null on a reply the person wrote.';
+COMMENT ON COLUMN "review_forge_replies"."proposed_body" IS 'The agent''s text as it proposed it, kept so the agent can learn whether its draft went out as written. Null on a reply the person wrote.';
 -- Set comment to column: "body" on table: "review_forge_replies"
 COMMENT ON COLUMN "review_forge_replies"."body" IS 'The text to post, as markdown, which the person may have edited from the proposal. Once sent it is what the forge received.';
 -- Set comment to column: "approver_kind" on table: "review_forge_replies"
