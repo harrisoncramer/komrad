@@ -208,6 +208,9 @@ func TestIntegrationDefaultBaseReadsTheCloneOnce(t *testing.T) {
 	run(t, clone, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 	assert.Equal(t, "wip", DefaultBase(t.Context(), clone), "without origin/HEAD, the branch checked out")
 
+	run(t, clone, "tag", "wip")
+	assert.Equal(t, "wip", DefaultBase(t.Context(), clone), "a branch a tag shares its name with")
+
 	trunk := t.TempDir()
 	run(t, trunk, "init", "--quiet", "-b", "trunk", ".")
 	assert.Equal(t, "trunk", DefaultBase(t.Context(), trunk), "an unborn branch still has a name")
