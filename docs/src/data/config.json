@@ -806,13 +806,6 @@
               "default": "[\"A\"]"
             },
             {
-              "key": "agent",
-              "path": "keybindings.review.agent",
-              "type": "array",
-              "description": "Move the keys into the implementer's chat under the diff. The leader brings them back to\nthe review, with the cursor where it was.",
-              "default": "[\"i\"]"
-            },
-            {
               "key": "answer",
               "path": "keybindings.review.answer",
               "type": "array",
