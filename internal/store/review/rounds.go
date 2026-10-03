@@ -359,26 +359,14 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 		return nil, fmt.Errorf("failed to release the review %q: %w", params.ID, err)
 	}
 
-	review := reviewFromRow(models.Review{
-		ID:             row.ID,
-		AgentID:        row.AgentID,
-		RoundID:        row.RoundID,
-		AuthorKind:     row.AuthorKind,
-		AuthorAgentID:  row.AuthorAgentID,
-		Verdict:        row.Verdict,
-		ReleasedAt:     row.ReleasedAt,
-		Path:           row.Path,
-		DoorbellMailID: row.DoorbellMailID,
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
-		Body:           row.Body,
-		EngineID:       row.EngineID,
-		ExternalLogin:  row.ExternalLogin,
-	})
+	reopens, err := s.queries.ReopenRepliedThreads(ctx, params.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reopen the threads review %q replied to: %w", params.ID, err)
+	}
 
 	return &ReleasedReview{
-		Review:  review,
-		Reopens: int(row.Reopens),
+		Review:  reviewFromRow(*row),
+		Reopens: int(reopens),
 	}, nil
 }
 

@@ -178,53 +178,41 @@ WHERE
     m.review_id = @review_id;
 
 -- name: ReleaseReview :one
-WITH released AS (
-    UPDATE
-        reviews v
-    SET
-        released_at = NOW(),
-        verdict = @verdict,
-        body = @body,
-        path = @path
-    WHERE
-        v.id = @id
-    RETURNING
-        *
-),
-reopened AS (
-    UPDATE
-        review_threads t
-    SET
-        resolved_at = NULL,
-        resolved_by_kind = NULL,
-        resolved_by_agent_id = NULL
-    FROM
-        released r
-    WHERE
-        r.author_kind = 'human'
-        AND t.resolved_at IS NOT NULL
-        AND EXISTS (
-            SELECT
-                1
-            FROM
-                review_messages m
-            WHERE
-                m.thread_id = t.id
-                AND m.review_id = r.id
-                AND (t.resolved_by_kind IS DISTINCT FROM 'human'
-                    OR m.created_at > t.resolved_at))
-        RETURNING
-            t.id
-)
-SELECT
-    r.*,
-(
-        SELECT
-            COUNT(*)
-        FROM
-            reopened)::int AS reopens
+UPDATE
+    reviews
+SET
+    released_at = NOW(),
+    verdict = @verdict,
+    body = @body,
+    path = @path
+WHERE
+    id = @id
+RETURNING
+    *;
+
+-- name: ReopenRepliedThreads :execrows
+UPDATE
+    review_threads t
+SET
+    resolved_at = NULL,
+    resolved_by_kind = NULL,
+    resolved_by_agent_id = NULL
 FROM
-    released r;
+    reviews r
+WHERE
+    r.id = @review_id
+    AND r.author_kind = 'human'
+    AND t.resolved_at IS NOT NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            review_messages m
+        WHERE
+            m.thread_id = t.id
+            AND m.review_id = r.id
+            AND (t.resolved_by_kind IS DISTINCT FROM 'human'
+                OR m.created_at > t.resolved_at));
 
 -- name: SetReviewDoorbell :exec
 UPDATE
