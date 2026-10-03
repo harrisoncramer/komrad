@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"komrad/lib/clock"
 	"komrad/lib/xhttp"
 	terminalv1 "komrad/proto/gen/terminal/v1"
 	"komrad/proto/gen/terminal/v1/terminalv1connect"
@@ -433,10 +434,9 @@ func redial(ctx context.Context, params runTerminalParams) (terminalConn, error)
 			return nil, err
 		}
 
-		select {
-		case <-ctx.Done():
+		clock.Sleep(ctx, wait)
+		if ctx.Err() != nil {
 			return nil, fmt.Errorf("failed to dial the engine again: %w", ctx.Err())
-		case <-time.After(wait):
 		}
 
 		wait = min(wait*2, lastRedialWait)

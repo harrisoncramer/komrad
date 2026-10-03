@@ -82,7 +82,7 @@ func TestSettleRefusesAPaneItCannotRead(t *testing.T) {
 
 			_, err := settlerOver(channel, tt.observer).Settle(t.Context(), agent)
 			require.ErrorIs(t, err, agenterr.ErrUnsettled)
-			assert.Contains(t, err.Error(), "could not be read")
+			require.ErrorContains(t, err, "could not be read")
 			assert.Zero(t, channel.Interrupts)
 		})
 	}

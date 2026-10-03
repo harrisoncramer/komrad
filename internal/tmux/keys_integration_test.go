@@ -285,7 +285,7 @@ func TestIntegrationPassKeyToPanelReportsWhatTmuxRefused(t *testing.T) {
 
 	err := client.passKeyToPanel("no such key", "display-message paged")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no such key")
+	assert.ErrorContains(t, err, "no such key")
 }
 
 func paneOption(t *testing.T, c *Client, pane, format string) string {

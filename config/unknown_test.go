@@ -56,9 +56,9 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 			_, err := LoadStack(Stack{Paths: []string{path}})
 
 			require.Error(t, err, "an unknown key is rejected rather than silently dropped")
-			assert.Contains(t, err.Error(), path, "the file to go and edit is named")
+			require.ErrorContains(t, err, path, "the file to go and edit is named")
 			for _, want := range tt.want {
-				assert.Contains(t, err.Error(), want)
+				assert.ErrorContains(t, err, want)
 			}
 		})
 	}
@@ -73,7 +73,7 @@ func TestLoadStillRejectsAValueItCannotRead(t *testing.T) {
 	_, err := LoadStack(Stack{Paths: []string{path}})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "max_agents")
+	assert.ErrorContains(t, err, "max_agents")
 }
 
 // TestReportUnknownKeysSortsWhatItNames covers the order keys are reported in, which the decoder

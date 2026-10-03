@@ -557,7 +557,7 @@ func TestOneOrchestratorPerWorkflow(t *testing.T) {
 				Role:  RoleOrchestrator,
 			})
 			require.Error(t, err, "a workflow holds one orchestrator for life")
-			assert.Contains(t, err.Error(), "agents_workflow_orchestrator",
+			require.ErrorContains(t, err, "agents_workflow_orchestrator",
 				"the index is what refused it")
 
 			require.NoError(t, st.Create(ctx, Agent{Name: "worker", State: StateIdle}))

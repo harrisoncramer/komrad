@@ -24,8 +24,8 @@ func TestValidateKeybindingsFindsAShadowedAction(t *testing.T) {
 	err := ValidateKeybindings(keys)
 
 	require.Error(t, err, "movement answers every press, so the rename could not be opened")
-	assert.Contains(t, err.Error(), "the agents list")
-	assert.Contains(t, err.Error(), `"j"`)
+	require.ErrorContains(t, err, "the agents list")
+	assert.ErrorContains(t, err, `"j"`)
 }
 
 // TestValidateKeybindingsReadsEveryScreen covers a rebind that only collides somewhere other than
@@ -59,7 +59,7 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 				err := validateScreenKeys(target, keys)
 
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), screenNames[target])
+				assert.ErrorContains(t, err, screenNames[target])
 			}
 		})
 	}
@@ -123,7 +123,7 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 			err := ValidateKeybindings(keys)
 
 			require.Error(t, err, "this key is answered before the screen's own table is reached")
-			assert.Contains(t, err.Error(), tt.names)
+			assert.ErrorContains(t, err, tt.names)
 		})
 	}
 }
@@ -214,7 +214,7 @@ func TestValidateSubmenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
 			err := ValidateKeybindings(keys)
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.names)
+			assert.ErrorContains(t, err, tt.names)
 		})
 	}
 }

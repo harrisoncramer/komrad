@@ -175,7 +175,7 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 
 	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it again"})
 	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning)
-	assert.Contains(t, err.Error(), reviewer.Name, "so the asker is told which agent is already reading")
+	require.ErrorContains(t, err, reviewer.Name, "so the asker is told which agent is already reading")
 
 	children, err := st.Agents.ListChildren(ctx, []string{author.ID})
 	require.NoError(t, err)

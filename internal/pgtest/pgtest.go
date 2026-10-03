@@ -17,6 +17,7 @@ import (
 	"komrad/config"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -83,9 +84,7 @@ func Migrated(t *testing.T, schema Schema) string {
 
 	// The sweep of another run can drop a template between the lookup and the copy.
 	url, second := admin.copy(t, admin.buildTemplate(t, schema))
-	if second != nil {
-		t.Fatalf("failed to copy the template database: %v, and again after building it: %v", first, second)
-	}
+	require.NoError(t, second, "failed to copy the template database: %v, and again after building it", first)
 
 	return url
 }
@@ -102,15 +101,11 @@ func connect(t *testing.T) *admin {
 	t.Helper()
 
 	cfg, err := config.LoadStack(config.Stack{})
-	if err != nil {
-		t.Fatalf("failed to load config for the test database: %v", err)
-	}
+	require.NoError(t, err, "failed to load config for the test database")
 	baseURL := cfg.Connection.OwnerDatabaseURL
 
 	conn, err := pgx.Connect(t.Context(), replaceDatabase(baseURL, "postgres"))
-	if err != nil {
-		t.Fatalf("failed to reach postgres; is it running? try 'mise run docker:up': %v", err)
-	}
+	require.NoError(t, err, "failed to reach postgres; is it running? try 'mise run docker:up'")
 
 	opened := &admin{conn: conn, baseURL: baseURL}
 	sweepOnce.Do(func() { opened.sweep(t) })
@@ -129,9 +124,7 @@ func (a *admin) database(t *testing.T, template string) string {
 	t.Helper()
 
 	url, err := a.copy(t, template)
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	require.NoError(t, err, "failed to create test database")
 
 	return url
 }
@@ -191,9 +184,7 @@ func (a *admin) template(t *testing.T, schema Schema) string {
 	t.Helper()
 
 	name, err := lookupTemplate(a, t.Context(), schema.Version)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	require.NoError(t, err)
 	if name != "" {
 		return name
 	}
@@ -208,38 +199,32 @@ func (a *admin) buildTemplate(t *testing.T, schema Schema) string {
 	ctx := t.Context()
 	key := lockKey(schema.Version)
 
-	if _, err := a.conn.Exec(ctx, "SELECT pg_advisory_lock($1, $2)", templateLockClass, key); err != nil {
-		t.Fatalf("failed to take the template lock: %v", err)
-	}
+	_, err := a.conn.Exec(ctx, "SELECT pg_advisory_lock($1, $2)", templateLockClass, key)
+	require.NoError(t, err, "failed to take the template lock")
 	defer func() {
 		_, _ = a.conn.Exec(ctx, "SELECT pg_advisory_unlock($1, $2)", templateLockClass, key)
 	}()
 
 	built, err := lookupTemplate(a, ctx, schema.Version)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	require.NoError(t, err)
 	if built != "" {
 		return built
 	}
 
 	building := newName(buildingMarker)
-	if err := a.create(ctx, building, ""); err != nil {
-		t.Fatalf("failed to create the template database %q: %v", building, err)
-	}
+	err = a.create(ctx, building, "")
+	require.NoError(t, err, "failed to create the template database %q", building)
 
-	if err := schema.Apply(ctx, replaceDatabase(a.baseURL, building)); err != nil {
-		t.Fatalf("failed to build the template database %q: %v", building, err)
-	}
+	err = schema.Apply(ctx, replaceDatabase(a.baseURL, building))
+	require.NoError(t, err, "failed to build the template database %q", building)
 
 	// Naming it last is what makes it safe to copy: a build that dies part-way leaves a
 	// database no lookup will find, and the sweep collects it.
 	name := templateName(schema.Version)
 	rename := "ALTER DATABASE " + pgx.Identifier{building}.Sanitize() +
 		" RENAME TO " + pgx.Identifier{name}.Sanitize()
-	if _, err := a.conn.Exec(ctx, rename); err != nil {
-		t.Fatalf("failed to name the template database %q: %v", name, err)
-	}
+	_, err = a.conn.Exec(ctx, rename)
+	require.NoError(t, err, "failed to name the template database %q", name)
 
 	a.protect(ctx, name)
 

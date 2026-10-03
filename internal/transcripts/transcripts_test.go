@@ -153,7 +153,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 
 	err := syncer.Sync(ctx)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsyncable", "the pass names the agent it could not fold in")
+	require.ErrorContains(t, err, "unsyncable", "the pass names the agent it could not fold in")
 
 	stranded, err := st.Transcripts.Get(ctx, readable.ID)
 	require.NoError(t, err)
@@ -235,8 +235,8 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 
 	err := syncer.Sync(ctx)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "orphan", "the pass names the agent it could not read")
-	assert.Contains(t, err.Error(), "gemini", "and the harness it is waiting on")
+	require.ErrorContains(t, err, "orphan", "the pass names the agent it could not read")
+	assert.ErrorContains(t, err, "gemini", "and the harness it is waiting on")
 }
 
 // TestSyncAdoptsSessions pins that the syncer asks codex afterwards which conversation it

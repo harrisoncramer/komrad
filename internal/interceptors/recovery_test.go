@@ -24,7 +24,7 @@ func TestRecoverRPCIsInternal(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
-	assert.Equal(t, "internal: the server panicked", err.Error())
+	require.EqualError(t, err, "internal: the server panicked")
 
 	record := logtest.Record(t, out.String())
 	assert.Equal(t, "panicked", record["body"])

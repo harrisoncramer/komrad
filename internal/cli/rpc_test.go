@@ -65,7 +65,7 @@ func TestIntegrationRefusalReadsWhatTheServiceSaid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := readRefusal([]byte(tt.payload), tt.status)
 			require.Error(t, err)
-			assert.Equal(t, tt.want, err.Error())
+			assert.EqualError(t, err, tt.want)
 		})
 	}
 }
@@ -158,11 +158,11 @@ func TestIntegrationCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 		Path: "/agent.v1.AgentService/GetAgent",
 	})
 	require.Error(t, err)
-	assert.Equal(t, "not_found: no agent holds that id", err.Error())
+	require.EqualError(t, err, "not_found: no agent holds that id")
 
 	_, err = callRPC(t.Context(), callRPCParams{Addr: deadAddr(t), Path: "/agent.v1.AgentService/GetAgent"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to reach the server", "the address is named rather than the socket error alone")
+	assert.ErrorContains(t, err, "failed to reach the server", "the address is named rather than the socket error alone")
 }
 
 // TestIntegrationRequireServerSaysHowToStartOne pins the message a script gets when the panel is not up.
@@ -182,11 +182,11 @@ func TestIntegrationRequireServerSaysHowToStartOne(t *testing.T) {
 
 	err := requireServer(t.Context(), dead, dead)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "komrad start", "the refusal says what to do about it")
+	require.ErrorContains(t, err, "komrad start", "the refusal says what to do about it")
 
 	err = requireServer(t.Context(), dead, "127.0.0.1:8787")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
+	assert.ErrorContains(t, err, "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
 }
 
 // deadAddr is an address nothing is listening on, taken by opening a server and closing it so
@@ -259,7 +259,7 @@ func TestIntegrationRpcSubcommandRefusalReachesTheCaller(t *testing.T) {
 
 	err := root.ExecuteContext(t.Context())
 	require.Error(t, err)
-	assert.Equal(t, "not_found: no agent holds that id", err.Error())
+	require.EqualError(t, err, "not_found: no agent holds that id")
 	assert.Empty(t, out.String(), "nothing is printed as though it were an answer")
 }
 
@@ -274,5 +274,5 @@ func TestIntegrationRpcSubcommandStopsWhenNothingIsServing(t *testing.T) {
 
 	err := root.ExecuteContext(t.Context())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "komrad start")
+	assert.ErrorContains(t, err, "komrad start")
 }

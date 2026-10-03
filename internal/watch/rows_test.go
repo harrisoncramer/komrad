@@ -148,7 +148,7 @@ func TestAFailedSnapshotNamesItsResource(t *testing.T) {
 
 	_, err := rows.Snapshot(t.Context())
 	require.ErrorIs(t, err, boom)
-	assert.Contains(t, err.Error(), watchv1.Resource_RESOURCE_SCHEDULE.String())
+	assert.ErrorContains(t, err, watchv1.Resource_RESOURCE_SCHEDULE.String())
 }
 
 // failingLister answers every read with its error.

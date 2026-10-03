@@ -9,6 +9,7 @@ import (
 	"komrad/internal/harness"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -362,9 +363,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			frame, err := os.ReadFile(filepath.Join("testdata", tt.file))
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).ReadInput(string(frame)).Activity)
 		})

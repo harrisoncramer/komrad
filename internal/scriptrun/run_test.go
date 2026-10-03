@@ -532,7 +532,7 @@ func TestRunProvisionDoesNotHoldTheWholeDirFile(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrProvisionFailed)
 	assert.Empty(t, got, "a refused setup names no directory")
-	assert.Contains(t, err.Error(), setupDirFileVar)
+	require.ErrorContains(t, err, setupDirFileVar)
 	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(4<<20),
 		"the refusal read the whole dir file to arrive at it")
 }
@@ -594,7 +594,7 @@ func TestRunProvisionCarriesTheReason(t *testing.T) {
 	_, err := scriptService(t, dir, runner).RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree")
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already checked out")
+	assert.ErrorContains(t, err, "already checked out")
 }
 
 // TestRunDeprovisionRefusesOneThatIsGone pins a renamed script being reported rather than
@@ -836,7 +836,7 @@ func TestRunProvisionPersistsStdoutOnAFailure(t *testing.T) {
 	_, err := svc.RunProvision(ctx, agentstore.Agent{ID: fixtureAgentID}, "setup")
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
+	require.ErrorContains(t, err, "diagnosing 1", "the refusal a create call sees carries what the script said")
 
 	persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, readErr)
@@ -1024,8 +1024,8 @@ func TestRunHookCarriesWhatTheScriptSaid(t *testing.T) {
 	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
 
 	require.ErrorIs(t, err, ErrHookFailed)
-	assert.Contains(t, err.Error(), "install-deps")
-	assert.Contains(t, err.Error(), "no lockfile here")
+	require.ErrorContains(t, err, "install-deps")
+	assert.ErrorContains(t, err, "no lockfile here")
 }
 
 // TestRunHookRefusesADirectoryThatIsGone pins a hook with nowhere to run failing rather than
@@ -1039,7 +1039,7 @@ func TestRunHookRefusesADirectoryThatIsGone(t *testing.T) {
 	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPreLaunch)
 
 	require.ErrorIs(t, err, ErrHookFailed)
-	assert.Contains(t, err.Error(), "/definitely/not/here")
+	assert.ErrorContains(t, err, "/definitely/not/here")
 }
 
 // TestChmodMakesAHookRunnable pins the one action the listing tells a person to take: a hook

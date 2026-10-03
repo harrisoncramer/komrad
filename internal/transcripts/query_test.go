@@ -161,7 +161,7 @@ func TestParseQuery(t *testing.T) {
 			got, err := ParseQuery(tt.text, now)
 			if tt.wantErr != "" {
 				require.ErrorIs(t, err, ErrBadQualifier)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.ErrorContains(t, err, tt.wantErr)
 
 				return
 			}

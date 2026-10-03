@@ -820,7 +820,7 @@ func TestASecondReview(t *testing.T) {
 			err := tt.write(t, fx)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
-				assert.Contains(t, err.Error(), tt.wantErrText)
+				assert.ErrorContains(t, err, tt.wantErrText)
 
 				return
 			}

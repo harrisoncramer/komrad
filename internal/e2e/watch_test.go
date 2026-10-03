@@ -488,7 +488,7 @@ func openWatch(t *testing.T, instance *komradtest.Instance) <-chan client.WatchB
 		OnBatch: func(batch client.WatchBatch) { batches <- batch },
 		OnLost: func(err error) {
 			if ctx.Err() == nil {
-				t.Errorf("the watch stream was lost: %v", err)
+				assert.Failf(t, "the watch stream was lost", "%v", err)
 			}
 		},
 	})

@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
+	"github.com/stretchr/testify/assert"
 )
 
 // Queue commits what a producer writes and routes each event it records straight after.
@@ -42,7 +43,7 @@ func NewQueue(t *testing.T, stores *storetest.Stores, handlers ...events.Handler
 	}
 	t.Cleanup(func() {
 		for _, err := range q.TakeErrors() {
-			t.Errorf("routing failed: %v", err)
+			assert.NoError(t, err, "routing failed")
 		}
 	})
 

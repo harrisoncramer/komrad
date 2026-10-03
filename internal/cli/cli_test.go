@@ -152,7 +152,7 @@ func TestIntegrationResolveConfigStackRefusesAnEngineItCannotFind(t *testing.T) 
 
 	_, err := resolveConfigStack(nil, "missing")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "missing")
+	require.ErrorContains(t, err, "missing")
 
 	_, err = resolveConfigStack(nil, "   ")
 	require.Error(t, err, "a name made of spaces is a name, not a request for the local engine")

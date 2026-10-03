@@ -138,7 +138,7 @@ func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 
 	_, err = client.ResolveBase(t.Context(), clone, "trunk")
 	require.ErrorIs(t, err, ErrBaseMissing)
-	assert.Contains(t, err.Error(), "origin/trunk")
+	require.ErrorContains(t, err, "origin/trunk")
 
 	_, err = client.ResolveBase(t.Context(), clone, "")
 	require.ErrorIs(t, err, ErrBaseMissing, "a blank name is refused rather than guessed")
@@ -159,7 +159,7 @@ func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 
 	_, err = client.ResolveBase(t.Context(), unpushed, "trunk")
 	require.ErrorIs(t, err, ErrBaseMissing)
-	assert.Contains(t, err.Error(), "trunk")
+	assert.ErrorContains(t, err, "trunk")
 }
 
 // TestIntegrationReadDiffStat covers the lines a working tree adds and removes since its base.

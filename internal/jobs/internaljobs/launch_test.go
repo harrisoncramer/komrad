@@ -196,7 +196,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 				require.NoError(t, err)
 			}
 			if tt.wantReason != "" {
-				assert.Contains(t, err.Error(), tt.wantReason, "the error River records on the job says why")
+				require.ErrorContains(t, err, tt.wantReason, "the error River records on the job says why")
 			}
 
 			runs, err := stores.Schedules.ListRuns(ctx, schedule.ID, 10)
@@ -397,7 +397,7 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 			if tt.wantReason != "" {
 				require.Error(t, err)
 				assert.True(t, isCancel(err), "a firing with nobody to mail cancels rather than being retried")
-				assert.Contains(t, err.Error(), tt.wantReason)
+				require.ErrorContains(t, err, tt.wantReason)
 			} else {
 				require.NoError(t, err)
 			}

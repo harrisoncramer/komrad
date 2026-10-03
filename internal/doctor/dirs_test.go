@@ -290,7 +290,7 @@ func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 
 	assert.Equal(t, StatusWarn, result.Status)
 	assert.Equal(t, "worktrees_unowned", codeOf(result.Err))
-	assert.Contains(t, result.Err.Error(), "1 worktree in "+own+": 01a9")
+	require.ErrorContains(t, result.Err, "1 worktree in "+own+": 01a9")
 	assert.NotContains(t, result.Err.Error(), "01a0", "the shared directory's one worktree has its agent")
 }
 
@@ -306,8 +306,8 @@ func TestOrphanedWorktreesCheckNamesOnlyAFewOrphans(t *testing.T) {
 	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
 	assert.Equal(t, StatusWarn, result.Status)
-	assert.Contains(t, result.Err.Error(), "5 worktrees in "+shared)
-	assert.Contains(t, result.Err.Error(), "and 2 more")
+	require.ErrorContains(t, result.Err, "5 worktrees in "+shared)
+	require.ErrorContains(t, result.Err, "and 2 more")
 	assert.NotContains(t, result.Err.Error(), left[len(left)-1])
 }
 

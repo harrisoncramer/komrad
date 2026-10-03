@@ -40,11 +40,11 @@ func TestMailConfigRefusesAConfigItCannotRead(t *testing.T) {
 
 	_, err := load.GetDeliveryDeadline()
 	require.Error(t, err, "an unreadable config is an error rather than the built-in deadline")
-	assert.Contains(t, err.Error(), "delivery_dedline")
+	require.ErrorContains(t, err, "delivery_dedline")
 
 	_, err = load.GetMaxExchange()
 	require.Error(t, err, "an unreadable config is an error rather than the built-in exchange limit")
-	assert.Contains(t, err.Error(), "delivery_dedline")
+	assert.ErrorContains(t, err, "delivery_dedline")
 }
 
 // TestMailConfigPropagatesTheLoadError covers the error the caller is handed.

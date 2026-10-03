@@ -543,7 +543,7 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 
 		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
 		require.ErrorIs(t, err, ErrBadApp)
-		assert.Contains(t, err.Error(), "installation_id")
+		assert.ErrorContains(t, err, "installation_id")
 	})
 
 	t.Run("an app reaching no repository", func(t *testing.T) {
@@ -631,7 +631,7 @@ func TestCheckReportsARefusedMint(t *testing.T) {
 
 			_, err = f.service.Check(ctx, *app)
 			require.ErrorIs(t, err, ErrUnauthorized)
-			assert.Contains(t, err.Error(), "A JSON web token could not be decoded")
+			require.ErrorContains(t, err, "A JSON web token could not be decoded")
 
 			row, err = f.store.Get(ctx, app.ID)
 			require.NoError(t, err)

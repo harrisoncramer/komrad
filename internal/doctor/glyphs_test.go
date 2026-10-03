@@ -109,7 +109,7 @@ func TestGlyphCollisionCheck(t *testing.T) {
 			require.Equal(t, tt.wantStatus, result.Status, result.Err)
 			if tt.wantErr != "" {
 				require.ErrorIs(t, result.Err, errGlyphCollision)
-				assert.Contains(t, result.Err.Error(), tt.wantErr)
+				assert.ErrorContains(t, result.Err, tt.wantErr)
 			}
 		})
 	}

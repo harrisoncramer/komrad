@@ -255,7 +255,7 @@ func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
 		nil, logging.New(io.Discard, slog.LevelError))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "river is unreachable")
+	assert.ErrorContains(t, err, "river is unreachable")
 }
 
 // TestShutdownDeadlineOutlivesTheSignal covers each teardown stage getting a clock of its own

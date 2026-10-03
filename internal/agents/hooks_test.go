@@ -528,7 +528,7 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 
 	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.ErrorContains(t, err, "no slot free")
-	assert.Contains(t, err.Error(), `"auth"`, "the refusal names the agent")
+	require.ErrorContains(t, err, `"auth"`, "the refusal names the agent")
 	assert.Zero(t, tmux.WindowsOpened(), "no pane was opened")
 
 	require.Never(t, func() bool {

@@ -158,7 +158,7 @@ func TestForgesCheck(t *testing.T) {
 				assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			}
 			if tt.wantErr != "" {
-				assert.Contains(t, result.Err.Error(), tt.wantErr)
+				assert.ErrorContains(t, result.Err, tt.wantErr)
 			}
 		})
 	}
