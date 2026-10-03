@@ -582,6 +582,8 @@ type DiffKeys struct {
 	PrevFile []string `mapstructure:"prev_file" default:"["`
 	// Jump to the previous line matching the pattern.
 	PrevMatch []string `mapstructure:"prev_match" default:"N"`
+	// Wrap lines wider than the pane, or go back to cutting them off and panning.
+	Wrap []string `mapstructure:"wrap" default:"w"`
 }
 
 // ColumnKeys are what the mouse wheel presses over the panel. On a list they move the
@@ -906,6 +908,13 @@ func (m Mail) GetMaxExchange() (int, error) {
 	return m.MaxExchange, nil
 }
 
+// Diff is how the panel draws a diff.
+type Diff struct {
+	// Wrap a line wider than the pane onto the lines under it rather than cutting it off. The wrap
+	// key turns this off and on while reading.
+	Wrap bool `mapstructure:"wrap"`
+}
+
 // Debug is what komrad records about its own reading of an agent.
 type Debug struct {
 	// Whether the pane capture behind each reading of an agent is kept under the cache
@@ -985,6 +994,8 @@ type Config struct {
 	// to normal mode, and a second esc closes it. The filter, search and rename lines close on esc,
 	// and ctrl+f puts one in normal mode, after which esc works as it does in a form.
 	VimMode bool `mapstructure:"vim_mode"`
+	// How the panel draws a diff.
+	Diff Diff `mapstructure:"diff"`
 	// The icons the panel draws, grouped by where each one is drawn. Every icon is one character
 	// from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the
 	// layout is drawn with, such as the status bars, dividers and rules, is fixed and not
@@ -1029,6 +1040,7 @@ func Defaults() *Config {
 		Mail:           Mail{DeliveryDeadline: defaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log:            Log{Level: defaultLogLevel},
 		Debug:          Debug{FrameHistory: DefaultFrameHistory},
+		Diff:           Diff{Wrap: true},
 		Connection:     defaultConnection(),
 	}
 }

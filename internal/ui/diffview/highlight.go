@@ -22,6 +22,15 @@ type token struct {
 // styledLine is one line of a file, already lexed.
 type styledLine []token
 
+func (l styledLine) text() string {
+	var out strings.Builder
+	for _, current := range l {
+		out.WriteString(current.text)
+	}
+
+	return out.String()
+}
+
 // highlighter lexes whole files, which keeps a multi-line string or block comment coloured
 // correctly where per-line lexing cannot.
 type highlighter struct {

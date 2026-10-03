@@ -44,6 +44,7 @@ const (
 	actionDiffMatch
 	actionDiffPan
 	actionDiffPanReset
+	actionDiffWrap
 	actionDiffExpand
 	actionReviewBack
 	actionReviewThread

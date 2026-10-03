@@ -11,6 +11,13 @@ import (
 // it.
 const scrollMargin = 4
 
+// Window is the size a pane is drawn at and whether its long lines wrap.
+type Window struct {
+	Width  int
+	Height int
+	Wrap   bool
+}
+
 // Pane is a view with a reader standing in it: the row under the cursor, the first row on screen,
 // and how far the rows are slid sideways.
 type Pane struct {
@@ -71,65 +78,65 @@ func (p *Pane) Drop() {
 	p.view = nil
 }
 
-// MoveTo stands the reader on a row and scrolls a window of the given height to keep it in sight,
+// MoveTo stands the reader on a row and scrolls the window to keep it in sight,
 // reporting whether the reader moved.
-func (p *Pane) MoveTo(row, height int) bool {
+func (p *Pane) MoveTo(row int, window Window) bool {
 	if row == p.cursor {
 		return false
 	}
 
 	p.cursor = row
 	p.pinTop = false
-	p.ScrollToCursor(height)
+	p.ScrollToCursor(window)
 
 	return true
 }
 
 // Step moves the reader a number of rows up or down.
-func (p *Pane) Step(direction, rows, height int) bool {
+func (p *Pane) Step(direction, rows int, window Window) bool {
 	cursor := p.cursor
 	for range rows {
 		cursor = p.view.Move(cursor, direction)
 	}
 
-	return p.MoveTo(cursor, height)
+	return p.MoveTo(cursor, window)
 }
 
 // JumpFile moves to the next or previous file and puts that file's header at the top of the pane.
-func (p *Pane) JumpFile(direction, height int) bool {
+func (p *Pane) JumpFile(direction int, window Window) bool {
 	next := p.view.JumpFile(p.cursor, direction)
 	if next == p.cursor {
 		return false
 	}
 
-	p.pinFile(next, p.view.getFileTopRow(next), height)
+	p.pinFile(next, p.view.getFileTopRow(next), window)
 
 	return true
 }
 
 // JumpToFile moves to the file whose header is on row and puts that header at the top of the pane.
-func (p *Pane) JumpToFile(row, height int) bool {
+func (p *Pane) JumpToFile(row int, window Window) bool {
 	next := p.view.getFileLanding(row)
 	if next == p.cursor {
 		return false
 	}
 
-	p.pinFile(next, row, height)
+	p.pinFile(next, row, window)
 
 	return true
 }
 
 // pinFile stands the reader on next and pins the header of its file to the top of the pane.
-func (p *Pane) pinFile(next, header, height int) {
+func (p *Pane) pinFile(next, header int, window Window) {
 	p.cursor = next
 	p.top = cursor.Clamp(header, p.view.Len())
 	p.pinTop = true
 	p.pinFloor = p.top
-	p.ScrollToCursor(height)
+	p.ScrollToCursor(window)
 }
 
 // Search runs a pattern over the view and stands the reader on the first match at or after them.
-func (p *Pane) Search(pattern *regexp.Regexp, height int) {
+func (p *Pane) Search(pattern *regexp.Regexp, window Window) {
 	if p.view.SetPattern(pattern) == 0 {
 		return
 	}
@@ -139,18 +146,18 @@ func (p *Pane) Search(pattern *regexp.Regexp, height int) {
 		p.pinTop = false
 	}
 
-	p.ScrollToCursor(height)
+	p.ScrollToCursor(window)
 }
 
 // JumpMatch steps to the next or previous line the search found, wrapping at the ends, and
 // reports false while nothing was found.
-func (p *Pane) JumpMatch(direction, height int) (bool, bool) {
+func (p *Pane) JumpMatch(direction int, window Window) (bool, bool) {
 	next, ok := p.view.jumpMatch(p.cursor, direction)
 	if !ok {
 		return false, false
 	}
 
-	return p.MoveTo(next, height), true
+	return p.MoveTo(next, window), true
 }
 
 // Keep puts the reader back on what they were standing on after the rows were built again, and
@@ -186,7 +193,7 @@ const (
 
 // ToggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines and
 // the few around them, keeping the reader on the line they were on.
-func (p *Pane) ToggleExpanded(height int) expansion {
+func (p *Pane) ToggleExpanded(window Window) expansion {
 	file, ok := p.view.GetDrawnFileAt(p.cursor)
 	if !ok {
 		return ExpandNothing
@@ -204,7 +211,7 @@ func (p *Pane) ToggleExpanded(height int) expansion {
 	}
 
 	p.Keep(place, located)
-	p.ScrollToCursor(height)
+	p.ScrollToCursor(window)
 
 	if expanding {
 		return ExpandWhole
@@ -218,15 +225,23 @@ func (p *Pane) PanBy(delta int) {
 	p.pan = max(0, p.pan+delta)
 }
 
-// ScrollToCursor moves a window of the given height only when the cursor is about to leave it.
-func (p *Pane) ScrollToCursor(height int) {
-	// A file jump has already said where the window goes, and the margin below would drag it
-	// straight back off what it was asked to show.
-	if p.pinTop || height <= 0 {
+// ScrollToCursor moves the window only when the cursor is about to leave it.
+func (p *Pane) ScrollToCursor(window Window) {
+	if window.Height <= 0 {
 		return
 	}
 
-	margin := min(scrollMargin, max((height-1)/2, 0))
+	// A file jump has already said where the window goes, and the margin below would drag it
+	// straight back off what it was asked to show, until a wrapped row pushes the cursor out.
+	if p.pinTop {
+		if p.countLines(p.top, p.cursor, window) < window.Height {
+			return
+		}
+
+		p.pinTop = false
+	}
+
+	margin := min(scrollMargin, max((window.Height-p.view.measureRow(p.cursor, window))/2, 0))
 
 	// A file jump is only worth anything if the file stays at the top, so the margin gives up its
 	// gap until the cursor walks back above the row the jump landed on.
@@ -235,49 +250,93 @@ func (p *Pane) ScrollToCursor(height int) {
 		floor = p.pinFloor
 	}
 
-	if low := p.cursor - margin; low < p.top {
+	low, above := p.cursor, 0
+	for low > 0 && above < margin {
+		low--
+		above += p.view.measureRow(low, window)
+	}
+
+	if low < p.top {
 		p.top = max(low, floor)
 	}
 
-	if high := p.cursor - height + 1 + margin; high > p.top {
+	high := p.findFirstFitting(p.cursor, window.Height-margin, window)
+	if high > p.top {
 		p.top = high
 	}
 }
 
-// Render is the window of rows the pane shows at a width and height, with the cursor's row marked
-// as given and blank rows under a view shorter than the pane.
-func (p *Pane) Render(width, height int, held Cursor) []string {
-	start := p.findWindowStart(height)
+// Render is the window of rows the pane shows, with the cursor's row marked as given and blank
+// lines under a view shorter than the pane.
+func (p *Pane) Render(window Window, held Cursor) []string {
+	offset := p.pan
+	if window.Wrap {
+		offset = 0
+	}
 
 	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
 	// second to draw whole.
-	rows := make([]string, 0, height)
-	for y := start; y < min(start+height, p.view.Len()); y++ {
+	lines := make([]string, 0, window.Height)
+	for y := p.findWindowStart(window); y < p.view.Len() && len(lines) < window.Height; y++ {
 		mark := noCursor
 		if y == p.cursor {
 			mark = held
 		}
 
-		rows = append(rows, p.view.renderRow(y, mark, width, p.pan))
+		lines = append(lines, p.view.renderLines(y, mark, window, offset)...)
 	}
 
-	for len(rows) < height {
-		rows = append(rows, strings.Repeat(" ", width))
+	lines = lines[:min(len(lines), max(window.Height, 0))]
+	for len(lines) < window.Height {
+		lines = append(lines, strings.Repeat(" ", window.Width))
 	}
 
-	return rows
+	return lines
 }
 
-// GetCursorRow is the row of a window of the given height that the cursor is drawn on.
-func (p *Pane) GetCursorRow(height int) int {
+// GetCursorLines is the first line of the window the cursor's row is drawn on and how many lines
+// it takes.
+func (p *Pane) GetCursorLines(window Window) (int, int) {
 	if p.view == nil {
+		return 0, 1
+	}
+
+	start := p.findWindowStart(window)
+	if p.cursor < start {
+		return p.cursor - start, 1
+	}
+
+	return p.countLines(start, p.cursor, window), p.view.measureRow(p.cursor, window)
+}
+
+// findWindowStart is the first row of the view the window draws.
+func (p *Pane) findWindowStart(window Window) int {
+	if p.view.Len() == 0 {
 		return 0
 	}
 
-	return p.cursor - p.findWindowStart(height)
+	last := p.findFirstFitting(p.view.Len()-1, window.Height, window)
+
+	return max(min(p.top, last), p.findFirstFitting(p.cursor, window.Height, window))
 }
 
-// findWindowStart is the first row of the view a window of the given height draws.
-func (p *Pane) findWindowStart(height int) int {
-	return max(min(p.top, p.view.Len()-height), 0)
+// findFirstFitting is the first row from which the rows through end fit in lines.
+func (p *Pane) findFirstFitting(end, lines int, window Window) int {
+	first, drawn := end, p.view.measureRow(end, window)
+	for first > 0 && drawn+p.view.measureRow(first-1, window) <= lines {
+		first--
+		drawn += p.view.measureRow(first, window)
+	}
+
+	return first
+}
+
+// countLines is how many lines the rows from start up to end take.
+func (p *Pane) countLines(start, end int, window Window) int {
+	lines := 0
+	for y := start; y < end; y++ {
+		lines += p.view.measureRow(y, window)
+	}
+
+	return lines
 }

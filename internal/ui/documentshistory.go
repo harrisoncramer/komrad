@@ -135,7 +135,10 @@ func (d *documentsScreen) docRows(m *model, width int) []string {
 		held = diffview.LiveCursor
 	}
 
-	return append(head, h.pane.Render(width, d.diffHeight(m), held)...)
+	window := d.diffWindow(m)
+	window.Width = width
+
+	return append(head, h.pane.Render(window, held)...)
 }
 
 // head is the rows over the change: which write it is and the search.
@@ -158,15 +161,19 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 	return append(rows, h.filter.head(count, "", width, glyphs)...)
 }
 
-// diffHeight is the rows the diff is drawn in, under the rows over it.
-func (d *documentsScreen) diffHeight(m *model) int {
+// diffWindow is the size the diff is drawn at, under the rows over it.
+func (d *documentsScreen) diffWindow(m *model) diffview.Window {
 	split, ok := m.screenColumnSplit()
 	item, hovered := d.hovered(m)
 	if !ok || !hovered || d.history == nil {
-		return 1
+		return diffview.Window{Height: 1, Wrap: m.diffWrap}
 	}
 
-	return max(split.rows-len(d.history.head(item, split.column, m.glyphs)), 1)
+	return diffview.Window{
+		Width:  split.column,
+		Height: max(split.rows-len(d.history.head(item, split.column, m.glyphs)), 1),
+		Wrap:   m.diffWrap,
+	}
 }
 
 // notice names the write stepped to, who made it and how long ago.

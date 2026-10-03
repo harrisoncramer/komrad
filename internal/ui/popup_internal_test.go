@@ -9,12 +9,13 @@ import (
 // TestPlacePopup covers where a popup stands beside the cursor and the code.
 func TestPlacePopup(t *testing.T) {
 	tests := []struct {
-		name   string
-		anchor popupAnchor
-		top    int
-		cursor int
-		tall   int
-		want   popupSlot
+		name       string
+		anchor     popupAnchor
+		top        int
+		cursor     int
+		cursorLast int
+		tall       int
+		want       popupSlot
 	}{
 		{
 			name:   "it stands over the cursor's row when there is room above",
@@ -36,6 +37,19 @@ func TestPlacePopup(t *testing.T) {
 			want: popupSlot{
 				x:      0,
 				y:      4,
+				width:  61,
+				height: 10,
+			},
+		},
+		{
+			name:       "it stands under the last line of a wrapped cursor row",
+			anchor:     popupAnchor{right: 61, codeOnRight: true},
+			cursor:     3,
+			cursorLast: 5,
+			tall:       10,
+			want: popupSlot{
+				x:      0,
+				y:      6,
 				width:  61,
 				height: 10,
 			},
@@ -155,9 +169,10 @@ func TestPlacePopup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, placePopup(tt.anchor, popupStage{
-				top:    tt.top,
-				cursor: tt.cursor,
-				rows:   40,
+				top:        tt.top,
+				cursor:     tt.cursor,
+				cursorLast: max(tt.cursorLast, tt.cursor),
+				rows:       40,
 			}, tt.tall))
 		})
 	}

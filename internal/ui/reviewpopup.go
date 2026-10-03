@@ -70,18 +70,23 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		band := r.bandView(m, m.paneWidth())
 		layout := r.layoutSidebar(m, band)
 
+		cursor := paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1
+
 		return popupStage{
-			top:    paint.CountLines(band + layout.bar),
-			cursor: paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1,
-			rows:   paint.CountLines(strings.TrimRight(band+r.drawSidebar(layout), "\n")),
+			top:        paint.CountLines(band + layout.bar),
+			cursor:     cursor,
+			cursorLast: cursor,
+			rows:       paint.CountLines(strings.TrimRight(band+r.drawSidebar(layout), "\n")),
 		}
 	}
 
 	above := strings.Count(r.bandView(m, split.column), "\n")
+	first, height := r.diff.GetCursorLines(r.diffWindow(m))
 
 	return popupStage{
-		top:    strings.Count(r.layoutSidebar(m).bar, "\n"),
-		cursor: above + r.diff.GetCursorRow(split.rows),
-		rows:   above + split.rows,
+		top:        strings.Count(r.layoutSidebar(m).bar, "\n"),
+		cursor:     above + first,
+		cursorLast: above + first + height - 1,
+		rows:       above + split.rows,
 	}
 }

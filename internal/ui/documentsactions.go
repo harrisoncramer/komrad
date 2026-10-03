@@ -155,7 +155,7 @@ func (d *documentsScreen) diffKeys() diffKeys {
 	return diffKeys{
 		pane:   &h.pane,
 		filter: &h.filter,
-		height: d.diffHeight,
+		window: d.diffWindow,
 	}
 }
 

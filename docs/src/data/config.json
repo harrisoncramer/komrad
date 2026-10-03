@@ -384,6 +384,13 @@
               "type": "array",
               "description": "Jump to the previous line matching the pattern.",
               "default": "[\"N\"]"
+            },
+            {
+              "key": "wrap",
+              "path": "keybindings.diff.wrap",
+              "type": "array",
+              "description": "Wrap lines wider than the pane, or go back to cutting them off and panning.",
+              "default": "[\"w\"]"
             }
           ],
           "sections": []
@@ -1236,6 +1243,20 @@
           "sections": []
         }
       ]
+    },
+    {
+      "path": "diff",
+      "description": "How the panel draws a diff.",
+      "settings": [
+        {
+          "key": "wrap",
+          "path": "diff.wrap",
+          "type": "boolean",
+          "description": "Wrap a line wider than the pane onto the lines under it rather than cutting it off. The wrap\nkey turns this off and on while reading.",
+          "default": "true"
+        }
+      ],
+      "sections": []
     },
     {
       "path": "glyphs",

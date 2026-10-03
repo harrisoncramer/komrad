@@ -16,6 +16,7 @@ type app struct {
 	env            *config.Environment
 	keys           config.Keybindings
 	vimMode        bool
+	diffWrap       bool
 	glyphs         glyph.Set
 	loader         loader.Style
 	harnesses      *harness.Registry
