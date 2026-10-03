@@ -210,21 +210,31 @@ func TestReleaseReviewInterrupts(t *testing.T) {
 	tests := []struct {
 		name            string
 		alive           bool
-		reviewer        bool
+		author          func(fx *reviewFixture) ReviewAuthor
+		verdict         reviewstore.Verdict
 		wantInterrupted bool
 	}{
 		{
-			name:            "a person's release stops a live agent",
-			alive:           true,
-			wantInterrupted: true,
-		},
-		{
 			name: "a person's release leaves a dormant agent's old pane alone",
+			author: func(*reviewFixture) ReviewAuthor {
+				return personAuthor
+			},
 		},
 		{
-			name:     "a reviewer's release never stops the agent",
-			alive:    true,
-			reviewer: true,
+			name:  "a reviewer's release never stops the agent",
+			alive: true,
+			author: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.reviewer)
+			},
+			verdict: reviewstore.VerdictApproved,
+		},
+		{
+			name:  "a person's release stops a live agent",
+			alive: true,
+			author: func(*reviewFixture) ReviewAuthor {
+				return personAuthor
+			},
+			wantInterrupted: true,
 		},
 	}
 
@@ -233,11 +243,7 @@ func TestReleaseReviewInterrupts(t *testing.T) {
 			fx := newReviewFixture(t)
 			require.NoError(t, fx.stores.Agents.SetAlive(t.Context(), []string{fx.worker.ID}, tt.alive))
 
-			if tt.reviewer {
-				fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictApproved)
-			} else {
-				fx.releaseReview(t, personAuthor, "")
-			}
+			fx.releaseReview(t, tt.author(fx), tt.verdict)
 
 			if tt.wantInterrupted {
 				assert.Equal(t, []string{fx.worker.ID}, fx.interrupter.interrupted)
