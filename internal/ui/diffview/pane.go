@@ -317,7 +317,7 @@ func (p *Pane) findWindowStart(window Window) int {
 
 	last := p.findFirstFitting(p.view.Len()-1, window.Height, window)
 
-	return max(max(min(p.top, last), 0), p.findFirstFitting(p.cursor, window.Height, window))
+	return max(min(p.top, last), p.findFirstFitting(p.cursor, window.Height, window))
 }
 
 // findFirstFitting is the first row from which the rows through end fit in lines.
