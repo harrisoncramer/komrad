@@ -50,6 +50,18 @@ func TestOccurrenceFor(t *testing.T) {
 			want: nine,
 		},
 		{
+			name: "and even two hours late, after the machine slept through it, still belongs to the morning",
+			cron: "0 9 * * *",
+			at:   nine.Add(2 * time.Hour),
+			want: nine,
+		},
+		{
+			name: "and a yearly one built weeks late belongs to its day",
+			cron: "0 9 28 7 *",
+			at:   nine.Add(40 * 24 * time.Hour),
+			want: nine,
+		},
+		{
 			name: "a firing built on the boundary belongs to itself",
 			cron: "* * * * *",
 			at:   minute,
