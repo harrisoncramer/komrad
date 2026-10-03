@@ -239,16 +239,15 @@ type Deps struct {
 }
 
 type model struct {
-	session       *Session
-	api           api
-	tmux          uiTmux
-	git           ReviewGit
-	browser       browser.Opener
-	harnessFrames harnessFrameReader
-	binary        BinaryWatcher
-	frame         *layout.Frame
-	settings      PanelSettings
-	// diffWrap wraps diff lines wider than the pane rather than cutting them off.
+	session         *Session
+	api             api
+	tmux            uiTmux
+	git             ReviewGit
+	browser         browser.Opener
+	harnessFrames   harnessFrameReader
+	binary          BinaryWatcher
+	frame           *layout.Frame
+	settings        PanelSettings
 	diffWrap        bool
 	unreachable     error
 	engineStatus    EngineStatus
