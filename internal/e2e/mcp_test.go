@@ -35,9 +35,9 @@ func TestIntegrationMCPTools(t *testing.T) {
 	migrations := createAgent(t, instance, workflowID, "migrations")
 	orchestrator := startOrchestrator(t, instance, workflowID)
 
-	review := connect.NewRequest(&agentv1.RequestReviewRequest{Prompt: "read the change"})
-	callAs(review, migrations.GetId())
-	requested, err := instance.Agents.RequestReview(t.Context(), review)
+	req := connect.NewRequest(&agentv1.RequestReviewRequest{Prompt: "read the change"})
+	callAs(req, migrations.GetId())
+	requested, err := instance.Agents.RequestReview(t.Context(), req)
 	require.NoError(t, err)
 	reviewer := requested.Msg.GetReviewer()
 
