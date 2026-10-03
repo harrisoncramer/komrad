@@ -394,11 +394,8 @@ type ReleaseReviewParams struct {
 	Verdict reviewstore.Verdict
 	// Body is what the reviewer says about the change as a whole rather than about any one line,
 	// empty when they said nothing.
-	Body string
-	// Interrupt stops the agent where it stands before the mail is sent, so it reads the review
-	// now rather than at the end of whatever it is doing.
-	Interrupt bool
-	Author    ReviewAuthor
+	Body   string
+	Author ReviewAuthor
 }
 
 // ReleaseReview releases the author's open review, writing it out as one file and sending one
@@ -472,7 +469,8 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	if params.Interrupt {
+	// A person's review stops the agent so it reads the comments now.
+	if params.Author.isHuman() {
 		s.interrupt(ctx, params.AgentID)
 	}
 

@@ -898,7 +898,7 @@
             "reviewer"
           ],
           "summary": "Send the review you have written with a verdict: approved only when you wrote no comments on the round, changes requested when you wrote any.",
-          "description": "Send the review you have written with a verdict: approved only when you wrote no comments on the round, changes requested when you wrote any. Approved tells the agent it is done. Set interrupt to stop the agent mid-turn.",
+          "description": "Send the review you have written with a verdict: approved only when you wrote no comments on the round, changes requested when you wrote any. Approved tells the agent it is done.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -4553,7 +4553,7 @@
     },
     "agent.v1.ReleaseReviewRequest": {
       "name": "ReleaseReviewRequest",
-      "description": "ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of ordinary mail naming the review, which it reads whole with get_review, so nothing here decides when the agent is interrupted or typed at: that is mail's own affair.",
+      "description": "ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of ordinary mail naming the review, which it reads whole with get_review. A person's review stops the agent mid-turn first, so it reads the comments now.",
       "fields": [
         {
           "name": "agent_id",
@@ -4576,16 +4576,6 @@
           "oneof": "",
           "rules": [],
           "description": "What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset."
-        },
-        {
-          "name": "interrupt",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Stop the agent where it stands before telling it, so it reads now rather than at the end of whatever it is doing."
         },
         {
           "name": "body",

@@ -415,17 +415,16 @@ message ListReviewsResponse {
 }
 
 // ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of
-// ordinary mail naming the review, which it reads whole with get_review, so nothing here decides
-// when the agent is interrupted or typed at: that is mail's own affair.
+// ordinary mail naming the review, which it reads whole with get_review. A person's review stops
+// the agent mid-turn first, so it reads the comments now.
 message ReleaseReviewRequest {
   // Whose work the batch was written against.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
   // agent must set it and a person must leave it unset.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
-  // Stop the agent where it stands before telling it, so it reads now rather than at the end
-  // of whatever it is doing.
-  bool interrupt = 3;
+  reserved 3;
+  reserved "interrupt";
   // What to say about the work as a whole rather than about any one line, which the agent reads
   // before the first thread. Optional: a review of pinned comments alone is complete.
   string body = 4 [(buf.validate.field).string.max_len = 1500];

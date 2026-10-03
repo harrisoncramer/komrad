@@ -176,7 +176,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 	}
 }
 
-// TestReleaseReviewRingsTheAgent pins that each release is one piece of mail naming it and none of its comments.
+// TestReleaseReviewRingsTheAgent pins that each release is one piece of mail naming it, and that only a person's stops the agent.
 func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	fx := newReviewFixture(t)
 	reviewer := newAgentAuthor(fx.reviewer)
@@ -203,6 +203,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[1].Events, "a person's release is told apart from a reviewer's")
 	assert.Contains(t, rung[1].Body, "released: 0 comment(s).")
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
+	assert.Equal(t, []string{fx.worker.ID}, fx.interrupter.interrupted, "only the person's release stops the agent")
 }
 
 // TestReleaseReviewApprovalMail pins when an approval sends the agent to read the review.

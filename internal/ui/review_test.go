@@ -1098,12 +1098,12 @@ func TestReviewRelease(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
 	})
 
-	t.Run("a dormant agent takes the review without an interrupt and the panel says it is queued", func(t *testing.T) {
+	t.Run("a dormant agent takes the review and the panel says it is queued", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.Alive = xptr.Ptr(false)
 		harness := openReview(t, server)
 
-		harness.press("s", "ctrl+x")
+		harness.press("s", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
 			AgentId: "a1",
