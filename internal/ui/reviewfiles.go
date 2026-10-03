@@ -301,7 +301,7 @@ func (r *reviewScreen) blurBlock() {
 func (r *reviewScreen) stepFile(m *model, direction int) tea.Cmd {
 	keys := r.diffKeys()
 	if !r.filesFilter.isNarrowing() {
-		if !keys.pane.JumpFile(direction, keys.height(m)) {
+		if !keys.pane.JumpFile(direction, keys.window(m)) {
 			return nil
 		}
 
@@ -369,7 +369,7 @@ func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
 // landOnFile moves the diff to the top of a file in the tree.
 func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) tea.Cmd {
 	keys := r.diffKeys()
-	if !keys.pane.JumpToFile(row.Row, keys.height(m)) {
+	if !keys.pane.JumpToFile(row.Row, keys.window(m)) {
 		return nil
 	}
 

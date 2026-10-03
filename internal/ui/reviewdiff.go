@@ -175,5 +175,5 @@ func (r reviewScreen) diffView(m *model, split columnSplit) string {
 		held = diffview.DimCursor
 	}
 
-	return strings.Join(r.diff.Render(split.column, split.rows, held), "\n")
+	return strings.Join(r.diff.Render(r.diffWindow(m), held), "\n")
 }

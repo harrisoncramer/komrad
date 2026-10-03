@@ -159,6 +159,8 @@ pan_right  = ["l", "right"]
 prev_file  = ["["]
 # Jump to the previous line matching the pattern.
 prev_match = ["N"]
+# Wrap lines wider than the pane, or go back to cutting them off and panning.
+wrap       = ["w"]
 
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
@@ -479,6 +481,12 @@ back          = ["esc"]
 jump_to_agent = ["J"]
 # Quit the panel.
 quit          = ["ctrl+c"]
+
+# How the panel draws a diff.
+[diff]
+# Wrap a line wider than the pane onto the lines under it rather than cutting it off. The wrap
+# key turns this off and on while reading.
+wrap = true
 
 # The icons the panel draws, grouped by where each one is drawn. Every icon is one character
 # from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the

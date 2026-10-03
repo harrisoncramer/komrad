@@ -198,6 +198,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		diffSearchRow(),
 		diffMatchRow(),
 		diffPanRow(),
+		diffWrapRow(),
 		navJumpRow(),
 		{
 			of:   []actionID{actionReviewEdit},

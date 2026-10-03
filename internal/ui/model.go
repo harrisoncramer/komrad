@@ -203,6 +203,8 @@ type PanelSettings struct {
 	ScratchDir string
 	// VimMode edits the text fields the way vim does.
 	VimMode bool
+	// DiffWrap wraps diff lines wider than the pane when the panel starts.
+	DiffWrap bool
 }
 
 type Deps struct {
@@ -237,15 +239,17 @@ type Deps struct {
 }
 
 type model struct {
-	session         *Session
-	api             api
-	tmux            uiTmux
-	git             ReviewGit
-	browser         browser.Opener
-	harnessFrames   harnessFrameReader
-	binary          BinaryWatcher
-	frame           *layout.Frame
-	settings        PanelSettings
+	session       *Session
+	api           api
+	tmux          uiTmux
+	git           ReviewGit
+	browser       browser.Opener
+	harnessFrames harnessFrameReader
+	binary        BinaryWatcher
+	frame         *layout.Frame
+	settings      PanelSettings
+	// diffWrap wraps diff lines wider than the pane rather than cutting them off.
+	diffWrap        bool
 	unreachable     error
 	engineStatus    EngineStatus
 	engineBuild     EngineBuild
@@ -404,6 +408,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		detailsHeight:   deps.Layout.DetailsHeight,
 		settings:        deps.Settings,
 		register:        newRegister(deps.Settings.VimMode),
+		diffWrap:        deps.Settings.DiffWrap,
 		keys:            deps.Keys,
 		glyphs:          deps.Glyphs,
 		configErr:       deps.ConfigErr,

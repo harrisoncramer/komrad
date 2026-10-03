@@ -364,7 +364,7 @@ func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
 	doing, notice := "opening the file again", "file opened again"
 	if viewed {
 		doing, notice = "marking the file viewed", "file viewed"
-		r.diff.MoveTo(r.diff.View().JumpFile(r.diff.Cursor(), 1), r.diffHeight(m))
+		r.diff.MoveTo(r.diff.View().JumpFile(r.diff.Cursor(), 1), r.diffWindow(m))
 	}
 
 	r.scrollToCursor(m)

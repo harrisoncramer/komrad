@@ -70,6 +70,14 @@ func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
 				drawn := view.renderRow(y, cursor, width, 0)
 				assert.LessOrEqual(t, lipgloss.Width(drawn), width,
 					"row %d at width %d: %q", y, width, ansi.Strip(drawn))
+
+				window := Window{Width: width, Height: 1, Wrap: true}
+				wrapped := view.renderLines(y, cursor, window, 0)
+				assert.Len(t, wrapped, view.measureRow(y, window), "row %d at width %d", y, width)
+				for _, line := range wrapped {
+					assert.LessOrEqual(t, lipgloss.Width(line), width,
+						"wrapped row %d at width %d: %q", y, width, ansi.Strip(line))
+				}
 			}
 		}
 	}
@@ -168,6 +176,72 @@ func TestTheDiffReachesTheTerminalWithoutItsControlCharacters(t *testing.T) {
 				drawn := colour.ReplaceAllString(view.renderRow(y, noCursor, 40, 0), "")
 				assert.False(t, strings.ContainsFunc(drawn, unicode.IsControl), "row %d: %q", y, drawn)
 			}
+		})
+	}
+}
+
+// TestAWrappedLineReadsBackWhole covers a code line too wide for the pane drawn on the lines
+// under it, its gutter on the first and blank on the rest.
+func TestAWrappedLineReadsBackWhole(t *testing.T) {
+	t.Parallel()
+
+	text := "the quick brown fox jumps over the lazy dog"
+	view := NewView(patchWith(diff.FromTexts("notes.md", "one", text)), false)
+	view.SetHeadless(true)
+
+	y := view.GetLastRow()
+	window := Window{Width: GutterWidth + 10, Height: 10, Wrap: true}
+	lines := view.renderLines(y, noCursor, window, 0)
+
+	var read strings.Builder
+	for i, line := range lines {
+		stripped := ansi.Strip(line)
+		gutter := ansi.Cut(stripped, 0, GutterWidth)
+		if i > 0 {
+			assert.Equal(t, strings.Repeat(" ", GutterWidth), gutter, "line %d", i)
+		}
+
+		read.WriteString(strings.TrimRight(ansi.Cut(stripped, GutterWidth, window.Width), " "))
+	}
+
+	assert.Len(t, lines, 5)
+	assert.Equal(t, strings.ReplaceAll(text, " ", ""), strings.ReplaceAll(read.String(), " ", ""))
+}
+
+// TestCarryStyleOpensEachLineInTheStyleLeftOpen covers a style cut by a wrap carried onto the
+// next line and closed at the end of the first.
+func TestCarryStyleOpensEachLineInTheStyleLeftOpen(t *testing.T) {
+	t.Parallel()
+
+	red := "\x1b[31m"
+
+	tests := []struct {
+		name  string
+		lines []string
+		want  []string
+	}{
+		{
+			name:  "a style left open is closed and opened again on the next line",
+			lines: []string{red + "ab", "cd" + ansi.ResetStyle, "ef"},
+			want:  []string{red + "ab" + ansi.ResetStyle, red + "cd" + ansi.ResetStyle, "ef"},
+		},
+		{
+			name:  "a style closed on its own line carries nothing",
+			lines: []string{red + "ab" + ansi.ResetStyle, "cd"},
+			want:  []string{red + "ab" + ansi.ResetStyle, "cd"},
+		},
+		{
+			name:  "plain lines are left as they were",
+			lines: []string{"ab", "cd"},
+			want:  []string{"ab", "cd"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, carryStyle(tt.lines))
 		})
 	}
 }

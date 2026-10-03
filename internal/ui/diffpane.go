@@ -25,8 +25,8 @@ const diffFloor = diffview.GutterWidth + 20
 type diffKeys struct {
 	pane   *diffview.Pane
 	filter *filterState
-	// height is the rows the pane is drawn in.
-	height func(*model) int
+	// window is the size the pane is drawn at.
+	window func(*model) diffview.Window
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
 	// with nothing to do.
 	moved func(*model) tea.Cmd
@@ -41,7 +41,7 @@ func (k diffKeys) table() []screenAction {
 			id:   actionDiffFile,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
 			nav: func(m *model, pressed string) tea.Cmd {
-				if !k.pane.JumpFile(directionOf(pressed, m.keys.Diff.PrevFile), k.height(m)) {
+				if !k.pane.JumpFile(directionOf(pressed, m.keys.Diff.PrevFile), k.window(m)) {
 					return nil
 				}
 
@@ -68,6 +68,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffPan,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.PanLeft, b.Diff.PanRight) },
+			when: isPanning,
 			nav: func(m *model, pressed string) tea.Cmd {
 				k.pane.PanBy(directionOf(pressed, m.keys.Diff.PanLeft) * panStep(m))
 
@@ -77,6 +78,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffPanReset,
 			keys: func(b config.Keybindings) []string { return b.Diff.PanReset },
+			when: isPanning,
 			nav: func(*model, string) tea.Cmd {
 				k.pane.PanBy(-k.pane.Pan())
 
@@ -87,6 +89,11 @@ func (k diffKeys) table() []screenAction {
 			id:   actionDiffExpand,
 			keys: func(b config.Keybindings) []string { return b.Diff.Expand },
 			nav:  func(m *model, _ string) tea.Cmd { return k.toggleExpanded(m) },
+		},
+		{
+			id:   actionDiffWrap,
+			keys: func(b config.Keybindings) []string { return b.Diff.Wrap },
+			nav:  func(m *model, _ string) tea.Cmd { return k.toggleWrap(m) },
 		},
 	}...)
 }
@@ -114,6 +121,7 @@ func (k diffKeys) legend() []screenLegendRow {
 			of:   []actionID{actionDiffExpand},
 			desc: func(*model) string { return k.expandDesc() },
 		},
+		diffWrapRow(),
 	}
 }
 
@@ -155,6 +163,25 @@ func diffPanRow() screenLegendRow {
 	}
 }
 
+// diffWrapRow is the key that wraps long lines or cuts them off again.
+func diffWrapRow() screenLegendRow {
+	return screenLegendRow{
+		of: []actionID{actionDiffWrap},
+		desc: func(m *model) string {
+			if m.diffWrap {
+				return "stop wrapping lines"
+			}
+
+			return "wrap lines"
+		},
+	}
+}
+
+// isPanning reports whether long lines are cut off and panned rather than wrapped.
+func isPanning(m *model) bool {
+	return !m.diffWrap
+}
+
 // expandDesc names what the expand key does to the file under the cursor.
 func (k diffKeys) expandDesc() string {
 	view := k.pane.View()
@@ -189,12 +216,12 @@ func (k diffKeys) search(m *model) {
 		return
 	}
 
-	k.pane.Search(k.filter.pattern, k.height(m))
+	k.pane.Search(k.filter.pattern, k.window(m))
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
 func (k diffKeys) jumpMatch(m *model, direction int) tea.Cmd {
-	moved, found := k.pane.JumpMatch(direction, k.height(m))
+	moved, found := k.pane.JumpMatch(direction, k.window(m))
 	if !found {
 		said := "nothing to search for yet"
 		if k.filter.isStanding() {
@@ -212,6 +239,16 @@ func (k diffKeys) jumpMatch(m *model, direction int) tea.Cmd {
 	return k.land(m)
 }
 
+// toggleWrap wraps lines wider than the pane, or cuts them off again.
+func (k diffKeys) toggleWrap(m *model) tea.Cmd {
+	m.diffWrap = !m.diffWrap
+	if k.pane.View() != nil {
+		k.pane.ScrollToCursor(k.window(m))
+	}
+
+	return nil
+}
+
 // toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
 // and the few around them.
 func (k diffKeys) toggleExpanded(m *model) tea.Cmd {
@@ -223,7 +260,7 @@ func (k diffKeys) toggleExpanded(m *model) tea.Cmd {
 		}
 	}
 
-	switch k.pane.ToggleExpanded(k.height(m)) {
+	switch k.pane.ToggleExpanded(k.window(m)) {
 	case diffview.ExpandNothing:
 		return nil
 	case diffview.ExpandNoMore:
@@ -240,7 +277,7 @@ func (k diffKeys) toggleExpanded(m *model) tea.Cmd {
 }
 
 func (k diffKeys) moveTo(m *model, row int) tea.Cmd {
-	if !k.pane.MoveTo(row, k.height(m)) {
+	if !k.pane.MoveTo(row, k.window(m)) {
 		return nil
 	}
 
@@ -248,7 +285,7 @@ func (k diffKeys) moveTo(m *model, row int) tea.Cmd {
 }
 
 func (k diffKeys) step(m *model, direction, rows int) tea.Cmd {
-	if !k.pane.Step(direction, rows, k.height(m)) {
+	if !k.pane.Step(direction, rows, k.window(m)) {
 		return nil
 	}
 

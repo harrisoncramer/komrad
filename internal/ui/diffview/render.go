@@ -72,6 +72,95 @@ func (v *View) renderRow(y int, cursor Cursor, width, offset int) string {
 		width, "…")
 }
 
+// measureRow is how many lines a row takes in the window, more than one only for a code line
+// wrapped past the window's edge.
+func (v *View) measureRow(y int, window Window) int {
+	codeWidth := window.Width - GutterWidth
+	if !window.Wrap || codeWidth <= 0 {
+		return 1
+	}
+
+	line, ok := v.getLine(y)
+	if !ok {
+		return 1
+	}
+
+	return strings.Count(ansi.Hardwrap(sanitize(line.Text), codeWidth, true), "\n") + 1
+}
+
+// renderLines draws a row as the lines it takes in the window, a wrapped code line carrying its
+// gutter on the first and a blank one on the rest.
+func (v *View) renderLines(y int, cursor Cursor, window Window, offset int) []string {
+	if v.measureRow(y, window) == 1 {
+		return []string{v.renderRow(y, cursor, window.Width, offset)}
+	}
+
+	current, _ := v.getRow(y)
+	line, _ := v.getLine(y)
+	background := getBackground(line.Kind, cursor)
+	content := renderTokens(v.getStyledLine(current, line), line.Text, background, v.matchesIn(y))
+	codeWidth := window.Width - GutterWidth
+
+	pieces := carryStyle(strings.Split(ansi.Hardwrap(content, codeWidth, true), "\n"))
+	lines := make([]string, 0, len(pieces))
+	for i, piece := range pieces {
+		gutter := lipgloss.NewStyle().Background(background).Render(strings.Repeat(" ", GutterWidth))
+		if i == 0 {
+			gutter = v.renderGutter(y, line, background)
+		}
+
+		lines = append(lines, gutter+fitWindow(piece, 0, codeWidth, background))
+	}
+
+	return lines
+}
+
+// carryStyle opens each wrapped line in the style the line before it left open, and closes any
+// line that ends with one open.
+func carryStyle(lines []string) []string {
+	carried := make([]string, len(lines))
+
+	open := ""
+	for i, line := range lines {
+		line = open + line
+		open = openStyleAt(line)
+		if open != "" {
+			line += ansi.ResetStyle
+		}
+
+		carried[i] = line
+	}
+
+	return carried
+}
+
+// openStyleAt is the run of style sequences still in force at the end of a line.
+func openStyleAt(line string) string {
+	var open strings.Builder
+
+	parser := ansi.NewParser()
+	state := byte(0)
+	for len(line) > 0 {
+		sequence, _, read, next := ansi.DecodeSequence(line, state, parser)
+		state = next
+		line = line[read:]
+
+		if !strings.HasPrefix(sequence, "\x1b[") || !strings.HasSuffix(sequence, "m") {
+			continue
+		}
+
+		if sequence == ansi.ResetStyle || sequence == "\x1b[0m" {
+			open.Reset()
+
+			continue
+		}
+
+		open.WriteString(sequence)
+	}
+
+	return open.String()
+}
+
 // renderFileRow draws a file's header, which for a collapsed file is its only row and says what
 // is folded under it.
 func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) string {

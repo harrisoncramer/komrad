@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -96,7 +97,7 @@ func (r *reviewScreen) diffKeys() diffKeys {
 	return diffKeys{
 		pane:   &r.diff.Pane,
 		filter: &r.diff.filter,
-		height: r.diffHeight,
+		window: r.diffWindow,
 		moved: func(m *model) tea.Cmd {
 			r.threads.scroll.reset()
 
@@ -116,14 +117,14 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 	return "that file is folded away" + separated + keyLabel(m.keys.Review.ToggleViewed) + " to open it"
 }
 
-// diffHeight is the rows the diff is drawn in.
-func (r *reviewScreen) diffHeight(m *model) int {
+// diffWindow is the size the diff is drawn at, and nothing without a split.
+func (r *reviewScreen) diffWindow(m *model) diffview.Window {
 	split, ok := m.screenColumnSplit()
 	if !ok {
-		return 0
+		return diffview.Window{Wrap: m.diffWrap}
 	}
 
-	return split.rows
+	return diffview.Window{Width: split.column, Height: split.rows, Wrap: m.diffWrap}
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
@@ -241,7 +242,7 @@ func (r *reviewScreen) scrollPopupAt(m *model, x, y, rows int) bool {
 
 // scrollToCursor moves the window only when the cursor is about to leave it.
 func (r *reviewScreen) scrollToCursor(m *model) {
-	r.diff.ScrollToCursor(r.diffHeight(m))
+	r.diff.ScrollToCursor(r.diffWindow(m))
 }
 
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and

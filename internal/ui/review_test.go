@@ -279,6 +279,33 @@ func TestReviewCursor(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), wide)
 	})
 
+	t.Run("wrapping draws a wide line whole and stops the pan", func(t *testing.T) {
+		wide := strings.Repeat("a", reviewWidth) + "wrapped"
+		repo := gittest.NewRepo(t.TempDir())
+		repo.Wrote(gittest.WroteParams{
+			Tree:    "tree-with-a-wide-line",
+			Whole:   "diff --git a/wide.go b/wide.go\nnew file mode 100644\n--- /dev/null\n+++ b/wide.go\n@@ -0,0 +1 @@\n+" + wide + "\n",
+			Sources: map[string]string{"wide.go": wide + "\n"},
+		})
+		harness := openReviewAt(t, newReviewServerOver(repo), panelHarnessParams{height: 40})
+
+		harness.press("?")
+		assert.Contains(t, readLegend(harness.readFrame()), "w       wrap lines")
+		assert.Contains(t, readLegend(harness.readFrame()), "pan sideways")
+
+		harness.press("w")
+		stage := readStage(harness.readFrame())
+		drawn := strings.Join(stage, "\n")
+		assert.Contains(t, drawn, "wrapped")
+		assert.Greater(t, strings.Count(drawn, "aaaaaaaaaa"), 1, "the line runs on under itself")
+
+		harness.press("l")
+		assert.Equal(t, stage, readStage(harness.readFrame()), "the pan keys do nothing while lines wrap")
+
+		assert.Contains(t, readLegend(harness.readFrame()), "w       stop wrapping lines")
+		assert.NotContains(t, readLegend(harness.readFrame()), "pan sideways")
+	})
+
 	t.Run("a file jump holds the window across a pan and a watch", func(t *testing.T) {
 		repo := gittest.NewRepo(t.TempDir())
 		repo.Wrote(gittest.WroteParams{
@@ -1488,7 +1515,7 @@ func TestReviewLayout(t *testing.T) {
 	})
 
 	t.Run("the switcher and the trail give way before the legend does", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 24})
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 25})
 		require.Contains(t, splitLines(harness.readFrame())[0], "komrad")
 
 		harness.press("?")

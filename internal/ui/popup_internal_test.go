@@ -13,6 +13,7 @@ func TestPlacePopup(t *testing.T) {
 		anchor popupAnchor
 		top    int
 		cursor int
+		last   int
 		tall   int
 		want   popupSlot
 	}{
@@ -36,6 +37,19 @@ func TestPlacePopup(t *testing.T) {
 			want: popupSlot{
 				x:      0,
 				y:      4,
+				width:  61,
+				height: 10,
+			},
+		},
+		{
+			name:   "it stands under the last line of a wrapped cursor row",
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			cursor: 3,
+			last:   5,
+			tall:   10,
+			want: popupSlot{
+				x:      0,
+				y:      6,
 				width:  61,
 				height: 10,
 			},
@@ -157,6 +171,7 @@ func TestPlacePopup(t *testing.T) {
 			assert.Equal(t, tt.want, placePopup(tt.anchor, popupStage{
 				top:    tt.top,
 				cursor: tt.cursor,
+				last:   max(tt.last, tt.cursor),
 				rows:   40,
 			}, tt.tall))
 		})
