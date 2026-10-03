@@ -6,27 +6,10 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// The editor is the one thing on the screen that changes what the stage holds, so it gets a tone
-// apart from the rest of the band.
-const (
-	reviewWritingTone = paint.ToneSecondary
-	reviewHeldTone    = paint.ToneMuted
-)
+const reviewWritingTone = paint.ToneSecondary
 
 // statusView names what the reader is part way through, and says nothing when nothing is.
 func (r reviewScreen) statusView(m *model) string {
-	switch {
-	case r.hold.atEditor:
-		return bandRow(m, reviewWritingTone, "editing",
-			r.hold.editingPath+separated+keyLabel(m.keys.Review.EditFile)+" to come back")
-	case r.hold.pausing:
-		return bandRow(m, reviewWritingTone, "editing", "stopping the agent"+separated+"the editor opens once it has")
-	}
-
-	if r.isArchived(m) {
-		return bandRow(m, reviewHeldTone, "archived", "this agent is archived, nothing can be sent")
-	}
-
 	if r.threads.holdsUnsent() {
 		return bandRow(m, reviewWritingTone, "unsent",
 			label.Counted(r.threads.unsentCount(), "comment")+" not sent"+separated+

@@ -16,26 +16,18 @@ import (
 
 // The tones the review wears, which the region drawing each one turns into a colour.
 const (
-	reviewQuoteTone  = paint.ToneMuted
-	reviewHumanTone  = paint.ToneUserMe
-	reviewAgentTone  = paint.ToneUserAgent
-	reviewerTone     = paint.ToneUserReviewer
-	reviewNoticeTone = paint.ToneSuccess
-	reviewAddedTone  = paint.ToneSuccess
-	// reviewMovedTone draws the catch-up notice as coloured text rather than as a filled bar, the
-	// agent writing while you read being ordinary rather than an alarm.
-	reviewMovedTone     = paint.ToneWarning
+	reviewQuoteTone     = paint.ToneMuted
+	reviewHumanTone     = paint.ToneUserMe
+	reviewAgentTone     = paint.ToneUserAgent
+	reviewerTone        = paint.ToneUserReviewer
+	reviewNoticeTone    = paint.ToneSuccess
+	reviewAddedTone     = paint.ToneSuccess
 	reviewRemovedTone   = paint.ToneDanger
 	reviewUnsentTone    = paint.TonePrimary
 	reviewSentTone      = paint.ToneWarning
 	reviewDeliveredTone = paint.ToneSuccess
 	reviewForgeHeldTone = paint.ToneDanger
 )
-
-// reviewArchivedStyle paints the row saying the agent is archived.
-func reviewArchivedStyle(palette paint.Palette) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(palette.Color(paint.ToneInverse)).Background(palette.Color(paint.ToneMuted)).Bold(true)
-}
 
 // view draws the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
@@ -45,7 +37,7 @@ func (r reviewScreen) view(m *model) string {
 		return r.sidebarView(m)
 	}
 	if !ok {
-		band := r.bandView(m, m.paneWidth())
+		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
 		return r.overlayThread(m, strings.TrimRight(band+r.drawSidebar(layout), "\n"))
@@ -53,7 +45,7 @@ func (r reviewScreen) view(m *model) string {
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	band := r.bandView(m, split.column)
+	band := r.bandView(m)
 	area := band + r.diffView(m, split)
 	diff := m.markZone(zoneList, area, split.column)
 
@@ -106,25 +98,30 @@ type sidebarLayout struct {
 	spare           int
 }
 
-// layoutSidebar gives the column to the file tree, the bar over it giving way before the tree
-// loses a row it needs.
+// layoutSidebar gives the column to the file tree, the bar over it shrinking and then giving way
+// before the tree loses a row it needs.
 func (r reviewScreen) layoutSidebar(m *model, above ...string) sidebarLayout {
 	bare := r.layoutUnder(m, "", above)
-	barred := r.layoutUnder(m, m.viewsBar(), above)
+	for _, bar := range m.viewsBars() {
+		if barred := r.layoutUnder(m, bar, above); r.doesFitUnderBar(barred, bare) {
+			return barred
+		}
+	}
 
+	return bare
+}
+
+// doesFitUnderBar reports whether a bar costs the sidebar neither its legend nor its file tree's floor.
+func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 	if barred.help != bare.help {
-		return bare
+		return false
 	}
 
 	if barred.spare >= 0 && paint.CountLines(barred.pullRequest+barred.files+r.placeView()) > barred.spare {
-		return bare
+		return false
 	}
 
-	if paint.CountLines(barred.files) < min(paint.CountLines(bare.files), r.countFilesFloor(bare.spare)) {
-		return bare
-	}
-
-	return barred
+	return paint.CountLines(barred.files) >= min(paint.CountLines(bare.files), r.countFilesFloor(bare.spare))
 }
 
 // layoutUnder measures the sidebar with bar over it.

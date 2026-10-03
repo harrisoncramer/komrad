@@ -136,7 +136,7 @@ func reviewColumn() columnSpec {
 		rows: func(m *model, split columnSplit) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is drawn in and what the cursor is scrolled against.
-			return split.rows - strings.Count(m.review.bandView(m, split.column), "\n")
+			return split.rows - strings.Count(m.review.bandView(m), "\n")
 		},
 	}
 }

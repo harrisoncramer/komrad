@@ -38,6 +38,9 @@ type reviewScreen struct {
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.
 	filesFilter filterState
+
+	// notices is what the review has raised on the messages stack about the agent.
+	notices reviewNotices
 }
 
 // reviewFocus is which of the diff, the file tree and the pull request holds the review's keys.

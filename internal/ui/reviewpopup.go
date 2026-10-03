@@ -67,7 +67,7 @@ func (r reviewScreen) placeThread(m *model, body string) popupSlot {
 func (r reviewScreen) measurePopupStage(m *model) popupStage {
 	split, ok := m.screenColumnSplit()
 	if !ok {
-		band := r.bandView(m, m.paneWidth())
+		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
 		cursor := paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1
@@ -80,7 +80,7 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		}
 	}
 
-	above := strings.Count(r.bandView(m, split.column), "\n")
+	above := strings.Count(r.bandView(m), "\n")
 	first, height := r.diff.GetCursorLines(r.diffWindow(m))
 
 	return popupStage{

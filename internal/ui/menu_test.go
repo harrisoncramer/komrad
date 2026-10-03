@@ -52,6 +52,23 @@ func TestMenu(t *testing.T) {
 
 		assert.Regexp(t, `space +menu`, readLegend(harness.readFrame()))
 	})
+
+	t.Run("an entry that closes it hands the window back with the stage in one move", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTriage(t, 3, buildTriage()...)
+		harness.press("t")
+		harness.fireTimers()
+		harness.press("space")
+		sent := len(harness.panel.ReadMoveBatches())
+
+		harness.press("z")
+
+		batches := harness.panel.ReadMoveBatches()[sent:]
+		require.Len(t, batches, 1)
+		assert.Contains(t, batches[0], panes.KindZoom)
+		assert.Contains(t, batches[0], panes.KindRespawn)
+	})
 }
 
 // TestScratch covers the engine's scratch file opened in your editor from the menu.
