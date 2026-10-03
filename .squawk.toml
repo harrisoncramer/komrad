@@ -1,0 +1,8 @@
+pg_version = "18.0"
+assume_in_transaction = true
+excluded_rules = [
+  "prefer-bigint-over-int",
+  "require-concurrent-index-creation",
+  "require-lock-timeout",
+  "require-statement-timeout",
+]

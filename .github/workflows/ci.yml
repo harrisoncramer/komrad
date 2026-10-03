@@ -73,6 +73,7 @@ jobs:
               - '.github/workflows/ci.yml'
             db:
               - 'db/**'
+              - '.squawk.toml'
               - '.github/workflows/ci.yml'
             proto:
               - 'proto/**'
@@ -150,6 +151,14 @@ jobs:
         run: |
           mise run db:fmt --check
           mise run db:validate
+
+      - name: Check the migrations against the base branch
+        if: github.event_name == 'pull_request' && steps.changes.outputs.db == 'true'
+        run: |
+          git fetch --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
+          mise run db:lint --against "origin/$BASE"
+        env:
+          BASE: ${{ github.base_ref }}
 
       # The generators, which read the protobufs, the schema and the config and write Go.
       - name: Check the generated files are in step
