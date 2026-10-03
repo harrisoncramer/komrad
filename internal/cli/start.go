@@ -12,7 +12,7 @@ func startCmd(state *app) *cobra.Command {
 
 It asks the configured address who is there first. A server already answering is
 left alone, whatever build it runs, so a rebuilt binary takes over only after
-` + "`komrad restart`" + `. Otherwise ` + "`komrad serve`" + ` is spawned detached, with its output
+` + "`komrad stop`" + `. Otherwise ` + "`komrad serve`" + ` is spawned detached, with its output
 going to the log file, and this waits for the address to answer before returning.
 
 Opening the panel does the same thing on its own, so this is for scripts and for

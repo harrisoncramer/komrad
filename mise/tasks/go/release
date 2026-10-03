@@ -10,9 +10,6 @@ usage() {
 	echo "version the release workflow publishes, plus a checksums.txt covering them."
 	echo
 	echo "The stamp is 'v0.0.0-main.<shortsha>' unless KOMRAD_VERSION names another one."
-	echo "It has to differ between builds: the panel reuses a running server only when"
-	echo "its version matches this binary's exactly, so two builds reporting the same"
-	echo "string would leave a stale server in place after an upgrade."
 }
 
 for arg in "$@"; do
