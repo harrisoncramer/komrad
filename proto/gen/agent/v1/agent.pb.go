@@ -3559,7 +3559,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\x84t\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xd8s\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3579,8 +3579,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\x0erestore_agents\"pBring archived agents back, dormant, along with their workflows. Call resume_agent on each one you want running.(\x00B\x01\x03\x90\x02\x02\x12\xfc\x01\n" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xb5\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\n" +
 	"hold_agent\"\x98\x01Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.(\x00B\x01\x03\x12\xaf\x01\n" +
-	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00B\x01\x03\x12\xeb\x02\n" +
-	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x9e\x02\x9a\xb5\x18\x96\x02\b\x01\x10\x01\x1a\fresume_agent\"\xfa\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An implementer or reviewer may resume only its parent and its workflow's orchestrator, such as to wake one its mail is waiting on.(\x00B\x03\x01\x02\x03\x90\x02\x02\x12\xbf\x01\n" +
+	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00B\x01\x03\x12\xbf\x02\n" +
+	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\xf2\x01\x9a\xb5\x18\xea\x01\b\x01\x10\x01\x1a\fresume_agent\"\xce\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An implementer or reviewer may resume only its parent and its workflow's orchestrator.(\x00B\x03\x01\x02\x03\x90\x02\x02\x12\xbf\x01\n" +
 	"\n" +
 	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00B\x01\x03\x12\xe3\x01\n" +
 	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\x9b\x01\x9a\xb5\x18\x93\x01\b\x01\x10\x01\x1a\rdelete_agents\"yRemove agents for good, with their records, transcripts and worktrees. Prefer archive_agents, and delete only when asked.(\x01B\x01\x03\x90\x02\x02\x12{\n" +
