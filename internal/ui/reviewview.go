@@ -163,17 +163,18 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	return layout
 }
 
-// foldChange is the change block in the most rows that leave the pull request its room, else in the fewest rows that fit.
+// foldChange is the change block in the most rows that leave the pull request its room, else in
+// the fewest rows that fit.
 func (r reviewScreen) foldChange(m *model, room int) string {
 	wanted := paint.CountLines(r.pullRequestView(m, paint.Unbounded))
 
-	shortest := r.changeView(m, 0)
+	var shortest string
 	for fold := range reviewChangeFolds {
 		change := r.changeView(m, fold)
 		if paint.CountLines(change)+wanted <= room {
 			return change
 		}
-		if paint.CountLines(change) < paint.CountLines(shortest) {
+		if fold == 0 || paint.CountLines(change) < paint.CountLines(shortest) {
 			shortest = change
 		}
 	}
