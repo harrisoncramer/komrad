@@ -36,7 +36,7 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "a failure while others still run starts the early event",
 			moves: []Move{{
-				Field: FieldChecks,
+				Field: fieldChecks,
 				From:  "pending",
 				To:    "failing_running",
 			}},
@@ -48,7 +48,7 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "the run finishing swaps the early event for the settled one",
 			moves: []Move{{
-				Field: FieldChecks,
+				Field: fieldChecks,
 				From:  "failing_running",
 				To:    "failing",
 			}},
