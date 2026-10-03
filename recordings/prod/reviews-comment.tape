@@ -19,7 +19,7 @@ Type "s"
 Wait+Screen@10s /about the work as/
 Type "Close. One more edge case."
 Enter
-Wait+Screen@10s /1 comment sent/
+Wait+Screen@10s /review sent/
 Sleep 2s
 Hide
 Wait+Screen@5m /text-truncate \d+:\d+[AP]M/
