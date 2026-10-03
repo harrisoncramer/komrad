@@ -117,7 +117,7 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 	return "that file is folded away" + separated + keyLabel(m.keys.Review.ToggleViewed) + " to open it"
 }
 
-// diffWindow is the size the diff is drawn at, and nothing without a split.
+// diffWindow is the window the diff is drawn in, zero-sized without a split.
 func (r *reviewScreen) diffWindow(m *model) diffview.Window {
 	split, ok := m.screenColumnSplit()
 	if !ok {
