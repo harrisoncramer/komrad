@@ -1501,6 +1501,17 @@ func TestReviewOwnComments(t *testing.T) {
 		assert.Contains(t, readEngineLine(frame), "comment")
 	})
 
+	t.Run("the place row counts the open comment the cursor is on", func(t *testing.T) {
+		harness := openReviewAt(t, newYoursServer(t,
+			newYourThread(gittest.File, 2), newYourThread(gittest.File, 3), newYourThread(gittest.File, 5),
+		), panelHarnessParams{width: 45})
+
+		harness.press("u", "u", "u")
+		assert.Equal(t, "greet.go:5  3 of 3", readReviewCursor(harness.readFrame()))
+		harness.press("U")
+		assert.Equal(t, "greet.go:3  2 of 3", readReviewCursor(harness.readFrame()))
+	})
+
 	t.Run("the open comment key says why it moved nowhere", func(t *testing.T) {
 		settled := newYourThread(gittest.File, 2)
 		settled.ResolvedAt = "2026-09-13T12:00:00Z"
