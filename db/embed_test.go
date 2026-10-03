@@ -18,6 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	probeTable    = `CREATE TABLE unit_probe (id int, seen int NOT NULL DEFAULT 0)`
+	probeFunction = `CREATE OR REPLACE FUNCTION mark_seen() RETURNS trigger AS $$ BEGIN NEW.seen := 1; RETURN NEW; END; $$ LANGUAGE plpgsql;`
+	probeTrigger  = `CREATE OR REPLACE TRIGGER mark_seen BEFORE INSERT ON unit_probe FOR EACH ROW EXECUTE FUNCTION mark_seen();`
+)
+
 // TestMigrate pins that an empty database takes every migration and that a second pass over
 // the same database changes nothing.
 func TestMigrate(t *testing.T) {
@@ -510,16 +516,6 @@ func TestSchemaVersionReadsTheEmbeddedMigrations(t *testing.T) {
 	assert.Len(t, version, versionLength)
 }
 
-const (
-	probeTable    = `CREATE TABLE unit_probe (id int, seen int NOT NULL DEFAULT 0)`
-	probeFunction = `CREATE OR REPLACE FUNCTION mark_seen() RETURNS trigger AS $$ BEGIN NEW.seen := 1; RETURN NEW; END; $$ LANGUAGE plpgsql;`
-	probeTrigger  = `CREATE OR REPLACE TRIGGER mark_seen BEFORE INSERT ON unit_probe FOR EACH ROW EXECUTE FUNCTION mark_seen();`
-)
-
-func probeSources(migrations, triggers fstest.MapFS) *sources {
-	return &sources{migrations: migrations, triggers: triggers}
-}
-
 // TestMigrateTriggerUnits walks one table's triggers through being attached, versioned, reattached and dropped.
 func TestMigrateTriggerUnits(t *testing.T) {
 	pool := open(t)
@@ -531,7 +527,7 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"unit_probe.v1.sql": {Data: []byte(probeTrigger)},
 	}
 
-	require.NoError(t, migrate(ctx, pool, probeSources(migrations, attached)))
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: migrations, triggers: attached}))
 	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 1}, appliedUnits(t, pool))
 	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"))
 
@@ -543,21 +539,21 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"_functions.v1.sql": attached["_functions.v1.sql"],
 		"unit_probe.v1.sql": {Data: []byte(`SELECT 1/0;`)},
 	}
-	require.Error(t, migrate(ctx, pool, probeSources(recreated, broken)))
-	require.ErrorIs(t, checkSchema(ctx, pool, probeSources(recreated, attached)), ErrSchemaBehind, "a unit owed by a migration stays owed after a failed run")
-	require.NoError(t, migrate(ctx, pool, probeSources(recreated, attached)))
+	require.Error(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: broken}))
+	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: attached}), ErrSchemaBehind, "a unit owed by a migration stays owed after a failed run")
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: attached}))
 	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"), "a migration that rebuilds a table gets its triggers back")
 
 	detached := fstest.MapFS{
 		"_functions.v1.sql": attached["_functions.v1.sql"],
 		"unit_probe.v2.sql": {Data: []byte(`DROP TRIGGER IF EXISTS mark_seen ON unit_probe;`)},
 	}
-	require.ErrorIs(t, checkSchema(ctx, pool, probeSources(recreated, detached)), ErrSchemaBehind)
-	require.NoError(t, migrate(ctx, pool, probeSources(recreated, detached)))
+	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: detached}), ErrSchemaBehind)
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: detached}))
 	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool))
 	assert.False(t, triggerExists(t, pool, "unit_probe", "mark_seen"))
 	assert.False(t, functionExists(t, pool, "mark_seen"), "a function no trigger runs is dropped")
-	require.NoError(t, checkSchema(ctx, pool, probeSources(recreated, attached)), "an older build runs against newer triggers")
+	require.NoError(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: attached}), "an older build runs against newer triggers")
 
 	dropped := fstest.MapFS{
 		"20260101000000_first.sql":  recreated["20260101000000_first.sql"],
@@ -565,10 +561,10 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"20260103000000_third.sql":  {Data: []byte(`DROP TABLE unit_probe`)},
 	}
 	functionsOnly := fstest.MapFS{"_functions.v1.sql": attached["_functions.v1.sql"]}
-	require.NoError(t, migrate(ctx, pool, probeSources(dropped, functionsOnly)))
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: dropped, triggers: functionsOnly}))
 	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool), "a unit no longer carried keeps its row")
-	require.NoError(t, checkSchema(ctx, pool, probeSources(recreated, detached)), "an older build still carrying the unit runs against the newer database")
-	require.NoError(t, migrate(ctx, pool, probeSources(recreated, detached)))
+	require.NoError(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: detached}), "an older build still carrying the unit runs against the newer database")
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: detached}))
 }
 
 // TestListUnits pins the order units apply in and the file names it refuses.
@@ -625,7 +621,7 @@ func TestSchemaVersionChangesWithTheTriggers(t *testing.T) {
 	migrations := fstest.MapFS{"20260101000000_first.sql": {Data: []byte(probeTable)}}
 	base := fstest.MapFS{"unit_probe.v1.sql": {Data: []byte(probeTrigger)}}
 
-	version, err := schemaVersion(probeSources(migrations, base))
+	version, err := schemaVersion(&sources{migrations: migrations, triggers: base})
 	require.NoError(t, err)
 
 	moved := map[string]fstest.MapFS{
@@ -637,7 +633,7 @@ func TestSchemaVersionChangesWithTheTriggers(t *testing.T) {
 
 	for name, triggers := range moved {
 		t.Run(name, func(t *testing.T) {
-			other, err := schemaVersion(probeSources(migrations, triggers))
+			other, err := schemaVersion(&sources{migrations: migrations, triggers: triggers})
 			require.NoError(t, err)
 			assert.NotEqual(t, version, other)
 		})
