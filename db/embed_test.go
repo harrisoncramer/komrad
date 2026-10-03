@@ -539,6 +539,12 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"20260101000000_first.sql":  migrations["20260101000000_first.sql"],
 		"20260102000000_second.sql": {Data: []byte(`DROP TABLE unit_probe; ` + probeTable)},
 	}
+	broken := fstest.MapFS{
+		"_functions.v1.sql": attached["_functions.v1.sql"],
+		"unit_probe.v1.sql": {Data: []byte(`SELECT 1/0;`)},
+	}
+	require.Error(t, migrate(ctx, pool, probeSources(recreated, broken)))
+	require.ErrorIs(t, checkSchema(ctx, pool, probeSources(recreated, attached)), ErrSchemaBehind, "a unit owed by a migration stays owed after a failed run")
 	require.NoError(t, migrate(ctx, pool, probeSources(recreated, attached)))
 	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"), "a migration that rebuilds a table gets its triggers back")
 

@@ -72,6 +72,11 @@ BEGIN
 END;
 $$;`
 
+// recordMigrationSQL records a migration and forgets every unit this build carries, so each stays pending until reapplied.
+const recordMigrationSQL = `
+WITH recorded AS (INSERT INTO schema_migrations (version) VALUES ($1))
+DELETE FROM schema_triggers WHERE unit = ANY ($2)`
+
 // Migrate applies any migrations not yet recorded, in filename order, each in its own
 // transaction alongside the row recording it, and then any trigger unit the database is behind on.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
@@ -302,7 +307,7 @@ func (p *plan) names() []string {
 }
 
 // getPlan is which migrations the database has no record of, and which trigger units it is
-// behind on, every unit not ahead of this build being reapplied when a migration runs.
+// behind on, every unit being reapplied when a migration runs.
 func getPlan(ctx context.Context, q queryer, all *contents) (*plan, error) {
 	appliedMigrations, err := listAppliedMigrations(ctx, q)
 	if err != nil {
@@ -316,12 +321,7 @@ func getPlan(ctx context.Context, q queryer, all *contents) (*plan, error) {
 
 	migrations := xslice.Filter(all.migrations, func(version string) bool { return !appliedMigrations[version] })
 	units := xslice.Filter(all.units, func(u unit) bool {
-		applied, ok := appliedTriggers[u.name]
-		if len(migrations) > 0 {
-			return applied <= u.version
-		}
-
-		return !ok || applied < u.version
+		return len(migrations) > 0 || appliedTriggers[u.name] < u.version
 	})
 
 	return &plan{migrations: migrations, units: units}, nil
@@ -361,12 +361,13 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 		return err
 	}
 
+	unitNames := xslice.Map(all.units, func(u unit) string { return u.name })
 	for _, version := range p.migrations {
 		if err := applyFile(ctx, conn, step{
 			files:  src.migrations,
 			name:   version,
-			record: `INSERT INTO schema_migrations (version) VALUES ($1)`,
-			args:   []any{version},
+			record: recordMigrationSQL,
+			args:   []any{version, unitNames},
 		}); err != nil {
 			return err
 		}
@@ -389,8 +390,7 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 		}
 	}
 
-	names := xslice.Map(all.units, func(u unit) string { return u.name })
-	if _, err := conn.Exec(ctx, `DELETE FROM schema_triggers WHERE unit <> ALL ($1)`, names); err != nil {
+	if _, err := conn.Exec(ctx, `DELETE FROM schema_triggers WHERE unit <> ALL ($1)`, unitNames); err != nil {
 		return fmt.Errorf("failed to forget trigger units this build no longer carries: %w", err)
 	}
 
