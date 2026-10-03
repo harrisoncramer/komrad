@@ -33,7 +33,7 @@ func TestSyncVersionsEachUnitByItsSQL(t *testing.T) {
 	assert.Equal(t, fileNames(units, map[string]int{changed.Name: 2, kept.Name: 4}), listDir(t, dir))
 	content, err := os.ReadFile(filepath.Join(dir, changed.Name+".v2.sql"))
 	require.NoError(t, err)
-	assert.Equal(t, header+Fingerprint(changed.SQL)+"\n"+changed.SQL, string(content))
+	assert.Equal(t, header+fingerprintOf(changed.SQL)+"\n"+changed.SQL, string(content))
 }
 
 // TestSyncRefusesADirectoryItCannotRead covers a misnamed file, two files for one unit and a file without its header.
