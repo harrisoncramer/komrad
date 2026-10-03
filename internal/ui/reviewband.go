@@ -20,16 +20,10 @@ const reviewScopeOnTone = paint.TonePrimary
 
 // bandView is what stands over the diff: what is being read, how big it is, what the reader
 // has sent, and the pattern they are searching it for.
-func (r reviewScreen) bandView(m *model, width int) string {
+func (r reviewScreen) bandView(m *model) string {
 	kept := r.bandRows(m)
 
-	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
-
-	if r.diff.View() != nil && r.diff.View().Len() > 0 {
-		out += r.archivedView(m, width)
-	}
-
-	return out
+	return strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
 // bandRows is the band's rows in the order they give way, least valuable last.
@@ -39,7 +33,6 @@ func (r reviewScreen) bandRows(m *model) []string {
 		r.statusView(m),
 		r.scopeView(m),
 		r.diff.statView(),
-		r.staleView(m),
 		r.threads.deliveryCountView(),
 	}
 
@@ -57,50 +50,6 @@ func (r reviewScreen) bandRows(m *model) []string {
 	}
 
 	return rows[:room]
-}
-
-// archivedView says the agent is archived.
-func (r reviewScreen) archivedView(m *model, width int) string {
-	if !r.isArchived(m) {
-		return ""
-	}
-
-	return reviewArchivedStyle(paint.Panel).Render(reviewFill(" "+archivedSaid+" ", width)) + "\n"
-}
-
-// staleView says the worktree has moved since the diff on screen was read.
-func (r reviewScreen) staleView(m *model) string {
-	// The editor holds the stage rather than the diff, and the move it reports is usually the
-	// reader's own writing, so there is nothing here worth a row.
-	if !r.isWorktreeMoved(m) || r.diff.pinned || r.hold.atEditor {
-		return "\n"
-	}
-
-	return paint.Panel.Style(reviewMovedTone).Render(r.staleSaid(m)) + "\n"
-}
-
-// staleSaid is why the diff is behind the worktree, in the terms the reader can act on.
-func (r reviewScreen) staleSaid(m *model) string {
-	if r.isAgentWriting(m) {
-		return "the agent is writing" + separated + "the diff catches up when it stops"
-	}
-
-	if r.doesFollowLive(m) {
-		return "the worktree has moved" + separated + "catching up"
-	}
-
-	return "the worktree has moved" + separated + keyLabel(m.keys.Review.Reload) + " to catch up"
-}
-
-// reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
-// than as a highlighted phrase.
-func reviewFill(line string, pane int) string {
-	width := max(20, pane-2)
-	if run := lipgloss.Width(line); run < width {
-		line += strings.Repeat(" ", width-run)
-	}
-
-	return line
 }
 
 // statView is how big the change is, with the counts coloured the way the lines themselves are.

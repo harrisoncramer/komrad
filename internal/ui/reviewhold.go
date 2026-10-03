@@ -85,6 +85,11 @@ func (r *reviewScreen) startHold(m *model) tea.Cmd {
 	}
 
 	r.hold.pausing = true
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: "stopping the agent",
+		detail:  "the editor opens once it has",
+	})
 
 	return holdAgentCmd(m, r.agentID, r.agentName)
 }

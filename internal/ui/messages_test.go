@@ -69,11 +69,11 @@ func TestMessagesHeader(t *testing.T) {
 		assert.Equal(t, " local", readEngineLine(harness.readFrame()))
 	})
 
-	t.Run("a pane too short for the header flashes on the row the trail is drawn on", func(t *testing.T) {
+	t.Run("a pane too short for the header flashes beside the engine in place of the trail", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{height: 13})
 
 		harness.press("enter")
-		assert.Equal(t, "✗ Could not resume agent \"api-refactor\"", readEngineRow(harness.readFrame(), 0))
+		assert.Equal(t, "\uf444 local  ✗ Could not resume agent \"api-refa…", readEngineRow(harness.readFrame(), 0))
 
 		settleFlash(harness)
 		assert.NotContains(t, harness.readFrame(), "Could not resume")

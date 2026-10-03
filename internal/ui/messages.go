@@ -44,6 +44,7 @@ const (
 
 type message struct {
 	kind    messageKind
+	key     string
 	summary string
 	detail  string
 	hint    string
@@ -92,8 +93,13 @@ func (m *model) isMessagesPulseOn() bool {
 	return m.messages.pulse.isLit()
 }
 
+// isMessagesFlashing reports whether the newest message is flashing beside the engine.
+func (m *model) isMessagesFlashing() bool {
+	return m.messages.flashing && len(m.messages.items) > 0
+}
+
 func (m *model) drawMessagesFlash(width int) (string, bool) {
-	if !m.messages.flashing || len(m.messages.items) == 0 || width < 3 {
+	if !m.isMessagesFlashing() || width < 3 {
 		return "", false
 	}
 
@@ -265,6 +271,10 @@ func (m *model) copyMessage() tea.Cmd {
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
 // were reading when it lands.
 func (m *model) pushMessage(next message) {
+	if m.findMessage(next.key) >= 0 {
+		return
+	}
+
 	if next.detail == "" {
 		next.detail = "no reason given"
 	}
@@ -379,10 +389,7 @@ func (m *model) dismissMessage() {
 	}
 
 	at := m.messages.clampedCursor()
-	if at == 0 {
-		m.messages.flashing = false
-	}
-	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
+	m.removeMessage(at)
 	m.messages.cursor = cursor.Clamp(at, len(m.messages.items))
 
 	if len(m.messages.items) == 0 {
@@ -396,6 +403,38 @@ func (m *model) dismissAllMessages() {
 	m.messages.flashing = false
 
 	m.toggleMessagesFocus()
+}
+
+// dropMessage takes the message raised under a key off the stack once what it said stops being true.
+func (m *model) dropMessage(key string) {
+	at := m.findMessage(key)
+	if at < 0 {
+		return
+	}
+
+	m.removeMessage(at)
+	m.messages.cursor = cursor.Clamp(m.messages.cursor, len(m.messages.items))
+
+	if len(m.messages.items) == 0 && m.messages.focused {
+		m.toggleMessagesFocus()
+	}
+}
+
+// findMessage is where the message raised under a key sits on the stack, and -1 when none does.
+func (m *model) findMessage(key string) int {
+	if key == "" {
+		return -1
+	}
+
+	return slices.IndexFunc(m.messages.items, func(held message) bool { return held.key == key })
+}
+
+// removeMessage takes the message at a place off the stack, ending the flash when it was the newest.
+func (m *model) removeMessage(at int) {
+	if at == 0 {
+		m.messages.flashing = false
+	}
+	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
 }
 
 // pushMockMessage pushes a message from the fixtures.
