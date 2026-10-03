@@ -77,10 +77,11 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 	return overlayPopup(area, body, back, r.placeThread(m, body))
 }
 
-// drawSidebar is the panel's own column: the pull request open from the branch, the files the
-// change touches, where the cursor is standing, and what the reader was last told.
+// drawSidebar is the panel's own column: what the change is, the pull request open from the
+// branch, the files the change touches, where the cursor is standing, and what the reader was
+// last told.
 func (r reviewScreen) drawSidebar(layout sidebarLayout) string {
-	column := paint.PadRows(layout.pullRequest+layout.files+r.placeView()+layout.notes, layout.spare)
+	column := paint.PadRows(layout.change+layout.pullRequest+layout.files+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
 }
@@ -90,6 +91,7 @@ type sidebarLayout struct {
 	bar         string
 	rule        string
 	help        string
+	change      string
 	pullRequest string
 	// pullRequestRows is the rows the pull request was given, paint.Unbounded when it was given all it wants.
 	pullRequestRows int
@@ -117,7 +119,7 @@ func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 		return false
 	}
 
-	if barred.spare >= 0 && paint.CountLines(barred.pullRequest+barred.files+r.placeView()) > barred.spare {
+	if barred.spare >= 0 && paint.CountLines(barred.change+barred.pullRequest+barred.files+r.placeView()) > barred.spare {
 		return false
 	}
 
@@ -147,6 +149,8 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	}
 
 	room := spare - paint.CountLines(r.placeView())
+	layout.change = r.foldChange(m, room-r.countFilesFloor(spare))
+	room -= paint.CountLines(layout.change)
 	layout.pullRequestRows = max(room-r.countFilesFloor(spare), 0)
 	layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
 	room -= paint.CountLines(layout.pullRequest)
@@ -155,6 +159,28 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	layout.notes = cutNotes(layout.notes, room-paint.CountLines(layout.files))
 
 	return layout
+}
+
+// foldChange is the change block in the most rows that leave the pull request its room, else in the fewest rows that fit.
+func (r reviewScreen) foldChange(m *model, room int) string {
+	wanted := paint.CountLines(r.pullRequestView(m, paint.Unbounded))
+
+	shortest := r.changeView(m, 0)
+	for fold := range reviewChangeFolds {
+		change := r.changeView(m, fold)
+		if paint.CountLines(change)+wanted <= room {
+			return change
+		}
+		if paint.CountLines(change) < paint.CountLines(shortest) {
+			shortest = change
+		}
+	}
+
+	if paint.CountLines(shortest) <= room {
+		return shortest
+	}
+
+	return ""
 }
 
 func cutNotes(notes string, rows int) string {

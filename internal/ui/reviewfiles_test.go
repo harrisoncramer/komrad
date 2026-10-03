@@ -65,6 +65,7 @@ func TestReviewFiles(t *testing.T) {
 				threads: []*agentv1.ReviewThread{
 					newThreadOnFirstLine(newHumanMessage("m3", "rename the package")),
 				},
+				keys: []string{"j"},
 				want: "▸ greet.go +1 −1 ○",
 			},
 		}
