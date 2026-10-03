@@ -184,9 +184,17 @@ SELECT
     c.required,
     c.url
 FROM
-    jsonb_to_recordset($2::jsonb) AS c(provider_id text, kind text, source text, name text, state text, conclusion text, started_at timestamptz, finished_at timestamptz, required boolean, url text)
-ON CONFLICT (
-    engine_id,
+    JSONB_TO_RECORDSET($2::jsonb) AS c(provider_id text,
+        kind text,
+        source text,
+        name text,
+        state text,
+        conclusion text,
+        started_at timestamptz,
+        finished_at timestamptz,
+        required boolean,
+        url text)
+ON CONFLICT (engine_id,
     reading_id,
     provider_id)
     DO UPDATE SET
