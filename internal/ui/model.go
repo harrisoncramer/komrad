@@ -277,9 +277,13 @@ type model struct {
 	lastScreen  lastScreen
 	search      searchScreen
 	review      reviewScreen
-	filter      filterState
-	rowCursor   cursor.Model
-	form        formState
+	// chatHidden is whether the reader put the implementer's chat under the review away for the session.
+	chatHidden bool
+	// chatOff is whether the config keeps the implementer's chat out of the review altogether.
+	chatOff   bool
+	filter    filterState
+	rowCursor cursor.Model
+	form      formState
 	// register is the text vim last yanked or deleted in any field, nil when vim is off.
 	register *vim.Register
 	// edited is the files a reader opened an editor on over an agent's worktree while it was
@@ -405,6 +409,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		binary:          deps.Binary,
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine), layout.WithShellCommand(deps.ShellCommand), layout.WithTerminalCommand(deps.TerminalCommand)),
 		detailsHeight:   deps.Layout.DetailsHeight,
+		chatOff:         !deps.Layout.ImplementerChat,
 		settings:        deps.Settings,
 		register:        newRegister(deps.Settings.VimMode),
 		diffWrap:        deps.Settings.DiffWrap,

@@ -806,6 +806,13 @@
               "default": "[\"A\"]"
             },
             {
+              "key": "agent",
+              "path": "keybindings.review.agent",
+              "type": "array",
+              "description": "Move the keys into the implementer's chat under the diff. The leader brings them back to\nthe review, with the cursor where it was.",
+              "default": "[\"i\"]"
+            },
+            {
               "key": "answer",
               "path": "keybindings.review.answer",
               "type": "array",
@@ -1147,6 +1154,13 @@
               "type": "array",
               "description": "Put an agent on a branch that already exists, in the hovered workflow.",
               "default": "[\"A\"]"
+            },
+            {
+              "key": "chat",
+              "path": "keybindings.menu.chat",
+              "type": "array",
+              "description": "Put away the implementer's chat under the review for the rest of the session, or bring it back.\nThe entry is only on the review.",
+              "default": "[\"i\"]"
             },
             {
               "key": "new_agent",

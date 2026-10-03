@@ -121,7 +121,10 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 	left := m.enterScreen(screenReview)
 	m.leftStop = stopList
 
-	return tea.Batch(left, m.review.open(m, agent))
+	opened := m.review.open(m, agent)
+	m.reconcileChat()
+
+	return tea.Batch(left, opened)
 }
 
 var (
@@ -133,6 +136,8 @@ var (
 	_ listScroller       = (*reviewScreen)(nil)
 	_ editorReconciler   = (*reviewScreen)(nil)
 	_ agentPauser        = (*reviewScreen)(nil)
+	_ screenLeaver       = (*reviewScreen)(nil)
+	_ screenMenuBuilder  = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) drawsSwitcher() bool {
