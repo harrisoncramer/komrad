@@ -8,6 +8,16 @@ enum "review_verdict" {
   values = ["approved", "changes_requested", "commented"]
 }
 
+enum "forge_reply_state" {
+  schema = schema.public
+  values = ["draft", "approved", "sending", "sent", "failed"]
+}
+
+enum "forge_reply_approver_kind" {
+  schema = schema.public
+  values = ["human"]
+}
+
 table "review_rounds" {
   schema  = schema.public
   comment = "One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files."
@@ -518,6 +528,159 @@ table "review_messages" {
     unique  = true
     where   = "forge_comment_id IS NOT NULL"
     comment = "Holds each mirrored thread to one copy of a forge comment."
+  }
+}
+
+table "review_forge_replies" {
+  schema  = schema.public
+  comment = "A reply komrad posts to the forge on a mirrored thread, from the agent's proposal or the person's own words through to the forge comment it became."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "thread_id" {
+    null    = false
+    type    = uuid
+    comment = "The mirrored review thread the reply answers on the forge."
+  }
+  column "state" {
+    null    = false
+    type    = enum.forge_reply_state
+    comment = "Where the reply is on its way to the forge. A draft waits for the person, an approved reply waits to be posted, and a sending one may already be on the forge."
+  }
+  column "author_kind" {
+    null    = false
+    type    = enum.review_author_kind
+    comment = "Whether the person or the agent wrote the reply."
+  }
+  column "author_agent_id" {
+    null    = true
+    type    = uuid
+    comment = "The agent that proposed the reply, null when the person wrote it or when that agent has since been deleted."
+  }
+  column "proposed_body" {
+    null    = true
+    type    = text
+    comment = "The agent's text as it proposed it, kept so the agent can learn whether its draft went out as written. Null on a reply the person wrote."
+  }
+  column "body" {
+    null    = false
+    type    = text
+    comment = "The text to post, as markdown, which the person may have edited from the proposal. Once sent it is what the forge received."
+  }
+  column "approver_kind" {
+    null    = true
+    type    = enum.forge_reply_approver_kind
+    comment = "Who approved the reply for posting, null while it is a draft."
+  }
+  column "approved_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the reply was approved for posting, null while it is a draft."
+  }
+  column "sending_started_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the latest attempt to post the reply began, null until one has."
+  }
+  column "sent_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the forge accepted the reply, null until it has."
+  }
+  column "forge_comment_provider_id" {
+    null    = true
+    type    = text
+    comment = "The forge's own id for the comment the reply became, which the sync matches so it does not mirror the reply back as a new comment. Null until the forge accepts it."
+  }
+  column "error" {
+    null    = true
+    type    = text
+    comment = "What the forge said when the latest attempt to post failed, null otherwise."
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "review_forge_replies_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
+  }
+  foreign_key "review_forge_replies_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_forge_replies_thread_id_fkey" {
+    columns     = [column.engine_id, column.thread_id]
+    ref_columns = [table.review_threads.column.engine_id, table.review_threads.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_forge_replies_author_agent_id_fkey" {
+    columns     = [column.engine_id, column.author_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
+  index "review_forge_replies_thread_id" {
+    columns = [column.thread_id, column.id]
+  }
+  index "review_forge_replies_open_proposal" {
+    columns = [column.thread_id]
+    unique  = true
+    where   = "author_kind = 'agent' AND state <> 'sent'"
+    comment = "Holds each thread to one agent proposal that has not yet reached the forge."
+  }
+  index "review_forge_replies_thread_forge_comment" {
+    columns = [column.thread_id, column.forge_comment_provider_id]
+    unique  = true
+    where   = "forge_comment_provider_id IS NOT NULL"
+    comment = "Holds each forge comment to one reply that became it."
+  }
+  index "review_forge_replies_sending" {
+    columns = [column.id]
+    where   = "state = 'sending'"
+    comment = "Finds the replies an interrupted send may have left on the forge."
+  }
+  check "review_forge_replies_author_not_forge" {
+    expr = "author_kind IN ('human', 'agent')"
+  }
+  check "review_forge_replies_proposal_from_agent" {
+    expr = "(author_kind = 'agent') = (proposed_body IS NOT NULL)"
+  }
+  check "review_forge_replies_human_skips_draft" {
+    expr = "author_kind = 'agent' OR state <> 'draft'"
+  }
+  check "review_forge_replies_approval_recorded" {
+    expr = "(state = 'draft') = (approver_kind IS NULL) AND (approver_kind IS NULL) = (approved_at IS NULL)"
+  }
+  check "review_forge_replies_sending_started" {
+    expr = "state IN ('draft', 'approved') OR sending_started_at IS NOT NULL"
+  }
+  check "review_forge_replies_sent_recorded" {
+    expr = "(state = 'sent') = (sent_at IS NOT NULL) AND (state = 'sent') = (forge_comment_provider_id IS NOT NULL)"
+  }
+  check "review_forge_replies_failure_recorded" {
+    expr = "(state = 'failed') = (error IS NOT NULL)"
+  }
+  check "review_forge_replies_body_written" {
+    expr = "body <> ''"
   }
 }
 

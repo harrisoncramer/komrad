@@ -109,7 +109,11 @@ func findTightenings(message, against protoreflect.MessageDescriptor) ([]tighten
 		}
 
 		if rule := tightenedRule(rules, previousRules); rule != "" {
-			found = append(found, tightening{descriptor: field, against: previous, rule: rule})
+			found = append(found, tightening{
+				descriptor: field,
+				against:    previous,
+				rule:       rule,
+			})
 		}
 	}
 
@@ -130,12 +134,20 @@ func findTightenings(message, against protoreflect.MessageDescriptor) ([]tighten
 		}
 
 		if !isCoveredBy(oneofRules(oneof).ProtoReflect(), oneofRules(previous).ProtoReflect()) {
-			found = append(found, tightening{descriptor: oneof, against: previous, rule: "carries a rule it did not"})
+			found = append(found, tightening{
+				descriptor: oneof,
+				against:    previous,
+				rule:       "carries a rule it did not",
+			})
 		}
 	}
 
 	if !isCoveredBy(messageRules(message).ProtoReflect(), messageRules(against).ProtoReflect()) {
-		found = append(found, tightening{descriptor: message, against: against, rule: "carries a rule it did not"})
+		found = append(found, tightening{
+			descriptor: message,
+			against:    against,
+			rule:       "carries a rule it did not",
+		})
 	}
 
 	return found, nil

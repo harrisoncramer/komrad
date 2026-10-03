@@ -124,7 +124,11 @@ func (r *reviewScreen) diffWindow(m *model) diffview.Window {
 		return diffview.Window{Wrap: m.diffWrap}
 	}
 
-	return diffview.Window{Width: split.column, Height: split.rows, Wrap: m.diffWrap}
+	return diffview.Window{
+		Width:  split.column,
+		Height: split.rows,
+		Wrap:   m.diffWrap,
+	}
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.

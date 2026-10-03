@@ -65,6 +65,7 @@ var declared = []Table{
 	{Name: "mail", Triggers: []Trigger{stampEngine, setUpdatedAt}},
 	{Name: "pull_request_syncs", Triggers: []Trigger{stampEngine}},
 	{Name: "pull_requests", Triggers: []Trigger{stampEngine}},
+	{Name: "review_forge_replies", Triggers: []Trigger{stampEngine, setUpdatedAt}},
 	{Name: "review_messages", Triggers: []Trigger{stampEngine, setUpdatedAt}},
 	{Name: "review_rounds", Triggers: []Trigger{stampEngine}},
 	{Name: "review_threads", Triggers: []Trigger{stampEngine, setUpdatedAt}},

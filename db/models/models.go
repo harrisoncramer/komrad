@@ -147,6 +147,92 @@ func (ns NullAgentState) Value() (driver.Value, error) {
 	return string(ns.AgentState), nil
 }
 
+type ForgeReplyApproverKind string
+
+const (
+	ForgeReplyApproverKindHuman ForgeReplyApproverKind = "human"
+)
+
+func (e *ForgeReplyApproverKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ForgeReplyApproverKind(s)
+	case string:
+		*e = ForgeReplyApproverKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ForgeReplyApproverKind: %T", src)
+	}
+	return nil
+}
+
+type NullForgeReplyApproverKind struct {
+	ForgeReplyApproverKind ForgeReplyApproverKind
+	Valid                  bool // Valid is true if ForgeReplyApproverKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullForgeReplyApproverKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ForgeReplyApproverKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ForgeReplyApproverKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullForgeReplyApproverKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ForgeReplyApproverKind), nil
+}
+
+type ForgeReplyState string
+
+const (
+	ForgeReplyStateDraft    ForgeReplyState = "draft"
+	ForgeReplyStateApproved ForgeReplyState = "approved"
+	ForgeReplyStateSending  ForgeReplyState = "sending"
+	ForgeReplyStateSent     ForgeReplyState = "sent"
+	ForgeReplyStateFailed   ForgeReplyState = "failed"
+)
+
+func (e *ForgeReplyState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ForgeReplyState(s)
+	case string:
+		*e = ForgeReplyState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ForgeReplyState: %T", src)
+	}
+	return nil
+}
+
+type NullForgeReplyState struct {
+	ForgeReplyState ForgeReplyState
+	Valid           bool // Valid is true if ForgeReplyState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullForgeReplyState) Scan(value interface{}) error {
+	if value == nil {
+		ns.ForgeReplyState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ForgeReplyState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullForgeReplyState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ForgeReplyState), nil
+}
+
 type MailKind string
 
 const (
@@ -734,6 +820,39 @@ type Review struct {
 	EngineID string
 	// The forge login of whoever wrote a review on the forge, empty when the forge no longer knew them. Null for a review written in komrad.
 	ExternalLogin *string
+}
+
+// A reply komrad posts to the forge on a mirrored thread, from the agent's proposal or the person's own words through to the forge comment it became.
+type ReviewForgeReply struct {
+	ID string
+	// The mirrored review thread the reply answers on the forge.
+	ThreadID string
+	// Where the reply is on its way to the forge. A draft waits for the person, an approved reply waits to be posted, and a sending one may already be on the forge.
+	State ForgeReplyState
+	// Whether the person or the agent wrote the reply.
+	AuthorKind ReviewAuthorKind
+	// The agent that proposed the reply, null when the person wrote it or when that agent has since been deleted.
+	AuthorAgentID *string
+	// The agent's text as it proposed it, kept so the agent can learn whether its draft went out as written. Null on a reply the person wrote.
+	ProposedBody *string
+	// The text to post, as markdown, which the person may have edited from the proposal. Once sent it is what the forge received.
+	Body string
+	// Who approved the reply for posting, null while it is a draft.
+	ApproverKind NullForgeReplyApproverKind
+	// When the reply was approved for posting, null while it is a draft.
+	ApprovedAt *time.Time
+	// When the latest attempt to post the reply began, null until one has.
+	SendingStartedAt *time.Time
+	// When the forge accepted the reply, null until it has.
+	SentAt *time.Time
+	// The forge's own id for the comment the reply became, which the sync matches so it does not mirror the reply back as a new comment. Null until the forge accepts it.
+	ForgeCommentProviderID *string
+	// What the forge said when the latest attempt to post failed, null otherwise.
+	Error     *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
 }
 
 // One message in a review thread, written either by the reviewer or by the agent answering them.
