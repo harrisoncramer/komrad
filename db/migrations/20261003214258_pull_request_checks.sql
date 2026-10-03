@@ -76,3 +76,13 @@ COMMENT ON COLUMN "pull_request_checks"."required" IS 'Whether the pull request'
 COMMENT ON COLUMN "pull_request_checks"."url" IS 'The web address of the check''s details or logs, empty when the forge gave none.';
 -- Set comment to column: "engine_id" on table: "pull_request_checks"
 COMMENT ON COLUMN "pull_request_checks"."engine_id" IS 'The engine that owns this row, stamped from the login that wrote it.';
+-- Isolate "pull_request_check_readings" by engine
+CREATE POLICY engine_isolation ON pull_request_check_readings USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
+ALTER TABLE pull_request_check_readings ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON pull_request_check_readings TO komrad_engine;
+GRANT SELECT ON pull_request_check_readings TO komrad_reader;
+-- Isolate "pull_request_checks" by engine
+CREATE POLICY engine_isolation ON pull_request_checks USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
+ALTER TABLE pull_request_checks ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON pull_request_checks TO komrad_engine;
+GRANT SELECT ON pull_request_checks TO komrad_reader;
