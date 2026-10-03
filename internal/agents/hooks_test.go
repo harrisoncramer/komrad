@@ -310,7 +310,7 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
-	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
@@ -364,7 +364,7 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 			fire: func(t *testing.T, manager *testAgents, agent agentstore.Agent) {
 				t.Helper()
 
-				_, err := manager.resume.ResumeAgent(t.Context(), agent.ID)
+				_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 				require.NoError(t, err)
 			},
 		},
@@ -526,7 +526,7 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
-	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.ErrorContains(t, err, "no slot free")
 	assert.Contains(t, err.Error(), `"auth"`, "the refusal names the agent")
 	assert.Zero(t, tmux.WindowsOpened(), "no pane was opened")

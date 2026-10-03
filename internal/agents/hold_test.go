@@ -261,7 +261,7 @@ func TestResumingAHeldAgentIsRefused(t *testing.T) {
 
 	manager := st.agentService(agentServiceOptions{tmux: tmux, harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
-	_, err = manager.resume.ResumeAgent(t.Context(), agent.ID)
+	_, err = manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 	require.ErrorIs(t, err, agenterr.ErrAgentHeld)
 }
 

@@ -92,7 +92,7 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID, prompt stri
 		}
 	}
 
-	return s.resume.ResumeAgent(ctx, found.ID)
+	return s.resume.ResumeAgent(ctx, ResumeAgentParams{ID: found.ID})
 }
 
 // hasSpoken reports whether an orchestrator ever held a conversation.

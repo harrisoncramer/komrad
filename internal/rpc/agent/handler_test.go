@@ -529,7 +529,19 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.resumed)
+				assert.Equal(t, []agents.ResumeAgentParams{{ID: ids[0]}}, services.resumed)
+			},
+		},
+		{
+			name: "resuming from an agent says who asked",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
+				_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0]}))
+
+				return "", err
+			},
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, []agents.ResumeAgentParams{{ID: ids[0], ByAgentID: betaID}}, services.resumed)
 			},
 		},
 		{
@@ -821,70 +833,6 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 
 	assert.True(t, adopted.Msg.GetExisting())
 	assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
-}
-
-// TestResumeAgentFromAnAgent pins which agents a caller other than an orchestrator may resume.
-func TestResumeAgentFromAnAgent(t *testing.T) {
-	tests := []struct {
-		name     string
-		asker    agentstore.Agent
-		target   agentstore.Agent
-		wantCode connect.Code
-	}{
-		{
-			name:   "an implementer waking its workflow's orchestrator",
-			asker:  agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
-			target: agentstore.Agent{Role: agentstore.RoleOrchestrator, WorkflowID: "wf-1"},
-		},
-		{
-			name:   "a reviewer waking its parent",
-			asker:  agentstore.Agent{Role: agentstore.RoleReviewer, WorkflowID: "wf-1", ParentAgentID: xptr.Ptr(betaID)},
-			target: agentstore.Agent{ID: betaID, Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
-		},
-		{
-			name:   "an orchestrator waking an implementer",
-			asker:  agentstore.Agent{Role: agentstore.RoleOrchestrator, WorkflowID: "wf-1"},
-			target: agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-2"},
-		},
-		{
-			name:     "an implementer waking another workflow's orchestrator",
-			asker:    agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
-			target:   agentstore.Agent{Role: agentstore.RoleOrchestrator, WorkflowID: "wf-2"},
-			wantCode: connect.CodePermissionDenied,
-		},
-		{
-			name:     "an implementer waking another implementer",
-			asker:    agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
-			target:   agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
-			wantCode: connect.CodePermissionDenied,
-		},
-		{
-			name:     "a reviewer waking a sibling",
-			asker:    agentstore.Agent{Role: agentstore.RoleReviewer, WorkflowID: "wf-1", ParentAgentID: xptr.Ptr(betaID)},
-			target:   agentstore.Agent{Role: agentstore.RoleReviewer, WorkflowID: "wf-1", ParentAgentID: xptr.Ptr(betaID)},
-			wantCode: connect.CodePermissionDenied,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, services := newRecordedService(t)
-			asker := services.rows.seed(tt.asker)
-			target := services.rows.seed(tt.target)
-
-			ctx := caller.With(t.Context(), caller.Caller{AgentID: asker.ID})
-			_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: target.ID}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				assert.Empty(t, services.resumed)
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, []string{target.ID}, services.resumed)
-		})
-	}
 }
 
 // TestListAgents pins what a listed row carries from the surroundings beside it, and what the
@@ -1225,7 +1173,7 @@ type recordingAgentServices struct {
 	retried       agents.RetryCreateParams
 	released      agents.ReleaseParams
 	reported      agents.RecordReportParams
-	resumed       []string
+	resumed       []agents.ResumeAgentParams
 	held          []agents.HoldParams
 	orchestrated  []string
 	planned       []string
@@ -1297,8 +1245,8 @@ func (f *recordingAgentServices) IsAgentRunning(agentstore.Agent) bool {
 	return false
 }
 
-func (f *recordingAgentServices) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
-	f.resumed = append(f.resumed, id)
+func (f *recordingAgentServices) ResumeAgent(_ context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error) {
+	f.resumed = append(f.resumed, params)
 
 	return f.answer()
 }
