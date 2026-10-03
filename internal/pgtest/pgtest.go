@@ -212,9 +212,11 @@ func (a *admin) buildTemplate(t *testing.T, schema Schema) string {
 	}
 
 	building := newName(buildingMarker)
-	require.NoError(t, a.create(ctx, building, ""), "failed to create the template database %q", building)
+	err = a.create(ctx, building, "")
+	require.NoError(t, err, "failed to create the template database %q", building)
 
-	require.NoError(t, schema.Apply(ctx, replaceDatabase(a.baseURL, building)), "failed to build the template database %q", building)
+	err = schema.Apply(ctx, replaceDatabase(a.baseURL, building))
+	require.NoError(t, err, "failed to build the template database %q", building)
 
 	// Naming it last is what makes it safe to copy: a build that dies part-way leaves a
 	// database no lookup will find, and the sweep collects it.
