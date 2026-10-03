@@ -518,19 +518,41 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 // hurries a state change the frame already supports rather than overriding what the pane says.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
-		name  string
-		frame string
-		want  agentstore.State
+		name         string
+		frames       []string
+		clockStep    time.Duration
+		backdateSeen time.Duration
+		want         agentstore.State
+		wantMisses   int
 	}{
 		{
-			name:  "a boundary against a frame still showing work does not move it",
-			frame: harnesstest.FrameWorking,
-			want:  agentstore.StateThinking,
+			name:   "a boundary against a frame still showing work does not move it",
+			frames: []string{harnesstest.FrameWorking},
+			want:   agentstore.StateThinking,
 		},
 		{
-			name:  "a boundary against an idle frame skips the miss counter",
-			frame: harnesstest.FrameIdle,
-			want:  agentstore.StateIdle,
+			name:       "a boundary older than the grace does not settle a later idle frame",
+			frames:     []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			clockStep:  turnBoundaryGrace,
+			want:       agentstore.StateThinking,
+			wantMisses: 1,
+		},
+		{
+			name:   "a boundary against an idle frame skips the miss counter",
+			frames: []string{harnesstest.FrameIdle},
+			want:   agentstore.StateIdle,
+		},
+		{
+			name:      "a boundary outlasts a frame still showing work until the idle frame comes",
+			frames:    []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			clockStep: 2 * time.Second,
+			want:      agentstore.StateIdle,
+		},
+		{
+			name:         "a boundary outlasts a working frame that rewrites the state seen time",
+			frames:       []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			backdateSeen: stateSeenCoalesce + time.Minute,
+			want:         agentstore.StateIdle,
 		},
 	}
 
@@ -539,29 +561,36 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			if tt.backdateSeen > 0 {
+				backdateStateSeen(t, st, agent.ID, tt.backdateSeen)
+			}
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = agent.ID
-			tmux.Captures["%1"] = tt.frame
 
 			rec := NewReconciler(NewReconcilerParams{
 				Panes:    tmux,
 				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 				States:   st.Agents,
 			})
-			rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+			now := time.Now()
+			rec.tally.now = func() time.Time { return now }
 			rec.RecordTurnBoundary(agent.ID)
 
-			require.NoError(t, rec.Reconcile(ctx))
+			for _, frame := range tt.frames {
+				tmux.Captures["%1"] = frame
+				require.NoError(t, rec.Reconcile(ctx))
+				now = now.Add(tt.clockStep)
+			}
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
-			assert.Zero(t, rec.tally.read(agent.ID).misses, "the boundary settles it in one pass rather than accruing a miss")
+			assert.Equal(t, tt.wantMisses, rec.tally.read(agent.ID).misses)
 		})
 	}
 }
 
-// TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing pins that a boundary from
-// before the last look is stale and is ignored.
-func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.T) {
+// TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing pins that a boundary from
+// before the state last changed is stale and is ignored.
+func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
@@ -575,7 +604,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 		States:   st.Agents,
 	})
-	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(-time.Second) }
+	rec.tally.now = func() time.Time { return agent.StateChangedAt.Add(-time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
 	rec.tally.now = time.Now
 
