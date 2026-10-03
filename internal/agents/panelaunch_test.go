@@ -576,6 +576,42 @@ func TestRoleBriefing(t *testing.T) {
 	}
 }
 
+// TestSpawningBriefing pins which agents are told how to launch agents of their own.
+func TestSpawningBriefing(t *testing.T) {
+	tests := []struct {
+		name   string
+		params launchParams
+		want   string
+	}{
+		{
+			name:   "an implementer holding its own checkout spawns",
+			params: launchParams{Role: agentstore.RoleImplementer, OwnsCheckout: true},
+			want:   spawningDoc,
+		},
+		{
+			name:   "an implementer holding no checkout still spawns",
+			params: launchParams{Role: agentstore.RoleImplementer},
+			want:   spawningDoc,
+		},
+		{
+			name:   "a reviewer sends new work to its parent",
+			params: launchParams{Role: agentstore.RoleReviewer},
+			want:   "",
+		},
+		{
+			name:   "an orchestrator has spawning rules of its own",
+			params: launchParams{Role: agentstore.RoleOrchestrator},
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, spawningBriefing(tt.params))
+		})
+	}
+}
+
 // TestContextBriefing pins that a workflow's context still reaches an orchestrator, and that
 // the sentence saying whose job it describes lands immediately before it.
 func TestContextBriefing(t *testing.T) {

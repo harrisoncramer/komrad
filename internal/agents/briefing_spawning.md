@@ -1,0 +1,1 @@
+Spawn agents with create_agent. An agent that only reads your tree is a child, made by passing your id as parent_agent_id. An agent that writes needs a checkout of its own, so spawn it standalone. A reviewer is a child too, but spawn that one with request_review rather than create_agent, since only that call briefs it to review.
