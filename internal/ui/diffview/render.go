@@ -108,9 +108,10 @@ func (v *View) renderLines(y int, cursor Cursor, window Window, offset int) []st
 	codeWidth := window.Width - GutterWidth
 
 	pieces := carryStyle(strings.Split(ansi.Hardwrap(content, codeWidth, true), "\n"))
+	blank := lipgloss.NewStyle().Background(background).Render(strings.Repeat(" ", GutterWidth))
 	lines := make([]string, 0, len(pieces))
 	for i, piece := range pieces {
-		gutter := lipgloss.NewStyle().Background(background).Render(strings.Repeat(" ", GutterWidth))
+		gutter := blank
 		if i == 0 {
 			gutter = v.renderGutter(y, line, background)
 		}
