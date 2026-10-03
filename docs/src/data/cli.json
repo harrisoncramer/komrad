@@ -831,7 +831,7 @@
     "usage": "komrad migrate",
     "aliases": [],
     "short": "Apply any pending database migrations",
-    "long": "Apply any pending database migrations, connecting as the login that owns the schema.\n\nThe service never migrates: an engine connects as a login that cannot change the schema,\nand it refuses to start against a database whose migrations do not match its build. So\nevery upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)\nnaming the owner, which falls back to database_url on a database no engine has joined.\n\nIt refuses while another komrad is connected and the build holds migrations the database\nhas not seen, since those engines would stop matching. It is safe to run against a\ndatabase that is already current; it says so and exits zero.",
+    "long": "Apply any pending database migrations, connecting as the login that owns the schema.\n\nThe service never migrates: an engine connects as a login that cannot change the schema,\nand it refuses to start against a database missing migrations its build carries. So\nevery upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)\nnaming the owner, which falls back to database_url on a database no engine has joined.\n\nIt refuses while another komrad is connected and the build holds migrations the database\nhas not seen, since those engines would stop matching. It is safe to run against a\ndatabase that is already current; it says so and exits zero.",
     "example": "",
     "flags": [],
     "inherited": [

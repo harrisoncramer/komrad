@@ -96,10 +96,7 @@ func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 // ErrSchemaBehind is returned when the database is missing migrations this build carries.
 var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run komrad migrate as the database owner")
 
-// ErrSchemaAhead is returned when the database holds migrations this build does not know.
-var ErrSchemaAhead = errors.New("the database holds migrations this build does not know; run the build that applied them")
-
-// CheckSchema refuses a database whose applied migrations are not exactly the ones this build carries.
+// CheckSchema refuses a database missing any migration this build carries, and accepts one holding newer migrations.
 func CheckSchema(ctx context.Context, pool *pgxpool.Pool) error {
 	files, err := openMigrationFiles()
 	if err != nil {
@@ -120,25 +117,8 @@ func checkSchema(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 		return err
 	}
 
-	known := make(map[string]bool, len(versions))
-	for _, version := range versions {
-		known[version] = true
-	}
-
 	if pending := xslice.Filter(versions, func(version string) bool { return !applied[version] }); len(pending) > 0 {
 		return fmt.Errorf("%w: %s", ErrSchemaBehind, strings.Join(pending, ", "))
-	}
-
-	var unknown []string
-	for version := range applied {
-		if !known[version] {
-			unknown = append(unknown, version)
-		}
-	}
-	if len(unknown) > 0 {
-		slices.Sort(unknown)
-
-		return fmt.Errorf("%w: %s", ErrSchemaAhead, strings.Join(unknown, ", "))
 	}
 
 	return nil

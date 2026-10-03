@@ -219,8 +219,8 @@ func TestMigrateResumes(t *testing.T) {
 	assert.True(t, columnExists(t, pool, "resume_probe", "extra"), "and the rest picked up where it stopped")
 }
 
-// TestCheckSchemaWantsExactlyThisBuildsMigrations covers a service refusing a database behind its build and one ahead of it.
-func TestCheckSchemaWantsExactlyThisBuildsMigrations(t *testing.T) {
+// TestCheckSchemaRefusesOnlyADatabaseBehind pins that an older build still starts against a schema a newer build migrated.
+func TestCheckSchemaRefusesOnlyADatabaseBehind(t *testing.T) {
 	pool := open(t)
 	ctx := t.Context()
 
@@ -238,7 +238,7 @@ func TestCheckSchemaWantsExactlyThisBuildsMigrations(t *testing.T) {
 
 	require.NoError(t, migrate(ctx, pool, both))
 	require.NoError(t, checkSchema(ctx, pool, both))
-	require.ErrorIs(t, checkSchema(ctx, pool, first), ErrSchemaAhead)
+	require.NoError(t, checkSchema(ctx, pool, first), "an older build runs against a newer schema")
 }
 
 // TestMigrateUpToDate holds the lock elsewhere, so a Migrate that reached for it
