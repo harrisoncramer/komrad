@@ -124,9 +124,12 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		if err != nil {
 			return nil, err
 		}
-		spawner = found
-
 		if err := requireOwnWorkflow(*found, params); err != nil {
+			return nil, err
+		}
+
+		spawner, err = s.findSpawnedBy(ctx, *found, params)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -168,6 +171,26 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 	}
 
 	return fmt.Errorf("%w: %q stands behind workflow %q", agenterr.ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
+}
+
+// findSpawnedBy picks the agent a new one answers to, the workflow's orchestrator for an implementer's standalone spawn.
+func (s *LaunchService) findSpawnedBy(ctx context.Context, spawner agentstore.Agent, params NewAgentParams) (*agentstore.Agent, error) {
+	if spawner.Role != agentstore.RoleImplementer || params.ParentAgentID != "" {
+		return &spawner, nil
+	}
+
+	orchestrator, err := s.agents.GetWorkflowOrchestrator(ctx, spawner.WorkflowID)
+	if errors.Is(err, store.ErrNotFound) {
+		return &spawner, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if orchestrator.ArchivedAt != nil {
+		return &spawner, nil
+	}
+
+	return orchestrator, nil
 }
 
 func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {

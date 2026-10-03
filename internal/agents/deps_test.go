@@ -468,6 +468,26 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane string, 
 	return *got
 }
 
+func seedWithRole(t *testing.T, st *testStore, workflowID, name string, role agentstore.Role) agentstore.Agent {
+	t.Helper()
+	ctx := t.Context()
+
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
+		Name:       name,
+		Pane:       "%" + name,
+		Cwd:        t.TempDir(),
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Role:       role,
+	}))
+
+	got, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return *got
+}
+
 // txWritingPaneFirst is the same gap for the writes that go through a transaction, which is
 // where the delete's own removal and a workflow archive's both are.
 type txWritingPaneFirst struct {

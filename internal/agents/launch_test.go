@@ -318,14 +318,25 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 	}
 }
 
+type orchestratorState int
+
+const (
+	noOrchestrator orchestratorState = iota
+	liveOrchestrator
+	archivedOrchestrator
+)
+
 // TestNewAgentRecordsWhoSpawnedIt pins the caller header becoming the new agent's parent,
 // which the panel sends none of so what it creates has no parent.
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
-		name           string
-		spawnerName    string
-		unknownSpawner bool
-		wantErrIs      error
+		name             string
+		spawnerRole      agentstore.Role
+		orchestrator     orchestratorState
+		child            bool
+		unknownSpawner   bool
+		wantOrchestrator bool
+		wantErrIs        error
 	}{
 		{
 			name:           "a caller header naming no agent is refused",
@@ -336,8 +347,30 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			name: "a person creating from the panel records no parent",
 		},
 		{
-			name:        "an agent creating another records its own id as the parent",
-			spawnerName: "reviewer",
+			name:        "an implementer in a workflow with no orchestrator answers for what it spawns",
+			spawnerRole: agentstore.RoleImplementer,
+		},
+		{
+			name:             "an implementer's standalone agent answers to the workflow's orchestrator",
+			spawnerRole:      agentstore.RoleImplementer,
+			orchestrator:     liveOrchestrator,
+			wantOrchestrator: true,
+		},
+		{
+			name:         "an implementer whose orchestrator is archived answers for what it spawns",
+			spawnerRole:  agentstore.RoleImplementer,
+			orchestrator: archivedOrchestrator,
+		},
+		{
+			name:         "an implementer's child answers to the implementer",
+			spawnerRole:  agentstore.RoleImplementer,
+			orchestrator: liveOrchestrator,
+			child:        true,
+		},
+		{
+			name:         "a reviewer's standalone agent answers to the reviewer",
+			spawnerRole:  agentstore.RoleReviewer,
+			orchestrator: liveOrchestrator,
 		},
 	}
 
@@ -348,22 +381,37 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 
 			ctx := t.Context()
+			workflowID := seedWorkflow(t, st)
+			params := NewAgentParams{
+				Title:      "delegate",
+				Dir:        t.TempDir(),
+				Prompt:     "do the thing",
+				WorkflowID: workflowID,
+			}
+
+			var orchestrator agentstore.Agent
+			if tt.orchestrator != noOrchestrator {
+				orchestrator = seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
+			}
+			if tt.orchestrator == archivedOrchestrator {
+				_, err := st.Agents.Archive(ctx, []string{orchestrator.ID})
+				require.NoError(t, err)
+			}
+
 			var spawner *agentstore.Agent
 			switch {
 			case tt.unknownSpawner:
 				ctx = caller.With(ctx, caller.Caller{AgentID: "no-such-agent"})
-			case tt.spawnerName != "":
-				seeded := seed(t, st, tt.spawnerName, "%"+tt.spawnerName, agentstore.StateIdle)
+			case tt.spawnerRole != "":
+				seeded := seedWithRole(t, st, workflowID, "spawner", tt.spawnerRole)
 				spawner = &seeded
 				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
+				if tt.child {
+					params = childOf(seeded, "reader")
+				}
 			}
 
-			created, err := manager.launch.NewAgent(ctx, NewAgentParams{
-				Title:      "delegate",
-				Dir:        t.TempDir(),
-				Prompt:     "do the thing",
-				WorkflowID: seedWorkflow(t, st),
-			})
+			created, err := manager.launch.NewAgent(ctx, params)
 
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
@@ -387,10 +435,16 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				return
 			}
 
+			want := spawner
+			if tt.wantOrchestrator {
+				want = &orchestrator
+			}
 			require.NotNil(t, created.SpawnedByAgentID)
-			assert.Equal(t, spawner.ID, *created.SpawnedByAgentID)
-			assert.Contains(t, launch.Context, fmt.Sprintf("spawned by agent %s (%s)", spawner.Name, spawner.ID))
-			assert.Contains(t, launch.Context, "tell it when you are done")
+			assert.Equal(t, want.ID, *created.SpawnedByAgentID)
+			if !tt.child {
+				assert.Contains(t, launch.Context, fmt.Sprintf("spawned by agent %s (%s)", want.Name, want.ID))
+				assert.Contains(t, launch.Context, "tell it when you are done")
+			}
 		})
 	}
 }
