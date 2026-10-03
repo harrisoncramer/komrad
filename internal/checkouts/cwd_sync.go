@@ -33,7 +33,7 @@ const standingReadTimeout = 30 * time.Second
 
 // headReader reads a checkout's HEAD.
 type headReader interface {
-	ReadHeadState(ctx context.Context, params git.ReadHeadStateParams) git.HeadState
+	ReadHeadState(ctx context.Context, params git.ReadHeadStateParams) (*git.HeadState, error)
 }
 
 type treeReader interface {
@@ -97,9 +97,10 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 
 // cwdLook is what one pass found at an agent's directory.
 type cwdLook struct {
-	agent   agentstore.Agent
-	removed bool
-	head    git.HeadState
+	agent      agentstore.Agent
+	removed    bool
+	headUnread bool
+	head       git.HeadState
 	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	movedSinceRound string
 	// landed is the newest round the base holds whole, zero when it holds none.
@@ -161,6 +162,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		isObserving = isObserving || look.hasMovedBranch()
 		if look.err != nil {
 			failures = append(failures, look.err)
+		}
+		if look.headUnread {
+			continue
 		}
 		if err := cs.write(ctx, look); err != nil {
 			failures = append(failures, err)
@@ -246,6 +250,10 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
 			look := cs.look(ctx, agent, params.Rounds[agent.ID])
+			if look.headUnread {
+				return look, nil
+			}
+
 			config := params.Worktrees[agent.WorkflowID]
 			cs.readStanding(ctx, &look, readStandingParams{
 				Owned: params.Owned,
@@ -303,7 +311,14 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, newest st
 		return look
 	}
 
-	look.head = cs.readHead(ctx, agent.Cwd, newest)
+	head, err := cs.readHead(ctx, agent.Cwd, newest)
+	if err != nil {
+		look.headUnread = true
+		look.err = fmt.Errorf("failed to read the checkout of %q: %w", agent.Name, err)
+
+		return look
+	}
+	look.head = *head
 
 	probe, err := cs.probeTree(ctx, look.head)
 	if err != nil {
@@ -523,9 +538,9 @@ func isCwdRemoved(ctx context.Context, dir string) bool {
 	}
 }
 
-func (cs *CwdSyncer) readHead(ctx context.Context, dir, snapshotSHA string) git.HeadState {
+func (cs *CwdSyncer) readHead(ctx context.Context, dir, snapshotSHA string) (*git.HeadState, error) {
 	if dir == "" {
-		return git.HeadState{}
+		return &git.HeadState{}, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)

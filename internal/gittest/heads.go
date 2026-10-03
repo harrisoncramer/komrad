@@ -13,16 +13,23 @@ import (
 type Heads struct {
 	mu     sync.Mutex
 	States map[string]git.HeadState
+	Err    error
 	Dirs   []string
 }
 
-// ReadHeadState records the directory and answers what States holds for it.
-func (h *Heads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams) git.HeadState {
+// ReadHeadState records the directory and answers what States holds for it, or Err.
+func (h *Heads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams) (*git.HeadState, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.Dirs = append(h.Dirs, params.Dir)
 
-	return h.States[params.Dir]
+	if h.Err != nil {
+		return nil, h.Err
+	}
+
+	state := h.States[params.Dir]
+
+	return &state, nil
 }
 
 // Trees answers what each directory's worktree hashes to and which rounds its base holds, recording every probe and every walk.
