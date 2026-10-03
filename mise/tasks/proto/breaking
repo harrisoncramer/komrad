@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#MISE description="Check the protobufs against a base branch, refusing a change an older client or server would break on."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+
+usage() {
+	echo "Usage: mise run proto:breaking [--against <ref>]"
+	echo
+	echo "Builds the check plugin, then runs buf breaking against the protobufs at"
+	echo "<ref>. The ref must already be fetched. Without one it checks against where"
+	echo "this branch left origin/main, so a change main gained since is not read as"
+	echo "one this branch took away."
+}
+
+against=""
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--against)
+		against="$2"
+		shift 2
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*)
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+if [ -z "$against" ]; then
+	against=$(git merge-base origin/main HEAD)
+fi
+
+git_dir=$(git rev-parse --path-format=absolute --git-common-dir)
+
+mkdir -p local
+trap 'rm -f "$MISE_CONFIG_ROOT/local/buf-plugin-komrad"' EXIT
+go build -o local/buf-plugin-komrad ./cmd/buf-plugin-komrad
+
+cd proto
+buf breaking --against "$git_dir#ref=$against,subdir=proto"

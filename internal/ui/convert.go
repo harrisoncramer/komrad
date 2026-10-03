@@ -95,9 +95,10 @@ func sequenceFrom(sequence agentv1.Sequence) panel.Sequence {
 	case agentv1.Sequence_SEQUENCE_REVERT:
 		return panel.SequenceRevert
 	case agentv1.Sequence_SEQUENCE_UNSPECIFIED, agentv1.Sequence_SEQUENCE_NONE:
+		return panel.SequenceNone
 	}
 
-	return panel.SequenceNone
+	return panel.SequenceUnknown
 }
 
 // agentRowsFrom is a listing of assembled rows as the panel keeps them.

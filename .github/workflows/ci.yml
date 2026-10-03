@@ -128,6 +128,15 @@ jobs:
           mise run proto:fmt --check
           mise run proto:lint
 
+      # A pull request is checked against its base, which the shallow checkout left out.
+      - name: Check the protobufs against the base branch
+        if: github.event_name == 'pull_request' && steps.changes.outputs.proto == 'true'
+        run: |
+          git fetch --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
+          mise run proto:breaking --against "origin/$BASE"
+        env:
+          BASE: ${{ github.base_ref }}
+
       - name: Check the infrastructure
         if: env.ALL == 'true' || steps.changes.outputs.infra == 'true'
         run: |

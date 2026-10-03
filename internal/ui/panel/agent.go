@@ -58,6 +58,7 @@ const (
 	SequenceMerge      Sequence = "merge"
 	SequenceCherryPick Sequence = "cherry-pick"
 	SequenceRevert     Sequence = "revert"
+	SequenceUnknown    Sequence = "git operation"
 )
 
 // IsInProgress reports whether anything is part-way through.
