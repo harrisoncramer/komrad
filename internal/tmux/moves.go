@@ -58,7 +58,7 @@ func argsForMove(move panes.Move) [][]string {
 			{"clear-history", "-t", move.Pane},
 		}
 	case panes.KindResize:
-		return [][]string{{"resize-pane", "-t", move.Pane, "-x", strconv.Itoa(move.Width)}}
+		return [][]string{resizeArgs(move)}
 	}
 
 	return nil
@@ -76,4 +76,19 @@ func zoomArgs(pane string, zoomed bool) []string {
 	}
 
 	return []string{"if-shell", "-F", "-t", pane, zoomedFormat, then, otherwise}
+}
+
+// resizeArgs is the resize-pane a resize stands for, setting whichever of the width and the height
+// it names.
+func resizeArgs(move panes.Move) []string {
+	args := []string{"resize-pane", "-t", move.Pane}
+	if move.Width > 0 {
+		args = append(args, "-x", strconv.Itoa(move.Width))
+	}
+
+	if move.Height > 0 {
+		args = append(args, "-y", strconv.Itoa(move.Height))
+	}
+
+	return args
 }

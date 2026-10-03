@@ -13,6 +13,13 @@ type spec struct {
 	sidebarCols int
 	infoAbove   bool
 	infoSize    string
+
+	// tile is whether a terminal is shown across the bottom of the window at all.
+	tile bool
+	// tileHeight is the share of the window's rows the tile takes, or a count of them from one up.
+	tileHeight float64
+	tileMin    int
+	tileMax    int
 }
 
 // newSpec resolves a configured layout into the geometry the frame lays panes out at, falling
@@ -26,11 +33,25 @@ func newSpec(layout config.Layout) spec {
 		info = config.DefaultInfoHeight
 	}
 
+	tileHeight := layout.ImplementerChatHeight
+	if tileHeight <= 0 {
+		tileHeight = config.DefaultImplementerChatHeight
+	}
+
+	tileMin, tileMax := layout.ImplementerChatMinRows, layout.ImplementerChatMaxRows
+	if tileMax <= 0 {
+		tileMin, tileMax = config.DefaultImplementerChatMinRows, config.DefaultImplementerChatMaxRows
+	}
+
 	return spec{
 		sidebarOnRight: layout.SidebarSide == config.SidebarSideRight,
 		sidebarCols:    cols,
 		infoAbove:      layout.InfoSide == config.InfoSideAbove,
 		infoSize:       formatSize(info),
+		tile:           layout.ImplementerChat,
+		tileHeight:     tileHeight,
+		tileMin:        tileMin,
+		tileMax:        tileMax,
 	}
 }
 
@@ -57,4 +78,15 @@ func (s spec) sidebarWidth(total int) int {
 	}
 
 	return min(s.sidebarCols, total)
+}
+
+// tileRows is how many of a window's rows the tile takes, held between the configured floor and
+// cap.
+func (s spec) tileRows(total int) int {
+	rows := int(s.tileHeight)
+	if s.tileHeight < 1 {
+		rows = int(math.Round(s.tileHeight * float64(total)))
+	}
+
+	return min(max(rows, s.tileMin), s.tileMax)
 }

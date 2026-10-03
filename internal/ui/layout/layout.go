@@ -23,11 +23,13 @@ type Tmux interface {
 	IsPaneAlive(pane string) bool
 	GetPaneWidth(pane string) int
 	GetWindowWidth(pane string) int
+	GetWindowHeight(pane string) int
 	GetPaneHeight(pane string) int
 	SplitRight(anchorPane, dir, size string) string
 	SplitLeft(anchorPane, dir, size string) string
 	SplitBelow(anchorPane, dir, size string) string
 	SplitAbove(anchorPane, dir, size string) string
+	SplitBottom(anchorPane, dir, size string) string
 	ResizePane(pane, width string)
 	GetPaneFocus(pane string) (focused, zoomed bool)
 	GetSiblingPanes(pane string) []string

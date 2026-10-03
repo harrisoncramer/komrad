@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -472,11 +473,13 @@ func newProbe(key string, wraps bool, got *Target) Content {
 type recordingTmux struct {
 	width        int
 	windowWidth  int
+	windowHeight int
 	height       int
 	splits       []string
 	anchors      []string
 	belowAnchors []string
 	resizes      []string
+	heights      []string
 	swaps        int
 	respawns     []string
 	respawnPanes []string
@@ -508,6 +511,12 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 		case panes.KindRespawn:
 			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
 		case panes.KindResize:
+			if move.Height > 0 {
+				t.heights = append(t.heights, move.Pane+" "+strconv.Itoa(move.Height))
+
+				continue
+			}
+
 			t.ResizePane(move.Pane, strconv.Itoa(move.Width))
 		}
 	}
@@ -516,6 +525,7 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int      { return t.width }
 func (t *recordingTmux) GetWindowWidth(string) int    { return t.windowWidth }
+func (t *recordingTmux) GetWindowHeight(string) int   { return t.windowHeight }
 func (t *recordingTmux) SetPaneZoomed(_ string, on bool) {
 	t.zoomed = on
 	t.zooms = append(t.zooms, on)
@@ -548,6 +558,10 @@ func (t *recordingTmux) SplitAbove(anchor, _, size string) string {
 	return t.recordSplit("above", anchor, size)
 }
 
+func (t *recordingTmux) SplitBottom(anchor, _, size string) string {
+	return t.recordSplit("bottom", anchor, size)
+}
+
 // recordSplit answers with the pane a split left, dropping the zoom the way tmux does, which only
 // respawn-pane leaves standing.
 func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
@@ -558,6 +572,10 @@ func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
 		t.anchors = append(t.anchors, anchor)
 
 		return "%1"
+	}
+
+	if direction == "bottom" {
+		return "%3"
 	}
 
 	t.belowAnchors = append(t.belowAnchors, anchor)
@@ -1034,6 +1052,170 @@ func TestFrameBegin(t *testing.T) {
 				frame.Flush()
 				assert.Equal(t, want, tmux.moveCalls-before)
 			}
+		})
+	}
+}
+
+// TestFrameTileRows covers how many rows the tile takes from windows of different heights.
+func TestFrameTileRows(t *testing.T) {
+	tests := []struct {
+		name   string
+		layout func(*config.Layout)
+		window int
+		floor  int
+		want   int
+	}{
+		{name: "a quarter of the window", window: 40, want: 10},
+		{name: "a short window takes the floor", window: 20, want: 6},
+		{name: "a tall window takes the cap", window: 100, want: 15},
+		{name: "a fixed row count", layout: func(l *config.Layout) { l.ImplementerChatHeight = 8 }, window: 40, want: 8},
+		{name: "a window too short to spare the rows", window: 20, floor: 5, want: 0},
+		{name: "an unmeasured window", window: 0, want: 0},
+		{name: "the tile turned off", layout: func(l *config.Layout) { l.ImplementerChat = false }, window: 40, want: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			layout := config.DefaultLayout()
+			if tt.layout != nil {
+				tt.layout(&layout)
+			}
+
+			frame := New(&recordingTmux{}, layout)
+
+			assert.Equal(t, tt.want, frame.TileRows(tt.window, tt.floor))
+		})
+	}
+}
+
+// TestFrameShowTileSplitsUnderTheWindow covers an agent's pane swapped into a full-width split
+// across the bottom, with the stage set aside while it is up and split again once it goes.
+func TestFrameShowTileSplitsUnderTheWindow(t *testing.T) {
+	tmux := &recordingTmux{}
+	frame := New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
+	frame.Open(RegionStage)
+	tmux.splits, tmux.killed = nil, nil
+
+	frame.ShowTile(Guest{Agent: "agent-9", Pane: "%9"}, 8)
+
+	assert.Equal(t, []string{"bottom %0 8"}, tmux.splits)
+	assert.Equal(t, "%9", frame.TileGuest())
+	assert.Equal(t, 1, tmux.swaps)
+	assert.Contains(t, tmux.killed, "%1", "the stage is set aside")
+
+	frame.ReleaseTile()
+
+	assert.Equal(t, 2, tmux.swaps, "the agent goes home")
+	assert.Contains(t, tmux.killed, "%3")
+	assert.Empty(t, frame.TileGuest())
+	assert.Len(t, tmux.splits, 2, "the stage is split again")
+}
+
+// TestFrameShowTileAgainResizes covers the same agent shown at another height, which resizes the
+// tile rather than opening another.
+func TestFrameShowTileAgainResizes(t *testing.T) {
+	tmux := &recordingTmux{}
+	frame := New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
+	guest := Guest{Agent: "agent-9", Pane: "%9"}
+
+	frame.ShowTile(guest, 8)
+	frame.ShowTile(guest, 8)
+	frame.ShowTile(guest, 12)
+
+	assert.Equal(t, []string{"%3 12"}, tmux.heights)
+	assert.Equal(t, 1, tmux.swaps)
+}
+
+// TestFrameShowTileReplacesTheAgentThere covers a second agent shown in the tile, which sends the
+// first home before taking its place.
+func TestFrameShowTileReplacesTheAgentThere(t *testing.T) {
+	tmux := &recordingTmux{}
+	frame := New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
+
+	frame.ShowTile(Guest{Agent: "agent-9", Pane: "%9"}, 8)
+	frame.ShowTile(Guest{Agent: "agent-8", Pane: "%8"}, 8)
+
+	assert.Equal(t, 3, tmux.swaps)
+	assert.Contains(t, tmux.killed, "%3")
+	assert.Equal(t, "%8", frame.TileGuest())
+}
+
+// TestFrameShowTileForARemoteEngine covers a remote agent, whose terminal is run in the tile
+// rather than swapped into it.
+func TestFrameShowTileForARemoteEngine(t *testing.T) {
+	tmux := &recordingTmux{}
+	frame := newRemoteFrame(tmux)
+	frame.Attach("%0")
+	tmux.respawns, tmux.respawnPanes = nil, nil
+
+	frame.ShowTile(Guest{Agent: "agent-9", Pane: "%9"}, 8)
+
+	assert.Equal(t, []string{"%3"}, tmux.respawnPanes)
+	assert.Equal(t, []string{"komrad terminal --addr 127.0.0.1:19001 -- agent-9"}, tmux.respawns)
+	assert.Zero(t, tmux.swaps)
+
+	frame.ReleaseTile()
+
+	assert.Zero(t, tmux.swaps)
+	assert.Contains(t, tmux.killed, "%3")
+}
+
+// TestFrameTileReleased covers the ways the tile comes down, each sending the agent home.
+func TestFrameTileReleased(t *testing.T) {
+	tests := []struct {
+		name       string
+		release    func(*Frame)
+		dead       string
+		wantSwaps  int
+		wantBroken []string
+		wantKilled bool
+	}{
+		{
+			name:       "the agent's pane is released",
+			release:    func(f *Frame) { f.ReleaseGuest("%9") },
+			wantSwaps:  2,
+			wantKilled: true,
+		},
+		{
+			name:       "the frame is vacated",
+			release:    (*Frame).Vacate,
+			wantSwaps:  2,
+			wantKilled: true,
+		},
+		{
+			name:       "the tile has died",
+			release:    (*Frame).ReleaseTile,
+			dead:       "%3",
+			wantSwaps:  1,
+			wantBroken: []string{"%9"},
+		},
+		{
+			name:       "the agent's pane has died",
+			release:    (*Frame).ReleaseTile,
+			dead:       "%9",
+			wantSwaps:  1,
+			wantKilled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{deadPanes: map[string]bool{}}
+			frame := New(tmux, config.DefaultLayout())
+			frame.Attach("%0")
+			frame.ShowTile(Guest{Agent: "agent-9", Pane: "%9"}, 8)
+			tmux.killed = nil
+			tmux.deadPanes[tt.dead] = true
+
+			tt.release(frame)
+
+			assert.Empty(t, frame.TileGuest())
+			assert.Equal(t, tt.wantSwaps, tmux.swaps)
+			assert.Equal(t, tt.wantBroken, tmux.broken)
+			assert.Equal(t, tt.wantKilled, slices.Contains(tmux.killed, "%3"))
 		})
 	}
 }
