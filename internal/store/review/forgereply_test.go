@@ -73,7 +73,7 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 	return replyThreads{agentID: agentID, mirrored: mirrored.ID, local: local.ID}
 }
 
-func (st *fixture) propose(t *testing.T, threads replyThreads, body string) *forgeReply {
+func (st *fixture) propose(t *testing.T, threads replyThreads, body string) *ForgeReply {
 	t.Helper()
 
 	reply, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{
@@ -87,25 +87,25 @@ func (st *fixture) propose(t *testing.T, threads replyThreads, body string) *for
 }
 
 // proposeIn drafts an agent reply and moves it along the happy path until it reaches state.
-func (st *fixture) proposeIn(t *testing.T, threads replyThreads, state replyState) *forgeReply {
+func (st *fixture) proposeIn(t *testing.T, threads replyThreads, state ForgeReplyState) *ForgeReply {
 	t.Helper()
 	ctx := t.Context()
 
 	reply := st.propose(t, threads, "proposed")
-	steps := map[replyState]func() (*forgeReply, error){
-		replyApproved: func() (*forgeReply, error) {
-			return st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: reply.ID, Body: "approved", ApproverKind: approverHuman})
+	steps := map[ForgeReplyState]func() (*ForgeReply, error){
+		ForgeReplyApproved: func() (*ForgeReply, error) {
+			return st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: reply.ID, Body: "approved", ApproverKind: ForgeReplyApproverHuman})
 		},
-		replySending: func() (*forgeReply, error) { return st.BeginForgeReplySend(ctx, reply.ID) },
-		replySent:    func() (*forgeReply, error) { return st.MarkForgeReplySent(ctx, reply.ID, "PRRC_1") },
-		replyFailed:  func() (*forgeReply, error) { return st.MarkForgeReplyFailed(ctx, reply.ID, "forbidden") },
+		ForgeReplySending: func() (*ForgeReply, error) { return st.BeginForgeReplySend(ctx, reply.ID) },
+		ForgeReplySent:    func() (*ForgeReply, error) { return st.MarkForgeReplySent(ctx, reply.ID, "PRRC_1") },
+		ForgeReplyFailed:  func() (*ForgeReply, error) { return st.MarkForgeReplyFailed(ctx, reply.ID, "forbidden") },
 	}
-	path := map[replyState][]replyState{
-		replyDraft:    nil,
-		replyApproved: {replyApproved},
-		replySending:  {replyApproved, replySending},
-		replySent:     {replyApproved, replySending, replySent},
-		replyFailed:   {replyApproved, replySending, replyFailed},
+	path := map[ForgeReplyState][]ForgeReplyState{
+		ForgeReplyDraft:    nil,
+		ForgeReplyApproved: {ForgeReplyApproved},
+		ForgeReplySending:  {ForgeReplyApproved, ForgeReplySending},
+		ForgeReplySent:     {ForgeReplyApproved, ForgeReplySending, ForgeReplySent},
+		ForgeReplyFailed:   {ForgeReplyApproved, ForgeReplySending, ForgeReplyFailed},
 	}
 	for _, step := range path[state] {
 		var err error
@@ -121,55 +121,55 @@ func (st *fixture) proposeIn(t *testing.T, threads replyThreads, state replyStat
 func TestForgeReplyTransitions(t *testing.T) {
 	tests := []struct {
 		name  string
-		from  []replyState
-		to    replyState
-		apply func(ctx context.Context, st *fixture, id string) (replyState, error)
+		from  []ForgeReplyState
+		to    ForgeReplyState
+		apply func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error)
 	}{
 		{
 			name: "approve",
-			from: []replyState{replyDraft},
-			to:   replyApproved,
-			apply: func(ctx context.Context, st *fixture, id string) (replyState, error) {
-				reply, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: id, Body: "edited", ApproverKind: approverHuman})
+			from: []ForgeReplyState{ForgeReplyDraft},
+			to:   ForgeReplyApproved,
+			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
+				reply, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: id, Body: "edited", ApproverKind: ForgeReplyApproverHuman})
 				return stateOf(reply), err
 			},
 		},
 		{
 			name: "begin sending",
-			from: []replyState{replyApproved, replyFailed},
-			to:   replySending,
-			apply: func(ctx context.Context, st *fixture, id string) (replyState, error) {
+			from: []ForgeReplyState{ForgeReplyApproved, ForgeReplyFailed},
+			to:   ForgeReplySending,
+			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				reply, err := st.BeginForgeReplySend(ctx, id)
 				return stateOf(reply), err
 			},
 		},
 		{
 			name: "mark sent",
-			from: []replyState{replySending},
-			to:   replySent,
-			apply: func(ctx context.Context, st *fixture, id string) (replyState, error) {
+			from: []ForgeReplyState{ForgeReplySending},
+			to:   ForgeReplySent,
+			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				reply, err := st.MarkForgeReplySent(ctx, id, "PRRC_2")
 				return stateOf(reply), err
 			},
 		},
 		{
 			name: "mark failed",
-			from: []replyState{replySending},
-			to:   replyFailed,
-			apply: func(ctx context.Context, st *fixture, id string) (replyState, error) {
+			from: []ForgeReplyState{ForgeReplySending},
+			to:   ForgeReplyFailed,
+			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				reply, err := st.MarkForgeReplyFailed(ctx, id, "rate limited")
 				return stateOf(reply), err
 			},
 		},
 		{
 			name: "discard",
-			from: []replyState{replyDraft, replyFailed},
-			apply: func(ctx context.Context, st *fixture, id string) (replyState, error) {
+			from: []ForgeReplyState{ForgeReplyDraft, ForgeReplyFailed},
+			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				return "", st.DeleteForgeReply(ctx, id)
 			},
 		},
 	}
-	states := []replyState{replyDraft, replyApproved, replySending, replySent, replyFailed}
+	states := []ForgeReplyState{ForgeReplyDraft, ForgeReplyApproved, ForgeReplySending, ForgeReplySent, ForgeReplyFailed}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -205,16 +205,16 @@ func TestForgeReplyTransitions(t *testing.T) {
 func TestForgeReplyRecords(t *testing.T) {
 	tests := []struct {
 		name  string
-		reach func(t *testing.T, st *fixture, threads replyThreads) *forgeReply
-		check func(t *testing.T, reply *forgeReply)
+		reach func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply
+		check func(t *testing.T, reply *ForgeReply)
 	}{
 		{
 			name: "the agent's proposal is a draft with its text kept apart from the text to post",
-			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
 				return st.propose(t, threads, "proposed")
 			},
-			check: func(t *testing.T, reply *forgeReply) {
-				assert.Equal(t, replyDraft, reply.State)
+			check: func(t *testing.T, reply *ForgeReply) {
+				assert.Equal(t, ForgeReplyDraft, reply.State)
 				assert.Equal(t, AuthorAgent, reply.AuthorKind)
 				require.NotNil(t, reply.AuthorAgentID)
 				require.NotNil(t, reply.ProposedBody)
@@ -226,41 +226,41 @@ func TestForgeReplyRecords(t *testing.T) {
 		},
 		{
 			name: "the person's own reply is approved as it is written",
-			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
 				reply, err := st.CreateHumanForgeReply(t.Context(), threads.mirrored, "mine")
 				require.NoError(t, err)
 
 				return reply
 			},
-			check: func(t *testing.T, reply *forgeReply) {
-				assert.Equal(t, replyApproved, reply.State)
+			check: func(t *testing.T, reply *ForgeReply) {
+				assert.Equal(t, ForgeReplyApproved, reply.State)
 				assert.Equal(t, AuthorHuman, reply.AuthorKind)
 				assert.Nil(t, reply.AuthorAgentID)
 				assert.Nil(t, reply.ProposedBody)
 				assert.Equal(t, "mine", reply.Body)
-				assert.Equal(t, approverHuman, reply.ApproverKind)
+				assert.Equal(t, ForgeReplyApproverHuman, reply.ApproverKind)
 				assert.NotNil(t, reply.ApprovedAt)
 			},
 		},
 		{
 			name: "approving with an edit keeps the agent's proposal",
-			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
-				return st.proposeIn(t, threads, replyApproved)
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
+				return st.proposeIn(t, threads, ForgeReplyApproved)
 			},
-			check: func(t *testing.T, reply *forgeReply) {
+			check: func(t *testing.T, reply *ForgeReply) {
 				require.NotNil(t, reply.ProposedBody)
 				assert.Equal(t, "proposed", *reply.ProposedBody)
 				assert.Equal(t, "approved", reply.Body)
-				assert.Equal(t, approverHuman, reply.ApproverKind)
+				assert.Equal(t, ForgeReplyApproverHuman, reply.ApproverKind)
 				assert.NotNil(t, reply.ApprovedAt)
 			},
 		},
 		{
 			name: "a sent reply holds the forge's comment id",
-			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
-				return st.proposeIn(t, threads, replySent)
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
+				return st.proposeIn(t, threads, ForgeReplySent)
 			},
-			check: func(t *testing.T, reply *forgeReply) {
+			check: func(t *testing.T, reply *ForgeReply) {
 				require.NotNil(t, reply.ForgeCommentProviderID)
 				assert.Equal(t, "PRRC_1", *reply.ForgeCommentProviderID)
 				assert.NotNil(t, reply.SendingStartedAt)
@@ -270,10 +270,10 @@ func TestForgeReplyRecords(t *testing.T) {
 		},
 		{
 			name: "a failed reply holds the forge's error",
-			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
-				return st.proposeIn(t, threads, replyFailed)
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
+				return st.proposeIn(t, threads, ForgeReplyFailed)
 			},
-			check: func(t *testing.T, reply *forgeReply) {
+			check: func(t *testing.T, reply *ForgeReply) {
 				require.NotNil(t, reply.Error)
 				assert.Equal(t, "forbidden", *reply.Error)
 				assert.NotNil(t, reply.SendingStartedAt)
@@ -283,7 +283,7 @@ func TestForgeReplyRecords(t *testing.T) {
 		},
 		{
 			name: "a proposal outlives the agent that wrote it",
-			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
 				ctx := t.Context()
 				author := st.seedAgent(t, "helper")
 				proposed, err := st.CreateAgentForgeReply(ctx, CreateAgentForgeReplyParams{
@@ -300,7 +300,7 @@ func TestForgeReplyRecords(t *testing.T) {
 
 				return reply
 			},
-			check: func(t *testing.T, reply *forgeReply) {
+			check: func(t *testing.T, reply *ForgeReply) {
 				assert.Equal(t, AuthorAgent, reply.AuthorKind)
 				assert.Nil(t, reply.AuthorAgentID)
 				require.NotNil(t, reply.ProposedBody)
@@ -309,15 +309,15 @@ func TestForgeReplyRecords(t *testing.T) {
 		},
 		{
 			name: "retrying a failed reply clears its error",
-			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
-				failed := st.proposeIn(t, threads, replyFailed)
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
+				failed := st.proposeIn(t, threads, ForgeReplyFailed)
 				reply, err := st.BeginForgeReplySend(t.Context(), failed.ID)
 				require.NoError(t, err)
 
 				return reply
 			},
-			check: func(t *testing.T, reply *forgeReply) {
-				assert.Equal(t, replySending, reply.State)
+			check: func(t *testing.T, reply *ForgeReply) {
+				assert.Equal(t, ForgeReplySending, reply.State)
 				assert.Nil(t, reply.Error)
 				assert.NotNil(t, reply.SendingStartedAt)
 			},
@@ -384,7 +384,7 @@ func TestForgeReplyThreads(t *testing.T) {
 		{
 			name: "a second proposal waits on a failed reply until it is discarded",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
-				st.proposeIn(t, threads, replyFailed)
+				st.proposeIn(t, threads, ForgeReplyFailed)
 				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{ThreadID: threads.mirrored, AgentID: threads.agentID, Body: "second"})
 
 				return err
@@ -394,7 +394,7 @@ func TestForgeReplyThreads(t *testing.T) {
 		{
 			name: "a proposal follows one that was sent",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
-				st.proposeIn(t, threads, replySent)
+				st.proposeIn(t, threads, ForgeReplySent)
 				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{ThreadID: threads.mirrored, AgentID: threads.agentID, Body: "second"})
 
 				return err
@@ -443,7 +443,7 @@ func TestForgeReplyNotFound(t *testing.T) {
 			return err
 		},
 		"approve": func(ctx context.Context, st *fixture, id string) error {
-			_, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: id, Body: "x", ApproverKind: approverHuman})
+			_, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: id, Body: "x", ApproverKind: ForgeReplyApproverHuman})
 
 			return err
 		},
@@ -483,7 +483,7 @@ func TestListForgeReplies(t *testing.T) {
 	ctx := t.Context()
 	threads := st.seedReplyThreads(t)
 
-	sending := st.proposeIn(t, threads, replySending)
+	sending := st.proposeIn(t, threads, ForgeReplySending)
 	written, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "mine")
 	require.NoError(t, err)
 
@@ -507,18 +507,18 @@ func TestListForgeReplies(t *testing.T) {
 func TestForgeReplyChecks(t *testing.T) {
 	tests := []struct {
 		name   string
-		state  replyState
+		state  ForgeReplyState
 		update string
 	}{
-		{name: "the agent is never an approver", state: replyDraft, update: "state = 'approved', approver_kind = 'agent', approved_at = NOW()"},
-		{name: "an approved reply names its approver", state: replyDraft, update: "state = 'approved'"},
-		{name: "a draft has no approver", state: replyApproved, update: "state = 'draft'"},
-		{name: "a reply being sent says when sending began", state: replyApproved, update: "state = 'sending'"},
-		{name: "a sent reply holds the forge's comment id", state: replySending, update: "state = 'sent', sent_at = NOW()"},
-		{name: "a failed reply holds the forge's error", state: replySending, update: "state = 'failed'"},
-		{name: "a reply has text to post", state: replyDraft, update: "body = ''"},
-		{name: "the person's reply has no proposal", state: replyDraft, update: "author_kind = 'human', author_agent_id = NULL"},
-		{name: "the forge never writes a reply", state: replyDraft, update: "author_kind = 'forge'"},
+		{name: "the agent is never an approver", state: ForgeReplyDraft, update: "state = 'approved', approver_kind = 'agent', approved_at = NOW()"},
+		{name: "an approved reply names its approver", state: ForgeReplyDraft, update: "state = 'approved'"},
+		{name: "a draft has no approver", state: ForgeReplyApproved, update: "state = 'draft'"},
+		{name: "a reply being sent says when sending began", state: ForgeReplyApproved, update: "state = 'sending'"},
+		{name: "a sent reply holds the forge's comment id", state: ForgeReplySending, update: "state = 'sent', sent_at = NOW()"},
+		{name: "a failed reply holds the forge's error", state: ForgeReplySending, update: "state = 'failed'"},
+		{name: "a reply has text to post", state: ForgeReplyDraft, update: "body = ''"},
+		{name: "the person's reply has no proposal", state: ForgeReplyDraft, update: "author_kind = 'human', author_agent_id = NULL"},
+		{name: "the forge never writes a reply", state: ForgeReplyDraft, update: "author_kind = 'forge'"},
 	}
 
 	for _, tt := range tests {
@@ -538,7 +538,7 @@ func TestForgeReplyEchoGuard(t *testing.T) {
 	ctx := t.Context()
 	threads := st.seedReplyThreads(t)
 
-	st.proposeIn(t, threads, replySent)
+	st.proposeIn(t, threads, ForgeReplySent)
 	written, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "mine")
 	require.NoError(t, err)
 	_, err = st.BeginForgeReplySend(ctx, written.ID)
@@ -550,7 +550,7 @@ func TestForgeReplyEchoGuard(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func stateOf(reply *forgeReply) replyState {
+func stateOf(reply *ForgeReply) ForgeReplyState {
 	if reply == nil {
 		return ""
 	}
