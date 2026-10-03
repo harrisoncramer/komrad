@@ -12,6 +12,7 @@ import (
 	"komrad/internal/komradtest"
 	agentv1 "komrad/proto/gen/agent/v1"
 
+	"connectrpc.com/connect"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,6 +35,12 @@ func TestIntegrationMCPTools(t *testing.T) {
 	migrations := createAgent(t, instance, workflowID, "migrations")
 	orchestrator := startOrchestrator(t, instance, workflowID)
 
+	review := connect.NewRequest(&agentv1.RequestReviewRequest{Prompt: "read the change"})
+	callAs(review, migrations.GetId())
+	requested, err := instance.Agents.RequestReview(t.Context(), review)
+	require.NoError(t, err)
+	reviewer := requested.Msg.GetReviewer()
+
 	implementerTools := connectMCP(t, instance, api.GetId())
 
 	t.Run("an implementer is served the tools for writing work", func(t *testing.T) {
@@ -49,6 +56,13 @@ func TestIntegrationMCPTools(t *testing.T) {
 
 		assert.Subset(t, served, []string{"send_mail", "create_agent", "start_orchestrator", "rebase_worktree", "query"})
 		assert.NotContains(t, served, "request_review")
+	})
+
+	t.Run("a reviewer is not served the tools for spawning agents", func(t *testing.T) {
+		served := connectMCP(t, instance, reviewer.GetId()).listTools(t)
+
+		assert.Subset(t, served, []string{"send_mail", "open_review_round", "query"})
+		assert.NotContains(t, served, "create_agent")
 	})
 
 	t.Run("a caller komrad cannot place is served every tool", func(t *testing.T) {
@@ -107,7 +121,7 @@ func TestIntegrationMCPTools(t *testing.T) {
 		})
 
 		assert.True(t, failed, answer)
-		assert.ElementsMatch(t, []string{"api", "migrations", "orchestrator"}, liveNames(t, instance))
+		assert.ElementsMatch(t, []string{"api", "migrations", "migrations-reviewer", "orchestrator"}, liveNames(t, instance))
 	})
 }
 

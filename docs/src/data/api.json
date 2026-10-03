@@ -55,7 +55,6 @@
           "mcp": true,
           "roles": [
             "implementer",
-            "reviewer",
             "orchestrator"
           ],
           "summary": "Launch a new agent with an opening prompt, which is everything it has to go on.",
