@@ -140,7 +140,13 @@ func (q *Queries) GetForgeReply(ctx context.Context, id string) (*ReviewForgeRep
 }
 
 const insertAgentForgeReply = `-- name: InsertAgentForgeReply :one
-INSERT INTO review_forge_replies(thread_id, state, author_kind, author_agent_id, proposed_body, body)
+INSERT INTO review_forge_replies(
+    thread_id,
+    state,
+    author_kind,
+    author_agent_id,
+    proposed_body,
+    body)
 SELECT
     t.id,
     'draft',
@@ -188,7 +194,13 @@ func (q *Queries) InsertAgentForgeReply(ctx context.Context, arg InsertAgentForg
 }
 
 const insertHumanForgeReply = `-- name: InsertHumanForgeReply :one
-INSERT INTO review_forge_replies(thread_id, state, author_kind, body, approver_kind, approved_at)
+INSERT INTO review_forge_replies(
+    thread_id,
+    state,
+    author_kind,
+    body,
+    approver_kind,
+    approved_at)
 SELECT
     t.id,
     'approved',

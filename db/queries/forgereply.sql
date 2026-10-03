@@ -1,5 +1,11 @@
 -- name: InsertAgentForgeReply :one
-INSERT INTO review_forge_replies(thread_id, state, author_kind, author_agent_id, proposed_body, body)
+INSERT INTO review_forge_replies(
+    thread_id,
+    state,
+    author_kind,
+    author_agent_id,
+    proposed_body,
+    body)
 SELECT
     t.id,
     'draft',
@@ -16,7 +22,13 @@ RETURNING
     *;
 
 -- name: InsertHumanForgeReply :one
-INSERT INTO review_forge_replies(thread_id, state, author_kind, body, approver_kind, approved_at)
+INSERT INTO review_forge_replies(
+    thread_id,
+    state,
+    author_kind,
+    body,
+    approver_kind,
+    approved_at)
 SELECT
     t.id,
     'approved',
