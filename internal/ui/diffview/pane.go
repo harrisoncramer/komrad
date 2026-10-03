@@ -299,9 +299,9 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	return lines
 }
 
-// GetCursorRow is the first line of the window the cursor's row is drawn on and how many lines it
-// takes.
-func (p *Pane) GetCursorRow(window Window) (int, int) {
+// GetCursorLines is the first line of the window the cursor's row is drawn on and how many lines
+// it takes.
+func (p *Pane) GetCursorLines(window Window) (int, int) {
 	if p.view == nil {
 		return 0, 1
 	}

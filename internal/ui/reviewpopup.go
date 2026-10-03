@@ -81,7 +81,7 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 	}
 
 	above := strings.Count(r.bandView(m, split.column), "\n")
-	first, height := r.diff.GetCursorRow(r.diffWindow(m))
+	first, height := r.diff.GetCursorLines(r.diffWindow(m))
 
 	return popupStage{
 		top:        strings.Count(r.layoutSidebar(m).bar, "\n"),

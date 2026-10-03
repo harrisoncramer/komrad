@@ -277,7 +277,7 @@ func longText(word string) string {
 func assertCursorInSight(t *testing.T, p *Pane, window Window) {
 	t.Helper()
 
-	first, height := p.GetCursorRow(window)
+	first, height := p.GetCursorLines(window)
 	assert.GreaterOrEqual(t, first, 0, "the cursor's row starts inside the window")
 	if height <= window.Height {
 		assert.LessOrEqual(t, first+height, window.Height, "the cursor's row ends inside the window")
@@ -326,7 +326,7 @@ func TestPaneShowsTheTopOfARowTallerThanTheWindow(t *testing.T) {
 
 	pane.MoveTo(pane.View().GetLastRow(), window)
 
-	first, height := pane.GetCursorRow(window)
+	first, height := pane.GetCursorLines(window)
 	assert.Equal(t, 0, first)
 	assert.Greater(t, height, window.Height)
 	assert.Len(t, pane.Render(window, LiveCursor), window.Height)
