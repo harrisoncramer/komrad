@@ -71,8 +71,13 @@ func DefaultBase(ctx context.Context, dir string) string {
 // GetCurrentBranch is the branch a worktree is on, and nothing for a detached head or a
 // directory git will not answer about.
 func (c *Client) GetCurrentBranch(ctx context.Context, dir string) *string {
-	branch, err := Run(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
-	if err != nil || branch == "" || branch == "HEAD" {
+	ref, err := Run(ctx, dir, "rev-parse", "--symbolic-full-name", "HEAD")
+	if err != nil {
+		return nil
+	}
+
+	branch := branchOf(ref)
+	if branch == "" {
 		return nil
 	}
 

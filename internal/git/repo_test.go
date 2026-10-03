@@ -87,6 +87,9 @@ func TestIntegrationGetCurrentBranch(t *testing.T) {
 	onFeature := repo(t)
 	run(t, onFeature, "checkout", "--quiet", "-b", "feature/x")
 
+	tagged := repo(t)
+	run(t, tagged, "tag", "main")
+
 	detached := repo(t)
 	head, err := Run(t.Context(), detached, "rev-parse", "HEAD")
 	require.NoError(t, err)
@@ -116,6 +119,11 @@ func TestIntegrationGetCurrentBranch(t *testing.T) {
 			name: "a branch holding a slash keeps it whole",
 			dir:  onFeature,
 			want: xptr.Ptr("feature/x"),
+		},
+		{
+			name: "a branch a tag shares its name with reads the branch",
+			dir:  tagged,
+			want: xptr.Ptr("main"),
 		},
 	}
 

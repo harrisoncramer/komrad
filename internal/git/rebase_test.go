@@ -77,6 +77,19 @@ func TestIntegrationReadTreeStateReportsADetachedHead(t *testing.T) {
 	assert.Empty(t, state.Branch)
 }
 
+// TestIntegrationReadTreeStateNamesABranchATagShares covers a tag of the same name leaving the branch unambiguous.
+func TestIntegrationReadTreeStateNamesABranchATagShares(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "tag", "main")
+
+	state, err := client.ReadTreeState(t.Context(), repo)
+	require.NoError(t, err)
+
+	assert.Equal(t, "main", state.Branch)
+}
+
 // TestIntegrationReadTreeStateReportsAStoppedSequence covers a checkout already part-way through
 // something that owns the index, which a rebase cannot start over.
 func TestIntegrationReadTreeStateReportsAStoppedSequence(t *testing.T) {
