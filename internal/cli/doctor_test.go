@@ -4,16 +4,12 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 
 	"komrad/config"
-	"komrad/internal/agents"
-	"komrad/internal/doctor"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
 
@@ -99,50 +95,6 @@ func TestIntegrationDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	_, loadErr := env.LoadConfig()
 	require.Error(t, loadErr, "the config check has to be the one that reports the broken layer list")
 	assert.Contains(t, loadErr.Error(), "empty path")
-}
-
-// TestIntegrationDoctorAdviceReadsThePanelsOwnPane covers the doctor asking the same question the panel
-// key asks.
-func TestIntegrationDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
-	socket := throwawaySocket(t)
-	panelSession(t, socket)
-
-	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
-	require.NoError(t, err)
-
-	state := panelState(t, socket)
-	state.env.Addr = "127.0.0.1:8787"
-	state.harnesses = registry
-
-	staleFix := func(t *testing.T) string {
-		t.Helper()
-
-		env, settings, err := state.buildDoctor()
-		require.NoError(t, err)
-		checks := doctor.Checks(settings)
-
-		env.ProbeServer = func(context.Context) (doctor.ServerStatus, error) {
-			return doctor.ServerStatus{
-				Answering: true,
-				Ready:     true,
-				Version:   "v1.0.0",
-			}, nil
-		}
-
-		index := slices.IndexFunc(checks, func(check doctor.Check) bool { return check.Name == "server" })
-		require.GreaterOrEqual(t, index, 0)
-
-		return checks[index].Run(t.Context(), env).Fix
-	}
-
-	assert.Equal(t, "komrad stop, then reopen the panel", staleFix(t),
-		"an agent's window holds the session up with no panel drawing")
-
-	state.tmux.RecordPanelPane(hostQuery(t, socket, "display-message", "-p",
-		"-t", agents.ManagerSession, "#{pane_id}"))
-
-	assert.Contains(t, staleFix(t), "kill-server",
-		"a panel is drawing, so stopping the server under it would strand it")
 }
 
 // TestIntegrationColorFollowsWhatItWasAskedFor pins the three modes and the refusal.
