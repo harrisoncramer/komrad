@@ -111,11 +111,7 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 	if read.Consumed == 0 && !read.Restart {
 		// A stamp on a log that cannot grow is what takes an archived agent out of the next listing.
 		if agent.ArchivedAt != nil {
-			return ts.store.Advance(ctx, transcriptstore.AdvanceParams{
-				SessionID: session.ID,
-				Offset:    session.SyncedOffset,
-				ReadAt:    session.OpenedAt,
-			})
+			return ts.store.MarkDrained(ctx, session.ID, session.OpenedAt)
 		}
 
 		return nil
@@ -138,11 +134,7 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	return ts.store.Advance(ctx, transcriptstore.AdvanceParams{
-		SessionID: session.ID,
-		Offset:    offset + read.Consumed,
-		ReadAt:    session.OpenedAt,
-	})
+	return ts.store.Advance(ctx, session.ID, offset+read.Consumed)
 }
 
 // readLog reads whatever a session's log holds past offset, an unwritten log reading as empty.

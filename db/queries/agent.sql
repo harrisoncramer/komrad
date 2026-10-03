@@ -1005,11 +1005,13 @@ ORDER BY
 INSERT INTO agent_transcript_sessions(
     id,
     agent_id,
-    session_id)
+    session_id,
+    synced_at)
 VALUES (
     @id,
     @agent_id,
-    @session_id)
+    @session_id,
+    '-infinity')
 ON CONFLICT (
     agent_id,
     session_id)
@@ -1024,7 +1026,14 @@ ON CONFLICT (
 UPDATE
     agent_transcript_sessions
 SET
-    synced_offset = @synced_offset,
+    synced_offset = @synced_offset
+WHERE
+    id = @id;
+
+-- name: MarkTranscriptSessionDrained :exec
+UPDATE
+    agent_transcript_sessions
+SET
     synced_at = @synced_at
 WHERE
     id = @id;

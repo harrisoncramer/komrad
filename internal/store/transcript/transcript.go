@@ -150,20 +150,25 @@ func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionPar
 	}, nil
 }
 
-type AdvanceParams struct {
-	SessionID string
-	Offset    int64
-	ReadAt    time.Time
+// Advance records how far a session's log has been read.
+func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset int64) error {
+	if err := s.queries.AdvanceTranscriptSession(ctx, models.AdvanceTranscriptSessionParams{
+		ID:           sessionID,
+		SyncedOffset: offset,
+	}); err != nil {
+		return fmt.Errorf("failed to advance transcript session %q: %w", sessionID, err)
+	}
+
+	return nil
 }
 
-// Advance records how far a session's log has been read, and when the read began.
-func (s *TranscriptStore) Advance(ctx context.Context, params AdvanceParams) error {
-	if err := s.queries.AdvanceTranscriptSession(ctx, models.AdvanceTranscriptSessionParams{
-		ID:           params.SessionID,
-		SyncedOffset: params.Offset,
-		SyncedAt:     params.ReadAt,
+// MarkDrained records when a read that found a session's log drained began.
+func (s *TranscriptStore) MarkDrained(ctx context.Context, sessionID string, readAt time.Time) error {
+	if err := s.queries.MarkTranscriptSessionDrained(ctx, models.MarkTranscriptSessionDrainedParams{
+		ID:       sessionID,
+		SyncedAt: readAt,
 	}); err != nil {
-		return fmt.Errorf("failed to advance transcript session %q: %w", params.SessionID, err)
+		return fmt.Errorf("failed to mark transcript session %q drained: %w", sessionID, err)
 	}
 
 	return nil

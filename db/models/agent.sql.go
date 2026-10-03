@@ -39,20 +39,18 @@ const advanceTranscriptSession = `-- name: AdvanceTranscriptSession :exec
 UPDATE
     agent_transcript_sessions
 SET
-    synced_offset = $1,
-    synced_at = $2
+    synced_offset = $1
 WHERE
-    id = $3
+    id = $2
 `
 
 type AdvanceTranscriptSessionParams struct {
 	SyncedOffset int64
-	SyncedAt     time.Time
 	ID           string
 }
 
 func (q *Queries) AdvanceTranscriptSession(ctx context.Context, arg AdvanceTranscriptSessionParams) error {
-	_, err := q.db.Exec(ctx, advanceTranscriptSession, arg.SyncedOffset, arg.SyncedAt, arg.ID)
+	_, err := q.db.Exec(ctx, advanceTranscriptSession, arg.SyncedOffset, arg.ID)
 	return err
 }
 
@@ -2218,6 +2216,25 @@ func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []stri
 	return items, nil
 }
 
+const markTranscriptSessionDrained = `-- name: MarkTranscriptSessionDrained :exec
+UPDATE
+    agent_transcript_sessions
+SET
+    synced_at = $1
+WHERE
+    id = $2
+`
+
+type MarkTranscriptSessionDrainedParams struct {
+	SyncedAt time.Time
+	ID       string
+}
+
+func (q *Queries) MarkTranscriptSessionDrained(ctx context.Context, arg MarkTranscriptSessionDrainedParams) error {
+	_, err := q.db.Exec(ctx, markTranscriptSessionDrained, arg.SyncedAt, arg.ID)
+	return err
+}
+
 const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :many
 WITH prior AS (
     SELECT
@@ -2354,11 +2371,13 @@ const openTranscriptSession = `-- name: OpenTranscriptSession :one
 INSERT INTO agent_transcript_sessions(
     id,
     agent_id,
-    session_id)
+    session_id,
+    synced_at)
 VALUES (
     $1,
     $2,
-    $3)
+    $3,
+    '-infinity')
 ON CONFLICT (
     agent_id,
     session_id)
