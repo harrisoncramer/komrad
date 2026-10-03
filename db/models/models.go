@@ -391,7 +391,8 @@ type Agent struct {
 	// The agent that took the hold, null when the panel took it.
 	HeldByAgentID *string
 	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
-	Sequence AgentSequence
+	Sequence           AgentSequence
+	RequestedByAgentID *string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

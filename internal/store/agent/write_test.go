@@ -205,13 +205,7 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:             "child",
 		SpawnedByAgentID: &parent.ID,
-		IdempotencyKey:   xptr.Ptr("launch-1"),
 		State:            StateIdle,
-	}))
-	require.NoError(t, f.Create(ctx, Agent{
-		Name:           "person",
-		State:          StateIdle,
-		IdempotencyKey: xptr.Ptr("launch-1"),
 	}))
 	child, err := f.Get(ctx, "child")
 	require.NoError(t, err)
@@ -226,7 +220,6 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, stillThere, "the child survives its parent's deletion")
 	assert.Nil(t, stillThere.SpawnedByAgentID, "the reference is nulled rather than left dangling")
-	assert.Nil(t, stillThere.IdempotencyKey, "a key scoped to a spawner that is gone is released rather than left to collide")
 }
 
 // TestParentAgentID pins the attachment reading back on its own rather than through the spawner

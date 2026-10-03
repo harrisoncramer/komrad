@@ -139,9 +139,10 @@ type Agent struct {
 
 	// NudgeSentAt is when an agent was last told about its mail, which a claimed nudge that
 	// typed nothing does not set.
-	NudgeSentAt      *time.Time
-	Hidden           bool
-	SpawnedByAgentID *string
+	NudgeSentAt        *time.Time
+	Hidden             bool
+	SpawnedByAgentID   *string
+	RequestedByAgentID *string
 
 	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
 	// follows.
@@ -302,30 +303,31 @@ func FromRow(agent models.Agent) Agent {
 			FailedAt: agent.TurnFailedAt,
 			Error:    agent.TurnError,
 		},
-		ReportedReason:   agent.ReportedReason,
-		FailureReason:    agent.FailureReason,
-		Harness:          agent.Harness,
-		SessionID:        agent.SessionID,
-		WorkflowID:       agent.WorkflowID,
-		ScheduleID:       agent.ScheduleID,
-		IdempotencyKey:   agent.IdempotencyKey,
-		ArchivedAt:       agent.ArchivedAt,
-		ArchiveBatchID:   agent.ArchiveBatchID,
-		DeletingAt:       agent.DeletingAt,
-		NudgedAt:         agent.NudgedAt,
-		NudgeSentAt:      agent.NudgeSentAt,
-		Hidden:           agent.IsHidden,
-		SpawnedByAgentID: agent.SpawnedByAgentID,
-		ParentAgentID:    agent.ParentAgentID,
-		CreatedAt:        agent.CreatedAt,
-		UpdatedAt:        agent.UpdatedAt,
-		Branch:           agent.Branch,
-		RepositoryURL:    agent.RepositoryUrl,
-		HeadSHA:          agent.HeadSha,
-		AdoptedBranch:    agent.AdoptedBranch,
-		WorktreeRemoved:  agent.WorktreeRemoved,
-		InterruptedAt:    agent.InterruptedAt,
-		Sequence:         Sequence(agent.Sequence),
+		ReportedReason:     agent.ReportedReason,
+		FailureReason:      agent.FailureReason,
+		Harness:            agent.Harness,
+		SessionID:          agent.SessionID,
+		WorkflowID:         agent.WorkflowID,
+		ScheduleID:         agent.ScheduleID,
+		IdempotencyKey:     agent.IdempotencyKey,
+		ArchivedAt:         agent.ArchivedAt,
+		ArchiveBatchID:     agent.ArchiveBatchID,
+		DeletingAt:         agent.DeletingAt,
+		NudgedAt:           agent.NudgedAt,
+		NudgeSentAt:        agent.NudgeSentAt,
+		Hidden:             agent.IsHidden,
+		SpawnedByAgentID:   agent.SpawnedByAgentID,
+		RequestedByAgentID: agent.RequestedByAgentID,
+		ParentAgentID:      agent.ParentAgentID,
+		CreatedAt:          agent.CreatedAt,
+		UpdatedAt:          agent.UpdatedAt,
+		Branch:             agent.Branch,
+		RepositoryURL:      agent.RepositoryUrl,
+		HeadSHA:            agent.HeadSha,
+		AdoptedBranch:      agent.AdoptedBranch,
+		WorktreeRemoved:    agent.WorktreeRemoved,
+		InterruptedAt:      agent.InterruptedAt,
+		Sequence:           Sequence(agent.Sequence),
 		Hold: Hold{
 			At:        agent.HeldAt,
 			MidTurn:   agent.HeldMidTurn,

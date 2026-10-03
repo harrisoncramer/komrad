@@ -247,6 +247,37 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	assert.NotEqual(t, first.ID, theirs.ID, "another agent's key is not a retry of this one's call")
 	require.NotNil(t, theirs.ParentAgentID)
 	assert.Equal(t, other.ID, *theirs.ParentAgentID)
+
+	third, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "third",
+		Dir:        t.TempDir(),
+		Prompt:     "write a third change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+	fourth, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "fourth",
+		Dir:        t.TempDir(),
+		Prompt:     "write a fourth change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	forThird, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID:        third.ID,
+		Prompt:         "read it",
+		IdempotencyKey: "xyz",
+	})
+	require.NoError(t, err)
+	forFourth, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID:        fourth.ID,
+		Prompt:         "read it",
+		IdempotencyKey: "xyz",
+	})
+	require.NoError(t, err)
+	assert.NotEqual(t, forThird.ID, forFourth.ID, "one caller's key on two authors is two asks")
+	require.NotNil(t, forFourth.ParentAgentID)
+	assert.Equal(t, fourth.ID, *forFourth.ParentAgentID)
 }
 
 // TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one

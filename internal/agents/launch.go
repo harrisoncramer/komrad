@@ -100,6 +100,25 @@ type NewAgentParams struct {
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
 // with that agent and agenterr.ErrAlreadyLaunched.
 func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
+	if params.IdempotencyKey != "" {
+		key := idempotencyKey(ctx, params)
+		existing, err := s.agents.GetByIdempotencyKey(ctx, key)
+		switch {
+		case err == nil:
+			// The row is written before the window is opened, so a create that failed leaves the
+			// key spent on an agent that never ran and a retry answered with a corpse.
+			released, err := s.releaseFailedLaunch(ctx, *existing, key)
+			if err != nil {
+				return nil, err
+			}
+			if !released {
+				return existing, agenterr.ErrAlreadyLaunched
+			}
+		case !errors.Is(err, store.ErrNotFound):
+			return nil, err
+		}
+	}
+
 	var spawner *agentstore.Agent
 	if id := caller.From(ctx).AgentID; id != "" {
 		found, err := s.findSpawner(ctx, id)
@@ -112,24 +131,6 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 
 		spawner, err = s.findSpawnedBy(ctx, *found, params)
 		if err != nil {
-			return nil, err
-		}
-	}
-
-	if params.IdempotencyKey != "" {
-		existing, err := s.agents.GetByIdempotencyKey(ctx, params.IdempotencyKey, spawnerID(spawner))
-		switch {
-		case err == nil:
-			// The row is written before the window is opened, so a create that failed leaves the
-			// key spent on an agent that never ran and a retry answered with a corpse.
-			released, err := s.releaseFailedLaunch(ctx, *existing, params.IdempotencyKey)
-			if err != nil {
-				return nil, err
-			}
-			if !released {
-				return existing, agenterr.ErrAlreadyLaunched
-			}
-		case !errors.Is(err, store.ErrNotFound):
 			return nil, err
 		}
 	}
@@ -153,7 +154,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
 // attempt launches.
-func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key string) (bool, error) {
+func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key agentstore.IdempotencyKey) (bool, error) {
 	// A failed cleanup belongs to an agent that ran, so only a failed create launched nothing.
 	if existing.State != agentstore.StateFailedToCreate {
 		return false, nil
@@ -161,7 +162,15 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 
 	// The row is left where it stands rather than relaunched into, its id naming the worktree and
 	// branch the deprovisioner is still tearing down.
-	return s.agents.ReleaseIdempotencyKey(ctx, key, existing.SpawnedByAgentID)
+	return s.agents.ReleaseIdempotencyKey(ctx, key)
+}
+
+func idempotencyKey(ctx context.Context, params NewAgentParams) agentstore.IdempotencyKey {
+	return agentstore.IdempotencyKey{
+		Key:                params.IdempotencyKey,
+		RequestedByAgentID: nullable(caller.From(ctx).AgentID),
+		ParentAgentID:      nullable(params.ParentAgentID),
+	}
 }
 
 // requireOwnWorkflow holds an orchestrator to the workflow it stands behind.
@@ -191,14 +200,6 @@ func (s *LaunchService) findSpawnedBy(ctx context.Context, spawner agentstore.Ag
 	}
 
 	return orchestrator, nil
-}
-
-func spawnerID(spawner *agentstore.Agent) *string {
-	if spawner == nil {
-		return nil
-	}
-
-	return &spawner.ID
 }
 
 func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {
@@ -391,6 +392,11 @@ func (s *LaunchService) roleDefaults(wf *workflowstore.Workflow, role agentstore
 }
 
 func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent { //nolint:revive // a params struct is the follow-up
+	var spawnedBy *string
+	if spawner != nil {
+		spawnedBy = &spawner.ID
+	}
+
 	return agentstore.Agent{
 		ID:               id,
 		Name:             p.name,
@@ -405,7 +411,7 @@ func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane strin
 		WorkflowID:       params.WorkflowID,
 		ScheduleID:       params.ScheduleID,
 		IdempotencyKey:   nullable(params.IdempotencyKey),
-		SpawnedByAgentID: spawnerID(spawner),
+		SpawnedByAgentID: spawnedBy,
 		ParentAgentID:    nullable(params.ParentAgentID),
 		Hidden:           params.Hidden,
 		AdoptedBranch:    params.AdoptedBranch,
@@ -427,6 +433,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	}
 	sessionID := harness.MintSessionID(plan.harness)
 	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
+	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
 
 	if err := s.createUnderCeiling(ctx, agent, spawner, parent); err != nil {
