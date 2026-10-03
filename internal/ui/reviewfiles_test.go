@@ -19,10 +19,6 @@ func TestReviewFiles(t *testing.T) {
 	t.Run("the row the cursor is in is marked as it moves", func(t *testing.T) {
 		adrift := newAdriftThread("gone", newHumanMessage("m1", "this line went away"))
 		adrift.FilePath = gittest.File
-		whole := &agentv1.ReviewThread{
-			Id:       "whole",
-			Messages: []*agentv1.ReviewMessage{newHumanMessage("m2", "split this in two")},
-		}
 
 		tests := []struct {
 			name    string
@@ -31,25 +27,12 @@ func TestReviewFiles(t *testing.T) {
 			want    string
 		}{
 			{
-				name: "the row for the change as a whole marks nothing",
-				keys: []string{"k"},
-			},
-			{
 				name: "a thread at the foot marks the file it was written on",
 				threads: []*agentv1.ReviewThread{
-					whole,
 					adrift,
 				},
 				keys: []string{"G"},
 				want: "▸ greet.go +1 −1 ○",
-			},
-			{
-				name: "a comment on the change as a whole marks nothing",
-				threads: []*agentv1.ReviewThread{
-					whole,
-					adrift,
-				},
-				keys: []string{"G", "k"},
 			},
 			{
 				name: "a line in the first file marks that file",

@@ -651,7 +651,7 @@ type ReviewThread struct {
 	// The commit the old side of these line numbers was read against, which is the round's own
 	// base unless the diff was narrowed to an earlier round when the thread was written.
 	BaseSha string `protobuf:"bytes,19,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// Which file, relative to the checkout, empty for a comment on the change as a whole.
+	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// Where the range begins on the old side of the diff, counting from one.
 	OldStart int32 `protobuf:"varint,4,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
@@ -1165,8 +1165,7 @@ type CreateReviewThreadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose diff to pin the comment to.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// Which file, relative to the checkout. Empty for a comment on the change as a whole, which
-	// then carries no lines, no quote and no suggestion.
+	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// The commit the old side of these line numbers was read against, empty for the round's own
 	// base.

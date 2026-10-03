@@ -180,17 +180,6 @@ func (d reviewDiff) threadAtCursor() (*agentv1.ReviewThread, bool) {
 	return d.View().GetThreadAt(d.Cursor())
 }
 
-// isOnChange reports whether the cursor stands on the row for the change as a whole.
-func (d reviewDiff) isOnChange() bool {
-	if d.View() == nil {
-		return false
-	}
-
-	anchor, ok := d.View().GetAnchor(d.Cursor())
-
-	return ok && anchor.FilePath == ""
-}
-
 func (r *reviewScreen) moveCursor(m *model, next int) tea.Cmd {
 	return r.diffKeys().moveTo(m, next)
 }

@@ -363,6 +363,19 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: ErrReviewNotCurrent,
 		},
 		{
+			name: "a comment on no file",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+					AgentID: fx.worker.ID,
+					Body:    "this whole change needs a rethink",
+					Author:  personAuthor,
+				})
+
+				return err
+			},
+			wantErr: errReviewThreadNoFile,
+		},
+		{
 			name: "reading a review nothing holds",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.GetReview(t.Context(), uuid.NewString(), personAuthor)
@@ -592,108 +605,6 @@ func TestCreateReviewThreadPicksTheRound(t *testing.T) {
 			round, err := fx.reviews.GetRound(t.Context(), written.Thread.RoundID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
-		})
-	}
-}
-
-// TestCommentOnTheChangeAsAWhole pins what a comment naming no file may carry, from the first
-// message to the replies under it.
-func TestCommentOnTheChangeAsAWhole(t *testing.T) {
-	tests := []struct {
-		name    string
-		write   func(t *testing.T, fx *reviewFixture) error
-		wantErr error
-	}{
-		{
-			name: "opened naming lines",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				return fx.tryWholeChange(t, CreateReviewThreadParams{
-					NewStart: 3,
-					NewEnd:   3,
-				})
-			},
-			wantErr: errReviewWholeChangeAnchored,
-		},
-		{
-			name: "opened quoting a line",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				return fx.tryWholeChange(t, CreateReviewThreadParams{
-					QuotedLines: []string{"+func Hello() {}"},
-				})
-			},
-			wantErr: errReviewWholeChangeAnchored,
-		},
-		{
-			name: "opened suggesting a replacement",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				return fx.tryWholeChange(t, CreateReviewThreadParams{
-					Suggestion: []string{"func Hello(name string) {}"},
-				})
-			},
-			wantErr: errReviewWholeChangeAnchored,
-		},
-		{
-			name: "answered with a suggested replacement",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					AgentID: fx.worker.ID,
-					Body:    "split this in two",
-					Author:  personAuthor,
-				})
-				require.NoError(t, err)
-
-				_, err = fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
-					ThreadID:   written.Thread.ID,
-					Body:       "like this",
-					Suggestion: []string{"func Hello(name string) {}"},
-					Author:     personAuthor,
-				})
-
-				return err
-			},
-			wantErr: errReviewWholeChangeAnchored,
-		},
-		{
-			name: "edited to suggest a replacement",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					AgentID: fx.worker.ID,
-					Body:    "split this in two",
-					Author:  personAuthor,
-				})
-				require.NoError(t, err)
-
-				_, err = fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
-					ID:         written.Messages[0].ID,
-					Body:       "split this in two",
-					Suggestion: []string{"func Hello(name string) {}"},
-					Author:     personAuthor,
-				})
-
-				return err
-			},
-			wantErr: errReviewWholeChangeAnchored,
-		},
-		{
-			name: "saying something about the whole of it",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				return fx.tryWholeChange(t, CreateReviewThreadParams{})
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t)
-
-			err := tt.write(t, fx)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-
-				return
-			}
-
-			require.NoError(t, err)
 		})
 	}
 }
@@ -1142,19 +1053,6 @@ func (fx *reviewFixture) tryComment(t *testing.T, author ReviewAuthor, snapshot 
 		Body:        "and another thing",
 		Author:      author,
 	})
-
-	return err
-}
-
-// tryWholeChange opens a comment on the change as a whole carrying whatever else params names.
-func (fx *reviewFixture) tryWholeChange(t *testing.T, params CreateReviewThreadParams) error {
-	t.Helper()
-
-	params.AgentID = fx.worker.ID
-	params.Body = "split this in two"
-	params.Author = personAuthor
-
-	_, err := fx.service.CreateReviewThread(t.Context(), params)
 
 	return err
 }

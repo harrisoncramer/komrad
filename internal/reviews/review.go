@@ -37,9 +37,8 @@ var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 // does, such as opening, deleting, or releasing a review.
 var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
-// errReviewWholeChangeAnchored is answered when a comment on the change as a whole names lines,
-// quotes them, or suggests replacing them, which only a comment on a file can.
-var errReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
+// errReviewThreadNoFile is answered when a comment names no file.
+var errReviewThreadNoFile = fail.InvalidArgument("a comment must be on a file")
 
 // errReviewThreadHeld is answered when a reply is written in a forge thread whose first comment is
 // still held and not yet accepted, which the agent could not read the reply alongside.
@@ -235,8 +234,8 @@ func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
 ) (*ReviewThreadWithMessages, error) {
-	if params.FilePath == "" && isAnchoredToLines(params) {
-		return nil, errReviewWholeChangeAnchored
+	if params.FilePath == "" {
+		return nil, errReviewThreadNoFile
 	}
 
 	place, err := s.placeThread(ctx, params)
@@ -374,10 +373,6 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, err
 	}
 
-	if thread.FilePath == "" && len(params.Suggestion) > 0 {
-		return nil, errReviewWholeChangeAnchored
-	}
-
 	answering := !params.Author.isHuman() && doesOwnAgent(params.Author, thread.AgentID)
 	if params.Addressed && !answering {
 		return nil, errReviewAddressedByOwner
@@ -472,20 +467,8 @@ func (s *ReviewService) EditReviewMessage(
 	ctx context.Context,
 	params EditReviewMessageParams,
 ) (*reviewstore.Message, error) {
-	message, err := s.getOwnMessage(ctx, params.ID, params.Author)
-	if err != nil {
+	if _, err := s.getOwnMessage(ctx, params.ID, params.Author); err != nil {
 		return nil, err
-	}
-
-	if len(params.Suggestion) > 0 {
-		thread, err := s.reviews.GetThread(ctx, message.ThreadID)
-		if err != nil {
-			return nil, err
-		}
-
-		if thread.FilePath == "" {
-			return nil, errReviewWholeChangeAnchored
-		}
 	}
 
 	return s.reviews.UpdateMessage(ctx, params.ID, params.Body, params.Suggestion)
@@ -656,12 +639,6 @@ func (s *ReviewService) getOwnMessage(ctx context.Context, id string, author Rev
 
 func doesOwnAgent(author ReviewAuthor, agentID string) bool {
 	return author.AgentID != nil && *author.AgentID == agentID
-}
-
-// isAnchoredToLines reports whether a new thread names, quotes or rewrites any line.
-func isAnchoredToLines(params CreateReviewThreadParams) bool {
-	return params.OldStart != 0 || params.OldEnd != 0 || params.NewStart != 0 || params.NewEnd != 0 ||
-		len(params.QuotedLines) > 0 || len(params.Suggestion) > 0
 }
 
 // isThreadHeld reports whether a thread opens with a held forge comment that no copy, sent or

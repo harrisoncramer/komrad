@@ -2528,7 +2528,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which file, relative to the checkout. Empty for a comment on the change as a whole, which then carries no lines, no quote and no suggestion."
+          "description": "Which file, relative to the checkout."
         },
         {
           "name": "base_sha",
@@ -5331,7 +5331,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which file, relative to the checkout, empty for a comment on the change as a whole."
+          "description": "Which file, relative to the checkout."
         },
         {
           "name": "old_start",

@@ -129,7 +129,7 @@ func (v *View) matchText(y int) (string, bool) {
 		return current.text, true
 	case threadRow:
 		return FormatThreadLocation(current.thread) + " " + firstLine(current.thread), true
-	case changeRow, metadataRow, hunkRow, lineRow:
+	case metadataRow, hunkRow, lineRow:
 	}
 
 	return v.quoteAt(y)
