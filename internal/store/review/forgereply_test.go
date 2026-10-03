@@ -94,7 +94,11 @@ func (st *fixture) proposeIn(t *testing.T, threads replyThreads, state ForgeRepl
 	reply := st.propose(t, threads, "proposed")
 	steps := map[ForgeReplyState]func() (*ForgeReply, error){
 		ForgeReplyApproved: func() (*ForgeReply, error) {
-			return st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: reply.ID, Body: "approved", ApproverKind: ForgeReplyApproverHuman})
+			return st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{
+				ID:           reply.ID,
+				Body:         "approved",
+				ApproverKind: ForgeReplyApproverHuman,
+			})
 		},
 		ForgeReplySending: func() (*ForgeReply, error) { return st.BeginForgeReplySend(ctx, reply.ID) },
 		ForgeReplySent:    func() (*ForgeReply, error) { return st.MarkForgeReplySent(ctx, reply.ID, "PRRC_1") },
@@ -130,7 +134,12 @@ func TestForgeReplyTransitions(t *testing.T) {
 			from: []ForgeReplyState{ForgeReplyDraft},
 			to:   ForgeReplyApproved,
 			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
-				reply, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: id, Body: "edited", ApproverKind: ForgeReplyApproverHuman})
+				reply, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{
+					ID:           id,
+					Body:         "edited",
+					ApproverKind: ForgeReplyApproverHuman,
+				})
+
 				return stateOf(reply), err
 			},
 		},
@@ -347,7 +356,11 @@ func TestForgeReplyThreads(t *testing.T) {
 		{
 			name: "the agent cannot propose on a thread opened in komrad",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
-				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{ThreadID: threads.local, AgentID: threads.agentID, Body: "hi"})
+				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{
+					ThreadID: threads.local,
+					AgentID:  threads.agentID,
+					Body:     "hi",
+				})
 
 				return err
 			},
@@ -375,7 +388,11 @@ func TestForgeReplyThreads(t *testing.T) {
 			name: "a second proposal waits on a draft",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
 				st.propose(t, threads, "first")
-				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{ThreadID: threads.mirrored, AgentID: threads.agentID, Body: "second"})
+				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{
+					ThreadID: threads.mirrored,
+					AgentID:  threads.agentID,
+					Body:     "second",
+				})
 
 				return err
 			},
@@ -385,7 +402,11 @@ func TestForgeReplyThreads(t *testing.T) {
 			name: "a second proposal waits on a failed reply until it is discarded",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
 				st.proposeIn(t, threads, ForgeReplyFailed)
-				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{ThreadID: threads.mirrored, AgentID: threads.agentID, Body: "second"})
+				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{
+					ThreadID: threads.mirrored,
+					AgentID:  threads.agentID,
+					Body:     "second",
+				})
 
 				return err
 			},
@@ -395,7 +416,11 @@ func TestForgeReplyThreads(t *testing.T) {
 			name: "a proposal follows one that was sent",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
 				st.proposeIn(t, threads, ForgeReplySent)
-				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{ThreadID: threads.mirrored, AgentID: threads.agentID, Body: "second"})
+				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{
+					ThreadID: threads.mirrored,
+					AgentID:  threads.agentID,
+					Body:     "second",
+				})
 
 				return err
 			},
@@ -404,7 +429,11 @@ func TestForgeReplyThreads(t *testing.T) {
 			name: "a proposal follows one that was discarded",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
 				require.NoError(t, st.DeleteForgeReply(t.Context(), st.propose(t, threads, "first").ID))
-				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{ThreadID: threads.mirrored, AgentID: threads.agentID, Body: "second"})
+				_, err := st.CreateAgentForgeReply(t.Context(), CreateAgentForgeReplyParams{
+					ThreadID: threads.mirrored,
+					AgentID:  threads.agentID,
+					Body:     "second",
+				})
 
 				return err
 			},
@@ -443,7 +472,11 @@ func TestForgeReplyNotFound(t *testing.T) {
 			return err
 		},
 		"approve": func(ctx context.Context, st *fixture, id string) error {
-			_, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{ID: id, Body: "x", ApproverKind: ForgeReplyApproverHuman})
+			_, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{
+				ID:           id,
+				Body:         "x",
+				ApproverKind: ForgeReplyApproverHuman,
+			})
 
 			return err
 		},
