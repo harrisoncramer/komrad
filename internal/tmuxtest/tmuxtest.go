@@ -23,9 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var created atomic.Int64
-
 const watchdogScript = `while kill -0 "$1" 2>/dev/null; do sleep 1; done; tmux -L "$2" kill-server`
+
+var created atomic.Int64
 
 type Server struct {
 	t      *testing.T
