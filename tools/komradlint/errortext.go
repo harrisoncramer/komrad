@@ -15,13 +15,13 @@ const errorTextDoc = "Checks that a test matches an error's text through assert.
 // errorTextChecks maps each testify check to the arguments it reads the error's text from and
 // the check that takes the error itself.
 var errorTextChecks = map[string]struct {
-	args []int
-	want string
+	positions   []int
+	replacement string
 }{
-	"Contains":  {args: []int{1}, want: "ErrorContains"},
-	"Containsf": {args: []int{1}, want: "ErrorContainsf"},
-	"Equal":     {args: []int{1, 2}, want: "EqualError"},
-	"Equalf":    {args: []int{1, 2}, want: "EqualErrorf"},
+	"Contains":  {positions: []int{1}, replacement: "ErrorContains"},
+	"Containsf": {positions: []int{1}, replacement: "ErrorContainsf"},
+	"Equal":     {positions: []int{1, 2}, replacement: "EqualError"},
+	"Equalf":    {positions: []int{1, 2}, replacement: "EqualErrorf"},
 }
 
 // testifyPackages are the packages whose checks the rule reads.
@@ -69,11 +69,11 @@ func reportErrorTexts(pass *analysis.Pass, file *ast.File) {
 		name := testifyCheck(pass, call)
 
 		check, ok := errorTextChecks[name]
-		if !ok || !hasErrorText(pass, call, check.args) {
+		if !ok || !hasErrorText(pass, call, check.positions) {
 			return true
 		}
 
-		pass.Reportf(call.Pos(), "a test hands %s the error itself, not the text of %s", check.want, name)
+		pass.Reportf(call.Pos(), "a test hands %s the error itself, not the text of %s", check.replacement, name)
 
 		return true
 	})
@@ -94,6 +94,17 @@ func testifyCheck(pass *analysis.Pass, call *ast.CallExpr) string {
 	return function.Name()
 }
 
+// hasErrorText says whether any of the arguments at the positions calls Error on an error.
+func hasErrorText(pass *analysis.Pass, call *ast.CallExpr, positions []int) bool {
+	for _, position := range positions {
+		if position < len(call.Args) && isErrorText(pass, call.Args[position]) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // isErrorText says whether an expression calls Error on an error.
 func isErrorText(pass *analysis.Pass, expr ast.Expr) bool {
 	call, ok := expr.(*ast.CallExpr)
@@ -107,15 +118,4 @@ func isErrorText(pass *analysis.Pass, expr ast.Expr) bool {
 	}
 
 	return isError(pass.TypesInfo.TypeOf(selector.X))
-}
-
-// hasErrorText says whether any of the arguments at the positions calls Error on an error.
-func hasErrorText(pass *analysis.Pass, call *ast.CallExpr, positions []int) bool {
-	for _, position := range positions {
-		if position < len(call.Args) && isErrorText(pass, call.Args[position]) {
-			return true
-		}
-	}
-
-	return false
 }
