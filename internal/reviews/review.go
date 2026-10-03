@@ -37,8 +37,7 @@ var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 // does, such as opening, deleting, or releasing a review.
 var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
-// errReviewThreadNoFile is answered when a comment names no file, which every comment is written
-// on.
+// errReviewThreadNoFile is answered when a comment names no file.
 var errReviewThreadNoFile = fail.InvalidArgument("a comment must be on a file")
 
 // errReviewThreadHeld is answered when a reply is written in a forge thread whose first comment is

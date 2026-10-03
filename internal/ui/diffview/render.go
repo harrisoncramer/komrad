@@ -280,35 +280,15 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 		said += "  " + opening
 	}
 
-	return renderSaidRow(renderSaidRowParams{
-		Mark:      mark,
-		MarkStyle: markStyle,
-		Said:      said,
-		Cursor:    cursor,
-		Width:     width,
-	})
-}
-
-// renderSaidRowParams is a row of prose drawn in the diff and the mark beside it.
-type renderSaidRowParams struct {
-	Mark      string
-	MarkStyle lipgloss.Style
-	Said      string
-	Cursor    Cursor
-	Width     int
-}
-
-// renderSaidRow draws a row of prose with nothing but a thread's mark in its gutter.
-func renderSaidRow(params renderSaidRowParams) string {
-	background := getBackground(diff.Context, params.Cursor)
+	background := getBackground(diff.Context, cursor)
 	style := lipgloss.NewStyle().Background(background)
 	head := strings.Repeat(" ", max(GutterWidth-2, 0))
-	said := style.Foreground(paint.Panel.Color(paint.ToneMuted)).Italic(true).Render(sanitize(params.Said))
+	drawn := style.Foreground(paint.Panel.Color(paint.ToneMuted)).Italic(true).Render(sanitize(said))
 
 	return ansi.Truncate(
-		style.Render(head)+params.MarkStyle.Background(background).Render(params.Mark)+style.Render(" ")+
-			fitWindow(said, 0, max(0, params.Width-GutterWidth), background),
-		params.Width, "…")
+		style.Render(head)+markStyle.Background(background).Render(mark)+style.Render(" ")+
+			fitWindow(drawn, 0, max(0, width-GutterWidth), background),
+		width, "…")
 }
 
 // firstLine is the opening line of a thread.

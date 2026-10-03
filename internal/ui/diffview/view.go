@@ -411,7 +411,7 @@ func (v *View) isPinnable(y int) bool {
 		(current.kind == fileRow && v.isCollapsed(current.file))
 }
 
-// GetFirstRow returns where the cursor starts: the first row that stands for a line.
+// GetFirstRow returns the first row that stands for a line, where the cursor starts.
 func (v *View) GetFirstRow() int {
 	return max(v.scan(-1, 1), 0)
 }
