@@ -230,7 +230,13 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 }
 
 func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
-	failAs(ctx, s.agents, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
+	failAs(ctx, failAsParams{
+		agents: s.agents,
+		agent:  agent,
+		state:  agentstore.StateFailedToCleanup,
+		verb:   "cleanup",
+		cause:  cause,
+	})
 
 	if err := s.agents.ClearDeleting(ctx, []string{agent.ID}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release an agent whose cleanup failed",
@@ -687,27 +693,49 @@ func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 	}
 }
 
+type failAsParams struct {
+	agents         *agentstore.AgentStore
+	agent          agentstore.Agent
+	state          agentstore.State
+	verb           string
+	cause          error
+	refuseArchived bool
+}
+
 // failAs marks an agent as having failed create or cleanup and leaves the row where it was.
-func failAs(ctx context.Context, agents *agentstore.AgentStore, agent agentstore.Agent, state agentstore.State, verb string, cause error) { //nolint:revive // a params struct is the follow-up
-	agent.State = state
-	if err := agents.Update(ctx, agent); err != nil {
+func failAs(ctx context.Context, params failAsParams) {
+	agent := params.agent
+	agent.State = params.state
+	written, err := writeFailure(ctx, params.agents, agent, params.refuseArchived)
+	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
 			append([]slog.Attr{
 				slog.String(logging.AgentID, agent.ID),
-				slog.String(logging.LifecycleAction, verb),
+				slog.String(logging.LifecycleAction, params.verb),
 			}, logging.Err(err)...)...)
 
 		return
 	}
+	if !written {
+		return
+	}
 
-	reason := store.FailureReason(cause)
-	if _, err := agents.SetFailureReason(ctx, agent.ID, reason); err != nil {
+	reason := store.FailureReason(params.cause)
+	if _, err := params.agents.SetFailureReason(ctx, agent.ID, reason); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
 			append([]slog.Attr{
 				slog.String(logging.AgentID, agent.ID),
-				slog.String(logging.LifecycleAction, verb),
+				slog.String(logging.LifecycleAction, params.verb),
 			}, logging.Err(err)...)...)
 	}
+}
+
+func writeFailure(ctx context.Context, agents *agentstore.AgentStore, agent agentstore.Agent, refuseArchived bool) (bool, error) {
+	if refuseArchived {
+		return agents.UpdateIfLive(ctx, agent)
+	}
+
+	return true, agents.Update(ctx, agent)
 }
 
 const namedMissing = 5

@@ -831,6 +831,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			require.Len(t, agents, 1, "the row stays, marked failed, rather than vanishing")
 			assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
 			assert.NotEmpty(t, agents[0].FailureReason)
+			assert.Empty(t, agents[0].Pane, "a failed create holds no pane")
 		})
 	}
 }
@@ -907,6 +908,55 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 
 	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
 	assert.Equal(t, []error{nil}, lifecycle.deprovisionCtxErr, "cleanup gets a context it can still read the workflow on")
+}
+
+type archivingSetupLifecycle struct {
+	*fakeLifecycle
+	archive func(id string) error
+}
+
+func (a *archivingSetupLifecycle) RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
+	if err := a.archive(agent.ID); err != nil {
+		return "", err
+	}
+
+	return a.fakeLifecycle.RunProvision(ctx, agent, name)
+}
+
+// TestNewAgentArchivedDuringSetupIsNotLaunched pins an archive that lands while setup runs
+// keeping the agent out of a pane.
+func TestNewAgentArchivedDuringSetupIsNotLaunched(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	lifecycle := &archivingSetupLifecycle{fakeLifecycle: &fakeLifecycle{dir: t.TempDir()}}
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	lifecycle.archive = func(id string) error {
+		return manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{id}})
+	}
+
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:     "backend",
+		Cwd:      fakeCheckout(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	})
+	require.NoError(t, err)
+
+	_, _ = manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+
+	agents, err := st.Agents.ListAll(t.Context())
+	require.NoError(t, err)
+	require.Len(t, agents, 1)
+	require.NotNil(t, agents[0].ArchivedAt)
+	assert.Empty(t, agents[0].Pane, "an archived agent holds no pane")
+	assert.False(t, agents[0].Alive, "an archived agent is not alive")
+
+	for pane := range tmux.Respawned {
+		assert.Contains(t, tmux.ReadKilledPanes(), pane, "no CLI is left running for an archived agent")
+	}
 }
 
 // slowCleanupLifecycle finishes its cleanup only once the call that started it has had a chance to
