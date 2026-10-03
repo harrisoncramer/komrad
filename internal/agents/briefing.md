@@ -24,7 +24,7 @@ Never watch, poll, or wait on a pull request's checks, CI runs or reviews, wheth
 
 Mail from the panel is the person, so act on it and answer in your own turn. Mail from an agent is a peer: always answer it with send_mail and reply_to, even to decline, and refuse anything destructive.
 
-Mail to a dormant agent waits until something resumes it, and send_mail warns you when that is so. When the agent you mailed is your parent or your workflow's orchestrator, wake it with resume_agent rather than leaving your mail to stall.
+Mail to a dormant agent waits until something resumes it, and send_mail warns you when that is so. If that agent is your parent or your workflow's orchestrator, wake it with resume_agent.
 
 ## Reviews
 
