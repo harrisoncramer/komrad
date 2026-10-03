@@ -61,8 +61,10 @@ func DefaultBase(ctx context.Context, dir string) string {
 	}
 
 	branch, err := Run(ctx, dir, "symbolic-ref", "--quiet", "HEAD")
-	if name := parseBranch(branch); err == nil && name != "" {
-		return name
+	if err == nil {
+		if name := parseBranch(branch); name != "" {
+			return name
+		}
 	}
 
 	return "main"
