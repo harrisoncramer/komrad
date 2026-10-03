@@ -310,7 +310,11 @@ func TestListMovesSince(t *testing.T) {
 					head:      "aaa",
 					at:        at,
 				},
-				{head: "bbb", at: at},
+				{
+					readiness: MergeReadiness{Decision: ReviewDecisionPending},
+					head:      "bbb",
+					at:        at,
+				},
 				{
 					readiness: failing,
 					head:      "bbb",
@@ -321,6 +325,27 @@ func TestListMovesSince(t *testing.T) {
 				Field: MergeReadinessFieldChecks,
 				From:  "failing",
 				To:    "failing",
+			}},
+		},
+		{
+			name: "the same review decision after a blank is a move",
+			reads: []read{
+				{
+					readiness: MergeReadiness{Decision: ReviewDecisionChangesRequested},
+					head:      "aaa",
+					at:        at,
+				},
+				{head: "aaa", at: at},
+				{
+					readiness: MergeReadiness{Decision: ReviewDecisionChangesRequested},
+					head:      "aaa",
+					at:        at,
+				},
+			},
+			want: []mergeReadinessMove{{
+				Field: MergeReadinessFieldDecision,
+				From:  "changes_requested",
+				To:    "changes_requested",
 			}},
 		},
 		{

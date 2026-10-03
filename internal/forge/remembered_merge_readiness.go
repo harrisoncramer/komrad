@@ -87,7 +87,7 @@ func rememberAnswer[T comparable](answer RememberedAnswer[T], read T, head strin
 // ListMovesSince lists every part of the merge readiness that moved since before.
 func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadiness) []mergeReadinessMove {
 	var moves []mergeReadinessMove
-	if rs.Decision.Value != before.Decision.Value {
+	if rs.Decision.Value != before.Decision.Value || isBackAfterBlank(before.Decision, rs.Decision) {
 		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldDecision,
 			From:  string(before.Decision.Value),
@@ -122,6 +122,11 @@ func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadines
 // isOnNewHead says whether the checks were read for a different head than before.
 func isOnNewHead(before, after RememberedAnswer[Checks]) bool {
 	return before.HeadSHA != "" && after.HeadSHA != "" && before.HeadSHA != after.HeadSHA
+}
+
+// isBackAfterBlank says whether the decision was read again after a blank read.
+func isBackAfterBlank(before, after RememberedAnswer[ReviewDecision]) bool {
+	return before.WasLatestReadBlank && !after.WasLatestReadBlank
 }
 
 // DescribeAutoMerge says whether auto-merge is on in the words a move carries, empty before it was read.
