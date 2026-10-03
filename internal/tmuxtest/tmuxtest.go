@@ -72,7 +72,11 @@ func (s *Server) Client() *tmux.Client {
 func (s *Server) Run(args ...string) string {
 	s.t.Helper()
 
-	out, err := exec.Command("tmux", append([]string{"-L", s.socket, "-f", "/dev/null"}, args...)...).Output()
+	// Explainer: -L sends the command to this test's own server rather than the user's.
+	// -f /dev/null starts the server without the user's tmux config, whose plugins can keep it alive.
+	command := append([]string{"-L", s.socket, "-f", "/dev/null"}, args...)
+
+	out, err := exec.Command("tmux", command...).Output()
 	require.NoError(s.t, err, "tmux %v", args)
 
 	return strings.TrimSpace(string(out))
