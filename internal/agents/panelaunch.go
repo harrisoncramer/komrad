@@ -34,6 +34,9 @@ var reviewerDoc string
 //go:embed briefing_settling.md
 var settlingDoc string
 
+//go:embed briefing_spawning.md
+var spawningDoc string
+
 const mcpURLPlaceholder = "{{MCP_URL}}"
 
 const logPathPlaceholder = "{{LOG_PATH}}"
@@ -92,6 +95,7 @@ func (l *Launcher) appendedSystemPrompt(ctx context.Context, params launchParams
 	parts := []string{
 		l.buildBriefing(),
 		roleBriefing(params),
+		spawningBriefing(params),
 		relationBriefing(params),
 		l.globalContext(ctx),
 		contextBriefing(params),
@@ -116,6 +120,15 @@ func roleBriefing(params launchParams) string {
 	}
 
 	return ""
+}
+
+// spawningBriefing is what an agent is told about launching agents of its own.
+func spawningBriefing(params launchParams) string {
+	if params.Role != agentstore.RoleImplementer {
+		return ""
+	}
+
+	return spawningDoc
 }
 
 // contextBriefing is what an agent is told about the workflow context coming after it.

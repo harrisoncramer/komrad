@@ -701,7 +701,6 @@ service AgentService {
       destructive: false
       roles: [
         ROLE_IMPLEMENTER,
-        ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
     };

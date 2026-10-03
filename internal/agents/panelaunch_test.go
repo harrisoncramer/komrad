@@ -529,8 +529,7 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{})
 
 	assert.Contains(t, prompt, "add_review_message", "answering a review reaches every agent")
-	assert.Contains(t, prompt, "spawn that one with request_review rather than create_agent",
-		"since create_agent cannot mark a reviewer, and an unmarked child is told none of this")
+	assert.Contains(t, prompt, "Never spawn agents with your CLI's own subagent tools", "since komrad tracks no agent it did not launch")
 	assert.Contains(t, prompt, "never touches a forge", "so does the rule against mailing one")
 	assert.Contains(t, prompt, "Never watch, poll, or wait on a pull request's checks",
 		"since a turn spent watching is one in which komrad's mail about the pull request cannot arrive")
@@ -575,6 +574,53 @@ func TestRoleBriefing(t *testing.T) {
 			assert.Equal(t, tt.want, roleBriefing(tt.params))
 		})
 	}
+}
+
+// TestSpawningBriefing pins that every implementer, with a checkout or without, is told to use create_agent and no reviewer is.
+func TestSpawningBriefing(t *testing.T) {
+	tests := []struct {
+		name   string
+		params launchParams
+		want   string
+	}{
+		{
+			name:   "an implementer holding its own checkout spawns",
+			params: launchParams{Role: agentstore.RoleImplementer, OwnsCheckout: true},
+			want:   spawningDoc,
+		},
+		{
+			name:   "an implementer holding no checkout still spawns",
+			params: launchParams{Role: agentstore.RoleImplementer},
+			want:   spawningDoc,
+		},
+		{
+			name:   "a reviewer sends new work to its parent",
+			params: launchParams{Role: agentstore.RoleReviewer},
+			want:   "",
+		},
+		{
+			name:   "an orchestrator has spawning rules of its own",
+			params: launchParams{Role: agentstore.RoleOrchestrator},
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, spawningBriefing(tt.params))
+		})
+	}
+
+	t.Run("a reviewer is never told to call create_agent", func(t *testing.T) {
+		launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), LogPath: briefedLogPath})
+		prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
+			Role:          agentstore.RoleReviewer,
+			ParentAgentID: "parent",
+			ParentName:    "author",
+		})
+
+		assert.NotContains(t, prompt, "create_agent")
+	})
 }
 
 // TestContextBriefing pins that a workflow's context still reaches an orchestrator, and that

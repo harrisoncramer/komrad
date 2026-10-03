@@ -16,7 +16,7 @@ list_tables, describe_table and query run read-only SQL over the panel's whole P
 
 Name other agents by name, never by the pull request they hold, since the sidebar shows names and no pull request numbers. To name the agent behind a pull request, find the one listing it under pull_requests in list_agents.
 
-Spawn agents with create_agent, never with your CLI's own subagent tools, which are denied. An agent that only reads your tree is a child, made by passing your id as parent_agent_id. An agent that writes needs a checkout of its own, so spawn it standalone. A reviewer is a child too, but spawn that one with request_review rather than create_agent, since only that call briefs it to review.
+Never spawn agents with your CLI's own subagent tools, which are denied.
 
 ## Mail
 
