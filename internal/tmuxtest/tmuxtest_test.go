@@ -6,6 +6,7 @@ import (
 	"flag"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func TestIntegrationServerGoesWithAKilledTestProcess(t *testing.T) {
 		return
 	}
 
-	socketFile := t.TempDir() + "/socket"
+	socketFile := filepath.Join(t.TempDir(), "socket")
 	child := exec.Command(os.Args[0], "-test.run=^"+t.Name()+"$", "-hold-server="+socketFile)
 	require.NoError(t, child.Start())
 	t.Cleanup(func() {
