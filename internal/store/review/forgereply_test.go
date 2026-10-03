@@ -99,9 +99,8 @@ func (st *fixture) proposeIn(t *testing.T, threads replyThreads, state ForgeRepl
 	steps := map[ForgeReplyState]func() (*ForgeReply, error){
 		forgeReplyApproved: func() (*ForgeReply, error) {
 			return st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{
-				ID:           reply.ID,
-				Body:         "approved",
-				ApproverKind: ForgeReplyApproverHuman,
+				ID:   reply.ID,
+				Body: "approved",
 			})
 		},
 		ForgeReplySending: func() (*ForgeReply, error) { return st.BeginForgeReplySend(ctx, reply.ID) },
@@ -139,9 +138,8 @@ func TestForgeReplyTransitions(t *testing.T) {
 			to:   forgeReplyApproved,
 			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				reply, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{
-					ID:           id,
-					Body:         "edited",
-					ApproverKind: ForgeReplyApproverHuman,
+					ID:   id,
+					Body: "edited",
 				})
 
 				return stateOf(reply), err
@@ -251,7 +249,7 @@ func TestForgeReplyRecords(t *testing.T) {
 				assert.Nil(t, reply.AuthorAgentID)
 				assert.Nil(t, reply.ProposedBody)
 				assert.Equal(t, "mine", reply.Body)
-				assert.Equal(t, ForgeReplyApproverHuman, reply.ApproverKind)
+				assert.Equal(t, forgeReplyApproverHuman, reply.ApproverKind)
 				assert.NotNil(t, reply.ApprovedAt)
 			},
 		},
@@ -264,7 +262,7 @@ func TestForgeReplyRecords(t *testing.T) {
 				require.NotNil(t, reply.ProposedBody)
 				assert.Equal(t, "proposed", *reply.ProposedBody)
 				assert.Equal(t, "approved", reply.Body)
-				assert.Equal(t, ForgeReplyApproverHuman, reply.ApproverKind)
+				assert.Equal(t, forgeReplyApproverHuman, reply.ApproverKind)
 				assert.NotNil(t, reply.ApprovedAt)
 			},
 		},
@@ -477,9 +475,8 @@ func TestForgeReplyNotFound(t *testing.T) {
 		},
 		"approve": func(ctx context.Context, st *fixture, id string) error {
 			_, err := st.MarkForgeReplyApproved(ctx, MarkForgeReplyApprovedParams{
-				ID:           id,
-				Body:         "x",
-				ApproverKind: ForgeReplyApproverHuman,
+				ID:   id,
+				Body: "x",
 			})
 
 			return err

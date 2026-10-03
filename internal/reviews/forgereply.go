@@ -125,9 +125,8 @@ func (s *ForgeReplyService) ApproveForgeReply(ctx context.Context, params Approv
 	}
 
 	approved, err := s.reviews.MarkForgeReplyApproved(ctx, reviewstore.MarkForgeReplyApprovedParams{
-		ID:           draft.ID,
-		Body:         body,
-		ApproverKind: reviewstore.ForgeReplyApproverHuman,
+		ID:   draft.ID,
+		Body: body,
 	})
 	if err != nil {
 		return nil, err

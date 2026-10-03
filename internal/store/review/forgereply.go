@@ -40,8 +40,8 @@ const (
 // forgeReplyApproverKind is who approved a forge reply for posting.
 type forgeReplyApproverKind string
 
-// ForgeReplyApproverHuman is the person approving a reply.
-const ForgeReplyApproverHuman forgeReplyApproverKind = forgeReplyApproverKind(models.ForgeReplyApproverKindHuman)
+// forgeReplyApproverHuman is the person approving a reply.
+const forgeReplyApproverHuman forgeReplyApproverKind = forgeReplyApproverKind(models.ForgeReplyApproverKindHuman)
 
 // ForgeReply is a reply komrad posts to the forge on a mirrored thread.
 type ForgeReply struct {
@@ -122,12 +122,11 @@ func (s *ReviewStore) CreateHumanForgeReply(ctx context.Context, threadID, body 
 
 // MarkForgeReplyApprovedParams is an approval of a draft, with the text to post.
 type MarkForgeReplyApprovedParams struct {
-	ID           string
-	Body         string
-	ApproverKind forgeReplyApproverKind
+	ID   string
+	Body string
 }
 
-// MarkForgeReplyApproved approves a draft for posting.
+// MarkForgeReplyApproved approves a draft for posting as the person.
 func (s *ReviewStore) MarkForgeReplyApproved(ctx context.Context, params MarkForgeReplyApprovedParams) (*ForgeReply, error) {
 	if !store.IsID(params.ID) {
 		return nil, forgeReplyNotFound(params.ID)
@@ -136,7 +135,7 @@ func (s *ReviewStore) MarkForgeReplyApproved(ctx context.Context, params MarkFor
 	row, err := s.queries.MarkForgeReplyApproved(ctx, models.MarkForgeReplyApprovedParams{
 		ID:           params.ID,
 		Body:         params.Body,
-		ApproverKind: models.ForgeReplyApproverKind(params.ApproverKind),
+		ApproverKind: models.ForgeReplyApproverKind(forgeReplyApproverHuman),
 	})
 
 	return s.finishForgeReplyMove(ctx, params.ID, row, err)
