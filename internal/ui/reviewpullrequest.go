@@ -44,7 +44,7 @@ func (r reviewScreen) pullRequestView(m *model, rows int) string {
 	}
 
 	body := xslice.Map(pullRequestBodyRows(pullRequest.Body, width), func(row string) string {
-		return dimStyle().Render(paint.Clip(row, width))
+		return paint.Clip(row, width)
 	})
 	shown := paint.WindowRows(body, countPullRequestWindow(head, rows), func(visible int) int {
 		return max(min(r.pullRequestTop, len(body)-visible), 0)
