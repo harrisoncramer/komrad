@@ -176,7 +176,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 	}
 }
 
-// TestReleaseReviewRingsTheAgent pins that each release is one piece of mail naming it, and that only a person's stops the agent.
+// TestReleaseReviewRingsTheAgent pins that each release is one piece of mail naming it and none of its comments.
 func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	fx := newReviewFixture(t)
 	reviewer := newAgentAuthor(fx.reviewer)
@@ -203,7 +203,49 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[1].Events, "a person's release is told apart from a reviewer's")
 	assert.Contains(t, rung[1].Body, "released: 0 comment(s).")
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
-	assert.Equal(t, []string{fx.worker.ID}, fx.interrupter.interrupted, "only the person's release stops the agent")
+}
+
+// TestReleaseReviewInterrupts pins that only a person's release stops the agent, and only while it holds its pane.
+func TestReleaseReviewInterrupts(t *testing.T) {
+	tests := []struct {
+		name            string
+		alive           bool
+		reviewer        bool
+		wantInterrupted bool
+	}{
+		{
+			name:            "a person's release stops a live agent",
+			alive:           true,
+			wantInterrupted: true,
+		},
+		{
+			name: "a person's release leaves a dormant agent's old pane alone",
+		},
+		{
+			name:     "a reviewer's release never stops the agent",
+			alive:    true,
+			reviewer: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+			require.NoError(t, fx.stores.Agents.SetAlive(t.Context(), []string{fx.worker.ID}, tt.alive))
+
+			if tt.reviewer {
+				fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictApproved)
+			} else {
+				fx.releaseReview(t, personAuthor, "")
+			}
+
+			if tt.wantInterrupted {
+				assert.Equal(t, []string{fx.worker.ID}, fx.interrupter.interrupted)
+			} else {
+				assert.Empty(t, fx.interrupter.interrupted)
+			}
+		})
+	}
 }
 
 // TestReleaseReviewApprovalMail pins when an approval sends the agent to read the review.

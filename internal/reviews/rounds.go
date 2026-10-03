@@ -470,7 +470,7 @@ func (s *ReviewService) ReleaseReview(
 	}
 
 	// A person's review stops the agent so it reads the comments now.
-	if params.Author.isHuman() {
+	if params.Author.isHuman() && agent.Alive {
 		s.interrupt(ctx, params.AgentID)
 	}
 
