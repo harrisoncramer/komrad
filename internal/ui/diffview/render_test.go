@@ -1,7 +1,10 @@
 package diffview
 
 import (
+	"regexp"
+	"strings"
 	"testing"
+	"unicode"
 
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
@@ -110,4 +113,61 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	}
 	_, style = view.markFor(thread)
 	assert.Equal(t, paint.Panel.Style(paint.ToneUserAgent), style, "a thread the agent opened is drawn in its own colour")
+}
+
+// TestTheDiffReachesTheTerminalWithoutItsControlCharacters pins control bytes in a path, hunk heading
+// or line against moving the cursor or repainting the pane.
+func TestTheDiffReachesTheTerminalWithoutItsControlCharacters(t *testing.T) {
+	t.Parallel()
+
+	type testCase struct {
+		name string
+		text string
+	}
+
+	tests := []testCase{
+		{
+			name: "a carriage return ending a CRLF line",
+			text: "func greet() {\r",
+		},
+		{
+			name: "an escape sequence held in the file",
+			text: "fmt.Print(\"\x1b[2J\")",
+		},
+		{
+			name: "a backspace",
+			text: "ab\bc",
+		},
+		{
+			name: "a C1 control sequence introducer",
+			text: "fmt.Print(\"\u009b2J\")",
+		},
+	}
+
+	colour := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			hunk := hunkOf(diff.Line{
+				Kind:      diff.Addition,
+				Text:      tt.text,
+				NewNumber: 1,
+			})
+			hunk.Header += " " + tt.text
+
+			view := NewView(patchWith(diff.File{
+				OldPath:  "greet.go",
+				NewPath:  "greet" + tt.text + ".go",
+				Metadata: []string{"renamed from " + tt.text},
+				Hunks:    []diff.Hunk{hunk},
+			}), false)
+
+			for y := range view.Len() {
+				drawn := colour.ReplaceAllString(view.renderRow(y, noCursor, 40, 0), "")
+				assert.False(t, strings.ContainsFunc(drawn, unicode.IsControl), "row %d: %q", y, drawn)
+			}
+		})
+	}
 }
