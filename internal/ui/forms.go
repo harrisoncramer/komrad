@@ -487,6 +487,9 @@ func (m *model) leaveFormBack() tea.Cmd {
 
 // closeForm drops the form and comes back to the screen it was drawn over.
 func (m *model) closeForm() tea.Cmd {
+	m.frame.Begin()
+	defer m.frame.Flush()
+
 	m.leaveForm()
 	m.reconcileSolo()
 
