@@ -76,3 +76,8 @@ COMMENT ON INDEX "review_forge_replies_open_proposal" IS 'Holds each thread to o
 COMMENT ON INDEX "review_forge_replies_sending" IS 'Finds the replies an interrupted send may have left on the forge.';
 -- Set comment to index: "review_forge_replies_thread_forge_comment" on table: "review_forge_replies"
 COMMENT ON INDEX "review_forge_replies_thread_forge_comment" IS 'Holds each forge comment to one reply that became it.';
+-- Isolate "review_forge_replies" by engine
+CREATE POLICY engine_isolation ON review_forge_replies USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
+ALTER TABLE review_forge_replies ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON review_forge_replies TO komrad_engine;
+GRANT SELECT ON review_forge_replies TO komrad_reader;
