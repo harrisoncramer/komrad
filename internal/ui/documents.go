@@ -65,14 +65,15 @@ func (r documentRow) key() string {
 	return "doc:" + r.item.id
 }
 
-// enter opens on the documents of the agent the target names, forgetting another agent's.
+// enter opens on the documents of the agent the target names, forgetting another agent's, and keeps
+// the screen as it was for a target naming none.
 func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
-	if target.agentID != d.agentID {
-		saved = d.closeEdit(m)
-		*d = documentsScreen{agentID: target.agentID}
-	}
 	if target.agentID != "" {
+		if target.agentID != d.agentID {
+			saved = d.closeEdit(m)
+			*d = documentsScreen{agentID: target.agentID}
+		}
 		d.from = target.from
 	}
 
