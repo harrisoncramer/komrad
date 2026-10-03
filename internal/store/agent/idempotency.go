@@ -10,6 +10,7 @@ import (
 	"komrad/lib/xptr"
 )
 
+// IdempotencyKey is a caller's key together with the requester and parent it is scoped to.
 type IdempotencyKey struct {
 	Key                string
 	RequestedByAgentID *string

@@ -46,7 +46,7 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			secondRequester: "other requester",
 		},
 		{
-			name:            "nor does a person's key collide with a requester's",
+			name:            "the same key from a person and a requester is fine",
 			first:           xptr.Ptr("launch-1"),
 			second:          xptr.Ptr("launch-1"),
 			secondRequester: "requester",
