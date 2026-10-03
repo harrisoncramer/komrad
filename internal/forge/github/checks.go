@@ -15,70 +15,6 @@ import (
 // the pull request named by $pullRequest requires it.
 const checkListFields = `commits(last: 1) { nodes { commit { oid statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes { __typename ... on CheckRun { id name status conclusion startedAt completedAt detailsUrl checkSuite { app { name } workflowRun { workflow { name } } } isRequired(pullRequestId: $pullRequest) } ... on StatusContext { id context state targetUrl createdAt isRequired(pullRequestId: $pullRequest) } } } } } } }`
 
-// readCheckListings lists the checks on the head of each open pull request in the reading, in one
-// query by alias.
-func (f *Forge) readCheckListings(ctx context.Context, reading *forge.Reading) error {
-	variables := map[string]any{}
-	var declared, fields strings.Builder
-	var open []*forge.PullRequest
-	for i := range reading.PullRequests {
-		pullRequest := &reading.PullRequests[i]
-		if pullRequest.State != "OPEN" {
-			continue
-		}
-		alias := "p" + strconv.Itoa(len(open))
-		variables[alias] = pullRequest.ProviderID
-		fmt.Fprintf(&declared, ", $%s: ID!", alias)
-		fmt.Fprintf(&fields, "\n  %s: node(id: $%s) { ... on PullRequest { %s } }", alias, alias, strings.ReplaceAll(checkListFields, "$pullRequest", "$"+alias))
-		open = append(open, pullRequest)
-	}
-	if len(open) == 0 {
-		return nil
-	}
-	operation := "query ReadChecks(" + strings.TrimPrefix(declared.String(), ", ") + ") {" + fields.String() + "\n}"
-
-	var data map[string]*checkListNode
-	answer, err := f.client.Query(ctx, operation, variables, &data)
-	if err != nil {
-		return err
-	}
-	if err := failureOf(answer); err != nil {
-		return err
-	}
-
-	if answer.RateLimit.Known {
-		reading.RateLimit = answer.RateLimit
-	}
-	for i, pullRequest := range open {
-		pullRequest.MergeReadiness.Listing = data["p"+strconv.Itoa(i)].listingOf(pullRequest.HeadSHA)
-	}
-
-	return nil
-}
-
-// checksOf is GitHub's statusCheckRollup state in komrad's words, none for a commit with no
-// rollup.
-func checksOf(rollup *rollupNode) forge.Checks {
-	if rollup == nil {
-		return forge.ChecksNone
-	}
-
-	switch rollup.State {
-	case "SUCCESS":
-		return forge.ChecksPassing
-	case "FAILURE", "ERROR":
-		if rollup.isRunning() {
-			return forge.ChecksFailingRunning
-		}
-
-		return forge.ChecksFailing
-	case "PENDING", "EXPECTED":
-		return forge.ChecksPending
-	}
-
-	return forge.ChecksNone
-}
-
 type rollupNode struct {
 	State    string         `json:"state"`
 	Contexts rollupContexts `json:"contexts"`
@@ -92,26 +28,6 @@ type rollupContexts struct {
 type stateCount struct {
 	State string `json:"state"`
 	Count int    `json:"count"`
-}
-
-// isRunning says whether any check run on the rollup is queued or in progress, or any status
-// context is pending.
-func (n *rollupNode) isRunning() bool {
-	for _, count := range n.Contexts.CheckRunCountsByState {
-		switch count.State {
-		case "QUEUED", "IN_PROGRESS", "PENDING":
-			if count.Count > 0 {
-				return true
-			}
-		}
-	}
-	for _, count := range n.Contexts.StatusContextCountsByState {
-		if count.State == "PENDING" && count.Count > 0 {
-			return true
-		}
-	}
-
-	return false
 }
 
 // checkListNode is the checks GitHub lists on a pull request's newest commit.
@@ -158,6 +74,100 @@ type checkNode struct {
 	TargetURL  *string    `json:"targetUrl"`
 	CreatedAt  *time.Time `json:"createdAt"`
 	IsRequired bool       `json:"isRequired"`
+}
+
+// readCheckListings lists the checks on the head of each open pull request in the reading, in one
+// query by alias.
+func (f *Forge) readCheckListings(ctx context.Context, reading *forge.Reading) error {
+	variables := map[string]any{}
+	var declared, fields strings.Builder
+	var open []*forge.PullRequest
+	for i := range reading.PullRequests {
+		pullRequest := &reading.PullRequests[i]
+		if pullRequest.State != "OPEN" {
+			continue
+		}
+		alias := "p" + strconv.Itoa(len(open))
+		variables[alias] = pullRequest.ProviderID
+		fmt.Fprintf(&declared, ", $%s: ID!", alias)
+		fmt.Fprintf(&fields, "\n  %s: node(id: $%s) { ... on PullRequest { %s } }", alias, alias, strings.ReplaceAll(checkListFields, "$pullRequest", "$"+alias))
+		open = append(open, pullRequest)
+	}
+	if len(open) == 0 {
+		return nil
+	}
+	operation := "query ReadChecks(" + strings.TrimPrefix(declared.String(), ", ") + ") {" + fields.String() + "\n}"
+
+	var data map[string]*checkListNode
+	answer, err := f.client.Query(ctx, operation, variables, &data)
+	if err != nil {
+		return err
+	}
+	if err := failureOf(answer); err != nil {
+		return err
+	}
+
+	if answer.RateLimit.Known {
+		reading.RateLimit = answer.RateLimit
+	}
+	for i, pullRequest := range open {
+		pullRequest.MergeReadiness.Listing = data["p"+strconv.Itoa(i)].listingOf(pullRequest.HeadSHA)
+	}
+
+	return nil
+}
+
+// checks is the rollup of the head commit in komrad's words, none when the query carried no
+// commit.
+func (n mergeReadinessNode) checks() forge.Checks {
+	if len(n.Commits.Nodes) == 0 {
+		return forge.ChecksNone
+	}
+
+	return checksOf(n.Commits.Nodes[len(n.Commits.Nodes)-1].Commit.StatusCheckRollup)
+}
+
+// checksOf is GitHub's statusCheckRollup state in komrad's words, none for a commit with no
+// rollup.
+func checksOf(rollup *rollupNode) forge.Checks {
+	if rollup == nil {
+		return forge.ChecksNone
+	}
+
+	switch rollup.State {
+	case "SUCCESS":
+		return forge.ChecksPassing
+	case "FAILURE", "ERROR":
+		if rollup.isRunning() {
+			return forge.ChecksFailingRunning
+		}
+
+		return forge.ChecksFailing
+	case "PENDING", "EXPECTED":
+		return forge.ChecksPending
+	}
+
+	return forge.ChecksNone
+}
+
+// isRunning says whether any check run on the rollup is queued or in progress, or any status
+// context is pending.
+func (n *rollupNode) isRunning() bool {
+	for _, count := range n.Contexts.CheckRunCountsByState {
+		switch count.State {
+		case "QUEUED", "IN_PROGRESS", "PENDING":
+			if count.Count > 0 {
+				return true
+			}
+		}
+	}
+	for _, count := range n.Contexts.StatusContextCountsByState {
+		if count.State == "PENDING" && count.Count > 0 {
+			return true
+		}
+	}
+
+	return false
 }
 
 // listingOf is the checks on the head commit, nil when GitHub answered for another commit or no
@@ -256,14 +266,4 @@ func checkRunStateOf(status string, conclusion *string) (forge.CheckState, strin
 	}
 
 	return forge.CheckStateQueued, ""
-}
-
-// checks is the rollup of the head commit in komrad's words, none when the query carried no
-// commit.
-func (n mergeReadinessNode) checks() forge.Checks {
-	if len(n.Commits.Nodes) == 0 {
-		return forge.ChecksNone
-	}
-
-	return checksOf(n.Commits.Nodes[len(n.Commits.Nodes)-1].Commit.StatusCheckRollup)
 }

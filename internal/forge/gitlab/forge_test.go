@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,8 +28,6 @@ const draftMergeRequest = `{"id":"gid://gitlab/MergeRequest/530185576","iid":"25
 const mergedMergeRequest = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"}}`
 
 const forkMergeRequest = `{"id":"gid://gitlab/MergeRequest/535500829","iid":"256485","title":"Draft: feat(reports): one template for the blockers page","description":null,"author":null,"webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256485","state":"closed","draft":true,"createdAt":"2026-09-18T21:41:21Z","updatedAt":"2026-09-20T17:09:26Z","mergedAt":null,"closedAt":"2026-09-19T20:09:45Z","sourceBranch":"blockers-page-single-template","targetBranch":"master","diffHeadSha":"d636bcb279bab23588cf8973100bc7e6387e9b54","sourceProject":{"webUrl":"https://gitlab.com/acme-forks/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"859512950cbe65e422c71a10bdcbfd9c929769aa"}}`
-
-const tooComplex = `{"errors":[{"message":"Query has complexity of 294, which exceeds max complexity of 200"}]}`
 
 type fakeAuth struct {
 	token       string
@@ -167,27 +164,6 @@ var gitlabOrg = git.RemoteURL{
 	Scheme: "https",
 	Host:   "gitlab.com",
 	Path:   "acme/widgets",
-}
-
-// readBranchesAnswer is GitLab answering a read of branches, recorded on 21 September against
-// acme/widgets with made-up auto-merge fields: a running pipeline set to merge when it passes,
-// a fork's merge request, and an approved merge request whose pipeline passed.
-var readBranchesAnswer = listing(false, "end", openMergeRequestRunning, forkMergeRequest, mergedMergeRequestPassed)
-
-const openMergeRequestRunning = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from the settings","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"sha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","status":"RUNNING","mergeRequestEventType":null},"detailedMergeStatus":"NOT_APPROVED","autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"]}`
-
-const mergedMergeRequestPassed = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"},"approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"sha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","status":"SUCCESS","mergeRequestEventType":null},"detailedMergeStatus":"MERGEABLE","autoMergeEnabled":false,"availableAutoMergeStrategies":[]}`
-
-// mergeRequestFrom is the running merge request renumbered and moved to a branch, in a fork when
-// fork is set.
-func mergeRequestFrom(branch string, iid int, fork bool) string {
-	node := strings.ReplaceAll(openMergeRequestRunning, "256538", strconv.Itoa(iid))
-	node = strings.Replace(node, `"sourceBranch":"settings-cleanup"`, `"sourceBranch":"`+branch+`"`, 1)
-	if fork {
-		node = strings.Replace(node, `"sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"}`, `"sourceProject":{"webUrl":"https://gitlab.com/acme-forks/widgets"}`, 1)
-	}
-
-	return node
 }
 
 // TestNotFound covers a project or merge request GitLab does not have, or will not show, which
