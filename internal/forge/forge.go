@@ -173,6 +173,8 @@ type Check struct {
 type CheckListing struct {
 	// Checks is every check listed, empty when the forge answered blank.
 	Checks []Check
+	// Truncated is whether the forge listed only the first page of a longer list of checks.
+	Truncated bool
 }
 
 // Mergeability is where a forge says a pull request stands against its base and its branch

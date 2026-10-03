@@ -21,7 +21,7 @@ ON CONFLICT (
     RETURNING
         id;
 
--- name: UpsertCheck :exec
+-- name: UpsertChecks :exec
 INSERT INTO pull_request_checks(
     reading_id,
     provider_id,
@@ -34,18 +34,20 @@ INSERT INTO pull_request_checks(
     finished_at,
     required,
     url)
-VALUES (
+SELECT
     @reading_id,
-    @provider_id,
-    @kind,
-    @source,
-    @name,
-    @state,
-    @conclusion,
-    sqlc.narg('started_at'),
-    sqlc.narg('finished_at'),
-    @required,
-    @url)
+    c.provider_id,
+    c.kind,
+    c.source,
+    c.name,
+    c.state,
+    c.conclusion,
+    c.started_at,
+    c.finished_at,
+    c.required,
+    c.url
+FROM
+    jsonb_to_recordset(@checks::jsonb) AS c(provider_id text, kind text, source text, name text, state text, conclusion text, started_at timestamptz, finished_at timestamptz, required boolean, url text)
 ON CONFLICT (
     engine_id,
     reading_id,

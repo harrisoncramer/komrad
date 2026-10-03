@@ -74,6 +74,21 @@ func TestSetChecks(t *testing.T) {
 			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateCompleted, "success"), checkRun("4", "test", forge.CheckStateRunning, "")}}},
 		},
 		{
+			name: "a truncated read keeps the checks it left out",
+			reads: []SetChecksParams{
+				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, ""), checkRun("2", "lint", forge.CheckStateQueued, "")}},
+				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}, Truncated: true},
+			},
+			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
+		},
+		{
+			name: "a check listed twice in one read is kept once as last listed",
+			reads: []SetChecksParams{
+				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, ""), checkRun("1", "test", forge.CheckStateCompleted, "failure")}},
+			},
+			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}}},
+		},
+		{
 			name: "a blank read keeps the checks listed before it",
 			reads: []SetChecksParams{
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}},

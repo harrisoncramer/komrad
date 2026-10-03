@@ -361,6 +361,7 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 						PullRequestID: outcome.ID,
 						HeadSHA:       pullRequest.HeadSHA,
 						Checks:        listing.Checks,
+						Truncated:     listing.Truncated,
 						ReadAt:        readAt,
 					}); err != nil {
 						return nil, err

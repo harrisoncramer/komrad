@@ -4,6 +4,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"slices"
@@ -15,6 +16,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
+	"komrad/internal/logging"
 	"komrad/lib/xhttp"
 	"komrad/lib/xptr"
 )
@@ -91,7 +93,7 @@ const mergeReadinessFields = `reviewDecision latestOpinionatedReviews(first: 50,
 
 // checkListFields is the first hundred checks on a pull request's head commit, each asked whether
 // the pull request named by $pullRequest requires it.
-const checkListFields = `commits(last: 1) { nodes { commit { oid statusCheckRollup { contexts(first: 100) { nodes { __typename ... on CheckRun { id name status conclusion startedAt completedAt detailsUrl checkSuite { app { name } workflowRun { workflow { name } } } isRequired(pullRequestId: $pullRequest) } ... on StatusContext { id context state targetUrl createdAt isRequired(pullRequestId: $pullRequest) } } } } } } }`
+const checkListFields = `commits(last: 1) { nodes { commit { oid statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes { __typename ... on CheckRun { id name status conclusion startedAt completedAt detailsUrl checkSuite { app { name } workflowRun { workflow { name } } } isRequired(pullRequestId: $pullRequest) } ... on StatusContext { id context state targetUrl createdAt isRequired(pullRequestId: $pullRequest) } } } } } } }`
 
 // dialect is what GitHub does differently on the wire.
 var dialect = graphql.Dialect{
@@ -285,7 +287,7 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 		RateLimit: answer.RateLimit,
 	}
 	if err := f.readCheckListings(ctx, reading); err != nil {
-		return nil, err
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "github did not list the checks on the pull requests read, so they are read again next pass", logging.Err(err)...)
 	}
 
 	return reading, nil
@@ -322,7 +324,9 @@ func (f *Forge) readCheckListings(ctx context.Context, reading *forge.Reading) e
 		return err
 	}
 
-	reading.RateLimit = answer.RateLimit
+	if answer.RateLimit.Known {
+		reading.RateLimit = answer.RateLimit
+	}
 	for i, pullRequest := range open {
 		pullRequest.MergeReadiness.Listing = data["p"+strconv.Itoa(i)].listingOf(pullRequest.HeadSHA)
 	}
@@ -789,6 +793,9 @@ type checkListNode struct {
 				Oid               string `json:"oid"`
 				StatusCheckRollup *struct {
 					Contexts struct {
+						PageInfo struct {
+							HasNextPage bool `json:"hasNextPage"`
+						} `json:"pageInfo"`
 						Nodes []checkNode `json:"nodes"`
 					} `json:"contexts"`
 				} `json:"statusCheckRollup"`
@@ -839,6 +846,7 @@ func (n *checkListNode) listingOf(headSHA string) *forge.CheckListing {
 	if commit.StatusCheckRollup == nil {
 		return listing
 	}
+	listing.Truncated = commit.StatusCheckRollup.Contexts.PageInfo.HasNextPage
 	for _, node := range commit.StatusCheckRollup.Contexts.Nodes {
 		if check, ok := node.check(); ok {
 			listing.Checks = append(listing.Checks, check)

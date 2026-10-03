@@ -2,6 +2,7 @@ package pullrequest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -37,7 +38,9 @@ type SetChecksParams struct {
 	PullRequestID string
 	HeadSHA       string
 	Checks        []forge.Check
-	ReadAt        time.Time
+	// Truncated is whether the forge listed only some of the checks, which keeps the ones it left out.
+	Truncated bool
+	ReadAt    time.Time
 }
 
 // SetChecks records a read of a head commit's checks, writing only the checks that changed.
@@ -56,27 +59,22 @@ func (s *CheckStore) SetChecks(ctx context.Context, params SetChecksParams) erro
 		return nil
 	}
 
-	for _, check := range params.Checks {
-		if err := s.queries.UpsertCheck(ctx, models.UpsertCheckParams{
-			ReadingID:  readingID,
-			ProviderID: check.ProviderID,
-			Kind:       string(check.Kind),
-			Source:     check.Source,
-			Name:       check.Name,
-			State:      string(check.State),
-			Conclusion: check.Conclusion,
-			StartedAt:  check.StartedAt,
-			FinishedAt: check.FinishedAt,
-			Required:   check.Required,
-			Url:        check.URL,
-		}); err != nil {
-			return fmt.Errorf("failed to write check %s: %w", check.ProviderID, err)
-		}
+	listed := checkRows(params.Checks)
+	encoded, err := json.Marshal(listed)
+	if err != nil {
+		return fmt.Errorf("failed to encode the checks listed on %s: %w", params.HeadSHA, err)
+	}
+	if err := s.queries.UpsertChecks(ctx, models.UpsertChecksParams{ReadingID: readingID, Checks: encoded}); err != nil {
+		return fmt.Errorf("failed to write the checks listed on %s: %w", params.HeadSHA, err)
+	}
+
+	if params.Truncated {
+		return nil
 	}
 
 	if err := s.queries.DeleteChecksExcept(ctx, models.DeleteChecksExceptParams{
 		ReadingID: readingID,
-		Kept:      xslice.Map(params.Checks, func(check forge.Check) string { return check.ProviderID }),
+		Kept:      xslice.Map(listed, func(row checkRow) string { return row.ProviderID }),
 	}); err != nil {
 		return fmt.Errorf("failed to remove the checks no longer listed on %s: %w", params.HeadSHA, err)
 	}
@@ -130,4 +128,46 @@ func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string
 			Checks:      byReading[row.ID],
 		}
 	}), nil
+}
+
+// checkRow is one check as the set-based upsert reads it from JSON.
+type checkRow struct {
+	ProviderID string     `json:"provider_id"`
+	Kind       string     `json:"kind"`
+	Source     string     `json:"source"`
+	Name       string     `json:"name"`
+	State      string     `json:"state"`
+	Conclusion string     `json:"conclusion"`
+	StartedAt  *time.Time `json:"started_at"`
+	FinishedAt *time.Time `json:"finished_at"`
+	Required   bool       `json:"required"`
+	URL        string     `json:"url"`
+}
+
+// checkRows is each check listed once, the last listing of a provider id winning.
+func checkRows(checks []forge.Check) []checkRow {
+	at := map[string]int{}
+	var rows []checkRow
+	for _, check := range checks {
+		row := checkRow{
+			ProviderID: check.ProviderID,
+			Kind:       string(check.Kind),
+			Source:     check.Source,
+			Name:       check.Name,
+			State:      string(check.State),
+			Conclusion: check.Conclusion,
+			StartedAt:  check.StartedAt,
+			FinishedAt: check.FinishedAt,
+			Required:   check.Required,
+			URL:        check.URL,
+		}
+		if i, ok := at[check.ProviderID]; ok {
+			rows[i] = row
+			continue
+		}
+		at[check.ProviderID] = len(rows)
+		rows = append(rows, row)
+	}
+
+	return rows
 }

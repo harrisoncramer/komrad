@@ -158,7 +158,7 @@ func (q *Queries) RecordCheckReading(ctx context.Context, arg RecordCheckReading
 	return id, err
 }
 
-const upsertCheck = `-- name: UpsertCheck :exec
+const upsertChecks = `-- name: UpsertChecks :exec
 INSERT INTO pull_request_checks(
     reading_id,
     provider_id,
@@ -171,18 +171,20 @@ INSERT INTO pull_request_checks(
     finished_at,
     required,
     url)
-VALUES (
+SELECT
     $1,
-    $2,
-    $3,
-    $4,
-    $5,
-    $6,
-    $7,
-    $8,
-    $9,
-    $10,
-    $11)
+    c.provider_id,
+    c.kind,
+    c.source,
+    c.name,
+    c.state,
+    c.conclusion,
+    c.started_at,
+    c.finished_at,
+    c.required,
+    c.url
+FROM
+    jsonb_to_recordset($2::jsonb) AS c(provider_id text, kind text, source text, name text, state text, conclusion text, started_at timestamptz, finished_at timestamptz, required boolean, url text)
 ON CONFLICT (
     engine_id,
     reading_id,
@@ -210,33 +212,12 @@ ON CONFLICT (
         excluded.url)
 `
 
-type UpsertCheckParams struct {
-	ReadingID  string
-	ProviderID string
-	Kind       string
-	Source     string
-	Name       string
-	State      string
-	Conclusion string
-	StartedAt  *time.Time
-	FinishedAt *time.Time
-	Required   bool
-	Url        string
+type UpsertChecksParams struct {
+	ReadingID string
+	Checks    []byte
 }
 
-func (q *Queries) UpsertCheck(ctx context.Context, arg UpsertCheckParams) error {
-	_, err := q.db.Exec(ctx, upsertCheck,
-		arg.ReadingID,
-		arg.ProviderID,
-		arg.Kind,
-		arg.Source,
-		arg.Name,
-		arg.State,
-		arg.Conclusion,
-		arg.StartedAt,
-		arg.FinishedAt,
-		arg.Required,
-		arg.Url,
-	)
+func (q *Queries) UpsertChecks(ctx context.Context, arg UpsertChecksParams) error {
+	_, err := q.db.Exec(ctx, upsertChecks, arg.ReadingID, arg.Checks)
 	return err
 }
