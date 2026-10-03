@@ -193,6 +193,34 @@ func TestForgeMirror(t *testing.T) {
 				assert.Nil(t, got.threads[0].ResolvedAt)
 			},
 		},
+		{
+			name: "a reply komrad sent comes back from the forge as no new message",
+			syncs: [][]forge.ReviewThread{
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"), newForgeComment("c2", "komrad-bot", true, "done"))},
+			},
+			meanwhile: func(t *testing.T, fx *reviewFixture) { fx.sendForgeReply(t, "c2") },
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.threads, 1)
+				require.Len(t, got.messages, 1)
+				assert.Equal(t, "use a guard", got.messages[0].Body)
+			},
+		},
+		{
+			name: "a conversation comment komrad sent comes back from the forge as no new thread",
+			syncs: [][]forge.ReviewThread{
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
+				{
+					newForgeThread(newForgeComment("c1", "alice", true, "use a guard")),
+					{ProviderID: "IC_9", Comments: []forge.ReviewComment{newForgeComment("IC_9", "komrad-bot", true, "done")}},
+				},
+			},
+			meanwhile: func(t *testing.T, fx *reviewFixture) { fx.sendForgeReply(t, "IC_9") },
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.threads, 1)
+				require.Len(t, got.messages, 1)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -434,4 +462,20 @@ func (fx *reviewFixture) acceptForge(t *testing.T, messageID string) error {
 	})
 
 	return err
+}
+
+func (fx *reviewFixture) sendForgeReply(t *testing.T, providerID string) {
+	t.Helper()
+	ctx := t.Context()
+
+	threads, err := fx.reviews.ListThreads(ctx, fx.worker.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, threads)
+
+	reply, err := fx.reviews.CreateHumanForgeReply(ctx, threads[0].ID, "done")
+	require.NoError(t, err)
+	_, err = fx.reviews.BeginForgeReplySend(ctx, reply.ID)
+	require.NoError(t, err)
+	_, err = fx.reviews.MarkForgeReplySent(ctx, reply.ID, providerID)
+	require.NoError(t, err)
 }

@@ -23,6 +23,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/interceptors"
 	"komrad/internal/jobs"
+	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/pullrequests"
 	"komrad/internal/reviews"
@@ -176,6 +177,10 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	if err := svc.agents.delete.Resume(ctx); err != nil {
 		return nil, err
+	}
+
+	if err := svc.pullRequests.forgeReply.ReconcileForgeReplies(ctx); err != nil {
+		params.Logger.LogAttrs(ctx, slog.LevelWarn, "failed to settle the forge replies komrad stopped while posting", logging.Err(err)...)
 	}
 
 	if err := svc.schedule.ArmPeriodic(ctx, jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())); err != nil {

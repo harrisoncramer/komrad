@@ -1,0 +1,83 @@
+package github
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	"komrad/internal/forge"
+	"komrad/lib/xhttp"
+)
+
+const addThreadReplyMutation = `mutation AddThreadReply($thread: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $thread, body: $body}) { comment { id } }
+}`
+
+// ReplyToThread posts a reply in a pull request's thread and answers the new comment's id.
+func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadParams) (string, error) {
+	owner, name, err := ownerAndName(params.Repo.Path)
+	if err != nil {
+		return "", err
+	}
+	if !params.OnCode {
+		return f.commentOnConversation(ctx, commentOnConversationParams{
+			Owner:  owner,
+			Name:   name,
+			Number: params.Number,
+			Body:   params.Body,
+		})
+	}
+
+	var data struct {
+		AddPullRequestReviewThreadReply *struct {
+			Comment *struct {
+				ID string `json:"id"`
+			} `json:"comment"`
+		} `json:"addPullRequestReviewThreadReply"`
+	}
+	answer, err := f.client.Query(ctx, addThreadReplyMutation, map[string]any{
+		"thread": params.ThreadID,
+		"body":   params.Body,
+	}, &data)
+	if err != nil {
+		return "", err
+	}
+	if err := failureOf(answer); err != nil {
+		return "", err
+	}
+	added := data.AddPullRequestReviewThreadReply
+	if added == nil || added.Comment == nil || added.Comment.ID == "" {
+		return "", fmt.Errorf("github answered the reply to thread %s with no comment", params.ThreadID)
+	}
+
+	return added.Comment.ID, nil
+}
+
+type commentOnConversationParams struct {
+	Owner  string
+	Name   string
+	Number int
+	Body   string
+}
+
+func (f *Forge) commentOnConversation(ctx context.Context, params commentOnConversationParams) (string, error) {
+	var comment struct {
+		NodeID string `json:"node_id"`
+	}
+	answer, err := f.client.Send(ctx, xhttp.JSONParams{
+		Method: http.MethodPost,
+		URL:    fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", f.client.API(), params.Owner, params.Name, params.Number),
+		Body:   map[string]string{"body": params.Body},
+	}, &comment)
+	if err != nil {
+		return "", err
+	}
+	if answer.Status == http.StatusNotFound {
+		return "", noPullRequest(params.Number, params.Owner, params.Name)
+	}
+	if comment.NodeID == "" {
+		return "", fmt.Errorf("github answered the comment on #%d with no node id", params.Number)
+	}
+
+	return comment.NodeID, nil
+}

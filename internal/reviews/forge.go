@@ -162,6 +162,11 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 		return err
 	}
 	known := indexMirrored(rows)
+	sent, err := m.sentReplies(ctx, known)
+	if err != nil {
+		return err
+	}
+	threads = withoutEchoes(known, sent, threads)
 
 	var fresh []pullrequeststore.ForgeThread
 	for _, thread := range threads {
@@ -232,6 +237,49 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 		return releasedForgeEvents(ctx, reviews, target.AgentID, xslice.Map(order, func(key forgeReviewKey) reviewstore.Review {
 			return *opened[key]
 		}))
+	})
+}
+
+// sentReplies is the forge comment ids of the replies komrad posted on an agent's mirrored threads.
+func (m *ForgeMirror) sentReplies(ctx context.Context, known map[string]*mirroredThread) (map[string]bool, error) {
+	threadIDs := make([]string, 0, len(known))
+	for _, thread := range known {
+		threadIDs = append(threadIDs, thread.ThreadID)
+	}
+	replies, err := m.reviews.ListForgeReplies(ctx, threadIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	sent := map[string]bool{}
+	for _, reply := range replies {
+		if reply.ForgeCommentProviderID != nil {
+			sent[*reply.ForgeCommentProviderID] = true
+		}
+	}
+
+	return sent, nil
+}
+
+// withoutEchoes leaves komrad's own posted replies out of the mirror: a reply on a mirrored thread
+// is marked known so it is never written as a message, and a thread the reply opened is dropped.
+func withoutEchoes(known map[string]*mirroredThread, sent map[string]bool, threads []pullrequeststore.ForgeThread) []pullrequeststore.ForgeThread {
+	if len(sent) == 0 {
+		return threads
+	}
+
+	return xslice.Filter(threads, func(thread pullrequeststore.ForgeThread) bool {
+		mirrored, ok := known[thread.ID]
+		if !ok {
+			return len(thread.Comments) == 0 || !sent[thread.Comments[0].ProviderID]
+		}
+		for _, comment := range thread.Comments {
+			if _, held := mirrored.Comments[comment.ID]; !held && sent[comment.ProviderID] {
+				mirrored.Comments[comment.ID] = mirroredComment{}
+			}
+		}
+
+		return true
 	})
 }
 

@@ -51,6 +51,7 @@ func (f *fakeAuth) Invalidate(context.Context) error {
 // call is one request the fake GitHub saw.
 type call struct {
 	Path      string
+	Body      map[string]any
 	Operation string
 	Query     string
 	Variables map[string]any
@@ -84,6 +85,8 @@ func (g *fakeGitHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		seen.Query = posted.Query
 		seen.Variables = posted.Variables
 		key = seen.Operation
+	} else {
+		_ = json.NewDecoder(r.Body).Decode(&seen.Body)
 	}
 	g.calls = append(g.calls, seen)
 

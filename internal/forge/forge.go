@@ -251,6 +251,17 @@ type Forge interface {
 	// RequestRereview asks every reviewer who requested changes on the pull request at the web
 	// address to review it again.
 	RequestRereview(ctx context.Context, url string) error
+	// ReplyToThread posts a reply in a pull request's thread and answers the new comment's id.
+	ReplyToThread(ctx context.Context, params ReplyToThreadParams) (string, error)
+}
+
+// ReplyToThreadParams is the thread to reply in and what to say.
+type ReplyToThreadParams struct {
+	Repo     git.RemoteURL
+	Number   int
+	ThreadID string
+	OnCode   bool
+	Body     string
 }
 
 // SetAutoMergeParams is the pull request to change and which way.
