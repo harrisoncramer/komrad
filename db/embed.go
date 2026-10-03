@@ -72,7 +72,7 @@ BEGIN
 END;
 $$;`
 
-// recordMigrationSQL records a migration and forgets every unit this build carries, so each stays pending until reapplied.
+// recordMigrationSQL records a migration and forgets every unit this build carries.
 const recordMigrationSQL = `
 WITH recorded AS (INSERT INTO schema_migrations (version) VALUES ($1))
 DELETE FROM schema_triggers WHERE unit = ANY ($2)`
