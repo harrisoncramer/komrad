@@ -1,10 +1,5 @@
 package watch
 
-import (
-	"fmt"
-	"strings"
-)
-
 // TriggerFunctions is every function a watch trigger runs.
 var TriggerFunctions = []TriggerFunction{
 	{
@@ -110,18 +105,4 @@ func BuildTriggers(resources []Resource) []Trigger {
 	}
 
 	return triggers
-}
-
-// BuildSQL writes the statement that attaches the trigger.
-func (t Trigger) BuildSQL() string {
-	args := make([]string, len(t.Args))
-	for i, arg := range t.Args {
-		args[i] = quoteLiteral(arg)
-	}
-
-	return fmt.Sprintf("CREATE TRIGGER %s AFTER INSERT OR UPDATE OR DELETE ON %s FOR EACH ROW EXECUTE FUNCTION %s(%s);\n", t.Name, t.Table, t.Function, strings.Join(args, ", "))
-}
-
-func quoteLiteral(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }

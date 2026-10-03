@@ -2,6 +2,8 @@ package watch
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -242,7 +244,7 @@ func TestALookupFeederSkipsAnArchivedResource(t *testing.T) {
 	}
 	for _, trigger := range BuildTriggers([]Resource{onRepository}) {
 		if trigger.Table == "pull_request_syncs" {
-			l.execAsOwner(t, trigger.BuildSQL())
+			l.execAsOwner(t, attachSQL(trigger))
 		}
 	}
 	l.exec(t, `UPDATE agents SET archived_at = now() WHERE id = $1`, rows.agent)
@@ -350,7 +352,7 @@ func TestALookupFeederOnOneColumnNotifiesOnlyItsChange(t *testing.T) {
 	}
 	for _, trigger := range BuildTriggers([]Resource{byName}) {
 		if trigger.Table == "agents" {
-			l.execAsOwner(t, trigger.BuildSQL())
+			l.execAsOwner(t, attachSQL(trigger))
 		}
 	}
 	conn := l.listenRaw(t)
@@ -445,4 +447,13 @@ func TestALookupFeederMatchesAcrossColumnTypes(t *testing.T) {
 		"agents " + rows.agent,
 		"worktrees " + dir,
 	}, waitForPayloads(t, conn, 3))
+}
+
+func attachSQL(trigger Trigger) string {
+	args := make([]string, len(trigger.Args))
+	for i, arg := range trigger.Args {
+		args[i] = "'" + strings.ReplaceAll(arg, "'", "''") + "'"
+	}
+
+	return fmt.Sprintf("CREATE TRIGGER %s AFTER INSERT OR UPDATE OR DELETE ON %s FOR EACH ROW EXECUTE FUNCTION %s(%s);\n", trigger.Name, trigger.Table, trigger.Function, strings.Join(args, ", "))
 }
