@@ -160,7 +160,7 @@ func TestEnsureRefusesARoleItDidNotCreateHere(t *testing.T) {
 	err := store.EnsureEngine(ctx, second.OwnerURL, db.EnsureEngineParams{Name: name, Password: "second"})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "belongs to no engine")
+	require.ErrorContains(t, err, "belongs to no engine")
 
 	_, err = store.Open(ctx, first.EngineURL(t, name, "first"))
 	require.NoError(t, err, "the refused attempt left the first database's engine as it was")

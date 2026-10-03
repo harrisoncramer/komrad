@@ -109,7 +109,7 @@ func TestCreate(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				if tt.wantID {
-					assert.Contains(t, err.Error(), first.ID)
+					require.ErrorContains(t, err, first.ID)
 				}
 
 				return

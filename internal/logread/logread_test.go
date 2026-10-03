@@ -59,7 +59,7 @@ func TestLinesUnderNoSuchTrace(t *testing.T) {
 
 	_, err := New(writeLog(t, archiveStarted)).Lines("trace-nine")
 	require.ErrorIs(t, err, ErrNoSuchTrace)
-	assert.Contains(t, err.Error(), "trace-nine")
+	assert.ErrorContains(t, err, "trace-nine")
 }
 
 // TestRecentTraces covers each trace being named by what it was and counted, oldest first, with a
@@ -102,5 +102,5 @@ func TestLinesWithoutALog(t *testing.T) {
 
 	_, err := New(filepath.Join(t.TempDir(), "missing.log")).Lines("trace-one")
 	require.ErrorIs(t, err, ErrNoLog)
-	assert.Contains(t, err.Error(), "missing.log")
+	assert.ErrorContains(t, err, "missing.log")
 }

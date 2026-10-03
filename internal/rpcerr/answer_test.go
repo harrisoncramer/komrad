@@ -114,7 +114,7 @@ func TestWrapCodes(t *testing.T) {
 
 			wrapped := answered(fmt.Errorf("%w: %q", tt.sentinel, "abc"), "failed to do the thing")
 			assert.Equal(t, tt.want, connect.CodeOf(wrapped), "a sentinel is still found under a wrapping")
-			assert.Contains(t, wrapped.Error(), `"abc"`, "and what the domain added to it is kept")
+			require.ErrorContains(t, wrapped, `"abc"`, "and what the domain added to it is kept")
 			assert.NotContains(t, wrapped.Error(), "failed to do the thing",
 				"the handler's own description is for the failures it cannot name")
 		})
@@ -143,8 +143,8 @@ func TestWrapUnknown(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
-	assert.Contains(t, err.Error(), "failed to archive agents")
-	assert.Contains(t, err.Error(), "connection refused")
+	require.ErrorContains(t, err, "failed to archive agents")
+	assert.ErrorContains(t, err, "connection refused")
 }
 
 // TestWrapSaying covers a sentinel worded for the request that raised it, which keeps its kind
@@ -154,7 +154,7 @@ func TestWrapSaying(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-	assert.Contains(t, err.Error(), `no schedule with id "s-1"`)
+	require.ErrorContains(t, err, `no schedule with id "s-1"`)
 	assert.NotContains(t, err.Error(), "not found:", "the sentinel's own message is replaced, not appended")
 }
 
@@ -167,7 +167,7 @@ func TestWrapSayingUnderAWrapping(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-	assert.Equal(t, `not_found: no schedule with id "s-1"`, err.Error())
+	assert.EqualError(t, err, `not_found: no schedule with id "s-1"`)
 }
 
 // TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel covers an error carrying a plain error

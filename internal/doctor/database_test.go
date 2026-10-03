@@ -183,14 +183,14 @@ func TestSchemaCheck(t *testing.T) {
 		assert.Equal(t, StatusFail, result.Status, "the service refuses a schema behind its build")
 		assert.Equal(t, "schema_behind", codeOf(result.Err))
 		assert.Contains(t, result.Fix, "komrad migrate")
-		assert.Contains(t, result.Err.Error(), "2 migrations")
+		assert.ErrorContains(t, result.Err, "2 migrations")
 	})
 
 	t.Run("one behind reads as one", func(t *testing.T) {
 		schema := fakeSchema{pending: []string{"20260727000000_initial.sql"}}
 		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
-		assert.Contains(t, result.Err.Error(), "1 migration not")
+		assert.ErrorContains(t, result.Err, "1 migration not")
 	})
 
 	t.Run("a ledger that will not read", func(t *testing.T) {
@@ -219,7 +219,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "readonly_login_unusable", codeOf(result.Err))
 		assert.Contains(t, result.Fix, "komrad engine ensure")
-		assert.Contains(t, result.Err.Error(), "komrad_readonly",
+		assert.ErrorContains(t, result.Err, "komrad_readonly",
 			"the reason names the login, since that is what has to be created")
 	})
 
@@ -232,7 +232,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		require.Equal(t, StatusWarn, result.Status,
 			"both logins connect, so nothing else in the report says the MCP tools are reading somewhere else")
 		assert.Equal(t, "readonly_login_elsewhere", codeOf(result.Err))
-		assert.Contains(t, result.Err.Error(), "localhost:5460",
+		assert.ErrorContains(t, result.Err, "localhost:5460",
 			"the reason names the address the panel writes to, since that is the one the pair should agree on")
 	})
 

@@ -16,7 +16,6 @@ import (
 	"komrad/internal/tmux"
 	"komrad/internal/ui"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,7 +53,7 @@ func TestIntegrationAttachRefusesWithoutAPanel(t *testing.T) {
 			err := cmd.Execute()
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "the panel is not running")
+			require.ErrorContains(t, err, "the panel is not running")
 			require.Error(t, exec.Command("tmux", "-L", socket, "has-session", "-t", agents.ManagerSession).Run(),
 				"attach created the session it was supposed to refuse")
 		})

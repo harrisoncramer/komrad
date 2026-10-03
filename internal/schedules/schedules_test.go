@@ -360,7 +360,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 			})
 			require.ErrorIs(t, err, tt.wantErr, "a schedule is not created into a workflow that is not there")
 			if tt.wantSaying != "" {
-				assert.Contains(t, err.Error(), tt.wantSaying, "the refusal names the workflow")
+				require.ErrorContains(t, err, tt.wantSaying, "the refusal names the workflow")
 			}
 
 			err = svc.UpdateSchedule(ctx, existing.ID, schedulestore.Config{
@@ -470,7 +470,7 @@ func TestOrchestratorSchedule(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				if tt.wantSaying != "" {
-					assert.Contains(t, err.Error(), tt.wantSaying)
+					require.ErrorContains(t, err, tt.wantSaying)
 				}
 
 				existing := st.SeedSchedule(t, schedulestore.Config{

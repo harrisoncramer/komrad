@@ -104,6 +104,16 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	fatals, err := newTestFatalErr(l.config.TestFatalErr)
+	if err != nil {
+		return nil, err
+	}
+
+	texts, err := newErrorText(l.config.ErrorText)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -120,6 +130,8 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		beside,
 		bound,
 		sleeps,
+		fatals,
+		texts,
 	}, nil
 }
 

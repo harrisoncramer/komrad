@@ -10,6 +10,7 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var claudeAndCodex = []HarnessInfo{
@@ -63,7 +64,7 @@ func TestConfigCheck(t *testing.T) {
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "config_unreadable", codeOf(result.Err))
-		assert.Contains(t, result.Err.Error(), "invalid keys",
+		require.ErrorContains(t, result.Err, "invalid keys",
 			"what the parser objected to is carried, since that is the only part naming the typo")
 		assert.Contains(t, result.Fix, "fix or delete")
 	})
@@ -122,7 +123,7 @@ func TestDefaultHarnessCheck(t *testing.T) {
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			if tt.want == StatusFail {
-				assert.Contains(t, result.Err.Error(), "claude or codex",
+				assert.ErrorContains(t, result.Err, "claude or codex",
 					"the choices are listed, since the fix is picking one of them")
 			}
 		})

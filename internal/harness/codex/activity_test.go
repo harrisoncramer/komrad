@@ -9,6 +9,7 @@ import (
 	"komrad/internal/harness"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // A placeholder Codex draws in an empty composer is dim, and a frame is captured with its
@@ -472,9 +473,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
 			frame, err := os.ReadFile(filepath.Join("testdata", tt.file))
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			input := NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadInput(string(frame))
 

@@ -240,7 +240,7 @@ func TestLoadUsage(t *testing.T) {
 			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			if tt.wantErr != "" {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.ErrorContains(t, err, tt.wantErr)
 
 				return
 			}
@@ -328,7 +328,7 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 
 			_, err := LoadStack(Stack{Paths: []string{path}})
 			require.Error(t, err, "an unknown key is rejected rather than silently dropped")
-			assert.Contains(t, err.Error(), "failed to parse config")
+			assert.ErrorContains(t, err, "failed to parse config")
 		})
 	}
 }
@@ -360,8 +360,8 @@ func TestLoadErrorNamesTheFile(t *testing.T) {
 			_, err := LoadStack(Stack{Paths: []string{path}})
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.want)
-			assert.Contains(t, err.Error(), path, "the file to go and edit is named")
+			require.ErrorContains(t, err, tt.want)
+			assert.ErrorContains(t, err, path, "the file to go and edit is named")
 		})
 	}
 }
@@ -377,8 +377,8 @@ func TestLoadDanglingSymlink(t *testing.T) {
 	_, err := LoadStack(Stack{Paths: []string{path}})
 
 	require.Error(t, err, "a link pointing at nothing is not the same as having no config")
-	assert.Contains(t, err.Error(), path, "the link to go and repoint is named")
-	assert.Contains(t, err.Error(), target, "what it points at is named, since that is the part that is missing")
+	require.ErrorContains(t, err, path, "the link to go and repoint is named")
+	assert.ErrorContains(t, err, target, "what it points at is named, since that is the part that is missing")
 }
 
 // TestLoadAbsentFileDefaults covers the case the dangling link is separated from, nothing at the
@@ -537,7 +537,7 @@ func TestLoadNamedFileMustExist(t *testing.T) {
 	_, err := LoadStack(Stack{Paths: []string{path}})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), path, "the error names the file that is not there")
+	assert.ErrorContains(t, err, path, "the error names the file that is not there")
 }
 
 // TestConfiguredPathsExpandHome covers the ~ a user writes a path with, which nothing below
@@ -762,7 +762,7 @@ func TestLoadRefusesAnEmptyBinding(t *testing.T) {
 	_, err := LoadStack(Stack{Paths: []string{path}})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "nav.up")
+	assert.ErrorContains(t, err, "nav.up")
 }
 
 // TestResolveLayers covers naming a config file replacing the default rather than adding to it.
@@ -880,7 +880,7 @@ func TestLoadRejectsMailTheServiceCouldNotSendOn(t *testing.T) {
 			_, err := loadStrict(t, tt.file)
 
 			require.Error(t, err, "the service reads this per send, so a bad value stops mail rather than startup")
-			assert.Contains(t, err.Error(), tt.want)
+			assert.ErrorContains(t, err, tt.want)
 		})
 	}
 }
@@ -923,7 +923,7 @@ func TestLoadRejectsAnAddressTheApiShouldNotAnswerOn(t *testing.T) {
 			_, err := loadStrict(t, tt.file)
 
 			require.Error(t, err, "the api has no auth, so it answers on this machine only")
-			assert.Contains(t, err.Error(), "connection.addr")
+			assert.ErrorContains(t, err, "connection.addr")
 		})
 	}
 }
@@ -936,7 +936,7 @@ func TestLoadRejectsAPortOutsideTheRange(t *testing.T) {
 			_, err := loadStrict(t, "[connection]\naddr = \""+addr+"\"\n")
 
 			require.Error(t, err, "a listener refuses this, so the file should too")
-			assert.Contains(t, err.Error(), "connection.addr")
+			assert.ErrorContains(t, err, "connection.addr")
 		})
 	}
 }
@@ -1010,7 +1010,7 @@ func TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer(t *testing.T) {
 			_, err := loadStrict(t, tt.file)
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "connection.database_url")
+			assert.ErrorContains(t, err, "connection.database_url")
 		})
 	}
 }
@@ -1096,7 +1096,7 @@ func TestLoadReadsSSHHosts(t *testing.T) {
 			cfg, err := loadStrict(t, "[git]\nssh_hosts = "+tt.hosts+"\n")
 			if tt.refused {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "git.ssh_hosts")
+				assert.ErrorContains(t, err, "git.ssh_hosts")
 
 				return
 			}

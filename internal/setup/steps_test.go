@@ -99,7 +99,7 @@ func TestHarnessStepUnattendedNamesTheFlag(t *testing.T) {
 	err := step.answerUnattended()
 
 	require.ErrorIs(t, err, ErrNeedsAnswer)
-	assert.Contains(t, err.Error(), "--harness")
+	assert.ErrorContains(t, err, "--harness")
 }
 
 // TestHarnessStepRepairRefusesAnOverridingLayer covers that a write a later layer overrides is reported rather than passed.
@@ -117,7 +117,7 @@ func TestHarnessStepRepairRefusesAnOverridingLayer(t *testing.T) {
 	err := step.repair(t.Context())
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "a later config layer")
+	assert.ErrorContains(t, err, "a later config layer")
 }
 
 // TestContextStep covers that the context step writes an answer and never touches a file already there.

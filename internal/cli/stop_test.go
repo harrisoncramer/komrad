@@ -46,7 +46,7 @@ func TestIntegrationRequestStopOnAServerWithoutTheRoute(t *testing.T) {
 	_, err := requestStop(t.Context(), strippedHost(t, server.URL))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "would not stop")
+	assert.ErrorContains(t, err, "would not stop")
 }
 
 // TestIntegrationAwaitStoppedGivesUp covers a server that accepted the request and then carried on
@@ -55,7 +55,7 @@ func TestIntegrationAwaitStoppedGivesUp(t *testing.T) {
 	err := awaitStopped(t.Context(), os.Getpid(), 300*time.Millisecond)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "still running")
+	assert.ErrorContains(t, err, "still running")
 }
 
 // TestIntegrationAwaitStoppedWaitsForTheProcessRatherThanTheAddress is the point of watching a pid: the

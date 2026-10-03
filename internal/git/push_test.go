@@ -118,7 +118,7 @@ func TestIntegrationPush(t *testing.T) {
 
 			if tt.wantSaid != "" {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantSaid)
+				assert.ErrorContains(t, err, tt.wantSaid)
 
 				return
 			}

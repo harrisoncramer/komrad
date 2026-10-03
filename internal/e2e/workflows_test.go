@@ -35,7 +35,7 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		}))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "primary checkout")
+		assert.ErrorContains(t, err, "primary checkout")
 	})
 
 	t.Run("a clone with a blank base stores what its origin/HEAD names", func(t *testing.T) {

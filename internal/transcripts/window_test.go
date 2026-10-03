@@ -98,7 +98,7 @@ func TestCutWindow(t *testing.T) {
 				require.Error(t, err)
 				require.NotNil(t, fail.Of(err))
 				assert.Equal(t, fail.KindInvalidArgument, fail.Of(err).Kind())
-				assert.Contains(t, err.Error(), tt.wantErr, "the message has to name the real cause")
+				assert.ErrorContains(t, err, tt.wantErr, "the message has to name the real cause")
 
 				return
 			}

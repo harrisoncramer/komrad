@@ -214,7 +214,7 @@ func TestIntegrationRunRefusesAMissingDirectory(t *testing.T) {
 	err = NewRunner().Run(t.Context(), RunParams{Script: found[0], Dir: gone})
 
 	require.ErrorIs(t, err, ErrDirMissing)
-	assert.Contains(t, err.Error(), gone, "the refusal names the directory, not the script")
+	assert.ErrorContains(t, err, gone, "the refusal names the directory, not the script")
 }
 
 // TestIntegrationRunRefusesADirectoryThatIsAFile covers the same check meeting a path that exists and is
@@ -290,7 +290,7 @@ func TestIntegrationRunReportsTheOutcome(t *testing.T) {
 			}
 
 			require.ErrorIs(t, got.err, ErrFailed)
-			assert.Contains(t, got.err.Error(), "cleanup", "the failure names the script")
+			assert.ErrorContains(t, got.err, "cleanup", "the failure names the script")
 		})
 	}
 }
@@ -376,7 +376,7 @@ func TestIntegrationRunAndWaitRefusesANonZeroExit(t *testing.T) {
 	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Script: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, ErrFailed)
-	assert.Contains(t, err.Error(), "install", "the refusal names the script")
+	require.ErrorContains(t, err, "install", "the refusal names the script")
 	assert.Equal(t, "no lockfile", strings.TrimSpace(string(result.Stderr)))
 }
 
@@ -426,7 +426,7 @@ func TestIntegrationRunStopsAtItsOwnDeadline(t *testing.T) {
 	select {
 	case err := <-failed:
 		require.ErrorIs(t, err, ErrFailed)
-		assert.Contains(t, err.Error(), context.DeadlineExceeded.Error(), "the outcome says the deadline is what stopped it")
+		require.ErrorContains(t, err, context.DeadlineExceeded.Error(), "the outcome says the deadline is what stopped it")
 		assert.Less(t, time.Since(started), 30*time.Second, "the script is killed rather than waited out")
 	case <-time.After(30 * time.Second):
 		t.Fatal("the run was never reported as finished")
@@ -453,7 +453,7 @@ func TestIntegrationRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 	})
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.Contains(t, err.Error(), "gave up after 100ms", "the refusal names the limit it passed")
+	require.ErrorContains(t, err, "gave up after 100ms", "the refusal names the limit it passed")
 	assert.Less(t, time.Since(started), 30*time.Second, "the script is killed rather than waited out")
 }
 
@@ -512,7 +512,7 @@ func TestIntegrationRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Script: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, ErrNotStartable)
-	assert.Contains(t, err.Error(), "bad-shebang", "the refusal names the script")
+	require.ErrorContains(t, err, "bad-shebang", "the refusal names the script")
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
@@ -577,7 +577,7 @@ func TestIntegrationRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotErrorIs(t, err, ErrNotStartable, "a cancelled run says nothing about whether the file would exec")
-	assert.Contains(t, err.Error(), "gave up after 1m0s", "the refusal names the limit it was given")
+	require.ErrorContains(t, err, "gave up after 1m0s", "the refusal names the limit it was given")
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 

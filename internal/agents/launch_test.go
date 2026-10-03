@@ -721,7 +721,7 @@ func TestNewAgentCeiling(t *testing.T) {
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
-				assert.Contains(t, err.Error(), "please archive one to continue", "the refusal says what to do about it")
+				require.ErrorContains(t, err, "please archive one to continue", "the refusal says what to do about it")
 				assert.Empty(t, lifecycle.provision, "a refused create runs no provisioner")
 				assert.Len(t, tmux.NewWindows, opened, "and opens no window")
 

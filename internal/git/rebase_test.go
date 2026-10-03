@@ -157,7 +157,7 @@ func TestIntegrationFetchBaseRefusesABaseOriginDoesNotHave(t *testing.T) {
 
 	_, _, err := client.FetchBase(t.Context(), clone, "trunk")
 	require.ErrorIs(t, err, git.ErrBaseMissing)
-	assert.Contains(t, err.Error(), "git fetch --quiet origin trunk", "the fetch failure rides along")
+	require.ErrorContains(t, err, "git fetch --quiet origin trunk", "the fetch failure rides along")
 
 	_, _, err = client.FetchBase(t.Context(), clone, "")
 	require.ErrorIs(t, err, git.ErrBaseMissing, "a workflow naming no base is refused before anything is fetched")

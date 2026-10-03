@@ -821,7 +821,7 @@ func TestNotFound(t *testing.T) {
 	err := misrouted.Merge(t.Context(), "https://github.com/harrisoncramer/komrad/pull/1")
 	require.Error(t, err)
 	require.NotErrorIs(t, err, forge.ErrNotFound)
-	assert.Contains(t, err.Error(), "/graphql")
+	assert.ErrorContains(t, err, "/graphql")
 }
 
 // TestVerifyInstallation covers the one REST call: how many repositories an installation
@@ -864,7 +864,7 @@ func TestCredentialFailureIsNotAReachFailure(t *testing.T) {
 
 	_, err := f.VerifyInstallation(t.Context())
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
-	assert.Equal(t, refused.Error(), err.Error())
+	assert.EqualError(t, err, refused.Error())
 }
 
 // TestRateLimitRefusals covers the ways GitHub says to wait, a primary refusal arriving as a

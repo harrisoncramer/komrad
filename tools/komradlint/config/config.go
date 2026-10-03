@@ -18,6 +18,8 @@ type Config struct {
 	TestBeside     BesideConfig         `json:"test_beside"`
 	BoundKey       BoundKeyConfig       `json:"bound_key"`
 	CtxSleep       CtxSleepConfig       `json:"ctx_sleep"`
+	TestFatalErr   FatalErrConfig       `json:"test_fatal_err"`
+	ErrorText      ErrorTextConfig      `json:"error_text"`
 }
 
 // CtxSleepConfig settles where a select may wait out a delay by hand.
@@ -25,6 +27,25 @@ type CtxSleepConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`
 	// Exclude is unanchored regexps over the file path, for the package that defines Sleep.
+	Exclude []string `json:"exclude"`
+}
+
+// FatalErrConfig settles where a test may fail on an error through t.Fatal or t.Error.
+type FatalErrConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Packages is unanchored regexps over the import path of the packages the rule covers, every
+	// package when empty.
+	Packages []string `json:"packages"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// ErrorTextConfig settles where a test may match an error by the text Error returns.
+type ErrorTextConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
 	Exclude []string `json:"exclude"`
 }
 

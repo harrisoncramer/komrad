@@ -108,7 +108,7 @@ func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
 	require.ErrorIs(t, err, agenterr.ErrUnsettled)
-	assert.Contains(t, err.Error(), "had not stopped")
+	require.ErrorContains(t, err, "had not stopped")
 
 	after := agentByID(t, st, agent.ID)
 	assert.Nil(t, after.Hold.At, "a refused hold claims nothing")
@@ -124,7 +124,7 @@ func TestHoldRefusesAPaneItCannotRead(t *testing.T) {
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
 	require.ErrorIs(t, err, agenterr.ErrUnsettled)
-	assert.Contains(t, err.Error(), "could not be read")
+	require.ErrorContains(t, err, "could not be read")
 
 	after := agentByID(t, st, agent.ID)
 	assert.Nil(t, after.Hold.At)
@@ -144,7 +144,7 @@ func TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt(t *testing.T) {
 
 			_, err := newHolder(st, channel, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
 			require.ErrorIs(t, err, agenterr.ErrUnsettled)
-			assert.Contains(t, err.Error(), "could not be read")
+			require.ErrorContains(t, err, "could not be read")
 
 			assert.Zero(t, channel.Interrupts, "nothing said there was a turn to cut")
 			assert.Equal(t, 1, observer.Reads, "and the refusal costs no settle")

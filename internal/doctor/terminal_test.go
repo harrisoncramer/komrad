@@ -75,7 +75,7 @@ func TestGlyphCheckWarnsWhenTheTerminalWouldNotYield(t *testing.T) {
 
 	result := newTerminalGlyphCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status)
-	assert.Contains(t, result.Err.Error(), "inappropriate ioctl")
+	assert.ErrorContains(t, result.Err, "inappropriate ioctl")
 }
 
 // TestGlyphCheckDoesNotBlameTheFont covers the fix text.
@@ -102,7 +102,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 	require.Equal(t, StatusWarn, result.Status,
 		"a font the terminal lacks is a degraded panel rather than a broken komrad")
 	require.ErrorIs(t, result.Err, errGlyphWidthUnexpected)
-	assert.Contains(t, result.Err.Error(), fmt.Sprintf("%d glyphs drew in 2 columns where the layout counts them as 1", len(glyph.Defaults().Drawings())))
+	require.ErrorContains(t, result.Err, fmt.Sprintf("%d glyphs drew in 2 columns where the layout counts them as 1", len(glyph.Defaults().Drawings())))
 	assert.NotEmpty(t, result.Fix)
 }
 
@@ -141,7 +141,7 @@ func TestGlyphCheckSaysWhenItMeasuredTmux(t *testing.T) {
 
 	warned := newTerminalGlyphCheck().Run(t.Context(), disagreeing)
 	require.Equal(t, StatusWarn, warned.Status)
-	assert.Contains(t, warned.Err.Error(), "tmux",
+	assert.ErrorContains(t, warned.Err, "tmux",
 		"the text report shows the error rather than the detail, so the caveat has to be in both")
 }
 
@@ -195,7 +195,7 @@ func TestEmphasisCheckNamesWhatIsLost(t *testing.T) {
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status)
 	require.ErrorIs(t, result.Err, errEmphasisMissing)
-	assert.Contains(t, result.Err.Error(), "a child reads as an ordinary agent")
+	require.ErrorContains(t, result.Err, "a child reads as an ordinary agent")
 	assert.NotContains(t, result.Err.Error(), "a workflow row reads")
 }
 
@@ -239,7 +239,7 @@ func TestEmphasisCheckCatchesTmuxRefusingItalics(t *testing.T) {
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status, result.Detail)
 	require.ErrorIs(t, result.Err, errItalicSubstituted)
-	assert.Contains(t, result.Err.Error(), "drawn reversed rather than italic")
+	require.ErrorContains(t, result.Err, "drawn reversed rather than italic")
 	assert.Contains(t, result.Fix, "default-terminal")
 }
 
@@ -249,7 +249,7 @@ func TestEmphasisCheckSaysAChildIsReversedInTmux(t *testing.T) {
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), inside)
 	require.Equal(t, StatusWarn, result.Status)
-	assert.Contains(t, result.Err.Error(), "drawn reversed rather than italic")
+	require.ErrorContains(t, result.Err, "drawn reversed rather than italic")
 
 	outside := Env{
 		Settings:     Settings{Term: "vt100"},
@@ -258,7 +258,7 @@ func TestEmphasisCheckSaysAChildIsReversedInTmux(t *testing.T) {
 
 	plain := newTerminalEmphasisCheck().Run(t.Context(), outside)
 	require.Equal(t, StatusWarn, plain.Status)
-	assert.Contains(t, plain.Err.Error(), "a child reads as an ordinary agent",
+	assert.ErrorContains(t, plain.Err, "a child reads as an ordinary agent",
 		"with no tmux in the way the attribute is dropped rather than substituted")
 }
 
@@ -269,8 +269,8 @@ func TestEmphasisCheckReportsBothFaultsAtOnce(t *testing.T) {
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status, result.Detail)
-	assert.Contains(t, result.Err.Error(), "a workflow row reads as an ordinary agent")
-	assert.Contains(t, result.Err.Error(), "drawn reversed rather than italic")
+	require.ErrorContains(t, result.Err, "a workflow row reads as an ordinary agent")
+	require.ErrorContains(t, result.Err, "drawn reversed rather than italic")
 	assert.Contains(t, result.Fix, "TERM")
 	assert.Contains(t, result.Fix, "default-terminal")
 }

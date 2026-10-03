@@ -23,7 +23,7 @@ func TestSentinelCarriesItsKind(t *testing.T) {
 	found := fail.Of(wrapped)
 	require.NotNil(t, found)
 	assert.Equal(t, fail.KindNotFound, found.Kind())
-	assert.Equal(t, "agent not found", found.Error(), "a sentinel nobody worded keeps its own message")
+	assert.EqualError(t, found, "agent not found", "a sentinel nobody worded keeps its own message")
 }
 
 // TestSaying covers a sentinel worded for one request, which still compares as itself.
@@ -33,12 +33,12 @@ func TestSaying(t *testing.T) {
 	said := sentinel.Saying("no agent with id %q", "a-1")
 
 	require.ErrorIs(t, said, sentinel)
-	assert.Equal(t, `no agent with id "a-1"`, said.Error(), "the sentinel's own wording is replaced")
+	require.EqualError(t, said, `no agent with id "a-1"`, "the sentinel's own wording is replaced")
 
 	found := fail.Of(said)
 	require.NotNil(t, found)
 	assert.Equal(t, fail.KindNotFound, found.Kind())
-	assert.Equal(t, `no agent with id "a-1"`, found.Error())
+	assert.EqualError(t, found, `no agent with id "a-1"`)
 }
 
 // TestSayingSurvivesWrapping covers the domain putting its own prefix on a worded sentinel on the
@@ -50,7 +50,7 @@ func TestSayingSurvivesWrapping(t *testing.T) {
 
 	found := fail.Of(wrapped)
 	require.NotNil(t, found)
-	assert.Equal(t, `no schedule with id "s-1"`, found.Error(), "the prefix the domain added is not what the caller is told")
+	assert.EqualError(t, found, `no schedule with id "s-1"`, "the prefix the domain added is not what the caller is told")
 }
 
 // TestOfPlainError covers an error holding no sentinel at all.

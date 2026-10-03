@@ -17,6 +17,8 @@ import (
 
 	"komrad/internal/tmux"
 	"komrad/lib/clock"
+
+	"github.com/stretchr/testify/require"
 )
 
 var created atomic.Int64
@@ -30,9 +32,8 @@ type Server struct {
 func New(t *testing.T) *Server {
 	t.Helper()
 
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Fatalf("tmux is not installed: %v", err)
-	}
+	_, err := exec.LookPath("tmux")
+	require.NoError(t, err, "tmux is not installed")
 
 	server := &Server{t: t, socket: fmt.Sprintf("komradtest-%d-%d", os.Getpid(), created.Add(1))}
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", server.socket, "kill-server").Run() })
@@ -56,9 +57,7 @@ func (s *Server) Run(args ...string) string {
 	s.t.Helper()
 
 	out, err := exec.Command("tmux", append([]string{"-L", s.socket}, args...)...).Output()
-	if err != nil {
-		s.t.Fatalf("tmux %v: %v", args, err)
-	}
+	require.NoError(s.t, err, "tmux %v", args)
 
 	return strings.TrimSpace(string(out))
 }

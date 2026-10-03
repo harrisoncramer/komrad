@@ -168,7 +168,7 @@ func TestRequirePOSIXShell(t *testing.T) {
 			}
 
 			require.ErrorIs(t, err, ErrShellUnsupported)
-			assert.Contains(t, err.Error(), tt.shell)
+			assert.ErrorContains(t, err, tt.shell)
 		})
 	}
 }

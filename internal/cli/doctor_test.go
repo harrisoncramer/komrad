@@ -70,7 +70,7 @@ func TestIntegrationDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			}
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantErr, "the error names the file that is not there")
+			assert.ErrorContains(t, err, tt.wantErr, "the error names the file that is not there")
 		})
 	}
 }
@@ -94,7 +94,7 @@ func TestIntegrationDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 
 	_, loadErr := env.LoadConfig()
 	require.Error(t, loadErr, "the config check has to be the one that reports the broken layer list")
-	assert.Contains(t, loadErr.Error(), "empty path")
+	assert.ErrorContains(t, loadErr, "empty path")
 }
 
 // TestIntegrationColorFollowsWhatItWasAskedFor pins the three modes and the refusal.
@@ -140,7 +140,7 @@ func TestIntegrationColorFollowsWhatItWasAskedFor(t *testing.T) {
 			got, err := shouldColorize(tt.mode, tt.out)
 			if tt.wantErr {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "sometimes", "the refusal names what was asked for")
+				assert.ErrorContains(t, err, "sometimes", "the refusal names what was asked for")
 
 				return
 			}

@@ -24,7 +24,7 @@ func TestIntegrationServeLoggerRejectsAnUnknownLevel(t *testing.T) {
 	_, err := serveLogger("verbose")
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "verbose")
+	assert.ErrorContains(t, err, "verbose")
 }
 
 // TestIntegrationShutdownSignalFollowsItsParent covers the context handed to serve still being the

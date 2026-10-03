@@ -117,7 +117,7 @@ func TestIntegrationEnsureServerReportsWhyItDied(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to reach db: connection refused")
+	assert.ErrorContains(t, err, "failed to reach db: connection refused")
 }
 
 // TestIntegrationEnsureServerIgnoresOlderLogLines covers that only what this server wrote is reported:
@@ -136,7 +136,7 @@ func TestIntegrationEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "this run")
+	require.ErrorContains(t, err, "this run")
 	assert.NotContains(t, err.Error(), "an older run")
 }
 
@@ -153,7 +153,7 @@ func TestIntegrationEnsureServerWithoutAReason(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), logPath)
+	assert.ErrorContains(t, err, logPath)
 }
 
 // TestIntegrationEnsureServerWithAnUnwritableLog covers a log that cannot be opened, where nothing is
@@ -171,7 +171,7 @@ func TestIntegrationEnsureServerWithAnUnwritableLog(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), logPath, "the path that could not be opened is named")
+	assert.ErrorContains(t, err, logPath, "the path that could not be opened is named")
 }
 
 // TestIntegrationEnsureServerCarriesTheConfigPath covers the spawned server being told which config file
@@ -218,7 +218,7 @@ func TestIntegrationEnsureServerCarriesTheConfigPath(t *testing.T) {
 				return
 			}
 
-			assert.Contains(t, err.Error(), tt.want)
+			assert.ErrorContains(t, err, tt.want)
 		})
 	}
 }

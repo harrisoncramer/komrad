@@ -912,7 +912,7 @@ func TestResolveRecipientRefusals(t *testing.T) {
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, got)
 			for _, said := range tt.wantSaid {
-				assert.Contains(t, err.Error(), said)
+				assert.ErrorContains(t, err, said)
 			}
 		})
 	}

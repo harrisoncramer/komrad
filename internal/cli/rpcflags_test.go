@@ -79,7 +79,7 @@ func TestAOneofsFlagsRefuseEachOther(t *testing.T) {
 
 			err := cmd.Execute()
 			require.Error(t, err, "%s takes only one of --%s and --%s", exposed.Method.Name(), group[0], group[1])
-			assert.Contains(t, err.Error(), "none of the others can be")
+			require.ErrorContains(t, err, "none of the others can be")
 		}
 	}
 

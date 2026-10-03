@@ -479,6 +479,13 @@ linters:
             # Sleep.
             exclude:
               - ^lib/clock/
+          test_fatal_err:
+            skip: false
+            # Unanchored regexps over the import path. The tools modules carry no testify.
+            packages:
+              - ^komrad/
+          error_text:
+            skip: false
       fussy:
         type: module
         description: General Go checks from fussy.

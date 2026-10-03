@@ -610,7 +610,7 @@ func TestMerge(t *testing.T) {
 			assert.Equal(t, path+"/merge", fake.calls[0].Path)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
-				assert.Contains(t, err.Error(), tt.wantMessage)
+				assert.ErrorContains(t, err, tt.wantMessage)
 
 				return
 			}
@@ -1013,7 +1013,7 @@ func TestNotFound(t *testing.T) {
 	_, err = misrouted.readMergeRequest(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/1")
 	require.Error(t, err)
 	require.NotErrorIs(t, err, forge.ErrNotFound)
-	assert.Contains(t, err.Error(), "/graphql")
+	assert.ErrorContains(t, err, "/graphql")
 }
 
 // TestRateLimitRefusals covers a 429 with and without a time to wait, and a 403 that is a

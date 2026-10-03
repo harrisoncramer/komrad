@@ -30,9 +30,9 @@ func TestIntegrationQueryCarriesStderr(t *testing.T) {
 	_, err := NewClient("komrad-test-no-such-socket").GetPanes()
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "list-panes", "the failing command is named")
-	assert.Contains(t, err.Error(), "komrad-test-no-such-socket", "so is the server it ran against")
-	assert.Contains(t, err.Error(), "error connecting", "and tmux's own stderr comes through")
+	require.ErrorContains(t, err, "list-panes", "the failing command is named")
+	require.ErrorContains(t, err, "komrad-test-no-such-socket", "so is the server it ran against")
+	assert.ErrorContains(t, err, "error connecting", "and tmux's own stderr comes through")
 }
 
 // TestIntegrationQueryGivesUpOnWedgedTmux covers a tmux that never answers, which would otherwise stall
@@ -72,8 +72,8 @@ func TestIntegrationQueryGivesUpOnWedgedTmux(t *testing.T) {
 			select {
 			case got := <-done:
 				require.Error(t, got.err, "giving up is a failure, so a caller reading state is not told the pane is gone")
-				assert.Contains(t, got.err.Error(), "gave up waiting", "it returned because it ran out of time, not because tmux answered")
-				assert.Contains(t, got.err.Error(), "list-panes", "the call that hung is named")
+				require.ErrorContains(t, got.err, "gave up waiting", "it returned because it ran out of time, not because tmux answered")
+				require.ErrorContains(t, got.err, "list-panes", "the call that hung is named")
 				assert.Empty(t, got.out, "and nothing half-read is passed off as an answer")
 			case <-time.After(queryTimeout + 2*time.Second):
 				t.Fatal("query did not return against a tmux that never answers")
@@ -725,8 +725,8 @@ func readFile(t *testing.T, path string) string {
 	t.Helper()
 
 	out, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		t.Fatalf("could not read what the program received: %v", err)
+	if !os.IsNotExist(err) {
+		require.NoError(t, err, "could not read what the program received")
 	}
 
 	return string(out)

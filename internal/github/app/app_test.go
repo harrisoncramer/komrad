@@ -123,8 +123,8 @@ func TestMintExplainsARefusal(t *testing.T) {
 			}
 			_, err := app.Mint(t.Context(), server.Client(), time.Now())
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "12345")
-			assert.Contains(t, err.Error(), "678")
+			require.ErrorContains(t, err, "12345")
+			require.ErrorContains(t, err, "678")
 			assert.Equal(t, tt.wantRefused, errors.Is(err, ErrRefused))
 		})
 	}
