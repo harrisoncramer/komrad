@@ -484,8 +484,12 @@ func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
-	if err := c.service.agents.Update(ctx, *agent); err != nil {
+	written, err := c.service.agents.UpdateIfLive(ctx, *agent)
+	if err != nil {
 		return fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
+	}
+	if !written {
+		return fmt.Errorf("%w: %q was archived or deleted while it was being created", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	return nil
@@ -542,6 +546,7 @@ func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, caus
 const teardownTimeout = 30 * time.Second
 
 func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
+	agent.Pane = ""
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
 }
 
