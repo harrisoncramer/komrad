@@ -576,7 +576,6 @@ func TestRoleBriefing(t *testing.T) {
 	}
 }
 
-// TestSpawningBriefing pins which agents are told how to launch agents of their own.
 func TestSpawningBriefing(t *testing.T) {
 	tests := []struct {
 		name   string
