@@ -162,7 +162,7 @@ func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset 
 	return nil
 }
 
-// MarkDrained records when a read that found a session's log drained began.
+// MarkDrained stamps a session as read to the end as of readAt.
 func (s *TranscriptStore) MarkDrained(ctx context.Context, sessionID string, readAt time.Time) error {
 	if err := s.queries.MarkTranscriptSessionDrained(ctx, models.MarkTranscriptSessionDrainedParams{
 		ID:       sessionID,

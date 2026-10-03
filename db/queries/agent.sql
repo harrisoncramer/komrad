@@ -1005,13 +1005,11 @@ ORDER BY
 INSERT INTO agent_transcript_sessions(
     id,
     agent_id,
-    session_id,
-    synced_at)
+    session_id)
 VALUES (
     @id,
     @agent_id,
-    @session_id,
-    '-infinity')
+    @session_id)
 ON CONFLICT (
     agent_id,
     session_id)

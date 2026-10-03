@@ -2371,13 +2371,11 @@ const openTranscriptSession = `-- name: OpenTranscriptSession :one
 INSERT INTO agent_transcript_sessions(
     id,
     agent_id,
-    session_id,
-    synced_at)
+    session_id)
 VALUES (
     $1,
     $2,
-    $3,
-    '-infinity')
+    $3)
 ON CONFLICT (
     agent_id,
     session_id)

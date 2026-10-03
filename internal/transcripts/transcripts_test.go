@@ -519,12 +519,12 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 
 type archivingReader struct {
 	harness.Harness
-	archive func()
+	afterRead func()
 }
 
 func (ar archivingReader) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	read, err := ar.Harness.ReadLog(path, offset)
-	ar.archive()
+	ar.afterRead()
 
 	return read, err
 }
@@ -541,7 +541,7 @@ func TestArchiveDuringReadKeepsFinalTurns(t *testing.T) {
 	archived := false
 	racing := archivingReader{
 		Harness: claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir}),
-		archive: func() {
+		afterRead: func() {
 			if archived {
 				return
 			}
