@@ -150,23 +150,23 @@ func TestLoadLayout(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "the terminal under a review turned off and sized by the user",
-			file: "[layout]\nreview_terminal = false\nreview_terminal_height = 12\nreview_terminal_min_rows = 4\nreview_terminal_max_rows = 20\n",
+			name: "the implementer's chat under a review turned off and sized by the user",
+			file: "[layout]\nimplementer_chat = false\nimplementer_chat_height = 12\nimplementer_chat_min_rows = 4\nimplementer_chat_max_rows = 20\n",
 			want: changeLayout(func(l *Layout) {
-				l.ReviewTerminal = false
-				l.ReviewTerminalHeight = 12
-				l.ReviewTerminalMinRows = 4
-				l.ReviewTerminalMaxRows = 20
+				l.ImplementerChat = false
+				l.ImplementerChatHeight = 12
+				l.ImplementerChatMinRows = 4
+				l.ImplementerChatMaxRows = 20
 			}),
 		},
 		{
-			name:    "a terminal under a review capped below its floor",
-			file:    "[layout]\nreview_terminal_min_rows = 10\nreview_terminal_max_rows = 8\n",
+			name:    "an implementer's chat under a review capped below its floor",
+			file:    "[layout]\nimplementer_chat_min_rows = 10\nimplementer_chat_max_rows = 8\n",
 			wantErr: true,
 		},
 		{
-			name:    "a terminal under a review with a negative floor",
-			file:    "[layout]\nreview_terminal_min_rows = -1\n",
+			name:    "an implementer's chat under a review with a negative floor",
+			file:    "[layout]\nimplementer_chat_min_rows = -1\n",
 			wantErr: true,
 		},
 	}

@@ -666,7 +666,7 @@ func (f *Frame) TileGuest() string {
 	return f.tileGuest
 }
 
-// ShowTile puts an agent's terminal across the bottom of the window at a height in rows, setting
+// ShowTile puts an agent's chat across the bottom of the window at a height in rows, setting
 // the stage aside while it is up and resizing the tile when the agent is already in it.
 func (f *Frame) ShowTile(guest Guest, rows int) {
 	if f.sidebar == "" || guest.Pane == "" || rows <= 0 {

@@ -1068,10 +1068,10 @@ func TestFrameTileRows(t *testing.T) {
 		{name: "a quarter of the window", window: 40, want: 10},
 		{name: "a short window takes the floor", window: 20, want: 6},
 		{name: "a tall window takes the cap", window: 100, want: 15},
-		{name: "a fixed row count", layout: func(l *config.Layout) { l.ReviewTerminalHeight = 8 }, window: 40, want: 8},
+		{name: "a fixed row count", layout: func(l *config.Layout) { l.ImplementerChatHeight = 8 }, window: 40, want: 8},
 		{name: "a window too short to spare the rows", window: 20, floor: 5, want: 0},
 		{name: "an unmeasured window", window: 0, want: 0},
-		{name: "the tile turned off", layout: func(l *config.Layout) { l.ReviewTerminal = false }, window: 40, want: 0},
+		{name: "the tile turned off", layout: func(l *config.Layout) { l.ImplementerChat = false }, window: 40, want: 0},
 	}
 
 	for _, tt := range tests {

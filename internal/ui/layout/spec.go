@@ -33,14 +33,14 @@ func newSpec(layout config.Layout) spec {
 		info = config.DefaultInfoHeight
 	}
 
-	tileHeight := layout.ReviewTerminalHeight
+	tileHeight := layout.ImplementerChatHeight
 	if tileHeight <= 0 {
-		tileHeight = config.DefaultReviewTerminalHeight
+		tileHeight = config.DefaultImplementerChatHeight
 	}
 
-	tileMin, tileMax := layout.ReviewTerminalMinRows, layout.ReviewTerminalMaxRows
+	tileMin, tileMax := layout.ImplementerChatMinRows, layout.ImplementerChatMaxRows
 	if tileMax <= 0 {
-		tileMin, tileMax = config.DefaultReviewTerminalMinRows, config.DefaultReviewTerminalMaxRows
+		tileMin, tileMax = config.DefaultImplementerChatMinRows, config.DefaultImplementerChatMaxRows
 	}
 
 	return spec{
@@ -48,7 +48,7 @@ func newSpec(layout config.Layout) spec {
 		sidebarCols:    cols,
 		infoAbove:      layout.InfoSide == config.InfoSideAbove,
 		infoSize:       formatSize(info),
-		tile:           layout.ReviewTerminal,
+		tile:           layout.ImplementerChat,
 		tileHeight:     tileHeight,
 		tileMin:        tileMin,
 		tileMax:        tileMax,

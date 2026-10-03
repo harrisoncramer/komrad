@@ -105,9 +105,9 @@ const (
 	DefaultInfoHeight    = 0.4
 	defaultDetailsHeight = 9
 
-	DefaultReviewTerminalHeight  = 0.25
-	DefaultReviewTerminalMinRows = 6
-	DefaultReviewTerminalMaxRows = 15
+	DefaultImplementerChatHeight  = 0.25
+	DefaultImplementerChatMinRows = 6
+	DefaultImplementerChatMaxRows = 15
 )
 
 // Where each region of the panel's layout can sit.
@@ -758,14 +758,14 @@ type Layout struct {
 	DetailsHeight float64 `mapstructure:"details_height"`
 	// How many families of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A family is an agent with all of its children, and the zone never draws fewer rows than it has slots. Zero turns the zone off.
 	TriageRows int `mapstructure:"triage_rows"`
-	// Whether a review of an implementer's change shows that agent's terminal across the bottom of the window, under the diff.
-	ReviewTerminal bool `mapstructure:"review_terminal"`
-	// How tall the terminal under a review opens, either a share of the window's height below one or a whole number of rows.
-	ReviewTerminalHeight float64 `mapstructure:"review_terminal_height"`
-	// The fewest rows the terminal under a review opens at. A window too short to give it these and still show the diff leaves it closed.
-	ReviewTerminalMinRows int `mapstructure:"review_terminal_min_rows"`
-	// The most rows the terminal under a review opens at, however tall the window.
-	ReviewTerminalMaxRows int `mapstructure:"review_terminal_max_rows"`
+	// Whether a review of an implementer's change shows that agent's chat across the bottom of the window, under the diff.
+	ImplementerChat bool `mapstructure:"implementer_chat"`
+	// How tall the implementer's chat under a review opens, either a share of the window's height below one or a whole number of rows.
+	ImplementerChatHeight float64 `mapstructure:"implementer_chat_height"`
+	// The fewest rows the implementer's chat under a review opens at. A window too short to give it these and still show the diff leaves it closed.
+	ImplementerChatMinRows int `mapstructure:"implementer_chat_min_rows"`
+	// The most rows the implementer's chat under a review opens at, however tall the window.
+	ImplementerChatMaxRows int `mapstructure:"implementer_chat_max_rows"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -1075,10 +1075,10 @@ func DefaultLayout() Layout {
 		InfoHeight:    DefaultInfoHeight,
 		DetailsHeight: defaultDetailsHeight,
 
-		ReviewTerminal:        true,
-		ReviewTerminalHeight:  DefaultReviewTerminalHeight,
-		ReviewTerminalMinRows: DefaultReviewTerminalMinRows,
-		ReviewTerminalMaxRows: DefaultReviewTerminalMaxRows,
+		ImplementerChat:        true,
+		ImplementerChatHeight:  DefaultImplementerChatHeight,
+		ImplementerChatMinRows: DefaultImplementerChatMinRows,
+		ImplementerChatMaxRows: DefaultImplementerChatMaxRows,
 	}
 }
 
@@ -1152,14 +1152,14 @@ func validateLayout(layout Layout) error {
 	if err := validatePaneSize("layout.details_height", layout.DetailsHeight); err != nil {
 		return err
 	}
-	if err := validatePaneSize("layout.review_terminal_height", layout.ReviewTerminalHeight); err != nil {
+	if err := validatePaneSize("layout.implementer_chat_height", layout.ImplementerChatHeight); err != nil {
 		return err
 	}
-	if layout.ReviewTerminalMinRows < 0 {
-		return fmt.Errorf("layout.review_terminal_min_rows: %d is not a number of rows", layout.ReviewTerminalMinRows)
+	if layout.ImplementerChatMinRows < 0 {
+		return fmt.Errorf("layout.implementer_chat_min_rows: %d is not a number of rows", layout.ImplementerChatMinRows)
 	}
-	if layout.ReviewTerminalMaxRows < layout.ReviewTerminalMinRows {
-		return fmt.Errorf("layout.review_terminal_max_rows: %d is fewer than the %d rows the terminal opens at least", layout.ReviewTerminalMaxRows, layout.ReviewTerminalMinRows)
+	if layout.ImplementerChatMaxRows < layout.ImplementerChatMinRows {
+		return fmt.Errorf("layout.implementer_chat_max_rows: %d is fewer than the %d rows the chat opens at least", layout.ImplementerChatMaxRows, layout.ImplementerChatMinRows)
 	}
 	if err := validateSide("layout.sidebar_side", layout.SidebarSide, SidebarSideLeft, SidebarSideRight); err != nil {
 		return err
@@ -1579,8 +1579,8 @@ func (c *Config) normalizeZeroValues() {
 	if c.Layout.DetailsHeight == 0 {
 		c.Layout.DetailsHeight = defaultDetailsHeight
 	}
-	if c.Layout.ReviewTerminalHeight == 0 {
-		c.Layout.ReviewTerminalHeight = DefaultReviewTerminalHeight
+	if c.Layout.ImplementerChatHeight == 0 {
+		c.Layout.ImplementerChatHeight = DefaultImplementerChatHeight
 	}
 	if strings.TrimSpace(c.Layout.SidebarSide) == "" {
 		c.Layout.SidebarSide = defaultSidebarSide
