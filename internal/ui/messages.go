@@ -49,6 +49,7 @@ type message struct {
 	hint    string
 	trace   string
 	at      time.Time
+	landed  int
 }
 
 type messagesState struct {
@@ -181,7 +182,7 @@ func (m *model) drawMessageRows(at, width int) []string {
 	hovered := at == m.messages.clampedCursor()
 	summary := lipgloss.NewStyle()
 	switch {
-	case m.messages.flashed == at+1:
+	case m.messages.flashed != 0 && held.landed == m.messages.flashed:
 		summary = flashFieldStyle(paint.Panel)
 	case hovered:
 		summary = summary.Bold(true)
@@ -256,7 +257,7 @@ func (m *model) copyMessage() tea.Cmd {
 	}
 
 	at := m.messages.clampedCursor()
-	m.messages.flashed = at + 1
+	m.messages.flashed = m.messages.items[at].landed
 
 	return tea.Batch(m.copyCmd(formatMessageText(m.messages.items[at])), flashRevertTick())
 }
@@ -273,6 +274,7 @@ func (m *model) pushMessage(next message) {
 	}
 
 	m.messages.landed++
+	next.landed = m.messages.landed
 	m.messages.items = append([]message{next}, m.messages.items...)
 	if len(m.messages.items) > messagesCap {
 		m.messages.items = m.messages.items[:messagesCap]

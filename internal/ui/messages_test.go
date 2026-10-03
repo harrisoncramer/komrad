@@ -200,10 +200,26 @@ func TestMessagesPane(t *testing.T) {
 
 // TestMessagesCopy covers y putting the message under the cursor on the clipboard.
 func TestMessagesCopy(t *testing.T) {
-	harness := openMessages(t, panelHarnessParams{})
-	harness.press("enter", "ctrl+g", "y")
+	t.Run("the message under the cursor is put on the clipboard", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+g", "y")
 
-	assert.Equal(t, []string{"Could not resume agent \"api-refactor\"\n\nno such agent\n\nkomrad log " + traceID}, harness.panel.ReadCopied())
+		assert.Equal(t, []string{"Could not resume agent \"api-refactor\"\n\nno such agent\n\nkomrad log " + traceID}, harness.panel.ReadCopied())
+	})
+
+	t.Run("the copied message keeps its flash when another lands above it", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+g")
+		settleFlash(harness)
+		plain := readStyledPaneText(harness, "Could not resume")
+		harness.press("y")
+		flashed := readStyledPaneText(harness, "Could not resume")
+		require.NotEqual(t, plain, flashed, "the copy flashes the row")
+
+		harness.press("M")
+
+		assert.Equal(t, flashed, readStyledPaneText(harness, "Could not resume"))
+	})
 }
 
 // TestMessagesBlink covers a message blinking in the header as it lands.
@@ -349,6 +365,19 @@ func readStyledEngineLine(harness *panelHarness) string {
 
 func readStyledPane(harness *panelHarness) string {
 	return strings.Join(readStage(harness.readRawFrame()), "\n")
+}
+
+func readStyledPaneText(harness *panelHarness, text string) string {
+	for _, line := range readStage(harness.readRawFrame()) {
+		at := strings.Index(line, text)
+		if at < 0 {
+			continue
+		}
+
+		return line[strings.LastIndex(line[:at], "\x1b["):]
+	}
+
+	return ""
 }
 
 func readPaneTally(frame string) string {
