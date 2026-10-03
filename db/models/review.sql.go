@@ -1860,47 +1860,17 @@ func (q *Queries) MoveOpenReview(ctx context.Context, arg MoveOpenReviewParams) 
 }
 
 const releaseReview = `-- name: ReleaseReview :one
-WITH released AS (
-    UPDATE
-        reviews v
-    SET
-        released_at = NOW(),
-        verdict = $1,
-        body = $2,
-        path = $3
-    WHERE
-        v.id = $4
-    RETURNING
-        id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login
-),
-reopened AS (
-    UPDATE
-        review_threads t
-    SET
-        resolved_at = NULL,
-        resolved_by_kind = NULL,
-        resolved_by_agent_id = NULL
-    FROM
-        released r
-    WHERE
-        r.author_kind = 'human'
-        AND t.resolved_at IS NOT NULL
-        AND EXISTS (
-            SELECT
-                1
-            FROM
-                review_messages m
-            WHERE
-                m.thread_id = t.id
-                AND m.review_id = r.id
-                AND m.created_at > t.resolved_at)
-        RETURNING
-            t.id
-)
-SELECT
-    r.id, r.agent_id, r.round_id, r.author_kind, r.author_agent_id, r.verdict, r.released_at, r.path, r.doorbell_mail_id, r.created_at, r.updated_at, r.body, r.engine_id, r.external_login
-FROM
-    released r
+UPDATE
+    reviews
+SET
+    released_at = NOW(),
+    verdict = $1,
+    body = $2,
+    path = $3
+WHERE
+    id = $4
+RETURNING
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login
 `
 
 type ReleaseReviewParams struct {
@@ -1910,31 +1880,14 @@ type ReleaseReviewParams struct {
 	ID      string
 }
 
-type ReleaseReviewRow struct {
-	ID             string
-	AgentID        string
-	RoundID        string
-	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
-	Verdict        NullReviewVerdict
-	ReleasedAt     *time.Time
-	Path           string
-	DoorbellMailID *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	Body           string
-	EngineID       string
-	ExternalLogin  *string
-}
-
-func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*ReleaseReviewRow, error) {
+func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*Review, error) {
 	row := q.db.QueryRow(ctx, releaseReview,
 		arg.Verdict,
 		arg.Body,
 		arg.Path,
 		arg.ID,
 	)
-	var i ReleaseReviewRow
+	var i Review
 	err := row.Scan(
 		&i.ID,
 		&i.AgentID,
@@ -1952,6 +1905,39 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 		&i.ExternalLogin,
 	)
 	return &i, err
+}
+
+const reopenRepliedThreads = `-- name: ReopenRepliedThreads :execrows
+UPDATE
+    review_threads t
+SET
+    resolved_at = NULL,
+    resolved_by_kind = NULL,
+    resolved_by_agent_id = NULL
+FROM
+    reviews r
+WHERE
+    r.id = $1
+    AND r.author_kind = 'human'
+    AND t.resolved_at IS NOT NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            review_messages m
+        WHERE
+            m.thread_id = t.id
+            AND m.review_id = r.id
+            AND (t.resolved_by_kind IS DISTINCT FROM 'human'
+                OR m.created_at > t.resolved_at))
+`
+
+func (q *Queries) ReopenRepliedThreads(ctx context.Context, reviewID string) (int64, error) {
+	result, err := q.db.Exec(ctx, reopenRepliedThreads, reviewID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setForgeThreadResolved = `-- name: SetForgeThreadResolved :exec

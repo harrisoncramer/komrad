@@ -478,12 +478,13 @@ func TestAnAnswerCarryingARoundSettlesTheThread(t *testing.T) {
 // reopens it once the batch carrying the reply goes out.
 func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 	tests := []struct {
-		name        string
-		byReviewer  bool
-		byPerson    bool
-		reply       bool
-		thenSettle  bool
-		wantSettled bool
+		name              string
+		byReviewer        bool
+		byPerson          bool
+		reply             bool
+		thenPersonSettles bool
+		thenWorkerSettles bool
+		wantSettled       bool
 	}{
 		{
 			name:        "a settled thread the person did not reply to",
@@ -491,10 +492,10 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 			wantSettled: true,
 		},
 		{
-			name:        "the person replying and then settling it before the batch goes out",
-			reply:       true,
-			thenSettle:  true,
-			wantSettled: true,
+			name:              "the person replying and then settling it before the batch goes out",
+			reply:             true,
+			thenPersonSettles: true,
+			wantSettled:       true,
 		},
 		{
 			name:        "a reviewer agent replying in a settled thread",
@@ -512,6 +513,13 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 			byPerson:    true,
 			reply:       true,
 			wantSettled: false,
+		},
+		{
+			name:              "the agent settling it after the person replied",
+			byPerson:          true,
+			reply:             true,
+			thenWorkerSettles: true,
+			wantSettled:       false,
 		},
 	}
 
@@ -552,15 +560,24 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			if tt.thenSettle {
+			if tt.thenPersonSettles {
 				st.settle(t, thread, nil)
+			}
+			if tt.thenWorkerSettles {
+				st.settle(t, thread, &workerID)
 			}
 
 			held, err := st.GetThread(ctx, thread.ID)
 			require.NoError(t, err)
 			require.NotNil(t, held.ResolvedAt, "the reply waits for the batch to go out")
 
-			st.releaseReview(t, second, VerdictChangesRequested)
+			released, err := st.ReleaseReview(ctx, ReleaseReviewParams{
+				ID:      second.ID,
+				Verdict: VerdictChangesRequested,
+				Path:    "/tmp/round-1.md",
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSettled, released.Reopens == 0)
 
 			got, err := st.GetThread(ctx, thread.ID)
 			require.NoError(t, err)
