@@ -2,9 +2,11 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
+	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/lib/xhttp"
 )
@@ -42,15 +44,19 @@ func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadPar
 	if err != nil {
 		return "", err
 	}
-	if err := failureOf(answer); err != nil {
-		return "", err
-	}
 	added := data.AddPullRequestReviewThreadReply
-	if added == nil || added.Comment == nil || added.Comment.ID == "" {
-		return "", fmt.Errorf("github answered the reply to thread %s with no comment", params.ThreadID)
+	if added != nil && added.Comment != nil && added.Comment.ID != "" {
+		return added.Comment.ID, nil
+	}
+	if err := failureOf(answer); err != nil {
+		if errors.Is(err, forge.ErrNotFound) {
+			return "", err
+		}
+
+		return "", fmt.Errorf("%w: %w", forge.ErrReplyRefused, err)
 	}
 
-	return added.Comment.ID, nil
+	return "", fmt.Errorf("github answered the reply to thread %s with no comment", params.ThreadID)
 }
 
 type commentOnConversationParams struct {
@@ -69,6 +75,9 @@ func (f *Forge) commentOnConversation(ctx context.Context, params commentOnConve
 		URL:    fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", f.client.API(), params.Owner, params.Name, params.Number),
 		Body:   map[string]string{"body": params.Body},
 	}, &comment)
+	if err != nil && fail.Of(err) == nil && answer.IsRefusal() {
+		return "", fmt.Errorf("%w: %w", forge.ErrReplyRefused, err)
+	}
 	if err != nil {
 		return "", err
 	}

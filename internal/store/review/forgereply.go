@@ -29,8 +29,8 @@ const (
 	ForgeReplyDraft ForgeReplyState = ForgeReplyState(models.ForgeReplyStateDraft)
 	// forgeReplyApproved is a reply waiting to be posted.
 	forgeReplyApproved ForgeReplyState = ForgeReplyState(models.ForgeReplyStateApproved)
-	// forgeReplySending is a reply being posted, which may already be on the forge.
-	forgeReplySending ForgeReplyState = ForgeReplyState(models.ForgeReplyStateSending)
+	// ForgeReplySending is a reply being posted, which may already be on the forge.
+	ForgeReplySending ForgeReplyState = ForgeReplyState(models.ForgeReplyStateSending)
 	// ForgeReplySent is a reply the forge accepted.
 	ForgeReplySent ForgeReplyState = ForgeReplyState(models.ForgeReplyStateSent)
 	// ForgeReplyFailed is a reply the forge refused on its latest attempt.

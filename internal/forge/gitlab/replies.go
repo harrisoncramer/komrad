@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/lib/xhttp"
 )
@@ -43,6 +44,9 @@ func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadPar
 		return "", noMergeRequest(params.Number, path)
 	case http.StatusForbidden:
 		return "", forge.ErrUnauthorized.Saying("gitlab will not let the credential reply on !%d: %v", params.Number, err)
+	}
+	if err != nil && fail.Of(err) == nil && answer.IsRefusal() {
+		return "", fmt.Errorf("%w: %w", forge.ErrReplyRefused, err)
 	}
 	if err != nil {
 		return "", err

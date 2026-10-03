@@ -166,7 +166,7 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 	if err != nil {
 		return err
 	}
-	threads = withoutEchoes(known, sent, threads)
+	threads = trustingEchoes(sent, threads)
 
 	var fresh []pullrequeststore.ForgeThread
 	for _, thread := range threads {
@@ -261,25 +261,17 @@ func (m *ForgeMirror) sentReplies(ctx context.Context, known map[string]*mirrore
 	return sent, nil
 }
 
-// withoutEchoes leaves komrad's own posted replies out of the mirror: a reply on a mirrored thread
-// is marked known so it is never written as a message, and a thread the reply opened is dropped.
-func withoutEchoes(known map[string]*mirroredThread, sent map[string]bool, threads []pullrequeststore.ForgeThread) []pullrequeststore.ForgeThread {
-	if len(sent) == 0 {
-		return threads
-	}
+// trustingEchoes marks each comment komrad posted as a reply trusted, so the sync mirrors it as a
+// message linked to its forge comment that reaches the agent and follows later edits on the forge.
+func trustingEchoes(sent map[string]bool, threads []pullrequeststore.ForgeThread) []pullrequeststore.ForgeThread {
+	return xslice.Map(threads, func(thread pullrequeststore.ForgeThread) pullrequeststore.ForgeThread {
+		thread.Comments = xslice.Map(thread.Comments, func(comment pullrequeststore.ForgeComment) pullrequeststore.ForgeComment {
+			comment.Trusted = comment.Trusted || sent[comment.ProviderID]
 
-	return xslice.Filter(threads, func(thread pullrequeststore.ForgeThread) bool {
-		mirrored, ok := known[thread.ID]
-		if !ok {
-			return len(thread.Comments) == 0 || !sent[thread.Comments[0].ProviderID]
-		}
-		for _, comment := range thread.Comments {
-			if _, held := mirrored.Comments[comment.ID]; !held && sent[comment.ProviderID] {
-				mirrored.Comments[comment.ID] = mirroredComment{}
-			}
-		}
+			return comment
+		})
 
-		return true
+		return thread
 	})
 }
 

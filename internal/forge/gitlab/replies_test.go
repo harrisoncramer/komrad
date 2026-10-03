@@ -48,6 +48,12 @@ func TestReplyToThread(t *testing.T) {
 			wantErr:  forge.ErrUnauthorized,
 		},
 		{
+			name:     "a reply gitlab turns down",
+			threadID: "gid://gitlab/Discussion/d1",
+			answers:  map[string]answer{path: {status: http.StatusBadRequest, body: `{"message":"note is too long"}`}},
+			wantErr:  forge.ErrReplyRefused,
+		},
+		{
 			name:     "a discussion gitlab does not have",
 			threadID: "gid://gitlab/Discussion/d1",
 			wantErr:  forge.ErrNotFound,

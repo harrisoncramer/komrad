@@ -35,6 +35,9 @@ var ErrNoAutoMerge = fail.Precondition("the forge will not change auto-merge on 
 // ErrNoRereview says the forge has nobody to ask for another review of a pull request.
 var ErrNoRereview = fail.Precondition("the forge has nobody to ask for another review")
 
+// ErrReplyRefused says the forge turned a reply down without posting it.
+var ErrReplyRefused = fail.Precondition("the forge will not take the reply")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")

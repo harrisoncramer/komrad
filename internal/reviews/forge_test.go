@@ -25,10 +25,11 @@ type forgeMirrored struct {
 // TestForgeMirror covers forge threads mirrored onto the worker's round, each comment held from the agent when its author cannot push.
 func TestForgeMirror(t *testing.T) {
 	tests := []struct {
-		name      string
-		syncs     [][]forge.ReviewThread
-		meanwhile func(t *testing.T, fx *reviewFixture)
-		check     func(t *testing.T, got forgeMirrored)
+		name        string
+		syncs       [][]forge.ReviewThread
+		meanwhile   func(t *testing.T, fx *reviewFixture)
+		meanwhileAt int
+		check       func(t *testing.T, got forgeMirrored)
 	}{
 		{
 			name:  "a comment from someone who can push reaches the agent on its own",
@@ -202,16 +203,34 @@ func TestForgeMirror(t *testing.T) {
 			},
 		},
 		{
-			name: "a reply komrad sent comes back from the forge as no new message",
+			name: "a reply komrad sent comes back from the forge as a message the agent reads",
 			syncs: [][]forge.ReviewThread{
 				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
-				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"), newForgeComment("c2", "komrad-bot", true, "done"))},
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"), newForgeComment("c2", "komrad-bot", false, "done"))},
 			},
 			meanwhile: func(t *testing.T, fx *reviewFixture) { fx.sendForgeReply(t, "c2") },
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.threads, 1)
-				require.Len(t, got.messages, 1)
-				assert.Equal(t, "use a guard", got.messages[0].Body)
+				require.Len(t, got.messages, 2)
+				assert.Equal(t, "done", got.messages[1].Body)
+				assert.False(t, got.messages[1].Held)
+				require.NotNil(t, got.messages[1].External)
+				assert.NotEmpty(t, got.messages[1].External.CommentID)
+			},
+		},
+		{
+			name: "an edit on the forge to a reply komrad sent rewrites its message",
+			syncs: [][]forge.ReviewThread{
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"), newForgeComment("c2", "komrad-bot", false, "done"))},
+				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"), newEditedForgeComment(newForgeComment("c2", "komrad-bot", false, "done in 3f2a")))},
+			},
+			meanwhileAt: 1,
+			meanwhile:   func(t *testing.T, fx *reviewFixture) { fx.sendForgeReply(t, "c2") },
+			check: func(t *testing.T, got forgeMirrored) {
+				require.Len(t, got.messages, 2)
+				assert.Equal(t, "done in 3f2a", got.messages[1].Body)
+				assert.False(t, got.messages[1].Held)
 			},
 		},
 		{
@@ -235,8 +254,12 @@ func TestForgeMirror(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
 
+			at := len(tt.syncs) - 1
+			if tt.meanwhileAt > 0 {
+				at = tt.meanwhileAt
+			}
 			for i, sync := range tt.syncs {
-				if i == len(tt.syncs)-1 && tt.meanwhile != nil {
+				if i == at && tt.meanwhile != nil {
 					tt.meanwhile(t, fx)
 				}
 				fx.mirrorForge(t, sync...)

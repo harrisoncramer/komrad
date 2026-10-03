@@ -104,16 +104,16 @@ func (st *fixture) proposeIn(t *testing.T, threads replyThreads, state ForgeRepl
 				ApproverKind: ForgeReplyApproverHuman,
 			})
 		},
-		forgeReplySending: func() (*ForgeReply, error) { return st.BeginForgeReplySend(ctx, reply.ID) },
+		ForgeReplySending: func() (*ForgeReply, error) { return st.BeginForgeReplySend(ctx, reply.ID) },
 		ForgeReplySent:    func() (*ForgeReply, error) { return st.MarkForgeReplySent(ctx, reply.ID, "PRRC_1") },
 		ForgeReplyFailed:  func() (*ForgeReply, error) { return st.MarkForgeReplyFailed(ctx, reply.ID, "forbidden") },
 	}
 	path := map[ForgeReplyState][]ForgeReplyState{
 		ForgeReplyDraft:    nil,
 		forgeReplyApproved: {forgeReplyApproved},
-		forgeReplySending:  {forgeReplyApproved, forgeReplySending},
-		ForgeReplySent:     {forgeReplyApproved, forgeReplySending, ForgeReplySent},
-		ForgeReplyFailed:   {forgeReplyApproved, forgeReplySending, ForgeReplyFailed},
+		ForgeReplySending:  {forgeReplyApproved, ForgeReplySending},
+		ForgeReplySent:     {forgeReplyApproved, ForgeReplySending, ForgeReplySent},
+		ForgeReplyFailed:   {forgeReplyApproved, ForgeReplySending, ForgeReplyFailed},
 	}
 	for _, step := range path[state] {
 		var err error
@@ -150,7 +150,7 @@ func TestForgeReplyTransitions(t *testing.T) {
 		{
 			name: "begin sending",
 			from: []ForgeReplyState{forgeReplyApproved, ForgeReplyFailed},
-			to:   forgeReplySending,
+			to:   ForgeReplySending,
 			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				reply, err := st.BeginForgeReplySend(ctx, id)
 				return stateOf(reply), err
@@ -158,7 +158,7 @@ func TestForgeReplyTransitions(t *testing.T) {
 		},
 		{
 			name: "mark sent",
-			from: []ForgeReplyState{forgeReplySending},
+			from: []ForgeReplyState{ForgeReplySending},
 			to:   ForgeReplySent,
 			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				reply, err := st.MarkForgeReplySent(ctx, id, "PRRC_2")
@@ -167,7 +167,7 @@ func TestForgeReplyTransitions(t *testing.T) {
 		},
 		{
 			name: "mark failed",
-			from: []ForgeReplyState{forgeReplySending},
+			from: []ForgeReplyState{ForgeReplySending},
 			to:   ForgeReplyFailed,
 			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
 				reply, err := st.MarkForgeReplyFailed(ctx, id, "rate limited")
@@ -182,7 +182,7 @@ func TestForgeReplyTransitions(t *testing.T) {
 			},
 		},
 	}
-	states := []ForgeReplyState{ForgeReplyDraft, forgeReplyApproved, forgeReplySending, ForgeReplySent, ForgeReplyFailed}
+	states := []ForgeReplyState{ForgeReplyDraft, forgeReplyApproved, ForgeReplySending, ForgeReplySent, ForgeReplyFailed}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -330,7 +330,7 @@ func TestForgeReplyRecords(t *testing.T) {
 				return reply
 			},
 			check: func(t *testing.T, reply *ForgeReply) {
-				assert.Equal(t, forgeReplySending, reply.State)
+				assert.Equal(t, ForgeReplySending, reply.State)
 				assert.Nil(t, reply.Error)
 				assert.NotNil(t, reply.SendingStartedAt)
 			},
@@ -520,7 +520,7 @@ func TestListForgeReplies(t *testing.T) {
 	ctx := t.Context()
 	threads := st.seedReplyThreads(t)
 
-	sending := st.proposeIn(t, threads, forgeReplySending)
+	sending := st.proposeIn(t, threads, ForgeReplySending)
 	written, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "mine")
 	require.NoError(t, err)
 
@@ -569,12 +569,12 @@ func TestForgeReplyChecks(t *testing.T) {
 		},
 		{
 			name:   "a sent reply holds the forge's comment id",
-			state:  forgeReplySending,
+			state:  ForgeReplySending,
 			update: "state = 'sent', sent_at = NOW()",
 		},
 		{
 			name:   "a failed reply holds the forge's error",
-			state:  forgeReplySending,
+			state:  ForgeReplySending,
 			update: "state = 'failed'",
 		},
 		{

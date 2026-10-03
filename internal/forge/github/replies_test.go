@@ -44,6 +44,17 @@ func TestReplyToThread(t *testing.T) {
 			wantErr: forge.ErrNotFound,
 		},
 		{
+			name:    "a reply github turns down",
+			onCode:  true,
+			answers: map[string]answer{"AddThreadReply": {body: `{"data":{"addPullRequestReviewThreadReply":null},"errors":[{"type":"FORBIDDEN","path":["addPullRequestReviewThreadReply"],"message":"the thread is locked"}]}`}},
+			wantErr: forge.ErrReplyRefused,
+		},
+		{
+			name:    "a conversation comment github turns down",
+			answers: map[string]answer{conversation: {status: http.StatusUnprocessableEntity, body: `{"message":"Validation Failed"}`}},
+			wantErr: forge.ErrReplyRefused,
+		},
+		{
 			name:    "a pull request github no longer has",
 			answers: map[string]answer{},
 			wantErr: forge.ErrNotFound,
