@@ -138,7 +138,7 @@ FROM
 WHERE
     n.nspname = 'public'
     AND c.relkind = 'r'
-    AND c.relname NOT IN ('engines', 'schema_migrations')
+    AND c.relname NOT IN ('engines', 'schema_migrations', 'schema_triggers')
     AND NOT EXISTS (
         SELECT
             1
@@ -240,7 +240,7 @@ FROM
 WHERE
     n.nspname = 'public'
     AND x.indisunique
-    AND c.relname NOT IN ('engines', 'engine_logins', 'schema_migrations')
+    AND c.relname NOT IN ('engines', 'engine_logins', 'schema_migrations', 'schema_triggers')
     AND lead.attname <> 'engine_id'
     AND lead.atttypid <> 'uuid'::regtype
 ORDER BY

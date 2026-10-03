@@ -1,0 +1,7 @@
+SET LOCAL lock_timeout = '5s';
+{{range .}}
+CREATE OR REPLACE FUNCTION {{.Name}}()
+    RETURNS TRIGGER
+    AS $${{.Body}}$$
+LANGUAGE plpgsql;
+{{end -}}

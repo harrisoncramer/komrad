@@ -23,7 +23,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-GENERATED=(config.toml internal/glyph/approved.go db/models db/testmodels proto/gen docs/src/data)
+GENERATED=(config.toml internal/glyph/approved.go db/models db/testmodels db/triggers proto/gen docs/src/data)
 
 generated_changes() {
 	git status --porcelain -- "${GENERATED[@]}"
@@ -40,6 +40,7 @@ mise run proto:generate
 mise run gen:config
 mise run gen:glyphs
 mise run gen:docs
+mise run gen:triggers
 
 if [ -n "$(generated_changes)" ]; then
 	echo "generated files are out of date; commit the regenerated output:" >&2

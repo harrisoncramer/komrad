@@ -71,7 +71,7 @@ END;
 	},
 }
 
-// TriggerFunction is one function a watch trigger runs, with the plpgsql body a migration gives it.
+// TriggerFunction is one function a watch trigger runs, with its plpgsql body.
 type TriggerFunction struct {
 	Name string
 	Body string
@@ -110,11 +110,6 @@ func BuildTriggers(resources []Resource) []Trigger {
 	}
 
 	return triggers
-}
-
-// BuildSQL writes the statement that defines the function.
-func (f TriggerFunction) BuildSQL() string {
-	return fmt.Sprintf("CREATE OR REPLACE FUNCTION %s()\n    RETURNS TRIGGER\n    AS $$%s$$\nLANGUAGE plpgsql;\n", f.Name, f.Body)
 }
 
 // BuildSQL writes the statement that attaches the trigger.

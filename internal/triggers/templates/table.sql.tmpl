@@ -1,0 +1,21 @@
+SET LOCAL lock_timeout = '5s';
+{{- if .Triggers}}
+{{range .Triggers}}
+CREATE OR REPLACE TRIGGER {{.Name}} {{.Timing}} {{.Events}} ON {{$.Name}} FOR EACH ROW EXECUTE FUNCTION {{.Function}}({{args .Args}});
+{{- end}}
+{{- end}}
+
+DO $$
+DECLARE
+    undeclared name;
+BEGIN
+    FOR undeclared IN
+        SELECT tgname FROM pg_trigger
+        WHERE tgrelid = '{{.Name}}'::regclass
+          AND NOT tgisinternal
+          AND tgname <> ALL (ARRAY[{{names .Triggers}}]::name[])
+    LOOP
+        EXECUTE FORMAT('DROP TRIGGER %I ON %I', undeclared, '{{.Name}}');
+    END LOOP;
+END;
+$$;
