@@ -203,8 +203,10 @@ SELECT DISTINCT
     m.to_agent_id
 FROM
     mail m
+    JOIN agents a ON a.id = m.to_agent_id
 WHERE
     m.claimed_at IS NULL
+    AND a.archived_at IS NULL
     AND (m.expires_at > NOW()
         OR m.reported_at IS NULL);
 
