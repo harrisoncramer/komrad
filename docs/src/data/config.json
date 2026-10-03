@@ -190,6 +190,34 @@
           "type": "integer",
           "description": "How many families of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A family is an agent with all of its children, and the zone never draws fewer rows than it has slots. Zero turns the zone off.",
           "default": "0"
+        },
+        {
+          "key": "review_terminal",
+          "path": "layout.review_terminal",
+          "type": "boolean",
+          "description": "Whether a review of an implementer's change shows that agent's terminal across the bottom of the window, under the diff.",
+          "default": "true"
+        },
+        {
+          "key": "review_terminal_height",
+          "path": "layout.review_terminal_height",
+          "type": "number",
+          "description": "How tall the terminal under a review opens, either a share of the window's height below one or a whole number of rows.",
+          "default": "0.25"
+        },
+        {
+          "key": "review_terminal_min_rows",
+          "path": "layout.review_terminal_min_rows",
+          "type": "integer",
+          "description": "The fewest rows the terminal under a review opens at. A window too short to give it these and still show the diff leaves it closed.",
+          "default": "6"
+        },
+        {
+          "key": "review_terminal_max_rows",
+          "path": "layout.review_terminal_max_rows",
+          "type": "integer",
+          "description": "The most rows the terminal under a review opens at, however tall the window.",
+          "default": "15"
         }
       ],
       "sections": []

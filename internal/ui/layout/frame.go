@@ -64,6 +64,12 @@ type Frame struct {
 	// remoteGuest is the agent whose terminal the stage is attached to, on a server this one does
 	// not hold.
 	remoteGuest string
+
+	// tile is the frame's own pane across the bottom of the window, with tileGuest the pane of the
+	// agent it shows and tileRows the height it was last given.
+	tile      string
+	tileGuest string
+	tileRows  int
 }
 
 type shown struct {
@@ -612,22 +618,151 @@ func (f *Frame) showRemoteGuest(guest Guest) {
 // ReleaseGuest returns a guest pane to where it came from before it is killed, so the main
 // region is not left minding a pane that is about to go.
 func (f *Frame) ReleaseGuest(pane string) {
-	if pane != "" && pane == f.guest {
+	if pane == "" {
+		return
+	}
+
+	if pane == f.tileGuest {
+		f.ReleaseTile()
+	}
+
+	if pane == f.guest {
 		f.restoreGuest()
 		f.holdSolo()
 	}
 }
 
-// Vacate returns the guest to its own window and kills the frame's own panes.
+// minDiffRows is the fewest rows the panel keeps under its own floor before a tile is worth
+// taking any from it.
+const minDiffRows = 10
+
+// TileRows is how many rows the tile takes from a window of the given height, zero when the tile
+// is turned off or the window cannot spare them and still give the panel its floor and ten rows
+// more.
+func (f *Frame) TileRows(windowHeight, floor int) int {
+	if !f.spec.tile || windowHeight <= 0 {
+		return 0
+	}
+
+	rows := f.spec.tileRows(windowHeight)
+	if windowHeight-rows-1 < floor+minDiffRows {
+		return 0
+	}
+
+	return rows
+}
+
+// WindowRows is how many rows the frame has to lay itself out in.
+func (f *Frame) WindowRows() int {
+	if f.sidebar == "" {
+		return 0
+	}
+
+	return f.tmux.GetWindowHeight(f.sidebar)
+}
+
+// TileGuest is the pane of the agent the tile shows, empty while it is down.
+func (f *Frame) TileGuest() string {
+	return f.tileGuest
+}
+
+// ShowTile puts an agent's terminal across the bottom of the window at a height in rows, setting
+// the stage aside while it is up and resizing the tile when the agent is already in it.
+func (f *Frame) ShowTile(guest Guest, rows int) {
+	if f.sidebar == "" || guest.Pane == "" || rows <= 0 {
+		return
+	}
+
+	if f.isTiled(guest.Pane) {
+		if rows != f.tileRows {
+			f.move(panes.ResizeHeight(f.tile, rows))
+			f.tileRows = rows
+		}
+
+		return
+	}
+
+	f.releaseTile()
+	f.abandonStage()
+
+	f.solo = false
+	f.move(panes.Zoom(f.sidebar, false))
+
+	f.tile = f.tmux.SplitBottom(f.sidebar, getHomeDir(), strconv.Itoa(rows))
+	if f.tile == "" {
+		return
+	}
+
+	f.tileGuest, f.tileRows = guest.Pane, rows
+
+	if f.remote.IsRemote() {
+		if len(f.terminalCommand) > 0 && guest.Agent != "" {
+			f.move(panes.Respawn(f.tile, "", append(slices.Clone(f.terminalCommand), "--", guest.Agent)...))
+		}
+
+		return
+	}
+
+	f.move(panes.Swap(guest.Pane, f.tile))
+}
+
+// ReleaseTile sends the tile's agent home and puts the stage back, leaving the caller to say
+// whether the sidebar takes the window again.
+func (f *Frame) ReleaseTile() {
+	if f.tile == "" {
+		return
+	}
+
+	f.releaseTile()
+	f.claimStage()
+}
+
+// isTiled reports whether the tile is standing and showing the given agent's pane.
+func (f *Frame) isTiled(pane string) bool {
+	if f.tile == "" || f.tileGuest != pane || !f.tmux.IsPaneAlive(f.tile) {
+		return false
+	}
+
+	return f.remote.IsRemote() || f.tmux.IsPaneAlive(pane)
+}
+
+// releaseTile swaps a local agent back into its own window ahead of anything collected, since
+// killing the tile first would take that window with it, and then kills the tile.
+func (f *Frame) releaseTile() {
+	if f.tile == "" {
+		return
+	}
+
+	tileAlive := f.tmux.IsPaneAlive(f.tile)
+
+	if !f.remote.IsRemote() && f.tmux.IsPaneAlive(f.tileGuest) {
+		if tileAlive {
+			f.send()
+			f.tmux.MovePanes([]panes.Move{panes.Swap(f.tile, f.tileGuest)})
+		} else {
+			f.tmux.BreakPane(f.tileGuest)
+		}
+	}
+
+	if tileAlive {
+		f.tmux.KillPane(f.tile)
+	}
+
+	f.tile, f.tileGuest, f.tileRows = "", "", 0
+}
+
+// Vacate returns the guests to their own windows and kills the frame's own panes.
 func (f *Frame) Vacate() {
+	f.releaseTile()
 	f.abandonStage()
 }
 
 // holdSolo says again where the sidebar's zoom belongs, which split-window, swap-pane,
 // resize-pane, kill-pane and break-pane all drop silently.
 func (f *Frame) holdSolo() {
-	// A zoomed sidebar covers the info pane, so the window is left alone while one is up.
-	if !f.solo || f.sidebar == "" || f.info != "" {
+	// A zoomed sidebar covers the info pane and the tile, so the window is left alone while
+	// either is up.
+	if !f.solo || f.sidebar == "" || f.info != "" || f.tile != "" {
 		return
 	}
 

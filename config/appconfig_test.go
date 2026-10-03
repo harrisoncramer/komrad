@@ -124,50 +124,49 @@ func TestLoadLayout(t *testing.T) {
 		{
 			name: "the width the user chose, with the rest left at the defaults",
 			file: "[layout]\nsidebar_width = 40\n",
-			want: Layout{
-				SidebarSide:   defaultSidebarSide,
-				SidebarWidth:  40,
-				InfoSide:      defaultInfoSide,
-				InfoHeight:    DefaultInfoHeight,
-				DetailsHeight: defaultDetailsHeight,
-			},
+			want: changeLayout(func(l *Layout) { l.SidebarWidth = 40 }),
 		},
 		{
 			name: "the sides the user chose for the list and the info pane",
 			file: "[layout]\nsidebar_side = \"right\"\ninfo_side = \"above\"\n",
-			want: Layout{
-				SidebarSide:   SidebarSideRight,
-				SidebarWidth:  DefaultSidebarWidth,
-				InfoSide:      InfoSideAbove,
-				InfoHeight:    DefaultInfoHeight,
-				DetailsHeight: defaultDetailsHeight,
-			},
+			want: changeLayout(func(l *Layout) {
+				l.SidebarSide = SidebarSideRight
+				l.InfoSide = InfoSideAbove
+			}),
 		},
 		{
 			name: "the height the user chose for the info pane",
 			file: "[layout]\ninfo_height = 0.6\n",
-			want: Layout{
-				SidebarSide:   defaultSidebarSide,
-				SidebarWidth:  DefaultSidebarWidth,
-				InfoSide:      defaultInfoSide,
-				InfoHeight:    0.6,
-				DetailsHeight: defaultDetailsHeight,
-			},
+			want: changeLayout(func(l *Layout) { l.InfoHeight = 0.6 }),
 		},
 		{
 			name: "the height the user chose for the details under the list",
 			file: "[layout]\ndetails_height = 12\n",
-			want: Layout{
-				SidebarSide:   defaultSidebarSide,
-				SidebarWidth:  DefaultSidebarWidth,
-				InfoSide:      defaultInfoSide,
-				InfoHeight:    DefaultInfoHeight,
-				DetailsHeight: 12,
-			},
+			want: changeLayout(func(l *Layout) { l.DetailsHeight = 12 }),
 		},
 		{
 			name:    "a details height between a share and a row count",
 			file:    "[layout]\ndetails_height = 2.5\n",
+			wantErr: true,
+		},
+		{
+			name: "the terminal under a review turned off and sized by the user",
+			file: "[layout]\nreview_terminal = false\nreview_terminal_height = 12\nreview_terminal_min_rows = 4\nreview_terminal_max_rows = 20\n",
+			want: changeLayout(func(l *Layout) {
+				l.ReviewTerminal = false
+				l.ReviewTerminalHeight = 12
+				l.ReviewTerminalMinRows = 4
+				l.ReviewTerminalMaxRows = 20
+			}),
+		},
+		{
+			name:    "a terminal under a review capped below its floor",
+			file:    "[layout]\nreview_terminal_min_rows = 10\nreview_terminal_max_rows = 8\n",
+			wantErr: true,
+		},
+		{
+			name:    "a terminal under a review with a negative floor",
+			file:    "[layout]\nreview_terminal_min_rows = -1\n",
 			wantErr: true,
 		},
 	}
@@ -187,6 +186,14 @@ func TestLoadLayout(t *testing.T) {
 			assert.Equal(t, tt.want, cfg.Layout)
 		})
 	}
+}
+
+// changeLayout is the default layout with the settings a case wrote changed.
+func changeLayout(change func(*Layout)) Layout {
+	layout := DefaultLayout()
+	change(&layout)
+
+	return layout
 }
 
 // TestLoadUsage covers each role's limits and what an omitted key takes.
