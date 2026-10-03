@@ -67,6 +67,7 @@ func TestMenu(t *testing.T) {
 		batches := harness.panel.ReadMoveBatches()[sent:]
 		require.Len(t, batches, 1)
 		assert.Contains(t, batches[0], panes.KindZoom)
+		assert.Contains(t, batches[0], panes.KindRespawn)
 	})
 }
 
