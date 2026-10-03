@@ -21,7 +21,12 @@ var WatchedPullRequests = watch.Resource{
 		},
 		{
 			Table:  "pull_request_checks",
-			Column: "pull_request_id",
+			Column: "reading_id",
+			Through: &watch.Through{
+				Table:     "pull_request_check_readings",
+				KeyColumn: "id",
+				Column:    "pull_request_id",
+			},
 		},
 		{
 			Table: "pull_request_check_readings",
