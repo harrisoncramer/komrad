@@ -769,10 +769,26 @@ func TestHeaderFor(t *testing.T) {
 		method string
 		want   string
 	}{
-		{kind: KindGitHub, method: MethodToken, want: HeaderBearer},
-		{kind: KindGitHub, method: MethodGitHubApp, want: HeaderBearer},
-		{kind: KindGitLab, method: MethodToken, want: HeaderPrivateToken},
-		{kind: KindGitLab, method: MethodRotatingToken, want: HeaderPrivateToken},
+		{
+			kind:   KindGitHub,
+			method: MethodToken,
+			want:   HeaderBearer,
+		},
+		{
+			kind:   KindGitHub,
+			method: MethodGitHubApp,
+			want:   HeaderBearer,
+		},
+		{
+			kind:   KindGitLab,
+			method: MethodToken,
+			want:   HeaderPrivateToken,
+		},
+		{
+			kind:   KindGitLab,
+			method: MethodRotatingToken,
+			want:   HeaderPrivateToken,
+		},
 	}
 
 	for _, tt := range tests {

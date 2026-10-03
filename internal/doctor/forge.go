@@ -92,7 +92,11 @@ func newForgesCheck() Check {
 				return warn(fmt.Errorf("%w: %w", errForgesUnreadable, err), "")
 			}
 			if len(statuses) == 0 {
-				return Result{Status: StatusWarn, Err: errNoForges, Fix: connectFirstFix}
+				return Result{
+					Status: StatusWarn,
+					Err:    errNoForges,
+					Fix:    connectFirstFix,
+				}
 			}
 
 			var lines, failed, fixes []string

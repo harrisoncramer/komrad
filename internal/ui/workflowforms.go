@@ -254,7 +254,11 @@ func (v workflowFormValues) eventPromptList() []panel.EventPrompt {
 			continue
 		}
 
-		prompts = append(prompts, panel.EventPrompt{Event: event.Name, Prompt: prompt, Muted: muted})
+		prompts = append(prompts, panel.EventPrompt{
+			Event:  event.Name,
+			Prompt: prompt,
+			Muted:  muted,
+		})
 	}
 
 	return prompts

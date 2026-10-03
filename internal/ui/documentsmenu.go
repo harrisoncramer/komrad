@@ -97,8 +97,16 @@ func documentTypePreview(t *agentv1.DocumentType, width, height int) string {
 
 // documentTypeMenu is the actions on the document type under the list's cursor, nil for none.
 func documentTypeMenu(m *model, t *agentv1.DocumentType) submenu {
-	edit := submenuEntry{label: "edit", keys: m.keys.DocumentTypesMenu.Edit, isOff: true}
-	remove := submenuEntry{label: "delete", keys: m.keys.DocumentTypesMenu.Delete, isOff: true}
+	edit := submenuEntry{
+		label: "edit",
+		keys:  m.keys.DocumentTypesMenu.Edit,
+		isOff: true,
+	}
+	remove := submenuEntry{
+		label: "delete",
+		keys:  m.keys.DocumentTypesMenu.Delete,
+		isOff: true,
+	}
 	title := "document types"
 	if t != nil {
 		title = t.GetName()

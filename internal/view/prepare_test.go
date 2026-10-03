@@ -268,7 +268,11 @@ func TestRepoCellDrawsOnlyAWorktree(t *testing.T) {
 		},
 		{
 			name: "the workflow's own directory part way through a rebase",
-			row:  Row{Name: "worker", InWorkflowDir: true, Repo: RepoRebasing},
+			row: Row{
+				Name:          "worker",
+				InWorkflowDir: true,
+				Repo:          RepoRebasing,
+			},
 		},
 	}
 

@@ -524,5 +524,9 @@ func isSameEdit(a, b *time.Time) bool {
 
 // externalOf is who wrote a forge comment and which comment it was.
 func externalOf(comment pullrequeststore.ForgeComment) *reviewstore.External {
-	return &reviewstore.External{Login: comment.AuthorLogin, CommentID: comment.ID, EditedAt: comment.EditedAt}
+	return &reviewstore.External{
+		Login:     comment.AuthorLogin,
+		CommentID: comment.ID,
+		EditedAt:  comment.EditedAt,
+	}
 }

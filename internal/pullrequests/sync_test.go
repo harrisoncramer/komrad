@@ -358,8 +358,16 @@ func TestSyncReadsAQuietRepositoryOnceAMinute(t *testing.T) {
 // TestSyncReadsAHotRepositoryEveryFiveSeconds covers what puts a repository in the fast lane
 // after a read, and what keeps it out.
 func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
-	pending := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}
-	blank := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityUnknown}
+	pending := forge.MergeReadiness{
+		Decision:     forge.ReviewDecisionPending,
+		Checks:       forge.ChecksPending,
+		Mergeability: forge.MergeabilityClean,
+	}
+	blank := forge.MergeReadiness{
+		Decision:     forge.ReviewDecisionPending,
+		Checks:       forge.ChecksNone,
+		Mergeability: forge.MergeabilityUnknown,
+	}
 
 	tests := []struct {
 		name      string
@@ -554,7 +562,11 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f.pass(t, syncNow.Add(time.Minute))
 	assert.Equal(t, []Change{firstSeen}, f.changes(t), "an unchanged answer records nothing")
 
-	failing := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityClean}
+	failing := forge.MergeReadiness{
+		Decision:     forge.ReviewDecisionPending,
+		Checks:       forge.ChecksFailing,
+		Mergeability: forge.MergeabilityClean,
+	}
 	f.forge.pullRequests["harrisoncramer/komrad"][0] = withMergeReadiness(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
 	f.syncer.Wake()
 	f.pass(t, syncNow.Add(2*time.Minute))

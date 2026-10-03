@@ -906,7 +906,11 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		harness.press("down", "enter")
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
-			{Event: "pull_request.checks_failing", Prompt: "fix the checks", Muted: true},
+			{
+				Event:  "pull_request.checks_failing",
+				Prompt: "fix the checks",
+				Muted:  true,
+			},
 		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
 

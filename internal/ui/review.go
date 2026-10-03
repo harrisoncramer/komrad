@@ -30,8 +30,7 @@ type reviewScreen struct {
 	threads reviewThreads
 
 	// hold is the reader's own hold over the work, and the editor it may hold open.
-	hold reviewHold
-
+	hold  reviewHold
 	focus reviewFocus
 
 	// pullRequestTop is the first row of the description in view.

@@ -445,7 +445,11 @@ func hooksToProto(hooks []panel.Hook) []*workflowv1.WorkflowHook {
 
 func eventPromptsToProto(prompts []panel.EventPrompt) []*workflowv1.WorkflowEventPrompt {
 	return xslice.Map(prompts, func(prompt panel.EventPrompt) *workflowv1.WorkflowEventPrompt {
-		return &workflowv1.WorkflowEventPrompt{Event: prompt.Event, Prompt: prompt.Prompt, Muted: prompt.Muted}
+		return &workflowv1.WorkflowEventPrompt{
+			Event:  prompt.Event,
+			Prompt: prompt.Prompt,
+			Muted:  prompt.Muted,
+		}
 	})
 }
 

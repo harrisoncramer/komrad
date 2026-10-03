@@ -399,5 +399,9 @@ func (c *Client) HoldsCommit(ctx context.Context, dir, sha string) (bool, error)
 		return false, nil
 	}
 
-	return isAncestor(ctx, IsAncestorParams{Dir: dir, MaybeAncestor: known, Of: "HEAD"})
+	return isAncestor(ctx, IsAncestorParams{
+		Dir:           dir,
+		MaybeAncestor: known,
+		Of:            "HEAD",
+	})
 }

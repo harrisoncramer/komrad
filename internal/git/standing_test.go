@@ -574,7 +574,11 @@ func TestIntegrationHoldsCommit(t *testing.T) {
 		sha  string
 		want bool
 	}{
-		{name: "a commit HEAD descends from", sha: base, want: true},
+		{
+			name: "a commit HEAD descends from",
+			sha:  base,
+			want: true,
+		},
 		{name: "a commit on another branch", sha: aside},
 		{name: "a commit the clone never fetched", sha: "0123456789abcdef0123456789abcdef01234567"},
 	}

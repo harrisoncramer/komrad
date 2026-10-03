@@ -325,7 +325,12 @@ func TestReadBranches(t *testing.T) {
 	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields "+mergeReadinessFields+" } }")
 	assert.Contains(t, seen.Query, pullRequestFragment)
 
-	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 4321, Limit: 5000, ResetAt: time.Unix(1789900000, 0)}, reading.RateLimit)
+	assert.Equal(t, forge.RateLimit{
+		Known:     true,
+		Remaining: 4321,
+		Limit:     5000,
+		ResetAt:   time.Unix(1789900000, 0),
+	}, reading.RateLimit)
 
 	require.Len(t, reading.PullRequests, 2, "the fork and the deleted fork are left out")
 	open, closed := reading.PullRequests[0], reading.PullRequests[1]

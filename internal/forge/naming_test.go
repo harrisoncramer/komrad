@@ -16,9 +16,24 @@ func TestNaming(t *testing.T) {
 		noun   string
 		abbrev string
 	}{
-		{kind: KindGitHub, ref: "#12", noun: "pull request", abbrev: "pr"},
-		{kind: KindGitLab, ref: "!12", noun: "merge request", abbrev: "mr"},
-		{kind: "", ref: "#12", noun: "pull request", abbrev: "pr"},
+		{
+			kind:   KindGitHub,
+			ref:    "#12",
+			noun:   "pull request",
+			abbrev: "pr",
+		},
+		{
+			kind:   KindGitLab,
+			ref:    "!12",
+			noun:   "merge request",
+			abbrev: "mr",
+		},
+		{
+			kind:   "",
+			ref:    "#12",
+			noun:   "pull request",
+			abbrev: "pr",
+		},
 	}
 
 	for _, tt := range tests {

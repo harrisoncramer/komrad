@@ -158,9 +158,21 @@ func TestPullRequestIsFinished(t *testing.T) {
 func TestPullRequestIsFromItsOwnRepository(t *testing.T) {
 	t.Parallel()
 
-	komrad := git.RemoteURL{Scheme: "https", Host: "github.com", Path: "harrisoncramer/komrad"}
-	overSSH := git.RemoteURL{Scheme: "ssh", Host: "github.com", Path: "harrisoncramer/komrad"}
-	fork := git.RemoteURL{Scheme: "https", Host: "github.com", Path: "someone/komrad"}
+	komrad := git.RemoteURL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "harrisoncramer/komrad",
+	}
+	overSSH := git.RemoteURL{
+		Scheme: "ssh",
+		Host:   "github.com",
+		Path:   "harrisoncramer/komrad",
+	}
+	fork := git.RemoteURL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "someone/komrad",
+	}
 
 	assert.True(t, PullRequest{Repository: komrad, Head: overSSH}.IsFromItsOwnRepository())
 	assert.False(t, PullRequest{Repository: komrad, Head: fork}.IsFromItsOwnRepository())
@@ -176,12 +188,52 @@ func TestRateLimitIsLow(t *testing.T) {
 		limit RateLimit
 		want  bool
 	}{
-		{name: "unknown", limit: RateLimit{Remaining: 0, Limit: 5000}, want: false},
-		{name: "no limit said", limit: RateLimit{Known: true, Remaining: 0}, want: false},
-		{name: "plenty left", limit: RateLimit{Known: true, Remaining: 4321, Limit: 5000}, want: false},
-		{name: "exactly a fifth", limit: RateLimit{Known: true, Remaining: 1000, Limit: 5000}, want: false},
-		{name: "under a fifth", limit: RateLimit{Known: true, Remaining: 999, Limit: 5000}, want: true},
-		{name: "spent", limit: RateLimit{Known: true, Remaining: 0, Limit: 2000}, want: true},
+		{
+			name:  "unknown",
+			limit: RateLimit{Remaining: 0, Limit: 5000},
+			want:  false,
+		},
+		{
+			name:  "no limit said",
+			limit: RateLimit{Known: true, Remaining: 0},
+			want:  false,
+		},
+		{
+			name: "plenty left",
+			limit: RateLimit{
+				Known:     true,
+				Remaining: 4321,
+				Limit:     5000,
+			},
+			want: false,
+		},
+		{
+			name: "exactly a fifth",
+			limit: RateLimit{
+				Known:     true,
+				Remaining: 1000,
+				Limit:     5000,
+			},
+			want: false,
+		},
+		{
+			name: "under a fifth",
+			limit: RateLimit{
+				Known:     true,
+				Remaining: 999,
+				Limit:     5000,
+			},
+			want: true,
+		},
+		{
+			name: "spent",
+			limit: RateLimit{
+				Known:     true,
+				Remaining: 0,
+				Limit:     2000,
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -63,8 +63,12 @@ func TestWrite(t *testing.T) {
 			wantBody: "# Relative",
 		},
 		{
-			name:     "an agent naming itself writes its own",
-			params:   documents.WriteDocumentParams{Name: "own", Body: "# Own", For: author.ID},
+			name: "an agent naming itself writes its own",
+			params: documents.WriteDocumentParams{
+				Name: "own",
+				Body: "# Own",
+				For:  author.ID,
+			},
 			wantBody: "# Own",
 		},
 		{
@@ -103,8 +107,12 @@ func TestWrite(t *testing.T) {
 			wantErr: documents.ErrNotUTF8,
 		},
 		{
-			name:    "an agent naming another agent it writes for is refused",
-			params:  documents.WriteDocumentParams{Name: "elsewhere", Body: "# Elsewhere", For: uuid.NewString()},
+			name: "an agent naming another agent it writes for is refused",
+			params: documents.WriteDocumentParams{
+				Name: "elsewhere",
+				Body: "# Elsewhere",
+				For:  uuid.NewString(),
+			},
 			wantErr: documents.ErrAgentWritingForAnother,
 		},
 		{

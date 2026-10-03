@@ -25,8 +25,7 @@ type reviewDiff struct {
 
 	// since says how much of the diff is new to the reader.
 	since string
-
-	spec diffSpec
+	spec  diffSpec
 	// baseRound is the round the narrowed base came from, nil while there is none to offer.
 	baseRound *agentv1.ReviewRound
 	// baseAt is when the person released the review that round was given against, in clock terms.

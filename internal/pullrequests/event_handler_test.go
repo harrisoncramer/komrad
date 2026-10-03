@@ -22,7 +22,11 @@ import (
 
 // TestAPullRequestChangeTellsTheAgentsOnItsBranch pins what the one unread mail about a pull request says after each pass.
 func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
-	pending := forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}
+	pending := forge.MergeReadiness{
+		Decision:     forge.ReviewDecisionPending,
+		Checks:       forge.ChecksPending,
+		Mergeability: forge.MergeabilityClean,
+	}
 
 	tests := []struct {
 		name       string
@@ -139,7 +143,11 @@ func TestTheMailNamesTheForgesOwnTool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := render(pullrequeststore.PullRequest{Forge: tt.forge, Number: 7, HeadBranch: "agent/x"})
+			body := render(pullrequeststore.PullRequest{
+				Forge:      tt.forge,
+				Number:     7,
+				HeadBranch: "agent/x",
+			})
 			for _, line := range tt.wantLines {
 				assert.Contains(t, body, line)
 			}
@@ -206,7 +214,11 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newSyncFixture(t)
 			agentID := f.agentOn(t, "a", "agent/x")
-			f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
+			f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{
+				Decision:     forge.ReviewDecisionPending,
+				Checks:       forge.ChecksPending,
+				Mergeability: forge.MergeabilityClean,
+			}))
 			f.sync(t)
 
 			f.setMergeReadiness(t, failingOnA, "aaa", syncNow.Add(time.Minute))
@@ -262,7 +274,11 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	f := newSyncFixture(t)
 	told := f.agentOn(t, "a", "agent/x")
 	full := f.agentOn(t, "b", "agent/x")
-	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
+	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{
+		Decision:     forge.ReviewDecisionPending,
+		Checks:       forge.ChecksPending,
+		Mergeability: forge.MergeabilityClean,
+	}))
 	f.sync(t)
 	f.fillMailbox(t, full)
 

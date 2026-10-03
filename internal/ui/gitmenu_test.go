@@ -364,7 +364,11 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
 			}
 			harness.answer(agentv1connect.AgentServiceRebaseWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-				return connect.NewResponse(&agentv1.RebaseWorktreeResponse{BaseRef: "main", BaseSha: "abcdef1234567", Moved: true}), nil
+				return connect.NewResponse(&agentv1.RebaseWorktreeResponse{
+					BaseRef: "main",
+					BaseSha: "abcdef1234567",
+					Moved:   true,
+				}), nil
 			})
 
 			harness.press("m", "r")

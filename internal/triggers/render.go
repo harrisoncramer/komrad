@@ -244,7 +244,11 @@ func readExisting(dir string) (map[string]existingFile, error) {
 			return nil, fmt.Errorf("failed to read the fingerprint of %s: %w", entry.Name(), err)
 		}
 
-		existing[unit] = existingFile{name: entry.Name(), version: version, fingerprint: fingerprint}
+		existing[unit] = existingFile{
+			name:        entry.Name(),
+			version:     version,
+			fingerprint: fingerprint,
+		}
 	}
 
 	return existing, nil

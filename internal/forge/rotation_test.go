@@ -130,7 +130,11 @@ func pastedToken() *gitLabAccount {
 func connectRotating(t *testing.T, f *fixture) error {
 	t.Helper()
 
-	_, err := f.service.Connect(t.Context(), ConnectParams{Host: "gitlab.com", Method: MethodRotatingToken, Token: NewSecret("glpat-pasted")})
+	_, err := f.service.Connect(t.Context(), ConnectParams{
+		Host:   "gitlab.com",
+		Method: MethodRotatingToken,
+		Token:  NewSecret("glpat-pasted"),
+	})
 
 	return err
 }
@@ -206,7 +210,11 @@ func TestConnectWithARotatingTokenRefusals(t *testing.T) {
 			f := newGitLabFixture(t, account)
 			ctx := t.Context()
 
-			_, err := f.service.Connect(ctx, ConnectParams{Host: tt.host, Method: MethodRotatingToken, Token: NewSecret("glpat-pasted")})
+			_, err := f.service.Connect(ctx, ConnectParams{
+				Host:   tt.host,
+				Method: MethodRotatingToken,
+				Token:  NewSecret("glpat-pasted"),
+			})
 			require.Error(t, err)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

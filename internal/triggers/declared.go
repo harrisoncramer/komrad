@@ -32,8 +32,18 @@ type Table struct {
 }
 
 var (
-	setUpdatedAt = Trigger{Name: "set_updated_at", Timing: "BEFORE", Events: "UPDATE", Function: "set_updated_at"}
-	stampEngine  = Trigger{Name: "stamp_engine", Timing: "BEFORE", Events: "INSERT", Function: "stamp_engine"}
+	setUpdatedAt = Trigger{
+		Name:     "set_updated_at",
+		Timing:   "BEFORE",
+		Events:   "UPDATE",
+		Function: "set_updated_at",
+	}
+	stampEngine = Trigger{
+		Name:     "stamp_engine",
+		Timing:   "BEFORE",
+		Events:   "INSERT",
+		Function: "stamp_engine",
+	}
 )
 
 var declared = []Table{

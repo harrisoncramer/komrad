@@ -104,8 +104,16 @@ func TestDocumentTypesNarrow(t *testing.T) {
 		wantMenu bool
 		wantList bool
 	}{
-		{name: "a wide panel draws the menu under the list", wantMenu: true, wantList: true},
-		{name: "a narrow panel draws the list beside the form while the form keeps its floor", width: 130, wantList: true},
+		{
+			name:     "a wide panel draws the menu under the list",
+			wantMenu: true,
+			wantList: true,
+		},
+		{
+			name:     "a narrow panel draws the list beside the form while the form keeps its floor",
+			width:    130,
+			wantList: true,
+		},
 		{name: "a narrower panel draws the form alone", width: 100},
 	}
 

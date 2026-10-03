@@ -96,7 +96,11 @@ func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) 
 	}
 
 	return xslice.Map(rows, func(row *models.ListEventPromptsForWorkflowRow) EventPrompt {
-		return EventPrompt{Event: row.Event, Prompt: row.Prompt, Muted: row.Muted}
+		return EventPrompt{
+			Event:  row.Event,
+			Prompt: row.Prompt,
+			Muted:  row.Muted,
+		}
 	}), nil
 }
 
@@ -112,7 +116,11 @@ func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []stri
 
 	prompts := make(map[string][]EventPrompt)
 	for _, row := range rows {
-		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], EventPrompt{Event: row.Event, Prompt: row.Prompt, Muted: row.Muted})
+		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], EventPrompt{
+			Event:  row.Event,
+			Prompt: row.Prompt,
+			Muted:  row.Muted,
+		})
 	}
 
 	return prompts, nil
