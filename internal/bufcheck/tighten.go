@@ -209,7 +209,8 @@ func ignoreReach(ignore validate.Ignore) int {
 	return 0
 }
 
-// isCoveredBy reports whether every rule set on rules is set to the same value on previous.
+// isCoveredBy reports whether previous refused everything rules does, with lists of rules only
+// shrinking and an in list only widening.
 func isCoveredBy(rules, previous protoreflect.Message) bool {
 	if len(rules.GetUnknown()) > 0 && !bytes.Equal(rules.GetUnknown(), previous.GetUnknown()) {
 		return false
@@ -223,6 +224,10 @@ func isCoveredBy(rules, previous protoreflect.Message) bool {
 			covered = false
 		case field.Message() != nil && !field.IsList() && !field.IsMap():
 			covered = isCoveredBy(value.Message(), previous.Get(field).Message())
+		case field.IsList() && field.Name() == "in":
+			covered = isSubset(previous.Get(field).List(), value.List())
+		case field.IsList():
+			covered = isSubset(value.List(), previous.Get(field).List())
 		default:
 			covered = value.Equal(previous.Get(field))
 		}
@@ -231,6 +236,26 @@ func isCoveredBy(rules, previous protoreflect.Message) bool {
 	})
 
 	return covered
+}
+
+// isSubset reports whether every element of list also appears in of.
+func isSubset(list, of protoreflect.List) bool {
+	for i := range list.Len() {
+		found := false
+		for j := range of.Len() {
+			if list.Get(i).Equal(of.Get(j)) {
+				found = true
+
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }
 
 // resolvedFieldRules reads a field's validation afresh with types, so the repo's own rules are

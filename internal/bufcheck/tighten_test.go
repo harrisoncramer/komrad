@@ -29,6 +29,7 @@ func TestFindTightenings(t *testing.T) {
 	}
 	required := &validate.OneofRules{Required: xptr.Ptr(true)}
 	everything := &validate.MessageRules{Cel: []*validate.Rule{{Id: xptr.Ptr("everything"), Expression: xptr.Ptr("true")}}}
+	nothing := &validate.Rule{Id: xptr.Ptr("nothing"), Expression: xptr.Ptr("false")}
 
 	tests := []struct {
 		name    string
@@ -169,6 +170,34 @@ func TestFindTightenings(t *testing.T) {
 		{
 			name:   "a message that drops a rule is allowed",
 			before: shape{rules: everything},
+		},
+		{
+			name:   "a message that drops one of two rules is allowed",
+			before: shape{rules: &validate.MessageRules{Cel: append(everything.GetCel(), nothing)}},
+			after:  shape{rules: everything},
+		},
+		{
+			name:   "a message that gains a second rule is flagged",
+			before: shape{rules: everything},
+			after:  shape{rules: &validate.MessageRules{Cel: append(everything.GetCel(), nothing)}},
+			want:   []string{"carries a rule it did not"},
+		},
+		{
+			name:    "an existing string whose in list widens is allowed",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{In: []string{"a"}}), true)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{In: []string{"a", "b"}}), true)},
+		},
+		{
+			name:    "an existing string whose in list narrows is flagged",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{In: []string{"a", "b"}}), true)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{In: []string{"a"}}), true)},
+			want:    []string{"carries a rule it did not"},
+		},
+		{
+			name:    "an existing string whose not in list grows is flagged",
+			against: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{NotIn: []string{"a"}}), true)},
+			message: []*descriptorpb.FieldDescriptorProto{stringField(stringRules(&validate.StringRules{NotIn: []string{"a", "b"}}), true)},
+			want:    []string{"carries a rule it did not"},
 		},
 	}
 
