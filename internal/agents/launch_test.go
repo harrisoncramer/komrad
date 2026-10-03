@@ -318,18 +318,25 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 	}
 }
 
+type orchestratorState int
+
+const (
+	noOrchestrator orchestratorState = iota
+	liveOrchestrator
+	archivedOrchestrator
+)
+
 // TestNewAgentRecordsWhoSpawnedIt pins the caller header becoming the new agent's parent,
 // which the panel sends none of so what it creates has no parent.
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
-		name                 string
-		spawnerRole          agentstore.Role
-		orchestrator         bool
-		archivedOrchestrator bool
-		child                bool
-		unknownSpawner       bool
-		wantOrchestrator     bool
-		wantErrIs            error
+		name             string
+		spawnerRole      agentstore.Role
+		orchestrator     orchestratorState
+		child            bool
+		unknownSpawner   bool
+		wantOrchestrator bool
+		wantErrIs        error
 	}{
 		{
 			name:           "a caller header naming no agent is refused",
@@ -346,25 +353,24 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 		{
 			name:             "an implementer's standalone agent answers to the workflow's orchestrator",
 			spawnerRole:      agentstore.RoleImplementer,
-			orchestrator:     true,
+			orchestrator:     liveOrchestrator,
 			wantOrchestrator: true,
 		},
 		{
-			name:                 "an implementer whose orchestrator is archived answers for what it spawns",
-			spawnerRole:          agentstore.RoleImplementer,
-			orchestrator:         true,
-			archivedOrchestrator: true,
+			name:         "an implementer whose orchestrator is archived answers for what it spawns",
+			spawnerRole:  agentstore.RoleImplementer,
+			orchestrator: archivedOrchestrator,
 		},
 		{
 			name:         "an implementer's child answers to the implementer",
 			spawnerRole:  agentstore.RoleImplementer,
-			orchestrator: true,
+			orchestrator: liveOrchestrator,
 			child:        true,
 		},
 		{
 			name:         "a reviewer's standalone agent answers to the reviewer",
 			spawnerRole:  agentstore.RoleReviewer,
-			orchestrator: true,
+			orchestrator: liveOrchestrator,
 		},
 	}
 
@@ -383,22 +389,13 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				WorkflowID: workflowID,
 			}
 
-			var orchestrator *agentstore.Agent
-			if tt.orchestrator {
-				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
-					Name:       "orchestrator",
-					Pane:       "%orchestrator",
-					State:      agentstore.StateIdle,
-					WorkflowID: workflowID,
-					Role:       agentstore.RoleOrchestrator,
-				}))
-				found, err := st.Agents.GetWorkflowOrchestrator(ctx, workflowID)
+			var orchestrator agentstore.Agent
+			if tt.orchestrator != noOrchestrator {
+				orchestrator = seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
+			}
+			if tt.orchestrator == archivedOrchestrator {
+				_, err := st.Agents.Archive(ctx, []string{orchestrator.ID})
 				require.NoError(t, err)
-				orchestrator = found
-				if tt.archivedOrchestrator {
-					_, err := st.Agents.Archive(ctx, []string{found.ID})
-					require.NoError(t, err)
-				}
 			}
 
 			var spawner *agentstore.Agent
@@ -406,20 +403,11 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			case tt.unknownSpawner:
 				ctx = caller.With(ctx, caller.Caller{AgentID: "no-such-agent"})
 			case tt.spawnerRole != "":
-				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
-					Name:       "spawner",
-					Pane:       "%spawner",
-					Cwd:        t.TempDir(),
-					State:      agentstore.StateIdle,
-					WorkflowID: workflowID,
-					Role:       tt.spawnerRole,
-				}))
-				found, err := st.Agents.GetInWorkflow(ctx, workflowID, "spawner")
-				require.NoError(t, err)
-				spawner = found
-				ctx = caller.With(ctx, caller.Caller{AgentID: found.ID})
+				seeded := seedWithRole(t, st, workflowID, "spawner", tt.spawnerRole)
+				spawner = &seeded
+				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
 				if tt.child {
-					params = childOf(*found, "reader")
+					params = childOf(seeded, "reader")
 				}
 			}
 
@@ -449,7 +437,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 
 			want := spawner
 			if tt.wantOrchestrator {
-				want = orchestrator
+				want = &orchestrator
 			}
 			require.NotNil(t, created.SpawnedByAgentID)
 			assert.Equal(t, want.ID, *created.SpawnedByAgentID)
