@@ -356,7 +356,7 @@ table "agent_transcript_sessions" {
   column "synced_at" {
     null    = false
     type    = timestamptz
-    default = sql("now()")
+    default = sql("'-infinity'::timestamptz")
   }
   column "created_at" {
     null    = false

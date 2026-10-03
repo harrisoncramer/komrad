@@ -111,7 +111,7 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 	if read.Consumed == 0 && !read.Restart {
 		// A stamp on a log that cannot grow is what takes an archived agent out of the next listing.
 		if agent.ArchivedAt != nil {
-			return ts.store.Advance(ctx, session.ID, session.SyncedOffset)
+			return ts.store.MarkDrained(ctx, session.ID, session.OpenedAt)
 		}
 
 		return nil

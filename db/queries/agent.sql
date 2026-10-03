@@ -1017,14 +1017,22 @@ ON CONFLICT (
         synced_offset = agent_transcript_sessions.synced_offset
     RETURNING
         id,
-        synced_offset;
+        synced_offset,
+        NOW()::timestamptz AS opened_at;
 
 -- name: AdvanceTranscriptSession :exec
 UPDATE
     agent_transcript_sessions
 SET
-    synced_offset = @synced_offset,
-    synced_at = NOW()
+    synced_offset = @synced_offset
+WHERE
+    id = @id;
+
+-- name: MarkTranscriptSessionDrained :exec
+UPDATE
+    agent_transcript_sessions
+SET
+    synced_at = @synced_at
 WHERE
     id = @id;
 

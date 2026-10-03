@@ -21,6 +21,7 @@ import (
 type Session struct {
 	ID           string
 	SyncedOffset int64
+	OpenedAt     time.Time
 }
 
 type SearchHit struct {
@@ -142,7 +143,11 @@ func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionPar
 		return Session{}, fmt.Errorf("failed to open a transcript session for %q: %w", params.AgentID, err)
 	}
 
-	return Session{ID: row.ID, SyncedOffset: row.SyncedOffset}, nil
+	return Session{
+		ID:           row.ID,
+		SyncedOffset: row.SyncedOffset,
+		OpenedAt:     row.OpenedAt,
+	}, nil
 }
 
 // Advance records how far a session's log has been read.
@@ -152,6 +157,18 @@ func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset 
 		SyncedOffset: offset,
 	}); err != nil {
 		return fmt.Errorf("failed to advance transcript session %q: %w", sessionID, err)
+	}
+
+	return nil
+}
+
+// MarkDrained stamps a session as read to the end as of readAt.
+func (s *TranscriptStore) MarkDrained(ctx context.Context, sessionID string, readAt time.Time) error {
+	if err := s.queries.MarkTranscriptSessionDrained(ctx, models.MarkTranscriptSessionDrainedParams{
+		ID:       sessionID,
+		SyncedAt: readAt,
+	}); err != nil {
+		return fmt.Errorf("failed to mark transcript session %q drained: %w", sessionID, err)
 	}
 
 	return nil

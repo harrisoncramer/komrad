@@ -440,9 +440,8 @@ func moveToSession(t *testing.T, st *storetest.Stores, agentID, sessionID string
 	require.NoError(t, err)
 }
 
-// TestArchivedAgentSyncsOnceThenFallsOut pins both halves of what archiving does to a sync: the
-// turns written before the archive are still folded in, and the agent is not read again after.
-func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
+// TestArchivedAgentSyncsUntilItsLogDrains pins that an archived agent still writing is read until a pass finds nothing new.
+func TestArchivedAgentSyncsUntilItsLogDrains(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
 	configDir := t.TempDir()
@@ -461,16 +460,21 @@ func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
 
 	require.NoError(t, syncer.Sync(ctx))
 
+	appendToLog(t, path, `{"type":"user","message":{"content":"written while the pane died"}}`+"\n")
+	require.NoError(t, syncer.Sync(ctx))
+
 	tail, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "said before the archive", tail, "what the agent said before it was archived is kept")
+	assert.Equal(t, "said before the archive\n\nwritten while the pane died", tail, "what the agent wrote until its log drained is kept")
 
-	appendToLog(t, path, `{"type":"user","message":{"content":"written after the archive"}}`+"\n")
+	require.NoError(t, syncer.Sync(ctx))
+
+	appendToLog(t, path, `{"type":"user","message":{"content":"written after the log drained"}}`+"\n")
 	require.NoError(t, syncer.Sync(ctx))
 
 	after, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "said before the archive", after, "an archived agent is not read again")
+	assert.Equal(t, "said before the archive\n\nwritten while the pane died", after, "an archived agent is not read once its log drained")
 }
 
 // TestArchivedAgentWithNothingNewFallsOut pins that an agent archived with its log already read
@@ -511,4 +515,52 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 	require.NoError(t, err)
 
 	return registry
+}
+
+type archivingReader struct {
+	harness.Harness
+	afterRead func()
+}
+
+func (ar archivingReader) ReadLog(path string, offset int64) (harness.LogRead, error) {
+	read, err := ar.Harness.ReadLog(path, offset)
+	ar.afterRead()
+
+	return read, err
+}
+
+// TestArchiveDuringReadKeepsFinalTurns pins that turns written while a pass reads are synced once the agent is archived.
+func TestArchiveDuringReadKeepsFinalTurns(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
+	configDir := t.TempDir()
+
+	agent := seedWithSessionID(t, st, testSessionID, "racing")
+	path := writeLog(t, configDir, `{"type":"user","message":{"content":"read by the pass"}}`+"\n")
+
+	archived := false
+	racing := archivingReader{
+		Harness: claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir}),
+		afterRead: func() {
+			if archived {
+				return
+			}
+			archived = true
+			appendToLog(t, path, `{"type":"user","message":{"content":"last words before the pane died"}}`+"\n")
+			_, err := st.Agents.Archive(ctx, []string{agent.ID})
+			require.NoError(t, err)
+		},
+	}
+
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, racing),
+	})
+	require.NoError(t, syncer.Sync(ctx))
+	require.NoError(t, syncer.Sync(ctx))
+
+	stored, err := st.Transcripts.Get(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "read by the pass\n\nlast words before the pane died", stored)
 }

@@ -39,8 +39,7 @@ const advanceTranscriptSession = `-- name: AdvanceTranscriptSession :exec
 UPDATE
     agent_transcript_sessions
 SET
-    synced_offset = $1,
-    synced_at = NOW()
+    synced_offset = $1
 WHERE
     id = $2
 `
@@ -2217,6 +2216,25 @@ func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []stri
 	return items, nil
 }
 
+const markTranscriptSessionDrained = `-- name: MarkTranscriptSessionDrained :exec
+UPDATE
+    agent_transcript_sessions
+SET
+    synced_at = $1
+WHERE
+    id = $2
+`
+
+type MarkTranscriptSessionDrainedParams struct {
+	SyncedAt time.Time
+	ID       string
+}
+
+func (q *Queries) MarkTranscriptSessionDrained(ctx context.Context, arg MarkTranscriptSessionDrainedParams) error {
+	_, err := q.db.Exec(ctx, markTranscriptSessionDrained, arg.SyncedAt, arg.ID)
+	return err
+}
+
 const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :many
 WITH prior AS (
     SELECT
@@ -2365,7 +2383,8 @@ ON CONFLICT (
         synced_offset = agent_transcript_sessions.synced_offset
     RETURNING
         id,
-        synced_offset
+        synced_offset,
+        NOW()::timestamptz AS opened_at
 `
 
 type OpenTranscriptSessionParams struct {
@@ -2377,12 +2396,13 @@ type OpenTranscriptSessionParams struct {
 type OpenTranscriptSessionRow struct {
 	ID           string
 	SyncedOffset int64
+	OpenedAt     time.Time
 }
 
 func (q *Queries) OpenTranscriptSession(ctx context.Context, arg OpenTranscriptSessionParams) (*OpenTranscriptSessionRow, error) {
 	row := q.db.QueryRow(ctx, openTranscriptSession, arg.ID, arg.AgentID, arg.SessionID)
 	var i OpenTranscriptSessionRow
-	err := row.Scan(&i.ID, &i.SyncedOffset)
+	err := row.Scan(&i.ID, &i.SyncedOffset, &i.OpenedAt)
 	return &i, err
 }
 
