@@ -610,6 +610,13 @@ func TestSpawningBriefing(t *testing.T) {
 			assert.Equal(t, tt.want, spawningBriefing(tt.params))
 		})
 	}
+
+	t.Run("a reviewer is never told to call create_agent", func(t *testing.T) {
+		launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), LogPath: briefedLogPath})
+		prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{Role: agentstore.RoleReviewer, ParentAgentID: "parent", ParentName: "author"})
+
+		assert.NotContains(t, prompt, "create_agent")
+	})
 }
 
 // TestContextBriefing pins that a workflow's context still reaches an orchestrator, and that
