@@ -576,6 +576,7 @@ func TestRoleBriefing(t *testing.T) {
 	}
 }
 
+// TestSpawningBriefing pins that every implementer, with a checkout or without, is told to use create_agent and no reviewer is.
 func TestSpawningBriefing(t *testing.T) {
 	tests := []struct {
 		name   string
