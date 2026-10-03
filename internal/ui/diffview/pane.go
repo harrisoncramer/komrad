@@ -260,12 +260,7 @@ func (p *Pane) ScrollToCursor(window Window) {
 		p.top = max(low, floor)
 	}
 
-	high, drawn := p.cursor, p.view.measureRow(p.cursor, window)
-	for high > 0 && drawn+p.view.measureRow(high-1, window) <= window.Height-margin {
-		high--
-		drawn += p.view.measureRow(high, window)
-	}
-
+	high := p.findFirstFitting(p.cursor, window.Height-margin, window)
 	if high > p.top {
 		p.top = high
 	}
@@ -316,22 +311,24 @@ func (p *Pane) GetCursorLines(window Window) (int, int) {
 
 // findWindowStart is the first row of the view the window draws.
 func (p *Pane) findWindowStart(window Window) int {
-	last, drawn := p.view.Len()-1, 0
-	if last >= 0 {
-		drawn = p.view.measureRow(last, window)
+	if p.view.Len() == 0 {
+		return 0
 	}
 
-	for last > 0 && drawn+p.view.measureRow(last-1, window) <= window.Height {
-		last--
-		drawn += p.view.measureRow(last, window)
+	last := p.findFirstFitting(p.view.Len()-1, window.Height, window)
+
+	return max(max(min(p.top, last), 0), p.findFirstFitting(p.cursor, window.Height, window))
+}
+
+// findFirstFitting is the first row from which the rows through end fit in lines.
+func (p *Pane) findFirstFitting(end, lines int, window Window) int {
+	first, drawn := end, p.view.measureRow(end, window)
+	for first > 0 && drawn+p.view.measureRow(first-1, window) <= lines {
+		first--
+		drawn += p.view.measureRow(first, window)
 	}
 
-	start := max(min(p.top, last), 0)
-	for start < p.cursor && p.countLines(start, p.cursor+1, window) > window.Height {
-		start++
-	}
-
-	return start
+	return first
 }
 
 // countLines is how many lines the rows from start up to end take.
