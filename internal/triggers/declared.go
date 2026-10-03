@@ -63,6 +63,8 @@ var declared = []Table{
 	{Name: "forge_review_comments", Triggers: []Trigger{stampEngine, setUpdatedAt}},
 	{Name: "forge_review_threads", Triggers: []Trigger{stampEngine, setUpdatedAt}},
 	{Name: "mail", Triggers: []Trigger{stampEngine, setUpdatedAt}},
+	{Name: "pull_request_check_readings", Triggers: []Trigger{stampEngine}},
+	{Name: "pull_request_checks", Triggers: []Trigger{stampEngine}},
 	{Name: "pull_request_syncs", Triggers: []Trigger{stampEngine}},
 	{Name: "pull_requests", Triggers: []Trigger{stampEngine}},
 	{Name: "review_forge_replies", Triggers: []Trigger{stampEngine, setUpdatedAt}},

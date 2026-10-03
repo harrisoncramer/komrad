@@ -126,6 +126,55 @@ const (
 	ChecksFailingRunning Checks = "failing_running"
 )
 
+// CheckKind is what a forge reported a check as.
+type CheckKind string
+
+const (
+	// CheckKindRun is a check run an app or workflow reported.
+	CheckKindRun CheckKind = "check_run"
+	// CheckKindStatus is an old-style commit status.
+	CheckKindStatus CheckKind = "status"
+)
+
+// CheckState is where one check stands, in komrad's own words.
+type CheckState string
+
+const (
+	// CheckStateQueued is a check waiting to start.
+	CheckStateQueued CheckState = "queued"
+	// CheckStateRunning is a check that has started and not completed.
+	CheckStateRunning CheckState = "running"
+	// CheckStateWaiting is a check that cannot start on its own, held for an approval or never reported.
+	CheckStateWaiting CheckState = "waiting"
+	// CheckStateCompleted is a check that has finished, with a conclusion.
+	CheckStateCompleted CheckState = "completed"
+)
+
+// Check is one check a forge listed on a pull request's head commit.
+type Check struct {
+	// ProviderID is the forge's own identifier for the check run or commit status.
+	ProviderID string
+	Kind       CheckKind
+	// Source is the workflow that ran the check, or the app when no workflow did, empty for a status.
+	Source string
+	// Name is the check's name, or a commit status's context.
+	Name  string
+	State CheckState
+	// Conclusion is how a completed check ended, in the forge's own word lowercased.
+	Conclusion string
+	StartedAt  *time.Time
+	FinishedAt *time.Time
+	// Required is whether the pull request's base branch requires the check to pass.
+	Required bool
+	URL      string
+}
+
+// CheckListing is the checks a forge listed on a pull request's head commit.
+type CheckListing struct {
+	// Checks is every check listed, empty when the forge answered blank.
+	Checks []Check
+}
+
 // Mergeability is where a forge says a pull request stands against its base and its branch
 // rules, in komrad's own words.
 type Mergeability string
@@ -152,6 +201,8 @@ type MergeReadiness struct {
 	Checks       Checks
 	Mergeability Mergeability
 	AutoMerge    AutoMerge
+	// Listing is every check on the head commit, nil when the forge does not list them.
+	Listing *CheckListing
 }
 
 // AutoMerge is whether a pull request will merge on its own once its checks and reviews pass,
