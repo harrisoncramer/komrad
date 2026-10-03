@@ -53,16 +53,18 @@ func DefaultBase(ctx context.Context, dir string) string {
 		return "main"
 	}
 
-	head, err := Run(ctx, dir, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+	head, err := Run(ctx, dir, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
 	if err == nil {
-		if name, ok := strings.CutPrefix(head, "origin/"); ok && name != "" {
+		if name, ok := strings.CutPrefix(head, "refs/remotes/origin/"); ok && name != "" {
 			return name
 		}
 	}
 
-	branch, err := Run(ctx, dir, "symbolic-ref", "--quiet", "--short", "HEAD")
-	if err == nil && branch != "" {
-		return branch
+	branch, err := Run(ctx, dir, "symbolic-ref", "--quiet", "HEAD")
+	if err == nil {
+		if name := parseBranch(branch); name != "" {
+			return name
+		}
 	}
 
 	return "main"
@@ -71,8 +73,13 @@ func DefaultBase(ctx context.Context, dir string) string {
 // GetCurrentBranch is the branch a worktree is on, and nothing for a detached head or a
 // directory git will not answer about.
 func (c *Client) GetCurrentBranch(ctx context.Context, dir string) *string {
-	branch, err := Run(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
-	if err != nil || branch == "" || branch == "HEAD" {
+	ref, err := Run(ctx, dir, "rev-parse", "--symbolic-full-name", "HEAD")
+	if err != nil {
+		return nil
+	}
+
+	branch := parseBranch(ref)
+	if branch == "" {
 		return nil
 	}
 

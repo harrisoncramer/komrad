@@ -43,7 +43,7 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		args = append(args, params.SnapshotSHA+"^{tree}")
 	}
 
-	out, err := Run(ctx, params.Dir, append(args, "--abbrev-ref", "HEAD", "--absolute-git-dir", "--show-toplevel")...)
+	out, err := Run(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel")...)
 	if err != nil && params.SnapshotSHA != "" {
 		return c.ReadHeadState(ctx, ReadHeadStateParams{Dir: params.Dir})
 	}
@@ -62,9 +62,9 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		lines = slices.Delete(lines, 1, 2)
 	}
 
-	sha, branch := strings.TrimSpace(lines[0]), strings.TrimSpace(lines[1])
+	sha, branch := strings.TrimSpace(lines[0]), parseBranch(lines[1])
 	gitDir, root := strings.TrimSpace(lines[2]), strings.TrimSpace(lines[3])
-	if branch == "HEAD" {
+	if branch == "" {
 		branch = rebasingBranch(gitDir)
 	}
 
@@ -125,13 +125,18 @@ func rebasingBranch(gitDir string) string {
 			continue
 		}
 
-		branch, ok := strings.CutPrefix(strings.TrimSpace(string(name)), "refs/heads/")
-		if !ok {
-			return ""
-		}
-
-		return branch
+		return parseBranch(string(name))
 	}
 
 	return ""
+}
+
+// parseBranch is the branch a full ref name points at, empty for anything that is not a branch.
+func parseBranch(ref string) string {
+	branch, ok := strings.CutPrefix(strings.TrimSpace(ref), "refs/heads/")
+	if !ok {
+		return ""
+	}
+
+	return branch
 }

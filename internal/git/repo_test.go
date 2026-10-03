@@ -87,6 +87,9 @@ func TestIntegrationGetCurrentBranch(t *testing.T) {
 	onFeature := repo(t)
 	run(t, onFeature, "checkout", "--quiet", "-b", "feature/x")
 
+	tagged := repo(t)
+	run(t, tagged, "tag", "main")
+
 	detached := repo(t)
 	head, err := Run(t.Context(), detached, "rev-parse", "HEAD")
 	require.NoError(t, err)
@@ -116,6 +119,11 @@ func TestIntegrationGetCurrentBranch(t *testing.T) {
 			name: "a branch holding a slash keeps it whole",
 			dir:  onFeature,
 			want: xptr.Ptr("feature/x"),
+		},
+		{
+			name: "a branch a tag shares its name with reads the branch",
+			dir:  tagged,
+			want: xptr.Ptr("main"),
 		},
 	}
 
@@ -199,6 +207,9 @@ func TestIntegrationDefaultBaseReadsTheCloneOnce(t *testing.T) {
 
 	run(t, clone, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 	assert.Equal(t, "wip", DefaultBase(t.Context(), clone), "without origin/HEAD, the branch checked out")
+
+	run(t, clone, "tag", "wip")
+	assert.Equal(t, "wip", DefaultBase(t.Context(), clone), "a branch a tag shares its name with")
 
 	trunk := t.TempDir()
 	run(t, trunk, "init", "--quiet", "-b", "trunk", ".")

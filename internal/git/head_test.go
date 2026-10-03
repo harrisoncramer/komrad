@@ -263,3 +263,16 @@ func TestIntegrationReadOriginHostReadsTheWebHost(t *testing.T) {
 		})
 	}
 }
+
+// TestIntegrationReadHeadStateNamesABranchATagShares covers a tag of the same name leaving the branch unambiguous.
+func TestIntegrationReadHeadStateNamesABranchATagShares(t *testing.T) {
+	t.Parallel()
+
+	dir := newRepo(t)
+	run(t, dir, "checkout", "--quiet", "-b", "feature")
+	run(t, dir, "tag", "feature")
+
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+
+	assert.Equal(t, "feature", head.Branch)
+}
