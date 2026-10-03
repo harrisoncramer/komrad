@@ -635,6 +635,11 @@ linters:
         linters:
           - revive
         text: argument-limit
+      # A buf rule over a pair of messages takes the signature bufplugin's checkutil hands it.
+      - path: ^internal/bufcheck/tighten\.go$
+        linters:
+          - revive
+        text: argument-limit
 formatters:
   enable:
     - gofmt

@@ -34,6 +34,8 @@ const (
 	GetReturnsResourceRuleID = "RPC_GET_RETURNS_RESOURCE"
 	// FieldTypeNoStutterRuleID is the rule refusing a field whose type declares a field of the same name.
 	FieldTypeNoStutterRuleID = "FIELD_TYPE_NO_STUTTER"
+	// ValidationNoTightenRuleID is the breaking rule refusing validation that an older client's request would fail.
+	ValidationNoTightenRuleID = "FIELD_VALIDATION_NO_TIGHTEN"
 )
 
 var (
@@ -105,6 +107,13 @@ var (
 				Purpose: "Checks that a singular message field is not named the same as a field its type declares, which would read as a.a on the wire.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewFieldRuleHandler(checkFieldTypeNoStutter, checkutil.WithoutImports()),
+			},
+			{
+				ID:      ValidationNoTightenRuleID,
+				Default: true,
+				Purpose: "Checks that validation on an existing field only loosens, and that a new field is never required, since buf's own breaking rules cannot see protovalidate.",
+				Type:    check.RuleTypeBreaking,
+				Handler: checkutil.NewMessagePairRuleHandler(checkValidationNoTighten, checkutil.WithoutImports()),
 			},
 			{
 				ID:      TypesUniqueRuleID,

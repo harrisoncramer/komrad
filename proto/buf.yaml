@@ -32,4 +32,5 @@ lint:
     - RPC_REQUEST_RESPONSE_UNIQUE
 breaking:
   use:
-    - FILE
+    - WIRE_JSON
+    - FIELD_VALIDATION_NO_TIGHTEN

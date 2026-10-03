@@ -68,6 +68,7 @@ STEPS=(
 	"db:validate"
 	"go:lint"
 	"proto:lint"
+	"proto:breaking"
 	"go:test --kind $KIND"
 	"gen:check"
 	"docs:fmt --check"
