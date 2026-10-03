@@ -29,6 +29,9 @@ func TestIntegrationServerGoesWithAKilledTestProcess(t *testing.T) {
 		return
 	}
 
+	// Explainer: the test runs itself again as a child process, which starts a server, writes its socket name to a file, and sleeps.
+	// The parent kills the child the way a timeout or a closed pane would, so none of the child's cleanup runs.
+	// Only the watchdog is left to shut the server down, so the server going away shows the watchdog worked.
 	socketFile := filepath.Join(t.TempDir(), "socket")
 	child := exec.Command(os.Args[0], "-test.run=^"+t.Name()+"$", "-hold-server="+socketFile)
 	require.NoError(t, child.Start())
