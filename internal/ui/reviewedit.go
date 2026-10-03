@@ -168,6 +168,11 @@ func (r *reviewScreen) editFile(m *model) tea.Cmd {
 	}
 
 	r.hold.openEditor(path, pane)
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: "editing " + path,
+		detail:  keyLabel(m.keys.Review.EditFile) + " to come back",
+	})
 
 	return nil
 }

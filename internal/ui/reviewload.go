@@ -548,6 +548,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(m)
+	r.raiseNotices(m)
 
 	return nil
 }

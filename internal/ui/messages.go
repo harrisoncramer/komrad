@@ -44,6 +44,7 @@ const (
 
 type message struct {
 	kind    messageKind
+	key     string
 	summary string
 	detail  string
 	hint    string
@@ -265,6 +266,10 @@ func (m *model) copyMessage() tea.Cmd {
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
 // were reading when it lands.
 func (m *model) pushMessage(next message) {
+	if next.key != "" && slices.ContainsFunc(m.messages.items, func(held message) bool { return held.key == next.key }) {
+		return
+	}
+
 	if next.detail == "" {
 		next.detail = "no reason given"
 	}

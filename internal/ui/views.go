@@ -56,22 +56,30 @@ func (m *model) isViewsOpen() bool {
 // viewsBar is the logo and the switcher drawn over a list, and under them the trail down to the
 // row or page the cursor is on.
 func (m *model) viewsBar() string {
-	short := m.term.height > 0 && m.term.height < viewsBarFloor
+	return m.viewsBars()[0]
+}
 
+func (m *model) viewsBars() []string {
 	trail, _, opened := m.activeCrumbs()
-	if short {
-		if flash, ok := m.drawMessagesFlash(m.paneWidth()); ok {
-			return flash + "\n"
+	if m.term.height > 0 && m.term.height < viewsBarFloor {
+		if _, ok := m.drawMessagesFlash(m.paneWidth()); ok {
+			return []string{m.engineLine(m.paneWidth()) + "\n"}
 		}
 
 		if !opened {
-			return ""
+			return []string{""}
 		}
 
-		return trail.view(paint.Panel, m.paneWidth()) + "\n"
+		return []string{trail.view(paint.Panel, m.paneWidth()) + "\n"}
 	}
 
-	return strings.Join(m.switcherLines(trail), "\n") + "\n"
+	lines := m.switcherLines(trail)
+
+	return slices.Compact([]string{
+		strings.Join(lines, "\n") + "\n",
+		strings.Join(lines[:2], "\n") + "\n",
+		lines[1] + "\n",
+	})
 }
 
 // switcherLines is the logo and, on a screen that draws the switcher, the row of views.

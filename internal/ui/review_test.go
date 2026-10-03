@@ -1196,9 +1196,11 @@ func TestReviewOfAnArchivedAgent(t *testing.T) {
 	frame := harness.readFrame()
 	assert.NotContains(t, frame, "reply in this thread")
 
-	harness.press("j")
-	assert.Contains(t, readStageText(harness.readFrame()), "this agent is archived")
-	harness.press("k")
+	assert.Contains(t, readEngineLine(frame), "this agent is archived")
+	harness.watch(server.buildSnapshot())
+	harness.press("R")
+	assert.Equal(t, 1, strings.Count(readOpenMessages(harness), "this agent is archived"))
+	harness.press("ctrl+g")
 
 	harness.press("?")
 	legend := readLegend(harness.readFrame())
@@ -1327,7 +1329,9 @@ func TestReviewReload(t *testing.T) {
 		server.agent.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 
-		assert.Contains(t, harness.readFrame(), "written by the agent")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "written by the agent")
+		assert.NotContains(t, readEngineLine(frame), "the worktree has moved")
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), 2)
 
 		harness.watch(server.buildSnapshot())
@@ -1370,7 +1374,23 @@ func TestReviewReload(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readStageText(frame), "the worktree has moved · R to catch up")
+		assert.Contains(t, readEngineLine(frame), "the worktree has moved")
+
+		harness.watch(server.buildSnapshot())
+		assert.Equal(t, 1, strings.Count(readOpenMessages(harness), "the worktree has moved"))
+	})
+
+	t.Run("a move while the editor is open raises nothing", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+		harness := openReview(t, server)
+		harness.press("e")
+
+		server.repo.Wrote(newRoundWrittenOver())
+		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		harness.watch(server.buildSnapshot())
+
+		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
 	})
 }
 
@@ -1389,7 +1409,7 @@ func TestReviewOwnComments(t *testing.T) {
 
 		harness.press("e")
 
-		assert.Contains(t, harness.readFrame(), "editing · greet.go")
+		assert.Contains(t, harness.readFrame(), "editing greet.go")
 	})
 
 	t.Run("the compose key replies in a comment the cursor stands on", func(t *testing.T) {
@@ -1514,13 +1534,14 @@ func TestReviewLayout(t *testing.T) {
 		assert.NotContains(t, frame, "agents  query  schedules")
 	})
 
-	t.Run("the switcher and the trail give way before the legend does", func(t *testing.T) {
+	t.Run("the logo gives way before the legend does and the engine row stays", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 25})
 		require.Contains(t, splitLines(harness.readFrame())[0], "komrad")
 
 		harness.press("?")
 
 		assert.NotContains(t, harness.readFrame(), "komrad")
+		assert.Contains(t, readEngineRow(harness.readFrame(), 0), "local")
 		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
 	})
 
@@ -2070,7 +2091,7 @@ func TestReviewHold(t *testing.T) {
 		harness.press("e")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "editing · greet.go")
+		assert.Contains(t, frame, "editing greet.go")
 		assert.NotContains(t, frame, "package greet")
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 	})
@@ -2082,7 +2103,7 @@ func TestReviewHold(t *testing.T) {
 
 		harness.press("e")
 
-		assert.Contains(t, harness.readFrame(), "editing · greet.go")
+		assert.Contains(t, harness.readFrame(), "editing greet.go")
 	})
 
 	t.Run("an agent that will not stop opens no editor", func(t *testing.T) {
@@ -2118,7 +2139,7 @@ func TestReviewHold(t *testing.T) {
 		harness := openReview(t, server)
 
 		harness.press("e")
-		require.Contains(t, harness.readFrame(), "editing · greet.go")
+		require.Contains(t, harness.readFrame(), "editing greet.go")
 		harness.press("e", "esc")
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
@@ -2162,15 +2183,15 @@ func TestReviewHold(t *testing.T) {
 		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
 
 		harness.press("e")
-		require.Contains(t, harness.readFrame(), "editing · stopping the agent")
+		require.Contains(t, harness.readFrame(), "stopping the agent")
 
 		harness.press("e")
 		frame := harness.readFrame()
 		assert.Contains(t, readEngineLine(frame), "still stopping")
-		assert.NotContains(t, frame, "editing · greet.go")
+		assert.NotContains(t, frame, "editing greet.go")
 
 		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
-		assert.Contains(t, harness.readFrame(), "editing · greet.go")
+		assert.Contains(t, harness.readFrame(), "editing greet.go")
 	})
 
 	t.Run("an edit given up before the agent stops lets it go", func(t *testing.T) {
@@ -2190,7 +2211,7 @@ func TestReviewHold(t *testing.T) {
 	t.Run("the editor quitting gives the stage back and reads the diff again", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.press("e")
-		require.Contains(t, harness.readFrame(), "editing · greet.go")
+		require.Contains(t, harness.readFrame(), "editing greet.go")
 		loads := len(harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
 
 		editor := harness.panel.ReadRespawnPanes()
@@ -2206,7 +2227,7 @@ func TestReviewHold(t *testing.T) {
 	t.Run("the cursor resting while the editor is open leaves the editor on the stage", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.press("e")
-		require.Contains(t, harness.readFrame(), "editing · greet.go")
+		require.Contains(t, harness.readFrame(), "editing greet.go")
 		swaps, respawns := harness.panel.CountSwaps(), harness.panel.CountRespawns()
 
 		wheelOver(harness, defaultHarnessWidth-1)
@@ -2321,7 +2342,7 @@ func TestReviewHold(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readStageText(frame), "catches up when it stops")
+		assert.Contains(t, readEngineLine(frame), "the agent is writing")
 
 		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 		harness.watch(server.buildSnapshot())

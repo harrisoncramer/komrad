@@ -38,6 +38,8 @@ type reviewScreen struct {
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.
 	filesFilter filterState
+
+	raised []string
 }
 
 // reviewFocus is which of the diff, the file tree and the pull request holds the review's keys.
