@@ -45,25 +45,20 @@ const forgeReplyApproverHuman forgeReplyApproverKind = forgeReplyApproverKind(mo
 
 // forgeReply is a reply komrad posts to the forge on a mirrored thread.
 type forgeReply struct {
-	ID            string
-	ThreadID      string
-	State         forgeReplyState
-	AuthorKind    AuthorKind
-	AuthorAgentID *string
-	// ProposedBody is the agent's text as it proposed it, nil on a reply the person wrote.
-	ProposedBody *string
-	// Body is the text to post, and once sent the text the forge received.
-	Body string
-	// ApproverKind is empty while the reply is a draft.
-	ApproverKind     forgeReplyApproverKind
-	ApprovedAt       *time.Time
-	SendingStartedAt *time.Time
-	SentAt           *time.Time
-	// ForgeCommentProviderID is the forge's own id for the comment the reply became.
+	ID                     string
+	ThreadID               string
+	State                  forgeReplyState
+	AuthorKind             AuthorKind
+	AuthorAgentID          *string
+	ProposedBody           *string
+	Body                   string
+	ApproverKind           forgeReplyApproverKind
+	ApprovedAt             *time.Time
+	SendingStartedAt       *time.Time
+	SentAt                 *time.Time
 	ForgeCommentProviderID *string
-	// Error is what the forge said when the latest attempt failed.
-	Error     *string
-	CreatedAt time.Time
+	Error                  *string
+	CreatedAt              time.Time
 }
 
 // CreateAgentForgeReplyParams is an agent's proposed reply on a mirrored thread.
