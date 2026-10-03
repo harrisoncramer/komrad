@@ -28,7 +28,7 @@ func checkRun(providerID, name string, state forge.CheckState, conclusion string
 	}
 }
 
-func checkNames(reading CheckReading) []string {
+func checkNames(reading checkReading) []string {
 	return xslice.Map(reading.Checks, func(check forge.Check) string { return check.Name + ":" + string(check.State) })
 }
 
@@ -37,14 +37,14 @@ func TestSetChecks(t *testing.T) {
 	tests := []struct {
 		name  string
 		reads []SetChecksParams
-		want  []CheckReading
+		want  []checkReading
 	}{
 		{
 			name: "a read lists the checks on its head",
 			reads: []SetChecksParams{
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, ""), checkRun("2", "lint", forge.CheckStateQueued, "")}},
 			},
-			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateRunning, "")}}},
+			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateRunning, "")}}},
 		},
 		{
 			name: "a new head keeps the reading of the old one",
@@ -52,7 +52,7 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}},
 				{HeadSHA: "c2", Checks: []forge.Check{checkRun("3", "test", forge.CheckStateRunning, "")}},
 			},
-			want: []CheckReading{
+			want: []checkReading{
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}},
 				{HeadSHA: "c2", Checks: []forge.Check{checkRun("3", "test", forge.CheckStateRunning, "")}},
 			},
@@ -63,7 +63,7 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}},
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}},
 			},
-			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
+			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
 		},
 		{
 			name: "a check the forge stops listing goes",
@@ -71,7 +71,7 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure"), checkRun("2", "lint", forge.CheckStateCompleted, "success")}},
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("4", "test", forge.CheckStateRunning, ""), checkRun("2", "lint", forge.CheckStateCompleted, "success")}},
 			},
-			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateCompleted, "success"), checkRun("4", "test", forge.CheckStateRunning, "")}}},
+			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateCompleted, "success"), checkRun("4", "test", forge.CheckStateRunning, "")}}},
 		},
 		{
 			name: "a blank read keeps the checks listed before it",
@@ -79,12 +79,12 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}},
 				{HeadSHA: "c1"},
 			},
-			want: []CheckReading{{HeadSHA: "c1", Blank: true, Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}}},
+			want: []checkReading{{HeadSHA: "c1", Blank: true, Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}}},
 		},
 		{
 			name:  "a first read that is blank is kept as blank",
 			reads: []SetChecksParams{{HeadSHA: "c1"}},
-			want:  []CheckReading{{HeadSHA: "c1", Blank: true}},
+			want:  []checkReading{{HeadSHA: "c1", Blank: true}},
 		},
 	}
 	for _, tt := range tests {

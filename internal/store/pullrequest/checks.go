@@ -11,8 +11,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// CheckReading is what the forge last listed for the checks on one head commit of a pull request.
-type CheckReading struct {
+// checkReading is what the forge last listed for the checks on one head commit of a pull request.
+type checkReading struct {
 	ID      string
 	HeadSHA string
 	// Blank is whether the last read listed no checks, which keeps the checks listed before it.
@@ -85,7 +85,7 @@ func (s *CheckStore) SetChecks(ctx context.Context, params SetChecksParams) erro
 }
 
 // ListOfPullRequest is every check reading on a pull request with its checks, oldest head first.
-func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]CheckReading, error) {
+func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]checkReading, error) {
 	if !store.IsID(pullRequestID) {
 		return nil, nil
 	}
@@ -120,8 +120,8 @@ func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string
 		})
 	}
 
-	return xslice.Map(rows, func(row *models.PullRequestCheckReading) CheckReading {
-		return CheckReading{
+	return xslice.Map(rows, func(row *models.PullRequestCheckReading) checkReading {
+		return checkReading{
 			ID:          row.ID,
 			HeadSHA:     row.HeadSha,
 			Blank:       row.Blank,

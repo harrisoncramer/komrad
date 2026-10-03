@@ -330,6 +330,7 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		*result = written{}
 		st := pullrequeststore.NewPullRequestStore(tx)
+		checks := pullrequeststore.NewCheckStore(tx)
 		var recorded []river.JobArgs
 		for _, pullRequest := range pullRequests {
 			upsert := toUpsert(pullRequest)
@@ -354,6 +355,16 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				})
 				if err != nil {
 					return nil, err
+				}
+				if listing := pullRequest.MergeReadiness.Listing; listing != nil {
+					if err := checks.SetChecks(ctx, pullrequeststore.SetChecksParams{
+						PullRequestID: outcome.ID,
+						HeadSHA:       pullRequest.HeadSHA,
+						Checks:        listing.Checks,
+						ReadAt:        readAt,
+					}); err != nil {
+						return nil, err
+					}
 				}
 			}
 			if until := hotUntil(pullRequest, change); until.After(result.hotUntil) {
