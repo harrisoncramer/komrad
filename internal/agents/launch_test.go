@@ -941,22 +941,24 @@ func TestNewAgentArchivedDuringSetupIsNotLaunched(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, _ = manager.launch.NewAgent(t.Context(), NewAgentParams{
+	_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
 		Title:      "agent",
 		Dir:        t.TempDir(),
 		WorkflowID: created.ID,
 	})
 
+	require.ErrorIs(t, err, agenterr.ErrAgentArchived)
 	agents, err := st.Agents.ListAll(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
 	require.NotNil(t, agents[0].ArchivedAt)
 	assert.Empty(t, agents[0].Pane, "an archived agent holds no pane")
 	assert.False(t, agents[0].Alive, "an archived agent is not alive")
-
-	for pane := range tmux.Respawned {
-		assert.Contains(t, tmux.ReadKilledPanes(), pane, "no CLI is left running for an archived agent")
-	}
+	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+	assert.NotEmpty(t, agents[0].FailureReason)
+	assert.Empty(t, tmux.Respawned, "no CLI is started for an archived agent")
+	require.Equal(t, 1, tmux.WindowsOpened())
+	assert.Contains(t, tmux.ReadKilledPanes(), "%"+agents[0].Name, "the window opened for an archived agent is killed")
 }
 
 // slowCleanupLifecycle finishes its cleanup only once the call that started it has had a chance to

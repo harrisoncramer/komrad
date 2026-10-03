@@ -547,14 +547,7 @@ const teardownTimeout = 30 * time.Second
 
 func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
 	agent.Pane = ""
-	failAs(ctx, failAsParams{
-		agents:         s.agents,
-		agent:          agent,
-		state:          agentstore.StateFailedToCreate,
-		verb:           "create",
-		cause:          cause,
-		refuseArchived: true,
-	})
+	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
 }
 
 // awaitDeprovision runs a deprovisioner and waits for it, so a create that failed gives back
