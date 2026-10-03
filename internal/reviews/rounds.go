@@ -448,11 +448,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	tally := tallyBatch(tallyBatchParams{
-		ReviewID: open.ID,
-		Author:   params.Author,
-		Threads:  threads,
-	})
+	tally := tallyBatch(open.ID, threads)
 	// An agent's notes with no conclusion have to say something, whether pinned to a line, a
 	// reply in an earlier thread, or about the work as a whole.
 	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && isSayingNothing(params.Author, verdict) {
@@ -480,7 +476,7 @@ func (s *ReviewService) ReleaseReview(
 		s.interrupt(ctx, params.AgentID)
 	}
 
-	var released *reviewstore.Review
+	var released *reviewstore.ReleasedReview
 	err = s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		var err error
 		released, err = reviewstore.NewReviewStore(tx).ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
@@ -501,7 +497,7 @@ func (s *ReviewService) ReleaseReview(
 			Verdict:  verdict,
 			Comments: tally.Comments,
 			Replies:  tally.Replies,
-			Reopens:  tally.Reopens,
+			Reopens:  released.Reopens,
 			Path:     path,
 			HasBody:  strings.TrimSpace(params.Body) != "",
 		})
@@ -516,7 +512,7 @@ func (s *ReviewService) ReleaseReview(
 	}
 
 	return &ReleaseReviewResult{
-		Review:   *released,
+		Review:   released.Review,
 		Comments: comments,
 		Path:     path,
 	}, nil
@@ -580,32 +576,19 @@ type batchTally struct {
 	Comments int
 	// Replies is the threads opened earlier that the batch said more in.
 	Replies int
-	// Reopens is the replies landing on a resolved thread.
-	Reopens int
 }
 
-// tallyBatchParams is one batch, who wrote it, and the threads it said something in.
-type tallyBatchParams struct {
-	ReviewID string
-	Author   ReviewAuthor
-	Threads  []ReviewThreadWithMessages
-}
-
-// tallyBatch counts the threads a batch opened, the replies it carries into earlier ones, and
-// which of those replies reopen one.
-func tallyBatch(params tallyBatchParams) batchTally {
+// tallyBatch counts the threads a batch opened and the replies it carries into earlier ones.
+func tallyBatch(reviewID string, threads []ReviewThreadWithMessages) batchTally {
 	var tally batchTally
-	for _, thread := range params.Threads {
-		if thread.Thread.ReviewID == params.ReviewID {
+	for _, thread := range threads {
+		if thread.Thread.ReviewID == reviewID {
 			tally.Comments++
 
 			continue
 		}
 
 		tally.Replies++
-		if params.Author.IsHuman() && thread.Thread.ResolvedAt != nil {
-			tally.Reopens++
-		}
 	}
 
 	return tally

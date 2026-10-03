@@ -1893,12 +1893,18 @@ reopened AS (
             WHERE
                 m.thread_id = t.id
                 AND m.review_id = r.id
-                AND m.created_at > t.resolved_at)
+                AND (t.resolved_by_kind IS DISTINCT FROM 'human'
+                    OR m.created_at > t.resolved_at))
         RETURNING
             t.id
 )
 SELECT
-    r.id, r.agent_id, r.round_id, r.author_kind, r.author_agent_id, r.verdict, r.released_at, r.path, r.doorbell_mail_id, r.created_at, r.updated_at, r.body, r.engine_id, r.external_login
+    r.id, r.agent_id, r.round_id, r.author_kind, r.author_agent_id, r.verdict, r.released_at, r.path, r.doorbell_mail_id, r.created_at, r.updated_at, r.body, r.engine_id, r.external_login,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            reopened)::int AS reopens
 FROM
     released r
 `
@@ -1925,6 +1931,7 @@ type ReleaseReviewRow struct {
 	Body           string
 	EngineID       string
 	ExternalLogin  *string
+	Reopens        int32
 }
 
 func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*ReleaseReviewRow, error) {
@@ -1950,6 +1957,7 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 		&i.Body,
 		&i.EngineID,
 		&i.ExternalLogin,
+		&i.Reopens,
 	)
 	return &i, err
 }

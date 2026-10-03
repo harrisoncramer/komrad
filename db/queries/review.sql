@@ -211,12 +211,18 @@ reopened AS (
             WHERE
                 m.thread_id = t.id
                 AND m.review_id = r.id
-                AND m.created_at > t.resolved_at)
+                AND (t.resolved_by_kind IS DISTINCT FROM 'human'
+                    OR m.created_at > t.resolved_at))
         RETURNING
             t.id
 )
 SELECT
-    r.*
+    r.*,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            reopened)::int AS reopens
 FROM
     released r;
 

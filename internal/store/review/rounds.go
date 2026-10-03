@@ -326,6 +326,12 @@ func (s *ReviewStore) CountOpenComments(ctx context.Context, reviewID string) (i
 	return int(count), nil
 }
 
+// ReleasedReview is a review just released and the count of resolved threads its release reopened.
+type ReleasedReview struct {
+	Review
+	Reopens int
+}
+
 type ReleaseReviewParams struct {
 	ID      string
 	Verdict Verdict
@@ -335,7 +341,7 @@ type ReleaseReviewParams struct {
 }
 
 // ReleaseReview releases a review, stamping its verdict and the file it was written to.
-func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
+func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*ReleasedReview, error) {
 	if !store.IsID(params.ID) {
 		return nil, reviewNotFound(params.ID)
 	}
@@ -353,9 +359,27 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 		return nil, fmt.Errorf("failed to release the review %q: %w", params.ID, err)
 	}
 
-	review := reviewFromRow(models.Review(*row))
+	review := reviewFromRow(models.Review{
+		ID:             row.ID,
+		AgentID:        row.AgentID,
+		RoundID:        row.RoundID,
+		AuthorKind:     row.AuthorKind,
+		AuthorAgentID:  row.AuthorAgentID,
+		Verdict:        row.Verdict,
+		ReleasedAt:     row.ReleasedAt,
+		Path:           row.Path,
+		DoorbellMailID: row.DoorbellMailID,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
+		Body:           row.Body,
+		EngineID:       row.EngineID,
+		ExternalLogin:  row.ExternalLogin,
+	})
 
-	return &review, nil
+	return &ReleasedReview{
+		Review:  review,
+		Reopens: int(row.Reopens),
+	}, nil
 }
 
 // DeleteOpenReviewsBy removes the unreleased reviews these reviewers were still writing.
