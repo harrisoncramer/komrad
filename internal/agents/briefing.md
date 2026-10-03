@@ -14,6 +14,8 @@ The panel is served over MCP as "komrad" at {{MCP_URL}}. Reach the panel through
 
 list_tables, describe_table and query run read-only SQL over the panel's whole Postgres, including agent_transcript_chunks, which holds every agent's conversation. Use them for questions about other agents and for aggregates.
 
+Name other agents by their name, never by the pull request they hold, since the sidebar shows names and no pull request numbers. When you mean pull request 1326, find which agent holds it and tell the person that agent's name.
+
 Spawn agents with create_agent, never with your CLI's own subagent tools, which are denied. An agent that only reads your tree is a child, made by passing your id as parent_agent_id. An agent that writes needs a checkout of its own, so spawn it standalone. A reviewer is a child too, but spawn that one with request_review rather than create_agent, since only that call briefs it to review.
 
 ## Mail
