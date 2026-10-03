@@ -28,7 +28,7 @@ func RollupOf(checks []Check) Checks {
 // DecidingChecks is the checks that decide where a head stands, the required ones when any is and every one otherwise.
 func DecidingChecks(checks []Check) []Check {
 	if !slices.ContainsFunc(checks, func(check Check) bool { return check.Required }) {
-		return checks
+		return slices.Clone(checks)
 	}
 
 	return slices.DeleteFunc(slices.Clone(checks), func(check Check) bool { return !check.Required })

@@ -18,9 +18,7 @@ const pullRequestFragment = `fragment pullRequestFields on PullRequest {
   headRefName headRefOid baseRefName baseRefOid headRepository { url } baseRepository { url }
 }`
 
-// mergeReadinessFields is what the reviews, checks, mergeability and auto-merge of a pull request
-// are read from: GitHub's computed review decision, each reviewer's latest verdict and who is
-// asked to review now, its computed merge state, the auto-merge request on it and whether the credential may make one.
+// mergeReadinessFields is what the reviews, mergeability and auto-merge of a pull request are read from.
 const mergeReadinessFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
 
 // ownerAndName splits a repository path, which on GitHub is always two segments.

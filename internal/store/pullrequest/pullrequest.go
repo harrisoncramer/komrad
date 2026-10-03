@@ -171,12 +171,7 @@ func (s *PullRequestStore) GetByIdentity(ctx context.Context, host, providerID s
 		return nil, fmt.Errorf("failed to get pull request %s on %s: %w", providerID, host, err)
 	}
 
-	pullRequests, err := s.withMergeReadiness(ctx, []*models.PullRequest{row})
-	if err != nil {
-		return nil, err
-	}
-
-	return &pullRequests[0], nil
+	return s.withOneMergeReadiness(ctx, row)
 }
 
 // Cursor is where a page of pull requests left off: whether the last was finished, when it
@@ -274,6 +269,16 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 	}
 
 	return &MergeReadinessChange{Before: before, After: after, HeadChecks: readAfter[params.ID].Checks}, nil
+}
+
+// withOneMergeReadiness is the row as a pull request, its checks rolled up from the latest reading of them.
+func (s *PullRequestStore) withOneMergeReadiness(ctx context.Context, row *models.PullRequest) (*PullRequest, error) {
+	pullRequests, err := s.withMergeReadiness(ctx, []*models.PullRequest{row})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pullRequests[0], nil
 }
 
 // withMergeReadiness is each row as a pull request, its checks rolled up from the latest reading of them.
@@ -430,12 +435,7 @@ func (s *PullRequestStore) GetByID(ctx context.Context, id string) (*PullRequest
 		return nil, fmt.Errorf("failed to get pull request %s: %w", id, err)
 	}
 
-	pullRequests, err := s.withMergeReadiness(ctx, []*models.PullRequest{row})
-	if err != nil {
-		return nil, err
-	}
-
-	return &pullRequests[0], nil
+	return s.withOneMergeReadiness(ctx, row)
 }
 
 // ListRecipients is every live agent, children aside, whose checkout is on a pull request's
