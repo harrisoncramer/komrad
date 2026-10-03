@@ -331,3 +331,14 @@ func TestPaneShowsTheTopOfARowTallerThanTheWindow(t *testing.T) {
 	assert.Greater(t, height, window.Height)
 	assert.Len(t, pane.Render(window, LiveCursor), window.Height)
 }
+
+// TestPaneKeepsTheCursorInSightWhenLinesStartWrapping covers a window scrolled with lines cut off
+// and drawn again wrapped, before anything scrolls it.
+func TestPaneKeepsTheCursorInSightWhenLinesStartWrapping(t *testing.T) {
+	pane := NewPane(NewView(patchWith(diff.FromTexts("notes.md", longText("old"), longText("new"))), false))
+	cutOff := Window{Width: wrappedWindow.Width, Height: wrappedWindow.Height}
+
+	pane.MoveTo(pane.View().GetLastRow()-4, cutOff)
+
+	assertCursorInSight(t, &pane, wrappedWindow)
+}

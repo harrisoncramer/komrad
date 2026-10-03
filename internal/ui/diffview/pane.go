@@ -326,7 +326,12 @@ func (p *Pane) findWindowStart(window Window) int {
 		drawn += p.view.measureRow(last, window)
 	}
 
-	return max(min(p.top, last), 0)
+	start := max(min(p.top, last), 0)
+	for start < p.cursor && p.countLines(start, p.cursor+1, window) > window.Height {
+		start++
+	}
+
+	return start
 }
 
 // countLines is how many lines the rows from start up to end take.
