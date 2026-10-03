@@ -24,6 +24,7 @@ ON CONFLICT (
 -- name: UpsertChecks :exec
 INSERT INTO pull_request_checks(
     reading_id,
+    pull_request_id,
     provider_id,
     kind,
     source,
@@ -36,6 +37,7 @@ INSERT INTO pull_request_checks(
     url)
 SELECT
     @reading_id,
+    @pull_request_id,
     c.provider_id,
     c.kind,
     c.source,
@@ -111,3 +113,15 @@ ORDER BY
     c.source,
     c.name,
     c.id;
+
+-- name: ListLatestCheckReadings :many
+SELECT DISTINCT ON (r.pull_request_id)
+    *
+FROM
+    pull_request_check_readings r
+WHERE
+    r.pull_request_id = ANY (@pull_request_ids::uuid[])
+ORDER BY
+    r.pull_request_id,
+    r.read_at DESC,
+    r.id DESC;

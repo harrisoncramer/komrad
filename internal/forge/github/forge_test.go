@@ -166,7 +166,7 @@ var fixture = git.RemoteURL{
 
 // failingMergeReadiness is the merge readiness fields GitHub answers beside a pull request on a
 // read of branches, the recorded shape with the values made up.
-const failingMergeReadiness = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE","contexts":{"checkRunCountsByState":[{"state":"FAILURE","count":1},{"state":"IN_PROGRESS","count":0},{"state":"SUCCESS","count":2}],"statusContextCountsByState":[{"state":"PENDING","count":0}]}}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
+const failingMergeReadiness = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
 
 // withMergeReadiness is a pull request node carrying the merge readiness fields.
 func withMergeReadiness(node, readiness string) string {

@@ -15,21 +15,6 @@ import (
 // the pull request named by $pullRequest requires it.
 const checkListFields = `commits(last: 1) { nodes { commit { oid statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes { __typename ... on CheckRun { id name status conclusion startedAt completedAt detailsUrl checkSuite { app { name } workflowRun { workflow { name } } } isRequired(pullRequestId: $pullRequest) } ... on StatusContext { id context state targetUrl createdAt isRequired(pullRequestId: $pullRequest) } } } } } } }`
 
-type rollupNode struct {
-	State    string         `json:"state"`
-	Contexts rollupContexts `json:"contexts"`
-}
-
-type rollupContexts struct {
-	CheckRunCountsByState      []stateCount `json:"checkRunCountsByState"`
-	StatusContextCountsByState []stateCount `json:"statusContextCountsByState"`
-}
-
-type stateCount struct {
-	State string `json:"state"`
-	Count int    `json:"count"`
-}
-
 // checkListNode is the checks GitHub lists on a pull request's newest commit.
 type checkListNode struct {
 	Commits struct {
@@ -115,59 +100,6 @@ func (f *Forge) readCheckListings(ctx context.Context, reading *forge.Reading) e
 	}
 
 	return nil
-}
-
-// checks is the rollup of the head commit in komrad's words, none when the query carried no
-// commit.
-func (n mergeReadinessNode) checks() forge.Checks {
-	if len(n.Commits.Nodes) == 0 {
-		return forge.ChecksNone
-	}
-
-	return checksOf(n.Commits.Nodes[len(n.Commits.Nodes)-1].Commit.StatusCheckRollup)
-}
-
-// checksOf is GitHub's statusCheckRollup state in komrad's words, none for a commit with no
-// rollup.
-func checksOf(rollup *rollupNode) forge.Checks {
-	if rollup == nil {
-		return forge.ChecksNone
-	}
-
-	switch rollup.State {
-	case "SUCCESS":
-		return forge.ChecksPassing
-	case "FAILURE", "ERROR":
-		if rollup.isRunning() {
-			return forge.ChecksFailingRunning
-		}
-
-		return forge.ChecksFailing
-	case "PENDING", "EXPECTED":
-		return forge.ChecksPending
-	}
-
-	return forge.ChecksNone
-}
-
-// isRunning says whether any check run on the rollup is queued or in progress, or any status
-// context is pending.
-func (n *rollupNode) isRunning() bool {
-	for _, count := range n.Contexts.CheckRunCountsByState {
-		switch count.State {
-		case "QUEUED", "IN_PROGRESS", "PENDING":
-			if count.Count > 0 {
-				return true
-			}
-		}
-	}
-	for _, count := range n.Contexts.StatusContextCountsByState {
-		if count.State == "PENDING" && count.Count > 0 {
-			return true
-		}
-	}
-
-	return false
 }
 
 // listingOf is the checks on the head commit, nil when GitHub answered for another commit or no

@@ -278,6 +278,37 @@ func withMergeReadiness(pullRequest forge.PullRequest, answered forge.MergeReadi
 	return pullRequest
 }
 
+// listedChecks is a listing of required checks that stands where word says, blank for none.
+func listedChecks(word forge.Checks) *forge.CheckListing {
+	failed := listedCheck("1", "test", forge.CheckStateCompleted, "failure")
+	switch word {
+	case forge.ChecksPending:
+		return &forge.CheckListing{Checks: []forge.Check{listedCheck("1", "test", forge.CheckStateRunning, "")}}
+	case forge.ChecksPassing:
+		return &forge.CheckListing{Checks: []forge.Check{listedCheck("1", "test", forge.CheckStateCompleted, "success")}}
+	case forge.ChecksFailing:
+		return &forge.CheckListing{Checks: []forge.Check{failed}}
+	case forge.ChecksFailingRunning:
+		return &forge.CheckListing{Checks: []forge.Check{failed, listedCheck("2", "lint", forge.CheckStateRunning, "")}}
+	case forge.ChecksNone:
+	}
+
+	return &forge.CheckListing{}
+}
+
+// listedCheck is a required check run with a link to it.
+func listedCheck(providerID, name string, state forge.CheckState, conclusion string) forge.Check {
+	return forge.Check{
+		ProviderID: providerID,
+		Kind:       forge.CheckKindRun,
+		Name:       name,
+		State:      state,
+		Conclusion: conclusion,
+		Required:   true,
+		URL:        "https://github.com/harrisoncramer/komrad/runs/" + providerID,
+	}
+}
+
 // scriptedHeadSHA is the head every scripted pull request carries.
 const scriptedHeadSHA = "abc"
 
@@ -360,12 +391,12 @@ func TestSyncReadsAQuietRepositoryOnceAMinute(t *testing.T) {
 func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 	pending := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Checks:       forge.ChecksPending,
+		Listing:      listedChecks(forge.ChecksPending),
 		Mergeability: forge.MergeabilityClean,
 	}
 	blank := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Checks:       forge.ChecksNone,
+		Listing:      listedChecks(forge.ChecksNone),
 		Mergeability: forge.MergeabilityUnknown,
 	}
 
@@ -481,7 +512,7 @@ func TestSyncStopsHurryingABlankThatStaysBlank(t *testing.T) {
 	f.agentOn(t, "a", "agent/x")
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Checks:       forge.ChecksNone,
+		Listing:      listedChecks(forge.ChecksNone),
 		Mergeability: forge.MergeabilityUnknown,
 	}))
 	f.sync(t)
@@ -525,24 +556,24 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f.agentOn(t, "a", "agent/x")
 	merged := withMergeReadiness(pullRequestAt("PR_4", "agent/x", syncNow.Add(-4*time.Hour)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
-		Checks:       forge.ChecksFailing,
+		Listing:      listedChecks(forge.ChecksFailing),
 		Mergeability: forge.MergeabilityClean,
 	})
 	merged.State = "MERGED"
 	f.hold(
 		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionPending,
-			Checks:       forge.ChecksPending,
+			Listing:      listedChecks(forge.ChecksPending),
 			Mergeability: forge.MergeabilityClean,
 		}),
 		withMergeReadiness(pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionApproved,
-			Checks:       forge.ChecksPassing,
+			Listing:      listedChecks(forge.ChecksPassing),
 			Mergeability: forge.MergeabilityClean,
 		}),
 		withMergeReadiness(pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionChangesRequested,
-			Checks:       forge.ChecksFailing,
+			Listing:      listedChecks(forge.ChecksFailing),
 			Mergeability: forge.MergeabilityConflicting,
 		}),
 		merged,
@@ -564,7 +595,7 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 
 	failing := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Checks:       forge.ChecksFailing,
+		Listing:      listedChecks(forge.ChecksFailing),
 		Mergeability: forge.MergeabilityClean,
 	}
 	f.forge.pullRequests["harrisoncramer/komrad"][0] = withMergeReadiness(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
@@ -610,7 +641,6 @@ func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
 	f.hold(
 		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionPending,
-			Checks:       forge.ChecksFailing,
 			Mergeability: forge.MergeabilityClean,
 			Listing:      &forge.CheckListing{Checks: []forge.Check{failing}},
 		}),

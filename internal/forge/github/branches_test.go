@@ -70,7 +70,6 @@ func TestReadBranches(t *testing.T) {
 	assert.Equal(t, 1, open.Number)
 	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
-		Checks:       forge.ChecksFailing,
 		Mergeability: forge.MergeabilityUnstable,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 		Listing: &forge.CheckListing{Checks: []forge.Check{
@@ -108,7 +107,6 @@ func TestReadBranches(t *testing.T) {
 	assert.Equal(t, 2, closed.Number)
 	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionApproved,
-		Checks:       forge.ChecksPassing,
 		Mergeability: forge.MergeabilityClean,
 		AutoMerge:    forge.AutoMerge{On: true},
 	}, closed.MergeReadiness)
@@ -154,7 +152,7 @@ func TestReadBranchesRefusals(t *testing.T) {
 }
 
 // passingMergeReadiness is the merge readiness fields of an approved pull request whose checks passed.
-const passingMergeReadiness = `"reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false`
+const passingMergeReadiness = `"reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false`
 
 const closedFixturePull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmIA","number":2,"title":"fixture: closed","url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/2","state":"CLOSED","isDraft":false,"createdAt":"2026-09-17T10:00:00Z","updatedAt":"2026-09-17T11:00:00Z","mergedAt":null,"closedAt":"2026-09-17T11:00:00Z","headRefName":"fixture/closed","headRefOid":"5555555555555555555555555555555555555555","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
 

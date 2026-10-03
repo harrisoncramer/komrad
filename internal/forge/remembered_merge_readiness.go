@@ -52,11 +52,11 @@ type RememberedMergeReadiness struct {
 	MergeabilityBlankSince *time.Time
 }
 
-// RememberRead takes a read of head made at a moment into what komrad remembers.
+// RememberRead takes a read of head made at a moment into what komrad remembers, leaving the checks to their rows.
 func (rs RememberedMergeReadiness) RememberRead(read MergeReadiness, head string, at time.Time) RememberedMergeReadiness {
 	next := RememberedMergeReadiness{
 		Decision:          rememberAnswer(rs.Decision, read.Decision, ""),
-		Checks:            rememberAnswer(rs.Checks, read.Checks, head),
+		Checks:            rs.Checks,
 		Mergeability:      rememberAnswer(rs.Mergeability, read.Mergeability, head),
 		AutoMerge:         &read.AutoMerge,
 		LatestReadHeadSHA: head,
@@ -94,7 +94,7 @@ func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadines
 			To:    string(rs.Decision.Value),
 		})
 	}
-	if rs.Checks.Value != before.Checks.Value || isOnNewHead(before.Checks, rs.Checks) {
+	if !rs.Checks.WasLatestReadBlank && (rs.Checks.Value != before.Checks.Value || isOnNewHead(before.Checks, rs.Checks)) {
 		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldChecks,
 			From:  string(before.Checks.Value),

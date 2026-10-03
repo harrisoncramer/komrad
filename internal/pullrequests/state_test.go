@@ -17,6 +17,7 @@ func TestStateOf(t *testing.T) {
 	tests := []struct {
 		name        string
 		pullRequest pullrequeststore.PullRequest
+		checks      forge.Checks
 		read        forge.MergeReadiness
 		readHead    string
 		want        State
@@ -40,22 +41,18 @@ func TestStateOf(t *testing.T) {
 		{
 			name:        "a draft beats failing checks",
 			pullRequest: pullrequeststore.PullRequest{Draft: true},
-			read: forge.MergeReadiness{
-				Checks: forge.ChecksFailing,
-			},
-			want: StateDraft,
+			checks:      forge.ChecksFailing,
+			want:        StateDraft,
 		},
 		{
-			name: "a failure with others still running is failing",
-			read: forge.MergeReadiness{
-				Checks: forge.ChecksFailingRunning,
-			},
-			want: StateFailing,
+			name:   "a failure with others still running is failing",
+			checks: forge.ChecksFailingRunning,
+			want:   StateFailing,
 		},
 		{
-			name: "failing checks beat a conflict",
+			name:   "failing checks beat a conflict",
+			checks: forge.ChecksFailing,
 			read: forge.MergeReadiness{
-				Checks:       forge.ChecksFailing,
 				Mergeability: forge.MergeabilityConflicting,
 			},
 			want: StateFailing,
@@ -77,51 +74,51 @@ func TestStateOf(t *testing.T) {
 			want: StateChangesRequested,
 		},
 		{
-			name: "a change request beats checks running",
+			name:   "a change request beats checks running",
+			checks: forge.ChecksPending,
 			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionChangesRequested,
-				Checks:   forge.ChecksPending,
 			},
 			want: StateChangesRequested,
 		},
 		{
-			name: "a re-review request beats checks running",
+			name:   "a re-review request beats checks running",
+			checks: forge.ChecksPending,
 			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionRereviewRequested,
-				Checks:   forge.ChecksPending,
 			},
 			want: StateRereviewRequested,
 		},
 		{
-			name: "failing checks beat a re-review request",
+			name:   "failing checks beat a re-review request",
+			checks: forge.ChecksFailing,
 			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionRereviewRequested,
-				Checks:   forge.ChecksFailing,
 			},
 			want: StateFailing,
 		},
 		{
-			name: "checks running beat an approval on a clean branch",
+			name:   "checks running beat an approval on a clean branch",
+			checks: forge.ChecksPending,
 			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionApproved,
-				Checks:       forge.ChecksPending,
 				Mergeability: forge.MergeabilityClean,
 			},
 			want: StateChecksRunning,
 		},
 		{
-			name: "clean beats an approval that would otherwise wait",
+			name:   "clean beats an approval that would otherwise wait",
+			checks: forge.ChecksPassing,
 			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionApproved,
-				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityClean,
 			},
 			want: StateApproved,
 		},
 		{
-			name: "clean with no decision is ready, since the forge's rules asked for no review",
+			name:   "clean with no decision is ready, since the forge's rules asked for no review",
+			checks: forge.ChecksPassing,
 			read: forge.MergeReadiness{
-				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityClean,
 			},
 			want: StateApproved,
@@ -142,10 +139,10 @@ func TestStateOf(t *testing.T) {
 			want: StateApprovedWaiting,
 		},
 		{
-			name: "approved and behind is waiting though its checks pass",
+			name:   "approved and behind is waiting though its checks pass",
+			checks: forge.ChecksPassing,
 			read: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionApproved,
-				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityBehind,
 			},
 			want: StateApprovedWaiting,
@@ -180,6 +177,7 @@ func TestStateOf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := tt.pullRequest
 			pullRequest.MergeReadiness = pullRequest.MergeReadiness.RememberRead(tt.read, tt.readHead, stamp)
+			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[forge.Checks]{Value: tt.checks, HeadSHA: tt.readHead}
 
 			assert.Equal(t, tt.want, StateOf(pullRequest))
 		})

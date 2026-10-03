@@ -1,6 +1,7 @@
 package pullrequests
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -83,11 +84,9 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 
 	noun := "pull request"
 	ref := fmt.Sprintf("#%d", pullRequest.Number)
-	checks := fmt.Sprintf("gh pr checks %d", pullRequest.Number)
 	if pullRequest.Forge == forge.KindGitLab {
 		noun = "merge request"
 		ref = fmt.Sprintf("!%d", pullRequest.Number)
-		checks = "glab ci status --branch " + pullRequest.HeadBranch
 	}
 
 	var body strings.Builder
@@ -95,9 +94,24 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 	for _, field := range fieldOrder {
 		fmt.Fprintf(&body, "  %s: %s\n", field, describe(field, now[field], pullRequest))
 	}
-	fmt.Fprintf(&body, "Read its checks with %s. Review comments reach you through the person's review in komrad, so do not fetch them from the forge.", checks)
+	if failing := failingChecks(pullRequest); len(failing) > 0 {
+		body.WriteString("Failing checks:\n")
+		for _, check := range failing {
+			fmt.Fprintf(&body, "  %s: %s\n", check.Name, cmp.Or(check.URL, "no link"))
+		}
+	}
+	body.WriteString("Review comments reach you through the person's review in komrad, so do not fetch them from the forge.")
 
 	return body.String()
+}
+
+// failingChecks is the checks that decide the head and failed, none while the head's checks are not shown.
+func failingChecks(pullRequest pullrequeststore.PullRequest) []forge.Check {
+	if slices.Contains([]forge.Checks{forge.ChecksFailing, forge.ChecksFailingRunning}, pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA).Checks.Value) {
+		return slices.DeleteFunc(forge.DecidingChecks(pullRequest.HeadChecks), func(check forge.Check) bool { return !check.IsFailing() })
+	}
+
+	return nil
 }
 
 // fieldValues is the value each field of the pull request stands at.

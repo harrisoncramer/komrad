@@ -22,7 +22,7 @@ const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
 // mergeReadinessFields is what the decision, checks, mergeability and auto-merge of a merge request
 // are folded from: its approvals, its reviewers' states, the status of the pipeline on its
 // head, its detailed merge status, whether it is set to merge on its own and how it could be.
-const mergeReadinessFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { sha status mergeRequestEventType } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
+const mergeReadinessFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { id sha status mergeRequestEventType path startedAt finishedAt } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
 
 const getQuery = `query Get($path: ID!, $iid: String!) {
   project(fullPath: $path) { mergeRequest(iid: $iid) { ...mergeRequestFields } }
@@ -159,8 +159,8 @@ type mergeReadinessNode struct {
 	AvailableAutoMergeStrategies []string      `json:"availableAutoMergeStrategies"`
 }
 
-// toPullRequest is the node as the record, carrying its decision and checks when the query
-// asked for them.
+// toPullRequest is the node as the record, carrying its merge readiness when the query asked
+// for it.
 func (n mergeRequestNode) toPullRequest(withMergeReadiness bool) forge.PullRequest {
 	baseSHA := ""
 	if n.DiffRefs != nil {
@@ -191,7 +191,7 @@ func (n mergeRequestNode) toPullRequest(withMergeReadiness bool) forge.PullReque
 	if withMergeReadiness {
 		pullRequest.MergeReadiness = &forge.MergeReadiness{
 			Decision:     n.decision(),
-			Checks:       n.checks(),
+			Listing:      n.listing(),
 			Mergeability: n.mergeability(),
 			AutoMerge:    n.autoMerge(),
 		}

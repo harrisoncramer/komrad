@@ -362,7 +362,7 @@ func TestSetMergeReadinessOnAMissingRowChangesNothing(t *testing.T) {
 
 	change, err := h.SetMergeReadiness(t.Context(), SetMergeReadinessParams{
 		ID:             uuid.NewString(),
-		MergeReadiness: forge.MergeReadiness{Checks: forge.ChecksFailing},
+		MergeReadiness: forge.MergeReadiness{Listing: &forge.CheckListing{Checks: []forge.Check{failedTest}}},
 		ReadAt:         time.Now(),
 	})
 	require.NoError(t, err)
@@ -401,24 +401,30 @@ func TestListRecipients(t *testing.T) {
 	assert.Equal(t, []string{onBranch}, recipients, "only the live parent on the branch is told")
 }
 
+var failedTest = checkRun("1", "test", forge.CheckStateCompleted, "failure")
+
 // TestSetMergeReadinessRemembersWhatEveryReadLeaves covers the remembered merge readiness reading back from the row as it was after each read.
 func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
 	failing := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
-		Checks:       forge.ChecksFailing,
+		Listing:      &forge.CheckListing{Checks: []forge.Check{failedTest}},
 		Mergeability: forge.MergeabilityUnstable,
 		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
 	}
 	passing := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionApproved,
-		Checks:       forge.ChecksPassing,
+		Listing:      &forge.CheckListing{Checks: []forge.Check{checkRun("2", "test", forge.CheckStateCompleted, "success")}},
 		Mergeability: forge.MergeabilityClean,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 	}
+	blank := forge.MergeReadiness{Listing: &forge.CheckListing{}}
+	failingOnABC := forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksFailing, HeadSHA: "abc"}
+	unconfirmedOnABC := forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksFailing, HeadSHA: "abc", WasLatestReadBlank: true}
 	type mergeReadinessRead struct {
-		readiness forge.MergeReadiness
-		head      string
+		readiness  forge.MergeReadiness
+		head       string
+		wantChecks forge.RememberedAnswer[forge.Checks]
 	}
 	type setMergeReadinessTest struct {
 		name  string
@@ -429,35 +435,38 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 		{
 			name: "a blank first read",
 			reads: []mergeReadinessRead{
-				{head: "abc"},
-				{readiness: failing, head: "abc"},
+				{readiness: blank, head: "abc", wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "abc", WasLatestReadBlank: true}},
+				{readiness: failing, head: "abc", wantChecks: failingOnABC},
 			},
 		},
 		{
-			name:  "a read with no head",
-			reads: []mergeReadinessRead{{readiness: failing}},
+			name: "a read that did not list the checks",
+			reads: []mergeReadinessRead{
+				{readiness: failing, head: "abc", wantChecks: failingOnABC},
+				{readiness: forge.MergeReadiness{Decision: forge.ReviewDecisionApproved}, head: "def", wantChecks: failingOnABC},
+			},
 		},
 		{
 			name: "blanks on the same head",
 			reads: []mergeReadinessRead{
-				{readiness: failing, head: "abc"},
-				{head: "abc"},
-				{head: "abc"},
+				{readiness: failing, head: "abc", wantChecks: failingOnABC},
+				{readiness: blank, head: "abc", wantChecks: unconfirmedOnABC},
+				{readiness: blank, head: "abc", wantChecks: unconfirmedOnABC},
 			},
 		},
 		{
 			name: "a blank on a new head",
 			reads: []mergeReadinessRead{
-				{readiness: failing, head: "abc"},
-				{head: "def"},
+				{readiness: failing, head: "abc", wantChecks: failingOnABC},
+				{readiness: blank, head: "def", wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "def", WasLatestReadBlank: true}},
 			},
 		},
 		{
 			name: "an answer after a blank",
 			reads: []mergeReadinessRead{
-				{readiness: failing, head: "abc"},
-				{head: "abc"},
-				{readiness: passing, head: "def"},
+				{readiness: failing, head: "abc", wantChecks: failingOnABC},
+				{readiness: blank, head: "abc", wantChecks: unconfirmedOnABC},
+				{readiness: passing, head: "def", wantChecks: forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksPassing, HeadSHA: "def"}},
 			},
 		},
 	}
@@ -482,6 +491,7 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 				assert.Equal(t, want, inUTC(change.Before))
 
 				want = want.RememberRead(read.readiness, read.head, at)
+				want.Checks = read.wantChecks
 				assert.Equal(t, want, inUTC(change.After))
 
 				stored, err := h.GetByID(ctx, written.ID)
@@ -490,6 +500,35 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSetMergeReadinessHandsBackTheHeadChecks covers a read handing back every check stored on the head it was read for.
+func TestSetMergeReadinessHandsBackTheHeadChecks(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+	lint := checkRun("2", "lint", forge.CheckStateRunning, "")
+
+	_, err = h.SetMergeReadiness(ctx, SetMergeReadinessParams{
+		ID:             written.ID,
+		MergeReadiness: forge.MergeReadiness{Listing: &forge.CheckListing{Checks: []forge.Check{failedTest, lint}}},
+		HeadSHA:        "abc",
+		ReadAt:         checkReadAt,
+	})
+	require.NoError(t, err)
+	change, err := h.SetMergeReadiness(ctx, SetMergeReadinessParams{
+		ID:             written.ID,
+		MergeReadiness: forge.MergeReadiness{Listing: &forge.CheckListing{}},
+		HeadSHA:        "abc",
+		ReadAt:         checkReadAt.Add(time.Minute),
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, []forge.Check{lint, failedTest}, checksInUTC(change.HeadChecks), "a blank read keeps the checks listed before it")
+	stored, err := h.GetByID(ctx, written.ID)
+	require.NoError(t, err)
+	assert.Equal(t, change.HeadChecks, stored.HeadChecks)
 }
 
 // TestSetMergeReadinessWritesNothingNew covers a read that leaves the remembered merge readiness as it was writing nothing.
@@ -507,7 +546,7 @@ func TestSetMergeReadinessWritesNothingNew(t *testing.T) {
 	}
 	params := SetMergeReadinessParams{
 		ID:             written.ID,
-		MergeReadiness: forge.MergeReadiness{Checks: forge.ChecksFailing},
+		MergeReadiness: forge.MergeReadiness{Listing: &forge.CheckListing{Checks: []forge.Check{failedTest}}},
 		HeadSHA:        "abc",
 		ReadAt:         time.Now(),
 	}
@@ -526,4 +565,13 @@ func inUTC(readiness forge.RememberedMergeReadiness) forge.RememberedMergeReadin
 	}
 
 	return readiness
+}
+
+// checksInUTC is the checks with their start times in UTC.
+func checksInUTC(checks []forge.Check) []forge.Check {
+	return xslice.Map(checks, func(check forge.Check) forge.Check {
+		check.StartedAt = xptr.Ptr(check.StartedAt.UTC())
+
+		return check
+	})
 }
