@@ -138,6 +138,10 @@ func TestALineReachesTheTerminalWithoutItsControlCharacters(t *testing.T) {
 			name: "a backspace",
 			text: "ab\bc",
 		},
+		{
+			name: "a C1 control sequence introducer",
+			text: "fmt.Print(\"\u009b2J\")",
+		},
 	}
 
 	colour := regexp.MustCompile(`\x1b\[[0-9;]*m`)

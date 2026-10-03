@@ -2,6 +2,7 @@ package paint
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -10,13 +11,10 @@ import (
 // panel draws.
 func StripControls(text string) string {
 	return strings.Map(func(r rune) rune {
-		switch {
-		case r == '\t':
-			return r
-		case r < ' ' || r == 0x7f:
+		if r != '\t' && unicode.IsControl(r) {
 			return -1
-		default:
-			return r
 		}
+
+		return r
 	}, ansi.Strip(text))
 }
