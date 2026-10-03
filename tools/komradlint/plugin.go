@@ -99,6 +99,11 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	sleeps, err := newCtxSleep(l.config.CtxSleep)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -114,6 +119,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		stores,
 		beside,
 		bound,
+		sleeps,
 	}, nil
 }
 

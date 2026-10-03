@@ -473,6 +473,12 @@ linters:
               - komrad/internal/ui.reviewScreen.updateRelease
             exclude:
               - _test\.go$
+          ctx_sleep:
+            skip: false
+            # Unanchored regexps over the path lint was run from. The package that defines
+            # Sleep.
+            exclude:
+              - ^lib/clock/
       fussy:
         type: module
         description: General Go checks from fussy.

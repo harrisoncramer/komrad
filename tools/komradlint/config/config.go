@@ -17,6 +17,15 @@ type Config struct {
 	FakeStore      FakeStoreConfig      `json:"fake_store"`
 	TestBeside     BesideConfig         `json:"test_beside"`
 	BoundKey       BoundKeyConfig       `json:"bound_key"`
+	CtxSleep       CtxSleepConfig       `json:"ctx_sleep"`
+}
+
+// CtxSleepConfig settles where a select may wait out a delay by hand.
+type CtxSleepConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path, for the package that defines Sleep.
+	Exclude []string `json:"exclude"`
 }
 
 // BlackBoxConfig settles which types a test inside their package may not drive.

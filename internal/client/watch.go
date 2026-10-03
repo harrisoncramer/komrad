@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/lib/clock"
 	watchv1 "komrad/proto/gen/watch/v1"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 
@@ -82,10 +83,9 @@ func Watch(ctx context.Context, params WatchParams) {
 			wait = params.Retry
 		}
 
-		select {
-		case <-ctx.Done():
+		clock.Sleep(ctx, wait)
+		if ctx.Err() != nil {
 			return
-		case <-time.After(wait):
 		}
 
 		wait = min(wait*2, params.MaxRetry)

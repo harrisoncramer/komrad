@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"komrad/lib/clock"
 )
 
 // dialTimeout is how long one attempt to reach the forwarded port may take.
@@ -165,10 +167,9 @@ func (t *Tunnel) waitForAnswer(ctx context.Context, running *forward) error {
 			return fmt.Errorf("nothing answered on %s within %s", t.Local, t.wait)
 		}
 
-		select {
-		case <-ctx.Done():
+		clock.Sleep(ctx, pollInterval)
+		if ctx.Err() != nil {
 			return ctx.Err()
-		case <-time.After(pollInterval):
 		}
 	}
 }
@@ -186,7 +187,8 @@ func (t *Tunnel) keep(ctx context.Context) {
 		}
 
 		if running == nil {
-			if !sleep(ctx, borrowedProbeInterval) {
+			clock.Sleep(ctx, borrowedProbeInterval)
+			if ctx.Err() != nil {
 				return
 			}
 
@@ -208,7 +210,8 @@ func (t *Tunnel) keep(ctx context.Context) {
 				continue
 			}
 
-			if !sleep(ctx, redialDelay) {
+			clock.Sleep(ctx, redialDelay)
+			if ctx.Err() != nil {
 				return
 			}
 		}
@@ -222,16 +225,6 @@ func (t *Tunnel) keep(ctx context.Context) {
 			t.forward = nil
 			t.mu.Unlock()
 		}
-	}
-}
-
-// sleep waits out the delay and reports whether the context outlived it.
-func sleep(ctx context.Context, delay time.Duration) bool {
-	select {
-	case <-ctx.Done():
-		return false
-	case <-time.After(delay):
-		return true
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 
 	"komrad/internal/caller"
 	"komrad/internal/logging"
+	"komrad/lib/clock"
 	"komrad/lib/xsync"
 )
 
@@ -223,7 +224,8 @@ func runLoop(ctx context.Context, loop *Loop, logger *slog.Logger) {
 			loop.waker.drain()
 		case <-loop.waker.wake:
 			woken = true
-			if !waitUntil(ctx, started.Add(loop.floor)) {
+			clock.Sleep(ctx, time.Until(started.Add(loop.floor)))
+			if ctx.Err() != nil {
 				return
 			}
 			select {
@@ -231,24 +233,6 @@ func runLoop(ctx context.Context, loop *Loop, logger *slog.Logger) {
 			default:
 			}
 		}
-	}
-}
-
-// waitUntil sleeps until the moment, reporting false when the context ends first.
-func waitUntil(ctx context.Context, moment time.Time) bool {
-	wait := time.Until(moment)
-	if wait <= 0 {
-		return true
-	}
-
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return false
-	case <-timer.C:
-		return true
 	}
 }
 

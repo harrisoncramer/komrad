@@ -10,6 +10,7 @@ import (
 
 	"komrad/internal/logging"
 	notifystore "komrad/internal/store/notify"
+	"komrad/lib/clock"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -46,10 +47,9 @@ func (b *Broker) reconnect(ctx context.Context) *pgx.Conn {
 	wait := listenRetry
 
 	for {
-		select {
-		case <-ctx.Done():
+		clock.Sleep(ctx, wait)
+		if ctx.Err() != nil {
 			return nil
-		case <-time.After(wait):
 		}
 
 		conn, err := b.connect(ctx)
