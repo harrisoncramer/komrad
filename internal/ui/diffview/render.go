@@ -49,9 +49,9 @@ func (v *View) renderRow(y int, cursor Cursor, width, offset int) string {
 	case fileRow:
 		return v.renderFileRow(y, current, cursor, width)
 	case metadataRow:
-		return ansi.Truncate(metadataStyle.Render("  "+current.text), width, "…")
+		return ansi.Truncate(metadataStyle.Render("  "+sanitize(current.text)), width, "…")
 	case hunkRow:
-		return ansi.Truncate(paint.Panel.Style(paint.ToneSecondary).Render(current.text), width, "…")
+		return ansi.Truncate(paint.Panel.Style(paint.ToneSecondary).Render(sanitize(current.text)), width, "…")
 	case threadRow:
 		return v.renderThreadRow(current, cursor, width)
 	case changeRow:
@@ -88,7 +88,7 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 			pieceStyle = style.Background(paint.Panel.Background(paint.ShadeMatch))
 		}
 
-		out.WriteString(pieceStyle.Render(piece.text))
+		out.WriteString(pieceStyle.Render(sanitize(piece.text)))
 	}
 
 	text := out.String()
@@ -238,7 +238,7 @@ func renderSaidRow(params renderSaidRowParams) string {
 	background := getBackground(diff.Context, params.Cursor)
 	style := lipgloss.NewStyle().Background(background)
 	head := strings.Repeat(" ", max(GutterWidth-2, 0))
-	said := style.Foreground(paint.Panel.Color(paint.ToneMuted)).Italic(true).Render(params.Said)
+	said := style.Foreground(paint.Panel.Color(paint.ToneMuted)).Italic(true).Render(sanitize(params.Said))
 
 	return ansi.Truncate(
 		style.Render(head)+params.MarkStyle.Background(background).Render(params.Mark)+style.Render(" ")+
@@ -308,7 +308,7 @@ func renderTokens(line styledLine, fallback string, background color.Color, foun
 				pieceStyle = style.Background(paint.Panel.Background(paint.ShadeMatch))
 			}
 
-			out.WriteString(pieceStyle.Render(expandTabs(paint.StripControls(piece.text))))
+			out.WriteString(pieceStyle.Render(sanitize(piece.text)))
 		}
 
 		at += len(current.text)
@@ -377,4 +377,8 @@ func fitWindow(value string, offset, width int, background color.Color) string {
 
 func expandTabs(value string) string {
 	return strings.ReplaceAll(value, "\t", strings.Repeat(" ", tabWidth))
+}
+
+func sanitize(value string) string {
+	return expandTabs(paint.StripControls(value))
 }

@@ -115,9 +115,9 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	assert.Equal(t, paint.Panel.Style(paint.ToneUserAgent), style, "a thread the agent opened is drawn in its own colour")
 }
 
-// TestALineReachesTheTerminalWithoutItsControlCharacters pins a file's own control bytes against
-// moving the cursor or repainting the pane.
-func TestALineReachesTheTerminalWithoutItsControlCharacters(t *testing.T) {
+// TestTheDiffReachesTheTerminalWithoutItsControlCharacters pins control bytes in a path, hunk heading
+// or line against moving the cursor or repainting the pane.
+func TestTheDiffReachesTheTerminalWithoutItsControlCharacters(t *testing.T) {
 	t.Parallel()
 
 	type testCase struct {
@@ -150,16 +150,18 @@ func TestALineReachesTheTerminalWithoutItsControlCharacters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			hunk := hunkOf(diff.Line{
+				Kind:      diff.Addition,
+				Text:      tt.text,
+				NewNumber: 1,
+			})
+			hunk.Header += " " + tt.text
+
 			view := NewView(patchWith(diff.File{
-				OldPath: "greet.go",
-				NewPath: "greet.go",
-				Hunks: []diff.Hunk{hunkOf(
-					diff.Line{
-						Kind:      diff.Addition,
-						Text:      tt.text,
-						NewNumber: 1,
-					},
-				)},
+				OldPath:  "greet.go",
+				NewPath:  "greet" + tt.text + ".go",
+				Metadata: []string{"renamed from " + tt.text},
+				Hunks:    []diff.Hunk{hunk},
 			}), false)
 
 			for y := range view.Len() {
