@@ -73,10 +73,10 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		cursor := paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1
 
 		return popupStage{
-			top:    paint.CountLines(band + layout.bar),
-			cursor: cursor,
-			last:   cursor,
-			rows:   paint.CountLines(strings.TrimRight(band+r.drawSidebar(layout), "\n")),
+			top:        paint.CountLines(band + layout.bar),
+			cursor:     cursor,
+			cursorLast: cursor,
+			rows:       paint.CountLines(strings.TrimRight(band+r.drawSidebar(layout), "\n")),
 		}
 	}
 
@@ -84,9 +84,9 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 	first, height := r.diff.GetCursorRow(r.diffWindow(m))
 
 	return popupStage{
-		top:    strings.Count(r.layoutSidebar(m).bar, "\n"),
-		cursor: above + first,
-		last:   above + first + height - 1,
-		rows:   above + split.rows,
+		top:        strings.Count(r.layoutSidebar(m).bar, "\n"),
+		cursor:     above + first,
+		cursorLast: above + first + height - 1,
+		rows:       above + split.rows,
 	}
 }

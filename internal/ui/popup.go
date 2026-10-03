@@ -84,28 +84,28 @@ func (p popupScroll) back(owner string) int {
 // popupStage is the rows a popup stands over: the first it may take, the first and last lines the
 // cursor's row is drawn on and how many there are.
 type popupStage struct {
-	top    int
-	cursor int
-	last   int
-	rows   int
+	top        int
+	cursor     int
+	cursorLast int
+	rows       int
 }
 
 // placePopup stands a popup as tall as asked, up to its tallest, over the cursor's row of a stage,
 // or under it when there is no room above, shrinking into the roomier side when neither holds it
 // whole, against the code beside the anchor's columns.
 func placePopup(anchor popupAnchor, stage popupStage, tall int) popupSlot {
-	above, below := stage.cursor-stage.top, stage.rows-stage.last-1
+	above, below := stage.cursor-stage.top, stage.rows-stage.cursorLast-1
 
 	want := min(tall, popupHeight)
 	height, y := want, stage.cursor-want
 	switch {
 	case above >= want:
 	case below >= want:
-		y = stage.last + 1
+		y = stage.cursorLast + 1
 	case above >= below:
 		height, y = above, stage.top
 	default:
-		height, y = below, stage.last+1
+		height, y = below, stage.cursorLast+1
 	}
 
 	width := anchor.measureWidth()
