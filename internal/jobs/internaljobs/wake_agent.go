@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/agents"
 	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
 
@@ -51,7 +52,7 @@ func (WakeAgentArgs) InsertOpts() river.InsertOpts {
 }
 
 type AgentResumer interface {
-	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
+	ResumeAgent(ctx context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error)
 }
 
 type WakeAgentWorker struct {
@@ -71,7 +72,7 @@ func (w *WakeAgentWorker) Timeout(*river.Job[WakeAgentArgs]) time.Duration {
 
 // Work resumes the agent, leaving one that is gone, held or already being resumed alone.
 func (w *WakeAgentWorker) Work(ctx context.Context, job *river.Job[WakeAgentArgs]) error {
-	_, err := w.resumer.ResumeAgent(ctx, job.Args.AgentID)
+	_, err := w.resumer.ResumeAgent(ctx, agents.ResumeAgentParams{ID: job.Args.AgentID})
 	switch {
 	case errors.Is(err, agenterr.ErrResumeInFlight),
 		errors.Is(err, agenterr.ErrAgentArchived),

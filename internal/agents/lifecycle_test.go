@@ -599,7 +599,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("resuming it opens a window rather than adopting the pane", func(t *testing.T) {
 		manager, st, tmux, dormant := setup(t)
-		resumed, err := manager.resume.ResumeAgent(t.Context(), dormant.ID)
+		resumed, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: dormant.ID})
 		require.NoError(t, err)
 		assert.NotEqual(t, shared, resumed.Pane, "a resume that read the pane as its own would relaunch nothing")
 		assert.Equal(t, dormant.ID, tmux.Owners[resumed.Pane], "and the new pane is its own")
@@ -693,7 +693,7 @@ func TestRestore(t *testing.T) {
 			assert.Empty(t, tmux.Owners, "a restore starts nothing, so no pane was opened")
 			assert.False(t, manager.panes.IsAgentRunning(restored), "it comes back dormant, waiting to be resumed")
 
-			resumed, err := manager.resume.ResumeAgent(ctx, original.ID)
+			resumed, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: original.ID})
 			require.NoError(t, err)
 			assert.Equal(t, original.ID, tmux.Owners[resumed.Pane], "resuming stamps the pane it came back in")
 			assert.True(t, manager.panes.IsAgentRunning(*resumed), "so it reads as running again")

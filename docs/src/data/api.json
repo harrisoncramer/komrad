@@ -319,10 +319,12 @@
           "tool": "resume_agent",
           "mcp": true,
           "roles": [
+            "implementer",
+            "reviewer",
             "orchestrator"
           ],
           "summary": "Relaunch an agent's CLI on the same conversation, such as when its pane died.",
-          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first.",
+          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An implementer or reviewer may resume only its parent and its workflow's orchestrator.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,

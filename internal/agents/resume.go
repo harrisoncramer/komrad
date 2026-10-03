@@ -12,6 +12,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agenterr"
+	"komrad/internal/fail"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
@@ -25,6 +26,9 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"so nothing you had in flight was carried over. Read back over the conversation, work out what you " +
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
+
+// ErrResumeNotYours is an agent other than an orchestrator resuming an agent that is neither its parent nor its workflow's orchestrator.
+var ErrResumeNotYours = fail.Denied("an agent may resume only its parent and its workflow's orchestrator")
 
 type NewResumeServiceParams struct {
 	Tmux               paneController
@@ -69,10 +73,20 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 	}
 }
 
+// ResumeAgentParams is the agent to resume and the agent asking.
+type ResumeAgentParams struct {
+	ID string
+	// ByAgentID is the agent asking, empty for the panel.
+	ByAgentID string
+}
+
 // ResumeAgent relaunches a dormant agent in its previous conversation.
-func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agent, err := s.getByID(ctx, id)
+func (s *ResumeService) ResumeAgent(ctx context.Context, params ResumeAgentParams) (*agentstore.Agent, error) {
+	agent, err := s.getByID(ctx, params.ID)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.refuseResumingOthers(ctx, params.ByAgentID, *agent); err != nil {
 		return nil, err
 	}
 	if agent.ArchivedAt != nil {
@@ -92,7 +106,30 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 		return nil, err
 	}
 
-	return s.getByID(ctx, id)
+	return s.getByID(ctx, params.ID)
+}
+
+// refuseResumingOthers holds an agent other than an orchestrator to its parent and its workflow's orchestrator.
+func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID string, target agentstore.Agent) error {
+	if byAgentID == "" {
+		return nil
+	}
+
+	asker, err := s.agents.GetByID(ctx, byAgentID)
+	if err != nil {
+		return fmt.Errorf("failed to get the agent resuming: %w", err)
+	}
+	if asker.Role == agentstore.RoleOrchestrator {
+		return nil
+	}
+	if asker.ParentAgentID != nil && *asker.ParentAgentID == target.ID {
+		return nil
+	}
+	if target.Role == agentstore.RoleOrchestrator && target.WorkflowID == asker.WorkflowID {
+		return nil
+	}
+
+	return ErrResumeNotYours.Saying("%s is neither the parent of %s nor its workflow's orchestrator", target.Name, asker.Name)
 }
 
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {

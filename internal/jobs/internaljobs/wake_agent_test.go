@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/agents"
 	agentstore "komrad/internal/store/agent"
 
 	"github.com/riverqueue/river"
@@ -18,13 +19,13 @@ type fakeAgentResumer struct {
 	resumed []string
 }
 
-func (f *fakeAgentResumer) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
-	f.resumed = append(f.resumed, id)
+func (f *fakeAgentResumer) ResumeAgent(_ context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error) {
+	f.resumed = append(f.resumed, params.ID)
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return &agentstore.Agent{ID: id}, nil
+	return &agentstore.Agent{ID: params.ID}, nil
 }
 
 // TestWakeAgentWorker pins which failures to resume an agent are left for River to retry.

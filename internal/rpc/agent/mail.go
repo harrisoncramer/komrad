@@ -61,7 +61,7 @@ func (s *Handler) buildDormantWarning(recipient agentstore.Agent) *string {
 		return nil
 	}
 
-	return xptr.Ptr(fmt.Sprintf("%s is dormant, nothing runs behind it, so this mail waits until it is resumed", recipient.Name))
+	return xptr.Ptr(fmt.Sprintf("%s is dormant, nothing runs behind it, so this mail waits until resume_agent wakes it with id %s", recipient.Name, recipient.ID))
 }
 
 // ReadMail claims an agent's waiting mail, defaulting to the caller's own mailbox.

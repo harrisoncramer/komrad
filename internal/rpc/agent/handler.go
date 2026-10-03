@@ -54,7 +54,7 @@ type agentLifecycle interface {
 }
 
 type agentResumer interface {
-	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
+	ResumeAgent(ctx context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error)
 }
 
 type agentHolder interface {
@@ -438,7 +438,10 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
 func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentRequest) (*agentv1.ResumeAgentResponse, *fail.Error) {
-	resumed, err := s.resumer.ResumeAgent(ctx, req.GetId())
+	resumed, err := s.resumer.ResumeAgent(ctx, agents.ResumeAgentParams{
+		ID:        req.GetId(),
+		ByAgentID: caller.From(ctx).AgentID,
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to resume agent")
 	}

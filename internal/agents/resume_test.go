@@ -126,7 +126,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("the resume opens with the ask, and does not carry it into a later one", func(t *testing.T) {
 		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, sessionID)
 
-		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 1)
 		assert.Equal(t, interruptedPrompt, fakeHarness.Launches[0].Prompt)
@@ -155,7 +155,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, agentstore.StateIdle, agentByID(t, st, agent.ID).State, "the restore brings back a settled row")
 
-		_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err = service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 1)
 		assert.Equal(t, interruptedPrompt, fakeHarness.Launches[0].Prompt)
@@ -179,7 +179,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("a turn the store still has running is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
 		service, _, fakeHarness, agent := unwatched(t, agentstore.StateThinking)
 
-		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 1)
 		assert.Equal(t, interruptedPrompt, fakeHarness.Launches[0].Prompt)
@@ -188,7 +188,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("a turn left waiting on a person is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
 		service, _, fakeHarness, agent := unwatched(t, agentstore.StateWaiting)
 
-		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 1)
 		assert.Equal(t, interruptedPrompt, fakeHarness.Launches[0].Prompt)
@@ -198,7 +198,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		service, st, fakeHarness, agent := unwatched(t, agentstore.StateThinking)
 		fakeHarness.CommandErr = errors.New("no")
 
-		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.Error(t, err)
 		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt,
 			"the state it was read from is gone, so the turn only survives as the stamp")
@@ -207,7 +207,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("an agent that finished its turn resumes without being told anything", func(t *testing.T) {
 		service, _, fakeHarness, agent := cut(t, agentstore.StateIdle, sessionID)
 
-		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 1)
 		assert.Empty(t, fakeHarness.Launches[0].Prompt)
@@ -216,7 +216,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("an agent with no conversation to reopen is not asked about a turn it cannot read", func(t *testing.T) {
 		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, "")
 
-		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 1)
 		assert.Empty(t, fakeHarness.Launches[0].Prompt, "a fresh conversation cannot be asked to read back over itself")
@@ -228,7 +228,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("a turn cut off before its conversation was named is not asked about after a fresh one is", func(t *testing.T) {
 		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, "")
 
-		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 1)
 		require.Empty(t, fakeHarness.Launches[0].Prompt)
@@ -249,7 +249,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 			require.NoError(t, rec.Reconcile(t.Context()))
 		}
 
-		_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
+		_, err = service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
 		require.Len(t, fakeHarness.Launches, 2)
 		assert.True(t, fakeHarness.Launches[1].Resume, "the conversation it learned is what this reopens")
@@ -282,7 +282,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	require.Nil(t, stored.InterruptedAt, "no pass could look at a pane, so nothing recorded the turn")
 	require.Equal(t, agentstore.StateThinking, stored.State)
 
-	_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
+	_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 	require.NoError(t, err)
 	require.Len(t, fakeHarness.Launches, 1)
 	assert.Equal(t, interruptedPrompt, fakeHarness.Launches[0].Prompt)
@@ -290,7 +290,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	stored = agentByID(t, st, agent.ID)
 	tmux.KillPane(stored.Pane)
 
-	_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
+	_, err = service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 	require.NoError(t, err)
 	require.Len(t, fakeHarness.Launches, 2)
 	assert.Empty(t, fakeHarness.Launches[1].Prompt, "the ask is made once, and the row it was read from now says idle")
@@ -330,7 +330,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.Error(t, err)
 
 	assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
@@ -363,13 +363,13 @@ func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 
 	first := make(chan error, 1)
 	go func() {
-		_, err := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		_, err := manager.resume.ResumeAgent(context.WithoutCancel(ctx), ResumeAgentParams{ID: agent.ID})
 		first <- err
 	}()
 
 	<-arrived
 
-	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.ErrorIs(t, err, agenterr.ErrResumeInFlight)
 
 	close(release)
@@ -390,12 +390,12 @@ func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 
 	manager := newManager(tmux, st, "")
 
-	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.NoError(t, err)
 
 	tmux.KillPane(agentByID(t, st, agent.ID).Pane)
 
-	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.NoError(t, err, "the claim goes with the resume that took it")
 	assert.Equal(t, 2, tmux.WindowsOpened())
 }
@@ -424,7 +424,7 @@ func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 		})
 	}
 
-	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.ErrorIs(t, err, agenterr.ErrAgentArchived)
 
 	after := agentByID(t, st, agent.ID)
@@ -459,7 +459,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), ResumeAgentParams{ID: agent.ID})
 		done <- resumeErr
 	}()
 
@@ -510,7 +510,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), ResumeAgentParams{ID: agent.ID})
 		done <- resumeErr
 	}()
 
@@ -549,7 +549,7 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	tmux.AfterSetOwner = cancel
 
-	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.ErrorContains(t, err, "failed to resume agent", "the write that failed is the last one")
 
 	after := agentByID(t, st, agent.ID)
@@ -614,7 +614,7 @@ func TestResumeRunsTheProvisioner(t *testing.T) {
 			agent.Cwd = recorded
 			require.NoError(t, st.Agents.Update(ctx, agent))
 
-			resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
+			resumed, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 
 			assert.Equal(t, []string{worktreeProvisioner}, lifecycle.resumed, "the workflow's own script is what fired")
 
@@ -651,7 +651,7 @@ func TestResumeWithoutAProvisionerFiresNothing(t *testing.T) {
 
 	agent := seed(t, st, "auth", "%0", agentstore.StateIdle)
 
-	_, err := manager.resume.ResumeAgent(t.Context(), agent.ID)
+	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 
 	require.NoError(t, err)
 	assert.Empty(t, lifecycle.resumed)
@@ -686,7 +686,7 @@ func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 
 			agent := seed(t, st, "auth", "", agentstore.StateThinking)
 
-			_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+			_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 
 			require.Error(t, err)
 			assert.Equal(t, []string{"%auth"}, tmux.KilledPanes, "the window it opened is taken away")
@@ -713,12 +713,12 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 
 	agent := seed(t, st, "auth", "", agentstore.StateThinking)
 
-	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.Error(t, err)
 
 	tmux.RespawnErr = nil
 
-	resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	resumed, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 
 	require.NoError(t, err)
 	assert.Len(t, harness.Launches, 2, "the second resume reaches the CLI rather than reporting a pane that is already running")
@@ -743,7 +743,7 @@ func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
 	agent := seed(t, st, "auth", "", agentstore.StateThinking)
 	require.Equal(t, agentstore.RoleImplementer, agent.Role)
 
-	_, err := manager.resume.ResumeAgent(t.Context(), agent.ID)
+	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 
 	require.NoError(t, err)
 	require.Len(t, harness.Launches, 1)
@@ -760,11 +760,94 @@ func TestResumeRefusesArchived(t *testing.T) {
 	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
 	require.NoError(t, st.SoftDelete(ctx, "archived"))
 
-	_, err := manager.resume.ResumeAgent(ctx, archived.ID)
+	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: archived.ID})
 
 	require.ErrorIs(t, err, agenterr.ErrAgentArchived)
 	require.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
+}
+
+// TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator pins which agents a caller other than an orchestrator may wake.
+func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
+	tests := []struct {
+		name      string
+		from      string
+		resume    string
+		wantErrIs error
+	}{
+		{
+			name:      "an agent waking another workflow's orchestrator",
+			from:      "stranger",
+			resume:    "orchestrator",
+			wantErrIs: ErrResumeNotYours,
+		},
+		{
+			name:      "an implementer waking a peer",
+			from:      "implementer",
+			resume:    "peer",
+			wantErrIs: ErrResumeNotYours,
+		},
+		{
+			name:      "a reviewer waking a peer of its parent",
+			from:      "reviewer",
+			resume:    "peer",
+			wantErrIs: ErrResumeNotYours,
+		},
+		{
+			name:   "an implementer waking its workflow's orchestrator",
+			from:   "implementer",
+			resume: "orchestrator",
+		},
+		{
+			name:   "a reviewer waking its parent",
+			from:   "reviewer",
+			resume: "implementer",
+		},
+		{
+			name:   "a reviewer waking its workflow's orchestrator",
+			from:   "reviewer",
+			resume: "orchestrator",
+		},
+		{
+			name:   "an orchestrator waking a stranger",
+			from:   "orchestrator",
+			resume: "stranger",
+		},
+		{
+			name:   "the panel waking anybody",
+			resume: "stranger",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+			manager := newManager(tmux, st, "")
+
+			orchestrator := seedOrchestrator(t, st, tmux)
+			implementer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "implementer", "%1")
+			seeded := map[string]string{
+				"orchestrator": orchestrator.ID,
+				"implementer":  implementer.ID,
+				"reviewer":     seedChild(t, st, tmux, implementer).ID,
+				"peer":         seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "peer", "%2").ID,
+				"stranger":     seedRunning(t, st, tmux, "stranger", "%3", agentstore.StateIdle).ID,
+			}
+
+			_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{
+				ID:        seeded[tt.resume],
+				ByAgentID: seeded[tt.from],
+			})
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
 }
 
 // TestResumeRefusesUnknownHarness pins that a resume fails rather than putting the wrong CLI
@@ -786,7 +869,7 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 	stored, err := st.Get(t.Context(), "dormant")
 	require.NoError(t, err)
 
-	_, err = service.resume.ResumeAgent(t.Context(), stored.ID)
+	_, err = service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: stored.ID})
 
 	require.ErrorIs(t, err, harness.ErrNotRegistered)
 	require.ErrorContains(t, err, "gemini")

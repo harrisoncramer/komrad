@@ -529,7 +529,19 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.resumed)
+				assert.Equal(t, []agents.ResumeAgentParams{{ID: ids[0]}}, services.resumed)
+			},
+		},
+		{
+			name: "resuming from an agent says who asked",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
+				_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0]}))
+
+				return "", err
+			},
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, []agents.ResumeAgentParams{{ID: ids[0], ByAgentID: betaID}}, services.resumed)
 			},
 		},
 		{
@@ -1161,7 +1173,7 @@ type recordingAgentServices struct {
 	retried       agents.RetryCreateParams
 	released      agents.ReleaseParams
 	reported      agents.RecordReportParams
-	resumed       []string
+	resumed       []agents.ResumeAgentParams
 	held          []agents.HoldParams
 	orchestrated  []string
 	planned       []string
@@ -1233,8 +1245,8 @@ func (f *recordingAgentServices) IsAgentRunning(agentstore.Agent) bool {
 	return false
 }
 
-func (f *recordingAgentServices) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
-	f.resumed = append(f.resumed, id)
+func (f *recordingAgentServices) ResumeAgent(_ context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error) {
+	f.resumed = append(f.resumed, params)
 
 	return f.answer()
 }
