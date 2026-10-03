@@ -549,7 +549,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			want:    agentstore.StateIdle,
 		},
 		{
-			name:    "a boundary outlasts a working frame that refreshes the row",
+			name:    "a boundary outlasts a working frame that rewrites the state seen time",
 			frames:  []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
 			seenAge: stateSeenCoalesce + time.Minute,
 			want:    agentstore.StateIdle,
