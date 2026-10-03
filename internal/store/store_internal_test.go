@@ -15,64 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const untriggered = `
-SELECT
-    c.relname
-FROM
-    pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    JOIN pg_attribute a ON a.attrelid = c.oid
-WHERE
-    n.nspname = 'public'
-    AND c.relkind = 'r'
-    AND a.attname = 'updated_at'
-    AND NOT a.attisdropped
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            pg_trigger t
-        WHERE
-            t.tgrelid = c.oid
-            AND NOT t.tgisinternal
-            AND t.tgfoid = 'set_updated_at'::regproc
-            AND (t.tgtype & 1) <> 0
-            AND (t.tgtype & 2) <> 0
-            AND (t.tgtype & 16) <> 0)
-ORDER BY
-    c.relname`
-
-const stamped = `
-SELECT
-    c.relname
-FROM
-    pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    JOIN pg_attribute a ON a.attrelid = c.oid
-WHERE
-    n.nspname = 'public'
-    AND c.relkind = 'r'
-    AND a.attname = 'updated_at'
-    AND NOT a.attisdropped`
-
-// TestUpdatedAtTriggers is the guarantee the migration makes, checked against the schema rather
-// than against a list written here: a table added later that carries the column and is not covered
-// fails this.
-func TestUpdatedAtTriggers(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	pool := open(ctx, t)
-
-	covered := tableNames(ctx, t, pool, stamped)
-	require.NotEmpty(t, covered, "no table carries updated_at, so this test proves nothing")
-
-	missing := tableNames(ctx, t, pool, untriggered)
-	assert.Empty(t, missing,
-		"these tables have an updated_at column and nothing stamping it; "+
-			"end your migration with SELECT attach_updated_at_triggers()")
-}
-
 // TestUpdatedAtStamped pins the trigger stamping a write that names neither updated_at nor
 // the trigger, using workflow_configs since it has no foreign key to satisfy first.
 func TestUpdatedAtStamped(t *testing.T) {
@@ -108,24 +50,6 @@ func open(ctx context.Context, t *testing.T) *Pool {
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return pool
-}
-
-func tableNames(ctx context.Context, t *testing.T, pool *Pool, query string) []string {
-	t.Helper()
-
-	rows, err := pool.GetRawPool().Query(ctx, query)
-	require.NoError(t, err)
-	defer rows.Close()
-
-	var names []string
-	for rows.Next() {
-		var name string
-		require.NoError(t, rows.Scan(&name))
-		names = append(names, name)
-	}
-	require.NoError(t, rows.Err())
-
-	return names
 }
 
 // TestFailureReasonIsSomethingARowCanHold covers the cut and the scrub, with Postgres refusing

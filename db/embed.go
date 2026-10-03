@@ -5,9 +5,13 @@
 // It does this by embedding all of the migrations into the binary and then acquiring
 // an advisory lock (so that two migrations cannot run migrations at the same time) and
 // running them each, in sequential order, against the database.
+//
+// The triggers are embedded alongside them as one versioned file per table, which a pass
+// reapplies whenever the file's version moves past the one the database recorded.
 package db
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"embed"
@@ -16,7 +20,10 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,32 +37,127 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+//go:embed triggers/*.sql
+var triggersFS embed.FS
+
 //go:embed applied_migrations.sql
 var appliedMigrationsSQL string
+
+//go:embed applied_triggers.sql
+var appliedTriggersSQL string
 
 // migrateLock is the advisory lock key that stops two processes applying the same migration
 // twice, and it must never change.
 const migrateLock int64 = 7_240_115
 
-// Migrate applies any migrations not yet recorded, in filename order, each in its own
-// transaction alongside the row recording it.
-func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	files, err := openMigrationFiles()
-	if err != nil {
-		return err
-	}
+// TriggerFunctionsUnit is the trigger unit holding the functions every other unit's triggers run.
+const TriggerFunctionsUnit = "_functions"
 
-	return migrate(ctx, pool, files)
+// unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
+const unlockTimeout = 5 * time.Second
+
+// versionLength is how much of the fingerprint is kept.
+const versionLength = 12
+
+// dropOrphanFunctionsSQL drops every trigger function no trigger runs any longer.
+const dropOrphanFunctionsSQL = `
+DO $$
+DECLARE
+    orphan regprocedure;
+BEGIN
+    FOR orphan IN
+        SELECT p.oid::regprocedure FROM pg_proc p
+        WHERE p.pronamespace = 'public'::regnamespace
+          AND p.prorettype = 'trigger'::regtype
+          AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgfoid = p.oid)
+    LOOP
+        EXECUTE FORMAT('DROP FUNCTION %s', orphan);
+    END LOOP;
+END;
+$$;`
+
+// recordMigrationSQL records a migration and forgets every unit this build carries.
+const recordMigrationSQL = `
+WITH recorded AS (INSERT INTO schema_migrations (version) VALUES ($1))
+DELETE FROM schema_triggers WHERE unit = ANY ($2)`
+
+// recordTriggerSQL records the version a trigger unit was applied at.
+const recordTriggerSQL = `
+INSERT INTO schema_triggers (unit, version) VALUES ($1, $2)
+ON CONFLICT (unit) DO UPDATE SET version = EXCLUDED.version`
+
+var triggerFileName = regexp.MustCompile(`^(.+)\.v(\d+)\.sql$`)
+
+// ErrSchemaBehind is returned when the database is missing migrations or triggers this build carries.
+var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run komrad migrate as the database owner")
+
+// ErrDatabaseInUse is returned rather than migrating a database another komrad is on.
+var ErrDatabaseInUse = errors.New("another komrad is using this database")
+
+// sources is where a pass reads its migrations and trigger units from.
+type sources struct {
+	migrations fs.FS
+	triggers   fs.FS
 }
 
-// migrate applies the migrations in files.
-func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
-	versions, err := listMigrationVersions(files)
+// contents is a list of migrations and trigger units, in the order they run.
+type contents struct {
+	migrations []string
+	units      []unit
+}
+
+// unit is one trigger file, the unit it replaces and the version it carries.
+type unit struct {
+	name    string
+	version int
+	file    string
+}
+
+type appliedTrigger struct {
+	Unit    string
+	Version int
+}
+
+// queryer is the connection a walk of the ledger reads through, the pool or the locked
+// connection.
+type queryer interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// ParseTriggerFileName splits a trigger file's name into its unit and version.
+func ParseTriggerFileName(name string) (string, int, error) {
+	match := triggerFileName.FindStringSubmatch(name)
+	if match == nil {
+		return "", 0, fmt.Errorf("trigger file %s is not named unit.vN.sql", name)
+	}
+
+	version, err := strconv.Atoi(match[2])
+	if err != nil || version < 1 {
+		return "", 0, fmt.Errorf("trigger file %s has no version above zero", name)
+	}
+
+	return match[1], version, nil
+}
+
+// Migrate applies any migrations not yet recorded, in filename order, each in its own
+// transaction alongside the row recording it, and then any trigger unit the database is behind on.
+func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	src, err := openSources()
 	if err != nil {
 		return err
 	}
 
-	pending, err := isPending(ctx, pool, versions)
+	return migrate(ctx, pool, src)
+}
+
+// migrate applies the migrations and trigger units in src.
+func migrate(ctx context.Context, pool *pgxpool.Pool, src *sources) error {
+	contents, err := src.list()
+	if err != nil {
+		return err
+	}
+
+	pending, err := isPending(ctx, pool, contents)
 	if err != nil {
 		return err
 	}
@@ -63,62 +165,82 @@ func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 		return nil
 	}
 
-	return apply(ctx, pool, migrationSet{files: files, versions: versions})
+	return apply(ctx, pool, src, contents)
 }
 
-// openMigrationFiles opens the embedded migrations rooted at the directory holding them, so a
-// version is the bare file name.
-func openMigrationFiles() (fs.FS, error) {
-	files, err := fs.Sub(migrationsFS, "migrations")
+// openSources opens the embedded migrations and trigger units, each rooted at the directory
+// holding them, so a version is the bare file name.
+func openSources() (*sources, error) {
+	migrations, err := fs.Sub(migrationsFS, "migrations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the embedded migrations: %w", err)
 	}
 
-	return files, nil
+	triggers, err := fs.Sub(triggersFS, "triggers")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open the embedded triggers: %w", err)
+	}
+
+	return &sources{migrations: migrations, triggers: triggers}, nil
 }
 
-// Pending lists the embedded migrations that have not run, in the order they would run in, and
-// writes nothing.
+func (s *sources) list() (*contents, error) {
+	migrations, err := listMigrationVersions(s.migrations)
+	if err != nil {
+		return nil, err
+	}
+
+	units, err := listUnits(s.triggers)
+	if err != nil {
+		return nil, err
+	}
+
+	return &contents{migrations: migrations, units: units}, nil
+}
+
+// Pending lists the embedded migrations and trigger files that have not run, in the order they
+// would run in, and writes nothing.
 func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
-	files, err := openMigrationFiles()
+	src, err := openSources()
 	if err != nil {
 		return nil, err
 	}
 
-	versions, err := listMigrationVersions(files)
+	all, err := src.list()
 	if err != nil {
 		return nil, err
 	}
 
-	return getMigrationsToRun(ctx, pool, versions)
+	plan, err := getPlan(ctx, pool, all)
+	if err != nil {
+		return nil, err
+	}
+
+	return plan.names(), nil
 }
 
-// ErrSchemaBehind is returned when the database is missing migrations this build carries.
-var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run komrad migrate as the database owner")
-
-// CheckSchema refuses a database missing any migration this build carries, and accepts one holding newer migrations.
+// CheckSchema refuses a database missing any migration or trigger version this build carries, and accepts one holding newer ones.
 func CheckSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	files, err := openMigrationFiles()
+	src, err := openSources()
 	if err != nil {
 		return err
 	}
 
-	return checkSchema(ctx, pool, files)
+	return checkSchema(ctx, pool, src)
 }
 
-func checkSchema(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
-	versions, err := listMigrationVersions(files)
+func checkSchema(ctx context.Context, pool *pgxpool.Pool, src *sources) error {
+	all, err := src.list()
 	if err != nil {
 		return err
 	}
 
-	applied, err := listAppliedMigrations(ctx, pool)
+	plan, err := getPlan(ctx, pool, all)
 	if err != nil {
 		return err
 	}
-
-	if pending := xslice.Filter(versions, func(version string) bool { return !applied[version] }); len(pending) > 0 {
-		return fmt.Errorf("%w: %s", ErrSchemaBehind, strings.Join(pending, ", "))
+	if !plan.empty() {
+		return fmt.Errorf("%w: %s", ErrSchemaBehind, strings.Join(plan.names(), ", "))
 	}
 
 	return nil
@@ -150,41 +272,74 @@ func listAppliedMigrations(ctx context.Context, q queryer) (map[string]bool, err
 	return applied, nil
 }
 
-// isPending reports whether any migration has yet to run.
-func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool, error) {
-	pending, err := getMigrationsToRun(ctx, pool, versions)
+// listAppliedTriggers reads the version each trigger unit was last applied at, which a database
+// that has never been migrated has no ledger for yet.
+func listAppliedTriggers(ctx context.Context, q queryer) (map[string]int, error) {
+	rows, err := q.Query(ctx, appliedTriggersSQL)
+	if isUndefinedTable(err) {
+		return map[string]int{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read applied triggers: %w", err)
+	}
+
+	units, err := pgx.CollectRows(rows, pgx.RowToStructByName[appliedTrigger])
+	if isUndefinedTable(err) {
+		return map[string]int{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read applied triggers: %w", err)
+	}
+
+	applied := make(map[string]int, len(units))
+	for _, u := range units {
+		applied[u.Unit] = u.Version
+	}
+
+	return applied, nil
+}
+
+// isPending reports whether any migration or trigger unit has yet to run.
+func isPending(ctx context.Context, pool *pgxpool.Pool, all *contents) (bool, error) {
+	plan, err := getPlan(ctx, pool, all)
 	if err != nil {
 		return false, err
 	}
 
-	return len(pending) > 0, nil
+	return !plan.empty(), nil
 }
 
-// queryer is the connection a walk of the ledger reads through, the pool or the locked
-// connection.
-type queryer interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+func (c *contents) empty() bool {
+	return len(c.migrations) == 0 && len(c.units) == 0
 }
 
-// getMigrationsToRun is which of versions the database has no record of yet.
-func getMigrationsToRun(ctx context.Context, q queryer, versions []string) ([]string, error) {
-	applied, err := listAppliedMigrations(ctx, q)
+func (c *contents) names() []string {
+	return append(slices.Clone(c.migrations), xslice.Map(c.units, func(u unit) string { return u.file })...)
+}
+
+// getPlan lists the migrations the database has not recorded and the trigger units it is behind on.
+func getPlan(ctx context.Context, q queryer, all *contents) (*contents, error) {
+	appliedMigrations, err := listAppliedMigrations(ctx, q)
 	if err != nil {
 		return nil, err
 	}
 
-	return xslice.Filter(versions, func(version string) bool { return !applied[version] }), nil
+	appliedTriggers, err := listAppliedTriggers(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+
+	migrations := xslice.Filter(all.migrations, func(version string) bool { return !appliedMigrations[version] })
+	units := xslice.Filter(all.units, func(u unit) bool {
+		return len(migrations) > 0 || appliedTriggers[u.name] < u.version
+	})
+
+	return &contents{migrations: migrations, units: units}, nil
 }
 
-// migrationSet is the migrations to apply and where to read them from.
-type migrationSet struct {
-	files    fs.FS
-	versions []string
-}
-
-// apply runs the pending migrations under the advisory lock, re-reading the applied set inside
-// it since another process may have finished the work while this one waited.
-func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
+// apply runs the pending migrations and trigger units under the advisory lock, re-reading the
+// ledgers inside it since another process may have finished the work while this one waited.
+func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to acquire a connection to migrate: %w", err)
@@ -200,49 +355,89 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 		return fmt.Errorf("failed to create schema_migrations: %w", err)
 	}
 
-	pendingMigrations, err := getMigrationsToRun(ctx, conn, set.versions)
+	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_triggers (unit text PRIMARY KEY, version integer NOT NULL)`); err != nil {
+		return fmt.Errorf("failed to create schema_triggers: %w", err)
+	}
+
+	plan, err := getPlan(ctx, conn, all)
 	if err != nil {
 		return err
 	}
-	if len(pendingMigrations) == 0 {
+	if plan.empty() {
 		return nil
 	}
 
-	if err := refuseSharedDatabase(ctx, conn, pendingMigrations); err != nil {
+	if err := refuseSharedDatabase(ctx, conn, plan.names()); err != nil {
 		return err
 	}
 
-	for _, version := range pendingMigrations {
-		sqlText, err := fs.ReadFile(set.files, version)
-		if err != nil {
-			return fmt.Errorf("failed to read migration %q: %w", version, err)
+	unitNames := xslice.Map(all.units, func(u unit) string { return u.name })
+	for _, version := range plan.migrations {
+		if err := applyFile(ctx, conn, applyFileParams{
+			files:  src.migrations,
+			name:   version,
+			record: recordMigrationSQL,
+			args:   []any{version, unitNames},
+		}); err != nil {
+			return err
 		}
+	}
 
-		tx, err := conn.Begin(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to begin migration %q: %w", version, err)
+	for _, u := range plan.units {
+		if err := applyFile(ctx, conn, applyFileParams{
+			files:  src.triggers,
+			name:   u.file,
+			record: recordTriggerSQL,
+			args:   []any{u.name, u.version},
+		}); err != nil {
+			return err
 		}
+	}
 
-		if _, err := tx.Exec(ctx, string(sqlText)); err != nil {
-			_ = tx.Rollback(ctx)
-			return fmt.Errorf("failed to apply migration %q: %w", version, err)
-		}
-
-		if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
-			_ = tx.Rollback(ctx)
-			return fmt.Errorf("failed to record migration %q: %w", version, err)
-		}
-
-		if err := tx.Commit(ctx); err != nil {
-			return fmt.Errorf("failed to commit migration %q: %w", version, err)
+	if len(plan.units) > 0 {
+		if _, err := conn.Exec(ctx, dropOrphanFunctionsSQL); err != nil {
+			return fmt.Errorf("failed to drop trigger functions no trigger runs: %w", err)
 		}
 	}
 
 	return nil
 }
 
-// ErrDatabaseInUse is returned rather than migrating a database another komrad is on.
-var ErrDatabaseInUse = errors.New("another komrad is using this database")
+type applyFileParams struct {
+	files  fs.FS
+	name   string
+	record string
+	args   []any
+}
+
+// applyFile runs one file in its own transaction alongside the statement recording it.
+func applyFile(ctx context.Context, conn *pgxpool.Conn, params applyFileParams) error {
+	sqlText, err := fs.ReadFile(params.files, params.name)
+	if err != nil {
+		return fmt.Errorf("failed to read %q: %w", params.name, err)
+	}
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin %q: %w", params.name, err)
+	}
+
+	if _, err := tx.Exec(ctx, string(sqlText)); err != nil {
+		_ = tx.Rollback(ctx)
+		return fmt.Errorf("failed to apply %q: %w", params.name, err)
+	}
+
+	if _, err := tx.Exec(ctx, params.record, params.args...); err != nil {
+		_ = tx.Rollback(ctx)
+		return fmt.Errorf("failed to record %q: %w", params.name, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit %q: %w", params.name, err)
+	}
+
+	return nil
+}
 
 // refuseSharedDatabase stops a pass that would change the schema under a komrad already
 // running against the same database.
@@ -267,13 +462,10 @@ func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []str
 		return nil
 	}
 
-	return fmt.Errorf("%w: %s is connected to it, and this build holds %d migration(s) it has not seen (%s). "+
+	return fmt.Errorf("%w: %s is connected to it, and this build holds %d schema change(s) it has not seen (%s). "+
 		"Stop that komrad, or point KOMRAD_DATABASE_URL at a database of this checkout's own",
 		ErrDatabaseInUse, strings.Join(others, ", "), len(pending), strings.Join(pending, ", "))
 }
-
-// unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
-const unlockTimeout = 5 * time.Second
 
 // releaseMigrateLock unlocks on a context of its own.
 func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
@@ -285,37 +477,47 @@ func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	}
 }
 
-// versionLength is how much of the fingerprint is kept.
-const versionLength = 12
-
-// SchemaVersion fingerprints the embedded migrations, and changes whenever one is added or edited.
+// SchemaVersion fingerprints the embedded migrations and triggers, and changes whenever one is added or edited.
 func SchemaVersion() (string, error) {
-	files, err := openMigrationFiles()
+	src, err := openSources()
 	if err != nil {
 		return "", err
 	}
 
-	return schemaVersion(files)
+	return schemaVersion(src)
 }
 
-// schemaVersion hashes each migration's name alongside its contents.
-func schemaVersion(files fs.FS) (string, error) {
-	versions, err := listMigrationVersions(files)
+// schemaVersion hashes each migration's and trigger file's name alongside its contents.
+func schemaVersion(src *sources) (string, error) {
+	all, err := src.list()
 	if err != nil {
 		return "", err
 	}
 
 	var content []byte
-	for _, version := range versions {
-		sqlText, err := fs.ReadFile(files, version)
+	add := func(files fs.FS, name, label string) error {
+		sqlText, err := fs.ReadFile(files, name)
 		if err != nil {
-			return "", fmt.Errorf("failed to read migration %q: %w", version, err)
+			return fmt.Errorf("failed to read %q: %w", name, err)
 		}
 
-		content = append(content, version...)
+		content = append(content, label...)
 		content = append(content, 0)
 		content = append(content, sqlText...)
 		content = append(content, 0)
+
+		return nil
+	}
+
+	for _, version := range all.migrations {
+		if err := add(src.migrations, version, version); err != nil {
+			return "", err
+		}
+	}
+	for _, u := range all.units {
+		if err := add(src.triggers, u.file, "triggers/"+u.file); err != nil {
+			return "", err
+		}
 	}
 
 	sum := sha256.Sum256(content)
@@ -336,4 +538,43 @@ func listMigrationVersions(files fs.FS) ([]string, error) {
 	slices.Sort(versions)
 
 	return versions, nil
+}
+
+// listUnits lists the trigger files, the functions first and then each table by name.
+func listUnits(files fs.FS) ([]unit, error) {
+	entries, err := fs.ReadDir(files, ".")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read triggers: %w", err)
+	}
+
+	byName := map[string]unit{}
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+
+		name, version, err := ParseTriggerFileName(entry.Name())
+		if err != nil {
+			return nil, err
+		}
+		if other, ok := byName[name]; ok {
+			return nil, fmt.Errorf("trigger unit %s has two files, %s and %s", name, other.file, entry.Name())
+		}
+
+		byName[name] = unit{name: name, version: version, file: entry.Name()}
+	}
+
+	units := slices.Collect(maps.Values(byName))
+	slices.SortFunc(units, func(a, b unit) int {
+		switch {
+		case a.name == TriggerFunctionsUnit:
+			return -1
+		case b.name == TriggerFunctionsUnit:
+			return 1
+		}
+
+		return cmp.Compare(a.name, b.name)
+	})
+
+	return units, nil
 }

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Regenerate the trigger files the binary applies from the declared triggers."
+
+usage() {
+	echo "Usage: mise run gen:triggers"
+	echo
+	echo "Rewrites db/triggers from internal/triggers, one file per table plus one for the"
+	echo "trigger functions. A unit whose SQL changed gets the next version in its file name,"
+	echo "which is what makes the binary apply it again."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+go run ./internal/triggers/gen/main.go

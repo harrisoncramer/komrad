@@ -10,11 +10,18 @@ import (
 	"time"
 
 	"komrad/internal/pgtest"
+	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	probeTable    = `CREATE TABLE unit_probe (id int, seen int NOT NULL DEFAULT 0)`
+	probeFunction = `CREATE OR REPLACE FUNCTION mark_seen() RETURNS trigger AS $$ BEGIN NEW.seen := 1; RETURN NEW; END; $$ LANGUAGE plpgsql;`
+	probeTrigger  = `CREATE OR REPLACE TRIGGER mark_seen BEFORE INSERT ON unit_probe FOR EACH ROW EXECUTE FUNCTION mark_seen();`
 )
 
 // TestMigrate pins that an empty database takes every migration and that a second pass over
@@ -44,6 +51,7 @@ func TestMigrate(t *testing.T) {
 			}
 
 			assert.Equal(t, allVersions(t), appliedVersions(t, pool))
+			assert.Equal(t, embeddedUnits(t), appliedUnits(t, pool))
 			assert.True(t, tableExists(t, pool, "agents"))
 		})
 	}
@@ -207,14 +215,14 @@ func TestMigrateResumes(t *testing.T) {
 		`CREATE TABLE schema_migrations (version text PRIMARY KEY CHECK (version = '%s'))`, versions[0]))
 	require.NoError(t, err)
 
-	require.Error(t, migrate(ctx, pool, files))
+	require.Error(t, migrate(ctx, pool, migrationsOnly(files)))
 	assert.Equal(t, versions[:1], appliedVersions(t, pool))
 	assert.False(t, columnExists(t, pool, "resume_probe", "extra"), "the second migration did not land")
 
 	_, err = pool.Exec(ctx, `ALTER TABLE schema_migrations DROP CONSTRAINT schema_migrations_version_check`)
 	require.NoError(t, err)
 
-	require.NoError(t, migrate(ctx, pool, files))
+	require.NoError(t, migrate(ctx, pool, migrationsOnly(files)))
 	assert.Equal(t, versions, appliedVersions(t, pool))
 	assert.True(t, columnExists(t, pool, "resume_probe", "extra"), "and the rest picked up where it stopped")
 }
@@ -230,15 +238,15 @@ func TestCheckSchemaRefusesOnlyADatabaseBehind(t *testing.T) {
 		"20260102000000_second.sql": {Data: []byte(`ALTER TABLE check_probe ADD COLUMN extra int`)},
 	}
 
-	require.ErrorIs(t, checkSchema(ctx, pool, first), ErrSchemaBehind, "an empty database is behind every build")
+	require.ErrorIs(t, checkSchema(ctx, pool, migrationsOnly(first)), ErrSchemaBehind, "an empty database is behind every build")
 
-	require.NoError(t, migrate(ctx, pool, first))
-	require.NoError(t, checkSchema(ctx, pool, first))
-	require.ErrorIs(t, checkSchema(ctx, pool, both), ErrSchemaBehind)
+	require.NoError(t, migrate(ctx, pool, migrationsOnly(first)))
+	require.NoError(t, checkSchema(ctx, pool, migrationsOnly(first)))
+	require.ErrorIs(t, checkSchema(ctx, pool, migrationsOnly(both)), ErrSchemaBehind)
 
-	require.NoError(t, migrate(ctx, pool, both))
-	require.NoError(t, checkSchema(ctx, pool, both))
-	require.NoError(t, checkSchema(ctx, pool, first), "an older build runs against a newer schema")
+	require.NoError(t, migrate(ctx, pool, migrationsOnly(both)))
+	require.NoError(t, checkSchema(ctx, pool, migrationsOnly(both)))
+	require.NoError(t, checkSchema(ctx, pool, migrationsOnly(first)), "an older build runs against a newer schema")
 }
 
 // TestMigrateUpToDate holds the lock elsewhere, so a Migrate that reached for it
@@ -328,7 +336,7 @@ func TestIsPending(t *testing.T) {
 				require.NoError(t, Migrate(ctx, pool))
 			}
 
-			got, err := isPending(ctx, pool, allVersions(t))
+			got, err := isPending(ctx, pool, embeddedContents(t))
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
@@ -391,10 +399,26 @@ func connect(t *testing.T, url string) *pgx.Conn {
 func embeddedFiles(t *testing.T) fs.FS {
 	t.Helper()
 
-	files, err := openMigrationFiles()
+	src, err := openSources()
 	require.NoError(t, err)
 
-	return files
+	return src.migrations
+}
+
+func embeddedContents(t *testing.T) *contents {
+	t.Helper()
+
+	src, err := openSources()
+	require.NoError(t, err)
+
+	all, err := src.list()
+	require.NoError(t, err)
+
+	return all
+}
+
+func migrationsOnly(files fs.FS) *sources {
+	return &sources{migrations: files, triggers: fstest.MapFS{}}
 }
 
 func allVersions(t *testing.T) []string {
@@ -453,7 +477,7 @@ func TestSchemaVersionChangesWithTheMigrations(t *testing.T) {
 		"20260101000000_first.sql": &fstest.MapFile{Data: []byte("CREATE TABLE a (id int);")},
 	}
 
-	version, err := schemaVersion(base)
+	version, err := schemaVersion(migrationsOnly(base))
 	require.NoError(t, err)
 	require.Len(t, version, versionLength)
 
@@ -472,13 +496,13 @@ func TestSchemaVersionChangesWithTheMigrations(t *testing.T) {
 
 	for name, files := range moved {
 		t.Run(name, func(t *testing.T) {
-			other, err := schemaVersion(files)
+			other, err := schemaVersion(migrationsOnly(files))
 			require.NoError(t, err)
 			assert.NotEqual(t, version, other)
 		})
 	}
 
-	again, err := schemaVersion(base)
+	again, err := schemaVersion(migrationsOnly(base))
 	require.NoError(t, err)
 	assert.Equal(t, version, again, "the same migrations fingerprint the same twice")
 }
@@ -490,4 +514,170 @@ func TestSchemaVersionReadsTheEmbeddedMigrations(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, version, versionLength)
+}
+
+// TestMigrateTriggerUnits walks one table's triggers through being attached, versioned, reattached and dropped.
+func TestMigrateTriggerUnits(t *testing.T) {
+	pool := open(t)
+	ctx := t.Context()
+
+	migrations := fstest.MapFS{"20260101000000_first.sql": {Data: []byte(probeTable)}}
+	attached := fstest.MapFS{
+		"_functions.v1.sql": {Data: []byte(probeFunction)},
+		"unit_probe.v1.sql": {Data: []byte(probeTrigger)},
+	}
+
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: migrations, triggers: attached}))
+	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 1}, appliedUnits(t, pool))
+	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"))
+
+	recreated := fstest.MapFS{
+		"20260101000000_first.sql":  migrations["20260101000000_first.sql"],
+		"20260102000000_second.sql": {Data: []byte(`DROP TABLE unit_probe; ` + probeTable)},
+	}
+	broken := fstest.MapFS{
+		"_functions.v1.sql": attached["_functions.v1.sql"],
+		"unit_probe.v1.sql": {Data: []byte(`SELECT 1/0;`)},
+	}
+	require.Error(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: broken}))
+	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: attached}), ErrSchemaBehind, "a unit owed by a migration stays owed after a failed run")
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: attached}))
+	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"), "a migration that rebuilds a table gets its triggers back")
+
+	detached := fstest.MapFS{
+		"_functions.v1.sql": attached["_functions.v1.sql"],
+		"unit_probe.v2.sql": {Data: []byte(`DROP TRIGGER IF EXISTS mark_seen ON unit_probe;`)},
+	}
+	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: detached}), ErrSchemaBehind)
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: detached}))
+	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool))
+	assert.False(t, triggerExists(t, pool, "unit_probe", "mark_seen"))
+	assert.False(t, functionExists(t, pool, "mark_seen"), "a function no trigger runs is dropped")
+	require.NoError(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: attached}), "an older build runs against newer triggers")
+
+	dropped := fstest.MapFS{
+		"20260101000000_first.sql":  recreated["20260101000000_first.sql"],
+		"20260102000000_second.sql": recreated["20260102000000_second.sql"],
+		"20260103000000_third.sql":  {Data: []byte(`DROP TABLE unit_probe`)},
+	}
+	functionsOnly := fstest.MapFS{"_functions.v1.sql": attached["_functions.v1.sql"]}
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: dropped, triggers: functionsOnly}))
+	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool), "a unit no longer carried keeps its row")
+	require.NoError(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: detached}), "an older build still carrying the unit runs against the newer database")
+	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: detached}))
+}
+
+// TestListUnits pins the order units apply in and the file names it refuses.
+func TestListUnits(t *testing.T) {
+	tests := []struct {
+		name    string
+		files   fstest.MapFS
+		want    []string
+		wantErr string
+	}{
+		{
+			name: "the functions come before every table",
+			files: fstest.MapFS{
+				"agents.v2.sql":     {},
+				"_functions.v1.sql": {},
+				"accounts.v1.sql":   {},
+				"README.md":         {},
+			},
+			want: []string{"_functions.v1.sql", "accounts.v1.sql", "agents.v2.sql"},
+		},
+		{
+			name:    "a file without a version",
+			files:   fstest.MapFS{"agents.sql": {}},
+			wantErr: "is not named unit.vN.sql",
+		},
+		{
+			name:    "a version of zero",
+			files:   fstest.MapFS{"agents.v0.sql": {}},
+			wantErr: "has no version above zero",
+		},
+		{
+			name:    "two files for one unit",
+			files:   fstest.MapFS{"agents.v1.sql": {}, "agents.v2.sql": {}},
+			wantErr: "has two files",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			units, err := listUnits(tt.files)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, xslice.Map(units, func(u unit) string { return u.file }))
+		})
+	}
+}
+
+// TestSchemaVersionChangesWithTheTriggers pins that a template database is rebuilt when any unit changes.
+func TestSchemaVersionChangesWithTheTriggers(t *testing.T) {
+	migrations := fstest.MapFS{"20260101000000_first.sql": {Data: []byte(probeTable)}}
+	base := fstest.MapFS{"unit_probe.v1.sql": {Data: []byte(probeTrigger)}}
+
+	version, err := schemaVersion(&sources{migrations: migrations, triggers: base})
+	require.NoError(t, err)
+
+	moved := map[string]fstest.MapFS{
+		"a unit was edited":  {"unit_probe.v1.sql": {Data: []byte(`SELECT 1;`)}},
+		"a unit was bumped":  {"unit_probe.v2.sql": {Data: []byte(probeTrigger)}},
+		"a unit was added":   {"unit_probe.v1.sql": {Data: []byte(probeTrigger)}, "_functions.v1.sql": {Data: []byte(probeFunction)}},
+		"a unit was removed": {},
+	}
+
+	for name, triggers := range moved {
+		t.Run(name, func(t *testing.T) {
+			other, err := schemaVersion(&sources{migrations: migrations, triggers: triggers})
+			require.NoError(t, err)
+			assert.NotEqual(t, version, other)
+		})
+	}
+}
+
+func embeddedUnits(t *testing.T) map[string]int {
+	t.Helper()
+
+	units := map[string]int{}
+	for _, u := range embeddedContents(t).units {
+		units[u.name] = u.version
+	}
+	require.NotEmpty(t, units)
+
+	return units
+}
+
+func appliedUnits(t *testing.T, pool *pgxpool.Pool) map[string]int {
+	t.Helper()
+
+	applied, err := listAppliedTriggers(t.Context(), pool)
+	require.NoError(t, err)
+
+	return applied
+}
+
+func triggerExists(t *testing.T, pool *pgxpool.Pool, table, name string) bool {
+	t.Helper()
+
+	var exists bool
+	require.NoError(t, pool.QueryRow(t.Context(),
+		`SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = to_regclass($1) AND tgname = $2)`,
+		table, name).Scan(&exists))
+
+	return exists
+}
+
+func functionExists(t *testing.T, pool *pgxpool.Pool, name string) bool {
+	t.Helper()
+
+	var exists bool
+	require.NoError(t, pool.QueryRow(t.Context(),
+		`SELECT to_regproc($1) IS NOT NULL`, name).Scan(&exists))
+
+	return exists
 }

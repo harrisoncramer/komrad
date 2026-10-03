@@ -3,32 +3,8 @@ package watch
 import (
 	"testing"
 
-	"komrad/lib/xslice"
-
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-// TestTheMigratedTriggerFunctionsAreTheDeclaredOnes pins that the schema's trigger functions run the
-// bodies declared here.
-func TestTheMigratedTriggerFunctionsAreTheDeclaredOnes(t *testing.T) {
-	l := newPooled(t)
-
-	names := xslice.Map(TriggerFunctions, func(function TriggerFunction) string { return function.Name })
-	rows, err := l.pool.Query(t.Context(), `SELECT proname::text, prosrc FROM pg_proc WHERE proname::text = ANY ($1)`, names)
-	require.NoError(t, err)
-	defer rows.Close()
-
-	var migrated []TriggerFunction
-	for rows.Next() {
-		var function TriggerFunction
-		require.NoError(t, rows.Scan(&function.Name, &function.Body))
-		migrated = append(migrated, function)
-	}
-	require.NoError(t, rows.Err())
-
-	assert.ElementsMatch(t, TriggerFunctions, migrated, "a trigger function changed without a migration; run mise run db:watch-migration <name>")
-}
 
 // TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders pins the arguments each trigger is attached with.
 func TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders(t *testing.T) {
