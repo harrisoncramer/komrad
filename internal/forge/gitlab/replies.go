@@ -19,7 +19,7 @@ const discussionPrefix = "gid://gitlab/Discussion/"
 func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadParams) (string, error) {
 	path, err := projectPath(params.Repo.Path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to reply on !%d: %w", params.Number, err)
 	}
 	discussion, ok := strings.CutPrefix(params.ThreadID, discussionPrefix)
 	if !ok || discussion == "" {
@@ -36,7 +36,7 @@ func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadPar
 		Body:   map[string]string{"body": params.Body},
 	}, &note)
 	if errors.Is(err, forge.ErrThrottled) {
-		return "", err
+		return "", fmt.Errorf("failed to reply on !%d: %w", params.Number, err)
 	}
 
 	switch answer.Status {
@@ -49,7 +49,7 @@ func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadPar
 		return "", fmt.Errorf("%w: %w", forge.ErrReplyRefused, err)
 	}
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to reply on !%d: %w", params.Number, err)
 	}
 	if note.ID == 0 {
 		return "", fmt.Errorf("gitlab answered the reply on !%d with no note", params.Number)

@@ -19,7 +19,7 @@ const addThreadReplyMutation = `mutation AddThreadReply($thread: ID!, $body: Str
 func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadParams) (string, error) {
 	owner, name, err := ownerAndName(params.Repo.Path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to reply on #%d: %w", params.Number, err)
 	}
 	if !params.OnCode {
 		return f.commentOnConversation(ctx, commentOnConversationParams{
@@ -42,7 +42,7 @@ func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadPar
 		"body":   params.Body,
 	}, &data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to reply to thread %s: %w", params.ThreadID, err)
 	}
 	added := data.AddPullRequestReviewThreadReply
 	if added != nil && added.Comment != nil && added.Comment.ID != "" {
@@ -50,7 +50,7 @@ func (f *Forge) ReplyToThread(ctx context.Context, params forge.ReplyToThreadPar
 	}
 	if err := failureOf(answer); err != nil {
 		if errors.Is(err, forge.ErrNotFound) {
-			return "", err
+			return "", fmt.Errorf("failed to reply to thread %s: %w", params.ThreadID, err)
 		}
 
 		return "", fmt.Errorf("%w: %w", forge.ErrReplyRefused, err)
@@ -79,7 +79,7 @@ func (f *Forge) commentOnConversation(ctx context.Context, params commentOnConve
 		return "", fmt.Errorf("%w: %w", forge.ErrReplyRefused, err)
 	}
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to comment on #%d: %w", params.Number, err)
 	}
 	if answer.Status == http.StatusNotFound {
 		return "", noPullRequest(params.Number, params.Owner, params.Name)
