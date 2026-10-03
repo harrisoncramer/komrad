@@ -56,6 +56,8 @@ type formState struct {
 	// keepsOnRefusal says a refused write leaves the form up to be fixed and submitted again.
 	keepsOnRefusal bool
 
+	refusal string
+
 	// vim is vim's state for the form's text fields, nil when vim is off.
 	vim *fieldVim
 }
@@ -188,12 +190,17 @@ func (h heldWrite) owns(write int) bool {
 	return h.active && h.write == write
 }
 
+func (m *model) formNoticeLines() int {
+	if m.writes.held.active || m.form.refusal != "" {
+		return submittingLines
+	}
+
+	return 0
+}
+
 // formBox is the room a form has on screen.
 func (m *model) formBox() (width, height int) {
-	held := 0
-	if m.writes.held.active {
-		held = submittingLines
-	}
+	held := m.formNoticeLines()
 
 	_, used := m.formLeading()
 
@@ -219,9 +226,7 @@ func (m *model) formLeading() ([]string, int) {
 	if split, ok := m.columnGeometry(); ok {
 		room, rows = split.column, split.rows-formHelpLines
 	}
-	if m.writes.held.active {
-		rows -= submittingLines
-	}
+	rows -= m.formNoticeLines()
 
 	views := m.form.leading(room, rows)
 
@@ -325,6 +330,7 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 // holdForm keeps the form up while the write it was submitted for is in flight, so a refusal
 // lands back on the form that caused it.
 func (m *model) holdForm() tea.Cmd {
+	m.form.refusal = ""
 	m.writes.held = heldWrite{
 		active: true,
 		write:  m.writes.count,
