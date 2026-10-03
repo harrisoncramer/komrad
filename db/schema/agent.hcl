@@ -675,6 +675,10 @@ table "agents" {
     null = true
     type = uuid
   }
+  column "requested_by_agent_id" {
+    null = true
+    type = uuid
+  }
   column "archived_at" {
     null = true
     type = timestamptz
@@ -897,7 +901,8 @@ table "agents" {
   }
   index "agents_idempotency_key" {
     unique  = true
-    columns = [column.engine_id, column.idempotency_key]
+    columns = [column.engine_id, column.requested_by_agent_id, column.parent_agent_id, column.idempotency_key]
+    nulls_distinct = false
     where   = "idempotency_key IS NOT NULL"
   }
 }

@@ -353,6 +353,7 @@ INSERT INTO agents(
     is_hidden,
     provision_enabled,
     spawned_by_agent_id,
+    requested_by_agent_id,
     parent_agent_id,
     adopted_branch,
     branch,
@@ -375,6 +376,7 @@ VALUES (
     @is_hidden,
     sqlc.narg('provision_enabled'),
     sqlc.narg('spawned_by_agent_id'),
+    sqlc.narg('requested_by_agent_id'),
     sqlc.narg('parent_agent_id'),
     @adopted_branch,
     sqlc.narg('branch'),
@@ -390,6 +392,8 @@ FROM
     agents s
 WHERE
     s.idempotency_key = @idempotency_key
+    AND s.requested_by_agent_id IS NOT DISTINCT FROM sqlc.narg('requested_by_agent_id')::uuid
+    AND s.parent_agent_id IS NOT DISTINCT FROM sqlc.narg('parent_agent_id')::uuid
 LIMIT 1;
 
 -- name: ReleaseAgentIdempotencyKey :many
@@ -399,6 +403,8 @@ SET
     idempotency_key = NULL
 WHERE
     idempotency_key = @idempotency_key
+    AND requested_by_agent_id IS NOT DISTINCT FROM sqlc.narg('requested_by_agent_id')::uuid
+    AND parent_agent_id IS NOT DISTINCT FROM sqlc.narg('parent_agent_id')::uuid
     AND state = 'failed_to_create'
 RETURNING
     id;

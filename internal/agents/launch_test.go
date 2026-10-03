@@ -176,11 +176,13 @@ func TestNewAgent(t *testing.T) {
 // runs twice in two tmux windows.
 func TestNewAgentIdempotency(t *testing.T) {
 	tests := []struct {
-		name     string
-		first    string
-		second   string
-		wantSame bool
-		wantErr  error
+		name         string
+		first        string
+		firstCaller  string
+		second       string
+		secondCaller string
+		wantSame     bool
+		wantErr      error
 	}{
 		{
 			name:     "the same key returns the agent already created",
@@ -188,6 +190,22 @@ func TestNewAgentIdempotency(t *testing.T) {
 			second:   "schedule:s1:2026-07-28T09:00:00Z",
 			wantSame: true,
 			wantErr:  agenterr.ErrAlreadyLaunched,
+		},
+		{
+			name:         "the same key from one implementer returns the agent already created",
+			first:        "launch-1",
+			firstCaller:  "implementer",
+			second:       "launch-1",
+			secondCaller: "implementer",
+			wantSame:     true,
+			wantErr:      agenterr.ErrAlreadyLaunched,
+		},
+		{
+			name:         "the same key from two implementers under one orchestrator is two agents",
+			first:        "launch-1",
+			firstCaller:  "implementer",
+			second:       "launch-1",
+			secondCaller: "other implementer",
 		},
 		{
 			name:   "the next occurrence is a different agent",
@@ -205,20 +223,32 @@ func TestNewAgentIdempotency(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 			dir := t.TempDir()
+			workflowID := seedWorkflow(t, st)
+
+			callerIDs := map[string]string{}
+			if tt.firstCaller != "" {
+				seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
+				for _, name := range []string{"implementer", "other implementer"} {
+					seeded := seedWithRole(t, st, workflowID, name, agentstore.RoleImplementer)
+					callerIDs[name] = seeded.ID
+				}
+			}
+			seeded, err := st.Agents.List(t.Context())
+			require.NoError(t, err)
 
 			params := NewAgentParams{
 				Title:          "morning-ci",
 				Dir:            dir,
 				Prompt:         "check CI",
-				WorkflowID:     seedWorkflow(t, st),
+				WorkflowID:     workflowID,
 				IdempotencyKey: tt.first,
 			}
-			first, err := manager.launch.NewAgent(t.Context(), params)
+			first, err := manager.launch.NewAgent(caller.With(t.Context(), caller.Caller{AgentID: callerIDs[tt.firstCaller]}), params)
 			require.NoError(t, err)
 			require.NotNil(t, first)
 
 			params.IdempotencyKey = tt.second
-			second, err := manager.launch.NewAgent(t.Context(), params)
+			second, err := manager.launch.NewAgent(caller.With(t.Context(), caller.Caller{AgentID: callerIDs[tt.secondCaller]}), params)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr, "a key already spent says so rather than passing for a launch")
 			} else {
@@ -231,14 +261,14 @@ func TestNewAgentIdempotency(t *testing.T) {
 
 			if tt.wantSame {
 				assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
-				assert.Len(t, agents, 1, "and no second agent is recorded")
+				assert.Len(t, agents, len(seeded)+1, "and no second agent is recorded")
 				assert.Len(t, tmux.Respawned, 1, "nor is a second agent started")
 
 				return
 			}
 
 			assert.NotEqual(t, first.ID, second.ID)
-			assert.Len(t, agents, 2)
+			assert.Len(t, agents, len(seeded)+2)
 		})
 	}
 }
@@ -310,7 +340,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			assert.Len(t, all, 2, "the agent that failed is kept, since it says why it failed")
 			assert.Len(t, tmux.Respawned, 2, "and the retry actually starts something")
 
-			held, err := st.Agents.GetByIdempotencyKey(t.Context(), key)
+			held, err := st.Agents.GetByIdempotencyKey(t.Context(), agentstore.IdempotencyKey{Key: key})
 			require.NoError(t, err)
 			require.NotNil(t, held)
 			assert.Equal(t, second.ID, held.ID, "the key moves to the agent that launched")

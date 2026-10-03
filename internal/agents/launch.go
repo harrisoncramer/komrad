@@ -101,12 +101,13 @@ type NewAgentParams struct {
 // with that agent and agenterr.ErrAlreadyLaunched.
 func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
 	if params.IdempotencyKey != "" {
-		existing, err := s.agents.GetByIdempotencyKey(ctx, params.IdempotencyKey)
+		key := idempotencyKey(ctx, params)
+		existing, err := s.agents.GetByIdempotencyKey(ctx, key)
 		switch {
 		case err == nil:
 			// The row is written before the window is opened, so a create that failed leaves the
 			// key spent on an agent that never ran and a retry answered with a corpse.
-			released, err := s.releaseFailedLaunch(ctx, *existing, params.IdempotencyKey)
+			released, err := s.releaseFailedLaunch(ctx, *existing, key)
 			if err != nil {
 				return nil, err
 			}
@@ -153,7 +154,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
 // attempt launches.
-func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key string) (bool, error) {
+func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key agentstore.IdempotencyKey) (bool, error) {
 	// A failed cleanup belongs to an agent that ran, so only a failed create launched nothing.
 	if existing.State != agentstore.StateFailedToCreate {
 		return false, nil
@@ -162,6 +163,14 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 	// The row is left where it stands rather than relaunched into, its id naming the worktree and
 	// branch the deprovisioner is still tearing down.
 	return s.agents.ReleaseIdempotencyKey(ctx, key)
+}
+
+func idempotencyKey(ctx context.Context, params NewAgentParams) agentstore.IdempotencyKey {
+	return agentstore.IdempotencyKey{
+		Key:                params.IdempotencyKey,
+		RequestedByAgentID: nullable(caller.From(ctx).AgentID),
+		ParentAgentID:      nullable(params.ParentAgentID),
+	}
 }
 
 // requireOwnWorkflow holds an orchestrator to the workflow it stands behind.
@@ -424,6 +433,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	}
 	sessionID := harness.MintSessionID(plan.harness)
 	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
+	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
 
 	if err := s.createUnderCeiling(ctx, agent, spawner, parent); err != nil {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
@@ -203,15 +204,16 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 		WorkflowID: seedWorkflow(t, st),
 	})
 	require.NoError(t, err)
+	authorCtx := caller.With(ctx, caller.Caller{AgentID: author.ID})
 
-	first, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+	first, _, err := manager.launch.RequestReview(authorCtx, RequestReviewParams{
 		AgentID:        author.ID,
 		Prompt:         "read it",
 		IdempotencyKey: "abc",
 	})
 	require.NoError(t, err)
 
-	retried, guidance, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+	retried, guidance, err := manager.launch.RequestReview(authorCtx, RequestReviewParams{
 		AgentID:        author.ID,
 		Prompt:         "read it",
 		IdempotencyKey: "abc",
@@ -220,12 +222,78 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	assert.Equal(t, first.ID, retried.ID)
 	assert.NotEmpty(t, guidance, "a retry is answered with everything the call it repeats answered with")
 
-	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{
+	_, _, err = manager.launch.RequestReview(authorCtx, RequestReviewParams{
 		AgentID:        author.ID,
 		Prompt:         "read it",
 		IdempotencyKey: "def",
 	})
 	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
+}
+
+// TestRequestReviewKeyIsScopedToCallerAndAuthor pins that one key on another author or from another
+// caller is a new ask.
+func TestRequestReviewKeyIsScopedToCallerAndAuthor(t *testing.T) {
+	tests := []struct {
+		name         string
+		firstCaller  string
+		firstAuthor  string
+		secondCaller string
+		secondAuthor string
+		key          string
+	}{
+		{
+			name:         "another author's key is not a retry of this one's call",
+			firstCaller:  "author",
+			firstAuthor:  "author",
+			secondCaller: "other author",
+			secondAuthor: "other author",
+			key:          "abc",
+		},
+		{
+			name:         "one caller's key on two authors is two asks",
+			firstAuthor:  "author",
+			secondAuthor: "other author",
+			key:          "xyz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+			ctx := t.Context()
+
+			ids := map[string]string{}
+			for _, name := range []string{"author", "other author"} {
+				author, err := manager.launch.NewAgent(ctx, NewAgentParams{
+					Title:      name,
+					Dir:        t.TempDir(),
+					Prompt:     "write the change",
+					WorkflowID: seedWorkflow(t, st),
+				})
+				require.NoError(t, err)
+				ids[name] = author.ID
+			}
+
+			first, _, err := manager.launch.RequestReview(caller.With(ctx, caller.Caller{AgentID: ids[tt.firstCaller]}), RequestReviewParams{
+				AgentID:        ids[tt.firstAuthor],
+				Prompt:         "read it",
+				IdempotencyKey: tt.key,
+			})
+			require.NoError(t, err)
+
+			second, _, err := manager.launch.RequestReview(caller.With(ctx, caller.Caller{AgentID: ids[tt.secondCaller]}), RequestReviewParams{
+				AgentID:        ids[tt.secondAuthor],
+				Prompt:         "read it",
+				IdempotencyKey: tt.key,
+			})
+			require.NoError(t, err)
+			assert.NotEqual(t, first.ID, second.ID)
+			require.NotNil(t, second.ParentAgentID)
+			assert.Equal(t, ids[tt.secondAuthor], *second.ParentAgentID)
+		})
+	}
 }
 
 // TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one
