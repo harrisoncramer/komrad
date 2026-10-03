@@ -24,7 +24,6 @@ ON CONFLICT (
 -- name: UpsertChecks :exec
 INSERT INTO pull_request_checks(
     reading_id,
-    pull_request_id,
     provider_id,
     kind,
     source,
@@ -37,7 +36,6 @@ INSERT INTO pull_request_checks(
     url)
 SELECT
     @reading_id,
-    @pull_request_id,
     c.provider_id,
     c.kind,
     c.source,

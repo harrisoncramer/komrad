@@ -765,10 +765,16 @@ type PullRequest struct {
 	AutoMergeable bool
 	// Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing.
 	LatestDecision *string
+	// Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing, failing or failing_running, null when it reported none.
+	LatestChecks *string
 	// The head commit the latest standing read was for, null before the first read.
 	LatestHeadSha *string
 	// Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it.
 	LatestMergeability *string
+	// The last checks a read reported, which a blank read leaves alone.
+	KnownChecks *string
+	// The head commit known_checks was read for.
+	KnownChecksSha *string
 	// The last mergeability a read reported, which a blank read leaves alone.
 	KnownMergeability *string
 	// The head commit known_mergeability was read for.
@@ -786,9 +792,9 @@ type PullRequestCheck struct {
 	ID string
 	// The reading of the head commit the check was listed on.
 	ReadingID string
-	// The forge's own identifier for the check run or commit status, which a rerun replaces.
+	// The forge's own identifier for the check run, commit status or pipeline, which a rerun replaces.
 	ProviderID string
-	// What the forge reported the check as: check_run for a check run, status for an old-style commit status.
+	// What the forge reported the check as: check_run for a check run, status for an old-style commit status, pipeline for a GitLab pipeline.
 	Kind string
 	// The workflow that ran the check, or the app when no workflow did, empty for a commit status.
 	Source string
@@ -808,8 +814,6 @@ type PullRequestCheck struct {
 	Url string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
-	// The pull request the check was listed on, which its reading also names.
-	PullRequestID string
 }
 
 // What the forge last said about the checks on one head commit of a pull request, kept for every head it was read on until the pull request goes.

@@ -68,7 +68,7 @@ func setChecks(ctx context.Context, queries *models.Queries, params SetChecksPar
 	if err != nil {
 		return fmt.Errorf("failed to encode the checks listed on %s: %w", params.HeadSHA, err)
 	}
-	if err := queries.UpsertChecks(ctx, models.UpsertChecksParams{ReadingID: readingID, PullRequestID: params.PullRequestID, Checks: encoded}); err != nil {
+	if err := queries.UpsertChecks(ctx, models.UpsertChecksParams{ReadingID: readingID, Checks: encoded}); err != nil {
 		return fmt.Errorf("failed to write the checks listed on %s: %w", params.HeadSHA, err)
 	}
 

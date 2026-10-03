@@ -68,7 +68,7 @@ func (q *Queries) ListCheckReadings(ctx context.Context, pullRequestID string) (
 
 const listChecksOfReadings = `-- name: ListChecksOfReadings :many
 SELECT
-    id, reading_id, provider_id, kind, source, name, state, conclusion, started_at, finished_at, required, url, engine_id, pull_request_id
+    id, reading_id, provider_id, kind, source, name, state, conclusion, started_at, finished_at, required, url, engine_id
 FROM
     pull_request_checks c
 WHERE
@@ -104,7 +104,6 @@ func (q *Queries) ListChecksOfReadings(ctx context.Context, readingIds []string)
 			&i.Required,
 			&i.Url,
 			&i.EngineID,
-			&i.PullRequestID,
 		); err != nil {
 			return nil, err
 		}
@@ -203,7 +202,6 @@ func (q *Queries) RecordCheckReading(ctx context.Context, arg RecordCheckReading
 const upsertChecks = `-- name: UpsertChecks :exec
 INSERT INTO pull_request_checks(
     reading_id,
-    pull_request_id,
     provider_id,
     kind,
     source,
@@ -216,7 +214,6 @@ INSERT INTO pull_request_checks(
     url)
 SELECT
     $1,
-    $2,
     c.provider_id,
     c.kind,
     c.source,
@@ -228,7 +225,7 @@ SELECT
     c.required,
     c.url
 FROM
-    JSONB_TO_RECORDSET($3::jsonb) AS c(provider_id text,
+    JSONB_TO_RECORDSET($2::jsonb) AS c(provider_id text,
         kind text,
         source text,
         name text,
@@ -265,12 +262,11 @@ ON CONFLICT (engine_id,
 `
 
 type UpsertChecksParams struct {
-	ReadingID     string
-	PullRequestID string
-	Checks        []byte
+	ReadingID string
+	Checks    []byte
 }
 
 func (q *Queries) UpsertChecks(ctx context.Context, arg UpsertChecksParams) error {
-	_, err := q.db.Exec(ctx, upsertChecks, arg.ReadingID, arg.PullRequestID, arg.Checks)
+	_, err := q.db.Exec(ctx, upsertChecks, arg.ReadingID, arg.Checks)
 	return err
 }

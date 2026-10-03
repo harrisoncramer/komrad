@@ -179,6 +179,11 @@ table "pull_requests" {
     type    = text
     comment = "Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing."
   }
+  column "latest_checks" {
+    null    = true
+    type    = text
+    comment = "Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing, failing or failing_running, null when it reported none."
+  }
   column "latest_head_sha" {
     null    = true
     type    = text
@@ -188,6 +193,16 @@ table "pull_requests" {
     null    = true
     type    = text
     comment = "Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it."
+  }
+  column "known_checks" {
+    null    = true
+    type    = text
+    comment = "The last checks a read reported, which a blank read leaves alone."
+  }
+  column "known_checks_sha" {
+    null    = true
+    type    = text
+    comment = "The head commit known_checks was read for."
   }
   column "auto_merge" {
     null    = true
@@ -404,11 +419,6 @@ table "pull_request_checks" {
     type    = uuid
     comment = "The reading of the head commit the check was listed on."
   }
-  column "pull_request_id" {
-    null    = false
-    type    = uuid
-    comment = "The pull request the check was listed on, which its reading also names."
-  }
   column "provider_id" {
     null    = false
     type    = text
@@ -481,12 +491,6 @@ table "pull_request_checks" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  foreign_key "pull_request_checks_pull_request_id_fkey" {
-    columns     = [column.engine_id, column.pull_request_id]
-    ref_columns = [table.pull_requests.column.engine_id, table.pull_requests.column.id]
-    on_delete   = CASCADE
-    on_update   = NO_ACTION
-  }
   foreign_key "pull_request_checks_reading_id_fkey" {
     columns     = [column.engine_id, column.reading_id]
     ref_columns = [table.pull_request_check_readings.column.engine_id, table.pull_request_check_readings.column.id]
@@ -495,9 +499,6 @@ table "pull_request_checks" {
   }
   index "pull_request_checks_reading_id" {
     columns = [column.reading_id]
-  }
-  index "pull_request_checks_pull_request_id" {
-    columns = [column.pull_request_id]
   }
 }
 
