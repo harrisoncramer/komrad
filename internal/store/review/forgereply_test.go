@@ -282,6 +282,32 @@ func TestForgeReplyRecords(t *testing.T) {
 			},
 		},
 		{
+			name: "a proposal outlives the agent that wrote it",
+			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
+				ctx := t.Context()
+				author := st.seedAgent(t, "helper")
+				proposed, err := st.CreateAgentForgeReply(ctx, CreateAgentForgeReplyParams{
+					ThreadID: threads.mirrored,
+					AgentID:  author,
+					Body:     "proposed",
+				})
+				require.NoError(t, err)
+				_, err = st.pool.Exec(ctx, "DELETE FROM agents WHERE id = $1", author)
+				require.NoError(t, err)
+
+				reply, err := st.GetForgeReply(ctx, proposed.ID)
+				require.NoError(t, err)
+
+				return reply
+			},
+			check: func(t *testing.T, reply *forgeReply) {
+				assert.Equal(t, AuthorAgent, reply.AuthorKind)
+				assert.Nil(t, reply.AuthorAgentID)
+				require.NotNil(t, reply.ProposedBody)
+				assert.Equal(t, "proposed", *reply.ProposedBody)
+			},
+		},
+		{
 			name: "retrying a failed reply clears its error",
 			reach: func(t *testing.T, st *fixture, threads replyThreads) *forgeReply {
 				failed := st.proposeIn(t, threads, replyFailed)

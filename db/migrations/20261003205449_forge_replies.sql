@@ -22,7 +22,7 @@ CREATE TABLE "review_forge_replies" (
   "engine_id" uuid NOT NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "review_forge_replies_engine_id_id_key" UNIQUE ("engine_id", "id"),
-  CONSTRAINT "review_forge_replies_author_agent_id_fkey" FOREIGN KEY ("engine_id", "author_agent_id") REFERENCES "agents" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE SET NULL,
+  CONSTRAINT "review_forge_replies_author_agent_id_fkey" FOREIGN KEY ("engine_id", "author_agent_id") REFERENCES "agents" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE SET NULL ("author_agent_id"),
   CONSTRAINT "review_forge_replies_engine_id_fkey" FOREIGN KEY ("engine_id") REFERENCES "engines" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
   CONSTRAINT "review_forge_replies_thread_id_fkey" FOREIGN KEY ("engine_id", "thread_id") REFERENCES "review_threads" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE CASCADE,
   CONSTRAINT "review_forge_replies_approved_past_draft" CHECK (((state = 'draft'::forge_reply_state) = (approver_kind IS NULL)) AND ((approver_kind IS NULL) = (approved_at IS NULL))),
