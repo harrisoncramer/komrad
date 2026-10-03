@@ -211,14 +211,14 @@ func TestMessagesCopy(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{})
 		harness.press("enter", "ctrl+g")
 		settleFlash(harness)
-		plain := readStyledPaneText(harness, "Could not resume")
+		plain := readStyledSummary(harness, "Could not resume")
 		harness.press("y")
-		flashed := readStyledPaneText(harness, "Could not resume")
+		flashed := readStyledSummary(harness, "Could not resume")
 		require.NotEqual(t, plain, flashed, "the copy flashes the row")
 
 		harness.press("M")
 
-		assert.Equal(t, flashed, readStyledPaneText(harness, "Could not resume"))
+		assert.Equal(t, flashed, readStyledSummary(harness, "Could not resume"))
 	})
 }
 
@@ -367,17 +367,14 @@ func readStyledPane(harness *panelHarness) string {
 	return strings.Join(readStage(harness.readRawFrame()), "\n")
 }
 
-func readStyledPaneText(harness *panelHarness, text string) string {
-	for _, line := range readStage(harness.readRawFrame()) {
-		at := strings.Index(line, text)
-		if at < 0 {
-			continue
-		}
-
-		return line[strings.LastIndex(line[:at], "\x1b["):]
+func readStyledSummary(harness *panelHarness, summary string) string {
+	line := findLine(readStage(harness.readRawFrame()), summary)
+	at := strings.Index(line, summary)
+	if at < 0 {
+		return ""
 	}
 
-	return ""
+	return line[max(0, strings.LastIndex(line[:at], "\x1b[")):]
 }
 
 func readPaneTally(frame string) string {
