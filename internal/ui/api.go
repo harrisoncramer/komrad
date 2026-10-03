@@ -379,6 +379,10 @@ func (a api) createSchedule(cfg panel.ScheduleConfig) error {
 }
 
 func (a api) updateSchedule(id string, cfg panel.ScheduleConfig) error {
+	if !knownScheduleKind(cfg.Kind) {
+		return errUnknownScheduleKind
+	}
+
 	return mutate(func(ctx context.Context) (any, error) {
 		req := &schedulev1.UpdateScheduleRequest{
 			Id:         id,

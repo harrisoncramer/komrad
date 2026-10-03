@@ -130,6 +130,11 @@ func TestPullRequestWords(t *testing.T) {
 			},
 			want: "ready to merge",
 		},
+		{
+			name:        "a state a newer server added says it is unknown",
+			pullRequest: panel.PullRequest{State: pullrequestv1.PullRequestState(99)},
+			want:        "unknown",
+		},
 	}
 
 	for _, tt := range tests {

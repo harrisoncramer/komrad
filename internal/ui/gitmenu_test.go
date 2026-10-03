@@ -605,6 +605,8 @@ func TestGitMenuAborts(t *testing.T) {
 
 	tests := []struct {
 		name        string
+		sequence    agentv1.Sequence
+		noun        string
 		refuse      error
 		press       []string
 		wantAborts  []proto.Message
@@ -627,16 +629,31 @@ func TestGitMenuAborts(t *testing.T) {
 			wantAborts:  []proto.Message{abort},
 			wantMessage: "api: aborted the rebase agent/a1 is back where it stood before. A copy of the worktree from before the abort is kept at refs/komrad/aborted/a1/1.",
 		},
+		{
+			name:        "an operation a newer server added is offered and named neutrally",
+			sequence:    agentv1.Sequence(99),
+			noun:        "git operation",
+			press:       []string{"y"},
+			wantAborts:  []proto.Message{abort},
+			wantMessage: "api: aborted the git operation agent/a1 is back where it stood before.",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openGitMenu(t, buildRebasingGitAgent()...)
+			sequence, noun := agentv1.Sequence_SEQUENCE_REBASE, "rebase"
+			if tt.sequence != agentv1.Sequence_SEQUENCE_UNSPECIFIED {
+				sequence, noun = tt.sequence, tt.noun
+			}
+			rows := buildGitAgent()
+			rows[1].(*agentv1.Agent).Sequence = sequence
+
+			harness := openGitMenu(t, rows...)
 			harness.answer(agentv1connect.AgentServiceAbortSequenceProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.AbortSequenceResponse{
-					Sequence:  agentv1.Sequence_SEQUENCE_REBASE,
+					Sequence:  sequence,
 					Branch:    "agent/a1",
 					ParkedRef: "refs/komrad/aborted/a1/1",
 				}), nil
@@ -644,15 +661,15 @@ func TestGitMenuAborts(t *testing.T) {
 			if tt.refuse != nil {
 				harness.refuse(agentv1connect.AgentServiceAbortSequenceProcedure, tt.refuse)
 			}
-			require.Contains(t, harness.readFrame(), "abort rebase")
+			require.Contains(t, harness.readFrame(), "abort "+noun)
 
 			harness.press("x")
 
-			require.Contains(t, harness.readFrame(), "Abort the rebase in the worktree of api?")
+			require.Contains(t, harness.readFrame(), "Abort the "+noun+" in the worktree of api?")
 			harness.press(tt.press...)
 
 			harness.assertSentTo(agentv1connect.AgentServiceAbortSequenceProcedure, tt.wantAborts...)
-			assert.NotContains(t, harness.readFrame(), "Abort the rebase in")
+			assert.NotContains(t, harness.readFrame(), "Abort the "+noun+" in")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}

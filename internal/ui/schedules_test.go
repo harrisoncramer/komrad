@@ -81,6 +81,19 @@ func TestSchedulesKeys(t *testing.T) {
 			wantDrawn: []string{"> morning-ci", "> 0 9 * * 1-5", "check CI"},
 		},
 		{
+			name:       "edit on a kind a newer server added says why rather than opening the form",
+			rows:       []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
+			press:      []string{"space", "e"},
+			wantDrawn:  []string{"Could not edit schedule"},
+			wantAbsent: []string{scheduleForm},
+		},
+		{
+			name:      "rename on a kind a newer server added sends nothing",
+			rows:      []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
+			press:     slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
+			wantDrawn: []string{"Could not rename schedule"},
+		},
+		{
 			name:      "archive opens its menu",
 			rows:      buildSchedules(),
 			press:     []string{"space", "a"},
@@ -349,6 +362,9 @@ func TestSchedulesRecord(t *testing.T) {
 	mailing.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
 	mailing.OrchestratorAgentId = xptr.Ptr("o1")
 
+	unknown := newUnknownKindSchedule()
+	unknown.Timezone = "UTC"
+
 	tests := []struct {
 		name     string
 		schedule *schedulev1.Schedule
@@ -379,6 +395,17 @@ func TestSchedulesRecord(t *testing.T) {
 				"timezone UTC",
 				"kind orchestrator",
 				"mails — (gone)",
+			},
+		},
+		{
+			name:     "a schedule of a kind a newer server added says its kind is unknown",
+			schedule: unknown,
+			workflow: configured,
+			want: []string{
+				"name morning-ci",
+				"cron 0 9 * * 1-5",
+				"timezone UTC",
+				"kind unknown",
 			},
 		},
 		{
@@ -724,6 +751,13 @@ func newSchedule(id, name string) *schedulev1.Schedule {
 		WorkflowId: "w1",
 		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
 	}
+}
+
+func newUnknownKindSchedule() *schedulev1.Schedule {
+	schedule := newSchedule("s1", "morning-ci")
+	schedule.Kind = schedulev1.ScheduleKind(99)
+
+	return schedule
 }
 
 func newPausedSchedule(id, name string) *schedulev1.Schedule {

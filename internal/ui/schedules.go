@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
+
+var errUnknownScheduleKind = errors.New("this build of komrad does not know the schedule's kind, so update it first")
 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
@@ -224,9 +227,27 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 
 // editScheduleForm puts up the form over a stored schedule.
 func editScheduleForm(m *model, schedule panel.Schedule) tea.Cmd {
+	if !knownScheduleKind(schedule.Kind) {
+		m.report(fmt.Sprintf("Could not edit schedule %q", schedule.Name), errUnknownScheduleKind)
+
+		return nil
+	}
+
 	values := schedulePrefill(schedule)
 
 	return openScheduleForm(m, &values, &schedule)
+}
+
+// knownScheduleKind reports whether this build knows what a schedule of this kind targets.
+func knownScheduleKind(kind schedulev1.ScheduleKind) bool {
+	switch kind {
+	case schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED,
+		schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+		schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR:
+		return true
+	}
+
+	return false
 }
 
 // schedulePrefill is the schedule form as the stored schedule leaves it.

@@ -120,9 +120,10 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
+		return ""
 	}
 
-	return ""
+	return "unknown"
 }
 
 // openPullRequest hands the agent's current pull request to the browser, or says why there is
