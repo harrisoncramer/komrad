@@ -25,12 +25,12 @@ CREATE TABLE "review_forge_replies" (
   CONSTRAINT "review_forge_replies_author_agent_id_fkey" FOREIGN KEY ("engine_id", "author_agent_id") REFERENCES "agents" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE SET NULL ("author_agent_id"),
   CONSTRAINT "review_forge_replies_engine_id_fkey" FOREIGN KEY ("engine_id") REFERENCES "engines" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
   CONSTRAINT "review_forge_replies_thread_id_fkey" FOREIGN KEY ("engine_id", "thread_id") REFERENCES "review_threads" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE CASCADE,
-  CONSTRAINT "review_forge_replies_approved_past_draft" CHECK (((state = 'draft'::forge_reply_state) = (approver_kind IS NULL)) AND ((approver_kind IS NULL) = (approved_at IS NULL))),
-  CONSTRAINT "review_forge_replies_author_writes" CHECK (author_kind = ANY (ARRAY['human'::review_author_kind, 'agent'::review_author_kind])),
+  CONSTRAINT "review_forge_replies_approval_recorded" CHECK (((state = 'draft'::forge_reply_state) = (approver_kind IS NULL)) AND ((approver_kind IS NULL) = (approved_at IS NULL))),
+  CONSTRAINT "review_forge_replies_author_not_forge" CHECK (author_kind = ANY (ARRAY['human'::review_author_kind, 'agent'::review_author_kind])),
   CONSTRAINT "review_forge_replies_body_written" CHECK (body <> ''::text),
   CONSTRAINT "review_forge_replies_failure_recorded" CHECK ((state = 'failed'::forge_reply_state) = (error IS NOT NULL)),
   CONSTRAINT "review_forge_replies_human_skips_draft" CHECK ((author_kind = 'agent'::review_author_kind) OR (state <> 'draft'::forge_reply_state)),
-  CONSTRAINT "review_forge_replies_proposal_is_agents" CHECK ((author_kind = 'agent'::review_author_kind) = (proposed_body IS NOT NULL)),
+  CONSTRAINT "review_forge_replies_proposal_from_agent" CHECK ((author_kind = 'agent'::review_author_kind) = (proposed_body IS NOT NULL)),
   CONSTRAINT "review_forge_replies_sending_started" CHECK ((state = ANY (ARRAY['draft'::forge_reply_state, 'approved'::forge_reply_state])) OR (sending_started_at IS NOT NULL)),
   CONSTRAINT "review_forge_replies_sent_recorded" CHECK (((state = 'sent'::forge_reply_state) = (sent_at IS NOT NULL)) AND ((state = 'sent'::forge_reply_state) = (forge_comment_provider_id IS NOT NULL)))
 );

@@ -658,16 +658,16 @@ table "review_forge_replies" {
     where   = "state = 'sending'"
     comment = "Finds the replies an interrupted send may have left on the forge."
   }
-  check "review_forge_replies_author_writes" {
+  check "review_forge_replies_author_not_forge" {
     expr = "author_kind IN ('human', 'agent')"
   }
-  check "review_forge_replies_proposal_is_agents" {
+  check "review_forge_replies_proposal_from_agent" {
     expr = "(author_kind = 'agent') = (proposed_body IS NOT NULL)"
   }
   check "review_forge_replies_human_skips_draft" {
     expr = "author_kind = 'agent' OR state <> 'draft'"
   }
-  check "review_forge_replies_approved_past_draft" {
+  check "review_forge_replies_approval_recorded" {
     expr = "(state = 'draft') = (approver_kind IS NULL) AND (approver_kind IS NULL) = (approved_at IS NULL)"
   }
   check "review_forge_replies_sending_started" {
