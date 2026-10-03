@@ -98,7 +98,7 @@ var errDatabaseInUse = errors.New("another komrad is using this database")
 type sources struct {
 	migrations fs.FS
 	triggers   fs.FS
-	finish     func(context.Context, pgx.Tx) error
+	isolate    func(context.Context, pgx.Tx) error
 }
 
 // contents is a list of migrations and trigger units, in the order they run.
@@ -182,7 +182,7 @@ func openSources() (*sources, error) {
 		return nil, fmt.Errorf("failed to open the embedded triggers: %w", err)
 	}
 
-	return &sources{migrations: migrations, triggers: triggers, finish: isolateEngines}, nil
+	return &sources{migrations: migrations, triggers: triggers, isolate: isolateEngines}, nil
 }
 
 func (s *sources) list() (*contents, error) {
@@ -375,11 +375,11 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 	unitNames := xslice.Map(all.units, func(u unit) string { return u.name })
 	for _, version := range plan.migrations {
 		if err := applyFile(ctx, conn, applyFileParams{
-			files:  src.migrations,
-			name:   version,
-			record: recordMigrationSQL,
-			args:   []any{version, unitNames},
-			finish: src.finish,
+			files:      src.migrations,
+			name:       version,
+			record:     recordMigrationSQL,
+			args:       []any{version, unitNames},
+			afterApply: src.isolate,
 		}); err != nil {
 			return err
 		}
@@ -406,11 +406,11 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 }
 
 type applyFileParams struct {
-	files  fs.FS
-	name   string
-	record string
-	args   []any
-	finish func(context.Context, pgx.Tx) error
+	files      fs.FS
+	name       string
+	record     string
+	args       []any
+	afterApply func(context.Context, pgx.Tx) error
 }
 
 // applyFile runs one file in its own transaction alongside the statement recording it.
@@ -430,10 +430,10 @@ func applyFile(ctx context.Context, conn *pgxpool.Conn, params applyFileParams) 
 		return fmt.Errorf("failed to apply %q: %w", params.name, err)
 	}
 
-	if params.finish != nil {
-		if err := params.finish(ctx, tx); err != nil {
+	if params.afterApply != nil {
+		if err := params.afterApply(ctx, tx); err != nil {
 			_ = tx.Rollback(ctx)
-			return fmt.Errorf("failed to finish %q: %w", params.name, err)
+			return fmt.Errorf("failed to isolate engines after %q: %w", params.name, err)
 		}
 	}
 

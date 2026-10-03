@@ -69,7 +69,7 @@ func TestTheSchemaCarriesExactlyTheDeclaredTriggers(t *testing.T) {
 		WHERE
 		    c.relnamespace = 'public'::regnamespace
 		    AND NOT t.tgisinternal
-		    AND t.tgname <> $1`, db.StampEngine)
+		    AND t.tgname <> $1`, db.StampEngineTrigger)
 	require.NoError(t, err)
 	defer rows.Close()
 
@@ -108,7 +108,7 @@ func TestTheSchemaCarriesExactlyTheDeclaredFunctions(t *testing.T) {
 		    AND prorettype = 'trigger'::regtype
 		    AND proname <> $1
 		ORDER BY
-		    proname`, db.StampEngine)
+		    proname`, db.StampEngineTrigger)
 	require.NoError(t, err)
 	defer rows.Close()
 

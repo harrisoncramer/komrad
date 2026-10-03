@@ -14,7 +14,7 @@ BEGIN
         WHERE tgrelid = '{{.Name}}'::regclass
           AND NOT tgisinternal
           AND tgname <> ALL (ARRAY[{{names .Triggers}}]::name[])
-          AND tgname <> '{{stamp}}'
+          AND tgname <> '{{stampEngineTrigger}}'
     LOOP
         EXECUTE FORMAT('DROP TRIGGER %I ON %I', undeclared, '{{.Name}}');
     END LOOP;

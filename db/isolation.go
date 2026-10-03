@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// StampEngineTrigger is the trigger and function that stamp each new row with the writing engine.
+const StampEngineTrigger = "stamp_engine"
+
+const engineIsolationPolicy = "engine_isolation"
+
 // UnscopedTables are the public tables that hold no engine's rows and so carry no engine_id.
 var UnscopedTables = []string{"engines", "schema_migrations", "schema_triggers"}
 
@@ -16,11 +21,6 @@ var UnisolatedTables = []string{"engine_logins"}
 
 // ReaderlessTables are the engine tables the reader role is not granted.
 var ReaderlessTables = []string{"forge_review_comments", "forge_review_threads"}
-
-// StampEngine names the trigger, and the function it runs, that stamps each new row with the writing engine.
-const StampEngine = "stamp_engine"
-
-const engineIsolationPolicy = "engine_isolation"
 
 const listTablesWithoutEngineSQL = `
 SELECT c.relname::text
@@ -39,8 +39,8 @@ ORDER BY c.relname`
 const listEngineTablesSQL = `
 SELECT
     c.relname::text AS name,
-    c.relname <> ALL ($1::text[]) AS isolated,
-    c.relname <> ALL ($2::text[]) AS readable,
+    c.relname <> ALL ($1::text[]) AS should_isolate,
+    c.relname <> ALL ($2::text[]) AS should_reader_read,
     c.relrowsecurity AS secured,
     EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = $3) AS policed,
     EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = $4 AND NOT t.tgisinternal) AS stamped,
@@ -48,9 +48,9 @@ SELECT
         AND has_table_privilege('komrad_engine', c.oid, 'INSERT')
         AND has_table_privilege('komrad_engine', c.oid, 'UPDATE')
         AND has_table_privilege('komrad_engine', c.oid, 'DELETE') AS engine_writes,
-    has_table_privilege('komrad_engine', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS engine_granted,
+    has_table_privilege('komrad_engine', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS engine_has_any,
     has_table_privilege('komrad_reader', c.oid, 'SELECT') AS reader_reads,
-    has_table_privilege('komrad_reader', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS reader_granted
+    has_table_privilege('komrad_reader', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS reader_has_any
 FROM pg_class c
 JOIN pg_attribute a ON a.attrelid = c.oid
 WHERE c.relnamespace = 'public'::regnamespace
@@ -60,7 +60,7 @@ WHERE c.relnamespace = 'public'::regnamespace
 ORDER BY c.relname`
 
 const stampEngineFunctionSQL = `
-CREATE OR REPLACE FUNCTION stamp_engine()
+CREATE OR REPLACE FUNCTION ` + StampEngineTrigger + `()
     RETURNS TRIGGER
     AS $$
 BEGIN
@@ -71,39 +71,39 @@ $$
 LANGUAGE plpgsql;`
 
 type engineTable struct {
-	Name          string
-	Isolated      bool
-	Readable      bool
-	Secured       bool
-	Policed       bool
-	Stamped       bool
-	EngineWrites  bool
-	EngineGranted bool
-	ReaderReads   bool
-	ReaderGranted bool
+	Name             string
+	ShouldIsolate    bool
+	ShouldReaderRead bool
+	Secured          bool
+	Policed          bool
+	Stamped          bool
+	EngineWrites     bool
+	EngineHasAny     bool
+	ReaderReads      bool
+	ReaderHasAny     bool
 }
 
-func (t engineTable) settled() bool {
-	if !t.Isolated {
-		return !t.Secured && !t.Policed && !t.Stamped && !t.EngineGranted && !t.ReaderGranted
+func (t engineTable) isSettled() bool {
+	if !t.ShouldIsolate {
+		return !t.Secured && !t.Policed && !t.Stamped && !t.EngineHasAny && !t.ReaderHasAny
 	}
 
-	return t.Secured && t.Policed && t.Stamped && t.EngineWrites && t.ReaderReads == t.Readable
+	return t.Secured && t.Policed && t.Stamped && t.EngineWrites && t.ReaderReads == t.ShouldReaderRead
 }
 
-func (t engineTable) statements() []string {
+func (t engineTable) buildStatements() []string {
 	name := pgx.Identifier{t.Name}.Sanitize()
-	if !t.Isolated {
+	if !t.ShouldIsolate {
 		return []string{
 			fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, name),
-			fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s;", StampEngine, name),
+			fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s;", StampEngineTrigger, name),
 			fmt.Sprintf("ALTER TABLE %s DISABLE ROW LEVEL SECURITY;", name),
 			fmt.Sprintf("REVOKE ALL ON %s FROM komrad_engine, komrad_reader;", name),
 		}
 	}
 
 	reader := fmt.Sprintf("GRANT SELECT ON %s TO komrad_reader;", name)
-	if !t.Readable {
+	if !t.ShouldReaderRead {
 		reader = fmt.Sprintf("REVOKE ALL ON %s FROM komrad_reader;", name)
 	}
 
@@ -111,7 +111,7 @@ func (t engineTable) statements() []string {
 		fmt.Sprintf("ALTER TABLE %s ENABLE ROW LEVEL SECURITY;", name),
 		fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, name),
 		fmt.Sprintf("CREATE POLICY %s ON %s USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));", engineIsolationPolicy, name),
-		fmt.Sprintf("CREATE OR REPLACE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION %s();", StampEngine, name, StampEngine),
+		fmt.Sprintf("CREATE OR REPLACE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION %s();", StampEngineTrigger, name, StampEngineTrigger),
 		fmt.Sprintf("GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO komrad_engine;", name),
 		reader,
 	}
@@ -131,7 +131,7 @@ func isolateEngines(ctx context.Context, tx pgx.Tx) error {
 		return fmt.Errorf("these tables have no required engine_id and are not listed in db.UnscopedTables: %s", strings.Join(unscoped, ", "))
 	}
 
-	rows, err = tx.Query(ctx, listEngineTablesSQL, UnisolatedTables, ReaderlessTables, engineIsolationPolicy, StampEngine)
+	rows, err = tx.Query(ctx, listEngineTablesSQL, UnisolatedTables, ReaderlessTables, engineIsolationPolicy, StampEngineTrigger)
 	if err != nil {
 		return fmt.Errorf("failed to list engine tables: %w", err)
 	}
@@ -143,10 +143,10 @@ func isolateEngines(ctx context.Context, tx pgx.Tx) error {
 
 	statements := []string{"SET LOCAL lock_timeout = '5s';", stampEngineFunctionSQL}
 	for _, table := range tables {
-		if table.settled() {
+		if table.isSettled() {
 			continue
 		}
-		statements = append(statements, table.statements()...)
+		statements = append(statements, table.buildStatements()...)
 	}
 
 	if _, err := tx.Exec(ctx, strings.Join(statements, "\n")); err != nil {

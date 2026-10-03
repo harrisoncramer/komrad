@@ -119,7 +119,7 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 			list: func(ctx context.Context) ([]string, error) {
 				return queries.ListTablesWithoutEngineIsolation(ctx, testmodels.ListTablesWithoutEngineIsolationParams{
 					Unisolated:  db.UnisolatedTables,
-					StampEngine: db.StampEngine,
+					StampEngine: db.StampEngineTrigger,
 				})
 			},
 			cause: "these tables lack row security, the engine_isolation policy or the stamp_engine trigger",
