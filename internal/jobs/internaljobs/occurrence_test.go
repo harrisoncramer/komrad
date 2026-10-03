@@ -50,6 +50,18 @@ func TestOccurrenceFor(t *testing.T) {
 			want: nine,
 		},
 		{
+			name: "even two hours late, after the machine slept through it",
+			cron: "0 9 * * *",
+			at:   nine.Add(2 * time.Hour),
+			want: nine,
+		},
+		{
+			name: "and a yearly one built weeks late belongs to its day",
+			cron: "0 9 28 7 *",
+			at:   nine.Add(40 * 24 * time.Hour),
+			want: nine,
+		},
+		{
 			name: "a firing built on the boundary belongs to itself",
 			cron: "* * * * *",
 			at:   minute,
@@ -122,4 +134,18 @@ func TestLaunchArgsForOccurrence(t *testing.T) {
 
 	assert.Equal(t, "s1", launch.ScheduleID)
 	assert.Equal(t, nine, launch.ScheduledFor.UTC())
+}
+
+// TestLaunchArgsForLateFiringLeavesTheNextOne covers a firing built hours late, whose arguments
+// must differ from the next morning's or River drops that one as a duplicate.
+func TestLaunchArgsForLateFiringLeavesTheNextOne(t *testing.T) {
+	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
+
+	cron, err := schedules.ParseCron("0 9 * * *", "UTC")
+	require.NoError(t, err)
+
+	late, _ := LaunchArgsFor("s1", cron, nine.Add(2*time.Hour))
+	next, _ := LaunchArgsFor("s1", cron, nine.Add(24*time.Hour))
+
+	assert.NotEqual(t, late, next)
 }

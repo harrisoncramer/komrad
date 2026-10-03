@@ -17,14 +17,16 @@ func LaunchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time
 	return LaunchAgentArgs{ScheduleID: scheduleID, ScheduledFor: occurrence}, nil
 }
 
-const lateness = time.Hour
-
 const skew = 5 * time.Second
+
+const day = 24 * time.Hour
+
+var lookbacks = []time.Duration{time.Hour, day, 31 * day, 366 * day, 4 * 366 * day}
 
 func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 	cutoff := now.Add(skew)
 
-	occurrence := cron.Next(now.Add(-lateness))
+	occurrence := findStartingOccurrence(cron, now, cutoff)
 	if occurrence.IsZero() {
 		return occurrence
 	}
@@ -37,4 +39,15 @@ func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 
 		occurrence = next
 	}
+}
+
+func findStartingOccurrence(cron river.PeriodicSchedule, now time.Time, cutoff time.Time) time.Time {
+	for _, lookback := range lookbacks {
+		occurrence := cron.Next(now.Add(-lookback))
+		if occurrence.IsZero() || !occurrence.After(cutoff) {
+			return occurrence
+		}
+	}
+
+	return time.Time{}
 }
