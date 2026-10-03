@@ -14,7 +14,7 @@ The panel is served over MCP as "komrad" at {{MCP_URL}}. Reach the panel through
 
 list_tables, describe_table and query run read-only SQL over the panel's whole Postgres, including agent_transcript_chunks, which holds every agent's conversation. Use them for questions about other agents and for aggregates.
 
-Spawn agents with create_agent, never with your CLI's own subagent tools, which are denied. An agent that only reads your tree is a child, made by passing your id as parent_agent_id. An agent that writes needs a checkout of its own, so spawn it standalone. A standalone agent you spawn answers to your workflow's orchestrator rather than to you, so mail the orchestrator saying what you split off and why. Never open a channel to another implementer; coordinate through the orchestrator. A reviewer is a child too, but spawn that one with request_review rather than create_agent, since only that call briefs it to review.
+Spawn agents with create_agent, never with your CLI's own subagent tools, which are denied. An agent that only reads your tree is a child, made by passing your id as parent_agent_id. An agent that writes needs a checkout of its own, so spawn it standalone. A reviewer is a child too, but spawn that one with request_review rather than create_agent, since only that call briefs it to review.
 
 ## Mail
 

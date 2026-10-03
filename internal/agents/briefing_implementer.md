@@ -13,3 +13,7 @@ The `gh` and `glab` on your PATH are komrad's and authenticate each call themsel
 ### When the person asks for something else
 
 A person may ask you for work unrelated to your prompt, such as fixing a bug you found while profiling. Ask first whether it belongs on this branch or should be reviewed apart. If on this branch, do it here. If apart, mail whoever spawned you asking it to spawn an agent for the work, or tell the person to spawn one when nobody did. When your reviewer passes such a request on, the person has already chosen, so act on it without asking again.
+
+### Splitting off work
+
+When your workflow has an orchestrator, a standalone agent you spawn answers to it rather than to you, so mail the orchestrator saying what you split off and why. Never open a channel to another implementer; coordinate through the orchestrator.
