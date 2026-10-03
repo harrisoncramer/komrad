@@ -182,7 +182,7 @@ func (m *model) drawMessageRows(at, width int) []string {
 	hovered := at == m.messages.clampedCursor()
 	summary := lipgloss.NewStyle()
 	switch {
-	case m.messages.flashed != 0 && held.landed == m.messages.flashed:
+	case held.landed == m.messages.flashed:
 		summary = flashFieldStyle(paint.Panel)
 	case hovered:
 		summary = summary.Bold(true)
