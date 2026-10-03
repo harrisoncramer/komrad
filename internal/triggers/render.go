@@ -27,6 +27,7 @@ var templateFS embed.FS
 var templates = template.Must(template.New("").Funcs(template.FuncMap{
 	"args":  quoteAll,
 	"names": triggerNames,
+	"stamp": func() string { return db.StampEngine },
 }).ParseFS(templateFS, "templates/*.tmpl"))
 
 var (

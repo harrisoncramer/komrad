@@ -98,6 +98,7 @@ var errDatabaseInUse = errors.New("another komrad is using this database")
 type sources struct {
 	migrations fs.FS
 	triggers   fs.FS
+	finish     func(context.Context, pgx.Tx) error
 }
 
 // contents is a list of migrations and trigger units, in the order they run.
@@ -181,7 +182,7 @@ func openSources() (*sources, error) {
 		return nil, fmt.Errorf("failed to open the embedded triggers: %w", err)
 	}
 
-	return &sources{migrations: migrations, triggers: triggers}, nil
+	return &sources{migrations: migrations, triggers: triggers, finish: isolateEngines}, nil
 }
 
 func (s *sources) list() (*contents, error) {
@@ -378,6 +379,7 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 			name:   version,
 			record: recordMigrationSQL,
 			args:   []any{version, unitNames},
+			finish: src.finish,
 		}); err != nil {
 			return err
 		}
@@ -408,6 +410,7 @@ type applyFileParams struct {
 	name   string
 	record string
 	args   []any
+	finish func(context.Context, pgx.Tx) error
 }
 
 // applyFile runs one file in its own transaction alongside the statement recording it.
@@ -425,6 +428,13 @@ func applyFile(ctx context.Context, conn *pgxpool.Conn, params applyFileParams) 
 	if _, err := tx.Exec(ctx, string(sqlText)); err != nil {
 		_ = tx.Rollback(ctx)
 		return fmt.Errorf("failed to apply %q: %w", params.name, err)
+	}
+
+	if params.finish != nil {
+		if err := params.finish(ctx, tx); err != nil {
+			_ = tx.Rollback(ctx)
+			return fmt.Errorf("failed to finish %q: %w", params.name, err)
+		}
 	}
 
 	if _, err := tx.Exec(ctx, params.record, params.args...); err != nil {

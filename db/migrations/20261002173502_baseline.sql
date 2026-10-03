@@ -37,6 +37,15 @@ BEGIN
 END;
 $$;
 
+GRANT USAGE ON SCHEMA public TO komrad_engine;
+
+GRANT USAGE ON SCHEMA public TO komrad_reader;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO komrad_engine;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO komrad_reader;
+
+
 CREATE TYPE agent_role AS ENUM (
     'implementer',
     'reviewer',
@@ -120,6 +129,8 @@ COMMENT ON COLUMN engine_logins.reader IS 'Whether this is the engine''s read-on
 
 CREATE INDEX engine_logins_engine_id ON engine_logins (engine_id);
 
+REVOKE ALL ON engine_logins FROM komrad_engine, komrad_reader;
+
 CREATE FUNCTION current_engine() RETURNS uuid
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public'
@@ -192,15 +203,6 @@ CREATE FUNCTION set_updated_at() RETURNS trigger
     AS $$
 BEGIN
     NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$;
-
-CREATE FUNCTION stamp_engine() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    NEW.engine_id := COALESCE(current_engine(), NEW.engine_id);
     RETURN NEW;
 END;
 $$;
@@ -291,13 +293,11 @@ CREATE TRIGGER seed_document_types AFTER INSERT ON engines FOR EACH ROW EXECUTE 
 
 COMMENT ON TABLE engines IS 'An engine, the owner of every row it writes.';
 
+REVOKE INSERT, UPDATE, DELETE ON engines FROM komrad_engine;
+
 CREATE POLICY engine_isolation ON engines USING (id = (SELECT current_engine()));
 
 ALTER TABLE engines ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT ON engines TO komrad_engine;
-
-GRANT SELECT ON engines TO komrad_reader;
 
 CREATE TABLE workflow_configs (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -324,17 +324,7 @@ COMMENT ON COLUMN workflow_configs.reviewer_flags IS 'The flags the workflow''s 
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON workflow_configs FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON workflow_configs FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR DELETE OR UPDATE ON workflow_configs FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('workflows', 'id', 'workflow_config_id', 'id', '', '');
-
-CREATE POLICY engine_isolation ON workflow_configs USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE workflow_configs ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON workflow_configs TO komrad_engine;
-
-GRANT SELECT ON workflow_configs TO komrad_reader;
 
 CREATE TABLE workflow_provisioner_configs (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -361,17 +351,7 @@ COMMENT ON COLUMN workflow_provisioner_configs.engine_id IS 'The engine that own
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON workflow_provisioner_configs FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON workflow_provisioner_configs FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR DELETE OR UPDATE ON workflow_provisioner_configs FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('workflows', 'id', 'provisioner_config_id', 'id', '', '');
-
-CREATE POLICY engine_isolation ON workflow_provisioner_configs USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE workflow_provisioner_configs ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON workflow_provisioner_configs TO komrad_engine;
-
-GRANT SELECT ON workflow_provisioner_configs TO komrad_reader;
 
 CREATE TABLE workflows (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -403,17 +383,7 @@ CREATE INDEX workflows_workflow_config_id ON workflows (workflow_config_id);
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON workflows FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
-
-CREATE POLICY engine_isolation ON workflows USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON workflows TO komrad_engine;
-
-GRANT SELECT ON workflows TO komrad_reader;
 
 CREATE TABLE workflow_event_prompts (
     workflow_id uuid NOT NULL,
@@ -435,17 +405,7 @@ COMMENT ON COLUMN workflow_event_prompts.engine_id IS 'The engine that owns this
 
 COMMENT ON COLUMN workflow_event_prompts.muted IS 'Whether the event is kept from opening mail of its own.';
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON workflow_event_prompts FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR DELETE OR UPDATE ON workflow_event_prompts FOR EACH ROW EXECUTE FUNCTION watch_subresource('workflows', 'workflow_id');
-
-CREATE POLICY engine_isolation ON workflow_event_prompts USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE workflow_event_prompts ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON workflow_event_prompts TO komrad_engine;
-
-GRANT SELECT ON workflow_event_prompts TO komrad_reader;
 
 CREATE TABLE workflow_hooks (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -466,17 +426,7 @@ COMMENT ON COLUMN workflow_hooks.engine_id IS 'The engine that owns this row, st
 
 CREATE INDEX workflow_hooks_workflow_id_position_idx ON workflow_hooks (workflow_id, "position");
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON workflow_hooks FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR DELETE OR UPDATE ON workflow_hooks FOR EACH ROW EXECUTE FUNCTION watch_subresource('workflows', 'workflow_id');
-
-CREATE POLICY engine_isolation ON workflow_hooks USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE workflow_hooks ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON workflow_hooks TO komrad_engine;
-
-GRANT SELECT ON workflow_hooks TO komrad_reader;
 
 CREATE TABLE agents (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -590,21 +540,11 @@ CREATE UNIQUE INDEX agents_workflow_orchestrator ON agents (workflow_id) WHERE r
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON agents FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON agents FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON agents FOR EACH ROW EXECUTE FUNCTION watch_notify('id', 'state_seen_at', 'updated_at');
 
 CREATE TRIGGER watch_subresource_review_threads AFTER INSERT OR DELETE OR UPDATE ON agents FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('review_threads', 'id', 'agent_id', 'id', '', 'archived_at');
 
 CREATE TRIGGER watch_subresource_worktrees AFTER INSERT OR DELETE OR UPDATE ON agents FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('worktrees', 'dir', 'name', 'id', '', 'deleting_at');
-
-ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON agents USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON agents TO komrad_engine;
-
-GRANT SELECT ON agents TO komrad_reader;
 
 CREATE TABLE schedules (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -643,17 +583,7 @@ CREATE INDEX schedules_workflow_id ON schedules (workflow_id);
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON schedules FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON schedules FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON schedules FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
-
-CREATE POLICY engine_isolation ON schedules USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE schedules ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON schedules TO komrad_engine;
-
-GRANT SELECT ON schedules TO komrad_reader;
 
 ALTER TABLE agents
     ADD CONSTRAINT agents_schedule_id_fkey FOREIGN KEY (engine_id, schedule_id) REFERENCES schedules(engine_id, id) ON DELETE SET NULL (schedule_id);
@@ -676,17 +606,7 @@ CREATE TABLE schedule_runs (
     CONSTRAINT schedule_runs_schedule_id_fkey FOREIGN KEY (engine_id, schedule_id) REFERENCES schedules(engine_id, id) ON DELETE CASCADE
 );
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON schedule_runs FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_schedules AFTER INSERT OR DELETE OR UPDATE ON schedule_runs FOR EACH ROW EXECUTE FUNCTION watch_subresource('schedules', 'schedule_id');
-
-CREATE POLICY engine_isolation ON schedule_runs USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE schedule_runs ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON schedule_runs TO komrad_engine;
-
-GRANT SELECT ON schedule_runs TO komrad_reader;
 
 CREATE TABLE agent_runs (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -713,17 +633,7 @@ CREATE INDEX agent_runs_agent_id_started_at ON agent_runs (agent_id, started_at 
 
 CREATE INDEX agent_runs_unread_failures ON agent_runs (agent_id) WHERE failure <> '' AND viewed_at IS NULL;
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON agent_runs FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_agents AFTER INSERT OR DELETE OR UPDATE ON agent_runs FOR EACH ROW EXECUTE FUNCTION watch_subresource('agents', 'agent_id');
-
-ALTER TABLE agent_runs ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON agent_runs USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON agent_runs TO komrad_engine;
-
-GRANT SELECT ON agent_runs TO komrad_reader;
 
 CREATE TABLE agent_screens (
     agent_id uuid NOT NULL,
@@ -744,16 +654,6 @@ COMMENT ON COLUMN agent_screens.frame IS 'The pane''s visible grid as tmux captu
 
 COMMENT ON COLUMN agent_screens.engine_id IS 'The engine that owns this row, stamped from the login that wrote it.';
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON agent_screens FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-ALTER TABLE agent_screens ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON agent_screens USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON agent_screens TO komrad_engine;
-
-GRANT SELECT ON agent_screens TO komrad_reader;
-
 CREATE TABLE agent_transcript_sessions (
     id uuid NOT NULL,
     agent_id uuid NOT NULL,
@@ -772,16 +672,6 @@ CREATE TABLE agent_transcript_sessions (
 COMMENT ON TABLE agent_transcript_sessions IS 'One conversation an agent has held, holding how far its log has been copied into the store.';
 
 COMMENT ON COLUMN agent_transcript_sessions.engine_id IS 'The engine that owns this row, stamped from the login that wrote it.';
-
-CREATE TRIGGER stamp_engine BEFORE INSERT ON agent_transcript_sessions FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-ALTER TABLE agent_transcript_sessions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON agent_transcript_sessions USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON agent_transcript_sessions TO komrad_engine;
-
-GRANT SELECT ON agent_transcript_sessions TO komrad_reader;
 
 CREATE TABLE agent_transcript_chunks (
     agent_id uuid NOT NULL,
@@ -812,16 +702,6 @@ CREATE INDEX agent_transcript_chunks_session_id ON agent_transcript_chunks (sess
 CREATE INDEX agent_transcript_chunks_spoken_at ON agent_transcript_chunks (spoken_at);
 
 CREATE INDEX agent_transcript_chunks_tsv ON agent_transcript_chunks USING gin (tsv);
-
-CREATE TRIGGER stamp_engine BEFORE INSERT ON agent_transcript_chunks FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-ALTER TABLE agent_transcript_chunks ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON agent_transcript_chunks USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON agent_transcript_chunks TO komrad_engine;
-
-GRANT SELECT ON agent_transcript_chunks TO komrad_reader;
 
 CREATE TABLE pull_requests (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -924,17 +804,7 @@ CREATE INDEX pull_requests_attribution ON pull_requests (repository_url, head_re
 
 CREATE INDEX pull_requests_unfinished_head ON pull_requests (repository_url, head_branch) WHERE merged_at IS NULL AND closed_at IS NULL;
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON pull_requests FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON pull_requests FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
-
-CREATE POLICY engine_isolation ON pull_requests USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE pull_requests ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON pull_requests TO komrad_engine;
-
-GRANT SELECT ON pull_requests TO komrad_reader;
 
 CREATE TABLE pull_request_syncs (
     repository_url text NOT NULL,
@@ -947,17 +817,7 @@ COMMENT ON TABLE pull_request_syncs IS 'A repository the pull request sync has r
 
 COMMENT ON COLUMN pull_request_syncs.engine_id IS 'The engine that owns this row, stamped from the login that wrote it.';
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON pull_request_syncs FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON pull_request_syncs FOR EACH ROW EXECUTE FUNCTION watch_notify('repository_url');
-
-CREATE POLICY engine_isolation ON pull_request_syncs USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE pull_request_syncs ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON pull_request_syncs TO komrad_engine;
-
-GRANT SELECT ON pull_request_syncs TO komrad_reader;
 
 CREATE TABLE agent_pull_requests (
     agent_id uuid NOT NULL,
@@ -979,17 +839,7 @@ COMMENT ON COLUMN agent_pull_requests.engine_id IS 'The engine that owns this ro
 
 CREATE INDEX agent_pull_requests_pull_request_id ON agent_pull_requests (pull_request_id);
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON agent_pull_requests FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_pull_requests AFTER INSERT OR DELETE OR UPDATE ON agent_pull_requests FOR EACH ROW EXECUTE FUNCTION watch_subresource('pull_requests', 'pull_request_id');
-
-ALTER TABLE agent_pull_requests ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON agent_pull_requests USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON agent_pull_requests TO komrad_engine;
-
-GRANT SELECT ON agent_pull_requests TO komrad_reader;
 
 CREATE TABLE document_types (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1018,17 +868,7 @@ COMMENT ON COLUMN document_types.engine_id IS 'The engine that owns this row, st
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON document_types FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON document_types FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON document_types FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
-
-ALTER TABLE document_types ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON document_types USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON document_types TO komrad_engine;
-
-GRANT SELECT ON document_types TO komrad_reader;
 
 CREATE TABLE document_type_versions (
     document_type_id uuid NOT NULL,
@@ -1046,16 +886,6 @@ CREATE TABLE document_type_versions (
 COMMENT ON TABLE document_type_versions IS 'Every write of a document type as it was written, so a person can step back through its context.';
 
 COMMENT ON COLUMN document_type_versions.engine_id IS 'The engine that owns this row, stamped from the login that wrote it.';
-
-CREATE TRIGGER stamp_engine BEFORE INSERT ON document_type_versions FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-ALTER TABLE document_type_versions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON document_type_versions USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON document_type_versions TO komrad_engine;
-
-GRANT SELECT ON document_type_versions TO komrad_reader;
 
 CREATE TABLE documents (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1088,17 +918,7 @@ COMMENT ON COLUMN documents.type IS 'The name of the document type it was writte
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON documents FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_agents AFTER INSERT OR DELETE OR UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION watch_subresource('agents', 'agent_id');
-
-ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON documents USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON documents TO komrad_engine;
-
-GRANT SELECT ON documents TO komrad_reader;
 
 CREATE TABLE document_versions (
     document_id uuid NOT NULL,
@@ -1122,16 +942,6 @@ COMMENT ON COLUMN document_versions.by_person IS 'Whether a person wrote this ve
 COMMENT ON COLUMN document_versions.engine_id IS 'The engine that owns this row, stamped from the login that wrote it.';
 
 COMMENT ON COLUMN document_versions.type IS 'The name of the document type this version was written as.';
-
-CREATE TRIGGER stamp_engine BEFORE INSERT ON document_versions FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY engine_isolation ON document_versions USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON document_versions TO komrad_engine;
-
-GRANT SELECT ON document_versions TO komrad_reader;
 
 CREATE TABLE forge_connections (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1166,16 +976,6 @@ COMMENT ON COLUMN forge_connections.verified_at IS 'When the forge last confirme
 COMMENT ON COLUMN forge_connections.throttled_until IS 'When the forge said this credential''s rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.';
 
 COMMENT ON COLUMN forge_connections.engine_id IS 'The engine that owns this row, stamped from the login that wrote it.';
-
-CREATE TRIGGER stamp_engine BEFORE INSERT ON forge_connections FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-CREATE POLICY engine_isolation ON forge_connections USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE forge_connections ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON forge_connections TO komrad_engine;
-
-GRANT SELECT ON forge_connections TO komrad_reader;
 
 CREATE TABLE forge_review_threads (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1223,13 +1023,7 @@ CREATE INDEX forge_review_threads_pull_request_id ON forge_review_threads (pull_
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON forge_review_threads FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON forge_review_threads FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-CREATE POLICY engine_isolation ON forge_review_threads USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE forge_review_threads ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON forge_review_threads TO komrad_engine;
+REVOKE SELECT ON forge_review_threads FROM komrad_reader;
 
 CREATE TABLE forge_review_comments (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1276,13 +1070,7 @@ CREATE INDEX forge_review_comments_thread_id ON forge_review_comments (thread_id
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON forge_review_comments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON forge_review_comments FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-CREATE POLICY engine_isolation ON forge_review_comments USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE forge_review_comments ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON forge_review_comments TO komrad_engine;
+REVOKE SELECT ON forge_review_comments FROM komrad_reader;
 
 CREATE TABLE mail (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1339,19 +1127,9 @@ CREATE INDEX mail_reply_to ON mail (reply_to);
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON mail FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 
 CREATE TRIGGER watch_subresource_reviews AFTER INSERT OR DELETE OR UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('reviews', 'id', 'doorbell_mail_id', 'id', '', 'claimed_at');
-
-CREATE POLICY engine_isolation ON mail USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE mail ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON mail TO komrad_engine;
-
-GRANT SELECT ON mail TO komrad_reader;
 
 CREATE TABLE review_rounds (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1382,17 +1160,7 @@ COMMENT ON COLUMN review_rounds.landed_at IS 'When the base branch was first see
 
 CREATE UNIQUE INDEX review_rounds_agent_ordinal ON review_rounds (agent_id, ordinal);
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON review_rounds FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_reviews AFTER INSERT OR DELETE OR UPDATE ON review_rounds FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('reviews', 'id', 'round_id', 'id', '', '');
-
-CREATE POLICY engine_isolation ON review_rounds USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE review_rounds ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON review_rounds TO komrad_engine;
-
-GRANT SELECT ON review_rounds TO komrad_reader;
 
 CREATE TABLE reviews (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1456,17 +1224,7 @@ CREATE INDEX reviews_round_id ON reviews (round_id, id);
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON reviews FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
-
-CREATE POLICY engine_isolation ON reviews USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON reviews TO komrad_engine;
-
-GRANT SELECT ON reviews TO komrad_reader;
 
 CREATE TABLE review_threads (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1548,17 +1306,7 @@ CREATE INDEX review_threads_review_id ON review_threads (review_id, id);
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON review_threads FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON review_threads FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON review_threads FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
-
-CREATE POLICY engine_isolation ON review_threads USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE review_threads ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON review_threads TO komrad_engine;
-
-GRANT SELECT ON review_threads TO komrad_reader;
 
 CREATE TABLE review_messages (
     id uuid DEFAULT uuidv7() NOT NULL,
@@ -1625,17 +1373,7 @@ CREATE INDEX review_messages_thread_id ON review_messages (thread_id, id);
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON review_messages FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON review_messages FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_subresource_review_threads AFTER INSERT OR DELETE OR UPDATE ON review_messages FOR EACH ROW EXECUTE FUNCTION watch_subresource('review_threads', 'thread_id');
-
-CREATE POLICY engine_isolation ON review_messages USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE review_messages ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON review_messages TO komrad_engine;
-
-GRANT SELECT ON review_messages TO komrad_reader;
 
 CREATE FUNCTION review_thread_root_readable(thread uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
@@ -1687,16 +1425,6 @@ COMMENT ON COLUMN review_viewed_files.file_path IS 'The file that was read, name
 COMMENT ON COLUMN review_viewed_files.fingerprint IS 'A hash of the file''s own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.';
 
 COMMENT ON COLUMN review_viewed_files.engine_id IS 'The engine that owns this row, stamped from the login that wrote it.';
-
-CREATE TRIGGER stamp_engine BEFORE INSERT ON review_viewed_files FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
-CREATE POLICY engine_isolation ON review_viewed_files USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE review_viewed_files ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON review_viewed_files TO komrad_engine;
-
-GRANT SELECT ON review_viewed_files TO komrad_reader;
 
 CREATE TABLE worktrees (
     dir text CONSTRAINT worktree_sizes_dir_not_null NOT NULL,
@@ -1753,25 +1481,7 @@ COMMENT ON COLUMN worktrees.standing_error IS 'Why the last reading failed, null
 
 CREATE INDEX worktrees_name ON worktrees (engine_id, name);
 
-CREATE TRIGGER stamp_engine BEFORE INSERT ON worktrees FOR EACH ROW EXECUTE FUNCTION stamp_engine();
-
 CREATE TRIGGER watch_notify AFTER INSERT OR DELETE OR UPDATE ON worktrees FOR EACH ROW EXECUTE FUNCTION watch_notify('dir');
-
-CREATE POLICY engine_isolation ON worktrees USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
-
-ALTER TABLE worktrees ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON worktrees TO komrad_engine;
-
-GRANT SELECT ON worktrees TO komrad_reader;
-
-GRANT USAGE ON SCHEMA public TO komrad_engine;
-
-GRANT USAGE ON SCHEMA public TO komrad_reader;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO komrad_engine;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO komrad_reader;
 
 DO $$
 BEGIN

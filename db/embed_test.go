@@ -169,6 +169,11 @@ func TestMigrateFailure(t *testing.T) {
 			obstruct:   `CREATE TABLE schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL)`,
 			unobstruct: `ALTER TABLE schema_migrations DROP COLUMN applied_at`,
 		},
+		{
+			name:       "a migration that leaves a table with no engine_id is rolled back",
+			obstruct:   `CREATE TABLE stray (id int)`,
+			unobstruct: `DROP TABLE stray`,
+		},
 	}
 
 	for _, tt := range tests {
