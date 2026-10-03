@@ -1380,6 +1380,40 @@ func TestReviewReload(t *testing.T) {
 		assert.Equal(t, 1, strings.Count(readOpenMessages(harness), "the worktree has moved"))
 	})
 
+	t.Run("a writer stopping under an unsent comment turns its notice into the reload hint", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+		harness := openReview(t, server)
+
+		server.repo.Wrote(newRoundWrittenOver())
+		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		harness.watch(server.buildSnapshot())
+		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
+
+		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
+		harness.watch(server.buildSnapshot())
+
+		said := readOpenMessages(harness)
+		assert.Contains(t, said, "the worktree has moved")
+		assert.NotContains(t, said, "the agent is writing")
+	})
+
+	t.Run("a move's notice comes down once the diff catches up", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+		harness := openReview(t, server)
+
+		server.repo.Wrote(newRoundWrittenOver())
+		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		harness.watch(server.buildSnapshot())
+		require.Contains(t, readEngineLine(harness.readFrame()), "the worktree has moved")
+
+		harness.press("R")
+
+		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
+	})
+
 	t.Run("a move while the editor is open raises nothing", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}

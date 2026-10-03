@@ -403,6 +403,24 @@ func (m *model) dismissAllMessages() {
 	m.toggleMessagesFocus()
 }
 
+// dropMessage takes the message raised under a key off the stack once what it said stops being true.
+func (m *model) dropMessage(key string) {
+	at := slices.IndexFunc(m.messages.items, func(held message) bool { return held.key == key })
+	if key == "" || at < 0 {
+		return
+	}
+
+	if at == 0 {
+		m.messages.flashing = false
+	}
+	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
+	m.messages.cursor = cursor.Clamp(m.messages.cursor, len(m.messages.items))
+
+	if len(m.messages.items) == 0 && m.messages.focused {
+		m.toggleMessagesFocus()
+	}
+}
+
 // pushMockMessage pushes a message from the fixtures.
 func (m *model) pushMockMessage() {
 	m.pushMessage(mockMessages[len(m.messages.items)%len(mockMessages)])

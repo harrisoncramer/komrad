@@ -2,18 +2,13 @@ package ui
 
 import "slices"
 
-func (r *reviewScreen) raise(m *model, key, summary, detail string) {
-	if slices.Contains(r.raised, key) {
+func (r *reviewScreen) raise(m *model, held message) {
+	if slices.Contains(r.raised, held.key) {
 		return
 	}
 
-	r.raised = append(r.raised, key)
-	m.pushMessage(message{
-		kind:    messageWarning,
-		key:     key,
-		summary: summary,
-		detail:  detail,
-	})
+	r.raised = append(r.raised, held.key)
+	m.pushMessage(held)
 }
 
 func (r *reviewScreen) raiseNotices(m *model) {
@@ -21,23 +16,50 @@ func (r *reviewScreen) raiseNotices(m *model) {
 		return
 	}
 
-	if r.isArchived(m) {
-		r.raise(m, "archived:"+r.agentID, "this agent is archived", "restore it before writing to it")
+	archived := "archived:" + r.agentID
+	if !r.isArchived(m) {
+		m.dropMessage(archived)
+	} else {
+		r.raise(m, message{
+			kind:    messageWarning,
+			key:     archived,
+			summary: "this agent is archived",
+			detail:  "restore it before writing to it",
+		})
 	}
 
-	moved := r.findMovedRound(m)
-	if moved == "" || r.diff.pinned || r.hold.atEditor || r.doesFollowLive(m) {
-		return
+	moved := r.movedNotice(m)
+	if moved.key != r.moved {
+		m.dropMessage(r.moved)
+		r.moved = moved.key
 	}
 
-	summary, detail := r.staleSaid(m)
-	r.raise(m, "moved:"+r.agentID+":"+moved, summary, detail)
+	if moved.key != "" {
+		r.raise(m, moved)
+	}
 }
 
-func (r reviewScreen) staleSaid(m *model) (string, string) {
-	if r.isAgentWriting(m) {
-		return "the agent is writing", "the diff catches up when it stops"
+// movedNotice is what the reader is told about the agent having written past the diff on screen.
+func (r reviewScreen) movedNotice(m *model) message {
+	moved := r.findMovedRound(m)
+	if moved == "" || r.diff.pinned || r.hold.atEditor || r.doesFollowLive(m) {
+		return message{}
 	}
 
-	return "the worktree has moved", keyLabel(m.keys.Review.Reload) + " to catch up"
+	key := "moved:" + r.agentID + ":" + moved
+	if r.isAgentWriting(m) {
+		return message{
+			kind:    messageInfo,
+			key:     key + ":writing",
+			summary: "the agent is writing",
+			detail:  "the diff catches up when it stops",
+		}
+	}
+
+	return message{
+		kind:    messageWarning,
+		key:     key + ":stopped",
+		summary: "the worktree has moved",
+		detail:  keyLabel(m.keys.Review.Reload) + " to catch up",
+	}
 }

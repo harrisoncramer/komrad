@@ -40,6 +40,7 @@ type reviewScreen struct {
 	filesFilter filterState
 
 	raised []string
+	moved  string
 }
 
 // reviewFocus is which of the diff, the file tree and the pull request holds the review's keys.
