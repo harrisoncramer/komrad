@@ -308,7 +308,7 @@ func renderTokens(line styledLine, fallback string, background color.Color, foun
 				pieceStyle = style.Background(paint.Panel.Background(paint.ShadeMatch))
 			}
 
-			out.WriteString(pieceStyle.Render(expandTabs(piece.text)))
+			out.WriteString(pieceStyle.Render(expandTabs(paint.StripControls(piece.text))))
 		}
 
 		at += len(current.text)

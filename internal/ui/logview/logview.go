@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
@@ -120,14 +121,5 @@ func (t *Tail) wrap(i, width int) []string {
 
 // sanitize strips escape sequences and control characters from a line the panel draws itself.
 func sanitize(line string) string {
-	return strings.Map(func(r rune) rune {
-		switch {
-		case r == '\t':
-			return ' '
-		case r < ' ' || r == 0x7f:
-			return -1
-		default:
-			return r
-		}
-	}, ansi.Strip(line))
+	return strings.ReplaceAll(paint.StripControls(line), "\t", " ")
 }
