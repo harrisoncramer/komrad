@@ -219,7 +219,7 @@ func TestMigrateResumes(t *testing.T) {
 	assert.True(t, columnExists(t, pool, "resume_probe", "extra"), "and the rest picked up where it stopped")
 }
 
-// TestCheckSchemaRefusesOnlyADatabaseBehind covers a service refusing a database behind its build and accepting one ahead of it.
+// TestCheckSchemaRefusesOnlyADatabaseBehind pins that an older build still starts against a schema a newer build migrated.
 func TestCheckSchemaRefusesOnlyADatabaseBehind(t *testing.T) {
 	pool := open(t)
 	ctx := t.Context()
