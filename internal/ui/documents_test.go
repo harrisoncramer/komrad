@@ -60,6 +60,17 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(frame), "author")
 	})
+
+	t.Run("closing the menu comes back to the same agent's documents", func(t *testing.T) {
+		t.Parallel()
+
+		harness, _ := openDocuments(t)
+		harness.press("space", "esc")
+
+		frame := harness.readFrame()
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Contains(t, readStageText(frame), "Design the cache")
+	})
 }
 
 // TestDocumentsRead covers the document under the cursor drawn beside the list, read once and
