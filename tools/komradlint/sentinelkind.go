@@ -3,6 +3,7 @@ package komradlint
 import (
 	"fmt"
 	"go/ast"
+	"go/types"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -102,6 +103,34 @@ func isUnder(pass *analysis.Pass, file *ast.File, patterns []*regexp.Regexp) boo
 	}
 
 	return false
+}
+
+// isCovered says whether a package's import path matches any of the patterns, or there are none.
+func isCovered(path string, patterns []*regexp.Regexp) bool {
+	if len(patterns) == 0 {
+		return true
+	}
+
+	for _, pattern := range patterns {
+		if pattern.MatchString(path) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isError says whether a type implements error, leaving out untyped nil.
+func isError(typ types.Type) bool {
+	if typ == nil {
+		return false
+	}
+
+	if basic, ok := typ.(*types.Basic); ok && basic.Kind() == types.UntypedNil {
+		return false
+	}
+
+	return types.AssignableTo(typ, types.Universe.Lookup("error").Type())
 }
 
 // repoRelative is the path the patterns are written against.

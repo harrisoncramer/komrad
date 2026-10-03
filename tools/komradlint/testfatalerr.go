@@ -3,7 +3,6 @@ package komradlint
 import (
 	"go/ast"
 	"go/types"
-	"regexp"
 
 	"komradlint/config"
 
@@ -13,7 +12,7 @@ import (
 const testFatalErrDoc = "Checks that a test hands an error to require.NoError or assert.NoError " +
 	"instead of formatting it into t.Fatal or t.Error, so a failure reads the same everywhere."
 
-// testFailures are the testing methods a failing error is not handed to.
+// testFailures are the testing methods that fail a test.
 var testFailures = map[string]bool{
 	"Fatal":  true,
 	"Fatalf": true,
@@ -54,21 +53,6 @@ func newTestFatalErr(settings config.FatalErrConfig) (*analysis.Analyzer, error)
 	}, nil
 }
 
-// isCovered says whether a package's import path matches any of the patterns, or there are none.
-func isCovered(path string, patterns []*regexp.Regexp) bool {
-	if len(patterns) == 0 {
-		return true
-	}
-
-	for _, pattern := range patterns {
-		if pattern.MatchString(path) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // reportTestFatalErrs reports every t.Fatal or t.Error in a file that is handed an error.
 func reportTestFatalErrs(pass *analysis.Pass, file *ast.File) {
 	ast.Inspect(file, func(node ast.Node) bool {
@@ -104,17 +88,4 @@ func hasErrorArg(pass *analysis.Pass, call *ast.CallExpr) bool {
 	}
 
 	return false
-}
-
-// isError says whether a type implements error, leaving out untyped nil.
-func isError(typ types.Type) bool {
-	if typ == nil {
-		return false
-	}
-
-	if basic, ok := typ.(*types.Basic); ok && basic.Kind() == types.UntypedNil {
-		return false
-	}
-
-	return types.AssignableTo(typ, types.Universe.Lookup("error").Type())
 }
