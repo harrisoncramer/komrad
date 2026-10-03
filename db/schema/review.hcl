@@ -371,9 +371,6 @@ table "review_threads" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
-  check "review_threads_file_path_given" {
-    expr = "file_path <> ''"
-  }
   index "review_threads_agent_id" {
     columns = [column.agent_id, column.file_path, column.new_start, column.old_start]
   }

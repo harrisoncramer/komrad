@@ -146,23 +146,6 @@ func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
 	assert.Equal(t, int32(1), threads[0].RoundOrdinal)
 }
 
-// TestAThreadIsAlwaysOnAFile pins that the store refuses a thread with no file.
-func TestAThreadIsAlwaysOnAFile(t *testing.T) {
-	st := openFixture(t)
-	agentID := st.seedAgent(t, "worker")
-	round := st.openRound(t, agentID, "tree-one")
-	review := st.openReview(t, round)
-
-	_, err := st.CreateThread(t.Context(), CreateThreadParams{
-		AgentID:    review.AgentID,
-		ReviewID:   review.ID,
-		RoundID:    review.RoundID,
-		Body:       "this whole change needs a rethink",
-		AuthorKind: AuthorHuman,
-	})
-	require.ErrorContains(t, err, "file_path")
-}
-
 // TestRewritingAReplyIsNewActivity pins that an answer rewritten after the person read it reads unread again.
 func TestRewritingAReplyIsNewActivity(t *testing.T) {
 	st := openFixture(t)
