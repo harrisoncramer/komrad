@@ -6,7 +6,7 @@ FROM
     JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE
     n.nspname = 'public'
-    AND c.relkind = 'r'
+    AND c.relkind IN ('r', 'p')
     AND c.relname <> ALL (@unscoped::text[])
     AND NOT EXISTS (
         SELECT
@@ -30,7 +30,7 @@ FROM
     JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
 WHERE
     n.nspname = 'public'
-    AND c.relkind = 'r'
+    AND c.relkind IN ('r', 'p')
     AND a.attname = 'engine_id'
     AND NOT a.attisdropped
     AND c.relname <> ALL (@unisolated::text[])
@@ -119,7 +119,7 @@ FROM
     JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
 WHERE
     n.nspname = 'public'
-    AND c.relkind = 'r'
+    AND c.relkind IN ('r', 'p')
     AND a.attname = 'engine_id'
     AND NOT a.attisdropped
     AND c.relname <> ALL (@unisolated::text[])

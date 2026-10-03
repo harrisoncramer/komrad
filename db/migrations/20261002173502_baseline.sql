@@ -41,10 +41,6 @@ GRANT USAGE ON SCHEMA public TO komrad_engine;
 
 GRANT USAGE ON SCHEMA public TO komrad_reader;
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO komrad_engine;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO komrad_reader;
-
 
 CREATE TYPE agent_role AS ENUM (
     'implementer',
@@ -128,8 +124,6 @@ COMMENT ON TABLE engine_logins IS 'The Postgres logins an engine connects as, wh
 COMMENT ON COLUMN engine_logins.reader IS 'Whether this is the engine''s read-only login rather than the one it writes with.';
 
 CREATE INDEX engine_logins_engine_id ON engine_logins (engine_id);
-
-REVOKE ALL ON engine_logins FROM komrad_engine, komrad_reader;
 
 CREATE FUNCTION current_engine() RETURNS uuid
     LANGUAGE sql STABLE SECURITY DEFINER
@@ -293,7 +287,7 @@ CREATE TRIGGER seed_document_types AFTER INSERT ON engines FOR EACH ROW EXECUTE 
 
 COMMENT ON TABLE engines IS 'An engine, the owner of every row it writes.';
 
-REVOKE INSERT, UPDATE, DELETE ON engines FROM komrad_engine;
+GRANT SELECT ON engines TO komrad_engine, komrad_reader;
 
 CREATE POLICY engine_isolation ON engines USING (id = (SELECT current_engine()));
 
@@ -1023,8 +1017,6 @@ CREATE INDEX forge_review_threads_pull_request_id ON forge_review_threads (pull_
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON forge_review_threads FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-REVOKE SELECT ON forge_review_threads FROM komrad_reader;
-
 CREATE TABLE forge_review_comments (
     id uuid DEFAULT uuidv7() NOT NULL,
     thread_id uuid NOT NULL,
@@ -1069,8 +1061,6 @@ COMMENT ON COLUMN forge_review_comments.forge_review_id IS 'The forge''s identif
 CREATE INDEX forge_review_comments_thread_id ON forge_review_comments (thread_id);
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON forge_review_comments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-REVOKE SELECT ON forge_review_comments FROM komrad_reader;
 
 CREATE TABLE mail (
     id uuid DEFAULT uuidv7() NOT NULL,
