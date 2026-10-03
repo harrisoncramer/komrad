@@ -61,6 +61,7 @@ jobs:
               - 'go.sum'
               - '.golangci.yaml'
               - '.custom-gcl.yml'
+              - 'tools/komradexport/**'
               - 'tools/komradlint/**'
               - 'tools/komradpkg/**'
               - 'tools/komradslot/**'

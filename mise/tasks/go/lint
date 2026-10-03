@@ -27,7 +27,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-MODULES=(. tools/komradlint tools/komradpkg tools/komradslot)
+MODULES=(. tools/komradexport tools/komradlint tools/komradpkg tools/komradslot)
 
 CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"
@@ -56,6 +56,11 @@ for MODULE in "${MODULES[@]}"; do
 		failed+=("$MODULE")
 	fi
 done
+
+echo "==> checking exports"
+if ! mise run go:export ${FIX_ARGS[@]+"${FIX_ARGS[@]}"}; then
+	failed+=("exports")
+fi
 
 if ((${#failed[@]} > 0)); then
 	echo "lint failed for: ${failed[*]}" >&2
