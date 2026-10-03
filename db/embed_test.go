@@ -520,7 +520,7 @@ func probeSources(migrations, triggers fstest.MapFS) *sources {
 	return &sources{migrations: migrations, triggers: triggers}
 }
 
-// TestMigrateTriggerUnits walks one table's triggers through being attached, versioned, reattached and forgotten.
+// TestMigrateTriggerUnits walks one table's triggers through being attached, versioned, reattached and dropped.
 func TestMigrateTriggerUnits(t *testing.T) {
 	pool := open(t)
 	ctx := t.Context()
@@ -566,7 +566,9 @@ func TestMigrateTriggerUnits(t *testing.T) {
 	}
 	functionsOnly := fstest.MapFS{"_functions.v1.sql": attached["_functions.v1.sql"]}
 	require.NoError(t, migrate(ctx, pool, probeSources(dropped, functionsOnly)))
-	assert.Equal(t, map[string]int{"_functions": 1}, appliedUnits(t, pool), "a unit no longer carried leaves the ledger")
+	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool), "a unit no longer carried keeps its row")
+	require.NoError(t, checkSchema(ctx, pool, probeSources(recreated, detached)), "an older build still carrying the unit runs against the newer database")
+	require.NoError(t, migrate(ctx, pool, probeSources(recreated, detached)))
 }
 
 // TestListUnits pins the order units apply in and the file names it refuses.

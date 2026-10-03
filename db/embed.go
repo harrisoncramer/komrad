@@ -390,10 +390,6 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 		}
 	}
 
-	if _, err := conn.Exec(ctx, `DELETE FROM schema_triggers WHERE unit <> ALL ($1)`, unitNames); err != nil {
-		return fmt.Errorf("failed to forget trigger units this build no longer carries: %w", err)
-	}
-
 	return nil
 }
 
