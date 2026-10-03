@@ -208,6 +208,23 @@ func TestAWrappedLineReadsBackWhole(t *testing.T) {
 	assert.Equal(t, strings.ReplaceAll(text, " ", ""), strings.ReplaceAll(read.String(), " ", ""))
 }
 
+// TestAWrappedLineIsMeasuredAsDrawn covers a row counted from the source it is drawn from when
+// that source says more than the patch.
+func TestAWrappedLineIsMeasuredAsDrawn(t *testing.T) {
+	t.Parallel()
+
+	file := diff.FromTexts("notes.md", "one", "short")
+	file.NewSource = "the quick brown fox jumps over the lazy dog"
+	view := NewView(patchWith(file), false)
+	view.SetHeadless(true)
+
+	y := view.GetLastRow()
+	window := Window{Width: GutterWidth + 10, Height: 10, Wrap: true}
+
+	assert.Len(t, view.renderLines(y, noCursor, window, 0), view.measureRow(y, window))
+	assert.Greater(t, view.measureRow(y, window), 1)
+}
+
 // TestCarryStyleOpensEachLineInTheStyleLeftOpen covers a style cut by a wrap carried onto the
 // next line and closed at the end of the first.
 func TestCarryStyleOpensEachLineInTheStyleLeftOpen(t *testing.T) {

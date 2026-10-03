@@ -80,12 +80,18 @@ func (v *View) measureRow(y int, window Window) int {
 		return 1
 	}
 
+	current, _ := v.getRow(y)
 	line, ok := v.getLine(y)
 	if !ok {
 		return 1
 	}
 
-	return strings.Count(ansi.Hardwrap(sanitize(line.Text), codeWidth, true), "\n") + 1
+	text := line.Text
+	if styled := v.getStyledLine(current, line); len(styled) > 0 {
+		text = styled.text()
+	}
+
+	return strings.Count(ansi.Hardwrap(sanitize(text), codeWidth, true), "\n") + 1
 }
 
 // renderLines draws a row as the lines it takes in the window, a wrapped code line carrying its
