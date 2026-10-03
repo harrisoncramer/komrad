@@ -40,18 +40,19 @@ UPDATE
     agent_transcript_sessions
 SET
     synced_offset = $1,
-    synced_at = NOW()
+    synced_at = $2
 WHERE
-    id = $2
+    id = $3
 `
 
 type AdvanceTranscriptSessionParams struct {
 	SyncedOffset int64
+	SyncedAt     time.Time
 	ID           string
 }
 
 func (q *Queries) AdvanceTranscriptSession(ctx context.Context, arg AdvanceTranscriptSessionParams) error {
-	_, err := q.db.Exec(ctx, advanceTranscriptSession, arg.SyncedOffset, arg.ID)
+	_, err := q.db.Exec(ctx, advanceTranscriptSession, arg.SyncedOffset, arg.SyncedAt, arg.ID)
 	return err
 }
 
@@ -2365,7 +2366,8 @@ ON CONFLICT (
         synced_offset = agent_transcript_sessions.synced_offset
     RETURNING
         id,
-        synced_offset
+        synced_offset,
+        NOW()::timestamptz AS opened_at
 `
 
 type OpenTranscriptSessionParams struct {
@@ -2377,12 +2379,13 @@ type OpenTranscriptSessionParams struct {
 type OpenTranscriptSessionRow struct {
 	ID           string
 	SyncedOffset int64
+	OpenedAt     time.Time
 }
 
 func (q *Queries) OpenTranscriptSession(ctx context.Context, arg OpenTranscriptSessionParams) (*OpenTranscriptSessionRow, error) {
 	row := q.db.QueryRow(ctx, openTranscriptSession, arg.ID, arg.AgentID, arg.SessionID)
 	var i OpenTranscriptSessionRow
-	err := row.Scan(&i.ID, &i.SyncedOffset)
+	err := row.Scan(&i.ID, &i.SyncedOffset, &i.OpenedAt)
 	return &i, err
 }
 

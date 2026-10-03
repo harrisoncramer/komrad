@@ -21,6 +21,7 @@ import (
 type Session struct {
 	ID           string
 	SyncedOffset int64
+	OpenedAt     time.Time
 }
 
 type SearchHit struct {
@@ -142,16 +143,27 @@ func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionPar
 		return Session{}, fmt.Errorf("failed to open a transcript session for %q: %w", params.AgentID, err)
 	}
 
-	return Session{ID: row.ID, SyncedOffset: row.SyncedOffset}, nil
+	return Session{
+		ID:           row.ID,
+		SyncedOffset: row.SyncedOffset,
+		OpenedAt:     row.OpenedAt,
+	}, nil
 }
 
-// Advance records how far a session's log has been read.
-func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset int64) error {
+type AdvanceParams struct {
+	SessionID string
+	Offset    int64
+	ReadAt    time.Time
+}
+
+// Advance records how far a session's log has been read, and when the read began.
+func (s *TranscriptStore) Advance(ctx context.Context, params AdvanceParams) error {
 	if err := s.queries.AdvanceTranscriptSession(ctx, models.AdvanceTranscriptSessionParams{
-		ID:           sessionID,
-		SyncedOffset: offset,
+		ID:           params.SessionID,
+		SyncedOffset: params.Offset,
+		SyncedAt:     params.ReadAt,
 	}); err != nil {
-		return fmt.Errorf("failed to advance transcript session %q: %w", sessionID, err)
+		return fmt.Errorf("failed to advance transcript session %q: %w", params.SessionID, err)
 	}
 
 	return nil
