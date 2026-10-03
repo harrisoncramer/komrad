@@ -482,7 +482,7 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 		byReviewer        bool
 		byPerson          bool
 		reply             bool
-		thenSettle        bool
+		thenPersonSettles bool
 		thenWorkerSettles bool
 		wantSettled       bool
 	}{
@@ -492,10 +492,10 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 			wantSettled: true,
 		},
 		{
-			name:        "the person replying and then settling it before the batch goes out",
-			reply:       true,
-			thenSettle:  true,
-			wantSettled: true,
+			name:              "the person replying and then settling it before the batch goes out",
+			reply:             true,
+			thenPersonSettles: true,
+			wantSettled:       true,
 		},
 		{
 			name:        "a reviewer agent replying in a settled thread",
@@ -560,7 +560,7 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			if tt.thenSettle {
+			if tt.thenPersonSettles {
 				st.settle(t, thread, nil)
 			}
 			if tt.thenWorkerSettles {
