@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -61,13 +62,13 @@ func TestReviewChangeFolds(t *testing.T) {
 			name:    "a tall pane gives each part a row of its own",
 			height:  40,
 			threads: []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment(), newSentComment("m2"))},
-			rows:    []string{"all changes", "1 file, +1 -1", "1 unsent · 1 waiting"},
+			rows:    []string{"all changes", "1 file, +1 -1", "1 unsent · 1 waiting", "s sends 1 comment to the agent"},
 		},
 		{
 			name:    "a shorter pane joins the delivery to the stat",
 			height:  24,
 			threads: []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment(), newSentComment("m2"))},
-			rows:    []string{"all changes", "1 file, +1 -1 · 1 unsent · 1 waiting"},
+			rows:    []string{"all changes", "1 file, +1 -1 · 1 unsent · 1 waiting", "s sends 1 comment to the agent"},
 		},
 		{
 			name:   "a short pane joins the scope, the stat and the delivery",
@@ -83,9 +84,9 @@ func TestReviewChangeFolds(t *testing.T) {
 			harness := openReviewAt(t, server, panelHarnessParams{height: tt.height})
 
 			sidebar := readSidebar(harness.readFrame())
-			for _, row := range tt.rows {
-				assert.Contains(t, sidebar, row)
-			}
+			top := slices.Index(sidebar, tt.rows[0])
+			require.NotEqual(t, -1, top)
+			assert.Equal(t, append(slices.Clone(tt.rows), ""), sidebar[top:min(top+len(tt.rows)+1, len(sidebar))])
 			assert.Contains(t, sidebar, "#7 fix the greeting")
 		})
 	}
