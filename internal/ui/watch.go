@@ -35,6 +35,16 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 // applyWatch takes a batch off the stream into the world, a snapshot replacing it whole, and
 // draws the listing from it again.
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
+	if m.isHoldingWatch() {
+		m.writes.deferred = append(m.writes.deferred, batch...)
+
+		return nil
+	}
+
+	return m.takeWatch(batch)
+}
+
+func (m *model) takeWatch(batch client.WatchBatch) tea.Cmd {
 	var changed assemble.Changed
 
 	var reread tea.Cmd
@@ -65,4 +75,25 @@ func (m *model) applyWatchLost(msg watchLostMsg) {
 	}
 
 	m.reportUnreachable(msg.err)
+}
+
+func (m *model) isHoldingWatch() bool {
+	if !m.writes.held.active {
+		return false
+	}
+
+	_, parked := m.writes.parked[m.writes.held.write]
+
+	return !parked
+}
+
+func (m *model) releaseWatch(landing bool) tea.Cmd {
+	if len(m.writes.deferred) == 0 || (!landing && m.isHoldingWatch()) {
+		return nil
+	}
+
+	batch := m.writes.deferred
+	m.writes.deferred = nil
+
+	return m.takeWatch(batch)
 }

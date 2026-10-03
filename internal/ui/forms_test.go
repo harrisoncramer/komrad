@@ -279,6 +279,7 @@ func TestFormsRefused(t *testing.T) {
 			harness.press(tt.press...)
 
 			assert.Contains(t, harness.readFrame(), tt.typed, "the form is still up holding what was filled in")
+			assert.Contains(t, harness.readFrame(), "not allowed", "the reason is drawn under the form")
 
 			harness.press("ctrl+g")
 			frame := harness.readFrame()
@@ -384,6 +385,21 @@ func TestFormsInFlight(t *testing.T) {
 		assert.NotContains(t, frame, "starting the agent…")
 		assert.NotContains(t, frame, "check CI", "the form goes with the reveal")
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+	})
+
+	t.Run("a row that lands before its create comes back takes the cursor with the create", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		answerAgentCreate(harness, "")
+		harness.hold(create)
+		harness.press(submit...)
+
+		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
+		harness.release(create)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "check CI", "the form goes once the create lands")
+		assert.Contains(t, readHoveredRow(frame), "check-ci")
+		assert.Contains(t, readTrail(frame), "check-ci")
 	})
 
 	t.Run("a second submit sends nothing", func(t *testing.T) {
@@ -627,6 +643,23 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		assert.False(t, harness.panel.IsAgentAlive("a1"))
 		assert.NotContains(t, readListRows(harness.readFrame()), "author")
+	})
+
+	t.Run("a watch that lands while an archive is in flight waits for the archive", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.press("j", "space", "a", "a")
+		held := harness.readFrame()
+
+		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
+
+		assert.Equal(t, held, harness.readFrame(), "the list and the menu stay as they were")
+
+		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, readListRows(frame), "author")
+		assert.NotContains(t, frame, "archive and delete for good")
 	})
 
 	t.Run("a refused archive destroys nothing", func(t *testing.T) {

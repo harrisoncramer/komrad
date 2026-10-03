@@ -428,13 +428,18 @@ func (m *model) landWrite(write int) {
 
 // applyWrite lands a write once the panel shows what it did, parking it until then.
 func (m *model) applyWrite(result writeResult) tea.Cmd {
+	m.frame.Begin()
+	defer m.frame.Flush()
+
+	caught := m.releaseWatch(m.writes.held.owns(result.write))
+
 	if result.err == nil && result.awaits != nil && !result.awaits.isSettled(m) {
 		m.parkWrite(result)
 
-		return nil
+		return caught
 	}
 
-	return m.finishWrite(result)
+	return tea.Batch(caught, m.finishWrite(result))
 }
 
 // finishWrite reports a write, takes down its form and shows what it made in one change.
@@ -481,6 +486,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		if result.err == nil || !m.form.keepsOnRefusal {
 			cmds = append(cmds, m.closeForm())
 		} else {
+			m.form.refusal = errui.GetReason(result.err)
 			m.messages.setNewestHint("fix and submit again")
 		}
 	}

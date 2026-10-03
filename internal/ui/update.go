@@ -43,6 +43,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	was := m.atStop()
 	landed := m.messages.landed
 	cmd := m.route(msg)
+	caught := m.releaseWatch(false)
 
 	m.settleTriage()
 	blink := m.updateRowCursor(msg)
@@ -55,7 +56,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.leftStop = was
 	}
 
-	return m, tea.Batch(cmd, blink, warming, spinning, pulse)
+	return m, tea.Batch(cmd, caught, blink, warming, spinning, pulse)
 }
 
 func (m *model) route(msg tea.Msg) tea.Cmd {
@@ -398,6 +399,8 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applySizeRead(msg), true
 	case sizeFallbackMsg:
 		return m.applySizeFallback(msg), true
+	case sizeRecheckMsg:
+		return tea.RequestWindowSize, true
 	case warmupTickMsg:
 		return m.applyWarmupTick(), true
 	case stageTickMsg:

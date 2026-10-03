@@ -16,6 +16,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/browser"
+	"komrad/internal/client"
 	"komrad/internal/engine"
 	"komrad/internal/errui"
 	"komrad/internal/git"
@@ -61,12 +62,21 @@ func Run(ctx context.Context, deps Deps) error {
 	// way the terminal tells it about any other resize, so a program has to exist before the model
 	// it runs can reach it.
 	post := newPostbox()
+	post.sizes = newSizeFilter(time.Now, func(msg tea.Msg) {
+		time.AfterFunc(sizeFallback, func() { post.send(msg) })
+	})
 
 	m := newModel(deps, true, post)
 	wheel := newWheelFilter(time.Now, func(msg tea.Msg) {
 		time.AfterFunc(wheelFrame, func() { post.send(msg) })
 	})
-	program := tea.NewProgram(&m, tea.WithColorProfile(colorprofile.TrueColor), tea.WithFilter(wheel.filter))
+	program := tea.NewProgram(&m, tea.WithColorProfile(colorprofile.TrueColor), tea.WithFilter(func(model tea.Model, msg tea.Msg) tea.Msg {
+		if msg = post.sizes.filter(model, msg); msg == nil {
+			return nil
+		}
+
+		return wheel.filter(model, msg)
+	}))
 	post.attach(program)
 
 	defer post.close()
@@ -94,6 +104,7 @@ type postbox struct {
 	// pending is the size waiting to be handed over.
 	pending *tea.WindowSizeMsg
 	wake    chan struct{}
+	sizes   *sizeFilter
 }
 
 func newPostbox() *postbox {
@@ -117,6 +128,10 @@ func (p *postbox) close() {
 func (p *postbox) resize(width, height int) {
 	if p == nil {
 		return
+	}
+
+	if p.sizes != nil {
+		p.sizes.expect(width, height)
 	}
 
 	p.mu.Lock()
@@ -329,7 +344,8 @@ type writeTracker struct {
 	// what they made.
 	detached map[int]struct{}
 	// parked is the answered writes held until the panel shows what they did, by their count.
-	parked map[int]parkedWrite
+	parked   map[int]parkedWrite
+	deferred client.WatchBatch
 }
 
 type terminalState struct {

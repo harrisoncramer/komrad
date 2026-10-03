@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -191,6 +192,9 @@ func (m *model) heldFormView() string {
 	if write, ok := m.heldWrite(); ok {
 		width, _ := m.formBox()
 		view = strings.TrimRight(view, "\n") + "\n" + write.Notice(m.submittingParams(width))
+	} else if m.form.refusal != "" {
+		width, _ := m.formBox()
+		view = strings.TrimRight(view, "\n") + "\n" + m.drawRefusal(width)
 	}
 
 	leading, _ := m.formLeading()
@@ -236,4 +240,10 @@ func joinLeading(leading []string, form string) string {
 	}
 
 	return strings.Join(out, "\n")
+}
+
+func (m *model) drawRefusal(width int) string {
+	icon := paint.Panel.Style(kindTone(messageError)).Render(kindIcon(m.glyphs, messageError))
+
+	return icon + " " + paint.Clip(m.form.refusal, max(width-2, 1))
 }
