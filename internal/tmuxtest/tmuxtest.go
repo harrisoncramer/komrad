@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -20,6 +22,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+const watchdogScript = `while kill -0 "$1" 2>/dev/null; do sleep 1; done; tmux -L "$2" kill-server`
 
 var created atomic.Int64
 
@@ -36,7 +40,19 @@ func New(t *testing.T) *Server {
 	require.NoError(t, err, "tmux is not installed")
 
 	server := &Server{t: t, socket: fmt.Sprintf("komradtest-%d-%d", os.Getpid(), created.Add(1))}
-	t.Cleanup(func() { _ = exec.Command("tmux", "-L", server.socket, "kill-server").Run() })
+
+	// Explainer: t.Cleanup never runs when the test binary is killed, which would leave this server running for good.
+	// The watchdog is a shell in a session of its own, so killing the test does not kill it too.
+	// It checks once a second whether this test process is alive, and kills the server once it is gone.
+	watchdog := exec.Command("sh", "-c", watchdogScript, "watchdog", strconv.Itoa(os.Getpid()), server.socket)
+	watchdog.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	require.NoError(t, watchdog.Start(), "failed to start the tmux server's watchdog")
+
+	t.Cleanup(func() {
+		_ = exec.Command("tmux", "-L", server.socket, "kill-server").Run()
+		_ = watchdog.Process.Kill()
+		_ = watchdog.Wait()
+	})
 
 	return server
 }
@@ -56,7 +72,11 @@ func (s *Server) Client() *tmux.Client {
 func (s *Server) Run(args ...string) string {
 	s.t.Helper()
 
-	out, err := exec.Command("tmux", append([]string{"-L", s.socket}, args...)...).Output()
+	// Explainer: -L sends the command to this test's own server rather than the user's.
+	// -f /dev/null starts the server without the user's tmux config, whose plugins can keep it alive.
+	command := append([]string{"-L", s.socket, "-f", "/dev/null"}, args...)
+
+	out, err := exec.Command("tmux", command...).Output()
 	require.NoError(s.t, err, "tmux %v", args)
 
 	return strings.TrimSpace(string(out))

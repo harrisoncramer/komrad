@@ -601,7 +601,7 @@ linters:
       # binaries actually do, which is the one case a test has to drive the real thing. It is
       # the set mise/tasks/go/test runs for --kind integration. The fixture packages beside
       # them, such as internal/komradtest, hold no test of their own and so need no entry.
-      - path: internal/(git|diff|scripts|e2e|tmux|cli|harness)/
+      - path: internal/(git|diff|scripts|e2e|tmux|tmuxtest|cli|harness)/
         linters:
           - forbidigo
         text: a unit test
