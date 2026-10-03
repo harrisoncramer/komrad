@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"komrad/internal/ui/diffview"
-	"komrad/internal/ui/paint/label"
 	"komrad/internal/vim"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -455,7 +454,7 @@ func (r *reviewScreen) send(m *model, interrupt bool) tea.Cmd {
 	interrupt = interrupt && item.Alive
 
 	return r.sendCmd(m, "sending the review", func(ctx context.Context) (string, error) {
-		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
+		_, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
 			Interrupt: interrupt,
 			Body:      body,
@@ -464,7 +463,7 @@ func (r *reviewScreen) send(m *model, interrupt bool) tea.Cmd {
 			return "", err
 		}
 
-		return releasedNotice(resp.Msg.GetComments(), interrupt, item.Alive), nil
+		return releasedNotice(interrupt, item.Alive), nil
 	})
 }
 
@@ -475,16 +474,15 @@ func (t *reviewThreads) closeRelease() {
 }
 
 // releasedNotice says what went.
-func releasedNotice(count int32, interrupt, alive bool) string {
-	counted := label.Counted(int(count), "comment")
+func releasedNotice(interrupt, alive bool) string {
 	switch {
 	case !alive:
-		return counted + " queued for resume"
+		return "review queued for resume"
 	case interrupt:
-		return counted + " sent and the agent stopped to read them"
+		return "review sent and the agent stopped to read it"
 	}
 
-	return counted + " sent"
+	return "review sent"
 }
 
 // writeCmd runs one write on the review, landing the write that beginWrite counted out.

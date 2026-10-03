@@ -1039,7 +1039,7 @@ func TestReviewGutter(t *testing.T) {
 
 // TestReviewRelease covers sending the review to the agent.
 func TestReviewRelease(t *testing.T) {
-	t.Run("the panel sends with no verdict and says how many comments went", func(t *testing.T) {
+	t.Run("the panel sends with no verdict and says the review went", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.press("s")
@@ -1049,7 +1049,7 @@ func TestReviewRelease(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
 			AgentId: "a1",
 		})
-		assert.Contains(t, readEngineLine(harness.readFrame()), "0 comments sent")
+		assert.Contains(t, readEngineLine(harness.readFrame()), "review sent")
 	})
 
 	t.Run("the panel carries a word about the whole change", func(t *testing.T) {
@@ -1083,7 +1083,7 @@ func TestReviewRelease(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
 			AgentId: "a1",
 		})
-		assert.Contains(t, readEngineLine(harness.readFrame()), "0 comments queued for resume")
+		assert.Contains(t, readEngineLine(harness.readFrame()), "review queued for resume")
 	})
 }
 
