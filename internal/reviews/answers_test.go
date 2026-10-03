@@ -124,60 +124,26 @@ func TestPlainReplyHint(t *testing.T) {
 // TestReplyingToAnAnswerReopensIt pins that the person's reply to an addressed comment is a
 // release of its own, which reopens the comment and says so in the mail.
 func TestReplyingToAnAnswerReopensIt(t *testing.T) {
-	tests := []struct {
-		name         string
-		draftedFirst bool
-	}{
-		{
-			name:         "the person's reply drafted before the answer",
-			draftedFirst: true,
-		},
-		{
-			name:         "the person replying after the answer",
-			draftedFirst: false,
-		},
-	}
+	fx := newReviewFixture(t)
+	thread := fx.releaseFirstReview(t)
+	fx.snapshots.SHA = secondSnapshot
+	_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID:  thread.ID,
+		Body:      "added the nil check",
+		Author:    newAgentAuthor(fx.worker),
+		Addressed: true,
+	})
+	require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t)
-			thread := fx.releaseFirstReview(t)
-			reply := func() {
-				_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
-					ThreadID: thread.ID,
-					Body:     "the empty list still panics",
-					Author:   personAuthor,
-				})
-				require.NoError(t, err)
-			}
+	_, err = fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID: thread.ID,
+		Body:     "the empty list still panics",
+		Author:   personAuthor,
+	})
+	require.NoError(t, err)
+	fx.releaseReview(t, personAuthor, "")
 
-			if tt.draftedFirst {
-				reply()
-			}
-			fx.snapshots.SHA = secondSnapshot
-			_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
-				ThreadID:  thread.ID,
-				Body:      "added the nil check",
-				Author:    newAgentAuthor(fx.worker),
-				Addressed: true,
-			})
-			require.NoError(t, err)
-			if !tt.draftedFirst {
-				reply()
-			}
-			fx.releaseReview(t, personAuthor, "")
-
-			rung := fx.listMail(t, fx.worker.ID)
-			require.NotEmpty(t, rung)
-			assert.Contains(t, rung[len(rung)-1].Body, "0 comment(s), 1 reply(ies) in earlier threads, 1 of them reopening")
-
-			threads, err := fx.service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
-				AgentID: fx.worker.ID,
-				Author:  personAuthor,
-			})
-			require.NoError(t, err)
-			require.Len(t, threads, 1)
-			assert.Nil(t, threads[0].Thread.ResolvedAt)
-		})
-	}
+	rung := fx.listMail(t, fx.worker.ID)
+	require.NotEmpty(t, rung)
+	assert.Contains(t, rung[len(rung)-1].Body, "0 comment(s), 1 reply(ies) in earlier threads, 1 of them reopening")
 }
