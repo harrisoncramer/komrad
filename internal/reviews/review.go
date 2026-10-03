@@ -312,7 +312,11 @@ func (s *ReviewService) placeThread(ctx context.Context, params CreateReviewThre
 		baseSHA = round.BaseSHA
 	}
 
-	return &threadPlace{ReviewID: open.ID, RoundID: round.ID, BaseSHA: baseSHA}, nil
+	return &threadPlace{
+		ReviewID: open.ID,
+		RoundID:  round.ID,
+		BaseSHA:  baseSHA,
+	}, nil
 }
 
 // carryOpenReview files a person's draft under the newest round they have commented on.

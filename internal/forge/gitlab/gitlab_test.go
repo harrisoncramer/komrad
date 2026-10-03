@@ -315,7 +315,12 @@ func TestReadBranches(t *testing.T) {
 		"after":    nil,
 	}, seen.Variables)
 
-	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 1999, Limit: 2000, ResetAt: time.Unix(1789900000, 0)}, reading.RateLimit)
+	assert.Equal(t, forge.RateLimit{
+		Known:     true,
+		Remaining: 1999,
+		Limit:     2000,
+		ResetAt:   time.Unix(1789900000, 0),
+	}, reading.RateLimit)
 
 	require.Len(t, reading.PullRequests, 2, "the fork's merge request is left out")
 	running, merged := reading.PullRequests[0], reading.PullRequests[1]
@@ -1104,8 +1109,16 @@ func TestMergeabilityFolds(t *testing.T) {
 		{status: "BLOCKED_STATUS", want: forge.MergeabilityBlocked},
 		{status: "POLICIES_DENIED", want: forge.MergeabilityBlocked},
 		{status: "REQUESTED_CHANGES", want: forge.MergeabilityBlocked},
-		{state: "merged", status: "MERGEABLE", want: forge.MergeabilityUnknown},
-		{state: "closed", status: "NOT_OPEN", want: forge.MergeabilityUnknown},
+		{
+			state:  "merged",
+			status: "MERGEABLE",
+			want:   forge.MergeabilityUnknown,
+		},
+		{
+			state:  "closed",
+			status: "NOT_OPEN",
+			want:   forge.MergeabilityUnknown,
+		},
 	}
 	for _, tt := range tests {
 		state := cmp.Or(tt.state, "opened")
@@ -1143,10 +1156,28 @@ func TestChecksFolds(t *testing.T) {
 		{status: "CANCELING", want: forge.ChecksFailing},
 		{status: "SKIPPED", want: forge.ChecksNone},
 		{status: "MANUAL", want: forge.ChecksNone},
-		{status: "FAILED", eventType: "DETACHED", want: forge.ChecksFailing},
-		{status: "FAILED", sha: "def", want: forge.ChecksNone},
-		{status: "SUCCESS", sha: "def", eventType: "MERGED_RESULT", want: forge.ChecksPassing},
-		{status: "RUNNING", sha: "def", eventType: "MERGE_TRAIN", want: forge.ChecksPending},
+		{
+			status:    "FAILED",
+			eventType: "DETACHED",
+			want:      forge.ChecksFailing,
+		},
+		{
+			status: "FAILED",
+			sha:    "def",
+			want:   forge.ChecksNone,
+		},
+		{
+			status:    "SUCCESS",
+			sha:       "def",
+			eventType: "MERGED_RESULT",
+			want:      forge.ChecksPassing,
+		},
+		{
+			status:    "RUNNING",
+			sha:       "def",
+			eventType: "MERGE_TRAIN",
+			want:      forge.ChecksPending,
+		},
 	}
 	for _, tt := range tests {
 		sha := cmp.Or(tt.sha, "abc")

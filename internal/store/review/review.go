@@ -690,7 +690,11 @@ func externalOf(login, commentID *string, editedAt *time.Time) *External {
 		return nil
 	}
 
-	return &External{Login: xptr.Deref(login), CommentID: *commentID, EditedAt: editedAt}
+	return &External{
+		Login:     xptr.Deref(login),
+		CommentID: *commentID,
+		EditedAt:  editedAt,
+	}
 }
 
 func externalLogin(external *External) *string {

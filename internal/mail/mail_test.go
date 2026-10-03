@@ -599,7 +599,11 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				EventPrompts: []workflowstore.EventPrompt{
 					{Event: failing, Prompt: "fix the checks"},
 					{Event: behind, Prompt: "rebase onto main"},
-					{Event: conflicting, Prompt: "settle the conflict", Muted: true},
+					{
+						Event:  conflicting,
+						Prompt: "settle the conflict",
+						Muted:  true,
+					},
 				},
 			})
 			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})

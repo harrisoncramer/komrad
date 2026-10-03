@@ -62,7 +62,11 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 	messages, err := st.ListMessages(ctx, []string{thread.ID})
 	require.NoError(t, err)
 
-	return heldThread{thread: thread, rootID: messages[0].ID, round: round}
+	return heldThread{
+		thread: thread,
+		rootID: messages[0].ID,
+		round:  round,
+	}
 }
 
 func (st *fixture) acceptRoot(t *testing.T, held heldThread) *Review {

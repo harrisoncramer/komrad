@@ -1104,7 +1104,11 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 		{
 			name: "a muted event is kept with no prompt",
 			prompts: []workflowstore.EventPrompt{
-				{Event: "pull_request.behind", Prompt: "   ", Muted: true},
+				{
+					Event:  "pull_request.behind",
+					Prompt: "   ",
+					Muted:  true,
+				},
 			},
 			want: []workflowstore.EventPrompt{{Event: "pull_request.behind", Muted: true}},
 		},

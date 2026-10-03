@@ -454,6 +454,10 @@ func newDormant(name string) *agentv1.Agent {
 
 func answerOrchestratorStart(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceStartOrchestratorProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&agentv1.StartOrchestratorResponse{Agent: &agentv1.Agent{Id: "o1", PaneId: "%9", Harness: "claude"}}), nil
+		return connect.NewResponse(&agentv1.StartOrchestratorResponse{Agent: &agentv1.Agent{
+			Id:      "o1",
+			PaneId:  "%9",
+			Harness: "claude",
+		}}), nil
 	})
 }

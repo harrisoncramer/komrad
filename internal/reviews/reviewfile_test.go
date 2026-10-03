@@ -124,9 +124,17 @@ func TestRenderReviewQuotesForgeComments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			body := renderReview(renderReviewParams{
 				Agent: agentstore.Agent{ID: "01a0d224-0000-7000-8000-000000000001", Name: "worker"},
-				Round: reviewstore.Round{Ordinal: 1, BaseSHA: "base-sha", SnapshotSHA: "snapshot-sha"},
+				Round: reviewstore.Round{
+					Ordinal:     1,
+					BaseSHA:     "base-sha",
+					SnapshotSHA: "snapshot-sha",
+				},
 				Threads: []ReviewThreadInContext{{
-					Thread: reviewstore.Thread{FilePath: "greet.go", NewStart: 41, NewEnd: 41},
+					Thread: reviewstore.Thread{
+						FilePath: "greet.go",
+						NewStart: 41,
+						NewEnd:   41,
+					},
 					Messages: []reviewstore.Message{
 						{Body: tt.body, External: &tt.external},
 						{Body: "agreed, close it"},

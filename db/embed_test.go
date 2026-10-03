@@ -155,14 +155,12 @@ func TestMigrateFailure(t *testing.T) {
 		name       string
 		obstruct   string
 		unobstruct string
-		recorded   int
 	}{
 		{
-			// workflow_hooks is the last table the agents migration creates.
+			// worktrees is the last table the baseline creates.
 			name:       "a migration that fails partway applies none of itself",
-			obstruct:   `CREATE TABLE workflow_hooks (placeholder int)`,
-			unobstruct: `DROP TABLE workflow_hooks`,
-			recorded:   1,
+			obstruct:   `CREATE TABLE worktrees (placeholder int)`,
+			unobstruct: `DROP TABLE worktrees`,
 		},
 		{
 			// A ledger the insert cannot satisfy is the only way to fail a migration whose
@@ -183,7 +181,7 @@ func TestMigrateFailure(t *testing.T) {
 
 			require.Error(t, Migrate(ctx, pool))
 			assert.False(t, tableExists(t, pool, "agents"), "the failed migration rolled back")
-			assert.ElementsMatch(t, allVersions(t)[:tt.recorded], appliedVersions(t, pool), "and recorded only what ran before it")
+			assert.Empty(t, appliedVersions(t, pool), "and recorded none of it")
 
 			_, err = pool.Exec(ctx, tt.unobstruct)
 			require.NoError(t, err)

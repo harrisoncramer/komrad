@@ -12,6 +12,9 @@ db/testmodels/** linguist-generated=true
 # atlas (mise run db:migrate)
 db/migrations/** linguist-generated=true
 
+# triggers (mise run gen:triggers)
+db/triggers/** linguist-generated=true
+
 # config (mise run gen:config)
 config.toml linguist-generated=true
 

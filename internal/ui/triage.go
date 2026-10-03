@@ -207,7 +207,11 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 			since = was.since
 		}
 
-		entries[id] = triageEntry{since: since, began: began, rule: rule}
+		entries[id] = triageEntry{
+			since: since,
+			began: began,
+			rule:  rule,
+		}
 	}
 
 	z.entries = entries
@@ -676,11 +680,19 @@ func triageRows(params snapshotParams) []view.Row {
 		status = fmt.Sprintf("+%d more waiting for a slot", queue.waiting)
 	}
 
-	header := view.Row{Key: triageHeaderKey, Kind: view.KindDivider, Name: "Triage"}
+	header := view.Row{
+		Key:  triageHeaderKey,
+		Kind: view.KindDivider,
+		Name: "Triage",
+	}
 
 	return append(append([]view.Row{header}, rows...),
 		newTriageNote(triageMoreKey, status),
-		view.Row{Key: triageDividerKey, Kind: view.KindDivider, Name: "All Agents"},
+		view.Row{
+			Key:  triageDividerKey,
+			Kind: view.KindDivider,
+			Name: "All Agents",
+		},
 	)
 }
 

@@ -561,7 +561,11 @@ func listUnits(files fs.FS) ([]unit, error) {
 			return nil, fmt.Errorf("trigger unit %s has two files, %s and %s", name, other.file, entry.Name())
 		}
 
-		byName[name] = unit{name: name, version: version, file: entry.Name()}
+		byName[name] = unit{
+			name:    name,
+			version: version,
+			file:    entry.Name(),
+		}
 	}
 
 	units := slices.Collect(maps.Values(byName))

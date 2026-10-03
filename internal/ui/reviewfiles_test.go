@@ -198,7 +198,11 @@ func TestReviewFiles(t *testing.T) {
 	t.Run("the review opens on the diff, and the back key steps from the diff to the tree and then out", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
-		harness := newPanelHarness(t, panelHarnessParams{width: reviewWidth, height: reviewHeight, git: server.repo})
+		harness := newPanelHarness(t, panelHarnessParams{
+			width:  reviewWidth,
+			height: reviewHeight,
+			git:    server.repo,
+		})
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
 

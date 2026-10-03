@@ -239,7 +239,11 @@ func wheelOverSidebar(harness *panelHarness, text string) {
 
 	for y, line := range splitLines(harness.readFrame()) {
 		if strings.Contains(ansi.Truncate(line, ui.SidebarCols, ""), text) {
-			harness.send(tea.MouseWheelMsg{X: 4, Y: y, Button: tea.MouseWheelDown})
+			harness.send(tea.MouseWheelMsg{
+				X:      4,
+				Y:      y,
+				Button: tea.MouseWheelDown,
+			})
 
 			return
 		}

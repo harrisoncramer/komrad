@@ -163,8 +163,7 @@ type Agent struct {
 
 	// Sequence is what git has part-way through the agent's checkout and waiting on somebody.
 	Sequence Sequence
-
-	Hold Hold
+	Hold     Hold
 
 	// Alive is whether the agent still owns the pane its row names.
 	Alive bool

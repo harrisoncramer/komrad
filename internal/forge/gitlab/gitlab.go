@@ -561,7 +561,12 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 		seen := make(map[string]int, len(batch))
 		after := ""
 		for len(batch) > 0 {
-			page, err := f.readBranchesPage(ctx, readBranchesPageParams{path: path, branches: batch, first: first, after: after})
+			page, err := f.readBranchesPage(ctx, readBranchesPageParams{
+				path:     path,
+				branches: batch,
+				first:    first,
+				after:    after,
+			})
 			if errors.Is(err, errTooComplex) && first > 1 {
 				first /= 2
 
