@@ -20,18 +20,18 @@ func TestReviewJump(t *testing.T) {
 
 		harness.press("<", "t")
 		frame := harness.readFrame()
-		require.Contains(t, readStageText(frame), "chapter 2 of 2")
+		require.Contains(t, readSidebarProse(frame), "chapter 2 of 2")
 		require.Contains(t, readPopupProse(frame), "still in the change, outside what is on screen")
 
 		harness.press("J")
 
 		frame = harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where this comment was written, round 1")
-		assert.NotContains(t, readStageText(frame), "outside what is on screen")
+		assert.Contains(t, readSidebarProse(frame), "where this comment was written, round 1")
+		assert.NotContains(t, readSidebarProse(frame), "outside what is on screen")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
 		assert.Contains(t, findLine(readStage(frame), "package greet"), "○")
-		assert.Contains(t, readStageText(frame), "J back")
-		assert.Contains(t, readStageText(frame), "1 file, +1 -1")
+		assert.Contains(t, readSidebarProse(frame), "J back")
+		assert.Contains(t, readSidebarProse(frame), "1 file, +1 -1")
 	})
 
 	t.Run("the jump key goes back to the chapter and the comment the reader left", func(t *testing.T) {
@@ -42,7 +42,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("<", "t", "J", "J")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "chapter 2 of 2")
+		assert.Contains(t, readSidebarProse(frame), "chapter 2 of 2")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
@@ -55,7 +55,7 @@ func TestReviewJump(t *testing.T) {
 			harness.press("<", "t", "J", key)
 
 			frame := harness.readFrame()
-			assert.Contains(t, readStageText(frame), "chapter 2 of 2")
+			assert.Contains(t, readSidebarProse(frame), "chapter 2 of 2")
 			assert.Contains(t, readPopupProse(frame), "add a second file")
 		})
 	}
@@ -67,9 +67,9 @@ func TestReviewJump(t *testing.T) {
 
 		harness.press("t", "J", "a")
 
-		frame := readStageText(harness.readFrame())
-		assert.Contains(t, frame, "all changes")
-		assert.Contains(t, frame, "2 files, +4 -1")
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebarProse(frame), "all changes")
+		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
 	t.Run("the jump key goes back to the answer it was pressed from", func(t *testing.T) {
@@ -78,10 +78,10 @@ func TestReviewJump(t *testing.T) {
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("t", "a", "t", "J")
-		require.Contains(t, readStageText(harness.readFrame()), "where this comment was written, round 1")
+		require.Contains(t, readSidebarProse(harness.readFrame()), "where this comment was written, round 1")
 		harness.press("J")
 
-		frame := readStageText(harness.readFrame())
+		frame := harness.readFrame()
 		assert.Contains(t, frame, "the answer to this comment")
 		assert.Contains(t, frame, "1 file, +3 -0")
 	})
@@ -95,10 +95,10 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{thread}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		require.Contains(t, readStageText(harness.readFrame()), "2 files, +4 -1")
-		harness.press("t", "J")
+		require.Contains(t, readSidebarProse(harness.readFrame()), "2 files, +4 -1")
+		harness.press("t", "J", "k")
 
-		frame := readStageText(harness.readFrame())
+		frame := harness.readFrame()
 		assert.Contains(t, frame, "where this comment was written, round 2")
 		assert.Contains(t, frame, "1 file, +3 -0")
 	})
@@ -113,7 +113,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("<", "t", "J")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where this comment was written, round 1, shown against the round's base")
+		assert.Contains(t, readSidebarProse(frame), "where this comment was written, round 1, shown against the round's base")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
@@ -128,7 +128,7 @@ func TestReviewJump(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readOpenMessages(harness), "the round this comment was written on is gone")
-		assert.Contains(t, readStageText(frame), "all changes")
+		assert.Contains(t, readSidebarProse(frame), "all changes")
 	})
 
 	t.Run("a finished chapter takes a reply and refuses a new comment", func(t *testing.T) {
@@ -160,7 +160,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("t", "J")
 
 		frame := harness.readFrame()
-		require.Contains(t, readStageText(frame), "where this comment was written, round 1")
+		require.Contains(t, readSidebarProse(frame), "where this comment was written, round 1")
 		assert.Contains(t, readPopupProse(frame), laterRule)
 	})
 }

@@ -280,7 +280,7 @@ func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
 	}
 
 	layout := r.layoutSidebar(m)
-	pullRequestTop := paint.CountLines(layout.bar)
+	pullRequestTop := paint.CountLines(layout.bar + layout.change)
 	filesTop := pullRequestTop + paint.CountLines(layout.pullRequest)
 
 	switch {

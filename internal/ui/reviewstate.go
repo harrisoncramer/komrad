@@ -1,23 +1,8 @@
 package ui
 
 import (
-	"komrad/internal/ui/paint"
-	"komrad/internal/ui/paint/label"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
-
-const reviewWritingTone = paint.ToneSecondary
-
-// statusView names what the reader is part way through, and says nothing when nothing is.
-func (r reviewScreen) statusView(m *model) string {
-	if r.threads.holdsUnsent() {
-		return bandRow(m, reviewWritingTone, "unsent",
-			label.Counted(r.threads.unsentCount(), "comment")+" not sent"+separated+
-				keyLabel(m.keys.Review.Send)+" sends them to the agent")
-	}
-
-	return ""
-}
 
 // unsentCount is how many comments the reader is holding.
 func (t reviewThreads) unsentCount() int {
