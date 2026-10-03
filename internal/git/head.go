@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -37,23 +38,26 @@ type ReadHeadStateParams struct {
 }
 
 // ReadHeadState reads a checkout's HEAD, answering empty for a directory git will not speak for.
-func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) HeadState {
+func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) (*HeadState, error) {
 	args := []string{"rev-parse", "HEAD"}
 	if params.SnapshotSHA != "" {
 		args = append(args, params.SnapshotSHA+"^{tree}")
 	}
 
 	out, err := Run(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel")...)
+	if err != nil && ctx.Err() != nil {
+		return nil, fmt.Errorf("failed to read the head of %s: %w", params.Dir, ctx.Err())
+	}
 	if err != nil && params.SnapshotSHA != "" {
 		return c.ReadHeadState(ctx, ReadHeadStateParams{Dir: params.Dir})
 	}
 	if err != nil {
-		return HeadState{}
+		return &HeadState{}, nil
 	}
 
 	lines := strings.Split(out, "\n")
 	if len(lines) != len(args)+2 {
-		return HeadState{}
+		return &HeadState{}, nil
 	}
 
 	var snapshotTree string
@@ -68,14 +72,19 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		branch = rebasingBranch(gitDir)
 	}
 
-	return HeadState{
+	repositoryURL := c.readRepositoryURL(ctx, params.Dir)
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read the origin of %s: %w", params.Dir, err)
+	}
+
+	return &HeadState{
 		Branch:        branch,
 		SHA:           sha,
 		Sequence:      readSequence(gitDir),
-		RepositoryURL: c.readRepositoryURL(ctx, params.Dir),
+		RepositoryURL: repositoryURL,
 		Root:          root,
 		SnapshotTree:  snapshotTree,
-	}
+	}, nil
 }
 
 // ReadRepositoryURL is the canonical address of the repository a checkout's origin points at, empty when it has none.

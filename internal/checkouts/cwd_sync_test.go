@@ -55,6 +55,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 		before      agentstore.SetCheckoutParams
 		cwd         func(t *testing.T) string
 		head        git.HeadState
+		headErr     error
 		wantBranch  *string
 		wantRepo    *string
 		wantSHA     *string
@@ -86,6 +87,19 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 				SHA:           "aaa",
 			},
 			wantRemoved: true,
+		},
+		{
+			name: "a checkout git cannot read in time keeps what an earlier pass wrote",
+			before: agentstore.SetCheckoutParams{
+				Branch:        xptr.Ptr("main"),
+				RepositoryURL: xptr.Ptr(komrad),
+				HeadSHA:       xptr.Ptr("aaa"),
+			},
+			cwd:        makeCheckout,
+			headErr:    context.DeadlineExceeded,
+			wantBranch: xptr.Ptr("main"),
+			wantRepo:   xptr.Ptr(komrad),
+			wantSHA:    xptr.Ptr("aaa"),
 		},
 		{
 			name:       "a checkout whose origin is not a forge clears what an earlier pass wrote",
@@ -120,7 +134,15 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 			agent := fixture.seed(t, "a", cwd)
 			require.NoError(t, fixture.stores.Agents.SetCheckout(t.Context(), agent.ID, tt.before))
 
-			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, tt.head)}).Sync(t.Context()))
+			heads := buildHeads(cwd, tt.head)
+			heads.Err = tt.headErr
+
+			err := fixture.newSyncer(newSyncerParams{Heads: heads}).Sync(t.Context())
+			if tt.headErr != nil {
+				require.ErrorIs(t, err, tt.headErr)
+			} else {
+				require.NoError(t, err)
+			}
 
 			got := fixture.read(t, agent.ID)
 			assert.Equal(t, tt.wantRemoved, got.WorktreeRemoved)
@@ -326,6 +348,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 		cwd          func(t *testing.T) string
 		diffStats    func(cwd string) map[string]git.DiffStat
 		probe        string
+		headErr      error
 		want         *agentstore.DiffStat
 		wantMeasured bool
 	}{
@@ -335,6 +358,15 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			diffStats: func(cwd string) map[string]git.DiffStat {
 				return map[string]git.DiffStat{cwd: {Added: 4}}
 			},
+		},
+		{
+			name:    "a checkout git cannot read in time keeps the stat an earlier pass wrote",
+			cwd:     makeCheckout,
+			headErr: context.DeadlineExceeded,
+			diffStats: func(cwd string) map[string]git.DiffStat {
+				return map[string]git.DiffStat{cwd: {Added: 4}}
+			},
+			want: &agentstore.DiffStat{Added: 1, Removed: 1},
 		},
 		{
 			name: "a branch that shares no history with the base clears the stat",
@@ -382,7 +414,15 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 				head.SnapshotTree = "round-tree"
 			}
 
-			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, head), Trees: trees}).Sync(t.Context()))
+			heads := buildHeads(cwd, head)
+			heads.Err = tt.headErr
+
+			err := fixture.newSyncer(newSyncerParams{Heads: heads, Trees: trees}).Sync(t.Context())
+			if tt.headErr != nil {
+				require.ErrorIs(t, err, tt.headErr)
+			} else {
+				require.NoError(t, err)
+			}
 
 			assert.Equal(t, tt.want, fixture.read(t, agent.ID).DiffStat)
 			var wantMeasured []git.ReadDiffStatParams

@@ -33,7 +33,7 @@ const standingReadTimeout = 30 * time.Second
 
 // headReader reads a checkout's HEAD.
 type headReader interface {
-	ReadHeadState(ctx context.Context, params git.ReadHeadStateParams) git.HeadState
+	ReadHeadState(ctx context.Context, params git.ReadHeadStateParams) (*git.HeadState, error)
 }
 
 type treeReader interface {
@@ -99,6 +99,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 type cwdLook struct {
 	agent   agentstore.Agent
 	removed bool
+	unread  bool
 	head    git.HeadState
 	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	movedSinceRound string
@@ -246,6 +247,10 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
 			look := cs.look(ctx, agent, params.Rounds[agent.ID])
+			if look.unread {
+				return look, nil
+			}
+
 			config := params.Worktrees[agent.WorkflowID]
 			cs.readStanding(ctx, &look, readStandingParams{
 				Owned: params.Owned,
@@ -303,7 +308,16 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, newest st
 		return look
 	}
 
-	look.head = cs.readHead(ctx, agent.Cwd, newest)
+	head, err := cs.readHead(ctx, agent.Cwd, newest)
+	if err != nil {
+		look.unread = true
+		look.movedSinceRound = agent.MovedSinceRound
+		look.diffStat = agent.DiffStat
+		look.err = fmt.Errorf("failed to read the head of %q: %w", agent.Name, err)
+
+		return look
+	}
+	look.head = *head
 
 	probe, err := cs.probeTree(ctx, look.head)
 	if err != nil {
@@ -333,6 +347,10 @@ func (cl cwdLook) hasMovedBranch() bool {
 
 // write records what the look found, when any of it differs from the row.
 func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
+	if look.unread {
+		return nil
+	}
+
 	agent, head := look.agent, look.head
 	checkout := agentstore.SetCheckoutParams{
 		Branch:          xptr.NonEmpty(head.Branch),
@@ -523,9 +541,9 @@ func isCwdRemoved(ctx context.Context, dir string) bool {
 	}
 }
 
-func (cs *CwdSyncer) readHead(ctx context.Context, dir, snapshotSHA string) git.HeadState {
+func (cs *CwdSyncer) readHead(ctx context.Context, dir, snapshotSHA string) (*git.HeadState, error) {
 	if dir == "" {
-		return git.HeadState{}
+		return &git.HeadState{}, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)

@@ -3,6 +3,7 @@
 package git_test
 
 import (
+	"context"
 	"testing"
 
 	"komrad/internal/git"
@@ -17,7 +18,8 @@ func TestIntegrationReadHeadStateReadsASettledCheckout(t *testing.T) {
 
 	dir := newRepo(t)
 
-	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	require.NoError(t, err)
 
 	sha, err := git.Run(t.Context(), dir, "rev-parse", "HEAD")
 	require.NoError(t, err)
@@ -64,7 +66,8 @@ func TestIntegrationReadHeadStateReadsASnapshotsTree(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir, SnapshotSHA: tt.snapshot})
+			head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir, SnapshotSHA: tt.snapshot})
+			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantTree, head.SnapshotTree)
 			assert.Equal(t, "main", head.Branch, "and the head is read either way")
@@ -117,7 +120,8 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 			dir := newRepo(t)
 			run(t, dir, "remote", "add", "origin", tt.origin)
 
-			head := git.NewClient(git.NewClientParams{SSHHosts: tt.sshHosts}).ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+			head, err := git.NewClient(git.NewClientParams{SSHHosts: tt.sshHosts}).ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+			require.NoError(t, err)
 
 			assert.Equal(t, "main", head.Branch)
 			assert.Equal(t, tt.want, head.RepositoryURL)
@@ -138,7 +142,8 @@ func TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testin
 	sha, err := git.Run(t.Context(), dir, "rev-parse", "HEAD")
 	require.NoError(t, err)
 
-	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	require.NoError(t, err)
 
 	assert.Equal(t, "topic", head.Branch)
 	assert.Equal(t, sha, head.SHA)
@@ -152,7 +157,8 @@ func TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *te
 
 	dir := stoppedRebase(t, "--detach")
 
-	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	require.NoError(t, err)
 
 	assert.Empty(t, head.Branch)
 	assert.Equal(t, git.SequenceRebase, head.Sequence)
@@ -165,7 +171,8 @@ func TestIntegrationReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	dir := newRepo(t)
 	conflict(t, dir)
 
-	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	require.NoError(t, err)
 
 	assert.Equal(t, "main", head.Branch)
 	assert.Equal(t, git.SequenceMerge, head.Sequence)
@@ -178,7 +185,8 @@ func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T
 	dir := stoppedRebase(t)
 	run(t, dir, "rebase", "--abort")
 
-	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	require.NoError(t, err)
 
 	assert.Equal(t, "topic", head.Branch)
 	assert.Equal(t, git.SequenceNone, head.Sequence)
@@ -189,11 +197,25 @@ func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T
 func TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor(t *testing.T) {
 	t.Parallel()
 
-	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: t.TempDir()})
+	head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: t.TempDir()})
+	require.NoError(t, err)
 
 	assert.Empty(t, head.Branch)
 	assert.Empty(t, head.SHA)
 	assert.False(t, head.Sequence.IsInProgress())
+}
+
+// TestIntegrationReadHeadStateFailsWhenGitIsCutOff covers a read whose context ends before git answers.
+func TestIntegrationReadHeadStateFailsWhenGitIsCutOff(t *testing.T) {
+	t.Parallel()
+
+	dir := newRepo(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, err := client.ReadHeadState(ctx, git.ReadHeadStateParams{Dir: dir})
+
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 // stoppedRebase leaves a checkout part-way through a rebase of topic that it cannot settle,
@@ -272,7 +294,8 @@ func TestIntegrationReadHeadStateNamesABranchATagShares(t *testing.T) {
 	run(t, dir, "checkout", "--quiet", "-b", "feature")
 	run(t, dir, "tag", "feature")
 
-	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	head, err := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
+	require.NoError(t, err)
 
 	assert.Equal(t, "feature", head.Branch)
 }
