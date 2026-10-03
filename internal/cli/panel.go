@@ -11,7 +11,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/browser"
-	"komrad/internal/doctor"
 	"komrad/internal/engine"
 	"komrad/internal/errui"
 	"komrad/internal/git"
@@ -64,7 +63,6 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			// Recorded before anything slow: while no pane is on record the session looks like one
 			// whose panel has gone, and a second open would start a second panel in it.
 			state.tmux.RecordPanelPane(state.env.TmuxPane)
-			state.tmux.RecordPanelBuild(version.Describe(version.Version(), version.Commit()))
 
 			if err := state.tmux.TakePanelKeys(state.keys.GetBoundKeys()); err != nil {
 				logging.From(cmd.Context()).LogAttrs(cmd.Context(), slog.LevelWarn,
@@ -97,7 +95,6 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				defer func() { _ = tunnel.Close() }()
 
 				addr = tunnel.Local
-				startupErr = requireEngineBuild(cmd.Context(), addr)
 				self := append([]string{state.selfPath()}, configArgs(state.configStack)...)
 				shellCommand = append(slices.Clone(self), "shell", "--addr", addr)
 				terminalCommand = append(slices.Clone(self), "terminal", "--addr", addr)
@@ -195,7 +192,7 @@ func panelEngineStatus(ctx context.Context, state *app, addr string, startupErr 
 	}
 }
 
-// readEngineBuild asks the server on addr what it runs, and how that differs from this panel.
+// readEngineBuild asks the server on addr what it runs.
 func readEngineBuild(ctx context.Context, addr string) (ui.EngineBuild, bool) {
 	probe := probeServer(ctx, addr)
 	if !probe.answering {
@@ -205,12 +202,6 @@ func readEngineBuild(ctx context.Context, addr string) (ui.EngineBuild, bool) {
 	build := ui.EngineBuild{Commit: version.Short(probe.revision)}
 	if version.IsRelease(probe.version) {
 		build.Commit = probe.version
-	}
-	if probe.version != "" && !probe.current {
-		build.Stale = fmt.Sprintf("the engine runs %s and this panel %s: %s",
-			version.Describe(probe.version, probe.commit),
-			version.Describe(version.Version(), version.Commit()),
-			doctor.StaleEngineFix(probe.version, probe.commit))
 	}
 
 	return build, true

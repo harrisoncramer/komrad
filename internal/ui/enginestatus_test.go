@@ -101,25 +101,6 @@ func TestEngineDot(t *testing.T) {
 
 		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneSuccess).Render("\uf444")+" ")
 	})
-
-	t.Run("a server back on other code is a mismatch, warned of once", func(t *testing.T) {
-		engine := newFakeEngine()
-		harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engineStatus: engine.on("remote")})
-
-		engine.build = ui.EngineBuild{Commit: "a41c9e0", Stale: "rebuild komrad at a41c9e0"}
-		harness.send(ui.NewWatchLost(errors.New("connection refused")))
-		harness.watch(buildCrowdedSnapshot(""))
-
-		assert.Contains(t, readEngineLine(harness.readFrame()), "The engine is running different code")
-		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneWarning).Render("\uf444")+" ")
-		settleFlash(harness)
-		assert.Equal(t, "\uf444 remote a41c9e0  ✗ 2  C-g", readEngineLine(harness.readFrame()))
-
-		harness.send(ui.NewWatchLost(errors.New("connection refused")))
-		harness.watch(buildCrowdedSnapshot(""))
-		settleFlash(harness)
-		assert.Equal(t, "\uf444 remote a41c9e0  ✗ 3  C-g", readEngineLine(harness.readFrame()), "a mismatch that stayed is not warned of again")
-	})
 }
 
 func readEngineLine(frame string) string {

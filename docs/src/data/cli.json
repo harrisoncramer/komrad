@@ -1131,7 +1131,7 @@
     "usage": "komrad start",
     "aliases": [],
     "short": "Start the service in the background if it is not already running",
-    "long": "Start the service in the background if it is not already running.\n\nIt asks the configured address who is there first. A server of this build is left\nalone; one of another build is asked to stop and replaced, so a rebuilt binary is\nthe one answering. Otherwise `komrad serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the service up without a panel.",
+    "long": "Start the service in the background if it is not already running.\n\nIt asks the configured address who is there first. A server already answering is\nleft alone, whatever build it runs, so a rebuilt binary takes over only after\n`komrad stop`. Otherwise `komrad serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the service up without a panel.",
     "example": "",
     "flags": [],
     "inherited": [

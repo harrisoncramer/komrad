@@ -17,7 +17,6 @@ import (
 
 	"komrad/internal/logging"
 	"komrad/internal/server"
-	"komrad/internal/version"
 	"komrad/lib/clock"
 	"komrad/lib/xhttp"
 )
@@ -45,15 +44,8 @@ type ensureServerParams struct {
 func ensureServer(ctx context.Context, params ensureServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
 
-	probe := probeServer(ctx, addr)
-	if probe.answering {
-		if probe.current {
-			return nil
-		}
-
-		if err := replaceServer(ctx, addr, version.Describe(probe.version, probe.commit)); err != nil {
-			return err
-		}
+	if probeServer(ctx, addr).answering {
+		return nil
 	}
 
 	args := append([]string{"serve", "--addr", addr}, params.ConfigArgs...)
@@ -108,22 +100,12 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 	return fmt.Errorf("the agent server did not become ready at %s within %s, see %s", addr, serveWaitFor, logPath)
 }
 
-func replaceServer(ctx context.Context, addr, reported string) error {
-	if _, err := stopServer(ctx, addr); err != nil {
-		return fmt.Errorf("failed to replace the server at %s, which is build %s where this is %s: %w",
-			addr, reported, version.Describe(version.Version(), version.Commit()), err)
-	}
-
-	return nil
-}
-
 type serverProbe struct {
 	answering bool
 	ready     bool
 	version   string
 	commit    string
 	revision  string
-	current   bool
 }
 
 func probeServer(ctx context.Context, addr string) serverProbe {
@@ -140,7 +122,6 @@ func probeServer(ctx context.Context, addr string) serverProbe {
 		probe.version = body.Version
 		probe.commit = body.Commit
 		probe.revision = body.Revision
-		probe.current = isSameBuild(body, version.Version(), version.Commit())
 	}
 
 	return probe

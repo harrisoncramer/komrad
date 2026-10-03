@@ -11,7 +11,6 @@ import (
 	"komrad/internal/doctor"
 	"komrad/internal/errui"
 	"komrad/internal/ui"
-	"komrad/internal/version"
 	"komrad/lib/xhttp"
 	"komrad/lib/xslice"
 	doctorv1 "komrad/proto/gen/doctor/v1"
@@ -193,7 +192,6 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 			Ready:     found.ready,
 			Version:   found.version,
 			Commit:    found.commit,
-			Current:   found.current,
 		}, nil
 	}
 
@@ -249,8 +247,6 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
 		Addr:                a.env.Addr,
 		EngineIsRemote:      a.engine().IsRemote(),
-		Version:             version.Version(),
-		Commit:              version.Commit(),
 		Term:                termName,
 		ColorTerm:           colorTerm,
 	}, nil

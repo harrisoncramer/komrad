@@ -16,7 +16,6 @@ func withPanel(status ServerStatus, running bool) Env {
 	return Env{
 		Settings: Settings{
 			Addr:       "127.0.0.1:8787",
-			Version:    "v1.2.3",
 			TmuxSocket: "komrad",
 		},
 		ProbeServer:    func(context.Context) (ServerStatus, error) { return status, nil },
@@ -47,32 +46,20 @@ func TestServerCheck(t *testing.T) {
 			wantCode: "address_taken",
 		},
 		{
-			name: "a komrad from another build",
-			status: ServerStatus{
-				Answering: true,
-				Ready:     true,
-				Version:   "v1.0.0",
-			},
-			want:     StatusFail,
-			wantCode: "server_stale",
-		},
-		{
-			name: "this build, listening but unable to reach its database",
+			name: "komrad, listening but unable to reach its database",
 			status: ServerStatus{
 				Answering: true,
 				Version:   "v1.2.3",
-				Current:   true,
 			},
 			want:     StatusFail,
 			wantCode: "server_not_ready",
 		},
 		{
-			name: "this build, serving",
+			name: "komrad, serving",
 			status: ServerStatus{
 				Answering: true,
 				Ready:     true,
 				Version:   "v1.2.3",
-				Current:   true,
 			},
 			want: StatusOK,
 		},
@@ -98,71 +85,12 @@ func TestServerDownIsNotAProblem(t *testing.T) {
 	assert.Equal(t, 1, report.Summary.Warn)
 }
 
-// TestStaleServerNamesBothBuilds covers that the message carries the two versions.
-func TestStaleServerNamesBothBuilds(t *testing.T) {
-	result := newServerCheck().Run(t.Context(), serverEnv(ServerStatus{
-		Answering: true,
-		Ready:     true,
-		Version:   "v1.0.0",
-	}))
-
-	assert.Contains(t, result.Err.Error(), "v1.0.0")
-	assert.Contains(t, result.Err.Error(), "v1.2.3")
-}
-
-// TestStaleServerTellsApartTwoDevelBuilds covers the message a worktree build gets, where the
-// version is devel on both sides and only the commit says they differ.
-func TestStaleServerTellsApartTwoDevelBuilds(t *testing.T) {
-	env := serverEnv(ServerStatus{
-		Answering: true,
-		Ready:     true,
-		Version:   "devel",
-		Commit:    "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
-	})
-	env.Version = "devel"
-	env.Commit = "6da018be0403648b090dfa7695d160efea180b49"
-
-	result := newServerCheck().Run(t.Context(), env)
-
-	assert.Contains(t, result.Err.Error(), "4b1db3c")
-	assert.Contains(t, result.Err.Error(), "6da018b")
-}
-
-// TestStaleServerFixDependsOnThePanel covers advice that would strand a live panel: the
-// panel calls ensureServer only once, when its tmux session is created, so telling somebody
-// with a live panel to stop the server leaves nothing that will ever start one again.
-func TestStaleServerFixDependsOnThePanel(t *testing.T) {
-	stale := ServerStatus{
-		Answering: true,
-		Ready:     true,
-		Version:   "v1.0.0",
-	}
-
-	t.Run("no panel running", func(t *testing.T) {
-		result := newServerCheck().Run(t.Context(), withPanel(stale, false))
-
-		assert.Equal(t, "komrad stop, then reopen the panel", result.Fix,
-			"the next open creates the session and spawns the current build")
-	})
-
-	t.Run("a panel is running", func(t *testing.T) {
-		result := newServerCheck().Run(t.Context(), withPanel(stale, true))
-
-		assert.NotContains(t, result.Fix, "komrad stop",
-			"stopping the server under a live panel strands it, since nothing re-runs ensureServer")
-		assert.Contains(t, result.Fix, "kill-server")
-		assert.Contains(t, result.Fix, "every agent",
-			"agents are windows in the panel's own session, so the cost is named up front")
-	})
-}
-
 // TestNotReadyWaitsRatherThanRestarts covers that a database coming back needs no
 // intervention: the pool reconnects, so the server recovers and the panel clears itself.
 func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
 	result := newServerCheck().Run(t.Context(), withPanel(ServerStatus{
 		Answering: true,
 		Version:   "v1.2.3",
-		Current:   true,
 	}, true))
 
 	assert.Equal(t, "server_not_ready", codeOf(result.Err))
@@ -218,7 +146,6 @@ func TestListenAddressIsCheckedFirst(t *testing.T) {
 				Answering: true,
 				Ready:     true,
 				Version:   "v1.2.3",
-				Current:   true,
 			})
 			env.Addr = tt.addr
 
@@ -226,60 +153,6 @@ func TestListenAddressIsCheckedFirst(t *testing.T) {
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, codeOf(result.Err))
-		})
-	}
-}
-
-// TestStaleServerFixDependsOnWhereTheEngineIs covers the advice given when the service is a
-// different build.
-func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name          string
-		isRemote      bool
-		engineVersion string
-		engineCommit  string
-		want          string
-	}{
-		{
-			name:          "the engine was deployed from a dirty tree, so it names no commit to build from",
-			isRemote:      true,
-			engineVersion: "v0.0.0-engine.4b1db3cf+dirty.131311",
-			want:          "use the dist/komrad-panel that deploy built, since it has no commit to build from",
-		},
-		{
-			name:          "the engine was deployed by hand from a commit",
-			isRemote:      true,
-			engineVersion: "v0.0.0-engine.4b1db3cf",
-			engineCommit:  "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
-			want:          "build komrad from 4b1db3c, or put this local build on the engine",
-		},
-		{
-			name:          "the engine runs a release, which is installed rather than built",
-			isRemote:      true,
-			engineVersion: "v0.4.0",
-			engineCommit:  "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
-			want:          "install komrad v0.4.0, which the engine runs",
-		},
-		{
-			name:          "the engine is this machine, so its server is restarted here",
-			isRemote:      false,
-			engineVersion: "v0.4.0",
-			want:          "tmux -L komrad kill-server, then reopen the panel, which also restarts every agent",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			env := Env{
-				Settings:       Settings{TmuxSocket: "komrad", EngineIsRemote: tt.isRemote},
-				IsPanelRunning: func(context.Context) bool { return true },
-			}
-
-			assert.Equal(t, tt.want, describeStaleServerFix(t.Context(), env, tt.engineVersion, tt.engineCommit))
 		})
 	}
 }
@@ -327,7 +200,6 @@ func TestServerCheckOnARemoteEngine(t *testing.T) {
 			env := Env{
 				Settings: Settings{
 					Addr:           "127.0.0.1:8787",
-					Version:        "v1.2.3",
 					TmuxSocket:     "komrad",
 					EngineIsRemote: true,
 				},

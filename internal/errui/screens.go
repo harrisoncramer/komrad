@@ -2,9 +2,6 @@ package errui
 
 import "errors"
 
-// ErrEngineBuild marks a startup failure that is this binary rather than the engine it dialled.
-var ErrEngineBuild = errors.New("engine build mismatch")
-
 // ErrRebuilt marks a panel whose binary was replaced while it was running.
 var ErrRebuilt = errors.New("komrad was rebuilt")
 
@@ -38,13 +35,6 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 		Body: []string{
 			"The panel did not start. Nothing about your agents has changed, and none of them were stopped: the server is only how the panel reads and changes them.",
 		},
-	}
-
-	if errors.Is(err, ErrEngineBuild) {
-		screen.Title = "The engine is running different code"
-		screen.Body = []string{
-			"The panel did not start. The engine is up and every agent on it is still running, so there is nothing to restart over there: what does not match is the komrad on this machine.",
-		}
 	}
 
 	if errors.Is(err, ErrRebuilt) {

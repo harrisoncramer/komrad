@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"komrad/config"
-	"komrad/internal/errui"
 	"komrad/internal/server"
 	"komrad/internal/version"
 
@@ -76,19 +75,6 @@ func healthJSON(t *testing.T, build string) string {
 	t.Helper()
 
 	body, err := json.Marshal(server.Health{Status: "ok", Version: build})
-	require.NoError(t, err)
-
-	return string(body)
-}
-
-func healthWithCommit(t *testing.T, build, commit string) string {
-	t.Helper()
-
-	body, err := json.Marshal(server.Health{
-		Status:  "ok",
-		Version: build,
-		Commit:  commit,
-	})
 	require.NoError(t, err)
 
 	return string(body)
@@ -237,21 +223,28 @@ func TestIntegrationEnsureServerCarriesTheConfigPath(t *testing.T) {
 	}
 }
 
-// TestIntegrationEnsureServerReusesItsOwnBuild covers that nothing is spawned when this build is already
-// serving, so opening a second panel does not start a second server; a database that is down
-// is still this build, so it is waited for rather than replaced.
-func TestIntegrationEnsureServerReusesItsOwnBuild(t *testing.T) {
+// TestIntegrationEnsureServerReusesWhateverAnswers covers that nothing is spawned when a server is
+// already answering, whatever build it runs, so a rebuilt binary takes over only after a restart.
+func TestIntegrationEnsureServerReusesWhateverAnswers(t *testing.T) {
 	tests := []struct {
-		name   string
-		status int
+		name    string
+		status  int
+		version string
 	}{
 		{
-			name:   "a server whose database is down",
-			status: http.StatusServiceUnavailable,
+			name:    "a server whose database is down",
+			status:  http.StatusServiceUnavailable,
+			version: version.Version(),
 		},
 		{
-			name:   "a server that is ready",
-			status: http.StatusOK,
+			name:    "a server that is ready",
+			status:  http.StatusOK,
+			version: version.Version(),
+		},
+		{
+			name:    "a server from another build",
+			status:  http.StatusOK,
+			version: "v0.0.0-20260701000000-0000000000ab",
 		},
 	}
 
@@ -259,7 +252,7 @@ func TestIntegrationEnsureServerReusesItsOwnBuild(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			addr := fakeServer(t, fakeServerParams{
 				status:  tt.status,
-				body:    healthJSON(t, version.Version()),
+				body:    healthJSON(t, tt.version),
 				stopPid: deadPid(t),
 			})
 			logPath := filepath.Join(t.TempDir(), "serve.log")
@@ -274,26 +267,6 @@ func TestIntegrationEnsureServerReusesItsOwnBuild(t *testing.T) {
 			assert.True(t, os.IsNotExist(statErr), "no server was spawned, so nothing was logged")
 		})
 	}
-}
-
-// TestIntegrationEnsureServerReplacesAnotherBuild covers the panel finding a server it cannot use.
-func TestIntegrationEnsureServerReplacesAnotherBuild(t *testing.T) {
-	addr := fakeServer(t, fakeServerParams{
-		status:  http.StatusOK,
-		body:    healthJSON(t, "v0.0.0-20260701000000-0000000000ab"),
-		stopPid: deadPid(t),
-	})
-	logPath := filepath.Join(t.TempDir(), "serve.log")
-
-	err := ensureServer(t.Context(), ensureServerParams{
-		Addr:    addr,
-		Self:    fakeServe(t, "the replacement was spawned"),
-		LogPath: logPath,
-	})
-
-	require.Error(t, err, "the stand-in serve always fails")
-	assert.Contains(t, err.Error(), "the replacement was spawned",
-		"the server that was there is stopped and a new one started over it")
 }
 
 // TestIntegrationProbeServer covers what the panel decides on, where ready is more than a bound socket.
@@ -331,7 +304,6 @@ func TestIntegrationProbeServer(t *testing.T) {
 			want: serverProbe{
 				answering: true,
 				version:   version.Version(),
-				current:   true,
 			},
 		},
 		{
@@ -343,7 +315,6 @@ func TestIntegrationProbeServer(t *testing.T) {
 				answering: true,
 				ready:     true,
 				version:   version.Version(),
-				current:   true,
 			},
 		},
 	}
@@ -356,71 +327,6 @@ func TestIntegrationProbeServer(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, probeServer(t.Context(), addr))
-		})
-	}
-}
-
-// TestIntegrationRequireEngineBuild covers the panel's own check against a remote engine.
-func TestIntegrationRequireEngineBuild(t *testing.T) {
-	const engineCommit = "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1"
-
-	tests := []struct {
-		name    string
-		serve   bool
-		body    string
-		want    string
-		wantFix string
-	}{
-		{
-			name:    "an engine on a commit this panel was not built from",
-			serve:   true,
-			body:    healthWithCommit(t, "v0.0.0-engine.4b1db3cf", engineCommit),
-			want:    "v0.0.0-engine.4b1db3cf (4b1db3c)",
-			wantFix: "build komrad from 4b1db3c",
-		},
-		{
-			name:    "an engine deployed from a dirty tree, which has no commit to build from",
-			serve:   true,
-			body:    healthJSON(t, "v0.0.0-engine.4b1db3cf+dirty.131311"),
-			want:    "v0.0.0-engine.4b1db3cf+dirty.131311",
-			wantFix: "dist/komrad-panel",
-		},
-		{
-			name:  "an engine this panel matches",
-			serve: true,
-			body:  healthJSON(t, version.Version()),
-		},
-		{
-			name:  "nothing answering, which the engine checks report on instead",
-			serve: false,
-		},
-		{
-			name:  "something answering that is not komrad",
-			serve: true,
-			body:  "{}",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			addr := freeAddr(t)
-			if tt.serve {
-				addr = fakeServer(t, fakeServerParams{status: http.StatusOK, body: tt.body})
-			}
-
-			err := requireEngineBuild(t.Context(), addr)
-			if tt.want == "" {
-				assert.NoError(t, err)
-
-				return
-			}
-
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.want, "the engine's build is named")
-			assert.Contains(t, err.Error(), version.Describe(version.Version(), version.Commit()),
-				"this panel's build is named beside it")
-			assert.Contains(t, err.Error(), tt.wantFix, "the fix named is one the reader can follow")
-			require.ErrorIs(t, err, errui.ErrEngineBuild, "the panel picks its screen off this")
 		})
 	}
 }

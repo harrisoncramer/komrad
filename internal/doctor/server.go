@@ -12,10 +12,6 @@ import (
 const maxPort = 65535
 
 var (
-	errServerStale = &ProblemError{
-		Code:    "server_stale",
-		Message: "build mismatch",
-	}
 	errServerNotReady = &ProblemError{
 		Code:    "server_not_ready",
 		Message: "the server is listening but cannot answer",
@@ -43,7 +39,6 @@ type ServerStatus struct {
 	Ready     bool
 	Version   string
 	Commit    string
-	Current   bool
 }
 
 // newServerCheck reports who holds the address the panel talks through.
@@ -85,16 +80,6 @@ func newServerCheck() Check {
 					fmt.Errorf("%w: %s answers, but not as komrad", errAddressTaken, env.Addr),
 					env.Addr,
 					describeTakenAddressFix(env),
-				)
-
-			case !status.Current:
-				return fail(
-					fmt.Errorf("%w: %s %s, this komrad %s",
-						errServerStale, describeStaleSide(env),
-						version.Describe(status.Version, status.Commit),
-						version.Describe(env.Version, env.Commit)),
-					env.Addr,
-					describeStaleServerFix(ctx, env, status.Version, status.Commit),
 				)
 
 			case !status.Ready:
@@ -139,36 +124,4 @@ func describeTakenAddressFix(env Env) string {
 	}
 
 	return "free the address, or set KOMRAD_ADDR to one nothing else is using"
-}
-
-func describeStaleSide(env Env) string {
-	if env.EngineIsRemote {
-		return "engine"
-	}
-
-	return "server"
-}
-
-func describeStaleServerFix(ctx context.Context, env Env, engineVersion, engineCommit string) string {
-	if env.EngineIsRemote {
-		return StaleEngineFix(engineVersion, engineCommit)
-	}
-
-	if !env.IsPanelRunning(ctx) {
-		return "komrad stop, then reopen the panel"
-	}
-
-	return "tmux -L " + env.TmuxSocket + " kill-server, then reopen the panel, which also restarts every agent"
-}
-
-// StaleEngineFix says how to bring this binary to the build a remote engine is serving.
-func StaleEngineFix(engineVersion, engineCommit string) string {
-	switch {
-	case engineCommit == "":
-		return "use the dist/komrad-panel that deploy built, since it has no commit to build from"
-	case version.IsEngineStamp(engineVersion):
-		return "build komrad from " + version.Short(engineCommit) + ", or put this local build on the engine"
-	default:
-		return "install komrad " + engineVersion + ", which the engine runs"
-	}
 }

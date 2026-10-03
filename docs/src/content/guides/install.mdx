@@ -114,6 +114,6 @@ komrad stop
 komrad migrate
 ```
 
-Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the service.
+A running service keeps its old build until it is stopped, so the stop is what swaps it. Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the service.
 
 The panel is open and empty. The first thing it needs is a [workflow](../workflows/).
