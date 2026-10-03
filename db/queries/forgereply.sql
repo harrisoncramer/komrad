@@ -44,7 +44,7 @@ WHERE
 RETURNING
     *;
 
--- name: ApproveForgeReply :one
+-- name: MarkForgeReplyApproved :one
 UPDATE
     review_forge_replies
 SET
@@ -96,7 +96,7 @@ WHERE
 RETURNING
     *;
 
--- name: DiscardForgeReply :execrows
+-- name: DeleteForgeReply :execrows
 DELETE FROM review_forge_replies
 WHERE id = @id
     AND state IN ('draft', 'failed');

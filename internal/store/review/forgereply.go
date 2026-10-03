@@ -131,7 +131,7 @@ func (s *ReviewStore) MarkForgeReplyApproved(ctx context.Context, params MarkFor
 		return nil, forgeReplyNotFound(params.ID)
 	}
 
-	row, err := s.queries.ApproveForgeReply(ctx, models.ApproveForgeReplyParams{
+	row, err := s.queries.MarkForgeReplyApproved(ctx, models.MarkForgeReplyApprovedParams{
 		ID:           params.ID,
 		Body:         params.Body,
 		ApproverKind: models.ForgeReplyApproverKind(params.ApproverKind),
@@ -185,9 +185,9 @@ func (s *ReviewStore) DeleteForgeReply(ctx context.Context, id string) error {
 		return forgeReplyNotFound(id)
 	}
 
-	deleted, err := s.queries.DiscardForgeReply(ctx, id)
+	deleted, err := s.queries.DeleteForgeReply(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to discard the forge reply %q: %w", id, err)
+		return fmt.Errorf("failed to delete the forge reply %q: %w", id, err)
 	}
 	if deleted == 0 {
 		return s.explainForgeReplyRefusal(ctx, id)
