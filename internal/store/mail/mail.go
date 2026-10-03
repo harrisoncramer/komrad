@@ -340,8 +340,8 @@ func (s *MailStore) CountPending(ctx context.Context, toAgentID string) (int64, 
 	return count, nil
 }
 
-// ListPendingMailboxes is every agent holding unclaimed mail, whether that mail is still live
-// or has expired without being reported.
+// ListPendingMailboxes is every unarchived agent holding unclaimed mail, whether that mail is
+// still live or has expired without being reported.
 func (s *MailStore) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
 	if err != nil {

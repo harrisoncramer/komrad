@@ -416,6 +416,28 @@ func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsRepor
 	assert.Contains(t, mailboxes, recipient, "the mailbox still holds live mail, so it must stay in the sweep")
 }
 
+// TestListPendingMailboxesLeavesOutAnArchivedAgent pins that an archived agent's mailbox stays
+// out of the sweep.
+func TestListPendingMailboxesLeavesOutAnArchivedAgent(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "never read",
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+
+	_, err = st.agents.Archive(ctx, []string{recipient})
+	require.NoError(t, err)
+
+	mailboxes, err := st.ListPendingMailboxes(ctx)
+	require.NoError(t, err)
+	assert.NotContains(t, mailboxes, recipient, "an archived agent's mailbox should not come back to the sweep every tick")
+}
+
 // TestListPage pins that a listing is newest first, is scoped to one mailbox, and shows
 // claimed mail rather than dropping it.
 func TestListPage(t *testing.T) {
