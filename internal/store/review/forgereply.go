@@ -137,7 +137,7 @@ func (s *ReviewStore) MarkForgeReplyApproved(ctx context.Context, params MarkFor
 		ApproverKind: models.ForgeReplyApproverKind(params.ApproverKind),
 	})
 
-	return s.moved(ctx, params.ID, row, err)
+	return s.finishForgeReplyMove(ctx, params.ID, row, err)
 }
 
 // BeginForgeReplySend marks an approved or failed reply as being posted.
@@ -148,7 +148,7 @@ func (s *ReviewStore) BeginForgeReplySend(ctx context.Context, id string) (*Forg
 
 	row, err := s.queries.BeginForgeReplySend(ctx, id)
 
-	return s.moved(ctx, id, row, err)
+	return s.finishForgeReplyMove(ctx, id, row, err)
 }
 
 // MarkForgeReplySent records the comment the forge made of a reply being posted.
@@ -162,7 +162,7 @@ func (s *ReviewStore) MarkForgeReplySent(ctx context.Context, id, forgeCommentPr
 		ForgeCommentProviderID: forgeCommentProviderID,
 	})
 
-	return s.moved(ctx, id, row, err)
+	return s.finishForgeReplyMove(ctx, id, row, err)
 }
 
 // MarkForgeReplyFailed records what the forge said when it refused a reply being posted.
@@ -176,7 +176,7 @@ func (s *ReviewStore) MarkForgeReplyFailed(ctx context.Context, id, forgeError s
 		Error: forgeError,
 	})
 
-	return s.moved(ctx, id, row, err)
+	return s.finishForgeReplyMove(ctx, id, row, err)
 }
 
 // DeleteForgeReply deletes a draft or failed reply.
@@ -190,7 +190,7 @@ func (s *ReviewStore) DeleteForgeReply(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to discard the forge reply %q: %w", id, err)
 	}
 	if deleted == 0 {
-		return s.refused(ctx, id)
+		return s.explainForgeReplyRefusal(ctx, id)
 	}
 
 	return nil
@@ -241,9 +241,9 @@ func (s *ReviewStore) ListSendingForgeReplies(ctx context.Context) ([]ForgeReply
 	}), nil
 }
 
-func (s *ReviewStore) moved(ctx context.Context, id string, row *models.ReviewForgeReply, err error) (*ForgeReply, error) {
+func (s *ReviewStore) finishForgeReplyMove(ctx context.Context, id string, row *models.ReviewForgeReply, err error) (*ForgeReply, error) {
 	if db.IsNoRows(err) {
-		return nil, s.refused(ctx, id)
+		return nil, s.explainForgeReplyRefusal(ctx, id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to move the forge reply %q: %w", id, err)
@@ -252,7 +252,7 @@ func (s *ReviewStore) moved(ctx context.Context, id string, row *models.ReviewFo
 	return forgeReplyFromRow(row), nil
 }
 
-func (s *ReviewStore) refused(ctx context.Context, id string) error {
+func (s *ReviewStore) explainForgeReplyRefusal(ctx context.Context, id string) error {
 	reply, err := s.GetForgeReply(ctx, id)
 	if err != nil {
 		return err
