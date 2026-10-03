@@ -375,10 +375,6 @@ func fitWindow(value string, offset, width int, background color.Color) string {
 	return value
 }
 
-func expandTabs(value string) string {
-	return strings.ReplaceAll(value, "\t", strings.Repeat(" ", tabWidth))
-}
-
 func sanitize(value string) string {
-	return expandTabs(paint.StripControls(value))
+	return strings.ReplaceAll(paint.StripControls(value), "\t", strings.Repeat(" ", tabWidth))
 }
