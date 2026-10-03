@@ -436,8 +436,15 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 	}, nil
 }
 
+// errResumeNotYours is an agent other than an orchestrator resuming an agent it does not answer to.
+var errResumeNotYours = fail.Denied("an agent may resume only its parent and its workflow's orchestrator")
+
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
 func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentRequest) (*agentv1.ResumeAgentResponse, *fail.Error) {
+	if failure := s.refuseResumingOthers(ctx, req.GetId()); failure != nil {
+		return nil, failure
+	}
+
 	resumed, err := s.resumer.ResumeAgent(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to resume agent")
@@ -449,6 +456,34 @@ func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 	}
 
 	return &agentv1.ResumeAgentResponse{Agent: rendered}, nil
+}
+
+func (s *Handler) refuseResumingOthers(ctx context.Context, id string) *fail.Error {
+	callerID := caller.From(ctx).AgentID
+	if callerID == "" {
+		return nil
+	}
+
+	asker, err := s.agents.GetAgent(ctx, callerID)
+	if err != nil {
+		return rpcerr.From(err, "failed to get the calling agent")
+	}
+	if asker.Role == agentstore.RoleOrchestrator {
+		return nil
+	}
+
+	target, err := s.agents.GetAgent(ctx, id)
+	if err != nil {
+		return rpcerr.From(err, "failed to resume agent")
+	}
+	if asker.ParentAgentID != nil && *asker.ParentAgentID == target.ID {
+		return nil
+	}
+	if target.Role == agentstore.RoleOrchestrator && target.WorkflowID == asker.WorkflowID {
+		return nil
+	}
+
+	return errResumeNotYours.Saying("%s is neither the parent of %s nor its workflow's orchestrator", target.Name, asker.Name)
 }
 
 // RetryAgent relaunches an agent that failed to create, optionally with corrected flags.

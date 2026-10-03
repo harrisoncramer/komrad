@@ -823,6 +823,70 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 	assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
 }
 
+// TestResumeAgentFromAnAgent pins which agents a caller other than an orchestrator may resume.
+func TestResumeAgentFromAnAgent(t *testing.T) {
+	tests := []struct {
+		name     string
+		asker    agentstore.Agent
+		target   agentstore.Agent
+		wantCode connect.Code
+	}{
+		{
+			name:   "an implementer waking its workflow's orchestrator",
+			asker:  agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
+			target: agentstore.Agent{Role: agentstore.RoleOrchestrator, WorkflowID: "wf-1"},
+		},
+		{
+			name:   "a reviewer waking its parent",
+			asker:  agentstore.Agent{Role: agentstore.RoleReviewer, WorkflowID: "wf-1", ParentAgentID: xptr.Ptr(betaID)},
+			target: agentstore.Agent{ID: betaID, Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
+		},
+		{
+			name:   "an orchestrator waking an implementer",
+			asker:  agentstore.Agent{Role: agentstore.RoleOrchestrator, WorkflowID: "wf-1"},
+			target: agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-2"},
+		},
+		{
+			name:     "an implementer waking another workflow's orchestrator",
+			asker:    agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
+			target:   agentstore.Agent{Role: agentstore.RoleOrchestrator, WorkflowID: "wf-2"},
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name:     "an implementer waking another implementer",
+			asker:    agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
+			target:   agentstore.Agent{Role: agentstore.RoleImplementer, WorkflowID: "wf-1"},
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name:     "a reviewer waking a sibling",
+			asker:    agentstore.Agent{Role: agentstore.RoleReviewer, WorkflowID: "wf-1", ParentAgentID: xptr.Ptr(betaID)},
+			target:   agentstore.Agent{Role: agentstore.RoleReviewer, WorkflowID: "wf-1", ParentAgentID: xptr.Ptr(betaID)},
+			wantCode: connect.CodePermissionDenied,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, services := newRecordedService(t)
+			asker := services.rows.seed(tt.asker)
+			target := services.rows.seed(tt.target)
+
+			ctx := caller.With(t.Context(), caller.Caller{AgentID: asker.ID})
+			_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: target.ID}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				assert.Empty(t, services.resumed)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []string{target.ID}, services.resumed)
+		})
+	}
+}
+
 // TestListAgents pins what a listed row carries from the surroundings beside it, and what the
 // request's view and archive flag change.
 func TestListAgents(t *testing.T) {

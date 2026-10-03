@@ -873,9 +873,13 @@ service AgentService {
       cli: true
       mcp: true
       name: "resume_agent"
-      description: "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first."
+      description: "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An implementer or reviewer may resume only its parent and its workflow's orchestrator, such as to wake one its mail is waiting on."
       destructive: false
-      roles: [ROLE_ORCHESTRATOR]
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
     };
   }
   rpc RetryAgent(RetryAgentRequest) returns (RetryAgentResponse) {
