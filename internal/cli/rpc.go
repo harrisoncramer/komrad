@@ -12,10 +12,7 @@ import (
 	"time"
 
 	"komrad/internal/caller"
-	"komrad/internal/doctor"
-	"komrad/internal/errui"
 	"komrad/internal/rpcapi"
-	"komrad/internal/version"
 	"komrad/lib/xhttp"
 
 	"github.com/spf13/cobra"
@@ -110,34 +107,14 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
-// ErrServerBuild says the server on this machine is running other code than this binary.
-var ErrServerBuild = errors.New("server build mismatch, restart it")
-
-// requireServer refuses to call a server that is not there or that is running other code
-// than this binary.
+// requireServer refuses to call a server that is not there.
 func requireServer(ctx context.Context, addr, named string) error {
-	probe := probeServer(ctx, addr)
-	if !probe.answering {
+	if !probeServer(ctx, addr).answering {
 		if named != addr {
 			return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
 		}
 
 		return fmt.Errorf("nothing is serving at %s, run komrad start first", named)
-	}
-
-	if probe.version != "" && !probe.current {
-		if named != addr {
-			return fmt.Errorf("%w: engine %s, this komrad %s; %s",
-				errui.ErrEngineBuild,
-				version.Describe(probe.version, probe.commit),
-				version.Describe(version.Version(), version.Commit()),
-				doctor.StaleEngineFix(probe.version, probe.commit))
-		}
-
-		return fmt.Errorf("%w: server %s, cli %s",
-			ErrServerBuild,
-			version.Describe(probe.version, probe.commit),
-			version.Describe(version.Version(), version.Commit()))
 	}
 
 	return nil

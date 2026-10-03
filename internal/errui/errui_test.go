@@ -300,19 +300,6 @@ func tracedError(trace string) error {
 	return err
 }
 
-// TestStartupOnAnEngineRunningOtherCode covers the screen a remote panel gets, where restarting
-// anything over there is the one action that helps least and disturbs most.
-func TestStartupOnAnEngineRunningOtherCode(t *testing.T) {
-	err := fmt.Errorf("%w: engine v0.4.0 (8fe4a3b), this komrad devel (16cbead)", ErrEngineBuild)
-
-	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil)), " ")
-
-	assert.Contains(t, rendered, "The engine is running different code")
-	assert.Contains(t, rendered, "every agent on it is still running")
-	assert.Contains(t, rendered, "8fe4a3b")
-	assert.NotContains(t, rendered, "The agent server could not be started")
-}
-
 // TestStartupOnARebuiltPanel covers the screen a running panel puts up once its binary has
 // been replaced, where the only thing to do is open a panel from the new build.
 func TestStartupOnARebuiltPanel(t *testing.T) {

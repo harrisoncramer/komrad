@@ -3,16 +3,8 @@
 package version
 
 import (
-	"bytes"
-	"debug/elf"
-	"encoding/binary"
-	"errors"
-	"io"
-	"os"
 	"regexp"
 	"runtime/debug"
-	"strings"
-	"sync"
 )
 
 var stamped string
@@ -25,27 +17,11 @@ const shortCommit = 7
 
 var release = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
 
-// engineStampPrefix opens the version a deploy stamps on the engine when no release names
-// the build, followed by the commit it was built from.
-const engineStampPrefix = "v0.0.0-engine."
-
-const buildIDMarker = "\xff Go build ID: \""
-
-const buildIDWithin = 32 * 1024
-
-const buildIDNoteSection = ".note.go.buildid"
-
-const noteHeaderLen = 12
-
-const shortBuildID = 8
-
-var selfBuildID = sync.OnceValue(readSelfBuildID)
-
 // Version is which build this binary is.
 func Version() string {
 	info, _ := debug.ReadBuildInfo()
 
-	return get(stamped, info, selfBuildID())
+	return get(stamped, info)
 }
 
 // Commit is the commit this binary was built from, empty unless it names the source exactly.
@@ -75,7 +51,7 @@ func Revision() string {
 	return ""
 }
 
-func get(stamped string, info *debug.BuildInfo, buildID string) string {
+func get(stamped string, info *debug.BuildInfo) string {
 	if stamped != "" {
 		return stamped
 	}
@@ -85,15 +61,7 @@ func get(stamped string, info *debug.BuildInfo, buildID string) string {
 		version = info.Main.Version
 	}
 
-	if buildID == "" || getCommit("", info) != "" {
-		return version
-	}
-
-	if strings.Contains(version, "+") {
-		return version + "." + buildID
-	}
-
-	return version + "+" + buildID
+	return version
 }
 
 func getCommit(stamped string, info *debug.BuildInfo) string {
@@ -135,11 +103,6 @@ func IsRelease(version string) bool {
 	return release.MatchString(version)
 }
 
-// IsEngineStamp reports whether a version is a deploy's own stamp rather than a release.
-func IsEngineStamp(version string) bool {
-	return strings.HasPrefix(version, engineStampPrefix)
-}
-
 // Short is the first seven characters of a build commit.
 func Short(commit string) string {
 	if len(commit) <= shortCommit {
@@ -147,103 +110,4 @@ func Short(commit string) string {
 	}
 
 	return commit[:shortCommit]
-}
-
-func readSelfBuildID() string {
-	path, err := os.Executable()
-	if err != nil {
-		return ""
-	}
-
-	if id := readNotedBuildID(path); id != "" {
-		return id
-	}
-
-	return readMarkedBuildID(path)
-}
-
-// readNotedBuildID reads the build ID out of an ELF binary's note section.
-func readNotedBuildID(path string) string {
-	file, err := os.Open(path)
-	if err != nil {
-		return ""
-	}
-	defer func() { _ = file.Close() }()
-
-	linked, err := elf.NewFile(file)
-	if err != nil {
-		return ""
-	}
-
-	section := linked.Section(buildIDNoteSection)
-	if section == nil {
-		return ""
-	}
-
-	data, err := section.Data()
-	if err != nil {
-		return ""
-	}
-
-	return shortenBuildID(findNotedBuildID(data, linked.ByteOrder))
-}
-
-func findNotedBuildID(note []byte, order binary.ByteOrder) string {
-	if len(note) < noteHeaderLen {
-		return ""
-	}
-
-	nameLen := int(order.Uint32(note[0:4]))
-	descLen := int(order.Uint32(note[4:8]))
-	start := noteHeaderLen + (nameLen+3)/4*4
-
-	if start+descLen > len(note) {
-		return ""
-	}
-
-	return string(note[start : start+descLen])
-}
-
-func readMarkedBuildID(path string) string {
-	file, err := os.Open(path)
-	if err != nil {
-		return ""
-	}
-	defer func() { _ = file.Close() }()
-
-	head := make([]byte, buildIDWithin)
-
-	read, err := io.ReadFull(file, head)
-	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return ""
-	}
-
-	return shortenBuildID(findMarkedBuildID(head[:read]))
-}
-
-func findMarkedBuildID(head []byte) string {
-	start := bytes.Index(head, []byte(buildIDMarker))
-	if start < 0 {
-		return ""
-	}
-
-	rest := head[start+len(buildIDMarker):]
-
-	end := bytes.IndexByte(rest, '"')
-	if end < 0 {
-		return ""
-	}
-
-	return string(rest[:end])
-}
-
-// shortenBuildID is the head of the content hash a build ID closes with.
-func shortenBuildID(id string) string {
-	content := id[strings.LastIndex(id, "/")+1:]
-
-	if len(content) > shortBuildID {
-		content = content[:shortBuildID]
-	}
-
-	return content
 }

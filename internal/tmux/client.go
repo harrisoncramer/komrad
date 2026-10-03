@@ -36,8 +36,6 @@ const CLIExitedOption = "@komrad_cli_exited"
 
 const panelPaneOption = "@komrad_panel_pane"
 
-const panelBuildOption = "@komrad_panel_build"
-
 const queryTimeout = 5 * time.Second
 
 const killDelay = 100 * time.Millisecond
@@ -414,19 +412,6 @@ func (c *Client) KillPane(pane string) {
 	}
 }
 
-// KillWindow tears down the whole window a pane sits in, treating one already gone as the outcome
-// asked for.
-func (c *Client) KillWindow(pane string) {
-	if pane == "" {
-		return
-	}
-
-	if _, err := c.query("kill-window", "-t", pane); err != nil && !strings.Contains(err.Error(), "can't find") {
-		//nolint:sloglint // as in MovePanes, there is no context here to carry a logger on
-		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
-	}
-}
-
 // BindRootKey binds a key outside the prefix table, taking that key away from whatever is
 // running in the panes.
 func (c *Client) BindRootKey(key string, command ...string) {
@@ -526,20 +511,6 @@ func (c *Client) RecordPanelPane(pane string) {
 // GetPanelPane reads that pane back, empty when no panel has recorded one.
 func (c *Client) GetPanelPane() string {
 	return c.ShowGlobal(panelPaneOption)
-}
-
-// RecordPanelBuild stores the build the panel drawing in that pane was made from.
-func (c *Client) RecordPanelBuild(build string) {
-	if build == "" {
-		return
-	}
-
-	c.SetGlobal(panelBuildOption, build)
-}
-
-// GetPanelBuild reads that build back, empty when the panel never recorded one.
-func (c *Client) GetPanelBuild() string {
-	return c.ShowGlobal(panelBuildOption)
 }
 
 // RecordHostSocket stores the socket path of the user's server, so the panel and everything

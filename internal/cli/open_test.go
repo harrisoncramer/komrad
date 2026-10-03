@@ -6,13 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
 	"komrad/config"
 	"komrad/internal/agents"
-	"komrad/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -227,124 +225,6 @@ func sleepingPanel(t *testing.T) string {
 	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\nsleep 60\n"), 0o755))
 
 	return path
-}
-
-// TestIntegrationEnsureManagerSessionReplacesAPanelFromAnotherBuild covers an open finding a panel built
-// from other code, or one so old it never said which, and putting a fresh one up instead.
-func TestIntegrationEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
-	self := version.Describe(version.Version(), version.Commit())
-
-	tests := []struct {
-		name     string
-		build    string
-		recorded bool
-		replaced bool
-	}{
-		{
-			name:     "a panel that never recorded its build",
-			build:    "",
-			recorded: false,
-			replaced: true,
-		},
-		{
-			name:     "a panel from another build",
-			build:    "devel (0000000)",
-			recorded: true,
-			replaced: true,
-		},
-		{
-			name:     "a panel from this build",
-			build:    self,
-			recorded: true,
-			replaced: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			socket := throwawaySocket(t)
-			panelSession(t, socket)
-
-			state := panelState(t, socket)
-			state.self = sleepingPanel(t)
-
-			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
-			state.tmux.RecordPanelPane(panelPane)
-
-			if tt.recorded {
-				state.tmux.RecordPanelBuild(tt.build)
-			}
-
-			before := hostQuery(t, socket, "display-message", "-p", "-t", panelPane, "#{pane_pid}")
-
-			require.NoError(t, ensureManagerSession(t.Context(), state, true, false))
-
-			after := strings.Fields(hostQuery(t, socket, "list-panes", "-a", "-F", "#{pane_pid}"))
-
-			assert.Equal(t, !tt.replaced, slices.Contains(after, before),
-				"the process open found is the one it re-shows")
-			assert.Len(t, after, 1, "one panel is up either way")
-		})
-	}
-}
-
-// TestIntegrationEnsureManagerSessionReplacesAPanelHoldingAGuest covers a stale panel whose window also
-// holds the pane it was showing an agent in: an agent's own pane on a local engine, which has to
-// survive in a window of its own, and a viewer on a remote engine, which goes with the window.
-func TestIntegrationEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T) {
-	tests := []struct {
-		name     string
-		owner    string
-		survives bool
-	}{
-		{
-			name:     "a viewer attached to a remote engine",
-			owner:    "",
-			survives: false,
-		},
-		{
-			name:     "an agent's own pane on a local engine",
-			owner:    "01a0c202-9943-70e2-b323-ab9a507b82bb",
-			survives: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			socket := throwawaySocket(t)
-			panelSession(t, socket)
-
-			state := panelState(t, socket)
-			state.self = sleepingPanel(t)
-
-			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
-			state.tmux.RecordPanelPane(panelPane)
-			state.tmux.RecordPanelBuild("devel (0000000)")
-			require.NoError(t, exec.Command("tmux", "-L", socket, "rename-window", "-t", panelPane, "komrad").Run())
-
-			guest := hostQuery(t, socket, "split-window", "-d", "-h", "-t", panelPane, "-P", "-F", "#{pane_id}", "sleep 60")
-			if tt.owner != "" {
-				require.NoError(t, state.tmux.SetPaneOwner(guest, tt.owner))
-			}
-
-			panelPID := hostQuery(t, socket, "display-message", "-p", "-t", panelPane, "#{pane_pid}")
-			guestPID := hostQuery(t, socket, "display-message", "-p", "-t", guest, "#{pane_pid}")
-
-			require.NoError(t, ensureManagerSession(t.Context(), state, true, false))
-
-			pids := strings.Fields(hostQuery(t, socket, "list-panes", "-a", "-F", "#{pane_pid}"))
-
-			assert.NotContains(t, pids, panelPID, "the stale panel has gone")
-			assert.Equal(t, tt.survives, slices.Contains(pids, guestPID))
-
-			if tt.survives {
-				assert.Len(t, pids, 2, "the fresh panel and the agent's pane")
-				assert.Empty(t, state.tmux.GetSiblingPanes(guest), "the agent's pane stands in a window of its own")
-			} else {
-				assert.Len(t, pids, 1, "the fresh panel alone")
-			}
-		})
-	}
 }
 
 // TestIntegrationEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession covers the repair aiming at

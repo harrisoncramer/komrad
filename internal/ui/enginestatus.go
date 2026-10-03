@@ -29,8 +29,6 @@ type EngineStatus struct {
 type EngineBuild struct {
 	// Commit is the short commit the server was built from.
 	Commit string
-	// Stale says how the server's code differs from the panel's, empty when they agree.
-	Stale string
 }
 
 func engineTitle(name string) string {
@@ -49,8 +47,6 @@ type engineBuildMsg struct {
 // engineTone is the colour of the dot beside the engine, green while its heartbeat arrives.
 func (m *model) engineTone() paint.Tone {
 	switch {
-	case errors.Is(m.startupErr, errui.ErrEngineBuild), m.engineBuild.Stale != "":
-		return paint.ToneWarning
 	case errors.Is(m.startupErr, errui.ErrRebuilt):
 	case m.startupErr != nil, m.unreachable != nil:
 		return paint.ToneDanger
@@ -112,17 +108,7 @@ func (m *model) readEngineBuildCmd() tea.Cmd {
 	}
 }
 
-// landEngineBuild takes what the server says it runs, warning once each time it stops agreeing
-// with the panel.
+// landEngineBuild takes what the server says it runs.
 func (m *model) landEngineBuild(msg engineBuildMsg) {
-	was := m.engineBuild.Stale
 	m.engineBuild = msg.build
-
-	if msg.build.Stale != "" && was == "" {
-		m.pushMessage(message{
-			kind:    messageWarning,
-			summary: "The engine is running different code",
-			detail:  msg.build.Stale,
-		})
-	}
 }

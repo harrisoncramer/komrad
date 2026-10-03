@@ -10,7 +10,6 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	"komrad/internal/tmux"
-	"komrad/internal/version"
 	"komrad/lib/xhttp"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -111,19 +110,9 @@ func isPanelRunning(ctx context.Context, state *app) bool {
 	return state.tmux.IsPaneAlive(state.tmux.GetPanelPane())
 }
 
-// isPanelStale reports whether the panel drawing in the manager session was built from other
-// code than this binary, a panel that recorded no build counting as one.
-func isPanelStale(ctx context.Context, state *app, build string) bool {
-	return isPanelRunning(ctx, state) && state.tmux.GetPanelBuild() != build
-}
-
 // ensureManagerSession puts a panel up, making the session when there is none and a window in
 // the session it already has when only the panel has gone.
 func ensureManagerSession(ctx context.Context, state *app, detached, headless bool) error {
-	if !headless && isPanelStale(ctx, state, version.Describe(version.Version(), version.Commit())) {
-		evictPanel(state)
-	}
-
 	if !isManagerSessionRunning(ctx, state) {
 		if err := runTmux(ctx, state, "create the manager session",
 			buildManagerSessionArgs(state, state.selfPath(), headless)); err != nil {
@@ -143,20 +132,6 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 
 	return runTmux(ctx, state, "open a panel window in the manager session",
 		buildPanelWindowArgs(state, state.selfPath(), detached))
-}
-
-// evictPanel takes down the window the panel is drawing in, first putting any agent's pane it
-// had swapped in back into a window of its own.
-func evictPanel(state *app) {
-	panel := state.tmux.GetPanelPane()
-
-	for _, pane := range state.tmux.GetSiblingPanes(panel) {
-		if state.tmux.GetPaneOwner(pane) != "" {
-			state.tmux.BreakPane(pane)
-		}
-	}
-
-	state.tmux.KillWindow(panel)
 }
 
 // silenceManagerPrefix leaves the engine's own server answering to no prefix.
