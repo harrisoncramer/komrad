@@ -18,6 +18,7 @@ import (
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/pagination"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -71,6 +72,7 @@ func TestWrapCodes(t *testing.T) {
 		{reviews.ErrReviewEmpty, connect.CodeFailedPrecondition},
 		{reviews.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 		{schedules.ErrBadCron, connect.CodeInvalidArgument},
+		{pagination.ErrBadCursor, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookScript, connect.CodeInvalidArgument},
 		{workflowstore.ErrUnknownEventPrompt, connect.CodeInvalidArgument},

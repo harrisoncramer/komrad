@@ -60,10 +60,10 @@ func init() {
 	agent := exec.Command(scriptShell, os.Args[2])
 	agent.Stdin, agent.Stdout, agent.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := agent.Run(); err != nil {
-		os.Exit(1)
+		os.Exit(1) //nolint:forbidigo // the test binary is standing in for an agent process here
 	}
 
-	os.Exit(0)
+	os.Exit(0) //nolint:forbidigo // the test binary is standing in for an agent process here
 }
 
 type Harness struct {

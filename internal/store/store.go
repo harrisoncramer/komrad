@@ -10,7 +10,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -20,7 +19,6 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -94,7 +92,7 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 	}
 
 	engine, err := models.New(pool).GetCurrentEngine(ctx)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if db.IsNoRows(err) {
 		pool.Close()
 		return nil, ErrNotAnEngine
 	}

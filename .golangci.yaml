@@ -112,6 +112,12 @@ linters:
           msg: take the caller's context
         - pattern: ^slog\.Default$
           msg: log on logging.From(ctx) or a logger handed in
+        - pattern: ^pgx\.ErrNoRows$
+          msg: ask db.IsNoRows whether Postgres found nothing
+        - pattern: ^connect\.NewError$
+          msg: answer through rpcerr
+        - pattern: ^os\.Exit$
+          msg: return the error and let main exit
     depguard:
       # The layers, as docs/src/content/guides/how-it-works.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
@@ -594,6 +600,20 @@ linters:
         linters:
           - forbidigo
         text: a logger handed in
+      - path: ^db/errors\.go$
+        linters:
+          - forbidigo
+        text: db.IsNoRows
+      # A test plays the server and answers with whatever code its case needs.
+      - path: (_test\.go$|^internal/rpcerr/)
+        linters:
+          - forbidigo
+        text: answer through rpcerr
+      # A test exits from TestMain and from the stand-in processes it re-execs itself as.
+      - path: ((^|/)main\.go$|_test\.go$)
+        linters:
+          - forbidigo
+        text: let main exit
       # A binary's package comment would be the first thing a reader of the command sees on
       # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)
