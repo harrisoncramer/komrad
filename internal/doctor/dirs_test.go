@@ -13,23 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func dirsEnv(cfg *config.Config, dirs map[string]DirState, owners WorktreeOwners, ownersErr error) Env {
+func dirsEnv(cfg *config.Config, dirs map[string]dirState, owners worktreeOwners, ownersErr error) Env {
 	return Env{
 		Settings:   Settings{DatabaseURL: writableURL},
 		LoadConfig: func() (*config.Config, error) { return cfg, nil },
-		InspectDir: func(path string) (DirState, error) {
+		InspectDir: func(path string) (dirState, error) {
 			state, known := dirs[path]
 			if !known {
-				return DirState{}, nil
+				return dirState{}, nil
 			}
 
 			if !state.Present {
-				return DirState{}, fs.ErrPermission
+				return dirState{}, fs.ErrPermission
 			}
 
 			return state, nil
 		},
-		ReadWorktreeOwners: func(context.Context, string) (WorktreeOwners, error) {
+		ReadWorktreeOwners: func(context.Context, string) (worktreeOwners, error) {
 			return owners, ownersErr
 		},
 	}
@@ -45,8 +45,8 @@ func configWithDirs(t *testing.T, hooks, worktrees string) *config.Config {
 	return cfg
 }
 
-func presentDir(files, subdirs []string, writable bool) DirState {
-	return DirState{
+func presentDir(files, subdirs []string, writable bool) dirState {
+	return dirState{
 		Present:     true,
 		Directory:   true,
 		Writable:    writable,
@@ -63,20 +63,20 @@ func TestHooksCheck(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		state      map[string]DirState
+		state      map[string]dirState
 		want       Status
 		wantCode   string
 		wantDetail string
 	}{
 		{
 			name:       "two hooks in it",
-			state:      map[string]DirState{dir: presentDir([]string{"notify", "sync"}, nil, true)},
+			state:      map[string]dirState{dir: presentDir([]string{"notify", "sync"}, nil, true)},
 			want:       StatusOK,
 			wantDetail: "2 hooks",
 		},
 		{
 			name:       "there but empty",
-			state:      map[string]DirState{dir: presentDir(nil, nil, true)},
+			state:      map[string]dirState{dir: presentDir(nil, nil, true)},
 			want:       StatusOK,
 			wantDetail: "no hooks",
 		},
@@ -88,13 +88,13 @@ func TestHooksCheck(t *testing.T) {
 		},
 		{
 			name:     "a file where the directory should be",
-			state:    map[string]DirState{dir: {Present: true}},
+			state:    map[string]dirState{dir: {Present: true}},
 			want:     StatusFail,
 			wantCode: "hooks_dir_not_a_directory",
 		},
 		{
 			name:     "there and unreadable",
-			state:    map[string]DirState{dir: {}},
+			state:    map[string]dirState{dir: {}},
 			want:     StatusFail,
 			wantCode: "hooks_dir_unreadable",
 		},
@@ -102,7 +102,7 @@ func TestHooksCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env := dirsEnv(configWithDirs(t, dir, ""), tt.state, WorktreeOwners{}, nil)
+			env := dirsEnv(configWithDirs(t, dir, ""), tt.state, worktreeOwners{}, nil)
 
 			result := newHooksCheck().Run(t.Context(), env)
 
@@ -123,7 +123,7 @@ func TestHooksCheckReportsThePathAsTyped(t *testing.T) {
 	require.NotEqual(t, typed, resolved, "this test needs a home directory to expand")
 
 	env := dirsEnv(configWithDirs(t, typed, ""),
-		map[string]DirState{resolved: presentDir([]string{"notify"}, nil, true)}, WorktreeOwners{}, nil)
+		map[string]dirState{resolved: presentDir([]string{"notify"}, nil, true)}, worktreeOwners{}, nil)
 
 	result := newHooksCheck().Run(t.Context(), env)
 
@@ -139,7 +139,7 @@ func TestWorktreesCheck(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		state      map[string]DirState
+		state      map[string]dirState
 		want       Status
 		wantCode   string
 		wantDetail string
@@ -147,7 +147,7 @@ func TestWorktreesCheck(t *testing.T) {
 	}{
 		{
 			name:       "there and writable",
-			state:      map[string]DirState{dir: presentDir(nil, []string{"01a0", "01a1"}, true)},
+			state:      map[string]dirState{dir: presentDir(nil, []string{"01a0", "01a1"}, true)},
 			want:       StatusOK,
 			wantDetail: "2 worktrees",
 		},
@@ -159,20 +159,20 @@ func TestWorktreesCheck(t *testing.T) {
 		},
 		{
 			name:     "there and read-only",
-			state:    map[string]DirState{dir: presentDir(nil, nil, false)},
+			state:    map[string]dirState{dir: presentDir(nil, nil, false)},
 			want:     StatusFail,
 			wantCode: "worktrees_dir_unwritable",
 			wantFix:  "chmod u+w " + dir,
 		},
 		{
 			name:     "a file where the directory should be",
-			state:    map[string]DirState{dir: {Present: true}},
+			state:    map[string]dirState{dir: {Present: true}},
 			want:     StatusFail,
 			wantCode: "worktrees_dir_not_a_directory",
 		},
 		{
 			name:     "there and unreadable",
-			state:    map[string]DirState{dir: {}},
+			state:    map[string]dirState{dir: {}},
 			want:     StatusFail,
 			wantCode: "worktrees_dir_unreadable",
 		},
@@ -180,7 +180,7 @@ func TestWorktreesCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env := dirsEnv(configWithDirs(t, "", dir), tt.state, WorktreeOwners{}, nil)
+			env := dirsEnv(configWithDirs(t, "", dir), tt.state, worktreeOwners{}, nil)
 
 			result := newWorktreesCheck().Run(t.Context(), env)
 
@@ -204,8 +204,8 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		state     map[string]DirState
-		owners    WorktreeOwners
+		state     map[string]dirState
+		owners    worktreeOwners
 		ownersErr error
 		want      Status
 		wantCode  string
@@ -214,8 +214,8 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 	}{
 		{
 			name:     "a directory with no agent",
-			state:    map[string]DirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
-			owners:   WorktreeOwners{AgentIDs: []string{"01a0"}},
+			state:    map[string]dirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
+			owners:   worktreeOwners{AgentIDs: []string{"01a0"}},
 			want:     StatusWarn,
 			wantCode: "worktrees_unowned",
 			wantIn:   []string{shared, "01a1"},
@@ -224,20 +224,20 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 		},
 		{
 			name:   "every directory has one",
-			state:  map[string]DirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
-			owners: WorktreeOwners{AgentIDs: []string{"01a0", "01a1"}},
+			state:  map[string]dirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
+			owners: worktreeOwners{AgentIDs: []string{"01a0", "01a1"}},
 			want:   StatusOK,
 			wantIn: []string{"2 worktrees"},
 		},
 		{
 			name:   "an adopted agent running in one komrad did not name",
-			state:  map[string]DirState{shared: presentDir(nil, []string{"borrowed"}, true)},
-			owners: WorktreeOwners{AgentIDs: []string{"01a0"}, AgentDirs: []string{filepath.Join(shared, "borrowed")}},
+			state:  map[string]dirState{shared: presentDir(nil, []string{"borrowed"}, true)},
+			owners: worktreeOwners{AgentIDs: []string{"01a0"}, AgentDirs: []string{filepath.Join(shared, "borrowed")}},
 			want:   StatusOK,
 		},
 		{
 			name:      "the database is not reachable",
-			state:     map[string]DirState{shared: presentDir(nil, []string{"01a1"}, true)},
+			state:     map[string]dirState{shared: presentDir(nil, []string{"01a1"}, true)},
 			ownersErr: errors.New("dial tcp 127.0.0.1:5460: connect: connection refused"),
 			want:      StatusWarn,
 			wantCode:  "worktree_owners_unreadable",
@@ -245,7 +245,7 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 		{
 			name:   "nothing has been provisioned yet",
 			state:  nil,
-			owners: WorktreeOwners{},
+			owners: worktreeOwners{},
 			want:   StatusOK,
 			wantIn: []string{"no worktrees"},
 		},
@@ -281,10 +281,10 @@ func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 	const shared = "/home/u/worktrees"
 	const own = "/repos/komrad/trees"
 
-	env := dirsEnv(configWithDirs(t, "", shared), map[string]DirState{
+	env := dirsEnv(configWithDirs(t, "", shared), map[string]dirState{
 		shared: presentDir(nil, []string{"01a0"}, true),
 		own:    presentDir(nil, []string{"01a9"}, true),
-	}, WorktreeOwners{AgentIDs: []string{"01a0"}, WorkflowDirs: []string{own}}, nil)
+	}, worktreeOwners{AgentIDs: []string{"01a0"}, WorkflowDirs: []string{own}}, nil)
 
 	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
@@ -301,7 +301,7 @@ func TestOrphanedWorktreesCheckNamesOnlyAFewOrphans(t *testing.T) {
 
 	left := []string{"01a0", "01a1", "01a2", "01a3", "01a4"}
 	env := dirsEnv(configWithDirs(t, "", shared),
-		map[string]DirState{shared: presentDir(nil, left, true)}, WorktreeOwners{}, nil)
+		map[string]dirState{shared: presentDir(nil, left, true)}, worktreeOwners{}, nil)
 
 	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 

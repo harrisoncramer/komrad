@@ -19,11 +19,11 @@ import (
 // ErrNotHeld is a release of an agent nobody was holding.
 var ErrNotHeld = fail.Precondition("nobody is holding this agent")
 
-// ErrAlreadyHeld is a hold on an agent somebody is already holding.
-var ErrAlreadyHeld = fail.AlreadyExists("this agent is already held")
+// errAlreadyHeld is a hold on an agent somebody is already holding.
+var errAlreadyHeld = fail.AlreadyExists("this agent is already held")
 
-// ErrHoldSelf is an agent holding itself, which would stop it with nobody who knows to let it go.
-var ErrHoldSelf = fail.InvalidArgument("an agent cannot hold itself")
+// errHoldSelf is an agent holding itself, which would stop it with nobody who knows to let it go.
+var errHoldSelf = fail.InvalidArgument("an agent cannot hold itself")
 
 // NewHolderParams is what a holder is built over.
 type NewHolderParams struct {
@@ -67,7 +67,7 @@ type HoldParams struct {
 // Hold stops an agent and records who has it, refusing unless the agent is observed to come to rest.
 func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent, error) {
 	if params.ByAgentID != "" && params.ByAgentID == params.AgentID {
-		return nil, ErrHoldSelf
+		return nil, errHoldSelf
 	}
 
 	agent, err := h.get(ctx, params.AgentID)
@@ -76,7 +76,7 @@ func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent
 	}
 
 	if agent.Hold.IsHeld() {
-		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
+		return nil, errAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
 	if agent.Pane == "" {
@@ -98,7 +98,7 @@ func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent
 		return nil, err
 	}
 	if !held {
-		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
+		return nil, errAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
 	return h.get(ctx, params.AgentID)

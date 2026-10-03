@@ -9,10 +9,10 @@ package layout
 
 import "komrad/internal/panes"
 
-type Region int
+type region int
 
 const (
-	RegionNone Region = iota
+	regionNone region = iota
 	RegionSidebar
 	RegionStage
 	RegionInfo
@@ -37,7 +37,7 @@ type Tmux interface {
 }
 
 type Target struct {
-	Region Region
+	Region region
 	Width  int
 	Height int
 }

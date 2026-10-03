@@ -43,13 +43,13 @@ func (Released) Topic() string {
 	return releasedTopic
 }
 
-// Answered is an agent answering in a review of its own work.
-type Answered struct {
+// answered is an agent answering in a review of its own work.
+type answered struct {
 	AgentID string `json:"agent_id"`
 }
 
 // Topic names the handler that tells the agent's reviewer.
-func (Answered) Topic() string {
+func (answered) Topic() string {
 	return answeredTopic
 }
 
@@ -91,12 +91,12 @@ func (r Released) event() string {
 }
 
 // NewAnsweredHandler builds the handler the router is given for answers to a review.
-func NewAnsweredHandler() events.HandlerFor[Answered] {
+func NewAnsweredHandler() events.HandlerFor[answered] {
 	return handleAnswered
 }
 
 // handleAnswered tells the author's live reviewer and asks for it to be woken.
-func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService, answered Answered) ([]river.JobArgs, error) {
+func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService, answered answered) ([]river.JobArgs, error) {
 	reading, err := reviewstore.NewReviewStore(tx).GetLiveReviewerOf(ctx, answered.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, nil

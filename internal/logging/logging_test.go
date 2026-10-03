@@ -92,7 +92,7 @@ func TestContextCarriesTheRequestsLogger(t *testing.T) {
 	var record map[string]any
 	require.NoError(t, json.Unmarshal(out.Bytes(), &record))
 	assert.Equal(t, "abc-123", record[TraceID])
-	assert.Equal(t, Service, record[ServiceName], "every record names what produced it")
+	assert.Equal(t, service, record[serviceName], "every record names what produced it")
 }
 
 // TestContextWithoutALogger covers code reached from somewhere other than a request, which

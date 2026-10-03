@@ -38,7 +38,7 @@ type row struct {
 
 type observedMsg struct {
 	index       int
-	observation Observation
+	observation observation
 }
 
 type repairedMsg struct {
@@ -47,7 +47,7 @@ type repairedMsg struct {
 }
 
 type model struct {
-	look    func(Step) Observation
+	look    func(Step) observation
 	fix     func(Step) error
 	rows    []row
 	current int
@@ -57,14 +57,14 @@ type model struct {
 	aborted bool
 }
 
-// ErrFailed is what a run returns when a step could not be made true.
-var ErrFailed = fail.Precondition("setup did not finish")
+// errFailed is what a run returns when a step could not be made true.
+var errFailed = fail.Precondition("setup did not finish")
 
 // ErrAborted is what a run returns when the person quit before the last step.
 var ErrAborted = fail.Precondition("setup was quit")
 
 // Run walks the steps in a terminal, asking the person whatever a step needs.
-func Run(ctx context.Context, check Checker, steps []Step) error {
+func Run(ctx context.Context, check checker, steps []Step) error {
 	rows := make([]row, len(steps))
 	for i, step := range steps {
 		rows[i] = row{step: step}
@@ -83,9 +83,9 @@ func Run(ctx context.Context, check Checker, steps []Step) error {
 	return outcome(finished)
 }
 
-func newModel(ctx context.Context, check Checker, rows []row) model {
+func newModel(ctx context.Context, check checker, rows []row) model {
 	return model{
-		look:    func(step Step) Observation { return step.observe(ctx, check) },
+		look:    func(step Step) observation { return step.observe(ctx, check) },
 		fix:     func(step Step) error { return step.repair(ctx) },
 		rows:    rows,
 		spinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
@@ -98,7 +98,7 @@ func outcome(m model) error {
 	}
 	for _, r := range m.rows {
 		if r.state == stateFailed {
-			return ErrFailed
+			return errFailed
 		}
 	}
 
@@ -179,17 +179,17 @@ func (m model) observed(msg observedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.observation.Verdict {
-	case VerdictDone:
+	case verdictDone:
 		r.state = stateDone
 
 		return m.advance()
 
-	case VerdictStop:
+	case verdictStop:
 		r.state = stateFailed
 
 		return m, tea.Quit
 
-	case VerdictAsk, VerdictRepair:
+	case verdictAsk, verdictRepair:
 		if r.repaired {
 			r.state = stateFailed
 
@@ -197,7 +197,7 @@ func (m model) observed(msg observedMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if msg.observation.Verdict == VerdictRepair {
+	if msg.observation.Verdict == verdictRepair {
 		return m, m.repair()
 	}
 
@@ -216,7 +216,7 @@ func (m model) repaired(msg repairedMsg) (tea.Model, tea.Cmd) {
 	m.form = nil
 
 	switch {
-	case errors.Is(msg.err, ErrSkipped):
+	case errors.Is(msg.err, errSkipped):
 		r.state = stateSkipped
 
 		return m.advance()
@@ -291,7 +291,7 @@ func (m model) mark(r row) string {
 
 // RunUnattended walks the steps with nobody to ask, printing a line per step and taking every
 // answer from a flag.
-func RunUnattended(ctx context.Context, out io.Writer, check Checker, steps []Step) error {
+func RunUnattended(ctx context.Context, out io.Writer, check checker, steps []Step) error {
 	for _, step := range steps {
 		line, err := runUnattended(ctx, check, step)
 		if _, writeErr := fmt.Fprintln(out, line); writeErr != nil {
@@ -305,39 +305,39 @@ func RunUnattended(ctx context.Context, out io.Writer, check Checker, steps []St
 	return nil
 }
 
-func runUnattended(ctx context.Context, check Checker, step Step) (string, error) {
+func runUnattended(ctx context.Context, check checker, step Step) (string, error) {
 	name := fmt.Sprintf("%-9s", step.name())
 
 	observation := step.observe(ctx, check)
 	switch observation.Verdict {
-	case VerdictDone:
+	case verdictDone:
 		return markDone + " " + name + " " + observation.Detail, nil
-	case VerdictStop:
-		return describeStop(name, observation), ErrFailed
-	case VerdictAsk:
+	case verdictStop:
+		return describeStop(name, observation), errFailed
+	case verdictAsk:
 		if err := step.answerUnattended(); err != nil {
-			return markFailed + " " + name + " " + err.Error(), ErrFailed
+			return markFailed + " " + name + " " + err.Error(), errFailed
 		}
-	case VerdictRepair:
+	case verdictRepair:
 	}
 
 	if err := step.repair(ctx); err != nil {
-		if errors.Is(err, ErrSkipped) {
+		if errors.Is(err, errSkipped) {
 			return "- " + name + " skipped", nil
 		}
 
-		return markFailed + " " + name + " " + err.Error(), ErrFailed
+		return markFailed + " " + name + " " + err.Error(), errFailed
 	}
 
 	observation = step.observe(ctx, check)
-	if observation.Verdict != VerdictDone {
-		return describeStop(name, observation), ErrFailed
+	if observation.Verdict != verdictDone {
+		return describeStop(name, observation), errFailed
 	}
 
 	return markDone + " " + name + " " + observation.Detail, nil
 }
 
-func describeStop(name string, observation Observation) string {
+func describeStop(name string, observation observation) string {
 	line := markFailed + " " + name + " " + observation.Detail
 	if observation.Finding != nil && observation.Finding.Fix != "" {
 		line += "\n            fix: " + observation.Finding.Fix

@@ -34,7 +34,7 @@ var ErrProvisionFailed = fail.Precondition("the provisioner failed")
 
 var ErrHookFailed = fail.Precondition("a hook failed")
 
-var ErrHookNameTaken = fail.InvalidArgument("a hook in the hooks directory takes the name of one komrad ships")
+var errHookNameTaken = fail.InvalidArgument("a hook in the hooks directory takes the name of one komrad ships")
 
 var ErrScriptAlreadyRunning = fail.Precondition("the script is already running for this agent")
 
@@ -53,7 +53,7 @@ func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent
 	return s.runAwaited(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: TriggerProvision,
+		trigger: triggerProvision,
 	})
 }
 
@@ -125,7 +125,7 @@ func (s *ScriptService) RunResume(ctx context.Context, agent agentstore.Agent, n
 	return s.runAwaited(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: TriggerResume,
+		trigger: triggerResume,
 	})
 }
 
@@ -197,13 +197,13 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 	script, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: TriggerDeprovision,
+		trigger: triggerDeprovision,
 	})
 	if err != nil {
 		return err
 	}
 
-	run := s.beginRun(ctx, agent.ID, TriggerDeprovision, name)
+	run := s.beginRun(ctx, agent.ID, triggerDeprovision, name)
 
 	key := scriptKey{agentID: agent.ID, name: script.Name}
 	if !s.claim(key) {
@@ -213,7 +213,7 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 		return fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptAlreadyRunning)
 	}
 
-	logger := s.runLogger(ctx, script.Name, TriggerDeprovision, agent)
+	logger := s.runLogger(ctx, script.Name, triggerDeprovision, agent)
 	ctx = context.WithoutCancel(ctx)
 	began := time.Now()
 

@@ -12,26 +12,26 @@ import (
 )
 
 var (
-	// ErrPushDetached says the checkout is on no branch, so there is nothing to name on origin.
-	ErrPushDetached = fail.Precondition("the worktree is on no branch, so there is nothing to push")
+	// errPushDetached says the checkout is on no branch, so there is nothing to name on origin.
+	errPushDetached = fail.Precondition("the worktree is on no branch, so there is nothing to push")
 
-	// ErrPushInProgress says a sequence owns the index, so the branch is not where it will end up.
-	ErrPushInProgress = fail.Precondition("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
+	// errPushInProgress says a sequence owns the index, so the branch is not where it will end up.
+	errPushInProgress = fail.Precondition("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
 
-	// ErrPushBase says the checkout stands on the branch everything else is measured against.
-	ErrPushBase = fail.Precondition("the worktree is on the workflow's base branch, which komrad never pushes")
+	// errPushBase says the checkout stands on the branch everything else is measured against.
+	errPushBase = fail.Precondition("the worktree is on the workflow's base branch, which komrad never pushes")
 
-	// ErrPushFinished says the branch's pull request has merged or closed and the checkout still stands where it ended.
-	ErrPushFinished = fail.Precondition("the pull request from this branch has merged or closed and the checkout holds nothing newer, so there is nothing left to push")
+	// errPushFinished says the branch's pull request has merged or closed and the checkout still stands where it ended.
+	errPushFinished = fail.Precondition("the pull request from this branch has merged or closed and the checkout holds nothing newer, so there is nothing left to push")
 
-	// ErrPushNothing says the branch holds nothing the base does not.
-	ErrPushNothing = fail.Precondition("the branch holds nothing the base does not, so pushing it would leave its pull request empty")
+	// errPushNothing says the branch holds nothing the base does not.
+	errPushNothing = fail.Precondition("the branch holds nothing the base does not, so pushing it would leave its pull request empty")
 
-	// ErrPushInSync says origin's copy of the branch already holds every commit on it.
-	ErrPushInSync = fail.Precondition("origin already holds every commit on this branch, so there is nothing to push")
+	// errPushInSync says origin's copy of the branch already holds every commit on it.
+	errPushInSync = fail.Precondition("origin already holds every commit on this branch, so there is nothing to push")
 
-	// ErrPushAdoptedForce says a branch komrad did not cut would have origin's copy overwritten.
-	ErrPushAdoptedForce = fail.Precondition("origin's copy of this branch has moved apart from it, and komrad never overwrites a branch it did not cut")
+	// errPushAdoptedForce says a branch komrad did not cut would have origin's copy overwritten.
+	errPushAdoptedForce = fail.Precondition("origin's copy of this branch has moved apart from it, and komrad never overwrites a branch it did not cut")
 )
 
 // PushPlan is what a push would do.
@@ -100,7 +100,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 
 	result := &PushResult{PushPlan: *plan, SHA: sha}
 	if result.Forced {
-		s.queueEvent(ctx, agent.ID, Pushed{
+		s.queueEvent(ctx, agent.ID, pushed{
 			AgentID: agent.ID,
 			Branch:  result.Branch,
 			SHA:     result.SHA,
@@ -121,13 +121,13 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh b
 
 	switch {
 	case state.InProgress:
-		return nil, ErrPushInProgress
+		return nil, errPushInProgress
 	case state.Branch == "":
-		return nil, ErrPushDetached
+		return nil, errPushDetached
 	}
 
 	if state.Branch == flow.Worktree.BaseBranch {
-		return nil, fmt.Errorf("%w: %s", ErrPushBase, state.Branch)
+		return nil, fmt.Errorf("%w: %s", errPushBase, state.Branch)
 	}
 
 	finished, err := s.refuseFinished(ctx, agent, state)
@@ -145,7 +145,7 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh b
 		return nil, err
 	}
 	if plan.Forced && agent.AdoptedBranch != "" {
-		return nil, fmt.Errorf("%w: %s", ErrPushAdoptedForce, agent.AdoptedBranch)
+		return nil, fmt.Errorf("%w: %s", errPushAdoptedForce, agent.AdoptedBranch)
 	}
 
 	changes, err := s.git.PeekChanges(ctx, agent.Cwd)
@@ -170,7 +170,7 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 		return nil, err
 	}
 	if own == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrPushNothing, branch)
+		return nil, fmt.Errorf("%w: %s", errPushNothing, branch)
 	}
 
 	remote, err := s.git.CountAgainstRemote(ctx, dir, branch)
@@ -184,7 +184,7 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 		return nil, fmt.Errorf("%w: %s", git.ErrPushRejected, branch)
 	}
 	if remote.Unpushed == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrPushInSync, branch)
+		return nil, fmt.Errorf("%w: %s", errPushInSync, branch)
 	}
 
 	return &PushPlan{
@@ -214,7 +214,7 @@ func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, st
 	}
 	pr := listed[0]
 	if state.HeadSHA == "" || state.HeadSHA == pr.HeadSHA {
-		return false, fmt.Errorf("%w: %s", ErrPushFinished, pr.URL)
+		return false, fmt.Errorf("%w: %s", errPushFinished, pr.URL)
 	}
 	if pr.MergedAt != nil && pr.HeadSHA != "" {
 		held, err := s.git.HoldsCommit(ctx, agent.Cwd, pr.HeadSHA)
@@ -222,7 +222,7 @@ func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, st
 			return false, err
 		}
 		if held {
-			return false, fmt.Errorf("%w: %s", ErrPushFinished, pr.URL)
+			return false, fmt.Errorf("%w: %s", errPushFinished, pr.URL)
 		}
 	}
 
@@ -230,7 +230,7 @@ func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, st
 }
 
 // pushedMail is what an agent is told once its branch on origin was overwritten from the panel.
-func pushedMail(pushed Pushed) string {
+func pushedMail(pushed pushed) string {
 	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, replacing the copy origin held. "+
 		"Origin's copy now matches your checkout at %s.\n\n"+
 		"Carry on from here and push as you normally would. Do not pull or reset to the copy origin held before.",

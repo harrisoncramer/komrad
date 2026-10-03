@@ -78,7 +78,7 @@ interrupt, or when ` + "`komrad stop`" + ` asks it to.`,
 			if err != nil {
 				logger.LogAttrs(cmd.Context(), slog.LevelError, "the server stopped", logging.Err(err)...)
 
-				return fmt.Errorf("%w: %w", ErrLogged, err)
+				return fmt.Errorf("%w: %w", errLogged, err)
 			}
 
 			return nil

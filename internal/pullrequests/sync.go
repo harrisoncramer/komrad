@@ -366,7 +366,7 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 					return move.From == ""
 				})
 			}
-			if stateMove := Moved(FieldState, outcome.OldState, &upsert.State); stateMove != nil {
+			if stateMove := moved(fieldState, outcome.OldState, &upsert.State); stateMove != nil {
 				moves = append([]Move{*stateMove}, moves...)
 			}
 
@@ -391,7 +391,7 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 func mergeReadinessMoves(change *pullrequeststore.MergeReadinessChange) []Move {
 	var moves []Move
 	for _, move := range change.After.ListMovesSince(change.Before) {
-		field := Field(move.Field)
+		field := field(move.Field)
 		if move.From == "" && !slices.Contains(alarming[field], move.To) {
 			continue
 		}

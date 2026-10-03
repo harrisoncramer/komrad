@@ -44,7 +44,7 @@ func (s *Service) RotateTokens(ctx context.Context) error {
 // rotate itself.
 func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params ConnectParams) (string, error) {
 	if params.Kind != KindGitLab {
-		return "", ErrRotatingNotGitLab
+		return "", errRotatingNotGitLab
 	}
 
 	login, err := s.proveToken(ctx, build, params)
@@ -61,7 +61,7 @@ func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params 
 		return "", fmt.Errorf("failed to read the token from %s: %w", params.Host, err)
 	}
 	if !slices.Contains(info.Scopes, rotationScope) {
-		return "", ErrTokenCannotRotate.Saying("the token for %s needs the %s scope to rotate itself but has %v", params.Host, rotationScope, info.Scopes)
+		return "", errTokenCannotRotate.Saying("the token for %s needs the %s scope to rotate itself but has %v", params.Host, rotationScope, info.Scopes)
 	}
 
 	return login, nil
@@ -162,15 +162,15 @@ func (s *Service) revokeRotatingToken(ctx context.Context, connection forgestore
 }
 
 // pastedRotator is the pasted token, as a rotator.
-func pastedRotator(build Builder, params ConnectParams) (TokenRotator, error) {
+func pastedRotator(build Builder, params ConnectParams) (tokenRotator, error) {
 	return rotatorFor(build(params.APIURL, staticCredential{Header: HeaderPrivateToken, Token: params.Token}))
 }
 
 // rotatorFor is the forge as one that rotates its token, or ErrNoRotation.
-func rotatorFor(f Forge) (TokenRotator, error) {
-	rotator, ok := f.(TokenRotator)
+func rotatorFor(f Forge) (tokenRotator, error) {
+	rotator, ok := f.(tokenRotator)
 	if !ok {
-		return nil, ErrNoRotation
+		return nil, errNoRotation
 	}
 
 	return rotator, nil

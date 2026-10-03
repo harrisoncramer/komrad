@@ -317,8 +317,8 @@ func (i *Instance) runLoop(name string) {
 	i.t.Fatalf("no loop named %q", name)
 }
 
-// Reconcile runs one pass of the loop that writes agent state.
-func (i *Instance) Reconcile() {
+// reconcile runs one pass of the loop that writes agent state.
+func (i *Instance) reconcile() {
 	i.t.Helper()
 	i.runLoop(server.ReconcileLoop)
 }
@@ -365,7 +365,7 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want agents
 
 	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
-		i.Reconcile()
+		i.reconcile()
 
 		stored, err := i.Stores.Agents.GetByID(i.t.Context(), agentID)
 		require.NoError(i.t, err)

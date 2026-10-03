@@ -287,8 +287,8 @@ type Reading struct {
 	RateLimit    RateLimit
 }
 
-// InstallationVerifier is a forge that can say what an installation token reaches.
-type InstallationVerifier interface {
+// installationVerifier is a forge that can say what an installation token reaches.
+type installationVerifier interface {
 	// VerifyInstallation is how many repositories the credential's installation covers.
 	VerifyInstallation(ctx context.Context) (int, error)
 }
@@ -300,8 +300,8 @@ type TokenInfo struct {
 	ExpiresAt time.Time
 }
 
-// TokenRotator is a forge whose token can describe, rotate and revoke itself.
-type TokenRotator interface {
+// tokenRotator is a forge whose token can describe, rotate and revoke itself.
+type tokenRotator interface {
 	// ReadToken is what the forge says of the token it was shown.
 	ReadToken(ctx context.Context) (*TokenInfo, error)
 	// RotateToken trades the token it was shown for a new one that expires on the day given.

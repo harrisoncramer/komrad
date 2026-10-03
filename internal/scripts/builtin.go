@@ -16,9 +16,9 @@ const builtinRoot = "builtin"
 
 const markerName = ".komrad-builtins"
 
-var ErrDirNotAbsolute = fail.Internal("the directory is not an absolute path")
+var errDirNotAbsolute = fail.Internal("the directory is not an absolute path")
 
-var ErrDirNotOurs = fail.Internal("the directory holds files komrad did not write")
+var errDirNotOurs = fail.Internal("the directory holds files komrad did not write")
 
 //go:embed all:builtin
 var builtinFS embed.FS
@@ -28,7 +28,7 @@ var builtinFS embed.FS
 func InstallBuiltins(dir string) error {
 	// A relative path names a different directory every time the service starts somewhere new.
 	if !filepath.IsAbs(dir) {
-		return fmt.Errorf("failed to install the built-in scripts into %s: %w", dir, ErrDirNotAbsolute)
+		return fmt.Errorf("failed to install the built-in scripts into %s: %w", dir, errDirNotAbsolute)
 	}
 
 	// Emptying is a recursive delete, so the directory has to be empty or carry the marker a
@@ -77,7 +77,7 @@ func clearOwned(dir string) error {
 	}
 
 	if len(entries) > 0 && !hasMarker(entries) {
-		return fmt.Errorf("failed to clear the built-in scripts directory %s: %w", dir, ErrDirNotOurs)
+		return fmt.Errorf("failed to clear the built-in scripts directory %s: %w", dir, errDirNotOurs)
 	}
 
 	if err := os.RemoveAll(dir); err != nil {

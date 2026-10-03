@@ -146,7 +146,7 @@ func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
 	}
 
 	readCtx, cancel := context.WithTimeout(ctx, measureDeadline)
-	standing := m.standings.ReadStanding(readCtx, worktree)
+	standing := m.standings.readStanding(readCtx, worktree)
 	cancel()
 
 	if ctx.Err() != nil {

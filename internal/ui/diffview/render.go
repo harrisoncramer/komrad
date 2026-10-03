@@ -26,7 +26,7 @@ const tabWidth = 4
 type Cursor int
 
 const (
-	NoCursor Cursor = iota
+	noCursor Cursor = iota
 	LiveCursor
 	DimCursor
 )
@@ -37,9 +37,9 @@ var (
 	metadataStyle   = lipgloss.NewStyle().Faint(true)
 )
 
-// RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an
+// renderRow draws one row of the diff at the width it is shown at, taking the cursor as an
 // argument since only the row under it is redrawn as it moves.
-func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
+func (v *View) renderRow(y int, cursor Cursor, width, offset int) string {
 	current, ok := v.getRow(y)
 	if !ok {
 		return ""
@@ -96,7 +96,7 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 		text += style.Render("  " + v.fileSummary(current.file))
 	}
 	text = ansi.Truncate(text, width, "…")
-	if padding := width - lipgloss.Width(text); cursor != NoCursor && padding > 0 {
+	if padding := width - lipgloss.Width(text); cursor != noCursor && padding > 0 {
 		text += style.Render(strings.Repeat(" ", padding))
 	}
 
@@ -270,7 +270,7 @@ func getBackground(kind diff.LineKind, cursor Cursor) color.Color {
 		return paint.Panel.Background(paint.ShadeSelection)
 	case DimCursor:
 		return paint.Panel.Background(paint.ShadeSelectionDim)
-	case NoCursor:
+	case noCursor:
 	}
 
 	switch kind {

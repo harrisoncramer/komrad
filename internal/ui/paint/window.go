@@ -12,9 +12,9 @@ import (
 // Unbounded is the room a list is given when the pane it is drawn into has no measured height.
 const Unbounded = -1
 
-// Window is the rows of a block a pane shows and whether they are marked with the counts either
+// window is the rows of a block a pane shows and whether they are marked with the counts either
 // side.
-type Window struct {
+type window struct {
 	Start  int
 	End    int
 	Marked bool
@@ -29,7 +29,7 @@ func RenderList(rows []string, cursor, lines int, style lipgloss.Style) string {
 }
 
 // WindowAround is the rows of a block a pane that many lines tall shows, placed around the cursor.
-func WindowAround(total, cursor, lines int) Window {
+func WindowAround(total, cursor, lines int) window {
 	return WindowOf(total, lines, func(visible int) int {
 		return windowStart(cursor, total, visible)
 	})
@@ -44,13 +44,13 @@ func WindowRows(rows []string, lines int, place func(visible int) int, style lip
 }
 
 // WindowOf is the rows of a block a pane that many lines tall shows, placed by place.
-func WindowOf(total, lines int, place func(visible int) int) Window {
+func WindowOf(total, lines int, place func(visible int) int) window {
 	if total == 0 || lines == 0 {
-		return Window{}
+		return window{}
 	}
 
 	if lines < 0 || total <= lines {
-		return Window{End: total}
+		return window{End: total}
 	}
 
 	// A marker costs a row, so the widest window is tried first and gives one up at a time until
@@ -63,7 +63,7 @@ func WindowOf(total, lines int, place func(visible int) int) Window {
 
 		start := place(visible)
 		if markersFor(start, visible, total) <= markers {
-			return Window{
+			return window{
 				Start:  start,
 				End:    min(start+visible, total),
 				Marked: true,
@@ -75,7 +75,7 @@ func WindowOf(total, lines int, place func(visible int) int) Window {
 	// pane has not got.
 	start := place(lines)
 
-	return Window{Start: start, End: start + lines}
+	return window{Start: start, End: start + lines}
 }
 
 // markersFor counts the rows a window gives up to say what is above and below it.
@@ -92,7 +92,7 @@ func markersFor(start, visible, total int) int {
 }
 
 // DrawWindow draws the rows a window shows and the counts it is marked with.
-func DrawWindow(rows []string, window Window, total int, style lipgloss.Style) string {
+func DrawWindow(rows []string, window window, total int, style lipgloss.Style) string {
 	if len(rows) == 0 {
 		return ""
 	}

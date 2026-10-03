@@ -8,33 +8,33 @@ import (
 
 const changeTopic = "pull_request_changed"
 
-// Field is one part of a pull request whose change is reported.
-type Field string
+// field is one part of a pull request whose change is reported.
+type field string
 
 const (
-	// FieldState is whether the pull request is open, merged or closed.
-	FieldState Field = "state"
-	// FieldDecision is where the reviews stand.
-	FieldDecision = Field(forge.MergeReadinessFieldDecision)
-	// FieldChecks is where the checks on the head stand.
-	FieldChecks = Field(forge.MergeReadinessFieldChecks)
-	// FieldMergeability is where the branch stands against its base.
-	FieldMergeability = Field(forge.MergeReadinessFieldMergeability)
-	// FieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
-	FieldAutoMerge = Field(forge.MergeReadinessFieldAutoMerge)
+	// fieldState is whether the pull request is open, merged or closed.
+	fieldState field = "state"
+	// fieldDecision is where the reviews stand.
+	fieldDecision = field(forge.MergeReadinessFieldDecision)
+	// fieldChecks is where the checks on the head stand.
+	fieldChecks = field(forge.MergeReadinessFieldChecks)
+	// fieldMergeability is where the branch stands against its base.
+	fieldMergeability = field(forge.MergeReadinessFieldMergeability)
+	// fieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
+	fieldAutoMerge = field(forge.MergeReadinessFieldAutoMerge)
 )
 
-var fieldOrder = []Field{FieldState, FieldDecision, FieldChecks, FieldMergeability, FieldAutoMerge}
+var fieldOrder = []field{fieldState, fieldDecision, fieldChecks, fieldMergeability, fieldAutoMerge}
 
-var alarming = map[Field][]string{
-	FieldDecision:     {"changes_requested"},
-	FieldChecks:       {"failing"},
-	FieldMergeability: {"conflicting", "behind"},
+var alarming = map[field][]string{
+	fieldDecision:     {"changes_requested"},
+	fieldChecks:       {"failing"},
+	fieldMergeability: {"conflicting", "behind"},
 }
 
 // Move is one field of a pull request going from one value to another.
 type Move struct {
-	Field Field  `json:"field"`
+	Field field  `json:"field"`
 	From  string `json:"from"`
 	To    string `json:"to"`
 }
@@ -51,8 +51,8 @@ func (Change) Topic() string {
 	return changeTopic
 }
 
-// Opens says whether the change is news enough to start mail rather than only update it.
-func (c Change) Opens() bool {
+// opens says whether the change is news enough to start mail rather than only update it.
+func (c Change) opens() bool {
 	return slices.ContainsFunc(c.Moves, func(move Move) bool {
 		_, ok := eventOf[move.Field][move.To]
 
@@ -60,8 +60,8 @@ func (c Change) Opens() bool {
 	})
 }
 
-// Moved is the move between two values of a field, nil when they are the same or either is unknown.
-func Moved(field Field, from, to *string) *Move {
+// moved is the move between two values of a field, nil when they are the same or either is unknown.
+func moved(field field, from, to *string) *Move {
 	if from == nil || to == nil || *from == *to {
 		return nil
 	}

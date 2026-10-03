@@ -11,8 +11,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// ErrNotWakeable is a loop the service holds no waker for.
-var ErrNotWakeable = fail.InvalidArgument("the loop cannot be woken")
+// errNotWakeable is a loop the service holds no waker for.
+var errNotWakeable = fail.InvalidArgument("the loop cannot be woken")
 
 type NewHandlerParams struct {
 	CwdSync         wake.Waker
@@ -37,7 +37,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 func (h *Handler) WakeLoop(_ context.Context, req *loopv1.WakeLoopRequest) (*emptypb.Empty, *fail.Error) {
 	loop, ok := h.wakers[req.GetLoop()]
 	if !ok {
-		return nil, ErrNotWakeable.Saying("%s cannot be woken", req.GetLoop())
+		return nil, errNotWakeable.Saying("%s cannot be woken", req.GetLoop())
 	}
 
 	loop.Wake()

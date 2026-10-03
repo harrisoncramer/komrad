@@ -26,29 +26,29 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 		BaseBranch:        stored.BaseBranch,
 		BaseSha:           stored.BaseSHA,
 		Draft:             stored.Draft,
-		State:             PullRequestStateOf(pullrequests.StateOf(stored)),
+		State:             pullRequestStateOf(pullrequests.StateOf(stored)),
 		OpenedAt:          dates.Stamp(stored.OpenedAt),
 		ChangedAt:         dates.Stamp(stored.ChangedAt),
 		MergedAt:          dates.StampPtr(stored.MergedAt),
 		ClosedAt:          dates.StampPtr(stored.ClosedAt),
-		MergeReadiness:    MergeReadiness(stored.MergeReadiness.DisplayForHead(stored.HeadSHA)),
+		MergeReadiness:    mergeReadiness(stored.MergeReadiness.DisplayForHead(stored.HeadSHA)),
 	}
 }
 
-// MergeReadiness draws what komrad shows of a pull request's merge readiness as the wire carries it.
-func MergeReadiness(displayed forge.DisplayedMergeReadiness) *pullrequestv1.MergeReadiness {
+// mergeReadiness draws what komrad shows of a pull request's merge readiness as the wire carries it.
+func mergeReadiness(displayed forge.DisplayedMergeReadiness) *pullrequestv1.MergeReadiness {
 	return &pullrequestv1.MergeReadiness{
-		Decision:                ReviewDecisionOf(displayed.Decision.Value),
-		Checks:                  ChecksOf(displayed.Checks.Value),
-		Mergeability:            MergeabilityOf(displayed.Mergeability.Value),
+		Decision:                reviewDecisionOf(displayed.Decision.Value),
+		Checks:                  checksOf(displayed.Checks.Value),
+		Mergeability:            mergeabilityOf(displayed.Mergeability.Value),
 		MergeabilityUnconfirmed: displayed.Mergeability.IsUnconfirmed,
 		AutoMerge:               displayed.AutoMerge.On,
 		AutoMergeable:           displayed.AutoMerge.Allowed,
 	}
 }
 
-// PullRequestStateOf is a pull request's state as the wire carries it.
-func PullRequestStateOf(state pullrequests.State) pullrequestv1.PullRequestState {
+// pullRequestStateOf is a pull request's state as the wire carries it.
+func pullRequestStateOf(state pullrequests.State) pullrequestv1.PullRequestState {
 	switch state {
 	case pullrequests.StateMerged:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
@@ -76,8 +76,8 @@ func PullRequestStateOf(state pullrequests.State) pullrequestv1.PullRequestState
 	return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
 }
 
-// ReviewDecisionOf is the review decision as the wire carries it.
-func ReviewDecisionOf(decision forge.ReviewDecision) pullrequestv1.ReviewDecision {
+// reviewDecisionOf is the review decision as the wire carries it.
+func reviewDecisionOf(decision forge.ReviewDecision) pullrequestv1.ReviewDecision {
 	switch decision {
 	case forge.ReviewDecisionPending:
 		return pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING
@@ -93,8 +93,8 @@ func ReviewDecisionOf(decision forge.ReviewDecision) pullrequestv1.ReviewDecisio
 	return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
 }
 
-// ChecksOf is the checks as the wire carries them.
-func ChecksOf(checks forge.Checks) pullrequestv1.Checks {
+// checksOf is the checks as the wire carries them.
+func checksOf(checks forge.Checks) pullrequestv1.Checks {
 	switch checks {
 	case forge.ChecksPending:
 		return pullrequestv1.Checks_CHECKS_PENDING
@@ -108,8 +108,8 @@ func ChecksOf(checks forge.Checks) pullrequestv1.Checks {
 	return pullrequestv1.Checks_CHECKS_NONE
 }
 
-// MergeabilityOf is the mergeability as the wire carries it.
-func MergeabilityOf(mergeability forge.Mergeability) pullrequestv1.Mergeability {
+// mergeabilityOf is the mergeability as the wire carries it.
+func mergeabilityOf(mergeability forge.Mergeability) pullrequestv1.Mergeability {
 	switch mergeability {
 	case forge.MergeabilityClean:
 		return pullrequestv1.Mergeability_MERGEABILITY_CLEAN

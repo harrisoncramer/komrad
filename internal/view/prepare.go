@@ -11,7 +11,7 @@ import (
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
 func Prepare(snapshot Snapshot) List {
 	columns := snapshot.columns()
-	lines := xslice.Map(snapshot.Rows, func(row Row) Line {
+	lines := xslice.Map(snapshot.Rows, func(row Row) line {
 		return prepareLine(prepareLineParams{
 			row:        row,
 			columns:    columns,
@@ -45,10 +45,10 @@ type prepareLineParams struct {
 }
 
 // prepareLine resolves one row to the glyphs, tones and weight it is drawn in.
-func prepareLine(params prepareLineParams) Line {
+func prepareLine(params prepareLineParams) line {
 	row, focused := params.row, params.focused
 
-	return Line{
+	return line{
 		Focused:  focused,
 		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.TonePrimary),
 		Columns:  columnCells(row, params.columns),
@@ -81,9 +81,9 @@ func columnCells(row Row, columns Columns) []Cell {
 	cells := make([]Cell, len(columns))
 	for i, column := range columns {
 		switch column.Kind {
-		case ColumnRepo:
+		case columnRepo:
 			cells[i] = RepoCell(row)
-		case ColumnForge:
+		case columnForge:
 			cells[i] = ForgeCell(row)
 		case ColumnText:
 			if i < len(row.Cells) {
@@ -302,23 +302,23 @@ func textCell(text string, tone paint.Tone) Cell {
 }
 
 // weightFor is the lettering a row's place in the tree is carried by, spending no glyph on it.
-func weightFor(kind RowKind) Weight {
+func weightFor(kind RowKind) weight {
 	switch kind {
 	case KindWorkflow:
-		return WeightBold
+		return weightBold
 	case KindAgent:
-		return WeightRegular
+		return weightRegular
 	case KindChild:
-		return WeightItalic
+		return weightItalic
 	case KindResult:
-		return WeightRegular
+		return weightRegular
 	case KindHit:
-		return WeightRegular
+		return weightRegular
 	case KindTriageMore, KindDivider:
-		return WeightRegular
+		return weightRegular
 	}
 
-	return WeightRegular
+	return weightRegular
 }
 
 // indentFor is how far a row's name is set in from the gutter, an agent under its workflow and
@@ -333,7 +333,7 @@ func indentFor(kind RowKind) int {
 
 // fitRow gives a row's width up in order: the workflow, the tally, the comment counts, the name,
 // and last the marks, which only a pane too narrow for the marks alone ever reaches.
-func fitRow(line Line, width int) Line {
+func fitRow(line line, width int) line {
 	if roomForName(line, width) < len([]rune(line.Name)) {
 		line.Workflow = ""
 	}
@@ -357,7 +357,7 @@ func fitRow(line Line, width int) Line {
 
 // shedMarks gives the marks after a name up, in the order of what a person can do without,
 // where even a nameless row will not fit the pane.
-func shedMarks(line Line, width int) Line {
+func shedMarks(line line, width int) line {
 	// The schedule and the documents are standing facts about the row, hiding and pausing are
 	// things a person did themselves, mail goes before the output nobody has read, which asks
 	// the person to look, and the failed run nobody else will mention goes last.
@@ -416,15 +416,15 @@ func HeldCell(row Row) Cell {
 }
 
 // emphasisFor is how brightly a name is drawn, the row under the cursor beating greying.
-func emphasisFor(row Row, focused bool) Emphasis {
+func emphasisFor(row Row, focused bool) emphasis {
 	switch {
 	case focused:
-		return EmphasisFocused
+		return emphasisFocused
 	case isDim(row):
 		return EmphasisDim
 	}
 
-	return EmphasisNormal
+	return emphasisNormal
 }
 
 // clipNameAround cuts a name being typed to fit around its cursor, along with how many runes

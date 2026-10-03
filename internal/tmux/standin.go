@@ -98,7 +98,7 @@ func RunCopyStandIn(ctx context.Context, file string) (err error) {
 		return fmt.Errorf("failed to build the stand-in: %w", err)
 	}
 
-	socket, err = inner.GetSocketPath()
+	socket, err = inner.getSocketPath()
 	if err != nil {
 		inner.run("kill-server")
 

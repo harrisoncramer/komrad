@@ -87,7 +87,7 @@ func TestShippedHooks(t *testing.T) {
 		{
 			name:   "a person's hook named like a shipped one",
 			hook:   "taken",
-			wantIs: ErrHookNameTaken,
+			wantIs: errHookNameTaken,
 		},
 		{
 			name:   "komrad's own script",
@@ -550,7 +550,7 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 				_, err := s.RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree")
 				return err
 			},
-			wantTrigger: TriggerProvision,
+			wantTrigger: triggerProvision,
 		},
 		{
 			name: "fired as a workflow's setup on the way back up",
@@ -558,14 +558,14 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 				_, err := s.RunResume(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree")
 				return err
 			},
-			wantTrigger: TriggerResume,
+			wantTrigger: triggerResume,
 		},
 		{
 			name: "fired as a workflow's cleanup",
 			fire: func(s *ScriptService, _ *recordingRunner) error {
 				return s.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree", nil)
 			},
-			wantTrigger: TriggerDeprovision,
+			wantTrigger: triggerDeprovision,
 		},
 	}
 
@@ -623,7 +623,7 @@ func TestFiredScriptLogsWhatItDid(t *testing.T) {
 				"process.exit.code":      float64(0),
 				"komrad.script.stderr":   nil,
 				"komrad.script.name":     firedScript,
-				"komrad.run.trigger":     TriggerDeprovision,
+				"komrad.run.trigger":     triggerDeprovision,
 				"komrad.script.agent.id": fixtureAgentID,
 			},
 		},
@@ -694,7 +694,7 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 			wantFields: map[string]any{
 				"process.exit.code":    float64(2),
 				"komrad.script.stderr": "fatal: 'api-auth' is already checked out",
-				"komrad.run.trigger":   TriggerProvision,
+				"komrad.run.trigger":   triggerProvision,
 			},
 		},
 		{
@@ -729,7 +729,7 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 
 			began := recordFor(t, written, "script started")
 			assert.Equal(t, "INFO", began["severity_text"])
-			assert.Equal(t, TriggerProvision, began["komrad.run.trigger"])
+			assert.Equal(t, triggerProvision, began["komrad.run.trigger"])
 
 			got := recordFor(t, written, "script finished")
 			assert.Equal(t, "INFO", got["severity_text"], "the caller reports the refusal, this says a run happened")
@@ -760,7 +760,7 @@ func TestRunDeprovisionLogsUnderItsOwnTrigger(t *testing.T) {
 		}))
 
 	got := recordFor(t, records(), "script failed")
-	assert.Equal(t, TriggerDeprovision, got["komrad.run.trigger"])
+	assert.Equal(t, triggerDeprovision, got["komrad.run.trigger"])
 	assert.Equal(t, "a2", got["komrad.script.agent.id"])
 	assert.Equal(t, gone, got["komrad.script.agent.cwd"], "the row is gone, so the record is what names the directory")
 	assert.True(t, doneCalled, "the caller learns the run finished, not just that it logged")

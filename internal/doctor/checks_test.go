@@ -15,7 +15,7 @@ import (
 // machine would skip a check the service makes on its own; none of which shows up at runtime
 // as more than a confusing report.
 func TestChecksAreWellFormed(t *testing.T) {
-	settings := Settings{Harnesses: []HarnessInfo{
+	settings := Settings{Harnesses: []harnessInfo{
 		{ID: "claude", Binary: "claude"},
 		{ID: "codex", Binary: "codex"},
 	}}
@@ -67,7 +67,7 @@ func TestChecksAreWellFormed(t *testing.T) {
 // TestChecksMakesEveryCheckOnce covers the doctor on a machine that is its own engine: the
 // checks both lists hold are made once, and the engine's come after the ones about here.
 func TestChecksMakesEveryCheckOnce(t *testing.T) {
-	settings := Settings{Harnesses: []HarnessInfo{{ID: "claude", Binary: "claude"}}}
+	settings := Settings{Harnesses: []harnessInfo{{ID: "claude", Binary: "claude"}}}
 
 	names := xslice.Map(Checks(settings), func(check Check) string {
 		return check.Name

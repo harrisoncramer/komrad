@@ -30,7 +30,7 @@ func TestAbortRefusals(t *testing.T) {
 			name:    "an agent whose tree something else is working in",
 			agent:   agentstore.Agent{Cwd: "/locked"},
 			aborter: gittest.Mover{Sequence: git.SequenceRebase},
-			wantErr: ErrBusy,
+			wantErr: errBusy,
 		},
 		{
 			name:    "a checkout with nothing part-way through",
@@ -43,7 +43,7 @@ func TestAbortRefusals(t *testing.T) {
 				Sequence: git.SequenceRebase,
 				AbortErr: git.ErrIndexLocked,
 			},
-			wantErr:   ErrBusy,
+			wantErr:   errBusy,
 			wantCalls: []string{"park", "abort rebase"},
 		},
 	}
@@ -54,7 +54,7 @@ func TestAbortRefusals(t *testing.T) {
 			agent := fixture.seed(t, tt.agent)
 			require.NoError(t, fixture.stores.Agents.SetSequenceByID(t.Context(), agent.ID, agentstore.SequenceRebase))
 			locks := NewTreeLocks()
-			release, taken := locks.TryLock("/locked")
+			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 

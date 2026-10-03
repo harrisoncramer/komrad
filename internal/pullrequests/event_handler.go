@@ -52,7 +52,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			Kind:        mailstore.KindPullRequestChanged,
 			SubjectID:   pullRequest.ID,
 			Body:        body,
-			OnlyRewrite: !change.Opens(),
+			OnlyRewrite: !change.opens(),
 			Events:      started,
 			Holding:     holding,
 		})
@@ -101,27 +101,27 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 }
 
 // fieldValues is the value each field of the pull request stands at.
-func fieldValues(pullRequest pullrequeststore.PullRequest) map[Field]string {
+func fieldValues(pullRequest pullrequeststore.PullRequest) map[field]string {
 	displayed := pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA)
 
-	return map[Field]string{
-		FieldState:        pullRequest.State,
-		FieldDecision:     string(displayed.Decision.Value),
-		FieldChecks:       string(displayed.Checks.Value),
-		FieldMergeability: string(displayed.Mergeability.Value),
-		FieldAutoMerge:    forge.DescribeAutoMerge(pullRequest.MergeReadiness.AutoMerge),
+	return map[field]string{
+		fieldState:        pullRequest.State,
+		fieldDecision:     string(displayed.Decision.Value),
+		fieldChecks:       string(displayed.Checks.Value),
+		fieldMergeability: string(displayed.Mergeability.Value),
+		fieldAutoMerge:    forge.DescribeAutoMerge(pullRequest.MergeReadiness.AutoMerge),
 	}
 }
 
-func describe(field Field, value string, pullRequest pullrequeststore.PullRequest) string {
+func describe(field field, value string, pullRequest pullrequeststore.PullRequest) string {
 	switch {
-	case field == FieldState:
+	case field == fieldState:
 		return strings.ToLower(value)
-	case field == FieldMergeability && (value == "conflicting" || value == "behind"):
+	case field == fieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
-	case field == FieldChecks && value != "" && pullRequest.HeadSHA != "":
+	case field == fieldChecks && value != "" && pullRequest.HeadSHA != "":
 		return strings.ReplaceAll(value, "_", " ") + " on " + git.ShortSHA(pullRequest.HeadSHA)
-	case field == FieldAutoMerge && value == forge.AutoMergeOn:
+	case field == fieldAutoMerge && value == forge.AutoMergeOn:
 		return "on, so whatever is on the branch merges once its checks and reviews pass"
 	case value == "":
 		return "unknown"

@@ -48,7 +48,7 @@ func TestLoadPalette(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantPrimary, cfg.Palette.Primary)
-			assert.Equal(t, DefaultPalette().Muted, cfg.Palette.Muted)
+			assert.Equal(t, defaultPalette().Muted, cfg.Palette.Muted)
 		})
 	}
 }

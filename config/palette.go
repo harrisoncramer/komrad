@@ -69,8 +69,8 @@ type Mode struct {
 	Edit string `mapstructure:"edit"`
 }
 
-// DefaultPalette is the palette used when the config omits it, read from the theme package.
-func DefaultPalette() Palette {
+// defaultPalette is the palette used when the config omits it, read from the theme package.
+func defaultPalette() Palette {
 	colors := theme.Defaults()
 
 	return Palette{

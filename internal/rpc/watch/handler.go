@@ -15,18 +15,18 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// HeartbeatAfter is how long a stream stays silent before a heartbeat goes out.
-const HeartbeatAfter = 15 * time.Second
+// heartbeatAfter is how long a stream stays silent before a heartbeat goes out.
+const heartbeatAfter = 15 * time.Second
 
-// Subscription is one watcher's snapshot and every pass after it.
-type Subscription interface {
+// subscription is one watcher's snapshot and every pass after it.
+type subscription interface {
 	Snapshot() []*watchv1.Row
 	Changes() <-chan []watch.Change
 	Close()
 }
 
 type subscriber interface {
-	Subscribe(ctx context.Context) (Subscription, error)
+	Subscribe(ctx context.Context) (subscription, error)
 }
 
 // BrokerSubscriber opens subscriptions on the broker.
@@ -35,7 +35,7 @@ type BrokerSubscriber struct {
 }
 
 // Subscribe opens one subscription on the broker.
-func (b BrokerSubscriber) Subscribe(ctx context.Context) (Subscription, error) {
+func (b BrokerSubscriber) Subscribe(ctx context.Context) (subscription, error) {
 	subscription, err := b.Broker.Subscribe(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to subscribe to the broker: %w", err)
@@ -62,7 +62,7 @@ type Handler struct {
 func NewHandler(params NewHandlerParams) *Handler {
 	after := params.HeartbeatAfter
 	if after == 0 {
-		after = HeartbeatAfter
+		after = heartbeatAfter
 	}
 
 	return &Handler{subscriber: params.Subscriber, heartbeatAfter: after}

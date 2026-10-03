@@ -23,7 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var ErrReported = errors.New("reported")
+var errReported = errors.New("reported")
 
 func doctorCmd(state *app) *cobra.Command {
 	var asJSON bool
@@ -83,7 +83,7 @@ doing something that makes no sense.`,
 			}
 
 			if !report.Summary.Healthy {
-				return ErrReported
+				return errReported
 			}
 
 			return nil

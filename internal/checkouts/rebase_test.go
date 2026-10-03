@@ -49,14 +49,14 @@ func TestRebaseRefusals(t *testing.T) {
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp})
 			},
-			wantErr: ErrBusy,
+			wantErr: errBusy,
 		},
 		{
 			name: "a branch a human made, whose history is not komrad's to rewrite",
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{AdoptedBranch: "harry/spike"})
 			},
-			wantErr: ErrRebaseAdopted,
+			wantErr: errRebaseAdopted,
 		},
 		{
 			name: "a child, since rebasing one rewrites its parent's branch",
@@ -120,7 +120,7 @@ func TestRebaseRefusals(t *testing.T) {
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{Cwd: "/locked"})
 			},
-			wantErr: ErrBusy,
+			wantErr: errBusy,
 		},
 	}
 
@@ -129,7 +129,7 @@ func TestRebaseRefusals(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := tt.lay(t, fixture)
 			locks := NewTreeLocks()
-			release, taken := locks.TryLock("/locked")
+			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
@@ -147,25 +147,25 @@ func TestRebaseRefusals(t *testing.T) {
 func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
 	locks := NewTreeLocks()
 
-	release, taken := locks.TryLock("/one")
+	release, taken := locks.tryLock("/one")
 	require.True(t, taken)
 
-	_, again := locks.TryLock("/one")
+	_, again := locks.tryLock("/one")
 	assert.False(t, again, "the same path is held once")
 
-	other, taken := locks.TryLock("/two")
+	other, taken := locks.tryLock("/two")
 	assert.True(t, taken, "a different path is not blocked")
 	other()
 
 	release()
 
-	_, afterRelease := locks.TryLock("/one")
+	_, afterRelease := locks.tryLock("/one")
 	assert.True(t, afterRelease, "releasing hands the path back")
 }
 
 // TestTreeLocksRefuseAnEmptyPath covers the fail-open a blank path would otherwise be.
 func TestTreeLocksRefuseAnEmptyPath(t *testing.T) {
-	release, taken := NewTreeLocks().TryLock("")
+	release, taken := NewTreeLocks().tryLock("")
 
 	assert.False(t, taken, "an empty path is refused")
 	assert.Nil(t, release)
@@ -569,27 +569,27 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			asker: func(targetID string) caller.Caller {
 				return caller.Caller{AgentID: targetID}
 			},
-			wantErr: ErrSelf,
+			wantErr: errSelf,
 		},
 		{
 			name:     "an agent in the same checkout",
 			askerCwd: target,
-			wantErr:  ErrSelf,
+			wantErr:  errSelf,
 		},
 		{
 			name:     "an agent in the same checkout spelled with a trailing slash",
 			askerCwd: target + "/",
-			wantErr:  ErrSelf,
+			wantErr:  errSelf,
 		},
 		{
 			name:     "an agent in the same checkout spelled with a dot segment",
 			askerCwd: target + "/./",
-			wantErr:  ErrSelf,
+			wantErr:  errSelf,
 		},
 		{
 			name:     "an agent in the same checkout reached through a symlink",
 			askerCwd: linked,
-			wantErr:  ErrSelf,
+			wantErr:  errSelf,
 		},
 		{
 			name:     "an agent working somewhere else",

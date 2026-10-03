@@ -26,8 +26,8 @@ import (
 	worktreestore "komrad/internal/store/worktree"
 )
 
-// ErrArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself nor its child.
-var ErrArchiveNotYours = fail.Denied("an agent may archive only itself and its own children")
+// errArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself nor its child.
+var errArchiveNotYours = fail.Denied("an agent may archive only itself and its own children")
 
 // snapshotReleaser drops the ref holding a round's snapshot.
 type snapshotReleaser interface {
@@ -544,7 +544,7 @@ func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params Arc
 			continue
 		}
 		if target.ParentAgentID == nil || *target.ParentAgentID != asker.ID {
-			return ErrArchiveNotYours.Saying("%s is not a child of %s", target.Name, asker.Name)
+			return errArchiveNotYours.Saying("%s is not a child of %s", target.Name, asker.Name)
 		}
 	}
 

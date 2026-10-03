@@ -16,18 +16,18 @@ type EventRouter interface {
 	Route(ctx context.Context, tx store.DBTX, event events.Event) ([]river.JobArgs, error)
 }
 
-type TxBeginner interface {
+type txBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
 type EventWorker struct {
 	river.WorkerDefaults[events.Event]
-	db     TxBeginner
+	db     txBeginner
 	router EventRouter
 }
 
 // NewEventWorker builds the worker that routes each event in the transaction that completes it.
-func NewEventWorker(db TxBeginner, router EventRouter) *EventWorker {
+func NewEventWorker(db txBeginner, router EventRouter) *EventWorker {
 	return &EventWorker{db: db, router: router}
 }
 

@@ -49,8 +49,8 @@ type Authenticator interface {
 	Invalidate(ctx context.Context) error
 }
 
-// CredentialStore keeps each connection's token somewhere only komrad's user can read.
-type CredentialStore interface {
+// credentialStore keeps each connection's token somewhere only komrad's user can read.
+type credentialStore interface {
 	// Get is the token for a connection, or ErrNoCredential.
 	Get(ctx context.Context, connectionID string) (Secret, error)
 	Set(ctx context.Context, connectionID string, secret Secret) error
@@ -58,8 +58,8 @@ type CredentialStore interface {
 	Delete(ctx context.Context, connectionID string) error
 }
 
-// CredentialDir is where FileStore keeps its files under the state directory.
-const CredentialDir = "forge"
+// credentialDir is where FileStore keeps its files under the state directory.
+const credentialDir = "forge"
 
 // FileStore keeps each token in a file of its own, mode 0600.
 type FileStore struct {
@@ -73,7 +73,7 @@ func NewFileStore(stateDir string) *FileStore {
 
 // Path is the file holding a connection's token.
 func (f *FileStore) Path(connectionID string) string {
-	return filepath.Join(f.stateDir, CredentialDir, connectionID)
+	return filepath.Join(f.stateDir, credentialDir, connectionID)
 }
 
 // Get is the token on disk for a connection, or ErrNoCredential.
@@ -123,17 +123,17 @@ type verifiedSetter interface {
 	SetVerifiedAt(ctx context.Context, id string, at *time.Time) error
 }
 
-// NoRecord is a verifiedSetter that writes nothing, for a caller that only reports.
-type NoRecord struct{}
+// noRecord is a verifiedSetter that writes nothing, for a caller that only reports.
+type noRecord struct{}
 
 // SetVerifiedAt does nothing.
-func (NoRecord) SetVerifiedAt(context.Context, string, *time.Time) error {
+func (noRecord) SetVerifiedAt(context.Context, string, *time.Time) error {
 	return nil
 }
 
 // NewStoredCredentialParams says whose token to read and how to send it.
 type NewStoredCredentialParams struct {
-	Store        CredentialStore
+	Store        credentialStore
 	ConnectionID string
 	Header       string
 	Connections  verifiedSetter
@@ -141,7 +141,7 @@ type NewStoredCredentialParams struct {
 
 // StoredCredential is a token a person supplied, read from the store on each use.
 type StoredCredential struct {
-	store        CredentialStore
+	store        credentialStore
 	connectionID string
 	header       string
 	connections  verifiedSetter

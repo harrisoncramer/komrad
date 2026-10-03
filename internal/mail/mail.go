@@ -197,7 +197,7 @@ func (s *MailService) SendScheduledMail(ctx context.Context, params SendSchedule
 	})
 }
 
-var ErrSubjectMissing = fail.InvalidArgument("mail from komrad must name the subject it is about")
+var errSubjectMissing = fail.InvalidArgument("mail from komrad must name the subject it is about")
 
 var ErrNothingUnread = fail.NotFound("the recipient holds no unread mail of this kind about this subject")
 
@@ -222,7 +222,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, fmt.Errorf("%w: mail from komrad needs a kind of its own to be told apart by", ErrKindMissing)
 	}
 	if params.SubjectID == "" {
-		return nil, ErrSubjectMissing
+		return nil, errSubjectMissing
 	}
 
 	recipient, err := s.agents.GetByID(ctx, params.ToAgentID)

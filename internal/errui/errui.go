@@ -16,21 +16,21 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-type Screen struct {
+type screen struct {
 	Title   string
 	Body    []string
-	Details []Detail
+	Details []detail
 	Hints   []string
 	Width   int
 }
 
-type Detail struct {
+type detail struct {
 	Label string
 	Value string
 }
 
 // Render lays the screen out folded to the pane.
-func (s Screen) Render() string {
+func (s screen) Render() string {
 	width := foldWidth(s.Width)
 
 	var b strings.Builder

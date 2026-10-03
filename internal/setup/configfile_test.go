@@ -51,7 +51,7 @@ func TestSetTopLevelKey(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.before), 0o644))
 			}
 
-			require.NoError(t, SetTopLevelKey(path, "default_harness", "codex"))
+			require.NoError(t, setTopLevelKey(path, "default_harness", "codex"))
 
 			written, err := os.ReadFile(path)
 			require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestSetTopLevelKeyRefusesAFileThatWillNotParse(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("[layout\n"), 0o600))
 
-	require.Error(t, SetTopLevelKey(path, "default_harness", "codex"))
+	require.Error(t, setTopLevelKey(path, "default_harness", "codex"))
 
 	written, err := os.ReadFile(path)
 	require.NoError(t, err)

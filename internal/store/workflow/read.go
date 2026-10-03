@@ -32,10 +32,10 @@ func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 	return xslice.Filter(watched, func(w Workflow) bool { return w.ArchivedAt == nil }), nil
 }
 
-// ByName is the order every workflow listing is read in, matched by the ORDER BY in
+// byName is the order every workflow listing is read in, matched by the ORDER BY in
 // db/queries/workflow.sql, which sorts under the C collation because the database's own
 // ignores punctuation and no Go comparison does.
-func ByName(a, b Workflow) int {
+func byName(a, b Workflow) int {
 	return cmp.Or(
 		strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)),
 		strings.Compare(a.ID, b.ID),

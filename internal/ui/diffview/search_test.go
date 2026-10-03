@@ -68,23 +68,23 @@ func TestSearchWrapsAtTheEnds(t *testing.T) {
 
 	require.Equal(t, 3, view.SetPattern(regexp.MustCompile("return")))
 
-	first, ok := view.JumpMatch(-1, 1)
+	first, ok := view.jumpMatch(-1, 1)
 	require.True(t, ok)
 
 	at, ok := view.MatchNumber(first)
 	require.True(t, ok)
 	assert.Equal(t, 1, at)
 
-	second, ok := view.JumpMatch(first, 1)
+	second, ok := view.jumpMatch(first, 1)
 	require.True(t, ok)
-	third, ok := view.JumpMatch(second, 1)
+	third, ok := view.jumpMatch(second, 1)
 	require.True(t, ok)
 
-	wrapped, ok := view.JumpMatch(third, 1)
+	wrapped, ok := view.jumpMatch(third, 1)
 	require.True(t, ok)
 	assert.Equal(t, first, wrapped, "past the last match is the first again")
 
-	back, ok := view.JumpMatch(first, -1)
+	back, ok := view.jumpMatch(first, -1)
 	require.True(t, ok)
 	assert.Equal(t, third, back, "and before the first is the last")
 }
@@ -97,7 +97,7 @@ func TestSearchingForNothingClearsIt(t *testing.T) {
 
 	assert.Zero(t, view.SetPattern(nil))
 
-	_, ok := view.JumpMatch(0, 1)
+	_, ok := view.jumpMatch(0, 1)
 	assert.False(t, ok, "nothing to step through once it is cleared")
 }
 
@@ -116,7 +116,7 @@ func TestSearchReachesTheThreadsAtTheFoot(t *testing.T) {
 
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile("gone.go")))
 
-	at, ok := view.JumpMatch(-1, 1)
+	at, ok := view.jumpMatch(-1, 1)
 	require.True(t, ok)
 	assert.Equal(t, view.GetLastRow(), at, "the match is the thread's own row")
 }
@@ -140,7 +140,7 @@ func TestSearchIsRunAgainWhenTheRowsMove(t *testing.T) {
 
 	assert.Zero(t, view.MatchCount(), "the row it matched is not there any more")
 
-	at, ok := view.JumpMatch(-1, 1)
+	at, ok := view.jumpMatch(-1, 1)
 	assert.False(t, ok)
 	assert.LessOrEqual(t, at, view.GetLastRow())
 }
@@ -152,7 +152,7 @@ func TestSearchFindsFileNames(t *testing.T) {
 
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`greet\.go`)))
 
-	at, ok := view.JumpMatch(-1, 1)
+	at, ok := view.jumpMatch(-1, 1)
 	require.True(t, ok)
 	assert.Equal(t, 1, at, "the match is the file's own header")
 }
@@ -165,7 +165,7 @@ func TestSearchFindsAViewedFileName(t *testing.T) {
 
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`greet\.go`)))
 
-	at, ok := view.JumpMatch(-1, 1)
+	at, ok := view.jumpMatch(-1, 1)
 	require.True(t, ok)
 	assert.Equal(t, 1, at)
 }
@@ -175,10 +175,10 @@ func TestFileNameMatchIsPainted(t *testing.T) {
 	view := twoHunkView()
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))
 
-	drawn := view.RenderRow(1, NoCursor, 40, 0)
+	drawn := view.renderRow(1, noCursor, 40, 0)
 	assert.Equal(t, "greet.go", ansi.Strip(drawn))
 	assert.Contains(t, drawn, fileStyle.Background(paint.Panel.Background(paint.ShadeMatch)).Render("eet.g"))
 
-	onCursor := view.RenderRow(0, LiveCursor, 40, 0)
+	onCursor := view.renderRow(0, LiveCursor, 40, 0)
 	assert.Equal(t, 40, lipgloss.Width(onCursor), "the cursor's row reaches the edge of the pane")
 }

@@ -14,7 +14,7 @@ import (
 )
 
 type fakeStep struct {
-	observations []Observation
+	observations []observation
 	repairErr    error
 	repairs      int
 }
@@ -23,7 +23,7 @@ func (s *fakeStep) name() string {
 	return "fake"
 }
 
-func (s *fakeStep) observe(context.Context, Checker) Observation {
+func (s *fakeStep) observe(context.Context, checker) observation {
 	next := s.observations[0]
 	if len(s.observations) > 1 {
 		s.observations = s.observations[1:]
@@ -76,36 +76,36 @@ func TestModelObservesRepairsAndObservesAgain(t *testing.T) {
 	}{
 		{
 			name:  "done without a repair",
-			step:  &fakeStep{observations: []Observation{{Verdict: VerdictDone}}},
+			step:  &fakeStep{observations: []observation{{Verdict: verdictDone}}},
 			state: stateDone,
 		},
 		{
 			name:    "repaired",
-			step:    &fakeStep{observations: []Observation{{Verdict: VerdictRepair}, {Verdict: VerdictDone}}},
+			step:    &fakeStep{observations: []observation{{Verdict: verdictRepair}, {Verdict: verdictDone}}},
 			state:   stateDone,
 			repairs: 1,
 		},
 		{
 			name:    "a repair that leaves it undone fails rather than looping",
-			step:    &fakeStep{observations: []Observation{{Verdict: VerdictRepair}}},
+			step:    &fakeStep{observations: []observation{{Verdict: verdictRepair}}},
 			state:   stateFailed,
 			repairs: 1,
 		},
 		{
 			name:    "a repair that errors fails",
-			step:    &fakeStep{observations: []Observation{{Verdict: VerdictRepair}}, repairErr: errors.New("boom")},
+			step:    &fakeStep{observations: []observation{{Verdict: verdictRepair}}, repairErr: errors.New("boom")},
 			state:   stateFailed,
 			repairs: 1,
 		},
 		{
 			name:    "a declined step is skipped",
-			step:    &fakeStep{observations: []Observation{{Verdict: VerdictRepair}}, repairErr: ErrSkipped},
+			step:    &fakeStep{observations: []observation{{Verdict: verdictRepair}}, repairErr: errSkipped},
 			state:   stateSkipped,
 			repairs: 1,
 		},
 		{
 			name:  "a stop is a failure",
-			step:  &fakeStep{observations: []Observation{{Verdict: VerdictStop, Finding: &doctor.Finding{Fix: "do it"}}}},
+			step:  &fakeStep{observations: []observation{{Verdict: verdictStop, Finding: &doctor.Finding{Fix: "do it"}}}},
 			state: stateFailed,
 		},
 	}
@@ -124,18 +124,18 @@ func TestModelObservesRepairsAndObservesAgain(t *testing.T) {
 func TestRunUnattended(t *testing.T) {
 	t.Run("stops at the first step that cannot be made true", func(t *testing.T) {
 		var out bytes.Buffer
-		later := &fakeStep{observations: []Observation{{Verdict: VerdictDone}}}
+		later := &fakeStep{observations: []observation{{Verdict: verdictDone}}}
 
 		err := RunUnattended(t.Context(), &out, nil, []Step{
-			&fakeStep{observations: []Observation{{
-				Verdict: VerdictStop,
+			&fakeStep{observations: []observation{{
+				Verdict: verdictStop,
 				Detail:  "no tmux",
 				Finding: &doctor.Finding{Fix: "install tmux"},
 			}}},
 			later,
 		})
 
-		require.ErrorIs(t, err, ErrFailed)
+		require.ErrorIs(t, err, errFailed)
 		assert.Contains(t, out.String(), "fix: install tmux")
 		assert.NotContains(t, out.String(), "✓")
 	})
@@ -151,7 +151,7 @@ func TestRunUnattended(t *testing.T) {
 
 		err := RunUnattended(t.Context(), &out, check, []Step{&HarnessStep{Harnesses: []string{"claude", "codex"}}})
 
-		require.ErrorIs(t, err, ErrFailed)
+		require.ErrorIs(t, err, errFailed)
 		assert.Contains(t, out.String(), "--harness")
 	})
 }

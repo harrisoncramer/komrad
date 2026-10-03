@@ -186,13 +186,13 @@ func TestConnectWithARotatingTokenRefusals(t *testing.T) {
 			name:    "a github host",
 			host:    "github.com",
 			scopes:  []string{"api"},
-			wantErr: ErrRotatingNotGitLab,
+			wantErr: errRotatingNotGitLab,
 		},
 		{
 			name:    "a token without the api scope",
 			host:    "gitlab.com",
 			scopes:  []string{"read_api", "write_repository"},
-			wantErr: ErrTokenCannotRotate,
+			wantErr: errTokenCannotRotate,
 		},
 		{
 			name:      "a rotation gitlab refuses",

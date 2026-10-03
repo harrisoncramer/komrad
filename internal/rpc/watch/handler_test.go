@@ -57,7 +57,7 @@ type fakeSubscriber struct {
 }
 
 // Subscribe answers the subscription unless err refuses it.
-func (f *fakeSubscriber) Subscribe(context.Context) (Subscription, error) {
+func (f *fakeSubscriber) Subscribe(context.Context) (subscription, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

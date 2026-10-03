@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var ErrLogged = errors.New("logged")
+var errLogged = errors.New("logged")
 
 // openLogFile opens the one file both the service and the panel append their records to.
 func openLogFile(path string) (*os.File, error) {

@@ -84,9 +84,9 @@ const (
 	severityNum  = "severity_number"
 )
 
-const ServiceName = "service.name"
+const serviceName = "service.name"
 
-const Service = "komrad"
+const service = "komrad"
 
 // ProcessName tells the service's records apart from the panel's, both writing to one file.
 const ProcessName = "process.name"
@@ -108,7 +108,7 @@ var severityNumbers = map[slog.Level]int{
 func New(w io.Writer, level slog.Level) *slog.Logger {
 	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level, ReplaceAttr: otelFields})
 
-	return slog.New(handler).With(slog.String(ServiceName, Service))
+	return slog.New(handler).With(slog.String(serviceName, service))
 }
 
 func otelFields(groups []string, attr slog.Attr) slog.Attr {

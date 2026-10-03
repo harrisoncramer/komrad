@@ -37,13 +37,13 @@ var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 // does, such as opening, deleting, or releasing a review.
 var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
-// ErrReviewWholeChangeAnchored is answered when a comment on the change as a whole names lines,
+// errReviewWholeChangeAnchored is answered when a comment on the change as a whole names lines,
 // quotes them, or suggests replacing them, which only a comment on a file can.
-var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
+var errReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
 
-// ErrReviewThreadHeld is answered when a reply is written in a forge thread whose first comment is
+// errReviewThreadHeld is answered when a reply is written in a forge thread whose first comment is
 // still held and not yet accepted, which the agent could not read the reply alongside.
-var ErrReviewThreadHeld = fail.Precondition("this thread opens with a held forge comment, so accept it before replying")
+var errReviewThreadHeld = fail.Precondition("this thread opens with a held forge comment, so accept it before replying")
 
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
@@ -60,8 +60,8 @@ type ReviewAuthor struct {
 	AgentID *string
 }
 
-// IsHuman reports whether the call came from the person reviewing rather than from an agent.
-func (a ReviewAuthor) IsHuman() bool {
+// isHuman reports whether the call came from the person reviewing rather than from an agent.
+func (a ReviewAuthor) isHuman() bool {
 	return a.Kind == reviewstore.AuthorHuman
 }
 
@@ -147,7 +147,7 @@ func (s *ReviewService) ListReviewThreads(
 	answered := make([]ReviewThreadWithMessages, 0, len(threads))
 	for _, thread := range threads {
 		messages := byThread[thread.ID]
-		if !params.Author.IsHuman() {
+		if !params.Author.isHuman() {
 			messages = releasedMessages(messages, params.Author)
 			if len(messages) == 0 {
 				continue
@@ -236,7 +236,7 @@ func (s *ReviewService) CreateReviewThread(
 	params CreateReviewThreadParams,
 ) (*ReviewThreadWithMessages, error) {
 	if params.FilePath == "" && isAnchoredToLines(params) {
-		return nil, ErrReviewWholeChangeAnchored
+		return nil, errReviewWholeChangeAnchored
 	}
 
 	place, err := s.placeThread(ctx, params)
@@ -331,9 +331,9 @@ func (s *ReviewService) carryOpenReview(
 		return nil, err
 	}
 
-	if !author.IsHuman() {
+	if !author.isHuman() {
 		return nil, fmt.Errorf("%w: send the comments you have on round %d first",
-			ErrReviewInFlight, held.Ordinal)
+			errReviewInFlight, held.Ordinal)
 	}
 
 	if round.Ordinal <= held.Ordinal {
@@ -375,12 +375,12 @@ func (s *ReviewService) AddReviewMessage(
 	}
 
 	if thread.FilePath == "" && len(params.Suggestion) > 0 {
-		return nil, ErrReviewWholeChangeAnchored
+		return nil, errReviewWholeChangeAnchored
 	}
 
-	answering := !params.Author.IsHuman() && doesOwnAgent(params.Author, thread.AgentID)
+	answering := !params.Author.isHuman() && doesOwnAgent(params.Author, thread.AgentID)
 	if params.Addressed && !answering {
-		return nil, ErrReviewAddressedByOwner
+		return nil, errReviewAddressedByOwner
 	}
 
 	held, err := s.isThreadHeld(ctx, thread.ID)
@@ -388,7 +388,7 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, err
 	}
 	if held {
-		return nil, ErrReviewThreadHeld
+		return nil, errReviewThreadHeld
 	}
 
 	var reviewID *string
@@ -433,7 +433,7 @@ func (s *ReviewService) AddReviewMessage(
 			return nil, nil
 		}
 
-		event, err := events.NewEvent(Answered{AgentID: thread.AgentID})
+		event, err := events.NewEvent(answered{AgentID: thread.AgentID})
 		if err != nil {
 			return nil, err
 		}
@@ -484,7 +484,7 @@ func (s *ReviewService) EditReviewMessage(
 		}
 
 		if thread.FilePath == "" {
-			return nil, ErrReviewWholeChangeAnchored
+			return nil, errReviewWholeChangeAnchored
 		}
 	}
 
@@ -502,7 +502,7 @@ func (s *ReviewService) MarkReviewThreadRead(
 	ctx context.Context,
 	params MarkReviewThreadReadParams,
 ) (*reviewstore.Thread, error) {
-	if !params.Author.IsHuman() {
+	if !params.Author.isHuman() {
 		return nil, fmt.Errorf("%w: marking a review thread read", ErrReviewHumanOnly)
 	}
 
@@ -531,7 +531,7 @@ func (s *ReviewService) SetReviewThreadResolved(
 		return nil, err
 	}
 
-	if !params.Author.IsHuman() && !doesOwnReview(params.Author, *thread) {
+	if !params.Author.isHuman() && !doesOwnReview(params.Author, *thread) {
 		return nil, ErrReviewNotYours.Saying(
 			"%q is a comment about your own work, so it is not yours to settle", params.ID)
 	}
@@ -559,7 +559,7 @@ func (s *ReviewService) SetReviewFileViewed(
 	ctx context.Context,
 	params SetReviewFileViewedParams,
 ) (*reviewstore.ViewedFile, error) {
-	if !params.Author.IsHuman() {
+	if !params.Author.isHuman() {
 		return nil, fmt.Errorf("%w: marking a file viewed", ErrReviewHumanOnly)
 	}
 
@@ -585,7 +585,7 @@ func (s *ReviewService) ListReviewViewedFiles(
 	ctx context.Context,
 	params ListReviewViewedFilesParams,
 ) ([]reviewstore.ViewedFile, error) {
-	if !params.Author.IsHuman() {
+	if !params.Author.isHuman() {
 		return nil, fmt.Errorf("%w: reading which files have been viewed", ErrReviewHumanOnly)
 	}
 
@@ -620,7 +620,7 @@ func (s *ReviewService) getOwnThread(ctx context.Context, id string, author Revi
 	if err != nil {
 		return nil, err
 	}
-	if author.IsHuman() || doesOwnAgent(author, thread.AgentID) || doesOwnReview(author, *thread) {
+	if author.isHuman() || doesOwnAgent(author, thread.AgentID) || doesOwnReview(author, *thread) {
 		return thread, nil
 	}
 
@@ -637,7 +637,7 @@ func (s *ReviewService) getOwnMessage(ctx context.Context, id string, author Rev
 		return nil, err
 	}
 
-	if author.IsHuman() {
+	if author.isHuman() {
 		if message.AuthorKind != reviewstore.AuthorHuman {
 			return nil, fmt.Errorf("%w: %q was written by an agent", ErrReviewNotYours, id)
 		}

@@ -13,7 +13,7 @@ import (
 
 // TestSyncVersionsEachUnitByItsSQL covers a fresh directory, a unit whose SQL changed, a unit left alone and a unit no longer declared.
 func TestSyncVersionsEachUnitByItsSQL(t *testing.T) {
-	units, err := Render()
+	units, err := render()
 	require.NoError(t, err)
 	require.Greater(t, len(units), 2)
 	changed, kept := units[1], units[2]
@@ -68,7 +68,7 @@ func TestSyncRefusesADirectoryItCannotRead(t *testing.T) {
 	}
 }
 
-func fileNames(units []Unit, versions map[string]int) []string {
+func fileNames(units []unit, versions map[string]int) []string {
 	names := make([]string, len(units))
 	for i, unit := range units {
 		version := max(versions[unit.Name], 1)

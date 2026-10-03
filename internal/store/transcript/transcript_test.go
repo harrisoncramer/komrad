@@ -92,13 +92,13 @@ func TestListLastTurns(t *testing.T) {
 		name  string
 		role  string
 		limit int32
-		want  []StoredTurn
+		want  []storedTurn
 	}{
 		{
 			name:  "the last assistant turn is the newest one alone, whoever spoke after it",
 			role:  "assistant",
 			limit: 1,
-			want: []StoredTurn{
+			want: []storedTurn{
 				{
 					Seq:     4,
 					Role:    "assistant",
@@ -110,7 +110,7 @@ func TestListLastTurns(t *testing.T) {
 			name:  "several come back oldest first with the prompts between them and none before",
 			role:  "assistant",
 			limit: 2,
-			want: []StoredTurn{
+			want: []storedTurn{
 				{
 					Seq:     2,
 					Role:    "assistant",
@@ -132,7 +132,7 @@ func TestListLastTurns(t *testing.T) {
 			name:  "a limit past what is stored runs from the first turn in that role",
 			role:  "assistant",
 			limit: 10,
-			want: []StoredTurn{
+			want: []storedTurn{
 				{
 					Seq:     1,
 					Role:    "assistant",
@@ -159,7 +159,7 @@ func TestListLastTurns(t *testing.T) {
 			name:  "a role nobody spoke in has no turns",
 			role:  "system",
 			limit: 1,
-			want:  []StoredTurn{},
+			want:  []storedTurn{},
 		},
 	}
 
@@ -1218,7 +1218,7 @@ func seedTurns(t *testing.T, st *fixture, id string, turns []Turn) {
 	}))
 }
 
-func openSession(t *testing.T, st *fixture, id string) Session {
+func openSession(t *testing.T, st *fixture, id string) session {
 	t.Helper()
 	session, err := st.OpenSession(t.Context(), OpenSessionParams{
 		AgentID:   id,
@@ -1529,7 +1529,7 @@ func TestSearchSort(t *testing.T) {
 		},
 		{
 			name: "oldest first",
-			sort: SortOldest,
+			sort: sortOldest,
 			want: []string{"alpha:0", "alpha:1", "beta:0", "gamma:0", "delta:0", "delta:1"},
 		},
 		{
@@ -1650,7 +1650,7 @@ func TestSearchRefusesACursorFromAnotherSort(t *testing.T) {
 		Limit:  1,
 		Cursor: first.Next,
 	})
-	require.ErrorIs(t, err, ErrSortChanged)
+	require.ErrorIs(t, err, errSortChanged)
 }
 
 // TestAppendTurnsStoresNoTimeForATurnWithout pins that a turn read without a time is stored

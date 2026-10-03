@@ -24,7 +24,7 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "a move to an event-worthy value starts it",
 			moves: []Move{{
-				Field: FieldChecks,
+				Field: fieldChecks,
 				From:  "pending",
 				To:    "failing",
 			}},
@@ -36,7 +36,7 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "a move away starts nothing and leaves what still holds",
 			moves: []Move{{
-				Field: FieldChecks,
+				Field: fieldChecks,
 				From:  "failing",
 				To:    "passing",
 			}},
@@ -50,7 +50,7 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "turning auto-merge on starts it",
 			moves: []Move{{
-				Field: FieldAutoMerge,
+				Field: fieldAutoMerge,
 				From:  "off",
 				To:    "on",
 			}},
@@ -63,12 +63,12 @@ func TestEventsOf(t *testing.T) {
 			name: "a merge is the only event, whatever else moved",
 			moves: []Move{
 				{
-					Field: FieldState,
+					Field: fieldState,
 					From:  "OPEN",
 					To:    "MERGED",
 				},
 				{
-					Field: FieldDecision,
+					Field: fieldDecision,
 					From:  "review_required",
 					To:    "approved",
 				},
@@ -84,7 +84,7 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "a change after the merge starts nothing and keeps the merge alone",
 			moves: []Move{{
-				Field: FieldChecks,
+				Field: fieldChecks,
 				From:  "passing",
 				To:    "failing",
 			}},
@@ -95,7 +95,7 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "and so is a close",
 			moves: []Move{{
-				Field: FieldState,
+				Field: fieldState,
 				From:  "OPEN",
 				To:    "CLOSED",
 			}},

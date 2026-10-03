@@ -41,7 +41,7 @@ func TestOpenURLRefusesWhatIsNotAWebAddress(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewDesktop().OpenURL(t.Context(), tt.target)
 
-			require.ErrorIs(t, err, ErrNotAWebURL)
+			require.ErrorIs(t, err, errNotAWebURL)
 		})
 	}
 }

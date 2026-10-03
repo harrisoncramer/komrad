@@ -28,7 +28,7 @@ var (
 	ErrOrchestratorArchived = fail.Precondition("orchestrator is archived")
 	ErrNotAnOrchestrator    = fail.InvalidArgument("agent is not an orchestrator")
 	ErrPromptTooLong        = fail.InvalidArgument("prompt is too long to mail")
-	ErrBadKind              = fail.InvalidArgument("unknown schedule kind")
+	errBadKind              = fail.InvalidArgument("unknown schedule kind")
 )
 
 type NewScheduleServiceParams struct {
@@ -279,7 +279,7 @@ func (s *ScheduleService) resolveTarget(ctx context.Context, cfg schedulestore.C
 		return cfg, nil
 	}
 
-	return schedulestore.Config{}, ErrBadKind.Saying("no schedule kind %q", cfg.Kind)
+	return schedulestore.Config{}, errBadKind.Saying("no schedule kind %q", cfg.Kind)
 }
 
 // RequireOrchestrator returns the live orchestrator an id names, or says which way it is unusable.

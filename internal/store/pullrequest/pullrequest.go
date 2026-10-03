@@ -60,8 +60,8 @@ func (p PullRequest) IsFinished() bool {
 	return p.MergedAt != nil || p.ClosedAt != nil
 }
 
-// Outcome is what an upsert did to the row.
-type Outcome struct {
+// outcome is what an upsert did to the row.
+type outcome struct {
 	ID string
 	// Inserted says the row is new.
 	Inserted bool
@@ -122,7 +122,7 @@ type UpsertParams struct {
 
 // Upsert writes a pull request on its identity, leaving a row whose forge-owned columns already
 // match untouched, and says what it did.
-func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Outcome, error) {
+func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*outcome, error) {
 	row, err := s.queries.UpsertPullRequest(ctx, models.UpsertPullRequestParams{
 		Host:              params.Host,
 		Forge:             params.Forge,
@@ -149,7 +149,7 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 		return nil, fmt.Errorf("failed to write pull request %s on %s: %w", params.ProviderID, params.Host, err)
 	}
 
-	return &Outcome{
+	return &outcome{
 		ID:       row.ID,
 		Inserted: row.Inserted,
 		Changed:  row.Changed,

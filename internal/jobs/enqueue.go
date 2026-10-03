@@ -79,13 +79,13 @@ func (e *Enqueuer) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]ri
 	return nil
 }
 
-// ListUnfinished is every job of one kind whose work is still owed.
-func (e *Enqueuer) ListUnfinished(ctx context.Context, kind string) ([]*rivertype.JobRow, error) {
+// listUnfinished is every job of one kind whose work is still owed.
+func (e *Enqueuer) listUnfinished(ctx context.Context, kind string) ([]*rivertype.JobRow, error) {
 	return e.listInStates(ctx, kind, unfinishedStates)
 }
 
-// ListWaiting is every job of one kind whose work is owed and not yet taken by a worker.
-func (e *Enqueuer) ListWaiting(ctx context.Context, kind string) ([]*rivertype.JobRow, error) {
+// listWaiting is every job of one kind whose work is owed and not yet taken by a worker.
+func (e *Enqueuer) listWaiting(ctx context.Context, kind string) ([]*rivertype.JobRow, error) {
 	return e.listInStates(ctx, kind, waitingStates)
 }
 

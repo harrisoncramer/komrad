@@ -36,7 +36,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		PromptTruncated:    promptTruncated,
 		PaneId:             stored.Pane,
 		State:              AgentStateOf(stored.State),
-		Role:               AgentRoleOf(stored.Role),
+		Role:               agentRoleOf(stored.Role),
 		SessionId:          stored.SessionID,
 		Harness:            stored.Harness,
 		WorkflowId:         stored.WorkflowID,
@@ -77,8 +77,8 @@ func WatchedAgent(row rowstore.Row) *agentv1.Agent {
 	return Agent(row, AgentOptions{})
 }
 
-// ReviewVerdictOf is a verdict as the wire carries it.
-func ReviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
+// reviewVerdictOf is a verdict as the wire carries it.
+func reviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	switch verdict {
 	case reviewstore.VerdictApproved:
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
@@ -132,8 +132,8 @@ func AgentStateOf(state agentstore.State) agentv1.AgentState {
 	return agentv1.AgentState_AGENT_STATE_UNSPECIFIED
 }
 
-// AgentRoleOf is a stored role as the wire carries it.
-func AgentRoleOf(role agentstore.Role) agentv1.AgentRole {
+// agentRoleOf is a stored role as the wire carries it.
+func agentRoleOf(role agentstore.Role) agentv1.AgentRole {
 	switch role {
 	case agentstore.RoleImplementer:
 		return agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER

@@ -211,15 +211,15 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 	}, nil
 }
 
-// Paths is every directory found immediately under the worktree directories.
-type Paths struct {
+// paths is every directory found immediately under the worktree directories.
+type paths struct {
 	Paths []string
 	// Unreadable are the worktree directories that could not be read.
 	Unreadable []string
 }
 
-func walk(dirs []string) Paths {
-	found := Paths{}
+func walk(dirs []string) paths {
+	found := paths{}
 	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
 		if errors.Is(err, os.ErrNotExist) {

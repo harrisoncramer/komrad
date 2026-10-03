@@ -53,7 +53,7 @@ func TestMintSignsAnAssertionGitHubCanCheck(t *testing.T) {
 		InstallationID: "678",
 		PrivateKeyPath: writeKey(t),
 	}
-	token, err := app.Mint(t.Context(), server.Client(), now)
+	token, err := app.mint(t.Context(), server.Client(), now)
 	require.NoError(t, err)
 	assert.Equal(t, "ghs_abc", token.Value)
 
@@ -121,7 +121,7 @@ func TestMintExplainsARefusal(t *testing.T) {
 				PrivateKeyPath: writeKey(t),
 				API:            server.URL,
 			}
-			_, err := app.Mint(t.Context(), server.Client(), time.Now())
+			_, err := app.mint(t.Context(), server.Client(), time.Now())
 			require.Error(t, err)
 			require.ErrorContains(t, err, "12345")
 			require.ErrorContains(t, err, "678")
@@ -133,9 +133,9 @@ func TestMintExplainsARefusal(t *testing.T) {
 // TestFreshRefusesATokenAboutToExpire covers a long push losing its credential partway through.
 func TestFreshRefusesATokenAboutToExpire(t *testing.T) {
 	now := time.Now()
-	assert.True(t, Token{Value: "x", ExpiresAt: now.Add(time.Hour)}.IsFresh(now))
-	assert.False(t, Token{Value: "x", ExpiresAt: now.Add(time.Minute)}.IsFresh(now))
-	assert.False(t, Token{ExpiresAt: now.Add(time.Hour)}.IsFresh(now))
+	assert.True(t, Token{Value: "x", ExpiresAt: now.Add(time.Hour)}.isFresh(now))
+	assert.False(t, Token{Value: "x", ExpiresAt: now.Add(time.Minute)}.isFresh(now))
+	assert.False(t, Token{ExpiresAt: now.Add(time.Hour)}.isFresh(now))
 }
 
 // TestCredentialQueryReadsGitsBlock covers the key-value block git writes on stdin.

@@ -77,7 +77,7 @@ answer takes it from a flag, and names the flag when none was given.`,
 			}
 
 			if err != nil {
-				return ErrReported
+				return errReported
 			}
 
 			return nil

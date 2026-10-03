@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var claudeAndCodex = []HarnessInfo{
+var claudeAndCodex = []harnessInfo{
 	{ID: "claude", Binary: "claude"},
 	{ID: "codex", Binary: "codex"},
 }
@@ -135,7 +135,7 @@ func TestDefaultHarnessCheck(t *testing.T) {
 func TestHarnessBinaryCheck(t *testing.T) {
 	tests := []struct {
 		name       string
-		agent      HarnessInfo
+		agent      harnessInfo
 		configured string
 		installed  []string
 		want       Status
@@ -190,7 +190,7 @@ func TestHarnessBinaryCheck(t *testing.T) {
 // TestHarnessChecksFollowTheRegistry covers that the report gains a row when the build gains an
 // agent CLI.
 func TestHarnessChecksFollowTheRegistry(t *testing.T) {
-	checks := Checks(Settings{Harnesses: []HarnessInfo{
+	checks := Checks(Settings{Harnesses: []harnessInfo{
 		{ID: "claude", Binary: "claude"},
 		{ID: "codex", Binary: "codex"},
 		{ID: "aider", Binary: "aider"},

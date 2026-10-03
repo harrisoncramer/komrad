@@ -59,7 +59,7 @@ type Server struct {
 	Jobs          *river.Client[pgx.Tx]
 	Pool          *store.Pool
 	Delivery      *mail.DeliveryService
-	Loops         []*Loop
+	Loops         []*loop
 	Watch         *watch.Broker
 	logger        *slog.Logger
 	stopRequested chan struct{}

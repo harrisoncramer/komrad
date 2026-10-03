@@ -13,7 +13,7 @@ import (
 
 // Rows draws every row of the agents list as its own string.
 func Rows(list List, palette paint.Palette, width int) []string {
-	rows := xslice.Map(list.Lines, func(line Line) string {
+	rows := xslice.Map(list.Lines, func(line line) string {
 		return renderLine(line, list, palette, width)
 	})
 
@@ -22,7 +22,7 @@ func Rows(list List, palette paint.Palette, width int) []string {
 
 // renderLine spells one prepared row out, painting the selection bar under it last so the
 // colours it already carries read through.
-func renderLine(line Line, list List, palette paint.Palette, width int) string {
+func renderLine(line line, list List, palette paint.Palette, width int) string {
 	if line.Divider {
 		return drawDivider(palette, line.Name, width)
 	}
@@ -59,7 +59,7 @@ func renderLine(line Line, list List, palette paint.Palette, width int) string {
 
 // drawName is a name in its own lettering, with whatever a search picked out of it drawn in the
 // match colour instead.
-func drawName(palette paint.Palette, line Line) string {
+func drawName(palette paint.Palette, line line) string {
 	style := nameStyle(palette, line.Weight, line.Emphasis)
 	if !line.Editing {
 		return palette.Highlight(line.Name, line.Matches, style)
@@ -78,7 +78,7 @@ type drawer struct {
 }
 
 // trailing is the odds and ends after a name, each one a space away from what precedes it.
-func (d drawer) trailing(line Line) string {
+func (d drawer) trailing(line line) string {
 	palette := d.palette
 	var b strings.Builder
 	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert} {
@@ -164,22 +164,22 @@ func (d drawer) text(cell Cell) string {
 
 // nameStyle is the lettering a name is drawn in: its weight from where it sits in the tree, its
 // foreground from what it has to say.
-func nameStyle(palette paint.Palette, weight Weight, emphasis Emphasis) lipgloss.Style {
+func nameStyle(palette paint.Palette, weight weight, emphasis emphasis) lipgloss.Style {
 	style := lipgloss.NewStyle()
 
 	switch emphasis {
-	case EmphasisNormal:
+	case emphasisNormal:
 	case EmphasisDim:
 		style = style.Foreground(palette.Color(paint.ToneMuted))
-	case EmphasisFocused:
+	case emphasisFocused:
 		style = style.Foreground(palette.Color(paint.TonePrimary))
 	}
 
 	switch weight {
-	case WeightRegular:
-	case WeightBold:
+	case weightRegular:
+	case weightBold:
 		style = style.Bold(true)
-	case WeightItalic:
+	case weightItalic:
 		style = style.Italic(true)
 	}
 

@@ -32,28 +32,28 @@ func TestPushRefusals(t *testing.T) {
 			name:    "an agent whose tree something else is working in",
 			agent:   agentstore.Agent{Cwd: "/locked"},
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1"}, Own: 1},
-			wantErr: ErrBusy,
+			wantErr: errBusy,
 		},
 		{
 			name:    "a checkout part-way through a sequence",
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1", InProgress: true}, Own: 1},
-			wantErr: ErrPushInProgress,
+			wantErr: errPushInProgress,
 		},
 		{
 			name:    "a detached checkout",
 			pusher:  gittest.Mover{Own: 1},
-			wantErr: ErrPushDetached,
+			wantErr: errPushDetached,
 		},
 		{
 			name:    "a checkout on the workflow's base branch",
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "main"}, Own: 1},
-			wantErr: ErrPushBase,
+			wantErr: errPushBase,
 		},
 		{
 			name:    "a branch whose pull request has merged, still on the commit it merged from",
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1", HeadSHA: "merged"}, Own: 1},
 			landed:  true,
-			wantErr: ErrPushFinished,
+			wantErr: errPushFinished,
 		},
 		{
 			name: "a branch whose pull request has merged, with new work on top of the merged commits",
@@ -63,18 +63,18 @@ func TestPushRefusals(t *testing.T) {
 				Holds: []string{"merged"},
 			},
 			landed:  true,
-			wantErr: ErrPushFinished,
+			wantErr: errPushFinished,
 		},
 		{
 			name:    "a branch whose pull request has merged, read from a checkout with no commit",
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1"}, Own: 1},
 			landed:  true,
-			wantErr: ErrPushFinished,
+			wantErr: errPushFinished,
 		},
 		{
 			name:    "a branch holding nothing the base does not, as a rebase onto landed work leaves it",
 			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1"}},
-			wantErr: ErrPushNothing,
+			wantErr: errPushNothing,
 		},
 		{
 			name: "a branch origin already holds whole",
@@ -83,7 +83,7 @@ func TestPushRefusals(t *testing.T) {
 				Own:    1,
 				Remote: git.RemoteStanding{Pushed: true},
 			},
-			wantErr: ErrPushInSync,
+			wantErr: errPushInSync,
 		},
 		{
 			name: "a branch behind origin's copy, which only a pull would bring level",
@@ -106,7 +106,7 @@ func TestPushRefusals(t *testing.T) {
 					Unpulled: 2,
 				},
 			},
-			wantErr: ErrPushAdoptedForce,
+			wantErr: errPushAdoptedForce,
 		},
 	}
 
@@ -118,7 +118,7 @@ func TestPushRefusals(t *testing.T) {
 				fixture.seedMerged(t, tt.pusher.State.Branch)
 			}
 			locks := NewTreeLocks()
-			release, taken := locks.TryLock("/locked")
+			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 

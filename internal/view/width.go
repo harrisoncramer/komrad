@@ -41,7 +41,7 @@ const indentColumns = 2
 
 // trailingColumns is everything a row draws after its name, each part a space away from what
 // precedes it.
-func trailingColumns(line Line) int {
+func trailingColumns(line line) int {
 	columns := 0
 	if line.Editing {
 		columns += textCursorColumns
@@ -70,7 +70,7 @@ func trailingColumns(line Line) int {
 
 // roomForName is what one row has left for its name once its own corner and the marks after its
 // name have taken theirs.
-func roomForName(line Line, width int) int {
+func roomForName(line line, width int) int {
 	spent := trailingColumns(line) + line.Indent
 	if line.Rule {
 		spent += ruleColumns

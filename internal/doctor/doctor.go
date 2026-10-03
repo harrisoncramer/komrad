@@ -105,8 +105,8 @@ type Finding struct {
 	Where string `json:"where,omitempty"`
 }
 
-// WhereEngine is what a finding the engine's service made carries in Where.
-const WhereEngine = "engine"
+// whereEngine is what a finding the engine's service made carries in Where.
+const whereEngine = "engine"
 
 var errEngineUnanswered = &ProblemError{
 	Code:    "engine_unanswered",
@@ -122,7 +122,7 @@ func EngineNotChecked() Finding {
 		Description: engineDescription,
 		Status:      StatusSkip,
 		Detail:      "not checked, server has to pass first",
-		Where:       WhereEngine,
+		Where:       whereEngine,
 	}
 }
 
@@ -138,7 +138,7 @@ func EngineUnanswered(err error) Finding {
 		Code:        codeOf(wrapped),
 		Error:       wrapped.Error(),
 		Fix:         "run komrad doctor on the engine, or read the service's log there",
-		Where:       WhereEngine,
+		Where:       whereEngine,
 	}
 }
 
@@ -148,7 +148,7 @@ func (r Report) WithEngine(findings []Finding) Report {
 	merged := Report{Findings: make([]Finding, 0, len(r.Findings)+len(findings))}
 	merged.Findings = append(merged.Findings, r.Findings...)
 	for _, finding := range findings {
-		finding.Where = WhereEngine
+		finding.Where = whereEngine
 		merged.Findings = append(merged.Findings, finding)
 	}
 
@@ -159,10 +159,10 @@ func (r Report) WithEngine(findings []Finding) Report {
 
 type Report struct {
 	Findings []Finding `json:"findings"`
-	Summary  Summary   `json:"summary"`
+	Summary  summary   `json:"summary"`
 }
 
-type Summary struct {
+type summary struct {
 	OK      int  `json:"ok"`
 	Warn    int  `json:"warn"`
 	Fail    int  `json:"fail"`
@@ -221,8 +221,8 @@ func (c conclusions) run(ctx context.Context, env Env, check Check) (result Resu
 	return check.Run(ctx, env)
 }
 
-func summarize(findings []Finding) Summary {
-	summary := Summary{Total: len(findings)}
+func summarize(findings []Finding) summary {
+	summary := summary{Total: len(findings)}
 
 	for _, finding := range findings {
 		switch finding.Status {

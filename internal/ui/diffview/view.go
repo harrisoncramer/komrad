@@ -255,8 +255,8 @@ func (v *View) SetExpanded(paths map[string]bool) {
 	v.redraw()
 }
 
-// SetFileExpanded draws one file whole, or gives back its hunks alone.
-func (v *View) SetFileExpanded(path string, expanded bool) {
+// setFileExpanded draws one file whole, or gives back its hunks alone.
+func (v *View) setFileExpanded(path string, expanded bool) {
 	if !expanded {
 		delete(v.expanded, path)
 		v.redraw()
@@ -630,7 +630,7 @@ func (v *View) JumpFile(y, direction int) int {
 			continue
 		}
 
-		if landing := v.GetFileLanding(index); v.isPinnable(landing) {
+		if landing := v.getFileLanding(index); v.isPinnable(landing) {
 			return landing
 		}
 
@@ -640,8 +640,8 @@ func (v *View) JumpFile(y, direction int) int {
 	return y
 }
 
-// GetFileLanding is the first row of the file whose header is on y that the cursor can rest on.
-func (v *View) GetFileLanding(y int) int {
+// getFileLanding is the first row of the file whose header is on y that the cursor can rest on.
+func (v *View) getFileLanding(y int) int {
 	header, ok := v.getRow(y)
 	if !ok {
 		return y
@@ -656,9 +656,9 @@ func (v *View) GetFileLanding(y int) int {
 	return y
 }
 
-// GetFileTopRow returns the row the file at y starts on, so a jump into it can put its header at
+// getFileTopRow returns the row the file at y starts on, so a jump into it can put its header at
 // the top of the pane.
-func (v *View) GetFileTopRow(y int) int {
+func (v *View) getFileTopRow(y int) int {
 	current, ok := v.getRow(y)
 	if !ok {
 		return y

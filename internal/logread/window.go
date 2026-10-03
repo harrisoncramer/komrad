@@ -44,7 +44,7 @@ func everyLine([]byte) bool {
 	return true
 }
 
-func (r *Reader) newest(ctx context.Context, keep func([]byte) bool, limit int) (*Window, error) {
+func (r *reader) newest(ctx context.Context, keep func([]byte) bool, limit int) (*Window, error) {
 	log, err := r.open()
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (r *Reader) newest(ctx context.Context, keep func([]byte) bool, limit int) 
 	return r.newestIn(ctx, log, keep, limit)
 }
 
-func (r *Reader) since(ctx context.Context, keep func([]byte) bool, offset int64, limit int) (*Window, error) {
+func (r *reader) since(ctx context.Context, keep func([]byte) bool, offset int64, limit int) (*Window, error) {
 	log, err := r.open()
 	if err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func (r *Reader) since(ctx context.Context, keep func([]byte) bool, offset int64
 }
 
 // newestIn reads the last budget of the log forward, holding the last limit lines it keeps.
-func (r *Reader) newestIn(ctx context.Context, log *openLog, keep func([]byte) bool, limit int) (*Window, error) {
+func (r *reader) newestIn(ctx context.Context, log *openLog, keep func([]byte) bool, limit int) (*Window, error) {
 	start := max(log.size-int64(r.budget), 0)
 	window := &Window{Offset: start}
 
@@ -161,7 +161,7 @@ func (r *Reader) newestIn(ctx context.Context, log *openLog, keep func([]byte) b
 }
 
 // nextLine is the next whole line and the bytes it took, with a line longer than maxLine skipped as empty.
-func (r *Reader) nextLine(reader *bufio.Reader) ([]byte, int64, error) {
+func (r *reader) nextLine(reader *bufio.Reader) ([]byte, int64, error) {
 	var skipped int64
 	for {
 		// A last line without its newline is left for the next read.
@@ -185,7 +185,7 @@ func (r *Reader) nextLine(reader *bufio.Reader) ([]byte, int64, error) {
 	}
 }
 
-func (r *Reader) readFrom(file *os.File, offset, size int64) (*bufio.Reader, error) {
+func (r *reader) readFrom(file *os.File, offset, size int64) (*bufio.Reader, error) {
 	if _, err := file.Seek(offset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 	}
@@ -199,10 +199,10 @@ type openLog struct {
 	size int64
 }
 
-func (r *Reader) open() (*openLog, error) {
+func (r *reader) open() (*openLog, error) {
 	file, err := os.Open(r.path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, ErrNoLog.Saying("nothing has been written to %s", r.path)
+		return nil, errNoLog.Saying("nothing has been written to %s", r.path)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the log at %s: %w", r.path, err)

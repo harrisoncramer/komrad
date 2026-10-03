@@ -129,9 +129,9 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 	return inspection, nil
 }
 
-// ReadStanding reads where a directory stands against its base without asking origin or taking
+// readStanding reads where a directory stands against its base without asking origin or taking
 // the index lock, or why git could not say.
-func (i *Inspector) ReadStanding(ctx context.Context, worktree Worktree) worktreestore.Standing {
+func (i *Inspector) readStanding(ctx context.Context, worktree Worktree) worktreestore.Standing {
 	params := ReadStandingParams{
 		Dir:      worktree.Dir,
 		Readable: worktree.Readable,

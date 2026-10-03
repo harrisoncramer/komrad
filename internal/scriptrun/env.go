@@ -81,7 +81,7 @@ func (s *ScriptService) FindHook(name string) (scripts.Script, error) {
 
 	switch {
 	case err == nil && ships && written.Path != shipped.Path:
-		return scripts.Script{}, fmt.Errorf("%w: %q", ErrHookNameTaken, name)
+		return scripts.Script{}, fmt.Errorf("%w: %q", errHookNameTaken, name)
 	case err == nil:
 		return written, nil
 	case ships:

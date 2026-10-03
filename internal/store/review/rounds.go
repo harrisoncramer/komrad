@@ -75,14 +75,14 @@ type Review struct {
 	UpdatedAt   time.Time
 }
 
-// IsOpen reports whether the review is still being written.
-func (r Review) IsOpen() bool {
+// isOpen reports whether the review is still being written.
+func (r Review) isOpen() bool {
 	return r.ReleasedAt == nil
 }
 
-// IsSettled reports whether a released review has nothing left owed an answer.
-func (r Review) IsSettled() bool {
-	return !r.IsOpen() && r.OpenThreads == 0
+// isSettled reports whether a released review has nothing left owed an answer.
+func (r Review) isSettled() bool {
+	return !r.isOpen() && r.OpenThreads == 0
 }
 
 type CreateRoundParams struct {
@@ -441,9 +441,9 @@ func reviewNotFound(id string) error {
 	return fmt.Errorf("%w: review %q", store.ErrNotFound, id)
 }
 
-// Tally is where one agent's work stands with the reviews released of it, counted against the
+// tally is where one agent's work stands with the reviews released of it, counted against the
 // agent holding the diff rather than whoever read it.
-type Tally struct {
+type tally struct {
 	AgentID string
 	Rounds  int32
 	// Verdict is the last conclusion released about the agent's work, nil when every released
@@ -453,16 +453,16 @@ type Tally struct {
 	SnapshotSHA string
 }
 
-// ListTallies is where every agent's work stands, leaving out the agents no review has been
+// listTallies is where every agent's work stands, leaving out the agents no review has been
 // released of.
-func (s *ReviewStore) ListTallies(ctx context.Context) ([]Tally, error) {
+func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 	rows, err := s.queries.ListReviewTallies(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count the rounds of review: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) Tally {
-		tally := Tally{AgentID: row.AgentID, Rounds: row.Rounds}
+	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) tally {
+		tally := tally{AgentID: row.AgentID, Rounds: row.Rounds}
 		if row.Verdict.Valid {
 			verdict := Verdict(row.Verdict.ReviewVerdict)
 			tally.Verdict = &verdict
@@ -475,21 +475,21 @@ func (s *ReviewStore) ListTallies(ctx context.Context) ([]Tally, error) {
 	}), nil
 }
 
-// NewestRound is the snapshot of an agent's newest review round.
-type NewestRound struct {
+// newestRound is the snapshot of an agent's newest review round.
+type newestRound struct {
 	AgentID     string
 	SnapshotSHA string
 }
 
 // ListNewestRounds is the newest round of every agent that has one.
-func (s *ReviewStore) ListNewestRounds(ctx context.Context) ([]NewestRound, error) {
+func (s *ReviewStore) ListNewestRounds(ctx context.Context) ([]newestRound, error) {
 	rows, err := s.queries.ListNewestReviewRounds(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the newest review rounds: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListNewestReviewRoundsRow) NewestRound {
-		return NewestRound{AgentID: row.AgentID, SnapshotSHA: row.SnapshotSha}
+	return xslice.Map(rows, func(row *models.ListNewestReviewRoundsRow) newestRound {
+		return newestRound{AgentID: row.AgentID, SnapshotSHA: row.SnapshotSha}
 	}), nil
 }
 
@@ -538,26 +538,26 @@ func (s *ReviewStore) MarkRoundsLanded(ctx context.Context, agentID string, ordi
 	return landed, nil
 }
 
-// LiveReviewer is a reviewer still owed an answer about the work of the agent it is attached to.
-type LiveReviewer struct {
+// liveReviewer is a reviewer still owed an answer about the work of the agent it is attached to.
+type liveReviewer struct {
 	AgentID    string
 	ReviewerID string
 }
 
-// ListLiveReviewers is every unarchived reviewer child whose last released verdict on its
+// listLiveReviewers is every unarchived reviewer child whose last released verdict on its
 // parent's work was not an approval.
-func (s *ReviewStore) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, error) {
+func (s *ReviewStore) listLiveReviewers(ctx context.Context) ([]liveReviewer, error) {
 	rows, err := s.queries.ListLiveReviewers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the reviewers still reading: %w", err)
 	}
 
-	live := make([]LiveReviewer, 0, len(rows))
+	live := make([]liveReviewer, 0, len(rows))
 	for _, row := range rows {
 		if row.AgentID == nil {
 			continue
 		}
-		live = append(live, LiveReviewer{AgentID: *row.AgentID, ReviewerID: row.ReviewerID})
+		live = append(live, liveReviewer{AgentID: *row.AgentID, ReviewerID: row.ReviewerID})
 	}
 
 	return live, nil
@@ -565,8 +565,8 @@ func (s *ReviewStore) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, er
 
 // GetLiveReviewerOf is the reviewer still owed an answer about one agent's work, ErrNotFound when
 // it has none.
-func (s *ReviewStore) GetLiveReviewerOf(ctx context.Context, agentID string) (*LiveReviewer, error) {
-	live, err := s.ListLiveReviewers(ctx)
+func (s *ReviewStore) GetLiveReviewerOf(ctx context.Context, agentID string) (*liveReviewer, error) {
+	live, err := s.listLiveReviewers(ctx)
 	if err != nil {
 		return nil, err
 	}

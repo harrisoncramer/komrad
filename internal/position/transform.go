@@ -16,7 +16,7 @@ type TransformParams struct {
 	// copied.
 	Mappings []Mapping
 	// Policy is what a position whose lines were rewritten becomes.
-	Policy Policy
+	Policy policy
 }
 
 // Transform moves every position to where the later commit holds it, resolving paths before
@@ -65,18 +65,18 @@ type transformOneParams struct {
 	Index    int
 	Position Position
 	Mapping  Mapping
-	Policy   Policy
+	Policy   policy
 }
 
 func transformOne(params transformOneParams) Result {
 	dropped := Result{
 		Index:    params.Index,
 		Position: params.Position,
-		Outcome:  Dropped,
+		Outcome:  dropped,
 	}
 
 	// A file the later commit does not hold leaves nothing to point at, whatever the policy.
-	if params.Mapping.File.IsDeleted() {
+	if params.Mapping.File.isDeleted() {
 		return dropped
 	}
 
@@ -100,7 +100,7 @@ func transformOne(params transformOneParams) Result {
 			return Result{
 				Index:    params.Index,
 				Position: moved,
-				Outcome:  FileOnly,
+				Outcome:  fileOnly,
 			}
 		}
 

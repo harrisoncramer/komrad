@@ -32,9 +32,9 @@ type Cursorable[C Cursor] interface {
 	Cursor() (C, error)
 }
 
-// Paginator carries the decoded request cursor and the clamped limit for one
+// paginator carries the decoded request cursor and the clamped limit for one
 // listing over resources of type M.
-type Paginator[C Cursor, M Cursorable[C]] struct {
+type paginator[C Cursor, M Cursorable[C]] struct {
 	limit  int64
 	cursor *C
 }
@@ -48,13 +48,13 @@ const (
 
 // New builds a Paginator from a request's pagination, which may be nil for the first page
 // at the default size.
-func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
+func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*paginator[C, M], error) {
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrBadCursor, err)
 	}
 
-	return &Paginator[C, M]{limit: Bound(p.GetLimit()), cursor: cursor}, nil
+	return &paginator[C, M]{limit: Bound(p.GetLimit()), cursor: cursor}, nil
 }
 
 // Bound is the page size a request asked for, twenty when it asked for none and at most a
@@ -72,17 +72,17 @@ func Bound(limit int32) int64 {
 }
 
 // Limit is how many records the query should fetch.
-func (p *Paginator[C, M]) Limit() int64 {
+func (p *paginator[C, M]) Limit() int64 {
 	return p.limit
 }
 
 // Cursor is the decoded request cursor, nil on the first page.
-func (p *Paginator[C, M]) Cursor() *C {
+func (p *paginator[C, M]) Cursor() *C {
 	return p.cursor
 }
 
 // NextToken returns the token for the page after these records, or nil when there is none.
-func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {
+func (p *paginator[C, M]) NextToken(resources []M) (*string, error) {
 	// A page short of the limit is the last one, so a page landing exactly on the limit costs
 	// the caller one empty page rather than a count query on every request.
 	if int64(len(resources)) < p.limit {

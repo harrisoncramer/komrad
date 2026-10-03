@@ -18,23 +18,23 @@ import (
 
 const personWroteTopic = "document_written_by_person"
 
-// PersonWrote is a person writing a document an agent owns.
-type PersonWrote struct {
+// personWrote is a person writing a document an agent owns.
+type personWrote struct {
 	DocumentID string `json:"document_id"`
 }
 
 // Topic names the handler that tells the document's owner.
-func (PersonWrote) Topic() string {
+func (personWrote) Topic() string {
 	return personWroteTopic
 }
 
 // NewEventHandler builds the handler the router is given for a person's writes.
-func NewEventHandler() events.HandlerFor[PersonWrote] {
+func NewEventHandler() events.HandlerFor[personWrote] {
 	return handlePersonWrote
 }
 
 // handlePersonWrote tells the owner of the document a person wrote.
-func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailService, wrote PersonWrote) ([]river.JobArgs, error) {
+func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailService, wrote personWrote) ([]river.JobArgs, error) {
 	documents := documentstore.NewDocumentStore(tx)
 	document, err := documents.Get(ctx, wrote.DocumentID)
 	if errors.Is(err, store.ErrNotFound) {

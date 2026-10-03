@@ -138,20 +138,20 @@ index 0000000000000000000000000000000000000000..15c192a3393746be504c4f3ffeb5bcf2
 `
 
 const (
-	// SnapshotPrefix is what a round's commit is named after the tree it froze.
-	SnapshotPrefix = "snapshot-"
+	// snapshotPrefix is what a round's commit is named after the tree it froze.
+	snapshotPrefix = "snapshot-"
 	BaseSHA        = "39d09b1e629b114cf0fb9651479f2225948c20ea"
 	UnmovedTree    = "tree-unmoved"
 	File           = "greet.go"
-	SnapshotSHA    = SnapshotPrefix + UnmovedTree
-	BaseSource     = "package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"
+	SnapshotSHA    = snapshotPrefix + UnmovedTree
+	baseSource     = "package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"
 	HeadSource     = "package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"
 	TallFile       = "tall.go"
 	// The two sources of the tall file differ only on line eight, so the lines the patch leaves
 	// out are lines one to four and twelve to thirteen.
-	TallBase = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"one\")\n}" +
+	tallBase = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"one\")\n}" +
 		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
-	TallHead = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"two\")\n}" +
+	tallHead = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"two\")\n}" +
 		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
 )
 
@@ -195,7 +195,7 @@ func NewRepo(root string) *Repo {
 		Patches: map[string]string{NamePair(BaseSHA, SnapshotSHA): Patch},
 		Hidden:  map[string]bool{},
 		Sources: map[string]string{
-			NameSource(BaseSHA, File):     BaseSource,
+			NameSource(BaseSHA, File):     baseSource,
 			NameSource(SnapshotSHA, File): HeadSource,
 		},
 	}
@@ -210,8 +210,8 @@ func NewTallRepo(root string) *Repo {
 		Patches: map[string]string{NamePair(BaseSHA, SnapshotSHA): PatchOfATallFile},
 		Hidden:  map[string]bool{},
 		Sources: map[string]string{
-			NameSource(BaseSHA, TallFile):     TallBase,
-			NameSource(SnapshotSHA, TallFile): TallHead,
+			NameSource(BaseSHA, TallFile):     tallBase,
+			NameSource(SnapshotSHA, TallFile): tallHead,
 		},
 	}
 }
@@ -394,7 +394,7 @@ func NameSource(sha, path string) string {
 
 // NameSnapshot is the round a tree is frozen as.
 func NameSnapshot(tree string) string {
-	return SnapshotPrefix + tree
+	return snapshotPrefix + tree
 }
 
 // NamePair names one diff: the two snapshots it is read between.

@@ -105,7 +105,7 @@ func readEngine(ctx context.Context, url string) (string, error) {
 }
 
 // readWorkflowBases reads the directory and base branch of every live workflow.
-func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) {
+func readWorkflowBases(ctx context.Context, url string) ([]workflowBase, error) {
 	pool, err := openReadOnlyPool(ctx, url)
 	if err != nil {
 		return nil, err
@@ -120,8 +120,8 @@ func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) 
 		return nil, err
 	}
 
-	return xslice.Map(workflows, func(workflow workflowstore.Workflow) WorkflowBase {
-		return WorkflowBase{
+	return xslice.Map(workflows, func(workflow workflowstore.Workflow) workflowBase {
+		return workflowBase{
 			Name: workflow.Name,
 			Cwd:  workflow.Cwd,
 			Base: workflow.Worktree.BaseBranch,
@@ -143,19 +143,19 @@ func resolveWorkflowBase(ctx context.Context, dir, base string) (string, error) 
 
 // inspectDir is what a directory looks like from outside: whether it is there, whether it is
 // a directory at all, whether komrad could put something in it, and what it holds.
-func inspectDir(path string) (DirState, error) {
+func inspectDir(path string) (dirState, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return DirState{}, nil
+		return dirState{}, nil
 	}
 	if err != nil {
-		return DirState{}, err
+		return dirState{}, err
 	}
 	if !info.IsDir() {
-		return DirState{Present: true}, nil
+		return dirState{Present: true}, nil
 	}
 
-	state := DirState{
+	state := dirState{
 		Present:   true,
 		Directory: true,
 		Writable:  syscall.Access(path, writeAccess) == nil,
@@ -185,10 +185,10 @@ func inspectDir(path string) (DirState, error) {
 
 // readWorktreeOwners reads who could own a worktree directory: every agent, archived ones
 // included, and the directories the workflows cut their worktrees in.
-func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error) {
+func readWorktreeOwners(ctx context.Context, url string) (worktreeOwners, error) {
 	pool, err := openReadOnlyPool(ctx, url)
 	if err != nil {
-		return WorktreeOwners{}, err
+		return worktreeOwners{}, err
 	}
 	defer pool.Close()
 
@@ -197,10 +197,10 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 
 	agents, err := agentstore.NewAgentStore(pool).ListDirs(ctx)
 	if err != nil {
-		return WorktreeOwners{}, err
+		return worktreeOwners{}, err
 	}
 
-	var owners WorktreeOwners
+	var owners worktreeOwners
 	for _, agent := range agents {
 		owners.AgentIDs = append(owners.AgentIDs, agent.ID)
 		if trimmed := strings.TrimSpace(agent.Cwd); trimmed != "" {
@@ -210,7 +210,7 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 
 	owners.WorkflowDirs, err = workflowstore.NewWorkflowStore(pool).ListWorktreeDirs(ctx)
 	if err != nil {
-		return WorktreeOwners{}, err
+		return worktreeOwners{}, err
 	}
 
 	return owners, nil

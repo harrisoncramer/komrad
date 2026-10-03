@@ -22,7 +22,7 @@ func TestParseQuery(t *testing.T) {
 	tests := []struct {
 		name    string
 		text    string
-		want    Query
+		want    query
 		wantErr string
 	}{
 		{
@@ -73,27 +73,27 @@ func TestParseQuery(t *testing.T) {
 		{
 			name: "words alone stay words",
 			text: `reconciler -"stale pane" --force`,
-			want: Query{Words: `reconciler -"stale pane" --force`},
+			want: query{Words: `reconciler -"stale pane" --force`},
 		},
 		{
 			name: "prompts",
 			text: "from:me migration",
-			want: Query{Words: "migration", Filter: transcriptstore.Filter{Speaker: xptr.Ptr("user")}},
+			want: query{Words: "migration", Filter: transcriptstore.Filter{Speaker: xptr.Ptr("user")}},
 		},
 		{
 			name: "what the agent wrote",
 			text: "FROM:Agent",
-			want: Query{Filter: transcriptstore.Filter{Speaker: xptr.Ptr("assistant")}},
+			want: query{Filter: transcriptstore.Filter{Speaker: xptr.Ptr("assistant")}},
 		},
 		{
 			name: "an agent and a workflow by name, quoted to hold a space",
 			text: `agent:mail workflow:"komrad web"`,
-			want: Query{Filter: transcriptstore.Filter{AgentName: xptr.Ptr("mail"), WorkflowName: xptr.Ptr("komrad web")}},
+			want: query{Filter: transcriptstore.Filter{AgentName: xptr.Ptr("mail"), WorkflowName: xptr.Ptr("komrad web")}},
 		},
 		{
 			name: "kinds wanted and left out",
 			text: "is:reviewer is:implementer -is:orchestrator",
-			want: Query{Filter: transcriptstore.Filter{
+			want: query{Filter: transcriptstore.Filter{
 				Kinds:         []string{"reviewer", "implementer"},
 				ExcludedKinds: []string{"orchestrator"},
 			}},
@@ -101,17 +101,17 @@ func TestParseQuery(t *testing.T) {
 		{
 			name: "live agents",
 			text: "is:live",
-			want: Query{Filter: transcriptstore.Filter{Archived: xptr.Ptr(false)}},
+			want: query{Filter: transcriptstore.Filter{Archived: xptr.Ptr(false)}},
 		},
 		{
 			name: "agents not live",
 			text: "-is:live",
-			want: Query{Filter: transcriptstore.Filter{Archived: xptr.Ptr(true)}},
+			want: query{Filter: transcriptstore.Filter{Archived: xptr.Ptr(true)}},
 		},
 		{
 			name: "a span back from now",
 			text: "since:3d until:2h",
-			want: Query{Filter: transcriptstore.Filter{
+			want: query{Filter: transcriptstore.Filter{
 				Since: xptr.Ptr(now.Add(-72 * time.Hour)),
 				Until: xptr.Ptr(now.Add(-2 * time.Hour)),
 			}},
@@ -119,22 +119,22 @@ func TestParseQuery(t *testing.T) {
 		{
 			name: "a span in minutes",
 			text: "since:30m",
-			want: Query{Filter: transcriptstore.Filter{Since: xptr.Ptr(now.Add(-30 * time.Minute))}},
+			want: query{Filter: transcriptstore.Filter{Since: xptr.Ptr(now.Add(-30 * time.Minute))}},
 		},
 		{
 			name: "since the start of today",
 			text: "since:today",
-			want: Query{Filter: transcriptstore.Filter{Since: &midnight}},
+			want: query{Filter: transcriptstore.Filter{Since: &midnight}},
 		},
 		{
 			name: "until the end of yesterday",
 			text: "until:yesterday",
-			want: Query{Filter: transcriptstore.Filter{Until: &midnight}},
+			want: query{Filter: transcriptstore.Filter{Until: &midnight}},
 		},
 		{
 			name: "one day by date",
 			text: "on:2026-09-20",
-			want: Query{Filter: transcriptstore.Filter{
+			want: query{Filter: transcriptstore.Filter{
 				Since: xptr.Ptr(time.Date(2026, 9, 20, 0, 0, 0, 0, zone)),
 				Until: xptr.Ptr(time.Date(2026, 9, 21, 0, 0, 0, 0, zone)),
 			}},
@@ -142,25 +142,25 @@ func TestParseQuery(t *testing.T) {
 		{
 			name: "a sort",
 			text: "sort:new",
-			want: Query{Sort: transcriptstore.SortNewest},
+			want: query{Sort: transcriptstore.SortNewest},
 		},
 		{
 			name: "a key this search does not know stays a word",
 			text: "http://localhost:5460 state:idle",
-			want: Query{Words: "http://localhost:5460 state:idle"},
+			want: query{Words: "http://localhost:5460 state:idle"},
 		},
 		{
 			name: "a quoted qualifier is a phrase",
 			text: `"from:me"`,
-			want: Query{Words: `"from:me"`},
+			want: query{Words: `"from:me"`},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseQuery(tt.text, now)
+			got, err := parseQuery(tt.text, now)
 			if tt.wantErr != "" {
-				require.ErrorIs(t, err, ErrBadQualifier)
+				require.ErrorIs(t, err, errBadQualifier)
 				assert.ErrorContains(t, err, tt.wantErr)
 
 				return
@@ -177,7 +177,7 @@ func TestParseQueryKnowsEveryListedQualifier(t *testing.T) {
 	sample := strings.NewReplacer("NAME", "payouts", "DATE", "2026-09-20")
 	for _, listed := range searchsyntax.Qualifiers {
 		t.Run(listed.Syntax, func(t *testing.T) {
-			got, err := ParseQuery(sample.Replace(listed.Syntax), time.Now())
+			got, err := parseQuery(sample.Replace(listed.Syntax), time.Now())
 			require.NoError(t, err)
 			assert.Empty(t, got.Words)
 		})

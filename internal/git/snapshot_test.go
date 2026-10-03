@@ -87,7 +87,7 @@ func TestIntegrationASnapshotIsRefusedPartWayThroughAMerge(t *testing.T) {
 	require.Error(t, exec.Command("git", "-C", root, "merge", "main").Run())
 
 	_, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
-	require.ErrorIs(t, err, ErrSequenceInProgress)
+	require.ErrorIs(t, err, errSequenceInProgress)
 
 	run(t, root, "merge", "--abort")
 

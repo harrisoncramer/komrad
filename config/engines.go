@@ -14,9 +14,9 @@ const enginesDirVariable = "KOMRAD_ENGINES_DIR"
 // LocalEngine is the name that means this machine's own engine.
 const LocalEngine = "local"
 
-// EnginesDir holds one file per engine this machine knows how to reach, or is the directory
+// enginesDir holds one file per engine this machine knows how to reach, or is the directory
 // KOMRAD_ENGINES_DIR names.
-func EnginesDir() (string, error) {
+func enginesDir() (string, error) {
 	if dir := os.Getenv(enginesDirVariable); dir != "" {
 		return dir, nil
 	}
@@ -40,7 +40,7 @@ func EnginePath(name string) (string, error) {
 		return "", fmt.Errorf("%q is not an engine name: an engine is a file in the engines directory, not a path", name)
 	}
 
-	dir, err := EnginesDir()
+	dir, err := enginesDir()
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +55,7 @@ func EnginePath(name string) (string, error) {
 
 // EngineNames lists the engines this machine knows how to reach, sorted.
 func EngineNames() ([]string, error) {
-	dir, err := EnginesDir()
+	dir, err := enginesDir()
 	if err != nil {
 		return nil, err
 	}

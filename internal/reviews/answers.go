@@ -9,16 +9,16 @@ import (
 	reviewstore "komrad/internal/store/review"
 )
 
-// ErrReviewAddressedByOwner is answered when anyone but the agent a thread is on replies with addressed.
-var ErrReviewAddressedByOwner = fail.Denied("only the agent whose work a comment is on can reply with addressed")
+// errReviewAddressedByOwner is answered when anyone but the agent a thread is on replies with addressed.
+var errReviewAddressedByOwner = fail.Denied("only the agent whose work a comment is on can reply with addressed")
 
-// ErrReviewNothingAddressed is answered when an addressed reply comes while the worktree is unchanged since the thread was written.
-var ErrReviewNothingAddressed = fail.Precondition(
+// errReviewNothingAddressed is answered when an addressed reply comes while the worktree is unchanged since the thread was written.
+var errReviewNothingAddressed = fail.Precondition(
 	"your worktree holds the same tree this comment was written on, so there is no change to show; " +
 		"make the change first, or reply without addressed to push back or ask")
 
-// ErrReviewNoAnswerRound is answered when an addressed reply comes from an agent with no worktree to take a round of.
-var ErrReviewNoAnswerRound = fail.Precondition("you have no worktree to take a round of, so reply without addressed instead")
+// errReviewNoAnswerRound is answered when an addressed reply comes from an agent with no worktree to take a round of.
+var errReviewNoAnswerRound = fail.Precondition("you have no worktree to take a round of, so reply without addressed instead")
 
 // replyHint is what a plain reply is told when the worktree has moved since its thread was written.
 const replyHint = "Your worktree has changed since this comment was written. " +
@@ -34,14 +34,14 @@ func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.
 
 	answer, err := s.OpenRound(ctx, thread.AgentID, author)
 	if errors.Is(err, ErrReviewNoRound) {
-		return nil, ErrReviewNoAnswerRound
+		return nil, errReviewNoAnswerRound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to take the round that answers the comment: %w", err)
 	}
 
 	if answer.SnapshotSHA == written.SnapshotSHA {
-		return nil, ErrReviewNothingAddressed
+		return nil, errReviewNothingAddressed
 	}
 
 	return answer, nil

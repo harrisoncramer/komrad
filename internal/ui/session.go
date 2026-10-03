@@ -108,8 +108,8 @@ func (s *Session) ReleaseLeader() {
 	s.leaderHeld = false
 }
 
-// Hide detaches every client from the panel's session, leaving the session alive for the next attach.
-func (s *Session) Hide() {
+// hide detaches every client from the panel's session, leaving the session alive for the next attach.
+func (s *Session) hide() {
 	s.tmux.DetachSession(s.session)
 }
 

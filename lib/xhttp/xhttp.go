@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// DefaultMaxBytes bounds a response body when a caller names no cap.
-const DefaultMaxBytes = 8 << 20
+// defaultMaxBytes bounds a response body when a caller names no cap.
+const defaultMaxBytes = 8 << 20
 
 // Answer is what came back, with the body read out and closed.
 type Answer struct {
@@ -46,11 +46,11 @@ type JSONParams struct {
 func JSON(ctx context.Context, params JSONParams, out any) (Answer, error) {
 	client := params.Client
 	if client == nil {
-		client = NewClient(DefaultTimeout)
+		client = NewClient(defaultTimeout)
 	}
 	maxBytes := params.MaxBytes
 	if maxBytes == 0 {
-		maxBytes = DefaultMaxBytes
+		maxBytes = defaultMaxBytes
 	}
 
 	var payload io.Reader
@@ -106,8 +106,8 @@ func JSON(ctx context.Context, params JSONParams, out any) (Answer, error) {
 	return answer, nil
 }
 
-// DefaultTimeout bounds a whole call made through a client that names no timeout of its own.
-const DefaultTimeout = 30 * time.Second
+// defaultTimeout bounds a whole call made through a client that names no timeout of its own.
+const defaultTimeout = 30 * time.Second
 
 // dialTimeout bounds the TCP connect.
 const dialTimeout = 10 * time.Second

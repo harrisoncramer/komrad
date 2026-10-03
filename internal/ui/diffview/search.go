@@ -26,7 +26,7 @@ type search struct {
 // through the panel's own filter.
 func (v *View) SetPattern(pattern *regexp.Regexp) int {
 	if pattern == nil {
-		v.ClearSearch()
+		v.clearSearch()
 
 		return 0
 	}
@@ -52,8 +52,8 @@ func (v *View) SetPattern(pattern *regexp.Regexp) int {
 	return len(found.rows)
 }
 
-// ClearSearch forgets the pattern and everything it found.
-func (v *View) ClearSearch() {
+// clearSearch forgets the pattern and everything it found.
+func (v *View) clearSearch() {
 	v.search = nil
 }
 
@@ -107,8 +107,8 @@ func (v *View) MatchNumber(y int) (int, bool) {
 	return index + 1, true
 }
 
-// JumpMatch is the next or previous line the pattern was found on, wrapping at the ends.
-func (v *View) JumpMatch(y, direction int) (int, bool) {
+// jumpMatch is the next or previous line the pattern was found on, wrapping at the ends.
+func (v *View) jumpMatch(y, direction int) (int, bool) {
 	if v.search == nil {
 		return y, false
 	}

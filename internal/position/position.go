@@ -42,8 +42,8 @@ type FileMapping struct {
 	NewPath string
 }
 
-// IsDeleted reports whether the later commit holds no file for this mapping.
-func (f FileMapping) IsDeleted() bool {
+// isDeleted reports whether the later commit holds no file for this mapping.
+func (f FileMapping) isDeleted() bool {
 	return f.NewPath == ""
 }
 
@@ -59,34 +59,34 @@ type Mapping struct {
 	Ranges []RangeMapping
 }
 
-// Policy is what to do with a position whose lines the later commit rewrote.
-type Policy uint8
+// policy is what to do with a position whose lines the later commit rewrote.
+type policy uint8
 
 const (
 	// OmitOnConflict gives up on a position the later commit wrote over.
-	OmitOnConflict Policy = iota
+	OmitOnConflict policy = iota
 
 	// FileOnConflict keeps the file of a position the later commit wrote over and lets its lines go.
 	FileOnConflict
 )
 
-// Outcome is what became of one position.
-type Outcome uint8
+// outcome is what became of one position.
+type outcome uint8
 
 const (
 	// Placed is a position the later commit holds lines for.
-	Placed Outcome = iota
+	Placed outcome = iota
 
-	// FileOnly is a position whose lines are gone and whose file is not.
-	FileOnly
+	// fileOnly is a position whose lines are gone and whose file is not.
+	fileOnly
 
-	// Dropped is a position with nothing left to stand on.
-	Dropped
+	// dropped is a position with nothing left to stand on.
+	dropped
 )
 
 // Result is where one position ended up, named by the index it arrived at.
 type Result struct {
 	Index    int
 	Position Position
-	Outcome  Outcome
+	Outcome  outcome
 }

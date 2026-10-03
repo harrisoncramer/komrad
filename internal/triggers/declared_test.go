@@ -30,7 +30,7 @@ const (
 func TestTheSchemaCarriesExactlyTheDeclaredTriggers(t *testing.T) {
 	pool := openPool(t)
 
-	tables := Tables()
+	tables := tables()
 	assert.Equal(t,
 		listStrings(t, pool, `
 			SELECT
@@ -123,7 +123,7 @@ func TestTheSchemaCarriesExactlyTheDeclaredFunctions(t *testing.T) {
 // TestEveryDeclaredFunctionIsRun pins that no declared function is left without a trigger running it.
 func TestEveryDeclaredFunctionIsRun(t *testing.T) {
 	run := map[string]bool{}
-	for _, table := range Tables() {
+	for _, table := range tables() {
 		for _, trigger := range table.Triggers {
 			run[trigger.Function] = true
 		}
@@ -139,7 +139,7 @@ func TestEveryUpdatedAtColumnIsStamped(t *testing.T) {
 	pool := openPool(t)
 
 	stamped := map[string]bool{}
-	for _, table := range Tables() {
+	for _, table := range tables() {
 		stamped[table.Name] = slices.ContainsFunc(table.Triggers, func(trigger Trigger) bool {
 			return trigger.Name == setUpdatedAt.Name && trigger.Function == setUpdatedAt.Function
 		})

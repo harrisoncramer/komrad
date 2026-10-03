@@ -16,22 +16,22 @@ import (
 )
 
 const (
-	// WatchCoalesce is how long a change waits for the changes behind it before the listing goes
+	// watchCoalesce is how long a change waits for the changes behind it before the listing goes
 	// out.
-	WatchCoalesce = 25 * time.Millisecond
-	// WatchSilence is how long a stream may say nothing before it is taken for dead, which is
+	watchCoalesce = 25 * time.Millisecond
+	// watchSilence is how long a stream may say nothing before it is taken for dead, which is
 	// twice the service's heartbeat.
-	WatchSilence = 30 * time.Second
-	// WatchRetry is the wait before the first reopen, doubling each time up to WatchMaxRetry.
-	WatchRetry    = time.Second
-	WatchMaxRetry = 15 * time.Second
+	watchSilence = 30 * time.Second
+	// watchRetry is the wait before the first reopen, doubling each time up to WatchMaxRetry.
+	watchRetry    = time.Second
+	watchMaxRetry = 15 * time.Second
 )
 
 // WatchBatch is the events one stream delivered together, in the order they arrived.
 type WatchBatch []*watchv1.WatchEvent
 
-// WatchStream is one open watch, which the stream a connect client answers with is.
-type WatchStream interface {
+// watchStream is one open watch, which the stream a connect client answers with is.
+type watchStream interface {
 	Receive() bool
 	Msg() *watchv1.WatchEvent
 	Err() error
@@ -39,8 +39,8 @@ type WatchStream interface {
 }
 
 // OpenWatch is the Open a connect client answers.
-func OpenWatch(watches watchv1connect.WatchServiceClient) func(ctx context.Context) (WatchStream, error) {
-	return func(ctx context.Context) (WatchStream, error) {
+func OpenWatch(watches watchv1connect.WatchServiceClient) func(ctx context.Context) (watchStream, error) {
+	return func(ctx context.Context) (watchStream, error) {
 		stream, err := watches.Watch(ctx, connect.NewRequest(&emptypb.Empty{}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to open the watch: %w", err)
@@ -53,7 +53,7 @@ func OpenWatch(watches watchv1connect.WatchServiceClient) func(ctx context.Conte
 // WatchParams says how a watch is opened and who is told what it carries.
 type WatchParams struct {
 	// Open starts one stream.
-	Open func(ctx context.Context) (WatchStream, error)
+	Open func(ctx context.Context) (watchStream, error)
 	// OnBatch is handed each batch of events, the first of a stream opening with its snapshot.
 	OnBatch func(WatchBatch)
 	// OnLost is told a stream has ended, with the error that ended it or nil for a close the
@@ -93,10 +93,10 @@ func Watch(ctx context.Context, params WatchParams) {
 }
 
 func (p WatchParams) withDefaults() WatchParams {
-	p.Coalesce = cmp.Or(p.Coalesce, WatchCoalesce)
-	p.Silence = cmp.Or(p.Silence, WatchSilence)
-	p.Retry = cmp.Or(p.Retry, WatchRetry)
-	p.MaxRetry = cmp.Or(p.MaxRetry, WatchMaxRetry)
+	p.Coalesce = cmp.Or(p.Coalesce, watchCoalesce)
+	p.Silence = cmp.Or(p.Silence, watchSilence)
+	p.Retry = cmp.Or(p.Retry, watchRetry)
+	p.MaxRetry = cmp.Or(p.MaxRetry, watchMaxRetry)
 
 	if p.OnLost == nil {
 		p.OnLost = func(error) {}

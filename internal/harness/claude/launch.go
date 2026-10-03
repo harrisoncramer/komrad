@@ -114,16 +114,16 @@ func settingsFileName(role string) string {
 	return fmt.Sprintf("komrad-settings-%s.json", role)
 }
 
-// HookInstall is how komrad answers one Claude event, kept a struct so an event needing a matcher
+// hookInstall is how komrad answers one Claude event, kept a struct so an event needing a matcher
 // of its own is a field here.
-type HookInstall struct {
+type hookInstall struct {
 	Subcommand     string
 	Matcher        string
 	TakesNoReading bool
 }
 
 // InstalledHooks is the events komrad answers, keyed by the event Claude fires.
-var InstalledHooks = map[harness.Event]HookInstall{
+var InstalledHooks = map[harness.Event]hookInstall{
 	EventStop:              {Subcommand: "stop"},
 	EventStopFailure:       {Subcommand: "stop-failure"},
 	EventPreToolUse:        {Subcommand: "pre-tool-use"},
@@ -131,7 +131,7 @@ var InstalledHooks = map[harness.Event]HookInstall{
 	EventPermissionRequest: {Subcommand: "permission-request"},
 	EventSessionStart: {
 		Subcommand:     "compacted",
-		Matcher:        CompactMatcher,
+		Matcher:        compactMatcher,
 		TakesNoReading: true,
 	},
 }

@@ -73,7 +73,7 @@ func (r Remote) TunnelArgv(local, engineAddr string) []string {
 
 		return fill(r.Forward, map[string]string{
 			LocalPortPlaceholder:  localPort,
-			RemotePortPlaceholder: enginePort,
+			remotePortPlaceholder: enginePort,
 		})
 	}
 

@@ -57,7 +57,7 @@ func (r *Runs) Since(ctx context.Context, run Run, offset int64, query Query) (*
 }
 
 // reader is a reader over the run the agent recorded by that name.
-func (r *Runs) reader(run Run) (*Reader, error) {
+func (r *Runs) reader(run Run) (*reader, error) {
 	for _, listed := range r.List(run.AgentID) {
 		if filepath.Base(listed.Path) == run.Name {
 			return New(listed.Path), nil

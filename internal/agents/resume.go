@@ -27,8 +27,8 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
-// ErrResumeNotYours is an agent other than an orchestrator resuming an agent that is neither its parent nor its workflow's orchestrator.
-var ErrResumeNotYours = fail.Denied("an agent may resume only its parent and its workflow's orchestrator")
+// errResumeNotYours is an agent other than an orchestrator resuming an agent that is neither its parent nor its workflow's orchestrator.
+var errResumeNotYours = fail.Denied("an agent may resume only its parent and its workflow's orchestrator")
 
 type NewResumeServiceParams struct {
 	Tmux               paneController
@@ -129,7 +129,7 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID stri
 		return nil
 	}
 
-	return ErrResumeNotYours.Saying("%s is neither the parent of %s nor its workflow's orchestrator", target.Name, asker.Name)
+	return errResumeNotYours.Saying("%s is neither the parent of %s nor its workflow's orchestrator", target.Name, asker.Name)
 }
 
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {

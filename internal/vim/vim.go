@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-// Mode is what the keys typed into a field do.
-type Mode int
+// mode is what the keys typed into a field do.
+type mode int
 
 const (
-	// Insert passes typed text to the field.
-	Insert Mode = iota
+	// insert passes typed text to the field.
+	insert mode = iota
 	// Normal reads keys as commands.
 	Normal
 )
@@ -38,8 +38,8 @@ type Buffer struct {
 	Cursor int
 }
 
-// Result is what one key did.
-type Result struct {
+// result is what one key did.
+type result struct {
 	Outcome Outcome
 	Buffer  Buffer
 }
@@ -65,7 +65,7 @@ type Engine struct {
 	singleLine bool
 	register   *Register
 	passes     []string
-	mode       Mode
+	mode       mode
 	pending    []string
 	undo       []Buffer
 	redo       []Buffer
@@ -97,7 +97,7 @@ func New(b Buffer, singleLine bool, register *Register, passes []string) *Engine
 		singleLine: singleLine,
 		register:   register,
 		passes:     passes,
-		mode:       Insert,
+		mode:       insert,
 		before:     b,
 		typedFrom:  b,
 		last:       b,
@@ -105,18 +105,18 @@ func New(b Buffer, singleLine bool, register *Register, passes []string) *Engine
 }
 
 // Mode is the mode the engine is in.
-func (e *Engine) Mode() Mode {
+func (e *Engine) Mode() mode {
 	return e.mode
 }
 
 // Insert puts the engine in insert mode on b, as a field does when the cursor lands on it.
 func (e *Engine) Insert(b Buffer) {
-	if e.mode == Insert {
+	if e.mode == insert {
 		return
 	}
 
 	b = clamp(b)
-	e.mode = Insert
+	e.mode = insert
 	e.pending = nil
 	e.before, e.typedFrom = b, b
 	e.recording = nil
@@ -124,7 +124,7 @@ func (e *Engine) Insert(b Buffer) {
 
 // Normal puts the engine in normal mode on b and is the buffer the field then holds.
 func (e *Engine) Normal(b Buffer) Buffer {
-	if e.mode == Insert {
+	if e.mode == insert {
 		return e.leaveInsert(b).Buffer
 	}
 
@@ -135,15 +135,15 @@ func (e *Engine) Normal(b Buffer) Buffer {
 }
 
 // Key hands the engine one key, named the way bubbletea names it, with the field's buffer as it stands.
-func (e *Engine) Key(key string, b Buffer) Result {
+func (e *Engine) Key(key string, b Buffer) result {
 	b = clamp(b)
 
-	if e.mode == Insert {
+	if e.mode == insert {
 		if isEsc(key) {
 			return e.leaveInsert(b)
 		}
 
-		return Result{Outcome: Pass, Buffer: b}
+		return result{Outcome: Pass, Buffer: b}
 	}
 
 	if b.Text != e.last.Text {
@@ -213,10 +213,10 @@ func isEsc(key string) bool {
 	return key == "esc" || key == "ctrl+["
 }
 
-func (e *Engine) done(outcome Outcome, b Buffer) Result {
+func (e *Engine) done(outcome Outcome, b Buffer) result {
 	e.last = b
 
-	return Result{Outcome: outcome, Buffer: b}
+	return result{Outcome: outcome, Buffer: b}
 }
 
 func (e *Engine) record(b Buffer) {
@@ -227,7 +227,7 @@ func (e *Engine) record(b Buffer) {
 	e.redo = nil
 }
 
-func (e *Engine) run(c command, b Buffer) Result {
+func (e *Engine) run(c command, b Buffer) result {
 	if c.name != "j" && c.name != "k" && c.name != "$" {
 		e.held = false
 	}
@@ -303,13 +303,13 @@ func step(from, to *[]Buffer, b Buffer) Buffer {
 }
 
 func (e *Engine) startInsert(before, at Buffer, recording *change) {
-	e.mode = Insert
+	e.mode = insert
 	e.held = false
 	e.before, e.typedFrom = before, at
 	e.recording = recording
 }
 
-func (e *Engine) leaveInsert(b Buffer) Result {
+func (e *Engine) leaveInsert(b Buffer) result {
 	e.mode = Normal
 	e.pending = nil
 
@@ -350,7 +350,7 @@ func typed(from, to string) string {
 	return string(b[head : len(b)-tail])
 }
 
-func (e *Engine) replay(c command, b Buffer) Result {
+func (e *Engine) replay(c command, b Buffer) result {
 	if e.repeat == nil {
 		return e.done(Consumed, b)
 	}

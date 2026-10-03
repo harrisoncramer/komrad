@@ -39,7 +39,7 @@ type Fake struct {
 	PaneOwnersErr   error
 	RespawnErr      error
 	Shell           string
-	Respawned       map[string][]Respawn
+	Respawned       map[string][]respawn
 	ClientAt        map[string]bool
 	PasteErr        error
 	YankErr         error
@@ -57,8 +57,8 @@ type Fake struct {
 	AttachCommand []string
 }
 
-// Respawn is one respawn of a pane: the directory it started in and the command it ran.
-type Respawn struct {
+// respawn is one respawn of a pane: the directory it started in and the command it ran.
+type respawn struct {
 	Dir  string
 	Argv []string
 }
@@ -83,7 +83,7 @@ func NewFake() *Fake {
 		Globals:        map[string]string{},
 		NewWindows:     map[string]string{},
 		SessionOptions: map[string]string{},
-		Respawned:      map[string][]Respawn{},
+		Respawned:      map[string][]respawn{},
 		ClientAt:       map[string]bool{},
 		Edits:          map[string][]string{},
 		CutFrames:      map[string][]string{},
@@ -279,19 +279,19 @@ func (f *Fake) RespawnPane(pane, dir string, argv ...string) error {
 	if pane == "" {
 		return errors.New("refusing to respawn an empty pane")
 	}
-	f.Respawned[pane] = append(f.Respawned[pane], Respawn{Dir: dir, Argv: argv})
+	f.Respawned[pane] = append(f.Respawned[pane], respawn{Dir: dir, Argv: argv})
 
 	return nil
 }
 
 // LastRespawn is the latest respawn of a pane.
-func (f *Fake) LastRespawn(pane string) Respawn {
+func (f *Fake) LastRespawn(pane string) respawn {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	runs := f.Respawned[pane]
 	if len(runs) == 0 {
-		return Respawn{}
+		return respawn{}
 	}
 
 	return runs[len(runs)-1]

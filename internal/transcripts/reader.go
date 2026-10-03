@@ -53,14 +53,14 @@ type SearchTranscriptsParams struct {
 
 // SearchTranscripts runs a search over the stored transcripts narrowed by the qualifiers the query holds.
 func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchTranscriptsParams) (*transcriptstore.Results, error) {
-	query, err := ParseQuery(params.Query, r.now())
+	query, err := parseQuery(params.Query, r.now())
 	if err != nil {
 		return nil, err
 	}
 
 	scope := params.AgentID
 	if scope == nil && params.Caller != "" {
-		if query.Widens() {
+		if query.widens() {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "agent searched every agent's transcript")
 		} else {
 			scope = &params.Caller

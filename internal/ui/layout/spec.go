@@ -50,8 +50,8 @@ func percent(share float64) int {
 	return int(math.Round(share * 100))
 }
 
-// SidebarWidth is how many of a window's columns the sidebar starts at.
-func (s spec) SidebarWidth(total int) int {
+// sidebarWidth is how many of a window's columns the sidebar starts at.
+func (s spec) sidebarWidth(total int) int {
 	if total <= 0 {
 		return 0
 	}

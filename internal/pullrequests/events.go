@@ -8,23 +8,23 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
-var eventOf = map[Field]map[string]string{
-	FieldState: {
+var eventOf = map[field]map[string]string{
+	fieldState: {
 		"MERGED": eventprompts.PullRequestMerged,
 		"CLOSED": eventprompts.PullRequestClosed,
 	},
-	FieldDecision: {
+	fieldDecision: {
 		"approved":          eventprompts.PullRequestApproved,
 		"changes_requested": eventprompts.PullRequestChangesRequested,
 	},
-	FieldChecks: {
+	fieldChecks: {
 		"failing": eventprompts.PullRequestChecksFailing,
 	},
-	FieldMergeability: {
+	fieldMergeability: {
 		"conflicting": eventprompts.PullRequestConflicting,
 		"behind":      eventprompts.PullRequestBehind,
 	},
-	FieldAutoMerge: {
+	fieldAutoMerge: {
 		forge.AutoMergeOn: eventprompts.PullRequestAutoMergeOn,
 	},
 }
@@ -32,9 +32,9 @@ var eventOf = map[Field]map[string]string{
 // eventsOf is the events a change starts and the events the pull request holds now, an
 // ended pull request holding only its ending and starting it only on the move that ended it.
 func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string, []string) {
-	if ended, ok := eventOf[FieldState][pullRequest.State]; ok {
+	if ended, ok := eventOf[fieldState][pullRequest.State]; ok {
 		endedNow := slices.ContainsFunc(change.Moves, func(move Move) bool {
-			return move.Field == FieldState && move.To == pullRequest.State
+			return move.Field == fieldState && move.To == pullRequest.State
 		})
 		if !endedNow {
 			return nil, []string{ended}

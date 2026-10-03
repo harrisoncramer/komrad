@@ -72,8 +72,8 @@ type TriggerFunction struct {
 	Body string
 }
 
-// Trigger is one row trigger the watch needs attached for its resources to notify.
-type Trigger struct {
+// trigger is one row trigger the watch needs attached for its resources to notify.
+type trigger struct {
 	Name     string
 	Table    string
 	Function string
@@ -81,10 +81,10 @@ type Trigger struct {
 }
 
 // BuildTriggers lists every trigger the resources declare.
-func BuildTriggers(resources []Resource) []Trigger {
-	var triggers []Trigger
+func BuildTriggers(resources []Resource) []trigger {
+	var triggers []trigger
 	for _, resource := range resources {
-		triggers = append(triggers, Trigger{
+		triggers = append(triggers, trigger{
 			Name:     "watch_notify",
 			Table:    resource.Table,
 			Function: "watch_notify",
@@ -92,7 +92,7 @@ func BuildTriggers(resources []Resource) []Trigger {
 		})
 
 		for _, feeder := range resource.Feeders {
-			trigger := Trigger{Name: "watch_subresource_" + resource.Table, Table: feeder.Table}
+			trigger := trigger{Name: "watch_subresource_" + resource.Table, Table: feeder.Table}
 			if lookup := feeder.Lookup; lookup != nil {
 				trigger.Function = "watch_subresource_lookup"
 				trigger.Args = []string{resource.Table, resource.KeyColumn, lookup.ParentColumn, lookup.ChildColumn, lookup.SkipParentsWith, lookup.OnChangeOf}

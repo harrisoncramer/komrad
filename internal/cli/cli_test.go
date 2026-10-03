@@ -219,7 +219,7 @@ func walk(t *testing.T, cmd *cobra.Command, check func(*testing.T, *cobra.Comman
 // TestIntegrationQuietErrorsAreTheOnesAlreadyAnswered pins which failures main prints and which it
 // swallows.
 func TestIntegrationQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
-	for _, quiet := range []error{ErrLogged, ErrReported} {
+	for _, quiet := range []error{errLogged, errReported} {
 		assert.True(t, IsQuiet(quiet), "%v has already been answered", quiet)
 	}
 

@@ -12,22 +12,22 @@ import (
 	"charm.land/huh/v2"
 )
 
-// Checker runs the doctor's checks with these names and reports what they found.
-type Checker func(ctx context.Context, names ...string) doctor.Report
+// checker runs the doctor's checks with these names and reports what they found.
+type checker func(ctx context.Context, names ...string) doctor.Report
 
-// Verdict is what a step makes of what the doctor found.
-type Verdict int
+// verdict is what a step makes of what the doctor found.
+type verdict int
 
 const (
-	VerdictDone Verdict = iota
-	VerdictAsk
-	VerdictRepair
-	VerdictStop
+	verdictDone verdict = iota
+	verdictAsk
+	verdictRepair
+	verdictStop
 )
 
-// Observation is one look at the machine by a step.
-type Observation struct {
-	Verdict Verdict
+// observation is one look at the machine by a step.
+type observation struct {
+	Verdict verdict
 	Detail  string
 	Finding *doctor.Finding
 }
@@ -35,17 +35,17 @@ type Observation struct {
 // Step is one thing setup makes true.
 type Step interface {
 	name() string
-	observe(ctx context.Context, check Checker) Observation
+	observe(ctx context.Context, check checker) observation
 	question() *huh.Form
 	answerUnattended() error
 	repair(ctx context.Context) error
 }
 
-// ErrSkipped is what a repair returns when the person chose to leave the step as it is.
-var ErrSkipped = fail.Precondition("skipped")
+// errSkipped is what a repair returns when the person chose to leave the step as it is.
+var errSkipped = fail.Precondition("skipped")
 
-// ErrNeedsAnswer is what an unattended step returns when a flag has to answer for the person.
-var ErrNeedsAnswer = fail.InvalidArgument("needs an answer")
+// errNeedsAnswer is what an unattended step returns when a flag has to answer for the person.
+var errNeedsAnswer = fail.InvalidArgument("needs an answer")
 
 func firstFailing(report doctor.Report) *doctor.Finding {
 	for i := range report.Findings {
@@ -67,9 +67,9 @@ func findingNamed(report doctor.Report, name string) doctor.Finding {
 	return doctor.Finding{}
 }
 
-func stopOn(finding *doctor.Finding) Observation {
-	return Observation{
-		Verdict: VerdictStop,
+func stopOn(finding *doctor.Finding) observation {
+	return observation{
+		Verdict: verdictStop,
 		Detail:  finding.Error,
 		Finding: finding,
 	}

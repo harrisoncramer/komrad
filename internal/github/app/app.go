@@ -58,8 +58,8 @@ type Token struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// IsFresh reports whether a token is worth handing out rather than minting again.
-func (t Token) IsFresh(now time.Time) bool {
+// isFresh reports whether a token is worth handing out rather than minting again.
+func (t Token) isFresh(now time.Time) bool {
 	return t.Value != "" && t.ExpiresAt.After(now.Add(renewWithin))
 }
 
@@ -100,8 +100,8 @@ func (a Identity) IsConfigured() bool {
 	return a.ID != "" && a.InstallationID != "" && a.PrivateKeyPath != ""
 }
 
-// Mint exchanges the App's key for an installation token.
-func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
+// mint exchanges the App's key for an installation token.
+func (a Identity) mint(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
 	if !a.IsConfigured() {
 		return Token{}, errors.New("no github app is configured, so there is nothing to mint a token from")
 	}
@@ -351,11 +351,11 @@ func (c Cache) Forget() error {
 // Fetch is the cached token when one matches the App and is still worth reusing, and a freshly
 // minted one otherwise.
 func (c Cache) Fetch(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
-	if token := c.Read(); token.IsFresh(now) {
+	if token := c.Read(); token.isFresh(now) {
 		return token, nil
 	}
 
-	token, err := c.Identity.Mint(ctx, client, now)
+	token, err := c.Identity.mint(ctx, client, now)
 	if err != nil {
 		return Token{}, err
 	}

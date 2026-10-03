@@ -28,7 +28,7 @@ func TestTransform(t *testing.T) {
 		name      string
 		positions []Position
 		mappings  []Mapping
-		policy    Policy
+		policy    policy
 		want      []Result
 	}{
 		{
@@ -73,7 +73,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    0,
 					Position: Position{Path: "a.go", Lines: lines(0, 2)},
-					Outcome:  Dropped,
+					Outcome:  dropped,
 				},
 			},
 		},
@@ -88,7 +88,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    0,
 					Position: Position{Path: "a.go", Lines: lines(9, 4)},
-					Outcome:  Dropped,
+					Outcome:  dropped,
 				},
 			},
 		},
@@ -103,7 +103,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    0,
 					Position: Position{Path: "a.go", Lines: lines(10, 12)},
-					Outcome:  Dropped,
+					Outcome:  dropped,
 				},
 			},
 		},
@@ -121,7 +121,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    0,
 					Position: Position{Path: "a.go", Lines: lines(10, 12)},
-					Outcome:  Dropped,
+					Outcome:  dropped,
 				},
 			},
 		},
@@ -139,7 +139,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    0,
 					Position: Position{Path: "moved.go"},
-					Outcome:  FileOnly,
+					Outcome:  fileOnly,
 				},
 			},
 		},
@@ -347,7 +347,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    0,
 					Position: Position{Path: "a.go", Lines: lines(5, 5)},
-					Outcome:  Dropped,
+					Outcome:  dropped,
 				},
 			},
 		},
@@ -365,7 +365,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    0,
 					Position: Position{Path: "a.go"},
-					Outcome:  FileOnly,
+					Outcome:  fileOnly,
 				},
 			},
 		},
@@ -429,7 +429,7 @@ func TestTransform(t *testing.T) {
 				{
 					Index:    1,
 					Position: Position{Path: "gone.go", Lines: lines(1, 2)},
-					Outcome:  Dropped,
+					Outcome:  dropped,
 				},
 				{
 					Index:    2,
@@ -617,7 +617,7 @@ func TestAnInsertionPointIsPlacedOrRefused(t *testing.T) {
 			require.Len(t, results, 1)
 
 			if edit.doesSwallowGap(gap) {
-				assert.Equal(t, Dropped, results[0].Outcome,
+				assert.Equal(t, dropped, results[0].Outcome,
 					"round %d placed gap %d that a rewritten region swallowed", round, gap)
 
 				continue
@@ -653,7 +653,7 @@ func TestEveryPositionIsAnsweredExactlyOnce(t *testing.T) {
 			positions = append(positions, Position{Path: "a.go", Lines: lines(line, line+1)})
 		}
 
-		for _, policy := range []Policy{OmitOnConflict, FileOnConflict} {
+		for _, policy := range []policy{OmitOnConflict, FileOnConflict} {
 			results := Transform(TransformParams{
 				Positions: positions,
 				Mappings:  edit.mappings(),
@@ -691,7 +691,7 @@ func TestOnlyARewrittenLineConflicts(t *testing.T) {
 			require.Len(t, results, 1)
 
 			if edit.doesTouch(line) {
-				assert.Equal(t, FileOnly, results[0].Outcome,
+				assert.Equal(t, fileOnly, results[0].Outcome,
 					"round %d placed line %d that was written over", round, line)
 
 				continue

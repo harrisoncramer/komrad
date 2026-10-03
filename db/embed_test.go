@@ -137,7 +137,7 @@ func TestMigrateSharedDatabase(t *testing.T) {
 
 			err = Migrate(ctx, pool)
 			if tt.refused {
-				require.ErrorIs(t, err, ErrDatabaseInUse)
+				require.ErrorIs(t, err, errDatabaseInUse)
 				assert.Empty(t, appliedVersions(t, pool), "and applied none of them")
 
 				return
@@ -236,11 +236,11 @@ func TestCheckSchemaRefusesOnlyADatabaseBehind(t *testing.T) {
 		"20260102000000_second.sql": {Data: []byte(`ALTER TABLE check_probe ADD COLUMN extra int`)},
 	}
 
-	require.ErrorIs(t, checkSchema(ctx, pool, migrationsOnly(first)), ErrSchemaBehind, "an empty database is behind every build")
+	require.ErrorIs(t, checkSchema(ctx, pool, migrationsOnly(first)), errSchemaBehind, "an empty database is behind every build")
 
 	require.NoError(t, migrate(ctx, pool, migrationsOnly(first)))
 	require.NoError(t, checkSchema(ctx, pool, migrationsOnly(first)))
-	require.ErrorIs(t, checkSchema(ctx, pool, migrationsOnly(both)), ErrSchemaBehind)
+	require.ErrorIs(t, checkSchema(ctx, pool, migrationsOnly(both)), errSchemaBehind)
 
 	require.NoError(t, migrate(ctx, pool, migrationsOnly(both)))
 	require.NoError(t, checkSchema(ctx, pool, migrationsOnly(both)))
@@ -538,7 +538,7 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"unit_probe.v1.sql": {Data: []byte(`SELECT 1/0;`)},
 	}
 	require.Error(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: broken}))
-	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: attached}), ErrSchemaBehind, "a unit owed by a migration stays owed after a failed run")
+	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: attached}), errSchemaBehind, "a unit owed by a migration stays owed after a failed run")
 	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: attached}))
 	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"), "a migration that rebuilds a table gets its triggers back")
 
@@ -546,7 +546,7 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"_functions.v1.sql": attached["_functions.v1.sql"],
 		"unit_probe.v2.sql": {Data: []byte(`DROP TRIGGER IF EXISTS mark_seen ON unit_probe;`)},
 	}
-	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: detached}), ErrSchemaBehind)
+	require.ErrorIs(t, checkSchema(ctx, pool, &sources{migrations: recreated, triggers: detached}), errSchemaBehind)
 	require.NoError(t, migrate(ctx, pool, &sources{migrations: recreated, triggers: detached}))
 	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool))
 	assert.False(t, triggerExists(t, pool, "unit_probe", "mark_seen"))

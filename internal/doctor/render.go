@@ -97,7 +97,7 @@ func measureNameColumn(findings []Finding) int {
 	return width
 }
 
-func describeSummary(summary Summary) string {
+func describeSummary(summary summary) string {
 	if summary.Healthy && summary.Warn == 0 {
 		return fmt.Sprintf("%d checks, all ok.", summary.Total)
 	}

@@ -50,7 +50,7 @@ func TestCheck(t *testing.T) {
 
 			err := Check(colors)
 			if tt.wantErr != "" {
-				require.ErrorIs(t, err, ErrBadColor)
+				require.ErrorIs(t, err, errBadColor)
 				assert.ErrorContains(t, err, tt.wantErr)
 
 				return

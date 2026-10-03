@@ -191,8 +191,8 @@ func TestIntegrationNewWindowAlongsideASameNamedWindow(t *testing.T) {
 func TestIntegrationSessionClientWithNothingAttached(t *testing.T) {
 	client := testServer(t, "detached")
 
-	assert.Empty(t, client.GetSessionClient("$0"))
-	assert.Empty(t, client.GetSessionClient("$99"))
+	assert.Empty(t, client.getSessionClient("$0"))
+	assert.Empty(t, client.getSessionClient("$99"))
 }
 
 // TestIntegrationNewWindowRepeatedly covers several agents launching into the same session, which is
@@ -552,7 +552,7 @@ func TestIntegrationDetachSessionLeavesThePaneProcessesRunning(t *testing.T) {
 
 	client.DetachSession("detach")
 
-	assert.Empty(t, client.GetSessionClient("detach"), "nothing is attached to it any more")
+	assert.Empty(t, client.getSessionClient("detach"), "nothing is attached to it any more")
 
 	panes, err := client.query("list-panes", "-t", "detach:", "-F", "#{pane_id}")
 	require.NoError(t, err)
@@ -637,7 +637,7 @@ func TestIntegrationClientAtPath(t *testing.T) {
 	byName.SetGlobal("@probe", "here")
 
 	byPath := NewClientAtPath(socketPath(t, socket))
-	assert.Equal(t, "here", byPath.ShowGlobal("@probe"))
+	assert.Equal(t, "here", byPath.showGlobal("@probe"))
 }
 
 func newTestServer(t *testing.T, role string) string {

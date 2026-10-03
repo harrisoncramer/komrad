@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func basesEnv(bases []WorkflowBase, readErr error, held map[string]bool) Env {
+func basesEnv(bases []workflowBase, readErr error, held map[string]bool) Env {
 	return Env{
 		Settings: Settings{DatabaseURL: writableURL},
-		ReadWorkflowBases: func(context.Context, string) ([]WorkflowBase, error) {
+		ReadWorkflowBases: func(context.Context, string) ([]workflowBase, error) {
 			return bases, readErr
 		},
 		ResolveBase: func(_ context.Context, dir, base string) (string, error) {
@@ -33,7 +33,7 @@ func basesEnv(bases []WorkflowBase, readErr error, held map[string]bool) Env {
 // TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase is the point of this check: the row the
 // migration backfilled as main on a repository that never had one is named, and nothing else is.
 func TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase(t *testing.T) {
-	bases := []WorkflowBase{
+	bases := []workflowBase{
 		{
 			Name: "backend",
 			Cwd:  "/repo/backend",
@@ -67,7 +67,7 @@ func TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase(t *testing.T) {
 // TestBasesCheckPassesWhenEveryCloneHoldsItsBase covers the ordinary machine, counting only the
 // workflows whose cwd is a repository.
 func TestBasesCheckPassesWhenEveryCloneHoldsItsBase(t *testing.T) {
-	bases := []WorkflowBase{
+	bases := []workflowBase{
 		{
 			Name: "backend",
 			Cwd:  "/repo/backend",

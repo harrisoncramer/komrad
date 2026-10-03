@@ -33,11 +33,11 @@ var (
 	// ErrNoWorktree says the agent sits in a directory komrad did not cut.
 	ErrNoWorktree = fail.Precondition("this agent has no worktree of its own for komrad to act on")
 
-	// ErrBusy says something else is already moving the worktree.
-	ErrBusy = fail.Precondition("something else is already moving this worktree")
+	// errBusy says something else is already moving the worktree.
+	errBusy = fail.Precondition("something else is already moving this worktree")
 
-	// ErrSelf says an agent asked komrad to act on the checkout it is working in.
-	ErrSelf = fail.InvalidArgument("an agent cannot rebase, push or abort in the checkout it is working in")
+	// errSelf says an agent asked komrad to act on the checkout it is working in.
+	errSelf = fail.InvalidArgument("an agent cannot rebase, push or abort in the checkout it is working in")
 )
 
 // parkSpace is the ref namespace a park sits under.
@@ -153,7 +153,7 @@ func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget
 	}
 
 	if agent.State == agentstore.StateSettingUp {
-		return nil, fmt.Errorf("%w: %q is still being set up", ErrBusy, agent.Name)
+		return nil, fmt.Errorf("%w: %q is still being set up", errBusy, agent.Name)
 	}
 
 	// A child runs in its parent's checkout, so this would act on the parent's branch.
@@ -203,7 +203,7 @@ func (s *Service) refuseTheCaller(ctx context.Context, agent agentstore.Agent) e
 		return nil
 	}
 	if from == agent.ID {
-		return fmt.Errorf("%w: %q is the one it is working in", ErrSelf, agent.Name)
+		return fmt.Errorf("%w: %q is the one it is working in", errSelf, agent.Name)
 	}
 
 	asker, err := s.agents.GetByID(ctx, from)
@@ -217,7 +217,7 @@ func (s *Service) refuseTheCaller(ctx context.Context, agent agentstore.Agent) e
 		return nil
 	}
 
-	return fmt.Errorf("%w: %q sits in %s", ErrSelf, agent.Name, asker.Cwd)
+	return fmt.Errorf("%w: %q sits in %s", errSelf, agent.Name, asker.Cwd)
 }
 
 // queueEvent queues one event about an agent on its own, warning rather than failing when it cannot.
@@ -236,9 +236,9 @@ func (s *Service) queueEvent(ctx context.Context, agentID string, payload events
 
 // lockTree takes the lock on a checkout, refusing one something else is already moving.
 func (s *Service) lockTree(dir string) (func(), error) {
-	unlock, taken := s.locks.TryLock(dir)
+	unlock, taken := s.locks.tryLock(dir)
 	if !taken {
-		return nil, fmt.Errorf("%w: %s", ErrBusy, dir)
+		return nil, fmt.Errorf("%w: %s", errBusy, dir)
 	}
 
 	return unlock, nil

@@ -57,7 +57,7 @@ func (d *AgentDelete) DeleteAgents(ctx context.Context, ids []string) error {
 
 // Resume queues a delete for every claimed root no waiting job covers.
 func (d *AgentDelete) Resume(ctx context.Context) error {
-	waiting, err := d.queue.ListWaiting(ctx, internaljobs.DeleteAgentArgs{}.Kind())
+	waiting, err := d.queue.listWaiting(ctx, internaljobs.DeleteAgentArgs{}.Kind())
 	if err != nil {
 		return err
 	}
