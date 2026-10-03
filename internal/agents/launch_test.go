@@ -924,8 +924,7 @@ func (a *archivingSetupLifecycle) RunProvision(ctx context.Context, agent agents
 	return a.fakeLifecycle.RunProvision(ctx, agent, name)
 }
 
-// TestNewAgentArchivedDuringSetupIsNotLaunched pins an archive that lands while setup runs
-// keeping the agent out of a pane.
+// TestNewAgentArchivedDuringSetupIsNotLaunched pins the window opened for an agent archived mid-setup being killed before any CLI starts in it.
 func TestNewAgentArchivedDuringSetupIsNotLaunched(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
