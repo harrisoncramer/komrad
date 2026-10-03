@@ -518,12 +518,12 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 // hurries a state change the frame already supports rather than overriding what the pane says.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
-		name       string
-		frames     []string
-		passGap    time.Duration
-		seenAge    time.Duration
-		want       agentstore.State
-		wantMisses int
+		name         string
+		frames       []string
+		clockStep    time.Duration
+		backdateSeen time.Duration
+		want         agentstore.State
+		wantMisses   int
 	}{
 		{
 			name:   "a boundary against a frame still showing work does not move it",
@@ -533,7 +533,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 		{
 			name:       "a boundary older than the grace does not settle a later idle frame",
 			frames:     []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
-			passGap:    turnBoundaryGrace,
+			clockStep:  turnBoundaryGrace,
 			want:       agentstore.StateThinking,
 			wantMisses: 1,
 		},
@@ -543,16 +543,16 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			want:   agentstore.StateIdle,
 		},
 		{
-			name:    "a boundary outlasts a frame still showing work until the idle frame comes",
-			frames:  []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
-			passGap: 2 * time.Second,
-			want:    agentstore.StateIdle,
+			name:      "a boundary outlasts a frame still showing work until the idle frame comes",
+			frames:    []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			clockStep: 2 * time.Second,
+			want:      agentstore.StateIdle,
 		},
 		{
-			name:    "a boundary outlasts a working frame that rewrites the state seen time",
-			frames:  []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
-			seenAge: stateSeenCoalesce + time.Minute,
-			want:    agentstore.StateIdle,
+			name:         "a boundary outlasts a working frame that rewrites the state seen time",
+			frames:       []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			backdateSeen: stateSeenCoalesce + time.Minute,
+			want:         agentstore.StateIdle,
 		},
 	}
 
@@ -561,8 +561,8 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
-			if tt.seenAge > 0 {
-				backdateStateSeen(t, st, agent.ID, tt.seenAge)
+			if tt.backdateSeen > 0 {
+				backdateStateSeen(t, st, agent.ID, tt.backdateSeen)
 			}
 
 			tmux := tmuxtest.NewFake()
@@ -580,7 +580,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			for _, frame := range tt.frames {
 				tmux.Captures["%1"] = frame
 				require.NoError(t, rec.Reconcile(ctx))
-				now = now.Add(tt.passGap)
+				now = now.Add(tt.clockStep)
 			}
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 			assert.Equal(t, tt.wantMisses, rec.tally.read(agent.ID).misses)
