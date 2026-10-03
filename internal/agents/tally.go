@@ -117,14 +117,13 @@ func (t *tally) clearMisses(agentID string) {
 }
 
 // clearDebounce drops what an agent had accrued towards a transition once one has been decided,
-// leaving the frame hash.
+// leaving the frame hash and the turn boundary.
 func (t *tally) clearDebounce(agentID string) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
 		entry.missesToward = ""
 		entry.listingsMissing = 0
 		entry.shellSince = time.Time{}
-		entry.turnBoundary = time.Time{}
 		entry.unrecognizedHolds = 0
 	})
 }

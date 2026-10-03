@@ -518,19 +518,24 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 // hurries a state change the frame already supports rather than overriding what the pane says.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
-		name  string
-		frame string
-		want  agentstore.State
+		name   string
+		frames []string
+		want   agentstore.State
 	}{
 		{
-			name:  "a boundary against a frame still showing work does not move it",
-			frame: harnesstest.FrameWorking,
-			want:  agentstore.StateThinking,
+			name:   "a boundary against a frame still showing work does not move it",
+			frames: []string{harnesstest.FrameWorking},
+			want:   agentstore.StateThinking,
 		},
 		{
-			name:  "a boundary against an idle frame skips the miss counter",
-			frame: harnesstest.FrameIdle,
-			want:  agentstore.StateIdle,
+			name:   "a boundary against an idle frame skips the miss counter",
+			frames: []string{harnesstest.FrameIdle},
+			want:   agentstore.StateIdle,
+		},
+		{
+			name:   "a boundary outlasts a frame still showing work until the idle frame comes",
+			frames: []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
+			want:   agentstore.StateIdle,
 		},
 	}
 
@@ -542,7 +547,6 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = agent.ID
-			tmux.Captures["%1"] = tt.frame
 
 			rec := NewReconciler(NewReconcilerParams{
 				Panes:    tmux,
@@ -552,7 +556,10 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 			rec.RecordTurnBoundary(agent.ID)
 
-			require.NoError(t, rec.Reconcile(ctx))
+			for _, frame := range tt.frames {
+				tmux.Captures["%1"] = frame
+				require.NoError(t, rec.Reconcile(ctx))
+			}
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 			assert.Zero(t, rec.tally.read(agent.ID).misses, "the boundary settles it in one pass rather than accruing a miss")
 		})
