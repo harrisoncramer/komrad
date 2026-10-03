@@ -22,10 +22,10 @@ func TestErrorText(t *testing.T) {
 	assert.Equal(t, "boom", err.Error())            // want `a test hands EqualError the error itself, not the text of Equal`
 	assert.Equalf(t, "boom", err.Error(), "%d", 1)  // want `a test hands EqualErrorf the error itself, not the text of Equalf`
 	require.Equal(t, want.Error(), err.Error())     // want `a test hands EqualError the error itself, not the text of Equal`
+	assert.Equal(t, err.Error(), "boom")            // want `a test hands EqualError the error itself, not the text of Equal`
 
 	assert.Contains(t, "boom", err.Error())
 	assert.NotContains(t, err.Error(), "x")
-	assert.Equal(t, err.Error(), "boom")
 	assert.Equal(t, 0, text{}.Error())
 	(&assert.Assertions{}).Contains(err.Error(), "bo")
 }

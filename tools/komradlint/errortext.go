@@ -12,16 +12,16 @@ import (
 const errorTextDoc = "Checks that a test matches an error's text through assert.ErrorContains or " +
 	"assert.EqualError instead of calling Error on it, so a nil error fails rather than panics."
 
-// errorTextChecks maps each testify check to the argument it reads the error's text from and
+// errorTextChecks maps each testify check to the arguments it reads the error's text from and
 // the check that takes the error itself.
 var errorTextChecks = map[string]struct {
-	arg  int
+	args []int
 	want string
 }{
-	"Contains":  {arg: 1, want: "ErrorContains"},
-	"Containsf": {arg: 1, want: "ErrorContainsf"},
-	"Equal":     {arg: 2, want: "EqualError"},
-	"Equalf":    {arg: 2, want: "EqualErrorf"},
+	"Contains":  {args: []int{1}, want: "ErrorContains"},
+	"Containsf": {args: []int{1}, want: "ErrorContainsf"},
+	"Equal":     {args: []int{1, 2}, want: "EqualError"},
+	"Equalf":    {args: []int{1, 2}, want: "EqualErrorf"},
 }
 
 // testifyPackages are the packages whose checks the rule reads.
@@ -69,7 +69,7 @@ func reportErrorTexts(pass *analysis.Pass, file *ast.File) {
 		name := testifyCheck(pass, call)
 
 		check, ok := errorTextChecks[name]
-		if !ok || len(call.Args) <= check.arg || !isErrorText(pass, call.Args[check.arg]) {
+		if !ok || !hasErrorText(pass, call, check.args) {
 			return true
 		}
 
@@ -107,4 +107,15 @@ func isErrorText(pass *analysis.Pass, expr ast.Expr) bool {
 	}
 
 	return isError(pass.TypesInfo.TypeOf(selector.X))
+}
+
+// hasErrorText says whether any of the arguments at the positions calls Error on an error.
+func hasErrorText(pass *analysis.Pass, call *ast.CallExpr, positions []int) bool {
+	for _, position := range positions {
+		if position < len(call.Args) && isErrorText(pass, call.Args[position]) {
+			return true
+		}
+	}
+
+	return false
 }
