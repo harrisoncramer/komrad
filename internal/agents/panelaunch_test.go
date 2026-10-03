@@ -529,8 +529,7 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{})
 
 	assert.Contains(t, prompt, "add_review_message", "answering a review reaches every agent")
-	assert.Contains(t, prompt, "spawn that one with request_review rather than create_agent",
-		"since create_agent cannot mark a reviewer, and an unmarked child is told none of this")
+	assert.Contains(t, prompt, "Never spawn agents with your CLI's own subagent tools", "since komrad tracks no agent it did not launch")
 	assert.Contains(t, prompt, "never touches a forge", "so does the rule against mailing one")
 	assert.Contains(t, prompt, "Never watch, poll, or wait on a pull request's checks",
 		"since a turn spent watching is one in which komrad's mail about the pull request cannot arrive")
