@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -22,6 +24,8 @@ import (
 )
 
 var created atomic.Int64
+
+const watchdogScript = `while kill -0 "$1" 2>/dev/null; do sleep 1; done; tmux -L "$2" kill-server`
 
 type Server struct {
 	t      *testing.T
@@ -36,7 +40,16 @@ func New(t *testing.T) *Server {
 	require.NoError(t, err, "tmux is not installed")
 
 	server := &Server{t: t, socket: fmt.Sprintf("komradtest-%d-%d", os.Getpid(), created.Add(1))}
-	t.Cleanup(func() { _ = exec.Command("tmux", "-L", server.socket, "kill-server").Run() })
+
+	watchdog := exec.Command("sh", "-c", watchdogScript, "watchdog", strconv.Itoa(os.Getpid()), server.socket)
+	watchdog.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	require.NoError(t, watchdog.Start(), "failed to start the tmux server's watchdog")
+
+	t.Cleanup(func() {
+		_ = exec.Command("tmux", "-L", server.socket, "kill-server").Run()
+		_ = watchdog.Process.Kill()
+		_ = watchdog.Wait()
+	})
 
 	return server
 }
@@ -56,7 +69,7 @@ func (s *Server) Client() *tmux.Client {
 func (s *Server) Run(args ...string) string {
 	s.t.Helper()
 
-	out, err := exec.Command("tmux", append([]string{"-L", s.socket}, args...)...).Output()
+	out, err := exec.Command("tmux", append([]string{"-L", s.socket, "-f", "/dev/null"}, args...)...).Output()
 	require.NoError(s.t, err, "tmux %v", args)
 
 	return strings.TrimSpace(string(out))
