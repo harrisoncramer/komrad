@@ -272,8 +272,10 @@ const (
 	Checks_CHECKS_PENDING Checks = 2
 	// Every check passed.
 	Checks_CHECKS_PASSING Checks = 3
-	// At least one check failed.
+	// At least one check failed and the run has finished.
 	Checks_CHECKS_FAILING Checks = 4
+	// At least one check failed while others are still running.
+	Checks_CHECKS_FAILING_RUNNING Checks = 5
 )
 
 // Enum value maps for Checks.
@@ -284,13 +286,15 @@ var (
 		2: "CHECKS_PENDING",
 		3: "CHECKS_PASSING",
 		4: "CHECKS_FAILING",
+		5: "CHECKS_FAILING_RUNNING",
 	}
 	Checks_value = map[string]int32{
-		"CHECKS_UNSPECIFIED": 0,
-		"CHECKS_NONE":        1,
-		"CHECKS_PENDING":     2,
-		"CHECKS_PASSING":     3,
-		"CHECKS_FAILING":     4,
+		"CHECKS_UNSPECIFIED":     0,
+		"CHECKS_NONE":            1,
+		"CHECKS_PENDING":         2,
+		"CHECKS_PASSING":         3,
+		"CHECKS_FAILING":         4,
+		"CHECKS_FAILING_RUNNING": 5,
 	}
 )
 
@@ -896,13 +900,14 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x17REVIEW_DECISION_PENDING\x10\x02\x12\x1c\n" +
 	"\x18REVIEW_DECISION_APPROVED\x10\x03\x12%\n" +
 	"!REVIEW_DECISION_CHANGES_REQUESTED\x10\x04\x12&\n" +
-	"\"REVIEW_DECISION_REREVIEW_REQUESTED\x10\x05*m\n" +
+	"\"REVIEW_DECISION_REREVIEW_REQUESTED\x10\x05*\x89\x01\n" +
 	"\x06Checks\x12\x16\n" +
 	"\x12CHECKS_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\xd8\x02\n" +
+	"\x0eCHECKS_FAILING\x10\x04\x12\x1a\n" +
+	"\x16CHECKS_FAILING_RUNNING\x10\x052\xd8\x02\n" +
 	"\x12PullRequestService\x12\xc1\x02\n" +
 	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
