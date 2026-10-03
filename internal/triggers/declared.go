@@ -32,9 +32,8 @@ type Table struct {
 }
 
 var (
-	setUpdatedAt      = Trigger{Name: "set_updated_at", Timing: "BEFORE", Events: "UPDATE", Function: "set_updated_at"}
-	stampEngine       = Trigger{Name: "stamp_engine", Timing: "BEFORE", Events: "INSERT", Function: "stamp_engine"}
-	seedDocumentTypes = Trigger{Name: "seed_document_types", Timing: "AFTER", Events: "INSERT", Function: "seed_document_types"}
+	setUpdatedAt = Trigger{Name: "set_updated_at", Timing: "BEFORE", Events: "UPDATE", Function: "set_updated_at"}
+	stampEngine  = Trigger{Name: "stamp_engine", Timing: "BEFORE", Events: "INSERT", Function: "stamp_engine"}
 )
 
 var declared = []Table{
@@ -49,7 +48,7 @@ var declared = []Table{
 	{Name: "document_versions", Triggers: []Trigger{stampEngine}},
 	{Name: "documents", Triggers: []Trigger{stampEngine, setUpdatedAt}},
 	{Name: "engine_logins"},
-	{Name: "engines", Triggers: []Trigger{seedDocumentTypes}},
+	{Name: "engines"},
 	{Name: "forge_connections", Triggers: []Trigger{stampEngine}},
 	{Name: "forge_review_comments", Triggers: []Trigger{stampEngine, setUpdatedAt}},
 	{Name: "forge_review_threads", Triggers: []Trigger{stampEngine, setUpdatedAt}},
@@ -87,37 +86,6 @@ END;
 BEGIN
     NEW.engine_id := COALESCE(current_engine(), NEW.engine_id);
     RETURN NEW;
-END;
-`,
-	},
-	{
-		Name: "seed_document_types",
-		Body: `
-BEGIN
-    WITH seeded AS (
-        INSERT INTO document_types (engine_id, name, context)
-            VALUES (NEW.id, 'RFC', $context$A proposal for a change, written before building it.
-
-Number it after the highest-numbered RFC already written, and title it the way the others are, such as "RFC 0012: A short title".
-
-Say why the change is needed and what is wrong today, then how the change works. Include a mockup of any screen it changes.
-
-An RFC lives in the panel as a document. Never write one as a file in the repository.
-$context$)
-        RETURNING
-            *
-    )
-    INSERT INTO document_type_versions (document_type_id, version, name, context, created_at, engine_id)
-    SELECT
-        id,
-        version,
-        name,
-        context,
-        updated_at,
-        engine_id
-    FROM
-        seeded;
-    RETURN NULL;
 END;
 `,
 	},
