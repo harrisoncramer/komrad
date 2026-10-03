@@ -3559,7 +3559,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xd7s\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xads\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3619,8 +3619,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10ListReviewRounds\x12!.agent.v1.ListReviewRoundsRequest\x1a\".agent.v1.ListReviewRoundsResponse\"\xa9\x01\x9a\xb5\x18\xa1\x01\b\x01\x10\x01\x1a\x12list_review_rounds\"\x81\x01List the rounds taken of an agent, oldest first. Diff one round's snapshot_sha against the next to see what changed between them.B\x03\x01\x02\x03\x90\x02\x01\x12\xb9\x01\n" +
 	"\vListReviews\x12\x1c.agent.v1.ListReviewsRequest\x1a\x1d.agent.v1.ListReviewsResponse\"m\x9a\xb5\x18f\b\x01\x10\x01\x1a\flist_reviews\"MList the reviews released on an agent, in round order, each with its verdict.B\x03\x01\x02\x03\x90\x02\x01\x12\x80\x02\n" +
 	"\tGetReview\x12\x1a.agent.v1.GetReviewRequest\x1a\x1b.agent.v1.GetReviewResponse\"\xb9\x01\x9a\xb5\x18\xb1\x01\b\x01\x10\x01\x1a\n" +
-	"get_review\"\x99\x01Read one released review whole: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the snapshot.B\x03\x01\x02\x03\x90\x02\x01\x12\xd2\x02\n" +
-	"\rReleaseReview\x12\x1e.agent.v1.ReleaseReviewRequest\x1a\x1f.agent.v1.ReleaseReviewResponse\"\xff\x01\x9a\xb5\x18\xfa\x01\b\x01\x10\x01\x1a\x0erelease_review\"\xdc\x01Send the review you have written with a verdict: approved only when you wrote no comments on the round, changes requested when you wrote any. Approved tells the agent it is done. Set interrupt to stop the agent mid-turn.(\x000\x00B\x01\x02\x12\xd6\x01\n" +
+	"get_review\"\x99\x01Read one released review whole: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the snapshot.B\x03\x01\x02\x03\x90\x02\x01\x12\xa8\x02\n" +
+	"\rReleaseReview\x12\x1e.agent.v1.ReleaseReviewRequest\x1a\x1f.agent.v1.ReleaseReviewResponse\"\xd5\x01\x9a\xb5\x18\xd0\x01\b\x01\x10\x01\x1a\x0erelease_review\"\xb2\x01Send the review you have written with a verdict: approved only when you wrote no comments on the round, changes requested when you wrote any. Approved tells the agent it is done.(\x000\x00B\x01\x02\x12\xd6\x01\n" +
 	"\x13SetReviewFileViewed\x12$.agent.v1.SetReviewFileViewedRequest\x1a%.agent.v1.SetReviewFileViewedResponse\"r\x9a\xb5\x18k:iWhich files of a diff have been read is a person's own reading, which no agent can claim on their behalf.\x90\x02\x02\x12\xfb\x01\n" +
 	"\x15ListReviewViewedFiles\x12&.agent.v1.ListReviewViewedFilesRequest\x1a'.agent.v1.ListReviewViewedFilesResponse\"\x90\x01\x9a\xb5\x18\x88\x01:\x85\x01These marks are the record of which files a person has read, so only the panel drawing them back to that person has any use for them.\x90\x02\x01B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 

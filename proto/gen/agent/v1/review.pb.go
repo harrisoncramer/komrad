@@ -2307,8 +2307,8 @@ func (x *ListReviewsResponse) GetReviews() []*Review {
 }
 
 // ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of
-// ordinary mail naming the review, which it reads whole with get_review, so nothing here decides
-// when the agent is interrupted or typed at: that is mail's own affair.
+// ordinary mail naming the review, which it reads whole with get_review. A person's review stops
+// the agent mid-turn first, so it reads the comments now.
 type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose work the batch was written against.
@@ -2316,9 +2316,6 @@ type ReleaseReviewRequest struct {
 	// What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
 	// agent must set it and a person must leave it unset.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
-	// Stop the agent where it stands before telling it, so it reads now rather than at the end
-	// of whatever it is doing.
-	Interrupt bool `protobuf:"varint,3,opt,name=interrupt,proto3" json:"interrupt,omitempty"`
 	// What to say about the work as a whole rather than about any one line, which the agent reads
 	// before the first thread. Optional: a review of pinned comments alone is complete.
 	Body          string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
@@ -2368,13 +2365,6 @@ func (x *ReleaseReviewRequest) GetVerdict() ReviewVerdict {
 		return x.Verdict
 	}
 	return ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
-}
-
-func (x *ReleaseReviewRequest) GetInterrupt() bool {
-	if x != nil {
-		return x.Interrupt
-	}
-	return false
 }
 
 func (x *ReleaseReviewRequest) GetBody() string {
@@ -2919,12 +2909,11 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x12ListReviewsRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xb3\x01\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xa6\x01\n" +
 	"\x14ReleaseReviewRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12;\n" +
 	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\b\xbaH\x05\x82\x01\x02\x10\x01R\averdict\x12\x1c\n" +
-	"\tinterrupt\x18\x03 \x01(\bR\tinterrupt\x12\x1c\n" +
-	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04body\"q\n" +
+	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04bodyJ\x04\b\x03\x10\x04R\tinterrupt\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +

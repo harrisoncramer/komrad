@@ -33,14 +33,15 @@ var personAuthor = ReviewAuthor{Kind: reviewstore.AuthorHuman}
 
 // reviewFixture is a worker with round one taken, its reviewer, and an agent with no business in either.
 type reviewFixture struct {
-	service   *ReviewService
-	reviews   *reviewstore.ReviewStore
-	stores    *storetest.Stores
-	snapshots *gittest.Snapshots
-	events    *eventstest.Queue
-	worker    *agentstore.Agent
-	reviewer  *agentstore.Agent
-	stranger  *agentstore.Agent
+	service     *ReviewService
+	reviews     *reviewstore.ReviewStore
+	stores      *storetest.Stores
+	snapshots   *gittest.Snapshots
+	events      *eventstest.Queue
+	interrupter *recordingInterrupter
+	worker      *agentstore.Agent
+	reviewer    *agentstore.Agent
+	stranger    *agentstore.Agent
 }
 
 // TestReviewEntitlement pins who may make each review call on whose work.
@@ -934,9 +935,13 @@ func TestAnsweringAReviewSeveralTimesLeavesOneMail(t *testing.T) {
 	assert.Len(t, fx.listMail(t, fx.reviewer.ID), 2, "an answer after the mail was read rings again")
 }
 
-type noInterrupter struct{}
+type recordingInterrupter struct {
+	interrupted []string
+}
 
-func (noInterrupter) Interrupt(context.Context, string) error {
+func (r *recordingInterrupter) Interrupt(_ context.Context, agentID string) error {
+	r.interrupted = append(r.interrupted, agentID)
+
 	return nil
 }
 
@@ -951,6 +956,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		Files:   map[string][]string{},
 	}
 	events := eventstest.NewQueue(t, stores, NewReleasedHandler(), NewAnsweredHandler())
+	interrupter := &recordingInterrupter{}
 
 	worker := stores.SeedAgent(t, agentstore.Agent{
 		Name: "worker",
@@ -974,7 +980,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		Workflows:   stores.Workflows,
 		Agents:      stores.Agents,
 		Events:      events,
-		Interrupter: noInterrupter{},
+		Interrupter: interrupter,
 		StateDir:    t.TempDir(),
 	})
 
@@ -982,14 +988,15 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	require.NoError(t, err)
 
 	return &reviewFixture{
-		service:   service,
-		reviews:   reviews,
-		stores:    stores,
-		snapshots: snapshots,
-		events:    events,
-		worker:    worker,
-		reviewer:  reviewer,
-		stranger:  stranger,
+		service:     service,
+		reviews:     reviews,
+		stores:      stores,
+		snapshots:   snapshots,
+		events:      events,
+		interrupter: interrupter,
+		worker:      worker,
+		reviewer:    reviewer,
+		stranger:    stranger,
 	}
 }
 

@@ -1299,7 +1299,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "release_review"
-      description: "Send the review you have written with a verdict: approved only when you wrote no comments on the round, changes requested when you wrote any. Approved tells the agent it is done. Set interrupt to stop the agent mid-turn."
+      description: "Send the review you have written with a verdict: approved only when you wrote no comments on the round, changes requested when you wrote any. Approved tells the agent it is done."
       destructive: false
       idempotent: false
       roles: [ROLE_REVIEWER]

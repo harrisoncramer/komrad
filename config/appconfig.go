@@ -280,19 +280,15 @@ type FormKeys struct {
 	Quit []string
 	// Submit the form from any field.
 	Submit []string
-	// Send a review as it stands and stop the agent where it is, beside the submit key that
-	// sends without interrupting.
-	SendNow []string
 }
 
 // FixedFormKeys is the set every form answers to.
 func FixedFormKeys() FormKeys {
 	return FormKeys{
-		Back:    []string{"esc"},
-		Editor:  []string{"ctrl+e"},
-		Quit:    []string{"ctrl+c"},
-		Submit:  []string{"enter"},
-		SendNow: []string{"ctrl+x"},
+		Back:   []string{"esc"},
+		Editor: []string{"ctrl+e"},
+		Quit:   []string{"ctrl+c"},
+		Submit: []string{"enter"},
 	}
 }
 

@@ -459,19 +459,17 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 			svc := newReviewHandler(reviewer)
 
 			_, err := svc.ReleaseReview(t.Context(), connect.NewRequest(&agentv1.ReleaseReviewRequest{
-				AgentId:   betaID,
-				Verdict:   tt.verdict,
-				Body:      "two things before it goes",
-				Interrupt: true,
+				AgentId: betaID,
+				Verdict: tt.verdict,
+				Body:    "two things before it goes",
 			}))
 			require.NoError(t, err)
 
 			assert.Equal(t, []reviews.ReleaseReviewParams{{
-				AgentID:   betaID,
-				Verdict:   tt.wantVerdict,
-				Body:      "two things before it goes",
-				Interrupt: true,
-				Author:    reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+				AgentID: betaID,
+				Verdict: tt.wantVerdict,
+				Body:    "two things before it goes",
+				Author:  reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
 			}}, reviewer.released)
 		})
 	}

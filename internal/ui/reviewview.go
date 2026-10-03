@@ -274,14 +274,6 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 	return dimStyle().Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
-// releaseView asks what to send: an optional word about the work as a whole.
-func (r reviewScreen) releaseView(width int) string {
-	out := r.threads.editor.view() + "\n\n"
-
-	return out + reviewNote(width, dimStyle(), keyLabel(formKeys().SendNow)+" send and interrupt"+separated+
-		keyLabel(formKeys().Back)+" cancel")
-}
-
 // threadView is a thread's conversation wrapped to the width given, oldest message first.
 func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width int) string {
 	stamp := r.diff.laterStamp(thread)

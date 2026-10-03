@@ -205,6 +205,55 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }
 
+// TestReleaseReviewInterrupts pins that only a person's release stops the agent, and only while it holds its pane.
+func TestReleaseReviewInterrupts(t *testing.T) {
+	tests := []struct {
+		name            string
+		alive           bool
+		author          func(fx *reviewFixture) ReviewAuthor
+		verdict         reviewstore.Verdict
+		wantInterrupted bool
+	}{
+		{
+			name: "a person's release leaves a dormant agent's old pane alone",
+			author: func(*reviewFixture) ReviewAuthor {
+				return personAuthor
+			},
+		},
+		{
+			name:  "a reviewer's release never stops the agent",
+			alive: true,
+			author: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.reviewer)
+			},
+			verdict: reviewstore.VerdictApproved,
+		},
+		{
+			name:  "a person's release stops a live agent",
+			alive: true,
+			author: func(*reviewFixture) ReviewAuthor {
+				return personAuthor
+			},
+			wantInterrupted: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+			require.NoError(t, fx.stores.Agents.SetAlive(t.Context(), []string{fx.worker.ID}, tt.alive))
+
+			fx.releaseReview(t, tt.author(fx), tt.verdict)
+
+			if tt.wantInterrupted {
+				assert.Equal(t, []string{fx.worker.ID}, fx.interrupter.interrupted)
+			} else {
+				assert.Empty(t, fx.interrupter.interrupted)
+			}
+		})
+	}
+}
+
 // TestReleaseReviewApprovalMail pins when an approval sends the agent to read the review.
 func TestReleaseReviewApprovalMail(t *testing.T) {
 	tests := []struct {

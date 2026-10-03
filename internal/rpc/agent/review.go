@@ -216,11 +216,10 @@ func (s *Handler) GetReview(ctx context.Context, req *agentv1.GetReviewRequest) 
 // ReleaseReview releases the caller's open review, writing it out and mailing the path.
 func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
 	result, err := s.review.ReleaseReview(ctx, reviews.ReleaseReviewParams{
-		AgentID:   req.GetAgentId(),
-		Verdict:   fromReviewVerdict(req.GetVerdict()),
-		Body:      req.GetBody(),
-		Interrupt: req.GetInterrupt(),
-		Author:    reviewAuthorFrom(ctx),
+		AgentID: req.GetAgentId(),
+		Verdict: fromReviewVerdict(req.GetVerdict()),
+		Body:    req.GetBody(),
+		Author:  reviewAuthorFrom(ctx),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to release the review")

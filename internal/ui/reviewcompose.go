@@ -431,9 +431,7 @@ func (r *reviewScreen) updateRelease(m *model, key tea.KeyPressMsg) tea.Cmd {
 	case isBound(k, formKeys().Editor):
 		return r.openMessageEditor(m)
 	case isBound(k, formKeys().Submit):
-		return r.send(m, false)
-	case isBound(k, formKeys().SendNow):
-		return r.send(m, true)
+		return r.send(m)
 	}
 
 	editor, cmd := r.threads.editor.update(key)
@@ -444,26 +442,24 @@ func (r *reviewScreen) updateRelease(m *model, key tea.KeyPressMsg) tea.Cmd {
 
 // send releases the batch with whatever was written about the work as a whole, reaching the
 // agent as one file and one piece of mail.
-func (r *reviewScreen) send(m *model, interrupt bool) tea.Cmd {
+func (r *reviewScreen) send(m *model) tea.Cmd {
 	body := strings.TrimSpace(r.threads.editor.value())
 
 	r.threads.closeRelease()
 
 	agents, agentID := m.clients().agents, r.agentID
 	item, _ := r.agentRow(m)
-	interrupt = interrupt && item.Alive
 
 	return r.sendCmd(m, "sending the review", func(ctx context.Context) (string, error) {
 		_, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-			AgentId:   agentID,
-			Interrupt: interrupt,
-			Body:      body,
+			AgentId: agentID,
+			Body:    body,
 		}))
 		if err != nil {
 			return "", err
 		}
 
-		return releasedNotice(interrupt, item.Alive), nil
+		return releasedNotice(item.Alive), nil
 	})
 }
 
@@ -474,12 +470,9 @@ func (t *reviewThreads) closeRelease() {
 }
 
 // releasedNotice says what went.
-func releasedNotice(interrupt, alive bool) string {
-	switch {
-	case !alive:
+func releasedNotice(alive bool) string {
+	if !alive {
 		return "review queued for resume"
-	case interrupt:
-		return "review sent and the agent stopped to read it"
 	}
 
 	return "review sent"
