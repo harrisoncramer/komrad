@@ -343,6 +343,165 @@ table "pull_request_syncs" {
   }
 }
 
+table "pull_request_check_readings" {
+  schema  = schema.public
+  comment = "What the forge last said about the checks on one head commit of a pull request, kept for every head it was read on until the pull request goes."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "pull_request_id" {
+    null = false
+    type = uuid
+  }
+  column "head_sha" {
+    null    = false
+    type    = text
+    comment = "The head commit the checks were read on."
+  }
+  column "blank" {
+    null    = false
+    type    = boolean
+    comment = "Whether the latest read for this head came back without a check list, which leaves the head's last listed checks in place."
+  }
+  column "first_read_at" {
+    null    = false
+    type    = timestamptz
+    comment = "When the checks on this head were first read."
+  }
+  column "read_at" {
+    null    = false
+    type    = timestamptz
+    comment = "When the checks on this head were last read, stamped by every read whether or not anything changed."
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "pull_request_check_readings_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
+  }
+  unique "pull_request_check_readings_head_key" {
+    columns = [column.engine_id, column.pull_request_id, column.head_sha]
+  }
+  foreign_key "pull_request_check_readings_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_check_readings_pull_request_id_fkey" {
+    columns     = [column.engine_id, column.pull_request_id]
+    ref_columns = [table.pull_requests.column.engine_id, table.pull_requests.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "pull_request_check_readings_pull_request_id" {
+    columns = [column.pull_request_id]
+  }
+}
+
+table "pull_request_checks" {
+  schema  = schema.public
+  comment = "One check the forge listed on a head commit of a pull request, as the latest listing for that head said it stands."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "reading_id" {
+    null    = false
+    type    = uuid
+    comment = "The reading of the head commit the check was listed on."
+  }
+  column "provider_id" {
+    null    = false
+    type    = text
+    comment = "The forge's own identifier for the check run or commit status, which a rerun replaces."
+  }
+  column "kind" {
+    null    = false
+    type    = text
+    comment = "What the forge reported the check as: check_run for a check run, status for an old-style commit status."
+  }
+  column "source" {
+    null    = false
+    type    = text
+    comment = "The workflow that ran the check, or the app when no workflow did, empty for a commit status."
+  }
+  column "name" {
+    null    = false
+    type    = text
+    comment = "The check's name, or a commit status's context."
+  }
+  column "state" {
+    null    = false
+    type    = text
+    comment = "Where the check stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed."
+  }
+  column "conclusion" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "How a completed check ended, in the forge's own word lowercased, such as success, failure, error, neutral, cancelled, skipped or timed_out, empty until it completes."
+  }
+  column "started_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the check started, null before it has."
+  }
+  column "finished_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the check completed, null before it has."
+  }
+  column "required" {
+    null    = false
+    type    = boolean
+    comment = "Whether the pull request's base branch requires the check to pass before merging."
+  }
+  column "url" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The web address of the check's details or logs, empty when the forge gave none."
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "pull_request_checks_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
+  }
+  unique "pull_request_checks_provider_id_key" {
+    columns = [column.engine_id, column.reading_id, column.provider_id]
+  }
+  foreign_key "pull_request_checks_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_checks_reading_id_fkey" {
+    columns     = [column.engine_id, column.reading_id]
+    ref_columns = [table.pull_request_check_readings.column.engine_id, table.pull_request_check_readings.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "pull_request_checks_reading_id" {
+    columns = [column.reading_id]
+  }
+}
+
 table "forge_review_threads" {
   schema  = schema.public
   comment = "A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it."

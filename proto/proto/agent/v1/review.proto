@@ -153,7 +153,7 @@ message ReviewThread {
   // The commit the old side of these line numbers was read against, which is the round's own
   // base unless the diff was narrowed to an earlier round when the thread was written.
   string base_sha = 19;
-  // Which file, relative to the checkout, empty for a comment on the change as a whole.
+  // Which file, relative to the checkout.
   string file_path = 3;
   // Where the range begins on the old side of the diff, counting from one.
   int32 old_start = 4;
@@ -243,8 +243,7 @@ message ListReviewThreadsResponse {
 message CreateReviewThreadRequest {
   // Whose diff to pin the comment to.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Which file, relative to the checkout. Empty for a comment on the change as a whole, which
-  // then carries no lines, no quote and no suggestion.
+  // Which file, relative to the checkout.
   string file_path = 2;
   // The commit the old side of these line numbers was read against, empty for the round's own
   // base.

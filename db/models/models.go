@@ -787,6 +787,51 @@ type PullRequest struct {
 	Body string
 }
 
+// One check the forge listed on a head commit of a pull request, as the latest listing for that head said it stands.
+type PullRequestCheck struct {
+	ID string
+	// The reading of the head commit the check was listed on.
+	ReadingID string
+	// The forge's own identifier for the check run or commit status, which a rerun replaces.
+	ProviderID string
+	// What the forge reported the check as: check_run for a check run, status for an old-style commit status.
+	Kind string
+	// The workflow that ran the check, or the app when no workflow did, empty for a commit status.
+	Source string
+	// The check's name, or a commit status's context.
+	Name string
+	// Where the check stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed.
+	State string
+	// How a completed check ended, in the forge's own word lowercased, such as success, failure, error, neutral, cancelled, skipped or timed_out, empty until it completes.
+	Conclusion string
+	// When the check started, null before it has.
+	StartedAt *time.Time
+	// When the check completed, null before it has.
+	FinishedAt *time.Time
+	// Whether the pull request's base branch requires the check to pass before merging.
+	Required bool
+	// The web address of the check's details or logs, empty when the forge gave none.
+	Url string
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
+}
+
+// What the forge last said about the checks on one head commit of a pull request, kept for every head it was read on until the pull request goes.
+type PullRequestCheckReading struct {
+	ID            string
+	PullRequestID string
+	// The head commit the checks were read on.
+	HeadSha string
+	// Whether the latest read for this head came back without a check list, which leaves the head's last listed checks in place.
+	Blank bool
+	// When the checks on this head were first read.
+	FirstReadAt time.Time
+	// When the checks on this head were last read, stamped by every read whether or not anything changed.
+	ReadAt time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
+}
+
 // A repository the pull request sync has read at least once, which is what turns its pull request state from unread to none when it has no pull requests.
 type PullRequestSync struct {
 	RepositoryUrl string
@@ -909,7 +954,7 @@ type ReviewThread struct {
 	ID string
 	// The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent.
 	AgentID string
-	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it. It is empty for a comment on the change as a whole, which has no file and no lines.
+	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
 	FilePath string
 	// First line of the range on the old side of the diff. Zero means the thread is pinned to lines that exist only on the new side.
 	OldStart int32

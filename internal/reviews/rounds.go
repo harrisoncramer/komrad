@@ -765,7 +765,7 @@ func (s *ReviewService) threadsInContext(
 	for _, thread := range threads {
 		key := [2]string{thread.Thread.RoundID, thread.Thread.FilePath}
 		lines, done := held[key]
-		if !done && dir != "" && thread.Thread.FilePath != "" {
+		if !done && dir != "" {
 			lines = s.readRoundFile(ctx, readRoundFileParams{
 				Dir:       dir,
 				RoundID:   thread.Thread.RoundID,

@@ -19,9 +19,6 @@ const changedNotice = noticeRule + " the code these were about has changed " + n
 // screen.
 const outsideNotice = noticeRule + " still in the change, outside what is on screen " + noticeRule
 
-// changeNotice heads the comments on the change as a whole.
-const changeNotice = noticeRule + " on the change as a whole " + noticeRule
-
 // goneNotice heads the comments whose file has left the change altogether.
 const goneNotice = noticeRule + " these are holding your review, on files that have left the change " + noticeRule
 
@@ -58,7 +55,6 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	v.placed = map[string]placement{}
 
 	index := v.indexLines()
-	threads = v.pinChangeThreads(threads)
 
 	// A thread written against the snapshot on screen is offered its row ahead of one traced
 	// onto the same row.
@@ -96,33 +92,6 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	if v.search != nil {
 		v.SetPattern(v.search.pattern)
 	}
-}
-
-// pinChangeThreads draws the comments on the change as a whole in a section of their own at the
-// foot, leaving the row for the change free to start another, and hands back the threads that
-// are about lines.
-func (v *View) pinChangeThreads(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
-	lines := make([]*agentv1.ReviewThread, 0, len(threads))
-
-	var change []*agentv1.ReviewThread
-
-	for _, thread := range threads {
-		if thread.GetFilePath() == "" {
-			change = append(change, thread)
-
-			continue
-		}
-
-		lines = append(lines, thread)
-	}
-
-	v.appendFootSection(changeNotice, change)
-
-	for _, thread := range change {
-		v.placed[thread.GetId()] = pinned
-	}
-
-	return lines
 }
 
 // placeArms is the ladder in order of how much the row is worth: where git says the thread's

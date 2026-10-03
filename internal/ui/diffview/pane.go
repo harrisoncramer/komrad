@@ -250,7 +250,13 @@ func (p *Pane) ScrollToCursor(window Window) {
 		floor = p.pinFloor
 	}
 
+	isAtTop := p.cursor == p.view.GetFirstRow()
+
 	low, above := p.cursor, 0
+	if isAtTop {
+		low = 0
+	}
+
 	for low > 0 && above < margin {
 		low--
 		above += p.view.measureRow(low, window)

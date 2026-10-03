@@ -284,9 +284,10 @@ func withoutEchoes(known map[string]*mirroredThread, sent map[string]bool, threa
 }
 
 // isWorthMirroring reports whether a forge thread not yet mirrored should be, leaving out one
-// already resolved on the forge so the agent is not told about it.
+// already resolved on the forge so the agent is not told about it, and one on the pull request
+// as a whole, which no file holds.
 func isWorthMirroring(thread pullrequeststore.ForgeThread) bool {
-	return len(thread.Comments) > 0 && !thread.Resolved
+	return len(thread.Comments) > 0 && !thread.Resolved && thread.Path != ""
 }
 
 type createForgeThreadParams struct {
@@ -492,7 +493,7 @@ func (m *ForgeMirror) place(ctx context.Context, target reviewstore.ForgeMirrorT
 	for _, thread := range threads {
 		places[thread.ID] = forgePlace{FilePath: thread.Path}
 
-		if thread.Path == "" || thread.Line <= 0 || thread.OldSide || thread.CommitSHA == "" {
+		if thread.Line <= 0 || thread.OldSide || thread.CommitSHA == "" {
 			continue
 		}
 

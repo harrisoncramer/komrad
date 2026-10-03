@@ -154,7 +154,7 @@ func TestSearchFindsFileNames(t *testing.T) {
 
 	at, ok := view.jumpMatch(-1, 1)
 	require.True(t, ok)
-	assert.Equal(t, 1, at, "the match is the file's own header")
+	assert.Equal(t, 0, at, "the match is the file's own header")
 }
 
 // TestSearchFindsAViewedFileName covers a file that has been read, whose header is the only row
@@ -167,7 +167,7 @@ func TestSearchFindsAViewedFileName(t *testing.T) {
 
 	at, ok := view.jumpMatch(-1, 1)
 	require.True(t, ok)
-	assert.Equal(t, 1, at)
+	assert.Equal(t, 0, at)
 }
 
 // TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it.
@@ -175,7 +175,7 @@ func TestFileNameMatchIsPainted(t *testing.T) {
 	view := twoHunkView()
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))
 
-	drawn := view.renderRow(1, noCursor, 40, 0)
+	drawn := view.renderRow(0, noCursor, 40, 0)
 	assert.Equal(t, "greet.go", ansi.Strip(drawn))
 	assert.Contains(t, drawn, fileStyle.Background(paint.Panel.Background(paint.ShadeMatch)).Render("eet.g"))
 

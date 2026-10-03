@@ -113,6 +113,14 @@ func TestForgeMirror(t *testing.T) {
 			},
 		},
 		{
+			name:  "a comment on the pull request as a whole is left out",
+			syncs: [][]forge.ReviewThread{{newPullRequestForgeThread(newForgeComment("c1", "alice", true, "looks good overall"))}},
+			check: func(t *testing.T, got forgeMirrored) {
+				assert.Empty(t, got.threads)
+				assert.Empty(t, got.released)
+			},
+		},
+		{
 			name: "an edit on the forge rewrites the message",
 			syncs: [][]forge.ReviewThread{
 				{newForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
@@ -437,6 +445,14 @@ func (fx *reviewFixture) readForgeMirrored(t *testing.T) forgeMirrored {
 		reviews:  xslice.Filter(reviews, func(review reviewstore.Review) bool { return review.ExternalLogin != nil || review.ReleasedAt != nil }),
 		released: released,
 	}
+}
+
+func newPullRequestForgeThread(comments ...forge.ReviewComment) forge.ReviewThread {
+	thread := newForgeThread(comments...)
+	thread.Path = ""
+	thread.Line = 0
+
+	return thread
 }
 
 func newResolvedForgeThread(comments ...forge.ReviewComment) forge.ReviewThread {

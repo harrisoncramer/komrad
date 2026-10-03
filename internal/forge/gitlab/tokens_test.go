@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/forge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"komrad/internal/forge"
 )
 
 const selfTokenPath = "/personal_access_tokens/self"

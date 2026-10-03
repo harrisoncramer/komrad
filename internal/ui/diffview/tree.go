@@ -213,10 +213,6 @@ func (v *View) findFirstRow(index int) int {
 func (v *View) countThreadsByFile() map[string]ThreadCounts {
 	byFile := map[string]ThreadCounts{}
 	for _, thread := range v.threads {
-		if thread.GetFilePath() == "" {
-			continue
-		}
-
 		path := v.pathOf(thread)
 		counts := byFile[path]
 		counts.add(thread)

@@ -595,6 +595,44 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	}, f.changes(t))
 }
 
+// TestSyncKeepsTheChecksOnAHead covers the checks a read lists being kept on the pull request's
+// head, and a read that did not list them writing none.
+func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	failing := forge.Check{
+		ProviderID: "CR_1",
+		Kind:       forge.CheckKindRun,
+		Source:     "CI",
+		Name:       "test",
+		State:      forge.CheckStateCompleted,
+		Conclusion: "failure",
+		Required:   true,
+		URL:        "https://github.com/harrisoncramer/komrad/runs/1",
+	}
+	f.hold(
+		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
+			Decision:     forge.ReviewDecisionPending,
+			Checks:       forge.ChecksFailing,
+			Mergeability: forge.MergeabilityClean,
+			Listing:      &forge.CheckListing{Checks: []forge.Check{failing}},
+		}),
+		pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)),
+	)
+
+	f.sync(t)
+
+	checks := pullrequeststore.NewCheckStore(f.stores.Pool.GetDB())
+	listed, err := checks.ListOfPullRequest(t.Context(), f.stored(t, "PR_1").ID)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, scriptedHeadSHA, listed[0].HeadSHA)
+	assert.Equal(t, []forge.Check{failing}, listed[0].Checks)
+	unlisted, err := checks.ListOfPullRequest(t.Context(), f.stored(t, "PR_2").ID)
+	require.NoError(t, err)
+	assert.Empty(t, unlisted)
+}
+
 // TestSyncThrottlesTheConnection covers the forge refusing a read for its rate limit: the
 // connection waits, the wait doubles on the next refusal, and a permission answer does not
 // throttle.

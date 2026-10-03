@@ -180,13 +180,6 @@ func TestPaneToggleExpandedRefuses(t *testing.T) {
 
 		assert.Equal(t, ExpandNoMore, pane.ToggleExpanded(paneWindow))
 	})
-
-	t.Run("the row for the change as a whole is in no file", func(t *testing.T) {
-		pane := NewPane(NewView(patchWith(diff.FromTexts("a.md", "one", "two")), false))
-		pane.MoveTo(0, paneWindow)
-
-		assert.Equal(t, ExpandNothing, pane.ToggleExpanded(paneWindow))
-	})
 }
 
 // TestPaneKeepsItsPlace covers the cursor coming back to its line after the rows are rebuilt or
