@@ -254,12 +254,13 @@ func TestReviewCursor(t *testing.T) {
 
 	t.Run("the page keys settle on a line and come back to the top", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
+		top := readReviewCursor(harness.readFrame())
 
 		harness.press("ctrl+d")
 		assert.Equal(t, "greet.go:5", readReviewCursor(harness.readFrame()))
 
 		harness.press("ctrl+u")
-		assert.Contains(t, readSidebar(harness.readFrame()), "the change as a whole")
+		assert.Equal(t, top, readReviewCursor(harness.readFrame()))
 	})
 
 	t.Run("panning moves the text a third of the diff's width", func(t *testing.T) {
@@ -1702,8 +1703,9 @@ func TestReviewExpand(t *testing.T) {
 	t.Run("a line only the expansion draws takes a comment", func(t *testing.T) {
 		harness, _ := openTallReview(t)
 
-		harness.press("E", "G", "c")
+		harness.press("E", "G")
 		require.Equal(t, "tall.go:13", readReviewCursor(harness.readFrame()))
+		harness.press("c")
 		typeText(harness, "unchanged and wrong")
 		harness.press("enter")
 
@@ -2926,49 +2928,6 @@ func readReleaseSaid(t *testing.T, harness *panelHarness) string {
 	assert.Equal(t, "a1", released.GetId())
 
 	return released.GetSaid()
-}
-
-// TestReviewChange covers the row above the first file, where a comment is about the change as a
-// whole rather than any line of it.
-func TestReviewChange(t *testing.T) {
-	t.Run("a comment written on the row names no file and quotes no line", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("k")
-		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame), "the change as a whole")
-		assert.Contains(t, frame, "comment on the change")
-
-		harness.press("c")
-		typeText(harness, "split this in two")
-		harness.press("enter")
-
-		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			AgentId:     "a1",
-			Body:        "split this in two",
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: gittest.SnapshotSHA,
-		})
-	})
-
-	t.Run("a comment on the change waits at the end of the diff and the row still starts another", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{{
-			Id:       "t1",
-			Messages: []*agentv1.ReviewMessage{newHumanMessage("m1", "split this in two")},
-		}}
-		harness := openReview(t, server)
-
-		assert.Contains(t, findLine(readStage(harness.readFrame()), "the change as a whole"), "1 at the end of the diff")
-
-		harness.press("k")
-		assert.Contains(t, harness.readFrame(), "comment on the change")
-
-		harness.press("G")
-		frame := harness.readFrame()
-		assert.Contains(t, findLine(readStage(frame), "○ the change as a whole"), "split this in two")
-		assert.Contains(t, readPopupProse(frame), "split this in two")
-	})
 }
 
 // wideLine is a line of code long enough to reach past the room beside it.

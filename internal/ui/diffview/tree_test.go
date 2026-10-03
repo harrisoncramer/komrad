@@ -61,18 +61,6 @@ type fileTreeCase struct {
 func TestFileTree(t *testing.T) {
 	tests := []fileTreeCase{
 		{
-			name: "a comment on the change as a whole is counted on no file",
-			files: []diff.File{
-				fileAt("a.go", addedLine("first")),
-			},
-			threads: []*agentv1.ReviewThread{
-				threadAt("whole", "", 0, 0, ""),
-			},
-			want: []string{
-				"file a.go row=1",
-			},
-		},
-		{
 			name: "files out of path order open a folder twice rather than being moved",
 			files: []diff.File{
 				fileAt("a/one.go", addedLine("one")),
@@ -81,10 +69,10 @@ func TestFileTree(t *testing.T) {
 			},
 			want: []string{
 				"folder a/ row=-1",
-				"  file one.go row=1",
-				"file b.go row=4",
+				"  file one.go row=0",
+				"file b.go row=3",
 				"folder a/ row=-1",
-				"  file two.go row=7",
+				"  file two.go row=6",
 			},
 		},
 		{
@@ -96,8 +84,8 @@ func TestFileTree(t *testing.T) {
 			want: []string{
 				"folder internal/ui/ row=-1",
 				"  folder diffview/ row=-1",
-				"    file view.go row=1",
-				"  file review.go row=4",
+				"    file view.go row=0",
+				"  file review.go row=3",
 			},
 		},
 		{
@@ -109,9 +97,9 @@ func TestFileTree(t *testing.T) {
 			want: []string{
 				"folder docs/ row=-1",
 				"  folder a/ row=-1",
-				"    file one.md row=1",
+				"    file one.md row=0",
 				"  folder b/ row=-1",
-				"    file two.md row=4",
+				"    file two.md row=3",
 			},
 		},
 		{
@@ -122,8 +110,8 @@ func TestFileTree(t *testing.T) {
 			},
 			viewed: map[string]bool{"a.go": true},
 			want: []string{
-				"file a.go row=1 viewed",
-				"file b.go row=2",
+				"file a.go row=0 viewed",
+				"file b.go row=1",
 			},
 		},
 		{
@@ -137,8 +125,8 @@ func TestFileTree(t *testing.T) {
 				threadAt("gone", "a.go", 0, 9, "+removed"),
 			},
 			want: []string{
-				"file a.go row=1 {Unsent:0 Unread:0 Open:2 Settled:0}",
-				"file b.go row=4",
+				"file a.go row=0 {Unsent:0 Unread:0 Open:2 Settled:0}",
+				"file b.go row=3",
 			},
 		},
 	}
@@ -212,22 +200,18 @@ func TestGetTreeFocus(t *testing.T) {
 
 	tests := []treeFocusCase{
 		{
-			name: "the row for the change as a whole belongs to no file",
-			row:  0,
-		},
-		{
 			name: "a file header belongs to its file",
-			row:  1,
+			row:  0,
 			want: "a.go",
 		},
 		{
 			name: "a line belongs to its file",
-			row:  6,
+			row:  5,
 			want: "b.go",
 		},
 		{
 			name: "a thread at the foot belongs to the file it was written on",
-			row:  8,
+			row:  7,
 			want: "a.go",
 		},
 	}

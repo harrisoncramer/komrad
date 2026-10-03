@@ -231,7 +231,7 @@ table "review_threads" {
   column "file_path" {
     null    = false
     type    = text
-    comment = "The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it. It is empty for a comment on the change as a whole, which has no file and no lines."
+    comment = "The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it."
   }
   column "old_start" {
     null    = false
@@ -370,6 +370,9 @@ table "review_threads" {
     ref_columns = [table.forge_review_threads.column.engine_id, table.forge_review_threads.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
+  }
+  check "review_threads_file_path_given" {
+    expr = "file_path <> ''"
   }
   index "review_threads_agent_id" {
     columns = [column.agent_id, column.file_path, column.new_start, column.old_start]

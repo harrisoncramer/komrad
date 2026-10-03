@@ -20,12 +20,7 @@ const (
 	hunkRow
 	lineRow
 	threadRow
-	changeRow
 )
-
-// changeWord is what the row above the first file says, the place a comment on the change as a
-// whole is written from.
-const changeWord = "the change as a whole"
 
 // row is one drawable line of the diff, flattened from the patch once so that moving the cursor
 // walks a slice rather than the patch.
@@ -89,13 +84,13 @@ type View struct {
 	tree    []TreeRow
 	// narrowed says the patch is a slice of the change rather than the whole of it.
 	narrowed bool
-	// headless leaves out the row for the change as a whole and each file's header.
+	// headless leaves out each file's header.
 	headless bool
 	// glyphs is what the marks on threads and files are drawn in.
 	glyphs glyph.Set
 }
 
-// SetHeadless draws the hunks alone, with no row for the change as a whole and no file headers.
+// SetHeadless draws the hunks alone, with no file headers.
 func (v *View) SetHeadless(headless bool) {
 	v.headless = headless
 	v.redraw()
@@ -144,16 +139,6 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 // else.
 func (v *View) build() {
 	v.rows = nil
-
-	if len(v.files) > 0 && !v.headless {
-		v.rows = append(v.rows, row{
-			kind: changeRow,
-			file: -1,
-			hunk: -1,
-			line: -1,
-			text: changeWord,
-		})
-	}
 
 	for fileIndex := range v.files {
 		file := &v.files[fileIndex]
@@ -423,21 +408,12 @@ func (v *View) isPinnable(y int) bool {
 
 	return current.kind == lineRow ||
 		current.kind == threadRow ||
-		current.kind == changeRow ||
 		(current.kind == fileRow && v.isCollapsed(current.file))
 }
 
-// GetFirstRow returns where the cursor starts: the first row that stands for a line, below the
-// row for the change as a whole.
+// GetFirstRow returns where the cursor starts: the first row that stands for a line.
 func (v *View) GetFirstRow() int {
-	first := max(v.scan(-1, 1), 0)
-	if current, ok := v.getRow(first); ok && current.kind == changeRow {
-		if next := v.scan(first, 1); next >= 0 {
-			return next
-		}
-	}
-
-	return first
+	return max(v.scan(-1, 1), 0)
 }
 
 // Place is a spot in the diff worth returning to, taken off the cursor before the patch is
@@ -455,9 +431,6 @@ type Place struct {
 	// ThreadID is set when the cursor was standing on a thread that had come adrift rather than on
 	// a line, those rows having no coordinates to come back to.
 	ThreadID string
-
-	// Change is set when the cursor was standing on the row for the change as a whole.
-	Change bool
 }
 
 // GetPlace is where the cursor is standing, in terms that survive the patch being reloaded.
@@ -465,10 +438,6 @@ func (v *View) GetPlace(y int) (Place, bool) {
 	current, ok := v.getRow(y)
 	if ok && current.kind == threadRow {
 		return Place{ThreadID: current.thread.GetId()}, true
-	}
-
-	if ok && current.kind == changeRow {
-		return Place{Change: true}, true
 	}
 
 	// A file header has no line under the cursor, so the file itself is the place.
@@ -506,10 +475,6 @@ func (v *View) locate(place Place) (int, bool) {
 		return 0, false
 	}
 
-	if place.Change {
-		return v.findChangeRow()
-	}
-
 	if place.Header {
 		return v.fileHeader(place.FilePath)
 	}
@@ -542,17 +507,6 @@ func (v *View) locate(place Place) (int, bool) {
 	}
 
 	return nearest, nearest >= 0
-}
-
-// findChangeRow finds the row for the change as a whole, which a patch with no files has none of.
-func (v *View) findChangeRow() (int, bool) {
-	for y, current := range v.rows {
-		if current.kind == changeRow {
-			return y, true
-		}
-	}
-
-	return 0, false
 }
 
 // collapsedHeader is the header row of a file drawn collapsed, and false for a file drawn
@@ -772,13 +726,8 @@ func (v *View) getLine(y int) (diff.Line, bool) {
 	return v.files[current.file].Hunks[current.hunk].Lines[current.line], true
 }
 
-// GetAnchor lifts the cursor's row into an anchor, one naming no file for the row that stands for
-// the change as a whole.
+// GetAnchor lifts the cursor's row into an anchor.
 func (v *View) GetAnchor(y int) (*Anchor, bool) {
-	if current, ok := v.getRow(y); ok && current.kind == changeRow {
-		return &Anchor{}, true
-	}
-
 	file, fileOK := v.GetDrawnFileAt(y)
 	line, lineOK := v.getLine(y)
 	if !fileOK || !lineOK {

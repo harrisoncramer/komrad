@@ -18,9 +18,11 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		harness.press("<", "t")
+		harness.press("<")
+		require.Contains(t, readSidebarProse(harness.readFrame()), "chapter 2 of 2")
+
+		harness.press("t")
 		frame := harness.readFrame()
-		require.Contains(t, readSidebarProse(frame), "chapter 2 of 2")
 		require.Contains(t, readPopupProse(frame), "still in the change, outside what is on screen")
 
 		harness.press("J")
@@ -41,9 +43,10 @@ func TestReviewJump(t *testing.T) {
 
 		harness.press("<", "t", "J", "J")
 
-		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "chapter 2 of 2")
-		assert.Contains(t, readPopupProse(frame), "add a second file")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "add a second file")
+
+		harness.press("k")
+		assert.Contains(t, readSidebarProse(harness.readFrame()), "chapter 2 of 2")
 	})
 
 	for _, key := range []string{"<", ">"} {
@@ -54,9 +57,10 @@ func TestReviewJump(t *testing.T) {
 
 			harness.press("<", "t", "J", key)
 
-			frame := harness.readFrame()
-			assert.Contains(t, readSidebarProse(frame), "chapter 2 of 2")
-			assert.Contains(t, readPopupProse(frame), "add a second file")
+			assert.Contains(t, readPopupProse(harness.readFrame()), "add a second file")
+
+			harness.press("k")
+			assert.Contains(t, readSidebarProse(harness.readFrame()), "chapter 2 of 2")
 		})
 	}
 

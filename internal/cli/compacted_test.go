@@ -54,7 +54,6 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 					NewStart: 10,
 					NewEnd:   12,
 				},
-				{Id: "thread-whole"},
 				{
 					Id:         "thread-settled",
 					FilePath:   "config/appconfig.go",
@@ -66,9 +65,8 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 				"You are compaction (agent-a), the implementer agent.",
 				"Branch: agent/compaction",
 				"Pull request: https://github.com/o/r/pull/9 (changes requested)",
-				"Open review threads on your work (2), answered with add_review_message",
+				"Open review threads on your work (1), answered with add_review_message",
 				"- thread-open on config/appconfig.go lines 10-12",
-				"- thread-whole on the change as a whole",
 				"Call read_mail.",
 				"build the usage block",
 			},

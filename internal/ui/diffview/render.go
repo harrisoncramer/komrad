@@ -54,8 +54,6 @@ func (v *View) renderRow(y int, cursor Cursor, width, offset int) string {
 		return ansi.Truncate(paint.Panel.Style(paint.ToneSecondary).Render(sanitize(current.text)), width, "…")
 	case threadRow:
 		return v.renderThreadRow(current, cursor, width)
-	case changeRow:
-		return v.renderChangeRow(current, cursor, width)
 	case lineRow:
 	}
 
@@ -289,35 +287,6 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 		Cursor:    cursor,
 		Width:     width,
 	})
-}
-
-// renderChangeRow draws the row above the first file, saying how many comments on the change as a
-// whole wait at the foot.
-func (v *View) renderChangeRow(current row, cursor Cursor, width int) string {
-	said := current.text
-	if count := v.countChangeThreads(); count > 0 {
-		said += fmt.Sprintf("  %d at the end of the diff", count)
-	}
-
-	return renderSaidRow(renderSaidRowParams{
-		Mark:      " ",
-		MarkStyle: paint.Panel.Style(paint.ToneMuted),
-		Said:      said,
-		Cursor:    cursor,
-		Width:     width,
-	})
-}
-
-// countChangeThreads counts the comments on the change as a whole.
-func (v *View) countChangeThreads() int {
-	count := 0
-	for _, thread := range v.threads {
-		if thread.GetFilePath() == "" {
-			count++
-		}
-	}
-
-	return count
 }
 
 // renderSaidRowParams is a row of prose drawn in the diff and the mark beside it.

@@ -183,10 +183,6 @@ func renderCompactedRecord(row *agentv1.GetAgentResponse, threads []*agentv1.Rev
 
 // describeThread is one open thread as a line of the reminder, naming where it is pinned.
 func describeThread(thread *agentv1.ReviewThread) string {
-	if thread.GetFilePath() == "" {
-		return fmt.Sprintf("- %s on the change as a whole", thread.GetId())
-	}
-
 	return fmt.Sprintf("- %s on %s lines %d-%d", thread.GetId(), thread.GetFilePath(), thread.GetNewStart(), thread.GetNewEnd())
 }
 
