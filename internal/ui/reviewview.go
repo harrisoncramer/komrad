@@ -141,6 +141,7 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	}
 
 	if spare < 0 {
+		layout.change = r.changeView(m, 0)
 		layout.pullRequestRows = paint.Unbounded
 		layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
 		layout.files = r.filesView(m, paint.Unbounded)
