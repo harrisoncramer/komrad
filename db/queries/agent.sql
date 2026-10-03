@@ -390,6 +390,7 @@ FROM
     agents s
 WHERE
     s.idempotency_key = @idempotency_key
+    AND s.spawned_by_agent_id IS NOT DISTINCT FROM sqlc.narg('spawned_by_agent_id')::uuid
 LIMIT 1;
 
 -- name: ReleaseAgentIdempotencyKey :many
@@ -399,6 +400,7 @@ SET
     idempotency_key = NULL
 WHERE
     idempotency_key = @idempotency_key
+    AND spawned_by_agent_id IS NOT DISTINCT FROM sqlc.narg('spawned_by_agent_id')::uuid
     AND state = 'failed_to_create'
 RETURNING
     id;
@@ -871,6 +873,17 @@ RETURNING
     id;
 
 -- name: DeleteAgentsByID :many
+WITH released AS (
+    UPDATE
+        agents
+    SET
+        idempotency_key = NULL
+    WHERE
+        spawned_by_agent_id = ANY (@ids::uuid[])
+        AND NOT id = ANY (@ids::uuid[])
+    RETURNING
+        id
+)
 DELETE FROM agents
 WHERE id = ANY (@ids::uuid[])
 RETURNING

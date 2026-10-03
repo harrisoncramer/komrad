@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
@@ -203,15 +204,16 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 		WorkflowID: seedWorkflow(t, st),
 	})
 	require.NoError(t, err)
+	authorCtx := caller.With(ctx, caller.Caller{AgentID: author.ID})
 
-	first, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+	first, _, err := manager.launch.RequestReview(authorCtx, RequestReviewParams{
 		AgentID:        author.ID,
 		Prompt:         "read it",
 		IdempotencyKey: "abc",
 	})
 	require.NoError(t, err)
 
-	retried, guidance, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+	retried, guidance, err := manager.launch.RequestReview(authorCtx, RequestReviewParams{
 		AgentID:        author.ID,
 		Prompt:         "read it",
 		IdempotencyKey: "abc",
@@ -220,12 +222,31 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	assert.Equal(t, first.ID, retried.ID)
 	assert.NotEmpty(t, guidance, "a retry is answered with everything the call it repeats answered with")
 
-	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{
+	_, _, err = manager.launch.RequestReview(authorCtx, RequestReviewParams{
 		AgentID:        author.ID,
 		Prompt:         "read it",
 		IdempotencyKey: "def",
 	})
 	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
+
+	other, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "other",
+		Dir:        t.TempDir(),
+		Prompt:     "write another change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	otherCtx := caller.With(ctx, caller.Caller{AgentID: other.ID})
+	theirs, _, err := manager.launch.RequestReview(otherCtx, RequestReviewParams{
+		AgentID:        other.ID,
+		Prompt:         "read it",
+		IdempotencyKey: "abc",
+	})
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ID, theirs.ID, "another agent's key is not a retry of this one's call")
+	require.NotNil(t, theirs.ParentAgentID)
+	assert.Equal(t, other.ID, *theirs.ParentAgentID)
 }
 
 // TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one

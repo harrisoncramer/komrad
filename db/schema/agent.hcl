@@ -897,7 +897,8 @@ table "agents" {
   }
   index "agents_idempotency_key" {
     unique  = true
-    columns = [column.engine_id, column.idempotency_key]
+    columns = [column.engine_id, column.spawned_by_agent_id, column.idempotency_key]
+    nulls_distinct = false
     where   = "idempotency_key IS NOT NULL"
   }
 }

@@ -310,7 +310,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			assert.Len(t, all, 2, "the agent that failed is kept, since it says why it failed")
 			assert.Len(t, tmux.Respawned, 2, "and the retry actually starts something")
 
-			held, err := st.Agents.GetByIdempotencyKey(t.Context(), key)
+			held, err := st.Agents.GetByIdempotencyKey(t.Context(), key, nil)
 			require.NoError(t, err)
 			require.NotNil(t, held)
 			assert.Equal(t, second.ID, held.ID, "the key moves to the agent that launched")

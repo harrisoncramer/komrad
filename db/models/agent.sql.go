@@ -213,6 +213,17 @@ func (q *Queries) CountLiveSpawnedAgents(ctx context.Context, spawnedByAgentID *
 }
 
 const deleteAgentsByID = `-- name: DeleteAgentsByID :many
+WITH released AS (
+    UPDATE
+        agents
+    SET
+        idempotency_key = NULL
+    WHERE
+        spawned_by_agent_id = ANY ($1::uuid[])
+        AND NOT id = ANY ($1::uuid[])
+    RETURNING
+        id
+)
 DELETE FROM agents
 WHERE id = ANY ($1::uuid[])
 RETURNING
@@ -394,11 +405,17 @@ FROM
     agents s
 WHERE
     s.idempotency_key = $1
+    AND s.spawned_by_agent_id IS NOT DISTINCT FROM $2::uuid
 LIMIT 1
 `
 
-func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *string) (*Agent, error) {
-	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, idempotencyKey)
+type GetAgentByIdempotencyKeyParams struct {
+	IdempotencyKey   *string
+	SpawnedByAgentID *string
+}
+
+func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, arg GetAgentByIdempotencyKeyParams) (*Agent, error) {
+	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, arg.IdempotencyKey, arg.SpawnedByAgentID)
 	var i Agent
 	err := row.Scan(
 		&i.ID,
@@ -2447,13 +2464,19 @@ SET
     idempotency_key = NULL
 WHERE
     idempotency_key = $1
+    AND spawned_by_agent_id IS NOT DISTINCT FROM $2::uuid
     AND state = 'failed_to_create'
 RETURNING
     id
 `
 
-func (q *Queries) ReleaseAgentIdempotencyKey(ctx context.Context, idempotencyKey *string) ([]string, error) {
-	rows, err := q.db.Query(ctx, releaseAgentIdempotencyKey, idempotencyKey)
+type ReleaseAgentIdempotencyKeyParams struct {
+	IdempotencyKey   *string
+	SpawnedByAgentID *string
+}
+
+func (q *Queries) ReleaseAgentIdempotencyKey(ctx context.Context, arg ReleaseAgentIdempotencyKeyParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, releaseAgentIdempotencyKey, arg.IdempotencyKey, arg.SpawnedByAgentID)
 	if err != nil {
 		return nil, err
 	}
