@@ -11,6 +11,11 @@ func (r *reviewScreen) raise(m *model, held message) {
 	m.pushMessage(held)
 }
 
+func (r *reviewScreen) lower(m *model, key string) {
+	m.dropMessage(key)
+	r.raised = slices.DeleteFunc(r.raised, func(raised string) bool { return raised == key })
+}
+
 func (r *reviewScreen) raiseNotices(m *model) {
 	if r.diff.View() == nil || r.diff.View().Len() == 0 || m.screen != screenReview {
 		return
@@ -18,7 +23,7 @@ func (r *reviewScreen) raiseNotices(m *model) {
 
 	archived := "archived:" + r.agentID
 	if !r.isArchived(m) {
-		m.dropMessage(archived)
+		r.lower(m, archived)
 	} else {
 		r.raise(m, message{
 			kind:    messageWarning,
@@ -30,7 +35,7 @@ func (r *reviewScreen) raiseNotices(m *model) {
 
 	moved := r.movedNotice(m)
 	if moved.key != r.moved {
-		m.dropMessage(r.moved)
+		r.lower(m, r.moved)
 		r.moved = moved.key
 	}
 

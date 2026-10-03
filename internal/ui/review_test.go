@@ -1399,6 +1399,26 @@ func TestReviewReload(t *testing.T) {
 		assert.NotContains(t, said, "the agent is writing")
 	})
 
+	t.Run("a writer stopping a second time under an unsent comment raises the reload hint again", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+		harness := openReview(t, server)
+
+		server.repo.Wrote(newRoundWrittenOver())
+		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		harness.watch(server.buildSnapshot())
+		require.Contains(t, readEngineLine(harness.readFrame()), "the worktree has moved")
+
+		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+		harness.watch(server.buildSnapshot())
+		require.NotContains(t, readOpenMessages(harness), "the worktree has moved")
+
+		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
+		harness.watch(server.buildSnapshot())
+
+		assert.Contains(t, readOpenMessages(harness), "the worktree has moved")
+	})
+
 	t.Run("a move's notice comes down once the diff catches up", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
