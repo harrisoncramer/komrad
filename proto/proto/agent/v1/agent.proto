@@ -1067,6 +1067,16 @@ service AgentService {
       reason: "A document type's context is instructions every agent follows, so only a person decides what it says."
     };
   }
+  rpc DeleteDocument(DeleteDocumentRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "delete_document"
+      description: "Delete a document and every earlier version of it."
+      reason: "A document is what a person reads of an agent's work, so only a person decides to throw one away."
+    };
+  }
   rpc DeleteDocumentType(DeleteDocumentTypeRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {

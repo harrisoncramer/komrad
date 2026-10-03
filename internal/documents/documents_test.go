@@ -537,3 +537,26 @@ func personEdits(t *testing.T, service *documents.DocumentService, written *docu
 
 	return edited
 }
+
+// TestDeleteDocumentRefusesAnAgent pins that an agent's delete leaves the document in place.
+func TestDeleteDocumentRefusesAnAgent(t *testing.T) {
+	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes")
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
+	ctx := t.Context()
+
+	created, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+		AgentID: author.ID,
+		Name:    "kept",
+		Type:    "notes",
+		Body:    "still here",
+	})
+	require.NoError(t, err)
+
+	err = service.DeleteDocument(ctx, documents.DeleteDocumentParams{ID: created.ID, ByAgentID: author.ID})
+	require.ErrorIs(t, err, documents.ErrDeleteByAgent)
+
+	_, err = service.GetDocument(ctx, created.ID, nil)
+	assert.NoError(t, err, "the document is still there")
+}

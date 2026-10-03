@@ -10,6 +10,19 @@ import (
 	"time"
 )
 
+const deleteDocument = `-- name: DeleteDocument :execrows
+DELETE FROM documents
+WHERE id = $1
+`
+
+func (q *Queries) DeleteDocument(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDocument, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getDocument = `-- name: GetDocument :one
 SELECT
     id, agent_id, name, body, created_at, updated_at, engine_id, version, type

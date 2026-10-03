@@ -119,6 +119,9 @@ const (
 	// AgentServiceWriteDocumentTypeProcedure is the fully-qualified name of the AgentService's
 	// WriteDocumentType RPC.
 	AgentServiceWriteDocumentTypeProcedure = "/agent.v1.AgentService/WriteDocumentType"
+	// AgentServiceDeleteDocumentProcedure is the fully-qualified name of the AgentService's
+	// DeleteDocument RPC.
+	AgentServiceDeleteDocumentProcedure = "/agent.v1.AgentService/DeleteDocument"
 	// AgentServiceDeleteDocumentTypeProcedure is the fully-qualified name of the AgentService's
 	// DeleteDocumentType RPC.
 	AgentServiceDeleteDocumentTypeProcedure = "/agent.v1.AgentService/DeleteDocumentType"
@@ -221,6 +224,7 @@ type AgentServiceClient interface {
 	GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error)
 	ListDocumentTypeVersions(context.Context, *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error)
 	WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error)
+	DeleteDocument(context.Context, *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
@@ -469,6 +473,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("WriteDocumentType")),
 			connect.WithClientOptions(opts...),
 		),
+		deleteDocument: connect.NewClient[v1.DeleteDocumentRequest, emptypb.Empty](
+			httpClient,
+			baseURL+AgentServiceDeleteDocumentProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("DeleteDocument")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		deleteDocumentType: connect.NewClient[v1.DeleteDocumentTypeRequest, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceDeleteDocumentTypeProcedure,
@@ -657,6 +668,7 @@ type agentServiceClient struct {
 	getDocumentType          *connect.Client[v1.GetDocumentTypeRequest, v1.GetDocumentTypeResponse]
 	listDocumentTypeVersions *connect.Client[v1.ListDocumentTypeVersionsRequest, v1.ListDocumentTypeVersionsResponse]
 	writeDocumentType        *connect.Client[v1.WriteDocumentTypeRequest, v1.WriteDocumentTypeResponse]
+	deleteDocument           *connect.Client[v1.DeleteDocumentRequest, emptypb.Empty]
 	deleteDocumentType       *connect.Client[v1.DeleteDocumentTypeRequest, emptypb.Empty]
 	recordReport             *connect.Client[v1.RecordReportRequest, emptypb.Empty]
 	markRunsRead             *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
@@ -842,6 +854,11 @@ func (c *agentServiceClient) WriteDocumentType(ctx context.Context, req *connect
 	return c.writeDocumentType.CallUnary(ctx, req)
 }
 
+// DeleteDocument calls agent.v1.AgentService.DeleteDocument.
+func (c *agentServiceClient) DeleteDocument(ctx context.Context, req *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteDocument.CallUnary(ctx, req)
+}
+
 // DeleteDocumentType calls agent.v1.AgentService.DeleteDocumentType.
 func (c *agentServiceClient) DeleteDocumentType(ctx context.Context, req *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.deleteDocumentType.CallUnary(ctx, req)
@@ -991,6 +1008,7 @@ type AgentServiceHandler interface {
 	GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error)
 	ListDocumentTypeVersions(context.Context, *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error)
 	WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error)
+	DeleteDocument(context.Context, *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
@@ -1235,6 +1253,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("WriteDocumentType")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceDeleteDocumentHandler := connect.NewUnaryHandler(
+		AgentServiceDeleteDocumentProcedure,
+		svc.DeleteDocument,
+		connect.WithSchema(agentServiceMethods.ByName("DeleteDocument")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceDeleteDocumentTypeHandler := connect.NewUnaryHandler(
 		AgentServiceDeleteDocumentTypeProcedure,
 		svc.DeleteDocumentType,
@@ -1452,6 +1477,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceListDocumentTypeVersionsHandler.ServeHTTP(w, r)
 		case AgentServiceWriteDocumentTypeProcedure:
 			agentServiceWriteDocumentTypeHandler.ServeHTTP(w, r)
+		case AgentServiceDeleteDocumentProcedure:
+			agentServiceDeleteDocumentHandler.ServeHTTP(w, r)
 		case AgentServiceDeleteDocumentTypeProcedure:
 			agentServiceDeleteDocumentTypeHandler.ServeHTTP(w, r)
 		case AgentServiceRecordReportProcedure:
@@ -1633,6 +1660,10 @@ func (UnimplementedAgentServiceHandler) ListDocumentTypeVersions(context.Context
 
 func (UnimplementedAgentServiceHandler) WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.WriteDocumentType is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) DeleteDocument(context.Context, *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteDocument is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error) {

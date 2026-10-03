@@ -46,6 +46,8 @@ var (
 	ErrAgentWritingForAnother = fail.InvalidArgument("an agent writes only its own documents, so leave agent_id unset")
 	// ErrDocumentTypeByAgent is an agent writing or deleting a document type.
 	ErrDocumentTypeByAgent = fail.Denied("only a person writes or deletes a document type")
+	// ErrDeleteByAgent is an agent deleting a document.
+	ErrDeleteByAgent = fail.Denied("only a person deletes a document")
 )
 
 type eventRecorder interface {
@@ -264,6 +266,22 @@ func (s *DocumentService) GetDocument(ctx context.Context, id string, version *i
 	got.Version, got.UpdatedAt = written.Version, written.CreatedAt
 
 	return got, nil
+}
+
+// DeleteDocumentParams is the document to delete and the agent asking.
+type DeleteDocumentParams struct {
+	ID string
+	// ByAgentID is the agent asking, empty for a person.
+	ByAgentID string
+}
+
+// DeleteDocument removes a document and every write of it.
+func (s *DocumentService) DeleteDocument(ctx context.Context, params DeleteDocumentParams) error {
+	if params.ByAgentID != "" {
+		return ErrDeleteByAgent
+	}
+
+	return s.documents.Delete(ctx, params.ID)
 }
 
 // ListDocumentVersions returns every write of a document, the newest first, with the agent that owns it.

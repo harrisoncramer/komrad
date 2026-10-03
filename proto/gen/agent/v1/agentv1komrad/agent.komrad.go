@@ -50,6 +50,7 @@ type AgentServiceImpl interface {
 	GetDocumentType(context.Context, *v1.GetDocumentTypeRequest) (*v1.GetDocumentTypeResponse, *fail.Error)
 	ListDocumentTypeVersions(context.Context, *v1.ListDocumentTypeVersionsRequest) (*v1.ListDocumentTypeVersionsResponse, *fail.Error)
 	WriteDocumentType(context.Context, *v1.WriteDocumentTypeRequest) (*v1.WriteDocumentTypeResponse, *fail.Error)
+	DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*emptypb.Empty, *fail.Error)
 	DeleteDocumentType(context.Context, *v1.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
 	MarkRunsRead(context.Context, *v1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
@@ -239,6 +240,11 @@ func (a AgentServiceAdapter) ListDocumentTypeVersions(ctx context.Context, req *
 // WriteDocumentType answers the request as connect serves it.
 func (a AgentServiceAdapter) WriteDocumentType(ctx context.Context, req *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error) {
 	return rpcerr.Answer(a.Impl.WriteDocumentType(ctx, req.Msg))
+}
+
+// DeleteDocument answers the request as connect serves it.
+func (a AgentServiceAdapter) DeleteDocument(ctx context.Context, req *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.DeleteDocument(ctx, req.Msg))
 }
 
 // DeleteDocumentType answers the request as connect serves it.

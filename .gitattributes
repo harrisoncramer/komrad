@@ -1,0 +1,29 @@
+# Tell GitHub which files are generated so they collapse in diffs and are
+# excluded from language stats.
+# https://docs.github.com/en/repositories/working-with-files/managing-files/customizing-how-changed-files-appear-on-github
+
+# protobuf / connect (mise run proto:generate)
+proto/gen/** linguist-generated=true
+
+# sqlc (mise run db:sqlc)
+db/models/** linguist-generated=true
+db/testmodels/** linguist-generated=true
+
+# atlas (mise run db:migrate)
+db/migrations/** linguist-generated=true
+
+# config (mise run gen:config)
+config.toml linguist-generated=true
+
+# glyphs (mise run gen:glyphs)
+internal/glyph/approved.go linguist-generated=true
+
+# docs site data and fonts (mise run gen:docs, mise run docs:fonts)
+docs/src/data/** linguist-generated=true
+docs/src/fonts/** linguist-generated=true
+
+# lockfiles
+**/go.sum linguist-generated=true
+proto/buf.lock linguist-generated=true
+docs/package-lock.json linguist-generated=true
+infra/**/.terraform.lock.hcl linguist-generated=true

@@ -1174,6 +1174,51 @@ func (x *WriteDocumentTypeResponse) GetDocumentType() *DocumentType {
 	return nil
 }
 
+type DeleteDocumentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The document to delete.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDocumentRequest) Reset() {
+	*x = DeleteDocumentRequest{}
+	mi := &file_agent_v1_document_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDocumentRequest) ProtoMessage() {}
+
+func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *DeleteDocumentRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 type DeleteDocumentTypeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The type to delete.
@@ -1184,7 +1229,7 @@ type DeleteDocumentTypeRequest struct {
 
 func (x *DeleteDocumentTypeRequest) Reset() {
 	*x = DeleteDocumentTypeRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[19]
+	mi := &file_agent_v1_document_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1196,7 +1241,7 @@ func (x *DeleteDocumentTypeRequest) String() string {
 func (*DeleteDocumentTypeRequest) ProtoMessage() {}
 
 func (x *DeleteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[19]
+	mi := &file_agent_v1_document_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1209,7 +1254,7 @@ func (x *DeleteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentTypeRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentTypeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{19}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DeleteDocumentTypeRequest) GetId() string {
@@ -1310,7 +1355,9 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"\b_version\"X\n" +
 	"\x19WriteDocumentTypeResponse\x12;\n" +
-	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"4\n" +
+	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"0\n" +
+	"\x15DeleteDocumentRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"4\n" +
 	"\x19DeleteDocumentTypeRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02idB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
@@ -1326,7 +1373,7 @@ func file_agent_v1_document_proto_rawDescGZIP() []byte {
 	return file_agent_v1_document_proto_rawDescData
 }
 
-var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_agent_v1_document_proto_goTypes = []any{
 	(*Document)(nil),                         // 0: agent.v1.Document
 	(*WriteDocumentRequest)(nil),             // 1: agent.v1.WriteDocumentRequest
@@ -1347,7 +1394,8 @@ var file_agent_v1_document_proto_goTypes = []any{
 	(*ListDocumentTypeVersionsResponse)(nil), // 16: agent.v1.ListDocumentTypeVersionsResponse
 	(*WriteDocumentTypeRequest)(nil),         // 17: agent.v1.WriteDocumentTypeRequest
 	(*WriteDocumentTypeResponse)(nil),        // 18: agent.v1.WriteDocumentTypeResponse
-	(*DeleteDocumentTypeRequest)(nil),        // 19: agent.v1.DeleteDocumentTypeRequest
+	(*DeleteDocumentRequest)(nil),            // 19: agent.v1.DeleteDocumentRequest
+	(*DeleteDocumentTypeRequest)(nil),        // 20: agent.v1.DeleteDocumentTypeRequest
 }
 var file_agent_v1_document_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
@@ -1384,7 +1432,7 @@ func file_agent_v1_document_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_document_proto_rawDesc), len(file_agent_v1_document_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
