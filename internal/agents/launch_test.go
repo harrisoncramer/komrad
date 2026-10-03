@@ -910,6 +910,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	assert.Equal(t, []error{nil}, lifecycle.deprovisionCtxErr, "cleanup gets a context it can still read the workflow on")
 }
 
+// archivingSetupLifecycle stands in for the agent being archived while its provisioner is running.
 type archivingSetupLifecycle struct {
 	*fakeLifecycle
 	archive func(id string) error
