@@ -347,36 +347,42 @@ func TestPaneKeepsTheCursorInSightWhenLinesStartWrapping(t *testing.T) {
 // TestPaneKeepsTheFileNameOnTop covers the header of the file under the window standing over its
 // first line once the header has scrolled away.
 func TestPaneKeepsTheFileNameOnTop(t *testing.T) {
-	numbered := [2]string{numberedText(30, nil), numberedText(30, map[int]string{1: "first", 30: "last"})}
+	oldNumbered := numberedText(30, nil)
+	newNumbered := numberedText(30, map[int]string{1: "first", 30: "last"})
 	tests := []struct {
 		name     string
-		texts    [2]string
+		oldText  string
+		newText  string
 		headless bool
 		window   Window
 		wantTop  []string
 	}{
 		{
 			name:    "a header scrolled away is drawn over the first line",
-			texts:   numbered,
+			oldText: oldNumbered,
+			newText: newNumbered,
 			window:  paneWindow,
 			wantTop: []string{"notes.md"},
 		},
 		{
 			name:     "a headless view has no header to draw",
-			texts:    numbered,
+			oldText:  oldNumbered,
+			newText:  newNumbered,
 			headless: true,
 			window:   paneWindow,
 			wantTop:  []string{"27   27    line 27"},
 		},
 		{
 			name:    "the cursor on the first line is not covered",
-			texts:   numbered,
+			oldText: oldNumbered,
+			newText: newNumbered,
 			window:  Window{Width: 80, Height: 1},
 			wantTop: []string{"30 +  last"},
 		},
 		{
 			name:    "the rest of a wrapped first line is blanked under the header",
-			texts:   [2]string{longText("old"), longText("new")},
+			oldText: longText("old"),
+			newText: longText("new"),
 			window:  wrappedWindow,
 			wantTop: []string{"notes.md", ""},
 		},
@@ -384,7 +390,7 @@ func TestPaneKeepsTheFileNameOnTop(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			view := NewView(patchWith(diff.FromTexts("notes.md", tt.texts[0], tt.texts[1])), false)
+			view := NewView(patchWith(diff.FromTexts("notes.md", tt.oldText, tt.newText)), false)
 			view.SetHeadless(tt.headless)
 			pane := NewPane(view)
 
