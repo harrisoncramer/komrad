@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"komrad/db"
+	"komrad/db/migrator"
 	"komrad/internal/pgtest"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,7 +53,7 @@ func URL(t *testing.T) string {
 func New(t *testing.T) database {
 	t.Helper()
 
-	version, err := db.SchemaVersion()
+	version, err := migrator.SchemaVersion()
 	require.NoError(t, err)
 
 	return database{OwnerURL: pgtest.Migrated(t, pgtest.Schema{Version: version, Apply: migrate})}
@@ -115,7 +116,7 @@ func migrate(ctx context.Context, url string) error {
 	}
 	defer pool.Close()
 
-	return db.Migrate(ctx, pool)
+	return migrator.Migrate(ctx, pool)
 }
 
 func dropEngine(t *testing.T, ownerURL, login string) {

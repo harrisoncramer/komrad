@@ -5,9 +5,9 @@ import (
 	"os"
 )
 
-// appNamePrefix marks a connection as komrad's own in pg_stat_activity, which the migration pass
+// AppNamePrefix marks a connection as komrad's own in pg_stat_activity, which the migration pass
 // reads to tell its own connections from another komrad's.
-const appNamePrefix = "komrad"
+const AppNamePrefix = "komrad"
 
 // maxAppName is what Postgres truncates application_name at, applied here so two processes on a
 // long hostname do not end up under one truncated name.
@@ -21,7 +21,7 @@ func AppName() string {
 		host = "unknown"
 	}
 
-	name := fmt.Sprintf("%s/%s/%d", appNamePrefix, host, os.Getpid())
+	name := fmt.Sprintf("%s/%s/%d", AppNamePrefix, host, os.Getpid())
 	if len(name) > maxAppName {
 		name = name[:maxAppName]
 	}

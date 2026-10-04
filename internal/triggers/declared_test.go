@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"komrad/db"
+	"komrad/db/isolation"
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	"komrad/internal/watch"
@@ -69,7 +69,7 @@ func TestTheSchemaCarriesExactlyTheDeclaredTriggers(t *testing.T) {
 		WHERE
 		    c.relnamespace = 'public'::regnamespace
 		    AND NOT t.tgisinternal
-		    AND t.tgname <> $1`, db.StampEngineTrigger)
+		    AND t.tgname <> $1`, isolation.StampEngineTrigger)
 	require.NoError(t, err)
 	defer rows.Close()
 
@@ -108,7 +108,7 @@ func TestTheSchemaCarriesExactlyTheDeclaredFunctions(t *testing.T) {
 		    AND prorettype = 'trigger'::regtype
 		    AND proname <> $1
 		ORDER BY
-		    proname`, db.StampEngineTrigger)
+		    proname`, isolation.StampEngineTrigger)
 	require.NoError(t, err)
 	defer rows.Close()
 

@@ -31,8 +31,8 @@ func IsForeignKeyViolation(err error, constraint string) bool {
 	return errors.As(err, &pgErr) && (pgErr.Code == foreignKeyViolation || pgErr.Code == restrictViolation) && pgErr.ConstraintName == constraint
 }
 
-// isUndefinedTable reports whether an error is a query against a table that does not exist.
-func isUndefinedTable(err error) bool {
+// IsUndefinedTable reports whether an error is a query against a table that does not exist.
+func IsUndefinedTable(err error) bool {
 	return hasCode(err, undefinedTable)
 }
 

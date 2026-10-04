@@ -1,20 +1,19 @@
-// Package db embeds the Atlas migrations and applies them, so a deployment can
+// Package migrator applies the Atlas migrations and trigger units db embeds, so a deployment can
 // bring its own schema up to date by running the binary rather than by having
 // the atlas CLI on the box.
 //
-// It does this by embedding all of the migrations into the binary and then acquiring
-// an advisory lock (so that two migrations cannot run migrations at the same time) and
-// running them each, in sequential order, against the database.
+// It does this by acquiring an advisory lock (so that two migrations cannot run migrations at
+// the same time) and running them each, in sequential order, against the database.
 //
 // The triggers are embedded alongside them as one versioned file per table, which a pass
 // reapplies whenever the file's version moves past the one the database recorded.
-package db
+package migrator
 
 import (
 	"cmp"
 	"context"
 	"crypto/sha256"
-	"embed"
+	_ "embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"komrad/db"
+	"komrad/db/isolation"
 	"komrad/internal/logging"
 	"komrad/lib/xslice"
 
@@ -34,17 +35,32 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed migrations/*.sql
-var migrationsFS embed.FS
-
-//go:embed triggers/*.sql
-var triggersFS embed.FS
-
 //go:embed applied_migrations.sql
 var appliedMigrationsSQL string
 
 //go:embed applied_triggers.sql
 var appliedTriggersSQL string
+
+//go:embed drop_orphan_functions.sql
+var dropOrphanFunctionsSQL string
+
+//go:embed record_migration.sql
+var recordMigrationSQL string
+
+//go:embed record_trigger.sql
+var recordTriggerSQL string
+
+//go:embed create_ledgers.sql
+var createLedgersSQL string
+
+//go:embed lock.sql
+var lockSQL string
+
+//go:embed unlock.sql
+var unlockSQL string
+
+//go:embed other_komrads.sql
+var otherKomradsSQL string
 
 // migrateLock is the advisory lock key that stops two processes applying the same migration
 // twice, and it must never change.
@@ -58,33 +74,6 @@ const unlockTimeout = 5 * time.Second
 
 // versionLength is how much of the fingerprint is kept.
 const versionLength = 12
-
-// dropOrphanFunctionsSQL drops every trigger function no trigger runs any longer.
-const dropOrphanFunctionsSQL = `
-DO $$
-DECLARE
-    orphan regprocedure;
-BEGIN
-    FOR orphan IN
-        SELECT p.oid::regprocedure FROM pg_proc p
-        WHERE p.pronamespace = 'public'::regnamespace
-          AND p.prorettype = 'trigger'::regtype
-          AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgfoid = p.oid)
-    LOOP
-        EXECUTE FORMAT('DROP FUNCTION %s', orphan);
-    END LOOP;
-END;
-$$;`
-
-// recordMigrationSQL records a migration and forgets every unit this build carries.
-const recordMigrationSQL = `
-WITH recorded AS (INSERT INTO schema_migrations (version) VALUES ($1))
-DELETE FROM schema_triggers WHERE unit = ANY ($2)`
-
-// recordTriggerSQL records the version a trigger unit was applied at.
-const recordTriggerSQL = `
-INSERT INTO schema_triggers (unit, version) VALUES ($1, $2)
-ON CONFLICT (unit) DO UPDATE SET version = EXCLUDED.version`
 
 var triggerFileName = regexp.MustCompile(`^(.+)\.v(\d+)\.sql$`)
 
@@ -172,12 +161,12 @@ func migrate(ctx context.Context, pool *pgxpool.Pool, src *sources) error {
 // openSources opens the embedded migrations and trigger units, each rooted at the directory
 // holding them, so a version is the bare file name.
 func openSources() (*sources, error) {
-	migrations, err := fs.Sub(migrationsFS, "migrations")
+	migrations, err := fs.Sub(db.Migrations, "migrations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the embedded migrations: %w", err)
 	}
 
-	triggers, err := fs.Sub(triggersFS, "triggers")
+	triggers, err := fs.Sub(db.Triggers, "triggers")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the embedded triggers: %w", err)
 	}
@@ -185,7 +174,7 @@ func openSources() (*sources, error) {
 	return &sources{
 		migrations: migrations,
 		triggers:   triggers,
-		isolate:    isolateEngines,
+		isolate:    isolation.Apply,
 	}, nil
 }
 
@@ -254,7 +243,7 @@ func checkSchema(ctx context.Context, pool *pgxpool.Pool, src *sources) error {
 // listAppliedMigrations reads the ledger, which a database that has never been migrated does not have yet.
 func listAppliedMigrations(ctx context.Context, q queryer) (map[string]bool, error) {
 	rows, err := q.Query(ctx, appliedMigrationsSQL)
-	if isUndefinedTable(err) {
+	if db.IsUndefinedTable(err) {
 		return map[string]bool{}, nil
 	}
 	if err != nil {
@@ -262,7 +251,7 @@ func listAppliedMigrations(ctx context.Context, q queryer) (map[string]bool, err
 	}
 
 	versions, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if isUndefinedTable(err) {
+	if db.IsUndefinedTable(err) {
 		return map[string]bool{}, nil
 	}
 	if err != nil {
@@ -281,7 +270,7 @@ func listAppliedMigrations(ctx context.Context, q queryer) (map[string]bool, err
 // that has never been migrated has no ledger for yet.
 func listAppliedTriggers(ctx context.Context, q queryer) (map[string]int, error) {
 	rows, err := q.Query(ctx, appliedTriggersSQL)
-	if isUndefinedTable(err) {
+	if db.IsUndefinedTable(err) {
 		return map[string]int{}, nil
 	}
 	if err != nil {
@@ -289,7 +278,7 @@ func listAppliedTriggers(ctx context.Context, q queryer) (map[string]int, error)
 	}
 
 	units, err := pgx.CollectRows(rows, pgx.RowToStructByName[appliedTrigger])
-	if isUndefinedTable(err) {
+	if db.IsUndefinedTable(err) {
 		return map[string]int{}, nil
 	}
 	if err != nil {
@@ -351,17 +340,13 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 	}
 	defer conn.Release()
 
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", migrateLock); err != nil {
+	if _, err := conn.Exec(ctx, lockSQL, migrateLock); err != nil {
 		return fmt.Errorf("failed to take the migration lock: %w", err)
 	}
 	defer releaseMigrateLock(ctx, conn)
 
-	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY)`); err != nil {
-		return fmt.Errorf("failed to create schema_migrations: %w", err)
-	}
-
-	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_triggers (unit text PRIMARY KEY, version integer NOT NULL)`); err != nil {
-		return fmt.Errorf("failed to create schema_triggers: %w", err)
+	if _, err := conn.Exec(ctx, createLedgersSQL); err != nil {
+		return fmt.Errorf("failed to create the migration ledgers: %w", err)
 	}
 
 	plan, err := getPlan(ctx, conn, all)
@@ -456,14 +441,7 @@ func applyFile(ctx context.Context, conn *pgxpool.Conn, params applyFileParams) 
 // refuseSharedDatabase stops a pass that would change the schema under a komrad already
 // running against the same database.
 func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []string) error {
-	rows, err := conn.Query(ctx, `
-		SELECT DISTINCT application_name
-		FROM pg_stat_activity
-		WHERE datname = current_database()
-		  AND pid <> pg_backend_pid()
-		  AND application_name LIKE $1
-		  AND application_name <> $2
-		ORDER BY application_name`, appNamePrefix+"/%", AppName())
+	rows, err := conn.Query(ctx, otherKomradsSQL, db.AppNamePrefix+"/%", db.AppName())
 	if err != nil {
 		return fmt.Errorf("failed to read who else is using the database: %w", err)
 	}
@@ -486,7 +464,7 @@ func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), unlockTimeout)
 	defer cancel()
 
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", migrateLock); err != nil {
+	if _, err := conn.Exec(ctx, unlockSQL, migrateLock); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the migration lock", logging.Err(err)...)
 	}
 }

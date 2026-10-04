@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"komrad/db"
+	"komrad/db/migrator"
 	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/lib/xslice"
@@ -86,7 +87,7 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 		return nil, fmt.Errorf("failed to reach db: %w", err)
 	}
 
-	if err := db.CheckSchema(ctx, pool); err != nil {
+	if err := migrator.CheckSchema(ctx, pool); err != nil {
 		pool.Close()
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func Migrate(ctx context.Context, url string) error {
 	}
 	defer pool.Close()
 
-	if err := db.Migrate(ctx, pool); err != nil {
+	if err := migrator.Migrate(ctx, pool); err != nil {
 		return fmt.Errorf("failed to migrate db: %w", err)
 	}
 
@@ -127,7 +128,7 @@ func EnsureEngine(ctx context.Context, url string, params db.EnsureEngineParams)
 	}
 	defer pool.Close()
 
-	if err := db.CheckSchema(ctx, pool); err != nil {
+	if err := migrator.CheckSchema(ctx, pool); err != nil {
 		return err
 	}
 

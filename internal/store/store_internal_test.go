@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"komrad/db"
+	"komrad/db/isolation"
 	"komrad/db/testmodels"
 	"komrad/internal/dbtest"
 
@@ -110,7 +110,7 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 		{
 			name: "engine",
 			list: func(ctx context.Context) ([]string, error) {
-				return queries.ListTablesWithoutEngine(ctx, db.UnscopedTables)
+				return queries.ListTablesWithoutEngine(ctx, isolation.UnscopedTables)
 			},
 			cause: "these tables have no required engine_id",
 		},
@@ -118,8 +118,8 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 			name: "isolation",
 			list: func(ctx context.Context) ([]string, error) {
 				return queries.ListTablesWithoutEngineIsolation(ctx, testmodels.ListTablesWithoutEngineIsolationParams{
-					Unisolated:         db.UnisolatedTables,
-					StampEngineTrigger: db.StampEngineTrigger,
+					Unisolated:         isolation.UnisolatedTables,
+					StampEngineTrigger: isolation.StampEngineTrigger,
 				})
 			},
 			cause: "these tables lack row security, the engine_isolation policy or the stamp_engine trigger",
@@ -138,8 +138,8 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 			name: "unique keys",
 			list: func(ctx context.Context) ([]string, error) {
 				return queries.ListUniqueKeysAcrossEngines(ctx, testmodels.ListUniqueKeysAcrossEnginesParams{
-					Unscoped:   db.UnscopedTables,
-					Unisolated: db.UnisolatedTables,
+					Unscoped:   isolation.UnscopedTables,
+					Unisolated: isolation.UnisolatedTables,
 				})
 			},
 			cause: "these unique keys collide across engines; lead them with engine_id",
@@ -148,8 +148,8 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 			name: "grants",
 			list: func(ctx context.Context) ([]string, error) {
 				return queries.ListTablesEnginesCannotReach(ctx, testmodels.ListTablesEnginesCannotReachParams{
-					Unisolated: db.UnisolatedTables,
-					Readerless: db.ReaderlessTables,
+					Unisolated: isolation.UnisolatedTables,
+					Readerless: isolation.ReaderlessTables,
 				})
 			},
 			cause: "komrad_engine cannot reach these tables, or komrad_reader reaches the wrong ones",

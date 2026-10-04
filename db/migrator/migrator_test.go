@@ -1,4 +1,4 @@
-package db
+package migrator
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"komrad/db"
 	"komrad/internal/pgtest"
 	"komrad/lib/xslice"
 
@@ -108,7 +109,7 @@ func TestMigrateSharedDatabase(t *testing.T) {
 		},
 		{
 			name:    "a connection of this process's own is not another komrad",
-			appName: AppName(),
+			appName: db.AppName(),
 		},
 		{
 			name:    "anything else on the database is not a komrad",

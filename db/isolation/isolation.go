@@ -1,4 +1,6 @@
-package db
+// Package isolation scopes every engine table to the engine writing it, deriving the policy,
+// trigger and grants from the schema rather than from each migration.
+package isolation
 
 import (
 	"context"
@@ -30,7 +32,8 @@ var isolationSettingsSQL string
 //go:embed isolation.sql
 var isolationSQL string
 
-func isolateEngines(ctx context.Context, tx pgx.Tx) error {
+// Apply settles row level security, the isolation policy, the stamp trigger and the grants on every engine table.
+func Apply(ctx context.Context, tx pgx.Tx) error {
 	tablesWithoutEngineRows, err := tx.Query(ctx, tablesWithoutEngineSQL, UnscopedTables)
 	if err != nil {
 		return fmt.Errorf("failed to list tables without engine_id: %w", err)
@@ -41,7 +44,7 @@ func isolateEngines(ctx context.Context, tx pgx.Tx) error {
 		return fmt.Errorf("failed to read tables without engine_id: %w", err)
 	}
 	if len(tablesWithoutEngine) > 0 {
-		return fmt.Errorf("these tables have no required engine_id and are not listed in db.UnscopedTables: %s", strings.Join(tablesWithoutEngine, ", "))
+		return fmt.Errorf("these tables have no required engine_id and are not listed in isolation.UnscopedTables: %s", strings.Join(tablesWithoutEngine, ", "))
 	}
 
 	if _, err := tx.Exec(ctx, isolationSettingsSQL, UnisolatedTables, ReaderlessTables); err != nil {

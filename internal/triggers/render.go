@@ -13,7 +13,8 @@ import (
 	"strings"
 	"text/template"
 
-	"komrad/db"
+	"komrad/db/isolation"
+	"komrad/db/migrator"
 	"komrad/internal/fail"
 )
 
@@ -27,7 +28,7 @@ var templateFS embed.FS
 var templates = template.Must(template.New("").Funcs(template.FuncMap{
 	"args":               quoteAll,
 	"names":              triggerNames,
-	"stampEngineTrigger": func() string { return db.StampEngineTrigger },
+	"stampEngineTrigger": func() string { return isolation.StampEngineTrigger },
 }).ParseFS(templateFS, "templates/*.tmpl"))
 
 var (
@@ -65,7 +66,7 @@ func render() ([]unit, error) {
 	if err := templates.ExecuteTemplate(&functionsSQL, "functions.sql.tmpl", functions); err != nil {
 		return nil, fmt.Errorf("failed to render the trigger functions: %w", err)
 	}
-	units := []unit{{Name: db.TriggerFunctionsUnit, SQL: functionsSQL.String()}}
+	units := []unit{{Name: migrator.TriggerFunctionsUnit, SQL: functionsSQL.String()}}
 
 	for _, table := range tables {
 		var tableSQL bytes.Buffer
@@ -104,7 +105,7 @@ func validateTables(tables []Table, functions []Function) error {
 
 	seenTables := map[string]bool{}
 	for _, table := range tables {
-		if !identifier.MatchString(table.Name) || table.Name == db.TriggerFunctionsUnit {
+		if !identifier.MatchString(table.Name) || table.Name == migrator.TriggerFunctionsUnit {
 			return fmt.Errorf("table name %q is not a plain identifier", table.Name)
 		}
 		if seenTables[table.Name] {
@@ -228,7 +229,7 @@ func readExisting(dir string) (map[string]existingFile, error) {
 			continue
 		}
 
-		unit, version, err := db.ParseTriggerFileName(entry.Name())
+		unit, version, err := migrator.ParseTriggerFileName(entry.Name())
 		if err != nil {
 			return nil, err
 		}
