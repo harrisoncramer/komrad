@@ -17,7 +17,7 @@ type formState struct {
 	kind formKind
 	form *huh.Form
 
-	// isMenu says the form is the menu, which the review draws in its popup rather than in a column.
+	// isMenu says the form is the space menu.
 	isMenu bool
 
 	// crumbs are the steps the form adds to the trail while it is up.
