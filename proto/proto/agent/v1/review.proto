@@ -479,3 +479,108 @@ message ListReviewViewedFilesResponse {
   // Every file marked read for that agent.
   repeated ReviewViewedFile viewed = 1;
 }
+
+// ForgeReplyState is where a reply komrad posts to the forge is on its way there.
+enum ForgeReplyState {
+  // No state was recorded.
+  FORGE_REPLY_STATE_UNSPECIFIED = 0;
+  // An agent's proposal waiting for the person to approve, edit or discard it.
+  FORGE_REPLY_STATE_DRAFT = 1;
+  // Approved and waiting to be posted.
+  FORGE_REPLY_STATE_APPROVED = 2;
+  // Being posted, and possibly already on the forge.
+  FORGE_REPLY_STATE_SENDING = 3;
+  // Accepted by the forge.
+  FORGE_REPLY_STATE_SENT = 4;
+  // Refused by the forge on its latest attempt, waiting for the person to retry or discard it.
+  FORGE_REPLY_STATE_FAILED = 5;
+}
+
+// ForgeReply is a reply komrad posts as the person on a thread mirrored from the forge.
+message ForgeReply {
+  // The handle an approval, a retry or a discard names this reply by.
+  string id = 1;
+  // The review thread it answers, which mirrors a thread on the forge.
+  string thread_id = 2;
+  // Where it is on its way to the forge.
+  ForgeReplyState state = 3;
+  // Whether the person wrote it or an agent proposed it.
+  ReviewAuthorKind author_kind = 4;
+  // The agent that proposed it, absent when the person wrote it.
+  optional string author_agent_id = 5;
+  // The words the agent proposed, absent when the person wrote it.
+  optional string proposed_body = 6;
+  // The words that go to the forge, which differ from the proposal when the person edited it.
+  string body = 7;
+  // When the person approved it, empty while it is a draft.
+  string approved_at = 8;
+  // When komrad last began posting it, empty until then.
+  string sending_started_at = 9;
+  // When the forge accepted it, empty until then.
+  string sent_at = 10;
+  // The comment it became on the forge, absent until it is sent.
+  optional string forge_comment_id = 11;
+  // What the forge said when it last refused it, absent unless it failed.
+  optional string error = 12;
+  // When it was written.
+  string created_at = 13;
+}
+
+message ProposeForgeReplyRequest {
+  // The mirrored thread to reply on.
+  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
+  // What to say on the forge. The ceiling refuses an essay and is not a length to write up to.
+  string body = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1000
+  }];
+}
+
+message ProposeForgeReplyResponse {
+  // The draft as recorded, waiting for the person.
+  ForgeReply reply = 1;
+}
+
+message ReplyOnForgeRequest {
+  // The mirrored thread to reply on.
+  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
+  // What to say on the forge.
+  string body = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message ReplyOnForgeResponse {
+  // The reply as it stands after komrad tried to post it.
+  ForgeReply reply = 1;
+}
+
+message ApproveForgeReplyRequest {
+  // The draft to approve.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // The person's edit of the draft, absent to post it as the agent wrote it.
+  optional string body = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message ApproveForgeReplyResponse {
+  // The reply as it stands after komrad tried to post it.
+  ForgeReply reply = 1;
+}
+
+message RetryForgeReplyRequest {
+  // The failed reply to post again.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message RetryForgeReplyResponse {
+  // The reply as it stands after komrad tried to post it.
+  ForgeReply reply = 1;
+}
+
+message DiscardForgeReplyRequest {
+  // The draft or failed reply to drop.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message RequestForgeReplyRequest {
+  // The mirrored thread the agent should draft a reply on.
+  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
+}

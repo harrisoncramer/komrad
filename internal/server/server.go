@@ -141,6 +141,8 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 				checkouts.NewAbortedHandler(),
 				reviews.NewReleasedHandler(),
 				reviews.NewAnsweredHandler(),
+				reviews.NewForgeReplyRequestedHandler(),
+				reviews.NewForgeReplyDecidedHandler(),
 			},
 		}),
 		Logger: params.Logger,
