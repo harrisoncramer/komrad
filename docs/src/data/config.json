@@ -851,7 +851,7 @@
               "key": "edit_file",
               "path": "keybindings.review.edit_file",
               "type": "array",
-              "description": "Open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the agent's own worktree rather than a copy of it, so what\nyou write is what the agent finds there, and the key is refused while the agent is\nworking rather than letting you both write at once. It is refused on a round the\nagent has written past, since those lines have moved on.",
+              "description": "From the menu, open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the agent's own worktree rather than a copy of it, so what\nyou write is what the agent finds there, and the key is refused while the agent is\nworking rather than letting you both write at once. It is refused on a round the\nagent has written past, since those lines have moved on.",
               "default": "[\"e\"]"
             },
             {
@@ -921,7 +921,7 @@
               "key": "reload",
               "path": "keybindings.review.reload",
               "type": "array",
-              "description": "Catch up with the agent, once the band says it has written since you opened the\ndiff. What you are reading never moves on its own, since that would take the code out\nfrom under a comment being written, so catching up is always yours to ask for.",
+              "description": "From the menu, catch up with the agent, once the band says it has written since you opened the\ndiff. What you are reading never moves on its own, since that would take the code out\nfrom under a comment being written, so catching up is always yours to ask for.",
               "default": "[\"R\"]"
             },
             {
