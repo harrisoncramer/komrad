@@ -110,11 +110,12 @@ func TestStatusChecksList(t *testing.T) {
 		))
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "success "+glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ lint")
-		assert.Contains(t, frame, "skipped "+glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ docs")
-		assert.Contains(t, frame, "failure "+glyph.Defaults().Spell(glyph.StatusCheckFailing)+" │ vet")
-		assert.Contains(t, frame, "running ⠋ │ test")
-		assert.Contains(t, frame, "neutral "+glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ deploy")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ lint")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ docs")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckFailing)+" │ vet")
+		assert.Contains(t, frame, "⠋ │ test")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ deploy")
+		assert.NotContains(t, frame, "success")
 	})
 
 	t.Run("the spinner turns while a status check runs", func(t *testing.T) {
@@ -169,6 +170,76 @@ func TestStatusChecksList(t *testing.T) {
 		})
 
 		assert.Contains(t, harness.readFrame(), "could not list")
+	})
+}
+
+// TestStatusChecksScope covers the row of scopes narrowing the status checks listed.
+func TestStatusChecksScope(t *testing.T) {
+	t.Parallel()
+
+	listed := answerStatusChecks(
+		newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+		newStatusCheck("2", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""),
+		newStatusCheck("3", "vet", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"),
+		newStatusCheck("4", "docs", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SKIPPED"),
+		newStatusCheck("5", "build", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, ""),
+	)
+
+	tests := []struct {
+		name  string
+		press []string
+		want  []string
+	}{
+		{
+			name: "the listing opens on every status check",
+			want: []string{"lint", "test", "vet", "docs", "build"},
+		},
+		{
+			name:  "active keeps the status checks still to finish",
+			press: []string{"F", "tab", "esc"},
+			want:  []string{"test", "build"},
+		},
+		{
+			name:  "failing keeps the finished status checks that neither passed nor were skipped",
+			press: []string{"F", "tab", "tab", "esc"},
+			want:  []string{"vet"},
+		},
+		{
+			name:  "the row wraps back to every status check",
+			press: []string{"F", "tab", "tab", "tab", "esc"},
+			want:  []string{"lint", "test", "vet", "docs", "build"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openStatusChecks(t, listed)
+			harness.press(tt.press...)
+
+			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
+		})
+	}
+
+	t.Run("a status check both scopes list keeps the cursor", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		harness.press("j", "j", "j", "j", "F", "tab", "esc")
+
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "build")
+	})
+
+	t.Run("a scope that holds none of the status checks says so", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, answerStatusChecks(
+			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+		))
+		harness.press("F", "tab", "tab", "esc")
+
+		assert.Contains(t, harness.readFrame(), "no failing status checks")
 	})
 }
 
