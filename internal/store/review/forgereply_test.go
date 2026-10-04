@@ -571,9 +571,18 @@ func TestListForgeReplies(t *testing.T) {
 				require.NoError(t, err)
 
 				forgeThreads := pullrequeststore.NewForgeThreadStore(st.pool)
-				thread := forge.ReviewThread{ProviderID: "PRRT_1", Path: "internal/thing.go", Line: 41, CommitSHA: "abc123"}
+				thread := forge.ReviewThread{
+					ProviderID: "PRRT_1",
+					Path:       "internal/thing.go",
+					Line:       41,
+					CommitSHA:  "abc123",
+				}
 				if tt.synced {
-					thread.Comments = []forge.ReviewComment{{ProviderID: tt.providerID, Login: "harrisoncramer", Body: "proposed"}}
+					thread.Comments = []forge.ReviewComment{{
+						ProviderID: tt.providerID,
+						Login:      "harrisoncramer",
+						Body:       "proposed",
+					}}
 				}
 				require.NoError(t, forgeThreads.SetThreads(ctx, pullrequeststore.SetThreadsParams{
 					PullRequestID: threads.pullRequestID,
