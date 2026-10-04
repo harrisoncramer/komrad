@@ -18,6 +18,7 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type PullRequestServiceImpl interface {
 	ListPullRequests(context.Context, *v1.ListPullRequestsRequest) (*v1.ListPullRequestsResponse, *fail.Error)
+	ListStatusChecks(context.Context, *v1.ListStatusChecksRequest) (*v1.ListStatusChecksResponse, *fail.Error)
 }
 
 // PullRequestServiceAdapter carries what the implementation returned across to the signature
@@ -29,6 +30,11 @@ type PullRequestServiceAdapter struct {
 // ListPullRequests answers the request as connect serves it.
 func (a PullRequestServiceAdapter) ListPullRequests(ctx context.Context, req *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListPullRequests(ctx, req.Msg))
+}
+
+// ListStatusChecks answers the request as connect serves it.
+func (a PullRequestServiceAdapter) ListStatusChecks(ctx context.Context, req *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error) {
+	return rpcerr.Answer(a.Impl.ListStatusChecks(ctx, req.Msg))
 }
 
 // RegisterPullRequestService mounts the implementation on the mux behind its adapter.

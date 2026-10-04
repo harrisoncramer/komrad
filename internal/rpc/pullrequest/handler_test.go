@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/pullrequests"
+	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -18,15 +20,18 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 const komradRepository = "https://github.com/harrisoncramer/komrad"
 
 // fakePullRequestLister answers from its fields and records each page asked for.
 type fakePullRequestLister struct {
-	pullRequests []pullrequeststore.PullRequest
-	err          error
-	listed       []pullrequests.ListPullRequestsParams
+	pullRequests   []pullrequeststore.PullRequest
+	reading        *pullrequeststore.StatusCheckReading
+	err            error
+	listed         []pullrequests.ListPullRequestsParams
+	statusChecksOf []string
 }
 
 // ListPullRequests records the params and answers pullRequests unless err refuses it.
@@ -138,4 +143,86 @@ func TestListPullRequests(t *testing.T) {
 		},
 	}
 	assert.Equal(t, want, reader.listed)
+}
+
+// ListStatusChecks records the pull request asked about and answers reading unless err refuses it.
+func (f *fakePullRequestLister) ListStatusChecks(_ context.Context, pullRequestID string) (*pullrequeststore.StatusCheckReading, error) {
+	f.statusChecksOf = append(f.statusChecksOf, pullRequestID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.reading, nil
+}
+
+// TestListStatusChecks covers what reaches the caller for a pull request's checks.
+func TestListStatusChecks(t *testing.T) {
+	readAt := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name     string
+		reading  *pullrequeststore.StatusCheckReading
+		err      error
+		want     *pullrequestv1.ListStatusChecksResponse
+		wantCode connect.Code
+	}{
+		{
+			name: "checks never read answer empty",
+			err:  store.ErrNotFound,
+			want: &pullrequestv1.ListStatusChecksResponse{},
+		},
+		{
+			name: "a reading answers its head and checks",
+			reading: &pullrequeststore.StatusCheckReading{
+				HeadSHA: "c1",
+				ReadAt:  readAt,
+				StatusChecks: []forge.StatusCheck{{
+					ProviderID: "1",
+					Kind:       forge.StatusCheckKindRun,
+					Source:     "CI",
+					Name:       "test",
+					State:      forge.StatusCheckStateCompleted,
+					Conclusion: "failure",
+					Required:   true,
+					URL:        "https://github.com/harrisoncramer/komrad/runs/1",
+				}},
+			},
+			want: &pullrequestv1.ListStatusChecksResponse{
+				HeadSha: "c1",
+				ReadAt:  xptr.Ptr("2026-10-03T12:00:00Z"),
+				StatusChecks: []*pullrequestv1.StatusCheck{{
+					ProviderId: "1",
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
+					Source:     "CI",
+					Name:       "test",
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
+					Conclusion: "failure",
+					Required:   true,
+					Url:        "https://github.com/harrisoncramer/komrad/runs/1",
+				}},
+			},
+		},
+		{
+			name:     "a store that cannot be read",
+			err:      errors.New("connection refused"),
+			wantCode: connect.CodeInternal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := &fakePullRequestLister{reading: tt.reading, err: tt.err}
+			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
+
+			got, err := service.ListStatusChecks(t.Context(), connect.NewRequest(&pullrequestv1.ListStatusChecksRequest{PullRequestId: "PR_1"}))
+			assert.Equal(t, []string{"PR_1"}, reader.statusChecksOf)
+			if tt.wantCode != 0 {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+			require.NoError(t, err)
+			assert.True(t, proto.Equal(tt.want, got.Msg), "got %v", got.Msg)
+		})
+	}
 }

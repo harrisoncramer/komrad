@@ -11,21 +11,21 @@ import (
 func TestRollupOf(t *testing.T) {
 	t.Parallel()
 
-	passed := Check{
+	passed := StatusCheck{
 		Name:       "test",
-		State:      CheckStateCompleted,
+		State:      StatusCheckStateCompleted,
 		Conclusion: "success",
 	}
-	failed := Check{
+	failed := StatusCheck{
 		Name:       "lint",
-		State:      CheckStateCompleted,
+		State:      StatusCheckStateCompleted,
 		Conclusion: "failure",
 	}
-	running := Check{Name: "e2e", State: CheckStateRunning}
+	running := StatusCheck{Name: "e2e", State: StatusCheckStateRunning}
 
 	tests := []struct {
 		name   string
-		checks []Check
+		checks []StatusCheck
 		want   Checks
 	}{
 		{
@@ -34,61 +34,61 @@ func TestRollupOf(t *testing.T) {
 		},
 		{
 			name: "every check passed is passing",
-			checks: []Check{passed, {
+			checks: []StatusCheck{passed, {
 				Name:       "docs",
-				State:      CheckStateCompleted,
+				State:      StatusCheckStateCompleted,
 				Conclusion: "skipped",
 			}, {
 				Name:       "scan",
-				State:      CheckStateCompleted,
+				State:      StatusCheckStateCompleted,
 				Conclusion: "neutral",
 			}},
 			want: ChecksPassing,
 		},
 		{
 			name:   "a check finished without passing is failing",
-			checks: []Check{passed, failed},
+			checks: []StatusCheck{passed, failed},
 			want:   ChecksFailing,
 		},
 		{
 			name: "a cancelled check is failing",
-			checks: []Check{{
+			checks: []StatusCheck{{
 				Name:       "test",
-				State:      CheckStateCompleted,
+				State:      StatusCheckStateCompleted,
 				Conclusion: "cancelled",
 			}},
 			want: ChecksFailing,
 		},
 		{
 			name:   "a failed check with another running is failing while running",
-			checks: []Check{failed, running},
+			checks: []StatusCheck{failed, running},
 			want:   ChecksFailingRunning,
 		},
 		{
 			name:   "a failed check with another queued is failing while running",
-			checks: []Check{failed, {Name: "e2e", State: CheckStateQueued}},
+			checks: []StatusCheck{failed, {Name: "e2e", State: StatusCheckStateQueued}},
 			want:   ChecksFailingRunning,
 		},
 		{
 			name:   "a failed check with another waiting is failing",
-			checks: []Check{failed, {Name: "deploy", State: CheckStateWaiting}},
+			checks: []StatusCheck{failed, {Name: "deploy", State: StatusCheckStateWaiting}},
 			want:   ChecksFailing,
 		},
 		{
 			name:   "a check not finished with none failed is pending",
-			checks: []Check{passed, running},
+			checks: []StatusCheck{passed, running},
 			want:   ChecksPending,
 		},
 		{
 			name:   "a check waiting with none failed is pending",
-			checks: []Check{passed, {Name: "deploy", State: CheckStateWaiting}},
+			checks: []StatusCheck{passed, {Name: "deploy", State: StatusCheckStateWaiting}},
 			want:   ChecksPending,
 		},
 		{
 			name: "an optional check failing beside required ones passing is passing",
-			checks: []Check{{
+			checks: []StatusCheck{{
 				Name:       "test",
-				State:      CheckStateCompleted,
+				State:      StatusCheckStateCompleted,
 				Conclusion: "success",
 				Required:   true,
 			}, failed},
@@ -96,9 +96,9 @@ func TestRollupOf(t *testing.T) {
 		},
 		{
 			name: "an optional check running beside a required one failing is failing",
-			checks: []Check{{
+			checks: []StatusCheck{{
 				Name:       "lint",
-				State:      CheckStateCompleted,
+				State:      StatusCheckStateCompleted,
 				Conclusion: "failure",
 				Required:   true,
 			}, running},
@@ -114,15 +114,15 @@ func TestRollupOf(t *testing.T) {
 	}
 }
 
-// TestDecidingChecks covers which checks decide a head: the required ones when any is and every
+// TestDecidingStatusChecks covers which checks decide a head: the required ones when any is and every
 // one otherwise.
-func TestDecidingChecks(t *testing.T) {
+func TestDecidingStatusChecks(t *testing.T) {
 	t.Parallel()
 
-	required := Check{Name: "test", Required: true}
-	optional := Check{Name: "lint"}
+	required := StatusCheck{Name: "test", Required: true}
+	optional := StatusCheck{Name: "lint"}
 
-	assert.Equal(t, []Check{required}, DecidingChecks([]Check{optional, required}))
-	assert.Equal(t, []Check{optional}, DecidingChecks([]Check{optional}))
-	assert.Empty(t, DecidingChecks(nil))
+	assert.Equal(t, []StatusCheck{required}, DecidingStatusChecks([]StatusCheck{optional, required}))
+	assert.Equal(t, []StatusCheck{optional}, DecidingStatusChecks([]StatusCheck{optional}))
+	assert.Empty(t, DecidingStatusChecks(nil))
 }

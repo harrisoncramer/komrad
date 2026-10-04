@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReadBranchesCheckListing covers what an open pull request's listing holds when GitHub's
+// TestReadBranchesStatusCheckListing covers what an open pull request's listing holds when GitHub's
 // answer for its head is missing, for another commit, or blank.
-func TestReadBranchesCheckListing(t *testing.T) {
+func TestReadBranchesStatusCheckListing(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
 		checks string
-		want   *forge.CheckListing
+		want   *forge.StatusCheckListing
 	}{
 		{
 			name: "a pull request github no longer finds lists nothing",
@@ -71,7 +71,7 @@ func TestReadBranchesCheckListing(t *testing.T) {
 		}
 	}
 }`),
-			want: &forge.CheckListing{},
+			want: &forge.StatusCheckListing{},
 		},
 		{
 			name: "checks in flight are queued or running and checks that cannot start alone are waiting",
@@ -126,38 +126,38 @@ func TestReadBranchesCheckListing(t *testing.T) {
 		}
 	}
 }`),
-			want: &forge.CheckListing{Checks: []forge.Check{
+			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
 				{
 					ProviderID: "CR_1",
-					Kind:       forge.CheckKindRun,
+					Kind:       forge.StatusCheckKindRun,
 					Name:       "test",
-					State:      forge.CheckStateRunning,
+					State:      forge.StatusCheckStateRunning,
 					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
 				},
 				{
 					ProviderID: "SC_1",
-					Kind:       forge.CheckKindStatus,
+					Kind:       forge.StatusCheckKindStatus,
 					Name:       "ci/legacy",
-					State:      forge.CheckStateRunning,
+					State:      forge.StatusCheckStateRunning,
 					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 1, 0, 0, time.UTC)),
 				},
 				{
 					ProviderID: "SC_2",
-					Kind:       forge.CheckKindStatus,
+					Kind:       forge.StatusCheckKindStatus,
 					Name:       "ci/deploy",
-					State:      forge.CheckStateWaiting,
+					State:      forge.StatusCheckStateWaiting,
 				},
 				{
 					ProviderID: "CR_2",
-					Kind:       forge.CheckKindRun,
+					Kind:       forge.StatusCheckKindRun,
 					Name:       "deploy",
-					State:      forge.CheckStateWaiting,
+					State:      forge.StatusCheckStateWaiting,
 				},
 				{
 					ProviderID: "CR_3",
-					Kind:       forge.CheckKindRun,
+					Kind:       forge.StatusCheckKindRun,
 					Name:       "lint",
-					State:      forge.CheckStateQueued,
+					State:      forge.StatusCheckStateQueued,
 				},
 			}},
 		},
@@ -191,11 +191,11 @@ func TestReadBranchesCheckListing(t *testing.T) {
 		}
 	}
 }`),
-			want: &forge.CheckListing{Checks: []forge.Check{{
+			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
 				ProviderID: "CR_1",
-				Kind:       forge.CheckKindRun,
+				Kind:       forge.StatusCheckKindRun,
 				Name:       "test",
-				State:      forge.CheckStateQueued,
+				State:      forge.StatusCheckStateQueued,
 			}}, Truncated: true},
 		},
 		{
@@ -215,8 +215,8 @@ func TestReadBranchesCheckListing(t *testing.T) {
 			t.Parallel()
 
 			f, _, _ := serve(t, map[string]answer{
-				"ReadBranches": {body: branchesRead(withMergeReadiness(openPull, failingMergeReadiness))},
-				"ReadChecks":   {body: tt.checks},
+				"ReadBranches":     {body: branchesRead(withMergeReadiness(openPull, failingMergeReadiness))},
+				"ReadStatusChecks": {body: tt.checks},
 			})
 
 			reading, err := f.ReadBranches(t.Context(), fixture, []string{"fixture/open"})

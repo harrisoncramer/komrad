@@ -19,6 +19,7 @@ import (
 	"komrad/proto/gen/log/v1/logv1connect"
 	loopv1 "komrad/proto/gen/loop/v1"
 	"komrad/proto/gen/loop/v1/loopv1connect"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
@@ -566,6 +567,17 @@ func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 		}
 
 		return resp.Msg.GetDocuments(), nil
+	})
+}
+
+func (a api) listStatusChecks(pullRequestID string) (*pullrequestv1.ListStatusChecksResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*pullrequestv1.ListStatusChecksResponse, error) {
+		resp, err := a.pullRequests.ListStatusChecks(ctx, connect.NewRequest(&pullrequestv1.ListStatusChecksRequest{PullRequestId: pullRequestID}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the status checks of pull request %q: %w", pullRequestID, err)
+		}
+
+		return resp.Msg, nil
 	})
 }
 

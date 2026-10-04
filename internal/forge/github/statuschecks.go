@@ -12,14 +12,14 @@ import (
 	"komrad/lib/xptr"
 )
 
-// checkListFields is the first hundred checks on a pull request's head commit, each asked whether
+// statusCheckListFields is the first hundred checks on a pull request's head commit, each asked whether
 // the pull request named by $pullRequest requires it.
 //
-//go:embed checklist.gql
-var checkListFields string
+//go:embed statuschecklist.gql
+var statusCheckListFields string
 
-// checkListNode is the checks GitHub lists on a pull request's newest commit.
-type checkListNode struct {
+// statusCheckListNode is the checks GitHub lists on a pull request's newest commit.
+type statusCheckListNode struct {
 	Commits struct {
 		Nodes []struct {
 			Commit struct {
@@ -29,7 +29,7 @@ type checkListNode struct {
 						PageInfo struct {
 							HasNextPage bool `json:"hasNextPage"`
 						} `json:"pageInfo"`
-						Nodes []checkNode `json:"nodes"`
+						Nodes []statusCheckNode `json:"nodes"`
 					} `json:"contexts"`
 				} `json:"statusCheckRollup"`
 			} `json:"commit"`
@@ -37,8 +37,8 @@ type checkListNode struct {
 	} `json:"commits"`
 }
 
-// checkNode is one check run or commit status GitHub lists on a commit.
-type checkNode struct {
+// statusCheckNode is one check run or commit status GitHub lists on a commit.
+type statusCheckNode struct {
 	Typename    string     `json:"__typename"`
 	ID          string     `json:"id"`
 	Name        string     `json:"name"`
@@ -64,9 +64,9 @@ type checkNode struct {
 	IsRequired bool       `json:"isRequired"`
 }
 
-// readCheckListings lists the checks on the head of each open pull request in the reading, in one
+// readStatusCheckListings lists the checks on the head of each open pull request in the reading, in one
 // query by alias.
-func (f *Forge) readCheckListings(ctx context.Context, reading *forge.Reading) error {
+func (f *Forge) readStatusCheckListings(ctx context.Context, reading *forge.Reading) error {
 	variables := map[string]any{}
 	var declared, fields strings.Builder
 	var open []*forge.PullRequest
@@ -78,15 +78,15 @@ func (f *Forge) readCheckListings(ctx context.Context, reading *forge.Reading) e
 		alias := "p" + strconv.Itoa(len(open))
 		variables[alias] = pullRequest.ProviderID
 		fmt.Fprintf(&declared, ", $%s: ID!", alias)
-		fmt.Fprintf(&fields, "\n  %s: node(id: $%s) { ... on PullRequest { %s } }", alias, alias, strings.ReplaceAll(checkListFields, "$pullRequest", "$"+alias))
+		fmt.Fprintf(&fields, "\n  %s: node(id: $%s) { ... on PullRequest { %s } }", alias, alias, strings.ReplaceAll(statusCheckListFields, "$pullRequest", "$"+alias))
 		open = append(open, pullRequest)
 	}
 	if len(open) == 0 {
 		return nil
 	}
-	operation := "query ReadChecks(" + strings.TrimPrefix(declared.String(), ", ") + ") {" + fields.String() + "\n}"
+	operation := "query ReadStatusChecks(" + strings.TrimPrefix(declared.String(), ", ") + ") {" + fields.String() + "\n}"
 
-	var data map[string]*checkListNode
+	var data map[string]*statusCheckListNode
 	answer, err := f.client.Query(ctx, operation, variables, &data)
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (f *Forge) readCheckListings(ctx context.Context, reading *forge.Reading) e
 
 // listingOf is the checks on the head commit, nil when GitHub answered for another commit or no
 // pull request.
-func (n *checkListNode) listingOf(headSHA string) *forge.CheckListing {
+func (n *statusCheckListNode) listingOf(headSHA string) *forge.StatusCheckListing {
 	if n == nil || len(n.Commits.Nodes) == 0 {
 		return nil
 	}
@@ -116,14 +116,14 @@ func (n *checkListNode) listingOf(headSHA string) *forge.CheckListing {
 		return nil
 	}
 
-	listing := &forge.CheckListing{}
+	listing := &forge.StatusCheckListing{}
 	if commit.StatusCheckRollup == nil {
 		return listing
 	}
 	listing.Truncated = commit.StatusCheckRollup.Contexts.PageInfo.HasNextPage
 	for _, node := range commit.StatusCheckRollup.Contexts.Nodes {
 		if check, ok := node.check(); ok {
-			listing.Checks = append(listing.Checks, check)
+			listing.StatusChecks = append(listing.StatusChecks, check)
 		}
 	}
 
@@ -131,13 +131,13 @@ func (n *checkListNode) listingOf(headSHA string) *forge.CheckListing {
 }
 
 // check is the node in komrad's words, false for a kind of check GitHub added since.
-func (n checkNode) check() (forge.Check, bool) {
+func (n statusCheckNode) check() (forge.StatusCheck, bool) {
 	switch n.Typename {
 	case "CheckRun":
 		state, conclusion := checkRunStateOf(n.Status, n.Conclusion)
-		return forge.Check{
+		return forge.StatusCheck{
 			ProviderID: n.ID,
-			Kind:       forge.CheckKindRun,
+			Kind:       forge.StatusCheckKindRun,
 			Source:     n.source(),
 			Name:       n.Name,
 			State:      state,
@@ -148,21 +148,21 @@ func (n checkNode) check() (forge.Check, bool) {
 			URL:        xptr.Deref(n.DetailsURL),
 		}, true
 	case "StatusContext":
-		check := forge.Check{
+		check := forge.StatusCheck{
 			ProviderID: n.ID,
-			Kind:       forge.CheckKindStatus,
+			Kind:       forge.StatusCheckKindStatus,
 			Name:       n.Context,
 			Required:   n.IsRequired,
 			URL:        xptr.Deref(n.TargetURL),
 		}
 		switch n.State {
 		case "EXPECTED":
-			check.State = forge.CheckStateWaiting
+			check.State = forge.StatusCheckStateWaiting
 		case "PENDING":
-			check.State = forge.CheckStateRunning
+			check.State = forge.StatusCheckStateRunning
 			check.StartedAt = n.CreatedAt
 		default:
-			check.State = forge.CheckStateCompleted
+			check.State = forge.StatusCheckStateCompleted
 			check.Conclusion = strings.ToLower(n.State)
 			check.FinishedAt = n.CreatedAt
 		}
@@ -170,11 +170,11 @@ func (n checkNode) check() (forge.Check, bool) {
 		return check, true
 	}
 
-	return forge.Check{}, false
+	return forge.StatusCheck{}, false
 }
 
 // source is the workflow that ran the check run, or the app when no workflow did.
-func (n checkNode) source() string {
+func (n statusCheckNode) source() string {
 	if n.CheckSuite == nil {
 		return ""
 	}
@@ -190,15 +190,15 @@ func (n checkNode) source() string {
 
 // checkRunStateOf is a check run's status in komrad's words, with its conclusion lowercased once
 // it has completed.
-func checkRunStateOf(status string, conclusion *string) (forge.CheckState, string) {
+func checkRunStateOf(status string, conclusion *string) (forge.StatusCheckState, string) {
 	switch status {
 	case "IN_PROGRESS":
-		return forge.CheckStateRunning, ""
+		return forge.StatusCheckStateRunning, ""
 	case "COMPLETED":
-		return forge.CheckStateCompleted, strings.ToLower(xptr.Deref(conclusion))
+		return forge.StatusCheckStateCompleted, strings.ToLower(xptr.Deref(conclusion))
 	case "WAITING", "REQUESTED":
-		return forge.CheckStateWaiting, ""
+		return forge.StatusCheckStateWaiting, ""
 	}
 
-	return forge.CheckStateQueued, ""
+	return forge.StatusCheckStateQueued, ""
 }

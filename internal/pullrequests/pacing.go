@@ -188,7 +188,7 @@ func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.MergeReadi
 	}
 
 	until := time.Time{}
-	if slices.ContainsFunc(change.HeadChecks, forge.Check.IsRunning) {
+	if slices.ContainsFunc(change.HeadStatusChecks, forge.StatusCheck.IsRunning) {
 		until = pullRequest.UpdatedAt.Add(pendingHotWithin)
 	}
 	if change.After.MergeabilityBlankSince != nil {

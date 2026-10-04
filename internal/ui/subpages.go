@@ -72,7 +72,7 @@ func subpageEntry(m *model, from screen, item panel.AgentRow, page subpage) subm
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
 	case subpageChecks:
-		return submenuEntry{label: "checks", keys: m.keys.Menu.Checks}
+		return submenuEntry{label: "status checks", keys: m.keys.Menu.StatusChecks}
 	case subpageTerminal:
 		return submenuEntry{
 			label: "terminal",
@@ -146,7 +146,7 @@ func (m *model) enterSubpage(from screen, agentID string, picked subpage) tea.Cm
 	case subpageChecks:
 		m.leaveForm()
 
-		return m.enter(screenChecks, screenTarget{agentID: agentID, from: from})
+		return m.enter(screenStatusChecks, screenTarget{agentID: agentID, from: from})
 	case subpageTerminal:
 		if err := terminalRefusal(from, item.Agent); err != nil {
 			return m.refuseSubpage("Could not open a terminal", err)

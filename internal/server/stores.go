@@ -35,6 +35,7 @@ type stores struct {
 	documentTypes    *documenttypestore.DocumentTypeStore
 	forges           *forgestore.ForgeStore
 	pullRequests     *pullrequeststore.PullRequestStore
+	statusChecks     *pullrequeststore.StatusCheckStore
 	pullRequestSyncs *pullrequeststore.PullRequestSyncStore
 	forgeThreads     *pullrequeststore.ForgeThreadStore
 	worktrees        *worktreestore.WorktreeStore
@@ -64,6 +65,7 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		documentTypes:    documenttypestore.NewDocumentTypeStore(db),
 		forges:           forgestore.NewForgeStore(db),
 		pullRequests:     pullrequeststore.NewPullRequestStore(db),
+		statusChecks:     pullrequeststore.NewStatusCheckStore(db),
 		pullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(db),
 		forgeThreads:     pullrequeststore.NewForgeThreadStore(db),
 		worktrees:        worktreestore.NewWorktreeStore(db),

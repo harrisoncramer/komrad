@@ -1,4 +1,4 @@
--- name: RecordCheckReading :one
+-- name: RecordStatusCheckReading :one
 INSERT INTO pull_request_check_readings(
     pull_request_id,
     head_sha,
@@ -21,7 +21,7 @@ ON CONFLICT (
     RETURNING
         id;
 
--- name: UpsertChecks :exec
+-- name: UpsertStatusChecks :exec
 INSERT INTO pull_request_checks(
     reading_id,
     provider_id,
@@ -82,12 +82,12 @@ ON CONFLICT (engine_id,
         excluded.required,
         excluded.url);
 
--- name: DeleteChecksExcept :exec
+-- name: DeleteStatusChecksExcept :exec
 DELETE FROM pull_request_checks
 WHERE reading_id = @reading_id
     AND NOT (provider_id = ANY (@kept::text[]));
 
--- name: ListCheckReadings :many
+-- name: ListStatusCheckReadings :many
 SELECT
     *
 FROM
@@ -98,7 +98,7 @@ ORDER BY
     r.first_read_at,
     r.id;
 
--- name: ListChecksOfReadings :many
+-- name: ListStatusChecksOfReadings :many
 SELECT
     *
 FROM
@@ -112,7 +112,7 @@ ORDER BY
     c.name,
     c.id;
 
--- name: ListLatestCheckReadings :many
+-- name: ListLatestStatusCheckReadings :many
 SELECT DISTINCT ON (r.pull_request_id)
     *
 FROM

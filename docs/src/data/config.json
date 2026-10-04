@@ -690,19 +690,19 @@
           "sections": []
         },
         {
-          "path": "keybindings.checks",
-          "description": "The checks screen, which lists the checks run on one agent's pull request.",
+          "path": "keybindings.status_checks",
+          "description": "The status checks screen, which lists the status checks run on one agent's pull request.",
           "settings": [
             {
               "key": "back",
-              "path": "keybindings.checks.back",
+              "path": "keybindings.status_checks.back",
               "type": "array",
-              "description": "Leave the checks screen for the view it was opened from.",
+              "description": "Leave the status checks screen for the view it was opened from.",
               "default": "[\"esc\"]"
             },
             {
               "key": "quit",
-              "path": "keybindings.checks.quit",
+              "path": "keybindings.status_checks.quit",
               "type": "array",
               "description": "Quit the panel.",
               "default": "[\"ctrl+c\"]"
@@ -1072,10 +1072,10 @@
               "default": "[\"l\"]"
             },
             {
-              "key": "checks",
-              "path": "keybindings.menu.checks",
+              "key": "status_checks",
+              "path": "keybindings.menu.status_checks",
               "type": "array",
-              "description": "Open the checks run on the agent's pull request.",
+              "description": "Open the status checks run on the agent's pull request.",
               "default": "[\"x\"]"
             },
             {

@@ -53,8 +53,8 @@ type PullRequest struct {
 	// MergeReadiness is what komrad remembers of where the forge said the reviews, checks,
 	// mergeability and auto-merge stand.
 	MergeReadiness forge.RememberedMergeReadiness
-	// HeadChecks is every check stored on the latest read head.
-	HeadChecks []forge.Check
+	// HeadStatusChecks is every status check stored on the latest read head.
+	HeadStatusChecks []forge.StatusCheck
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -77,8 +77,8 @@ type outcome struct {
 type MergeReadinessChange struct {
 	Before forge.RememberedMergeReadiness
 	After  forge.RememberedMergeReadiness
-	// HeadChecks is every check stored on the latest read head after the read.
-	HeadChecks []forge.Check
+	// HeadStatusChecks is every status check stored on the latest read head after the read.
+	HeadStatusChecks []forge.StatusCheck
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -247,10 +247,10 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 	before := rememberedMergeReadinessOf(row, readBefore[params.ID])
 
 	if listing := params.MergeReadiness.Listing; listing != nil {
-		if err := setChecks(ctx, s.queries, SetChecksParams{
+		if err := setStatusChecks(ctx, s.queries, SetStatusChecksParams{
 			PullRequestID: params.ID,
 			HeadSHA:       params.HeadSHA,
-			Checks:        listing.Checks,
+			StatusChecks:  listing.StatusChecks,
 			Truncated:     listing.Truncated,
 			ReadAt:        params.ReadAt,
 		}); err != nil {
@@ -269,9 +269,9 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 	}
 
 	return &MergeReadinessChange{
-		Before:     before,
-		After:      after,
-		HeadChecks: readAfter[params.ID].Checks,
+		Before:           before,
+		After:            after,
+		HeadStatusChecks: readAfter[params.ID].StatusChecks,
 	}, nil
 }
 
@@ -346,7 +346,7 @@ func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, 
 	return repositories, nil
 }
 
-func fromRow(row *models.PullRequest, checks checkReading) PullRequest {
+func fromRow(row *models.PullRequest, checks StatusCheckReading) PullRequest {
 	return PullRequest{
 		ID:                row.ID,
 		Host:              row.Host,
@@ -371,11 +371,11 @@ func fromRow(row *models.PullRequest, checks checkReading) PullRequest {
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
 		MergeReadiness:    rememberedMergeReadinessOf(row, checks),
-		HeadChecks:        checks.Checks,
+		HeadStatusChecks:  checks.StatusChecks,
 	}
 }
 
-func rememberedMergeReadinessOf(row *models.PullRequest, checks checkReading) forge.RememberedMergeReadiness {
+func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReading) forge.RememberedMergeReadiness {
 	wasRead := row.LatestHeadSha != nil
 	readiness := forge.RememberedMergeReadiness{
 		Decision: forge.RememberedAnswer[forge.ReviewDecision]{

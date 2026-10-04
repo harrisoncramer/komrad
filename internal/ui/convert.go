@@ -141,6 +141,7 @@ func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) panel.PullRe
 
 func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
 	return panel.PullRequest{
+		ID:             pullRequest.GetId(),
 		Forge:          pullRequest.GetForge(),
 		Number:         pullRequest.GetNumber(),
 		URL:            pullRequest.GetUrl(),
