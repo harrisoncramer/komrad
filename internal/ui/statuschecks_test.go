@@ -99,13 +99,15 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("2", "docs", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SKIPPED"),
 			newStatusCheck("3", "vet", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"),
 			newStatusCheck("4", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""),
+			newStatusCheck("5", "deploy", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "NEUTRAL"),
 		))
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "success "+glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ lint")
-		assert.Contains(t, frame, "skipped "+glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ docs")
+		assert.Contains(t, frame, "skipped "+glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ docs")
 		assert.Contains(t, frame, "failure "+glyph.Defaults().Spell(glyph.StatusCheckFailing)+" │ vet")
 		assert.Contains(t, frame, "running ⠋ │ test")
+		assert.Contains(t, frame, "neutral "+glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ deploy")
 	})
 
 	t.Run("the spinner turns while a status check runs", func(t *testing.T) {

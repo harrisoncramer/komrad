@@ -58,6 +58,7 @@ const (
 	Engine
 	StatusCheckPassing
 	StatusCheckFailing
+	StatusCheckSkipped
 	// count stands one past the last glyph.
 	count
 )
@@ -107,6 +108,7 @@ var defined = [count]struct {
 	Engine:             {"lists.engine", "\uf444"},
 	StatusCheckPassing: {"status_checks.passing", "\uf42e"},
 	StatusCheckFailing: {"status_checks.failing", "\uf467"},
+	StatusCheckSkipped: {"status_checks.skipped", "\uf517"},
 }
 
 // All is every glyph a Set spells, in the order they are declared.

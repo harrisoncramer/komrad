@@ -1609,13 +1609,13 @@
         },
         {
           "path": "glyphs.status_checks",
-          "description": "The status checks list, one for a check that passed and one for a check that failed.",
+          "description": "The status checks list, one for a check that passed, one for a check that failed, and one for a check that was skipped.",
           "settings": [
             {
               "key": "passing",
               "path": "glyphs.status_checks.passing",
               "type": "string",
-              "description": "A check that passed, was skipped, or ended neutral.",
+              "description": "A check that passed.",
               "default": "\"\""
             },
             {
@@ -1624,6 +1624,13 @@
               "type": "string",
               "description": "A check that ended any other way.",
               "default": "\"\""
+            },
+            {
+              "key": "skipped",
+              "path": "glyphs.status_checks.skipped",
+              "type": "string",
+              "description": "A check that was skipped or ended neutral.",
+              "default": "\"\""
             }
           ],
           "sections": []

@@ -337,8 +337,8 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 	return m.readStatusChecksCmd()
 }
 
-// passingConclusions are the conclusions a finished check passes with, as the forge counts them.
-var passingConclusions = []string{"success", "neutral", "skipped"}
+// skippedConclusions are the conclusions a finished check ends with when it neither passed nor failed.
+var skippedConclusions = []string{"neutral", "skipped"}
 
 // statusCheckIcon is the icon drawn beside a check, in the glyphs and tones the forge column of
 // the sidebar draws a pull request's checks with.
@@ -346,8 +346,10 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	switch {
 	case !isStatusCheckFinished(item):
 		return view.Cell{Text: loaderFrame, Tone: paint.ToneWarning}
-	case slices.Contains(passingConclusions, strings.ToLower(item.conclusion)):
+	case strings.EqualFold(item.conclusion, "success"):
 		return view.Cell{Glyph: glyph.StatusCheckPassing, Tone: paint.ToneSuccess}
+	case slices.Contains(skippedConclusions, strings.ToLower(item.conclusion)):
+		return view.Cell{Glyph: glyph.StatusCheckSkipped, Tone: paint.ToneMuted}
 	}
 
 	return view.Cell{Glyph: glyph.StatusCheckFailing, Tone: paint.ToneDanger}

@@ -601,12 +601,14 @@ enabled  = "◆"
 # A schedule that is paused.
 disabled = "◇"
 
-# The status checks list, one for a check that passed and one for a check that failed.
+# The status checks list, one for a check that passed, one for a check that failed, and one for a check that was skipped.
 [glyphs.status_checks]
-# A check that passed, was skipped, or ended neutral.
+# A check that passed.
 passing = ""
 # A check that ended any other way.
 failing = ""
+# A check that was skipped or ended neutral.
+skipped = ""
 
 # The colours the panel draws in, one for each part a colour plays. Each is a terminal colour
 # number from 0 to 255, which your terminal's theme decides the look of, or a hex code like
