@@ -152,6 +152,8 @@ const (
 	StatusCheckStateWaiting StatusCheckState = "waiting"
 	// StatusCheckStateCompleted is a check that has finished, with a conclusion.
 	StatusCheckStateCompleted StatusCheckState = "completed"
+	// StatusCheckStateUnknown is a check on a commit that is no longer the head, which komrad stopped reading while it was still in flight.
+	StatusCheckStateUnknown StatusCheckState = "unknown"
 )
 
 // StatusCheck is one check a forge listed on a pull request's head commit.

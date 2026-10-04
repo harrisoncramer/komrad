@@ -127,6 +127,7 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("3", "vet", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"),
 			newStatusCheck("4", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""),
 			newStatusCheck("5", "deploy", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "NEUTRAL"),
+			newStatusCheck("6", "e2e", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN, ""),
 		))
 		harness.press(everyStatusCheck...)
 
@@ -136,6 +137,7 @@ func TestStatusChecksList(t *testing.T) {
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckFailing)+" │ vet")
 		assert.Contains(t, frame, "⠋ │ test")
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ deploy")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" │ e2e")
 		assert.NotContains(t, frame, "success")
 	})
 
@@ -204,6 +206,7 @@ func TestStatusChecksScope(t *testing.T) {
 		newStatusCheck("3", "vet", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"),
 		newStatusCheck("4", "docs", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SKIPPED"),
 		newStatusCheck("5", "build", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, ""),
+		newStatusCheck("6", "e2e", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN, ""),
 	)
 
 	tests := []struct {
@@ -213,7 +216,7 @@ func TestStatusChecksScope(t *testing.T) {
 	}{
 		{
 			name: "the listing opens on the status checks not passing while any are",
-			want: []string{"test", "vet", "build"},
+			want: []string{"test", "vet", "build", "e2e"},
 		},
 		{
 			name:  "active keeps the status checks still to finish",
@@ -228,12 +231,12 @@ func TestStatusChecksScope(t *testing.T) {
 		{
 			name:  "the row wraps back to every status check",
 			press: []string{"F", "tab", "tab", "tab", "esc"},
-			want:  []string{"lint", "test", "vet", "docs", "build"},
+			want:  []string{"lint", "test", "vet", "docs", "build", "e2e"},
 		},
 		{
 			name:  "every status check is one step back",
 			press: []string{"F", "shift+tab", "esc"},
-			want:  []string{"lint", "test", "vet", "docs", "build"},
+			want:  []string{"lint", "test", "vet", "docs", "build", "e2e"},
 		},
 	}
 
@@ -381,6 +384,20 @@ func TestStatusChecksSteps(t *testing.T) {
 		harness.send(tea.WindowSizeMsg{Width: 80, Height: 40})
 
 		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Run integration[^│]*… +3m 08s`, harness.readFrame())
+	})
+
+	t.Run("a status check komrad stopped reading in flight says unknown without a clock", func(t *testing.T) {
+		t.Parallel()
+
+		stale := newStatusCheck("1", "e2e", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN, "")
+		stale.StartedAt = xptr.Ptr("2026-10-04T12:00:00Z")
+
+		harness := openStatusChecks(t, answerStatusChecks(stale))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" e2e")
+		assert.Contains(t, frame, "unknown")
+		assert.False(t, harness.fireLoader())
 	})
 }
 

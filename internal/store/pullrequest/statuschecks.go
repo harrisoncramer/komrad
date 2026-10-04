@@ -125,7 +125,8 @@ func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID 
 	return withStatusChecks(ctx, s.queries, rows)
 }
 
-// latestReadings is the latest check reading of each of the pull requests that has one, by pull request.
+// latestReadings is the check reading of each of the pull requests that has one, by pull request: the reading of
+// its head when there is one and the latest reading otherwise.
 func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []string) (map[string]StatusCheckReading, error) {
 	storable := store.KeepIDs(pullRequestIDs)
 	if len(storable) == 0 {

@@ -226,6 +226,31 @@ func TestListStatusChecks(t *testing.T) {
 			}}},
 		},
 		{
+			name: "a check komrad stopped reading in flight answers unknown",
+			readings: []pullrequeststore.StatusCheckReading{{
+				HeadSHA:     "c1",
+				FirstReadAt: readAt,
+				ReadAt:      readAt,
+				StatusChecks: []forge.StatusCheck{{
+					ProviderID: "1",
+					Kind:       forge.StatusCheckKindRun,
+					Name:       "test",
+					State:      forge.StatusCheckStateUnknown,
+				}},
+			}},
+			want: &pullrequestv1.ListStatusChecksResponse{Readings: []*pullrequestv1.StatusCheckReading{{
+				HeadSha:     "c1",
+				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
+				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
+				StatusChecks: []*pullrequestv1.StatusCheck{{
+					ProviderId: "1",
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
+					Name:       "test",
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN,
+				}},
+			}}},
+		},
+		{
 			name:     "a store that cannot be read",
 			err:      errors.New("connection refused"),
 			wantCode: connect.CodeInternal,

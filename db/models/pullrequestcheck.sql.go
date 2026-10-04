@@ -109,13 +109,15 @@ func (q *Queries) ListCheckFailureNotes(ctx context.Context, arg ListCheckFailur
 
 const listLatestStatusCheckReadings = `-- name: ListLatestStatusCheckReadings :many
 SELECT DISTINCT ON (r.pull_request_id)
-    id, pull_request_id, head_sha, blank, first_read_at, read_at, engine_id
+    r.id, r.pull_request_id, r.head_sha, r.blank, r.first_read_at, r.read_at, r.engine_id
 FROM
     pull_request_check_readings r
+    JOIN pull_requests p ON p.id = r.pull_request_id
 WHERE
     r.pull_request_id = ANY ($1::uuid[])
 ORDER BY
     r.pull_request_id,
+    (r.head_sha = p.head_sha) DESC,
     r.read_at DESC,
     r.id DESC
 `

@@ -158,7 +158,7 @@ func (s statusCheckScope) holds(item statusCheckItem) bool {
 	case statusCheckScopeActive:
 		return !isStatusCheckFinished(item)
 	case statusCheckScopeFailing:
-		return isStatusCheckFinished(item) && !isStatusCheckClean(item)
+		return isStatusCheckFinished(item) && !isStatusCheckUnknown(item) && !isStatusCheckClean(item)
 	case statusCheckScopeAll:
 	}
 
@@ -447,6 +447,8 @@ var skippedConclusions = []string{"neutral", "skipped"}
 // the sidebar draws a pull request's checks with.
 func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	switch {
+	case isStatusCheckUnknown(item):
+		return view.Cell{Glyph: glyph.StatusCheckUnknown, Tone: paint.ToneMuted}
 	case !isStatusCheckFinished(item):
 		return view.Cell{Text: loaderFrame, Tone: paint.ToneWarning}
 	case strings.EqualFold(item.conclusion, "success"):
@@ -459,7 +461,11 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 }
 
 func isStatusCheckFinished(item statusCheckItem) bool {
-	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
+	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED || isStatusCheckUnknown(item)
+}
+
+func isStatusCheckUnknown(item statusCheckItem) bool {
+	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN
 }
 
 func (c *statusChecksScreen) isLoading(*model) bool {
@@ -517,7 +523,10 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	}
 
 	var notice []string
-	if duration := dates.Between(item.startedAt, item.finishedAt); duration != "" {
+	switch duration := dates.Between(item.startedAt, item.finishedAt); {
+	case isStatusCheckUnknown(item):
+		notice = append(notice, "unknown")
+	case duration != "":
 		notice = append(notice, duration)
 	}
 	if len(item.steps) > 0 {

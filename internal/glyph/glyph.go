@@ -60,6 +60,7 @@ const (
 	StatusCheckPassing
 	StatusCheckFailing
 	StatusCheckSkipped
+	StatusCheckUnknown
 	// count stands one past the last glyph.
 	count
 )
@@ -111,6 +112,7 @@ var defined = [count]struct {
 	StatusCheckPassing: {"status_checks.passing", "\uf42e"},
 	StatusCheckFailing: {"status_checks.failing", "\uf467"},
 	StatusCheckSkipped: {"status_checks.skipped", "\uf517"},
+	StatusCheckUnknown: {"status_checks.unknown", "\uf420"},
 }
 
 // All is every glyph a Set spells, in the order they are declared.

@@ -53,7 +53,7 @@ type PullRequest struct {
 	// MergeReadiness is what komrad remembers of where the forge said the reviews, checks,
 	// mergeability and auto-merge stand.
 	MergeReadiness forge.RememberedMergeReadiness
-	// HeadStatusChecks is every status check stored on the latest read head.
+	// HeadStatusChecks is every status check stored on the head, or on the latest read head when the head was never read.
 	HeadStatusChecks []forge.StatusCheck
 }
 
@@ -77,7 +77,8 @@ type outcome struct {
 type MergeReadinessChange struct {
 	Before forge.RememberedMergeReadiness
 	After  forge.RememberedMergeReadiness
-	// HeadStatusChecks is every status check stored on the latest read head after the read.
+	// HeadStatusChecks is every status check stored on the head after the read, or on the latest read head when the head
+	// was never read.
 	HeadStatusChecks []forge.StatusCheck
 	// NewFailure is whether the read found a failed check on the latest read head that the reading before it
 	// did not hold, every failure on a head read for the first time counting as new.

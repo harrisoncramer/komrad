@@ -11,7 +11,9 @@ var passingConclusions = []string{"success", "neutral", "skipped"}
 
 // RollupOf is where the checks on a head stand, counting only the required ones when any is.
 func RollupOf(checks []StatusCheck) Checks {
-	counted := decidingStatusChecks(checks)
+	counted := slices.DeleteFunc(decidingStatusChecks(checks), func(check StatusCheck) bool {
+		return check.State == StatusCheckStateUnknown
+	})
 
 	failing := slices.ContainsFunc(counted, StatusCheck.IsFailing)
 	unfinished := slices.ContainsFunc(counted, func(check StatusCheck) bool { return check.State != StatusCheckStateCompleted })

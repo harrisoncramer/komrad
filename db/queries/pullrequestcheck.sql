@@ -116,13 +116,15 @@ ORDER BY
 
 -- name: ListLatestStatusCheckReadings :many
 SELECT DISTINCT ON (r.pull_request_id)
-    *
+    r.*
 FROM
     pull_request_check_readings r
+    JOIN pull_requests p ON p.id = r.pull_request_id
 WHERE
     r.pull_request_id = ANY (@pull_request_ids::uuid[])
 ORDER BY
     r.pull_request_id,
+(r.head_sha = p.head_sha) DESC,
     r.read_at DESC,
     r.id DESC;
 

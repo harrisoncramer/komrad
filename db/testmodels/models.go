@@ -795,7 +795,7 @@ type PullRequestCheck struct {
 	Source string
 	// The check's name, or a commit status's context.
 	Name string
-	// Where the check stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed.
+	// Where the check stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, completed, or unknown when its commit is no longer the head and komrad stopped reading it while in flight.
 	State string
 	// How a completed check ended, in the forge's own word lowercased, such as success, failure, error, neutral, cancelled, skipped or timed_out, empty until it completes.
 	Conclusion string
@@ -859,7 +859,7 @@ type PullRequestCheckStep struct {
 	Number int32
 	// The step's name.
 	Name string
-	// Where the step stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed.
+	// Where the step stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, completed, or unknown when its commit is no longer the head and komrad stopped reading it while in flight.
 	State string
 	// How a completed step ended, in the forge's own word lowercased, such as success, failure, cancelled or skipped, empty until it completes.
 	Conclusion string
