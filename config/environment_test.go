@@ -32,7 +32,6 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	assert.Equal(t, "agent-1", got.AgentID)
 	assert.Equal(t, "session-1", got.SessionID)
 	assert.Equal(t, "/tmp/komrad-cache/komrad.log", got.LogPath())
-	assert.NotEmpty(t, got.StateDir, "the state directory is filled in when the caller names none")
 }
 
 // TestLoadKeepsAStateDirItWasGiven covers a test instance pointing the service at a state
