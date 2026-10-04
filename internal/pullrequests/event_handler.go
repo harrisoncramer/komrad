@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"komrad/internal/events"
 	"komrad/internal/forge"
@@ -24,7 +25,8 @@ func NewEventHandler() events.HandlerFor[Change] {
 	return handleChange
 }
 
-// handleChange tells every agent on the pull request's branch where it now stands.
+// handleChange tells every agent on the pull request's branch where it now stands, starting the checks failing
+// event for an agent not yet told of a failed check.
 func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, change Change) ([]river.JobArgs, error) {
 	pullRequests := pullrequeststore.NewPullRequestStore(tx)
 	pullRequest, err := pullRequests.GetByID(ctx, change.ID)
@@ -44,17 +46,47 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 		recipients = slices.DeleteFunc(recipients, func(recipient string) bool { return recipient != change.Recipient })
 	}
 
+	statusChecks := pullrequeststore.NewStatusCheckStore(tx)
+	mails := mailstore.NewMailStore(tx)
+
 	var followUps []river.JobArgs
-	body := render(*pullRequest)
 	started, holding := eventsOf(change, *pullRequest)
+	failed := failedChecks(*pullRequest)
+	failing := failingEvent(*pullRequest)
 	for _, recipient := range recipients {
-		_, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
+		failures, err := statusChecks.ListCheckFailures(ctx, pullrequeststore.ListCheckFailuresParams{
+			PullRequestID: pullRequest.ID,
+			HeadSHA:       pullRequest.MergeReadiness.Checks.HeadSHA,
+			AgentID:       recipient,
+			Failed:        failed,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		held, err := mails.GetUnreadAbout(ctx, recipient, mailstore.KindPullRequestChanged, pullRequest.ID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, err
+		}
+
+		newFailures := untold(failures)
+		recipientStarted := started
+		if failing != "" && (len(newFailures) > 0 || carriesFailing(held)) {
+			recipientStarted = append(slices.Clone(started), failing)
+		}
+
+		var heldSince *time.Time
+		if held != nil {
+			heldSince = &held.CreatedAt
+		}
+
+		sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 			ToAgentID:   recipient,
 			Kind:        mailstore.KindPullRequestChanged,
 			SubjectID:   pullRequest.ID,
-			Body:        body,
-			OnlyRewrite: len(started) == 0,
-			Events:      started,
+			Body:        render(*pullRequest, failures, heldSince),
+			OnlyRewrite: len(recipientStarted) == 0,
+			Events:      recipientStarted,
 			Holding:     holding,
 		})
 		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == "" {
@@ -74,12 +106,49 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 		if err != nil {
 			return nil, err
 		}
+		if sent == nil {
+			continue
+		}
+
+		if err := statusChecks.RecordCheckFailures(ctx, pullrequeststore.RecordCheckFailuresParams{
+			PullRequestID: pullRequest.ID,
+			HeadSHA:       pullRequest.MergeReadiness.Checks.HeadSHA,
+			AgentID:       recipient,
+			Told:          newFailures,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return followUps, nil
 }
 
-func render(pullRequest pullrequeststore.PullRequest) string {
+func carriesFailing(held *mailstore.Mail) bool {
+	if held == nil {
+		return false
+	}
+
+	for _, event := range eventOf[fieldChecks] {
+		if slices.Contains(held.Events, event) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func untold(failures []pullrequeststore.CheckFailure) []forge.StatusCheck {
+	var checks []forge.StatusCheck
+	for _, failure := range failures {
+		if failure.NotedAt == nil {
+			checks = append(checks, failure.Check)
+		}
+	}
+
+	return checks
+}
+
+func render(pullRequest pullrequeststore.PullRequest, failures []pullrequeststore.CheckFailure, heldSince *time.Time) string {
 	now := fieldValues(pullRequest)
 
 	noun := "pull request"
@@ -94,21 +163,41 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 	for _, field := range fieldOrder {
 		fmt.Fprintf(&body, "  %s: %s\n", field, describe(field, now[field], pullRequest))
 	}
-	if failing := failingChecks(pullRequest); len(failing) > 0 {
-		body.WriteString("Failing checks:\n")
-		for _, check := range failing {
-			fmt.Fprintf(&body, "  %s: %s\n", check.Name, cmp.Or(check.URL, "no link"))
+	var newFailures, stillFailing []pullrequeststore.CheckFailure
+	for _, failure := range failures {
+		if isNewTo(failure, heldSince) {
+			newFailures = append(newFailures, failure)
+		} else {
+			stillFailing = append(stillFailing, failure)
 		}
 	}
+	writeChecks(&body, "New failures:", newFailures)
+	writeChecks(&body, "Still failing:", stillFailing)
 	body.WriteString("Review comments reach you through the person's review in komrad, so do not fetch them from the forge.")
 
 	return body.String()
 }
 
-// failingChecks is the checks that decide the head and failed, none while the head's checks are not shown.
-func failingChecks(pullRequest pullrequeststore.PullRequest) []forge.StatusCheck {
+// isNewTo says whether a failure is news to an agent holding unread mail written at heldSince: one it has not
+// been told of, or was told of only in that mail.
+func isNewTo(failure pullrequeststore.CheckFailure, heldSince *time.Time) bool {
+	return failure.NotedAt == nil || heldSince != nil && !failure.NotedAt.Before(*heldSince)
+}
+
+func writeChecks(body *strings.Builder, heading string, failures []pullrequeststore.CheckFailure) {
+	if len(failures) == 0 {
+		return
+	}
+
+	body.WriteString(heading + "\n")
+	for _, failure := range failures {
+		fmt.Fprintf(body, "  %s: %s\n", failure.Check.Name, cmp.Or(failure.Check.URL, "no link"))
+	}
+}
+
+func failedChecks(pullRequest pullrequeststore.PullRequest) []forge.StatusCheck {
 	if slices.Contains([]forge.Checks{forge.ChecksFailing, forge.ChecksFailingRunning}, pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA).Checks.Value) {
-		return slices.DeleteFunc(forge.DecidingStatusChecks(pullRequest.HeadStatusChecks), func(check forge.StatusCheck) bool { return !check.IsFailing() })
+		return forge.FailedStatusChecks(pullRequest.HeadStatusChecks)
 	}
 
 	return nil

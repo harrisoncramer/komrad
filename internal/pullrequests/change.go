@@ -60,9 +60,10 @@ func moved(field field, from, to *string) *Move {
 	}
 }
 
-// NewChange is the change for the fields of a pull request that moved, nil when none did.
-func NewChange(id string, moves []Move) *Change {
-	if len(moves) == 0 {
+// NewChange is the change for the fields of a pull request that moved or a check that newly failed, nil when
+// neither happened.
+func NewChange(id string, moves []Move, newFailure bool) *Change {
+	if len(moves) == 0 && !newFailure {
 		return nil
 	}
 

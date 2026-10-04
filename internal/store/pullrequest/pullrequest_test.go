@@ -583,6 +583,93 @@ func TestSetMergeReadinessHandsBackTheHeadStatusChecks(t *testing.T) {
 	assert.Equal(t, change.HeadStatusChecks, stored.HeadStatusChecks)
 }
 
+// TestSetMergeReadinessSaysWhenAFailureIsNew covers a read saying whether it found a failed check the reading before
+// it did not hold.
+func TestSetMergeReadinessSaysWhenAFailureIsNew(t *testing.T) {
+	failedLint := statusCheckRun("2", "lint", forge.StatusCheckStateCompleted, "failure")
+	rerunTest := finishedAt(failedTest, statusCheckReadAt)
+	passedTest := statusCheckRun("3", "test", forge.StatusCheckStateCompleted, "success")
+	type read struct {
+		head   string
+		checks []forge.StatusCheck
+	}
+
+	tests := []struct {
+		name  string
+		reads []read
+		want  bool
+	}{
+		{
+			name:  "a first failure is new",
+			reads: []read{{head: "abc", checks: []forge.StatusCheck{failedTest}}},
+			want:  true,
+		},
+		{
+			name:  "a read with nothing failed has no new failure",
+			reads: []read{{head: "abc", checks: []forge.StatusCheck{passedTest}}},
+		},
+		{
+			name: "a failure read again is not new",
+			reads: []read{
+				{head: "abc", checks: []forge.StatusCheck{failedTest}},
+				{head: "abc", checks: []forge.StatusCheck{failedTest}},
+			},
+		},
+		{
+			name: "a blank read keeps the failure it held",
+			reads: []read{
+				{head: "abc", checks: []forge.StatusCheck{failedTest}},
+				{head: "abc"},
+			},
+		},
+		{
+			name: "a second failure beside the first is new",
+			reads: []read{
+				{head: "abc", checks: []forge.StatusCheck{failedTest}},
+				{head: "abc", checks: []forge.StatusCheck{failedTest, failedLint}},
+			},
+			want: true,
+		},
+		{
+			name: "a failure that finished again is new",
+			reads: []read{
+				{head: "abc", checks: []forge.StatusCheck{failedTest}},
+				{head: "abc", checks: []forge.StatusCheck{rerunTest}},
+			},
+			want: true,
+		},
+		{
+			name: "a failure on a new head is new",
+			reads: []read{
+				{head: "abc", checks: []forge.StatusCheck{failedTest}},
+				{head: "def", checks: []forge.StatusCheck{failedTest}},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			var change *MergeReadinessChange
+			for i, read := range tt.reads {
+				change, err = h.SetMergeReadiness(ctx, SetMergeReadinessParams{
+					ID:             written.ID,
+					MergeReadiness: forge.MergeReadiness{Listing: &forge.StatusCheckListing{StatusChecks: read.checks}},
+					HeadSHA:        read.head,
+					ReadAt:         statusCheckReadAt.Add(time.Duration(i) * time.Minute),
+				})
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.want, change.NewFailure)
+		})
+	}
+}
+
 // TestSetMergeReadinessWritesNothingNew covers a read that leaves the remembered merge readiness as it was writing nothing.
 func TestSetMergeReadinessWritesNothingNew(t *testing.T) {
 	h := open(t)

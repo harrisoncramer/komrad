@@ -552,8 +552,8 @@ func TestSyncWakeReadsEveryRepository(t *testing.T) {
 }
 
 // TestSyncRecordsWhatMovedOnAPullRequest covers the events a read records: a pull request
-// first seen alarming, a readiness that moved, the same verdict on a new head, and nothing
-// for an answer that did not change.
+// first seen alarming, a readiness that moved, another check failing under the same verdict, the
+// same verdict on a new head, and nothing for an answer that did not change.
 func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -605,6 +605,14 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f.syncer.Wake()
 	f.pass(t, syncNow.Add(2*time.Minute))
 
+	failing.Listing = &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
+		listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure"),
+		listedStatusCheck("2", "lint", forge.StatusCheckStateCompleted, "failure"),
+	}}
+	f.forge.pullRequests["harrisoncramer/komrad"][0] = withMergeReadiness(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
+	f.syncer.Wake()
+	f.pass(t, syncNow.Add(3*time.Minute))
+
 	pushed := withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(time.Hour)), failing)
 	pushed.HeadSHA = "def"
 	f.forge.pullRequests["harrisoncramer/komrad"][0] = pushed
@@ -618,6 +626,7 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 			From:  string(forge.ChecksPending),
 			To:    string(forge.ChecksFailing),
 		}}},
+		{ID: id},
 		{ID: id, Moves: []Move{
 			{
 				Field: fieldChecks,

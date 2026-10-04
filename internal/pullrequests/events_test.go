@@ -23,7 +23,7 @@ func TestEventsOf(t *testing.T) {
 		wantHolding []string
 	}{
 		{
-			name: "a move to an event-worthy value starts it",
+			name: "a move of the checks to failing starts nothing but holds it",
 			moves: []Move{{
 				Field: fieldChecks,
 				From:  "pending",
@@ -31,11 +31,10 @@ func TestEventsOf(t *testing.T) {
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			checks:      forge.ChecksFailing,
-			wantStarted: []string{eventprompts.PullRequestChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
-			name: "a failure while others still run starts the early event",
+			name: "and so does a failure while others still run",
 			moves: []Move{{
 				Field: fieldChecks,
 				From:  "pending",
@@ -43,20 +42,7 @@ func TestEventsOf(t *testing.T) {
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			checks:      forge.ChecksFailingRunning,
-			wantStarted: []string{eventprompts.PullRequestChecksFailingRunning},
 			wantHolding: []string{eventprompts.PullRequestChecksFailingRunning},
-		},
-		{
-			name: "the run finishing swaps the early event for the settled one",
-			moves: []Move{{
-				Field: fieldChecks,
-				From:  "failing_running",
-				To:    "failing",
-			}},
-			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksFailing,
-			wantStarted: []string{eventprompts.PullRequestChecksFailing},
-			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
 			name: "a move away starts nothing and leaves what still holds",
@@ -188,6 +174,49 @@ func TestEventsOf(t *testing.T) {
 			started, holding := eventsOf(Change{Moves: tt.moves}, pullRequest)
 			assert.Equal(t, tt.wantStarted, started)
 			assert.Equal(t, tt.wantHolding, holding)
+		})
+	}
+}
+
+// TestFailingEvent covers the event a failed check the agent was not told of starts: the one for the checks word,
+// and none once the checks are not failing or the pull request ended.
+func TestFailingEvent(t *testing.T) {
+	tests := []struct {
+		name   string
+		state  string
+		checks forge.Checks
+		want   string
+	}{
+		{
+			name:   "failing",
+			state:  "OPEN",
+			checks: forge.ChecksFailing,
+			want:   eventprompts.PullRequestChecksFailing,
+		},
+		{
+			name:   "failing while others still run",
+			state:  "OPEN",
+			checks: forge.ChecksFailingRunning,
+			want:   eventprompts.PullRequestChecksFailingRunning,
+		},
+		{
+			name:   "passing",
+			state:  "OPEN",
+			checks: forge.ChecksPassing,
+		},
+		{
+			name:   "merged",
+			state:  "MERGED",
+			checks: forge.ChecksFailing,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pullRequest := pullrequeststore.PullRequest{State: tt.state}
+			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[forge.Checks]{Value: tt.checks}
+
+			assert.Equal(t, tt.want, failingEvent(pullRequest))
 		})
 	}
 }

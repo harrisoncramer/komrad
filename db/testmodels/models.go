@@ -817,6 +817,21 @@ type PullRequestCheck struct {
 	RunStartedAt pgtype.Timestamptz
 }
 
+// A failed check komrad told an agent about, one row per agent, check and finish time, so a failure is mailed once.
+type PullRequestCheckFailureNote struct {
+	ID pgtype.UUID
+	// The agent that was told.
+	AgentID pgtype.UUID
+	// The check that failed.
+	CheckID pgtype.UUID
+	// When the check finished in the failure the agent was told about, so a second failure of the same check is told again. Null when the forge gave no finish time.
+	FinishedAt pgtype.Timestamptz
+	// When the agent was told, on the same clock that stamps the mail it was told in.
+	NotedAt pgtype.Timestamptz
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID pgtype.UUID
+}
+
 // What the forge last said about the checks on one head commit of a pull request, kept for every head it was read on until the pull request goes.
 type PullRequestCheckReading struct {
 	ID            pgtype.UUID

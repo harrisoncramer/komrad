@@ -60,6 +60,53 @@ func (q *Queries) DeleteStatusChecksExcept(ctx context.Context, arg DeleteStatus
 	return err
 }
 
+const listCheckFailureNotes = `-- name: ListCheckFailureNotes :many
+SELECT
+    c.provider_id,
+    n.finished_at,
+    n.noted_at
+FROM
+    pull_request_check_failure_notes n
+    JOIN pull_request_checks c ON c.id = n.check_id
+    JOIN pull_request_check_readings r ON r.id = c.reading_id
+WHERE
+    n.agent_id = $1
+    AND r.pull_request_id = $2
+    AND r.head_sha = $3
+`
+
+type ListCheckFailureNotesParams struct {
+	AgentID       string
+	PullRequestID string
+	HeadSha       string
+}
+
+type ListCheckFailureNotesRow struct {
+	ProviderID string
+	FinishedAt *time.Time
+	NotedAt    time.Time
+}
+
+func (q *Queries) ListCheckFailureNotes(ctx context.Context, arg ListCheckFailureNotesParams) ([]*ListCheckFailureNotesRow, error) {
+	rows, err := q.db.Query(ctx, listCheckFailureNotes, arg.AgentID, arg.PullRequestID, arg.HeadSha)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListCheckFailureNotesRow
+	for rows.Next() {
+		var i ListCheckFailureNotesRow
+		if err := rows.Scan(&i.ProviderID, &i.FinishedAt, &i.NotedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLatestStatusCheckReadings = `-- name: ListLatestStatusCheckReadings :many
 SELECT DISTINCT ON (r.pull_request_id)
     id, pull_request_id, head_sha, blank, first_read_at, read_at, engine_id

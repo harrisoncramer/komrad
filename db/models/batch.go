@@ -17,6 +17,77 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
+const noteCheckFailure = `-- name: NoteCheckFailure :batchexec
+INSERT INTO pull_request_check_failure_notes(
+    agent_id,
+    check_id,
+    finished_at)
+SELECT
+    $1,
+    c.id,
+    $2
+FROM
+    pull_request_checks c
+    JOIN pull_request_check_readings r ON r.id = c.reading_id
+WHERE
+    r.pull_request_id = $3
+    AND r.head_sha = $4
+    AND c.provider_id = $5
+ON CONFLICT
+    DO NOTHING
+`
+
+type NoteCheckFailureBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type NoteCheckFailureParams struct {
+	AgentID       string
+	FinishedAt    *time.Time
+	PullRequestID string
+	HeadSha       string
+	ProviderID    string
+}
+
+func (q *Queries) NoteCheckFailure(ctx context.Context, arg []NoteCheckFailureParams) *NoteCheckFailureBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.AgentID,
+			a.FinishedAt,
+			a.PullRequestID,
+			a.HeadSha,
+			a.ProviderID,
+		}
+		batch.Queue(noteCheckFailure, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &NoteCheckFailureBatchResults{br, len(arg), false}
+}
+
+func (b *NoteCheckFailureBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *NoteCheckFailureBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const upsertStatusCheckSteps = `-- name: UpsertStatusCheckSteps :batchexec
 INSERT INTO pull_request_check_steps(
     check_id,

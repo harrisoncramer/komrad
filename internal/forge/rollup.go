@@ -1,13 +1,17 @@
 package forge
 
-import "slices"
+import (
+	"slices"
+
+	"komrad/lib/xslice"
+)
 
 // passingConclusions are the conclusions a completed check counts as passed with.
 var passingConclusions = []string{"success", "neutral", "skipped"}
 
 // RollupOf is where the checks on a head stand, counting only the required ones when any is.
 func RollupOf(checks []StatusCheck) Checks {
-	counted := DecidingStatusChecks(checks)
+	counted := decidingStatusChecks(checks)
 
 	failing := slices.ContainsFunc(counted, StatusCheck.IsFailing)
 	unfinished := slices.ContainsFunc(counted, func(check StatusCheck) bool { return check.State != StatusCheckStateCompleted })
@@ -25,8 +29,8 @@ func RollupOf(checks []StatusCheck) Checks {
 	return ChecksNone
 }
 
-// DecidingStatusChecks is the checks that decide where a head stands, the required ones when any is and every one otherwise.
-func DecidingStatusChecks(checks []StatusCheck) []StatusCheck {
+// decidingStatusChecks is the checks that decide where a head stands, the required ones when any is and every one otherwise.
+func decidingStatusChecks(checks []StatusCheck) []StatusCheck {
 	if !slices.ContainsFunc(checks, func(check StatusCheck) bool { return check.Required }) {
 		return slices.Clone(checks)
 	}
@@ -42,4 +46,24 @@ func (c StatusCheck) IsFailing() bool {
 // IsRunning says whether a check is queued or running.
 func (c StatusCheck) IsRunning() bool {
 	return c.State == StatusCheckStateQueued || c.State == StatusCheckStateRunning
+}
+
+// FailedStatusChecks is the checks that decide a head and failed, counting only the newest of the checks
+// sharing a kind, source and name, given checks listed oldest first.
+func FailedStatusChecks(checks []StatusCheck) []StatusCheck {
+	newest := xslice.LastBy(decidingStatusChecks(checks), func(check StatusCheck) statusCheckKey {
+		return statusCheckKey{
+			kind:   check.Kind,
+			source: check.Source,
+			name:   check.Name,
+		}
+	})
+
+	return slices.DeleteFunc(newest, func(check StatusCheck) bool { return !check.IsFailing() })
+}
+
+type statusCheckKey struct {
+	kind   StatusCheckKind
+	source string
+	name   string
 }

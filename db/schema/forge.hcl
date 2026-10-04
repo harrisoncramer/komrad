@@ -590,6 +590,71 @@ table "pull_request_check_steps" {
   }
 }
 
+table "pull_request_check_failure_notes" {
+  schema  = schema.public
+  comment = "A failed check komrad told an agent about, one row per agent, check and finish time, so a failure is mailed once."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "agent_id" {
+    null    = false
+    type    = uuid
+    comment = "The agent that was told."
+  }
+  column "check_id" {
+    null    = false
+    type    = uuid
+    comment = "The check that failed."
+  }
+  column "finished_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the check finished in the failure the agent was told about, so a second failure of the same check is told again. Null when the forge gave no finish time."
+  }
+  column "noted_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+    comment = "When the agent was told, on the same clock that stamps the mail it was told in."
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "pull_request_check_failure_notes_failure_key" {
+    unique         = true
+    columns        = [column.engine_id, column.agent_id, column.check_id, column.finished_at]
+    nulls_distinct = false
+  }
+  foreign_key "pull_request_check_failure_notes_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_check_failure_notes_agent_id_fkey" {
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_check_failure_notes_check_id_fkey" {
+    columns     = [column.engine_id, column.check_id]
+    ref_columns = [table.pull_request_checks.column.engine_id, table.pull_request_checks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "pull_request_check_failure_notes_check_id" {
+    columns = [column.check_id]
+  }
+}
+
 table "forge_review_threads" {
   schema  = schema.public
   comment = "A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it."

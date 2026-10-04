@@ -370,8 +370,9 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				moves = append([]Move{*stateMove}, moves...)
 			}
 
-			if change := NewChange(outcome.ID, moves); change != nil {
-				event, err := events.NewEvent(change)
+			newFailure := upsert.State == "OPEN" && change.NewFailure
+			if pullRequestChange := NewChange(outcome.ID, moves, newFailure); pullRequestChange != nil {
+				event, err := events.NewEvent(pullRequestChange)
 				if err != nil {
 					return nil, err
 				}
