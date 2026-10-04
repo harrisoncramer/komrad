@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrad/db"
+	"komrad/db/migrator"
 	"komrad/internal/pgtest"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
@@ -58,7 +58,7 @@ func TestProbeReportsNothingPendingOnceMigrated(t *testing.T) {
 	migrated, err := pgxpool.New(t.Context(), url)
 	require.NoError(t, err)
 	defer migrated.Close()
-	require.NoError(t, db.Migrate(t.Context(), migrated))
+	require.NoError(t, migrator.Migrate(t.Context(), migrated))
 
 	pending, err := readPendingMigrations(t.Context(), url)
 	require.NoError(t, err)

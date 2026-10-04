@@ -25,11 +25,15 @@ func TestReplyToThread(t *testing.T) {
 		wantCall call
 	}{
 		{
-			name:     "a reply on a line thread is added to the thread",
-			onCode:   true,
-			answers:  map[string]answer{"AddThreadReply": {body: data(`{"addPullRequestReviewThreadReply":{"comment":{"id":"PRRC_9"}}}`)}},
-			want:     "PRRC_9",
-			wantCall: call{Path: "/graphql", Operation: "AddThreadReply", Variables: map[string]any{"thread": "T_1", "body": "renamed"}},
+			name:    "a reply on a line thread is added to the thread",
+			onCode:  true,
+			answers: map[string]answer{"AddThreadReply": {body: data(`{"addPullRequestReviewThreadReply":{"comment":{"id":"PRRC_9"}}}`)}},
+			want:    "PRRC_9",
+			wantCall: call{
+				Path:      "/graphql",
+				Operation: "AddThreadReply",
+				Variables: map[string]any{"thread": "T_1", "body": "renamed"},
+			},
 		},
 		{
 			name:     "a reply on the change as a whole is a new conversation comment",
@@ -82,7 +86,12 @@ func TestReplyToThread(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, id)
 			seen := fake.last(t)
-			assert.Equal(t, tt.wantCall, call{Path: seen.Path, Body: seen.Body, Operation: seen.Operation, Variables: seen.Variables})
+			assert.Equal(t, tt.wantCall, call{
+				Path:      seen.Path,
+				Body:      seen.Body,
+				Operation: seen.Operation,
+				Variables: seen.Variables,
+			})
 		})
 	}
 }

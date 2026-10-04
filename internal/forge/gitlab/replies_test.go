@@ -71,7 +71,13 @@ func TestReplyToThread(t *testing.T) {
 
 			f, _, fake := serve(t, tt.answers)
 
-			got, err := f.ReplyToThread(t.Context(), forge.ReplyToThreadParams{Repo: komrad, Number: 1, ThreadID: tt.threadID, OnCode: true, Body: "renamed"})
+			got, err := f.ReplyToThread(t.Context(), forge.ReplyToThreadParams{
+				Repo:     komrad,
+				Number:   1,
+				ThreadID: tt.threadID,
+				OnCode:   true,
+				Body:     "renamed",
+			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
@@ -80,7 +86,15 @@ func TestReplyToThread(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			seen := fake.last(t)
-			assert.Equal(t, call{Path: path, Method: http.MethodPost, Body: map[string]any{"body": "renamed"}}, call{Path: seen.Path, Method: seen.Method, Body: seen.Body})
+			assert.Equal(t, call{
+				Path:   path,
+				Method: http.MethodPost,
+				Body:   map[string]any{"body": "renamed"},
+			}, call{
+				Path:   seen.Path,
+				Method: seen.Method,
+				Body:   seen.Body,
+			})
 		})
 	}
 }

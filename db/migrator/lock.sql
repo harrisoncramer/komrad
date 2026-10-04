@@ -1,0 +1,2 @@
+SELECT
+    PG_ADVISORY_LOCK($1);

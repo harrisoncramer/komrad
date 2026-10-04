@@ -31,56 +31,48 @@ type Table struct {
 	Triggers []Trigger
 }
 
-var (
-	setUpdatedAt = Trigger{
-		Name:     "set_updated_at",
-		Timing:   "BEFORE",
-		Events:   "UPDATE",
-		Function: "set_updated_at",
-	}
-	stampEngine = Trigger{
-		Name:     "stamp_engine",
-		Timing:   "BEFORE",
-		Events:   "INSERT",
-		Function: "stamp_engine",
-	}
-)
+var setUpdatedAt = Trigger{
+	Name:     "set_updated_at",
+	Timing:   "BEFORE",
+	Events:   "UPDATE",
+	Function: "set_updated_at",
+}
 
 var declared = []Table{
-	{Name: "agent_pull_requests", Triggers: []Trigger{stampEngine}},
-	{Name: "agent_runs", Triggers: []Trigger{stampEngine}},
-	{Name: "agent_screens", Triggers: []Trigger{stampEngine}},
-	{Name: "agent_transcript_chunks", Triggers: []Trigger{stampEngine}},
-	{Name: "agent_transcript_sessions", Triggers: []Trigger{stampEngine}},
-	{Name: "agents", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "document_type_versions", Triggers: []Trigger{stampEngine}},
-	{Name: "document_types", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "document_versions", Triggers: []Trigger{stampEngine}},
-	{Name: "documents", Triggers: []Trigger{stampEngine, setUpdatedAt}},
+	{Name: "agent_pull_requests"},
+	{Name: "agent_runs"},
+	{Name: "agent_screens"},
+	{Name: "agent_transcript_chunks"},
+	{Name: "agent_transcript_sessions"},
+	{Name: "agents", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "document_type_versions"},
+	{Name: "document_types", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "document_versions"},
+	{Name: "documents", Triggers: []Trigger{setUpdatedAt}},
 	{Name: "engine_logins"},
 	{Name: "engines"},
-	{Name: "forge_connections", Triggers: []Trigger{stampEngine}},
-	{Name: "forge_review_comments", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "forge_review_threads", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "mail", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "pull_request_check_readings", Triggers: []Trigger{stampEngine}},
-	{Name: "pull_request_checks", Triggers: []Trigger{stampEngine}},
-	{Name: "pull_request_syncs", Triggers: []Trigger{stampEngine}},
-	{Name: "pull_requests", Triggers: []Trigger{stampEngine}},
-	{Name: "review_forge_replies", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "review_messages", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "review_rounds", Triggers: []Trigger{stampEngine}},
-	{Name: "review_threads", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "review_viewed_files", Triggers: []Trigger{stampEngine}},
-	{Name: "reviews", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "schedule_runs", Triggers: []Trigger{stampEngine}},
-	{Name: "schedules", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "workflow_configs", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "workflow_event_prompts", Triggers: []Trigger{stampEngine}},
-	{Name: "workflow_hooks", Triggers: []Trigger{stampEngine}},
-	{Name: "workflow_provisioner_configs", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "workflows", Triggers: []Trigger{stampEngine, setUpdatedAt}},
-	{Name: "worktrees", Triggers: []Trigger{stampEngine}},
+	{Name: "forge_connections"},
+	{Name: "forge_review_comments", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "forge_review_threads", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "mail", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "pull_request_check_readings"},
+	{Name: "pull_request_checks"},
+	{Name: "pull_request_syncs"},
+	{Name: "pull_requests"},
+	{Name: "review_forge_replies", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "review_messages", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "review_rounds"},
+	{Name: "review_threads", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "review_viewed_files"},
+	{Name: "reviews", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "schedule_runs"},
+	{Name: "schedules", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "workflow_configs", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "workflow_event_prompts"},
+	{Name: "workflow_hooks"},
+	{Name: "workflow_provisioner_configs", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "workflows", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "worktrees"},
 }
 
 var functions = []Function{
@@ -89,15 +81,6 @@ var functions = []Function{
 		Body: `
 BEGIN
     NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-`,
-	},
-	{
-		Name: "stamp_engine",
-		Body: `
-BEGIN
-    NEW.engine_id := COALESCE(current_engine(), NEW.engine_id);
     RETURN NEW;
 END;
 `,

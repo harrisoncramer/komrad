@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"komrad/db/isolation"
 	"komrad/db/testmodels"
 	"komrad/internal/dbtest"
 
@@ -22,19 +23,19 @@ func TestUpdatedAtStamped(t *testing.T) {
 
 	ctx := t.Context()
 	pool := open(ctx, t)
-	db := pool.GetRawPool()
+	rawPool := pool.GetRawPool()
 
 	var id string
-	require.NoError(t, db.QueryRow(ctx, `
+	require.NoError(t, rawPool.QueryRow(ctx, `
 		INSERT INTO workflow_configs (harness, created_at, updated_at)
 		VALUES ('claude', now() - interval '1 hour', now() - interval '1 hour')
 		RETURNING id`).Scan(&id))
 
-	_, err := db.Exec(ctx, `UPDATE workflow_configs SET harness = 'codex' WHERE id = $1`, id)
+	_, err := rawPool.Exec(ctx, `UPDATE workflow_configs SET harness = 'codex' WHERE id = $1`, id)
 	require.NoError(t, err)
 
 	var createdAt, updatedAt time.Time
-	require.NoError(t, db.QueryRow(ctx,
+	require.NoError(t, rawPool.QueryRow(ctx,
 		`SELECT created_at, updated_at FROM workflow_configs WHERE id = $1`, id).
 		Scan(&createdAt, &updatedAt))
 
@@ -107,13 +108,20 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 		cause string
 	}{
 		{
-			name:  "engine",
-			list:  queries.ListTablesWithoutEngine,
+			name: "engine",
+			list: func(ctx context.Context) ([]string, error) {
+				return queries.ListTablesWithoutEngine(ctx, isolation.UnscopedTables)
+			},
 			cause: "these tables have no required engine_id",
 		},
 		{
-			name:  "isolation",
-			list:  queries.ListTablesWithoutEngineIsolation,
+			name: "isolation",
+			list: func(ctx context.Context) ([]string, error) {
+				return queries.ListTablesWithoutEngineIsolation(ctx, testmodels.ListTablesWithoutEngineIsolationParams{
+					Unisolated:         isolation.UnisolatedTables,
+					StampEngineTrigger: isolation.StampEngineTrigger,
+				})
+			},
 			cause: "these tables lack row security, the engine_isolation policy or the stamp_engine trigger",
 		},
 		{
@@ -127,13 +135,23 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 			cause: "these foreign keys clear engine_id on delete; name the column in ON DELETE SET NULL (...)",
 		},
 		{
-			name:  "unique keys",
-			list:  queries.ListUniqueKeysAcrossEngines,
+			name: "unique keys",
+			list: func(ctx context.Context) ([]string, error) {
+				return queries.ListUniqueKeysAcrossEngines(ctx, testmodels.ListUniqueKeysAcrossEnginesParams{
+					Unscoped:   isolation.UnscopedTables,
+					Unisolated: isolation.UnisolatedTables,
+				})
+			},
 			cause: "these unique keys collide across engines; lead them with engine_id",
 		},
 		{
-			name:  "grants",
-			list:  queries.ListTablesEnginesCannotReach,
+			name: "grants",
+			list: func(ctx context.Context) ([]string, error) {
+				return queries.ListTablesEnginesCannotReach(ctx, testmodels.ListTablesEnginesCannotReachParams{
+					Unisolated: isolation.UnisolatedTables,
+					Readerless: isolation.ReaderlessTables,
+				})
+			},
 			cause: "komrad_engine cannot reach these tables, or komrad_reader reaches the wrong ones",
 		},
 	}

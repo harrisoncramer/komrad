@@ -55,8 +55,7 @@ type formState struct {
 
 	// keepsOnRefusal says a refused write leaves the form up to be fixed and submitted again.
 	keepsOnRefusal bool
-
-	refusal string
+	refusal        string
 
 	// vim is vim's state for the form's text fields, nil when vim is off.
 	vim *fieldVim

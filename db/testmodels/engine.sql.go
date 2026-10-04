@@ -96,21 +96,26 @@ FROM
     JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
 WHERE
     n.nspname = 'public'
-    AND c.relkind = 'r'
+    AND c.relkind IN ('r', 'p')
     AND a.attname = 'engine_id'
     AND NOT a.attisdropped
-    AND c.relname <> 'engine_logins'
+    AND c.relname <> ALL ($1::text[])
     AND NOT (HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'SELECT')
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'INSERT')
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'UPDATE')
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'DELETE')
-        AND HAS_TABLE_PRIVILEGE('komrad_reader', c.oid, 'SELECT') =(c.relname NOT IN ('forge_review_threads', 'forge_review_comments')))
+        AND HAS_TABLE_PRIVILEGE('komrad_reader', c.oid, 'SELECT') =(c.relname <> ALL ($2::text[])))
 ORDER BY
     c.relname
 `
 
-func (q *Queries) ListTablesEnginesCannotReach(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listTablesEnginesCannotReach)
+type ListTablesEnginesCannotReachParams struct {
+	Unisolated []string
+	Readerless []string
+}
+
+func (q *Queries) ListTablesEnginesCannotReach(ctx context.Context, arg ListTablesEnginesCannotReachParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listTablesEnginesCannotReach, arg.Unisolated, arg.Readerless)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +142,8 @@ FROM
     JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE
     n.nspname = 'public'
-    AND c.relkind = 'r'
-    AND c.relname NOT IN ('engines', 'schema_migrations', 'schema_triggers')
+    AND c.relkind IN ('r', 'p')
+    AND c.relname <> ALL ($1::text[])
     AND NOT EXISTS (
         SELECT
             1
@@ -153,8 +158,8 @@ ORDER BY
     c.relname
 `
 
-func (q *Queries) ListTablesWithoutEngine(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listTablesWithoutEngine)
+func (q *Queries) ListTablesWithoutEngine(ctx context.Context, unscoped []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listTablesWithoutEngine, unscoped)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +187,10 @@ FROM
     JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
 WHERE
     n.nspname = 'public'
-    AND c.relkind = 'r'
+    AND c.relkind IN ('r', 'p')
     AND a.attname = 'engine_id'
     AND NOT a.attisdropped
-    AND c.relname <> 'engine_logins'
+    AND c.relname <> ALL ($1::text[])
     AND (NOT c.relrowsecurity
         OR NOT EXISTS (
             SELECT
@@ -202,13 +207,18 @@ WHERE
                     pg_catalog.pg_trigger t
                 WHERE
                     t.tgrelid = c.oid
-                    AND t.tgname = 'stamp_engine'))
+                    AND t.tgname = $2::text))
     ORDER BY
         c.relname
 `
 
-func (q *Queries) ListTablesWithoutEngineIsolation(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listTablesWithoutEngineIsolation)
+type ListTablesWithoutEngineIsolationParams struct {
+	Unisolated         []string
+	StampEngineTrigger string
+}
+
+func (q *Queries) ListTablesWithoutEngineIsolation(ctx context.Context, arg ListTablesWithoutEngineIsolationParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listTablesWithoutEngineIsolation, arg.Unisolated, arg.StampEngineTrigger)
 	if err != nil {
 		return nil, err
 	}
@@ -240,15 +250,21 @@ FROM
 WHERE
     n.nspname = 'public'
     AND x.indisunique
-    AND c.relname NOT IN ('engines', 'engine_logins', 'schema_migrations', 'schema_triggers')
+    AND c.relname <> ALL ($1::text[])
+    AND c.relname <> ALL ($2::text[])
     AND lead.attname <> 'engine_id'
     AND lead.atttypid <> 'uuid'::regtype
 ORDER BY
     i.relname
 `
 
-func (q *Queries) ListUniqueKeysAcrossEngines(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listUniqueKeysAcrossEngines)
+type ListUniqueKeysAcrossEnginesParams struct {
+	Unscoped   []string
+	Unisolated []string
+}
+
+func (q *Queries) ListUniqueKeysAcrossEngines(ctx context.Context, arg ListUniqueKeysAcrossEnginesParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listUniqueKeysAcrossEngines, arg.Unscoped, arg.Unisolated)
 	if err != nil {
 		return nil, err
 	}

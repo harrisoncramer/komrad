@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"komrad/db"
+	"komrad/db/migrator"
 	"komrad/internal/git"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -43,7 +43,7 @@ func readPendingMigrations(ctx context.Context, url string) ([]string, error) {
 	}
 	defer pool.Close()
 
-	return db.Pending(ctx, pool)
+	return migrator.Pending(ctx, pool)
 }
 
 func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
