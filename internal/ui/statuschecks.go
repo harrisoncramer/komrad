@@ -47,6 +47,13 @@ type statusCheckCommit struct {
 	items       []statusCheckItem
 }
 
+// statusCheckKey is one check across its reruns.
+type statusCheckKey struct {
+	source string
+	event  string
+	name   string
+}
+
 // statusChecksScreen lists the status checks on one head of the pull request opened from one agent's branch.
 type statusChecksScreen struct {
 	rowCursor
@@ -519,8 +526,7 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	return out
 }
 
-// newStatusCheckCommit is one head's reading, holding only the newest run of each check so a rerun stands in for the
-// run it repeated.
+// newStatusCheckCommit is one head's reading, holding only the newest run of each check.
 func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheckCommit {
 	items := xslice.Map(reading.GetStatusChecks(), newStatusCheckItem)
 	newest := map[statusCheckKey]statusCheckItem{}
@@ -539,13 +545,6 @@ func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheck
 	}
 }
 
-// statusCheckKey is what one check is across its reruns: the workflow or app that runs it, what started it and its name.
-type statusCheckKey struct {
-	source string
-	event  string
-	name   string
-}
-
 func (i statusCheckItem) key() statusCheckKey {
 	return statusCheckKey{source: i.run.source, event: i.run.event, name: i.name}
 }
@@ -561,8 +560,7 @@ func compareStatusCheckItems(a, b statusCheckItem) int {
 	return strings.Compare(a.id, b.id)
 }
 
-// viewed is the index of the commit the screen lists, the newest when none was stepped to or the one stepped to is
-// gone, and -1 when no commit was read.
+// viewed is the index of the commit the screen lists, defaulting to the newest.
 func (c *statusChecksScreen) viewed() int {
 	if i := slices.IndexFunc(c.commits, func(commit statusCheckCommit) bool { return commit.headSHA == c.viewing }); i >= 0 {
 		return i
@@ -581,8 +579,7 @@ func (c *statusChecksScreen) shownItems() []statusCheckItem {
 	return c.commits[at].items
 }
 
-// stepCommit moves the listing to an older or newer commit, keeping the cursor on the check of the same name when
-// that commit lists one, and following new pushes again once it reaches the newest.
+// stepCommit moves the listing to an older or newer commit, keeping the cursor on the same check.
 func (c *statusChecksScreen) stepCommit(m *model, delta int) tea.Cmd {
 	at := c.viewed()
 	to := min(max(at+delta, 0), len(c.commits)-1)
@@ -591,21 +588,21 @@ func (c *statusChecksScreen) stepCommit(m *model, delta int) tea.Cmd {
 	}
 
 	hovered := c.list().hovered(m)
-	var was statusCheckKey
-	before := c.rows(m)
-	if i := slices.IndexFunc(before, func(row statusCheckRow) bool { return row.key() == hovered }); i >= 0 {
-		was = before[i].item.key()
+	var hoveredCheck statusCheckKey
+	oldRows := c.rows(m)
+	if i := slices.IndexFunc(oldRows, func(row statusCheckRow) bool { return row.key() == hovered }); i >= 0 {
+		hoveredCheck = oldRows[i].item.key()
 	}
 	c.viewing = ""
 	if to < len(c.commits)-1 {
 		c.viewing = c.commits[to].headSHA
 	}
-	rows := c.rows(m)
-	var key string
-	if i := slices.IndexFunc(rows, func(row statusCheckRow) bool { return row.item.key() == was }); i >= 0 {
-		key = rows[i].key()
+	newRows := c.rows(m)
+	var placeKey string
+	if i := slices.IndexFunc(newRows, func(row statusCheckRow) bool { return row.item.key() == hoveredCheck }); i >= 0 {
+		placeKey = newRows[i].key()
 	}
-	c.list().place(m, key)
+	c.list().place(m, placeKey)
 
 	return m.waitToStage()
 }
