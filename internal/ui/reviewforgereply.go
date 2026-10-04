@@ -56,6 +56,18 @@ func lastForgeMessage(thread *agentv1.ReviewThread) (*agentv1.ReviewMessage, boo
 	return nil, false
 }
 
+// mirroredCommentIDs is the forge comment ids of the messages in a thread mirrored from the forge.
+func mirroredCommentIDs(thread *agentv1.ReviewThread) map[string]bool {
+	ids := map[string]bool{}
+	for _, message := range thread.GetMessages() {
+		if id := message.GetForge().GetCommentId(); id != "" {
+			ids[id] = true
+		}
+	}
+
+	return ids
+}
+
 // forgeThreadAtCursor is the thread under the cursor when it mirrors one on the forge.
 func (r *reviewScreen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	thread, ok := r.diff.threadAtCursor()
@@ -242,12 +254,7 @@ func forgeMark(glyphs glyph.Set) string {
 
 // forgeRepliesView is what the thread has said back to the forge.
 func (r reviewScreen) forgeRepliesView(m *model, thread *agentv1.ReviewThread, width int) string {
-	mirrored := map[string]bool{}
-	for _, message := range thread.GetMessages() {
-		if id := message.GetForge().GetCommentId(); id != "" {
-			mirrored[id] = true
-		}
-	}
+	mirrored := mirroredCommentIDs(thread)
 
 	out := ""
 	for _, reply := range thread.GetForgeReplies() {
