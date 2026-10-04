@@ -76,6 +76,6 @@ func (r reviewScreen) movedNotice(m *model) message {
 		kind:    messageWarning,
 		key:     key + ":stopped",
 		summary: "the worktree has moved",
-		detail:  keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Review.Reload) + " to catch up",
+		detail:  m.menuChordLabel(m.keys.Review.Reload) + " to catch up",
 	}
 }

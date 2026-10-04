@@ -195,7 +195,7 @@ func (a *archiveScreen) screenNotice(m *model) string {
 		}
 	}
 
-	return "archived" + separated + "press " + keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Menu.Archive) + " " + keyLabel(restore) + " to restore"
+	return "archived" + separated + "press " + m.menuChordLabel(m.keys.Menu.Archive, restore) + " to restore"
 }
 
 func (a *agentsScreen) screenNotice(m *model) string {

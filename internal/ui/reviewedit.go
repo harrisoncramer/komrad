@@ -171,7 +171,7 @@ func (r *reviewScreen) editFile(m *model) tea.Cmd {
 	m.pushMessage(message{
 		kind:    messageInfo,
 		summary: "editing " + path,
-		detail:  keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Review.EditFile) + " to come back",
+		detail:  m.menuChordLabel(m.keys.Review.EditFile) + " to come back",
 	})
 
 	return nil
