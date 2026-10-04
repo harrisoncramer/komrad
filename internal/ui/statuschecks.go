@@ -6,7 +6,9 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -108,9 +110,13 @@ func (c *statusChecksScreen) emptyLine(m *model) string {
 	return "no status checks yet"
 }
 
-// statusCheckColumns is the gutter of the status checks list: where each status check stands.
+// statusCheckColumns is the gutter of the status checks list: where each status check stands, as a
+// word and then as an icon.
 func statusCheckColumns() view.Columns {
-	return view.Columns{{Kind: view.ColumnText, Width: statusCheckStandingColumns}}
+	return view.Columns{
+		{Kind: view.ColumnText, Width: statusCheckStandingColumns},
+		{Kind: view.ColumnText, Width: glyph.Columns},
+	}
 }
 
 const statusCheckStandingColumns = 10
@@ -126,7 +132,10 @@ func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
 				Name:    r.item.name,
 				Matches: matchesIn(m.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
-				Cells:   []view.Cell{mutedCell(statusCheckStanding(r.item))},
+				Cells: []view.Cell{
+					mutedCell(statusCheckStanding(r.item)),
+					statusCheckIcon(r.item, m.loading.frame()),
+				},
 			}
 		}),
 		Caret:      pane.caret,
@@ -221,8 +230,9 @@ func (c *statusChecksScreen) dispatches(*model) []dispatching {
 }
 
 var (
-	_ listFilterer = (*statusChecksScreen)(nil)
-	_ crumbDrawer  = (*statusChecksScreen)(nil)
+	_ listFilterer    = (*statusChecksScreen)(nil)
+	_ crumbDrawer     = (*statusChecksScreen)(nil)
+	_ loadingReporter = (*statusChecksScreen)(nil)
 )
 
 func (c *statusChecksScreen) hoveredKey(m *model) string {
@@ -325,4 +335,30 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 	c.cursor = cursor.Place(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
 
 	return m.readStatusChecksCmd()
+}
+
+// passingConclusions are the conclusions a finished check passes with, as the forge counts them.
+var passingConclusions = []string{"success", "neutral", "skipped"}
+
+// statusCheckIcon is the icon drawn beside a check, in the glyphs and tones the forge column of
+// the sidebar draws a pull request's checks with.
+func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
+	switch {
+	case !isStatusCheckFinished(item):
+		return view.Cell{Text: loaderFrame, Tone: paint.ToneWarning}
+	case slices.Contains(passingConclusions, strings.ToLower(item.conclusion)):
+		return view.Cell{Glyph: glyph.StatusCheckPassing, Tone: paint.ToneSuccess}
+	}
+
+	return view.Cell{Glyph: glyph.StatusCheckFailing, Tone: paint.ToneDanger}
+}
+
+func isStatusCheckFinished(item statusCheckItem) bool {
+	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
+}
+
+func (c *statusChecksScreen) isLoading(*model) bool {
+	return slices.ContainsFunc(c.items, func(item statusCheckItem) bool {
+		return !isStatusCheckFinished(item)
+	})
 }

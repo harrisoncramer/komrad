@@ -26,6 +26,8 @@ type Glyphs struct {
 	Messages MessageGlyphs `mapstructure:"messages"`
 	// The schedules list, one for a schedule that runs and one for a schedule that is paused.
 	Schedules ScheduleGlyphs `mapstructure:"schedules"`
+	// The status checks list, one for a check that passed and one for a check that failed.
+	StatusChecks StatusCheckGlyphs `mapstructure:"status_checks"`
 }
 
 // RowGlyphs are drawn in the repo column of the sidebar.
@@ -129,6 +131,14 @@ type ScheduleGlyphs struct {
 	Enabled string `mapstructure:"enabled"`
 	// A schedule that is paused.
 	Disabled string `mapstructure:"disabled"`
+}
+
+// StatusCheckGlyphs are drawn beside each check in the status checks list.
+type StatusCheckGlyphs struct {
+	// A check that passed, was skipped, or ended neutral.
+	Passing string `mapstructure:"passing"`
+	// A check that ended any other way.
+	Failing string `mapstructure:"failing"`
 }
 
 // defaultGlyphs are the icons used when the config omits them, read from the glyph package.

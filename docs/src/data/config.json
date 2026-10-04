@@ -1606,6 +1606,27 @@
             }
           ],
           "sections": []
+        },
+        {
+          "path": "glyphs.status_checks",
+          "description": "The status checks list, one for a check that passed and one for a check that failed.",
+          "settings": [
+            {
+              "key": "passing",
+              "path": "glyphs.status_checks.passing",
+              "type": "string",
+              "description": "A check that passed, was skipped, or ended neutral.",
+              "default": "\"\""
+            },
+            {
+              "key": "failing",
+              "path": "glyphs.status_checks.failing",
+              "type": "string",
+              "description": "A check that ended any other way.",
+              "default": "\"\""
+            }
+          ],
+          "sections": []
         }
       ]
     },

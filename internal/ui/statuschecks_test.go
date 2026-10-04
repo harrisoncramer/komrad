@@ -3,6 +3,7 @@ package ui_test
 import (
 	"testing"
 
+	"komrad/internal/glyph"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
@@ -81,16 +82,48 @@ func TestStatusChecksList(t *testing.T) {
 		harness.assertSentTo(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, &pullrequestv1.ListStatusChecksRequest{PullRequestId: "pr-1"})
 	})
 
-	t.Run("each status check is a row with where it stands", func(t *testing.T) {
+	t.Run("each status check is a row", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"lint", "test", "build"}, readListRows(frame))
-		assert.Contains(t, frame, "success │ lint")
-		assert.Contains(t, frame, "running │ test")
-		assert.Contains(t, frame, "queued │ build")
+	})
+
+	t.Run("each status check is drawn with the icon the sidebar draws its pull request with", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, answerStatusChecks(
+			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+			newStatusCheck("2", "docs", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SKIPPED"),
+			newStatusCheck("3", "vet", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"),
+			newStatusCheck("4", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""),
+		))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "success "+glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ lint")
+		assert.Contains(t, frame, "skipped "+glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ docs")
+		assert.Contains(t, frame, "failure "+glyph.Defaults().Spell(glyph.StatusCheckFailing)+" │ vet")
+		assert.Contains(t, frame, "running ⠋ │ test")
+	})
+
+	t.Run("the spinner turns while a status check runs", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+
+		assert.True(t, harness.fireLoader())
+	})
+
+	t.Run("the spinner rests once every status check has finished", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, answerStatusChecks(
+			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+		))
+
+		assert.False(t, harness.fireLoader())
 	})
 
 	t.Run("the cursor moves through the status checks", func(t *testing.T) {
