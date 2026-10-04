@@ -190,7 +190,6 @@ type panelHarnessParams struct {
 	sidebarSide   string
 	sidebarWidth  int
 	triageRows    int
-	hideChat      bool
 	keys          *config.Keybindings
 	git           *gittest.Repo
 	settings      ui.PanelSettings
@@ -292,7 +291,6 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			SidebarSide:     params.sidebarSide,
 			SidebarWidth:    params.sidebarWidth,
 			TriageRows:      params.triageRows,
-			HideChat:        params.hideChat,
 			Width:           width,
 			Height:          height,
 			Settings:        draftedSettings(t, params.settings),

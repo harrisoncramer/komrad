@@ -666,16 +666,6 @@ func (f *Frame) TileGuest() string {
 	return f.tileGuest
 }
 
-// TilePane is the pane the keys go to for the chat in the tile: the agent's own pane swapped into it,
-// or the tile itself when the agent runs elsewhere, and empty while the tile is down.
-func (f *Frame) TilePane() string {
-	if f.remote.IsRemote() {
-		return f.tile
-	}
-
-	return f.tileGuest
-}
-
 // ShowTile puts an agent's chat across the bottom of the window at a height in rows, setting
 // the stage aside while it is up and resizing the tile when the agent is already in it.
 func (f *Frame) ShowTile(guest Guest, rows int) {

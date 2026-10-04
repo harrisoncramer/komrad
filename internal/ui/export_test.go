@@ -126,7 +126,6 @@ type NewPanelParams struct {
 	SidebarSide     string
 	SidebarWidth    int
 	TriageRows      int
-	HideChat        bool
 	Width           int
 	Height          int
 	Settings        PanelSettings
@@ -174,7 +173,6 @@ func NewPanel(params NewPanelParams) *Panel {
 		layout.SidebarWidth = params.SidebarWidth
 	}
 	layout.TriageRows = params.TriageRows
-	layout.ImplementerChat = !params.HideChat
 
 	panel := &Panel{
 		model: newModel(Deps{
@@ -356,11 +354,6 @@ func (p *Panel) ReadScreen() string {
 // ReadGuestPane is the pane the panel has swapped into its stage.
 func (p *Panel) ReadGuestPane() string {
 	return p.model.frame.GuestPane()
-}
-
-// ReadTileGuest is the pane of the agent whose chat is across the bottom of the window, empty while none is.
-func (p *Panel) ReadTileGuest() string {
-	return p.model.frame.TileGuest()
 }
 
 // IsAgentAlive reports whether the listing holds the agent as running.
