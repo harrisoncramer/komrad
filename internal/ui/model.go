@@ -273,6 +273,7 @@ type model struct {
 	worktrees     worktreesScreen
 	documents     documentsScreen
 	logs          logsScreen
+	checks        checksScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections map[string]worktreeInspection
 	lastScreen  lastScreen

@@ -690,6 +690,27 @@
           "sections": []
         },
         {
+          "path": "keybindings.checks",
+          "description": "The checks screen, which lists the checks run on one agent's pull request.",
+          "settings": [
+            {
+              "key": "back",
+              "path": "keybindings.checks.back",
+              "type": "array",
+              "description": "Leave the checks screen for the view it was opened from.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.checks.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
           "path": "keybindings.messages",
           "description": "The messages komrad pushed, read in the main pane.",
           "settings": [
@@ -1049,6 +1070,13 @@
               "type": "array",
               "description": "Open the agent's logs, the service log lines about it.",
               "default": "[\"l\"]"
+            },
+            {
+              "key": "checks",
+              "path": "keybindings.menu.checks",
+              "type": "array",
+              "description": "Open the checks run on the agent's pull request.",
+              "default": "[\"x\"]"
             },
             {
               "key": "terminal",

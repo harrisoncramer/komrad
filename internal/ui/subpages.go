@@ -17,6 +17,7 @@ const (
 	subpageReview subpage = iota
 	subpageDocuments
 	subpageLogs
+	subpageChecks
 	subpageTerminal
 )
 
@@ -54,7 +55,7 @@ func agentSubpages(agent panel.Agent) []subpage {
 		return []subpage{subpageLogs, subpageTerminal}
 	}
 
-	return []subpage{subpageReview, subpageDocuments, subpageLogs, subpageTerminal}
+	return []subpage{subpageReview, subpageDocuments, subpageLogs, subpageChecks, subpageTerminal}
 }
 
 // subpageEntry is how a subpage is drawn in an agent's menu.
@@ -70,6 +71,8 @@ func subpageEntry(m *model, from screen, item panel.AgentRow, page subpage) subm
 		return nestedEntry("documents", m.keys.Menu.Documents, documentsMenu(m, from, item))
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
+	case subpageChecks:
+		return submenuEntry{label: "checks", keys: m.keys.Menu.Checks}
 	case subpageTerminal:
 		return submenuEntry{
 			label: "terminal",
@@ -140,6 +143,10 @@ func (m *model) enterSubpage(from screen, agentID string, picked subpage) tea.Cm
 		m.leaveForm()
 
 		return m.enter(screenLogs, screenTarget{agentID: agentID, from: from})
+	case subpageChecks:
+		m.leaveForm()
+
+		return m.enter(screenChecks, screenTarget{agentID: agentID, from: from})
 	case subpageTerminal:
 		if err := terminalRefusal(from, item.Agent); err != nil {
 			return m.refuseSubpage("Could not open a terminal", err)
