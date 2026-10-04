@@ -642,7 +642,7 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 		return
 	}
 
-	a.unhide(m, id)
+	a.showHiddenFor(m, id)
 
 	rows := a.rows(m)
 	if idx := rowIndexOfKey(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
@@ -650,8 +650,8 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 	}
 }
 
-// unhide shows the hidden agents when the agent, or one it is drawn under, is one of them.
-func (a *agentsScreen) unhide(m *model, id string) {
+// showHiddenFor shows the hidden agents when the agent, or one it is drawn under, is one of them.
+func (a *agentsScreen) showHiddenFor(m *model, id string) {
 	byID := keyAgentsByID(m.listing.agents)
 	for item, ok := byID[id]; ok; {
 		if item.Agent.Hidden {
