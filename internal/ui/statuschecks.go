@@ -143,7 +143,7 @@ type statusCheckScope int
 
 const (
 	statusCheckScopeAll statusCheckScope = iota
-	statusCheckScopeUnsettled
+	statusCheckScopeNotPassing
 	statusCheckScopeActive
 	statusCheckScopeFailing
 )
@@ -153,7 +153,7 @@ var statusCheckScopeLabels = []string{"all", "not passing", "active", "failing"}
 // holds reports whether the scope lists the status check.
 func (s statusCheckScope) holds(item statusCheckItem) bool {
 	switch s {
-	case statusCheckScopeUnsettled:
+	case statusCheckScopeNotPassing:
 		return !isStatusCheckClean(item)
 	case statusCheckScopeActive:
 		return !isStatusCheckFinished(item)
@@ -169,8 +169,8 @@ func (c *statusChecksScreen) shownScope() statusCheckScope {
 	switch {
 	case c.scopeChosen:
 		return c.scope
-	case slices.ContainsFunc(c.shownItems(), statusCheckScopeUnsettled.holds):
-		return statusCheckScopeUnsettled
+	case slices.ContainsFunc(c.shownItems(), statusCheckScopeNotPassing.holds):
+		return statusCheckScopeNotPassing
 	}
 
 	return statusCheckScopeAll
@@ -214,10 +214,16 @@ func (c *statusChecksScreen) emptyLine(m *model) string {
 		return "no pull request"
 	case !c.listed:
 		return "reading…"
-	case c.shownScope() == statusCheckScopeUnsettled && len(c.shownItems()) > 0:
+	case len(c.shownItems()) == 0:
+		return "no status checks yet"
+	}
+
+	switch scope := c.shownScope(); scope {
+	case statusCheckScopeNotPassing:
 		return "every status check passes"
-	case c.shownScope() != statusCheckScopeAll && len(c.shownItems()) > 0:
-		return "no " + statusCheckScopeLabels[c.shownScope()] + " status checks"
+	case statusCheckScopeActive, statusCheckScopeFailing:
+		return "no " + statusCheckScopeLabels[scope] + " status checks"
+	case statusCheckScopeAll:
 	}
 
 	return "no status checks yet"

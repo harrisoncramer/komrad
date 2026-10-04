@@ -268,26 +268,38 @@ func TestStatusChecksScope(t *testing.T) {
 		assert.Equal(t, []string{"lint", "docs"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("a scope that holds none of the status checks says so", func(t *testing.T) {
+	t.Run("a scope holding none of the status checks says why", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openStatusChecks(t, answerStatusChecks(
-			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
-		))
-		harness.press("F", "tab", "tab", "tab", "esc")
+		tests := []struct {
+			name  string
+			press []string
+			want  string
+		}{
+			{
+				name:  "a scope that holds none of the status checks says so",
+				press: []string{"F", "tab", "tab", "tab", "esc"},
+				want:  "no failing status checks",
+			},
+			{
+				name:  "not passing says every status check passes when none fail",
+				press: []string{"F", "tab", "esc"},
+				want:  "every status check passes",
+			},
+		}
 
-		assert.Contains(t, harness.readFrame(), "no failing status checks")
-	})
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-	t.Run("not passing says every status check passes when none fail", func(t *testing.T) {
-		t.Parallel()
+				harness := openStatusChecks(t, answerStatusChecks(
+					newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+				))
+				harness.press(tt.press...)
 
-		harness := openStatusChecks(t, answerStatusChecks(
-			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
-		))
-		harness.press("F", "tab", "esc")
-
-		assert.Contains(t, harness.readFrame(), "every status check passes")
+				assert.Contains(t, harness.readFrame(), tt.want)
+			})
+		}
 	})
 }
 
@@ -403,6 +415,7 @@ func TestStatusChecksCommits(t *testing.T) {
 		},
 	}
 	listed := answerStatusCheckReadings(first, second)
+
 	tests := []struct {
 		name      string
 		press     []string
@@ -410,7 +423,7 @@ func TestStatusChecksCommits(t *testing.T) {
 		wantTally string
 	}{
 		{
-			name:      "the listing opens on the newest commit, holding the newest run of each check",
+			name:      "every status check on the newest commit holds the newest run of each check",
 			press:     everyStatusCheck,
 			want:      []string{"vet", "test", "test", "ci/legacy"},
 			wantTally: "commit 2 of 2 · 222222222222",
@@ -470,8 +483,7 @@ func TestStatusChecksCommits(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press(everyStatusCheck...)
-		harness.press("j", "j", "<")
+		harness.press(append(everyStatusCheck, "j", "j", "<")...)
 
 		assert.Equal(t, 2, readHoveredIndex(harness.readFrame()))
 	})
@@ -546,8 +558,7 @@ func TestStatusChecksCommits(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press(everyStatusCheck...)
-		harness.press("<")
+		harness.press(append(everyStatusCheck, "<")...)
 		pushed(harness)
 
 		frame := harness.readFrame()
