@@ -642,14 +642,19 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 		return
 	}
 
-	for _, item := range m.listing.agents {
-		if item.Agent.ID == id && item.Agent.Hidden {
-			a.showHidden = true
-		}
-	}
+	a.unhide(m, id)
 
 	rows := a.rows(m)
 	if idx := rowIndexOfKey(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
 		a.cursor = idx
+	}
+}
+
+// unhide shows the hidden agents when the agent is one of them.
+func (a *agentsScreen) unhide(m *model, id string) {
+	for _, item := range m.listing.agents {
+		if item.Agent.ID == id && item.Agent.Hidden {
+			a.showHidden = true
+		}
 	}
 }
