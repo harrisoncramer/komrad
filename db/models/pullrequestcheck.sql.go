@@ -107,7 +107,7 @@ func (q *Queries) ListCheckFailureNotes(ctx context.Context, arg ListCheckFailur
 	return items, nil
 }
 
-const listLatestStatusCheckReadings = `-- name: ListLatestStatusCheckReadings :many
+const listHeadStatusCheckReadings = `-- name: ListHeadStatusCheckReadings :many
 SELECT DISTINCT ON (r.pull_request_id)
     r.id, r.pull_request_id, r.head_sha, r.blank, r.first_read_at, r.read_at, r.engine_id
 FROM
@@ -117,13 +117,13 @@ WHERE
     r.pull_request_id = ANY ($1::uuid[])
 ORDER BY
     r.pull_request_id,
-    (r.head_sha = p.head_sha) DESC,
+(r.head_sha = p.head_sha) DESC,
     r.read_at DESC,
     r.id DESC
 `
 
-func (q *Queries) ListLatestStatusCheckReadings(ctx context.Context, pullRequestIds []string) ([]*PullRequestCheckReading, error) {
-	rows, err := q.db.Query(ctx, listLatestStatusCheckReadings, pullRequestIds)
+func (q *Queries) ListHeadStatusCheckReadings(ctx context.Context, pullRequestIds []string) ([]*PullRequestCheckReading, error) {
+	rows, err := q.db.Query(ctx, listHeadStatusCheckReadings, pullRequestIds)
 	if err != nil {
 		return nil, err
 	}

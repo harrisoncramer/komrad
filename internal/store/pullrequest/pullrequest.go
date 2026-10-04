@@ -244,7 +244,7 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		return nil, fmt.Errorf("failed to lock pull request %s to record its merge readiness: %w", params.ID, err)
 	}
 
-	readBefore, err := latestReadings(ctx, s.queries, []string{params.ID})
+	readBefore, err := headReadings(ctx, s.queries, []string{params.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		}
 	}
 
-	readAfter, err := latestReadings(ctx, s.queries, []string{params.ID})
+	readAfter, err := headReadings(ctx, s.queries, []string{params.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (s *PullRequestStore) withOneMergeReadiness(ctx context.Context, row *model
 
 // withMergeReadiness is each row as a pull request, its checks rolled up from the latest reading of them.
 func (s *PullRequestStore) withMergeReadiness(ctx context.Context, rows []*models.PullRequest) ([]PullRequest, error) {
-	readings, err := latestReadings(ctx, s.queries, xslice.Map(rows, func(row *models.PullRequest) string { return row.ID }))
+	readings, err := headReadings(ctx, s.queries, xslice.Map(rows, func(row *models.PullRequest) string { return row.ID }))
 	if err != nil {
 		return nil, err
 	}

@@ -156,9 +156,9 @@ func (s statusCheckScope) holds(item statusCheckItem) bool {
 	case statusCheckScopeNotPassing:
 		return !isStatusCheckClean(item)
 	case statusCheckScopeActive:
-		return !isStatusCheckFinished(item)
+		return isStatusCheckInFlight(item)
 	case statusCheckScopeFailing:
-		return isStatusCheckFinished(item) && !isStatusCheckUnknown(item) && !isStatusCheckClean(item)
+		return isStatusCheckFinished(item) && !isStatusCheckClean(item)
 	case statusCheckScopeAll:
 	}
 
@@ -449,7 +449,7 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	switch {
 	case isStatusCheckUnknown(item):
 		return view.Cell{Glyph: glyph.StatusCheckUnknown, Tone: paint.ToneMuted}
-	case !isStatusCheckFinished(item):
+	case isStatusCheckInFlight(item):
 		return view.Cell{Text: loaderFrame, Tone: paint.ToneWarning}
 	case strings.EqualFold(item.conclusion, "success"):
 		return view.Cell{Glyph: glyph.StatusCheckPassing, Tone: paint.ToneSuccess}
@@ -461,7 +461,11 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 }
 
 func isStatusCheckFinished(item statusCheckItem) bool {
-	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED || isStatusCheckUnknown(item)
+	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
+}
+
+func isStatusCheckInFlight(item statusCheckItem) bool {
+	return !isStatusCheckFinished(item) && !isStatusCheckUnknown(item)
 }
 
 func isStatusCheckUnknown(item statusCheckItem) bool {
@@ -469,9 +473,7 @@ func isStatusCheckUnknown(item statusCheckItem) bool {
 }
 
 func (c *statusChecksScreen) isLoading(*model) bool {
-	return slices.ContainsFunc(c.shownItems(), func(item statusCheckItem) bool {
-		return !isStatusCheckFinished(item)
-	})
+	return slices.ContainsFunc(c.shownItems(), isStatusCheckInFlight)
 }
 
 func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {

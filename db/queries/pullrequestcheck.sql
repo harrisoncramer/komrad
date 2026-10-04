@@ -114,7 +114,7 @@ ORDER BY
     c.name,
     c.id;
 
--- name: ListLatestStatusCheckReadings :many
+-- name: ListHeadStatusCheckReadings :many
 SELECT DISTINCT ON (r.pull_request_id)
     r.*
 FROM
