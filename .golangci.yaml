@@ -67,6 +67,7 @@ linters:
       # form is checked too. What is excluded below is the handful of calls where the zero
       # value genuinely is the answer.
       check-blank: true
+      check-type-assertions: true
       exclude-functions:
         # Cleanup that runs in a defer, where the caller has already returned and there is
         # nothing left to report the failure to.

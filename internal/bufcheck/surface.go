@@ -97,7 +97,10 @@ func readSurfaces(method protoreflect.MethodDescriptor) *annotationv1.Surfaces {
 		return nil
 	}
 
-	surfaces, _ := proto.GetExtension(opts, annotationv1.E_Surfaces).(*annotationv1.Surfaces)
+	surfaces, ok := proto.GetExtension(opts, annotationv1.E_Surfaces).(*annotationv1.Surfaces)
+	if !ok {
+		return nil
+	}
 
 	return surfaces
 }

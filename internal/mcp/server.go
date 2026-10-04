@@ -59,7 +59,10 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 
 	streamable := mcpsdk.NewStreamableHTTPHandler(
 		func(request *http.Request) *mcpsdk.Server {
-			role, _ := request.Context().Value(callerRoleKey{}).(annotationv1.Role)
+			role, ok := request.Context().Value(callerRoleKey{}).(annotationv1.Role)
+			if !ok {
+				return servers[annotationv1.Role_ROLE_UNSPECIFIED]
+			}
 
 			server, ok := servers[role]
 			if !ok {

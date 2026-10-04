@@ -100,7 +100,10 @@ func With(ctx context.Context, from Caller) context.Context {
 // From is the identity carried on a context, zero outside a request or on one that arrived
 // without it.
 func From(ctx context.Context) Caller {
-	from, _ := ctx.Value(callerKey{}).(Caller)
+	from, ok := ctx.Value(callerKey{}).(Caller)
+	if !ok {
+		return Caller{}
+	}
 
 	return from
 }
@@ -114,7 +117,10 @@ func WithTrace(ctx context.Context, id string) context.Context {
 
 // Trace is the id the request being served is logged under, empty outside one.
 func Trace(ctx context.Context) string {
-	id, _ := ctx.Value(traceKey{}).(string)
+	id, ok := ctx.Value(traceKey{}).(string)
+	if !ok {
+		return ""
+	}
 
 	return id
 }
