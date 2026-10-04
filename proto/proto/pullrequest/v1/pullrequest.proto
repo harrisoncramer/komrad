@@ -193,12 +193,23 @@ message ListStatusChecksRequest {
 }
 
 message ListStatusChecksResponse {
-  // The head commit the status checks were read on, empty when they have never been read.
+  reserved 1, 2, 3;
+  reserved "head_sha", "read_at", "status_checks";
+
+  // Each head commit the status checks were read on, oldest first, empty when they have never been read.
+  repeated StatusCheckReading readings = 4;
+}
+
+// StatusCheckReading is the status checks read on one head commit of a pull request.
+message StatusCheckReading {
+  // The head commit the status checks were read on.
   string head_sha = 1;
-  // When the forge was last asked about that head, in RFC 3339, unset when it never was.
-  optional string read_at = 2;
+  // When komrad first read the checks on that head, in RFC 3339.
+  optional string first_read_at = 2;
+  // When the forge was last asked about that head, in RFC 3339.
+  optional string read_at = 3;
   // The status checks on that head, by kind, source and name.
-  repeated StatusCheck status_checks = 3;
+  repeated StatusCheck status_checks = 4;
 }
 
 // StatusCheck is one status check the forge listed on a pull request's head commit.
