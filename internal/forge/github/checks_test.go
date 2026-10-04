@@ -127,11 +127,38 @@ func TestReadBranchesCheckListing(t *testing.T) {
 	}
 }`),
 			want: &forge.CheckListing{Checks: []forge.Check{
-				{ProviderID: "CR_1", Kind: forge.CheckKindRun, Name: "test", State: forge.CheckStateRunning, StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC))},
-				{ProviderID: "SC_1", Kind: forge.CheckKindStatus, Name: "ci/legacy", State: forge.CheckStateRunning, StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 1, 0, 0, time.UTC))},
-				{ProviderID: "SC_2", Kind: forge.CheckKindStatus, Name: "ci/deploy", State: forge.CheckStateWaiting},
-				{ProviderID: "CR_2", Kind: forge.CheckKindRun, Name: "deploy", State: forge.CheckStateWaiting},
-				{ProviderID: "CR_3", Kind: forge.CheckKindRun, Name: "lint", State: forge.CheckStateQueued},
+				{
+					ProviderID: "CR_1",
+					Kind:       forge.CheckKindRun,
+					Name:       "test",
+					State:      forge.CheckStateRunning,
+					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+				},
+				{
+					ProviderID: "SC_1",
+					Kind:       forge.CheckKindStatus,
+					Name:       "ci/legacy",
+					State:      forge.CheckStateRunning,
+					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 1, 0, 0, time.UTC)),
+				},
+				{
+					ProviderID: "SC_2",
+					Kind:       forge.CheckKindStatus,
+					Name:       "ci/deploy",
+					State:      forge.CheckStateWaiting,
+				},
+				{
+					ProviderID: "CR_2",
+					Kind:       forge.CheckKindRun,
+					Name:       "deploy",
+					State:      forge.CheckStateWaiting,
+				},
+				{
+					ProviderID: "CR_3",
+					Kind:       forge.CheckKindRun,
+					Name:       "lint",
+					State:      forge.CheckStateQueued,
+				},
 			}},
 		},
 		{
@@ -164,7 +191,12 @@ func TestReadBranchesCheckListing(t *testing.T) {
 		}
 	}
 }`),
-			want: &forge.CheckListing{Checks: []forge.Check{{ProviderID: "CR_1", Kind: forge.CheckKindRun, Name: "test", State: forge.CheckStateQueued}}, Truncated: true},
+			want: &forge.CheckListing{Checks: []forge.Check{{
+				ProviderID: "CR_1",
+				Kind:       forge.CheckKindRun,
+				Name:       "test",
+				State:      forge.CheckStateQueued,
+			}}, Truncated: true},
 		},
 		{
 			name: "a check read github refuses lists nothing and keeps the branch read",

@@ -24,8 +24,16 @@ func TestListing(t *testing.T) {
 		wantState      forge.CheckState
 		wantConclusion string
 	}{
-		{status: pipelineSuccess, wantState: forge.CheckStateCompleted, wantConclusion: "success"},
-		{status: pipelineFailed, wantState: forge.CheckStateCompleted, wantConclusion: "failed"},
+		{
+			status:         pipelineSuccess,
+			wantState:      forge.CheckStateCompleted,
+			wantConclusion: "success",
+		},
+		{
+			status:         pipelineFailed,
+			wantState:      forge.CheckStateCompleted,
+			wantConclusion: "failed",
+		},
 		{status: pipelineCreated, wantState: forge.CheckStateQueued},
 		{status: pipelineWaitingForResource, wantState: forge.CheckStateQueued},
 		{status: pipelinePreparing, wantState: forge.CheckStateQueued},
@@ -33,8 +41,16 @@ func TestListing(t *testing.T) {
 		{status: pipelinePending, wantState: forge.CheckStateQueued},
 		{status: pipelineRunning, wantState: forge.CheckStateRunning},
 		{status: pipelineScheduled, wantState: forge.CheckStateQueued},
-		{status: pipelineCanceled, wantState: forge.CheckStateCompleted, wantConclusion: "canceled"},
-		{status: pipelineCanceling, wantState: forge.CheckStateCompleted, wantConclusion: "canceling"},
+		{
+			status:         pipelineCanceled,
+			wantState:      forge.CheckStateCompleted,
+			wantConclusion: "canceled",
+		},
+		{
+			status:         pipelineCanceling,
+			wantState:      forge.CheckStateCompleted,
+			wantConclusion: "canceling",
+		},
 		{status: pipelineSkipped},
 		{status: pipelineManual},
 		{

@@ -11,8 +11,16 @@ import (
 func TestRollupOf(t *testing.T) {
 	t.Parallel()
 
-	passed := Check{Name: "test", State: CheckStateCompleted, Conclusion: "success"}
-	failed := Check{Name: "lint", State: CheckStateCompleted, Conclusion: "failure"}
+	passed := Check{
+		Name:       "test",
+		State:      CheckStateCompleted,
+		Conclusion: "success",
+	}
+	failed := Check{
+		Name:       "lint",
+		State:      CheckStateCompleted,
+		Conclusion: "failure",
+	}
 	running := Check{Name: "e2e", State: CheckStateRunning}
 
 	tests := []struct {
@@ -25,9 +33,17 @@ func TestRollupOf(t *testing.T) {
 			want: ChecksNone,
 		},
 		{
-			name:   "every check passed is passing",
-			checks: []Check{passed, {Name: "docs", State: CheckStateCompleted, Conclusion: "skipped"}, {Name: "scan", State: CheckStateCompleted, Conclusion: "neutral"}},
-			want:   ChecksPassing,
+			name: "every check passed is passing",
+			checks: []Check{passed, {
+				Name:       "docs",
+				State:      CheckStateCompleted,
+				Conclusion: "skipped",
+			}, {
+				Name:       "scan",
+				State:      CheckStateCompleted,
+				Conclusion: "neutral",
+			}},
+			want: ChecksPassing,
 		},
 		{
 			name:   "a check finished without passing is failing",
@@ -35,9 +51,13 @@ func TestRollupOf(t *testing.T) {
 			want:   ChecksFailing,
 		},
 		{
-			name:   "a cancelled check is failing",
-			checks: []Check{{Name: "test", State: CheckStateCompleted, Conclusion: "cancelled"}},
-			want:   ChecksFailing,
+			name: "a cancelled check is failing",
+			checks: []Check{{
+				Name:       "test",
+				State:      CheckStateCompleted,
+				Conclusion: "cancelled",
+			}},
+			want: ChecksFailing,
 		},
 		{
 			name:   "a failed check with another running is failing while running",
@@ -65,14 +85,24 @@ func TestRollupOf(t *testing.T) {
 			want:   ChecksPending,
 		},
 		{
-			name:   "an optional check failing beside required ones passing is passing",
-			checks: []Check{{Name: "test", State: CheckStateCompleted, Conclusion: "success", Required: true}, failed},
-			want:   ChecksPassing,
+			name: "an optional check failing beside required ones passing is passing",
+			checks: []Check{{
+				Name:       "test",
+				State:      CheckStateCompleted,
+				Conclusion: "success",
+				Required:   true,
+			}, failed},
+			want: ChecksPassing,
 		},
 		{
-			name:   "an optional check running beside a required one failing is failing",
-			checks: []Check{{Name: "lint", State: CheckStateCompleted, Conclusion: "failure", Required: true}, running},
-			want:   ChecksFailing,
+			name: "an optional check running beside a required one failing is failing",
+			checks: []Check{{
+				Name:       "lint",
+				State:      CheckStateCompleted,
+				Conclusion: "failure",
+				Required:   true,
+			}, running},
+			want: ChecksFailing,
 		},
 	}
 	for _, tt := range tests {

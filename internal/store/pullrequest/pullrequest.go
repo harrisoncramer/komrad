@@ -268,7 +268,11 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		return nil, fmt.Errorf("failed to record the merge readiness of pull request %s: %w", params.ID, err)
 	}
 
-	return &MergeReadinessChange{Before: before, After: after, HeadChecks: readAfter[params.ID].Checks}, nil
+	return &MergeReadinessChange{
+		Before:     before,
+		After:      after,
+		HeadChecks: readAfter[params.ID].Checks,
+	}, nil
 }
 
 // withOneMergeReadiness is the row as a pull request, its checks rolled up from the latest reading of them.

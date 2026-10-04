@@ -246,7 +246,15 @@ func TestListMovesSince(t *testing.T) {
 					head:      "aaa",
 					at:        at,
 				},
-				{checks: RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa", WasLatestReadBlank: true}, head: "aaa", at: at},
+				{
+					checks: RememberedAnswer[Checks]{
+						Value:              ChecksFailing,
+						HeadSHA:            "aaa",
+						WasLatestReadBlank: true,
+					},
+					head: "aaa",
+					at:   at,
+				},
 			},
 		},
 		{
@@ -258,7 +266,11 @@ func TestListMovesSince(t *testing.T) {
 					head:      "aaa",
 					at:        at,
 				},
-				{checks: RememberedAnswer[Checks]{HeadSHA: "bbb", WasLatestReadBlank: true}, head: "bbb", at: at},
+				{
+					checks: RememberedAnswer[Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
+					head:   "bbb",
+					at:     at,
+				},
 			},
 		},
 		{
@@ -461,7 +473,15 @@ func TestDisplayForHead(t *testing.T) {
 					head:      "aaa",
 					at:        at,
 				},
-				{checks: RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa", WasLatestReadBlank: true}, head: "aaa", at: at},
+				{
+					checks: RememberedAnswer[Checks]{
+						Value:              ChecksFailing,
+						HeadSHA:            "aaa",
+						WasLatestReadBlank: true,
+					},
+					head: "aaa",
+					at:   at,
+				},
 			},
 			head: "aaa",
 			want: DisplayedMergeReadiness{
@@ -478,7 +498,11 @@ func TestDisplayForHead(t *testing.T) {
 					head:      "aaa",
 					at:        at,
 				},
-				{checks: RememberedAnswer[Checks]{HeadSHA: "bbb", WasLatestReadBlank: true}, head: "bbb", at: at},
+				{
+					checks: RememberedAnswer[Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
+					head:   "bbb",
+					at:     at,
+				},
 			},
 			head: "bbb",
 		},

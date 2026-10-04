@@ -420,7 +420,11 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 	}
 	blank := forge.MergeReadiness{Listing: &forge.CheckListing{}}
 	failingOnABC := forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksFailing, HeadSHA: "abc"}
-	unconfirmedOnABC := forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksFailing, HeadSHA: "abc", WasLatestReadBlank: true}
+	unconfirmedOnABC := forge.RememberedAnswer[forge.Checks]{
+		Value:              forge.ChecksFailing,
+		HeadSHA:            "abc",
+		WasLatestReadBlank: true,
+	}
 	type mergeReadinessRead struct {
 		readiness  forge.MergeReadiness
 		head       string
@@ -435,38 +439,86 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 		{
 			name: "a blank first read",
 			reads: []mergeReadinessRead{
-				{readiness: blank, head: "abc", wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "abc", WasLatestReadBlank: true}},
-				{readiness: failing, head: "abc", wantChecks: failingOnABC},
+				{
+					readiness:  blank,
+					head:       "abc",
+					wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "abc", WasLatestReadBlank: true},
+				},
+				{
+					readiness:  failing,
+					head:       "abc",
+					wantChecks: failingOnABC,
+				},
 			},
 		},
 		{
 			name: "a read that did not list the checks",
 			reads: []mergeReadinessRead{
-				{readiness: failing, head: "abc", wantChecks: failingOnABC},
-				{readiness: forge.MergeReadiness{Decision: forge.ReviewDecisionApproved}, head: "def", wantChecks: failingOnABC},
+				{
+					readiness:  failing,
+					head:       "abc",
+					wantChecks: failingOnABC,
+				},
+				{
+					readiness:  forge.MergeReadiness{Decision: forge.ReviewDecisionApproved},
+					head:       "def",
+					wantChecks: failingOnABC,
+				},
 			},
 		},
 		{
 			name: "blanks on the same head",
 			reads: []mergeReadinessRead{
-				{readiness: failing, head: "abc", wantChecks: failingOnABC},
-				{readiness: blank, head: "abc", wantChecks: unconfirmedOnABC},
-				{readiness: blank, head: "abc", wantChecks: unconfirmedOnABC},
+				{
+					readiness:  failing,
+					head:       "abc",
+					wantChecks: failingOnABC,
+				},
+				{
+					readiness:  blank,
+					head:       "abc",
+					wantChecks: unconfirmedOnABC,
+				},
+				{
+					readiness:  blank,
+					head:       "abc",
+					wantChecks: unconfirmedOnABC,
+				},
 			},
 		},
 		{
 			name: "a blank on a new head",
 			reads: []mergeReadinessRead{
-				{readiness: failing, head: "abc", wantChecks: failingOnABC},
-				{readiness: blank, head: "def", wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "def", WasLatestReadBlank: true}},
+				{
+					readiness:  failing,
+					head:       "abc",
+					wantChecks: failingOnABC,
+				},
+				{
+					readiness:  blank,
+					head:       "def",
+					wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "def", WasLatestReadBlank: true},
+				},
 			},
 		},
 		{
 			name: "an answer after a blank",
 			reads: []mergeReadinessRead{
-				{readiness: failing, head: "abc", wantChecks: failingOnABC},
-				{readiness: blank, head: "abc", wantChecks: unconfirmedOnABC},
-				{readiness: passing, head: "def", wantChecks: forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksPassing, HeadSHA: "def"}},
+				{
+					readiness:  failing,
+					head:       "abc",
+					wantChecks: failingOnABC,
+				},
+				{
+					readiness:  blank,
+					head:       "abc",
+					wantChecks: unconfirmedOnABC,
+				},
+				{
+					readiness:  passing,
+					head:       "def",
+					wantChecks: forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksPassing, HeadSHA: "def"},
+				},
 			},
 		},
 	}
