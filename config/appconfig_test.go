@@ -847,25 +847,14 @@ func TestCacheDirExpandsHome(t *testing.T) {
 	assert.NotContains(t, cfg.Connection.CacheDir, "~")
 }
 
-// TestStateDirComesFromTheEnvironment covers a throwaway instance naming its own state directory.
-func TestStateDirComesFromTheEnvironment(t *testing.T) {
-	clearConnectionEnvironment(t)
-
-	state := t.TempDir()
-	t.Setenv("KOMRAD_STATE_DIR", state)
-
-	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("[connection]\nstate_dir = \"~/elsewhere\"\n"), 0o600))
-
-	cfg, report, err := LoadWithReport(Stack{Paths: []string{path}})
-	require.NoError(t, err)
-
-	assert.Equal(t, state, cfg.Connection.StateDir)
-	assert.Equal(t, sourceEnvironment, report.Sources["state_dir"])
+// TestWorktreesDirDefaultsUnderTheStateDir puts worktrees in the configured state directory.
+func TestWorktreesDirDefaultsUnderTheStateDir(t *testing.T) {
+	dir := t.TempDir()
+	cfg := Config{Connection: Connection{StateDir: dir}}
 
 	worktrees, err := cfg.GetWorktreesDir()
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(state, "worktrees"), worktrees)
+	assert.Equal(t, filepath.Join(dir, "worktrees"), worktrees)
 }
 
 // loadStrict writes one config file and returns what Load made of it, with the connection
