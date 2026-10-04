@@ -89,3 +89,24 @@ func TestListWatchedThreads(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, ofNobody, "no agents is no threads rather than every thread")
 }
+
+// TestListWatchedThreadsCarriesForgeReplies pins that a mirrored thread carries the forge thread it
+// mirrors and its replies, and that a thread opened in komrad carries neither.
+func TestListWatchedThreadsCarriesForgeReplies(t *testing.T) {
+	st := openFixture(t)
+	seeded := st.seedReplyThreads(t)
+	reply := st.propose(t, seeded, "because the caller retries")
+
+	snapshot, err := NewThreadStore(st.pool).ListWatched(t.Context(), nil)
+	require.NoError(t, err)
+	byID := xslice.KeyBy(snapshot, func(thread ThreadWithMessages) string { return thread.ID })
+
+	mirrored := byID[seeded.mirrored]
+	assert.NotNil(t, mirrored.ForgeThreadID)
+	require.Len(t, mirrored.ForgeReplies, 1)
+	assert.Equal(t, reply.ID, mirrored.ForgeReplies[0].ID)
+
+	local := byID[seeded.local]
+	assert.Nil(t, local.ForgeThreadID)
+	assert.Empty(t, local.ForgeReplies)
+}

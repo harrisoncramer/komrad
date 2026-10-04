@@ -739,7 +739,12 @@ type ReviewThread struct {
 	// When the thread was opened.
 	CreatedAt string `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When anything in it last moved.
-	UpdatedAt     string `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Whether the thread mirrors one on the pull request, where a reply is public.
+	MirrorsForge bool `protobuf:"varint,18,opt,name=mirrors_forge,json=mirrorsForge,proto3" json:"mirrors_forge,omitempty"`
+	// What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only
+	// the person reviewing is shown these.
+	ForgeReplies  []*ForgeReply `protobuf:"bytes,20,rep,name=forge_replies,json=forgeReplies,proto3" json:"forge_replies,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -891,6 +896,20 @@ func (x *ReviewThread) GetUpdatedAt() string {
 		return x.UpdatedAt
 	}
 	return ""
+}
+
+func (x *ReviewThread) GetMirrorsForge() bool {
+	if x != nil {
+		return x.MirrorsForge
+	}
+	return false
+}
+
+func (x *ReviewThread) GetForgeReplies() []*ForgeReply {
+	if x != nil {
+		return x.ForgeReplies
+	}
+	return nil
 }
 
 // ReviewMessage is one thing said in a review thread.
@@ -3471,7 +3490,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12&\n" +
 	"\x0fround_landed_at\x18\r \x01(\tR\rroundLandedAt\x12%\n" +
 	"\x0eexternal_login\x18\x0e \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_id\"\x99\x04\n" +
+	"\x10_author_agent_id\"\xf9\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
@@ -3492,7 +3511,9 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAt\"\xf8\x04\n" +
+	"updated_at\x18\x0e \x01(\tR\tupdatedAt\x12#\n" +
+	"\rmirrors_forge\x18\x12 \x01(\bR\fmirrorsForge\x129\n" +
+	"\rforge_replies\x18\x14 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeReplies\"\xf8\x04\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -3775,38 +3796,39 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	0,  // 2: agent.v1.WatchedReview.author_kind:type_name -> agent.v1.ReviewAuthorKind
 	2,  // 3: agent.v1.WatchedReview.verdict:type_name -> agent.v1.ReviewVerdict
 	8,  // 4: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
-	0,  // 5: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	1,  // 6: agent.v1.ReviewMessage.delivery:type_name -> agent.v1.ReviewDeliveryState
-	9,  // 7: agent.v1.ReviewMessage.forge:type_name -> agent.v1.ForgeOrigin
-	7,  // 8: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
-	7,  // 9: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
-	8,  // 10: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	8,  // 11: agent.v1.AcceptForgeMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	8,  // 12: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	7,  // 13: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
-	7,  // 14: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
-	4,  // 15: agent.v1.OpenReviewRoundResponse.round:type_name -> agent.v1.ReviewRound
-	4,  // 16: agent.v1.ListReviewRoundsResponse.rounds:type_name -> agent.v1.ReviewRound
-	7,  // 17: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
-	5,  // 18: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
-	4,  // 19: agent.v1.GetReviewResponse.round:type_name -> agent.v1.ReviewRound
-	28, // 20: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
-	5,  // 21: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
-	2,  // 22: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
-	5,  // 23: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
-	35, // 24: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	35, // 25: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	3,  // 26: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
-	0,  // 27: agent.v1.ForgeReply.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	40, // 28: agent.v1.ProposeForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	40, // 29: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
-	40, // 30: agent.v1.ApproveForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	40, // 31: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	32, // [32:32] is the sub-list for method output_type
-	32, // [32:32] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	40, // 5: agent.v1.ReviewThread.forge_replies:type_name -> agent.v1.ForgeReply
+	0,  // 6: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	1,  // 7: agent.v1.ReviewMessage.delivery:type_name -> agent.v1.ReviewDeliveryState
+	9,  // 8: agent.v1.ReviewMessage.forge:type_name -> agent.v1.ForgeOrigin
+	7,  // 9: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
+	7,  // 10: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
+	8,  // 11: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	8,  // 12: agent.v1.AcceptForgeMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	8,  // 13: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	7,  // 14: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
+	7,  // 15: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
+	4,  // 16: agent.v1.OpenReviewRoundResponse.round:type_name -> agent.v1.ReviewRound
+	4,  // 17: agent.v1.ListReviewRoundsResponse.rounds:type_name -> agent.v1.ReviewRound
+	7,  // 18: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
+	5,  // 19: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
+	4,  // 20: agent.v1.GetReviewResponse.round:type_name -> agent.v1.ReviewRound
+	28, // 21: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
+	5,  // 22: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
+	2,  // 23: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
+	5,  // 24: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
+	35, // 25: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	35, // 26: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	3,  // 27: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
+	0,  // 28: agent.v1.ForgeReply.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	40, // 29: agent.v1.ProposeForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	40, // 30: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
+	40, // 31: agent.v1.ApproveForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	40, // 32: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	33, // [33:33] is the sub-list for method output_type
+	33, // [33:33] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_review_proto_init() }

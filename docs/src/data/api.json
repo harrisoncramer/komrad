@@ -5623,6 +5623,26 @@
           "oneof": "",
           "rules": [],
           "description": "When anything in it last moved."
+        },
+        {
+          "name": "mirrors_forge",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the thread mirrors one on the pull request, where a reply is public."
+        },
+        {
+          "name": "forge_replies",
+          "type": "ForgeReply",
+          "ref": "agent.v1.ForgeReply",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only the person reviewing is shown these."
         }
       ]
     },

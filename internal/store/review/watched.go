@@ -96,6 +96,10 @@ var WatchedReviewThreads = watch.Resource{
 			Column: "thread_id",
 		},
 		{
+			Table:  "review_forge_replies",
+			Column: "thread_id",
+		},
+		{
 			Table: "agents",
 			Lookup: &watch.Lookup{
 				ParentColumn: "agent_id",
@@ -109,7 +113,8 @@ var WatchedReviewThreads = watch.Resource{
 // ThreadWithMessages is a thread and everything said in it, oldest first.
 type ThreadWithMessages struct {
 	Thread
-	Messages []Message
+	Messages     []Message
+	ForgeReplies []ForgeReply
 }
 
 type ThreadStore struct {
@@ -147,12 +152,23 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 		byThread[row.ThreadID] = append(byThread[row.ThreadID], undeliveredMessageFromRow(*row))
 	}
 
+	replies, err := s.queries.ListForgeReplies(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the forge replies of %d watched review thread(s): %w", len(ids), err)
+	}
+
+	repliesByThread := map[string][]ForgeReply{}
+	for _, row := range replies {
+		repliesByThread[row.ThreadID] = append(repliesByThread[row.ThreadID], *forgeReplyFromRow(row))
+	}
+
 	return xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) ThreadWithMessages {
 		thread := threadFromRow(models.ReviewThread{
 			ID:                  row.ID,
 			AgentID:             row.AgentID,
 			ReviewID:            row.ReviewID,
 			RoundID:             row.RoundID,
+			ForgeThreadID:       row.ForgeThreadID,
 			BaseSha:             row.BaseSha,
 			FilePath:            row.FilePath,
 			OldStart:            row.OldStart,
@@ -171,7 +187,7 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 		thread.RoundOrdinal = row.RoundOrdinal
 		thread.UnreadByHuman = xptr.Deref(row.UnreadByHuman)
 
-		return ThreadWithMessages{Thread: thread, Messages: byThread[row.ID]}
+		return ThreadWithMessages{Thread: thread, Messages: byThread[row.ID], ForgeReplies: repliesByThread[row.ID]}
 	}), nil
 }
 

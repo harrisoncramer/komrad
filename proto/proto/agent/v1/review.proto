@@ -177,6 +177,11 @@ message ReviewThread {
   string created_at = 13;
   // When anything in it last moved.
   string updated_at = 14;
+  // Whether the thread mirrors one on the pull request, where a reply is public.
+  bool mirrors_forge = 18;
+  // What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only
+  // the person reviewing is shown these.
+  repeated ForgeReply forge_replies = 20;
 }
 
 // ReviewMessage is one thing said in a review thread.
