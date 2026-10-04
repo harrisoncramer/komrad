@@ -10,6 +10,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 )
 
 // statusCheckListFields is the first hundred checks on a pull request's head commit, each asked whether
@@ -57,6 +58,12 @@ type statusCheckNode struct {
 			} `json:"workflow"`
 		} `json:"workflowRun"`
 	} `json:"checkSuite"`
+	Steps *struct {
+		PageInfo struct {
+			HasNextPage bool `json:"hasNextPage"`
+		} `json:"pageInfo"`
+		Nodes []checkStepNode `json:"nodes"`
+	} `json:"steps"`
 	Context    string     `json:"context"`
 	State      string     `json:"state"`
 	TargetURL  *string    `json:"targetUrl"`
@@ -136,16 +143,18 @@ func (n statusCheckNode) check() (forge.StatusCheck, bool) {
 	case "CheckRun":
 		state, conclusion := checkRunStateOf(n.Status, n.Conclusion)
 		return forge.StatusCheck{
-			ProviderID: n.ID,
-			Kind:       forge.StatusCheckKindRun,
-			Source:     n.source(),
-			Name:       n.Name,
-			State:      state,
-			Conclusion: conclusion,
-			StartedAt:  n.StartedAt,
-			FinishedAt: n.CompletedAt,
-			Required:   n.IsRequired,
-			URL:        xptr.Deref(n.DetailsURL),
+			ProviderID:     n.ID,
+			Kind:           forge.StatusCheckKindRun,
+			Source:         n.source(),
+			Name:           n.Name,
+			State:          state,
+			Conclusion:     conclusion,
+			StartedAt:      n.StartedAt,
+			FinishedAt:     n.CompletedAt,
+			Required:       n.IsRequired,
+			URL:            xptr.Deref(n.DetailsURL),
+			Steps:          n.steps(),
+			StepsTruncated: n.Steps != nil && n.Steps.PageInfo.HasNextPage,
 		}, true
 	case "StatusContext":
 		check := forge.StatusCheck{
@@ -201,4 +210,37 @@ func checkRunStateOf(status string, conclusion *string) (forge.StatusCheckState,
 	}
 
 	return forge.StatusCheckStateQueued, ""
+}
+
+// checkStepNode is one step of a check run GitHub lists.
+type checkStepNode struct {
+	Number      int        `json:"number"`
+	Name        string     `json:"name"`
+	Status      string     `json:"status"`
+	Conclusion  *string    `json:"conclusion"`
+	StartedAt   *time.Time `json:"startedAt"`
+	CompletedAt *time.Time `json:"completedAt"`
+}
+
+// steps is the steps listed on the check run, nil when GitHub listed none.
+func (n statusCheckNode) steps() []forge.StatusCheckStep {
+	if n.Steps == nil || len(n.Steps.Nodes) == 0 {
+		return nil
+	}
+
+	return xslice.Map(n.Steps.Nodes, checkStepNode.step)
+}
+
+// step is the step in komrad's words.
+func (n checkStepNode) step() forge.StatusCheckStep {
+	state, conclusion := checkRunStateOf(n.Status, n.Conclusion)
+
+	return forge.StatusCheckStep{
+		Number:     n.Number,
+		Name:       n.Name,
+		State:      state,
+		Conclusion: conclusion,
+		StartedAt:  n.StartedAt,
+		FinishedAt: n.CompletedAt,
+	}
 }

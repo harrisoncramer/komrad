@@ -10,6 +10,33 @@ import (
 	"time"
 )
 
+const deleteStatusCheckStepsExcept = `-- name: DeleteStatusCheckStepsExcept :exec
+DELETE FROM pull_request_check_steps s USING pull_request_checks c
+WHERE s.check_id = c.id
+    AND c.reading_id = $1
+    AND c.provider_id = ANY ($2::text[])
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            JSONB_TO_RECORDSET($3::jsonb) AS k(provider_id text,
+                number integer)
+        WHERE
+            k.provider_id = c.provider_id
+            AND k.number = s.number)
+`
+
+type DeleteStatusCheckStepsExceptParams struct {
+	ReadingID string
+	Complete  []string
+	Kept      []byte
+}
+
+func (q *Queries) DeleteStatusCheckStepsExcept(ctx context.Context, arg DeleteStatusCheckStepsExceptParams) error {
+	_, err := q.db.Exec(ctx, deleteStatusCheckStepsExcept, arg.ReadingID, arg.Complete, arg.Kept)
+	return err
+}
+
 const deleteStatusChecksExcept = `-- name: DeleteStatusChecksExcept :exec
 DELETE FROM pull_request_checks
 WHERE reading_id = $1
@@ -95,6 +122,49 @@ func (q *Queries) ListStatusCheckReadings(ctx context.Context, pullRequestID str
 			&i.Blank,
 			&i.FirstReadAt,
 			&i.ReadAt,
+			&i.EngineID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStatusCheckStepsOfReadings = `-- name: ListStatusCheckStepsOfReadings :many
+SELECT
+    id, check_id, reading_id, number, name, state, conclusion, started_at, finished_at, engine_id
+FROM
+    pull_request_check_steps s
+WHERE
+    s.reading_id = ANY ($1::uuid[])
+ORDER BY
+    s.check_id,
+    s.number
+`
+
+func (q *Queries) ListStatusCheckStepsOfReadings(ctx context.Context, readingIds []string) ([]*PullRequestCheckStep, error) {
+	rows, err := q.db.Query(ctx, listStatusCheckStepsOfReadings, readingIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequestCheckStep
+	for rows.Next() {
+		var i PullRequestCheckStep
+		if err := rows.Scan(
+			&i.ID,
+			&i.CheckID,
+			&i.ReadingID,
+			&i.Number,
+			&i.Name,
+			&i.State,
+			&i.Conclusion,
+			&i.StartedAt,
+			&i.FinishedAt,
 			&i.EngineID,
 		); err != nil {
 			return nil, err
@@ -197,6 +267,63 @@ func (q *Queries) RecordStatusCheckReading(ctx context.Context, arg RecordStatus
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const upsertStatusCheckSteps = `-- name: UpsertStatusCheckSteps :exec
+INSERT INTO pull_request_check_steps(
+    check_id,
+    reading_id,
+    number,
+    name,
+    state,
+    conclusion,
+    started_at,
+    finished_at)
+SELECT
+    c.id,
+    c.reading_id,
+    s.number,
+    s.name,
+    s.state,
+    s.conclusion,
+    s.started_at,
+    s.finished_at
+FROM
+    JSONB_TO_RECORDSET($1::jsonb) AS s(provider_id text,
+        number integer,
+        name text,
+        state text,
+        conclusion text,
+        started_at timestamptz,
+        finished_at timestamptz)
+    JOIN pull_request_checks c ON c.reading_id = $2
+        AND c.provider_id = s.provider_id
+ON CONFLICT (engine_id,
+    check_id,
+    number)
+    DO UPDATE SET
+        name = excluded.name,
+        state = excluded.state,
+        conclusion = excluded.conclusion,
+        started_at = excluded.started_at,
+        finished_at = excluded.finished_at
+    WHERE (
+        pull_request_check_steps.name, pull_request_check_steps.state, pull_request_check_steps.conclusion, pull_request_check_steps.started_at, pull_request_check_steps.finished_at) IS DISTINCT FROM (
+        excluded.name,
+        excluded.state,
+        excluded.conclusion,
+        excluded.started_at,
+        excluded.finished_at)
+`
+
+type UpsertStatusCheckStepsParams struct {
+	Steps     []byte
+	ReadingID string
+}
+
+func (q *Queries) UpsertStatusCheckSteps(ctx context.Context, arg UpsertStatusCheckStepsParams) error {
+	_, err := q.db.Exec(ctx, upsertStatusCheckSteps, arg.Steps, arg.ReadingID)
+	return err
 }
 
 const upsertStatusChecks = `-- name: UpsertStatusChecks :exec

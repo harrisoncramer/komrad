@@ -72,6 +72,10 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 		return fmt.Errorf("failed to write the checks listed on %s: %w", params.HeadSHA, err)
 	}
 
+	if err := setStatusCheckSteps(ctx, queries, readingID, params); err != nil {
+		return err
+	}
+
 	if params.Truncated {
 		return nil
 	}
@@ -81,6 +85,37 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 		Kept:      xslice.Map(listed, func(row statusCheckRow) string { return row.ProviderID }),
 	}); err != nil {
 		return fmt.Errorf("failed to remove the checks no longer listed on %s: %w", params.HeadSHA, err)
+	}
+
+	return nil
+}
+
+// setStatusCheckSteps writes the steps listed on each check of a reading, writing only the steps that changed,
+// and removes the steps no longer listed on checks whose steps were listed whole.
+func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID string, params SetStatusChecksParams) error {
+	checks := lastListings(params.StatusChecks)
+	listed := statusCheckStepRows(checks)
+	encoded, err := json.Marshal(listed)
+	if err != nil {
+		return fmt.Errorf("failed to encode the check steps listed on %s: %w", params.HeadSHA, err)
+	}
+
+	if len(listed) > 0 {
+		if err := queries.UpsertStatusCheckSteps(ctx, models.UpsertStatusCheckStepsParams{ReadingID: readingID, Steps: encoded}); err != nil {
+			return fmt.Errorf("failed to write the check steps listed on %s: %w", params.HeadSHA, err)
+		}
+	}
+
+	complete := xslice.Map(
+		xslice.Filter(checks, func(check forge.StatusCheck) bool { return !check.StepsTruncated }),
+		func(check forge.StatusCheck) string { return check.ProviderID },
+	)
+	if err := queries.DeleteStatusCheckStepsExcept(ctx, models.DeleteStatusCheckStepsExceptParams{
+		ReadingID: readingID,
+		Complete:  complete,
+		Kept:      encoded,
+	}); err != nil {
+		return fmt.Errorf("failed to remove the check steps no longer listed on %s: %w", params.HeadSHA, err)
 	}
 
 	return nil
@@ -152,6 +187,23 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 		return nil, fmt.Errorf("failed to list the checks of %d reading(s): %w", len(ids), err)
 	}
 
+	steps, err := queries.ListStatusCheckStepsOfReadings(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the check steps of %d reading(s): %w", len(ids), err)
+	}
+
+	byCheck := map[string][]forge.StatusCheckStep{}
+	for _, row := range steps {
+		byCheck[row.CheckID] = append(byCheck[row.CheckID], forge.StatusCheckStep{
+			Number:     int(row.Number),
+			Name:       row.Name,
+			State:      forge.StatusCheckState(row.State),
+			Conclusion: row.Conclusion,
+			StartedAt:  row.StartedAt,
+			FinishedAt: row.FinishedAt,
+		})
+	}
+
 	byReading := map[string][]forge.StatusCheck{}
 	for _, row := range checks {
 		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.StatusCheck{
@@ -165,6 +217,7 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 			FinishedAt: row.FinishedAt,
 			Required:   row.Required,
 			URL:        row.Url,
+			Steps:      byCheck[row.ID],
 		})
 	}
 
@@ -205,10 +258,8 @@ type statusCheckRow struct {
 
 // statusCheckRows is each check listed once, the last listing of a provider id winning.
 func statusCheckRows(checks []forge.StatusCheck) []statusCheckRow {
-	at := map[string]int{}
-	var rows []statusCheckRow
-	for _, check := range checks {
-		row := statusCheckRow{
+	return xslice.Map(lastListings(checks), func(check forge.StatusCheck) statusCheckRow {
+		return statusCheckRow{
 			ProviderID: check.ProviderID,
 			Kind:       string(check.Kind),
 			Source:     check.Source,
@@ -220,12 +271,59 @@ func statusCheckRows(checks []forge.StatusCheck) []statusCheckRow {
 			Required:   check.Required,
 			URL:        check.URL,
 		}
+	})
+}
+
+// lastListings is each check listed once, in the order first listed, the last listing of a provider id winning.
+func lastListings(checks []forge.StatusCheck) []forge.StatusCheck {
+	at := map[string]int{}
+	var listed []forge.StatusCheck
+	for _, check := range checks {
 		if i, ok := at[check.ProviderID]; ok {
-			rows[i] = row
+			listed[i] = check
 			continue
 		}
-		at[check.ProviderID] = len(rows)
-		rows = append(rows, row)
+		at[check.ProviderID] = len(listed)
+		listed = append(listed, check)
+	}
+
+	return listed
+}
+
+// statusCheckStepRow is one step of a check as the set-based upsert reads it from JSON.
+type statusCheckStepRow struct {
+	ProviderID string     `json:"provider_id"`
+	Number     int        `json:"number"`
+	Name       string     `json:"name"`
+	State      string     `json:"state"`
+	Conclusion string     `json:"conclusion"`
+	StartedAt  *time.Time `json:"started_at"`
+	FinishedAt *time.Time `json:"finished_at"`
+}
+
+// statusCheckStepRows is every step of the checks, each step of a check listed once, the last listing of
+// a number winning.
+func statusCheckStepRows(checks []forge.StatusCheck) []statusCheckStepRow {
+	rows := []statusCheckStepRow{}
+	for _, check := range checks {
+		at := map[int]int{}
+		for _, step := range check.Steps {
+			row := statusCheckStepRow{
+				ProviderID: check.ProviderID,
+				Number:     step.Number,
+				Name:       step.Name,
+				State:      string(step.State),
+				Conclusion: step.Conclusion,
+				StartedAt:  step.StartedAt,
+				FinishedAt: step.FinishedAt,
+			}
+			if i, ok := at[step.Number]; ok {
+				rows[i] = row
+				continue
+			}
+			at[step.Number] = len(rows)
+			rows = append(rows, row)
+		}
 	}
 
 	return rows

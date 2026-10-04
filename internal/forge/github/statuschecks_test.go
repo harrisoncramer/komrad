@@ -199,6 +199,98 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 			}}, Truncated: true},
 		},
 		{
+			name: "a check run lists its steps and says when it has more than one page of them",
+			checks: data(`{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+						"statusCheckRollup": {
+							"contexts": {
+								"nodes": [
+									{
+										"__typename": "CheckRun",
+										"id": "CR_1",
+										"name": "test",
+										"status": "IN_PROGRESS",
+										"steps": {
+											"pageInfo": {
+												"hasNextPage": true
+											},
+											"nodes": [
+												{
+													"number": 1,
+													"name": "Set up job",
+													"status": "COMPLETED",
+													"conclusion": "SUCCESS",
+													"startedAt": "2026-09-20T11:00:00Z",
+													"completedAt": "2026-09-20T11:00:05Z"
+												},
+												{
+													"number": 2,
+													"name": "Run tests",
+													"status": "IN_PROGRESS",
+													"startedAt": "2026-09-20T11:00:05Z"
+												}
+											]
+										}
+									},
+									{
+										"__typename": "CheckRun",
+										"id": "CR_2",
+										"name": "lint",
+										"status": "QUEUED",
+										"steps": {
+											"pageInfo": {
+												"hasNextPage": false
+											},
+											"nodes": []
+										}
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}`),
+			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
+				{
+					ProviderID: "CR_1",
+					Kind:       forge.StatusCheckKindRun,
+					Name:       "test",
+					State:      forge.StatusCheckStateRunning,
+					Steps: []forge.StatusCheckStep{
+						{
+							Number:     1,
+							Name:       "Set up job",
+							State:      forge.StatusCheckStateCompleted,
+							Conclusion: "success",
+							StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+							FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 5, 0, time.UTC)),
+						},
+						{
+							Number:    2,
+							Name:      "Run tests",
+							State:     forge.StatusCheckStateRunning,
+							StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 5, 0, time.UTC)),
+						},
+					},
+					StepsTruncated: true,
+				},
+				{
+					ProviderID: "CR_2",
+					Kind:       forge.StatusCheckKindRun,
+					Name:       "lint",
+					State:      forge.StatusCheckStateQueued,
+				},
+			}},
+		},
+		{
 			name: "a check read github refuses lists nothing and keeps the branch read",
 			checks: `{
 	"data": null,

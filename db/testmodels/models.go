@@ -827,6 +827,29 @@ type PullRequestCheckReading struct {
 	EngineID pgtype.UUID
 }
 
+// One step of a check run, as the latest listing of the check's head commit said it stands.
+type PullRequestCheckStep struct {
+	ID pgtype.UUID
+	// The check run the step belongs to.
+	CheckID pgtype.UUID
+	// The reading of the head commit the step's check was listed on.
+	ReadingID pgtype.UUID
+	// Where the step falls in its check run, counting from one.
+	Number int32
+	// The step's name.
+	Name string
+	// Where the step stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed.
+	State string
+	// How a completed step ended, in the forge's own word lowercased, such as success, failure, cancelled or skipped, empty until it completes.
+	Conclusion string
+	// When the step started, null before it has.
+	StartedAt pgtype.Timestamptz
+	// When the step completed, null before it has.
+	FinishedAt pgtype.Timestamptz
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID pgtype.UUID
+}
+
 // A repository the pull request sync has read at least once, which is what turns its pull request state from unread to none when it has no pull requests.
 type PullRequestSync struct {
 	RepositoryUrl string

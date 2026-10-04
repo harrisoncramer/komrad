@@ -141,6 +141,126 @@ func TestSetStatusChecks(t *testing.T) {
 	}
 }
 
+func statusCheckStep(number int, name string, state forge.StatusCheckState, conclusion string) forge.StatusCheckStep {
+	return forge.StatusCheckStep{
+		Number:     number,
+		Name:       name,
+		State:      state,
+		Conclusion: conclusion,
+		StartedAt:  xptr.Ptr(statusCheckReadAt.Add(-time.Minute)),
+	}
+}
+
+func withSteps(check forge.StatusCheck, truncated bool, steps ...forge.StatusCheckStep) forge.StatusCheck {
+	check.Steps = steps
+	check.StepsTruncated = truncated
+
+	return check
+}
+
+// TestSetStatusCheckSteps covers what each read of a head commit leaves listed under each check.
+func TestSetStatusCheckSteps(t *testing.T) {
+	running := statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")
+	tests := []struct {
+		name  string
+		reads [][]forge.StatusCheck
+		want  map[string][]forge.StatusCheckStep
+	}{
+		{
+			name: "a read lists the steps of each check in order",
+			reads: [][]forge.StatusCheck{{
+				withSteps(running, false, statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")),
+				statusCheckRun("2", "lint", forge.StatusCheckStateQueued, ""),
+			}},
+			want: map[string][]forge.StatusCheckStep{
+				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, "")},
+			},
+		},
+		{
+			name: "a later read moves a step along",
+			reads: [][]forge.StatusCheck{
+				{withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "failure"))},
+			},
+			want: map[string][]forge.StatusCheckStep{
+				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "failure")},
+			},
+		},
+		{
+			name: "a step the forge stops listing goes",
+			reads: [][]forge.StatusCheck{
+				{withSteps(running, false, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{withSteps(running, false, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"))},
+			},
+			want: map[string][]forge.StatusCheckStep{
+				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")},
+			},
+		},
+		{
+			name: "a check whose steps were truncated keeps the steps left out",
+			reads: [][]forge.StatusCheck{
+				{withSteps(running, false, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{withSteps(running, true, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"))},
+			},
+			want: map[string][]forge.StatusCheckStep{
+				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, "")},
+			},
+		},
+		{
+			name: "a step listed twice in one read is kept once as last listed",
+			reads: [][]forge.StatusCheck{{
+				withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "success")),
+			}},
+			want: map[string][]forge.StatusCheckStep{
+				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "success")},
+			},
+		},
+		{
+			name: "a blank read keeps the steps listed before it",
+			reads: [][]forge.StatusCheck{
+				{withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
+				nil,
+			},
+			want: map[string][]forge.StatusCheckStep{
+				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, "")},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			checks := NewStatusCheckStore(h.pool.GetDB())
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			for i, read := range tt.reads {
+				require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
+					PullRequestID: written.ID,
+					HeadSHA:       "c1",
+					StatusChecks:  read,
+					ReadAt:        statusCheckReadAt.Add(time.Duration(i) * time.Minute),
+				}))
+			}
+
+			got, err := checks.GetLatestOfPullRequest(ctx, written.ID)
+			require.NoError(t, err)
+			steps := map[string][]forge.StatusCheckStep{}
+			for _, check := range got.StatusChecks {
+				if len(check.Steps) == 0 {
+					continue
+				}
+				steps[check.ProviderID] = xslice.Map(check.Steps, func(step forge.StatusCheckStep) forge.StatusCheckStep {
+					step.StartedAt = xptr.Ptr(step.StartedAt.UTC())
+
+					return step
+				})
+			}
+			assert.Equal(t, tt.want, steps)
+		})
+	}
+}
+
 // TestSetStatusChecksUnchangedStampsOnlyTheReadTime covers a poll that finds nothing new for a head.
 func TestSetStatusChecksUnchangedStampsOnlyTheReadTime(t *testing.T) {
 	h := open(t)
@@ -150,7 +270,7 @@ func TestSetStatusChecksUnchangedStampsOnlyTheReadTime(t *testing.T) {
 	require.NoError(t, err)
 	versions := func() []string {
 		t.Helper()
-		rows, err := h.pool.GetDB().Query(ctx, "SELECT xmin::text FROM pull_request_checks ORDER BY provider_id")
+		rows, err := h.pool.GetDB().Query(ctx, "SELECT xmin::text FROM pull_request_checks UNION ALL SELECT xmin::text FROM pull_request_check_steps ORDER BY 1")
 		require.NoError(t, err)
 		defer rows.Close()
 		var got []string
@@ -166,7 +286,7 @@ func TestSetStatusChecksUnchangedStampsOnlyTheReadTime(t *testing.T) {
 	params := SetStatusChecksParams{
 		PullRequestID: written.ID,
 		HeadSHA:       "c1",
-		StatusChecks:  []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckRun("2", "lint", forge.StatusCheckStateQueued, "")},
+		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, "")), statusCheckRun("2", "lint", forge.StatusCheckStateQueued, "")},
 		ReadAt:        statusCheckReadAt,
 	}
 
@@ -240,15 +360,16 @@ func TestStatusChecksGoWithThePullRequest(t *testing.T) {
 	require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
 		PullRequestID: written.ID,
 		HeadSHA:       "c1",
-		StatusChecks:  []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")},
+		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
 		ReadAt:        statusCheckReadAt,
 	}))
 
 	_, err = h.pool.GetDB().Exec(ctx, "DELETE FROM pull_requests WHERE id = $1", written.ID)
 	require.NoError(t, err)
 
-	var readings, rows int
-	require.NoError(t, h.pool.GetDB().QueryRow(ctx, "SELECT (SELECT count(*) FROM pull_request_check_readings), (SELECT count(*) FROM pull_request_checks)").Scan(&readings, &rows))
+	var readings, rows, steps int
+	require.NoError(t, h.pool.GetDB().QueryRow(ctx, "SELECT (SELECT count(*) FROM pull_request_check_readings), (SELECT count(*) FROM pull_request_checks), (SELECT count(*) FROM pull_request_check_steps)").Scan(&readings, &rows, &steps))
 	assert.Zero(t, readings)
 	assert.Zero(t, rows)
+	assert.Zero(t, steps)
 }

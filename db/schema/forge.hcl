@@ -487,6 +487,92 @@ table "pull_request_checks" {
   }
 }
 
+table "pull_request_check_steps" {
+  schema  = schema.public
+  comment = "One step of a check run, as the latest listing of the check's head commit said it stands."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "check_id" {
+    null    = false
+    type    = uuid
+    comment = "The check run the step belongs to."
+  }
+  column "reading_id" {
+    null    = false
+    type    = uuid
+    comment = "The reading of the head commit the step's check was listed on."
+  }
+  column "number" {
+    null    = false
+    type    = integer
+    comment = "Where the step falls in its check run, counting from one."
+  }
+  column "name" {
+    null    = false
+    type    = text
+    comment = "The step's name."
+  }
+  column "state" {
+    null    = false
+    type    = text
+    comment = "Where the step stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed."
+  }
+  column "conclusion" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "How a completed step ended, in the forge's own word lowercased, such as success, failure, cancelled or skipped, empty until it completes."
+  }
+  column "started_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the step started, null before it has."
+  }
+  column "finished_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the step completed, null before it has."
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "pull_request_check_steps_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
+  }
+  unique "pull_request_check_steps_number_key" {
+    columns = [column.engine_id, column.check_id, column.number]
+  }
+  foreign_key "pull_request_check_steps_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_check_steps_check_id_fkey" {
+    columns     = [column.engine_id, column.check_id]
+    ref_columns = [table.pull_request_checks.column.engine_id, table.pull_request_checks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_check_steps_reading_id_fkey" {
+    columns     = [column.engine_id, column.reading_id]
+    ref_columns = [table.pull_request_check_readings.column.engine_id, table.pull_request_check_readings.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "pull_request_check_steps_reading_id" {
+    columns = [column.reading_id]
+  }
+}
+
 table "forge_review_threads" {
   schema  = schema.public
   comment = "A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it."
