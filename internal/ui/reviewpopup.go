@@ -48,8 +48,13 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 	return body, r.threads.scroll.back(id)
 }
 
-// conversationAtCursor is the conversation on the cursor's row, wrapped to inner.
+// conversationAtCursor is the conversation on the cursor's row, wrapped to inner, and none while the
+// sidebar has the keys.
 func (r reviewScreen) conversationAtCursor(m *model, inner int) (string, string, bool) {
+	if r.isBlockFocused(m) || r.isPullRequestFocused(m) {
+		return "", "", false
+	}
+
 	if thread, ok := r.diff.threadAtCursor(); ok {
 		return thread.GetId(), r.threadView(m, thread, inner), true
 	}
