@@ -396,6 +396,8 @@ const (
 	StatusCheckState_STATUS_CHECK_STATE_WAITING StatusCheckState = 3
 	// Done, with its conclusion saying how it ended.
 	StatusCheckState_STATUS_CHECK_STATE_COMPLETED StatusCheckState = 4
+	// On a commit that is no longer the head, still in flight when komrad stopped reading it.
+	StatusCheckState_STATUS_CHECK_STATE_UNKNOWN StatusCheckState = 5
 )
 
 // Enum value maps for StatusCheckState.
@@ -406,6 +408,7 @@ var (
 		2: "STATUS_CHECK_STATE_RUNNING",
 		3: "STATUS_CHECK_STATE_WAITING",
 		4: "STATUS_CHECK_STATE_COMPLETED",
+		5: "STATUS_CHECK_STATE_UNKNOWN",
 	}
 	StatusCheckState_value = map[string]int32{
 		"STATUS_CHECK_STATE_UNSPECIFIED": 0,
@@ -413,6 +416,7 @@ var (
 		"STATUS_CHECK_STATE_RUNNING":     2,
 		"STATUS_CHECK_STATE_WAITING":     3,
 		"STATUS_CHECK_STATE_COMPLETED":   4,
+		"STATUS_CHECK_STATE_UNKNOWN":     5,
 	}
 )
 
@@ -1486,13 +1490,14 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1dSTATUS_CHECK_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bSTATUS_CHECK_KIND_CHECK_RUN\x10\x01\x12\x1c\n" +
 	"\x18STATUS_CHECK_KIND_STATUS\x10\x02\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_KIND_PIPELINE\x10\x03*\xb7\x01\n" +
+	"\x1aSTATUS_CHECK_KIND_PIPELINE\x10\x03*\xd7\x01\n" +
 	"\x10StatusCheckState\x12\"\n" +
 	"\x1eSTATUS_CHECK_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19STATUS_CHECK_STATE_QUEUED\x10\x01\x12\x1e\n" +
 	"\x1aSTATUS_CHECK_STATE_RUNNING\x10\x02\x12\x1e\n" +
 	"\x1aSTATUS_CHECK_STATE_WAITING\x10\x03\x12 \n" +
-	"\x1cSTATUS_CHECK_STATE_COMPLETED\x10\x042\xf8\x04\n" +
+	"\x1cSTATUS_CHECK_STATE_COMPLETED\x10\x04\x12\x1e\n" +
+	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xf8\x04\n" +
 	"\x12PullRequestService\x12\xc1\x02\n" +
 	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\x9d\x02\n" +
 	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\xb5\x01\x9a\xb5\x18\xad\x01:\xaa\x01The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"

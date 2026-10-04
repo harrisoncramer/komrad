@@ -78,6 +78,8 @@ func statusCheckStateOf(state forge.StatusCheckState) pullrequestv1.StatusCheckS
 		return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING
 	case forge.StatusCheckStateCompleted:
 		return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
+	case forge.StatusCheckStateUnknown:
+		return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN
 	}
 
 	return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNSPECIFIED

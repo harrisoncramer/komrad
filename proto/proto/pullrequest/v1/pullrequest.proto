@@ -284,6 +284,8 @@ enum StatusCheckState {
   STATUS_CHECK_STATE_WAITING = 3;
   // Done, with its conclusion saying how it ended.
   STATUS_CHECK_STATE_COMPLETED = 4;
+  // On a commit that is no longer the head, still in flight when komrad stopped reading it.
+  STATUS_CHECK_STATE_UNKNOWN = 5;
 }
 
 // PullRequestService reads the pull requests komrad has stored from its forges.

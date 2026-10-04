@@ -156,7 +156,7 @@ func (s statusCheckScope) holds(item statusCheckItem) bool {
 	case statusCheckScopeNotPassing:
 		return !isStatusCheckClean(item)
 	case statusCheckScopeActive:
-		return !isStatusCheckFinished(item)
+		return isStatusCheckInFlight(item)
 	case statusCheckScopeFailing:
 		return isStatusCheckFinished(item) && !isStatusCheckClean(item)
 	case statusCheckScopeAll:
@@ -447,7 +447,9 @@ var skippedConclusions = []string{"neutral", "skipped"}
 // the sidebar draws a pull request's checks with.
 func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	switch {
-	case !isStatusCheckFinished(item):
+	case isStatusCheckUnknown(item):
+		return view.Cell{Glyph: glyph.StatusCheckUnknown, Tone: paint.ToneMuted}
+	case isStatusCheckInFlight(item):
 		return view.Cell{Text: loaderFrame, Tone: paint.ToneWarning}
 	case strings.EqualFold(item.conclusion, "success"):
 		return view.Cell{Glyph: glyph.StatusCheckPassing, Tone: paint.ToneSuccess}
@@ -462,10 +464,16 @@ func isStatusCheckFinished(item statusCheckItem) bool {
 	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
 }
 
+func isStatusCheckInFlight(item statusCheckItem) bool {
+	return !isStatusCheckFinished(item) && !isStatusCheckUnknown(item)
+}
+
+func isStatusCheckUnknown(item statusCheckItem) bool {
+	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN
+}
+
 func (c *statusChecksScreen) isLoading(*model) bool {
-	return slices.ContainsFunc(c.shownItems(), func(item statusCheckItem) bool {
-		return !isStatusCheckFinished(item)
-	})
+	return slices.ContainsFunc(c.shownItems(), isStatusCheckInFlight)
 }
 
 func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
@@ -517,7 +525,10 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	}
 
 	var notice []string
-	if duration := dates.Between(item.startedAt, item.finishedAt); duration != "" {
+	switch duration := dates.Between(item.startedAt, item.finishedAt); {
+	case isStatusCheckUnknown(item):
+		notice = append(notice, "unknown")
+	case duration != "":
 		notice = append(notice, duration)
 	}
 	if len(item.steps) > 0 {

@@ -85,6 +85,16 @@ func TestRollupOf(t *testing.T) {
 			want:   ChecksPending,
 		},
 		{
+			name:   "a check komrad stopped reading beside one passed is passing",
+			checks: []StatusCheck{passed, {Name: "e2e", State: StatusCheckStateUnknown}},
+			want:   ChecksPassing,
+		},
+		{
+			name:   "only checks komrad stopped reading is none",
+			checks: []StatusCheck{{Name: "e2e", State: StatusCheckStateUnknown}},
+			want:   ChecksNone,
+		},
+		{
 			name: "an optional check failing beside required ones passing is passing",
 			checks: []StatusCheck{{
 				Name:       "test",

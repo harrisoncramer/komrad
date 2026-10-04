@@ -615,7 +615,8 @@ enabled  = "◆"
 # A schedule that is paused.
 disabled = "◇"
 
-# The status checks list, one for a check that passed, one for a check that failed, and one for a check that was skipped.
+# The status checks list, one for a check that passed, one for a check that failed, one for a check that was skipped,
+# and one for a check komrad stopped reading before it finished.
 [glyphs.status_checks]
 # A check that passed.
 passing = ""
@@ -623,6 +624,8 @@ passing = ""
 failing = ""
 # A check that was skipped or ended neutral.
 skipped = ""
+# A check komrad stopped reading before it finished, so its result is not known.
+unknown = ""
 
 # The colours the panel draws in, one for each part a colour plays. Each is a terminal colour
 # number from 0 to 255, which your terminal's theme decides the look of, or a hex code like
