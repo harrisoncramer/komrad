@@ -2,7 +2,6 @@ package migrator
 
 import (
 	"cmp"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -13,11 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"komrad/db"
-	"komrad/db/isolation"
 	"komrad/lib/xslice"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // TriggerFunctionsUnit is the trigger unit holding the functions every other unit's triggers run.
@@ -27,13 +22,6 @@ const TriggerFunctionsUnit = "_functions"
 const versionLength = 12
 
 var triggerFileName = regexp.MustCompile(`^(.+)\.v(\d+)\.sql$`)
-
-// sources is where a pass reads its migrations and trigger units from.
-type sources struct {
-	migrations fs.FS
-	triggers   fs.FS
-	isolate    func(context.Context, pgx.Tx) error
-}
 
 // unit is one trigger file, the unit it replaces and the version it carries.
 type unit struct {
@@ -57,53 +45,10 @@ func ParseTriggerFileName(name string) (string, int, error) {
 	return match[1], version, nil
 }
 
-// SchemaVersion fingerprints the embedded migrations and triggers, and changes whenever one is added or edited.
-func SchemaVersion() (string, error) {
-	src, err := openSources()
-	if err != nil {
-		return "", err
-	}
-
-	return schemaVersion(src)
-}
-
-// openSources opens the embedded migrations and trigger units, each rooted at the directory
-// holding them, so a version is the bare file name.
-func openSources() (*sources, error) {
-	migrations, err := fs.Sub(db.Migrations, "migrations")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open the embedded migrations: %w", err)
-	}
-
-	triggers, err := fs.Sub(db.Triggers, "triggers")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open the embedded triggers: %w", err)
-	}
-
-	return &sources{
-		migrations: migrations,
-		triggers:   triggers,
-		isolate:    isolation.Apply,
-	}, nil
-}
-
-func (s *sources) list() (*contents, error) {
-	migrations, err := listMigrationVersions(s.migrations)
-	if err != nil {
-		return nil, err
-	}
-
-	units, err := listUnits(s.triggers)
-	if err != nil {
-		return nil, err
-	}
-
-	return &contents{migrations: migrations, units: units}, nil
-}
-
-// schemaVersion hashes each migration's and trigger file's name alongside its contents.
-func schemaVersion(src *sources) (string, error) {
-	all, err := src.list()
+// SchemaVersion fingerprints the migrations and triggers, hashing each file's name alongside its
+// contents, and changes whenever one is added or edited.
+func (m *Migrator) SchemaVersion() (string, error) {
+	all, err := m.list()
 	if err != nil {
 		return "", err
 	}
@@ -124,12 +69,12 @@ func schemaVersion(src *sources) (string, error) {
 	}
 
 	for _, version := range all.migrations {
-		if err := add(src.migrations, version, version); err != nil {
+		if err := add(m.migrations, version, version); err != nil {
 			return "", err
 		}
 	}
 	for _, u := range all.units {
-		if err := add(src.triggers, u.file, "triggers/"+u.file); err != nil {
+		if err := add(m.triggers, u.file, "triggers/"+u.file); err != nil {
 			return "", err
 		}
 	}

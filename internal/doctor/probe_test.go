@@ -58,7 +58,9 @@ func TestProbeReportsNothingPendingOnceMigrated(t *testing.T) {
 	migrated, err := pgxpool.New(t.Context(), url)
 	require.NoError(t, err)
 	defer migrated.Close()
-	require.NoError(t, migrator.Migrate(t.Context(), migrated))
+	schema, err := migrator.NewMigrator(migrated)
+	require.NoError(t, err)
+	require.NoError(t, schema.Migrate(t.Context()))
 
 	pending, err := readPendingMigrations(t.Context(), url)
 	require.NoError(t, err)

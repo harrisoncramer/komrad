@@ -10,7 +10,6 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 //go:embed applied_migrations.sql
@@ -90,8 +89,8 @@ func listAppliedTriggers(ctx context.Context, q queryer) (map[string]int, error)
 }
 
 // isPending reports whether any migration or trigger unit has yet to run.
-func isPending(ctx context.Context, pool *pgxpool.Pool, all *contents) (bool, error) {
-	plan, err := getPlan(ctx, pool, all)
+func (m *Migrator) isPending(ctx context.Context, all *contents) (bool, error) {
+	plan, err := getPlan(ctx, m.pool, all)
 	if err != nil {
 		return false, err
 	}

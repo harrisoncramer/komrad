@@ -113,7 +113,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	srv.Watch = broker
 	srv.closers = append(srv.closers, broker.Close)
 
-	if err := db.MigrateRiver(ctx, st.pool.GetRawPool(), st.pool.GetRiverSchema()); err != nil {
+	if err := db.NewRiverMigrator(st.pool.GetRawPool()).Migrate(ctx, st.pool.GetRiverSchema()); err != nil {
 		return nil, err
 	}
 

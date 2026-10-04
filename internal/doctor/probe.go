@@ -43,7 +43,12 @@ func readPendingMigrations(ctx context.Context, url string) ([]string, error) {
 	}
 	defer pool.Close()
 
-	return migrator.Pending(ctx, pool)
+	schema, err := migrator.NewMigrator(pool)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.Pending(ctx)
 }
 
 func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {

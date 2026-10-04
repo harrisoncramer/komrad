@@ -39,7 +39,7 @@ func newRiverClientWithStores(t *testing.T) (*river.Client[pgx.Tx], *storetest.S
 
 	stores := storetest.Open(t)
 
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
+	require.NoError(t, db.NewRiverMigrator(stores.Pool.GetRawPool()).Migrate(t.Context(), stores.Pool.GetRiverSchema()))
 
 	client, err := NewClient(NewClientParams{
 		Schema:    stores.Pool.GetRiverSchema(),
@@ -370,7 +370,7 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 // rescuer not coming back for an abandoned firing for over an hour.
 func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stores := storetest.Open(t)
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
+	require.NoError(t, db.NewRiverMigrator(stores.Pool.GetRawPool()).Migrate(t.Context(), stores.Pool.GetRiverSchema()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
 	schedule := stores.SeedSchedule(t, schedulestore.Config{
@@ -437,7 +437,7 @@ func (r followUpRouter) Route(context.Context, store.DBTX, events.Event) ([]rive
 // TestEventRecordsItsFollowUps pins that an event completes with the jobs its handler asked for, a burst of wakes for one agent folding into one.
 func TestEventRecordsItsFollowUps(t *testing.T) {
 	stores := storetest.Open(t)
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
+	require.NoError(t, db.NewRiverMigrator(stores.Pool.GetRawPool()).Migrate(t.Context(), stores.Pool.GetRiverSchema()))
 
 	wake := internaljobs.WakeAgentArgs{AgentID: "reviewer"}
 	client, err := NewClient(NewClientParams{

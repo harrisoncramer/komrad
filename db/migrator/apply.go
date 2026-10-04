@@ -51,8 +51,8 @@ var errDatabaseInUse = errors.New("another komrad is using this database")
 
 // apply runs the pending migrations and trigger units under the advisory lock, re-reading the
 // ledgers inside it since another process may have finished the work while this one waited.
-func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents) error {
-	conn, err := pool.Acquire(ctx)
+func (m *Migrator) apply(ctx context.Context, all *contents) error {
+	conn, err := m.pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to acquire a connection to migrate: %w", err)
 	}
@@ -82,11 +82,11 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 	unitNames := xslice.Map(all.units, func(u unit) string { return u.name })
 	for _, version := range plan.migrations {
 		if err := applyFile(ctx, conn, applyFileParams{
-			files:   src.migrations,
-			name:    version,
-			record:  recordMigrationSQL,
-			args:    []any{version, unitNames},
-			isolate: src.isolate,
+			files:    m.migrations,
+			name:     version,
+			record:   recordMigrationSQL,
+			args:     []any{version, unitNames},
+			isolator: m.isolator,
 		}); err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 
 	for _, u := range plan.units {
 		if err := applyFile(ctx, conn, applyFileParams{
-			files:  src.triggers,
+			files:  m.triggers,
 			name:   u.file,
 			record: recordTriggerSQL,
 			args:   []any{u.name, u.version},
@@ -113,11 +113,11 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 }
 
 type applyFileParams struct {
-	files   fs.FS
-	name    string
-	record  string
-	args    []any
-	isolate func(context.Context, pgx.Tx) error
+	files    fs.FS
+	name     string
+	record   string
+	args     []any
+	isolator isolator
 }
 
 // applyFile runs one file in its own transaction alongside the statement recording it.
@@ -137,8 +137,8 @@ func applyFile(ctx context.Context, conn *pgxpool.Conn, params applyFileParams) 
 		return fmt.Errorf("failed to apply %q: %w", params.name, err)
 	}
 
-	if params.isolate != nil {
-		if err := params.isolate(ctx, tx); err != nil {
+	if params.isolator != nil {
+		if err := params.isolator.Apply(ctx, tx); err != nil {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to isolate engines after %q: %w", params.name, err)
 		}

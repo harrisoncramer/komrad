@@ -53,7 +53,10 @@ func URL(t *testing.T) string {
 func New(t *testing.T) database {
 	t.Helper()
 
-	version, err := migrator.SchemaVersion()
+	schema, err := migrator.NewMigrator(nil)
+	require.NoError(t, err)
+
+	version, err := schema.SchemaVersion()
 	require.NoError(t, err)
 
 	return database{OwnerURL: pgtest.Migrated(t, pgtest.Schema{Version: version, Apply: migrate})}
@@ -75,7 +78,7 @@ func NewEngine(t *testing.T, database database) Engine {
 
 	name := EngineName(t, database)
 	password := randomHex(t, 16)
-	require.NoError(t, db.EnsureEngine(ctx, owner, db.EnsureEngineParams{Name: name, Password: password}))
+	require.NoError(t, db.NewEngineProvisioner(owner).EnsureEngine(ctx, db.EnsureEngineParams{Name: name, Password: password}))
 
 	return Engine{
 		Name:      name,
@@ -116,7 +119,12 @@ func migrate(ctx context.Context, url string) error {
 	}
 	defer pool.Close()
 
-	return migrator.Migrate(ctx, pool)
+	schema, err := migrator.NewMigrator(pool)
+	if err != nil {
+		return err
+	}
+
+	return schema.Migrate(ctx)
 }
 
 func dropEngine(t *testing.T, ownerURL, login string) {
