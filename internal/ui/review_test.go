@@ -1676,6 +1676,8 @@ func TestReviewLayout(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "open in your editor")
+		assert.Contains(t, frame, "read the diff again")
+		assert.Len(t, splitLines(frame), 16)
 	})
 
 	t.Run("an expanded legend stays inside every pane height", func(t *testing.T) {
