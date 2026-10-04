@@ -422,12 +422,12 @@ table "pull_request_checks" {
   column "provider_id" {
     null    = false
     type    = text
-    comment = "The forge's own identifier for the check run or commit status, which a rerun replaces."
+    comment = "The forge's own identifier for the check run, commit status or pipeline, which a rerun replaces."
   }
   column "kind" {
     null    = false
     type    = text
-    comment = "What the forge reported the check as: check_run for a check run, status for an old-style commit status."
+    comment = "What the forge reported the check as: check_run for a check run, status for an old-style commit status, pipeline for a GitLab pipeline."
   }
   column "source" {
     null    = false

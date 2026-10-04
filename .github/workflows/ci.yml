@@ -76,6 +76,8 @@ jobs:
               - 'db/**'
               - '.squawk.toml'
               - '.github/workflows/ci.yml'
+            squawk:
+              - '.squawk.toml'
             proto:
               - 'proto/**'
               - 'buf*.yaml'
@@ -160,6 +162,12 @@ jobs:
           mise run db:lint --against "origin/$BASE"
         env:
           BASE: ${{ github.base_ref }}
+
+      - name: Refuse a change to the migration lint rules
+        if: github.event_name == 'pull_request' && steps.changes.outputs.squawk == 'true'
+        run: |
+          echo "::error file=.squawk.toml::The squawk rules keep migrations safe for an older build, so a pull request may not change them."
+          exit 1
 
       # The generators, which read the protobufs, the schema and the config and write Go.
       - name: Check the generated files are in step

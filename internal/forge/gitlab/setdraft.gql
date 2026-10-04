@@ -1,0 +1,5 @@
+mutation SetDraft($path: ID!, $iid: String!, $draft: Boolean!) {
+  mergeRequestSetDraft(input: {projectPath: $path, iid: $iid, draft: $draft}) {
+    errors
+  }
+}

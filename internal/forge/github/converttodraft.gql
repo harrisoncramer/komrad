@@ -1,0 +1,5 @@
+mutation ConvertToDraft($id: ID!) {
+  convertPullRequestToDraft(input: {pullRequestId: $id}) {
+    clientMutationId
+  }
+}

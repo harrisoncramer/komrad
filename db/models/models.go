@@ -792,9 +792,9 @@ type PullRequestCheck struct {
 	ID string
 	// The reading of the head commit the check was listed on.
 	ReadingID string
-	// The forge's own identifier for the check run or commit status, which a rerun replaces.
+	// The forge's own identifier for the check run, commit status or pipeline, which a rerun replaces.
 	ProviderID string
-	// What the forge reported the check as: check_run for a check run, status for an old-style commit status.
+	// What the forge reported the check as: check_run for a check run, status for an old-style commit status, pipeline for a GitLab pipeline.
 	Kind string
 	// The workflow that ran the check, or the app when no workflow did, empty for a commit status.
 	Source string

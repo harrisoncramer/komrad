@@ -18,9 +18,21 @@ func TestSetDraft(t *testing.T) {
 	const address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
 
 	read := func(node string) answer {
-		return answer{body: `{"data":{"project":{"mergeRequest":` + node + `}}}`}
+		return answer{body: `{
+	"data": {
+		"project": {
+			"mergeRequest": ` + node + `
+		}
 	}
-	changed := answer{body: `{"data":{"mergeRequestSetDraft":{"errors":[]}}}`}
+}`}
+	}
+	changed := answer{body: `{
+	"data": {
+		"mergeRequestSetDraft": {
+			"errors": []
+		}
+	}
+}`}
 
 	tests := []struct {
 		name        string
@@ -60,8 +72,16 @@ func TestSetDraft(t *testing.T) {
 			name:  "a merge request gitlab will not change",
 			draft: true,
 			answers: map[string]answer{
-				"Get":      read(openMergeRequest),
-				"SetDraft": {body: `{"data":{"mergeRequestSetDraft":{"errors":["You don't have permission to update this merge request"]}}}`},
+				"Get": read(openMergeRequest),
+				"SetDraft": {body: `{
+	"data": {
+		"mergeRequestSetDraft": {
+			"errors": [
+				"You don't have permission to update this merge request"
+			]
+		}
+	}
+}`},
 			},
 			wantErr:     forge.ErrNotDraftable,
 			wantChanged: true,

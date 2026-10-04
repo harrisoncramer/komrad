@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"net/http"
 
@@ -9,7 +10,8 @@ import (
 	"komrad/lib/xhttp"
 )
 
-const verifyQuery = `query Verify { viewer { login } }`
+//go:embed verify.gql
+var verifyQuery string
 
 // Verify asks GitHub who the credential belongs to.
 func (f *Forge) Verify(ctx context.Context) (string, error) {

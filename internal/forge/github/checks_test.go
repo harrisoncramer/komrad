@@ -22,37 +22,192 @@ func TestReadBranchesCheckListing(t *testing.T) {
 		want   *forge.CheckListing
 	}{
 		{
-			name:   "a pull request github no longer finds lists nothing",
-			checks: data(`{"p0":null}`),
+			name: "a pull request github no longer finds lists nothing",
+			checks: data(`{
+	"p0": null
+}`),
 		},
 		{
-			name:   "an answer for a commit pushed since the read lists nothing",
-			checks: data(`{"p0":{"commits":{"nodes":[{"commit":{"oid":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","statusCheckRollup":{"contexts":{"nodes":[{"__typename":"CheckRun","id":"CR_1","name":"test","status":"IN_PROGRESS"}]}}}}]}}}`),
+			name: "an answer for a commit pushed since the read lists nothing",
+			checks: data(`{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+						"statusCheckRollup": {
+							"contexts": {
+								"nodes": [
+									{
+										"__typename": "CheckRun",
+										"id": "CR_1",
+										"name": "test",
+										"status": "IN_PROGRESS"
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}`),
 		},
 		{
-			name:   "a head with no checks yet is a blank listing",
-			checks: data(`{"p0":{"commits":{"nodes":[{"commit":{"oid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","statusCheckRollup":null}}]}}}`),
-			want:   &forge.CheckListing{},
+			name: "a head with no checks yet is a blank listing",
+			checks: data(`{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+						"statusCheckRollup": null
+					}
+				}
+			]
+		}
+	}
+}`),
+			want: &forge.CheckListing{},
 		},
 		{
-			name:   "checks in flight are queued or running and checks that cannot start alone are waiting",
-			checks: data(`{"p0":{"commits":{"nodes":[{"commit":{"oid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","statusCheckRollup":{"contexts":{"nodes":[{"__typename":"CheckRun","id":"CR_1","name":"test","status":"IN_PROGRESS","startedAt":"2026-09-20T11:00:00Z"},{"__typename":"StatusContext","id":"SC_1","context":"ci/legacy","state":"PENDING","createdAt":"2026-09-20T11:01:00Z"},{"__typename":"StatusContext","id":"SC_2","context":"ci/deploy","state":"EXPECTED"},{"__typename":"CheckRun","id":"CR_2","name":"deploy","status":"WAITING"},{"__typename":"CheckRun","id":"CR_3","name":"lint","status":"PENDING"}]}}}}]}}}`),
+			name: "checks in flight are queued or running and checks that cannot start alone are waiting",
+			checks: data(`{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+						"statusCheckRollup": {
+							"contexts": {
+								"nodes": [
+									{
+										"__typename": "CheckRun",
+										"id": "CR_1",
+										"name": "test",
+										"status": "IN_PROGRESS",
+										"startedAt": "2026-09-20T11:00:00Z"
+									},
+									{
+										"__typename": "StatusContext",
+										"id": "SC_1",
+										"context": "ci/legacy",
+										"state": "PENDING",
+										"createdAt": "2026-09-20T11:01:00Z"
+									},
+									{
+										"__typename": "StatusContext",
+										"id": "SC_2",
+										"context": "ci/deploy",
+										"state": "EXPECTED"
+									},
+									{
+										"__typename": "CheckRun",
+										"id": "CR_2",
+										"name": "deploy",
+										"status": "WAITING"
+									},
+									{
+										"__typename": "CheckRun",
+										"id": "CR_3",
+										"name": "lint",
+										"status": "PENDING"
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}`),
 			want: &forge.CheckListing{Checks: []forge.Check{
-				{ProviderID: "CR_1", Kind: forge.CheckKindRun, Name: "test", State: forge.CheckStateRunning, StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC))},
-				{ProviderID: "SC_1", Kind: forge.CheckKindStatus, Name: "ci/legacy", State: forge.CheckStateRunning, StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 1, 0, 0, time.UTC))},
-				{ProviderID: "SC_2", Kind: forge.CheckKindStatus, Name: "ci/deploy", State: forge.CheckStateWaiting},
-				{ProviderID: "CR_2", Kind: forge.CheckKindRun, Name: "deploy", State: forge.CheckStateWaiting},
-				{ProviderID: "CR_3", Kind: forge.CheckKindRun, Name: "lint", State: forge.CheckStateQueued},
+				{
+					ProviderID: "CR_1",
+					Kind:       forge.CheckKindRun,
+					Name:       "test",
+					State:      forge.CheckStateRunning,
+					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+				},
+				{
+					ProviderID: "SC_1",
+					Kind:       forge.CheckKindStatus,
+					Name:       "ci/legacy",
+					State:      forge.CheckStateRunning,
+					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 1, 0, 0, time.UTC)),
+				},
+				{
+					ProviderID: "SC_2",
+					Kind:       forge.CheckKindStatus,
+					Name:       "ci/deploy",
+					State:      forge.CheckStateWaiting,
+				},
+				{
+					ProviderID: "CR_2",
+					Kind:       forge.CheckKindRun,
+					Name:       "deploy",
+					State:      forge.CheckStateWaiting,
+				},
+				{
+					ProviderID: "CR_3",
+					Kind:       forge.CheckKindRun,
+					Name:       "lint",
+					State:      forge.CheckStateQueued,
+				},
 			}},
 		},
 		{
-			name:   "a head with more checks than one page is a truncated listing",
-			checks: data(`{"p0":{"commits":{"nodes":[{"commit":{"oid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","statusCheckRollup":{"contexts":{"pageInfo":{"hasNextPage":true},"nodes":[{"__typename":"CheckRun","id":"CR_1","name":"test","status":"QUEUED"}]}}}}]}}}`),
-			want:   &forge.CheckListing{Checks: []forge.Check{{ProviderID: "CR_1", Kind: forge.CheckKindRun, Name: "test", State: forge.CheckStateQueued}}, Truncated: true},
+			name: "a head with more checks than one page is a truncated listing",
+			checks: data(`{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+						"statusCheckRollup": {
+							"contexts": {
+								"pageInfo": {
+									"hasNextPage": true
+								},
+								"nodes": [
+									{
+										"__typename": "CheckRun",
+										"id": "CR_1",
+										"name": "test",
+										"status": "QUEUED"
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}`),
+			want: &forge.CheckListing{Checks: []forge.Check{{
+				ProviderID: "CR_1",
+				Kind:       forge.CheckKindRun,
+				Name:       "test",
+				State:      forge.CheckStateQueued,
+			}}, Truncated: true},
 		},
 		{
-			name:   "a check read github refuses lists nothing and keeps the branch read",
-			checks: `{"data":null,"errors":[{"message":"Something went wrong while executing your query."}]}`,
+			name: "a check read github refuses lists nothing and keeps the branch read",
+			checks: `{
+	"data": null,
+	"errors": [
+		{
+			"message": "Something went wrong while executing your query."
+		}
+	]
+}`,
 		},
 	}
 	for _, tt := range tests {
@@ -68,102 +223,6 @@ func TestReadBranchesCheckListing(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, reading.PullRequests, 1)
 			assert.Equal(t, tt.want, reading.PullRequests[0].MergeReadiness.Listing)
-		})
-	}
-}
-
-// TestChecksOf covers every rollup state GitHub documents, and a rollup absent from the answer.
-func TestChecksOf(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name   string
-		rollup *rollupNode
-		want   forge.Checks
-	}{
-		{
-			name:   "success is passing",
-			rollup: &rollupNode{State: "SUCCESS"},
-			want:   forge.ChecksPassing,
-		},
-		{
-			name:   "failure is failing",
-			rollup: &rollupNode{State: "FAILURE"},
-			want:   forge.ChecksFailing,
-		},
-		{
-			name:   "error is failing",
-			rollup: &rollupNode{State: "ERROR"},
-			want:   forge.ChecksFailing,
-		},
-		{
-			name: "failure with a check run in progress is failing while running",
-			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
-				CheckRunCountsByState: []stateCount{{State: "FAILURE", Count: 1}, {State: "IN_PROGRESS", Count: 2}},
-			}},
-			want: forge.ChecksFailingRunning,
-		},
-		{
-			name: "failure with a check run queued is failing while running",
-			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
-				CheckRunCountsByState: []stateCount{{State: "QUEUED", Count: 1}},
-			}},
-			want: forge.ChecksFailingRunning,
-		},
-		{
-			name: "error with a status context pending is failing while running",
-			rollup: &rollupNode{State: "ERROR", Contexts: rollupContexts{
-				StatusContextCountsByState: []stateCount{{State: "ERROR", Count: 1}, {State: "PENDING", Count: 1}},
-			}},
-			want: forge.ChecksFailingRunning,
-		},
-		{
-			name: "failure with every check run finished is failing",
-			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
-				CheckRunCountsByState: []stateCount{{State: "FAILURE", Count: 1}, {State: "SUCCESS", Count: 3}, {State: "IN_PROGRESS", Count: 0}},
-			}},
-			want: forge.ChecksFailing,
-		},
-		{
-			name: "failure with a run waiting on approval is failing",
-			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
-				CheckRunCountsByState: []stateCount{{State: "FAILURE", Count: 1}, {State: "WAITING", Count: 1}},
-			}},
-			want: forge.ChecksFailing,
-		},
-		{
-			name: "failure with a required status never reported is failing",
-			rollup: &rollupNode{State: "FAILURE", Contexts: rollupContexts{
-				StatusContextCountsByState: []stateCount{{State: "EXPECTED", Count: 1}},
-			}},
-			want: forge.ChecksFailing,
-		},
-		{
-			name:   "pending is pending",
-			rollup: &rollupNode{State: "PENDING"},
-			want:   forge.ChecksPending,
-		},
-		{
-			name:   "expected is pending",
-			rollup: &rollupNode{State: "EXPECTED"},
-			want:   forge.ChecksPending,
-		},
-		{
-			name:   "no rollup is none",
-			rollup: nil,
-			want:   forge.ChecksNone,
-		},
-		{
-			name:   "a state komrad does not know is none",
-			rollup: &rollupNode{State: "SOMETHING_NEW"},
-			want:   forge.ChecksNone,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			assert.Equal(t, tt.want, checksOf(tt.rollup))
 		})
 	}
 }

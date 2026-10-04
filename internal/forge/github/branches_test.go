@@ -55,8 +55,9 @@ func TestReadBranches(t *testing.T) {
 		"b2":    "fixture/closed",
 	}, seen.Variables)
 	assert.Contains(t, seen.Query, "query ReadBranches($owner: String!, $name: String!, $b0: String!, $b1: String!, $b2: String!)")
-	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields "+mergeReadinessFields+" } }")
+	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields ...mergeReadinessFields } }")
 	assert.Contains(t, seen.Query, pullRequestFragment)
+	assert.Contains(t, seen.Query, mergeReadinessFragment)
 
 	assert.Equal(t, forge.RateLimit{
 		Known:     true,
@@ -70,7 +71,6 @@ func TestReadBranches(t *testing.T) {
 	assert.Equal(t, 1, open.Number)
 	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
-		Checks:       forge.ChecksFailing,
 		Mergeability: forge.MergeabilityUnstable,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 		Listing: &forge.CheckListing{Checks: []forge.Check{
@@ -108,7 +108,6 @@ func TestReadBranches(t *testing.T) {
 	assert.Equal(t, 2, closed.Number)
 	assert.Equal(t, &forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionApproved,
-		Checks:       forge.ChecksPassing,
 		Mergeability: forge.MergeabilityClean,
 		AutoMerge:    forge.AutoMerge{On: true},
 	}, closed.MergeReadiness)
@@ -120,7 +119,9 @@ func TestReadBranchesBatches(t *testing.T) {
 
 	f, _, fake := serve(t, map[string]answer{
 		"ReadBranches": {body: branchesRead(withMergeReadiness(openPull, failingMergeReadiness))},
-		"ReadChecks":   {body: data(`{"p0":null}`)},
+		"ReadChecks": {body: data(`{
+	"p0": null
+}`)},
 	})
 
 	branches := make([]string, branchesPerQuery+1)
@@ -143,7 +144,26 @@ func TestReadBranchesBatches(t *testing.T) {
 func TestReadBranchesRefusals(t *testing.T) {
 	t.Parallel()
 
-	missing, _, _ := serve(t, map[string]answer{"ReadBranches": {body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/gone'."}]}`}})
+	missing, _, _ := serve(t, map[string]answer{"ReadBranches": {body: `{
+	"data": {
+		"repository": null
+	},
+	"errors": [
+		{
+			"type": "NOT_FOUND",
+			"path": [
+				"repository"
+			],
+			"locations": [
+				{
+					"line": 2,
+					"column": 3
+				}
+			],
+			"message": "Could not resolve to a Repository with the name 'harrisoncramer/gone'."
+		}
+	]
+}`}})
 	_, err := missing.ReadBranches(t.Context(), git.RemoteURL{Host: "github.com", Path: "harrisoncramer/gone"}, []string{"main"})
 	require.ErrorIs(t, err, forge.ErrNotFound)
 
@@ -154,14 +174,103 @@ func TestReadBranchesRefusals(t *testing.T) {
 }
 
 // passingMergeReadiness is the merge readiness fields of an approved pull request whose checks passed.
-const passingMergeReadiness = `"reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false`
+const passingMergeReadiness = `	"reviewDecision": "APPROVED",
+	"mergeStateStatus": "CLEAN",
+	"autoMergeRequest": {
+		"enabledAt": "2026-09-20T11:00:00Z"
+	},
+	"viewerCanEnableAutoMerge": false`
 
-const closedFixturePull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmIA","number":2,"title":"fixture: closed","url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/2","state":"CLOSED","isDraft":false,"createdAt":"2026-09-17T10:00:00Z","updatedAt":"2026-09-17T11:00:00Z","mergedAt":null,"closedAt":"2026-09-17T11:00:00Z","headRefName":"fixture/closed","headRefOid":"5555555555555555555555555555555555555555","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
+const closedFixturePull = `{
+	"id": "PR_kwDOUgkrbM8AAAABEIdmIA",
+	"number": 2,
+	"title": "fixture: closed",
+	"url": "https://github.com/harrisoncramer/komrad-forge-fixture/pull/2",
+	"state": "CLOSED",
+	"isDraft": false,
+	"createdAt": "2026-09-17T10:00:00Z",
+	"updatedAt": "2026-09-17T11:00:00Z",
+	"mergedAt": null,
+	"closedAt": "2026-09-17T11:00:00Z",
+	"headRefName": "fixture/closed",
+	"headRefOid": "5555555555555555555555555555555555555555",
+	"baseRefName": "main",
+	"baseRefOid": "8b32d7985e62febbf494e815545c22b446276b5d",
+	"headRepository": {
+		"url": "https://github.com/harrisoncramer/komrad-forge-fixture"
+	},
+	"baseRepository": {
+		"url": "https://github.com/harrisoncramer/komrad-forge-fixture"
+	}
+}`
 
 // openPullChecks is GitHub answering a read of checks on openPull's head, one of each kind.
-const openPullChecks = `{"p0":{"commits":{"nodes":[{"commit":{"oid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","statusCheckRollup":{"contexts":{"nodes":[` +
-	`{"__typename":"CheckRun","id":"CR_1","name":"test","status":"COMPLETED","conclusion":"FAILURE","startedAt":"2026-09-20T11:00:00Z","completedAt":"2026-09-20T11:05:00Z","detailsUrl":"https://github.com/harrisoncramer/komrad-forge-fixture/actions/runs/1","checkSuite":{"app":{"name":"GitHub Actions"},"workflowRun":{"workflow":{"name":"CI"}}},"isRequired":true},` +
-	`{"__typename":"CheckRun","id":"CR_2","name":"scan","status":"QUEUED","conclusion":null,"startedAt":null,"completedAt":null,"detailsUrl":null,"checkSuite":{"app":{"name":"Scanner"},"workflowRun":null},"isRequired":false},` +
-	`{"__typename":"StatusContext","id":"SC_1","context":"ci/legacy","state":"ERROR","targetUrl":"https://ci.example.com/1","createdAt":"2026-09-20T11:02:00Z","isRequired":true},` +
-	`{"__typename":"CheckRunLike"}` +
-	`]}}}}]}}}`
+const openPullChecks = `{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+						"statusCheckRollup": {
+							"contexts": {
+								"nodes": [
+									{
+										"__typename": "CheckRun",
+										"id": "CR_1",
+										"name": "test",
+										"status": "COMPLETED",
+										"conclusion": "FAILURE",
+										"startedAt": "2026-09-20T11:00:00Z",
+										"completedAt": "2026-09-20T11:05:00Z",
+										"detailsUrl": "https://github.com/harrisoncramer/komrad-forge-fixture/actions/runs/1",
+										"checkSuite": {
+											"app": {
+												"name": "GitHub Actions"
+											},
+											"workflowRun": {
+												"workflow": {
+													"name": "CI"
+												}
+											}
+										},
+										"isRequired": true
+									},
+									{
+										"__typename": "CheckRun",
+										"id": "CR_2",
+										"name": "scan",
+										"status": "QUEUED",
+										"conclusion": null,
+										"startedAt": null,
+										"completedAt": null,
+										"detailsUrl": null,
+										"checkSuite": {
+											"app": {
+												"name": "Scanner"
+											},
+											"workflowRun": null
+										},
+										"isRequired": false
+									},
+									{
+										"__typename": "StatusContext",
+										"id": "SC_1",
+										"context": "ci/legacy",
+										"state": "ERROR",
+										"targetUrl": "https://ci.example.com/1",
+										"createdAt": "2026-09-20T11:02:00Z",
+										"isRequired": true
+									},
+									{
+										"__typename": "CheckRunLike"
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}`

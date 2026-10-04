@@ -17,10 +17,47 @@ func TestRequestRereview(t *testing.T) {
 
 	const address = "https://github.com/harrisoncramer/komrad/pull/742"
 	target := func(state, opinions string) answer {
-		return answer{body: data(`{"repository":{"pullRequest":{"id":"PR_742","state":"` + state + `","latestOpinionatedReviews":{"nodes":[` + opinions + `]}}}}`)}
+		return answer{body: data(`{
+	"repository": {
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "` + state + `",
+			"latestOpinionatedReviews": {
+				"nodes": [
+` + opinions + `
+				]
+			}
+		}
 	}
-	const opinions = `{"state":"CHANGES_REQUESTED","author":{"id":"U_ada"}},{"state":"APPROVED","author":{"id":"U_bob"}},{"state":"CHANGES_REQUESTED","author":{}},{"state":"CHANGES_REQUESTED","author":{"id":"U_cy"}}`
-	requested := answer{body: data(`{"requestReviews":{"clientMutationId":null}}`)}
+}`)}
+	}
+	const opinions = `{
+	"state": "CHANGES_REQUESTED",
+	"author": {
+		"id": "U_ada"
+	}
+},
+{
+	"state": "APPROVED",
+	"author": {
+		"id": "U_bob"
+	}
+},
+{
+	"state": "CHANGES_REQUESTED",
+	"author": {}
+},
+{
+	"state": "CHANGES_REQUESTED",
+	"author": {
+		"id": "U_cy"
+	}
+}`
+	requested := answer{body: data(`{
+	"requestReviews": {
+		"clientMutationId": null
+	}
+}`)}
 
 	tests := []struct {
 		name      string
@@ -39,21 +76,43 @@ func TestRequestRereview(t *testing.T) {
 			wantErr: forge.ErrNoRereview,
 		},
 		{
-			name:    "a pull request nobody asked changes of is refused",
-			answers: map[string]answer{"RereviewTarget": target("OPEN", `{"state":"APPROVED","author":{"id":"U_bob"}}`)},
+			name: "a pull request nobody asked changes of is refused",
+			answers: map[string]answer{"RereviewTarget": target("OPEN", `{
+	"state": "APPROVED",
+	"author": {
+		"id": "U_bob"
+	}
+}`)},
 			wantErr: forge.ErrNoRereview,
 		},
 		{
 			name: "a review request github will not make",
 			answers: map[string]answer{
 				"RereviewTarget": target("OPEN", opinions),
-				"RequestReviews": {body: `{"data":{"requestReviews":null},"errors":[{"type":"UNPROCESSABLE","path":["requestReviews"],"message":"Could not resolve to a node"}]}`},
+				"RequestReviews": {body: `{
+	"data": {
+		"requestReviews": null
+	},
+	"errors": [
+		{
+			"type": "UNPROCESSABLE",
+			"path": [
+				"requestReviews"
+			],
+			"message": "Could not resolve to a node"
+		}
+	]
+}`},
 			},
 			wantErr: forge.ErrNoRereview,
 		},
 		{
-			name:    "a pull request github does not have",
-			answers: map[string]answer{"RereviewTarget": {body: data(`{"repository":{"pullRequest":null}}`)}},
+			name: "a pull request github does not have",
+			answers: map[string]answer{"RereviewTarget": {body: data(`{
+	"repository": {
+		"pullRequest": null
+	}
+}`)}},
 			wantErr: forge.ErrNotFound,
 		},
 	}
@@ -89,39 +148,190 @@ func TestDecision(t *testing.T) {
 		want      forge.ReviewDecision
 	}{
 		{
-			name:      "every user asking for changes asked again",
-			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"APPROVED","author":{"login":"bob"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"cy"}},{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:      forge.ReviewDecisionRereviewRequested,
+			name: "every user asking for changes asked again",
+			readiness: `{
+	"reviewDecision": "CHANGES_REQUESTED",
+	"latestOpinionatedReviews": {
+		"nodes": [
+			{
+				"state": "CHANGES_REQUESTED",
+				"author": {
+					"login": "ada"
+				}
+			},
+			{
+				"state": "APPROVED",
+				"author": {
+					"login": "bob"
+				}
+			}
+		]
+	},
+	"reviewRequests": {
+		"nodes": [
+			{
+				"requestedReviewer": {
+					"login": "cy"
+				}
+			},
+			{
+				"requestedReviewer": {
+					"login": "ada"
+				}
+			}
+		]
+	}
+}`,
+			want: forge.ReviewDecisionRereviewRequested,
 		},
 		{
-			name:      "one user asking for changes not asked again",
-			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"CHANGES_REQUESTED","author":{"login":"bob"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:      forge.ReviewDecisionChangesRequested,
+			name: "one user asking for changes not asked again",
+			readiness: `{
+	"reviewDecision": "CHANGES_REQUESTED",
+	"latestOpinionatedReviews": {
+		"nodes": [
+			{
+				"state": "CHANGES_REQUESTED",
+				"author": {
+					"login": "ada"
+				}
+			},
+			{
+				"state": "CHANGES_REQUESTED",
+				"author": {
+					"login": "bob"
+				}
+			}
+		]
+	},
+	"reviewRequests": {
+		"nodes": [
+			{
+				"requestedReviewer": {
+					"login": "ada"
+				}
+			}
+		]
+	}
+}`,
+			want: forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:      "a team asked to review is not the user who asked for changes",
-			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{}}]}}`,
-			want:      forge.ReviewDecisionChangesRequested,
+			name: "a team asked to review is not the user who asked for changes",
+			readiness: `{
+	"reviewDecision": "CHANGES_REQUESTED",
+	"latestOpinionatedReviews": {
+		"nodes": [
+			{
+				"state": "CHANGES_REQUESTED",
+				"author": {
+					"login": "ada"
+				}
+			}
+		]
+	},
+	"reviewRequests": {
+		"nodes": [
+			{
+				"requestedReviewer": {}
+			}
+		]
+	}
+}`,
+			want: forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:      "a bot asking for changes is left out, as it cannot be asked again",
-			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:      forge.ReviewDecisionRereviewRequested,
+			name: "a bot asking for changes is left out, as it cannot be asked again",
+			readiness: `{
+	"reviewDecision": "CHANGES_REQUESTED",
+	"latestOpinionatedReviews": {
+		"nodes": [
+			{
+				"state": "CHANGES_REQUESTED",
+				"author": {
+					"login": "ada"
+				}
+			},
+			{
+				"state": "CHANGES_REQUESTED",
+				"author": {}
+			}
+		]
+	},
+	"reviewRequests": {
+		"nodes": [
+			{
+				"requestedReviewer": {
+					"login": "ada"
+				}
+			}
+		]
+	}
+}`,
+			want: forge.ReviewDecisionRereviewRequested,
 		},
 		{
-			name:      "only a bot asking for changes",
-			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[]}}`,
-			want:      forge.ReviewDecisionChangesRequested,
+			name: "only a bot asking for changes",
+			readiness: `{
+	"reviewDecision": "CHANGES_REQUESTED",
+	"latestOpinionatedReviews": {
+		"nodes": [
+			{
+				"state": "CHANGES_REQUESTED",
+				"author": {}
+			}
+		]
+	},
+	"reviewRequests": {
+		"nodes": []
+	}
+}`,
+			want: forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:      "changes requested with no verdict naming who asked",
-			readiness: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:      forge.ReviewDecisionChangesRequested,
+			name: "changes requested with no verdict naming who asked",
+			readiness: `{
+	"reviewDecision": "CHANGES_REQUESTED",
+	"latestOpinionatedReviews": {
+		"nodes": []
+	},
+	"reviewRequests": {
+		"nodes": [
+			{
+				"requestedReviewer": {
+					"login": "ada"
+				}
+			}
+		]
+	}
+}`,
+			want: forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:      "an approval asked to review again stays approved",
-			readiness: `{"reviewDecision":"APPROVED","latestOpinionatedReviews":{"nodes":[{"state":"APPROVED","author":{"login":"ada"}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
-			want:      forge.ReviewDecisionApproved,
+			name: "an approval asked to review again stays approved",
+			readiness: `{
+	"reviewDecision": "APPROVED",
+	"latestOpinionatedReviews": {
+		"nodes": [
+			{
+				"state": "APPROVED",
+				"author": {
+					"login": "ada"
+				}
+			}
+		]
+	},
+	"reviewRequests": {
+		"nodes": [
+			{
+				"requestedReviewer": {
+					"login": "ada"
+				}
+			}
+		]
+	}
+}`,
+			want: forge.ReviewDecisionApproved,
 		},
 	}
 	for _, tt := range tests {

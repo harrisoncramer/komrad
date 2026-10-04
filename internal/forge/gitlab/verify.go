@@ -2,12 +2,14 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 
 	"komrad/internal/forge"
 )
 
-const verifyQuery = `query Verify { currentUser { username } }`
+//go:embed verify.gql
+var verifyQuery string
 
 // Verify asks GitLab who the credential belongs to.
 func (f *Forge) Verify(ctx context.Context) (string, error) {

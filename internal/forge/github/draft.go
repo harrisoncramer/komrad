@@ -2,21 +2,19 @@ package github
 
 import (
 	"context"
+	_ "embed"
 
 	"komrad/internal/forge"
 )
 
-const draftTargetQuery = `query DraftTarget($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { pullRequest(number: $number) { id state isDraft } }
-}`
+//go:embed drafttarget.gql
+var draftTargetQuery string
 
-const convertToDraftMutation = `mutation ConvertToDraft($id: ID!) {
-  convertPullRequestToDraft(input: {pullRequestId: $id}) { clientMutationId }
-}`
+//go:embed converttodraft.gql
+var convertToDraftMutation string
 
-const markReadyMutation = `mutation MarkReady($id: ID!) {
-  markPullRequestReadyForReview(input: {pullRequestId: $id}) { clientMutationId }
-}`
+//go:embed markready.gql
+var markReadyMutation string
 
 // SetDraft converts the pull request to a draft or marks it ready for review, asking nothing
 // of GitHub when it already stands that way.

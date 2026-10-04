@@ -1,0 +1,13 @@
+query List($owner: String!, $name: String!, $first: Int!, $after: String, $branch: String, $states: [PullRequestState!]) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(first: $first, after: $after, headRefName: $branch, states: $states, orderBy: {field: CREATED_AT, direction: DESC}) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        ...pullRequestFields
+      }
+    }
+  }
+}

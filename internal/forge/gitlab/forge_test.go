@@ -23,13 +23,149 @@ import (
 // acme/widgets: !256538 open, !254619 a draft, !256531 merged, !256485 closed from a fork,
 // and the refusal a query too complex draws.
 
-const openMergeRequest = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from the settings","description":"Drops keys the schema does not declare.","author":{"username":"someone"},"webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}}]}}`
+const openMergeRequest = `{
+	"id": "gid://gitlab/MergeRequest/535736457",
+	"iid": "256538",
+	"title": "Strip undeclared keys from the settings",
+	"description": "Drops keys the schema does not declare.",
+	"author": {
+		"username": "someone"
+	},
+	"webUrl": "https://gitlab.com/acme/widgets/-/merge_requests/256538",
+	"state": "opened",
+	"draft": false,
+	"createdAt": "2026-09-20T08:58:11Z",
+	"updatedAt": "2026-09-20T17:54:15Z",
+	"mergedAt": null,
+	"closedAt": null,
+	"sourceBranch": "settings-cleanup",
+	"targetBranch": "master",
+	"diffHeadSha": "14a5732c18c7186fb0b34d469255b9609e4d11f2",
+	"sourceProject": {
+		"webUrl": "https://gitlab.com/acme/widgets"
+	},
+	"targetProject": {
+		"webUrl": "https://gitlab.com/acme/widgets"
+	},
+	"diffRefs": {
+		"baseSha": "4aabd419a0202362695a5e4147df061fbf976c9f"
+	},
+	"approvalsRequired": 4,
+	"approvalsLeft": 4,
+	"approvedBy": {
+		"count": 0
+	},
+	"reviewers": {
+		"nodes": [
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "REVIEWED"
+				}
+			},
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "UNREVIEWED"
+				}
+			}
+		]
+	}
+}`
 
-const draftMergeRequest = `{"id":"gid://gitlab/MergeRequest/530185576","iid":"254619","title":"Draft: Define the palette lifecycle events","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/254619","state":"opened","draft":true,"createdAt":"2026-09-09T22:53:57Z","updatedAt":"2026-09-20T17:55:51Z","mergedAt":null,"closedAt":null,"sourceBranch":"palette-events","targetBranch":"master","diffHeadSha":"b39c0f269434b23d22d29a74d6a45e749de60368","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"70c3fc3551da5b2cc071a20f516ce336128c199b"},"approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}}]}}`
+const draftMergeRequest = `{
+	"id": "gid://gitlab/MergeRequest/530185576",
+	"iid": "254619",
+	"title": "Draft: Define the palette lifecycle events",
+	"webUrl": "https://gitlab.com/acme/widgets/-/merge_requests/254619",
+	"state": "opened",
+	"draft": true,
+	"createdAt": "2026-09-09T22:53:57Z",
+	"updatedAt": "2026-09-20T17:55:51Z",
+	"mergedAt": null,
+	"closedAt": null,
+	"sourceBranch": "palette-events",
+	"targetBranch": "master",
+	"diffHeadSha": "b39c0f269434b23d22d29a74d6a45e749de60368",
+	"sourceProject": {
+		"webUrl": "https://gitlab.com/acme/widgets"
+	},
+	"targetProject": {
+		"webUrl": "https://gitlab.com/acme/widgets"
+	},
+	"diffRefs": {
+		"baseSha": "70c3fc3551da5b2cc071a20f516ce336128c199b"
+	},
+	"approvalsRequired": 4,
+	"approvalsLeft": 4,
+	"approvedBy": {
+		"count": 0
+	},
+	"reviewers": {
+		"nodes": [
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "REVIEWED"
+				}
+			},
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "UNREVIEWED"
+				}
+			}
+		]
+	}
+}`
 
-const mergedMergeRequest = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"}}`
+const mergedMergeRequest = `{
+	"id": "gid://gitlab/MergeRequest/535718519",
+	"iid": "256531",
+	"title": "Update the runtime data for the e2e tests",
+	"webUrl": "https://gitlab.com/acme/widgets/-/merge_requests/256531",
+	"state": "merged",
+	"draft": false,
+	"createdAt": "2026-09-20T05:24:39Z",
+	"updatedAt": "2026-09-20T06:24:05Z",
+	"mergedAt": "2026-09-20T06:24:05Z",
+	"closedAt": null,
+	"sourceBranch": "qa-report-update",
+	"targetBranch": "master",
+	"diffHeadSha": "f7ae81a86c306ee75b2703ea62137b787950f3f2",
+	"sourceProject": {
+		"webUrl": "https://gitlab.com/acme/widgets"
+	},
+	"targetProject": {
+		"webUrl": "https://gitlab.com/acme/widgets"
+	},
+	"diffRefs": {
+		"baseSha": "fb3b0f26554913f30d92e12c39b1814eda5b9a63"
+	}
+}`
 
-const forkMergeRequest = `{"id":"gid://gitlab/MergeRequest/535500829","iid":"256485","title":"Draft: feat(reports): one template for the blockers page","description":null,"author":null,"webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256485","state":"closed","draft":true,"createdAt":"2026-09-18T21:41:21Z","updatedAt":"2026-09-20T17:09:26Z","mergedAt":null,"closedAt":"2026-09-19T20:09:45Z","sourceBranch":"blockers-page-single-template","targetBranch":"master","diffHeadSha":"d636bcb279bab23588cf8973100bc7e6387e9b54","sourceProject":{"webUrl":"https://gitlab.com/acme-forks/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"859512950cbe65e422c71a10bdcbfd9c929769aa"}}`
+const forkMergeRequest = `{
+	"id": "gid://gitlab/MergeRequest/535500829",
+	"iid": "256485",
+	"title": "Draft: feat(reports): one template for the blockers page",
+	"description": null,
+	"author": null,
+	"webUrl": "https://gitlab.com/acme/widgets/-/merge_requests/256485",
+	"state": "closed",
+	"draft": true,
+	"createdAt": "2026-09-18T21:41:21Z",
+	"updatedAt": "2026-09-20T17:09:26Z",
+	"mergedAt": null,
+	"closedAt": "2026-09-19T20:09:45Z",
+	"sourceBranch": "blockers-page-single-template",
+	"targetBranch": "master",
+	"diffHeadSha": "d636bcb279bab23588cf8973100bc7e6387e9b54",
+	"sourceProject": {
+		"webUrl": "https://gitlab.com/acme-forks/acme/widgets"
+	},
+	"targetProject": {
+		"webUrl": "https://gitlab.com/acme/widgets"
+	},
+	"diffRefs": {
+		"baseSha": "859512950cbe65e422c71a10bdcbfd9c929769aa"
+	}
+}`
 
 type fakeAuth struct {
 	token       string
@@ -150,7 +286,13 @@ func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGit
 
 // listing is a page of a project's mergeRequests connection holding the nodes.
 func listing(hasNextPage bool, cursor string, nodes ...string) string {
-	return `{"data":{"project":{"mergeRequests":` + page(hasNextPage, cursor, nodes...) + `}}}`
+	return `{
+	"data": {
+		"project": {
+			"mergeRequests": ` + page(hasNextPage, cursor, nodes...) + `
+		}
+	}
+}`
 }
 
 func page(hasNextPage bool, cursor string, nodes ...string) string {
@@ -159,8 +301,30 @@ func page(hasNextPage bool, cursor string, nodes ...string) string {
 		next = "true"
 	}
 
-	return `{"pageInfo":{"hasNextPage":` + next + `,"endCursor":"` + cursor + `"},"nodes":[` + strings.Join(nodes, ",") + `]}`
+	return `{
+	"pageInfo": {
+		"hasNextPage": ` + next + `,
+		"endCursor": "` + cursor + `"
+	},
+	"nodes": [
+` + strings.Join(nodes, ",\n") + `
+	]
+}`
 }
+
+const missingProject = `{
+	"data": {
+		"project": null
+	}
+}`
+
+const missingMergeRequest = `{
+	"data": {
+		"project": {
+			"mergeRequest": null
+		}
+	}
+}`
 
 var komrad = git.RemoteURL{
 	Raw:    "git@gitlab.com:harrisoncramer/komrad.git",
@@ -182,10 +346,10 @@ func TestNotFound(t *testing.T) {
 	t.Parallel()
 
 	f, auth, _ := serve(t, map[string]answer{
-		"Get":           {body: `{"data":{"project":null}}`},
-		"List":          {body: `{"data":{"project":null}}`},
-		"ReadBranches":  {body: `{"data":{"project":null}}`},
-		"ReviewThreads": {body: `{"data":{"project":null}}`},
+		"Get":           {body: missingProject},
+		"List":          {body: missingProject},
+		"ReadBranches":  {body: missingProject},
+		"ReviewThreads": {body: missingProject},
 	})
 
 	_, err := f.readMergeRequest(t.Context(), "https://gitlab.com/acme/no-such-project-xyz/-/merge_requests/1")
@@ -199,8 +363,8 @@ func TestNotFound(t *testing.T) {
 	assert.Equal(t, 0, auth.invalidated)
 
 	gone, _, _ := serve(t, map[string]answer{
-		"Get":           {body: `{"data":{"project":{"mergeRequest":null}}}`},
-		"ReviewThreads": {body: `{"data":{"project":{"mergeRequest":null}}}`},
+		"Get":           {body: missingMergeRequest},
+		"ReviewThreads": {body: missingMergeRequest},
 	})
 	_, err = gone.readMergeRequest(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/999999999")
 	require.ErrorIs(t, err, forge.ErrNotFound)

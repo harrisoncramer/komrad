@@ -806,25 +806,19 @@ UPDATE
     pull_requests
 SET
     latest_decision = $1::text,
-    latest_checks = $2::text,
-    latest_mergeability = $3::text,
-    latest_head_sha = $4::text,
-    known_checks = $5::text,
-    known_checks_sha = $6::text,
-    known_mergeability = $7::text,
-    known_mergeability_sha = $8::text,
-    mergeability_blank_since = $9::timestamptz,
-    known_decision = $10::text,
-    auto_merge = $11::boolean,
-    auto_mergeable = $12::boolean
+    latest_mergeability = $2::text,
+    latest_head_sha = $3::text,
+    known_mergeability = $4::text,
+    known_mergeability_sha = $5::text,
+    mergeability_blank_since = $6::timestamptz,
+    known_decision = $7::text,
+    auto_merge = $8::boolean,
+    auto_mergeable = $9::boolean
 WHERE
-    id = $13
+    id = $10
     AND (latest_decision,
-        latest_checks,
         latest_mergeability,
         latest_head_sha,
-        known_checks,
-        known_checks_sha,
         known_mergeability,
         known_mergeability_sha,
         mergeability_blank_since,
@@ -835,22 +829,16 @@ WHERE
         $3::text,
         $4::text,
         $5::text,
-        $6::text,
+        $6::timestamptz,
         $7::text,
-        $8::text,
-        $9::timestamptz,
-        $10::text,
-        $11::boolean,
-        $12::boolean)
+        $8::boolean,
+        $9::boolean)
 `
 
 type WriteMergeReadinessParams struct {
 	LatestDecision         *string
-	LatestChecks           *string
 	LatestMergeability     *string
 	LatestHeadSha          *string
-	KnownChecks            *string
-	KnownChecksSha         *string
 	KnownMergeability      *string
 	KnownMergeabilitySha   *string
 	MergeabilityBlankSince *time.Time
@@ -863,11 +851,8 @@ type WriteMergeReadinessParams struct {
 func (q *Queries) WriteMergeReadiness(ctx context.Context, arg WriteMergeReadinessParams) error {
 	_, err := q.db.Exec(ctx, writeMergeReadiness,
 		arg.LatestDecision,
-		arg.LatestChecks,
 		arg.LatestMergeability,
 		arg.LatestHeadSha,
-		arg.KnownChecks,
-		arg.KnownChecksSha,
 		arg.KnownMergeability,
 		arg.KnownMergeabilitySha,
 		arg.MergeabilityBlankSince,

@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strconv"
 	"strings"
@@ -9,9 +10,8 @@ import (
 	"komrad/internal/forge"
 )
 
-const setDraftMutation = `mutation SetDraft($path: ID!, $iid: String!, $draft: Boolean!) {
-  mergeRequestSetDraft(input: {projectPath: $path, iid: $iid, draft: $draft}) { errors }
-}`
+//go:embed setdraft.gql
+var setDraftMutation string
 
 // SetDraft marks the merge request a draft or ready, asking nothing of GitLab when it already
 // stands that way.

@@ -17,6 +17,7 @@ func TestEventsOf(t *testing.T) {
 		name        string
 		moves       []Move
 		pullRequest pullrequeststore.PullRequest
+		checks      forge.Checks
 		read        forge.MergeReadiness
 		wantStarted []string
 		wantHolding []string
@@ -29,7 +30,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			read:        forge.MergeReadiness{Checks: forge.ChecksFailing},
+			checks:      forge.ChecksFailing,
 			wantStarted: []string{eventprompts.PullRequestChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
@@ -41,7 +42,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing_running",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			read:        forge.MergeReadiness{Checks: forge.ChecksFailingRunning},
+			checks:      forge.ChecksFailingRunning,
 			wantStarted: []string{eventprompts.PullRequestChecksFailingRunning},
 			wantHolding: []string{eventprompts.PullRequestChecksFailingRunning},
 		},
@@ -53,7 +54,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			read:        forge.MergeReadiness{Checks: forge.ChecksFailing},
+			checks:      forge.ChecksFailing,
 			wantStarted: []string{eventprompts.PullRequestChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
@@ -65,8 +66,8 @@ func TestEventsOf(t *testing.T) {
 				To:    "passing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			checks:      forge.ChecksPassing,
 			read: forge.MergeReadiness{
-				Checks:       forge.ChecksPassing,
 				Mergeability: forge.MergeabilityBehind,
 			},
 			wantHolding: []string{eventprompts.PullRequestBehind},
@@ -98,9 +99,9 @@ func TestEventsOf(t *testing.T) {
 				},
 			},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
+			checks:      forge.ChecksFailing,
 			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionApproved,
-				Checks:   forge.ChecksFailing,
 			},
 			wantStarted: []string{eventprompts.PullRequestMerged},
 			wantHolding: []string{eventprompts.PullRequestMerged},
@@ -113,7 +114,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
-			read:        forge.MergeReadiness{Checks: forge.ChecksFailing},
+			checks:      forge.ChecksFailing,
 			wantHolding: []string{eventprompts.PullRequestMerged},
 		},
 		{
@@ -134,6 +135,7 @@ func TestEventsOf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := tt.pullRequest
 			pullRequest.MergeReadiness = forge.RememberedMergeReadiness{}.RememberRead(tt.read, pullRequest.HeadSHA, time.Time{})
+			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[forge.Checks]{Value: tt.checks, HeadSHA: pullRequest.HeadSHA}
 
 			started, holding := eventsOf(Change{Moves: tt.moves}, pullRequest)
 			assert.Equal(t, tt.wantStarted, started)

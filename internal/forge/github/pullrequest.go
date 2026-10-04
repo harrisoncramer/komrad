@@ -1,6 +1,7 @@
 package github
 
 import (
+	_ "embed"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -13,16 +14,14 @@ import (
 )
 
 // pullRequestFragment is every field of a pull request the record is built from.
-const pullRequestFragment = `fragment pullRequestFields on PullRequest {
-  id number title body author { login } url state isDraft createdAt updatedAt mergedAt closedAt
-  headRefName headRefOid baseRefName baseRefOid headRepository { url } baseRepository { url }
-}`
+//
+//go:embed pullrequest.gql
+var pullRequestFragment string
 
-// mergeReadinessFields is what the reviews, checks, mergeability and auto-merge of a pull request
-// are read from: GitHub's computed review decision, each reviewer's latest verdict and who is
-// asked to review now, the rollup of every check on the head commit, its computed merge state,
-// the auto-merge request on it and whether the credential may make one.
-const mergeReadinessFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 0) { checkRunCountsByState { state count } statusContextCountsByState { state count } } } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
+// mergeReadinessFragment is what the reviews, mergeability and auto-merge of a pull request are read from.
+//
+//go:embed mergereadiness.gql
+var mergeReadinessFragment string
 
 // ownerAndName splits a repository path, which on GitHub is always two segments.
 func ownerAndName(path string) (owner, name string, err error) {
@@ -83,8 +82,7 @@ type repositoryNode struct {
 	URL string `json:"url"`
 }
 
-// mergeReadinessNode is what GitHub says about a pull request's reviews, the checks on its head and
-// its merge state.
+// mergeReadinessNode is what GitHub says about a pull request's reviews and its merge state.
 type mergeReadinessNode struct {
 	HeadRefOid               string  `json:"headRefOid"`
 	ReviewDecision           *string `json:"reviewDecision"`
@@ -96,14 +94,7 @@ type mergeReadinessNode struct {
 			RequestedReviewer *actorNode `json:"requestedReviewer"`
 		} `json:"nodes"`
 	} `json:"reviewRequests"`
-	MergeStateStatus string `json:"mergeStateStatus"`
-	Commits          struct {
-		Nodes []struct {
-			Commit struct {
-				StatusCheckRollup *rollupNode `json:"statusCheckRollup"`
-			} `json:"commit"`
-		} `json:"nodes"`
-	} `json:"commits"`
+	MergeStateStatus         string    `json:"mergeStateStatus"`
 	AutoMergeRequest         *struct{} `json:"autoMergeRequest"`
 	ViewerCanEnableAutoMerge bool      `json:"viewerCanEnableAutoMerge"`
 }
@@ -117,8 +108,8 @@ func (n *repositoryNode) remote() git.RemoteURL {
 	return graphql.RemoteOf(n.URL)
 }
 
-// toPullRequest is the node as the record, carrying its decision and checks when the query
-// asked for them.
+// toPullRequest is the node as the record, carrying its merge readiness when the query asked
+// for it.
 func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullRequest {
 	pullRequest := forge.PullRequest{
 		Forge:      forge.KindGitHub,
@@ -144,7 +135,6 @@ func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullReques
 	if withMergeReadiness {
 		pullRequest.MergeReadiness = &forge.MergeReadiness{
 			Decision:     n.decision(),
-			Checks:       n.checks(),
 			Mergeability: mergeabilityOf(n.MergeStateStatus),
 			AutoMerge:    n.autoMerge(),
 		}

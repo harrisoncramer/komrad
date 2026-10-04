@@ -1,0 +1,18 @@
+query RereviewTarget($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      id
+      state
+      latestOpinionatedReviews(first: 50, writersOnly: true) {
+        nodes {
+          state
+          author {
+            ... on User {
+              id
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+query AutoMergeTarget($path: ID!, $iid: String!) {
+  project(fullPath: $path) {
+    mergeRequest(iid: $iid) {
+      state
+      draft
+      autoMergeEnabled
+      availableAutoMergeStrategies
+    }
+  }
+}

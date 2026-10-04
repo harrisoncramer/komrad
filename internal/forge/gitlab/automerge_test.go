@@ -24,7 +24,17 @@ func TestSetAutoMerge(t *testing.T) {
 	)
 
 	target := func(state string, enabled bool, strategies string) answer {
-		return answer{body: `{"data":{"project":{"mergeRequest":{"state":"` + state + `","autoMergeEnabled":` + strconv.FormatBool(enabled) + `,"availableAutoMergeStrategies":` + strategies + `}}}}`}
+		return answer{body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"state": "` + state + `",
+				"autoMergeEnabled": ` + strconv.FormatBool(enabled) + `,
+				"availableAutoMergeStrategies": ` + strategies + `
+			}
+		}
+	}
+}`}
 	}
 	waiting := `["merge_when_checks_pass"]`
 
@@ -40,7 +50,7 @@ func TestSetAutoMerge(t *testing.T) {
 		{
 			name:    "a merge request gitlab does not have",
 			params:  forge.SetAutoMergeParams{URL: address, On: true},
-			answers: map[string]answer{"AutoMergeTarget": {body: `{"data":{"project":{"mergeRequest":null}}}`}},
+			answers: map[string]answer{"AutoMergeTarget": {body: missingMergeRequest}},
 			wantErr: forge.ErrNotFound,
 		},
 		{
@@ -56,16 +66,42 @@ func TestSetAutoMerge(t *testing.T) {
 			wantErr: forge.ErrNoAutoMerge,
 		},
 		{
-			name:    "a draft gitlab offers a strategy for is refused",
-			params:  forge.SetAutoMergeParams{URL: address, On: true},
-			answers: map[string]answer{"AutoMergeTarget": {body: `{"data":{"project":{"mergeRequest":{"state":"opened","draft":true,"autoMergeEnabled":false,"availableAutoMergeStrategies":["merge_when_checks_pass"]}}}}`}},
+			name:   "a draft gitlab offers a strategy for is refused",
+			params: forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": {body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"state": "opened",
+				"draft": true,
+				"autoMergeEnabled": false,
+				"availableAutoMergeStrategies": [
+					"merge_when_checks_pass"
+				]
+			}
+		}
+	}
+}`}},
 			wantErr: forge.ErrNoAutoMerge,
 		},
 		{
 			name:   "a queued draft is cancelled",
 			params: forge.SetAutoMergeParams{URL: address},
 			answers: map[string]answer{
-				"AutoMergeTarget": {body: `{"data":{"project":{"mergeRequest":{"state":"opened","draft":true,"autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"]}}}}`},
+				"AutoMergeTarget": {body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"state": "opened",
+				"draft": true,
+				"autoMergeEnabled": true,
+				"availableAutoMergeStrategies": [
+					"merge_when_checks_pass"
+				]
+			}
+		}
+	}
+}`},
 				path + "/cancel_merge_when_pipeline_succeeds": {status: http.StatusCreated, body: `{"iid":7,"merge_when_pipeline_succeeds":false}`},
 			},
 			wantMethod: http.MethodPost,

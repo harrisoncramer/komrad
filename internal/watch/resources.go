@@ -24,6 +24,19 @@ type Feeder struct {
 	Column string
 	// Lookup finds the resources a feeding row moves when the row does not hold their key.
 	Lookup *Lookup
+	// Through finds the resource's key on the row of another table that Column points at.
+	Through *Through
+}
+
+// Through is a table between a feeding row and its resource, e.g. pull_request_check_readings
+// between pull_request_checks and pull_requests.
+type Through struct {
+	// Table is the table between.
+	Table string
+	// KeyColumn is the column on Table that the feeding row's Column holds.
+	KeyColumn string
+	// Column is the column on Table holding the resource's key.
+	Column string
 }
 
 // Lookup matches a feeding row to its resources by a column on each side.

@@ -77,7 +77,11 @@ func TestSetChecks(t *testing.T) {
 			name: "a truncated read keeps the checks it left out",
 			reads: []SetChecksParams{
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, ""), checkRun("2", "lint", forge.CheckStateQueued, "")}},
-				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}, Truncated: true},
+				{
+					HeadSHA:   "c1",
+					Checks:    []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")},
+					Truncated: true,
+				},
 			},
 			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
 		},
@@ -94,7 +98,11 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}},
 				{HeadSHA: "c1"},
 			},
-			want: []checkReading{{HeadSHA: "c1", Blank: true, Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}}},
+			want: []checkReading{{
+				HeadSHA: "c1",
+				Blank:   true,
+				Checks:  []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")},
+			}},
 		},
 		{
 			name:  "a first read that is blank is kept as blank",

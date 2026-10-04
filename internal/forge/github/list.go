@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	_ "embed"
 
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
@@ -10,15 +11,11 @@ import (
 // maxPerPage is the most GitHub hands over in one page, above which it silently trims.
 const maxPerPage = 100
 
-const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $after: String, $branch: String, $states: [PullRequestState!]) {
-  repository(owner: $owner, name: $name) {
-    pullRequests(first: $first, after: $after, headRefName: $branch, states: $states, orderBy: {field: CREATED_AT, direction: DESC}) {
-      pageInfo { hasNextPage endCursor }
-      nodes { ...pullRequestFields }
-    }
-  }
-}
-` + pullRequestFragment
+//go:embed list.gql
+var listOperation string
+
+// listQuery is List with the fragment it spreads.
+var listQuery = listOperation + pullRequestFragment
 
 // List is one page of the repository's pull requests, every one from the named branch or
 // the open ones when no branch is named, and where the next page starts.

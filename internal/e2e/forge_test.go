@@ -241,7 +241,6 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 			"headRefOid":               "aaa",
 			"reviewDecision":           "APPROVED",
 			"mergeStateStatus":         "CLEAN",
-			"commits":                  map[string]any{"nodes": []any{map[string]any{"commit": map[string]any{"statusCheckRollup": map[string]any{"state": "SUCCESS"}}}}},
 			"autoMergeRequest":         readAutoMergeRequest(),
 			"viewerCanEnableAutoMerge": true,
 		}
@@ -268,6 +267,11 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 			maps.Copy(open, readStanding())
 			maps.Copy(merged, readStanding())
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"b0": buildConnection(open, merged)}}})
+		case "ReadChecks":
+			check := map[string]any{"__typename": "CheckRun", "id": "CR_1", "name": "required", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true}
+			contexts := map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{check}}
+			commit := map[string]any{"oid": "aaa", "statusCheckRollup": map[string]any{"contexts": contexts}}
+			writeJSON(t, w, map[string]any{"data": map[string]any{"p0": map[string]any{"commits": map[string]any{"nodes": []any{map[string]any{"commit": commit}}}}}})
 		case "AutoMergeTarget":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{
 				"viewerDefaultMergeMethod": "SQUASH",
