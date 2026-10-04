@@ -2049,6 +2049,13 @@
           "default": "\"\""
         },
         {
+          "key": "state_dir",
+          "path": "connection.state_dir",
+          "type": "string",
+          "description": "Where komrad keeps its own files about agents: generated worktrees, released reviews,\nforge credentials and the panel's scratch files.\nLeft empty this is ~/.local/state/komrad.",
+          "default": "\"\""
+        },
+        {
           "key": "ssh",
           "path": "connection.ssh",
           "type": "string",
