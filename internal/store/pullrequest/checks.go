@@ -12,8 +12,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// checkReading is what the forge last listed for the checks on one head commit of a pull request.
-type checkReading struct {
+// CheckReading is what the forge last listed for the checks on one head commit of a pull request.
+type CheckReading struct {
 	ID      string
 	HeadSHA string
 	// Blank is whether the last read listed no checks, which keeps the checks listed before it.
@@ -87,7 +87,7 @@ func setChecks(ctx context.Context, queries *models.Queries, params SetChecksPar
 }
 
 // ListOfPullRequest is every check reading on a pull request with its checks, oldest head first.
-func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]checkReading, error) {
+func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]CheckReading, error) {
 	if !store.IsID(pullRequestID) {
 		return nil, nil
 	}
@@ -100,8 +100,24 @@ func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string
 	return withChecks(ctx, s.queries, rows)
 }
 
+// GetLatestOfPullRequest is the check reading on a pull request's latest read head with its checks,
+// or ErrNotFound when its checks have never been read.
+func (s *CheckStore) GetLatestOfPullRequest(ctx context.Context, pullRequestID string) (*CheckReading, error) {
+	readings, err := latestReadings(ctx, s.queries, []string{pullRequestID})
+	if err != nil {
+		return nil, err
+	}
+
+	reading, ok := readings[pullRequestID]
+	if !ok {
+		return nil, store.ErrNotFound.Saying("no check reading on pull request %s", pullRequestID)
+	}
+
+	return &reading, nil
+}
+
 // latestReadings is the latest check reading of each of the pull requests that has one, by pull request.
-func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []string) (map[string]checkReading, error) {
+func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []string) (map[string]CheckReading, error) {
 	storable := store.KeepIDs(pullRequestIDs)
 	if len(storable) == 0 {
 		return nil, nil
@@ -116,7 +132,7 @@ func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs
 		return nil, err
 	}
 
-	byPullRequest := make(map[string]checkReading, len(readings))
+	byPullRequest := make(map[string]CheckReading, len(readings))
 	for i, row := range rows {
 		byPullRequest[row.PullRequestID] = readings[i]
 	}
@@ -125,7 +141,7 @@ func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs
 }
 
 // withChecks is each reading with the checks listed on it, in the order given.
-func withChecks(ctx context.Context, queries *models.Queries, rows []*models.PullRequestCheckReading) ([]checkReading, error) {
+func withChecks(ctx context.Context, queries *models.Queries, rows []*models.PullRequestCheckReading) ([]CheckReading, error) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
@@ -152,8 +168,8 @@ func withChecks(ctx context.Context, queries *models.Queries, rows []*models.Pul
 		})
 	}
 
-	return xslice.Map(rows, func(row *models.PullRequestCheckReading) checkReading {
-		return checkReading{
+	return xslice.Map(rows, func(row *models.PullRequestCheckReading) CheckReading {
+		return CheckReading{
 			ID:          row.ID,
 			HeadSHA:     row.HeadSha,
 			Blank:       row.Blank,
@@ -165,7 +181,7 @@ func withChecks(ctx context.Context, queries *models.Queries, rows []*models.Pul
 }
 
 // rememberedChecksOf is where the checks on the latest read head stand, rolled up from its rows.
-func rememberedChecksOf(reading checkReading) forge.RememberedAnswer[forge.Checks] {
+func rememberedChecksOf(reading CheckReading) forge.RememberedAnswer[forge.Checks] {
 	return forge.RememberedAnswer[forge.Checks]{
 		Value:              forge.RollupOf(reading.Checks),
 		HeadSHA:            reading.HeadSHA,

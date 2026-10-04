@@ -10,16 +10,18 @@ import (
 
 type NewListerParams struct {
 	PullRequests *pullrequeststore.PullRequestStore
+	Checks       *pullrequeststore.CheckStore
 }
 
 // Lister reads the stored pull requests of a repository.
 type Lister struct {
 	pullRequests *pullrequeststore.PullRequestStore
+	checks       *pullrequeststore.CheckStore
 }
 
 // NewLister builds a lister over the store.
 func NewLister(params NewListerParams) *Lister {
-	return &Lister{pullRequests: params.PullRequests}
+	return &Lister{pullRequests: params.PullRequests, checks: params.Checks}
 }
 
 type ListPullRequestsParams struct {
@@ -47,4 +49,15 @@ func (l *Lister) ListPullRequests(ctx context.Context, params ListPullRequestsPa
 	}
 
 	return listed, nil
+}
+
+// ListChecks is the reading of a pull request's latest read head with its checks, or ErrNotFound
+// when its checks have never been read.
+func (l *Lister) ListChecks(ctx context.Context, pullRequestID string) (*pullrequeststore.CheckReading, error) {
+	reading, err := l.checks.GetLatestOfPullRequest(ctx, pullRequestID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the checks of pull request %s: %w", pullRequestID, err)
+	}
+
+	return reading, nil
 }

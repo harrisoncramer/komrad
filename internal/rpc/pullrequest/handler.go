@@ -3,12 +3,14 @@ package pullrequest
 
 import (
 	"context"
+	"errors"
 
 	"komrad/internal/fail"
 	"komrad/internal/pullrequests"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	"komrad/internal/rpcpage"
+	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -17,6 +19,7 @@ import (
 // pullRequestLister is what the handler reads of what the sync has stored.
 type pullRequestLister interface {
 	ListPullRequests(ctx context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error)
+	ListChecks(ctx context.Context, pullRequestID string) (*pullrequeststore.CheckReading, error)
 }
 
 type NewHandlerParams struct {
@@ -79,4 +82,17 @@ func renderPullRequestPage(stored pullrequeststore.PullRequest) pullRequestPage 
 			ID:       stored.ID,
 		},
 	}
+}
+
+// ListChecks is the checks read on a pull request's latest read head, empty when they never were.
+func (s *Handler) ListChecks(ctx context.Context, req *pullrequestv1.ListChecksRequest) (*pullrequestv1.ListChecksResponse, *fail.Error) {
+	reading, err := s.pullRequests.ListChecks(ctx, req.GetPullRequestId())
+	if errors.Is(err, store.ErrNotFound) {
+		return &pullrequestv1.ListChecksResponse{}, nil
+	}
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the checks")
+	}
+
+	return render.CheckReading(reading), nil
 }

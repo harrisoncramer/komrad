@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -28,7 +29,7 @@ func checkRun(providerID, name string, state forge.CheckState, conclusion string
 	}
 }
 
-func checkNames(reading checkReading) []string {
+func checkNames(reading CheckReading) []string {
 	return xslice.Map(reading.Checks, func(check forge.Check) string { return check.Name + ":" + string(check.State) })
 }
 
@@ -37,14 +38,14 @@ func TestSetChecks(t *testing.T) {
 	tests := []struct {
 		name  string
 		reads []SetChecksParams
-		want  []checkReading
+		want  []CheckReading
 	}{
 		{
 			name: "a read lists the checks on its head",
 			reads: []SetChecksParams{
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, ""), checkRun("2", "lint", forge.CheckStateQueued, "")}},
 			},
-			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateRunning, "")}}},
+			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateRunning, "")}}},
 		},
 		{
 			name: "a new head keeps the reading of the old one",
@@ -52,7 +53,7 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}},
 				{HeadSHA: "c2", Checks: []forge.Check{checkRun("3", "test", forge.CheckStateRunning, "")}},
 			},
-			want: []checkReading{
+			want: []CheckReading{
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}},
 				{HeadSHA: "c2", Checks: []forge.Check{checkRun("3", "test", forge.CheckStateRunning, "")}},
 			},
@@ -63,7 +64,7 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}},
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}},
 			},
-			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
+			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
 		},
 		{
 			name: "a check the forge stops listing goes",
@@ -71,7 +72,7 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure"), checkRun("2", "lint", forge.CheckStateCompleted, "success")}},
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("4", "test", forge.CheckStateRunning, ""), checkRun("2", "lint", forge.CheckStateCompleted, "success")}},
 			},
-			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateCompleted, "success"), checkRun("4", "test", forge.CheckStateRunning, "")}}},
+			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateCompleted, "success"), checkRun("4", "test", forge.CheckStateRunning, "")}}},
 		},
 		{
 			name: "a truncated read keeps the checks it left out",
@@ -83,14 +84,14 @@ func TestSetChecks(t *testing.T) {
 					Truncated: true,
 				},
 			},
-			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
+			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("2", "lint", forge.CheckStateQueued, ""), checkRun("1", "test", forge.CheckStateCompleted, "success")}}},
 		},
 		{
 			name: "a check listed twice in one read is kept once as last listed",
 			reads: []SetChecksParams{
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, ""), checkRun("1", "test", forge.CheckStateCompleted, "failure")}},
 			},
-			want: []checkReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}}},
+			want: []CheckReading{{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}}},
 		},
 		{
 			name: "a blank read keeps the checks listed before it",
@@ -98,7 +99,7 @@ func TestSetChecks(t *testing.T) {
 				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")}},
 				{HeadSHA: "c1"},
 			},
-			want: []checkReading{{
+			want: []CheckReading{{
 				HeadSHA: "c1",
 				Blank:   true,
 				Checks:  []forge.Check{checkRun("1", "test", forge.CheckStateRunning, "")},
@@ -107,7 +108,7 @@ func TestSetChecks(t *testing.T) {
 		{
 			name:  "a first read that is blank is kept as blank",
 			reads: []SetChecksParams{{HeadSHA: "c1"}},
-			want:  []checkReading{{HeadSHA: "c1", Blank: true}},
+			want:  []CheckReading{{HeadSHA: "c1", Blank: true}},
 		},
 	}
 	for _, tt := range tests {
@@ -180,6 +181,53 @@ func TestSetChecksUnchangedStampsOnlyTheReadTime(t *testing.T) {
 	require.Len(t, got, 1)
 	assert.True(t, got[0].FirstReadAt.Equal(checkReadAt))
 	assert.True(t, got[0].ReadAt.Equal(checkReadAt.Add(time.Minute)))
+}
+
+// TestGetLatestOfPullRequest covers the one reading the checks screen lists.
+func TestGetLatestOfPullRequest(t *testing.T) {
+	tests := []struct {
+		name  string
+		reads []SetChecksParams
+		want  *CheckReading
+	}{
+		{
+			name: "a pull request never read has none",
+		},
+		{
+			name: "the latest head is the one read last",
+			reads: []SetChecksParams{
+				{HeadSHA: "c1", Checks: []forge.Check{checkRun("1", "test", forge.CheckStateCompleted, "failure")}},
+				{HeadSHA: "c2", Checks: []forge.Check{checkRun("3", "test", forge.CheckStateRunning, "")}},
+			},
+			want: &CheckReading{HeadSHA: "c2", Checks: []forge.Check{checkRun("3", "test", forge.CheckStateRunning, "")}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			checks := NewCheckStore(h.pool.GetDB())
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			for i, read := range tt.reads {
+				read.PullRequestID = written.ID
+				read.ReadAt = checkReadAt.Add(time.Duration(i) * time.Minute)
+				require.NoError(t, checks.SetChecks(ctx, read))
+			}
+
+			got, err := checks.GetLatestOfPullRequest(ctx, written.ID)
+			if tt.want == nil {
+				require.ErrorIs(t, err, store.ErrNotFound)
+
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want.HeadSHA, got.HeadSHA)
+			assert.Equal(t, checkNames(*tt.want), checkNames(*got))
+		})
+	}
 }
 
 // TestChecksGoWithThePullRequest covers the readings and checks going when their pull request does.

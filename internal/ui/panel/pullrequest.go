@@ -23,6 +23,7 @@ type PullRequestStanding struct {
 
 // PullRequest is one pull request opened from an agent's branch as the service stored it.
 type PullRequest struct {
+	ID             string
 	Forge          string
 	Number         int32
 	URL            string

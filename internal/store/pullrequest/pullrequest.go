@@ -346,7 +346,7 @@ func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, 
 	return repositories, nil
 }
 
-func fromRow(row *models.PullRequest, checks checkReading) PullRequest {
+func fromRow(row *models.PullRequest, checks CheckReading) PullRequest {
 	return PullRequest{
 		ID:                row.ID,
 		Host:              row.Host,
@@ -375,7 +375,7 @@ func fromRow(row *models.PullRequest, checks checkReading) PullRequest {
 	}
 }
 
-func rememberedMergeReadinessOf(row *models.PullRequest, checks checkReading) forge.RememberedMergeReadiness {
+func rememberedMergeReadinessOf(row *models.PullRequest, checks CheckReading) forge.RememberedMergeReadiness {
 	wasRead := row.LatestHeadSha != nil
 	readiness := forge.RememberedMergeReadiness{
 		Decision: forge.RememberedAnswer[forge.ReviewDecision]{

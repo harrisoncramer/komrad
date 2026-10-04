@@ -495,7 +495,7 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 				},
 			}),
 		}),
-		lister: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
+		lister: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests, Checks: st.checks}),
 		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
 			Forges: forgeService,
 			Sync:   pullRequestSyncer,

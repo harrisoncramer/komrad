@@ -325,6 +325,124 @@ func (Checks) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
 }
 
+// CheckKind is what sort of check a forge reported.
+type CheckKind int32
+
+const (
+	// The kind was not read.
+	CheckKind_CHECK_KIND_UNSPECIFIED CheckKind = 0
+	// A run an app reported against the commit.
+	CheckKind_CHECK_KIND_CHECK_RUN CheckKind = 1
+	// A status a service set on the commit.
+	CheckKind_CHECK_KIND_STATUS CheckKind = 2
+	// A pipeline the forge ran for the commit.
+	CheckKind_CHECK_KIND_PIPELINE CheckKind = 3
+)
+
+// Enum value maps for CheckKind.
+var (
+	CheckKind_name = map[int32]string{
+		0: "CHECK_KIND_UNSPECIFIED",
+		1: "CHECK_KIND_CHECK_RUN",
+		2: "CHECK_KIND_STATUS",
+		3: "CHECK_KIND_PIPELINE",
+	}
+	CheckKind_value = map[string]int32{
+		"CHECK_KIND_UNSPECIFIED": 0,
+		"CHECK_KIND_CHECK_RUN":   1,
+		"CHECK_KIND_STATUS":      2,
+		"CHECK_KIND_PIPELINE":    3,
+	}
+)
+
+func (x CheckKind) Enum() *CheckKind {
+	p := new(CheckKind)
+	*p = x
+	return p
+}
+
+func (x CheckKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CheckKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[4].Descriptor()
+}
+
+func (CheckKind) Type() protoreflect.EnumType {
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[4]
+}
+
+func (x CheckKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CheckKind.Descriptor instead.
+func (CheckKind) EnumDescriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
+}
+
+// CheckState is how far along a check is.
+type CheckState int32
+
+const (
+	// The state was not read.
+	CheckState_CHECK_STATE_UNSPECIFIED CheckState = 0
+	// Waiting for a runner to pick it up.
+	CheckState_CHECK_STATE_QUEUED CheckState = 1
+	// Running now.
+	CheckState_CHECK_STATE_RUNNING CheckState = 2
+	// Held until something else lets it go on, such as an approval.
+	CheckState_CHECK_STATE_WAITING CheckState = 3
+	// Done, with its conclusion saying how it ended.
+	CheckState_CHECK_STATE_COMPLETED CheckState = 4
+)
+
+// Enum value maps for CheckState.
+var (
+	CheckState_name = map[int32]string{
+		0: "CHECK_STATE_UNSPECIFIED",
+		1: "CHECK_STATE_QUEUED",
+		2: "CHECK_STATE_RUNNING",
+		3: "CHECK_STATE_WAITING",
+		4: "CHECK_STATE_COMPLETED",
+	}
+	CheckState_value = map[string]int32{
+		"CHECK_STATE_UNSPECIFIED": 0,
+		"CHECK_STATE_QUEUED":      1,
+		"CHECK_STATE_RUNNING":     2,
+		"CHECK_STATE_WAITING":     3,
+		"CHECK_STATE_COMPLETED":   4,
+	}
+)
+
+func (x CheckState) Enum() *CheckState {
+	p := new(CheckState)
+	*p = x
+	return p
+}
+
+func (x CheckState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CheckState) Descriptor() protoreflect.EnumDescriptor {
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[5].Descriptor()
+}
+
+func (CheckState) Type() protoreflect.EnumType {
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[5]
+}
+
+func (x CheckState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CheckState.Descriptor instead.
+func (CheckState) EnumDescriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
+}
+
 type ListPullRequestsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The repository the pull requests target, as a git remote spells it or as the canonical
@@ -810,6 +928,241 @@ func (x *ListPullRequestsResponse) GetNextPageToken() string {
 	return ""
 }
 
+type ListChecksRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The pull request whose checks to list, by the handle komrad keys it by.
+	PullRequestId string `protobuf:"bytes,1,opt,name=pull_request_id,json=pullRequestId,proto3" json:"pull_request_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListChecksRequest) Reset() {
+	*x = ListChecksRequest{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListChecksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListChecksRequest) ProtoMessage() {}
+
+func (x *ListChecksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListChecksRequest.ProtoReflect.Descriptor instead.
+func (*ListChecksRequest) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ListChecksRequest) GetPullRequestId() string {
+	if x != nil {
+		return x.PullRequestId
+	}
+	return ""
+}
+
+type ListChecksResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The head commit the checks were read on, empty when they have never been read.
+	HeadSha string `protobuf:"bytes,1,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
+	// When the forge was last asked about that head, in RFC 3339, unset when it never was.
+	ReadAt *string `protobuf:"bytes,2,opt,name=read_at,json=readAt,proto3,oneof" json:"read_at,omitempty"`
+	// The checks on that head, by kind, source and name.
+	Checks        []*Check `protobuf:"bytes,3,rep,name=checks,proto3" json:"checks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListChecksResponse) Reset() {
+	*x = ListChecksResponse{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListChecksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListChecksResponse) ProtoMessage() {}
+
+func (x *ListChecksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListChecksResponse.ProtoReflect.Descriptor instead.
+func (*ListChecksResponse) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListChecksResponse) GetHeadSha() string {
+	if x != nil {
+		return x.HeadSha
+	}
+	return ""
+}
+
+func (x *ListChecksResponse) GetReadAt() string {
+	if x != nil && x.ReadAt != nil {
+		return *x.ReadAt
+	}
+	return ""
+}
+
+func (x *ListChecksResponse) GetChecks() []*Check {
+	if x != nil {
+		return x.Checks
+	}
+	return nil
+}
+
+// Check is one check the forge listed on a pull request's head commit.
+type Check struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The forge's own stable identifier for the check.
+	ProviderId string `protobuf:"bytes,1,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	// What sort of check the forge reported.
+	Kind CheckKind `protobuf:"varint,2,opt,name=kind,proto3,enum=pullrequest.v1.CheckKind" json:"kind,omitempty"`
+	// The app or workflow that ran it.
+	Source string `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// The name the forge shows for it.
+	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	// How far along it is.
+	State CheckState `protobuf:"varint,5,opt,name=state,proto3,enum=pullrequest.v1.CheckState" json:"state,omitempty"`
+	// How it ended, as the forge words it, empty while it has not.
+	Conclusion string `protobuf:"bytes,6,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
+	// When it started, in RFC 3339, unset when the forge did not say.
+	StartedAt *string `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
+	// When it finished, in RFC 3339, unset while it has not.
+	FinishedAt *string `protobuf:"bytes,8,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
+	// Whether the pull request needs it to pass before it merges.
+	Required bool `protobuf:"varint,9,opt,name=required,proto3" json:"required,omitempty"`
+	// The web address a person opens to read it.
+	Url           string `protobuf:"bytes,10,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Check) Reset() {
+	*x = Check{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Check) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Check) ProtoMessage() {}
+
+func (x *Check) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Check.ProtoReflect.Descriptor instead.
+func (*Check) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Check) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+func (x *Check) GetKind() CheckKind {
+	if x != nil {
+		return x.Kind
+	}
+	return CheckKind_CHECK_KIND_UNSPECIFIED
+}
+
+func (x *Check) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *Check) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Check) GetState() CheckState {
+	if x != nil {
+		return x.State
+	}
+	return CheckState_CHECK_STATE_UNSPECIFIED
+}
+
+func (x *Check) GetConclusion() string {
+	if x != nil {
+		return x.Conclusion
+	}
+	return ""
+}
+
+func (x *Check) GetStartedAt() string {
+	if x != nil && x.StartedAt != nil {
+		return *x.StartedAt
+	}
+	return ""
+}
+
+func (x *Check) GetFinishedAt() string {
+	if x != nil && x.FinishedAt != nil {
+		return *x.FinishedAt
+	}
+	return ""
+}
+
+func (x *Check) GetRequired() bool {
+	if x != nil {
+		return x.Required
+	}
+	return false
+}
+
+func (x *Check) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
 var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
@@ -869,7 +1222,34 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token*\xf5\x03\n" +
+	"\x10_next_page_token\"D\n" +
+	"\x11ListChecksRequest\x12/\n" +
+	"\x0fpull_request_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rpullRequestId\"\x88\x01\n" +
+	"\x12ListChecksResponse\x12\x19\n" +
+	"\bhead_sha\x18\x01 \x01(\tR\aheadSha\x12\x1c\n" +
+	"\aread_at\x18\x02 \x01(\tH\x00R\x06readAt\x88\x01\x01\x12-\n" +
+	"\x06checks\x18\x03 \x03(\v2\x15.pullrequest.v1.CheckR\x06checksB\n" +
+	"\n" +
+	"\b_read_at\"\xec\x02\n" +
+	"\x05Check\x12\x1f\n" +
+	"\vprovider_id\x18\x01 \x01(\tR\n" +
+	"providerId\x12-\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x19.pullrequest.v1.CheckKindR\x04kind\x12\x16\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x120\n" +
+	"\x05state\x18\x05 \x01(\x0e2\x1a.pullrequest.v1.CheckStateR\x05state\x12\x1e\n" +
+	"\n" +
+	"conclusion\x18\x06 \x01(\tR\n" +
+	"conclusion\x12\"\n" +
+	"\n" +
+	"started_at\x18\a \x01(\tH\x00R\tstartedAt\x88\x01\x01\x12$\n" +
+	"\vfinished_at\x18\b \x01(\tH\x01R\n" +
+	"finishedAt\x88\x01\x01\x12\x1a\n" +
+	"\brequired\x18\t \x01(\bR\brequired\x12\x10\n" +
+	"\x03url\x18\n" +
+	" \x01(\tR\x03urlB\r\n" +
+	"\v_started_atB\x0e\n" +
+	"\f_finished_at*\xf5\x03\n" +
 	"\x10PullRequestState\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
@@ -907,9 +1287,23 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
 	"\x0eCHECKS_FAILING\x10\x04\x12\x1a\n" +
-	"\x16CHECKS_FAILING_RUNNING\x10\x052\xd8\x02\n" +
+	"\x16CHECKS_FAILING_RUNNING\x10\x05*q\n" +
+	"\tCheckKind\x12\x1a\n" +
+	"\x16CHECK_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14CHECK_KIND_CHECK_RUN\x10\x01\x12\x15\n" +
+	"\x11CHECK_KIND_STATUS\x10\x02\x12\x17\n" +
+	"\x13CHECK_KIND_PIPELINE\x10\x03*\x8e\x01\n" +
+	"\n" +
+	"CheckState\x12\x1b\n" +
+	"\x17CHECK_STATE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12CHECK_STATE_QUEUED\x10\x01\x12\x17\n" +
+	"\x13CHECK_STATE_RUNNING\x10\x02\x12\x17\n" +
+	"\x13CHECK_STATE_WAITING\x10\x03\x12\x19\n" +
+	"\x15CHECK_STATE_COMPLETED\x10\x042\xd8\x04\n" +
 	"\x12PullRequestService\x12\xc1\x02\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\xfd\x01\n" +
+	"\n" +
+	"ListChecks\x12!.pullrequest.v1.ListChecksRequest\x1a\".pullrequest.v1.ListChecksResponse\"\xa7\x01\x9a\xb5\x18\x9f\x01:\x9c\x01The check list is drawn for a person on the checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
@@ -923,35 +1317,45 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 	return file_pullrequest_v1_pullrequest_proto_rawDescData
 }
 
-var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
 	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
 	(ReviewDecision)(0),              // 2: pullrequest.v1.ReviewDecision
 	(Checks)(0),                      // 3: pullrequest.v1.Checks
-	(*ListPullRequestsRequest)(nil),  // 4: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),              // 5: pullrequest.v1.PullRequest
-	(*MergeReadiness)(nil),           // 6: pullrequest.v1.MergeReadiness
-	(*Repository)(nil),               // 7: pullrequest.v1.Repository
-	(*ListPullRequestsResponse)(nil), // 8: pullrequest.v1.ListPullRequestsResponse
-	(*v1.Pagination)(nil),            // 9: pagination.v1.Pagination
+	(CheckKind)(0),                   // 4: pullrequest.v1.CheckKind
+	(CheckState)(0),                  // 5: pullrequest.v1.CheckState
+	(*ListPullRequestsRequest)(nil),  // 6: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),              // 7: pullrequest.v1.PullRequest
+	(*MergeReadiness)(nil),           // 8: pullrequest.v1.MergeReadiness
+	(*Repository)(nil),               // 9: pullrequest.v1.Repository
+	(*ListPullRequestsResponse)(nil), // 10: pullrequest.v1.ListPullRequestsResponse
+	(*ListChecksRequest)(nil),        // 11: pullrequest.v1.ListChecksRequest
+	(*ListChecksResponse)(nil),       // 12: pullrequest.v1.ListChecksResponse
+	(*Check)(nil),                    // 13: pullrequest.v1.Check
+	(*v1.Pagination)(nil),            // 14: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	9, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	0, // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	6, // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
-	2, // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
-	3, // 4: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
-	1, // 5: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
-	5, // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	4, // 7: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	8, // 8: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	8, // [8:9] is the sub-list for method output_type
-	7, // [7:8] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	14, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
+	8,  // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
+	2,  // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
+	3,  // 4: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
+	1,  // 5: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
+	7,  // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	13, // 7: pullrequest.v1.ListChecksResponse.checks:type_name -> pullrequest.v1.Check
+	4,  // 8: pullrequest.v1.Check.kind:type_name -> pullrequest.v1.CheckKind
+	5,  // 9: pullrequest.v1.Check.state:type_name -> pullrequest.v1.CheckState
+	6,  // 10: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	11, // 11: pullrequest.v1.PullRequestService.ListChecks:input_type -> pullrequest.v1.ListChecksRequest
+	10, // 12: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	12, // 13: pullrequest.v1.PullRequestService.ListChecks:output_type -> pullrequest.v1.ListChecksResponse
+	12, // [12:14] is the sub-list for method output_type
+	10, // [10:12] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -962,13 +1366,15 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[4].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[6].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   5,
+			NumEnums:      6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
