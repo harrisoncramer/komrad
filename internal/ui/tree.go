@@ -636,20 +636,31 @@ func (l *listing) assemble(now time.Time) {
 	l.documentTypes = documentTypesFrom(l.world.DocumentTypes)
 }
 
-// revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.
+// revealAgent puts the cursor on an agent, showing the hidden rows when it needs them.
 func (a *agentsScreen) revealAgent(m *model, id string) {
 	if a.hoveredAgentID(m) == id {
 		return
 	}
 
-	for _, item := range m.listing.agents {
-		if item.Agent.ID == id && item.Agent.Hidden {
-			a.showHidden = true
-		}
-	}
+	a.showHiddenFor(m, id)
 
 	rows := a.rows(m)
 	if idx := rowIndexOfKey(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
 		a.cursor = idx
+	}
+}
+
+// showHiddenFor shows the hidden agents when the agent or its parent is hidden.
+func (a *agentsScreen) showHiddenFor(m *model, id string) {
+	byID := keyAgentsByID(m.listing.agents)
+	agent := byID[id].Agent
+	if agent.Hidden {
+		a.showHidden = true
+
+		return
+	}
+
+	if agent.ParentAgentID != nil && byID[*agent.ParentAgentID].Agent.Hidden {
+		a.showHidden = true
 	}
 }

@@ -506,6 +506,8 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 	default:
 		cmds = append(cmds, m.enterScreen(screenAgents))
 
+		m.agents.showHiddenFor(m, result.written.agent)
+
 		rows := m.agents.rows(m)
 		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); !result.keyMoved && rowIndexOfKey(rows, key) >= 0 {
 			m.agents.apply(m, key)
