@@ -294,12 +294,7 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	}
 
 	lines = lines[:min(len(lines), max(window.Height, 0))]
-	if header, ok := p.view.getStickyHeader(start); ok && p.cursor != start && len(lines) > 0 {
-		lines[0] = p.view.renderRow(header, noCursor, window.Width, 0)
-		for i := 1; i < min(p.view.measureRow(start, window), len(lines)); i++ {
-			lines[i] = strings.Repeat(" ", window.Width)
-		}
-	}
+	p.coverWithHeader(lines, start, window)
 
 	for len(lines) < window.Height {
 		lines = append(lines, strings.Repeat(" ", window.Width))
@@ -353,4 +348,17 @@ func (p *Pane) countLines(start, end int, window Window) int {
 	}
 
 	return lines
+}
+
+// coverWithHeader draws the header of the file the window starts inside over the window's first row.
+func (p *Pane) coverWithHeader(lines []string, start int, window Window) {
+	header, ok := p.view.findFileHeader(start)
+	if !ok || p.cursor == start || len(lines) == 0 {
+		return
+	}
+
+	lines[0] = p.view.renderRow(header, noCursor, window.Width, 0)
+	for i := 1; i < min(p.view.measureRow(start, window), len(lines)); i++ {
+		lines[i] = strings.Repeat(" ", window.Width)
+	}
 }
