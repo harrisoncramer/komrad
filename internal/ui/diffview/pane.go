@@ -296,6 +296,9 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	lines = lines[:min(len(lines), max(window.Height, 0))]
 	if header, ok := p.view.getStickyHeader(start); ok && p.cursor != start && len(lines) > 0 {
 		lines[0] = p.view.renderRow(header, noCursor, window.Width, 0)
+		for i := 1; i < min(p.view.measureRow(start, window), len(lines)); i++ {
+			lines[i] = strings.Repeat(" ", window.Width)
+		}
 	}
 
 	for len(lines) < window.Height {
