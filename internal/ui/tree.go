@@ -650,18 +650,17 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 	}
 }
 
-// showHiddenFor shows the hidden agents when the agent, or one it is drawn under, is one of them.
+// showHiddenFor shows the hidden agents when the agent or its parent is hidden.
 func (a *agentsScreen) showHiddenFor(m *model, id string) {
 	byID := keyAgentsByID(m.listing.agents)
-	for item, ok := byID[id]; ok; {
-		if item.Agent.Hidden {
-			a.showHidden = true
+	agent := byID[id].Agent
+	if agent.Hidden {
+		a.showHidden = true
 
-			return
-		}
-		if item.Agent.ParentAgentID == nil {
-			return
-		}
-		item, ok = byID[*item.Agent.ParentAgentID]
+		return
+	}
+
+	if agent.ParentAgentID != nil && byID[*agent.ParentAgentID].Agent.Hidden {
+		a.showHidden = true
 	}
 }
