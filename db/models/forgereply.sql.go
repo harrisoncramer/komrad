@@ -127,7 +127,7 @@ func (q *Queries) GetForgeReplyTarget(ctx context.Context, threadID string) (*Ge
 	return &i, err
 }
 
-const insertHumanForgeReply = `-- name: InsertHumanForgeReply :one
+const insertForgeReply = `-- name: InsertForgeReply :one
 INSERT INTO review_forge_replies(
     thread_id,
     state,
@@ -151,13 +151,13 @@ RETURNING
     id, thread_id, state, author_kind, author_agent_id, proposed_body, body, approver_kind, approved_at, sending_started_at, sent_at, forge_comment_provider_id, error, created_at, updated_at, engine_id
 `
 
-type InsertHumanForgeReplyParams struct {
+type InsertForgeReplyParams struct {
 	Body     string
 	ThreadID string
 }
 
-func (q *Queries) InsertHumanForgeReply(ctx context.Context, arg InsertHumanForgeReplyParams) (*ReviewForgeReply, error) {
-	row := q.db.QueryRow(ctx, insertHumanForgeReply, arg.Body, arg.ThreadID)
+func (q *Queries) InsertForgeReply(ctx context.Context, arg InsertForgeReplyParams) (*ReviewForgeReply, error) {
+	row := q.db.QueryRow(ctx, insertForgeReply, arg.Body, arg.ThreadID)
 	var i ReviewForgeReply
 	err := row.Scan(
 		&i.ID,

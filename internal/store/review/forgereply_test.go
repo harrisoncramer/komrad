@@ -84,7 +84,7 @@ func (st *fixture) writeIn(t *testing.T, threads replyThreads, state ForgeReplyS
 	t.Helper()
 	ctx := t.Context()
 
-	reply, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "mine")
+	reply, err := st.CreateForgeReply(ctx, threads.mirrored, "mine")
 	require.NoError(t, err)
 	steps := map[ForgeReplyState]func() (*ForgeReply, error){
 		ForgeReplySending: func() (*ForgeReply, error) { return st.BeginForgeReplySend(ctx, reply.ID) },
@@ -191,7 +191,7 @@ func TestForgeReplyRecords(t *testing.T) {
 		{
 			name: "the person's own reply is approved as it is written",
 			reach: func(t *testing.T, st *fixture, threads replyThreads) *ForgeReply {
-				reply, err := st.CreateHumanForgeReply(t.Context(), threads.mirrored, "mine")
+				reply, err := st.CreateForgeReply(t.Context(), threads.mirrored, "mine")
 				require.NoError(t, err)
 
 				return reply
@@ -268,7 +268,7 @@ func TestForgeReplyThreads(t *testing.T) {
 		{
 			name: "the person cannot reply on a thread opened in komrad",
 			write: func(t *testing.T, st *fixture, threads replyThreads) error {
-				_, err := st.CreateHumanForgeReply(t.Context(), threads.local, "hi")
+				_, err := st.CreateForgeReply(t.Context(), threads.local, "hi")
 
 				return err
 			},
@@ -277,7 +277,7 @@ func TestForgeReplyThreads(t *testing.T) {
 		{
 			name: "a thread that does not exist takes no reply",
 			write: func(t *testing.T, st *fixture, _ replyThreads) error {
-				_, err := st.CreateHumanForgeReply(t.Context(), "01a10000-0000-7000-8000-000000000000", "hi")
+				_, err := st.CreateForgeReply(t.Context(), "01a10000-0000-7000-8000-000000000000", "hi")
 
 				return err
 			},
@@ -344,9 +344,9 @@ func TestListForgeReplies(t *testing.T) {
 	threads := st.seedReplyThreads(t)
 
 	sending := st.writeIn(t, threads, ForgeReplySending)
-	written, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "mine")
+	written, err := st.CreateForgeReply(ctx, threads.mirrored, "mine")
 	require.NoError(t, err)
-	draft, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "proposed")
+	draft, err := st.CreateForgeReply(ctx, threads.mirrored, "proposed")
 	require.NoError(t, err)
 	_, err = st.pool.Exec(ctx, `UPDATE review_forge_replies
 		SET state = 'draft', author_kind = 'agent', author_agent_id = $2, proposed_body = body, approver_kind = NULL, approved_at = NULL
@@ -487,7 +487,7 @@ func TestForgeReplyEchoGuard(t *testing.T) {
 	threads := st.seedReplyThreads(t)
 
 	st.writeIn(t, threads, ForgeReplySent)
-	written, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "mine")
+	written, err := st.CreateForgeReply(ctx, threads.mirrored, "mine")
 	require.NoError(t, err)
 	_, err = st.BeginForgeReplySend(ctx, written.ID)
 	require.NoError(t, err)

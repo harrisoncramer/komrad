@@ -62,7 +62,7 @@ func (s *ForgeReplyService) ReplyOnForge(ctx context.Context, params ReplyOnForg
 		return nil, ErrReviewHumanOnly
 	}
 
-	reply, err := s.reviews.CreateHumanForgeReply(ctx, params.ThreadID, params.Body)
+	reply, err := s.reviews.CreateForgeReply(ctx, params.ThreadID, params.Body)
 	if err != nil {
 		return nil, err
 	}

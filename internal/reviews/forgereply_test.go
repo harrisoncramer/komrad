@@ -325,7 +325,7 @@ func TestReconcilingForgeReplies(t *testing.T) {
 				fx.hosts.connection.Method = tt.method
 			}
 
-			reply, err := fx.reviews.CreateHumanForgeReply(t.Context(), fx.threadID, "done")
+			reply, err := fx.reviews.CreateForgeReply(t.Context(), fx.threadID, "done")
 			require.NoError(t, err)
 			_, err = fx.reviews.BeginForgeReplySend(t.Context(), reply.ID)
 			require.NoError(t, err)

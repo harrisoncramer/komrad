@@ -1,4 +1,4 @@
--- name: InsertHumanForgeReply :one
+-- name: InsertForgeReply :one
 INSERT INTO review_forge_replies(
     thread_id,
     state,

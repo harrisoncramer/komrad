@@ -56,13 +56,13 @@ type ForgeReplyTarget struct {
 	Number        int
 }
 
-// CreateHumanForgeReply records the person's own reply, approved as it is written.
-func (s *ReviewStore) CreateHumanForgeReply(ctx context.Context, threadID, body string) (*ForgeReply, error) {
+// CreateForgeReply records the person's reply, ready to post.
+func (s *ReviewStore) CreateForgeReply(ctx context.Context, threadID, body string) (*ForgeReply, error) {
 	if !store.IsID(threadID) {
 		return nil, notMirrored(threadID)
 	}
 
-	row, err := s.queries.InsertHumanForgeReply(ctx, models.InsertHumanForgeReplyParams{
+	row, err := s.queries.InsertForgeReply(ctx, models.InsertForgeReplyParams{
 		ThreadID: threadID,
 		Body:     body,
 	})
