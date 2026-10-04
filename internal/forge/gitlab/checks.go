@@ -1,11 +1,45 @@
 package gitlab
 
-import "komrad/internal/forge"
+import (
+	"net/url"
+	"strings"
+	"time"
+
+	"komrad/internal/forge"
+)
+
+// The pipeline statuses GitLab documents.
+const (
+	pipelineCreated            = "CREATED"
+	pipelineWaitingForResource = "WAITING_FOR_RESOURCE"
+	pipelinePreparing          = "PREPARING"
+	pipelineWaitingForCallback = "WAITING_FOR_CALLBACK"
+	pipelinePending            = "PENDING"
+	pipelineRunning            = "RUNNING"
+	pipelineSuccess            = "SUCCESS"
+	pipelineFailed             = "FAILED"
+	pipelineCanceling          = "CANCELING"
+	pipelineCanceled           = "CANCELED"
+	pipelineSkipped            = "SKIPPED"
+	pipelineManual             = "MANUAL"
+	pipelineScheduled          = "SCHEDULED"
+)
+
+// The merge request events GitLab says a pipeline ran for.
+const (
+	pipelineEventDetached     = "DETACHED"
+	pipelineEventMergedResult = "MERGED_RESULT"
+	pipelineEventMergeTrain   = "MERGE_TRAIN"
+)
 
 type pipelineNode struct {
-	Sha                   string `json:"sha"`
-	Status                string `json:"status"`
-	MergeRequestEventType string `json:"mergeRequestEventType"`
+	ID                    string     `json:"id"`
+	Sha                   string     `json:"sha"`
+	Status                string     `json:"status"`
+	MergeRequestEventType string     `json:"mergeRequestEventType"`
+	Path                  string     `json:"path"`
+	StartedAt             *time.Time `json:"startedAt"`
+	FinishedAt            *time.Time `json:"finishedAt"`
 }
 
 // isOn says whether the pipeline ran on sha, trusting GitLab for a merged-results pipeline whose
@@ -16,27 +50,53 @@ func (p *pipelineNode) isOn(sha string) bool {
 	}
 
 	switch p.MergeRequestEventType {
-	case "MERGED_RESULT", "MERGE_TRAIN":
+	case pipelineEventMergedResult, pipelineEventMergeTrain:
 		return true
 	}
 
 	return p.Sha == sha
 }
 
-// checks is the head pipeline's status in komrad's words, none for a pipeline on another commit.
-func (n mergeReadinessNode) checks() forge.Checks {
+// listing is the head pipeline as the one required check on the merge request, none for a pipeline
+// on another commit or one that says nothing about the branch.
+func (n mergeRequestNode) listing() *forge.CheckListing {
+	listing := &forge.CheckListing{}
 	if !n.HeadPipeline.isOn(n.DiffHeadSha) {
-		return forge.ChecksNone
+		return listing
 	}
 
-	switch n.HeadPipeline.Status {
-	case "SUCCESS":
-		return forge.ChecksPassing
-	case "FAILED", "CANCELED", "CANCELING":
-		return forge.ChecksFailing
-	case "CREATED", "WAITING_FOR_RESOURCE", "PREPARING", "WAITING_FOR_CALLBACK", "PENDING", "RUNNING", "SCHEDULED":
-		return forge.ChecksPending
+	pipeline := n.HeadPipeline
+	check := forge.Check{
+		ProviderID: strings.TrimPrefix(pipeline.ID, "gid://gitlab/Ci::Pipeline/"),
+		Kind:       forge.CheckKindPipeline,
+		Name:       "pipeline",
+		StartedAt:  pipeline.StartedAt,
+		Required:   true,
+		URL:        n.pageOf(pipeline.Path),
+	}
+	switch pipeline.Status {
+	case pipelineSuccess, pipelineFailed, pipelineCanceled, pipelineCanceling:
+		check.State = forge.CheckStateCompleted
+		check.Conclusion = strings.ToLower(pipeline.Status)
+		check.FinishedAt = pipeline.FinishedAt
+	case pipelineRunning, pipelineWaitingForCallback:
+		check.State = forge.CheckStateRunning
+	case pipelineCreated, pipelineWaitingForResource, pipelinePreparing, pipelinePending, pipelineScheduled:
+		check.State = forge.CheckStateQueued
+	default:
+		return listing
+	}
+	listing.Checks = []forge.Check{check}
+
+	return listing
+}
+
+// pageOf is the page at path on the merge request's GitLab host, empty when GitLab gave no path.
+func (n mergeRequestNode) pageOf(path string) string {
+	page, err := url.Parse(n.WebURL)
+	if path == "" || err != nil {
+		return ""
 	}
 
-	return forge.ChecksNone
+	return page.ResolveReference(&url.URL{Path: path}).String()
 }

@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
@@ -10,15 +11,11 @@ import (
 // maxPerPage is the most GitLab hands over in one page, above which it silently trims.
 const maxPerPage = 100
 
-const listQuery = `query List($path: ID!, $first: Int!, $after: String, $branches: [String!], $state: MergeRequestState) {
-  project(fullPath: $path) {
-    mergeRequests(sourceBranches: $branches, state: $state, sort: CREATED_DESC, first: $first, after: $after) {
-      pageInfo { hasNextPage endCursor }
-      nodes { ...mergeRequestFields }
-    }
-  }
-}
-` + mergeRequestFragment
+//go:embed list.gql
+var listOperation string
+
+// listQuery is List with the fragment it spreads.
+var listQuery = listOperation + mergeRequestFragment
 
 // List is one page of the project's merge requests, every one from the named branch or the
 // open ones when no branch is named, and where the next page starts.

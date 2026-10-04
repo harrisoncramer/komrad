@@ -1,0 +1,13 @@
+query List($path: ID!, $first: Int!, $after: String, $branches: [String!], $state: MergeRequestState) {
+  project(fullPath: $path) {
+    mergeRequests(sourceBranches: $branches, state: $state, sort: CREATED_DESC, first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        ...mergeRequestFields
+      }
+    }
+  }
+}

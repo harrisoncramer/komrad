@@ -1,0 +1,15 @@
+query RereviewTarget($path: ID!, $iid: String!) {
+  project(fullPath: $path) {
+    mergeRequest(iid: $iid) {
+      state
+      reviewers {
+        nodes {
+          id
+          mergeRequestInteraction {
+            reviewState
+          }
+        }
+      }
+    }
+  }
+}

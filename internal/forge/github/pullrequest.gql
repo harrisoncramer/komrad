@@ -1,0 +1,26 @@
+fragment pullRequestFields on PullRequest {
+  id
+  number
+  title
+  body
+  author {
+    login
+  }
+  url
+  state
+  isDraft
+  createdAt
+  updatedAt
+  mergedAt
+  closedAt
+  headRefName
+  headRefOid
+  baseRefName
+  baseRefOid
+  headRepository {
+    url
+  }
+  baseRepository {
+    url
+  }
+}

@@ -1,0 +1,49 @@
+query ReviewThreads($path: ID!, $iid: String!, $after: String) {
+  project(fullPath: $path) {
+    mergeRequest(iid: $iid) {
+      discussions(first: 100, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          resolved
+          truncatedDiffLines {
+            text
+          }
+          notes(first: 100) {
+            pageInfo {
+              hasNextPage
+            }
+            nodes {
+              id
+              system
+              internal
+              body
+              createdAt
+              lastEditedAt
+              lastEditedBy {
+                username
+              }
+              url
+              author {
+                username
+                bot
+              }
+              position {
+                positionType
+                filePath
+                oldLine
+                newLine
+                diffRefs {
+                  headSha
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

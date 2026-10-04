@@ -53,6 +53,8 @@ type PullRequest struct {
 	// MergeReadiness is what komrad remembers of where the forge said the reviews, checks,
 	// mergeability and auto-merge stand.
 	MergeReadiness forge.RememberedMergeReadiness
+	// HeadChecks is every check stored on the latest read head.
+	HeadChecks []forge.Check
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -75,6 +77,8 @@ type outcome struct {
 type MergeReadinessChange struct {
 	Before forge.RememberedMergeReadiness
 	After  forge.RememberedMergeReadiness
+	// HeadChecks is every check stored on the latest read head after the read.
+	HeadChecks []forge.Check
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -167,9 +171,7 @@ func (s *PullRequestStore) GetByIdentity(ctx context.Context, host, providerID s
 		return nil, fmt.Errorf("failed to get pull request %s on %s: %w", providerID, host, err)
 	}
 
-	pullRequest := fromRow(row)
-
-	return &pullRequest, nil
+	return s.withOneMergeReadiness(ctx, row)
 }
 
 // Cursor is where a page of pull requests left off: whether the last was finished, when it
@@ -216,7 +218,7 @@ func (s *PullRequestStore) ListPage(ctx context.Context, params ListPageParams) 
 		return nil, fmt.Errorf("failed to list a page of the pull requests of %s: %w", params.RepositoryURL, err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return s.withMergeReadiness(ctx, rows)
 }
 
 // SetMergeReadinessParams is one read of a pull request's merge readiness.
@@ -238,13 +240,59 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		return nil, fmt.Errorf("failed to lock pull request %s to record its merge readiness: %w", params.ID, err)
 	}
 
-	before := rememberedMergeReadinessOf(row)
+	readBefore, err := latestReadings(ctx, s.queries, []string{params.ID})
+	if err != nil {
+		return nil, err
+	}
+	before := rememberedMergeReadinessOf(row, readBefore[params.ID])
+
+	if listing := params.MergeReadiness.Listing; listing != nil {
+		if err := setChecks(ctx, s.queries, SetChecksParams{
+			PullRequestID: params.ID,
+			HeadSHA:       params.HeadSHA,
+			Checks:        listing.Checks,
+			Truncated:     listing.Truncated,
+			ReadAt:        params.ReadAt,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	readAfter, err := latestReadings(ctx, s.queries, []string{params.ID})
+	if err != nil {
+		return nil, err
+	}
 	after := before.RememberRead(params.MergeReadiness, params.HeadSHA, params.ReadAt)
+	after.Checks = rememberedChecksOf(readAfter[params.ID])
 	if err := s.queries.WriteMergeReadiness(ctx, toWriteMergeReadiness(params.ID, after)); err != nil {
 		return nil, fmt.Errorf("failed to record the merge readiness of pull request %s: %w", params.ID, err)
 	}
 
-	return &MergeReadinessChange{Before: before, After: after}, nil
+	return &MergeReadinessChange{
+		Before:     before,
+		After:      after,
+		HeadChecks: readAfter[params.ID].Checks,
+	}, nil
+}
+
+// withOneMergeReadiness is the row as a pull request, its checks rolled up from the latest reading of them.
+func (s *PullRequestStore) withOneMergeReadiness(ctx context.Context, row *models.PullRequest) (*PullRequest, error) {
+	pullRequests, err := s.withMergeReadiness(ctx, []*models.PullRequest{row})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pullRequests[0], nil
+}
+
+// withMergeReadiness is each row as a pull request, its checks rolled up from the latest reading of them.
+func (s *PullRequestStore) withMergeReadiness(ctx context.Context, rows []*models.PullRequest) ([]PullRequest, error) {
+	readings, err := latestReadings(ctx, s.queries, xslice.Map(rows, func(row *models.PullRequest) string { return row.ID }))
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(rows, func(row *models.PullRequest) PullRequest { return fromRow(row, readings[row.ID]) }), nil
 }
 
 // Observe records every agent not being deleted beside every stored pull request opened from
@@ -298,7 +346,7 @@ func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, 
 	return repositories, nil
 }
 
-func fromRow(row *models.PullRequest) PullRequest {
+func fromRow(row *models.PullRequest, checks checkReading) PullRequest {
 	return PullRequest{
 		ID:                row.ID,
 		Host:              row.Host,
@@ -322,22 +370,19 @@ func fromRow(row *models.PullRequest) PullRequest {
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
-		MergeReadiness:    rememberedMergeReadinessOf(row),
+		MergeReadiness:    rememberedMergeReadinessOf(row, checks),
+		HeadChecks:        checks.Checks,
 	}
 }
 
-func rememberedMergeReadinessOf(row *models.PullRequest) forge.RememberedMergeReadiness {
+func rememberedMergeReadinessOf(row *models.PullRequest, checks checkReading) forge.RememberedMergeReadiness {
 	wasRead := row.LatestHeadSha != nil
 	readiness := forge.RememberedMergeReadiness{
 		Decision: forge.RememberedAnswer[forge.ReviewDecision]{
 			Value:              forge.ReviewDecision(xptr.Deref(row.KnownDecision)),
 			WasLatestReadBlank: wasRead && row.LatestDecision == nil,
 		},
-		Checks: forge.RememberedAnswer[forge.Checks]{
-			Value:              forge.Checks(xptr.Deref(row.KnownChecks)),
-			HeadSHA:            xptr.Deref(row.KnownChecksSha),
-			WasLatestReadBlank: wasRead && row.LatestChecks == nil,
-		},
+		Checks: rememberedChecksOf(checks),
 		Mergeability: forge.RememberedAnswer[forge.Mergeability]{
 			Value:              forge.Mergeability(xptr.Deref(row.KnownMergeability)),
 			HeadSHA:            xptr.Deref(row.KnownMergeabilitySha),
@@ -357,11 +402,8 @@ func toWriteMergeReadiness(id string, readiness forge.RememberedMergeReadiness) 
 	params := models.WriteMergeReadinessParams{
 		ID:                     id,
 		LatestDecision:         latestReadOf(readiness.Decision),
-		LatestChecks:           latestReadOf(readiness.Checks),
 		LatestMergeability:     latestReadOf(readiness.Mergeability),
 		LatestHeadSha:          &readiness.LatestReadHeadSHA,
-		KnownChecks:            xptr.NonEmpty(string(readiness.Checks.Value)),
-		KnownChecksSha:         xptr.NonEmpty(readiness.Checks.HeadSHA),
 		KnownMergeability:      xptr.NonEmpty(string(readiness.Mergeability.Value)),
 		KnownMergeabilitySha:   xptr.NonEmpty(readiness.Mergeability.HeadSHA),
 		MergeabilityBlankSince: readiness.MergeabilityBlankSince,
@@ -397,9 +439,7 @@ func (s *PullRequestStore) GetByID(ctx context.Context, id string) (*PullRequest
 		return nil, fmt.Errorf("failed to get pull request %s: %w", id, err)
 	}
 
-	pullRequest := fromRow(row)
-
-	return &pullRequest, nil
+	return s.withOneMergeReadiness(ctx, row)
 }
 
 // ListRecipients is every live agent, children aside, whose checkout is on a pull request's

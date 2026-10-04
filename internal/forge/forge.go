@@ -111,8 +111,7 @@ const (
 	ReviewDecisionRereviewRequested ReviewDecision = "rereview_requested"
 )
 
-// Checks is where a forge says the checks on a pull request's head commit stand, in komrad's
-// own words.
+// Checks is where the checks on a pull request's head commit stand, in komrad's own words.
 type Checks string
 
 const (
@@ -137,6 +136,8 @@ const (
 	CheckKindRun CheckKind = "check_run"
 	// CheckKindStatus is an old-style commit status.
 	CheckKindStatus CheckKind = "status"
+	// CheckKindPipeline is a GitLab pipeline, standing as the one required check on a merge request.
+	CheckKindPipeline CheckKind = "pipeline"
 )
 
 // CheckState is where one check stands, in komrad's own words.
@@ -155,7 +156,7 @@ const (
 
 // Check is one check a forge listed on a pull request's head commit.
 type Check struct {
-	// ProviderID is the forge's own identifier for the check run or commit status.
+	// ProviderID is the forge's own identifier for the check run, commit status or pipeline.
 	ProviderID string
 	Kind       CheckKind
 	// Source is the workflow that ran the check, or the app when no workflow did, empty for a status.
@@ -203,7 +204,6 @@ const (
 // auto-merge.
 type MergeReadiness struct {
 	Decision     ReviewDecision
-	Checks       Checks
 	Mergeability Mergeability
 	AutoMerge    AutoMerge
 	// Listing is every check on the head commit, nil when the forge does not list them.

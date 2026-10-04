@@ -115,6 +115,47 @@ func (q *Queries) ListChecksOfReadings(ctx context.Context, readingIds []string)
 	return items, nil
 }
 
+const listLatestCheckReadings = `-- name: ListLatestCheckReadings :many
+SELECT DISTINCT ON (r.pull_request_id)
+    id, pull_request_id, head_sha, blank, first_read_at, read_at, engine_id
+FROM
+    pull_request_check_readings r
+WHERE
+    r.pull_request_id = ANY ($1::uuid[])
+ORDER BY
+    r.pull_request_id,
+    r.read_at DESC,
+    r.id DESC
+`
+
+func (q *Queries) ListLatestCheckReadings(ctx context.Context, pullRequestIds []string) ([]*PullRequestCheckReading, error) {
+	rows, err := q.db.Query(ctx, listLatestCheckReadings, pullRequestIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequestCheckReading
+	for rows.Next() {
+		var i PullRequestCheckReading
+		if err := rows.Scan(
+			&i.ID,
+			&i.PullRequestID,
+			&i.HeadSha,
+			&i.Blank,
+			&i.FirstReadAt,
+			&i.ReadAt,
+			&i.EngineID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordCheckReading = `-- name: RecordCheckReading :one
 INSERT INTO pull_request_check_readings(
     pull_request_id,

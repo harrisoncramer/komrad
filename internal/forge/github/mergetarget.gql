@@ -1,0 +1,9 @@
+query MergeTarget($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    viewerDefaultMergeMethod
+    pullRequest(number: $number) {
+      id
+      state
+    }
+  }
+}

@@ -14,8 +14,24 @@ func TestSetDraft(t *testing.T) {
 	t.Parallel()
 
 	const address = "https://github.com/harrisoncramer/komrad/pull/742"
-	open := answer{body: data(`{"repository":{"pullRequest":{"id":"PR_742","state":"OPEN","isDraft":false}}}`)}
-	drafted := answer{body: data(`{"repository":{"pullRequest":{"id":"PR_742","state":"OPEN","isDraft":true}}}`)}
+	open := answer{body: data(`{
+	"repository": {
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "OPEN",
+			"isDraft": false
+		}
+	}
+}`)}
+	drafted := answer{body: data(`{
+	"repository": {
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "OPEN",
+			"isDraft": true
+		}
+	}
+}`)}
 
 	tests := []struct {
 		name          string
@@ -25,14 +41,22 @@ func TestSetDraft(t *testing.T) {
 		wantOperation string
 	}{
 		{
-			name:          "an open pull request is converted to a draft",
-			draft:         true,
-			answers:       map[string]answer{"DraftTarget": open, "ConvertToDraft": {body: data(`{"convertPullRequestToDraft":{"clientMutationId":null}}`)}},
+			name:  "an open pull request is converted to a draft",
+			draft: true,
+			answers: map[string]answer{"DraftTarget": open, "ConvertToDraft": {body: data(`{
+	"convertPullRequestToDraft": {
+		"clientMutationId": null
+	}
+}`)}},
 			wantOperation: "ConvertToDraft",
 		},
 		{
-			name:          "a draft is marked ready for review",
-			answers:       map[string]answer{"DraftTarget": drafted, "MarkReady": {body: data(`{"markPullRequestReadyForReview":{"clientMutationId":null}}`)}},
+			name: "a draft is marked ready for review",
+			answers: map[string]answer{"DraftTarget": drafted, "MarkReady": {body: data(`{
+	"markPullRequestReadyForReview": {
+		"clientMutationId": null
+	}
+}`)}},
 			wantOperation: "MarkReady",
 		},
 		{
@@ -42,17 +66,38 @@ func TestSetDraft(t *testing.T) {
 			wantOperation: "DraftTarget",
 		},
 		{
-			name:    "a merged pull request is refused before github is asked to change it",
-			draft:   true,
-			answers: map[string]answer{"DraftTarget": {body: data(`{"repository":{"pullRequest":{"id":"PR_742","state":"MERGED","isDraft":false}}}`)}},
+			name:  "a merged pull request is refused before github is asked to change it",
+			draft: true,
+			answers: map[string]answer{"DraftTarget": {body: data(`{
+	"repository": {
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "MERGED",
+			"isDraft": false
+		}
+	}
+}`)}},
 			wantErr: forge.ErrNotDraftable,
 		},
 		{
 			name:  "a pull request github will not convert",
 			draft: true,
 			answers: map[string]answer{
-				"DraftTarget":    open,
-				"ConvertToDraft": {body: `{"data":{"convertPullRequestToDraft":null},"errors":[{"type":"UNPROCESSABLE","path":["convertPullRequestToDraft"],"message":"Draft pull requests are not supported in this repository"}]}`},
+				"DraftTarget": open,
+				"ConvertToDraft": {body: `{
+	"data": {
+		"convertPullRequestToDraft": null
+	},
+	"errors": [
+		{
+			"type": "UNPROCESSABLE",
+			"path": [
+				"convertPullRequestToDraft"
+			],
+			"message": "Draft pull requests are not supported in this repository"
+		}
+	]
+}`},
 			},
 			wantErr: forge.ErrNotDraftable,
 		},
@@ -60,14 +105,31 @@ func TestSetDraft(t *testing.T) {
 			name:  "a credential github will not let change the pull request",
 			draft: true,
 			answers: map[string]answer{
-				"DraftTarget":    open,
-				"ConvertToDraft": {body: `{"data":{"convertPullRequestToDraft":null},"errors":[{"type":"FORBIDDEN","path":["convertPullRequestToDraft"],"message":"Resource not accessible by integration"}]}`},
+				"DraftTarget": open,
+				"ConvertToDraft": {body: `{
+	"data": {
+		"convertPullRequestToDraft": null
+	},
+	"errors": [
+		{
+			"type": "FORBIDDEN",
+			"path": [
+				"convertPullRequestToDraft"
+			],
+			"message": "Resource not accessible by integration"
+		}
+	]
+}`},
 			},
 			wantErr: forge.ErrUnauthorized,
 		},
 		{
-			name:    "a pull request github does not have",
-			answers: map[string]answer{"DraftTarget": {body: data(`{"repository":{"pullRequest":null}}`)}},
+			name: "a pull request github does not have",
+			answers: map[string]answer{"DraftTarget": {body: data(`{
+	"repository": {
+		"pullRequest": null
+	}
+}`)}},
 			wantErr: forge.ErrNotFound,
 		},
 	}

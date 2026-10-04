@@ -1,0 +1,28 @@
+fragment mergeRequestFields on MergeRequest {
+  id
+  iid
+  title
+  description
+  author {
+    username
+  }
+  webUrl
+  state
+  draft
+  createdAt
+  updatedAt
+  mergedAt
+  closedAt
+  sourceBranch
+  targetBranch
+  diffHeadSha
+  sourceProject {
+    webUrl
+  }
+  targetProject {
+    webUrl
+  }
+  diffRefs {
+    baseSha
+  }
+}

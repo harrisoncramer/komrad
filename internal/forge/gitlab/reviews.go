@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,13 +13,11 @@ import (
 // reviewStateRequestedChanges is the reviewer state GitLab records when one asks for changes.
 const reviewStateRequestedChanges = "REQUESTED_CHANGES"
 
-const rereviewTargetQuery = `query RereviewTarget($path: ID!, $iid: String!) {
-  project(fullPath: $path) { mergeRequest(iid: $iid) { state reviewers { nodes { id mergeRequestInteraction { reviewState } } } } }
-}`
+//go:embed rereviewtarget.gql
+var rereviewTargetQuery string
 
-const rereviewMutation = `mutation Rereview($path: ID!, $iid: String!, $user: UserID!) {
-  mergeRequestReviewerRereview(input: {projectPath: $path, iid: $iid, userId: $user}) { errors }
-}`
+//go:embed rereview.gql
+var rereviewMutation string
 
 // RequestRereview asks every reviewer GitLab records as requesting changes on the merge request
 // to review it again.

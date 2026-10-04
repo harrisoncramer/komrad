@@ -48,9 +48,9 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 	for i, branch := range branches {
 		variables["b"+strconv.Itoa(i)] = branch
 		fmt.Fprintf(&declared, ", $b%d: String!", i)
-		fmt.Fprintf(&fields, "\n    b%d: pullRequests(headRefName: $b%d, first: %d, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields %s } }", i, i, pullRequestsPerBranch, mergeReadinessFields)
+		fmt.Fprintf(&fields, "\n    b%d: pullRequests(headRefName: $b%d, first: %d, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields ...mergeReadinessFields } }", i, i, pullRequestsPerBranch)
 	}
-	operation := "query ReadBranches($owner: String!, $name: String!" + declared.String() + ") {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}\n" + pullRequestFragment
+	operation := "query ReadBranches($owner: String!, $name: String!" + declared.String() + ") {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}\n" + pullRequestFragment + mergeReadinessFragment
 
 	var data struct {
 		Repository map[string]*graphql.Nodes[pullRequestNode] `json:"repository"`

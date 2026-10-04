@@ -1,0 +1,27 @@
+fragment mergeReadinessFields on PullRequest {
+  reviewDecision
+  latestOpinionatedReviews(first: 50, writersOnly: true) {
+    nodes {
+      state
+      author {
+        ... on User {
+          login
+        }
+      }
+    }
+  }
+  reviewRequests(first: 50) {
+    nodes {
+      requestedReviewer {
+        ... on User {
+          login
+        }
+      }
+    }
+  }
+  mergeStateStatus
+  autoMergeRequest {
+    enabledAt
+  }
+  viewerCanEnableAutoMerge
+}

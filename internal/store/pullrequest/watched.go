@@ -19,6 +19,23 @@ var WatchedPullRequests = watch.Resource{
 			Table:  "agent_pull_requests",
 			Column: "pull_request_id",
 		},
+		{
+			Table:  "pull_request_checks",
+			Column: "reading_id",
+			Through: &watch.Through{
+				Table:     "pull_request_check_readings",
+				KeyColumn: "id",
+				Column:    "pull_request_id",
+			},
+		},
+		{
+			Table: "pull_request_check_readings",
+			Lookup: &watch.Lookup{
+				ParentColumn: "id",
+				ChildColumn:  "pull_request_id",
+				OnChangeOf:   "blank",
+			},
+		},
 	},
 }
 
@@ -29,7 +46,7 @@ func (s *PullRequestStore) ListWatched(ctx context.Context, keys []string) ([]Pu
 		return nil, fmt.Errorf("failed to list the watched pull requests: %w", err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return s.withMergeReadiness(ctx, rows)
 }
 
 // WatchedRepositories declares the repositories the sync reads to the watch.

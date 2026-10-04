@@ -111,3 +111,15 @@ ORDER BY
     c.source,
     c.name,
     c.id;
+
+-- name: ListLatestCheckReadings :many
+SELECT DISTINCT ON (r.pull_request_id)
+    *
+FROM
+    pull_request_check_readings r
+WHERE
+    r.pull_request_id = ANY (@pull_request_ids::uuid[])
+ORDER BY
+    r.pull_request_id,
+    r.read_at DESC,
+    r.id DESC;

@@ -1,0 +1,26 @@
+fragment mergeReadinessFields on MergeRequest {
+  approvalsRequired
+  approvalsLeft
+  approvedBy {
+    count
+  }
+  reviewers {
+    nodes {
+      mergeRequestInteraction {
+        reviewState
+      }
+    }
+  }
+  headPipeline {
+    id
+    sha
+    status
+    mergeRequestEventType
+    path
+    startedAt
+    finishedAt
+  }
+  detailedMergeStatus
+  autoMergeEnabled
+  availableAutoMergeStrategies
+}

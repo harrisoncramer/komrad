@@ -11,30 +11,311 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const reviewThreadsAnswer = `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":false},"nodes":[
-  {"id":"gid://gitlab/Discussion/d1","resolved":true,"truncatedDiffLines":[{"text":"+alpha"},{"text":"+bravo"},{"text":"+charlie"}],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-    {"id":"gid://gitlab/DiffNote/1","system":false,"internal":false,"body":"charlie should be capitalised","createdAt":"2026-10-02T12:25:57Z","lastEditedAt":"2026-10-02T12:26:06Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_1","author":{"username":"dana","bot":false},"position":{"positionType":"text","filePath":"notes.txt","oldLine":null,"newLine":3,"diffRefs":{"headSha":"c2"}}},
-    {"id":"gid://gitlab/DiffNote/2","system":false,"internal":false,"body":"agreed, will fix","createdAt":"2026-10-02T12:26:01Z","lastEditedAt":"2026-10-02T12:26:04Z","lastEditedBy":{"username":"harrisoncramer"},"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_2","author":{"username":"harrisoncramer","bot":false},"position":{"positionType":"text","filePath":"notes.txt","oldLine":null,"newLine":3,"diffRefs":{"headSha":"c2"}}}
-  ]}},
-  {"id":"gid://gitlab/Discussion/d2","resolved":false,"truncatedDiffLines":[{"text":"+delta"},{"text":"+echo"}],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-    {"id":"gid://gitlab/DiffNote/3","system":false,"internal":false,"body":"echo will change","createdAt":"2026-10-02T12:25:58Z","lastEditedAt":"2026-10-02T12:25:58Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_3","author":{"username":"lint-bot","bot":true},"position":{"positionType":"text","filePath":"notes.txt","oldLine":null,"newLine":5,"diffRefs":{"headSha":"c1"}}},
-    {"id":"gid://gitlab/DiffNote/4","system":true,"internal":false,"body":"changed this line in version 2 of the diff","createdAt":"2026-10-02T12:26:09Z","lastEditedAt":"2026-10-02T12:26:09Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_4","author":{"username":"harrisoncramer","bot":false},"position":{"positionType":"text","filePath":"notes.txt","oldLine":null,"newLine":5,"diffRefs":{"headSha":"c2"}}}
-  ]}},
-  {"id":"gid://gitlab/Discussion/d3","resolved":false,"truncatedDiffLines":[{"text":"-# komrad"}],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-    {"id":"gid://gitlab/DiffNote/5","system":false,"internal":false,"body":"why drop the title","createdAt":"2026-10-02T12:25:59Z","lastEditedAt":"2026-10-02T12:25:59Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_5","author":{"username":"dana","bot":false},"position":{"positionType":"text","filePath":"README.md","oldLine":1,"newLine":null,"diffRefs":{"headSha":"c2"}}}
-  ]}},
-  {"id":"gid://gitlab/Discussion/d4","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-    {"id":"gid://gitlab/DiffNote/6","system":false,"internal":false,"body":"whole file remark","createdAt":"2026-10-02T12:26:00Z","lastEditedAt":"2026-10-02T12:26:00Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_6","author":{"username":"dana","bot":false},"position":{"positionType":"file","filePath":"notes.txt","oldLine":null,"newLine":null,"diffRefs":{"headSha":"c1"}}}
-  ]}},
-  {"id":"gid://gitlab/Discussion/d5","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-    {"id":"gid://gitlab/Note/7","system":false,"internal":false,"body":"overall looks fine","createdAt":"2026-10-02T12:25:59Z","lastEditedAt":"2026-10-02T12:25:59Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_7","author":{"username":"dana","bot":false},"position":null},
-    {"id":"gid://gitlab/Note/8","system":false,"internal":true,"body":"between us","createdAt":"2026-10-02T12:26:02Z","lastEditedAt":"2026-10-02T12:26:02Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_8","author":{"username":"dana","bot":false},"position":null},
-    {"id":"gid://gitlab/Note/9","system":false,"internal":false,"body":"  ","createdAt":"2026-10-02T12:26:03Z","lastEditedAt":"2026-10-02T12:26:03Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_9","author":null,"position":null}
-  ]}},
-  {"id":"gid://gitlab/Discussion/d6","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-    {"id":"gid://gitlab/Note/10","system":true,"internal":false,"body":"added 1 commit","createdAt":"2026-10-02T12:26:09Z","lastEditedAt":"2026-10-02T12:26:09Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_10","author":{"username":"harrisoncramer","bot":false},"position":null}
-  ]}}
-]}}}}}`
+const reviewThreadsAnswer = `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"discussions": {
+					"pageInfo": {
+						"hasNextPage": false
+					},
+					"nodes": [
+						{
+							"id": "gid://gitlab/Discussion/d1",
+							"resolved": true,
+							"truncatedDiffLines": [
+								{
+									"text": "+alpha"
+								},
+								{
+									"text": "+bravo"
+								},
+								{
+									"text": "+charlie"
+								}
+							],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/DiffNote/1",
+										"system": false,
+										"internal": false,
+										"body": "charlie should be capitalised",
+										"createdAt": "2026-10-02T12:25:57Z",
+										"lastEditedAt": "2026-10-02T12:26:06Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_1",
+										"author": {
+											"username": "dana",
+											"bot": false
+										},
+										"position": {
+											"positionType": "text",
+											"filePath": "notes.txt",
+											"oldLine": null,
+											"newLine": 3,
+											"diffRefs": {
+												"headSha": "c2"
+											}
+										}
+									},
+									{
+										"id": "gid://gitlab/DiffNote/2",
+										"system": false,
+										"internal": false,
+										"body": "agreed, will fix",
+										"createdAt": "2026-10-02T12:26:01Z",
+										"lastEditedAt": "2026-10-02T12:26:04Z",
+										"lastEditedBy": {
+											"username": "harrisoncramer"
+										},
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_2",
+										"author": {
+											"username": "harrisoncramer",
+											"bot": false
+										},
+										"position": {
+											"positionType": "text",
+											"filePath": "notes.txt",
+											"oldLine": null,
+											"newLine": 3,
+											"diffRefs": {
+												"headSha": "c2"
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"id": "gid://gitlab/Discussion/d2",
+							"resolved": false,
+							"truncatedDiffLines": [
+								{
+									"text": "+delta"
+								},
+								{
+									"text": "+echo"
+								}
+							],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/DiffNote/3",
+										"system": false,
+										"internal": false,
+										"body": "echo will change",
+										"createdAt": "2026-10-02T12:25:58Z",
+										"lastEditedAt": "2026-10-02T12:25:58Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_3",
+										"author": {
+											"username": "lint-bot",
+											"bot": true
+										},
+										"position": {
+											"positionType": "text",
+											"filePath": "notes.txt",
+											"oldLine": null,
+											"newLine": 5,
+											"diffRefs": {
+												"headSha": "c1"
+											}
+										}
+									},
+									{
+										"id": "gid://gitlab/DiffNote/4",
+										"system": true,
+										"internal": false,
+										"body": "changed this line in version 2 of the diff",
+										"createdAt": "2026-10-02T12:26:09Z",
+										"lastEditedAt": "2026-10-02T12:26:09Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_4",
+										"author": {
+											"username": "harrisoncramer",
+											"bot": false
+										},
+										"position": {
+											"positionType": "text",
+											"filePath": "notes.txt",
+											"oldLine": null,
+											"newLine": 5,
+											"diffRefs": {
+												"headSha": "c2"
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"id": "gid://gitlab/Discussion/d3",
+							"resolved": false,
+							"truncatedDiffLines": [
+								{
+									"text": "-# komrad"
+								}
+							],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/DiffNote/5",
+										"system": false,
+										"internal": false,
+										"body": "why drop the title",
+										"createdAt": "2026-10-02T12:25:59Z",
+										"lastEditedAt": "2026-10-02T12:25:59Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_5",
+										"author": {
+											"username": "dana",
+											"bot": false
+										},
+										"position": {
+											"positionType": "text",
+											"filePath": "README.md",
+											"oldLine": 1,
+											"newLine": null,
+											"diffRefs": {
+												"headSha": "c2"
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"id": "gid://gitlab/Discussion/d4",
+							"resolved": false,
+							"truncatedDiffLines": [],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/DiffNote/6",
+										"system": false,
+										"internal": false,
+										"body": "whole file remark",
+										"createdAt": "2026-10-02T12:26:00Z",
+										"lastEditedAt": "2026-10-02T12:26:00Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_6",
+										"author": {
+											"username": "dana",
+											"bot": false
+										},
+										"position": {
+											"positionType": "file",
+											"filePath": "notes.txt",
+											"oldLine": null,
+											"newLine": null,
+											"diffRefs": {
+												"headSha": "c1"
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"id": "gid://gitlab/Discussion/d5",
+							"resolved": false,
+							"truncatedDiffLines": [],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/Note/7",
+										"system": false,
+										"internal": false,
+										"body": "overall looks fine",
+										"createdAt": "2026-10-02T12:25:59Z",
+										"lastEditedAt": "2026-10-02T12:25:59Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_7",
+										"author": {
+											"username": "dana",
+											"bot": false
+										},
+										"position": null
+									},
+									{
+										"id": "gid://gitlab/Note/8",
+										"system": false,
+										"internal": true,
+										"body": "between us",
+										"createdAt": "2026-10-02T12:26:02Z",
+										"lastEditedAt": "2026-10-02T12:26:02Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_8",
+										"author": {
+											"username": "dana",
+											"bot": false
+										},
+										"position": null
+									},
+									{
+										"id": "gid://gitlab/Note/9",
+										"system": false,
+										"internal": false,
+										"body": "  ",
+										"createdAt": "2026-10-02T12:26:03Z",
+										"lastEditedAt": "2026-10-02T12:26:03Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_9",
+										"author": null,
+										"position": null
+									}
+								]
+							}
+						},
+						{
+							"id": "gid://gitlab/Discussion/d6",
+							"resolved": false,
+							"truncatedDiffLines": [],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/Note/10",
+										"system": true,
+										"internal": false,
+										"body": "added 1 commit",
+										"createdAt": "2026-10-02T12:26:09Z",
+										"lastEditedAt": "2026-10-02T12:26:09Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_10",
+										"author": {
+											"username": "harrisoncramer",
+											"bot": false
+										},
+										"position": null
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+}`
 
 // TestReviewThreads covers a merge request's discussions mapped into threads: resolution, a line
 // GitLab has not carried to the head, the old side, a whole file, a general discussion, bot
@@ -152,18 +433,92 @@ func TestReviewThreadsReadsEveryPage(t *testing.T) {
 	f, _, fake := serve(t, nil)
 	fake.handle = func(seen call) (answer, bool) {
 		if seen.Variables["after"] == nil {
-			return answer{body: `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":true,"endCursor":"p1"},"nodes":[
-			  {"id":"gid://gitlab/Discussion/d1","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-			    {"id":"gid://gitlab/Note/1","system":true,"internal":false,"body":"added 1 commit","createdAt":"2026-10-02T12:25:57Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_1","author":{"username":"harrisoncramer","bot":false},"position":null}
-			  ]}}
-			]}}}}}`}, true
+			return answer{body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"discussions": {
+					"pageInfo": {
+						"hasNextPage": true,
+						"endCursor": "p1"
+					},
+					"nodes": [
+						{
+							"id": "gid://gitlab/Discussion/d1",
+							"resolved": false,
+							"truncatedDiffLines": [],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/Note/1",
+										"system": true,
+										"internal": false,
+										"body": "added 1 commit",
+										"createdAt": "2026-10-02T12:25:57Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_1",
+										"author": {
+											"username": "harrisoncramer",
+											"bot": false
+										},
+										"position": null
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+}`}, true
 		}
 
-		return answer{body: `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":false,"endCursor":"p2"},"nodes":[
-		  {"id":"gid://gitlab/Discussion/d2","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":false},"nodes":[
-		    {"id":"gid://gitlab/Note/2","system":false,"internal":false,"body":"overall looks fine","createdAt":"2026-10-02T12:25:59Z","lastEditedBy":null,"url":"https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_2","author":{"username":"dana","bot":false},"position":null}
-		  ]}}
-		]}}}}}`}, true
+		return answer{body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"discussions": {
+					"pageInfo": {
+						"hasNextPage": false,
+						"endCursor": "p2"
+					},
+					"nodes": [
+						{
+							"id": "gid://gitlab/Discussion/d2",
+							"resolved": false,
+							"truncatedDiffLines": [],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": false
+								},
+								"nodes": [
+									{
+										"id": "gid://gitlab/Note/2",
+										"system": false,
+										"internal": false,
+										"body": "overall looks fine",
+										"createdAt": "2026-10-02T12:25:59Z",
+										"lastEditedBy": null,
+										"url": "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1#note_2",
+										"author": {
+											"username": "dana",
+											"bot": false
+										},
+										"position": null
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+}`}, true
 	}
 
 	answer, err := f.ReviewThreads(t.Context(), komrad, 1)
@@ -194,15 +549,52 @@ func TestReviewThreadsSaysWhenTheAnswerIsCut(t *testing.T) {
 		calls int
 	}{
 		{
-			name:  "more discussions",
-			body:  `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":true,"endCursor":"next"},"nodes":[]}}}}}`,
+			name: "more discussions",
+			body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"discussions": {
+					"pageInfo": {
+						"hasNextPage": true,
+						"endCursor": "next"
+					},
+					"nodes": []
+				}
+			}
+		}
+	}
+}`,
 			calls: maxDiscussionPages,
 		},
 		{
 			name: "more notes in a discussion",
-			body: `{"data":{"project":{"mergeRequest":{"discussions":{"pageInfo":{"hasNextPage":false},"nodes":[
-			  {"id":"gid://gitlab/Discussion/d1","resolved":false,"truncatedDiffLines":[],"notes":{"pageInfo":{"hasNextPage":true},"nodes":[]}}
-			]}}}}}`,
+			body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"discussions": {
+					"pageInfo": {
+						"hasNextPage": false
+					},
+					"nodes": [
+						{
+							"id": "gid://gitlab/Discussion/d1",
+							"resolved": false,
+							"truncatedDiffLines": [],
+							"notes": {
+								"pageInfo": {
+									"hasNextPage": true
+								},
+								"nodes": []
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
 			calls: 1,
 		},
 	}

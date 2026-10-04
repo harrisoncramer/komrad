@@ -31,6 +31,14 @@ instance makes from a script of keypresses under `recordings/`:
 
 The record-komrad skill under `.claude/skills` says how to write the script and attach the gif.
 
+## Migrations
+
+An older build runs against the newest schema, whether it is the panel you are running inside or
+a rollback, so a migration only ever adds. Squawk lints each new migration for that in CI. When it
+refuses one, split the change: ship the addition, and drop what is unused in a later pull request
+once no build reads it. Never edit `.squawk.toml` to get a migration past it. CI fails any pull
+request that changes that file.
+
 ## Tests
 
 Each behaviour is tested at the lowest layer that can see it, and only there. A higher layer

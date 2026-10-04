@@ -13,7 +13,13 @@ import (
 func TestReadMergeRequest(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"Get": {body: `{"data":{"project":{"mergeRequest":` + forkMergeRequest + `}}}`}})
+	f, _, fake := serve(t, map[string]answer{"Get": {body: `{
+	"data": {
+		"project": {
+			"mergeRequest": ` + forkMergeRequest + `
+		}
+	}
+}`}})
 
 	pullRequest, err := f.readMergeRequest(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/256485")
 	require.NoError(t, err)

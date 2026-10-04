@@ -14,7 +14,15 @@ func TestMerge(t *testing.T) {
 	t.Parallel()
 
 	const address = "https://github.com/harrisoncramer/komrad/pull/742"
-	target := answer{body: data(`{"repository":{"viewerDefaultMergeMethod":"SQUASH","pullRequest":{"id":"PR_742","state":"OPEN"}}}`)}
+	target := answer{body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "SQUASH",
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "OPEN"
+		}
+	}
+}`)}
 
 	tests := []struct {
 		name    string
@@ -25,14 +33,31 @@ func TestMerge(t *testing.T) {
 			name: "the pull request merges with the method the repository defaults to",
 			answers: map[string]answer{
 				"MergeTarget": target,
-				"Merge":       {body: data(`{"mergePullRequest":{"clientMutationId":null}}`)},
+				"Merge": {body: data(`{
+	"mergePullRequest": {
+		"clientMutationId": null
+	}
+}`)},
 			},
 		},
 		{
 			name: "a pull request github will not merge",
 			answers: map[string]answer{
 				"MergeTarget": target,
-				"Merge":       {body: `{"data":{"mergePullRequest":null},"errors":[{"type":"UNPROCESSABLE","path":["mergePullRequest"],"message":"Pull Request is not mergeable"}]}`},
+				"Merge": {body: `{
+	"data": {
+		"mergePullRequest": null
+	},
+	"errors": [
+		{
+			"type": "UNPROCESSABLE",
+			"path": [
+				"mergePullRequest"
+			],
+			"message": "Pull Request is not mergeable"
+		}
+	]
+}`},
 			},
 			wantErr: forge.ErrNotMergeable,
 		},
@@ -40,24 +65,58 @@ func TestMerge(t *testing.T) {
 			name: "a credential github will not let merge",
 			answers: map[string]answer{
 				"MergeTarget": target,
-				"Merge":       {body: `{"data":{"mergePullRequest":null},"errors":[{"type":"FORBIDDEN","path":["mergePullRequest"],"message":"Resource not accessible by integration"}]}`},
+				"Merge": {body: `{
+	"data": {
+		"mergePullRequest": null
+	},
+	"errors": [
+		{
+			"type": "FORBIDDEN",
+			"path": [
+				"mergePullRequest"
+			],
+			"message": "Resource not accessible by integration"
+		}
+	]
+}`},
 			},
 			wantErr: forge.ErrUnauthorized,
 		},
 		{
-			name:    "a pull request that has already merged is refused before github is asked to merge it",
-			answers: map[string]answer{"MergeTarget": {body: data(`{"repository":{"viewerDefaultMergeMethod":"MERGE","pullRequest":{"id":"PR_742","state":"MERGED"}}}`)}},
+			name: "a pull request that has already merged is refused before github is asked to merge it",
+			answers: map[string]answer{"MergeTarget": {body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "MERGE",
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "MERGED"
+		}
+	}
+}`)}},
 			wantErr: forge.ErrNotMergeable,
 		},
 		{
-			name:    "a closed pull request is refused before github is asked to merge it",
-			answers: map[string]answer{"MergeTarget": {body: data(`{"repository":{"viewerDefaultMergeMethod":"MERGE","pullRequest":{"id":"PR_742","state":"CLOSED"}}}`)}},
+			name: "a closed pull request is refused before github is asked to merge it",
+			answers: map[string]answer{"MergeTarget": {body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "MERGE",
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "CLOSED"
+		}
+	}
+}`)}},
 			wantErr: forge.ErrNotMergeable,
 		},
 		{
 			name: "a pull request github does not have",
 			answers: map[string]answer{
-				"MergeTarget": {body: data(`{"repository":{"viewerDefaultMergeMethod":"MERGE","pullRequest":null}}`)},
+				"MergeTarget": {body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "MERGE",
+		"pullRequest": null
+	}
+}`)},
 			},
 			wantErr: forge.ErrNotFound,
 		},

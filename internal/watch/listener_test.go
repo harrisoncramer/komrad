@@ -280,6 +280,39 @@ func TestARepositorySyncNotifiesOnlyWhatIsDrawn(t *testing.T) {
 	}, waitForPayloads(t, conn, 3))
 }
 
+// TestAThroughFeederReachesItsResourceOnInsertAndDelete pins a feeder that reaches its resource through the row its column points at.
+func TestAThroughFeederReachesItsResourceOnInsertAndDelete(t *testing.T) {
+	l := newPooled(t)
+	rows := l.seed(t)
+	byAgent := Resource{
+		Enum:      watchv1.Resource_RESOURCE_WORKFLOW,
+		Table:     "workflows",
+		KeyColumn: "id",
+		Feeders: []Feeder{
+			{
+				Table:  "worktrees",
+				Column: "name",
+				Through: &Through{
+					Table:     "agents",
+					KeyColumn: "id",
+					Column:    "workflow_id",
+				},
+			},
+		},
+	}
+	for _, trigger := range BuildTriggers([]Resource{byAgent}) {
+		if trigger.Table == "worktrees" {
+			l.execAsOwner(t, attachSQL(trigger))
+		}
+	}
+	conn := l.listenRaw(t)
+
+	l.exec(t, `INSERT INTO worktrees (dir, name) VALUES ('/through', $1)`, rows.agent)
+	l.exec(t, `DELETE FROM worktrees WHERE dir = '/through'`)
+
+	assert.Equal(t, []string{"worktrees /through", "workflows " + rows.workflow, "worktrees /through", "workflows " + rows.workflow}, waitForPayloads(t, conn, 4))
+}
+
 func (l *listened) exec(t *testing.T, sql string, args ...any) {
 	t.Helper()
 

@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,9 +14,8 @@ import (
 	"komrad/lib/xhttp"
 )
 
-const autoMergeTargetQuery = `query AutoMergeTarget($path: ID!, $iid: String!) {
-  project(fullPath: $path) { mergeRequest(iid: $iid) { state draft autoMergeEnabled availableAutoMergeStrategies } }
-}`
+//go:embed automergetarget.gql
+var autoMergeTargetQuery string
 
 // SetAutoMerge asks GitLab to merge the merge request once its pipeline passes, held to the head
 // the person saw, or cancels that, refusing a draft or one GitLab would merge at once.

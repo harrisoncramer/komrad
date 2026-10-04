@@ -64,6 +64,29 @@ BEGIN
 END;
 `,
 	},
+	{
+		Name: "watch_subresource_through",
+		Body: `
+DECLARE
+    resource_key text;
+    row_engine uuid := (to_jsonb(COALESCE(NEW, OLD)) ->> 'engine_id')::uuid;
+    key_type regtype;
+BEGIN
+    SELECT
+        a.atttypid::regtype INTO key_type
+    FROM
+        pg_attribute a
+    WHERE
+        a.attrelid = TG_ARGV[2]::regclass
+        AND a.attname = TG_ARGV[3];
+    FOR resource_key IN EXECUTE FORMAT('SELECT DISTINCT %1$I::text FROM %2$I WHERE engine_id = $3 AND %3$I IN (CAST($1 AS %4$s), CAST($2 AS %4$s)) AND %1$I IS NOT NULL', TG_ARGV[4], TG_ARGV[2], TG_ARGV[3], key_type)
+        USING (to_jsonb(OLD) ->> TG_ARGV[1]), (to_jsonb(NEW) ->> TG_ARGV[1]), row_engine LOOP
+        PERFORM pg_notify(watch_channel_of(row_engine), TG_ARGV[0] || ' ' || resource_key);
+    END LOOP;
+    RETURN NULL;
+END;
+`,
+	},
 }
 
 // TriggerFunction is one function a watch trigger runs, with its plpgsql body.
@@ -96,6 +119,9 @@ func BuildTriggers(resources []Resource) []trigger {
 			if lookup := feeder.Lookup; lookup != nil {
 				trigger.Function = "watch_subresource_lookup"
 				trigger.Args = []string{resource.Table, resource.KeyColumn, lookup.ParentColumn, lookup.ChildColumn, lookup.SkipParentsWith, lookup.OnChangeOf}
+			} else if through := feeder.Through; through != nil {
+				trigger.Function = "watch_subresource_through"
+				trigger.Args = []string{resource.Table, feeder.Column, through.Table, through.KeyColumn, through.Column}
 			} else {
 				trigger.Function = "watch_subresource"
 				trigger.Args = []string{resource.Table, feeder.Column}

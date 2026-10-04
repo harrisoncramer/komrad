@@ -31,6 +31,15 @@ func TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders(t *testing.T) {
 						OnChangeOf:      "branch",
 					},
 				},
+				{
+					Table:  "notes",
+					Column: "agent_id",
+					Through: &Through{
+						Table:     "agents",
+						KeyColumn: "id",
+						Column:    "repository_url",
+					},
+				},
 			},
 		},
 	}
@@ -59,6 +68,12 @@ func TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders(t *testing.T) {
 			Table:    "agents",
 			Function: "watch_subresource_lookup",
 			Args:     []string{"repositories", "url", "url", "repository_url", "archived_at", "branch"},
+		},
+		{
+			Name:     "watch_subresource_repositories",
+			Table:    "notes",
+			Function: "watch_subresource_through",
+			Args:     []string{"repositories", "agent_id", "agents", "id", "repository_url"},
 		},
 	}, BuildTriggers(resources))
 }

@@ -15,7 +15,13 @@ import (
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"Verify": {body: `{"data":{"currentUser":{"username":"harrisoncramer"}}}`}})
+	f, _, fake := serve(t, map[string]answer{"Verify": {body: `{
+	"data": {
+		"currentUser": {
+			"username": "harrisoncramer"
+		}
+	}
+}`}})
 
 	login, err := f.Verify(t.Context())
 	require.NoError(t, err)
@@ -27,7 +33,11 @@ func TestVerify(t *testing.T) {
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
 
-	nobody, _, _ := serve(t, map[string]answer{"Verify": {body: `{"data":{"currentUser":null}}`}})
+	nobody, _, _ := serve(t, map[string]answer{"Verify": {body: `{
+	"data": {
+		"currentUser": null
+	}
+}`}})
 	_, err = nobody.Verify(t.Context())
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 }
