@@ -544,9 +544,21 @@ func TestListForgeReplies(t *testing.T) {
 			providerID string
 			synced     bool
 		}{
-			{name: "github", providerID: "PRRC_kwDOUgkrbM75GfCu", synced: true},
-			{name: "gitlab", providerID: "gid://gitlab/DiffNote/7", synced: true},
-			{name: "not yet synced", providerID: "PRRC_unsynced"},
+			{
+				name:       "not yet synced",
+				providerID: "PRRC_unsynced",
+				synced:     false,
+			},
+			{
+				name:       "github",
+				providerID: "PRRC_kwDOUgkrbM75GfCu",
+				synced:     true,
+			},
+			{
+				name:       "gitlab",
+				providerID: "gid://gitlab/DiffNote/7",
+				synced:     true,
+			},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
