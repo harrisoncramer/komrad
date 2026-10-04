@@ -75,6 +75,9 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 	if err := f.readStatusCheckListings(ctx, reading); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "github did not list the checks on the pull requests read, so they are read again next pass", logging.Err(err)...)
 	}
+	if err := f.readCheckSteps(ctx, reading); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "github did not list the steps of the check runs read, so the steps stored are kept until the next pass", logging.Err(err)...)
+	}
 
 	return reading, nil
 }

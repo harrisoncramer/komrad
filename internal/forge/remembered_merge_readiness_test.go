@@ -307,8 +307,16 @@ func TestListMovesSince(t *testing.T) {
 				},
 			},
 			want: []mergeReadinessMove{
-				{Field: MergeReadinessFieldChecks, From: "failing", To: "failing"},
-				{Field: MergeReadinessFieldMergeability, From: "clean", To: "clean"},
+				{
+					Field: MergeReadinessFieldChecks,
+					From:  "failing",
+					To:    "failing",
+				},
+				{
+					Field: MergeReadinessFieldMergeability,
+					From:  "clean",
+					To:    "clean",
+				},
 			},
 		},
 		{
@@ -334,8 +342,16 @@ func TestListMovesSince(t *testing.T) {
 				},
 			},
 			want: []mergeReadinessMove{
-				{Field: MergeReadinessFieldChecks, From: "", To: "failing"},
-				{Field: MergeReadinessFieldMergeability, From: "clean", To: "clean"},
+				{
+					Field: MergeReadinessFieldChecks,
+					From:  "",
+					To:    "failing",
+				},
+				{
+					Field: MergeReadinessFieldMergeability,
+					From:  "clean",
+					To:    "clean",
+				},
 			},
 		},
 		{

@@ -2,7 +2,6 @@ package pullrequest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -63,13 +62,14 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 		return nil
 	}
 
-	listed := statusCheckRows(params.StatusChecks)
-	encoded, err := json.Marshal(listed)
-	if err != nil {
-		return fmt.Errorf("failed to encode the checks listed on %s: %w", params.HeadSHA, err)
-	}
-	if err := queries.UpsertStatusChecks(ctx, models.UpsertStatusChecksParams{ReadingID: readingID, Checks: encoded}); err != nil {
+	checks := xslice.LastBy(params.StatusChecks, providerIDOf)
+	if err := queries.UpsertStatusChecks(ctx, statusCheckRows(readingID, checks)).Close(); err != nil {
 		return fmt.Errorf("failed to write the checks listed on %s: %w", params.HeadSHA, err)
+	}
+
+	params.StatusChecks = checks
+	if err := setStatusCheckSteps(ctx, queries, readingID, params); err != nil {
+		return err
 	}
 
 	if params.Truncated {
@@ -78,9 +78,34 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 
 	if err := queries.DeleteStatusChecksExcept(ctx, models.DeleteStatusChecksExceptParams{
 		ReadingID: readingID,
-		Kept:      xslice.Map(listed, func(row statusCheckRow) string { return row.ProviderID }),
+		Kept:      xslice.Map(checks, providerIDOf),
 	}); err != nil {
 		return fmt.Errorf("failed to remove the checks no longer listed on %s: %w", params.HeadSHA, err)
+	}
+
+	return nil
+}
+
+// setStatusCheckSteps writes the steps listed on each check of a reading, writing only the steps that changed,
+// and removes the steps no longer listed on checks whose steps were listed whole.
+func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID string, params SetStatusChecksParams) error {
+	headSHA := params.HeadSHA
+	listed := statusCheckStepRows(readingID, params.StatusChecks)
+	if err := queries.UpsertStatusCheckSteps(ctx, listed).Close(); err != nil {
+		return fmt.Errorf("failed to write the check steps listed on %s: %w", headSHA, err)
+	}
+
+	complete := xslice.Map(
+		xslice.Filter(params.StatusChecks, func(check forge.StatusCheck) bool { return !check.StepsTruncated }),
+		providerIDOf,
+	)
+	if err := queries.DeleteStatusCheckStepsExcept(ctx, models.DeleteStatusCheckStepsExceptParams{
+		ReadingID:       readingID,
+		Complete:        complete,
+		KeptProviderIds: xslice.Map(listed, func(row models.UpsertStatusCheckStepsParams) string { return row.ProviderID }),
+		KeptNumbers:     xslice.Map(listed, func(row models.UpsertStatusCheckStepsParams) int32 { return row.Number }),
+	}); err != nil {
+		return fmt.Errorf("failed to remove the check steps no longer listed on %s: %w", headSHA, err)
 	}
 
 	return nil
@@ -152,6 +177,23 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 		return nil, fmt.Errorf("failed to list the checks of %d reading(s): %w", len(ids), err)
 	}
 
+	steps, err := queries.ListStatusCheckStepsOfReadings(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the check steps of %d reading(s): %w", len(ids), err)
+	}
+
+	byCheck := map[string][]forge.StatusCheckStep{}
+	for _, row := range steps {
+		byCheck[row.CheckID] = append(byCheck[row.CheckID], forge.StatusCheckStep{
+			Number:     int(row.Number),
+			Name:       row.Name,
+			State:      forge.StatusCheckState(row.State),
+			Conclusion: row.Conclusion,
+			StartedAt:  row.StartedAt,
+			FinishedAt: row.FinishedAt,
+		})
+	}
+
 	byReading := map[string][]forge.StatusCheck{}
 	for _, row := range checks {
 		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.StatusCheck{
@@ -165,6 +207,7 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 			FinishedAt: row.FinishedAt,
 			Required:   row.Required,
 			URL:        row.Url,
+			Steps:      byCheck[row.ID],
 		})
 	}
 
@@ -189,26 +232,11 @@ func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[forge
 	}
 }
 
-// statusCheckRow is one check as the set-based upsert reads it from JSON.
-type statusCheckRow struct {
-	ProviderID string     `json:"provider_id"`
-	Kind       string     `json:"kind"`
-	Source     string     `json:"source"`
-	Name       string     `json:"name"`
-	State      string     `json:"state"`
-	Conclusion string     `json:"conclusion"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
-	Required   bool       `json:"required"`
-	URL        string     `json:"url"`
-}
-
-// statusCheckRows is each check listed once, the last listing of a provider id winning.
-func statusCheckRows(checks []forge.StatusCheck) []statusCheckRow {
-	at := map[string]int{}
-	var rows []statusCheckRow
-	for _, check := range checks {
-		row := statusCheckRow{
+// statusCheckRows is each check as a row of the reading.
+func statusCheckRows(readingID string, checks []forge.StatusCheck) []models.UpsertStatusChecksParams {
+	return xslice.Map(checks, func(check forge.StatusCheck) models.UpsertStatusChecksParams {
+		return models.UpsertStatusChecksParams{
+			ReadingID:  readingID,
 			ProviderID: check.ProviderID,
 			Kind:       string(check.Kind),
 			Source:     check.Source,
@@ -218,15 +246,39 @@ func statusCheckRows(checks []forge.StatusCheck) []statusCheckRow {
 			StartedAt:  check.StartedAt,
 			FinishedAt: check.FinishedAt,
 			Required:   check.Required,
-			URL:        check.URL,
+			Url:        check.URL,
 		}
-		if i, ok := at[check.ProviderID]; ok {
-			rows[i] = row
-			continue
-		}
-		at[check.ProviderID] = len(rows)
-		rows = append(rows, row)
+	})
+}
+
+// providerIDOf is the id the forge gives the check.
+func providerIDOf(check forge.StatusCheck) string {
+	return check.ProviderID
+}
+
+// statusCheckStepRows is every step of the checks as a row of the reading, each step of a check listed once,
+// the last listing of a number winning.
+func statusCheckStepRows(readingID string, checks []forge.StatusCheck) []models.UpsertStatusCheckStepsParams {
+	rows := []models.UpsertStatusCheckStepsParams{}
+	for _, check := range checks {
+		rows = append(rows, xslice.Map(xslice.LastBy(check.Steps, numberOf), func(step forge.StatusCheckStep) models.UpsertStatusCheckStepsParams {
+			return models.UpsertStatusCheckStepsParams{
+				ReadingID:  readingID,
+				ProviderID: check.ProviderID,
+				Number:     int32(step.Number),
+				Name:       step.Name,
+				State:      string(step.State),
+				Conclusion: step.Conclusion,
+				StartedAt:  step.StartedAt,
+				FinishedAt: step.FinishedAt,
+			}
+		})...)
 	}
 
 	return rows
+}
+
+// numberOf is the step's number on its check run.
+func numberOf(step forge.StatusCheckStep) int {
+	return step.Number
 }

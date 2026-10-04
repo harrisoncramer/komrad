@@ -223,6 +223,24 @@ message StatusCheck {
   bool required = 9;
   // The web address a person opens to read it.
   string url = 10;
+  // The steps of a check run, in the order it runs them, empty for a check that lists none.
+  repeated StatusCheckStep steps = 11;
+}
+
+// StatusCheckStep is one step of a check run.
+message StatusCheckStep {
+  // Where the step falls in the run, counting from one.
+  int32 number = 1;
+  // The name the forge shows for it.
+  string name = 2;
+  // How far along it is.
+  StatusCheckState state = 3;
+  // How it ended, as the forge words it, empty while it has not.
+  string conclusion = 4;
+  // When it started, in RFC 3339, unset when the forge did not say.
+  optional string started_at = 5;
+  // When it finished, in RFC 3339, unset while it has not.
+  optional string finished_at = 6;
 }
 
 // StatusCheckKind is what sort of status check a forge reported.

@@ -171,6 +171,23 @@ type StatusCheck struct {
 	// Required is whether the pull request's base branch requires the check to pass.
 	Required bool
 	URL      string
+	// Steps are the check run's steps in the order it runs them, empty for a commit status.
+	Steps []StatusCheckStep
+	// StepsTruncated is whether the forge listed only the first page of a longer list of steps, or could
+	// not be asked for them, either of which keeps the steps stored before.
+	StepsTruncated bool
+}
+
+// StatusCheckStep is one step of a check run.
+type StatusCheckStep struct {
+	// Number is where the step falls in its check run, counting from one.
+	Number int
+	Name   string
+	State  StatusCheckState
+	// Conclusion is how a completed step ended, in the forge's own word lowercased.
+	Conclusion string
+	StartedAt  *time.Time
+	FinishedAt *time.Time
 }
 
 // StatusCheckListing is the checks a forge listed on a pull request's head commit.

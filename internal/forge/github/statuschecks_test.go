@@ -19,6 +19,7 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 	tests := []struct {
 		name   string
 		checks string
+		steps  string
 		want   *forge.StatusCheckListing
 	}{
 		{
@@ -128,11 +129,12 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 }`),
 			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
 				{
-					ProviderID: "CR_1",
-					Kind:       forge.StatusCheckKindRun,
-					Name:       "test",
-					State:      forge.StatusCheckStateRunning,
-					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+					ProviderID:     "CR_1",
+					Kind:           forge.StatusCheckKindRun,
+					Name:           "test",
+					State:          forge.StatusCheckStateRunning,
+					StartedAt:      xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+					StepsTruncated: true,
 				},
 				{
 					ProviderID: "SC_1",
@@ -148,16 +150,18 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 					State:      forge.StatusCheckStateWaiting,
 				},
 				{
-					ProviderID: "CR_2",
-					Kind:       forge.StatusCheckKindRun,
-					Name:       "deploy",
-					State:      forge.StatusCheckStateWaiting,
+					ProviderID:     "CR_2",
+					Kind:           forge.StatusCheckKindRun,
+					Name:           "deploy",
+					State:          forge.StatusCheckStateWaiting,
+					StepsTruncated: true,
 				},
 				{
-					ProviderID: "CR_3",
-					Kind:       forge.StatusCheckKindRun,
-					Name:       "lint",
-					State:      forge.StatusCheckStateQueued,
+					ProviderID:     "CR_3",
+					Kind:           forge.StatusCheckKindRun,
+					Name:           "lint",
+					State:          forge.StatusCheckStateQueued,
+					StepsTruncated: true,
 				},
 			}},
 		},
@@ -192,11 +196,171 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 	}
 }`),
 			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
-				ProviderID: "CR_1",
-				Kind:       forge.StatusCheckKindRun,
-				Name:       "test",
-				State:      forge.StatusCheckStateQueued,
+				ProviderID:     "CR_1",
+				Kind:           forge.StatusCheckKindRun,
+				Name:           "test",
+				State:          forge.StatusCheckStateQueued,
+				StepsTruncated: true,
 			}}, Truncated: true},
+		},
+		{
+			name: "a check run lists its steps and says when it has more than one page of them",
+			checks: data(`{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+						"statusCheckRollup": {
+							"contexts": {
+								"nodes": [
+									{
+										"__typename": "CheckRun",
+										"id": "CR_1",
+										"name": "test",
+										"status": "IN_PROGRESS"
+									},
+									{
+										"__typename": "CheckRun",
+										"id": "CR_2",
+										"name": "lint",
+										"status": "QUEUED"
+									},
+									{
+										"__typename": "CheckRun",
+										"id": "CR_3",
+										"name": "build",
+										"status": "QUEUED"
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}`),
+			steps: data(`{
+	"s0": [
+		{
+			"id": "CR_1",
+			"steps": {
+				"pageInfo": {
+					"hasNextPage": true
+				},
+				"nodes": [
+					{
+						"number": 1,
+						"name": "Set up job",
+						"status": "COMPLETED",
+						"conclusion": "SUCCESS",
+						"startedAt": "2026-09-20T11:00:00Z",
+						"completedAt": "2026-09-20T11:00:05Z"
+					},
+					{
+						"number": 2,
+						"name": "Run tests",
+						"status": "IN_PROGRESS",
+						"startedAt": "2026-09-20T11:00:05Z"
+					}
+				]
+			}
+		},
+		{
+			"id": "CR_2",
+			"steps": {
+				"pageInfo": {
+					"hasNextPage": false
+				},
+				"nodes": []
+			}
+		},
+		null
+	]
+}`),
+			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
+				{
+					ProviderID: "CR_1",
+					Kind:       forge.StatusCheckKindRun,
+					Name:       "test",
+					State:      forge.StatusCheckStateRunning,
+					Steps: []forge.StatusCheckStep{
+						{
+							Number:     1,
+							Name:       "Set up job",
+							State:      forge.StatusCheckStateCompleted,
+							Conclusion: "success",
+							StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+							FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 5, 0, time.UTC)),
+						},
+						{
+							Number:    2,
+							Name:      "Run tests",
+							State:     forge.StatusCheckStateRunning,
+							StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 5, 0, time.UTC)),
+						},
+					},
+					StepsTruncated: true,
+				},
+				{
+					ProviderID: "CR_2",
+					Kind:       forge.StatusCheckKindRun,
+					Name:       "lint",
+					State:      forge.StatusCheckStateQueued,
+				},
+				{
+					ProviderID:     "CR_3",
+					Kind:           forge.StatusCheckKindRun,
+					Name:           "build",
+					State:          forge.StatusCheckStateQueued,
+					StepsTruncated: true,
+				},
+			}},
+		},
+		{
+			name: "a steps read github refuses keeps the checks and the steps stored for each run",
+			checks: data(`{
+	"p0": {
+		"commits": {
+			"nodes": [
+				{
+					"commit": {
+						"oid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+						"statusCheckRollup": {
+							"contexts": {
+								"nodes": [
+									{
+										"__typename": "CheckRun",
+										"id": "CR_1",
+										"name": "test",
+										"status": "QUEUED"
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}`),
+			steps: `{
+	"data": null,
+	"errors": [
+		{
+			"message": "Something went wrong while executing your query."
+		}
+	]
+}`,
+			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
+				ProviderID:     "CR_1",
+				Kind:           forge.StatusCheckKindRun,
+				Name:           "test",
+				State:          forge.StatusCheckStateQueued,
+				StepsTruncated: true,
+			}}},
 		},
 		{
 			name: "a check read github refuses lists nothing and keeps the branch read",
@@ -214,10 +378,14 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, _, _ := serve(t, map[string]answer{
+			answers := map[string]answer{
 				"ReadBranches":     {body: branchesRead(withMergeReadiness(openPull, failingMergeReadiness))},
 				"ReadStatusChecks": {body: tt.checks},
-			})
+			}
+			if tt.steps != "" {
+				answers["ReadCheckSteps"] = answer{body: tt.steps}
+			}
+			f, _, _ := serve(t, answers)
 
 			reading, err := f.ReadBranches(t.Context(), fixture, []string{"fixture/open"})
 			require.NoError(t, err)

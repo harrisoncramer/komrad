@@ -10,6 +10,40 @@ import (
 	"time"
 )
 
+const deleteStatusCheckStepsExcept = `-- name: DeleteStatusCheckStepsExcept :exec
+DELETE FROM pull_request_check_steps s USING pull_request_checks c
+WHERE s.check_id = c.id
+    AND c.reading_id = $1
+    AND c.provider_id = ANY ($2::text[])
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM (
+            SELECT
+                UNNEST($3::text[]) AS provider_id,
+                UNNEST($4::integer[]) AS number) k
+        WHERE
+            k.provider_id = c.provider_id
+            AND k.number = s.number)
+`
+
+type DeleteStatusCheckStepsExceptParams struct {
+	ReadingID       string
+	Complete        []string
+	KeptProviderIds []string
+	KeptNumbers     []int32
+}
+
+func (q *Queries) DeleteStatusCheckStepsExcept(ctx context.Context, arg DeleteStatusCheckStepsExceptParams) error {
+	_, err := q.db.Exec(ctx, deleteStatusCheckStepsExcept,
+		arg.ReadingID,
+		arg.Complete,
+		arg.KeptProviderIds,
+		arg.KeptNumbers,
+	)
+	return err
+}
+
 const deleteStatusChecksExcept = `-- name: DeleteStatusChecksExcept :exec
 DELETE FROM pull_request_checks
 WHERE reading_id = $1
@@ -95,6 +129,49 @@ func (q *Queries) ListStatusCheckReadings(ctx context.Context, pullRequestID str
 			&i.Blank,
 			&i.FirstReadAt,
 			&i.ReadAt,
+			&i.EngineID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStatusCheckStepsOfReadings = `-- name: ListStatusCheckStepsOfReadings :many
+SELECT
+    id, check_id, reading_id, number, name, state, conclusion, started_at, finished_at, engine_id
+FROM
+    pull_request_check_steps s
+WHERE
+    s.reading_id = ANY ($1::uuid[])
+ORDER BY
+    s.check_id,
+    s.number
+`
+
+func (q *Queries) ListStatusCheckStepsOfReadings(ctx context.Context, readingIds []string) ([]*PullRequestCheckStep, error) {
+	rows, err := q.db.Query(ctx, listStatusCheckStepsOfReadings, readingIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequestCheckStep
+	for rows.Next() {
+		var i PullRequestCheckStep
+		if err := rows.Scan(
+			&i.ID,
+			&i.CheckID,
+			&i.ReadingID,
+			&i.Number,
+			&i.Name,
+			&i.State,
+			&i.Conclusion,
+			&i.StartedAt,
+			&i.FinishedAt,
 			&i.EngineID,
 		); err != nil {
 			return nil, err
@@ -197,76 +274,4 @@ func (q *Queries) RecordStatusCheckReading(ctx context.Context, arg RecordStatus
 	var id string
 	err := row.Scan(&id)
 	return id, err
-}
-
-const upsertStatusChecks = `-- name: UpsertStatusChecks :exec
-INSERT INTO pull_request_checks(
-    reading_id,
-    provider_id,
-    kind,
-    source,
-    name,
-    state,
-    conclusion,
-    started_at,
-    finished_at,
-    required,
-    url)
-SELECT
-    $1,
-    c.provider_id,
-    c.kind,
-    c.source,
-    c.name,
-    c.state,
-    c.conclusion,
-    c.started_at,
-    c.finished_at,
-    c.required,
-    c.url
-FROM
-    JSONB_TO_RECORDSET($2::jsonb) AS c(provider_id text,
-        kind text,
-        source text,
-        name text,
-        state text,
-        conclusion text,
-        started_at timestamptz,
-        finished_at timestamptz,
-        required boolean,
-        url text)
-ON CONFLICT (engine_id,
-    reading_id,
-    provider_id)
-    DO UPDATE SET
-        kind = excluded.kind,
-        source = excluded.source,
-        name = excluded.name,
-        state = excluded.state,
-        conclusion = excluded.conclusion,
-        started_at = excluded.started_at,
-        finished_at = excluded.finished_at,
-        required = excluded.required,
-        url = excluded.url
-    WHERE (
-        pull_request_checks.kind, pull_request_checks.source, pull_request_checks.name, pull_request_checks.state, pull_request_checks.conclusion, pull_request_checks.started_at, pull_request_checks.finished_at, pull_request_checks.required, pull_request_checks.url) IS DISTINCT FROM (
-        excluded.kind,
-        excluded.source,
-        excluded.name,
-        excluded.state,
-        excluded.conclusion,
-        excluded.started_at,
-        excluded.finished_at,
-        excluded.required,
-        excluded.url)
-`
-
-type UpsertStatusChecksParams struct {
-	ReadingID string
-	Checks    []byte
-}
-
-func (q *Queries) UpsertStatusChecks(ctx context.Context, arg UpsertStatusChecksParams) error {
-	_, err := q.db.Exec(ctx, upsertStatusChecks, arg.ReadingID, arg.Checks)
-	return err
 }

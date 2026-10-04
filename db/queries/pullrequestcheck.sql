@@ -21,7 +21,7 @@ ON CONFLICT (
     RETURNING
         id;
 
--- name: UpsertStatusChecks :exec
+-- name: UpsertStatusChecks :batchexec
 INSERT INTO pull_request_checks(
     reading_id,
     provider_id,
@@ -34,30 +34,20 @@ INSERT INTO pull_request_checks(
     finished_at,
     required,
     url)
-SELECT
+VALUES (
     @reading_id,
-    c.provider_id,
-    c.kind,
-    c.source,
-    c.name,
-    c.state,
-    c.conclusion,
-    c.started_at,
-    c.finished_at,
-    c.required,
-    c.url
-FROM
-    JSONB_TO_RECORDSET(@checks::jsonb) AS c(provider_id text,
-        kind text,
-        source text,
-        name text,
-        state text,
-        conclusion text,
-        started_at timestamptz,
-        finished_at timestamptz,
-        required boolean,
-        url text)
-ON CONFLICT (engine_id,
+    @provider_id,
+    @kind,
+    @source,
+    @name,
+    @state,
+    @conclusion,
+    @started_at,
+    @finished_at,
+    @required,
+    @url)
+ON CONFLICT (
+    engine_id,
     reading_id,
     provider_id)
     DO UPDATE SET
@@ -123,3 +113,71 @@ ORDER BY
     r.pull_request_id,
     r.read_at DESC,
     r.id DESC;
+
+-- name: UpsertStatusCheckSteps :batchexec
+INSERT INTO pull_request_check_steps(
+    check_id,
+    reading_id,
+    number,
+    name,
+    state,
+    conclusion,
+    started_at,
+    finished_at)
+SELECT
+    c.id,
+    c.reading_id,
+    @number,
+    @name,
+    @state,
+    @conclusion,
+    @started_at,
+    @finished_at
+FROM
+    pull_request_checks c
+WHERE
+    c.reading_id = @reading_id
+    AND c.provider_id = @provider_id
+ON CONFLICT (engine_id,
+    check_id,
+    number)
+    DO UPDATE SET
+        name = excluded.name,
+        state = excluded.state,
+        conclusion = excluded.conclusion,
+        started_at = excluded.started_at,
+        finished_at = excluded.finished_at
+    WHERE (
+        pull_request_check_steps.name, pull_request_check_steps.state, pull_request_check_steps.conclusion, pull_request_check_steps.started_at, pull_request_check_steps.finished_at) IS DISTINCT FROM (
+        excluded.name,
+        excluded.state,
+        excluded.conclusion,
+        excluded.started_at,
+        excluded.finished_at);
+
+-- name: DeleteStatusCheckStepsExcept :exec
+DELETE FROM pull_request_check_steps s USING pull_request_checks c
+WHERE s.check_id = c.id
+    AND c.reading_id = @reading_id
+    AND c.provider_id = ANY (@complete::text[])
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM (
+            SELECT
+                UNNEST(@kept_provider_ids::text[]) AS provider_id,
+                UNNEST(@kept_numbers::integer[]) AS number) k
+        WHERE
+            k.provider_id = c.provider_id
+            AND k.number = s.number);
+
+-- name: ListStatusCheckStepsOfReadings :many
+SELECT
+    *
+FROM
+    pull_request_check_steps s
+WHERE
+    s.reading_id = ANY (@reading_ids::uuid[])
+ORDER BY
+    s.check_id,
+    s.number;

@@ -29,6 +29,18 @@ func statusCheck(stored forge.StatusCheck) *pullrequestv1.StatusCheck {
 		FinishedAt: dates.StampPtr(stored.FinishedAt),
 		Required:   stored.Required,
 		Url:        stored.URL,
+		Steps:      xslice.Map(stored.Steps, statusCheckStep),
+	}
+}
+
+func statusCheckStep(stored forge.StatusCheckStep) *pullrequestv1.StatusCheckStep {
+	return &pullrequestv1.StatusCheckStep{
+		Number:     int32(stored.Number),
+		Name:       stored.Name,
+		State:      statusCheckStateOf(stored.State),
+		Conclusion: stored.Conclusion,
+		StartedAt:  dates.StampPtr(stored.StartedAt),
+		FinishedAt: dates.StampPtr(stored.FinishedAt),
 	}
 }
 

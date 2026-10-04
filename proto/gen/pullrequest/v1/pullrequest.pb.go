@@ -1058,7 +1058,9 @@ type StatusCheck struct {
 	// Whether the pull request needs it to pass before it merges.
 	Required bool `protobuf:"varint,9,opt,name=required,proto3" json:"required,omitempty"`
 	// The web address a person opens to read it.
-	Url           string `protobuf:"bytes,10,opt,name=url,proto3" json:"url,omitempty"`
+	Url string `protobuf:"bytes,10,opt,name=url,proto3" json:"url,omitempty"`
+	// The steps of a check run, in the order it runs them, empty for a check that lists none.
+	Steps         []*StatusCheckStep `protobuf:"bytes,11,rep,name=steps,proto3" json:"steps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1163,6 +1165,104 @@ func (x *StatusCheck) GetUrl() string {
 	return ""
 }
 
+func (x *StatusCheck) GetSteps() []*StatusCheckStep {
+	if x != nil {
+		return x.Steps
+	}
+	return nil
+}
+
+// StatusCheckStep is one step of a check run.
+type StatusCheckStep struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where the step falls in the run, counting from one.
+	Number int32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
+	// The name the forge shows for it.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// How far along it is.
+	State StatusCheckState `protobuf:"varint,3,opt,name=state,proto3,enum=pullrequest.v1.StatusCheckState" json:"state,omitempty"`
+	// How it ended, as the forge words it, empty while it has not.
+	Conclusion string `protobuf:"bytes,4,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
+	// When it started, in RFC 3339, unset when the forge did not say.
+	StartedAt *string `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
+	// When it finished, in RFC 3339, unset while it has not.
+	FinishedAt    *string `protobuf:"bytes,6,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatusCheckStep) Reset() {
+	*x = StatusCheckStep{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatusCheckStep) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatusCheckStep) ProtoMessage() {}
+
+func (x *StatusCheckStep) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatusCheckStep.ProtoReflect.Descriptor instead.
+func (*StatusCheckStep) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *StatusCheckStep) GetNumber() int32 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *StatusCheckStep) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *StatusCheckStep) GetState() StatusCheckState {
+	if x != nil {
+		return x.State
+	}
+	return StatusCheckState_STATUS_CHECK_STATE_UNSPECIFIED
+}
+
+func (x *StatusCheckStep) GetConclusion() string {
+	if x != nil {
+		return x.Conclusion
+	}
+	return ""
+}
+
+func (x *StatusCheckStep) GetStartedAt() string {
+	if x != nil && x.StartedAt != nil {
+		return *x.StartedAt
+	}
+	return ""
+}
+
+func (x *StatusCheckStep) GetFinishedAt() string {
+	if x != nil && x.FinishedAt != nil {
+		return *x.FinishedAt
+	}
+	return ""
+}
+
 var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
@@ -1230,7 +1330,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\aread_at\x18\x02 \x01(\tH\x00R\x06readAt\x88\x01\x01\x12@\n" +
 	"\rstatus_checks\x18\x03 \x03(\v2\x1b.pullrequest.v1.StatusCheckR\fstatusChecksB\n" +
 	"\n" +
-	"\b_read_at\"\xfe\x02\n" +
+	"\b_read_at\"\xb5\x03\n" +
 	"\vStatusCheck\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x123\n" +
@@ -1247,7 +1347,21 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"finishedAt\x88\x01\x01\x12\x1a\n" +
 	"\brequired\x18\t \x01(\bR\brequired\x12\x10\n" +
 	"\x03url\x18\n" +
-	" \x01(\tR\x03urlB\r\n" +
+	" \x01(\tR\x03url\x125\n" +
+	"\x05steps\x18\v \x03(\v2\x1f.pullrequest.v1.StatusCheckStepR\x05stepsB\r\n" +
+	"\v_started_atB\x0e\n" +
+	"\f_finished_at\"\xfe\x01\n" +
+	"\x0fStatusCheckStep\x12\x16\n" +
+	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x126\n" +
+	"\x05state\x18\x03 \x01(\x0e2 .pullrequest.v1.StatusCheckStateR\x05state\x12\x1e\n" +
+	"\n" +
+	"conclusion\x18\x04 \x01(\tR\n" +
+	"conclusion\x12\"\n" +
+	"\n" +
+	"started_at\x18\x05 \x01(\tH\x00R\tstartedAt\x88\x01\x01\x12$\n" +
+	"\vfinished_at\x18\x06 \x01(\tH\x01R\n" +
+	"finishedAt\x88\x01\x01B\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_at*\xf5\x03\n" +
 	"\x10PullRequestState\x12\"\n" +
@@ -1316,7 +1430,7 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 }
 
 var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
 	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
@@ -1332,10 +1446,11 @@ var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(*ListStatusChecksRequest)(nil),  // 11: pullrequest.v1.ListStatusChecksRequest
 	(*ListStatusChecksResponse)(nil), // 12: pullrequest.v1.ListStatusChecksResponse
 	(*StatusCheck)(nil),              // 13: pullrequest.v1.StatusCheck
-	(*v1.Pagination)(nil),            // 14: pagination.v1.Pagination
+	(*StatusCheckStep)(nil),          // 14: pullrequest.v1.StatusCheckStep
+	(*v1.Pagination)(nil),            // 15: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	14, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	15, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
 	8,  // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
 	2,  // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
@@ -1345,15 +1460,17 @@ var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
 	13, // 7: pullrequest.v1.ListStatusChecksResponse.status_checks:type_name -> pullrequest.v1.StatusCheck
 	4,  // 8: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
 	5,  // 9: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
-	6,  // 10: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	11, // 11: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
-	10, // 12: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	12, // 13: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	14, // 10: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
+	5,  // 11: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
+	6,  // 12: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	11, // 13: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
+	10, // 14: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	12, // 15: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
+	14, // [14:16] is the sub-list for method output_type
+	12, // [12:14] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -1366,13 +1483,14 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[4].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[6].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[7].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

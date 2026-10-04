@@ -171,7 +171,7 @@ func TestListStatusChecks(t *testing.T) {
 			want: &pullrequestv1.ListStatusChecksResponse{},
 		},
 		{
-			name: "a reading answers its head and checks",
+			name: "a reading answers its head and checks with their steps",
 			reading: &pullrequeststore.StatusCheckReading{
 				HeadSHA: "c1",
 				ReadAt:  readAt,
@@ -184,6 +184,14 @@ func TestListStatusChecks(t *testing.T) {
 					Conclusion: "failure",
 					Required:   true,
 					URL:        "https://github.com/harrisoncramer/komrad/runs/1",
+					Steps: []forge.StatusCheckStep{{
+						Number:     1,
+						Name:       "Run tests",
+						State:      forge.StatusCheckStateCompleted,
+						Conclusion: "failure",
+						StartedAt:  xptr.Ptr(readAt.Add(-time.Minute)),
+						FinishedAt: &readAt,
+					}},
 				}},
 			},
 			want: &pullrequestv1.ListStatusChecksResponse{
@@ -198,6 +206,14 @@ func TestListStatusChecks(t *testing.T) {
 					Conclusion: "failure",
 					Required:   true,
 					Url:        "https://github.com/harrisoncramer/komrad/runs/1",
+					Steps: []*pullrequestv1.StatusCheckStep{{
+						Number:     1,
+						Name:       "Run tests",
+						State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
+						Conclusion: "failure",
+						StartedAt:  xptr.Ptr("2026-10-03T11:59:00Z"),
+						FinishedAt: xptr.Ptr("2026-10-03T12:00:00Z"),
+					}},
 				}},
 			},
 		},
