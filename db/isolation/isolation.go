@@ -32,8 +32,16 @@ var isolationSettingsSQL string
 //go:embed isolation.sql
 var isolationSQL string
 
+// Isolator settles engine isolation over every engine table the schema holds.
+type Isolator struct{}
+
+// NewIsolator builds an Isolator.
+func NewIsolator() *Isolator {
+	return &Isolator{}
+}
+
 // Apply settles row level security, the isolation policy, the stamp trigger and the grants on every engine table.
-func Apply(ctx context.Context, tx pgx.Tx) error {
+func (i *Isolator) Apply(ctx context.Context, tx pgx.Tx) error {
 	tablesWithoutEngineRows, err := tx.Query(ctx, tablesWithoutEngineSQL, UnscopedTables)
 	if err != nil {
 		return fmt.Errorf("failed to list tables without engine_id: %w", err)

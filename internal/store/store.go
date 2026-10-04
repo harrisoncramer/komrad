@@ -87,7 +87,13 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 		return nil, fmt.Errorf("failed to reach db: %w", err)
 	}
 
-	if err := migrator.CheckSchema(ctx, pool); err != nil {
+	schema, err := migrator.NewMigrator(pool)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+
+	if err := schema.CheckSchema(ctx); err != nil {
 		pool.Close()
 		return nil, err
 	}
@@ -113,7 +119,12 @@ func Migrate(ctx context.Context, url string) error {
 	}
 	defer pool.Close()
 
-	if err := migrator.Migrate(ctx, pool); err != nil {
+	schema, err := migrator.NewMigrator(pool)
+	if err != nil {
+		return err
+	}
+
+	if err := schema.Migrate(ctx); err != nil {
 		return fmt.Errorf("failed to migrate db: %w", err)
 	}
 
@@ -128,11 +139,16 @@ func EnsureEngine(ctx context.Context, url string, params db.EnsureEngineParams)
 	}
 	defer pool.Close()
 
-	if err := migrator.CheckSchema(ctx, pool); err != nil {
+	schema, err := migrator.NewMigrator(pool)
+	if err != nil {
 		return err
 	}
 
-	return db.EnsureEngine(ctx, pool, params)
+	if err := schema.CheckSchema(ctx); err != nil {
+		return err
+	}
+
+	return db.NewEngineProvisioner(pool).EnsureEngine(ctx, params)
 }
 
 func openOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {

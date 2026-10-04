@@ -17,14 +17,6 @@ var engineSettingsSQL string
 
 var enginePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,29}$`)
 
-func validateEngineName(name string) error {
-	if !enginePattern.MatchString(name) {
-		return fmt.Errorf("engine name %q must be 1 to 30 lowercase letters, digits or underscores, starting with a letter", name)
-	}
-
-	return nil
-}
-
 // EngineLogin is the Postgres login an engine writes with.
 func EngineLogin(name string) string {
 	return "komrad_engine_" + name
@@ -40,6 +32,16 @@ func EngineRiverSchema(name string) string {
 	return "river_" + name
 }
 
+// EngineProvisioner creates engines and keeps their logins up to date.
+type EngineProvisioner struct {
+	pool *pgxpool.Pool
+}
+
+// NewEngineProvisioner builds an EngineProvisioner that writes through pool.
+func NewEngineProvisioner(pool *pgxpool.Pool) *EngineProvisioner {
+	return &EngineProvisioner{pool: pool}
+}
+
 // EnsureEngineParams names the engine to ensure and the password both its logins take.
 type EnsureEngineParams struct {
 	Name     string
@@ -47,12 +49,12 @@ type EnsureEngineParams struct {
 }
 
 // EnsureEngine creates an engine's row, logins and River schema, or brings an existing engine's up to date.
-func EnsureEngine(ctx context.Context, pool *pgxpool.Pool, params EnsureEngineParams) error {
+func (p *EngineProvisioner) EnsureEngine(ctx context.Context, params EnsureEngineParams) error {
 	if err := validateEngineName(params.Name); err != nil {
 		return err
 	}
 
-	tx, err := pool.Begin(ctx)
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin ensuring engine %s: %w", params.Name, err)
 	}
@@ -68,6 +70,14 @@ func EnsureEngine(ctx context.Context, pool *pgxpool.Pool, params EnsureEnginePa
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit engine %s: %w", params.Name, err)
+	}
+
+	return nil
+}
+
+func validateEngineName(name string) error {
+	if !enginePattern.MatchString(name) {
+		return fmt.Errorf("engine name %q must be 1 to 30 lowercase letters, digits or underscores, starting with a letter", name)
 	}
 
 	return nil
