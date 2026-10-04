@@ -101,7 +101,7 @@ func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadines
 			To:    string(rs.Checks.Value),
 		})
 	}
-	if rs.Mergeability.Value != before.Mergeability.Value {
+	if !rs.Mergeability.WasLatestReadBlank && (rs.Mergeability.Value != before.Mergeability.Value || isOnNewHead(before.Mergeability, rs.Mergeability)) {
 		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldMergeability,
 			From:  string(before.Mergeability.Value),
@@ -119,8 +119,8 @@ func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadines
 	return moves
 }
 
-// isOnNewHead says whether the checks were read for a different head than before.
-func isOnNewHead(before, after RememberedAnswer[Checks]) bool {
+// isOnNewHead says whether an answer was read for a different head than before.
+func isOnNewHead[T comparable](before, after RememberedAnswer[T]) bool {
 	return before.HeadSHA != "" && after.HeadSHA != "" && before.HeadSHA != after.HeadSHA
 }
 
