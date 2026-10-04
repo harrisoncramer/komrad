@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 )
@@ -89,4 +90,13 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		cursorLast: above + first + height - 1,
 		rows:       above + split.rows,
 	}
+}
+
+// withMenu is a popup body with the menu as a section under it, or the menu alone under no body.
+func withMenu(body, menu string, inner int) string {
+	if body == "" {
+		return menu
+	}
+
+	return strings.TrimRight(body, "\n") + "\n" + dimStyle().Render(strings.Repeat(glyph.Rule, inner)) + "\n" + menu
 }

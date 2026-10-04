@@ -166,15 +166,17 @@ func diffPanRow() screenLegendRow {
 // diffWrapRow is the key that wraps long lines or cuts them off again.
 func diffWrapRow() screenLegendRow {
 	return screenLegendRow{
-		of: []actionID{actionDiffWrap},
-		desc: func(m *model) string {
-			if m.diffWrap {
-				return "stop wrapping lines"
-			}
-
-			return "wrap lines"
-		},
+		of:   []actionID{actionDiffWrap},
+		desc: wrapDesc,
 	}
+}
+
+func wrapDesc(m *model) string {
+	if m.diffWrap {
+		return "stop wrapping lines"
+	}
+
+	return "wrap lines"
 }
 
 // isPanning reports whether long lines are cut off and panned rather than wrapped.

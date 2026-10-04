@@ -122,6 +122,7 @@ func newSubmenuLevel(menu submenu) submenuLevel {
 func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	state := formState{
 		kind:   level.menu.kind,
+		isMenu: true,
 		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.title }), level.menu.title),
 		update: func(m *model, msg tea.Msg) tea.Cmd {
 			return m.updateSubmenu(msg, parents, level)

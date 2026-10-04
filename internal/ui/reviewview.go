@@ -69,14 +69,19 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 		return area
 	}
 
-	body, back := r.popupBody(m, r.measurePopupInner(m))
+	inner := r.measurePopupInner(m)
+	body, back := r.popupBody(m, inner)
+	tone := paint.ToneMuted
+	if m.isPopupMenu() && m.form.isActive() {
+		body, back, tone = withMenu(body, m.heldFormView(), inner), 0, paint.TonePrimary
+	}
 	if body == "" {
 		return area
 	}
 
 	slot := r.placeThread(m, body)
 
-	return overlayPopup(area, drawPopup(body, back, slot, paint.ToneMuted), slot)
+	return overlayPopup(area, drawPopup(body, back, slot, tone), slot)
 }
 
 // drawSidebar is the panel's own column: what the change is, the pull request open from the
@@ -455,39 +460,12 @@ func (d reviewDiff) resolveDesc() string {
 	return "settle the thread"
 }
 
-// fileDesc names the two keys that act on the whole file the cursor is in, which share a legend
-// row so that the taller of them costs the pane nothing.
-func (d reviewDiff) fileDesc() string {
-	if d.View() == nil {
-		return "fold / whole file"
-	}
-
-	// A folded file has nothing on screen to open out, so the expand key is refused there and
-	// the legend names the fold key alone.
-	file, ok := d.View().GetDrawnFileAt(d.Cursor())
-
-	// Marking a file read is refused in a round, so the row names the key that still works.
-	if d.spec.isNarrowed() {
-		if ok && d.View().IsExpanded(file.Path()) {
-			return "show the changes"
-		}
-
-		return "show the whole file"
-	}
-
-	if ok && d.View().IsViewed(file.Path()) {
-		return "open the file"
-	}
-
-	if ok && d.View().IsExpanded(file.Path()) {
-		return "fold / the changes"
-	}
-
-	return "fold / whole file"
-}
-
 // viewedDesc names what the viewed key does to the file the cursor is in.
 func (d reviewDiff) viewedDesc() string {
+	if d.View() == nil {
+		return "mark the file viewed"
+	}
+
 	if file, ok := d.View().GetPatchFileAt(d.Cursor()); ok && d.View().IsViewed(file.Path()) {
 		return "open the file"
 	}

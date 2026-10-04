@@ -142,7 +142,7 @@ func (m *model) columnSplit() (columnSplit, bool) {
 // screenColumnSplit is the split a screen's own block is drawn across, refused while a form is
 // up.
 func (m *model) screenColumnSplit() (columnSplit, bool) {
-	if m.form.isOpening() || m.isMessagesFocused() {
+	if (m.form.isOpening() && !m.isPopupMenu()) || m.isMessagesFocused() {
 		return columnSplit{}, false
 	}
 
@@ -156,7 +156,7 @@ func (m *model) columnOf() (columnSpec, bool) {
 		return buildMessagesColumn(), true
 	}
 
-	if m.form.isOpening() {
+	if m.form.isOpening() && !m.isPopupMenu() {
 		return formColumn(m.form.kind)
 	}
 
@@ -381,4 +381,9 @@ func fitColumn(block string, width int) string {
 	}
 
 	return strings.Join(rows, "\n")
+}
+
+// isPopupMenu reports whether the menu stands in the review's popup rather than in a column of its own.
+func (m *model) isPopupMenu() bool {
+	return m.form.isMenu && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
 }

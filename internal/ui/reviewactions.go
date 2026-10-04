@@ -30,7 +30,11 @@ func (r *reviewScreen) diffActions() screenActionSpec {
 }
 
 func (r *reviewScreen) table() []screenAction {
-	return slices.Concat(r.ownTable(), r.diffKeys().table())
+	shared := slices.DeleteFunc(r.diffKeys().table(), func(a screenAction) bool {
+		return a.id == actionDiffExpand || a.id == actionDiffWrap
+	})
+
+	return slices.Concat(r.ownTable(), shared)
 }
 
 // ownTable is the review's keys past the ones every diff pane shares.
@@ -81,18 +85,6 @@ func (r *reviewScreen) ownTable() []screenAction {
 			keys: func(k config.Keybindings) []string { return k.Review.Jump },
 			when: func(*model) bool { return r.doesOfferJump() },
 			nav:  func(m *model, _ string) tea.Cmd { return r.toggleJump(m) },
-		},
-		{
-			id:   actionReviewReload,
-			keys: func(k config.Keybindings) []string { return k.Review.Reload },
-			nav:  func(m *model, _ string) tea.Cmd { return r.reloadFresh(m) },
-		},
-		{
-			id:   actionReviewEdit,
-			keys: func(k config.Keybindings) []string { return k.Review.EditFile },
-			// Editing writes to the worktree rather than to the agent, so it is offered whether or
-			// not there is anybody there to read a comment.
-			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return r.pressEdit(m) }),
 		},
 		{
 			id:     actionReviewResolve,
@@ -216,20 +208,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		diffSearchRow(),
 		diffMatchRow(),
 		diffPanRow(),
-		diffWrapRow(),
 		navJumpRow(),
-		{
-			of:   []actionID{actionReviewEdit},
-			desc: func(*model) string { return r.hold.editorDesc() },
-			// The one thing standing in the way of editing is an earlier round, whose line numbers
-			// name a file the worktree no longer holds.
-			show: func(*model) bool {
-				_, history := r.isHistory()
-
-				return !history
-			},
-			strip: true,
-		},
 		{
 			of:   []actionID{actionReviewBase},
 			desc: func(*model) string { return "an earlier chapter" },
@@ -244,10 +223,6 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:   []actionID{actionReviewJump},
 			desc: func(*model) string { return r.diff.jumpDesc() },
 			show: func(*model) bool { return r.doesOfferJump() },
-		},
-		{
-			of:   []actionID{actionReviewReload},
-			desc: func(m *model) string { return r.reloadDesc(m) },
 		},
 		{
 			of:   []actionID{actionReviewResolve},
@@ -274,8 +249,9 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			show: func(m *model) bool { return reachable(m) && r.doesOfferForgeRetry() },
 		},
 		{
-			of:   []actionID{actionReviewViewed, actionDiffExpand},
-			desc: func(*model) string { return r.diff.fileDesc() },
+			of:   []actionID{actionReviewViewed},
+			desc: func(*model) string { return r.diff.viewedDesc() },
+			show: func(*model) bool { return !r.diff.spec.isNarrowed() },
 		},
 		{
 			of:   []actionID{actionReviewBaseForward},
@@ -411,3 +387,22 @@ const (
 	editorRelease   = "leaving the editor releases the agent whichever key leaves it"
 	composerSurface = "the composer and the release panel are the review's own surface with their own submit"
 )
+
+// buildScreenMenu builds the review's own band, for the file in the editor and how the diff is drawn.
+func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
+	_, history := r.isHistory()
+
+	edit := openEntry(r.hold.editorDesc(), m.keys.Review.EditFile, func(m *model) tea.Cmd { return m.review.pressEdit(m) })
+	edit.isOff = history && !r.hold.atEditor
+
+	return submenu{
+		kind:  formMenu,
+		title: "review",
+		entries: []submenuEntry{
+			edit,
+			openEntry(r.diffKeys().expandDesc(), m.keys.Diff.Expand, func(m *model) tea.Cmd { return m.review.diffKeys().toggleExpanded(m) }),
+			openEntry(wrapDesc(m), m.keys.Diff.Wrap, func(m *model) tea.Cmd { return m.review.diffKeys().toggleWrap(m) }),
+			openEntry(r.reloadDesc(m), m.keys.Review.Reload, func(m *model) tea.Cmd { return m.review.reloadFresh(m) }),
+		},
+	}, true
+}
