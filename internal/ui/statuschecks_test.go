@@ -32,7 +32,12 @@ func answerStatusChecks(checks ...*pullrequestv1.StatusCheck) func(*panelHarness
 }
 
 func newStatusCheck(id, name string, state pullrequestv1.StatusCheckState, conclusion string) *pullrequestv1.StatusCheck {
-	return &pullrequestv1.StatusCheck{ProviderId: id, Name: name, State: state, Conclusion: conclusion}
+	return &pullrequestv1.StatusCheck{
+		ProviderId: id,
+		Name:       name,
+		State:      state,
+		Conclusion: conclusion,
+	}
 }
 
 // TestStatusChecksOpen covers the screen opening from the subpages menu.

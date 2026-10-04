@@ -619,8 +619,16 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 			To:    string(forge.ChecksFailing),
 		}}},
 		{ID: id, Moves: []Move{
-			{Field: fieldChecks, From: string(forge.ChecksFailing), To: string(forge.ChecksFailing)},
-			{Field: fieldMergeability, From: string(forge.MergeabilityClean), To: string(forge.MergeabilityClean)},
+			{
+				Field: fieldChecks,
+				From:  string(forge.ChecksFailing),
+				To:    string(forge.ChecksFailing),
+			},
+			{
+				Field: fieldMergeability,
+				From:  string(forge.MergeabilityClean),
+				To:    string(forge.MergeabilityClean),
+			},
 		}},
 	}, f.changes(t))
 }

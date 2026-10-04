@@ -539,7 +539,11 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"unit_probe.v1.sql": {Data: []byte(probeTrigger)},
 	}
 
-	require.NoError(t, (&Migrator{pool: pool, migrations: migrations, triggers: attached}).Migrate(ctx))
+	require.NoError(t, (&Migrator{
+		pool:       pool,
+		migrations: migrations,
+		triggers:   attached,
+	}).Migrate(ctx))
 	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 1}, appliedUnits(t, pool))
 	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"))
 
@@ -551,21 +555,45 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"_functions.v1.sql": attached["_functions.v1.sql"],
 		"unit_probe.v1.sql": {Data: []byte(`SELECT 1/0;`)},
 	}
-	require.Error(t, (&Migrator{pool: pool, migrations: recreated, triggers: broken}).Migrate(ctx))
-	require.ErrorIs(t, (&Migrator{pool: pool, migrations: recreated, triggers: attached}).CheckSchema(ctx), errSchemaBehind, "a unit owed by a migration stays owed after a failed run")
-	require.NoError(t, (&Migrator{pool: pool, migrations: recreated, triggers: attached}).Migrate(ctx))
+	require.Error(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   broken,
+	}).Migrate(ctx))
+	require.ErrorIs(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   attached,
+	}).CheckSchema(ctx), errSchemaBehind, "a unit owed by a migration stays owed after a failed run")
+	require.NoError(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   attached,
+	}).Migrate(ctx))
 	assert.True(t, triggerExists(t, pool, "unit_probe", "mark_seen"), "a migration that rebuilds a table gets its triggers back")
 
 	detached := fstest.MapFS{
 		"_functions.v1.sql": attached["_functions.v1.sql"],
 		"unit_probe.v2.sql": {Data: []byte(`DROP TRIGGER IF EXISTS mark_seen ON unit_probe;`)},
 	}
-	require.ErrorIs(t, (&Migrator{pool: pool, migrations: recreated, triggers: detached}).CheckSchema(ctx), errSchemaBehind)
-	require.NoError(t, (&Migrator{pool: pool, migrations: recreated, triggers: detached}).Migrate(ctx))
+	require.ErrorIs(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   detached,
+	}).CheckSchema(ctx), errSchemaBehind)
+	require.NoError(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   detached,
+	}).Migrate(ctx))
 	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool))
 	assert.False(t, triggerExists(t, pool, "unit_probe", "mark_seen"))
 	assert.False(t, functionExists(t, pool, "mark_seen"), "a function no trigger runs is dropped")
-	require.NoError(t, (&Migrator{pool: pool, migrations: recreated, triggers: attached}).CheckSchema(ctx), "an older build runs against newer triggers")
+	require.NoError(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   attached,
+	}).CheckSchema(ctx), "an older build runs against newer triggers")
 
 	dropped := fstest.MapFS{
 		"20260101000000_first.sql":  recreated["20260101000000_first.sql"],
@@ -573,10 +601,22 @@ func TestMigrateTriggerUnits(t *testing.T) {
 		"20260103000000_third.sql":  {Data: []byte(`DROP TABLE unit_probe`)},
 	}
 	functionsOnly := fstest.MapFS{"_functions.v1.sql": attached["_functions.v1.sql"]}
-	require.NoError(t, (&Migrator{pool: pool, migrations: dropped, triggers: functionsOnly}).Migrate(ctx))
+	require.NoError(t, (&Migrator{
+		pool:       pool,
+		migrations: dropped,
+		triggers:   functionsOnly,
+	}).Migrate(ctx))
 	assert.Equal(t, map[string]int{"_functions": 1, "unit_probe": 2}, appliedUnits(t, pool), "a unit no longer carried keeps its row")
-	require.NoError(t, (&Migrator{pool: pool, migrations: recreated, triggers: detached}).CheckSchema(ctx), "an older build still carrying the unit runs against the newer database")
-	require.NoError(t, (&Migrator{pool: pool, migrations: recreated, triggers: detached}).Migrate(ctx))
+	require.NoError(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   detached,
+	}).CheckSchema(ctx), "an older build still carrying the unit runs against the newer database")
+	require.NoError(t, (&Migrator{
+		pool:       pool,
+		migrations: recreated,
+		triggers:   detached,
+	}).Migrate(ctx))
 }
 
 // TestListUnits pins the order units apply in and the file names it refuses.
