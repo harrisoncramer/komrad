@@ -245,10 +245,14 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	switch {
 	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
 		return v.glyphs.Spell(glyph.ThreadUnsent), style
+	case holdsFailedForgeReply(thread):
+		return v.glyphs.Spell(glyph.ThreadUnsent), style
 	case thread.GetUnreadByHuman():
 		return v.glyphs.Spell(glyph.ThreadUnread), style
 	case thread.GetResolvedAt() != "":
 		return v.glyphs.Spell(glyph.ThreadSettled), style
+	case thread.GetMirrorsForge():
+		return v.glyphs.Spell(glyph.ThreadForge), style
 	}
 
 	return v.glyphs.Spell(glyph.ThreadRead), style
@@ -256,6 +260,9 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 
 // markStyleFor is the colour a thread is drawn in, which says who opened it.
 func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
+	if thread.GetMirrorsForge() {
+		return paint.Panel.Style(ForgeTone)
+	}
 	if isAgentThread(thread) {
 		return paint.Panel.Style(paint.ToneUserAgent)
 	}

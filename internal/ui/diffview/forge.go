@@ -1,6 +1,29 @@
 package diffview
 
-import "komrad/internal/ui/paint"
+import (
+	"slices"
+
+	"komrad/internal/ui/paint"
+	agentv1 "komrad/proto/gen/agent/v1"
+)
 
 // ForgeTone is the tone comments mirrored from the forge are drawn in.
 const ForgeTone = paint.ToneUserGithub
+
+// holdsFailedForgeReply reports whether a thread has a reply the forge refused, which waits on the
+// person to retry or discard it.
+func holdsFailedForgeReply(thread *agentv1.ReviewThread) bool {
+	return slices.ContainsFunc(thread.GetForgeReplies(), func(reply *agentv1.ForgeReply) bool {
+		switch reply.GetState() {
+		case agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED:
+			return true
+		case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
+			agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT,
+			agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
+			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING,
+			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
+		}
+
+		return false
+	})
+}

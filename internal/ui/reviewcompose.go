@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -36,6 +37,7 @@ func (r *reviewScreen) compose(m *model) tea.Cmd {
 
 	r.threads.composing = true
 	r.threads.retrying = nil
+	r.threads.forge = nil
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       reviewInputTitle(replying),
@@ -184,9 +186,15 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 	}
 
 	retrying := r.threads.retrying
+	forge := r.threads.forge
 	r.threads.editor = reviewInput{}
 	r.threads.composing = false
 	r.threads.retrying = nil
+	r.threads.forge = nil
+
+	if forge != nil {
+		return r.saveForgeReply(m, forge, body)
+	}
 
 	agents, threadID := m.clients().agents, r.threads.editing
 	kept := reviewUnsent{editing: threadID, body: body}
@@ -234,6 +242,8 @@ type reviewUnsent struct {
 	body    string
 	// place is where a new thread goes, nil for a reply.
 	place *reviewPlace
+	// forge is the reply to the forge the message was, nil for one to the agent.
+	forge *reviewForgeCompose
 }
 
 func (u *reviewUnsent) getPlace() *reviewPlace {
@@ -257,7 +267,7 @@ func keepUnsent(kept reviewUnsent, write tea.Cmd) tea.Cmd {
 		msg := write()
 
 		wrote, ok := msg.(reviewWroteMsg)
-		if !ok || wrote.err == nil {
+		if !ok || wrote.err == nil || errors.Is(wrote.err, errForgeRefused) {
 			return msg
 		}
 
@@ -276,6 +286,7 @@ func (r *reviewScreen) restoreMessage(m *model, unsent reviewUnsent) tea.Cmd {
 	r.threads.editing = unsent.editing
 	r.threads.composing = true
 	r.threads.retrying = &unsent
+	r.threads.forge = unsent.forge
 
 	title, said := r.threads.inputHead()
 
@@ -291,6 +302,7 @@ func (t *reviewThreads) cancelMessage() {
 	t.editor = reviewInput{}
 	t.composing = false
 	t.retrying = nil
+	t.forge = nil
 }
 
 func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, body string) tea.Cmd {
@@ -524,5 +536,9 @@ func (r reviewScreen) writeMsgCmd(m *model, counted int, write func(context.Cont
 
 // inputHead is the composer's title and what its submit key is said to do.
 func (t reviewThreads) inputHead() (string, string) {
+	if t.forge != nil {
+		return t.forge.title, "post"
+	}
+
 	return reviewInputTitle(t.editing != ""), "save"
 }

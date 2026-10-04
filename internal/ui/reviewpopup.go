@@ -34,7 +34,9 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 	switch {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
-	case r.threads.composing || r.threads.releasing:
+	case r.threads.composing:
+		return r.threads.forgeQuoteView(inner) + r.threads.editor.view(), 0
+	case r.threads.releasing:
 		return r.threads.editor.view(), 0
 	}
 

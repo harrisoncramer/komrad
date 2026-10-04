@@ -334,6 +334,14 @@ compose          = ["c"]
 # working rather than letting you both write at once. It is refused on a round the
 # agent has written past, since those lines have moved on.
 edit_file        = ["e"]
+# Throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
+# posted.
+forge_discard    = ["x"]
+# Try again with a reply of yours the forge refused on the thread under the cursor.
+forge_post       = ["p"]
+# Write a reply on the forge thread under the cursor, posted on the pull request where
+# anyone can read it.
+forge_reply      = ["C"]
 # Jump from the comment under the cursor to the diff it was written against, with the
 # cursor on it, or back to where you were from there. Anywhere else, move to the next
 # comment from the forge on the pull request.
@@ -580,6 +588,8 @@ read      = "○"
 settled   = "✓"
 # A thread holding a comment nobody has sent yet.
 unsent    = "◇"
+# A thread mirrored from the pull request on the forge.
+forge     = "◆"
 # The row of the file tree beside the diff that the cursor is in.
 current   = "▸"
 # A comment the agent has been given.

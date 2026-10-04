@@ -546,6 +546,14 @@ type ReviewKeys struct {
 	// working rather than letting you both write at once. It is refused on a round the
 	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
+	// Throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
+	// posted.
+	ForgeDiscard []string `mapstructure:"forge_discard" default:"x"`
+	// Try again with a reply of yours the forge refused on the thread under the cursor.
+	ForgePost []string `mapstructure:"forge_post" default:"p"`
+	// Write a reply on the forge thread under the cursor, posted on the pull request where
+	// anyone can read it.
+	ForgeReply []string `mapstructure:"forge_reply" default:"C"`
 	// Jump from the comment under the cursor to the diff it was written against, with the
 	// cursor on it, or back to where you were from there. Anywhere else, move to the next
 	// comment from the forge on the pull request.

@@ -105,6 +105,8 @@ type ReviewGlyphs struct {
 	Settled string `mapstructure:"settled"`
 	// A thread holding a comment nobody has sent yet.
 	Unsent string `mapstructure:"unsent"`
+	// A thread mirrored from the pull request on the forge.
+	Forge string `mapstructure:"forge"`
 	// The row of the file tree beside the diff that the cursor is in.
 	Current string `mapstructure:"current"`
 	// A comment the agent has been given.

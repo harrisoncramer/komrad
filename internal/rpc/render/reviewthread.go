@@ -10,7 +10,10 @@ import (
 
 // WatchedReviewThread draws a thread as the watch carries it.
 func WatchedReviewThread(thread reviewstore.ThreadWithMessages) *agentv1.ReviewThread {
-	return ReviewThread(thread.Thread, thread.Messages)
+	drawn := ReviewThread(thread.Thread, thread.Messages)
+	drawn.ForgeReplies = xslice.Map(thread.ForgeReplies, ForgeReply)
+
+	return drawn
 }
 
 // ReviewThread draws a thread with everything said in it.
@@ -29,6 +32,7 @@ func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *ag
 		NewEnd:        thread.NewEnd,
 		QuotedLines:   thread.QuotedLines,
 		UnreadByHuman: thread.UnreadByHuman,
+		MirrorsForge:  thread.ForgeThreadID != nil,
 		CreatedAt:     dates.Stamp(thread.CreatedAt),
 		UpdatedAt:     dates.Stamp(thread.UpdatedAt),
 		Messages:      xslice.Map(messages, ReviewMessage),

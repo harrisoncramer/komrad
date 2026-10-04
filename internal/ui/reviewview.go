@@ -74,7 +74,9 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 		return area
 	}
 
-	return overlayPopup(area, body, back, r.placeThread(m, body))
+	slot := r.placeThread(m, body)
+
+	return overlayPopup(area, drawPopup(body, back, slot, r.popupTone()), slot)
 }
 
 // drawSidebar is the panel's own column: what the change is, the pull request open from the
@@ -280,7 +282,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 	answered := findAnswer(thread)
 	later := false
 
-	out := r.originView(thread, width)
+	out := r.forgeTitleView(m, thread) + r.originView(thread, width)
 	for i, message := range thread.GetMessages() {
 		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
 			later = true
@@ -298,7 +300,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 		})
 	}
 
-	return out
+	return out + r.forgeRepliesView(m, thread, width)
 }
 
 // originView is where a thread was written and the line it was written against, drawn only once
