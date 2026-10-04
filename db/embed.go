@@ -182,7 +182,11 @@ func openSources() (*sources, error) {
 		return nil, fmt.Errorf("failed to open the embedded triggers: %w", err)
 	}
 
-	return &sources{migrations: migrations, triggers: triggers, isolate: isolateEngines}, nil
+	return &sources{
+		migrations: migrations,
+		triggers:   triggers,
+		isolate:    isolateEngines,
+	}, nil
 }
 
 func (s *sources) list() (*contents, error) {

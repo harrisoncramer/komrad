@@ -73,8 +73,12 @@ func newForgeReplyFixture(t *testing.T) *forgeReplyFixture {
 
 	fake := &fakeReplyForge{}
 	hosts := &fakeForgeHosts{
-		forge:      fake,
-		connection: forgestore.Connection{Host: "github.com", Method: "token", Login: "komrad-bot"},
+		forge: fake,
+		connection: forgestore.Connection{
+			Host:   "github.com",
+			Method: "token",
+			Login:  "komrad-bot",
+		},
 	}
 
 	return &forgeReplyFixture{
@@ -173,7 +177,11 @@ func TestSendingForgeReply(t *testing.T) {
 	later := time.Now().Add(time.Hour)
 
 	replyOnForge := func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
-		return fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{ThreadID: fx.threadID, Author: personAuthor, Body: "done"})
+		return fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{
+			ThreadID: fx.threadID,
+			Author:   personAuthor,
+			Body:     "done",
+		})
 	}
 
 	tests := []struct {
@@ -201,7 +209,11 @@ func TestSendingForgeReply(t *testing.T) {
 			send: func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
 				draft := fx.propose(t)
 
-				return fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{ID: draft.ID, Author: personAuthor, Body: &edited})
+				return fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{
+					ID:     draft.ID,
+					Author: personAuthor,
+					Body:   &edited,
+				})
 			},
 			wantState: reviewstore.ForgeReplySent,
 			wantBody:  edited,
@@ -247,7 +259,11 @@ func TestSendingForgeReply(t *testing.T) {
 				ctx, cancel := context.WithCancel(t.Context())
 				fx.forge.cancel = cancel
 
-				return fx.replies.ReplyOnForge(ctx, ReplyOnForgeParams{ThreadID: fx.threadID, Author: personAuthor, Body: "done"})
+				return fx.replies.ReplyOnForge(ctx, ReplyOnForgeParams{
+					ThreadID: fx.threadID,
+					Author:   personAuthor,
+					Body:     "done",
+				})
 			},
 			wantState: reviewstore.ForgeReplySent,
 		},
@@ -276,7 +292,11 @@ func TestSendingForgeReply(t *testing.T) {
 		{
 			name: "an agent cannot reply on the forge directly",
 			send: func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
-				return fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{ThreadID: fx.threadID, Author: newAgentAuthor(fx.worker), Body: "done"})
+				return fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{
+					ThreadID: fx.threadID,
+					Author:   newAgentAuthor(fx.worker),
+					Body:     "done",
+				})
 			},
 			wantErr: ErrReviewHumanOnly,
 		},
@@ -324,7 +344,11 @@ func TestEditedForgeReplyKeepsProposal(t *testing.T) {
 	draft := fx.propose(t)
 	edited := "added the guard, thanks"
 
-	sent, err := fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{ID: draft.ID, Author: personAuthor, Body: &edited})
+	sent, err := fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{
+		ID:     draft.ID,
+		Author: personAuthor,
+		Body:   &edited,
+	})
 	require.NoError(t, err)
 
 	assert.Equal(t, edited, sent.Body)
