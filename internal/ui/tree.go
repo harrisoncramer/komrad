@@ -636,7 +636,7 @@ func (l *listing) assemble(now time.Time) {
 	l.documentTypes = documentTypesFrom(l.world.DocumentTypes)
 }
 
-// revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.
+// revealAgent puts the cursor on an agent, showing the hidden rows when it needs them.
 func (a *agentsScreen) revealAgent(m *model, id string) {
 	if a.hoveredAgentID(m) == id {
 		return
