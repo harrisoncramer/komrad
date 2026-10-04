@@ -8,7 +8,6 @@ import (
 	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
-	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -43,6 +42,8 @@ type statusChecksScreen struct {
 	listed            bool
 	listing           bool
 	err               error
+	scope             statusCheckScope
+	scopeFocus        bool
 }
 
 type statusCheckRow struct {
@@ -84,7 +85,7 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 
 func (c *statusChecksScreen) rows(m *model) []statusCheckRow {
 	return narrowed(m.filter, narrowedParams[statusCheckRow]{
-		rows: xslice.Map(c.items, func(item statusCheckItem) statusCheckRow {
+		rows: xslice.Map(xslice.Filter(c.items, c.scope.holds), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
 		}),
 		depth: func(statusCheckRow) int { return 0 },
@@ -97,12 +98,69 @@ func statusCheckRowName(row statusCheckRow) string {
 }
 
 func (c *statusChecksScreen) view(m *model) string {
-	return m.columnListView(screenListParams{
+	return m.columnListView(c.listParams(m))
+}
+
+func (c *statusChecksScreen) listParams(m *model) screenListParams {
+	return screenListParams{
 		help:     c.help,
 		empty:    c.emptyLine(m),
 		rows:     len(c.rows(m)),
 		snapshot: func(pane listPane) view.Snapshot { return c.snapshot(m, pane) },
-	})
+	}
+}
+
+// statusCheckScope is which of the status checks the status checks screen lists.
+type statusCheckScope int
+
+const (
+	statusCheckScopeAll statusCheckScope = iota
+	statusCheckScopeActive
+	statusCheckScopeFailing
+)
+
+var statusCheckScopeLabels = []string{"all", "active", "failing"}
+
+// holds reports whether the scope lists the status check.
+func (s statusCheckScope) holds(item statusCheckItem) bool {
+	switch s {
+	case statusCheckScopeActive:
+		return !isStatusCheckFinished(item)
+	case statusCheckScopeFailing:
+		return isStatusCheckFinished(item) && !isStatusCheckClean(item)
+	case statusCheckScopeAll:
+	}
+
+	return true
+}
+
+func (c *statusChecksScreen) kinds() stops {
+	return stops{
+		labels: statusCheckScopeLabels,
+		focus:  noStop,
+		lit:    int(c.scope),
+	}
+}
+
+func (c *statusChecksScreen) kindsFit(m *model) bool {
+	return m.listFitsTabs(c.listParams(m))
+}
+
+func (c *statusChecksScreen) kindsFocused() *bool {
+	return &c.scopeFocus
+}
+
+func (c *statusChecksScreen) kindsSwitch(*model) bool {
+	return true
+}
+
+// stepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
+func (c *statusChecksScreen) stepKind(m *model, delta int) tea.Cmd {
+	hovered := c.list().hovered(m)
+	c.scope = statusCheckScope(stepStop(int(c.scope), delta, len(statusCheckScopeLabels)))
+	c.list().place(m, hovered)
+
+	return m.waitToStage()
 }
 
 func (c *statusChecksScreen) emptyLine(m *model) string {
@@ -113,21 +171,19 @@ func (c *statusChecksScreen) emptyLine(m *model) string {
 		return "no pull request"
 	case !c.listed:
 		return "reading…"
+	case c.scope != statusCheckScopeAll && len(c.items) > 0:
+		return "no " + statusCheckScopeLabels[c.scope] + " status checks"
 	}
 
 	return "no status checks yet"
 }
 
-// statusCheckColumns is the gutter of the status checks list: where each status check stands, as a
-// word and then as an icon.
+// statusCheckColumns is the gutter of the status checks list: the icon of where each status check stands.
 func statusCheckColumns() view.Columns {
 	return view.Columns{
-		{Kind: view.ColumnText, Width: statusCheckStandingColumns},
 		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
 }
-
-const statusCheckStandingColumns = 10
 
 func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	rows := c.rows(m)
@@ -141,7 +197,6 @@ func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
 				Matches: matchesIn(m.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
 				Cells: []view.Cell{
-					mutedCell(statusCheckStanding(r.item)),
 					statusCheckIcon(r.item, m.loading.frame()),
 				},
 			}
@@ -152,28 +207,6 @@ func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
 		Pane:       pane.width,
 		Columns:    statusCheckColumns(),
 	}
-}
-
-// statusCheckStanding is the word drawn beside a check: how it ended once it has, and how far along it
-// is until then.
-func statusCheckStanding(item statusCheckItem) string {
-	switch item.state {
-	case pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED:
-		if item.conclusion != "" {
-			return strings.ToLower(item.conclusion)
-		}
-
-		return "completed"
-	case pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED:
-		return "queued"
-	case pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING:
-		return "running"
-	case pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING:
-		return "waiting"
-	case pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNSPECIFIED:
-	}
-
-	return ""
 }
 
 func (c *statusChecksScreen) listActions() screenActionSpec {
@@ -238,6 +271,7 @@ func (c *statusChecksScreen) dispatches(*model) []dispatching {
 }
 
 var (
+	_ kindSwitcher    = (*statusChecksScreen)(nil)
 	_ listFilterer    = (*statusChecksScreen)(nil)
 	_ crumbDrawer     = (*statusChecksScreen)(nil)
 	_ loadingReporter = (*statusChecksScreen)(nil)
@@ -332,8 +366,7 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 
 	hovered := c.list().hovered(m)
 	c.items, c.err = msg.items, nil
-	rows := c.rows(m)
-	c.cursor = cursor.Place(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
+	c.list().place(m, hovered)
 
 	return m.readStatusChecksCmd()
 }
