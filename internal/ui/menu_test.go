@@ -38,7 +38,7 @@ func TestMenu(t *testing.T) {
 		require.Contains(t, harness.readFrame(), "› documents")
 		require.Contains(t, harness.readFrame(), "───")
 
-		harness.press(slices.Repeat([]string{"down"}, 10)...)
+		harness.press(slices.Repeat([]string{"down"}, 11)...)
 
 		assert.Contains(t, harness.readFrame(), "› scratch")
 	})

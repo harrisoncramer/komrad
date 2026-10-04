@@ -152,6 +152,8 @@ type Keybindings struct {
 	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the service logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
+	// The checks screen, which lists the checks run on one agent's pull request.
+	Checks ChecksKeys `mapstructure:"checks"`
 	// The messages komrad pushed, read in the main pane.
 	Messages MessagesKeys `mapstructure:"messages"`
 	// Navigation, shared by every menu so movement is the same everywhere.
@@ -367,6 +369,8 @@ type MenuKeys struct {
 	Documents []string `mapstructure:"documents" default:"d"`
 	// Open the agent's logs, the service log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
+	// Open the checks run on the agent's pull request.
+	Checks []string `mapstructure:"checks" default:"x"`
 	// Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 	// with no directory.
@@ -484,6 +488,14 @@ type LogsKeys struct {
 	Back []string `mapstructure:"back" default:"esc"`
 	// Copy the log line the cursor is on to the system clipboard.
 	Copy []string `mapstructure:"copy" default:"y"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
+}
+
+// ChecksKeys are the bindings for the checks screen. Movement is the shared navigation.
+type ChecksKeys struct {
+	// Leave the checks screen for the view it was opened from.
+	Back []string `mapstructure:"back" default:"esc"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
