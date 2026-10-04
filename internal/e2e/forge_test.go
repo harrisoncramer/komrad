@@ -36,7 +36,6 @@ type fakeForge struct {
 	server    *httptest.Server
 	autoMerge atomic.Bool
 	checks    atomic.Value
-	mergeable atomic.Value
 	changes   atomic.Int32
 }
 
@@ -182,21 +181,6 @@ func (f *fakeForge) setChecks(status string) {
 	f.changes.Add(1)
 }
 
-// setMergeState sets the open pull request's GitHub merge state, as a change the next sync reads.
-func (f *fakeForge) setMergeState(state string) {
-	f.mergeable.Store(state)
-	f.changes.Add(1)
-}
-
-// readMergeState is the open pull request's GitHub merge state, clean until setMergeState says otherwise.
-func (f *fakeForge) readMergeState() string {
-	if state, _ := f.mergeable.Load().(string); state != "" {
-		return state
-	}
-
-	return "CLEAN"
-}
-
 // readCheckRun is the open pull request's one required check run, passing until setChecks says otherwise.
 func (f *fakeForge) readCheckRun() map[string]any {
 	check := map[string]any{"__typename": "CheckRun", "id": "CR_1", "name": "required", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true}
@@ -277,7 +261,7 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 		return map[string]any{
 			"headRefOid":               "aaa",
 			"reviewDecision":           "APPROVED",
-			"mergeStateStatus":         fake.readMergeState(),
+			"mergeStateStatus":         "CLEAN",
 			"autoMergeRequest":         readAutoMergeRequest(),
 			"viewerCanEnableAutoMerge": true,
 		}

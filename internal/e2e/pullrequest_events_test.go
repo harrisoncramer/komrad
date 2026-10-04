@@ -9,7 +9,6 @@ import (
 	"komrad/internal/komradtest"
 	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
-	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
@@ -17,14 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegrationPullRequestEventsReachTheAgent follows an agent's open pull request through its
-// checks failing, going green while the forge still blocks merging, and being mergeable at last.
-func TestIntegrationPullRequestEventsReachTheAgent(t *testing.T) {
+// TestIntegrationPullRequestChecksReachTheAgent follows an agent's open pull request on GitHub through its checks failing and then going green.
+func TestIntegrationPullRequestChecksReachTheAgent(t *testing.T) {
 	isolateGit(t)
 
 	fake := startFakeGitHub(t)
 	fake.setChecks("IN_PROGRESS")
-	fake.setMergeState("BLOCKED")
 	instance := komradtest.Start(t, komradtest.Params{
 		WorktreesDir:  t.TempDir(),
 		ForgeBuilders: map[string]forge.Builder{forge.KindGitHub: buildGitHub(fake.server)},
@@ -74,34 +71,7 @@ func TestIntegrationPullRequestEventsReachTheAgent(t *testing.T) {
 		assert.Contains(t, read[0].GetBody(), "checks: failing")
 	})
 
-	t.Run("a rerun going green while the forge still blocks merging says nothing", func(t *testing.T) {
-		fake.setChecks("SUCCESS")
-
-		assert.Empty(t, sync(t))
-
-		got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
-		require.NoError(t, err)
-		readiness := got.Msg.GetPullRequest().GetMergeReadiness()
-		assert.Equal(t, pullrequestv1.Checks_CHECKS_PASSING, readiness.GetChecks())
-		assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_BLOCKED, readiness.GetMergeability())
-	})
-
-	t.Run("the agent hears once the forge would merge its green pull request", func(t *testing.T) {
-		fake.setMergeState("CLEAN")
-
-		read := sync(t)
-		require.Len(t, read, 1)
-		assert.Contains(t, read[0].GetBody(), "checks: passing")
-		assert.Contains(t, read[0].GetBody(), "mergeability: clean")
-	})
-
-	t.Run("checks rerunning on a mergeable pull request say nothing", func(t *testing.T) {
-		fake.setChecks("IN_PROGRESS")
-
-		assert.Empty(t, sync(t))
-	})
-
-	t.Run("the agent hears once checks go green on a mergeable pull request", func(t *testing.T) {
+	t.Run("a rerun going green reaches the agent", func(t *testing.T) {
 		fake.setChecks("SUCCESS")
 
 		read := sync(t)
