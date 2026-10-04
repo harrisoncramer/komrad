@@ -228,3 +228,48 @@ WHERE
     AND c.provider_id = @provider_id
 ON CONFLICT
     DO NOTHING;
+
+-- name: GetStatusCheckReading :one
+SELECT
+    *
+FROM
+    pull_request_check_readings r
+WHERE
+    r.pull_request_id = @pull_request_id
+    AND r.head_sha = @head_sha;
+
+-- name: SettleStatusChecksUnknown :exec
+WITH reading AS (
+    UPDATE
+        pull_request_check_readings r
+    SET
+        read_at = @read_at
+    FROM
+        pull_requests p
+    WHERE
+        p.id = r.pull_request_id
+        AND r.pull_request_id = @pull_request_id
+        AND r.head_sha = @head_sha
+        AND r.head_sha <> p.head_sha
+    RETURNING
+        r.id
+),
+checks AS (
+    UPDATE
+        pull_request_checks c
+    SET
+        state = 'unknown'
+    FROM
+        reading
+    WHERE
+        c.reading_id = reading.id
+        AND c.state IN ('queued', 'running', 'waiting'))
+UPDATE
+    pull_request_check_steps s
+SET
+    state = 'unknown'
+FROM
+    reading
+WHERE
+    s.reading_id = reading.id
+    AND s.state IN ('queued', 'running', 'waiting');

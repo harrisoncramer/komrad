@@ -83,6 +83,9 @@ type MergeReadinessChange struct {
 	// NewFailure is whether the read found a failed check on the latest read head that the reading before it
 	// did not hold, every failure on a head read for the first time counting as new.
 	NewFailure bool
+	// Superseded is the head the read before this one was for when the head moved off it with a check or step on it
+	// still in flight, and empty otherwise.
+	Superseded string
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -249,6 +252,10 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		return nil, err
 	}
 	before := rememberedMergeReadinessOf(row, readBefore[params.ID])
+	superseded, err := s.supersededHead(ctx, params.ID, xptr.Deref(row.LatestHeadSha), params.HeadSHA)
+	if err != nil {
+		return nil, err
+	}
 
 	if listing := params.MergeReadiness.Listing; listing != nil {
 		if err := setStatusChecks(ctx, s.queries, SetStatusChecksParams{
@@ -277,7 +284,34 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		After:            after,
 		HeadStatusChecks: readAfter[params.ID].StatusChecks,
 		NewFailure:       hasNewFailure(readBefore[params.ID], readAfter[params.ID]),
+		Superseded:       superseded,
 	}, nil
+}
+
+// supersededHead is the previous head when the head moved off it with a check or step on it still in flight, and
+// empty otherwise.
+func (s *PullRequestStore) supersededHead(ctx context.Context, pullRequestID, previousHeadSHA, headSHA string) (string, error) {
+	if previousHeadSHA == "" || previousHeadSHA == headSHA {
+		return "", nil
+	}
+
+	row, err := s.queries.GetStatusCheckReading(ctx, models.GetStatusCheckReadingParams{PullRequestID: pullRequestID, HeadSha: previousHeadSHA})
+	if db.IsNoRows(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get the check reading of %s on pull request %s: %w", previousHeadSHA, pullRequestID, err)
+	}
+
+	readings, err := withStatusChecks(ctx, s.queries, []*models.PullRequestCheckReading{row})
+	if err != nil {
+		return "", err
+	}
+	if !forge.AnyInFlight(readings[0].StatusChecks) {
+		return "", nil
+	}
+
+	return previousHeadSHA, nil
 }
 
 // withOneMergeReadiness is the row as a pull request, its checks rolled up from the latest reading of them.

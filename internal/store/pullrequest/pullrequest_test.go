@@ -726,6 +726,131 @@ func TestSetMergeReadinessSaysWhenAFailureIsNew(t *testing.T) {
 	}
 }
 
+// TestSetMergeReadinessSaysWhichHeadWasSuperseded covers a read naming the head it moved off when that head still had a
+// check or step in flight.
+func TestSetMergeReadinessSaysWhichHeadWasSuperseded(t *testing.T) {
+	running := statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")
+	cancelled := statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "cancelled")
+	stepRunning := cancelled
+	stepRunning.Steps = []forge.StatusCheckStep{{Number: 1, Name: "Run the unit tests", State: forge.StatusCheckStateRunning}}
+	type read struct {
+		head      string
+		checks    []forge.StatusCheck
+		noListing bool
+		recover   bool
+	}
+
+	tests := []struct {
+		name  string
+		reads []read
+		want  string
+	}{
+		{
+			name:  "a first read supersedes nothing",
+			reads: []read{{head: "a", checks: []forge.StatusCheck{running}}},
+		},
+		{
+			name: "a head moved off with a check running is superseded",
+			reads: []read{
+				{head: "a", checks: []forge.StatusCheck{running}},
+				{head: "b", checks: []forge.StatusCheck{running}},
+			},
+			want: "a",
+		},
+		{
+			name: "a head moved off with a step running is superseded",
+			reads: []read{
+				{head: "a", checks: []forge.StatusCheck{stepRunning}},
+				{head: "b"},
+			},
+			want: "a",
+		},
+		{
+			name: "a head moved off with its checks settled is not superseded",
+			reads: []read{
+				{head: "a", checks: []forge.StatusCheck{cancelled}},
+				{head: "b", checks: []forge.StatusCheck{running}},
+			},
+		},
+		{
+			name: "a second read of the same head without a listing supersedes nothing",
+			reads: []read{
+				{head: "a", checks: []forge.StatusCheck{running}},
+				{head: "b", noListing: true},
+				{head: "b", noListing: true},
+			},
+		},
+		{
+			name: "a head read without a listing is not superseded",
+			reads: []read{
+				{head: "a", noListing: true},
+				{head: "b", checks: []forge.StatusCheck{running}},
+			},
+		},
+		{
+			name: "the head read before is superseded, not the head read last",
+			reads: []read{
+				{head: "c", checks: []forge.StatusCheck{running}},
+				{head: "a", checks: []forge.StatusCheck{running}},
+				{head: "c", checks: []forge.StatusCheck{running}, recover: true},
+				{head: "b", checks: []forge.StatusCheck{running}},
+			},
+			want: "a",
+		},
+		{
+			name: "a head moved back off is superseded",
+			reads: []read{
+				{head: "a", checks: []forge.StatusCheck{running}},
+				{head: "b", checks: []forge.StatusCheck{running}},
+				{head: "a", checks: []forge.StatusCheck{running}},
+			},
+			want: "b",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			checks := NewStatusCheckStore(h.pool.GetDB())
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			var change *MergeReadinessChange
+			for i, read := range tt.reads {
+				readAt := statusCheckReadAt.Add(time.Duration(i) * time.Minute)
+				if read.recover {
+					require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
+						PullRequestID: written.ID,
+						HeadSHA:       read.head,
+						StatusChecks:  read.checks,
+						ReadAt:        readAt,
+					}))
+
+					continue
+				}
+
+				pushed := openPullRequest("PR_1", 1, "agent/x")
+				pushed.HeadSHA = read.head
+				_, err = h.Upsert(ctx, pushed)
+				require.NoError(t, err)
+				readiness := forge.MergeReadiness{Listing: &forge.StatusCheckListing{StatusChecks: read.checks}}
+				if read.noListing {
+					readiness.Listing = nil
+				}
+				change, err = h.SetMergeReadiness(ctx, SetMergeReadinessParams{
+					ID:             written.ID,
+					MergeReadiness: readiness,
+					HeadSHA:        read.head,
+					ReadAt:         readAt,
+				})
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.want, change.Superseded)
+		})
+	}
+}
+
 // TestSetMergeReadinessWritesNothingNew covers a read that leaves the remembered merge readiness as it was writing nothing.
 func TestSetMergeReadinessWritesNothingNew(t *testing.T) {
 	h := open(t)

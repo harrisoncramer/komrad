@@ -48,18 +48,38 @@ func newHostGate(forges *forge.Service, now func() time.Time) *hostGate {
 
 // open is the host with its connection and forge, nil when it cannot be read this pass.
 func (g *hostGate) open(ctx context.Context, hostname string) (host *forgeHost, unconnected bool) {
+	reached := g.reach(ctx, hostname)
+	if reached.host == nil || !reached.throttledUntil.IsZero() {
+		return nil, reached.unconnected
+	}
+
+	return reached.host, false
+}
+
+// reachedHost is a host with its connection and forge, or why it cannot be read now.
+type reachedHost struct {
+	host *forgeHost
+	// unconnected says nobody connected the host.
+	unconnected bool
+	// throttledUntil is when the host's rate limit lets it be read again, zero when it does not hold it back.
+	throttledUntil time.Time
+}
+
+// reach is the host with its connection and forge, saying when nobody connected it or its rate limit holds it back,
+// and a nil host when either does or the forge could not be built.
+func (g *hostGate) reach(ctx context.Context, hostname string) reachedHost {
 	connection, err := g.forges.ConnectionFor(ctx, hostname)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, true
+		return reachedHost{unconnected: true}
 	}
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the forge connection",
 			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
 
-		return nil, false
+		return reachedHost{}
 	}
 	if connection.ThrottledUntil != nil && connection.ThrottledUntil.After(g.now()) {
-		return nil, false
+		return reachedHost{throttledUntil: *connection.ThrottledUntil}
 	}
 
 	hostForge, err := g.forges.ForConnection(*connection)
@@ -67,14 +87,35 @@ func (g *hostGate) open(ctx context.Context, hostname string) (host *forgeHost, 
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to build the forge",
 			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
 
-		return nil, false
+		return reachedHost{}
 	}
 
-	return &forgeHost{
+	return reachedHost{host: &forgeHost{
 		host:       hostname,
 		connection: connection,
 		forge:      hostForge,
-	}, false
+	}}
+}
+
+// holdUntil records on the host's connection that its rate limit refused a read until retryAt, or for
+// pullRequestThrottleFloor when the forge named no time, and answers when it ends.
+func (g *hostGate) holdUntil(ctx context.Context, host *forgeHost, retryAt time.Time) time.Time {
+	until := retryAt
+	if until.IsZero() {
+		until = g.now().Add(pullRequestThrottleFloor)
+	}
+
+	if err := g.forges.SetThrottledUntil(ctx, host.connection.ID, &until); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the forge's rate limit", logging.Err(err)...)
+
+		return until
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge is rate limiting the connection",
+		slog.String(logging.ForgeHost, host.host),
+		slog.Time(logging.ThrottledUntil, until))
+
+	return until
 }
 
 // settle stops the host for the pass when the error says its rate limit or its credential did,

@@ -80,6 +80,10 @@ func (f *fakeForge) ReadBranches(context.Context, git.RemoteURL, []string) (*Rea
 	return &Reading{}, nil
 }
 
+func (f *fakeForge) ReadCommitChecks(context.Context, ReadCommitChecksParams) (*Reading, error) {
+	return &Reading{}, nil
+}
+
 type fixture struct {
 	service     *Service
 	store       *forgestore.ForgeStore

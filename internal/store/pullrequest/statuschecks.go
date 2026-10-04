@@ -86,6 +86,27 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 	return nil
 }
 
+// MarkUnknownParams names the reading of a head that is no longer a pull request's head whose checks komrad stops reading.
+type MarkUnknownParams struct {
+	PullRequestID string
+	HeadSHA       string
+	ReadAt        time.Time
+}
+
+// MarkUnknown moves every check and step still queued, running or waiting on a head to unknown, leaving the reading
+// of the pull request's current head as it is.
+func (s *StatusCheckStore) MarkUnknown(ctx context.Context, params MarkUnknownParams) error {
+	if err := s.queries.SettleStatusChecksUnknown(ctx, models.SettleStatusChecksUnknownParams{
+		PullRequestID: params.PullRequestID,
+		HeadSha:       params.HeadSHA,
+		ReadAt:        params.ReadAt,
+	}); err != nil {
+		return fmt.Errorf("failed to settle the checks of %s on pull request %s as unknown: %w", params.HeadSHA, params.PullRequestID, err)
+	}
+
+	return nil
+}
+
 // setStatusCheckSteps writes the steps listed on each check of a reading, writing only the steps that changed,
 // and removes the steps no longer listed on checks whose steps were listed whole.
 func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID string, params SetStatusChecksParams) error {

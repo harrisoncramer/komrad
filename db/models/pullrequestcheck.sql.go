@@ -60,6 +60,36 @@ func (q *Queries) DeleteStatusChecksExcept(ctx context.Context, arg DeleteStatus
 	return err
 }
 
+const getStatusCheckReading = `-- name: GetStatusCheckReading :one
+SELECT
+    id, pull_request_id, head_sha, blank, first_read_at, read_at, engine_id
+FROM
+    pull_request_check_readings r
+WHERE
+    r.pull_request_id = $1
+    AND r.head_sha = $2
+`
+
+type GetStatusCheckReadingParams struct {
+	PullRequestID string
+	HeadSha       string
+}
+
+func (q *Queries) GetStatusCheckReading(ctx context.Context, arg GetStatusCheckReadingParams) (*PullRequestCheckReading, error) {
+	row := q.db.QueryRow(ctx, getStatusCheckReading, arg.PullRequestID, arg.HeadSha)
+	var i PullRequestCheckReading
+	err := row.Scan(
+		&i.ID,
+		&i.PullRequestID,
+		&i.HeadSha,
+		&i.Blank,
+		&i.FirstReadAt,
+		&i.ReadAt,
+		&i.EngineID,
+	)
+	return &i, err
+}
+
 const listCheckFailureNotes = `-- name: ListCheckFailureNotes :many
 SELECT
     c.provider_id,
@@ -326,4 +356,52 @@ func (q *Queries) RecordStatusCheckReading(ctx context.Context, arg RecordStatus
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const settleStatusChecksUnknown = `-- name: SettleStatusChecksUnknown :exec
+WITH reading AS (
+    UPDATE
+        pull_request_check_readings r
+    SET
+        read_at = $1
+    FROM
+        pull_requests p
+    WHERE
+        p.id = r.pull_request_id
+        AND r.pull_request_id = $2
+        AND r.head_sha = $3
+        AND r.head_sha <> p.head_sha
+    RETURNING
+        r.id
+),
+checks AS (
+    UPDATE
+        pull_request_checks c
+    SET
+        state = 'unknown'
+    FROM
+        reading
+    WHERE
+        c.reading_id = reading.id
+        AND c.state IN ('queued', 'running', 'waiting'))
+UPDATE
+    pull_request_check_steps s
+SET
+    state = 'unknown'
+FROM
+    reading
+WHERE
+    s.reading_id = reading.id
+    AND s.state IN ('queued', 'running', 'waiting')
+`
+
+type SettleStatusChecksUnknownParams struct {
+	ReadAt        time.Time
+	PullRequestID string
+	HeadSha       string
+}
+
+func (q *Queries) SettleStatusChecksUnknown(ctx context.Context, arg SettleStatusChecksUnknownParams) error {
+	_, err := q.db.Exec(ctx, settleStatusChecksUnknown, arg.ReadAt, arg.PullRequestID, arg.HeadSha)
+	return err
 }

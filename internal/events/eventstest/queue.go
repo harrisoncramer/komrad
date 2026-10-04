@@ -24,6 +24,7 @@ type Queue struct {
 	mu        sync.Mutex
 	events    []events.Event
 	followUps []river.JobArgs
+	jobs      []river.JobArgs
 	errs      []error
 }
 
@@ -76,6 +77,10 @@ func (q *Queue) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river
 	for _, job := range jobs {
 		event, ok := job.(events.Event)
 		if !ok {
+			q.mu.Lock()
+			q.jobs = append(q.jobs, job)
+			q.mu.Unlock()
+
 			continue
 		}
 		followUps, err := q.route(ctx, event)
@@ -105,6 +110,14 @@ func (q *Queue) ListFollowUps() []river.JobArgs {
 	defer q.mu.Unlock()
 
 	return append([]river.JobArgs(nil), q.followUps...)
+}
+
+// ListJobs returns every job a producer recorded that was not an event.
+func (q *Queue) ListJobs() []river.JobArgs {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	return append([]river.JobArgs(nil), q.jobs...)
 }
 
 // TakeErrors returns the routing errors so far and forgets them.

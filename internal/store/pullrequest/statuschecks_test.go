@@ -349,3 +349,56 @@ func TestStatusChecksGoWithThePullRequest(t *testing.T) {
 	assert.Zero(t, rows)
 	assert.Zero(t, steps)
 }
+
+// TestMarkUnknown covers which checks and steps a superseded head settles as unknown.
+func TestMarkUnknown(t *testing.T) {
+	h := open(t)
+	checks := NewStatusCheckStore(h.pool.GetDB())
+	ctx := t.Context()
+	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+	listed := []forge.StatusCheck{
+		withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""),
+			statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"),
+			statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""),
+			statusCheckStep(3, "Upload", forge.StatusCheckStateQueued, "")),
+		statusCheckRun("2", "lint", forge.StatusCheckStateCompleted, "success"),
+		statusCheckRun("3", "deploy", forge.StatusCheckStateWaiting, ""),
+		statusCheckRun("4", "build", forge.StatusCheckStateQueued, ""),
+	}
+	for _, head := range []string{"old", "other", "abc"} {
+		require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
+			PullRequestID: written.ID,
+			HeadSHA:       head,
+			StatusChecks:  listed,
+			ReadAt:        statusCheckReadAt,
+		}))
+	}
+	settledAt := statusCheckReadAt.Add(time.Hour)
+
+	for _, head := range []string{"old", "abc"} {
+		require.NoError(t, checks.MarkUnknown(ctx, MarkUnknownParams{
+			PullRequestID: written.ID,
+			HeadSHA:       head,
+			ReadAt:        settledAt,
+		}))
+	}
+
+	got, err := checks.ListOfPullRequest(ctx, written.ID)
+	require.NoError(t, err)
+	byHead := map[string]StatusCheckReading{}
+	for _, reading := range got {
+		byHead[reading.HeadSHA] = reading
+	}
+	stepStates := func(reading StatusCheckReading) []string {
+		return xslice.Map(reading.StatusChecks[3].Steps, func(step forge.StatusCheckStep) string { return step.Name + ":" + string(step.State) })
+	}
+	assert.Equal(t, []string{"build:unknown", "deploy:unknown", "lint:completed", "test:unknown"}, statusCheckNames(byHead["old"]))
+	assert.Equal(t, []string{"Set up job:completed", "Run tests:unknown", "Upload:unknown"}, stepStates(byHead["old"]))
+	assert.True(t, byHead["old"].ReadAt.Equal(settledAt))
+	for _, head := range []string{"other", "abc"} {
+		assert.Equal(t, []string{"build:queued", "deploy:waiting", "lint:completed", "test:running"}, statusCheckNames(byHead[head]), head)
+		assert.Equal(t, []string{"Set up job:completed", "Run tests:running", "Upload:queued"}, stepStates(byHead[head]), head)
+		assert.True(t, byHead[head].ReadAt.Equal(statusCheckReadAt), head)
+	}
+}

@@ -220,3 +220,57 @@ func TestFailedStatusChecks(t *testing.T) {
 		})
 	}
 }
+
+// TestAnyInFlight covers whether a commit's checks still have a check or step yet to finish.
+func TestAnyInFlight(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		checks []StatusCheck
+		want   bool
+	}{
+		{
+			name: "no checks is not in flight",
+		},
+		{
+			name:   "every check completed is not in flight",
+			checks: []StatusCheck{{State: StatusCheckStateCompleted, Conclusion: "cancelled"}},
+		},
+		{
+			name:   "a check komrad stopped reading is not in flight",
+			checks: []StatusCheck{{State: StatusCheckStateUnknown}},
+		},
+		{
+			name:   "a queued check is in flight",
+			checks: []StatusCheck{{State: StatusCheckStateQueued}},
+			want:   true,
+		},
+		{
+			name:   "a running check is in flight",
+			checks: []StatusCheck{{State: StatusCheckStateRunning}},
+			want:   true,
+		},
+		{
+			name:   "a waiting check is in flight",
+			checks: []StatusCheck{{State: StatusCheckStateWaiting}},
+			want:   true,
+		},
+		{
+			name: "a completed check with a step still running is in flight",
+			checks: []StatusCheck{{
+				State:      StatusCheckStateCompleted,
+				Conclusion: "cancelled",
+				Steps:      []StatusCheckStep{{Number: 1, State: StatusCheckStateRunning}},
+			}},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, AnyInFlight(tt.checks))
+		})
+	}
+}

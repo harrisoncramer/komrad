@@ -38,6 +38,9 @@ var ErrNoRereview = fail.Precondition("the forge has nobody to ask for another r
 // ErrReplyRefused says the forge turned a reply down without posting it.
 var ErrReplyRefused = fail.Precondition("the forge will not take the reply")
 
+// ErrUnsupported says the forge has no way to answer what was asked.
+var ErrUnsupported = fail.Precondition("the forge cannot answer that")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
@@ -320,6 +323,9 @@ type Forge interface {
 	// ReadBranches is the newest pull requests opened from each branch within the repository
 	// itself, each carrying its merge readiness.
 	ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*Reading, error)
+	// ReadCommitChecks is the checks on one commit of a pull request, read as a reading of that
+	// pull request whose head is the commit, whether or not the commit is still its head.
+	ReadCommitChecks(ctx context.Context, params ReadCommitChecksParams) (*Reading, error)
 	// ReviewThreads is the review threads on one pull request with the comments they hold.
 	ReviewThreads(ctx context.Context, repo git.RemoteURL, number int) (*Threads, error)
 	// Merge lands the pull request at the web address on its base.
@@ -334,6 +340,14 @@ type Forge interface {
 	RequestRereview(ctx context.Context, url string) error
 	// ReplyToThread posts a reply in a pull request's thread and answers the new comment's id.
 	ReplyToThread(ctx context.Context, params ReplyToThreadParams) (string, error)
+}
+
+// ReadCommitChecksParams is the commit whose checks to read and the pull request asking which of
+// them it requires.
+type ReadCommitChecksParams struct {
+	Repo       git.RemoteURL
+	ProviderID string
+	SHA        string
 }
 
 // ReplyToThreadParams is the thread to reply in and what to say.

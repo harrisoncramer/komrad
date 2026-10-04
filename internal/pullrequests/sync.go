@@ -12,6 +12,7 @@ import (
 	"komrad/internal/events"
 	"komrad/internal/forge"
 	"komrad/internal/git"
+	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/logging"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/wake"
@@ -355,6 +356,13 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				if err != nil {
 					return nil, err
 				}
+			}
+			if change.Superseded != "" {
+				recorded = append(recorded, internaljobs.RecoverOldChecksArgs{
+					PullRequestID: outcome.ID,
+					HeadSHA:       change.Superseded,
+					SupersededAt:  readAt,
+				})
 			}
 			if until := hotUntil(pullRequest, change); until.After(result.hotUntil) {
 				result.hotUntil = until

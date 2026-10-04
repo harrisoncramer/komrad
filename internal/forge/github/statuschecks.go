@@ -14,27 +14,34 @@ import (
 	"komrad/lib/xslice"
 )
 
+// commitChecksFields is the first hundred checks on a commit, each asked whether the pull request named
+// by $pullRequest requires it.
+//
+//go:embed commitchecks.gql
+var commitChecksFields string
+
 // statusCheckListFields is the first hundred checks on a pull request's head commit, each asked whether
 // the pull request named by $pullRequest requires it.
-//
-//go:embed statuschecklist.gql
-var statusCheckListFields string
+var statusCheckListFields = "commits(last: 1) { nodes { commit { " + commitChecksFields + " } } }"
+
+// commitChecksNode is the checks GitHub lists on one commit.
+type commitChecksNode struct {
+	Oid               string `json:"oid"`
+	StatusCheckRollup *struct {
+		Contexts struct {
+			PageInfo struct {
+				HasNextPage bool `json:"hasNextPage"`
+			} `json:"pageInfo"`
+			Nodes []statusCheckNode `json:"nodes"`
+		} `json:"contexts"`
+	} `json:"statusCheckRollup"`
+}
 
 // statusCheckListNode is the checks GitHub lists on a pull request's newest commit.
 type statusCheckListNode struct {
 	Commits struct {
 		Nodes []struct {
-			Commit struct {
-				Oid               string `json:"oid"`
-				StatusCheckRollup *struct {
-					Contexts struct {
-						PageInfo struct {
-							HasNextPage bool `json:"hasNextPage"`
-						} `json:"pageInfo"`
-						Nodes []statusCheckNode `json:"nodes"`
-					} `json:"contexts"`
-				} `json:"statusCheckRollup"`
-			} `json:"commit"`
+			Commit commitChecksNode `json:"commit"`
 		} `json:"nodes"`
 	} `json:"commits"`
 }
@@ -225,12 +232,17 @@ func (n *statusCheckListNode) listingOf(headSHA string) *forge.StatusCheckListin
 		return nil
 	}
 
+	return commit.listing()
+}
+
+// listing is the checks on the commit.
+func (n commitChecksNode) listing() *forge.StatusCheckListing {
 	listing := &forge.StatusCheckListing{}
-	if commit.StatusCheckRollup == nil {
+	if n.StatusCheckRollup == nil {
 		return listing
 	}
-	listing.Truncated = commit.StatusCheckRollup.Contexts.PageInfo.HasNextPage
-	for _, node := range commit.StatusCheckRollup.Contexts.Nodes {
+	listing.Truncated = n.StatusCheckRollup.Contexts.PageInfo.HasNextPage
+	for _, node := range n.StatusCheckRollup.Contexts.Nodes {
 		if check, ok := node.check(); ok {
 			listing.StatusChecks = append(listing.StatusChecks, check)
 		}

@@ -60,6 +60,7 @@ const (
 	Observations           = "komrad.pull_request.observations"
 	ThreadsRead            = "komrad.pull_request.threads_read"
 	PullRequestNumber      = "komrad.pull_request.number"
+	HeadSHA                = "komrad.pull_request.head_sha"
 	Repositories           = "komrad.repositories"
 	Branches               = "komrad.branches"
 	RowsListed             = "komrad.rows.listed"

@@ -131,6 +131,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Worktrees:     svc.worktrees.lister,
 		Remover:       svc.worktrees.remover,
 		Resumer:       svc.agents.resume,
+		Recoverer:     svc.pullRequests.sync,
 		Router: events.NewRouter(events.NewRouterParams{
 			Mailer: svc.mail.service,
 			Handlers: []events.Handler{

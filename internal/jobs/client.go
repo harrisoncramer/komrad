@@ -41,6 +41,7 @@ type NewClientParams struct {
 	Worktrees     internaljobs.WorktreeLister
 	Remover       internaljobs.WorktreeRemover
 	Resumer       internaljobs.AgentResumer
+	Recoverer     internaljobs.OldCheckRecoverer
 	Router        internaljobs.EventRouter
 	Logger        *slog.Logger
 }
@@ -66,6 +67,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	}))
 	river.AddWorker(workers, internaljobs.NewEventWorker(params.Pool, params.Router))
 	river.AddWorker(workers, internaljobs.NewWakeAgentWorker(params.Resumer))
+	river.AddWorker(workers, internaljobs.NewRecoverOldChecksWorker(params.Recoverer))
 
 	client, err := river.NewClient(riverpgxv5.New(params.Pool), &river.Config{
 		Schema:      params.Schema,
@@ -74,11 +76,12 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 		MaxAttempts: maxAttempts,
 		JobTimeout:  jobTimeout,
 		Queues: map[string]river.QueueConfig{
-			internaljobs.QueueLaunchAgent:     {MaxWorkers: 1},
-			internaljobs.QueueDeleteAgent:     {MaxWorkers: deleteAgentWorkers},
-			internaljobs.QueueDeleteWorktrees: {MaxWorkers: 1},
-			events.Queue:                      {MaxWorkers: eventWorkers},
-			internaljobs.QueueWakeAgent:       {MaxWorkers: wakeAgentWorkers},
+			internaljobs.QueueLaunchAgent:      {MaxWorkers: 1},
+			internaljobs.QueueDeleteAgent:      {MaxWorkers: deleteAgentWorkers},
+			internaljobs.QueueDeleteWorktrees:  {MaxWorkers: 1},
+			events.Queue:                       {MaxWorkers: eventWorkers},
+			internaljobs.QueueWakeAgent:        {MaxWorkers: wakeAgentWorkers},
+			internaljobs.QueueRecoverOldChecks: {MaxWorkers: 1},
 		},
 	})
 	if err != nil {

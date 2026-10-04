@@ -15,6 +15,7 @@ import (
 	"komrad/internal/events/eventstest"
 	"komrad/internal/forge"
 	"komrad/internal/git"
+	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
@@ -24,6 +25,7 @@ import (
 	"komrad/internal/waketest"
 	"komrad/lib/xptr"
 
+	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,9 +46,11 @@ type scriptedForge struct {
 	// refuse is answered instead of any request while set.
 	refuse error
 	// requests is every request in order, spelled "read:<path>:<branches>" or
-	// "threads:<number>".
+	// "threads:<number>" or "checks:<sha>".
 	requests []string
 	threads  map[int]*forge.Threads
+	// commitChecks is the checks the forge lists on each commit, by sha.
+	commitChecks map[string]*forge.StatusCheckListing
 	// reading runs inside every read.
 	reading func()
 }
@@ -78,6 +82,27 @@ func (f *scriptedForge) ReadBranches(_ context.Context, repo git.RemoteURL, bran
 	}
 
 	return reading, nil
+}
+
+func (f *scriptedForge) ReadCommitChecks(_ context.Context, params forge.ReadCommitChecksParams) (*forge.Reading, error) {
+	f.requests = append(f.requests, "checks:"+params.SHA)
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+	listing, ok := f.commitChecks[params.SHA]
+	if !ok {
+		return nil, forge.ErrNotFound
+	}
+
+	return &forge.Reading{
+		PullRequests: []forge.PullRequest{{
+			ProviderID:     params.ProviderID,
+			HeadSHA:        params.SHA,
+			State:          "OPEN",
+			MergeReadiness: &forge.MergeReadiness{Listing: listing},
+		}},
+		RateLimit: f.rateLimit,
+	}, nil
 }
 
 func (f *scriptedForge) Merge(context.Context, string) error { return nil }
@@ -677,6 +702,20 @@ func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
 	unlisted, err := checks.ListOfPullRequest(t.Context(), f.stored(t, "PR_2").ID)
 	require.NoError(t, err)
 	assert.Empty(t, unlisted)
+}
+
+// TestSyncQueuesARecoveryOfASupersededHead covers a pull request moving off a head with a check in flight, which
+// queues a read of that head's checks, and a first read, which queues none.
+func TestSyncQueuesARecoveryOfASupersededHead(t *testing.T) {
+	f := newSyncFixture(t)
+
+	pullRequestID := f.supersede(t)
+
+	assert.Equal(t, []river.JobArgs{internaljobs.RecoverOldChecksArgs{
+		PullRequestID: pullRequestID,
+		HeadSHA:       supersededHeadSHA,
+		SupersededAt:  supersededAt,
+	}}, f.events.ListJobs())
 }
 
 // TestSyncThrottlesTheConnection covers the forge refusing a read for its rate limit: the

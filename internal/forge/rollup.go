@@ -50,6 +50,21 @@ func (c StatusCheck) IsRunning() bool {
 	return c.State == StatusCheckStateQueued || c.State == StatusCheckStateRunning
 }
 
+// IsInFlight says whether a check or any of its steps is queued, running or waiting.
+func (c StatusCheck) IsInFlight() bool {
+	return isInFlight(c.State) || slices.ContainsFunc(c.Steps, func(step StatusCheckStep) bool { return isInFlight(step.State) })
+}
+
+// AnyInFlight says whether any of the checks is in flight.
+func AnyInFlight(checks []StatusCheck) bool {
+	return slices.ContainsFunc(checks, StatusCheck.IsInFlight)
+}
+
+// isInFlight says whether a check or step in the state has yet to finish.
+func isInFlight(state StatusCheckState) bool {
+	return state == StatusCheckStateQueued || state == StatusCheckStateRunning || state == StatusCheckStateWaiting
+}
+
 // FailedStatusChecks is the checks that decide a head and failed, counting only the newest of the checks
 // sharing a kind, source and name, given checks listed oldest first.
 func FailedStatusChecks(checks []StatusCheck) []StatusCheck {
