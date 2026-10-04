@@ -3,17 +3,20 @@ package ui
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // statusCheckItem is one check as the listing reported it.
@@ -22,6 +25,9 @@ type statusCheckItem struct {
 	name       string
 	state      pullrequestv1.StatusCheckState
 	conclusion string
+	startedAt  time.Time
+	finishedAt time.Time
+	steps      []statusCheckItem
 }
 
 // statusChecksScreen lists the status checks on the head of the pull request opened from one agent's branch.
@@ -217,7 +223,7 @@ func (c *statusChecksScreen) takesEveryKey() bool {
 func (c *statusChecksScreen) column() columnSpec {
 	return columnSpec{
 		floor:   columnFloor,
-		docRows: func(*model, int) []string { return nil },
+		docRows: func(m *model, width int) []string { return m.statusChecks.docRows(m, width) },
 	}
 }
 
@@ -303,14 +309,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 			agentID:       agentID,
 			pullRequestID: pullRequestID,
 			headSHA:       head,
-			items: xslice.Map(listed.GetStatusChecks(), func(check *pullrequestv1.StatusCheck) statusCheckItem {
-				return statusCheckItem{
-					id:         check.GetProviderId(),
-					name:       check.GetName(),
-					state:      check.GetState(),
-					conclusion: check.GetConclusion(),
-				}
-			}),
+			items:         xslice.Map(listed.GetStatusChecks(), newStatusCheckItem),
 		}
 	}
 }
@@ -363,4 +362,94 @@ func (c *statusChecksScreen) isLoading(*model) bool {
 	return slices.ContainsFunc(c.items, func(item statusCheckItem) bool {
 		return !isStatusCheckFinished(item)
 	})
+}
+
+func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
+	return statusCheckItem{
+		id:         check.GetProviderId(),
+		name:       check.GetName(),
+		state:      check.GetState(),
+		conclusion: check.GetConclusion(),
+		startedAt:  parseStatusCheckTime(check.GetStartedAt()),
+		finishedAt: parseStatusCheckTime(check.GetFinishedAt()),
+		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
+			return statusCheckItem{
+				name:       step.GetName(),
+				state:      step.GetState(),
+				conclusion: step.GetConclusion(),
+				startedAt:  parseStatusCheckTime(step.GetStartedAt()),
+				finishedAt: parseStatusCheckTime(step.GetFinishedAt()),
+			}
+		}),
+	}
+}
+
+func parseStatusCheckTime(stamp string) time.Time {
+	at, err := time.Parse(time.RFC3339, stamp)
+	if err != nil {
+		return time.Time{}
+	}
+
+	return at
+}
+
+func statusCheckDuration(item statusCheckItem) string {
+	if item.startedAt.IsZero() || item.finishedAt.IsZero() {
+		return ""
+	}
+
+	return label.Duration(item.finishedAt.Sub(item.startedAt))
+}
+
+func isStatusCheckClean(item statusCheckItem) bool {
+	return isStatusCheckFinished(item) &&
+		(strings.EqualFold(item.conclusion, "success") || slices.Contains(skippedConclusions, strings.ToLower(item.conclusion)))
+}
+
+func (c *statusChecksScreen) docRows(m *model, width int) []string {
+	rows := c.rows(m)
+	if c.cursor < 0 || c.cursor >= len(rows) {
+		return nil
+	}
+
+	item := rows[c.cursor].item
+	indent := strings.Repeat(" ", docMargin())
+	icon := func(item statusCheckItem) string {
+		cell := statusCheckIcon(item, m.loading.frame())
+		text := cell.Text
+		if text == "" {
+			text = m.glyphs.Spell(cell.Glyph)
+		}
+
+		return paint.Panel.Style(cell.Tone).Render(text)
+	}
+
+	notice := label.Count(len(item.steps), "step", "steps")
+	if duration := statusCheckDuration(item); duration != "" {
+		notice = duration + " · " + notice
+	}
+
+	out := []string{
+		fitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width),
+		fitRow(indent+dimStyle().Render(notice), width),
+		"",
+	}
+	if len(item.steps) == 0 {
+		return append(out, fitRow(indent+dimStyle().Render("no steps reported"), width))
+	}
+
+	focal := slices.IndexFunc(item.steps, func(step statusCheckItem) bool { return !isStatusCheckClean(step) })
+	for i, step := range item.steps {
+		name := step.name
+		if i == focal {
+			name = lipgloss.NewStyle().Bold(true).Render(name)
+		}
+
+		left := indent + icon(step) + " " + name
+		duration := statusCheckDuration(step)
+		gap := max(width-lipgloss.Width(left)-lipgloss.Width(duration)-docMargin(), 1)
+		out = append(out, fitRow(left+strings.Repeat(" ", gap)+dimStyle().Render(duration), width))
+	}
+
+	return out
 }
