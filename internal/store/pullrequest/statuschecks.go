@@ -120,7 +120,7 @@ func (s *StatusCheckStore) GetLatestOfPullRequest(ctx context.Context, pullReque
 func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []string) (map[string]StatusCheckReading, error) {
 	storable := store.KeepIDs(pullRequestIDs)
 	if len(storable) == 0 {
-		return nil, nil
+		return map[string]StatusCheckReading{}, nil
 	}
 
 	rows, err := queries.ListLatestStatusCheckReadings(ctx, storable)

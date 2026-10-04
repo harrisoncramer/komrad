@@ -49,6 +49,10 @@ const (
 // New builds a Paginator from a request's pagination, which may be nil for the first page
 // at the default size.
 func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*paginator[C, M], error) {
+	if p.GetCursor() == "" {
+		return &paginator[C, M]{limit: Bound(p.GetLimit())}, nil
+	}
+
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrBadCursor, err)
@@ -81,14 +85,16 @@ func (p *paginator[C, M]) Cursor() *C {
 	return p.cursor
 }
 
-// NextToken returns the token for the page after these records, or nil when there is none.
-func (p *paginator[C, M]) NextToken(resources []M) (*string, error) {
+// HasNext reports whether a page after these records may hold more.
+func (p *paginator[C, M]) HasNext(resources []M) bool {
 	// A page short of the limit is the last one, so a page landing exactly on the limit costs
 	// the caller one empty page rather than a count query on every request.
-	if int64(len(resources)) < p.limit {
-		return nil, nil
-	}
+	return int64(len(resources)) >= p.limit
+}
 
+// NextToken returns the token for the page after these records, which HasNext says is worth
+// asking for.
+func (p *paginator[C, M]) NextToken(resources []M) (*string, error) {
 	cursor, err := resources[len(resources)-1].Cursor()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read cursor: %w", err)
@@ -111,7 +117,7 @@ func Token[C Cursor](cursor C) (*string, error) {
 }
 
 // Decode unpacks a page token a handler holds on its own, which an endpoint whose window is not a
-// count of records needs.
+// count of records needs, once the caller has taken an empty token as the first page.
 func Decode[C Cursor](token string) (*C, error) {
 	cursor, err := decode[C](token)
 	if err != nil {
@@ -121,12 +127,8 @@ func Decode[C Cursor](token string) (*C, error) {
 	return cursor, nil
 }
 
-// decode unpacks a base64 JSON token into a cursor, or nil when the token is empty.
+// decode unpacks a base64 JSON token into a cursor.
 func decode[C Cursor](token string) (*C, error) {
-	if token == "" {
-		return nil, nil
-	}
-
 	raw, err := base64.URLEncoding.DecodeString(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode page token: %w", err)

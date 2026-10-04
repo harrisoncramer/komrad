@@ -20,6 +20,8 @@ linters:
     - errorlint
     - fatcontext
     - forcetypeassert
+    - nilerr
+    - nilnil
     - gocritic
     - iface
     - inamedparam

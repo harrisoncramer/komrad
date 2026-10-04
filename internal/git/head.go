@@ -44,14 +44,14 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		args = append(args, params.SnapshotSHA+"^{tree}")
 	}
 
-	out, err := Run(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel")...)
-	if err != nil && ctx.Err() != nil {
+	out, ok := revParse(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel"))
+	if !ok && ctx.Err() != nil {
 		return nil, fmt.Errorf("failed to read the head of %s: %w", params.Dir, ctx.Err())
 	}
-	if err != nil && params.SnapshotSHA != "" {
+	if !ok && params.SnapshotSHA != "" {
 		return c.ReadHeadState(ctx, ReadHeadStateParams{Dir: params.Dir})
 	}
-	if err != nil {
+	if !ok {
 		return &HeadState{}, nil
 	}
 
@@ -85,6 +85,13 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		Root:          root,
 		SnapshotTree:  snapshotTree,
 	}, nil
+}
+
+// revParse is what git prints for args, false for a directory git will not speak for.
+func revParse(ctx context.Context, dir string, args []string) (string, bool) {
+	out, err := Run(ctx, dir, args...)
+
+	return out, err == nil
 }
 
 // ReadRepositoryURL is the canonical address of the repository a checkout's origin points at, empty when it has none.

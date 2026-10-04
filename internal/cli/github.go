@@ -118,23 +118,37 @@ func requireGitHubCheckout(ctx context.Context, client *git.Client, dir string) 
 		return nil
 	}
 
-	raw, err := git.Run(ctx, dir, "config", "--get", "remote.origin.url")
-	if err != nil {
+	raw, ok := originURL(ctx, dir)
+	if !ok {
 		return nil
 	}
 
 	return requireGitHubRemote(ctx, client, raw)
 }
 
+// originURL is the checkout's origin remote, false for a checkout that names none.
+func originURL(ctx context.Context, dir string) (string, bool) {
+	raw, err := git.Run(ctx, dir, "config", "--get", "remote.origin.url")
+
+	return raw, err == nil
+}
+
 func requireGitHubRemote(ctx context.Context, client *git.Client, raw string) error {
-	remote, err := client.ParseRemoteURL(ctx, raw)
-	if err != nil || remote.Host == githubHost {
+	remote, ok := otherForge(ctx, client, raw)
+	if !ok {
 		return nil
 	}
 
 	return errNotGitHubCheckout.Saying(
 		"%s is on %s, and komrad holds a GitHub App and nothing else, so it has no credential for that forge",
 		remote.Path, remote.Host)
+}
+
+// otherForge is the remote raw names, false unless it parses as one on a forge other than GitHub.
+func otherForge(ctx context.Context, client *git.Client, raw string) (git.RemoteURL, bool) {
+	remote, err := client.ParseRemoteURL(ctx, raw)
+
+	return remote, err == nil && remote.Host != githubHost
 }
 
 func githubCredentialCmd(state *app) *cobra.Command {

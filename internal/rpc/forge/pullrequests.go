@@ -43,9 +43,12 @@ func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListFo
 	}
 
 	window := pageCursor{PerPage: int(pagination.Bound(req.GetPagination().GetLimit()))}
-	if cursor, err := pagination.Decode[pageCursor](req.GetPagination().GetCursor()); err != nil {
-		return nil, rpcerr.From(err, "failed to read the page token")
-	} else if cursor != nil {
+	if token := req.GetPagination().GetCursor(); token != "" {
+		cursor, err := pagination.Decode[pageCursor](token)
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to read the page token")
+		}
+
 		window = *cursor
 	}
 

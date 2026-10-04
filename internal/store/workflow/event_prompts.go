@@ -106,7 +106,7 @@ func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) 
 
 func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []string) (map[string][]EventPrompt, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return map[string][]EventPrompt{}, nil
 	}
 
 	rows, err := s.queries.ListEventPromptsForWorkflows(ctx, ids)

@@ -81,7 +81,7 @@ func (s *WorkflowStore) hooksFor(ctx context.Context, workflowID string) ([]Hook
 // hooksForWorkflows reads the hooks of the workflows named.
 func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return map[string][]Hook{}, nil
 	}
 
 	rows, err := s.queries.ListHooksForWorkflows(ctx, ids)
