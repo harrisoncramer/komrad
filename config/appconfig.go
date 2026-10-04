@@ -1365,15 +1365,17 @@ func (c Config) GetWorktreesDir() (string, error) {
 		return ExpandHome(dir), nil
 	}
 
-	state := c.Connection.StateDir
-	if state == "" {
-		var err error
-		if state, err = getDefaultStateDir(); err != nil {
+	stateDir := c.Connection.StateDir
+	if stateDir == "" {
+		dir, err := getDefaultStateDir()
+		if err != nil {
 			return "", err
 		}
+
+		stateDir = dir
 	}
 
-	return filepath.Join(state, "worktrees"), nil
+	return filepath.Join(stateDir, "worktrees"), nil
 }
 
 // getDefaultStateDir returns ~/.local/state/komrad, the state directory used when the config names none.
