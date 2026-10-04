@@ -1,7 +1,6 @@
 package label
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -52,17 +51,4 @@ func Day(t time.Time) string {
 	}
 
 	return t.Local().Format("Jan 2")
-}
-
-// Duration is how long something took, in the two largest units that fit it: 42s, 3m 08s or 1h 05m.
-func Duration(d time.Duration) string {
-	d = max(d, 0).Round(time.Second)
-	switch {
-	case d < time.Minute:
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	case d < time.Hour:
-		return fmt.Sprintf("%dm %02ds", int(d.Minutes()), int(d.Seconds())%60)
-	}
-
-	return fmt.Sprintf("%dh %02dm", int(d.Hours()), int(d.Minutes())%60)
 }

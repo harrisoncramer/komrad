@@ -8,6 +8,7 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 )
@@ -231,6 +232,22 @@ func TestStatusChecksSteps(t *testing.T) {
 		harness := openStatusChecks(t, listed)
 		harness.press("j", "j")
 
-		assert.Contains(t, harness.readFrame(), "no steps reported")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "no steps reported")
+		assert.NotContains(t, frame, "0 steps")
+	})
+
+	t.Run("a long step name gives way to its duration in a narrow pane", func(t *testing.T) {
+		t.Parallel()
+
+		long := newStatusCheck("1", "integration", done, "SUCCESS")
+		long.Steps = []*pullrequestv1.StatusCheckStep{
+			newStatusCheckStep("Run integration tests against Postgres and the forge", done, "success", "2026-10-04T12:00:00Z", "2026-10-04T12:03:08Z"),
+		}
+
+		harness := openStatusChecks(t, answerStatusChecks(long))
+		harness.send(tea.WindowSizeMsg{Width: 80, Height: 40})
+
+		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Run integration[^│]*… +3m 08s`, harness.readFrame())
 	})
 }

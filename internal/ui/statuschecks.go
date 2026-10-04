@@ -12,11 +12,13 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
+	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // statusCheckItem is one check as the listing reported it.
@@ -370,35 +372,18 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 		name:       check.GetName(),
 		state:      check.GetState(),
 		conclusion: check.GetConclusion(),
-		startedAt:  parseStatusCheckTime(check.GetStartedAt()),
-		finishedAt: parseStatusCheckTime(check.GetFinishedAt()),
+		startedAt:  dates.Parse(check.GetStartedAt()),
+		finishedAt: dates.Parse(check.GetFinishedAt()),
 		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
 			return statusCheckItem{
 				name:       step.GetName(),
 				state:      step.GetState(),
 				conclusion: step.GetConclusion(),
-				startedAt:  parseStatusCheckTime(step.GetStartedAt()),
-				finishedAt: parseStatusCheckTime(step.GetFinishedAt()),
+				startedAt:  dates.Parse(step.GetStartedAt()),
+				finishedAt: dates.Parse(step.GetFinishedAt()),
 			}
 		}),
 	}
-}
-
-func parseStatusCheckTime(stamp string) time.Time {
-	at, err := time.Parse(time.RFC3339, stamp)
-	if err != nil {
-		return time.Time{}
-	}
-
-	return at
-}
-
-func statusCheckDuration(item statusCheckItem) string {
-	if item.startedAt.IsZero() || item.finishedAt.IsZero() {
-		return ""
-	}
-
-	return label.Duration(item.finishedAt.Sub(item.startedAt))
 }
 
 func isStatusCheckClean(item statusCheckItem) bool {
@@ -424,29 +409,33 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 		return paint.Panel.Style(cell.Tone).Render(text)
 	}
 
-	notice := label.Count(len(item.steps), "step", "steps")
-	if duration := statusCheckDuration(item); duration != "" {
-		notice = duration + " · " + notice
+	var notice []string
+	if duration := dates.Between(item.startedAt, item.finishedAt); duration != "" {
+		notice = append(notice, duration)
+	}
+	if len(item.steps) > 0 {
+		notice = append(notice, label.Count(len(item.steps), "step", "steps"))
 	}
 
-	out := []string{
-		fitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width),
-		fitRow(indent+dimStyle().Render(notice), width),
-		"",
+	out := []string{fitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
+	if len(notice) > 0 {
+		out = append(out, fitRow(indent+dimStyle().Render(strings.Join(notice, " · ")), width))
 	}
+	out = append(out, "")
 	if len(item.steps) == 0 {
 		return append(out, fitRow(indent+dimStyle().Render("no steps reported"), width))
 	}
 
 	focal := slices.IndexFunc(item.steps, func(step statusCheckItem) bool { return !isStatusCheckClean(step) })
 	for i, step := range item.steps {
-		name := step.name
+		lead := indent + icon(step) + " "
+		duration := dates.Between(step.startedAt, step.finishedAt)
+		name := ansi.Truncate(step.name, max(width-lipgloss.Width(lead)-lipgloss.Width(duration)-docMargin()-1, 0), "…")
 		if i == focal {
 			name = lipgloss.NewStyle().Bold(true).Render(name)
 		}
 
-		left := indent + icon(step) + " " + name
-		duration := statusCheckDuration(step)
+		left := lead + name
 		gap := max(width-lipgloss.Width(left)-lipgloss.Width(duration)-docMargin(), 1)
 		out = append(out, fitRow(left+strings.Repeat(" ", gap)+dimStyle().Render(duration), width))
 	}
