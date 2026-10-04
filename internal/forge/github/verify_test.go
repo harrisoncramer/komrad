@@ -14,7 +14,13 @@ import (
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"Verify": {body: `{"data":{"viewer":{"login":"harrisoncramer"}}}`}})
+	f, _, fake := serve(t, map[string]answer{"Verify": {body: `{
+	"data": {
+		"viewer": {
+			"login": "harrisoncramer"
+		}
+	}
+}`}})
 
 	login, err := f.Verify(t.Context())
 	require.NoError(t, err)

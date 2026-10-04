@@ -213,7 +213,13 @@ func TestReadBranchesShrinksOnComplexity(t *testing.T) {
 	require.ErrorIs(t, err, errTooComplex)
 }
 
-const tooComplex = `{"errors":[{"message":"Query has complexity of 294, which exceeds max complexity of 200"}]}`
+const tooComplex = `{
+	"errors": [
+		{
+			"message": "Query has complexity of 294, which exceeds max complexity of 200"
+		}
+	]
+}`
 
 // readBranchesAnswer is GitLab answering a read of branches, recorded on 21 September against
 // acme/widgets with made-up auto-merge fields: a running pipeline set to merge when it passes,

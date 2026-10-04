@@ -23,15 +23,124 @@ import (
 // widgets#13 from a fork since deleted, widgets#81544 a draft, and the merge readiness fields GitHub
 // answers beside each on a read of branches.
 
-const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","body":"Opens the fixture.","author":{"login":"harrisoncramer"},"url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
+const openPull = `{
+	"id": "PR_kwDOUgkrbM8AAAABEIdmHw",
+	"number": 1,
+	"title": "fixture: open",
+	"body": "Opens the fixture.",
+	"author": {
+		"login": "harrisoncramer"
+	},
+	"url": "https://github.com/harrisoncramer/komrad-forge-fixture/pull/1",
+	"state": "OPEN",
+	"isDraft": false,
+	"createdAt": "2026-09-18T19:14:17Z",
+	"updatedAt": "2026-09-18T19:14:17Z",
+	"mergedAt": null,
+	"closedAt": null,
+	"headRefName": "fixture/open",
+	"headRefOid": "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
+	"baseRefName": "main",
+	"baseRefOid": "8b32d7985e62febbf494e815545c22b446276b5d",
+	"headRepository": {
+		"url": "https://github.com/harrisoncramer/komrad-forge-fixture"
+	},
+	"baseRepository": {
+		"url": "https://github.com/harrisoncramer/komrad-forge-fixture"
+	}
+}`
 
-const mergedPull = `{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrad/pull/742","state":"MERGED","isDraft":false,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}}`
+const mergedPull = `{
+	"id": "PR_kwDOTgPfPc8AAAABEU5L_Q",
+	"number": 742,
+	"title": "feat(pullrequest): draw pull request marks in the panel",
+	"url": "https://github.com/harrisoncramer/komrad/pull/742",
+	"state": "MERGED",
+	"isDraft": false,
+	"createdAt": "2026-09-20T17:57:28Z",
+	"updatedAt": "2026-09-20T18:00:07Z",
+	"mergedAt": "2026-09-20T18:00:07Z",
+	"closedAt": "2026-09-20T18:00:07Z",
+	"headRefName": "agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198",
+	"headRefOid": "70b1d987cdd21940203ca3fbc5b3a7998a47c830",
+	"baseRefName": "main",
+	"baseRefOid": "79a1ad8fe89cca4494a40c5c5015f46458ddc121",
+	"headRepository": {
+		"url": "https://github.com/harrisoncramer/komrad"
+	},
+	"baseRepository": {
+		"url": "https://github.com/harrisoncramer/komrad"
+	}
+}`
 
-const forkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDE=","number":55,"title":"Typo correction","url":"https://github.com/acme/widgets/pull/55","state":"CLOSED","isDraft":false,"createdAt":"2014-06-11T05:07:11Z","updatedAt":"2014-06-13T12:41:36Z","mergedAt":null,"closedAt":"2014-06-11T05:07:37Z","headRefName":"fix-typo","headRefOid":"7a97b155f47ac6fc34eaa630d96ba9caf244d80c","baseRefName":"master","baseRefOid":"fd5d98f21b5008f27513d52ac2faa78292a8a3a8","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
+const forkPull = `{
+	"id": "MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDE=",
+	"number": 55,
+	"title": "Typo correction",
+	"url": "https://github.com/acme/widgets/pull/55",
+	"state": "CLOSED",
+	"isDraft": false,
+	"createdAt": "2014-06-11T05:07:11Z",
+	"updatedAt": "2014-06-13T12:41:36Z",
+	"mergedAt": null,
+	"closedAt": "2014-06-11T05:07:37Z",
+	"headRefName": "fix-typo",
+	"headRefOid": "7a97b155f47ac6fc34eaa630d96ba9caf244d80c",
+	"baseRefName": "master",
+	"baseRefOid": "fd5d98f21b5008f27513d52ac2faa78292a8a3a8",
+	"headRepository": {
+		"url": "https://github.com/someone/widgets"
+	},
+	"baseRepository": {
+		"url": "https://github.com/acme/widgets"
+	}
+}`
 
-const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDI=","number":13,"title":"client: add the service tests","body":null,"author":null,"url":"https://github.com/acme/widgets/pull/13","state":"CLOSED","isDraft":false,"createdAt":"2014-06-07T11:41:26Z","updatedAt":"2014-06-20T06:20:42Z","mergedAt":null,"closedAt":"2014-06-20T06:20:42Z","headRefName":"client-tests","headRefOid":"2c8de7699fd79407246011a82201718588a06a08","baseRefName":"master","baseRefOid":"ba7fe835ce990977997bfc6b6c914d235d9ae72f","headRepository":null,"baseRepository":{"url":"https://github.com/acme/widgets"}}`
+const deletedForkPull = `{
+	"id": "MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDI=",
+	"number": 13,
+	"title": "client: add the service tests",
+	"body": null,
+	"author": null,
+	"url": "https://github.com/acme/widgets/pull/13",
+	"state": "CLOSED",
+	"isDraft": false,
+	"createdAt": "2014-06-07T11:41:26Z",
+	"updatedAt": "2014-06-20T06:20:42Z",
+	"mergedAt": null,
+	"closedAt": "2014-06-20T06:20:42Z",
+	"headRefName": "client-tests",
+	"headRefOid": "2c8de7699fd79407246011a82201718588a06a08",
+	"baseRefName": "master",
+	"baseRefOid": "ba7fe835ce990977997bfc6b6c914d235d9ae72f",
+	"headRepository": null,
+	"baseRepository": {
+		"url": "https://github.com/acme/widgets"
+	}
+}`
 
-const draftPull = `{"id":"PR_kwDOAAAAAAAAAAABAAAAAA","number":81544,"title":"unicode: widen the pair members","url":"https://github.com/acme/widgets/pull/81544","state":"OPEN","isDraft":true,"createdAt":"2026-09-15T17:53:12Z","updatedAt":"2026-09-15T18:47:47Z","mergedAt":null,"closedAt":null,"headRefName":"widen-pairs","headRefOid":"695f59abb90db534d1ce005c6b2fc1779728d2b1","baseRefName":"master","baseRefOid":"d90cb4e010dbbf7f39b993db5e64e2904c74e4a4","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
+const draftPull = `{
+	"id": "PR_kwDOAAAAAAAAAAABAAAAAA",
+	"number": 81544,
+	"title": "unicode: widen the pair members",
+	"url": "https://github.com/acme/widgets/pull/81544",
+	"state": "OPEN",
+	"isDraft": true,
+	"createdAt": "2026-09-15T17:53:12Z",
+	"updatedAt": "2026-09-15T18:47:47Z",
+	"mergedAt": null,
+	"closedAt": null,
+	"headRefName": "widen-pairs",
+	"headRefOid": "695f59abb90db534d1ce005c6b2fc1779728d2b1",
+	"baseRefName": "master",
+	"baseRefOid": "d90cb4e010dbbf7f39b993db5e64e2904c74e4a4",
+	"headRepository": {
+		"url": "https://github.com/someone/widgets"
+	},
+	"baseRepository": {
+		"url": "https://github.com/acme/widgets"
+	}
+}`
 
 type fakeAuth struct {
 	token       string
@@ -132,14 +241,28 @@ func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGit
 
 // data wraps nodes into the data envelope GitHub answers.
 func data(body string) string {
-	return `{"data":` + body + `}`
+	return `{
+	"data": ` + body + `
+}`
 }
 
 // listing is a page of a repository's pullRequests connection holding the nodes.
 func listing(hasNextPage bool, cursor string, nodes ...string) string {
-	page := `{"pageInfo":{"hasNextPage":` + boolOf(hasNextPage) + `,"endCursor":"` + cursor + `"},"nodes":[` + strings.Join(nodes, ",") + `]}`
+	page := `{
+	"pageInfo": {
+		"hasNextPage": ` + boolOf(hasNextPage) + `,
+		"endCursor": "` + cursor + `"
+	},
+	"nodes": [
+` + strings.Join(nodes, ",\n") + `
+	]
+}`
 
-	return data(`{"repository":{"pullRequests":` + page + `}}`)
+	return data(`{
+	"repository": {
+		"pullRequests": ` + page + `
+	}
+}`)
 }
 
 func boolOf(value bool) string {
@@ -166,21 +289,32 @@ var fixture = git.RemoteURL{
 
 // failingMergeReadiness is the merge readiness fields GitHub answers beside a pull request on a
 // read of branches, the recorded shape with the values made up.
-const failingMergeReadiness = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
+const failingMergeReadiness = `	"reviewDecision": "CHANGES_REQUESTED",
+	"mergeStateStatus": "UNSTABLE",
+	"autoMergeRequest": null,
+	"viewerCanEnableAutoMerge": true`
 
 // withMergeReadiness is a pull request node carrying the merge readiness fields.
 func withMergeReadiness(node, readiness string) string {
-	return strings.TrimSuffix(node, "}") + "," + readiness + "}"
+	return strings.TrimSuffix(node, "\n}") + ",\n" + readiness + "\n}"
 }
 
 // branchesRead is GitHub answering a read of branches, one alias per branch.
 func branchesRead(aliases ...string) string {
 	fields := make([]string, len(aliases))
 	for i, nodes := range aliases {
-		fields[i] = `"b` + strconv.Itoa(i) + `":{"nodes":[` + nodes + `]}`
+		fields[i] = `		"b` + strconv.Itoa(i) + `": {
+			"nodes": [
+` + nodes + `
+			]
+		}`
 	}
 
-	return data(`{"repository":{` + strings.Join(fields, ",") + `}}`)
+	return data(`{
+	"repository": {
+` + strings.Join(fields, ",\n") + `
+	}
+}`)
 }
 
 // TestUnauthorizedInvalidatesTheCredential covers a refused token: GitHub's 401 reaches the
@@ -207,21 +341,81 @@ func TestNotFound(t *testing.T) {
 	}{
 		{
 			name: "a repository github does not have",
-			body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."}]}`,
+			body: `{
+	"data": {
+		"repository": null
+	},
+	"errors": [
+		{
+			"type": "NOT_FOUND",
+			"path": [
+				"repository"
+			],
+			"locations": [
+				{
+					"line": 2,
+					"column": 3
+				}
+			],
+			"message": "Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."
+		}
+	]
+}`,
 			call: func(f *Forge) error {
 				return f.Merge(t.Context(), "https://github.com/harrisoncramer/no-such-repository-xyz/pull/1")
 			},
 		},
 		{
 			name: "a pull request github does not have",
-			body: `{"data":{"repository":{"pullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","pullRequest"],"locations":[{"line":3,"column":5}],"message":"Could not resolve to a PullRequest with the number of 999."}]}`,
+			body: `{
+	"data": {
+		"repository": {
+			"pullRequest": null
+		}
+	},
+	"errors": [
+		{
+			"type": "NOT_FOUND",
+			"path": [
+				"repository",
+				"pullRequest"
+			],
+			"locations": [
+				{
+					"line": 3,
+					"column": 5
+				}
+			],
+			"message": "Could not resolve to a PullRequest with the number of 999."
+		}
+	]
+}`,
 			call: func(f *Forge) error {
 				return f.Merge(t.Context(), "https://github.com/harrisoncramer/komrad-forge-fixture/pull/999")
 			},
 		},
 		{
 			name: "a repository the listing cannot see",
-			body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."}]}`,
+			body: `{
+	"data": {
+		"repository": null
+	},
+	"errors": [
+		{
+			"type": "NOT_FOUND",
+			"path": [
+				"repository"
+			],
+			"locations": [
+				{
+					"line": 2,
+					"column": 3
+				}
+			],
+			"message": "Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."
+		}
+	]
+}`,
 			call: func(f *Forge) error {
 				_, err := f.ReadBranches(t.Context(), komrad, []string{"main"})
 
@@ -306,10 +500,18 @@ func TestRateLimitRefusals(t *testing.T) {
 			wantRetryAt:   time.Unix(1789900000, 0),
 		},
 		{
-			name:          "a spent primary budget refused in the errors says when it resets",
-			status:        http.StatusOK,
-			header:        map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1789900000"},
-			body:          `{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit exceeded for user ID 12345."}]}`,
+			name:   "a spent primary budget refused in the errors says when it resets",
+			status: http.StatusOK,
+			header: map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1789900000"},
+			body: `{
+	"data": null,
+	"errors": [
+		{
+			"type": "RATE_LIMITED",
+			"message": "API rate limit exceeded for user ID 12345."
+		}
+	]
+}`,
 			wantThrottled: true,
 			wantRetryAt:   time.Unix(1789900000, 0),
 		},

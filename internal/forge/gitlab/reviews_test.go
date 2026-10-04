@@ -19,10 +19,46 @@ func TestRequestRereview(t *testing.T) {
 	const address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
 
 	target := func(state, reviewers string) answer {
-		return answer{body: `{"data":{"project":{"mergeRequest":{"state":"` + state + `","reviewers":{"nodes":[` + reviewers + `]}}}}}`}
+		return answer{body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"state": "` + state + `",
+				"reviewers": {
+					"nodes": [
+` + reviewers + `
+					]
+				}
+			}
+		}
 	}
-	const reviewers = `{"id":"gid://gitlab/User/1","mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"id":"gid://gitlab/User/2","mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"id":"gid://gitlab/User/3","mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}}`
-	rereviewed := answer{body: `{"data":{"mergeRequestReviewerRereview":{"errors":[]}}}`}
+}`}
+	}
+	const reviewers = `{
+	"id": "gid://gitlab/User/1",
+	"mergeRequestInteraction": {
+		"reviewState": "REQUESTED_CHANGES"
+	}
+},
+{
+	"id": "gid://gitlab/User/2",
+	"mergeRequestInteraction": {
+		"reviewState": "REVIEWED"
+	}
+},
+{
+	"id": "gid://gitlab/User/3",
+	"mergeRequestInteraction": {
+		"reviewState": "REQUESTED_CHANGES"
+	}
+}`
+	rereviewed := answer{body: `{
+	"data": {
+		"mergeRequestReviewerRereview": {
+			"errors": []
+		}
+	}
+}`}
 
 	tests := []struct {
 		name      string
@@ -46,22 +82,35 @@ func TestRequestRereview(t *testing.T) {
 			wantErr: forge.ErrNoRereview,
 		},
 		{
-			name:    "a merge request nobody asked changes of is refused",
-			answers: map[string]answer{"RereviewTarget": target("opened", `{"id":"gid://gitlab/User/2","mergeRequestInteraction":{"reviewState":"REVIEWED"}}`)},
+			name: "a merge request nobody asked changes of is refused",
+			answers: map[string]answer{"RereviewTarget": target("opened", `{
+	"id": "gid://gitlab/User/2",
+	"mergeRequestInteraction": {
+		"reviewState": "REVIEWED"
+	}
+}`)},
 			wantErr: forge.ErrNoRereview,
 		},
 		{
 			name: "a review request gitlab will not make",
 			answers: map[string]answer{
 				"RereviewTarget": target("opened", reviewers),
-				"Rereview":       {body: `{"data":{"mergeRequestReviewerRereview":{"errors":["You don't have permission to request a review"]}}}`},
+				"Rereview": {body: `{
+	"data": {
+		"mergeRequestReviewerRereview": {
+			"errors": [
+				"You don't have permission to request a review"
+			]
+		}
+	}
+}`},
 			},
 			wantErr:   forge.ErrNoRereview,
 			wantUsers: []any{"gid://gitlab/User/1"},
 		},
 		{
 			name:    "a merge request gitlab does not have",
-			answers: map[string]answer{"RereviewTarget": {body: `{"data":{"project":{"mergeRequest":null}}}`}},
+			answers: map[string]answer{"RereviewTarget": {body: missingMergeRequest}},
 			wantErr: forge.ErrNotFound,
 		},
 	}
@@ -101,22 +150,97 @@ func TestDecisionFolds(t *testing.T) {
 	}{
 		{
 			name: "a reviewer asking for changes beats an approval",
-			node: `{"approvalsRequired":1,"approvalsLeft":0,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]}}`,
+			node: `{
+	"approvalsRequired": 1,
+	"approvalsLeft": 0,
+	"approvedBy": {
+		"count": 1
+	},
+	"reviewers": {
+		"nodes": [
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "REQUESTED_CHANGES"
+				}
+			},
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "APPROVED"
+				}
+			}
+		]
+	}
+}`,
 			want: forge.ReviewDecisionChangesRequested,
 		},
 		{
 			name: "approvals still owed are pending whoever has approved",
-			node: `{"approvalsRequired":2,"approvalsLeft":2,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}}`,
+			node: `{
+	"approvalsRequired": 2,
+	"approvalsLeft": 2,
+	"approvedBy": {
+		"count": 1
+	},
+	"reviewers": {
+		"nodes": [
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "UNAPPROVED"
+				}
+			},
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "APPROVED"
+				}
+			},
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "REVIEWED"
+				}
+			}
+		]
+	}
+}`,
 			want: forge.ReviewDecisionPending,
 		},
 		{
 			name: "approved",
-			node: `{"approvalsRequired":1,"approvalsLeft":0,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]}}`,
+			node: `{
+	"approvalsRequired": 1,
+	"approvalsLeft": 0,
+	"approvedBy": {
+		"count": 1
+	},
+	"reviewers": {
+		"nodes": [
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "APPROVED"
+				}
+			}
+		]
+	}
+}`,
 			want: forge.ReviewDecisionApproved,
 		},
 		{
 			name: "no rule and nobody has approved is nothing, whatever the reviewers did",
-			node: `{"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}}`,
+			node: `{
+	"approvalsRequired": 0,
+	"approvalsLeft": 0,
+	"approvedBy": {
+		"count": 0
+	},
+	"reviewers": {
+		"nodes": [
+			{
+				"mergeRequestInteraction": {
+					"reviewState": "REVIEWED"
+				}
+			}
+		]
+	}
+}`,
 			want: forge.ReviewDecisionNone,
 		},
 	}

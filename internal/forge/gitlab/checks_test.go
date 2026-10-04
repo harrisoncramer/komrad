@@ -97,6 +97,8 @@ func TestListing(t *testing.T) {
 	}
 
 	var node mergeRequestNode
-	require.NoError(t, json.Unmarshal([]byte(`{"headPipeline":null}`), &node))
+	require.NoError(t, json.Unmarshal([]byte(`{
+	"headPipeline": null
+}`), &node))
 	assert.Equal(t, &forge.CheckListing{}, node.listing())
 }

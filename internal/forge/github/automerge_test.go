@@ -17,9 +17,20 @@ func TestSetAutoMerge(t *testing.T) {
 
 	const address = "https://github.com/harrisoncramer/komrad/pull/742"
 	target := func(state, request string) answer {
-		return answer{body: data(`{"repository":{"viewerDefaultMergeMethod":"SQUASH","pullRequest":{"id":"PR_742","state":"` + state + `","autoMergeRequest":` + request + `}}}`)}
+		return answer{body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "SQUASH",
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "` + state + `",
+			"autoMergeRequest": ` + request + `
+		}
 	}
-	queued := `{"enabledAt":"2026-09-20T12:00:00Z"}`
+}`)}
+	}
+	queued := `{
+	"enabledAt": "2026-09-20T12:00:00Z"
+}`
 
 	tests := []struct {
 		name          string
@@ -30,9 +41,13 @@ func TestSetAutoMerge(t *testing.T) {
 		wantVariables map[string]any
 	}{
 		{
-			name:    "a pull request github does not have",
-			params:  forge.SetAutoMergeParams{URL: address, On: true},
-			answers: map[string]answer{"AutoMergeTarget": {body: data(`{"repository":{"pullRequest":null}}`)}},
+			name:   "a pull request github does not have",
+			params: forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": {body: data(`{
+	"repository": {
+		"pullRequest": null
+	}
+}`)}},
 			wantErr: forge.ErrNotFound,
 		},
 		{
@@ -46,7 +61,20 @@ func TestSetAutoMerge(t *testing.T) {
 			params: forge.SetAutoMergeParams{URL: address, On: true},
 			answers: map[string]answer{
 				"AutoMergeTarget": target("OPEN", "null"),
-				"EnableAutoMerge": {body: `{"data":{"enablePullRequestAutoMerge":null},"errors":[{"type":"UNPROCESSABLE","path":["enablePullRequestAutoMerge"],"message":"Pull request is in clean status"}]}`},
+				"EnableAutoMerge": {body: `{
+	"data": {
+		"enablePullRequestAutoMerge": null
+	},
+	"errors": [
+		{
+			"type": "UNPROCESSABLE",
+			"path": [
+				"enablePullRequestAutoMerge"
+			],
+			"message": "Pull request is in clean status"
+		}
+	]
+}`},
 			},
 			wantErr: forge.ErrNoAutoMerge,
 		},
@@ -66,7 +94,11 @@ func TestSetAutoMerge(t *testing.T) {
 			},
 			answers: map[string]answer{
 				"AutoMergeTarget": target("OPEN", "null"),
-				"EnableAutoMerge": {body: data(`{"enablePullRequestAutoMerge":{"clientMutationId":null}}`)},
+				"EnableAutoMerge": {body: data(`{
+	"enablePullRequestAutoMerge": {
+		"clientMutationId": null
+	}
+}`)},
 			},
 			wantOperation: "EnableAutoMerge",
 			wantVariables: map[string]any{"id": "PR_742", "method": "SQUASH", "head": "abc123"},
@@ -75,8 +107,12 @@ func TestSetAutoMerge(t *testing.T) {
 			name:   "a queued pull request is withdrawn",
 			params: forge.SetAutoMergeParams{URL: address},
 			answers: map[string]answer{
-				"AutoMergeTarget":  target("OPEN", queued),
-				"DisableAutoMerge": {body: data(`{"disablePullRequestAutoMerge":{"clientMutationId":null}}`)},
+				"AutoMergeTarget": target("OPEN", queued),
+				"DisableAutoMerge": {body: data(`{
+	"disablePullRequestAutoMerge": {
+		"clientMutationId": null
+	}
+}`)},
 			},
 			wantOperation: "DisableAutoMerge",
 			wantVariables: map[string]any{"id": "PR_742"},
