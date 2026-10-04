@@ -112,10 +112,6 @@ func (c *checksScreen) crumbs(m *model) crumbs {
 	return crumbs{trail: []string{name, "checks"}}
 }
 
-func (c *checksScreen) drawsSwitcher() bool {
-	return true
-}
-
 func (c *checksScreen) doesDrawFromListing() bool {
 	return true
 }

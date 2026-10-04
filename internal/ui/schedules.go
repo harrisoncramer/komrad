@@ -358,10 +358,6 @@ var (
 	_ renamer           = (*schedulesScreen)(nil)
 )
 
-func (w *schedulesScreen) drawsSwitcher() bool {
-	return true
-}
-
 func (w *schedulesScreen) doesDrawFromListing() bool {
 	return true
 }

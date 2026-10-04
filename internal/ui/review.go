@@ -135,10 +135,6 @@ var (
 	_ agentPauser        = (*reviewScreen)(nil)
 )
 
-func (r *reviewScreen) drawsSwitcher() bool {
-	return false
-}
-
 func (r *reviewScreen) doesDrawFromListing() bool {
 	return false
 }

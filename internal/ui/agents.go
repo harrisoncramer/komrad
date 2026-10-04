@@ -524,10 +524,6 @@ var (
 	_ agentPauser          = (*agentsScreen)(nil)
 )
 
-func (a *agentsScreen) drawsSwitcher() bool {
-	return true
-}
-
 func (a *agentsScreen) doesDrawFromListing() bool {
 	return true
 }

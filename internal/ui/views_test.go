@@ -35,8 +35,12 @@ func TestViews(t *testing.T) {
 		harness, _ := openDocuments(t)
 
 		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › author › documents"))
-		lit := paint.Panel.Style(paint.TonePrimary)
-		assert.Contains(t, harness.readRawFrame(), lit.Render("agents"), "the view it was opened from is lit")
+	})
+
+	t.Run("a page opened from a view draws no switcher", func(t *testing.T) {
+		harness, _ := openDocuments(t)
+
+		assert.NotContains(t, harness.readFrame(), "agents  query  schedules  archive  worktrees")
 	})
 
 	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
