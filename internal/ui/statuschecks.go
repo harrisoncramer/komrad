@@ -214,6 +214,8 @@ func (c *statusChecksScreen) emptyLine(m *model) string {
 		return "no pull request"
 	case !c.listed:
 		return "reading…"
+	case c.shownScope() == statusCheckScopeUnsettled && len(c.shownItems()) > 0:
+		return "every status check passes"
 	case c.shownScope() != statusCheckScopeAll && len(c.shownItems()) > 0:
 		return "no " + statusCheckScopeLabels[c.shownScope()] + " status checks"
 	}

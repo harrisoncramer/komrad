@@ -278,6 +278,17 @@ func TestStatusChecksScope(t *testing.T) {
 
 		assert.Contains(t, harness.readFrame(), "no failing status checks")
 	})
+
+	t.Run("not passing says every status check passes when none fail", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, answerStatusChecks(
+			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+		))
+		harness.press("F", "tab", "esc")
+
+		assert.Contains(t, harness.readFrame(), "every status check passes")
+	})
 }
 
 func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, conclusion, startedAt, finishedAt string) *pullrequestv1.StatusCheckStep {
@@ -429,6 +440,12 @@ func TestStatusChecksCommits(t *testing.T) {
 			wantTally: "commit 2 of 2 · 222222222222",
 		},
 		{
+			name:      "older picks the default scope for the commit it lands on",
+			press:     []string{"<"},
+			want:      []string{"lint"},
+			wantTally: "commit 1 of 2 · 111111111111",
+		},
+		{
 			name:      "a scope keeps to the commit shown",
 			press:     []string{"<", "F", "tab", "tab", "esc"},
 			want:      []string{"lint"},
@@ -493,6 +510,24 @@ func TestStatusChecksCommits(t *testing.T) {
 		pushed(harness)
 
 		frame := harness.readFrame()
+		assert.Equal(t, []string{"build"}, readListRows(frame))
+		assert.Contains(t, frame, "commit 3 of 3 · 333333333333")
+	})
+
+	t.Run("the default scope is picked again for each commit shown", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		pushed(harness)
+		harness.press("<")
+
+		frame := harness.readFrame()
+		assert.Equal(t, []string{"vet"}, readListRows(frame))
+		assert.Contains(t, frame, "commit 2 of 3 · 222222222222")
+
+		harness.press(">")
+
+		frame = harness.readFrame()
 		assert.Equal(t, []string{"build"}, readListRows(frame))
 		assert.Contains(t, frame, "commit 3 of 3 · 333333333333")
 	})
