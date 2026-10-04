@@ -2,7 +2,6 @@ package pullrequest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -64,12 +63,7 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 	}
 
 	checks := xslice.LastBy(params.StatusChecks, providerIDOf)
-	listed := statusCheckRows(checks)
-	encoded, err := json.Marshal(listed)
-	if err != nil {
-		return fmt.Errorf("failed to encode the checks listed on %s: %w", params.HeadSHA, err)
-	}
-	if err := queries.UpsertStatusChecks(ctx, models.UpsertStatusChecksParams{ReadingID: readingID, Checks: encoded}); err != nil {
+	if err := queries.UpsertStatusChecks(ctx, statusCheckRows(readingID, checks)).Close(); err != nil {
 		return fmt.Errorf("failed to write the checks listed on %s: %w", params.HeadSHA, err)
 	}
 
@@ -84,7 +78,7 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 
 	if err := queries.DeleteStatusChecksExcept(ctx, models.DeleteStatusChecksExceptParams{
 		ReadingID: readingID,
-		Kept:      xslice.Map(listed, func(row statusCheckRow) string { return row.ProviderID }),
+		Kept:      xslice.Map(checks, providerIDOf),
 	}); err != nil {
 		return fmt.Errorf("failed to remove the checks no longer listed on %s: %w", params.HeadSHA, err)
 	}
@@ -96,26 +90,20 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 // and removes the steps no longer listed on checks whose steps were listed whole.
 func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID string, params SetStatusChecksParams) error {
 	headSHA := params.HeadSHA
-	listed := statusCheckStepRows(params.StatusChecks)
-	encoded, err := json.Marshal(listed)
-	if err != nil {
-		return fmt.Errorf("failed to encode the check steps listed on %s: %w", headSHA, err)
-	}
-
-	if len(listed) > 0 {
-		if err := queries.UpsertStatusCheckSteps(ctx, models.UpsertStatusCheckStepsParams{ReadingID: readingID, Steps: encoded}); err != nil {
-			return fmt.Errorf("failed to write the check steps listed on %s: %w", headSHA, err)
-		}
+	listed := statusCheckStepRows(readingID, params.StatusChecks)
+	if err := queries.UpsertStatusCheckSteps(ctx, listed).Close(); err != nil {
+		return fmt.Errorf("failed to write the check steps listed on %s: %w", headSHA, err)
 	}
 
 	complete := xslice.Map(
 		xslice.Filter(params.StatusChecks, func(check forge.StatusCheck) bool { return !check.StepsTruncated }),
-		func(check forge.StatusCheck) string { return check.ProviderID },
+		providerIDOf,
 	)
 	if err := queries.DeleteStatusCheckStepsExcept(ctx, models.DeleteStatusCheckStepsExceptParams{
-		ReadingID: readingID,
-		Complete:  complete,
-		Kept:      encoded,
+		ReadingID:       readingID,
+		Complete:        complete,
+		KeptProviderIds: xslice.Map(listed, func(row models.UpsertStatusCheckStepsParams) string { return row.ProviderID }),
+		KeptNumbers:     xslice.Map(listed, func(row models.UpsertStatusCheckStepsParams) int32 { return row.Number }),
 	}); err != nil {
 		return fmt.Errorf("failed to remove the check steps no longer listed on %s: %w", headSHA, err)
 	}
@@ -244,24 +232,11 @@ func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[forge
 	}
 }
 
-// statusCheckRow is one check as the set-based upsert reads it from JSON.
-type statusCheckRow struct {
-	ProviderID string     `json:"provider_id"`
-	Kind       string     `json:"kind"`
-	Source     string     `json:"source"`
-	Name       string     `json:"name"`
-	State      string     `json:"state"`
-	Conclusion string     `json:"conclusion"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
-	Required   bool       `json:"required"`
-	URL        string     `json:"url"`
-}
-
-// statusCheckRows is each check as the upsert reads it.
-func statusCheckRows(checks []forge.StatusCheck) []statusCheckRow {
-	return xslice.Map(checks, func(check forge.StatusCheck) statusCheckRow {
-		return statusCheckRow{
+// statusCheckRows is each check as a row of the reading.
+func statusCheckRows(readingID string, checks []forge.StatusCheck) []models.UpsertStatusChecksParams {
+	return xslice.Map(checks, func(check forge.StatusCheck) models.UpsertStatusChecksParams {
+		return models.UpsertStatusChecksParams{
+			ReadingID:  readingID,
 			ProviderID: check.ProviderID,
 			Kind:       string(check.Kind),
 			Source:     check.Source,
@@ -271,7 +246,7 @@ func statusCheckRows(checks []forge.StatusCheck) []statusCheckRow {
 			StartedAt:  check.StartedAt,
 			FinishedAt: check.FinishedAt,
 			Required:   check.Required,
-			URL:        check.URL,
+			Url:        check.URL,
 		}
 	})
 }
@@ -281,26 +256,16 @@ func providerIDOf(check forge.StatusCheck) string {
 	return check.ProviderID
 }
 
-// statusCheckStepRow is one step of a check as the set-based upsert reads it from JSON.
-type statusCheckStepRow struct {
-	ProviderID string     `json:"provider_id"`
-	Number     int        `json:"number"`
-	Name       string     `json:"name"`
-	State      string     `json:"state"`
-	Conclusion string     `json:"conclusion"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
-}
-
-// statusCheckStepRows is every step of the checks, each step of a check listed once, the last listing of
-// a number winning.
-func statusCheckStepRows(checks []forge.StatusCheck) []statusCheckStepRow {
-	rows := []statusCheckStepRow{}
+// statusCheckStepRows is every step of the checks as a row of the reading, each step of a check listed once,
+// the last listing of a number winning.
+func statusCheckStepRows(readingID string, checks []forge.StatusCheck) []models.UpsertStatusCheckStepsParams {
+	rows := []models.UpsertStatusCheckStepsParams{}
 	for _, check := range checks {
-		rows = append(rows, xslice.Map(xslice.LastBy(check.Steps, numberOf), func(step forge.StatusCheckStep) statusCheckStepRow {
-			return statusCheckStepRow{
+		rows = append(rows, xslice.Map(xslice.LastBy(check.Steps, numberOf), func(step forge.StatusCheckStep) models.UpsertStatusCheckStepsParams {
+			return models.UpsertStatusCheckStepsParams{
+				ReadingID:  readingID,
 				ProviderID: check.ProviderID,
-				Number:     step.Number,
+				Number:     int32(step.Number),
 				Name:       step.Name,
 				State:      string(step.State),
 				Conclusion: step.Conclusion,
