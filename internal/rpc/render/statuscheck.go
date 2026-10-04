@@ -19,17 +19,20 @@ func StatusCheckReading(reading *pullrequeststore.StatusCheckReading) *pullreque
 
 func statusCheck(stored forge.StatusCheck) *pullrequestv1.StatusCheck {
 	return &pullrequestv1.StatusCheck{
-		ProviderId: stored.ProviderID,
-		Kind:       statusCheckKindOf(stored.Kind),
-		Source:     stored.Source,
-		Name:       stored.Name,
-		State:      statusCheckStateOf(stored.State),
-		Conclusion: stored.Conclusion,
-		StartedAt:  dates.StampPtr(stored.StartedAt),
-		FinishedAt: dates.StampPtr(stored.FinishedAt),
-		Required:   stored.Required,
-		Url:        stored.URL,
-		Steps:      xslice.Map(stored.Steps, statusCheckStep),
+		ProviderId:   stored.ProviderID,
+		Kind:         statusCheckKindOf(stored.Kind),
+		Source:       stored.Source,
+		Name:         stored.Name,
+		State:        statusCheckStateOf(stored.State),
+		Conclusion:   stored.Conclusion,
+		StartedAt:    dates.StampPtr(stored.StartedAt),
+		FinishedAt:   dates.StampPtr(stored.FinishedAt),
+		Required:     stored.Required,
+		Url:          stored.URL,
+		Steps:        xslice.Map(stored.Steps, statusCheckStep),
+		RunId:        stored.RunID,
+		RunEvent:     stored.RunEvent,
+		RunStartedAt: dates.StampPtr(stored.RunStartedAt),
 	}
 }
 

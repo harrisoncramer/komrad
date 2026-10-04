@@ -17,16 +17,25 @@ var statusCheckReadAt = time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 
 func statusCheckRun(providerID, name string, state forge.StatusCheckState, conclusion string) forge.StatusCheck {
 	return forge.StatusCheck{
-		ProviderID: providerID,
-		Kind:       forge.StatusCheckKindRun,
-		Source:     "CI",
-		Name:       name,
-		State:      state,
-		Conclusion: conclusion,
-		StartedAt:  xptr.Ptr(statusCheckReadAt.Add(-time.Minute)),
-		Required:   true,
-		URL:        "https://github.com/harrisoncramer/komrad/runs/" + providerID,
+		ProviderID:   providerID,
+		Kind:         forge.StatusCheckKindRun,
+		Source:       "CI",
+		Name:         name,
+		State:        state,
+		Conclusion:   conclusion,
+		StartedAt:    xptr.Ptr(statusCheckReadAt.Add(-time.Minute)),
+		Required:     true,
+		URL:          "https://github.com/harrisoncramer/komrad/runs/" + providerID,
+		RunID:        "CS_1",
+		RunEvent:     "pull_request",
+		RunStartedAt: xptr.Ptr(statusCheckReadAt.Add(-2 * time.Minute)),
 	}
+}
+
+func inRun(check forge.StatusCheck, runID string) forge.StatusCheck {
+	check.RunID = runID
+
+	return check
 }
 
 func statusCheckNames(reading StatusCheckReading) []string {
@@ -65,6 +74,14 @@ func TestSetStatusChecks(t *testing.T) {
 				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")}},
 			},
 			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")}}},
+		},
+		{
+			name: "a later read that moves a check to another run rewrites it",
+			reads: []SetStatusChecksParams{
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success"), "CS_2")}},
+			},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success"), "CS_2")}}},
 		},
 		{
 			name: "a check the forge stops listing goes",
@@ -134,6 +151,7 @@ func TestSetStatusChecks(t *testing.T) {
 				assert.Equal(t, statusCheckNames(want), statusCheckNames(got[i]))
 				for j, check := range got[i].StatusChecks {
 					check.StartedAt = xptr.Ptr(check.StartedAt.UTC())
+					check.RunStartedAt = xptr.Ptr(check.RunStartedAt.UTC())
 					assert.Equal(t, want.StatusChecks[j], check)
 				}
 			}

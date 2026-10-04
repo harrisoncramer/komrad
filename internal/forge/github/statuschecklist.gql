@@ -18,10 +18,13 @@ commits(last: 1) {
               completedAt
               detailsUrl
               checkSuite {
+                id
+                createdAt
                 app {
                   name
                 }
                 workflowRun {
+                  event
                   workflow {
                     name
                   }

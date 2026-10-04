@@ -29,6 +29,14 @@ type statusCheckItem struct {
 	startedAt  time.Time
 	finishedAt time.Time
 	steps      []statusCheckItem
+	run        statusCheckRun
+}
+
+// statusCheckRun is one run of checks on the head commit, such as the workflow a push or a pull request started.
+type statusCheckRun struct {
+	id        string
+	event     string
+	startedAt time.Time
 }
 
 // statusChecksScreen lists the status checks on the head of the pull request opened from one agent's branch.
@@ -44,6 +52,7 @@ type statusChecksScreen struct {
 	err               error
 	scope             statusCheckScope
 	scopeFocus        bool
+	run               string
 }
 
 type statusCheckRow struct {
@@ -86,8 +95,12 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 }
 
 func (c *statusChecksScreen) rows(m *model) []statusCheckRow {
+	run := c.shownRunID()
+
 	return narrowed(m.filter, narrowedParams[statusCheckRow]{
-		rows: xslice.Map(xslice.Filter(c.items, c.scope.holds), func(item statusCheckItem) statusCheckRow {
+		rows: xslice.Map(xslice.Filter(c.items, func(item statusCheckItem) bool {
+			return (item.run.id == "" || item.run.id == run) && c.scope.holds(item)
+		}), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
 		}),
 		depth: func(statusCheckRow) int { return 0 },
@@ -105,6 +118,7 @@ func (c *statusChecksScreen) view(m *model) string {
 
 func (c *statusChecksScreen) listParams(m *model) screenListParams {
 	return screenListParams{
+		tally:    c.runTally(),
 		help:     c.help,
 		empty:    c.emptyLine(m),
 		rows:     len(c.rows(m)),
@@ -215,6 +229,16 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 	return screenActionSpec{
 		table: append(c.list().actions(),
 			screenAction{
+				id:   actionStatusChecksOlder,
+				keys: func(k config.Keybindings) []string { return k.StatusChecks.Older },
+				nav:  func(m *model, _ string) tea.Cmd { return c.stepRun(m, -1) },
+			},
+			screenAction{
+				id:   actionStatusChecksNewer,
+				keys: func(k config.Keybindings) []string { return k.StatusChecks.Newer },
+				nav:  func(m *model, _ string) tea.Cmd { return c.stepRun(m, 1) },
+			},
+			screenAction{
 				id:   actionStatusChecksBack,
 				keys: func(k config.Keybindings) []string { return k.StatusChecks.Back },
 				nav: func(m *model, _ string) tea.Cmd {
@@ -223,6 +247,14 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 			},
 		),
 		legend: slices.Concat(screenNavLegend(), []screenLegendRow{
+			{
+				of:   []actionID{actionStatusChecksOlder},
+				desc: func(*model) string { return "an earlier run" },
+			},
+			{
+				of:   []actionID{actionStatusChecksNewer},
+				desc: func(*model) string { return "a later run" },
+			},
 			{
 				of:    []actionID{actionStatusChecksBack},
 				desc:  func(*model) string { return "back" },
@@ -409,6 +441,11 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 		conclusion: check.GetConclusion(),
 		startedAt:  dates.Parse(check.GetStartedAt()),
 		finishedAt: dates.Parse(check.GetFinishedAt()),
+		run: statusCheckRun{
+			id:        check.GetRunId(),
+			event:     check.GetRunEvent(),
+			startedAt: dates.Parse(check.GetRunStartedAt()),
+		},
 		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
 			return statusCheckItem{
 				name:       step.GetName(),
@@ -476,4 +513,86 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	}
 
 	return out
+}
+
+// runs is every run the listed checks ran in, oldest first.
+func (c *statusChecksScreen) runs() []statusCheckRun {
+	runs := xslice.Map(xslice.UniqueBy(xslice.Filter(c.items, func(item statusCheckItem) bool { return item.run.id != "" }),
+		func(item statusCheckItem) string { return item.run.id }), func(item statusCheckItem) statusCheckRun { return item.run })
+
+	slices.SortStableFunc(runs, func(a, b statusCheckRun) int {
+		if order := a.startedAt.Compare(b.startedAt); order != 0 {
+			return order
+		}
+
+		return strings.Compare(a.id, b.id)
+	})
+
+	return runs
+}
+
+// shownRun is where in runs the run the screen lists stands, the newest when none was picked or the picked one
+// is gone, and -1 when no check ran in one.
+func (c *statusChecksScreen) shownRun(runs []statusCheckRun) int {
+	if i := slices.IndexFunc(runs, func(run statusCheckRun) bool { return run.id == c.run }); i >= 0 {
+		return i
+	}
+
+	return len(runs) - 1
+}
+
+// shownRunID is the run the screen lists, empty when no check ran in one.
+func (c *statusChecksScreen) shownRunID() string {
+	runs := c.runs()
+	if len(runs) == 0 {
+		return ""
+	}
+
+	return runs[c.shownRun(runs)].id
+}
+
+// stepRun moves the listing to an older or newer run, keeping the cursor on the check of the same name when the run
+// lists one.
+func (c *statusChecksScreen) stepRun(m *model, delta int) tea.Cmd {
+	runs := c.runs()
+	at := c.shownRun(runs)
+	to := min(max(at+delta, 0), len(runs)-1)
+	if to == at {
+		return nil
+	}
+
+	rows := c.rows(m)
+	var hovered string
+	if c.cursor >= 0 && c.cursor < len(rows) {
+		hovered = rows[c.cursor].item.name
+	}
+
+	c.run = runs[to].id
+	var key string
+	rows = c.rows(m)
+	if i := slices.IndexFunc(rows, func(row statusCheckRow) bool { return row.item.name == hovered }); i >= 0 {
+		key = rows[i].key()
+	}
+	c.list().place(m, key)
+
+	return m.waitToStage()
+}
+
+// runTally is which run the screen lists, what started it and how long ago, empty when no check ran in one.
+func (c *statusChecksScreen) runTally() string {
+	runs := c.runs()
+	if len(runs) == 0 {
+		return ""
+	}
+
+	run := runs[c.shownRun(runs)]
+	parts := []string{"run " + label.OfCount(c.shownRun(runs)+1, len(runs))}
+	if run.event != "" {
+		parts = append(parts, run.event)
+	}
+	if age := label.Age(run.startedAt); age != "" {
+		parts = append(parts, age+" ago")
+	}
+
+	return strings.Join(parts, separated)
 }

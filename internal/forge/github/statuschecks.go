@@ -50,10 +50,13 @@ type statusCheckNode struct {
 	CompletedAt *time.Time `json:"completedAt"`
 	DetailsURL  *string    `json:"detailsUrl"`
 	CheckSuite  *struct {
-		App *struct {
+		ID        string     `json:"id"`
+		CreatedAt *time.Time `json:"createdAt"`
+		App       *struct {
 			Name string `json:"name"`
 		} `json:"app"`
 		WorkflowRun *struct {
+			Event    string `json:"event"`
 			Workflow struct {
 				Name string `json:"name"`
 			} `json:"workflow"`
@@ -242,16 +245,19 @@ func (n statusCheckNode) check() (forge.StatusCheck, bool) {
 	case "CheckRun":
 		state, conclusion := checkRunStateOf(n.Status, n.Conclusion)
 		return forge.StatusCheck{
-			ProviderID: n.ID,
-			Kind:       forge.StatusCheckKindRun,
-			Source:     n.source(),
-			Name:       n.Name,
-			State:      state,
-			Conclusion: conclusion,
-			StartedAt:  n.StartedAt,
-			FinishedAt: n.CompletedAt,
-			Required:   n.IsRequired,
-			URL:        xptr.Deref(n.DetailsURL),
+			ProviderID:   n.ID,
+			Kind:         forge.StatusCheckKindRun,
+			Source:       n.source(),
+			Name:         n.Name,
+			State:        state,
+			Conclusion:   conclusion,
+			StartedAt:    n.StartedAt,
+			FinishedAt:   n.CompletedAt,
+			Required:     n.IsRequired,
+			URL:          xptr.Deref(n.DetailsURL),
+			RunID:        n.runID(),
+			RunEvent:     n.runEvent(),
+			RunStartedAt: n.runStartedAt(),
 		}, true
 	case "StatusContext":
 		check := forge.StatusCheck{
@@ -340,4 +346,31 @@ func (n checkStepNode) step() forge.StatusCheckStep {
 		StartedAt:  n.StartedAt,
 		FinishedAt: n.CompletedAt,
 	}
+}
+
+// runID is the check suite the check run ran in, empty when GitHub named none.
+func (n statusCheckNode) runID() string {
+	if n.CheckSuite == nil {
+		return ""
+	}
+
+	return n.CheckSuite.ID
+}
+
+// runEvent is what started the workflow that ran the check run, empty when no workflow did.
+func (n statusCheckNode) runEvent() string {
+	if n.CheckSuite == nil || n.CheckSuite.WorkflowRun == nil {
+		return ""
+	}
+
+	return n.CheckSuite.WorkflowRun.Event
+}
+
+// runStartedAt is when the check suite the check run ran in was created.
+func (n statusCheckNode) runStartedAt() *time.Time {
+	if n.CheckSuite == nil {
+		return nil
+	}
+
+	return n.CheckSuite.CreatedAt
 }

@@ -176,6 +176,12 @@ type StatusCheck struct {
 	// StepsTruncated is whether the forge listed only the first page of a longer list of steps, or could
 	// not be asked for them, either of which keeps the steps stored before.
 	StepsTruncated bool
+	// RunID is the forge's own identifier for the run the check ran in, empty for a check that ran in none.
+	RunID string
+	// RunEvent is what started the run, such as pull_request or push, empty when no workflow ran the check.
+	RunEvent string
+	// RunStartedAt is when the run the check ran in was created.
+	RunStartedAt *time.Time
 }
 
 // StatusCheckStep is one step of a check run.

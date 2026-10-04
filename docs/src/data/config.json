@@ -701,6 +701,20 @@
               "default": "[\"esc\"]"
             },
             {
+              "key": "older",
+              "path": "keybindings.status_checks.older",
+              "type": "array",
+              "description": "Step back to an earlier run of the checks on the head commit.",
+              "default": "[\"\u003c\"]"
+            },
+            {
+              "key": "newer",
+              "path": "keybindings.status_checks.newer",
+              "type": "array",
+              "description": "Step forward to a later run, stopping on the newest.",
+              "default": "[\"\u003e\"]"
+            },
+            {
               "key": "quit",
               "path": "keybindings.status_checks.quit",
               "type": "array",

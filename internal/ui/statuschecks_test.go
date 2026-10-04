@@ -334,3 +334,83 @@ func TestStatusChecksSteps(t *testing.T) {
 		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Run integration[^│]*… +3m 08s`, harness.readFrame())
 	})
 }
+
+func inStatusCheckRun(check *pullrequestv1.StatusCheck, id, event, startedAt string) *pullrequestv1.StatusCheck {
+	check.RunId = id
+	check.RunEvent = event
+	check.RunStartedAt = xptr.Ptr(startedAt)
+
+	return check
+}
+
+// TestStatusChecksRuns covers the listing showing one run at a time, stepping through older ones.
+func TestStatusChecksRuns(t *testing.T) {
+	t.Parallel()
+
+	listed := answerStatusChecks(
+		inStatusCheckRun(newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"), "CS_1", "push", "2026-09-20T11:00:00Z"),
+		inStatusCheckRun(newStatusCheck("2", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"), "CS_1", "push", "2026-09-20T11:00:00Z"),
+		inStatusCheckRun(newStatusCheck("3", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), "CS_2", "pull_request", "2026-09-20T12:00:00Z"),
+		inStatusCheckRun(newStatusCheck("4", "vet", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"), "CS_2", "pull_request", "2026-09-20T12:00:00Z"),
+		newStatusCheck("5", "ci/legacy", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+	)
+
+	tests := []struct {
+		name      string
+		press     []string
+		want      []string
+		wantTally string
+	}{
+		{
+			name:      "the listing opens on the newest run",
+			want:      []string{"test", "vet", "ci/legacy"},
+			wantTally: "run 2 of 2 · pull_request",
+		},
+		{
+			name:      "older steps back to an earlier run",
+			press:     []string{"<"},
+			want:      []string{"lint", "test", "ci/legacy"},
+			wantTally: "run 1 of 2 · push",
+		},
+		{
+			name:      "older stops on the earliest run",
+			press:     []string{"<", "<"},
+			want:      []string{"lint", "test", "ci/legacy"},
+			wantTally: "run 1 of 2 · push",
+		},
+		{
+			name:      "newer steps forward to a later run",
+			press:     []string{"<", ">"},
+			want:      []string{"test", "vet", "ci/legacy"},
+			wantTally: "run 2 of 2 · pull_request",
+		},
+		{
+			name:      "a scope keeps to the run shown",
+			press:     []string{"<", "F", "tab", "tab", "esc"},
+			want:      []string{"lint"},
+			wantTally: "run 1 of 2 · push",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openStatusChecks(t, listed)
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want, readListRows(frame))
+			assert.Contains(t, frame, tt.wantTally)
+		})
+	}
+
+	t.Run("a new run keeps the cursor on the status check of the same name", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		harness.press("<")
+
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "test")
+	})
+}
