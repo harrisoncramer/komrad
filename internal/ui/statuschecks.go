@@ -32,9 +32,11 @@ type statusCheckItem struct {
 	run        statusCheckRun
 }
 
-// statusCheckRun is one run of checks on the head commit, such as the workflow a push or a pull request started.
+// statusCheckRun is one run of checks on the head commit by one workflow or app, such as the workflow a push or a
+// pull request started.
 type statusCheckRun struct {
 	id        string
+	source    string
 	event     string
 	startedAt time.Time
 }
@@ -52,7 +54,7 @@ type statusChecksScreen struct {
 	err               error
 	scope             statusCheckScope
 	scopeFocus        bool
-	run               string
+	back              int
 }
 
 type statusCheckRow struct {
@@ -95,11 +97,12 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 }
 
 func (c *statusChecksScreen) rows(m *model) []statusCheckRow {
-	run := c.shownRunID()
+	shown := c.shownRuns()
 
 	return narrowed(m.filter, narrowedParams[statusCheckRow]{
 		rows: xslice.Map(xslice.Filter(c.items, func(item statusCheckItem) bool {
-			return (item.run.id == "" || item.run.id == run) && c.scope.holds(item)
+			return (item.run.id == "" || slices.ContainsFunc(shown, func(run statusCheckRun) bool { return run.id == item.run.id })) &&
+				c.scope.holds(item)
 		}), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
 		}),
@@ -443,6 +446,7 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 		finishedAt: dates.Parse(check.GetFinishedAt()),
 		run: statusCheckRun{
 			id:        check.GetRunId(),
+			source:    check.GetSource(),
 			event:     check.GetRunEvent(),
 			startedAt: dates.Parse(check.GetRunStartedAt()),
 		},
@@ -515,48 +519,67 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	return out
 }
 
-// runs is every run the listed checks ran in, oldest first.
-func (c *statusChecksScreen) runs() []statusCheckRun {
+// runsBySource is the runs the listed checks ran in, grouped by the workflow or app that ran them, oldest first.
+func (c *statusChecksScreen) runsBySource() map[string][]statusCheckRun {
 	runs := xslice.Map(xslice.UniqueBy(xslice.Filter(c.items, func(item statusCheckItem) bool { return item.run.id != "" }),
 		func(item statusCheckItem) string { return item.run.id }), func(item statusCheckItem) statusCheckRun { return item.run })
 
-	slices.SortStableFunc(runs, func(a, b statusCheckRun) int {
-		if order := a.startedAt.Compare(b.startedAt); order != 0 {
-			return order
+	slices.SortStableFunc(runs, compareStatusCheckRuns)
+
+	out := map[string][]statusCheckRun{}
+	for _, run := range runs {
+		out[run.source] = append(out[run.source], run)
+	}
+
+	return out
+}
+
+func compareStatusCheckRuns(a, b statusCheckRun) int {
+	if order := a.startedAt.Compare(b.startedAt); order != 0 {
+		return order
+	}
+
+	return strings.Compare(a.id, b.id)
+}
+
+// runDepth is how many runs the workflow with the most runs has.
+func runDepth(bySource map[string][]statusCheckRun) int {
+	depth := 0
+	for _, runs := range bySource {
+		depth = max(depth, len(runs))
+	}
+
+	return depth
+}
+
+// shownBack is how many runs before the newest the screen lists, held to the oldest run.
+func (c *statusChecksScreen) shownBack(depth int) int {
+	return min(c.back, max(depth-1, 0))
+}
+
+// shownRuns is the run of each workflow the screen lists, newest last, leaving out a workflow with no run that far
+// back.
+func (c *statusChecksScreen) shownRuns() []statusCheckRun {
+	bySource := c.runsBySource()
+	back := c.shownBack(runDepth(bySource))
+
+	var out []statusCheckRun
+	for _, runs := range bySource {
+		if back < len(runs) {
+			out = append(out, runs[len(runs)-1-back])
 		}
-
-		return strings.Compare(a.id, b.id)
-	})
-
-	return runs
-}
-
-// shownRun is where in runs the run the screen lists stands, the newest when none was picked or the picked one
-// is gone, and -1 when no check ran in one.
-func (c *statusChecksScreen) shownRun(runs []statusCheckRun) int {
-	if i := slices.IndexFunc(runs, func(run statusCheckRun) bool { return run.id == c.run }); i >= 0 {
-		return i
 	}
+	slices.SortStableFunc(out, compareStatusCheckRuns)
 
-	return len(runs) - 1
+	return out
 }
 
-// shownRunID is the run the screen lists, empty when no check ran in one.
-func (c *statusChecksScreen) shownRunID() string {
-	runs := c.runs()
-	if len(runs) == 0 {
-		return ""
-	}
-
-	return runs[c.shownRun(runs)].id
-}
-
-// stepRun moves the listing to an older or newer run, keeping the cursor on the check of the same name when the run
-// lists one.
+// stepRun moves the listing to older or newer runs, keeping the cursor on the check of the same name when the runs
+// list one.
 func (c *statusChecksScreen) stepRun(m *model, delta int) tea.Cmd {
-	runs := c.runs()
-	at := c.shownRun(runs)
-	to := min(max(at+delta, 0), len(runs)-1)
+	depth := runDepth(c.runsBySource())
+	at := c.shownBack(depth)
+	to := min(max(at-delta, 0), max(depth-1, 0))
 	if to == at {
 		return nil
 	}
@@ -567,7 +590,7 @@ func (c *statusChecksScreen) stepRun(m *model, delta int) tea.Cmd {
 		hovered = rows[c.cursor].item.name
 	}
 
-	c.run = runs[to].id
+	c.back = to
 	var key string
 	rows = c.rows(m)
 	if i := slices.IndexFunc(rows, func(row statusCheckRow) bool { return row.item.name == hovered }); i >= 0 {
@@ -578,15 +601,17 @@ func (c *statusChecksScreen) stepRun(m *model, delta int) tea.Cmd {
 	return m.waitToStage()
 }
 
-// runTally is which run the screen lists, what started it and how long ago, empty when no check ran in one.
+// runTally is which runs the screen lists, what started the newest of them and how long ago, empty when no check ran
+// in one.
 func (c *statusChecksScreen) runTally() string {
-	runs := c.runs()
-	if len(runs) == 0 {
+	depth := runDepth(c.runsBySource())
+	shown := c.shownRuns()
+	if len(shown) == 0 {
 		return ""
 	}
 
-	run := runs[c.shownRun(runs)]
-	parts := []string{"run " + label.OfCount(c.shownRun(runs)+1, len(runs))}
+	run := shown[len(shown)-1]
+	parts := []string{"run " + label.OfCount(depth-c.shownBack(depth), depth)}
 	if run.event != "" {
 		parts = append(parts, run.event)
 	}

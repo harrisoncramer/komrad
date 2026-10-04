@@ -335,7 +335,8 @@ func TestStatusChecksSteps(t *testing.T) {
 	})
 }
 
-func inStatusCheckRun(check *pullrequestv1.StatusCheck, id, event, startedAt string) *pullrequestv1.StatusCheck {
+func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, id, event, startedAt string) *pullrequestv1.StatusCheck {
+	check.Source = source
 	check.RunId = id
 	check.RunEvent = event
 	check.RunStartedAt = xptr.Ptr(startedAt)
@@ -343,17 +344,20 @@ func inStatusCheckRun(check *pullrequestv1.StatusCheck, id, event, startedAt str
 	return check
 }
 
-// TestStatusChecksRuns covers the listing showing one run at a time, stepping through older ones.
+// TestStatusChecksRuns covers the listing showing the newest run of each workflow, stepping back through older ones.
 func TestStatusChecksRuns(t *testing.T) {
 	t.Parallel()
 
-	listed := answerStatusChecks(
-		inStatusCheckRun(newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"), "CS_1", "push", "2026-09-20T11:00:00Z"),
-		inStatusCheckRun(newStatusCheck("2", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"), "CS_1", "push", "2026-09-20T11:00:00Z"),
-		inStatusCheckRun(newStatusCheck("3", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), "CS_2", "pull_request", "2026-09-20T12:00:00Z"),
-		inStatusCheckRun(newStatusCheck("4", "vet", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "FAILURE"), "CS_2", "pull_request", "2026-09-20T12:00:00Z"),
-		newStatusCheck("5", "ci/legacy", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
-	)
+	done := pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
+	checks := []*pullrequestv1.StatusCheck{
+		inStatusCheckRun(newStatusCheck("1", "lint", done, "FAILURE"), "ci", "CS_1", "push", "2026-09-20T11:00:00Z"),
+		inStatusCheckRun(newStatusCheck("2", "test", done, "SUCCESS"), "ci", "CS_1", "push", "2026-09-20T11:00:00Z"),
+		inStatusCheckRun(newStatusCheck("3", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), "ci", "CS_2", "pull_request", "2026-09-20T12:00:00Z"),
+		inStatusCheckRun(newStatusCheck("4", "vet", done, "FAILURE"), "ci", "CS_2", "pull_request", "2026-09-20T12:00:00Z"),
+		inStatusCheckRun(newStatusCheck("5", "scan", done, "FAILURE"), "Scanner", "CS_3", "", "2026-09-20T11:30:00Z"),
+		newStatusCheck("6", "ci/legacy", done, "SUCCESS"),
+	}
+	listed := answerStatusChecks(checks...)
 
 	tests := []struct {
 		name      string
@@ -362,12 +366,18 @@ func TestStatusChecksRuns(t *testing.T) {
 		wantTally string
 	}{
 		{
-			name:      "the listing opens on the newest run",
-			want:      []string{"test", "vet", "ci/legacy"},
+			name:      "the listing opens on the newest run of each workflow",
+			want:      []string{"test", "vet", "scan", "ci/legacy"},
 			wantTally: "run 2 of 2 · pull_request",
 		},
 		{
-			name:      "older steps back to an earlier run",
+			name:      "failing lists the failures of every workflow's newest run",
+			press:     []string{"F", "tab", "tab", "esc"},
+			want:      []string{"vet", "scan"},
+			wantTally: "run 2 of 2 · pull_request",
+		},
+		{
+			name:      "older steps each workflow back a run",
 			press:     []string{"<"},
 			want:      []string{"lint", "test", "ci/legacy"},
 			wantTally: "run 1 of 2 · push",
@@ -381,7 +391,7 @@ func TestStatusChecksRuns(t *testing.T) {
 		{
 			name:      "newer steps forward to a later run",
 			press:     []string{"<", ">"},
-			want:      []string{"test", "vet", "ci/legacy"},
+			want:      []string{"test", "vet", "scan", "ci/legacy"},
 			wantTally: "run 2 of 2 · pull_request",
 		},
 		{
@@ -412,5 +422,23 @@ func TestStatusChecksRuns(t *testing.T) {
 		harness.press("<")
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "test")
+	})
+
+	t.Run("stepping back to the newest run follows a run that starts later", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		harness.press("<", ">")
+
+		answerStatusChecks(append(checks,
+			inStatusCheckRun(newStatusCheck("7", "build", done, "SUCCESS"), "ci", "CS_4", "pull_request", "2026-09-20T13:00:00Z"),
+		)...)(harness)
+		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
+		pullRequest.HeadSha = "c2"
+		harness.watch(buildPuts(pullRequest))
+
+		frame := harness.readFrame()
+		assert.Equal(t, []string{"scan", "ci/legacy", "build"}, readListRows(frame))
+		assert.Contains(t, frame, "run 3 of 3 · pull_request")
 	})
 }
