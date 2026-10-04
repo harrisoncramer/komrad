@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -53,13 +52,12 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 	var followUps []river.JobArgs
 	started, holding := eventsOf(change, *pullRequest)
 	for _, recipient := range recipients {
-		failures := pullrequeststore.CheckFailuresParams{
+		told, err := statusChecks.ListCheckFailures(ctx, pullrequeststore.ListCheckFailuresParams{
 			PullRequestID: pullRequest.ID,
 			HeadSHA:       pullRequest.MergeReadiness.Checks.HeadSHA,
 			AgentID:       recipient,
 			Failed:        failedChecks(*pullRequest),
-		}
-		told, err := statusChecks.ListCheckFailures(ctx, failures)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -69,9 +67,9 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			return nil, err
 		}
 
-		failures.Failed = untold(told)
+		newlyTold := untold(told)
 		recipientStarted := started
-		if event := failingEvent(*pullRequest); event != "" && (len(failures.Failed) > 0 || carriesFailing(held)) {
+		if event := failingEvent(*pullRequest); event != "" && (len(newlyTold) > 0 || carriesFailing(held)) {
 			recipientStarted = append(slices.Clone(started), event)
 		}
 
@@ -110,7 +108,12 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			continue
 		}
 
-		if err := statusChecks.RecordCheckFailures(ctx, failures); err != nil {
+		if err := statusChecks.RecordCheckFailures(ctx, pullrequeststore.RecordCheckFailuresParams{
+			PullRequestID: pullRequest.ID,
+			HeadSHA:       pullRequest.MergeReadiness.Checks.HeadSHA,
+			AgentID:       recipient,
+			Told:          newlyTold,
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -121,9 +124,17 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 // carriesFailing says whether the held mail started a checks failing event, which the word the checks settle on
 // takes over.
 func carriesFailing(held *mailstore.Mail) bool {
-	return held != nil && slices.ContainsFunc(held.Events, func(event string) bool {
-		return slices.Contains(slices.Collect(maps.Values(eventOf[fieldChecks])), event)
-	})
+	if held == nil {
+		return false
+	}
+
+	for _, event := range eventOf[fieldChecks] {
+		if slices.Contains(held.Events, event) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // untold is the failed checks the agent has not been told of.
@@ -153,12 +164,15 @@ func render(pullRequest pullrequeststore.PullRequest, failures []pullrequeststor
 	for _, field := range fieldOrder {
 		fmt.Fprintf(&body, "  %s: %s\n", field, describe(field, now[field], pullRequest))
 	}
-	stillFailing := slices.DeleteFunc(slices.Clone(failures), func(failure pullrequeststore.CheckFailure) bool {
-		return isNewTo(failure, heldSince)
-	})
-	writeChecks(&body, "New failures:", slices.DeleteFunc(slices.Clone(failures), func(failure pullrequeststore.CheckFailure) bool {
-		return !isNewTo(failure, heldSince)
-	}))
+	var newFailures, stillFailing []pullrequeststore.CheckFailure
+	for _, failure := range failures {
+		if isNewTo(failure, heldSince) {
+			newFailures = append(newFailures, failure)
+		} else {
+			stillFailing = append(stillFailing, failure)
+		}
+	}
+	writeChecks(&body, "New failures:", newFailures)
 	writeChecks(&body, "Still failing:", stillFailing)
 	body.WriteString("Review comments reach you through the person's review in komrad, so do not fetch them from the forge.")
 

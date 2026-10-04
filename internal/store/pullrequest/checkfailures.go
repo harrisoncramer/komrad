@@ -18,8 +18,8 @@ type CheckFailure struct {
 	NotedAt *time.Time
 }
 
-// CheckFailuresParams is the failed checks on one head of a pull request, as one agent hears of them.
-type CheckFailuresParams struct {
+// ListCheckFailuresParams is the failed checks on one head of a pull request, as one agent hears of them.
+type ListCheckFailuresParams struct {
 	PullRequestID string
 	HeadSHA       string
 	AgentID       string
@@ -28,7 +28,7 @@ type CheckFailuresParams struct {
 
 // ListCheckFailures is each failed check with when the agent was told of it, a check that failed again
 // since counting as not told.
-func (s *StatusCheckStore) ListCheckFailures(ctx context.Context, params CheckFailuresParams) ([]CheckFailure, error) {
+func (s *StatusCheckStore) ListCheckFailures(ctx context.Context, params ListCheckFailuresParams) ([]CheckFailure, error) {
 	notes, err := s.queries.ListCheckFailureNotes(ctx, models.ListCheckFailureNotesParams{
 		AgentID:       params.AgentID,
 		PullRequestID: params.PullRequestID,
@@ -40,7 +40,7 @@ func (s *StatusCheckStore) ListCheckFailures(ctx context.Context, params CheckFa
 
 	return xslice.Map(params.Failed, func(check forge.StatusCheck) CheckFailure {
 		for _, note := range notes {
-			if note.ProviderID == check.ProviderID && sameTime(note.FinishedAt, check.FinishedAt) {
+			if isSameFailure(forge.StatusCheck{ProviderID: note.ProviderID, FinishedAt: note.FinishedAt}, check) {
 				return CheckFailure{Check: check, NotedAt: &note.NotedAt}
 			}
 		}
@@ -49,13 +49,21 @@ func (s *StatusCheckStore) ListCheckFailures(ctx context.Context, params CheckFa
 	}), nil
 }
 
+// RecordCheckFailuresParams is the failed checks on one head of a pull request an agent was just told of.
+type RecordCheckFailuresParams struct {
+	PullRequestID string
+	HeadSHA       string
+	AgentID       string
+	Told          []forge.StatusCheck
+}
+
 // RecordCheckFailures records that the agent was told of each failed check, keeping when it was first told.
-func (s *StatusCheckStore) RecordCheckFailures(ctx context.Context, params CheckFailuresParams) error {
-	if len(params.Failed) == 0 {
+func (s *StatusCheckStore) RecordCheckFailures(ctx context.Context, params RecordCheckFailuresParams) error {
+	if len(params.Told) == 0 {
 		return nil
 	}
 
-	rows := xslice.Map(params.Failed, func(check forge.StatusCheck) models.NoteCheckFailureParams {
+	rows := xslice.Map(params.Told, func(check forge.StatusCheck) models.NoteCheckFailureParams {
 		return models.NoteCheckFailureParams{
 			AgentID:       params.AgentID,
 			FinishedAt:    check.FinishedAt,
@@ -65,19 +73,22 @@ func (s *StatusCheckStore) RecordCheckFailures(ctx context.Context, params Check
 		}
 	})
 	if err := s.queries.NoteCheckFailure(ctx, rows).Close(); err != nil {
-		return fmt.Errorf("failed to note the check failures agent %s was told of on %s: %w", params.AgentID, params.HeadSHA, err)
+		return fmt.Errorf("failed to record the check failures agent %s was told of on %s: %w", params.AgentID, params.HeadSHA, err)
 	}
 
 	return nil
 }
 
-// sameTime says whether two optional times are both unset or the same instant.
-func sameTime(a, b *time.Time) bool {
-	if a == nil || b == nil {
-		return a == b
+// isSameFailure says whether two failed checks are one failure, the same check row finishing at the same instant.
+func isSameFailure(a, b forge.StatusCheck) bool {
+	if a.ProviderID != b.ProviderID {
+		return false
+	}
+	if a.FinishedAt == nil || b.FinishedAt == nil {
+		return a.FinishedAt == b.FinishedAt
 	}
 
-	return a.Equal(*b)
+	return a.FinishedAt.Equal(*b.FinishedAt)
 }
 
 // hasNewFailure says whether the latest reading after a read holds a failed check the latest reading before it
@@ -87,7 +98,7 @@ func hasNewFailure(before, after StatusCheckReading) bool {
 
 	return slices.ContainsFunc(forge.FailedStatusChecks(after.StatusChecks), func(check forge.StatusCheck) bool {
 		return before.HeadSHA != after.HeadSHA || !slices.ContainsFunc(failedBefore, func(was forge.StatusCheck) bool {
-			return was.ProviderID == check.ProviderID && sameTime(was.FinishedAt, check.FinishedAt)
+			return isSameFailure(was, check)
 		})
 	})
 }

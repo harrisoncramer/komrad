@@ -47,11 +47,15 @@ func (h *checkFailureHarness) read(t *testing.T, headSHA string, checks ...forge
 	}))
 }
 
-func (h *checkFailureHarness) failures(agentID, headSHA string, failed ...forge.StatusCheck) CheckFailuresParams {
-	return CheckFailuresParams{PullRequestID: h.pullRequestID, HeadSHA: headSHA, AgentID: agentID, Failed: failed}
+func (h *checkFailureHarness) failures(agentID, headSHA string, failed ...forge.StatusCheck) ListCheckFailuresParams {
+	return ListCheckFailuresParams{PullRequestID: h.pullRequestID, HeadSHA: headSHA, AgentID: agentID, Failed: failed}
 }
 
-func (h *checkFailureHarness) notedAt(t *testing.T, params CheckFailuresParams) []*time.Time {
+func (h *checkFailureHarness) told(agentID string, told ...forge.StatusCheck) RecordCheckFailuresParams {
+	return RecordCheckFailuresParams{PullRequestID: h.pullRequestID, HeadSHA: "c1", AgentID: agentID, Told: told}
+}
+
+func (h *checkFailureHarness) notedAt(t *testing.T, params ListCheckFailuresParams) []*time.Time {
 	t.Helper()
 
 	listed, err := h.checks.ListCheckFailures(t.Context(), params)
@@ -85,11 +89,11 @@ func TestCheckFailuresAreToldToEachAgentOnce(t *testing.T) {
 
 	assert.Equal(t, []*time.Time{nil}, h.notedAt(t, h.failures(h.agentID, "c1", failed)), "a failure no one was told of is not noted")
 
-	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.failures(h.agentID, "c1", failed)))
+	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
 	first := h.notedAt(t, h.failures(h.agentID, "c1", failed))
 	require.NotNil(t, first[0])
 
-	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.failures(h.agentID, "c1", failed)))
+	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
 	assert.Equal(t, first, h.notedAt(t, h.failures(h.agentID, "c1", failed)), "noting again keeps when the agent was first told")
 	assert.Equal(t, 1, h.countNotes(t))
 
@@ -99,14 +103,14 @@ func TestCheckFailuresAreToldToEachAgentOnce(t *testing.T) {
 	assert.Equal(t, []*time.Time{nil}, h.notedAt(t, h.failures(h.agentID, "c2", failed)), "the same check on another head was not told")
 }
 
-// TestCheckFailureThatFailsAgainIsNotTold covers that a rerun finishing on the same check row is a failure
+// TestCheckFailureThatFailsAgainIsNew covers that a rerun finishing on the same check row is a failure
 // the agent has not heard of.
-func TestCheckFailureThatFailsAgainIsNotTold(t *testing.T) {
+func TestCheckFailureThatFailsAgainIsNew(t *testing.T) {
 	h := openCheckFailures(t)
 	ctx := t.Context()
 	failed := finishedAt(statusCheckRun("1", "lint", forge.StatusCheckStateCompleted, "failure"), statusCheckReadAt)
 	h.read(t, "c1", failed)
-	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.failures(h.agentID, "c1", failed)))
+	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
 
 	again := finishedAt(failed, statusCheckReadAt.Add(time.Hour))
 	h.read(t, "c1", again)
@@ -122,8 +126,8 @@ func TestCheckFailureWithNoFinishTimeIsNotedOnce(t *testing.T) {
 	failed := statusCheckRun("1", "lint", forge.StatusCheckStateCompleted, "failure")
 	h.read(t, "c1", failed)
 
-	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.failures(h.agentID, "c1", failed)))
-	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.failures(h.agentID, "c1", failed)))
+	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
+	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
 
 	assert.Equal(t, 1, h.countNotes(t))
 	assert.NotNil(t, h.notedAt(t, h.failures(h.agentID, "c1", failed))[0])
@@ -136,8 +140,8 @@ func TestCheckFailureNotesGoWithTheirAgentAndPullRequest(t *testing.T) {
 	ctx := t.Context()
 	failed := finishedAt(statusCheckRun("1", "lint", forge.StatusCheckStateCompleted, "failure"), statusCheckReadAt)
 	h.read(t, "c1", failed)
-	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.failures(h.agentID, "c1", failed)))
-	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.failures(h.otherAgentID, "c1", failed)))
+	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
+	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.otherAgentID, failed)))
 
 	_, err := h.pool.GetDB().Exec(ctx, "DELETE FROM agents WHERE id = $1", h.agentID)
 	require.NoError(t, err)
