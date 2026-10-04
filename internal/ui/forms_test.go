@@ -313,6 +313,12 @@ func TestFormsAdoptExisting(t *testing.T) {
 			wantHovered: "tucked",
 		},
 		{
+			name:        "a child under a hidden head shows the hidden agents and lands on its row",
+			existing:    newChild("a5", "nested", "a4"),
+			wantScreen:  agentsScreen,
+			wantHovered: "nested",
+		},
+		{
 			name:        "an archived agent lands the archive on its row",
 			existing:    newArchivedAgent("a3", "old-work", "w1"),
 			wantScreen:  archiveScreen,
@@ -322,7 +328,7 @@ func TestFormsAdoptExisting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), newHiddenAgent("a4", "tucked"))
+			harness := openAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), newHiddenAgent("a4", "tucked"), newChild("a5", "nested", "a4"))
 			harness.press("g", "g")
 			harness.answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.AdoptResponse{Agent: tt.existing, Existing: true}), nil
