@@ -61,4 +61,7 @@ const (
 	actionReviewJump
 	actionReviewCompose
 	actionReviewSend
+	actionReviewForgeReply
+	actionReviewForgePost
+	actionReviewForgeDiscard
 )

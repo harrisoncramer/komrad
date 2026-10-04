@@ -29,7 +29,9 @@ type reviewThreads struct {
 	editing string
 	// retrying is the refused message the composer was opened again on, nil otherwise.
 	retrying *reviewUnsent
-	scroll   popupScroll
+	// forge is set while the composer holds a reply going to the forge.
+	forge  *reviewForgeCompose
+	scroll popupScroll
 }
 
 // set holds the conversation and its delivery counts together.

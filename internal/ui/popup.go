@@ -122,10 +122,8 @@ func placePopup(anchor popupAnchor, stage popupStage, tall int) popupSlot {
 	}
 }
 
-// overlayPopup draws a body in a popup at a slot of an area, scrolled back rows from its end.
-func overlayPopup(area, body string, back int, slot popupSlot) string {
-	box := drawPopup(body, back, slot)
-
+// overlayPopup lays a popup drawn by drawPopup over an area at its slot.
+func overlayPopup(area, box string, slot popupSlot) string {
 	return compose(lipgloss.Width(area), strings.Count(area, "\n")+1, []*lipgloss.Layer{
 		lipgloss.NewLayer(area),
 		lipgloss.NewLayer(box).X(slot.x).Y(slot.y).Z(1),
@@ -134,7 +132,7 @@ func overlayPopup(area, body string, back int, slot popupSlot) string {
 
 // drawPopup boxes a body at a slot's width and height, showing the rows back rows from its end
 // and marking what runs past the box above and below.
-func drawPopup(body string, back int, slot popupSlot) string {
+func drawPopup(body string, back int, slot popupSlot, tone paint.Tone) string {
 	room := slot.room()
 	lines := splitPopupRows(body)
 	window := paint.WindowOf(len(lines), room, func(visible int) int {
@@ -157,7 +155,7 @@ func drawPopup(body string, back int, slot popupSlot) string {
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(paint.Panel.Color(paint.ToneMuted)).
+		BorderForeground(paint.Panel.Color(tone)).
 		Padding(0, 1).
 		Render(strings.Join(padded, "\n"))
 }

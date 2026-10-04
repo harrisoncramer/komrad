@@ -998,6 +998,8 @@ func TestReviewGutter(t *testing.T) {
 		name     string
 		unread   bool
 		resolved string
+		mirrors  bool
+		replies  []*agentv1.ForgeReply
 		message  *agentv1.ReviewMessage
 		want     string
 		absent   string
@@ -1043,6 +1045,21 @@ func TestReviewGutter(t *testing.T) {
 			want:    "○",
 			absent:  "●",
 		},
+		{
+			name:    "a thread from the forge is marked as one",
+			mirrors: true,
+			message: newHeldForgeComment("f1", "use a map"),
+			want:    "◆",
+			absent:  "○",
+		},
+		{
+			name:    "a forge thread with a refused reply is hollow",
+			mirrors: true,
+			replies: []*agentv1.ForgeReply{newFailedReply()},
+			message: newHeldForgeComment("f1", "use a map"),
+			want:    "◇",
+			absent:  "◆",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1050,6 +1067,8 @@ func TestReviewGutter(t *testing.T) {
 			thread := newThreadOnFirstLine(tt.message)
 			thread.UnreadByHuman = tt.unread
 			thread.ResolvedAt = tt.resolved
+			thread.MirrorsForge = tt.mirrors
+			thread.ForgeReplies = tt.replies
 			server := newReviewServer(t)
 			server.threads = []*agentv1.ReviewThread{thread}
 

@@ -28,3 +28,15 @@ func Abbrev(kind string) string {
 
 	return "pr"
 }
+
+// Name is what a forge of the kind is called, or the forge itself when the kind is unknown.
+func Name(kind string) string {
+	switch kind {
+	case KindGitHub:
+		return "GitHub"
+	case KindGitLab:
+		return "GitLab"
+	}
+
+	return "the forge"
+}

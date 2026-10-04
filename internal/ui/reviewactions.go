@@ -106,6 +106,24 @@ func (r *reviewScreen) ownTable() []screenAction {
 			direct: directly(notInMenu, r.orRefuseWrite(func(m *model) tea.Cmd { return r.acceptForge(m) })),
 		},
 		{
+			id:     actionReviewForgeReply,
+			keys:   func(k config.Keybindings) []string { return k.Review.ForgeReply },
+			when:   func(*model) bool { return r.doesOfferForgeReply() },
+			direct: directly(notInMenu, r.orRefuseComment(func(m *model) tea.Cmd { return r.composeForge(m) })),
+		},
+		{
+			id:     actionReviewForgePost,
+			keys:   func(k config.Keybindings) []string { return k.Review.ForgePost },
+			when:   func(*model) bool { return r.doesOfferForgeRetry() },
+			direct: directly(notInMenu, r.orRefuseComment(func(m *model) tea.Cmd { return r.retryForgeReply(m) })),
+		},
+		{
+			id:     actionReviewForgeDiscard,
+			keys:   func(k config.Keybindings) []string { return k.Review.ForgeDiscard },
+			when:   func(*model) bool { return r.doesOfferForgeRetry() },
+			direct: directly(notInMenu, r.orRefuseComment(func(m *model) tea.Cmd { return r.discardForgeReply(m) })),
+		},
+		{
 			id:     actionReviewViewed,
 			keys:   func(k config.Keybindings) []string { return k.Review.ToggleViewed },
 			direct: directly(viewedIsLocal, func(m *model, _ string) tea.Cmd { return r.toggleViewed(m) }),
@@ -239,6 +257,21 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:   []actionID{actionReviewAccept},
 			desc: func(*model) string { return "accept the forge comment" },
 			show: func(*model) bool { return r.doesOfferAccept() },
+		},
+		{
+			of:   []actionID{actionReviewForgeReply},
+			desc: func(m *model) string { return "reply on " + r.forgeName(m) },
+			show: func(m *model) bool { return reachable(m) && r.doesOfferForgeReply() },
+		},
+		{
+			of:   []actionID{actionReviewForgePost},
+			desc: func(*model) string { return "retry the reply" },
+			show: func(m *model) bool { return reachable(m) && r.doesOfferForgeRetry() },
+		},
+		{
+			of:   []actionID{actionReviewForgeDiscard},
+			desc: func(*model) string { return "discard the reply" },
+			show: func(m *model) bool { return reachable(m) && r.doesOfferForgeRetry() },
 		},
 		{
 			of:   []actionID{actionReviewViewed, actionDiffExpand},

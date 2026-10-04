@@ -841,6 +841,27 @@
               "default": "[\"e\"]"
             },
             {
+              "key": "forge_discard",
+              "path": "keybindings.review.forge_discard",
+              "type": "array",
+              "description": "Throw away a reply of yours the forge refused on the thread under the cursor. Nothing is\nposted.",
+              "default": "[\"x\"]"
+            },
+            {
+              "key": "forge_post",
+              "path": "keybindings.review.forge_post",
+              "type": "array",
+              "description": "Try again with a reply of yours the forge refused on the thread under the cursor.",
+              "default": "[\"p\"]"
+            },
+            {
+              "key": "forge_reply",
+              "path": "keybindings.review.forge_reply",
+              "type": "array",
+              "description": "Write a reply on the forge thread under the cursor, posted on the pull request where\nanyone can read it.",
+              "default": "[\"C\"]"
+            },
+            {
               "key": "jump",
               "path": "keybindings.review.jump",
               "type": "array",
@@ -1526,6 +1547,13 @@
               "type": "string",
               "description": "A thread holding a comment nobody has sent yet.",
               "default": "\"◇\""
+            },
+            {
+              "key": "forge",
+              "path": "glyphs.review.forge",
+              "type": "string",
+              "description": "A thread mirrored from the pull request on the forge.",
+              "default": "\"◆\""
             },
             {
               "key": "current",

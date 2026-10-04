@@ -46,6 +46,7 @@ const (
 	ThreadRead
 	ThreadSettled
 	ThreadUnsent
+	ThreadForge
 	FileCurrent
 	Delivered
 	Held
@@ -96,6 +97,7 @@ var defined = [count]struct {
 	ThreadRead:         {"review.read", "○"},
 	ThreadSettled:      {"review.settled", "✓"},
 	ThreadUnsent:       {"review.unsent", "◇"},
+	ThreadForge:        {"review.forge", "◆"},
 	FileCurrent:        {"review.current", "▸"},
 	Delivered:          {"review.delivered", "✓"},
 	Held:               {"review.held", "◇"},
