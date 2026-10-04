@@ -219,7 +219,7 @@ func (m *model) formBox() (width, height int) {
 // formArea is the columns and rows the form and what it draws to its left share.
 func (m *model) formArea() (width, height int) {
 	if m.isPopupMenu() {
-		return m.review.measurePopupInner(m), popupHeight - 2
+		return m.review.measurePopupInner(m), m.review.measurePopupRoom(m)
 	}
 
 	if split, ok := m.columnGeometry(); ok {

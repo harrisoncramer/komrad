@@ -63,6 +63,11 @@ func (r reviewScreen) placeThread(m *model, body string) popupSlot {
 	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), len(splitPopupRows(body))+2)
 }
 
+// measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.
+func (r reviewScreen) measurePopupRoom(m *model) int {
+	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), popupHeight).room()
+}
+
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
 func (r reviewScreen) measurePopupStage(m *model) popupStage {

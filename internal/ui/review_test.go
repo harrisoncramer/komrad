@@ -1669,6 +1669,15 @@ func TestReviewLayout(t *testing.T) {
 		assert.Less(t, strings.Index(frame, "◇ unsent"), strings.Index(frame, "wrap lines"))
 	})
 
+	t.Run("the menu fits the room beside the cursor on a short pane", func(t *testing.T) {
+		harness, _ := openTallReview(t)
+		harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: 16})
+		harness.press("j", "j", "j", "j", "j", "space")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "open in your editor")
+	})
+
 	t.Run("an expanded legend stays inside every pane height", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 		harness.press("?")
