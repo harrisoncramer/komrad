@@ -53,7 +53,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			Kind:        mailstore.KindPullRequestChanged,
 			SubjectID:   pullRequest.ID,
 			Body:        body,
-			OnlyRewrite: !change.opens(),
+			OnlyRewrite: len(started) == 0,
 			Events:      started,
 			Holding:     holding,
 		})

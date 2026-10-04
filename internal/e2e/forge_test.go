@@ -35,6 +35,8 @@ const forgeTokenEnv = "KOMRAD_E2E_GITHUB_TOKEN"
 type fakeForge struct {
 	server    *httptest.Server
 	autoMerge atomic.Bool
+	checks    atomic.Value
+	mergeable atomic.Value
 	changes   atomic.Int32
 }
 
@@ -174,6 +176,41 @@ func (f *fakeForge) setAutoMerge(on bool) {
 	f.changes.Add(1)
 }
 
+// setChecks sets the open pull request's one required check to a run status, or a conclusion once it has completed, as a change the next sync reads.
+func (f *fakeForge) setChecks(status string) {
+	f.checks.Store(status)
+	f.changes.Add(1)
+}
+
+// setMergeState sets the open pull request's GitHub merge state, as a change the next sync reads.
+func (f *fakeForge) setMergeState(state string) {
+	f.mergeable.Store(state)
+	f.changes.Add(1)
+}
+
+// readMergeState is the open pull request's GitHub merge state, clean until setMergeState says otherwise.
+func (f *fakeForge) readMergeState() string {
+	if state, _ := f.mergeable.Load().(string); state != "" {
+		return state
+	}
+
+	return "CLEAN"
+}
+
+// readCheckRun is the open pull request's one required check run, passing until setChecks says otherwise.
+func (f *fakeForge) readCheckRun() map[string]any {
+	check := map[string]any{"__typename": "CheckRun", "id": "CR_1", "name": "required", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true}
+	switch status, _ := f.checks.Load().(string); status {
+	case "":
+	case "IN_PROGRESS", "QUEUED":
+		check["status"], check["conclusion"] = status, nil
+	default:
+		check["conclusion"] = status
+	}
+
+	return check
+}
+
 // readUpdatedAt is when pull request number last changed, an hour later for each auto-merge change to the open one.
 func (f *fakeForge) readUpdatedAt(number int) string {
 	hour := 11
@@ -240,7 +277,7 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 		return map[string]any{
 			"headRefOid":               "aaa",
 			"reviewDecision":           "APPROVED",
-			"mergeStateStatus":         "CLEAN",
+			"mergeStateStatus":         fake.readMergeState(),
 			"autoMergeRequest":         readAutoMergeRequest(),
 			"viewerCanEnableAutoMerge": true,
 		}
@@ -268,8 +305,7 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 			maps.Copy(merged, readStanding())
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"b0": buildConnection(open, merged)}}})
 		case "ReadChecks":
-			check := map[string]any{"__typename": "CheckRun", "id": "CR_1", "name": "required", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true}
-			contexts := map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{check}}
+			contexts := map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{fake.readCheckRun()}}
 			commit := map[string]any{"oid": "aaa", "statusCheckRollup": map[string]any{"contexts": contexts}}
 			writeJSON(t, w, map[string]any{"data": map[string]any{"p0": map[string]any{"commits": map[string]any{"nodes": []any{map[string]any{"commit": commit}}}}}})
 		case "AutoMergeTarget":

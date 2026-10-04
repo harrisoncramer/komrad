@@ -1,10 +1,6 @@
 package pullrequests
 
-import (
-	"slices"
-
-	"komrad/internal/forge"
-)
+import "komrad/internal/forge"
 
 const changeTopic = "pull_request_changed"
 
@@ -49,15 +45,6 @@ type Change struct {
 // Topic names the handler that tells the agents on the branch.
 func (Change) Topic() string {
 	return changeTopic
-}
-
-// opens says whether the change is news enough to start mail rather than only update it.
-func (c Change) opens() bool {
-	return slices.ContainsFunc(c.Moves, func(move Move) bool {
-		_, ok := eventOf[move.Field][move.To]
-
-		return ok
-	})
 }
 
 // moved is the move between two values of a field, nil when they are the same or either is unknown.
