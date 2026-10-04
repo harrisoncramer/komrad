@@ -690,25 +690,6 @@
           "response": "agent.v1.AddReviewMessageResponse"
         },
         {
-          "slug": "propose-forge-reply",
-          "name": "ProposeForgeReply",
-          "path": "/agent.v1.AgentService/ProposeForgeReply",
-          "command": "komrad rpc propose-forge-reply",
-          "tool": "propose_forge_reply",
-          "mcp": true,
-          "roles": [
-            "implementer",
-            "orchestrator"
-          ],
-          "summary": "Draft a reply on a review thread mirrored from your pull request on the forge.",
-          "description": "Draft a reply on a review thread mirrored from your pull request on the forge. The person approves, edits or discards it before anything is posted, and komrad mails you what they did. Draft one only when the person asks for it.",
-          "readOnly": false,
-          "idempotent": false,
-          "destructive": false,
-          "request": "agent.v1.ProposeForgeReplyRequest",
-          "response": "agent.v1.ProposeForgeReplyResponse"
-        },
-        {
           "slug": "plan-rebase",
           "name": "PlanRebase",
           "path": "/agent.v1.AgentService/PlanRebase",
@@ -3039,7 +3020,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle an approval, a retry or a discard names this reply by."
+          "description": "The handle a retry or a discard names this reply by."
         },
         {
           "name": "thread_id",
@@ -3062,36 +3043,6 @@
           "description": "Where it is on its way to the forge."
         },
         {
-          "name": "author_kind",
-          "type": "ReviewAuthorKind",
-          "ref": "agent.v1.ReviewAuthorKind",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether the person wrote it or an agent proposed it."
-        },
-        {
-          "name": "author_agent_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The agent that proposed it, absent when the person wrote it."
-        },
-        {
-          "name": "proposed_body",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The words the agent proposed, absent when the person wrote it."
-        },
-        {
           "name": "body",
           "type": "string",
           "ref": "",
@@ -3099,7 +3050,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The words that go to the forge, which differ from the proposal when the person edited it."
+          "description": "The words that go to the forge."
         },
         {
           "name": "approved_at",
@@ -3109,7 +3060,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the person approved it, empty while it is a draft."
+          "description": "When the person wrote it for posting."
         },
         {
           "name": "sending_started_at",
@@ -4383,53 +4334,6 @@
           "oneof": "",
           "rules": [],
           "description": "The paths a merge of the base into the branch could not settle. A warning rather than a verdict: a rebase replays commit by commit and can conflict where a merge would not."
-        }
-      ]
-    },
-    "agent.v1.ProposeForgeReplyRequest": {
-      "name": "ProposeForgeReplyRequest",
-      "description": "",
-      "fields": [
-        {
-          "name": "thread_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "The mirrored thread to reply on."
-        },
-        {
-          "name": "body",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [
-            "required",
-            "at most 1000 characters"
-          ],
-          "description": "What to say on the forge. The ceiling refuses an essay and is not a length to write up to."
-        }
-      ]
-    },
-    "agent.v1.ProposeForgeReplyResponse": {
-      "name": "ProposeForgeReplyResponse",
-      "description": "",
-      "fields": [
-        {
-          "name": "reply",
-          "type": "ForgeReply",
-          "ref": "agent.v1.ForgeReply",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The draft as recorded, waiting for the person."
         }
       ]
     },
@@ -9882,10 +9786,6 @@
       "name": "ForgeReplyState",
       "description": "ForgeReplyState is where a reply komrad posts to the forge is on its way there.",
       "values": [
-        {
-          "name": "FORGE_REPLY_STATE_DRAFT",
-          "description": "An agent's proposal waiting for the person to approve, edit or discard it."
-        },
         {
           "name": "FORGE_REPLY_STATE_APPROVED",
           "description": "Approved and waiting to be posted."

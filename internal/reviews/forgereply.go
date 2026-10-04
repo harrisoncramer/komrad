@@ -7,16 +7,11 @@ import (
 	"slices"
 	"time"
 
-	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/internal/git"
-	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	reviewstore "komrad/internal/store/review"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/riverqueue/river"
 )
 
 // errForgeReplyLost is the error a reply is failed with when komrad stopped while posting it and
@@ -38,14 +33,12 @@ type forgeHosts interface {
 type NewForgeReplyServiceParams struct {
 	Reviews *reviewstore.ReviewStore
 	Forges  forgeHosts
-	Events  eventRecorder
 }
 
-// ForgeReplyService posts replies on mirrored threads to the forge, once the person approves them.
+// ForgeReplyService posts the person's replies on mirrored threads to the forge.
 type ForgeReplyService struct {
 	reviews *reviewstore.ReviewStore
 	forges  forgeHosts
-	events  eventRecorder
 }
 
 // NewForgeReplyService builds a forge reply service over the review store and the forge connections.
@@ -53,39 +46,7 @@ func NewForgeReplyService(params NewForgeReplyServiceParams) *ForgeReplyService 
 	return &ForgeReplyService{
 		reviews: params.Reviews,
 		forges:  params.Forges,
-		events:  params.Events,
 	}
-}
-
-// ProposeForgeReplyParams is an agent's reply on a thread mirrored from its pull request.
-type ProposeForgeReplyParams struct {
-	ThreadID string
-	Author   ReviewAuthor
-	Body     string
-}
-
-// ProposeForgeReply drafts the agent's reply for the person to approve.
-func (s *ForgeReplyService) ProposeForgeReply(ctx context.Context, params ProposeForgeReplyParams) (*reviewstore.ForgeReply, error) {
-	if params.Author.isHuman() {
-		return nil, fmt.Errorf("%w: the person replies on the forge directly", ErrReviewNotYours)
-	}
-
-	thread, err := s.reviews.GetThread(ctx, params.ThreadID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrReviewThreadNotFound, params.ThreadID)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if !doesOwnAgent(params.Author, thread.AgentID) {
-		return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, params.ThreadID)
-	}
-
-	return s.reviews.CreateAgentForgeReply(ctx, reviewstore.CreateAgentForgeReplyParams{
-		ThreadID: thread.ID,
-		AgentID:  thread.AgentID,
-		Body:     params.Body,
-	})
 }
 
 // ReplyOnForgeParams is the person's own reply on a mirrored thread.
@@ -109,39 +70,6 @@ func (s *ForgeReplyService) ReplyOnForge(ctx context.Context, params ReplyOnForg
 	return s.send(ctx, reply)
 }
 
-// ApproveForgeReplyParams is the person's approval of an agent's draft, with their edit when they made one.
-type ApproveForgeReplyParams struct {
-	ID     string
-	Author ReviewAuthor
-	Body   *string
-}
-
-// ApproveForgeReply approves a draft and posts it to the forge.
-func (s *ForgeReplyService) ApproveForgeReply(ctx context.Context, params ApproveForgeReplyParams) (*reviewstore.ForgeReply, error) {
-	if !params.Author.isHuman() {
-		return nil, ErrReviewHumanOnly
-	}
-
-	draft, err := s.reviews.GetForgeReply(ctx, params.ID)
-	if err != nil {
-		return nil, err
-	}
-	body := draft.Body
-	if params.Body != nil {
-		body = *params.Body
-	}
-
-	approved, err := s.reviews.MarkForgeReplyApproved(ctx, reviewstore.MarkForgeReplyApprovedParams{
-		ID:   draft.ID,
-		Body: body,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return s.send(ctx, approved)
-}
-
 // RetryForgeReply posts a failed reply again.
 func (s *ForgeReplyService) RetryForgeReply(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.ForgeReply, error) {
 	if !author.isHuman() {
@@ -156,97 +84,13 @@ func (s *ForgeReplyService) RetryForgeReply(ctx context.Context, id string, auth
 	return s.send(ctx, reply)
 }
 
-// DiscardForgeReply deletes a draft or failed reply, telling the agent that drafted it.
+// DiscardForgeReply deletes a failed reply.
 func (s *ForgeReplyService) DiscardForgeReply(ctx context.Context, id string, author ReviewAuthor) error {
 	if !author.isHuman() {
 		return ErrReviewHumanOnly
 	}
 
-	reply, err := s.reviews.GetForgeReply(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	return s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		if err := reviewstore.NewReviewStore(tx).DeleteForgeReply(ctx, reply.ID); err != nil {
-			return nil, err
-		}
-
-		return decisionJobs(*reply, forgeReplyDiscarded)
-	})
-}
-
-// RequestForgeReply asks the agent behind a mirrored thread to draft a reply on it.
-func (s *ForgeReplyService) RequestForgeReply(ctx context.Context, threadID string, author ReviewAuthor) error {
-	if !author.isHuman() {
-		return ErrReviewHumanOnly
-	}
-
-	thread, err := s.reviews.GetThread(ctx, threadID)
-	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrReviewThreadNotFound, threadID)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to get review thread %q: %w", threadID, err)
-	}
-	if _, err := s.reviews.GetForgeReplyTarget(ctx, thread.ID); err != nil {
-		return fmt.Errorf("failed to get the forge reply target of review thread %q: %w", threadID, err)
-	}
-
-	return s.events.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
-		event, err := events.NewEvent(forgeReplyRequested{
-			AgentID:  thread.AgentID,
-			ThreadID: thread.ID,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		return []river.JobArgs{*event}, nil
-	})
-}
-
-// markSent marks a reply sent as the forge comment it became, telling the agent that drafted it.
-func (s *ForgeReplyService) markSent(ctx context.Context, id string, posted string) (*reviewstore.ForgeReply, error) {
-	var sent *reviewstore.ForgeReply
-	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		var err error
-		sent, err = reviewstore.NewReviewStore(tx).MarkForgeReplySent(ctx, id, posted)
-		if err != nil {
-			return nil, err
-		}
-
-		return decisionJobs(*sent, forgeReplySentAsWritten)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return sent, nil
-}
-
-// decisionJobs is the job telling the agent behind a reply what became of it, none for the
-// person's own reply.
-func decisionJobs(reply reviewstore.ForgeReply, outcome forgeReplyOutcome) ([]river.JobArgs, error) {
-	if reply.AuthorKind != reviewstore.AuthorAgent || reply.AuthorAgentID == nil {
-		return []river.JobArgs{}, nil
-	}
-	if outcome == forgeReplySentAsWritten && reply.ProposedBody != nil && *reply.ProposedBody != reply.Body {
-		outcome = forgeReplySentEdited
-	}
-
-	event, err := events.NewEvent(forgeReplyDecided{
-		AgentID:  *reply.AuthorAgentID,
-		ThreadID: reply.ThreadID,
-		ReplyID:  reply.ID,
-		Outcome:  outcome,
-		Body:     reply.Body,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return []river.JobArgs{*event}, nil
+	return s.reviews.DeleteForgeReply(ctx, id)
 }
 
 // ReconcileForgeReplies settles every reply komrad stopped partway through posting: one the forge
@@ -336,7 +180,7 @@ func (s *ForgeReplyService) settle(ctx context.Context, params settleParams) (*r
 		Viewer:  getViewerLogin(*connection),
 	})
 	if posted != "" {
-		return s.markSent(ctx, params.Reply.ID, posted)
+		return s.reviews.MarkForgeReplySent(ctx, params.Reply.ID, posted)
 	}
 	if threads.Truncated {
 		return nil, fmt.Errorf("%w: the forge answered only part of pull request %d's threads", params.Cause, destination.Target.Number)
@@ -410,7 +254,7 @@ func (s *ForgeReplyService) send(ctx context.Context, reply *reviewstore.ForgeRe
 		Body:     sending.Body,
 	})
 	if err == nil {
-		return s.markSent(ctx, sending.ID, posted)
+		return s.reviews.MarkForgeReplySent(ctx, sending.ID, posted)
 	}
 	if isRefusal(err) {
 		return s.reviews.MarkForgeReplyFailed(ctx, sending.ID, err.Error())

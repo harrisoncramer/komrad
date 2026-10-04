@@ -146,24 +146,15 @@ const (
 	// AgentServiceEditReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// EditReviewMessage RPC.
 	AgentServiceEditReviewMessageProcedure = "/agent.v1.AgentService/EditReviewMessage"
-	// AgentServiceProposeForgeReplyProcedure is the fully-qualified name of the AgentService's
-	// ProposeForgeReply RPC.
-	AgentServiceProposeForgeReplyProcedure = "/agent.v1.AgentService/ProposeForgeReply"
 	// AgentServiceReplyOnForgeProcedure is the fully-qualified name of the AgentService's ReplyOnForge
 	// RPC.
 	AgentServiceReplyOnForgeProcedure = "/agent.v1.AgentService/ReplyOnForge"
-	// AgentServiceApproveForgeReplyProcedure is the fully-qualified name of the AgentService's
-	// ApproveForgeReply RPC.
-	AgentServiceApproveForgeReplyProcedure = "/agent.v1.AgentService/ApproveForgeReply"
 	// AgentServiceRetryForgeReplyProcedure is the fully-qualified name of the AgentService's
 	// RetryForgeReply RPC.
 	AgentServiceRetryForgeReplyProcedure = "/agent.v1.AgentService/RetryForgeReply"
 	// AgentServiceDiscardForgeReplyProcedure is the fully-qualified name of the AgentService's
 	// DiscardForgeReply RPC.
 	AgentServiceDiscardForgeReplyProcedure = "/agent.v1.AgentService/DiscardForgeReply"
-	// AgentServiceRequestForgeReplyProcedure is the fully-qualified name of the AgentService's
-	// RequestForgeReply RPC.
-	AgentServiceRequestForgeReplyProcedure = "/agent.v1.AgentService/RequestForgeReply"
 	// AgentServicePlanRebaseProcedure is the fully-qualified name of the AgentService's PlanRebase RPC.
 	AgentServicePlanRebaseProcedure = "/agent.v1.AgentService/PlanRebase"
 	// AgentServiceRebaseWorktreeProcedure is the fully-qualified name of the AgentService's
@@ -251,12 +242,9 @@ type AgentServiceClient interface {
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	AcceptForgeMessage(context.Context, *connect.Request[v1.AcceptForgeMessageRequest]) (*connect.Response[v1.AcceptForgeMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	ProposeForgeReply(context.Context, *connect.Request[v1.ProposeForgeReplyRequest]) (*connect.Response[v1.ProposeForgeReplyResponse], error)
 	ReplyOnForge(context.Context, *connect.Request[v1.ReplyOnForgeRequest]) (*connect.Response[v1.ReplyOnForgeResponse], error)
-	ApproveForgeReply(context.Context, *connect.Request[v1.ApproveForgeReplyRequest]) (*connect.Response[v1.ApproveForgeReplyResponse], error)
 	RetryForgeReply(context.Context, *connect.Request[v1.RetryForgeReplyRequest]) (*connect.Response[v1.RetryForgeReplyResponse], error)
 	DiscardForgeReply(context.Context, *connect.Request[v1.DiscardForgeReplyRequest]) (*connect.Response[emptypb.Empty], error)
-	RequestForgeReply(context.Context, *connect.Request[v1.RequestForgeReplyRequest]) (*connect.Response[emptypb.Empty], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	PlanPush(context.Context, *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error)
@@ -557,22 +545,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		proposeForgeReply: connect.NewClient[v1.ProposeForgeReplyRequest, v1.ProposeForgeReplyResponse](
-			httpClient,
-			baseURL+AgentServiceProposeForgeReplyProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("ProposeForgeReply")),
-			connect.WithClientOptions(opts...),
-		),
 		replyOnForge: connect.NewClient[v1.ReplyOnForgeRequest, v1.ReplyOnForgeResponse](
 			httpClient,
 			baseURL+AgentServiceReplyOnForgeProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ReplyOnForge")),
-			connect.WithClientOptions(opts...),
-		),
-		approveForgeReply: connect.NewClient[v1.ApproveForgeReplyRequest, v1.ApproveForgeReplyResponse](
-			httpClient,
-			baseURL+AgentServiceApproveForgeReplyProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("ApproveForgeReply")),
 			connect.WithClientOptions(opts...),
 		),
 		retryForgeReply: connect.NewClient[v1.RetryForgeReplyRequest, v1.RetryForgeReplyResponse](
@@ -585,12 +561,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceDiscardForgeReplyProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("DiscardForgeReply")),
-			connect.WithClientOptions(opts...),
-		),
-		requestForgeReply: connect.NewClient[v1.RequestForgeReplyRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceRequestForgeReplyProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("RequestForgeReply")),
 			connect.WithClientOptions(opts...),
 		),
 		planRebase: connect.NewClient[v1.PlanRebaseRequest, v1.PlanRebaseResponse](
@@ -737,12 +707,9 @@ type agentServiceClient struct {
 	addReviewMessage         *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
 	acceptForgeMessage       *connect.Client[v1.AcceptForgeMessageRequest, v1.AcceptForgeMessageResponse]
 	editReviewMessage        *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
-	proposeForgeReply        *connect.Client[v1.ProposeForgeReplyRequest, v1.ProposeForgeReplyResponse]
 	replyOnForge             *connect.Client[v1.ReplyOnForgeRequest, v1.ReplyOnForgeResponse]
-	approveForgeReply        *connect.Client[v1.ApproveForgeReplyRequest, v1.ApproveForgeReplyResponse]
 	retryForgeReply          *connect.Client[v1.RetryForgeReplyRequest, v1.RetryForgeReplyResponse]
 	discardForgeReply        *connect.Client[v1.DiscardForgeReplyRequest, emptypb.Empty]
-	requestForgeReply        *connect.Client[v1.RequestForgeReplyRequest, emptypb.Empty]
 	planRebase               *connect.Client[v1.PlanRebaseRequest, v1.PlanRebaseResponse]
 	rebaseWorktree           *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
 	planPush                 *connect.Client[v1.PlanPushRequest, v1.PlanPushResponse]
@@ -965,19 +932,9 @@ func (c *agentServiceClient) EditReviewMessage(ctx context.Context, req *connect
 	return c.editReviewMessage.CallUnary(ctx, req)
 }
 
-// ProposeForgeReply calls agent.v1.AgentService.ProposeForgeReply.
-func (c *agentServiceClient) ProposeForgeReply(ctx context.Context, req *connect.Request[v1.ProposeForgeReplyRequest]) (*connect.Response[v1.ProposeForgeReplyResponse], error) {
-	return c.proposeForgeReply.CallUnary(ctx, req)
-}
-
 // ReplyOnForge calls agent.v1.AgentService.ReplyOnForge.
 func (c *agentServiceClient) ReplyOnForge(ctx context.Context, req *connect.Request[v1.ReplyOnForgeRequest]) (*connect.Response[v1.ReplyOnForgeResponse], error) {
 	return c.replyOnForge.CallUnary(ctx, req)
-}
-
-// ApproveForgeReply calls agent.v1.AgentService.ApproveForgeReply.
-func (c *agentServiceClient) ApproveForgeReply(ctx context.Context, req *connect.Request[v1.ApproveForgeReplyRequest]) (*connect.Response[v1.ApproveForgeReplyResponse], error) {
-	return c.approveForgeReply.CallUnary(ctx, req)
 }
 
 // RetryForgeReply calls agent.v1.AgentService.RetryForgeReply.
@@ -988,11 +945,6 @@ func (c *agentServiceClient) RetryForgeReply(ctx context.Context, req *connect.R
 // DiscardForgeReply calls agent.v1.AgentService.DiscardForgeReply.
 func (c *agentServiceClient) DiscardForgeReply(ctx context.Context, req *connect.Request[v1.DiscardForgeReplyRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.discardForgeReply.CallUnary(ctx, req)
-}
-
-// RequestForgeReply calls agent.v1.AgentService.RequestForgeReply.
-func (c *agentServiceClient) RequestForgeReply(ctx context.Context, req *connect.Request[v1.RequestForgeReplyRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.requestForgeReply.CallUnary(ctx, req)
 }
 
 // PlanRebase calls agent.v1.AgentService.PlanRebase.
@@ -1113,12 +1065,9 @@ type AgentServiceHandler interface {
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	AcceptForgeMessage(context.Context, *connect.Request[v1.AcceptForgeMessageRequest]) (*connect.Response[v1.AcceptForgeMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	ProposeForgeReply(context.Context, *connect.Request[v1.ProposeForgeReplyRequest]) (*connect.Response[v1.ProposeForgeReplyResponse], error)
 	ReplyOnForge(context.Context, *connect.Request[v1.ReplyOnForgeRequest]) (*connect.Response[v1.ReplyOnForgeResponse], error)
-	ApproveForgeReply(context.Context, *connect.Request[v1.ApproveForgeReplyRequest]) (*connect.Response[v1.ApproveForgeReplyResponse], error)
 	RetryForgeReply(context.Context, *connect.Request[v1.RetryForgeReplyRequest]) (*connect.Response[v1.RetryForgeReplyResponse], error)
 	DiscardForgeReply(context.Context, *connect.Request[v1.DiscardForgeReplyRequest]) (*connect.Response[emptypb.Empty], error)
-	RequestForgeReply(context.Context, *connect.Request[v1.RequestForgeReplyRequest]) (*connect.Response[emptypb.Empty], error)
 	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	PlanPush(context.Context, *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error)
@@ -1415,22 +1364,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceProposeForgeReplyHandler := connect.NewUnaryHandler(
-		AgentServiceProposeForgeReplyProcedure,
-		svc.ProposeForgeReply,
-		connect.WithSchema(agentServiceMethods.ByName("ProposeForgeReply")),
-		connect.WithHandlerOptions(opts...),
-	)
 	agentServiceReplyOnForgeHandler := connect.NewUnaryHandler(
 		AgentServiceReplyOnForgeProcedure,
 		svc.ReplyOnForge,
 		connect.WithSchema(agentServiceMethods.ByName("ReplyOnForge")),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceApproveForgeReplyHandler := connect.NewUnaryHandler(
-		AgentServiceApproveForgeReplyProcedure,
-		svc.ApproveForgeReply,
-		connect.WithSchema(agentServiceMethods.ByName("ApproveForgeReply")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceRetryForgeReplyHandler := connect.NewUnaryHandler(
@@ -1443,12 +1380,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceDiscardForgeReplyProcedure,
 		svc.DiscardForgeReply,
 		connect.WithSchema(agentServiceMethods.ByName("DiscardForgeReply")),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceRequestForgeReplyHandler := connect.NewUnaryHandler(
-		AgentServiceRequestForgeReplyProcedure,
-		svc.RequestForgeReply,
-		connect.WithSchema(agentServiceMethods.ByName("RequestForgeReply")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServicePlanRebaseHandler := connect.NewUnaryHandler(
@@ -1633,18 +1564,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceAcceptForgeMessageHandler.ServeHTTP(w, r)
 		case AgentServiceEditReviewMessageProcedure:
 			agentServiceEditReviewMessageHandler.ServeHTTP(w, r)
-		case AgentServiceProposeForgeReplyProcedure:
-			agentServiceProposeForgeReplyHandler.ServeHTTP(w, r)
 		case AgentServiceReplyOnForgeProcedure:
 			agentServiceReplyOnForgeHandler.ServeHTTP(w, r)
-		case AgentServiceApproveForgeReplyProcedure:
-			agentServiceApproveForgeReplyHandler.ServeHTTP(w, r)
 		case AgentServiceRetryForgeReplyProcedure:
 			agentServiceRetryForgeReplyHandler.ServeHTTP(w, r)
 		case AgentServiceDiscardForgeReplyProcedure:
 			agentServiceDiscardForgeReplyHandler.ServeHTTP(w, r)
-		case AgentServiceRequestForgeReplyProcedure:
-			agentServiceRequestForgeReplyHandler.ServeHTTP(w, r)
 		case AgentServicePlanRebaseProcedure:
 			agentServicePlanRebaseHandler.ServeHTTP(w, r)
 		case AgentServiceRebaseWorktreeProcedure:
@@ -1848,16 +1773,8 @@ func (UnimplementedAgentServiceHandler) EditReviewMessage(context.Context, *conn
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.EditReviewMessage is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) ProposeForgeReply(context.Context, *connect.Request[v1.ProposeForgeReplyRequest]) (*connect.Response[v1.ProposeForgeReplyResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ProposeForgeReply is not implemented"))
-}
-
 func (UnimplementedAgentServiceHandler) ReplyOnForge(context.Context, *connect.Request[v1.ReplyOnForgeRequest]) (*connect.Response[v1.ReplyOnForgeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ReplyOnForge is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) ApproveForgeReply(context.Context, *connect.Request[v1.ApproveForgeReplyRequest]) (*connect.Response[v1.ApproveForgeReplyResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ApproveForgeReply is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) RetryForgeReply(context.Context, *connect.Request[v1.RetryForgeReplyRequest]) (*connect.Response[v1.RetryForgeReplyResponse], error) {
@@ -1866,10 +1783,6 @@ func (UnimplementedAgentServiceHandler) RetryForgeReply(context.Context, *connec
 
 func (UnimplementedAgentServiceHandler) DiscardForgeReply(context.Context, *connect.Request[v1.DiscardForgeReplyRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DiscardForgeReply is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) RequestForgeReply(context.Context, *connect.Request[v1.RequestForgeReplyRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RequestForgeReply is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error) {

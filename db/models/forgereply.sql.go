@@ -50,7 +50,7 @@ func (q *Queries) BeginForgeReplySend(ctx context.Context, id string) (*ReviewFo
 const deleteForgeReply = `-- name: DeleteForgeReply :execrows
 DELETE FROM review_forge_replies
 WHERE id = $1
-    AND state IN ('draft', 'failed')
+    AND state = 'failed'
 `
 
 func (q *Queries) DeleteForgeReply(ctx context.Context, id string) (int64, error) {
@@ -123,60 +123,6 @@ func (q *Queries) GetForgeReplyTarget(ctx context.Context, threadID string) (*Ge
 		&i.Path,
 		&i.RepositoryUrl,
 		&i.Number,
-	)
-	return &i, err
-}
-
-const insertAgentForgeReply = `-- name: InsertAgentForgeReply :one
-INSERT INTO review_forge_replies(
-    thread_id,
-    state,
-    author_kind,
-    author_agent_id,
-    proposed_body,
-    body)
-SELECT
-    t.id,
-    'draft',
-    'agent',
-    $1::uuid,
-    $2::text,
-    $2::text
-FROM
-    review_threads t
-WHERE
-    t.id = $3
-    AND t.forge_thread_id IS NOT NULL
-RETURNING
-    id, thread_id, state, author_kind, author_agent_id, proposed_body, body, approver_kind, approved_at, sending_started_at, sent_at, forge_comment_provider_id, error, created_at, updated_at, engine_id
-`
-
-type InsertAgentForgeReplyParams struct {
-	AuthorAgentID string
-	Body          string
-	ThreadID      string
-}
-
-func (q *Queries) InsertAgentForgeReply(ctx context.Context, arg InsertAgentForgeReplyParams) (*ReviewForgeReply, error) {
-	row := q.db.QueryRow(ctx, insertAgentForgeReply, arg.AuthorAgentID, arg.Body, arg.ThreadID)
-	var i ReviewForgeReply
-	err := row.Scan(
-		&i.ID,
-		&i.ThreadID,
-		&i.State,
-		&i.AuthorKind,
-		&i.AuthorAgentID,
-		&i.ProposedBody,
-		&i.Body,
-		&i.ApproverKind,
-		&i.ApprovedAt,
-		&i.SendingStartedAt,
-		&i.SentAt,
-		&i.ForgeCommentProviderID,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.EngineID,
 	)
 	return &i, err
 }
@@ -339,51 +285,6 @@ func (q *Queries) ListSendingForgeReplies(ctx context.Context) ([]*ReviewForgeRe
 		return nil, err
 	}
 	return items, nil
-}
-
-const markForgeReplyApproved = `-- name: MarkForgeReplyApproved :one
-UPDATE
-    review_forge_replies
-SET
-    state = 'approved',
-    body = $1,
-    approver_kind = $2::forge_reply_approver_kind,
-    approved_at = NOW()
-WHERE
-    id = $3
-    AND state = 'draft'
-RETURNING
-    id, thread_id, state, author_kind, author_agent_id, proposed_body, body, approver_kind, approved_at, sending_started_at, sent_at, forge_comment_provider_id, error, created_at, updated_at, engine_id
-`
-
-type MarkForgeReplyApprovedParams struct {
-	Body         string
-	ApproverKind ForgeReplyApproverKind
-	ID           string
-}
-
-func (q *Queries) MarkForgeReplyApproved(ctx context.Context, arg MarkForgeReplyApprovedParams) (*ReviewForgeReply, error) {
-	row := q.db.QueryRow(ctx, markForgeReplyApproved, arg.Body, arg.ApproverKind, arg.ID)
-	var i ReviewForgeReply
-	err := row.Scan(
-		&i.ID,
-		&i.ThreadID,
-		&i.State,
-		&i.AuthorKind,
-		&i.AuthorAgentID,
-		&i.ProposedBody,
-		&i.Body,
-		&i.ApproverKind,
-		&i.ApprovedAt,
-		&i.SendingStartedAt,
-		&i.SentAt,
-		&i.ForgeCommentProviderID,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.EngineID,
-	)
-	return &i, err
 }
 
 const markForgeReplyFailed = `-- name: MarkForgeReplyFailed :one

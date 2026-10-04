@@ -3,21 +3,14 @@ package reviews
 import (
 	"context"
 	"errors"
-	"slices"
 	"testing"
 	"time"
 
-	"komrad/internal/eventprompts"
-	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/internal/git"
-	"komrad/internal/jobs/internaljobs"
 	forgestore "komrad/internal/store/forge"
-	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 
-	"github.com/google/uuid"
-	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -90,7 +83,7 @@ func newForgeReplyFixture(t *testing.T) *forgeReplyFixture {
 
 	return &forgeReplyFixture{
 		reviewFixture: fx,
-		replies:       NewForgeReplyService(NewForgeReplyServiceParams{Reviews: fx.reviews, Forges: hosts, Events: fx.events}),
+		replies:       NewForgeReplyService(NewForgeReplyServiceParams{Reviews: fx.reviews, Forges: hosts}),
 		forge:         fake,
 		hosts:         hosts,
 		threadID:      mirrored.threads[0].ID,
@@ -120,66 +113,8 @@ func postedOnForge(login string, written time.Time) forge.ReviewComment {
 	return comment
 }
 
-func (fx *forgeReplyFixture) propose(t *testing.T) *reviewstore.ForgeReply {
-	t.Helper()
-
-	draft, err := fx.replies.ProposeForgeReply(t.Context(), ProposeForgeReplyParams{
-		ThreadID: fx.threadID,
-		Author:   newAgentAuthor(fx.worker),
-		Body:     "added the guard",
-	})
-	require.NoError(t, err)
-
-	return draft
-}
-
-// TestProposingForgeReply covers who may draft a reply for the forge on a mirrored thread.
-func TestProposingForgeReply(t *testing.T) {
-	tests := []struct {
-		name    string
-		author  func(fx *forgeReplyFixture) ReviewAuthor
-		wantErr error
-	}{
-		{
-			name:   "the agent whose pull request it is drafts a reply",
-			author: func(fx *forgeReplyFixture) ReviewAuthor { return newAgentAuthor(fx.worker) },
-		},
-		{
-			name:    "another agent is refused",
-			author:  func(fx *forgeReplyFixture) ReviewAuthor { return newAgentAuthor(fx.stranger) },
-			wantErr: ErrReviewNotYours,
-		},
-		{
-			name:    "the person is refused",
-			author:  func(*forgeReplyFixture) ReviewAuthor { return personAuthor },
-			wantErr: ErrReviewNotYours,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fx := newForgeReplyFixture(t)
-
-			draft, err := fx.replies.ProposeForgeReply(t.Context(), ProposeForgeReplyParams{
-				ThreadID: fx.threadID,
-				Author:   tt.author(fx),
-				Body:     "added the guard",
-			})
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, reviewstore.ForgeReplyDraft, draft.State)
-			assert.Empty(t, fx.forge.posted)
-		})
-	}
-}
-
 // TestSendingForgeReply covers the person's say over what reaches the forge, and the reply posted once.
 func TestSendingForgeReply(t *testing.T) {
-	edited := "added the guard, thanks"
 	reset := errors.New("connection reset")
 	later := time.Now().Add(time.Hour)
 
@@ -201,30 +136,6 @@ func TestSendingForgeReply(t *testing.T) {
 		wantState reviewstore.ForgeReplyState
 		wantBody  string
 	}{
-		{
-			name: "approving a draft posts it",
-			send: func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
-				draft := fx.propose(t)
-
-				return fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{ID: draft.ID, Author: personAuthor})
-			},
-			wantState: reviewstore.ForgeReplySent,
-			wantBody:  "added the guard",
-		},
-		{
-			name: "approving an edited draft posts the edit",
-			send: func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
-				draft := fx.propose(t)
-
-				return fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{
-					ID:     draft.ID,
-					Author: personAuthor,
-					Body:   &edited,
-				})
-			},
-			wantState: reviewstore.ForgeReplySent,
-			wantBody:  edited,
-		},
 		{
 			name:      "the person's own reply is posted straight away",
 			send:      replyOnForge,
@@ -288,15 +199,6 @@ func TestSendingForgeReply(t *testing.T) {
 			wantBody:  "done",
 		},
 		{
-			name: "an agent cannot approve its own draft",
-			send: func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
-				draft := fx.propose(t)
-
-				return fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{ID: draft.ID, Author: newAgentAuthor(fx.worker)})
-			},
-			wantErr: ErrReviewHumanOnly,
-		},
-		{
 			name: "an agent cannot reply on the forge directly",
 			send: func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
 				return fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{
@@ -345,33 +247,19 @@ func TestSendingForgeReply(t *testing.T) {
 	}
 }
 
-// TestEditedForgeReplyKeepsProposal covers the agent's words kept beside the person's edit that reached the forge.
-func TestEditedForgeReplyKeepsProposal(t *testing.T) {
+// TestDiscardingForgeReply covers the person throwing away a reply the forge refused.
+func TestDiscardingForgeReply(t *testing.T) {
 	fx := newForgeReplyFixture(t)
-	draft := fx.propose(t)
-	edited := "added the guard, thanks"
-
-	sent, err := fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{
-		ID:     draft.ID,
-		Author: personAuthor,
-		Body:   &edited,
+	fx.forge.refusal = forge.ErrUnauthorized
+	failed, err := fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{
+		ThreadID: fx.threadID,
+		Author:   personAuthor,
+		Body:     "done",
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, edited, sent.Body)
-	require.NotNil(t, sent.ProposedBody)
-	assert.Equal(t, "added the guard", *sent.ProposedBody)
-	require.NotNil(t, sent.ForgeCommentProviderID)
-	assert.Equal(t, "PRRC_posted", *sent.ForgeCommentProviderID)
-}
-
-// TestDiscardingForgeReply covers the person throwing away a draft before it reaches the forge.
-func TestDiscardingForgeReply(t *testing.T) {
-	fx := newForgeReplyFixture(t)
-	draft := fx.propose(t)
-
-	require.ErrorIs(t, fx.replies.DiscardForgeReply(t.Context(), draft.ID, newAgentAuthor(fx.worker)), ErrReviewHumanOnly)
-	require.NoError(t, fx.replies.DiscardForgeReply(t.Context(), draft.ID, personAuthor))
+	require.ErrorIs(t, fx.replies.DiscardForgeReply(t.Context(), failed.ID, newAgentAuthor(fx.worker)), ErrReviewHumanOnly)
+	require.NoError(t, fx.replies.DiscardForgeReply(t.Context(), failed.ID, personAuthor))
 
 	replies, err := fx.reviews.ListForgeReplies(t.Context(), []string{fx.threadID})
 	require.NoError(t, err)
@@ -460,183 +348,6 @@ func TestReconcilingForgeReplies(t *testing.T) {
 				assert.Equal(t, "c9", *settled.ForgeCommentProviderID)
 			}
 			assert.Empty(t, fx.forge.posted)
-		})
-	}
-}
-
-func (fx *forgeReplyFixture) mailAbout(t *testing.T, event string) []mailstore.Mail {
-	t.Helper()
-
-	return slices.DeleteFunc(fx.listMail(t, fx.worker.ID), func(m mailstore.Mail) bool {
-		return !slices.Contains(m.Events, event)
-	})
-}
-
-// TestForgeReplyDecisionMail covers the agent hearing what the person did with its draft.
-func TestForgeReplyDecisionMail(t *testing.T) {
-	edited := "added the guard, thanks"
-
-	tests := []struct {
-		name     string
-		decide   func(t *testing.T, fx *forgeReplyFixture) string
-		wantBody []string
-	}{
-		{
-			name: "a draft sent as written",
-			decide: func(t *testing.T, fx *forgeReplyFixture) string {
-				draft := fx.propose(t)
-				_, err := fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{ID: draft.ID, Author: personAuthor})
-				require.NoError(t, err)
-
-				return draft.ID
-			},
-			wantBody: []string{"as you wrote it"},
-		},
-		{
-			name: "a draft the person edited",
-			decide: func(t *testing.T, fx *forgeReplyFixture) string {
-				draft := fx.propose(t)
-				_, err := fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{
-					ID:     draft.ID,
-					Author: personAuthor,
-					Body:   &edited,
-				})
-				require.NoError(t, err)
-
-				return draft.ID
-			},
-			wantBody: []string{"edited your draft", edited},
-		},
-		{
-			name: "a draft the person discarded",
-			decide: func(t *testing.T, fx *forgeReplyFixture) string {
-				draft := fx.propose(t)
-				require.NoError(t, fx.replies.DiscardForgeReply(t.Context(), draft.ID, personAuthor))
-
-				return draft.ID
-			},
-			wantBody: []string{"discarded your draft", "Nothing was posted"},
-		},
-		{
-			name: "a draft retried after the forge refused it",
-			decide: func(t *testing.T, fx *forgeReplyFixture) string {
-				draft := fx.propose(t)
-				fx.forge.refusal = forge.ErrUnauthorized
-				_, err := fx.replies.ApproveForgeReply(t.Context(), ApproveForgeReplyParams{ID: draft.ID, Author: personAuthor})
-				require.NoError(t, err)
-				assert.Empty(t, fx.mailAbout(t, eventprompts.ReviewForgeReplyDecided), "a refused reply has not gone out yet")
-				fx.forge.refusal = nil
-				_, err = fx.replies.RetryForgeReply(t.Context(), draft.ID, personAuthor)
-				require.NoError(t, err)
-
-				return draft.ID
-			},
-			wantBody: []string{"as you wrote it"},
-		},
-		{
-			name: "the person's own reply",
-			decide: func(t *testing.T, fx *forgeReplyFixture) string {
-				_, err := fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{
-					ThreadID: fx.threadID,
-					Author:   personAuthor,
-					Body:     "done",
-				})
-				require.NoError(t, err)
-
-				return ""
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fx := newForgeReplyFixture(t)
-			fx.holdOnForge()
-
-			replyID := tt.decide(t, fx)
-
-			mailed := fx.mailAbout(t, eventprompts.ReviewForgeReplyDecided)
-			assert.Empty(t, fx.events.ListFollowUps(), "a decision does not wake the agent")
-			if tt.wantBody == nil {
-				assert.Empty(t, mailed)
-
-				return
-			}
-			require.Len(t, mailed, 1)
-			assert.Equal(t, mailstore.KindReviewActivity, mailed[0].Kind)
-			assert.Equal(t, &replyID, mailed[0].SubjectID)
-			assert.Contains(t, mailed[0].Body, fx.threadID)
-			for _, want := range tt.wantBody {
-				assert.Contains(t, mailed[0].Body, want)
-			}
-		})
-	}
-}
-
-// TestRequestingForgeReply covers the person asking the agent to draft a reply on a forge thread.
-func TestRequestingForgeReply(t *testing.T) {
-	tests := []struct {
-		name             string
-		thread           func(t *testing.T, fx *forgeReplyFixture) string
-		author           func(fx *forgeReplyFixture) ReviewAuthor
-		wantErr          error
-		wantPrecondition bool
-	}{
-		{
-			name:   "the person asks on a mirrored thread",
-			thread: func(_ *testing.T, fx *forgeReplyFixture) string { return fx.threadID },
-			author: func(*forgeReplyFixture) ReviewAuthor { return personAuthor },
-		},
-		{
-			name:    "an agent cannot ask",
-			thread:  func(_ *testing.T, fx *forgeReplyFixture) string { return fx.threadID },
-			author:  func(fx *forgeReplyFixture) ReviewAuthor { return newAgentAuthor(fx.reviewer) },
-			wantErr: ErrReviewHumanOnly,
-		},
-		{
-			name:    "a thread that does not exist",
-			thread:  func(*testing.T, *forgeReplyFixture) string { return uuid.NewString() },
-			author:  func(*forgeReplyFixture) ReviewAuthor { return personAuthor },
-			wantErr: ErrReviewThreadNotFound,
-		},
-		{
-			name: "a thread that mirrors nothing on the forge",
-			thread: func(t *testing.T, fx *forgeReplyFixture) string {
-				return fx.writeComment(t, personAuthor, "this needs a nil check").Thread.ID
-			},
-			author:           func(*forgeReplyFixture) ReviewAuthor { return personAuthor },
-			wantPrecondition: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fx := newForgeReplyFixture(t)
-			threadID := tt.thread(t, fx)
-
-			err := fx.replies.RequestForgeReply(t.Context(), threadID, tt.author(fx))
-			switch {
-			case tt.wantErr != nil:
-				require.ErrorIs(t, err, tt.wantErr)
-			case tt.wantPrecondition:
-				require.NotNil(t, fail.Of(err))
-				assert.Equal(t, fail.KindPrecondition, fail.Of(err).Kind())
-			default:
-				require.NoError(t, err)
-			}
-
-			mailed := fx.mailAbout(t, eventprompts.ReviewForgeReplyRequested)
-			if tt.wantErr != nil || tt.wantPrecondition {
-				assert.Empty(t, mailed)
-				assert.Empty(t, fx.events.ListFollowUps())
-
-				return
-			}
-			assert.Equal(t, []river.JobArgs{internaljobs.WakeAgentArgs{AgentID: fx.worker.ID}}, fx.events.ListFollowUps())
-			require.Len(t, mailed, 1)
-			assert.Equal(t, mailstore.KindReviewActivity, mailed[0].Kind)
-			assert.Equal(t, &fx.threadID, mailed[0].SubjectID)
-			assert.Contains(t, mailed[0].Body, "propose_forge_reply")
 		})
 	}
 }
