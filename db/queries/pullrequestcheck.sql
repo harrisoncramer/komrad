@@ -193,3 +193,36 @@ WHERE
 ORDER BY
     s.check_id,
     s.number;
+
+-- name: ListCheckFailureNotes :many
+SELECT
+    c.provider_id,
+    n.finished_at,
+    n.noted_at
+FROM
+    pull_request_check_failure_notes n
+    JOIN pull_request_checks c ON c.id = n.check_id
+    JOIN pull_request_check_readings r ON r.id = c.reading_id
+WHERE
+    n.agent_id = @agent_id
+    AND r.pull_request_id = @pull_request_id
+    AND r.head_sha = @head_sha;
+
+-- name: NoteCheckFailure :batchexec
+INSERT INTO pull_request_check_failure_notes(
+    agent_id,
+    check_id,
+    finished_at)
+SELECT
+    @agent_id,
+    c.id,
+    @finished_at
+FROM
+    pull_request_checks c
+    JOIN pull_request_check_readings r ON r.id = c.reading_id
+WHERE
+    r.pull_request_id = @pull_request_id
+    AND r.head_sha = @head_sha
+    AND c.provider_id = @provider_id
+ON CONFLICT
+    DO NOTHING;

@@ -79,6 +79,9 @@ type MergeReadinessChange struct {
 	After  forge.RememberedMergeReadiness
 	// HeadStatusChecks is every status check stored on the latest read head after the read.
 	HeadStatusChecks []forge.StatusCheck
+	// NewFailure is whether the read found a failed check on the latest read head that the reading before it
+	// did not hold, every failure on a head read for the first time counting as new.
+	NewFailure bool
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -272,6 +275,7 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		Before:           before,
 		After:            after,
 		HeadStatusChecks: readAfter[params.ID].StatusChecks,
+		NewFailure:       hasNewFailure(readBefore[params.ID], readAfter[params.ID]),
 	}, nil
 }
 

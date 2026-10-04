@@ -31,7 +31,8 @@ var eventOf = map[field]map[string]string{
 }
 
 // eventsOf is the events a change starts and the events the pull request holds now, an
-// ended pull request holding only its ending and starting it only on the move that ended it.
+// ended pull request holding only its ending and starting it only on the move that ended it, and a move of the
+// checks to failing starting nothing.
 func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string, []string) {
 	if ended, ok := eventOf[fieldState][pullRequest.State]; ok {
 		endedNow := slices.ContainsFunc(change.Moves, func(move Move) bool {
@@ -48,7 +49,7 @@ func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string
 
 	var started []string
 	for _, move := range change.Moves {
-		if event, ok := eventOf[move.Field][move.To]; ok {
+		if event, ok := eventOf[move.Field][move.To]; ok && move.Field != fieldChecks {
 			started = append(started, event)
 		}
 	}
@@ -67,6 +68,16 @@ func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string
 	}
 
 	return started, holding
+}
+
+// failingEvent is the event the checks failing on the pull request start, empty when they are not failing or
+// the pull request has ended.
+func failingEvent(pullRequest pullrequeststore.PullRequest) string {
+	if _, ended := eventOf[fieldState][pullRequest.State]; ended {
+		return ""
+	}
+
+	return eventOf[fieldChecks][fieldValues(pullRequest)[fieldChecks]]
 }
 
 // passing says whether the checks pass on a pull request the forge would merge.
