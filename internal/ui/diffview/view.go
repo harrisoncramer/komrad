@@ -821,3 +821,13 @@ func (v *View) GetThreadRow(id string) (int, bool) {
 
 	return 0, false
 }
+
+// findFileHeader is the header row above y in y's file, false when y is the header or the file has none.
+func (v *View) findFileHeader(y int) (int, bool) {
+	header := v.getFileTopRow(y)
+	if header == y || v.rows[header].kind != fileRow {
+		return 0, false
+	}
+
+	return header, true
+}
