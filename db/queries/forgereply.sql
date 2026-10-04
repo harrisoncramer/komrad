@@ -129,3 +129,16 @@ WHERE
     state = 'sending'
 ORDER BY
     id;
+
+-- name: GetForgeReplyTarget :one
+SELECT
+    f.provider_id,
+    f.path,
+    p.repository_url,
+    p.number
+FROM
+    review_threads t
+    JOIN forge_review_threads f ON f.id = t.forge_thread_id
+    JOIN pull_requests p ON p.id = f.pull_request_id
+WHERE
+    t.id = @thread_id;

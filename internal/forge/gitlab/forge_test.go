@@ -3,6 +3,8 @@ package gitlab
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -82,13 +84,21 @@ func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Query     string         `json:"query"`
 			Variables map[string]any `json:"variables"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&posted)
+		if err := json.NewDecoder(r.Body).Decode(&posted); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
 		seen.Operation = graphql.OperationOf(posted.Query)
 		seen.Query = posted.Query
 		seen.Variables = posted.Variables
 		key = seen.Operation
 	} else {
-		_ = json.NewDecoder(r.Body).Decode(&seen.Body)
+		if err := json.NewDecoder(r.Body).Decode(&seen.Body); err != nil && !errors.Is(err, io.EOF) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
 	}
 	g.calls = append(g.calls, seen)
 

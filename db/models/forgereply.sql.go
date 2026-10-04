@@ -94,6 +94,39 @@ func (q *Queries) GetForgeReply(ctx context.Context, id string) (*ReviewForgeRep
 	return &i, err
 }
 
+const getForgeReplyTarget = `-- name: GetForgeReplyTarget :one
+SELECT
+    f.provider_id,
+    f.path,
+    p.repository_url,
+    p.number
+FROM
+    review_threads t
+    JOIN forge_review_threads f ON f.id = t.forge_thread_id
+    JOIN pull_requests p ON p.id = f.pull_request_id
+WHERE
+    t.id = $1
+`
+
+type GetForgeReplyTargetRow struct {
+	ProviderID    string
+	Path          string
+	RepositoryUrl string
+	Number        int32
+}
+
+func (q *Queries) GetForgeReplyTarget(ctx context.Context, threadID string) (*GetForgeReplyTargetRow, error) {
+	row := q.db.QueryRow(ctx, getForgeReplyTarget, threadID)
+	var i GetForgeReplyTargetRow
+	err := row.Scan(
+		&i.ProviderID,
+		&i.Path,
+		&i.RepositoryUrl,
+		&i.Number,
+	)
+	return &i, err
+}
+
 const insertAgentForgeReply = `-- name: InsertAgentForgeReply :one
 INSERT INTO review_forge_replies(
     thread_id,

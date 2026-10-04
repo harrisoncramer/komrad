@@ -3,6 +3,8 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -51,6 +53,7 @@ func (f *fakeAuth) Invalidate(context.Context) error {
 // call is one request the fake GitHub saw.
 type call struct {
 	Path      string
+	Body      map[string]any
 	Operation string
 	Query     string
 	Variables map[string]any
@@ -79,11 +82,21 @@ func (g *fakeGitHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Query     string         `json:"query"`
 			Variables map[string]any `json:"variables"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&posted)
+		if err := json.NewDecoder(r.Body).Decode(&posted); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
 		seen.Operation = graphql.OperationOf(posted.Query)
 		seen.Query = posted.Query
 		seen.Variables = posted.Variables
 		key = seen.Operation
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&seen.Body); err != nil && !errors.Is(err, io.EOF) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
 	}
 	g.calls = append(g.calls, seen)
 

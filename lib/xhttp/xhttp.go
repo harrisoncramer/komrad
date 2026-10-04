@@ -27,6 +27,11 @@ func (a Answer) IsSuccess() bool {
 	return a.Status >= 200 && a.Status < 300
 }
 
+// IsRefusal says whether the status is in the 4xx range, the server turning the request down.
+func (a Answer) IsRefusal() bool {
+	return a.Status >= 400 && a.Status < 500
+}
+
 // JSONParams says what to send and how far to read the answer.
 type JSONParams struct {
 	// Client makes the call, NewClient(DefaultTimeout) when nil.

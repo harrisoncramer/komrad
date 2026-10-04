@@ -78,6 +78,7 @@ type pullRequestServices struct {
 	forge       *forge.Service
 	sync        *pullrequests.PullRequestSyncer
 	commentSync *pullrequests.CommentSyncer
+	forgeReply  *reviews.ForgeReplyService
 	lister      *pullrequests.Lister
 	writer      *pullrequests.Writer
 }
@@ -471,6 +472,10 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 	return pullRequestServices{
 		forge: forgeService,
 		sync:  pullRequestSyncer,
+		forgeReply: reviews.NewForgeReplyService(reviews.NewForgeReplyServiceParams{
+			Reviews: st.review,
+			Forges:  forgeService,
+		}),
 		commentSync: pullrequests.NewCommentSyncer(pullrequests.NewCommentSyncerParams{
 			Forges:  forgeService,
 			Threads: st.forgeThreads,

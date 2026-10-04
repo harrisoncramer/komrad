@@ -35,6 +35,9 @@ var ErrNoAutoMerge = fail.Precondition("the forge will not change auto-merge on 
 // ErrNoRereview says the forge has nobody to ask for another review of a pull request.
 var ErrNoRereview = fail.Precondition("the forge has nobody to ask for another review")
 
+// ErrReplyRefused says the forge turned a reply down without posting it.
+var ErrReplyRefused = fail.Precondition("the forge will not take the reply")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
@@ -304,6 +307,17 @@ type Forge interface {
 	// RequestRereview asks every reviewer who requested changes on the pull request at the web
 	// address to review it again.
 	RequestRereview(ctx context.Context, url string) error
+	// ReplyToThread posts a reply in a pull request's thread and answers the new comment's id.
+	ReplyToThread(ctx context.Context, params ReplyToThreadParams) (string, error)
+}
+
+// ReplyToThreadParams is the thread to reply in and what to say.
+type ReplyToThreadParams struct {
+	Repo     git.RemoteURL
+	Number   int
+	ThreadID string
+	OnCode   bool
+	Body     string
 }
 
 // SetAutoMergeParams is the pull request to change and which way.

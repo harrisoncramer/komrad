@@ -162,6 +162,11 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 		return err
 	}
 	known := indexMirrored(rows)
+	sent, err := m.listSentReplyIDs(ctx, known)
+	if err != nil {
+		return err
+	}
+	threads = trustEchoes(sent, threads)
 
 	var fresh []pullrequeststore.ForgeThread
 	for _, thread := range threads {
@@ -232,6 +237,40 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 		return releasedForgeEvents(ctx, reviews, target.AgentID, xslice.Map(order, func(key forgeReviewKey) reviewstore.Review {
 			return *opened[key]
 		}))
+	})
+}
+
+// listSentReplyIDs returns the forge comment ids of the replies komrad posted on an agent's mirrored threads.
+func (m *ForgeMirror) listSentReplyIDs(ctx context.Context, known map[string]*mirroredThread) (map[string]bool, error) {
+	threadIDs := make([]string, 0, len(known))
+	for _, thread := range known {
+		threadIDs = append(threadIDs, thread.ThreadID)
+	}
+	replies, err := m.reviews.ListForgeReplies(ctx, threadIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	sent := map[string]bool{}
+	for _, reply := range replies {
+		if reply.ForgeCommentProviderID != nil {
+			sent[*reply.ForgeCommentProviderID] = true
+		}
+	}
+
+	return sent, nil
+}
+
+// trustEchoes marks each comment komrad posted as a reply trusted.
+func trustEchoes(sent map[string]bool, threads []pullrequeststore.ForgeThread) []pullrequeststore.ForgeThread {
+	return xslice.Map(threads, func(thread pullrequeststore.ForgeThread) pullrequeststore.ForgeThread {
+		thread.Comments = xslice.Map(thread.Comments, func(comment pullrequeststore.ForgeComment) pullrequeststore.ForgeComment {
+			comment.Trusted = comment.Trusted || sent[comment.ProviderID]
+
+			return comment
+		})
+
+		return thread
 	})
 }
 
