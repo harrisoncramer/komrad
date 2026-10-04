@@ -179,11 +179,6 @@ table "pull_requests" {
     type    = text
     comment = "Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing."
   }
-  column "latest_checks" {
-    null    = true
-    type    = text
-    comment = "Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing, failing or failing_running, null when it reported none."
-  }
   column "latest_head_sha" {
     null    = true
     type    = text
@@ -193,16 +188,6 @@ table "pull_requests" {
     null    = true
     type    = text
     comment = "Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it."
-  }
-  column "known_checks" {
-    null    = true
-    type    = text
-    comment = "The last checks a read reported, which a blank read leaves alone."
-  }
-  column "known_checks_sha" {
-    null    = true
-    type    = text
-    comment = "The head commit known_checks was read for."
   }
   column "auto_merge" {
     null    = true

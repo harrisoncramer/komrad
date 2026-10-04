@@ -28,7 +28,7 @@ func (q *Queries) EnsurePullRequestSync(ctx context.Context, repositoryUrl strin
 
 const getPullRequest = `-- name: GetPullRequest :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_checks, latest_head_sha, latest_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision, author, body
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body
 FROM
     pull_requests
 WHERE
@@ -64,11 +64,8 @@ func (q *Queries) GetPullRequest(ctx context.Context, id string) (*PullRequest, 
 		&i.AutoMerge,
 		&i.AutoMergeable,
 		&i.LatestDecision,
-		&i.LatestChecks,
 		&i.LatestHeadSha,
 		&i.LatestMergeability,
-		&i.KnownChecks,
-		&i.KnownChecksSha,
 		&i.KnownMergeability,
 		&i.KnownMergeabilitySha,
 		&i.KnownDecision,
@@ -80,7 +77,7 @@ func (q *Queries) GetPullRequest(ctx context.Context, id string) (*PullRequest, 
 
 const getPullRequestByIdentity = `-- name: GetPullRequestByIdentity :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_checks, latest_head_sha, latest_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision, author, body
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body
 FROM
     pull_requests
 WHERE
@@ -122,11 +119,8 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 		&i.AutoMerge,
 		&i.AutoMergeable,
 		&i.LatestDecision,
-		&i.LatestChecks,
 		&i.LatestHeadSha,
 		&i.LatestMergeability,
-		&i.KnownChecks,
-		&i.KnownChecksSha,
 		&i.KnownMergeability,
 		&i.KnownMergeabilitySha,
 		&i.KnownDecision,
@@ -138,7 +132,7 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 
 const getPullRequestForUpdate = `-- name: GetPullRequestForUpdate :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_checks, latest_head_sha, latest_mergeability, known_checks, known_checks_sha, known_mergeability, known_mergeability_sha, known_decision, author, body
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body
 FROM
     pull_requests
 WHERE
@@ -175,11 +169,8 @@ func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*Pull
 		&i.AutoMerge,
 		&i.AutoMergeable,
 		&i.LatestDecision,
-		&i.LatestChecks,
 		&i.LatestHeadSha,
 		&i.LatestMergeability,
-		&i.KnownChecks,
-		&i.KnownChecksSha,
 		&i.KnownMergeability,
 		&i.KnownMergeabilitySha,
 		&i.KnownDecision,
@@ -307,7 +298,7 @@ func (q *Queries) ListPullRequestRecipients(ctx context.Context, id string) ([]s
 
 const listPullRequestsPage = `-- name: ListPullRequestsPage :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_checks, p.latest_head_sha, p.latest_mergeability, p.known_checks, p.known_checks_sha, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body
 FROM
     pull_requests p
 WHERE
@@ -381,11 +372,8 @@ func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequests
 			&i.AutoMerge,
 			&i.AutoMergeable,
 			&i.LatestDecision,
-			&i.LatestChecks,
 			&i.LatestHeadSha,
 			&i.LatestMergeability,
-			&i.KnownChecks,
-			&i.KnownChecksSha,
 			&i.KnownMergeability,
 			&i.KnownMergeabilitySha,
 			&i.KnownDecision,
@@ -453,7 +441,7 @@ func (q *Queries) ListSyncTargets(ctx context.Context) ([]*ListSyncTargetsRow, e
 
 const listWatchedPullRequests = `-- name: ListWatchedPullRequests :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_checks, p.latest_head_sha, p.latest_mergeability, p.known_checks, p.known_checks_sha, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body
 FROM
     pull_requests p
 WHERE
@@ -505,11 +493,8 @@ func (q *Queries) ListWatchedPullRequests(ctx context.Context, keys []string) ([
 			&i.AutoMerge,
 			&i.AutoMergeable,
 			&i.LatestDecision,
-			&i.LatestChecks,
 			&i.LatestHeadSha,
 			&i.LatestMergeability,
-			&i.KnownChecks,
-			&i.KnownChecksSha,
 			&i.KnownMergeability,
 			&i.KnownMergeabilitySha,
 			&i.KnownDecision,

@@ -74,10 +74,7 @@ jobs:
               - '.github/workflows/ci.yml'
             db:
               - 'db/**'
-              - '.squawk.toml'
               - '.github/workflows/ci.yml'
-            squawk:
-              - '.squawk.toml'
             proto:
               - 'proto/**'
               - 'buf*.yaml'
@@ -132,15 +129,6 @@ jobs:
           mise run proto:fmt --check
           mise run proto:lint
 
-      # A pull request is checked against its base, which the shallow checkout left out.
-      - name: Check the protobufs against the base branch
-        if: github.event_name == 'pull_request' && steps.changes.outputs.proto == 'true'
-        run: |
-          git fetch --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
-          mise run proto:breaking --against "origin/$BASE"
-        env:
-          BASE: ${{ github.base_ref }}
-
       - name: Check the infrastructure
         if: env.ALL == 'true' || steps.changes.outputs.infra == 'true'
         run: |
@@ -154,20 +142,6 @@ jobs:
         run: |
           mise run db:fmt --check
           mise run db:validate
-
-      - name: Check the migrations against the base branch
-        if: github.event_name == 'pull_request' && steps.changes.outputs.db == 'true'
-        run: |
-          git fetch --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
-          mise run db:lint --against "origin/$BASE"
-        env:
-          BASE: ${{ github.base_ref }}
-
-      - name: Refuse a change to the migration lint rules
-        if: github.event_name == 'pull_request' && steps.changes.outputs.squawk == 'true'
-        run: |
-          echo "::error file=.squawk.toml::The squawk rules keep migrations safe for an older build, so a pull request may not change them."
-          exit 1
 
       # The generators, which read the protobufs, the schema and the config and write Go.
       - name: Check the generated files are in step
@@ -215,3 +189,68 @@ jobs:
           mise run docs:lint
           mise run docs:check
           mise run docs:build
+
+  migrations:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.draft
+    runs-on: namespace-profile-harrisoncramer
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            migrations:
+              - 'db/migrations/**'
+            squawk:
+              - '.squawk.toml'
+
+      - name: Use Mise
+        if: steps.changes.outputs.migrations == 'true'
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the migrations against the base branch
+        if: steps.changes.outputs.migrations == 'true'
+        run: |
+          git fetch --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
+          mise run db:lint --against "origin/$BASE"
+        env:
+          BASE: ${{ github.base_ref }}
+
+      - name: Refuse a change to the migration lint rules
+        if: steps.changes.outputs.squawk == 'true'
+        run: |
+          echo "::error file=.squawk.toml::The squawk rules keep migrations safe for an older build, so a pull request may not change them."
+          exit 1
+
+  protobufs:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.draft
+    runs-on: namespace-profile-harrisoncramer
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            proto:
+              - 'proto/**'
+              - 'buf*.yaml'
+
+      - name: Use Mise
+        if: steps.changes.outputs.proto == 'true'
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the protobufs against the base branch
+        if: steps.changes.outputs.proto == 'true'
+        run: |
+          git fetch --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
+          mise run proto:breaking --against "origin/$BASE"
+        env:
+          BASE: ${{ github.base_ref }}

@@ -766,16 +766,10 @@ type PullRequest struct {
 	AutoMergeable bool
 	// Where the latest read said the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null when it said nothing.
 	LatestDecision *string
-	// Where the latest read said the checks on latest_head_sha stand, in komrad's own words: pending, passing, failing or failing_running, null when it reported none.
-	LatestChecks *string
 	// The head commit the latest standing read was for, null before the first read.
 	LatestHeadSha *string
 	// Where the latest read said the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null when the forge had not computed it.
 	LatestMergeability *string
-	// The last checks a read reported, which a blank read leaves alone.
-	KnownChecks *string
-	// The head commit known_checks was read for.
-	KnownChecksSha *string
 	// The last mergeability a read reported, which a blank read leaves alone.
 	KnownMergeability *string
 	// The head commit known_mergeability was read for.
