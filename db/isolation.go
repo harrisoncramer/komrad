@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strings"
 
@@ -10,8 +11,6 @@ import (
 
 // StampEngineTrigger is the trigger and function that stamp each new row with the writing engine.
 const StampEngineTrigger = "stamp_engine"
-
-const engineIsolationPolicy = "engine_isolation"
 
 // UnscopedTables are the public tables that hold no engine's rows and so carry no engine_id.
 var UnscopedTables = []string{"engines", "schema_migrations", "schema_triggers"}
@@ -22,103 +21,17 @@ var UnisolatedTables = []string{"engine_logins"}
 // ReaderlessTables are the engine tables the reader role is not granted.
 var ReaderlessTables = []string{"forge_review_comments", "forge_review_threads"}
 
-const listTablesWithoutEngineSQL = `
-SELECT c.relname::text
-FROM pg_class c
-WHERE c.relnamespace = 'public'::regnamespace
-  AND c.relkind IN ('r', 'p')
-  AND c.relname <> ALL ($1::text[])
-  AND NOT EXISTS (
-      SELECT 1 FROM pg_attribute a
-      WHERE a.attrelid = c.oid
-        AND a.attname = 'engine_id'
-        AND a.attnotnull
-        AND NOT a.attisdropped)
-ORDER BY c.relname`
+//go:embed tables_without_engine.sql
+var tablesWithoutEngineSQL string
 
-const listEngineTablesSQL = `
-SELECT
-    c.relname::text AS name,
-    c.relname <> ALL ($1::text[]) AS should_isolate,
-    c.relname <> ALL ($2::text[]) AS should_reader_read,
-    c.relrowsecurity AS has_row_security,
-    EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = $3) AS has_isolation_policy,
-    EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = $4 AND NOT t.tgisinternal) AS has_stamp_trigger,
-    has_table_privilege('komrad_engine', c.oid, 'SELECT')
-        AND has_table_privilege('komrad_engine', c.oid, 'INSERT')
-        AND has_table_privilege('komrad_engine', c.oid, 'UPDATE')
-        AND has_table_privilege('komrad_engine', c.oid, 'DELETE') AS engine_can_write,
-    has_table_privilege('komrad_engine', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS engine_has_any_grant,
-    has_table_privilege('komrad_reader', c.oid, 'SELECT') AS reader_can_read,
-    has_table_privilege('komrad_reader', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS reader_has_any_grant
-FROM pg_class c
-JOIN pg_attribute a ON a.attrelid = c.oid
-WHERE c.relnamespace = 'public'::regnamespace
-  AND c.relkind IN ('r', 'p')
-  AND a.attname = 'engine_id'
-  AND NOT a.attisdropped
-ORDER BY c.relname`
+//go:embed isolation_settings.sql
+var isolationSettingsSQL string
 
-const stampEngineFunctionSQL = `
-CREATE OR REPLACE FUNCTION ` + StampEngineTrigger + `()
-    RETURNS TRIGGER
-    AS $$
-BEGIN
-    NEW.engine_id := COALESCE(current_engine(), NEW.engine_id);
-    RETURN NEW;
-END;
-$$
-LANGUAGE plpgsql;`
-
-type engineTable struct {
-	Name               string
-	ShouldIsolate      bool
-	ShouldReaderRead   bool
-	HasRowSecurity     bool
-	HasIsolationPolicy bool
-	HasStampTrigger    bool
-	EngineCanWrite     bool
-	EngineHasAnyGrant  bool
-	ReaderCanRead      bool
-	ReaderHasAnyGrant  bool
-}
-
-func (t engineTable) isSettled() bool {
-	if !t.ShouldIsolate {
-		return !t.HasRowSecurity && !t.HasIsolationPolicy && !t.HasStampTrigger && !t.EngineHasAnyGrant && !t.ReaderHasAnyGrant
-	}
-
-	return t.HasRowSecurity && t.HasIsolationPolicy && t.HasStampTrigger && t.EngineCanWrite && t.ReaderCanRead == t.ShouldReaderRead
-}
-
-func (t engineTable) buildSettleStatements() []string {
-	quotedName := pgx.Identifier{t.Name}.Sanitize()
-	if !t.ShouldIsolate {
-		return []string{
-			fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, quotedName),
-			fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s;", StampEngineTrigger, quotedName),
-			fmt.Sprintf("ALTER TABLE %s DISABLE ROW LEVEL SECURITY;", quotedName),
-			fmt.Sprintf("REVOKE ALL ON %s FROM komrad_engine, komrad_reader;", quotedName),
-		}
-	}
-
-	readerGrant := fmt.Sprintf("GRANT SELECT ON %s TO komrad_reader;", quotedName)
-	if !t.ShouldReaderRead {
-		readerGrant = fmt.Sprintf("REVOKE ALL ON %s FROM komrad_reader;", quotedName)
-	}
-
-	return []string{
-		fmt.Sprintf("ALTER TABLE %s ENABLE ROW LEVEL SECURITY;", quotedName),
-		fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, quotedName),
-		fmt.Sprintf("CREATE POLICY %s ON %s USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));", engineIsolationPolicy, quotedName),
-		fmt.Sprintf("CREATE OR REPLACE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION %s();", StampEngineTrigger, quotedName, StampEngineTrigger),
-		fmt.Sprintf("GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO komrad_engine;", quotedName),
-		readerGrant,
-	}
-}
+//go:embed isolation.sql
+var isolationSQL string
 
 func isolateEngines(ctx context.Context, tx pgx.Tx) error {
-	tablesWithoutEngineRows, err := tx.Query(ctx, listTablesWithoutEngineSQL, UnscopedTables)
+	tablesWithoutEngineRows, err := tx.Query(ctx, tablesWithoutEngineSQL, UnscopedTables)
 	if err != nil {
 		return fmt.Errorf("failed to list tables without engine_id: %w", err)
 	}
@@ -131,25 +44,11 @@ func isolateEngines(ctx context.Context, tx pgx.Tx) error {
 		return fmt.Errorf("these tables have no required engine_id and are not listed in db.UnscopedTables: %s", strings.Join(tablesWithoutEngine, ", "))
 	}
 
-	engineTableRows, err := tx.Query(ctx, listEngineTablesSQL, UnisolatedTables, ReaderlessTables, engineIsolationPolicy, StampEngineTrigger)
-	if err != nil {
-		return fmt.Errorf("failed to list engine tables: %w", err)
+	if _, err := tx.Exec(ctx, isolationSettingsSQL, UnisolatedTables, ReaderlessTables); err != nil {
+		return fmt.Errorf("failed to pass the excepted tables to engine isolation: %w", err)
 	}
 
-	engineTables, err := pgx.CollectRows(engineTableRows, pgx.RowToStructByName[engineTable])
-	if err != nil {
-		return fmt.Errorf("failed to read engine tables: %w", err)
-	}
-
-	statements := []string{"SET LOCAL lock_timeout = '5s';", stampEngineFunctionSQL}
-	for _, table := range engineTables {
-		if table.isSettled() {
-			continue
-		}
-		statements = append(statements, table.buildSettleStatements()...)
-	}
-
-	if _, err := tx.Exec(ctx, strings.Join(statements, "\n")); err != nil {
+	if _, err := tx.Exec(ctx, isolationSQL); err != nil {
 		return fmt.Errorf("failed to isolate engine tables: %w", err)
 	}
 
