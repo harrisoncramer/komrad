@@ -132,3 +132,47 @@ func syncDivider(t *testing.T, frame *Frame, want int) {
 		assert.Equal(collect, want, frame.StageCols())
 	}, time.Second, 10*time.Millisecond)
 }
+
+// TestIntegrationTheTileBorrowsAnAgentsPaneAndGivesItBack covers an agent's chat moved under the
+// panel, sent home to its own session when the tile comes down, and the stage opened again after.
+func TestIntegrationTheTileBorrowsAnAgentsPaneAndGivesItBack(t *testing.T) {
+	frame, server, sidebar := realFrame(t)
+
+	server.NewSession("agent")
+	agent := server.Run("display-message", "-p", "-t", "agent", "#{pane_id}")
+
+	t.Run("showing the tile moves the agent's pane under the panel", func(t *testing.T) {
+		frame.ShowTile(Guest{Agent: "agent-1", Pane: agent}, 6)
+
+		assert.Equal(t, agent, frame.TileGuest())
+		assert.Equal(t, "panel", paneSession(t, server, agent))
+		assert.Equal(t, paneWidth(t, server, sidebar), paneWidth(t, server, agent), "the tile runs the width of the window")
+	})
+
+	t.Run("releasing the tile sends the pane back to its own session", func(t *testing.T) {
+		frame.ReleaseTile()
+
+		assert.Empty(t, frame.TileGuest())
+		assert.Equal(t, "agent", paneSession(t, server, agent))
+	})
+
+	t.Run("the stage opens beside the sidebar again", func(t *testing.T) {
+		frame.Show(RegionStage, Content{
+			Key:   "back-to-diff",
+			Wraps: true,
+			Render: func(Target) ([]string, bool) {
+				return []string{"sh", "-c", "sleep 10"}, true
+			},
+		})
+
+		stage := frame.Pane(RegionStage)
+		require.NotEmpty(t, stage)
+		assert.Equal(t, "panel", paneSession(t, server, stage))
+	})
+}
+
+func paneSession(t *testing.T, server *tmuxtest.Server, pane string) string {
+	t.Helper()
+
+	return server.Run("display-message", "-p", "-t", pane, "#{session_name}")
+}

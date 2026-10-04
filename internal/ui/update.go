@@ -270,6 +270,10 @@ func (m *model) relayout(rewrap bool) {
 	// form's, so the size is rewritten here too.
 	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m)))
 
+	if m.screen == screenReview {
+		m.reconcileChat()
+	}
+
 	if rewrap {
 		m.search.drawPreview(m)
 	}

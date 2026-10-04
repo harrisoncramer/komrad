@@ -19,6 +19,7 @@ const (
 	stopTerminal
 	// stopPullRequest is the pull request drawn over the review's file tree.
 	stopPullRequest
+	stopChat
 )
 
 // listStops lists the screen's stops in forward order, leaving out any it is not drawing.
@@ -40,6 +41,10 @@ func (m *model) listStops() []stop {
 		stops = append(stops, stopTerminal)
 	}
 
+	if m.findChatPane() != "" {
+		stops = append(stops, stopChat)
+	}
+
 	if m.isDetailsDrawn(m.hoveredDetails()) {
 		stops = append(stops, stopRecord)
 	}
@@ -57,6 +62,8 @@ func (m *model) enterStop(to stop) tea.Cmd {
 		m.tmux.SelectPane(m.findFocusPane())
 	case stopTerminal:
 		m.tmux.SelectPane(m.findTerminalPane())
+	case stopChat:
+		m.tmux.SelectPane(m.findChatPane())
 	case stopRecord:
 		m.enterSidebar(to)
 
