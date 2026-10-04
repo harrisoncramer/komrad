@@ -30,11 +30,7 @@ func (r *reviewScreen) diffActions() screenActionSpec {
 }
 
 func (r *reviewScreen) table() []screenAction {
-	shared := slices.DeleteFunc(r.diffKeys().table(), func(a screenAction) bool {
-		return a.id == actionDiffExpand || a.id == actionDiffWrap
-	})
-
-	return slices.Concat(r.ownTable(), shared)
+	return slices.Concat(r.ownTable(), r.diffKeys().table())
 }
 
 // ownTable is the review's keys past the ones every diff pane shares.
