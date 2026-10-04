@@ -213,12 +213,12 @@ WHERE
 `
 
 type ListTablesWithoutEngineIsolationParams struct {
-	Unisolated  []string
-	StampEngine string
+	Unisolated         []string
+	StampEngineTrigger string
 }
 
 func (q *Queries) ListTablesWithoutEngineIsolation(ctx context.Context, arg ListTablesWithoutEngineIsolationParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, listTablesWithoutEngineIsolation, arg.Unisolated, arg.StampEngine)
+	rows, err := q.db.Query(ctx, listTablesWithoutEngineIsolation, arg.Unisolated, arg.StampEngineTrigger)
 	if err != nil {
 		return nil, err
 	}

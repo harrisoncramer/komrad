@@ -41,8 +41,8 @@ SELECT
     c.relname::text AS name,
     c.relname <> ALL ($1::text[]) AS should_isolate,
     c.relname <> ALL ($2::text[]) AS should_reader_read,
-    c.relrowsecurity AS is_secured,
-    EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = $3) AS has_policy,
+    c.relrowsecurity AS has_row_security,
+    EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = $3) AS has_isolation_policy,
     EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = $4 AND NOT t.tgisinternal) AS has_stamp_trigger,
     has_table_privilege('komrad_engine', c.oid, 'SELECT')
         AND has_table_privilege('komrad_engine', c.oid, 'INSERT')
@@ -71,49 +71,49 @@ $$
 LANGUAGE plpgsql;`
 
 type engineTable struct {
-	Name              string
-	ShouldIsolate     bool
-	ShouldReaderRead  bool
-	IsSecured         bool
-	HasPolicy         bool
-	HasStampTrigger   bool
-	EngineCanWrite    bool
-	EngineHasAnyGrant bool
-	ReaderCanRead     bool
-	ReaderHasAnyGrant bool
+	Name               string
+	ShouldIsolate      bool
+	ShouldReaderRead   bool
+	HasRowSecurity     bool
+	HasIsolationPolicy bool
+	HasStampTrigger    bool
+	EngineCanWrite     bool
+	EngineHasAnyGrant  bool
+	ReaderCanRead      bool
+	ReaderHasAnyGrant  bool
 }
 
 func (t engineTable) isSettled() bool {
 	if !t.ShouldIsolate {
-		return !t.IsSecured && !t.HasPolicy && !t.HasStampTrigger && !t.EngineHasAnyGrant && !t.ReaderHasAnyGrant
+		return !t.HasRowSecurity && !t.HasIsolationPolicy && !t.HasStampTrigger && !t.EngineHasAnyGrant && !t.ReaderHasAnyGrant
 	}
 
-	return t.IsSecured && t.HasPolicy && t.HasStampTrigger && t.EngineCanWrite && t.ReaderCanRead == t.ShouldReaderRead
+	return t.HasRowSecurity && t.HasIsolationPolicy && t.HasStampTrigger && t.EngineCanWrite && t.ReaderCanRead == t.ShouldReaderRead
 }
 
-func (t engineTable) buildStatements() []string {
-	name := pgx.Identifier{t.Name}.Sanitize()
+func (t engineTable) buildSettleStatements() []string {
+	quotedName := pgx.Identifier{t.Name}.Sanitize()
 	if !t.ShouldIsolate {
 		return []string{
-			fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, name),
-			fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s;", StampEngineTrigger, name),
-			fmt.Sprintf("ALTER TABLE %s DISABLE ROW LEVEL SECURITY;", name),
-			fmt.Sprintf("REVOKE ALL ON %s FROM komrad_engine, komrad_reader;", name),
+			fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, quotedName),
+			fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s;", StampEngineTrigger, quotedName),
+			fmt.Sprintf("ALTER TABLE %s DISABLE ROW LEVEL SECURITY;", quotedName),
+			fmt.Sprintf("REVOKE ALL ON %s FROM komrad_engine, komrad_reader;", quotedName),
 		}
 	}
 
-	reader := fmt.Sprintf("GRANT SELECT ON %s TO komrad_reader;", name)
+	readerGrant := fmt.Sprintf("GRANT SELECT ON %s TO komrad_reader;", quotedName)
 	if !t.ShouldReaderRead {
-		reader = fmt.Sprintf("REVOKE ALL ON %s FROM komrad_reader;", name)
+		readerGrant = fmt.Sprintf("REVOKE ALL ON %s FROM komrad_reader;", quotedName)
 	}
 
 	return []string{
-		fmt.Sprintf("ALTER TABLE %s ENABLE ROW LEVEL SECURITY;", name),
-		fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, name),
-		fmt.Sprintf("CREATE POLICY %s ON %s USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));", engineIsolationPolicy, name),
-		fmt.Sprintf("CREATE OR REPLACE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION %s();", StampEngineTrigger, name, StampEngineTrigger),
-		fmt.Sprintf("GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO komrad_engine;", name),
-		reader,
+		fmt.Sprintf("ALTER TABLE %s ENABLE ROW LEVEL SECURITY;", quotedName),
+		fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s;", engineIsolationPolicy, quotedName),
+		fmt.Sprintf("CREATE POLICY %s ON %s USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));", engineIsolationPolicy, quotedName),
+		fmt.Sprintf("CREATE OR REPLACE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION %s();", StampEngineTrigger, quotedName, StampEngineTrigger),
+		fmt.Sprintf("GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO komrad_engine;", quotedName),
+		readerGrant,
 	}
 }
 
@@ -125,7 +125,7 @@ func isolateEngines(ctx context.Context, tx pgx.Tx) error {
 
 	tablesWithoutEngine, err := pgx.CollectRows(tablesWithoutEngineRows, pgx.RowTo[string])
 	if err != nil {
-		return fmt.Errorf("failed to list tables without engine_id: %w", err)
+		return fmt.Errorf("failed to read tables without engine_id: %w", err)
 	}
 	if len(tablesWithoutEngine) > 0 {
 		return fmt.Errorf("these tables have no required engine_id and are not listed in db.UnscopedTables: %s", strings.Join(tablesWithoutEngine, ", "))
@@ -138,7 +138,7 @@ func isolateEngines(ctx context.Context, tx pgx.Tx) error {
 
 	engineTables, err := pgx.CollectRows(engineTableRows, pgx.RowToStructByName[engineTable])
 	if err != nil {
-		return fmt.Errorf("failed to list engine tables: %w", err)
+		return fmt.Errorf("failed to read engine tables: %w", err)
 	}
 
 	statements := []string{"SET LOCAL lock_timeout = '5s';", stampEngineFunctionSQL}
@@ -146,7 +146,7 @@ func isolateEngines(ctx context.Context, tx pgx.Tx) error {
 		if table.isSettled() {
 			continue
 		}
-		statements = append(statements, table.buildStatements()...)
+		statements = append(statements, table.buildSettleStatements()...)
 	}
 
 	if _, err := tx.Exec(ctx, strings.Join(statements, "\n")); err != nil {

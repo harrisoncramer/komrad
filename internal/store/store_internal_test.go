@@ -23,19 +23,19 @@ func TestUpdatedAtStamped(t *testing.T) {
 
 	ctx := t.Context()
 	pool := open(ctx, t)
-	raw := pool.GetRawPool()
+	rawPool := pool.GetRawPool()
 
 	var id string
-	require.NoError(t, raw.QueryRow(ctx, `
+	require.NoError(t, rawPool.QueryRow(ctx, `
 		INSERT INTO workflow_configs (harness, created_at, updated_at)
 		VALUES ('claude', now() - interval '1 hour', now() - interval '1 hour')
 		RETURNING id`).Scan(&id))
 
-	_, err := raw.Exec(ctx, `UPDATE workflow_configs SET harness = 'codex' WHERE id = $1`, id)
+	_, err := rawPool.Exec(ctx, `UPDATE workflow_configs SET harness = 'codex' WHERE id = $1`, id)
 	require.NoError(t, err)
 
 	var createdAt, updatedAt time.Time
-	require.NoError(t, raw.QueryRow(ctx,
+	require.NoError(t, rawPool.QueryRow(ctx,
 		`SELECT created_at, updated_at FROM workflow_configs WHERE id = $1`, id).
 		Scan(&createdAt, &updatedAt))
 
@@ -118,8 +118,8 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 			name: "isolation",
 			list: func(ctx context.Context) ([]string, error) {
 				return queries.ListTablesWithoutEngineIsolation(ctx, testmodels.ListTablesWithoutEngineIsolationParams{
-					Unisolated:  db.UnisolatedTables,
-					StampEngine: db.StampEngineTrigger,
+					Unisolated:         db.UnisolatedTables,
+					StampEngineTrigger: db.StampEngineTrigger,
 				})
 			},
 			cause: "these tables lack row security, the engine_isolation policy or the stamp_engine trigger",

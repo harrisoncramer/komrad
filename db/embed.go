@@ -379,11 +379,11 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 	unitNames := xslice.Map(all.units, func(u unit) string { return u.name })
 	for _, version := range plan.migrations {
 		if err := applyFile(ctx, conn, applyFileParams{
-			files:      src.migrations,
-			name:       version,
-			record:     recordMigrationSQL,
-			args:       []any{version, unitNames},
-			afterApply: src.isolate,
+			files:   src.migrations,
+			name:    version,
+			record:  recordMigrationSQL,
+			args:    []any{version, unitNames},
+			isolate: src.isolate,
 		}); err != nil {
 			return err
 		}
@@ -410,11 +410,11 @@ func apply(ctx context.Context, pool *pgxpool.Pool, src *sources, all *contents)
 }
 
 type applyFileParams struct {
-	files      fs.FS
-	name       string
-	record     string
-	args       []any
-	afterApply func(context.Context, pgx.Tx) error
+	files   fs.FS
+	name    string
+	record  string
+	args    []any
+	isolate func(context.Context, pgx.Tx) error
 }
 
 // applyFile runs one file in its own transaction alongside the statement recording it.
@@ -434,8 +434,8 @@ func applyFile(ctx context.Context, conn *pgxpool.Conn, params applyFileParams) 
 		return fmt.Errorf("failed to apply %q: %w", params.name, err)
 	}
 
-	if params.afterApply != nil {
-		if err := params.afterApply(ctx, tx); err != nil {
+	if params.isolate != nil {
+		if err := params.isolate(ctx, tx); err != nil {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to isolate engines after %q: %w", params.name, err)
 		}

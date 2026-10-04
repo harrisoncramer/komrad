@@ -50,7 +50,7 @@ WHERE
                     pg_catalog.pg_trigger t
                 WHERE
                     t.tgrelid = c.oid
-                    AND t.tgname = @stamp_engine::text))
+                    AND t.tgname = @stamp_engine_trigger::text))
     ORDER BY
         c.relname;
 
