@@ -65,7 +65,7 @@ func LoadEnvironment(connection Environment) (*Environment, error) {
 	}
 
 	if connection.StateDir == "" {
-		stateDir, err := GetStateDir()
+		stateDir, err := defaultStateDir()
 		if err != nil {
 			return nil, err
 		}

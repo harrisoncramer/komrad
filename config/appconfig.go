@@ -971,6 +971,10 @@ type Connection struct {
 	// Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 	// Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
 	CacheDir string `mapstructure:"cache_dir"`
+	// Where komrad keeps its own files about agents: generated worktrees, released reviews,
+	// forge credentials and the panel's scratch files.
+	// Left empty this is ~/.local/state/komrad.
+	StateDir string `mapstructure:"state_dir"`
 	// The ssh destination the engine runs on, like user@host, when it is not this machine.
 	// Left empty the engine is local and an agent's terminal is shown by moving its own pane
 	// into the panel, which only works while the panel and the agents share a tmux server.
@@ -1354,28 +1358,26 @@ func (c Config) GetHooksDir() (string, error) {
 }
 
 // GetWorktreesDir is where a generated worktree provisioner creates its worktrees: the
-// configured directory, or ~/.local/state/komrad/worktrees when the config names none. The
-// default is filled in here rather than into Config for the reason the hooks directory's
-// is, since one machine's home directory spelled into the generated config would be wrong
-// on every other machine.
+// configured directory, or worktrees under the state directory when the config names none.
 func (c Config) GetWorktreesDir() (string, error) {
 	if dir := strings.TrimSpace(c.Worktrees.Dir); dir != "" {
 		return ExpandHome(dir), nil
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
+	state := c.Connection.StateDir
+	if state == "" {
+		var err error
+		if state, err = defaultStateDir(); err != nil {
+			return "", err
+		}
 	}
 
-	return filepath.Join(home, ".local", "state", "komrad", "worktrees"), nil
+	return filepath.Join(state, "worktrees"), nil
 }
 
-// GetStateDir is where komrad keeps its own per-agent files, such as a released review for the agent to read. It is under
-// komrad's own state directory rather than beside the agent's work, since a linked worktree's
-// own info/exclude is not read by git and a file put in the worktree would show up in the
-// diff being reviewed.
-func GetStateDir() (string, error) {
+// defaultStateDir is where komrad keeps its own files about agents when the config names no
+// state_dir, ~/.local/state/komrad.
+func defaultStateDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
@@ -1635,6 +1637,7 @@ var connectionEnvironment = map[string]string{
 	"connection.addr":                  "KOMRAD_ADDR",
 	"connection.tmux_socket":           "KOMRAD_TMUX_SOCKET",
 	"connection.cache_dir":             "KOMRAD_CACHE_DIR",
+	"connection.state_dir":             "KOMRAD_STATE_DIR",
 }
 
 func bindEnvironment(cfg *viper.Viper) error {
@@ -1674,6 +1677,18 @@ func (c *Config) resolveDerived(report *Report) error {
 		report.Sources["cache_dir"] = sourceDerived
 	} else {
 		c.Connection.CacheDir = ExpandHome(c.Connection.CacheDir)
+	}
+
+	if c.Connection.StateDir == "" {
+		dir, err := defaultStateDir()
+		if err != nil {
+			return err
+		}
+
+		c.Connection.StateDir = dir
+		report.Sources["state_dir"] = sourceDerived
+	} else {
+		c.Connection.StateDir = ExpandHome(c.Connection.StateDir)
 	}
 
 	if c.Connection.ReadOnlyDatabaseURL == "" {

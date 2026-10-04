@@ -9,7 +9,6 @@ import (
 	"slices"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/browser"
 	"komrad/internal/engine"
 	"komrad/internal/errui"
@@ -166,7 +165,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 					Addr:       addr,
 					Editor:     state.env.Editor,
 					Pane:       state.env.TmuxPane,
-					ScratchDir: scratchDir(),
+					ScratchDir: filepath.Join(state.env.StateDir, "scratch"),
 					VimMode:    state.vimMode,
 					DiffWrap:   state.diffWrap,
 				},
@@ -235,14 +234,4 @@ func reviewGit(remote engine.Remote, engineGit gitv1connect.GitServiceClient) ui
 	}
 
 	return git.NewClient(git.NewClientParams{})
-}
-
-// scratchDir is where the panel keeps each engine's scratch file, empty when there is no home.
-func scratchDir() string {
-	state, err := config.GetStateDir()
-	if err != nil {
-		return ""
-	}
-
-	return filepath.Join(state, "scratch")
 }

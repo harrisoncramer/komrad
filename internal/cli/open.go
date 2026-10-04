@@ -180,6 +180,7 @@ func sessionEnvArgs(state *app) []string {
 		"-e", "KOMRAD_ADDR=" + state.env.Addr,
 		"-e", "EDITOR=" + state.env.Editor,
 		"-e", "KOMRAD_CACHE_DIR=" + state.env.CacheDir,
+		"-e", "KOMRAD_STATE_DIR=" + state.env.StateDir,
 	}
 }
 

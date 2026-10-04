@@ -38,6 +38,7 @@ func buildSettings(slotDir string, n int) []setting {
 		{"KOMRAD_TMUX_SOCKET", getSocket(n)},
 		{"COMPOSE_PROJECT_NAME", containerProject},
 		{"KOMRAD_CACHE_DIR", filepath.Join(slotDir, "cache")},
+		{"KOMRAD_STATE_DIR", filepath.Join(slotDir, "state")},
 		{"KOMRAD_CONFIG", configPath(slotDir)},
 	}
 }
