@@ -41,16 +41,16 @@ SELECT
     c.relname::text AS name,
     c.relname <> ALL ($1::text[]) AS should_isolate,
     c.relname <> ALL ($2::text[]) AS should_reader_read,
-    c.relrowsecurity AS secured,
-    EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = $3) AS policed,
-    EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = $4 AND NOT t.tgisinternal) AS stamped,
+    c.relrowsecurity AS is_secured,
+    EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = $3) AS has_policy,
+    EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = c.oid AND t.tgname = $4 AND NOT t.tgisinternal) AS has_stamp_trigger,
     has_table_privilege('komrad_engine', c.oid, 'SELECT')
         AND has_table_privilege('komrad_engine', c.oid, 'INSERT')
         AND has_table_privilege('komrad_engine', c.oid, 'UPDATE')
-        AND has_table_privilege('komrad_engine', c.oid, 'DELETE') AS engine_writes,
-    has_table_privilege('komrad_engine', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS engine_has_any,
-    has_table_privilege('komrad_reader', c.oid, 'SELECT') AS reader_reads,
-    has_table_privilege('komrad_reader', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS reader_has_any
+        AND has_table_privilege('komrad_engine', c.oid, 'DELETE') AS engine_can_write,
+    has_table_privilege('komrad_engine', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS engine_has_any_grant,
+    has_table_privilege('komrad_reader', c.oid, 'SELECT') AS reader_can_read,
+    has_table_privilege('komrad_reader', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') AS reader_has_any_grant
 FROM pg_class c
 JOIN pg_attribute a ON a.attrelid = c.oid
 WHERE c.relnamespace = 'public'::regnamespace
@@ -71,24 +71,24 @@ $$
 LANGUAGE plpgsql;`
 
 type engineTable struct {
-	Name             string
-	ShouldIsolate    bool
-	ShouldReaderRead bool
-	Secured          bool
-	Policed          bool
-	Stamped          bool
-	EngineWrites     bool
-	EngineHasAny     bool
-	ReaderReads      bool
-	ReaderHasAny     bool
+	Name              string
+	ShouldIsolate     bool
+	ShouldReaderRead  bool
+	IsSecured         bool
+	HasPolicy         bool
+	HasStampTrigger   bool
+	EngineCanWrite    bool
+	EngineHasAnyGrant bool
+	ReaderCanRead     bool
+	ReaderHasAnyGrant bool
 }
 
 func (t engineTable) isSettled() bool {
 	if !t.ShouldIsolate {
-		return !t.Secured && !t.Policed && !t.Stamped && !t.EngineHasAny && !t.ReaderHasAny
+		return !t.IsSecured && !t.HasPolicy && !t.HasStampTrigger && !t.EngineHasAnyGrant && !t.ReaderHasAnyGrant
 	}
 
-	return t.Secured && t.Policed && t.Stamped && t.EngineWrites && t.ReaderReads == t.ShouldReaderRead
+	return t.IsSecured && t.HasPolicy && t.HasStampTrigger && t.EngineCanWrite && t.ReaderCanRead == t.ShouldReaderRead
 }
 
 func (t engineTable) buildStatements() []string {
@@ -118,31 +118,31 @@ func (t engineTable) buildStatements() []string {
 }
 
 func isolateEngines(ctx context.Context, tx pgx.Tx) error {
-	rows, err := tx.Query(ctx, listTablesWithoutEngineSQL, UnscopedTables)
+	tablesWithoutEngineRows, err := tx.Query(ctx, listTablesWithoutEngineSQL, UnscopedTables)
 	if err != nil {
 		return fmt.Errorf("failed to list tables without engine_id: %w", err)
 	}
 
-	unscoped, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	tablesWithoutEngine, err := pgx.CollectRows(tablesWithoutEngineRows, pgx.RowTo[string])
 	if err != nil {
 		return fmt.Errorf("failed to list tables without engine_id: %w", err)
 	}
-	if len(unscoped) > 0 {
-		return fmt.Errorf("these tables have no required engine_id and are not listed in db.UnscopedTables: %s", strings.Join(unscoped, ", "))
+	if len(tablesWithoutEngine) > 0 {
+		return fmt.Errorf("these tables have no required engine_id and are not listed in db.UnscopedTables: %s", strings.Join(tablesWithoutEngine, ", "))
 	}
 
-	rows, err = tx.Query(ctx, listEngineTablesSQL, UnisolatedTables, ReaderlessTables, engineIsolationPolicy, StampEngineTrigger)
+	engineTableRows, err := tx.Query(ctx, listEngineTablesSQL, UnisolatedTables, ReaderlessTables, engineIsolationPolicy, StampEngineTrigger)
 	if err != nil {
 		return fmt.Errorf("failed to list engine tables: %w", err)
 	}
 
-	tables, err := pgx.CollectRows(rows, pgx.RowToStructByName[engineTable])
+	engineTables, err := pgx.CollectRows(engineTableRows, pgx.RowToStructByName[engineTable])
 	if err != nil {
 		return fmt.Errorf("failed to list engine tables: %w", err)
 	}
 
 	statements := []string{"SET LOCAL lock_timeout = '5s';", stampEngineFunctionSQL}
-	for _, table := range tables {
+	for _, table := range engineTables {
 		if table.isSettled() {
 			continue
 		}
