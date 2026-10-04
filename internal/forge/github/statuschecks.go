@@ -69,8 +69,7 @@ type statusCheckNode struct {
 // readStatusCheckListings lists the checks on the head of each open pull request in the reading, in one
 // query by alias.
 func (f *Forge) readStatusCheckListings(ctx context.Context, reading *forge.Reading) error {
-	variables := map[string]any{}
-	var declared, fields strings.Builder
+	var query aliasedQuery
 	var open []*forge.PullRequest
 	for i := range reading.PullRequests {
 		pullRequest := &reading.PullRequests[i]
@@ -78,18 +77,15 @@ func (f *Forge) readStatusCheckListings(ctx context.Context, reading *forge.Read
 			continue
 		}
 		alias := "p" + strconv.Itoa(len(open))
-		variables[alias] = pullRequest.ProviderID
-		fmt.Fprintf(&declared, ", $%s: ID!", alias)
-		fmt.Fprintf(&fields, "\n  %s: node(id: $%s) { ... on PullRequest { %s } }", alias, alias, strings.ReplaceAll(statusCheckListFields, "$pullRequest", "$"+alias))
+		query.add(alias, "ID!", pullRequest.ProviderID, fmt.Sprintf("node(id: $%s) { ... on PullRequest { %s } }", alias, strings.ReplaceAll(statusCheckListFields, "$pullRequest", "$"+alias)))
 		open = append(open, pullRequest)
 	}
 	if len(open) == 0 {
 		return nil
 	}
-	operation := "query ReadStatusChecks(" + strings.TrimPrefix(declared.String(), ", ") + ") {" + fields.String() + "\n}"
 
 	var data map[string]*statusCheckListNode
-	answer, err := f.client.Query(ctx, operation, variables, &data)
+	answer, err := f.client.Query(ctx, query.operation("ReadStatusChecks"), query.variables, &data)
 	if err != nil {
 		return err
 	}
@@ -129,36 +125,22 @@ type checkStepsNode struct {
 // readCheckSteps lists the steps of each check run in the reading's listings in a query of its own by
 // check run id, leaving StepsTruncated set on a check run GitHub does not answer for.
 func (f *Forge) readCheckSteps(ctx context.Context, reading *forge.Reading) error {
-	var runs []*forge.StatusCheck
-	for _, pullRequest := range reading.PullRequests {
-		listing := pullRequest.MergeReadiness.Listing
-		if listing == nil {
-			continue
-		}
-		for i := range listing.StatusChecks {
-			check := &listing.StatusChecks[i]
-			if check.Kind == forge.StatusCheckKindRun {
-				check.StepsTruncated = true
-				runs = append(runs, check)
-			}
-		}
-	}
+	runs := checkRunsOf(reading)
 	if len(runs) == 0 {
 		return nil
 	}
-
-	variables := map[string]any{}
-	var declared, fields strings.Builder
-	for batch := range slices.Chunk(runs, checkRunsPerNodes) {
-		alias := "s" + strconv.Itoa(len(variables))
-		variables[alias] = xslice.Map(batch, func(check *forge.StatusCheck) string { return check.ProviderID })
-		fmt.Fprintf(&declared, ", $%s: [ID!]!", alias)
-		fmt.Fprintf(&fields, "\n  %s: nodes(ids: $%s) { %s }", alias, alias, checkStepsFields)
+	for _, run := range runs {
+		run.StepsTruncated = true
 	}
-	operation := "query ReadCheckSteps(" + strings.TrimPrefix(declared.String(), ", ") + ") {" + fields.String() + "\n}"
+
+	var query aliasedQuery
+	for batch := range slices.Chunk(runs, checkRunsPerNodes) {
+		alias := "s" + strconv.Itoa(len(query.variables))
+		query.add(alias, "[ID!]!", xslice.Map(batch, func(check *forge.StatusCheck) string { return check.ProviderID }), fmt.Sprintf("nodes(ids: $%s) { %s }", alias, checkStepsFields))
+	}
 
 	var data map[string][]*checkStepsNode
-	answer, err := f.client.Query(ctx, operation, variables, &data)
+	answer, err := f.client.Query(ctx, query.operation("ReadCheckSteps"), query.variables, &data)
 	if err != nil {
 		return err
 	}
@@ -187,6 +169,46 @@ func (f *Forge) readCheckSteps(ctx context.Context, reading *forge.Reading) erro
 	}
 
 	return nil
+}
+
+// checkRunsOf is every check run in the reading's listings, pointing into the listings so a read can fill
+// in their steps.
+func checkRunsOf(reading *forge.Reading) []*forge.StatusCheck {
+	var runs []*forge.StatusCheck
+	for _, pullRequest := range reading.PullRequests {
+		listing := pullRequest.MergeReadiness.Listing
+		if listing == nil {
+			continue
+		}
+		for i := range listing.StatusChecks {
+			if listing.StatusChecks[i].Kind == forge.StatusCheckKindRun {
+				runs = append(runs, &listing.StatusChecks[i])
+			}
+		}
+	}
+
+	return runs
+}
+
+// aliasedQuery is one GraphQL query of aliased fields, each reading a variable of its own.
+type aliasedQuery struct {
+	variables        map[string]any
+	declared, fields strings.Builder
+}
+
+// add asks for field under alias, declaring $alias as kind holding value.
+func (q *aliasedQuery) add(alias, kind string, value any, field string) {
+	if q.variables == nil {
+		q.variables = map[string]any{}
+	}
+	q.variables[alias] = value
+	fmt.Fprintf(&q.declared, ", $%s: %s", alias, kind)
+	fmt.Fprintf(&q.fields, "\n  %s: %s", alias, field)
+}
+
+// operation is the query under name, asking for every field added.
+func (q *aliasedQuery) operation(name string) string {
+	return "query " + name + "(" + strings.TrimPrefix(q.declared.String(), ", ") + ") {" + q.fields.String() + "\n}"
 }
 
 // listingOf is the checks on the head commit, nil when GitHub answered for another commit or no

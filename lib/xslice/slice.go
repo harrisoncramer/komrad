@@ -63,3 +63,22 @@ func UniqueBy[T any, K comparable](in []T, key func(T) K) []T {
 
 	return out
 }
+
+// LastBy returns each key of in once, in the order the key is first seen, holding the last
+// element sharing that key.
+func LastBy[T any, K comparable](in []T, key func(T) K) []T {
+	at := make(map[K]int, len(in))
+	out := make([]T, 0, len(in))
+	for _, v := range in {
+		k := key(v)
+		if i, ok := at[k]; ok {
+			out[i] = v
+			continue
+		}
+
+		at[k] = len(out)
+		out = append(out, v)
+	}
+
+	return out
+}

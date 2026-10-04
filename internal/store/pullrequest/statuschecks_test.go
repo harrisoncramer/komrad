@@ -151,9 +151,14 @@ func statusCheckStep(number int, name string, state forge.StatusCheckState, conc
 	}
 }
 
-func withSteps(check forge.StatusCheck, truncated bool, steps ...forge.StatusCheckStep) forge.StatusCheck {
+func withSteps(check forge.StatusCheck, steps ...forge.StatusCheckStep) forge.StatusCheck {
 	check.Steps = steps
-	check.StepsTruncated = truncated
+
+	return check
+}
+
+func truncatedSteps(check forge.StatusCheck) forge.StatusCheck {
+	check.StepsTruncated = true
 
 	return check
 }
@@ -169,7 +174,7 @@ func TestSetStatusCheckSteps(t *testing.T) {
 		{
 			name: "a read lists the steps of each check in order",
 			reads: [][]forge.StatusCheck{{
-				withSteps(running, false, statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")),
+				withSteps(running, statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")),
 				statusCheckRun("2", "lint", forge.StatusCheckStateQueued, ""),
 			}},
 			want: map[string][]forge.StatusCheckStep{
@@ -179,8 +184,8 @@ func TestSetStatusCheckSteps(t *testing.T) {
 		{
 			name: "a later read moves a step along",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
-				{withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "failure"))},
+				{withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "failure"))},
 			},
 			want: map[string][]forge.StatusCheckStep{
 				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "failure")},
@@ -189,8 +194,8 @@ func TestSetStatusCheckSteps(t *testing.T) {
 		{
 			name: "a step the forge stops listing goes",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, false, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
-				{withSteps(running, false, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"))},
+				{withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"))},
 			},
 			want: map[string][]forge.StatusCheckStep{
 				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")},
@@ -199,8 +204,8 @@ func TestSetStatusCheckSteps(t *testing.T) {
 		{
 			name: "a check whose steps were truncated keeps the steps left out",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, false, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
-				{withSteps(running, true, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"))},
+				{withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{truncatedSteps(withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")))},
 			},
 			want: map[string][]forge.StatusCheckStep{
 				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, "")},
@@ -209,7 +214,7 @@ func TestSetStatusCheckSteps(t *testing.T) {
 		{
 			name: "a step listed twice in one read is kept once as last listed",
 			reads: [][]forge.StatusCheck{{
-				withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "success")),
+				withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "success")),
 			}},
 			want: map[string][]forge.StatusCheckStep{
 				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "success")},
@@ -218,7 +223,7 @@ func TestSetStatusCheckSteps(t *testing.T) {
 		{
 			name: "a blank read keeps the steps listed before it",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
 				nil,
 			},
 			want: map[string][]forge.StatusCheckStep{
@@ -286,7 +291,7 @@ func TestSetStatusChecksUnchangedStampsOnlyTheReadTime(t *testing.T) {
 	params := SetStatusChecksParams{
 		PullRequestID: written.ID,
 		HeadSHA:       "c1",
-		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, "")), statusCheckRun("2", "lint", forge.StatusCheckStateQueued, "")},
+		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, "")), statusCheckRun("2", "lint", forge.StatusCheckStateQueued, "")},
 		ReadAt:        statusCheckReadAt,
 	}
 
@@ -360,7 +365,7 @@ func TestStatusChecksGoWithThePullRequest(t *testing.T) {
 	require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
 		PullRequestID: written.ID,
 		HeadSHA:       "c1",
-		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), false, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
+		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
 		ReadAt:        statusCheckReadAt,
 	}))
 

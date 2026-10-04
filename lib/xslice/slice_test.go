@@ -65,3 +65,32 @@ func TestUniqueBy(t *testing.T) {
 		})
 	}
 }
+
+// TestLastBy pins that only the last element under each key survives, in the order its key is first seen.
+func TestLastBy(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		key  func(string) rune
+		want []string
+	}{
+		{
+			name: "empty slice yields an empty slice",
+			in:   []string{},
+			key:  func(s string) rune { return rune(s[0]) },
+			want: []string{},
+		},
+		{
+			name: "the last element with a key wins, in the order the key is first seen",
+			in:   []string{"apple", "banana", "avocado", "blueberry"},
+			key:  func(s string) rune { return rune(s[0]) },
+			want: []string{"avocado", "blueberry"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, LastBy(tt.in, tt.key))
+		})
+	}
+}
