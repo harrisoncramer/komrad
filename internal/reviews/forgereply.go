@@ -187,10 +187,10 @@ func (s *ForgeReplyService) RequestForgeReply(ctx context.Context, threadID stri
 		return fmt.Errorf("%w: %q", ErrReviewThreadNotFound, threadID)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get review thread %q: %w", threadID, err)
 	}
 	if _, err := s.reviews.GetForgeReplyTarget(ctx, thread.ID); err != nil {
-		return err
+		return fmt.Errorf("failed to get the forge reply target of review thread %q: %w", threadID, err)
 	}
 
 	return s.events.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
