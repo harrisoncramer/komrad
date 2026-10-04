@@ -570,11 +570,11 @@ func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 	})
 }
 
-func (a api) listChecks(pullRequestID string) (*pullrequestv1.ListChecksResponse, error) {
-	return call(requestTimeout, func(ctx context.Context) (*pullrequestv1.ListChecksResponse, error) {
-		resp, err := a.pullRequests.ListChecks(ctx, connect.NewRequest(&pullrequestv1.ListChecksRequest{PullRequestId: pullRequestID}))
+func (a api) listStatusChecks(pullRequestID string) (*pullrequestv1.ListStatusChecksResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*pullrequestv1.ListStatusChecksResponse, error) {
+		resp, err := a.pullRequests.ListStatusChecks(ctx, connect.NewRequest(&pullrequestv1.ListStatusChecksRequest{PullRequestId: pullRequestID}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to list the checks of pull request %q: %w", pullRequestID, err)
+			return nil, fmt.Errorf("failed to list the status checks of pull request %q: %w", pullRequestID, err)
 		}
 
 		return resp.Msg, nil

@@ -51,11 +51,11 @@ func TestReadBranches(t *testing.T) {
 		Decision:     forge.ReviewDecisionNone,
 		Mergeability: forge.MergeabilityBlocked,
 		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
-		Listing: &forge.CheckListing{Checks: []forge.Check{{
+		Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
 			ProviderID: "2051234567",
-			Kind:       forge.CheckKindPipeline,
+			Kind:       forge.StatusCheckKindPipeline,
 			Name:       "pipeline",
-			State:      forge.CheckStateRunning,
+			State:      forge.StatusCheckStateRunning,
 			StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 17, 50, 0, 0, time.UTC)),
 			Required:   true,
 			URL:        "https://gitlab.com/acme/widgets/-/pipelines/2051234567",
@@ -66,11 +66,11 @@ func TestReadBranches(t *testing.T) {
 		Decision:     forge.ReviewDecisionApproved,
 		Mergeability: forge.MergeabilityUnknown,
 		AutoMerge:    forge.AutoMerge{},
-		Listing: &forge.CheckListing{Checks: []forge.Check{{
+		Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
 			ProviderID: "2051230000",
-			Kind:       forge.CheckKindPipeline,
+			Kind:       forge.StatusCheckKindPipeline,
 			Name:       "pipeline",
-			State:      forge.CheckStateCompleted,
+			State:      forge.StatusCheckStateCompleted,
 			Conclusion: "success",
 			StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)),
 			FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 10, 20, 0, 0, time.UTC)),

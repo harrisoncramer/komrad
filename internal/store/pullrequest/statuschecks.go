@@ -12,63 +12,63 @@ import (
 	"komrad/lib/xslice"
 )
 
-// CheckReading is what the forge last listed for the checks on one head commit of a pull request.
-type CheckReading struct {
+// StatusCheckReading is what the forge last listed for the checks on one head commit of a pull request.
+type StatusCheckReading struct {
 	ID      string
 	HeadSHA string
 	// Blank is whether the last read listed no checks, which keeps the checks listed before it.
-	Blank       bool
-	FirstReadAt time.Time
-	ReadAt      time.Time
-	Checks      []forge.Check
+	Blank        bool
+	FirstReadAt  time.Time
+	ReadAt       time.Time
+	StatusChecks []forge.StatusCheck
 }
 
-// CheckStore holds the checks the forge listed on each head commit of a pull request.
-type CheckStore struct {
+// StatusCheckStore holds the checks the forge listed on each head commit of a pull request.
+type StatusCheckStore struct {
 	queries *models.Queries
 }
 
-// NewCheckStore builds the store over a pool or transaction.
-func NewCheckStore(db store.DBTX) *CheckStore {
-	return &CheckStore{queries: models.New(db)}
+// NewStatusCheckStore builds the store over a pool or transaction.
+func NewStatusCheckStore(db store.DBTX) *StatusCheckStore {
+	return &StatusCheckStore{queries: models.New(db)}
 }
 
-// SetChecksParams is one read of the checks on a pull request's head commit.
-type SetChecksParams struct {
+// SetStatusChecksParams is one read of the checks on a pull request's head commit.
+type SetStatusChecksParams struct {
 	PullRequestID string
 	HeadSHA       string
-	Checks        []forge.Check
+	StatusChecks  []forge.StatusCheck
 	// Truncated is whether the forge listed only some of the checks, which keeps the ones it left out.
 	Truncated bool
 	ReadAt    time.Time
 }
 
-// SetChecks records a read of a head commit's checks, writing only the checks that changed.
-func (s *CheckStore) SetChecks(ctx context.Context, params SetChecksParams) error {
-	return setChecks(ctx, s.queries, params)
+// SetStatusChecks records a read of a head commit's checks, writing only the checks that changed.
+func (s *StatusCheckStore) SetStatusChecks(ctx context.Context, params SetStatusChecksParams) error {
+	return setStatusChecks(ctx, s.queries, params)
 }
 
-func setChecks(ctx context.Context, queries *models.Queries, params SetChecksParams) error {
-	readingID, err := queries.RecordCheckReading(ctx, models.RecordCheckReadingParams{
+func setStatusChecks(ctx context.Context, queries *models.Queries, params SetStatusChecksParams) error {
+	readingID, err := queries.RecordStatusCheckReading(ctx, models.RecordStatusCheckReadingParams{
 		PullRequestID: params.PullRequestID,
 		HeadSha:       params.HeadSHA,
-		Blank:         len(params.Checks) == 0,
+		Blank:         len(params.StatusChecks) == 0,
 		ReadAt:        params.ReadAt,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to record the check reading of %s on pull request %s: %w", params.HeadSHA, params.PullRequestID, err)
 	}
 
-	if len(params.Checks) == 0 {
+	if len(params.StatusChecks) == 0 {
 		return nil
 	}
 
-	listed := checkRows(params.Checks)
+	listed := statusCheckRows(params.StatusChecks)
 	encoded, err := json.Marshal(listed)
 	if err != nil {
 		return fmt.Errorf("failed to encode the checks listed on %s: %w", params.HeadSHA, err)
 	}
-	if err := queries.UpsertChecks(ctx, models.UpsertChecksParams{ReadingID: readingID, Checks: encoded}); err != nil {
+	if err := queries.UpsertStatusChecks(ctx, models.UpsertStatusChecksParams{ReadingID: readingID, Checks: encoded}); err != nil {
 		return fmt.Errorf("failed to write the checks listed on %s: %w", params.HeadSHA, err)
 	}
 
@@ -76,9 +76,9 @@ func setChecks(ctx context.Context, queries *models.Queries, params SetChecksPar
 		return nil
 	}
 
-	if err := queries.DeleteChecksExcept(ctx, models.DeleteChecksExceptParams{
+	if err := queries.DeleteStatusChecksExcept(ctx, models.DeleteStatusChecksExceptParams{
 		ReadingID: readingID,
-		Kept:      xslice.Map(listed, func(row checkRow) string { return row.ProviderID }),
+		Kept:      xslice.Map(listed, func(row statusCheckRow) string { return row.ProviderID }),
 	}); err != nil {
 		return fmt.Errorf("failed to remove the checks no longer listed on %s: %w", params.HeadSHA, err)
 	}
@@ -87,22 +87,22 @@ func setChecks(ctx context.Context, queries *models.Queries, params SetChecksPar
 }
 
 // ListOfPullRequest is every check reading on a pull request with its checks, oldest head first.
-func (s *CheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]CheckReading, error) {
+func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]StatusCheckReading, error) {
 	if !store.IsID(pullRequestID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListCheckReadings(ctx, pullRequestID)
+	rows, err := s.queries.ListStatusCheckReadings(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the check readings of pull request %s: %w", pullRequestID, err)
 	}
 
-	return withChecks(ctx, s.queries, rows)
+	return withStatusChecks(ctx, s.queries, rows)
 }
 
 // GetLatestOfPullRequest is the check reading on a pull request's latest read head with its checks,
 // or ErrNotFound when its checks have never been read.
-func (s *CheckStore) GetLatestOfPullRequest(ctx context.Context, pullRequestID string) (*CheckReading, error) {
+func (s *StatusCheckStore) GetLatestOfPullRequest(ctx context.Context, pullRequestID string) (*StatusCheckReading, error) {
 	readings, err := latestReadings(ctx, s.queries, []string{pullRequestID})
 	if err != nil {
 		return nil, err
@@ -117,22 +117,22 @@ func (s *CheckStore) GetLatestOfPullRequest(ctx context.Context, pullRequestID s
 }
 
 // latestReadings is the latest check reading of each of the pull requests that has one, by pull request.
-func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []string) (map[string]CheckReading, error) {
+func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []string) (map[string]StatusCheckReading, error) {
 	storable := store.KeepIDs(pullRequestIDs)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	rows, err := queries.ListLatestCheckReadings(ctx, storable)
+	rows, err := queries.ListLatestStatusCheckReadings(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the latest check readings of %d pull request(s): %w", len(storable), err)
 	}
-	readings, err := withChecks(ctx, queries, rows)
+	readings, err := withStatusChecks(ctx, queries, rows)
 	if err != nil {
 		return nil, err
 	}
 
-	byPullRequest := make(map[string]CheckReading, len(readings))
+	byPullRequest := make(map[string]StatusCheckReading, len(readings))
 	for i, row := range rows {
 		byPullRequest[row.PullRequestID] = readings[i]
 	}
@@ -140,26 +140,26 @@ func latestReadings(ctx context.Context, queries *models.Queries, pullRequestIDs
 	return byPullRequest, nil
 }
 
-// withChecks is each reading with the checks listed on it, in the order given.
-func withChecks(ctx context.Context, queries *models.Queries, rows []*models.PullRequestCheckReading) ([]CheckReading, error) {
+// withStatusChecks is each reading with the checks listed on it, in the order given.
+func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*models.PullRequestCheckReading) ([]StatusCheckReading, error) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
 
 	ids := xslice.Map(rows, func(row *models.PullRequestCheckReading) string { return row.ID })
-	checks, err := queries.ListChecksOfReadings(ctx, ids)
+	checks, err := queries.ListStatusChecksOfReadings(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the checks of %d reading(s): %w", len(ids), err)
 	}
 
-	byReading := map[string][]forge.Check{}
+	byReading := map[string][]forge.StatusCheck{}
 	for _, row := range checks {
-		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.Check{
+		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.StatusCheck{
 			ProviderID: row.ProviderID,
-			Kind:       forge.CheckKind(row.Kind),
+			Kind:       forge.StatusCheckKind(row.Kind),
 			Source:     row.Source,
 			Name:       row.Name,
-			State:      forge.CheckState(row.State),
+			State:      forge.StatusCheckState(row.State),
 			Conclusion: row.Conclusion,
 			StartedAt:  row.StartedAt,
 			FinishedAt: row.FinishedAt,
@@ -168,29 +168,29 @@ func withChecks(ctx context.Context, queries *models.Queries, rows []*models.Pul
 		})
 	}
 
-	return xslice.Map(rows, func(row *models.PullRequestCheckReading) CheckReading {
-		return CheckReading{
-			ID:          row.ID,
-			HeadSHA:     row.HeadSha,
-			Blank:       row.Blank,
-			FirstReadAt: row.FirstReadAt,
-			ReadAt:      row.ReadAt,
-			Checks:      byReading[row.ID],
+	return xslice.Map(rows, func(row *models.PullRequestCheckReading) StatusCheckReading {
+		return StatusCheckReading{
+			ID:           row.ID,
+			HeadSHA:      row.HeadSha,
+			Blank:        row.Blank,
+			FirstReadAt:  row.FirstReadAt,
+			ReadAt:       row.ReadAt,
+			StatusChecks: byReading[row.ID],
 		}
 	}), nil
 }
 
 // rememberedChecksOf is where the checks on the latest read head stand, rolled up from its rows.
-func rememberedChecksOf(reading CheckReading) forge.RememberedAnswer[forge.Checks] {
+func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[forge.Checks] {
 	return forge.RememberedAnswer[forge.Checks]{
-		Value:              forge.RollupOf(reading.Checks),
+		Value:              forge.RollupOf(reading.StatusChecks),
 		HeadSHA:            reading.HeadSHA,
 		WasLatestReadBlank: reading.Blank,
 	}
 }
 
-// checkRow is one check as the set-based upsert reads it from JSON.
-type checkRow struct {
+// statusCheckRow is one check as the set-based upsert reads it from JSON.
+type statusCheckRow struct {
 	ProviderID string     `json:"provider_id"`
 	Kind       string     `json:"kind"`
 	Source     string     `json:"source"`
@@ -203,12 +203,12 @@ type checkRow struct {
 	URL        string     `json:"url"`
 }
 
-// checkRows is each check listed once, the last listing of a provider id winning.
-func checkRows(checks []forge.Check) []checkRow {
+// statusCheckRows is each check listed once, the last listing of a provider id winning.
+func statusCheckRows(checks []forge.StatusCheck) []statusCheckRow {
 	at := map[string]int{}
-	var rows []checkRow
+	var rows []statusCheckRow
 	for _, check := range checks {
-		row := checkRow{
+		row := statusCheckRow{
 			ProviderID: check.ProviderID,
 			Kind:       string(check.Kind),
 			Source:     check.Source,

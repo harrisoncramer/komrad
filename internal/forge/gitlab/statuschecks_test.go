@@ -21,34 +21,34 @@ func TestListing(t *testing.T) {
 		status         string
 		sha            string
 		eventType      string
-		wantState      forge.CheckState
+		wantState      forge.StatusCheckState
 		wantConclusion string
 	}{
 		{
 			status:         pipelineSuccess,
-			wantState:      forge.CheckStateCompleted,
+			wantState:      forge.StatusCheckStateCompleted,
 			wantConclusion: "success",
 		},
 		{
 			status:         pipelineFailed,
-			wantState:      forge.CheckStateCompleted,
+			wantState:      forge.StatusCheckStateCompleted,
 			wantConclusion: "failed",
 		},
-		{status: pipelineCreated, wantState: forge.CheckStateQueued},
-		{status: pipelineWaitingForResource, wantState: forge.CheckStateQueued},
-		{status: pipelinePreparing, wantState: forge.CheckStateQueued},
-		{status: pipelineWaitingForCallback, wantState: forge.CheckStateRunning},
-		{status: pipelinePending, wantState: forge.CheckStateQueued},
-		{status: pipelineRunning, wantState: forge.CheckStateRunning},
-		{status: pipelineScheduled, wantState: forge.CheckStateQueued},
+		{status: pipelineCreated, wantState: forge.StatusCheckStateQueued},
+		{status: pipelineWaitingForResource, wantState: forge.StatusCheckStateQueued},
+		{status: pipelinePreparing, wantState: forge.StatusCheckStateQueued},
+		{status: pipelineWaitingForCallback, wantState: forge.StatusCheckStateRunning},
+		{status: pipelinePending, wantState: forge.StatusCheckStateQueued},
+		{status: pipelineRunning, wantState: forge.StatusCheckStateRunning},
+		{status: pipelineScheduled, wantState: forge.StatusCheckStateQueued},
 		{
 			status:         pipelineCanceled,
-			wantState:      forge.CheckStateCompleted,
+			wantState:      forge.StatusCheckStateCompleted,
 			wantConclusion: "canceled",
 		},
 		{
 			status:         pipelineCanceling,
-			wantState:      forge.CheckStateCompleted,
+			wantState:      forge.StatusCheckStateCompleted,
 			wantConclusion: "canceling",
 		},
 		{status: pipelineSkipped},
@@ -56,7 +56,7 @@ func TestListing(t *testing.T) {
 		{
 			status:         pipelineFailed,
 			eventType:      pipelineEventDetached,
-			wantState:      forge.CheckStateCompleted,
+			wantState:      forge.StatusCheckStateCompleted,
 			wantConclusion: "failed",
 		},
 		{
@@ -67,14 +67,14 @@ func TestListing(t *testing.T) {
 			status:         pipelineSuccess,
 			sha:            "def",
 			eventType:      pipelineEventMergedResult,
-			wantState:      forge.CheckStateCompleted,
+			wantState:      forge.StatusCheckStateCompleted,
 			wantConclusion: "success",
 		},
 		{
 			status:    pipelineRunning,
 			sha:       "def",
 			eventType: pipelineEventMergeTrain,
-			wantState: forge.CheckStateRunning,
+			wantState: forge.StatusCheckStateRunning,
 		},
 	}
 	for _, tt := range tests {
@@ -96,11 +96,11 @@ func TestListing(t *testing.T) {
 }`
 			require.NoError(t, json.Unmarshal([]byte(body), &node))
 
-			want := &forge.CheckListing{}
+			want := &forge.StatusCheckListing{}
 			if tt.wantState != "" {
-				want.Checks = []forge.Check{{
+				want.StatusChecks = []forge.StatusCheck{{
 					ProviderID: "7",
-					Kind:       forge.CheckKindPipeline,
+					Kind:       forge.StatusCheckKindPipeline,
 					Name:       "pipeline",
 					State:      tt.wantState,
 					Conclusion: tt.wantConclusion,
@@ -116,5 +116,5 @@ func TestListing(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(`{
 	"headPipeline": null
 }`), &node))
-	assert.Equal(t, &forge.CheckListing{}, node.listing())
+	assert.Equal(t, &forge.StatusCheckListing{}, node.listing())
 }

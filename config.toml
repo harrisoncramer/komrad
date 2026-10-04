@@ -271,9 +271,9 @@ copy = ["y"]
 # Quit the panel.
 quit = ["ctrl+c"]
 
-# The checks screen, which lists the checks run on one agent's pull request.
-[keybindings.checks]
-# Leave the checks screen for the view it was opened from.
+# The status checks screen, which lists the status checks run on one agent's pull request.
+[keybindings.status_checks]
+# Leave the status checks screen for the view it was opened from.
 back = ["esc"]
 # Quit the panel.
 quit = ["ctrl+c"]
@@ -411,8 +411,8 @@ review         = ["r"]
 documents      = ["d"]
 # Open the agent's logs, the service log lines about it.
 logs           = ["l"]
-# Open the checks run on the agent's pull request.
-checks         = ["x"]
+# Open the status checks run on the agent's pull request.
+status_checks  = ["x"]
 # Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 # keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 # with no directory.

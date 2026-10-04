@@ -417,8 +417,8 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return nil, true
 	case documentsListedMsg:
 		return m.applyDocumentsListed(msg), true
-	case checksListedMsg:
-		return m.applyChecksListed(msg), true
+	case statusChecksListedMsg:
+		return m.applyStatusChecksListed(msg), true
 	case documentReadMsg:
 		m.applyDocumentRead(msg)
 

@@ -128,42 +128,42 @@ const (
 	ChecksFailingRunning Checks = "failing_running"
 )
 
-// CheckKind is what a forge reported a check as.
-type CheckKind string
+// StatusCheckKind is what a forge reported a check as.
+type StatusCheckKind string
 
 const (
-	// CheckKindRun is a check run an app or workflow reported.
-	CheckKindRun CheckKind = "check_run"
-	// CheckKindStatus is an old-style commit status.
-	CheckKindStatus CheckKind = "status"
-	// CheckKindPipeline is a GitLab pipeline, standing as the one required check on a merge request.
-	CheckKindPipeline CheckKind = "pipeline"
+	// StatusCheckKindRun is a check run an app or workflow reported.
+	StatusCheckKindRun StatusCheckKind = "check_run"
+	// StatusCheckKindStatus is an old-style commit status.
+	StatusCheckKindStatus StatusCheckKind = "status"
+	// StatusCheckKindPipeline is a GitLab pipeline, standing as the one required check on a merge request.
+	StatusCheckKindPipeline StatusCheckKind = "pipeline"
 )
 
-// CheckState is where one check stands, in komrad's own words.
-type CheckState string
+// StatusCheckState is where one check stands, in komrad's own words.
+type StatusCheckState string
 
 const (
-	// CheckStateQueued is a check waiting to start.
-	CheckStateQueued CheckState = "queued"
-	// CheckStateRunning is a check that has started and not completed.
-	CheckStateRunning CheckState = "running"
-	// CheckStateWaiting is a check that cannot start on its own, held for an approval or never reported.
-	CheckStateWaiting CheckState = "waiting"
-	// CheckStateCompleted is a check that has finished, with a conclusion.
-	CheckStateCompleted CheckState = "completed"
+	// StatusCheckStateQueued is a check waiting to start.
+	StatusCheckStateQueued StatusCheckState = "queued"
+	// StatusCheckStateRunning is a check that has started and not completed.
+	StatusCheckStateRunning StatusCheckState = "running"
+	// StatusCheckStateWaiting is a check that cannot start on its own, held for an approval or never reported.
+	StatusCheckStateWaiting StatusCheckState = "waiting"
+	// StatusCheckStateCompleted is a check that has finished, with a conclusion.
+	StatusCheckStateCompleted StatusCheckState = "completed"
 )
 
-// Check is one check a forge listed on a pull request's head commit.
-type Check struct {
+// StatusCheck is one check a forge listed on a pull request's head commit.
+type StatusCheck struct {
 	// ProviderID is the forge's own identifier for the check run, commit status or pipeline.
 	ProviderID string
-	Kind       CheckKind
+	Kind       StatusCheckKind
 	// Source is the workflow that ran the check, or the app when no workflow did, empty for a status.
 	Source string
 	// Name is the check's name, or a commit status's context.
 	Name  string
-	State CheckState
+	State StatusCheckState
 	// Conclusion is how a completed check ended, in the forge's own word lowercased.
 	Conclusion string
 	StartedAt  *time.Time
@@ -173,10 +173,10 @@ type Check struct {
 	URL      string
 }
 
-// CheckListing is the checks a forge listed on a pull request's head commit.
-type CheckListing struct {
-	// Checks is every check listed, empty when the forge answered blank.
-	Checks []Check
+// StatusCheckListing is the checks a forge listed on a pull request's head commit.
+type StatusCheckListing struct {
+	// StatusChecks is every check listed, empty when the forge answered blank.
+	StatusChecks []StatusCheck
 	// Truncated is whether the forge listed only the first page of a longer list of checks.
 	Truncated bool
 }
@@ -207,7 +207,7 @@ type MergeReadiness struct {
 	Mergeability Mergeability
 	AutoMerge    AutoMerge
 	// Listing is every check on the head commit, nil when the forge does not list them.
-	Listing *CheckListing
+	Listing *StatusCheckListing
 }
 
 // AutoMerge is whether a pull request will merge on its own once its checks and reviews pass,

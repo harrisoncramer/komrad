@@ -281,29 +281,29 @@ func withMergeReadiness(pullRequest forge.PullRequest, answered forge.MergeReadi
 	return pullRequest
 }
 
-// listedChecks is a listing of required checks that stands where word says, blank for none.
-func listedChecks(word forge.Checks) *forge.CheckListing {
-	failed := listedCheck("1", "test", forge.CheckStateCompleted, "failure")
+// listedStatusChecks is a listing of required status checks that stands where word says, blank for none.
+func listedStatusChecks(word forge.Checks) *forge.StatusCheckListing {
+	failed := listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure")
 	switch word {
 	case forge.ChecksPending:
-		return &forge.CheckListing{Checks: []forge.Check{listedCheck("1", "test", forge.CheckStateRunning, "")}}
+		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{listedStatusCheck("1", "test", forge.StatusCheckStateRunning, "")}}
 	case forge.ChecksPassing:
-		return &forge.CheckListing{Checks: []forge.Check{listedCheck("1", "test", forge.CheckStateCompleted, "success")}}
+		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "success")}}
 	case forge.ChecksFailing:
-		return &forge.CheckListing{Checks: []forge.Check{failed}}
+		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failed}}
 	case forge.ChecksFailingRunning:
-		return &forge.CheckListing{Checks: []forge.Check{failed, listedCheck("2", "lint", forge.CheckStateRunning, "")}}
+		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failed, listedStatusCheck("2", "lint", forge.StatusCheckStateRunning, "")}}
 	case forge.ChecksNone:
 	}
 
-	return &forge.CheckListing{}
+	return &forge.StatusCheckListing{}
 }
 
-// listedCheck is a required check run with a link to it.
-func listedCheck(providerID, name string, state forge.CheckState, conclusion string) forge.Check {
-	return forge.Check{
+// listedStatusCheck is a required status check run with a link to it.
+func listedStatusCheck(providerID, name string, state forge.StatusCheckState, conclusion string) forge.StatusCheck {
+	return forge.StatusCheck{
 		ProviderID: providerID,
-		Kind:       forge.CheckKindRun,
+		Kind:       forge.StatusCheckKindRun,
 		Name:       name,
 		State:      state,
 		Conclusion: conclusion,
@@ -394,12 +394,12 @@ func TestSyncReadsAQuietRepositoryOnceAMinute(t *testing.T) {
 func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 	pending := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedChecks(forge.ChecksPending),
+		Listing:      listedStatusChecks(forge.ChecksPending),
 		Mergeability: forge.MergeabilityClean,
 	}
 	blank := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedChecks(forge.ChecksNone),
+		Listing:      listedStatusChecks(forge.ChecksNone),
 		Mergeability: forge.MergeabilityUnknown,
 	}
 
@@ -515,7 +515,7 @@ func TestSyncStopsHurryingABlankThatStaysBlank(t *testing.T) {
 	f.agentOn(t, "a", "agent/x")
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedChecks(forge.ChecksNone),
+		Listing:      listedStatusChecks(forge.ChecksNone),
 		Mergeability: forge.MergeabilityUnknown,
 	}))
 	f.sync(t)
@@ -559,24 +559,24 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f.agentOn(t, "a", "agent/x")
 	merged := withMergeReadiness(pullRequestAt("PR_4", "agent/x", syncNow.Add(-4*time.Hour)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionChangesRequested,
-		Listing:      listedChecks(forge.ChecksFailing),
+		Listing:      listedStatusChecks(forge.ChecksFailing),
 		Mergeability: forge.MergeabilityClean,
 	})
 	merged.State = "MERGED"
 	f.hold(
 		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionPending,
-			Listing:      listedChecks(forge.ChecksPending),
+			Listing:      listedStatusChecks(forge.ChecksPending),
 			Mergeability: forge.MergeabilityClean,
 		}),
 		withMergeReadiness(pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionApproved,
-			Listing:      listedChecks(forge.ChecksPassing),
+			Listing:      listedStatusChecks(forge.ChecksPassing),
 			Mergeability: forge.MergeabilityClean,
 		}),
 		withMergeReadiness(pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionChangesRequested,
-			Listing:      listedChecks(forge.ChecksFailing),
+			Listing:      listedStatusChecks(forge.ChecksFailing),
 			Mergeability: forge.MergeabilityConflicting,
 		}),
 		merged,
@@ -598,7 +598,7 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 
 	failing := forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedChecks(forge.ChecksFailing),
+		Listing:      listedStatusChecks(forge.ChecksFailing),
 		Mergeability: forge.MergeabilityClean,
 	}
 	f.forge.pullRequests["harrisoncramer/komrad"][0] = withMergeReadiness(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
@@ -630,12 +630,12 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
-	failing := forge.Check{
+	failing := forge.StatusCheck{
 		ProviderID: "CR_1",
-		Kind:       forge.CheckKindRun,
+		Kind:       forge.StatusCheckKindRun,
 		Source:     "CI",
 		Name:       "test",
-		State:      forge.CheckStateCompleted,
+		State:      forge.StatusCheckStateCompleted,
 		Conclusion: "failure",
 		Required:   true,
 		URL:        "https://github.com/harrisoncramer/komrad/runs/1",
@@ -644,19 +644,19 @@ func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
 		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
 			Decision:     forge.ReviewDecisionPending,
 			Mergeability: forge.MergeabilityClean,
-			Listing:      &forge.CheckListing{Checks: []forge.Check{failing}},
+			Listing:      &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failing}},
 		}),
 		pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)),
 	)
 
 	f.sync(t)
 
-	checks := pullrequeststore.NewCheckStore(f.stores.Pool.GetDB())
+	checks := pullrequeststore.NewStatusCheckStore(f.stores.Pool.GetDB())
 	listed, err := checks.ListOfPullRequest(t.Context(), f.stored(t, "PR_1").ID)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, scriptedHeadSHA, listed[0].HeadSHA)
-	assert.Equal(t, []forge.Check{failing}, listed[0].Checks)
+	assert.Equal(t, []forge.StatusCheck{failing}, listed[0].StatusChecks)
 	unlisted, err := checks.ListOfPullRequest(t.Context(), f.stored(t, "PR_2").ID)
 	require.NoError(t, err)
 	assert.Empty(t, unlisted)

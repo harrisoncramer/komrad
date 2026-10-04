@@ -59,16 +59,16 @@ func (p *pipelineNode) isOn(sha string) bool {
 
 // listing is the head pipeline as the one required check on the merge request, none for a pipeline
 // on another commit or one that says nothing about the branch.
-func (n mergeRequestNode) listing() *forge.CheckListing {
-	listing := &forge.CheckListing{}
+func (n mergeRequestNode) listing() *forge.StatusCheckListing {
+	listing := &forge.StatusCheckListing{}
 	if !n.HeadPipeline.isOn(n.DiffHeadSha) {
 		return listing
 	}
 
 	pipeline := n.HeadPipeline
-	check := forge.Check{
+	check := forge.StatusCheck{
 		ProviderID: strings.TrimPrefix(pipeline.ID, "gid://gitlab/Ci::Pipeline/"),
-		Kind:       forge.CheckKindPipeline,
+		Kind:       forge.StatusCheckKindPipeline,
 		Name:       "pipeline",
 		StartedAt:  pipeline.StartedAt,
 		Required:   true,
@@ -76,17 +76,17 @@ func (n mergeRequestNode) listing() *forge.CheckListing {
 	}
 	switch pipeline.Status {
 	case pipelineSuccess, pipelineFailed, pipelineCanceled, pipelineCanceling:
-		check.State = forge.CheckStateCompleted
+		check.State = forge.StatusCheckStateCompleted
 		check.Conclusion = strings.ToLower(pipeline.Status)
 		check.FinishedAt = pipeline.FinishedAt
 	case pipelineRunning, pipelineWaitingForCallback:
-		check.State = forge.CheckStateRunning
+		check.State = forge.StatusCheckStateRunning
 	case pipelineCreated, pipelineWaitingForResource, pipelinePreparing, pipelinePending, pipelineScheduled:
-		check.State = forge.CheckStateQueued
+		check.State = forge.StatusCheckStateQueued
 	default:
 		return listing
 	}
-	listing.Checks = []forge.Check{check}
+	listing.StatusChecks = []forge.StatusCheck{check}
 
 	return listing
 }

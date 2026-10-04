@@ -472,8 +472,8 @@ func (p *Panel) ReadLegendKeys() []string {
 		legend = p.model.listHelpOf(p.model.documents.listParams(m))
 	case screenLogs:
 		legend = p.model.listHelp(p.model.logs.help(m))
-	case screenChecks:
-		legend = p.model.listHelp(p.model.checks.help(m))
+	case screenStatusChecks:
+		legend = p.model.listHelp(p.model.statusChecks.help(m))
 	}
 
 	var keys []string

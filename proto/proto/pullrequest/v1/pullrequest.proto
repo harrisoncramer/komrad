@@ -187,32 +187,32 @@ enum Checks {
   CHECKS_FAILING_RUNNING = 5;
 }
 
-message ListChecksRequest {
-  // The pull request whose checks to list, by the handle komrad keys it by.
+message ListStatusChecksRequest {
+  // The pull request whose status checks to list, by the handle komrad keys it by.
   string pull_request_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-message ListChecksResponse {
-  // The head commit the checks were read on, empty when they have never been read.
+message ListStatusChecksResponse {
+  // The head commit the status checks were read on, empty when they have never been read.
   string head_sha = 1;
   // When the forge was last asked about that head, in RFC 3339, unset when it never was.
   optional string read_at = 2;
-  // The checks on that head, by kind, source and name.
-  repeated Check checks = 3;
+  // The status checks on that head, by kind, source and name.
+  repeated StatusCheck status_checks = 3;
 }
 
-// Check is one check the forge listed on a pull request's head commit.
-message Check {
+// StatusCheck is one status check the forge listed on a pull request's head commit.
+message StatusCheck {
   // The forge's own stable identifier for the check.
   string provider_id = 1;
   // What sort of check the forge reported.
-  CheckKind kind = 2;
+  StatusCheckKind kind = 2;
   // The app or workflow that ran it.
   string source = 3;
   // The name the forge shows for it.
   string name = 4;
   // How far along it is.
-  CheckState state = 5;
+  StatusCheckState state = 5;
   // How it ended, as the forge words it, empty while it has not.
   string conclusion = 6;
   // When it started, in RFC 3339, unset when the forge did not say.
@@ -225,30 +225,30 @@ message Check {
   string url = 10;
 }
 
-// CheckKind is what sort of check a forge reported.
-enum CheckKind {
+// StatusCheckKind is what sort of status check a forge reported.
+enum StatusCheckKind {
   // The kind was not read.
-  CHECK_KIND_UNSPECIFIED = 0;
+  STATUS_CHECK_KIND_UNSPECIFIED = 0;
   // A run an app reported against the commit.
-  CHECK_KIND_CHECK_RUN = 1;
+  STATUS_CHECK_KIND_CHECK_RUN = 1;
   // A status a service set on the commit.
-  CHECK_KIND_STATUS = 2;
+  STATUS_CHECK_KIND_STATUS = 2;
   // A pipeline the forge ran for the commit.
-  CHECK_KIND_PIPELINE = 3;
+  STATUS_CHECK_KIND_PIPELINE = 3;
 }
 
-// CheckState is how far along a check is.
-enum CheckState {
+// StatusCheckState is how far along a status check is.
+enum StatusCheckState {
   // The state was not read.
-  CHECK_STATE_UNSPECIFIED = 0;
+  STATUS_CHECK_STATE_UNSPECIFIED = 0;
   // Waiting for a runner to pick it up.
-  CHECK_STATE_QUEUED = 1;
+  STATUS_CHECK_STATE_QUEUED = 1;
   // Running now.
-  CHECK_STATE_RUNNING = 2;
+  STATUS_CHECK_STATE_RUNNING = 2;
   // Held until something else lets it go on, such as an approval.
-  CHECK_STATE_WAITING = 3;
+  STATUS_CHECK_STATE_WAITING = 3;
   // Done, with its conclusion saying how it ended.
-  CHECK_STATE_COMPLETED = 4;
+  STATUS_CHECK_STATE_COMPLETED = 4;
 }
 
 // PullRequestService reads the pull requests komrad has stored from its forges.
@@ -266,12 +266,12 @@ service PullRequestService {
       ]
     };
   }
-  rpc ListChecks(ListChecksRequest) returns (ListChecksResponse) {
+  rpc ListStatusChecks(ListStatusChecksRequest) returns (ListStatusChecksResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "The check list is drawn for a person on the checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns."
+      reason: "The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns."
     };
   }
 }

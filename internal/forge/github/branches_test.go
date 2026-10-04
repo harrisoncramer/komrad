@@ -29,7 +29,7 @@ func TestReadBranches(t *testing.T) {
 				withMergeReadiness(closedFixturePull, passingMergeReadiness),
 			),
 		},
-		"ReadChecks": {
+		"ReadStatusChecks": {
 			header: map[string]string{"X-RateLimit-Remaining": "4321", "X-RateLimit-Limit": "5000", "X-RateLimit-Reset": "1789900000"},
 			body:   data(openPullChecks),
 		},
@@ -40,10 +40,10 @@ func TestReadBranches(t *testing.T) {
 
 	require.Len(t, fake.calls, 2)
 	checksSeen := fake.calls[1]
-	assert.Equal(t, "ReadChecks", checksSeen.Operation)
+	assert.Equal(t, "ReadStatusChecks", checksSeen.Operation)
 	assert.Equal(t, map[string]any{"p0": "PR_kwDOUgkrbM8AAAABEIdmHw"}, checksSeen.Variables, "only the open pull request is asked after")
-	assert.Contains(t, checksSeen.Query, "query ReadChecks($p0: ID!) {")
-	assert.Contains(t, checksSeen.Query, "p0: node(id: $p0) { ... on PullRequest { "+strings.ReplaceAll(checkListFields, "$pullRequest", "$p0")+" } }")
+	assert.Contains(t, checksSeen.Query, "query ReadStatusChecks($p0: ID!) {")
+	assert.Contains(t, checksSeen.Query, "p0: node(id: $p0) { ... on PullRequest { "+strings.ReplaceAll(statusCheckListFields, "$pullRequest", "$p0")+" } }")
 
 	seen := fake.calls[0]
 	assert.Equal(t, "ReadBranches", seen.Operation)
@@ -73,13 +73,13 @@ func TestReadBranches(t *testing.T) {
 		Decision:     forge.ReviewDecisionChangesRequested,
 		Mergeability: forge.MergeabilityUnstable,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
-		Listing: &forge.CheckListing{Checks: []forge.Check{
+		Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
 			{
 				ProviderID: "CR_1",
-				Kind:       forge.CheckKindRun,
+				Kind:       forge.StatusCheckKindRun,
 				Source:     "CI",
 				Name:       "test",
-				State:      forge.CheckStateCompleted,
+				State:      forge.StatusCheckStateCompleted,
 				Conclusion: "failure",
 				StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
 				FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 5, 0, 0, time.UTC)),
@@ -88,16 +88,16 @@ func TestReadBranches(t *testing.T) {
 			},
 			{
 				ProviderID: "CR_2",
-				Kind:       forge.CheckKindRun,
+				Kind:       forge.StatusCheckKindRun,
 				Source:     "Scanner",
 				Name:       "scan",
-				State:      forge.CheckStateQueued,
+				State:      forge.StatusCheckStateQueued,
 			},
 			{
 				ProviderID: "SC_1",
-				Kind:       forge.CheckKindStatus,
+				Kind:       forge.StatusCheckKindStatus,
 				Name:       "ci/legacy",
-				State:      forge.CheckStateCompleted,
+				State:      forge.StatusCheckStateCompleted,
 				Conclusion: "error",
 				FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 2, 0, 0, time.UTC)),
 				Required:   true,
@@ -119,7 +119,7 @@ func TestReadBranchesBatches(t *testing.T) {
 
 	f, _, fake := serve(t, map[string]answer{
 		"ReadBranches": {body: branchesRead(withMergeReadiness(openPull, failingMergeReadiness))},
-		"ReadChecks": {body: data(`{
+		"ReadStatusChecks": {body: data(`{
 	"p0": null
 }`)},
 	})
@@ -132,7 +132,7 @@ func TestReadBranchesBatches(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, fake.calls, 4, "each batch reads the checks of its own open pull requests")
-	assert.Equal(t, []string{"ReadBranches", "ReadChecks", "ReadBranches", "ReadChecks"}, xslice.Map(fake.calls, func(seen call) string { return seen.Operation }))
+	assert.Equal(t, []string{"ReadBranches", "ReadStatusChecks", "ReadBranches", "ReadStatusChecks"}, xslice.Map(fake.calls, func(seen call) string { return seen.Operation }))
 	assert.Len(t, fake.calls[0].Variables, branchesPerQuery+2)
 	assert.Equal(t, "branch-49", fake.calls[0].Variables["b49"])
 	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad-forge-fixture", "b0": "branch-50"}, fake.calls[2].Variables)

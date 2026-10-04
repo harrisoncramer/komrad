@@ -288,7 +288,7 @@ func startFakeGitHub(t *testing.T) *fakeForge {
 			maps.Copy(open, readStanding())
 			maps.Copy(merged, readStanding())
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"b0": buildConnection(open, merged)}}})
-		case "ReadChecks":
+		case "ReadStatusChecks":
 			contexts := map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{fake.readCheckRun()}}
 			commit := map[string]any{"oid": "aaa", "statusCheckRollup": map[string]any{"contexts": contexts}}
 			writeJSON(t, w, map[string]any{"data": map[string]any{"p0": map[string]any{"commits": map[string]any{"nodes": []any{map[string]any{"commit": commit}}}}}})

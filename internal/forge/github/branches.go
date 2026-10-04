@@ -72,7 +72,7 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 		}),
 		RateLimit: answer.RateLimit,
 	}
-	if err := f.readCheckListings(ctx, reading); err != nil {
+	if err := f.readStatusCheckListings(ctx, reading); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "github did not list the checks on the pull requests read, so they are read again next pass", logging.Err(err)...)
 	}
 

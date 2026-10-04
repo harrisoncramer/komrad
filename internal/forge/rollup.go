@@ -6,13 +6,13 @@ import "slices"
 var passingConclusions = []string{"success", "neutral", "skipped"}
 
 // RollupOf is where the checks on a head stand, counting only the required ones when any is.
-func RollupOf(checks []Check) Checks {
-	counted := DecidingChecks(checks)
+func RollupOf(checks []StatusCheck) Checks {
+	counted := DecidingStatusChecks(checks)
 
-	failing := slices.ContainsFunc(counted, Check.IsFailing)
-	unfinished := slices.ContainsFunc(counted, func(check Check) bool { return check.State != CheckStateCompleted })
+	failing := slices.ContainsFunc(counted, StatusCheck.IsFailing)
+	unfinished := slices.ContainsFunc(counted, func(check StatusCheck) bool { return check.State != StatusCheckStateCompleted })
 	switch {
-	case failing && slices.ContainsFunc(counted, Check.IsRunning):
+	case failing && slices.ContainsFunc(counted, StatusCheck.IsRunning):
 		return ChecksFailingRunning
 	case failing:
 		return ChecksFailing
@@ -25,21 +25,21 @@ func RollupOf(checks []Check) Checks {
 	return ChecksNone
 }
 
-// DecidingChecks is the checks that decide where a head stands, the required ones when any is and every one otherwise.
-func DecidingChecks(checks []Check) []Check {
-	if !slices.ContainsFunc(checks, func(check Check) bool { return check.Required }) {
+// DecidingStatusChecks is the checks that decide where a head stands, the required ones when any is and every one otherwise.
+func DecidingStatusChecks(checks []StatusCheck) []StatusCheck {
+	if !slices.ContainsFunc(checks, func(check StatusCheck) bool { return check.Required }) {
 		return slices.Clone(checks)
 	}
 
-	return slices.DeleteFunc(slices.Clone(checks), func(check Check) bool { return !check.Required })
+	return slices.DeleteFunc(slices.Clone(checks), func(check StatusCheck) bool { return !check.Required })
 }
 
 // IsFailing says whether a check finished without passing.
-func (c Check) IsFailing() bool {
-	return c.State == CheckStateCompleted && !slices.Contains(passingConclusions, c.Conclusion)
+func (c StatusCheck) IsFailing() bool {
+	return c.State == StatusCheckStateCompleted && !slices.Contains(passingConclusions, c.Conclusion)
 }
 
 // IsRunning says whether a check is queued or running.
-func (c Check) IsRunning() bool {
-	return c.State == CheckStateQueued || c.State == CheckStateRunning
+func (c StatusCheck) IsRunning() bool {
+	return c.State == StatusCheckStateQueued || c.State == StatusCheckStateRunning
 }

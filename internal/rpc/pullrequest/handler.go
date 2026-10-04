@@ -19,7 +19,7 @@ import (
 // pullRequestLister is what the handler reads of what the sync has stored.
 type pullRequestLister interface {
 	ListPullRequests(ctx context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error)
-	ListChecks(ctx context.Context, pullRequestID string) (*pullrequeststore.CheckReading, error)
+	ListStatusChecks(ctx context.Context, pullRequestID string) (*pullrequeststore.StatusCheckReading, error)
 }
 
 type NewHandlerParams struct {
@@ -84,15 +84,15 @@ func renderPullRequestPage(stored pullrequeststore.PullRequest) pullRequestPage 
 	}
 }
 
-// ListChecks is the checks read on a pull request's latest read head, empty when they never were.
-func (s *Handler) ListChecks(ctx context.Context, req *pullrequestv1.ListChecksRequest) (*pullrequestv1.ListChecksResponse, *fail.Error) {
-	reading, err := s.pullRequests.ListChecks(ctx, req.GetPullRequestId())
+// ListStatusChecks is the status checks read on a pull request's latest read head, empty when they never were.
+func (s *Handler) ListStatusChecks(ctx context.Context, req *pullrequestv1.ListStatusChecksRequest) (*pullrequestv1.ListStatusChecksResponse, *fail.Error) {
+	reading, err := s.pullRequests.ListStatusChecks(ctx, req.GetPullRequestId())
 	if errors.Is(err, store.ErrNotFound) {
-		return &pullrequestv1.ListChecksResponse{}, nil
+		return &pullrequestv1.ListStatusChecksResponse{}, nil
 	}
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the checks")
 	}
 
-	return render.CheckReading(reading), nil
+	return render.StatusCheckReading(reading), nil
 }

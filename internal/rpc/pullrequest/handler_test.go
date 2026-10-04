@@ -27,11 +27,11 @@ const komradRepository = "https://github.com/harrisoncramer/komrad"
 
 // fakePullRequestLister answers from its fields and records each page asked for.
 type fakePullRequestLister struct {
-	pullRequests []pullrequeststore.PullRequest
-	reading      *pullrequeststore.CheckReading
-	err          error
-	listed       []pullrequests.ListPullRequestsParams
-	checksOf     []string
+	pullRequests   []pullrequeststore.PullRequest
+	reading        *pullrequeststore.StatusCheckReading
+	err            error
+	listed         []pullrequests.ListPullRequestsParams
+	statusChecksOf []string
 }
 
 // ListPullRequests records the params and answers pullRequests unless err refuses it.
@@ -145,9 +145,9 @@ func TestListPullRequests(t *testing.T) {
 	assert.Equal(t, want, reader.listed)
 }
 
-// ListChecks records the pull request asked about and answers reading unless err refuses it.
-func (f *fakePullRequestLister) ListChecks(_ context.Context, pullRequestID string) (*pullrequeststore.CheckReading, error) {
-	f.checksOf = append(f.checksOf, pullRequestID)
+// ListStatusChecks records the pull request asked about and answers reading unless err refuses it.
+func (f *fakePullRequestLister) ListStatusChecks(_ context.Context, pullRequestID string) (*pullrequeststore.StatusCheckReading, error) {
+	f.statusChecksOf = append(f.statusChecksOf, pullRequestID)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -155,46 +155,46 @@ func (f *fakePullRequestLister) ListChecks(_ context.Context, pullRequestID stri
 	return f.reading, nil
 }
 
-// TestListChecks covers what reaches the caller for a pull request's checks.
-func TestListChecks(t *testing.T) {
+// TestListStatusChecks covers what reaches the caller for a pull request's checks.
+func TestListStatusChecks(t *testing.T) {
 	readAt := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name     string
-		reading  *pullrequeststore.CheckReading
+		reading  *pullrequeststore.StatusCheckReading
 		err      error
-		want     *pullrequestv1.ListChecksResponse
+		want     *pullrequestv1.ListStatusChecksResponse
 		wantCode connect.Code
 	}{
 		{
 			name: "checks never read answer empty",
 			err:  store.ErrNotFound,
-			want: &pullrequestv1.ListChecksResponse{},
+			want: &pullrequestv1.ListStatusChecksResponse{},
 		},
 		{
 			name: "a reading answers its head and checks",
-			reading: &pullrequeststore.CheckReading{
+			reading: &pullrequeststore.StatusCheckReading{
 				HeadSHA: "c1",
 				ReadAt:  readAt,
-				Checks: []forge.Check{{
+				StatusChecks: []forge.StatusCheck{{
 					ProviderID: "1",
-					Kind:       forge.CheckKindRun,
+					Kind:       forge.StatusCheckKindRun,
 					Source:     "CI",
 					Name:       "test",
-					State:      forge.CheckStateCompleted,
+					State:      forge.StatusCheckStateCompleted,
 					Conclusion: "failure",
 					Required:   true,
 					URL:        "https://github.com/harrisoncramer/komrad/runs/1",
 				}},
 			},
-			want: &pullrequestv1.ListChecksResponse{
+			want: &pullrequestv1.ListStatusChecksResponse{
 				HeadSha: "c1",
 				ReadAt:  xptr.Ptr("2026-10-03T12:00:00Z"),
-				Checks: []*pullrequestv1.Check{{
+				StatusChecks: []*pullrequestv1.StatusCheck{{
 					ProviderId: "1",
-					Kind:       pullrequestv1.CheckKind_CHECK_KIND_CHECK_RUN,
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Source:     "CI",
 					Name:       "test",
-					State:      pullrequestv1.CheckState_CHECK_STATE_COMPLETED,
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 					Conclusion: "failure",
 					Required:   true,
 					Url:        "https://github.com/harrisoncramer/komrad/runs/1",
@@ -213,8 +213,8 @@ func TestListChecks(t *testing.T) {
 			reader := &fakePullRequestLister{reading: tt.reading, err: tt.err}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
-			got, err := service.ListChecks(t.Context(), connect.NewRequest(&pullrequestv1.ListChecksRequest{PullRequestId: "PR_1"}))
-			assert.Equal(t, []string{"PR_1"}, reader.checksOf)
+			got, err := service.ListStatusChecks(t.Context(), connect.NewRequest(&pullrequestv1.ListStatusChecksRequest{PullRequestId: "PR_1"}))
+			assert.Equal(t, []string{"PR_1"}, reader.statusChecksOf)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))

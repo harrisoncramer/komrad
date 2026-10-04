@@ -10,36 +10,37 @@ import (
 	"time"
 )
 
-const deleteChecksExcept = `-- name: DeleteChecksExcept :exec
+const deleteStatusChecksExcept = `-- name: DeleteStatusChecksExcept :exec
 DELETE FROM pull_request_checks
 WHERE reading_id = $1
     AND NOT (provider_id = ANY ($2::text[]))
 `
 
-type DeleteChecksExceptParams struct {
+type DeleteStatusChecksExceptParams struct {
 	ReadingID string
 	Kept      []string
 }
 
-func (q *Queries) DeleteChecksExcept(ctx context.Context, arg DeleteChecksExceptParams) error {
-	_, err := q.db.Exec(ctx, deleteChecksExcept, arg.ReadingID, arg.Kept)
+func (q *Queries) DeleteStatusChecksExcept(ctx context.Context, arg DeleteStatusChecksExceptParams) error {
+	_, err := q.db.Exec(ctx, deleteStatusChecksExcept, arg.ReadingID, arg.Kept)
 	return err
 }
 
-const listCheckReadings = `-- name: ListCheckReadings :many
-SELECT
+const listLatestStatusCheckReadings = `-- name: ListLatestStatusCheckReadings :many
+SELECT DISTINCT ON (r.pull_request_id)
     id, pull_request_id, head_sha, blank, first_read_at, read_at, engine_id
 FROM
     pull_request_check_readings r
 WHERE
-    r.pull_request_id = $1
+    r.pull_request_id = ANY ($1::uuid[])
 ORDER BY
-    r.first_read_at,
-    r.id
+    r.pull_request_id,
+    r.read_at DESC,
+    r.id DESC
 `
 
-func (q *Queries) ListCheckReadings(ctx context.Context, pullRequestID string) ([]*PullRequestCheckReading, error) {
-	rows, err := q.db.Query(ctx, listCheckReadings, pullRequestID)
+func (q *Queries) ListLatestStatusCheckReadings(ctx context.Context, pullRequestIds []string) ([]*PullRequestCheckReading, error) {
+	rows, err := q.db.Query(ctx, listLatestStatusCheckReadings, pullRequestIds)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +67,47 @@ func (q *Queries) ListCheckReadings(ctx context.Context, pullRequestID string) (
 	return items, nil
 }
 
-const listChecksOfReadings = `-- name: ListChecksOfReadings :many
+const listStatusCheckReadings = `-- name: ListStatusCheckReadings :many
+SELECT
+    id, pull_request_id, head_sha, blank, first_read_at, read_at, engine_id
+FROM
+    pull_request_check_readings r
+WHERE
+    r.pull_request_id = $1
+ORDER BY
+    r.first_read_at,
+    r.id
+`
+
+func (q *Queries) ListStatusCheckReadings(ctx context.Context, pullRequestID string) ([]*PullRequestCheckReading, error) {
+	rows, err := q.db.Query(ctx, listStatusCheckReadings, pullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequestCheckReading
+	for rows.Next() {
+		var i PullRequestCheckReading
+		if err := rows.Scan(
+			&i.ID,
+			&i.PullRequestID,
+			&i.HeadSha,
+			&i.Blank,
+			&i.FirstReadAt,
+			&i.ReadAt,
+			&i.EngineID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStatusChecksOfReadings = `-- name: ListStatusChecksOfReadings :many
 SELECT
     id, reading_id, provider_id, kind, source, name, state, conclusion, started_at, finished_at, required, url, engine_id
 FROM
@@ -81,8 +122,8 @@ ORDER BY
     c.id
 `
 
-func (q *Queries) ListChecksOfReadings(ctx context.Context, readingIds []string) ([]*PullRequestCheck, error) {
-	rows, err := q.db.Query(ctx, listChecksOfReadings, readingIds)
+func (q *Queries) ListStatusChecksOfReadings(ctx context.Context, readingIds []string) ([]*PullRequestCheck, error) {
+	rows, err := q.db.Query(ctx, listStatusChecksOfReadings, readingIds)
 	if err != nil {
 		return nil, err
 	}
@@ -115,48 +156,7 @@ func (q *Queries) ListChecksOfReadings(ctx context.Context, readingIds []string)
 	return items, nil
 }
 
-const listLatestCheckReadings = `-- name: ListLatestCheckReadings :many
-SELECT DISTINCT ON (r.pull_request_id)
-    id, pull_request_id, head_sha, blank, first_read_at, read_at, engine_id
-FROM
-    pull_request_check_readings r
-WHERE
-    r.pull_request_id = ANY ($1::uuid[])
-ORDER BY
-    r.pull_request_id,
-    r.read_at DESC,
-    r.id DESC
-`
-
-func (q *Queries) ListLatestCheckReadings(ctx context.Context, pullRequestIds []string) ([]*PullRequestCheckReading, error) {
-	rows, err := q.db.Query(ctx, listLatestCheckReadings, pullRequestIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*PullRequestCheckReading
-	for rows.Next() {
-		var i PullRequestCheckReading
-		if err := rows.Scan(
-			&i.ID,
-			&i.PullRequestID,
-			&i.HeadSha,
-			&i.Blank,
-			&i.FirstReadAt,
-			&i.ReadAt,
-			&i.EngineID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const recordCheckReading = `-- name: RecordCheckReading :one
+const recordStatusCheckReading = `-- name: RecordStatusCheckReading :one
 INSERT INTO pull_request_check_readings(
     pull_request_id,
     head_sha,
@@ -180,15 +180,15 @@ ON CONFLICT (
         id
 `
 
-type RecordCheckReadingParams struct {
+type RecordStatusCheckReadingParams struct {
 	PullRequestID string
 	HeadSha       string
 	Blank         bool
 	ReadAt        time.Time
 }
 
-func (q *Queries) RecordCheckReading(ctx context.Context, arg RecordCheckReadingParams) (string, error) {
-	row := q.db.QueryRow(ctx, recordCheckReading,
+func (q *Queries) RecordStatusCheckReading(ctx context.Context, arg RecordStatusCheckReadingParams) (string, error) {
+	row := q.db.QueryRow(ctx, recordStatusCheckReading,
 		arg.PullRequestID,
 		arg.HeadSha,
 		arg.Blank,
@@ -199,7 +199,7 @@ func (q *Queries) RecordCheckReading(ctx context.Context, arg RecordCheckReading
 	return id, err
 }
 
-const upsertChecks = `-- name: UpsertChecks :exec
+const upsertStatusChecks = `-- name: UpsertStatusChecks :exec
 INSERT INTO pull_request_checks(
     reading_id,
     provider_id,
@@ -261,12 +261,12 @@ ON CONFLICT (engine_id,
         excluded.url)
 `
 
-type UpsertChecksParams struct {
+type UpsertStatusChecksParams struct {
 	ReadingID string
 	Checks    []byte
 }
 
-func (q *Queries) UpsertChecks(ctx context.Context, arg UpsertChecksParams) error {
-	_, err := q.db.Exec(ctx, upsertChecks, arg.ReadingID, arg.Checks)
+func (q *Queries) UpsertStatusChecks(ctx context.Context, arg UpsertStatusChecksParams) error {
+	_, err := q.db.Exec(ctx, upsertStatusChecks, arg.ReadingID, arg.Checks)
 	return err
 }

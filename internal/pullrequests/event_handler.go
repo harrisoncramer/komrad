@@ -106,9 +106,9 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 }
 
 // failingChecks is the checks that decide the head and failed, none while the head's checks are not shown.
-func failingChecks(pullRequest pullrequeststore.PullRequest) []forge.Check {
+func failingChecks(pullRequest pullrequeststore.PullRequest) []forge.StatusCheck {
 	if slices.Contains([]forge.Checks{forge.ChecksFailing, forge.ChecksFailingRunning}, pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA).Checks.Value) {
-		return slices.DeleteFunc(forge.DecidingChecks(pullRequest.HeadChecks), func(check forge.Check) bool { return !check.IsFailing() })
+		return slices.DeleteFunc(forge.DecidingStatusChecks(pullRequest.HeadStatusChecks), func(check forge.StatusCheck) bool { return !check.IsFailing() })
 	}
 
 	return nil

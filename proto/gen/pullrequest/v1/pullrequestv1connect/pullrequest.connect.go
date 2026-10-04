@@ -36,15 +36,15 @@ const (
 	// PullRequestServiceListPullRequestsProcedure is the fully-qualified name of the
 	// PullRequestService's ListPullRequests RPC.
 	PullRequestServiceListPullRequestsProcedure = "/pullrequest.v1.PullRequestService/ListPullRequests"
-	// PullRequestServiceListChecksProcedure is the fully-qualified name of the PullRequestService's
-	// ListChecks RPC.
-	PullRequestServiceListChecksProcedure = "/pullrequest.v1.PullRequestService/ListChecks"
+	// PullRequestServiceListStatusChecksProcedure is the fully-qualified name of the
+	// PullRequestService's ListStatusChecks RPC.
+	PullRequestServiceListStatusChecksProcedure = "/pullrequest.v1.PullRequestService/ListStatusChecks"
 )
 
 // PullRequestServiceClient is a client for the pullrequest.v1.PullRequestService service.
 type PullRequestServiceClient interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
-	ListChecks(context.Context, *connect.Request[v1.ListChecksRequest]) (*connect.Response[v1.ListChecksResponse], error)
+	ListStatusChecks(context.Context, *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error)
 }
 
 // NewPullRequestServiceClient constructs a client for the pullrequest.v1.PullRequestService
@@ -65,10 +65,10 @@ func NewPullRequestServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
-		listChecks: connect.NewClient[v1.ListChecksRequest, v1.ListChecksResponse](
+		listStatusChecks: connect.NewClient[v1.ListStatusChecksRequest, v1.ListStatusChecksResponse](
 			httpClient,
-			baseURL+PullRequestServiceListChecksProcedure,
-			connect.WithSchema(pullRequestServiceMethods.ByName("ListChecks")),
+			baseURL+PullRequestServiceListStatusChecksProcedure,
+			connect.WithSchema(pullRequestServiceMethods.ByName("ListStatusChecks")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -78,7 +78,7 @@ func NewPullRequestServiceClient(httpClient connect.HTTPClient, baseURL string, 
 // pullRequestServiceClient implements PullRequestServiceClient.
 type pullRequestServiceClient struct {
 	listPullRequests *connect.Client[v1.ListPullRequestsRequest, v1.ListPullRequestsResponse]
-	listChecks       *connect.Client[v1.ListChecksRequest, v1.ListChecksResponse]
+	listStatusChecks *connect.Client[v1.ListStatusChecksRequest, v1.ListStatusChecksResponse]
 }
 
 // ListPullRequests calls pullrequest.v1.PullRequestService.ListPullRequests.
@@ -86,15 +86,15 @@ func (c *pullRequestServiceClient) ListPullRequests(ctx context.Context, req *co
 	return c.listPullRequests.CallUnary(ctx, req)
 }
 
-// ListChecks calls pullrequest.v1.PullRequestService.ListChecks.
-func (c *pullRequestServiceClient) ListChecks(ctx context.Context, req *connect.Request[v1.ListChecksRequest]) (*connect.Response[v1.ListChecksResponse], error) {
-	return c.listChecks.CallUnary(ctx, req)
+// ListStatusChecks calls pullrequest.v1.PullRequestService.ListStatusChecks.
+func (c *pullRequestServiceClient) ListStatusChecks(ctx context.Context, req *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error) {
+	return c.listStatusChecks.CallUnary(ctx, req)
 }
 
 // PullRequestServiceHandler is an implementation of the pullrequest.v1.PullRequestService service.
 type PullRequestServiceHandler interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
-	ListChecks(context.Context, *connect.Request[v1.ListChecksRequest]) (*connect.Response[v1.ListChecksResponse], error)
+	ListStatusChecks(context.Context, *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error)
 }
 
 // NewPullRequestServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -111,10 +111,10 @@ func NewPullRequestServiceHandler(svc PullRequestServiceHandler, opts ...connect
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
-	pullRequestServiceListChecksHandler := connect.NewUnaryHandler(
-		PullRequestServiceListChecksProcedure,
-		svc.ListChecks,
-		connect.WithSchema(pullRequestServiceMethods.ByName("ListChecks")),
+	pullRequestServiceListStatusChecksHandler := connect.NewUnaryHandler(
+		PullRequestServiceListStatusChecksProcedure,
+		svc.ListStatusChecks,
+		connect.WithSchema(pullRequestServiceMethods.ByName("ListStatusChecks")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -122,8 +122,8 @@ func NewPullRequestServiceHandler(svc PullRequestServiceHandler, opts ...connect
 		switch r.URL.Path {
 		case PullRequestServiceListPullRequestsProcedure:
 			pullRequestServiceListPullRequestsHandler.ServeHTTP(w, r)
-		case PullRequestServiceListChecksProcedure:
-			pullRequestServiceListChecksHandler.ServeHTTP(w, r)
+		case PullRequestServiceListStatusChecksProcedure:
+			pullRequestServiceListStatusChecksHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -137,6 +137,6 @@ func (UnimplementedPullRequestServiceHandler) ListPullRequests(context.Context, 
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ListPullRequests is not implemented"))
 }
 
-func (UnimplementedPullRequestServiceHandler) ListChecks(context.Context, *connect.Request[v1.ListChecksRequest]) (*connect.Response[v1.ListChecksResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ListChecks is not implemented"))
+func (UnimplementedPullRequestServiceHandler) ListStatusChecks(context.Context, *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ListStatusChecks is not implemented"))
 }
