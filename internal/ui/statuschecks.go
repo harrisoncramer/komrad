@@ -54,7 +54,7 @@ type statusChecksScreen struct {
 	err               error
 	scope             statusCheckScope
 	scopeFocus        bool
-	back              int
+	runsBack          int
 }
 
 type statusCheckRow struct {
@@ -97,12 +97,13 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 }
 
 func (c *statusChecksScreen) rows(m *model) []statusCheckRow {
-	shown := c.shownRuns()
+	shown := xslice.KeyBy(c.runWindow().shown, func(run statusCheckRun) string { return run.id })
 
 	return narrowed(m.filter, narrowedParams[statusCheckRow]{
 		rows: xslice.Map(xslice.Filter(c.items, func(item statusCheckItem) bool {
-			return (item.run.id == "" || slices.ContainsFunc(shown, func(run statusCheckRun) bool { return run.id == item.run.id })) &&
-				c.scope.holds(item)
+			_, listed := shown[item.run.id]
+
+			return (item.run.id == "" || listed) && c.scope.holds(item)
 		}), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
 		}),
@@ -542,57 +543,48 @@ func compareStatusCheckRuns(a, b statusCheckRun) int {
 	return strings.Compare(a.id, b.id)
 }
 
-// runDepth is how many runs the workflow with the most runs has.
-func runDepth(bySource map[string][]statusCheckRun) int {
-	depth := 0
-	for _, runs := range bySource {
-		depth = max(depth, len(runs))
-	}
-
-	return depth
+// statusCheckRunWindow is the runs the screen lists: the run of each workflow that many runs before its newest, how
+// many runs back that is, and how many runs the workflow with the most runs has.
+type statusCheckRunWindow struct {
+	shown []statusCheckRun
+	back  int
+	depth int
 }
 
-// shownBack is how many runs before the newest the screen lists, held to the oldest run.
-func (c *statusChecksScreen) shownBack(depth int) int {
-	return min(c.back, max(depth-1, 0))
-}
-
-// shownRuns is the run of each workflow the screen lists, newest last, leaving out a workflow with no run that far
-// back.
-func (c *statusChecksScreen) shownRuns() []statusCheckRun {
+// runWindow is the runs the screen lists, newest last, leaving out a workflow with no run that far back and holding
+// the screen to the oldest run.
+func (c *statusChecksScreen) runWindow() statusCheckRunWindow {
 	bySource := c.runsBySource()
-	back := c.shownBack(runDepth(bySource))
 
-	var out []statusCheckRun
+	var window statusCheckRunWindow
 	for _, runs := range bySource {
-		if back < len(runs) {
-			out = append(out, runs[len(runs)-1-back])
+		window.depth = max(window.depth, len(runs))
+	}
+	window.back = min(c.runsBack, max(window.depth-1, 0))
+
+	for _, runs := range bySource {
+		if window.back < len(runs) {
+			window.shown = append(window.shown, runs[len(runs)-1-window.back])
 		}
 	}
-	slices.SortStableFunc(out, compareStatusCheckRuns)
+	slices.SortStableFunc(window.shown, compareStatusCheckRuns)
 
-	return out
+	return window
 }
 
 // stepRun moves the listing to older or newer runs, keeping the cursor on the check of the same name when the runs
 // list one.
 func (c *statusChecksScreen) stepRun(m *model, delta int) tea.Cmd {
-	depth := runDepth(c.runsBySource())
-	at := c.shownBack(depth)
-	to := min(max(at-delta, 0), max(depth-1, 0))
-	if to == at {
+	window := c.runWindow()
+	to := min(max(window.back-delta, 0), max(window.depth-1, 0))
+	if to == window.back {
 		return nil
 	}
 
+	hovered := c.list().hoveredName(m)
+	c.runsBack = to
 	rows := c.rows(m)
-	var hovered string
-	if c.cursor >= 0 && c.cursor < len(rows) {
-		hovered = rows[c.cursor].item.name
-	}
-
-	c.back = to
 	var key string
-	rows = c.rows(m)
 	if i := slices.IndexFunc(rows, func(row statusCheckRow) bool { return row.item.name == hovered }); i >= 0 {
 		key = rows[i].key()
 	}
@@ -604,14 +596,13 @@ func (c *statusChecksScreen) stepRun(m *model, delta int) tea.Cmd {
 // runTally is which runs the screen lists, what started the newest of them and how long ago, empty when no check ran
 // in one.
 func (c *statusChecksScreen) runTally() string {
-	depth := runDepth(c.runsBySource())
-	shown := c.shownRuns()
-	if len(shown) == 0 {
+	window := c.runWindow()
+	if len(window.shown) == 0 {
 		return ""
 	}
 
-	run := shown[len(shown)-1]
-	parts := []string{"run " + label.OfCount(depth-c.shownBack(depth), depth)}
+	run := window.shown[len(window.shown)-1]
+	parts := []string{"run " + label.OfCount(window.depth-window.back, window.depth)}
 	if run.event != "" {
 		parts = append(parts, run.event)
 	}
