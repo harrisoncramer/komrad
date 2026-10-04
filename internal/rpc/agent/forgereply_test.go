@@ -199,17 +199,16 @@ func TestForgeReplyDrawsWhatTheServiceHeld(t *testing.T) {
 	require.NoError(t, err)
 
 	want := &agentv1.ForgeReply{
-		Id:             "reply-1",
-		ThreadId:       "thread-1",
-		State:          agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
-		AuthorKind:     agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
-		AuthorAgentId:  xptr.Ptr(alphaID),
-		ProposedBody:   xptr.Ptr("added the guard"),
-		Body:           "added the guard, thanks",
-		ApprovedAt:     dates.Stamp(reviewedAt),
-		SentAt:         dates.Stamp(reviewedAt),
-		ForgeCommentId: xptr.Ptr("PRRC_posted"),
-		CreatedAt:      dates.Stamp(reviewedAt),
+		Id:            "reply-1",
+		ThreadId:      "thread-1",
+		State:         agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+		AuthorAgentId: xptr.Ptr(alphaID),
+		ProposedBody:  xptr.Ptr("added the guard"),
+		Body:          "added the guard, thanks",
+		ApprovedAt:    dates.Stamp(reviewedAt),
+		SentAt:        dates.Stamp(reviewedAt),
+		CreatedAt:     dates.Stamp(reviewedAt),
 	}
 	assert.Empty(t, cmp.Diff(want, got.Msg.GetReply(), protocmp.Transform()))
 }

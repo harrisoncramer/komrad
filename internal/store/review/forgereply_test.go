@@ -15,9 +15,10 @@ import (
 
 // replyThreads is an agent with one thread mirrored from the forge and one opened in komrad.
 type replyThreads struct {
-	agentID  string
-	mirrored string
-	local    string
+	agentID       string
+	pullRequestID string
+	mirrored      string
+	local         string
 }
 
 func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
@@ -71,9 +72,10 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 	require.NoError(t, err)
 
 	return replyThreads{
-		agentID:  agentID,
-		mirrored: mirrored.ID,
-		local:    local.ID,
+		agentID:       agentID,
+		pullRequestID: pullRequestID,
+		mirrored:      mirrored.ID,
+		local:         local.ID,
 	}
 }
 
@@ -535,6 +537,56 @@ func TestListForgeReplies(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stuck, 1)
 	assert.Equal(t, sending.ID, stuck[0].ID)
+
+	t.Run("a sent reply carries the comment it came back as", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			providerID string
+			synced     bool
+		}{
+			{name: "github", providerID: "PRRC_kwDOUgkrbM75GfCu", synced: true},
+			{name: "gitlab", providerID: "gid://gitlab/DiffNote/7", synced: true},
+			{name: "not yet synced", providerID: "PRRC_unsynced"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				st := openFixture(t)
+				ctx := t.Context()
+				threads := st.seedReplyThreads(t)
+
+				reply := st.proposeIn(t, threads, ForgeReplySending)
+				_, err := st.MarkForgeReplySent(ctx, reply.ID, tt.providerID)
+				require.NoError(t, err)
+
+				forgeThreads := pullrequeststore.NewForgeThreadStore(st.pool)
+				thread := forge.ReviewThread{ProviderID: "PRRT_1", Path: "internal/thing.go", Line: 41, CommitSHA: "abc123"}
+				if tt.synced {
+					thread.Comments = []forge.ReviewComment{{ProviderID: tt.providerID, Login: "harrisoncramer", Body: "proposed"}}
+				}
+				require.NoError(t, forgeThreads.SetThreads(ctx, pullrequeststore.SetThreadsParams{
+					PullRequestID: threads.pullRequestID,
+					Viewer:        "harrisoncramer",
+					Threads:       []forge.ReviewThread{thread},
+				}))
+
+				listed, err := st.ListForgeReplies(ctx, []string{threads.mirrored})
+				require.NoError(t, err)
+				require.Len(t, listed, 1)
+				if !tt.synced {
+					assert.Nil(t, listed[0].MirroredCommentID)
+
+					return
+				}
+
+				stored, err := forgeThreads.ListOfPullRequest(ctx, threads.pullRequestID)
+				require.NoError(t, err)
+				require.Len(t, stored, 1)
+				require.Len(t, stored[0].Comments, 1)
+				require.NotNil(t, listed[0].MirroredCommentID)
+				assert.Equal(t, stored[0].Comments[0].ID, *listed[0].MirroredCommentID)
+			})
+		}
+	})
 }
 
 // TestForgeReplyChecks covers the rows the schema refuses however they are written.

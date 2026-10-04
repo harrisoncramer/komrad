@@ -2827,7 +2827,7 @@ type ForgeReply struct {
 	SendingStartedAt string `protobuf:"bytes,9,opt,name=sending_started_at,json=sendingStartedAt,proto3" json:"sending_started_at,omitempty"`
 	// When the forge accepted it, empty until then.
 	SentAt string `protobuf:"bytes,10,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
-	// The comment it became on the forge, absent until it is sent.
+	// The mirrored message it came back as from the forge, absent until a sync copies it.
 	ForgeCommentId *string `protobuf:"bytes,11,opt,name=forge_comment_id,json=forgeCommentId,proto3,oneof" json:"forge_comment_id,omitempty"`
 	// What the forge said when it last refused it, absent unless it failed.
 	Error *string `protobuf:"bytes,12,opt,name=error,proto3,oneof" json:"error,omitempty"`

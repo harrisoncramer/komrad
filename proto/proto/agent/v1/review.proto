@@ -523,7 +523,7 @@ message ForgeReply {
   string sending_started_at = 9;
   // When the forge accepted it, empty until then.
   string sent_at = 10;
-  // The comment it became on the forge, absent until it is sent.
+  // The mirrored message it came back as from the forge, absent until a sync copies it.
   optional string forge_comment_id = 11;
   // What the forge said when it last refused it, absent unless it failed.
   optional string error = 12;

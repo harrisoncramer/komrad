@@ -236,42 +236,52 @@ func (q *Queries) InsertHumanForgeReply(ctx context.Context, arg InsertHumanForg
 
 const listForgeReplies = `-- name: ListForgeReplies :many
 SELECT
-    id, thread_id, state, author_kind, author_agent_id, proposed_body, body, approver_kind, approved_at, sending_started_at, sent_at, forge_comment_provider_id, error, created_at, updated_at, engine_id
+    r.id, r.thread_id, r.state, r.author_kind, r.author_agent_id, r.proposed_body, r.body, r.approver_kind, r.approved_at, r.sending_started_at, r.sent_at, r.forge_comment_provider_id, r.error, r.created_at, r.updated_at, r.engine_id,
+    c.id AS mirrored_comment_id
 FROM
-    review_forge_replies
+    review_forge_replies r
+    JOIN review_threads t ON t.id = r.thread_id
+    LEFT JOIN forge_review_comments c ON c.thread_id = t.forge_thread_id
+        AND c.provider_id = r.forge_comment_provider_id
 WHERE
-    thread_id = ANY ($1::uuid[])
+    r.thread_id = ANY ($1::uuid[])
 ORDER BY
-    thread_id,
-    id
+    r.thread_id,
+    r.id
 `
 
-func (q *Queries) ListForgeReplies(ctx context.Context, threadIds []string) ([]*ReviewForgeReply, error) {
+type ListForgeRepliesRow struct {
+	ReviewForgeReply  ReviewForgeReply
+	MirroredCommentID *string
+}
+
+func (q *Queries) ListForgeReplies(ctx context.Context, threadIds []string) ([]*ListForgeRepliesRow, error) {
 	rows, err := q.db.Query(ctx, listForgeReplies, threadIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ReviewForgeReply
+	var items []*ListForgeRepliesRow
 	for rows.Next() {
-		var i ReviewForgeReply
+		var i ListForgeRepliesRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.ThreadID,
-			&i.State,
-			&i.AuthorKind,
-			&i.AuthorAgentID,
-			&i.ProposedBody,
-			&i.Body,
-			&i.ApproverKind,
-			&i.ApprovedAt,
-			&i.SendingStartedAt,
-			&i.SentAt,
-			&i.ForgeCommentProviderID,
-			&i.Error,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.EngineID,
+			&i.ReviewForgeReply.ID,
+			&i.ReviewForgeReply.ThreadID,
+			&i.ReviewForgeReply.State,
+			&i.ReviewForgeReply.AuthorKind,
+			&i.ReviewForgeReply.AuthorAgentID,
+			&i.ReviewForgeReply.ProposedBody,
+			&i.ReviewForgeReply.Body,
+			&i.ReviewForgeReply.ApproverKind,
+			&i.ReviewForgeReply.ApprovedAt,
+			&i.ReviewForgeReply.SendingStartedAt,
+			&i.ReviewForgeReply.SentAt,
+			&i.ReviewForgeReply.ForgeCommentProviderID,
+			&i.ReviewForgeReply.Error,
+			&i.ReviewForgeReply.CreatedAt,
+			&i.ReviewForgeReply.UpdatedAt,
+			&i.ReviewForgeReply.EngineID,
+			&i.MirroredCommentID,
 		); err != nil {
 			return nil, err
 		}

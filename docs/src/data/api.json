@@ -3139,7 +3139,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The comment it became on the forge, absent until it is sent."
+          "description": "The mirrored message it came back as from the forge, absent until a sync copies it."
         },
         {
           "name": "error",
