@@ -95,6 +95,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Holder:        svc.agents.holder,
 		Deleter:       svc.agents.delete,
 		Review:        svc.review,
+		ForgeReplies:  svc.pullRequests.forgeReply,
 		Documents:     svc.documents,
 		DocumentTypes: svc.documents,
 		Rebaser:       svc.checkouts.service,

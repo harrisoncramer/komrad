@@ -1161,6 +1161,55 @@ service AgentService {
       reason: "What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read."
     };
   }
+  rpc ProposeForgeReply(ProposeForgeReplyRequest) returns (ProposeForgeReplyResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "propose_forge_reply"
+      description: "Draft a reply on a review thread mirrored from your pull request on the forge. The person approves, edits or discards it before anything is posted, and komrad mails you what they did. Draft one only when the person asks for it."
+      destructive: false
+      idempotent: false
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_ORCHESTRATOR
+      ]
+    };
+  }
+  rpc ReplyOnForge(ReplyOnForgeRequest) returns (ReplyOnForgeResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Komrad posts on the forge as the person, so only the person writes a reply that goes there unseen."
+    };
+  }
+  rpc ApproveForgeReply(ApproveForgeReplyRequest) returns (ApproveForgeReplyResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Komrad posts on the forge as the person, so letting an agent's draft go out under their name is their call alone."
+    };
+  }
+  rpc RetryForgeReply(RetryForgeReplyRequest) returns (RetryForgeReplyResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Posting again after the forge refused a reply is the person's call, made in the panel where they read why it was refused."
+    };
+  }
+  rpc DiscardForgeReply(DiscardForgeReplyRequest) returns (google.protobuf.Empty) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Only the person decides a reply will not go to the forge, and komrad tells the agent when they do."
+    };
+  }
+  rpc RequestForgeReply(RequestForgeReplyRequest) returns (google.protobuf.Empty) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "An agent drafts a forge reply only when the person asks it to, from the thread they are reading in the panel."
+    };
+  }
   rpc PlanRebase(PlanRebaseRequest) returns (PlanRebaseResponse) {
     option (annotation.v1.surfaces) = {
       cli: true

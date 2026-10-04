@@ -955,7 +955,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		BaseSHA: baseSnapshot,
 		Files:   map[string][]string{},
 	}
-	events := eventstest.NewQueue(t, stores, NewReleasedHandler(), NewAnsweredHandler())
+	events := eventstest.NewQueue(t, stores, NewReleasedHandler(), NewAnsweredHandler(), NewForgeReplyRequestedHandler(), NewForgeReplyDecidedHandler())
 	interrupter := &recordingInterrupter{}
 
 	worker := stores.SeedAgent(t, agentstore.Agent{

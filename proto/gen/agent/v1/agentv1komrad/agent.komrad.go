@@ -59,6 +59,12 @@ type AgentServiceImpl interface {
 	AddReviewMessage(context.Context, *v1.AddReviewMessageRequest) (*v1.AddReviewMessageResponse, *fail.Error)
 	AcceptForgeMessage(context.Context, *v1.AcceptForgeMessageRequest) (*v1.AcceptForgeMessageResponse, *fail.Error)
 	EditReviewMessage(context.Context, *v1.EditReviewMessageRequest) (*v1.EditReviewMessageResponse, *fail.Error)
+	ProposeForgeReply(context.Context, *v1.ProposeForgeReplyRequest) (*v1.ProposeForgeReplyResponse, *fail.Error)
+	ReplyOnForge(context.Context, *v1.ReplyOnForgeRequest) (*v1.ReplyOnForgeResponse, *fail.Error)
+	ApproveForgeReply(context.Context, *v1.ApproveForgeReplyRequest) (*v1.ApproveForgeReplyResponse, *fail.Error)
+	RetryForgeReply(context.Context, *v1.RetryForgeReplyRequest) (*v1.RetryForgeReplyResponse, *fail.Error)
+	DiscardForgeReply(context.Context, *v1.DiscardForgeReplyRequest) (*emptypb.Empty, *fail.Error)
+	RequestForgeReply(context.Context, *v1.RequestForgeReplyRequest) (*emptypb.Empty, *fail.Error)
 	PlanRebase(context.Context, *v1.PlanRebaseRequest) (*v1.PlanRebaseResponse, *fail.Error)
 	RebaseWorktree(context.Context, *v1.RebaseWorktreeRequest) (*v1.RebaseWorktreeResponse, *fail.Error)
 	PlanPush(context.Context, *v1.PlanPushRequest) (*v1.PlanPushResponse, *fail.Error)
@@ -285,6 +291,36 @@ func (a AgentServiceAdapter) AcceptForgeMessage(ctx context.Context, req *connec
 // EditReviewMessage answers the request as connect serves it.
 func (a AgentServiceAdapter) EditReviewMessage(ctx context.Context, req *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error) {
 	return rpcerr.Answer(a.Impl.EditReviewMessage(ctx, req.Msg))
+}
+
+// ProposeForgeReply answers the request as connect serves it.
+func (a AgentServiceAdapter) ProposeForgeReply(ctx context.Context, req *connect.Request[v1.ProposeForgeReplyRequest]) (*connect.Response[v1.ProposeForgeReplyResponse], error) {
+	return rpcerr.Answer(a.Impl.ProposeForgeReply(ctx, req.Msg))
+}
+
+// ReplyOnForge answers the request as connect serves it.
+func (a AgentServiceAdapter) ReplyOnForge(ctx context.Context, req *connect.Request[v1.ReplyOnForgeRequest]) (*connect.Response[v1.ReplyOnForgeResponse], error) {
+	return rpcerr.Answer(a.Impl.ReplyOnForge(ctx, req.Msg))
+}
+
+// ApproveForgeReply answers the request as connect serves it.
+func (a AgentServiceAdapter) ApproveForgeReply(ctx context.Context, req *connect.Request[v1.ApproveForgeReplyRequest]) (*connect.Response[v1.ApproveForgeReplyResponse], error) {
+	return rpcerr.Answer(a.Impl.ApproveForgeReply(ctx, req.Msg))
+}
+
+// RetryForgeReply answers the request as connect serves it.
+func (a AgentServiceAdapter) RetryForgeReply(ctx context.Context, req *connect.Request[v1.RetryForgeReplyRequest]) (*connect.Response[v1.RetryForgeReplyResponse], error) {
+	return rpcerr.Answer(a.Impl.RetryForgeReply(ctx, req.Msg))
+}
+
+// DiscardForgeReply answers the request as connect serves it.
+func (a AgentServiceAdapter) DiscardForgeReply(ctx context.Context, req *connect.Request[v1.DiscardForgeReplyRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.DiscardForgeReply(ctx, req.Msg))
+}
+
+// RequestForgeReply answers the request as connect serves it.
+func (a AgentServiceAdapter) RequestForgeReply(ctx context.Context, req *connect.Request[v1.RequestForgeReplyRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.RequestForgeReply(ctx, req.Msg))
 }
 
 // PlanRebase answers the request as connect serves it.

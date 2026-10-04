@@ -29,6 +29,8 @@ const (
 	ReviewCommentedByPerson         = "review.commented_by_person"
 	ReviewForgeCommented            = "review.forge_commented"
 	ReviewAnswered                  = "review.answered"
+	ReviewForgeReplyRequested       = "review.forge_reply_requested"
+	ReviewForgeReplyDecided         = "review.forge_reply_decided"
 )
 
 // Event is one event as the panel offers it.
@@ -129,6 +131,14 @@ func All() []Event {
 		{
 			Name: ReviewAnswered, Title: "Review answered", Description: "the agent under review answered in a thread, read by its reviewer",
 			DefaultPrompt: "Read the new round against your comment. Resolve the thread if it is answered, and say what is still missing if it is not.",
+		},
+		{
+			Name: ReviewForgeReplyRequested, Title: "Forge reply requested", Description: "the person asked the agent to draft a reply on a thread from the forge",
+			DefaultPrompt: "Draft one short reply with propose_forge_reply. The person reads it before it goes out under their name, so write as they would. Never post to the forge yourself.",
+		},
+		{
+			Name: ReviewForgeReplyDecided, Title: "Forge reply decided", Description: "the person sent, edited or discarded the agent's draft forge reply",
+			DefaultPrompt: "Note what the person changed or why they dropped it, and match their voice in later drafts. Draft again only when asked.",
 		},
 	}
 }

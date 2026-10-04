@@ -3,6 +3,7 @@ package reviews
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"komrad/internal/eventprompts"
 	"komrad/internal/events"
@@ -17,8 +18,10 @@ import (
 )
 
 const (
-	releasedTopic = "review_released"
-	answeredTopic = "review_answered"
+	releasedTopic            = "review_released"
+	answeredTopic            = "review_answered"
+	forgeReplyRequestedTopic = "review_forge_reply_requested"
+	forgeReplyDecidedTopic   = "review_forge_reply_decided"
 )
 
 // Released is a review released on an agent's work.
@@ -122,4 +125,101 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 	}
 
 	return []river.JobArgs{internaljobs.WakeAgentArgs{AgentID: reading.ReviewerID}}, nil
+}
+
+// forgeReplyRequested is the person asking an agent to draft a reply on a mirrored thread.
+type forgeReplyRequested struct {
+	AgentID  string `json:"agent_id"`
+	ThreadID string `json:"thread_id"`
+}
+
+// Topic names the handler that asks the agent for the draft.
+func (forgeReplyRequested) Topic() string {
+	return forgeReplyRequestedTopic
+}
+
+// NewForgeReplyRequestedHandler builds the handler the router is given for requested forge replies.
+func NewForgeReplyRequestedHandler() events.HandlerFor[forgeReplyRequested] {
+	return handleForgeReplyRequested
+}
+
+// handleForgeReplyRequested asks the agent for a draft and asks for it to be woken.
+func handleForgeReplyRequested(ctx context.Context, _ store.DBTX, mailer *mail.MailService, requested forgeReplyRequested) ([]river.JobArgs, error) {
+	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
+		ToAgentID: requested.AgentID,
+		Kind:      mailstore.KindReviewActivity,
+		SubjectID: requested.ThreadID,
+		Body:      forgeReplyRequestMail(requested.ThreadID),
+		Events:    []string{eventprompts.ReviewForgeReplyRequested},
+	})
+	if err != nil || sent == nil {
+		return nil, err
+	}
+
+	return []river.JobArgs{internaljobs.WakeAgentArgs{AgentID: requested.AgentID}}, nil
+}
+
+// forgeReplyRequestMail is the mail asking an agent to draft a forge reply.
+func forgeReplyRequestMail(threadID string) string {
+	return fmt.Sprintf("komrad: the person asks you to draft a reply on review thread %s, which mirrors a thread "+
+		"on your pull request. Read it with list_review_threads and propose the reply with propose_forge_reply.", threadID)
+}
+
+// forgeReplyOutcome is what the person did with an agent's draft forge reply.
+type forgeReplyOutcome string
+
+const (
+	// forgeReplySentAsWritten is a draft posted with the agent's words.
+	forgeReplySentAsWritten forgeReplyOutcome = "sent"
+	// forgeReplySentEdited is a draft posted after the person changed its words.
+	forgeReplySentEdited forgeReplyOutcome = "edited"
+	// forgeReplyDiscarded is a draft the person dropped without posting.
+	forgeReplyDiscarded forgeReplyOutcome = "discarded"
+)
+
+// forgeReplyDecided is the person settling an agent's draft forge reply.
+type forgeReplyDecided struct {
+	AgentID  string            `json:"agent_id"`
+	ThreadID string            `json:"thread_id"`
+	ReplyID  string            `json:"reply_id"`
+	Outcome  forgeReplyOutcome `json:"outcome"`
+	Body     string            `json:"body"`
+}
+
+// Topic names the handler that tells the agent what became of its draft.
+func (forgeReplyDecided) Topic() string {
+	return forgeReplyDecidedTopic
+}
+
+// NewForgeReplyDecidedHandler builds the handler the router is given for settled forge replies.
+func NewForgeReplyDecidedHandler() events.HandlerFor[forgeReplyDecided] {
+	return handleForgeReplyDecided
+}
+
+// handleForgeReplyDecided tells the agent what the person did with its draft.
+func handleForgeReplyDecided(ctx context.Context, _ store.DBTX, mailer *mail.MailService, decided forgeReplyDecided) ([]river.JobArgs, error) {
+	_, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
+		ToAgentID: decided.AgentID,
+		Kind:      mailstore.KindReviewActivity,
+		SubjectID: decided.ReplyID,
+		Body:      decided.mail(),
+		Events:    []string{eventprompts.ReviewForgeReplyDecided},
+	})
+
+	return nil, err
+}
+
+// mail is the mail telling the agent what became of its draft.
+func (d forgeReplyDecided) mail() string {
+	switch d.Outcome {
+	case forgeReplySentAsWritten:
+		return fmt.Sprintf("komrad: the person posted your draft reply on review thread %s to the forge as you wrote it.", d.ThreadID)
+	case forgeReplySentEdited:
+		return fmt.Sprintf("komrad: the person edited your draft reply on review thread %s and posted it to the forge. "+
+			"What went out:\n\n%s", d.ThreadID, d.Body)
+	case forgeReplyDiscarded:
+		return fmt.Sprintf("komrad: the person discarded your draft reply on review thread %s. Nothing was posted to the forge.", d.ThreadID)
+	default:
+		return ""
+	}
 }

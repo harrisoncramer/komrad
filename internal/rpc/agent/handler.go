@@ -93,6 +93,7 @@ type NewHandlerParams struct {
 	Holder        agentHolder
 	Deleter       agentDeleter
 	Review        reviewConversation
+	ForgeReplies  forgeReplier
 	Documents     documentReadWriter
 	DocumentTypes documentTypeKeeper
 	Rebaser       worktreeRebaser
@@ -117,6 +118,7 @@ type Handler struct {
 	holder        agentHolder
 	deleter       agentDeleter
 	review        reviewConversation
+	forgeReplies  forgeReplier
 	documents     documentReadWriter
 	documentTypes documentTypeKeeper
 	rebaser       worktreeRebaser
@@ -149,6 +151,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		holder:        params.Holder,
 		deleter:       params.Deleter,
 		review:        params.Review,
+		forgeReplies:  params.ForgeReplies,
 		documents:     params.Documents,
 		documentTypes: params.DocumentTypes,
 		rebaser:       params.Rebaser,
