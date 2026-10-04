@@ -20,6 +20,9 @@ import (
 // unreachableHostWait is how long a read of a superseded head's checks waits on a host it cannot reach.
 const unreachableHostWait = 5 * time.Minute
 
+// minimumSnooze is the shortest a step snoozes, since the job ends a step that snoozes for no time.
+const minimumSnooze = time.Second
+
 // RecoverOldChecks reads the checks on a head the pull request no longer points at, reading them again a step later
 // while any is in flight and marking those still in flight unknown once the steps run out.
 func (s *PullRequestSyncer) RecoverOldChecks(ctx context.Context, args internaljobs.RecoverOldChecksArgs) (internaljobs.RecoverOutcome, error) {
@@ -48,7 +51,7 @@ func (s *PullRequestSyncer) RecoverOldChecks(ctx context.Context, args internalj
 	reached := s.hosts.reach(ctx, remote.Host)
 	switch {
 	case !reached.throttledUntil.IsZero():
-		return internaljobs.RecoverOutcome{Snooze: reached.throttledUntil.Sub(s.now())}, nil
+		return internaljobs.RecoverOutcome{Snooze: s.snoozeUntil(reached.throttledUntil)}, nil
 	case reached.host == nil:
 		return internaljobs.RecoverOutcome{Snooze: unreachableHostWait}, nil
 	}
@@ -62,9 +65,7 @@ func (s *PullRequestSyncer) RecoverOldChecks(ctx context.Context, args internalj
 	switch {
 	case err == nil:
 	case errors.As(err, &throttled):
-		until := s.hosts.holdUntil(ctx, reached.host, throttled.RetryAt)
-
-		return internaljobs.RecoverOutcome{Snooze: until.Sub(s.now())}, nil
+		return internaljobs.RecoverOutcome{Snooze: s.snoozeUntil(s.hosts.holdUntil(ctx, reached.host, throttled.RetryAt))}, nil
 	case errors.Is(err, forge.ErrUnauthorized), errors.Is(err, forge.ErrUnsupported):
 		return internaljobs.RecoverOutcome{}, nil
 	case errors.Is(err, forge.ErrNotFound):
@@ -80,16 +81,11 @@ func (s *PullRequestSyncer) RecoverOldChecks(ctx context.Context, args internalj
 		s.hosts.holdUntil(ctx, reached.host, reading.RateLimit.ResetAt)
 	}
 
-	listing := commitListing(reading, args.HeadSHA)
-	if listing == nil {
-		return internaljobs.RecoverOutcome{}, nil
-	}
-
-	return internaljobs.RecoverOutcome{}, s.nextStep(ctx, args, listing)
+	return internaljobs.RecoverOutcome{}, s.nextStep(ctx, args, commitListing(reading, args.HeadSHA))
 }
 
-// nextStep writes the checks the step read, when it read any, and queues the next step while any is in flight,
-// settling those in flight as unknown when no step is left.
+// nextStep writes the checks the step read, when it read any, and queues the next step while any stored check is
+// in flight, settling those in flight as unknown when no step is left.
 func (s *PullRequestSyncer) nextStep(ctx context.Context, args internaljobs.RecoverOldChecksArgs, listing *forge.StatusCheckListing) error {
 	readAt := s.now()
 
@@ -105,9 +101,17 @@ func (s *PullRequestSyncer) nextStep(ctx context.Context, args internaljobs.Reco
 			}); err != nil {
 				return nil, err
 			}
-			if !forge.AnyInFlight(listing.StatusChecks) {
-				return nil, nil
-			}
+		}
+
+		stored, err := checks.GetOfHead(ctx, args.PullRequestID, args.HeadSHA)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !forge.AnyInFlight(stored.StatusChecks) {
+			return nil, nil
 		}
 
 		if args.Step+1 >= len(internaljobs.RecoverOldChecksDelays) {
@@ -138,6 +142,11 @@ func (s *PullRequestSyncer) markUnknown(ctx context.Context, args internaljobs.R
 			ReadAt:        readAt,
 		})
 	})
+}
+
+// snoozeUntil is how long a step waits for a time, at least a second so a time already past still snoozes it.
+func (s *PullRequestSyncer) snoozeUntil(until time.Time) time.Duration {
+	return max(until.Sub(s.now()), minimumSnooze)
 }
 
 // commitListing is the checks the reading lists on the head, nil when the forge listed none for it.

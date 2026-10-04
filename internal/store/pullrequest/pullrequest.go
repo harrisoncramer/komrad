@@ -4,6 +4,7 @@ package pullrequest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -295,19 +296,14 @@ func (s *PullRequestStore) supersededHead(ctx context.Context, pullRequestID, pr
 		return "", nil
 	}
 
-	row, err := s.queries.GetStatusCheckReading(ctx, models.GetStatusCheckReadingParams{PullRequestID: pullRequestID, HeadSha: previousHeadSHA})
-	if db.IsNoRows(err) {
+	reading, err := readingOfHead(ctx, s.queries, pullRequestID, previousHeadSHA)
+	if errors.Is(err, store.ErrNotFound) {
 		return "", nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("failed to get the check reading of %s on pull request %s: %w", previousHeadSHA, pullRequestID, err)
-	}
-
-	readings, err := withStatusChecks(ctx, s.queries, []*models.PullRequestCheckReading{row})
-	if err != nil {
 		return "", err
 	}
-	if !forge.AnyInFlight(readings[0].StatusChecks) {
+	if !forge.AnyInFlight(reading.StatusChecks) {
 		return "", nil
 	}
 

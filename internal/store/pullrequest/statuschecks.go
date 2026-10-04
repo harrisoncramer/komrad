@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/forge"
 	"komrad/internal/store"
@@ -144,6 +145,33 @@ func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID 
 	}
 
 	return withStatusChecks(ctx, s.queries, rows)
+}
+
+// GetOfHead is the check reading of one head of a pull request with its checks, or ErrNotFound.
+func (s *StatusCheckStore) GetOfHead(ctx context.Context, pullRequestID, headSHA string) (*StatusCheckReading, error) {
+	return readingOfHead(ctx, s.queries, pullRequestID, headSHA)
+}
+
+// readingOfHead is the check reading of one head of a pull request with its checks, or ErrNotFound.
+func readingOfHead(ctx context.Context, queries *models.Queries, pullRequestID, headSHA string) (*StatusCheckReading, error) {
+	if !store.IsID(pullRequestID) {
+		return nil, store.ErrNotFound.Saying("no check reading of %s on pull request %s", headSHA, pullRequestID)
+	}
+
+	row, err := queries.GetStatusCheckReading(ctx, models.GetStatusCheckReadingParams{PullRequestID: pullRequestID, HeadSha: headSHA})
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no check reading of %s on pull request %s", headSHA, pullRequestID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the check reading of %s on pull request %s: %w", headSHA, pullRequestID, err)
+	}
+
+	readings, err := withStatusChecks(ctx, queries, []*models.PullRequestCheckReading{row})
+	if err != nil {
+		return nil, err
+	}
+
+	return &readings[0], nil
 }
 
 // headReadings is each pull request's reading of its head, or its latest reading when the head was never read.

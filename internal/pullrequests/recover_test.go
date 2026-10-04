@@ -117,6 +117,33 @@ func TestRecoverOldChecks(t *testing.T) {
 			wantRequests: []string{"checks:abc"},
 		},
 		{
+			name: "a read that lists no checks over a check still running",
+			arrange: func(_ *testing.T, f *syncFixture, _ *internaljobs.RecoverOldChecksArgs) {
+				f.forge.commitChecks = map[string]*forge.StatusCheckListing{supersededHeadSHA: listedStatusChecks(forge.ChecksNone)}
+			},
+			wantState:    forge.StatusCheckStateRunning,
+			wantNext:     true,
+			wantRequests: []string{"checks:abc"},
+		},
+		{
+			name: "a read that lists no checks over a check still running on the last step",
+			arrange: func(_ *testing.T, f *syncFixture, args *internaljobs.RecoverOldChecksArgs) {
+				f.forge.commitChecks = map[string]*forge.StatusCheckListing{supersededHeadSHA: listedStatusChecks(forge.ChecksNone)}
+				args.Step = lastStep
+			},
+			wantState:    forge.StatusCheckStateUnknown,
+			wantRequests: []string{"checks:abc"},
+		},
+		{
+			name: "a reading with no listing of the head",
+			arrange: func(_ *testing.T, f *syncFixture, _ *internaljobs.RecoverOldChecksArgs) {
+				f.forge.commitChecks = map[string]*forge.StatusCheckListing{supersededHeadSHA: nil}
+			},
+			wantState:    forge.StatusCheckStateRunning,
+			wantNext:     true,
+			wantRequests: []string{"checks:abc"},
+		},
+		{
 			name: "a head superseded longer ago than the cap",
 			arrange: func(_ *testing.T, _ *syncFixture, args *internaljobs.RecoverOldChecksArgs) {
 				args.SupersededAt = recoverAt.Add(-internaljobs.RecoverOldChecksCap - time.Minute)
@@ -148,6 +175,15 @@ func TestRecoverOldChecks(t *testing.T) {
 			},
 			wantState:    forge.StatusCheckStateRunning,
 			wantSnooze:   10 * time.Minute,
+			wantRequests: []string{"checks:abc"},
+		},
+		{
+			name: "the forge rate limiting the read until a time already past",
+			arrange: func(_ *testing.T, f *syncFixture, _ *internaljobs.RecoverOldChecksArgs) {
+				f.forge.refuse = &forge.ThrottledError{RetryAt: recoverAt.Add(-time.Minute)}
+			},
+			wantState:    forge.StatusCheckStateRunning,
+			wantSnooze:   minimumSnooze,
 			wantRequests: []string{"checks:abc"},
 		},
 		{

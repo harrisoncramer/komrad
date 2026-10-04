@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -401,4 +402,32 @@ func TestMarkUnknown(t *testing.T) {
 		assert.Equal(t, []string{"Set up job:completed", "Run tests:running", "Upload:queued"}, stepStates(byHead[head]), head)
 		assert.True(t, byHead[head].ReadAt.Equal(statusCheckReadAt), head)
 	}
+}
+
+// TestGetOfHead covers which reading a head answers with.
+func TestGetOfHead(t *testing.T) {
+	h := open(t)
+	checks := NewStatusCheckStore(h.pool.GetDB())
+	ctx := t.Context()
+	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+	for head, state := range map[string]forge.StatusCheckState{"old": forge.StatusCheckStateRunning, "abc": forge.StatusCheckStateCompleted} {
+		require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
+			PullRequestID: written.ID,
+			HeadSHA:       head,
+			StatusChecks:  []forge.StatusCheck{statusCheckRun("1", "test", state, "")},
+			ReadAt:        statusCheckReadAt,
+		}))
+	}
+
+	got, err := checks.GetOfHead(ctx, written.ID, "old")
+	require.NoError(t, err)
+	assert.Equal(t, "old", got.HeadSHA)
+	assert.Equal(t, []string{"test:running"}, statusCheckNames(*got))
+
+	_, err = checks.GetOfHead(ctx, written.ID, "never")
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	_, err = checks.GetOfHead(ctx, "not-an-id", "old")
+	require.ErrorIs(t, err, store.ErrNotFound)
 }
