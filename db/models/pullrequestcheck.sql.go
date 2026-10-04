@@ -298,15 +298,15 @@ FROM
         finished_at timestamptz)
     JOIN pull_request_checks c ON c.reading_id = $2
         AND c.provider_id = s.provider_id
-ON CONFLICT (engine_id,
-    check_id,
-    number)
-    DO UPDATE SET
-        name = excluded.name,
-        state = excluded.state,
-        conclusion = excluded.conclusion,
-        started_at = excluded.started_at,
-        finished_at = excluded.finished_at
+    ON CONFLICT (engine_id,
+        check_id,
+        number)
+        DO UPDATE SET
+            name = excluded.name,
+            state = excluded.state,
+            conclusion = excluded.conclusion,
+            started_at = excluded.started_at,
+            finished_at = excluded.finished_at
     WHERE (
         pull_request_check_steps.name, pull_request_check_steps.state, pull_request_check_steps.conclusion, pull_request_check_steps.started_at, pull_request_check_steps.finished_at) IS DISTINCT FROM (
         excluded.name,
