@@ -84,9 +84,9 @@ type MergeReadinessChange struct {
 	// NewFailure is whether the read found a failed check on the latest read head that the reading before it
 	// did not hold, every failure on a head read for the first time counting as new.
 	NewFailure bool
-	// Superseded is the head the read before this one was for when the head moved off it with a check or step on it
-	// still in flight, and empty otherwise.
-	Superseded string
+	// SupersededHeadSHA is the previous head when the head moved off it with a check or step on it still in flight, and
+	// empty otherwise.
+	SupersededHeadSHA string
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -281,11 +281,11 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 	}
 
 	return &MergeReadinessChange{
-		Before:           before,
-		After:            after,
-		HeadStatusChecks: readAfter[params.ID].StatusChecks,
-		NewFailure:       hasNewFailure(readBefore[params.ID], readAfter[params.ID]),
-		Superseded:       superseded,
+		Before:            before,
+		After:             after,
+		HeadStatusChecks:  readAfter[params.ID].StatusChecks,
+		NewFailure:        hasNewFailure(readBefore[params.ID], readAfter[params.ID]),
+		SupersededHeadSHA: superseded,
 	}, nil
 }
 

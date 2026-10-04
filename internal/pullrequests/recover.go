@@ -20,7 +20,7 @@ import (
 // unreachableHostWait is how long a read of a superseded head's checks waits on a host it cannot reach.
 const unreachableHostWait = 5 * time.Minute
 
-// minimumSnooze is the shortest a step snoozes, since the job ends a step that snoozes for no time.
+// minimumSnooze is the shortest a step snoozes.
 const minimumSnooze = time.Second
 
 // RecoverOldChecks reads the checks on a head the pull request no longer points at, reading them again a step later
@@ -72,7 +72,11 @@ func (s *PullRequestSyncer) RecoverOldChecks(ctx context.Context, args internalj
 		return internaljobs.RecoverOutcome{}, s.markUnknown(ctx, args)
 	default:
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the checks on a superseded head, so the next step reads them again",
-			append(recoverAttrs(pullRequest, args), logging.Err(err)...)...)
+			append([]slog.Attr{
+				slog.String(logging.ForgeHost, pullRequest.Host),
+				slog.String(logging.RepositoryURL, pullRequest.RepositoryURL),
+				slog.String(logging.HeadSHA, args.HeadSHA),
+			}, logging.Err(err)...)...)
 
 		return internaljobs.RecoverOutcome{}, s.nextStep(ctx, args, nil)
 	}
@@ -158,12 +162,4 @@ func commitListing(reading *forge.Reading, headSHA string) *forge.StatusCheckLis
 	}
 
 	return nil
-}
-
-func recoverAttrs(pullRequest *pullrequeststore.PullRequest, args internaljobs.RecoverOldChecksArgs) []slog.Attr {
-	return []slog.Attr{
-		slog.String(logging.ForgeHost, pullRequest.Host),
-		slog.String(logging.RepositoryURL, pullRequest.RepositoryURL),
-		slog.String(logging.HeadSHA, args.HeadSHA),
-	}
 }

@@ -97,12 +97,12 @@ type MarkUnknownParams struct {
 // MarkUnknown moves every check and step still queued, running or waiting on a head to unknown, leaving the reading
 // of the pull request's current head as it is.
 func (s *StatusCheckStore) MarkUnknown(ctx context.Context, params MarkUnknownParams) error {
-	if err := s.queries.SettleStatusChecksUnknown(ctx, models.SettleStatusChecksUnknownParams{
+	if err := s.queries.MarkStatusChecksUnknown(ctx, models.MarkStatusChecksUnknownParams{
 		PullRequestID: params.PullRequestID,
 		HeadSha:       params.HeadSHA,
 		ReadAt:        params.ReadAt,
 	}); err != nil {
-		return fmt.Errorf("failed to settle the checks of %s on pull request %s as unknown: %w", params.HeadSHA, params.PullRequestID, err)
+		return fmt.Errorf("failed to mark the checks of %s on pull request %s unknown: %w", params.HeadSHA, params.PullRequestID, err)
 	}
 
 	return nil

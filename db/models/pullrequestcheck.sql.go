@@ -315,6 +315,54 @@ func (q *Queries) ListStatusChecksOfReadings(ctx context.Context, readingIds []s
 	return items, nil
 }
 
+const markStatusChecksUnknown = `-- name: MarkStatusChecksUnknown :exec
+WITH reading AS (
+    UPDATE
+        pull_request_check_readings r
+    SET
+        read_at = $1
+    FROM
+        pull_requests p
+    WHERE
+        p.id = r.pull_request_id
+        AND r.pull_request_id = $2
+        AND r.head_sha = $3
+        AND r.head_sha <> p.head_sha
+    RETURNING
+        r.id
+),
+checks AS (
+    UPDATE
+        pull_request_checks c
+    SET
+        state = 'unknown'
+    FROM
+        reading
+    WHERE
+        c.reading_id = reading.id
+        AND c.state IN ('queued', 'running', 'waiting'))
+UPDATE
+    pull_request_check_steps s
+SET
+    state = 'unknown'
+FROM
+    reading
+WHERE
+    s.reading_id = reading.id
+    AND s.state IN ('queued', 'running', 'waiting')
+`
+
+type MarkStatusChecksUnknownParams struct {
+	ReadAt        time.Time
+	PullRequestID string
+	HeadSha       string
+}
+
+func (q *Queries) MarkStatusChecksUnknown(ctx context.Context, arg MarkStatusChecksUnknownParams) error {
+	_, err := q.db.Exec(ctx, markStatusChecksUnknown, arg.ReadAt, arg.PullRequestID, arg.HeadSha)
+	return err
+}
+
 const recordStatusCheckReading = `-- name: RecordStatusCheckReading :one
 INSERT INTO pull_request_check_readings(
     pull_request_id,
@@ -356,52 +404,4 @@ func (q *Queries) RecordStatusCheckReading(ctx context.Context, arg RecordStatus
 	var id string
 	err := row.Scan(&id)
 	return id, err
-}
-
-const settleStatusChecksUnknown = `-- name: SettleStatusChecksUnknown :exec
-WITH reading AS (
-    UPDATE
-        pull_request_check_readings r
-    SET
-        read_at = $1
-    FROM
-        pull_requests p
-    WHERE
-        p.id = r.pull_request_id
-        AND r.pull_request_id = $2
-        AND r.head_sha = $3
-        AND r.head_sha <> p.head_sha
-    RETURNING
-        r.id
-),
-checks AS (
-    UPDATE
-        pull_request_checks c
-    SET
-        state = 'unknown'
-    FROM
-        reading
-    WHERE
-        c.reading_id = reading.id
-        AND c.state IN ('queued', 'running', 'waiting'))
-UPDATE
-    pull_request_check_steps s
-SET
-    state = 'unknown'
-FROM
-    reading
-WHERE
-    s.reading_id = reading.id
-    AND s.state IN ('queued', 'running', 'waiting')
-`
-
-type SettleStatusChecksUnknownParams struct {
-	ReadAt        time.Time
-	PullRequestID string
-	HeadSha       string
-}
-
-func (q *Queries) SettleStatusChecksUnknown(ctx context.Context, arg SettleStatusChecksUnknownParams) error {
-	_, err := q.db.Exec(ctx, settleStatusChecksUnknown, arg.ReadAt, arg.PullRequestID, arg.HeadSha)
-	return err
 }

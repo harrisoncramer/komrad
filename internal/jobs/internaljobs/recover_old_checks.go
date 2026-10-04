@@ -22,9 +22,9 @@ var RecoverOldChecksDelays = []time.Duration{
 
 // RecoverOldChecksCap is how long after a head was superseded its checks are read at all, every step's wait
 // with room for one more.
-var RecoverOldChecksCap = recoverOldChecksCap()
+var RecoverOldChecksCap = sumRecoverOldChecksCap()
 
-func recoverOldChecksCap() time.Duration {
+func sumRecoverOldChecksCap() time.Duration {
 	var total time.Duration
 	for _, delay := range RecoverOldChecksDelays {
 		total += delay

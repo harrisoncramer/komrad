@@ -357,10 +357,10 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 					return nil, err
 				}
 			}
-			if change.Superseded != "" {
+			if change.SupersededHeadSHA != "" {
 				recorded = append(recorded, internaljobs.RecoverOldChecksArgs{
 					PullRequestID: outcome.ID,
-					HeadSHA:       change.Superseded,
+					HeadSHA:       change.SupersededHeadSHA,
 					SupersededAt:  readAt,
 				})
 			}

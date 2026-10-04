@@ -846,7 +846,7 @@ func TestSetMergeReadinessSaysWhichHeadWasSuperseded(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.want, change.Superseded)
+			assert.Equal(t, tt.want, change.SupersededHeadSHA)
 		})
 	}
 }

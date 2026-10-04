@@ -238,7 +238,7 @@ WHERE
     r.pull_request_id = @pull_request_id
     AND r.head_sha = @head_sha;
 
--- name: SettleStatusChecksUnknown :exec
+-- name: MarkStatusChecksUnknown :exec
 WITH reading AS (
     UPDATE
         pull_request_check_readings r
