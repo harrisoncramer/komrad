@@ -117,7 +117,7 @@ Sleep $HOLD
 Screenshot "$OUT/$NAME.png"
 TAPE
 
-env -u TMUX -u TMUX_PANE -u KOMRAD_AGENT_ID -u KOMRAD_SESSION_ID \
+env -u TMUX -u TMUX_PANE \
 	KOMRAD_ENGINES_DIR="$SCRATCH/engines" PATH="$MISE_CONFIG_ROOT/bin:$PATH" \
 	vhs --quiet \
 	--output "$OUT/$NAME.mp4" \
