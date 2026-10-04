@@ -24,40 +24,40 @@ func TestListing(t *testing.T) {
 		wantState      forge.CheckState
 		wantConclusion string
 	}{
-		{status: "SUCCESS", wantState: forge.CheckStateCompleted, wantConclusion: "success"},
-		{status: "FAILED", wantState: forge.CheckStateCompleted, wantConclusion: "failed"},
-		{status: "CREATED", wantState: forge.CheckStateQueued},
-		{status: "WAITING_FOR_RESOURCE", wantState: forge.CheckStateQueued},
-		{status: "PREPARING", wantState: forge.CheckStateQueued},
-		{status: "WAITING_FOR_CALLBACK", wantState: forge.CheckStateRunning},
-		{status: "PENDING", wantState: forge.CheckStateQueued},
-		{status: "RUNNING", wantState: forge.CheckStateRunning},
-		{status: "SCHEDULED", wantState: forge.CheckStateQueued},
-		{status: "CANCELED", wantState: forge.CheckStateCompleted, wantConclusion: "canceled"},
-		{status: "CANCELING", wantState: forge.CheckStateCompleted, wantConclusion: "canceling"},
-		{status: "SKIPPED"},
-		{status: "MANUAL"},
+		{status: pipelineSuccess, wantState: forge.CheckStateCompleted, wantConclusion: "success"},
+		{status: pipelineFailed, wantState: forge.CheckStateCompleted, wantConclusion: "failed"},
+		{status: pipelineCreated, wantState: forge.CheckStateQueued},
+		{status: pipelineWaitingForResource, wantState: forge.CheckStateQueued},
+		{status: pipelinePreparing, wantState: forge.CheckStateQueued},
+		{status: pipelineWaitingForCallback, wantState: forge.CheckStateRunning},
+		{status: pipelinePending, wantState: forge.CheckStateQueued},
+		{status: pipelineRunning, wantState: forge.CheckStateRunning},
+		{status: pipelineScheduled, wantState: forge.CheckStateQueued},
+		{status: pipelineCanceled, wantState: forge.CheckStateCompleted, wantConclusion: "canceled"},
+		{status: pipelineCanceling, wantState: forge.CheckStateCompleted, wantConclusion: "canceling"},
+		{status: pipelineSkipped},
+		{status: pipelineManual},
 		{
-			status:         "FAILED",
-			eventType:      "DETACHED",
+			status:         pipelineFailed,
+			eventType:      pipelineEventDetached,
 			wantState:      forge.CheckStateCompleted,
 			wantConclusion: "failed",
 		},
 		{
-			status: "FAILED",
+			status: pipelineFailed,
 			sha:    "def",
 		},
 		{
-			status:         "SUCCESS",
+			status:         pipelineSuccess,
 			sha:            "def",
-			eventType:      "MERGED_RESULT",
+			eventType:      pipelineEventMergedResult,
 			wantState:      forge.CheckStateCompleted,
 			wantConclusion: "success",
 		},
 		{
-			status:    "RUNNING",
+			status:    pipelineRunning,
 			sha:       "def",
-			eventType: "MERGE_TRAIN",
+			eventType: pipelineEventMergeTrain,
 			wantState: forge.CheckStateRunning,
 		},
 	}
@@ -67,7 +67,17 @@ func TestListing(t *testing.T) {
 			t.Parallel()
 
 			var node mergeRequestNode
-			body := `{"webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/1","diffHeadSha":"abc","headPipeline":{"id":"gid://gitlab/Ci::Pipeline/7","sha":"` + sha + `","status":"` + tt.status + `","mergeRequestEventType":"` + tt.eventType + `","path":"/acme/widgets/-/pipelines/7"}}`
+			body := `{
+	"webUrl": "https://gitlab.com/acme/widgets/-/merge_requests/1",
+	"diffHeadSha": "abc",
+	"headPipeline": {
+		"id": "gid://gitlab/Ci::Pipeline/7",
+		"sha": "` + sha + `",
+		"status": "` + tt.status + `",
+		"mergeRequestEventType": "` + tt.eventType + `",
+		"path": "/acme/widgets/-/pipelines/7"
+	}
+}`
 			require.NoError(t, json.Unmarshal([]byte(body), &node))
 
 			want := &forge.CheckListing{}

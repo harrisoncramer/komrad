@@ -8,6 +8,30 @@ import (
 	"komrad/internal/forge"
 )
 
+// The pipeline statuses GitLab documents.
+const (
+	pipelineCreated            = "CREATED"
+	pipelineWaitingForResource = "WAITING_FOR_RESOURCE"
+	pipelinePreparing          = "PREPARING"
+	pipelineWaitingForCallback = "WAITING_FOR_CALLBACK"
+	pipelinePending            = "PENDING"
+	pipelineRunning            = "RUNNING"
+	pipelineSuccess            = "SUCCESS"
+	pipelineFailed             = "FAILED"
+	pipelineCanceling          = "CANCELING"
+	pipelineCanceled           = "CANCELED"
+	pipelineSkipped            = "SKIPPED"
+	pipelineManual             = "MANUAL"
+	pipelineScheduled          = "SCHEDULED"
+)
+
+// The merge request events GitLab says a pipeline ran for.
+const (
+	pipelineEventDetached     = "DETACHED"
+	pipelineEventMergedResult = "MERGED_RESULT"
+	pipelineEventMergeTrain   = "MERGE_TRAIN"
+)
+
 type pipelineNode struct {
 	ID                    string     `json:"id"`
 	Sha                   string     `json:"sha"`
@@ -26,7 +50,7 @@ func (p *pipelineNode) isOn(sha string) bool {
 	}
 
 	switch p.MergeRequestEventType {
-	case "MERGED_RESULT", "MERGE_TRAIN":
+	case pipelineEventMergedResult, pipelineEventMergeTrain:
 		return true
 	}
 
@@ -51,13 +75,13 @@ func (n mergeRequestNode) listing() *forge.CheckListing {
 		URL:        n.pageOf(pipeline.Path),
 	}
 	switch pipeline.Status {
-	case "SUCCESS", "FAILED", "CANCELED", "CANCELING":
+	case pipelineSuccess, pipelineFailed, pipelineCanceled, pipelineCanceling:
 		check.State = forge.CheckStateCompleted
 		check.Conclusion = strings.ToLower(pipeline.Status)
 		check.FinishedAt = pipeline.FinishedAt
-	case "RUNNING", "WAITING_FOR_CALLBACK":
+	case pipelineRunning, pipelineWaitingForCallback:
 		check.State = forge.CheckStateRunning
-	case "CREATED", "WAITING_FOR_RESOURCE", "PREPARING", "PENDING", "SCHEDULED":
+	case pipelineCreated, pipelineWaitingForResource, pipelinePreparing, pipelinePending, pipelineScheduled:
 		check.State = forge.CheckStateQueued
 	default:
 		return listing
