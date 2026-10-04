@@ -22,6 +22,7 @@ func clearConnectionEnvironment(t *testing.T) {
 		"KOMRAD_ADDR",
 		"KOMRAD_TMUX_SOCKET",
 		"KOMRAD_CACHE_DIR",
+		"KOMRAD_STATE_DIR",
 		enginesDirVariable,
 		layerVariable,
 	} {
@@ -744,6 +745,8 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	assert.Equal(t, sourceDerived, report.Sources["owner_database_url"])
 	assert.NotEmpty(t, cfg.Connection.CacheDir)
 	assert.Equal(t, sourceDerived, report.Sources["cache_dir"])
+	assert.NotEmpty(t, cfg.Connection.StateDir)
+	assert.Equal(t, sourceDerived, report.Sources["state_dir"])
 }
 
 // TestLoadTakesTheLocalOwnerWithTheDefaultEngine pins komrad migrate working on a checkout that sets nothing.
@@ -842,6 +845,16 @@ func TestCacheDirExpandsHome(t *testing.T) {
 
 	assert.Equal(t, filepath.Join(home, ".cache", "komrad-remote"), cfg.Connection.CacheDir)
 	assert.NotContains(t, cfg.Connection.CacheDir, "~")
+}
+
+// TestWorktreesDirDefaultsUnderTheStateDir puts worktrees in the configured state directory.
+func TestWorktreesDirDefaultsUnderTheStateDir(t *testing.T) {
+	dir := t.TempDir()
+	cfg := Config{Connection: Connection{StateDir: dir}}
+
+	worktrees, err := cfg.GetWorktreesDir()
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(dir, "worktrees"), worktrees)
 }
 
 // loadStrict writes one config file and returns what Load made of it, with the connection

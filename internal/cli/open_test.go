@@ -48,6 +48,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		Addr:                "127.0.0.1:9999",
 		TmuxSocket:          "komrad-test",
 		CacheDir:            "/tmp/cache",
+		StateDir:            "/tmp/state",
 		Editor:              "nvim",
 	}}
 
@@ -60,6 +61,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		"KOMRAD_TMUX_SOCKET":           "komrad-test",
 		"EDITOR":                       "nvim",
 		"KOMRAD_CACHE_DIR":             "/tmp/cache",
+		"KOMRAD_STATE_DIR":             "/tmp/state",
 	}, forwardedEnv(t, args))
 }
 
@@ -112,6 +114,7 @@ func TestIntegrationBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing
 			Addr:                "127.0.0.1:9999",
 			TmuxSocket:          "komrad-test",
 			CacheDir:            "/tmp/cache",
+			StateDir:            "/tmp/state",
 			Editor:              "nvim",
 		},
 		configStack: config.Stack{Paths: []string{"/tmp/somewhere/config.toml"}},

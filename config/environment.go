@@ -23,8 +23,7 @@ type Environment struct {
 	TmuxSocket          string
 	CacheDir            string
 	// StateDir is where komrad keeps its own files about agents, such as worktrees, released
-	// reviews and forge credentials, and is the user's state directory unless a test says
-	// otherwise.
+	// reviews and forge credentials.
 	StateDir  string
 	SSH       string
 	Forward   []string
@@ -62,15 +61,6 @@ func LoadEnvironment(connection Environment) (*Environment, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "sh"
-	}
-
-	if connection.StateDir == "" {
-		stateDir, err := GetStateDir()
-		if err != nil {
-			return nil, err
-		}
-
-		connection.StateDir = stateDir
 	}
 
 	connection.Tmux = os.Getenv("TMUX")
