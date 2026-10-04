@@ -18,7 +18,6 @@ func holdsFailedForgeReply(thread *agentv1.ReviewThread) bool {
 		case agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED:
 			return true
 		case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
-			agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:

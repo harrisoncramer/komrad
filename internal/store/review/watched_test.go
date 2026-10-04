@@ -95,7 +95,7 @@ func TestListWatchedThreads(t *testing.T) {
 func TestListWatchedThreadsCarriesForgeReplies(t *testing.T) {
 	st := openFixture(t)
 	seeded := st.seedReplyThreads(t)
-	reply := st.propose(t, seeded, "because the caller retries")
+	reply := st.writeIn(t, seeded, ForgeReplyApproved)
 
 	snapshot, err := NewThreadStore(st.pool).ListWatched(t.Context(), nil)
 	require.NoError(t, err)

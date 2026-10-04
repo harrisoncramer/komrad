@@ -34,7 +34,6 @@ func failedForgeReply(thread *agentv1.ReviewThread) (*agentv1.ForgeReply, bool) 
 		case agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED:
 			return reply, true
 		case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
-			agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
@@ -154,7 +153,6 @@ func forgeReplyNotice(reply *agentv1.ForgeReply) (string, error) {
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
 		return "reply posted", nil
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
-		agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING:
 		return "reply posting", nil
@@ -272,8 +270,6 @@ func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width 
 
 	posting := ""
 	switch reply.GetState() {
-	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT:
-		return ""
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED:
 		head := paint.Panel.Style(paint.ToneDanger).Bold(true).Render("your reply" + separated + "not posted")
 		refused := paint.Panel.Style(paint.ToneDanger).Render(m.glyphs.Spell(glyph.MessageError) + " " + name + " said: " + reply.GetError())

@@ -13,9 +13,6 @@ func ForgeReply(reply reviewstore.ForgeReply) *agentv1.ForgeReply {
 		Id:             reply.ID,
 		ThreadId:       reply.ThreadID,
 		State:          forgeReplyStateOf(reply.State),
-		AuthorKind:     reviewAuthorKindOf(reply.AuthorKind),
-		AuthorAgentId:  reply.AuthorAgentID,
-		ProposedBody:   reply.ProposedBody,
 		Body:           reply.Body,
 		ForgeCommentId: reply.MirroredCommentID,
 		Error:          reply.Error,
@@ -36,8 +33,6 @@ func ForgeReply(reply reviewstore.ForgeReply) *agentv1.ForgeReply {
 
 func forgeReplyStateOf(state reviewstore.ForgeReplyState) agentv1.ForgeReplyState {
 	switch state {
-	case reviewstore.ForgeReplyDraft:
-		return agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT
 	case reviewstore.ForgeReplyApproved:
 		return agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED
 	case reviewstore.ForgeReplySending:

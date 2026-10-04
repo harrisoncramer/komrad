@@ -15,8 +15,6 @@ import (
 var (
 	// errNotMirrored is a forge reply written on a thread that mirrors no forge thread.
 	errNotMirrored = fail.Precondition("only a thread mirrored from the forge can be replied to there")
-	// errProposalOpen is a second agent proposal on a thread whose first has not reached the forge.
-	errProposalOpen = fail.AlreadyExists("the agent already has a reply on that thread that has not reached the forge")
 	// errReplyState is a forge reply asked to move in a way its state does not allow.
 	errReplyState = fail.Precondition("the forge reply is not in a state that allows that")
 )
@@ -25,8 +23,6 @@ var (
 type ForgeReplyState string
 
 const (
-	// ForgeReplyDraft is an agent's proposal waiting for the person.
-	ForgeReplyDraft ForgeReplyState = ForgeReplyState(models.ForgeReplyStateDraft)
 	// ForgeReplyApproved is a reply waiting to be posted.
 	ForgeReplyApproved ForgeReplyState = ForgeReplyState(models.ForgeReplyStateApproved)
 	// ForgeReplySending is a reply being posted, which may already be on the forge.
@@ -37,22 +33,12 @@ const (
 	ForgeReplyFailed ForgeReplyState = ForgeReplyState(models.ForgeReplyStateFailed)
 )
 
-// forgeReplyApproverKind is who approved a forge reply for posting.
-type forgeReplyApproverKind string
-
-// forgeReplyApproverHuman is the person approving a reply.
-const forgeReplyApproverHuman forgeReplyApproverKind = forgeReplyApproverKind(models.ForgeReplyApproverKindHuman)
-
 // ForgeReply is a reply komrad posts to the forge on a mirrored thread.
 type ForgeReply struct {
 	ID                     string
 	ThreadID               string
 	State                  ForgeReplyState
-	AuthorKind             AuthorKind
-	AuthorAgentID          *string
-	ProposedBody           *string
 	Body                   string
-	ApproverKind           forgeReplyApproverKind
 	ApprovedAt             *time.Time
 	SendingStartedAt       *time.Time
 	SentAt                 *time.Time
@@ -70,44 +56,13 @@ type ForgeReplyTarget struct {
 	Number        int
 }
 
-// CreateAgentForgeReplyParams is an agent's proposed reply on a mirrored thread.
-type CreateAgentForgeReplyParams struct {
-	ThreadID string
-	AgentID  string
-	Body     string
-}
-
-// CreateAgentForgeReply drafts the agent's reply for the person to approve.
-func (s *ReviewStore) CreateAgentForgeReply(ctx context.Context, params CreateAgentForgeReplyParams) (*ForgeReply, error) {
-	if !store.IsID(params.ThreadID) {
-		return nil, notMirrored(params.ThreadID)
-	}
-
-	row, err := s.queries.InsertAgentForgeReply(ctx, models.InsertAgentForgeReplyParams{
-		ThreadID:      params.ThreadID,
-		AuthorAgentID: params.AgentID,
-		Body:          params.Body,
-	})
-	if db.IsNoRows(err) {
-		return nil, notMirrored(params.ThreadID)
-	}
-	if db.IsUniqueViolation(err) {
-		return nil, fmt.Errorf("%w: review thread %q", errProposalOpen, params.ThreadID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to propose a forge reply on review thread %q: %w", params.ThreadID, err)
-	}
-
-	return forgeReplyFromRow(row), nil
-}
-
-// CreateHumanForgeReply records the person's own reply, approved as it is written.
-func (s *ReviewStore) CreateHumanForgeReply(ctx context.Context, threadID, body string) (*ForgeReply, error) {
+// CreateForgeReply records the person's reply, ready to post.
+func (s *ReviewStore) CreateForgeReply(ctx context.Context, threadID, body string) (*ForgeReply, error) {
 	if !store.IsID(threadID) {
 		return nil, notMirrored(threadID)
 	}
 
-	row, err := s.queries.InsertHumanForgeReply(ctx, models.InsertHumanForgeReplyParams{
+	row, err := s.queries.InsertForgeReply(ctx, models.InsertForgeReplyParams{
 		ThreadID: threadID,
 		Body:     body,
 	})
@@ -119,27 +74,6 @@ func (s *ReviewStore) CreateHumanForgeReply(ctx context.Context, threadID, body 
 	}
 
 	return forgeReplyFromRow(row), nil
-}
-
-// MarkForgeReplyApprovedParams is an approval of a draft, with the text to post.
-type MarkForgeReplyApprovedParams struct {
-	ID   string
-	Body string
-}
-
-// MarkForgeReplyApproved approves a draft for posting as the person.
-func (s *ReviewStore) MarkForgeReplyApproved(ctx context.Context, params MarkForgeReplyApprovedParams) (*ForgeReply, error) {
-	if !store.IsID(params.ID) {
-		return nil, forgeReplyNotFound(params.ID)
-	}
-
-	row, err := s.queries.MarkForgeReplyApproved(ctx, models.MarkForgeReplyApprovedParams{
-		ID:           params.ID,
-		Body:         params.Body,
-		ApproverKind: models.ForgeReplyApproverKind(forgeReplyApproverHuman),
-	})
-
-	return s.finishForgeReplyMove(ctx, params.ID, row, err)
 }
 
 // BeginForgeReplySend marks an approved or failed reply as being posted.
@@ -181,7 +115,7 @@ func (s *ReviewStore) MarkForgeReplyFailed(ctx context.Context, id, forgeError s
 	return s.finishForgeReplyMove(ctx, id, row, err)
 }
 
-// DeleteForgeReply deletes a draft or failed reply.
+// DeleteForgeReply deletes a failed reply.
 func (s *ReviewStore) DeleteForgeReply(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return forgeReplyNotFound(id)
@@ -288,11 +222,7 @@ func forgeReplyFromRow(row *models.ReviewForgeReply) *ForgeReply {
 		ID:                     row.ID,
 		ThreadID:               row.ThreadID,
 		State:                  ForgeReplyState(row.State),
-		AuthorKind:             AuthorKind(row.AuthorKind),
-		AuthorAgentID:          row.AuthorAgentID,
-		ProposedBody:           row.ProposedBody,
 		Body:                   row.Body,
-		ApproverKind:           forgeReplyApproverKind(row.ApproverKind.ForgeReplyApproverKind),
 		ApprovedAt:             row.ApprovedAt,
 		SendingStartedAt:       row.SendingStartedAt,
 		SentAt:                 row.SentAt,
