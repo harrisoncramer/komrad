@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
 	"komrad/internal/glyph"
@@ -356,6 +357,7 @@ func TestStatusChecksCommits(t *testing.T) {
 		StatusChecks: []*pullrequestv1.StatusCheck{
 			inStatusCheckRun(newStatusCheck("1", "lint", done, "FAILURE"), "ci", "2026-09-20T11:00:00Z"),
 			inStatusCheckRun(newStatusCheck("2", "test", done, "SUCCESS"), "ci", "2026-09-20T11:00:00Z"),
+			inStatusCheckRun(newStatusCheck("9", "test", done, "SUCCESS"), "Scanner", "2026-09-20T11:00:00Z"),
 		},
 	}
 	second := &pullrequestv1.StatusCheckReading{
@@ -390,13 +392,13 @@ func TestStatusChecksCommits(t *testing.T) {
 		{
 			name:      "older steps back a commit",
 			press:     []string{"<"},
-			want:      []string{"lint", "test"},
+			want:      []string{"lint", "test", "test"},
 			wantTally: "commit 1 of 2 · 111111111111",
 		},
 		{
 			name:      "older stops on the earliest commit",
 			press:     []string{"<", "<"},
-			want:      []string{"lint", "test"},
+			want:      []string{"lint", "test", "test"},
 			wantTally: "commit 1 of 2 · 111111111111",
 		},
 		{
@@ -426,13 +428,28 @@ func TestStatusChecksCommits(t *testing.T) {
 		})
 	}
 
-	t.Run("another commit keeps the cursor on the status check of the same name", func(t *testing.T) {
+	t.Run("another commit keeps the cursor on the same status check of the same source", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("j", "<")
+		harness.press("j", "j", "<")
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "test")
+		assert.Equal(t, 2, readHoveredIndex(harness.readFrame()))
+	})
+
+	t.Run("runs of one workflow started by different events each keep their checks", func(t *testing.T) {
+		t.Parallel()
+
+		push := inStatusCheckRun(newStatusCheck("1", "build", done, "FAILURE"), "ci", "2026-09-20T12:00:00Z")
+		push.RunEvent = "push"
+		pullRequest := inStatusCheckRun(newStatusCheck("2", "build", done, "SUCCESS"), "ci", "2026-09-20T12:01:00Z")
+		pullRequest.RunEvent = "pull_request"
+		harness := openStatusChecks(t, answerStatusCheckReadings(&pullrequestv1.StatusCheckReading{
+			HeadSha:      "c1",
+			StatusChecks: []*pullrequestv1.StatusCheck{push, pullRequest},
+		}))
+
+		assert.Equal(t, []string{"build", "build"}, readListRows(harness.readFrame()))
 	})
 
 	pushed := func(harness *panelHarness) {
@@ -465,7 +482,22 @@ func TestStatusChecksCommits(t *testing.T) {
 		pushed(harness)
 
 		frame := harness.readFrame()
-		assert.Equal(t, []string{"lint", "test"}, readListRows(frame))
+		assert.Equal(t, []string{"lint", "test", "test"}, readListRows(frame))
 		assert.Contains(t, frame, "commit 1 of 3 · 111111111111")
 	})
+}
+
+func readHoveredIndex(frame string) int {
+	index := 0
+	for _, line := range splitLines(frame) {
+		if _, isRow := cutListRow(line); !isRow {
+			continue
+		}
+		if strings.HasPrefix(line, "›") {
+			return index
+		}
+		index++
+	}
+
+	return -1
 }

@@ -36,6 +36,7 @@ type statusCheckItem struct {
 // statusCheckRun is the run a check ran in, by one workflow or app.
 type statusCheckRun struct {
 	source    string
+	event     string
 	startedAt time.Time
 }
 
@@ -446,6 +447,7 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 		finishedAt: dates.Parse(check.GetFinishedAt()),
 		run: statusCheckRun{
 			source:    check.GetSource(),
+			event:     check.GetRunEvent(),
 			startedAt: dates.Parse(check.GetRunStartedAt()),
 		},
 		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
@@ -537,14 +539,15 @@ func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheck
 	}
 }
 
-// statusCheckKey is what one check is across its runs: the workflow or app that runs it and its name.
+// statusCheckKey is what one check is across its reruns: the workflow or app that runs it, what started it and its name.
 type statusCheckKey struct {
 	source string
+	event  string
 	name   string
 }
 
 func (i statusCheckItem) key() statusCheckKey {
-	return statusCheckKey{source: i.run.source, name: i.name}
+	return statusCheckKey{source: i.run.source, event: i.run.event, name: i.name}
 }
 
 func compareStatusCheckItems(a, b statusCheckItem) int {
@@ -587,14 +590,19 @@ func (c *statusChecksScreen) stepCommit(m *model, delta int) tea.Cmd {
 		return nil
 	}
 
-	hovered := c.list().hoveredName(m)
+	hovered := c.list().hovered(m)
+	var was statusCheckKey
+	before := c.rows(m)
+	if i := slices.IndexFunc(before, func(row statusCheckRow) bool { return row.key() == hovered }); i >= 0 {
+		was = before[i].item.key()
+	}
 	c.viewing = ""
 	if to < len(c.commits)-1 {
 		c.viewing = c.commits[to].headSHA
 	}
 	rows := c.rows(m)
 	var key string
-	if i := slices.IndexFunc(rows, func(row statusCheckRow) bool { return row.item.name == hovered }); i >= 0 {
+	if i := slices.IndexFunc(rows, func(row statusCheckRow) bool { return row.item.key() == was }); i >= 0 {
 		key = rows[i].key()
 	}
 	c.list().place(m, key)

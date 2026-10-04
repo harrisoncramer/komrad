@@ -496,9 +496,9 @@ type LogsKeys struct {
 type StatusChecksKeys struct {
 	// Leave the status checks screen for the view it was opened from.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Step back to an earlier run of the checks on the head commit.
+	// Step back to an earlier head commit of the pull request.
 	Older []string `mapstructure:"older" default:"<"`
-	// Step forward to a later run, stopping on the newest.
+	// Step forward to a later head commit, stopping on the newest.
 	Newer []string `mapstructure:"newer" default:">"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`

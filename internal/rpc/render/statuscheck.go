@@ -37,7 +37,6 @@ func statusCheck(stored forge.StatusCheck) *pullrequestv1.StatusCheck {
 		Required:     stored.Required,
 		Url:          stored.URL,
 		Steps:        xslice.Map(stored.Steps, statusCheckStep),
-		RunId:        stored.RunID,
 		RunEvent:     stored.RunEvent,
 		RunStartedAt: dates.StampPtr(stored.RunStartedAt),
 	}

@@ -1116,8 +1116,6 @@ type StatusCheck struct {
 	Url string `protobuf:"bytes,10,opt,name=url,proto3" json:"url,omitempty"`
 	// The steps of a check run, in the order it runs them, empty for a check that lists none.
 	Steps []*StatusCheckStep `protobuf:"bytes,11,rep,name=steps,proto3" json:"steps,omitempty"`
-	// The forge's own identifier for the run the check ran in, empty for a check that ran in none.
-	RunId string `protobuf:"bytes,12,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	// What started the run, such as pull_request or push, empty when no workflow ran it.
 	RunEvent string `protobuf:"bytes,13,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
 	// When the run was created, in RFC 3339, unset when the check ran in none.
@@ -1231,13 +1229,6 @@ func (x *StatusCheck) GetSteps() []*StatusCheckStep {
 		return x.Steps
 	}
 	return nil
-}
-
-func (x *StatusCheck) GetRunId() string {
-	if x != nil {
-		return x.RunId
-	}
-	return ""
 }
 
 func (x *StatusCheck) GetRunEvent() string {
@@ -1416,7 +1407,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\rstatus_checks\x18\x04 \x03(\v2\x1b.pullrequest.v1.StatusCheckR\fstatusChecksB\x10\n" +
 	"\x0e_first_read_atB\n" +
 	"\n" +
-	"\b_read_at\"\xa7\x04\n" +
+	"\b_read_at\"\x9e\x04\n" +
 	"\vStatusCheck\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x123\n" +
@@ -1434,13 +1425,12 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\brequired\x18\t \x01(\bR\brequired\x12\x10\n" +
 	"\x03url\x18\n" +
 	" \x01(\tR\x03url\x125\n" +
-	"\x05steps\x18\v \x03(\v2\x1f.pullrequest.v1.StatusCheckStepR\x05steps\x12\x15\n" +
-	"\x06run_id\x18\f \x01(\tR\x05runId\x12\x1b\n" +
+	"\x05steps\x18\v \x03(\v2\x1f.pullrequest.v1.StatusCheckStepR\x05steps\x12\x1b\n" +
 	"\trun_event\x18\r \x01(\tR\brunEvent\x12)\n" +
 	"\x0erun_started_at\x18\x0e \x01(\tH\x02R\frunStartedAt\x88\x01\x01B\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_atB\x11\n" +
-	"\x0f_run_started_at\"\xfe\x01\n" +
+	"\x0f_run_started_atJ\x04\b\f\x10\rR\x06run_id\"\xfe\x01\n" +
 	"\x0fStatusCheckStep\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x126\n" +
