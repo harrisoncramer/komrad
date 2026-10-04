@@ -277,8 +277,6 @@ type model struct {
 	lastScreen  lastScreen
 	search      searchScreen
 	review      reviewScreen
-	// chatHidden is whether the reader put the implementer's chat under the review away for the session.
-	chatHidden bool
 	// chatOff is whether the config keeps the implementer's chat out of the review altogether.
 	chatOff   bool
 	filter    filterState

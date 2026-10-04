@@ -20,10 +20,10 @@ func (m *model) reconcileChat() {
 }
 
 // findChat is the implementer whose chat belongs under the review and the rows it gets, false
-// when the review is not up, the chat is switched off or put away, the agent is not an
-// implementer, or the window is too short.
+// when the review is not up, the chat is switched off, the agent is not an implementer, or the
+// window is too short.
 func (m *model) findChat() (layout.Guest, int, bool) {
-	if m.screen != screenReview || m.chatOff || m.chatHidden {
+	if m.screen != screenReview || m.chatOff {
 		return layout.Guest{}, 0, false
 	}
 
@@ -48,32 +48,6 @@ func (m *model) findChatPane() string {
 	}
 
 	return m.frame.TilePane()
-}
-
-// toggleChat puts the implementer's chat away for the session, or brings it back.
-func toggleChat(m *model) tea.Cmd {
-	m.chatHidden = !m.chatHidden
-	m.reconcileChat()
-
-	return nil
-}
-
-// buildScreenMenu builds the review's own band, for hiding or showing the implementer's chat.
-func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
-	if m.chatOff {
-		return submenu{}, false
-	}
-
-	label := "hide chat"
-	if m.chatHidden {
-		label = "show chat"
-	}
-
-	return submenu{
-		kind:    formMenu,
-		title:   "review",
-		entries: []submenuEntry{writeEntry(label, m.keys.Menu.Chat, toggleChat)},
-	}, true
 }
 
 // leaveScreen sends the implementer's chat home with the review going down.

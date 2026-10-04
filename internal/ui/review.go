@@ -137,7 +137,6 @@ var (
 	_ editorReconciler   = (*reviewScreen)(nil)
 	_ agentPauser        = (*reviewScreen)(nil)
 	_ screenLeaver       = (*reviewScreen)(nil)
-	_ screenMenuBuilder  = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) drawsSwitcher() bool {

@@ -66,28 +66,6 @@ func TestReviewChat(t *testing.T) {
 		assert.Equal(t, []string{"%9"}, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("the menu puts the chat away for the session and brings it back", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.Role = agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
-		harness := openReview(t, server)
-		require.Equal(t, "%9", harness.panel.ReadTileGuest())
-
-		harness.press("space")
-		assert.Contains(t, harness.readFrame(), "hide chat")
-
-		harness.press("i")
-		assert.Empty(t, harness.panel.ReadTileGuest())
-
-		harness.press("esc", "space", "r")
-		assert.Empty(t, harness.panel.ReadTileGuest())
-
-		harness.press("space")
-		assert.Contains(t, harness.readFrame(), "show chat")
-
-		harness.press("i")
-		assert.Equal(t, "%9", harness.panel.ReadTileGuest())
-	})
-
 	t.Run("leaving the review sends the chat home", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.Role = agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER

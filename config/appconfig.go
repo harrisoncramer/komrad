@@ -407,9 +407,6 @@ type MenuKeys struct {
 	EditWorkflow []string `mapstructure:"edit_workflow" default:"E"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`
-	// Put away the implementer's chat under the review for the rest of the session, or bring it back.
-	// The entry is only on the review.
-	Chat []string `mapstructure:"chat" default:"i"`
 	// Start a new agent, in the workflow the cursor is in. The entry is only on the agents list.
 	NewAgent []string `mapstructure:"new_agent" default:"c"`
 	// Create a workflow. The entry is only on the agents list.

@@ -1149,13 +1149,6 @@
               "default": "[\"A\"]"
             },
             {
-              "key": "chat",
-              "path": "keybindings.menu.chat",
-              "type": "array",
-              "description": "Put away the implementer's chat under the review for the rest of the session, or bring it back.\nThe entry is only on the review.",
-              "default": "[\"i\"]"
-            },
-            {
               "key": "new_agent",
               "path": "keybindings.menu.new_agent",
               "type": "array",
