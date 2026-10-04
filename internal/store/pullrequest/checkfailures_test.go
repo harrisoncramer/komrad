@@ -48,11 +48,21 @@ func (h *checkFailureHarness) read(t *testing.T, headSHA string, checks ...forge
 }
 
 func (h *checkFailureHarness) failures(agentID, headSHA string, failed ...forge.StatusCheck) ListCheckFailuresParams {
-	return ListCheckFailuresParams{PullRequestID: h.pullRequestID, HeadSHA: headSHA, AgentID: agentID, Failed: failed}
+	return ListCheckFailuresParams{
+		PullRequestID: h.pullRequestID,
+		HeadSHA:       headSHA,
+		AgentID:       agentID,
+		Failed:        failed,
+	}
 }
 
 func (h *checkFailureHarness) told(agentID string, told ...forge.StatusCheck) RecordCheckFailuresParams {
-	return RecordCheckFailuresParams{PullRequestID: h.pullRequestID, HeadSHA: "c1", AgentID: agentID, Told: told}
+	return RecordCheckFailuresParams{
+		PullRequestID: h.pullRequestID,
+		HeadSHA:       "c1",
+		AgentID:       agentID,
+		Told:          told,
+	}
 }
 
 func (h *checkFailureHarness) notedAt(t *testing.T, params ListCheckFailuresParams) []*time.Time {

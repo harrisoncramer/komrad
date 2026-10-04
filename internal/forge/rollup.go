@@ -52,7 +52,11 @@ func (c StatusCheck) IsRunning() bool {
 // sharing a kind, source and name, given checks listed oldest first.
 func FailedStatusChecks(checks []StatusCheck) []StatusCheck {
 	newest := xslice.LastBy(decidingStatusChecks(checks), func(check StatusCheck) statusCheckKey {
-		return statusCheckKey{kind: check.Kind, source: check.Source, name: check.Name}
+		return statusCheckKey{
+			kind:   check.Kind,
+			source: check.Source,
+			name:   check.Name,
+		}
 	})
 
 	return slices.DeleteFunc(newest, func(check StatusCheck) bool { return !check.IsFailing() })

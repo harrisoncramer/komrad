@@ -79,20 +79,17 @@ func (s *StatusCheckStore) RecordCheckFailures(ctx context.Context, params Recor
 	return nil
 }
 
-// isSameFailure says whether two failed checks are one failure, the same check row finishing at the same instant.
-func isSameFailure(a, b forge.StatusCheck) bool {
-	if a.ProviderID != b.ProviderID {
+func isSameFailure(known, current forge.StatusCheck) bool {
+	if known.ProviderID != current.ProviderID {
 		return false
 	}
-	if a.FinishedAt == nil || b.FinishedAt == nil {
-		return a.FinishedAt == b.FinishedAt
+	if known.FinishedAt == nil || current.FinishedAt == nil {
+		return known.FinishedAt == current.FinishedAt
 	}
 
-	return a.FinishedAt.Equal(*b.FinishedAt)
+	return known.FinishedAt.Equal(*current.FinishedAt)
 }
 
-// hasNewFailure says whether the latest reading after a read holds a failed check the latest reading before it
-// did not, every failure on another head counting as new.
 func hasNewFailure(before, after StatusCheckReading) bool {
 	failedBefore := forge.FailedStatusChecks(before.StatusChecks)
 

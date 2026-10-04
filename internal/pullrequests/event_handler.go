@@ -52,7 +52,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 	var followUps []river.JobArgs
 	started, holding := eventsOf(change, *pullRequest)
 	for _, recipient := range recipients {
-		told, err := statusChecks.ListCheckFailures(ctx, pullrequeststore.ListCheckFailuresParams{
+		failures, err := statusChecks.ListCheckFailures(ctx, pullrequeststore.ListCheckFailuresParams{
 			PullRequestID: pullRequest.ID,
 			HeadSHA:       pullRequest.MergeReadiness.Checks.HeadSHA,
 			AgentID:       recipient,
@@ -67,9 +67,9 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			return nil, err
 		}
 
-		newlyTold := untold(told)
+		newFailures := untold(failures)
 		recipientStarted := started
-		if event := failingEvent(*pullRequest); event != "" && (len(newlyTold) > 0 || carriesFailing(held)) {
+		if event := failingEvent(*pullRequest); event != "" && (len(newFailures) > 0 || carriesFailing(held)) {
 			recipientStarted = append(slices.Clone(started), event)
 		}
 
@@ -82,7 +82,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			ToAgentID:   recipient,
 			Kind:        mailstore.KindPullRequestChanged,
 			SubjectID:   pullRequest.ID,
-			Body:        render(*pullRequest, told, heldSince),
+			Body:        render(*pullRequest, failures, heldSince),
 			OnlyRewrite: len(recipientStarted) == 0,
 			Events:      recipientStarted,
 			Holding:     holding,
@@ -112,7 +112,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			PullRequestID: pullRequest.ID,
 			HeadSHA:       pullRequest.MergeReadiness.Checks.HeadSHA,
 			AgentID:       recipient,
-			Told:          newlyTold,
+			Told:          newFailures,
 		}); err != nil {
 			return nil, err
 		}
@@ -121,8 +121,6 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 	return followUps, nil
 }
 
-// carriesFailing says whether the held mail started a checks failing event, which the word the checks settle on
-// takes over.
 func carriesFailing(held *mailstore.Mail) bool {
 	if held == nil {
 		return false
@@ -137,7 +135,6 @@ func carriesFailing(held *mailstore.Mail) bool {
 	return false
 }
 
-// untold is the failed checks the agent has not been told of.
 func untold(failures []pullrequeststore.CheckFailure) []forge.StatusCheck {
 	var checks []forge.StatusCheck
 	for _, failure := range failures {
@@ -185,7 +182,6 @@ func isNewTo(failure pullrequeststore.CheckFailure, heldSince *time.Time) bool {
 	return failure.NotedAt == nil || heldSince != nil && !failure.NotedAt.Before(*heldSince)
 }
 
-// writeChecks writes a list of failed checks under its heading, nothing when there are none.
 func writeChecks(body *strings.Builder, heading string, failures []pullrequeststore.CheckFailure) {
 	if len(failures) == 0 {
 		return
@@ -197,7 +193,6 @@ func writeChecks(body *strings.Builder, heading string, failures []pullrequestst
 	}
 }
 
-// failedChecks is the checks on the head that failed, none while the head's checks are not shown failing.
 func failedChecks(pullRequest pullrequeststore.PullRequest) []forge.StatusCheck {
 	if slices.Contains([]forge.Checks{forge.ChecksFailing, forge.ChecksFailingRunning}, pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA).Checks.Value) {
 		return forge.FailedStatusChecks(pullRequest.HeadStatusChecks)
