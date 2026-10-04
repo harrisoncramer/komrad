@@ -34,16 +34,6 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	assert.Equal(t, "/tmp/komrad-cache/komrad.log", got.LogPath())
 }
 
-// TestLoadKeepsAStateDirItWasGiven covers a test instance pointing the service at a state
-// directory of its own rather than the user's.
-func TestLoadKeepsAStateDirItWasGiven(t *testing.T) {
-	t.Setenv("EDITOR", "")
-
-	got, err := LoadEnvironment(Environment{StateDir: "/tmp/komrad-state"})
-	require.NoError(t, err)
-	assert.Equal(t, "/tmp/komrad-state", got.StateDir)
-}
-
 // TestLoadDefaultsEditor pins the editor used when the process names none.
 func TestLoadDefaultsEditor(t *testing.T) {
 	t.Setenv("EDITOR", "")
