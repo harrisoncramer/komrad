@@ -83,6 +83,7 @@ FROM
         AND c.provider_id = r.forge_comment_provider_id
 WHERE
     r.thread_id = ANY (@thread_ids::uuid[])
+    AND r.state <> 'draft'
 ORDER BY
     r.thread_id,
     r.id;

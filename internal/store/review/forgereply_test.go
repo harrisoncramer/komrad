@@ -346,6 +346,12 @@ func TestListForgeReplies(t *testing.T) {
 	sending := st.writeIn(t, threads, ForgeReplySending)
 	written, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "mine")
 	require.NoError(t, err)
+	draft, err := st.CreateHumanForgeReply(ctx, threads.mirrored, "proposed")
+	require.NoError(t, err)
+	_, err = st.pool.Exec(ctx, `UPDATE review_forge_replies
+		SET state = 'draft', author_kind = 'agent', author_agent_id = $2, proposed_body = body, approver_kind = NULL, approved_at = NULL
+		WHERE id = $1`, draft.ID, threads.agentID)
+	require.NoError(t, err)
 
 	listed, err := st.ListForgeReplies(ctx, []string{threads.mirrored, threads.local})
 	require.NoError(t, err)
