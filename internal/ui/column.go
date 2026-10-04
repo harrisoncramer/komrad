@@ -382,8 +382,3 @@ func fitColumn(block string, width int) string {
 
 	return strings.Join(rows, "\n")
 }
-
-// isPopupMenu reports whether the menu stands in the review's popup rather than in a column of its own.
-func (m *model) isPopupMenu() bool {
-	return m.form.isMenu && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
-}
