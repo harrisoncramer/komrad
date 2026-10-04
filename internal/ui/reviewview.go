@@ -76,7 +76,7 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 
 	slot := r.placeThread(m, body)
 
-	return overlayPopup(area, drawPopup(body, back, slot, r.popupTone()), slot)
+	return overlayPopup(area, drawPopup(body, back, slot, paint.ToneMuted), slot)
 }
 
 // drawSidebar is the panel's own column: what the change is, the pull request open from the
@@ -282,7 +282,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 	answered := findAnswer(thread)
 	later := false
 
-	out := r.forgeTitleView(m, thread) + r.originView(thread, width)
+	out := r.originView(thread, width)
 	for i, message := range thread.GetMessages() {
 		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
 			later = true
@@ -310,7 +310,12 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 		return ""
 	}
 
-	out := dimStyle().Render("  "+r.diff.originSaid(thread)) + "\n"
+	said := r.diff.originSaid(thread)
+	if len(thread.GetQuotedLines()) > 0 {
+		said += separated + "written against"
+	}
+
+	out := dimStyle().Render("  "+said) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(reviewWrap(width, "  "+quoted)) + "\n"
 	}
@@ -323,17 +328,17 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 	if _, drawn := d.View().GetFile(thread.GetFilePath()); !drawn {
 		if d.spec.base != "" {
-			return "still in the change, outside what is on screen" + separated + "written against"
+			return "still in the change, outside what is on screen"
 		}
 
-		return "the file this was about has gone" + separated + "written against"
+		return "the file this was about has gone"
 	}
 
 	if d.View().IsGhosted(thread) {
-		return "the code under this has changed" + separated + "written against"
+		return "the code under this has changed"
 	}
 
-	return "moved since it was written" + separated + "written against"
+	return "moved since it was written"
 }
 
 // messageViewParams is what is said beside a message and the width it is wrapped to.
@@ -352,6 +357,7 @@ func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, para
 
 	body := message.GetBody()
 	if message.GetForge() != nil {
+		head = forgeMark(m.glyphs) + head
 		body = plainForgeText(body)
 	}
 
@@ -360,7 +366,7 @@ func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, para
 
 func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
 	if forge := message.GetForge(); forge != nil {
-		return describeForgeLogin(forge.GetLogin()) + " on the forge", diffview.ForgeTone
+		return describeForgeLogin(forge.GetLogin()), diffview.ForgeTone
 	}
 
 	if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {

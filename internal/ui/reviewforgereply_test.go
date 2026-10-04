@@ -130,8 +130,8 @@ func TestReviewForgeReplyView(t *testing.T) {
 		hides   []string
 	}{
 		{
-			name:  "a forge thread says it is public",
-			shows: []string{"the forge thread", "public"},
+			name:  "each forge comment carries the forge mark",
+			shows: []string{"◆ @dana"},
 		},
 		{
 			name:    "an agent draft is not drawn",
@@ -149,9 +149,10 @@ func TestReviewForgeReplyView(t *testing.T) {
 			shows:   []string{"→ posting to the forge"},
 		},
 		{
-			name:    "a sent reply is posted",
+			name:    "a sent reply reads as a forge comment",
 			replies: []*agentv1.ForgeReply{newSentReply(agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT)},
-			shows:   []string{"a map it is", "→ posted"},
+			shows:   []string{"◆ you", "a map it is"},
+			hides:   []string{"posting"},
 		},
 		{
 			name:  "the composer quotes the forge comment it answers",
