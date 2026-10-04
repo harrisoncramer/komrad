@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"komrad/internal/glyph"
+	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 )
@@ -167,5 +169,85 @@ func TestStatusChecksList(t *testing.T) {
 		})
 
 		assert.Contains(t, harness.readFrame(), "could not list")
+	})
+}
+
+func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, conclusion, startedAt, finishedAt string) *pullrequestv1.StatusCheckStep {
+	return &pullrequestv1.StatusCheckStep{
+		Name:       name,
+		State:      state,
+		Conclusion: conclusion,
+		StartedAt:  xptr.Ptr(startedAt),
+		FinishedAt: xptr.Ptr(finishedAt),
+	}
+}
+
+// TestStatusChecksSteps covers the side pane drawing the steps of the hovered status check.
+func TestStatusChecksSteps(t *testing.T) {
+	t.Parallel()
+
+	done := pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
+
+	lint := newStatusCheck("1", "lint", done, "SUCCESS")
+	lint.StartedAt, lint.FinishedAt = xptr.Ptr("2026-10-04T12:00:00Z"), xptr.Ptr("2026-10-04T12:01:12Z")
+	lint.Steps = []*pullrequestv1.StatusCheckStep{
+		newStatusCheckStep("golangci-lint", done, "success", "2026-10-04T12:00:00Z", "2026-10-04T12:01:12Z"),
+	}
+
+	test := newStatusCheck("2", "test", done, "FAILURE")
+	test.Steps = []*pullrequestv1.StatusCheckStep{
+		newStatusCheckStep("Checkout", done, "success", "2026-10-04T12:00:00Z", "2026-10-04T12:00:05Z"),
+		newStatusCheckStep("Run tests", done, "failure", "2026-10-04T12:00:05Z", "2026-10-04T12:03:13Z"),
+	}
+
+	status := newStatusCheck("3", "codecov", done, "SUCCESS")
+
+	listed := answerStatusChecks(lint, test, status)
+
+	t.Run("the hovered status check's steps are drawn with their icons and durations", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "1m 12s · 1 step")
+		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` golangci-lint +1m 12s`, frame)
+	})
+
+	t.Run("the steps follow the cursor", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		harness.press("j")
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "golangci-lint")
+		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Checkout +5s`, frame)
+		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckFailing)+` Run tests +3m 08s`, frame)
+	})
+
+	t.Run("a status check with no steps says so", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		harness.press("j", "j")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "no steps reported")
+		assert.NotContains(t, frame, "0 steps")
+	})
+
+	t.Run("a long step name gives way to its duration in a narrow pane", func(t *testing.T) {
+		t.Parallel()
+
+		long := newStatusCheck("1", "integration", done, "SUCCESS")
+		long.Steps = []*pullrequestv1.StatusCheckStep{
+			newStatusCheckStep("Run integration tests against Postgres and the forge", done, "success", "2026-10-04T12:00:00Z", "2026-10-04T12:03:08Z"),
+		}
+
+		harness := openStatusChecks(t, answerStatusChecks(long))
+		harness.send(tea.WindowSizeMsg{Width: 80, Height: 40})
+
+		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Run integration[^│]*… +3m 08s`, harness.readFrame())
 	})
 }
