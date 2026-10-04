@@ -73,7 +73,9 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 	body, back := r.popupBody(m, inner)
 	tone := paint.ToneMuted
 	if m.isPopupMenu() && m.form.isActive() {
-		body, back, tone = withMenu(body, m.heldFormView(), inner), 0, paint.TonePrimary
+		body = withMenu(body, m.heldFormView(), inner)
+		back = 0
+		tone = paint.TonePrimary
 	}
 	if body == "" {
 		return area
