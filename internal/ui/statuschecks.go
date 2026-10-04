@@ -67,6 +67,7 @@ type statusChecksScreen struct {
 	listing           bool
 	err               error
 	scope             statusCheckScope
+	scopeChosen       bool
 	scopeFocus        bool
 }
 
@@ -111,7 +112,7 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 
 func (c *statusChecksScreen) rows(m *model) []statusCheckRow {
 	return narrowed(m.filter, narrowedParams[statusCheckRow]{
-		rows: xslice.Map(xslice.Filter(c.shownItems(), c.scope.holds), func(item statusCheckItem) statusCheckRow {
+		rows: xslice.Map(xslice.Filter(c.shownItems(), c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
 		}),
 		depth: func(statusCheckRow) int { return 0 },
@@ -142,15 +143,18 @@ type statusCheckScope int
 
 const (
 	statusCheckScopeAll statusCheckScope = iota
+	statusCheckScopeUnsettled
 	statusCheckScopeActive
 	statusCheckScopeFailing
 )
 
-var statusCheckScopeLabels = []string{"all", "active", "failing"}
+var statusCheckScopeLabels = []string{"all", "not passing", "active", "failing"}
 
 // holds reports whether the scope lists the status check.
 func (s statusCheckScope) holds(item statusCheckItem) bool {
 	switch s {
+	case statusCheckScopeUnsettled:
+		return !isStatusCheckClean(item)
 	case statusCheckScopeActive:
 		return !isStatusCheckFinished(item)
 	case statusCheckScopeFailing:
@@ -161,11 +165,22 @@ func (s statusCheckScope) holds(item statusCheckItem) bool {
 	return true
 }
 
+func (c *statusChecksScreen) shownScope() statusCheckScope {
+	switch {
+	case c.scopeChosen:
+		return c.scope
+	case slices.ContainsFunc(c.shownItems(), statusCheckScopeUnsettled.holds):
+		return statusCheckScopeUnsettled
+	}
+
+	return statusCheckScopeAll
+}
+
 func (c *statusChecksScreen) kinds() stops {
 	return stops{
 		labels: statusCheckScopeLabels,
 		focus:  noStop,
-		lit:    int(c.scope),
+		lit:    int(c.shownScope()),
 	}
 }
 
@@ -184,7 +199,8 @@ func (c *statusChecksScreen) kindsSwitch(*model) bool {
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
 func (c *statusChecksScreen) stepKind(m *model, delta int) tea.Cmd {
 	hovered := c.list().hovered(m)
-	c.scope = statusCheckScope(stepStop(int(c.scope), delta, len(statusCheckScopeLabels)))
+	c.scope = statusCheckScope(stepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
+	c.scopeChosen = true
 	c.list().place(m, hovered)
 
 	return m.waitToStage()
@@ -198,8 +214,8 @@ func (c *statusChecksScreen) emptyLine(m *model) string {
 		return "no pull request"
 	case !c.listed:
 		return "reading…"
-	case c.scope != statusCheckScopeAll && len(c.shownItems()) > 0:
-		return "no " + statusCheckScopeLabels[c.scope] + " status checks"
+	case c.shownScope() != statusCheckScopeAll && len(c.shownItems()) > 0:
+		return "no " + statusCheckScopeLabels[c.shownScope()] + " status checks"
 	}
 
 	return "no status checks yet"
