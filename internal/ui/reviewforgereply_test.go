@@ -123,15 +123,16 @@ func TestReviewForgeReplyRefused(t *testing.T) {
 // TestReviewForgeReplyView covers how a forge thread and the replies on it are drawn.
 func TestReviewForgeReplyView(t *testing.T) {
 	tests := []struct {
-		name    string
-		replies []*agentv1.ForgeReply
-		keys    []string
-		shows   []string
-		hides   []string
+		name     string
+		replies  []*agentv1.ForgeReply
+		mirrored []*agentv1.ReviewMessage
+		keys     []string
+		shows    []string
+		hides    []string
 	}{
 		{
-			name:  "a forge thread says it is public",
-			shows: []string{"the forge thread", "public"},
+			name:  "each forge comment carries the forge mark",
+			shows: []string{"◆ @dana"},
 		},
 		{
 			name:    "an agent draft is not drawn",
@@ -149,9 +150,17 @@ func TestReviewForgeReplyView(t *testing.T) {
 			shows:   []string{"→ posting to the forge"},
 		},
 		{
-			name:    "a sent reply is posted",
+			name:    "a sent reply reads as a forge comment",
 			replies: []*agentv1.ForgeReply{newSentReply(agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT)},
-			shows:   []string{"a map it is", "→ posted"},
+			shows:   []string{"◆ you", "a map it is"},
+			hides:   []string{"posting"},
+		},
+		{
+			name:     "a sent reply mirrored back from the forge is drawn once",
+			replies:  []*agentv1.ForgeReply{newMirroredReply()},
+			mirrored: []*agentv1.ReviewMessage{newMirroredComment()},
+			shows:    []string{"◆ @harrison", "a map it is"},
+			hides:    []string{"◆ you"},
 		},
 		{
 			name:  "the composer quotes the forge comment it answers",
@@ -163,7 +172,9 @@ func TestReviewForgeReplyView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := newReviewServer(t)
-			server.threads = []*agentv1.ReviewThread{newForgeThread(tt.replies...)}
+			thread := newForgeThread(tt.replies...)
+			thread.Messages = append(thread.Messages, tt.mirrored...)
+			server.threads = []*agentv1.ReviewThread{thread}
 			harness := openReview(t, server)
 
 			harness.press(tt.keys...)
@@ -204,6 +215,20 @@ func newForgeThread(replies ...*agentv1.ForgeReply) *agentv1.ReviewThread {
 	thread.ForgeReplies = replies
 
 	return thread
+}
+
+func newMirroredReply() *agentv1.ForgeReply {
+	reply := newSentReply(agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT)
+	reply.ForgeCommentId = xptr.Ptr("c2")
+
+	return reply
+}
+
+func newMirroredComment() *agentv1.ReviewMessage {
+	said := newHeldForgeComment("f2", "a map it is")
+	said.Forge = &agentv1.ForgeOrigin{Login: "harrison", CommentId: "c2"}
+
+	return said
 }
 
 func newAgentDraft() *agentv1.ForgeReply {

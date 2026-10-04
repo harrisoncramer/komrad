@@ -56,6 +56,18 @@ func lastForgeMessage(thread *agentv1.ReviewThread) (*agentv1.ReviewMessage, boo
 	return nil, false
 }
 
+// mirroredCommentIDs is the forge comment ids of the messages in a thread mirrored from the forge.
+func mirroredCommentIDs(thread *agentv1.ReviewThread) map[string]bool {
+	ids := map[string]bool{}
+	for _, message := range thread.GetMessages() {
+		if id := message.GetForge().GetCommentId(); id != "" {
+			ids[id] = true
+		}
+	}
+
+	return ids
+}
+
 // forgeThreadAtCursor is the thread under the cursor when it mirrors one on the forge.
 func (r *reviewScreen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	thread, ok := r.diff.threadAtCursor()
@@ -84,27 +96,6 @@ func (r reviewScreen) forgeRef(m *model) string {
 	}
 
 	return pullRequest.Ref()
-}
-
-// popupTone is the colour of the popup's border, the forge's own while it holds a thread mirrored
-// from the forge or a reply on its way there.
-func (r reviewScreen) popupTone() paint.Tone {
-	switch {
-	case r.threads.composing:
-		if r.threads.forge != nil {
-			return diffview.ForgeTone
-		}
-
-		return paint.ToneMuted
-	case r.threads.releasing:
-		return paint.ToneMuted
-	}
-
-	if thread, ok := r.diff.threadAtCursor(); ok && thread.GetMirrorsForge() {
-		return diffview.ForgeTone
-	}
-
-	return paint.ToneMuted
 }
 
 func (r *reviewScreen) doesOfferForgeReply() bool {
@@ -256,23 +247,20 @@ func (t reviewThreads) forgeQuoteView(width int) string {
 	return paint.Panel.Style(diffview.ForgeTone).Italic(true).Render(quote) + "\n"
 }
 
-// forgeTitleView is the row over a thread mirrored from the forge, saying where it is and that
-// what is written in it is public.
-func (r reviewScreen) forgeTitleView(m *model, thread *agentv1.ReviewThread) string {
-	if !thread.GetMirrorsForge() {
-		return ""
-	}
-
-	title := m.glyphs.Spell(glyph.ThreadForge) + " " + r.forgeName(m) + " thread" + separated +
-		diffview.FormatThreadLocation(thread) + separated + "public"
-
-	return paint.Panel.Style(diffview.ForgeTone).Bold(true).Render(title) + "\n\n"
+// forgeMark is the mark a comment that lives on the forge opens with.
+func forgeMark(glyphs glyph.Set) string {
+	return paint.Panel.Style(diffview.ForgeTone).Bold(true).Render(glyphs.Spell(glyph.ThreadForge)) + " "
 }
 
 // forgeRepliesView is what the thread has said back to the forge.
 func (r reviewScreen) forgeRepliesView(m *model, thread *agentv1.ReviewThread, width int) string {
+	mirrored := mirroredCommentIDs(thread)
+
 	out := ""
 	for _, reply := range thread.GetForgeReplies() {
+		if reply.GetState() == agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT && mirrored[reply.GetForgeCommentId()] {
+			continue
+		}
 		out += r.forgeReplyView(m, reply, width)
 	}
 
@@ -282,7 +270,7 @@ func (r reviewScreen) forgeRepliesView(m *model, thread *agentv1.ReviewThread, w
 func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width int) string {
 	name := r.forgeName(m)
 
-	said := "posting to " + name
+	posting := ""
 	switch reply.GetState() {
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT:
 		return ""
@@ -292,15 +280,14 @@ func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width 
 
 		return drawForgeBox(width, head, reply.GetBody()+"\n"+refused)
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
-		said = "posted"
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING:
+		posting = dimStyle().Render("  "+glyph.Right+" posting to "+name) + "\n"
 	}
 
-	out := drawCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" + reviewWrap(width, reply.GetBody()) + "\n"
-
-	return out + dimStyle().Render(glyph.Right+" "+said) + "\n"
+	return forgeMark(m.glyphs) + drawCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +
+		reviewWrap(width, reply.GetBody()) + "\n" + posting + "\n"
 }
 
 // drawForgeBox is a refused reply set apart in a red frame of its own, its head over its body.
