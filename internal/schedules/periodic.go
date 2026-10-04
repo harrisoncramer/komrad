@@ -72,14 +72,8 @@ func (s *ScheduleService) syncAfterWrite(ctx context.Context, id string) error {
 }
 
 func (s *ScheduleService) applyRegistration(schedule *schedulestore.Schedule) error {
-	if !isArmable(schedule) {
-		s.disarm(schedule.ID)
-
-		return nil
-	}
-
-	cron, err := ParseCron(schedule.Cron, schedule.Timezone)
-	if err != nil {
+	cron, ok := armableCron(schedule)
+	if !ok {
 		s.disarm(schedule.ID)
 
 		return nil
@@ -110,6 +104,14 @@ func (s *ScheduleService) disarm(id string) {
 	delete(s.armed, id)
 }
 
-func isArmable(schedule *schedulestore.Schedule) bool {
-	return schedule.Enabled && schedule.ArchivedAt == nil
+// armableCron is the schedule's parsed cron, false for a schedule that is off or whose cron will
+// not parse.
+func armableCron(schedule *schedulestore.Schedule) (river.PeriodicSchedule, bool) {
+	if !schedule.Enabled || schedule.ArchivedAt != nil {
+		return nil, false
+	}
+
+	parsed, err := ParseCron(schedule.Cron, schedule.Timezone)
+
+	return parsed, err == nil
 }

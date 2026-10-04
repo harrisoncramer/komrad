@@ -26,9 +26,11 @@ func List[C pagination.Cursor, M pagination.Cursorable[C]](request *paginationv1
 		return nil, failure
 	}
 
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to build the next page token")
+	var next *string
+	if paginator.HasNext(resources) {
+		if next, err = paginator.NextToken(resources); err != nil {
+			return nil, rpcerr.From(err, "failed to build the next page token")
+		}
 	}
 
 	return &page[M]{Resources: resources, Next: next}, nil

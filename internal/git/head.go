@@ -44,14 +44,14 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		args = append(args, params.SnapshotSHA+"^{tree}")
 	}
 
-	out, err := Run(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel")...)
-	if err != nil && ctx.Err() != nil {
+	out, ok := tryRun(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel")...)
+	if !ok && ctx.Err() != nil {
 		return nil, fmt.Errorf("failed to read the head of %s: %w", params.Dir, ctx.Err())
 	}
-	if err != nil && params.SnapshotSHA != "" {
+	if !ok && params.SnapshotSHA != "" {
 		return c.ReadHeadState(ctx, ReadHeadStateParams{Dir: params.Dir})
 	}
-	if err != nil {
+	if !ok {
 		return &HeadState{}, nil
 	}
 
@@ -93,7 +93,7 @@ func (c *Client) ReadRepositoryURL(ctx context.Context, dir string) string {
 }
 
 func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
-	remote := c.readOrigin(ctx, dir)
+	remote := c.ReadOrigin(ctx, dir)
 	if remote == nil {
 		return ""
 	}
@@ -103,7 +103,7 @@ func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
 
 // ReadOriginHost is the web host a checkout's origin is on, empty when it has none komrad can read.
 func (c *Client) ReadOriginHost(ctx context.Context, dir string) string {
-	remote := c.readOrigin(ctx, dir)
+	remote := c.ReadOrigin(ctx, dir)
 	if remote == nil {
 		return ""
 	}
@@ -111,8 +111,8 @@ func (c *Client) ReadOriginHost(ctx context.Context, dir string) string {
 	return remote.Host
 }
 
-// readOrigin is a checkout's origin remote, nil when it has none komrad can read.
-func (c *Client) readOrigin(ctx context.Context, dir string) *RemoteURL {
+// ReadOrigin is a checkout's origin remote, nil when it has none komrad can read.
+func (c *Client) ReadOrigin(ctx context.Context, dir string) *RemoteURL {
 	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
 	if err != nil {
 		return nil

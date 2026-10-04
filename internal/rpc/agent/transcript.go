@@ -65,9 +65,14 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1.SearchTran
 func (s *Handler) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
 
-	cursor, err := pagination.Decode[transcriptstore.ContentCursor](req.GetCursor())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the cursor")
+	var cursor *transcriptstore.ContentCursor
+	if token := req.GetCursor(); token != "" {
+		decoded, err := pagination.Decode[transcriptstore.ContentCursor](token)
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to read the cursor")
+		}
+
+		cursor = decoded
 	}
 
 	window, err := s.transcripts.ReadTranscriptWindow(ctx, transcripts.ReadTranscriptWindowParams{

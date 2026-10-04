@@ -191,7 +191,7 @@ func tempIndexPath() (string, error) {
 // seedIndexFromHead fills the temporary index from the last commit, and does nothing in a
 // repository with no HEAD.
 func seedIndexFromHead(ctx context.Context, root, index string, env []string) error {
-	if _, err := runEnv(ctx, root, env, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
+	if !hasHead(ctx, root, env) {
 		return nil
 	}
 
@@ -200,6 +200,13 @@ func seedIndexFromHead(ctx context.Context, root, index string, env []string) er
 	}
 
 	return nil
+}
+
+// hasHead reports whether the repository has a commit for HEAD to name.
+func hasHead(ctx context.Context, root string, env []string) bool {
+	_, err := runEnv(ctx, root, env, "rev-parse", "--verify", "--quiet", "HEAD")
+
+	return err == nil
 }
 
 // copyIndex writes the agent's index out as the temporary one, modification time included.
@@ -401,8 +408,8 @@ func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, e
 		return false, nil
 	}
 
-	baseTree, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", base+"^{tree}")
-	if err != nil {
+	baseTree, ok := tryRun(ctx, root, "rev-parse", "--verify", "--quiet", base+"^{tree}")
+	if !ok {
 		return false, nil
 	}
 

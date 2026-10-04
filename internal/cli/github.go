@@ -118,17 +118,11 @@ func requireGitHubCheckout(ctx context.Context, client *git.Client, dir string) 
 		return nil
 	}
 
-	raw, err := git.Run(ctx, dir, "config", "--get", "remote.origin.url")
-	if err != nil {
-		return nil
-	}
-
-	return requireGitHubRemote(ctx, client, raw)
+	return requireGitHubRemote(client.ReadOrigin(ctx, dir))
 }
 
-func requireGitHubRemote(ctx context.Context, client *git.Client, raw string) error {
-	remote, err := client.ParseRemoteURL(ctx, raw)
-	if err != nil || remote.Host == githubHost {
+func requireGitHubRemote(remote *git.RemoteURL) error {
+	if remote == nil || remote.Host == githubHost {
 		return nil
 	}
 

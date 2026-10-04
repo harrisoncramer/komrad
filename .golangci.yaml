@@ -20,6 +20,8 @@ linters:
     - errorlint
     - fatcontext
     - forcetypeassert
+    - nilerr
+    - nilnil
     - gocritic
     - iface
     - inamedparam
@@ -67,6 +69,7 @@ linters:
       # form is checked too. What is excluded below is the handful of calls where the zero
       # value genuinely is the answer.
       check-blank: true
+      check-type-assertions: true
       exclude-functions:
         # Cleanup that runs in a defer, where the caller has already returned and there is
         # nothing left to report the failure to.
@@ -645,6 +648,9 @@ linters:
         linters:
           - fussy
         text: forbidnilnil
+      - path: ^tools/komradlint/
+        linters:
+          - nilnil
       # A test asserts on the assertion it just made, so an unchecked assertion fails the
       # test on the spot rather than travelling as a wrong value the way it would in the server.
       # The same files shell out to git and tmux to build their fixtures, where the command

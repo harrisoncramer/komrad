@@ -153,13 +153,13 @@ func (r *reader) each(visit func(Line)) error {
 			continue
 		}
 
-		line := Line{Fields: fields}
-		line.Time, _ = fields[logging.TimestampKey].(string)
-		line.Level, _ = fields[logging.SeverityKey].(string)
-		line.Message, _ = fields[logging.BodyKey].(string)
-		line.Trace, _ = fields[logging.TraceID].(string)
-
-		visit(line)
+		visit(Line{
+			Fields:  fields,
+			Time:    stringField(fields, logging.TimestampKey),
+			Level:   stringField(fields, logging.SeverityKey),
+			Message: stringField(fields, logging.BodyKey),
+			Trace:   stringField(fields, logging.TraceID),
+		})
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -167,4 +167,13 @@ func (r *reader) each(visit func(Line)) error {
 	}
 
 	return nil
+}
+
+func stringField(fields map[string]any, key string) string {
+	s, ok := fields[key].(string)
+	if !ok {
+		return ""
+	}
+
+	return s
 }

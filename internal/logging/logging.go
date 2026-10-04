@@ -122,7 +122,10 @@ func otelFields(groups []string, attr slog.Attr) slog.Attr {
 	case slog.MessageKey:
 		return slog.Attr{Key: BodyKey, Value: attr.Value}
 	case slog.LevelKey:
-		level, _ := attr.Value.Any().(slog.Level)
+		level, ok := attr.Value.Any().(slog.Level)
+		if !ok {
+			return attr
+		}
 
 		return slog.Attr{Key: "", Value: slog.GroupValue(
 			slog.String(SeverityKey, level.String()),
