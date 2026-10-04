@@ -424,13 +424,14 @@ func TestCreatingAWorkflowWithoutPromptsGivesTheDefaults(t *testing.T) {
 	}
 }
 
-// TestEventPromptEventsAreTheEventsKomradSends pins the events the wire accepts to the ones komrad sends.
+// TestEventPromptEventsAreTheEventsKomradSends pins the events the wire accepts to the ones komrad sends and the ones it retired.
 func TestEventPromptEventsAreTheEventsKomradSends(t *testing.T) {
 	field := (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor().Fields().ByName("event")
 	rules, ok := proto.GetExtension(field.Options(), validate.E_Field).(*validate.FieldRules)
 	require.True(t, ok)
 
-	assert.Equal(t, eventprompts.Names(), rules.GetString().GetIn())
+	retired := []string{"review.forge_reply_requested", "review.forge_reply_decided"}
+	assert.Equal(t, append(eventprompts.Names(), retired...), rules.GetString().GetIn())
 }
 
 // TestWorkflowReadsRender pins that every read answers with the workflow the service handed back, context whole.
