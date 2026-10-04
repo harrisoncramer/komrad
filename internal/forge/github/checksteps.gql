@@ -1,0 +1,16 @@
+... on CheckRun {
+  id
+  steps(first: 50) {
+    pageInfo {
+      hasNextPage
+    }
+    nodes {
+      number
+      name
+      status
+      conclusion
+      startedAt
+      completedAt
+    }
+  }
+}

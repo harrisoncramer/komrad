@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -58,12 +59,6 @@ type statusCheckNode struct {
 			} `json:"workflow"`
 		} `json:"workflowRun"`
 	} `json:"checkSuite"`
-	Steps *struct {
-		PageInfo struct {
-			HasNextPage bool `json:"hasNextPage"`
-		} `json:"pageInfo"`
-		Nodes []checkStepNode `json:"nodes"`
-	} `json:"steps"`
 	Context    string     `json:"context"`
 	State      string     `json:"state"`
 	TargetURL  *string    `json:"targetUrl"`
@@ -112,6 +107,88 @@ func (f *Forge) readStatusCheckListings(ctx context.Context, reading *forge.Read
 	return nil
 }
 
+// checkStepsFields is the first fifty steps of a check run.
+//
+//go:embed checksteps.gql
+var checkStepsFields string
+
+// checkRunsPerNodes is how many check runs one nodes field asks GitHub for, the most it takes.
+const checkRunsPerNodes = 100
+
+// checkStepsNode is the steps GitHub lists on one check run.
+type checkStepsNode struct {
+	ID    string `json:"id"`
+	Steps struct {
+		PageInfo struct {
+			HasNextPage bool `json:"hasNextPage"`
+		} `json:"pageInfo"`
+		Nodes []checkStepNode `json:"nodes"`
+	} `json:"steps"`
+}
+
+// readCheckSteps lists the steps of each check run in the reading's listings in a query of its own by
+// check run id, leaving StepsTruncated set on a check run GitHub does not answer for.
+func (f *Forge) readCheckSteps(ctx context.Context, reading *forge.Reading) error {
+	var runs []*forge.StatusCheck
+	for _, pullRequest := range reading.PullRequests {
+		listing := pullRequest.MergeReadiness.Listing
+		if listing == nil {
+			continue
+		}
+		for i := range listing.StatusChecks {
+			check := &listing.StatusChecks[i]
+			if check.Kind == forge.StatusCheckKindRun {
+				check.StepsTruncated = true
+				runs = append(runs, check)
+			}
+		}
+	}
+	if len(runs) == 0 {
+		return nil
+	}
+
+	variables := map[string]any{}
+	var declared, fields strings.Builder
+	for batch := range slices.Chunk(runs, checkRunsPerNodes) {
+		alias := "s" + strconv.Itoa(len(variables))
+		variables[alias] = xslice.Map(batch, func(check *forge.StatusCheck) string { return check.ProviderID })
+		fmt.Fprintf(&declared, ", $%s: [ID!]!", alias)
+		fmt.Fprintf(&fields, "\n  %s: nodes(ids: $%s) { %s }", alias, alias, checkStepsFields)
+	}
+	operation := "query ReadCheckSteps(" + strings.TrimPrefix(declared.String(), ", ") + ") {" + fields.String() + "\n}"
+
+	var data map[string][]*checkStepsNode
+	answer, err := f.client.Query(ctx, operation, variables, &data)
+	if err != nil {
+		return err
+	}
+	if err := failureOf(answer); err != nil {
+		return err
+	}
+
+	if answer.RateLimit.Known {
+		reading.RateLimit = answer.RateLimit
+	}
+	byID := map[string]*checkStepsNode{}
+	for _, nodes := range data {
+		for _, node := range nodes {
+			if node != nil && node.ID != "" {
+				byID[node.ID] = node
+			}
+		}
+	}
+	for _, run := range runs {
+		node, ok := byID[run.ProviderID]
+		if !ok {
+			continue
+		}
+		run.Steps = node.steps()
+		run.StepsTruncated = node.Steps.PageInfo.HasNextPage
+	}
+
+	return nil
+}
+
 // listingOf is the checks on the head commit, nil when GitHub answered for another commit or no
 // pull request.
 func (n *statusCheckListNode) listingOf(headSHA string) *forge.StatusCheckListing {
@@ -143,18 +220,16 @@ func (n statusCheckNode) check() (forge.StatusCheck, bool) {
 	case "CheckRun":
 		state, conclusion := checkRunStateOf(n.Status, n.Conclusion)
 		return forge.StatusCheck{
-			ProviderID:     n.ID,
-			Kind:           forge.StatusCheckKindRun,
-			Source:         n.source(),
-			Name:           n.Name,
-			State:          state,
-			Conclusion:     conclusion,
-			StartedAt:      n.StartedAt,
-			FinishedAt:     n.CompletedAt,
-			Required:       n.IsRequired,
-			URL:            xptr.Deref(n.DetailsURL),
-			Steps:          n.steps(),
-			StepsTruncated: n.Steps != nil && n.Steps.PageInfo.HasNextPage,
+			ProviderID: n.ID,
+			Kind:       forge.StatusCheckKindRun,
+			Source:     n.source(),
+			Name:       n.Name,
+			State:      state,
+			Conclusion: conclusion,
+			StartedAt:  n.StartedAt,
+			FinishedAt: n.CompletedAt,
+			Required:   n.IsRequired,
+			URL:        xptr.Deref(n.DetailsURL),
 		}, true
 	case "StatusContext":
 		check := forge.StatusCheck{
@@ -223,8 +298,8 @@ type checkStepNode struct {
 }
 
 // steps is the steps listed on the check run, nil when GitHub listed none.
-func (n statusCheckNode) steps() []forge.StatusCheckStep {
-	if n.Steps == nil || len(n.Steps.Nodes) == 0 {
+func (n checkStepsNode) steps() []forge.StatusCheckStep {
+	if len(n.Steps.Nodes) == 0 {
 		return nil
 	}
 

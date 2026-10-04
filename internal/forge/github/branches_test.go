@@ -33,17 +33,27 @@ func TestReadBranches(t *testing.T) {
 			header: map[string]string{"X-RateLimit-Remaining": "4321", "X-RateLimit-Limit": "5000", "X-RateLimit-Reset": "1789900000"},
 			body:   data(openPullChecks),
 		},
+		"ReadCheckSteps": {
+			header: map[string]string{"X-RateLimit-Remaining": "4320", "X-RateLimit-Limit": "5000", "X-RateLimit-Reset": "1789900000"},
+			body:   data(`{"s0": [{"id": "CR_1", "steps": {"pageInfo": {"hasNextPage": false}, "nodes": []}}, {"id": "CR_2", "steps": {"pageInfo": {"hasNextPage": false}, "nodes": []}}]}`),
+		},
 	})
 
 	reading, err := f.ReadBranches(t.Context(), fixture, []string{"fixture/open", "client-tests", "fixture/closed"})
 	require.NoError(t, err)
 
-	require.Len(t, fake.calls, 2)
+	require.Len(t, fake.calls, 3)
 	checksSeen := fake.calls[1]
 	assert.Equal(t, "ReadStatusChecks", checksSeen.Operation)
 	assert.Equal(t, map[string]any{"p0": "PR_kwDOUgkrbM8AAAABEIdmHw"}, checksSeen.Variables, "only the open pull request is asked after")
 	assert.Contains(t, checksSeen.Query, "query ReadStatusChecks($p0: ID!) {")
 	assert.Contains(t, checksSeen.Query, "p0: node(id: $p0) { ... on PullRequest { "+strings.ReplaceAll(statusCheckListFields, "$pullRequest", "$p0")+" } }")
+
+	stepsSeen := fake.calls[2]
+	assert.Equal(t, "ReadCheckSteps", stepsSeen.Operation)
+	assert.Equal(t, map[string]any{"s0": []any{"CR_1", "CR_2"}}, stepsSeen.Variables, "only the check runs are asked after")
+	assert.Contains(t, stepsSeen.Query, "query ReadCheckSteps($s0: [ID!]!) {")
+	assert.Contains(t, stepsSeen.Query, "s0: nodes(ids: $s0) { "+checkStepsFields+" }")
 
 	seen := fake.calls[0]
 	assert.Equal(t, "ReadBranches", seen.Operation)
@@ -61,7 +71,7 @@ func TestReadBranches(t *testing.T) {
 
 	assert.Equal(t, forge.RateLimit{
 		Known:     true,
-		Remaining: 4321,
+		Remaining: 4320,
 		Limit:     5000,
 		ResetAt:   time.Unix(1789900000, 0),
 	}, reading.RateLimit)

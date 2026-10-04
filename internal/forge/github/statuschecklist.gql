@@ -27,19 +27,6 @@ commits(last: 1) {
                   }
                 }
               }
-              steps(first: 50) {
-                pageInfo {
-                  hasNextPage
-                }
-                nodes {
-                  number
-                  name
-                  status
-                  conclusion
-                  startedAt
-                  completedAt
-                }
-              }
               isRequired(pullRequestId: $pullRequest)
             }
             ... on StatusContext {
