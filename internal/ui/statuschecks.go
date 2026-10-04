@@ -55,9 +55,11 @@ func (r statusCheckRow) key() string {
 }
 
 func (c *statusChecksScreen) enter(m *model, target screenTarget) tea.Cmd {
-	*c = statusChecksScreen{
-		agentID: target.agentID,
-		from:    target.from,
+	if target.agentID != "" {
+		*c = statusChecksScreen{
+			agentID: target.agentID,
+			from:    target.from,
+		}
 	}
 
 	return m.readStatusChecksCmd()
