@@ -92,23 +92,6 @@ func TestIntegrationMovePanesRespawnsAPaneWithItsScrollback(t *testing.T) {
 		"and holds nothing the process before it wrote")
 }
 
-// TestIntegrationMovePanesSetsAPaneHeight pins the rows a resize asks for, which leave the width alone.
-func TestIntegrationMovePanesSetsAPaneHeight(t *testing.T) {
-	client := testServer(t, "height")
-
-	_, err := client.query("resize-window", "-t", "height:", "-x", "200", "-y", "40")
-	require.NoError(t, err)
-
-	top := paneAt(t, client, "height", 0)
-	bottom := client.SplitBottom(top, t.TempDir(), "8")
-	require.NotEmpty(t, bottom)
-
-	client.MovePanes([]panes.Move{panes.ResizeHeight(bottom, 12)})
-
-	assert.Equal(t, 12, client.GetPaneHeight(bottom))
-	assert.Equal(t, 200, client.GetPaneWidth(bottom))
-}
-
 // TestIntegrationArgsForMoveSaysNothingAboutAPaneItWasNotGiven pins the empty target, which tmux would read
 // as the pane the person is looking at rather than as a move nobody asked for.
 func TestIntegrationArgsForMoveSaysNothingAboutAPaneItWasNotGiven(t *testing.T) {
@@ -119,7 +102,6 @@ func TestIntegrationArgsForMoveSaysNothingAboutAPaneItWasNotGiven(t *testing.T) 
 		{name: "a zoom of nothing", move: panes.Zoom("", true)},
 		{name: "a swap of nothing", move: panes.Swap("", "%1")},
 		{name: "a respawn of nothing", move: panes.Respawn("", "/tmp")},
-		{name: "a resize of nothing", move: panes.ResizeHeight("", 5)},
 	}
 
 	for _, tt := range tests {

@@ -190,34 +190,6 @@
           "type": "integer",
           "description": "How many families of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A family is an agent with all of its children, and the zone never draws fewer rows than it has slots. Zero turns the zone off.",
           "default": "0"
-        },
-        {
-          "key": "implementer_chat",
-          "path": "layout.implementer_chat",
-          "type": "boolean",
-          "description": "Whether a review of an implementer's change shows that agent's chat across the bottom of the window, under the diff.",
-          "default": "true"
-        },
-        {
-          "key": "implementer_chat_height",
-          "path": "layout.implementer_chat_height",
-          "type": "number",
-          "description": "How tall the implementer's chat under a review opens, either a share of the window's height below one or a whole number of rows.",
-          "default": "0.25"
-        },
-        {
-          "key": "implementer_chat_min_rows",
-          "path": "layout.implementer_chat_min_rows",
-          "type": "integer",
-          "description": "The fewest rows the implementer's chat under a review opens at. A window too short to give it these and still show the diff leaves it closed.",
-          "default": "6"
-        },
-        {
-          "key": "implementer_chat_max_rows",
-          "path": "layout.implementer_chat_max_rows",
-          "type": "integer",
-          "description": "The most rows the implementer's chat under a review opens at, however tall the window.",
-          "default": "15"
         }
       ],
       "sections": []

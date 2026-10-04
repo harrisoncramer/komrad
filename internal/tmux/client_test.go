@@ -483,37 +483,6 @@ func TestIntegrationWindowWidthIsUnmovedByASplitOrAZoom(t *testing.T) {
 	}
 }
 
-// TestIntegrationSplitBottomRunsUnderEveryPaneInTheWindow pins the full width split, which a split
-// below the sidebar alone would leave the stage beside rather than above.
-func TestIntegrationSplitBottomRunsUnderEveryPaneInTheWindow(t *testing.T) {
-	client := testServer(t, "bottom")
-
-	_, err := client.query("resize-window", "-t", "bottom:", "-x", "200", "-y", "40")
-	require.NoError(t, err)
-
-	sidebar := paneAt(t, client, "bottom", 0)
-	require.Equal(t, 40, client.GetWindowHeight(sidebar))
-
-	stage := client.SplitRight(sidebar, t.TempDir(), "149")
-	require.NotEmpty(t, stage)
-
-	tile := client.SplitBottom(sidebar, t.TempDir(), "8")
-	require.NotEmpty(t, tile)
-
-	assert.Equal(t, 200, client.GetPaneWidth(tile), "the tile runs the width of the window")
-	assert.Equal(t, 8, client.GetPaneHeight(tile), "at the height asked for")
-	tileLeft, tileTop := paneCorner(t, client, tile)
-	_, stageTop := paneCorner(t, client, stage)
-	assert.Equal(t, "0", tileLeft, "from the window's left edge")
-	assert.Equal(t, "32", tileTop, "along its bottom")
-	assert.Equal(t, "0", stageTop, "under the stage as well as the sidebar")
-	assert.Equal(t, 40, client.GetWindowHeight(sidebar), "and the window keeps its height")
-
-	for _, absent := range []string{"", "%999"} {
-		assert.Zero(t, client.GetWindowHeight(absent), "window height of %q", absent)
-	}
-}
-
 // TestIntegrationResizeWindowRefusesASizeThatIsNotOne pins the guard, tmux reading a zero as a request to
 // fit the window to its client.
 func TestIntegrationResizeWindowRefusesASizeThatIsNotOne(t *testing.T) {

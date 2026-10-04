@@ -772,10 +772,6 @@ func (t *recordingTmux) GetWindowWidth(string) int {
 	return t.windowWidth
 }
 
-func (t *recordingTmux) GetWindowHeight(string) int {
-	return t.height
-}
-
 func (t *recordingTmux) GetPaneWidth(pane string) int {
 	if width, ok := t.paneWidths[pane]; ok {
 		return width
@@ -816,10 +812,6 @@ func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
 
 	return t.split("%2")
-}
-
-func (t *recordingTmux) SplitBottom(string, string, string) string {
-	return t.split("%3")
 }
 
 // split answers with the pane a split left, dropping the zoom the way tmux does.

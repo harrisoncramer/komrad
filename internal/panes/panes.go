@@ -28,10 +28,8 @@ type Move struct {
 	Argv []string
 	// Zoomed is the zoom a KindZoom move leaves the pane on.
 	Zoomed bool
-	// Width is the columns a KindResize move gives the pane, zero leaving them alone.
+	// Width is the columns a KindResize move gives the pane.
 	Width int
-	// Height is the rows a KindResize move gives the pane, zero leaving them alone.
-	Height int
 }
 
 // Zoom is the move that gives a pane the whole window, or hands the others their share back.
@@ -68,15 +66,6 @@ func Resize(pane string, width int) Move {
 		Kind:  KindResize,
 		Pane:  pane,
 		Width: width,
-	}
-}
-
-// ResizeHeight is the move that sets a pane's height in rows.
-func ResizeHeight(pane string, height int) Move {
-	return Move{
-		Kind:   KindResize,
-		Pane:   pane,
-		Height: height,
 	}
 }
 

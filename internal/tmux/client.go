@@ -105,25 +105,6 @@ func (c *Client) GetWindowWidth(pane string) int {
 	return width
 }
 
-// GetWindowHeight is how many rows the window holding a pane has, zero when it is gone.
-func (c *Client) GetWindowHeight(pane string) int {
-	if pane == "" {
-		return 0
-	}
-
-	out, err := c.query("display-message", "-p", "-t", pane, "#{window_height}")
-	if err != nil {
-		return 0
-	}
-
-	height, err := strconv.Atoi(out)
-	if err != nil {
-		return 0
-	}
-
-	return height
-}
-
 // GetPaneHeight is how many rows a pane has.
 func (c *Client) GetPaneHeight(pane string) int {
 	if pane == "" {
@@ -271,11 +252,6 @@ func (c *Client) SplitLeft(anchorPane, dir, size string) string {
 // SplitBelow splits a pane under the anchor.
 func (c *Client) SplitBelow(anchorPane, dir, size string) string {
 	return c.split(anchorPane, dir, size, "-v")
-}
-
-// SplitBottom splits a pane across the whole width of the anchor's window, under every pane in it.
-func (c *Client) SplitBottom(anchorPane, dir, size string) string {
-	return c.split(anchorPane, dir, size, "-f", "-v")
 }
 
 // SplitAbove splits a pane over the anchor.
