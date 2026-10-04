@@ -270,7 +270,7 @@ func (r reviewScreen) forgeRepliesView(m *model, thread *agentv1.ReviewThread, w
 func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width int) string {
 	name := r.forgeName(m)
 
-	said := "posting to " + name
+	posting := ""
 	switch reply.GetState() {
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT:
 		return ""
@@ -280,18 +280,14 @@ func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width 
 
 		return drawForgeBox(width, head, reply.GetBody()+"\n"+refused)
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
-		said = ""
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING:
+		posting = dimStyle().Render("  "+glyph.Right+" posting to "+name) + "\n"
 	}
 
-	out := forgeMark(m.glyphs) + drawCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" + reviewWrap(width, reply.GetBody()) + "\n"
-	if said != "" {
-		out += dimStyle().Render("  "+glyph.Right+" "+said) + "\n"
-	}
-
-	return out + "\n"
+	return forgeMark(m.glyphs) + drawCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +
+		reviewWrap(width, reply.GetBody()) + "\n" + posting + "\n"
 }
 
 // drawForgeBox is a refused reply set apart in a red frame of its own, its head over its body.
