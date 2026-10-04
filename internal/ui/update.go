@@ -403,8 +403,6 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applySizeRead(msg), true
 	case sizeFallbackMsg:
 		return m.applySizeFallback(msg), true
-	case sizeRecheckMsg:
-		return tea.RequestWindowSize, true
 	case warmupTickMsg:
 		return m.applyWarmupTick(), true
 	case stageTickMsg:

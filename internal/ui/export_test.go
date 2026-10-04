@@ -303,22 +303,6 @@ func NewWheelFilter(now func() time.Time, later func(tea.Msg)) func(tea.Model, t
 	return newWheelFilter(now, later).filter
 }
 
-func NewSizeFilter(now func() time.Time, later func(tea.Msg)) (func(tea.Model, tea.Msg) tea.Msg, func(width, height int)) {
-	f := newSizeFilter(now, later)
-
-	return f.filter, f.expect
-}
-
-func NewSizeRecheck() tea.Msg {
-	return sizeRecheckMsg{}
-}
-
-func IsSizeRecheck(msg tea.Msg) bool {
-	_, ok := msg.(sizeRecheckMsg)
-
-	return ok
-}
-
 // NewWheelTurns is the message the filter lets through for turns it added up.
 func NewWheelTurns(x, y, rows int) tea.Msg {
 	return wheelMsg{
