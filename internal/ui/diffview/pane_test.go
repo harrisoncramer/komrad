@@ -343,3 +343,47 @@ func TestPaneKeepsTheCursorInSightWhenLinesStartWrapping(t *testing.T) {
 
 	assertCursorInSight(t, &pane, wrappedWindow)
 }
+
+// TestPaneKeepsTheFileNameOnTop covers the header of the file under the window standing over its
+// first line once the header has scrolled away.
+func TestPaneKeepsTheFileNameOnTop(t *testing.T) {
+	tests := []struct {
+		name     string
+		headless bool
+		window   Window
+		wantTop  string
+	}{
+		{
+			name:    "a header scrolled away is drawn over the first line",
+			window:  paneWindow,
+			wantTop: "notes.md",
+		},
+		{
+			name:     "a headless view has no header to draw",
+			headless: true,
+			window:   paneWindow,
+			wantTop:  "27   27    line 27",
+		},
+		{
+			name:    "the cursor on the first line is not covered",
+			window:  Window{Width: 80, Height: 1},
+			wantTop: "30 +  last",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			view := NewView(patchWith(diff.FromTexts("notes.md",
+				numberedText(30, nil),
+				numberedText(30, map[int]string{1: "first", 30: "last"}),
+			)), false)
+			view.SetHeadless(tt.headless)
+			pane := NewPane(view)
+
+			pane.MoveTo(view.GetLastRow(), tt.window)
+
+			rows := pane.Render(tt.window, noCursor)
+			assert.Equal(t, tt.wantTop, strings.TrimSpace(ansi.Strip(rows[0])))
+		})
+	}
+}

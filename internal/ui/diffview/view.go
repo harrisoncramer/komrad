@@ -821,3 +821,20 @@ func (v *View) GetThreadRow(id string) (int, bool) {
 
 	return 0, false
 }
+
+// getStickyHeader is the header row of the file a window starting on y is inside, false when the
+// window starts on that header or the file has none.
+func (v *View) getStickyHeader(y int) (int, bool) {
+	current, ok := v.getRow(y)
+	if !ok || current.kind == fileRow || current.file < 0 {
+		return 0, false
+	}
+
+	for header := y - 1; header >= 0; header-- {
+		if v.rows[header].kind == fileRow && v.rows[header].file == current.file {
+			return header, true
+		}
+	}
+
+	return 0, false
+}

@@ -283,7 +283,8 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
 	// second to draw whole.
 	lines := make([]string, 0, window.Height)
-	for y := p.findWindowStart(window); y < p.view.Len() && len(lines) < window.Height; y++ {
+	start := p.findWindowStart(window)
+	for y := start; y < p.view.Len() && len(lines) < window.Height; y++ {
 		mark := noCursor
 		if y == p.cursor {
 			mark = held
@@ -293,6 +294,10 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	}
 
 	lines = lines[:min(len(lines), max(window.Height, 0))]
+	if header, ok := p.view.getStickyHeader(start); ok && p.cursor != start && len(lines) > 0 {
+		lines[0] = p.view.renderRow(header, noCursor, window.Width, 0)
+	}
+
 	for len(lines) < window.Height {
 		lines = append(lines, strings.Repeat(" ", window.Width))
 	}
