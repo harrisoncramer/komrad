@@ -8,10 +8,17 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
-// StatusCheckReading draws the checks read on a pull request's head as the wire carries them.
-func StatusCheckReading(reading *pullrequeststore.StatusCheckReading) *pullrequestv1.ListStatusChecksResponse {
+// StatusCheckReadings draws the checks read on each of a pull request's heads as the wire carries them.
+func StatusCheckReadings(readings []pullrequeststore.StatusCheckReading) *pullrequestv1.ListStatusChecksResponse {
 	return &pullrequestv1.ListStatusChecksResponse{
+		Readings: xslice.Map(readings, statusCheckReading),
+	}
+}
+
+func statusCheckReading(reading pullrequeststore.StatusCheckReading) *pullrequestv1.StatusCheckReading {
+	return &pullrequestv1.StatusCheckReading{
 		HeadSha:      reading.HeadSHA,
+		FirstReadAt:  dates.StampPtr(&reading.FirstReadAt),
 		ReadAt:       dates.StampPtr(&reading.ReadAt),
 		StatusChecks: xslice.Map(reading.StatusChecks, statusCheck),
 	}
@@ -30,7 +37,6 @@ func statusCheck(stored forge.StatusCheck) *pullrequestv1.StatusCheck {
 		Required:     stored.Required,
 		Url:          stored.URL,
 		Steps:        xslice.Map(stored.Steps, statusCheckStep),
-		RunId:        stored.RunID,
 		RunEvent:     stored.RunEvent,
 		RunStartedAt: dates.StampPtr(stored.RunStartedAt),
 	}

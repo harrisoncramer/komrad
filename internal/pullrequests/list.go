@@ -51,13 +51,12 @@ func (l *Lister) ListPullRequests(ctx context.Context, params ListPullRequestsPa
 	return listed, nil
 }
 
-// ListStatusChecks is the reading of a pull request's latest read head with its checks, or ErrNotFound
-// when its checks have never been read.
-func (l *Lister) ListStatusChecks(ctx context.Context, pullRequestID string) (*pullrequeststore.StatusCheckReading, error) {
-	reading, err := l.statusChecks.GetLatestOfPullRequest(ctx, pullRequestID)
+// ListStatusChecks is the reading of each head a pull request's checks were read on, oldest first.
+func (l *Lister) ListStatusChecks(ctx context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error) {
+	readings, err := l.statusChecks.ListOfPullRequest(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the status checks of pull request %s: %w", pullRequestID, err)
 	}
 
-	return reading, nil
+	return readings, nil
 }

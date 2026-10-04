@@ -9,7 +9,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/pullrequests"
-	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -28,7 +27,7 @@ const komradRepository = "https://github.com/harrisoncramer/komrad"
 // fakePullRequestLister answers from its fields and records each page asked for.
 type fakePullRequestLister struct {
 	pullRequests   []pullrequeststore.PullRequest
-	reading        *pullrequeststore.StatusCheckReading
+	readings       []pullrequeststore.StatusCheckReading
 	err            error
 	listed         []pullrequests.ListPullRequestsParams
 	statusChecksOf []string
@@ -145,14 +144,14 @@ func TestListPullRequests(t *testing.T) {
 	assert.Equal(t, want, reader.listed)
 }
 
-// ListStatusChecks records the pull request asked about and answers reading unless err refuses it.
-func (f *fakePullRequestLister) ListStatusChecks(_ context.Context, pullRequestID string) (*pullrequeststore.StatusCheckReading, error) {
+// ListStatusChecks records the pull request asked about and answers readings unless err refuses it.
+func (f *fakePullRequestLister) ListStatusChecks(_ context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error) {
 	f.statusChecksOf = append(f.statusChecksOf, pullRequestID)
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return f.reading, nil
+	return f.readings, nil
 }
 
 // TestListStatusChecks covers what reaches the caller for a pull request's checks.
@@ -160,21 +159,21 @@ func TestListStatusChecks(t *testing.T) {
 	readAt := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name     string
-		reading  *pullrequeststore.StatusCheckReading
+		readings []pullrequeststore.StatusCheckReading
 		err      error
 		want     *pullrequestv1.ListStatusChecksResponse
 		wantCode connect.Code
 	}{
 		{
 			name: "checks never read answer empty",
-			err:  store.ErrNotFound,
 			want: &pullrequestv1.ListStatusChecksResponse{},
 		},
 		{
-			name: "a reading answers its head and checks with their steps",
-			reading: &pullrequeststore.StatusCheckReading{
-				HeadSHA: "c1",
-				ReadAt:  readAt,
+			name: "each reading answers its head and checks with their steps, in the order listed",
+			readings: []pullrequeststore.StatusCheckReading{{
+				HeadSHA:     "c1",
+				FirstReadAt: readAt.Add(-time.Hour),
+				ReadAt:      readAt,
 				StatusChecks: []forge.StatusCheck{{
 					ProviderID: "1",
 					Kind:       forge.StatusCheckKindRun,
@@ -193,10 +192,15 @@ func TestListStatusChecks(t *testing.T) {
 						FinishedAt: &readAt,
 					}},
 				}},
-			},
-			want: &pullrequestv1.ListStatusChecksResponse{
-				HeadSha: "c1",
-				ReadAt:  xptr.Ptr("2026-10-03T12:00:00Z"),
+			}, {
+				HeadSHA:     "c2",
+				FirstReadAt: readAt.Add(time.Minute),
+				ReadAt:      readAt.Add(time.Minute),
+			}},
+			want: &pullrequestv1.ListStatusChecksResponse{Readings: []*pullrequestv1.StatusCheckReading{{
+				HeadSha:     "c1",
+				FirstReadAt: xptr.Ptr("2026-10-03T11:00:00Z"),
+				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
 					ProviderId: "1",
 					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
@@ -215,7 +219,11 @@ func TestListStatusChecks(t *testing.T) {
 						FinishedAt: xptr.Ptr("2026-10-03T12:00:00Z"),
 					}},
 				}},
-			},
+			}, {
+				HeadSha:     "c2",
+				FirstReadAt: xptr.Ptr("2026-10-03T12:01:00Z"),
+				ReadAt:      xptr.Ptr("2026-10-03T12:01:00Z"),
+			}}},
 		},
 		{
 			name:     "a store that cannot be read",
@@ -226,7 +234,7 @@ func TestListStatusChecks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakePullRequestLister{reading: tt.reading, err: tt.err}
+			reader := &fakePullRequestLister{readings: tt.readings, err: tt.err}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			got, err := service.ListStatusChecks(t.Context(), connect.NewRequest(&pullrequestv1.ListStatusChecksRequest{PullRequestId: "PR_1"}))

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"komrad/internal/forge"
-	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -266,10 +265,11 @@ func TestSetStatusCheckSteps(t *testing.T) {
 				}))
 			}
 
-			got, err := checks.GetLatestOfPullRequest(ctx, written.ID)
+			got, err := checks.ListOfPullRequest(ctx, written.ID)
 			require.NoError(t, err)
+			require.Len(t, got, 1)
 			steps := map[string][]forge.StatusCheckStep{}
-			for _, check := range got.StatusChecks {
+			for _, check := range got[0].StatusChecks {
 				if len(check.Steps) == 0 {
 					continue
 				}
@@ -324,53 +324,6 @@ func TestSetStatusChecksUnchangedStampsOnlyTheReadTime(t *testing.T) {
 	require.Len(t, got, 1)
 	assert.True(t, got[0].FirstReadAt.Equal(statusCheckReadAt))
 	assert.True(t, got[0].ReadAt.Equal(statusCheckReadAt.Add(time.Minute)))
-}
-
-// TestGetLatestOfPullRequest covers the one reading the checks screen lists.
-func TestGetLatestOfPullRequest(t *testing.T) {
-	tests := []struct {
-		name  string
-		reads []SetStatusChecksParams
-		want  *StatusCheckReading
-	}{
-		{
-			name: "a pull request never read has none",
-		},
-		{
-			name: "the latest head is the one read last",
-			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")}},
-				{HeadSHA: "c2", StatusChecks: []forge.StatusCheck{statusCheckRun("3", "test", forge.StatusCheckStateRunning, "")}},
-			},
-			want: &StatusCheckReading{HeadSHA: "c2", StatusChecks: []forge.StatusCheck{statusCheckRun("3", "test", forge.StatusCheckStateRunning, "")}},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := open(t)
-			checks := NewStatusCheckStore(h.pool.GetDB())
-			ctx := t.Context()
-			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
-			require.NoError(t, err)
-
-			for i, read := range tt.reads {
-				read.PullRequestID = written.ID
-				read.ReadAt = statusCheckReadAt.Add(time.Duration(i) * time.Minute)
-				require.NoError(t, checks.SetStatusChecks(ctx, read))
-			}
-
-			got, err := checks.GetLatestOfPullRequest(ctx, written.ID)
-			if tt.want == nil {
-				require.ErrorIs(t, err, store.ErrNotFound)
-
-				return
-			}
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.want.HeadSHA, got.HeadSHA)
-			assert.Equal(t, statusCheckNames(*tt.want), statusCheckNames(*got))
-		})
-	}
 }
 
 // TestStatusChecksGoWithThePullRequest covers the readings and checks going when their pull request does.
