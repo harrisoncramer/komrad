@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	_ "embed"
 	"strings"
 	"time"
 
@@ -11,30 +12,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-const reviewThreadsQuery = `query ReviewThreads($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100) {
-        pageInfo { hasNextPage }
-        nodes {
-          id isResolved path line originalLine diffSide subjectType
-          comments(first: 100) {
-            pageInfo { hasNextPage }
-            nodes { id url body createdAt lastEditedAt state authorAssociation author { __typename login } pullRequestReview { id } diffHunk commit { oid } originalCommit { oid } }
-          }
-        }
-      }
-      comments(last: 100) {
-        pageInfo { hasPreviousPage }
-        nodes { id url body createdAt lastEditedAt authorAssociation author { __typename login } }
-      }
-      reviews(last: 100, states: [COMMENTED, APPROVED, CHANGES_REQUESTED, DISMISSED]) {
-        pageInfo { hasPreviousPage }
-        nodes { id url body createdAt lastEditedAt authorAssociation author { __typename login } }
-      }
-    }
-  }
-}`
+//go:embed reviewthreads.gql
+var reviewThreadsQuery string
 
 // ReviewThreads reads a pull request's submitted review threads, then its conversation comments
 // and review bodies as comments on the change as a whole.

@@ -1,0 +1,14 @@
+query ReadBranches($path: ID!, $branches: [String!], $first: Int!, $after: String) {
+  project(fullPath: $path) {
+    mergeRequests(sourceBranches: $branches, sort: CREATED_DESC, first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        ...mergeRequestFields
+        ...mergeReadinessFields
+      }
+    }
+  }
+}

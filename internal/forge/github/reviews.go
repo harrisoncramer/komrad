@@ -2,17 +2,16 @@ package github
 
 import (
 	"context"
+	_ "embed"
 
 	"komrad/internal/forge"
 )
 
-const rereviewTargetQuery = `query RereviewTarget($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { pullRequest(number: $number) { id state latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { id } } } } } }
-}`
+//go:embed rereviewtarget.gql
+var rereviewTargetQuery string
 
-const requestReviewsMutation = `mutation RequestReviews($id: ID!, $users: [ID!]) {
-  requestReviews(input: {pullRequestId: $id, userIds: $users, union: true}) { clientMutationId }
-}`
+//go:embed requestreviews.gql
+var requestReviewsMutation string
 
 // RequestRereview asks every user whose latest verdict on the pull request asks for changes to
 // review it again.

@@ -55,8 +55,9 @@ func TestReadBranches(t *testing.T) {
 		"b2":    "fixture/closed",
 	}, seen.Variables)
 	assert.Contains(t, seen.Query, "query ReadBranches($owner: String!, $name: String!, $b0: String!, $b1: String!, $b2: String!)")
-	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields "+mergeReadinessFields+" } }")
+	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields ...mergeReadinessFields } }")
 	assert.Contains(t, seen.Query, pullRequestFragment)
+	assert.Contains(t, seen.Query, mergeReadinessFragment)
 
 	assert.Equal(t, forge.RateLimit{
 		Known:     true,

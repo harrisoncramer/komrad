@@ -2,17 +2,16 @@ package github
 
 import (
 	"context"
+	_ "embed"
 
 	"komrad/internal/forge"
 )
 
-const mergeTargetQuery = `query MergeTarget($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { viewerDefaultMergeMethod pullRequest(number: $number) { id state } }
-}`
+//go:embed mergetarget.gql
+var mergeTargetQuery string
 
-const mergeMutation = `mutation Merge($id: ID!, $method: PullRequestMergeMethod!) {
-  mergePullRequest(input: {pullRequestId: $id, mergeMethod: $method}) { clientMutationId }
-}`
+//go:embed merge.gql
+var mergeMutation string
 
 // Merge lands the pull request with the method GitHub offers the credential by default.
 func (f *Forge) Merge(ctx context.Context, address string) error {

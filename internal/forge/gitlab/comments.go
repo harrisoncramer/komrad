@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 	"strconv"
 	"strings"
 	"time"
@@ -16,27 +17,8 @@ import (
 // marked truncated.
 const maxDiscussionPages = 10
 
-const reviewThreadsQuery = `query ReviewThreads($path: ID!, $iid: String!, $after: String) {
-  project(fullPath: $path) {
-    mergeRequest(iid: $iid) {
-      discussions(first: 100, after: $after) {
-        pageInfo { hasNextPage endCursor }
-        nodes {
-          id resolved
-          truncatedDiffLines { text }
-          notes(first: 100) {
-            pageInfo { hasNextPage }
-            nodes {
-              id system internal body createdAt lastEditedAt lastEditedBy { username } url
-              author { username bot }
-              position { positionType filePath oldLine newLine diffRefs { headSha } }
-            }
-          }
-        }
-      }
-    }
-  }
-}`
+//go:embed reviewthreads.gql
+var reviewThreadsQuery string
 
 // ReviewThreads reads a merge request's discussions, those on the diff anchored to the line and
 // commit GitLab has carried them to, and the rest as comments on the change as a whole.

@@ -1,6 +1,7 @@
 package github
 
 import (
+	_ "embed"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -13,13 +14,14 @@ import (
 )
 
 // pullRequestFragment is every field of a pull request the record is built from.
-const pullRequestFragment = `fragment pullRequestFields on PullRequest {
-  id number title body author { login } url state isDraft createdAt updatedAt mergedAt closedAt
-  headRefName headRefOid baseRefName baseRefOid headRepository { url } baseRepository { url }
-}`
+//
+//go:embed pullrequest.gql
+var pullRequestFragment string
 
-// mergeReadinessFields is what the reviews, mergeability and auto-merge of a pull request are read from.
-const mergeReadinessFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
+// mergeReadinessFragment is what the reviews, mergeability and auto-merge of a pull request are read from.
+//
+//go:embed mergereadiness.gql
+var mergeReadinessFragment string
 
 // ownerAndName splits a repository path, which on GitHub is always two segments.
 func ownerAndName(path string) (owner, name string, err error) {

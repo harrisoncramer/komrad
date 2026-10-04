@@ -2,22 +2,20 @@ package github
 
 import (
 	"context"
+	_ "embed"
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
 )
 
-const autoMergeTargetQuery = `query AutoMergeTarget($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { viewerDefaultMergeMethod pullRequest(number: $number) { id state autoMergeRequest { enabledAt } } }
-}`
+//go:embed automergetarget.gql
+var autoMergeTargetQuery string
 
-const enableAutoMergeMutation = `mutation EnableAutoMerge($id: ID!, $method: PullRequestMergeMethod!, $head: GitObjectID) {
-  enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: $method, expectedHeadOid: $head}) { clientMutationId }
-}`
+//go:embed enableautomerge.gql
+var enableAutoMergeMutation string
 
-const disableAutoMergeMutation = `mutation DisableAutoMerge($id: ID!) {
-  disablePullRequestAutoMerge(input: {pullRequestId: $id}) { clientMutationId }
-}`
+//go:embed disableautomerge.gql
+var disableAutoMergeMutation string
 
 // SetAutoMerge asks GitHub to merge the pull request with the credential's default method once
 // it may, holding it to the head the person saw, or withdraws that request, asking nothing of

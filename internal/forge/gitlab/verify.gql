@@ -1,0 +1,5 @@
+query Verify {
+  currentUser {
+    username
+  }
+}

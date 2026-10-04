@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -14,20 +15,22 @@ import (
 )
 
 // mergeRequestFragment is every field of a merge request the record is built from.
-const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
-  id iid title description author { username } webUrl state draft createdAt updatedAt mergedAt closedAt
-  sourceBranch targetBranch diffHeadSha sourceProject { webUrl } targetProject { webUrl } diffRefs { baseSha }
-}`
+//
+//go:embed mergerequest.gql
+var mergeRequestFragment string
 
-// mergeReadinessFields is what the decision, checks, mergeability and auto-merge of a merge request
+// mergeReadinessFragment is what the decision, checks, mergeability and auto-merge of a merge request
 // are folded from: its approvals, its reviewers' states, the status of the pipeline on its
 // head, its detailed merge status, whether it is set to merge on its own and how it could be.
-const mergeReadinessFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { id sha status mergeRequestEventType path startedAt finishedAt } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
+//
+//go:embed mergereadiness.gql
+var mergeReadinessFragment string
 
-const getQuery = `query Get($path: ID!, $iid: String!) {
-  project(fullPath: $path) { mergeRequest(iid: $iid) { ...mergeRequestFields } }
-}
-` + mergeRequestFragment
+//go:embed get.gql
+var getOperation string
+
+// getQuery is Get with the fragment it spreads.
+var getQuery = getOperation + mergeRequestFragment
 
 // readMergeRequest is one merge request by its web address.
 func (f *Forge) readMergeRequest(ctx context.Context, address string) (forge.PullRequest, error) {

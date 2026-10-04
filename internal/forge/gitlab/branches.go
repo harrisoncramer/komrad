@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"slices"
 
@@ -18,15 +19,11 @@ const maxSourceBranches = 1000
 // mergeRequestsPerBranch is how many of a branch's newest merge requests ReadBranches reads.
 const mergeRequestsPerBranch = 5
 
-const readBranchesQuery = `query ReadBranches($path: ID!, $branches: [String!], $first: Int!, $after: String) {
-  project(fullPath: $path) {
-    mergeRequests(sourceBranches: $branches, sort: CREATED_DESC, first: $first, after: $after) {
-      pageInfo { hasNextPage endCursor }
-      nodes { ...mergeRequestFields ` + mergeReadinessFields + ` }
-    }
-  }
-}
-` + mergeRequestFragment
+//go:embed readbranches.gql
+var readBranchesOperation string
+
+// readBranchesQuery is ReadBranches with the fragments it spreads.
+var readBranchesQuery = readBranchesOperation + mergeRequestFragment + mergeReadinessFragment
 
 // errTooComplex is GitLab refusing a query for its complexity.
 var errTooComplex = fail.Exhausted("gitlab refused the query for its complexity")

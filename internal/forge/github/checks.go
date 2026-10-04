@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,7 +14,9 @@ import (
 
 // checkListFields is the first hundred checks on a pull request's head commit, each asked whether
 // the pull request named by $pullRequest requires it.
-const checkListFields = `commits(last: 1) { nodes { commit { oid statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes { __typename ... on CheckRun { id name status conclusion startedAt completedAt detailsUrl checkSuite { app { name } workflowRun { workflow { name } } } isRequired(pullRequestId: $pullRequest) } ... on StatusContext { id context state targetUrl createdAt isRequired(pullRequestId: $pullRequest) } } } } } } }`
+//
+//go:embed checklist.gql
+var checkListFields string
 
 // checkListNode is the checks GitHub lists on a pull request's newest commit.
 type checkListNode struct {
