@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Format the sqlc queries and the Atlas schema."
+#MISE description="Format the SQL under db."
 
 usage() {
 	echo "Usage: mise run db:fmt [--check]"
 	echo
-	echo "Rewrites db/queries with pg_format and db/schema with atlas. Pass --check"
+	echo "Rewrites every .sql file under db with pg_format. Pass --check"
 	echo "to name the files that would change and exit non-zero instead."
 	echo
 	echo "pg_format output is not stable across releases, so the version this runs"
 	echo "with has to match the one .pg_format.conf declares, which is also the one"
 	echo "mise.toml installs."
 	echo
-	echo "db/migrations is left alone. Atlas writes it from db/schema, so it is"
-	echo "generated output and formatting it by hand would only show up as drift."
+	echo "db/migrations and db/triggers are left alone. Atlas and gen:triggers write"
+	echo "them, so they are generated output and formatting them would show as drift."
 }
 
 CHECK=false
@@ -45,26 +45,32 @@ if [ "$want" != "$got" ]; then
 	exit 1
 fi
 
+mapfile -t queries < <(find db -name '*.sql' -not -path 'db/migrations/*' -not -path 'db/triggers/*' | sort)
+
+if [ "$CHECK" = false ]; then
+	pg_format --config "$CONF" -i "${queries[@]}"
+	exit 0
+fi
+
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+for query in "${queries[@]}"; do
+	mkdir -p "$scratch/$(dirname "$query")"
+	cp "$query" "$scratch/$query"
+done
+pg_format --config "$CONF" -i "${queries[@]/#/$scratch/}"
+
 failed=()
-for query in db/queries/*.sql db/testqueries/*.sql; do
-	formatted="$(pg_format --config "$CONF" - <"$query")"
-
-	if [ "$CHECK" = true ]; then
-		if [ "$formatted" != "$(cat "$query")" ]; then
-			failed+=("$query")
-		fi
-		continue
+for query in "${queries[@]}"; do
+	if ! cmp -s "$query" "$scratch/$query"; then
+		failed+=("$query")
 	fi
-
-	printf '%s\n' "$formatted" >"$query"
 done
 
-if [ "$CHECK" = true ]; then
-	if ((${#failed[@]} > 0)); then
-		gum log --level error "these queries are not pg_format clean; run 'mise run db:fmt'"
-		printf '  %s\n' "${failed[@]}" >&2
-		exit 1
-	fi
-
-	echo "pg_format clean"
+if ((${#failed[@]} > 0)); then
+	gum log --level error "these queries are not pg_format clean; run 'mise run db:fmt'"
+	printf '  %s\n' "${failed[@]}" >&2
+	exit 1
 fi
+
+echo "pg_format clean"

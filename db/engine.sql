@@ -15,24 +15,36 @@ BEGIN
     WHERE
         name = engine_name;
     IF this_engine IS NULL THEN
-        INSERT INTO engines (name)
-            VALUES (engine_name)
-        RETURNING
-            id INTO this_engine;
+        INSERT INTO engines(
+            name)
+        VALUES (
+            engine_name)
+    RETURNING
+        id INTO this_engine;
         WITH seeded AS (
-            INSERT INTO document_types (engine_id, name, context)
-                VALUES (this_engine, 'RFC', $context$A proposal for a change, written before building it.
-
-Number it after the highest-numbered RFC already written, and title it the way the others are, such as "RFC 0012: A short title".
-
-Say why the change is needed and what is wrong today, then how the change works. Include a mockup of any screen it changes.
-
-An RFC lives in the panel as a document. Never write one as a file in the repository.
-$context$)
-            RETURNING
-                *
-        )
-        INSERT INTO document_type_versions (document_type_id, version, name, context, created_at, engine_id)
+            INSERT INTO document_types(
+                engine_id,
+                name,
+                context)
+            VALUES (
+                this_engine,
+                'RFC',
+                $context$ A proposal FOR a change,
+                written BEFORE building it. Number it AFTER the highest - numbered RFC already written,
+                AND title it the way the OTHERS are,
+                such AS "RFC 0012: A short title". Say why the change IS needed
+                AND what IS wrong today,
+                THEN
+                how the change works. INCLUDE a mockup OF ANY screen it changes. An RFC lives IN the panel AS a document. Never write one AS a file IN the repository. $context$)
+        RETURNING
+            *)
+        INSERT INTO document_type_versions(
+            document_type_id,
+            version,
+            name,
+            context,
+            created_at,
+            engine_id)
         SELECT
             id,
             version,
@@ -47,8 +59,8 @@ $context$)
     SELECT
         *
     FROM (
-        VALUES (login_name, 'komrad_engine', FALSE),
-            (login_name || '_reader', 'komrad_reader', TRUE)) AS wanted (role_name, group_name, is_reader)
+    VALUES (login_name, 'komrad_engine', FALSE),
+(login_name || '_reader', 'komrad_reader', TRUE)) AS wanted(role_name, group_name, is_reader)
         LOOP
             SELECT
                 engine_id INTO mapped
@@ -79,43 +91,49 @@ $context$)
                     AND m.roleid <> login.group_name::regrole) THEN
             RAISE EXCEPTION '% is a member of a role other than %', login.role_name, login.group_name;
         END IF;
-            IF EXISTS (
-                SELECT
-                    1
-                FROM
-                    pg_roles
-                WHERE
-                    rolname = login.role_name
-                    AND (rolsuper
-                        OR rolbypassrls
-                        OR rolreplication
-                        OR rolcreaterole
-                        OR rolcreatedb)) THEN
-            RAISE EXCEPTION '% holds privileges an engine login must not have', login.role_name;
-        END IF;
-            EXECUTE FORMAT('ALTER ROLE %I LOGIN PASSWORD %L VALID UNTIL %L', login.role_name, engine_password, 'infinity');
-            EXECUTE FORMAT('ALTER ROLE %I RESET ALL', login.role_name);
-        ELSE
-            EXECUTE FORMAT('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', login.role_name, engine_password);
-        END IF;
-            EXECUTE FORMAT('GRANT %I TO %I', login.group_name, login.role_name);
-            EXECUTE FORMAT('GRANT CONNECT ON DATABASE %I TO %I', CURRENT_DATABASE(), login.role_name);
-            IF mapped IS NULL THEN
-                INSERT INTO engine_logins (ROLE, engine_id, reader)
-                    VALUES (login.role_name, this_engine, login.is_reader);
-            END IF;
-        END LOOP;
     IF EXISTS (
         SELECT
             1
         FROM
-            pg_namespace
+            pg_roles
         WHERE
-            nspname = river_schema
-            AND nspowner <> login_name::regrole) THEN
-    RAISE EXCEPTION 'schema % already exists and belongs to another role', river_schema;
+            rolname = login.role_name
+            AND (rolsuper
+                OR rolbypassrls
+                OR rolreplication
+                OR rolcreaterole
+                OR rolcreatedb)) THEN
+    RAISE EXCEPTION '% holds privileges an engine login must not have', login.role_name;
 END IF;
-    EXECUTE FORMAT('GRANT %I TO %I WITH INHERIT FALSE, SET TRUE', login_name, CURRENT_USER);
-    EXECUTE FORMAT('CREATE SCHEMA IF NOT EXISTS %I AUTHORIZATION %I', river_schema, login_name);
+        EXECUTE FORMAT('ALTER ROLE %I LOGIN PASSWORD %L VALID UNTIL %L', login.role_name, engine_password, 'infinity');
+        EXECUTE FORMAT('ALTER ROLE %I RESET ALL', login.role_name);
+    ELSE
+        EXECUTE FORMAT('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', login.role_name, engine_password);
+END IF;
+        EXECUTE FORMAT('GRANT %I TO %I', login.group_name, login.role_name);
+        EXECUTE FORMAT('GRANT CONNECT ON DATABASE %I TO %I', CURRENT_DATABASE(), login.role_name);
+        IF mapped IS NULL THEN
+            INSERT INTO engine_logins(
+                ROLE,
+                engine_id,
+                reader)
+            VALUES (
+                login.role_name,
+                this_engine,
+                login.is_reader);
+        END IF;
+END LOOP;
+        IF EXISTS (
+            SELECT
+                1
+            FROM
+                pg_namespace
+            WHERE
+                nspname = river_schema
+                AND nspowner <> login_name::regrole) THEN
+        RAISE EXCEPTION 'schema % already exists and belongs to another role', river_schema;
+END IF;
+        EXECUTE FORMAT('GRANT %I TO %I WITH INHERIT FALSE, SET TRUE', login_name, CURRENT_USER);
+        EXECUTE FORMAT('CREATE SCHEMA IF NOT EXISTS %I AUTHORIZATION %I', river_schema, login_name);
 END
 $$;

@@ -159,4 +159,3 @@ WHERE
 ORDER BY
     t.written_at,
     t.id;
-
