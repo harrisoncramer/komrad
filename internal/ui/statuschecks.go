@@ -419,7 +419,7 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 
 	out := []string{fitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
 	if len(notice) > 0 {
-		out = append(out, fitRow(indent+dimStyle().Render(strings.Join(notice, " · ")), width))
+		out = append(out, fitRow(indent+dimStyle().Render(strings.Join(notice, separated)), width))
 	}
 	out = append(out, "")
 	if len(item.steps) == 0 {
