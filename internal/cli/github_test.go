@@ -52,7 +52,12 @@ func TestRequireGitHubRemote(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := git.NewClient(git.NewClientParams{SSHHosts: tt.sshHosts})
-			err := requireGitHubRemote(t.Context(), client, tt.remote)
+			var parsed *git.RemoteURL
+			if remote, err := client.ParseRemoteURL(t.Context(), tt.remote); err == nil {
+				parsed = &remote
+			}
+
+			err := requireGitHubRemote(parsed)
 
 			if tt.wantErr == "" {
 				require.NoError(t, err)

@@ -92,8 +92,7 @@ func (p *paginator[C, M]) HasNext(resources []M) bool {
 	return int64(len(resources)) >= p.limit
 }
 
-// NextToken returns the token for the page after these records, which HasNext says is worth
-// asking for.
+// NextToken returns the token for the page after these records, once HasNext has allowed one.
 func (p *paginator[C, M]) NextToken(resources []M) (*string, error) {
 	cursor, err := resources[len(resources)-1].Cursor()
 	if err != nil {
@@ -116,8 +115,7 @@ func Token[C Cursor](cursor C) (*string, error) {
 	return &token, nil
 }
 
-// Decode unpacks a page token a handler holds on its own, which an endpoint whose window is not a
-// count of records needs, once the caller has taken an empty token as the first page.
+// Decode unpacks a non-empty page token for a handler that keeps its own window.
 func Decode[C Cursor](token string) (*C, error) {
 	cursor, err := decode[C](token)
 	if err != nil {

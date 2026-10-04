@@ -30,6 +30,13 @@ func Run(ctx context.Context, dir string, args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), err
 }
 
+// tryRun is what git prints for args, false when git fails.
+func tryRun(ctx context.Context, dir string, args ...string) (string, bool) {
+	out, err := Run(ctx, dir, args...)
+
+	return out, err == nil
+}
+
 // RunBytes is git's output whole, for the callers reading a patch or a file rather than a line.
 func RunBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	return runInput(ctx, dir, nil, nil, args...)

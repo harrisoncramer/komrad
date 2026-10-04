@@ -408,19 +408,12 @@ func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, e
 		return false, nil
 	}
 
-	baseTree, ok := findTree(ctx, root, base)
+	baseTree, ok := tryRun(ctx, root, "rev-parse", "--verify", "--quiet", base+"^{tree}")
 	if !ok {
 		return false, nil
 	}
 
 	return doesHoldWhole(ctx, root, base, baseTree, params.SnapshotSHA)
-}
-
-// findTree is the tree a ref points at, false for a ref git cannot resolve to one.
-func findTree(ctx context.Context, root, ref string) (string, bool) {
-	tree, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", ref+"^{tree}")
-
-	return tree, err == nil
 }
 
 // isOwnHead reports whether a base names the very branch the worktree is on, which can hold

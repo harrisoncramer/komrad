@@ -648,6 +648,9 @@ linters:
         linters:
           - fussy
         text: forbidnilnil
+      - path: ^tools/komradlint/
+        linters:
+          - nilnil
       # A test asserts on the assertion it just made, so an unchecked assertion fails the
       # test on the spot rather than travelling as a wrong value the way it would in the server.
       # The same files shell out to git and tmux to build their fixtures, where the command

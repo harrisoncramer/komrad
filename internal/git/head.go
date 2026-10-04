@@ -44,7 +44,7 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		args = append(args, params.SnapshotSHA+"^{tree}")
 	}
 
-	out, ok := revParse(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel"))
+	out, ok := tryRun(ctx, params.Dir, append(args, "--symbolic-full-name", "HEAD", "--absolute-git-dir", "--show-toplevel")...)
 	if !ok && ctx.Err() != nil {
 		return nil, fmt.Errorf("failed to read the head of %s: %w", params.Dir, ctx.Err())
 	}
@@ -87,20 +87,13 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 	}, nil
 }
 
-// revParse is what git prints for args, false for a directory git will not speak for.
-func revParse(ctx context.Context, dir string, args []string) (string, bool) {
-	out, err := Run(ctx, dir, args...)
-
-	return out, err == nil
-}
-
 // ReadRepositoryURL is the canonical address of the repository a checkout's origin points at, empty when it has none.
 func (c *Client) ReadRepositoryURL(ctx context.Context, dir string) string {
 	return c.readRepositoryURL(ctx, dir)
 }
 
 func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
-	remote := c.readOrigin(ctx, dir)
+	remote := c.ReadOrigin(ctx, dir)
 	if remote == nil {
 		return ""
 	}
@@ -110,7 +103,7 @@ func (c *Client) readRepositoryURL(ctx context.Context, dir string) string {
 
 // ReadOriginHost is the web host a checkout's origin is on, empty when it has none komrad can read.
 func (c *Client) ReadOriginHost(ctx context.Context, dir string) string {
-	remote := c.readOrigin(ctx, dir)
+	remote := c.ReadOrigin(ctx, dir)
 	if remote == nil {
 		return ""
 	}
@@ -118,8 +111,8 @@ func (c *Client) ReadOriginHost(ctx context.Context, dir string) string {
 	return remote.Host
 }
 
-// readOrigin is a checkout's origin remote, nil when it has none komrad can read.
-func (c *Client) readOrigin(ctx context.Context, dir string) *RemoteURL {
+// ReadOrigin is a checkout's origin remote, nil when it has none komrad can read.
+func (c *Client) ReadOrigin(ctx context.Context, dir string) *RemoteURL {
 	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
 	if err != nil {
 		return nil

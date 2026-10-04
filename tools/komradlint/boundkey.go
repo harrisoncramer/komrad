@@ -308,7 +308,10 @@ func resolveCallee(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 		return nil
 	}
 
-	fn, _ := pass.TypesInfo.Uses[ident].(*types.Func)
+	fn, ok := pass.TypesInfo.Uses[ident].(*types.Func)
+	if !ok {
+		return nil
+	}
 
 	return fn
 }
