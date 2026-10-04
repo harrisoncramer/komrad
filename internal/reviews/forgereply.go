@@ -56,7 +56,7 @@ type ReplyOnForgeParams struct {
 	Body     string
 }
 
-// ReplyOnForge posts the person's reply to the forge straight away.
+// ReplyOnForge posts the person's reply to the forge.
 func (s *ForgeReplyService) ReplyOnForge(ctx context.Context, params ReplyOnForgeParams) (*reviewstore.ForgeReply, error) {
 	if !params.Author.isHuman() {
 		return nil, ErrReviewHumanOnly
