@@ -128,7 +128,10 @@ INSERT INTO pull_request_checks(
     started_at,
     finished_at,
     required,
-    url)
+    url,
+    run_id,
+    run_event,
+    run_started_at)
 VALUES (
     $1,
     $2,
@@ -140,7 +143,10 @@ VALUES (
     $8,
     $9,
     $10,
-    $11)
+    $11,
+    $12,
+    $13,
+    $14)
 ON CONFLICT (
     engine_id,
     reading_id,
@@ -154,9 +160,12 @@ ON CONFLICT (
         started_at = excluded.started_at,
         finished_at = excluded.finished_at,
         required = excluded.required,
-        url = excluded.url
+        url = excluded.url,
+        run_id = excluded.run_id,
+        run_event = excluded.run_event,
+        run_started_at = excluded.run_started_at
     WHERE (
-        pull_request_checks.kind, pull_request_checks.source, pull_request_checks.name, pull_request_checks.state, pull_request_checks.conclusion, pull_request_checks.started_at, pull_request_checks.finished_at, pull_request_checks.required, pull_request_checks.url) IS DISTINCT FROM (
+        pull_request_checks.kind, pull_request_checks.source, pull_request_checks.name, pull_request_checks.state, pull_request_checks.conclusion, pull_request_checks.started_at, pull_request_checks.finished_at, pull_request_checks.required, pull_request_checks.url, pull_request_checks.run_id, pull_request_checks.run_event, pull_request_checks.run_started_at) IS DISTINCT FROM (
         excluded.kind,
         excluded.source,
         excluded.name,
@@ -165,7 +174,10 @@ ON CONFLICT (
         excluded.started_at,
         excluded.finished_at,
         excluded.required,
-        excluded.url)
+        excluded.url,
+        excluded.run_id,
+        excluded.run_event,
+        excluded.run_started_at)
 `
 
 type UpsertStatusChecksBatchResults struct {
@@ -175,17 +187,20 @@ type UpsertStatusChecksBatchResults struct {
 }
 
 type UpsertStatusChecksParams struct {
-	ReadingID  string
-	ProviderID string
-	Kind       string
-	Source     string
-	Name       string
-	State      string
-	Conclusion string
-	StartedAt  *time.Time
-	FinishedAt *time.Time
-	Required   bool
-	Url        string
+	ReadingID    string
+	ProviderID   string
+	Kind         string
+	Source       string
+	Name         string
+	State        string
+	Conclusion   string
+	StartedAt    *time.Time
+	FinishedAt   *time.Time
+	Required     bool
+	Url          string
+	RunID        string
+	RunEvent     string
+	RunStartedAt *time.Time
 }
 
 func (q *Queries) UpsertStatusChecks(ctx context.Context, arg []UpsertStatusChecksParams) *UpsertStatusChecksBatchResults {
@@ -203,6 +218,9 @@ func (q *Queries) UpsertStatusChecks(ctx context.Context, arg []UpsertStatusChec
 			a.FinishedAt,
 			a.Required,
 			a.Url,
+			a.RunID,
+			a.RunEvent,
+			a.RunStartedAt,
 		}
 		batch.Queue(upsertStatusChecks, vals...)
 	}

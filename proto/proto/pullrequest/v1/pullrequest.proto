@@ -225,6 +225,12 @@ message StatusCheck {
   string url = 10;
   // The steps of a check run, in the order it runs them, empty for a check that lists none.
   repeated StatusCheckStep steps = 11;
+  // The forge's own identifier for the run the check ran in, empty for a check that ran in none.
+  string run_id = 12;
+  // What started the run, such as pull_request or push, empty when no workflow ran it.
+  string run_event = 13;
+  // When the run was created, in RFC 3339, unset when the check ran in none.
+  optional string run_started_at = 14;
 }
 
 // StatusCheckStep is one step of a check run.

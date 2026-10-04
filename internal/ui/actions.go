@@ -41,6 +41,8 @@ const (
 	actionLogsBack
 	actionLogsCopy
 	actionStatusChecksBack
+	actionStatusChecksOlder
+	actionStatusChecksNewer
 	actionDiffFile
 	actionDiffMatch
 	actionDiffPan

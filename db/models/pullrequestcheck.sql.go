@@ -186,7 +186,7 @@ func (q *Queries) ListStatusCheckStepsOfReadings(ctx context.Context, readingIds
 
 const listStatusChecksOfReadings = `-- name: ListStatusChecksOfReadings :many
 SELECT
-    id, reading_id, provider_id, kind, source, name, state, conclusion, started_at, finished_at, required, url, engine_id
+    id, reading_id, provider_id, kind, source, name, state, conclusion, started_at, finished_at, required, url, engine_id, run_id, run_event, run_started_at
 FROM
     pull_request_checks c
 WHERE
@@ -222,6 +222,9 @@ func (q *Queries) ListStatusChecksOfReadings(ctx context.Context, readingIds []s
 			&i.Required,
 			&i.Url,
 			&i.EngineID,
+			&i.RunID,
+			&i.RunEvent,
+			&i.RunStartedAt,
 		); err != nil {
 			return nil, err
 		}

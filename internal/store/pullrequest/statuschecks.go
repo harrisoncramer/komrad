@@ -197,17 +197,20 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 	byReading := map[string][]forge.StatusCheck{}
 	for _, row := range checks {
 		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.StatusCheck{
-			ProviderID: row.ProviderID,
-			Kind:       forge.StatusCheckKind(row.Kind),
-			Source:     row.Source,
-			Name:       row.Name,
-			State:      forge.StatusCheckState(row.State),
-			Conclusion: row.Conclusion,
-			StartedAt:  row.StartedAt,
-			FinishedAt: row.FinishedAt,
-			Required:   row.Required,
-			URL:        row.Url,
-			Steps:      byCheck[row.ID],
+			ProviderID:   row.ProviderID,
+			Kind:         forge.StatusCheckKind(row.Kind),
+			Source:       row.Source,
+			Name:         row.Name,
+			State:        forge.StatusCheckState(row.State),
+			Conclusion:   row.Conclusion,
+			StartedAt:    row.StartedAt,
+			FinishedAt:   row.FinishedAt,
+			Required:     row.Required,
+			URL:          row.Url,
+			Steps:        byCheck[row.ID],
+			RunID:        row.RunID,
+			RunEvent:     row.RunEvent,
+			RunStartedAt: row.RunStartedAt,
 		})
 	}
 
@@ -236,17 +239,20 @@ func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[forge
 func statusCheckRows(readingID string, checks []forge.StatusCheck) []models.UpsertStatusChecksParams {
 	return xslice.Map(checks, func(check forge.StatusCheck) models.UpsertStatusChecksParams {
 		return models.UpsertStatusChecksParams{
-			ReadingID:  readingID,
-			ProviderID: check.ProviderID,
-			Kind:       string(check.Kind),
-			Source:     check.Source,
-			Name:       check.Name,
-			State:      string(check.State),
-			Conclusion: check.Conclusion,
-			StartedAt:  check.StartedAt,
-			FinishedAt: check.FinishedAt,
-			Required:   check.Required,
-			Url:        check.URL,
+			ReadingID:    readingID,
+			ProviderID:   check.ProviderID,
+			Kind:         string(check.Kind),
+			Source:       check.Source,
+			Name:         check.Name,
+			State:        string(check.State),
+			Conclusion:   check.Conclusion,
+			StartedAt:    check.StartedAt,
+			FinishedAt:   check.FinishedAt,
+			Required:     check.Required,
+			Url:          check.URL,
+			RunID:        check.RunID,
+			RunEvent:     check.RunEvent,
+			RunStartedAt: check.RunStartedAt,
 		}
 	})
 }

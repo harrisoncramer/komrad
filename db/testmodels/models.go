@@ -809,6 +809,12 @@ type PullRequestCheck struct {
 	Url string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// The forge's own identifier for the run the check ran in, a check suite on GitHub, empty for a commit status.
+	RunID string
+	// What started the run, such as pull_request or push, empty when no workflow ran the check.
+	RunEvent string
+	// When the run the check ran in was created, null for a commit status.
+	RunStartedAt pgtype.Timestamptz
 }
 
 // What the forge last said about the checks on one head commit of a pull request, kept for every head it was read on until the pull request goes.

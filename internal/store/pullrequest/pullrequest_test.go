@@ -623,6 +623,7 @@ func inUTC(readiness forge.RememberedMergeReadiness) forge.RememberedMergeReadin
 func checksInUTC(checks []forge.StatusCheck) []forge.StatusCheck {
 	return xslice.Map(checks, func(check forge.StatusCheck) forge.StatusCheck {
 		check.StartedAt = xptr.Ptr(check.StartedAt.UTC())
+		check.RunStartedAt = xptr.Ptr(check.RunStartedAt.UTC())
 
 		return check
 	})

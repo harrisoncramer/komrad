@@ -461,6 +461,23 @@ table "pull_request_checks" {
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
   }
+  column "run_id" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The forge's own identifier for the run the check ran in, a check suite on GitHub, empty for a commit status."
+  }
+  column "run_event" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "What started the run, such as pull_request or push, empty when no workflow ran the check."
+  }
+  column "run_started_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the run the check ran in was created, null for a commit status."
+  }
   primary_key {
     columns = [column.id]
   }

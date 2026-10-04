@@ -85,16 +85,19 @@ func TestReadBranches(t *testing.T) {
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 		Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
 			{
-				ProviderID: "CR_1",
-				Kind:       forge.StatusCheckKindRun,
-				Source:     "CI",
-				Name:       "test",
-				State:      forge.StatusCheckStateCompleted,
-				Conclusion: "failure",
-				StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
-				FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 5, 0, 0, time.UTC)),
-				Required:   true,
-				URL:        "https://github.com/harrisoncramer/komrad-forge-fixture/actions/runs/1",
+				ProviderID:   "CR_1",
+				Kind:         forge.StatusCheckKindRun,
+				Source:       "CI",
+				Name:         "test",
+				State:        forge.StatusCheckStateCompleted,
+				Conclusion:   "failure",
+				StartedAt:    xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+				FinishedAt:   xptr.Ptr(time.Date(2026, 9, 20, 11, 5, 0, 0, time.UTC)),
+				Required:     true,
+				URL:          "https://github.com/harrisoncramer/komrad-forge-fixture/actions/runs/1",
+				RunID:        "CS_1",
+				RunEvent:     "pull_request",
+				RunStartedAt: xptr.Ptr(time.Date(2026, 9, 20, 10, 59, 0, 0, time.UTC)),
 			},
 			{
 				ProviderID: "CR_2",
@@ -102,6 +105,7 @@ func TestReadBranches(t *testing.T) {
 				Source:     "Scanner",
 				Name:       "scan",
 				State:      forge.StatusCheckStateQueued,
+				RunID:      "CS_2",
 			},
 			{
 				ProviderID: "SC_1",
@@ -235,10 +239,13 @@ const openPullChecks = `{
 										"completedAt": "2026-09-20T11:05:00Z",
 										"detailsUrl": "https://github.com/harrisoncramer/komrad-forge-fixture/actions/runs/1",
 										"checkSuite": {
+											"id": "CS_1",
+											"createdAt": "2026-09-20T10:59:00Z",
 											"app": {
 												"name": "GitHub Actions"
 											},
 											"workflowRun": {
+												"event": "pull_request",
 												"workflow": {
 													"name": "CI"
 												}
@@ -256,6 +263,7 @@ const openPullChecks = `{
 										"completedAt": null,
 										"detailsUrl": null,
 										"checkSuite": {
+											"id": "CS_2",
 											"app": {
 												"name": "Scanner"
 											},
