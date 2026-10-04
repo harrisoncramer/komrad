@@ -111,14 +111,18 @@ WHERE
 
 -- name: ListForgeReplies :many
 SELECT
-    *
+    sqlc.embed(r),
+    c.id AS mirrored_comment_id
 FROM
-    review_forge_replies
+    review_forge_replies r
+    JOIN review_threads t ON t.id = r.thread_id
+    LEFT JOIN forge_review_comments c ON c.thread_id = t.forge_thread_id
+        AND c.provider_id = r.forge_comment_provider_id
 WHERE
-    thread_id = ANY (@thread_ids::uuid[])
+    r.thread_id = ANY (@thread_ids::uuid[])
 ORDER BY
-    thread_id,
-    id;
+    r.thread_id,
+    r.id;
 
 -- name: ListSendingForgeReplies :many
 SELECT

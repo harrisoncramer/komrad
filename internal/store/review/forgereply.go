@@ -57,6 +57,7 @@ type ForgeReply struct {
 	SendingStartedAt       *time.Time
 	SentAt                 *time.Time
 	ForgeCommentProviderID *string
+	MirroredCommentID      *string
 	Error                  *string
 	CreatedAt              time.Time
 }
@@ -225,9 +226,7 @@ func (s *ReviewStore) ListForgeReplies(ctx context.Context, threadIDs []string) 
 		return nil, fmt.Errorf("failed to list the forge replies of %d review thread(s): %w", len(threadIDs), err)
 	}
 
-	return xslice.Map(rows, func(row *models.ReviewForgeReply) ForgeReply {
-		return *forgeReplyFromRow(row)
-	}), nil
+	return xslice.Map(rows, listedForgeReplyFromRow), nil
 }
 
 // ListSendingForgeReplies is every reply whose posting was begun and never settled.
@@ -309,4 +308,11 @@ func notMirrored(threadID string) error {
 
 func forgeReplyNotFound(id string) error {
 	return fmt.Errorf("%w: forge reply %q", store.ErrNotFound, id)
+}
+
+func listedForgeReplyFromRow(row *models.ListForgeRepliesRow) ForgeReply {
+	reply := forgeReplyFromRow(&row.ReviewForgeReply)
+	reply.MirroredCommentID = row.MirroredCommentID
+
+	return *reply
 }

@@ -159,7 +159,8 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 
 	repliesByThread := map[string][]ForgeReply{}
 	for _, row := range replies {
-		repliesByThread[row.ThreadID] = append(repliesByThread[row.ThreadID], *forgeReplyFromRow(row))
+		reply := listedForgeReplyFromRow(row)
+		repliesByThread[reply.ThreadID] = append(repliesByThread[reply.ThreadID], reply)
 	}
 
 	return xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) ThreadWithMessages {

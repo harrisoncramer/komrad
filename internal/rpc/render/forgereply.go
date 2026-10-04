@@ -17,7 +17,7 @@ func ForgeReply(reply reviewstore.ForgeReply) *agentv1.ForgeReply {
 		AuthorAgentId:  reply.AuthorAgentID,
 		ProposedBody:   reply.ProposedBody,
 		Body:           reply.Body,
-		ForgeCommentId: reply.ForgeCommentProviderID,
+		ForgeCommentId: reply.MirroredCommentID,
 		Error:          reply.Error,
 		CreatedAt:      dates.Stamp(reply.CreatedAt),
 	}
