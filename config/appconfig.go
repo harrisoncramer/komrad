@@ -1368,7 +1368,7 @@ func (c Config) GetWorktreesDir() (string, error) {
 	state := c.Connection.StateDir
 	if state == "" {
 		var err error
-		if state, err = defaultStateDir(); err != nil {
+		if state, err = getDefaultStateDir(); err != nil {
 			return "", err
 		}
 	}
@@ -1376,9 +1376,8 @@ func (c Config) GetWorktreesDir() (string, error) {
 	return filepath.Join(state, "worktrees"), nil
 }
 
-// defaultStateDir is where komrad keeps its own files about agents when the config names no
-// state_dir, ~/.local/state/komrad.
-func defaultStateDir() (string, error) {
+// getDefaultStateDir returns ~/.local/state/komrad, the state directory used when the config names none.
+func getDefaultStateDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
@@ -1681,7 +1680,7 @@ func (c *Config) resolveDerived(report *Report) error {
 	}
 
 	if c.Connection.StateDir == "" {
-		dir, err := defaultStateDir()
+		dir, err := getDefaultStateDir()
 		if err != nil {
 			return err
 		}
