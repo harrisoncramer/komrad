@@ -16,6 +16,8 @@ import (
 
 const statusChecksScreen = "the status checks"
 
+var everyStatusCheck = []string{"F", "shift+tab", "esc"}
+
 func openStatusChecks(t *testing.T, answer func(*panelHarness)) *panelHarness {
 	t.Helper()
 
@@ -110,6 +112,7 @@ func TestStatusChecksList(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
+		harness.press(everyStatusCheck...)
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"lint", "test", "build"}, readListRows(frame))
@@ -125,6 +128,7 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("4", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""),
 			newStatusCheck("5", "deploy", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "NEUTRAL"),
 		))
+		harness.press(everyStatusCheck...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ lint")
@@ -159,7 +163,7 @@ func TestStatusChecksList(t *testing.T) {
 		harness := openStatusChecks(t, listed)
 		harness.press("j")
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "test")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "build")
 	})
 
 	t.Run("searching lands on the status check it found", func(t *testing.T) {
@@ -208,8 +212,8 @@ func TestStatusChecksScope(t *testing.T) {
 		want  []string
 	}{
 		{
-			name: "the listing opens on every status check",
-			want: []string{"lint", "test", "vet", "docs", "build"},
+			name: "the listing opens on the status checks not passing while any are",
+			want: []string{"test", "vet", "build"},
 		},
 		{
 			name:  "active keeps the status checks still to finish",
@@ -224,6 +228,11 @@ func TestStatusChecksScope(t *testing.T) {
 		{
 			name:  "the row wraps back to every status check",
 			press: []string{"F", "tab", "tab", "tab", "esc"},
+			want:  []string{"lint", "test", "vet", "docs", "build"},
+		},
+		{
+			name:  "every status check is one step back",
+			press: []string{"F", "shift+tab", "esc"},
 			want:  []string{"lint", "test", "vet", "docs", "build"},
 		},
 	}
@@ -243,20 +252,54 @@ func TestStatusChecksScope(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("j", "j", "j", "j", "F", "tab", "esc")
+		harness.press("j", "j", "F", "tab", "esc")
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "build")
 	})
 
-	t.Run("a scope that holds none of the status checks says so", func(t *testing.T) {
+	t.Run("the listing opens on every status check once all pass", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, answerStatusChecks(
 			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+			newStatusCheck("2", "docs", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SKIPPED"),
 		))
-		harness.press("F", "tab", "tab", "esc")
 
-		assert.Contains(t, harness.readFrame(), "no failing status checks")
+		assert.Equal(t, []string{"lint", "docs"}, readListRows(harness.readFrame()))
+	})
+
+	t.Run("a scope holding none of the status checks says why", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name  string
+			press []string
+			want  string
+		}{
+			{
+				name:  "a scope that holds none of the status checks says so",
+				press: []string{"F", "tab", "tab", "tab", "esc"},
+				want:  "no failing status checks",
+			},
+			{
+				name:  "not passing says every status check passes when none fail",
+				press: []string{"F", "tab", "esc"},
+				want:  "every status check passes",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				harness := openStatusChecks(t, answerStatusChecks(
+					newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
+				))
+				harness.press(tt.press...)
+
+				assert.Contains(t, harness.readFrame(), tt.want)
+			})
+		}
 	})
 }
 
@@ -296,6 +339,7 @@ func TestStatusChecksSteps(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
+		harness.press(append(everyStatusCheck, "k")...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "1m 12s · 1 step")
@@ -306,7 +350,7 @@ func TestStatusChecksSteps(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("j")
+		harness.press(append(everyStatusCheck, "k", "j")...)
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "golangci-lint")
@@ -318,7 +362,7 @@ func TestStatusChecksSteps(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("j", "j")
+		harness.press(append(everyStatusCheck, "j")...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "no steps reported")
@@ -379,7 +423,8 @@ func TestStatusChecksCommits(t *testing.T) {
 		wantTally string
 	}{
 		{
-			name:      "the listing opens on the newest commit, holding the newest run of each check",
+			name:      "every status check on the newest commit holds the newest run of each check",
+			press:     everyStatusCheck,
 			want:      []string{"vet", "test", "test", "ci/legacy"},
 			wantTally: "commit 2 of 2 · 222222222222",
 		},
@@ -391,21 +436,27 @@ func TestStatusChecksCommits(t *testing.T) {
 		},
 		{
 			name:      "older steps back a commit",
-			press:     []string{"<"},
+			press:     append(everyStatusCheck, "<"),
 			want:      []string{"lint", "test", "test"},
 			wantTally: "commit 1 of 2 · 111111111111",
 		},
 		{
 			name:      "older stops on the earliest commit",
-			press:     []string{"<", "<"},
+			press:     append(everyStatusCheck, "<", "<"),
 			want:      []string{"lint", "test", "test"},
 			wantTally: "commit 1 of 2 · 111111111111",
 		},
 		{
 			name:      "newer steps forward to a later commit",
-			press:     []string{"<", ">"},
+			press:     append(everyStatusCheck, "<", ">"),
 			want:      []string{"vet", "test", "test", "ci/legacy"},
 			wantTally: "commit 2 of 2 · 222222222222",
+		},
+		{
+			name:      "older picks the default scope for the commit it lands on",
+			press:     []string{"<"},
+			want:      []string{"lint"},
+			wantTally: "commit 1 of 2 · 111111111111",
 		},
 		{
 			name:      "a scope keeps to the commit shown",
@@ -432,7 +483,7 @@ func TestStatusChecksCommits(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("j", "j", "<")
+		harness.press(append(everyStatusCheck, "j", "j", "<")...)
 
 		assert.Equal(t, 2, readHoveredIndex(harness.readFrame()))
 	})
@@ -448,6 +499,7 @@ func TestStatusChecksCommits(t *testing.T) {
 			HeadSha:      "c1",
 			StatusChecks: []*pullrequestv1.StatusCheck{push, pullRequest},
 		}))
+		harness.press(everyStatusCheck...)
 
 		assert.Equal(t, []string{"build", "build"}, readListRows(harness.readFrame()))
 	})
@@ -474,11 +526,39 @@ func TestStatusChecksCommits(t *testing.T) {
 		assert.Contains(t, frame, "commit 3 of 3 · 333333333333")
 	})
 
+	t.Run("the default scope is picked again for each commit shown", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		pushed(harness)
+		harness.press("<")
+
+		frame := harness.readFrame()
+		assert.Equal(t, []string{"vet"}, readListRows(frame))
+		assert.Contains(t, frame, "commit 2 of 3 · 222222222222")
+
+		harness.press(">")
+
+		frame = harness.readFrame()
+		assert.Equal(t, []string{"build"}, readListRows(frame))
+		assert.Contains(t, frame, "commit 3 of 3 · 333333333333")
+	})
+
+	t.Run("a picked scope stays through a push that passes every status check", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecks(t, listed)
+		harness.press("F", "tab", "tab", "esc")
+		pushed(harness)
+
+		assert.Contains(t, harness.readFrame(), "no failing status checks")
+	})
+
 	t.Run("an older commit stays shown through a push", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("<")
+		harness.press(append(everyStatusCheck, "<")...)
 		pushed(harness)
 
 		frame := harness.readFrame()
