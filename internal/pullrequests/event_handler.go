@@ -51,12 +51,14 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 	var followUps []river.JobArgs
 	started, holding := eventsOf(change, *pullRequest)
+	failed := failedChecks(*pullRequest)
+	failing := failingEvent(*pullRequest)
 	for _, recipient := range recipients {
 		failures, err := statusChecks.ListCheckFailures(ctx, pullrequeststore.ListCheckFailuresParams{
 			PullRequestID: pullRequest.ID,
 			HeadSHA:       pullRequest.MergeReadiness.Checks.HeadSHA,
 			AgentID:       recipient,
-			Failed:        failedChecks(*pullRequest),
+			Failed:        failed,
 		})
 		if err != nil {
 			return nil, err
@@ -69,8 +71,8 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 		newFailures := untold(failures)
 		recipientStarted := started
-		if event := failingEvent(*pullRequest); event != "" && (len(newFailures) > 0 || carriesFailing(held)) {
-			recipientStarted = append(slices.Clone(started), event)
+		if failing != "" && (len(newFailures) > 0 || carriesFailing(held)) {
+			recipientStarted = append(slices.Clone(started), failing)
 		}
 
 		var heldSince *time.Time

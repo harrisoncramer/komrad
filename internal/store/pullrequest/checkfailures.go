@@ -91,10 +91,15 @@ func isSameFailure(known, current forge.StatusCheck) bool {
 }
 
 func hasNewFailure(before, after StatusCheckReading) bool {
+	failedAfter := forge.FailedStatusChecks(after.StatusChecks)
+	if before.HeadSHA != after.HeadSHA {
+		return len(failedAfter) > 0
+	}
+
 	failedBefore := forge.FailedStatusChecks(before.StatusChecks)
 
-	return slices.ContainsFunc(forge.FailedStatusChecks(after.StatusChecks), func(check forge.StatusCheck) bool {
-		return before.HeadSHA != after.HeadSHA || !slices.ContainsFunc(failedBefore, func(was forge.StatusCheck) bool {
+	return slices.ContainsFunc(failedAfter, func(check forge.StatusCheck) bool {
+		return !slices.ContainsFunc(failedBefore, func(was forge.StatusCheck) bool {
 			return isSameFailure(was, check)
 		})
 	})
