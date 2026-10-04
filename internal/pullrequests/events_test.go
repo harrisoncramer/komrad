@@ -73,6 +73,54 @@ func TestEventsOf(t *testing.T) {
 			wantHolding: []string{eventprompts.PullRequestBehind},
 		},
 		{
+			name: "checks going green while the forge blocks the merge start nothing",
+			moves: []Move{{
+				Field: fieldChecks,
+				From:  "pending",
+				To:    "passing",
+			}},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			checks:      forge.ChecksPassing,
+			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityBlocked},
+		},
+		{
+			name: "checks going green on a mergeable pull request start passing",
+			moves: []Move{{
+				Field: fieldChecks,
+				From:  "pending",
+				To:    "passing",
+			}},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			checks:      forge.ChecksPassing,
+			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
+			wantStarted: []string{eventprompts.PullRequestChecksPassing},
+			wantHolding: []string{eventprompts.PullRequestChecksPassing},
+		},
+		{
+			name: "the forge unblocking green checks starts passing",
+			moves: []Move{{
+				Field: fieldMergeability,
+				From:  "blocked",
+				To:    "clean",
+			}},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			checks:      forge.ChecksPassing,
+			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
+			wantStarted: []string{eventprompts.PullRequestChecksPassing},
+			wantHolding: []string{eventprompts.PullRequestChecksPassing},
+		},
+		{
+			name: "the forge unblocking pending checks starts nothing",
+			moves: []Move{{
+				Field: fieldMergeability,
+				From:  "blocked",
+				To:    "clean",
+			}},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			checks:      forge.ChecksPending,
+			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
+		},
+		{
 			name: "turning auto-merge on starts it",
 			moves: []Move{{
 				Field: fieldAutoMerge,

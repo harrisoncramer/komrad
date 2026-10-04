@@ -61,8 +61,22 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			wantLines: []string{"  review: approved\n", "do not fetch them from the forge"},
 		},
 		{
-			name:  "checks passing is not news on its own",
-			reads: []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Listing: listedChecks(forge.ChecksPassing)}},
+			name: "checks passing while the forge blocks the merge is not news",
+			reads: []forge.MergeReadiness{{
+				Decision:     forge.ReviewDecisionPending,
+				Listing:      listedChecks(forge.ChecksPassing),
+				Mergeability: forge.MergeabilityBlocked,
+			}},
+		},
+		{
+			name: "checks passing on a pull request the forge would merge",
+			reads: []forge.MergeReadiness{{
+				Decision:     forge.ReviewDecisionPending,
+				Listing:      listedChecks(forge.ChecksPassing),
+				Mergeability: forge.MergeabilityClean,
+			}},
+			wantLines:  []string{"  checks: passing on abc\n", "  mergeability: clean\n"},
+			wantEvents: []string{eventprompts.PullRequestChecksPassing},
 		},
 		{
 			name: "two changes before the agent reads are one mail",
@@ -257,10 +271,11 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			afterHead: "aaa",
 		},
 		{
-			name: "the checks passing on a new head is not news",
+			name: "the checks passing on a new head the forge blocks is not news",
 			after: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionPending,
-				Listing:  listedChecks(forge.ChecksPassing),
+				Decision:     forge.ReviewDecisionPending,
+				Listing:      listedChecks(forge.ChecksPassing),
+				Mergeability: forge.MergeabilityBlocked,
 			},
 			afterHead: "bbb",
 		},

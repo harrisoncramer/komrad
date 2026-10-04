@@ -44,14 +44,17 @@ func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string
 		return []string{ended}, []string{ended}
 	}
 
+	now := fieldValues(pullRequest)
+
 	var started []string
 	for _, move := range change.Moves {
 		if event, ok := eventOf[move.Field][move.To]; ok {
 			started = append(started, event)
 		}
 	}
-
-	now := fieldValues(pullRequest)
+	if passing(now) && slices.ContainsFunc(change.Moves, turnsPassing) {
+		started = append(started, eventprompts.PullRequestChecksPassing)
+	}
 
 	var holding []string
 	for _, field := range fieldOrder {
@@ -59,6 +62,20 @@ func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string
 			holding = append(holding, event)
 		}
 	}
+	if passing(now) {
+		holding = append(holding, eventprompts.PullRequestChecksPassing)
+	}
 
 	return started, holding
+}
+
+// passing says whether the checks pass on a pull request the forge would merge.
+func passing(values map[field]string) bool {
+	return values[fieldChecks] == string(forge.ChecksPassing) && values[fieldMergeability] == string(forge.MergeabilityClean)
+}
+
+// turnsPassing says whether a move is one of the two that can leave a pull request passing.
+func turnsPassing(move Move) bool {
+	return move.Field == fieldChecks && move.To == string(forge.ChecksPassing) ||
+		move.Field == fieldMergeability && move.To == string(forge.MergeabilityClean)
 }

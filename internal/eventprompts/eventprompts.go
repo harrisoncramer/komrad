@@ -10,6 +10,7 @@ const MaxPrompt = 500
 const (
 	PullRequestChecksFailing        = "pull_request.checks_failing"
 	PullRequestChecksFailingRunning = "pull_request.checks_failing_running"
+	PullRequestChecksPassing        = "pull_request.checks_passing"
 	PullRequestChangesRequested     = "pull_request.changes_requested"
 	PullRequestApproved             = "pull_request.approved"
 	PullRequestConflicting          = "pull_request.conflicting"
@@ -48,6 +49,10 @@ func All() []Event {
 		{
 			Name: PullRequestChecksFailing, Title: "Checks failing", Description: "checks on the head failed and the run has finished",
 			DefaultPrompt: "The run has finished. Read every failed job's logs, fix them all, run the tests, and push once.",
+		},
+		{
+			Name: PullRequestChecksPassing, Title: "Checks passing", Description: "checks on the head passed and the forge would merge it",
+			DefaultPrompt: "Checks pass and nothing blocks the merge. Carry on with your next step, and do not merge unless your instructions say to.",
 		},
 		{
 			Name: PullRequestChangesRequested, Title: "Changes requested on the forge", Description: "the forge review decision asks for changes",

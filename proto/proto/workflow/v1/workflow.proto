@@ -48,6 +48,7 @@ message WorkflowEventPrompt {
     in: [
       "pull_request.checks_failing_running",
       "pull_request.checks_failing",
+      "pull_request.checks_passing",
       "pull_request.changes_requested",
       "pull_request.approved",
       "pull_request.conflicting",

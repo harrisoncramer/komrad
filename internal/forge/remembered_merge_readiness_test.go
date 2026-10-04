@@ -291,7 +291,7 @@ func TestListMovesSince(t *testing.T) {
 			},
 		},
 		{
-			name: "the same checks verdict on a new head is a move",
+			name: "the same answers on a new head are moves",
 			reads: []read{
 				{
 					readiness: failing,
@@ -306,14 +306,13 @@ func TestListMovesSince(t *testing.T) {
 					at:        at,
 				},
 			},
-			want: []mergeReadinessMove{{
-				Field: MergeReadinessFieldChecks,
-				From:  "failing",
-				To:    "failing",
-			}},
+			want: []mergeReadinessMove{
+				{Field: MergeReadinessFieldChecks, From: "failing", To: "failing"},
+				{Field: MergeReadinessFieldMergeability, From: "clean", To: "clean"},
+			},
 		},
 		{
-			name: "checks read after a blank on a new head move from nothing",
+			name: "answers read after a blank on a new head are moves",
 			reads: []read{
 				{
 					readiness: failing,
@@ -334,11 +333,10 @@ func TestListMovesSince(t *testing.T) {
 					at:        at,
 				},
 			},
-			want: []mergeReadinessMove{{
-				Field: MergeReadinessFieldChecks,
-				From:  "",
-				To:    "failing",
-			}},
+			want: []mergeReadinessMove{
+				{Field: MergeReadinessFieldChecks, From: "", To: "failing"},
+				{Field: MergeReadinessFieldMergeability, From: "clean", To: "clean"},
+			},
 		},
 		{
 			name: "the same review decision after a blank is a move",
