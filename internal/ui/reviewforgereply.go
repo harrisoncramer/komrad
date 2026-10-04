@@ -242,8 +242,18 @@ func forgeMark(glyphs glyph.Set) string {
 
 // forgeRepliesView is what the thread has said back to the forge.
 func (r reviewScreen) forgeRepliesView(m *model, thread *agentv1.ReviewThread, width int) string {
+	mirrored := map[string]bool{}
+	for _, message := range thread.GetMessages() {
+		if id := message.GetForge().GetCommentId(); id != "" {
+			mirrored[id] = true
+		}
+	}
+
 	out := ""
 	for _, reply := range thread.GetForgeReplies() {
+		if reply.GetState() == agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT && mirrored[reply.GetForgeCommentId()] {
+			continue
+		}
 		out += r.forgeReplyView(m, reply, width)
 	}
 
