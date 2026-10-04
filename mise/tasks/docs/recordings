@@ -30,9 +30,10 @@ for arg in "$@"; do
 done
 
 cd "$MISE_CONFIG_ROOT"
+forget_caller
 
 run_script() {
-	MISE_ENV="test" mise exec -- env -u KOMRAD_AGENT_ID -u KOMRAD_SESSION_ID PATH="$MISE_CONFIG_ROOT/bin:$PATH" "$1"
+	MISE_ENV="test" mise exec -- env PATH="$MISE_CONFIG_ROOT/bin:$PATH" "$1"
 }
 
 SCRIPTS=(recordings/prod/*.tape)

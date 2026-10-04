@@ -33,10 +33,29 @@ komradslot() {
 	"$bin" "$@"
 }
 
+forget_caller() {
+	unset \
+		KOMRAD_AGENT_ID \
+		KOMRAD_SESSION_ID \
+		CLAUDECODE \
+		CLAUDE_CODE_SESSION_ID \
+		CLAUDE_CODE_ENTRYPOINT \
+		CLAUDE_CODE_EXECPATH \
+		CLAUDE_CODE_CHILD_SESSION \
+		CLAUDE_CODE_SESSION_ATTENDED \
+		CLAUDE_CODE_MESSAGING_SOCKET \
+		CLAUDE_CODE_MESSAGING_TOKEN \
+		CLAUDE_EFFORT \
+		CLAUDE_PID \
+		CODEX_INTERNAL_ORIGINATOR_OVERRIDE
+}
+
 # require_test_instance refuses to go on under MISE_ENV=test unless the environment is exactly the
 # one this checkout's slot derives.
 require_test_instance() {
 	[ "${MISE_ENV:-}" = test ] || return 0
+
+	forget_caller
 
 	komradslot check --root "$test_instance_root" || exit 1
 }
