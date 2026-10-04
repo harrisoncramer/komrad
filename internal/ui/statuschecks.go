@@ -8,7 +8,6 @@ import (
 	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
-	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -159,8 +158,7 @@ func (c *statusChecksScreen) kindsSwitch(*model) bool {
 func (c *statusChecksScreen) stepKind(m *model, delta int) tea.Cmd {
 	hovered := c.list().hovered(m)
 	c.scope = statusCheckScope(stepStop(int(c.scope), delta, len(statusCheckScopeLabels)))
-	rows := c.rows(m)
-	c.cursor = cursor.Place(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
+	c.list().place(m, hovered)
 
 	return m.waitToStage()
 }
@@ -368,8 +366,7 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 
 	hovered := c.list().hovered(m)
 	c.items, c.err = msg.items, nil
-	rows := c.rows(m)
-	c.cursor = cursor.Place(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
+	c.list().place(m, hovered)
 
 	return m.readStatusChecksCmd()
 }
