@@ -478,6 +478,11 @@ table "pull_request_checks" {
     type    = timestamptz
     comment = "When the run the check ran in was created, null for a commit status."
   }
+  column "job_id" {
+    null    = true
+    type    = bigint
+    comment = "The forge's own number for the Actions job that ran the check, which its log is fetched by, null for a commit status or a check run no workflow ran."
+  }
   primary_key {
     columns = [column.id]
   }
@@ -652,6 +657,140 @@ table "pull_request_check_failure_notes" {
   }
   index "pull_request_check_failure_notes_check_id" {
     columns = [column.check_id]
+  }
+}
+
+table "pull_request_check_logs" {
+  schema  = schema.public
+  comment = "The log of a check's Actions job as komrad last fetched it, one row per check, its text kept split into parts."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "check_id" {
+    null    = false
+    type    = uuid
+    comment = "The check whose job the log is of."
+  }
+  column "fetched_at" {
+    null    = false
+    type    = timestamptz
+    comment = "When komrad last asked the forge for the log."
+  }
+  column "outcome" {
+    null    = false
+    type    = text
+    comment = "What the forge answered: fetched when it gave the log, missing when it never had one ready, expired when it no longer keeps it, failed when asking went wrong."
+  }
+  column "split" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the log was split into one part per step, rather than kept whole as part 0."
+  }
+  column "truncated" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the log ran past the most komrad keeps, and was cut there."
+  }
+  column "line_count" {
+    null    = false
+    type    = integer
+    default = 0
+    comment = "How many lines the log holds across its parts, zero when none was fetched."
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "pull_request_check_logs_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
+  }
+  unique "pull_request_check_logs_check_id_key" {
+    columns = [column.engine_id, column.check_id]
+  }
+  foreign_key "pull_request_check_logs_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_check_logs_check_id_fkey" {
+    columns     = [column.engine_id, column.check_id]
+    ref_columns = [table.pull_request_checks.column.engine_id, table.pull_request_checks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  check "pull_request_check_logs_outcome_known" {
+    expr = "outcome IN ('fetched', 'missing', 'expired', 'failed')"
+  }
+}
+
+table "pull_request_check_log_parts" {
+  schema  = schema.public
+  comment = "The lines of one step of a check's log, or of the whole log when it could not be split by step."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "log_id" {
+    null    = false
+    type    = uuid
+    comment = "The log the part belongs to."
+  }
+  column "step_number" {
+    null    = false
+    type    = integer
+    comment = "The number of the step the lines were printed in, or 0 for the whole log when it could not be split."
+  }
+  column "text" {
+    null    = false
+    type    = text
+    comment = "The part's lines, cleaned of timestamps and escape codes, joined by newlines."
+  }
+  column "line_count" {
+    null    = false
+    type    = integer
+    comment = "How many lines the part holds."
+  }
+  column "error_count" {
+    null    = false
+    type    = integer
+    default = 0
+    comment = "How many of the part's lines the job marked as errors."
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "pull_request_check_log_parts_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
+  }
+  unique "pull_request_check_log_parts_step_number_key" {
+    columns = [column.engine_id, column.log_id, column.step_number]
+  }
+  foreign_key "pull_request_check_log_parts_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "pull_request_check_log_parts_log_id_fkey" {
+    columns     = [column.engine_id, column.log_id]
+    ref_columns = [table.pull_request_check_logs.column.engine_id, table.pull_request_check_logs.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
   }
 }
 

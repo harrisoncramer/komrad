@@ -38,6 +38,9 @@ var ErrNoRereview = fail.Precondition("the forge has nobody to ask for another r
 // ErrReplyRefused says the forge turned a reply down without posting it.
 var ErrReplyRefused = fail.Precondition("the forge will not take the reply")
 
+// ErrExpired says the forge once kept what was asked for and no longer does.
+var ErrExpired = fail.NotFound("the forge no longer keeps it")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
@@ -184,6 +187,9 @@ type StatusCheck struct {
 	RunEvent string
 	// RunStartedAt is when the run the check ran in was created.
 	RunStartedAt *time.Time
+	// JobID is the forge's own number for the Actions job that ran the check, which its log is read by, nil
+	// for a commit status or a check run no workflow ran.
+	JobID *int64
 }
 
 // StatusCheckStep is one step of a check run.
@@ -386,6 +392,20 @@ type Reading struct {
 type installationVerifier interface {
 	// VerifyInstallation is how many repositories the credential's installation covers.
 	VerifyInstallation(ctx context.Context) (int, error)
+}
+
+// JobLogReader is a forge that can hand over the log of a finished Actions job.
+type JobLogReader interface {
+	// JobLog is the job's log cut at the most komrad keeps, ErrNotFound while the forge has no log ready
+	// and ErrExpired once it no longer keeps one.
+	JobLog(ctx context.Context, repo git.RemoteURL, jobID int64) (*JobLog, error)
+}
+
+// JobLog is the text of one job's log.
+type JobLog struct {
+	Text string
+	// Truncated is whether the log ran past the most komrad keeps, and was cut there.
+	Truncated bool
 }
 
 // TokenInfo is what a forge says of the token it was shown.

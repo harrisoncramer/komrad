@@ -98,6 +98,7 @@ func TestReadBranches(t *testing.T) {
 				RunID:        "CS_1",
 				RunEvent:     "pull_request",
 				RunStartedAt: xptr.Ptr(time.Date(2026, 9, 20, 10, 59, 0, 0, time.UTC)),
+				JobID:        xptr.Ptr(int64(101)),
 			},
 			{
 				ProviderID: "CR_2",
@@ -232,6 +233,7 @@ const openPullChecks = `{
 									{
 										"__typename": "CheckRun",
 										"id": "CR_1",
+										"databaseId": 101,
 										"name": "test",
 										"status": "COMPLETED",
 										"conclusion": "FAILURE",
@@ -256,6 +258,7 @@ const openPullChecks = `{
 									{
 										"__typename": "CheckRun",
 										"id": "CR_2",
+										"databaseId": 102,
 										"name": "scan",
 										"status": "QUEUED",
 										"conclusion": null,

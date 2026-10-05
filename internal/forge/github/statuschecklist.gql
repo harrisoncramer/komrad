@@ -11,6 +11,7 @@ commits(last: 1) {
             __typename
             ... on CheckRun {
               id
+              databaseId
               name
               status
               conclusion

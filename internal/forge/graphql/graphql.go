@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -21,6 +22,10 @@ import (
 
 // defaultTimeout bounds one call to a forge.
 const defaultTimeout = 30 * time.Second
+
+// downloadTimeout bounds one download of a file the forge redirected to, which can run to tens of
+// megabytes.
+const downloadTimeout = 5 * time.Minute
 
 // Dialect is what one forge does differently from the others on the wire.
 type Dialect struct {
@@ -53,7 +58,11 @@ type Client struct {
 	dialect Dialect
 	api     string
 	http    *http.Client
-	now     func() time.Time
+	// redirects is http that answers with a redirect rather than following it.
+	redirects *http.Client
+	// downloads fetches what a redirect names without the credential.
+	downloads *http.Client
+	now       func() time.Time
 }
 
 // NewClient builds the client.
@@ -68,11 +77,24 @@ func NewClient(params NewClientParams) *Client {
 		now = time.Now
 	}
 
+	next := params.Next
+	if next == nil {
+		next = xhttp.NewTransport()
+	}
+
+	credentialed := forge.NewTransport(params.Auth, next)
+	redirects := xhttp.NewClientOver(credentialed, timeout)
+	redirects.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
 	return &Client{
-		dialect: params.Dialect,
-		api:     strings.TrimRight(params.API, "/"),
-		http:    xhttp.NewClientOver(forge.NewTransport(params.Auth, params.Next), timeout),
-		now:     now,
+		dialect:   params.Dialect,
+		api:       strings.TrimRight(params.API, "/"),
+		http:      xhttp.NewClientOver(credentialed, timeout),
+		redirects: redirects,
+		downloads: xhttp.NewClientOver(next, downloadTimeout),
+		now:       now,
 	}
 }
 
@@ -137,14 +159,94 @@ func (c *Client) Query(ctx context.Context, operation string, variables map[stri
 // Send makes one call with the headers every call carries and turns the forge's refusals into
 // komrad's, a 404 aside.
 func (c *Client) Send(ctx context.Context, params xhttp.JSONParams, into any) (xhttp.Answer, error) {
+	params.Client = c.http
+	answer, err := c.send(ctx, params, into)
+	if err != nil {
+		return answer, err
+	}
+
+	if answer.Status == http.StatusNotFound {
+		return answer, nil
+	}
+	if !answer.IsSuccess() {
+		return answer, fmt.Errorf("%s answered %d for %s: %s", c.dialect.Name, answer.Status, pathOf(params.URL), MessageOf(answer.Body))
+	}
+
+	return answer, nil
+}
+
+// Redirect is where the forge redirects a GET of address to without following it, ErrNotFound on a
+// 404 and ErrExpired on a 410.
+func (c *Client) Redirect(ctx context.Context, address string) (string, error) {
+	answer, err := c.send(ctx, xhttp.JSONParams{Client: c.redirects, Method: http.MethodGet, URL: address}, nil)
+	if err != nil {
+		return "", err
+	}
+
+	path := pathOf(address)
+	switch {
+	case answer.Status == http.StatusNotFound:
+		return "", fmt.Errorf("%w: %s answered 404 for %s", forge.ErrNotFound, c.dialect.Name, path)
+	case answer.Status == http.StatusGone:
+		return "", fmt.Errorf("%w: %s answered 410 for %s", forge.ErrExpired, c.dialect.Name, path)
+	case answer.Status < 300 || answer.Status >= 400:
+		return "", fmt.Errorf("%s answered %d rather than a redirect for %s: %s", c.dialect.Name, answer.Status, path, MessageOf(answer.Body))
+	}
+
+	location, err := url.Parse(answer.Header.Get("Location"))
+	if err != nil || location.String() == "" {
+		return "", fmt.Errorf("%s redirected %s to no address it could be read at", c.dialect.Name, path)
+	}
+	base, err := url.Parse(address)
+	if err != nil {
+		return "", fmt.Errorf("failed to read the address %s: %w", path, err)
+	}
+
+	return base.ResolveReference(location).String(), nil
+}
+
+// Download is the body of a GET of address made without the credential and read up to maxBytes,
+// with whether the body ran past them.
+func (c *Client) Download(ctx context.Context, address string, maxBytes int64) ([]byte, bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to build the download of %s: %w", pathOf(address), err)
+	}
+
+	resp, err := c.downloads.Do(req)
+	if err != nil {
+		if failure := fail.Of(err); failure != nil {
+			return nil, false, failure
+		}
+
+		return nil, false, fmt.Errorf("failed to download %s: %w", pathOf(address), err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, false, fmt.Errorf("download of %s answered %d", pathOf(address), resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to read the download of %s: %w", pathOf(address), err)
+	}
+	if int64(len(body)) > maxBytes {
+		return body[:maxBytes], true, nil
+	}
+
+	return body, false, nil
+}
+
+// send makes one call with the headers every call carries and turns a refusal for the credential
+// or the rate limit into komrad's, leaving every other status to the caller.
+func (c *Client) send(ctx context.Context, params xhttp.JSONParams, into any) (xhttp.Answer, error) {
 	if params.Header == nil {
 		params.Header = http.Header{}
 	}
 	for name, values := range c.dialect.Header {
 		params.Header[http.CanonicalHeaderKey(name)] = values
 	}
-	params.Client = c.http
-	path := pathOf(params.URL)
 
 	answer, err := xhttp.JSON(ctx, params, into)
 	if err != nil {
@@ -158,15 +260,10 @@ func (c *Client) Send(ctx context.Context, params xhttp.JSONParams, into any) (x
 	switch answer.Status {
 	case http.StatusUnauthorized:
 		return answer, fmt.Errorf("%w: %s", forge.ErrUnauthorized, MessageOf(answer.Body))
-	case http.StatusNotFound:
-		return answer, nil
 	case http.StatusForbidden, http.StatusTooManyRequests:
 		if throttled := c.throttleOf(answer); throttled != nil {
 			return answer, throttled
 		}
-	}
-	if !answer.IsSuccess() {
-		return answer, fmt.Errorf("%s answered %d for %s: %s", c.dialect.Name, answer.Status, path, MessageOf(answer.Body))
 	}
 
 	return answer, nil
