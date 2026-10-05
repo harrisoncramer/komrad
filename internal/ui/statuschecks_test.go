@@ -1,7 +1,6 @@
 package ui_test
 
 import (
-	"strings"
 	"testing"
 
 	"komrad/internal/glyph"
@@ -408,8 +407,8 @@ func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, startedAt string
 	return check
 }
 
-// TestStatusChecksCommits covers the listing showing the checks of the newest head, stepping back through older ones.
-func TestStatusChecksCommits(t *testing.T) {
+// TestStatusChecksNewestHead covers the listing showing only the checks of the newest head.
+func TestStatusChecksNewestHead(t *testing.T) {
 	t.Parallel()
 
 	done := pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
@@ -434,52 +433,19 @@ func TestStatusChecksCommits(t *testing.T) {
 	listed := answerStatusCheckReadings(first, second)
 
 	tests := []struct {
-		name      string
-		press     []string
-		want      []string
-		wantTally string
+		name  string
+		press []string
+		want  []string
 	}{
 		{
-			name:      "every status check on the newest commit holds the newest run of each check",
-			press:     everyStatusCheck,
-			want:      []string{"vet", "test", "test", "ci/legacy"},
-			wantTally: "commit 2 of 2 · 222222222222",
+			name:  "every status check on the newest commit holds the newest run of each check",
+			press: everyStatusCheck,
+			want:  []string{"vet", "test", "test", "ci/legacy"},
 		},
 		{
-			name:      "failing lists the failures of the commit shown",
-			press:     []string{"F", "tab", "tab", "esc"},
-			want:      []string{"vet"},
-			wantTally: "commit 2 of 2 · 222222222222",
-		},
-		{
-			name:      "older steps back a commit",
-			press:     append(everyStatusCheck, "<"),
-			want:      []string{"lint", "test", "test"},
-			wantTally: "commit 1 of 2 · 111111111111",
-		},
-		{
-			name:      "older stops on the earliest commit",
-			press:     append(everyStatusCheck, "<", "<"),
-			want:      []string{"lint", "test", "test"},
-			wantTally: "commit 1 of 2 · 111111111111",
-		},
-		{
-			name:      "newer steps forward to a later commit",
-			press:     append(everyStatusCheck, "<", ">"),
-			want:      []string{"vet", "test", "test", "ci/legacy"},
-			wantTally: "commit 2 of 2 · 222222222222",
-		},
-		{
-			name:      "older picks the default scope for the commit it lands on",
-			press:     []string{"<"},
-			want:      []string{"lint"},
-			wantTally: "commit 1 of 2 · 111111111111",
-		},
-		{
-			name:      "a scope keeps to the commit shown",
-			press:     []string{"<", "F", "tab", "tab", "esc"},
-			want:      []string{"lint"},
-			wantTally: "commit 1 of 2 · 111111111111",
+			name:  "failing lists the failures of the newest commit",
+			press: []string{"F", "tab", "tab", "esc"},
+			want:  []string{"vet"},
 		},
 	}
 
@@ -492,18 +458,10 @@ func TestStatusChecksCommits(t *testing.T) {
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.want, readListRows(frame))
-			assert.Contains(t, frame, tt.wantTally)
+			assert.Contains(t, frame, "222222222222")
+			assert.NotContains(t, frame, "111111111111")
 		})
 	}
-
-	t.Run("another commit keeps the cursor on the same status check of the same source", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openStatusChecks(t, listed)
-		harness.press(append(everyStatusCheck, "j", "j", "<")...)
-
-		assert.Equal(t, 2, readHoveredIndex(harness.readFrame()))
-	})
 
 	t.Run("runs of one workflow started by different events each keep their checks", func(t *testing.T) {
 		t.Parallel()
@@ -535,30 +493,11 @@ func TestStatusChecksCommits(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("<", ">")
 		pushed(harness)
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"build"}, readListRows(frame))
-		assert.Contains(t, frame, "commit 3 of 3 · 333333333333")
-	})
-
-	t.Run("the default scope is picked again for each commit shown", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openStatusChecks(t, listed)
-		pushed(harness)
-		harness.press("<")
-
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"vet"}, readListRows(frame))
-		assert.Contains(t, frame, "commit 2 of 3 · 222222222222")
-
-		harness.press(">")
-
-		frame = harness.readFrame()
-		assert.Equal(t, []string{"build"}, readListRows(frame))
-		assert.Contains(t, frame, "commit 3 of 3 · 333333333333")
+		assert.Contains(t, frame, "333333333333")
 	})
 
 	t.Run("a picked scope stays through a push that passes every status check", func(t *testing.T) {
@@ -570,31 +509,4 @@ func TestStatusChecksCommits(t *testing.T) {
 
 		assert.Contains(t, harness.readFrame(), "no failing status checks")
 	})
-
-	t.Run("an older commit stays shown through a push", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openStatusChecks(t, listed)
-		harness.press(append(everyStatusCheck, "<")...)
-		pushed(harness)
-
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"lint", "test", "test"}, readListRows(frame))
-		assert.Contains(t, frame, "commit 1 of 3 · 111111111111")
-	})
-}
-
-func readHoveredIndex(frame string) int {
-	index := 0
-	for _, line := range splitLines(frame) {
-		if _, isRow := cutListRow(line); !isRow {
-			continue
-		}
-		if strings.HasPrefix(line, "›") {
-			return index
-		}
-		index++
-	}
-
-	return -1
 }

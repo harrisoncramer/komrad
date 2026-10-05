@@ -40,7 +40,7 @@ type statusCheckRun struct {
 	startedAt time.Time
 }
 
-// statusCheckCommit is the checks read on one head the pull request has had.
+// statusCheckCommit is the checks read on the pull request's newest head.
 type statusCheckCommit struct {
 	headSHA     string
 	firstReadAt time.Time
@@ -54,13 +54,12 @@ type statusCheckKey struct {
 	name   string
 }
 
-// statusChecksScreen lists the status checks on one head of the pull request opened from one agent's branch.
+// statusChecksScreen lists the status checks on the newest head of the pull request opened from one agent's branch.
 type statusChecksScreen struct {
 	rowCursor
 	agentID           string
 	from              screen
-	commits           []statusCheckCommit
-	viewing           string
+	commit            statusCheckCommit
 	listedPullRequest string
 	listedHead        string
 	listed            bool
@@ -112,7 +111,7 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 
 func (c *statusChecksScreen) rows(m *model) []statusCheckRow {
 	return narrowed(m.filter, narrowedParams[statusCheckRow]{
-		rows: xslice.Map(xslice.Filter(c.shownItems(), c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
+		rows: xslice.Map(xslice.Filter(c.commit.items, c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
 		}),
 		depth: func(statusCheckRow) int { return 0 },
@@ -130,7 +129,7 @@ func (c *statusChecksScreen) view(m *model) string {
 
 func (c *statusChecksScreen) listParams(m *model) screenListParams {
 	return screenListParams{
-		tally:    c.commitTally(),
+		tally:    c.commit.tally(),
 		help:     c.help,
 		empty:    c.emptyLine(m),
 		rows:     len(c.rows(m)),
@@ -169,7 +168,7 @@ func (c *statusChecksScreen) shownScope() statusCheckScope {
 	switch {
 	case c.scopeChosen:
 		return c.scope
-	case slices.ContainsFunc(c.shownItems(), statusCheckScopeNotPassing.holds):
+	case slices.ContainsFunc(c.commit.items, statusCheckScopeNotPassing.holds):
 		return statusCheckScopeNotPassing
 	}
 
@@ -214,7 +213,7 @@ func (c *statusChecksScreen) emptyLine(m *model) string {
 		return "no pull request"
 	case !c.listed:
 		return "reading…"
-	case len(c.shownItems()) == 0:
+	case len(c.commit.items) == 0:
 		return "no status checks yet"
 	}
 
@@ -264,16 +263,6 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 	return screenActionSpec{
 		table: append(c.list().actions(),
 			screenAction{
-				id:   actionStatusChecksOlder,
-				keys: func(k config.Keybindings) []string { return k.StatusChecks.Older },
-				nav:  func(m *model, _ string) tea.Cmd { return c.stepCommit(m, -1) },
-			},
-			screenAction{
-				id:   actionStatusChecksNewer,
-				keys: func(k config.Keybindings) []string { return k.StatusChecks.Newer },
-				nav:  func(m *model, _ string) tea.Cmd { return c.stepCommit(m, 1) },
-			},
-			screenAction{
 				id:   actionStatusChecksBack,
 				keys: func(k config.Keybindings) []string { return k.StatusChecks.Back },
 				nav: func(m *model, _ string) tea.Cmd {
@@ -282,14 +271,6 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 			},
 		),
 		legend: slices.Concat(screenNavLegend(), []screenLegendRow{
-			{
-				of:   []actionID{actionStatusChecksOlder},
-				desc: func(*model) string { return "an earlier commit" },
-			},
-			{
-				of:   []actionID{actionStatusChecksNewer},
-				desc: func(*model) string { return "a later commit" },
-			},
 			{
 				of:    []actionID{actionStatusChecksBack},
 				desc:  func(*model) string { return "back" },
@@ -358,12 +339,12 @@ func (c *statusChecksScreen) filterRows(m *model) []filterRow {
 	return c.list().filterRows(m)
 }
 
-// statusChecksListedMsg is the status checks on each of one pull request's heads come back.
+// statusChecksListedMsg is the status checks on one pull request's newest head come back.
 type statusChecksListedMsg struct {
 	agentID       string
 	pullRequestID string
 	headSHA       string
-	commits       []statusCheckCommit
+	commit        statusCheckCommit
 	err           error
 }
 
@@ -414,7 +395,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 			agentID:       agentID,
 			pullRequestID: pullRequestID,
 			headSHA:       head,
-			commits:       xslice.Map(listed.GetReadings(), newStatusCheckCommit),
+			commit:        newestStatusCheckCommit(listed.GetReadings()),
 		}
 	}
 }
@@ -434,7 +415,7 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 	}
 
 	hovered := c.list().hovered(m)
-	c.commits, c.err = msg.commits, nil
+	c.commit, c.err = msg.commit, nil
 	c.list().place(m, hovered)
 
 	return m.readStatusChecksCmd()
@@ -473,7 +454,7 @@ func isStatusCheckUnknown(item statusCheckItem) bool {
 }
 
 func (c *statusChecksScreen) isLoading(*model) bool {
-	return slices.ContainsFunc(c.shownItems(), isStatusCheckInFlight)
+	return slices.ContainsFunc(c.commit.items, isStatusCheckInFlight)
 }
 
 func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
@@ -561,6 +542,15 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	return out
 }
 
+// newestStatusCheckCommit is the reading of the newest head, empty when no head was read.
+func newestStatusCheckCommit(readings []*pullrequestv1.StatusCheckReading) statusCheckCommit {
+	if len(readings) == 0 {
+		return statusCheckCommit{}
+	}
+
+	return newStatusCheckCommit(readings[len(readings)-1])
+}
+
 // newStatusCheckCommit is one head's reading, holding only the newest run of each check.
 func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheckCommit {
 	items := xslice.Map(reading.GetStatusChecks(), newStatusCheckItem)
@@ -595,67 +585,13 @@ func compareStatusCheckItems(a, b statusCheckItem) int {
 	return strings.Compare(a.id, b.id)
 }
 
-// viewed is the index of the commit the screen lists, defaulting to the newest.
-func (c *statusChecksScreen) viewed() int {
-	if i := slices.IndexFunc(c.commits, func(commit statusCheckCommit) bool { return commit.headSHA == c.viewing }); i >= 0 {
-		return i
+// tally is the commit's short hash and how long ago its checks were first read, empty when no commit was read.
+func (c statusCheckCommit) tally() string {
+	var parts []string
+	if c.headSHA != "" {
+		parts = append(parts, git.ShortSHA(c.headSHA))
 	}
-
-	return len(c.commits) - 1
-}
-
-// shownItems is the checks of the commit the screen lists.
-func (c *statusChecksScreen) shownItems() []statusCheckItem {
-	at := c.viewed()
-	if at < 0 {
-		return nil
-	}
-
-	return c.commits[at].items
-}
-
-// stepCommit moves the listing to an older or newer commit, keeping the cursor on the same check.
-func (c *statusChecksScreen) stepCommit(m *model, delta int) tea.Cmd {
-	at := c.viewed()
-	to := min(max(at+delta, 0), len(c.commits)-1)
-	if at < 0 || to == at {
-		return nil
-	}
-
-	hovered := c.list().hovered(m)
-	var hoveredCheck statusCheckKey
-	oldRows := c.rows(m)
-	if i := slices.IndexFunc(oldRows, func(row statusCheckRow) bool { return row.key() == hovered }); i >= 0 {
-		hoveredCheck = oldRows[i].item.key()
-	}
-	c.viewing = ""
-	if to < len(c.commits)-1 {
-		c.viewing = c.commits[to].headSHA
-	}
-	newRows := c.rows(m)
-	var placeKey string
-	if i := slices.IndexFunc(newRows, func(row statusCheckRow) bool { return row.item.key() == hoveredCheck }); i >= 0 {
-		placeKey = newRows[i].key()
-	}
-	c.list().place(m, placeKey)
-
-	return m.waitToStage()
-}
-
-// commitTally is which commit the screen lists, its short hash and how long ago its checks were first read, empty
-// when no commit was read.
-func (c *statusChecksScreen) commitTally() string {
-	at := c.viewed()
-	if at < 0 {
-		return ""
-	}
-
-	commit := c.commits[at]
-	parts := []string{"commit " + label.OfCount(at+1, len(c.commits))}
-	if commit.headSHA != "" {
-		parts = append(parts, git.ShortSHA(commit.headSHA))
-	}
-	if age := label.Age(commit.firstReadAt); age != "" {
+	if age := label.Age(c.firstReadAt); age != "" {
 		parts = append(parts, age+" ago")
 	}
 

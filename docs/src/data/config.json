@@ -701,20 +701,6 @@
               "default": "[\"esc\"]"
             },
             {
-              "key": "older",
-              "path": "keybindings.status_checks.older",
-              "type": "array",
-              "description": "Step back to an earlier head commit of the pull request.",
-              "default": "[\"\u003c\"]"
-            },
-            {
-              "key": "newer",
-              "path": "keybindings.status_checks.newer",
-              "type": "array",
-              "description": "Step forward to a later head commit, stopping on the newest.",
-              "default": "[\"\u003e\"]"
-            },
-            {
               "key": "quit",
               "path": "keybindings.status_checks.quit",
               "type": "array",

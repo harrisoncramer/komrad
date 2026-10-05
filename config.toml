@@ -274,13 +274,9 @@ quit = ["ctrl+c"]
 # The status checks screen, which lists the status checks run on one agent's pull request.
 [keybindings.status_checks]
 # Leave the status checks screen for the view it was opened from.
-back  = ["esc"]
-# Step back to an earlier head commit of the pull request.
-older = ["<"]
-# Step forward to a later head commit, stopping on the newest.
-newer = [">"]
+back = ["esc"]
 # Quit the panel.
-quit  = ["ctrl+c"]
+quit = ["ctrl+c"]
 
 # The messages komrad pushed, read in the main pane.
 [keybindings.messages]
