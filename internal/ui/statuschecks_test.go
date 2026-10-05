@@ -415,7 +415,6 @@ func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, startedAt string
 	return check
 }
 
-// TestStatusChecksNewestHead covers the listing showing only the checks of the newest head.
 func TestStatusChecksNewestHead(t *testing.T) {
 	t.Parallel()
 
@@ -487,14 +486,18 @@ func TestStatusChecksNewestHead(t *testing.T) {
 		assert.Equal(t, []string{"build", "build"}, readListRows(harness.readFrame()))
 	})
 
+	moveHead := func(harness *panelHarness, head string) {
+		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
+		pullRequest.HeadSha = head
+		harness.watch(buildPuts(pullRequest))
+	}
+
 	pushed := func(harness *panelHarness) {
 		answerStatusCheckReadings(first, second, &pullrequestv1.StatusCheckReading{
 			HeadSha:      "3333333333333333",
 			StatusChecks: []*pullrequestv1.StatusCheck{inStatusCheckRun(newStatusCheck("8", "build", done, "SUCCESS"), "ci", "2026-09-20T13:00:00Z")},
 		})(harness)
-		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
-		pullRequest.HeadSha = "3333333333333333"
-		harness.watch(buildPuts(pullRequest))
+		moveHead(harness, "3333333333333333")
 	}
 
 	t.Run("the newest commit follows a push", func(t *testing.T) {
@@ -522,9 +525,7 @@ func TestStatusChecksNewestHead(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecksOn(t, "2222222222222222", listed)
-		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
-		pullRequest.HeadSha = "3333333333333333"
-		harness.watch(buildPuts(pullRequest))
+		moveHead(harness, "3333333333333333")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "no status checks yet")
