@@ -278,7 +278,7 @@ type FixedKeys struct {
 	Editor []string
 	// Open the row under the cursor.
 	Open []string
-	// Quit the panel, from a form as from anywhere else.
+	// Quit the panel.
 	Quit []string
 	// Submit the form from any field.
 	Submit []string
