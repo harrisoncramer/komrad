@@ -144,7 +144,7 @@ func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.
 func withoutAgentThreads(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
 	kept := make([]*agentv1.ReviewThread, 0, len(threads))
 	for _, thread := range threads {
-		if !diffview.IsAgentThread(thread) {
+		if !diffview.IsAgentThread(thread) || diffview.IsHoldingUnsent(thread) {
 			kept = append(kept, thread)
 		}
 	}

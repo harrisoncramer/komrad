@@ -473,6 +473,16 @@ func TestReviewThreads(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "renamed it")
 	})
 
+	t.Run("a conversation an agent opened stays drawn while it holds an unsent reply", func(t *testing.T) {
+		server := newReviewServer(t)
+		reply := newHumanMessage("m2", "yes, keep it")
+		reply.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "renamed it, is that what you meant?"), reply)}
+		harness := openReview(t, server)
+
+		assert.Contains(t, readPopupProse(harness.readFrame()), "yes, keep it")
+	})
+
 	t.Run("the compose key on a line with a thread replies in it", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "renamed it, is that what you meant?"))}
