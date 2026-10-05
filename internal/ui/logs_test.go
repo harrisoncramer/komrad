@@ -119,8 +119,8 @@ func TestLogsOpen(t *testing.T) {
 		assert.Contains(t, frame, "agents › author › logs")
 		assert.Contains(t, readHoveredRow(frame), "service")
 		assert.Contains(t, readSidebarProse(frame), "001 provision setup")
-		assert.Contains(t, readStageText(frame), `{"body":"first line"}`)
-		assert.Contains(t, readStageText(frame), `{"body":"second line"}`)
+		assert.Contains(t, readStageText(frame), "first line")
+		assert.Contains(t, readStageText(frame), "second line")
 		harness.assertSentTo(logv1connect.LogServiceListAgentLogSourcesProcedure, &logv1.ListAgentLogSourcesRequest{AgentId: "author"})
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""))
 	})
@@ -174,6 +174,42 @@ func TestLogsOpen(t *testing.T) {
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
+	})
+}
+
+// TestLogsFormat covers the service log drawn compact or raw from the format strip.
+func TestLogsFormat(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the service log opens compact under its strip", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, tailOfTwo())
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "raw  compact")
+		assert.Contains(t, readStageText(frame), "first line")
+		assert.NotContains(t, readStageText(frame), `{"body"`)
+	})
+
+	t.Run("the strip steps the service log to raw", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, tailOfTwo())
+		harness.press("F", "tab", "esc")
+
+		assert.Contains(t, readStageText(harness.readFrame()), `{"body":"first line"}`)
+	})
+
+	t.Run("a run draws no strip and its output as it was written", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, tailOfTwo())
+		harness.press("j", rest)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "raw  compact")
+		assert.Contains(t, readStageText(frame), "error: port 5470 already allocated")
 	})
 }
 
@@ -371,7 +407,7 @@ func TestLogsTail(t *testing.T) {
 		harness.fireTimers()
 
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead("service", "10"))
-		assert.Contains(t, readStageText(harness.readFrame()), `{"body":"third line"}`)
+		assert.Contains(t, readStageText(harness.readFrame()), "third line")
 	})
 
 	t.Run("a log that started over clears what was held", func(t *testing.T) {
@@ -405,7 +441,7 @@ func TestLogsTail(t *testing.T) {
 		})
 
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead("service", "10"))
-		assert.Contains(t, readStageText(harness.readFrame()), `{"body":"second line"}`)
+		assert.Contains(t, readStageText(harness.readFrame()), "second line")
 	})
 
 	t.Run("a read answered after the screen was left and opened again is dropped", func(t *testing.T) {
