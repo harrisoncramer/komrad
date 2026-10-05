@@ -32,7 +32,7 @@ type ThreadCounts struct {
 // add counts one thread under the first state it is in.
 func (c *ThreadCounts) add(thread *agentv1.ReviewThread) {
 	switch {
-	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
+	case IsHoldingUnsent(thread):
 		c.Unsent++
 	case thread.GetUnreadByHuman():
 		c.Unread++

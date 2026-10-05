@@ -701,20 +701,6 @@
               "default": "[\"esc\"]"
             },
             {
-              "key": "older",
-              "path": "keybindings.status_checks.older",
-              "type": "array",
-              "description": "Step back to an earlier head commit of the pull request.",
-              "default": "[\"\u003c\"]"
-            },
-            {
-              "key": "newer",
-              "path": "keybindings.status_checks.newer",
-              "type": "array",
-              "description": "Step forward to a later head commit, stopping on the newest.",
-              "default": "[\"\u003e\"]"
-            },
-            {
               "key": "quit",
               "path": "keybindings.status_checks.quit",
               "type": "array",
@@ -923,6 +909,13 @@
               "type": "array",
               "description": "From the menu, catch up with the agent, once the band says it has written since you opened the\ndiff. What you are reading never moves on its own, since that would take the code out\nfrom under a comment being written, so catching up is always yours to ask for.",
               "default": "[\"R\"]"
+            },
+            {
+              "key": "agent_threads",
+              "path": "keybindings.review.agent_threads",
+              "type": "array",
+              "description": "From the menu, show or hide the conversations agents opened, which are hidden whenever a\nreview opens.",
+              "default": "[\"b\"]"
             },
             {
               "key": "resolve",

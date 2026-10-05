@@ -120,6 +120,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "expand", keys: keys.Diff.Expand},
 		{name: "wrap", keys: keys.Diff.Wrap},
 		{name: "reload", keys: keys.Review.Reload},
+		{name: "agent_threads", keys: keys.Review.AgentThreads},
 		{name: "scratch", keys: keys.Menu.Scratch},
 		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	}); err != nil {

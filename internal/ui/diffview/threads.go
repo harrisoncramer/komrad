@@ -2,6 +2,7 @@ package diffview
 
 import (
 	"fmt"
+	"slices"
 
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -137,16 +138,23 @@ func lineOf(thread *agentv1.ReviewThread) int32 {
 	return thread.GetOldStart()
 }
 
-// isAgentThread reports whether an agent opened a conversation, read off the message that opened
+// IsAgentThread reports whether an agent opened a conversation, read off the message that opened
 // it.
-func isAgentThread(thread *agentv1.ReviewThread) bool {
+func IsAgentThread(thread *agentv1.ReviewThread) bool {
 	messages := thread.GetMessages()
 
 	return len(messages) > 0 &&
 		messages[0].GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
 }
 
+// IsHoldingUnsent reports whether a thread holds a comment the person has yet to send.
+func IsHoldingUnsent(thread *agentv1.ReviewThread) bool {
+	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
+		return message.GetDelivery() == agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
+	})
+}
+
 // isUnsettled reports whether a conversation is one the person reviewing still owes an answer on.
 func isUnsettled(thread *agentv1.ReviewThread) bool {
-	return thread.GetResolvedAt() == "" && !isAgentThread(thread)
+	return thread.GetResolvedAt() == "" && !IsAgentThread(thread)
 }

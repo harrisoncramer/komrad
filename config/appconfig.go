@@ -496,10 +496,6 @@ type LogsKeys struct {
 type StatusChecksKeys struct {
 	// Leave the status checks screen for the view it was opened from.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Step back to an earlier head commit of the pull request.
-	Older []string `mapstructure:"older" default:"<"`
-	// Step forward to a later head commit, stopping on the newest.
-	Newer []string `mapstructure:"newer" default:">"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
@@ -572,6 +568,9 @@ type ReviewKeys struct {
 	// diff. What you are reading never moves on its own, since that would take the code out
 	// from under a comment being written, so catching up is always yours to ask for.
 	Reload []string `mapstructure:"reload" default:"R"`
+	// From the menu, show or hide the conversations agents opened, which are hidden whenever a
+	// review opens.
+	AgentThreads []string `mapstructure:"agent_threads" default:"b"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
 	// Send the comments waiting in your review to the agent, after asking for a note on the work as a whole.

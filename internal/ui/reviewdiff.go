@@ -42,6 +42,9 @@ type reviewDiff struct {
 
 	// followedMove is the move the diff last caught up on.
 	followedMove string
+
+	// showsAgentThreads says the conversations agents opened are drawn.
+	showsAgentThreads bool
 }
 
 type diffSpec struct {

@@ -274,13 +274,9 @@ quit = ["ctrl+c"]
 # The status checks screen, which lists the status checks run on one agent's pull request.
 [keybindings.status_checks]
 # Leave the status checks screen for the view it was opened from.
-back  = ["esc"]
-# Step back to an earlier head commit of the pull request.
-older = ["<"]
-# Step forward to a later head commit, stopping on the newest.
-newer = [">"]
+back = ["esc"]
 # Quit the panel.
-quit  = ["ctrl+c"]
+quit = ["ctrl+c"]
 
 # The messages komrad pushed, read in the main pane.
 [keybindings.messages]
@@ -360,6 +356,9 @@ quit             = ["ctrl+c"]
 # diff. What you are reading never moves on its own, since that would take the code out
 # from under a comment being written, so catching up is always yours to ask for.
 reload           = ["R"]
+# From the menu, show or hide the conversations agents opened, which are hidden whenever a
+# review opens.
+agent_threads    = ["b"]
 # Settle the thread under the cursor, which marks it resolved without deleting it.
 resolve          = ["r"]
 # Send the comments waiting in your review to the agent, after asking for a note on the work as a whole.

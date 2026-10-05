@@ -453,6 +453,15 @@ func (r reviewScreen) reloadDesc(m *model) string {
 	return "read the diff again"
 }
 
+// agentThreadsDesc says which way the agent threads key would go.
+func (d reviewDiff) agentThreadsDesc() string {
+	if d.showsAgentThreads {
+		return "hide agents' conversations"
+	}
+
+	return "show agents' conversations"
+}
+
 // resolveDesc says which way the settle key would go where the cursor is standing.
 func (d reviewDiff) resolveDesc() string {
 	if thread, ok := d.threadAtCursor(); ok && thread.GetResolvedAt() != "" {
