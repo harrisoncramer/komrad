@@ -9,7 +9,7 @@ import (
 	"charm.land/huh/v2"
 )
 
-func deleteAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) (*huh.Form, *bool) {
+func deleteAgentsForm(agents []panel.Agent, children int, keys config.FixedKeys) (*huh.Form, *bool) {
 	title := "Permanently delete " + promptSubject(agents, children) + "?"
 
 	warning := "Their transcripts go with them and search will not find the conversations again."
@@ -20,7 +20,7 @@ func deleteAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) 
 	return confirmForm(title, warning, "Delete", keys)
 }
 
-func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.FormKeys) (*huh.Form, *bool) {
+func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Permanently delete workflow %q?", workflow.Name)
 
 	warning := "It holds no agents."
@@ -34,7 +34,7 @@ func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.For
 	return confirmForm(title, warning, "Delete", keys)
 }
 
-func deleteScheduleForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
+func deleteScheduleForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Permanently delete schedule %q?", name),
 		"Its run history goes with it. The agents it launched are kept.",

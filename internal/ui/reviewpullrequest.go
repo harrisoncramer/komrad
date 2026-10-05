@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 
-	"komrad/config"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -190,7 +189,7 @@ func (r *reviewScreen) pullRequestActions() screenActionSpec {
 		table: append(navActions(pullRequestNav{r}, navSteps{page: pullRequestWindowRows / 2, scroll: 1}), []screenAction{
 			{
 				id:   actionReviewBack,
-				keys: func(k config.Keybindings) []string { return k.Review.Back },
+				keys: fixedBack,
 				nav: func(*model, string) tea.Cmd {
 					r.blurPullRequest()
 
@@ -199,7 +198,7 @@ func (r *reviewScreen) pullRequestActions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(k config.Keybindings) []string { return k.Review.Quit },
+				keys: fixedQuit,
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		}...),

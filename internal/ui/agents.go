@@ -57,8 +57,6 @@ func (a *agentsScreen) list() screenList[agentRow] {
 		header: "folder",
 		placed: a.stage,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
-		quit:   func(k config.Keybindings) []string { return k.Agents.Quit },
-		back:   func(k config.Keybindings) []string { return k.Agents.Back },
 	}
 }
 
@@ -530,10 +528,6 @@ func (a *agentsScreen) doesDrawFromListing() bool {
 
 func (a *agentsScreen) takesEveryKey() bool {
 	return a.isRenaming()
-}
-
-func (a *agentsScreen) detailsQuit(keys config.Keybindings) []string {
-	return keys.Agents.Quit
 }
 
 func (a *agentsScreen) detailsFit(m *model) bool {

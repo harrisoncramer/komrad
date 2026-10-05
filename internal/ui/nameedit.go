@@ -83,7 +83,7 @@ func (e *nameEdit) takeGone(m *model, msg tea.Msg) nameEditStep {
 	switch k := key.String(); {
 	case k == "ctrl+c":
 		return nameEditHidden
-	case k == "esc" || isBound(k, formKeys().Submit):
+	case k == "esc" || isBound(k, fixedKeys().Submit):
 		return nameEditCancelled
 	}
 
@@ -167,7 +167,7 @@ func stampRename(cmd tea.Cmd, row string) tea.Cmd {
 }
 
 func renameHelp() keyMap {
-	save := binding(formKeys().Submit, "save")
+	save := binding(fixedKeys().Submit, "save")
 	cancel := binding([]string{"esc"}, "cancel")
 
 	return keyMap{short: []key.Binding{save, cancel}, full: []key.Binding{save, cancel}}

@@ -13,7 +13,7 @@ import (
 func TestFormOrderLeavesOutANote(t *testing.T) {
 	prompt, title := "", ""
 
-	form, order := formOf(config.FixedFormKeys(),
+	form, order := formOf(config.Fixed(),
 		huh.NewNote().Description("nothing to answer here"),
 		textField("prompt").Value(&prompt),
 		huh.NewInput().Key("title").Value(&title),

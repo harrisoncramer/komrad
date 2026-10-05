@@ -13,7 +13,7 @@ import (
 
 // deleteWorktreesForm asks before a deletion, saying what goes through the agent delete, what the
 // remover takes on its own, and where a lone branch stands.
-func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys config.FormKeys) (*huh.Form, *bool) {
+func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys config.FixedKeys) (*huh.Form, *bool) {
 	count := deletion.count()
 	subject := label.Count(count, "worktree", "worktrees")
 	if count == 1 {

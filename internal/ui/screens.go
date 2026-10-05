@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"komrad/config"
 	"komrad/internal/ui/layout"
 
 	tea "charm.land/bubbletea/v2"
@@ -79,9 +78,6 @@ type screenTarget struct {
 type recordDrawer interface {
 	// details is the record the cursor is standing on.
 	details(m *model) details
-
-	// detailsQuit is the screen's own quit binding, kept working while the record holds the keys.
-	detailsQuit(keys config.Keybindings) []string
 
 	// detailsFit is whether the screen has the room to draw the record at all.
 	detailsFit(m *model) bool

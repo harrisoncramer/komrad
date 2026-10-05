@@ -204,32 +204,11 @@
           "description": "The agents list, the panel's main screen.",
           "settings": [
             {
-              "key": "back",
-              "path": "keybindings.agents.back",
-              "type": "array",
-              "description": "Step out of a workflow scope, or open the view switcher at the root.",
-              "default": "[\"esc\"]"
-            },
-            {
               "key": "triage",
               "path": "keybindings.agents.triage",
               "type": "array",
               "description": "Jump to the first agent in the triage zone at the top of the list.",
               "default": "[\"t\"]"
-            },
-            {
-              "key": "open",
-              "path": "keybindings.agents.open",
-              "type": "array",
-              "description": "Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a\nworkflow. Either one is started first if it is not running.",
-              "default": "[\"enter\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.agents.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
             },
             {
               "key": "rename",
@@ -245,20 +224,6 @@
           "path": "keybindings.archive",
           "description": "The archive screen.",
           "settings": [
-            {
-              "key": "back",
-              "path": "keybindings.archive.back",
-              "type": "array",
-              "description": "Open the view switcher.",
-              "default": "[\"esc\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.archive.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
-            },
             {
               "key": "rename",
               "path": "keybindings.archive.rename",
@@ -400,13 +365,6 @@
           "description": "The documents screen, which reads what the hovered agent has written for a person.",
           "settings": [
             {
-              "key": "back",
-              "path": "keybindings.documents.back",
-              "type": "array",
-              "description": "Leave the documents screen for the view it was opened from.",
-              "default": "[\"esc\"]"
-            },
-            {
               "key": "older",
               "path": "keybindings.documents.older",
               "type": "array",
@@ -419,13 +377,6 @@
               "type": "array",
               "description": "Step forward to a later write, and past the newest back to the document as it stands.",
               "default": "[\"\u003e\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.documents.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
             }
           ],
           "sections": []
@@ -666,74 +617,11 @@
           "description": "The logs screen, which tails what the service logged about one agent.",
           "settings": [
             {
-              "key": "back",
-              "path": "keybindings.logs.back",
-              "type": "array",
-              "description": "Leave the logs screen for the view it was opened from.",
-              "default": "[\"esc\"]"
-            },
-            {
               "key": "copy",
               "path": "keybindings.logs.copy",
               "type": "array",
               "description": "Copy the log line the cursor is on to the system clipboard.",
               "default": "[\"y\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.logs.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
-          "path": "keybindings.status_checks",
-          "description": "The status checks screen, which lists the status checks run on one agent's pull request.",
-          "settings": [
-            {
-              "key": "back",
-              "path": "keybindings.status_checks.back",
-              "type": "array",
-              "description": "Leave the status checks screen for the view it was opened from.",
-              "default": "[\"esc\"]"
-            },
-            {
-              "key": "logs",
-              "path": "keybindings.status_checks.logs",
-              "type": "array",
-              "description": "Read the logs of the status checks the screen is showing.",
-              "default": "[\"enter\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.status_checks.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
-          "path": "keybindings.status_check_logs",
-          "description": "The status check logs screen, which reads the logs of the status checks the status checks screen shows.",
-          "settings": [
-            {
-              "key": "back",
-              "path": "keybindings.status_check_logs.back",
-              "type": "array",
-              "description": "Leave the status check logs for the status checks they were opened from.",
-              "default": "[\"esc\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.status_check_logs.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
             }
           ],
           "sections": []
@@ -834,13 +722,6 @@
               "default": "[\"a\"]"
             },
             {
-              "key": "back",
-              "path": "keybindings.review.back",
-              "type": "array",
-              "description": "Leave the review for the agents list.",
-              "default": "[\"esc\"]"
-            },
-            {
               "key": "base",
               "path": "keybindings.review.base",
               "type": "array",
@@ -925,13 +806,6 @@
               "default": "[\"T\"]"
             },
             {
-              "key": "quit",
-              "path": "keybindings.review.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
-            },
-            {
               "key": "reload",
               "path": "keybindings.review.reload",
               "type": "array",
@@ -994,20 +868,6 @@
           "path": "keybindings.schedules",
           "description": "The schedules screen.",
           "settings": [
-            {
-              "key": "back",
-              "path": "keybindings.schedules.back",
-              "type": "array",
-              "description": "Open the view switcher.",
-              "default": "[\"esc\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.schedules.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
-            },
             {
               "key": "rename",
               "path": "keybindings.schedules.rename",
@@ -1303,25 +1163,11 @@
           "description": "The worktrees screen, which lists every directory komrad cut for an agent.",
           "settings": [
             {
-              "key": "back",
-              "path": "keybindings.worktrees.back",
-              "type": "array",
-              "description": "Open the view switcher.",
-              "default": "[\"esc\"]"
-            },
-            {
               "key": "jump_to_agent",
               "path": "keybindings.worktrees.jump_to_agent",
               "type": "array",
               "description": "Jump to the agent in the directory under the cursor, on the agents list or in the\narchive.",
               "default": "[\"J\"]"
-            },
-            {
-              "key": "quit",
-              "path": "keybindings.worktrees.quit",
-              "type": "array",
-              "description": "Quit the panel.",
-              "default": "[\"ctrl+c\"]"
             }
           ],
           "sections": []

@@ -99,7 +99,7 @@ func (m *model) reportPushed(name string, result *agentv1.PushWorktreeResponse, 
 }
 
 func pushForm(plan pushPlan) gitConfirmForm {
-	return func(keys config.FormKeys) (*huh.Form, *bool) {
+	return func(keys config.FixedKeys) (*huh.Form, *bool) {
 		return confirmForm(
 			"Push the branch of "+plan.name+"?",
 			pushDescription(plan),

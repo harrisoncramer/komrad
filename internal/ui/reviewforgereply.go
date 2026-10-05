@@ -186,7 +186,7 @@ func (r *reviewScreen) composeForge(m *model) tea.Cmd {
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       compose.title,
-		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "post"),
+		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, "post"),
 		Placeholder: "what should " + r.forgeName(m) + " read?",
 	})
 }

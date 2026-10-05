@@ -25,7 +25,7 @@ func (s gitSkippedError) Error() string {
 	return string(s)
 }
 
-type gitConfirmForm func(config.FormKeys) (*huh.Form, *bool)
+type gitConfirmForm func(config.FixedKeys) (*huh.Form, *bool)
 
 type gitReport func(*model) tea.Cmd
 
@@ -106,7 +106,7 @@ func (m *model) applyGitDone(msg gitDoneMsg) tea.Cmd {
 }
 
 func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {
-	form, confirmed := buildForm(formKeys())
+	form, confirmed := buildForm(fixedKeys())
 
 	return m.openForm(formState{
 		kind:   op.kind,
@@ -120,7 +120,7 @@ func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {
 			return m.runGitCmd(op)
 		}),
 		rebuild: func(*model) (*huh.Form, []string) {
-			held, _ := buildForm(formKeys())
+			held, _ := buildForm(fixedKeys())
 
 			return held, nil
 		},

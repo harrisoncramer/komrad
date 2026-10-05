@@ -34,6 +34,15 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 			want: []string{"keybindings.list is not a setting; [keybindings] takes agents, archive, archive_menu, details"},
 		},
 		{
+			name: "a key every screen answers the same",
+			file: "[keybindings.agents]\nquit = [\"q\"]\nback = [\"h\"]\n[keybindings.status_checks]\nlogs = [\"l\"]\n",
+			want: []string{
+				"keybindings.agents.back is not a setting",
+				"keybindings.agents.quit is not a setting",
+				"keybindings.status_checks is not a setting",
+			},
+		},
+		{
 			name: "a harness this binary cannot run",
 			file: "[harness.gemini]\nflags = \"--fast\"\n",
 			want: []string{"harness.gemini is not a setting; [harness] takes claude, codex"},

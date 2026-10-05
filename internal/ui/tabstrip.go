@@ -89,7 +89,7 @@ func (m *model) pressStrip(pressed string, strip stripKeys) tea.Cmd {
 		return strip.step(-1)
 	case pressed == "esc":
 		strip.close()
-	case isBound(pressed, m.quitKeys()):
+	case isBound(pressed, fixedKeys().Quit):
 		strip.close()
 
 		return m.hide()

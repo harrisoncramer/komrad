@@ -434,8 +434,8 @@ linters:
             skip: false
             roots:
               - type: komrad/config.Keybindings
-              - type: komrad/config.FormKeys
-                prefix: Form
+              - type: komrad/config.FixedKeys
+                prefix: Fixed
             matchers:
               - komrad/internal/ui.isBound
               - komrad/internal/ui.directionOf
@@ -453,14 +453,11 @@ linters:
               - Diff
               - Menu.Open
               - Messages.Open
-              - Review.Back
               - Review.PrevOpenThread
               - Review.PrevThread
-              - Form.Back
-              - Form.Quit
-              - Form.Editor
-            sources:
-              - komrad/internal/ui.model.quitKeys
+              - Fixed.Back
+              - Fixed.Quit
+              - Fixed.Editor
             dispatchers:
               - komrad/internal/ui.actionSpec.dispatch
               - komrad/internal/ui.screenActionSpec.dispatch

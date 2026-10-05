@@ -41,7 +41,7 @@ func (r *reviewScreen) compose(m *model) tea.Cmd {
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       reviewInputTitle(replying),
-		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "save"),
+		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, "save"),
 		Placeholder: "what should the agent change here?",
 	})
 }
@@ -62,13 +62,13 @@ func reviewInputWidth(pane int) int {
 // reviewInputHint is the line under a field's title, naming the keys that finish with it.
 func reviewInputHint(editor, submit []string, said string) string {
 	return keyLabel(editor) + " opens $EDITOR; " + keyLabel(submit) + " " + said + "; " +
-		keyLabel(formKeys().Back) + " cancels"
+		keyLabel(fixedKeys().Back) + " cancels"
 }
 
 // openInput puts a field in the popup, sized to the room inside it.
 func (r *reviewScreen) openInput(m *model, params newReviewInputParams) tea.Cmd {
 	params.Width = reviewInputWidth(r.measurePopupInner(m))
-	params.Keys = formKeys()
+	params.Keys = fixedKeys()
 	params.Register = m.register
 
 	input, cmd := newReviewInput(params)
@@ -93,15 +93,15 @@ func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) tea.Cmd {
 	// Every other key is a character being typed into the message, so the keys that leave it, and
 	// the one that opens it in an editor, come from the form keymap.
 	switch {
-	case outcome == vim.Leave || isBound(k, formKeys().Back):
+	case outcome == vim.Leave || isBound(k, fixedKeys().Back):
 		r.threads.cancelMessage()
 
 		return nil
-	case isBound(k, formKeys().Quit):
+	case isBound(k, fixedKeys().Quit):
 		return m.hide()
-	case isBound(k, formKeys().Editor):
+	case isBound(k, fixedKeys().Editor):
 		return r.openMessageEditor(m)
-	case isBound(k, formKeys().Submit):
+	case isBound(k, fixedKeys().Submit):
 		return r.saveMessage(m)
 	}
 
@@ -172,7 +172,7 @@ func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) tea.Cm
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       title,
-		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, said),
+		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
 	})
 }
@@ -292,7 +292,7 @@ func (r *reviewScreen) restoreMessage(m *model, unsent reviewUnsent) tea.Cmd {
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       title,
-		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, said),
+		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, said),
 		Body:        unsent.body,
 	})
 }
@@ -418,7 +418,7 @@ func (r *reviewScreen) openRelease(m *model) tea.Cmd {
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       "Anything about the work as a whole?",
-		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "sends"),
+		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, "sends"),
 		Placeholder: "optional",
 	})
 }
@@ -434,15 +434,15 @@ func (r *reviewScreen) updateRelease(m *model, key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
 	switch {
-	case outcome == vim.Leave || isBound(k, formKeys().Back):
+	case outcome == vim.Leave || isBound(k, fixedKeys().Back):
 		r.threads.closeRelease()
 
 		return nil
-	case isBound(k, formKeys().Quit):
+	case isBound(k, fixedKeys().Quit):
 		return m.hide()
-	case isBound(k, formKeys().Editor):
+	case isBound(k, fixedKeys().Editor):
 		return r.openMessageEditor(m)
-	case isBound(k, formKeys().Submit):
+	case isBound(k, fixedKeys().Submit):
 		return r.send(m)
 	}
 

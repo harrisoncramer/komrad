@@ -155,7 +155,7 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			return m.closeForm()
 		},
 		rebuild: func(*model) (*huh.Form, []string) {
-			return submenuForm(level, len(parents) > 0, formKeys()), nil
+			return submenuForm(level, len(parents) > 0, fixedKeys()), nil
 		},
 		leading: func(width, _ int) []string {
 			return submenuLeading(parents, level, width)
@@ -219,7 +219,7 @@ func (s submenu) firstOn() int {
 	return submenuCancel
 }
 
-func submenuForm(level submenuLevel, nested bool, keys config.FormKeys) *huh.Form {
+func submenuForm(level submenuLevel, nested bool, keys config.FixedKeys) *huh.Form {
 	field := huh.NewSelect[int]().
 		Key("submenu").
 		Title(level.menu.title).
@@ -292,7 +292,7 @@ func frozenMenus(levels []submenuLevel, room int) []string {
 
 // frozenSubmenu is a menu as it is drawn once another has opened to its right.
 func frozenSubmenu(level submenuLevel, nested bool) string {
-	form := submenuForm(level, nested, formKeys()).WithShowHelp(false)
+	form := submenuForm(level, nested, fixedKeys()).WithShowHelp(false)
 	form.Init()
 
 	lines := strings.Split(ansi.Strip(form.View()), "\n")
@@ -350,7 +350,7 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 }
 
 // submenuKeyMap is the form's own keys without the select's filter.
-func submenuKeyMap(keys config.FormKeys) *huh.KeyMap {
+func submenuKeyMap(keys config.FixedKeys) *huh.KeyMap {
 	km := multiFieldKeyMap(keys)
 	km.Select.Filter.SetEnabled(false)
 
@@ -365,7 +365,7 @@ func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenu
 		return m.updateForm(msg)
 	}
 
-	if len(parents) > 0 && isBound(press.String(), formKeys().Back) {
+	if len(parents) > 0 && isBound(press.String(), fixedKeys().Back) {
 		return m.backSubmenu(parents)
 	}
 

@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/git"
 	"komrad/internal/glyph"
@@ -106,8 +105,6 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 		rows:   c.rows,
 		name:   statusCheckRowName,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
-		quit:   func(k config.Keybindings) []string { return k.StatusChecks.Quit },
-		back:   func(k config.Keybindings) []string { return k.StatusChecks.Back },
 	}
 }
 
@@ -266,14 +263,14 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 		table: append(c.list().actions(),
 			screenAction{
 				id:   actionStatusChecksBack,
-				keys: func(k config.Keybindings) []string { return k.StatusChecks.Back },
+				keys: fixedBack,
 				nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(c.from, screenTarget{agentID: c.agentID})
 				},
 			},
 			screenAction{
 				id:   actionStatusChecksLogs,
-				keys: func(k config.Keybindings) []string { return k.StatusChecks.Logs },
+				keys: fixedOpen,
 				nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, from: screenStatusChecks})
 				},

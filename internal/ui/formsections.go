@@ -54,7 +54,7 @@ func (s sectionedForm) topState() formState {
 }
 
 func (s sectionedForm) buildTop(m *model) (*huh.Form, []string) {
-	return formOf(formKeys(), append(s.top(m), s.sectionsField())...)
+	return formOf(fixedKeys(), append(s.top(m), s.sectionsField())...)
 }
 
 func (s sectionedForm) sectionsField() huh.Field {
@@ -99,7 +99,7 @@ func (s sectionedForm) sectionState(section formSection, top []string) formState
 		update:         (*model).updateForm,
 		submit:         s.submit,
 		rebuild: func(m *model) (*huh.Form, []string) {
-			return formOf(formKeys(), section.fields(m)...)
+			return formOf(fixedKeys(), section.fields(m)...)
 		},
 		editable: section.editable,
 		leading: func(_, height int) []string {

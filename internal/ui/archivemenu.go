@@ -192,7 +192,7 @@ func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
 
 // confirmArchiveDeleteAgents asks before live agents are archived and then deleted for good.
 func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), formKeys())
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formArchiveDelete,

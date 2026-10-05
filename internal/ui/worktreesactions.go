@@ -25,7 +25,7 @@ func (w *worktreesScreen) table() []screenAction {
 	return append(list.actions(),
 		screenAction{
 			id:   actionWorktreesBack,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Back },
+			keys: fixedBack,
 			when: list.isBrowsing,
 			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
@@ -223,7 +223,7 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 		return nil
 	}
 
-	form, confirmed := deleteWorktreesForm(deletion, keepsBranch(m, deletion), formKeys())
+	form, confirmed := deleteWorktreesForm(deletion, keepsBranch(m, deletion), fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formWorktreesDelete,

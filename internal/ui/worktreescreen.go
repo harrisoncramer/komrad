@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/git"
 	"komrad/internal/glyph"
@@ -51,8 +50,6 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 		moved: func(m *model) tea.Cmd {
 			return m.waitToStage()
 		},
-		quit: func(k config.Keybindings) []string { return k.Worktrees.Quit },
-		back: func(k config.Keybindings) []string { return k.Worktrees.Back },
 	}
 }
 
@@ -552,10 +549,6 @@ func (w *worktreesScreen) doesDrawFromListing() bool {
 
 func (w *worktreesScreen) takesEveryKey() bool {
 	return false
-}
-
-func (w *worktreesScreen) detailsQuit(keys config.Keybindings) []string {
-	return keys.Worktrees.Quit
 }
 
 func (w *worktreesScreen) detailsFit(m *model) bool {

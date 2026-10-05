@@ -66,7 +66,7 @@ func documentTypeFormState(params documentTypeFormStateParams) formState {
 
 	return redrawnForm(redrawnFormParams{
 		Kind:     formDocumentType,
-		Build:    func(*model) (*huh.Form, []string) { return documentTypeForm(values, params.title, formKeys()) },
+		Build:    func(*model) (*huh.Form, []string) { return documentTypeForm(values, params.title, fixedKeys()) },
 		Editable: []editableText{{key: "context", value: &values.Context}},
 		Submit: holdSubmit(func(m *model) tea.Cmd {
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
@@ -91,7 +91,7 @@ func documentTypeFormState(params documentTypeFormStateParams) formState {
 	})
 }
 
-func documentTypeForm(values *documentTypeFormValues, title string, keys config.FormKeys) (*huh.Form, []string) {
+func documentTypeForm(values *documentTypeFormValues, title string, keys config.FixedKeys) (*huh.Form, []string) {
 	return formOf(keys,
 		huh.NewInput().Key("name").Title(title).Value(&values.Name).Validate(checkDocumentTypeName),
 		textField("context").Title("Context").
@@ -106,7 +106,7 @@ func deleteTypeForm(item documentItem) formState {
 		fmt.Sprintf("Delete document type %q?", item.name),
 		"Agents can no longer write documents of this type. A type documents are still written as is not deleted.",
 		"Delete",
-		formKeys(),
+		fixedKeys(),
 	)
 
 	return formState{

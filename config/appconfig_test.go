@@ -82,7 +82,7 @@ func TestLoad(t *testing.T) {
 			assert.Equal(t, DefaultHarness, cfg.DefaultHarness, "a launch goes through this, so it is never empty")
 			assert.Equal(t, tt.wantNavUp, cfg.Keybindings.Nav.Up)
 			assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down, "unset bindings still default")
-			assert.Equal(t, DefaultKeybindings().Agents.Open, cfg.Keybindings.Agents.Open, "an untouched panel still defaults")
+			assert.Equal(t, DefaultKeybindings().Agents.Rename, cfg.Keybindings.Agents.Rename, "an untouched panel still defaults")
 		})
 	}
 }

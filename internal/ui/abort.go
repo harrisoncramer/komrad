@@ -53,7 +53,7 @@ func (m *model) reportAborted(name string, sequence panel.Sequence, result *agen
 }
 
 func abortForm(name string, sequence panel.Sequence) gitConfirmForm {
-	return func(keys config.FormKeys) (*huh.Form, *bool) {
+	return func(keys config.FixedKeys) (*huh.Form, *bool) {
 		return confirmForm(
 			fmt.Sprintf("Abort the %s in the worktree of %s?", sequence, name),
 			fmt.Sprintf("The branch goes back to where it stood before the %s began, and its files with it. "+

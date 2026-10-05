@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -129,8 +128,6 @@ func (c *statusCheckLogsScreen) list() screenList[statusCheckLogRow] {
 
 			return nil
 		},
-		quit: func(k config.Keybindings) []string { return k.StatusCheckLogs.Quit },
-		back: func(k config.Keybindings) []string { return k.StatusCheckLogs.Back },
 	}
 }
 
@@ -285,7 +282,7 @@ func (c *statusCheckLogsScreen) listActions() screenActionSpec {
 		table: append(c.list().actions(),
 			screenAction{
 				id:   actionStatusCheckLogsBack,
-				keys: func(k config.Keybindings) []string { return k.StatusCheckLogs.Back },
+				keys: fixedBack,
 				nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(screenStatusChecks, screenTarget{})
 				},
