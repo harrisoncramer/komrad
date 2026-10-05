@@ -171,8 +171,8 @@ calls. The review composes its own frame from the same pieces, and the editor it
 stage goes through the root.
 
 Each screen and part draws from a file named for it with a view suffix, such as agentsview.go
-or detailsview.go. That file holds the functions that only render, which Update may also call
-to measure. Keys, loads, and the rows buildFrame keeps stay with the state.
+or detailsview.go. That file holds the functions that only draw, including those Update calls
+to measure layout. Keys, loads, and the rows buildFrame keeps stay in the screen's own file.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, listing.go, keys.go, clipboard.go, report.go, convert.go.
