@@ -157,7 +157,7 @@ func (m *model) screenView() string {
 
 	split, ok := m.columnSplit()
 	if !ok && m.isMessagesFocused() {
-		return m.buildMessagesWindow(m.term.width, m.term.height).view(m.term.height)
+		return m.drawMessagesWindow(m.term.width, m.term.height).view(m.term.height)
 	}
 	if !ok {
 		return m.heldFormView()

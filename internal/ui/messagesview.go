@@ -46,7 +46,7 @@ func (m *model) drawMessagesTally() string {
 	return tally + "  " + dimStyle().Render(headLabel(m.keys.Messages.Open))
 }
 
-func (m *model) buildMessagesWindow(width, rows int) docWindow {
+func (m *model) drawMessagesWindow(width, rows int) docWindow {
 	body := max(width-messagesBodyIndent, 1)
 	count := len(m.messages.items)
 	at := m.messages.clampedCursor()
