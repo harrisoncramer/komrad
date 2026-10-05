@@ -335,8 +335,17 @@ func (m *model) docShown() string {
 	if f, ok := m.active().(listFilterer); ok {
 		hovered = f.hoveredKey(m)
 	}
+	if n, ok := m.active().(docNamer); ok {
+		hovered = n.docName(m)
+	}
 
 	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, m.isMessagesFocused())
+}
+
+// docNamer is a screen whose every row reads the one document, named so the reader keeps its place
+// as the cursor moves.
+type docNamer interface {
+	docName(m *model) string
 }
 
 // columnDoc is the document the block is drawn from, read where the reader left it.

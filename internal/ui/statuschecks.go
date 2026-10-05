@@ -24,6 +24,7 @@ import (
 // statusCheckItem is one check as the listing reported it.
 type statusCheckItem struct {
 	id         string
+	checkID    string
 	name       string
 	state      pullrequestv1.StatusCheckState
 	conclusion string
@@ -31,6 +32,7 @@ type statusCheckItem struct {
 	finishedAt time.Time
 	steps      []statusCheckItem
 	run        statusCheckRun
+	log        *pullrequestv1.CheckLog
 }
 
 // statusCheckRun is the run a check ran in, by one workflow or app.
@@ -269,11 +271,23 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 					return m.enter(c.from, screenTarget{agentID: c.agentID})
 				},
 			},
+			screenAction{
+				id:   actionStatusChecksLogs,
+				keys: func(k config.Keybindings) []string { return k.StatusChecks.Logs },
+				nav: func(m *model, _ string) tea.Cmd {
+					return m.enter(screenCheckLogs, screenTarget{agentID: c.agentID, from: screenStatusChecks})
+				},
+			},
 		),
 		legend: slices.Concat(screenNavLegend(), []screenLegendRow{
 			{
 				of:    []actionID{actionStatusChecksBack},
 				desc:  func(*model) string { return "back" },
+				strip: true,
+			},
+			{
+				of:    []actionID{actionStatusChecksLogs},
+				desc:  func(*model) string { return "logs" },
 				strip: true,
 			},
 		}),
@@ -362,7 +376,7 @@ func (m *model) statusChecksPullRequestID(agentID string) string {
 // readStatusChecksCmd lists the status checks again when the agent's pull request or its head has moved since
 // they were last listed, once at a time.
 func (m *model) readStatusChecksCmd() tea.Cmd {
-	if m.screen != screenStatusChecks {
+	if m.screen != screenStatusChecks && m.screen != screenCheckLogs {
 		return nil
 	}
 
@@ -469,6 +483,7 @@ func (c *statusChecksScreen) isLoading(*model) bool {
 func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 	return statusCheckItem{
 		id:         check.GetProviderId(),
+		checkID:    check.GetId(),
 		name:       check.GetName(),
 		state:      check.GetState(),
 		conclusion: check.GetConclusion(),
@@ -479,6 +494,7 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 			event:     check.GetRunEvent(),
 			startedAt: dates.Parse(check.GetRunStartedAt()),
 		},
+		log: check.GetLog(),
 		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
 			return statusCheckItem{
 				name:       step.GetName(),

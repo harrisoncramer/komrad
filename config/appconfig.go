@@ -158,6 +158,8 @@ type Keybindings struct {
 	Logs LogsKeys `mapstructure:"logs"`
 	// The status checks screen, which lists the status checks run on one agent's pull request.
 	StatusChecks StatusChecksKeys `mapstructure:"status_checks"`
+	// The check logs screen, which reads the logs of the checks the status checks screen shows.
+	CheckLogs CheckLogsKeys `mapstructure:"check_logs"`
 	// The messages komrad pushed, read in the main pane.
 	Messages MessagesKeys `mapstructure:"messages"`
 	// Navigation, shared by every menu so movement is the same everywhere.
@@ -499,6 +501,16 @@ type LogsKeys struct {
 // StatusChecksKeys are the bindings for the status checks screen. Movement is the shared navigation.
 type StatusChecksKeys struct {
 	// Leave the status checks screen for the view it was opened from.
+	Back []string `mapstructure:"back" default:"esc"`
+	// Read the logs of the checks the screen is showing.
+	Logs []string `mapstructure:"logs" default:"enter"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
+}
+
+// CheckLogsKeys are the bindings for the check logs screen. Movement is the shared navigation.
+type CheckLogsKeys struct {
+	// Leave the check logs for the status checks they were opened from.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
