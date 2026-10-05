@@ -289,3 +289,18 @@ func (d *documentsScreen) buildFrame(m *model) {
 		d.history.keepDiff(m.term.isDark)
 	}
 }
+
+// diffWindow is the size the diff is drawn at, under the rows over it.
+func (d *documentsScreen) diffWindow(m *model) diffview.Window {
+	split, ok := m.screenColumnSplit()
+	item, hovered := d.hovered(m)
+	if !ok || !hovered || d.history == nil {
+		return diffview.Window{Height: 1, Wrap: m.diffWrap}
+	}
+
+	return diffview.Window{
+		Width:  split.column,
+		Height: max(split.rows-len(d.history.head(item, split.column, m.glyphs)), 1),
+		Wrap:   m.diffWrap,
+	}
+}

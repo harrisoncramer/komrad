@@ -143,21 +143,6 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 	return append(rows, h.filter.head(count, "", width, glyphs)...)
 }
 
-// diffWindow is the size the diff is drawn at, under the rows over it.
-func (d *documentsScreen) diffWindow(m *model) diffview.Window {
-	split, ok := m.screenColumnSplit()
-	item, hovered := d.hovered(m)
-	if !ok || !hovered || d.history == nil {
-		return diffview.Window{Height: 1, Wrap: m.diffWrap}
-	}
-
-	return diffview.Window{
-		Width:  split.column,
-		Height: max(split.rows-len(d.history.head(item, split.column, m.glyphs)), 1),
-		Wrap:   m.diffWrap,
-	}
-}
-
 // notice names the write stepped to, who made it and how long ago.
 func (h *documentHistory) notice() string {
 	current := h.versions[h.at]
