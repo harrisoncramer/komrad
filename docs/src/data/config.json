@@ -795,14 +795,14 @@
               "key": "accept",
               "path": "keybindings.review.accept",
               "type": "array",
-              "description": "Pass a held comment from the forge on to the agent, copied into your review as your own\nwords. A comment is held when its author cannot push to the repository, and the agent\nreads nothing in its thread until the comment opening it is accepted and the review sent.",
+              "description": "From the menu, pass a held comment from the forge on to the agent, copied into your review as your own\nwords. A comment is held when its author cannot push to the repository, and the agent\nreads nothing in its thread until the comment opening it is accepted and the review sent.",
               "default": "[\"A\"]"
             },
             {
               "key": "answer",
               "path": "keybindings.review.answer",
               "type": "array",
-              "description": "Show only the change that answered the comment under the cursor, from the work as\nit stood just before the agent's addressed reply to the work that reply carried, or\ngo back to all changes from there.",
+              "description": "From the menu, show only the change that answered the comment under the cursor, from the work as\nit stood just before the agent's addressed reply to the work that reply carried, or\ngo back to all changes from there.",
               "default": "[\"a\"]"
             },
             {
@@ -830,7 +830,7 @@
               "key": "compose",
               "path": "keybindings.review.compose",
               "type": "array",
-              "description": "Write a message on the line under the cursor, replying in the thread already there\nor opening a new one.",
+              "description": "From the menu, write a message on the line under the cursor, replying in the thread already there\nor opening a new one.",
               "default": "[\"c\"]"
             },
             {
@@ -844,28 +844,28 @@
               "key": "forge_discard",
               "path": "keybindings.review.forge_discard",
               "type": "array",
-              "description": "Throw away a reply of yours the forge refused on the thread under the cursor. Nothing is\nposted.",
+              "description": "From the menu, throw away a reply of yours the forge refused on the thread under the cursor. Nothing is\nposted.",
               "default": "[\"x\"]"
             },
             {
               "key": "forge_post",
               "path": "keybindings.review.forge_post",
               "type": "array",
-              "description": "Try again with a reply of yours the forge refused on the thread under the cursor.",
+              "description": "From the menu, try again with a reply of yours the forge refused on the thread under the cursor.",
               "default": "[\"p\"]"
             },
             {
               "key": "forge_reply",
               "path": "keybindings.review.forge_reply",
               "type": "array",
-              "description": "Write a reply on the forge thread under the cursor, posted on the pull request where\nanyone can read it.",
+              "description": "From the menu, write a reply on the forge thread under the cursor, posted on the pull request where\nanyone can read it.",
               "default": "[\"C\"]"
             },
             {
               "key": "jump",
               "path": "keybindings.review.jump",
               "type": "array",
-              "description": "Jump from the comment under the cursor to the diff it was written against, with the\ncursor on it, or back to where you were from there. Anywhere else, move to the next\ncomment from the forge on the pull request.",
+              "description": "From the menu, jump from the comment under the cursor to the diff it was written against, with the\ncursor on it, or back to where you were from there. Anywhere else, move to the next\ncomment from the forge on the pull request.",
               "default": "[\"J\"]"
             },
             {
@@ -921,21 +921,21 @@
               "key": "resolve",
               "path": "keybindings.review.resolve",
               "type": "array",
-              "description": "Settle the thread under the cursor, which marks it resolved without deleting it.",
+              "description": "From the menu, settle the thread under the cursor, which marks it resolved without deleting it.",
               "default": "[\"r\"]"
             },
             {
               "key": "send",
               "path": "keybindings.review.send",
               "type": "array",
-              "description": "Send the comments waiting in your review to the agent, after asking for a note on the work as a whole.",
-              "default": "[\"s\"]"
+              "description": "From the menu, send the comments waiting in your review to the agent, after asking for a note on the work as a whole.",
+              "default": "[\"S\"]"
             },
             {
               "key": "toggle_viewed",
               "path": "keybindings.review.toggle_viewed",
               "type": "array",
-              "description": "Fold away the file the cursor is in once you have read it, or open it again. A file\nthe agent writes to afterwards comes back on its own.",
+              "description": "From the menu, fold away the file the cursor is in once you have read it, or open it again. A file\nthe agent writes to afterwards comes back on its own.",
               "default": "[\"v\"]"
             }
           ],

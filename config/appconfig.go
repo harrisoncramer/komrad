@@ -517,11 +517,11 @@ type WorktreesKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
-	// Pass a held comment from the forge on to the agent, copied into your review as your own
+	// From the menu, pass a held comment from the forge on to the agent, copied into your review as your own
 	// words. A comment is held when its author cannot push to the repository, and the agent
 	// reads nothing in its thread until the comment opening it is accepted and the review sent.
 	Accept []string `mapstructure:"accept" default:"A"`
-	// Show only the change that answered the comment under the cursor, from the work as
+	// From the menu, show only the change that answered the comment under the cursor, from the work as
 	// it stood just before the agent's addressed reply to the work that reply carried, or
 	// go back to all changes from there.
 	Answer []string `mapstructure:"answer" default:"a"`
@@ -533,7 +533,7 @@ type ReviewKeys struct {
 	// Walk the other way through the chapters, towards the newest work and on to the whole
 	// change.
 	BaseForward []string `mapstructure:"base_forward" default:">"`
-	// Write a message on the line under the cursor, replying in the thread already there
+	// From the menu, write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose" default:"c"`
 	// From the menu, open the file under the cursor in your editor, beside the diff, on the line the
@@ -542,15 +542,15 @@ type ReviewKeys struct {
 	// working rather than letting you both write at once. It is refused on a round the
 	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
-	// Throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
+	// From the menu, throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
 	// posted.
 	ForgeDiscard []string `mapstructure:"forge_discard" default:"x"`
-	// Try again with a reply of yours the forge refused on the thread under the cursor.
+	// From the menu, try again with a reply of yours the forge refused on the thread under the cursor.
 	ForgePost []string `mapstructure:"forge_post" default:"p"`
-	// Write a reply on the forge thread under the cursor, posted on the pull request where
+	// From the menu, write a reply on the forge thread under the cursor, posted on the pull request where
 	// anyone can read it.
 	ForgeReply []string `mapstructure:"forge_reply" default:"C"`
-	// Jump from the comment under the cursor to the diff it was written against, with the
+	// From the menu, jump from the comment under the cursor to the diff it was written against, with the
 	// cursor on it, or back to where you were from there. Anywhere else, move to the next
 	// comment from the forge on the pull request.
 	Jump []string `mapstructure:"jump" default:"J"`
@@ -571,11 +571,11 @@ type ReviewKeys struct {
 	// From the menu, show or hide the conversations agents opened, which are hidden whenever a
 	// review opens.
 	AgentThreads []string `mapstructure:"agent_threads" default:"b"`
-	// Settle the thread under the cursor, which marks it resolved without deleting it.
+	// From the menu, settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
-	// Send the comments waiting in your review to the agent, after asking for a note on the work as a whole.
-	Send []string `mapstructure:"send" default:"s"`
-	// Fold away the file the cursor is in once you have read it, or open it again. A file
+	// From the menu, send the comments waiting in your review to the agent, after asking for a note on the work as a whole.
+	Send []string `mapstructure:"send" default:"S"`
+	// From the menu, fold away the file the cursor is in once you have read it, or open it again. A file
 	// the agent writes to afterwards comes back on its own.
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`
 }

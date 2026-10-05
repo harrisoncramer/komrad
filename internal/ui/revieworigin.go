@@ -85,16 +85,6 @@ func originLabel(origin *reviewOrigin, fellBack bool) string {
 	return said
 }
 
-func (r reviewScreen) doesOfferJump() bool {
-	if r.diff.spec.origin != nil {
-		return true
-	}
-
-	_, ok := r.diff.threadAtCursor()
-
-	return ok
-}
-
 func (d reviewDiff) jumpDesc() string {
 	if d.spec.origin != nil {
 		return "back"

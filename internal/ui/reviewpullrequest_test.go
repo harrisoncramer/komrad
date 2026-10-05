@@ -100,7 +100,7 @@ func TestReviewPullRequest(t *testing.T) {
 
 		sidebar := readSidebarProse(harness.readFrame())
 		assert.Contains(t, sidebar, "#7 fix the greeting")
-		assert.Contains(t, sidebar, "…")
+		assert.Contains(t, sidebar, "↓")
 		assert.Contains(t, sidebar, "greet.go")
 	})
 

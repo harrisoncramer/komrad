@@ -59,7 +59,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("ctrl+[ counts as esc in the review box", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("c")
+		harness.press("space", "c")
 		typeText(harness, "gone")
 		harness.press("ctrl+[")
 		assert.Contains(t, harness.readFrame(), "  Comment")
@@ -145,7 +145,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("a comment edited in normal mode is what the review posts", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("c")
+		harness.press("space", "c")
 		typeText(harness, "still here")
 		harness.press("esc", "b", "d", "w", "enter")
 
@@ -166,7 +166,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("a normal-mode edit in the review box is drawn at once", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("c")
+		harness.press("space", "c")
 		typeText(harness, "still here")
 		harness.press("esc", "b", "d", "w")
 
@@ -188,7 +188,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("c")
+		harness.press("space", "c")
 		harness.send(ui.NewMessageEdited("a1", "still here\n"))
 		harness.press("esc", "b", "d", "w", "enter")
 
@@ -380,7 +380,7 @@ func TestVimEditingBadge(t *testing.T) {
 	t.Run("the review comment box is in edit mode", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("c")
+		harness.press("space", "c")
 		assert.Contains(t, harness.readFrame(), "  EDIT  ")
 
 		harness.press("esc")

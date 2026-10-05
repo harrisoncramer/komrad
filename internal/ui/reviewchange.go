@@ -62,7 +62,7 @@ func (r reviewScreen) sendView(m *model) string {
 		return ""
 	}
 
-	return dimStyle().Render(keyLabel(m.keys.Review.Send) + " sends " +
+	return dimStyle().Render(m.menuChordLabel(m.keys.Review.Send) + " sends " +
 		label.Counted(r.threads.unsentCount(), "comment") + " to the agent")
 }
 
@@ -120,7 +120,7 @@ func (r reviewScreen) stepSaid(m *model) string {
 
 	switch {
 	case r.diff.spec.origin != nil:
-		return keyLabel(m.keys.Review.Jump) + " back"
+		return m.menuChordLabel(m.keys.Review.Jump) + " back"
 	case !r.diff.spec.isChapter():
 		return back + " for the latest chapter"
 	case r.diff.spec.chapter == 0:

@@ -32,15 +32,15 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
-		harness.press("t", "?")
-		require.Contains(t, readLegend(harness.readFrame()), "the answer")
-		harness.press("?", "a")
+		harness.press("t", "space")
+		require.Contains(t, harness.readFrame(), "the answer")
+		harness.press("a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "the answer to this comment")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
 
-		harness.press("a")
+		harness.press("space", "a")
 
 		frame = harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "all changes")
@@ -75,7 +75,7 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(answer)}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
-		harness.press("t", "a")
+		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "the answer to this comment")
@@ -88,9 +88,9 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
-		harness.press("t", "a")
+		harness.press("t", "space", "a")
 		require.Contains(t, readSidebarProse(harness.readFrame()), "the answer to this comment")
-		harness.press("j", "a")
+		harness.press("j", "space", "a")
 
 		frame := harness.readFrame()
 		require.Contains(t, readSidebarProse(frame), "all changes")
@@ -114,7 +114,7 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(answer)}
 		harness.watch(server.buildSnapshot())
 
-		harness.press("t", "a")
+		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "the answer to this comment")
@@ -126,7 +126,7 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReview(t, server)
 
-		harness.press("t", "a")
+		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "the answer to this comment, replayed across the rebase")
@@ -141,7 +141,7 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReview(t, server)
 
-		harness.press("t", "a")
+		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readOpenMessages(harness), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")

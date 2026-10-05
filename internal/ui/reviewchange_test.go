@@ -36,7 +36,7 @@ func TestReviewChangeBlock(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment())}
 		harness := openReviewAt(t, server, panelHarnessParams{})
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "s sends 1 comment to the agent")
+		assert.Contains(t, readSidebarProse(harness.readFrame()), "space S sends 1 comment to the agent")
 	})
 
 	t.Run("the narrow layout puts the change at the top of the sidebar", func(t *testing.T) {
@@ -62,13 +62,13 @@ func TestReviewChangeFolds(t *testing.T) {
 			name:    "a tall pane gives each part a row of its own",
 			height:  40,
 			threads: []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment(), newSentComment("m2"))},
-			rows:    []string{"all changes", "1 file, +1 -1", "1 unsent · 1 waiting", "s sends 1 comment to the agent"},
+			rows:    []string{"all changes", "1 file, +1 -1", "1 unsent · 1 waiting", "space S sends 1 comment to the agent"},
 		},
 		{
 			name:    "a shorter pane joins the delivery to the stat",
 			height:  24,
 			threads: []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment(), newSentComment("m2"))},
-			rows:    []string{"all changes", "1 file, +1 -1 · 1 unsent · 1 waiting", "s sends 1 comment to the agent"},
+			rows:    []string{"all changes", "1 file, +1 -1 · 1 unsent · 1 waiting", "space S sends 1 comment to the agent"},
 		},
 		{
 			name:   "a short pane joins the scope, the stat and the delivery",

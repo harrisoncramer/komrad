@@ -109,7 +109,7 @@ func TestRebuilt(t *testing.T) {
 		}{
 			{
 				name:  "a release being written",
-				press: []string{"s"},
+				press: []string{"space", "S"},
 			},
 			{
 				name:  "an editor open over an agent's work",

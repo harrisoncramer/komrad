@@ -69,7 +69,7 @@ func (r *reviewScreen) refuseHistory(m *model, said string) {
 	summary := said + " is finished"
 	back := keyLabel(m.keys.Review.BaseForward) + " until the whole change is on screen"
 	if r.diff.spec.origin != nil {
-		back = keyLabel(m.keys.Review.Jump) + " to go back to where you were, then " + back
+		back = m.menuChordLabel(m.keys.Review.Jump) + " to go back to where you were, then " + back
 	}
 
 	detail := "This draws code the agent has already rewritten, so the line under the cursor is " +
@@ -114,7 +114,7 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 		return ""
 	}
 
-	return "that file is folded away" + separated + keyLabel(m.keys.Review.ToggleViewed) + " to open it"
+	return "that file is folded away" + separated + m.menuChordLabel(m.keys.Review.ToggleViewed) + " to open it"
 }
 
 // diffWindow is the window the diff is drawn in, zero-sized without a split.
@@ -178,6 +178,19 @@ func (d reviewDiff) threadAtCursor() (*agentv1.ReviewThread, bool) {
 	}
 
 	return d.View().GetThreadAt(d.Cursor())
+}
+
+func (d reviewDiff) threadByID(id string) (*agentv1.ReviewThread, bool) {
+	if d.View() == nil || id == "" {
+		return nil, false
+	}
+
+	row, ok := d.View().GetThreadRow(id)
+	if !ok {
+		return nil, false
+	}
+
+	return d.View().GetThreadAt(row)
 }
 
 func (r *reviewScreen) moveCursor(m *model, next int) tea.Cmd {

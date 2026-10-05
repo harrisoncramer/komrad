@@ -205,7 +205,7 @@ func TestReviewFiles(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
 
-		harness.press("ctrl+space", "ctrl+space", "j", "v")
+		harness.press("ctrl+space", "ctrl+space", "j", "space", "v")
 
 		require.Len(t, server.viewed, 1)
 		assert.Equal(t, "second.go", server.viewed[0].GetFilePath())

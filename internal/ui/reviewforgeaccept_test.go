@@ -51,7 +51,7 @@ func TestReviewForgeAccept(t *testing.T) {
 				assert.Contains(t, readPopupProse(harness.readFrame()), tt.said)
 			}
 
-			harness.press("A")
+			harness.press("space", "A")
 
 			harness.assertSentTo(agentv1connect.AgentServiceAcceptForgeMessageProcedure, tt.sent...)
 		})

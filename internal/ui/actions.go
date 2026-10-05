@@ -51,15 +51,5 @@ const (
 	actionReviewThread
 	actionReviewOpenThread
 	actionReviewBase
-	actionReviewResolve
-	actionReviewAccept
-	actionReviewViewed
 	actionReviewBaseForward
-	actionReviewAnswer
-	actionReviewJump
-	actionReviewCompose
-	actionReviewSend
-	actionReviewForgeReply
-	actionReviewForgePost
-	actionReviewForgeDiscard
 )
