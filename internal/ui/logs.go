@@ -33,10 +33,10 @@ const (
 type logsScreen struct {
 	rowCursor
 	agentID string
-	// from is the view the screen was opened from.
-	from    screen
-	sources []*logv1.LogSource
-	listed  bool
+	// openedFrom is the view the screen was opened from.
+	openedFrom screen
+	sources    []*logv1.LogSource
+	listed     bool
 	// reading is the id of the source the block holds lines of.
 	reading string
 	viewer  *logview.Tail
@@ -100,7 +100,7 @@ type logsSettledMsg struct {
 func (l *logsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	*l = logsScreen{
 		agentID:    target.agentID,
-		from:       target.from,
+		openedFrom: target.openedFrom,
 		viewer:     logview.NewTail(logsCeiling),
 		format:     logview.FormatCompact,
 		generation: l.generation + 1,
@@ -445,6 +445,16 @@ func (l *logsScreen) block(m *model, width int) []string {
 	return append(rows, fitRow(blankCursor+l.logFilterLine(m.glyphs), width))
 }
 
+// buildFrame fits the log's cursor and view to the block it is drawn in.
+func (l *logsScreen) buildFrame(m *model) {
+	split, ok := m.screenColumnSplit()
+	if !ok || !l.read || l.viewer.Len() == 0 {
+		return
+	}
+
+	l.viewer.Fit(split.column-len(blankCursor), max(split.rows-1, 1))
+}
+
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
 func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 	if l.logFilter.typing {
@@ -487,7 +497,7 @@ func (l *logsScreen) logRows(m *model, width, height int) []string {
 }
 
 func (l *logsScreen) parent() screen {
-	return l.from
+	return l.openedFrom
 }
 
 func (l *logsScreen) crumbs(m *model) crumbs {

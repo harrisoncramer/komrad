@@ -177,11 +177,11 @@ func TestTailMove(t *testing.T) {
 			viewer.Append(numbered(1, 5))
 			for _, move := range tt.moves {
 				viewer.Move(move)
-				viewer.Rows(20, 3)
+				viewer.Fit(20, 3)
 			}
 			for _, scroll := range tt.scrolls {
 				viewer.Scroll(scroll)
-				viewer.Rows(20, 3)
+				viewer.Fit(20, 3)
 			}
 			viewer.Append(tt.more)
 

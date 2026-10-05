@@ -59,7 +59,7 @@ type statusCheckKey struct {
 type statusChecksScreen struct {
 	rowCursor
 	agentID           string
-	from              screen
+	openedFrom        screen
 	commit            statusCheckCommit
 	listedPullRequest string
 	listedHead        string
@@ -82,8 +82,8 @@ func (r statusCheckRow) key() string {
 func (c *statusChecksScreen) enter(m *model, target screenTarget) tea.Cmd {
 	if target.agentID != "" {
 		*c = statusChecksScreen{
-			agentID: target.agentID,
-			from:    target.from,
+			agentID:    target.agentID,
+			openedFrom: target.openedFrom,
 		}
 	}
 
@@ -265,14 +265,14 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 				id:   actionStatusChecksBack,
 				keys: fixedBack,
 				nav: func(m *model, _ string) tea.Cmd {
-					return m.enter(c.from, screenTarget{agentID: c.agentID})
+					return m.enter(c.openedFrom, screenTarget{agentID: c.agentID})
 				},
 			},
 			screenAction{
 				id:   actionStatusChecksLogs,
 				keys: fixedOpen,
 				nav: func(m *model, _ string) tea.Cmd {
-					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, from: screenStatusChecks})
+					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, openedFrom: screenStatusChecks})
 				},
 			},
 		),
@@ -296,7 +296,7 @@ func (c *statusChecksScreen) help(m *model) keyMap {
 }
 
 func (c *statusChecksScreen) parent() screen {
-	return c.from
+	return c.openedFrom
 }
 
 func (c *statusChecksScreen) crumbs(m *model) crumbs {

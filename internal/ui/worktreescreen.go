@@ -149,9 +149,6 @@ func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
 }
 
 func (w *worktreesScreen) view(m *model) string {
-	w.drawn = w.buildRows(m)
-	defer func() { w.drawn = nil }()
-
 	return m.columnListView(w.listParams(m))
 }
 

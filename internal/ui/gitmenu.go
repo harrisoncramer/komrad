@@ -34,11 +34,11 @@ var (
 )
 
 // gitMenu is the git actions on an agent, opened from its menu.
-func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
+func gitMenu(m *model, openedFrom screen, item panel.AgentRow) submenu {
 	agent := item.Agent
 	agentID := agent.ID
 	run := func(choice gitChoice) func(*model) tea.Cmd {
-		return func(m *model) tea.Cmd { return m.runGitChoice(from, agentID, choice) }
+		return func(m *model) tea.Cmd { return m.runGitChoice(openedFrom, agentID, choice) }
 	}
 
 	return submenu{
@@ -48,20 +48,20 @@ func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 			{
 				label: "rebase with base",
 				keys:  m.keys.Git.Rebase,
-				isOff: worktreeRefusal(m.listing, from, agent) != nil,
+				isOff: worktreeRefusal(m.listing, openedFrom, agent) != nil,
 				write: run(gitChoiceRebase),
 			},
 			{
 				label: "push",
 				keys:  m.keys.Git.Push,
-				isOff: pushRefusal(m.listing, from, agent) != nil,
+				isOff: pushRefusal(m.listing, openedFrom, agent) != nil,
 				write: run(gitChoicePush),
 			},
 			{
 				label: abortLabel(agent),
 				keys:  m.keys.Git.Abort,
-				isOff: abortRefusal(m.listing, from, agent) != nil,
-				open:  func(m *model) tea.Cmd { return m.openGitAbort(from, agentID) },
+				isOff: abortRefusal(m.listing, openedFrom, agent) != nil,
+				open:  func(m *model) tea.Cmd { return m.openGitAbort(openedFrom, agentID) },
 			},
 			{
 				label: "open " + item.PullRequest.Abbrev(),
@@ -87,16 +87,16 @@ func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 				isOff: rereviewRefusal(item) != nil,
 				write: run(gitChoiceRequestRereview),
 			},
-			nestedEntry("merge "+item.PullRequest.Abbrev(), m.keys.Git.Merge, mergeMenu(m, from, item)),
+			nestedEntry("merge "+item.PullRequest.Abbrev(), m.keys.Git.Merge, mergeMenu(m, openedFrom, item)),
 		},
 	}
 }
 
 // worktreeRefusal is why an agent's worktree cannot be acted on from where the menu was opened,
 // nil when it can.
-func worktreeRefusal(l listing, from screen, agent panel.Agent) error {
+func worktreeRefusal(l listing, openedFrom screen, agent panel.Agent) error {
 	switch {
-	case from == screenArchive:
+	case openedFrom == screenArchive:
 		return errArchivedWorktree
 	case !l.hasOwnWorktree(agent):
 		return errNoWorktree
@@ -107,8 +107,8 @@ func worktreeRefusal(l listing, from screen, agent panel.Agent) error {
 
 // pushRefusal is why an agent's branch cannot be pushed from where the menu was opened, nil when
 // it can.
-func pushRefusal(l listing, from screen, agent panel.Agent) error {
-	if err := worktreeRefusal(l, from, agent); err != nil {
+func pushRefusal(l listing, openedFrom screen, agent panel.Agent) error {
+	if err := worktreeRefusal(l, openedFrom, agent); err != nil {
 		return err
 	}
 	if agent.Sequence.IsInProgress() {
@@ -120,8 +120,8 @@ func pushRefusal(l listing, from screen, agent panel.Agent) error {
 
 // mergeRebaseRefusal is why an agent's pull request cannot be merged and its worktree rebased,
 // nil when both can run.
-func mergeRebaseRefusal(l listing, from screen, item panel.AgentRow) error {
-	if err := pushRefusal(l, from, item.Agent); err != nil {
+func mergeRebaseRefusal(l listing, openedFrom screen, item panel.AgentRow) error {
+	if err := pushRefusal(l, openedFrom, item.Agent); err != nil {
 		return err
 	}
 
@@ -130,8 +130,8 @@ func mergeRebaseRefusal(l listing, from screen, item panel.AgentRow) error {
 
 // abortRefusal is why what an agent's worktree has part-way through cannot be aborted from where
 // the menu was opened, nil when it can.
-func abortRefusal(l listing, from screen, agent panel.Agent) error {
-	if err := worktreeRefusal(l, from, agent); err != nil {
+func abortRefusal(l listing, openedFrom screen, agent panel.Agent) error {
+	if err := worktreeRefusal(l, openedFrom, agent); err != nil {
 		return err
 	}
 	if !agent.Sequence.IsInProgress() {
@@ -179,8 +179,8 @@ func openPullRequestRefusal(item panel.AgentRow) error {
 }
 
 // runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
-func (m *model) runGitChoice(from screen, agentID string, choice gitChoice) tea.Cmd {
-	item, ok := m.findGitAgent(from, agentID)
+func (m *model) runGitChoice(openedFrom screen, agentID string, choice gitChoice) tea.Cmd {
+	item, ok := m.findGitAgent(openedFrom, agentID)
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)
 
@@ -191,7 +191,7 @@ func (m *model) runGitChoice(from screen, agentID string, choice gitChoice) tea.
 
 	switch choice {
 	case gitChoiceRebase:
-		if err := worktreeRefusal(m.listing, from, agent); err != nil {
+		if err := worktreeRefusal(m.listing, openedFrom, agent); err != nil {
 			m.report("Could not rebase the worktree of "+agent.Name, err)
 
 			return nil
@@ -199,7 +199,7 @@ func (m *model) runGitChoice(from screen, agentID string, choice gitChoice) tea.
 
 		return m.planGitCmd(rebaseOp(agent.ID, agent.Name))
 	case gitChoicePush:
-		if err := pushRefusal(m.listing, from, agent); err != nil {
+		if err := pushRefusal(m.listing, openedFrom, agent); err != nil {
 			m.report("Could not push the branch of "+agent.Name, err)
 
 			return nil
@@ -239,9 +239,9 @@ func (l listing) hasOwnWorktree(agent panel.Agent) bool {
 }
 
 // findGitAgent is the agent the menu was opened on, as the list holds it now.
-func (m *model) findGitAgent(from screen, agentID string) (panel.AgentRow, bool) {
+func (m *model) findGitAgent(openedFrom screen, agentID string) (panel.AgentRow, bool) {
 	// The list may have moved under the open menu.
-	if from == screenArchive {
+	if openedFrom == screenArchive {
 		return m.listing.anyAgent(agentID)
 	}
 
@@ -249,8 +249,8 @@ func (m *model) findGitAgent(from screen, agentID string) (panel.AgentRow, bool)
 }
 
 // openGitAbort leaves the menu for the abort's confirmation, or says why there is nothing to abort.
-func (m *model) openGitAbort(from screen, agentID string) tea.Cmd {
-	item, ok := m.findGitAgent(from, agentID)
+func (m *model) openGitAbort(openedFrom screen, agentID string) tea.Cmd {
+	item, ok := m.findGitAgent(openedFrom, agentID)
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)
 
@@ -258,7 +258,7 @@ func (m *model) openGitAbort(from screen, agentID string) tea.Cmd {
 	}
 
 	agent := item.Agent
-	if err := abortRefusal(m.listing, from, agent); err != nil {
+	if err := abortRefusal(m.listing, openedFrom, agent); err != nil {
 		m.report("Could not abort what the worktree of "+agent.Name+" has in progress", err)
 
 		return m.closeForm()

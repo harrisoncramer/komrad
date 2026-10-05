@@ -101,7 +101,7 @@ func (c *statusCheckLogsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	if target.agentID != "" {
 		*c = statusCheckLogsScreen{
 			agentID:    target.agentID,
-			openedFrom: target.from,
+			openedFrom: target.openedFrom,
 		}
 	}
 	c.generation, c.logs, c.placed, c.placedTop = generation, map[string]*statusCheckLogRead{}, 0, 0
@@ -171,8 +171,7 @@ func (c *statusCheckLogsScreen) anchor(m *model) {
 		return
 	}
 
-	_, anchors := c.docAnchors(m, split.column)
-	line, ok := anchors[c.list().hovered(m)]
+	line, ok := c.keepDoc(m, split.column).anchors[c.list().hovered(m)]
 	if !ok {
 		return
 	}
@@ -335,9 +334,7 @@ func (c *statusCheckLogsScreen) column() columnSpec {
 		read:          isAlwaysRead,
 		searchOptions: []filterOption{withDebounce(statusCheckLogSearchDebounce), withMinLength(statusCheckLogSearchMinLength)},
 		docRows: func(m *model, width int) []string {
-			rows, _ := m.statusCheckLogs.docAnchors(m, width)
-
-			return rows
+			return m.statusCheckLogs.doc(m, width).rows
 		},
 	}
 }
@@ -390,12 +387,25 @@ func (c *statusCheckLogsScreen) isLoading(m *model) bool {
 	return false
 }
 
-// docAnchors is the logs of the shown checks drawn at a width, with the row each list row's header is drawn on.
-func (c *statusCheckLogsScreen) docAnchors(m *model, width int) ([]string, map[string]int) {
+func (c *statusCheckLogsScreen) buildFrame(m *model) {
+	if split, ok := m.screenColumnSplit(); ok {
+		c.keepDoc(m, split.column)
+	}
+}
+
+// keepDoc is the document at a width, kept so it is drawn again only once what it is drawn from changes.
+func (c *statusCheckLogsScreen) keepDoc(m *model, width int) statusCheckLogsDrawn {
+	c.drawn = c.doc(m, width)
+
+	return c.drawn
+}
+
+// doc is the logs of the shown checks drawn at a width, with the row each list row's header is drawn on.
+func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsDrawn {
 	shown := c.shown(m)
 	shape := c.docShape(shown, width)
 	if c.drawn.shape == shape {
-		return c.drawn.rows, c.drawn.anchors
+		return c.drawn
 	}
 
 	indent := strings.Repeat(" ", docMargin())
@@ -449,9 +459,7 @@ func (c *statusCheckLogsScreen) docAnchors(m *model, width int) ([]string, map[s
 		}
 	}
 
-	c.drawn = statusCheckLogsDrawn{shape: shape, rows: rows, anchors: anchors}
-
-	return rows, anchors
+	return statusCheckLogsDrawn{shape: shape, rows: rows, anchors: anchors}
 }
 
 // docShape names everything the document is drawn from, so it is drawn again only once that changes.

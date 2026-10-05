@@ -34,7 +34,7 @@ type searchScreen struct {
 	input  lineInput
 	// turns are the hits the server found in the conversations, one per turn that said the query.
 	turns []searchHit
-	// drawn is the rows built once for the frame being drawn, and nil between frames.
+	// drawn is the rows built for the frame once an update settles, and nil while one runs.
 	drawn   []searchRow
 	next    *string
 	paging  bool
@@ -336,6 +336,10 @@ func (w *searchScreen) rows(m *model) []searchRow {
 	return w.buildRows(m)
 }
 
+func (w *searchScreen) buildFrame(m *model) {
+	w.drawn = w.buildRows(m)
+}
+
 func (w *searchScreen) buildRows(m *model) []searchRow {
 	var rows []searchRow
 	for _, agent := range w.buildAgents(m) {
@@ -428,7 +432,6 @@ func (w *searchScreen) apply(m *model, result searchResult) tea.Cmd {
 		w.paging = false
 		w.turns = append(w.turns, result.hits...)
 		w.next = result.next
-		w.drawn = nil
 
 		rows := w.rows(m)
 		w.cursor = cursor.Place(rowIndexOfKey(rows, was), w.cursor, len(rows))
@@ -439,7 +442,6 @@ func (w *searchScreen) apply(m *model, result searchResult) tea.Cmd {
 	w.turns = result.hits
 	w.next = result.next
 	w.paging = false
-	w.drawn = nil
 
 	rows := w.rows(m)
 	w.cursor = cursor.Clamp(w.cursor, len(rows))
@@ -721,9 +723,6 @@ func (w *searchScreen) snapshot(m *model, rows []searchRow, pane listPane) view.
 
 // view draws the agents the search found beside the transcript of the hovered one.
 func (w *searchScreen) view(m *model) string {
-	w.drawn = w.buildRows(m)
-	defer func() { w.drawn = nil }()
-
 	sidebar := w.sidebarView(m)
 
 	split, ok := m.screenColumnSplit()

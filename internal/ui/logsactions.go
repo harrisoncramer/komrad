@@ -31,7 +31,7 @@ func (l *logsScreen) table() []screenAction {
 			id:   actionLogsBack,
 			keys: fixedBack,
 			nav: func(m *model, _ string) tea.Cmd {
-				return m.enter(l.from, screenTarget{agentID: l.agentID})
+				return m.enter(l.openedFrom, screenTarget{agentID: l.agentID})
 			},
 		},
 	)

@@ -37,9 +37,9 @@ type documentBody struct {
 type documentsScreen struct {
 	rowCursor
 	agentID string
-	// from is the screen the screen was opened from.
-	from  screen
-	items []documentItem
+	// openedFrom is the screen the screen was opened from.
+	openedFrom screen
+	items      []documentItem
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
 	// written.
 	listedAt    *time.Time
@@ -73,7 +73,7 @@ func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 			saved = d.closeEdit(m)
 			*d = documentsScreen{agentID: target.agentID}
 		}
-		d.from = target.from
+		d.openedFrom = target.openedFrom
 	}
 
 	m.stageTerminal()
@@ -152,7 +152,7 @@ func (d *documentsScreen) listParams(m *model) screenListParams {
 
 // parent is the view the documents were opened from.
 func (d *documentsScreen) parent() screen {
-	return d.from
+	return d.openedFrom
 }
 
 // crumbs runs through the agent the documents are of down to the version stepped to, and counts
@@ -174,7 +174,7 @@ func (d *documentsScreen) crumbs(m *model) crumbs {
 
 // back leaves for the screen the documents were opened from.
 func (d *documentsScreen) back(m *model) tea.Cmd {
-	return m.enter(d.from, screenTarget{agentID: d.agentID})
+	return m.enter(d.openedFrom, screenTarget{agentID: d.agentID})
 }
 
 // crumbRoot is the trail down to the list: the agent the documents are of.

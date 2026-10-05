@@ -20,7 +20,8 @@ var errUnknownScheduleKind = errors.New("this build of komrad does not know the 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
 	rowCursor
-	rows []scheduleItem
+	// drawn is the rows built for the frame once an update settles, and nil while one runs.
+	drawn []scheduleItem
 	renameSlot
 }
 
@@ -73,11 +74,15 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 
 // listRows is the list as drawn, or as it would be drawn when nothing has cached it.
 func (w *schedulesScreen) listRows(m *model) []scheduleItem {
-	if w.rows != nil {
-		return w.rows
+	if w.drawn != nil {
+		return w.drawn
 	}
 
 	return w.buildRows(m)
+}
+
+func (w *schedulesScreen) buildFrame(m *model) {
+	w.drawn = w.buildRows(m)
 }
 
 func (w *schedulesScreen) buildRows(m *model) []scheduleItem {
@@ -284,9 +289,6 @@ func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {
 }
 
 func (w *schedulesScreen) view(m *model) string {
-	w.rows = w.buildRows(m)
-	defer func() { w.rows = nil }()
-
 	return m.columnListView(w.listParams(m))
 }
 

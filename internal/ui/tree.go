@@ -22,7 +22,7 @@ type agentsScreen struct {
 	placed     bool
 	showHidden bool
 	sort       tabsState
-	// drawn is the list built once for the frame being drawn, and nil between frames.
+	// drawn is the list built for the frame once an update settles, and nil while one runs.
 	drawn   *agentsLayout
 	triage  triageZone
 	editing *agentEdit
@@ -257,6 +257,11 @@ func (a *agentsScreen) layout(m *model) agentsLayout {
 	}
 
 	return a.buildLayout(m)
+}
+
+func (a *agentsScreen) buildFrame(m *model) {
+	layout := a.buildLayout(m)
+	a.drawn = &layout
 }
 
 func (a *agentsScreen) buildLayout(m *model) agentsLayout {

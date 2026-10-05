@@ -402,10 +402,6 @@ func failedPlaceholder(agent panel.Agent) string {
 }
 
 func (a *agentsScreen) view(m *model) string {
-	layout := a.buildLayout(m)
-	a.drawn = &layout
-	defer func() { a.drawn = nil }()
-
 	if m.listing.isEmpty() {
 		return m.welcomeView(a.listParams(m), welcomeText(m.keys))
 	}

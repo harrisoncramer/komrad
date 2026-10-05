@@ -30,9 +30,9 @@ type archiveScreen struct {
 	kind      archiveKind
 	kindFocus bool
 	schedules rowCursor
-	// rows is the rows built once for the frame being drawn, and nil between frames.
-	rows         []agentRow
-	scheduleRows []scheduleItem
+	// drawn is the rows built for the frame once an update settles, and nil while one runs.
+	drawn          []agentRow
+	drawnSchedules []scheduleItem
 	renameSlot
 }
 
@@ -141,10 +141,14 @@ func (a *archiveScreen) scheduleList() screenList[scheduleItem] {
 // scheduleListRows is the archived schedules as drawn, or as they would be drawn when nothing has
 // cached them.
 func (a *archiveScreen) scheduleListRows(m *model) []scheduleItem {
-	if a.scheduleRows != nil {
-		return a.scheduleRows
+	if a.drawnSchedules != nil {
+		return a.drawnSchedules
 	}
 
+	return a.buildScheduleRows(m)
+}
+
+func (a *archiveScreen) buildScheduleRows(m *model) []scheduleItem {
 	return narrowed(m.filter, narrowedParams[scheduleItem]{
 		rows:  m.listing.archivedSchedules,
 		depth: func(scheduleItem) int { return 0 },
@@ -203,11 +207,15 @@ var archiveSorts = []sortColumn[panel.AgentRow]{
 
 // listRows is the list as drawn, or as it would be drawn when nothing has cached it.
 func (a *archiveScreen) listRows(m *model) []agentRow {
-	if a.rows != nil {
-		return a.rows
+	if a.drawn != nil {
+		return a.drawn
 	}
 
 	return a.buildRows(m)
+}
+
+func (a *archiveScreen) buildFrame(m *model) {
+	a.drawn, a.drawnSchedules = a.buildRows(m), a.buildScheduleRows(m)
 }
 
 func (a *archiveScreen) buildRows(m *model) []agentRow {
@@ -435,10 +443,6 @@ func archiveDocument(agent panel.Agent) string {
 }
 
 func (a *archiveScreen) view(m *model) string {
-	a.rows = a.buildRows(m)
-	a.scheduleRows = a.scheduleListRows(m)
-	defer func() { a.rows, a.scheduleRows = nil, nil }()
-
 	return m.columnListView(a.listParams(m))
 }
 

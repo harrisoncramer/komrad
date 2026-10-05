@@ -258,16 +258,36 @@ type drawnChange struct {
 	isDark bool
 }
 
-// isDrawn reports whether the change is drawn as a diff, building it once per pair of writes when
-// it is.
+// isDrawn reports whether the change is drawn as a diff.
 func (h *documentHistory) isDrawn(isDark bool) bool {
+	drawn, _, _, ok := h.change(isDark)
+
+	return ok && h.pane.View() != nil && h.drawn == drawn && h.pane.View().Len() > 0
+}
+
+// keepDiff builds the diff of the change once per pair of writes.
+func (h *documentHistory) keepDiff(isDark bool) {
+	drawn, before, after, ok := h.change(isDark)
+	if !ok || (h.pane.View() != nil && h.drawn == drawn) {
+		return
+	}
+
+	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
+	view.SetHeadless(true)
+	view.SetPattern(h.filter.pattern)
+	h.pane, h.drawn = diffview.NewPane(view), drawn
+}
+
+// change is the two writes the change is drawn between and what they hold, and false when it is
+// not drawn as a diff.
+func (h *documentHistory) change(isDark bool) (drawnChange, versionRead, versionRead, bool) {
 	if h.err != nil || h.versions == nil || h.isOldestKeptLate() {
-		return false
+		return drawnChange{}, versionRead{}, versionRead{}, false
 	}
 
 	before, after, ok := h.readChange()
 	if !ok || after.err != nil || before.err != nil {
-		return false
+		return drawnChange{}, versionRead{}, versionRead{}, false
 	}
 
 	drawn := drawnChange{after: h.versions[h.at].version, isDark: isDark}
@@ -275,14 +295,7 @@ func (h *documentHistory) isDrawn(isDark bool) bool {
 		drawn.before = h.versions[h.at+1].version
 	}
 
-	if h.pane.View() == nil || h.drawn != drawn {
-		view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
-		view.SetHeadless(true)
-		view.SetPattern(h.filter.pattern)
-		h.pane, h.drawn = diffview.NewPane(view), drawn
-	}
-
-	return h.pane.View().Len() > 0
+	return drawn, before, after, true
 }
 
 // documentVersionsListedMsg is the writes kept of a document come back.
@@ -394,4 +407,11 @@ func (m *model) applyDocumentVersionRead(msg documentVersionReadMsg) {
 	}
 
 	h.reads[msg.version] = msg.read
+}
+
+// buildFrame builds the diff of the write stepped to once it is drawn beside the list.
+func (d *documentsScreen) buildFrame(m *model) {
+	if _, ok := m.screenColumnSplit(); ok && d.isSteppingHovered(m) {
+		d.history.keepDiff(m.term.isDark)
+	}
 }
