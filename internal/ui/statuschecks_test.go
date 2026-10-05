@@ -20,7 +20,15 @@ var everyStatusCheck = []string{"F", "shift+tab", "esc"}
 func openStatusChecks(t *testing.T, answer func(*panelHarness)) *panelHarness {
 	t.Helper()
 
-	harness := openNoticed(t, panelHarnessParams{}, newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)...)
+	return openStatusChecksOn(t, "c1", answer)
+}
+
+func openStatusChecksOn(t *testing.T, head string, answer func(*panelHarness)) *panelHarness {
+	t.Helper()
+
+	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)
+	rows[2].(*pullrequestv1.PullRequest).HeadSha = head
+	harness := openNoticed(t, panelHarnessParams{}, rows...)
 	answer(harness)
 	harness.press("space", "x")
 
@@ -453,7 +461,7 @@ func TestStatusChecksNewestHead(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openStatusChecks(t, listed)
+			harness := openStatusChecksOn(t, "2222222222222222", listed)
 			harness.press(tt.press...)
 
 			frame := harness.readFrame()
@@ -492,7 +500,7 @@ func TestStatusChecksNewestHead(t *testing.T) {
 	t.Run("the newest commit follows a push", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openStatusChecks(t, listed)
+		harness := openStatusChecksOn(t, "2222222222222222", listed)
 		pushed(harness)
 
 		frame := harness.readFrame()
@@ -503,10 +511,27 @@ func TestStatusChecksNewestHead(t *testing.T) {
 	t.Run("a picked scope stays through a push that passes every status check", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openStatusChecks(t, listed)
+		harness := openStatusChecksOn(t, "2222222222222222", listed)
 		harness.press("F", "tab", "tab", "esc")
 		pushed(harness)
 
 		assert.Contains(t, harness.readFrame(), "no failing status checks")
+	})
+
+	t.Run("a push whose head is not read yet shows no status checks until it is", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStatusChecksOn(t, "2222222222222222", listed)
+		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
+		pullRequest.HeadSha = "3333333333333333"
+		harness.watch(buildPuts(pullRequest))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "no status checks yet")
+		assert.NotContains(t, frame, "222222222222")
+
+		pushed(harness)
+
+		assert.Equal(t, []string{"build"}, readListRows(harness.readFrame()))
 	})
 }

@@ -344,6 +344,7 @@ type statusChecksListedMsg struct {
 	agentID       string
 	pullRequestID string
 	headSHA       string
+	headRead      bool
 	commit        statusCheckCommit
 	err           error
 }
@@ -391,11 +392,14 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 			}
 		}
 
+		commit, headRead := headStatusCheckCommit(listed.GetReadings(), head)
+
 		return statusChecksListedMsg{
 			agentID:       agentID,
 			pullRequestID: pullRequestID,
 			headSHA:       head,
-			commit:        newestStatusCheckCommit(listed.GetReadings()),
+			headRead:      headRead,
+			commit:        commit,
 		}
 	}
 }
@@ -417,6 +421,11 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 	hovered := c.list().hovered(m)
 	c.commit, c.err = msg.commit, nil
 	c.list().place(m, hovered)
+	if !msg.headRead {
+		c.listedHead = ""
+
+		return nil
+	}
 
 	return m.readStatusChecksCmd()
 }
@@ -542,13 +551,16 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	return out
 }
 
-// newestStatusCheckCommit is the reading of the newest head, empty when no head was read.
-func newestStatusCheckCommit(readings []*pullrequestv1.StatusCheckReading) statusCheckCommit {
-	if len(readings) == 0 {
-		return statusCheckCommit{}
+// headStatusCheckCommit is the reading of the given head, and false when that head has not been read yet.
+func headStatusCheckCommit(readings []*pullrequestv1.StatusCheckReading, head string) (statusCheckCommit, bool) {
+	i := slices.IndexFunc(readings, func(reading *pullrequestv1.StatusCheckReading) bool {
+		return reading.GetHeadSha() == head
+	})
+	if i < 0 {
+		return statusCheckCommit{}, false
 	}
 
-	return newStatusCheckCommit(readings[len(readings)-1])
+	return newStatusCheckCommit(readings[i]), true
 }
 
 // newStatusCheckCommit is one head's reading, holding only the newest run of each check.
