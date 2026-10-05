@@ -353,7 +353,7 @@ type docNamer interface {
 // columnDoc is the document the block is drawn from, read where the reader left it.
 func (m *model) columnDoc(split columnSplit) docWindow {
 	if m.isMessagesFocused() {
-		return m.buildMessagesWindow(split.column, split.rows)
+		return m.drawMessagesWindow(split.column, split.rows)
 	}
 
 	if m.isDocReadable() {

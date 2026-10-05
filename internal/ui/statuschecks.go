@@ -165,7 +165,7 @@ func (c *statusChecksScreen) shownScope() statusCheckScope {
 	return statusCheckScopeAll
 }
 
-func (c *statusChecksScreen) kinds() stops {
+func (c *statusChecksScreen) kinds(*model) stops {
 	return stops{
 		labels: statusCheckScopeLabels,
 		focus:  noStop,
@@ -177,7 +177,7 @@ func (c *statusChecksScreen) kindsFit(m *model) bool {
 	return m.listFitsTabs(c.listParams(m))
 }
 
-func (c *statusChecksScreen) kindsFocused() *bool {
+func (c *statusChecksScreen) kindsFocused(*model) *bool {
 	return &c.scopeFocus
 }
 

@@ -109,10 +109,10 @@ type filterRow struct {
 // kindSwitcher is a screen that lists more than one kind of resource and switches between them
 // on a row of its own.
 type kindSwitcher interface {
-	kinds() stops
+	kinds(m *model) stops
 
 	// kindsFocused is whether the row of kinds holds the keys.
-	kindsFocused() *bool
+	kindsFocused(m *model) *bool
 
 	// stepKind moves the list delta kinds along, wrapping at both ends.
 	stepKind(m *model, delta int) tea.Cmd
@@ -261,8 +261,6 @@ func (m *model) screenOf(s screen) screenModel {
 	case screenStatusChecks:
 		return &m.statusChecks
 	case screenStatusCheckLogs:
-		m.statusCheckLogs.checks = &m.statusChecks
-
 		return &m.statusCheckLogs
 	}
 

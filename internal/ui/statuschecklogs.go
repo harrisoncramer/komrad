@@ -38,8 +38,6 @@ type statusCheckLogsScreen struct {
 	// the row the window was scrolled to with it.
 	placed    int
 	placedTop int
-	// checks is the status checks screen whose scope the logs are joined under.
-	checks *statusChecksScreen
 }
 
 // statusCheckLogRead is the lines of one check's log read so far.
@@ -194,20 +192,12 @@ func (c *statusCheckLogsScreen) listParams(m *model) screenListParams {
 	}
 }
 
-func (c *statusCheckLogsScreen) kinds() stops {
-	if c.checks == nil {
-		return stops{}
-	}
-
-	return c.checks.kinds()
+func (c *statusCheckLogsScreen) kinds(m *model) stops {
+	return m.statusChecks.kinds(m)
 }
 
-func (c *statusCheckLogsScreen) kindsFocused() *bool {
-	if c.checks == nil {
-		return new(bool)
-	}
-
-	return c.checks.kindsFocused()
+func (c *statusCheckLogsScreen) kindsFocused(m *model) *bool {
+	return m.statusChecks.kindsFocused(m)
 }
 
 func (c *statusCheckLogsScreen) kindsFit(m *model) bool {

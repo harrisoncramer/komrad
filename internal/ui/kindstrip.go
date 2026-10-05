@@ -26,13 +26,13 @@ func (m *model) isKindsDrawn() bool {
 func (m *model) isKindsFocused() bool {
 	k, ok := m.activeKinds()
 
-	return ok && *k.kindsFocused() && k.kindsFit(m)
+	return ok && *k.kindsFocused(m) && k.kindsFit(m)
 }
 
 func (m *model) kindsLine() string {
 	k, _ := m.activeKinds()
-	row := k.kinds()
-	if *k.kindsFocused() {
+	row := k.kinds(m)
+	if *k.kindsFocused(m) {
 		row.focus, row.lit = row.lit, noStop
 	}
 
@@ -46,7 +46,7 @@ func (m *model) kindsLine() string {
 
 func (m *model) blurKinds() {
 	if k, ok := m.activeKinds(); ok {
-		*k.kindsFocused() = false
+		*k.kindsFocused(m) = false
 	}
 }
 
@@ -57,7 +57,7 @@ func (m *model) focusKinds() {
 	}
 
 	m.blurTabs()
-	*k.kindsFocused() = true
+	*k.kindsFocused(m) = true
 	m.details.focused = false
 }
 
@@ -66,7 +66,7 @@ func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {
 
 	cmd := m.pressStrip(press.String(), stripKeys{
 		step:  func(delta int) tea.Cmd { return k.stepKind(m, delta) },
-		close: func() { *k.kindsFocused() = false },
+		close: func() { *k.kindsFocused(m) = false },
 	})
 
 	return cmd

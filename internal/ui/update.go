@@ -57,6 +57,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.leftStop = was
 	}
 	m.buildFrame()
+	m.drawFrame()
 
 	return m, tea.Batch(cmd, caught, blink, warming, spinning, pulse)
 }

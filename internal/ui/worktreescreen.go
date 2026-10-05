@@ -151,7 +151,7 @@ func worktreesTabs() tabStrip {
 	}
 }
 
-func (w *worktreesScreen) kinds() stops {
+func (w *worktreesScreen) kinds(*model) stops {
 	return stops{
 		labels: worktreeScopeLabels,
 		focus:  noStop,
@@ -163,7 +163,7 @@ func (w *worktreesScreen) kindsFit(m *model) bool {
 	return m.listFitsTabs(w.listParams(m))
 }
 
-func (w *worktreesScreen) kindsFocused() *bool {
+func (w *worktreesScreen) kindsFocused(*model) *bool {
 	return &w.scopeFocus
 }
 

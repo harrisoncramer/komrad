@@ -35,17 +35,11 @@ func (m *model) render() string {
 		return m.fitFrame(m.picker.frozen)
 	}
 
-	if m.isAwaitingSize() && m.term.drawn != nil && m.term.drawn.text != "" {
-		return m.term.drawn.text
+	if m.term.drawn != "" {
+		return m.term.drawn
 	}
 
-	drawn := m.drawInMode(m.findMode())
-
-	if m.term.drawn != nil {
-		m.term.drawn.text = drawn
-	}
-
-	return drawn
+	return m.drawInMode(m.findMode())
 }
 
 // insideView is the frame the gutters surround, taking the failures in the order they happen.
@@ -163,7 +157,7 @@ func (m *model) screenView() string {
 
 	split, ok := m.columnSplit()
 	if !ok && m.isMessagesFocused() {
-		return m.buildMessagesWindow(m.term.width, m.term.height).view(m.term.height)
+		return m.drawMessagesWindow(m.term.width, m.term.height).view(m.term.height)
 	}
 	if !ok {
 		return m.heldFormView()
