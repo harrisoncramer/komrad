@@ -320,7 +320,7 @@ func (m *model) docActions() screenActionSpec {
 				nav: func(*model, string) tea.Cmd {
 					m.settleTail()
 					spec, _ := m.columnOf()
-					m.reading.filter.open(spec.search...)
+					m.reading.filter.open(spec.searchOptions...)
 					m.reading.origin = m.reading.Line
 
 					return nil

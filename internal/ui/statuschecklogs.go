@@ -334,9 +334,9 @@ func (c *statusCheckLogsScreen) takesEveryKey() bool {
 
 func (c *statusCheckLogsScreen) column() columnSpec {
 	return columnSpec{
-		floor:  columnFloor,
-		read:   isAlwaysRead,
-		search: []filterOption{withDebounce(statusCheckLogSearchDebounce), withMinLength(statusCheckLogSearchMinLength)},
+		floor:         columnFloor,
+		read:          isAlwaysRead,
+		searchOptions: []filterOption{withDebounce(statusCheckLogSearchDebounce), withMinLength(statusCheckLogSearchMinLength)},
 		docRows: func(m *model, width int) []string {
 			rows, _ := m.statusCheckLogs.docAnchors(m, width)
 

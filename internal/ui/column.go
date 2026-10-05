@@ -65,7 +65,7 @@ type columnSpec struct {
 	// screen whose block never is.
 	read func(*model) bool
 
-	search []filterOption
+	searchOptions []filterOption
 
 	// holds reports whether the screen is drawing its own block at all, and is nil on a screen that
 	// always is.
