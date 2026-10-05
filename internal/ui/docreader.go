@@ -59,7 +59,7 @@ func (m *model) docHead(rows []string, width int) []string {
 	}
 
 	count := ""
-	if r.filter.pattern != nil {
+	if r.filter.isSearched() {
 		count = dimStyle().Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
 	}
 
@@ -201,7 +201,7 @@ func (m *model) applyDocFilterSettled(msg docFilterSettledMsg) {
 
 func (m *model) findDocMatch() {
 	r := &m.reading
-	if r.filter.pattern == nil {
+	if !r.filter.isSearched() {
 		m.moveDocTo(r.origin)
 
 		return
@@ -228,7 +228,7 @@ func (m *model) jumpDocMatch(pressed string) {
 	line, found := reader.Jump(reader.Matches(r.filter.pattern, rows), r.Line, directionOf(pressed, m.keys.Filter.PrevMatch))
 	if !found {
 		r.said = "nothing to search for yet"
-		if r.filter.isStanding() {
+		if r.filter.isSearched() {
 			r.said = "no matches"
 		}
 		m.moveDocTo(r.Line)

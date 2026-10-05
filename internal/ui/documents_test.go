@@ -646,6 +646,11 @@ func TestDocumentsReading(t *testing.T) {
 			want:    []string{"no matches"},
 		},
 		{
+			name:    "a broken pattern counts nothing while it is typed",
+			presses: []string{"pick:block", "/", "w", "a", "r", "m", "("},
+			want:    []string{"/ warm(", "0 matches"},
+		},
+		{
 			name:    "the next match with no search asks for one",
 			presses: []string{"pick:block", "n"},
 			want:    []string{"nothing to search for yet"},

@@ -133,6 +133,10 @@ func (f filterState) isTooShort() bool {
 	return strings.TrimSpace(query) == "" || utf8.RuneCountInString(query) < f.minLength
 }
 
+func (f filterState) isSearched() bool {
+	return f.pattern != nil || f.broken
+}
+
 func (f filterState) isSettled() bool {
 	return f.compiled == f.query()
 }
