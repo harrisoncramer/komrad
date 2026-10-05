@@ -17,12 +17,8 @@ type checkLogOutcome string
 const (
 	// checkLogFetched is a log the forge handed over.
 	checkLogFetched checkLogOutcome = "fetched"
-	// CheckLogMissing is a log the forge never had ready.
-	CheckLogMissing checkLogOutcome = "missing"
 	// checkLogExpired is a log the forge no longer keeps.
 	checkLogExpired checkLogOutcome = "expired"
-	// CheckLogFailed is a log komrad failed to ask for.
-	CheckLogFailed checkLogOutcome = "failed"
 )
 
 // checkLogPart is the lines of one step of a check's log, or of the whole log as step 0 when it was not
