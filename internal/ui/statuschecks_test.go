@@ -415,6 +415,7 @@ func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, startedAt string
 	return check
 }
 
+// TestStatusChecksNewestHead covers that a pull request's older heads never reach the screen, through pushes and before a new head is read.
 func TestStatusChecksNewestHead(t *testing.T) {
 	t.Parallel()
 
