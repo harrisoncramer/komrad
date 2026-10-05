@@ -162,6 +162,10 @@ func (w *worktreesScreen) rows(m *model) []worktreeRow {
 	return w.buildRows(m)
 }
 
+func (w *worktreesScreen) buildFrame(m *model) {
+	w.drawn = w.buildRows(m)
+}
+
 func (w *worktreesScreen) buildRows(m *model) []worktreeRow {
 	return narrowed(m.filter, narrowedParams[worktreeRow]{
 		rows: worktreeRows(worktreeRowsParams{

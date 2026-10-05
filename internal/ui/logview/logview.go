@@ -87,30 +87,22 @@ func (t *Tail) Scroll(lines int) {
 	}
 }
 
+// Fit moves the cursor and the view so that both fit in height rows of lines wrapped to width.
+func (t *Tail) Fit(width, height int) {
+	newest := len(t.lines) - 1
+	if span, ok := t.span(t.wrapper(width), height); ok {
+		t.cursor, t.back = newest-span.Cursor, newest-span.Last
+	}
+}
+
 // Rows is the lines wrapped to width, as many rows of them as fit in height with the cursor's
 // line among them, and the row the cursor's line starts on.
 func (t *Tail) Rows(width, height int) ([]string, int) {
-	wrapped := make(map[int][]string)
-	wrap := func(i int) []string {
-		if _, ok := wrapped[i]; !ok {
-			wrapped[i] = t.wrap(i, width)
-		}
-
-		return wrapped[i]
-	}
-
-	window := cursor.Window{Height: height, Rows: func(i int) int { return len(wrap(i)) }}
-	keep := window.KeepCursor
-	if t.scrolled {
-		keep = window.KeepView
-	}
-
-	newest := len(t.lines) - 1
-	span, ok := keep(len(t.lines), newest-t.cursor, newest-t.back)
+	wrap := t.wrapper(width)
+	span, ok := t.span(wrap, height)
 	if !ok {
 		return nil, -1
 	}
-	t.cursor, t.back = newest-span.Cursor, newest-span.Last
 
 	var rows []string
 	for i := span.First; i <= span.Last; i++ {
@@ -118,6 +110,32 @@ func (t *Tail) Rows(width, height int) ([]string, int) {
 	}
 
 	return rows[span.Cut:], span.CursorRow
+}
+
+// span is the lines that fit in height rows around the cursor, or around the view once it scrolled.
+func (t *Tail) span(wrap func(int) []string, height int) (cursor.Span, bool) {
+	window := cursor.Window{Height: height, Rows: func(i int) int { return len(wrap(i)) }}
+	keep := window.KeepCursor
+	if t.scrolled {
+		keep = window.KeepView
+	}
+
+	newest := len(t.lines) - 1
+
+	return keep(len(t.lines), newest-t.cursor, newest-t.back)
+}
+
+// wrapper breaks held lines into the rows they take at width, wrapping each line once.
+func (t *Tail) wrapper(width int) func(int) []string {
+	wrapped := make(map[int][]string)
+
+	return func(i int) []string {
+		if _, ok := wrapped[i]; !ok {
+			wrapped[i] = t.wrap(i, width)
+		}
+
+		return wrapped[i]
+	}
 }
 
 // Current is the line the cursor is on, and false when no line is held.

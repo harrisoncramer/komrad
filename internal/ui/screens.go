@@ -68,8 +68,8 @@ type screenModel interface {
 // understands.
 type screenTarget struct {
 	agentID string
-	// from is the view the screen was opened from.
-	from screen
+	// openedFrom is the view the screen was opened from.
+	openedFrom screen
 	// resume says the screen is being gone back to and keeps what it held.
 	resume bool
 }

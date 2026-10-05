@@ -15,7 +15,7 @@ import (
 )
 
 // documentsMenu is the ways into an agent's documents, opened from its menu.
-func documentsMenu(m *model, from screen, item panel.AgentRow) submenu {
+func documentsMenu(m *model, openedFrom screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
 
 	return submenu{
@@ -27,7 +27,7 @@ func documentsMenu(m *model, from screen, item panel.AgentRow) submenu {
 				keys:  m.keys.DocumentsMenu.View,
 				isOff: item.Documents == 0,
 				open: func(m *model) tea.Cmd {
-					return m.enterSubpage(from, agentID, subpageDocuments)
+					return m.enterSubpage(openedFrom, agentID, subpageDocuments)
 				},
 			},
 			{

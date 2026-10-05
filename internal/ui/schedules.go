@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/cursor"
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
-	"komrad/internal/view"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -20,7 +18,8 @@ var errUnknownScheduleKind = errors.New("this build of komrad does not know the 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
 	rowCursor
-	rows []scheduleItem
+	// drawn is the rows built for the frame once an update settles, and nil while one runs.
+	drawn []scheduleItem
 	renameSlot
 }
 
@@ -73,11 +72,15 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 
 // listRows is the list as drawn, or as it would be drawn when nothing has cached it.
 func (w *schedulesScreen) listRows(m *model) []scheduleItem {
-	if w.rows != nil {
-		return w.rows
+	if w.drawn != nil {
+		return w.drawn
 	}
 
 	return w.buildRows(m)
+}
+
+func (w *schedulesScreen) buildFrame(m *model) {
+	w.drawn = w.buildRows(m)
 }
 
 func (w *schedulesScreen) buildRows(m *model) []scheduleItem {
@@ -98,25 +101,6 @@ func (w *schedulesScreen) apply(m *model, hovered string) {
 	w.reconcileRename(m)
 }
 
-func (w *schedulesScreen) details(m *model) details {
-	item, ok := w.selected(m)
-	if !ok {
-		return details{}
-	}
-
-	return scheduleDetails(m, item)
-}
-
-func scheduleDetails(m *model, item scheduleItem) details {
-	return details{
-		id: item.schedule.ID,
-		fields: scheduleFields(item.schedule, scheduleTarget{
-			workflow:     workflowByID(m.listing.workflows, item.schedule.WorkflowID),
-			orchestrator: m.listing.orchestratorLabel(item.schedule.OrchestratorID),
-		}),
-	}
-}
-
 func (l listing) orchestratorLabel(id string) string {
 	for _, row := range l.agents {
 		if row.Agent.ID == id {
@@ -130,18 +114,6 @@ func (l listing) orchestratorLabel(id string) string {
 	}
 
 	return "— (gone)"
-}
-
-// docRows is the document drawn beside the list at a width: the notice for an empty list, or
-// the schedule the cursor is on with the firings River holds for it between its next run and
-// its prompt.
-func (w *schedulesScreen) docRows(m *model, width int) []string {
-	item, ok := w.selected(m)
-	if !ok {
-		return paint.DocStyledRows(noSchedulesMarkdown, width, columnStyle())
-	}
-
-	return scheduleDocRows(item, width)
 }
 
 func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {
@@ -283,13 +255,6 @@ func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {
 	)
 }
 
-func (w *schedulesScreen) view(m *model) string {
-	w.rows = w.buildRows(m)
-	defer func() { w.rows = nil }()
-
-	return m.columnListView(w.listParams(m))
-}
-
 func (w *schedulesScreen) listParams(m *model) screenListParams {
 	return screenListParams{
 		help:  w.help,
@@ -300,49 +265,6 @@ func (w *schedulesScreen) listParams(m *model) screenListParams {
 
 func (w *schedulesScreen) help(m *model) keyMap {
 	return w.actions().help(m)
-}
-
-// lines is the list as drawn: each row's cursor, icon, name and cron, or one line over no rows.
-func (w *schedulesScreen) lines(m *model, pane listPane) []string {
-	return scheduleLines(m, pane, scheduleLinesParams{
-		rows:     w.listRows(m),
-		cursor:   w.cursor,
-		idle:     "no schedules yet",
-		renaming: w.renamingField(),
-	})
-}
-
-type scheduleLinesParams struct {
-	rows     []scheduleItem
-	cursor   int
-	idle     string
-	renaming *nameEdit
-}
-
-// scheduleLines draws schedule rows with the cursor on one, or the idle line over none.
-func scheduleLines(m *model, pane listPane, params scheduleLinesParams) []string {
-	if len(params.rows) == 0 {
-		return []string{dimStyle().Render("  " + emptyLineOf(m.filter, params.idle))}
-	}
-
-	rows := make([]string, 0, len(params.rows))
-	for i, item := range params.rows {
-		selected := i == params.cursor
-		prefix := "  "
-		if selected {
-			prefix = caretGlyph(pane.caret)
-		}
-
-		style := nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled)
-		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), style)
-		if e := params.renaming; e != nil && e.key == item.key() {
-			name = drawnName(e, style)
-		}
-		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(m.glyphs, item.schedule.Enabled))
-		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle().Render(item.schedule.Cron))
-	}
-
-	return rows
 }
 
 var (

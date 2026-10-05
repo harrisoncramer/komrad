@@ -24,11 +24,11 @@ const (
 var errArchiveArchived = errors.New("an archived agent is already archived")
 
 // mergeMenu is the ways to merge an agent's pull request, opened from the git menu.
-func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
+func mergeMenu(m *model, openedFrom screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
 	refused := openPullRequestRefusal(item) != nil
 	run := func(choice mergeChoice) func(*model) tea.Cmd {
-		return func(m *model) tea.Cmd { return m.runMerge(from, agentID, choice) }
+		return func(m *model) tea.Cmd { return m.runMerge(openedFrom, agentID, choice) }
 	}
 
 	return submenu{
@@ -44,7 +44,7 @@ func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
 			{
 				label: "merge and archive",
 				keys:  m.keys.Merge.MergeArchive,
-				isOff: refused || from == screenArchive,
+				isOff: refused || openedFrom == screenArchive,
 				write: run(mergeChoiceMergeArchive),
 			},
 			{
@@ -56,7 +56,7 @@ func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
 			{
 				label: "merge then rebase",
 				keys:  m.keys.Merge.MergeRebase,
-				isOff: mergeRebaseRefusal(m.listing, from, item) != nil,
+				isOff: mergeRebaseRefusal(m.listing, openedFrom, item) != nil,
 				write: run(mergeChoiceMergeRebase),
 			},
 		},
@@ -64,10 +64,10 @@ func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
 }
 
 // runMerge asks the forge to merge the agent's pull request, or says why it cannot.
-func (m *model) runMerge(from screen, agentID string, choice mergeChoice) tea.Cmd {
+func (m *model) runMerge(openedFrom screen, agentID string, choice mergeChoice) tea.Cmd {
 	// The list may have moved under the open menu.
 	item, ok := m.listing.liveAgent(agentID)
-	if from == screenArchive {
+	if openedFrom == screenArchive {
 		item, ok = m.listing.anyAgent(agentID)
 	}
 
@@ -82,7 +82,7 @@ func (m *model) runMerge(from screen, agentID string, choice mergeChoice) tea.Cm
 	}
 
 	if choice == mergeChoiceMergeRebase {
-		if err := mergeRebaseRefusal(m.listing, from, item); err != nil {
+		if err := mergeRebaseRefusal(m.listing, openedFrom, item); err != nil {
 			m.report("Could not merge and rebase "+item.Agent.Name, err)
 
 			return nil
@@ -97,7 +97,7 @@ func (m *model) runMerge(from screen, agentID string, choice mergeChoice) tea.Cm
 
 		return nil
 	}
-	if archive && from == screenArchive {
+	if archive && openedFrom == screenArchive {
 		m.report("Could not archive "+item.Agent.Name, errArchiveArchived)
 
 		return nil

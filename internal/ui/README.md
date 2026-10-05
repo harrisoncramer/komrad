@@ -36,6 +36,11 @@ enter and never by writing into another screen. The root's own state is what
 routeAsyncMessage still switches on: the watch, the write result, the ticks, focus and blur,
 and the inspections.
 
+Drawing changes nothing. A screen that caches what it draws, or fits a scroll to the space it
+is drawn in, does that work in buildFrame, which frame.go calls at the end of every Update
+after dropFrames has thrown away the last frame's caches. view and everything it calls only
+read that cache, and build an unkept copy when it is missing.
+
 The agents screen is the root's twin, and the line between them is drawn by who owns the
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
 the stage is a panel concern and is shown on the schedules screen as well; each asks the
@@ -163,6 +168,10 @@ and the keys every list answers, screenListParams, what a list screen hands the 
 and the root's drawing of the header, the record, the messages and the legend that a screen
 calls. The review composes its own frame from the same pieces, and the editor it opens on the
 stage goes through the root.
+
+Each list screen draws from a file named for it with a view suffix, such as agentsview.go. That
+file holds view and the functions only view calls. Keys, loads, and the rows buildFrame keeps
+stay with the screen's state.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, listing.go, keys.go, clipboard.go, report.go, convert.go.

@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"komrad/internal/ui/cursor"
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -30,9 +29,9 @@ type archiveScreen struct {
 	kind      archiveKind
 	kindFocus bool
 	schedules rowCursor
-	// rows is the rows built once for the frame being drawn, and nil between frames.
-	rows         []agentRow
-	scheduleRows []scheduleItem
+	// drawn is the rows built for the frame once an update settles, and nil while one runs.
+	drawn          []agentRow
+	drawnSchedules []scheduleItem
 	renameSlot
 }
 
@@ -141,10 +140,14 @@ func (a *archiveScreen) scheduleList() screenList[scheduleItem] {
 // scheduleListRows is the archived schedules as drawn, or as they would be drawn when nothing has
 // cached them.
 func (a *archiveScreen) scheduleListRows(m *model) []scheduleItem {
-	if a.scheduleRows != nil {
-		return a.scheduleRows
+	if a.drawnSchedules != nil {
+		return a.drawnSchedules
 	}
 
+	return a.buildScheduleRows(m)
+}
+
+func (a *archiveScreen) buildScheduleRows(m *model) []scheduleItem {
 	return narrowed(m.filter, narrowedParams[scheduleItem]{
 		rows:  m.listing.archivedSchedules,
 		depth: func(scheduleItem) int { return 0 },
@@ -203,11 +206,15 @@ var archiveSorts = []sortColumn[panel.AgentRow]{
 
 // listRows is the list as drawn, or as it would be drawn when nothing has cached it.
 func (a *archiveScreen) listRows(m *model) []agentRow {
-	if a.rows != nil {
-		return a.rows
+	if a.drawn != nil {
+		return a.drawn
 	}
 
 	return a.buildRows(m)
+}
+
+func (a *archiveScreen) buildFrame(m *model) {
+	a.drawn, a.drawnSchedules = a.buildRows(m), a.buildScheduleRows(m)
 }
 
 func (a *archiveScreen) buildRows(m *model) []agentRow {
@@ -364,82 +371,9 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 	})
 }
 
-func (a *archiveScreen) details(m *model) details {
-	if a.kind == archiveSchedules {
-		item, ok := rowAt(a.scheduleListRows(m), a.schedules.cursor)
-		if !ok {
-			return details{}
-		}
-
-		return scheduleDetails(m, item)
-	}
-
-	r, ok := rowAt(a.listRows(m), a.cursor)
-	if !ok {
-		return details{}
-	}
-
-	if r.header {
-		return details{
-			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, m.listing.archivedCount(r.workflow.ID)),
-		}
-	}
-
-	return details{
-		id:      r.item.Agent.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), r),
-		fields:  agentDetailFields(m, r.item),
-	}
-}
-
 // stage keeps the info pane on the row the cursor is standing on.
 func (a *archiveScreen) stage(m *model) {
 	m.stageTerminal()
-}
-
-// doc is the markdown drawn beside the list for the row the cursor is on.
-func (a *archiveScreen) doc(m *model) string {
-	r, ok := rowAt(a.listRows(m), a.cursor)
-	switch {
-	case !ok:
-		return emptyArchiveMarkdown
-	case r.header:
-		return workflowContextMarkdown(r.workflow)
-	default:
-		return archiveDocument(r.item.Agent)
-	}
-}
-
-// docRows is the block drawn beside the list at a width for the row the cursor is on.
-func (a *archiveScreen) docRows(m *model, width int) []string {
-	if a.kind == archiveAgents {
-		return paint.DocStyledRows(a.doc(m), width, columnStyle())
-	}
-
-	item, ok := rowAt(a.scheduleListRows(m), a.schedules.cursor)
-	if !ok {
-		return paint.DocStyledRows(emptyScheduleArchiveMarkdown, width, columnStyle())
-	}
-
-	return scheduleDocRows(item, width)
-}
-
-// archiveDocument is what the panel draws beside an archived agent's row.
-func archiveDocument(agent panel.Agent) string {
-	if agent.State.IsFailed() {
-		return failedPlaceholder(agent)
-	}
-
-	return archiveMarkdown(agent)
-}
-
-func (a *archiveScreen) view(m *model) string {
-	a.rows = a.buildRows(m)
-	a.scheduleRows = a.scheduleListRows(m)
-	defer func() { a.rows, a.scheduleRows = nil, nil }()
-
-	return m.columnListView(a.listParams(m))
 }
 
 func (a *archiveScreen) listParams(m *model) screenListParams {
@@ -467,27 +401,6 @@ func (a *archiveScreen) listParams(m *model) screenListParams {
 
 func (a *archiveScreen) help(m *model) keyMap {
 	return a.actions().help(m)
-}
-
-// snapshot is the archive's rows as the plain data the shared drawing reads.
-func (a *archiveScreen) snapshot(m *model, pane listPane) view.Snapshot {
-	rows := a.listRows(m)
-
-	return agentsSnapshot(snapshotParams{
-		rows:         rows,
-		selected:     a.selected,
-		scheduled:    m.listing.scheduledWorkflows(),
-		workflowDirs: m.listing.workflowDirs(),
-		focused:      rowKeyAt(rows, a.cursor),
-		caret:        pane.caret,
-		blinkedOut:   pane.blinkedOut,
-		loaderFrame:  m.loading.frame(),
-		matcher:      m.filter.pattern,
-		renaming:     a.renamingField(),
-		showHidden:   true,
-		flat:         a.sort.flat,
-		pane:         pane.width,
-	})
 }
 
 func archiveTabs() tabStrip {

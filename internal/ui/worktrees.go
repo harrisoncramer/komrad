@@ -272,7 +272,7 @@ type worktreesScreen struct {
 	scope      worktreeScope
 	scopeFocus bool
 	sort       tabsState
-	// drawn is the rows built once for the frame being drawn, and nil between frames.
+	// drawn is the rows built for the frame once an update settles, and nil while one runs.
 	drawn []worktreeRow
 }
 
