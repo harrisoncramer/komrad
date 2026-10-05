@@ -68,6 +68,11 @@ func (r logSourceRow) key() string {
 	return "log:" + r.source.GetId()
 }
 
+// isServiceLog reports whether the row is komrad's own structured service log rather than a run's output.
+func (r logSourceRow) isServiceLog() bool {
+	return r.source.Run == nil
+}
+
 // logsSourcesMsg is one listing of an agent's log sources come back.
 type logsSourcesMsg struct {
 	generation int
@@ -609,11 +614,11 @@ func (l *logsScreen) kinds() stops {
 	}
 }
 
-// kindsFit draws the format strip only over a service log, which alone is structured.
+// kindsFit draws the format strip only over a service log.
 func (l *logsScreen) kindsFit(m *model) bool {
 	row, ok := rowAt(l.rows(m), l.rowCursor.cursor)
 
-	return ok && row.source.Run == nil && m.listFitsTabs(l.listParams(m))
+	return ok && row.isServiceLog() && m.listFitsTabs(l.listParams(m))
 }
 
 func (l *logsScreen) kindsFocused() *bool {
@@ -636,7 +641,7 @@ func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
 
 // applyFormat draws a service log in the chosen format and a run's output as it was written.
 func (l *logsScreen) applyFormat(row logSourceRow) {
-	if row.source.Run != nil {
+	if !row.isServiceLog() {
 		l.viewer.SetFormat(logview.FormatRaw)
 
 		return

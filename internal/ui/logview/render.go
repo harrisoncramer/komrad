@@ -24,7 +24,7 @@ type entry map[string]any
 // field is an attribute the compact view shows and the function that draws it.
 type field struct {
 	key  string
-	draw func(palette paint.Palette, e entry, key string) string
+	draw func(palette paint.Palette, record entry, key string) string
 }
 
 // visibleFields are the attributes the compact view shows, in the order it shows them.
@@ -54,16 +54,12 @@ func Compact(palette paint.Palette, line string) string {
 		return sanitize(line)
 	}
 
-	var row []string
-
-	row = append(row, palette.Style(paint.ToneMuted).Render(record.clock()))
-
 	level, tone := record.level()
-	row = append(row, palette.Style(tone).Render(fmt.Sprintf("%-*s", levelWidth, level)))
-
-	row = append(row, record.message(palette, tone))
-
-	row = append(row, record.fields(palette)...)
+	row := append([]string{
+		palette.Style(paint.ToneMuted).Render(record.clock()),
+		palette.Style(tone).Render(fmt.Sprintf("%-*s", levelWidth, level)),
+		record.message(palette, tone),
+	}, record.fields(palette)...)
 
 	return strings.TrimRight(strings.Join(row, " "), " ")
 }
@@ -162,20 +158,20 @@ func (e entry) has(key string) bool {
 }
 
 // plainField is the value drawn dimmed as it stands.
-func plainField(palette paint.Palette, e entry, key string) string {
-	return palette.Style(paint.ToneMuted).Render(e.text(key))
+func plainField(palette paint.Palette, record entry, key string) string {
+	return palette.Style(paint.ToneMuted).Render(record.text(key))
 }
 
 // statusField is an HTTP status coloured by its class.
-func statusField(palette paint.Palette, e entry, key string) string {
-	status := e.text(key)
+func statusField(palette paint.Palette, record entry, key string) string {
+	status := record.text(key)
 
 	return palette.Style(statusTone(status)).Render(status)
 }
 
 // exitField is a process exit code, green when it is zero and red otherwise.
-func exitField(palette paint.Palette, e entry, key string) string {
-	code := e.text(key)
+func exitField(palette paint.Palette, record entry, key string) string {
+	code := record.text(key)
 	tone := paint.ToneDanger
 	if code == "0" {
 		tone = paint.ToneSuccess
@@ -185,27 +181,27 @@ func exitField(palette paint.Palette, e entry, key string) string {
 }
 
 // unreadField is a count of unread mail.
-func unreadField(palette paint.Palette, e entry, key string) string {
-	return palette.Style(paint.ToneMuted).Render("unread " + e.text(key))
+func unreadField(palette paint.Palette, record entry, key string) string {
+	return palette.Style(paint.ToneMuted).Render("unread " + record.text(key))
 }
 
 // durationField is a duration in milliseconds.
-func durationField(palette paint.Palette, e entry, key string) string {
-	return palette.Style(paint.ToneMuted).Render(e.text(key) + "ms")
+func durationField(palette paint.Palette, record entry, key string) string {
+	return palette.Style(paint.ToneMuted).Render(record.text(key) + "ms")
 }
 
 // errorField is an error drawn in red.
-func errorField(palette paint.Palette, e entry, key string) string {
-	return palette.Style(paint.ToneDanger).Render(e.text(key))
+func errorField(palette paint.Palette, record entry, key string) string {
+	return palette.Style(paint.ToneDanger).Render(record.text(key))
 }
 
 // errorCodeField is a connect error code, drawn only when no error message already carries it.
-func errorCodeField(palette paint.Palette, e entry, key string) string {
-	if e.has("error.message") {
+func errorCodeField(palette paint.Palette, record entry, key string) string {
+	if record.has("error.message") {
 		return ""
 	}
 
-	return errorField(palette, e, key)
+	return errorField(palette, record, key)
 }
 
 // statusTone is the tone of an HTTP status by its class.
