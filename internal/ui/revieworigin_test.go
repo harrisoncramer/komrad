@@ -25,7 +25,7 @@ func TestReviewJump(t *testing.T) {
 		frame := harness.readFrame()
 		require.Contains(t, readPopupProse(frame), "still in the change, outside what is on screen")
 
-		harness.press("J")
+		harness.press("space", "J")
 
 		frame = harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "where this comment was written, round 1")
@@ -41,7 +41,7 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		harness.press("<", "t", "J", "J")
+		harness.press("<", "t", "space", "J", "space", "J")
 
 		assert.Contains(t, readPopupProse(harness.readFrame()), "add a second file")
 
@@ -55,7 +55,7 @@ func TestReviewJump(t *testing.T) {
 			server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
 			harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-			harness.press("<", "t", "J", key)
+			harness.press("<", "t", "space", "J", key)
 
 			assert.Contains(t, readPopupProse(harness.readFrame()), "add a second file")
 
@@ -69,7 +69,7 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		harness.press("t", "J", "a")
+		harness.press("t", "space", "J", "space", "a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "all changes")
@@ -81,9 +81,9 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		harness.press("t", "a", "t", "J")
+		harness.press("t", "space", "a", "t", "space", "J")
 		require.Contains(t, readSidebarProse(harness.readFrame()), "where this comment was written, round 1")
-		harness.press("J")
+		harness.press("space", "J")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "the answer to this comment")
@@ -100,7 +100,7 @@ func TestReviewJump(t *testing.T) {
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		require.Contains(t, readSidebarProse(harness.readFrame()), "2 files, +4 -1")
-		harness.press("t", "J", "k")
+		harness.press("t", "space", "J", "k")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "where this comment was written, round 2")
@@ -114,7 +114,7 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{thread}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		harness.press("<", "t", "J")
+		harness.press("<", "t", "space", "J")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "where this comment was written, round 1, shown against the round's base")
@@ -128,7 +128,7 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{thread}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		harness.press("t", "J")
+		harness.press("t", "space", "J")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readOpenMessages(harness), "the round this comment was written on is gone")
@@ -140,7 +140,7 @@ func TestReviewJump(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
-		harness.press("<", "t", "c")
+		harness.press("<", "t", "space", "c")
 		require.Contains(t, harness.readFrame(), "  Reply")
 		typeText(harness, "still wrong")
 		harness.press("enter")
@@ -150,7 +150,7 @@ func TestReviewJump(t *testing.T) {
 			Body:     "still wrong",
 		})
 
-		harness.press("J", "j", "c")
+		harness.press("space", "J", "j", "space", "c")
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "  Comment")
@@ -161,7 +161,7 @@ func TestReviewJump(t *testing.T) {
 	t.Run("the jump splits the replies the same way", func(t *testing.T) {
 		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
 
-		harness.press("t", "J")
+		harness.press("t", "space", "J")
 
 		frame := harness.readFrame()
 		require.Contains(t, readSidebarProse(frame), "where this comment was written, round 1")

@@ -69,7 +69,7 @@ func (r *reviewScreen) refuseHistory(m *model, said string) {
 	summary := said + " is finished"
 	back := keyLabel(m.keys.Review.BaseForward) + " until the whole change is on screen"
 	if r.diff.spec.origin != nil {
-		back = keyLabel(m.keys.Review.Jump) + " to go back to where you were, then " + back
+		back = m.menuChordLabel(m.keys.Review.Jump) + " to go back to where you were, then " + back
 	}
 
 	detail := "This draws code the agent has already rewritten, so the line under the cursor is " +
@@ -114,7 +114,7 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 		return ""
 	}
 
-	return "that file is folded away" + separated + keyLabel(m.keys.Review.ToggleViewed) + " to open it"
+	return "that file is folded away" + separated + m.menuChordLabel(m.keys.Review.ToggleViewed) + " to open it"
 }
 
 // diffWindow is the window the diff is drawn in, zero-sized without a split.

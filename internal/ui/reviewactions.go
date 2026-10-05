@@ -70,65 +70,6 @@ func (r *reviewScreen) ownTable() []screenAction {
 			when: func(*model) bool { return r.doesWalk() },
 			nav:  func(m *model, _ string) tea.Cmd { return r.stepBaseForward(m) },
 		},
-		{
-			id:   actionReviewAnswer,
-			keys: func(k config.Keybindings) []string { return k.Review.Answer },
-			when: func(*model) bool { return r.doesOfferAnswer() },
-			nav:  func(m *model, _ string) tea.Cmd { return r.toggleAnswer(m) },
-		},
-		{
-			id:   actionReviewJump,
-			keys: func(k config.Keybindings) []string { return k.Review.Jump },
-			when: func(*model) bool { return r.doesOfferJump() },
-			nav:  func(m *model, _ string) tea.Cmd { return r.toggleJump(m) },
-		},
-		{
-			id:     actionReviewResolve,
-			keys:   func(k config.Keybindings) []string { return k.Review.Resolve },
-			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return r.resolveThread(m) }),
-		},
-		{
-			id:     actionReviewAccept,
-			keys:   func(k config.Keybindings) []string { return k.Review.Accept },
-			when:   func(*model) bool { return r.doesOfferAccept() },
-			direct: directly(notInMenu, r.orRefuseWrite(func(m *model) tea.Cmd { return r.acceptForge(m) })),
-		},
-		{
-			id:     actionReviewForgeReply,
-			keys:   func(k config.Keybindings) []string { return k.Review.ForgeReply },
-			when:   func(*model) bool { return r.doesOfferForgeReply() },
-			direct: directly(notInMenu, r.orRefuseComment(func(m *model) tea.Cmd { return r.composeForge(m) })),
-		},
-		{
-			id:     actionReviewForgePost,
-			keys:   func(k config.Keybindings) []string { return k.Review.ForgePost },
-			when:   func(*model) bool { return r.doesOfferForgeRetry() },
-			direct: directly(notInMenu, r.orRefuseComment(func(m *model) tea.Cmd { return r.retryForgeReply(m) })),
-		},
-		{
-			id:     actionReviewForgeDiscard,
-			keys:   func(k config.Keybindings) []string { return k.Review.ForgeDiscard },
-			when:   func(*model) bool { return r.doesOfferForgeRetry() },
-			direct: directly(notInMenu, r.orRefuseComment(func(m *model) tea.Cmd { return r.discardForgeReply(m) })),
-		},
-		{
-			id:     actionReviewViewed,
-			keys:   func(k config.Keybindings) []string { return k.Review.ToggleViewed },
-			direct: directly(viewedIsLocal, func(m *model, _ string) tea.Cmd { return r.toggleViewed(m) }),
-		},
-		// The two keys that write are taken whether or not anybody is there to read.
-		{
-			id:     actionReviewCompose,
-			keys:   func(k config.Keybindings) []string { return k.Review.Compose },
-			direct: directly(composerSurface, r.orRefuseComment(func(m *model) tea.Cmd { return r.compose(m) })),
-		},
-		{
-			id: actionReviewSend,
-			// Comments wait in a batch until sent, so this is offered while reading as well as
-			// while writing.
-			keys:   func(k config.Keybindings) []string { return k.Review.Send },
-			direct: directly(composerSurface, r.orRefuseWrite(func(m *model) tea.Cmd { return r.openRelease(m) })),
-		},
 	}
 }
 
@@ -169,26 +110,6 @@ func (r *reviewScreen) orRefuseComment(fn func(*model) tea.Cmd) func(*model, str
 }
 
 func (r *reviewScreen) legend() []screenLegendRow {
-	// An archived agent keeps every key that reads and loses every key that sends, so the ones that
-	// would only explain their own refusal are not offered.
-	reachable := func(m *model) bool {
-		return !r.isArchived(m)
-	}
-
-	// An older round holds no line a comment could ask to be changed, so the keys that write are
-	// not offered on one.
-	offered := func(m *model) bool {
-		_, history := r.isHistory()
-
-		return reachable(m) && !history
-	}
-
-	commentable := func(m *model) bool {
-		_, replying := r.diff.threadAtCursor()
-
-		return offered(m) || (reachable(m) && replying)
-	}
-
 	return []screenLegendRow{
 		navMoveRow("move"),
 		navPageRow(),
@@ -211,59 +132,9 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			show: r.doesFitBaseLegend,
 		},
 		{
-			of:   []actionID{actionReviewAnswer},
-			desc: func(*model) string { return r.diff.answerDesc() },
-			show: func(*model) bool { return r.doesOfferAnswer() },
-		},
-		{
-			of:   []actionID{actionReviewJump},
-			desc: func(*model) string { return r.diff.jumpDesc() },
-			show: func(*model) bool { return r.doesOfferJump() },
-		},
-		{
-			of:   []actionID{actionReviewResolve},
-			desc: func(*model) string { return r.diff.resolveDesc() },
-		},
-		{
-			of:   []actionID{actionReviewAccept},
-			desc: func(*model) string { return "accept the forge comment" },
-			show: func(*model) bool { return r.doesOfferAccept() },
-		},
-		{
-			of:   []actionID{actionReviewForgeReply},
-			desc: func(m *model) string { return "reply on " + r.forgeName(m) },
-			show: func(m *model) bool { return reachable(m) && r.doesOfferForgeReply() },
-		},
-		{
-			of:   []actionID{actionReviewForgePost},
-			desc: func(*model) string { return "retry the reply" },
-			show: func(m *model) bool { return reachable(m) && r.doesOfferForgeRetry() },
-		},
-		{
-			of:   []actionID{actionReviewForgeDiscard},
-			desc: func(*model) string { return "discard the reply" },
-			show: func(m *model) bool { return reachable(m) && r.doesOfferForgeRetry() },
-		},
-		{
-			of:   []actionID{actionReviewViewed},
-			desc: func(*model) string { return r.diff.viewedDesc() },
-			show: func(*model) bool { return !r.diff.spec.isNarrowed() },
-		},
-		{
 			of:   []actionID{actionReviewBaseForward},
 			desc: func(*model) string { return "a later chapter" },
 			show: r.doesFitBaseLegend,
-		},
-		{
-			of:    []actionID{actionReviewCompose},
-			desc:  func(*model) string { return r.composeDesc() },
-			show:  commentable,
-			strip: true,
-		},
-		{
-			of:   []actionID{actionReviewSend},
-			desc: func(*model) string { return r.threads.sendDesc() },
-			show: offered,
 		},
 		{
 			of:   []actionID{actionReviewBack},
@@ -339,11 +210,6 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return k.Review.Quit },
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
-			{
-				id:     actionReviewViewed,
-				keys:   func(k config.Keybindings) []string { return k.Review.ToggleViewed },
-				direct: directly(viewedIsLocal, func(m *model, _ string) tea.Cmd { return r.toggleViewed(m) }),
-			},
 		}...),
 		legend: []screenLegendRow{
 			navMoveRow("move between files"),
@@ -363,11 +229,6 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				desc: func(*model) string { return r.filesFilter.clearDesc() },
 			},
 			{
-				of:   []actionID{actionReviewViewed},
-				desc: func(*model) string { return r.diff.viewedDesc() },
-				show: func(*model) bool { return !r.diff.spec.isNarrowed() },
-			},
-			{
 				of:    []actionID{actionReviewBack},
 				desc:  func(*model) string { return r.backDesc() },
 				show:  func(*model) bool { return !r.filesFilter.isStanding() },
@@ -379,27 +240,115 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 
 // The review's own reasons for an arm that acts straight off its key.
 const (
-	viewedIsLocal   = "the fold is local and immediate, and holding a reading key on its echo would slow it"
-	editorRelease   = "leaving the editor releases the agent whichever key leaves it"
-	composerSurface = "the composer and the release panel are the review's own surface with their own submit"
+	editorRelease = "leaving the editor releases the agent whichever key leaves it"
 )
 
-// buildScreenMenu builds the review's own band, for the file in the editor and how the diff is drawn.
+// buildItemMenu builds the band on the thread under the diff's cursor.
+func (r *reviewScreen) buildItemMenu(m *model) (submenu, bool) {
+	if !r.isDiffFocused(m) {
+		return submenu{}, false
+	}
+
+	_, ok := r.diff.threadAtCursor()
+	if !ok {
+		return submenu{}, false
+	}
+
+	reachable := !r.isArchived(m)
+	entries := []submenuEntry{}
+
+	if reachable {
+		entries = append(entries, openEntry(r.composeDesc(), m.keys.Review.Compose, func(m *model) tea.Cmd {
+			return m.review.orRefuseComment(m.review.compose)(m, "")
+		}))
+	}
+
+	if reachable && r.doesOfferForgeReply() {
+		entries = append(entries, openEntry("reply on "+r.forgeName(m), m.keys.Review.ForgeReply, func(m *model) tea.Cmd {
+			return m.review.orRefuseComment(m.review.composeForge)(m, "")
+		}))
+	}
+
+	entries = append(entries, openEntry(r.diff.resolveDesc(), m.keys.Review.Resolve, func(m *model) tea.Cmd { return m.review.resolveThread(m) }))
+
+	if r.doesOfferAccept() {
+		entries = append(entries, openEntry("accept the forge comment", m.keys.Review.Accept, func(m *model) tea.Cmd {
+			return m.review.orRefuseWrite(m.review.acceptForge)(m, "")
+		}))
+	}
+
+	if reachable && r.doesOfferForgeRetry() {
+		entries = append(entries,
+			openEntry("retry the reply", m.keys.Review.ForgePost, func(m *model) tea.Cmd {
+				return m.review.orRefuseComment(m.review.retryForgeReply)(m, "")
+			}),
+			openEntry("discard the reply", m.keys.Review.ForgeDiscard, func(m *model) tea.Cmd {
+				return m.review.orRefuseComment(m.review.discardForgeReply)(m, "")
+			}),
+		)
+	}
+
+	if r.doesOfferAnswer() {
+		entries = append(entries, openEntry(r.diff.answerDesc(), m.keys.Review.Answer, func(m *model) tea.Cmd { return m.review.toggleAnswer(m) }))
+	}
+
+	entries = append(entries, openEntry(r.diff.jumpDesc(), m.keys.Review.Jump, func(m *model) tea.Cmd { return m.review.toggleJump(m) }))
+
+	return submenu{
+		kind:    formMenu,
+		title:   "thread",
+		entries: entries,
+	}, true
+}
+
+// buildScreenMenu builds the review's own band, for the file in the editor, how the diff is drawn
+// and the review waiting to be sent.
 func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 	_, history := r.isHistory()
+	reachable := !r.isArchived(m)
+	_, onThread := r.diff.threadAtCursor()
+	diffFocused := r.isDiffFocused(m)
 
 	edit := openEntry(r.hold.editorDesc(), m.keys.Review.EditFile, func(m *model) tea.Cmd { return m.review.pressEdit(m) })
 	edit.isOff = history && !r.hold.atEditor
 
+	entries := []submenuEntry{edit}
+
+	if !r.isPullRequestFocused(m) {
+		entries = append(entries, openEntry(r.diff.viewedDesc(), m.keys.Review.ToggleViewed, func(m *model) tea.Cmd { return m.review.toggleViewed(m) }))
+	}
+
+	entries = append(entries,
+		openEntry(r.diffKeys().expandDesc(), m.keys.Diff.Expand, func(m *model) tea.Cmd { return m.review.diffKeys().toggleExpanded(m) }),
+		openEntry(wrapDesc(m), m.keys.Diff.Wrap, func(m *model) tea.Cmd { return m.review.diffKeys().toggleWrap(m) }),
+	)
+
+	if diffFocused && !onThread && r.diff.spec.answer != nil {
+		entries = append(entries, openEntry(r.diff.answerDesc(), m.keys.Review.Answer, func(m *model) tea.Cmd { return m.review.toggleAnswer(m) }))
+	}
+
+	if diffFocused && !onThread && r.diff.spec.origin != nil {
+		entries = append(entries, openEntry(r.diff.jumpDesc(), m.keys.Review.Jump, func(m *model) tea.Cmd { return m.review.toggleJump(m) }))
+	}
+
+	if diffFocused && !onThread && reachable {
+		entries = append(entries, openEntry(r.composeDesc(), m.keys.Review.Compose, func(m *model) tea.Cmd {
+			return m.review.orRefuseComment(m.review.compose)(m, "")
+		}))
+	}
+
+	if reachable {
+		entries = append(entries, openEntry(r.threads.sendDesc(), m.keys.Review.Send, func(m *model) tea.Cmd {
+			return m.review.orRefuseWrite(m.review.openRelease)(m, "")
+		}))
+	}
+
+	entries = append(entries, openEntry(r.reloadDesc(m), m.keys.Review.Reload, func(m *model) tea.Cmd { return m.review.reloadFresh(m) }))
+	entries = append(entries, openEntry(r.diff.agentThreadsDesc(), m.keys.Review.AgentThreads, func(m *model) tea.Cmd { return m.review.toggleAgentThreads(m) }))
+
 	return submenu{
-		kind:  formMenu,
-		title: "review",
-		entries: []submenuEntry{
-			edit,
-			openEntry(r.diffKeys().expandDesc(), m.keys.Diff.Expand, func(m *model) tea.Cmd { return m.review.diffKeys().toggleExpanded(m) }),
-			openEntry(wrapDesc(m), m.keys.Diff.Wrap, func(m *model) tea.Cmd { return m.review.diffKeys().toggleWrap(m) }),
-			openEntry(r.reloadDesc(m), m.keys.Review.Reload, func(m *model) tea.Cmd { return m.review.reloadFresh(m) }),
-			openEntry(r.diff.agentThreadsDesc(), m.keys.Review.AgentThreads, func(m *model) tea.Cmd { return m.review.toggleAgentThreads(m) }),
-		},
+		kind:    formMenu,
+		title:   "review",
+		entries: entries,
 	}, true
 }

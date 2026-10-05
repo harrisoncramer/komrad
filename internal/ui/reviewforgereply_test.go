@@ -24,34 +24,34 @@ func TestReviewForgeReply(t *testing.T) {
 	}{
 		{
 			name:      "the reply key posts what was typed",
-			keys:      []string{"C", "o", "k", "enter"},
+			keys:      []string{"space", "C", "o", "k", "enter"},
 			procedure: agentv1connect.AgentServiceReplyOnForgeProcedure,
 			sent:      []proto.Message{&agentv1.ReplyOnForgeRequest{ThreadId: "t1", Body: "ok"}},
 		},
 		{
 			name:      "the post key retries a failed reply",
 			replies:   []*agentv1.ForgeReply{newFailedReply()},
-			keys:      []string{"p"},
+			keys:      []string{"space", "p"},
 			procedure: agentv1connect.AgentServiceRetryForgeReplyProcedure,
 			sent:      []proto.Message{&agentv1.RetryForgeReplyRequest{Id: "r1"}},
 		},
 		{
 			name:      "the post key does nothing with no failed reply",
 			replies:   []*agentv1.ForgeReply{newSentReply(agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT)},
-			keys:      []string{"p"},
+			keys:      []string{"space", "p", "esc"},
 			procedure: agentv1connect.AgentServiceRetryForgeReplyProcedure,
 		},
 		{
 			name:      "the discard key throws a failed reply away",
 			replies:   []*agentv1.ForgeReply{newFailedReply()},
-			keys:      []string{"x"},
+			keys:      []string{"space", "x"},
 			procedure: agentv1connect.AgentServiceDiscardForgeReplyProcedure,
 			sent:      []proto.Message{&agentv1.DiscardForgeReplyRequest{Id: "r1"}},
 		},
 		{
 			name:      "the discard key leaves a sent reply alone",
 			replies:   []*agentv1.ForgeReply{newSentReply(agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT)},
-			keys:      []string{"x"},
+			keys:      []string{"space", "x", "esc"},
 			procedure: agentv1connect.AgentServiceDiscardForgeReplyProcedure,
 		},
 	}
@@ -81,14 +81,14 @@ func TestReviewForgeReplyRefused(t *testing.T) {
 	}{
 		{
 			name:      "a refused reply is reported",
-			keys:      []string{"C", "o", "k", "enter"},
+			keys:      []string{"space", "C", "o", "k", "enter"},
 			procedure: agentv1connect.AgentServiceReplyOnForgeProcedure,
 			answer:    connect.NewResponse(&agentv1.ReplyOnForgeResponse{Reply: newFailedReply()}),
 		},
 		{
 			name:      "a refused retry is reported",
 			replies:   []*agentv1.ForgeReply{newFailedReply()},
-			keys:      []string{"p"},
+			keys:      []string{"space", "p"},
 			procedure: agentv1connect.AgentServiceRetryForgeReplyProcedure,
 			answer:    connect.NewResponse(&agentv1.RetryForgeReplyResponse{Reply: newFailedReply()}),
 		},
@@ -151,9 +151,10 @@ func TestReviewForgeReplyView(t *testing.T) {
 			hides:    []string{"◆ you"},
 		},
 		{
-			name:  "the composer quotes the forge comment it answers",
-			keys:  []string{"C"},
-			shows: []string{"reply on the forge", "↳ @dana: use a map"},
+			name:  "the composer opens under the forge comment it answers",
+			keys:  []string{"space", "C"},
+			shows: []string{"◆ @dana", "use a map", "─────", "reply on the forge"},
+			hides: []string{"↳ @dana"},
 		},
 	}
 
@@ -184,7 +185,7 @@ func TestReviewForgeReplyLocal(t *testing.T) {
 	server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "renamed it"))}
 	harness := openReview(t, server)
 
-	harness.press("p", "x")
+	harness.press("space", "p", "esc", "space", "x", "esc")
 
 	assert.NotContains(t, readPopupProse(harness.readFrame()), "public")
 	for _, procedure := range []string{

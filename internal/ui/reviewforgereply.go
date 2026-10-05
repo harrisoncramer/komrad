@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"komrad/internal/forge"
 	"komrad/internal/glyph"
@@ -15,15 +14,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // reviewForgeCompose is the composer open on a reply that goes to the forge rather than to the
 // agent.
 type reviewForgeCompose struct {
 	title string
-	// quote is the forge comment the reply answers, drawn over the field.
-	quote string
 }
 
 // failedForgeReply is the reply in a thread the forge refused, which waits on the person to retry
@@ -37,18 +33,6 @@ func failedForgeReply(thread *agentv1.ReviewThread) (*agentv1.ForgeReply, bool) 
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING,
 			agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
-		}
-	}
-
-	return nil, false
-}
-
-// lastForgeMessage is the latest comment in a thread written on the forge.
-func lastForgeMessage(thread *agentv1.ReviewThread) (*agentv1.ReviewMessage, bool) {
-	messages := thread.GetMessages()
-	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].GetForge() != nil {
-			return messages[i], true
 		}
 	}
 
@@ -194,9 +178,6 @@ func (r *reviewScreen) composeForge(m *model) tea.Cmd {
 	compose := &reviewForgeCompose{
 		title: "reply on " + r.forgeName(m) + separated + "public on " + r.forgeRef(m),
 	}
-	if said, ok := lastForgeMessage(thread); ok {
-		compose.quote = describeForgeLogin(said.GetForge().GetLogin()) + ": " + firstLine(plainForgeText(said.GetBody()))
-	}
 
 	r.threads.editing = thread.GetId()
 	r.threads.composing = true
@@ -208,12 +189,6 @@ func (r *reviewScreen) composeForge(m *model) tea.Cmd {
 		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "post"),
 		Placeholder: "what should " + r.forgeName(m) + " read?",
 	})
-}
-
-func firstLine(text string) string {
-	line, _, _ := strings.Cut(strings.TrimSpace(text), "\n")
-
-	return line
 }
 
 // saveForgeReply posts what the composer holds to the forge as the person's own reply.
@@ -232,17 +207,6 @@ func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, bod
 
 		return forgeReplyNotice(res.Msg.GetReply())
 	}))
-}
-
-// forgeQuoteView is the forge comment drawn over the composer it is being answered in.
-func (t reviewThreads) forgeQuoteView(width int) string {
-	if t.forge == nil || t.forge.quote == "" {
-		return ""
-	}
-
-	quote := ansi.Truncate("↳ "+t.forge.quote, max(width, 1), "…")
-
-	return paint.Panel.Style(diffview.ForgeTone).Italic(true).Render(quote) + "\n"
 }
 
 // forgeMark is the mark a comment that lives on the forge opens with.

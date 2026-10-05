@@ -38,7 +38,7 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 	}{
 		{
 			name:    "a review key taking a movement key",
-			rebind:  func(k *config.Keybindings) { k.Review.Compose = k.Nav.Down },
+			rebind:  func(k *config.Keybindings) { k.Review.NextThread = k.Nav.Down },
 			screens: []screen{screenReview},
 		},
 		{
@@ -137,7 +137,7 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 	}{
 		{
 			name:   "tab, which only the compose box reads",
-			rebind: func(k *config.Keybindings) { k.Review.Resolve = []string{"tab"} },
+			rebind: func(k *config.Keybindings) { k.Review.Base = []string{"tab"} },
 		},
 		{
 			name:   "backspace, which only the filter and the search box read",

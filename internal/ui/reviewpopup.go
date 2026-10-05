@@ -29,14 +29,16 @@ func (r reviewScreen) measurePopupInner(m *model) int {
 }
 
 // popupBody is what the popup holds where the cursor stands and how far it is scrolled back from
-// the end: the editor while the reader writes, the conversation on the line otherwise, and nothing
-// on a line with no thread.
+// the end: the editor while the reader writes, under the conversation it replies in, the
+// conversation on the line otherwise, and nothing on a line with no thread.
 func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 	switch {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
 	case r.threads.composing:
-		return r.threads.forgeQuoteView(inner) + r.threads.editor.view(), 0
+		_, conversation, _ := r.conversationAtCursor(m, inner)
+
+		return withSection(conversation, r.threads.editor.view(), inner), 0
 	case r.threads.releasing:
 		return r.threads.editor.view(), 0
 	}
@@ -102,11 +104,11 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 	}
 }
 
-// withMenu is a popup body with the menu as a section under it, or the menu alone under no body.
-func withMenu(body, menu string, inner int) string {
+// withSection is a popup body with a section under it, such as the menu or the editor, or the section alone under no body.
+func withSection(body, section string, inner int) string {
 	if body == "" {
-		return menu
+		return section
 	}
 
-	return strings.TrimRight(body, "\n") + "\n" + dimStyle().Render(strings.Repeat(glyph.Rule, inner)) + "\n" + menu
+	return strings.TrimRight(body, "\n") + "\n" + dimStyle().Render(strings.Repeat(glyph.Rule, inner)) + "\n" + section
 }
