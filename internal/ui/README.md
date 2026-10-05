@@ -169,10 +169,9 @@ and the root's drawing of the header, the record, the messages and the legend th
 calls. The review composes its own frame from the same pieces, and the editor it opens on the
 stage goes through the root.
 
-Each list screen draws from a file of its own named for it, agentsview.go, archiveview.go,
-documentsview.go, logsview.go, schedulesview.go, searchview.go, statuschecksview.go,
-statuschecklogsview.go and worktreesview.go. The view, the rows, the record and the document
-are there, and the keys, loads and buildFrame stay in the screen's own file.
+Each list screen draws from a file named for it with a view suffix, such as agentsview.go. That
+file holds view and the functions only view calls. Keys, loads, and the rows buildFrame keeps
+stay with the screen's state.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, listing.go, keys.go, clipboard.go, report.go, convert.go.
