@@ -20,12 +20,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
-	schedulesScreen = "the schedules"
-	scheduleForm    = "minute hour day month weekday"
-	archiveMenu     = "morning-ci › archive"
-)
-
 // TestSchedulesKeys covers what each key does on the schedule under the cursor.
 func TestSchedulesKeys(t *testing.T) {
 	tests := []struct {
@@ -724,6 +718,12 @@ func TestSchedulesForm(t *testing.T) {
 		assert.Contains(t, form, "› komrad  /repos/komrad")
 	})
 }
+
+const (
+	schedulesScreen = "the schedules"
+	scheduleForm    = "minute hour day month weekday"
+	archiveMenu     = "morning-ci › archive"
+)
 
 func openSchedules(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()

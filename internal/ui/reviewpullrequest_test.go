@@ -17,37 +17,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func newPullRequestReviewServer(t *testing.T) *reviewServer {
-	t.Helper()
-
-	server := newReviewServer(t)
-	server.agent.RepositoryUrl = xptr.Ptr(repositoryURL)
-	server.agent.Branch = xptr.Ptr("agent/auth")
-	server.forge = []proto.Message{&pullrequestv1.PullRequest{
-		Id:                "pr-1",
-		RepositoryUrl:     repositoryURL,
-		HeadRepositoryUrl: repositoryURL,
-		HeadBranch:        "agent/auth",
-		Number:            7,
-		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-		OpenedAt:          "2026-09-19T12:00:00Z",
-	}}
-
-	return server
-}
-
-func newDescribedReviewServer(t *testing.T, body string) *reviewServer {
-	t.Helper()
-
-	server := newPullRequestReviewServer(t)
-	pullRequest := server.forge[0].(*pullrequestv1.PullRequest)
-	pullRequest.Title = "fix the greeting"
-	pullRequest.Author = "dana"
-	pullRequest.Body = body
-
-	return server
-}
-
 // TestReviewPullRequest covers the pull request open from the branch drawn over the sidebar's
 // file tree.
 func TestReviewPullRequest(t *testing.T) {
@@ -231,6 +200,37 @@ func TestReviewPullRequest(t *testing.T) {
 		harness.press("g", "g")
 		assert.Contains(t, readSidebar(harness.readFrame()), "  ↓ 31 more")
 	})
+}
+
+func newPullRequestReviewServer(t *testing.T) *reviewServer {
+	t.Helper()
+
+	server := newReviewServer(t)
+	server.agent.RepositoryUrl = xptr.Ptr(repositoryURL)
+	server.agent.Branch = xptr.Ptr("agent/auth")
+	server.forge = []proto.Message{&pullrequestv1.PullRequest{
+		Id:                "pr-1",
+		RepositoryUrl:     repositoryURL,
+		HeadRepositoryUrl: repositoryURL,
+		HeadBranch:        "agent/auth",
+		Number:            7,
+		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		OpenedAt:          "2026-09-19T12:00:00Z",
+	}}
+
+	return server
+}
+
+func newDescribedReviewServer(t *testing.T, body string) *reviewServer {
+	t.Helper()
+
+	server := newPullRequestReviewServer(t)
+	pullRequest := server.forge[0].(*pullrequestv1.PullRequest)
+	pullRequest.Title = "fix the greeting"
+	pullRequest.Author = "dana"
+	pullRequest.Body = body
+
+	return server
 }
 
 // wheelOverSidebar turns the wheel down over the first sidebar row holding text.

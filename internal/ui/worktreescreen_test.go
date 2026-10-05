@@ -23,8 +23,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const worktreesScreen = "the worktrees"
-
 // TestWorktreesOpen covers the screen opening on the directory of the agent the cursor was on.
 func TestWorktreesOpen(t *testing.T) {
 	t.Parallel()
@@ -1052,6 +1050,8 @@ func TestWorktreesScope(t *testing.T) {
 		assert.NotContains(t, readLegend(frame), "F kind")
 	})
 }
+
+const worktreesScreen = "the worktrees"
 
 func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()

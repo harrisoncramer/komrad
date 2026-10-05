@@ -128,33 +128,6 @@ func TestHelpFitsEveryScreen(t *testing.T) {
 	}
 }
 
-func openHelp(t *testing.T, params panelHarnessParams, press ...string) *panelHarness {
-	t.Helper()
-
-	dormant := newDormant("api-refactor")
-	dormant.Id = "a2"
-
-	harness := newPanelHarness(t, params)
-	answerWorktreeReads(harness)
-	harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
-	harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newPausable("1970-01-01T00:00:00Z"), dormant))
-	harness.press(press...)
-
-	return harness
-}
-
-type undrawn struct {
-	key    string
-	reason string
-}
-
-type driftScreen struct {
-	name    string
-	screen  string
-	open    func(t *testing.T) *panelHarness
-	excused []undrawn
-}
-
 // TestHelpKeyDrift covers every key a screen answers being named in that screen's legend.
 func TestHelpKeyDrift(t *testing.T) {
 	pressable := readConfiguredKeys(t, config.DefaultKeybindings())
@@ -188,6 +161,33 @@ func TestHelpKeyDrift(t *testing.T) {
 			}
 		})
 	}
+}
+
+func openHelp(t *testing.T, params panelHarnessParams, press ...string) *panelHarness {
+	t.Helper()
+
+	dormant := newDormant("api-refactor")
+	dormant.Id = "a2"
+
+	harness := newPanelHarness(t, params)
+	answerWorktreeReads(harness)
+	harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
+	harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newPausable("1970-01-01T00:00:00Z"), dormant))
+	harness.press(press...)
+
+	return harness
+}
+
+type undrawn struct {
+	key    string
+	reason string
+}
+
+type driftScreen struct {
+	name    string
+	screen  string
+	open    func(t *testing.T) *panelHarness
+	excused []undrawn
 }
 
 func buildDriftScreens() []driftScreen {

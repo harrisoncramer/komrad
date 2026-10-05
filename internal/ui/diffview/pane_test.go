@@ -13,40 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// paneHeight is the rows the panes under test are drawn in.
-const paneHeight = 5
-
-// paneWindow is the window the panes under test are drawn in.
-var paneWindow = Window{Width: 80, Height: paneHeight}
-
-// numberedText is lines "line 1" to "line n", with any line given replaced.
-func numberedText(n int, replaced map[int]string) string {
-	lines := make([]string, n)
-	for i := range lines {
-		lines[i] = fmt.Sprint("line ", i+1)
-		if text, ok := replaced[i+1]; ok {
-			lines[i] = text
-		}
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// twoChangePane is a headless pane over twenty lines with the first and the last rewritten.
-func twoChangePane() Pane {
-	view := NewView(patchWith(diff.FromTexts("notes.md",
-		numberedText(20, nil),
-		numberedText(20, map[int]string{1: "first", 20: "last"}),
-	)), false)
-	view.SetHeadless(true)
-
-	return NewPane(view)
-}
-
-func readCursorText(p *Pane) string {
-	return strings.TrimSpace(ansi.Strip(p.View().renderRow(p.Cursor(), noCursor, 80, 0)))
-}
-
 // TestNewPaneStandsOnTheFirstLine covers where a reader starts.
 func TestNewPaneStandsOnTheFirstLine(t *testing.T) {
 	pane := twoChangePane()
@@ -252,35 +218,6 @@ func TestPaneRender(t *testing.T) {
 	assert.Equal(t, pane.View().renderRow(pane.Cursor(), DimCursor, 40, 0), window[pane.Cursor()-start])
 }
 
-// wrappedWindow is a pane narrow enough that every line of longText wraps.
-var wrappedWindow = Window{
-	Width:  GutterWidth + 10,
-	Height: 6,
-	Wrap:   true,
-}
-
-// longText is ten lines each long enough to wrap in wrappedWindow.
-func longText(word string) string {
-	lines := make([]string, 10)
-	for i := range lines {
-		lines[i] = fmt.Sprint(word, " ", i+1, " runs on past the edge")
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// assertCursorInSight checks the cursor's row is drawn whole in the window, or from its top when
-// it is taller than the window.
-func assertCursorInSight(t *testing.T, p *Pane, window Window) {
-	t.Helper()
-
-	first, height := p.GetCursorLines(window)
-	assert.GreaterOrEqual(t, first, 0, "the cursor's row starts inside the window")
-	if height <= window.Height {
-		assert.LessOrEqual(t, first+height, window.Height, "the cursor's row ends inside the window")
-	}
-}
-
 // TestPaneScrollsWrappedRows covers the window following the cursor by lines when rows wrap.
 func TestPaneScrollsWrappedRows(t *testing.T) {
 	pane := NewPane(NewView(patchWith(diff.FromTexts("notes.md", longText("old"), longText("new"))), false))
@@ -401,5 +338,68 @@ func TestPaneKeepsTheFileNameOnTop(t *testing.T) {
 				assert.Equal(t, want, strings.TrimSpace(ansi.Strip(rows[i])))
 			}
 		})
+	}
+}
+
+// paneHeight is the rows the panes under test are drawn in.
+const paneHeight = 5
+
+// paneWindow is the window the panes under test are drawn in.
+var paneWindow = Window{Width: 80, Height: paneHeight}
+
+// numberedText is lines "line 1" to "line n", with any line given replaced.
+func numberedText(n int, replaced map[int]string) string {
+	lines := make([]string, n)
+	for i := range lines {
+		lines[i] = fmt.Sprint("line ", i+1)
+		if text, ok := replaced[i+1]; ok {
+			lines[i] = text
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// twoChangePane is a headless pane over twenty lines with the first and the last rewritten.
+func twoChangePane() Pane {
+	view := NewView(patchWith(diff.FromTexts("notes.md",
+		numberedText(20, nil),
+		numberedText(20, map[int]string{1: "first", 20: "last"}),
+	)), false)
+	view.SetHeadless(true)
+
+	return NewPane(view)
+}
+
+func readCursorText(p *Pane) string {
+	return strings.TrimSpace(ansi.Strip(p.View().renderRow(p.Cursor(), noCursor, 80, 0)))
+}
+
+// wrappedWindow is a pane narrow enough that every line of longText wraps.
+var wrappedWindow = Window{
+	Width:  GutterWidth + 10,
+	Height: 6,
+	Wrap:   true,
+}
+
+// longText is ten lines each long enough to wrap in wrappedWindow.
+func longText(word string) string {
+	lines := make([]string, 10)
+	for i := range lines {
+		lines[i] = fmt.Sprint(word, " ", i+1, " runs on past the edge")
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// assertCursorInSight checks the cursor's row is drawn whole in the window, or from its top when
+// it is taller than the window.
+func assertCursorInSight(t *testing.T, p *Pane, window Window) {
+	t.Helper()
+
+	first, height := p.GetCursorLines(window)
+	assert.GreaterOrEqual(t, first, 0, "the cursor's row starts inside the window")
+	if height <= window.Height {
+		assert.LessOrEqual(t, first+height, window.Height, "the cursor's row ends inside the window")
 	}
 }

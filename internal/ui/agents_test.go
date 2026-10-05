@@ -31,18 +31,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	hiddenMark    = " \uf4c5"
-	heldAt        = "2026-09-20T12:00:00Z"
-	repositoryURL = "https://github.com/harrisoncramer/komrad"
-)
-
-var (
-	recordAgentLine  = regexp.MustCompile(`agent\s+—`)
-	recordBranchLine = regexp.MustCompile(`branch\s+agent/auth`)
-	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
-)
-
 // TestAgentsRows covers which rows the agents tree draws and where.
 func TestAgentsRows(t *testing.T) {
 	tests := []struct {
@@ -2508,6 +2496,18 @@ func TestAgentsSelection(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}})
 	})
 }
+
+const (
+	hiddenMark    = " \uf4c5"
+	heldAt        = "2026-09-20T12:00:00Z"
+	repositoryURL = "https://github.com/harrisoncramer/komrad"
+)
+
+var (
+	recordAgentLine  = regexp.MustCompile(`agent\s+—`)
+	recordBranchLine = regexp.MustCompile(`branch\s+agent/auth`)
+	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
+)
 
 func openAgents(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()

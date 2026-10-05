@@ -14,22 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// patchBaseSHA is the commit these patches are measured from, non-empty so that a thread sharing
-// it says so rather than matching by two empty strings.
-const patchBaseSHA = "0e1f2a3b4c5d6e7f80910a1b2c3d4e5f60718293"
-
-func patchWith(files ...diff.File) *diff.Patch {
-	return &diff.Patch{
-		Root:    "/repo",
-		BaseSHA: patchBaseSHA,
-		Files:   files,
-	}
-}
-
-func hunkOf(lines ...diff.Line) diff.Hunk {
-	return diff.Hunk{Header: "@@ -1 +1 @@", Lines: lines}
-}
-
 // TestEditTargetIsWhereTheLineLivesNow covers a surviving line opening at its own number and a
 // deleted one at the closest line that survived it.
 func TestEditTargetIsWhereTheLineLivesNow(t *testing.T) {
@@ -168,31 +152,6 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "emptied.go", path)
 	assert.Equal(t, 1, line, "an emptied file opens at its top rather than at another file's line")
-}
-
-// twoFilePatch is two files with one changed line apiece.
-func twoFilePatch() *diff.Patch {
-	file := func(path, text string) diff.File {
-		return diff.File{
-			OldPath: path,
-			NewPath: path,
-			Hunks: []diff.Hunk{hunkOf(
-				diff.Line{
-					Kind:      diff.Context,
-					Text:      "package greet",
-					OldNumber: 1,
-					NewNumber: 1,
-				},
-				diff.Line{
-					Kind:      diff.Addition,
-					Text:      text,
-					NewNumber: 2,
-				},
-			)},
-		}
-	}
-
-	return patchWith(file("greet.go", "// greet"), file("wave.go", "// wave"))
 }
 
 // TestViewedFileCollapsesToItsHeader covers the fold itself: the file keeps its header and
@@ -425,4 +384,45 @@ func TestHeadlessViewDrawsItsHunksAlone(t *testing.T) {
 		"   2      -  two",
 		"        2 +  2",
 	}, rows)
+}
+
+// patchBaseSHA is the commit these patches are measured from, non-empty so that a thread sharing
+// it says so rather than matching by two empty strings.
+const patchBaseSHA = "0e1f2a3b4c5d6e7f80910a1b2c3d4e5f60718293"
+
+func patchWith(files ...diff.File) *diff.Patch {
+	return &diff.Patch{
+		Root:    "/repo",
+		BaseSHA: patchBaseSHA,
+		Files:   files,
+	}
+}
+
+func hunkOf(lines ...diff.Line) diff.Hunk {
+	return diff.Hunk{Header: "@@ -1 +1 @@", Lines: lines}
+}
+
+// twoFilePatch is two files with one changed line apiece.
+func twoFilePatch() *diff.Patch {
+	file := func(path, text string) diff.File {
+		return diff.File{
+			OldPath: path,
+			NewPath: path,
+			Hunks: []diff.Hunk{hunkOf(
+				diff.Line{
+					Kind:      diff.Context,
+					Text:      "package greet",
+					OldNumber: 1,
+					NewNumber: 1,
+				},
+				diff.Line{
+					Kind:      diff.Addition,
+					Text:      text,
+					NewNumber: 2,
+				},
+			)},
+		}
+	}
+
+	return patchWith(file("greet.go", "// greet"), file("wave.go", "// wave"))
 }

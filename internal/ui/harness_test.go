@@ -53,6 +53,66 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// TestHarnessHoldsTimers covers the harness telling a timer from a command it can run at once.
+func TestHarnessHoldsTimers(t *testing.T) {
+	blinker := cursor.New()
+
+	tests := []struct {
+		name string
+		cmd  tea.Cmd
+		want bool
+	}{
+		{
+			name: "a command that answers at once is run",
+			cmd: func() tea.Msg {
+				return nil
+			},
+			want: false,
+		},
+		{
+			name: "a tick is held",
+			cmd:  tea.Tick(time.Hour, nil),
+			want: true,
+		},
+		{
+			name: "an every is held",
+			cmd:  tea.Every(time.Hour, nil),
+			want: true,
+		},
+		{
+			name: "a cursor blink is held",
+			cmd:  blinker.Blink(),
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotNil(t, tt.cmd)
+
+			assert.Equal(t, tt.want, isTimer(tt.cmd))
+		})
+	}
+}
+
+// TestHarnessFiresHeldTimers covers a debounced search waiting for its timer to be fired.
+func TestHarnessFiresHeldTimers(t *testing.T) {
+	harness := newPanelHarness(t, panelHarnessParams{})
+	harness.watch(buildSnapshot())
+
+	harness.press("tab", "/", "a", "p", "i")
+	harness.assertSent()
+
+	harness.fireTimers()
+	harness.assertSent(request{
+		procedure: agentv1connect.AgentServiceSearchTranscriptsProcedure,
+		msg: &agentv1.SearchTranscriptsRequest{
+			Query:      "api",
+			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](10)},
+		},
+	})
+}
+
 const (
 	maxSettleSteps       = 1000
 	defaultHarnessWidth  = 140
@@ -121,66 +181,6 @@ type requestRecorder struct {
 	seen    []request
 	answers map[string]answerFunc
 	gate    *gate
-}
-
-// TestHarnessHoldsTimers covers the harness telling a timer from a command it can run at once.
-func TestHarnessHoldsTimers(t *testing.T) {
-	blinker := cursor.New()
-
-	tests := []struct {
-		name string
-		cmd  tea.Cmd
-		want bool
-	}{
-		{
-			name: "a command that answers at once is run",
-			cmd: func() tea.Msg {
-				return nil
-			},
-			want: false,
-		},
-		{
-			name: "a tick is held",
-			cmd:  tea.Tick(time.Hour, nil),
-			want: true,
-		},
-		{
-			name: "an every is held",
-			cmd:  tea.Every(time.Hour, nil),
-			want: true,
-		},
-		{
-			name: "a cursor blink is held",
-			cmd:  blinker.Blink(),
-			want: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.NotNil(t, tt.cmd)
-
-			assert.Equal(t, tt.want, isTimer(tt.cmd))
-		})
-	}
-}
-
-// TestHarnessFiresHeldTimers covers a debounced search waiting for its timer to be fired.
-func TestHarnessFiresHeldTimers(t *testing.T) {
-	harness := newPanelHarness(t, panelHarnessParams{})
-	harness.watch(buildSnapshot())
-
-	harness.press("tab", "/", "a", "p", "i")
-	harness.assertSent()
-
-	harness.fireTimers()
-	harness.assertSent(request{
-		procedure: agentv1connect.AgentServiceSearchTranscriptsProcedure,
-		msg: &agentv1.SearchTranscriptsRequest{
-			Query:      "api",
-			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](10)},
-		},
-	})
 }
 
 type panelHarnessParams struct {

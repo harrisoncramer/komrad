@@ -13,49 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const statusChecksScreen = "the status checks"
-
-var everyStatusCheck = []string{"F", "shift+tab", "esc"}
-
-func openStatusChecks(t *testing.T, answer func(*panelHarness)) *panelHarness {
-	t.Helper()
-
-	return openStatusChecksOn(t, "c1", answer)
-}
-
-func openStatusChecksOn(t *testing.T, head string, answer func(*panelHarness)) *panelHarness {
-	t.Helper()
-
-	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)
-	rows[2].(*pullrequestv1.PullRequest).HeadSha = head
-	harness := openNoticed(t, panelHarnessParams{}, rows...)
-	answer(harness)
-	harness.press("space", "x")
-
-	return harness
-}
-
-func answerStatusChecks(checks ...*pullrequestv1.StatusCheck) func(*panelHarness) {
-	return answerStatusCheckReadings(&pullrequestv1.StatusCheckReading{HeadSha: "c1", StatusChecks: checks})
-}
-
-func answerStatusCheckReadings(readings ...*pullrequestv1.StatusCheckReading) func(*panelHarness) {
-	return func(harness *panelHarness) {
-		harness.answer(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-			return connect.NewResponse(&pullrequestv1.ListStatusChecksResponse{Readings: readings}), nil
-		})
-	}
-}
-
-func newStatusCheck(id, name string, state pullrequestv1.StatusCheckState, conclusion string) *pullrequestv1.StatusCheck {
-	return &pullrequestv1.StatusCheck{
-		ProviderId: id,
-		Name:       name,
-		State:      state,
-		Conclusion: conclusion,
-	}
-}
-
 // TestStatusChecksOpen covers the screen opening from the subpages menu.
 func TestStatusChecksOpen(t *testing.T) {
 	t.Parallel()
@@ -313,16 +270,6 @@ func TestStatusChecksScope(t *testing.T) {
 	})
 }
 
-func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, conclusion, startedAt, finishedAt string) *pullrequestv1.StatusCheckStep {
-	return &pullrequestv1.StatusCheckStep{
-		Name:       name,
-		State:      state,
-		Conclusion: conclusion,
-		StartedAt:  xptr.Ptr(startedAt),
-		FinishedAt: xptr.Ptr(finishedAt),
-	}
-}
-
 // TestStatusChecksSteps covers the side pane drawing the steps of the hovered status check.
 func TestStatusChecksSteps(t *testing.T) {
 	t.Parallel()
@@ -406,13 +353,6 @@ func TestStatusChecksSteps(t *testing.T) {
 		assert.Contains(t, frame, "unknown")
 		assert.False(t, harness.fireLoader())
 	})
-}
-
-func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, startedAt string) *pullrequestv1.StatusCheck {
-	check.Source = source
-	check.RunStartedAt = xptr.Ptr(startedAt)
-
-	return check
 }
 
 // TestStatusChecksNewestHead covers that a pull request's older heads never reach the screen, through pushes and before a new head is read.
@@ -536,4 +476,64 @@ func TestStatusChecksNewestHead(t *testing.T) {
 
 		assert.Equal(t, []string{"build"}, readListRows(harness.readFrame()))
 	})
+}
+
+const statusChecksScreen = "the status checks"
+
+var everyStatusCheck = []string{"F", "shift+tab", "esc"}
+
+func openStatusChecks(t *testing.T, answer func(*panelHarness)) *panelHarness {
+	t.Helper()
+
+	return openStatusChecksOn(t, "c1", answer)
+}
+
+func openStatusChecksOn(t *testing.T, head string, answer func(*panelHarness)) *panelHarness {
+	t.Helper()
+
+	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)
+	rows[2].(*pullrequestv1.PullRequest).HeadSha = head
+	harness := openNoticed(t, panelHarnessParams{}, rows...)
+	answer(harness)
+	harness.press("space", "x")
+
+	return harness
+}
+
+func answerStatusChecks(checks ...*pullrequestv1.StatusCheck) func(*panelHarness) {
+	return answerStatusCheckReadings(&pullrequestv1.StatusCheckReading{HeadSha: "c1", StatusChecks: checks})
+}
+
+func answerStatusCheckReadings(readings ...*pullrequestv1.StatusCheckReading) func(*panelHarness) {
+	return func(harness *panelHarness) {
+		harness.answer(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&pullrequestv1.ListStatusChecksResponse{Readings: readings}), nil
+		})
+	}
+}
+
+func newStatusCheck(id, name string, state pullrequestv1.StatusCheckState, conclusion string) *pullrequestv1.StatusCheck {
+	return &pullrequestv1.StatusCheck{
+		ProviderId: id,
+		Name:       name,
+		State:      state,
+		Conclusion: conclusion,
+	}
+}
+
+func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, conclusion, startedAt, finishedAt string) *pullrequestv1.StatusCheckStep {
+	return &pullrequestv1.StatusCheckStep{
+		Name:       name,
+		State:      state,
+		Conclusion: conclusion,
+		StartedAt:  xptr.Ptr(startedAt),
+		FinishedAt: xptr.Ptr(finishedAt),
+	}
+}
+
+func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, startedAt string) *pullrequestv1.StatusCheck {
+	check.Source = source
+	check.RunStartedAt = xptr.Ptr(startedAt)
+
+	return check
 }

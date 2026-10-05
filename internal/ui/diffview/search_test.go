@@ -14,46 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func twoHunkView() *View {
-	return NewView(patchWith(diff.File{
-		OldPath: "greet.go",
-		NewPath: "greet.go",
-		Hunks: []diff.Hunk{
-			hunkOf(
-				diff.Line{
-					Kind:      diff.Context,
-					Text:      "package greet",
-					OldNumber: 1,
-					NewNumber: 1,
-				},
-				diff.Line{
-					Kind:      diff.Deletion,
-					Text:      "return \"hello\"",
-					OldNumber: 4,
-				},
-				diff.Line{
-					Kind:      diff.Addition,
-					Text:      "return \"Hello\"",
-					NewNumber: 4,
-				},
-			),
-			hunkOf(
-				diff.Line{
-					Kind:      diff.Context,
-					Text:      "func Other() {",
-					OldNumber: 20,
-					NewNumber: 20,
-				},
-				diff.Line{
-					Kind:      diff.Addition,
-					Text:      "\treturn nil",
-					NewNumber: 21,
-				},
-			),
-		},
-	}), false)
-}
-
 // TestSearchMatchesTheLineAsDrawn covers what a pattern is matched against.
 func TestSearchMatchesTheLineAsDrawn(t *testing.T) {
 	view := twoHunkView()
@@ -181,4 +141,44 @@ func TestFileNameMatchIsPainted(t *testing.T) {
 
 	onCursor := view.renderRow(0, LiveCursor, 40, 0)
 	assert.Equal(t, 40, lipgloss.Width(onCursor), "the cursor's row reaches the edge of the pane")
+}
+
+func twoHunkView() *View {
+	return NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{
+			hunkOf(
+				diff.Line{
+					Kind:      diff.Context,
+					Text:      "package greet",
+					OldNumber: 1,
+					NewNumber: 1,
+				},
+				diff.Line{
+					Kind:      diff.Deletion,
+					Text:      "return \"hello\"",
+					OldNumber: 4,
+				},
+				diff.Line{
+					Kind:      diff.Addition,
+					Text:      "return \"Hello\"",
+					NewNumber: 4,
+				},
+			),
+			hunkOf(
+				diff.Line{
+					Kind:      diff.Context,
+					Text:      "func Other() {",
+					OldNumber: 20,
+					NewNumber: 20,
+				},
+				diff.Line{
+					Kind:      diff.Addition,
+					Text:      "\treturn nil",
+					NewNumber: 21,
+				},
+			),
+		},
+	}), false)
 }

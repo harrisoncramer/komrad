@@ -19,10 +19,6 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 )
 
-const traceID = "7c1f2a94"
-
-var landedAt = regexp.MustCompile(`[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2}[ap]m`)
-
 // TestMessagesHeader covers a message flashing on the engine line and what it leaves there.
 func TestMessagesHeader(t *testing.T) {
 	t.Run("a message flashes its summary beside the engine", func(t *testing.T) {
@@ -328,6 +324,62 @@ func TestMessagesGolden(t *testing.T) {
 	}
 }
 
+// TestMessagesRefusedWrites covers a refused write being said in the messages.
+func TestMessagesRefusedWrites(t *testing.T) {
+	tests := []struct {
+		name        string
+		agent       *agentv1.Agent
+		refused     string
+		reason      string
+		press       []string
+		wantSummary string
+	}{
+		{
+			name:        "a refused archive",
+			agent:       newDormant("api-refactor"),
+			refused:     agentv1connect.AgentServiceArchiveAgentsProcedure,
+			reason:      "already archived",
+			press:       []string{"j", "space", "a", "enter"},
+			wantSummary: `Could not archive agent "api-refactor"`,
+		},
+		{
+			name:        "a refused resume",
+			agent:       newDormant("api-refactor"),
+			refused:     agentv1connect.AgentServiceResumeAgentProcedure,
+			reason:      "no such agent",
+			press:       []string{"j", "enter"},
+			wantSummary: `Could not resume agent "api-refactor"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, newLiveWorkflow("w1", "backend"), tt.agent)
+			harness.refuse(tt.refused, connect.NewError(connect.CodeFailedPrecondition, errors.New(tt.reason)))
+
+			harness.press(tt.press...)
+			harness.press("ctrl+g")
+
+			pane := joinProse(readStage(harness.readFrame()))
+			assert.Contains(t, pane, tt.wantSummary)
+			assert.Contains(t, pane, tt.reason, "the service's reason is shown rather than the connect code in front of it")
+		})
+	}
+
+	t.Run("a write that lands says nothing and takes nothing away", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
+		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+
+		harness.press("j", "enter", "space", "a", "enter", "ctrl+g")
+
+		assert.Equal(t, "1 of 1", readPaneTally(harness.readFrame()), "the archive that landed pushed nothing onto the stack")
+	})
+}
+
+const traceID = "7c1f2a94"
+
+var landedAt = regexp.MustCompile(`[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2}[ap]m`)
+
 func openMessages(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
@@ -386,58 +438,6 @@ func readPaneTally(frame string) string {
 	}
 
 	return ""
-}
-
-// TestMessagesRefusedWrites covers a refused write being said in the messages.
-func TestMessagesRefusedWrites(t *testing.T) {
-	tests := []struct {
-		name        string
-		agent       *agentv1.Agent
-		refused     string
-		reason      string
-		press       []string
-		wantSummary string
-	}{
-		{
-			name:        "a refused archive",
-			agent:       newDormant("api-refactor"),
-			refused:     agentv1connect.AgentServiceArchiveAgentsProcedure,
-			reason:      "already archived",
-			press:       []string{"j", "space", "a", "enter"},
-			wantSummary: `Could not archive agent "api-refactor"`,
-		},
-		{
-			name:        "a refused resume",
-			agent:       newDormant("api-refactor"),
-			refused:     agentv1connect.AgentServiceResumeAgentProcedure,
-			reason:      "no such agent",
-			press:       []string{"j", "enter"},
-			wantSummary: `Could not resume agent "api-refactor"`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, newLiveWorkflow("w1", "backend"), tt.agent)
-			harness.refuse(tt.refused, connect.NewError(connect.CodeFailedPrecondition, errors.New(tt.reason)))
-
-			harness.press(tt.press...)
-			harness.press("ctrl+g")
-
-			pane := joinProse(readStage(harness.readFrame()))
-			assert.Contains(t, pane, tt.wantSummary)
-			assert.Contains(t, pane, tt.reason, "the service's reason is shown rather than the connect code in front of it")
-		})
-	}
-
-	t.Run("a write that lands says nothing and takes nothing away", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
-		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
-
-		harness.press("j", "enter", "space", "a", "enter", "ctrl+g")
-
-		assert.Equal(t, "1 of 1", readPaneTally(harness.readFrame()), "the archive that landed pushed nothing onto the stack")
-	})
 }
 
 func readOpenMessages(harness *panelHarness) string {

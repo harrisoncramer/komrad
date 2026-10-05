@@ -10,66 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// sortFixture is one row of a list under test: a name and a value the row may not carry.
-type sortFixture struct {
-	name  string
-	value int
-	held  bool
-}
-
-func sortFixtures() []sortFixture {
-	return []sortFixture{
-		{
-			name:  "d",
-			value: 2,
-			held:  true,
-		},
-		{name: "b", held: false},
-		{
-			name:  "c",
-			value: 1,
-			held:  true,
-		},
-		{
-			name:  "e",
-			value: 2,
-			held:  true,
-		},
-		{name: "a", held: false},
-		{
-			name:  "f",
-			value: 3,
-			held:  true,
-		},
-	}
-}
-
-func sortFixtureColumns() []sortColumn[sortFixture] {
-	return []sortColumn[sortFixture]{
-		{
-			id:    "value",
-			label: "value",
-			has: func(row sortFixture) bool {
-				return row.held
-			},
-			compare: func(a, b sortFixture) int {
-				return cmp.Compare(a.value, b.value)
-			},
-		},
-		{
-			id:    "name",
-			label: "name",
-			compare: func(a, b sortFixture) int {
-				return strings.Compare(a.name, b.name)
-			},
-		},
-	}
-}
-
-func sortFixtureNames(rows []sortFixture) []string {
-	return xslice.Map(rows, func(row sortFixture) string { return row.name })
-}
-
 // TestSortRowsOrdersByTheColumn covers the rows without the value sitting at the bottom
 // whichever way the arrow points, the comparator reversed for the down arrow, equal values
 // and the bottom rows both falling to the tiebreak, and a column every row carries.
@@ -236,4 +176,64 @@ func TestEveryStripIsBuiltFromItsTable(t *testing.T) {
 			assert.Contains(t, ids, tt.strip.fallback)
 		})
 	}
+}
+
+// sortFixture is one row of a list under test: a name and a value the row may not carry.
+type sortFixture struct {
+	name  string
+	value int
+	held  bool
+}
+
+func sortFixtures() []sortFixture {
+	return []sortFixture{
+		{
+			name:  "d",
+			value: 2,
+			held:  true,
+		},
+		{name: "b", held: false},
+		{
+			name:  "c",
+			value: 1,
+			held:  true,
+		},
+		{
+			name:  "e",
+			value: 2,
+			held:  true,
+		},
+		{name: "a", held: false},
+		{
+			name:  "f",
+			value: 3,
+			held:  true,
+		},
+	}
+}
+
+func sortFixtureColumns() []sortColumn[sortFixture] {
+	return []sortColumn[sortFixture]{
+		{
+			id:    "value",
+			label: "value",
+			has: func(row sortFixture) bool {
+				return row.held
+			},
+			compare: func(a, b sortFixture) int {
+				return cmp.Compare(a.value, b.value)
+			},
+		},
+		{
+			id:    "name",
+			label: "name",
+			compare: func(a, b sortFixture) int {
+				return strings.Compare(a.name, b.name)
+			},
+		},
+	}
+}
+
+func sortFixtureNames(rows []sortFixture) []string {
+	return xslice.Map(rows, func(row sortFixture) string { return row.name })
 }

@@ -24,20 +24,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	searchScreen  = "the search"
-	queryCaret    = "▏"
-	matchedTurn   = "the reconcile loop is what settles this"
-	previewFiller = " and then a good deal more of it said in the same breath, going on for long " +
-		"enough that no column the panel draws holds the whole of it on one row"
-)
-
-type searchServer struct {
-	pages       map[string]*agentv1.SearchTranscriptsResponse
-	transcripts map[string]string
-	refusals    map[string]error
-}
-
 // TestSearchQualifiers covers where the search lists the qualifiers it takes.
 func TestSearchQualifiers(t *testing.T) {
 	t.Parallel()
@@ -1099,6 +1085,20 @@ func TestSearchPreview(t *testing.T) {
 
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceSearchTranscriptsProcedure), 2)
 	})
+}
+
+const (
+	searchScreen  = "the search"
+	queryCaret    = "▏"
+	matchedTurn   = "the reconcile loop is what settles this"
+	previewFiller = " and then a good deal more of it said in the same breath, going on for long " +
+		"enough that no column the panel draws holds the whole of it on one row"
+)
+
+type searchServer struct {
+	pages       map[string]*agentv1.SearchTranscriptsResponse
+	transcripts map[string]string
+	refusals    map[string]error
 }
 
 type openSearchParams struct {

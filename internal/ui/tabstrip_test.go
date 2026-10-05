@@ -15,8 +15,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const stripLegend = "esc back to the list"
-
 // TestTabStrip covers the sort strip every tabbed list draws under its filter line.
 func TestTabStrip(t *testing.T) {
 	tests := []struct {
@@ -207,6 +205,8 @@ func TestTabStripGolden(t *testing.T) {
 		})
 	}
 }
+
+const stripLegend = "esc back to the list"
 
 func buildPinnedArchive() []proto.Message {
 	archivedAt := time.Date(2026, 9, 17, 12, 0, 0, 0, time.Local).Format(time.RFC3339)

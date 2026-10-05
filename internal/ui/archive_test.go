@@ -29,15 +29,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
-	archivedAt    = "2026-07-30T09:00:00Z"
-	archiveScreen = "the archive"
-	agentsScreen  = "the agents list"
-	deletePrompt  = "Permanently delete"
-)
-
-var widenListPresses = slices.Repeat([]string{"}"}, 10)
-
 // TestArchiveMenu covers what each entry of the archive menu does on the row under the cursor.
 func TestArchiveMenu(t *testing.T) {
 	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
@@ -1061,71 +1052,6 @@ func TestArchiveSchedules(t *testing.T) {
 	})
 }
 
-func openGroupedArchive(t *testing.T, rows ...proto.Message) *panelHarness {
-	t.Helper()
-
-	harness := newPanelHarness(t, panelHarnessParams{})
-	harness.press("shift+tab", "shift+tab", "esc", "f", "shift+tab", "j", "esc")
-	harness.watch(buildSnapshot(rows...))
-
-	return harness
-}
-
-func buildOneArchivedAgent() []proto.Message {
-	return []proto.Message{
-		newLiveWorkflow("w1", "backend"),
-		newArchivedAgent("a1", "api-refactor", "w1"),
-	}
-}
-
-func newLiveWorkflow(id, name string) *workflowv1.Workflow {
-	return &workflowv1.Workflow{
-		Id:   id,
-		Name: name,
-	}
-}
-
-func newArchivedWorkflow(id, name string) *workflowv1.Workflow {
-	return &workflowv1.Workflow{
-		Id:         id,
-		Name:       name,
-		ArchivedAt: xptr.Ptr(archivedAt),
-	}
-}
-
-func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
-	return &agentv1.Agent{
-		Id:         id,
-		Name:       name,
-		WorkflowId: workflowID,
-		State:      agentv1.AgentState_AGENT_STATE_IDLE,
-		ArchivedAt: xptr.Ptr(archivedAt),
-	}
-}
-
-func newRestoredAgent() *agentv1.Agent {
-	agent := newArchivedAgent("a1", "api-refactor", "w1")
-	agent.ArchivedAt = nil
-	agent.PaneId = "%9"
-	agent.Alive = xptr.Ptr(true)
-
-	return agent
-}
-
-func newArchivedAgentAt(name, at string) *agentv1.Agent {
-	agent := newArchivedAgent(name, name, "w1")
-	agent.ArchivedAt = xptr.Ptr(at)
-
-	return agent
-}
-
-func newArchivedSchedule(id, name string) *schedulev1.Schedule {
-	schedule := newSchedule(id, name)
-	schedule.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
-
-	return schedule
-}
-
 // TestArchiveLastScreen covers the saved screen drawn under an archived agent.
 func TestArchiveLastScreen(t *testing.T) {
 	t.Run("the saved screen is asked for once the cursor rests and drawn under the document", func(t *testing.T) {
@@ -1261,36 +1187,6 @@ func TestArchiveLastScreen(t *testing.T) {
 	})
 }
 
-// answerLastScreens answers each agent's saved screen at 80x24, and not found for any other.
-func answerLastScreens(harness *panelHarness, screens map[string]string) {
-	harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		read, _ := req.Any().(*agentv1.GetLastScreenRequest)
-
-		frame, ok := screens[read.GetAgentId()]
-		if !ok {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("no saved screen"))
-		}
-
-		return connect.NewResponse(&agentv1.GetLastScreenResponse{
-			Frame:      frame,
-			Width:      80,
-			Height:     24,
-			CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
-		}), nil
-	})
-}
-
-func requireLastScreenFor(t *testing.T, harness *panelHarness, agentIDs ...string) {
-	t.Helper()
-
-	sent := xslice.Map(harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure), func(msg proto.Message) string {
-		read, _ := msg.(*agentv1.GetLastScreenRequest)
-
-		return read.GetAgentId()
-	})
-	require.Equal(t, agentIDs, sent)
-}
-
 // TestArchiveReading covers the keys handed to an archived agent's record.
 func TestArchiveReading(t *testing.T) {
 	lines := make([]string, 40)
@@ -1346,4 +1242,108 @@ func TestArchiveReading(t *testing.T) {
 			}
 		})
 	}
+}
+
+const (
+	archivedAt    = "2026-07-30T09:00:00Z"
+	archiveScreen = "the archive"
+	agentsScreen  = "the agents list"
+	deletePrompt  = "Permanently delete"
+)
+
+var widenListPresses = slices.Repeat([]string{"}"}, 10)
+
+func openGroupedArchive(t *testing.T, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{})
+	harness.press("shift+tab", "shift+tab", "esc", "f", "shift+tab", "j", "esc")
+	harness.watch(buildSnapshot(rows...))
+
+	return harness
+}
+
+func buildOneArchivedAgent() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newArchivedAgent("a1", "api-refactor", "w1"),
+	}
+}
+
+func newLiveWorkflow(id, name string) *workflowv1.Workflow {
+	return &workflowv1.Workflow{
+		Id:   id,
+		Name: name,
+	}
+}
+
+func newArchivedWorkflow(id, name string) *workflowv1.Workflow {
+	return &workflowv1.Workflow{
+		Id:         id,
+		Name:       name,
+		ArchivedAt: xptr.Ptr(archivedAt),
+	}
+}
+
+func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         id,
+		Name:       name,
+		WorkflowId: workflowID,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
+		ArchivedAt: xptr.Ptr(archivedAt),
+	}
+}
+
+func newRestoredAgent() *agentv1.Agent {
+	agent := newArchivedAgent("a1", "api-refactor", "w1")
+	agent.ArchivedAt = nil
+	agent.PaneId = "%9"
+	agent.Alive = xptr.Ptr(true)
+
+	return agent
+}
+
+func newArchivedAgentAt(name, at string) *agentv1.Agent {
+	agent := newArchivedAgent(name, name, "w1")
+	agent.ArchivedAt = xptr.Ptr(at)
+
+	return agent
+}
+
+func newArchivedSchedule(id, name string) *schedulev1.Schedule {
+	schedule := newSchedule(id, name)
+	schedule.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
+
+	return schedule
+}
+
+// answerLastScreens answers each agent's saved screen at 80x24, and not found for any other.
+func answerLastScreens(harness *panelHarness, screens map[string]string) {
+	harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*agentv1.GetLastScreenRequest)
+
+		frame, ok := screens[read.GetAgentId()]
+		if !ok {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("no saved screen"))
+		}
+
+		return connect.NewResponse(&agentv1.GetLastScreenResponse{
+			Frame:      frame,
+			Width:      80,
+			Height:     24,
+			CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+		}), nil
+	})
+}
+
+func requireLastScreenFor(t *testing.T, harness *panelHarness, agentIDs ...string) {
+	t.Helper()
+
+	sent := xslice.Map(harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure), func(msg proto.Message) string {
+		read, _ := msg.(*agentv1.GetLastScreenRequest)
+
+		return read.GetAgentId()
+	})
+	require.Equal(t, agentIDs, sent)
 }

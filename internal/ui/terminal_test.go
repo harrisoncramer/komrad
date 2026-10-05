@@ -12,11 +12,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	infoPane       = "%2"
-	terminalRefuse = "Could not open a te"
-)
-
 // TestTerminal covers the subpage that opens a shell in the pane under the stage.
 func TestTerminal(t *testing.T) {
 	t.Run("the shell opens in the agent's directory and takes the keys", func(t *testing.T) {
@@ -173,6 +168,20 @@ func TestTerminal(t *testing.T) {
 	})
 }
 
+// TestInfo covers the pane below the stage staying shut until something asks for it.
+func TestInfo(t *testing.T) {
+	harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+
+	assert.Equal(t, "%9", harness.panel.ReadGuestPane(), "the hovered agent has the stage to itself")
+	assert.Empty(t, harness.panel.ReadBelowAnchors(), "nothing is split under it")
+	assert.NotContains(t, harness.panel.ReadRespawnPanes(), infoPane, "and nothing is paged into a pane below")
+}
+
+const (
+	infoPane       = "%2"
+	terminalRefuse = "Could not open a te"
+)
+
 func openTerminal(t *testing.T, params panelHarnessParams, agents ...*agentv1.Agent) *panelHarness {
 	t.Helper()
 
@@ -212,13 +221,4 @@ func readShellDirs(harness *panelHarness) []string {
 	}
 
 	return dirs
-}
-
-// TestInfo covers the pane below the stage staying shut until something asks for it.
-func TestInfo(t *testing.T) {
-	harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
-
-	assert.Equal(t, "%9", harness.panel.ReadGuestPane(), "the hovered agent has the stage to itself")
-	assert.Empty(t, harness.panel.ReadBelowAnchors(), "nothing is split under it")
-	assert.NotContains(t, harness.panel.ReadRespawnPanes(), infoPane, "and nothing is paged into a pane below")
 }
