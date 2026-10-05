@@ -43,7 +43,7 @@ func openAgentForm(m *model, workflow panel.Workflow, values *agentFormValues) t
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind: formAgent,
 		Build: func(m *model) (*huh.Form, []string) {
-			return newAgentForm(formKeys(), values, workflow.Worktree.Enabled)
+			return newAgentForm(fixedKeys(), values, workflow.Worktree.Enabled)
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitAgent(workflow, *values) }),
@@ -71,7 +71,7 @@ func childPrefill(parent panel.Agent) agentFormValues {
 func openChildForm(m *model, parent panel.Agent, values *agentFormValues) tea.Cmd {
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formChild,
-		Build:    func(m *model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
+		Build:    func(m *model) (*huh.Form, []string) { return childAgentForm(fixedKeys(), values, parent) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitChild(parent, *values) }),
 	}))
@@ -100,7 +100,7 @@ func openRetryForm(m *model, agent panel.Agent) tea.Cmd {
 
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formAgentRetry,
-		Build:    func(m *model) (*huh.Form, []string) { return retryAgentForm(formKeys(), &values) },
+		Build:    func(m *model) (*huh.Form, []string) { return retryAgentForm(fixedKeys(), &values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitRetry(agent, values) }),
 	}))
@@ -130,7 +130,7 @@ func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) tea.Cmd {
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formAdopt,
-		Build:    func(m *model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
+		Build:    func(m *model) (*huh.Form, []string) { return adoptAgentForm(fixedKeys(), values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitAdopt(workflow, *values) }),
 	}))
@@ -197,7 +197,7 @@ const (
 
 // newAgentForm asks for the work, and asks about the worktree only in a workflow that makes
 // them.
-func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) (*huh.Form, []string) {
+func newAgentForm(keys config.FixedKeys, values *agentFormValues, worktree bool) (*huh.Form, []string) {
 	fields := []huh.Field{
 		textField("prompt").Title("Initial prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
@@ -217,7 +217,7 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) 
 }
 
 // childAgentForm asks for the work and little else.
-func childAgentForm(keys config.FormKeys, values *agentFormValues, parent panel.Agent) (*huh.Form, []string) {
+func childAgentForm(keys config.FixedKeys, values *agentFormValues, parent panel.Agent) (*huh.Form, []string) {
 	fields := []huh.Field{
 		textField("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
 			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
@@ -232,7 +232,7 @@ func childAgentForm(keys config.FormKeys, values *agentFormValues, parent panel.
 }
 
 // adoptAgentForm asks for the work to pick up and little else.
-func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) (*huh.Form, []string) {
+func adoptAgentForm(keys config.FixedKeys, values *adoptFormValues) (*huh.Form, []string) {
 	fields := []huh.Field{
 		huh.NewInput().Key("ref").Title("Adopt").
 			Description("a branch already pushed or on disk").Value(&values.Ref),
@@ -253,7 +253,7 @@ type retryFormValues struct {
 	Flags   string
 }
 
-func retryAgentForm(keys config.FormKeys, values *retryFormValues) (*huh.Form, []string) {
+func retryAgentForm(keys config.FixedKeys, values *retryFormValues) (*huh.Form, []string) {
 	return formOf(keys,
 		textField("prompt").Title("Prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
@@ -291,7 +291,7 @@ func confirmArchiveAgents(m *model, agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	form, answer := archiveAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), formKeys())
+	form, answer := archiveAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formAgentArchive,
@@ -312,7 +312,7 @@ func confirmArchiveAgents(m *model, agents []panel.Agent) tea.Cmd {
 	})
 }
 
-func archiveAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) (*huh.Form, *archiveChoice) {
+func archiveAgentsForm(agents []panel.Agent, children int, keys config.FixedKeys) (*huh.Form, *archiveChoice) {
 	title := "Archive " + promptSubject(agents, children) + "?"
 
 	choice := archiveChoiceArchive
@@ -336,7 +336,7 @@ func archiveAgentsForm(agents []panel.Agent, children int, keys config.FormKeys)
 // rebaseForm asks before a worktree is brought up to date, saying what will happen to the
 // branch and to the files.
 func rebaseForm(plan rebasePlan) gitConfirmForm {
-	return func(keys config.FormKeys) (*huh.Form, *bool) {
+	return func(keys config.FixedKeys) (*huh.Form, *bool) {
 		return confirmForm(
 			"Bring the worktree of "+plan.name+" up to date?",
 			rebaseDescription(plan),

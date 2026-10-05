@@ -27,7 +27,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: list.quit,
+				keys: func(config.Keybindings) []string { return fixedKeys().Quit },
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 			{
@@ -38,7 +38,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			},
 			{
 				id:   actionFilterClear,
-				keys: list.back,
+				keys: func(config.Keybindings) []string { return fixedKeys().Back },
 				when: standing,
 				nav: func(m *model, _ string) tea.Cmd {
 					m.clearFilter()
@@ -48,7 +48,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			},
 			{
 				id:   actionScheduleBack,
-				keys: list.back,
+				keys: func(config.Keybindings) []string { return fixedKeys().Back },
 				nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 			},
 			{

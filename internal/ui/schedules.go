@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
@@ -69,8 +68,6 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		rows:   w.listRows,
 		name:   scheduleItemName,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
-		quit:   func(k config.Keybindings) []string { return k.Schedules.Quit },
-		back:   func(k config.Keybindings) []string { return k.Schedules.Back },
 	}
 }
 
@@ -203,7 +200,7 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 				values:        values,
 				workflows:     m.listing.workflows,
 				orchestrators: m.listing.liveOrchestrators(),
-				keys:          formKeys(),
+				keys:          fixedKeys(),
 			})
 		},
 		Reshaped: func() bool { return values.Kind != drawnKind },
@@ -364,10 +361,6 @@ func (w *schedulesScreen) doesDrawFromListing() bool {
 
 func (w *schedulesScreen) takesEveryKey() bool {
 	return w.isRenaming()
-}
-
-func (w *schedulesScreen) detailsQuit(keys config.Keybindings) []string {
-	return keys.Schedules.Quit
 }
 
 func (w *schedulesScreen) detailsFit(m *model) bool {

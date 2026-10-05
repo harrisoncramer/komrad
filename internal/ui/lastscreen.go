@@ -204,7 +204,7 @@ func (a *agentsScreen) screenNotice(m *model) string {
 		return "paused"
 	}
 
-	return "dormant" + separated + "press " + keyLabel(m.keys.Agents.Open) + " to restore"
+	return "dormant" + separated + "press " + keyLabel(fixedKeys().Open) + " to restore"
 }
 
 func (w *worktreesScreen) screenNotice(*model) string {

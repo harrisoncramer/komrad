@@ -144,7 +144,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 	}
 
 	if m.form.isActive() {
-		if isKey && isBound(key.String(), formKeys().Editor) {
+		if isKey && isBound(key.String(), fixedKeys().Editor) {
 			if cmd, opened := m.openFormFieldEditor(); opened {
 				return cmd
 			}

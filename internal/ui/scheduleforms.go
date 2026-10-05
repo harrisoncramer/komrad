@@ -18,7 +18,7 @@ type scheduleFormParams struct {
 	values        *panel.ScheduleConfig
 	workflows     []panel.Workflow
 	orchestrators []panel.Agent
-	keys          config.FormKeys
+	keys          config.FixedKeys
 }
 
 func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {

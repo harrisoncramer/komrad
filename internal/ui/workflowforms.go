@@ -322,7 +322,7 @@ func workflowTopFields(nameTitle string, values *workflowFormValues) []huh.Field
 	return []huh.Field{
 		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
 		textField("context").Title("Context").
-			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(formKeys().Editor))).
+			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(fixedKeys().Editor))).
 			Lines(2).Value(&values.Context),
 		huh.NewInput().Key("dir").Title("Default Directory").
 			Description("where agents start, and the checkout worktrees are cut from").
@@ -372,7 +372,7 @@ func workflowSections(values *workflowFormValues, editing bool) []formSection {
 			key:   workflowSectionEventPrompts,
 			title: "event prompts",
 			fields: func(*model) []huh.Field {
-				return eventPromptFields(values, formKeys())
+				return eventPromptFields(values, fixedKeys())
 			},
 			editable: eventPromptEditables(values),
 		},
@@ -461,7 +461,7 @@ func eventMuteKey(event string) string {
 }
 
 // eventPromptFields are what the workflow asks of its agents on each event, under a heading of their own.
-func eventPromptFields(values *workflowFormValues, keys config.FormKeys) []huh.Field {
+func eventPromptFields(values *workflowFormValues, keys config.FixedKeys) []huh.Field {
 	heading := huh.NewNote().Title("Event prompts").
 		Description(fmt.Sprintf("added to the mail komrad sends an agent on each event, and followed over what komrad says; %s opens $EDITOR", keyLabel(keys.Editor)))
 

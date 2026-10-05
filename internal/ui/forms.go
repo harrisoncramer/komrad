@@ -264,7 +264,7 @@ func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 
 // formOf draws a group of fields as one form, and lists the keys of the fields the cursor can
 // reach, in the order they are drawn.
-func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
+func formOf(keys config.FixedKeys, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...)).
 		WithShowHelp(true).
 		WithKeyMap(multiFieldKeyMap(keys)).
@@ -287,7 +287,7 @@ func textField(key string) *huh.Text {
 	return huh.NewText().Key(key).ExternalEditor(false)
 }
 
-func formKeyMap(keys config.FormKeys) *huh.KeyMap {
+func formKeyMap(keys config.FixedKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 
 	km := huh.NewDefaultKeyMap()
@@ -296,7 +296,7 @@ func formKeyMap(keys config.FormKeys) *huh.KeyMap {
 	return km
 }
 
-func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
+func multiFieldKeyMap(keys config.FixedKeys) *huh.KeyMap {
 	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
 
 	next := key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next"))
@@ -315,12 +315,12 @@ func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	return km
 }
 
-func confirmForm(title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
+func confirmForm(title, description, affirmative string, keys config.FixedKeys) (*huh.Form, *bool) {
 	return confirmFormStartingOn(true, title, description, affirmative, keys)
 }
 
 // confirmFormStartingOn builds a confirmation sitting on one of its two answers.
-func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) { //nolint:revive // a params struct is the follow-up
+func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FixedKeys) (*huh.Form, *bool) { //nolint:revive // a params struct is the follow-up
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
@@ -418,7 +418,7 @@ func (m *model) answerForm() tea.Cmd {
 // updateForm hands a message to the form on screen, and answers it either when huh says it is
 // finished or on the submit key.
 func (m *model) updateForm(msg tea.Msg) tea.Cmd {
-	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), formKeys().Submit) {
+	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), fixedKeys().Submit) {
 		return m.answerForm()
 	}
 
@@ -427,7 +427,7 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 			return cmd
 		}
 
-		if m.form.back != nil && isBound(key.String(), formKeys().Back) {
+		if m.form.back != nil && isBound(key.String(), fixedKeys().Back) {
 			return m.form.back(m)
 		}
 	}

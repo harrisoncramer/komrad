@@ -92,24 +92,13 @@ triage_rows    = 0
 
 # The agents list, the panel's main screen.
 [keybindings.agents]
-# Step out of a workflow scope, or open the view switcher at the root.
-back   = ["esc"]
 # Jump to the first agent in the triage zone at the top of the list.
 triage = ["t"]
-# Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
-# workflow. Either one is started first if it is not running.
-open   = ["enter"]
-# Quit the panel.
-quit   = ["ctrl+c"]
 # Rename the hovered agent.
 rename = ["r"]
 
 # The archive screen.
 [keybindings.archive]
-# Open the view switcher.
-back   = ["esc"]
-# Quit the panel.
-quit   = ["ctrl+c"]
 # Rename the agent or live workflow under the cursor, typed over its row.
 rename = ["r"]
 
@@ -164,15 +153,11 @@ wrap       = ["w"]
 
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
-# Leave the documents screen for the view it was opened from.
-back  = ["esc"]
 # Step back to an earlier write of the document under the cursor, drawing what that write
 # changed.
 older = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
 newer = [">"]
-# Quit the panel.
-quit  = ["ctrl+c"]
 
 # The menu on the hovered document, over the panel's own entries.
 [keybindings.document_menu]
@@ -264,28 +249,8 @@ merge_rebase  = ["r"]
 
 # The logs screen, which tails what the service logged about one agent.
 [keybindings.logs]
-# Leave the logs screen for the view it was opened from.
-back = ["esc"]
 # Copy the log line the cursor is on to the system clipboard.
 copy = ["y"]
-# Quit the panel.
-quit = ["ctrl+c"]
-
-# The status checks screen, which lists the status checks run on one agent's pull request.
-[keybindings.status_checks]
-# Leave the status checks screen for the view it was opened from.
-back = ["esc"]
-# Read the logs of the status checks the screen is showing.
-logs = ["enter"]
-# Quit the panel.
-quit = ["ctrl+c"]
-
-# The status check logs screen, which reads the logs of the status checks the status checks screen shows.
-[keybindings.status_check_logs]
-# Leave the status check logs for the status checks they were opened from.
-back = ["esc"]
-# Quit the panel.
-quit = ["ctrl+c"]
 
 # The messages komrad pushed, read in the main pane.
 [keybindings.messages]
@@ -322,8 +287,6 @@ accept           = ["A"]
 # it stood just before the agent's addressed reply to the work that reply carried, or
 # go back to all changes from there.
 answer           = ["a"]
-# Leave the review for the agents list.
-back             = ["esc"]
 # Walk back a chapter through the review, from the whole change to the newest chapter and
 # on into the older ones, stopping on the oldest.
 base             = ["<"]
@@ -359,8 +322,6 @@ next_open_thread = ["u"]
 prev_open_thread = ["U"]
 # Jump to the previous line carrying a review thread.
 prev_thread      = ["T"]
-# Quit the panel.
-quit             = ["ctrl+c"]
 # From the menu, catch up with the agent, once the band says it has written since you opened the
 # diff. What you are reading never moves on its own, since that would take the code out
 # from under a comment being written, so catching up is always yours to ask for.
@@ -385,10 +346,6 @@ scroll_up   = ["ctrl+p"]
 
 # The schedules screen.
 [keybindings.schedules]
-# Open the view switcher.
-back   = ["esc"]
-# Quit the panel.
-quit   = ["ctrl+c"]
 # Rename the schedule under the cursor, typed over its row.
 rename = ["r"]
 
@@ -503,13 +460,9 @@ rename = ["r"]
 
 # The worktrees screen, which lists every directory komrad cut for an agent.
 [keybindings.worktrees]
-# Open the view switcher.
-back          = ["esc"]
 # Jump to the agent in the directory under the cursor, on the agents list or in the
 # archive.
 jump_to_agent = ["J"]
-# Quit the panel.
-quit          = ["ctrl+c"]
 
 # How the panel draws a diff.
 [diff]

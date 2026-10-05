@@ -156,10 +156,6 @@ type Keybindings struct {
 	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the service logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
-	// The status checks screen, which lists the status checks run on one agent's pull request.
-	StatusChecks StatusChecksKeys `mapstructure:"status_checks"`
-	// The status check logs screen, which reads the logs of the status checks the status checks screen shows.
-	StatusCheckLogs StatusCheckLogsKeys `mapstructure:"status_check_logs"`
 	// The messages komrad pushed, read in the main pane.
 	Messages MessagesKeys `mapstructure:"messages"`
 	// Navigation, shared by every menu so movement is the same everywhere.
@@ -273,24 +269,27 @@ type ViewsKeys struct {
 	Previous []string `mapstructure:"previous" default:"shift+tab"`
 }
 
-// FormKeys are the keys a form answers, read before the key reaches the box being typed into and
-// so not something a config sets.
-type FormKeys struct {
-	// Abort the form without quitting the panel.
+// FixedKeys are the keys every screen, menu and form answers the same way, and so not something a
+// config sets.
+type FixedKeys struct {
+	// Leave the screen, menu or form for the one it was opened from.
 	Back []string
 	// Open the message being written in $EDITOR, in every box that takes prose.
 	Editor []string
-	// Abort the form and quit the panel.
+	// Open the row under the cursor.
+	Open []string
+	// Quit the panel, from a form as from anywhere else.
 	Quit []string
 	// Submit the form from any field.
 	Submit []string
 }
 
-// FixedFormKeys is the set every form answers to.
-func FixedFormKeys() FormKeys {
-	return FormKeys{
+// Fixed is the set every screen, menu and form answers to.
+func Fixed() FixedKeys {
+	return FixedKeys{
 		Back:   []string{"esc"},
 		Editor: []string{"ctrl+e"},
+		Open:   []string{"enter"},
 		Quit:   []string{"ctrl+c"},
 		Submit: []string{"enter"},
 	}
@@ -298,15 +297,8 @@ func FixedFormKeys() FormKeys {
 
 // AgentsKeys are the bindings for the agents list.
 type AgentsKeys struct {
-	// Step out of a workflow scope, or open the view switcher at the root.
-	Back []string `mapstructure:"back" default:"esc"`
 	// Jump to the first agent in the triage zone at the top of the list.
 	Triage []string `mapstructure:"triage" default:"t"`
-	// Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
-	// workflow. Either one is started first if it is not running.
-	Open []string `mapstructure:"open" default:"enter"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename" default:"r"`
 }
@@ -466,15 +458,11 @@ type DocumentMenuKeys struct {
 // agent has written and draws the one under the cursor beside the list. Editing, renaming and
 // writing a new one are in the menu on the hovered document.
 type DocumentsKeys struct {
-	// Leave the documents screen for the view it was opened from.
-	Back []string `mapstructure:"back" default:"esc"`
 	// Step back to an earlier write of the document under the cursor, drawing what that write
 	// changed.
 	Older []string `mapstructure:"older" default:"<"`
 	// Step forward to a later write, and past the newest back to the document as it stands.
 	Newer []string `mapstructure:"newer" default:">"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
 
 // MessagesKeys are the bindings for the messages komrad pushed.
@@ -490,41 +478,15 @@ type MessagesKeys struct {
 // LogsKeys are the bindings for the logs screen. Movement is the shared navigation, and
 // moving up stops following the newest line until the key that jumps to the last row.
 type LogsKeys struct {
-	// Leave the logs screen for the view it was opened from.
-	Back []string `mapstructure:"back" default:"esc"`
 	// Copy the log line the cursor is on to the system clipboard.
 	Copy []string `mapstructure:"copy" default:"y"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-}
-
-// StatusChecksKeys are the bindings for the status checks screen. Movement is the shared navigation.
-type StatusChecksKeys struct {
-	// Leave the status checks screen for the view it was opened from.
-	Back []string `mapstructure:"back" default:"esc"`
-	// Read the logs of the status checks the screen is showing.
-	Logs []string `mapstructure:"logs" default:"enter"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-}
-
-// StatusCheckLogsKeys are the bindings for the status check logs screen. Movement is the shared navigation.
-type StatusCheckLogsKeys struct {
-	// Leave the status check logs for the status checks they were opened from.
-	Back []string `mapstructure:"back" default:"esc"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
 
 // WorktreesKeys are the bindings for the worktrees screen.
 type WorktreesKeys struct {
-	// Open the view switcher.
-	Back []string `mapstructure:"back" default:"esc"`
 	// Jump to the agent in the directory under the cursor, on the agents list or in the
 	// archive.
 	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
 
 // ReviewKeys are the bindings for the review screen, where the diff is in the stage and the
@@ -541,8 +503,6 @@ type ReviewKeys struct {
 	// it stood just before the agent's addressed reply to the work that reply carried, or
 	// go back to all changes from there.
 	Answer []string `mapstructure:"answer" default:"a"`
-	// Leave the review for the agents list.
-	Back []string `mapstructure:"back" default:"esc"`
 	// Walk back a chapter through the review, from the whole change to the newest chapter and
 	// on into the older ones, stopping on the oldest.
 	Base []string `mapstructure:"base" default:"<"`
@@ -578,8 +538,6 @@ type ReviewKeys struct {
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// From the menu, catch up with the agent, once the band says it has written since you opened the
 	// diff. What you are reading never moves on its own, since that would take the code out
 	// from under a comment being written, so catching up is always yours to ask for.
@@ -642,10 +600,6 @@ type SidebarKeys struct {
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
 // rather than part of the agents tree, and act on the hovered schedule.
 type SchedulesKeys struct {
-	// Open the view switcher.
-	Back []string `mapstructure:"back" default:"esc"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the schedule under the cursor, typed over its row.
 	Rename []string `mapstructure:"rename" default:"r"`
 }
@@ -663,10 +617,6 @@ type ScheduleMenuKeys struct {
 // ArchiveKeys are the bindings for the archive screen, which lists the agents, workflows and
 // schedules archived from the panel. Restoring and deleting are in the menu on the hovered row.
 type ArchiveKeys struct {
-	// Open the view switcher.
-	Back []string `mapstructure:"back" default:"esc"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the agent or live workflow under the cursor, typed over its row.
 	Rename []string `mapstructure:"rename" default:"r"`
 }

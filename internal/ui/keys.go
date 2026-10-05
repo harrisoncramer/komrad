@@ -55,7 +55,7 @@ func (m *model) dropTopPress() {
 	m.topHeld = false
 }
 
-// formKeys is what a form answers, fixed rather than configured.
-func formKeys() config.FormKeys {
-	return config.FixedFormKeys()
+// fixedKeys is what every screen, menu and form answers, fixed rather than configured.
+func fixedKeys() config.FixedKeys {
+	return config.Fixed()
 }

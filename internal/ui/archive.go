@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 
-	"komrad/config"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
@@ -122,8 +121,6 @@ func (a *archiveScreen) list() screenList[agentRow] {
 
 			return m.waitToStage()
 		},
-		quit: func(k config.Keybindings) []string { return k.Archive.Quit },
-		back: func(k config.Keybindings) []string { return k.Archive.Back },
 	}
 }
 
@@ -138,8 +135,6 @@ func (a *archiveScreen) scheduleList() screenList[scheduleItem] {
 
 			return m.waitToStage()
 		},
-		quit: func(k config.Keybindings) []string { return k.Archive.Quit },
-		back: func(k config.Keybindings) []string { return k.Archive.Back },
 	}
 }
 
@@ -166,7 +161,7 @@ func (a *archiveScreen) hoveredSchedule(m *model) (panel.Schedule, bool) {
 
 // confirmDeleteSchedule asks before an archived schedule is deleted for good.
 func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
-	form, confirmed := deleteScheduleForm(schedule.Name, formKeys())
+	form, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
@@ -325,7 +320,7 @@ func confirmDeleteArchived(m *model, agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(archivedAgentsOf(m.listing), agents), formKeys())
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(archivedAgentsOf(m.listing), agents), fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
@@ -348,7 +343,7 @@ func confirmDeleteArchived(m *model, agents []panel.Agent) tea.Cmd {
 
 // confirmDeleteWorkflow asks before an archived workflow is deleted for good.
 func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
-	form, confirmed := deleteWorkflowForm(workflow, m.listing.archivedCount(workflow.ID), formKeys())
+	form, confirmed := deleteWorkflowForm(workflow, m.listing.archivedCount(workflow.ID), fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
@@ -526,10 +521,6 @@ func (a *archiveScreen) doesDrawFromListing() bool {
 
 func (a *archiveScreen) takesEveryKey() bool {
 	return a.isRenaming()
-}
-
-func (a *archiveScreen) detailsQuit(keys config.Keybindings) []string {
-	return keys.Archive.Quit
 }
 
 func (a *archiveScreen) detailsFit(m *model) bool {

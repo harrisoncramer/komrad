@@ -175,8 +175,6 @@ type screenList[T keyed] struct {
 	placed func(*model)
 	// moved follows the cursor onto a row a key put it on, and is placed when nil.
 	moved func(*model) tea.Cmd
-	quit  func(config.Keybindings) []string
-	back  func(config.Keybindings) []string
 }
 
 func (l screenList[T]) isSelecting(*model) bool {
@@ -264,7 +262,7 @@ func (l screenList[T]) actions() []screenAction {
 	}
 	shared = append(shared, screenAction{
 		id:   actionQuit,
-		keys: l.quit,
+		keys: func(config.Keybindings) []string { return fixedKeys().Quit },
 		nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 	})
 	shared = append(shared, navActions(l, navSteps{page: navPageStep, scroll: 1})...)
@@ -318,7 +316,7 @@ func (l screenList[T]) filterActions() []screenAction {
 		},
 		{
 			id:   actionFilterClear,
-			keys: l.back,
+			keys: func(config.Keybindings) []string { return fixedKeys().Back },
 			when: standing,
 			nav: func(m *model, _ string) tea.Cmd {
 				m.clearFilter()

@@ -37,7 +37,7 @@ type newReviewInputParams struct {
 	// Body is what the field opens holding.
 	Body  string
 	Width int
-	Keys  config.FormKeys
+	Keys  config.FixedKeys
 	// Register is the panel's vim register, nil when vim is off.
 	Register *vim.Register
 }
@@ -123,7 +123,7 @@ func (i reviewInput) value() string {
 }
 
 // reviewInputKeyMap leaves submitting to the composer around the field.
-func reviewInputKeyMap(keys config.FormKeys) *huh.KeyMap {
+func reviewInputKeyMap(keys config.FixedKeys) *huh.KeyMap {
 	km := formKeyMap(keys)
 	km.Text.NewLine = key.NewBinding(key.WithKeys("ctrl+j", "alt+enter"))
 	km.Text.Next = key.NewBinding()

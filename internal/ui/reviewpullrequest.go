@@ -190,7 +190,7 @@ func (r *reviewScreen) pullRequestActions() screenActionSpec {
 		table: append(navActions(pullRequestNav{r}, navSteps{page: pullRequestWindowRows / 2, scroll: 1}), []screenAction{
 			{
 				id:   actionReviewBack,
-				keys: func(k config.Keybindings) []string { return k.Review.Back },
+				keys: func(config.Keybindings) []string { return fixedKeys().Back },
 				nav: func(*model, string) tea.Cmd {
 					r.blurPullRequest()
 
@@ -199,7 +199,7 @@ func (r *reviewScreen) pullRequestActions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(k config.Keybindings) []string { return k.Review.Quit },
+				keys: func(config.Keybindings) []string { return fixedKeys().Quit },
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		}...),

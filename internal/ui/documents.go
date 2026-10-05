@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -115,8 +114,6 @@ func (d *documentsScreen) list() screenList[documentRow] {
 
 			return m.waitToStage()
 		},
-		quit: func(k config.Keybindings) []string { return k.Documents.Quit },
-		back: func(k config.Keybindings) []string { return k.Documents.Back },
 	}
 }
 

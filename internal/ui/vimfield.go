@@ -57,7 +57,7 @@ func (v *fieldVim) engineFor(key string, b vim.Buffer, singleLine bool) *vim.Eng
 
 // vimPasses is the keys normal mode leaves to the form.
 func vimPasses() []string {
-	keys := formKeys()
+	keys := fixedKeys()
 
 	return slices.Concat([]string{"tab", "shift+tab", "pgup", "pgdown"}, keys.Submit, keys.Editor, keys.Quit)
 }

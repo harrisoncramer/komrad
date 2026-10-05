@@ -61,7 +61,7 @@ func documentForm(values *documentFormValues, types []string) (*huh.Form, []stri
 		return huh.NewOption(name, name)
 	})
 
-	return formOf(formKeys(),
+	return formOf(fixedKeys(),
 		huh.NewInput().Key("name").Title("New document name").Value(&values.Name).Validate(checkDocumentName),
 		huh.NewSelect[string]().Key("type").Title("Type").Options(options...).Value(&values.Type),
 	)

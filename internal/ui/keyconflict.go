@@ -171,7 +171,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 
 // submenuReserved is every key a submenu is drawn over, named as the error would name it.
 func submenuReserved() map[string]string {
-	km := submenuKeyMap(formKeys())
+	km := submenuKeyMap(fixedKeys())
 
 	arms := []struct {
 		describe string

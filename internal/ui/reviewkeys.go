@@ -44,7 +44,7 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 	// The diff opens for an agent that is not there, and only the back key answers until it has
 	// something to draw.
 	if r.diff.View() == nil {
-		if isBound(k, m.keys.Review.Back) {
+		if isBound(k, fixedKeys().Back) {
 			return r.back(m), true
 		}
 

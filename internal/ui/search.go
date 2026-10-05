@@ -49,7 +49,6 @@ func (w *searchScreen) list() screenList[searchRow] {
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.rows,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
-		quit:   func(config.Keybindings) []string { return []string{"ctrl+c"} },
 	}
 }
 

@@ -176,7 +176,7 @@ func (m *model) blurDetails() {
 func (m *model) updateDetails(key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
-	if isBound(k, m.quitKeys()) {
+	if isBound(k, fixedKeys().Quit) {
 		return m.hide()
 	}
 
@@ -376,15 +376,6 @@ func (m *model) pageDetailsCursor(pressed string) {
 func (m *model) setDetailsCursor(held details, idx int) {
 	m.details.cursor = cursor.Clamp(idx, len(m.detailsRows(held)))
 	m.details.row = held.id
-}
-
-func (m *model) quitKeys() []string {
-	d, ok := m.active().(recordDrawer)
-	if !ok {
-		return m.keys.Agents.Quit
-	}
-
-	return d.detailsQuit(m.keys)
 }
 
 func (m *model) copyDetailsField() tea.Cmd {

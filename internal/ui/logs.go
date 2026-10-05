@@ -5,7 +5,6 @@ import (
 	"slices"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/logread"
@@ -352,8 +351,6 @@ func (l *logsScreen) list() screenList[logSourceRow] {
 		rows:   l.rows,
 		name:   logSourceRowName,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
-		quit:   func(k config.Keybindings) []string { return k.Logs.Quit },
-		back:   func(k config.Keybindings) []string { return k.Logs.Back },
 	}
 }
 

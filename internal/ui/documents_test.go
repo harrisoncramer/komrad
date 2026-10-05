@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 
-	"komrad/config"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
@@ -688,14 +687,12 @@ func TestDocumentsReading(t *testing.T) {
 		})
 	}
 
-	t.Run("the focused document quits on the documents screen's own key", func(t *testing.T) {
+	t.Run("the focused document quits on ctrl+c", func(t *testing.T) {
 		t.Parallel()
 
-		keys := config.DefaultKeybindings()
-		keys.Documents.Quit = []string{"ctrl+x"}
-		harness, _ := openDocumentsWith(t, panelHarnessParams{keys: &keys})
+		harness, _ := openDocuments(t)
 
-		harness.press("pick:block", "ctrl+x")
+		harness.press("pick:block", "ctrl+c")
 
 		assert.Equal(t, 1, harness.panel.ReadDetaches())
 	})
