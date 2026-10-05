@@ -9,9 +9,9 @@ import (
 // passingConclusions are the conclusions a completed check counts as passed with.
 var passingConclusions = []string{"success", "neutral", "skipped"}
 
-// RollupOf is where the checks on a head stand, counting only the required ones when any is.
+// RollupOf is where the checks on a head stand, counting the newest run of each and only the required ones when any is.
 func RollupOf(checks []StatusCheck) Checks {
-	counted := slices.DeleteFunc(decidingStatusChecks(checks), func(check StatusCheck) bool {
+	counted := slices.DeleteFunc(newestStatusChecks(decidingStatusChecks(checks)), func(check StatusCheck) bool {
 		return check.State == StatusCheckStateUnknown
 	})
 
@@ -53,19 +53,22 @@ func (c StatusCheck) IsRunning() bool {
 // FailedStatusChecks is the checks that decide a head and failed, counting only the newest of the checks
 // sharing a kind, source and name, given checks listed oldest first.
 func FailedStatusChecks(checks []StatusCheck) []StatusCheck {
-	newest := xslice.LastBy(decidingStatusChecks(checks), func(check StatusCheck) statusCheckKey {
-		return statusCheckKey{
-			kind:   check.Kind,
-			source: check.Source,
-			name:   check.Name,
-		}
-	})
-
-	return slices.DeleteFunc(newest, func(check StatusCheck) bool { return !check.IsFailing() })
+	return slices.DeleteFunc(newestStatusChecks(decidingStatusChecks(checks)), func(check StatusCheck) bool { return !check.IsFailing() })
 }
 
 type statusCheckKey struct {
 	kind   StatusCheckKind
 	source string
 	name   string
+}
+
+// newestStatusChecks is the newest of the checks sharing a kind, source and name, given checks listed oldest first.
+func newestStatusChecks(checks []StatusCheck) []StatusCheck {
+	return xslice.LastBy(checks, func(check StatusCheck) statusCheckKey {
+		return statusCheckKey{
+			kind:   check.Kind,
+			source: check.Source,
+			name:   check.Name,
+		}
+	})
 }
