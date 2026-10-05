@@ -37,8 +37,8 @@ func newStatusCheckLogStep(number int32, name, conclusion string, firstLine, lin
 	}
 }
 
-func numberedLines(prefix string, n int) []string {
-	lines := make([]string, n)
+func numberedLines(prefix string, count int) []string {
+	lines := make([]string, count)
 	for i := range lines {
 		lines[i] = fmt.Sprintf("%s %d", prefix, i+1)
 	}
@@ -73,6 +73,26 @@ func openStatusCheckLogs(t *testing.T, checks []*pullrequestv1.StatusCheck, logs
 		answerStatusCheckLogs(logs)(harness)
 	})
 	harness.press("enter")
+
+	return harness
+}
+
+func hoverTestStepWhileBuildReads(t *testing.T) *panelHarness {
+	t.Helper()
+
+	build, test := numberedLines("build", 6000), numberedLines("test", 10)
+	harness := openStatusChecks(t, func(harness *panelHarness) {
+		answerStatusChecks(
+			newLoggedStatusCheck("1", "build", "FAILURE", build),
+			newLoggedStatusCheck("2", "test", "FAILURE", test, newStatusCheckLogStep(1, "run tests", "failure", 1, 10)),
+		)(harness)
+		answerStatusCheckLogs(map[string][]string{"check-1": build, "check-2": test})(harness)
+	})
+	harness.hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.press("enter")
+	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.press("j", "j")
 
 	return harness
 }
@@ -213,19 +233,7 @@ func TestStatusCheckLogsReading(t *testing.T) {
 	t.Run("the hovered header stays in view as a log above it is read", func(t *testing.T) {
 		t.Parallel()
 
-		build, test := numberedLines("build", 6000), numberedLines("test", 10)
-		harness := openStatusChecks(t, func(harness *panelHarness) {
-			answerStatusChecks(
-				newLoggedStatusCheck("1", "build", "FAILURE", build),
-				newLoggedStatusCheck("2", "test", "FAILURE", test, newStatusCheckLogStep(1, "run tests", "failure", 1, 10)),
-			)(harness)
-			answerStatusCheckLogs(map[string][]string{"check-1": build, "check-2": test})(harness)
-		})
-		harness.hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-		harness.press("enter")
-		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-		harness.press("j", "j")
+		harness := hoverTestStepWhileBuildReads(t)
 		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
 
 		frame := harness.readFrame()
@@ -236,19 +244,7 @@ func TestStatusCheckLogsReading(t *testing.T) {
 	t.Run("a scroll off the hovered header stays put as a log above it is read", func(t *testing.T) {
 		t.Parallel()
 
-		build, test := numberedLines("build", 6000), numberedLines("test", 10)
-		harness := openStatusChecks(t, func(harness *panelHarness) {
-			answerStatusChecks(
-				newLoggedStatusCheck("1", "build", "FAILURE", build),
-				newLoggedStatusCheck("2", "test", "FAILURE", test, newStatusCheckLogStep(1, "run tests", "failure", 1, 10)),
-			)(harness)
-			answerStatusCheckLogs(map[string][]string{"check-1": build, "check-2": test})(harness)
-		})
-		harness.hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-		harness.press("enter")
-		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-		harness.press("j", "j")
+		harness := hoverTestStepWhileBuildReads(t)
 		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelUp})
 		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
 
@@ -289,7 +285,6 @@ func TestStatusCheckLogsNotices(t *testing.T) {
 	tests := []struct {
 		name  string
 		state pullrequestv1.CheckLogState
-		lines int32
 		want  string
 	}{
 		{name: "a log not fetched yet", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING, want: "log not fetched yet"},

@@ -410,7 +410,7 @@ func (c *statusCheckLogsScreen) docAnchors(m *model, width int) ([]string, map[s
 
 		anchors[statusCheckLogRow{item: item}.key()] = len(rows)
 		title := "═ " + item.name + " "
-		rows = append(rows, fitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(width-2*docMargin()-lipgloss.Width(title), 0))), width))
+		rows = append(rows, fitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
 
 		if notice := c.logNotice(item); notice != "" {
 			line(notice, dimStyle())
@@ -451,18 +451,18 @@ func (c *statusCheckLogsScreen) docAnchors(m *model, width int) ([]string, map[s
 
 // docShape names everything the document is drawn from, so it is drawn again only once that changes.
 func (c *statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "%d/%d", c.generation, width)
+	var shape strings.Builder
+	fmt.Fprintf(&shape, "%d/%d", c.generation, width)
 	for _, item := range shown {
 		read := c.logs[item.checkID]
 		lines, reading, failed := 0, false, false
 		if read != nil {
 			lines, reading, failed = len(read.lines), read.reading, read.err != nil
 		}
-		fmt.Fprintf(&b, "/%s:%d:%d:%t:%t", item.checkID, item.log.GetState(), lines, reading, failed)
+		fmt.Fprintf(&shape, "/%s:%d:%d:%t:%t", item.checkID, item.log.GetState(), lines, reading, failed)
 	}
 
-	return b.String()
+	return shape.String()
 }
 
 // logNotice is what is drawn under a check in place of its log, empty while there are lines to draw.
@@ -544,7 +544,7 @@ func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
 		return nil
 	}
 
-	read.lines = append(read.lines, xslice.Map(msg.resp.GetLines(), func(l *pullrequestv1.CheckLogLine) string { return l.GetText() })...)
+	read.lines = append(read.lines, xslice.Map(msg.resp.GetLines(), func(line *pullrequestv1.CheckLogLine) string { return line.GetText() })...)
 	total := msg.resp.GetLineCount()
 	var next tea.Cmd
 	if int32(len(read.lines)) >= total || len(msg.resp.GetLines()) == 0 {
