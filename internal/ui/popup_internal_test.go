@@ -57,11 +57,11 @@ func TestPlacePopup(t *testing.T) {
 		{
 			name:   "it grows no taller than its tallest",
 			anchor: popupAnchor{right: 61, codeOnRight: true},
-			cursor: 30,
+			cursor: popupHeight + 10,
 			tall:   100,
 			want: popupSlot{
 				x:      0,
-				y:      30 - popupHeight,
+				y:      10,
 				width:  61,
 				height: popupHeight,
 			},
@@ -88,6 +88,18 @@ func TestPlacePopup(t *testing.T) {
 				y:      19,
 				width:  61,
 				height: 21,
+			},
+		},
+		{
+			name:   "it stands on the roomier side below when above holds it but not its tallest",
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			cursor: 18,
+			tall:   10,
+			want: popupSlot{
+				x:      0,
+				y:      19,
+				width:  61,
+				height: 10,
 			},
 		},
 		{

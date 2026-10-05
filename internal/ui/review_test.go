@@ -714,7 +714,6 @@ func TestReviewPopupScroll(t *testing.T) {
 		harness := openReviewAt(t, server, panelHarnessParams{height: 24})
 		harness.press("j", "j")
 		frame := harness.readFrame()
-		require.Equal(t, "greet.go:3", readReviewCursor(frame))
 		require.NotEmpty(t, readPopup(frame))
 
 		harness.send(tea.MouseWheelMsg{
@@ -723,7 +722,7 @@ func TestReviewPopupScroll(t *testing.T) {
 			Button: tea.MouseWheelDown,
 		})
 
-		assert.NotEqual(t, "greet.go:3", readReviewCursor(harness.readFrame()))
+		assert.Empty(t, readPopup(harness.readFrame()))
 	})
 
 	t.Run("moving the diff cursor drops the scroll", func(t *testing.T) {
@@ -757,7 +756,7 @@ func TestReviewPopupPlacement(t *testing.T) {
 			divider := readColumnOf(t, lines[0], "│")
 			left, right := readColumnOf(t, lines[top], "╭"), readColumnOf(t, lines[top], "╮")
 
-			assert.Less(t, bottom, wide)
+			assert.True(t, bottom < wide || top > wide)
 			assert.Less(t, left, divider)
 			assert.Greater(t, right, divider)
 			assert.True(t, slices.ContainsFunc(lines, func(line string) bool { return strings.Contains(line, "func Hello() string {") }))
