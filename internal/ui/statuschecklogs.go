@@ -339,7 +339,7 @@ func (c *statusCheckLogsScreen) buildFrame(m *model) {
 	}
 }
 
-// keepDoc is the document at a width, kept so it is drawn again only once what it is drawn from changes.
+// keepDoc builds the document at a width and keeps it for view to read.
 func (c *statusCheckLogsScreen) keepDoc(m *model, width int) statusCheckLogsDrawn {
 	c.drawn = c.doc(m, width)
 
