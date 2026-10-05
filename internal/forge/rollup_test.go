@@ -114,6 +114,28 @@ func TestRollupOf(t *testing.T) {
 			}, running},
 			want: ChecksFailing,
 		},
+		{
+			name: "a failed check passing on a later run is passing",
+			checks: []StatusCheck{{
+				Name:       "lint",
+				State:      StatusCheckStateCompleted,
+				Conclusion: "failure",
+			}, passed, {
+				Name:       "lint",
+				State:      StatusCheckStateCompleted,
+				Conclusion: "success",
+			}},
+			want: ChecksPassing,
+		},
+		{
+			name: "a passed check failing on a later run is failing",
+			checks: []StatusCheck{passed, {
+				Name:       "test",
+				State:      StatusCheckStateCompleted,
+				Conclusion: "failure",
+			}},
+			want: ChecksFailing,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
