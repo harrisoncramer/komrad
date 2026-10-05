@@ -3,6 +3,7 @@ package logview
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 	"strings"
@@ -47,7 +48,7 @@ func Compact(palette paint.Palette, line string) string {
 	decoder.UseNumber()
 
 	var e entry
-	if err := decoder.Decode(&e); err != nil || e == nil {
+	if err := decoder.Decode(&e); err != nil || e == nil || decoder.Decode(&struct{}{}) != io.EOF {
 		return sanitize(line)
 	}
 

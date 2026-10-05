@@ -80,6 +80,16 @@ func TestCompact(t *testing.T) {
 			want: "plain script output",
 		},
 		{
+			name: "an object followed by more data is drawn as it stands",
+			line: `{"body":"a"}{"body":"b"}`,
+			want: `{"body":"a"}{"body":"b"}`,
+		},
+		{
+			name: "an object followed by text is drawn as it stands",
+			line: `{"body":"a"} trailing`,
+			want: `{"body":"a"} trailing`,
+		},
+		{
 			name: "a json value that is not an object is drawn as it stands",
 			line: `[1,2]`,
 			want: "[1,2]",
