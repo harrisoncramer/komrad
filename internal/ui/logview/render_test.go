@@ -65,6 +65,16 @@ func TestCompact(t *testing.T) {
 			want: "INF red                            a b",
 		},
 		{
+			name: "escape sequences inside a status code, a key and a severity are stripped",
+			line: `{"severity_text":"x\nyz","body":"b","http.response.status_code":"405\n\u001b[2J","a\nb":"c"}`,
+			want: "XYZ b                              405 ab=c",
+		},
+		{
+			name: "a critical severity is an error",
+			line: `{"severity_text":"CRITICAL","body":"b"}`,
+			want: "ERR b",
+		},
+		{
 			name: "a line that is not json is drawn as it stands",
 			line: "plain \x1b[1mscript\x1b[0m output",
 			want: "plain script output",

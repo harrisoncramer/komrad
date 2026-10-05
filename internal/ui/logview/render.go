@@ -54,7 +54,7 @@ func Compact(palette paint.Palette, line string) string {
 	muted := palette.Style(paint.ToneMuted)
 	label, tone := e.level()
 
-	body := clean(e.text("body"))
+	body := e.text("body")
 	if tone == paint.ToneMuted || tone == paint.ToneDanger {
 		body = palette.Style(tone).Render(body)
 	}
@@ -79,9 +79,9 @@ func (e entry) text(key string) string {
 	case nil:
 		return ""
 	case string:
-		return value
+		return clean(value)
 	default:
-		return fmt.Sprint(value)
+		return clean(fmt.Sprint(value))
 	}
 }
 
@@ -109,7 +109,7 @@ func (e entry) level() (string, paint.Tone) {
 		return "INF", paint.ToneSuccess
 	case strings.HasPrefix(severity, "WARN"):
 		return "WRN", paint.ToneWarning
-	case strings.HasPrefix(severity, "ERROR"), strings.HasPrefix(severity, "FATAL"):
+	case strings.HasPrefix(severity, "ERR"), strings.HasPrefix(severity, "FATAL"), strings.HasPrefix(severity, "CRIT"):
 		return "ERR", paint.ToneDanger
 	case severity == "":
 		return "???", paint.ToneMuted
@@ -134,13 +134,13 @@ func (e entry) fields(palette paint.Palette) []string {
 	}
 	plain := func(key string) {
 		if e.has(key) {
-			add(muted.Render(clean(e.text(key))), key)
+			add(muted.Render(e.text(key)), key)
 		}
 	}
 
 	plain("loop")
 	if e.has("http.request.method") || e.has("url.path") {
-		add(muted.Render(clean(strings.TrimSpace(e.text("http.request.method")+" "+e.text("url.path")))), "http.request.method", "url.path")
+		add(muted.Render(strings.TrimSpace(e.text("http.request.method")+" "+e.text("url.path"))), "http.request.method", "url.path")
 	}
 	plain("rpc.method")
 	plain("mcp.tool.name")
@@ -167,16 +167,16 @@ func (e entry) fields(palette paint.Palette) []string {
 		if hiddenFields[key] || shown[key] || isError(key) {
 			continue
 		}
-		add(muted.Render(key+"="+clean(e.text(key))), key)
+		add(muted.Render(clean(key)+"="+e.text(key)), key)
 	}
 
 	for _, key := range []string{"error.message", "error", "err"} {
 		if e.has(key) {
-			add(danger.Render(clean(e.text(key))), key)
+			add(danger.Render(e.text(key)), key)
 		}
 	}
 	if !e.has("error.message") && e.has("rpc.connect_rpc.error_code") {
-		add(danger.Render(clean(e.text("rpc.connect_rpc.error_code"))))
+		add(danger.Render(e.text("rpc.connect_rpc.error_code")))
 	}
 
 	return fields
