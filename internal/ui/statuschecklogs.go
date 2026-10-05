@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/reader"
 	"komrad/internal/view"
@@ -424,7 +425,7 @@ func (c *statusCheckLogsScreen) docAnchors(m *model, width int) ([]string, map[s
 		header := func(upTo int) {
 			for len(steps) > 0 && int(steps[0].GetFirstLine()) <= upTo {
 				anchors[statusCheckLogRow{item: item, step: steps[0]}.key()] = len(rows)
-				line("▸ "+steps[0].GetName(), lipgloss.NewStyle().Bold(true))
+				line(glyph.Step+" "+steps[0].GetName(), lipgloss.NewStyle().Bold(true))
 				steps = steps[1:]
 			}
 		}

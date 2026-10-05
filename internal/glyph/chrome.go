@@ -34,6 +34,8 @@ const (
 	Down = "↓"
 	// Right points at where something has gone.
 	Right = "→"
+	// Step marks the header of a step in a log.
+	Step = "▸"
 )
 
 // Logo is the mark beside komrad's name at the top of the panel, outside the approved set.
@@ -57,6 +59,7 @@ func Chrome() []Named {
 		{Name: "up", Text: Up},
 		{Name: "down", Text: Down},
 		{Name: "right", Text: Right},
+		{Name: "step", Text: Step},
 	}
 }
 
