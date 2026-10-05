@@ -422,7 +422,7 @@ func TestReviewThreads(t *testing.T) {
 	})
 
 	t.Run("a thread nobody has read is marked read once the cursor rests on it", func(t *testing.T) {
-		thread := newThreadOnFirstLine(newAgentMessage("m1", "wrapped it"))
+		thread := newThreadOnFirstLine(newHumanMessage("m1", "wrap this"), newAgentMessage("m2", "wrapped it"))
 		thread.UnreadByHuman = true
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{thread}
@@ -451,15 +451,31 @@ func TestReviewThreads(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(asked, answered)}
 
 		harness := openReview(t, server)
+		harness.press("space", "b")
 
 		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "reviewer this drops the error")
 		assert.Contains(t, sidebar, "implementer wrapped it")
 	})
 
-	t.Run("the compose key on a line with a thread replies in it", func(t *testing.T) {
+	t.Run("a conversation an agent opened is hidden until the menu shows it", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "renamed it, is that what you meant?"))}
+		harness := openReview(t, server)
+		require.NotContains(t, harness.readFrame(), "renamed it")
+
+		harness.press("space")
+		require.Contains(t, harness.readFrame(), "show agents' conversations")
+		harness.press("b")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "renamed it")
+
+		harness.press("space", "b")
+		assert.NotContains(t, harness.readFrame(), "renamed it")
+	})
+
+	t.Run("the compose key on a line with a thread replies in it", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "renamed it, is that what you meant?"))}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
 		harness.press("?")
@@ -502,7 +518,7 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("a thread whose file left the diff takes a reply", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newAdriftThread("t1", newAgentMessage("m1", "why did this go?"))}
+		server.threads = []*agentv1.ReviewThread{newAdriftThread("t1", newHumanMessage("m1", "why did this go?"))}
 		harness := openReview(t, server)
 
 		harness.press("t", "c")
@@ -517,7 +533,7 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("the settle key settles a thread and presses again to reopen it", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "why did this change?"))}
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "why did this change?"))}
 		harness := openReview(t, server)
 
 		harness.press("r")
@@ -536,7 +552,7 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("a settle in flight is drawn until it lands", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "why did this change?"))}
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "why did this change?"))}
 		harness := openReview(t, server)
 		harness.hold(agentv1connect.AgentServiceSetReviewThreadResolvedProcedure)
 
@@ -549,7 +565,7 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("a thread whose file left the diff settles like any other", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newAdriftThread("t1", newAgentMessage("m1", "why did this go?"))}
+		server.threads = []*agentv1.ReviewThread{newAdriftThread("t1", newHumanMessage("m1", "why did this go?"))}
 		harness := openReview(t, server)
 
 		harness.press("t", "r")
@@ -562,7 +578,7 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("a thread deleted from under the cursor leaves it on a row that exists", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newAdriftThread("t1", newAgentMessage("m1", "why did this go?"))}
+		server.threads = []*agentv1.ReviewThread{newAdriftThread("t1", newHumanMessage("m1", "why did this go?"))}
 		harness := openReview(t, server)
 		harness.press("t")
 
@@ -988,6 +1004,7 @@ func TestReviewDeliveryBadge(t *testing.T) {
 			server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(tt.message)}
 
 			harness := openReview(t, server)
+			harness.press("space", "b")
 
 			sidebar := readPopupProse(harness.readFrame())
 			assert.Contains(t, sidebar, tt.want)
@@ -1140,7 +1157,7 @@ func TestReviewWatch(t *testing.T) {
 	t.Run("an answer the watch puts is drawn", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		thread := newThreadOnFirstLine(newAgentMessage("m1", "fixed it"))
+		thread := newThreadOnFirstLine(newHumanMessage("m0", "fix it"), newAgentMessage("m1", "fixed it"))
 		thread.AgentId = "a1"
 		harness.watch(buildPuts(thread))
 
@@ -1172,7 +1189,7 @@ func TestReviewWatch(t *testing.T) {
 		harness.press("j", "c")
 		typeText(harness, "half a thought")
 
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "fixed it"))}
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m0", "fix it"), newAgentMessage("m1", "fixed it"))}
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()

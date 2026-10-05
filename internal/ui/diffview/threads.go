@@ -137,9 +137,9 @@ func lineOf(thread *agentv1.ReviewThread) int32 {
 	return thread.GetOldStart()
 }
 
-// isAgentThread reports whether an agent opened a conversation, read off the message that opened
+// IsAgentThread reports whether an agent opened a conversation, read off the message that opened
 // it.
-func isAgentThread(thread *agentv1.ReviewThread) bool {
+func IsAgentThread(thread *agentv1.ReviewThread) bool {
 	messages := thread.GetMessages()
 
 	return len(messages) > 0 &&
@@ -148,5 +148,5 @@ func isAgentThread(thread *agentv1.ReviewThread) bool {
 
 // isUnsettled reports whether a conversation is one the person reviewing still owes an answer on.
 func isUnsettled(thread *agentv1.ReviewThread) bool {
-	return thread.GetResolvedAt() == "" && !isAgentThread(thread)
+	return thread.GetResolvedAt() == "" && !IsAgentThread(thread)
 }

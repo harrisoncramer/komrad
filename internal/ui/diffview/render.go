@@ -263,7 +263,7 @@ func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
 	if thread.GetMirrorsForge() {
 		return paint.Panel.Style(ForgeTone)
 	}
-	if isAgentThread(thread) {
+	if IsAgentThread(thread) {
 		return paint.Panel.Style(paint.ToneUserAgent)
 	}
 
