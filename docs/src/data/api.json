@@ -4230,6 +4230,16 @@
           "oneof": "",
           "rules": [],
           "description": "How many files would stay behind because nothing has committed them."
+        },
+        {
+          "name": "in_sync",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether origin already holds every commit on the branch, so there is nothing to push."
         }
       ]
     },
