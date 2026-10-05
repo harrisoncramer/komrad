@@ -60,10 +60,10 @@ type filterState struct {
 	// openedIn is the section the keys were in when the search opened.
 	openedIn sidebarSection
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
-	origin    string
-	debounce  time.Duration
-	minLength int
-	compiled  string
+	origin        string
+	debounce      time.Duration
+	minLength     int
+	compiledQuery string
 }
 
 type filterOption func(*filterState)
@@ -138,14 +138,10 @@ func (f filterState) isSearched() bool {
 }
 
 func (f filterState) isSettled() bool {
-	return f.compiled == f.query()
+	return f.compiledQuery == f.query()
 }
 
 func (f filterState) settleCmd(settled func(query string) tea.Msg) tea.Cmd {
-	if f.isSettled() {
-		return nil
-	}
-
 	query := f.query()
 
 	return startTimer(f.debounce, func(time.Time) tea.Msg {
@@ -166,7 +162,7 @@ func (f *filterState) settle(query string) bool {
 // compile reads the pattern out of what is typed.
 func (f *filterState) compile() {
 	query := f.query()
-	f.pattern, f.broken, f.compiled = nil, false, query
+	f.pattern, f.broken, f.compiledQuery = nil, false, query
 
 	if f.isTooShort() {
 		return
@@ -274,9 +270,7 @@ func (f *filterState) takeKey(key tea.KeyPressMsg, register *vim.Register) bool 
 		f.abandon()
 	case lineEntered:
 		f.typing = false
-		if !f.isSettled() {
-			f.compile()
-		}
+		f.compile()
 	case lineChanged:
 		if f.debounce == 0 || f.isTooShort() {
 			f.compile()
