@@ -149,21 +149,24 @@ func (e entry) fields(palette paint.Palette) []string {
 
 	plain("loop")
 	if e.has("http.request.method") || e.has("url.path") {
-		add(muted.Render(strings.TrimSpace(e.text("http.request.method")+" "+e.text("url.path"))), "http.request.method", "url.path")
+		route := strings.TrimSpace(e.text("http.request.method") + " " + e.text("url.path"))
+		add(muted.Render(route), "http.request.method", "url.path")
 	}
 	plain("rpc.method")
 	plain("mcp.tool.name")
 	plain("komrad.script.name")
 	plain("komrad.run.trigger")
 	if e.has("http.response.status_code") {
-		add(palette.Style(statusTone(e.text("http.response.status_code"))).Render(e.text("http.response.status_code")), "http.response.status_code")
+		status := e.text("http.response.status_code")
+		add(palette.Style(statusTone(status)).Render(status), "http.response.status_code")
 	}
 	if e.has("process.exit.code") {
+		code := e.text("process.exit.code")
 		tone := paint.ToneDanger
-		if e.text("process.exit.code") == "0" {
+		if code == "0" {
 			tone = paint.ToneSuccess
 		}
-		add(palette.Style(tone).Render("exit "+e.text("process.exit.code")), "process.exit.code")
+		add(palette.Style(tone).Render("exit "+code), "process.exit.code")
 	}
 	if e.has("komrad.mail.unread") {
 		add(muted.Render("unread "+e.text("komrad.mail.unread")), "komrad.mail.unread")
