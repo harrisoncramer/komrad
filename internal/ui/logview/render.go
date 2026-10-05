@@ -81,6 +81,13 @@ func (e entry) text(key string) string {
 		return ""
 	case string:
 		return clean(value)
+	case map[string]any, []any:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return clean(fmt.Sprint(value))
+		}
+
+		return clean(string(encoded))
 	default:
 		return clean(fmt.Sprint(value))
 	}

@@ -50,6 +50,11 @@ func TestCompact(t *testing.T) {
 			want: "INF producer: Producer job counts  num_completed_jobs=12 num_jobs_running=0 queue=default",
 		},
 		{
+			name: "a nested value is shown as json",
+			line: `{"severity_text":"INFO","body":"b","req":{"a":1.50,"b":["x y","z"]}}`,
+			want: `INF b                              req={"a":1.50,"b":["x y","z"]}`,
+		},
+		{
 			name: "a debug line with no fields keeps no trailing space",
 			line: `{"severity_text":"DEBUG","body":"frame read"}`,
 			want: "DBG frame read",
