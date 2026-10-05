@@ -248,7 +248,7 @@ func (m *model) docActions() screenActionSpec {
 		table: []screenAction{
 			{
 				id:   actionColumnBack,
-				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				keys: fixedBack,
 				nav: func(*model, string) tea.Cmd {
 					m.reading.focused = false
 

@@ -38,12 +38,12 @@ func (r *reviewScreen) ownTable() []screenAction {
 	return []screenAction{
 		{
 			id:     actionReviewBack,
-			keys:   func(config.Keybindings) []string { return fixedKeys().Back },
+			keys:   fixedBack,
 			direct: directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.backFromDiff(m) }),
 		},
 		{
 			id:   actionQuit,
-			keys: func(config.Keybindings) []string { return fixedKeys().Quit },
+			keys: fixedQuit,
 			nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 		},
 		{
@@ -188,7 +188,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 			{
 				id:   actionFilterClear,
-				keys: func(config.Keybindings) []string { return fixedKeys().Back },
+				keys: fixedBack,
 				when: standing,
 				nav: func(*model, string) tea.Cmd {
 					r.filesFilter.abandon()
@@ -198,12 +198,12 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 			{
 				id:     actionReviewBack,
-				keys:   func(config.Keybindings) []string { return fixedKeys().Back },
+				keys:   fixedBack,
 				direct: directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.back(m) }),
 			},
 			{
 				id:   actionQuit,
-				keys: func(config.Keybindings) []string { return fixedKeys().Quit },
+				keys: fixedQuit,
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		}...),

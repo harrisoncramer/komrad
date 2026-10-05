@@ -55,7 +55,19 @@ func (m *model) dropTopPress() {
 	m.topHeld = false
 }
 
-// fixedKeys is what every screen, menu and form answers, fixed rather than configured.
+// fixedKeys is what every screen, menu and form answers.
 func fixedKeys() config.FixedKeys {
 	return config.Fixed()
+}
+
+func fixedBack(config.Keybindings) []string {
+	return fixedKeys().Back
+}
+
+func fixedQuit(config.Keybindings) []string {
+	return fixedKeys().Quit
+}
+
+func fixedOpen(config.Keybindings) []string {
+	return fixedKeys().Open
 }

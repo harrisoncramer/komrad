@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -283,7 +282,7 @@ func (c *statusCheckLogsScreen) listActions() screenActionSpec {
 		table: append(c.list().actions(),
 			screenAction{
 				id:   actionStatusCheckLogsBack,
-				keys: func(config.Keybindings) []string { return fixedKeys().Back },
+				keys: fixedBack,
 				nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(screenStatusChecks, screenTarget{})
 				},

@@ -46,7 +46,7 @@ func (d *documentsScreen) table() []screenAction {
 		},
 		{
 			id:   actionDocumentsBack,
-			keys: func(config.Keybindings) []string { return fixedKeys().Back },
+			keys: fixedBack,
 			nav: func(m *model, _ string) tea.Cmd {
 				return d.back(m)
 			},
@@ -104,7 +104,7 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 		table: []screenAction{
 			{
 				id:   actionDocumentsBack,
-				keys: func(config.Keybindings) []string { return fixedKeys().Back },
+				keys: fixedBack,
 				nav: func(*model, string) tea.Cmd {
 					d.focus = false
 
@@ -113,7 +113,7 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(config.Keybindings) []string { return fixedKeys().Quit },
+				keys: fixedQuit,
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 			{
@@ -225,7 +225,7 @@ func (d *documentsScreen) docKeys() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(config.Keybindings) []string { return fixedKeys().Quit },
+				keys: fixedQuit,
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		},

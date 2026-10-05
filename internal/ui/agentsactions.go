@@ -38,7 +38,7 @@ func (a *agentsScreen) modeActions() []screenAction {
 		},
 		screenAction{
 			id:   actionAgentsBack,
-			keys: func(config.Keybindings) []string { return fixedKeys().Back },
+			keys: fixedBack,
 			when: list.isBrowsing,
 			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
@@ -59,7 +59,7 @@ func (a *agentsScreen) rowActions() []screenAction {
 		},
 		{
 			id:     actionAgentOpen,
-			keys:   func(config.Keybindings) []string { return fixedKeys().Open },
+			keys:   fixedOpen,
 			when:   list.isBrowsing,
 			direct: directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) tea.Cmd { return a.openHovered(m) }),
 		},

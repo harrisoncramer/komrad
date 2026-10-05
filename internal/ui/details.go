@@ -190,7 +190,7 @@ func (m *model) detailsActions() screenActionSpec {
 		table: []screenAction{
 			{
 				id:   actionFilterClear,
-				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				keys: fixedBack,
 				when: standing,
 				nav: func(*model, string) tea.Cmd {
 					m.clearFilter()
@@ -200,7 +200,7 @@ func (m *model) detailsActions() screenActionSpec {
 			},
 			{
 				id:   actionDetails,
-				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				keys: fixedBack,
 				nav: func(*model, string) tea.Cmd {
 					m.details.focused = false
 

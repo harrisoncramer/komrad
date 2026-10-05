@@ -40,7 +40,7 @@ func (a *archiveScreen) scheduleTable() []screenAction {
 	return append(list.actions(),
 		screenAction{
 			id:   actionArchiveBack,
-			keys: func(config.Keybindings) []string { return fixedKeys().Back },
+			keys: fixedBack,
 			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
 	)
@@ -52,7 +52,7 @@ func (a *archiveScreen) agentTable() []screenAction {
 	return append(list.actions(),
 		screenAction{
 			id:   actionArchiveBack,
-			keys: func(config.Keybindings) []string { return fixedKeys().Back },
+			keys: fixedBack,
 			when: list.isBrowsing,
 			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},

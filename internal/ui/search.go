@@ -106,7 +106,7 @@ func (w *searchScreen) listActions() screenActionSpec {
 			},
 			screenAction{
 				id:   actionSearchBack,
-				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				keys: fixedBack,
 				nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 			},
 			screenAction{

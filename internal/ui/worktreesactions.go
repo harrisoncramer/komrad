@@ -25,7 +25,7 @@ func (w *worktreesScreen) table() []screenAction {
 	return append(list.actions(),
 		screenAction{
 			id:   actionWorktreesBack,
-			keys: func(config.Keybindings) []string { return fixedKeys().Back },
+			keys: fixedBack,
 			when: list.isBrowsing,
 			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},

@@ -29,7 +29,7 @@ func (l *logsScreen) table() []screenAction {
 	return append(l.list().actions(),
 		screenAction{
 			id:   actionLogsBack,
-			keys: func(config.Keybindings) []string { return fixedKeys().Back },
+			keys: fixedBack,
 			nav: func(m *model, _ string) tea.Cmd {
 				return m.enter(l.from, screenTarget{agentID: l.agentID})
 			},
@@ -88,7 +88,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			},
 			{
 				id:   actionLogsBack,
-				keys: func(config.Keybindings) []string { return fixedKeys().Back },
+				keys: fixedBack,
 				nav: func(m *model, _ string) tea.Cmd {
 					if l.logFilter.isStanding() {
 						return l.clearLogFilter(m)
@@ -101,7 +101,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(config.Keybindings) []string { return fixedKeys().Quit },
+				keys: fixedQuit,
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		}...),

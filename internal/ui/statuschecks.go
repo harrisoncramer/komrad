@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/git"
 	"komrad/internal/glyph"
@@ -264,14 +263,14 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 		table: append(c.list().actions(),
 			screenAction{
 				id:   actionStatusChecksBack,
-				keys: func(config.Keybindings) []string { return fixedKeys().Back },
+				keys: fixedBack,
 				nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(c.from, screenTarget{agentID: c.agentID})
 				},
 			},
 			screenAction{
 				id:   actionStatusChecksLogs,
-				keys: func(config.Keybindings) []string { return fixedKeys().Open },
+				keys: fixedOpen,
 				nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, from: screenStatusChecks})
 				},

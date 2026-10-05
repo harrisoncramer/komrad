@@ -262,7 +262,7 @@ func (l screenList[T]) actions() []screenAction {
 	}
 	shared = append(shared, screenAction{
 		id:   actionQuit,
-		keys: func(config.Keybindings) []string { return fixedKeys().Quit },
+		keys: fixedQuit,
 		nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 	})
 	shared = append(shared, navActions(l, navSteps{page: navPageStep, scroll: 1})...)
@@ -316,7 +316,7 @@ func (l screenList[T]) filterActions() []screenAction {
 		},
 		{
 			id:   actionFilterClear,
-			keys: func(config.Keybindings) []string { return fixedKeys().Back },
+			keys: fixedBack,
 			when: standing,
 			nav: func(m *model, _ string) tea.Cmd {
 				m.clearFilter()

@@ -216,7 +216,7 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			},
 			{
 				id:   actionSearchBack,
-				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				keys: fixedBack,
 				nav: func(*model, string) tea.Cmd {
 					w.blurBlock()
 
@@ -225,7 +225,7 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(config.Keybindings) []string { return []string{"ctrl+c"} },
+				keys: fixedQuit,
 				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		}...),
