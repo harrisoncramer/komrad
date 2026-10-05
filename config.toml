@@ -275,14 +275,14 @@ quit = ["ctrl+c"]
 [keybindings.status_checks]
 # Leave the status checks screen for the view it was opened from.
 back = ["esc"]
-# Read the logs of the checks the screen is showing.
+# Read the logs of the status checks the screen is showing.
 logs = ["enter"]
 # Quit the panel.
 quit = ["ctrl+c"]
 
-# The check logs screen, which reads the logs of the checks the status checks screen shows.
-[keybindings.check_logs]
-# Leave the check logs for the status checks they were opened from.
+# The status check logs screen, which reads the logs of the status checks the status checks screen shows.
+[keybindings.status_check_logs]
+# Leave the status check logs for the status checks they were opened from.
 back = ["esc"]
 # Quit the panel.
 quit = ["ctrl+c"]

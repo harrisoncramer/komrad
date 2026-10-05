@@ -42,7 +42,7 @@ const (
 	actionLogsCopy
 	actionStatusChecksBack
 	actionStatusChecksLogs
-	actionCheckLogsBack
+	actionStatusCheckLogsBack
 	actionDiffFile
 	actionDiffMatch
 	actionDiffPan

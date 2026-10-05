@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,54 +21,58 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// checkLogChunk is the most lines one read of a check's log asks for.
-const checkLogChunk = 5000
+// statusCheckLogChunk is the most lines one read of a check's log asks for.
+const statusCheckLogChunk = 5000
 
-// checkLogError opens a log line the job wrote as an error.
-const checkLogError = "##[error]"
+// statusCheckLogErrorMarker is the prefix GitHub Actions puts at the start of a log line the job reported as an error.
+const statusCheckLogErrorMarker = "##[error]"
 
-// checkLogsScreen is the logs of the checks the status checks screen lists, joined into one document.
-type checkLogsScreen struct {
+// statusCheckLogsScreen is the logs of the checks the status checks screen lists, joined into one document.
+type statusCheckLogsScreen struct {
 	rowCursor
 	agentID string
-	from    screen
+	// openedFrom is the screen the logs were opened from, which going back returns to.
+	openedFrom screen
 	// generation tells this visit's reads apart from an earlier one's.
 	generation int
-	logs       map[string]*checkLogRead
-	drawn      checkLogsDrawn
+	logs       map[string]*statusCheckLogRead
+	drawn      statusCheckLogsDrawn
+	// placed is the row of the document the hovered row's header was last put on.
+	placed int
 	// checks is the status checks screen whose scope the logs are joined under.
 	checks *statusChecksScreen
 }
 
-// checkLogRead is the lines of one check's log read so far.
-type checkLogRead struct {
+// statusCheckLogRead is the lines of one check's log read so far.
+type statusCheckLogRead struct {
 	lines   []string
 	err     error
 	reading bool
 }
 
-// checkLogsDrawn is the document as last drawn, kept while nothing it was drawn from has changed.
-type checkLogsDrawn struct {
+// statusCheckLogsDrawn is the document as last drawn, kept while nothing it was drawn from has changed.
+type statusCheckLogsDrawn struct {
 	shape   string
 	rows    []string
 	anchors map[string]int
 }
 
-// checkLogRow is a check, or one step of its log, in the list beside the document.
-type checkLogRow struct {
+// statusCheckLogRow is a check, or one step of its log, in the list beside the document.
+type statusCheckLogRow struct {
 	item statusCheckItem
 	step *pullrequestv1.CheckLogStep
 }
 
-func (r checkLogRow) key() string {
+// key names the row, a status check by its id or one step by the status check id and step number, so the cursor and the document anchors find it.
+func (r statusCheckLogRow) key() string {
 	if r.step != nil {
-		return "check-log:" + r.item.checkID + "/" + strconv.Itoa(int(r.step.GetNumber()))
+		return "status-check-log:" + r.item.checkID + "/" + strconv.Itoa(int(r.step.GetNumber()))
 	}
 
-	return "check-log:" + r.item.checkID
+	return "status-check-log:" + r.item.checkID
 }
 
-func checkLogRowName(row checkLogRow) string {
+func statusCheckLogRowName(row statusCheckLogRow) string {
 	if row.step != nil {
 		return row.step.GetName()
 	}
@@ -74,34 +80,34 @@ func checkLogRowName(row checkLogRow) string {
 	return row.item.name
 }
 
-// checkLogReadMsg is one chunk of a check's log come back.
-type checkLogReadMsg struct {
+// statusCheckLogReadMsg is one chunk of a check's log come back.
+type statusCheckLogReadMsg struct {
 	generation int
 	checkID    string
 	resp       *pullrequestv1.ReadCheckLogResponse
 	err        error
 }
 
-func (c *checkLogsScreen) enter(m *model, target screenTarget) tea.Cmd {
+func (c *statusCheckLogsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	generation := c.generation + 1
 	if target.agentID != "" {
-		*c = checkLogsScreen{
-			agentID: target.agentID,
-			from:    target.from,
+		*c = statusCheckLogsScreen{
+			agentID:    target.agentID,
+			openedFrom: target.from,
 		}
 	}
-	c.generation, c.logs = generation, map[string]*checkLogRead{}
+	c.generation, c.logs, c.placed = generation, map[string]*statusCheckLogRead{}, 0
 
 	return tea.Batch(m.readStatusChecksCmd(), c.readsCmd(m))
 }
 
-func (c *checkLogsScreen) leaveScreen(*model) tea.Cmd {
+func (c *statusCheckLogsScreen) leaveScreen(*model) tea.Cmd {
 	c.generation++
 
 	return nil
 }
 
-func (c *checkLogsScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (c *statusCheckLogsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -110,50 +116,50 @@ func (c *checkLogsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	return c.list().update(m, key, c.listActions())
 }
 
-func (c *checkLogsScreen) list() screenList[checkLogRow] {
-	return screenList[checkLogRow]{
+func (c *statusCheckLogsScreen) list() screenList[statusCheckLogRow] {
+	return screenList[statusCheckLogRow]{
 		cursor: func() *rowCursor { return &c.rowCursor },
 		rows:   c.rows,
-		name:   checkLogRowName,
+		name:   statusCheckLogRowName,
 		moved: func(m *model) tea.Cmd {
 			c.anchor(m)
 
 			return nil
 		},
-		quit: func(k config.Keybindings) []string { return k.CheckLogs.Quit },
-		back: func(k config.Keybindings) []string { return k.CheckLogs.Back },
+		quit: func(k config.Keybindings) []string { return k.StatusCheckLogs.Quit },
+		back: func(k config.Keybindings) []string { return k.StatusCheckLogs.Back },
 	}
 }
 
 // shown is the checks the status checks screen lists under its scope.
-func (c *checkLogsScreen) shown(m *model) []statusCheckItem {
+func (c *statusCheckLogsScreen) shown(m *model) []statusCheckItem {
 	return xslice.Filter(m.statusChecks.commit.items, m.statusChecks.shownScope().holds)
 }
 
-func (c *checkLogsScreen) rows(m *model) []checkLogRow {
-	var rows []checkLogRow
+func (c *statusCheckLogsScreen) rows(m *model) []statusCheckLogRow {
+	var rows []statusCheckLogRow
 	for _, item := range c.shown(m) {
-		rows = append(rows, checkLogRow{item: item})
-		rows = append(rows, xslice.Map(item.log.GetSteps(), func(step *pullrequestv1.CheckLogStep) checkLogRow {
-			return checkLogRow{item: item, step: step}
+		rows = append(rows, statusCheckLogRow{item: item})
+		rows = append(rows, xslice.Map(item.log.GetSteps(), func(step *pullrequestv1.CheckLogStep) statusCheckLogRow {
+			return statusCheckLogRow{item: item, step: step}
 		})...)
 	}
 
-	return narrowed(m.filter, narrowedParams[checkLogRow]{
+	return narrowed(m.filter, narrowedParams[statusCheckLogRow]{
 		rows: rows,
-		depth: func(r checkLogRow) int {
+		depth: func(r statusCheckLogRow) int {
 			if r.step != nil {
 				return 1
 			}
 
 			return 0
 		},
-		name: checkLogRowName,
+		name: statusCheckLogRowName,
 	})
 }
 
 // anchor puts the hovered row's header at the top of the document.
-func (c *checkLogsScreen) anchor(m *model) {
+func (c *statusCheckLogsScreen) anchor(m *model) {
 	split, ok := m.screenColumnSplit()
 	if !ok {
 		return
@@ -167,16 +173,25 @@ func (c *checkLogsScreen) anchor(m *model) {
 
 	m.reading.tail = false
 	if rows, height, ok := m.docLayout(); ok {
-		m.reading.Line = line
+		m.reading.Line, c.placed = line, line
 		m.reading.Top = reader.Window{Len: len(rows), Markers: true}.Clamp(line, height)
 	}
 }
 
-func (c *checkLogsScreen) view(m *model) string {
+// reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved off it.
+func (c *statusCheckLogsScreen) reanchor(m *model) {
+	if m.screen != screenStatusCheckLogs || m.reading.focused || m.reading.Line != c.placed {
+		return
+	}
+
+	c.anchor(m)
+}
+
+func (c *statusCheckLogsScreen) view(m *model) string {
 	return m.columnListView(c.listParams(m))
 }
 
-func (c *checkLogsScreen) listParams(m *model) screenListParams {
+func (c *statusCheckLogsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
 		tally:    m.statusChecks.commit.tally(),
 		help:     c.help,
@@ -186,12 +201,12 @@ func (c *checkLogsScreen) listParams(m *model) screenListParams {
 	}
 }
 
-func (c *checkLogsScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (c *statusCheckLogsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	rows := c.rows(m)
 
 	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r checkLogRow) view.Row {
-			name := checkLogRowName(r)
+		Rows: xslice.Map(rows, func(r statusCheckLogRow) view.Row {
+			name := statusCheckLogRowName(r)
 			row := view.Row{
 				Key:     r.key(),
 				Kind:    view.KindResult,
@@ -202,7 +217,7 @@ func (c *checkLogsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 			}
 			if r.step != nil {
 				row.Kind = view.KindChild
-				row.Cells = []view.Cell{checkLogStepIcon(r.step)}
+				row.Cells = []view.Cell{statusCheckLogStepIcon(r.step)}
 			}
 
 			return row
@@ -215,8 +230,8 @@ func (c *checkLogsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	}
 }
 
-// checkLogStepIcon is the icon of a step of a log, blank for a step that reported no conclusion.
-func checkLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
+// statusCheckLogStepIcon is the icon of a step of a log, blank for a step that reported no conclusion.
+func statusCheckLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
 	if step.GetConclusion() == "" {
 		return view.Cell{}
 	}
@@ -227,7 +242,7 @@ func checkLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
 	}, "")
 }
 
-func (c *checkLogsScreen) kinds() stops {
+func (c *statusCheckLogsScreen) kinds() stops {
 	if c.checks == nil {
 		return stops{}
 	}
@@ -235,7 +250,7 @@ func (c *checkLogsScreen) kinds() stops {
 	return c.checks.kinds()
 }
 
-func (c *checkLogsScreen) kindsFocused() *bool {
+func (c *statusCheckLogsScreen) kindsFocused() *bool {
 	if c.checks == nil {
 		return new(bool)
 	}
@@ -243,29 +258,30 @@ func (c *checkLogsScreen) kindsFocused() *bool {
 	return c.checks.kindsFocused()
 }
 
-func (c *checkLogsScreen) kindsFit(m *model) bool {
+func (c *statusCheckLogsScreen) kindsFit(m *model) bool {
 	return m.listFitsTabs(c.listParams(m))
 }
 
-func (c *checkLogsScreen) kindsSwitch(*model) bool {
+func (c *statusCheckLogsScreen) kindsSwitch(*model) bool {
 	return true
 }
 
 // stepKind moves the status checks screen to another scope, which is the scope the logs are joined under.
-func (c *checkLogsScreen) stepKind(m *model, delta int) tea.Cmd {
+func (c *statusCheckLogsScreen) stepKind(m *model, delta int) tea.Cmd {
 	hovered := c.list().hovered(m)
 	cmd := m.statusChecks.stepKind(m, delta)
 	c.list().place(m, hovered)
+	c.reanchor(m)
 
 	return tea.Batch(cmd, c.readsCmd(m))
 }
 
-func (c *checkLogsScreen) listActions() screenActionSpec {
+func (c *statusCheckLogsScreen) listActions() screenActionSpec {
 	return screenActionSpec{
 		table: append(c.list().actions(),
 			screenAction{
-				id:   actionCheckLogsBack,
-				keys: func(k config.Keybindings) []string { return k.CheckLogs.Back },
+				id:   actionStatusCheckLogsBack,
+				keys: func(k config.Keybindings) []string { return k.StatusCheckLogs.Back },
 				nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(screenStatusChecks, screenTarget{})
 				},
@@ -273,7 +289,7 @@ func (c *checkLogsScreen) listActions() screenActionSpec {
 		),
 		legend: slices.Concat(screenNavLegend(), []screenLegendRow{
 			{
-				of:    []actionID{actionCheckLogsBack},
+				of:    []actionID{actionStatusCheckLogsBack},
 				desc:  func(*model) string { return "back" },
 				strip: true,
 			},
@@ -281,15 +297,15 @@ func (c *checkLogsScreen) listActions() screenActionSpec {
 	}
 }
 
-func (c *checkLogsScreen) help(m *model) keyMap {
+func (c *statusCheckLogsScreen) help(m *model) keyMap {
 	return c.listActions().help(m)
 }
 
-func (c *checkLogsScreen) parent() screen {
-	return c.from
+func (c *statusCheckLogsScreen) parent() screen {
+	return c.openedFrom
 }
 
-func (c *checkLogsScreen) crumbs(m *model) crumbs {
+func (c *statusCheckLogsScreen) crumbs(m *model) crumbs {
 	name := c.agentID
 	if item, ok := m.listing.anyAgent(c.agentID); ok {
 		name = m.listing.agentName(item.Agent)
@@ -298,61 +314,61 @@ func (c *checkLogsScreen) crumbs(m *model) crumbs {
 	return crumbs{trail: []string{name, "status checks", "logs"}}
 }
 
-func (c *checkLogsScreen) doesDrawFromListing() bool {
+func (c *statusCheckLogsScreen) doesDrawFromListing() bool {
 	return true
 }
 
-func (c *checkLogsScreen) takesEveryKey() bool {
+func (c *statusCheckLogsScreen) takesEveryKey() bool {
 	return false
 }
 
-func (c *checkLogsScreen) column() columnSpec {
+func (c *statusCheckLogsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m *model, width int) []string {
-			rows, _ := m.checkLogs.docAnchors(m, width)
+			rows, _ := m.statusCheckLogs.docAnchors(m, width)
 
 			return rows
 		},
 	}
 }
 
-func (c *checkLogsScreen) stageResting(*model) tea.Cmd {
+func (c *statusCheckLogsScreen) stageResting(*model) tea.Cmd {
 	return nil
 }
 
-func (c *checkLogsScreen) dispatches(*model) []dispatching {
+func (c *statusCheckLogsScreen) dispatches(*model) []dispatching {
 	return []dispatching{c.listActions()}
 }
 
 var (
-	_ kindSwitcher    = (*checkLogsScreen)(nil)
-	_ listFilterer    = (*checkLogsScreen)(nil)
-	_ crumbDrawer     = (*checkLogsScreen)(nil)
-	_ loadingReporter = (*checkLogsScreen)(nil)
-	_ screenLeaver    = (*checkLogsScreen)(nil)
-	_ docNamer        = (*checkLogsScreen)(nil)
+	_ kindSwitcher    = (*statusCheckLogsScreen)(nil)
+	_ listFilterer    = (*statusCheckLogsScreen)(nil)
+	_ crumbDrawer     = (*statusCheckLogsScreen)(nil)
+	_ loadingReporter = (*statusCheckLogsScreen)(nil)
+	_ screenLeaver    = (*statusCheckLogsScreen)(nil)
+	_ docNamer        = (*statusCheckLogsScreen)(nil)
 )
 
-func (c *checkLogsScreen) hoveredKey(m *model) string {
+func (c *statusCheckLogsScreen) hoveredKey(m *model) string {
 	return c.list().hovered(m)
 }
 
-func (c *checkLogsScreen) placeAt(m *model, key string) {
+func (c *statusCheckLogsScreen) placeAt(m *model, key string) {
 	c.list().place(m, key)
 }
 
-func (c *checkLogsScreen) filterRows(m *model) []filterRow {
+func (c *statusCheckLogsScreen) filterRows(m *model) []filterRow {
 	return c.list().filterRows(m)
 }
 
 // docName names the one document every row of the list reads, so moving the cursor keeps the reader's place.
-func (c *checkLogsScreen) docName(*model) string {
-	return c.agentID + "/check-logs"
+func (c *statusCheckLogsScreen) docName(*model) string {
+	return c.agentID + "/status-check-logs"
 }
 
-func (c *checkLogsScreen) isLoading(m *model) bool {
+func (c *statusCheckLogsScreen) isLoading(m *model) bool {
 	if m.statusChecks.listing {
 		return true
 	}
@@ -367,7 +383,7 @@ func (c *checkLogsScreen) isLoading(m *model) bool {
 }
 
 // docAnchors is the logs of the shown checks drawn at a width, with the row each list row's header is drawn on.
-func (c *checkLogsScreen) docAnchors(m *model, width int) ([]string, map[string]int) {
+func (c *statusCheckLogsScreen) docAnchors(m *model, width int) ([]string, map[string]int) {
 	shown := c.shown(m)
 	shape := c.docShape(shown, width)
 	if c.drawn.shape == shape {
@@ -389,7 +405,7 @@ func (c *checkLogsScreen) docAnchors(m *model, width int) ([]string, map[string]
 			rows = append(rows, "")
 		}
 
-		anchors[checkLogRow{item: item}.key()] = len(rows)
+		anchors[statusCheckLogRow{item: item}.key()] = len(rows)
 		title := "═ " + item.name + " "
 		rows = append(rows, fitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(width-2*docMargin()-lipgloss.Width(title), 0))), width))
 
@@ -399,32 +415,39 @@ func (c *checkLogsScreen) docAnchors(m *model, width int) ([]string, map[string]
 			continue
 		}
 
-		steps := map[int]*pullrequestv1.CheckLogStep{}
-		for _, step := range item.log.GetSteps() {
-			steps[int(step.GetFirstLine())] = step
+		steps := slices.SortedStableFunc(slices.Values(item.log.GetSteps()), func(a, b *pullrequestv1.CheckLogStep) int {
+			return cmp.Compare(a.GetFirstLine(), b.GetFirstLine())
+		})
+		header := func(upTo int) {
+			for len(steps) > 0 && int(steps[0].GetFirstLine()) <= upTo {
+				anchors[statusCheckLogRow{item: item, step: steps[0]}.key()] = len(rows)
+				line("▸ "+steps[0].GetName(), lipgloss.NewStyle().Bold(true))
+				steps = steps[1:]
+			}
 		}
 
-		for n, text := range c.logs[item.checkID].lines {
-			if step, ok := steps[n+1]; ok {
-				anchors[checkLogRow{item: item, step: step}.key()] = len(rows)
-				line("▸ "+step.GetName(), lipgloss.NewStyle().Bold(true))
-			}
+		read := c.logs[item.checkID]
+		for n, text := range read.lines {
+			header(n + 1)
 
 			style := lipgloss.NewStyle()
-			if strings.HasPrefix(text, checkLogError) {
+			if strings.HasPrefix(text, statusCheckLogErrorMarker) {
 				style = paint.Panel.Style(paint.ToneDanger)
 			}
 			line(strings.ReplaceAll(text, "\t", "    "), style)
 		}
+		if !read.reading {
+			header(math.MaxInt)
+		}
 	}
 
-	c.drawn = checkLogsDrawn{shape: shape, rows: rows, anchors: anchors}
+	c.drawn = statusCheckLogsDrawn{shape: shape, rows: rows, anchors: anchors}
 
 	return rows, anchors
 }
 
 // docShape names everything the document is drawn from, so it is drawn again only once that changes.
-func (c *checkLogsScreen) docShape(shown []statusCheckItem, width int) string {
+func (c *statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%d/%d", c.generation, width)
 	for _, item := range shown {
@@ -440,7 +463,7 @@ func (c *checkLogsScreen) docShape(shown []statusCheckItem, width int) string {
 }
 
 // logNotice is what is drawn under a check in place of its log, empty while there are lines to draw.
-func (c *checkLogsScreen) logNotice(item statusCheckItem) string {
+func (c *statusCheckLogsScreen) logNotice(item statusCheckItem) string {
 	read := c.logs[item.checkID]
 	switch {
 	case read != nil && read.err != nil:
@@ -471,8 +494,8 @@ func (c *checkLogsScreen) logNotice(item statusCheckItem) string {
 }
 
 // readsCmd starts reading the log of each shown check that has one kept and is not read yet.
-func (c *checkLogsScreen) readsCmd(m *model) tea.Cmd {
-	if m.screen != screenCheckLogs || c.logs == nil {
+func (c *statusCheckLogsScreen) readsCmd(m *model) tea.Cmd {
+	if m.screen != screenStatusCheckLogs || c.logs == nil {
 		return nil
 	}
 
@@ -485,7 +508,7 @@ func (c *checkLogsScreen) readsCmd(m *model) tea.Cmd {
 			continue
 		}
 
-		c.logs[item.checkID] = &checkLogRead{reading: true}
+		c.logs[item.checkID] = &statusCheckLogRead{reading: true}
 		cmds = append(cmds, c.readCmd(m, item.checkID, 1, item.log.GetLineCount()))
 	}
 
@@ -493,19 +516,19 @@ func (c *checkLogsScreen) readsCmd(m *model) tea.Cmd {
 }
 
 // readCmd reads one chunk of a check's log, from its first line toward its last.
-func (c *checkLogsScreen) readCmd(m *model, checkID string, first, last int32) tea.Cmd {
+func (c *statusCheckLogsScreen) readCmd(m *model, checkID string, first, last int32) tea.Cmd {
 	generation, clients := c.generation, m.api
-	count := min(last-first+1, checkLogChunk)
+	count := min(last-first+1, statusCheckLogChunk)
 
 	return func() tea.Msg {
 		resp, err := clients.readCheckLog(checkID, first, count)
 
-		return checkLogReadMsg{generation: generation, checkID: checkID, resp: resp, err: err}
+		return statusCheckLogReadMsg{generation: generation, checkID: checkID, resp: resp, err: err}
 	}
 }
 
-func (m *model) applyCheckLogRead(msg checkLogReadMsg) tea.Cmd {
-	c := &m.checkLogs
+func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
+	c := &m.statusCheckLogs
 	read, ok := c.logs[msg.checkID]
 	if msg.generation != c.generation || !ok {
 		return nil
@@ -513,17 +536,20 @@ func (m *model) applyCheckLogRead(msg checkLogReadMsg) tea.Cmd {
 
 	if msg.err != nil {
 		read.err, read.reading = msg.err, false
+		c.reanchor(m)
 
 		return nil
 	}
 
 	read.lines = append(read.lines, xslice.Map(msg.resp.GetLines(), func(l *pullrequestv1.CheckLogLine) string { return l.GetText() })...)
 	total := msg.resp.GetLineCount()
+	var next tea.Cmd
 	if int32(len(read.lines)) >= total || len(msg.resp.GetLines()) == 0 {
 		read.reading = false
-
-		return nil
+	} else {
+		next = c.readCmd(m, msg.checkID, int32(len(read.lines))+1, total)
 	}
+	c.reanchor(m)
 
-	return c.readCmd(m, msg.checkID, int32(len(read.lines))+1, total)
+	return next
 }

@@ -9,16 +9,16 @@ import (
 
 // screenNames are the screens as an error names them.
 var screenNames = map[screen]string{
-	screenAgents:       "the agents list",
-	screenSchedules:    "the schedules",
-	screenArchive:      "the archive",
-	screenReview:       "the review",
-	screenSearch:       "the search",
-	screenWorktrees:    "the worktrees",
-	screenDocuments:    "the documents",
-	screenLogs:         "the logs",
-	screenStatusChecks: "the status checks",
-	screenCheckLogs:    "the check logs",
+	screenAgents:          "the agents list",
+	screenSchedules:       "the schedules",
+	screenArchive:         "the archive",
+	screenReview:          "the review",
+	screenSearch:          "the search",
+	screenWorktrees:       "the worktrees",
+	screenDocuments:       "the documents",
+	screenLogs:            "the logs",
+	screenStatusChecks:    "the status checks",
+	screenStatusCheckLogs: "the status check logs",
 }
 
 // dispatchArm is one arm of the order a press is offered to, described for the error it would be
@@ -44,7 +44,7 @@ func actionsOf(s screen) []dispatching {
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
-	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenCheckLogs, screenSearch} {
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs, screenSearch} {
 		if err := validateScreenKeys(s, keys); err != nil {
 			return err
 		}

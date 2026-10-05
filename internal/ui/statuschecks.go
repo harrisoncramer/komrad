@@ -275,7 +275,7 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 				id:   actionStatusChecksLogs,
 				keys: func(k config.Keybindings) []string { return k.StatusChecks.Logs },
 				nav: func(m *model, _ string) tea.Cmd {
-					return m.enter(screenCheckLogs, screenTarget{agentID: c.agentID, from: screenStatusChecks})
+					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, from: screenStatusChecks})
 				},
 			},
 		),
@@ -376,7 +376,7 @@ func (m *model) statusChecksPullRequestID(agentID string) string {
 // readStatusChecksCmd lists the status checks again when the agent's pull request or its head has moved since
 // they were last listed, once at a time.
 func (m *model) readStatusChecksCmd() tea.Cmd {
-	if m.screen != screenStatusChecks && m.screen != screenCheckLogs {
+	if m.screen != screenStatusChecks && m.screen != screenStatusCheckLogs {
 		return nil
 	}
 
