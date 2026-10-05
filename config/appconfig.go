@@ -540,7 +540,7 @@ type ReviewKeys struct {
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose" default:"c"`
-	// Open the file under the cursor in your editor, beside the diff, on the line the
+	// From the menu, open the file under the cursor in your editor, beside the diff, on the line the
 	// cursor is on. This is the agent's own worktree rather than a copy of it, so what
 	// you write is what the agent finds there, and the key is refused while the agent is
 	// working rather than letting you both write at once. It is refused on a round the
@@ -568,7 +568,7 @@ type ReviewKeys struct {
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-	// Catch up with the agent, once the band says it has written since you opened the
+	// From the menu, catch up with the agent, once the band says it has written since you opened the
 	// diff. What you are reading never moves on its own, since that would take the code out
 	// from under a comment being written, so catching up is always yours to ask for.
 	Reload []string `mapstructure:"reload" default:"R"`

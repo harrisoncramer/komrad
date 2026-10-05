@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/submitting"
+	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -247,4 +248,9 @@ func keyLabel(keys []string) string {
 	}
 
 	return strings.Join(out, "/")
+}
+
+// menuChordLabel is the presses that reach an entry through the menu, spaced apart.
+func (m *model) menuChordLabel(entries ...[]string) string {
+	return strings.Join(xslice.Map(slices.Concat([][]string{m.keys.Menu.Open}, entries), keyLabel), " ")
 }

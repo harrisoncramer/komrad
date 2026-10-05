@@ -52,9 +52,7 @@ const (
 	actionReviewBack
 	actionReviewThread
 	actionReviewOpenThread
-	actionReviewEdit
 	actionReviewBase
-	actionReviewReload
 	actionReviewResolve
 	actionReviewAccept
 	actionReviewViewed

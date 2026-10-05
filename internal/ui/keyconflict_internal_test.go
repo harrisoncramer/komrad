@@ -38,7 +38,7 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 	}{
 		{
 			name:    "a review key taking a movement key",
-			rebind:  func(k *config.Keybindings) { k.Review.Reload = k.Nav.Down },
+			rebind:  func(k *config.Keybindings) { k.Review.Compose = k.Nav.Down },
 			screens: []screen{screenReview},
 		},
 		{

@@ -85,6 +85,12 @@ func (k diffKeys) table() []screenAction {
 				return nil
 			},
 		},
+	}...)
+}
+
+// shapeTable is the keys that expand and wrap a diff pane's files.
+func (k diffKeys) shapeTable() []screenAction {
+	return []screenAction{
 		{
 			id:   actionDiffExpand,
 			keys: func(b config.Keybindings) []string { return b.Diff.Expand },
@@ -95,7 +101,7 @@ func (k diffKeys) table() []screenAction {
 			keys: func(b config.Keybindings) []string { return b.Diff.Wrap },
 			nav:  func(m *model, _ string) tea.Cmd { return k.toggleWrap(m) },
 		},
-	}...)
+	}
 }
 
 // directionOf is back for a press of the backward keys and forward for any other.
@@ -166,15 +172,17 @@ func diffPanRow() screenLegendRow {
 // diffWrapRow is the key that wraps long lines or cuts them off again.
 func diffWrapRow() screenLegendRow {
 	return screenLegendRow{
-		of: []actionID{actionDiffWrap},
-		desc: func(m *model) string {
-			if m.diffWrap {
-				return "stop wrapping lines"
-			}
-
-			return "wrap lines"
-		},
+		of:   []actionID{actionDiffWrap},
+		desc: wrapDesc,
 	}
+}
+
+func wrapDesc(m *model) string {
+	if m.diffWrap {
+		return "stop wrapping lines"
+	}
+
+	return "wrap lines"
 }
 
 // isPanning reports whether long lines are cut off and panned rather than wrapped.

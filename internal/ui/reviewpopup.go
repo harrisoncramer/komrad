@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 )
@@ -62,6 +63,16 @@ func (r reviewScreen) placeThread(m *model, body string) popupSlot {
 	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), len(splitPopupRows(body))+2)
 }
 
+// isPopupMenu reports whether the menu stands in the review's popup rather than in a column of its own.
+func (m *model) isPopupMenu() bool {
+	return m.form.isMenu && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
+}
+
+// measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.
+func (r reviewScreen) measurePopupRoom(m *model) int {
+	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), popupHeight).room()
+}
+
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
 func (r reviewScreen) measurePopupStage(m *model) popupStage {
@@ -89,4 +100,13 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		cursorLast: above + first + height - 1,
 		rows:       above + split.rows,
 	}
+}
+
+// withMenu is a popup body with the menu as a section under it, or the menu alone under no body.
+func withMenu(body, menu string, inner int) string {
+	if body == "" {
+		return menu
+	}
+
+	return strings.TrimRight(body, "\n") + "\n" + dimStyle().Render(strings.Repeat(glyph.Rule, inner)) + "\n" + menu
 }

@@ -115,6 +115,17 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
+	if err := validateSubmenuKeys("review menu", []submenuKeys{
+		{name: "edit_file", keys: keys.Review.EditFile},
+		{name: "expand", keys: keys.Diff.Expand},
+		{name: "wrap", keys: keys.Diff.Wrap},
+		{name: "reload", keys: keys.Review.Reload},
+		{name: "scratch", keys: keys.Menu.Scratch},
+		{name: "document_types", keys: keys.Menu.DocumentTypes},
+	}); err != nil {
+		return err
+	}
+
 	if err := validateSubmenuKeys("merge menu", []submenuKeys{
 		{name: "merge", keys: keys.Merge.Merge},
 		{name: "merge_archive", keys: keys.Merge.MergeArchive},
