@@ -357,7 +357,7 @@ type terminalState struct {
 	awaitingSince time.Time
 	// windowCols is how wide the window was when the divider was last read.
 	windowCols int
-	// drawn is the frame the last update drew, held while the panel waits to be told its size.
+	// drawn is the frame the last update drew, which View returns.
 	drawn string
 	// copying is whether a stand-in in copy-mode has the sidebar's place.
 	copying bool
