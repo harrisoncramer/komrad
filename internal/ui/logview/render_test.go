@@ -32,7 +32,7 @@ func TestCompact(t *testing.T) {
 		{
 			name: "an error code with no message stands in for it",
 			line: `{"severity_text":"ERROR","body":"rpc failed","rpc.connect_rpc.error_code":"not_found"}`,
-			want: "ERR rpc failed                     not_found",
+			want: "         ERR rpc failed                     not_found",
 		},
 		{
 			name: "a finished script shows its name, trigger, exit code and duration but not its output",
@@ -42,42 +42,47 @@ func TestCompact(t *testing.T) {
 		{
 			name: "a mail nudge shows its loop and unread count",
 			line: `{"severity_text":"INFO","body":"told an agent to read its mail","loop":"delivery","trace.id":"t","komrad.target_agent.id":"a","komrad.mail.unread":1}`,
-			want: "INF told an agent to read its mail delivery unread 1",
+			want: "         INF told an agent to read its mail delivery unread 1",
 		},
 		{
 			name: "fields the renderer does not know are shown as key and value in key order",
 			line: `{"severity_text":"INFO","body":"producer: Producer job counts","queue":"default","num_jobs_running":0,"num_completed_jobs":12}`,
-			want: "INF producer: Producer job counts  num_completed_jobs=12 num_jobs_running=0 queue=default",
+			want: "         INF producer: Producer job counts  num_completed_jobs=12 num_jobs_running=0 queue=default",
 		},
 		{
 			name: "a nested value is shown as json",
 			line: `{"severity_text":"INFO","body":"b","req":{"a":1.50,"b":["x y","z"]}}`,
-			want: `INF b                              req={"a":1.50,"b":["x y","z"]}`,
+			want: `         INF b                              req={"a":1.50,"b":["x y","z"]}`,
 		},
 		{
 			name: "a debug line with no fields keeps no trailing space",
 			line: `{"severity_text":"DEBUG","body":"frame read"}`,
-			want: "DBG frame read",
+			want: "         DBG frame read",
+		},
+		{
+			name: "a timestamp the parser rejects keeps its column blank",
+			line: `{"timestamp":"2026-10-04 21:37:02","severity_text":"INFO","body":"b"}`,
+			want: "         INF b",
 		},
 		{
 			name: "a line with no severity is marked unknown",
 			line: `{"body":"hello"}`,
-			want: "??? hello",
+			want: "         ??? hello",
 		},
 		{
 			name: "escape sequences inside values are stripped",
 			line: `{"severity_text":"INFO","body":"\u001b[31mred\u001b[0m","loop":"a\tb"}`,
-			want: "INF red                            a b",
+			want: "         INF red                            a b",
 		},
 		{
 			name: "escape sequences inside a status code, a key and a severity are stripped",
 			line: `{"severity_text":"x\nyz","body":"b","http.response.status_code":"405\n\u001b[2J","a\nb":"c"}`,
-			want: "XYZ b                              405 ab=c",
+			want: "         XYZ b                              405 ab=c",
 		},
 		{
 			name: "a critical severity is an error",
 			line: `{"severity_text":"CRITICAL","body":"b"}`,
-			want: "ERR b",
+			want: "         ERR b",
 		},
 		{
 			name: "a line that is not json is drawn as it stands",

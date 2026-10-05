@@ -63,10 +63,7 @@ func Compact(palette paint.Palette, line string) string {
 		body += strings.Repeat(" ", pad)
 	}
 
-	parts := []string{palette.Style(tone).Render(label), body}
-	if stamp := e.clock(); stamp != "" {
-		parts = append([]string{muted.Render(stamp)}, parts...)
-	}
+	parts := []string{muted.Render(e.clock()), palette.Style(tone).Render(label), body}
 
 	if fields := e.fields(palette); len(fields) > 0 {
 		parts = append(parts, strings.Join(fields, " "))
@@ -102,7 +99,7 @@ func (e entry) has(key string) bool {
 func (e entry) clock() string {
 	stamp, err := time.Parse(time.RFC3339Nano, e.text("timestamp"))
 	if err != nil {
-		return ""
+		return strings.Repeat(" ", len(time.TimeOnly))
 	}
 
 	return stamp.Format(time.TimeOnly)
