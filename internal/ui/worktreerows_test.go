@@ -14,74 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// worktreeFixture is two repositories' worth of directories: a live agent, one archived mid-turn
-// with the state it stopped in still stored, a directory nothing answers for, an unreadable one,
-// and an occupant working in the live one.
-func worktreeFixture() []worktreeItem {
-	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
-
-	return []worktreeItem{
-		{
-			dir:      "/trees/live",
-			repoDir:  "/home/h/komrad",
-			branch:   "agent/live",
-			readable: true,
-			agent: &worktreeAgent{
-				id:    "live",
-				name:  "worktree-view",
-				state: panel.StateThinking,
-			},
-			occupants: []worktreeAgent{{
-				id:    "occ",
-				name:  "review-607",
-				state: panel.StateIdle,
-			}},
-			fate: fateLive,
-		},
-		{
-			dir:      "/trees/archived",
-			repoDir:  "/home/h/komrad",
-			branch:   "agent/archived",
-			readable: true,
-			agent: &worktreeAgent{
-				id:         "archived",
-				name:       "review-column",
-				state:      panel.StateThinking,
-				archivedAt: &archived,
-			},
-			fate: fateArchived,
-		},
-		{
-			dir:      "/trees/orphan",
-			repoDir:  "/home/h/komrad",
-			branch:   "agent/orphan",
-			readable: true,
-		},
-		{
-			dir:     "/trees/broken",
-			repoDir: "/var/folders/T/repo",
-		},
-		{
-			dir:      "/trees/admin",
-			repoDir:  "/home/h/gadgets/admin",
-			branch:   "agent/admin",
-			readable: true,
-			agent: &worktreeAgent{
-				id:         "admin",
-				name:       "custom-cargo-fixes",
-				state:      panel.StateIdle,
-				archivedAt: &archived,
-			},
-			fate: fateArchived,
-		},
-	}
-}
-
-// worktreesOrder is the order the strip names for a state.
-func worktreesOrder(state tabsState) sortOrder {
-	return worktreesTabs().order(state)
-}
-
 // TestWorktreeRowsOrderEachGroupByTheColumn covers the headers staying in path order under
 // every sort, the rows under each ordered by the chosen column in the arrow's direction with
 // the rows that lack the value at the bottom, and the directory name settling a tie.
@@ -456,6 +388,104 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 	}
 }
 
+// TestWorktreesSnapshotCellsAreSizeAgeThenStanding covers every row's cells: the size and the age
+// on a directory with a dash for the size until it is measured or while its walk fails, the
+// standing in the glyphs an agent's row draws, and the header summing the shares of the measured
+// directories under it over the size column.
+func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
+	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	items := measuredFixture(now)
+	snapshot := worktreesSnapshot(worktreesSnapshotParams{
+		rows:  worktreeRows(worktreeRowsParams{items: items, order: worktreesOrder(tabsState{})}),
+		items: items,
+		now:   now,
+	})
+
+	cells := map[string][]view.Cell{}
+	for _, row := range snapshot.Rows {
+		cells[row.Key] = row.Cells
+	}
+
+	assert.Equal(t, map[string][]view.Cell{
+		"repo:/home/h/gadgets/admin": {mutedCell("1.5G")},
+		"tree:/trees/admin":          {mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}},
+		"repo:/home/h/komrad":        {mutedCell("60M")},
+		"tree:/trees/live":           {mutedCell("49M"), mutedCell("30s"), {Glyph: glyph.Worktree, Tone: paint.ToneWarning}},
+		"tree:/trees/archived":       {mutedCell("49M"), mutedCell("4d"), {Glyph: glyph.Worktree, Tone: paint.ToneMuted}},
+		"tree:/trees/orphan":         {mutedCell("—"), mutedCell("3h"), mutedCell("—")},
+		"repo:/var/folders/T/repo":   {mutedCell("—")},
+		"tree:/trees/broken":         {mutedCell("—"), mutedCell("2w"), {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}},
+	}, cells)
+}
+
+// worktreeFixture is two repositories' worth of directories: a live agent, one archived mid-turn
+// with the state it stopped in still stored, a directory nothing answers for, an unreadable one,
+// and an occupant working in the live one.
+func worktreeFixture() []worktreeItem {
+	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+
+	return []worktreeItem{
+		{
+			dir:      "/trees/live",
+			repoDir:  "/home/h/komrad",
+			branch:   "agent/live",
+			readable: true,
+			agent: &worktreeAgent{
+				id:    "live",
+				name:  "worktree-view",
+				state: panel.StateThinking,
+			},
+			occupants: []worktreeAgent{{
+				id:    "occ",
+				name:  "review-607",
+				state: panel.StateIdle,
+			}},
+			fate: fateLive,
+		},
+		{
+			dir:      "/trees/archived",
+			repoDir:  "/home/h/komrad",
+			branch:   "agent/archived",
+			readable: true,
+			agent: &worktreeAgent{
+				id:         "archived",
+				name:       "review-column",
+				state:      panel.StateThinking,
+				archivedAt: &archived,
+			},
+			fate: fateArchived,
+		},
+		{
+			dir:      "/trees/orphan",
+			repoDir:  "/home/h/komrad",
+			branch:   "agent/orphan",
+			readable: true,
+		},
+		{
+			dir:     "/trees/broken",
+			repoDir: "/var/folders/T/repo",
+		},
+		{
+			dir:      "/trees/admin",
+			repoDir:  "/home/h/gadgets/admin",
+			branch:   "agent/admin",
+			readable: true,
+			agent: &worktreeAgent{
+				id:         "admin",
+				name:       "custom-cargo-fixes",
+				state:      panel.StateIdle,
+				archivedAt: &archived,
+			},
+			fate: fateArchived,
+		},
+	}
+}
+
+// worktreesOrder is the order the strip names for a state.
+func worktreesOrder(state tabsState) sortOrder {
+	return worktreesTabs().order(state)
+}
+
 // measuredFixture is the fixture with the loop having been round: the live and archived
 // directories under komrad measured, the orphan's walk failed, the admin one measured under its
 // own repository, and each with a last activity behind the given moment.
@@ -488,34 +518,4 @@ func measuredFixture(now time.Time) []worktreeItem {
 	items[4].standing = &worktreeStanding{}
 
 	return items
-}
-
-// TestWorktreesSnapshotCellsAreSizeAgeThenStanding covers every row's cells: the size and the age
-// on a directory with a dash for the size until it is measured or while its walk fails, the
-// standing in the glyphs an agent's row draws, and the header summing the shares of the measured
-// directories under it over the size column.
-func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
-	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-	items := measuredFixture(now)
-	snapshot := worktreesSnapshot(worktreesSnapshotParams{
-		rows:  worktreeRows(worktreeRowsParams{items: items, order: worktreesOrder(tabsState{})}),
-		items: items,
-		now:   now,
-	})
-
-	cells := map[string][]view.Cell{}
-	for _, row := range snapshot.Rows {
-		cells[row.Key] = row.Cells
-	}
-
-	assert.Equal(t, map[string][]view.Cell{
-		"repo:/home/h/gadgets/admin": {mutedCell("1.5G")},
-		"tree:/trees/admin":          {mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}},
-		"repo:/home/h/komrad":        {mutedCell("60M")},
-		"tree:/trees/live":           {mutedCell("49M"), mutedCell("30s"), {Glyph: glyph.Worktree, Tone: paint.ToneWarning}},
-		"tree:/trees/archived":       {mutedCell("49M"), mutedCell("4d"), {Glyph: glyph.Worktree, Tone: paint.ToneMuted}},
-		"tree:/trees/orphan":         {mutedCell("—"), mutedCell("3h"), mutedCell("—")},
-		"repo:/var/folders/T/repo":   {mutedCell("—")},
-		"tree:/trees/broken":         {mutedCell("—"), mutedCell("2w"), {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}},
-	}, cells)
 }

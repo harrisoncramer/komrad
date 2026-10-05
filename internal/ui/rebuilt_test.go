@@ -12,19 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const rebuiltNotice = "komrad was rebuilt"
-
-type fakeBinary struct {
-	isReplaced bool
-	asked      int
-}
-
-func (b *fakeBinary) IsReplaced() bool {
-	b.asked++
-
-	return b.isReplaced
-}
-
 // TestRebuilt covers the binary changing under a running panel.
 func TestRebuilt(t *testing.T) {
 	t.Parallel()
@@ -135,6 +122,19 @@ func TestRebuilt(t *testing.T) {
 			})
 		}
 	})
+}
+
+const rebuiltNotice = "komrad was rebuilt"
+
+type fakeBinary struct {
+	isReplaced bool
+	asked      int
+}
+
+func (b *fakeBinary) IsReplaced() bool {
+	b.asked++
+
+	return b.isReplaced
 }
 
 func openRebuilt(t *testing.T, binary ui.BinaryWatcher) *panelHarness {

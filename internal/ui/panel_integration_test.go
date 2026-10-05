@@ -23,16 +23,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const panelSession = "shown"
-
-type servedPanel struct {
-	instance  *komradtest.Instance
-	harness   *panelHarness
-	agentID   string
-	agentPane string
-	navPane   string
-}
-
 // TestIntegrationPanel covers the panel driven against a real service and a real tmux server.
 func TestIntegrationPanel(t *testing.T) {
 	t.Run("the archive key takes an agent all the way to the database", func(t *testing.T) {
@@ -124,6 +114,16 @@ func TestIntegrationPanel(t *testing.T) {
 		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
 		assert.LessOrEqual(t, lipgloss.Width(served.harness.readDrawn()), share, "so nothing drawn runs past the pane and wraps")
 	})
+}
+
+const panelSession = "shown"
+
+type servedPanel struct {
+	instance  *komradtest.Instance
+	harness   *panelHarness
+	agentID   string
+	agentPane string
+	navPane   string
 }
 
 func startServedAgent(t *testing.T) (*komradtest.Instance, string) {

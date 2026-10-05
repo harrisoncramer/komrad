@@ -12,29 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	traceDir      = "/checkout"
-	firstSHA      = "1111111111111111111111111111111111111111"
-	secondSHA     = "2222222222222222222222222222222222222222"
-	thirdSHA      = "3333333333333333333333333333333333333333"
-	unreadableSHA = "0000000000000000000000000000000000000000"
-	tracedFile    = "greet.go"
-)
-
-// insertedAHelper is what git reports between two snapshots where the second put a four line
-// helper above the commented line, taken from a real repository.
-var insertedAHelper = []position.Mapping{{
-	File:   position.FileMapping{OldPath: tracedFile, NewPath: tracedFile},
-	Ranges: []position.RangeMapping{{Old: position.Range{Start: 3, End: 3}, New: position.Range{Start: 3, End: 7}}},
-}}
-
-// rewroteTheLine is what git reports where the commented line itself was written over, which
-// leaves the file in place and the line nowhere.
-var rewroteTheLine = []position.Mapping{{
-	File:   position.FileMapping{OldPath: tracedFile, NewPath: tracedFile},
-	Ranges: []position.RangeMapping{{Old: position.Range{Start: 4, End: 5}, New: position.Range{Start: 4, End: 5}}},
-}}
-
 // TestTraceThreadsFollowsALineThroughGit covers the whole tracing path: a comment on line four of
 // the first snapshot is line eight of the second, which only the mapping between the two can say.
 func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
@@ -289,3 +266,26 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 	assert.Equal(t, int32(8), found.NewStart)
 	assert.Empty(t, repo.MappingsAsked(), "the round it was written against is the one on screen")
 }
+
+const (
+	traceDir      = "/checkout"
+	firstSHA      = "1111111111111111111111111111111111111111"
+	secondSHA     = "2222222222222222222222222222222222222222"
+	thirdSHA      = "3333333333333333333333333333333333333333"
+	unreadableSHA = "0000000000000000000000000000000000000000"
+	tracedFile    = "greet.go"
+)
+
+// insertedAHelper is what git reports between two snapshots where the second put a four line
+// helper above the commented line, taken from a real repository.
+var insertedAHelper = []position.Mapping{{
+	File:   position.FileMapping{OldPath: tracedFile, NewPath: tracedFile},
+	Ranges: []position.RangeMapping{{Old: position.Range{Start: 3, End: 3}, New: position.Range{Start: 3, End: 7}}},
+}}
+
+// rewroteTheLine is what git reports where the commented line itself was written over, which
+// leaves the file in place and the line nowhere.
+var rewroteTheLine = []position.Mapping{{
+	File:   position.FileMapping{OldPath: tracedFile, NewPath: tracedFile},
+	Ranges: []position.RangeMapping{{Old: position.Range{Start: 4, End: 5}, New: position.Range{Start: 4, End: 5}}},
+}}

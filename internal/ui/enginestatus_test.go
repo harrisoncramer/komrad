@@ -13,29 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// fakeEngine is an engine whose server answers with whatever build it is set to.
-type fakeEngine struct {
-	mu    sync.Mutex
-	build ui.EngineBuild
-}
-
-func newFakeEngine() *fakeEngine {
-	return &fakeEngine{build: ui.EngineBuild{Commit: "d70bf5a"}}
-}
-
-func (f *fakeEngine) on(name string) ui.EngineStatus {
-	return ui.EngineStatus{
-		Name:  name,
-		Build: f.build,
-		ReadBuild: func(context.Context) (ui.EngineBuild, bool) {
-			f.mu.Lock()
-			defer f.mu.Unlock()
-
-			return f.build, true
-		},
-	}
-}
-
 // TestEngineLine covers the engine drawn beside the logo.
 func TestEngineLine(t *testing.T) {
 	tests := []struct {
@@ -101,6 +78,29 @@ func TestEngineDot(t *testing.T) {
 
 		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneSuccess).Render("\uf444")+" ")
 	})
+}
+
+// fakeEngine is an engine whose server answers with whatever build it is set to.
+type fakeEngine struct {
+	mu    sync.Mutex
+	build ui.EngineBuild
+}
+
+func newFakeEngine() *fakeEngine {
+	return &fakeEngine{build: ui.EngineBuild{Commit: "d70bf5a"}}
+}
+
+func (f *fakeEngine) on(name string) ui.EngineStatus {
+	return ui.EngineStatus{
+		Name:  name,
+		Build: f.build,
+		ReadBuild: func(context.Context) (ui.EngineBuild, bool) {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+
+			return f.build, true
+		},
+	}
 }
 
 func readEngineLine(frame string) string {

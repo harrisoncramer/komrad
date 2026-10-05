@@ -11,52 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func fileAt(path string, lines ...diff.Line) diff.File {
-	return diff.File{
-		OldPath: path,
-		NewPath: path,
-		Hunks:   []diff.Hunk{hunkOf(lines...)},
-	}
-}
-
-func addedLine(text string) diff.Line {
-	return diff.Line{
-		Kind:      diff.Addition,
-		Text:      text,
-		NewNumber: 1,
-	}
-}
-
-func describeTree(rows []TreeRow) []string {
-	described := make([]string, 0, len(rows))
-	for _, row := range rows {
-		kind := "file"
-		if row.Folder {
-			kind = "folder"
-		}
-
-		said := fmt.Sprintf("%s%s %s row=%d", strings.Repeat("  ", row.Depth), kind, row.Name, row.Row)
-		if row.Viewed {
-			said += " viewed"
-		}
-		if row.Counts != (ThreadCounts{}) {
-			said += fmt.Sprintf(" %+v", row.Counts)
-		}
-
-		described = append(described, said)
-	}
-
-	return described
-}
-
-type fileTreeCase struct {
-	name    string
-	files   []diff.File
-	viewed  map[string]bool
-	threads []*agentv1.ReviewThread
-	want    []string
-}
-
 // TestFileTree covers folders opened and merged in diff order, and what each file row carries.
 func TestFileTree(t *testing.T) {
 	tests := []fileTreeCase{
@@ -181,12 +135,6 @@ func TestCountThreads(t *testing.T) {
 	assert.Equal(t, want, view.GetFileTree()[0].Counts)
 }
 
-type treeFocusCase struct {
-	name string
-	row  int
-	want string
-}
-
 // TestGetTreeFocus covers which file a diff row, a thread row at the foot included, belongs to.
 func TestGetTreeFocus(t *testing.T) {
 	view := NewView(patchWith(
@@ -221,4 +169,56 @@ func TestGetTreeFocus(t *testing.T) {
 			assert.Equal(t, tt.want, view.GetTreeFocus(tt.row))
 		})
 	}
+}
+
+func fileAt(path string, lines ...diff.Line) diff.File {
+	return diff.File{
+		OldPath: path,
+		NewPath: path,
+		Hunks:   []diff.Hunk{hunkOf(lines...)},
+	}
+}
+
+func addedLine(text string) diff.Line {
+	return diff.Line{
+		Kind:      diff.Addition,
+		Text:      text,
+		NewNumber: 1,
+	}
+}
+
+func describeTree(rows []TreeRow) []string {
+	described := make([]string, 0, len(rows))
+	for _, row := range rows {
+		kind := "file"
+		if row.Folder {
+			kind = "folder"
+		}
+
+		said := fmt.Sprintf("%s%s %s row=%d", strings.Repeat("  ", row.Depth), kind, row.Name, row.Row)
+		if row.Viewed {
+			said += " viewed"
+		}
+		if row.Counts != (ThreadCounts{}) {
+			said += fmt.Sprintf(" %+v", row.Counts)
+		}
+
+		described = append(described, said)
+	}
+
+	return described
+}
+
+type fileTreeCase struct {
+	name    string
+	files   []diff.File
+	viewed  map[string]bool
+	threads []*agentv1.ReviewThread
+	want    []string
+}
+
+type treeFocusCase struct {
+	name string
+	row  int
+	want string
 }

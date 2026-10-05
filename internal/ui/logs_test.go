@@ -18,92 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const logsScreen = "the logs"
-
-const provisionRun = "001-provision-setup.log"
-
-// logReads answers each read of an agent's logs by the source, the pattern after a ~ when there is one, and
-// the cursor it was sent with.
-type logReads map[string]*logv1.ReadAgentLogsResponse
-
-var (
-	serviceSource   = &logv1.LogSource{Id: "service", Name: "service"}
-	provisionSource = &logv1.LogSource{
-		Id:   provisionRun,
-		Name: "001 provision setup",
-		Run:  xptr.Ptr[int32](1),
-	}
-	launchSource = &logv1.LogSource{
-		Id:   "002-pre-launch-setup.log",
-		Name: "002 pre-launch setup",
-		Run:  xptr.Ptr[int32](2),
-	}
-)
-
-// answerSources lists the sources given for every agent.
-func answerSources(harness *panelHarness, sources ...*logv1.LogSource) {
-	harness.answer(logv1connect.LogServiceListAgentLogSourcesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&logv1.ListAgentLogSourcesResponse{Sources: sources}), nil
-	})
-}
-
-func (r logReads) answer(harness *panelHarness) {
-	answerSources(harness, serviceSource, provisionSource)
-	harness.answer(logv1connect.LogServiceReadAgentLogsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		read, _ := req.Any().(*logv1.ReadAgentLogsRequest)
-		source := read.GetSource()
-		if read.GetPattern() != "" {
-			source += "~" + read.GetPattern()
-		}
-		if resp, ok := r[source+"@"+read.GetCursor()]; ok {
-			return connect.NewResponse(resp), nil
-		}
-
-		return connect.NewResponse(&logv1.ReadAgentLogsResponse{Cursor: read.GetCursor()}), nil
-	})
-}
-
-// tailOfTwo is a log holding two lines about the agent, a third written after the first read, and
-// a provision run that printed one line.
-func tailOfTwo() logReads {
-	return logReads{
-		"service@":         {Lines: []string{`{"body":"first line"}`, `{"body":"second line"}`}, Cursor: "10"},
-		"service@10":       {Lines: []string{`{"body":"third line"}`}, Cursor: "20"},
-		provisionRun + "@": {Lines: []string{"error: port 5470 already allocated"}, Cursor: "35"},
-	}
-}
-
-// openLogs opens the logs of the author from the subpages menu, over a log answering reads.
-func openLogs(t *testing.T, reads logReads, rows ...proto.Message) *panelHarness {
-	t.Helper()
-
-	if len(rows) == 0 {
-		rows = buildSubpagesAgents()
-	}
-	harness := openAgents(t, rows...)
-	reads.answer(harness)
-	moveToAgentRow(t, harness, "author")
-	harness.press("space", "l")
-
-	return harness
-}
-
-func logRead(source, cursor string) *logv1.ReadAgentLogsRequest {
-	return &logv1.ReadAgentLogsRequest{
-		AgentIds: []string{"author"},
-		Source:   source,
-		Cursor:   cursor,
-		Limit:    500,
-	}
-}
-
-func serviceReadMatching(pattern, cursor string) *logv1.ReadAgentLogsRequest {
-	read := logRead("service", cursor)
-	read.Pattern = pattern
-
-	return read
-}
-
 // TestLogsOpen covers the screen opening from the subpages menu on the agent's log sources.
 func TestLogsOpen(t *testing.T) {
 	t.Parallel()
@@ -518,19 +432,6 @@ func TestLogsTail(t *testing.T) {
 	})
 }
 
-// longLog is a service log of a hundred numbered entries, taller than the block draws.
-func longLog() logReads {
-	var lines []string
-	for i := 1; i <= 100; i++ {
-		lines = append(lines, fmt.Sprintf("entry %03d", i))
-	}
-
-	return logReads{
-		"service@":         {Lines: lines, Cursor: "10"},
-		provisionRun + "@": {Lines: []string{"error: port 5470 already allocated"}, Cursor: "35"},
-	}
-}
-
 // TestLogsScroll covers the picker handing the keys to the log, its cursor moving through it,
 // and the wheel scrolling it.
 func TestLogsScroll(t *testing.T) {
@@ -611,40 +512,6 @@ func TestLogsScroll(t *testing.T) {
 		assert.NotContains(t, readStageText(frame), "entry 100")
 		assert.Contains(t, readHoveredRow(frame), "service")
 	})
-}
-
-// filteredTailOfTwo is tailOfTwo with the log narrowed to its second line by a pattern for it.
-func filteredTailOfTwo() logReads {
-	reads := tailOfTwo()
-	reads["service~(?i)second@"] = &logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"second line"}`}, Cursor: "10"}
-	reads["service~(?i)second@10"] = &logv1.ReadAgentLogsResponse{Cursor: "20"}
-
-	return reads
-}
-
-// lastStageRow is the lowest row of the stage that draws anything.
-func lastStageRow(frame string) string {
-	rows := readStage(frame)
-	for i := len(rows) - 1; i >= 0; i-- {
-		if strings.TrimSpace(rows[i]) != "" {
-			return rows[i]
-		}
-	}
-
-	return ""
-}
-
-const settle = "<settle>"
-
-func pressSettling(harness *panelHarness, presses ...string) {
-	for _, press := range presses {
-		if press == settle {
-			harness.fireTimers()
-
-			continue
-		}
-		harness.press(press)
-	}
 }
 
 // TestLogsLineFilter covers the pattern typed at the foot of the log narrowing the lines the
@@ -868,5 +735,138 @@ func TestLogsCopy(t *testing.T) {
 
 			assert.Equal(t, tt.want, harness.panel.ReadCopied())
 		})
+	}
+}
+
+const logsScreen = "the logs"
+
+const provisionRun = "001-provision-setup.log"
+
+// logReads answers each read of an agent's logs by the source, the pattern after a ~ when there is one, and
+// the cursor it was sent with.
+type logReads map[string]*logv1.ReadAgentLogsResponse
+
+var (
+	serviceSource   = &logv1.LogSource{Id: "service", Name: "service"}
+	provisionSource = &logv1.LogSource{
+		Id:   provisionRun,
+		Name: "001 provision setup",
+		Run:  xptr.Ptr[int32](1),
+	}
+	launchSource = &logv1.LogSource{
+		Id:   "002-pre-launch-setup.log",
+		Name: "002 pre-launch setup",
+		Run:  xptr.Ptr[int32](2),
+	}
+)
+
+// answerSources lists the sources given for every agent.
+func answerSources(harness *panelHarness, sources ...*logv1.LogSource) {
+	harness.answer(logv1connect.LogServiceListAgentLogSourcesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&logv1.ListAgentLogSourcesResponse{Sources: sources}), nil
+	})
+}
+
+func (r logReads) answer(harness *panelHarness) {
+	answerSources(harness, serviceSource, provisionSource)
+	harness.answer(logv1connect.LogServiceReadAgentLogsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*logv1.ReadAgentLogsRequest)
+		source := read.GetSource()
+		if read.GetPattern() != "" {
+			source += "~" + read.GetPattern()
+		}
+		if resp, ok := r[source+"@"+read.GetCursor()]; ok {
+			return connect.NewResponse(resp), nil
+		}
+
+		return connect.NewResponse(&logv1.ReadAgentLogsResponse{Cursor: read.GetCursor()}), nil
+	})
+}
+
+// tailOfTwo is a log holding two lines about the agent, a third written after the first read, and
+// a provision run that printed one line.
+func tailOfTwo() logReads {
+	return logReads{
+		"service@":         {Lines: []string{`{"body":"first line"}`, `{"body":"second line"}`}, Cursor: "10"},
+		"service@10":       {Lines: []string{`{"body":"third line"}`}, Cursor: "20"},
+		provisionRun + "@": {Lines: []string{"error: port 5470 already allocated"}, Cursor: "35"},
+	}
+}
+
+// openLogs opens the logs of the author from the subpages menu, over a log answering reads.
+func openLogs(t *testing.T, reads logReads, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	if len(rows) == 0 {
+		rows = buildSubpagesAgents()
+	}
+	harness := openAgents(t, rows...)
+	reads.answer(harness)
+	moveToAgentRow(t, harness, "author")
+	harness.press("space", "l")
+
+	return harness
+}
+
+func logRead(source, cursor string) *logv1.ReadAgentLogsRequest {
+	return &logv1.ReadAgentLogsRequest{
+		AgentIds: []string{"author"},
+		Source:   source,
+		Cursor:   cursor,
+		Limit:    500,
+	}
+}
+
+func serviceReadMatching(pattern, cursor string) *logv1.ReadAgentLogsRequest {
+	read := logRead("service", cursor)
+	read.Pattern = pattern
+
+	return read
+}
+
+// longLog is a service log of a hundred numbered entries, taller than the block draws.
+func longLog() logReads {
+	var lines []string
+	for i := 1; i <= 100; i++ {
+		lines = append(lines, fmt.Sprintf("entry %03d", i))
+	}
+
+	return logReads{
+		"service@":         {Lines: lines, Cursor: "10"},
+		provisionRun + "@": {Lines: []string{"error: port 5470 already allocated"}, Cursor: "35"},
+	}
+}
+
+// filteredTailOfTwo is tailOfTwo with the log narrowed to its second line by a pattern for it.
+func filteredTailOfTwo() logReads {
+	reads := tailOfTwo()
+	reads["service~(?i)second@"] = &logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"second line"}`}, Cursor: "10"}
+	reads["service~(?i)second@10"] = &logv1.ReadAgentLogsResponse{Cursor: "20"}
+
+	return reads
+}
+
+// lastStageRow is the lowest row of the stage that draws anything.
+func lastStageRow(frame string) string {
+	rows := readStage(frame)
+	for i := len(rows) - 1; i >= 0; i-- {
+		if strings.TrimSpace(rows[i]) != "" {
+			return rows[i]
+		}
+	}
+
+	return ""
+}
+
+const settle = "<settle>"
+
+func pressSettling(harness *panelHarness, presses ...string) {
+	for _, press := range presses {
+		if press == settle {
+			harness.fireTimers()
+
+			continue
+		}
+		harness.press(press)
 	}
 }

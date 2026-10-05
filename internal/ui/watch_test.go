@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const mailGlyph = ""
-
 // TestWatch covers the listing the panel keeps from its watch stream.
 func TestWatch(t *testing.T) {
 	t.Parallel()
@@ -145,6 +143,8 @@ func TestWatch(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "agent/orphan")
 	})
 }
+
+const mailGlyph = ""
 
 func buildDeleted(resource watchv1.Resource, key string) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{

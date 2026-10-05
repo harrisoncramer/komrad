@@ -14,12 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type bindRecorder struct {
-	bound   map[string][]string
-	unbound []string
-	window  string
-}
-
 // TestSession covers the panel's own tmux session.
 func TestSession(t *testing.T) {
 	t.Run("no sidebar binds nothing", func(t *testing.T) {
@@ -66,6 +60,12 @@ func TestSession(t *testing.T) {
 
 		assert.Empty(t, tmux.unbound)
 	})
+}
+
+type bindRecorder struct {
+	bound   map[string][]string
+	unbound []string
+	window  string
 }
 
 func (b *bindRecorder) SetSessionOption(string, string, string) {}

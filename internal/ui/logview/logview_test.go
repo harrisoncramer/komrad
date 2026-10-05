@@ -12,15 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func numbered(from, to int) []string {
-	var lines []string
-	for i := from; i <= to; i++ {
-		lines = append(lines, fmt.Sprint("line ", i))
-	}
-
-	return lines
-}
-
 // TestTailRows covers drawing the newest lines, however many rows a line wraps to.
 func TestTailRows(t *testing.T) {
 	t.Parallel()
@@ -260,4 +251,13 @@ func TestTailFormat(t *testing.T) {
 
 	current, _ := viewer.Current()
 	assert.Equal(t, line, current)
+}
+
+func numbered(from, to int) []string {
+	var lines []string
+	for i := from; i <= to; i++ {
+		lines = append(lines, fmt.Sprint("line ", i))
+	}
+
+	return lines
 }

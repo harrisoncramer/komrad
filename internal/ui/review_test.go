@@ -28,43 +28,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	reviewWidth  = 200
-	reviewHeight = 30
-	olderBase    = "1111111111111111111111111111111111111111"
-	replayedTree = "replayed-round-one"
-	secondTree   = "tree-with-a-second-file"
-)
-
-const patchOfGreetWrittenOverSince = `diff --git a/greet.go b/greet.go
-index 23cef252a97433f151c14725c88e0c2dafce63ef..5586caad9270132f074ee5374d4652b83d0acc98 100644
---- a/greet.go
-+++ b/greet.go
-@@ -1,5 +1,5 @@
- package greet
- 
- func Hello() string {
--	return "goodbye"
-+	return "written by the agent"
- }
-`
-
-type reviewServer struct {
-	repo       *gittest.Repo
-	workflow   *workflowv1.Workflow
-	agent      *agentv1.Agent
-	children   []*agentv1.Agent
-	threads    []*agentv1.ReviewThread
-	viewed     []*agentv1.ReviewViewedFile
-	rounds     []*agentv1.ReviewRound
-	reviews    []*agentv1.Review
-	forge      []proto.Message
-	reviewsErr error
-	roundsErr  error
-	openErr    error
-	holdErr    error
-}
-
 // TestReviewOpen covers which agents the review key opens a diff for and what it draws.
 func TestReviewOpen(t *testing.T) {
 	t.Run("an agent that has written nothing is refused", func(t *testing.T) {
@@ -2533,6 +2496,43 @@ func TestReviewHold(t *testing.T) {
 		harness.press("space", "e")
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 	})
+}
+
+const (
+	reviewWidth  = 200
+	reviewHeight = 30
+	olderBase    = "1111111111111111111111111111111111111111"
+	replayedTree = "replayed-round-one"
+	secondTree   = "tree-with-a-second-file"
+)
+
+const patchOfGreetWrittenOverSince = `diff --git a/greet.go b/greet.go
+index 23cef252a97433f151c14725c88e0c2dafce63ef..5586caad9270132f074ee5374d4652b83d0acc98 100644
+--- a/greet.go
++++ b/greet.go
+@@ -1,5 +1,5 @@
+ package greet
+ 
+ func Hello() string {
+-	return "goodbye"
++	return "written by the agent"
+ }
+`
+
+type reviewServer struct {
+	repo       *gittest.Repo
+	workflow   *workflowv1.Workflow
+	agent      *agentv1.Agent
+	children   []*agentv1.Agent
+	threads    []*agentv1.ReviewThread
+	viewed     []*agentv1.ReviewViewedFile
+	rounds     []*agentv1.ReviewRound
+	reviews    []*agentv1.Review
+	forge      []proto.Message
+	reviewsErr error
+	roundsErr  error
+	openErr    error
+	holdErr    error
 }
 
 func newReviewServer(t *testing.T) *reviewServer {

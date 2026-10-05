@@ -449,151 +449,6 @@ func TestFrameAttachLeavesAnEmptyWindowAlone(t *testing.T) {
 	assert.Empty(t, tmux.killed)
 }
 
-func newDocument(markdown string) Content {
-	return Content{
-		Key:    "text:" + markdown,
-		Wraps:  true,
-		Render: func(Target) ([]string, bool) { return []string{"less", markdown}, true },
-	}
-}
-
-func newProbe(key string, wraps bool, got *Target) Content {
-	return Content{
-		Key:   key,
-		Wraps: wraps,
-		Render: func(target Target) ([]string, bool) {
-			*got = target
-
-			return []string{"less", key}, true
-		},
-	}
-}
-
-type recordingTmux struct {
-	width        int
-	windowWidth  int
-	height       int
-	splits       []string
-	anchors      []string
-	belowAnchors []string
-	resizes      []string
-	swaps        int
-	respawns     []string
-	respawnPanes []string
-	respawnDirs  []string
-	siblings     []string
-	owners       map[string]string
-	broken       []string
-	killed       []string
-	deadPanes    map[string]bool
-	zoomed       bool
-	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
-	keysElsewhere bool
-	zooms         []bool
-	// moveCalls is how many times the frame sent tmux a change.
-	moveCalls int
-}
-
-// MovePanes replays a change's pane moves onto the fake, so a test asserting on swaps and
-// zooms sees what the frame asked for whether or not they were collected first.
-func (t *recordingTmux) MovePanes(moves []panes.Move) {
-	t.moveCalls++
-
-	for _, move := range moves {
-		switch move.Kind {
-		case panes.KindZoom:
-			t.SetPaneZoomed(move.Pane, move.Zoomed)
-		case panes.KindSwap:
-			t.SwapPanes(move.Pane, move.Other)
-		case panes.KindRespawn:
-			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
-		case panes.KindResize:
-			t.ResizePane(move.Pane, strconv.Itoa(move.Width))
-		}
-	}
-}
-
-func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }
-func (t *recordingTmux) GetPaneWidth(string) int      { return t.width }
-func (t *recordingTmux) GetWindowWidth(string) int    { return t.windowWidth }
-func (t *recordingTmux) SetPaneZoomed(_ string, on bool) {
-	t.zoomed = on
-	t.zooms = append(t.zooms, on)
-}
-
-// GetPaneFocus answers the way tmux was measured to: a pane the keys have moved off is neither
-// the active one nor zoomed any more.
-func (t *recordingTmux) GetPaneFocus(string) (focused, zoomed bool) {
-	if t.keysElsewhere {
-		return false, false
-	}
-
-	return true, t.zoomed
-}
-func (t *recordingTmux) GetPaneHeight(string) int { return t.height }
-
-func (t *recordingTmux) SplitRight(anchor, _, size string) string {
-	return t.recordSplit("right", anchor, size)
-}
-
-func (t *recordingTmux) SplitLeft(anchor, _, size string) string {
-	return t.recordSplit("left", anchor, size)
-}
-
-func (t *recordingTmux) SplitBelow(anchor, _, size string) string {
-	return t.recordSplit("below", anchor, size)
-}
-
-func (t *recordingTmux) SplitAbove(anchor, _, size string) string {
-	return t.recordSplit("above", anchor, size)
-}
-
-// recordSplit answers with the pane a split left, dropping the zoom the way tmux does, which only
-// respawn-pane leaves standing.
-func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
-	t.splits = append(t.splits, strings.Join([]string{direction, anchor, size}, " "))
-	t.zoomed = false
-
-	if direction == "left" || direction == "right" {
-		t.anchors = append(t.anchors, anchor)
-
-		return "%1"
-	}
-
-	t.belowAnchors = append(t.belowAnchors, anchor)
-
-	return "%2"
-}
-
-func (t *recordingTmux) ResizePane(pane, width string) {
-	t.resizes = append(t.resizes, pane+" "+width)
-	t.zoomed = false
-}
-
-func (t *recordingTmux) SwapPanes(string, string) {
-	t.swaps++
-	t.zoomed = false
-}
-
-func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
-	t.respawns = append(t.respawns, strings.Join(argv, " "))
-	t.respawnPanes = append(t.respawnPanes, pane)
-	t.respawnDirs = append(t.respawnDirs, dir)
-}
-
-func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
-func (t *recordingTmux) GetPaneOwner(pane string) string { return t.owners[pane] }
-
-func (t *recordingTmux) BreakPane(pane string) {
-	t.broken = append(t.broken, pane)
-	t.zoomed = false
-}
-
-func (t *recordingTmux) KillPane(pane string) {
-	t.killed = append(t.killed, pane)
-	t.zoomed = false
-}
-
 // TestFrameSoloTakesTheWholeWindow covers a screen that draws its own split: the panes it was
 // sharing with are covered rather than closed, and giving the window back uncovers them.
 func TestFrameSoloTakesTheWholeWindow(t *testing.T) {
@@ -863,18 +718,6 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 	assert.Equal(t, []string{"%0 50"}, tmux.resizes, "the width chosen before the window shrank")
 }
 
-// remoteEngine is an engine somewhere this tmux server cannot reach.
-func remoteEngine() engine.Remote {
-	return engine.Remote{Destination: "komrad@host"}
-}
-
-// newRemoteFrame is a frame over an engine somewhere else, reached with komrad terminal.
-func newRemoteFrame(tmux *recordingTmux) *Frame {
-	return New(tmux, config.DefaultLayout(),
-		WithEngine(remoteEngine()),
-		WithTerminalCommand([]string{"komrad", "terminal", "--addr", "127.0.0.1:19001"}))
-}
-
 // TestFocusPaneIsTheGuestForALocalEngine covers the focus key jumping to the agent's own pane,
 // which is the pane that was moved into the stage.
 func TestFocusPaneIsTheGuestForALocalEngine(t *testing.T) {
@@ -1036,4 +879,161 @@ func TestFrameBegin(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newDocument(markdown string) Content {
+	return Content{
+		Key:    "text:" + markdown,
+		Wraps:  true,
+		Render: func(Target) ([]string, bool) { return []string{"less", markdown}, true },
+	}
+}
+
+func newProbe(key string, wraps bool, got *Target) Content {
+	return Content{
+		Key:   key,
+		Wraps: wraps,
+		Render: func(target Target) ([]string, bool) {
+			*got = target
+
+			return []string{"less", key}, true
+		},
+	}
+}
+
+type recordingTmux struct {
+	width        int
+	windowWidth  int
+	height       int
+	splits       []string
+	anchors      []string
+	belowAnchors []string
+	resizes      []string
+	swaps        int
+	respawns     []string
+	respawnPanes []string
+	respawnDirs  []string
+	siblings     []string
+	owners       map[string]string
+	broken       []string
+	killed       []string
+	deadPanes    map[string]bool
+	zoomed       bool
+	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
+	keysElsewhere bool
+	zooms         []bool
+	// moveCalls is how many times the frame sent tmux a change.
+	moveCalls int
+}
+
+// MovePanes replays a change's pane moves onto the fake, so a test asserting on swaps and
+// zooms sees what the frame asked for whether or not they were collected first.
+func (t *recordingTmux) MovePanes(moves []panes.Move) {
+	t.moveCalls++
+
+	for _, move := range moves {
+		switch move.Kind {
+		case panes.KindZoom:
+			t.SetPaneZoomed(move.Pane, move.Zoomed)
+		case panes.KindSwap:
+			t.SwapPanes(move.Pane, move.Other)
+		case panes.KindRespawn:
+			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
+		case panes.KindResize:
+			t.ResizePane(move.Pane, strconv.Itoa(move.Width))
+		}
+	}
+}
+
+func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }
+func (t *recordingTmux) GetPaneWidth(string) int      { return t.width }
+func (t *recordingTmux) GetWindowWidth(string) int    { return t.windowWidth }
+func (t *recordingTmux) SetPaneZoomed(_ string, on bool) {
+	t.zoomed = on
+	t.zooms = append(t.zooms, on)
+}
+
+// GetPaneFocus answers the way tmux was measured to: a pane the keys have moved off is neither
+// the active one nor zoomed any more.
+func (t *recordingTmux) GetPaneFocus(string) (focused, zoomed bool) {
+	if t.keysElsewhere {
+		return false, false
+	}
+
+	return true, t.zoomed
+}
+func (t *recordingTmux) GetPaneHeight(string) int { return t.height }
+
+func (t *recordingTmux) SplitRight(anchor, _, size string) string {
+	return t.recordSplit("right", anchor, size)
+}
+
+func (t *recordingTmux) SplitLeft(anchor, _, size string) string {
+	return t.recordSplit("left", anchor, size)
+}
+
+func (t *recordingTmux) SplitBelow(anchor, _, size string) string {
+	return t.recordSplit("below", anchor, size)
+}
+
+func (t *recordingTmux) SplitAbove(anchor, _, size string) string {
+	return t.recordSplit("above", anchor, size)
+}
+
+// recordSplit answers with the pane a split left, dropping the zoom the way tmux does, which only
+// respawn-pane leaves standing.
+func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
+	t.splits = append(t.splits, strings.Join([]string{direction, anchor, size}, " "))
+	t.zoomed = false
+
+	if direction == "left" || direction == "right" {
+		t.anchors = append(t.anchors, anchor)
+
+		return "%1"
+	}
+
+	t.belowAnchors = append(t.belowAnchors, anchor)
+
+	return "%2"
+}
+
+func (t *recordingTmux) ResizePane(pane, width string) {
+	t.resizes = append(t.resizes, pane+" "+width)
+	t.zoomed = false
+}
+
+func (t *recordingTmux) SwapPanes(string, string) {
+	t.swaps++
+	t.zoomed = false
+}
+
+func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
+	t.respawns = append(t.respawns, strings.Join(argv, " "))
+	t.respawnPanes = append(t.respawnPanes, pane)
+	t.respawnDirs = append(t.respawnDirs, dir)
+}
+
+func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
+func (t *recordingTmux) GetPaneOwner(pane string) string { return t.owners[pane] }
+
+func (t *recordingTmux) BreakPane(pane string) {
+	t.broken = append(t.broken, pane)
+	t.zoomed = false
+}
+
+func (t *recordingTmux) KillPane(pane string) {
+	t.killed = append(t.killed, pane)
+	t.zoomed = false
+}
+
+// remoteEngine is an engine somewhere this tmux server cannot reach.
+func remoteEngine() engine.Remote {
+	return engine.Remote{Destination: "komrad@host"}
+}
+
+// newRemoteFrame is a frame over an engine somewhere else, reached with komrad terminal.
+func newRemoteFrame(tmux *recordingTmux) *Frame {
+	return New(tmux, config.DefaultLayout(),
+		WithEngine(remoteEngine()),
+		WithTerminalCommand([]string{"komrad", "terminal", "--addr", "127.0.0.1:19001"}))
 }

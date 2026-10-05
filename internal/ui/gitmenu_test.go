@@ -20,17 +20,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	gitMenuEntry   = "rebase with base"
-	pullRequestURL = "https://github.com/harrisoncramer/komrad/pull/740"
-)
-
-type recordingOpener struct {
-	mu      sync.Mutex
-	targets []string
-	err     error
-}
-
 // TestGitMenu covers the menu of git actions drawn over the agent the cursor is on.
 func TestGitMenu(t *testing.T) {
 	t.Parallel()
@@ -859,6 +848,17 @@ func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
 	frame := harness.readFrame()
 	assert.NotContains(t, frame, gitMenuEntry)
 	assert.NotContains(t, frame, "Could not")
+}
+
+const (
+	gitMenuEntry   = "rebase with base"
+	pullRequestURL = "https://github.com/harrisoncramer/komrad/pull/740"
+)
+
+type recordingOpener struct {
+	mu      sync.Mutex
+	targets []string
+	err     error
 }
 
 func (r *recordingOpener) OpenURL(_ context.Context, target string) error {

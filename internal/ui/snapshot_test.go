@@ -15,42 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// checkoutWorkflow is a workflow komrad cuts a worktree from.
-func checkoutWorkflow() panel.Workflow {
-	return panel.Workflow{
-		ID:       "w1",
-		Name:     "komrad",
-		Worktree: panel.WorktreeConfig{Enabled: true},
-	}
-}
-
-// snapshotOne reads one agent row and hands back the single row it made.
-func snapshotOne(t *testing.T, item panel.AgentRow) view.Row {
-	t.Helper()
-
-	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item, workflow: checkoutWorkflow()}}})
-}
-
-// snapshotRunning reads one row whose agent is running and doing nothing.
-func snapshotRunning(t *testing.T, item panel.AgentRow) view.Row {
-	t.Helper()
-
-	item.Alive = true
-	item.Agent.State = panel.StateIdle
-
-	return snapshotOne(t, item)
-}
-
-// snapshotRowOf reads a whole listing and hands back the single row it made.
-func snapshotRowOf(t *testing.T, params snapshotParams) view.Row {
-	t.Helper()
-
-	snapshot := agentsSnapshot(params)
-	require.Len(t, snapshot.Rows, 1)
-
-	return snapshot.Rows[0]
-}
-
 // TestSnapshotStatus pins the bar every state of an agent falls to, all seven of them, a failed
 // create reading as broken rather than as the idle it would otherwise fall to.
 func TestSnapshotStatus(t *testing.T) {
@@ -907,4 +871,40 @@ func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, snapshot.Rows[1].HiddenCount, "the count lands on the parent instead")
+}
+
+// checkoutWorkflow is a workflow komrad cuts a worktree from.
+func checkoutWorkflow() panel.Workflow {
+	return panel.Workflow{
+		ID:       "w1",
+		Name:     "komrad",
+		Worktree: panel.WorktreeConfig{Enabled: true},
+	}
+}
+
+// snapshotOne reads one agent row and hands back the single row it made.
+func snapshotOne(t *testing.T, item panel.AgentRow) view.Row {
+	t.Helper()
+
+	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item, workflow: checkoutWorkflow()}}})
+}
+
+// snapshotRunning reads one row whose agent is running and doing nothing.
+func snapshotRunning(t *testing.T, item panel.AgentRow) view.Row {
+	t.Helper()
+
+	item.Alive = true
+	item.Agent.State = panel.StateIdle
+
+	return snapshotOne(t, item)
+}
+
+// snapshotRowOf reads a whole listing and hands back the single row it made.
+func snapshotRowOf(t *testing.T, params snapshotParams) view.Row {
+	t.Helper()
+
+	snapshot := agentsSnapshot(params)
+	require.Len(t, snapshot.Rows, 1)
+
+	return snapshot.Rows[0]
 }

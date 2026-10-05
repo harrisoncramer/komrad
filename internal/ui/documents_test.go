@@ -21,8 +21,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const documentsScreen = "the documents"
-
 // TestDocumentsOpen covers the screen opening on the documents of the row the cursor was on.
 func TestDocumentsOpen(t *testing.T) {
 	t.Parallel()
@@ -813,6 +811,8 @@ func TestDocumentsDiffSearchOutlastsTheSplit(t *testing.T) {
 	assert.Contains(t, stage, "/ warm")
 	assert.Contains(t, stage, "1 of 1")
 }
+
+const documentsScreen = "the documents"
 
 // readEditedPath is the file an editor's shell line opens.
 func readEditedPath(t *testing.T, respawn string) string {

@@ -15,8 +15,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const reviewScreen = "the review"
-
 // TestSubpages covers the menu of an agent's subpages opened beside the agents list.
 func TestSubpages(t *testing.T) {
 	t.Parallel()
@@ -181,6 +179,8 @@ func TestSubpagesInArchive(t *testing.T) {
 		assert.Equal(t, archiveScreen, harness.readScreen())
 	})
 }
+
+const reviewScreen = "the review"
 
 // openSubpages opens the subpages menu from the agents list on the row named.
 func openSubpages(t *testing.T, row string) *panelHarness {

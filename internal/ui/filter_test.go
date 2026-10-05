@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var filterableRows = []string{"backend", "  auth", "  └ api", "  db", "frontend", "  ui"}
-
 // TestFilterSearch covers the search over a list, which walks the cursor between matches and takes no row away.
 func TestFilterSearch(t *testing.T) {
 	tests := []struct {
@@ -459,6 +457,8 @@ func TestFilterWorktreeHeader(t *testing.T) {
 	assert.Equal(t, header, readBelowViews(frame)[5], "and the header's size still reads the whole listing")
 	assert.Contains(t, frame, "2 worktrees", "as does its count")
 }
+
+var filterableRows = []string{"backend", "  auth", "  └ api", "  db", "frontend", "  ui"}
 
 func openFilterable(t *testing.T, from string) *panelHarness {
 	t.Helper()

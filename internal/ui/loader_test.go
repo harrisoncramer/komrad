@@ -128,6 +128,36 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 	}
 }
 
+// TestLoaderSpinsWhileAWriteIsInFlight covers a held form's notice drawing the configured loader a frame a tick until its write lands.
+func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
+	create := workflowv1connect.WorkflowServiceCreateWorkflowProcedure
+	harness := newPanelHarness(t, panelHarnessParams{
+		width:  160,
+		height: 40,
+		loader: loader.Arcs,
+	})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(newFormWorkflow()))
+	harness.answer(create, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
+	})
+	harness.hold(create)
+	harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
+
+	var drawn []string
+	for range 3 {
+		drawn = append(drawn, readWriteFrame(t, harness.readFrame(), "creating workflow web…"))
+		require.True(t, harness.fireLoader(), "the loader stopped ticking with the write in flight")
+	}
+
+	assert.Equal(t, []string{"◜", "◝", "◞"}, drawn)
+
+	harness.release(create)
+	harness.watch(buildPuts(newLiveWorkflow("w2", "web")))
+	harness.fireLoader()
+	assert.False(t, harness.fireLoader(), "the loader goes quiet once the write lands")
+}
+
 func openAgentsWithPullRequest(state pullrequestv1.PullRequestState) func(t *testing.T) *panelHarness {
 	return func(t *testing.T) *panelHarness {
 		t.Helper()
@@ -159,36 +189,6 @@ func readChecksFrame(t *testing.T, harness *panelHarness) string {
 	require.Fail(t, "no notice says the checks are running")
 
 	return ""
-}
-
-// TestLoaderSpinsWhileAWriteIsInFlight covers a held form's notice drawing the configured loader a frame a tick until its write lands.
-func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
-	create := workflowv1connect.WorkflowServiceCreateWorkflowProcedure
-	harness := newPanelHarness(t, panelHarnessParams{
-		width:  160,
-		height: 40,
-		loader: loader.Arcs,
-	})
-	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(newFormWorkflow()))
-	harness.answer(create, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
-	})
-	harness.hold(create)
-	harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
-
-	var drawn []string
-	for range 3 {
-		drawn = append(drawn, readWriteFrame(t, harness.readFrame(), "creating workflow web…"))
-		require.True(t, harness.fireLoader(), "the loader stopped ticking with the write in flight")
-	}
-
-	assert.Equal(t, []string{"◜", "◝", "◞"}, drawn)
-
-	harness.release(create)
-	harness.watch(buildPuts(newLiveWorkflow("w2", "web")))
-	harness.fireLoader()
-	assert.False(t, harness.fireLoader(), "the loader goes quiet once the write lands")
 }
 
 func readWriteFrame(t *testing.T, frame, doing string) string {

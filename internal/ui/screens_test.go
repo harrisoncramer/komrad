@@ -24,14 +24,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const crowdedCount = 40
-
-type listScreen struct {
-	name   string
-	press  []string
-	screen string
-}
-
 // TestScreensStage covers what the panel shows beside the hovered row and how much of the window it holds.
 func TestScreensStage(t *testing.T) {
 	t.Parallel()
@@ -620,6 +612,14 @@ func TestScreensSurviveAListing(t *testing.T) {
 			assert.Equal(t, tt.screen, harness.readScreen(), "the screen stays where it was")
 		})
 	}
+}
+
+const crowdedCount = 40
+
+type listScreen struct {
+	name   string
+	press  []string
+	screen string
 }
 
 func openStaged(t *testing.T, press ...string) *panelHarness {

@@ -17,16 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const serverAddr = "127.0.0.1:8787"
-
-type drawReporter struct {
-	isDrawn bool
-}
-
-func (f *drawReporter) DoesFrameShowHarness(string, string) bool {
-	return f.isDrawn
-}
-
 // TestListingSettlesWrites covers a write held until the watch shows what it did, and where it
 // leaves the cursor and the stage once it settles.
 func TestListingSettlesWrites(t *testing.T) {
@@ -281,6 +271,82 @@ func TestListingFocus(t *testing.T) {
 	})
 }
 
+// TestListingUnreachable covers the server going away being said once per time it goes.
+func TestListingUnreachable(t *testing.T) {
+	t.Run("the tree already drawn stays drawn", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Cannot reach the")
+		assert.Equal(t, []string{"backend"}, readListRows(frame))
+	})
+
+	t.Run("a stream lost twice in a row is said once", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Cannot reach the")
+		assert.NotContains(t, frame, "The panel could not list your agents", "and no screen is taken over")
+		assert.Contains(t, readOpenMessages(harness), "messages 1 of 1", "a server still down says nothing more")
+	})
+
+	t.Run("a close the service chose leaves a lost server lost", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.send(ui.NewWatchLost(nil))
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		assert.Contains(t, readOpenMessages(harness), "messages 1 of 1")
+	})
+
+	t.Run("a stream that came back and went again is said again", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		assert.Contains(t, readOpenMessages(harness), "messages 1 of 2")
+	})
+
+	tests := []struct {
+		name   string
+		remote engine.Remote
+		want   string
+	}{
+		{
+			name: "the hint on this machine says how to start a server",
+			want: "Start it with: komrad serve",
+		},
+		{
+			name:   "the hint for a remote engine says the tunnel is dialled again",
+			remote: engine.Remote{Destination: "komrad@host"},
+			want:   "The tunnel to the engine is dialled again until it answers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openUnreachable(t, tt.remote)
+
+			frame := readOpenMessages(harness)
+			assert.Contains(t, frame, serverAddr)
+			assert.Contains(t, frame, tt.want)
+		})
+	}
+}
+
+const serverAddr = "127.0.0.1:8787"
+
+type drawReporter struct {
+	isDrawn bool
+}
+
+func (f *drawReporter) DoesFrameShowHarness(string, string) bool {
+	return f.isDrawn
+}
+
 func openSettling(t *testing.T) *panelHarness {
 	t.Helper()
 
@@ -361,72 +427,6 @@ func newRunning() *agentv1.Agent {
 	agent.Alive = xptr.Ptr(true)
 
 	return agent
-}
-
-// TestListingUnreachable covers the server going away being said once per time it goes.
-func TestListingUnreachable(t *testing.T) {
-	t.Run("the tree already drawn stays drawn", func(t *testing.T) {
-		harness := openUnreachable(t, engine.Remote{})
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "Cannot reach the")
-		assert.Equal(t, []string{"backend"}, readListRows(frame))
-	})
-
-	t.Run("a stream lost twice in a row is said once", func(t *testing.T) {
-		harness := openUnreachable(t, engine.Remote{})
-
-		harness.send(ui.NewWatchLost(errors.New("connection refused")))
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "Cannot reach the")
-		assert.NotContains(t, frame, "The panel could not list your agents", "and no screen is taken over")
-		assert.Contains(t, readOpenMessages(harness), "messages 1 of 1", "a server still down says nothing more")
-	})
-
-	t.Run("a close the service chose leaves a lost server lost", func(t *testing.T) {
-		harness := openUnreachable(t, engine.Remote{})
-
-		harness.send(ui.NewWatchLost(nil))
-		harness.send(ui.NewWatchLost(errors.New("connection refused")))
-
-		assert.Contains(t, readOpenMessages(harness), "messages 1 of 1")
-	})
-
-	t.Run("a stream that came back and went again is said again", func(t *testing.T) {
-		harness := openUnreachable(t, engine.Remote{})
-
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
-		harness.send(ui.NewWatchLost(errors.New("connection refused")))
-
-		assert.Contains(t, readOpenMessages(harness), "messages 1 of 2")
-	})
-
-	tests := []struct {
-		name   string
-		remote engine.Remote
-		want   string
-	}{
-		{
-			name: "the hint on this machine says how to start a server",
-			want: "Start it with: komrad serve",
-		},
-		{
-			name:   "the hint for a remote engine says the tunnel is dialled again",
-			remote: engine.Remote{Destination: "komrad@host"},
-			want:   "The tunnel to the engine is dialled again until it answers",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openUnreachable(t, tt.remote)
-
-			frame := readOpenMessages(harness)
-			assert.Contains(t, frame, serverAddr)
-			assert.Contains(t, frame, tt.want)
-		})
-	}
 }
 
 func openUnreachable(t *testing.T, remote engine.Remote) *panelHarness {

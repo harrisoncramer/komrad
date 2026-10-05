@@ -44,10 +44,6 @@ func TestFriendly(t *testing.T) {
 	}
 }
 
-// utcAfternoon is an instant fixed in UTC, so the case built on it says
-// something about the conversion rather than about the machine's zone.
-var utcAfternoon = time.Date(2024, time.July, 2, 14, 30, 0, 0, time.UTC)
-
 // TestAgeAtPicksTheOneUnitThatFits pins the unit chosen at each boundary, and a future time
 // reading as no age at all rather than a negative one.
 func TestAgeAtPicksTheOneUnitThatFits(t *testing.T) {
@@ -97,3 +93,7 @@ func TestAgeAtPicksTheOneUnitThatFits(t *testing.T) {
 		})
 	}
 }
+
+// utcAfternoon is an instant fixed in UTC, so the case built on it says
+// something about the conversion rather than about the machine's zone.
+var utcAfternoon = time.Date(2024, time.July, 2, 14, 30, 0, 0, time.UTC)

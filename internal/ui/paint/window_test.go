@@ -12,26 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var dim = Panel.Style(ToneMuted)
-
-func numbered(n int) []string {
-	rows := make([]string, 0, n)
-	for i := range n {
-		rows = append(rows, fmt.Sprintf("row%d", i))
-	}
-
-	return rows
-}
-
-func lines(rendered string) []string {
-	trimmed := strings.TrimSuffix(rendered, "\n")
-	if trimmed == "" {
-		return nil
-	}
-
-	return strings.Split(trimmed, "\n")
-}
-
 // TestRenderListFits pins that a list short enough to draw whole is not cut.
 func TestRenderListFits(t *testing.T) {
 	tests := []struct {
@@ -172,4 +152,24 @@ func TestPaintRow(t *testing.T) {
 
 	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(Panel.PaintRow(row, 2)),
 		"a row wider than the pane is painted as it stands rather than padded")
+}
+
+var dim = Panel.Style(ToneMuted)
+
+func numbered(n int) []string {
+	rows := make([]string, 0, n)
+	for i := range n {
+		rows = append(rows, fmt.Sprintf("row%d", i))
+	}
+
+	return rows
+}
+
+func lines(rendered string) []string {
+	trimmed := strings.TrimSuffix(rendered, "\n")
+	if trimmed == "" {
+		return nil
+	}
+
+	return strings.Split(trimmed, "\n")
 }

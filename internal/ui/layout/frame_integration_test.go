@@ -14,20 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// realFrame is the frame laid out on a tmux server of its own.
-func realFrame(t *testing.T) (*Frame, *tmuxtest.Server, string) {
-	t.Helper()
-
-	server := tmuxtest.New(t)
-	server.NewSession("panel")
-	sidebar := server.Run("display-message", "-p", "-t", "panel", "#{pane_id}")
-
-	frame := New(server.Client(), config.DefaultLayout())
-	frame.Attach(sidebar)
-
-	return frame, server, sidebar
-}
-
 // TestIntegrationSidebarWidthFollowsADraggedDividerUnderTheWindow covers why the width is measured off the
 // stage rather than off the sidebar itself: a zoomed sidebar reports the whole window, so the
 // divider the user dragged is only readable from the pane beside it.
@@ -113,6 +99,20 @@ func TestIntegrationAResizeWhileTheStagePaneIsDeadKeepsTheDivider(t *testing.T) 
 	width, measured := frame.SidebarWidth(total)
 	assert.Equal(t, 50, width, "so what the panel draws in agrees with what tmux gave it")
 	assert.True(t, measured)
+}
+
+// realFrame is the frame laid out on a tmux server of its own.
+func realFrame(t *testing.T) (*Frame, *tmuxtest.Server, string) {
+	t.Helper()
+
+	server := tmuxtest.New(t)
+	server.NewSession("panel")
+	sidebar := server.Run("display-message", "-p", "-t", "panel", "#{pane_id}")
+
+	frame := New(server.Client(), config.DefaultLayout())
+	frame.Attach(sidebar)
+
+	return frame, server, sidebar
 }
 
 func paneWidth(t *testing.T, server *tmuxtest.Server, pane string) int {

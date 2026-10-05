@@ -13,90 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const statusCheckLogsScreen = "the status check logs"
-
-func newLoggedStatusCheck(id, name, conclusion string, lines []string, steps ...*pullrequestv1.CheckLogStep) *pullrequestv1.StatusCheck {
-	check := newStatusCheck(id, name, pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, conclusion)
-	check.Id = "check-" + id
-	check.Log = &pullrequestv1.CheckLog{
-		State:     pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
-		LineCount: int32(len(lines)),
-		Steps:     steps,
-	}
-
-	return check
-}
-
-func newStatusCheckLogStep(number int32, name, conclusion string, firstLine, lineCount int32) *pullrequestv1.CheckLogStep {
-	return &pullrequestv1.CheckLogStep{
-		Number:     number,
-		Name:       name,
-		Conclusion: conclusion,
-		FirstLine:  firstLine,
-		LineCount:  lineCount,
-	}
-}
-
-func numberedLines(prefix string, count int) []string {
-	lines := make([]string, count)
-	for i := range lines {
-		lines[i] = fmt.Sprintf("%s %d", prefix, i+1)
-	}
-
-	return lines
-}
-
-// answerStatusCheckLogs answers each read of a check's log with the lines it asks for.
-func answerStatusCheckLogs(logs map[string][]string) func(*panelHarness) {
-	return func(harness *panelHarness) {
-		harness.answer(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-			read := req.Any().(*pullrequestv1.ReadCheckLogRequest)
-			lines := logs[read.GetCheckId()]
-			first := min(int(read.GetFirstLine())-1, len(lines))
-			last := min(first+int(read.GetCount()), len(lines))
-
-			return connect.NewResponse(&pullrequestv1.ReadCheckLogResponse{
-				LineCount: int32(len(lines)),
-				Lines: xslice.Map(lines[first:last], func(text string) *pullrequestv1.CheckLogLine {
-					return &pullrequestv1.CheckLogLine{Text: text}
-				}),
-			}), nil
-		})
-	}
-}
-
-func openStatusCheckLogs(t *testing.T, checks []*pullrequestv1.StatusCheck, logs map[string][]string) *panelHarness {
-	t.Helper()
-
-	harness := openStatusChecks(t, func(harness *panelHarness) {
-		answerStatusChecks(checks...)(harness)
-		answerStatusCheckLogs(logs)(harness)
-	})
-	harness.press("enter")
-
-	return harness
-}
-
-func hoverTestStepWhileBuildReads(t *testing.T) *panelHarness {
-	t.Helper()
-
-	build, test := numberedLines("build", 6000), numberedLines("test", 10)
-	harness := openStatusChecks(t, func(harness *panelHarness) {
-		answerStatusChecks(
-			newLoggedStatusCheck("1", "build", "FAILURE", build),
-			newLoggedStatusCheck("2", "test", "FAILURE", test, newStatusCheckLogStep(1, "run tests", "failure", 1, 10)),
-		)(harness)
-		answerStatusCheckLogs(map[string][]string{"check-1": build, "check-2": test})(harness)
-	})
-	harness.hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-	harness.press("enter")
-	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-	harness.press("j", "j")
-
-	return harness
-}
-
 // TestStatusCheckLogsOpen covers the logs opening from the status checks screen.
 func TestStatusCheckLogsOpen(t *testing.T) {
 	t.Parallel()
@@ -308,4 +224,88 @@ func TestStatusCheckLogsNotices(t *testing.T) {
 			assert.Empty(t, harness.readSent(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure))
 		})
 	}
+}
+
+const statusCheckLogsScreen = "the status check logs"
+
+func newLoggedStatusCheck(id, name, conclusion string, lines []string, steps ...*pullrequestv1.CheckLogStep) *pullrequestv1.StatusCheck {
+	check := newStatusCheck(id, name, pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, conclusion)
+	check.Id = "check-" + id
+	check.Log = &pullrequestv1.CheckLog{
+		State:     pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
+		LineCount: int32(len(lines)),
+		Steps:     steps,
+	}
+
+	return check
+}
+
+func newStatusCheckLogStep(number int32, name, conclusion string, firstLine, lineCount int32) *pullrequestv1.CheckLogStep {
+	return &pullrequestv1.CheckLogStep{
+		Number:     number,
+		Name:       name,
+		Conclusion: conclusion,
+		FirstLine:  firstLine,
+		LineCount:  lineCount,
+	}
+}
+
+func numberedLines(prefix string, count int) []string {
+	lines := make([]string, count)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("%s %d", prefix, i+1)
+	}
+
+	return lines
+}
+
+// answerStatusCheckLogs answers each read of a check's log with the lines it asks for.
+func answerStatusCheckLogs(logs map[string][]string) func(*panelHarness) {
+	return func(harness *panelHarness) {
+		harness.answer(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+			read := req.Any().(*pullrequestv1.ReadCheckLogRequest)
+			lines := logs[read.GetCheckId()]
+			first := min(int(read.GetFirstLine())-1, len(lines))
+			last := min(first+int(read.GetCount()), len(lines))
+
+			return connect.NewResponse(&pullrequestv1.ReadCheckLogResponse{
+				LineCount: int32(len(lines)),
+				Lines: xslice.Map(lines[first:last], func(text string) *pullrequestv1.CheckLogLine {
+					return &pullrequestv1.CheckLogLine{Text: text}
+				}),
+			}), nil
+		})
+	}
+}
+
+func openStatusCheckLogs(t *testing.T, checks []*pullrequestv1.StatusCheck, logs map[string][]string) *panelHarness {
+	t.Helper()
+
+	harness := openStatusChecks(t, func(harness *panelHarness) {
+		answerStatusChecks(checks...)(harness)
+		answerStatusCheckLogs(logs)(harness)
+	})
+	harness.press("enter")
+
+	return harness
+}
+
+func hoverTestStepWhileBuildReads(t *testing.T) *panelHarness {
+	t.Helper()
+
+	build, test := numberedLines("build", 6000), numberedLines("test", 10)
+	harness := openStatusChecks(t, func(harness *panelHarness) {
+		answerStatusChecks(
+			newLoggedStatusCheck("1", "build", "FAILURE", build),
+			newLoggedStatusCheck("2", "test", "FAILURE", test, newStatusCheckLogStep(1, "run tests", "failure", 1, 10)),
+		)(harness)
+		answerStatusCheckLogs(map[string][]string{"check-1": build, "check-2": test})(harness)
+	})
+	harness.hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.press("enter")
+	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.press("j", "j")
+
+	return harness
 }

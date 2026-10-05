@@ -10,19 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func threadAt(id, path string, oldStart, newStart int32, quote string) *agentv1.ReviewThread {
-	return &agentv1.ReviewThread{
-		Id:          id,
-		BaseSha:     patchBaseSHA,
-		FilePath:    path,
-		OldStart:    oldStart,
-		OldEnd:      oldStart,
-		NewStart:    newStart,
-		NewEnd:      newStart,
-		QuotedLines: []string{quote},
-	}
-}
-
 // TestPinHoldsWhenLinesShiftBeneathIt covers a line added at the top of the file, which moves
 // every new-side number below it without changing the code a thread was written against.
 func TestPinHoldsWhenLinesShiftBeneathIt(t *testing.T) {
@@ -459,32 +446,6 @@ func TestPinRefusesASpaceIndentedQuoteThatTwoRowsAnswerTo(t *testing.T) {
 		"the foot is honest where the neighbour row is a guess")
 }
 
-// renamedPatch is a file the round renamed, whose lines the diff draws under the new name.
-func renamedPatch() *diff.Patch {
-	return patchWith(diff.File{
-		OldPath: "greet.go",
-		NewPath: "hello.go",
-		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{
-				Kind:      diff.Context,
-				Text:      "package greet",
-				OldNumber: 1,
-				NewNumber: 1,
-			},
-			diff.Line{
-				Kind:      diff.Deletion,
-				Text:      "old",
-				OldNumber: 2,
-			},
-			diff.Line{
-				Kind:      diff.Addition,
-				Text:      "new",
-				NewNumber: 2,
-			},
-		)},
-	})
-}
-
 // TestPinFindsTheOldSideOfARenamedFile covers a thread whose old-side line is drawn in the patch
 // under a name the thread has never heard of.
 func TestPinFindsTheOldSideOfARenamedFile(t *testing.T) {
@@ -567,53 +528,6 @@ func TestPinStillReadsAnIndentAsUnchanged(t *testing.T) {
 		"the drawn spelling of the line before the indent reads as the bare spelling of it after")
 }
 
-// expandableView is a file whose patch draws one changed line in the middle of it, with the whole
-// of its new side to hand.
-func expandableView() *View {
-	return NewView(patchWith(diff.File{
-		OldPath:   "tall.go",
-		NewPath:   "tall.go",
-		NewSource: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n",
-		Hunks: []diff.Hunk{{
-			Header:   "@@ -4,2 +4,2 @@",
-			NewStart: 4,
-			Lines: []diff.Line{
-				{
-					Kind:      diff.Context,
-					Text:      "four",
-					OldNumber: 4,
-					NewNumber: 4,
-				},
-				{
-					Kind:      diff.Addition,
-					Text:      "five",
-					NewNumber: 5,
-				},
-			},
-		}},
-	}), false)
-}
-
-// headingAbove is the foot section a thread was sorted into.
-func headingAbove(t *testing.T, view *View, id string) string {
-	t.Helper()
-
-	heading := ""
-	for _, current := range view.rows {
-		if current.kind == metadataRow {
-			heading = current.text
-		}
-
-		if current.kind == threadRow && current.thread.GetId() == id {
-			return heading
-		}
-	}
-
-	require.FailNow(t, "that thread has no row")
-
-	return ""
-}
-
 // TestAnAdriftCommentOnADrawnLineReadsAsChanged covers the agent rewriting the code under a
 // comment after reading the review, where the line is on screen and calling it off screen would
 // be false.
@@ -662,4 +576,90 @@ func TestACommentOutsideANarrowedDiffIsNotGone(t *testing.T) {
 
 	require.Equal(t, adrift, view.placed["t1"])
 	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
+}
+
+func threadAt(id, path string, oldStart, newStart int32, quote string) *agentv1.ReviewThread {
+	return &agentv1.ReviewThread{
+		Id:          id,
+		BaseSha:     patchBaseSHA,
+		FilePath:    path,
+		OldStart:    oldStart,
+		OldEnd:      oldStart,
+		NewStart:    newStart,
+		NewEnd:      newStart,
+		QuotedLines: []string{quote},
+	}
+}
+
+// renamedPatch is a file the round renamed, whose lines the diff draws under the new name.
+func renamedPatch() *diff.Patch {
+	return patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "hello.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "old",
+				OldNumber: 2,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "new",
+				NewNumber: 2,
+			},
+		)},
+	})
+}
+
+// expandableView is a file whose patch draws one changed line in the middle of it, with the whole
+// of its new side to hand.
+func expandableView() *View {
+	return NewView(patchWith(diff.File{
+		OldPath:   "tall.go",
+		NewPath:   "tall.go",
+		NewSource: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n",
+		Hunks: []diff.Hunk{{
+			Header:   "@@ -4,2 +4,2 @@",
+			NewStart: 4,
+			Lines: []diff.Line{
+				{
+					Kind:      diff.Context,
+					Text:      "four",
+					OldNumber: 4,
+					NewNumber: 4,
+				},
+				{
+					Kind:      diff.Addition,
+					Text:      "five",
+					NewNumber: 5,
+				},
+			},
+		}},
+	}), false)
+}
+
+// headingAbove is the foot section a thread was sorted into.
+func headingAbove(t *testing.T, view *View, id string) string {
+	t.Helper()
+
+	heading := ""
+	for _, current := range view.rows {
+		if current.kind == metadataRow {
+			heading = current.text
+		}
+
+		if current.kind == threadRow && current.thread.GetId() == id {
+			return heading
+		}
+	}
+
+	require.FailNow(t, "that thread has no row")
+
+	return ""
 }
