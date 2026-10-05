@@ -418,7 +418,10 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case documentsListedMsg:
 		return m.applyDocumentsListed(msg), true
 	case statusChecksListedMsg:
-		return tea.Batch(m.applyStatusChecksListed(msg), m.statusCheckLogs.readsCmd(m)), true
+		listed := m.applyStatusChecksListed(msg)
+		m.statusCheckLogs.reanchor(m)
+
+		return tea.Batch(listed, m.statusCheckLogs.readsCmd(m)), true
 	case statusCheckLogReadMsg:
 		return m.applyStatusCheckLogRead(msg), true
 	case documentReadMsg:

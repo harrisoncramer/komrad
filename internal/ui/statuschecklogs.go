@@ -37,8 +37,10 @@ type statusCheckLogsScreen struct {
 	generation int
 	logs       map[string]*statusCheckLogRead
 	drawn      statusCheckLogsDrawn
-	// placed is the row of the document the hovered row's header was last put on.
-	placed int
+	// placed is the row of the document the hovered row's header was last put on, and placedTop
+	// the row the window was scrolled to with it.
+	placed    int
+	placedTop int
 	// checks is the status checks screen whose scope the logs are joined under.
 	checks *statusChecksScreen
 }
@@ -96,7 +98,7 @@ func (c *statusCheckLogsScreen) enter(m *model, target screenTarget) tea.Cmd {
 			openedFrom: target.from,
 		}
 	}
-	c.generation, c.logs, c.placed = generation, map[string]*statusCheckLogRead{}, 0
+	c.generation, c.logs, c.placed, c.placedTop = generation, map[string]*statusCheckLogRead{}, 0, 0
 
 	return tea.Batch(m.readStatusChecksCmd(), c.readsCmd(m))
 }
@@ -175,12 +177,13 @@ func (c *statusCheckLogsScreen) anchor(m *model) {
 	if rows, height, ok := m.docLayout(); ok {
 		m.reading.Line, c.placed = line, line
 		m.reading.Top = reader.Window{Len: len(rows), Markers: true}.Clamp(line, height)
+		c.placedTop = m.reading.Top
 	}
 }
 
-// reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved off it.
+// reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
 func (c *statusCheckLogsScreen) reanchor(m *model) {
-	if m.screen != screenStatusCheckLogs || m.reading.focused || m.reading.Line != c.placed {
+	if m.screen != screenStatusCheckLogs || m.reading.focused || m.reading.Line != c.placed || m.reading.Top != c.placedTop {
 		return
 	}
 

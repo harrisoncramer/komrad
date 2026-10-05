@@ -8,6 +8,7 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 )
@@ -230,6 +231,30 @@ func TestStatusCheckLogsReading(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "▸ run tests")
 		assert.Contains(t, frame, "test 1")
+	})
+
+	t.Run("a scroll off the hovered header stays put as a log above it is read", func(t *testing.T) {
+		t.Parallel()
+
+		build, test := numberedLines("build", 6000), numberedLines("test", 10)
+		harness := openStatusChecks(t, func(harness *panelHarness) {
+			answerStatusChecks(
+				newLoggedStatusCheck("1", "build", "FAILURE", build),
+				newLoggedStatusCheck("2", "test", "FAILURE", test, newStatusCheckLogStep(1, "run tests", "failure", 1, 10)),
+			)(harness)
+			answerStatusCheckLogs(map[string][]string{"check-1": build, "check-2": test})(harness)
+		})
+		harness.hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+		harness.press("enter")
+		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+		harness.press("j", "j")
+		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelUp})
+		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "▸ run tests")
+		assert.Contains(t, frame, "build 49")
 	})
 
 	t.Run("searching the logs lands on what it found", func(t *testing.T) {
