@@ -2,6 +2,7 @@ package diffview
 
 import (
 	"fmt"
+	"slices"
 
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -144,6 +145,13 @@ func IsAgentThread(thread *agentv1.ReviewThread) bool {
 
 	return len(messages) > 0 &&
 		messages[0].GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
+}
+
+// IsHoldingUnsent reports whether a thread holds a comment the person has yet to send.
+func IsHoldingUnsent(thread *agentv1.ReviewThread) bool {
+	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
+		return message.GetDelivery() == agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
+	})
 }
 
 // isUnsettled reports whether a conversation is one the person reviewing still owes an answer on.

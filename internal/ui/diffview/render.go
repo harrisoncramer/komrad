@@ -3,7 +3,6 @@ package diffview
 import (
 	"fmt"
 	"image/color"
-	"slices"
 	"strings"
 
 	"komrad/internal/diff"
@@ -243,7 +242,7 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	style := markStyleFor(thread)
 
 	switch {
-	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
+	case IsHoldingUnsent(thread):
 		return v.glyphs.Spell(glyph.ThreadUnsent), style
 	case holdsFailedForgeReply(thread):
 		return v.glyphs.Spell(glyph.ThreadUnsent), style
@@ -268,18 +267,6 @@ func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
 	}
 
 	return paint.Panel.Style(paint.ToneUserMe)
-}
-
-// IsHoldingUnsent reports whether a thread holds a comment the person has yet to send.
-func IsHoldingUnsent(thread *agentv1.ReviewThread) bool {
-	return doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)
-}
-
-// doesHoldDelivery reports whether any comment in a thread stands in one delivery state.
-func doesHoldDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDeliveryState) bool {
-	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
-		return message.GetDelivery() == state
-	})
 }
 
 // renderThreadRow draws a thread with no line left to stand on, saying where it was written and
