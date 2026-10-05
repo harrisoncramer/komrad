@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
-	"slices"
 	"strings"
 	"time"
 
@@ -15,93 +13,78 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-const bodyWidth = 30
+const (
+	levelWidth = 5
+	bodyWidth  = 30
+)
 
-var hiddenFields = map[string]bool{
-	"timestamp":                  true,
-	"severity_text":              true,
-	"severity_number":            true,
-	"body":                       true,
-	"service.name":               true,
-	"process.name":               true,
-	"trace.id":                   true,
-	"client.address":             true,
-	"rpc.system":                 true,
-	"rpc.service":                true,
-	"rpc.connect_rpc.error_code": true,
-	"error.type":                 true,
-	"komrad.agent.id":            true,
-	"komrad.session.id":          true,
-	"komrad.target_agent.id":     true,
-	"komrad.script.agent.id":     true,
-	"komrad.script.agent.cwd":    true,
-	"komrad.script.stdout":       true,
-	"komrad.script.stderr":       true,
-	"komrad.mail.id":             true,
+// entry is a decoded service log line, keyed by attribute name.
+type entry map[string]any
+
+// field is an attribute the compact view shows and the function that draws it.
+type field struct {
+	key  string
+	draw func(palette paint.Palette, e entry, key string) string
 }
 
-var errorFields = []string{"error.message", "error", "err"}
-
-type entry map[string]any
+// visibleFields are the attributes the compact view shows, in the order it shows them.
+var visibleFields = []field{
+	{"loop", plainField},
+	{"http.request.method", plainField},
+	{"url.path", plainField},
+	{"rpc.method", plainField},
+	{"mcp.tool.name", plainField},
+	{"komrad.script.name", plainField},
+	{"komrad.run.trigger", plainField},
+	{"http.response.status_code", statusField},
+	{"process.exit.code", exitField},
+	{"komrad.mail.unread", unreadField},
+	{"duration_ms", durationField},
+	{"error.message", errorField},
+	{"error", errorField},
+	{"err", errorField},
+	{"rpc.connect_rpc.error_code", errorCodeField},
+}
 
 // Compact is a structured service log line drawn on one row as its time, level, message and
 // fields, or the line as it stands when it is not a JSON object.
 func Compact(palette paint.Palette, line string) string {
+	record := parse(line)
+	if record == nil {
+		return sanitize(line)
+	}
+
+	var row []string
+
+	row = append(row, palette.Style(paint.ToneMuted).Render(record.clock()))
+
+	level, tone := record.level()
+	row = append(row, palette.Style(tone).Render(fmt.Sprintf("%-*s", levelWidth, level)))
+
+	row = append(row, record.message(palette, tone))
+
+	row = append(row, record.fields(palette)...)
+
+	return strings.TrimRight(strings.Join(row, " "), " ")
+}
+
+// parse is the line decoded as a single JSON object, or nil when it is anything else.
+func parse(line string) entry {
 	decoder := json.NewDecoder(strings.NewReader(line))
 	decoder.UseNumber()
 
 	var record entry
-	if err := decoder.Decode(&record); err != nil || record == nil {
-		return sanitize(line)
+	if err := decoder.Decode(&record); err != nil {
+		return nil
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return sanitize(line)
+		return nil
 	}
 
-	muted := palette.Style(paint.ToneMuted)
-	label, tone := record.level()
-
-	body := record.text("body")
-	if tone == paint.ToneMuted || tone == paint.ToneDanger {
-		body = palette.Style(tone).Render(body)
-	}
-	if pad := bodyWidth - ansi.StringWidth(body); pad > 0 {
-		body += strings.Repeat(" ", pad)
-	}
-
-	parts := []string{muted.Render(record.clock()), palette.Style(tone).Render(label), body}
-
-	if fields := record.fields(palette); len(fields) > 0 {
-		parts = append(parts, strings.Join(fields, " "))
-	}
-
-	return strings.TrimRight(strings.Join(parts, " "), " ")
+	return record
 }
 
-func (e entry) text(key string) string {
-	switch value := e[key].(type) {
-	case nil:
-		return ""
-	case string:
-		return clean(value)
-	case map[string]any, []any:
-		encoded, err := json.Marshal(value)
-		if err != nil {
-			return clean(fmt.Sprint(value))
-		}
-
-		return clean(string(encoded))
-	default:
-		return clean(fmt.Sprint(value))
-	}
-}
-
-func (e entry) has(key string) bool {
-	_, ok := e[key]
-
-	return ok
-}
-
+// clock is the time of day the line was written, or blanks when it carries no readable timestamp.
 func (e entry) clock() string {
 	stamp, err := time.Parse(time.RFC3339Nano, e.text("timestamp"))
 	if err != nil {
@@ -111,91 +94,121 @@ func (e entry) clock() string {
 	return stamp.Format(time.TimeOnly)
 }
 
+// level is the line's severity and the tone it is drawn in.
 func (e entry) level() (string, paint.Tone) {
 	severity := strings.ToUpper(e.text("severity_text"))
 	switch {
-	case strings.HasPrefix(severity, "DEBUG"):
-		return "DBG", paint.ToneMuted
 	case strings.HasPrefix(severity, "INFO"):
-		return "INF", paint.ToneSuccess
+		return severity, paint.ToneSuccess
 	case strings.HasPrefix(severity, "WARN"):
-		return "WRN", paint.ToneWarning
+		return severity, paint.ToneWarning
 	case strings.HasPrefix(severity, "ERR"), strings.HasPrefix(severity, "FATAL"), strings.HasPrefix(severity, "CRIT"):
-		return "ERR", paint.ToneDanger
-	case severity == "":
-		return "???", paint.ToneMuted
+		return severity, paint.ToneDanger
 	default:
-		return fmt.Sprintf("%-3.3s", severity), paint.ToneMuted
+		return severity, paint.ToneMuted
 	}
 }
 
+// message is the line's body padded to its column, coloured when its level is quiet or an error.
+func (e entry) message(palette paint.Palette, tone paint.Tone) string {
+	body := e.text("body")
+	if tone == paint.ToneMuted || tone == paint.ToneDanger {
+		body = palette.Style(tone).Render(body)
+	}
+	if pad := bodyWidth - ansi.StringWidth(body); pad > 0 {
+		body += strings.Repeat(" ", pad)
+	}
+
+	return body
+}
+
+// fields is each visible field the line carries, drawn in order.
 func (e entry) fields(palette paint.Palette) []string {
-	muted := palette.Style(paint.ToneMuted)
-	danger := palette.Style(paint.ToneDanger)
-	shown := make(map[string]bool)
-
-	var fields []string
-	add := func(rendered string, keys ...string) {
-		for _, key := range keys {
-			shown[key] = true
-		}
-		if rendered != "" {
-			fields = append(fields, rendered)
-		}
-	}
-	plain := func(key string) {
-		if e.has(key) {
-			add(muted.Render(e.text(key)), key)
-		}
-	}
-
-	plain("loop")
-	if e.has("http.request.method") || e.has("url.path") {
-		route := strings.TrimSpace(e.text("http.request.method") + " " + e.text("url.path"))
-		add(muted.Render(route), "http.request.method", "url.path")
-	}
-	plain("rpc.method")
-	plain("mcp.tool.name")
-	plain("komrad.script.name")
-	plain("komrad.run.trigger")
-	if e.has("http.response.status_code") {
-		status := e.text("http.response.status_code")
-		add(palette.Style(statusTone(status)).Render(status), "http.response.status_code")
-	}
-	if e.has("process.exit.code") {
-		code := e.text("process.exit.code")
-		tone := paint.ToneDanger
-		if code == "0" {
-			tone = paint.ToneSuccess
-		}
-		add(palette.Style(tone).Render("exit "+code), "process.exit.code")
-	}
-	if e.has("komrad.mail.unread") {
-		add(muted.Render("unread "+e.text("komrad.mail.unread")), "komrad.mail.unread")
-	}
-	if e.has("duration_ms") {
-		add(muted.Render(e.text("duration_ms")+"ms"), "duration_ms")
-	}
-
-	for _, key := range slices.Sorted(maps.Keys(e)) {
-		if hiddenFields[key] || shown[key] || slices.Contains(errorFields, key) {
+	var drawn []string
+	for _, f := range visibleFields {
+		if !e.has(f.key) {
 			continue
 		}
-		add(muted.Render(clean(key)+"="+e.text(key)), key)
-	}
-
-	for _, key := range errorFields {
-		if e.has(key) {
-			add(danger.Render(e.text(key)), key)
+		if value := f.draw(palette, e, f.key); value != "" {
+			drawn = append(drawn, value)
 		}
 	}
-	if !e.has("error.message") && e.has("rpc.connect_rpc.error_code") {
-		add(danger.Render(e.text("rpc.connect_rpc.error_code")))
-	}
 
-	return fields
+	return drawn
 }
 
+// text is the value at key on one line, with anything that is not a string written as JSON.
+func (e entry) text(key string) string {
+	switch value := e[key].(type) {
+	case nil:
+		return ""
+	case string:
+		return clean(value)
+	default:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return clean(fmt.Sprint(value))
+		}
+
+		return clean(string(encoded))
+	}
+}
+
+// has reports whether the line carries key.
+func (e entry) has(key string) bool {
+	_, ok := e[key]
+
+	return ok
+}
+
+// plainField is the value drawn dimmed as it stands.
+func plainField(palette paint.Palette, e entry, key string) string {
+	return palette.Style(paint.ToneMuted).Render(e.text(key))
+}
+
+// statusField is an HTTP status coloured by its class.
+func statusField(palette paint.Palette, e entry, key string) string {
+	status := e.text(key)
+
+	return palette.Style(statusTone(status)).Render(status)
+}
+
+// exitField is a process exit code, green when it is zero and red otherwise.
+func exitField(palette paint.Palette, e entry, key string) string {
+	code := e.text(key)
+	tone := paint.ToneDanger
+	if code == "0" {
+		tone = paint.ToneSuccess
+	}
+
+	return palette.Style(tone).Render("exit " + code)
+}
+
+// unreadField is a count of unread mail.
+func unreadField(palette paint.Palette, e entry, key string) string {
+	return palette.Style(paint.ToneMuted).Render("unread " + e.text(key))
+}
+
+// durationField is a duration in milliseconds.
+func durationField(palette paint.Palette, e entry, key string) string {
+	return palette.Style(paint.ToneMuted).Render(e.text(key) + "ms")
+}
+
+// errorField is an error drawn in red.
+func errorField(palette paint.Palette, e entry, key string) string {
+	return palette.Style(paint.ToneDanger).Render(e.text(key))
+}
+
+// errorCodeField is a connect error code, drawn only when no error message already carries it.
+func errorCodeField(palette paint.Palette, e entry, key string) string {
+	if e.has("error.message") {
+		return ""
+	}
+
+	return errorField(palette, e, key)
+}
+
+// statusTone is the tone of an HTTP status by its class.
 func statusTone(code string) paint.Tone {
 	switch {
 	case strings.HasPrefix(code, "2"), strings.HasPrefix(code, "3"):
@@ -207,6 +220,7 @@ func statusTone(code string) paint.Tone {
 	}
 }
 
+// clean is the value with control characters removed and its whitespace collapsed to single spaces.
 func clean(value string) string {
 	return strings.Join(strings.Fields(paint.StripControls(value)), " ")
 }
