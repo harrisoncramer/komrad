@@ -77,7 +77,7 @@ func (a *archiveScreen) onSchedules(*model) bool {
 	return a.kind == archiveSchedules
 }
 
-func (a *archiveScreen) kinds() stops {
+func (a *archiveScreen) kinds(*model) stops {
 	return stops{
 		labels: []string{"agents", "schedules"},
 		focus:  noStop,
@@ -89,7 +89,7 @@ func (a *archiveScreen) kindsFit(m *model) bool {
 	return m.listFitsTabs(a.listParams(m))
 }
 
-func (a *archiveScreen) kindsFocused() *bool {
+func (a *archiveScreen) kindsFocused(*model) *bool {
 	return &a.kindFocus
 }
 
@@ -100,7 +100,7 @@ func (a *archiveScreen) kindsSwitch(m *model) bool {
 
 // stepKind moves the archive to another kind of archived resource.
 func (a *archiveScreen) stepKind(m *model, delta int) tea.Cmd {
-	a.kind = archiveKind(stepStop(int(a.kind), delta, len(a.kinds().labels)))
+	a.kind = archiveKind(stepStop(int(a.kind), delta, len(a.kinds(m).labels)))
 
 	a.stage(m)
 

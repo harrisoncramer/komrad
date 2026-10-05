@@ -2,7 +2,6 @@ package ui
 
 import (
 	"slices"
-	"strings"
 
 	"komrad/config"
 	"komrad/internal/glyph"
@@ -11,8 +10,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
-	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // submenuCancel is the choice of the cancel entry every submenu ends on.
@@ -260,94 +257,8 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 	return append(options, huh.NewOption(last, submenuCancel))
 }
 
-// submenuLeading is the menus under the one on top drawn gray, as many as fit beside it and its preview.
-func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
-	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
-	if top.menu.preview != nil {
-		room -= columnFloor + dividerCols
-	}
-
-	return frozenMenus(parents, room)
-}
-
-// frozenMenus is a stack of menus drawn gray, as many of the nearest as fit in room.
-func frozenMenus(levels []submenuLevel, room int) []string {
-	var drawn []string
-
-	for i := len(levels) - 1; i >= 0; i-- {
-		view := frozenSubmenu(levels[i], i > 0)
-
-		room -= lipgloss.Width(view) + dividerCols
-		if room < 0 {
-			break
-		}
-
-		drawn = append(drawn, view)
-	}
-
-	slices.Reverse(drawn)
-
-	return drawn
-}
-
-// frozenSubmenu is a menu as it is drawn once another has opened to its right.
-func frozenSubmenu(level submenuLevel, nested bool) string {
-	form := submenuForm(level, nested, fixedKeys()).WithShowHelp(false)
-	form.Init()
-
-	lines := strings.Split(ansi.Strip(form.View()), "\n")
-	muted := paint.Panel.Style(paint.ToneMuted)
-
-	return strings.Join(xslice.Map(lines, func(line string) string {
-		return muted.Render(strings.TrimRight(line, " "))
-	}), "\n")
-}
-
-// submenuColumns is the widest label and the widest key among a menu's entries.
-func submenuColumns(entries []submenuEntry) (labelCols, keyCols int) {
-	for _, entry := range entries {
-		if entry.isDivider {
-			continue
-		}
-
-		labelCols = max(labelCols, ansi.StringWidth(entryText(entry)))
-		keyCols = max(keyCols, ansi.StringWidth(headLabel(entry.keys)))
-	}
-
-	return labelCols, keyCols
-}
-
-func entryText(entry submenuEntry) string {
-	if entry.opens != nil {
-		return entry.label + nestedMark
-	}
-
-	return entry.label
-}
-
 // submenuKeyGap is the columns between an entry's label and its key.
 const submenuKeyGap = 4
-
-// submenuLabel is an entry's label with the key that picks it right-aligned beside it, and gray
-// when it would do nothing.
-func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
-	muted := paint.Panel.Style(paint.ToneMuted)
-	width := labelCols + submenuKeyGap + keyCols
-
-	if entry.isDivider {
-		return muted.Render(strings.Repeat(glyph.Rule, width))
-	}
-
-	text := entryText(entry)
-	key := headLabel(entry.keys)
-	pad := strings.Repeat(" ", max(width-ansi.StringWidth(text)-ansi.StringWidth(key), 1))
-
-	if entry.isOff {
-		return muted.Render(text + pad + key)
-	}
-
-	return text + pad + muted.Render(key)
-}
 
 // submenuKeyMap is the form's own keys without the select's filter.
 func submenuKeyMap(keys config.FixedKeys) *huh.KeyMap {

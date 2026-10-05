@@ -506,7 +506,7 @@ func (l *logsScreen) moveToEnd(_ *model, direction int) tea.Cmd {
 // logFormatLabels name each format a service log is drawn in, indexed by logview.Format.
 var logFormatLabels = []string{"raw", "compact"}
 
-func (l *logsScreen) kinds() stops {
+func (l *logsScreen) kinds(*model) stops {
 	return stops{
 		labels: logFormatLabels,
 		focus:  noStop,
@@ -521,7 +521,7 @@ func (l *logsScreen) kindsFit(m *model) bool {
 	return ok && row.isServiceLog() && m.listFitsTabs(l.listParams(m))
 }
 
-func (l *logsScreen) kindsFocused() *bool {
+func (l *logsScreen) kindsFocused(*model) *bool {
 	return &l.formatFocus
 }
 

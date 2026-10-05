@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"komrad/config"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
@@ -14,8 +13,6 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // screenAction is one arm of a screen's dispatch, which moves through nav or acts as a declared direct exception.
@@ -467,72 +464,6 @@ type listPane struct {
 	blinkedOut bool
 }
 
-// listPane is the column a list is drawn in this frame and how its cursor stands.
-func (m *model) listPane(width int) listPane {
-	caret := m.caretOf(sectionList)
-	if m.isDocFocused() {
-		caret = view.CaretDrawn
-	}
-
-	return listPane{
-		width:      width,
-		caret:      caret,
-		blinkedOut: m.rowCursor.IsBlinked,
-	}
-}
-
-func (m *model) columnListView(params screenListParams) string {
-	return m.columnView(func(m *model) string { return m.screenListView(params) })
-}
-
-func (m *model) welcomeView(params screenListParams, text string) string {
-	if m.term.paneMeasure > 0 {
-		return m.screenListView(params)
-	}
-
-	full := m.measuredAt(m.term.width)
-	header, below := full.listChrome(params)
-	lines := full.listLines(header, below)
-	centered := lipgloss.NewStyle().Align(lipgloss.Center).Render(text)
-
-	return headedBlockView(header, lipgloss.Place(m.term.width, lines, lipgloss.Center, lipgloss.Center, centered), lines, below)
-}
-
-func (m *model) listChrome(params screenListParams) (string, string) {
-	header := m.tabbedHeader(params.title, params.tally)
-	help := m.renderHelp(m.listHelpOf(params), header)
-	record := m.drawRecord(header, help)
-
-	return header, record + help
-}
-
-// screenListView draws a screen's list under its header with its record and its legend under
-// it.
-func (m *model) screenListView(params screenListParams) string {
-	header, below := m.listChrome(params)
-
-	if params.lines != nil {
-		rows, cursor := params.lines(m.listPane(m.paneWidth()))
-
-		return m.headedListView(header, rows, cursor, below)
-	}
-
-	if params.rows == 0 && (params.empty != "" || m.filter.doesNarrow(sectionList)) {
-		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.empty))}, 0, below)
-	}
-
-	pane := m.paneWidth()
-	lines := m.listLines(header, below)
-	window := view.Window(view.WindowParams{
-		List:    prepareList(m.glyphs, params.snapshot(m.listPane(pane))),
-		Palette: paint.Panel,
-		Width:   pane,
-		Lines:   lines,
-	})
-
-	return headedBlockView(header, window, lines, below)
-}
-
 // listHelpOf is a screen's legend as the root draws it under the list.
 func (m *model) listHelpOf(params screenListParams) keyMap {
 	return m.listHelp(params.help(m))
@@ -619,64 +550,6 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	c.cursor = next
 
 	return c, true
-}
-
-// prepareList resolves a snapshot to the list drawn from it, in the glyphs the panel was
-// configured with.
-func prepareList(glyphs glyph.Set, snapshot view.Snapshot) view.List {
-	snapshot.Glyphs = glyphs
-
-	return view.Prepare(snapshot)
-}
-
-// talliedHeader is a list's header with a muted tally after its title.
-func (m *model) talliedHeader(title, tally string) string {
-	return m.headerLines(title, tally, "")
-}
-
-func (m *model) headerLines(title, tally, tabs string) string {
-	header := title
-	switch {
-	case tally == "":
-	case header == "":
-		header = dimStyle().Render(tally)
-	default:
-		header += dimStyle().Render("  " + tally)
-	}
-	if width := m.paneWidth(); width > 0 {
-		header = ansi.Truncate(header, width, "…")
-	}
-	if header != "" {
-		header += "\n"
-	}
-
-	return m.viewsBar() + header + tabs + m.filter.line(m.focusPalette(), m.glyphs) + "\n\n"
-}
-
-// headedListView draws a list under its header, padded out to the record and the legend under it.
-func (m *model) headedListView(header string, rows []string, cursor int, help string) string {
-	lines := m.listLines(header, help)
-
-	return headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle()), lines, help)
-}
-
-// emptyListLine is what a screen says over no rows.
-func (m *model) emptyListLine(idle string) string {
-	return emptyLineOf(m.filter, idle)
-}
-
-// emptyLineOf is what a list says over no rows, under the search standing in it.
-func emptyLineOf(filter filterState, idle string) string {
-	if filter.doesNarrow(sectionList) {
-		return "nothing matches"
-	}
-
-	return idle
-}
-
-// headedBlockView draws a list already fitted to the pane.
-func headedBlockView(header, block string, lines int, help string) string {
-	return header + paint.PadRows(block, lines) + help
 }
 
 // keyed is a row the cursor can be put back on by name.

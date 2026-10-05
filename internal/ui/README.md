@@ -38,8 +38,9 @@ and the inspections.
 
 Drawing changes nothing. A screen that caches what it draws, or fits a scroll to the space it
 is drawn in, does that work in buildFrame, which frame.go calls at the end of every Update
-after dropFrames has thrown away the last frame's caches. view and everything it calls only
-read that cache, and build an unkept copy when it is missing.
+after dropFrames has thrown away the last frame's caches. drawFrame then draws the frame once,
+and View returns it. Everything drawFrame calls only reads those caches, and builds an unkept
+copy when one is missing.
 
 The agents screen is the root's twin, and the line between them is drawn by who owns the
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
@@ -169,9 +170,9 @@ and the root's drawing of the header, the record, the messages and the legend th
 calls. The review composes its own frame from the same pieces, and the editor it opens on the
 stage goes through the root.
 
-Each list screen draws from a file named for it with a view suffix, such as agentsview.go. That
-file holds view and the functions only view calls. Keys, loads, and the rows buildFrame keeps
-stay with the screen's state.
+Each screen and part draws from a file named for it with a view suffix, such as agentsview.go
+or detailsview.go. That file holds the functions that only render, which Update may also call
+to measure. Keys, loads, and the rows buildFrame keeps stay with the state.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, listing.go, keys.go, clipboard.go, report.go, convert.go.

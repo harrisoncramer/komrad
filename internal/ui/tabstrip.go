@@ -2,14 +2,11 @@ package ui
 
 import (
 	"slices"
-	"strings"
 
 	"komrad/internal/glyph"
-	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -42,29 +39,6 @@ type stops struct {
 
 // noStop is a focus or a lit stop that stands on none of the row.
 const noStop = -1
-
-func (s stops) parts(palette paint.Palette) []string {
-	muted := palette.Style(paint.ToneMuted)
-	lit := palette.Style(paint.TonePrimary)
-
-	parts := make([]string, len(s.labels))
-	for i := range s.labels {
-		style := muted
-		switch i {
-		case s.focus:
-			style = palette.Cursor()
-		case s.lit:
-			style = lit
-		}
-		parts[i] = style.Render(s.labels[i])
-	}
-
-	return parts
-}
-
-func (s stops) view(palette paint.Palette) string {
-	return strings.Join(s.parts(palette), "  ")
-}
 
 // stepStop is the stop delta along from at in a row of count, wrapping at both ends.
 func stepStop(at, delta, count int) int {
@@ -137,14 +111,6 @@ func (s *tabsState) leave() {
 	s.focused, s.focus, s.onGroup = false, "", false
 }
 
-func (s tabStrip) groupLabel(state tabsState) string {
-	if state.flat {
-		return flatLabel
-	}
-
-	return s.grouped
-}
-
 func (s tabStrip) indexOf(state tabsState) int {
 	at := slices.IndexFunc(s.options, func(option tabOption) bool { return option.id == state.chosen })
 	if at < 0 {
@@ -191,42 +157,6 @@ func (s tabStrip) choose(state *tabsState, direction tabDirection) {
 	state.focus = ""
 }
 
-func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string {
-	muted := palette.Style(paint.ToneMuted)
-	chosen := s.indexOf(state)
-
-	labels := make([]string, len(s.options), len(s.options)+1)
-	for i, option := range s.options {
-		labels[i] = option.label
-		if i == chosen {
-			labels[i] = state.direction.glyph() + " " + option.label
-		}
-	}
-	if s.grouped != "" {
-		labels = append(labels, s.groupLabel(state))
-	}
-
-	row := stops{
-		labels: labels,
-		focus:  noStop,
-		lit:    noStop,
-	}
-	if state.focused {
-		row.focus = s.focusIndex(state)
-	}
-	parts := row.parts(palette)
-
-	line := muted.Render(s.title) + "   " + strings.Join(parts[:len(s.options)], "  ")
-	if s.grouped != "" {
-		line += "  " + muted.Render(glyph.Separator) + "  " + parts[len(s.options)]
-	}
-	if width > 0 {
-		line = ansi.Truncate(line, width, "…")
-	}
-
-	return line
-}
-
 // activeTabs is the tab switcher of the screen that is up, and false on a screen that draws no strip.
 func (m *model) activeTabs() (tabSwitcher, bool) {
 	t, ok := m.active().(tabSwitcher)
@@ -244,27 +174,6 @@ func (m *model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
 	return ok && t.tabsState().focused && t.tabsFit(m)
-}
-
-func (m *model) tabbedHeader(title, tally string) string {
-	var strips string
-	if m.isTabsDrawn() {
-		strips += m.tabsLine()
-	}
-	if m.isKindsDrawn() {
-		strips += m.kindsLine()
-	}
-	if strips == "" {
-		return m.talliedHeader(title, tally)
-	}
-
-	return m.headerLines(title, tally, strips)
-}
-
-func (m *model) tabsLine() string {
-	t, _ := m.activeTabs()
-
-	return t.tabs().view(*t.tabsState(), m.focusPalette(), m.paneWidth()) + "\n"
 }
 
 // listFitsTabs is whether a list has the room to draw its strips, judged with the keys on the
@@ -288,7 +197,7 @@ func (m *model) listFitsTabs(params screenListParams) bool {
 		strips += probe.tabsLine()
 	}
 	if kinded {
-		*k.kindsFocused() = false
+		*k.kindsFocused(&probe) = false
 		strips += probe.kindsLine()
 	}
 
