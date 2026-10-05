@@ -54,6 +54,10 @@ type Engine struct {
 var ErrNotAnEngine = fail.Precondition(
 	"the database login belongs to no engine; run komrad engine ensure as the database owner and connect with the login it prints")
 
+// ErrEngineLogin is what opening as the owner returns for a login that belongs to an engine.
+var ErrEngineLogin = fail.Precondition(
+	"the database login belongs to an engine; connect as the database owner with owner_database_url")
+
 // IDCursor pages a listing that resumes from one row's id.
 type IDCursor struct {
 	ID string `json:"i"`
@@ -133,22 +137,44 @@ func Migrate(ctx context.Context, url string) error {
 
 // EnsureEngine creates an engine or brings its logins up to date, connecting as the database's owner.
 func EnsureEngine(ctx context.Context, url string, params db.EnsureEngineParams) error {
-	pool, err := openOwner(ctx, url)
+	pool, err := OpenOwner(ctx, url)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
+	return db.NewEngineProvisioner(pool).EnsureEngine(ctx, params)
+}
+
+// OpenOwner connects to the Postgres at url as the database's owner, refusing a schema this build does not match.
+func OpenOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
+	pool, err := openOwner(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect as the owner: %w", err)
+	}
+
 	schema, err := migrator.NewMigrator(pool)
 	if err != nil {
-		return err
+		pool.Close()
+		return nil, err
 	}
 
 	if err := schema.CheckSchema(ctx); err != nil {
-		return err
+		pool.Close()
+		return nil, fmt.Errorf("failed to check the schema as the owner: %w", err)
 	}
 
-	return db.NewEngineProvisioner(pool).EnsureEngine(ctx, params)
+	_, err = models.New(pool).GetCurrentEngine(ctx)
+	if err == nil {
+		pool.Close()
+		return nil, ErrEngineLogin
+	}
+	if !db.IsNoRows(err) {
+		pool.Close()
+		return nil, fmt.Errorf("failed to read whether the owner login belongs to an engine: %w", err)
+	}
+
+	return pool, nil
 }
 
 func openOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {

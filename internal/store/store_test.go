@@ -5,10 +5,12 @@ import (
 
 	"komrad/db"
 	"komrad/db/models"
+	"komrad/db/testmodels"
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -197,4 +199,58 @@ func TestTheReadOnlyPoolTakesOnlyThisEnginesReader(t *testing.T) {
 	reader, err := store.OpenReadOnly(ctx, first.ReaderURL, firstID)
 	require.NoError(t, err)
 	reader.Close()
+}
+
+// TestTheOwnerPoolTakesOnlyTheOwner pins OpenOwner refusing an engine's login.
+func TestTheOwnerPoolTakesOnlyTheOwner(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	database := dbtest.New(t)
+	engine := dbtest.NewEngine(t, database)
+
+	_, err := store.OpenOwner(ctx, engine.URL)
+	require.ErrorIs(t, err, store.ErrEngineLogin)
+
+	owner, err := store.OpenOwner(ctx, database.OwnerURL)
+	require.NoError(t, err)
+	owner.Close()
+}
+
+// TestNoEngineLoginCanReadIdentity pins the identity schema being closed to an engine's logins, the reader included.
+func TestNoEngineLoginCanReadIdentity(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	engine := dbtest.NewEngine(t, dbtest.New(t))
+
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{
+			name: "the engine's writing login",
+			url:  engine.URL,
+		},
+		{
+			name: "the engine's reader",
+			url:  engine.ReaderURL,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			conn, err := pgx.Connect(ctx, tt.url)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = conn.Close(ctx) })
+
+			_, err = testmodels.New(conn).CountPrincipals(ctx)
+
+			var pgErr *pgconn.PgError
+			require.ErrorAs(t, err, &pgErr)
+			assert.Equal(t, "42501", pgErr.Code, "a permission error, since no engine login holds usage on identity")
+		})
+	}
 }

@@ -14,6 +14,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
 	documenttypestore "komrad/internal/store/documenttype"
+	identitystore "komrad/internal/store/identity"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	rowstore "komrad/internal/store/row"
@@ -24,6 +25,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,6 +76,35 @@ func Open(t *testing.T) *Stores {
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		ForgeThreads:     pullrequeststore.NewForgeThreadStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
+	}
+}
+
+// OwnerStores is the stores that connect as the database's owner, with one engine already on the database.
+type OwnerStores struct {
+	Pool       *pgxpool.Pool
+	Database   dbtest.Database
+	Engine     dbtest.Engine
+	Principals *identitystore.PrincipalStore
+	Bindings   *identitystore.BindingStore
+}
+
+// OpenOwner builds the owner's stores over a database of this test's own holding one engine, closed when the test ends.
+func OpenOwner(t *testing.T) *OwnerStores {
+	t.Helper()
+
+	database := dbtest.New(t)
+	engine := dbtest.NewEngine(t, database)
+
+	pool, err := store.OpenOwner(t.Context(), database.OwnerURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	return &OwnerStores{
+		Pool:       pool,
+		Database:   database,
+		Engine:     engine,
+		Principals: identitystore.NewPrincipalStore(pool),
+		Bindings:   identitystore.NewBindingStore(pool),
 	}
 }
 

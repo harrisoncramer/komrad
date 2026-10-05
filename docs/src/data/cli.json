@@ -38,6 +38,7 @@
       "open",
       "panel",
       "pr",
+      "principal",
       "rpc",
       "serve",
       "setup",
@@ -961,6 +962,260 @@
     "aliases": [],
     "short": "List a repository's pull requests, or those opened from one branch",
     "long": "List a repository's pull requests through the forge its host is connected to.\n\nGive a remote as git spells it. With a branch, every pull request opened from it is\nlisted whatever its state; without one, the repository's open pull requests are\nlisted.\n\n    komrad pr list git@github.com:harrisoncramer/komrad.git\n    komrad pr list git@github.com:harrisoncramer/komrad.git agent/some-branch\n\nThe forge hands them over a hundred at a time and this follows every page, so the\nlist is whole; to read one page at a time, call the endpoint through komrad rpc\nwith a limit and the cursor it answers.\n\nA repository the credential cannot see answers not found, which is how a token\nwithout access to a private repository shows up.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "principal",
+    "path": "komrad principal",
+    "parent": "",
+    "usage": "komrad principal",
+    "aliases": [],
+    "short": "Manage the people and services that may call an engine's api",
+    "long": "Manage the people and services that may call an engine's api.\n\nA principal is a person or a service. A binding gives it one role on one engine:\nviewer, operator or automation. These records sit beside the engines rather than\ninside them, and no engine can read them. Every command here connects as\nowner_database_url, the login komrad migrate runs as.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": [
+      "principal/add",
+      "principal/bind",
+      "principal/disable",
+      "principal/enable",
+      "principal/list",
+      "principal/remove",
+      "principal/unbind"
+    ]
+  },
+  {
+    "slug": "principal/add",
+    "path": "komrad principal add",
+    "parent": "principal",
+    "usage": "komrad principal add NAME [flags]",
+    "aliases": [],
+    "short": "Add a person, or a service with --service",
+    "long": "Add a person, or a service with --service.\n\nA person names the outside provider that vouches for them and the provider's\nstable id for them: the sub claim for Cloudflare Access and Google, and the numeric\nuser id for GitHub, never a login or an email. A service principal may name one\ntoo, or neither. It prints the principal's id, which is the subject of every token\nissued to it.",
+    "example": "",
+    "flags": [
+      {
+        "name": "provider",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "the provider that vouches for the principal: cloudflare_access, github or google"
+      },
+      {
+        "name": "service",
+        "shorthand": "",
+        "type": "bool",
+        "default": "false",
+        "usage": "add a service principal rather than a person"
+      },
+      {
+        "name": "subject",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "the provider's stable id for the principal"
+      }
+    ],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "principal/bind",
+    "path": "komrad principal bind",
+    "parent": "principal",
+    "usage": "komrad principal bind NAME ENGINE ROLE",
+    "aliases": [],
+    "short": "Give a principal a role on an engine, replacing any it had",
+    "long": "Give a principal a role on an engine, replacing any it had.\n\nThe role is viewer, operator or automation. The engine is named as komrad engine\nensure named it, and is an argument rather than --engine, which picks the config.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "principal/disable",
+    "path": "komrad principal disable",
+    "parent": "principal",
+    "usage": "komrad principal disable NAME",
+    "aliases": [],
+    "short": "Stop a principal being issued tokens, keeping its bindings",
+    "long": "",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "principal/enable",
+    "path": "komrad principal enable",
+    "parent": "principal",
+    "usage": "komrad principal enable NAME",
+    "aliases": [],
+    "short": "Let a disabled principal be issued tokens again, with the bindings it had",
+    "long": "",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "principal/list",
+    "path": "komrad principal list",
+    "parent": "principal",
+    "usage": "komrad principal list",
+    "aliases": [],
+    "short": "List every principal with its bindings",
+    "long": "",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "principal/remove",
+    "path": "komrad principal remove",
+    "parent": "principal",
+    "usage": "komrad principal remove NAME",
+    "aliases": [],
+    "short": "Delete a principal and its bindings",
+    "long": "",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "principal/unbind",
+    "path": "komrad principal unbind",
+    "parent": "principal",
+    "usage": "komrad principal unbind NAME ENGINE",
+    "aliases": [],
+    "short": "Take away a principal's role on an engine",
+    "long": "",
     "example": "",
     "flags": [],
     "inherited": [

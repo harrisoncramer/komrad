@@ -233,6 +233,134 @@ func (ns NullForgeReplyState) Value() (driver.Value, error) {
 	return string(ns.ForgeReplyState), nil
 }
 
+type IdentityPrincipalKind string
+
+const (
+	IdentityPrincipalKindPerson  IdentityPrincipalKind = "person"
+	IdentityPrincipalKindService IdentityPrincipalKind = "service"
+)
+
+func (e *IdentityPrincipalKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = IdentityPrincipalKind(s)
+	case string:
+		*e = IdentityPrincipalKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for IdentityPrincipalKind: %T", src)
+	}
+	return nil
+}
+
+type NullIdentityPrincipalKind struct {
+	IdentityPrincipalKind IdentityPrincipalKind
+	Valid                 bool // Valid is true if IdentityPrincipalKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullIdentityPrincipalKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.IdentityPrincipalKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.IdentityPrincipalKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullIdentityPrincipalKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.IdentityPrincipalKind), nil
+}
+
+type IdentityPrincipalRole string
+
+const (
+	IdentityPrincipalRoleViewer     IdentityPrincipalRole = "viewer"
+	IdentityPrincipalRoleOperator   IdentityPrincipalRole = "operator"
+	IdentityPrincipalRoleAutomation IdentityPrincipalRole = "automation"
+)
+
+func (e *IdentityPrincipalRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = IdentityPrincipalRole(s)
+	case string:
+		*e = IdentityPrincipalRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for IdentityPrincipalRole: %T", src)
+	}
+	return nil
+}
+
+type NullIdentityPrincipalRole struct {
+	IdentityPrincipalRole IdentityPrincipalRole
+	Valid                 bool // Valid is true if IdentityPrincipalRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullIdentityPrincipalRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.IdentityPrincipalRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.IdentityPrincipalRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullIdentityPrincipalRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.IdentityPrincipalRole), nil
+}
+
+type IdentityProvider string
+
+const (
+	IdentityProviderCloudflareAccess IdentityProvider = "cloudflare_access"
+	IdentityProviderGithub           IdentityProvider = "github"
+	IdentityProviderGoogle           IdentityProvider = "google"
+)
+
+func (e *IdentityProvider) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = IdentityProvider(s)
+	case string:
+		*e = IdentityProvider(s)
+	default:
+		return fmt.Errorf("unsupported scan type for IdentityProvider: %T", src)
+	}
+	return nil
+}
+
+type NullIdentityProvider struct {
+	IdentityProvider IdentityProvider
+	Valid            bool // Valid is true if IdentityProvider is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullIdentityProvider) Scan(value interface{}) error {
+	if value == nil {
+		ns.IdentityProvider, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.IdentityProvider.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullIdentityProvider) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.IdentityProvider), nil
+}
+
 type MailKind string
 
 const (
@@ -695,6 +823,29 @@ type ForgeReviewThread struct {
 	CommitSha string
 	// The text of the line the thread was written on as the forge's diff drew it, with its diff marker taken off.
 	Quote string
+}
+
+// The one role a principal holds on one engine.
+type IdentityBinding struct {
+	PrincipalID string
+	EngineID    string
+	Role        IdentityPrincipalRole
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// A person or service that may call an engine's api, which no engine can read.
+type IdentityPrincipal struct {
+	ID   string
+	Name string
+	Kind IdentityPrincipalKind
+	// The outside provider that vouches for this principal, required of a person.
+	Provider NullIdentityProvider
+	// The provider's stable id for this principal, never a display name or an email.
+	Subject    *string
+	DisabledAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.

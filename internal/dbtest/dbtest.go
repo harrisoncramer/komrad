@@ -30,8 +30,8 @@ var sweepEnginesSQL string
 
 var sweepOnce sync.Once
 
-// database is a migrated database of this test's own.
-type database struct {
+// Database is a migrated database of this test's own.
+type Database struct {
 	OwnerURL string
 }
 
@@ -50,7 +50,7 @@ func URL(t *testing.T) string {
 }
 
 // New is a migrated database of this test's own, dropped when the test ends.
-func New(t *testing.T) database {
+func New(t *testing.T) Database {
 	t.Helper()
 
 	schema, err := migrator.NewMigrator(nil)
@@ -59,11 +59,11 @@ func New(t *testing.T) database {
 	version, err := schema.SchemaVersion()
 	require.NoError(t, err)
 
-	return database{OwnerURL: pgtest.Migrated(t, pgtest.Schema{Version: version, Apply: migrate})}
+	return Database{OwnerURL: pgtest.Migrated(t, pgtest.Schema{Version: version, Apply: migrate})}
 }
 
 // NewEngine adds an engine to database, its logins dropped when the test ends.
-func NewEngine(t *testing.T, database database) Engine {
+func NewEngine(t *testing.T, database Database) Engine {
 	t.Helper()
 
 	ctx := t.Context()
@@ -88,7 +88,7 @@ func NewEngine(t *testing.T, database database) Engine {
 }
 
 // EngineName is a fresh engine name whose logins are dropped when the test ends, whoever creates them.
-func EngineName(t *testing.T, database database) string {
+func EngineName(t *testing.T, database Database) string {
 	t.Helper()
 
 	name := "t" + randomHex(t, 12)
@@ -98,14 +98,14 @@ func EngineName(t *testing.T, database database) string {
 }
 
 // DropEngineWhenDone drops an engine's logins and whatever they own in database when the test ends.
-func DropEngineWhenDone(t *testing.T, database database, name string) {
+func DropEngineWhenDone(t *testing.T, database Database, name string) {
 	t.Helper()
 
 	t.Cleanup(func() { dropEngine(t, database.OwnerURL, db.EngineLogin(name)) })
 }
 
 // EngineURL is the url an engine's login connects to this database with.
-func (d database) EngineURL(t *testing.T, name, password string) string {
+func (d Database) EngineURL(t *testing.T, name, password string) string {
 	t.Helper()
 
 	return withLogin(t, d.OwnerURL, db.EngineLogin(name), password)

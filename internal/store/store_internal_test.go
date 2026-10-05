@@ -194,3 +194,47 @@ func TestParseConfigCapsThePool(t *testing.T) {
 		})
 	}
 }
+
+// securityDefinerFunctions is every SECURITY DEFINER function an engine login may run.
+var securityDefinerFunctions = []string{
+	"public.current_engine",
+	"public.current_login_is_reader",
+	"public.review_thread_root_readable",
+}
+
+// TestIdentityIsClosedToEngines checks the identity schema and every table in it against PUBLIC, both group roles and every engine login.
+func TestIdentityIsClosedToEngines(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	queries := testmodels.New(open(ctx, t).GetRawPool())
+
+	tables, err := queries.ListIdentityTables(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, tables, "identity holds no tables, so this test proves nothing")
+
+	grants, err := queries.ListIdentityGrantsToEngines(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, grants, "no engine login may reach the identity schema; revoke these grants")
+}
+
+// TestEnginesRunOnlyTheAllowedSecurityDefinerFunctions pins every function that runs as its owner on an engine's behalf to a list read on purpose.
+func TestEnginesRunOnlyTheAllowedSecurityDefinerFunctions(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	queries := testmodels.New(open(ctx, t).GetRawPool())
+
+	functions, err := queries.ListSecurityDefinerFunctionsEnginesRun(ctx)
+	require.NoError(t, err)
+
+	for _, function := range functions {
+		assert.Contains(t, securityDefinerFunctions, function,
+			"%s is a SECURITY DEFINER function an engine login can execute, so it reads as the owner on an engine's behalf; "+
+				"check its body cannot reach identity or another engine's rows, then add it to securityDefinerFunctions on purpose, "+
+				"or revoke EXECUTE from PUBLIC, the engine groups and every engine login", function)
+	}
+	for _, allowed := range securityDefinerFunctions {
+		assert.Contains(t, functions, allowed, "%s is allowed but no longer exists or no longer runs for engines; drop it from securityDefinerFunctions", allowed)
+	}
+}
