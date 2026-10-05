@@ -40,6 +40,8 @@ var hiddenFields = map[string]bool{
 	"komrad.mail.id":             true,
 }
 
+var errorFields = []string{"error.message", "error", "err"}
+
 type entry map[string]any
 
 // Compact is a structured service log line drawn on one row as its time, level, message and
@@ -176,13 +178,13 @@ func (e entry) fields(palette paint.Palette) []string {
 	}
 
 	for _, key := range slices.Sorted(maps.Keys(e)) {
-		if hiddenFields[key] || shown[key] || isError(key) {
+		if hiddenFields[key] || shown[key] || slices.Contains(errorFields, key) {
 			continue
 		}
 		add(muted.Render(clean(key)+"="+e.text(key)), key)
 	}
 
-	for _, key := range []string{"error.message", "error", "err"} {
+	for _, key := range errorFields {
 		if e.has(key) {
 			add(danger.Render(e.text(key)), key)
 		}
@@ -192,10 +194,6 @@ func (e entry) fields(palette paint.Palette) []string {
 	}
 
 	return fields
-}
-
-func isError(key string) bool {
-	return key == "error.message" || key == "error" || key == "err"
 }
 
 func statusTone(code string) paint.Tone {
