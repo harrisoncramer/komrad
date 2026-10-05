@@ -427,7 +427,7 @@ table "pull_request_checks" {
   column "state" {
     null    = false
     type    = text
-    comment = "Where the check stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed."
+    comment = "Where the check stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, completed, or unknown when its commit is no longer the head and komrad stopped reading it while in flight."
   }
   column "conclusion" {
     null    = false
@@ -535,7 +535,7 @@ table "pull_request_check_steps" {
   column "state" {
     null    = false
     type    = text
-    comment = "Where the step stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, or completed."
+    comment = "Where the step stands, in komrad's own words: queued or running while in flight, waiting when it cannot start on its own, completed, or unknown when its commit is no longer the head and komrad stopped reading it while in flight."
   }
   column "conclusion" {
     null    = false

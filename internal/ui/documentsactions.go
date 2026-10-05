@@ -93,7 +93,7 @@ func (d *documentsScreen) diffActions() screenActionSpec {
 	step := d.stepActions()
 
 	return screenActionSpec{
-		table:  slices.Concat(step.table, keys.table()),
+		table:  slices.Concat(step.table, keys.table(), keys.shapeTable()),
 		legend: slices.Concat(keys.legend(), step.legend),
 	}
 }

@@ -209,8 +209,6 @@ type ForgeReplyState int32
 const (
 	// No state was recorded.
 	ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED ForgeReplyState = 0
-	// An agent's proposal waiting for the person to approve, edit or discard it.
-	ForgeReplyState_FORGE_REPLY_STATE_DRAFT ForgeReplyState = 1
 	// Approved and waiting to be posted.
 	ForgeReplyState_FORGE_REPLY_STATE_APPROVED ForgeReplyState = 2
 	// Being posted, and possibly already on the forge.
@@ -225,7 +223,6 @@ const (
 var (
 	ForgeReplyState_name = map[int32]string{
 		0: "FORGE_REPLY_STATE_UNSPECIFIED",
-		1: "FORGE_REPLY_STATE_DRAFT",
 		2: "FORGE_REPLY_STATE_APPROVED",
 		3: "FORGE_REPLY_STATE_SENDING",
 		4: "FORGE_REPLY_STATE_SENT",
@@ -233,7 +230,6 @@ var (
 	}
 	ForgeReplyState_value = map[string]int32{
 		"FORGE_REPLY_STATE_UNSPECIFIED": 0,
-		"FORGE_REPLY_STATE_DRAFT":       1,
 		"FORGE_REPLY_STATE_APPROVED":    2,
 		"FORGE_REPLY_STATE_SENDING":     3,
 		"FORGE_REPLY_STATE_SENT":        4,
@@ -2807,21 +2803,15 @@ func (x *ListReviewViewedFilesResponse) GetViewed() []*ReviewViewedFile {
 // ForgeReply is a reply komrad posts as the person on a thread mirrored from the forge.
 type ForgeReply struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle an approval, a retry or a discard names this reply by.
+	// The handle a retry or a discard names this reply by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The review thread it answers, which mirrors a thread on the forge.
 	ThreadId string `protobuf:"bytes,2,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
 	// Where it is on its way to the forge.
 	State ForgeReplyState `protobuf:"varint,3,opt,name=state,proto3,enum=agent.v1.ForgeReplyState" json:"state,omitempty"`
-	// Whether the person wrote it or an agent proposed it.
-	AuthorKind ReviewAuthorKind `protobuf:"varint,4,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
-	// The agent that proposed it, absent when the person wrote it.
-	AuthorAgentId *string `protobuf:"bytes,5,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
-	// The words the agent proposed, absent when the person wrote it.
-	ProposedBody *string `protobuf:"bytes,6,opt,name=proposed_body,json=proposedBody,proto3,oneof" json:"proposed_body,omitempty"`
-	// The words that go to the forge, which differ from the proposal when the person edited it.
+	// The words that go to the forge.
 	Body string `protobuf:"bytes,7,opt,name=body,proto3" json:"body,omitempty"`
-	// When the person approved it, empty while it is a draft.
+	// When the person wrote it for posting.
 	ApprovedAt string `protobuf:"bytes,8,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
 	// When komrad last began posting it, empty until then.
 	SendingStartedAt string `protobuf:"bytes,9,opt,name=sending_started_at,json=sendingStartedAt,proto3" json:"sending_started_at,omitempty"`
@@ -2888,27 +2878,6 @@ func (x *ForgeReply) GetState() ForgeReplyState {
 	return ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED
 }
 
-func (x *ForgeReply) GetAuthorKind() ReviewAuthorKind {
-	if x != nil {
-		return x.AuthorKind
-	}
-	return ReviewAuthorKind_REVIEW_AUTHOR_KIND_UNSPECIFIED
-}
-
-func (x *ForgeReply) GetAuthorAgentId() string {
-	if x != nil && x.AuthorAgentId != nil {
-		return *x.AuthorAgentId
-	}
-	return ""
-}
-
-func (x *ForgeReply) GetProposedBody() string {
-	if x != nil && x.ProposedBody != nil {
-		return *x.ProposedBody
-	}
-	return ""
-}
-
 func (x *ForgeReply) GetBody() string {
 	if x != nil {
 		return x.Body
@@ -2958,105 +2927,6 @@ func (x *ForgeReply) GetCreatedAt() string {
 	return ""
 }
 
-type ProposeForgeReplyRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mirrored thread to reply on.
-	ThreadId string `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	// What to say on the forge. The ceiling refuses an essay and is not a length to write up to.
-	Body          string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ProposeForgeReplyRequest) Reset() {
-	*x = ProposeForgeReplyRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[37]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProposeForgeReplyRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProposeForgeReplyRequest) ProtoMessage() {}
-
-func (x *ProposeForgeReplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[37]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProposeForgeReplyRequest.ProtoReflect.Descriptor instead.
-func (*ProposeForgeReplyRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{37}
-}
-
-func (x *ProposeForgeReplyRequest) GetThreadId() string {
-	if x != nil {
-		return x.ThreadId
-	}
-	return ""
-}
-
-func (x *ProposeForgeReplyRequest) GetBody() string {
-	if x != nil {
-		return x.Body
-	}
-	return ""
-}
-
-type ProposeForgeReplyResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The draft as recorded, waiting for the person.
-	Reply         *ForgeReply `protobuf:"bytes,1,opt,name=reply,proto3" json:"reply,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ProposeForgeReplyResponse) Reset() {
-	*x = ProposeForgeReplyResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[38]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProposeForgeReplyResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProposeForgeReplyResponse) ProtoMessage() {}
-
-func (x *ProposeForgeReplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[38]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProposeForgeReplyResponse.ProtoReflect.Descriptor instead.
-func (*ProposeForgeReplyResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{38}
-}
-
-func (x *ProposeForgeReplyResponse) GetReply() *ForgeReply {
-	if x != nil {
-		return x.Reply
-	}
-	return nil
-}
-
 type ReplyOnForgeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The mirrored thread to reply on.
@@ -3069,7 +2939,7 @@ type ReplyOnForgeRequest struct {
 
 func (x *ReplyOnForgeRequest) Reset() {
 	*x = ReplyOnForgeRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[39]
+	mi := &file_agent_v1_review_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3081,7 +2951,7 @@ func (x *ReplyOnForgeRequest) String() string {
 func (*ReplyOnForgeRequest) ProtoMessage() {}
 
 func (x *ReplyOnForgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[39]
+	mi := &file_agent_v1_review_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3094,7 +2964,7 @@ func (x *ReplyOnForgeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplyOnForgeRequest.ProtoReflect.Descriptor instead.
 func (*ReplyOnForgeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{39}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ReplyOnForgeRequest) GetThreadId() string {
@@ -3121,7 +2991,7 @@ type ReplyOnForgeResponse struct {
 
 func (x *ReplyOnForgeResponse) Reset() {
 	*x = ReplyOnForgeResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[40]
+	mi := &file_agent_v1_review_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3133,7 +3003,7 @@ func (x *ReplyOnForgeResponse) String() string {
 func (*ReplyOnForgeResponse) ProtoMessage() {}
 
 func (x *ReplyOnForgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[40]
+	mi := &file_agent_v1_review_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3146,109 +3016,10 @@ func (x *ReplyOnForgeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplyOnForgeResponse.ProtoReflect.Descriptor instead.
 func (*ReplyOnForgeResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{40}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ReplyOnForgeResponse) GetReply() *ForgeReply {
-	if x != nil {
-		return x.Reply
-	}
-	return nil
-}
-
-type ApproveForgeReplyRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The draft to approve.
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The person's edit of the draft, absent to post it as the agent wrote it.
-	Body          *string `protobuf:"bytes,2,opt,name=body,proto3,oneof" json:"body,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ApproveForgeReplyRequest) Reset() {
-	*x = ApproveForgeReplyRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[41]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ApproveForgeReplyRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ApproveForgeReplyRequest) ProtoMessage() {}
-
-func (x *ApproveForgeReplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[41]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ApproveForgeReplyRequest.ProtoReflect.Descriptor instead.
-func (*ApproveForgeReplyRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{41}
-}
-
-func (x *ApproveForgeReplyRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *ApproveForgeReplyRequest) GetBody() string {
-	if x != nil && x.Body != nil {
-		return *x.Body
-	}
-	return ""
-}
-
-type ApproveForgeReplyResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The reply as it stands after komrad tried to post it.
-	Reply         *ForgeReply `protobuf:"bytes,1,opt,name=reply,proto3" json:"reply,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ApproveForgeReplyResponse) Reset() {
-	*x = ApproveForgeReplyResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[42]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ApproveForgeReplyResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ApproveForgeReplyResponse) ProtoMessage() {}
-
-func (x *ApproveForgeReplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[42]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ApproveForgeReplyResponse.ProtoReflect.Descriptor instead.
-func (*ApproveForgeReplyResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{42}
-}
-
-func (x *ApproveForgeReplyResponse) GetReply() *ForgeReply {
 	if x != nil {
 		return x.Reply
 	}
@@ -3265,7 +3036,7 @@ type RetryForgeReplyRequest struct {
 
 func (x *RetryForgeReplyRequest) Reset() {
 	*x = RetryForgeReplyRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[43]
+	mi := &file_agent_v1_review_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3277,7 +3048,7 @@ func (x *RetryForgeReplyRequest) String() string {
 func (*RetryForgeReplyRequest) ProtoMessage() {}
 
 func (x *RetryForgeReplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[43]
+	mi := &file_agent_v1_review_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3290,7 +3061,7 @@ func (x *RetryForgeReplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryForgeReplyRequest.ProtoReflect.Descriptor instead.
 func (*RetryForgeReplyRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{43}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *RetryForgeReplyRequest) GetId() string {
@@ -3310,7 +3081,7 @@ type RetryForgeReplyResponse struct {
 
 func (x *RetryForgeReplyResponse) Reset() {
 	*x = RetryForgeReplyResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[44]
+	mi := &file_agent_v1_review_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3322,7 +3093,7 @@ func (x *RetryForgeReplyResponse) String() string {
 func (*RetryForgeReplyResponse) ProtoMessage() {}
 
 func (x *RetryForgeReplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[44]
+	mi := &file_agent_v1_review_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3335,7 +3106,7 @@ func (x *RetryForgeReplyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryForgeReplyResponse.ProtoReflect.Descriptor instead.
 func (*RetryForgeReplyResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{44}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *RetryForgeReplyResponse) GetReply() *ForgeReply {
@@ -3347,7 +3118,7 @@ func (x *RetryForgeReplyResponse) GetReply() *ForgeReply {
 
 type DiscardForgeReplyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The draft or failed reply to drop.
+	// The failed reply to drop.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3355,7 +3126,7 @@ type DiscardForgeReplyRequest struct {
 
 func (x *DiscardForgeReplyRequest) Reset() {
 	*x = DiscardForgeReplyRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[45]
+	mi := &file_agent_v1_review_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3367,7 +3138,7 @@ func (x *DiscardForgeReplyRequest) String() string {
 func (*DiscardForgeReplyRequest) ProtoMessage() {}
 
 func (x *DiscardForgeReplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[45]
+	mi := &file_agent_v1_review_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3380,57 +3151,12 @@ func (x *DiscardForgeReplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscardForgeReplyRequest.ProtoReflect.Descriptor instead.
 func (*DiscardForgeReplyRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{45}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *DiscardForgeReplyRequest) GetId() string {
 	if x != nil {
 		return x.Id
-	}
-	return ""
-}
-
-type RequestForgeReplyRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mirrored thread the agent should draft a reply on.
-	ThreadId      string `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RequestForgeReplyRequest) Reset() {
-	*x = RequestForgeReplyRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[46]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RequestForgeReplyRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RequestForgeReplyRequest) ProtoMessage() {}
-
-func (x *RequestForgeReplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[46]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RequestForgeReplyRequest.ProtoReflect.Descriptor instead.
-func (*RequestForgeReplyRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{46}
-}
-
-func (x *RequestForgeReplyRequest) GetThreadId() string {
-	if x != nil {
-		return x.ThreadId
 	}
 	return ""
 }
@@ -3650,55 +3376,35 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1cListReviewViewedFilesRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"S\n" +
 	"\x1dListReviewViewedFilesResponse\x122\n" +
-	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xa8\x04\n" +
+	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xad\x03\n" +
 	"\n" +
 	"ForgeReply\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12/\n" +
-	"\x05state\x18\x03 \x01(\x0e2\x19.agent.v1.ForgeReplyStateR\x05state\x12;\n" +
-	"\vauthor_kind\x18\x04 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
-	"authorKind\x12+\n" +
-	"\x0fauthor_agent_id\x18\x05 \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x12(\n" +
-	"\rproposed_body\x18\x06 \x01(\tH\x01R\fproposedBody\x88\x01\x01\x12\x12\n" +
+	"\x05state\x18\x03 \x01(\x0e2\x19.agent.v1.ForgeReplyStateR\x05state\x12\x12\n" +
 	"\x04body\x18\a \x01(\tR\x04body\x12\x1f\n" +
 	"\vapproved_at\x18\b \x01(\tR\n" +
 	"approvedAt\x12,\n" +
 	"\x12sending_started_at\x18\t \x01(\tR\x10sendingStartedAt\x12\x17\n" +
 	"\asent_at\x18\n" +
 	" \x01(\tR\x06sentAt\x12-\n" +
-	"\x10forge_comment_id\x18\v \x01(\tH\x02R\x0eforgeCommentId\x88\x01\x01\x12\x19\n" +
-	"\x05error\x18\f \x01(\tH\x03R\x05error\x88\x01\x01\x12\x1d\n" +
+	"\x10forge_comment_id\x18\v \x01(\tH\x00R\x0eforgeCommentId\x88\x01\x01\x12\x19\n" +
+	"\x05error\x18\f \x01(\tH\x01R\x05error\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\r \x01(\tR\tcreatedAtB\x12\n" +
-	"\x10_author_agent_idB\x10\n" +
-	"\x0e_proposed_bodyB\x13\n" +
+	"created_at\x18\r \x01(\tR\tcreatedAtB\x13\n" +
 	"\x11_forge_comment_idB\b\n" +
-	"\x06_error\"`\n" +
-	"\x18ProposeForgeReplyRequest\x12$\n" +
-	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1e\n" +
-	"\x04body\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\"G\n" +
-	"\x19ProposeForgeReplyResponse\x12*\n" +
-	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"X\n" +
+	"\x06_errorJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\vauthor_kindR\x0fauthor_agent_idR\rproposed_body\"X\n" +
 	"\x13ReplyOnForgeRequest\x12$\n" +
 	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1b\n" +
 	"\x04body\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04body\"B\n" +
 	"\x14ReplyOnForgeResponse\x12*\n" +
-	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"^\n" +
-	"\x18ApproveForgeReplyRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12 \n" +
-	"\x04body\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04body\x88\x01\x01B\a\n" +
-	"\x05_body\"G\n" +
-	"\x19ApproveForgeReplyResponse\x12*\n" +
 	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"1\n" +
 	"\x16RetryForgeReplyRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"E\n" +
 	"\x17RetryForgeReplyResponse\x12*\n" +
 	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"3\n" +
 	"\x18DiscardForgeReplyRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"@\n" +
-	"\x18RequestForgeReplyRequest\x12$\n" +
-	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId*\x90\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id*\x90\x01\n" +
 	"\x10ReviewAuthorKind\x12\"\n" +
 	"\x1eREVIEW_AUTHOR_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18REVIEW_AUTHOR_KIND_HUMAN\x10\x01\x12\x1c\n" +
@@ -3714,14 +3420,13 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1aREVIEW_VERDICT_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17REVIEW_VERDICT_APPROVED\x10\x01\x12$\n" +
 	" REVIEW_VERDICT_CHANGES_REQUESTED\x10\x02\x12\x1c\n" +
-	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\xca\x01\n" +
+	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\xcc\x01\n" +
 	"\x0fForgeReplyState\x12!\n" +
-	"\x1dFORGE_REPLY_STATE_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17FORGE_REPLY_STATE_DRAFT\x10\x01\x12\x1e\n" +
+	"\x1dFORGE_REPLY_STATE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aFORGE_REPLY_STATE_APPROVED\x10\x02\x12\x1d\n" +
 	"\x19FORGE_REPLY_STATE_SENDING\x10\x03\x12\x1a\n" +
 	"\x16FORGE_REPLY_STATE_SENT\x10\x04\x12\x1c\n" +
-	"\x18FORGE_REPLY_STATE_FAILED\x10\x05B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x18FORGE_REPLY_STATE_FAILED\x10\x05\"\x04\b\x01\x10\x01*\x17FORGE_REPLY_STATE_DRAFTB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_review_proto_rawDescOnce sync.Once
@@ -3736,7 +3441,7 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
+var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_agent_v1_review_proto_goTypes = []any{
 	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
 	(ReviewDeliveryState)(0),                // 1: agent.v1.ReviewDeliveryState
@@ -3779,16 +3484,11 @@ var file_agent_v1_review_proto_goTypes = []any{
 	(*ListReviewViewedFilesRequest)(nil),    // 38: agent.v1.ListReviewViewedFilesRequest
 	(*ListReviewViewedFilesResponse)(nil),   // 39: agent.v1.ListReviewViewedFilesResponse
 	(*ForgeReply)(nil),                      // 40: agent.v1.ForgeReply
-	(*ProposeForgeReplyRequest)(nil),        // 41: agent.v1.ProposeForgeReplyRequest
-	(*ProposeForgeReplyResponse)(nil),       // 42: agent.v1.ProposeForgeReplyResponse
-	(*ReplyOnForgeRequest)(nil),             // 43: agent.v1.ReplyOnForgeRequest
-	(*ReplyOnForgeResponse)(nil),            // 44: agent.v1.ReplyOnForgeResponse
-	(*ApproveForgeReplyRequest)(nil),        // 45: agent.v1.ApproveForgeReplyRequest
-	(*ApproveForgeReplyResponse)(nil),       // 46: agent.v1.ApproveForgeReplyResponse
-	(*RetryForgeReplyRequest)(nil),          // 47: agent.v1.RetryForgeReplyRequest
-	(*RetryForgeReplyResponse)(nil),         // 48: agent.v1.RetryForgeReplyResponse
-	(*DiscardForgeReplyRequest)(nil),        // 49: agent.v1.DiscardForgeReplyRequest
-	(*RequestForgeReplyRequest)(nil),        // 50: agent.v1.RequestForgeReplyRequest
+	(*ReplyOnForgeRequest)(nil),             // 41: agent.v1.ReplyOnForgeRequest
+	(*ReplyOnForgeResponse)(nil),            // 42: agent.v1.ReplyOnForgeResponse
+	(*RetryForgeReplyRequest)(nil),          // 43: agent.v1.RetryForgeReplyRequest
+	(*RetryForgeReplyResponse)(nil),         // 44: agent.v1.RetryForgeReplyResponse
+	(*DiscardForgeReplyRequest)(nil),        // 45: agent.v1.DiscardForgeReplyRequest
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
@@ -3819,16 +3519,13 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	35, // 25: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
 	35, // 26: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
 	3,  // 27: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
-	0,  // 28: agent.v1.ForgeReply.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	40, // 29: agent.v1.ProposeForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	40, // 30: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
-	40, // 31: agent.v1.ApproveForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	40, // 32: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	33, // [33:33] is the sub-list for method output_type
-	33, // [33:33] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	40, // 28: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
+	40, // 29: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_review_proto_init() }
@@ -3842,14 +3539,13 @@ func file_agent_v1_review_proto_init() {
 	file_agent_v1_review_proto_msgTypes[5].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[6].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[36].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[41].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   47,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

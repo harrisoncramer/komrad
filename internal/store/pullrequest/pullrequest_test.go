@@ -532,6 +532,10 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 
 			var want forge.RememberedMergeReadiness
 			for i, read := range tt.reads {
+				pushed := openPullRequest("PR_1", 1, "agent/x")
+				pushed.HeadSHA = read.head
+				_, err := h.Upsert(ctx, pushed)
+				require.NoError(t, err)
 				at := began.Add(time.Duration(i) * time.Minute)
 				change, err := h.SetMergeReadiness(ctx, SetMergeReadinessParams{
 					ID:             written.ID,
@@ -581,6 +585,54 @@ func TestSetMergeReadinessHandsBackTheHeadStatusChecks(t *testing.T) {
 	stored, err := h.GetByID(ctx, written.ID)
 	require.NoError(t, err)
 	assert.Equal(t, change.HeadStatusChecks, stored.HeadStatusChecks)
+}
+
+// TestHeadStatusChecksAreTheHeadsReading covers a pull request's checks coming from the reading of its head, whatever
+// head was read after it.
+func TestHeadStatusChecksAreTheHeadsReading(t *testing.T) {
+	onHead := statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")
+	onOld := statusCheckRun("2", "test", forge.StatusCheckStateCompleted, "cancelled")
+	onNew := statusCheckRun("3", "test", forge.StatusCheckStateCompleted, "failure")
+	checksOn := map[string]forge.StatusCheck{"abc": onHead, "old": onOld, "new": onNew}
+
+	tests := []struct {
+		name  string
+		heads []string
+		want  []forge.StatusCheck
+	}{
+		{
+			name:  "an older head read after the head does not stand for it",
+			heads: []string{"abc", "old"},
+			want:  []forge.StatusCheck{onHead},
+		},
+		{
+			name:  "a head never read stands on the latest reading",
+			heads: []string{"old", "new"},
+			want:  []forge.StatusCheck{onNew},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			checks := NewStatusCheckStore(h.pool.GetDB())
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			for i, head := range tt.heads {
+				require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
+					PullRequestID: written.ID,
+					HeadSHA:       head,
+					StatusChecks:  []forge.StatusCheck{checksOn[head]},
+					ReadAt:        statusCheckReadAt.Add(time.Duration(i) * time.Minute),
+				}))
+			}
+
+			stored, err := h.GetByID(ctx, written.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, checksInUTC(stored.HeadStatusChecks))
+		})
+	}
 }
 
 // TestSetMergeReadinessSaysWhenAFailureIsNew covers a read saying whether it found a failed check the reading before
@@ -656,6 +708,10 @@ func TestSetMergeReadinessSaysWhenAFailureIsNew(t *testing.T) {
 
 			var change *MergeReadinessChange
 			for i, read := range tt.reads {
+				pushed := openPullRequest("PR_1", 1, "agent/x")
+				pushed.HeadSHA = read.head
+				_, err = h.Upsert(ctx, pushed)
+				require.NoError(t, err)
 				change, err = h.SetMergeReadiness(ctx, SetMergeReadinessParams{
 					ID:             written.ID,
 					MergeReadiness: forge.MergeReadiness{Listing: &forge.StatusCheckListing{StatusChecks: read.checks}},

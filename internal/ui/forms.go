@@ -17,6 +17,9 @@ type formState struct {
 	kind formKind
 	form *huh.Form
 
+	// isMenu says the form is the space menu.
+	isMenu bool
+
 	// crumbs are the steps the form adds to the trail while it is up.
 	crumbs []string
 
@@ -208,11 +211,22 @@ func (m *model) formBox() (width, height int) {
 		floor = formColumnFloor
 	}
 
-	if split, ok := m.columnGeometry(); ok {
-		return max(split.column-used, floor), max(split.rows-formHelpLines-held, 1)
+	width, height = m.formArea()
+
+	return max(width-used, floor), max(height-formHelpLines-held, 1)
+}
+
+// formArea is the columns and rows the form and what it draws to its left share.
+func (m *model) formArea() (width, height int) {
+	if m.isPopupMenu() {
+		return m.review.measurePopupInner(m), m.review.measurePopupRoom(m)
 	}
 
-	return max(m.term.width-used, floor), max(m.term.height-formHelpLines-held, 1)
+	if split, ok := m.columnGeometry(); ok {
+		return split.column, split.rows
+	}
+
+	return m.term.width, m.term.height
 }
 
 // formLeading is what the form draws to its left, and the columns that takes with its dividers.
@@ -221,11 +235,8 @@ func (m *model) formLeading() ([]string, int) {
 		return nil, 0
 	}
 
-	room, rows := m.term.width, m.term.height-formHelpLines
-	if split, ok := m.columnGeometry(); ok {
-		room, rows = split.column, split.rows-formHelpLines
-	}
-	rows -= m.formNoticeLines()
+	room, height := m.formArea()
+	rows := height - formHelpLines - m.formNoticeLines()
 
 	views := m.form.leading(room, rows)
 

@@ -29,13 +29,6 @@ func TestReviewForgeReply(t *testing.T) {
 			sent:      []proto.Message{&agentv1.ReplyOnForgeRequest{ThreadId: "t1", Body: "ok"}},
 		},
 		{
-			name:      "the reply key starts empty while the agent has a draft",
-			replies:   []*agentv1.ForgeReply{newAgentDraft()},
-			keys:      []string{"C", "o", "k", "enter"},
-			procedure: agentv1connect.AgentServiceReplyOnForgeProcedure,
-			sent:      []proto.Message{&agentv1.ReplyOnForgeRequest{ThreadId: "t1", Body: "ok"}},
-		},
-		{
 			name:      "the post key retries a failed reply",
 			replies:   []*agentv1.ForgeReply{newFailedReply()},
 			keys:      []string{"p"},
@@ -44,7 +37,7 @@ func TestReviewForgeReply(t *testing.T) {
 		},
 		{
 			name:      "the post key does nothing with no failed reply",
-			replies:   []*agentv1.ForgeReply{newAgentDraft()},
+			replies:   []*agentv1.ForgeReply{newSentReply(agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT)},
 			keys:      []string{"p"},
 			procedure: agentv1connect.AgentServiceRetryForgeReplyProcedure,
 		},
@@ -56,8 +49,8 @@ func TestReviewForgeReply(t *testing.T) {
 			sent:      []proto.Message{&agentv1.DiscardForgeReplyRequest{Id: "r1"}},
 		},
 		{
-			name:      "the discard key leaves an agent draft alone",
-			replies:   []*agentv1.ForgeReply{newAgentDraft()},
+			name:      "the discard key leaves a sent reply alone",
+			replies:   []*agentv1.ForgeReply{newSentReply(agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT)},
 			keys:      []string{"x"},
 			procedure: agentv1connect.AgentServiceDiscardForgeReplyProcedure,
 		},
@@ -133,11 +126,6 @@ func TestReviewForgeReplyView(t *testing.T) {
 		{
 			name:  "each forge comment carries the forge mark",
 			shows: []string{"◆ @dana"},
-		},
-		{
-			name:    "an agent draft is not drawn",
-			replies: []*agentv1.ForgeReply{newAgentDraft()},
-			hides:   []string{"a map it is"},
 		},
 		{
 			name:    "a failed reply says what the forge said",
@@ -231,36 +219,22 @@ func newMirroredComment() *agentv1.ReviewMessage {
 	return said
 }
 
-func newAgentDraft() *agentv1.ForgeReply {
-	return &agentv1.ForgeReply{
-		Id:            "r1",
-		ThreadId:      "t1",
-		State:         agentv1.ForgeReplyState_FORGE_REPLY_STATE_DRAFT,
-		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
-		AuthorAgentId: xptr.Ptr("a1"),
-		ProposedBody:  xptr.Ptr("a map it is"),
-		Body:          "a map it is",
-	}
-}
-
 func newFailedReply() *agentv1.ForgeReply {
 	return &agentv1.ForgeReply{
-		Id:         "r1",
-		ThreadId:   "t1",
-		State:      agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED,
-		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		Body:       "a map it is",
-		Error:      xptr.Ptr("rate limited"),
+		Id:       "r1",
+		ThreadId: "t1",
+		State:    agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED,
+		Body:     "a map it is",
+		Error:    xptr.Ptr("rate limited"),
 	}
 }
 
 func newSentReply(state agentv1.ForgeReplyState) *agentv1.ForgeReply {
 	return &agentv1.ForgeReply{
-		Id:         "r1",
-		ThreadId:   "t1",
-		State:      state,
-		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		Body:       "a map it is",
-		CreatedAt:  "2026-09-02T10:00:00Z",
+		Id:        "r1",
+		ThreadId:  "t1",
+		State:     state,
+		Body:      "a map it is",
+		CreatedAt: "2026-09-02T10:00:00Z",
 	}
 }

@@ -1,27 +1,4 @@
--- name: InsertAgentForgeReply :one
-INSERT INTO review_forge_replies(
-    thread_id,
-    state,
-    author_kind,
-    author_agent_id,
-    proposed_body,
-    body)
-SELECT
-    t.id,
-    'draft',
-    'agent',
-    @author_agent_id::uuid,
-    @body::text,
-    @body::text
-FROM
-    review_threads t
-WHERE
-    t.id = @thread_id
-    AND t.forge_thread_id IS NOT NULL
-RETURNING
-    *;
-
--- name: InsertHumanForgeReply :one
+-- name: InsertForgeReply :one
 INSERT INTO review_forge_replies(
     thread_id,
     state,
@@ -41,20 +18,6 @@ FROM
 WHERE
     t.id = @thread_id
     AND t.forge_thread_id IS NOT NULL
-RETURNING
-    *;
-
--- name: MarkForgeReplyApproved :one
-UPDATE
-    review_forge_replies
-SET
-    state = 'approved',
-    body = @body,
-    approver_kind = @approver_kind::forge_reply_approver_kind,
-    approved_at = NOW()
-WHERE
-    id = @id
-    AND state = 'draft'
 RETURNING
     *;
 
@@ -99,7 +62,7 @@ RETURNING
 -- name: DeleteForgeReply :execrows
 DELETE FROM review_forge_replies
 WHERE id = @id
-    AND state IN ('draft', 'failed');
+    AND state = 'failed';
 
 -- name: GetForgeReply :one
 SELECT
@@ -120,6 +83,7 @@ FROM
         AND c.provider_id = r.forge_comment_provider_id
 WHERE
     r.thread_id = ANY (@thread_ids::uuid[])
+    AND r.state <> 'draft'
 ORDER BY
     r.thread_id,
     r.id;

@@ -65,7 +65,7 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 		screenSchedules: {actionScheduleRename},
 		screenArchive:   {actionArchiveRename},
 		screenReview: {
-			actionReviewBack, actionReviewEdit, actionReviewResolve, actionReviewAccept,
+			actionReviewBack, actionReviewResolve, actionReviewAccept,
 			actionReviewForgeReply, actionReviewForgePost, actionReviewForgeDiscard, actionReviewViewed,
 			actionReviewCompose, actionReviewSend, actionReviewBack, actionReviewViewed,
 		},

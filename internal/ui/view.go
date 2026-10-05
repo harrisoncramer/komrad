@@ -157,7 +157,7 @@ func drawEdgeRow(rule, facingLeft bool) string {
 }
 
 func (m *model) screenView() string {
-	if !m.form.isActive() && !m.isMessagesFocused() {
+	if (!m.form.isActive() || m.isPopupMenu()) && !m.isMessagesFocused() {
 		return m.active().view(m)
 	}
 

@@ -53,7 +53,7 @@ type PullRequest struct {
 	// MergeReadiness is what komrad remembers of where the forge said the reviews, checks,
 	// mergeability and auto-merge stand.
 	MergeReadiness forge.RememberedMergeReadiness
-	// HeadStatusChecks is every status check stored on the latest read head.
+	// HeadStatusChecks is every status check stored on the head, or on the latest read head when the head was never read.
 	HeadStatusChecks []forge.StatusCheck
 }
 
@@ -77,7 +77,8 @@ type outcome struct {
 type MergeReadinessChange struct {
 	Before forge.RememberedMergeReadiness
 	After  forge.RememberedMergeReadiness
-	// HeadStatusChecks is every status check stored on the latest read head after the read.
+	// HeadStatusChecks is every status check stored on the head after the read, or on the latest read head when the head
+	// was never read.
 	HeadStatusChecks []forge.StatusCheck
 	// NewFailure is whether the read found a failed check on the latest read head that the reading before it
 	// did not hold, every failure on a head read for the first time counting as new.
@@ -243,7 +244,7 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		return nil, fmt.Errorf("failed to lock pull request %s to record its merge readiness: %w", params.ID, err)
 	}
 
-	readBefore, err := latestReadings(ctx, s.queries, []string{params.ID})
+	readBefore, err := headReadings(ctx, s.queries, []string{params.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +262,7 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		}
 	}
 
-	readAfter, err := latestReadings(ctx, s.queries, []string{params.ID})
+	readAfter, err := headReadings(ctx, s.queries, []string{params.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +292,7 @@ func (s *PullRequestStore) withOneMergeReadiness(ctx context.Context, row *model
 
 // withMergeReadiness is each row as a pull request, its checks rolled up from the latest reading of them.
 func (s *PullRequestStore) withMergeReadiness(ctx context.Context, rows []*models.PullRequest) ([]PullRequest, error) {
-	readings, err := latestReadings(ctx, s.queries, xslice.Map(rows, func(row *models.PullRequest) string { return row.ID }))
+	readings, err := headReadings(ctx, s.queries, xslice.Map(rows, func(row *models.PullRequest) string { return row.ID }))
 	if err != nil {
 		return nil, err
 	}

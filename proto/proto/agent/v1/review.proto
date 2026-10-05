@@ -489,8 +489,8 @@ message ListReviewViewedFilesResponse {
 enum ForgeReplyState {
   // No state was recorded.
   FORGE_REPLY_STATE_UNSPECIFIED = 0;
-  // An agent's proposal waiting for the person to approve, edit or discard it.
-  FORGE_REPLY_STATE_DRAFT = 1;
+  reserved 1;
+  reserved "FORGE_REPLY_STATE_DRAFT";
   // Approved and waiting to be posted.
   FORGE_REPLY_STATE_APPROVED = 2;
   // Being posted, and possibly already on the forge.
@@ -503,21 +503,17 @@ enum ForgeReplyState {
 
 // ForgeReply is a reply komrad posts as the person on a thread mirrored from the forge.
 message ForgeReply {
-  // The handle an approval, a retry or a discard names this reply by.
+  // The handle a retry or a discard names this reply by.
   string id = 1;
   // The review thread it answers, which mirrors a thread on the forge.
   string thread_id = 2;
   // Where it is on its way to the forge.
   ForgeReplyState state = 3;
-  // Whether the person wrote it or an agent proposed it.
-  ReviewAuthorKind author_kind = 4;
-  // The agent that proposed it, absent when the person wrote it.
-  optional string author_agent_id = 5;
-  // The words the agent proposed, absent when the person wrote it.
-  optional string proposed_body = 6;
-  // The words that go to the forge, which differ from the proposal when the person edited it.
+  reserved 4, 5, 6;
+  reserved "author_kind", "author_agent_id", "proposed_body";
+  // The words that go to the forge.
   string body = 7;
-  // When the person approved it, empty while it is a draft.
+  // When the person wrote it for posting.
   string approved_at = 8;
   // When komrad last began posting it, empty until then.
   string sending_started_at = 9;
@@ -531,21 +527,6 @@ message ForgeReply {
   string created_at = 13;
 }
 
-message ProposeForgeReplyRequest {
-  // The mirrored thread to reply on.
-  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to say on the forge. The ceiling refuses an essay and is not a length to write up to.
-  string body = 2 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 1000
-  }];
-}
-
-message ProposeForgeReplyResponse {
-  // The draft as recorded, waiting for the person.
-  ForgeReply reply = 1;
-}
-
 message ReplyOnForgeRequest {
   // The mirrored thread to reply on.
   string thread_id = 1 [(buf.validate.field).string.min_len = 1];
@@ -554,18 +535,6 @@ message ReplyOnForgeRequest {
 }
 
 message ReplyOnForgeResponse {
-  // The reply as it stands after komrad tried to post it.
-  ForgeReply reply = 1;
-}
-
-message ApproveForgeReplyRequest {
-  // The draft to approve.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  // The person's edit of the draft, absent to post it as the agent wrote it.
-  optional string body = 2 [(buf.validate.field).string.min_len = 1];
-}
-
-message ApproveForgeReplyResponse {
   // The reply as it stands after komrad tried to post it.
   ForgeReply reply = 1;
 }
@@ -581,11 +550,6 @@ message RetryForgeReplyResponse {
 }
 
 message DiscardForgeReplyRequest {
-  // The draft or failed reply to drop.
+  // The failed reply to drop.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-message RequestForgeReplyRequest {
-  // The mirrored thread the agent should draft a reply on.
-  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
 }

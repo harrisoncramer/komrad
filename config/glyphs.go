@@ -26,7 +26,8 @@ type Glyphs struct {
 	Messages MessageGlyphs `mapstructure:"messages"`
 	// The schedules list, one for a schedule that runs and one for a schedule that is paused.
 	Schedules ScheduleGlyphs `mapstructure:"schedules"`
-	// The status checks list, one for a check that passed, one for a check that failed, and one for a check that was skipped.
+	// The status checks list, one for a check that passed, one for a check that failed, one for a check that was skipped,
+	// and one for a check komrad stopped reading before it finished.
 	StatusChecks StatusCheckGlyphs `mapstructure:"status_checks"`
 }
 
@@ -143,6 +144,8 @@ type StatusCheckGlyphs struct {
 	Failing string `mapstructure:"failing"`
 	// A check that was skipped or ended neutral.
 	Skipped string `mapstructure:"skipped"`
+	// A check komrad stopped reading before it finished, so its result is not known.
+	Unknown string `mapstructure:"unknown"`
 }
 
 // defaultGlyphs are the icons used when the config omits them, read from the glyph package.

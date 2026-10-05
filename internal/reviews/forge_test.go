@@ -511,7 +511,7 @@ func (fx *reviewFixture) sendForgeReply(t *testing.T, providerID string) {
 	require.NoError(t, err)
 	require.NotEmpty(t, threads)
 
-	reply, err := fx.reviews.CreateHumanForgeReply(ctx, threads[0].ID, "done")
+	reply, err := fx.reviews.CreateForgeReply(ctx, threads[0].ID, "done")
 	require.NoError(t, err)
 	_, err = fx.reviews.BeginForgeReplySend(ctx, reply.ID)
 	require.NoError(t, err)

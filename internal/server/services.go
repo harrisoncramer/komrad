@@ -475,7 +475,6 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 		forgeReply: reviews.NewForgeReplyService(reviews.NewForgeReplyServiceParams{
 			Reviews: st.review,
 			Forges:  forgeService,
-			Events:  params.Queue,
 		}),
 		commentSync: pullrequests.NewCommentSyncer(pullrequests.NewCommentSyncerParams{
 			Forges:  forgeService,
