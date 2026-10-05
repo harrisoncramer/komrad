@@ -36,9 +36,12 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
 	case r.threads.composing:
-		_, conversation, _ := r.conversationAtCursor(m, inner)
+		thread, ok := r.diff.threadByID(r.threads.editing)
+		if !ok {
+			return r.threads.editor.view(), 0
+		}
 
-		return withSection(conversation, r.threads.editor.view(), inner), 0
+		return withSection(r.threadView(m, thread, inner), r.threads.editor.view(), inner), 0
 	case r.threads.releasing:
 		return r.threads.editor.view(), 0
 	}

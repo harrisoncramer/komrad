@@ -180,6 +180,19 @@ func (d reviewDiff) threadAtCursor() (*agentv1.ReviewThread, bool) {
 	return d.View().GetThreadAt(d.Cursor())
 }
 
+func (d reviewDiff) threadByID(id string) (*agentv1.ReviewThread, bool) {
+	if d.View() == nil || id == "" {
+		return nil, false
+	}
+
+	row, ok := d.View().GetThreadRow(id)
+	if !ok {
+		return nil, false
+	}
+
+	return d.View().GetThreadAt(row)
+}
+
 func (r *reviewScreen) moveCursor(m *model, next int) tea.Cmd {
 	return r.diffKeys().moveTo(m, next)
 }

@@ -503,6 +503,28 @@ func TestReviewThreads(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
+	t.Run("a refused reply reopens under the thread it replies in after the cursor moved on", func(t *testing.T) {
+		server := newReviewServer(t)
+		last := newThreadOnLastLine(newHumanMessage("m2", "close the brace"))
+		last.Id = "t2"
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "rename the package")), last}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+		harness.refuse(agentv1connect.AgentServiceAddReviewMessageProcedure,
+			connect.NewError(connect.CodeFailedPrecondition, errors.New("not now")))
+		harness.hold(agentv1connect.AgentServiceAddReviewMessageProcedure)
+
+		harness.press("space", "c")
+		typeText(harness, "yes, that is it")
+		harness.press("enter")
+		harness.press("t")
+		harness.release(agentv1connect.AgentServiceAddReviewMessageProcedure)
+
+		popup := readPopupProse(harness.readFrame())
+		assert.Contains(t, popup, "rename the package")
+		assert.NotContains(t, popup, "close the brace")
+		assert.Contains(t, popup, "yes, that is it")
+	})
+
 	t.Run("the thread key reaches the only thread and stays on it", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnLastLine()}
