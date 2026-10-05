@@ -1,6 +1,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -29,6 +30,9 @@ func (f *Forge) JobLog(ctx context.Context, repo git.RemoteURL, jobID int64) (*f
 	body, truncated, err := f.client.Download(ctx, signed, maxJobLogBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download the log of job %d: %w", jobID, err)
+	}
+	if truncated {
+		body = body[:bytes.LastIndexByte(body, '\n')+1]
 	}
 
 	return &forge.JobLog{Text: string(body), Truncated: truncated}, nil

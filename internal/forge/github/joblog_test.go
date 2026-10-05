@@ -2,8 +2,10 @@ package github
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"komrad/internal/forge"
 
@@ -107,4 +109,23 @@ func TestJobLogRefusals(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestJobLogTruncatesAtAWholeLine covers that a log past the most komrad keeps is cut back to its last
+// whole line, so a character straddling the limit is not split.
+func TestJobLogTruncatesAtAWholeLine(t *testing.T) {
+	t.Parallel()
+
+	kept := strings.Repeat("a\n", (maxJobLogBytes-1)/2)
+	f, _, _ := serve(t, map[string]answer{
+		jobLogPath: {status: http.StatusFound, header: map[string]string{"Location": "/signed"}},
+		"/signed":  {body: kept + "aé\n"},
+	})
+
+	log, err := f.JobLog(t.Context(), komrad, 42)
+	require.NoError(t, err)
+	assert.True(t, log.Truncated)
+	assert.Len(t, log.Text, len(kept))
+	assert.True(t, utf8.ValidString(log.Text))
+	assert.True(t, strings.HasSuffix(log.Text, "a\n"))
 }
