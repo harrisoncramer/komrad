@@ -2108,8 +2108,10 @@ type PlanPushResponse struct {
 	Forced bool `protobuf:"varint,3,opt,name=forced,proto3" json:"forced,omitempty"`
 	// How many files would stay behind because nothing has committed them.
 	UncommittedFiles int32 `protobuf:"varint,4,opt,name=uncommitted_files,json=uncommittedFiles,proto3" json:"uncommitted_files,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Whether origin already holds every commit on the branch, so there is nothing to push.
+	InSync        bool `protobuf:"varint,5,opt,name=in_sync,json=inSync,proto3" json:"in_sync,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PlanPushResponse) Reset() {
@@ -2168,6 +2170,13 @@ func (x *PlanPushResponse) GetUncommittedFiles() int32 {
 		return x.UncommittedFiles
 	}
 	return 0
+}
+
+func (x *PlanPushResponse) GetInSync() bool {
+	if x != nil {
+		return x.InSync
+	}
+	return false
 }
 
 type PushWorktreeRequest struct {
@@ -3459,12 +3468,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
 	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"5\n" +
 	"\x0fPlanPushRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x89\x01\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xa2\x01\n" +
 	"\x10PlanPushResponse\x12\x16\n" +
 	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
 	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06forced\x18\x03 \x01(\bR\x06forced\x12+\n" +
-	"\x11uncommitted_files\x18\x04 \x01(\x05R\x10uncommittedFiles\"9\n" +
+	"\x11uncommitted_files\x18\x04 \x01(\x05R\x10uncommittedFiles\x12\x17\n" +
+	"\ain_sync\x18\x05 \x01(\bR\x06inSync\"9\n" +
 	"\x13PushWorktreeRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"r\n" +
 	"\x14PushWorktreeResponse\x12\x16\n" +

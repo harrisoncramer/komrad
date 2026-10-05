@@ -27,6 +27,7 @@ func (s *Handler) PlanPush(ctx context.Context, req *agentv1.PlanPushRequest) (*
 		Commits:          int32(plan.Commits),
 		Forced:           plan.Forced,
 		UncommittedFiles: int32(plan.Uncommitted),
+		InSync:           plan.InSync,
 	}, nil
 }
 

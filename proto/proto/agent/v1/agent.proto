@@ -458,6 +458,8 @@ message PlanPushResponse {
   bool forced = 3;
   // How many files would stay behind because nothing has committed them.
   int32 uncommitted_files = 4;
+  // Whether origin already holds every commit on the branch, so there is nothing to push.
+  bool in_sync = 5;
 }
 
 message PushWorktreeRequest {

@@ -42,6 +42,9 @@ func pushOp(item panel.AgentRow) gitOp {
 			if err != nil {
 				return nil, err
 			}
+			if response.GetInSync() {
+				return nil, gitSkippedError(name + ": commit already pushed")
+			}
 
 			plan := pushPlan{
 				name:        name,

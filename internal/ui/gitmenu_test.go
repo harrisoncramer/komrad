@@ -477,6 +477,11 @@ func TestGitMenuPushes(t *testing.T) {
 			wantMessage: "the branch holds nothing the base does not",
 		},
 		{
+			name:        "a branch origin already holds warns and opens no confirmation",
+			planned:     &agentv1.PlanPushResponse{Branch: "agent/a1", InSync: true},
+			wantMessage: "api: commit already pushed",
+		},
+		{
 			name: "a push origin rejects says so",
 			planned: &agentv1.PlanPushResponse{
 				Branch:  "agent/a1",

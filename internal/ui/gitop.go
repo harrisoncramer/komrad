@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"errors"
+
 	"komrad/config"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,6 +16,13 @@ type gitOp struct {
 	plan       func(api) (gitConfirmForm, error)
 	running    string
 	run        func(api) gitReport
+}
+
+// gitSkippedError is why an operation has nothing to do, said as a warning rather than a failure.
+type gitSkippedError string
+
+func (s gitSkippedError) Error() string {
+	return string(s)
 }
 
 type gitConfirmForm func(config.FormKeys) (*huh.Form, *bool)
@@ -66,7 +75,12 @@ func (m *model) applyGitPlanned(msg gitPlannedMsg) tea.Cmd {
 	held := m.landHeld(msg.write)
 
 	if msg.err != nil {
-		m.report(msg.op.planFailed, msg.err)
+		var skipped gitSkippedError
+		if errors.As(msg.err, &skipped) {
+			m.note(messageWarning, string(skipped))
+		} else {
+			m.report(msg.op.planFailed, msg.err)
+		}
 
 		if held {
 			return m.closeForm()

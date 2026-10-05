@@ -131,6 +131,22 @@ func TestPushRefusals(t *testing.T) {
 	}
 }
 
+// TestPlanPushInSync covers a branch origin already holds whole planning as nothing to push.
+func TestPlanPushInSync(t *testing.T) {
+	fixture := newRebaseFixture(t)
+	agent := fixture.seedPushable(t, agentstore.Agent{})
+	pusher := gittest.Mover{
+		State:  git.TreeState{Branch: "agent/a1"},
+		Own:    1,
+		Remote: git.RemoteStanding{Pushed: true},
+	}
+
+	plan, err := fixture.newService(NewServiceParams{Git: &pusher}).PlanPush(t.Context(), agent.ID)
+
+	require.NoError(t, err)
+	assert.Equal(t, PushPlan{Branch: "agent/a1", InSync: true}, *plan)
+}
+
 // TestPushSendsTheBranch covers what a push asks of git, what it answers and who hears of it.
 func TestPushSendsTheBranch(t *testing.T) {
 	type testCase struct {

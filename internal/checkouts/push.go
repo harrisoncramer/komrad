@@ -42,6 +42,8 @@ type PushPlan struct {
 	Commits int
 	// Forced says origin's copy holds commits the branch does not, so the push overwrites it.
 	Forced bool
+	// InSync says origin already holds every commit on the branch, so there is nothing to push.
+	InSync bool
 	// Uncommitted is how many files stay behind because nothing has committed them.
 	Uncommitted int
 }
@@ -81,6 +83,9 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	plan, err := s.planPush(ctx, *target, true)
 	if err != nil {
 		return nil, err
+	}
+	if plan.InSync {
+		return nil, fmt.Errorf("%w: %s", errPushInSync, plan.Branch)
 	}
 
 	// A push cut off part-way leaves nobody knowing whether origin moved, so it runs to the end
@@ -184,7 +189,7 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 		return nil, fmt.Errorf("%w: %s", git.ErrPushRejected, branch)
 	}
 	if remote.Unpushed == 0 {
-		return nil, fmt.Errorf("%w: %s", errPushInSync, branch)
+		return &PushPlan{Branch: branch, InSync: true}, nil
 	}
 
 	return &PushPlan{
