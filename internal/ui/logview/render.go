@@ -2,6 +2,7 @@ package logview
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -47,15 +48,18 @@ func Compact(palette paint.Palette, line string) string {
 	decoder := json.NewDecoder(strings.NewReader(line))
 	decoder.UseNumber()
 
-	var e entry
-	if err := decoder.Decode(&e); err != nil || e == nil || decoder.Decode(&struct{}{}) != io.EOF {
+	var record entry
+	if err := decoder.Decode(&record); err != nil || record == nil {
+		return sanitize(line)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return sanitize(line)
 	}
 
 	muted := palette.Style(paint.ToneMuted)
-	label, tone := e.level()
+	label, tone := record.level()
 
-	body := e.text("body")
+	body := record.text("body")
 	if tone == paint.ToneMuted || tone == paint.ToneDanger {
 		body = palette.Style(tone).Render(body)
 	}
@@ -63,9 +67,9 @@ func Compact(palette paint.Palette, line string) string {
 		body += strings.Repeat(" ", pad)
 	}
 
-	parts := []string{muted.Render(e.clock()), palette.Style(tone).Render(label), body}
+	parts := []string{muted.Render(record.clock()), palette.Style(tone).Render(label), body}
 
-	if fields := e.fields(palette); len(fields) > 0 {
+	if fields := record.fields(palette); len(fields) > 0 {
 		parts = append(parts, strings.Join(fields, " "))
 	}
 
