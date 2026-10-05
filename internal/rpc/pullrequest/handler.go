@@ -18,6 +18,8 @@ import (
 type pullRequestLister interface {
 	ListPullRequests(ctx context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error)
 	ListStatusChecks(ctx context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error)
+	ReadCheckLog(ctx context.Context, checkID string, firstLine, count int) (*pullrequeststore.CheckLogLines, error)
+	SearchCheckLogs(ctx context.Context, checkIDs []string, pattern string) (*pullrequeststore.CheckLogSearch, error)
 }
 
 type NewHandlerParams struct {
@@ -90,4 +92,24 @@ func (s *Handler) ListStatusChecks(ctx context.Context, req *pullrequestv1.ListS
 	}
 
 	return render.StatusCheckReadings(readings), nil
+}
+
+// ReadCheckLog is a window of lines of a check's fetched log.
+func (s *Handler) ReadCheckLog(ctx context.Context, req *pullrequestv1.ReadCheckLogRequest) (*pullrequestv1.ReadCheckLogResponse, *fail.Error) {
+	lines, err := s.pullRequests.ReadCheckLog(ctx, req.GetCheckId(), int(req.GetFirstLine()), int(req.GetCount()))
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to read the check log")
+	}
+
+	return render.CheckLogLines(lines), nil
+}
+
+// SearchCheckLogs is the lines of the checks' fetched logs an RE2 pattern matches.
+func (s *Handler) SearchCheckLogs(ctx context.Context, req *pullrequestv1.SearchCheckLogsRequest) (*pullrequestv1.SearchCheckLogsResponse, *fail.Error) {
+	search, err := s.pullRequests.SearchCheckLogs(ctx, req.GetCheckIds(), req.GetPattern())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to search the check logs")
+	}
+
+	return render.CheckLogSearch(search), nil
 }

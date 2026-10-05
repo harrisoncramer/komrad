@@ -537,3 +537,13 @@ func buildWorktrees(st *stores, gitClient *git.Client, loadConfig func() (*confi
 		}),
 	}
 }
+
+// getMaxCheckLogBytes is the largest check log komrad keeps, read from the config each time.
+func (s *services) getMaxCheckLogBytes() (int64, error) {
+	cfg, err := s.loadConfig()
+	if err != nil {
+		return 0, err
+	}
+
+	return cfg.Forge.GetMaxCheckLogBytes()
+}

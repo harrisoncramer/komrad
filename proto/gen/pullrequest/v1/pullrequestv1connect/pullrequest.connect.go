@@ -39,12 +39,20 @@ const (
 	// PullRequestServiceListStatusChecksProcedure is the fully-qualified name of the
 	// PullRequestService's ListStatusChecks RPC.
 	PullRequestServiceListStatusChecksProcedure = "/pullrequest.v1.PullRequestService/ListStatusChecks"
+	// PullRequestServiceReadCheckLogProcedure is the fully-qualified name of the PullRequestService's
+	// ReadCheckLog RPC.
+	PullRequestServiceReadCheckLogProcedure = "/pullrequest.v1.PullRequestService/ReadCheckLog"
+	// PullRequestServiceSearchCheckLogsProcedure is the fully-qualified name of the
+	// PullRequestService's SearchCheckLogs RPC.
+	PullRequestServiceSearchCheckLogsProcedure = "/pullrequest.v1.PullRequestService/SearchCheckLogs"
 )
 
 // PullRequestServiceClient is a client for the pullrequest.v1.PullRequestService service.
 type PullRequestServiceClient interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
 	ListStatusChecks(context.Context, *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error)
+	ReadCheckLog(context.Context, *connect.Request[v1.ReadCheckLogRequest]) (*connect.Response[v1.ReadCheckLogResponse], error)
+	SearchCheckLogs(context.Context, *connect.Request[v1.SearchCheckLogsRequest]) (*connect.Response[v1.SearchCheckLogsResponse], error)
 }
 
 // NewPullRequestServiceClient constructs a client for the pullrequest.v1.PullRequestService
@@ -72,6 +80,20 @@ func NewPullRequestServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		readCheckLog: connect.NewClient[v1.ReadCheckLogRequest, v1.ReadCheckLogResponse](
+			httpClient,
+			baseURL+PullRequestServiceReadCheckLogProcedure,
+			connect.WithSchema(pullRequestServiceMethods.ByName("ReadCheckLog")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		searchCheckLogs: connect.NewClient[v1.SearchCheckLogsRequest, v1.SearchCheckLogsResponse](
+			httpClient,
+			baseURL+PullRequestServiceSearchCheckLogsProcedure,
+			connect.WithSchema(pullRequestServiceMethods.ByName("SearchCheckLogs")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -79,6 +101,8 @@ func NewPullRequestServiceClient(httpClient connect.HTTPClient, baseURL string, 
 type pullRequestServiceClient struct {
 	listPullRequests *connect.Client[v1.ListPullRequestsRequest, v1.ListPullRequestsResponse]
 	listStatusChecks *connect.Client[v1.ListStatusChecksRequest, v1.ListStatusChecksResponse]
+	readCheckLog     *connect.Client[v1.ReadCheckLogRequest, v1.ReadCheckLogResponse]
+	searchCheckLogs  *connect.Client[v1.SearchCheckLogsRequest, v1.SearchCheckLogsResponse]
 }
 
 // ListPullRequests calls pullrequest.v1.PullRequestService.ListPullRequests.
@@ -91,10 +115,22 @@ func (c *pullRequestServiceClient) ListStatusChecks(ctx context.Context, req *co
 	return c.listStatusChecks.CallUnary(ctx, req)
 }
 
+// ReadCheckLog calls pullrequest.v1.PullRequestService.ReadCheckLog.
+func (c *pullRequestServiceClient) ReadCheckLog(ctx context.Context, req *connect.Request[v1.ReadCheckLogRequest]) (*connect.Response[v1.ReadCheckLogResponse], error) {
+	return c.readCheckLog.CallUnary(ctx, req)
+}
+
+// SearchCheckLogs calls pullrequest.v1.PullRequestService.SearchCheckLogs.
+func (c *pullRequestServiceClient) SearchCheckLogs(ctx context.Context, req *connect.Request[v1.SearchCheckLogsRequest]) (*connect.Response[v1.SearchCheckLogsResponse], error) {
+	return c.searchCheckLogs.CallUnary(ctx, req)
+}
+
 // PullRequestServiceHandler is an implementation of the pullrequest.v1.PullRequestService service.
 type PullRequestServiceHandler interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
 	ListStatusChecks(context.Context, *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error)
+	ReadCheckLog(context.Context, *connect.Request[v1.ReadCheckLogRequest]) (*connect.Response[v1.ReadCheckLogResponse], error)
+	SearchCheckLogs(context.Context, *connect.Request[v1.SearchCheckLogsRequest]) (*connect.Response[v1.SearchCheckLogsResponse], error)
 }
 
 // NewPullRequestServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -118,12 +154,30 @@ func NewPullRequestServiceHandler(svc PullRequestServiceHandler, opts ...connect
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	pullRequestServiceReadCheckLogHandler := connect.NewUnaryHandler(
+		PullRequestServiceReadCheckLogProcedure,
+		svc.ReadCheckLog,
+		connect.WithSchema(pullRequestServiceMethods.ByName("ReadCheckLog")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	pullRequestServiceSearchCheckLogsHandler := connect.NewUnaryHandler(
+		PullRequestServiceSearchCheckLogsProcedure,
+		svc.SearchCheckLogs,
+		connect.WithSchema(pullRequestServiceMethods.ByName("SearchCheckLogs")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/pullrequest.v1.PullRequestService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PullRequestServiceListPullRequestsProcedure:
 			pullRequestServiceListPullRequestsHandler.ServeHTTP(w, r)
 		case PullRequestServiceListStatusChecksProcedure:
 			pullRequestServiceListStatusChecksHandler.ServeHTTP(w, r)
+		case PullRequestServiceReadCheckLogProcedure:
+			pullRequestServiceReadCheckLogHandler.ServeHTTP(w, r)
+		case PullRequestServiceSearchCheckLogsProcedure:
+			pullRequestServiceSearchCheckLogsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -139,4 +193,12 @@ func (UnimplementedPullRequestServiceHandler) ListPullRequests(context.Context, 
 
 func (UnimplementedPullRequestServiceHandler) ListStatusChecks(context.Context, *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ListStatusChecks is not implemented"))
+}
+
+func (UnimplementedPullRequestServiceHandler) ReadCheckLog(context.Context, *connect.Request[v1.ReadCheckLogRequest]) (*connect.Response[v1.ReadCheckLogResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ReadCheckLog is not implemented"))
+}
+
+func (UnimplementedPullRequestServiceHandler) SearchCheckLogs(context.Context, *connect.Request[v1.SearchCheckLogsRequest]) (*connect.Response[v1.SearchCheckLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.SearchCheckLogs is not implemented"))
 }

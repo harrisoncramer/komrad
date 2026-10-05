@@ -60,3 +60,23 @@ func (l *Lister) ListStatusChecks(ctx context.Context, pullRequestID string) ([]
 
 	return readings, nil
 }
+
+// ReadCheckLog is up to count lines of a check's fetched log from firstLine, counting from one.
+func (l *Lister) ReadCheckLog(ctx context.Context, checkID string, firstLine, count int) (*pullrequeststore.CheckLogLines, error) {
+	lines, err := l.statusChecks.GetCheckLogLines(ctx, checkID, firstLine, count)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the log of check %s: %w", checkID, err)
+	}
+
+	return lines, nil
+}
+
+// SearchCheckLogs is every line of the checks' fetched logs the RE2 pattern matches.
+func (l *Lister) SearchCheckLogs(ctx context.Context, checkIDs []string, pattern string) (*pullrequeststore.CheckLogSearch, error) {
+	search, err := l.statusChecks.ListCheckLogHits(ctx, checkIDs, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search the logs of %d checks: %w", len(checkIDs), err)
+	}
+
+	return search, nil
+}

@@ -23,6 +23,7 @@ type Queue struct {
 	router    *events.Router
 	mu        sync.Mutex
 	events    []events.Event
+	jobs      []river.JobArgs
 	followUps []river.JobArgs
 	errs      []error
 }
@@ -57,7 +58,7 @@ func (q *Queue) InsertTx(ctx context.Context, args river.JobArgs) error {
 	})
 }
 
-// InsertManyTx commits what build writes and then routes every event it returned.
+// InsertManyTx commits what build writes, then routes every event it returned and keeps every other job.
 func (q *Queue) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error {
 	tx, err := q.stores.Pool.GetRawPool().Begin(ctx)
 	if err != nil {
@@ -76,6 +77,10 @@ func (q *Queue) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river
 	for _, job := range jobs {
 		event, ok := job.(events.Event)
 		if !ok {
+			q.mu.Lock()
+			q.jobs = append(q.jobs, job)
+			q.mu.Unlock()
+
 			continue
 		}
 		followUps, err := q.route(ctx, event)
@@ -97,6 +102,14 @@ func (q *Queue) ListEvents() []events.Event {
 	defer q.mu.Unlock()
 
 	return append([]events.Event(nil), q.events...)
+}
+
+// ListJobs returns every job recorded so far that is not an event.
+func (q *Queue) ListJobs() []river.JobArgs {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	return append([]river.JobArgs(nil), q.jobs...)
 }
 
 // ListFollowUps returns every job the handlers asked to record so far.

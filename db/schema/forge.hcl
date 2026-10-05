@@ -662,7 +662,7 @@ table "pull_request_check_failure_notes" {
 
 table "pull_request_check_logs" {
   schema  = schema.public
-  comment = "The log of a check's Actions job as komrad last fetched it, one row per check, its text kept split into parts."
+  comment = "The log of a check's Actions job as komrad last fetched it, one row per check, kept whole and cleaned."
   column "id" {
     null    = false
     type    = uuid
@@ -681,25 +681,25 @@ table "pull_request_check_logs" {
   column "outcome" {
     null    = false
     type    = text
-    comment = "What the forge answered: fetched when it gave the log, missing when it never had one ready, expired when it no longer keeps it, failed when asking went wrong."
+    comment = "What the forge answered: fetched when it gave the log, too_large when the log ran past the most komrad keeps, missing when it never had one ready, expired when it no longer keeps it, failed when asking went wrong."
   }
-  column "split" {
+  column "text" {
     null    = false
-    type    = boolean
-    default = false
-    comment = "Whether the log was split into one part per step, rather than kept whole as part 0."
-  }
-  column "truncated" {
-    null    = false
-    type    = boolean
-    default = false
-    comment = "Whether the log ran past the most komrad keeps, and was cut there."
+    type    = text
+    default = ""
+    comment = "The whole log, cleaned of timestamps and escape codes, empty unless it was fetched."
   }
   column "line_count" {
     null    = false
     type    = integer
     default = 0
-    comment = "How many lines the log holds across its parts, zero when none was fetched."
+    comment = "How many lines the log holds, zero unless it was fetched."
+  }
+  column "error_count" {
+    null    = false
+    type    = integer
+    default = 0
+    comment = "How many of the log's lines the job marked as errors."
   }
   column "engine_id" {
     null    = false
@@ -728,13 +728,13 @@ table "pull_request_check_logs" {
     on_update   = NO_ACTION
   }
   check "pull_request_check_logs_outcome_known" {
-    expr = "outcome IN ('fetched', 'missing', 'expired', 'failed')"
+    expr = "outcome IN ('fetched', 'too_large', 'missing', 'expired', 'failed')"
   }
 }
 
-table "pull_request_check_log_parts" {
+table "pull_request_check_log_steps" {
   schema  = schema.public
-  comment = "The lines of one step of a check's log, or of the whole log when it could not be split by step."
+  comment = "Where one step of a check run sits in the check's log, as the steps stood when the log was fetched."
   column "id" {
     null    = false
     type    = uuid
@@ -743,28 +743,39 @@ table "pull_request_check_log_parts" {
   column "log_id" {
     null    = false
     type    = uuid
-    comment = "The log the part belongs to."
+    comment = "The log the step sits in."
   }
-  column "step_number" {
+  column "number" {
     null    = false
     type    = integer
-    comment = "The number of the step the lines were printed in, or 0 for the whole log when it could not be split."
+    comment = "Where the step falls in its check run, counting from one."
   }
-  column "text" {
+  column "name" {
     null    = false
     type    = text
-    comment = "The part's lines, cleaned of timestamps and escape codes, joined by newlines."
+    comment = "The step's name when the log was fetched."
+  }
+  column "conclusion" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "How the step ended when the log was fetched, in the forge's own word lowercased."
+  }
+  column "first_line" {
+    null    = false
+    type    = integer
+    comment = "The log line the step starts on, counting from one."
   }
   column "line_count" {
     null    = false
     type    = integer
-    comment = "How many lines the part holds."
+    comment = "How many lines of the log the step printed."
   }
   column "error_count" {
     null    = false
     type    = integer
     default = 0
-    comment = "How many of the part's lines the job marked as errors."
+    comment = "How many of the step's lines the job marked as errors."
   }
   column "engine_id" {
     null    = false
@@ -774,19 +785,19 @@ table "pull_request_check_log_parts" {
   primary_key {
     columns = [column.id]
   }
-  unique "pull_request_check_log_parts_engine_id_id_key" {
+  unique "pull_request_check_log_steps_engine_id_id_key" {
     columns = [column.engine_id, column.id]
   }
-  unique "pull_request_check_log_parts_step_number_key" {
-    columns = [column.engine_id, column.log_id, column.step_number]
+  unique "pull_request_check_log_steps_number_key" {
+    columns = [column.engine_id, column.log_id, column.number]
   }
-  foreign_key "pull_request_check_log_parts_engine_id_fkey" {
+  foreign_key "pull_request_check_log_steps_engine_id_fkey" {
     columns     = [column.engine_id]
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  foreign_key "pull_request_check_log_parts_log_id_fkey" {
+  foreign_key "pull_request_check_log_steps_log_id_fkey" {
     columns     = [column.engine_id, column.log_id]
     ref_columns = [table.pull_request_check_logs.column.engine_id, table.pull_request_check_logs.column.id]
     on_delete   = CASCADE

@@ -238,49 +238,57 @@ INSERT INTO pull_request_check_logs(
     check_id,
     fetched_at,
     outcome,
-    split,
-    truncated,
-    line_count)
+    text,
+    line_count,
+    error_count)
 VALUES (
     @check_id,
     @fetched_at,
     @outcome,
-    @split,
-    @truncated,
-    @line_count)
+    @text,
+    @line_count,
+    @error_count)
 ON CONFLICT (
     engine_id,
     check_id)
     DO UPDATE SET
         fetched_at = excluded.fetched_at,
         outcome = excluded.outcome,
-        split = excluded.split,
-        truncated = excluded.truncated,
-        line_count = excluded.line_count
+        text = excluded.text,
+        line_count = excluded.line_count,
+        error_count = excluded.error_count
     RETURNING
         id;
 
--- name: DeleteCheckLogParts :exec
-DELETE FROM pull_request_check_log_parts
+-- name: DeleteCheckLogSteps :exec
+DELETE FROM pull_request_check_log_steps
 WHERE log_id = @log_id;
 
--- name: InsertCheckLogParts :batchexec
-INSERT INTO pull_request_check_log_parts(
+-- name: InsertCheckLogSteps :batchexec
+INSERT INTO pull_request_check_log_steps(
     log_id,
-    step_number,
-    text,
+    number,
+    name,
+    conclusion,
+    first_line,
     line_count,
     error_count)
 VALUES (
     @log_id,
-    @step_number,
-    @text,
+    @number,
+    @name,
+    @conclusion,
+    @first_line,
     @line_count,
     @error_count);
 
 -- name: ListCheckLogsOfReadings :many
 SELECT
-    l.*
+    l.check_id,
+    l.fetched_at,
+    l.outcome,
+    l.line_count,
+    l.error_count
 FROM
     pull_request_check_logs l
     JOIN pull_request_checks c ON c.id = l.check_id
@@ -289,31 +297,108 @@ WHERE
 ORDER BY
     l.check_id;
 
--- name: ListCheckLogPartsOfReadings :many
+-- name: ListCheckLogStepsOfReadings :many
 SELECT
     l.check_id,
-    p.step_number,
-    p.line_count,
-    p.error_count
+    s.number,
+    s.name,
+    s.conclusion,
+    s.first_line,
+    s.line_count,
+    s.error_count
 FROM
-    pull_request_check_log_parts p
-    JOIN pull_request_check_logs l ON l.id = p.log_id
+    pull_request_check_log_steps s
+    JOIN pull_request_check_logs l ON l.id = s.log_id
     JOIN pull_request_checks c ON c.id = l.check_id
 WHERE
     c.reading_id = ANY (@reading_ids::uuid[])
 ORDER BY
     l.check_id,
-    p.step_number;
+    s.number;
 
--- name: GetCheckLogPart :one
+-- name: GetCheckLogText :one
 SELECT
-    p.step_number,
-    p.text,
-    p.line_count,
-    p.error_count
+    l.text,
+    l.line_count
 FROM
-    pull_request_check_log_parts p
-    JOIN pull_request_check_logs l ON l.id = p.log_id
+    pull_request_check_logs l
 WHERE
     l.check_id = @check_id
-    AND p.step_number = @step_number;
+    AND l.outcome = 'fetched';
+
+-- name: ListCheckLogTexts :many
+SELECT
+    l.check_id,
+    l.text
+FROM
+    pull_request_check_logs l
+WHERE
+    l.check_id = ANY (@check_ids::uuid[])
+    AND l.outcome = 'fetched'
+ORDER BY
+    l.check_id;
+
+-- name: ListCheckLogStepsOfChecks :many
+SELECT
+    l.check_id,
+    s.number,
+    s.first_line,
+    s.line_count
+FROM
+    pull_request_check_log_steps s
+    JOIN pull_request_check_logs l ON l.id = s.log_id
+WHERE
+    l.check_id = ANY (@check_ids::uuid[])
+ORDER BY
+    l.check_id,
+    s.first_line;
+
+-- name: GetCheckForLogFetch :one
+SELECT
+    c.id,
+    c.state,
+    c.job_id,
+    c.finished_at,
+    p.host,
+    p.repository_url
+FROM
+    pull_request_checks c
+    JOIN pull_request_check_readings r ON r.id = c.reading_id
+    JOIN pull_requests p ON p.id = r.pull_request_id
+WHERE
+    c.id = @check_id;
+
+-- name: ListStepsOfCheck :many
+SELECT
+    s.number,
+    s.name,
+    s.conclusion,
+    s.started_at
+FROM
+    pull_request_check_steps s
+WHERE
+    s.check_id = @check_id
+ORDER BY
+    s.number;
+
+-- name: ListHeadChecksWantingLogs :many
+SELECT
+    c.id
+FROM
+    pull_request_checks c
+    JOIN pull_request_check_readings r ON r.id = c.reading_id
+    JOIN pull_requests p ON p.id = r.pull_request_id
+WHERE
+    r.pull_request_id = @pull_request_id
+    AND r.head_sha = p.head_sha
+    AND c.state = 'completed'
+    AND c.job_id IS NOT NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            pull_request_check_logs l
+        WHERE
+            l.check_id = c.id)
+ORDER BY
+    c.id;

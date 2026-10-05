@@ -119,6 +119,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	srv.Jobs, err = jobs.NewClient(jobs.NewClientParams{
 		Pool:          st.pool.GetRawPool(),
+		Store:         st.pool,
 		Schema:        st.pool.GetRiverSchema(),
 		Schedules:     st.schedules,
 		Runs:          st.schedules,
@@ -131,6 +132,8 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Worktrees:     svc.worktrees.lister,
 		Remover:       svc.worktrees.remover,
 		Resumer:       svc.agents.resume,
+		Forges:        svc.pullRequests.forge,
+		MaxLogBytes:   svc.getMaxCheckLogBytes,
 		Router: events.NewRouter(events.NewRouterParams{
 			Mailer: svc.mail.service,
 			Handlers: []events.Handler{

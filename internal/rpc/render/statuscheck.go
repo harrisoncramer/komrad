@@ -1,6 +1,7 @@
 package render
 
 import (
+	"komrad/internal/checklog"
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/dates"
@@ -17,15 +18,18 @@ func StatusCheckReadings(readings []pullrequeststore.StatusCheckReading) *pullre
 
 func statusCheckReading(reading pullrequeststore.StatusCheckReading) *pullrequestv1.StatusCheckReading {
 	return &pullrequestv1.StatusCheckReading{
-		HeadSha:      reading.HeadSHA,
-		FirstReadAt:  dates.StampPtr(&reading.FirstReadAt),
-		ReadAt:       dates.StampPtr(&reading.ReadAt),
-		StatusChecks: xslice.Map(reading.StatusChecks, statusCheck),
+		HeadSha:     reading.HeadSHA,
+		FirstReadAt: dates.StampPtr(&reading.FirstReadAt),
+		ReadAt:      dates.StampPtr(&reading.ReadAt),
+		StatusChecks: xslice.Map(reading.StatusChecks, func(stored forge.StatusCheck) *pullrequestv1.StatusCheck {
+			return statusCheck(reading, stored)
+		}),
 	}
 }
 
-func statusCheck(stored forge.StatusCheck) *pullrequestv1.StatusCheck {
+func statusCheck(reading pullrequeststore.StatusCheckReading, stored forge.StatusCheck) *pullrequestv1.StatusCheck {
 	return &pullrequestv1.StatusCheck{
+		Id:           reading.CheckIDs[stored.ProviderID],
 		ProviderId:   stored.ProviderID,
 		Kind:         statusCheckKindOf(stored.Kind),
 		Source:       stored.Source,
@@ -39,6 +43,80 @@ func statusCheck(stored forge.StatusCheck) *pullrequestv1.StatusCheck {
 		Steps:        xslice.Map(stored.Steps, statusCheckStep),
 		RunEvent:     stored.RunEvent,
 		RunStartedAt: dates.StampPtr(stored.RunStartedAt),
+		Log:          checkLog(reading.GetLogOf(stored)),
+	}
+}
+
+func checkLog(state pullrequeststore.CheckLogOutcome, stored *pullrequeststore.CheckLog) *pullrequestv1.CheckLog {
+	log := &pullrequestv1.CheckLog{State: checkLogStateOf(state)}
+	if stored == nil {
+		return log
+	}
+
+	log.FetchedAt = dates.StampPtr(&stored.FetchedAt)
+	log.LineCount = int32(stored.LineCount)
+	log.ErrorCount = int32(stored.ErrorCount)
+	log.Steps = xslice.Map(stored.Steps, checkLogStep)
+
+	return log
+}
+
+func checkLogStep(step checklog.StepRange) *pullrequestv1.CheckLogStep {
+	return &pullrequestv1.CheckLogStep{
+		Number:     int32(step.Number),
+		Name:       step.Name,
+		Conclusion: step.Conclusion,
+		FirstLine:  int32(step.FirstLine),
+		LineCount:  int32(step.LineCount),
+		ErrorCount: int32(step.ErrorCount),
+	}
+}
+
+// checkLogStateOf is where fetching a check's log stands as the wire carries it.
+func checkLogStateOf(state pullrequeststore.CheckLogOutcome) pullrequestv1.CheckLogState {
+	switch state {
+	case pullrequeststore.CheckLogNone:
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_NONE
+	case pullrequeststore.CheckLogPending:
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING
+	case pullrequeststore.CheckLogFetched:
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED
+	case pullrequeststore.CheckLogTooLarge:
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE
+	case pullrequeststore.CheckLogMissing:
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING
+	case pullrequeststore.CheckLogExpired:
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED
+	case pullrequeststore.CheckLogFailed:
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED
+	}
+
+	return pullrequestv1.CheckLogState_CHECK_LOG_STATE_UNSPECIFIED
+}
+
+// CheckLogLines draws a window of a check's log as the wire carries it.
+func CheckLogLines(lines *pullrequeststore.CheckLogLines) *pullrequestv1.ReadCheckLogResponse {
+	return &pullrequestv1.ReadCheckLogResponse{
+		Lines: xslice.Map(lines.Lines, func(text string) *pullrequestv1.CheckLogLine {
+			return &pullrequestv1.CheckLogLine{Text: text}
+		}),
+		LineCount: int32(lines.LineCount),
+	}
+}
+
+// CheckLogSearch draws what a search across check logs found as the wire carries it.
+func CheckLogSearch(search *pullrequeststore.CheckLogSearch) *pullrequestv1.SearchCheckLogsResponse {
+	return &pullrequestv1.SearchCheckLogsResponse{
+		Hits: xslice.Map(search.Hits, func(hit pullrequeststore.CheckLogHit) *pullrequestv1.CheckLogHit {
+			return &pullrequestv1.CheckLogHit{
+				CheckId:    hit.CheckID,
+				Line:       int32(hit.Line),
+				StepNumber: int32(hit.StepNumber),
+				Text:       hit.Text,
+				Cut:        hit.Cut,
+			}
+		}),
+		Limited: search.Limited,
 	}
 }
 
