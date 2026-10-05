@@ -43,6 +43,7 @@ type statusCheckListNode struct {
 type statusCheckNode struct {
 	Typename    string     `json:"__typename"`
 	ID          string     `json:"id"`
+	DatabaseID  *int64     `json:"databaseId"`
 	Name        string     `json:"name"`
 	Status      string     `json:"status"`
 	Conclusion  *string    `json:"conclusion"`
@@ -258,6 +259,7 @@ func (n statusCheckNode) check() (forge.StatusCheck, bool) {
 			RunID:        n.runID(),
 			RunEvent:     n.runEvent(),
 			RunStartedAt: n.runStartedAt(),
+			JobID:        n.jobID(),
 		}, true
 	case "StatusContext":
 		check := forge.StatusCheck{
@@ -373,4 +375,13 @@ func (n statusCheckNode) runStartedAt() *time.Time {
 	}
 
 	return n.CheckSuite.CreatedAt
+}
+
+// jobID is the Actions job that ran the check run, nil when no workflow did.
+func (n statusCheckNode) jobID() *int64 {
+	if n.CheckSuite == nil || n.CheckSuite.WorkflowRun == nil {
+		return nil
+	}
+
+	return n.DatabaseID
 }

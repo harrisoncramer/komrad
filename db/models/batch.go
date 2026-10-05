@@ -17,6 +17,72 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
+const insertCheckLogParts = `-- name: InsertCheckLogParts :batchexec
+INSERT INTO pull_request_check_log_parts(
+    log_id,
+    step_number,
+    text,
+    line_count,
+    error_count)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5)
+`
+
+type InsertCheckLogPartsBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type InsertCheckLogPartsParams struct {
+	LogID      string
+	StepNumber int32
+	Text       string
+	LineCount  int32
+	ErrorCount int32
+}
+
+func (q *Queries) InsertCheckLogParts(ctx context.Context, arg []InsertCheckLogPartsParams) *InsertCheckLogPartsBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.LogID,
+			a.StepNumber,
+			a.Text,
+			a.LineCount,
+			a.ErrorCount,
+		}
+		batch.Queue(insertCheckLogParts, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &InsertCheckLogPartsBatchResults{br, len(arg), false}
+}
+
+func (b *InsertCheckLogPartsBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *InsertCheckLogPartsBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const noteCheckFailure = `-- name: NoteCheckFailure :batchexec
 INSERT INTO pull_request_check_failure_notes(
     agent_id,
@@ -202,7 +268,8 @@ INSERT INTO pull_request_checks(
     url,
     run_id,
     run_event,
-    run_started_at)
+    run_started_at,
+    job_id)
 VALUES (
     $1,
     $2,
@@ -217,7 +284,8 @@ VALUES (
     $11,
     $12,
     $13,
-    $14)
+    $14,
+    $15)
 ON CONFLICT (
     engine_id,
     reading_id,
@@ -234,9 +302,10 @@ ON CONFLICT (
         url = excluded.url,
         run_id = excluded.run_id,
         run_event = excluded.run_event,
-        run_started_at = excluded.run_started_at
+        run_started_at = excluded.run_started_at,
+        job_id = excluded.job_id
     WHERE (
-        pull_request_checks.kind, pull_request_checks.source, pull_request_checks.name, pull_request_checks.state, pull_request_checks.conclusion, pull_request_checks.started_at, pull_request_checks.finished_at, pull_request_checks.required, pull_request_checks.url, pull_request_checks.run_id, pull_request_checks.run_event, pull_request_checks.run_started_at) IS DISTINCT FROM (
+        pull_request_checks.kind, pull_request_checks.source, pull_request_checks.name, pull_request_checks.state, pull_request_checks.conclusion, pull_request_checks.started_at, pull_request_checks.finished_at, pull_request_checks.required, pull_request_checks.url, pull_request_checks.run_id, pull_request_checks.run_event, pull_request_checks.run_started_at, pull_request_checks.job_id) IS DISTINCT FROM (
         excluded.kind,
         excluded.source,
         excluded.name,
@@ -248,7 +317,8 @@ ON CONFLICT (
         excluded.url,
         excluded.run_id,
         excluded.run_event,
-        excluded.run_started_at)
+        excluded.run_started_at,
+        excluded.job_id)
 `
 
 type UpsertStatusChecksBatchResults struct {
@@ -272,6 +342,7 @@ type UpsertStatusChecksParams struct {
 	RunID        string
 	RunEvent     string
 	RunStartedAt *time.Time
+	JobID        *int64
 }
 
 func (q *Queries) UpsertStatusChecks(ctx context.Context, arg []UpsertStatusChecksParams) *UpsertStatusChecksBatchResults {
@@ -292,6 +363,7 @@ func (q *Queries) UpsertStatusChecks(ctx context.Context, arg []UpsertStatusChec
 			a.RunID,
 			a.RunEvent,
 			a.RunStartedAt,
+			a.JobID,
 		}
 		batch.Queue(upsertStatusChecks, vals...)
 	}

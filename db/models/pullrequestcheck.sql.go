@@ -10,6 +10,16 @@ import (
 	"time"
 )
 
+const deleteCheckLogParts = `-- name: DeleteCheckLogParts :exec
+DELETE FROM pull_request_check_log_parts
+WHERE log_id = $1
+`
+
+func (q *Queries) DeleteCheckLogParts(ctx context.Context, logID string) error {
+	_, err := q.db.Exec(ctx, deleteCheckLogParts, logID)
+	return err
+}
+
 const deleteStatusCheckStepsExcept = `-- name: DeleteStatusCheckStepsExcept :exec
 DELETE FROM pull_request_check_steps s USING pull_request_checks c
 WHERE s.check_id = c.id
@@ -60,6 +70,44 @@ func (q *Queries) DeleteStatusChecksExcept(ctx context.Context, arg DeleteStatus
 	return err
 }
 
+const getCheckLogPart = `-- name: GetCheckLogPart :one
+SELECT
+    p.step_number,
+    p.text,
+    p.line_count,
+    p.error_count
+FROM
+    pull_request_check_log_parts p
+    JOIN pull_request_check_logs l ON l.id = p.log_id
+WHERE
+    l.check_id = $1
+    AND p.step_number = $2
+`
+
+type GetCheckLogPartParams struct {
+	CheckID    string
+	StepNumber int32
+}
+
+type GetCheckLogPartRow struct {
+	StepNumber int32
+	Text       string
+	LineCount  int32
+	ErrorCount int32
+}
+
+func (q *Queries) GetCheckLogPart(ctx context.Context, arg GetCheckLogPartParams) (*GetCheckLogPartRow, error) {
+	row := q.db.QueryRow(ctx, getCheckLogPart, arg.CheckID, arg.StepNumber)
+	var i GetCheckLogPartRow
+	err := row.Scan(
+		&i.StepNumber,
+		&i.Text,
+		&i.LineCount,
+		&i.ErrorCount,
+	)
+	return &i, err
+}
+
 const listCheckFailureNotes = `-- name: ListCheckFailureNotes :many
 SELECT
     c.provider_id,
@@ -97,6 +145,96 @@ func (q *Queries) ListCheckFailureNotes(ctx context.Context, arg ListCheckFailur
 	for rows.Next() {
 		var i ListCheckFailureNotesRow
 		if err := rows.Scan(&i.ProviderID, &i.FinishedAt, &i.NotedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCheckLogPartsOfReadings = `-- name: ListCheckLogPartsOfReadings :many
+SELECT
+    l.check_id,
+    p.step_number,
+    p.line_count,
+    p.error_count
+FROM
+    pull_request_check_log_parts p
+    JOIN pull_request_check_logs l ON l.id = p.log_id
+    JOIN pull_request_checks c ON c.id = l.check_id
+WHERE
+    c.reading_id = ANY ($1::uuid[])
+ORDER BY
+    l.check_id,
+    p.step_number
+`
+
+type ListCheckLogPartsOfReadingsRow struct {
+	CheckID    string
+	StepNumber int32
+	LineCount  int32
+	ErrorCount int32
+}
+
+func (q *Queries) ListCheckLogPartsOfReadings(ctx context.Context, readingIds []string) ([]*ListCheckLogPartsOfReadingsRow, error) {
+	rows, err := q.db.Query(ctx, listCheckLogPartsOfReadings, readingIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListCheckLogPartsOfReadingsRow
+	for rows.Next() {
+		var i ListCheckLogPartsOfReadingsRow
+		if err := rows.Scan(
+			&i.CheckID,
+			&i.StepNumber,
+			&i.LineCount,
+			&i.ErrorCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCheckLogsOfReadings = `-- name: ListCheckLogsOfReadings :many
+SELECT
+    l.id, l.check_id, l.fetched_at, l.outcome, l.split, l.truncated, l.line_count, l.engine_id
+FROM
+    pull_request_check_logs l
+    JOIN pull_request_checks c ON c.id = l.check_id
+WHERE
+    c.reading_id = ANY ($1::uuid[])
+ORDER BY
+    l.check_id
+`
+
+func (q *Queries) ListCheckLogsOfReadings(ctx context.Context, readingIds []string) ([]*PullRequestCheckLog, error) {
+	rows, err := q.db.Query(ctx, listCheckLogsOfReadings, readingIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequestCheckLog
+	for rows.Next() {
+		var i PullRequestCheckLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.CheckID,
+			&i.FetchedAt,
+			&i.Outcome,
+			&i.Split,
+			&i.Truncated,
+			&i.LineCount,
+			&i.EngineID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -235,7 +373,7 @@ func (q *Queries) ListStatusCheckStepsOfReadings(ctx context.Context, readingIds
 
 const listStatusChecksOfReadings = `-- name: ListStatusChecksOfReadings :many
 SELECT
-    id, reading_id, provider_id, kind, source, name, state, conclusion, started_at, finished_at, required, url, engine_id, run_id, run_event, run_started_at
+    id, reading_id, provider_id, kind, source, name, state, conclusion, started_at, finished_at, required, url, engine_id, run_id, run_event, run_started_at, job_id
 FROM
     pull_request_checks c
 WHERE
@@ -274,6 +412,7 @@ func (q *Queries) ListStatusChecksOfReadings(ctx context.Context, readingIds []s
 			&i.RunID,
 			&i.RunEvent,
 			&i.RunStartedAt,
+			&i.JobID,
 		); err != nil {
 			return nil, err
 		}
@@ -283,6 +422,57 @@ func (q *Queries) ListStatusChecksOfReadings(ctx context.Context, readingIds []s
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordCheckLog = `-- name: RecordCheckLog :one
+INSERT INTO pull_request_check_logs(
+    check_id,
+    fetched_at,
+    outcome,
+    split,
+    truncated,
+    line_count)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6)
+ON CONFLICT (
+    engine_id,
+    check_id)
+    DO UPDATE SET
+        fetched_at = excluded.fetched_at,
+        outcome = excluded.outcome,
+        split = excluded.split,
+        truncated = excluded.truncated,
+        line_count = excluded.line_count
+    RETURNING
+        id
+`
+
+type RecordCheckLogParams struct {
+	CheckID   string
+	FetchedAt time.Time
+	Outcome   string
+	Split     bool
+	Truncated bool
+	LineCount int32
+}
+
+func (q *Queries) RecordCheckLog(ctx context.Context, arg RecordCheckLogParams) (string, error) {
+	row := q.db.QueryRow(ctx, recordCheckLog,
+		arg.CheckID,
+		arg.FetchedAt,
+		arg.Outcome,
+		arg.Split,
+		arg.Truncated,
+		arg.LineCount,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const recordStatusCheckReading = `-- name: RecordStatusCheckReading :one

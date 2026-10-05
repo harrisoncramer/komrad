@@ -814,6 +814,8 @@ type PullRequestCheck struct {
 	RunEvent string
 	// When the run the check ran in was created, null for a commit status.
 	RunStartedAt *time.Time
+	// The forge's own number for the Actions job that ran the check, which its log is fetched by, null for a commit status or a check run no workflow ran.
+	JobID *int64
 }
 
 // A failed check komrad told an agent about, one row per agent, check and finish time, so a failure is mailed once.
@@ -827,6 +829,42 @@ type PullRequestCheckFailureNote struct {
 	FinishedAt *time.Time
 	// When the agent was told, on the same clock that stamps the mail it was told in.
 	NotedAt time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
+}
+
+// The log of a check's Actions job as komrad last fetched it, one row per check, its text kept split into parts.
+type PullRequestCheckLog struct {
+	ID string
+	// The check whose job the log is of.
+	CheckID string
+	// When komrad last asked the forge for the log.
+	FetchedAt time.Time
+	// What the forge answered: fetched when it gave the log, missing when it never had one ready, expired when it no longer keeps it, failed when asking went wrong.
+	Outcome string
+	// Whether the log was split into one part per step, rather than kept whole as part 0.
+	Split bool
+	// Whether the log ran past the most komrad keeps, and was cut there.
+	Truncated bool
+	// How many lines the log holds across its parts, zero when none was fetched.
+	LineCount int32
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
+}
+
+// The lines of one step of a check's log, or of the whole log when it could not be split by step.
+type PullRequestCheckLogPart struct {
+	ID string
+	// The log the part belongs to.
+	LogID string
+	// The number of the step the lines were printed in, or 0 for the whole log when it could not be split.
+	StepNumber int32
+	// The part's lines, cleaned of timestamps and escape codes, joined by newlines.
+	Text string
+	// How many lines the part holds.
+	LineCount int32
+	// How many of the part's lines the job marked as errors.
+	ErrorCount int32
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
 }

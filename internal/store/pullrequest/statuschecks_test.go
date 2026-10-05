@@ -37,6 +37,12 @@ func inRun(check forge.StatusCheck, runID string) forge.StatusCheck {
 	return check
 }
 
+func inJob(check forge.StatusCheck, jobID int64) forge.StatusCheck {
+	check.JobID = &jobID
+
+	return check
+}
+
 func statusCheckNames(reading StatusCheckReading) []string {
 	return xslice.Map(reading.StatusChecks, func(check forge.StatusCheck) string { return check.Name + ":" + string(check.State) })
 }
@@ -81,6 +87,14 @@ func TestSetStatusChecks(t *testing.T) {
 				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success"), "CS_2")}},
 			},
 			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success"), "CS_2")}}},
+		},
+		{
+			name: "a later read that gives a check its job keeps the job id",
+			reads: []SetStatusChecksParams{
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateQueued, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inJob(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), 42)}},
+			},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inJob(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), 42)}}},
 		},
 		{
 			name: "a check the forge stops listing goes",

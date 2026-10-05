@@ -36,7 +36,8 @@ INSERT INTO pull_request_checks(
     url,
     run_id,
     run_event,
-    run_started_at)
+    run_started_at,
+    job_id)
 VALUES (
     @reading_id,
     @provider_id,
@@ -51,7 +52,8 @@ VALUES (
     @url,
     @run_id,
     @run_event,
-    @run_started_at)
+    @run_started_at,
+    @job_id)
 ON CONFLICT (
     engine_id,
     reading_id,
@@ -68,9 +70,10 @@ ON CONFLICT (
         url = excluded.url,
         run_id = excluded.run_id,
         run_event = excluded.run_event,
-        run_started_at = excluded.run_started_at
+        run_started_at = excluded.run_started_at,
+        job_id = excluded.job_id
     WHERE (
-        pull_request_checks.kind, pull_request_checks.source, pull_request_checks.name, pull_request_checks.state, pull_request_checks.conclusion, pull_request_checks.started_at, pull_request_checks.finished_at, pull_request_checks.required, pull_request_checks.url, pull_request_checks.run_id, pull_request_checks.run_event, pull_request_checks.run_started_at) IS DISTINCT FROM (
+        pull_request_checks.kind, pull_request_checks.source, pull_request_checks.name, pull_request_checks.state, pull_request_checks.conclusion, pull_request_checks.started_at, pull_request_checks.finished_at, pull_request_checks.required, pull_request_checks.url, pull_request_checks.run_id, pull_request_checks.run_event, pull_request_checks.run_started_at, pull_request_checks.job_id) IS DISTINCT FROM (
         excluded.kind,
         excluded.source,
         excluded.name,
@@ -82,7 +85,8 @@ ON CONFLICT (
         excluded.url,
         excluded.run_id,
         excluded.run_event,
-        excluded.run_started_at);
+        excluded.run_started_at,
+        excluded.job_id);
 
 -- name: DeleteStatusChecksExcept :exec
 DELETE FROM pull_request_checks
@@ -228,3 +232,88 @@ WHERE
     AND c.provider_id = @provider_id
 ON CONFLICT
     DO NOTHING;
+
+-- name: RecordCheckLog :one
+INSERT INTO pull_request_check_logs(
+    check_id,
+    fetched_at,
+    outcome,
+    split,
+    truncated,
+    line_count)
+VALUES (
+    @check_id,
+    @fetched_at,
+    @outcome,
+    @split,
+    @truncated,
+    @line_count)
+ON CONFLICT (
+    engine_id,
+    check_id)
+    DO UPDATE SET
+        fetched_at = excluded.fetched_at,
+        outcome = excluded.outcome,
+        split = excluded.split,
+        truncated = excluded.truncated,
+        line_count = excluded.line_count
+    RETURNING
+        id;
+
+-- name: DeleteCheckLogParts :exec
+DELETE FROM pull_request_check_log_parts
+WHERE log_id = @log_id;
+
+-- name: InsertCheckLogParts :batchexec
+INSERT INTO pull_request_check_log_parts(
+    log_id,
+    step_number,
+    text,
+    line_count,
+    error_count)
+VALUES (
+    @log_id,
+    @step_number,
+    @text,
+    @line_count,
+    @error_count);
+
+-- name: ListCheckLogsOfReadings :many
+SELECT
+    l.*
+FROM
+    pull_request_check_logs l
+    JOIN pull_request_checks c ON c.id = l.check_id
+WHERE
+    c.reading_id = ANY (@reading_ids::uuid[])
+ORDER BY
+    l.check_id;
+
+-- name: ListCheckLogPartsOfReadings :many
+SELECT
+    l.check_id,
+    p.step_number,
+    p.line_count,
+    p.error_count
+FROM
+    pull_request_check_log_parts p
+    JOIN pull_request_check_logs l ON l.id = p.log_id
+    JOIN pull_request_checks c ON c.id = l.check_id
+WHERE
+    c.reading_id = ANY (@reading_ids::uuid[])
+ORDER BY
+    l.check_id,
+    p.step_number;
+
+-- name: GetCheckLogPart :one
+SELECT
+    p.step_number,
+    p.text,
+    p.line_count,
+    p.error_count
+FROM
+    pull_request_check_log_parts p
+    JOIN pull_request_check_logs l ON l.id = p.log_id
+WHERE
+    l.check_id = @check_id
+    AND p.step_number = @step_number;

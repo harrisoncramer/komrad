@@ -195,6 +195,7 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 			RunID:        row.RunID,
 			RunEvent:     row.RunEvent,
 			RunStartedAt: row.RunStartedAt,
+			JobID:        row.JobID,
 		})
 	}
 
@@ -237,6 +238,7 @@ func statusCheckRows(readingID string, checks []forge.StatusCheck) []models.Upse
 			RunID:        check.RunID,
 			RunEvent:     check.RunEvent,
 			RunStartedAt: check.RunStartedAt,
+			JobID:        check.JobID,
 		}
 	})
 }
