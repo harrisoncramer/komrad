@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/assemble"
+	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -91,4 +92,15 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 	}
 
 	return int(state)
+}
+
+func withoutAgentThreads(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
+	kept := make([]*agentv1.ReviewThread, 0, len(threads))
+	for _, thread := range threads {
+		if !diffview.IsAgentThread(thread) || diffview.IsHoldingUnsent(thread) {
+			kept = append(kept, thread)
+		}
+	}
+
+	return kept
 }

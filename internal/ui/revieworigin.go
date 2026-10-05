@@ -119,6 +119,10 @@ func (d *reviewDiff) originPlace(view *diffview.View) (diffview.Place, bool) {
 }
 
 func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
+	if !d.showsAgentThreads {
+		threads = withoutAgentThreads(threads)
+	}
+
 	if d.spec.origin == nil {
 		return threadsByChapter(threadsByChapterParams{
 			Threads:  threads,

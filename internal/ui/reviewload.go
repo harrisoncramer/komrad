@@ -670,6 +670,17 @@ func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
 	r.scrollToCursor(m)
 }
 
+// toggleAgentThreads shows or hides the conversations agents opened.
+func (r *reviewScreen) toggleAgentThreads(m *model) tea.Cmd {
+	r.diff.showsAgentThreads = !r.diff.showsAgentThreads
+
+	if r.diff.View() != nil {
+		r.applyThreads(m, r.threads.list)
+	}
+
+	return nil
+}
+
 // reload reads the worktree again, holding the place the cursor is standing so the diff comes
 // back under it.
 func (r *reviewScreen) reload(m *model) tea.Cmd {
