@@ -19,6 +19,8 @@ import (
 type PullRequestServiceImpl interface {
 	ListPullRequests(context.Context, *v1.ListPullRequestsRequest) (*v1.ListPullRequestsResponse, *fail.Error)
 	ListStatusChecks(context.Context, *v1.ListStatusChecksRequest) (*v1.ListStatusChecksResponse, *fail.Error)
+	ReadCheckLog(context.Context, *v1.ReadCheckLogRequest) (*v1.ReadCheckLogResponse, *fail.Error)
+	SearchCheckLogs(context.Context, *v1.SearchCheckLogsRequest) (*v1.SearchCheckLogsResponse, *fail.Error)
 }
 
 // PullRequestServiceAdapter carries what the implementation returned across to the signature
@@ -35,6 +37,16 @@ func (a PullRequestServiceAdapter) ListPullRequests(ctx context.Context, req *co
 // ListStatusChecks answers the request as connect serves it.
 func (a PullRequestServiceAdapter) ListStatusChecks(ctx context.Context, req *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error) {
 	return rpcerr.Answer(a.Impl.ListStatusChecks(ctx, req.Msg))
+}
+
+// ReadCheckLog answers the request as connect serves it.
+func (a PullRequestServiceAdapter) ReadCheckLog(ctx context.Context, req *connect.Request[v1.ReadCheckLogRequest]) (*connect.Response[v1.ReadCheckLogResponse], error) {
+	return rpcerr.Answer(a.Impl.ReadCheckLog(ctx, req.Msg))
+}
+
+// SearchCheckLogs answers the request as connect serves it.
+func (a PullRequestServiceAdapter) SearchCheckLogs(ctx context.Context, req *connect.Request[v1.SearchCheckLogsRequest]) (*connect.Response[v1.SearchCheckLogsResponse], error) {
+	return rpcerr.Answer(a.Impl.SearchCheckLogs(ctx, req.Msg))
 }
 
 // RegisterPullRequestService mounts the implementation on the mux behind its adapter.

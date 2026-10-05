@@ -175,34 +175,40 @@ func (c *Client) Send(ctx context.Context, params xhttp.JSONParams, into any) (x
 	return answer, nil
 }
 
+// redirection is where the forge redirected a call, and the credential's budget after it.
+type redirection struct {
+	Location  string
+	RateLimit forge.RateLimit
+}
+
 // Redirect is where the forge redirects a GET of address to without following it, ErrNotFound on a
 // 404 and ErrExpired on a 410.
-func (c *Client) Redirect(ctx context.Context, address string) (string, error) {
+func (c *Client) Redirect(ctx context.Context, address string) (*redirection, error) {
 	answer, err := c.send(ctx, xhttp.JSONParams{Client: c.redirects, Method: http.MethodGet, URL: address}, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	path := pathOf(address)
 	switch {
 	case answer.Status == http.StatusNotFound:
-		return "", fmt.Errorf("%w: %s answered 404 for %s", forge.ErrNotFound, c.dialect.Name, path)
+		return nil, fmt.Errorf("%w: %s answered 404 for %s", forge.ErrNotFound, c.dialect.Name, path)
 	case answer.Status == http.StatusGone:
-		return "", fmt.Errorf("%w: %s answered 410 for %s", forge.ErrExpired, c.dialect.Name, path)
+		return nil, fmt.Errorf("%w: %s answered 410 for %s", forge.ErrExpired, c.dialect.Name, path)
 	case answer.Status < 300 || answer.Status >= 400:
-		return "", fmt.Errorf("%s answered %d rather than a redirect for %s: %s", c.dialect.Name, answer.Status, path, MessageOf(answer.Body))
+		return nil, fmt.Errorf("%s answered %d rather than a redirect for %s: %s", c.dialect.Name, answer.Status, path, MessageOf(answer.Body))
 	}
 
 	location, err := url.Parse(answer.Header.Get("Location"))
 	if err != nil || location.String() == "" {
-		return "", fmt.Errorf("%s redirected %s to no address it could be read at", c.dialect.Name, path)
+		return nil, fmt.Errorf("%s redirected %s to no address it could be read at", c.dialect.Name, path)
 	}
 	base, err := url.Parse(address)
 	if err != nil {
-		return "", fmt.Errorf("failed to read the address %s: %w", path, err)
+		return nil, fmt.Errorf("failed to read the address %s: %w", path, err)
 	}
 
-	return base.ResolveReference(location).String(), nil
+	return &redirection{Location: base.ResolveReference(location).String(), RateLimit: c.readRateLimit(answer.Header)}, nil
 }
 
 // Download is the body of a GET of address made without the credential and read up to maxBytes,

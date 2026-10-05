@@ -47,6 +47,10 @@ const defaultDeliveryDeadline = "3h"
 // cap set too high costs one long loop and a cap set too low severs a review as it concludes.
 const DefaultMaxExchange = 40
 
+// defaultMaxCheckLogBytes is the largest check log komrad keeps when the config names no size, set
+// at more than three times the largest log sampled across real repositories.
+const defaultMaxCheckLogBytes = 2 << 20
+
 // DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
 // no number. Since komrad captures about one frame every two seconds, this equates roughly to 15 minutes
 // of frames captured, which should be more than enough to replicate most issues related to state transitions
@@ -726,6 +730,22 @@ type Forge struct {
 	// CI bot or a code review App. A thread whose every comment is from one of them is not mirrored
 	// at all. Names are matched without regard to case.
 	BotNames []string `mapstructure:"bot_names"`
+	// The largest check log komrad keeps, in bytes. A log past it is not kept, and the panel links to it
+	// on the forge instead. A negative size is refused.
+	MaxCheckLogBytes int `mapstructure:"max_check_log_bytes"`
+}
+
+// GetMaxCheckLogBytes is the largest check log komrad keeps. An unset size takes the default, and a
+// negative one is an error rather than the default.
+func (f Forge) GetMaxCheckLogBytes() (int, error) {
+	if f.MaxCheckLogBytes == 0 {
+		f.MaxCheckLogBytes = defaultMaxCheckLogBytes
+	}
+	if f.MaxCheckLogBytes < 0 {
+		return 0, fmt.Errorf("the check log size limit must be positive, not %d", f.MaxCheckLogBytes)
+	}
+
+	return f.MaxCheckLogBytes, nil
 }
 
 // isBareHost says whether a host carries no port, scheme, user or path.
@@ -1061,6 +1081,7 @@ func Defaults() *Config {
 		Keybindings:    DefaultKeybindings(),
 		Glyphs:         defaultGlyphs(),
 		Palette:        defaultPalette(),
+		Forge:          Forge{MaxCheckLogBytes: defaultMaxCheckLogBytes},
 		Mail:           Mail{DeliveryDeadline: defaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log:            Log{Level: defaultLogLevel},
 		Debug:          Debug{FrameHistory: DefaultFrameHistory},

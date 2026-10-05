@@ -20,6 +20,11 @@ type StatusCheckReading struct {
 	FirstReadAt  time.Time
 	ReadAt       time.Time
 	StatusChecks []forge.StatusCheck
+	// CheckIDs is the id komrad keeps each check under, by the id the forge gives it.
+	CheckIDs map[string]string
+	// Logs is the log kept for each check that has one, by the id komrad keeps the check under, filled only
+	// for the readings of one pull request.
+	Logs map[string]CheckLog
 }
 
 // StatusCheckStore holds the checks the forge listed on each head commit of a pull request.
@@ -122,7 +127,30 @@ func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID 
 		return nil, fmt.Errorf("failed to list the check readings of pull request %s: %w", pullRequestID, err)
 	}
 
-	return withStatusChecks(ctx, s.queries, rows)
+	readings, err := withStatusChecks(ctx, s.queries, rows)
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := s.ListCheckLogsOfReadings(ctx, xslice.Map(readings, func(reading StatusCheckReading) string { return reading.ID }))
+	if err != nil {
+		return nil, err
+	}
+
+	byCheck := make(map[string]CheckLog, len(logs))
+	for _, log := range logs {
+		byCheck[log.CheckID] = log
+	}
+	for i, reading := range readings {
+		readings[i].Logs = map[string]CheckLog{}
+		for _, checkID := range reading.CheckIDs {
+			if log, ok := byCheck[checkID]; ok {
+				readings[i].Logs[checkID] = log
+			}
+		}
+	}
+
+	return readings, nil
 }
 
 // headReadings is each pull request's reading of its head, or its latest reading when the head was never read.
@@ -179,7 +207,12 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 	}
 
 	byReading := map[string][]forge.StatusCheck{}
+	checkIDs := map[string]map[string]string{}
 	for _, row := range checks {
+		if checkIDs[row.ReadingID] == nil {
+			checkIDs[row.ReadingID] = map[string]string{}
+		}
+		checkIDs[row.ReadingID][row.ProviderID] = row.ID
 		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.StatusCheck{
 			ProviderID:   row.ProviderID,
 			Kind:         forge.StatusCheckKind(row.Kind),
@@ -207,6 +240,7 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 			FirstReadAt:  row.FirstReadAt,
 			ReadAt:       row.ReadAt,
 			StatusChecks: byReading[row.ID],
+			CheckIDs:     checkIDs[row.ID],
 		}
 	}), nil
 }

@@ -325,6 +325,79 @@ func (Checks) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
 }
 
+// CheckLogState is where fetching a check's log stands.
+type CheckLogState int32
+
+const (
+	// The state was not read.
+	CheckLogState_CHECK_LOG_STATE_UNSPECIFIED CheckLogState = 0
+	// The check ran in no job, so it has no log to fetch.
+	CheckLogState_CHECK_LOG_STATE_NONE CheckLogState = 1
+	// The log is still to come, because the check has not finished or komrad has not fetched it yet.
+	CheckLogState_CHECK_LOG_STATE_PENDING CheckLogState = 2
+	// komrad fetched the log and keeps it.
+	CheckLogState_CHECK_LOG_STATE_FETCHED CheckLogState = 3
+	// The log ran past the most komrad keeps, so none of it is kept.
+	CheckLogState_CHECK_LOG_STATE_TOO_LARGE CheckLogState = 4
+	// The forge never had a log for the check.
+	CheckLogState_CHECK_LOG_STATE_MISSING CheckLogState = 5
+	// The forge no longer keeps the log.
+	CheckLogState_CHECK_LOG_STATE_EXPIRED CheckLogState = 6
+	// komrad gave up asking the forge for the log.
+	CheckLogState_CHECK_LOG_STATE_FAILED CheckLogState = 7
+)
+
+// Enum value maps for CheckLogState.
+var (
+	CheckLogState_name = map[int32]string{
+		0: "CHECK_LOG_STATE_UNSPECIFIED",
+		1: "CHECK_LOG_STATE_NONE",
+		2: "CHECK_LOG_STATE_PENDING",
+		3: "CHECK_LOG_STATE_FETCHED",
+		4: "CHECK_LOG_STATE_TOO_LARGE",
+		5: "CHECK_LOG_STATE_MISSING",
+		6: "CHECK_LOG_STATE_EXPIRED",
+		7: "CHECK_LOG_STATE_FAILED",
+	}
+	CheckLogState_value = map[string]int32{
+		"CHECK_LOG_STATE_UNSPECIFIED": 0,
+		"CHECK_LOG_STATE_NONE":        1,
+		"CHECK_LOG_STATE_PENDING":     2,
+		"CHECK_LOG_STATE_FETCHED":     3,
+		"CHECK_LOG_STATE_TOO_LARGE":   4,
+		"CHECK_LOG_STATE_MISSING":     5,
+		"CHECK_LOG_STATE_EXPIRED":     6,
+		"CHECK_LOG_STATE_FAILED":      7,
+	}
+)
+
+func (x CheckLogState) Enum() *CheckLogState {
+	p := new(CheckLogState)
+	*p = x
+	return p
+}
+
+func (x CheckLogState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CheckLogState) Descriptor() protoreflect.EnumDescriptor {
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[4].Descriptor()
+}
+
+func (CheckLogState) Type() protoreflect.EnumType {
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[4]
+}
+
+func (x CheckLogState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CheckLogState.Descriptor instead.
+func (CheckLogState) EnumDescriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
+}
+
 // StatusCheckKind is what sort of status check a forge reported.
 type StatusCheckKind int32
 
@@ -366,11 +439,11 @@ func (x StatusCheckKind) String() string {
 }
 
 func (StatusCheckKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[4].Descriptor()
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[5].Descriptor()
 }
 
 func (StatusCheckKind) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[4]
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[5]
 }
 
 func (x StatusCheckKind) Number() protoreflect.EnumNumber {
@@ -379,7 +452,7 @@ func (x StatusCheckKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StatusCheckKind.Descriptor instead.
 func (StatusCheckKind) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
 }
 
 // StatusCheckState is how far along a status check is.
@@ -431,11 +504,11 @@ func (x StatusCheckState) String() string {
 }
 
 func (StatusCheckState) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[5].Descriptor()
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[6].Descriptor()
 }
 
 func (StatusCheckState) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[5]
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[6]
 }
 
 func (x StatusCheckState) Number() protoreflect.EnumNumber {
@@ -444,7 +517,7 @@ func (x StatusCheckState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StatusCheckState.Descriptor instead.
 func (StatusCheckState) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{6}
 }
 
 type ListPullRequestsRequest struct {
@@ -1022,6 +1095,359 @@ func (x *ListStatusChecksResponse) GetReadings() []*StatusCheckReading {
 	return nil
 }
 
+type ReadCheckLogRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The check whose log to read, as StatusCheck.id names it.
+	CheckId string `protobuf:"bytes,1,opt,name=check_id,json=checkId,proto3" json:"check_id,omitempty"`
+	// The first line to read, counting from one.
+	FirstLine int32 `protobuf:"varint,2,opt,name=first_line,json=firstLine,proto3" json:"first_line,omitempty"`
+	// How many lines to read.
+	Count         int32 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadCheckLogRequest) Reset() {
+	*x = ReadCheckLogRequest{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadCheckLogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadCheckLogRequest) ProtoMessage() {}
+
+func (x *ReadCheckLogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadCheckLogRequest.ProtoReflect.Descriptor instead.
+func (*ReadCheckLogRequest) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ReadCheckLogRequest) GetCheckId() string {
+	if x != nil {
+		return x.CheckId
+	}
+	return ""
+}
+
+func (x *ReadCheckLogRequest) GetFirstLine() int32 {
+	if x != nil {
+		return x.FirstLine
+	}
+	return 0
+}
+
+func (x *ReadCheckLogRequest) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type ReadCheckLogResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The lines read, in order, fewer than asked for when the log ends first.
+	Lines []*CheckLogLine `protobuf:"bytes,1,rep,name=lines,proto3" json:"lines,omitempty"`
+	// How many lines the whole log holds.
+	LineCount     int32 `protobuf:"varint,2,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadCheckLogResponse) Reset() {
+	*x = ReadCheckLogResponse{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadCheckLogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadCheckLogResponse) ProtoMessage() {}
+
+func (x *ReadCheckLogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadCheckLogResponse.ProtoReflect.Descriptor instead.
+func (*ReadCheckLogResponse) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ReadCheckLogResponse) GetLines() []*CheckLogLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+func (x *ReadCheckLogResponse) GetLineCount() int32 {
+	if x != nil {
+		return x.LineCount
+	}
+	return 0
+}
+
+// CheckLogLine is one line of a check's log.
+type CheckLogLine struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The line, without its timestamp, color codes or newline.
+	Text          string `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckLogLine) Reset() {
+	*x = CheckLogLine{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckLogLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckLogLine) ProtoMessage() {}
+
+func (x *CheckLogLine) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckLogLine.ProtoReflect.Descriptor instead.
+func (*CheckLogLine) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CheckLogLine) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+type SearchCheckLogsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The checks whose logs to search, as StatusCheck.id names them.
+	CheckIds []string `protobuf:"bytes,1,rep,name=check_ids,json=checkIds,proto3" json:"check_ids,omitempty"`
+	// The RE2 regular expression each line is matched against.
+	Pattern       string `protobuf:"bytes,2,opt,name=pattern,proto3" json:"pattern,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchCheckLogsRequest) Reset() {
+	*x = SearchCheckLogsRequest{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchCheckLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchCheckLogsRequest) ProtoMessage() {}
+
+func (x *SearchCheckLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchCheckLogsRequest.ProtoReflect.Descriptor instead.
+func (*SearchCheckLogsRequest) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SearchCheckLogsRequest) GetCheckIds() []string {
+	if x != nil {
+		return x.CheckIds
+	}
+	return nil
+}
+
+func (x *SearchCheckLogsRequest) GetPattern() string {
+	if x != nil {
+		return x.Pattern
+	}
+	return ""
+}
+
+type SearchCheckLogsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The lines the pattern matched, in check and line order.
+	Hits []*CheckLogHit `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
+	// Whether the search stopped at the most hits it answers with, so more lines match.
+	Limited       bool `protobuf:"varint,2,opt,name=limited,proto3" json:"limited,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchCheckLogsResponse) Reset() {
+	*x = SearchCheckLogsResponse{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchCheckLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchCheckLogsResponse) ProtoMessage() {}
+
+func (x *SearchCheckLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchCheckLogsResponse.ProtoReflect.Descriptor instead.
+func (*SearchCheckLogsResponse) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SearchCheckLogsResponse) GetHits() []*CheckLogHit {
+	if x != nil {
+		return x.Hits
+	}
+	return nil
+}
+
+func (x *SearchCheckLogsResponse) GetLimited() bool {
+	if x != nil {
+		return x.Limited
+	}
+	return false
+}
+
+// CheckLogHit is one line of a check's log a search matched.
+type CheckLogHit struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The check whose log holds the line.
+	CheckId string `protobuf:"bytes,1,opt,name=check_id,json=checkId,proto3" json:"check_id,omitempty"`
+	// The line, counting from one.
+	Line int32 `protobuf:"varint,2,opt,name=line,proto3" json:"line,omitempty"`
+	// The step the line sits in, and 0 for a line in no step.
+	StepNumber int32 `protobuf:"varint,3,opt,name=step_number,json=stepNumber,proto3" json:"step_number,omitempty"`
+	// The line, cut when it runs long.
+	Text string `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	// Whether the line ran past the most characters a hit carries, and was cut there.
+	Cut           bool `protobuf:"varint,5,opt,name=cut,proto3" json:"cut,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckLogHit) Reset() {
+	*x = CheckLogHit{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckLogHit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckLogHit) ProtoMessage() {}
+
+func (x *CheckLogHit) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckLogHit.ProtoReflect.Descriptor instead.
+func (*CheckLogHit) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CheckLogHit) GetCheckId() string {
+	if x != nil {
+		return x.CheckId
+	}
+	return ""
+}
+
+func (x *CheckLogHit) GetLine() int32 {
+	if x != nil {
+		return x.Line
+	}
+	return 0
+}
+
+func (x *CheckLogHit) GetStepNumber() int32 {
+	if x != nil {
+		return x.StepNumber
+	}
+	return 0
+}
+
+func (x *CheckLogHit) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *CheckLogHit) GetCut() bool {
+	if x != nil {
+		return x.Cut
+	}
+	return false
+}
+
 // StatusCheckReading is the status checks read on one head commit of a pull request.
 type StatusCheckReading struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1039,7 +1465,7 @@ type StatusCheckReading struct {
 
 func (x *StatusCheckReading) Reset() {
 	*x = StatusCheckReading{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +1477,7 @@ func (x *StatusCheckReading) String() string {
 func (*StatusCheckReading) ProtoMessage() {}
 
 func (x *StatusCheckReading) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[7]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,7 +1490,7 @@ func (x *StatusCheckReading) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusCheckReading.ProtoReflect.Descriptor instead.
 func (*StatusCheckReading) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{7}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *StatusCheckReading) GetHeadSha() string {
@@ -1123,14 +1549,18 @@ type StatusCheck struct {
 	// What started the run, such as pull_request or push, empty when no workflow ran it.
 	RunEvent string `protobuf:"bytes,13,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
 	// When the run was created, in RFC 3339, unset when the check ran in none.
-	RunStartedAt  *string `protobuf:"bytes,14,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
+	RunStartedAt *string `protobuf:"bytes,14,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
+	// The log komrad keeps of the check, and where fetching it stands.
+	Log *CheckLog `protobuf:"bytes,15,opt,name=log,proto3" json:"log,omitempty"`
+	// The identifier komrad keeps the check under, which ReadCheckLog and SearchCheckLogs take.
+	Id            string `protobuf:"bytes,16,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StatusCheck) Reset() {
 	*x = StatusCheck{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[8]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1142,7 +1572,7 @@ func (x *StatusCheck) String() string {
 func (*StatusCheck) ProtoMessage() {}
 
 func (x *StatusCheck) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[8]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1155,7 +1585,7 @@ func (x *StatusCheck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusCheck.ProtoReflect.Descriptor instead.
 func (*StatusCheck) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{8}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StatusCheck) GetProviderId() string {
@@ -1249,6 +1679,193 @@ func (x *StatusCheck) GetRunStartedAt() string {
 	return ""
 }
 
+func (x *StatusCheck) GetLog() *CheckLog {
+	if x != nil {
+		return x.Log
+	}
+	return nil
+}
+
+func (x *StatusCheck) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// CheckLog is where komrad stands with a check's log, with the map of its steps and without its text.
+type CheckLog struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where fetching the log stands.
+	State CheckLogState `protobuf:"varint,1,opt,name=state,proto3,enum=pullrequest.v1.CheckLogState" json:"state,omitempty"`
+	// When komrad last asked the forge for the log, in RFC 3339, unset while it has not.
+	FetchedAt *string `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3,oneof" json:"fetched_at,omitempty"`
+	// How many lines a fetched log holds.
+	LineCount int32 `protobuf:"varint,3,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
+	// How many lines of a fetched log the forge marked as errors.
+	ErrorCount int32 `protobuf:"varint,4,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
+	// Where each step sits in a fetched log, in the order the steps ran, empty when none could be placed.
+	Steps         []*CheckLogStep `protobuf:"bytes,5,rep,name=steps,proto3" json:"steps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckLog) Reset() {
+	*x = CheckLog{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckLog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckLog) ProtoMessage() {}
+
+func (x *CheckLog) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckLog.ProtoReflect.Descriptor instead.
+func (*CheckLog) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CheckLog) GetState() CheckLogState {
+	if x != nil {
+		return x.State
+	}
+	return CheckLogState_CHECK_LOG_STATE_UNSPECIFIED
+}
+
+func (x *CheckLog) GetFetchedAt() string {
+	if x != nil && x.FetchedAt != nil {
+		return *x.FetchedAt
+	}
+	return ""
+}
+
+func (x *CheckLog) GetLineCount() int32 {
+	if x != nil {
+		return x.LineCount
+	}
+	return 0
+}
+
+func (x *CheckLog) GetErrorCount() int32 {
+	if x != nil {
+		return x.ErrorCount
+	}
+	return 0
+}
+
+func (x *CheckLog) GetSteps() []*CheckLogStep {
+	if x != nil {
+		return x.Steps
+	}
+	return nil
+}
+
+// CheckLogStep is where one step of a check run sits in the check's log.
+type CheckLogStep struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where the step falls in the run, counting from one.
+	Number int32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
+	// The name the forge shows for it.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// How it ended, as the forge words it, empty while it has not.
+	Conclusion string `protobuf:"bytes,3,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
+	// The line the step starts on, counting from one.
+	FirstLine int32 `protobuf:"varint,4,opt,name=first_line,json=firstLine,proto3" json:"first_line,omitempty"`
+	// How many lines the step wrote.
+	LineCount int32 `protobuf:"varint,5,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
+	// How many of the step's lines the forge marked as errors.
+	ErrorCount    int32 `protobuf:"varint,6,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckLogStep) Reset() {
+	*x = CheckLogStep{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckLogStep) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckLogStep) ProtoMessage() {}
+
+func (x *CheckLogStep) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckLogStep.ProtoReflect.Descriptor instead.
+func (*CheckLogStep) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *CheckLogStep) GetNumber() int32 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *CheckLogStep) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CheckLogStep) GetConclusion() string {
+	if x != nil {
+		return x.Conclusion
+	}
+	return ""
+}
+
+func (x *CheckLogStep) GetFirstLine() int32 {
+	if x != nil {
+		return x.FirstLine
+	}
+	return 0
+}
+
+func (x *CheckLogStep) GetLineCount() int32 {
+	if x != nil {
+		return x.LineCount
+	}
+	return 0
+}
+
+func (x *CheckLogStep) GetErrorCount() int32 {
+	if x != nil {
+		return x.ErrorCount
+	}
+	return 0
+}
+
 // StatusCheckStep is one step of a check run.
 type StatusCheckStep struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1270,7 +1887,7 @@ type StatusCheckStep struct {
 
 func (x *StatusCheckStep) Reset() {
 	*x = StatusCheckStep{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[9]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1282,7 +1899,7 @@ func (x *StatusCheckStep) String() string {
 func (*StatusCheckStep) ProtoMessage() {}
 
 func (x *StatusCheckStep) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[9]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1295,7 +1912,7 @@ func (x *StatusCheckStep) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusCheckStep.ProtoReflect.Descriptor instead.
 func (*StatusCheckStep) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{9}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *StatusCheckStep) GetNumber() int32 {
@@ -1403,7 +2020,34 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x17ListStatusChecksRequest\x12/\n" +
 	"\x0fpull_request_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rpullRequestId\"\x8e\x01\n" +
 	"\x18ListStatusChecksResponse\x12>\n" +
-	"\breadings\x18\x04 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadingsJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\bhead_shaR\aread_atR\rstatus_checks\"\xd6\x01\n" +
+	"\breadings\x18\x04 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadingsJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\bhead_shaR\aread_atR\rstatus_checks\"\x83\x01\n" +
+	"\x13ReadCheckLogRequest\x12\"\n" +
+	"\bcheck_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\acheckId\x12&\n" +
+	"\n" +
+	"first_line\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02(\x01R\tfirstLine\x12 \n" +
+	"\x05count\x18\x03 \x01(\x05B\n" +
+	"\xbaH\a\x1a\x05\x18\x88'(\x01R\x05count\"i\n" +
+	"\x14ReadCheckLogResponse\x122\n" +
+	"\x05lines\x18\x01 \x03(\v2\x1c.pullrequest.v1.CheckLogLineR\x05lines\x12\x1d\n" +
+	"\n" +
+	"line_count\x18\x02 \x01(\x05R\tlineCount\"\"\n" +
+	"\fCheckLogLine\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"m\n" +
+	"\x16SearchCheckLogsRequest\x12-\n" +
+	"\tcheck_ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
+	"\b\x01\x10d\"\x04r\x02\x10\x01R\bcheckIds\x12$\n" +
+	"\apattern\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x04R\apattern\"d\n" +
+	"\x17SearchCheckLogsResponse\x12/\n" +
+	"\x04hits\x18\x01 \x03(\v2\x1b.pullrequest.v1.CheckLogHitR\x04hits\x12\x18\n" +
+	"\alimited\x18\x02 \x01(\bR\alimited\"\x83\x01\n" +
+	"\vCheckLogHit\x12\x19\n" +
+	"\bcheck_id\x18\x01 \x01(\tR\acheckId\x12\x12\n" +
+	"\x04line\x18\x02 \x01(\x05R\x04line\x12\x1f\n" +
+	"\vstep_number\x18\x03 \x01(\x05R\n" +
+	"stepNumber\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\x12\x10\n" +
+	"\x03cut\x18\x05 \x01(\bR\x03cut\"\xd6\x01\n" +
 	"\x12StatusCheckReading\x12\x19\n" +
 	"\bhead_sha\x18\x01 \x01(\tR\aheadSha\x12'\n" +
 	"\rfirst_read_at\x18\x02 \x01(\tH\x00R\vfirstReadAt\x88\x01\x01\x12\x1c\n" +
@@ -1411,7 +2055,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\rstatus_checks\x18\x04 \x03(\v2\x1b.pullrequest.v1.StatusCheckR\fstatusChecksB\x10\n" +
 	"\x0e_first_read_atB\n" +
 	"\n" +
-	"\b_read_at\"\x9e\x04\n" +
+	"\b_read_at\"\xda\x04\n" +
 	"\vStatusCheck\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x123\n" +
@@ -1431,10 +2075,34 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	" \x01(\tR\x03url\x125\n" +
 	"\x05steps\x18\v \x03(\v2\x1f.pullrequest.v1.StatusCheckStepR\x05steps\x12\x1b\n" +
 	"\trun_event\x18\r \x01(\tR\brunEvent\x12)\n" +
-	"\x0erun_started_at\x18\x0e \x01(\tH\x02R\frunStartedAt\x88\x01\x01B\r\n" +
+	"\x0erun_started_at\x18\x0e \x01(\tH\x02R\frunStartedAt\x88\x01\x01\x12*\n" +
+	"\x03log\x18\x0f \x01(\v2\x18.pullrequest.v1.CheckLogR\x03log\x12\x0e\n" +
+	"\x02id\x18\x10 \x01(\tR\x02idB\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_atB\x11\n" +
-	"\x0f_run_started_atJ\x04\b\f\x10\rR\x06run_id\"\xfe\x01\n" +
+	"\x0f_run_started_atJ\x04\b\f\x10\rR\x06run_id\"\xe6\x01\n" +
+	"\bCheckLog\x123\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x1d.pullrequest.v1.CheckLogStateR\x05state\x12\"\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\tH\x00R\tfetchedAt\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"line_count\x18\x03 \x01(\x05R\tlineCount\x12\x1f\n" +
+	"\verror_count\x18\x04 \x01(\x05R\n" +
+	"errorCount\x122\n" +
+	"\x05steps\x18\x05 \x03(\v2\x1c.pullrequest.v1.CheckLogStepR\x05stepsB\r\n" +
+	"\v_fetched_at\"\xb9\x01\n" +
+	"\fCheckLogStep\x12\x16\n" +
+	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n" +
+	"\n" +
+	"conclusion\x18\x03 \x01(\tR\n" +
+	"conclusion\x12\x1d\n" +
+	"\n" +
+	"first_line\x18\x04 \x01(\x05R\tfirstLine\x12\x1d\n" +
+	"\n" +
+	"line_count\x18\x05 \x01(\x05R\tlineCount\x12\x1f\n" +
+	"\verror_count\x18\x06 \x01(\x05R\n" +
+	"errorCount\"\xfe\x01\n" +
 	"\x0fStatusCheckStep\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x126\n" +
@@ -1485,7 +2153,16 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
 	"\x0eCHECKS_FAILING\x10\x04\x12\x1a\n" +
-	"\x16CHECKS_FAILING_RUNNING\x10\x05*\x93\x01\n" +
+	"\x16CHECKS_FAILING_RUNNING\x10\x05*\xf9\x01\n" +
+	"\rCheckLogState\x12\x1f\n" +
+	"\x1bCHECK_LOG_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14CHECK_LOG_STATE_NONE\x10\x01\x12\x1b\n" +
+	"\x17CHECK_LOG_STATE_PENDING\x10\x02\x12\x1b\n" +
+	"\x17CHECK_LOG_STATE_FETCHED\x10\x03\x12\x1d\n" +
+	"\x19CHECK_LOG_STATE_TOO_LARGE\x10\x04\x12\x1b\n" +
+	"\x17CHECK_LOG_STATE_MISSING\x10\x05\x12\x1b\n" +
+	"\x17CHECK_LOG_STATE_EXPIRED\x10\x06\x12\x1a\n" +
+	"\x16CHECK_LOG_STATE_FAILED\x10\a*\x93\x01\n" +
 	"\x0fStatusCheckKind\x12!\n" +
 	"\x1dSTATUS_CHECK_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bSTATUS_CHECK_KIND_CHECK_RUN\x10\x01\x12\x1c\n" +
@@ -1497,10 +2174,12 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1aSTATUS_CHECK_STATE_RUNNING\x10\x02\x12\x1e\n" +
 	"\x1aSTATUS_CHECK_STATE_WAITING\x10\x03\x12 \n" +
 	"\x1cSTATUS_CHECK_STATE_COMPLETED\x10\x04\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xf8\x04\n" +
+	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xda\a\n" +
 	"\x12PullRequestService\x12\xc1\x02\n" +
 	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\x9d\x02\n" +
-	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\xb5\x01\x9a\xb5\x18\xad\x01:\xaa\x01The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\xb5\x01\x9a\xb5\x18\xad\x01:\xaa\x01The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01\x12\xb2\x01\n" +
+	"\fReadCheckLog\x12#.pullrequest.v1.ReadCheckLogRequest\x1a$.pullrequest.v1.ReadCheckLogResponse\"W\x9a\xb5\x18P:NA check's log is read a window at a time for a person on the check log screen.\x90\x02\x01\x12\xaa\x01\n" +
+	"\x0fSearchCheckLogs\x12&.pullrequest.v1.SearchCheckLogsRequest\x1a'.pullrequest.v1.SearchCheckLogsResponse\"F\x9a\xb5\x18?:=Check logs are searched for a person on the check log screen.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
@@ -1514,50 +2193,68 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 	return file_pullrequest_v1_pullrequest_proto_rawDescData
 }
 
-var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
 	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
 	(ReviewDecision)(0),              // 2: pullrequest.v1.ReviewDecision
 	(Checks)(0),                      // 3: pullrequest.v1.Checks
-	(StatusCheckKind)(0),             // 4: pullrequest.v1.StatusCheckKind
-	(StatusCheckState)(0),            // 5: pullrequest.v1.StatusCheckState
-	(*ListPullRequestsRequest)(nil),  // 6: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),              // 7: pullrequest.v1.PullRequest
-	(*MergeReadiness)(nil),           // 8: pullrequest.v1.MergeReadiness
-	(*Repository)(nil),               // 9: pullrequest.v1.Repository
-	(*ListPullRequestsResponse)(nil), // 10: pullrequest.v1.ListPullRequestsResponse
-	(*ListStatusChecksRequest)(nil),  // 11: pullrequest.v1.ListStatusChecksRequest
-	(*ListStatusChecksResponse)(nil), // 12: pullrequest.v1.ListStatusChecksResponse
-	(*StatusCheckReading)(nil),       // 13: pullrequest.v1.StatusCheckReading
-	(*StatusCheck)(nil),              // 14: pullrequest.v1.StatusCheck
-	(*StatusCheckStep)(nil),          // 15: pullrequest.v1.StatusCheckStep
-	(*v1.Pagination)(nil),            // 16: pagination.v1.Pagination
+	(CheckLogState)(0),               // 4: pullrequest.v1.CheckLogState
+	(StatusCheckKind)(0),             // 5: pullrequest.v1.StatusCheckKind
+	(StatusCheckState)(0),            // 6: pullrequest.v1.StatusCheckState
+	(*ListPullRequestsRequest)(nil),  // 7: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),              // 8: pullrequest.v1.PullRequest
+	(*MergeReadiness)(nil),           // 9: pullrequest.v1.MergeReadiness
+	(*Repository)(nil),               // 10: pullrequest.v1.Repository
+	(*ListPullRequestsResponse)(nil), // 11: pullrequest.v1.ListPullRequestsResponse
+	(*ListStatusChecksRequest)(nil),  // 12: pullrequest.v1.ListStatusChecksRequest
+	(*ListStatusChecksResponse)(nil), // 13: pullrequest.v1.ListStatusChecksResponse
+	(*ReadCheckLogRequest)(nil),      // 14: pullrequest.v1.ReadCheckLogRequest
+	(*ReadCheckLogResponse)(nil),     // 15: pullrequest.v1.ReadCheckLogResponse
+	(*CheckLogLine)(nil),             // 16: pullrequest.v1.CheckLogLine
+	(*SearchCheckLogsRequest)(nil),   // 17: pullrequest.v1.SearchCheckLogsRequest
+	(*SearchCheckLogsResponse)(nil),  // 18: pullrequest.v1.SearchCheckLogsResponse
+	(*CheckLogHit)(nil),              // 19: pullrequest.v1.CheckLogHit
+	(*StatusCheckReading)(nil),       // 20: pullrequest.v1.StatusCheckReading
+	(*StatusCheck)(nil),              // 21: pullrequest.v1.StatusCheck
+	(*CheckLog)(nil),                 // 22: pullrequest.v1.CheckLog
+	(*CheckLogStep)(nil),             // 23: pullrequest.v1.CheckLogStep
+	(*StatusCheckStep)(nil),          // 24: pullrequest.v1.StatusCheckStep
+	(*v1.Pagination)(nil),            // 25: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	16, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	25, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	8,  // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
+	9,  // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
 	2,  // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
 	3,  // 4: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
 	1,  // 5: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
-	7,  // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	13, // 7: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
-	14, // 8: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
-	4,  // 9: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
-	5,  // 10: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
-	15, // 11: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
-	5,  // 12: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
-	6,  // 13: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	11, // 14: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
-	10, // 15: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	12, // 16: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
-	15, // [15:17] is the sub-list for method output_type
-	13, // [13:15] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	8,  // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	20, // 7: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
+	16, // 8: pullrequest.v1.ReadCheckLogResponse.lines:type_name -> pullrequest.v1.CheckLogLine
+	19, // 9: pullrequest.v1.SearchCheckLogsResponse.hits:type_name -> pullrequest.v1.CheckLogHit
+	21, // 10: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
+	5,  // 11: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
+	6,  // 12: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
+	24, // 13: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
+	22, // 14: pullrequest.v1.StatusCheck.log:type_name -> pullrequest.v1.CheckLog
+	4,  // 15: pullrequest.v1.CheckLog.state:type_name -> pullrequest.v1.CheckLogState
+	23, // 16: pullrequest.v1.CheckLog.steps:type_name -> pullrequest.v1.CheckLogStep
+	6,  // 17: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
+	7,  // 18: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	12, // 19: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
+	14, // 20: pullrequest.v1.PullRequestService.ReadCheckLog:input_type -> pullrequest.v1.ReadCheckLogRequest
+	17, // 21: pullrequest.v1.PullRequestService.SearchCheckLogs:input_type -> pullrequest.v1.SearchCheckLogsRequest
+	11, // 22: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	13, // 23: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
+	15, // 24: pullrequest.v1.PullRequestService.ReadCheckLog:output_type -> pullrequest.v1.ReadCheckLogResponse
+	18, // 25: pullrequest.v1.PullRequestService.SearchCheckLogs:output_type -> pullrequest.v1.SearchCheckLogsResponse
+	22, // [22:26] is the sub-list for method output_type
+	18, // [18:22] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -1568,16 +2265,17 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[4].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[7].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[8].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[9].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[13].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[14].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[15].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
-			NumEnums:      6,
-			NumMessages:   10,
+			NumEnums:      7,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

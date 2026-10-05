@@ -396,16 +396,18 @@ type installationVerifier interface {
 
 // JobLogReader is a forge that can hand over the log of a finished Actions job.
 type JobLogReader interface {
-	// JobLog is the job's log cut at the most komrad keeps, ErrNotFound while the forge has no log ready
-	// and ErrExpired once it no longer keeps one.
-	JobLog(ctx context.Context, repo git.RemoteURL, jobID int64) (*JobLog, error)
+	// JobLog is the job's log read up to maxBytes, ErrNotFound while the forge has no log ready and
+	// ErrExpired once it no longer keeps one.
+	JobLog(ctx context.Context, repo git.RemoteURL, jobID int64, maxBytes int64) (*JobLog, error)
 }
 
-// JobLog is the text of one job's log.
+// JobLog is the text of one job's log, and the credential's budget after asking for it.
 type JobLog struct {
+	// Text is empty for a log too large to read.
 	Text string
-	// Truncated is whether the log ran past the most komrad keeps, and was cut there.
-	Truncated bool
+	// TooLarge is whether the log ran past the most the caller would read.
+	TooLarge  bool
+	RateLimit RateLimit
 }
 
 // TokenInfo is what a forge says of the token it was shown.

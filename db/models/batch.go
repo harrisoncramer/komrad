@@ -17,11 +17,13 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
-const insertCheckLogParts = `-- name: InsertCheckLogParts :batchexec
-INSERT INTO pull_request_check_log_parts(
+const insertCheckLogSteps = `-- name: InsertCheckLogSteps :batchexec
+INSERT INTO pull_request_check_log_steps(
     log_id,
-    step_number,
-    text,
+    number,
+    name,
+    conclusion,
+    first_line,
     line_count,
     error_count)
 VALUES (
@@ -29,40 +31,46 @@ VALUES (
     $2,
     $3,
     $4,
-    $5)
+    $5,
+    $6,
+    $7)
 `
 
-type InsertCheckLogPartsBatchResults struct {
+type InsertCheckLogStepsBatchResults struct {
 	br     pgx.BatchResults
 	tot    int
 	closed bool
 }
 
-type InsertCheckLogPartsParams struct {
+type InsertCheckLogStepsParams struct {
 	LogID      string
-	StepNumber int32
-	Text       string
+	Number     int32
+	Name       string
+	Conclusion string
+	FirstLine  int32
 	LineCount  int32
 	ErrorCount int32
 }
 
-func (q *Queries) InsertCheckLogParts(ctx context.Context, arg []InsertCheckLogPartsParams) *InsertCheckLogPartsBatchResults {
+func (q *Queries) InsertCheckLogSteps(ctx context.Context, arg []InsertCheckLogStepsParams) *InsertCheckLogStepsBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
 			a.LogID,
-			a.StepNumber,
-			a.Text,
+			a.Number,
+			a.Name,
+			a.Conclusion,
+			a.FirstLine,
 			a.LineCount,
 			a.ErrorCount,
 		}
-		batch.Queue(insertCheckLogParts, vals...)
+		batch.Queue(insertCheckLogSteps, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &InsertCheckLogPartsBatchResults{br, len(arg), false}
+	return &InsertCheckLogStepsBatchResults{br, len(arg), false}
 }
 
-func (b *InsertCheckLogPartsBatchResults) Exec(f func(int, error)) {
+func (b *InsertCheckLogStepsBatchResults) Exec(f func(int, error)) {
 	defer b.br.Close()
 	for t := 0; t < b.tot; t++ {
 		if b.closed {
@@ -78,7 +86,7 @@ func (b *InsertCheckLogPartsBatchResults) Exec(f func(int, error)) {
 	}
 }
 
-func (b *InsertCheckLogPartsBatchResults) Close() error {
+func (b *InsertCheckLogStepsBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

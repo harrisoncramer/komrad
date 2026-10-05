@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"komrad/internal/forge"
 
@@ -13,7 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const jobLogPath = "/repos/harrisoncramer/komrad/actions/jobs/42/logs"
+const (
+	jobLogPath         = "/repos/harrisoncramer/komrad/actions/jobs/42/logs"
+	testMaxJobLogBytes = 64
+)
 
 // TestJobLogFollowsTheRedirectWithoutTheCredential covers that the log is read from the signed address
 // GitHub redirects to, and that only the call to GitHub carries the token.
@@ -21,13 +23,20 @@ func TestJobLogFollowsTheRedirectWithoutTheCredential(t *testing.T) {
 	t.Parallel()
 
 	f, _, fake := serve(t, map[string]answer{
-		jobLogPath: {status: http.StatusFound, header: map[string]string{"Location": "/signed?sig=abc"}},
-		"/signed":  {body: "2026-09-20T12:00:00Z go test\n"},
+		jobLogPath: {status: http.StatusFound, header: map[string]string{
+			"Location":              "/signed?sig=abc",
+			"X-RateLimit-Remaining": "4000",
+			"X-RateLimit-Limit":     "5000",
+			"X-RateLimit-Reset":     "1789900000",
+		}},
+		"/signed": {body: "2026-09-20T12:00:00Z go test\n"},
 	})
 
-	log, err := f.JobLog(t.Context(), komrad, 42)
+	log, err := f.JobLog(t.Context(), komrad, 42, testMaxJobLogBytes)
 	require.NoError(t, err)
-	assert.Equal(t, &forge.JobLog{Text: "2026-09-20T12:00:00Z go test\n"}, log)
+	assert.Equal(t, "2026-09-20T12:00:00Z go test\n", log.Text)
+	assert.False(t, log.TooLarge)
+	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 4000, Limit: 5000, ResetAt: time.Unix(1789900000, 0)}, log.RateLimit)
 
 	require.Len(t, fake.calls, 2)
 	assert.Equal(t, jobLogPath, fake.calls[0].Path)
@@ -91,7 +100,7 @@ func TestJobLogRefusals(t *testing.T) {
 
 			f, _, _ := serve(t, tt.answers)
 
-			_, err := f.JobLog(t.Context(), komrad, 42)
+			_, err := f.JobLog(t.Context(), komrad, 42, testMaxJobLogBytes)
 			require.Error(t, err)
 
 			if tt.wantIs == nil {
@@ -111,21 +120,37 @@ func TestJobLogRefusals(t *testing.T) {
 	}
 }
 
-// TestJobLogTruncatesAtAWholeLine covers that a log past the most komrad keeps is cut back to its last
-// whole line, so a character straddling the limit is not split.
-func TestJobLogTruncatesAtAWholeLine(t *testing.T) {
+// TestJobLogTooLarge covers that a log past the most the caller reads comes back with no text.
+func TestJobLogTooLarge(t *testing.T) {
 	t.Parallel()
 
-	kept := strings.Repeat("a\n", (maxJobLogBytes-1)/2)
-	f, _, _ := serve(t, map[string]answer{
-		jobLogPath: {status: http.StatusFound, header: map[string]string{"Location": "/signed"}},
-		"/signed":  {body: kept + "aé\n"},
-	})
+	tests := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{name: "a log at the most is read whole", body: strings.Repeat("a", testMaxJobLogBytes)},
+		{name: "a log one byte past the most is too large", body: strings.Repeat("a", testMaxJobLogBytes+1), want: true},
+	}
 
-	log, err := f.JobLog(t.Context(), komrad, 42)
-	require.NoError(t, err)
-	assert.True(t, log.Truncated)
-	assert.Len(t, log.Text, len(kept))
-	assert.True(t, utf8.ValidString(log.Text))
-	assert.True(t, strings.HasSuffix(log.Text, "a\n"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, _ := serve(t, map[string]answer{
+				jobLogPath: {status: http.StatusFound, header: map[string]string{"Location": "/signed"}},
+				"/signed":  {body: tt.body},
+			})
+
+			log, err := f.JobLog(t.Context(), komrad, 42, testMaxJobLogBytes)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, log.TooLarge)
+			if tt.want {
+				assert.Empty(t, log.Text)
+
+				return
+			}
+			assert.Equal(t, tt.body, log.Text)
+		})
+	}
 }

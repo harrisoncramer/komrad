@@ -1970,6 +1970,13 @@
           "type": "array",
           "description": "Logins whose review comments are left out of the threads mirrored onto an agent, such as a\nCI bot or a code review App. A thread whose every comment is from one of them is not mirrored\nat all. Names are matched without regard to case.",
           "default": "[]"
+        },
+        {
+          "key": "max_check_log_bytes",
+          "path": "forge.max_check_log_bytes",
+          "type": "integer",
+          "description": "The largest check log komrad keeps, in bytes. A log past it is not kept, and the panel links to it\non the forge instead. A negative size is refused.",
+          "default": "2097152"
         }
       ],
       "sections": []

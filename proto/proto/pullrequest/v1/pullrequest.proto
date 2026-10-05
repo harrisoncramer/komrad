@@ -200,6 +200,68 @@ message ListStatusChecksResponse {
   repeated StatusCheckReading readings = 4;
 }
 
+message ReadCheckLogRequest {
+  // The check whose log to read, as StatusCheck.id names it.
+  string check_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The first line to read, counting from one.
+  int32 first_line = 2 [(buf.validate.field).int32.gte = 1];
+  // How many lines to read.
+  int32 count = 3 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 5000
+  }];
+}
+
+message ReadCheckLogResponse {
+  // The lines read, in order, fewer than asked for when the log ends first.
+  repeated CheckLogLine lines = 1;
+  // How many lines the whole log holds.
+  int32 line_count = 2;
+}
+
+// CheckLogLine is one line of a check's log.
+message CheckLogLine {
+  // The line, without its timestamp, color codes or newline.
+  string text = 1;
+}
+
+message SearchCheckLogsRequest {
+  // The checks whose logs to search, as StatusCheck.id names them.
+  repeated string check_ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 100
+    items: {
+      string: {min_len: 1}
+    }
+  }];
+  // The RE2 regular expression each line is matched against.
+  string pattern = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+}
+
+message SearchCheckLogsResponse {
+  // The lines the pattern matched, in check and line order.
+  repeated CheckLogHit hits = 1;
+  // Whether the search stopped at the most hits it answers with, so more lines match.
+  bool limited = 2;
+}
+
+// CheckLogHit is one line of a check's log a search matched.
+message CheckLogHit {
+  // The check whose log holds the line.
+  string check_id = 1;
+  // The line, counting from one.
+  int32 line = 2;
+  // The step the line sits in, and 0 for a line in no step.
+  int32 step_number = 3;
+  // The line, cut when it runs long.
+  string text = 4;
+  // Whether the line ran past the most characters a hit carries, and was cut there.
+  bool cut = 5;
+}
+
 // StatusCheckReading is the status checks read on one head commit of a pull request.
 message StatusCheckReading {
   // The head commit the status checks were read on.
@@ -242,6 +304,60 @@ message StatusCheck {
   string run_event = 13;
   // When the run was created, in RFC 3339, unset when the check ran in none.
   optional string run_started_at = 14;
+  // The log komrad keeps of the check, and where fetching it stands.
+  CheckLog log = 15;
+  // The identifier komrad keeps the check under, which ReadCheckLog and SearchCheckLogs take.
+  string id = 16;
+}
+
+// CheckLog is where komrad stands with a check's log, with the map of its steps and without its text.
+message CheckLog {
+  // Where fetching the log stands.
+  CheckLogState state = 1;
+  // When komrad last asked the forge for the log, in RFC 3339, unset while it has not.
+  optional string fetched_at = 2;
+  // How many lines a fetched log holds.
+  int32 line_count = 3;
+  // How many lines of a fetched log the forge marked as errors.
+  int32 error_count = 4;
+  // Where each step sits in a fetched log, in the order the steps ran, empty when none could be placed.
+  repeated CheckLogStep steps = 5;
+}
+
+// CheckLogStep is where one step of a check run sits in the check's log.
+message CheckLogStep {
+  // Where the step falls in the run, counting from one.
+  int32 number = 1;
+  // The name the forge shows for it.
+  string name = 2;
+  // How it ended, as the forge words it, empty while it has not.
+  string conclusion = 3;
+  // The line the step starts on, counting from one.
+  int32 first_line = 4;
+  // How many lines the step wrote.
+  int32 line_count = 5;
+  // How many of the step's lines the forge marked as errors.
+  int32 error_count = 6;
+}
+
+// CheckLogState is where fetching a check's log stands.
+enum CheckLogState {
+  // The state was not read.
+  CHECK_LOG_STATE_UNSPECIFIED = 0;
+  // The check ran in no job, so it has no log to fetch.
+  CHECK_LOG_STATE_NONE = 1;
+  // The log is still to come, because the check has not finished or komrad has not fetched it yet.
+  CHECK_LOG_STATE_PENDING = 2;
+  // komrad fetched the log and keeps it.
+  CHECK_LOG_STATE_FETCHED = 3;
+  // The log ran past the most komrad keeps, so none of it is kept.
+  CHECK_LOG_STATE_TOO_LARGE = 4;
+  // The forge never had a log for the check.
+  CHECK_LOG_STATE_MISSING = 5;
+  // The forge no longer keeps the log.
+  CHECK_LOG_STATE_EXPIRED = 6;
+  // komrad gave up asking the forge for the log.
+  CHECK_LOG_STATE_FAILED = 7;
 }
 
 // StatusCheckStep is one step of a check run.
@@ -309,6 +425,22 @@ service PullRequestService {
       cli: false
       mcp: false
       reason: "The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns."
+    };
+  }
+  rpc ReadCheckLog(ReadCheckLogRequest) returns (ReadCheckLogResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "A check's log is read a window at a time for a person on the check log screen."
+    };
+  }
+  rpc SearchCheckLogs(SearchCheckLogsRequest) returns (SearchCheckLogsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Check logs are searched for a person on the check log screen."
     };
   }
 }

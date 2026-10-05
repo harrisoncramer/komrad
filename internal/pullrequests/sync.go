@@ -12,9 +12,11 @@ import (
 	"komrad/internal/events"
 	"komrad/internal/forge"
 	"komrad/internal/git"
+	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/logging"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/wake"
+	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -355,6 +357,12 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				if err != nil {
 					return nil, err
 				}
+
+				fetches, err := logFetches(ctx, tx, outcome.ID)
+				if err != nil {
+					return nil, err
+				}
+				recorded = append(recorded, fetches...)
 			}
 			if until := hotUntil(pullRequest, change); until.After(result.hotUntil) {
 				result.hotUntil = until
@@ -435,4 +443,16 @@ func toUpsert(pullRequest forge.PullRequest) pullrequeststore.UpsertParams {
 		MergedAt:          pullRequest.MergedAt,
 		ClosedAt:          pullRequest.ClosedAt,
 	}
+}
+
+// logFetches is a fetch for the log of each finished check on the pull request's head that has none kept.
+func logFetches(ctx context.Context, tx pgx.Tx, pullRequestID string) ([]river.JobArgs, error) {
+	checkIDs, err := pullrequeststore.NewStatusCheckStore(tx).ListHeadChecksWantingLogs(ctx, pullRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(checkIDs, func(checkID string) river.JobArgs {
+		return internaljobs.FetchCheckLogArgs{CheckID: checkID}
+	}), nil
 }

@@ -56,7 +56,7 @@ var declared = []Table{
 	{Name: "forge_review_threads", Triggers: []Trigger{setUpdatedAt}},
 	{Name: "mail", Triggers: []Trigger{setUpdatedAt}},
 	{Name: "pull_request_check_failure_notes"},
-	{Name: "pull_request_check_log_parts"},
+	{Name: "pull_request_check_log_steps"},
 	{Name: "pull_request_check_logs"},
 	{Name: "pull_request_check_readings"},
 	{Name: "pull_request_check_steps"},

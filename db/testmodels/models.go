@@ -834,37 +834,41 @@ type PullRequestCheckFailureNote struct {
 	EngineID pgtype.UUID
 }
 
-// The log of a check's Actions job as komrad last fetched it, one row per check, its text kept split into parts.
+// The log of a check's Actions job as komrad last fetched it, one row per check, kept whole and cleaned.
 type PullRequestCheckLog struct {
 	ID pgtype.UUID
 	// The check whose job the log is of.
 	CheckID pgtype.UUID
 	// When komrad last asked the forge for the log.
 	FetchedAt pgtype.Timestamptz
-	// What the forge answered: fetched when it gave the log, missing when it never had one ready, expired when it no longer keeps it, failed when asking went wrong.
+	// What the forge answered: fetched when it gave the log, too_large when the log ran past the most komrad keeps, missing when it never had one ready, expired when it no longer keeps it, failed when asking went wrong.
 	Outcome string
-	// Whether the log was split into one part per step, rather than kept whole as part 0.
-	Split bool
-	// Whether the log ran past the most komrad keeps, and was cut there.
-	Truncated bool
-	// How many lines the log holds across its parts, zero when none was fetched.
+	// How many lines the log holds, zero unless it was fetched.
 	LineCount int32
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// The whole log, cleaned of timestamps and escape codes, empty unless it was fetched.
+	Text string
+	// How many of the log's lines the job marked as errors.
+	ErrorCount int32
 }
 
-// The lines of one step of a check's log, or of the whole log when it could not be split by step.
-type PullRequestCheckLogPart struct {
+// Where one step of a check run sits in the check's log, as the steps stood when the log was fetched.
+type PullRequestCheckLogStep struct {
 	ID pgtype.UUID
-	// The log the part belongs to.
+	// The log the step sits in.
 	LogID pgtype.UUID
-	// The number of the step the lines were printed in, or 0 for the whole log when it could not be split.
-	StepNumber int32
-	// The part's lines, cleaned of timestamps and escape codes, joined by newlines.
-	Text string
-	// How many lines the part holds.
+	// Where the step falls in its check run, counting from one.
+	Number int32
+	// The step's name when the log was fetched.
+	Name string
+	// How the step ended when the log was fetched, in the forge's own word lowercased.
+	Conclusion string
+	// The log line the step starts on, counting from one.
+	FirstLine int32
+	// How many lines of the log the step printed.
 	LineCount int32
-	// How many of the part's lines the job marked as errors.
+	// How many of the step's lines the job marked as errors.
 	ErrorCount int32
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID

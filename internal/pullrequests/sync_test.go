@@ -15,7 +15,9 @@ import (
 	"komrad/internal/events/eventstest"
 	"komrad/internal/forge"
 	"komrad/internal/git"
+	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/logging"
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -677,6 +679,45 @@ func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
 	unlisted, err := checks.ListOfPullRequest(t.Context(), f.stored(t, "PR_2").ID)
 	require.NoError(t, err)
 	assert.Empty(t, unlisted)
+}
+
+// TestSyncFetchesTheLogsOfFinishedChecks covers each finished check on the head that ran in a job getting a
+// fetch of its log, until a log is kept for it.
+func TestSyncFetchesTheLogsOfFinishedChecks(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	finished := listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure")
+	finished.JobID = xptr.Ptr(int64(41))
+	running := listedStatusCheck("2", "lint", forge.StatusCheckStateRunning, "")
+	running.JobID = xptr.Ptr(int64(42))
+	noJob := listedStatusCheck("3", "status", forge.StatusCheckStateCompleted, "success")
+	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
+		Decision:     forge.ReviewDecisionPending,
+		Mergeability: forge.MergeabilityClean,
+		Listing:      &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{finished, running, noJob}},
+	}))
+
+	f.sync(t)
+
+	jobs := f.events.ListJobs()
+	require.Len(t, jobs, 1)
+	fetch, ok := jobs[0].(internaljobs.FetchCheckLogArgs)
+	require.True(t, ok, "a %T, want a log fetch", jobs[0])
+	checks := pullrequeststore.NewStatusCheckStore(f.stores.Pool.GetDB())
+	check, err := checks.GetCheckForLogFetch(t.Context(), fetch.CheckID)
+	require.NoError(t, err)
+	assert.Equal(t, xptr.Ptr(int64(41)), check.JobID)
+
+	require.NoError(t, f.stores.Pool.InTx(t.Context(), func(tx store.DBTX) error {
+		return pullrequeststore.NewStatusCheckStore(tx).RecordCheckLog(t.Context(), pullrequeststore.CheckLog{
+			CheckID:   fetch.CheckID,
+			FetchedAt: syncNow,
+			Outcome:   pullrequeststore.CheckLogExpired,
+		})
+	}))
+	f.pass(t, syncNow.Add(time.Minute))
+
+	assert.Len(t, f.events.ListJobs(), 1)
 }
 
 // TestSyncThrottlesTheConnection covers the forge refusing a read for its rate limit: the
