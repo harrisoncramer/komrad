@@ -1,16 +1,8 @@
 package ui
 
 import (
-	"fmt"
-	"strings"
-
 	"komrad/internal/diff"
-	"komrad/internal/errui"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
-	"komrad/internal/ui/paint"
-	"komrad/internal/ui/paint/label"
-	"komrad/lib/dates"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -112,105 +104,6 @@ func (d *documentsScreen) isSteppingHovered(m *model) bool {
 	return ok && d.history != nil && d.history.item.id == item.id
 }
 
-// docRows is the document drawn beside the list at a width: the write stepped to and what it
-// changed, or the document as it stands.
-func (d *documentsScreen) docRows(m *model, width int) []string {
-	item, ok := d.hovered(m)
-	if !ok || !d.isSteppingHovered(m) {
-		return paint.DocStyledRows(d.doc(m), max(width, 1), columnStyle())
-	}
-
-	h := d.history
-	head := h.head(item, width, m.glyphs)
-	if h.err != nil || h.versions == nil {
-		return head
-	}
-
-	if !h.isDrawn(m.term.isDark) {
-		return append(head, h.changeRows(width)...)
-	}
-
-	held := diffview.DimCursor
-	if d.isDiffFocused(m) {
-		held = diffview.LiveCursor
-	}
-
-	window := d.diffWindow(m)
-	window.Width = width
-
-	return append(head, h.pane.Render(window, held)...)
-}
-
-// head is the rows over the change: which write it is and the search.
-func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) []string {
-	notice := "_reading its versions…_"
-	switch {
-	case h.err != nil:
-		notice = "could not list its versions: " + errui.GetReason(h.err)
-	case h.versions != nil:
-		notice = h.notice()
-	}
-
-	rows := paint.DocStyledRows(renderDocument(item.name, notice, "", ""), width, columnStyle())
-	if h.err != nil || h.versions == nil {
-		return rows
-	}
-
-	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
-
-	return append(rows, h.filter.head(count, "", width, glyphs)...)
-}
-
-// diffWindow is the size the diff is drawn at, under the rows over it.
-func (d *documentsScreen) diffWindow(m *model) diffview.Window {
-	split, ok := m.screenColumnSplit()
-	item, hovered := d.hovered(m)
-	if !ok || !hovered || d.history == nil {
-		return diffview.Window{Height: 1, Wrap: m.diffWrap}
-	}
-
-	return diffview.Window{
-		Width:  split.column,
-		Height: max(split.rows-len(d.history.head(item, split.column, m.glyphs)), 1),
-		Wrap:   m.diffWrap,
-	}
-}
-
-// notice names the write stepped to, who made it and how long ago.
-func (h *documentHistory) notice() string {
-	current := h.versions[h.at]
-	written := "written"
-	if current.by != "" {
-		written += " by " + current.by
-	}
-
-	notice := fmt.Sprintf("version %d of %d, %s %s ago",
-		current.version, h.versions[0].version, written, label.Age(dates.Parse(current.createdAt)))
-	if renamed := h.renamedFrom(); renamed != "" {
-		notice += fmt.Sprintf(", renamed from %q", renamed)
-	}
-	if h.isOldestKeptLate() {
-		notice += ", and the writes before it were not kept"
-	}
-
-	return "_" + notice + "_"
-}
-
-// renamedFrom is the name the write before the one stood on had, where the write stood on renamed
-// it, and empty otherwise.
-func (h *documentHistory) renamedFrom() string {
-	if h.at+1 >= len(h.versions) {
-		return ""
-	}
-
-	before, current := h.versions[h.at+1].name, h.versions[h.at].name
-	if before == "" || current == "" || before == current {
-		return ""
-	}
-
-	return before
-}
-
 // isOldestKeptLate reports whether the write stood on is the oldest kept but not the first
 // written, as for a document written before its writes were kept.
 func (h *documentHistory) isOldestKeptLate() bool {
@@ -229,25 +122,6 @@ func (h *documentHistory) readChange() (versionRead, versionRead, bool) {
 	}
 
 	return before, after, ok && !after.pending && !before.pending
-}
-
-// changeRows is what stands in place of the diff while the change is not drawn as one.
-func (h *documentHistory) changeRows(width int) []string {
-	indent := strings.Repeat(" ", docMargin())
-
-	before, after, ok := h.readChange()
-	switch {
-	case !ok:
-		return []string{fitRow(indent+dimStyle().Render("reading…"), width)}
-	case after.err != nil:
-		return []string{fitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
-	case before.err != nil:
-		return []string{fitRow(indent+"could not read: "+errui.GetReason(before.err), width)}
-	case h.isOldestKeptLate():
-		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
-	}
-
-	return []string{fitRow(indent+dimStyle().Render("no change to the text"), width)}
 }
 
 // drawnChange is the two writes a change view was built between, and the background it was

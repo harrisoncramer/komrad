@@ -2,11 +2,8 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"komrad/internal/errui"
-	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
@@ -137,10 +134,6 @@ func (d *documentsScreen) hovered(m *model) (documentItem, bool) {
 	return row.item, ok
 }
 
-func (d *documentsScreen) view(m *model) string {
-	return m.columnListView(d.listParams(m))
-}
-
 func (d *documentsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
 		help:     d.help,
@@ -182,17 +175,6 @@ func (d *documentsScreen) crumbRoot(m *model) []string {
 	return []string{d.agentName(m), "documents"}
 }
 
-func (d *documentsScreen) emptyLine() string {
-	switch {
-	case d.err != nil:
-		return "could not list: " + errui.GetReason(d.err)
-	case !d.listed:
-		return "reading…"
-	}
-
-	return "no documents"
-}
-
 func (d *documentsScreen) agentName(m *model) string {
 	if item, ok := m.listing.anyAgent(d.agentID); ok {
 		return item.Agent.Name
@@ -203,70 +185,6 @@ func (d *documentsScreen) agentName(m *model) string {
 
 func (d *documentsScreen) help(m *model) keyMap {
 	return d.actions(m).help(m)
-}
-
-// documentColumns is the gutter of the documents list: how long ago each was last written.
-func documentColumns() view.Columns {
-	return view.Columns{{Kind: view.ColumnText, Width: ageColumns}}
-}
-
-func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
-	rows := d.rows(m)
-	now := time.Now()
-	caret := pane.caret
-	if d.isDiffFocused(m) {
-		caret = view.CaretDrawn
-	}
-
-	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r documentRow) view.Row {
-			return d.renamingField().drawnOver(view.Row{
-				Key:     r.key(),
-				Kind:    view.KindResult,
-				Name:    r.item.name,
-				Matches: matchesIn(m.filter.pattern, r.item.name),
-				Process: view.ProcessNone,
-				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
-			})
-		}),
-		Caret:      caret,
-		BlinkedOut: pane.blinkedOut,
-		Focused:    rowKeyAt(rows, d.cursor),
-		Pane:       pane.width,
-		Columns:    documentColumns(),
-	}
-}
-
-// doc is the markdown drawn beside the list for the document the cursor is on.
-func (d *documentsScreen) doc(m *model) string {
-	item, ok := d.hovered(m)
-	if !ok {
-		return renderDocument(d.agentName(m), "_"+d.emptyLine()+"_", "", "")
-	}
-
-	read, asked := d.bodies[item.id]
-	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.Age(item.updatedAt))
-	switch {
-	case !asked || (read.pending && read.body == ""):
-		return renderDocument(item.name, notice, "_reading…_", "")
-	case read.err != nil:
-		return renderDocument(item.name, notice, "could not read: "+errui.GetReason(read.err), "")
-	}
-
-	return renderDocument(item.name, notice, documentProse(item.name, read.body), "")
-}
-
-// documentProse is a document's text without the heading that opens it when that heading only
-// repeats the name.
-func documentProse(name, body string) string {
-	body = strings.TrimSpace(body)
-	first, rest, _ := strings.Cut(body, "\n")
-	heading, isHeading := strings.CutPrefix(first, "# ")
-	if isHeading && strings.TrimSpace(heading) == strings.TrimSpace(name) {
-		return strings.TrimSpace(rest)
-	}
-
-	return body
 }
 
 // documentsListedMsg is one agent's documents come back.
