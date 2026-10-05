@@ -47,7 +47,7 @@ func statusCheck(reading pullrequeststore.StatusCheckReading, stored forge.Statu
 	}
 }
 
-func checkLog(state pullrequeststore.CheckLogState, stored *pullrequeststore.CheckLog) *pullrequestv1.CheckLog {
+func checkLog(state pullrequeststore.CheckLogOutcome, stored *pullrequeststore.CheckLog) *pullrequestv1.CheckLog {
 	log := &pullrequestv1.CheckLog{State: checkLogStateOf(state)}
 	if stored == nil {
 		return log
@@ -73,21 +73,21 @@ func checkLogStep(step checklog.StepRange) *pullrequestv1.CheckLogStep {
 }
 
 // checkLogStateOf is where fetching a check's log stands as the wire carries it.
-func checkLogStateOf(state pullrequeststore.CheckLogState) pullrequestv1.CheckLogState {
+func checkLogStateOf(state pullrequeststore.CheckLogOutcome) pullrequestv1.CheckLogState {
 	switch state {
-	case pullrequeststore.CheckLogStateNone:
+	case pullrequeststore.CheckLogNone:
 		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_NONE
-	case pullrequeststore.CheckLogStatePending:
+	case pullrequeststore.CheckLogPending:
 		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING
-	case pullrequeststore.CheckLogState(pullrequeststore.CheckLogFetched):
+	case pullrequeststore.CheckLogFetched:
 		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED
-	case pullrequeststore.CheckLogState(pullrequeststore.CheckLogTooLarge):
+	case pullrequeststore.CheckLogTooLarge:
 		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE
-	case pullrequeststore.CheckLogState(pullrequeststore.CheckLogMissing):
+	case pullrequeststore.CheckLogMissing:
 		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING
-	case pullrequeststore.CheckLogState(pullrequeststore.CheckLogExpired):
+	case pullrequeststore.CheckLogExpired:
 		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED
-	case pullrequeststore.CheckLogState(pullrequeststore.CheckLogFailed):
+	case pullrequeststore.CheckLogFailed:
 		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED
 	}
 

@@ -17,14 +17,17 @@ import (
 	"komrad/lib/xslice"
 )
 
-// CheckLogOutcome is what the forge answered when komrad last asked for a check's log.
+// CheckLogOutcome is where fetching a check's log stands.
 type CheckLogOutcome string
 
 const (
+	// CheckLogNone is a check that ran in no job.
+	CheckLogNone CheckLogOutcome = "none"
+	// CheckLogPending is a log still to come.
+	CheckLogPending CheckLogOutcome = "pending"
 	// CheckLogFetched is a log the forge handed over and komrad kept.
 	CheckLogFetched CheckLogOutcome = "fetched"
-	// CheckLogTooLarge is a log the forge handed over that ran past the most komrad keeps, so none of it was
-	// kept.
+	// CheckLogTooLarge is a log that ran past the most komrad keeps.
 	CheckLogTooLarge CheckLogOutcome = "too_large"
 	// CheckLogMissing is a log the forge never had.
 	CheckLogMissing CheckLogOutcome = "missing"
@@ -44,7 +47,7 @@ const (
 // ErrInvalidPattern is what a search returns for a pattern that does not compile.
 var ErrInvalidPattern = fail.InvalidArgument("the pattern is not a valid regular expression")
 
-// CheckLog is a check's log as komrad last fetched it, listed without its text.
+// CheckLog is a check's log as komrad last fetched it.
 type CheckLog struct {
 	CheckID   string
 	FetchedAt time.Time
@@ -90,6 +93,21 @@ type checkForLogFetch struct {
 	Host          string
 	RepositoryURL string
 	Steps         []checklog.Step
+}
+
+// GetLogOf is where fetching a check's log stands and the log kept for it, which is nil unless the check has
+// finished and a log is kept.
+func (r StatusCheckReading) GetLogOf(check forge.StatusCheck) (CheckLogOutcome, *CheckLog) {
+	if check.JobID == nil {
+		return CheckLogNone, nil
+	}
+
+	log, ok := r.Logs[r.CheckIDs[check.ProviderID]]
+	if !ok || check.State != forge.StatusCheckStateCompleted {
+		return CheckLogPending, nil
+	}
+
+	return log.Outcome, &log
 }
 
 // RecordCheckLog keeps a check's log, replacing the one kept before it with its steps, and must run on a
@@ -316,29 +334,4 @@ func cutRunes(text string, n int) (string, bool) {
 	}
 
 	return text, false
-}
-
-// CheckLogState is where fetching a check's log stands.
-type CheckLogState string
-
-const (
-	// CheckLogStateNone is a check that ran in no job, so it has no log to fetch.
-	CheckLogStateNone CheckLogState = "none"
-	// CheckLogStatePending is a log still to come, because the check has not finished or no log is kept yet.
-	CheckLogStatePending CheckLogState = "pending"
-)
-
-// GetLogOf is where fetching a check's log stands and the log kept for it, which is nil unless the check has
-// finished and a log is kept.
-func (r StatusCheckReading) GetLogOf(check forge.StatusCheck) (CheckLogState, *CheckLog) {
-	if check.JobID == nil {
-		return CheckLogStateNone, nil
-	}
-
-	log, ok := r.Logs[r.CheckIDs[check.ProviderID]]
-	if !ok || check.State != forge.StatusCheckStateCompleted {
-		return CheckLogStatePending, nil
-	}
-
-	return CheckLogState(log.Outcome), &log
 }

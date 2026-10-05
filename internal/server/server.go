@@ -133,18 +133,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Remover:       svc.worktrees.remover,
 		Resumer:       svc.agents.resume,
 		Forges:        svc.pullRequests.forge,
-		MaxLogBytes: func() (int64, error) {
-			cfg, err := svc.loadConfig()
-			if err != nil {
-				return 0, err
-			}
-			maxBytes, err := cfg.Forge.GetMaxCheckLogBytes()
-			if err != nil {
-				return 0, err
-			}
-
-			return int64(maxBytes), nil
-		},
+		MaxLogBytes:   svc.getMaxCheckLogBytes,
 		Router: events.NewRouter(events.NewRouterParams{
 			Mailer: svc.mail.service,
 			Handlers: []events.Handler{

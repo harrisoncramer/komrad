@@ -351,17 +351,17 @@ func TestLogOf(t *testing.T) {
 		name    string
 		reading StatusCheckReading
 		check   forge.StatusCheck
-		want    CheckLogState
+		want    CheckLogOutcome
 		wantLog bool
 	}{
-		{name: "a check in no job has none", reading: kept(CheckLogFetched), check: statusCheckRun("1", "app", forge.StatusCheckStateCompleted, "success"), want: CheckLogStateNone},
-		{name: "a check still running is pending", reading: kept(CheckLogFetched), check: running, want: CheckLogStatePending},
-		{name: "a finished check with no log kept is pending", reading: StatusCheckReading{CheckIDs: map[string]string{"1": "check-1"}}, check: finished, want: CheckLogStatePending},
-		{name: "a fetched log", reading: kept(CheckLogFetched), check: finished, want: CheckLogState(CheckLogFetched), wantLog: true},
-		{name: "a log too large to keep", reading: kept(CheckLogTooLarge), check: finished, want: CheckLogState(CheckLogTooLarge), wantLog: true},
-		{name: "a log the forge never had", reading: kept(CheckLogMissing), check: finished, want: CheckLogState(CheckLogMissing), wantLog: true},
-		{name: "a log the forge no longer keeps", reading: kept(CheckLogExpired), check: finished, want: CheckLogState(CheckLogExpired), wantLog: true},
-		{name: "a log komrad gave up on", reading: kept(CheckLogFailed), check: finished, want: CheckLogState(CheckLogFailed), wantLog: true},
+		{name: "a check in no job has none", reading: kept(CheckLogFetched), check: statusCheckRun("1", "app", forge.StatusCheckStateCompleted, "success"), want: CheckLogNone},
+		{name: "a check still running is pending", reading: kept(CheckLogFetched), check: running, want: CheckLogPending},
+		{name: "a finished check with no log kept is pending", reading: StatusCheckReading{CheckIDs: map[string]string{"1": "check-1"}}, check: finished, want: CheckLogPending},
+		{name: "a fetched log", reading: kept(CheckLogFetched), check: finished, want: CheckLogFetched, wantLog: true},
+		{name: "a log too large to keep", reading: kept(CheckLogTooLarge), check: finished, want: CheckLogTooLarge, wantLog: true},
+		{name: "a log the forge never had", reading: kept(CheckLogMissing), check: finished, want: CheckLogMissing, wantLog: true},
+		{name: "a log the forge no longer keeps", reading: kept(CheckLogExpired), check: finished, want: CheckLogExpired, wantLog: true},
+		{name: "a log komrad gave up on", reading: kept(CheckLogFailed), check: finished, want: CheckLogFailed, wantLog: true},
 	}
 
 	for _, tt := range tests {

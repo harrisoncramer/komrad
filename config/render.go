@@ -123,6 +123,8 @@ func renderValue(value any) (string, error) {
 		return strconv.FormatBool(typed), nil
 	case int:
 		return strconv.Itoa(typed), nil
+	case int64:
+		return strconv.FormatInt(typed, 10), nil
 	case float64:
 		// 'f' rather than the shortest form, which would write a fraction in exponent notation.
 		return strconv.FormatFloat(typed, 'f', -1, 64), nil

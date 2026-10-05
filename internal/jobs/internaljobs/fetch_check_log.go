@@ -63,7 +63,7 @@ type ForgeFinder interface {
 }
 
 type NewFetchCheckLogWorkerParams struct {
-	Pool   *store.Pool
+	Store  *store.Pool
 	Forges ForgeFinder
 	// MaxBytes is the most of a log komrad keeps, read for each fetch, past which a log is kept as too large.
 	MaxBytes func() (int64, error)
@@ -72,7 +72,7 @@ type NewFetchCheckLogWorkerParams struct {
 
 type FetchCheckLogWorker struct {
 	river.WorkerDefaults[FetchCheckLogArgs]
-	pool     *store.Pool
+	store    *store.Pool
 	forges   ForgeFinder
 	maxBytes func() (int64, error)
 	now      func() time.Time
@@ -89,7 +89,7 @@ func NewFetchCheckLogWorker(params NewFetchCheckLogWorkerParams) *FetchCheckLogW
 	}
 
 	return &FetchCheckLogWorker{
-		pool:     params.Pool,
+		store:    params.Store,
 		forges:   params.Forges,
 		maxBytes: params.MaxBytes,
 		now:      now,
@@ -105,7 +105,7 @@ func (w *FetchCheckLogWorker) Timeout(*river.Job[FetchCheckLogArgs]) time.Durati
 // Work fetches the check's log and keeps what the forge answered, holding off while the host's rate
 // limit runs low or the forge has no log ready yet.
 func (w *FetchCheckLogWorker) Work(ctx context.Context, job *river.Job[FetchCheckLogArgs]) error {
-	check, err := pullrequeststore.NewStatusCheckStore(w.pool.GetDB()).GetCheckForLogFetch(ctx, job.Args.CheckID)
+	check, err := pullrequeststore.NewStatusCheckStore(w.store.GetDB()).GetCheckForLogFetch(ctx, job.Args.CheckID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
@@ -215,7 +215,7 @@ func (w *FetchCheckLogWorker) failOrRetry(ctx context.Context, job *river.Job[Fe
 func (w *FetchCheckLogWorker) record(ctx context.Context, log pullrequeststore.CheckLog) error {
 	log.FetchedAt = w.now()
 
-	err := w.pool.InTx(ctx, func(tx store.DBTX) error {
+	err := w.store.InTx(ctx, func(tx store.DBTX) error {
 		return pullrequeststore.NewStatusCheckStore(tx).RecordCheckLog(ctx, log)
 	})
 	if err != nil {

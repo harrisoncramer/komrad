@@ -269,7 +269,7 @@ func TestFetchCheckLogWorker(t *testing.T) {
 
 			hostForge := tt.forge()
 			worker := NewFetchCheckLogWorker(NewFetchCheckLogWorkerParams{
-				Pool:     stores.Pool,
+				Store:    stores.Pool,
 				Forges:   fakeForgeFinder{forge: hostForge, err: tt.finderErr},
 				MaxBytes: func() (int64, error) { return 1 << 20, nil },
 				Now:      func() time.Time { return tt.now },
@@ -324,7 +324,7 @@ func TestFetchCheckLogWorkerHoldsOffALowHost(t *testing.T) {
 		RateLimit: forge.RateLimit{Known: true, Remaining: 10, Limit: 5000, ResetAt: now.Add(20 * time.Minute)},
 	}}
 	worker := NewFetchCheckLogWorker(NewFetchCheckLogWorkerParams{
-		Pool:     stores.Pool,
+		Store:    stores.Pool,
 		Forges:   fakeForgeFinder{forge: hostForge},
 		MaxBytes: func() (int64, error) { return 1 << 20, nil },
 		Now:      func() time.Time { return now },

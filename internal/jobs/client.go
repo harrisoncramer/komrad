@@ -73,7 +73,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	river.AddWorker(workers, internaljobs.NewEventWorker(params.Pool, params.Router))
 	river.AddWorker(workers, internaljobs.NewWakeAgentWorker(params.Resumer))
 	river.AddWorker(workers, internaljobs.NewFetchCheckLogWorker(internaljobs.NewFetchCheckLogWorkerParams{
-		Pool:     params.Store,
+		Store:    params.Store,
 		Forges:   params.Forges,
 		MaxBytes: params.MaxLogBytes,
 	}))

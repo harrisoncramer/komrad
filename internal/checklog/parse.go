@@ -199,7 +199,7 @@ func mapSteps(lines []line, steps []Step) []StepRange {
 	firsts := make([]int, len(started))
 	cursor := 0
 	for i, step := range started {
-		earliest := firstAtOrAfter(lines, cursor, step.StartedAt.Truncate(time.Second).Add(-time.Second))
+		earliest := findFirstAtOrAfter(lines, cursor, step.StartedAt.Truncate(time.Second).Add(-time.Second))
 		first := earliest
 		if i > 0 {
 			var until *time.Time
@@ -242,8 +242,8 @@ func mapSteps(lines []line, steps []Step) []StepRange {
 	return ranges
 }
 
-// firstAtOrAfter is the first line from the cursor stamped at or after the time, or the end of the log.
-func firstAtOrAfter(lines []line, cursor int, at time.Time) int {
+// findFirstAtOrAfter is the first line from the cursor stamped at or after the time, or the end of the log.
+func findFirstAtOrAfter(lines []line, cursor int, at time.Time) int {
 	for i := cursor; i < len(lines); i++ {
 		if !lines[i].at.Before(at) {
 			return i

@@ -732,12 +732,12 @@ type Forge struct {
 	BotNames []string `mapstructure:"bot_names"`
 	// The largest check log komrad keeps, in bytes. A log past it is not kept, and the panel links to it
 	// on the forge instead. A negative size is refused.
-	MaxCheckLogBytes int `mapstructure:"max_check_log_bytes"`
+	MaxCheckLogBytes int64 `mapstructure:"max_check_log_bytes"`
 }
 
 // GetMaxCheckLogBytes is the largest check log komrad keeps. An unset size takes the default, and a
 // negative one is an error rather than the default.
-func (f Forge) GetMaxCheckLogBytes() (int, error) {
+func (f Forge) GetMaxCheckLogBytes() (int64, error) {
 	if f.MaxCheckLogBytes == 0 {
 		f.MaxCheckLogBytes = defaultMaxCheckLogBytes
 	}
