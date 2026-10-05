@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"komrad/internal/ui/logview"
+	"komrad/lib/xslice"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -238,4 +241,23 @@ func TestTailCurrent(t *testing.T) {
 			assert.Equal(t, tt.wantOK, ok)
 		})
 	}
+}
+
+// TestTailFormat covers drawing held lines compact while the line under the cursor stays as written.
+func TestTailFormat(t *testing.T) {
+	t.Parallel()
+
+	line := `{"severity_text":"INFO","body":"hello"}`
+	viewer := logview.NewTail(10)
+	viewer.Append([]string{line})
+
+	rows, _ := viewer.Rows(80, 1)
+	assert.Equal(t, []string{line}, rows)
+
+	viewer.SetFormat(logview.FormatCompact)
+	rows, _ = viewer.Rows(80, 1)
+	assert.Equal(t, []string{"         INFO  hello"}, xslice.Map(rows, ansi.Strip))
+
+	current, _ := viewer.Current()
+	assert.Equal(t, line, current)
 }

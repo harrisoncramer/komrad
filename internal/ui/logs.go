@@ -53,6 +53,9 @@ type logsScreen struct {
 	pattern   string
 	edits     int
 	replacing bool
+	// format is how a service log is drawn, and formatFocus says its strip holds the keys.
+	format      logview.Format
+	formatFocus bool
 }
 
 // logSourceRow is one line of the list of log sources.
@@ -63,6 +66,11 @@ type logSourceRow struct {
 
 func (r logSourceRow) key() string {
 	return "log:" + r.source.GetId()
+}
+
+// isServiceLog reports whether the row is komrad's own structured service log rather than a run's output.
+func (r logSourceRow) isServiceLog() bool {
+	return r.source.Run == nil
 }
 
 // logsSourcesMsg is one listing of an agent's log sources come back.
@@ -95,6 +103,7 @@ func (l *logsScreen) enter(m *model, target screenTarget) tea.Cmd {
 		agentID:    target.agentID,
 		from:       target.from,
 		viewer:     logview.NewTail(logsCeiling),
+		format:     logview.FormatCompact,
 		generation: l.generation + 1,
 	}
 
@@ -235,6 +244,7 @@ func (l *logsScreen) switchSource(m *model) tea.Cmd {
 
 	l.reading, l.logFocus = row.source.GetId(), false
 	l.logFilter, l.pattern = filterState{}, ""
+	l.applyFormat(row)
 
 	return l.restart(m)
 }
@@ -370,12 +380,16 @@ func logSourceRowName(row logSourceRow) string {
 }
 
 func (l *logsScreen) view(m *model) string {
-	return m.columnListView(screenListParams{
+	return m.columnListView(l.listParams(m))
+}
+
+func (l *logsScreen) listParams(m *model) screenListParams {
+	return screenListParams{
 		help:  l.help,
 		empty: l.emptyLine(),
 		rows:  len(l.rows(m)),
 		lines: func(pane listPane) ([]string, int) { return l.lines(m, pane), l.rowCursor.cursor },
-	})
+	}
 }
 
 func (l *logsScreen) emptyLine() string {
@@ -558,6 +572,7 @@ var (
 	_ crumbDrawer   = (*logsScreen)(nil)
 	_ screenLeaver  = (*logsScreen)(nil)
 	_ lineTyper     = (*logsScreen)(nil)
+	_ kindSwitcher  = (*logsScreen)(nil)
 )
 
 func (l *logsScreen) hoveredKey(m *model) string {
@@ -586,4 +601,51 @@ func (l *logsScreen) moveBy(_ *model, rows int) tea.Cmd {
 
 func (l *logsScreen) moveToEnd(_ *model, direction int) tea.Cmd {
 	return l.move(direction * l.viewer.Len())
+}
+
+// logFormatLabels name each format a service log is drawn in, indexed by logview.Format.
+var logFormatLabels = []string{"raw", "compact"}
+
+func (l *logsScreen) kinds() stops {
+	return stops{
+		labels: logFormatLabels,
+		focus:  noStop,
+		lit:    int(l.format),
+	}
+}
+
+// kindsFit draws the format strip only over a service log.
+func (l *logsScreen) kindsFit(m *model) bool {
+	row, ok := rowAt(l.rows(m), l.rowCursor.cursor)
+
+	return ok && row.isServiceLog() && m.listFitsTabs(l.listParams(m))
+}
+
+func (l *logsScreen) kindsFocused() *bool {
+	return &l.formatFocus
+}
+
+func (l *logsScreen) kindsSwitch(*model) bool {
+	return true
+}
+
+// stepKind draws the service log in another format.
+func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
+	l.format = logview.Format(stepStop(int(l.format), delta, len(logFormatLabels)))
+	if row, ok := rowAt(l.rows(m), l.rowCursor.cursor); ok {
+		l.applyFormat(row)
+	}
+
+	return nil
+}
+
+// applyFormat draws a service log in the chosen format and a run's output as it was written.
+func (l *logsScreen) applyFormat(row logSourceRow) {
+	if !row.isServiceLog() {
+		l.viewer.SetFormat(logview.FormatRaw)
+
+		return
+	}
+
+	l.viewer.SetFormat(l.format)
 }

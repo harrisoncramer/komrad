@@ -6,7 +6,6 @@ import (
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
-	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -15,6 +14,7 @@ import (
 type Tail struct {
 	lines   []string
 	ceiling int
+	format  Format
 	// cursor is how many lines the cursor stands before the newest, zero while it follows the log.
 	cursor int
 	// back is how many lines the view ends before the newest.
@@ -23,6 +23,16 @@ type Tail struct {
 	scrolled bool
 }
 
+// Format is how a Tail draws each line it holds.
+type Format int
+
+const (
+	// FormatRaw draws each line as it was written.
+	FormatRaw Format = iota
+	// FormatCompact draws each structured service log line on one row.
+	FormatCompact
+)
+
 // NewTail is a Tail that keeps at most ceiling lines.
 func NewTail(ceiling int) *Tail {
 	return &Tail{ceiling: ceiling}
@@ -30,7 +40,7 @@ func NewTail(ceiling int) *Tail {
 
 // Append adds lines after the last, dropping the oldest past the ceiling.
 func (t *Tail) Append(lines []string) {
-	t.lines = append(t.lines, xslice.Map(lines, sanitize)...)
+	t.lines = append(t.lines, lines...)
 	switch {
 	case t.cursor > 0:
 		t.cursor += len(lines)
@@ -43,6 +53,11 @@ func (t *Tail) Append(lines []string) {
 		t.lines = append([]string(nil), t.lines[over:]...)
 	}
 	t.cursor, t.back = cursor.Clamp(t.cursor, len(t.lines)), cursor.Clamp(t.back, len(t.lines))
+}
+
+// SetFormat draws the lines held in format from the next draw on.
+func (t *Tail) SetFormat(format Format) {
+	t.format = format
 }
 
 // Reset drops every line.
@@ -111,12 +126,21 @@ func (t *Tail) Current() (string, bool) {
 		return "", false
 	}
 
-	return t.lines[len(t.lines)-1-t.cursor], true
+	return sanitize(t.lines[len(t.lines)-1-t.cursor]), true
 }
 
 // wrap is one held line broken into the rows it takes at width.
 func (t *Tail) wrap(i, width int) []string {
-	return strings.Split(ansi.Hardwrap(t.lines[i], max(width, 1), true), "\n")
+	return strings.Split(ansi.Hardwrap(t.draw(t.lines[i]), max(width, 1), true), "\n")
+}
+
+// draw is one held line as its format draws it.
+func (t *Tail) draw(line string) string {
+	if t.format == FormatCompact {
+		return Compact(paint.Panel, line)
+	}
+
+	return sanitize(line)
 }
 
 // sanitize strips escape sequences and control characters from a line the panel draws itself.
