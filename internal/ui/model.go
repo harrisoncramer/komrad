@@ -261,19 +261,20 @@ type model struct {
 	screen          screen
 	terminalDir     string
 	// scratch is the scratch editor on the stage, nil while it is closed.
-	scratch       *scratchEditor
-	details       detailsState
-	messages      messagesState
-	detailsHeight float64
-	listing       listing
-	reactors      []worldReactor
-	agents        agentsScreen
-	schedules     schedulesScreen
-	archive       archiveScreen
-	worktrees     worktreesScreen
-	documents     documentsScreen
-	logs          logsScreen
-	statusChecks  statusChecksScreen
+	scratch         *scratchEditor
+	details         detailsState
+	messages        messagesState
+	detailsHeight   float64
+	listing         listing
+	reactors        []worldReactor
+	agents          agentsScreen
+	schedules       schedulesScreen
+	archive         archiveScreen
+	worktrees       worktreesScreen
+	documents       documentsScreen
+	logs            logsScreen
+	statusChecks    statusChecksScreen
+	statusCheckLogs statusCheckLogsScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections map[string]worktreeInspection
 	lastScreen  lastScreen

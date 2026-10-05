@@ -23,7 +23,8 @@ import (
 
 // statusCheckItem is one check as the listing reported it.
 type statusCheckItem struct {
-	id         string
+	providerID string
+	checkID    string
 	name       string
 	state      pullrequestv1.StatusCheckState
 	conclusion string
@@ -31,6 +32,7 @@ type statusCheckItem struct {
 	finishedAt time.Time
 	steps      []statusCheckItem
 	run        statusCheckRun
+	log        *pullrequestv1.CheckLog
 }
 
 // statusCheckRun is the run a check ran in, by one workflow or app.
@@ -75,7 +77,7 @@ type statusCheckRow struct {
 }
 
 func (r statusCheckRow) key() string {
-	return "status-check:" + r.item.id
+	return "status-check:" + r.item.providerID
 }
 
 func (c *statusChecksScreen) enter(m *model, target screenTarget) tea.Cmd {
@@ -269,11 +271,23 @@ func (c *statusChecksScreen) listActions() screenActionSpec {
 					return m.enter(c.from, screenTarget{agentID: c.agentID})
 				},
 			},
+			screenAction{
+				id:   actionStatusChecksLogs,
+				keys: func(k config.Keybindings) []string { return k.StatusChecks.Logs },
+				nav: func(m *model, _ string) tea.Cmd {
+					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, from: screenStatusChecks})
+				},
+			},
 		),
 		legend: slices.Concat(screenNavLegend(), []screenLegendRow{
 			{
 				of:    []actionID{actionStatusChecksBack},
 				desc:  func(*model) string { return "back" },
+				strip: true,
+			},
+			{
+				of:    []actionID{actionStatusChecksLogs},
+				desc:  func(*model) string { return "logs" },
 				strip: true,
 			},
 		}),
@@ -362,7 +376,7 @@ func (m *model) statusChecksPullRequestID(agentID string) string {
 // readStatusChecksCmd lists the status checks again when the agent's pull request or its head has moved since
 // they were last listed, once at a time.
 func (m *model) readStatusChecksCmd() tea.Cmd {
-	if m.screen != screenStatusChecks {
+	if m.screen != screenStatusChecks && m.screen != screenStatusCheckLogs {
 		return nil
 	}
 
@@ -421,13 +435,15 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 	hovered := c.list().hovered(m)
 	c.commit, c.err = msg.commit, nil
 	c.list().place(m, hovered)
+	m.statusCheckLogs.reanchor(m)
+	reads := m.statusCheckLogs.readsCmd(m)
 	if !msg.headRead {
 		c.listedHead = ""
 
-		return nil
+		return reads
 	}
 
-	return m.readStatusChecksCmd()
+	return tea.Batch(reads, m.readStatusChecksCmd())
 }
 
 // skippedConclusions are the conclusions a finished check ends with when it neither passed nor failed.
@@ -468,7 +484,8 @@ func (c *statusChecksScreen) isLoading(*model) bool {
 
 func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 	return statusCheckItem{
-		id:         check.GetProviderId(),
+		providerID: check.GetProviderId(),
+		checkID:    check.GetId(),
 		name:       check.GetName(),
 		state:      check.GetState(),
 		conclusion: check.GetConclusion(),
@@ -479,6 +496,7 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 			event:     check.GetRunEvent(),
 			startedAt: dates.Parse(check.GetRunStartedAt()),
 		},
+		log: check.GetLog(),
 		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
 			return statusCheckItem{
 				name:       step.GetName(),
@@ -577,7 +595,7 @@ func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheck
 		headSHA:     reading.GetHeadSha(),
 		firstReadAt: dates.Parse(reading.GetFirstReadAt()),
 		items: xslice.Filter(items, func(item statusCheckItem) bool {
-			return newest[item.key()].id == item.id
+			return newest[item.key()].providerID == item.providerID
 		}),
 	}
 }
@@ -594,7 +612,7 @@ func compareStatusCheckItems(a, b statusCheckItem) int {
 		return order
 	}
 
-	return strings.Compare(a.id, b.id)
+	return strings.Compare(a.providerID, b.providerID)
 }
 
 // tally is the commit's short hash and how long ago its checks were first read, empty when no commit was read.

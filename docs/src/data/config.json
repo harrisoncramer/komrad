@@ -701,8 +701,36 @@
               "default": "[\"esc\"]"
             },
             {
+              "key": "logs",
+              "path": "keybindings.status_checks.logs",
+              "type": "array",
+              "description": "Read the logs of the status checks the screen is showing.",
+              "default": "[\"enter\"]"
+            },
+            {
               "key": "quit",
               "path": "keybindings.status_checks.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.status_check_logs",
+          "description": "The status check logs screen, which reads the logs of the status checks the status checks screen shows.",
+          "settings": [
+            {
+              "key": "back",
+              "path": "keybindings.status_check_logs.back",
+              "type": "array",
+              "description": "Leave the status check logs for the status checks they were opened from.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.status_check_logs.quit",
               "type": "array",
               "description": "Quit the panel.",
               "default": "[\"ctrl+c\"]"
