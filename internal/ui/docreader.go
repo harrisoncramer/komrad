@@ -59,7 +59,7 @@ func (m *model) docHead(rows []string, width int) []string {
 	}
 
 	count := ""
-	if r.filter.isStanding() {
+	if r.filter.pattern != nil {
 		count = dimStyle().Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
 	}
 
@@ -180,22 +180,41 @@ func (m *model) updateDocFilter(key tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
-	if !r.filter.isStanding() {
+	if !r.filter.isSettled() {
+		return r.filter.settleCmd(func(query string) tea.Msg { return docFilterSettledMsg{query: query} })
+	}
+
+	m.findDocMatch()
+
+	return nil
+}
+
+type docFilterSettledMsg struct {
+	query string
+}
+
+func (m *model) applyDocFilterSettled(msg docFilterSettledMsg) {
+	if m.reading.filter.settle(msg.query) {
+		m.findDocMatch()
+	}
+}
+
+func (m *model) findDocMatch() {
+	r := &m.reading
+	if r.filter.pattern == nil {
 		m.moveDocTo(r.origin)
 
-		return nil
+		return
 	}
 
 	rows, _, ok := m.docLayout()
 	if !ok {
-		return nil
+		return
 	}
 
 	if line, found := reader.From(reader.Matches(r.filter.pattern, rows), r.origin); found {
 		m.moveDocTo(line)
 	}
-
-	return nil
 }
 
 // jumpDocMatch steps to the next or previous row the search found, wrapping at the ends.
@@ -300,7 +319,8 @@ func (m *model) docActions() screenActionSpec {
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				nav: func(*model, string) tea.Cmd {
 					m.settleTail()
-					m.reading.filter.open()
+					spec, _ := m.columnOf()
+					m.reading.filter.open(spec.search...)
 					m.reading.origin = m.reading.Line
 
 					return nil

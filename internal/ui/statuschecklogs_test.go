@@ -265,6 +265,36 @@ func TestStatusCheckLogsReading(t *testing.T) {
 		assert.Contains(t, frame, "1 of 1")
 	})
 
+	t.Run("searching the logs waits for the typing to stop", func(t *testing.T) {
+		t.Parallel()
+
+		lines := append(numberedLines("line", 200), "panic: nil map")
+		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
+		harness.press("pick:block", "/", "p", "a", "n", "i", "c")
+
+		assert.NotContains(t, harness.readFrame(), "panic: nil map")
+
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "panic: nil map")
+		assert.Contains(t, frame, "1 of 1")
+	})
+
+	t.Run("searching the logs for fewer than three characters finds nothing", func(t *testing.T) {
+		t.Parallel()
+
+		lines := append(numberedLines("line", 200), "panic: nil map")
+		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
+		harness.press("pick:block", "/", "p", "a")
+		harness.fireTimers()
+		harness.press("enter")
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "panic: nil map")
+		assert.NotContains(t, frame, "0 matches")
+	})
+
 	t.Run("a refused read says why", func(t *testing.T) {
 		t.Parallel()
 

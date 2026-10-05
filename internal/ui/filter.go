@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -58,7 +60,24 @@ type filterState struct {
 	// openedIn is the section the keys were in when the search opened.
 	openedIn sidebarSection
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
-	origin string
+	origin    string
+	debounce  time.Duration
+	minLength int
+	compiled  string
+}
+
+type filterOption func(*filterState)
+
+func withDebounce(wait time.Duration) filterOption {
+	return func(f *filterState) {
+		f.debounce = wait
+	}
+}
+
+func withMinLength(length int) filterOption {
+	return func(f *filterState) {
+		f.minLength = length
+	}
 }
 
 func (f filterState) query() string {
@@ -98,18 +117,54 @@ func (f *filterState) setQuery(query string) {
 	f.compile()
 }
 
-func (f *filterState) open() {
+func (f *filterState) open(opts ...filterOption) {
 	f.typing = true
 	f.mode = filterModeSearch
+	f.debounce, f.minLength = 0, 0
+	for _, opt := range opts {
+		opt(f)
+	}
 	f.setQuery("")
+}
+
+func (f filterState) isTooShort() bool {
+	query := f.query()
+
+	return strings.TrimSpace(query) == "" || utf8.RuneCountInString(query) < f.minLength
+}
+
+func (f filterState) isSettled() bool {
+	return f.compiled == f.query()
+}
+
+func (f filterState) settleCmd(settled func(query string) tea.Msg) tea.Cmd {
+	if f.isSettled() {
+		return nil
+	}
+
+	query := f.query()
+
+	return startTimer(f.debounce, func(time.Time) tea.Msg {
+		return settled(query)
+	})
+}
+
+func (f *filterState) settle(query string) bool {
+	if query != f.query() || f.isSettled() {
+		return false
+	}
+
+	f.compile()
+
+	return true
 }
 
 // compile reads the pattern out of what is typed.
 func (f *filterState) compile() {
 	query := f.query()
-	f.pattern, f.broken = nil, false
+	f.pattern, f.broken, f.compiled = nil, false, query
 
-	if strings.TrimSpace(query) == "" {
+	if f.isTooShort() {
 		return
 	}
 
@@ -215,8 +270,13 @@ func (f *filterState) takeKey(key tea.KeyPressMsg, register *vim.Register) bool 
 		f.abandon()
 	case lineEntered:
 		f.typing = false
+		if !f.isSettled() {
+			f.compile()
+		}
 	case lineChanged:
-		f.compile()
+		if f.debounce == 0 || f.isTooShort() {
+			f.compile()
+		}
 	case lineIgnored:
 		return false
 	case lineKept:

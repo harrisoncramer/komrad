@@ -433,6 +433,10 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applyLogsTick(msg), true
 	case logsSettledMsg:
 		return m.applyLogsSettled(msg), true
+	case docFilterSettledMsg:
+		m.applyDocFilterSettled(msg)
+
+		return nil, true
 	case documentVersionsListedMsg:
 		return m.applyDocumentVersionsListed(msg), true
 	case documentVersionReadMsg:

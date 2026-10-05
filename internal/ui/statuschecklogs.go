@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/errui"
@@ -27,6 +28,11 @@ const statusCheckLogChunk = 5000
 
 // statusCheckLogErrorMarker is the prefix GitHub Actions puts at the start of a log line the job reported as an error.
 const statusCheckLogErrorMarker = "##[error]"
+
+const (
+	statusCheckLogSearchDebounce  = 150 * time.Millisecond
+	statusCheckLogSearchMinLength = 3
+)
 
 // statusCheckLogsScreen is the logs of the checks the status checks screen lists, joined into one document.
 type statusCheckLogsScreen struct {
@@ -328,8 +334,9 @@ func (c *statusCheckLogsScreen) takesEveryKey() bool {
 
 func (c *statusCheckLogsScreen) column() columnSpec {
 	return columnSpec{
-		floor: columnFloor,
-		read:  isAlwaysRead,
+		floor:  columnFloor,
+		read:   isAlwaysRead,
+		search: []filterOption{withDebounce(statusCheckLogSearchDebounce), withMinLength(statusCheckLogSearchMinLength)},
 		docRows: func(m *model, width int) []string {
 			rows, _ := m.statusCheckLogs.docAnchors(m, width)
 
