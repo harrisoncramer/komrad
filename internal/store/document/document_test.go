@@ -13,6 +13,7 @@ import (
 	documentstore "komrad/internal/store/document"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 )
 
 // TestCreate pins which names a new document may take.
@@ -342,12 +343,6 @@ func TestList(t *testing.T) {
 	_, err = stores.Agents.Archive(ctx, []string{other.ID})
 	require.NoError(t, err)
 
-	wantOwners := map[string]*documentstore.Owner{
-		rfc:       {AgentName: "author", WorkflowName: "workflow-for-author"},
-		notes:     {AgentName: "author", WorkflowName: "workflow-for-author"},
-		elsewhere: {AgentName: "other", WorkflowName: "workflow-for-other", Archived: true},
-	}
-
 	tests := []struct {
 		name     string
 		agentID  *string
@@ -380,14 +375,13 @@ func TestList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			listed, err := stores.Documents.List(ctx, tt.agentID, tt.typeName)
+			listed, err := stores.Documents.List(ctx, documentstore.ListParams{AgentID: tt.agentID, Type: tt.typeName, Limit: 10})
 			require.NoError(t, err)
 
 			ids := make([]string, 0, len(listed))
 			for _, doc := range listed {
 				ids = append(ids, doc.ID)
 				assert.Empty(t, doc.Body, "a listing carries no bodies")
-				assert.Equal(t, wantOwners[doc.ID], doc.Owner, "a listing names who wrote each document")
 			}
 			assert.Len(t, ids, len(tt.want))
 			if len(tt.want) > 0 {
@@ -395,6 +389,16 @@ func TestList(t *testing.T) {
 			}
 		})
 	}
+
+	first, err := stores.Documents.List(ctx, documentstore.ListParams{Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+	rest, err := stores.Documents.List(ctx, documentstore.ListParams{
+		Limit:  10,
+		Cursor: &documentstore.Cursor{UpdatedAt: first[0].UpdatedAt, ID: first[0].ID},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{rfc, elsewhere, notes}, append([]string{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) string { return doc.ID })...), "a cursor carries on where its page left off")
 }
 
 // TestDeletingTheAgentDeletesItsDocuments pins that archiving keeps an agent's documents and deleting it removes them.

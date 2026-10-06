@@ -29,14 +29,6 @@ type Document struct {
 	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Owner     *Owner
-}
-
-// Owner is the agent that wrote a document, set only when the document came from a listing.
-type Owner struct {
-	AgentName    string
-	WorkflowName string
-	Archived     bool
 }
 
 type DocumentStore struct {
@@ -70,11 +62,6 @@ func fromListRow(row *models.ListDocumentsRow) Document {
 		Version:   row.Version,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
-		Owner: &Owner{
-			AgentName:    row.AgentName,
-			WorkflowName: row.WorkflowName,
-			Archived:     row.AgentArchived,
-		},
 	}
 }
 
@@ -202,14 +189,42 @@ func (s *DocumentStore) Get(ctx context.Context, id string) (*Document, error) {
 	return &got, nil
 }
 
-// List returns one agent's documents, or every agent's when agentID is nil, without their bodies,
-// newest write first.
-func (s *DocumentStore) List(ctx context.Context, agentID *string, typeName *string) ([]Document, error) {
-	if agentID != nil && !store.IsID(*agentID) {
+// Cursor is where a page of documents left off: when the last was written and its id.
+type Cursor struct {
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+// Validate refuses a cursor that names no row.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
+// ListParams narrows a page of documents to one agent and one type when either is set.
+type ListParams struct {
+	AgentID *string
+	Type    *string
+	Limit   int32
+	Cursor  *Cursor
+}
+
+// List returns a page of documents without their bodies, newest write first.
+func (s *DocumentStore) List(ctx context.Context, params ListParams) ([]Document, error) {
+	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListDocuments(ctx, models.ListDocumentsParams{AgentID: agentID, Type: typeName})
+	query := models.ListDocumentsParams{AgentID: params.AgentID, Type: params.Type, Lim: params.Limit}
+	if params.Cursor != nil {
+		query.CursorID = &params.Cursor.ID
+		query.CursorUpdatedAt = params.Cursor.UpdatedAt
+	}
+
+	rows, err := s.queries.ListDocuments(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list documents: %w", err)
 	}

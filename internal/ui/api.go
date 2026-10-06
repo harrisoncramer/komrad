@@ -9,6 +9,7 @@ import (
 	"komrad/internal/client"
 	"komrad/internal/rpcapi"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	forgev1 "komrad/proto/gen/forge/v1"
@@ -19,6 +20,7 @@ import (
 	"komrad/proto/gen/log/v1/logv1connect"
 	loopv1 "komrad/proto/gen/loop/v1"
 	"komrad/proto/gen/loop/v1/loopv1connect"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -561,12 +563,22 @@ func (a api) deleteWorktrees(dirs []string) error {
 
 func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.Document, error) {
-		resp, err := a.agents.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{AgentId: &agentID}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
+		var listed []*agentv1.Document
+		var cursor *string
+		for {
+			resp, err := a.agents.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{
+				AgentId:    &agentID,
+				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100), Cursor: cursor},
+			}))
+			if err != nil {
+				return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
+			}
+			listed = append(listed, resp.Msg.GetDocuments()...)
+			if resp.Msg.NextPageToken == nil {
+				return listed, nil
+			}
+			cursor = resp.Msg.NextPageToken
 		}
-
-		return resp.Msg.GetDocuments(), nil
 	})
 }
 

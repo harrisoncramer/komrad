@@ -475,8 +475,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the documents an agent has written, without their bodies, yours by default, or every agent's at once.",
-          "description": "List the documents an agent has written, without their bodies, yours by default, or every agent's at once.",
+          "summary": "List the documents agents have written, without their bodies, every agent's unless agent_id names one, so pass your own id for yours.",
+          "description": "List the documents agents have written, without their bodies, every agent's unless agent_id names one, so pass your own id for yours.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -2821,52 +2821,6 @@
           "oneof": "",
           "rules": [],
           "description": "How many times it has been written, which a rewrite passes back to say what it replaces."
-        },
-        {
-          "name": "owner",
-          "type": "DocumentOwner",
-          "ref": "agent.v1.DocumentOwner",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Who wrote it, set only in a listing."
-        }
-      ]
-    },
-    "agent.v1.DocumentOwner": {
-      "name": "DocumentOwner",
-      "description": "DocumentOwner is the agent that wrote a document.",
-      "fields": [
-        {
-          "name": "agent_name",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The name of the agent that wrote the document."
-        },
-        {
-          "name": "workflow_name",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The name of the workflow that agent belongs to."
-        },
-        {
-          "name": "archived",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether that agent has been archived."
         }
       ]
     },
@@ -3840,7 +3794,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose documents to list, or unset for the caller's own."
+          "description": "Whose documents to list, or unset for every agent's, archived agents included."
         },
         {
           "name": "type",
@@ -3855,14 +3809,14 @@
           "description": "Only documents of this type, or unset for every type."
         },
         {
-          "name": "every_agent",
-          "type": "bool",
-          "ref": "",
+          "name": "pagination",
+          "type": "Pagination",
+          "ref": "pagination.v1.Pagination",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "List every agent's documents, archived agents included, and leave agent_id unset."
+          "description": "Where to carry on from."
         }
       ]
     },
@@ -3879,6 +3833,16 @@
           "oneof": "",
           "rules": [],
           "description": "The documents, the most recently written first, without their bodies."
+        },
+        {
+          "name": "next_page_token",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Pass this back as the pagination cursor for the next page."
         }
       ]
     },

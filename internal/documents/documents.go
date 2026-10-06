@@ -299,8 +299,7 @@ func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (
 	return got.AgentID, versions, nil
 }
 
-// ListDocuments returns one agent's documents, or every agent's when agentID is nil, without their
-// bodies, newest write first.
-func (s *DocumentService) ListDocuments(ctx context.Context, agentID *string, typeName *string) ([]documentstore.Document, error) {
-	return s.documents.List(ctx, agentID, typeName)
+// ListDocuments returns a page of documents without their bodies, newest write first.
+func (s *DocumentService) ListDocuments(ctx context.Context, params documentstore.ListParams) ([]documentstore.Document, error) {
+	return s.documents.List(ctx, params)
 }

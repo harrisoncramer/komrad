@@ -78,8 +78,8 @@ func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32)
 }
 
 // ListDocuments records whose documents were asked for and answers stored without its body.
-func (f *fakeDocuments) ListDocuments(_ context.Context, agentID *string, typeName *string) ([]documentstore.Document, error) {
-	f.listed = append(f.listed, fakeDocumentsList{AgentID: agentID, Type: typeName})
+func (f *fakeDocuments) ListDocuments(_ context.Context, params documentstore.ListParams) ([]documentstore.Document, error) {
+	f.listed = append(f.listed, fakeDocumentsList{AgentID: params.AgentID, Type: params.Type})
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -160,16 +160,6 @@ func TestDocumentErrors(t *testing.T) {
 			Type:   "RFC",
 			Source: &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
 		}))
-
-		return err
-	}
-	list := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{}))
-
-		return err
-	}
-	listEveryAndOne := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{AgentId: xptr.Ptr(betaID), EveryAgent: true}))
 
 		return err
 	}
@@ -270,12 +260,6 @@ func TestDocumentErrors(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name:     "listing with no id and no caller identity",
-			call:     list,
-			asNobody: true,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
 			name:     "getting a document that does not exist",
 			call:     get,
 			err:      store.ErrNotFound,
@@ -286,11 +270,6 @@ func TestDocumentErrors(t *testing.T) {
 			call:     versions,
 			err:      store.ErrNotFound,
 			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "listing every agent's documents and one agent's at once",
-			call:     listEveryAndOne,
-			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "writing a document as a type that does not exist",
@@ -509,25 +488,20 @@ func TestListDocuments(t *testing.T) {
 		wantTarget string
 	}{
 		{
-			name:       "no id lists the caller's own",
+			name:       "no id lists every agent's and is not a recorded read",
 			req:        &agentv1.ListDocumentsRequest{},
-			wantListed: fakeDocumentsList{AgentID: xptr.Ptr(alphaID)},
+			wantListed: fakeDocumentsList{},
 		},
 		{
 			name:       "a type narrows the listing",
 			req:        &agentv1.ListDocumentsRequest{Type: xptr.Ptr("notes")},
-			wantListed: fakeDocumentsList{AgentID: xptr.Ptr(alphaID), Type: xptr.Ptr("notes")},
+			wantListed: fakeDocumentsList{Type: xptr.Ptr("notes")},
 		},
 		{
 			name:       "another agent's documents are a recorded read",
 			req:        &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr(betaID)},
 			wantListed: fakeDocumentsList{AgentID: xptr.Ptr(betaID)},
 			wantTarget: betaID,
-		},
-		{
-			name:       "every agent's documents name no agent and are not a recorded read",
-			req:        &agentv1.ListDocumentsRequest{EveryAgent: true},
-			wantListed: fakeDocumentsList{},
 		},
 	}
 

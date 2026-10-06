@@ -191,7 +191,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, draft.ID, revised.ID)
 
-	listed, err := service.ListDocuments(ctx, xptr.Ptr(author.ID), nil)
+	listed, err := service.ListDocuments(ctx, documentstore.ListParams{AgentID: xptr.Ptr(author.ID), Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, listed, 1, "a retitled document is the same document")
 	assert.Equal(t, "Documents RFC", listed[0].Name)

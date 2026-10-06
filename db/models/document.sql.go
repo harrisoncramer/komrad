@@ -243,44 +243,51 @@ SELECT
     d.type,
     d.version,
     d.created_at,
-    d.updated_at,
-    a.name AS agent_name,
-    w.name AS workflow_name,
-(a.archived_at IS NOT NULL)::boolean AS agent_archived
+    d.updated_at
 FROM
     documents d
     JOIN agents a ON a.id = d.agent_id
-    JOIN workflows w ON w.id = a.workflow_id
 WHERE ($1::uuid IS NULL
     OR d.agent_id = $1::uuid)
 AND ($2::text IS NULL
     OR d.type = $2::text)
 AND a.deleting_at IS NULL
+AND ($3::uuid IS NULL
+    OR (d.updated_at,
+        d.id) <($4::timestamptz,
+        $3::uuid))
 ORDER BY
     d.updated_at DESC,
     d.id DESC
+LIMIT $5
 `
 
 type ListDocumentsParams struct {
-	AgentID *string
-	Type    *string
+	AgentID         *string
+	Type            *string
+	CursorID        *string
+	CursorUpdatedAt time.Time
+	Lim             int32
 }
 
 type ListDocumentsRow struct {
-	ID            string
-	AgentID       string
-	Name          string
-	Type          string
-	Version       int32
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	AgentName     string
-	WorkflowName  string
-	AgentArchived bool
+	ID        string
+	AgentID   string
+	Name      string
+	Type      string
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]*ListDocumentsRow, error) {
-	rows, err := q.db.Query(ctx, listDocuments, arg.AgentID, arg.Type)
+	rows, err := q.db.Query(ctx, listDocuments,
+		arg.AgentID,
+		arg.Type,
+		arg.CursorID,
+		arg.CursorUpdatedAt,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -296,9 +303,6 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.AgentName,
-			&i.WorkflowName,
-			&i.AgentArchived,
 		); err != nil {
 			return nil, err
 		}

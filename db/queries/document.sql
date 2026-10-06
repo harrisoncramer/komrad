@@ -104,22 +104,23 @@ SELECT
     d.type,
     d.version,
     d.created_at,
-    d.updated_at,
-    a.name AS agent_name,
-    w.name AS workflow_name,
-(a.archived_at IS NOT NULL)::boolean AS agent_archived
+    d.updated_at
 FROM
     documents d
     JOIN agents a ON a.id = d.agent_id
-    JOIN workflows w ON w.id = a.workflow_id
 WHERE (sqlc.narg('agent_id')::uuid IS NULL
     OR d.agent_id = sqlc.narg('agent_id')::uuid)
 AND (sqlc.narg('type')::text IS NULL
     OR d.type = sqlc.narg('type')::text)
 AND a.deleting_at IS NULL
+AND (sqlc.narg('cursor_id')::uuid IS NULL
+    OR (d.updated_at,
+        d.id) <(@cursor_updated_at::timestamptz,
+        sqlc.narg('cursor_id')::uuid))
 ORDER BY
     d.updated_at DESC,
-    d.id DESC;
+    d.id DESC
+LIMIT @lim;
 
 -- name: ListDocumentVersions :many
 SELECT

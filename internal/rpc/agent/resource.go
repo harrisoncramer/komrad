@@ -3,6 +3,7 @@ package agent
 import (
 	"komrad/internal/rpc/render"
 
+	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
 	transcriptstore "komrad/internal/store/transcript"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -32,6 +33,20 @@ func (m mailPage) Cursor() (mailstore.Cursor, error) {
 
 func renderMailPage(stored mailstore.Mail) mailPage {
 	return mailPage{Mail: render.Mail(stored), cursor: mailstore.Cursor{ID: stored.ID}}
+}
+
+type documentPage struct {
+	*agentv1.Document
+	cursor documentstore.Cursor
+}
+
+// Cursor returns the keyset cursor locating this document.
+func (d documentPage) Cursor() (documentstore.Cursor, error) {
+	return d.cursor, nil
+}
+
+func renderDocumentPage(stored documentstore.Document) documentPage {
+	return documentPage{Document: render.Document(stored), cursor: documentstore.Cursor{UpdatedAt: stored.UpdatedAt, ID: stored.ID}}
 }
 
 // searchPage lets the paginator decode a search cursor, which locates a page of both

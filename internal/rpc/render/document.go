@@ -18,19 +18,6 @@ func Document(stored documentstore.Document) *agentv1.Document {
 		Version:   stored.Version,
 		CreatedAt: dates.Stamp(stored.CreatedAt),
 		UpdatedAt: dates.PreciseStamp(stored.UpdatedAt),
-		Owner:     documentOwner(stored.Owner),
-	}
-}
-
-func documentOwner(owner *documentstore.Owner) *agentv1.DocumentOwner {
-	if owner == nil {
-		return nil
-	}
-
-	return &agentv1.DocumentOwner{
-		AgentName:    owner.AgentName,
-		WorkflowName: owner.WorkflowName,
-		Archived:     owner.Archived,
 	}
 }
 

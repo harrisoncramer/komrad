@@ -12,6 +12,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -32,7 +33,10 @@ func TestDocumentsOpen(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, readStageText(frame), "Design the cache")
-		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr("author")})
+		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
+			AgentId:    xptr.Ptr("author"),
+			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
+		})
 	})
 
 	t.Run("a row with none does not open it", func(t *testing.T) {
