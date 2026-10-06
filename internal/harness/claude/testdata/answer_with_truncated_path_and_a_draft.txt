@@ -13,7 +13,7 @@
 
 ✻ Cogitated for 1m 13s · done 7:35 PM
 
-※ recap: Competitive analysis is done and published at claude.ai/code/artifact/a876ba7d-7eef-4422-a71b-9fb3ac1c9ca2. I spawned an agent to fix the reconciler breaker bug;
+※ recap: The audit write-up is done   and published at claude.ai/code/artifact/a876ba7d-7eef-4422-a71b-9fb3ac1c9ca2. I spawned an agent to fix the reconciler breaker bug;
   it's working now and will mail me once its reviewer clears the change. (disable recaps in /config)
                                                                                                                                   new task? /clear to save 262.9k tokens
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

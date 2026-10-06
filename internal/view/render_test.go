@@ -506,13 +506,13 @@ func livePanelRows() []Row {
 		},
 		{
 			Kind:    KindAgent,
-			Name:    "competitive-analysis",
+			Name:    "dependency-audit",
 			Process: ProcessStopped,
 			Held:    true,
 		},
 		{
 			Kind:    KindChild,
-			Name:    "competitor-architecture",
+			Name:    "dependency-licenses",
 			Process: ProcessStopped,
 		},
 		{
