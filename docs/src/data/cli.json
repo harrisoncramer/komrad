@@ -1052,9 +1052,23 @@
     "usage": "komrad setup [flags]",
     "aliases": [],
     "short": "Set this machine up for komrad, asking for whatever is missing",
-    "long": "Set this machine up for komrad, asking for whatever is missing.\n\nEach step asks the doctor whether its part of the machine is ready, and only when it is not\ndoes it ask a question and change something, then asks the doctor again. Nothing records\nwhich steps ran, so running it again after stopping part way finds the finished steps\nalready done. It ends on the doctor's full report.\n\nWith --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an\nanswer takes it from a flag, and names the flag when none was given.",
+    "long": "Set this machine up for komrad, asking for whatever is missing.\n\nEach step asks the doctor whether its part of the machine is ready, and only when it is not\ndoes it ask a question and change something, then asks the doctor again. Nothing records\nwhich steps ran, so running it again after stopping part way finds the finished steps\nalready done. It ends on the doctor's full report.\n\nWith --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an\nanswer takes it from a flag, and names the flag when none was given.\n\nThe forge step connects github.com or gitlab.com once the engine is running, and skips\nuntil then. Unattended, --forge names the host and --forge-token-file the token, which for\ngithub.com defaults to gh's own. Any other host is connected with komrad forge connect.",
     "example": "",
     "flags": [
+      {
+        "name": "forge",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "the forge to connect when none is, github.com or gitlab.com"
+      },
+      {
+        "name": "forge-token-file",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "read the token for --forge from this file"
+      },
       {
         "name": "harness",
         "shorthand": "",
