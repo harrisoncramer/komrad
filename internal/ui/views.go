@@ -39,6 +39,10 @@ func viewEntries() []viewEntry {
 			label:  "schedules",
 		},
 		{
+			screen: screenDocuments,
+			label:  "documents",
+		},
+		{
 			screen: screenArchive,
 			label:  "archive",
 		},
@@ -194,7 +198,7 @@ func (m *model) updateViews(key tea.KeyPressMsg) tea.Cmd {
 }
 
 func (m *model) enterView(entry viewEntry) tea.Cmd {
-	if entry.screen == m.screen {
+	if entry.screen == m.screen && (m.screen != screenDocuments || m.documents.listsEveryAgent()) {
 		return nil
 	}
 

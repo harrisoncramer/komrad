@@ -80,17 +80,11 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
-	if err := validateSubmenuKeys("documents menu", []submenuKeys{
-		{name: "view", keys: keys.DocumentsMenu.View},
-		{name: "new", keys: keys.DocumentsMenu.New},
-	}); err != nil {
-		return err
-	}
-
 	if err := validateSubmenuKeys("document types menu", []submenuKeys{
 		{name: "edit", keys: keys.DocumentTypesMenu.Edit},
 		{name: "new", keys: keys.DocumentTypesMenu.New},
 		{name: "delete", keys: keys.DocumentTypesMenu.Delete},
+		{name: "scratch", keys: keys.Menu.Scratch},
 	}); err != nil {
 		return err
 	}
@@ -100,7 +94,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "rename", keys: keys.DocumentMenu.Rename},
 		{name: "new", keys: keys.DocumentMenu.New},
 		{name: "scratch", keys: keys.Menu.Scratch},
-		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	}); err != nil {
 		return err
 	}
@@ -111,7 +104,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "new", keys: keys.ScheduleMenu.New},
 		{name: "archive", keys: keys.Menu.Archive},
 		{name: "scratch", keys: keys.Menu.Scratch},
-		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	}); err != nil {
 		return err
 	}
@@ -133,7 +125,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "answer", keys: keys.Review.Answer},
 		{name: "jump", keys: keys.Review.Jump},
 		{name: "scratch", keys: keys.Menu.Scratch},
-		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	}); err != nil {
 		return err
 	}
@@ -165,7 +156,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "new_agent", keys: keys.Menu.NewAgent},
 		{name: "new_workflow", keys: keys.Menu.NewWorkflow},
 		{name: "scratch", keys: keys.Menu.Scratch},
-		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	})
 }
 

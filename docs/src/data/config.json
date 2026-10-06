@@ -362,8 +362,15 @@
         },
         {
           "path": "keybindings.documents",
-          "description": "The documents screen, which reads what the hovered agent has written for a person.",
+          "description": "The documents view, which lists every document agents have written, and the document types.",
           "settings": [
+            {
+              "key": "jump_to_agent",
+              "path": "keybindings.documents.jump_to_agent",
+              "type": "array",
+              "description": "Jump to the agent that wrote the document under the cursor, on the agents list or in the\narchive.",
+              "default": "[\"J\"]"
+            },
             {
               "key": "older",
               "path": "keybindings.documents.older",
@@ -403,28 +410,7 @@
               "key": "new",
               "path": "keybindings.document_menu.new",
               "type": "array",
-              "description": "Write a new document for the agent whose documents are listed, from a form.",
-              "default": "[\"c\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
-          "path": "keybindings.documents_menu",
-          "description": "The documents menu, nested under the menu on the hovered agent.",
-          "settings": [
-            {
-              "key": "view",
-              "path": "keybindings.documents_menu.view",
-              "type": "array",
-              "description": "Open the documents the agent has written. The entry is gray on an agent that has written\nnone.",
-              "default": "[\"v\"]"
-            },
-            {
-              "key": "new",
-              "path": "keybindings.documents_menu.new",
-              "type": "array",
-              "description": "Write a new document for the agent, from a form asking its name and type. It starts with a\nline saying it is empty, for you to edit.",
+              "description": "Write a new document for the agent whose documents are listed, from a form. The entry is\nonly on the documents view opened from an agent.",
               "default": "[\"c\"]"
             }
           ],
@@ -432,7 +418,7 @@
         },
         {
           "path": "keybindings.document_types_menu",
-          "description": "The menu on the document type under the cursor of the document types list.",
+          "description": "The menu on the document type under the cursor of the documents view.",
           "settings": [
             {
               "key": "edit",
@@ -977,7 +963,7 @@
               "key": "documents",
               "path": "keybindings.menu.documents",
               "type": "array",
-              "description": "Open the documents menu to the right of this one, for reading the agent's documents or\nwriting a new one.",
+              "description": "Open the documents view on the documents the agent has written.",
               "default": "[\"d\"]"
             },
             {
@@ -1084,13 +1070,6 @@
               "type": "array",
               "description": "Open this engine's scratch file in your editor in place of the pane beside the list, or\nclose it when it is already open. Each engine keeps its own file under komrad's state\ndirectory.",
               "default": "[\"s\"]"
-            },
-            {
-              "key": "document_types",
-              "path": "keybindings.menu.document_types",
-              "type": "array",
-              "description": "List the sorts of document agents write to the right of this one, the context of the type\nunder the cursor drawn beside it.",
-              "default": "[\"T\"]"
             }
           ],
           "sections": []

@@ -520,7 +520,7 @@ func TestSearchArchivedRow(t *testing.T) {
 			})
 			searched := findRow(readListRows(harness.readFrame()), "payouts")
 
-			harness.press("esc", "tab", "tab")
+			harness.press("esc", "tab", "tab", "tab")
 
 			assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "payouts")), searched)
 		})

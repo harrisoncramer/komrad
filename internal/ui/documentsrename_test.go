@@ -107,6 +107,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
 		docs.add(&agentv1.Document{
 			Id:        "d3",
+			AgentId:   "author",
 			Name:      "Notes",
 			Type:      "notes",
 			Version:   1,

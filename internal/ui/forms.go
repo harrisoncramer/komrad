@@ -81,8 +81,6 @@ const (
 	formGit
 	formArchiveMenu
 	formHideMenu
-	formDocumentsMenu
-	formDocumentTypesMenu
 	formMenu
 	formWorkflow
 	formWorkflowArchive
@@ -156,7 +154,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formAgentRetry, formWorkflow, formSchedule,
 		formDocument, formDocumentType:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formArchiveMenu, formHideMenu, formDocumentsMenu, formDocumentTypesMenu, formMerge, formMenu, formAgentArchive, formAgentRebase, formAgentPush, formAgentAbort, formWorkflowArchive, formScheduleArchive,
+	case formGit, formArchiveMenu, formHideMenu, formMerge, formMenu, formAgentArchive, formAgentRebase, formAgentPush, formAgentAbort, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete, formDocumentTypeDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -509,7 +507,7 @@ func (m *model) closeForm() tea.Cmd {
 	m.leaveForm()
 	m.reconcileSolo()
 
-	return m.enter(m.screen, screenTarget{})
+	return m.enter(m.screen, screenTarget{resume: true})
 }
 
 const (

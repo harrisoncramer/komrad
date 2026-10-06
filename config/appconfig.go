@@ -135,13 +135,11 @@ type Keybindings struct {
 	Details DetailsKeys `mapstructure:"details"`
 	// A diff with a cursor in it, shared by the review and a document's history.
 	Diff DiffKeys `mapstructure:"diff"`
-	// The documents screen, which reads what the hovered agent has written for a person.
+	// The documents view, which lists every document agents have written, and the document types.
 	Documents DocumentsKeys `mapstructure:"documents"`
 	// The menu on the hovered document, over the panel's own entries.
 	DocumentMenu DocumentMenuKeys `mapstructure:"document_menu"`
-	// The documents menu, nested under the menu on the hovered agent.
-	DocumentsMenu DocumentsMenuKeys `mapstructure:"documents_menu"`
-	// The menu on the document type under the cursor of the document types list.
+	// The menu on the document type under the cursor of the documents view.
 	DocumentTypesMenu DocumentTypesMenuKeys `mapstructure:"document_types_menu"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one. The key that opens it is "/" and is not configured.
@@ -363,8 +361,7 @@ type MenuKeys struct {
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
 	Review []string `mapstructure:"review" default:"r"`
-	// Open the documents menu to the right of this one, for reading the agent's documents or
-	// writing a new one.
+	// Open the documents view on the documents the agent has written.
 	Documents []string `mapstructure:"documents" default:"d"`
 	// Open the agent's logs, the service log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
@@ -410,9 +407,6 @@ type MenuKeys struct {
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
 	Scratch []string `mapstructure:"scratch" default:"s"`
-	// List the sorts of document agents write to the right of this one, the context of the type
-	// under the cursor drawn beside it.
-	DocumentTypes []string `mapstructure:"document_types" default:"T"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.
@@ -421,19 +415,8 @@ type WorkflowsKeys struct {
 	Rename []string `mapstructure:"rename" default:"r"`
 }
 
-// DocumentsMenuKeys are the bindings for the documents menu, which opens from the menu on the
-// hovered agent.
-type DocumentsMenuKeys struct {
-	// Open the documents the agent has written. The entry is gray on an agent that has written
-	// none.
-	View []string `mapstructure:"view" default:"v"`
-	// Write a new document for the agent, from a form asking its name and type. It starts with a
-	// line saying it is empty, for you to edit.
-	New []string `mapstructure:"new" default:"c"`
-}
-
 // DocumentTypesMenuKeys are the bindings for the menu on the document type under the cursor of
-// the document types list, which the menu key opens over it.
+// the documents view, which the menu key opens over it.
 type DocumentTypesMenuKeys struct {
 	// Edit the type's name and context, from a form holding them as they stand.
 	Edit []string `mapstructure:"edit" default:"e"`
@@ -451,14 +434,19 @@ type DocumentMenuKeys struct {
 	Edit []string `mapstructure:"edit" default:"e"`
 	// Rename the document, typing over its name in the list.
 	Rename []string `mapstructure:"rename" default:"r"`
-	// Write a new document for the agent whose documents are listed, from a form.
+	// Write a new document for the agent whose documents are listed, from a form. The entry is
+	// only on the documents view opened from an agent.
 	New []string `mapstructure:"new" default:"c"`
 }
 
-// DocumentsKeys are the bindings for the documents screen, which lists the documents one
-// agent has written and draws the one under the cursor beside the list. Editing, renaming and
-// writing a new one are in the menu on the hovered document.
+// DocumentsKeys are the bindings for the documents view, which lists every document agents
+// have written, or the documents of one agent when opened from its menu, and draws the one
+// under the cursor beside the list. Editing, renaming and writing a new one are in the menu on
+// the hovered document.
 type DocumentsKeys struct {
+	// Jump to the agent that wrote the document under the cursor, on the agents list or in the
+	// archive.
+	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
 	// Step back to an earlier write of the document under the cursor, drawing what that write
 	// changed.
 	Older []string `mapstructure:"older" default:"<"`
