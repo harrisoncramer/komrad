@@ -573,6 +573,7 @@ func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
 			}
+
 			listed = append(listed, resp.Msg.GetDocuments()...)
 			if resp.Msg.NextPageToken == nil {
 				return listed, nil
