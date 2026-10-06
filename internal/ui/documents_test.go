@@ -39,16 +39,18 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	})
 
-	t.Run("a row with none does not open it", func(t *testing.T) {
+	t.Run("a row with none opens it empty", func(t *testing.T) {
 		t.Parallel()
 
+		docs := newDocumentShelf()
 		harness := openAgents(t, buildDocumentAuthors()...)
+		docs.answer(harness)
 		moveToAgentRow(t, harness, "quiet")
-		harness.press("space", "d", "v")
+		harness.press("space", "d")
+		harness.fireTimers()
 
-		assert.NotEqual(t, documentsScreen, harness.readScreen())
-		assert.Contains(t, readOpenMessages(harness), "this agent has not written any documents yet")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure))
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Contains(t, readStageText(harness.readFrame()), "no documents")
 	})
 
 	t.Run("back returns to the agents list on the agent it opened for", func(t *testing.T) {
@@ -71,6 +73,28 @@ func TestDocumentsOpen(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, readStageText(frame), "Design the cache")
+	})
+
+	t.Run("the switcher opens every agent's documents with whose each is", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openEveryDocument(t)
+
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Regexp(t, `author Design the cache`, harness.readFrame())
+		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
+			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
+		})
+	})
+
+	t.Run("the jump key lands on the agent that wrote the hovered document", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openEveryDocument(t)
+		harness.press("J")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
 	})
 }
 
@@ -140,6 +164,7 @@ func TestDocumentsRead(t *testing.T) {
 		harness, docs := openDocuments(t)
 		docs.add(&agentv1.Document{
 			Id:        "d3",
+			AgentId:   "author",
 			Name:      "Cache notes",
 			Type:      "notes",
 			UpdatedAt: "2026-09-25T12:00:00Z",
@@ -355,18 +380,21 @@ func TestDocumentsNewRedrawsTheTypes(t *testing.T) {
 }
 
 // TestDocumentsNewFromTheMenu covers writing a first document for an agent that has none, from the
-// documents menu.
+// its empty documents view.
 func TestDocumentsNewFromTheMenu(t *testing.T) {
 	t.Parallel()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
+	newDocumentShelf().answer(harness)
 	harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 	})
 	moveToAgentRow(t, harness, "quiet")
-	harness.press("space", "d", "c", "P", "l", "a", "n", "enter")
+	harness.press("space", "d")
+	harness.fireTimers()
+	harness.press("space", "c", "P", "l", "a", "n", "enter")
 
-	assert.Equal(t, agentsScreen, harness.readScreen())
+	assert.Equal(t, documentsScreen, harness.readScreen())
 	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
 		AgentId: xptr.Ptr("quiet"),
 		Name:    "Plan",
@@ -408,6 +436,13 @@ func TestDocumentsMenu(t *testing.T) {
 			presses: []string{"space", "e", "space"},
 			wantOn:  []*regexp.Regexp{regexp.MustCompile(`close editor +e`)},
 			wantOff: []*regexp.Regexp{readOffEntry("rename", "r"), readOffEntry("new document", "c")},
+		},
+		{
+			name:    "every agent's documents have no agent to write a new one for",
+			open:    openEveryDocument,
+			presses: []string{"space"},
+			wantOn:  []*regexp.Regexp{regexp.MustCompile(`edit +e`)},
+			wantOff: []*regexp.Regexp{readOffEntry("new document", "c")},
 		},
 	}
 
@@ -848,10 +883,23 @@ func openDocumentsWith(t *testing.T, params panelHarnessParams) (*panelHarness, 
 	docs.answer(harness)
 
 	moveToAgentRow(t, harness, "author")
-	harness.press("space", "d", "v")
+	harness.press("space", "d")
 	harness.fireTimers()
 
 	return harness, docs
+}
+
+// openEveryDocument opens the documents view on the switcher from an agent that wrote none.
+func openEveryDocument(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := openAgents(t, buildDocumentAuthors()...)
+	newDocumentShelf().answer(harness)
+	moveToAgentRow(t, harness, "quiet")
+	harness.press("tab", "tab", "tab")
+	harness.fireTimers()
+
+	return harness
 }
 
 // moveToAgentRow puts the agents list's cursor on the row whose name holds the one given.
@@ -916,6 +964,7 @@ func newDocumentShelf() *documentShelf {
 		listed: []*agentv1.Document{
 			{
 				Id:        "d1",
+				AgentId:   "author",
 				Name:      "Design the cache",
 				Type:      "RFC",
 				Version:   3,
@@ -923,6 +972,7 @@ func newDocumentShelf() *documentShelf {
 			},
 			{
 				Id:        "d2",
+				AgentId:   "author",
 				Name:      "Rollout report",
 				Type:      "report",
 				Version:   5,
@@ -988,12 +1038,16 @@ func (d *documentShelf) add(document *agentv1.Document) {
 }
 
 func (d *documentShelf) answer(harness *panelHarness) {
-	harness.answer(agentv1connect.AgentServiceListDocumentsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.answer(agentv1connect.AgentServiceListDocumentsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
 
+		asked, _ := req.Any().(*agentv1.ListDocumentsRequest)
 		listed := make([]*agentv1.Document, 0, len(d.listed))
 		for _, document := range d.listed {
+			if asked.AgentId != nil && document.GetAgentId() != asked.GetAgentId() {
+				continue
+			}
 			copied, ok := proto.Clone(document).(*agentv1.Document)
 			require.True(harness.t, ok)
 			listed = append(listed, copied)

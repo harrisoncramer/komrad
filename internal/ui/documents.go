@@ -86,7 +86,7 @@ func (r documentTypeRow) key() string {
 // naming none, keeping the screen as it was when that is what it already lists.
 func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
-	if target.agentID != d.agentID {
+	if !target.resume && target.agentID != d.agentID {
 		saved = d.closeEdit(m)
 		*d = documentsScreen{agentID: target.agentID}
 	}

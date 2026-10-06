@@ -168,7 +168,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
-		harness.press("d", "v")
+		harness.press("d")
 		harness.fireTimers()
 
 		require.Equal(t, documentsScreen, harness.readScreen())

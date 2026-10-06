@@ -507,7 +507,7 @@ func (m *model) closeForm() tea.Cmd {
 	m.leaveForm()
 	m.reconcileSolo()
 
-	return m.enter(m.screen, screenTarget{})
+	return m.enter(m.screen, screenTarget{resume: true})
 }
 
 const (

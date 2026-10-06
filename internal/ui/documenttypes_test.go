@@ -1,7 +1,6 @@
 package ui_test
 
 import (
-	"strings"
 	"testing"
 
 	"komrad/lib/xptr"
@@ -14,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestDocumentTypesList covers the types listed from the panel's band of the menu, each drawn
+// TestDocumentTypesList covers the types listed on the documents view, each drawn
 // with its context and the menu key opening the ways to act on it in the context's place.
 func TestDocumentTypesList(t *testing.T) {
 	t.Parallel()
@@ -31,7 +30,7 @@ func TestDocumentTypesList(t *testing.T) {
 		},
 		{
 			name:    "moving down draws the next type's context",
-			presses: []string{"down"},
+			presses: []string{"j"},
 			want:    []string{"How to write a notes."},
 			wantNot: []string{"How to write an explainer."},
 		},
@@ -48,10 +47,9 @@ func TestDocumentTypesList(t *testing.T) {
 			wantNot: []string{"new type"},
 		},
 		{
-			name:    "the edit form takes the actions' place",
+			name:    "the edit form opens beside the actions",
 			presses: []string{"space", "e"},
 			want:    []string{"Edit document type", "explainer"},
-			wantNot: []string{"new type"},
 		},
 		{
 			name:    "back from a form draws the actions again",
@@ -81,8 +79,8 @@ func TestDocumentTypesList(t *testing.T) {
 	t.Run("with no types the list says so and the actions only define one", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"))
-		harness.press("space", "T")
+		harness := openAgents(t)
+		pressToDocumentTypes(harness)
 		assert.Contains(t, harness.readFrame(), "no document types")
 
 		harness.press("space")
@@ -92,53 +90,6 @@ func TestDocumentTypesList(t *testing.T) {
 		assert.Regexp(t, readOffEntry("delete", "d"), raw)
 		assert.NotRegexp(t, readOffEntry("new type", "c"), raw)
 	})
-}
-
-// TestDocumentTypesNarrow covers the list and its forms in a panel with no room for the menu under them.
-func TestDocumentTypesNarrow(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		width    int
-		wantMenu bool
-		wantList bool
-	}{
-		{
-			name:     "a wide panel draws the menu under the list",
-			wantMenu: true,
-			wantList: true,
-		},
-		{
-			name:     "a narrow panel draws the list beside the form while the form keeps its floor",
-			width:    130,
-			wantList: true,
-		},
-		{name: "a narrower panel draws the form alone", width: 100},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := newPanelHarness(t, panelHarnessParams{width: tt.width})
-			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(buildDocumentAuthors()...))
-			answerDocumentTypes(harness)
-			harness.press("space", "T")
-
-			frame := harness.readFrame()
-			assert.Contains(t, frame, "RFC")
-			assert.Contains(t, frame, "How to write an explainer.")
-			assert.Equal(t, tt.wantMenu, strings.Contains(frame, "scratch"), "the menu under the list")
-
-			harness.press("space", "e")
-
-			frame = harness.readFrame()
-			assert.Contains(t, frame, "Edit document type")
-			assert.Equal(t, tt.wantList, strings.Contains(frame, "RFC"), "the list beside the form")
-		})
-	}
 }
 
 // TestDocumentTypesWrite covers defining, editing and deleting a type from the menu on it.
@@ -194,7 +145,7 @@ func TestDocumentTypesWrite(t *testing.T) {
 			harness.press(tt.presses...)
 			harness.fireTimers()
 
-			assert.Equal(t, agentsScreen, harness.readScreen())
+			assert.Equal(t, documentsScreen, harness.readScreen())
 			assert.NotContains(t, harness.readFrame(), "document type", "the form is down")
 			if tt.want == nil {
 				assert.Empty(t, harness.readSent(tt.procedure))
@@ -247,15 +198,20 @@ func TestDocumentTypesRefused(t *testing.T) {
 	}
 }
 
-// openDocumentTypes lists the document types from the menu over the agents list.
+// openDocumentTypes lists the document types on the documents view.
 func openDocumentTypes(t *testing.T) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
-	harness.press("space", "T")
+	pressToDocumentTypes(harness)
 
 	return harness
+}
+
+// pressToDocumentTypes switches from the agents list to the types kind of the documents view.
+func pressToDocumentTypes(harness *panelHarness) {
+	harness.press("tab", "tab", "tab", "F", "tab", "esc")
 }
 
 func newDocumentType(id, name string) *agentv1.DocumentType {
