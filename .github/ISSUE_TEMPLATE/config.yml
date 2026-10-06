@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bug reporting guide
+    url: https://komrad.dev/latest/guides/bug-reports/
+    about: What to check first and what to include in a report.
+  - name: Feature ideas
+    url: https://github.com/harrisoncramer/komrad/discussions/categories/ideas
+    about: The issue tracker is for bugs until April 2027. Share ideas here instead.

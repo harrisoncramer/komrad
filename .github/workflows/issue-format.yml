@@ -1,0 +1,29 @@
+name: issue-format
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  close:
+    if: ${{ !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body ?? "";
+            const required = ["### What happened", "### Steps to reproduce", "### komrad doctor"];
+            const missing = required.filter((heading) => !body.includes(heading));
+            if (missing.length === 0) {
+              return;
+            }
+            const issue = { owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number };
+            await github.rest.issues.createComment({
+              ...issue,
+              body: "This issue was closed because it was not filed with the bug report form. Please read https://komrad.dev/latest/guides/bug-reports/ and open a new issue from https://github.com/harrisoncramer/komrad/issues/new?template=bug_report.yml.",
+            });
+            await github.rest.issues.update({ ...issue, state: "closed", state_reason: "not_planned" });
