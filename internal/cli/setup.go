@@ -5,18 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"komrad/config"
 	"komrad/internal/doctor"
+	"komrad/internal/forge"
 	"komrad/internal/setup"
+	forgev1 "komrad/proto/gen/forge/v1"
 
+	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
 func setupCmd(state *app) *cobra.Command {
 	var noInput bool
-	var harnessFlag string
+	var harnessFlag, forgeFlag, forgeTokenFile string
 
 	cmd := &cobra.Command{
 		Use:   "setup",
@@ -29,14 +33,18 @@ which steps ran, so running it again after stopping part way finds the finished 
 already done. It ends on the doctor's full report.
 
 With --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an
-answer takes it from a flag, and names the flag when none was given.`,
+answer takes it from a flag, and names the flag when none was given.
+
+The forge step connects github.com or gitlab.com once the engine is running, and skips
+until then. Unattended, --forge names the host and --forge-token-file the token, which for
+github.com defaults to gh's own. Any other host is connected with komrad forge connect.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
-			steps, err := state.setupSteps(harnessFlag)
+			steps, err := state.setupSteps(harnessFlag, forgeFlag, forgeTokenFile)
 			if err != nil {
 				return err
 			}
@@ -86,11 +94,13 @@ answer takes it from a flag, and names the flag when none was given.`,
 
 	cmd.Flags().BoolVar(&noInput, "no-input", false, "ask nothing, taking every answer from a flag")
 	cmd.Flags().StringVar(&harnessFlag, "harness", "", "the harness new agents run, when the default one is not on PATH")
+	cmd.Flags().StringVar(&forgeFlag, "forge", "", "the forge to connect when none is, github.com or gitlab.com")
+	cmd.Flags().StringVar(&forgeTokenFile, "forge-token-file", "", "read the token for --forge from this file")
 
 	return cmd
 }
 
-func (a *app) setupSteps(harnessFlag string) ([]setup.Step, error) {
+func (a *app) setupSteps(harnessFlag, forgeFlag, forgeTokenFile string) ([]setup.Step, error) {
 	layers, err := config.ResolveLayers(config.Stack{Paths: a.configStack.Paths})
 	if err != nil {
 		return nil, err
@@ -108,5 +118,32 @@ func (a *app) setupSteps(harnessFlag string) ([]setup.Step, error) {
 		},
 		&setup.ContextStep{Stack: a.configStack},
 		&setup.AutoSetupStep{Path: path, Stack: a.configStack},
+		&setup.ForgeStep{
+			Connect:   a.connectForge,
+			GHToken:   ghToken,
+			Flag:      forgeFlag,
+			TokenFile: forgeTokenFile,
+		},
 	}, nil
+}
+
+func (a *app) connectForge(ctx context.Context, host string, token forge.Secret) error {
+	return a.withAPI(ctx, func(ctx context.Context, base string) error {
+		_, err := forgeClient(base).ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
+			Host:   host,
+			Method: forge.MethodToken,
+			Token:  tokenForTheWire(token),
+		}))
+
+		return err
+	})
+}
+
+func ghToken(ctx context.Context) forge.Secret {
+	out, err := exec.CommandContext(ctx, "gh", "auth", "token", "--hostname", "github.com").Output()
+	if err != nil {
+		return forge.Secret{}
+	}
+
+	return forge.NewSecret(string(out))
 }

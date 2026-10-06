@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/doctor"
+	"komrad/internal/forge"
 	"komrad/lib/xslice"
 
 	"charm.land/huh/v2"
@@ -288,4 +289,135 @@ func (s *AutoSetupStep) repair(context.Context) error {
 	}
 
 	return nil
+}
+
+const (
+	forgeWithGH = "gh"
+	forgeGitHub = "github.com"
+	forgeGitLab = "gitlab.com"
+	forgeLater  = "later"
+)
+
+// ForgeStep offers to connect github.com or gitlab.com when the engine has no forge, and skips
+// while the engine is not answering.
+type ForgeStep struct {
+	Connect   func(ctx context.Context, host string, token forge.Secret) error
+	GHToken   func(ctx context.Context) forge.Secret
+	Flag      string
+	TokenFile string
+	ghToken   forge.Secret
+	choice    string
+	pasted    string
+}
+
+func (s *ForgeStep) name() string {
+	return "forge"
+}
+
+func (s *ForgeStep) observe(ctx context.Context, check checker) observation {
+	report := check(ctx, doctor.CheckServer, doctor.CheckForges)
+	server := findingNamed(report, doctor.CheckServer)
+	forges := findingNamed(report, doctor.CheckForges)
+
+	switch {
+	case server.Status == doctor.StatusFail:
+		return observation{Verdict: verdictSkip, Detail: server.Error, Finding: &server}
+	case server.Status != doctor.StatusOK, forges.Code == doctor.CodeForgesUnreadable:
+		return observation{Verdict: verdictSkip, Detail: "the engine is not running; open the panel, then run setup again"}
+	case forges.Status == doctor.StatusOK:
+		return observation{Verdict: verdictDone, Detail: forges.Detail}
+	case forges.Code != doctor.CodeNoForges:
+		return observation{Verdict: verdictSkip, Detail: forges.Error, Finding: &forges}
+	}
+
+	s.ghToken = s.GHToken(ctx)
+
+	return observation{Verdict: verdictAsk, Detail: "no forge is connected"}
+}
+
+func (s *ForgeStep) question() *huh.Form {
+	var options []huh.Option[string]
+	if !s.ghToken.IsZero() {
+		options = append(options, huh.NewOption("GitHub, with gh's token", forgeWithGH))
+	}
+	options = append(options,
+		huh.NewOption("GitHub, paste a token", forgeGitHub),
+		huh.NewOption("GitLab, paste a token with the api scope", forgeGitLab),
+		huh.NewOption("Not now", forgeLater),
+	)
+	s.choice = options[0].Value
+
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Connect a forge so komrad can read pull requests").
+				Description("For a self-hosted forge, run komrad forge connect after setup.").
+				Options(options...).
+				Value(&s.choice),
+		),
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Token").
+				Description("The forge checks it before anything is stored.").
+				EchoMode(huh.EchoModePassword).
+				Validate(requireToken).
+				Value(&s.pasted),
+		).WithHideFunc(func() bool { return s.choice != forgeGitHub && s.choice != forgeGitLab }),
+	)
+}
+
+func requireToken(pasted string) error {
+	if forge.NewSecret(pasted).IsZero() {
+		return errors.New("paste a token, or go back and choose not now")
+	}
+
+	return nil
+}
+
+func (s *ForgeStep) answerUnattended() error {
+	switch s.Flag {
+	case "":
+		s.choice = forgeLater
+
+		return nil
+	case forgeGitHub, forgeGitLab:
+	default:
+		return fmt.Errorf("%w: --forge is github.com or gitlab.com, and komrad forge connect connects any other host", errNeedsAnswer)
+	}
+
+	if s.TokenFile != "" {
+		raw, err := os.ReadFile(s.TokenFile)
+		if err != nil {
+			return fmt.Errorf("failed to read the token file: %w", err)
+		}
+		s.choice, s.pasted = s.Flag, string(raw)
+
+		return nil
+	}
+
+	if s.Flag == forgeGitLab {
+		return fmt.Errorf("%w: pass --forge-token-file naming a personal access token with the api scope", errNeedsAnswer)
+	}
+	if s.ghToken.IsZero() {
+		return fmt.Errorf("%w: gh has no token for github.com, so pass --forge-token-file", errNeedsAnswer)
+	}
+	s.choice = forgeWithGH
+
+	return nil
+}
+
+func (s *ForgeStep) repair(ctx context.Context) error {
+	switch s.choice {
+	case forgeWithGH:
+		return s.Connect(ctx, forgeGitHub, s.ghToken)
+	case forgeGitHub, forgeGitLab:
+		token := forge.NewSecret(s.pasted)
+		if token.IsZero() {
+			return errors.New("no token was given")
+		}
+
+		return s.Connect(ctx, s.choice, token)
+	}
+
+	return errSkipped
 }

@@ -23,6 +23,7 @@ const (
 	verdictAsk
 	verdictRepair
 	verdictStop
+	verdictSkip
 )
 
 // observation is one look at the machine by a step.

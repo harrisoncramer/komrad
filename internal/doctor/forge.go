@@ -13,7 +13,7 @@ const connectFirstFix = "gh auth token | komrad forge connect github.com, or for
 	"komrad forge connect gitlab.com --token-file <a personal access token with the api scope>"
 
 var errForgesUnreadable = &ProblemError{
-	Code:    "forges_unreadable",
+	Code:    CodeForgesUnreadable,
 	Message: "the service could not check its forges",
 }
 
@@ -28,7 +28,7 @@ var errForgeNoCredential = &ProblemError{
 }
 
 var errNoForges = &ProblemError{
-	Code:    "no_forges",
+	Code:    CodeNoForges,
 	Message: "no forge is connected, so pull requests cannot be read",
 }
 
@@ -83,9 +83,9 @@ type ForgeStatus struct {
 // one that no longer answers.
 func newForgesCheck() Check {
 	return Check{
-		Name:        "forges",
+		Name:        CheckForges,
 		Description: "pull requests are read through the forges the service is connected to",
-		Needs:       []string{"server"},
+		Needs:       []string{CheckServer},
 		Run: func(ctx context.Context, env Env) Result {
 			statuses, err := env.CheckForges(ctx)
 			if err != nil {

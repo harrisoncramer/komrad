@@ -189,6 +189,11 @@ func (m model) observed(msg observedMsg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Quit
 
+	case verdictSkip:
+		r.state = stateSkipped
+
+		return m.advance()
+
 	case verdictAsk, verdictRepair:
 		if r.repaired {
 			r.state = stateFailed
@@ -260,7 +265,7 @@ func (m model) View() tea.View {
 	var b strings.Builder
 	for i, r := range m.rows {
 		fmt.Fprintf(&b, "%s %-9s %s\n", m.mark(r), r.step.name(), paint.Panel.Style(paint.ToneMuted).Render(r.detail))
-		if r.state == stateFailed && r.fix != "" {
+		if (r.state == stateFailed || r.state == stateSkipped) && r.fix != "" {
 			fmt.Fprintf(&b, "            fix: %s\n", r.fix)
 		}
 		if i == m.current && m.form != nil && r.state == stateAsking {
@@ -313,7 +318,9 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 	case verdictDone:
 		return markDone + " " + name + " " + observation.Detail, nil
 	case verdictStop:
-		return describeStop(name, observation), errFailed
+		return describe(markFailed, name, observation), errFailed
+	case verdictSkip:
+		return describe("-", name, observation), nil
 	case verdictAsk:
 		if err := step.answerUnattended(); err != nil {
 			return markFailed + " " + name + " " + err.Error(), errFailed
@@ -330,15 +337,19 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 	}
 
 	observation = step.observe(ctx, check)
-	if observation.Verdict != verdictDone {
-		return describeStop(name, observation), errFailed
+	switch observation.Verdict {
+	case verdictDone:
+		return markDone + " " + name + " " + observation.Detail, nil
+	case verdictSkip:
+		return describe("-", name, observation), nil
+	case verdictAsk, verdictRepair, verdictStop:
 	}
 
-	return markDone + " " + name + " " + observation.Detail, nil
+	return describe(markFailed, name, observation), errFailed
 }
 
-func describeStop(name string, observation observation) string {
-	line := markFailed + " " + name + " " + observation.Detail
+func describe(mark, name string, observation observation) string {
+	line := mark + " " + name + " " + observation.Detail
 	if observation.Finding != nil && observation.Finding.Fix != "" {
 		line += "\n            fix: " + observation.Finding.Fix
 	}

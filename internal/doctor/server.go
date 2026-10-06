@@ -44,7 +44,7 @@ type ServerStatus struct {
 // newServerCheck reports who holds the address the panel talks through.
 func newServerCheck() Check {
 	return Check{
-		Name:        "server",
+		Name:        CheckServer,
 		Description: "the panel reads and changes agents through a local service",
 		Run: func(ctx context.Context, env Env) Result {
 			if err := requireListenable(ctx, env.Addr); err != nil {
