@@ -15,13 +15,9 @@ Komrad agents run inside of _workflows_. Workflows are just a bucket of settings
 
 <Alert variant="warning">This guide assumes you have [installed komrad](../install/) already.</Alert>
 
-Think of a workflow a shared blueprint for every agent that does the same kind of work. Workflows control where agents start, which CLI they run, and what flags their agents are launched with such as the `--dangerously-skip-permissions` flag for Claude.
+Think of a workflow a shared blueprint for every agent that does the same kind of work. Workflows control where agents start, which CLI they run, and what flags their agents use, like the `--dangerously-skip-permissions` flag for Claude.
 
-You can have multiple workflows per directory, such as a bugfix workflow, and a feature workflow, that apply different settings to their implementer agents.
-
-Each workflow also has one orchestrator agent, responssible for managing every implementer agent within it.
-
-Reviewers can run a different CLI from the rest of the workflow. Set the reviewer agent and reviewer flags on the workflow, say Codex reviewing work Claude wrote, and every reviewer spawned there takes them. With both left blank, reviewers run the same CLI and flags as everything else. A reviewer agent set without reviewer flags launches with no workflow flags, since those were written for the other CLI.
+Each workflow also has one _orchestrator_ agent, responssible for managing every _implementer_ agent within it. The orchestrator is created automatically alongside the workflow.
 
 ## Creating your first Workflow
 
@@ -70,17 +66,17 @@ Creating a workflow also starts its _orchestrator_. This is a agent that belongs
   </video>
 </figure>
 
-The orchestrator writes no code of its own. You tell it what you want done, and it spawns agents into the workflow to do the work, passes messages between them, and gathers what they find. The coordinator is the "brains" of every subagent that is doing real work and often stitches their work together or passes work between them.
+The orchestrator writes no code of its own. You tell it what you want done, and it spawns agents into the workflow to do the work, passes messages between them, and gathers what they find. The orchestrator is the "brains" of every subagent that is doing real work and often stitches their work together or passes work between them.
 
 You can learn more about the orchestrator and the other kinds of agent in the [agents](../agents/) guide.
 
 ## Shared context
 
-Workflows can hold _shared context_ for each implementer agent. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, and so forth.
+Workflows can set _shared context_ for each implementer agent they create. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, and so forth.
 
 In our Neovim example, that might be: "Run make lint before committing any Lua change."
 
-It comes after komrad's own briefing and your <Setting path="context">global context</Setting>, which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
+The context is provided after your <Setting path="context">global context</Setting>, which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
 
 <figure>
   <video
@@ -102,7 +98,7 @@ It comes after komrad's own briefing and your <Setting path="context">global con
 
 Like most agent orchestrators, komrad ships with first-class support for [worktrees](https://git-scm.com/docs/git-worktree).
 
-When creating a workflow or an agent, tell komrade to automatically create a worktree for each agent, and it'll cut one from the base branch. Your implementer agent will then work within that worktree, exclusively, providing it isolation from other agents. The worktree is automatically cleaned up when the agent is deleted.
+When creating a workflow or an agent, tell komrad to automatically create a worktree for each agent, and it'll cut one from the base branch. Your implementer agent will then work within that worktree, exclusively, providing it isolation from other agents. The worktree is automatically cleaned up when the agent is deleted.
 
 Komrad places worktrees into <Setting path="worktrees.dir" /> unless the workflow names its own location.
 
@@ -110,8 +106,6 @@ Komrad places worktrees into <Setting path="worktrees.dir" /> unless the workflo
   Agents do not have to create worktrees, but be careful: those that don't will run directly inside of their parent
   directory.
 </Alert>
-
-The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, <Command path="doctor" /> says so.
 
 ## Archiving and restoring
 
