@@ -5,51 +5,72 @@ group: architecture
 order: 13
 ---
 
-Welcome, komrad!
+## Welcome, komrad!
+
+Komrad is an open-source, terminal-based agent orchestrator.
+
+I'm using it as my daily driver these days, and most of the design decisions come from my desire for an agent orchestration tool that I actually _enjoyed_ using. That drives a handful of principles:
+
+1. Stability of existing features is going to (for the time being) take precedent over large feature builds.
+2. No data loss. You can close/open the view at any time, and "finding" or recovering the right agent/chat/branch shouldn't be hard.
+3. It meets you in the terminal, and uses familiar keybindings.
+4. It runs locally, but can also be fully self-hosted.
+
+These design decisions lead to some big wins, but also some tradeoffs, which I'll outline below.
+
+## Slop
+
+You may have seen earlier this year when the ["gastown" maintainer said this](https://steve-yegge.medium.com/welcome-to-gas-town-4f25ee16dd04):
+
+>  I’ve never seen the code, and I never care to, which might give you pause. ‘Course, I’ve never looked at Beads either, and it’s 225k lines of Go code that tens of thousands of people are using every day. I just created it in October. If that makes you uncomfortable, get out now.
+
+Komrad takes a different approach. I'm not convinced that software engineers don't need to read the code they ship. Komrad is accordingly architected to make it easy, not hard, to drop into an editor, review diffs, and to work incrementally.
+
+It's probably not as efficient as these other orchestration tools. For instance, komrad syncs review comments from your forge (like Github) but won't reply to them for you. Komrad never posts anything back to the forge on your behalf, because replying to another human being is your responsibility.
+
+In my opinion, this is a good tradeoff. If you're builing an architecture you intend to communicate to others, scale over time, it's a less insane way of working.
 
 ## Focus on stability
 
-For the time being, komrad is focused on stability and usability rather than new features. This is to keep me, teh sole developer, sane and capable of building a solid foundation for the future.
+For the time being, I'm focusing on stability.
 
-That said, usability problems count as bugs. Confusing screens, unclear errors, and so forth are still worth [reporting](../bug-reports/), as are overhauls of existing workflows.
+This is to keep me (the sole maintainer) sane, rather than packing in new features.
 
-Feature ideas are still welcome in [Discussions](https://github.com/harrisoncramer/komrad/discussions), and they will be read and weighed once the stability period ends.
+Usability problems count as bugs, though. Confusing screens, unclear errors, and so forth are still worth [reporting](../bug-reports/), as are overhauls of existing workflows. Feature ideas are still welcome in [Discussions](https://github.com/harrisoncramer/komrad/discussions), and they will be read and weighed once the stability period ends.
 
-## Postgres... really?
+## Why Postgres?
 
 Everything komrad knows is written to a Postgres database before it is acted on. Close the panel, close the terminal, log out, and nothing is lost. An archived agent can be restored and its conversation searched. [How it works](../how-it-works/) covers the mechanics.
 
-Most agent orchestration tools ship a simpler persistence layer. Komrad does not.
+Most agent orchestration tools ship a simpler persistence layer. But Postgres provides an extremely powerful core that enables row-level security, listen-notify patterns, semantic search, and durable job execution. Postgres is heavier than a file in your home directory, no doubt. Komrad uses it anyway. Sorry!
 
-Postgres is heavier than a file in your home directory, and you have to run it. Komrad uses it anyway, because a file cannot deliver the things that make orchestration worth having: change notifications, several clients at once, real queries, and full-text search. If running Postgres is a dealbreaker, that is a fair take. Komrad might not be for you.
-
-## komrad is terminal-based
+## Komrad is terminal-based
 
 Komrad is designed for people who already work in a terminal. It is not a desktop app.
 
-Each agent is a real terminal in a real tmux server. Taking over from an agent means attaching to its pane. Any CLI that runs in a terminal works. The panel is a tmux session you attach to, driven from the keyboard, and every key is configurable.
+Each agent is a real terminal in a real tmux server. Taking over from an agent means attaching to its pane, which is just a tmux session.
 
-## komrad is flexible
+As such, komrad tries to be familiar to folks used to vim-like keybindings: use g to jump to the top of the view, use / to search, and so forth. Nearly all of these keybindings are configurable.
 
-komrad gives you workflows, agents, hooks, schedules and mail. It does not say how to combine them. The same pieces run a review loop, an overnight batch of fixes, or an agent that reads an inbox each morning.
+There are other tools (listed below) that are very polished desktop apps. If you prefer that, use them instead. I've no plans to ship a mobile client for this tool.
 
-Nothing is set up for you. Other orchestration tools push you down one path. They are faster to start with, as long as you share their opinion, and they break down when your work does not fit.
+## Self-hosting
 
-That does not mean there is no easy path. Worktrees work out of the box, for instance. But you do not have to use them, and hooks let you run your own setup and teardown to shape a workflow however you like.
+Komrad typically runs on your machine. Locally, agents can have the same MCP tools and permissions you do. Remotely, you set the environment up however you want.
 
-## komrad uses one unified API
+Komrad's own GitHub repository, for instance, is scanned for bugs by komrad agents running in AWS, through a dedicated GitHub App. There is no komrad account and no hosted service, please see the [remote forge](../mydocs/remote-forge.md) for how to set up your own.
 
-Komrad ships one API. The panel is one client of it, and so is an agent calling an MCP tool. Every client gets the same validation and the same permission checks. An agent can also query komrad's database with a read-only login, so it can answer questions nobody wrote a tool for.
+## Alternative tools
 
-The CLI, the MCP tools and the docs are all generated from that same API.
+There are lots of options out there for agent orchestration.
 
-## komrad runs on komrad
+- [Agent Orchestrator](https://github.com/ComposioHQ/agent-orchestrator)
+- [ccmux](https://github.com/epilande/ccmux)
+- [emdash](https://github.com/generalaction/emdash)
+- [Orca](https://github.com/stablyai/orca)
+- [Happy](https://github.com/slopus/happy)
+- [agent-deck](https://github.com/asheshgoplani/agent-deck).
 
-Komrad's own GitHub repository is worked on by komrad agents, running on a remote box through a dedicated GitHub App, finding and fixing issues on their own.
+They all do similar things to komrad, and many are more mature products.
 
-That said, there is no komrad account and no hosted service.
-
-Komrad runs on your machine, or on one you reach over SSH. Your forge token sits in a file only your user can read, and agents are handed short-lived tokens instead of the real one. Locally, agents can have the same MCP tools and permissions you do. Remotely, you set the environment up however you want.
-
-Komrad is MIT licensed, so fork it or change it freely.
-
+Some of them are easier to install, some send notifications outside the terminal, and most are regular desktop applications. If one of them fits the way you work better, use it.
