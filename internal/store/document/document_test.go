@@ -398,12 +398,15 @@ func TestList(t *testing.T) {
 	first, err := stores.Documents.List(ctx, documentstore.ListParams{Limit: 1})
 	require.NoError(t, err)
 	require.Len(t, first, 1)
+
 	rest, err := stores.Documents.List(ctx, documentstore.ListParams{
 		Limit:  10,
 		Cursor: &documentstore.Cursor{UpdatedAt: first[0].UpdatedAt, ID: first[0].ID},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, []string{rfc, elsewhere, notes}, append([]string{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) string { return doc.ID })...), "a cursor carries on where its page left off")
+
+	paged := append([]string{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) string { return doc.ID })...)
+	assert.Equal(t, []string{rfc, elsewhere, notes}, paged, "a cursor carries on where its page left off")
 }
 
 // TestDeletingTheAgentDeletesItsDocuments pins that archiving keeps an agent's documents and deleting it removes them.
