@@ -59,7 +59,7 @@ var errEveryAgentWithAgentID = fail.InvalidArgument("name an agent or ask for ev
 
 // ListDocuments returns one agent's documents, or every agent's, without their bodies.
 func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
-	var owner *string
+	var agentID *string
 	if req.GetEveryAgent() {
 		if req.AgentId != nil {
 			return nil, errEveryAgentWithAgentID
@@ -71,10 +71,10 @@ func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsR
 		}
 
 		logCrossAgentRead(ctx, id, "agent listed another agent's documents")
-		owner = &id
+		agentID = &id
 	}
 
-	listed, err := s.documents.ListDocuments(ctx, owner, req.Type)
+	listed, err := s.documents.ListDocuments(ctx, agentID, req.Type)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list documents")
 	}
