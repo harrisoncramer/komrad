@@ -292,22 +292,17 @@ func (s *AutoSetupStep) repair(context.Context) error {
 }
 
 const (
-	choiceGHToken = "gh"
-	githubHost    = "github.com"
-	gitlabHost    = "gitlab.com"
-	choiceLater   = "later"
+	githubHost  = "github.com"
+	gitlabHost  = "gitlab.com"
+	choiceLater = "later"
 )
 
-// ForgeStep offers to connect github.com or gitlab.com when the engine has no forge, and skips
-// while the engine is not answering.
+// ForgeStep offers to connect github.com or gitlab.com with a pasted token when the engine has
+// no forge, and skips while the engine is not answering.
 type ForgeStep struct {
-	Connect     func(ctx context.Context, host string, token forge.Secret) error
-	ReadGHToken func(ctx context.Context) forge.Secret
-	Flag        string
-	TokenFile   string
-	ghToken     forge.Secret
-	choice      string
-	pasted      string
+	Connect func(ctx context.Context, host string, token forge.Secret) error
+	choice  string
+	pasted  string
 }
 
 func (s *ForgeStep) name() string {
@@ -330,40 +325,41 @@ func (s *ForgeStep) observe(ctx context.Context, check checker) observation {
 		return observation{Verdict: verdictSkip, Detail: forges.Error, Finding: &forges}
 	}
 
-	s.ghToken = s.ReadGHToken(ctx)
-
 	return observation{Verdict: verdictAsk, Detail: "no forge is connected"}
 }
 
 func (s *ForgeStep) question() *huh.Form {
-	var options []huh.Option[string]
-	if !s.ghToken.IsZero() {
-		options = append(options, huh.NewOption("GitHub, with gh's token", choiceGHToken))
-	}
-	options = append(options,
-		huh.NewOption("GitHub, paste a token", githubHost),
-		huh.NewOption("GitLab, paste a token with the api scope", gitlabHost),
-		huh.NewOption("Not now", choiceLater),
-	)
-	s.choice = options[0].Value
+	s.choice = githubHost
 
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Connect a forge so komrad can read pull requests").
 				Description("For a self-hosted forge, run komrad forge connect after setup.").
-				Options(options...).
+				Options(
+					huh.NewOption("GitHub (github.com)", githubHost),
+					huh.NewOption("GitLab (gitlab.com)", gitlabHost),
+					huh.NewOption("Not now", choiceLater),
+				).
 				Value(&s.choice),
 		),
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Token").
-				Description("The forge checks it before anything is stored.").
+				DescriptionFunc(s.tokenHint, &s.choice).
 				EchoMode(huh.EchoModePassword).
 				Validate(requireToken).
 				Value(&s.pasted),
-		).WithHideFunc(func() bool { return s.choice != githubHost && s.choice != gitlabHost }),
+		).WithHideFunc(func() bool { return s.choice == choiceLater }),
 	)
+}
+
+func (s *ForgeStep) tokenHint() string {
+	if s.choice == gitlabHost {
+		return "A personal access token with the api scope. The forge checks it before anything is stored."
+	}
+
+	return "A token with repo access, which gh auth token prints if you use gh. The forge checks it before anything is stored."
 }
 
 func requireToken(pasted string) error {
@@ -374,52 +370,21 @@ func requireToken(pasted string) error {
 	return nil
 }
 
+var errForgeLater = fmt.Errorf("%w; komrad forge connect <host> connects one", errSkipped)
+
 func (s *ForgeStep) answerUnattended() error {
-	if s.Flag == "" && s.TokenFile != "" {
-		return fmt.Errorf("%w: --forge-token-file needs --forge to name the host", errNeedsAnswer)
-	}
-	if s.Flag == "" {
-		s.choice = choiceLater
-
-		return nil
-	}
-	if s.Flag != githubHost && s.Flag != gitlabHost {
-		return fmt.Errorf("%w: --forge is github.com or gitlab.com, and komrad forge connect connects any other host", errNeedsAnswer)
-	}
-
-	if s.TokenFile != "" {
-		raw, err := os.ReadFile(s.TokenFile)
-		if err != nil {
-			return fmt.Errorf("failed to read the token file: %w", err)
-		}
-		s.choice, s.pasted = s.Flag, string(raw)
-
-		return nil
-	}
-
-	if s.Flag == gitlabHost {
-		return fmt.Errorf("%w: pass --forge-token-file naming a personal access token with the api scope", errNeedsAnswer)
-	}
-	if s.ghToken.IsZero() {
-		return fmt.Errorf("%w: gh has no token for github.com, so pass --forge-token-file", errNeedsAnswer)
-	}
-	s.choice = choiceGHToken
-
-	return nil
+	return errForgeLater
 }
 
 func (s *ForgeStep) repair(ctx context.Context) error {
-	switch s.choice {
-	case choiceGHToken:
-		return s.Connect(ctx, githubHost, s.ghToken)
-	case githubHost, gitlabHost:
-		token := forge.NewSecret(s.pasted)
-		if token.IsZero() {
-			return errors.New("no token was given")
-		}
-
-		return s.Connect(ctx, s.choice, token)
+	if s.choice == choiceLater {
+		return errForgeLater
 	}
 
-	return errSkipped
+	token := forge.NewSecret(s.pasted)
+	if token.IsZero() {
+		return errors.New("no token was given")
+	}
+
+	return s.Connect(ctx, s.choice, token)
 }

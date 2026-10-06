@@ -8,9 +8,8 @@ import (
 	"komrad/internal/forge"
 )
 
-// connectFirstFix is how a person connects either public forge.
-const connectFirstFix = "gh auth token | komrad forge connect github.com, or for GitLab, " +
-	"komrad forge connect gitlab.com --token-file <a personal access token with the api scope>"
+// connectFirstFix is how a person connects a forge, whichever they use.
+const connectFirstFix = "komrad setup, or komrad forge connect <host>"
 
 var errForgesUnreadable = &ProblemError{
 	Code:    CodeForgesUnreadable,
@@ -141,12 +140,9 @@ func reconnectFix(status ForgeStatus) string {
 		connect += " --kind " + status.Kind
 	}
 
-	switch {
-	case status.Method == forge.MethodGitHubApp:
+	if status.Method == forge.MethodGitHubApp {
 		return connect + " --method github-app"
-	case status.Kind == forge.KindGitLab:
-		return connect + " --token-file <a personal access token with the api scope>"
-	default:
-		return "gh auth token --hostname " + status.Host + " | " + connect
 	}
+
+	return connect + " --token-file <token>"
 }

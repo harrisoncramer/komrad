@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"time"
 
 	"komrad/config"
 	"komrad/internal/doctor"
@@ -21,7 +19,7 @@ import (
 
 func setupCmd(state *app) *cobra.Command {
 	var noInput bool
-	var harnessFlag, forgeFlag, forgeTokenFile string
+	var harnessFlag string
 
 	cmd := &cobra.Command{
 		Use:   "setup",
@@ -36,16 +34,16 @@ already done. It ends on the doctor's full report.
 With --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an
 answer takes it from a flag, and names the flag when none was given.
 
-The forge step connects github.com or gitlab.com once the engine is running, and skips
-until then. Unattended, --forge names the host and --forge-token-file the token, which for
-github.com defaults to gh's own. Any other host is connected with komrad forge connect.`,
+The forge step connects github.com or gitlab.com with a pasted token once the engine is
+running, and skips until then. Unattended it skips, and komrad forge connect connects any
+forge after setup.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
-			steps, err := state.setupSteps(harnessFlag, forgeFlag, forgeTokenFile)
+			steps, err := state.setupSteps(harnessFlag)
 			if err != nil {
 				return err
 			}
@@ -95,13 +93,11 @@ github.com defaults to gh's own. Any other host is connected with komrad forge c
 
 	cmd.Flags().BoolVar(&noInput, "no-input", false, "ask nothing, taking every answer from a flag")
 	cmd.Flags().StringVar(&harnessFlag, "harness", "", "the harness new agents run, when the default one is not on PATH")
-	cmd.Flags().StringVar(&forgeFlag, "forge", "", "the forge to connect when none is, github.com or gitlab.com")
-	cmd.Flags().StringVar(&forgeTokenFile, "forge-token-file", "", "read the token for --forge from this file")
 
 	return cmd
 }
 
-func (a *app) setupSteps(harnessFlag, forgeFlag, forgeTokenFile string) ([]setup.Step, error) {
+func (a *app) setupSteps(harnessFlag string) ([]setup.Step, error) {
 	layers, err := config.ResolveLayers(config.Stack{Paths: a.configStack.Paths})
 	if err != nil {
 		return nil, err
@@ -120,10 +116,7 @@ func (a *app) setupSteps(harnessFlag, forgeFlag, forgeTokenFile string) ([]setup
 		&setup.ContextStep{Stack: a.configStack},
 		&setup.AutoSetupStep{Path: path, Stack: a.configStack},
 		&setup.ForgeStep{
-			Connect:     a.connectForge,
-			ReadGHToken: readGHToken,
-			Flag:        forgeFlag,
-			TokenFile:   forgeTokenFile,
+			Connect: a.connectForge,
 		},
 	}, nil
 }
@@ -138,18 +131,4 @@ func (a *app) connectForge(ctx context.Context, host string, token forge.Secret)
 
 		return err
 	})
-}
-
-const readGHTokenTimeout = 5 * time.Second
-
-func readGHToken(ctx context.Context) forge.Secret {
-	ctx, cancel := context.WithTimeout(ctx, readGHTokenTimeout)
-	defer cancel()
-
-	out, err := exec.CommandContext(ctx, "gh", "auth", "token", "--hostname", githubHost).Output()
-	if err != nil {
-		return forge.Secret{}
-	}
-
-	return forge.NewSecret(string(out))
 }

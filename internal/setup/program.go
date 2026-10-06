@@ -324,6 +324,10 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 		return describe(markSkipped, name, observation), nil
 	case verdictAsk:
 		if err := step.answerUnattended(); err != nil {
+			if errors.Is(err, errSkipped) {
+				return markSkipped + " " + name + " " + err.Error(), nil
+			}
+
 			return markFailed + " " + name + " " + err.Error(), errFailed
 		}
 	case verdictRepair:

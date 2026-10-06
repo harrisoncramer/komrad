@@ -244,17 +244,17 @@ func TestForgeStep(t *testing.T) {
 					Name:   doctor.CheckForges,
 					Status: doctor.StatusWarn,
 					Code:   "forge_refused",
-					Fix:    "gh auth token --hostname github.com | komrad forge connect github.com",
+					Fix:    "komrad forge connect github.com --token-file <token>",
 				},
 			},
 			verdict: verdictSkip,
-			fix:     "gh auth token --hostname github.com | komrad forge connect github.com",
+			fix:     "komrad forge connect github.com --token-file <token>",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			step := &ForgeStep{ReadGHToken: func(context.Context) forge.Secret { return forge.Secret{} }}
+			step := &ForgeStep{}
 
 			observation := step.observe(t.Context(), fakeChecker(tt.findings...))
 
@@ -267,57 +267,49 @@ func TestForgeStep(t *testing.T) {
 	}
 }
 
-// TestForgeStepUnattended covers which answer each pair of flags gives and what it connects.
-func TestForgeStepUnattended(t *testing.T) {
-	tokenFile := filepath.Join(t.TempDir(), "token")
-	require.NoError(t, os.WriteFile(tokenFile, []byte("glpat-pasted\n"), 0o600))
+// TestForgeStepUnattendedSkips covers the skip an unattended run takes, naming forge connect.
+func TestForgeStepUnattendedSkips(t *testing.T) {
+	err := (&ForgeStep{}).answerUnattended()
 
+	require.ErrorIs(t, err, errSkipped)
+	assert.ErrorContains(t, err, "komrad forge connect <host>")
+}
+
+// TestForgeStepRepair covers what each answer connects.
+func TestForgeStepRepair(t *testing.T) {
 	tests := []struct {
-		name      string
-		flag      string
-		tokenFile string
-		ghToken   string
-		err       string
-		host      string
-		token     string
+		name    string
+		choice  string
+		pasted  string
+		skipped bool
+		err     string
+		host    string
+		token   string
 	}{
 		{
-			name: "no flag skips",
+			name:    "not now skips",
+			choice:  choiceLater,
+			skipped: true,
 		},
 		{
-			name:      "a token file without a host names the flag",
-			tokenFile: tokenFile,
-			err:       "--forge",
+			name:   "github.com connects the pasted token",
+			choice: githubHost,
+			pasted: "ghp_pasted\n",
+			host:   "github.com",
+			token:  "ghp_pasted",
 		},
 		{
-			name: "another host points at forge connect",
-			flag: "gitlab.example.com",
-			err:  "komrad forge connect",
+			name:   "gitlab.com connects the pasted token",
+			choice: gitlabHost,
+			pasted: "glpat-pasted",
+			host:   "gitlab.com",
+			token:  "glpat-pasted",
 		},
 		{
-			name: "gitlab.com without a token file names the flag",
-			flag: "gitlab.com",
-			err:  "--forge-token-file",
-		},
-		{
-			name: "github.com without gh's token names the flag",
-			flag: "github.com",
-			err:  "--forge-token-file",
-		},
-		{
-			name:    "github.com takes gh's token",
-			flag:    "github.com",
-			ghToken: "gho_from_gh",
-			host:    "github.com",
-			token:   "gho_from_gh",
-		},
-		{
-			name:      "a token file wins over gh's token",
-			flag:      "github.com",
-			tokenFile: tokenFile,
-			ghToken:   "gho_from_gh",
-			host:      "github.com",
-			token:     "glpat-pasted",
+			name:   "a blank token is refused",
+			choice: githubHost,
+			pasted: "  \n",
+			err:    "no token was given",
 		},
 	}
 
@@ -330,33 +322,21 @@ func TestForgeStepUnattended(t *testing.T) {
 
 					return nil
 				},
-				ReadGHToken: func(context.Context) forge.Secret { return forge.NewSecret(tt.ghToken) },
-				Flag:        tt.flag,
-				TokenFile:   tt.tokenFile,
+				choice: tt.choice,
+				pasted: tt.pasted,
 			}
-			step.observe(t.Context(), fakeChecker(
-				ok(doctor.CheckServer, ""),
-				doctor.Finding{Name: doctor.CheckForges, Status: doctor.StatusWarn, Code: doctor.CodeNoForges},
-			))
 
-			err := step.answerUnattended()
-			if tt.err != "" {
-				require.ErrorIs(t, err, errNeedsAnswer)
-				assert.ErrorContains(t, err, tt.err)
-
-				return
-			}
-			require.NoError(t, err)
-
-			err = step.repair(t.Context())
-			if tt.host == "" {
+			err := step.repair(t.Context())
+			switch {
+			case tt.skipped:
 				require.ErrorIs(t, err, errSkipped)
-
-				return
+			case tt.err != "":
+				require.ErrorContains(t, err, tt.err)
+			default:
+				require.NoError(t, err)
+				assert.Equal(t, tt.host, host)
+				assert.Equal(t, tt.token, token)
 			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.host, host)
-			assert.Equal(t, tt.token, token)
 		})
 	}
 }

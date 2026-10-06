@@ -42,7 +42,7 @@ type Step interface {
 	repair(ctx context.Context) error
 }
 
-// errSkipped is what a repair returns when the person chose to leave the step as it is.
+// errSkipped is what a repair or an unattended answer returns when the step is left as it is.
 var errSkipped = fail.Precondition("skipped")
 
 // errNeedsAnswer is what an unattended step returns when a flag has to answer for the person.
