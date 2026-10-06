@@ -43,10 +43,6 @@ func (a *agentsScreen) isLoading(m *model) bool {
 	return slices.ContainsFunc(a.rows(m), isRowLoading)
 }
 
-func (a *archiveScreen) isLoading(m *model) bool {
-	return a.kind == archiveAgents && slices.ContainsFunc(a.listRows(m), isRowLoading)
-}
-
 func (r reviewScreen) isLoading(m *model) bool {
 	if r.loading {
 		return true

@@ -520,7 +520,7 @@ func TestSearchArchivedRow(t *testing.T) {
 			})
 			searched := findRow(readListRows(harness.readFrame()), "payouts")
 
-			harness.press("esc", "tab", "tab", "tab")
+			harness.press("esc", "shift+tab", "F", "tab", "esc")
 
 			assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "payouts")), searched)
 		})
@@ -625,7 +625,7 @@ func TestSearchJump(t *testing.T) {
 			rows:        append(buildSearchable(), newArchivedAgent("a3", "old-work", "w1")),
 			query:       "ledger",
 			hit:         archived,
-			wantScreen:  archiveScreen,
+			wantScreen:  agentsScreen,
 			wantHovered: "old-work",
 			wantDrawn:   "kept until deleted",
 			wantZoomed:  true,

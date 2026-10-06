@@ -234,6 +234,19 @@ func buildDriftScreens() []driftScreen {
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
+				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newArchivedSchedule("s1", "monthly-gone"))
+				harness.press("shift+tab", "shift+tab", "esc")
+
+				return harness
+			},
+			excused: []undrawn{quit},
+		},
+		{
+			name:   "archived agents",
+			screen: agentsScreen,
+			open: func(t *testing.T) *panelHarness {
+				t.Helper()
+
 				harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 				harness.press("j")
 

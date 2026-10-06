@@ -93,7 +93,7 @@ func TestDocumentsOpen(t *testing.T) {
 		harness := openArchivedSubpages(t)
 		harness.press("d")
 		harness.fireTimers()
-		harness.press("shift+tab")
+		harness.press("tab", "tab", "tab")
 		harness.fireTimers()
 
 		assert.Equal(t, documentsScreen, harness.readScreen())

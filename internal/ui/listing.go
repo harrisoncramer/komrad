@@ -71,7 +71,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	treeRow := m.agents.list().hovered(m)
 	triageSlot := m.agents.findZoneSlot(m)
 	scheduleRow := m.schedules.list().hovered(m)
-	archiveRow := m.archive.list().hovered(m)
+	archiveRow := m.agents.archived.list().hovered(m)
 	archiveScheduleRow := m.archive.scheduleList().hovered(m)
 	worktreeRow := m.worktrees.list().hovered(m)
 	searchRow := m.search.list().hovered(m)
@@ -86,7 +86,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.agents.followAwaitingCLI(m)
 	m.agents.landInTriage(m, treeRow, triageSlot)
 	m.schedules.apply(m, scheduleRow)
-	m.archive.place(m, archiveRow)
+	m.agents.archived.place(m, archiveRow)
 	m.archive.placeSchedule(m, archiveScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
 	m.sizeAgentWindows()
@@ -452,7 +452,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 	if result.renamed != "" {
 		m.agents.settleRename(m, result.renamed, result.err)
 		m.documents.settleRename(m, result.renamed, result.err)
-		m.archive.settleRename(m, result.renamed, result.err)
+		m.agents.archived.settleRename(m, result.renamed, result.err)
 		m.schedules.settleRename(m, result.renamed, result.err)
 	}
 
@@ -500,10 +500,12 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 	switch {
 	case result.written == nil || walkedAway:
 	case result.written.archived && result.keyMoved:
-		cmds = append(cmds, m.enterScreen(screenArchive))
+		m.agents.kind = agentsArchived
+		cmds = append(cmds, m.enterScreen(screenAgents))
 	case result.written.archived:
-		cmds = append(cmds, m.enter(screenArchive, screenTarget{agentID: result.written.agent}))
+		cmds = append(cmds, m.enterArchived(screenTarget{agentID: result.written.agent}))
 	default:
+		m.agents.kind = agentsLive
 		cmds = append(cmds, m.enterScreen(screenAgents))
 
 		m.agents.showHiddenFor(m, result.written.agent)

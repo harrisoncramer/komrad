@@ -47,37 +47,37 @@ func TestArchiveMenu(t *testing.T) {
 			name:       "restore on an empty archive asks for no write",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "r"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 		},
 		{
 			name:       "delete on an empty archive opens no prompt",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "d"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 		},
 		{
 			name:       "restore on a live folder's header asks for no write",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"space", "a", "r"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 		},
 		{
 			name:       "delete on a live folder's header opens no prompt",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"space", "a", "d"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 		},
 		{
 			name:       "restore and open passes over a folder",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"space", "a", "o"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 		},
 		{
 			name:       "restore and open passes over an agent that never started",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
 			press:      []string{"j", "space", "a", "o", "ctrl+g"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 			wantFrame:  "no conversation to open",
 		},
 		{
@@ -88,20 +88,20 @@ func TestArchiveMenu(t *testing.T) {
 				newArchivedAgent("a2", "db-tune", "w1"),
 			},
 			press:      []string{"j", "v", "j", "v", "space", "a", "o", "ctrl+g"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 			wantFrame:  "one agent's conversation back in a pane",
 		},
 		{
 			name:       "back opens the view switcher",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "esc", "tab", "tab"},
-			wantScreen: agentsScreen,
+			wantScreen: schedulesScreen,
 		},
 		{
 			name:       "restore puts the hovered agent back and stays on the archive",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "space", "a", "r"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
 				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
@@ -128,7 +128,7 @@ func TestArchiveMenu(t *testing.T) {
 			name:       "restore on an archived folder restores the workflow",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "r"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
 				msg:       &workflowv1.RestoreWorkflowRequest{Id: "w1"},
@@ -138,21 +138,21 @@ func TestArchiveMenu(t *testing.T) {
 			name:       "delete on an agent opens the confirm prompt rather than destroying",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "space", "a", "d"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 			wantFrame:  `Permanently delete agent "api-refactor"?`,
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "d"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 			wantFrame:  `Permanently delete workflow "backend"?`,
 		},
 		{
 			name:       "delete on an archived folder says the agent inside it goes too",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "api-refactor", "w1")},
 			press:      []string{"space", "a", "d"},
-			wantScreen: archiveScreen,
+			wantScreen: agentsScreen,
 			wantFrame:  "The one agent still archived inside it goes with it",
 		},
 	}
@@ -231,7 +231,7 @@ func TestArchivePrompts(t *testing.T) {
 			}
 
 			frame := harness.readFrame()
-			assert.Equal(t, archiveScreen, harness.readScreen(), "the prompt returns to the archive it was opened from")
+			assert.Equal(t, agentsScreen, harness.readScreen(), "the prompt returns to the archive it was opened from")
 			assert.NotContains(t, frame, deletePrompt, "the prompt is down")
 			harness.assertSent(tt.wantSent...)
 		})
@@ -515,7 +515,7 @@ func TestArchiveRename(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			assert.Equal(t, archiveScreen, harness.readScreen())
+			assert.Equal(t, agentsScreen, harness.readScreen())
 			if tt.want == nil {
 				assert.NotContains(t, harness.readFrame(), "▏")
 				harness.assertSent()
@@ -692,7 +692,7 @@ func TestArchiveSort(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		harness.watch(buildSnapshot(unsorted...))
 
-		harness.press("shift+tab", "shift+tab")
+		harness.press("F", "tab", "esc")
 
 		assert.Equal(t, []string{"mid", "zeta", "alpha"}, readListRows(harness.readFrame()))
 	})
@@ -747,7 +747,8 @@ func TestArchiveWindow(t *testing.T) {
 		)
 		require.True(t, harness.panel.IsZoomed(), "the archive draws both columns itself")
 
-		harness.press("esc", "tab", "tab")
+		harness.press("F", "tab", "esc", "j")
+		harness.fireTimers()
 
 		assert.False(t, harness.panel.IsZoomed(), "leaving the archive for a running agent gives the other panes their share back")
 	})
@@ -771,7 +772,7 @@ func TestArchiveWindow(t *testing.T) {
 		})
 		harness.watch(buildSnapshot(buildOneArchivedAgent()...))
 
-		harness.press("shift+tab", "shift+tab", "?")
+		harness.press("F", "tab", "esc", "?")
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"api-refactor"}, readListRows(frame), "the list keeps its column")
@@ -808,7 +809,7 @@ func TestArchiveWindow(t *testing.T) {
 				harness := newPanelHarness(t, panelHarnessParams{height: tt.height})
 				harness.watch(buildSnapshot(workflow, newArchivedAgent("a1", "api-refactor", "w1")))
 
-				harness.press("shift+tab", "shift+tab")
+				harness.press("F", "tab", "esc")
 
 				assert.Len(t, splitLines(harness.readFrame()), tt.height)
 			})
@@ -870,7 +871,7 @@ func TestArchiveSelection(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			assert.Equal(t, archiveScreen, harness.readScreen())
+			assert.Equal(t, agentsScreen, harness.readScreen())
 			harness.assertSent(tt.wantSent...)
 		})
 	}
@@ -902,10 +903,10 @@ func TestArchiveSelection(t *testing.T) {
 		harness.press("esc")
 
 		frame := harness.readFrame()
-		assert.Equal(t, archiveScreen, harness.readScreen())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.NotContains(t, readLegend(frame), "selected")
 
-		harness.press("esc", "tab", "tab")
+		harness.press("F", "tab", "esc")
 		assert.Equal(t, agentsScreen, harness.readScreen())
 	})
 
@@ -921,7 +922,7 @@ func TestArchiveSelection(t *testing.T) {
 
 	t.Run("selecting in the archive leaves the agents tree alone", func(t *testing.T) {
 		harness := openGroupedArchive(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
-		harness.press("j", "v", "esc", "esc", "tab", "tab")
+		harness.press("j", "v", "esc", "F", "tab", "esc")
 
 		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
 	})
@@ -945,20 +946,13 @@ func TestArchiveSchedules(t *testing.T) {
 		wantSent   []request
 	}{
 		{
-			name:       "the row of kinds lists the archived schedules and none of the live ones",
-			press:      []string{"F", "tab", "esc"},
+			name:       "the archive lists the archived schedules and none of the live ones",
 			want:       []string{"weekly-gone", "archived — kept until deleted"},
 			wantAbsent: []string{"nightly-live", "api-refactor", "r rename"},
 		},
 		{
-			name:       "the row of kinds again goes back to the agents",
-			press:      []string{"F", "tab", "tab", "esc"},
-			want:       []string{"api-refactor"},
-			wantAbsent: []string{"weekly-gone"},
-		},
-		{
 			name:  "restore puts the hovered schedule back",
-			press: []string{"F", "tab", "esc", "space", "a", "r"},
+			press: []string{"space", "a", "r"},
 			want:  []string{"weekly-gone"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceRestoreScheduleProcedure,
@@ -967,17 +961,17 @@ func TestArchiveSchedules(t *testing.T) {
 		},
 		{
 			name:  "delete asks first",
-			press: []string{"F", "tab", "esc", "space", "a", "d"},
+			press: []string{"space", "a", "d"},
 			want:  []string{`Permanently delete schedule "weekly-gone"?`},
 		},
 		{
 			name:       "declining the delete destroys nothing",
-			press:      []string{"F", "tab", "esc", "space", "a", "d", "n"},
+			press:      []string{"space", "a", "d", "n"},
 			wantAbsent: []string{deletePrompt},
 		},
 		{
 			name:       "confirming the delete destroys the schedule",
-			press:      []string{"F", "tab", "esc", "space", "a", "d", "y"},
+			press:      []string{"space", "a", "d", "y"},
 			gone:       buildDeleted(watchv1.Resource_RESOURCE_SCHEDULE, "s2"),
 			wantAbsent: []string{deletePrompt},
 			wantSent: []request{{
@@ -985,29 +979,13 @@ func TestArchiveSchedules(t *testing.T) {
 				msg:       &schedulev1.DeleteScheduleRequest{Id: "s2"},
 			}},
 		},
-		{
-			name:       "tab on the list leaves the kind alone",
-			press:      []string{"tab", "shift+tab", "esc"},
-			want:       []string{"api-refactor"},
-			wantAbsent: []string{"weekly-gone"},
-		},
-		{
-			name:       "shift-tab on the row of kinds wraps to the schedules",
-			press:      []string{"F", "shift+tab", "esc"},
-			want:       []string{"weekly-gone"},
-			wantAbsent: []string{"api-refactor"},
-		},
-		{
-			name:       "the row of kinds waits while agents are selected",
-			press:      []string{"j", "v", "F", "tab", "shift+tab", "esc"},
-			want:       []string{"api-refactor"},
-			wantAbsent: []string{"weekly-gone"},
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openGroupedArchive(t, rows...)
+			harness := newPanelHarness(t, panelHarnessParams{})
+			harness.press("shift+tab", "shift+tab", "esc")
+			harness.watch(buildSnapshot(rows...))
 
 			harness.press(tt.press...)
 			if tt.gone != nil {
@@ -1027,29 +1005,6 @@ func TestArchiveSchedules(t *testing.T) {
 			harness.assertSent(tt.wantSent...)
 		})
 	}
-
-	t.Run("the row of kinds refuses the keys while agents are selected", func(t *testing.T) {
-		harness := openGroupedArchive(t, rows...)
-
-		harness.press(append(widenListPresses, "j", "v", "F", "?")...)
-		frame := harness.readFrame()
-		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
-		assert.NotContains(t, readLegend(frame), "F kind")
-	})
-
-	t.Run("the row of kinds holds the keys until escape", func(t *testing.T) {
-		harness := openGroupedArchive(t, rows...)
-
-		harness.press(append(widenListPresses, "F")...)
-		frame := harness.readFrame()
-		legend := readLegend(frame)
-		assert.Contains(t, legend, "tab/S-tab switch")
-		assert.Contains(t, legend, "esc back to the list")
-		assert.Empty(t, readHoveredRow(frame), "the row's arrow stands down")
-
-		harness.press("esc")
-		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
-	})
 }
 
 // TestArchiveLastScreen covers the saved screen drawn under an archived agent.
@@ -1257,7 +1212,7 @@ func openGroupedArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := newPanelHarness(t, panelHarnessParams{})
-	harness.press("shift+tab", "shift+tab", "esc", "f", "shift+tab", "j", "esc")
+	harness.press("F", "tab", "esc", "f", "shift+tab", "j", "esc")
 	harness.watch(buildSnapshot(rows...))
 
 	return harness

@@ -170,11 +170,3 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 
 	return row.item, true
 }
-
-func (a *archiveScreen) hoveredRow(m *model) (agentRow, bool) {
-	if a.kind == archiveSchedules {
-		return agentRow{}, false
-	}
-
-	return rowAt(a.listRows(m), a.cursor)
-}

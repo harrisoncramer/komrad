@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -33,6 +34,16 @@ func (d *documentsScreen) table() []screenAction {
 		guarded(d.onDocuments, d.documentTable()),
 		guarded(d.onDocumentTypes, d.documentTypeTable()),
 	)
+}
+
+// guarded narrows each action to answer only while when holds.
+func guarded(when func(*model) bool, actions []screenAction) []screenAction {
+	return xslice.Map(actions, func(action screenAction) screenAction {
+		inner := action.when
+		action.when = func(m *model) bool { return when(m) && (inner == nil || inner(m)) }
+
+		return action
+	})
 }
 
 func (d *documentsScreen) documentTypeTable() []screenAction {

@@ -458,6 +458,9 @@ func (p *Panel) ReadLegendKeys() []string {
 	switch p.model.screen {
 	case screenAgents:
 		legend = p.model.listHelp(p.model.agents.help(m))
+		if p.model.agents.kind == agentsArchived {
+			legend = p.model.listHelpOf(p.model.agents.archived.listParams(m))
+		}
 	case screenSchedules:
 		legend = p.model.listHelpOf(p.model.schedules.listParams(m))
 	case screenArchive:

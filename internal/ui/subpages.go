@@ -44,7 +44,7 @@ func agentMenu(m *model, openedFrom screen, item panel.AgentRow, own ...submenuE
 	return submenu{
 		kind:    formMenu,
 		title:   m.listing.agentName(agent),
-		entries: slices.Concat(pages, own, []submenuEntry{nestedEntry("git", m.keys.Menu.Git, gitMenu(m, openedFrom, item))}),
+		entries: slices.Concat(pages, own, []submenuEntry{nestedEntry("git", m.keys.Menu.Git, gitMenu(m, item))}),
 	}
 }
 
@@ -64,7 +64,7 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 		return submenuEntry{
 			label: "review",
 			keys:  m.keys.Menu.Review,
-			isOff: reviewRefusal(openedFrom, item.Agent) != nil,
+			isOff: reviewRefusal(item.Agent) != nil,
 		}
 	case subpageDocuments:
 		return submenuEntry{label: "documents", keys: m.keys.Menu.Documents}
@@ -83,11 +83,10 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 	return submenuEntry{}
 }
 
-// reviewRefusal is why an agent's work cannot be reviewed from where the menu was opened, nil
-// when it can.
-func reviewRefusal(openedFrom screen, agent panel.Agent) error {
+// reviewRefusal is why an agent's work cannot be reviewed, nil when it can.
+func reviewRefusal(agent panel.Agent) error {
 	switch {
-	case openedFrom == screenArchive:
+	case agent.ArchivedAt != nil:
 		return errReviewArchived
 	case agent.ParentAgentID != nil:
 		return errReviewChild
@@ -102,7 +101,7 @@ func reviewRefusal(openedFrom screen, agent panel.Agent) error {
 // it can.
 func terminalRefusal(openedFrom screen, agent panel.Agent) error {
 	switch {
-	case !openedFrom.opensTerminal():
+	case !openedFrom.opensTerminal(), agent.ArchivedAt != nil:
 		return errTerminalHere
 	case agent.Cwd == "":
 		return errNoAgentDir
@@ -123,7 +122,7 @@ func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) 
 
 	switch picked {
 	case subpageReview:
-		if err := reviewRefusal(openedFrom, item.Agent); err != nil {
+		if err := reviewRefusal(item.Agent); err != nil {
 			return m.refuseSubpage("Could not open the review of "+name, err)
 		}
 

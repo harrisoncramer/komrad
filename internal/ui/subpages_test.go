@@ -145,7 +145,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		harness := openArchivedSubpages(t)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "archive › author")
+		assert.Contains(t, frame, "agents › author")
 		assert.Contains(t, frame, "› documents")
 		assert.Regexp(t, readOffEntry("review", "r"), harness.readRawFrame())
 		assert.Regexp(t, readOffEntry("terminal", "t"), harness.readRawFrame())
@@ -164,7 +164,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "an archived agent's worktree is not touched")
 	})
 
-	t.Run("documents open, and back returns to the archive", func(t *testing.T) {
+	t.Run("documents open, and back returns to the archived agents", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
@@ -172,7 +172,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		harness.fireTimers()
 
 		require.Equal(t, documentsScreen, harness.readScreen())
-		assert.Contains(t, harness.readFrame(), "archive › author")
+		assert.Contains(t, harness.readFrame(), "agents › author")
 		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			AgentId:    xptr.Ptr("author"),
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
@@ -180,7 +180,7 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		harness.press("esc")
 
-		assert.Equal(t, archiveScreen, harness.readScreen())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 	})
 }
 
