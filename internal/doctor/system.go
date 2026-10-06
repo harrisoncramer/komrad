@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const osRelease = "/etc/os-release"
+const osReleasePath = "/etc/os-release"
 
 // newKomradCheck reports which build the binary running the doctor is.
 func newKomradCheck() Check {
@@ -31,7 +31,7 @@ func newSystemCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			detail := env.OS + " " + env.Arch
 
-			release := readOSRelease(ctx, env)
+			release := describeRelease(ctx, env)
 			if release == "" {
 				return pass(detail)
 			}
@@ -58,7 +58,7 @@ func newTerminalCheck() Check {
 	}
 }
 
-func readOSRelease(ctx context.Context, env Env) string {
+func describeRelease(ctx context.Context, env Env) string {
 	switch env.OS {
 	case "darwin":
 		version, err := env.Output(ctx, "sw_vers", "-productVersion")
@@ -69,7 +69,7 @@ func readOSRelease(ctx context.Context, env Env) string {
 		return "macOS " + version
 
 	case "linux":
-		contents, err := env.ReadFile(osRelease)
+		contents, err := env.ReadFile(osReleasePath)
 		if err != nil {
 			return ""
 		}
