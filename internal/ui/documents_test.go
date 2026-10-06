@@ -87,6 +87,19 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	})
 
+	t.Run("the switcher steps from an archived agent's documents to every agent's", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openArchivedSubpages(t)
+		harness.press("d")
+		harness.fireTimers()
+		harness.press("shift+tab")
+		harness.fireTimers()
+
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Regexp(t, `author Design the cache`, harness.readFrame())
+	})
+
 	t.Run("the jump key lands on the agent that wrote the hovered document", func(t *testing.T) {
 		t.Parallel()
 
