@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -309,10 +310,12 @@ func (x *WriteDocumentResponse) GetDocument() *Document {
 
 type ListDocumentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose documents to list, or unset for the caller's own.
+	// Whose documents to list, or unset for every agent's, archived agents included.
 	AgentId *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	// Only documents of this type, or unset for every type.
-	Type          *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	Type *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	// Where to carry on from.
+	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -361,10 +364,19 @@ func (x *ListDocumentsRequest) GetType() string {
 	return ""
 }
 
+func (x *ListDocumentsRequest) GetPagination() *v1.Pagination {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type ListDocumentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The documents, the most recently written first, without their bodies.
-	Documents     []*Document `protobuf:"bytes,1,rep,name=documents,proto3" json:"documents,omitempty"`
+	Documents []*Document `protobuf:"bytes,1,rep,name=documents,proto3" json:"documents,omitempty"`
+	// Pass this back as the pagination cursor for the next page.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -404,6 +416,13 @@ func (x *ListDocumentsResponse) GetDocuments() []*Document {
 		return x.Documents
 	}
 	return nil
+}
+
+func (x *ListDocumentsResponse) GetNextPageToken() string {
+	if x != nil && x.NextPageToken != nil {
+		return *x.NextPageToken
+	}
+	return ""
 }
 
 type GetDocumentRequest struct {
@@ -1268,7 +1287,7 @@ var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xc9\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc9\x01\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
@@ -1295,14 +1314,20 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\b_versionB\v\n" +
 	"\t_agent_id\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"y\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\xc8\x01\n" +
 	"\x14ListDocumentsRequest\x12'\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
-	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01B\v\n" +
+	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01\x12>\n" +
+	"\n" +
+	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x02R\n" +
+	"pagination\x88\x01\x01B\v\n" +
 	"\t_agent_idB\a\n" +
-	"\x05_type\"I\n" +
+	"\x05_typeB\r\n" +
+	"\v_pagination\"\x8a\x01\n" +
 	"\x15ListDocumentsResponse\x120\n" +
-	"\tdocuments\x18\x01 \x03(\v2\x12.agent.v1.DocumentR\tdocuments\"a\n" +
+	"\tdocuments\x18\x01 \x03(\v2\x12.agent.v1.DocumentR\tdocuments\x12+\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
+	"\x10_next_page_token\"a\n" +
 	"\x12GetDocumentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12&\n" +
 	"\aversion\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x00R\aversion\x88\x01\x01B\n" +
@@ -1396,21 +1421,23 @@ var file_agent_v1_document_proto_goTypes = []any{
 	(*WriteDocumentTypeResponse)(nil),        // 18: agent.v1.WriteDocumentTypeResponse
 	(*DeleteDocumentRequest)(nil),            // 19: agent.v1.DeleteDocumentRequest
 	(*DeleteDocumentTypeRequest)(nil),        // 20: agent.v1.DeleteDocumentTypeRequest
+	(*v1.Pagination)(nil),                    // 21: pagination.v1.Pagination
 }
 var file_agent_v1_document_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
-	0,  // 1: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
-	0,  // 2: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
-	7,  // 3: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
-	10, // 4: agent.v1.ListDocumentTypesResponse.document_types:type_name -> agent.v1.DocumentType
-	10, // 5: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
-	14, // 6: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
-	10, // 7: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	21, // 1: agent.v1.ListDocumentsRequest.pagination:type_name -> pagination.v1.Pagination
+	0,  // 2: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
+	0,  // 3: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
+	7,  // 4: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
+	10, // 5: agent.v1.ListDocumentTypesResponse.document_types:type_name -> agent.v1.DocumentType
+	10, // 6: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	14, // 7: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
+	10, // 8: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_document_proto_init() }
@@ -1423,6 +1450,7 @@ func file_agent_v1_document_proto_init() {
 		(*WriteDocumentRequest_Path)(nil),
 	}
 	file_agent_v1_document_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[5].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[12].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[17].OneofWrappers = []any{}

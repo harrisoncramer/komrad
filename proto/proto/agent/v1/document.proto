@@ -3,6 +3,7 @@ syntax = "proto3";
 package agent.v1;
 
 import "buf/validate/validate.proto";
+import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
@@ -62,18 +63,22 @@ message WriteDocumentResponse {
 }
 
 message ListDocumentsRequest {
-  // Whose documents to list, or unset for the caller's own.
+  // Whose documents to list, or unset for every agent's, archived agents included.
   optional string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // Only documents of this type, or unset for every type.
   optional string type = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 100
   }];
+  // Where to carry on from.
+  optional pagination.v1.Pagination pagination = 3;
 }
 
 message ListDocumentsResponse {
   // The documents, the most recently written first, without their bodies.
   repeated Document documents = 1;
+  // Pass this back as the pagination cursor for the next page.
+  optional string next_page_token = 2;
 }
 
 message GetDocumentRequest {

@@ -53,7 +53,7 @@ func fromRow(row *models.Document) Document {
 	}
 }
 
-func fromListRow(row *models.ListAgentDocumentsRow) Document {
+func fromListRow(row *models.ListDocumentsRow) Document {
 	return Document{
 		ID:        row.ID,
 		AgentID:   row.AgentID,
@@ -189,15 +189,44 @@ func (s *DocumentStore) Get(ctx context.Context, id string) (*Document, error) {
 	return &got, nil
 }
 
-// List returns an agent's documents without their bodies, newest write first.
-func (s *DocumentStore) List(ctx context.Context, agentID string, typeName *string) ([]Document, error) {
-	if !store.IsID(agentID) {
+// Cursor is where a page of documents left off: when the last was written and its id.
+type Cursor struct {
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+// Validate refuses a cursor that names no row.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
+// ListParams narrows a page of documents to one agent and one type when either is set.
+type ListParams struct {
+	AgentID *string
+	Type    *string
+	Limit   int32
+	Cursor  *Cursor
+}
+
+// List returns a page of documents without their bodies, newest write first.
+func (s *DocumentStore) List(ctx context.Context, params ListParams) ([]Document, error) {
+	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentDocuments(ctx, models.ListAgentDocumentsParams{AgentID: agentID, Type: typeName})
+	query := models.ListDocumentsParams{AgentID: params.AgentID, Type: params.Type, Lim: params.Limit}
+	if params.Cursor != nil {
+		query.CursorID = &params.Cursor.ID
+		query.CursorUpdatedAt = params.Cursor.UpdatedAt
+	}
+
+	rows, err := s.queries.ListDocuments(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list documents: %w", err)
 	}
 
 	return xslice.Map(rows, fromListRow), nil

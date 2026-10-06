@@ -186,69 +186,6 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 	return &i, err
 }
 
-const listAgentDocuments = `-- name: ListAgentDocuments :many
-SELECT
-    id,
-    agent_id,
-    name,
-    type,
-    version,
-    created_at,
-    updated_at
-FROM
-    documents
-WHERE
-    agent_id = $1
-    AND ($2::text IS NULL
-        OR type = $2::text)
-ORDER BY
-    updated_at DESC,
-    id DESC
-`
-
-type ListAgentDocumentsParams struct {
-	AgentID string
-	Type    *string
-}
-
-type ListAgentDocumentsRow struct {
-	ID        string
-	AgentID   string
-	Name      string
-	Type      string
-	Version   int32
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-func (q *Queries) ListAgentDocuments(ctx context.Context, arg ListAgentDocumentsParams) ([]*ListAgentDocumentsRow, error) {
-	rows, err := q.db.Query(ctx, listAgentDocuments, arg.AgentID, arg.Type)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListAgentDocumentsRow
-	for rows.Next() {
-		var i ListAgentDocumentsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.AgentID,
-			&i.Name,
-			&i.Type,
-			&i.Version,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listDocumentVersions = `-- name: ListDocumentVersions :many
 SELECT
     version,
@@ -287,6 +224,85 @@ func (q *Queries) ListDocumentVersions(ctx context.Context, documentID string) (
 			&i.Type,
 			&i.ByPerson,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDocuments = `-- name: ListDocuments :many
+SELECT
+    d.id,
+    d.agent_id,
+    d.name,
+    d.type,
+    d.version,
+    d.created_at,
+    d.updated_at
+FROM
+    documents d
+    JOIN agents a ON a.id = d.agent_id
+WHERE ($1::uuid IS NULL
+    OR d.agent_id = $1::uuid)
+AND ($2::text IS NULL
+    OR d.type = $2::text)
+AND a.deleting_at IS NULL
+AND ($3::uuid IS NULL
+    OR (d.updated_at,
+        d.id) <($4::timestamptz,
+        $3::uuid))
+ORDER BY
+    d.updated_at DESC,
+    d.id DESC
+LIMIT $5
+`
+
+type ListDocumentsParams struct {
+	AgentID         *string
+	Type            *string
+	CursorID        *string
+	CursorUpdatedAt time.Time
+	Lim             int32
+}
+
+type ListDocumentsRow struct {
+	ID        string
+	AgentID   string
+	Name      string
+	Type      string
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]*ListDocumentsRow, error) {
+	rows, err := q.db.Query(ctx, listDocuments,
+		arg.AgentID,
+		arg.Type,
+		arg.CursorID,
+		arg.CursorUpdatedAt,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListDocumentsRow
+	for rows.Next() {
+		var i ListDocumentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgentID,
+			&i.Name,
+			&i.Type,
+			&i.Version,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

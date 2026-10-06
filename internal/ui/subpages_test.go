@@ -9,6 +9,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,7 +173,10 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		require.Equal(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, harness.readFrame(), "archive › author")
-		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr("author")})
+		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
+			AgentId:    xptr.Ptr("author"),
+			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
+		})
 
 		harness.press("esc")
 

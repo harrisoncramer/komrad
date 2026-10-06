@@ -96,24 +96,31 @@ WHERE
     agent_id = @agent_id
     AND name = @name;
 
--- name: ListAgentDocuments :many
+-- name: ListDocuments :many
 SELECT
-    id,
-    agent_id,
-    name,
-    type,
-    version,
-    created_at,
-    updated_at
+    d.id,
+    d.agent_id,
+    d.name,
+    d.type,
+    d.version,
+    d.created_at,
+    d.updated_at
 FROM
-    documents
-WHERE
-    agent_id = @agent_id
-    AND (sqlc.narg('type')::text IS NULL
-        OR type = sqlc.narg('type')::text)
+    documents d
+    JOIN agents a ON a.id = d.agent_id
+WHERE (sqlc.narg('agent_id')::uuid IS NULL
+    OR d.agent_id = sqlc.narg('agent_id')::uuid)
+AND (sqlc.narg('type')::text IS NULL
+    OR d.type = sqlc.narg('type')::text)
+AND a.deleting_at IS NULL
+AND (sqlc.narg('cursor_id')::uuid IS NULL
+    OR (d.updated_at,
+        d.id) <(@cursor_updated_at::timestamptz,
+        sqlc.narg('cursor_id')::uuid))
 ORDER BY
-    updated_at DESC,
-    id DESC;
+    d.updated_at DESC,
+    d.id DESC
+LIMIT @lim;
 
 -- name: ListDocumentVersions :many
 SELECT

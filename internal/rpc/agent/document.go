@@ -8,6 +8,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
+	"komrad/internal/rpcpage"
 	documentstore "komrad/internal/store/document"
 	documenttypestore "komrad/internal/store/documenttype"
 	"komrad/lib/xslice"
@@ -20,7 +21,7 @@ type documentReadWriter interface {
 	WriteDocument(ctx context.Context, params documents.WriteDocumentParams) (*documentstore.Document, error)
 	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
 	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
-	ListDocuments(ctx context.Context, agentID string, typeName *string) ([]documentstore.Document, error)
+	ListDocuments(ctx context.Context, params documentstore.ListParams) ([]documentstore.Document, error)
 	DeleteDocument(ctx context.Context, params documents.DeleteDocumentParams) error
 }
 
@@ -54,21 +55,33 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 	return &agentv1.WriteDocumentResponse{Document: render.Document(*written)}, nil
 }
 
-// ListDocuments returns an agent's documents without their bodies.
+// ListDocuments returns a page of documents without their bodies, every agent's unless one is named.
 func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
-	id, failure := scopedAgentID(ctx, req.GetAgentId())
+	if req.AgentId != nil {
+		logCrossAgentRead(ctx, req.GetAgentId(), "agent listed another agent's documents")
+	}
+
+	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *documentstore.Cursor) ([]documentPage, *fail.Error) {
+		listed, err := s.documents.ListDocuments(ctx, documentstore.ListParams{
+			AgentID: req.AgentId,
+			Type:    req.Type,
+			Limit:   int32(limit),
+			Cursor:  cursor,
+		})
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to list documents")
+		}
+
+		return xslice.Map(listed, renderDocumentPage), nil
+	})
 	if failure != nil {
 		return nil, failure
 	}
 
-	logCrossAgentRead(ctx, id, "agent listed another agent's documents")
+	response := &agentv1.ListDocumentsResponse{NextPageToken: page.Next}
+	response.Documents = xslice.Map(page.Resources, func(resource documentPage) *agentv1.Document { return resource.Document })
 
-	listed, err := s.documents.ListDocuments(ctx, id, req.Type)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list documents")
-	}
-
-	return &agentv1.ListDocumentsResponse{Documents: xslice.Map(listed, render.Document)}, nil
+	return response, nil
 }
 
 // GetDocument returns one document whole.

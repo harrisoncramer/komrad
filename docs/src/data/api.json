@@ -475,8 +475,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the documents an agent has written, without their bodies, yours by default.",
-          "description": "List the documents an agent has written, without their bodies, yours by default.",
+          "summary": "List the documents agents have written, without their bodies, every agent's unless agent_id names one, so pass your own id for yours.",
+          "description": "List the documents agents have written, without their bodies, every agent's unless agent_id names one, so pass your own id for yours.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -3794,7 +3794,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose documents to list, or unset for the caller's own."
+          "description": "Whose documents to list, or unset for every agent's, archived agents included."
         },
         {
           "name": "type",
@@ -3807,6 +3807,16 @@
             "at most 100 characters"
           ],
           "description": "Only documents of this type, or unset for every type."
+        },
+        {
+          "name": "pagination",
+          "type": "Pagination",
+          "ref": "pagination.v1.Pagination",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where to carry on from."
         }
       ]
     },
@@ -3823,6 +3833,16 @@
           "oneof": "",
           "rules": [],
           "description": "The documents, the most recently written first, without their bodies."
+        },
+        {
+          "name": "next_page_token",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Pass this back as the pagination cursor for the next page."
         }
       ]
     },

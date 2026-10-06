@@ -13,6 +13,7 @@ import (
 	documentstore "komrad/internal/store/document"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 )
 
 // TestCreate pins which names a new document may take.
@@ -314,6 +315,7 @@ func TestList(t *testing.T) {
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
+	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
 
 	write := func(agentID, name string, typeName string) string {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
@@ -328,7 +330,8 @@ func TestList(t *testing.T) {
 	}
 	rfc := write(author.ID, "design", "RFC")
 	notes := write(author.ID, "scratch", "notes")
-	write(other.ID, "elsewhere", "RFC")
+	elsewhere := write(other.ID, "elsewhere", "RFC")
+	write(leaving.ID, "doomed", "RFC")
 
 	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
 		ID:      rfc,
@@ -339,31 +342,45 @@ func TestList(t *testing.T) {
 		Version: 1,
 	})
 	require.NoError(t, err)
+	_, err = stores.Agents.Archive(ctx, []string{other.ID})
+	require.NoError(t, err)
+	_, err = stores.Agents.MarkDeleting(ctx, []string{leaving.ID})
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
-		agentID  string
+		agentID  *string
 		typeName *string
 		want     []string
 	}{
 		{
 			name:    "an agent's own documents, the newest write first",
-			agentID: author.ID,
+			agentID: xptr.Ptr(author.ID),
 			want:    []string{rfc, notes},
 		},
 		{
 			name:     "narrowed to one type",
-			agentID:  author.ID,
+			agentID:  xptr.Ptr(author.ID),
 			typeName: xptr.Ptr("notes"),
 			want:     []string{notes},
 		},
-		{name: "an agent with none", agentID: uuid.NewString()},
-		{name: "a value that is not an id", agentID: "not-an-id"},
+		{
+			name: "every agent's documents, archived agents included",
+			want: []string{rfc, elsewhere, notes},
+		},
+		{
+			name:     "every agent's documents of one type",
+			typeName: xptr.Ptr("RFC"),
+			want:     []string{rfc, elsewhere},
+		},
+		{name: "an agent with none", agentID: xptr.Ptr(uuid.NewString())},
+		{name: "an agent being deleted", agentID: xptr.Ptr(leaving.ID)},
+		{name: "a value that is not an id", agentID: xptr.Ptr("not-an-id")},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			listed, err := stores.Documents.List(ctx, tt.agentID, tt.typeName)
+			listed, err := stores.Documents.List(ctx, documentstore.ListParams{AgentID: tt.agentID, Type: tt.typeName, Limit: 10})
 			require.NoError(t, err)
 
 			ids := make([]string, 0, len(listed))
@@ -377,6 +394,19 @@ func TestList(t *testing.T) {
 			}
 		})
 	}
+
+	first, err := stores.Documents.List(ctx, documentstore.ListParams{Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+
+	rest, err := stores.Documents.List(ctx, documentstore.ListParams{
+		Limit:  10,
+		Cursor: &documentstore.Cursor{UpdatedAt: first[0].UpdatedAt, ID: first[0].ID},
+	})
+	require.NoError(t, err)
+
+	paged := append([]string{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) string { return doc.ID })...)
+	assert.Equal(t, []string{rfc, elsewhere, notes}, paged, "a cursor carries on where its page left off")
 }
 
 // TestDeletingTheAgentDeletesItsDocuments pins that archiving keeps an agent's documents and deleting it removes them.
