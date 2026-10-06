@@ -120,10 +120,10 @@ func (a *app) setupSteps(harnessFlag, forgeFlag, forgeTokenFile string) ([]setup
 		&setup.ContextStep{Stack: a.configStack},
 		&setup.AutoSetupStep{Path: path, Stack: a.configStack},
 		&setup.ForgeStep{
-			Connect:   a.connectForge,
-			GHToken:   ghToken,
-			Flag:      forgeFlag,
-			TokenFile: forgeTokenFile,
+			Connect:     a.connectForge,
+			ReadGHToken: readGHToken,
+			Flag:        forgeFlag,
+			TokenFile:   forgeTokenFile,
 		},
 	}, nil
 }
@@ -140,10 +140,10 @@ func (a *app) connectForge(ctx context.Context, host string, token forge.Secret)
 	})
 }
 
-const ghTokenTimeout = 5 * time.Second
+const readGHTokenTimeout = 5 * time.Second
 
-func ghToken(ctx context.Context) forge.Secret {
-	ctx, cancel := context.WithTimeout(ctx, ghTokenTimeout)
+func readGHToken(ctx context.Context) forge.Secret {
+	ctx, cancel := context.WithTimeout(ctx, readGHTokenTimeout)
 	defer cancel()
 
 	out, err := exec.CommandContext(ctx, "gh", "auth", "token", "--hostname", githubHost).Output()
