@@ -292,10 +292,10 @@ func (s *AutoSetupStep) repair(context.Context) error {
 }
 
 const (
-	forgeWithGH = "gh"
-	forgeGitHub = "github.com"
-	forgeGitLab = "gitlab.com"
-	forgeLater  = "later"
+	choiceGHToken = "gh"
+	githubHost    = "github.com"
+	gitlabHost    = "gitlab.com"
+	choiceLater   = "later"
 )
 
 // ForgeStep offers to connect github.com or gitlab.com when the engine has no forge, and skips
@@ -338,12 +338,12 @@ func (s *ForgeStep) observe(ctx context.Context, check checker) observation {
 func (s *ForgeStep) question() *huh.Form {
 	var options []huh.Option[string]
 	if !s.ghToken.IsZero() {
-		options = append(options, huh.NewOption("GitHub, with gh's token", forgeWithGH))
+		options = append(options, huh.NewOption("GitHub, with gh's token", choiceGHToken))
 	}
 	options = append(options,
-		huh.NewOption("GitHub, paste a token", forgeGitHub),
-		huh.NewOption("GitLab, paste a token with the api scope", forgeGitLab),
-		huh.NewOption("Not now", forgeLater),
+		huh.NewOption("GitHub, paste a token", githubHost),
+		huh.NewOption("GitLab, paste a token with the api scope", gitlabHost),
+		huh.NewOption("Not now", choiceLater),
 	)
 	s.choice = options[0].Value
 
@@ -362,7 +362,7 @@ func (s *ForgeStep) question() *huh.Form {
 				EchoMode(huh.EchoModePassword).
 				Validate(requireToken).
 				Value(&s.pasted),
-		).WithHideFunc(func() bool { return s.choice != forgeGitHub && s.choice != forgeGitLab }),
+		).WithHideFunc(func() bool { return s.choice != githubHost && s.choice != gitlabHost }),
 	)
 }
 
@@ -379,11 +379,11 @@ func (s *ForgeStep) answerUnattended() error {
 		return fmt.Errorf("%w: --forge-token-file needs --forge to name the host", errNeedsAnswer)
 	}
 	if s.Flag == "" {
-		s.choice = forgeLater
+		s.choice = choiceLater
 
 		return nil
 	}
-	if s.Flag != forgeGitHub && s.Flag != forgeGitLab {
+	if s.Flag != githubHost && s.Flag != gitlabHost {
 		return fmt.Errorf("%w: --forge is github.com or gitlab.com, and komrad forge connect connects any other host", errNeedsAnswer)
 	}
 
@@ -397,22 +397,22 @@ func (s *ForgeStep) answerUnattended() error {
 		return nil
 	}
 
-	if s.Flag == forgeGitLab {
+	if s.Flag == gitlabHost {
 		return fmt.Errorf("%w: pass --forge-token-file naming a personal access token with the api scope", errNeedsAnswer)
 	}
 	if s.ghToken.IsZero() {
 		return fmt.Errorf("%w: gh has no token for github.com, so pass --forge-token-file", errNeedsAnswer)
 	}
-	s.choice = forgeWithGH
+	s.choice = choiceGHToken
 
 	return nil
 }
 
 func (s *ForgeStep) repair(ctx context.Context) error {
 	switch s.choice {
-	case forgeWithGH:
-		return s.Connect(ctx, forgeGitHub, s.ghToken)
-	case forgeGitHub, forgeGitLab:
+	case choiceGHToken:
+		return s.Connect(ctx, githubHost, s.ghToken)
+	case githubHost, gitlabHost:
 		token := forge.NewSecret(s.pasted)
 		if token.IsZero() {
 			return errors.New("no token was given")
