@@ -1,6 +1,6 @@
 ---
 title: Reviews
-description: Review an agent's work locally before it opens a pull request, and connect a forge so komrad can follow the pull requests it does open.
+description: Review an agent's work locally before it opens a pull request, and/or connect a forge so komrad can follow your coworkers' feedback.
 group: start
 order: 6
 ---
@@ -13,20 +13,25 @@ import { media } from "../../site";
 
 ## Local reviews
 
-Komrad supports providing feedback to agents directly in code rather than via a forge like Github or Gitlab. This helps keep feedback loops quick and reduce CI spend for agent-authored changes.
+When making a change locally, it's often faster to iterate directly with an LLM rather than pushing the changes to a remote.
+
+Komrad supports this with the concept of a _local review_.l
+
+With local reviews, you can provide feedback to agents directly in your editor or terminal, rather than via a forge like Github or Gitlab. This helps keep feedback loops quick and reduce CI spend for agent-authored changes.
 
 With local reviews, you can read the agent's diff, leave comments on its lines, and edit it yourself. The agent will respond in the same view.
 
-Komrad's local review model is quite similar to how <a href="https://www.gerritcodereview.com/">Gerrit</a> does code review, where you can step through chunks of changes (known in komrad as chapters) that correspond to review rounds. Each chapter is tied to a specific diff in the code that an agent has made. Using local reviews is completely optional.
-
-<Alert variant="warning">
-  This guide uses the `neovim` workflow from the [workflows](../workflows/) guide. The videos follow one agent adding
-  `vim.text.truncate()` to Neovim, which you have reviewed twice and a reviewer agent has reviewed once.
+<Alert variant="info">
+  Local reviews are completely optional, you can use komrad without them.
 </Alert>
+
+Komrad's local review model is quite similar to how <a href="https://www.gerritcodereview.com/">Gerrit</a> does code review, where you can step through chunks of changes (known in komrad as chapters) that correspond to review rounds. Each chapter is tied to a specific diff in the code that an agent has made.
 
 ### Opening a review
 
-Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](../navigation/#the-agent-menu), and pick review with <Key name="menu.review" />. The main panel then shows everything the agent changed since its branch left the base. The sidebar holds a tree of the files the change touches, marking the one the cursor is in along with its threads, and the conversation on the line under the cursor opens in a popup beside it. Press `ctrl+space ctrl+space` to move into the tree, and <Key name="review.toggle_viewed" /> to mark a file viewed.
+Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](../navigation/#the-agent-menu), and pick review with <Key name="menu.review" />. The main panel then shows everything the agent changed since its branch left the base.
+
+The sidebar holds a tree of the files the change touches, and the main view holds the diff and conversation.
 
 <figure>
   <video
@@ -44,17 +49,15 @@ Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](..
   </video>
 </figure>
 
-The agents list keeps count between visits. Each agent shows its open comments at the right end of its row, a robot before the reviewer agents' and a person before yours, and a bell before the replies you have not read yet.
-
 ### Leaving comments
 
-Press <Key name="review.compose" /> on a line to comment on it, or on a line that already has a thread to reply there. The row above the first file takes a comment about the work as a whole.
+Press <Key name="review.compose" /> on a line to comment on it.
 
-The draft is not submitted to the agent until you submit the entire review. Take your time to read the change. While you hold the drafts, the diff is "frozen", so the lines you are commenting on do not move.
+The draft is not submitted to the agent until you submit your review, like in Github or Gitlab. While you hold the drafts, the diff is "frozen", so the lines you are commenting on do not move.
 
 ### Editing the code yourself
 
-Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor beside the diff. Komrad pauses the agent while you edit, since you are both working in its checkout. When you close the editor the agent carries on from your change, and your drafts are still there.
+Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` value in your terminal, like vim) beside the diff. Komrad pauses the agent while you edit, since you are both working in its checkout. When you close the editor the agent carries on from your change.
 
 ### Sending
 
@@ -76,13 +79,13 @@ When you are done reading, press <Key name="review.send" /> to send the review. 
   </video>
 </figure>
 
-The agent gets one piece of mail. Each comment comes with the lines it was written on and the code around them, so the agent can find the spot even after the file has moved.
+Under the hood, each of your comments is sent with the lines it was written on and the code around them, so the agent can find the spot even after the file has moved.
 
-The agent answers in your threads, and can settle them. You can even press see exactly what the agent changed to answer the comment with <Key name="review.answer" /> . You can settle or reopen any comment yourself.
+The agent answers in your threads, and can settle them. To see exactly what the agent changed in response to your suggestion, press the <Key name="review.answer" /> key. This will show the specific change the agent made. You can settle or reopen any comment yourself.
 
 ### Stepping through history
 
-Each review you send closes a "chapter" in komrad, which holds the work you had read when you sent it. Stepping through chapters shows each review, with the comments written on it and the code that changed as a result. Replies that came after the code changed are drawn below a rule, so the answer to a comment reads on the chapter it was written on.
+Each review you send closes a "chapter" in komrad, which holds the work you had read when you sent it. Stepping through chapters shows each review, with the comments written on it and the code that changed as a result.
 
 Past chapters take replies but not new comments, since their lines may no longer exist in the agent's work.
 
@@ -102,23 +105,19 @@ Past chapters take replies but not new comments, since their lines may no longer
   </video>
 </figure>
 
-### Local review from agents
+### Agent Reviews
 
-An agent can ask for a review of its own work.
+Recall from the agent guide that implementer agents can spawn reviewer agents to review their work.
 
-Komrad starts a reviewer agent in the same worktree, which comments and sends the way you do. Reviewer agents approve or requests changes with each review.
+Under the hood, reviewer agents use the same process as you do, by leaving comments on the changes from an implementer.
 
-## Connecting a forge
+These comments are hidden by default, press TODO to show them.
 
-Komrad connects to a forge, like GitHub or GitLab, for two reasons. It wants to show you, beside each agent, the pull request that agent's branch has open. Agents also need it to push, open pull requests and read what is happening on them.
+## Remote Reviews (Github and Gitlab)
 
-You connect a forge once with <Command path="forge connect" />, naming its host. Komrad asks the forge who the credential belongs to straight away and refuses one that is wrong. That proves the token is real, but not that it can read your repositories, so give it access to the repositories your agents work in. <Command path="forge list" /> and <Command path="doctor" /> show what is connected and whether it still works.
+Once you're happy with the work locally, the next step is to push it to a forge, like GitHub or GitLab.
 
-The token is read from standard input or from a file, never from an argument, since arguments are visible to every process on the machine.
-
-A self-hosted forge needs two more things. Komrad cannot tell which forge a host runs from its name, so pass `--kind github` or `--kind gitlab`. If its API is somewhere other than `https://<host>/api/v3` for GitHub or `https://<host>/api/v4` for GitLab, pass `--api-url` as well.
-
-Some hosts take SSH on a name of their own, such as `ssh.gitlab.example.com`. List each pair in <Setting path="git.ssh_hosts" label="ssh_hosts" /> so a remote on the SSH name finds the connection for the web host. Public names such as `ssh.github.com` and `altssh.gitlab.com` are already known.
+Komrad connects a forge once with <Command path="forge connect" />, naming its host. Komrad asks the forge who the credential belongs to straight away and refuses one that is wrong.
 
 ### GitHub
 
