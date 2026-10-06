@@ -74,6 +74,8 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 	})
 
 	assert.Equal(t, []string{
+		"komrad",
+		"system",
 		"tmux",
 		"tmux version",
 		"config",
@@ -81,6 +83,7 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 		"your tmux keys",
 		"server",
 		"forges",
+		"terminal",
 		"terminal glyphs",
 		"glyph font",
 		"glyph collisions",

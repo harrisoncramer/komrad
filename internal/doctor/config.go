@@ -119,10 +119,10 @@ func newHarnessBinaryCheck(agent harnessInfo) Check {
 	return Check{
 		Name:        agent.ID,
 		Description: "agents on the " + agent.ID + " harness run this command",
-		Run: func(_ context.Context, env Env) Result {
+		Run: func(ctx context.Context, env Env) Result {
 			path, lookErr := env.LookPath(agent.Binary)
 			if lookErr == nil {
-				return pass(path)
+				return pass(describeHarnessBinary(ctx, env, path))
 			}
 
 			if effectiveDefaultHarness(env) != agent.ID {
@@ -140,6 +140,20 @@ func newHarnessBinaryCheck(agent harnessInfo) Check {
 			)
 		},
 	}
+}
+
+func describeHarnessBinary(ctx context.Context, env Env, path string) string {
+	reported, err := env.Output(ctx, path, "--version")
+	if err != nil {
+		return path
+	}
+
+	first, _, _ := strings.Cut(strings.TrimSpace(reported), "\n")
+	if first == "" {
+		return path
+	}
+
+	return path + ", " + first
 }
 
 func effectiveDefaultHarness(env Env) string {

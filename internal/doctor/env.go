@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -17,6 +18,8 @@ const commandTimeout = 5 * time.Second
 
 type Env struct {
 	Settings
+	OS                    string
+	Arch                  string
 	LookPath              func(name string) (string, error)
 	Output                func(ctx context.Context, name string, args ...string) (string, error)
 	LoadConfig            func() (*config.Config, error)
@@ -75,6 +78,9 @@ type Settings struct {
 	EngineIsRemote      bool
 	Term                string
 	ColorTerm           string
+	TermProgram         string
+	TermProgramVersion  string
+	Build               string
 }
 
 // NewEnv is the env pointed at the machine this is running on.
@@ -83,6 +89,8 @@ func NewEnv(settings Settings) Env {
 
 	return Env{
 		Settings:   settings,
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
 		LookPath:   exec.LookPath,
 		Output:     runOutput,
 		LoadConfig: func() (*config.Config, error) { return config.LoadStack(settings.ConfigStack) },

@@ -6,6 +6,8 @@ import "komrad/lib/xslice"
 // there need, and the service as it is reached from there.
 func HereChecks() []Check {
 	return []Check{
+		newKomradCheck(),
+		newSystemCheck(),
 		newTmuxBinaryCheck(),
 		newTmuxVersionCheck(),
 		newConfigCheck(),
@@ -13,6 +15,7 @@ func HereChecks() []Check {
 		newYourTmuxKeysCheck(),
 		newServerCheck(),
 		newForgesCheck(),
+		newTerminalCheck(),
 		newTerminalGlyphCheck(),
 		newGlyphFontCheck(),
 		newGlyphCollisionCheck(),
@@ -25,6 +28,7 @@ func HereChecks() []Check {
 // asks an engine for: what the agents there need.
 func EngineChecks(settings Settings) []Check {
 	checks := []Check{
+		newSystemCheck(),
 		newTmuxBinaryCheck(),
 		newTmuxVersionCheck(),
 		newTmuxShellCheck(),
