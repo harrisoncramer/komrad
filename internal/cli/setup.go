@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/doctor"
@@ -139,8 +140,13 @@ func (a *app) connectForge(ctx context.Context, host string, token forge.Secret)
 	})
 }
 
+const ghTokenTimeout = 5 * time.Second
+
 func ghToken(ctx context.Context) forge.Secret {
-	out, err := exec.CommandContext(ctx, "gh", "auth", "token", "--hostname", "github.com").Output()
+	ctx, cancel := context.WithTimeout(ctx, ghTokenTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "gh", "auth", "token", "--hostname", githubHost).Output()
 	if err != nil {
 		return forge.Secret{}
 	}
