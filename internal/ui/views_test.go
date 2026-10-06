@@ -26,7 +26,7 @@ func TestViews(t *testing.T) {
 		blank, _, _ := strings.Cut(lines[2], "│")
 		assert.Empty(t, strings.TrimSpace(blank), "a blank row stands under the engine")
 		views, _, _ := strings.Cut(lines[3], "│")
-		assert.Equal(t, "agents  query  schedules  archive  worktrees", strings.TrimSpace(views))
+		assert.Equal(t, "agents  query  schedules  documents  archive  worktrees", strings.TrimSpace(views))
 		lit := paint.Panel.Style(paint.TonePrimary)
 		assert.Contains(t, harness.readRawFrame(), lit.Render("archive"), "the view that is up is lit")
 	})
@@ -40,7 +40,7 @@ func TestViews(t *testing.T) {
 	t.Run("a page opened from a view draws no switcher", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
-		assert.NotContains(t, harness.readFrame(), "agents  query  schedules  archive  worktrees")
+		assert.NotContains(t, harness.readFrame(), "agents  query  schedules  documents  archive  worktrees")
 	})
 
 	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
@@ -101,6 +101,11 @@ func TestViews(t *testing.T) {
 		{
 			name:       "escape on the schedules opens the switcher",
 			press:      []string{"tab", "tab", "esc", "esc", "tab"},
+			wantScreen: documentsScreen,
+		},
+		{
+			name:       "escape on the documents opens the switcher",
+			press:      []string{"tab", "tab", "tab", "esc", "esc", "tab"},
 			wantScreen: archiveScreen,
 		},
 		{

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"komrad/internal/view"
@@ -15,6 +16,7 @@ import (
 // documentItem is one document as the listing reported it, without its body.
 type documentItem struct {
 	id        string
+	agentID   string
 	name      string
 	typeName  string
 	updatedAt time.Time
@@ -29,16 +31,26 @@ type documentBody struct {
 	err       error
 }
 
-// documentsScreen lists the documents one agent has written, and draws the one under the cursor
+// documentKind is the kind of resource the documents view lists.
+type documentKind int
+
+const (
+	documentKindDocuments documentKind = iota
+	documentKindTypes
+)
+
+// documentsScreen lists documents, every agent's or one agent's, and draws the one under the cursor
 // beside the list.
 type documentsScreen struct {
 	rowCursor
 	agentID string
-	// openedFrom is the screen the screen was opened from.
-	openedFrom screen
-	items      []documentItem
-	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
-	// written.
+	// openedFrom is the screen one agent's documents were opened from.
+	openedFrom    screen
+	kind          documentKind
+	kindFocus     bool
+	documentTypes rowCursor
+	items         []documentItem
+	// listedAt is the newest write the list was read at, and listedCount how many were written.
 	listedAt    *time.Time
 	listedCount int32
 	listed      bool
@@ -61,15 +73,24 @@ func (r documentRow) key() string {
 	return "doc:" + r.item.id
 }
 
-// enter opens on the documents of the agent the target names, forgetting another agent's, and keeps
-// the screen as it was for a target naming none.
+// documentTypeRow is one line of the document types list.
+type documentTypeRow struct {
+	documentType *agentv1.DocumentType
+}
+
+func (r documentTypeRow) key() string {
+	return "type:" + r.documentType.GetName()
+}
+
+// enter opens on the documents of the agent the target names, or on every agent's for a target
+// naming none, keeping the screen as it was when that is what it already lists.
 func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
+	if !target.resume && target.agentID != d.agentID {
+		saved = d.closeEdit(m)
+		*d = documentsScreen{agentID: target.agentID}
+	}
 	if target.agentID != "" {
-		if target.agentID != d.agentID {
-			saved = d.closeEdit(m)
-			*d = documentsScreen{agentID: target.agentID}
-		}
 		d.openedFrom = target.openedFrom
 	}
 
@@ -89,6 +110,10 @@ func (d *documentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
+	if d.kind == documentKindTypes {
+		return d.documentTypeList().update(m, key, d.actions(m))
+	}
+
 	if d.history != nil && d.history.filter.typing {
 		return d.diffKeys().updateFilter(m, key)
 	}
@@ -98,6 +123,45 @@ func (d *documentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	}
 
 	return d.list().update(m, key, d.actions(m))
+}
+
+func (d *documentsScreen) onDocuments(*model) bool {
+	return d.kind == documentKindDocuments
+}
+
+func (d *documentsScreen) onDocumentTypes(*model) bool {
+	return d.kind == documentKindTypes
+}
+
+func (d *documentsScreen) kinds(*model) stops {
+	return stops{
+		labels: []string{"documents", "types"},
+		focus:  noStop,
+		lit:    int(d.kind),
+	}
+}
+
+// kindsFit reports whether the row of kinds is drawn, only ever over every agent's documents.
+func (d *documentsScreen) kindsFit(m *model) bool {
+	return d.listsEveryAgent() && m.listFitsTabs(d.listParams(m))
+}
+
+func (d *documentsScreen) kindsFocused(*model) *bool {
+	return &d.kindFocus
+}
+
+// kindsSwitch holds the view on its documents while one is being edited.
+func (d *documentsScreen) kindsSwitch(*model) bool {
+	return d.listsEveryAgent() && d.editing == nil
+}
+
+// stepKind moves the view between documents and their types.
+func (d *documentsScreen) stepKind(m *model, delta int) tea.Cmd {
+	d.kind = documentKind(stepStop(int(d.kind), delta, len(d.kinds(m).labels)))
+	d.history, d.focus = nil, false
+	m.stageTerminal()
+
+	return m.waitToStage()
 }
 
 func (d *documentsScreen) list() screenList[documentRow] {
@@ -114,6 +178,16 @@ func (d *documentsScreen) list() screenList[documentRow] {
 	}
 }
 
+func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
+	return screenList[documentTypeRow]{
+		cursor: func() *rowCursor { return &d.documentTypes },
+		rows:   d.documentTypeRows,
+		name:   documentTypeRowName,
+		placed: func(m *model) { m.stageTerminal() },
+		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
+	}
+}
+
 func (d *documentsScreen) rows(m *model) []documentRow {
 	return narrowed(m.filter, narrowedParams[documentRow]{
 		rows: xslice.Map(d.items, func(item documentItem) documentRow {
@@ -124,17 +198,55 @@ func (d *documentsScreen) rows(m *model) []documentRow {
 	})
 }
 
+func (d *documentsScreen) documentTypeRows(m *model) []documentTypeRow {
+	return narrowed(m.filter, narrowedParams[documentTypeRow]{
+		rows: xslice.Map(m.listing.documentTypes, func(t *agentv1.DocumentType) documentTypeRow {
+			return documentTypeRow{documentType: t}
+		}),
+		depth: func(documentTypeRow) int { return 0 },
+		name:  documentTypeRowName,
+	})
+}
+
 func documentRowName(row documentRow) string {
 	return row.item.name
 }
 
+func documentTypeRowName(row documentTypeRow) string {
+	return row.documentType.GetName()
+}
+
 func (d *documentsScreen) hovered(m *model) (documentItem, bool) {
+	if d.kind != documentKindDocuments {
+		return documentItem{}, false
+	}
+
 	row, ok := rowAt(d.rows(m), d.cursor)
 
 	return row.item, ok
 }
 
+// hoveredDocumentType is the document type the cursor is on, nil for none.
+func (d *documentsScreen) hoveredDocumentType(m *model) *agentv1.DocumentType {
+	if d.kind != documentKindTypes {
+		return nil
+	}
+
+	row, _ := rowAt(d.documentTypeRows(m), d.documentTypes.cursor)
+
+	return row.documentType
+}
+
 func (d *documentsScreen) listParams(m *model) screenListParams {
+	if d.kind == documentKindTypes {
+		return screenListParams{
+			help:     d.help,
+			empty:    "no document types",
+			rows:     len(d.documentTypeRows(m)),
+			snapshot: func(pane listPane) view.Snapshot { return d.documentTypeSnapshot(m, pane) },
+		}
+	}
+
 	return screenListParams{
 		help:     d.help,
 		empty:    d.emptyLine(),
@@ -143,8 +255,13 @@ func (d *documentsScreen) listParams(m *model) screenListParams {
 	}
 }
 
-// parent is the view the documents were opened from.
+// parent is the view one agent's documents were opened from, and the documents view itself for
+// every agent's.
 func (d *documentsScreen) parent() screen {
+	if d.listsEveryAgent() {
+		return screenDocuments
+	}
+
 	return d.openedFrom
 }
 
@@ -152,6 +269,11 @@ func (d *documentsScreen) parent() screen {
 // the documents while none is.
 func (d *documentsScreen) crumbs(m *model) crumbs {
 	trail := crumbs{trail: d.crumbRoot(m)}
+	if d.kind == documentKindTypes {
+		trail.tally = fmt.Sprint(len(m.listing.documentTypes))
+
+		return trail
+	}
 	if item, ok := d.hovered(m); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
 		current := d.history.versions[d.history.at]
 		trail.trail = append(trail.trail, item.name, fmt.Sprintf("v%d of %d", current.version, d.history.versions[0].version))
@@ -165,22 +287,36 @@ func (d *documentsScreen) crumbs(m *model) crumbs {
 	return trail
 }
 
-// back leaves for the screen the documents were opened from.
+// back leaves for the screen one agent's documents were opened from, and for the switcher from
+// every agent's.
 func (d *documentsScreen) back(m *model) tea.Cmd {
+	if d.listsEveryAgent() {
+		return m.pickView()
+	}
+
 	return m.enter(d.openedFrom, screenTarget{agentID: d.agentID})
 }
 
-// crumbRoot is the trail down to the list: the agent the documents are of.
+// crumbRoot is the trail down to the list: the agent the documents are of, if one.
 func (d *documentsScreen) crumbRoot(m *model) []string {
+	if d.listsEveryAgent() {
+		return nil
+	}
+
 	return []string{d.agentName(m), "documents"}
 }
 
 func (d *documentsScreen) agentName(m *model) string {
-	if item, ok := m.listing.anyAgent(d.agentID); ok {
+	return findAgentName(m, d.agentID)
+}
+
+// findAgentName is the name of the agent an id names, live or archived, and the id when neither.
+func findAgentName(m *model, agentID string) string {
+	if item, ok := m.listing.anyAgent(agentID); ok {
 		return item.Agent.Name
 	}
 
-	return d.agentID
+	return agentID
 }
 
 func (d *documentsScreen) help(m *model) keyMap {
@@ -224,8 +360,21 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 	return tea.Batch(m.readHoveredDocumentCmd(), m.readHistoryCmd())
 }
 
-// documentsWritten is what the agent has written, as its row says.
+// documentsWritten is what the agent has written, as its row says, and what every agent has for
+// none.
 func (m *model) documentsWritten(agentID string) documentsWritten {
+	if agentID == "" {
+		var written documentsWritten
+		for _, item := range slices.Concat(m.listing.agents, m.listing.archivedAgents) {
+			written.count += item.Documents
+			if item.DocumentsUpdatedAt != nil && (written.newest == nil || item.DocumentsUpdatedAt.After(*written.newest)) {
+				written.newest = item.DocumentsUpdatedAt
+			}
+		}
+
+		return written
+	}
+
 	item, ok := m.listing.anyAgent(agentID)
 	if !ok {
 		return documentsWritten{}
@@ -268,6 +417,7 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 			items: xslice.Map(documents, func(document *agentv1.Document) documentItem {
 				return documentItem{
 					id:        document.GetId(),
+					agentID:   document.GetAgentId(),
 					name:      document.GetName(),
 					typeName:  document.GetType(),
 					updatedAt: dates.Parse(document.GetUpdatedAt()),
@@ -356,6 +506,7 @@ var (
 	_ lineTyper        = (*documentsScreen)(nil)
 	_ renamer          = (*documentsScreen)(nil)
 	_ editorReconciler = (*documentsScreen)(nil)
+	_ kindSwitcher     = (*documentsScreen)(nil)
 )
 
 func (d *documentsScreen) stage(m *model) {
@@ -382,17 +533,35 @@ func (d *documentsScreen) column() columnSpec {
 }
 
 func (d *documentsScreen) hoveredKey(m *model) string {
+	if d.kind == documentKindTypes {
+		return d.documentTypeList().hovered(m)
+	}
+
 	return d.list().hovered(m)
 }
 
 func (d *documentsScreen) placeAt(m *model, key string) {
+	if d.kind == documentKindTypes {
+		d.documentTypeList().place(m, key)
+
+		return
+	}
+
 	d.list().place(m, key)
 }
 
 func (d *documentsScreen) filterRows(m *model) []filterRow {
+	if d.kind == documentKindTypes {
+		return d.documentTypeList().filterRows(m)
+	}
+
 	return d.list().filterRows(m)
 }
 
 func (d *documentsScreen) dispatches(m *model) []dispatching {
 	return []dispatching{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
+}
+
+func (d *documentsScreen) listsEveryAgent() bool {
+	return d.agentID == ""
 }

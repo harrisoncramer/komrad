@@ -25,7 +25,6 @@ var (
 	errReviewArchived   = errors.New("an archived agent's work is not reviewed")
 	errReviewChild      = errors.New("this agent works in its parent's checkout, so its work is reviewed there")
 	errReviewNoCheckout = errors.New("this agent has no checkout of its own to read")
-	errNoDocuments      = errors.New("this agent has not written any documents yet")
 	errTerminalHere     = errors.New("a terminal opens from the agents list")
 )
 
@@ -68,7 +67,7 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 			isOff: reviewRefusal(openedFrom, item.Agent) != nil,
 		}
 	case subpageDocuments:
-		return nestedEntry("documents", m.keys.Menu.Documents, documentsMenu(m, openedFrom, item))
+		return submenuEntry{label: "documents", keys: m.keys.Menu.Documents}
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
 	case subpageChecks:
@@ -132,10 +131,6 @@ func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) 
 
 		return m.enter(screenReview, screenTarget{agentID: agentID})
 	case subpageDocuments:
-		if item.Documents == 0 {
-			return m.refuseSubpage("Could not open the documents of "+name, errNoDocuments)
-		}
-
 		m.leaveForm()
 
 		return m.enter(screenDocuments, screenTarget{agentID: agentID, openedFrom: openedFrom})

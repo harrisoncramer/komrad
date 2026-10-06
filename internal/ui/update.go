@@ -327,7 +327,7 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		}
 	}
 
-	if _, ok := m.activeKinds(); ok {
+	if m.isKindsDrawn() {
 		if m.isKindsFocused() {
 			return m.updateKinds(key), true
 		}
