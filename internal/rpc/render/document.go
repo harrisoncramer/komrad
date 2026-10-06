@@ -22,8 +22,8 @@ func Document(stored documentstore.Document) *agentv1.Document {
 	}
 }
 
-func documentOwner(owner documentstore.Owner) *agentv1.DocumentOwner {
-	if owner == (documentstore.Owner{}) {
+func documentOwner(owner *documentstore.Owner) *agentv1.DocumentOwner {
+	if owner == nil {
 		return nil
 	}
 

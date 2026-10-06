@@ -342,7 +342,7 @@ func TestList(t *testing.T) {
 	_, err = stores.Agents.Archive(ctx, []string{other.ID})
 	require.NoError(t, err)
 
-	wantOwners := map[string]documentstore.Owner{
+	wantOwners := map[string]*documentstore.Owner{
 		rfc:       {AgentName: "author", WorkflowName: "workflow-for-author"},
 		notes:     {AgentName: "author", WorkflowName: "workflow-for-author"},
 		elsewhere: {AgentName: "other", WorkflowName: "workflow-for-other", Archived: true},

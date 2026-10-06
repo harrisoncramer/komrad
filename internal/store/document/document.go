@@ -29,7 +29,7 @@ type Document struct {
 	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Owner     Owner
+	Owner     *Owner
 }
 
 // Owner is the agent that wrote a document, set only when the document came from a listing.
@@ -70,7 +70,7 @@ func fromListRow(row *models.ListDocumentsRow) Document {
 		Version:   row.Version,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
-		Owner: Owner{
+		Owner: &Owner{
 			AgentName:    row.AgentName,
 			WorkflowName: row.WorkflowName,
 			Archived:     row.AgentArchived,
