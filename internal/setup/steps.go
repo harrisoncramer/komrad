@@ -377,6 +377,9 @@ func requireToken(pasted string) error {
 func (s *ForgeStep) answerUnattended() error {
 	switch s.Flag {
 	case "":
+		if s.TokenFile != "" {
+			return fmt.Errorf("%w: --forge-token-file needs --forge to name the host", errNeedsAnswer)
+		}
 		s.choice = forgeLater
 
 		return nil

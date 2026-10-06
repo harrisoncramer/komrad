@@ -285,6 +285,11 @@ func TestForgeStepUnattended(t *testing.T) {
 			name: "no flag skips",
 		},
 		{
+			name:      "a token file without a host names the flag",
+			tokenFile: tokenFile,
+			err:       "--forge",
+		},
+		{
 			name: "another host points at forge connect",
 			flag: "gitlab.example.com",
 			err:  "komrad forge connect",
