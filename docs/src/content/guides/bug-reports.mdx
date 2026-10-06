@@ -6,6 +6,8 @@ order: 15
 ---
 
 import Alert from "../../components/Alert.astro";
+import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
 
 Please file [issues on GitHub](https://github.com/harrisoncramer/komrad/issues/new?template=bug_report.yml) via the form there; issues that don't follow this format will not be addressed.
 
@@ -30,12 +32,12 @@ This command checks dependencies (like tmux and your database). Please also incl
 
 ## Logs and recordings
 
-When a request fails, the panel shows its trace ID as a `komrad log <id>` line.
+When a request fails, the panel shows its trace ID as a <Command path="log" args="<id>" /> line.
 
-Run that command and paste what it prints. If you missed the id, `komrad log --recent` lists the latest ones.
+Run that command and paste what it prints. If you missed the id, <Command path="log" args="--recent" /> lists the latest ones.
 
 The service also writes a log file, `komrad.log`, in your cache directory. That's `~/Library/Caches/komrad/` on macOS and `~/.cache/komrad/` on Linux. It explains failures to launch, reconcile, or index. Paste only the lines from around the time of the bug, and filter by the agent's id if one was involved.
 
-Finally, if an agent shows the wrong state, such as thinking when its pane has stopped, the recorded pane frames really help. Please set `frames = true` under `[debug]` in your config, replicate the issue, and attach the frame file. The files are kept by default in `komrad-frames/<agent id>/` in the same cache directory.
+Finally, if an agent shows the wrong state, such as thinking when its pane has stopped, the recorded pane frames really help. Please set <Setting path="debug.frames" label="frames = true" /> under <Setting path="debug" label="[debug]" /> in your config, replicate the issue, and attach the frame file. The files are kept by default in `komrad-frames/<agent id>/` in the same cache directory.
 
 For anything visual (UI flicker, regressions, etc) please attach a screenshot or a short screen recording.
