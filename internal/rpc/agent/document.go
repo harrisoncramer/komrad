@@ -54,15 +54,15 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 	return &agentv1.WriteDocumentResponse{Document: render.Document(*written)}, nil
 }
 
-// errEveryAgentAndOne is a listing asking for every agent's documents and one agent's at once.
-var errEveryAgentAndOne = fail.InvalidArgument("name an agent or ask for every agent, not both")
+// errEveryAgentWithAgentID is a listing that sets every_agent and names an agent too.
+var errEveryAgentWithAgentID = fail.InvalidArgument("name an agent or ask for every agent, not both")
 
 // ListDocuments returns one agent's documents, or every agent's, without their bodies.
 func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
 	var owner *string
 	if req.GetEveryAgent() {
 		if req.AgentId != nil {
-			return nil, errEveryAgentAndOne
+			return nil, errEveryAgentWithAgentID
 		}
 	} else {
 		id, failure := scopedAgentID(ctx, req.GetAgentId())
