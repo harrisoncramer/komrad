@@ -50,7 +50,7 @@ func (d *documentsScreen) documentTable() []screenAction {
 		{
 			id:   actionDocumentsJumpToAgent,
 			keys: func(k config.Keybindings) []string { return k.Documents.JumpToAgent },
-			when: d.holdsADocument,
+			when: d.isOnDocument,
 			nav:  func(m *model, _ string) tea.Cmd { return d.jumpToAgent(m) },
 		},
 		{
@@ -86,17 +86,17 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionDocumentsOlder},
 			desc: func(*model) string { return "an earlier version" },
-			show: d.holdsADocument,
+			show: d.isOnDocument,
 		},
 		{
 			of:   []actionID{actionDocumentsNewer},
 			desc: func(*model) string { return "a later version" },
-			show: d.holdsADocument,
+			show: d.isOnDocument,
 		},
 		{
 			of:    []actionID{actionDocumentsJumpToAgent},
 			desc:  func(*model) string { return "jump to agent" },
-			show:  d.holdsADocument,
+			show:  d.isOnDocument,
 			strip: true,
 		},
 		{
@@ -269,8 +269,8 @@ func (d *documentsScreen) docKeys() screenActionSpec {
 	}
 }
 
-// holdsADocument reports whether the cursor is on a document.
-func (d *documentsScreen) holdsADocument(m *model) bool {
+// isOnDocument reports whether the cursor is on a document.
+func (d *documentsScreen) isOnDocument(m *model) bool {
 	_, ok := d.hovered(m)
 
 	return ok
