@@ -1,0 +1,31 @@
+name: Docs report
+description: Something on komrad.dev is wrong, unclear, out of date, or broken.
+labels: ["documentation"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before filing
+      options:
+        - label: I searched the open issues and this has not been reported.
+          required: true
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: The URL of the page with the problem.
+      placeholder: https://komrad.dev/latest/guides/install/
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What is wrong
+      description: One or two sentences describing the problem. Quote the text that is wrong or unclear.
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots
+      description: For a broken layout, link, or recording, attach a screenshot and name your browser.

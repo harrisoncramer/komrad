@@ -69,8 +69,6 @@ func (b *Broker) connect(ctx context.Context) (*pgx.Conn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to take a connection to listen on: %w", err)
 	}
-	// A pool hands the same connection to whoever asks next, and a LISTEN on it would go with
-	// it.
 	conn := pooled.Hijack()
 
 	if err := notifystore.NewNotifyStore(conn).OpenWatchChannel(ctx); err != nil {
@@ -141,8 +139,7 @@ func (b *Broker) up() {
 	b.listening = true
 }
 
-// lost says the listener's connection has gone and drops every watcher, whose snapshots are
-// only good while no change is missed.
+// lost says the listener's connection has gone and drops every watcher.
 func (b *Broker) lost() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
