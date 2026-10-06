@@ -985,7 +985,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_documents"
-      description: "List the documents an agent has written, without their bodies, yours by default."
+      description: "List the documents an agent has written, without their bodies, yours by default, or every agent's at once."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,

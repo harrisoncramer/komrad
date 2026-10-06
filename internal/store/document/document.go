@@ -29,6 +29,14 @@ type Document struct {
 	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Owner     Owner
+}
+
+// Owner is the agent that wrote a document, set only when the document came from a listing.
+type Owner struct {
+	AgentName    string
+	WorkflowName string
+	Archived     bool
 }
 
 type DocumentStore struct {
@@ -53,7 +61,7 @@ func fromRow(row *models.Document) Document {
 	}
 }
 
-func fromListRow(row *models.ListAgentDocumentsRow) Document {
+func fromListRow(row *models.ListDocumentsRow) Document {
 	return Document{
 		ID:        row.ID,
 		AgentID:   row.AgentID,
@@ -62,6 +70,11 @@ func fromListRow(row *models.ListAgentDocumentsRow) Document {
 		Version:   row.Version,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
+		Owner: Owner{
+			AgentName:    row.AgentName,
+			WorkflowName: row.WorkflowName,
+			Archived:     row.AgentArchived,
+		},
 	}
 }
 
@@ -189,15 +202,16 @@ func (s *DocumentStore) Get(ctx context.Context, id string) (*Document, error) {
 	return &got, nil
 }
 
-// List returns an agent's documents without their bodies, newest write first.
-func (s *DocumentStore) List(ctx context.Context, agentID string, typeName *string) ([]Document, error) {
-	if !store.IsID(agentID) {
+// List returns one agent's documents, or every agent's when agentID is nil, without their bodies,
+// newest write first.
+func (s *DocumentStore) List(ctx context.Context, agentID *string, typeName *string) ([]Document, error) {
+	if agentID != nil && !store.IsID(*agentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentDocuments(ctx, models.ListAgentDocumentsParams{AgentID: agentID, Type: typeName})
+	rows, err := s.queries.ListDocuments(ctx, models.ListDocumentsParams{AgentID: agentID, Type: typeName})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list documents: %w", err)
 	}
 
 	return xslice.Map(rows, fromListRow), nil

@@ -96,24 +96,30 @@ WHERE
     agent_id = @agent_id
     AND name = @name;
 
--- name: ListAgentDocuments :many
+-- name: ListDocuments :many
 SELECT
-    id,
-    agent_id,
-    name,
-    type,
-    version,
-    created_at,
-    updated_at
+    d.id,
+    d.agent_id,
+    d.name,
+    d.type,
+    d.version,
+    d.created_at,
+    d.updated_at,
+    a.name AS agent_name,
+    w.name AS workflow_name,
+(a.archived_at IS NOT NULL)::boolean AS agent_archived
 FROM
-    documents
-WHERE
-    agent_id = @agent_id
-    AND (sqlc.narg('type')::text IS NULL
-        OR type = sqlc.narg('type')::text)
+    documents d
+    JOIN agents a ON a.id = d.agent_id
+    JOIN workflows w ON w.id = a.workflow_id
+WHERE (sqlc.narg('agent_id')::uuid IS NULL
+    OR d.agent_id = sqlc.narg('agent_id')::uuid)
+AND (sqlc.narg('type')::text IS NULL
+    OR d.type = sqlc.narg('type')::text)
+AND a.deleting_at IS NULL
 ORDER BY
-    updated_at DESC,
-    id DESC;
+    d.updated_at DESC,
+    d.id DESC;
 
 -- name: ListDocumentVersions :many
 SELECT

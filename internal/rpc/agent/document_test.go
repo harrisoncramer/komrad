@@ -46,7 +46,7 @@ type fakeDocuments struct {
 }
 
 type fakeDocumentsList struct {
-	AgentID string
+	AgentID *string
 	Type    *string
 }
 
@@ -78,7 +78,7 @@ func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32)
 }
 
 // ListDocuments records whose documents were asked for and answers stored without its body.
-func (f *fakeDocuments) ListDocuments(_ context.Context, agentID string, typeName *string) ([]documentstore.Document, error) {
+func (f *fakeDocuments) ListDocuments(_ context.Context, agentID *string, typeName *string) ([]documentstore.Document, error) {
 	f.listed = append(f.listed, fakeDocumentsList{AgentID: agentID, Type: typeName})
 	if f.err != nil {
 		return nil, f.err
@@ -165,6 +165,11 @@ func TestDocumentErrors(t *testing.T) {
 	}
 	list := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{}))
+
+		return err
+	}
+	listEveryAndOne := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{AgentId: xptr.Ptr(betaID), EveryAgent: true}))
 
 		return err
 	}
@@ -281,6 +286,11 @@ func TestDocumentErrors(t *testing.T) {
 			call:     versions,
 			err:      store.ErrNotFound,
 			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "listing every agent's documents and one agent's at once",
+			call:     listEveryAndOne,
+			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "writing a document as a type that does not exist",
@@ -501,27 +511,31 @@ func TestListDocuments(t *testing.T) {
 		{
 			name:       "no id lists the caller's own",
 			req:        &agentv1.ListDocumentsRequest{},
-			wantListed: fakeDocumentsList{AgentID: alphaID},
+			wantListed: fakeDocumentsList{AgentID: xptr.Ptr(alphaID)},
 		},
 		{
 			name:       "a type narrows the listing",
 			req:        &agentv1.ListDocumentsRequest{Type: xptr.Ptr("notes")},
-			wantListed: fakeDocumentsList{AgentID: alphaID, Type: xptr.Ptr("notes")},
+			wantListed: fakeDocumentsList{AgentID: xptr.Ptr(alphaID), Type: xptr.Ptr("notes")},
 		},
 		{
 			name:       "another agent's documents are a recorded read",
 			req:        &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr(betaID)},
-			wantListed: fakeDocumentsList{AgentID: betaID},
+			wantListed: fakeDocumentsList{AgentID: xptr.Ptr(betaID)},
 			wantTarget: betaID,
+		},
+		{
+			name:       "every agent's documents name no agent and are not a recorded read",
+			req:        &agentv1.ListDocumentsRequest{EveryAgent: true},
+			wantListed: fakeDocumentsList{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			docs := &fakeDocuments{stored: documentstore.Document{
-				ID:      documentID,
-				AgentID: tt.wantListed.AgentID,
-				Body:    "hidden",
+				ID:   documentID,
+				Body: "hidden",
 			}}
 			svc := newDocumentHandler(docs)
 			ctx, written := newLoggedCaller(t, alphaID)

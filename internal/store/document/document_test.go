@@ -328,7 +328,7 @@ func TestList(t *testing.T) {
 	}
 	rfc := write(author.ID, "design", "RFC")
 	notes := write(author.ID, "scratch", "notes")
-	write(other.ID, "elsewhere", "RFC")
+	elsewhere := write(other.ID, "elsewhere", "RFC")
 
 	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
 		ID:      rfc,
@@ -339,26 +339,43 @@ func TestList(t *testing.T) {
 		Version: 1,
 	})
 	require.NoError(t, err)
+	_, err = stores.Agents.Archive(ctx, []string{other.ID})
+	require.NoError(t, err)
+
+	owners := map[string]documentstore.Owner{
+		rfc:       {AgentName: "author", WorkflowName: "workflow-for-author"},
+		notes:     {AgentName: "author", WorkflowName: "workflow-for-author"},
+		elsewhere: {AgentName: "other", WorkflowName: "workflow-for-other", Archived: true},
+	}
 
 	tests := []struct {
 		name     string
-		agentID  string
+		agentID  *string
 		typeName *string
 		want     []string
 	}{
 		{
 			name:    "an agent's own documents, the newest write first",
-			agentID: author.ID,
+			agentID: xptr.Ptr(author.ID),
 			want:    []string{rfc, notes},
 		},
 		{
 			name:     "narrowed to one type",
-			agentID:  author.ID,
+			agentID:  xptr.Ptr(author.ID),
 			typeName: xptr.Ptr("notes"),
 			want:     []string{notes},
 		},
-		{name: "an agent with none", agentID: uuid.NewString()},
-		{name: "a value that is not an id", agentID: "not-an-id"},
+		{
+			name: "every agent's documents, archived agents included",
+			want: []string{rfc, elsewhere, notes},
+		},
+		{
+			name:     "every agent's documents of one type",
+			typeName: xptr.Ptr("RFC"),
+			want:     []string{rfc, elsewhere},
+		},
+		{name: "an agent with none", agentID: xptr.Ptr(uuid.NewString())},
+		{name: "a value that is not an id", agentID: xptr.Ptr("not-an-id")},
 	}
 
 	for _, tt := range tests {
@@ -370,6 +387,7 @@ func TestList(t *testing.T) {
 			for _, doc := range listed {
 				ids = append(ids, doc.ID)
 				assert.Empty(t, doc.Body, "a listing carries no bodies")
+				assert.Equal(t, owners[doc.ID], doc.Owner, "a listing names who wrote each document")
 			}
 			assert.Len(t, ids, len(tt.want))
 			if len(tt.want) > 0 {

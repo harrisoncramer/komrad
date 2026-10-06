@@ -20,7 +20,7 @@ type documentReadWriter interface {
 	WriteDocument(ctx context.Context, params documents.WriteDocumentParams) (*documentstore.Document, error)
 	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
 	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
-	ListDocuments(ctx context.Context, agentID string, typeName *string) ([]documentstore.Document, error)
+	ListDocuments(ctx context.Context, agentID *string, typeName *string) ([]documentstore.Document, error)
 	DeleteDocument(ctx context.Context, params documents.DeleteDocumentParams) error
 }
 
@@ -54,16 +54,27 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 	return &agentv1.WriteDocumentResponse{Document: render.Document(*written)}, nil
 }
 
-// ListDocuments returns an agent's documents without their bodies.
+// errEveryAgentAndOne is a listing asking for every agent's documents and one agent's at once.
+var errEveryAgentAndOne = fail.InvalidArgument("name an agent or ask for every agent, not both")
+
+// ListDocuments returns one agent's documents, or every agent's, without their bodies.
 func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
-	id, failure := scopedAgentID(ctx, req.GetAgentId())
-	if failure != nil {
-		return nil, failure
+	var owner *string
+	if req.GetEveryAgent() {
+		if req.AgentId != nil {
+			return nil, errEveryAgentAndOne
+		}
+	} else {
+		id, failure := scopedAgentID(ctx, req.GetAgentId())
+		if failure != nil {
+			return nil, failure
+		}
+
+		logCrossAgentRead(ctx, id, "agent listed another agent's documents")
+		owner = &id
 	}
 
-	logCrossAgentRead(ctx, id, "agent listed another agent's documents")
-
-	listed, err := s.documents.ListDocuments(ctx, id, req.Type)
+	listed, err := s.documents.ListDocuments(ctx, owner, req.Type)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list documents")
 	}

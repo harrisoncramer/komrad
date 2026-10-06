@@ -39,7 +39,9 @@ type Document struct {
 	// When it was last written, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// How many times it has been written, which a rewrite passes back to say what it replaces.
-	Version       int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
+	Version int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
+	// Who wrote it, set only in a listing.
+	Owner         *DocumentOwner `protobuf:"bytes,9,opt,name=owner,proto3" json:"owner,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -130,6 +132,76 @@ func (x *Document) GetVersion() int32 {
 	return 0
 }
 
+func (x *Document) GetOwner() *DocumentOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+type DocumentOwner struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The name of the agent that wrote the document.
+	AgentName string `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	// The name of the workflow that agent belongs to.
+	WorkflowName string `protobuf:"bytes,2,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
+	// Whether that agent has been archived.
+	Archived      bool `protobuf:"varint,3,opt,name=archived,proto3" json:"archived,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentOwner) Reset() {
+	*x = DocumentOwner{}
+	mi := &file_agent_v1_document_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentOwner) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentOwner) ProtoMessage() {}
+
+func (x *DocumentOwner) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentOwner.ProtoReflect.Descriptor instead.
+func (*DocumentOwner) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DocumentOwner) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
+}
+
+func (x *DocumentOwner) GetWorkflowName() string {
+	if x != nil {
+		return x.WorkflowName
+	}
+	return ""
+}
+
+func (x *DocumentOwner) GetArchived() bool {
+	if x != nil {
+		return x.Archived
+	}
+	return false
+}
+
 type WriteDocumentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The document to rewrite, or unset to create one.
@@ -155,7 +227,7 @@ type WriteDocumentRequest struct {
 
 func (x *WriteDocumentRequest) Reset() {
 	*x = WriteDocumentRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[1]
+	mi := &file_agent_v1_document_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -167,7 +239,7 @@ func (x *WriteDocumentRequest) String() string {
 func (*WriteDocumentRequest) ProtoMessage() {}
 
 func (x *WriteDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[1]
+	mi := &file_agent_v1_document_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -180,7 +252,7 @@ func (x *WriteDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteDocumentRequest.ProtoReflect.Descriptor instead.
 func (*WriteDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{1}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *WriteDocumentRequest) GetId() string {
@@ -272,7 +344,7 @@ type WriteDocumentResponse struct {
 
 func (x *WriteDocumentResponse) Reset() {
 	*x = WriteDocumentResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[2]
+	mi := &file_agent_v1_document_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +356,7 @@ func (x *WriteDocumentResponse) String() string {
 func (*WriteDocumentResponse) ProtoMessage() {}
 
 func (x *WriteDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[2]
+	mi := &file_agent_v1_document_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +369,7 @@ func (x *WriteDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteDocumentResponse.ProtoReflect.Descriptor instead.
 func (*WriteDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{2}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *WriteDocumentResponse) GetDocument() *Document {
@@ -312,14 +384,16 @@ type ListDocumentsRequest struct {
 	// Whose documents to list, or unset for the caller's own.
 	AgentId *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	// Only documents of this type, or unset for every type.
-	Type          *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	Type *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	// List every agent's documents, archived agents included, and leave agent_id unset.
+	EveryAgent    bool `protobuf:"varint,3,opt,name=every_agent,json=everyAgent,proto3" json:"every_agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListDocumentsRequest) Reset() {
 	*x = ListDocumentsRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[3]
+	mi := &file_agent_v1_document_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -331,7 +405,7 @@ func (x *ListDocumentsRequest) String() string {
 func (*ListDocumentsRequest) ProtoMessage() {}
 
 func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[3]
+	mi := &file_agent_v1_document_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -344,7 +418,7 @@ func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsRequest.ProtoReflect.Descriptor instead.
 func (*ListDocumentsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{3}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListDocumentsRequest) GetAgentId() string {
@@ -361,6 +435,13 @@ func (x *ListDocumentsRequest) GetType() string {
 	return ""
 }
 
+func (x *ListDocumentsRequest) GetEveryAgent() bool {
+	if x != nil {
+		return x.EveryAgent
+	}
+	return false
+}
+
 type ListDocumentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The documents, the most recently written first, without their bodies.
@@ -371,7 +452,7 @@ type ListDocumentsResponse struct {
 
 func (x *ListDocumentsResponse) Reset() {
 	*x = ListDocumentsResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[4]
+	mi := &file_agent_v1_document_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -383,7 +464,7 @@ func (x *ListDocumentsResponse) String() string {
 func (*ListDocumentsResponse) ProtoMessage() {}
 
 func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[4]
+	mi := &file_agent_v1_document_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -396,7 +477,7 @@ func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentsResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{4}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListDocumentsResponse) GetDocuments() []*Document {
@@ -418,7 +499,7 @@ type GetDocumentRequest struct {
 
 func (x *GetDocumentRequest) Reset() {
 	*x = GetDocumentRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[5]
+	mi := &file_agent_v1_document_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -430,7 +511,7 @@ func (x *GetDocumentRequest) String() string {
 func (*GetDocumentRequest) ProtoMessage() {}
 
 func (x *GetDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[5]
+	mi := &file_agent_v1_document_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -443,7 +524,7 @@ func (x *GetDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDocumentRequest.ProtoReflect.Descriptor instead.
 func (*GetDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{5}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetDocumentRequest) GetId() string {
@@ -470,7 +551,7 @@ type GetDocumentResponse struct {
 
 func (x *GetDocumentResponse) Reset() {
 	*x = GetDocumentResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[6]
+	mi := &file_agent_v1_document_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -482,7 +563,7 @@ func (x *GetDocumentResponse) String() string {
 func (*GetDocumentResponse) ProtoMessage() {}
 
 func (x *GetDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[6]
+	mi := &file_agent_v1_document_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -495,7 +576,7 @@ func (x *GetDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDocumentResponse.ProtoReflect.Descriptor instead.
 func (*GetDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{6}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetDocumentResponse) GetDocument() *Document {
@@ -524,7 +605,7 @@ type DocumentVersion struct {
 
 func (x *DocumentVersion) Reset() {
 	*x = DocumentVersion{}
-	mi := &file_agent_v1_document_proto_msgTypes[7]
+	mi := &file_agent_v1_document_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -536,7 +617,7 @@ func (x *DocumentVersion) String() string {
 func (*DocumentVersion) ProtoMessage() {}
 
 func (x *DocumentVersion) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[7]
+	mi := &file_agent_v1_document_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -549,7 +630,7 @@ func (x *DocumentVersion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentVersion.ProtoReflect.Descriptor instead.
 func (*DocumentVersion) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{7}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DocumentVersion) GetVersion() int32 {
@@ -597,7 +678,7 @@ type ListDocumentVersionsRequest struct {
 
 func (x *ListDocumentVersionsRequest) Reset() {
 	*x = ListDocumentVersionsRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[8]
+	mi := &file_agent_v1_document_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -609,7 +690,7 @@ func (x *ListDocumentVersionsRequest) String() string {
 func (*ListDocumentVersionsRequest) ProtoMessage() {}
 
 func (x *ListDocumentVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[8]
+	mi := &file_agent_v1_document_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -622,7 +703,7 @@ func (x *ListDocumentVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListDocumentVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{8}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListDocumentVersionsRequest) GetId() string {
@@ -642,7 +723,7 @@ type ListDocumentVersionsResponse struct {
 
 func (x *ListDocumentVersionsResponse) Reset() {
 	*x = ListDocumentVersionsResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[9]
+	mi := &file_agent_v1_document_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -654,7 +735,7 @@ func (x *ListDocumentVersionsResponse) String() string {
 func (*ListDocumentVersionsResponse) ProtoMessage() {}
 
 func (x *ListDocumentVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[9]
+	mi := &file_agent_v1_document_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -667,7 +748,7 @@ func (x *ListDocumentVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{9}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListDocumentVersionsResponse) GetVersions() []*DocumentVersion {
@@ -696,7 +777,7 @@ type DocumentType struct {
 
 func (x *DocumentType) Reset() {
 	*x = DocumentType{}
-	mi := &file_agent_v1_document_proto_msgTypes[10]
+	mi := &file_agent_v1_document_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +789,7 @@ func (x *DocumentType) String() string {
 func (*DocumentType) ProtoMessage() {}
 
 func (x *DocumentType) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[10]
+	mi := &file_agent_v1_document_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +802,7 @@ func (x *DocumentType) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentType.ProtoReflect.Descriptor instead.
 func (*DocumentType) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{10}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DocumentType) GetId() string {
@@ -769,7 +850,7 @@ type ListDocumentTypesResponse struct {
 
 func (x *ListDocumentTypesResponse) Reset() {
 	*x = ListDocumentTypesResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[11]
+	mi := &file_agent_v1_document_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -781,7 +862,7 @@ func (x *ListDocumentTypesResponse) String() string {
 func (*ListDocumentTypesResponse) ProtoMessage() {}
 
 func (x *ListDocumentTypesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[11]
+	mi := &file_agent_v1_document_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -794,7 +875,7 @@ func (x *ListDocumentTypesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentTypesResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentTypesResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{11}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListDocumentTypesResponse) GetDocumentTypes() []*DocumentType {
@@ -816,7 +897,7 @@ type GetDocumentTypeRequest struct {
 
 func (x *GetDocumentTypeRequest) Reset() {
 	*x = GetDocumentTypeRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[12]
+	mi := &file_agent_v1_document_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +909,7 @@ func (x *GetDocumentTypeRequest) String() string {
 func (*GetDocumentTypeRequest) ProtoMessage() {}
 
 func (x *GetDocumentTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[12]
+	mi := &file_agent_v1_document_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +922,7 @@ func (x *GetDocumentTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDocumentTypeRequest.ProtoReflect.Descriptor instead.
 func (*GetDocumentTypeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{12}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetDocumentTypeRequest) GetName() string {
@@ -868,7 +949,7 @@ type GetDocumentTypeResponse struct {
 
 func (x *GetDocumentTypeResponse) Reset() {
 	*x = GetDocumentTypeResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[13]
+	mi := &file_agent_v1_document_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -880,7 +961,7 @@ func (x *GetDocumentTypeResponse) String() string {
 func (*GetDocumentTypeResponse) ProtoMessage() {}
 
 func (x *GetDocumentTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[13]
+	mi := &file_agent_v1_document_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -893,7 +974,7 @@ func (x *GetDocumentTypeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDocumentTypeResponse.ProtoReflect.Descriptor instead.
 func (*GetDocumentTypeResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{13}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetDocumentTypeResponse) GetDocumentType() *DocumentType {
@@ -918,7 +999,7 @@ type DocumentTypeVersion struct {
 
 func (x *DocumentTypeVersion) Reset() {
 	*x = DocumentTypeVersion{}
-	mi := &file_agent_v1_document_proto_msgTypes[14]
+	mi := &file_agent_v1_document_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -930,7 +1011,7 @@ func (x *DocumentTypeVersion) String() string {
 func (*DocumentTypeVersion) ProtoMessage() {}
 
 func (x *DocumentTypeVersion) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[14]
+	mi := &file_agent_v1_document_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -943,7 +1024,7 @@ func (x *DocumentTypeVersion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentTypeVersion.ProtoReflect.Descriptor instead.
 func (*DocumentTypeVersion) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{14}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DocumentTypeVersion) GetVersion() int32 {
@@ -977,7 +1058,7 @@ type ListDocumentTypeVersionsRequest struct {
 
 func (x *ListDocumentTypeVersionsRequest) Reset() {
 	*x = ListDocumentTypeVersionsRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[15]
+	mi := &file_agent_v1_document_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -989,7 +1070,7 @@ func (x *ListDocumentTypeVersionsRequest) String() string {
 func (*ListDocumentTypeVersionsRequest) ProtoMessage() {}
 
 func (x *ListDocumentTypeVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[15]
+	mi := &file_agent_v1_document_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1002,7 +1083,7 @@ func (x *ListDocumentTypeVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentTypeVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListDocumentTypeVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{15}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListDocumentTypeVersionsRequest) GetId() string {
@@ -1022,7 +1103,7 @@ type ListDocumentTypeVersionsResponse struct {
 
 func (x *ListDocumentTypeVersionsResponse) Reset() {
 	*x = ListDocumentTypeVersionsResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[16]
+	mi := &file_agent_v1_document_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1034,7 +1115,7 @@ func (x *ListDocumentTypeVersionsResponse) String() string {
 func (*ListDocumentTypeVersionsResponse) ProtoMessage() {}
 
 func (x *ListDocumentTypeVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[16]
+	mi := &file_agent_v1_document_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1047,7 +1128,7 @@ func (x *ListDocumentTypeVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentTypeVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentTypeVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{16}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListDocumentTypeVersionsResponse) GetVersions() []*DocumentTypeVersion {
@@ -1073,7 +1154,7 @@ type WriteDocumentTypeRequest struct {
 
 func (x *WriteDocumentTypeRequest) Reset() {
 	*x = WriteDocumentTypeRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[17]
+	mi := &file_agent_v1_document_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1085,7 +1166,7 @@ func (x *WriteDocumentTypeRequest) String() string {
 func (*WriteDocumentTypeRequest) ProtoMessage() {}
 
 func (x *WriteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[17]
+	mi := &file_agent_v1_document_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1098,7 +1179,7 @@ func (x *WriteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteDocumentTypeRequest.ProtoReflect.Descriptor instead.
 func (*WriteDocumentTypeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{17}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *WriteDocumentTypeRequest) GetId() string {
@@ -1139,7 +1220,7 @@ type WriteDocumentTypeResponse struct {
 
 func (x *WriteDocumentTypeResponse) Reset() {
 	*x = WriteDocumentTypeResponse{}
-	mi := &file_agent_v1_document_proto_msgTypes[18]
+	mi := &file_agent_v1_document_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1151,7 +1232,7 @@ func (x *WriteDocumentTypeResponse) String() string {
 func (*WriteDocumentTypeResponse) ProtoMessage() {}
 
 func (x *WriteDocumentTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[18]
+	mi := &file_agent_v1_document_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1164,7 +1245,7 @@ func (x *WriteDocumentTypeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteDocumentTypeResponse.ProtoReflect.Descriptor instead.
 func (*WriteDocumentTypeResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{18}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *WriteDocumentTypeResponse) GetDocumentType() *DocumentType {
@@ -1184,7 +1265,7 @@ type DeleteDocumentRequest struct {
 
 func (x *DeleteDocumentRequest) Reset() {
 	*x = DeleteDocumentRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[19]
+	mi := &file_agent_v1_document_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1196,7 +1277,7 @@ func (x *DeleteDocumentRequest) String() string {
 func (*DeleteDocumentRequest) ProtoMessage() {}
 
 func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[19]
+	mi := &file_agent_v1_document_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1209,7 +1290,7 @@ func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{19}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DeleteDocumentRequest) GetId() string {
@@ -1229,7 +1310,7 @@ type DeleteDocumentTypeRequest struct {
 
 func (x *DeleteDocumentTypeRequest) Reset() {
 	*x = DeleteDocumentTypeRequest{}
-	mi := &file_agent_v1_document_proto_msgTypes[20]
+	mi := &file_agent_v1_document_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1241,7 +1322,7 @@ func (x *DeleteDocumentTypeRequest) String() string {
 func (*DeleteDocumentTypeRequest) ProtoMessage() {}
 
 func (x *DeleteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_document_proto_msgTypes[20]
+	mi := &file_agent_v1_document_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1254,7 +1335,7 @@ func (x *DeleteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentTypeRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentTypeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{20}
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DeleteDocumentTypeRequest) GetId() string {
@@ -1268,7 +1349,7 @@ var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xc9\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xf8\x01\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
@@ -1279,7 +1360,13 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
-	"\aversion\x18\b \x01(\x05R\aversion\"\xb7\x02\n" +
+	"\aversion\x18\b \x01(\x05R\aversion\x12-\n" +
+	"\x05owner\x18\t \x01(\v2\x17.agent.v1.DocumentOwnerR\x05owner\"o\n" +
+	"\rDocumentOwner\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\x12#\n" +
+	"\rworkflow_name\x18\x02 \x01(\tR\fworkflowName\x12\x1a\n" +
+	"\barchived\x18\x03 \x01(\bR\barchived\"\xb7\x02\n" +
 	"\x14WriteDocumentRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -1295,10 +1382,12 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\b_versionB\v\n" +
 	"\t_agent_id\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"y\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x9a\x01\n" +
 	"\x14ListDocumentsRequest\x12'\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
-	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01B\v\n" +
+	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01\x12\x1f\n" +
+	"\vevery_agent\x18\x03 \x01(\bR\n" +
+	"everyAgentB\v\n" +
 	"\t_agent_idB\a\n" +
 	"\x05_type\"I\n" +
 	"\x15ListDocumentsResponse\x120\n" +
@@ -1373,44 +1462,46 @@ func file_agent_v1_document_proto_rawDescGZIP() []byte {
 	return file_agent_v1_document_proto_rawDescData
 }
 
-var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_agent_v1_document_proto_goTypes = []any{
 	(*Document)(nil),                         // 0: agent.v1.Document
-	(*WriteDocumentRequest)(nil),             // 1: agent.v1.WriteDocumentRequest
-	(*WriteDocumentResponse)(nil),            // 2: agent.v1.WriteDocumentResponse
-	(*ListDocumentsRequest)(nil),             // 3: agent.v1.ListDocumentsRequest
-	(*ListDocumentsResponse)(nil),            // 4: agent.v1.ListDocumentsResponse
-	(*GetDocumentRequest)(nil),               // 5: agent.v1.GetDocumentRequest
-	(*GetDocumentResponse)(nil),              // 6: agent.v1.GetDocumentResponse
-	(*DocumentVersion)(nil),                  // 7: agent.v1.DocumentVersion
-	(*ListDocumentVersionsRequest)(nil),      // 8: agent.v1.ListDocumentVersionsRequest
-	(*ListDocumentVersionsResponse)(nil),     // 9: agent.v1.ListDocumentVersionsResponse
-	(*DocumentType)(nil),                     // 10: agent.v1.DocumentType
-	(*ListDocumentTypesResponse)(nil),        // 11: agent.v1.ListDocumentTypesResponse
-	(*GetDocumentTypeRequest)(nil),           // 12: agent.v1.GetDocumentTypeRequest
-	(*GetDocumentTypeResponse)(nil),          // 13: agent.v1.GetDocumentTypeResponse
-	(*DocumentTypeVersion)(nil),              // 14: agent.v1.DocumentTypeVersion
-	(*ListDocumentTypeVersionsRequest)(nil),  // 15: agent.v1.ListDocumentTypeVersionsRequest
-	(*ListDocumentTypeVersionsResponse)(nil), // 16: agent.v1.ListDocumentTypeVersionsResponse
-	(*WriteDocumentTypeRequest)(nil),         // 17: agent.v1.WriteDocumentTypeRequest
-	(*WriteDocumentTypeResponse)(nil),        // 18: agent.v1.WriteDocumentTypeResponse
-	(*DeleteDocumentRequest)(nil),            // 19: agent.v1.DeleteDocumentRequest
-	(*DeleteDocumentTypeRequest)(nil),        // 20: agent.v1.DeleteDocumentTypeRequest
+	(*DocumentOwner)(nil),                    // 1: agent.v1.DocumentOwner
+	(*WriteDocumentRequest)(nil),             // 2: agent.v1.WriteDocumentRequest
+	(*WriteDocumentResponse)(nil),            // 3: agent.v1.WriteDocumentResponse
+	(*ListDocumentsRequest)(nil),             // 4: agent.v1.ListDocumentsRequest
+	(*ListDocumentsResponse)(nil),            // 5: agent.v1.ListDocumentsResponse
+	(*GetDocumentRequest)(nil),               // 6: agent.v1.GetDocumentRequest
+	(*GetDocumentResponse)(nil),              // 7: agent.v1.GetDocumentResponse
+	(*DocumentVersion)(nil),                  // 8: agent.v1.DocumentVersion
+	(*ListDocumentVersionsRequest)(nil),      // 9: agent.v1.ListDocumentVersionsRequest
+	(*ListDocumentVersionsResponse)(nil),     // 10: agent.v1.ListDocumentVersionsResponse
+	(*DocumentType)(nil),                     // 11: agent.v1.DocumentType
+	(*ListDocumentTypesResponse)(nil),        // 12: agent.v1.ListDocumentTypesResponse
+	(*GetDocumentTypeRequest)(nil),           // 13: agent.v1.GetDocumentTypeRequest
+	(*GetDocumentTypeResponse)(nil),          // 14: agent.v1.GetDocumentTypeResponse
+	(*DocumentTypeVersion)(nil),              // 15: agent.v1.DocumentTypeVersion
+	(*ListDocumentTypeVersionsRequest)(nil),  // 16: agent.v1.ListDocumentTypeVersionsRequest
+	(*ListDocumentTypeVersionsResponse)(nil), // 17: agent.v1.ListDocumentTypeVersionsResponse
+	(*WriteDocumentTypeRequest)(nil),         // 18: agent.v1.WriteDocumentTypeRequest
+	(*WriteDocumentTypeResponse)(nil),        // 19: agent.v1.WriteDocumentTypeResponse
+	(*DeleteDocumentRequest)(nil),            // 20: agent.v1.DeleteDocumentRequest
+	(*DeleteDocumentTypeRequest)(nil),        // 21: agent.v1.DeleteDocumentTypeRequest
 }
 var file_agent_v1_document_proto_depIdxs = []int32{
-	0,  // 0: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
-	0,  // 1: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
-	0,  // 2: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
-	7,  // 3: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
-	10, // 4: agent.v1.ListDocumentTypesResponse.document_types:type_name -> agent.v1.DocumentType
-	10, // 5: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
-	14, // 6: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
-	10, // 7: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	1,  // 0: agent.v1.Document.owner:type_name -> agent.v1.DocumentOwner
+	0,  // 1: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
+	0,  // 2: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
+	0,  // 3: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
+	8,  // 4: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
+	11, // 5: agent.v1.ListDocumentTypesResponse.document_types:type_name -> agent.v1.DocumentType
+	11, // 6: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	15, // 7: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
+	11, // 8: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_document_proto_init() }
@@ -1418,21 +1509,21 @@ func file_agent_v1_document_proto_init() {
 	if File_agent_v1_document_proto != nil {
 		return
 	}
-	file_agent_v1_document_proto_msgTypes[1].OneofWrappers = []any{
+	file_agent_v1_document_proto_msgTypes[2].OneofWrappers = []any{
 		(*WriteDocumentRequest_Body)(nil),
 		(*WriteDocumentRequest_Path)(nil),
 	}
-	file_agent_v1_document_proto_msgTypes[3].OneofWrappers = []any{}
-	file_agent_v1_document_proto_msgTypes[5].OneofWrappers = []any{}
-	file_agent_v1_document_proto_msgTypes[12].OneofWrappers = []any{}
-	file_agent_v1_document_proto_msgTypes[17].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[4].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[6].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[13].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_document_proto_rawDesc), len(file_agent_v1_document_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

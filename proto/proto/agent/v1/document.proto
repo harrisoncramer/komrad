@@ -23,6 +23,17 @@ message Document {
   string updated_at = 7;
   // How many times it has been written, which a rewrite passes back to say what it replaces.
   int32 version = 8;
+  // Who wrote it, set only in a listing.
+  DocumentOwner owner = 9;
+}
+
+message DocumentOwner {
+  // The name of the agent that wrote the document.
+  string agent_name = 1;
+  // The name of the workflow that agent belongs to.
+  string workflow_name = 2;
+  // Whether that agent has been archived.
+  bool archived = 3;
 }
 
 message WriteDocumentRequest {
@@ -69,6 +80,8 @@ message ListDocumentsRequest {
     min_len: 1
     max_len: 100
   }];
+  // List every agent's documents, archived agents included, and leave agent_id unset.
+  bool every_agent = 3;
 }
 
 message ListDocumentsResponse {

@@ -475,8 +475,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the documents an agent has written, without their bodies, yours by default.",
-          "description": "List the documents an agent has written, without their bodies, yours by default.",
+          "summary": "List the documents an agent has written, without their bodies, yours by default, or every agent's at once.",
+          "description": "List the documents an agent has written, without their bodies, yours by default, or every agent's at once.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -2821,6 +2821,52 @@
           "oneof": "",
           "rules": [],
           "description": "How many times it has been written, which a rewrite passes back to say what it replaces."
+        },
+        {
+          "name": "owner",
+          "type": "DocumentOwner",
+          "ref": "agent.v1.DocumentOwner",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Who wrote it, set only in a listing."
+        }
+      ]
+    },
+    "agent.v1.DocumentOwner": {
+      "name": "DocumentOwner",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent_name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The name of the agent that wrote the document."
+        },
+        {
+          "name": "workflow_name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The name of the workflow that agent belongs to."
+        },
+        {
+          "name": "archived",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether that agent has been archived."
         }
       ]
     },
@@ -3807,6 +3853,16 @@
             "at most 100 characters"
           ],
           "description": "Only documents of this type, or unset for every type."
+        },
+        {
+          "name": "every_agent",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "List every agent's documents, archived agents included, and leave agent_id unset."
         }
       ]
     },
