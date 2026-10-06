@@ -135,7 +135,7 @@ func documentProse(name, body string) string {
 // docRows is the document drawn beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
 func (d *documentsScreen) docRows(m *model, width int) []string {
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		return paint.DocStyledRows(documentTypeDoc(d.hoveredDocumentType(m)), max(width, 1), columnStyle())
 	}
 

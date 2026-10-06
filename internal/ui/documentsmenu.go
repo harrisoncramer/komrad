@@ -64,7 +64,7 @@ type documentEntry struct {
 }
 
 func (d *documentsScreen) buildItemMenu(m *model) (submenu, bool) {
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		return documentTypeMenu(m, d.hoveredDocumentType(m)), true
 	}
 	if d.isDiffFocused(m) {

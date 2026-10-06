@@ -35,8 +35,8 @@ type documentBody struct {
 type documentKind int
 
 const (
-	documentsKindDocuments documentKind = iota
-	documentsKindDocumentTypes
+	documentKindDocuments documentKind = iota
+	documentKindTypes
 )
 
 // documentsScreen lists documents, every agent's or one agent's, and draws the one under the cursor
@@ -110,7 +110,7 @@ func (d *documentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		return d.documentTypeList().update(m, key, d.actions(m))
 	}
 
@@ -126,11 +126,11 @@ func (d *documentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 }
 
 func (d *documentsScreen) onDocuments(*model) bool {
-	return d.kind == documentsKindDocuments
+	return d.kind == documentKindDocuments
 }
 
 func (d *documentsScreen) onDocumentTypes(*model) bool {
-	return d.kind == documentsKindDocumentTypes
+	return d.kind == documentKindTypes
 }
 
 func (d *documentsScreen) kinds(*model) stops {
@@ -217,7 +217,7 @@ func documentTypeRowName(row documentTypeRow) string {
 }
 
 func (d *documentsScreen) hovered(m *model) (documentItem, bool) {
-	if d.kind != documentsKindDocuments {
+	if d.kind != documentKindDocuments {
 		return documentItem{}, false
 	}
 
@@ -228,7 +228,7 @@ func (d *documentsScreen) hovered(m *model) (documentItem, bool) {
 
 // hoveredDocumentType is the document type the cursor is on, nil for none.
 func (d *documentsScreen) hoveredDocumentType(m *model) *agentv1.DocumentType {
-	if d.kind != documentsKindDocumentTypes {
+	if d.kind != documentKindTypes {
 		return nil
 	}
 
@@ -238,7 +238,7 @@ func (d *documentsScreen) hoveredDocumentType(m *model) *agentv1.DocumentType {
 }
 
 func (d *documentsScreen) listParams(m *model) screenListParams {
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		return screenListParams{
 			help:     d.help,
 			empty:    "no document types",
@@ -269,7 +269,7 @@ func (d *documentsScreen) parent() screen {
 // the documents while none is.
 func (d *documentsScreen) crumbs(m *model) crumbs {
 	trail := crumbs{trail: d.crumbRoot(m)}
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		trail.tally = fmt.Sprint(len(m.listing.documentTypes))
 
 		return trail
@@ -533,7 +533,7 @@ func (d *documentsScreen) column() columnSpec {
 }
 
 func (d *documentsScreen) hoveredKey(m *model) string {
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		return d.documentTypeList().hovered(m)
 	}
 
@@ -541,7 +541,7 @@ func (d *documentsScreen) hoveredKey(m *model) string {
 }
 
 func (d *documentsScreen) placeAt(m *model, key string) {
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		d.documentTypeList().place(m, key)
 
 		return
@@ -551,7 +551,7 @@ func (d *documentsScreen) placeAt(m *model, key string) {
 }
 
 func (d *documentsScreen) filterRows(m *model) []filterRow {
-	if d.kind == documentsKindDocumentTypes {
+	if d.kind == documentKindTypes {
 		return d.documentTypeList().filterRows(m)
 	}
 
