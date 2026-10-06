@@ -1,13 +1,17 @@
 ---
-title: Local Reviews
-description: Komrad lets you read and review an agents work before making a pull request, or have agents review themselves.
+title: Reviews
+description: Review an agent's work locally before it opens a pull request, and connect a forge so komrad can follow the pull requests it does open.
 group: start
-order: 5
+order: 6
 ---
 
 import Alert from "../../components/Alert.astro";
+import Command from "../../components/Command.astro";
 import Key from "../../components/Key.astro";
+import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
+
+## Local reviews
 
 Komrad supports providing feedback to agents directly in code rather than via a forge like Github or Gitlab. This helps keep feedback loops quick and reduce CI spend for agent-authored changes.
 
@@ -20,7 +24,7 @@ Komrad's local review model is quite similar to how <a href="https://www.gerritc
   `vim.text.truncate()` to Neovim, which you have reviewed twice and a reviewer agent has reviewed once.
 </Alert>
 
-## Opening a review
+### Opening a review
 
 Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](../navigation/#the-agent-menu), and pick review with <Key name="menu.review" />. The main panel then shows everything the agent changed since its branch left the base. The sidebar holds a tree of the files the change touches, marking the one the cursor is in along with its threads, and the conversation on the line under the cursor opens in a popup beside it. Press `ctrl+space ctrl+space` to move into the tree, and <Key name="review.toggle_viewed" /> to mark a file viewed.
 
@@ -42,25 +46,17 @@ Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](..
 
 The agents list keeps count between visits. Each agent shows its open comments at the right end of its row, a robot before the reviewer agents' and a person before yours, and a bell before the replies you have not read yet.
 
-## Leaving comments
+### Leaving comments
 
 Press <Key name="review.compose" /> on a line to comment on it, or on a line that already has a thread to reply there. The row above the first file takes a comment about the work as a whole.
 
 The draft is not submitted to the agent until you submit the entire review. Take your time to read the change. While you hold the drafts, the diff is "frozen", so the lines you are commenting on do not move.
 
-## Comments from the forge
-
-When the agent's pull request or merge request has review comments, komrad copies them into the review as threads of their own, each under its author and line. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
-
-Comments from someone who can push to the repository reach the agent on their own. Comments from anyone else are held until you send your review, or until you reply in their thread, so nothing from a stranger reaches the agent without you seeing it first.
-
-The agent answers forge comments in the review, never on the forge itself.
-
-## Editing the code yourself
+### Editing the code yourself
 
 Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor beside the diff. Komrad pauses the agent while you edit, since you are both working in its checkout. When you close the editor the agent carries on from your change, and your drafts are still there.
 
-## Sending
+### Sending
 
 When you are done reading, press <Key name="review.send" /> to send the review. Komrad asks if you have anything to say about the work as a whole, then sends it. Sending stops the agent mid-turn, so it reads your comments now rather than when it finishes what it is doing.
 
@@ -84,7 +80,7 @@ The agent gets one piece of mail. Each comment comes with the lines it was writt
 
 The agent answers in your threads, and can settle them. You can even press see exactly what the agent changed to answer the comment with <Key name="review.answer" /> . You can settle or reopen any comment yourself.
 
-## Stepping through history
+### Stepping through history
 
 Each review you send closes a "chapter" in komrad, which holds the work you had read when you sent it. Stepping through chapters shows each review, with the comments written on it and the code that changed as a result. Replies that came after the code changed are drawn below a rule, so the answer to a comment reads on the chapter it was written on.
 
@@ -106,8 +102,103 @@ Past chapters take replies but not new comments, since their lines may no longer
   </video>
 </figure>
 
-## Local review from agents
+### Local review from agents
 
 An agent can ask for a review of its own work.
 
 Komrad starts a reviewer agent in the same worktree, which comments and sends the way you do. Reviewer agents approve or requests changes with each review.
+
+## Connecting a forge
+
+Komrad connects to a forge, like GitHub or GitLab, for two reasons. It wants to show you, beside each agent, the pull request that agent's branch has open. Agents also need it to push, open pull requests and read what is happening on them.
+
+You connect a forge once with <Command path="forge connect" />, naming its host. Komrad asks the forge who the credential belongs to straight away and refuses one that is wrong. That proves the token is real, but not that it can read your repositories, so give it access to the repositories your agents work in. <Command path="forge list" /> and <Command path="doctor" /> show what is connected and whether it still works.
+
+The token is read from standard input or from a file, never from an argument, since arguments are visible to every process on the machine.
+
+A self-hosted forge needs two more things. Komrad cannot tell which forge a host runs from its name, so pass `--kind github` or `--kind gitlab`. If its API is somewhere other than `https://<host>/api/v3` for GitHub or `https://<host>/api/v4` for GitLab, pass `--api-url` as well.
+
+Some hosts take SSH on a name of their own, such as `ssh.gitlab.example.com`. List each pair in <Setting path="git.ssh_hosts" label="ssh_hosts" /> so a remote on the SSH name finds the connection for the web host. Public names such as `ssh.github.com` and `altssh.gitlab.com` are already known.
+
+### GitHub
+
+On your laptop, the simplest way is to hand komrad the token the GitHub CLI already holds.
+
+```sh
+gh auth token | komrad forge connect github.com
+```
+
+Any personal access token works the same way, as long as it can read the pull requests of your repositories. For GitHub Enterprise, add `--kind github` and, if needed, `--api-url`.
+
+The remote engine connects through a GitHub App instead, so nobody has to paste a token there. With the App set up in <Setting path="github_app" label="[github_app]" />, connect it with `--method github-app`. Nothing is read. Komrad makes a token from the App, which expires after an hour, and makes a new one whenever it needs to. [Administering the engine](../engine-admin/) covers registering the App.
+
+```sh
+komrad forge connect github.com --method github-app --engine remote
+```
+
+### GitLab
+
+GitLab takes a personal access token with the `api` scope.
+
+```sh
+komrad forge connect gitlab.com --token-file ~/.config/gitlab-token
+komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token
+```
+
+GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as the remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once. From then on it makes a new token each day and lets the old one go. Each token expires within two days of being made, so a token copied off the machine is soon useless. <Command path="forge disconnect" /> revokes the current token with GitLab before forgetting it.
+
+```sh
+komrad forge connect gitlab.com --method rotating-token --token-file ~/.config/gitlab-token --engine remote
+```
+
+If a rotation is ever refused, the connection shows as refused in <Command path="forge list" />. Connect it again with a fresh token.
+
+### What komrad reads
+
+While an agent is live, komrad watches the pull requests in its repository. It notices when one is opened from the agent's branch, when checks pass or fail, when it is approved, and when it is merged. That shows up as a symbol on the agent's row. Some of those changes also [tell the agent](../events-and-messages/#what-komrad-tells-an-agent), such as checks failing or the branch conflicting with its base.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("forges.png")}
+    width="1440"
+    height="920"
+    aria-label="Moving down the agents list past a merged, a failing, an approved and an open pull request, with the details saying where each one stands."
+  >
+    <source src={media("forges.webm")} type="video/webm" />
+    <source src={media("forges.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+Komrad reads the pull requests opened from each live agent's branch. A repository where something is likely to change soon, such as checks still running, a branch that just moved, or a pull request komrad just wrote to, is read every five seconds. Every other repository is read once a minute. When the forge says little of the hour's budget is left, every repository on that host drops to once a minute until the budget comes back.
+
+Komrad also reads the review comments on each open pull request or merge request a live agent is linked to, drafts included, once a minute. They are copied into the agent's review as threads of their own and counted with yours on its row. Komrad holds a comment from someone who cannot push to the repository until you send your review, and never writes anything back to the forge.
+
+### Comments from the forge
+
+When the agent's pull request or merge request has review comments, komrad copies them into the review as threads of their own, each under its author and line. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
+
+Comments from someone who can push to the repository reach the agent on their own. Comments from anyone else are held until you send your review, or until you reply in their thread, so nothing from a stranger reaches the agent without you seeing it first.
+
+The agent answers forge comments in the review, never on the forge itself.
+
+### Where the token lives
+
+The database holds only which forge and which account. The token itself sits in a file only your user can read, and never shows up in logs. This is the same arrangement as the GitHub CLI or your SSH keys.
+
+### How agents push
+
+Agents never hold a credential of their own, and no token is ever typed into a pane, so none can leak into a transcript. Komrad hands each tool the credential when it runs.
+
+Komrad puts its own `gh` and `glab` ahead of every agent's PATH. Each one asks komrad for a credential and then runs the real tool. If the agent's environment already sets a token the tool reads, such as `GH_TOKEN` or `GITLAB_TOKEN`, komrad leaves the tool alone.
+
+For GitHub, `gh` gets a token from the App when <Setting path="github_app" label="[github_app]" /> is set. Otherwise it uses the login `gh` already has on the machine. Git reaches GitHub through <Command path="github credential" />, which the engine sets up for you. On your laptop, git uses whatever credential you already have.
+
+For GitLab, `glab` gets the token of the connection for the checkout's host, in a config that names that host alone, so the token is never sent anywhere else. With no connection for that host, it uses the login `glab` already has. Git reaches GitLab through <Command path="gitlab credential" /> once you add a line for each host.
+
+```sh
+git config --global credential.https://gitlab.example.com.helper '!komrad gitlab credential'
+```

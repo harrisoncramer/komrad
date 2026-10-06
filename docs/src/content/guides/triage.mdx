@@ -24,10 +24,12 @@ An agent enters triage for one of three reasons:
 
 ## Working through triage
 
-Press <Key name="agents.triage" /> to jump to the first agent in the zone.
+Press <Key name="agents.triage" /> to jump to the first agent in the zone. The agents in the zone are copies, so each one still sits in its usual place in the tree below. While the cursor is in the zone its order holds still, so nothing moves under you as you read. It settles into its new order once you leave.
 
-When you can't deal with a family yet, open the [menu](../navigation/#the-agent-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The family sinks to the bottom of the zone and fades, and the cursor moves on to the next one. The snooze lasts until what the family waits on changes, so an agent you snoozed for finishing comes back when it asks you something. Press the same key on a snoozed family to wake it.
+Answer the agent and it drops out of triage on its own. Opening a finished agent counts as having looked at it, so it leaves the zone too.
 
-Respond, or snooze the agent to tell komrad you'll get to it later.
+When you can't deal with a family yet, open the [menu](../navigation/#the-agent-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The family leaves the zone, a family waiting for a slot comes in at the bottom, and the cursor moves to the family above it. A snooze lasts until what the family waits on changes, so an agent you snoozed for finishing comes back when it asks you something.
+
+To bring a snoozed family back early, find it in the tree and pick wake from the same menu. Snoozes only last as long as the panel does, so restarting the panel brings every snoozed family back.
 
 {/* recording: jumping to triage, opening an agent, and snoozing one */}

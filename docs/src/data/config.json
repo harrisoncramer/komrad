@@ -189,7 +189,7 @@
           "path": "layout.triage_rows",
           "type": "integer",
           "description": "How many families of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A family is an agent with all of its children, and the zone never draws fewer rows than it has slots. Zero turns the zone off.",
-          "default": "0"
+          "default": "3"
         }
       ],
       "sections": []
