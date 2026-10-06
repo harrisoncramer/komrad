@@ -9,8 +9,6 @@
   - A query asking only for mergeStateStatus returns UNKNOWN, but it also starts GitHub's computation. The next
     read, 10 seconds later, came back CLEAN.
   - So the first read after any base move is always blank, and the real answer is ready within seconds.
-  - The chariot PRs looked stuck because komrad waits 10 minutes before re-reading an older PR, not because GitHub
-    keeps answering UNKNOWN.
 
   [1mExpected in the test instance.[0m The read around 22:14:34 blanks mergeability, which was unstable before the move.
   Last-known stays unstable, and the wire mergeability goes to UNKNOWN. The row then stays blank until the settled

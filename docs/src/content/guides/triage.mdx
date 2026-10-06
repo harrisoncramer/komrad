@@ -2,44 +2,34 @@
 title: Triage
 description: The zone at the top of the agents list that holds the agents waiting on you, the most urgent first.
 group: start
-order: 3.5
+order: 5
 ---
 
 import Setting from "../../components/Setting.astro";
 import Key from "../../components/Key.astro";
 
-Once you have more than a handful of agents, the hard part is no longer starting them. It is knowing which one needs you next. Triage answers that. It is a zone at the top of the agents list that holds only the agents waiting on a person, the most urgent first, so you can work through it from the top instead of scanning the whole tree.
+Komrad's triage section holds a short list of implementer agents that need your attention. It is a zone at the top of the agents list that holds only the agents waiting on you, you can work through them instead of scanning the whole tree.
 
 {/* recording: the triage zone filling as agents ask questions and finish */}
 
-## Turning it on
-
-The zone is off until you give it room. Set <Setting path="layout.triage_rows" /> to how many families of agents it should draw. Each family takes one slot and comes with all of its children, and the zone never draws fewer rows than it has slots. When more families are waiting than fit, the line under the zone says how many are waiting for a slot.
+The zone holds three implementer agents by default, which can be configured in the <Setting path="layout.triage_rows" /> setting.
 
 ## What lands in triage
 
-An agent enters triage for one of three reasons, and the zone orders them in that order.
+An agent enters triage for one of three reasons:
 
-The first is that it needs you. The agent stopped to ask a question or for permission, and nothing moves until you answer.
+1) The agent needs you. The agent stopped to ask a question or ask for permission, for instance.
+2) Something broke. The agent errored, failed to launch, failed to clean up, a hook script failed, etc.
+3) It's turn finished, no reviewers reviewing it's changes, and it's not waiting on any messages from other agents. It's fully idle, in other words.
 
-The second is that something broke. The agent errored, failed to launch, failed to clean up, a hook script failed, or its checkout is stuck partway through a rebase.
+## Working through triage
 
-The third is that it finished. A top level implementer has ended its turn with nothing under it still working, and wants you to look at what it did.
+Press <Key name="agents.triage" /> to jump to the first agent in the zone. The agents in the zone are copies, so each one still sits in its usual place in the tree below. While the cursor is in the zone its order holds still, so nothing moves under you as you read. It settles into its new order once you leave.
 
-Within each of those, the agent that has waited longest comes first.
+Answer the agent and it drops out of triage on its own. Opening a finished agent counts as having looked at it, so it leaves the zone too.
 
-Triage only holds an agent when the next move is yours. An agent that is working, has mail it has not read yet, or is waiting on its pull request's checks is left out, since something is already coming that will set it going again. Hidden agents never show up in triage.
+When you can't deal with a family yet, open the [menu](../navigation/#the-agent-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The family leaves the zone, a family waiting for a slot comes in at the bottom, and the cursor moves to the family above it. A snooze lasts until what the family waits on changes, so an agent you snoozed for finishing comes back when it asks you something.
 
-An agent comes into the zone with its family. A child that needs you brings its parent along, and the family is ranked by whichever of them is most urgent.
-
-## Working through it
-
-Press <Key name="agents.triage" /> to jump to the first agent in the zone. While the cursor is in the zone, its order holds still, so nothing moves under you as you read. It settles into its new order once you leave.
-
-Opening a finished agent counts as having looked at it. Its family sinks to the bottom of the zone and fades, and the cursor stays on it.
+To bring a snoozed family back early, find it in the tree and pick wake from the same menu. Snoozes only last as long as the panel does, so restarting the panel brings every snoozed family back.
 
 {/* recording: jumping to triage, opening an agent, and snoozing one */}
-
-## Snoozing
-
-When you can't deal with a family yet, open the [menu](../navigation/#the-agent-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The family sinks to the bottom of the zone and fades, and the cursor moves on to the next one. The snooze lasts until what the family waits on changes, so an agent you snoozed for finishing comes back when it asks you something. Press the same key on a snoozed family to wake it.

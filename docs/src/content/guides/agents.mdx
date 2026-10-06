@@ -8,7 +8,7 @@ order: 3
 import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
-import { media } from "../../site";
+import { link, media } from "../../site";
 
 <Alert variant="warning">
   This guide assumes you know what a [workflow](../workflows/) is, and you've created one.
@@ -16,7 +16,7 @@ import { media } from "../../site";
 
 Agents run your workloads. They are spawned according to workflows.
 
-Komrad currently supports just Claude and Codex agents. You can leave them working and come back, restart your machine without losing any history or context, search everything they have said, and even have agents spawn and manage other agents.
+Komrad currently supports Claude and Codex. Agents are designed to be durable: you can shut down or restart your machine without losing any history or context, and easily restore or search through old sessions. You can even have agents spawn and manage other agents.
 
 This is komrad's core benefit: durable agentic sessions, that you can run and manage yourself.
 
@@ -58,9 +58,9 @@ Let's ask our orchestrator to spawn our first implementer agent. You can also ho
 
 The agent responds to our question. If it needs to, it can send and receive messages from the orchestrator.
 
-## Reviewer Agents
+## Implementer Agents
 
-Reviewer agents are attached to an implementer agent, and can be used to review it's work. Don't try to have reviewer agents run work: each change should be implemented by an implementer agent, so that isolation between edits is guaranteed. For kicks, let's ask our orchestrator to spawn three implementer agents to do some research before they start writing code:
+For kicks, let's ask our orchestrator to spawn three implementer agents to do some research before they start writing code:
 
 <figure>
   <video
@@ -80,7 +80,9 @@ Reviewer agents are attached to an implementer agent, and can be used to review 
 
 ## Reviewer Agents
 
-Reviewer agents share the implementer's checkout. They make no changes of their own, but provide feedback on their parent's chagnes. Set the <Setting path="usage.implementer.max_children" /> value to cap how many reviewers one implementer may hold at a time.
+Reviewer agents are attached to an implementer agent, and can be used to review its work. Don't try to have reviewer agents run work: each change should be implemented by an implementer agent, so that isolation between edits is guaranteed.
+
+Reviewer agents share the implementer's checkout. They make no changes of their own, but provide feedback on their parent's changes. Set the <Setting path="usage.implementer.max_children" /> value to cap how many reviewers one implementer may hold at a time.
 
 ## Adopting work
 
@@ -97,3 +99,15 @@ In komrad, you can either _archive_ or _delete_ an agent.
 Archiving an agent will stop it immediately, and remove it from the agent sidebar. It will not remove its conversation from Postgres, so you can still search for it or resume it later.
 
 Deleting an agent is permanent. When you choose to delete an agent, the conversation and the worktree are all removed.
+
+## Agent State
+
+Komrad is a bit different from other agent orchestration tools.
+
+Most of them right now learn what an agent is doing from "hooks" the agent fires. This is unreliable, because the hooks can be dropped, reordered, or never sent at all, for example when your CLI crashes. When that happens, those tools show an agent as working when it is idle, or waiting when it is done.
+
+Komrad reads each agent's state from what its terminal actually shows, which komrad calls the pane ([see Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) for reference).
+
+This has pros and cons. On the plus side, it means that if processes die or are killed, we don't miss state. But it also means that Komrad is bound to have defects related to reading the CLI view that a new version of Claude or Codex ships. I'd love to change this, and if Claude or Codex ever ship support for real-time state notifications, I'll move to that model right away. For now, though, this is the next-best thing.
+
+If you notice that the state is not correctly tracking your CLI, please <a href={link('/guides/bug-reports')}>submit an issue</a> on GitHub.

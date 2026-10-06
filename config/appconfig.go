@@ -108,6 +108,7 @@ const (
 	defaultInfoSide      = infoSideBelow
 	DefaultInfoHeight    = 0.4
 	defaultDetailsHeight = 9
+	defaultTriageRows    = 3
 )
 
 // Where each region of the panel's layout can sit.
@@ -1069,6 +1070,7 @@ func DefaultLayout() Layout {
 		InfoSide:      defaultInfoSide,
 		InfoHeight:    DefaultInfoHeight,
 		DetailsHeight: defaultDetailsHeight,
+		TriageRows:    defaultTriageRows,
 	}
 }
 

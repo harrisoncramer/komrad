@@ -2,7 +2,7 @@ import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
-import { unified } from "@astrojs/markdown-remark";
+import { rehypeHeadingIds, unified } from "@astrojs/markdown-remark";
 import tailwindcss from "@tailwindcss/vite";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { basename, extname } from "node:path";
@@ -22,6 +22,29 @@ const absoluteGuideLinks = () => (tree, file) => {
     if (node.tagName === "a" && typeof href === "string" && href.startsWith(".")) {
       const target = new URL(href, page);
       node.properties.href = `${target.pathname}${target.hash}`;
+    }
+    node.children?.forEach(visit);
+  };
+  visit(tree);
+};
+
+const headingAnchors = () => (tree) => {
+  const visit = (node) => {
+    const id = node.properties?.id;
+    if (/^h[2-4]$/.test(node.tagName) && typeof id === "string") {
+      const className = node.properties.className ?? [];
+      node.properties.className = [...(Array.isArray(className) ? className : [className]), "anchored"];
+      node.children.push({
+        type: "element",
+        tagName: "a",
+        properties: {
+          className: ["anchor"],
+          href: `#${id}`,
+          ariaLabel: "Link to this",
+          dataPagefindIgnore: true,
+        },
+        children: [{ type: "text", value: "#" }],
+      });
     }
     node.children?.forEach(visit);
   };
@@ -107,7 +130,7 @@ export default defineConfig({
     plugins: [tailwindcss(), pagefind, media],
   },
   markdown: {
-    processor: unified({ rehypePlugins: [absoluteGuideLinks] }),
+    processor: unified({ rehypePlugins: [absoluteGuideLinks, rehypeHeadingIds, headingAnchors] }),
     shikiConfig: {
       theme: codeTheme,
     },

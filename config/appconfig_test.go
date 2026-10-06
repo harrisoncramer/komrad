@@ -131,6 +131,7 @@ func TestLoadLayout(t *testing.T) {
 				InfoSide:      defaultInfoSide,
 				InfoHeight:    DefaultInfoHeight,
 				DetailsHeight: defaultDetailsHeight,
+				TriageRows:    defaultTriageRows,
 			},
 		},
 		{
@@ -142,6 +143,7 @@ func TestLoadLayout(t *testing.T) {
 				InfoSide:      InfoSideAbove,
 				InfoHeight:    DefaultInfoHeight,
 				DetailsHeight: defaultDetailsHeight,
+				TriageRows:    defaultTriageRows,
 			},
 		},
 		{
@@ -153,6 +155,7 @@ func TestLoadLayout(t *testing.T) {
 				InfoSide:      defaultInfoSide,
 				InfoHeight:    0.6,
 				DetailsHeight: defaultDetailsHeight,
+				TriageRows:    defaultTriageRows,
 			},
 		},
 		{
@@ -164,6 +167,19 @@ func TestLoadLayout(t *testing.T) {
 				InfoSide:      defaultInfoSide,
 				InfoHeight:    DefaultInfoHeight,
 				DetailsHeight: 12,
+				TriageRows:    defaultTriageRows,
+			},
+		},
+		{
+			name: "a triage zone the user turned off",
+			file: "[layout]\ntriage_rows = 0\n",
+			want: Layout{
+				SidebarSide:   defaultSidebarSide,
+				SidebarWidth:  DefaultSidebarWidth,
+				InfoSide:      defaultInfoSide,
+				InfoHeight:    DefaultInfoHeight,
+				DetailsHeight: defaultDetailsHeight,
+				TriageRows:    0,
 			},
 		},
 		{
