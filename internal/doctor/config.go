@@ -148,7 +148,7 @@ func describeHarnessBinary(ctx context.Context, env Env, path string) string {
 		return path
 	}
 
-	first, _, _ := strings.Cut(strings.TrimSpace(reported), "\n")
+	first, _, _ := strings.Cut(reported, "\n")
 	if first == "" {
 		return path
 	}
