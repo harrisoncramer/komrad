@@ -13,6 +13,8 @@ usage() {
 	echo "With --hard the tmux server goes too, which is what picks up a change to the"
 	echo "manager session itself. Every agent on the box stops and does not come back."
 	echo
+	echo "A stopped engine is started instead, since booting it starts the service fresh."
+	echo
 	echo "The account this connects as cannot become root, so the restart is sent through"
 	echo "Systems Manager rather than over ssh."
 }
@@ -46,7 +48,24 @@ cd "$MISE_CONFIG_ROOT"
 use_komrad_aws_profile
 
 INSTANCE="$(require_instance "${POSITIONAL[0]:-}")"
-REGION="${AWS_REGION:-us-east-1}"
+REGION="$(engine_region)"
+STATE="$(engine_state "$INSTANCE" "$REGION")"
+
+case "$STATE" in
+"")
+	echo "could not read the state of $INSTANCE, so nothing was done to it." >&2
+	exit 1
+	;;
+running) ;;
+stopped | stopping | pending)
+	gum log --level info "the engine is $STATE, so starting it rather than restarting it"
+	exec "$MISE_CONFIG_ROOT/mise/tasks/remote/start" "$INSTANCE"
+	;;
+*)
+	echo "the engine is $STATE, which is not a state to restart from" >&2
+	exit 1
+	;;
+esac
 
 if [ "$HARD" = true ]; then
 	gum log --level info "restarting the engine and its tmux server on $INSTANCE, which stops every agent"
