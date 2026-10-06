@@ -94,7 +94,7 @@ func defaultDocumentType(types []string) string {
 
 // pressNew puts up the form for a new document.
 func (d *documentsScreen) pressNew(m *model) tea.Cmd {
-	if d.editing != nil {
+	if d.editing != nil || d.agentID == "" {
 		return nil
 	}
 

@@ -48,6 +48,7 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 			return d.renamingField().drawnOver(view.Row{
 				Key:     r.key(),
 				Kind:    view.KindResult,
+				Lead:    d.ownerLead(m, r.item),
 				Name:    r.item.name,
 				Matches: matchesIn(m.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
@@ -62,11 +63,48 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	}
 }
 
+// ownerLead is the agent that wrote a document, drawn before its name on every agent's list.
+func (d *documentsScreen) ownerLead(m *model, item documentItem) string {
+	if d.agentID != "" {
+		return ""
+	}
+
+	return agentNameOf(m, item.agentID)
+}
+
+func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Snapshot {
+	rows := d.documentTypeRows(m)
+	now := time.Now()
+
+	return view.Snapshot{
+		Rows: xslice.Map(rows, func(r documentTypeRow) view.Row {
+			return view.Row{
+				Key:     r.key(),
+				Kind:    view.KindResult,
+				Name:    r.documentType.GetName(),
+				Matches: matchesIn(m.filter.pattern, r.documentType.GetName()),
+				Process: view.ProcessNone,
+				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Parse(r.documentType.GetUpdatedAt()), now))},
+			}
+		}),
+		Caret:      pane.caret,
+		BlinkedOut: pane.blinkedOut,
+		Focused:    rowKeyAt(rows, d.documentTypes.cursor),
+		Pane:       pane.width,
+		Columns:    documentColumns(),
+	}
+}
+
 // doc is the markdown drawn beside the list for the document the cursor is on.
 func (d *documentsScreen) doc(m *model) string {
 	item, ok := d.hovered(m)
 	if !ok {
-		return renderDocument(d.agentName(m), "_"+d.emptyLine()+"_", "", "")
+		title := "Documents"
+		if d.agentID != "" {
+			title = d.agentName(m)
+		}
+
+		return renderDocument(title, "_"+d.emptyLine()+"_", "", "")
 	}
 
 	read, asked := d.bodies[item.id]
@@ -97,6 +135,10 @@ func documentProse(name, body string) string {
 // docRows is the document drawn beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
 func (d *documentsScreen) docRows(m *model, width int) []string {
+	if d.kind == documentsKindDocumentTypes {
+		return paint.DocStyledRows(documentTypeDoc(d.hoveredDocumentType(m)), max(width, 1), columnStyle())
+	}
+
 	item, ok := d.hovered(m)
 	if !ok || !d.isSteppingHovered(m) {
 		return paint.DocStyledRows(d.doc(m), max(width, 1), columnStyle())

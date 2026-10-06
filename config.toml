@@ -151,13 +151,16 @@ prev_match = ["N"]
 # Wrap lines wider than the pane, or go back to cutting them off and panning.
 wrap       = ["w"]
 
-# The documents screen, which reads what the hovered agent has written for a person.
+# The documents view, which lists every document agents have written, and the document types.
 [keybindings.documents]
+# Jump to the agent that wrote the document under the cursor, on the agents list or in the
+# archive.
+jump_to_agent = ["J"]
 # Step back to an earlier write of the document under the cursor, drawing what that write
 # changed.
-older = ["<"]
+older         = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
-newer = [">"]
+newer         = [">"]
 
 # The menu on the hovered document, over the panel's own entries.
 [keybindings.document_menu]
@@ -166,19 +169,11 @@ newer = [">"]
 edit   = ["e"]
 # Rename the document, typing over its name in the list.
 rename = ["r"]
-# Write a new document for the agent whose documents are listed, from a form.
+# Write a new document for the agent whose documents are listed, from a form. The entry is
+# only on the documents view opened from an agent.
 new    = ["c"]
 
-# The documents menu, nested under the menu on the hovered agent.
-[keybindings.documents_menu]
-# Open the documents the agent has written. The entry is gray on an agent that has written
-# none.
-view = ["v"]
-# Write a new document for the agent, from a form asking its name and type. It starts with a
-# line saying it is empty, for you to edit.
-new  = ["c"]
-
-# The menu on the document type under the cursor of the document types list.
+# The menu on the document type under the cursor of the documents view.
 [keybindings.document_types_menu]
 # Edit the type's name and context, from a form holding them as they stand.
 edit   = ["e"]
@@ -379,60 +374,56 @@ toggle = ["v"]
 [keybindings.menu]
 # Open the menu from any screen: the hovered row's entries, or the chosen agents', over the
 # entries that act on the panel itself.
-open           = ["space"]
+open          = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.
-review         = ["r"]
-# Open the documents menu to the right of this one, for reading the agent's documents or
-# writing a new one.
-documents      = ["d"]
+review        = ["r"]
+# Open the documents view on the documents the agent has written.
+documents     = ["d"]
 # Open the agent's logs, the service log lines about it.
-logs           = ["l"]
+logs          = ["l"]
 # Open the status checks run on the agent's pull request.
-status_checks  = ["x"]
+status_checks = ["x"]
 # Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 # keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 # with no directory.
-terminal       = ["t"]
+terminal      = ["t"]
 # Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 # merging its pull request.
-git            = ["g"]
+git           = ["g"]
 # Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
 # schedule or every chosen agent, for restoring or deleting a row of the archive, or for
 # deleting worktrees.
-archive        = ["a"]
+archive       = ["a"]
 # Open the hide menu to the right of this one, for hiding the hovered agent or showing the
 # hidden ones. The entry is only on the agents list.
-hide           = ["h"]
+hide          = ["h"]
 # Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
 # agent is paused while the editor is open, and quitting the editor, picking the entry again
 # or leaving the agents list closes it and unpauses the agent. The entry is only on the agents
 # list.
-edit           = ["e"]
+edit          = ["e"]
 # Attach a child agent to the hovered agent, which runs in that agent's own checkout with no
 # worktree of its own and is archived along with it. The entry is only on the agents list.
-child          = ["C"]
+child         = ["C"]
 # Retry the launch of an agent that failed to create, opening a form where the flags can be
 # corrected before confirming. The entry is only on such an agent.
-retry          = ["R"]
+retry         = ["R"]
 # Snooze the hovered agent's family in triage, which takes it out of the zone until what it
 # waits on changes, or wake it when it is snoozed. The entry is only on an agent in triage.
-snooze         = ["z"]
+snooze        = ["z"]
 # Edit the hovered workflow.
-edit_workflow  = ["E"]
+edit_workflow = ["E"]
 # Put an agent on a branch that already exists, in the hovered workflow.
-adopt          = ["A"]
+adopt         = ["A"]
 # Start a new agent, in the workflow the cursor is in. The entry is only on the agents list.
-new_agent      = ["c"]
+new_agent     = ["c"]
 # Create a workflow. The entry is only on the agents list.
-new_workflow   = ["w"]
+new_workflow  = ["w"]
 # Open this engine's scratch file in your editor in place of the pane beside the list, or
 # close it when it is already open. Each engine keeps its own file under komrad's state
 # directory.
-scratch        = ["s"]
-# List the sorts of document agents write to the right of this one, the context of the type
-# under the cursor drawn beside it.
-document_types = ["T"]
+scratch       = ["s"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]

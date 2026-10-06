@@ -36,6 +36,7 @@ const (
 	actionWorktreesBack
 	actionWorktreesJumpToAgent
 	actionDocumentsBack
+	actionDocumentsJumpToAgent
 	actionDocumentsOlder
 	actionDocumentsNewer
 	actionLogsBack

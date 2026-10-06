@@ -43,7 +43,6 @@ func panelMenu(m *model) submenu {
 				keys:  m.keys.Menu.Scratch,
 				open:  (*model).openScratch,
 			},
-			nestedEntry("document types", m.keys.Menu.DocumentTypes, documentTypesMenu(m)),
 		},
 	}
 }

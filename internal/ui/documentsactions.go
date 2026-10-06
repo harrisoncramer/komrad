@@ -29,7 +29,30 @@ func (d *documentsScreen) listActions() screenActionSpec {
 }
 
 func (d *documentsScreen) table() []screenAction {
+	return slices.Concat(
+		guarded(d.onDocuments, d.documentTable()),
+		guarded(d.onDocumentTypes, d.documentTypeTable()),
+	)
+}
+
+func (d *documentsScreen) documentTypeTable() []screenAction {
+	return append(d.documentTypeList().actions(),
+		screenAction{
+			id:   actionDocumentsBack,
+			keys: fixedBack,
+			nav:  func(m *model, _ string) tea.Cmd { return d.back(m) },
+		},
+	)
+}
+
+func (d *documentsScreen) documentTable() []screenAction {
 	return slices.Concat(d.list().actions(), []screenAction{
+		{
+			id:   actionDocumentsJumpToAgent,
+			keys: func(k config.Keybindings) []string { return k.Documents.JumpToAgent },
+			when: d.holdsADocument,
+			nav:  func(m *model, _ string) tea.Cmd { return d.jumpToAgent(m) },
+		},
 		{
 			id:   actionDocumentsOlder,
 			keys: func(k config.Keybindings) []string { return k.Documents.Older },
@@ -63,10 +86,18 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionDocumentsOlder},
 			desc: func(*model) string { return "an earlier version" },
+			show: d.holdsADocument,
 		},
 		{
 			of:   []actionID{actionDocumentsNewer},
 			desc: func(*model) string { return "a later version" },
+			show: d.holdsADocument,
+		},
+		{
+			of:    []actionID{actionDocumentsJumpToAgent},
+			desc:  func(*model) string { return "jump to agent" },
+			show:  d.holdsADocument,
+			strip: true,
 		},
 		{
 			of:    []actionID{actionFilterClear},
@@ -236,4 +267,26 @@ func (d *documentsScreen) docKeys() screenActionSpec {
 			},
 		},
 	}
+}
+
+// holdsADocument reports whether the cursor is on a document.
+func (d *documentsScreen) holdsADocument(m *model) bool {
+	_, ok := d.hovered(m)
+
+	return ok
+}
+
+// jumpToAgent lands the agents list or the archive on the agent that wrote the hovered document.
+func (d *documentsScreen) jumpToAgent(m *model) tea.Cmd {
+	item, ok := d.hovered(m)
+	if !ok {
+		return nil
+	}
+
+	target := screenTarget{agentID: item.agentID}
+	if _, live := m.listing.liveAgent(target.agentID); live {
+		return m.enter(screenAgents, target)
+	}
+
+	return m.enter(screenArchive, target)
 }

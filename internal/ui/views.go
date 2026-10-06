@@ -39,6 +39,10 @@ func viewEntries() []viewEntry {
 			label:  "schedules",
 		},
 		{
+			screen: screenDocuments,
+			label:  "documents",
+		},
+		{
 			screen: screenArchive,
 			label:  "archive",
 		},
