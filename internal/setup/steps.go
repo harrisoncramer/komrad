@@ -375,16 +375,15 @@ func requireToken(pasted string) error {
 }
 
 func (s *ForgeStep) answerUnattended() error {
-	switch s.Flag {
-	case "":
-		if s.TokenFile != "" {
-			return fmt.Errorf("%w: --forge-token-file needs --forge to name the host", errNeedsAnswer)
-		}
+	if s.Flag == "" && s.TokenFile != "" {
+		return fmt.Errorf("%w: --forge-token-file needs --forge to name the host", errNeedsAnswer)
+	}
+	if s.Flag == "" {
 		s.choice = forgeLater
 
 		return nil
-	case forgeGitHub, forgeGitLab:
-	default:
+	}
+	if s.Flag != forgeGitHub && s.Flag != forgeGitLab {
 		return fmt.Errorf("%w: --forge is github.com or gitlab.com, and komrad forge connect connects any other host", errNeedsAnswer)
 	}
 
