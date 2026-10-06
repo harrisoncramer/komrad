@@ -41,23 +41,6 @@ func newSystemCheck() Check {
 	}
 }
 
-// newTerminalCheck reports the terminal the panel is drawn in, asking tmux when it stands
-// between the two, since tmux names itself to what it runs.
-func newTerminalCheck() Check {
-	return Check{
-		Name:        "terminal",
-		Description: "the terminal the panel is drawn in",
-		Run: func(ctx context.Context, env Env) Result {
-			terminal := findTerminal(ctx, env)
-			if terminal == "" {
-				return skip("the terminal did not name itself")
-			}
-
-			return pass(terminal)
-		},
-	}
-}
-
 func describeRelease(ctx context.Context, env Env) string {
 	switch env.OS {
 	case "darwin":
@@ -89,22 +72,4 @@ func parsePrettyName(contents string) string {
 	}
 
 	return ""
-}
-
-func findTerminal(ctx context.Context, env Env) string {
-	if env.InsideTmux == "" {
-		return strings.TrimSpace(env.TermProgram + " " + env.TermProgramVersion)
-	}
-
-	named, err := env.Output(ctx, "tmux", "display-message", "-p", "#{client_termtype}\t#{client_termname}")
-	if err != nil {
-		return ""
-	}
-
-	termType, termName, _ := strings.Cut(named, "\t")
-	if strings.TrimSpace(termType) != "" {
-		return strings.TrimSpace(termType)
-	}
-
-	return strings.TrimSpace(termName)
 }
