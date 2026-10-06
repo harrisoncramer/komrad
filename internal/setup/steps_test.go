@@ -254,7 +254,7 @@ func TestForgeStep(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			step := &ForgeStep{GHToken: func(context.Context) forge.Secret { return forge.Secret{} }}
+			step := &ForgeStep{ReadGHToken: func(context.Context) forge.Secret { return forge.Secret{} }}
 
 			observation := step.observe(t.Context(), fakeChecker(tt.findings...))
 
@@ -330,9 +330,9 @@ func TestForgeStepUnattended(t *testing.T) {
 
 					return nil
 				},
-				GHToken:   func(context.Context) forge.Secret { return forge.NewSecret(tt.ghToken) },
-				Flag:      tt.flag,
-				TokenFile: tt.tokenFile,
+				ReadGHToken: func(context.Context) forge.Secret { return forge.NewSecret(tt.ghToken) },
+				Flag:        tt.flag,
+				TokenFile:   tt.tokenFile,
 			}
 			step.observe(t.Context(), fakeChecker(
 				ok(doctor.CheckServer, ""),

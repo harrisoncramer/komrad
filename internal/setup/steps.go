@@ -301,13 +301,13 @@ const (
 // ForgeStep offers to connect github.com or gitlab.com when the engine has no forge, and skips
 // while the engine is not answering.
 type ForgeStep struct {
-	Connect   func(ctx context.Context, host string, token forge.Secret) error
-	GHToken   func(ctx context.Context) forge.Secret
-	Flag      string
-	TokenFile string
-	ghToken   forge.Secret
-	choice    string
-	pasted    string
+	Connect     func(ctx context.Context, host string, token forge.Secret) error
+	ReadGHToken func(ctx context.Context) forge.Secret
+	Flag        string
+	TokenFile   string
+	ghToken     forge.Secret
+	choice      string
+	pasted      string
 }
 
 func (s *ForgeStep) name() string {
@@ -330,7 +330,7 @@ func (s *ForgeStep) observe(ctx context.Context, check checker) observation {
 		return observation{Verdict: verdictSkip, Detail: forges.Error, Finding: &forges}
 	}
 
-	s.ghToken = s.GHToken(ctx)
+	s.ghToken = s.ReadGHToken(ctx)
 
 	return observation{Verdict: verdictAsk, Detail: "no forge is connected"}
 }
