@@ -2,10 +2,6 @@ name: Bug report
 description: Something in komrad is broken or behaves unexpectedly.
 labels: ["bug"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Please read the guide at https://komrad.dev/latest/guides/bug-reports/ before filing. Reports that do not follow it will be closed.
   - type: checkboxes
     id: preflight
     attributes:
