@@ -14,7 +14,10 @@ import (
 	"komrad/internal/harness"
 )
 
-const commandTimeout = 5 * time.Second
+const (
+	commandTimeout = 5 * time.Second
+	killDelay      = time.Second
+)
 
 type Env struct {
 	Settings
@@ -119,7 +122,10 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, name, args...).Output()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = killDelay
+
+	out, err := cmd.Output()
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
