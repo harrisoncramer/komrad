@@ -1,27 +1,13 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
-	"komrad/internal/ui/paint/label"
-	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
-
-// documentTypeDoc is a type's context as it is drawn beside the list.
-func documentTypeDoc(t *agentv1.DocumentType) string {
-	if t == nil {
-		return renderDocument("Document types", "_no document types yet_", "", "")
-	}
-
-	notice := fmt.Sprintf("_version %d, written %s ago_", t.GetVersion(), label.Age(dates.Parse(t.GetUpdatedAt())))
-
-	return renderDocument(t.GetName(), notice, documentProse(t.GetName(), t.GetContext()), "")
-}
 
 // documentTypeMenu is the actions on the document type under the list's cursor, nil for none.
 func documentTypeMenu(m *model, t *agentv1.DocumentType) submenu {

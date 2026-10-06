@@ -13,6 +13,7 @@ import (
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 func (d *documentsScreen) view(m *model) string {
@@ -136,7 +137,7 @@ func documentProse(name, body string) string {
 // changed, or the document as it stands.
 func (d *documentsScreen) docRows(m *model, width int) []string {
 	if d.kind == documentKindTypes {
-		return paint.DocStyledRows(documentTypeDoc(d.hoveredDocumentType(m)), max(width, 1), columnStyle())
+		return paint.DocStyledRows(renderDocumentType(d.hoveredDocumentType(m)), max(width, 1), columnStyle())
 	}
 
 	item, ok := d.hovered(m)
@@ -237,4 +238,15 @@ func (h *documentHistory) changeRows(width int) []string {
 	}
 
 	return []string{fitRow(indent+dimStyle().Render("no change to the text"), width)}
+}
+
+// renderDocumentType is a type's context as it is drawn beside the list.
+func renderDocumentType(documentType *agentv1.DocumentType) string {
+	if documentType == nil {
+		return renderDocument("Document types", "_no document types yet_", "", "")
+	}
+
+	notice := fmt.Sprintf("_version %d, written %s ago_", documentType.GetVersion(), label.Age(dates.Parse(documentType.GetUpdatedAt())))
+
+	return renderDocument(documentType.GetName(), notice, documentProse(documentType.GetName(), documentType.GetContext()), "")
 }
