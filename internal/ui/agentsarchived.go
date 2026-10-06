@@ -314,8 +314,6 @@ func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
 // restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
 // pane.
 func restoreAndResumeCmd(m *model, agent panel.Agent) tea.Cmd {
-	m.agents.kind = agentsLive
-
 	return m.openingWriteCmd("restoring "+agent.Name, fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents([]string{agent.ID}); err != nil {
 			return nil, err
