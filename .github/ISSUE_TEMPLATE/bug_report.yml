@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in komrad is broken or behaves unexpectedly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read the guide at https://komrad.dev/latest/guides/bug-reports/ before filing. Reports that do not follow it will be closed.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before filing
+      options:
+        - label: I searched the open issues and this has not been reported.
+          required: true
+        - label: I ran `komrad doctor` and included its output below.
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: One or two sentences describing the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Steps someone else can follow to see the bug. Name the exact keys you pressed and the commands you ran.
+      placeholder: |
+        1. Run `komrad`
+        2. Make a new claude agent from the menu and send it hello
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: komrad doctor
+      description: Output of `komrad doctor`.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: trace
+    attributes:
+      label: Trace log
+      description: If a request failed, the output of `komrad log <id>` for the trace ID the panel showed. If you missed the id, `komrad log --recent` lists the latest ones.
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: komrad.log
+      description: Lines from around the time of the bug, filtered by the agent's id if one was involved. The file is in `~/Library/Caches/komrad/` on macOS and `~/.cache/komrad/` on Linux. Remove anything private first.
+      render: text
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Frames, screenshots, or recordings
+      description: If an agent shows the wrong state, set `frames = true` under `[debug]` in your config, replicate the issue, and attach the frame file from `komrad-frames/<agent id>/` in the cache directory. For anything visual, attach a screenshot or a short screen recording.

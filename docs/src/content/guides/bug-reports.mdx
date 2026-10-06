@@ -1,0 +1,35 @@
+---
+title: Reporting a bug
+description: What to check first, what to include, and how to write steps someone else can follow to see the bug.
+group: operations
+order: 12
+---
+import Alert from "../../components/Alert.astro";
+
+Please file [issues on GitHub](https://github.com/harrisoncramer/komrad/issues/new?template=bug_report.yml) via the form there; issues that don't follow this format will not be addressed.
+
+<Alert variant="warning">Komrad is a very new piece of software and likely will undergo breaking changes. I'll do my best to not break backward compatibility, and opting into a new version will always involve downloading and running a new binary.</Alert>
+
+Please search the [open issues](https://github.com/harrisoncramer/komrad/issues) first before filing a new ticket.
+
+## Checking for common issues
+
+Please run doctor before filing any issues to ensure that your komrad can come up healthy:
+
+```sh
+komrad doctor
+```
+
+This command checks dependencies (like tmux and your database). Please also include the output of the doctor command in your report.
+
+## Logs and recordings
+
+When a request fails, the panel shows its trace ID as a `komrad log <id>` line.
+
+Run that command and paste what it prints. If you missed the id, `komrad log --recent` lists the latest ones.
+
+The service also writes a log file, `komrad.log`, in your cache directory. That's `~/Library/Caches/komrad/` on macOS and `~/.cache/komrad/` on Linux. It explains failures to launch, reconcile, or index. Paste only the lines from around the time of the bug, and filter by the agent's id if one was involved.
+
+Finally, if an agent shows the wrong state, such as thinking when its pane has stopped, the recorded pane frames really help. Please set `frames = true` under `[debug]` in your config, replicate the issue, and attach the frame file. The files are kept by default in `komrad-frames/<agent id>/` in the same cache directory.
+
+For anything visual (UI flicker, regressions, etc) please attach a screenshot or a short screen recording.
