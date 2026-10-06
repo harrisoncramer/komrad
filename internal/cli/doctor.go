@@ -11,6 +11,7 @@ import (
 	"komrad/internal/doctor"
 	"komrad/internal/errui"
 	"komrad/internal/ui"
+	"komrad/internal/version"
 	"komrad/lib/xhttp"
 	"komrad/lib/xslice"
 	doctorv1 "komrad/proto/gen/doctor/v1"
@@ -38,9 +39,13 @@ It checks tmux and its version, the shell tmux starts panes with, whether the
 config file parses and names a harness that exists, the hooks and worktrees
 directories and whether any worktree there is left without an agent, the database
 and whether its schema is current, the read-only login the MCP query tools connect
-as, the service on its address, and the CLI binary behind each harness. It repairs
-nothing, since a command that changed what it was describing could not be trusted
-to say what is wrong.
+as, the service on its address, and the CLI binary behind each harness and its
+version. It repairs nothing, since a command that changed what it was describing
+could not be trusted to say what is wrong.
+
+It also reports what a bug report needs: the build of this binary, the operating
+system with its release and architecture, and the terminal the panel is drawn in,
+which inside tmux is asked of tmux, since tmux names itself to what it runs.
 
 It also asks the terminal what it can draw. Every glyph the agents list uses is
 written out and the cursor position queried, so what comes back is how far the
@@ -236,6 +241,8 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 
 	termName, _ := config.LookupEnv("TERM")
 	colorTerm, _ := config.LookupEnv("COLORTERM")
+	termProgram, _ := config.LookupEnv("TERM_PROGRAM")
+	termProgramVersion, _ := config.LookupEnv("TERM_PROGRAM_VERSION")
 
 	return doctor.Settings{
 		TmuxSocket:          a.env.TmuxSocket,
@@ -249,6 +256,9 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		EngineIsRemote:      a.engine().IsRemote(),
 		Term:                termName,
 		ColorTerm:           colorTerm,
+		TermProgram:         termProgram,
+		TermProgramVersion:  termProgramVersion,
+		Build:               version.Describe(version.Version(), version.Commit()),
 	}, nil
 }
 

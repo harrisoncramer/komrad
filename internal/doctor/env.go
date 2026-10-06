@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -13,10 +14,15 @@ import (
 	"komrad/internal/harness"
 )
 
-const commandTimeout = 5 * time.Second
+const (
+	commandTimeout = 5 * time.Second
+	waitDelay      = time.Second
+)
 
 type Env struct {
 	Settings
+	OS                    string
+	Arch                  string
 	LookPath              func(name string) (string, error)
 	Output                func(ctx context.Context, name string, args ...string) (string, error)
 	LoadConfig            func() (*config.Config, error)
@@ -75,6 +81,9 @@ type Settings struct {
 	EngineIsRemote      bool
 	Term                string
 	ColorTerm           string
+	TermProgram         string
+	TermProgramVersion  string
+	Build               string
 }
 
 // NewEnv is the env pointed at the machine this is running on.
@@ -83,6 +92,8 @@ func NewEnv(settings Settings) Env {
 
 	return Env{
 		Settings:   settings,
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
 		LookPath:   exec.LookPath,
 		Output:     runOutput,
 		LoadConfig: func() (*config.Config, error) { return config.LoadStack(settings.ConfigStack) },
@@ -111,7 +122,10 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, name, args...).Output()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = waitDelay
+
+	out, err := cmd.Output()
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {

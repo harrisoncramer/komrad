@@ -138,8 +138,10 @@ func TestHarnessBinaryCheck(t *testing.T) {
 		agent      harnessInfo
 		configured string
 		installed  []string
+		reported   string
 		want       Status
 		wantCode   string
+		wantDetail string
 	}{
 		{
 			name:       "the default one is missing",
@@ -148,6 +150,7 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			installed:  []string{},
 			want:       StatusFail,
 			wantCode:   "harness_missing",
+			wantDetail: "not on PATH",
 		},
 		{
 			name:       "a harness nobody is defaulting to is missing",
@@ -156,6 +159,7 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			installed:  []string{"claude"},
 			want:       StatusWarn,
 			wantCode:   "harness_missing",
+			wantDetail: "not on PATH",
 		},
 		{
 			name:       "the same harness once it is the default",
@@ -164,13 +168,24 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			installed:  []string{"claude"},
 			want:       StatusFail,
 			wantCode:   "harness_missing",
+			wantDetail: "not on PATH",
+		},
+		{
+			name:       "installed, but saying nothing when asked its version",
+			agent:      claudeAndCodex[0],
+			configured: "claude",
+			installed:  []string{"claude"},
+			want:       StatusOK,
+			wantDetail: "/usr/local/bin/claude",
 		},
 		{
 			name:       "installed",
 			agent:      claudeAndCodex[0],
 			configured: "claude",
 			installed:  []string{"claude"},
+			reported:   "2.1.0 (Claude Code)\nrun claude --help for usage\n",
 			want:       StatusOK,
+			wantDetail: "/usr/local/bin/claude, 2.1.0 (Claude Code)",
 		},
 	}
 
@@ -179,10 +194,16 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			cfg := config.Defaults()
 			cfg.DefaultHarness = tt.configured
 
-			result := newHarnessBinaryCheck(tt.agent).Run(t.Context(), configEnv(cfg, nil, true, tt.installed...))
+			env := configEnv(cfg, nil, true, tt.installed...)
+			if tt.reported != "" {
+				env.Output = func(context.Context, string, ...string) (string, error) { return tt.reported, nil }
+			}
+
+			result := newHarnessBinaryCheck(tt.agent).Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, codeOf(result.Err))
+			assert.Equal(t, tt.wantDetail, result.Detail)
 		})
 	}
 }

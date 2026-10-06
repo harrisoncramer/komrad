@@ -302,6 +302,41 @@ func findPaintingTerm(ctx context.Context, env Env) (string, error) {
 	return strings.TrimSpace(client), nil
 }
 
+// newTerminalCheck reports the terminal the panel is drawn in, asking tmux when it stands
+// between the two.
+func newTerminalCheck() Check {
+	return Check{
+		Name:        "terminal",
+		Description: "the terminal the panel is drawn in",
+		Run: func(ctx context.Context, env Env) Result {
+			terminal := findTerminal(ctx, env)
+			if terminal == "" {
+				return skip("the terminal did not name itself")
+			}
+
+			return pass(terminal)
+		},
+	}
+}
+
+func findTerminal(ctx context.Context, env Env) string {
+	if env.InsideTmux == "" {
+		return strings.TrimSpace(env.TermProgram + " " + env.TermProgramVersion)
+	}
+
+	named, err := env.Output(ctx, "tmux", "display-message", "-p", "#{client_termtype}\t#{client_termname}")
+	if err != nil {
+		return ""
+	}
+
+	termType, termName, _ := strings.Cut(named, "\t")
+	if termType = strings.TrimSpace(termType); termType != "" {
+		return termType
+	}
+
+	return termName
+}
+
 // reversedChild is what becomes of a child row wherever tmux stands in the way.
 const reversedChild = "a child row is drawn reversed rather than italic"
 
