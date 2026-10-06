@@ -16,7 +16,7 @@ import (
 
 const (
 	commandTimeout = 5 * time.Second
-	killDelay      = time.Second
+	waitDelay      = time.Second
 )
 
 type Env struct {
@@ -123,7 +123,7 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.WaitDelay = killDelay
+	cmd.WaitDelay = waitDelay
 
 	out, err := cmd.Output()
 	if err != nil {
