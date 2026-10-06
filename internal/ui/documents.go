@@ -143,7 +143,7 @@ func (d *documentsScreen) kinds(*model) stops {
 
 // kindsFit reports whether the row of kinds is drawn, only ever over every agent's documents.
 func (d *documentsScreen) kindsFit(m *model) bool {
-	return d.agentID == "" && m.listFitsTabs(d.listParams(m))
+	return d.listsEveryAgent() && m.listFitsTabs(d.listParams(m))
 }
 
 func (d *documentsScreen) kindsFocused(*model) *bool {
@@ -152,7 +152,7 @@ func (d *documentsScreen) kindsFocused(*model) *bool {
 
 // kindsSwitch holds the view on its documents while one is being edited.
 func (d *documentsScreen) kindsSwitch(*model) bool {
-	return d.agentID == "" && d.editing == nil
+	return d.listsEveryAgent() && d.editing == nil
 }
 
 // stepKind moves the view between documents and their types.
@@ -258,7 +258,7 @@ func (d *documentsScreen) listParams(m *model) screenListParams {
 // parent is the view one agent's documents were opened from, and the documents view itself for
 // every agent's.
 func (d *documentsScreen) parent() screen {
-	if d.agentID == "" {
+	if d.listsEveryAgent() {
 		return screenDocuments
 	}
 
@@ -290,7 +290,7 @@ func (d *documentsScreen) crumbs(m *model) crumbs {
 // back leaves for the screen one agent's documents were opened from, and for the switcher from
 // every agent's.
 func (d *documentsScreen) back(m *model) tea.Cmd {
-	if d.agentID == "" {
+	if d.listsEveryAgent() {
 		return m.pickView()
 	}
 
@@ -299,7 +299,7 @@ func (d *documentsScreen) back(m *model) tea.Cmd {
 
 // crumbRoot is the trail down to the list: the agent the documents are of, if one.
 func (d *documentsScreen) crumbRoot(m *model) []string {
-	if d.agentID == "" {
+	if d.listsEveryAgent() {
 		return nil
 	}
 
@@ -560,4 +560,8 @@ func (d *documentsScreen) filterRows(m *model) []filterRow {
 
 func (d *documentsScreen) dispatches(m *model) []dispatching {
 	return []dispatching{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
+}
+
+func (d *documentsScreen) listsEveryAgent() bool {
+	return d.agentID == ""
 }

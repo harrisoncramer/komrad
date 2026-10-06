@@ -66,7 +66,7 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 
 // ownerLead is the agent that wrote a document, drawn before its name on every agent's list.
 func (d *documentsScreen) ownerLead(m *model, item documentItem) string {
-	if d.agentID != "" {
+	if !d.listsEveryAgent() {
 		return ""
 	}
 
@@ -101,7 +101,7 @@ func (d *documentsScreen) doc(m *model) string {
 	item, ok := d.hovered(m)
 	if !ok {
 		title := "Documents"
-		if d.agentID != "" {
+		if !d.listsEveryAgent() {
 			title = d.agentName(m)
 		}
 
@@ -137,7 +137,7 @@ func documentProse(name, body string) string {
 // changed, or the document as it stands.
 func (d *documentsScreen) docRows(m *model, width int) []string {
 	if d.kind == documentKindTypes {
-		return paint.DocStyledRows(renderDocumentType(d.hoveredDocumentType(m)), max(width, 1), columnStyle())
+		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m)), max(width, 1), columnStyle())
 	}
 
 	item, ok := d.hovered(m)
@@ -240,8 +240,8 @@ func (h *documentHistory) changeRows(width int) []string {
 	return []string{fitRow(indent+dimStyle().Render("no change to the text"), width)}
 }
 
-// renderDocumentType is a type's context as it is drawn beside the list.
-func renderDocumentType(documentType *agentv1.DocumentType) string {
+// documentTypeFrom is a type's context as it is drawn beside the list.
+func documentTypeFrom(documentType *agentv1.DocumentType) string {
 	if documentType == nil {
 		return renderDocument("Document types", "_no document types yet_", "", "")
 	}

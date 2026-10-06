@@ -92,7 +92,7 @@ func documentMenu(m *model, d *documentsScreen) submenu {
 			entry: submenuEntry{
 				label: "new document",
 				keys:  m.keys.DocumentMenu.New,
-				isOff: d.editing != nil || d.agentID == "",
+				isOff: d.editing != nil || d.listsEveryAgent(),
 			},
 			run: (*documentsScreen).pressNew,
 		},
