@@ -392,9 +392,9 @@ func TestDocumentsNewRedrawsTheTypes(t *testing.T) {
 	assert.Contains(t, harness.readFrame(), "brief")
 }
 
-// TestDocumentsNewFromTheMenu covers writing a first document for an agent that has none, from the
-// its empty documents view.
-func TestDocumentsNewFromTheMenu(t *testing.T) {
+// TestDocumentsNewFromEmpty covers writing a first document for an agent that has none, from its
+// empty documents view.
+func TestDocumentsNewFromEmpty(t *testing.T) {
 	t.Parallel()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
