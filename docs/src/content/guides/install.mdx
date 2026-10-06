@@ -11,11 +11,11 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad is one binary. The binary can run either a client or a server (or multiple servers on different machines) known as _engines_.
+Komrad is one binary. The binary is used to run the client, or the server, known as the _engine_.
 
 The client for Komrad runs on your machine. It renders the view of komrad's state in your terminal, and wraps around existing CLI tools like Claude or Codex.
 
-The service, known as the komrad engine, runs your agents and records their activity into Postgres, so you can search through chat history, spawn multiple at once, or have them communicate. The engine can run on your machine or on a remote box.
+The server, known as the engine, runs your agents and records their activity into Postgres, so you can search through chat history, spawn multiple at once, or have them communicate. The engine can run on your machine or on a remote box. You can also connect to different engines from one machine.
 
 ## Install the binary
 
