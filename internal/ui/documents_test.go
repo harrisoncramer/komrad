@@ -75,7 +75,7 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Contains(t, readStageText(frame), "Design the cache")
 	})
 
-	t.Run("the switcher opens every agent's documents with whose each is", func(t *testing.T) {
+	t.Run("the switcher opens every agent's documents, each with the agent that wrote it", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openEveryDocument(t)
