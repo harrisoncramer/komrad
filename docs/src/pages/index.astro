@@ -21,8 +21,8 @@ const NEXT = [
 
     <p>Komrad is a terminal-based agent orchestrator. It wraps around agent CLIs like Claude and Codex.</p>
     <p>
-      With komrad, you can easily search agent transcripts, schedule agents, and orchestrate more complex agentic
-      workflows via an MCP. Juggling lots of terminal sessions is difficult, and komrad makes it easy.
+      With komrad, you can search through old agent transcripts, restore old sessions, schedule agents, and orchestrate agentic
+      workflows via the komrad MCP.
     </p>
     <p>Komrad runs on your machine by default, but can be deployed to a remote instance that you control.</p>
     <img
@@ -34,13 +34,9 @@ const NEXT = [
       decoding="async"
     />
     <p>
-      Please read more about the <a href=`${link("/guides/philosophy")}`>philosophy</a> behind komrad before getting
-      started, to see if it'll work for you.
+      Komrad caters to terminal enthusiasts, and will probably not work for everyone. Please read the <a href=`${link("/guides/philosophy")}`>philosophy</a> behind it before getting started.
     </p>
-    <p>
-      If you have any issues, please file <a href={link("/guides/bug-reports")}>a report</a> on Github. Reports that do
-      not follow the reporting requirements will be automatically closed.
-    </p>
+    <p>Everything in these guides has been hand-written. If you notice an issue, please file <a href={link("/guides/bug-reports")}>a report</a> on Github. If you have any issues with Komrad itself, please file a bug report. Reports that don't adhere to komrad's templates will be automatically closed.</p>
     <h2>Install</h2>
     <Code code={INSTALL} lang="sh" theme={codeTheme} />
     <p>
