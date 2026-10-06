@@ -69,7 +69,7 @@ func (d *documentsScreen) ownerLead(m *model, item documentItem) string {
 		return ""
 	}
 
-	return agentNameOf(m, item.agentID)
+	return findAgentName(m, item.agentID)
 }
 
 func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Snapshot {

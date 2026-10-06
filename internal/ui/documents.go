@@ -307,11 +307,11 @@ func (d *documentsScreen) crumbRoot(m *model) []string {
 }
 
 func (d *documentsScreen) agentName(m *model) string {
-	return agentNameOf(m, d.agentID)
+	return findAgentName(m, d.agentID)
 }
 
-// agentNameOf is the name of the agent an id names, live or archived, and the id when neither.
-func agentNameOf(m *model, agentID string) string {
+// findAgentName is the name of the agent an id names, live or archived, and the id when neither.
+func findAgentName(m *model, agentID string) string {
 	if item, ok := m.listing.anyAgent(agentID); ok {
 		return item.Agent.Name
 	}
