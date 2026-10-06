@@ -77,13 +77,11 @@ func (a *agentsScreen) stepKind(m *model, delta int) tea.Cmd {
 		a.archived.selected = selection{}
 		a.archived.cursor = 0
 		a.archived.stage(m)
-
-		return tea.Batch(left, m.waitToStage())
+	} else {
+		a.selected = selection{}
+		a.cursor = 0
+		m.stageSelection()
 	}
-
-	a.selected = selection{}
-	a.cursor = 0
-	m.stageSelection()
 
 	return tea.Batch(left, m.waitToStage())
 }
