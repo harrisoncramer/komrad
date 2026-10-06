@@ -330,11 +330,11 @@ func findTerminal(ctx context.Context, env Env) string {
 	}
 
 	termType, termName, _ := strings.Cut(named, "\t")
-	if strings.TrimSpace(termType) != "" {
-		return strings.TrimSpace(termType)
+	if termType = strings.TrimSpace(termType); termType != "" {
+		return termType
 	}
 
-	return strings.TrimSpace(termName)
+	return termName
 }
 
 // reversedChild is what becomes of a child row wherever tmux stands in the way.
