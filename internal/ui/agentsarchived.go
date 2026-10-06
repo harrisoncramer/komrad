@@ -59,19 +59,11 @@ func (a *agentsScreen) kindsFocused(*model) *bool {
 }
 
 func (a *agentsScreen) kindsFit(m *model) bool {
-	if a.kind == agentsArchived {
-		return m.listFitsTabs(a.archived.listParams(m))
-	}
-
 	return m.listFitsTabs(a.listParams(m))
 }
 
 // kindsSwitch holds the agents view on its kind while any of its agents are selected.
 func (a *agentsScreen) kindsSwitch(*model) bool {
-	if a.kind == agentsArchived {
-		return !a.archived.selected.isActive()
-	}
-
 	return !a.selected.isActive()
 }
 
@@ -134,11 +126,12 @@ func (a *archivedAgents) kindsFocused(m *model) *bool {
 }
 
 func (a *archivedAgents) kindsFit(m *model) bool {
-	return m.agents.kindsFit(m)
+	return m.listFitsTabs(a.listParams(m))
 }
 
-func (a *archivedAgents) kindsSwitch(m *model) bool {
-	return m.agents.kindsSwitch(m)
+// kindsSwitch holds the archived agents on their kind while any of them are selected.
+func (a *archivedAgents) kindsSwitch(*model) bool {
+	return !a.selected.isActive()
 }
 
 func (a *archivedAgents) stepKind(m *model, delta int) tea.Cmd {
