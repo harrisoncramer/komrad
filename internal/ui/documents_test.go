@@ -109,6 +109,20 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
 	})
+
+	t.Run("the jump key lands on an archived author among the archived agents", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openArchivedSubpages(t)
+		harness.press("d")
+		harness.fireTimers()
+		harness.press("tab", "tab", "tab")
+		harness.fireTimers()
+		harness.press("J")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
+	})
 }
 
 // TestDocumentsRead covers the document under the cursor drawn beside the list, read once and
