@@ -315,6 +315,7 @@ func TestList(t *testing.T) {
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
+	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
 
 	write := func(agentID, name string, typeName string) string {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
@@ -330,6 +331,7 @@ func TestList(t *testing.T) {
 	rfc := write(author.ID, "design", "RFC")
 	notes := write(author.ID, "scratch", "notes")
 	elsewhere := write(other.ID, "elsewhere", "RFC")
+	write(leaving.ID, "doomed", "RFC")
 
 	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
 		ID:      rfc,
@@ -341,6 +343,8 @@ func TestList(t *testing.T) {
 	})
 	require.NoError(t, err)
 	_, err = stores.Agents.Archive(ctx, []string{other.ID})
+	require.NoError(t, err)
+	_, err = stores.Agents.MarkDeleting(ctx, []string{leaving.ID})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -370,6 +374,7 @@ func TestList(t *testing.T) {
 			want:     []string{rfc, elsewhere},
 		},
 		{name: "an agent with none", agentID: xptr.Ptr(uuid.NewString())},
+		{name: "an agent being deleted", agentID: xptr.Ptr(leaving.ID)},
 		{name: "a value that is not an id", agentID: xptr.Ptr("not-an-id")},
 	}
 
