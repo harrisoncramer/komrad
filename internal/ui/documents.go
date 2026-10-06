@@ -141,7 +141,7 @@ func (d *documentsScreen) kinds(*model) stops {
 	}
 }
 
-// kindsFit draws the row of kinds only over every agent's documents.
+// kindsFit reports whether the row of kinds is drawn, only ever over every agent's documents.
 func (d *documentsScreen) kindsFit(m *model) bool {
 	return d.agentID == "" && m.listFitsTabs(d.listParams(m))
 }
