@@ -342,7 +342,7 @@ func TestList(t *testing.T) {
 	_, err = stores.Agents.Archive(ctx, []string{other.ID})
 	require.NoError(t, err)
 
-	owners := map[string]documentstore.Owner{
+	wantOwners := map[string]documentstore.Owner{
 		rfc:       {AgentName: "author", WorkflowName: "workflow-for-author"},
 		notes:     {AgentName: "author", WorkflowName: "workflow-for-author"},
 		elsewhere: {AgentName: "other", WorkflowName: "workflow-for-other", Archived: true},
@@ -387,7 +387,7 @@ func TestList(t *testing.T) {
 			for _, doc := range listed {
 				ids = append(ids, doc.ID)
 				assert.Empty(t, doc.Body, "a listing carries no bodies")
-				assert.Equal(t, owners[doc.ID], doc.Owner, "a listing names who wrote each document")
+				assert.Equal(t, wantOwners[doc.ID], doc.Owner, "a listing names who wrote each document")
 			}
 			assert.Len(t, ids, len(tt.want))
 			if len(tt.want) > 0 {
