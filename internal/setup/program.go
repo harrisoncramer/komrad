@@ -259,6 +259,7 @@ var (
 	markDone    = glyph.Defaults().Spell(glyph.MessageSuccess)
 	markFailed  = glyph.Defaults().Spell(glyph.MessageError)
 	markPending = glyph.Defaults().Spell(glyph.MessageInfo)
+	markSkipped = "-"
 )
 
 func (m model) View() tea.View {
@@ -283,7 +284,7 @@ func (m model) mark(r row) string {
 	case stateDone:
 		return paint.Panel.Style(paint.ToneSuccess).Render(markDone)
 	case stateSkipped:
-		return paint.Panel.Style(paint.ToneMuted).Render("-")
+		return paint.Panel.Style(paint.ToneMuted).Render(markSkipped)
 	case stateFailed:
 		return paint.Panel.Style(paint.ToneDanger).Render(markFailed)
 	case stateAsking:
@@ -320,7 +321,7 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 	case verdictStop:
 		return describe(markFailed, name, observation), errFailed
 	case verdictSkip:
-		return describe("-", name, observation), nil
+		return describe(markSkipped, name, observation), nil
 	case verdictAsk:
 		if err := step.answerUnattended(); err != nil {
 			return markFailed + " " + name + " " + err.Error(), errFailed
@@ -330,7 +331,7 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 
 	if err := step.repair(ctx); err != nil {
 		if errors.Is(err, errSkipped) {
-			return "- " + name + " skipped", nil
+			return markSkipped + " " + name + " skipped", nil
 		}
 
 		return markFailed + " " + name + " " + err.Error(), errFailed
@@ -341,7 +342,7 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 	case verdictDone:
 		return markDone + " " + name + " " + observation.Detail, nil
 	case verdictSkip:
-		return describe("-", name, observation), nil
+		return describe(markSkipped, name, observation), nil
 	case verdictAsk, verdictRepair, verdictStop:
 	}
 
