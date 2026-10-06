@@ -27,6 +27,7 @@ message Document {
   DocumentOwner owner = 9;
 }
 
+// DocumentOwner is the agent that wrote a document.
 message DocumentOwner {
   // The name of the agent that wrote the document.
   string agent_name = 1;

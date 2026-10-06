@@ -139,6 +139,7 @@ func (x *Document) GetOwner() *DocumentOwner {
 	return nil
 }
 
+// DocumentOwner is the agent that wrote a document.
 type DocumentOwner struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the agent that wrote the document.

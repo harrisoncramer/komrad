@@ -2836,7 +2836,7 @@
     },
     "agent.v1.DocumentOwner": {
       "name": "DocumentOwner",
-      "description": "",
+      "description": "DocumentOwner is the agent that wrote a document.",
       "fields": [
         {
           "name": "agent_name",
