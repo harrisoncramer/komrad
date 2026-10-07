@@ -388,6 +388,11 @@ func TestFilterScreens(t *testing.T) {
 			idle:  "no schedules yet",
 		},
 		{
+			name:  "the archived schedules say a filter left nothing rather than that none are archived",
+			press: []string{"tab", "tab", "F", "tab", "esc"},
+			idle:  "no archived schedules",
+		},
+		{
 			name:  "the worktrees say a filter left nothing rather than that there are none",
 			press: []string{"shift+tab"},
 			idle:  "no worktrees",
@@ -403,6 +408,7 @@ func TestFilterScreens(t *testing.T) {
 				newAgent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "old", "w1"),
 				newNamedSchedule("s1", "nightly"),
+				newArchivedSchedule("s2", "monthly-gone"),
 				&worktreev1.WatchedWorktree{
 					Dir:      "/trees/auth",
 					RepoDir:  "/home/h/komrad",
