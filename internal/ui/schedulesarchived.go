@@ -119,6 +119,10 @@ func (a *archivedSchedules) listRows(m *model) []scheduleItem {
 	return a.buildRows(m)
 }
 
+func (a *archivedSchedules) buildFrame(m *model) {
+	a.drawn = a.buildRows(m)
+}
+
 func (a *archivedSchedules) buildRows(m *model) []scheduleItem {
 	return narrowed(m.filter, narrowedParams[scheduleItem]{
 		rows:  m.listing.archivedSchedules,
@@ -171,10 +175,6 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 			)
 		}),
 	})
-}
-
-func (a *archivedSchedules) buildFrame(m *model) {
-	a.drawn = a.buildRows(m)
 }
 
 // place keeps the cursor on the archived schedule it was on as the rows under it change.
