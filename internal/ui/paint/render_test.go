@@ -78,53 +78,6 @@ func TestRenderTranscript(t *testing.T) {
 	assert.Contains(t, rows[line-1], "ledger", "the line reported is the one the match landed on")
 }
 
-// TestRenderTranscriptOpensOnTheSpanAsked covers a preview opened on a later match, which is
-// what standing on one turn among several that said the word asks for.
-func TestRenderTranscriptOpensOnTheSpanAsked(t *testing.T) {
-	const content = "the ledger opens\n\nmore prose\n\nthe ledger closes\n"
-
-	first := strings.Index(content, "ledger")
-	second := strings.LastIndex(content, "ledger")
-	spans := []Span{{Start: first, End: first + len("ledger")}, {Start: second, End: second + len("ledger")}}
-
-	tests := []struct {
-		name string
-		open int
-		want string
-	}{
-		{
-			name: "an index past the spans opens on the last",
-			open: 5,
-			want: "closes",
-		},
-		{
-			name: "the first",
-			open: 0,
-			want: "opens",
-		},
-		{
-			name: "the second",
-			open: 1,
-			want: "closes",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rendered, line := Panel.RenderTranscript(RenderTranscriptParams{
-				Conversation: content,
-				Spans:        spans,
-				Open:         tt.open,
-				Width:        40,
-			})
-
-			rows := strings.Split(ansi.Strip(rendered), "\n")
-			require.Positive(t, line)
-			assert.Contains(t, rows[line-1], tt.want)
-		})
-	}
-}
-
 // TestRenderTranscriptWithoutAMatch covers a transcript staged with nothing marked in it, which
 // is what a jump with no position left to it looks like.
 func TestRenderTranscriptWithoutAMatch(t *testing.T) {

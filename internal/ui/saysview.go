@@ -25,6 +25,7 @@ type saidTranscript struct {
 	width    int
 	rows     []string
 	line     int
+	opened   bool
 }
 
 type saidTranscriptMsg struct {
@@ -62,7 +63,6 @@ func (m *model) readSaidCmd() tea.Cmd {
 	}
 
 	m.said = saidTranscript{agentID: agentID, text: text}
-	m.reading.opened = false
 	agents := m.api.reads().agents
 
 	return func() tea.Msg {
@@ -86,7 +86,7 @@ func (m *model) applySaidTranscript(msg saidTranscriptMsg) {
 // with lead-in above it.
 func (m *model) openSaid() {
 	agentID, ok := m.saidAgentID()
-	if !ok || m.reading.opened || !m.said.answered || !m.said.isSaidRead(agentID, m.filter.qualifiers.said.text) {
+	if !ok || m.said.opened || !m.said.answered || !m.said.isSaidRead(agentID, m.filter.qualifiers.said.text) {
 		return
 	}
 
@@ -95,10 +95,10 @@ func (m *model) openSaid() {
 		return
 	}
 
-	m.saidColumnRows(agentID, split.column)
+	m.layoutSaid(m.filter.saidHits(agentID), split.column)
 	m.reading.Top = max(m.said.line-1-saidLeadIn, 0)
 	m.reading.tail = false
-	m.reading.opened = true
+	m.said.opened = true
 }
 
 // saidColumnRows is the conversation of an agent the server found saying the text of a says:
@@ -113,12 +113,19 @@ func (m *model) saidColumnRows(agentID string, width int) []string {
 		return paint.DocStyledRows("_reading the conversation…_", max(width, 1), columnStyle())
 	}
 
-	if m.said.rows == nil || m.said.width != width {
-		m.said.rows, m.said.line = saidRows(saidRowsParams{said: m.said, hits: hits, width: width})
-		m.said.width = width
-	}
+	m.layoutSaid(hits, width)
 
 	return m.said.rows
+}
+
+// layoutSaid draws the conversation for the column again when it has not been drawn at its width.
+func (m *model) layoutSaid(hits []saidHit, width int) {
+	if m.said.rows != nil && m.said.width == width {
+		return
+	}
+
+	m.said.rows, m.said.line = saidRows(saidRowsParams{said: m.said, hits: hits, width: width})
+	m.said.width = width
 }
 
 type saidRowsParams struct {
@@ -141,7 +148,12 @@ func saidRows(params saidRowsParams) ([]string, int) {
 	content := params.said.content
 	spans := []paint.Span{}
 	for _, hit := range params.hits {
-		spans = append(spans, paint.MatchSpans(content, hit.offset, hit.length, paint.MarkedTerms(hit.snippet))...)
+		spans = append(spans, paint.MatchSpans(paint.MatchSpansParams{
+			Content: content,
+			Offset:  hit.offset,
+			Length:  hit.length,
+			Terms:   paint.MarkedTerms(hit.snippet),
+		})...)
 	}
 	slices.SortFunc(spans, func(x, y paint.Span) int { return x.Start - y.Start })
 

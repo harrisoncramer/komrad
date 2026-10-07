@@ -116,17 +116,27 @@ type Span struct {
 	End   int
 }
 
+// MatchSpansParams is a transcript, the turn of it a hit came from in bytes, and the words the
+// hit marked.
+type MatchSpansParams struct {
+	Content string
+	Offset  int64
+	Length  int64
+	Terms   []string
+}
+
 // MatchSpans locates the marked words within the one turn a hit came from.
-func MatchSpans(content string, offset, length int64, terms []string) []Span {
-	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
+func MatchSpans(params MatchSpansParams) []Span {
+	content, offset := params.Content, params.Offset
+	if len(params.Terms) == 0 || offset < 0 || offset > int64(len(content)) || params.Length <= 0 {
 		return nil
 	}
 
-	end := min(offset+length, int64(len(content)))
+	end := min(offset+params.Length, int64(len(content)))
 	turn := foldASCII(content[offset:end])
 
 	var spans []Span
-	for _, term := range terms {
+	for _, term := range params.Terms {
 		folded := foldASCII(term)
 		if folded == "" {
 			continue
@@ -174,15 +184,15 @@ func mergeSpans(spans []Span) []Span {
 	}
 
 	merged := []Span{spans[0]}
-	for _, s := range spans[1:] {
+	for _, span := range spans[1:] {
 		last := len(merged) - 1
-		if s.Start <= merged[last].End {
-			merged[last].End = max(merged[last].End, s.End)
+		if span.Start <= merged[last].End {
+			merged[last].End = max(merged[last].End, span.End)
 
 			continue
 		}
 
-		merged = append(merged, s)
+		merged = append(merged, span)
 	}
 
 	return merged

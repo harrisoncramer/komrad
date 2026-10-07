@@ -27,8 +27,6 @@ type docReader struct {
 	shown string
 	// tail says the window stays on the last row until the reader moves it.
 	tail bool
-	// opened says the window was put on the first match of a says: qualifier.
-	opened bool
 }
 
 // isDocReadable reports whether the block beside the list is a document the panel walks itself.
