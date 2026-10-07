@@ -152,8 +152,8 @@ func (a *archivedAgents) list() screenList[agentRow] {
 	}
 }
 
-// archiveSorts is every column the archived agents can be ordered by.
-var archiveSorts = []sortColumn[panel.AgentRow]{
+// archivedAgentSorts is every column the archived agents can be ordered by.
+var archivedAgentSorts = []sortColumn[panel.AgentRow]{
 	{
 		id:    "archived",
 		label: "archived",
@@ -185,10 +185,10 @@ func (a *archivedAgents) buildFrame(m *model) {
 }
 
 func (a *archivedAgents) buildRows(m *model) []agentRow {
-	// The archive draws an archived orchestrator as a row of its own.
+	// The archived agents draw an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
-		workflows:  archiveHeaders(m.listing),
-		agents:     sortedAgents(m.listing.archivedAgents, archiveSorts, archiveTabs().order(a.sort)),
+		workflows:  archivedAgentHeaders(m.listing),
+		agents:     sortedAgents(m.listing.archivedAgents, archivedAgentSorts, archivedAgentTabs().order(a.sort)),
 		showHidden: true,
 		flat:       a.sort.flat,
 	})
@@ -196,9 +196,9 @@ func (a *archivedAgents) buildRows(m *model) []agentRow {
 	return narrowedAgentRows(m.filter, rows)
 }
 
-// archiveHeaders is every workflow the archive draws a folder for: the archived ones, and the
+// archivedAgentHeaders is every workflow the archived agents draw a folder for: the archived ones, and the
 // live ones still holding an archived agent.
-func archiveHeaders(l listing) []panel.Workflow {
+func archivedAgentHeaders(l listing) []panel.Workflow {
 	holding := xslice.KeyBy(l.archivedAgents, func(item panel.AgentRow) string { return item.Agent.WorkflowID })
 	archived := xslice.KeyBy(l.archivedWorkflows, func(w panel.Workflow) string { return w.ID })
 
@@ -395,11 +395,11 @@ func (a *archivedAgents) help(m *model) keyMap {
 	return a.actions().help(m)
 }
 
-func archiveTabs() tabStrip {
+func archivedAgentTabs() tabStrip {
 	return tabStrip{
 		title:    "f",
 		legend:   "sort",
-		options:  tabOptionsOf(archiveSorts),
+		options:  tabOptionsOf(archivedAgentSorts),
 		fallback: "archived",
 		grouped:  "workflow",
 	}
@@ -453,7 +453,7 @@ func (a *archivedAgents) filterRows(m *model) []filterRow {
 }
 
 func (a *archivedAgents) tabs() tabStrip {
-	return archiveTabs()
+	return archivedAgentTabs()
 }
 
 func (a *archivedAgents) tabsState() *tabsState {
