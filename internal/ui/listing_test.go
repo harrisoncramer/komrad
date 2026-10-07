@@ -24,14 +24,14 @@ func TestListingSettlesWrites(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		open         func(t *testing.T, frames *drawReporter) *panelHarness
+		open         func(t *testing.T, frames *renderReporter) *panelHarness
 		setup        func(harness *panelHarness)
 		press        []string
 		parkedPress  []string
 		wait         bool
 		expire       bool
 		settle       []*watchv1.WatchEvent
-		drawLate     bool
+		renderLate   bool
 		wantRow      string
 		wantGuest    string
 		wantSelected []string
@@ -78,7 +78,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		},
 		{
 			name: "a key pressed while a write is parked takes the cursor back",
-			open: func(t *testing.T, _ *drawReporter) *panelHarness {
+			open: func(t *testing.T, _ *renderReporter) *panelHarness {
 				return openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
 			},
 			setup:       answerResume,
@@ -95,7 +95,7 @@ func TestListingSettlesWrites(t *testing.T) {
 			parkedPress:  []string{"j"},
 			wait:         true,
 			settle:       []*watchv1.WatchEvent{buildPuts(newOrchestrator())},
-			drawLate:     true,
+			renderLate:   true,
 			wantRow:      "  telescope",
 			wantGuest:    "%9",
 			wantSelected: []string{"%9"},
@@ -136,10 +136,10 @@ func TestListingSettlesWrites(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			frames := &drawReporter{isDrawn: !tt.drawLate}
+			frames := &renderReporter{isRendered: !tt.renderLate}
 			open := tt.open
 			if open == nil {
-				open = func(t *testing.T, _ *drawReporter) *panelHarness { return openSettling(t) }
+				open = func(t *testing.T, _ *renderReporter) *panelHarness { return openSettling(t) }
 			}
 			harness := open(t, frames)
 			tt.setup(harness)
@@ -156,8 +156,8 @@ func TestListingSettlesWrites(t *testing.T) {
 			for _, event := range tt.settle {
 				harness.watch(event)
 			}
-			if tt.drawLate {
-				frames.isDrawn = true
+			if tt.renderLate {
+				frames.isRendered = true
 				harness.fireTimers()
 			}
 
@@ -273,7 +273,7 @@ func TestListingFocus(t *testing.T) {
 
 // TestListingUnreachable covers the server going away being said once per time it goes.
 func TestListingUnreachable(t *testing.T) {
-	t.Run("the tree already drawn stays drawn", func(t *testing.T) {
+	t.Run("the tree already rendered stays rendered", func(t *testing.T) {
 		harness := openUnreachable(t, engine.Remote{})
 
 		frame := harness.readFrame()
@@ -339,12 +339,12 @@ func TestListingUnreachable(t *testing.T) {
 
 const serverAddr = "127.0.0.1:8787"
 
-type drawReporter struct {
-	isDrawn bool
+type renderReporter struct {
+	isRendered bool
 }
 
-func (f *drawReporter) DoesFrameShowHarness(string, string) bool {
-	return f.isDrawn
+func (f *renderReporter) DoesFrameShowHarness(string, string) bool {
+	return f.isRendered
 }
 
 func openSettling(t *testing.T) *panelHarness {
@@ -356,7 +356,7 @@ func openSettling(t *testing.T) *panelHarness {
 	return harness
 }
 
-func openSettlingTelescope(t *testing.T, frames *drawReporter) *panelHarness {
+func openSettlingTelescope(t *testing.T, frames *renderReporter) *panelHarness {
 	t.Helper()
 
 	harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
@@ -366,7 +366,7 @@ func openSettlingTelescope(t *testing.T, frames *drawReporter) *panelHarness {
 	return harness
 }
 
-func openSettlingBackend(t *testing.T, frames *drawReporter) *panelHarness {
+func openSettlingBackend(t *testing.T, frames *renderReporter) *panelHarness {
 	t.Helper()
 
 	harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
@@ -376,7 +376,7 @@ func openSettlingBackend(t *testing.T, frames *drawReporter) *panelHarness {
 	return harness
 }
 
-func openSettlingStaged(t *testing.T, _ *drawReporter) *panelHarness {
+func openSettlingStaged(t *testing.T, _ *renderReporter) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, newLiveWorkflow("w1", "api"), newStagedOld("old"))

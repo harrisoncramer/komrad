@@ -25,9 +25,9 @@ func TestFrameAttachAnchorsToTheGivenPane(t *testing.T) {
 	assert.Equal(t, "%7", frame.Pane(RegionSidebar))
 }
 
-// TestFrameRedrawsWhenOnlyTheHeightMoves covers the stage keeping its width while a split opens
+// TestFrameRerendersWhenOnlyTheHeightMoves covers the stage keeping its width while a split opens
 // under it, which leaves rows blank if the height is never re-read.
-func TestFrameRedrawsWhenOnlyTheHeightMoves(t *testing.T) {
+func TestFrameRerendersWhenOnlyTheHeightMoves(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
@@ -39,7 +39,7 @@ func TestFrameRedrawsWhenOnlyTheHeightMoves(t *testing.T) {
 		Render: func(target Target) ([]string, bool) {
 			heights = append(heights, target.Height)
 
-			return []string{"draw"}, true
+			return []string{"render"}, true
 		},
 	}
 
@@ -51,7 +51,7 @@ func TestFrameRedrawsWhenOnlyTheHeightMoves(t *testing.T) {
 	frame.Show(RegionStage, content)
 
 	assert.Equal(t, []int{40, 24, 40}, heights,
-		"the same content at an unchanged size is left alone, and every height change is redrawn")
+		"the same content at an unchanged size is left alone, and every height change is rerendered")
 }
 
 // TestFrameOpenLeavesAStandingFrameAlone covers asking for a region that is already there,
@@ -144,7 +144,7 @@ func TestFrameShowMeasuresThePane(t *testing.T) {
 }
 
 // TestFrameShowSkipsTheWidthOfContentThatIgnoresIt covers a log that lays itself out, which is
-// neither measured nor redrawn when the pane changes width.
+// neither measured nor rerendered when the pane changes width.
 func TestFrameShowSkipsTheWidthOfContentThatIgnoresIt(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
@@ -160,9 +160,9 @@ func TestFrameShowSkipsTheWidthOfContentThatIgnoresIt(t *testing.T) {
 	assert.Len(t, tmux.respawns, 1, "a narrower pane is still showing the same thing")
 }
 
-// TestFrameShowRedrawsContentThatWrapped covers a pane that has changed width under content
+// TestFrameShowRerendersContentThatWrapped covers a pane that has changed width under content
 // still wrapped to the width it used to be.
-func TestFrameShowRedrawsContentThatWrapped(t *testing.T) {
+func TestFrameShowRerendersContentThatWrapped(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
@@ -170,7 +170,7 @@ func TestFrameShowRedrawsContentThatWrapped(t *testing.T) {
 	var got Target
 	frame.Show(RegionStage, newProbe("doc", true, &got))
 	frame.Show(RegionStage, newProbe("doc", true, &got))
-	require.Len(t, tmux.respawns, 1, "the same document at the same width draws once")
+	require.Len(t, tmux.respawns, 1, "the same document at the same width renders once")
 
 	tmux.width = 100
 	frame.Show(RegionStage, newProbe("doc", true, &got))
@@ -179,7 +179,7 @@ func TestFrameShowRedrawsContentThatWrapped(t *testing.T) {
 	assert.Equal(t, 100, got.Width, "and it is laid out to the pane as it is now")
 }
 
-// TestFrameShowLeavesThePagerAlone covers the pass that redraws the frame every second, which
+// TestFrameShowLeavesThePagerAlone covers the pass that rerenders the frame every second, which
 // must not respawn a document under somebody reading it.
 func TestFrameShowLeavesThePagerAlone(t *testing.T) {
 	tmux := &recordingTmux{}
@@ -193,9 +193,9 @@ func TestFrameShowLeavesThePagerAlone(t *testing.T) {
 	assert.Equal(t, []string{"%2"}, tmux.respawnPanes, "the record goes below, never into the stage")
 }
 
-// TestFrameShowKeylessContentAlwaysDraws covers content that names nothing it could be compared
+// TestFrameShowKeylessContentAlwaysRenders covers content that names nothing it could be compared
 // against.
-func TestFrameShowKeylessContentAlwaysDraws(t *testing.T) {
+func TestFrameShowKeylessContentAlwaysRenders(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
@@ -293,12 +293,12 @@ func TestFrameGuestHoldsTheMainRegion(t *testing.T) {
 
 	assert.Empty(t, frame.GuestPane(), "a document sends the agent back")
 	assert.Equal(t, 2, tmux.swaps)
-	assert.Equal(t, []string{"%1"}, tmux.respawnPanes, "and is drawn in the region's own pane")
+	assert.Equal(t, []string{"%1"}, tmux.respawnPanes, "and is rendered in the region's own pane")
 }
 
-// TestFrameGuestDisplacesWhatWasDrawn covers a document that was on the stage before an agent
-// was swapped in, which has to be drawn again rather than read as still there.
-func TestFrameGuestDisplacesWhatWasDrawn(t *testing.T) {
+// TestFrameGuestDisplacesWhatWasRendered covers a document that was on the stage before an agent
+// was swapped in, which has to be rendered again rather than read as still there.
+func TestFrameGuestDisplacesWhatWasRendered(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
@@ -410,9 +410,9 @@ func TestFrameFreeze(t *testing.T) {
 	})
 }
 
-// TestFrameClaimedForgetsWhatWasDrawn covers a region another process has taken over, which
+// TestFrameClaimedForgetsWhatWasRendered covers a region another process has taken over, which
 // is how a script that fills the pane itself says the frame no longer knows what is in it.
-func TestFrameClaimedForgetsWhatWasDrawn(t *testing.T) {
+func TestFrameClaimedForgetsWhatWasRendered(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
@@ -449,7 +449,7 @@ func TestFrameAttachLeavesAnEmptyWindowAlone(t *testing.T) {
 	assert.Empty(t, tmux.killed)
 }
 
-// TestFrameSoloTakesTheWholeWindow covers a screen that draws its own split: the panes it was
+// TestFrameSoloTakesTheWholeWindow covers a screen that renders its own split: the panes it was
 // sharing with are covered rather than closed, and giving the window back uncovers them.
 func TestFrameSoloTakesTheWholeWindow(t *testing.T) {
 	tmux := &recordingTmux{}
@@ -604,7 +604,7 @@ func TestRestoreSplitKeepsAChosenWidth(t *testing.T) {
 	assert.Equal(t, []string{frame.Pane(RegionSidebar) + " 59"}, tmux.resizes)
 }
 
-// TestFrameNudgeResizesTheSharedSplit covers a key moving the edge while tmux draws the divider.
+// TestFrameNudgeResizesTheSharedSplit covers a key moving the edge while tmux renders the divider.
 func TestFrameNudgeResizesTheSharedSplit(t *testing.T) {
 	tmux := &recordingTmux{
 		width:       160,

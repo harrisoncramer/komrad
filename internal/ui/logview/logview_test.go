@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestTailRows covers drawing the newest lines, however many rows a line wraps to.
+// TestTailRows covers rendering the newest lines, however many rows a line wraps to.
 func TestTailRows(t *testing.T) {
 	t.Parallel()
 
@@ -50,7 +50,7 @@ func TestTailRows(t *testing.T) {
 			want:   []string{"a line th", "at wraps", "last"},
 		},
 		{
-			name:   "a line cut off above the view draws only its rows inside it",
+			name:   "a line cut off above the view renders only its rows inside it",
 			lines:  []string{"abcd", "efgh", "ijkl"},
 			width:  2,
 			height: 3,
@@ -234,7 +234,7 @@ func TestTailCurrent(t *testing.T) {
 	}
 }
 
-// TestTailFormat covers drawing held lines compact while the line under the cursor stays as written.
+// TestTailFormat covers rendering held lines compact while the line under the cursor stays as written.
 func TestTailFormat(t *testing.T) {
 	t.Parallel()
 

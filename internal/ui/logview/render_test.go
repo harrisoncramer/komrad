@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestCompact covers the text of a service log line drawn on one row.
+// TestCompact covers the text of a service log line rendered on one row.
 func TestCompact(t *testing.T) {
 	t.Parallel()
 
@@ -80,27 +80,27 @@ func TestCompact(t *testing.T) {
 			want: "         XYZ   b                              405",
 		},
 		{
-			name: "a severity past error is drawn as it stands",
+			name: "a severity past error is rendered as it stands",
 			line: `{"severity_text":"CRITICAL","body":"b"}`,
 			want: "         CRITICAL b",
 		},
 		{
-			name: "a line that is not json is drawn as it stands",
+			name: "a line that is not json is rendered as it stands",
 			line: "plain \x1b[1mscript\x1b[0m output",
 			want: "plain script output",
 		},
 		{
-			name: "an object followed by more data is drawn as it stands",
+			name: "an object followed by more data is rendered as it stands",
 			line: `{"body":"a"}{"body":"b"}`,
 			want: `{"body":"a"}{"body":"b"}`,
 		},
 		{
-			name: "an object followed by text is drawn as it stands",
+			name: "an object followed by text is rendered as it stands",
 			line: `{"body":"a"} trailing`,
 			want: `{"body":"a"} trailing`,
 		},
 		{
-			name: "a json value that is not an object is drawn as it stands",
+			name: "a json value that is not an object is rendered as it stands",
 			line: `[1,2]`,
 			want: "[1,2]",
 		},

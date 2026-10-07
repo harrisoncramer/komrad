@@ -82,7 +82,7 @@ func (p popupScroll) back(owner string) int {
 }
 
 // popupStage is the rows a popup stands over: the first it may take, the first and last lines the
-// cursor's row is drawn on and how many there are.
+// cursor's row is rendered on and how many there are.
 type popupStage struct {
 	top        int
 	cursor     int
@@ -118,7 +118,7 @@ func placePopup(anchor popupAnchor, stage popupStage, tall int) popupSlot {
 	}
 }
 
-// overlayPopup lays a popup drawn by drawPopup over an area at its slot.
+// overlayPopup lays a popup rendered by renderPopup over an area at its slot.
 func overlayPopup(area, box string, slot popupSlot) string {
 	return compose(lipgloss.Width(area), strings.Count(area, "\n")+1, []*lipgloss.Layer{
 		lipgloss.NewLayer(area),
@@ -126,9 +126,9 @@ func overlayPopup(area, box string, slot popupSlot) string {
 	})
 }
 
-// drawPopup boxes a body at a slot's width and height, showing the rows back rows from its end
+// renderPopup boxes a body at a slot's width and height, showing the rows back rows from its end
 // and marking what runs past the box above and below.
-func drawPopup(body string, back int, slot popupSlot, tone paint.Tone) string {
+func renderPopup(body string, back int, slot popupSlot, tone paint.Tone) string {
 	room := slot.room()
 	lines := splitPopupRows(body)
 	window := paint.WindowOf(len(lines), room, func(visible int) int {
@@ -139,7 +139,7 @@ func drawPopup(body string, back int, slot popupSlot, tone paint.Tone) string {
 		return max(len(lines)-visible-back, 0)
 	})
 
-	shown := paint.DrawWindow(lines[window.Start:window.End], window, len(lines), dimStyle())
+	shown := paint.RenderWindow(lines[window.Start:window.End], window, len(lines), dimStyle())
 	rows := strings.Split(strings.TrimSuffix(shown, "\n"), "\n")
 	for len(rows) < room {
 		rows = append(rows, "")

@@ -20,8 +20,8 @@ const (
 // archivedSchedules is the schedules view on its archived kind: the cursor in the archived schedules.
 type archivedSchedules struct {
 	rowCursor
-	// drawn is the rows built for the frame once an update settles, and nil while one runs.
-	drawn []scheduleItem
+	// rendered is the rows built for the frame once an update settles, and nil while one runs.
+	rendered []scheduleItem
 }
 
 func (w *schedulesScreen) kinds(*model) stops {
@@ -109,18 +109,18 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 	}
 }
 
-// listRows is the archived schedules as drawn, or as they would be drawn when nothing has
+// listRows is the archived schedules as rendered, or as they would be rendered when nothing has
 // cached them.
 func (a *archivedSchedules) listRows(m *model) []scheduleItem {
-	if a.drawn != nil {
-		return a.drawn
+	if a.rendered != nil {
+		return a.rendered
 	}
 
 	return a.buildRows(m)
 }
 
 func (a *archivedSchedules) buildFrame(m *model) {
-	a.drawn = a.buildRows(m)
+	a.rendered = a.buildRows(m)
 }
 
 func (a *archivedSchedules) buildRows(m *model) []scheduleItem {
@@ -207,7 +207,7 @@ func (a *archivedSchedules) help(m *model) keyMap {
 }
 
 var (
-	_ recordDrawer    = (*archivedSchedules)(nil)
+	_ recordRenderer  = (*archivedSchedules)(nil)
 	_ listFilterer    = (*archivedSchedules)(nil)
 	_ rowStager       = (*archivedSchedules)(nil)
 	_ hoveredNamer    = (*archivedSchedules)(nil)
@@ -215,7 +215,7 @@ var (
 	_ kindSwitcher    = (*archivedSchedules)(nil)
 )
 
-func (a *archivedSchedules) doesDrawFromListing() bool {
+func (a *archivedSchedules) doesRenderFromListing() bool {
 	return true
 }
 

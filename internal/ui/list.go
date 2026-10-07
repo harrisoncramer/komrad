@@ -162,7 +162,7 @@ func (s screenActionSpec) dispatchArms(keys config.Keybindings) []dispatchArm {
 type screenList[T keyed] struct {
 	cursor func() *rowCursor
 	rows   func(*model) []T
-	// name is the text a search reads a row by, nil on a list that draws no filter.
+	// name is the text a search reads a row by, nil on a list that renders no filter.
 	name func(T) string
 	// fits is how a row meets a qualifier, nil on a list that reads none.
 	fits func(*model, T) clauseFits
@@ -447,38 +447,38 @@ func filterClearDescOf(m *model) string {
 	return m.filter.clearDesc()
 }
 
-// screenListParams is a screen's list as the root draws it: its title and tally, its own
+// screenListParams is a screen's list as the root renders it: its title and tally, its own
 // legend, and the rows the window is filled from.
 type screenListParams struct {
 	title string
 	tally string
-	// help is the screen's own legend, drawn ahead of the bindings every list shares.
+	// help is the screen's own legend, rendered ahead of the bindings every list shares.
 	help func(*model) keyMap
-	// empty is what the list says over no rows, and blank on a list that draws its window anyway.
+	// empty is what the list says over no rows, and blank on a list that renders its window anyway.
 	empty string
 	// rows is how many rows the list holds.
 	rows     int
 	snapshot func(listPane) view.Snapshot
-	// lines is the list drawn by the screen itself, row by row with its cursor, on a screen that
-	// draws no snapshot.
+	// lines is the list rendered by the screen itself, row by row with its cursor, on a screen that
+	// renders no snapshot.
 	lines func(listPane) ([]string, int)
 }
 
-// listPane is the column a list is drawn in this frame and how its cursor stands.
+// listPane is the column a list is rendered in this frame and how its cursor stands.
 type listPane struct {
 	width      int
 	caret      view.Caret
 	blinkedOut bool
 }
 
-// listHelpOf is a screen's legend as the root draws it under the list.
+// listHelpOf is a screen's legend as the root renders it under the list.
 func (m *model) listHelpOf(params screenListParams) keyMap {
 	return m.listHelp(params.help(m))
 }
 
 // listHelp is a list screen's legend: its own rows, then the bindings every list shares.
 func (m *model) listHelp(own keyMap) keyMap {
-	// A disabled binding draws nothing but still takes a cell of the expanded legend.
+	// A disabled binding renders nothing but still takes a cell of the expanded legend.
 	var tabs []key.Binding
 	if b := m.tabsBinding(); b.Enabled() {
 		tabs = []key.Binding{b}

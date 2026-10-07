@@ -78,10 +78,10 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 
 func (m *model) tabbedHeader(title, tally string) string {
 	var strips string
-	if m.isTabsDrawn() {
+	if m.isTabsRendered() {
 		strips += m.tabsLine()
 	}
-	if m.isKindsDrawn() {
+	if m.isKindsRendered() {
 		strips += m.kindsLine()
 	}
 	if strips == "" {

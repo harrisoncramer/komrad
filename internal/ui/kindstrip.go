@@ -17,7 +17,7 @@ func (m *model) activeKinds() (kindSwitcher, bool) {
 	return k, ok
 }
 
-func (m *model) isKindsDrawn() bool {
+func (m *model) isKindsRendered() bool {
 	k, ok := m.activeKinds()
 
 	return ok && k.kindsFit(m)

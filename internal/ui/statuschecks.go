@@ -245,7 +245,7 @@ func (c *statusChecksScreen) crumbs(m *model) crumbs {
 	return crumbs{trail: []string{name, "status checks"}}
 }
 
-func (c *statusChecksScreen) doesDrawFromListing() bool {
+func (c *statusChecksScreen) doesRenderFromListing() bool {
 	return true
 }
 
@@ -271,7 +271,7 @@ func (c *statusChecksScreen) dispatches(*model) []dispatching {
 var (
 	_ kindSwitcher    = (*statusChecksScreen)(nil)
 	_ listFilterer    = (*statusChecksScreen)(nil)
-	_ crumbDrawer     = (*statusChecksScreen)(nil)
+	_ crumbRenderer   = (*statusChecksScreen)(nil)
 	_ loadingReporter = (*statusChecksScreen)(nil)
 )
 

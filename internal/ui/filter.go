@@ -17,7 +17,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// filterOpenKey opens the filter on every screen that draws one.
+// filterOpenKey opens the filter on every screen that renders one.
 const filterOpenKey = "/"
 
 // filterMode is what a pattern does to the rows it does not match.
@@ -287,7 +287,7 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 }
 
 // filteredRows is every row the search can land on in the pane holding the keys, and false on a
-// screen that draws no filter.
+// screen that renders no filter.
 func (m *model) filteredRows() ([]filterRow, bool) {
 	if m.isDetailsFocused() {
 		return m.detailsFilterRows(), true
@@ -435,7 +435,7 @@ func (m *model) applyFilter() {
 	m.filter.appliedAt = m.hoveredFilterKey()
 }
 
-// isFilterRowShown reports whether the pane holding the keys still draws a row.
+// isFilterRowShown reports whether the pane holding the keys still renders a row.
 func (m *model) isFilterRowShown(key string) bool {
 	rows, _ := m.filteredRows()
 
@@ -566,7 +566,7 @@ func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 	return kept
 }
 
-// view draws the search line whether or not there is a search.
+// view renders the search line whether or not there is a search.
 func (f filterState) view(palette paint.Palette, glyphs glyph.Set) string {
 	return f.line(palette, glyphs) + "\n\n"
 }
@@ -590,7 +590,7 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 	if !f.typing {
 		line += text.Render(before + after)
 	} else {
-		line += palette.DrawTyped(before, after, text)
+		line += palette.RenderTyped(before, after, text)
 	}
 	if f.problem != "" {
 		line += "  " + palette.Broken().Render(f.problem)

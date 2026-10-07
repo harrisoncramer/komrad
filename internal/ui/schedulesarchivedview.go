@@ -13,7 +13,7 @@ func (a *archivedSchedules) details(m *model) details {
 	return scheduleDetails(m, item)
 }
 
-// docRows is the block drawn beside the list at a width for the row the cursor is on.
+// docRows is the block rendered beside the list at a width for the row the cursor is on.
 func (a *archivedSchedules) docRows(m *model, width int) []string {
 	item, ok := rowAt(a.listRows(m), a.cursor)
 	if !ok {

@@ -230,8 +230,8 @@ func TestAgentNotices(t *testing.T) {
 	}
 }
 
-// TestAgentNoticesWearTheGlyphTheRowDraws covers each notice taking its glyph and tone from the cell the row draws.
-func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
+// TestAgentNoticesWearTheGlyphTheRowRenders covers each notice taking its glyph and tone from the cell the row renders.
+func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	item := panel.AgentRow{
 		Agent: panel.Agent{
 			State:    panel.StateWaiting,
@@ -265,7 +265,7 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	}
 }
 
-// TestAgentNoticesSpeakForEveryColumnState covers every state a column draws having a sentence or being named as its baseline.
+// TestAgentNoticesSpeakForEveryColumnState covers every state a column renders having a sentence or being named as its baseline.
 func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 	for state := range int(view.RepoEnd) {
 		repo := view.Repo(state)
@@ -296,8 +296,8 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 	}
 
 	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
-		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer draws a broken bar", state)
-		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
+		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer renders a broken bar", state)
+		assert.NotEmpty(t, failureSaid[state], "state %q renders a broken bar with no sentence", state)
 	}
 }
 

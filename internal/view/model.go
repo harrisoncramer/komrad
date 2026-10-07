@@ -14,7 +14,7 @@ const (
 	weightItalic
 )
 
-// emphasis is how brightly a row's name is drawn.
+// emphasis is how brightly a row's name is rendered.
 type emphasis int
 
 const (
@@ -23,39 +23,39 @@ const (
 	emphasisFocused
 )
 
-// Cell is one drawn position, carrying either a named glyph or text, in a tone the palette turns
+// Cell is one rendered position, carrying either a named glyph or text, in a tone the palette turns
 // into a colour.
 type Cell struct {
 	Glyph glyph.Glyph
 	Text  string
 	Tone  paint.Tone
-	// Parts draw the cell as stretches each in its own tone, in place of its glyph and text.
+	// Parts render the cell as stretches each in its own tone, in place of its glyph and text.
 	Parts []Cell
 }
 
-// IsBlank reports whether a cell has nothing to draw.
+// IsBlank reports whether a cell has nothing to render.
 func (c Cell) IsBlank() bool {
 	return c.Glyph == glyph.None && c.Text == "" && len(c.Parts) == 0
 }
 
 // line is one row of the agents list with every decision already made.
 type line struct {
-	// Focused says the keyboard is standing on this row, which the caret in Focus is drawn from.
+	// Focused says the keyboard is standing on this row, which the caret in Focus is rendered from.
 	Focused bool
 	Focus   Cell
-	// Columns are the cells of the list's own columns, one per column in the order they are drawn.
+	// Columns are the cells of the list's own columns, one per column in the order they are rendered.
 	Columns []Cell
 	Status  Cell
-	// Rule draws the corner a child hangs off, inside the name cell rather than before it.
+	// Rule renders the corner a child hangs off, inside the name cell rather than before it.
 	Rule bool
 	// Indent is how far this row's name is set in from the gutter.
 	Indent int
 	Lead   string
 	Name   string
 	// Matches are the stretches of the name a search picked out, in bytes of the name as it is
-	// drawn rather than as it was gathered.
+	// rendered rather than as it was gathered.
 	Matches []Span
-	// Editing says the name is text a person is typing into, drawn with the text cursor in it.
+	// Editing says the name is text a person is typing into, rendered with the text cursor in it.
 	Editing bool
 	// Behind is how many runes of the name follow the text cursor.
 	Behind   int
@@ -66,15 +66,15 @@ type line struct {
 	Document Cell
 	Mail     Cell
 	Alert    Cell
-	// Tally is how many rows this one stands in for, drawn as a number.
+	// Tally is how many rows this one stands in for, rendered as a number.
 	Tally    int
 	Schedule Cell
-	// Workflow is the workflow's name, drawn greyed after the marks.
+	// Workflow is the workflow's name, rendered greyed after the marks.
 	Workflow string
-	// Comments are the comment counts, drawn against the right edge of the pane.
+	// Comments are the comment counts, rendered against the right edge of the pane.
 	Comments []Cell
 	Selected bool
-	// Divider draws the row as a rule across the pane in place of everything else.
+	// Divider renders the row as a rule across the pane in place of everything else.
 	Divider bool
 }
 
@@ -88,13 +88,13 @@ const (
 	ColumnText
 )
 
-// Column is one column of the gutter a list draws between the mark and the bar.
+// Column is one column of the gutter a list renders between the mark and the bar.
 type Column struct {
 	Kind  columnKind
 	Width int
 }
 
-// Columns is the gutter a list declares, in the order its columns are drawn.
+// Columns is the gutter a list declares, in the order its columns are rendered.
 type Columns []Column
 
 // workColumns is the gutter of the agents list: repo and forge, one glyph each.
@@ -114,6 +114,6 @@ func noColumns() Columns {
 type List struct {
 	Lines   []line
 	Columns Columns
-	// Glyphs is the character each glyph in a cell is drawn with.
+	// Glyphs is the character each glyph in a cell is rendered with.
 	Glyphs glyph.Set
 }

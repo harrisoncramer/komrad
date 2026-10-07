@@ -57,7 +57,7 @@ func agentSubpages(agent panel.Agent) []subpage {
 	return []subpage{subpageReview, subpageDocuments, subpageLogs, subpageChecks, subpageTerminal}
 }
 
-// subpageEntry is how a subpage is drawn in an agent's menu.
+// subpageEntry is how a subpage is rendered in an agent's menu.
 func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage) submenuEntry {
 	switch page {
 	case subpageReview:

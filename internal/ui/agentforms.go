@@ -40,7 +40,7 @@ func agentPrefill(workflow panel.Workflow) agentFormValues {
 }
 
 func openAgentForm(m *model, workflow panel.Workflow, values *agentFormValues) tea.Cmd {
-	return m.openForm(redrawnForm(redrawnFormParams{
+	return m.openForm(rerenderedForm(rerenderedFormParams{
 		Kind: formAgent,
 		Build: func(m *model) (*huh.Form, []string) {
 			return newAgentForm(fixedKeys(), values, workflow.Worktree.Enabled)
@@ -69,7 +69,7 @@ func childPrefill(parent panel.Agent) agentFormValues {
 }
 
 func openChildForm(m *model, parent panel.Agent, values *agentFormValues) tea.Cmd {
-	return m.openForm(redrawnForm(redrawnFormParams{
+	return m.openForm(rerenderedForm(rerenderedFormParams{
 		Kind:     formChild,
 		Build:    func(m *model) (*huh.Form, []string) { return childAgentForm(fixedKeys(), values, parent) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
@@ -98,7 +98,7 @@ func openRetryForm(m *model, agent panel.Agent) tea.Cmd {
 		Flags:   agent.Flags,
 	}
 
-	return m.openForm(redrawnForm(redrawnFormParams{
+	return m.openForm(rerenderedForm(rerenderedFormParams{
 		Kind:     formAgentRetry,
 		Build:    func(m *model) (*huh.Form, []string) { return retryAgentForm(fixedKeys(), &values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
@@ -128,7 +128,7 @@ func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 }
 
 func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) tea.Cmd {
-	return m.openForm(redrawnForm(redrawnFormParams{
+	return m.openForm(rerenderedForm(rerenderedFormParams{
 		Kind:     formAdopt,
 		Build:    func(m *model) (*huh.Form, []string) { return adoptAgentForm(fixedKeys(), values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},

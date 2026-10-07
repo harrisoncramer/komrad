@@ -51,7 +51,7 @@ func (d docWindow) view(rows int) string {
 	return strings.Join(out, "\n")
 }
 
-// columnStyle is the markdown the block beside the list is drawn in.
+// columnStyle is the markdown the block beside the list is rendered in.
 func columnStyle() ansi.StyleConfig {
 	return paint.Panel.Stage()
 }

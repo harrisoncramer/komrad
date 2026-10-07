@@ -17,7 +17,7 @@ const diffPanStep = 8
 // diffWheelStep is how many rows one scroll key moves a diff.
 const diffWheelStep = 3
 
-// diffFloor is the narrowest a diff is worth drawing at: the gutter and enough of a line beside
+// diffFloor is the narrowest a diff is worth rendering at: the gutter and enough of a line beside
 // it to read.
 const diffFloor = diffview.GutterWidth + 20
 
@@ -25,12 +25,12 @@ const diffFloor = diffview.GutterWidth + 20
 type diffKeys struct {
 	pane   *diffview.Pane
 	filter *filterState
-	// window is the size the pane is drawn at.
+	// window is the size the pane is rendered at.
 	window func(*model) diffview.Window
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
 	// with nothing to do.
 	moved func(*model) tea.Cmd
-	// refuseExpand says why the file under the cursor may not be drawn whole, and is nil on a
+	// refuseExpand says why the file under the cursor may not be rendered whole, and is nil on a
 	// screen that never refuses.
 	refuseExpand func(*model) string
 }
@@ -197,7 +197,7 @@ func (k diffKeys) expandDesc() string {
 		return "show the whole file"
 	}
 
-	file, ok := view.GetDrawnFileAt(k.pane.Cursor())
+	file, ok := view.GetRenderedFileAt(k.pane.Cursor())
 	if ok && view.IsExpanded(file.Path()) {
 		return "show the changes"
 	}
@@ -257,7 +257,7 @@ func (k diffKeys) toggleWrap(m *model) tea.Cmd {
 	return nil
 }
 
-// toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
+// toggleExpanded renders the whole of the file the cursor is in, or gives back the changed lines
 // and the few around them.
 func (k diffKeys) toggleExpanded(m *model) tea.Cmd {
 	if k.refuseExpand != nil {
@@ -335,7 +335,7 @@ func panStep(m *model) int {
 	return max(split.column/3, diffPanStep)
 }
 
-// diffMatchCount is where in the search the cursor is standing, drawn under the pattern.
+// diffMatchCount is where in the search the cursor is standing, rendered under the pattern.
 func diffMatchCount(pane *diffview.Pane, filter filterState) string {
 	view := pane.View()
 	if view == nil || !filter.isStanding() {

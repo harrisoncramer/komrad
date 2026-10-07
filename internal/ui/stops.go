@@ -12,27 +12,27 @@ type stop int
 const (
 	stopList stop = iota
 	stopAgent
-	// stopBlock is the block a screen draws beside its list, the review's conversation, a document or a log.
+	// stopBlock is the block a screen renders beside its list, the review's conversation, a document or a log.
 	stopBlock
 	stopRecord
 	// stopTerminal is the shell opened in the pane below the stage.
 	stopTerminal
-	// stopPullRequest is the pull request drawn over the review's file tree.
+	// stopPullRequest is the pull request rendered over the review's file tree.
 	stopPullRequest
 )
 
-// listStops lists the screen's stops in forward order, leaving out any it is not drawing.
+// listStops lists the screen's stops in forward order, leaving out any it is not rendering.
 func (m *model) listStops() []stop {
 	stops := []stop{stopList}
 
 	switch {
-	case m.isScreenBlockDrawn(), m.isDocReadable() && !m.isDormantHovered():
+	case m.isScreenBlockRendered(), m.isDocReadable() && !m.isDormantHovered():
 		stops = append(stops, stopBlock)
 	case m.findFocusPane() != "":
 		stops = append(stops, stopAgent)
 	}
 
-	if p, ok := m.active().(pullRequestFocuser); ok && p.isPullRequestDrawn(m) {
+	if p, ok := m.active().(pullRequestFocuser); ok && p.isPullRequestRendered(m) {
 		stops = append(stops, stopPullRequest)
 	}
 
@@ -40,7 +40,7 @@ func (m *model) listStops() []stop {
 		stops = append(stops, stopTerminal)
 	}
 
-	if m.isDetailsDrawn(m.hoveredDetails()) {
+	if m.isDetailsRendered(m.hoveredDetails()) {
 		stops = append(stops, stopRecord)
 	}
 
@@ -64,7 +64,7 @@ func (m *model) enterStop(to stop) tea.Cmd {
 	case stopBlock:
 		m.enterSidebar(to)
 		m.blurDetails()
-		if b, ok := m.active().(columnFocuser); ok && m.isScreenBlockDrawn() {
+		if b, ok := m.active().(columnFocuser); ok && m.isScreenBlockRendered() {
 			b.focusBlock(m)
 		} else {
 			m.focusDoc()
@@ -151,7 +151,7 @@ func (m *model) toggleStop() tea.Cmd {
 	return m.enterStop(to)
 }
 
-// isDormantHovered reports whether the agents screen is drawing the saved screen of a dormant agent.
+// isDormantHovered reports whether the agents screen is rendering the saved screen of a dormant agent.
 func (m *model) isDormantHovered() bool {
 	if m.screen != screenAgents {
 		return false
@@ -162,15 +162,15 @@ func (m *model) isDormantHovered() bool {
 	return ok && !item.Alive
 }
 
-// isScreenBlockDrawn reports whether the screen is drawing a block of its own beside the list.
-func (m *model) isScreenBlockDrawn() bool {
+// isScreenBlockRendered reports whether the screen is rendering a block of its own beside the list.
+func (m *model) isScreenBlockRendered() bool {
 	b, ok := m.active().(columnFocuser)
 
-	return ok && b.isBlockDrawn(m)
+	return ok && b.isBlockRendered(m)
 }
 
 // findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or
-// the panel is drawn over it.
+// the panel is rendered over it.
 func (m *model) findFocusPane() string {
 	if m.screen != screenAgents || m.frame.IsSolo() {
 		return ""

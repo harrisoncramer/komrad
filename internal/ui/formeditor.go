@@ -11,7 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// editableText is a form's text field and the string it is drawn from.
+// editableText is a form's text field and the string it is rendered from.
 type editableText struct {
 	key   string
 	value *string
@@ -96,11 +96,11 @@ func (m *model) applyFormFieldEdited(msg formFieldEditedMsg) tea.Cmd {
 
 	*m.form.editable[index].value = strings.TrimRight(msg.text, "\n")
 
-	return m.redrawFormOn(msg.key)
+	return m.rerenderFormOn(msg.key)
 }
 
-// redrawFormOn draws the form again and leaves the cursor on the field named.
-func (m *model) redrawFormOn(key string) tea.Cmd {
+// rerenderFormOn renders the form again and leaves the cursor on the field named.
+func (m *model) rerenderFormOn(key string) tea.Cmd {
 	cmd := m.rebuildForm()
 	if cmd == nil {
 		return nil

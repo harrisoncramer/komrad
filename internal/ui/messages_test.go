@@ -86,7 +86,7 @@ func TestMessagesPane(t *testing.T) {
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list kept the keys")
 	})
 
-	t.Run("the whole message is drawn in the main pane with the list still beside it", func(t *testing.T) {
+	t.Run("the whole message is rendered in the main pane with the list still beside it", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{})
 
 		harness.press("enter", "ctrl+g")
@@ -116,7 +116,7 @@ func TestMessagesPane(t *testing.T) {
 		assert.Equal(t, []string{"1 of 3", "2 of 3", "3 of 3", "3 of 3", "2 of 3"}, tallies)
 	})
 
-	t.Run("the message under the cursor is drawn whole in a short pane", func(t *testing.T) {
+	t.Run("the message under the cursor is rendered whole in a short pane", func(t *testing.T) {
 		for height := 9; height <= 16; height++ {
 			harness := openMessages(t, panelHarnessParams{height: height})
 			harness.press("enter", "enter", "enter", "ctrl+g")
@@ -257,7 +257,7 @@ func TestMessagesBlink(t *testing.T) {
 	}
 }
 
-// TestMessagesGolden draws the header and the main pane whole, colours included.
+// TestMessagesGolden renders the header and the main pane whole, colours included.
 func TestMessagesGolden(t *testing.T) {
 	t.Parallel()
 

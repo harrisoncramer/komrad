@@ -64,7 +64,7 @@ type documentTypeFormStateParams struct {
 func documentTypeFormState(params documentTypeFormStateParams) formState {
 	values := params.values
 
-	return redrawnForm(redrawnFormParams{
+	return rerenderedForm(rerenderedFormParams{
 		Kind:     formDocumentType,
 		Build:    func(*model) (*huh.Form, []string) { return documentTypeForm(values, params.title, fixedKeys()) },
 		Editable: []editableText{{key: "context", value: &values.Context}},

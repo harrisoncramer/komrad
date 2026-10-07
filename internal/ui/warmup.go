@@ -32,7 +32,7 @@ func newWarmupState() warmupState {
 }
 
 // isPaneWarm reports whether a pane may be swapped into the stage, which holds once its harness
-// has drawn itself there.
+// has rendered itself there.
 func (m *model) isPaneWarm(pane, harnessID string) bool {
 	if pane == "" {
 		return false
@@ -46,7 +46,7 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 
 	// The foreground program starts most of a second before the harness paints, so what settles
 	// the wait is a frame the harness reads as its own.
-	if m.hasHarnessDrawn(pane, harnessID) {
+	if m.hasHarnessRendered(pane, harnessID) {
 		m.warm.markWarm(pane)
 
 		return true
@@ -68,9 +68,9 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 	return true
 }
 
-// hasHarnessDrawn reports whether a pane is showing the harness that was typed into it rather
+// hasHarnessRendered reports whether a pane is showing the harness that was typed into it rather
 // than the shell it was typed at.
-func (m *model) hasHarnessDrawn(pane, harnessID string) bool {
+func (m *model) hasHarnessRendered(pane, harnessID string) bool {
 	if !m.tmux.IsPaneRunningCLI(pane) {
 		return false
 	}

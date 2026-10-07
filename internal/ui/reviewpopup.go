@@ -97,7 +97,7 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 			top:        paint.CountLines(band + layout.bar),
 			cursor:     cursor,
 			cursorLast: cursor,
-			rows:       paint.CountLines(strings.TrimRight(band+r.drawSidebar(layout), "\n")),
+			rows:       paint.CountLines(strings.TrimRight(band+r.renderSidebar(layout), "\n")),
 		}
 	}
 

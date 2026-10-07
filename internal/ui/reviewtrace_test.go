@@ -120,10 +120,10 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 	assert.Zero(t, found.NewStart)
 }
 
-// TestTraceThreadsSkipsRoundsTheScreenWillNotDraw covers a chapter step: the diff ends at an
-// earlier snapshot, so a thread from a later round is not drawn there and tracing it would run a
+// TestTraceThreadsSkipsRoundsTheScreenWillNotRender covers a chapter step: the diff ends at an
+// earlier snapshot, so a thread from a later round is not rendered there and tracing it would run a
 // backwards diff of the whole tree for an answer nothing reads.
-func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
+func TestTraceThreadsSkipsRoundsTheScreenWillNotRender(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(secondSHA, firstSHA): insertedAHelper}}
 
 	rounds := []*agentv1.ReviewRound{
@@ -163,7 +163,7 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 
 // TestTraceThreadsGivesUpWholeRatherThanInPart covers one pair failing while another answers:
 // keeping the answers that arrived would make placement depend on which pairs could be read, so
-// two loads of the same screen would draw the same comments in different places.
+// two loads of the same screen would render the same comments in different places.
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 

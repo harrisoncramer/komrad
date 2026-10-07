@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// reviewChangeFolds is how many ways the change block can be drawn, roomiest first.
+// reviewChangeFolds is how many ways the change block can be rendered, roomiest first.
 const reviewChangeFolds = 3
 
 // changeView is what the sidebar says about the change under review, which a higher fold joins

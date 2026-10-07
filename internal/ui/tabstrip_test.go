@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestTabStrip covers the sort strip every tabbed list draws under its filter line.
+// TestTabStrip covers the sort strip every tabbed list renders under its filter line.
 func TestTabStrip(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -131,7 +131,7 @@ func TestTabStrip(t *testing.T) {
 		assert.NotContains(t, legend, "jump to agent")
 	})
 
-	t.Run("a pane too short for the strip and a row draws no strip and takes no keys", func(t *testing.T) {
+	t.Run("a pane too short for the strip and a row renders no strip and takes no keys", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
 			height: 7,
@@ -148,7 +148,7 @@ func TestTabStrip(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), stripLegend, "and the refused press does not wake once the pane grows")
 	})
 
-	t.Run("a pane one row taller draws the strip and still the cursor's row", func(t *testing.T) {
+	t.Run("a pane one row taller renders the strip and still the cursor's row", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
 			height: 8,
@@ -187,7 +187,7 @@ func findSortStrip(t *testing.T, harness *panelHarness) int {
 	return strip
 }
 
-// TestTabStripGolden draws each tabbed sidebar whole, grouped and flat.
+// TestTabStripGolden renders each tabbed sidebar whole, grouped and flat.
 func TestTabStripGolden(t *testing.T) {
 	tests := []struct {
 		name  string

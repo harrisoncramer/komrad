@@ -95,7 +95,7 @@ func TestNotices(t *testing.T) {
 	}
 }
 
-// TestNoticesGolden draws the notice block whole, glyphs and colours included.
+// TestNoticesGolden renders the notice block whole, glyphs and colours included.
 func TestNoticesGolden(t *testing.T) {
 	tests := []struct {
 		name  string

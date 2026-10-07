@@ -12,7 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-func (m *model) drawMessagesFlash(width int) (string, bool) {
+func (m *model) renderMessagesFlash(width int) (string, bool) {
 	if !m.isMessagesFlashing() || width < 3 {
 		return "", false
 	}
@@ -26,7 +26,7 @@ func (m *model) drawMessagesFlash(width int) (string, bool) {
 	return paint.Panel.Style(kindTone(held.kind)).Render(kindIcon(m.glyphs, held.kind)) + " " + words.Render(paint.Clip(held.summary, width-2)), true
 }
 
-func (m *model) drawMessagesTally() string {
+func (m *model) renderMessagesTally() string {
 	worst, count := messageInfo, 0
 	for _, held := range m.messages.items {
 		if held.kind < messageWarning {
@@ -46,34 +46,34 @@ func (m *model) drawMessagesTally() string {
 	return tally + "  " + dimStyle().Render(headLabel(m.keys.Messages.Open))
 }
 
-func (m *model) drawMessagesWindow(width, rows int) docWindow {
+func (m *model) renderMessagesWindow(width, rows int) docWindow {
 	body := max(width-messagesBodyIndent, 1)
 	count := len(m.messages.items)
 	at := m.messages.clampedCursor()
 
-	drawn := []string{m.drawMessagesHeading(width, count, at), ""}
+	rendered := []string{m.renderMessagesHeading(width, count, at), ""}
 	if count == 0 {
-		drawn = append(drawn, dimStyle().Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
+		rendered = append(rendered, dimStyle().Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
 	}
 
 	start, end := 0, 0
 	for i := range m.messages.items {
 		if i > 0 {
-			drawn = append(drawn, "")
+			rendered = append(rendered, "")
 		}
 
 		if i == at {
-			start = len(drawn)
+			start = len(rendered)
 		}
 
-		drawn = append(drawn, m.drawMessageRows(i, body)...)
+		rendered = append(rendered, m.renderMessageRows(i, body)...)
 
 		if i == at {
-			end = len(drawn)
+			end = len(rendered)
 		}
 	}
 
-	doc := docWindow{rows: drawn, markers: true}
+	doc := docWindow{rows: rendered, markers: true}
 	shape := doc.shape()
 	shape.Top = shape.Reveal(max(end-1, 0), rows)
 	doc.top = shape.Reveal(start, rows)
@@ -81,7 +81,7 @@ func (m *model) drawMessagesWindow(width, rows int) docWindow {
 	return doc
 }
 
-func (m *model) drawMessagesHeading(width, count, at int) string {
+func (m *model) renderMessagesHeading(width, count, at int) string {
 	title := paint.Panel.Header().Render("messages")
 	if count == 0 {
 		return title
@@ -93,7 +93,7 @@ func (m *model) drawMessagesHeading(width, count, at int) string {
 	return title + strings.Repeat(" ", pad) + dimStyle().Render(tally)
 }
 
-func (m *model) drawMessageRows(at, width int) []string {
+func (m *model) renderMessageRows(at, width int) []string {
 	held := m.messages.items[at]
 	hovered := at == m.messages.clampedCursor()
 	summary := lipgloss.NewStyle()

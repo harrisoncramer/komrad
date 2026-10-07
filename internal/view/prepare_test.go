@@ -21,7 +21,7 @@ func prepareOne(t *testing.T, row Row) line {
 	return list.Lines[0]
 }
 
-// TestPrepareStatusBar pins the bar every state of an agent is drawn as.
+// TestPrepareStatusBar pins the bar every state of an agent is rendered as.
 func TestPrepareStatusBar(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -57,7 +57,7 @@ func TestPrepareStatusBar(t *testing.T) {
 	}
 }
 
-// TestPrepareBarSaysWhatStandsBehindARow pins the bar drawing on every row whatever became of
+// TestPrepareBarSaysWhatStandsBehindARow pins the bar rendering on every row whatever became of
 // its process, so the rail runs unbroken down the list.
 func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	tests := []struct {
@@ -81,7 +81,7 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 			want: Cell{Text: glyph.Busy, Tone: paint.TonePrimary},
 		},
 		{
-			name: "a row that never had a process draws the quiet pipe all the same",
+			name: "a row that never had a process renders the quiet pipe all the same",
 			row:  Row{Status: StatusIdle, Process: ProcessNone},
 			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
 		},
@@ -173,7 +173,7 @@ func TestPrepareHiddenMark(t *testing.T) {
 			want: Cell{},
 		},
 		{
-			name: "an ordinary row draws nothing",
+			name: "an ordinary row renders nothing",
 			row:  Row{},
 			want: Cell{},
 		},
@@ -188,7 +188,7 @@ func TestPrepareHiddenMark(t *testing.T) {
 
 // TestPrepareColumnsFollowTheRowKind pins the difference between a stage that has not happened
 // and one that never can: the columns beside an agent's own row, under a heading or in a flat
-// list, are drawn greyed, and a row that is not an agent's own draws them blank.
+// list, are rendered greyed, and a row that is not an agent's own renders them blank.
 func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -250,8 +250,8 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 	}
 }
 
-// TestRepoCellDrawsOnlyAWorktree pins that an agent in its workflow's own directory wears no worktree.
-func TestRepoCellDrawsOnlyAWorktree(t *testing.T) {
+// TestRepoCellRendersOnlyAWorktree pins that an agent in its workflow's own directory wears no worktree.
+func TestRepoCellRendersOnlyAWorktree(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
@@ -324,7 +324,7 @@ func TestPrepareRepoColumn(t *testing.T) {
 			want: Cell{Glyph: glyph.Worktree, Tone: paint.ToneWarning},
 		},
 		{
-			name: "a clean checkout is drawn greyed rather than left out",
+			name: "a clean checkout is rendered greyed rather than left out",
 			repo: RepoClean,
 			want: Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted},
 		},
@@ -337,7 +337,7 @@ func TestPrepareRepoColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareComments pins the counts a row draws against the right edge.
+// TestPrepareComments pins the counts a row renders against the right edge.
 func TestPrepareComments(t *testing.T) {
 	slot := func(mark glyph.Glyph, count string, tone paint.Tone) Cell {
 		return Cell{Parts: []Cell{{Glyph: mark, Tone: tone}, {Text: " "}, {Text: count, Tone: tone}}}
@@ -349,18 +349,18 @@ func TestPrepareComments(t *testing.T) {
 		want []Cell
 	}{
 		{
-			name: "a row with no comments draws no counts",
+			name: "a row with no comments renders no counts",
 			row:  Row{Kind: KindAgent},
 		},
 		{
-			name: "a child row draws no counts",
+			name: "a child row renders no counts",
 			row: Row{
 				Kind:           KindChild,
 				PersonComments: &Comments{Open: 1},
 			},
 		},
 		{
-			name: "a row whose comments are all resolved and read draws no counts",
+			name: "a row whose comments are all resolved and read renders no counts",
 			row: Row{
 				Kind:             KindAgent,
 				ReviewerComments: &Comments{Resolved: 2},
@@ -396,7 +396,7 @@ func TestPrepareComments(t *testing.T) {
 			},
 		},
 		{
-			name: "unread replies on resolved comments still draw",
+			name: "unread replies on resolved comments still render",
 			row: Row{
 				Kind:           KindAgent,
 				PersonComments: &Comments{Resolved: 3, Unread: 1},
@@ -416,7 +416,7 @@ func TestPrepareComments(t *testing.T) {
 }
 
 // TestPrepareForgeColumn pins where a pull request opened from the branch stands, every state
-// of it, with nothing drawn while nothing is known or nothing was opened.
+// of it, with nothing rendered while nothing is known or nothing was opened.
 func TestPrepareForgeColumn(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -424,12 +424,12 @@ func TestPrepareForgeColumn(t *testing.T) {
 		want  Cell
 	}{
 		{
-			name:  "a repository not read yet draws nothing",
+			name:  "a repository not read yet renders nothing",
 			forge: ForgeUnread,
 			want:  Cell{},
 		},
 		{
-			name:  "no pull request from the branch draws nothing either",
+			name:  "no pull request from the branch renders nothing either",
 			forge: ForgeNone,
 			want:  Cell{},
 		},
@@ -454,7 +454,7 @@ func TestPrepareForgeColumn(t *testing.T) {
 			want:  Cell{Glyph: glyph.ChangesRequested, Tone: paint.ToneMuted},
 		},
 		{
-			name:  "checks running draw the row's loader frame in warning",
+			name:  "checks running render the row's loader frame in warning",
 			forge: ForgeChecksRunning,
 			want:  Cell{Text: "⠙", Tone: paint.ToneWarning},
 		},
@@ -499,7 +499,7 @@ func TestPrepareForgeColumn(t *testing.T) {
 	assert.Len(t, tests, int(ForgeEnd), "every state is pinned")
 }
 
-// TestPrepareForgeColumnMarksAutoMerge pins the merge a pull request is queued for drawn over a
+// TestPrepareForgeColumnMarksAutoMerge pins the merge a pull request is queued for rendered over a
 // state that is only waiting, and every state that wants the person left as it is.
 func TestPrepareForgeColumnMarksAutoMerge(t *testing.T) {
 	tests := []struct {
@@ -508,27 +508,27 @@ func TestPrepareForgeColumnMarksAutoMerge(t *testing.T) {
 		want  Cell
 	}{
 		{
-			name:  "failing checks still draw failing",
+			name:  "failing checks still render failing",
 			forge: ForgeFailing,
 			want:  Cell{Glyph: glyph.Failing, Tone: paint.ToneDanger},
 		},
 		{
-			name:  "checks running still draw the loader",
+			name:  "checks running still render the loader",
 			forge: ForgeChecksRunning,
 			want:  Cell{Text: "⠙", Tone: paint.ToneWarning},
 		},
 		{
-			name:  "a merged change still draws merged",
+			name:  "a merged change still renders merged",
 			forge: ForgeMerged,
 			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged},
 		},
 		{
-			name:  "an open pull request draws the merge greyed",
+			name:  "an open pull request renders the merge greyed",
 			forge: ForgeOpen,
 			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted},
 		},
 		{
-			name:  "an approval waiting on the forge draws the merge greyed",
+			name:  "an approval waiting on the forge renders the merge greyed",
 			forge: ForgeApprovedWaiting,
 			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted},
 		},
@@ -583,7 +583,7 @@ func TestPrepareWeight(t *testing.T) {
 	}
 }
 
-// TestPrepareEmphasis pins how brightly a name is drawn.
+// TestPrepareEmphasis pins how brightly a name is rendered.
 func TestPrepareEmphasis(t *testing.T) {
 	tests := []struct {
 		name string
@@ -672,7 +672,7 @@ func TestPrepareDimRowKeepsItsCaret(t *testing.T) {
 	assert.Equal(t, Cell{Text: glyph.Focus, Tone: paint.TonePrimary}, list.Lines[0].Focus)
 }
 
-// TestPrepareTrailingMarks pins the odds and ends drawn after a name.
+// TestPrepareTrailingMarks pins the odds and ends rendered after a name.
 func TestPrepareTrailingMarks(t *testing.T) {
 	tests := []struct {
 		name string
@@ -680,7 +680,7 @@ func TestPrepareTrailingMarks(t *testing.T) {
 		want line
 	}{
 		{
-			name: "a row with nothing after its name draws no trailing cell at all",
+			name: "a row with nothing after its name renders no trailing cell at all",
 			row:  Row{},
 			want: line{},
 		},
@@ -730,7 +730,7 @@ func TestPrepareTrailingMarks(t *testing.T) {
 	}
 }
 
-// TestPrepareFocus pins which row the keyboard is drawn as standing on.
+// TestPrepareFocus pins which row the keyboard is rendered as standing on.
 func TestPrepareFocus(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -879,7 +879,7 @@ func TestPrepareCarriesRowFacts(t *testing.T) {
 	assert.True(t, line.Selected)
 }
 
-// TestPrepareFocusOutranksEveryOtherEmphasis pins the row under the cursor being drawn as the
+// TestPrepareFocusOutranksEveryOtherEmphasis pins the row under the cursor being rendered as the
 // row under the cursor whatever else it has to say.
 func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
 	tests := []struct {
@@ -914,7 +914,7 @@ func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
 	}
 }
 
-// TestPrepareCaretStates pins the three ways the focused row's arrow stands: drawn, out for the
+// TestPrepareCaretStates pins the three ways the focused row's arrow stands: rendered, out for the
 // blink with the name still lit, and absent with the accent gone while the row stays focused.
 func TestPrepareCaretStates(t *testing.T) {
 	tests := []struct {
@@ -936,8 +936,8 @@ func TestPrepareCaretStates(t *testing.T) {
 			emphasis: emphasisFocused,
 		},
 		{
-			name:     "drawn",
-			caret:    CaretDrawn,
+			name:     "rendered",
+			caret:    CaretRendered,
 			blank:    false,
 			emphasis: emphasisFocused,
 		},
@@ -1012,7 +1012,7 @@ func TestPrepareHeldCell(t *testing.T) {
 		want Cell
 	}{
 		{
-			name: "a paused agent working anyway is drawn in danger",
+			name: "a paused agent working anyway is rendered in danger",
 			row:  Row{Held: true, HeldWorking: true},
 			want: Cell{Glyph: glyph.Paused, Tone: paint.ToneDanger},
 		},
@@ -1022,7 +1022,7 @@ func TestPrepareHeldCell(t *testing.T) {
 			want: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted},
 		},
 		{
-			name: "an agent nobody paused draws nothing",
+			name: "an agent nobody paused renders nothing",
 			row:  Row{},
 			want: Cell{},
 		},
@@ -1142,28 +1142,28 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
-			drawn := make([]glyph.Glyph, 0, 6)
+			rendered := make([]glyph.Glyph, 0, 6)
 			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Hidden, list.Lines[0].Document, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
 				if !cell.IsBlank() {
-					drawn = append(drawn, cell.Glyph)
+					rendered = append(rendered, cell.Glyph)
 				}
 			}
 
-			assert.Equal(t, tt.want, drawn)
+			assert.Equal(t, tt.want, rendered)
 		})
 	}
 }
 
-// TestPrepareDrawsTheColumnsAScreenDeclares pins the one thing a screen says about its columns
+// TestPrepareRendersTheColumnsAScreenDeclares pins the one thing a screen says about its columns
 // rather than its rows: the gutter is what it named, and the agents list's where it named none.
-func TestPrepareDrawsTheColumnsAScreenDeclares(t *testing.T) {
+func TestPrepareRendersTheColumnsAScreenDeclares(t *testing.T) {
 	tests := []struct {
 		name    string
 		columns Columns
 		want    Columns
 	}{
 		{
-			name: "a screen naming nothing draws the agents list's two",
+			name: "a screen naming nothing renders the agents list's two",
 			want: Columns{
 				{Kind: columnRepo, Width: 1},
 				{Kind: columnForge, Width: 1},
@@ -1268,9 +1268,9 @@ func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 		"each of the two costs an Octicon and the space after it")
 }
 
-// drawnResultNameColumn is the column a result list opens its name at, counted off the drawing
+// renderedResultNameColumn is the column a result list opens its name at, counted off the rendering
 // by hand rather than from the package's own arithmetic.
-const drawnResultNameColumn = 4
+const renderedResultNameColumn = 4
 
 // resultRows are the rows a list of search hits is made of.
 func resultRows() []Row {
@@ -1306,8 +1306,8 @@ func resultRows() []Row {
 	}
 }
 
-// drawResults is a result list with its styling taken off.
-func drawResults(pane int) []string {
+// renderResults is a result list with its styling taken off.
+func renderResults(pane int) []string {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
 		Columns: noColumns(),
@@ -1329,7 +1329,7 @@ func TestPrepareResultsDeclareNoColumn(t *testing.T) {
 
 	assert.Empty(t, wide.Columns)
 	assert.Equal(t, everyColumn(), Prepare(Snapshot{Rows: resultRows(), Pane: 200}).Columns,
-		"the same pane draws all three when none is named")
+		"the same pane renders all three when none is named")
 }
 
 // TestResultRowOpensAtTheGutter pins that a result is not a tree node: nothing is above it to be
@@ -1341,21 +1341,21 @@ func TestResultRowOpensAtTheGutter(t *testing.T) {
 		Columns: noColumns(),
 		Pane:    canonicalPane,
 	})
-	drawn := drawResults(canonicalPane)
-	require.Len(t, drawn, len(list.Lines))
+	rendered := renderResults(canonicalPane)
+	require.Len(t, rendered, len(list.Lines))
 
 	for i, line := range list.Lines {
 		if line.Lead != "" {
 			continue
 		}
 
-		assert.Equal(t, 0, line.Indent, "row %q", drawn[i])
-		assert.Equal(t, weightRegular, line.Weight, "row %q", drawn[i])
-		assert.Equal(t, drawnResultNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		assert.Equal(t, 0, line.Indent, "row %q", rendered[i])
+		assert.Equal(t, weightRegular, line.Weight, "row %q", rendered[i])
+		assert.Equal(t, renderedResultNameColumn, nameColumnOf(rendered[i], line), "row %q", rendered[i])
 	}
 }
 
-// TestHitRowHangsUnderItsResult pins that a turn is drawn one step in under the agent that
+// TestHitRowHangsUnderItsResult pins that a turn is rendered one step in under the agent that
 // said it, its lead before the words.
 func TestHitRowHangsUnderItsResult(t *testing.T) {
 	list := Prepare(Snapshot{
@@ -1363,8 +1363,8 @@ func TestHitRowHangsUnderItsResult(t *testing.T) {
 		Columns: noColumns(),
 		Pane:    canonicalPane,
 	})
-	drawn := drawResults(canonicalPane)
-	require.Len(t, drawn, len(list.Lines))
+	rendered := renderResults(canonicalPane)
+	require.Len(t, rendered, len(list.Lines))
 
 	hits := 0
 	for i, line := range list.Lines {
@@ -1373,14 +1373,14 @@ func TestHitRowHangsUnderItsResult(t *testing.T) {
 		}
 		hits++
 
-		assert.Equal(t, indentColumns, line.Indent, "row %q", drawn[i])
-		assert.Equal(t, weightRegular, line.Weight, "row %q", drawn[i])
-		assert.False(t, line.Rule, "row %q", drawn[i])
-		lead := strings.Index(drawn[i], line.Lead)
-		require.GreaterOrEqual(t, lead, 0, "row %q", drawn[i])
-		assert.Equal(t, wantNameColumn(kindHit), drawnColumns(drawn[i][:lead]), "row %q", drawn[i])
-		assert.Equal(t, wantNameColumn(kindHit)+len(line.Lead)+1, nameColumnOf(drawn[i], line), "row %q", drawn[i])
-		assert.Empty(t, line.Columns, "row %q", drawn[i])
+		assert.Equal(t, indentColumns, line.Indent, "row %q", rendered[i])
+		assert.Equal(t, weightRegular, line.Weight, "row %q", rendered[i])
+		assert.False(t, line.Rule, "row %q", rendered[i])
+		lead := strings.Index(rendered[i], line.Lead)
+		require.GreaterOrEqual(t, lead, 0, "row %q", rendered[i])
+		assert.Equal(t, wantNameColumn(kindHit), renderedColumns(rendered[i][:lead]), "row %q", rendered[i])
+		assert.Equal(t, wantNameColumn(kindHit)+len(line.Lead)+1, nameColumnOf(rendered[i], line), "row %q", rendered[i])
+		assert.Empty(t, line.Columns, "row %q", rendered[i])
 	}
 
 	assert.Equal(t, 2, hits)

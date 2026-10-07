@@ -10,7 +10,7 @@ import (
 // documentDiffPath is the name a document's diff is highlighted as.
 const documentDiffPath = "document.md"
 
-// documentHistory is one document's writes stepped through, drawing what the one stood on changed.
+// documentHistory is one document's writes stepped through, rendering what the one stood on changed.
 type documentHistory struct {
 	item documentItem
 	// versions is every write kept, newest first, and at the one stood on.
@@ -19,9 +19,9 @@ type documentHistory struct {
 	listing  bool
 	err      error
 	reads    map[int32]versionRead
-	// pane is the change drawn as a diff.
-	pane  diffview.Pane
-	drawn drawnChange
+	// pane is the change rendered as a diff.
+	pane     diffview.Pane
+	rendered renderedChange
 	// filter is the pattern being searched for in the diff.
 	filter filterState
 }
@@ -42,7 +42,7 @@ type versionRead struct {
 	err     error
 }
 
-// stepOlder steps back to the write before the one drawn, starting from the newest.
+// stepOlder steps back to the write before the one rendered, starting from the newest.
 func (d *documentsScreen) stepOlder(m *model) tea.Cmd {
 	item, ok := d.hovered(m)
 	if !ok || d.editing != nil {
@@ -64,7 +64,7 @@ func (d *documentsScreen) stepOlder(m *model) tea.Cmd {
 	return m.waitToStage()
 }
 
-// stepNewer steps forward to the write after the one drawn, and past the newest back to the
+// stepNewer steps forward to the write after the one rendered, and past the newest back to the
 // document as it stands.
 func (d *documentsScreen) stepNewer(m *model) tea.Cmd {
 	if !d.isSteppingHovered(m) {
@@ -124,52 +124,52 @@ func (h *documentHistory) readChange() (versionRead, versionRead, bool) {
 	return before, after, ok && !after.pending && !before.pending
 }
 
-// drawnChange is the two writes a change view was built between, and the background it was
+// renderedChange is the two writes a change view was built between, and the background it was
 // highlighted for.
-type drawnChange struct {
+type renderedChange struct {
 	before int32
 	after  int32
 	isDark bool
 }
 
-// isDrawn reports whether the change is drawn as a diff.
-func (h *documentHistory) isDrawn(isDark bool) bool {
-	drawn, _, _, ok := h.change(isDark)
+// isRendered reports whether the change is rendered as a diff.
+func (h *documentHistory) isRendered(isDark bool) bool {
+	rendered, _, _, ok := h.change(isDark)
 
-	return ok && h.pane.View() != nil && h.drawn == drawn && h.pane.View().Len() > 0
+	return ok && h.pane.View() != nil && h.rendered == rendered && h.pane.View().Len() > 0
 }
 
 // keepDiff builds the diff of the change once per pair of writes.
 func (h *documentHistory) keepDiff(isDark bool) {
-	drawn, before, after, ok := h.change(isDark)
-	if !ok || (h.pane.View() != nil && h.drawn == drawn) {
+	rendered, before, after, ok := h.change(isDark)
+	if !ok || (h.pane.View() != nil && h.rendered == rendered) {
 		return
 	}
 
 	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
 	view.SetHeadless(true)
 	view.SetPattern(h.filter.pattern)
-	h.pane, h.drawn = diffview.NewPane(view), drawn
+	h.pane, h.rendered = diffview.NewPane(view), rendered
 }
 
-// change is the two writes the change is drawn between and what they hold, and false when it is
-// not drawn as a diff.
-func (h *documentHistory) change(isDark bool) (drawnChange, versionRead, versionRead, bool) {
+// change is the two writes the change is rendered between and what they hold, and false when it is
+// not rendered as a diff.
+func (h *documentHistory) change(isDark bool) (renderedChange, versionRead, versionRead, bool) {
 	if h.err != nil || h.versions == nil || h.isOldestKeptLate() {
-		return drawnChange{}, versionRead{}, versionRead{}, false
+		return renderedChange{}, versionRead{}, versionRead{}, false
 	}
 
 	before, after, ok := h.readChange()
 	if !ok || after.err != nil || before.err != nil {
-		return drawnChange{}, versionRead{}, versionRead{}, false
+		return renderedChange{}, versionRead{}, versionRead{}, false
 	}
 
-	drawn := drawnChange{after: h.versions[h.at].version, isDark: isDark}
+	rendered := renderedChange{after: h.versions[h.at].version, isDark: isDark}
 	if h.at+1 < len(h.versions) {
-		drawn.before = h.versions[h.at+1].version
+		rendered.before = h.versions[h.at+1].version
 	}
 
-	return drawn, before, after, true
+	return rendered, before, after, true
 }
 
 // documentVersionsListedMsg is the writes kept of a document come back.
@@ -283,14 +283,14 @@ func (m *model) applyDocumentVersionRead(msg documentVersionReadMsg) {
 	h.reads[msg.version] = msg.read
 }
 
-// buildFrame builds the diff of the write stepped to once it is drawn beside the list.
+// buildFrame builds the diff of the write stepped to once it is rendered beside the list.
 func (d *documentsScreen) buildFrame(m *model) {
 	if _, ok := m.screenColumnSplit(); ok && d.isSteppingHovered(m) {
 		d.history.keepDiff(m.term.isDark)
 	}
 }
 
-// diffWindow is the size the diff is drawn at, under the rows over it.
+// diffWindow is the size the diff is rendered at, under the rows over it.
 func (d *documentsScreen) diffWindow(m *model) diffview.Window {
 	split, ok := m.screenColumnSplit()
 	item, hovered := d.hovered(m)

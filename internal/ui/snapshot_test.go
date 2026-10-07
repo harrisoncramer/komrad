@@ -660,7 +660,7 @@ func TestSnapshotHiddenTally(t *testing.T) {
 		want       int
 	}{
 		{
-			name:       "a count is dropped while the rows it stands for are drawn",
+			name:       "a count is dropped while the rows it stands for are rendered",
 			showHidden: true,
 			count:      3,
 			want:       0,
@@ -848,20 +848,20 @@ func TestSnapshotCarriesTheBlink(t *testing.T) {
 	shown := agentsSnapshot(snapshotParams{rows: rows, focused: "agent:a1"})
 
 	assert.Equal(t, view.CaretBlinkedOut, hidden.Caret)
-	assert.Equal(t, view.CaretDrawn, shown.Caret)
+	assert.Equal(t, view.CaretRendered, shown.Caret)
 	assert.Equal(t, "agent:a1", hidden.Focused)
 }
 
-// TestSnapshotOfAnEmptyPanelIsEmpty pins the first run, where there is nothing to draw at all.
+// TestSnapshotOfAnEmptyPanelIsEmpty pins the first run, where there is nothing to render at all.
 func TestSnapshotOfAnEmptyPanelIsEmpty(t *testing.T) {
 	snapshot := agentsSnapshot(snapshotParams{})
 
 	assert.Empty(t, snapshot.Rows)
 }
 
-// TestSnapshotChildRowCarriesNoTally pins half of why the busiest row a panel can draw is
+// TestSnapshotChildRowCarriesNoTally pins half of why the busiest row a panel can render is
 // narrower than the busiest row the model can express: a hidden child is counted on the parent
-// drawn above it, so a child row never stands in for anything.
+// rendered above it, so a child row never stands in for anything.
 func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
 	parent := panel.Agent{
 		ID:         "a1",

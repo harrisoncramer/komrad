@@ -13,10 +13,10 @@ import (
 // reviewInputKey is the field's key inside its own one-field form.
 const reviewInputKey = "body"
 
-// reviewInputBar is the bar huh draws a field with and the space after it.
+// reviewInputBar is the bar huh renders a field with and the space after it.
 const reviewInputBar = 2
 
-// reviewInput is the panel's ordinary text field, drawn in the review's own sidebar rather than
+// reviewInput is the panel's ordinary text field, rendered in the review's own sidebar rather than
 // in the column every other form is given.
 type reviewInput struct {
 	form *huh.Form
@@ -104,7 +104,7 @@ func (i reviewInput) update(msg tea.Msg) (reviewInput, tea.Cmd) {
 	return i, cmd
 }
 
-// view draws the field, and nothing at all where there is no field open.
+// view renders the field, and nothing at all where there is no field open.
 func (i reviewInput) view() string {
 	if i.form == nil {
 		return ""

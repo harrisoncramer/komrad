@@ -18,8 +18,8 @@ var errUnknownScheduleKind = errors.New("this build of komrad does not know the 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
 	rowCursor
-	// drawn is the rows built for the frame once an update settles, and nil while one runs.
-	drawn []scheduleItem
+	// rendered is the rows built for the frame once an update settles, and nil while one runs.
+	rendered []scheduleItem
 	renameSlot
 	kind      schedulesKind
 	kindFocus bool
@@ -73,17 +73,17 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 	}
 }
 
-// listRows is the list as drawn, or as it would be drawn when nothing has cached it.
+// listRows is the list as rendered, or as it would be rendered when nothing has cached it.
 func (w *schedulesScreen) listRows(m *model) []scheduleItem {
-	if w.drawn != nil {
-		return w.drawn
+	if w.rendered != nil {
+		return w.rendered
 	}
 
 	return w.buildRows(m)
 }
 
 func (w *schedulesScreen) buildFrame(m *model) {
-	w.drawn = w.buildRows(m)
+	w.rendered = w.buildRows(m)
 }
 
 func (w *schedulesScreen) buildRows(m *model) []scheduleItem {
@@ -164,12 +164,12 @@ func newScheduleForm(m *model) tea.Cmd {
 // openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
 // over the one it names otherwise.
 func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
-	drawnKind := values.Kind
+	renderedKind := values.Kind
 
-	return m.openForm(redrawnForm(redrawnFormParams{
+	return m.openForm(rerenderedForm(rerenderedFormParams{
 		Kind: formSchedule,
 		Build: func(m *model) (*huh.Form, []string) {
-			drawnKind = values.Kind
+			renderedKind = values.Kind
 
 			return scheduleForm(scheduleFormParams{
 				values:        values,
@@ -178,7 +178,7 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 				keys:          fixedKeys(),
 			})
 		},
-		Reshaped: func() bool { return values.Kind != drawnKind },
+		Reshaped: func() bool { return values.Kind != renderedKind },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit: holdSubmit(func(m *model) tea.Cmd {
 			var cmd tea.Cmd
@@ -271,7 +271,7 @@ func (w *schedulesScreen) help(m *model) keyMap {
 }
 
 var (
-	_ recordDrawer      = (*schedulesScreen)(nil)
+	_ recordRenderer    = (*schedulesScreen)(nil)
 	_ listFilterer      = (*schedulesScreen)(nil)
 	_ hoveredNamer      = (*schedulesScreen)(nil)
 	_ screenMenuBuilder = (*schedulesScreen)(nil)
@@ -281,7 +281,7 @@ var (
 	_ kindSwitcher      = (*schedulesScreen)(nil)
 )
 
-func (w *schedulesScreen) doesDrawFromListing() bool {
+func (w *schedulesScreen) doesRenderFromListing() bool {
 	return true
 }
 
@@ -313,7 +313,7 @@ func (w *schedulesScreen) filterRows(m *model) []filterRow {
 	return w.list().filterRows(m)
 }
 
-// column is the hovered schedule's own record drawn beside the list.
+// column is the hovered schedule's own record rendered beside the list.
 func (w *schedulesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,

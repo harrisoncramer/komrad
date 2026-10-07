@@ -23,7 +23,7 @@ func (l *logsScreen) emptyLine() string {
 	return "reading…"
 }
 
-// lines is the list as drawn: each source's name behind the cursor, the failed run marked after it.
+// lines is the list as rendered: each source's name behind the cursor, the failed run marked after it.
 func (l *logsScreen) lines(m *model, pane listPane) []string {
 	rows := l.rows(m)
 	if len(rows) == 0 {
@@ -32,7 +32,7 @@ func (l *logsScreen) lines(m *model, pane listPane) []string {
 
 	caret := pane.caret
 	if l.isBlockFocused(m) {
-		caret = view.CaretDrawn
+		caret = view.CaretRendered
 	}
 
 	return xslice.Map(rows, func(row logSourceRow) string {
@@ -51,7 +51,7 @@ func (l *logsScreen) lines(m *model, pane listPane) []string {
 	})
 }
 
-// block is the log drawn at the width and height of the block beside the sidebar, its lines
+// block is the log rendered at the width and height of the block beside the sidebar, its lines
 // pinned to the prompt at its foot.
 func (l *logsScreen) block(m *model, width int) []string {
 	split, ok := m.screenColumnSplit()
@@ -80,7 +80,7 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 	return dimStyle().Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query())
 }
 
-// logRows is the lines of the log drawn in height rows, or what stands in for them.
+// logRows is the lines of the log rendered in height rows, or what stands in for them.
 func (l *logsScreen) logRows(m *model, width, height int) []string {
 	row, hovered := rowAt(l.rows(m), l.rowCursor.cursor)
 

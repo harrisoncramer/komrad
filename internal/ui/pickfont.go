@@ -6,7 +6,7 @@ import (
 	"komrad/internal/panes"
 )
 
-// pickFont is the picker's letters drawn five rows tall, each cell doubled across so a letter
+// pickFont is the picker's letters rendered five rows tall, each cell doubled across so a letter
 // reads square.
 var pickFont = map[string][]string{
 	"d": {"██████ ", "██   ██", "██   ██", "██   ██", "██████ "},
@@ -18,8 +18,8 @@ var pickFont = map[string][]string{
 	"a": {" █████ ", "██   ██", "███████", "██   ██", "██   ██"},
 }
 
-// drawLetter is a target's letter as large as the target holds, falling back to the letter alone.
-func drawLetter(letter string, rect panes.Rect) string {
+// renderLetter is a target's letter as large as the target holds, falling back to the letter alone.
+func renderLetter(letter string, rect panes.Rect) string {
 	rows, ok := pickFont[letter]
 	if !ok {
 		return letter

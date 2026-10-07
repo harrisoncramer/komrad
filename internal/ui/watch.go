@@ -33,7 +33,7 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 }
 
 // applyWatch takes a batch off the stream into the world, a snapshot replacing it whole, and
-// draws the listing from it again.
+// renders the listing from it again.
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	if m.isHoldingWatch() {
 		m.writes.deferred = append(m.writes.deferred, batch...)

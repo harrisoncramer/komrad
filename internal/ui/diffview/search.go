@@ -7,7 +7,7 @@ import (
 	"komrad/internal/ui/reader"
 )
 
-// span is where a match sits inside a row's text, as byte offsets into the drawn line including
+// span is where a match sits inside a row's text, as byte offsets into the rendered line including
 // the marker the diff put in front of it.
 type span struct {
 	start int
@@ -116,7 +116,7 @@ func (v *View) jumpMatch(y, direction int) (int, bool) {
 	return reader.Jump(v.search.rows, y, direction)
 }
 
-// matchText is what a row offers to a search, which for a line is the text as drawn with its
+// matchText is what a row offers to a search, which for a line is the text as rendered with its
 // marker and for a file header its path.
 func (v *View) matchText(y int) (string, bool) {
 	current, ok := v.getRow(y)
@@ -135,7 +135,7 @@ func (v *View) matchText(y int) (string, bool) {
 	return v.quoteAt(y)
 }
 
-// quoteAt is a line as the diff draws it.
+// quoteAt is a line as the diff renders it.
 func (v *View) quoteAt(y int) (string, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.kind != lineRow {
@@ -167,7 +167,7 @@ func (v *View) matchesIn(y int) []span {
 
 	shifted := make([]span, 0, len(found))
 	for _, at := range found {
-		// A match on the marker alone has nothing to paint: the marker is drawn in the gutter.
+		// A match on the marker alone has nothing to paint: the marker is rendered in the gutter.
 		if shrunk := (span{start: max(at.start-1, 0), end: max(at.end-1, 0)}); shrunk.end > shrunk.start {
 			shifted = append(shifted, shrunk)
 		}

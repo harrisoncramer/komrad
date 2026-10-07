@@ -20,7 +20,7 @@ const GutterWidth = 13
 
 const tabWidth = 4
 
-// Cursor is how the row the reader is standing on is drawn, dim while the keys are somewhere
+// Cursor is how the row the reader is standing on is rendered, dim while the keys are somewhere
 // else.
 type Cursor int
 
@@ -36,8 +36,8 @@ var (
 	metadataStyle   = lipgloss.NewStyle().Faint(true)
 )
 
-// renderRow draws one row of the diff at the width it is shown at, taking the cursor as an
-// argument since only the row under it is redrawn as it moves.
+// renderRow renders one row of the diff at the width it is shown at, taking the cursor as an
+// argument since only the row under it is rerendered as it moves.
 func (v *View) renderRow(y int, cursor Cursor, width, offset int) string {
 	current, ok := v.getRow(y)
 	if !ok {
@@ -91,7 +91,7 @@ func (v *View) measureRow(y int, window Window) int {
 	return strings.Count(ansi.Hardwrap(sanitize(text), codeWidth, true), "\n") + 1
 }
 
-// renderLines draws a row as the lines it takes in the window, a wrapped code line carrying its
+// renderLines renders a row as the lines it takes in the window, a wrapped code line carrying its
 // gutter on the first and a blank one on the rest.
 func (v *View) renderLines(y int, cursor Cursor, window Window, offset int) []string {
 	if v.measureRow(y, window) == 1 {
@@ -165,7 +165,7 @@ func findOpenStyle(line string) string {
 	return open.String()
 }
 
-// renderFileRow draws a file's header, which for a collapsed file is its only row and says what
+// renderFileRow renders a file's header, which for a collapsed file is its only row and says what
 // is folded under it.
 func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) string {
 	background := getBackground(diff.Context, cursor)
@@ -221,7 +221,7 @@ func (v *View) countOpenThreadsIn(path string) int {
 	return open
 }
 
-// renderGutter draws the line numbers, what the diff did to the line, and whether a thread is
+// renderGutter renders the line numbers, what the diff did to the line, and whether a thread is
 // pinned to it.
 func (v *View) renderGutter(y int, line diff.Line, background color.Color) string {
 	mark, markStyle := " ", paint.Panel.Style(paint.ToneMuted)
@@ -237,7 +237,7 @@ func (v *View) renderGutter(y int, line diff.Line, background color.Color) strin
 		paint.Panel.Style(paint.ToneMuted).Background(background).Render(" ")
 }
 
-// markFor is the glyph a thread gets in the gutter, drawn in the colour of whoever opened it.
+// markFor is the glyph a thread gets in the gutter, rendered in the colour of whoever opened it.
 func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	style := markStyleFor(thread)
 
@@ -257,7 +257,7 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	return v.glyphs.Spell(glyph.ThreadRead), style
 }
 
-// markStyleFor is the colour a thread is drawn in, which says who opened it.
+// markStyleFor is the colour a thread is rendered in, which says who opened it.
 func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
 	if thread.GetMirrorsForge() {
 		return paint.Panel.Style(ForgeTone)
@@ -269,7 +269,7 @@ func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
 	return paint.Panel.Style(paint.ToneUserMe)
 }
 
-// renderThreadRow draws a thread with no line left to stand on, saying where it was written and
+// renderThreadRow renders a thread with no line left to stand on, saying where it was written and
 // what it opened with.
 func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 	mark, markStyle := v.markFor(current.thread)
@@ -282,11 +282,11 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 	background := getBackground(diff.Context, cursor)
 	style := lipgloss.NewStyle().Background(background)
 	head := strings.Repeat(" ", max(GutterWidth-2, 0))
-	drawn := style.Foreground(paint.Panel.Color(paint.ToneMuted)).Italic(true).Render(sanitize(said))
+	rendered := style.Foreground(paint.Panel.Color(paint.ToneMuted)).Italic(true).Render(sanitize(said))
 
 	return ansi.Truncate(
 		style.Render(head)+markStyle.Background(background).Render(mark)+style.Render(" ")+
-			fitWindow(drawn, 0, max(0, width-GutterWidth), background),
+			fitWindow(rendered, 0, max(0, width-GutterWidth), background),
 		width, "…")
 }
 
@@ -328,7 +328,7 @@ func getBackground(kind diff.LineKind, cursor Cursor) color.Color {
 	return plainBackground
 }
 
-// renderTokens draws one lexed line on a background, one token at a time rather than through a
+// renderTokens renders one lexed line on a background, one token at a time rather than through a
 // chroma formatter, which resets after every token and loses the background.
 func renderTokens(line styledLine, fallback string, background color.Color, found []span) string {
 	if len(line) == 0 {
@@ -345,7 +345,7 @@ func renderTokens(line styledLine, fallback string, background color.Color, foun
 		}
 
 		// A match is painted on its own background, so a token is cut at the edges of one and
-		// its pieces drawn separately.
+		// its pieces rendered separately.
 		for _, piece := range cutBy(current.text, at, found) {
 			pieceStyle := style
 			if piece.matched {

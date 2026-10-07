@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestTabStripView covers the strip drawn in the tones of where the keys are.
+// TestTabStripView covers the strip rendered in the tones of where the keys are.
 func TestTabStripView(t *testing.T) {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	accent := paint.Panel.Cursor()
@@ -39,7 +39,7 @@ func TestTabStripView(t *testing.T) {
 			want:  title + muted.Render("size") + "  " + muted.Render("↑ age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
-			name:  "the strip holding the keys draws the chosen tab in the accent",
+			name:  "the strip holding the keys renders the chosen tab in the accent",
 			state: tabsState{chosen: "age", focused: true},
 			want:  title + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
@@ -71,10 +71,10 @@ func TestTabStripView(t *testing.T) {
 	}
 
 	t.Run("a strip wider than the pane ends in an ellipsis", func(t *testing.T) {
-		drawn := buildGroupedStrip().view(tabsState{}, paint.Panel, 12)
+		rendered := buildGroupedStrip().view(tabsState{}, paint.Panel, 12)
 
-		assert.Equal(t, 12, lipgloss.Width(drawn))
-		assert.True(t, strings.HasSuffix(ansi.Strip(drawn), "…"))
+		assert.Equal(t, 12, lipgloss.Width(rendered))
+		assert.True(t, strings.HasSuffix(ansi.Strip(rendered), "…"))
 	})
 }
 

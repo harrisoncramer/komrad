@@ -28,7 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestReviewOpen covers which agents the review key opens a diff for and what it draws.
+// TestReviewOpen covers which agents the review key opens a diff for and what it renders.
 func TestReviewOpen(t *testing.T) {
 	t.Run("an agent that has written nothing is refused", func(t *testing.T) {
 		repo := gittest.NewRepo(t.TempDir())
@@ -76,7 +76,7 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), gittest.ErrNoGit.Error())
 	})
 
-	t.Run("the diff is drawn beside the sidebar over the whole window", func(t *testing.T) {
+	t.Run("the diff is rendered beside the sidebar over the whole window", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		frame := harness.readFrame()
@@ -87,7 +87,7 @@ func TestReviewOpen(t *testing.T) {
 		assert.Len(t, splitLines(frame), reviewHeight)
 	})
 
-	t.Run("the frame draws while the diff loads", func(t *testing.T) {
+	t.Run("the frame renders while the diff loads", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := newPanelHarness(t, panelHarnessParams{
 			width:  reviewWidth,
@@ -243,7 +243,7 @@ func TestReviewCursor(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), wide)
 	})
 
-	t.Run("wrapping draws a wide line whole and stops the pan", func(t *testing.T) {
+	t.Run("wrapping renders a wide line whole and stops the pan", func(t *testing.T) {
 		wide := strings.Repeat("a", reviewWidth) + "wrapped"
 		repo := gittest.NewRepo(t.TempDir())
 		repo.Wrote(gittest.WroteParams{
@@ -261,9 +261,9 @@ func TestReviewCursor(t *testing.T) {
 
 		harness.press("w")
 		stage := readStage(harness.readFrame())
-		drawn := strings.Join(stage, "\n")
-		assert.Contains(t, drawn, "wrapped")
-		assert.Greater(t, strings.Count(drawn, "aaaaaaaaaa"), 1, "the line runs on under itself")
+		rendered := strings.Join(stage, "\n")
+		assert.Contains(t, rendered, "wrapped")
+		assert.Greater(t, strings.Count(rendered, "aaaaaaaaaa"), 1, "the line runs on under itself")
 
 		harness.press("l")
 		assert.Equal(t, stage, readStage(harness.readFrame()), "the pan keys do nothing while lines wrap")
@@ -375,7 +375,7 @@ func TestReviewThreads(t *testing.T) {
 		assert.Equal(t, "this should say hello", again.GetBody())
 	})
 
-	t.Run("the thread under the cursor is drawn in the sidebar", func(t *testing.T) {
+	t.Run("the thread under the cursor is rendered in the sidebar", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "wrong greeting"))}
 
@@ -437,7 +437,7 @@ func TestReviewThreads(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "renamed it")
 	})
 
-	t.Run("a conversation an agent opened stays drawn while it holds an unsent reply", func(t *testing.T) {
+	t.Run("a conversation an agent opened stays rendered while it holds an unsent reply", func(t *testing.T) {
 		server := newReviewServer(t)
 		reply := newHumanMessage("m2", "yes, keep it")
 		reply.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
@@ -546,7 +546,7 @@ func TestReviewThreads(t *testing.T) {
 		)
 	})
 
-	t.Run("a settle in flight is drawn until it lands", func(t *testing.T) {
+	t.Run("a settle in flight is rendered until it lands", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "why did this change?"))}
 		harness := openReview(t, server)
@@ -641,7 +641,7 @@ func TestReviewPopupScroll(t *testing.T) {
 
 	t.Run("the wheel over the popup scrolls the conversation and leaves the diff", func(t *testing.T) {
 		harness := openLongThread(t)
-		x, y := readPopupMiddle(harness.readDrawn())
+		x, y := readPopupMiddle(harness.readRendered())
 
 		harness.send(tea.MouseWheelMsg{
 			X:      x,
@@ -1149,7 +1149,7 @@ func TestReviewRelease(t *testing.T) {
 
 // TestReviewWatch covers the conversation following the watch without a keypress.
 func TestReviewWatch(t *testing.T) {
-	t.Run("an answer the watch puts is drawn", func(t *testing.T) {
+	t.Run("an answer the watch puts is rendered", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		thread := newThreadOnFirstLine(newHumanMessage("m0", "fix it"), newAgentMessage("m1", "fixed it"))
@@ -1198,7 +1198,7 @@ func TestReviewWatch(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), "fixed it")
 	})
 
-	t.Run("an archived agent's threads stay drawn and a settle reads them back", func(t *testing.T) {
+	t.Run("an archived agent's threads stay rendered and a settle reads them back", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newDeliveredComment("m1"))}
 		harness := openReview(t, server)
@@ -1664,7 +1664,7 @@ func TestReviewLayout(t *testing.T) {
 		assert.Contains(t, frame, "package greet")
 	})
 
-	t.Run("the popup on a thread draws the conversation alone until the menu opens under it", func(t *testing.T) {
+	t.Run("the popup on a thread renders the conversation alone until the menu opens under it", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
 		harness := openReview(t, server)
@@ -1704,9 +1704,9 @@ func TestReviewLayout(t *testing.T) {
 	})
 }
 
-// TestReviewExpand covers drawing a file whole rather than as its hunks.
+// TestReviewExpand covers rendering a file whole rather than as its hunks.
 func TestReviewExpand(t *testing.T) {
-	t.Run("the expand key draws the lines the patch left out and gives the hunks back", func(t *testing.T) {
+	t.Run("the expand key renders the lines the patch left out and gives the hunks back", func(t *testing.T) {
 		harness, _ := openTallReview(t)
 		before := harness.readFrame()
 		require.Contains(t, before, "func Two()")
@@ -1735,7 +1735,7 @@ func TestReviewExpand(t *testing.T) {
 		assert.Equal(t, before, readReviewCursor(harness.readFrame()))
 	})
 
-	t.Run("a reload keeps the file drawn whole", func(t *testing.T) {
+	t.Run("a reload keeps the file rendered whole", func(t *testing.T) {
 		harness, _ := openTallReview(t)
 
 		harness.press("space", "E", "space", "R")
@@ -1743,7 +1743,7 @@ func TestReviewExpand(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "func Four()")
 	})
 
-	t.Run("a file with nothing more to draw refuses and says so", func(t *testing.T) {
+	t.Run("a file with nothing more to render refuses and says so", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.press("space", "E")
@@ -1761,7 +1761,7 @@ func TestReviewExpand(t *testing.T) {
 		assert.Contains(t, readEngineLine(frame), "folded away")
 	})
 
-	t.Run("a line only the expansion draws takes a comment", func(t *testing.T) {
+	t.Run("a line only the expansion renders takes a comment", func(t *testing.T) {
 		harness, _ := openTallReview(t)
 
 		harness.press("space", "E", "G")
@@ -1798,7 +1798,7 @@ func TestReviewExpand(t *testing.T) {
 		assert.NotContains(t, frame, "has changed")
 	})
 
-	t.Run("a file folded while drawn whole stays folded after a reload", func(t *testing.T) {
+	t.Run("a file folded while rendered whole stays folded after a reload", func(t *testing.T) {
 		harness, _ := openTallReview(t)
 
 		harness.press("space", "E", "space", "v", "space", "R")
@@ -2134,7 +2134,7 @@ func TestReviewReplay(t *testing.T) {
 
 // TestReviewComposer covers the field comments are typed into.
 func TestReviewComposer(t *testing.T) {
-	t.Run("the composer is drawn as an ordinary field", func(t *testing.T) {
+	t.Run("the composer is rendered as an ordinary field", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.press("space", "c")
@@ -2176,7 +2176,7 @@ func TestReviewComposer(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), note)
 	})
 
-	t.Run("every line typed is drawn at a narrow sidebar", func(t *testing.T) {
+	t.Run("every line typed is rendered at a narrow sidebar", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 22, height: 60})
 
 		harness.press("space", "S")
@@ -2444,7 +2444,7 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, released.GetSaid(), "greet.go")
 	})
 
-	t.Run("closing the editor draws the reader's own edits over a pinned diff", func(t *testing.T) {
+	t.Run("closing the editor renders the reader's own edits over a pinned diff", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
 		harness := openReview(t, server)

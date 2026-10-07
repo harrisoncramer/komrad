@@ -11,7 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// docReader is where the reader stands in the document drawn beside the list, and what they
+// docReader is where the reader stands in the document rendered beside the list, and what they
 // searched it for.
 type docReader struct {
 	reader.Reader
@@ -75,21 +75,21 @@ func (m *model) docBlock(split columnSplit) []string {
 
 	r := m.reading
 	focused := m.isDocFocused()
-	drawn := make([]string, len(rows))
+	rendered := make([]string, len(rows))
 	for i, row := range rows {
-		drawn[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.pattern, row))
+		rendered[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.pattern, row))
 		if focused && i == r.Line {
-			drawn[i] = paint.Panel.PaintRow(drawn[i], split.column)
+			rendered[i] = paint.Panel.PaintRow(rendered[i], split.column)
 		}
 	}
 
 	window := docWindow{
-		rows:    drawn,
+		rows:    rendered,
 		top:     r.Top,
 		markers: true,
 	}
 	if r.tail {
-		window.top = len(drawn)
+		window.top = len(rendered)
 	}
 
 	return append(head, strings.Split(window.view(height), "\n")...)
@@ -128,7 +128,7 @@ func (m *model) settleTail() {
 	}
 }
 
-// focusDoc hands the keys to the document, keeping the cursor on a row the window draws.
+// focusDoc hands the keys to the document, keeping the cursor on a row the window renders.
 func (m *model) focusDoc() {
 	rows, height, ok := m.docLayout()
 	if !ok {
@@ -157,7 +157,7 @@ func (m *model) scrollDoc(delta int) {
 }
 
 // dropStaleDoc forgets where the reader stood once the block shows another row, and hands the
-// keys back from a document the block no longer draws.
+// keys back from a document the block no longer renders.
 func (m *model) dropStaleDoc() {
 	if shown := m.docShown(); m.reading.shown != shown {
 		m.reading = docReader{shown: shown, tail: m.isScreenShown()}
@@ -245,7 +245,7 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 	m.reading.said = ""
 
 	k := key.String()
-	if _, ok := m.active().(recordDrawer); ok && isBound(k, fixedKeys().Quit) {
+	if _, ok := m.active().(recordRenderer); ok && isBound(k, fixedKeys().Quit) {
 		return m.hide()
 	}
 

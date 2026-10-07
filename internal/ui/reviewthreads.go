@@ -41,7 +41,7 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 	t.delivery = countDeliveries(threads)
 }
 
-// followWorld draws what the world now holds of the review, and reads the diff again when the
+// followWorld renders what the world now holds of the review, and reads the diff again when the
 // agent has moved past the round on screen.
 func (r *reviewScreen) followWorld(m *model) tea.Cmd {
 	r.followThreads(m)
@@ -50,7 +50,7 @@ func (r *reviewScreen) followWorld(m *model) tea.Cmd {
 	return r.followMove(m)
 }
 
-// followThreads draws the conversation the world holds on a live agent, once the reader has stopped
+// followThreads renders the conversation the world holds on a live agent, once the reader has stopped
 // typing.
 func (r *reviewScreen) followThreads(m *model) {
 	if r.diff.View() == nil || r.takesEveryKey() {

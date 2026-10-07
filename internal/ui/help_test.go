@@ -40,7 +40,7 @@ func TestHelp(t *testing.T) {
 		assert.Contains(t, readLegend(harness.readFrame()), "show help", "the key toggles rather than only expanding")
 	})
 
-	t.Run("a sidebar wide enough for two columns draws the same legend in fewer lines", func(t *testing.T) {
+	t.Run("a sidebar wide enough for two columns renders the same legend in fewer lines", func(t *testing.T) {
 		narrow := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 4), "?")...)
 		wide := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 11), "?")...)
 
@@ -69,16 +69,16 @@ func TestHelp(t *testing.T) {
 			assert.Equal(t, "  api-refactor", readHoveredRow(harness.readFrame()), "the list keeps its row at height %d", height)
 		}
 
-		assert.Contains(t, readLegend(harness.readFrame()), "hide help", "a tall pane draws the legend whole")
+		assert.Contains(t, readLegend(harness.readFrame()), "hide help", "a tall pane renders the legend whole")
 	})
 }
 
-// TestHelpFitsEveryScreen covers each legend drawn whole at the narrowest sidebar and never wider than the pane.
+// TestHelpFitsEveryScreen covers each legend rendered whole at the narrowest sidebar and never wider than the pane.
 func TestHelpFitsEveryScreen(t *testing.T) {
 	t.Parallel()
 
 	for _, screen := range buildListScreens() {
-		t.Run(screen.name+" is not drawn as an ellipsis at the narrowest sidebar", func(t *testing.T) {
+		t.Run(screen.name+" is not rendered as an ellipsis at the narrowest sidebar", func(t *testing.T) {
 			t.Parallel()
 
 			harness := openHelp(t, panelHarnessParams{}, append(screen.press, "?")...)
@@ -131,10 +131,10 @@ func TestHelpKeyDrift(t *testing.T) {
 	for _, screen := range buildDriftScreens() {
 		t.Run("the "+screen.name+" legend names every key it answers", func(t *testing.T) {
 			harness := openDriftScreen(t, screen)
-			drawn := harness.panel.ReadLegendKeys()
+			rendered := harness.panel.ReadLegendKeys()
 
 			for _, pressed := range pressable {
-				isExcused := slices.ContainsFunc(screen.excused, func(excused undrawn) bool {
+				isExcused := slices.ContainsFunc(screen.excused, func(excused unrendered) bool {
 					return excused.key == pressed
 				})
 				if isExcused {
@@ -144,7 +144,7 @@ func TestHelpKeyDrift(t *testing.T) {
 					continue
 				}
 
-				assert.Contains(t, drawn, pressed, "the %s screen answers %q and its legend does not name it", screen.name, pressed)
+				assert.Contains(t, rendered, pressed, "the %s screen answers %q and its legend does not name it", screen.name, pressed)
 			}
 		})
 
@@ -174,7 +174,7 @@ func openHelp(t *testing.T, params panelHarnessParams, press ...string) *panelHa
 	return harness
 }
 
-type undrawn struct {
+type unrendered struct {
 	key    string
 	reason string
 }
@@ -183,15 +183,15 @@ type driftScreen struct {
 	name    string
 	screen  string
 	open    func(t *testing.T) *panelHarness
-	excused []undrawn
+	excused []unrendered
 }
 
 func buildDriftScreens() []driftScreen {
-	quit := undrawn{
+	quit := unrendered{
 		key:    "ctrl+c",
 		reason: "quit is not worth a row on any screen",
 	}
-	nearest := undrawn{
+	nearest := unrendered{
 		key:    "V",
 		reason: "select to nearest is named once the selection it needs is standing",
 	}
@@ -202,7 +202,7 @@ func buildDriftScreens() []driftScreen {
 			name:   "agents",
 			screen: agentsScreen,
 			open:   openDriftAgents,
-			excused: []undrawn{
+			excused: []unrendered{
 				quit,
 				{
 					key:    "esc",
@@ -222,7 +222,7 @@ func buildDriftScreens() []driftScreen {
 
 				return harness
 			},
-			excused: []undrawn{quit},
+			excused: []unrendered{quit},
 		},
 		{
 			name:   "archived schedules",
@@ -232,7 +232,7 @@ func buildDriftScreens() []driftScreen {
 
 				return openArchivedSchedules(t, newLiveWorkflow("w1", "backend"), newArchivedSchedule("s1", "monthly-gone"))
 			},
-			excused: []undrawn{quit},
+			excused: []unrendered{quit},
 		},
 		{
 			name:   "archived agents",
@@ -245,7 +245,7 @@ func buildDriftScreens() []driftScreen {
 
 				return harness
 			},
-			excused: []undrawn{
+			excused: []unrendered{
 				quit,
 				nearest,
 			},
@@ -258,7 +258,7 @@ func buildDriftScreens() []driftScreen {
 
 				return openReview(t, newReviewServer(t))
 			},
-			excused: []undrawn{
+			excused: []unrendered{
 				quit,
 				{
 					key:    "ctrl+n",
@@ -278,7 +278,7 @@ func buildDriftScreens() []driftScreen {
 
 				return openWorktrees(t)
 			},
-			excused: []undrawn{
+			excused: []unrendered{
 				quit,
 				nearest,
 			},
@@ -293,7 +293,7 @@ func buildDriftScreens() []driftScreen {
 
 				return harness
 			},
-			excused: []undrawn{quit},
+			excused: []unrendered{quit},
 		},
 	}
 }

@@ -63,12 +63,12 @@ func statusCheckLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
 	}, "")
 }
 
-// doc is the logs of the shown checks drawn at a width, with the row each list row's header is drawn on.
-func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsDrawn {
+// doc is the logs of the shown checks rendered at a width, with the row each list row's header is rendered on.
+func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsRendered {
 	shown := c.shown(m)
 	shape := c.docShape(shown, width)
-	if c.drawn.shape == shape {
-		return c.drawn
+	if c.rendered.shape == shape {
+		return c.rendered
 	}
 
 	indent := strings.Repeat(" ", docMargin())
@@ -122,10 +122,10 @@ func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsDrawn {
 		}
 	}
 
-	return statusCheckLogsDrawn{shape: shape, rows: rows, anchors: anchors}
+	return statusCheckLogsRendered{shape: shape, rows: rows, anchors: anchors}
 }
 
-// docShape names everything the document is drawn from, so it is drawn again only once that changes.
+// docShape names everything the document is rendered from, so it is rendered again only once that changes.
 func (c *statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) string {
 	var shape strings.Builder
 	fmt.Fprintf(&shape, "%d/%d", c.generation, width)
@@ -141,7 +141,7 @@ func (c *statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) str
 	return shape.String()
 }
 
-// logNotice is what is drawn under a check in place of its log, empty while there are lines to draw.
+// logNotice is what is rendered under a check in place of its log, empty while there are lines to render.
 func (c *statusCheckLogsScreen) logNotice(item statusCheckItem) string {
 	read := c.logs[item.checkID]
 	switch {

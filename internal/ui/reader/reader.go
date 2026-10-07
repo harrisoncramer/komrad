@@ -1,4 +1,4 @@
-// Package reader walks a cursor through rows already rendered: the window that draws it, and the
+// Package reader walks a cursor through rows already rendered: the window that renders it, and the
 // rows a search found.
 package reader
 
@@ -12,7 +12,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Window is the rows of a document a view of some height draws, counting off what is past either
+// Window is the rows of a document a view of some height renders, counting off what is past either
 // end when it has markers.
 type Window struct {
 	Len     int
@@ -36,7 +36,7 @@ func (w Window) Clamp(top, height int) int {
 	return max(min(top, end), 0)
 }
 
-// Span is the rows the window draws, from the first to one past the last.
+// Span is the rows the window renders, from the first to one past the last.
 func (w Window) Span(height int) (int, int) {
 	top := w.Clamp(w.Top, height)
 
@@ -54,7 +54,7 @@ func (w Window) Span(height int) (int, int) {
 	return top, end
 }
 
-// Reveal is the first row of the window moved as little as it takes to draw a row.
+// Reveal is the first row of the window moved as little as it takes to render a row.
 func (w Window) Reveal(row, height int) int {
 	w.Top = w.Clamp(w.Top, height)
 	for {
@@ -74,7 +74,7 @@ func (w Window) Reveal(row, height int) int {
 	}
 }
 
-// Reader is a cursor on one row of a document and the first row its window draws.
+// Reader is a cursor on one row of a document and the first row its window renders.
 type Reader struct {
 	Line int
 	Top  int
@@ -100,8 +100,8 @@ func (r *Reader) Scroll(delta, rows, height int) {
 	r.Top = window.Clamp(window.Clamp(r.Top, height)+delta, height)
 }
 
-// Settle keeps the cursor where it is while the window draws it, and puts it on the first row
-// drawn otherwise.
+// Settle keeps the cursor where it is while the window renders it, and puts it on the first row
+// rendered otherwise.
 func (r *Reader) Settle(rows, height int) {
 	first, end := r.window(rows).Span(height)
 	if r.Line < first || r.Line >= end {

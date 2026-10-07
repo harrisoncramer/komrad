@@ -27,8 +27,8 @@ const (
 type archivedAgents struct {
 	rowCursor
 	sort tabsState
-	// drawn is the rows built for the frame once an update settles, and nil while one runs.
-	drawn []agentRow
+	// rendered is the rows built for the frame once an update settles, and nil while one runs.
+	rendered []agentRow
 	renameSlot
 }
 
@@ -172,21 +172,21 @@ var archivedAgentSorts = []sortColumn[panel.AgentRow]{
 	},
 }
 
-// listRows is the list as drawn, or as it would be drawn when nothing has cached it.
+// listRows is the list as rendered, or as it would be rendered when nothing has cached it.
 func (a *archivedAgents) listRows(m *model) []agentRow {
-	if a.drawn != nil {
-		return a.drawn
+	if a.rendered != nil {
+		return a.rendered
 	}
 
 	return a.buildRows(m)
 }
 
 func (a *archivedAgents) buildFrame(m *model) {
-	a.drawn = a.buildRows(m)
+	a.rendered = a.buildRows(m)
 }
 
 func (a *archivedAgents) buildRows(m *model) []agentRow {
-	// The archived agents draw an archived orchestrator as a row of its own.
+	// The archived agents render an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
 		workflows:  archivedAgentHeaders(m.listing),
 		agents:     sortedAgents(m.listing.archivedAgents, archivedAgentSorts, archivedAgentTabs().order(a.sort)),
@@ -197,7 +197,7 @@ func (a *archivedAgents) buildRows(m *model) []agentRow {
 	return narrowedAgentRows(m, rows)
 }
 
-// archivedAgentHeaders is every workflow the archived agents draw a folder for: the archived ones, and the
+// archivedAgentHeaders is every workflow the archived agents render a folder for: the archived ones, and the
 // live ones still holding an archived agent.
 func archivedAgentHeaders(l listing) []panel.Workflow {
 	holding := xslice.KeyBy(l.archivedAgents, func(item panel.AgentRow) string { return item.Agent.WorkflowID })
@@ -212,7 +212,7 @@ func archivedAgentHeaders(l listing) []panel.Workflow {
 		}
 	}
 
-	// The merge draws from two listings, so the result is sorted again the way the query sorts.
+	// The merge renders from two listings, so the result is sorted again the way the query sorts.
 	slices.SortStableFunc(headers, panel.ByName)
 
 	return headers
@@ -407,7 +407,7 @@ func archivedAgentTabs() tabStrip {
 }
 
 var (
-	_ recordDrawer         = (*archivedAgents)(nil)
+	_ recordRenderer       = (*archivedAgents)(nil)
 	_ listFilterer         = (*archivedAgents)(nil)
 	_ kindSwitcher         = (*archivedAgents)(nil)
 	_ tabSwitcher          = (*archivedAgents)(nil)
@@ -418,10 +418,10 @@ var (
 	_ lineTyper            = (*archivedAgents)(nil)
 	_ renamer              = (*archivedAgents)(nil)
 	_ hoveredAgentReporter = (*archivedAgents)(nil)
-	_ savedScreenDrawer    = (*archivedAgents)(nil)
+	_ savedScreenRenderer  = (*archivedAgents)(nil)
 )
 
-func (a *archivedAgents) doesDrawFromListing() bool {
+func (a *archivedAgents) doesRenderFromListing() bool {
 	return true
 }
 

@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// canonicalPane is the sidebar the settled design was drawn in, wide enough for all three
+// canonicalPane is the sidebar the settled design was rendered in, wide enough for all three
 // columns and the names beside them.
 const canonicalPane = 36
 
@@ -34,12 +34,12 @@ func everyColumn() Columns {
 // off and read the columns alone.
 var ansiEscapes = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
-// render draws every row of a list, one to a line.
+// render renders every row of a list, one to a line.
 func render(list List, palette paint.Palette, width int) string {
 	return strings.Join(Rows(list, palette, width), "\n")
 }
 
-// renderOne draws a single row and hands back the line it made.
+// renderOne renders a single row and hands back the line it made.
 func renderOne(t *testing.T, row Row) string {
 	t.Helper()
 
@@ -49,7 +49,7 @@ func renderOne(t *testing.T, row Row) string {
 	return render(list, paint.Panel, canonicalPane)
 }
 
-// TestRenderStatusBar draws the four bars an agent's state is carried by.
+// TestRenderStatusBar renders the four bars an agent's state is carried by.
 func TestRenderStatusBar(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -85,7 +85,7 @@ func TestRenderStatusBar(t *testing.T) {
 	}
 }
 
-// TestRenderRowShapes draws one row of each kind the tree holds.
+// TestRenderRowShapes renders one row of each kind the tree holds.
 func TestRenderRowShapes(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -155,7 +155,7 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
-			name:   "comment counts are drawn against the right edge, each marked with whose they are",
+			name:   "comment counts are rendered against the right edge, each marked with whose they are",
 			golden: "row-commented",
 			row: Row{
 				Kind:   KindAgent,
@@ -292,7 +292,7 @@ func TestRenderRowShapes(t *testing.T) {
 }
 
 // TestNameColumnsTakesTheGutterOffThePane pins the arithmetic a caller sizes a name by, in the
-// columns the font draws rather than the ones Unicode declares.
+// columns the font renders rather than the ones Unicode declares.
 func TestNameColumnsTakesTheGutterOffThePane(t *testing.T) {
 	tests := []struct {
 		name string
@@ -323,7 +323,7 @@ func TestNameColumnsTakesTheGutterOffThePane(t *testing.T) {
 	}
 }
 
-// TestRenderSelectedRowFillsThePane pins the bar a selected row is drawn under reaching the
+// TestRenderSelectedRowFillsThePane pins the bar a selected row is rendered under reaching the
 // width it was given rather than stopping at the text.
 func TestRenderSelectedRowFillsThePane(t *testing.T) {
 	list := Prepare(Snapshot{
@@ -352,12 +352,12 @@ func TestRenderSelectedRowUnderTheCursorKeepsBoth(t *testing.T) {
 		Pane:    canonicalPane,
 	})
 
-	drawn := render(list, paint.Panel, 40)
-	requireGolden(t, "row-selected-focused", drawn)
+	rendered := render(list, paint.Panel, 40)
+	requireGolden(t, "row-selected-focused", rendered)
 
 	// The golden alone would be satisfied by regenerating it, so the fact it is here for is
 	// asserted against the escape the name itself opens in.
-	assert.Contains(t, drawn, paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection)))
+	assert.Contains(t, rendered, paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection)))
 
 	unfocused := render(Prepare(Snapshot{
 		Rows: []Row{{
@@ -370,11 +370,11 @@ func TestRenderSelectedRowUnderTheCursorKeepsBoth(t *testing.T) {
 	}), paint.Panel, 40)
 
 	assert.Contains(t, unfocused, paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection)))
-	assert.NotEqual(t, styleOfName(unfocused, "iss-582"), styleOfName(drawn, "iss-582"),
+	assert.NotEqual(t, styleOfName(unfocused, "iss-582"), styleOfName(rendered, "iss-582"),
 		"the bar flattened the cursor off the name")
 }
 
-// TestRenderFocusedRow draws the row the keyboard is standing on.
+// TestRenderFocusedRow renders the row the keyboard is standing on.
 func TestRenderFocusedRow(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows: []Row{{
@@ -403,12 +403,12 @@ func emphasisRows() []Row {
 	}
 }
 
-// TestRenderEmphasis draws the emphases together.
+// TestRenderEmphasis renders the emphases together.
 func TestRenderEmphasis(t *testing.T) {
 	requireGolden(t, "list-emphasis", render(Prepare(Snapshot{Rows: emphasisRows()}), paint.Panel, 0))
 }
 
-// styleOfName is the escape a drawn row opens its name with, empty when the name is drawn in
+// styleOfName is the escape a rendered row opens its name with, empty when the name is rendered in
 // whatever the terminal already uses.
 func styleOfName(row, name string) string {
 	at := strings.Index(row, name)
@@ -424,7 +424,7 @@ func styleOfName(row, name string) string {
 	return opened[len(opened)-1]
 }
 
-// TestRenderCanonicalList draws the whole settled design.
+// TestRenderCanonicalList renders the whole settled design.
 func TestRenderCanonicalList(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    canonicalRows(),
@@ -436,7 +436,7 @@ func TestRenderCanonicalList(t *testing.T) {
 }
 
 // livePanelRows is the panel as it actually stands, taken off Harry's own listing rather than
-// drawn: mostly dormant agents, two running, one wanting a person and one that never started.
+// rendered: mostly dormant agents, two running, one wanting a person and one that never started.
 func livePanelRows() []Row {
 	return []Row{
 		{
@@ -558,7 +558,7 @@ func livePanelRows() []Row {
 	}
 }
 
-// TestRenderLivePanelShape draws the distribution a panel actually holds, which the settled
+// TestRenderLivePanelShape renders the distribution a panel actually holds, which the settled
 // design does not: it shows every value once, where a real listing is mostly empty bars.
 func TestRenderLivePanelShape(t *testing.T) {
 	list := Prepare(Snapshot{
@@ -570,12 +570,12 @@ func TestRenderLivePanelShape(t *testing.T) {
 	requireGolden(t, "list-live-panel", render(list, paint.Panel, 0))
 }
 
-// TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
+// TestRenderRendersTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
 // they come in, comparing runes rather than the columns they occupy.
-func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {
+func TestRenderRendersTheSpecifiedGlyphSequence(t *testing.T) {
 	want, err := readSpec()
 	require.NoError(t, err)
-	assert.Equal(t, want, strings.Split(drawCanonical(), "\n"))
+	assert.Equal(t, want, strings.Split(renderCanonical(), "\n"))
 }
 
 // TestRenderIndentsEachKindUnderTheOneAbove pins the rule the design is built on: a workflow
@@ -587,11 +587,11 @@ func TestRenderIndentsEachKindUnderTheOneAbove(t *testing.T) {
 		Focused: "strip-demo",
 		Pane:    canonicalPane,
 	})
-	drawn := strings.Split(drawCanonical(), "\n")
-	require.Len(t, drawn, len(list.Lines))
+	rendered := strings.Split(renderCanonical(), "\n")
+	require.Len(t, rendered, len(list.Lines))
 
 	for i, line := range list.Lines {
-		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(rendered[i], line), "row %q", rendered[i])
 	}
 }
 
@@ -613,17 +613,17 @@ func TestRenderBlankBarKeepsTheNameColumn(t *testing.T) {
 	}
 
 	list := Prepare(Snapshot{Rows: rows})
-	drawn := strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
-	require.Len(t, drawn, len(rows))
+	rendered := strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
+	require.Len(t, rendered, len(rows))
 
 	for i, line := range list.Lines {
-		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(rendered[i], line), "row %q", rendered[i])
 	}
 }
 
-// TestRenderDrawsASearchMatchInTheMatchColour pins a filtered list still showing what it
+// TestRenderRendersASearchMatchInTheMatchColour pins a filtered list still showing what it
 // matched on, the rest of the name keeping its own lettering.
-func TestRenderDrawsASearchMatchInTheMatchColour(t *testing.T) {
+func TestRenderRendersASearchMatchInTheMatchColour(t *testing.T) {
 	row := Row{
 		Key:     "one",
 		Kind:    KindAgent,
@@ -631,14 +631,14 @@ func TestRenderDrawsASearchMatchInTheMatchColour(t *testing.T) {
 		Matches: []Span{{Start: 5, End: 11}},
 	}
 
-	drawn := renderOne(t, row)
+	rendered := renderOne(t, row)
 
-	assert.Contains(t, drawn, paint.Panel.Match().Render("gather"))
-	assert.Contains(t, ansiEscapes.ReplaceAllString(drawn, ""), "view-gather")
+	assert.Contains(t, rendered, paint.Panel.Match().Render("gather"))
+	assert.Contains(t, ansiEscapes.ReplaceAllString(rendered, ""), "view-gather")
 }
 
 // TestNarrowSidebarsKeepTheirColumns pins that a narrow sidebar cuts names rather than columns:
-// the gutter a list declares is drawn at every pane.
+// the gutter a list declares is rendered at every pane.
 func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -651,7 +651,7 @@ func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 			wantName: 8,
 		},
 		{
-			name:     "the default sidebar draws both with room to spare",
+			name:     "the default sidebar renders both with room to spare",
 			pane:     30,
 			wantName: 22,
 		},
@@ -668,22 +668,22 @@ func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 			assert.Equal(t, everyColumn(), list.Columns)
 			assert.Equal(t, tt.wantName, nameColumns(tt.pane, list.Columns))
 
-			for _, drawn := range strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n") {
-				assert.LessOrEqual(t, drawnColumns(drawn), tt.pane, "row %q draws past the pane", drawn)
+			for _, rendered := range strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n") {
+				assert.LessOrEqual(t, renderedColumns(rendered), tt.pane, "row %q renders past the pane", rendered)
 			}
 		})
 	}
 }
 
 // TestRenderKeepsEveryReachableRowInsideThePane pins the rule the whole layout rests on: no row
-// draws past its pane, at any width, carrying anything the panel can actually put on it.
+// renders past its pane, at any width, carrying anything the panel can actually put on it.
 func TestRenderKeepsEveryReachableRowInsideThePane(t *testing.T) {
 	for _, row := range reachableRows() {
 		for pane := 16; pane <= 120; pane++ {
 			list := Prepare(Snapshot{Rows: []Row{row}, Pane: pane})
-			drawn := ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
+			rendered := ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
 
-			assert.LessOrEqual(t, drawnColumns(drawn), pane, "row %q draws past a pane of %d", drawn, pane)
+			assert.LessOrEqual(t, renderedColumns(rendered), pane, "row %q renders past a pane of %d", rendered, pane)
 		}
 	}
 }
@@ -718,63 +718,63 @@ func reachableRows() []Row {
 	return rows
 }
 
-// TestGutterColumnsAgreesWithWhatIsDrawn pins the arithmetic a caller sizes a name by against
-// the row the renderer actually draws, so the two cannot drift apart.
-func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
-	assert.Equal(t, drawnNameColumn, gutterColumns(everyColumn()))
+// TestGutterColumnsAgreesWithWhatIsRendered pins the arithmetic a caller sizes a name by against
+// the row the renderer actually renders, so the two cannot drift apart.
+func TestGutterColumnsAgreesWithWhatIsRendered(t *testing.T) {
+	assert.Equal(t, renderedNameColumn, gutterColumns(everyColumn()))
 }
 
-// drawnNameColumn is the column the settled design opens a workflow's name at, counted off the
-// drawing by hand rather than from the package's own arithmetic.
-const drawnNameColumn = 8
+// renderedNameColumn is the column the settled design opens a workflow's name at, counted off the
+// rendering by hand rather than from the package's own arithmetic.
+const renderedNameColumn = 8
 
-// drawnIndentStep is how far each level of the tree sets its name in, written out here rather
+// renderedIndentStep is how far each level of the tree sets its name in, written out here rather
 // than taken from the package so a change to the package's own constant fails these tests.
-const drawnIndentStep = 2
+const renderedIndentStep = 2
 
 // wantNameColumn is the column a row of the given kind opens its name at.
 func wantNameColumn(kind RowKind) int {
 	switch kind {
 	case KindWorkflow, KindDivider:
-		return drawnNameColumn
+		return renderedNameColumn
 	case KindAgent, KindTriageMore:
-		return drawnNameColumn + drawnIndentStep
+		return renderedNameColumn + renderedIndentStep
 	case KindChild:
-		return drawnNameColumn + 2*drawnIndentStep
+		return renderedNameColumn + 2*renderedIndentStep
 	case KindResult:
-		return drawnResultNameColumn
+		return renderedResultNameColumn
 	case kindHit:
-		return drawnResultNameColumn + drawnIndentStep
+		return renderedResultNameColumn + renderedIndentStep
 	}
 
-	return drawnNameColumn
+	return renderedNameColumn
 }
 
-// TestEveryGlyphDrawsOneColumn pins the measurement the whole gutter rests on: an Octicon takes
+// TestEveryGlyphRendersOneColumn pins the measurement the whole gutter rests on: an Octicon takes
 // one column, the same as the box-drawing rules beside it.
-func TestEveryGlyphDrawsOneColumn(t *testing.T) {
+func TestEveryGlyphRendersOneColumn(t *testing.T) {
 	for _, drawing := range glyph.Defaults().Drawings() {
 		assert.Equal(t, plainColumns, lipgloss.Width(drawing.Text), "%s %q", drawing.Name, drawing.Text)
 	}
 }
 
-// octiconColumns is how wide an Octicon is drawn, written out here rather than taken from the
+// octiconColumns is how wide an Octicon is rendered, written out here rather than taken from the
 // package so a change to the package's own constant fails this test.
 const octiconColumns = 1
 
-// nameColumnOf is the column a drawn row opens its own name at, past the corner a child hangs
+// nameColumnOf is the column a rendered row opens its own name at, past the corner a child hangs
 // off rather than at it.
-func nameColumnOf(drawn string, line line) int {
-	at := strings.Index(drawn, line.Name)
+func nameColumnOf(rendered string, line line) int {
+	at := strings.Index(rendered, line.Name)
 	if at < 0 {
 		return -1
 	}
 
-	return drawnColumns(drawn[:at])
+	return renderedColumns(rendered[:at])
 }
 
-// drawCanonical is the settled design as this package draws it, with its styling taken off.
-func drawCanonical() string {
+// renderCanonical is the settled design as this package renders it, with its styling taken off.
+func renderCanonical() string {
 	list := Prepare(Snapshot{
 		Rows:    canonicalRows(),
 		Focused: "strip-demo",
@@ -784,9 +784,9 @@ func drawCanonical() string {
 	return ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
 }
 
-// drawnColumns is how wide a stretch of a row is on screen, counting an Octicon as what the font
-// draws rather than as what Unicode declares.
-func drawnColumns(text string) int {
+// renderedColumns is how wide a stretch of a row is on screen, counting an Octicon as what the font
+// renders rather than as what Unicode declares.
+func renderedColumns(text string) int {
 	columns := 0
 	for _, r := range text {
 		if r >= 0xe000 && r <= 0xf8ff {
@@ -892,14 +892,14 @@ func canonicalRows() []Row {
 	}
 }
 
-// archivePane is the sidebar an archive row is drawn in here, wide enough that nothing below is
+// archivePane is the sidebar an archive row is rendered in here, wide enough that nothing below is
 // the narrowing.
 const archivePane = 39
 
-// drawnArchiveNameColumn is the column a workflow opens its name at on a screen that draws none
-// of the three columns, counted off the drawing by hand rather than from the package's own
+// renderedArchiveNameColumn is the column a workflow opens its name at on a screen that renders none
+// of the three columns, counted off the rendering by hand rather than from the package's own
 // arithmetic: the caret and the bar, a space apart, and a space before the name.
-const drawnArchiveNameColumn = 4
+const renderedArchiveNameColumn = 4
 
 // archiveRows is a list shaped like the archive: everything put away and so greyed, with a
 // workflow still live above the agents archived out of it.
@@ -943,7 +943,7 @@ func archiveRows() []Row {
 	}
 }
 
-// TestRenderArchiveList draws the archive as the shared renderer makes it.
+// TestRenderArchiveList renders the archive as the shared renderer makes it.
 func TestRenderArchiveList(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    archiveRows(),
@@ -956,7 +956,7 @@ func TestRenderArchiveList(t *testing.T) {
 }
 
 // TestArchiveNameOpensPastTheGutterItHas pins the three sites that must agree once a screen gives
-// its columns up: the drawing, the gutter arithmetic a caller sizes a name by, and the indent the
+// its columns up: the rendering, the gutter arithmetic a caller sizes a name by, and the indent the
 // tree is carried by.
 func TestArchiveNameOpensPastTheGutterItHas(t *testing.T) {
 	list := Prepare(Snapshot{
@@ -966,18 +966,18 @@ func TestArchiveNameOpensPastTheGutterItHas(t *testing.T) {
 	})
 	require.Len(t, list.Lines, len(archiveRows()))
 
-	assert.Equal(t, drawnArchiveNameColumn, gutterColumns(list.Columns))
+	assert.Equal(t, renderedArchiveNameColumn, gutterColumns(list.Columns))
 
 	rows := archiveRows()
-	for i, drawn := range Rows(list, paint.Panel, archivePane) {
-		want := wantNameColumn(rows[i].Kind) - drawnNameColumn + drawnArchiveNameColumn
+	for i, rendered := range Rows(list, paint.Panel, archivePane) {
+		want := wantNameColumn(rows[i].Kind) - renderedNameColumn + renderedArchiveNameColumn
 
-		assert.Equal(t, want, nameColumnOf(ansiEscapes.ReplaceAllString(drawn, ""), list.Lines[i]),
+		assert.Equal(t, want, nameColumnOf(ansiEscapes.ReplaceAllString(rendered, ""), list.Lines[i]),
 			"row %d (%q) opens its name where the gutter it has says it does", i, rows[i].Name)
 	}
 }
 
-// update rewrites every golden file from what the renderer draws.
+// update rewrites every golden file from what the renderer renders.
 var update = flag.Bool("update", false, "rewrite the golden files")
 
 // TestMain pins the colour profile.
@@ -987,7 +987,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// requireGolden compares a drawn block against the file holding it, writing that file instead
+// requireGolden compares a rendered block against the file holding it, writing that file instead
 // when the suite was run to update them.
 func requireGolden(t *testing.T, name, got string) {
 	t.Helper()
@@ -1005,7 +1005,7 @@ func requireGolden(t *testing.T, name, got string) {
 }
 
 // specPath is the settled design as plain text, kept beside the package since the RFC it was
-// drawn in is not tracked.
+// rendered in is not tracked.
 const specPath = "testdata/canonical-sidebar.golden"
 
 // readSpec is the lines of the settled design, as columns with no styling on them.
@@ -1030,7 +1030,7 @@ func muted(text string) Cell {
 	return Cell{Text: text, Tone: paint.ToneMuted}
 }
 
-// TestRenderTextColumnsSitBesideTheBar draws a list declaring two figure columns: each figure
+// TestRenderTextColumnsSitBesideTheBar renders a list declaring two figure columns: each figure
 // set against the right edge of its column, a header carrying only the first, and a child
 // carrying none.
 func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
@@ -1064,15 +1064,15 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 		Columns: figureColumns(),
 	})
 
-	drawn := render(list, paint.Panel, 30)
-	requireGolden(t, "list-figures", drawn)
+	rendered := render(list, paint.Panel, 30)
+	requireGolden(t, "list-figures", rendered)
 
-	lines := strings.Split(ansiEscapes.ReplaceAllString(drawn, ""), "\n")
+	lines := strings.Split(ansiEscapes.ReplaceAllString(rendered, ""), "\n")
 	require.Len(t, lines, len(rows))
 
 	for i, line := range lines {
-		assert.LessOrEqualf(t, lipgloss.Width(line), 30, "row %d draws past the pane", i)
-		want := gutterColumns(figureColumns()) + wantNameColumn(rows[i].Kind) - drawnNameColumn
+		assert.LessOrEqualf(t, lipgloss.Width(line), 30, "row %d renders past the pane", i)
+		want := gutterColumns(figureColumns()) + wantNameColumn(rows[i].Kind) - renderedNameColumn
 		assert.Equalf(t, want, nameColumnOf(line, list.Lines[i]), "row %d opens its name past the gutter", i)
 	}
 
@@ -1082,7 +1082,7 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 }
 
 // TestRenderTextCellIsClippedToItsColumn pins a figure wider than its column being cut rather
-// than pushing the name along, and a column with no width drawing nothing at all.
+// than pushing the name along, and a column with no width rendering nothing at all.
 func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1090,7 +1090,7 @@ func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "a column of no width draws nothing",
+			name:  "a column of no width renders nothing",
 			width: 0,
 			want:  "   │ komrad",
 		},
@@ -1112,14 +1112,14 @@ func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 				Columns: Columns{{Kind: ColumnText, Width: tt.width}},
 			})
 
-			drawn := ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
+			rendered := ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
 
-			assert.Equal(t, tt.want, drawn)
+			assert.Equal(t, tt.want, rendered)
 		})
 	}
 }
 
-// TestRenderResultList draws a result list whole.
+// TestRenderResultList renders a result list whole.
 func TestRenderResultList(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),

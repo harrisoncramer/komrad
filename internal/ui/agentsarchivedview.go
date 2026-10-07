@@ -26,7 +26,7 @@ func (a *archivedAgents) details(m *model) details {
 	}
 }
 
-// doc is the markdown drawn beside the list for the row the cursor is on.
+// doc is the markdown rendered beside the list for the row the cursor is on.
 func (a *archivedAgents) doc(m *model) string {
 	r, ok := rowAt(a.listRows(m), a.cursor)
 	switch {
@@ -39,12 +39,12 @@ func (a *archivedAgents) doc(m *model) string {
 	}
 }
 
-// docRows is the block drawn beside the list at a width for the row the cursor is on.
+// docRows is the block rendered beside the list at a width for the row the cursor is on.
 func (a *archivedAgents) docRows(m *model, width int) []string {
 	return paint.DocStyledRows(a.doc(m), width, columnStyle())
 }
 
-// archiveDocument is what the panel draws beside an archived agent's row.
+// archiveDocument is what the panel renders beside an archived agent's row.
 func archiveDocument(agent panel.Agent) string {
 	if agent.State.IsFailed() {
 		return failedPlaceholder(agent)
@@ -57,7 +57,7 @@ func (a *archivedAgents) view(m *model) string {
 	return m.columnListView(a.listParams(m))
 }
 
-// snapshot is the archived agents' rows as the plain data the shared drawing reads.
+// snapshot is the archived agents' rows as the plain data the shared rendering reads.
 func (a *archivedAgents) snapshot(m *model, pane listPane) view.Snapshot {
 	rows := a.listRows(m)
 

@@ -28,9 +28,9 @@ func TestAThreadIsNamedByItsOpeningLine(t *testing.T) {
 	assert.Equal(t, "this needs a nil check", firstLine(typed))
 }
 
-// TestNoRowIsWiderThanThePaneItWasDrawnFor pins every kind of row against the width it was
+// TestNoRowIsWiderThanThePaneItWasRenderedFor pins every kind of row against the width it was
 // handed.
-func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
+func TestNoRowIsWiderThanThePaneItWasRenderedFor(t *testing.T) {
 	t.Parallel()
 
 	view := NewView(patchWith(diff.File{
@@ -67,9 +67,9 @@ func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
 	for width := 1; width <= 40; width++ {
 		for y := range view.Len() {
 			for _, cursor := range []Cursor{noCursor, LiveCursor, DimCursor} {
-				drawn := view.renderRow(y, cursor, width, 0)
-				assert.LessOrEqual(t, lipgloss.Width(drawn), width,
-					"row %d at width %d: %q", y, width, ansi.Strip(drawn))
+				rendered := view.renderRow(y, cursor, width, 0)
+				assert.LessOrEqual(t, lipgloss.Width(rendered), width,
+					"row %d at width %d: %q", y, width, ansi.Strip(rendered))
 
 				window := Window{
 					Width:  width,
@@ -108,7 +108,7 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 
 	mark, style := view.markFor(thread)
 	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadRead), mark)
-	assert.Equal(t, paint.Panel.Style(paint.ToneUserMe), style, "a thread the person opened is drawn in their colour")
+	assert.Equal(t, paint.Panel.Style(paint.ToneUserMe), style, "a thread the person opened is rendered in their colour")
 
 	thread.ResolvedAt = "2026-08-27T12:00:00Z"
 	mark, style = view.markFor(thread)
@@ -124,7 +124,7 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
 	}
 	_, style = view.markFor(thread)
-	assert.Equal(t, paint.Panel.Style(paint.ToneUserAgent), style, "a thread the agent opened is drawn in its own colour")
+	assert.Equal(t, paint.Panel.Style(paint.ToneUserAgent), style, "a thread the agent opened is rendered in its own colour")
 }
 
 // TestTheDiffReachesTheTerminalWithoutItsControlCharacters pins control bytes in a path, hunk heading
@@ -177,14 +177,14 @@ func TestTheDiffReachesTheTerminalWithoutItsControlCharacters(t *testing.T) {
 			}), false)
 
 			for y := range view.Len() {
-				drawn := colour.ReplaceAllString(view.renderRow(y, noCursor, 40, 0), "")
-				assert.False(t, strings.ContainsFunc(drawn, unicode.IsControl), "row %d: %q", y, drawn)
+				rendered := colour.ReplaceAllString(view.renderRow(y, noCursor, 40, 0), "")
+				assert.False(t, strings.ContainsFunc(rendered, unicode.IsControl), "row %d: %q", y, rendered)
 			}
 		})
 	}
 }
 
-// TestAWrappedLineReadsBackWhole covers a code line too wide for the pane drawn on the lines
+// TestAWrappedLineReadsBackWhole covers a code line too wide for the pane rendered on the lines
 // under it, its gutter on the first and blank on the rest.
 func TestAWrappedLineReadsBackWhole(t *testing.T) {
 	t.Parallel()
@@ -216,9 +216,9 @@ func TestAWrappedLineReadsBackWhole(t *testing.T) {
 	assert.Equal(t, strings.ReplaceAll(text, " ", ""), strings.ReplaceAll(read.String(), " ", ""))
 }
 
-// TestAWrappedLineIsMeasuredAsDrawn covers a row counted from the source it is drawn from when
+// TestAWrappedLineIsMeasuredAsRendered covers a row counted from the source it is rendered from when
 // that source says more than the patch.
-func TestAWrappedLineIsMeasuredAsDrawn(t *testing.T) {
+func TestAWrappedLineIsMeasuredAsRendered(t *testing.T) {
 	t.Parallel()
 
 	file := diff.FromTexts("notes.md", "one", "short")

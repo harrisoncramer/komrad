@@ -70,7 +70,7 @@ func (i worktreeItem) isMerged() bool {
 	return standing != nil && standing.err == "" && !standing.dirty && !standing.sequencing && standing.unlanded == 0
 }
 
-// worktreeItemsFrom draws every directory in the world with the agents that answer for it.
+// worktreeItemsFrom renders every directory in the world with the agents that answer for it.
 func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow) []worktreeItem {
 	byID := make(map[string]panel.Agent, len(agents))
 	byCwd := map[string][]panel.Agent{}
@@ -272,8 +272,8 @@ type worktreesScreen struct {
 	scope      worktreeScope
 	scopeFocus bool
 	sort       tabsState
-	// drawn is the rows built for the frame once an update settles, and nil while one runs.
-	drawn []worktreeRow
+	// rendered is the rows built for the frame once an update settles, and nil while one runs.
+	rendered []worktreeRow
 }
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the

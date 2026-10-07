@@ -28,7 +28,7 @@ func TestIntegrationSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.
 	syncDivider(t, frame, total-51)
 
 	width, measured := frame.SidebarWidth(total)
-	assert.Equal(t, 50, width, "a dragged divider is what the sidebar draws in")
+	assert.Equal(t, 50, width, "a dragged divider is what the sidebar renders in")
 	assert.True(t, measured)
 
 	frame.Solo(true)
@@ -65,7 +65,7 @@ func TestIntegrationADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 	assert.Equal(t, 50, paneWidth(t, server, sidebar), "and the sidebar is left where it was dragged")
 
 	width, measured := frame.SidebarWidth(total)
-	assert.Equal(t, 50, width, "so what the panel draws in agrees with what tmux gave it")
+	assert.Equal(t, 50, width, "so what the panel renders in agrees with what tmux gave it")
 	assert.True(t, measured)
 }
 
@@ -97,7 +97,7 @@ func TestIntegrationAResizeWhileTheStagePaneIsDeadKeepsTheDivider(t *testing.T) 
 	assert.Equal(t, 50, paneWidth(t, server, sidebar), "and the sidebar is left where it was dragged")
 
 	width, measured := frame.SidebarWidth(total)
-	assert.Equal(t, 50, width, "so what the panel draws in agrees with what tmux gave it")
+	assert.Equal(t, 50, width, "so what the panel renders in agrees with what tmux gave it")
 	assert.True(t, measured)
 }
 

@@ -7,7 +7,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// ForgeTone is the tone comments mirrored from the forge are drawn in.
+// ForgeTone is the tone comments mirrored from the forge are rendered in.
 const ForgeTone = paint.ToneUserGithub
 
 // holdsFailedForgeReply reports whether a thread has a reply the forge refused, which waits on the

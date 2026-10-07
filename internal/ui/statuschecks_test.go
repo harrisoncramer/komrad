@@ -70,7 +70,7 @@ func TestStatusChecksList(t *testing.T) {
 		assert.Equal(t, []string{"lint", "test", "build"}, readListRows(frame))
 	})
 
-	t.Run("each status check is drawn with the icon the sidebar draws its pull request with", func(t *testing.T) {
+	t.Run("each status check is rendered with the icon the sidebar renders its pull request with", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, answerStatusChecks(
@@ -258,7 +258,7 @@ func TestStatusChecksScope(t *testing.T) {
 	})
 }
 
-// TestStatusChecksSteps covers the side pane drawing the steps of the hovered status check.
+// TestStatusChecksSteps covers the side pane rendering the steps of the hovered status check.
 func TestStatusChecksSteps(t *testing.T) {
 	t.Parallel()
 
@@ -280,7 +280,7 @@ func TestStatusChecksSteps(t *testing.T) {
 
 	listed := answerStatusChecks(lint, test, status)
 
-	t.Run("the hovered status check's steps are drawn with their icons and durations", func(t *testing.T) {
+	t.Run("the hovered status check's steps are rendered with their icons and durations", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReviewJump covers the jump key, which draws the diff a comment was written against.
+// TestReviewJump covers the jump key, which renders the diff a comment was written against.
 func TestReviewJump(t *testing.T) {
 	t.Run("a comment adrift in a chapter lands on its line in the diff it was written against", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
@@ -90,7 +90,7 @@ func TestReviewJump(t *testing.T) {
 		assert.Contains(t, frame, "1 file, +3 -0")
 	})
 
-	t.Run("a comment written on a narrowed chapter is drawn against that chapter's base", func(t *testing.T) {
+	t.Run("a comment written on a narrowed chapter is rendered against that chapter's base", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		thread := newThreadOnFirstLine(newHumanMessage("m1", "tidy the second file"))
 		thread.RoundId = "round-2"
@@ -107,7 +107,7 @@ func TestReviewJump(t *testing.T) {
 		assert.Contains(t, frame, "1 file, +3 -0")
 	})
 
-	t.Run("a comment whose own base is gone is drawn against its round's base", func(t *testing.T) {
+	t.Run("a comment whose own base is gone is rendered against its round's base", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		thread := newCommentOnRoundOne()
 		thread.BaseSha = "a-replayed-tree-gc-took"

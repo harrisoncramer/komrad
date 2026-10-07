@@ -31,7 +31,7 @@ type reviewHold struct {
 	// is what the agent is told about when it is let go.
 	touched []string
 
-	// atEditor says your own editor holds the stage, so the panel draws its sidebar alone.
+	// atEditor says your own editor holds the stage, so the panel renders its sidebar alone.
 	atEditor    bool
 	editingPath string
 	// editorPane is the pane the editor was given, empty where the split was refused, which is

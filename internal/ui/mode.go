@@ -16,10 +16,10 @@ const (
 	jumpModeLabel   = "  JUMP  "
 )
 
-// drawInMode is the sidebar inside its gutters with label drawn in tone at the right end of the
+// renderInMode is the sidebar inside its gutters with label rendered in tone at the right end of the
 // sidebar's bottom row.
-func (m *model) drawInMode(tone paint.Tone, label string) string {
-	lines := strings.Split(m.drawInset(m.insideView()), "\n")
+func (m *model) renderInMode(tone paint.Tone, label string) string {
+	lines := strings.Split(m.renderInset(m.insideView()), "\n")
 
 	bottom := len(lines) - 1
 	if m.term.height > 0 {
@@ -32,7 +32,7 @@ func (m *model) drawInMode(tone paint.Tone, label string) string {
 }
 
 // findModeEnd is the column of the pane the mode's label ends at, the last of the sidebar's own
-// cells short of a gutter, and never in the block drawn beside the sidebar.
+// cells short of a gutter, and never in the block rendered beside the sidebar.
 func (m *model) findModeEnd() int {
 	if m.frame.IsSidebarOnRight() {
 		return m.countInsetLeft() + m.term.width - gutter
@@ -49,7 +49,7 @@ func (m *model) findModeEnd() int {
 	return m.countInsetLeft() + m.term.width
 }
 
-// findMode is the tone and label of the mode the panel is in while it draws itself.
+// findMode is the tone and label of the mode the panel is in while it renders itself.
 func (m *model) findMode() (paint.Tone, string) {
 	if m.term.paneCopying {
 		return paint.ToneModeVisual, visualModeLabel
@@ -62,7 +62,7 @@ func (m *model) findMode() (paint.Tone, string) {
 	return paint.ToneModeNormal, normalModeLabel
 }
 
-// stampMode draws label in tone over row, ending at the column end.
+// stampMode renders label in tone over row, ending at the column end.
 func stampMode(row string, end int, tone paint.Tone, label string) string {
 	badge := paint.Panel.Mode(tone).Render(label)
 	at := end - lipgloss.Width(badge)

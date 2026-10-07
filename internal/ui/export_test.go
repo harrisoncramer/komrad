@@ -106,7 +106,7 @@ type recordingClipboard struct {
 	err     error
 }
 
-// HarnessFrameReader answers whether a pane is drawing its harness yet.
+// HarnessFrameReader answers whether a pane is rendering its harness yet.
 type HarnessFrameReader = harnessFrameReader
 
 // NewPanelParams is what a panel under test is built over.
@@ -248,15 +248,15 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmd, read, resized)
 }
 
-// View is the frame the panel draws.
+// View is the frame the panel renders.
 func (p *Panel) View() string {
 	return p.model.render()
 }
 
-// SidebarCols is the columns the list is drawn in beside a block at the default sidebar width.
+// SidebarCols is the columns the list is rendered in beside a block at the default sidebar width.
 const SidebarCols = config.DefaultSidebarWidth - dividerCols
 
-// Inside is the columns left of the frame the panel draws inside its gutter and edge, and how wide
+// Inside is the columns left of the frame the panel renders inside its gutter and edge, and how wide
 // that frame is.
 func (p *Panel) Inside() (int, int) {
 	return p.model.countInsetLeft(), p.model.term.width
@@ -327,7 +327,7 @@ func NewWriteLanded(agentID string) tea.Msg {
 	return writeResult{written: &written{row: agentRowKey(agentID), agent: agentID}}
 }
 
-// RequireGolden compares a drawn block against the file named for it under testdata.
+// RequireGolden compares a rendered block against the file named for it under testdata.
 func RequireGolden(t *testing.T, name, got string) {
 	t.Helper()
 
@@ -587,7 +587,7 @@ func (p *Panel) SetScreens(shown []panes.Rect, screens map[string]string) {
 	p.tmux.shown, p.tmux.screens = shown, screens
 }
 
-// ReadPickLetter is the letter the pane picker drew over a sidebar list, record, block or pull request, or
+// ReadPickLetter is the letter the pane picker rendered over a sidebar list, record, block or pull request, or
 // over a pane.
 func (p *Panel) ReadPickLetter(to string) string {
 	block, isBlock := map[string]stop{"list": stopList, "record": stopRecord, "block": stopBlock, "pullrequest": stopPullRequest}[to]

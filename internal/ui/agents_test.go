@@ -31,7 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestAgentsRows covers which rows the agents tree draws and where.
+// TestAgentsRows covers which rows the agents tree renders and where.
 func TestAgentsRows(t *testing.T) {
 	tests := []struct {
 		name string
@@ -39,7 +39,7 @@ func TestAgentsRows(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "an agent whose workflow is gone is not drawn",
+			name: "an agent whose workflow is gone is not rendered",
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "backend"),
 				newAgent("a1", "auth", "w1"),
@@ -73,7 +73,7 @@ func TestAgentsRows(t *testing.T) {
 			want: []string{"backend", "  auth", "frontend", "  ui"},
 		},
 		{
-			name: "a child is drawn under its parent rather than where the listing put it",
+			name: "a child is rendered under its parent rather than where the listing put it",
 			rows: buildFamily(),
 			want: []string{"komrad", "  fix-gutter", "  author", "  └ test-runner", "  └ reviewer"},
 		},
@@ -108,7 +108,7 @@ func TestAgentsRows(t *testing.T) {
 			want: []string{"komrad", "  fix-gutter", "  author +1", "  └ test-runner"},
 		},
 		{
-			name: "an orchestrator is drawn on its workflow's row rather than as a row of its own",
+			name: "an orchestrator is rendered on its workflow's row rather than as a row of its own",
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "backend"),
 				newOrchestrator(),
@@ -159,7 +159,7 @@ func TestAgentsRows(t *testing.T) {
 		}
 	})
 
-	t.Run("a branch draws nothing on the row", func(t *testing.T) {
+	t.Run("a branch renders nothing on the row", func(t *testing.T) {
 		branch := newAgent("a1", "worker", "w1")
 		branch.Branch = xptr.Ptr("agent/a1")
 
@@ -621,7 +621,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 	}
 }
 
-// TestAgentsRecord covers the record drawn under the list for the hovered row.
+// TestAgentsRecord covers the record rendered under the list for the hovered row.
 func TestAgentsRecord(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -692,7 +692,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list has the keys again")
 	})
 
-	t.Run("one cursor is drawn at a time", func(t *testing.T) {
+	t.Run("one cursor is rendered at a time", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		require.Equal(t, 1, countCursors(harness.readFrame()))
 
@@ -745,7 +745,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 		assert.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
 	})
 
-	t.Run("the row going from under a focused record draws the next from its top", func(t *testing.T) {
+	t.Run("the row going from under a focused record renders the next from its top", func(t *testing.T) {
 		rows := buildRecorded()
 		harness := openAgents(t, rows...)
 		harness.press("pick:record", "j", "j", "j")
@@ -790,7 +790,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 		want  string
 	}{
 		{
-			name: "the whole value is taken rather than the clipped line it is drawn on",
+			name: "the whole value is taken rather than the clipped line it is rendered on",
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -942,7 +942,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 			harness.watch(buildSnapshot(buildRecorded()...))
 
 			frame := harness.readFrame()
-			assert.Equal(t, tt.want > 0, isRecordDrawn(frame))
+			assert.Equal(t, tt.want > 0, isRecordRendered(frame))
 			assert.Len(t, readRecord(frame), tt.want)
 		})
 	}
@@ -978,7 +978,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 	})
 }
 
-// TestAgentsRecordFocusAndSize covers the record giving up the keys when the pane has no room to draw it.
+// TestAgentsRecordFocusAndSize covers the record giving up the keys when the pane has no room to render it.
 func TestAgentsRecordFocusAndSize(t *testing.T) {
 	rows := append(buildRecorded(), newAgentAt("billing", "w1", 1))
 
@@ -987,7 +987,7 @@ func TestAgentsRecordFocusAndSize(t *testing.T) {
 		params panelHarnessParams
 	}{
 		{
-			name:   "a pane too short to draw the record takes no letter",
+			name:   "a pane too short to render the record takes no letter",
 			params: panelHarnessParams{height: 8},
 		},
 		{
@@ -1050,7 +1050,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		wantAbsent []string
 	}{
 		{
-			name:       "a directory komrad does not hold draws no worktree rows and no error",
+			name:       "a directory komrad does not hold renders no worktree rows and no error",
 			answer:     refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
 			wantAbsent: []string{"worktree", "size", "changes"},
 		},
@@ -1492,7 +1492,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 				harness.press("/", "a")
 
 				frame := harness.readFrame()
-				assert.NotEmpty(t, readRecord(frame), "the record is still drawn with its search line")
+				assert.NotEmpty(t, readRecord(frame), "the record is still rendered with its search line")
 				assert.Len(t, splitLines(frame), tt.params.height)
 
 				harness.press("enter")
@@ -1522,7 +1522,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "/ agent3")
 	})
 
-	t.Run("a grown record with no room for a row draws nothing rather than two bare rules", func(t *testing.T) {
+	t.Run("a grown record with no room for a row renders nothing rather than two bare rules", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{
 			width:         40,
 			height:        24,
@@ -1534,7 +1534,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.press("pick:record", "?", "/", "a", "tab", "enter")
 
 		frame := harness.readFrame()
-		assert.False(t, isRecordDrawn(frame))
+		assert.False(t, isRecordRendered(frame))
 		assert.False(t, hasAdjacentRules(frame), "no bare rules stand where the record was")
 		assert.Len(t, splitLines(frame), 24)
 	})
@@ -1697,7 +1697,7 @@ func TestAgentsFailedPlaceholder(t *testing.T) {
 	}
 }
 
-// TestAgentsLastScreen covers the saved screen drawn beside an agent that is not running.
+// TestAgentsLastScreen covers the saved screen rendered beside an agent that is not running.
 func TestAgentsLastScreen(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -1707,13 +1707,13 @@ func TestAgentsLastScreen(t *testing.T) {
 		wantScreenFor []string
 	}{
 		{
-			name:          "a dormant agent draws its saved screen under how to resume it",
+			name:          "a dormant agent renders its saved screen under how to resume it",
 			agent:         newDormant("login"),
 			want:          []string{"dormant · press enter to restore", "saved screen", "the migration is written"},
 			wantScreenFor: []string{"a1"},
 		},
 		{
-			name: "a failed agent draws its failure and no saved screen",
+			name: "a failed agent renders its failure and no saved screen",
 			agent: func() *agentv1.Agent {
 				agent := newDormant("login")
 				agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
@@ -1728,13 +1728,13 @@ func TestAgentsLastScreen(t *testing.T) {
 			agent: newPausable(""),
 		},
 		{
-			name:          "a paused agent draws that it is paused over its saved screen",
+			name:          "a paused agent renders that it is paused over its saved screen",
 			agent:         newPausable("1970-01-01T00:00:00Z"),
 			want:          []string{"paused", "saved screen", "the migration is written"},
 			wantScreenFor: []string{"a1"},
 		},
 		{
-			name: "a paused agent whose pane died is still drawn as paused",
+			name: "a paused agent whose pane died is still rendered as paused",
 			agent: func() *agentv1.Agent {
 				agent := newPausable("1970-01-01T00:00:00Z")
 				agent.Alive = xptr.Ptr(false)
@@ -1769,7 +1769,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		})
 	}
 
-	t.Run("an agent that runs and stops again under the cursor draws its newer screen", func(t *testing.T) {
+	t.Run("an agent that runs and stops again under the cursor renders its newer screen", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		answerWorktreeReads(harness)
 		answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
@@ -1998,7 +1998,7 @@ func TestAgentsStrandedPause(t *testing.T) {
 		}
 	})
 
-	t.Run("a paused agent draws its document in place of its pane", func(t *testing.T) {
+	t.Run("a paused agent renders its document in place of its pane", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 
 		assert.True(t, harness.panel.IsZoomed(), "the panel keeps the window")
@@ -2077,7 +2077,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 			wantZoomed: true,
 		},
 		{
-			name:       "a workflow that never had one draws its shared context",
+			name:       "a workflow that never had one renders its shared context",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
 			want:       "no shared context set",
 			wantZoomed: true,
@@ -2102,15 +2102,15 @@ func TestAgentsOrchestrator(t *testing.T) {
 		})
 	}
 
-	t.Run("a running orchestrator whose harness draws late is staged once it draws", func(t *testing.T) {
-		frames := &drawReporter{}
+	t.Run("a running orchestrator whose harness renders late is staged once it renders", func(t *testing.T) {
+		frames := &renderReporter{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
 		harness.fireTimers()
 		require.Empty(t, harness.panel.ReadGuestPane())
 
-		frames.isDrawn = true
+		frames.isRendered = true
 		harness.fireTimers()
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
@@ -2136,7 +2136,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceStartOrchestratorProcedure)
 	})
 
-	t.Run("a flat list draws no row for the orchestrator it folded away", func(t *testing.T) {
+	t.Run("a flat list renders no row for the orchestrator it folded away", func(t *testing.T) {
 		harness := openAgents(t,
 			newLiveWorkflow("w1", "backend"),
 			newOrchestrator(),
@@ -2271,7 +2271,7 @@ func TestAgentsChildren(t *testing.T) {
 
 // TestAgentsWatchedEdits covers edits the watch delivers reaching the hovered row's record and document.
 func TestAgentsWatchedEdits(t *testing.T) {
-	t.Run("a workflow context edited elsewhere is drawn without the cursor moving", func(t *testing.T) {
+	t.Run("a workflow context edited elsewhere is rendered without the cursor moving", func(t *testing.T) {
 		workflow := newLiveWorkflow("w1", "api")
 		workflow.Context = "old notes"
 		harness := openAgents(t, workflow)

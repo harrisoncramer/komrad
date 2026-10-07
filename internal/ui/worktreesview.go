@@ -201,7 +201,7 @@ func worktreeWorkflowField(l listing, item worktreeItem) string {
 	return l.workflowName(workflowID)
 }
 
-// doc is the markdown drawn beside the list for the row the cursor is on.
+// doc is the markdown rendered beside the list for the row the cursor is on.
 func (w *worktreesScreen) doc(m *model) string {
 	return w.gitDoc(m)
 }
@@ -228,7 +228,7 @@ func (w *worktreesScreen) gitDoc(m *model) string {
 	return renderDocument(row.name(), "_"+row.item.dir+"_", worktreeProse(row.item, read), "")
 }
 
-// worktreeProse is the three blocks the document draws, each fenced.
+// worktreeProse is the three blocks the document renders, each fenced.
 func worktreeProse(item worktreeItem, read worktreeInspection) string {
 	var b strings.Builder
 

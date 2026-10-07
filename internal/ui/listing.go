@@ -64,7 +64,7 @@ func (m *model) unreachableHint() string {
 	return "Start it with: komrad serve"
 }
 
-// withListing changes the listing the screens draw from and puts each cursor back where it was.
+// withListing changes the listing the screens render from and puts each cursor back where it was.
 func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()
@@ -91,23 +91,23 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
 	m.sizeAgentWindows()
 
-	// A form draws its options from the listing it was built over, so it is drawn again when
+	// A form renders its options from the listing it was built over, so it is rendered again when
 	// that listing moves under it.
-	var redrawn tea.Cmd
+	var rerendered tea.Cmd
 	if !reflect.DeepEqual(before, m.listing.workflows) || !slices.Equal(beforeTypes, m.listing.documentTypeNames()) {
-		redrawn = m.redrawOpenForm()
+		rerendered = m.rerenderOpenForm()
 	}
 
-	return tea.Batch(redrawn, m.finishParked(), m.afterListing())
+	return tea.Batch(rerendered, m.finishParked(), m.afterListing())
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
 func (m *model) afterListing() tea.Cmd {
 	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
 
-	// A screen that draws what it holds beside its own list stages nothing at all.
+	// A screen that renders what it holds beside its own list stages nothing at all.
 	active := m.active()
-	if s, ok := active.(rowStager); ok && active.doesDrawFromListing() && !m.form.isActive() {
+	if s, ok := active.(rowStager); ok && active.doesRenderFromListing() && !m.form.isActive() {
 		s.stage(m)
 	}
 

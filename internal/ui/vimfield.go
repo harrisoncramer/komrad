@@ -73,7 +73,7 @@ func (v *fieldVim) press(form *huh.Form, field huh.Field, key string) (vim.Outco
 	result := v.engine(field.GetKey(), b, singleLine).Key(key, b)
 	if result.Outcome == vim.Consumed {
 		writeField(field, result.Buffer)
-		redrawForm(form)
+		rerenderForm(form)
 	}
 
 	return result.Outcome, true
@@ -90,17 +90,17 @@ func (v *fieldVim) arrive(form *huh.Form) bool {
 	key := field.GetKey()
 	v.focused = key
 	writeField(field, v.engineFor(key, b, singleLine).Normal(b))
-	redrawForm(form)
+	rerenderForm(form)
 
 	return true
 }
 
-// redrawMsg asks a form to draw its fields again.
-type redrawMsg struct{}
+// rerenderMsg asks a form to render its fields again.
+type rerenderMsg struct{}
 
-// redrawForm draws a form's fields again after vim wrote to one of them.
-func redrawForm(form *huh.Form) {
-	_, _ = form.Update(redrawMsg{})
+// rerenderForm renders a form's fields again after vim wrote to one of them.
+func rerenderForm(form *huh.Form) {
+	_, _ = form.Update(rerenderMsg{})
 }
 
 // isInserting reports whether the field with the cursor takes typed text rather than vim commands.

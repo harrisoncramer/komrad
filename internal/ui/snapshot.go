@@ -15,7 +15,7 @@ import (
 // data so the reading below needs nothing else.
 type snapshotParams struct {
 	rows []agentRow
-	// triage is the zone drawn ahead of the rows, empty on a list that draws none.
+	// triage is the zone rendered ahead of the rows, empty on a list that renders none.
 	triage triageSnapshot
 	// selected are the agents taken into a selection several rows wide.
 	selected selection
@@ -34,21 +34,21 @@ type snapshotParams struct {
 	scheduled map[string]bool
 	// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
 	workflowDirs map[string]string
-	// showHidden says the hidden rows are drawn alongside the rest, so none is stood in for.
+	// showHidden says the hidden rows are rendered alongside the rest, so none is stood in for.
 	showHidden bool
-	// flat says no workflow header is drawn over the rows.
+	// flat says no workflow header is rendered over the rows.
 	flat bool
-	// pane is how many columns the list is drawn in.
+	// pane is how many columns the list is rendered in.
 	pane int
 	// renaming is the name being typed over one row, nil when none is.
 	renaming *nameEdit
 }
 
-// agentsSnapshot reads the listing into the plain data the agents list draws itself from.
+// agentsSnapshot reads the listing into the plain data the agents list renders itself from.
 func agentsSnapshot(params snapshotParams) view.Snapshot {
 	rows := triageRows(params)
 	for _, r := range params.rows {
-		row := params.renaming.drawnOver(snapshotRow(r, params))
+		row := params.renaming.renderedOver(snapshotRow(r, params))
 		rows = append(rows, row)
 	}
 
@@ -80,7 +80,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Documents = r.orchestrator != nil && r.orchestrator.Documents > 0
 
 		// A workflow's bar is its orchestrator's, and one with no orchestrator running behind it
-		// draws no bar at all.
+		// renders no bar at all.
 		if r.orchestrator == nil || snapshotProcess(*r.orchestrator) == view.ProcessStopped {
 			row.Process = view.ProcessNone
 
@@ -125,7 +125,7 @@ func agentFacts(row view.Row, item panel.AgentRow) view.Row {
 	return row
 }
 
-// standingIn is how many rows one stands in for, which is none at all while they are all drawn.
+// standingIn is how many rows one stands in for, which is none at all while they are all rendered.
 func standingIn(count int, showHidden bool) int {
 	if showHidden {
 		return 0
@@ -252,7 +252,7 @@ func convertComments(counts *agentv1.CommentCounts) *view.Comments {
 }
 
 // snapshotForge is where the pull request opened from an agent's branch stands, as the forge
-// column draws it.
+// column renders it.
 func snapshotForge(item panel.AgentRow) view.Forge {
 	switch item.PullRequest.State {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:

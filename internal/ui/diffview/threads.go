@@ -60,7 +60,7 @@ func (v *View) indexLines() lineIndex {
 			index.byNew[newKey{filePath: file, newLine: int32(line.NewNumber)}] = y
 		}
 
-		// A row answers to the spelling the diff draws it as.
+		// A row answers to the spelling the diff renders it as.
 		key := quoteKey{filePath: file, quote: quote}
 		index.byQuote[key] = append(index.byQuote[key], y)
 
@@ -88,10 +88,10 @@ func quoteOf(thread *agentv1.ReviewThread) string {
 	return lines[0]
 }
 
-// doesQuoteMatch reports whether a drawn line reads the way a thread's quote was stored, under
+// doesQuoteMatch reports whether a rendered line reads the way a thread's quote was stored, under
 // either spelling.
-func doesQuoteMatch(drawn, stored string) bool {
-	return drawn == stored || strippedQuote(drawn) == stored
+func doesQuoteMatch(rendered, stored string) bool {
+	return rendered == stored || strippedQuote(rendered) == stored
 }
 
 // strippedQuote is a quoted line with its diff marker taken off the front.
@@ -109,7 +109,7 @@ func strippedQuote(quote string) string {
 }
 
 // quoted is the rows answering a thread's quote, kept apart by the spelling each answered under.
-func (i lineIndex) quoted(filePath, quote string) (drawn, bare []int) {
+func (i lineIndex) quoted(filePath, quote string) (rendered, bare []int) {
 	key := quoteKey{filePath: filePath, quote: quote}
 
 	return i.byQuote[key], i.byBareQuote[key]

@@ -39,7 +39,7 @@ const (
 	documentKindTypes
 )
 
-// documentsScreen lists documents, every agent's or one agent's, and draws the one under the cursor
+// documentsScreen lists documents, every agent's or one agent's, and renders the one under the cursor
 // beside the list.
 type documentsScreen struct {
 	rowCursor
@@ -141,7 +141,7 @@ func (d *documentsScreen) kinds(*model) stops {
 	}
 }
 
-// kindsFit reports whether the row of kinds is drawn, only ever over every agent's documents.
+// kindsFit reports whether the row of kinds is rendered, only ever over every agent's documents.
 func (d *documentsScreen) kindsFit(m *model) bool {
 	return d.listsEveryAgent() && m.listFitsTabs(d.listParams(m))
 }
@@ -499,7 +499,7 @@ func (m *model) applyDocumentRead(msg documentReadMsg) {
 var (
 	_ listFilterer     = (*documentsScreen)(nil)
 	_ columnFocuser    = (*documentsScreen)(nil)
-	_ crumbDrawer      = (*documentsScreen)(nil)
+	_ crumbRenderer    = (*documentsScreen)(nil)
 	_ screenLeaver     = (*documentsScreen)(nil)
 	_ rowStager        = (*documentsScreen)(nil)
 	_ itemMenuBuilder  = (*documentsScreen)(nil)
@@ -513,7 +513,7 @@ func (d *documentsScreen) stage(m *model) {
 	m.stageTerminal()
 }
 
-func (d *documentsScreen) doesDrawFromListing() bool {
+func (d *documentsScreen) doesRenderFromListing() bool {
 	return true
 }
 

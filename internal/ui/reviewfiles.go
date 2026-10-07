@@ -132,7 +132,7 @@ type renderTreeRowParams struct {
 	Filter  filterState
 }
 
-// renderTreeRow draws one row of the tree: its mark, its place in the tree, its name, and what it
+// renderTreeRow renders one row of the tree: its mark, its place in the tree, its name, and what it
 // holds.
 func renderTreeRow(m *model, params renderTreeRowParams) string {
 	row, width := params.Row, params.Width
@@ -164,14 +164,14 @@ func renderTreeRow(m *model, params renderTreeRowParams) string {
 	return lead + fitTreeRow(fit)
 }
 
-// statColumns is how wide each column right of a file's name is drawn across the tree.
+// statColumns is how wide each column right of a file's name is rendered across the tree.
 type statColumns struct {
 	Added   int
 	Removed int
 	Badge   int
 }
 
-// measureStatColumns is the widest count and badge any file row of the tree draws.
+// measureStatColumns is the widest count and badge any file row of the tree renders.
 func measureStatColumns(glyphs glyph.Set, rows []diffview.TreeRow) statColumns {
 	var columns statColumns
 	for _, row := range rows {
@@ -231,7 +231,7 @@ func formatThreadMark(glyphs glyph.Set, counts diffview.ThreadCounts) string {
 	return ""
 }
 
-// fitTreeRowParams is a row's name and what is drawn to the right of it.
+// fitTreeRowParams is a row's name and what is rendered to the right of it.
 type fitTreeRowParams struct {
 	Left   string
 	Stat   string
@@ -274,7 +274,7 @@ func joinRight(stat, badges string) string {
 	return stat + "  " + badges
 }
 
-func (r *reviewScreen) isBlockDrawn(m *model) bool {
+func (r *reviewScreen) isBlockRendered(m *model) bool {
 	if _, ok := m.screenColumnSplit(); !ok {
 		return false
 	}
@@ -283,7 +283,7 @@ func (r *reviewScreen) isBlockDrawn(m *model) bool {
 }
 
 func (r *reviewScreen) isBlockFocused(m *model) bool {
-	return r.focus == reviewFocusFiles && m.isListFocused() && !r.isWriting() && r.isBlockDrawn(m)
+	return r.focus == reviewFocusFiles && m.isListFocused() && !r.isWriting() && r.isBlockRendered(m)
 }
 
 func (r *reviewScreen) focusBlock(*model) {
@@ -296,7 +296,7 @@ func (r *reviewScreen) blurBlock() {
 	}
 }
 
-// stepFile moves the diff to the next file the tree draws, or the previous one for a negative
+// stepFile moves the diff to the next file the tree renders, or the previous one for a negative
 // direction.
 func (r *reviewScreen) stepFile(m *model, direction int) tea.Cmd {
 	keys := r.diffKeys()

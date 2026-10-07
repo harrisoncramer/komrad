@@ -22,7 +22,7 @@ const (
 	logsFilterSettle = 300 * time.Millisecond
 )
 
-// logsScreen lists where one agent's logs can be read from and draws the newest lines of the
+// logsScreen lists where one agent's logs can be read from and renders the newest lines of the
 // source under the cursor beside the list.
 type logsScreen struct {
 	rowCursor
@@ -46,7 +46,7 @@ type logsScreen struct {
 	pattern   string
 	edits     int
 	replacing bool
-	// format is how a service log is drawn, and formatFocus says its strip holds the keys.
+	// format is how a service log is rendered, and formatFocus says its strip holds the keys.
 	format      logview.Format
 	formatFocus bool
 }
@@ -379,7 +379,7 @@ func (l *logsScreen) listParams(m *model) screenListParams {
 	}
 }
 
-// buildFrame fits the log's cursor and view to the block it is drawn in.
+// buildFrame fits the log's cursor and view to the block it is rendered in.
 func (l *logsScreen) buildFrame(m *model) {
 	split, ok := m.screenColumnSplit()
 	if !ok || !l.read || l.viewer.Len() == 0 {
@@ -402,7 +402,7 @@ func (l *logsScreen) crumbs(m *model) crumbs {
 	return crumbs{trail: []string{name, "logs"}}
 }
 
-func (l *logsScreen) doesDrawFromListing() bool {
+func (l *logsScreen) doesRenderFromListing() bool {
 	return true
 }
 
@@ -419,8 +419,8 @@ func (l *logsScreen) column() columnSpec {
 	}
 }
 
-// isBlockDrawn reports whether the block beside the list holds lines of the log.
-func (l *logsScreen) isBlockDrawn(m *model) bool {
+// isBlockRendered reports whether the block beside the list holds lines of the log.
+func (l *logsScreen) isBlockRendered(m *model) bool {
 	if _, ok := m.screenColumnSplit(); !ok {
 		return false
 	}
@@ -438,7 +438,7 @@ func (l *logsScreen) isBlockFocused(m *model) bool {
 		return true
 	}
 
-	return l.isBlockDrawn(m)
+	return l.isBlockRendered(m)
 }
 
 func (l *logsScreen) focusBlock(*model) {
@@ -450,7 +450,7 @@ func (l *logsScreen) blurBlock() {
 }
 
 func (l *logsScreen) doesScrollColumn(m *model) bool {
-	return l.isBlockDrawn(m)
+	return l.isBlockRendered(m)
 }
 
 func (l *logsScreen) scrollColumn(_ *model, rows int) tea.Cmd {
@@ -469,7 +469,7 @@ func (l *logsScreen) move(lines int) tea.Cmd {
 var (
 	_ listFilterer  = (*logsScreen)(nil)
 	_ columnFocuser = (*logsScreen)(nil)
-	_ crumbDrawer   = (*logsScreen)(nil)
+	_ crumbRenderer = (*logsScreen)(nil)
 	_ screenLeaver  = (*logsScreen)(nil)
 	_ lineTyper     = (*logsScreen)(nil)
 	_ kindSwitcher  = (*logsScreen)(nil)
@@ -503,7 +503,7 @@ func (l *logsScreen) moveToEnd(_ *model, direction int) tea.Cmd {
 	return l.move(direction * l.viewer.Len())
 }
 
-// logFormatLabels name each format a service log is drawn in, indexed by logview.Format.
+// logFormatLabels name each format a service log is rendered in, indexed by logview.Format.
 var logFormatLabels = []string{"raw", "compact"}
 
 func (l *logsScreen) kinds(*model) stops {
@@ -514,7 +514,7 @@ func (l *logsScreen) kinds(*model) stops {
 	}
 }
 
-// kindsFit draws the format strip only over a service log.
+// kindsFit renders the format strip only over a service log.
 func (l *logsScreen) kindsFit(m *model) bool {
 	row, ok := rowAt(l.rows(m), l.rowCursor.cursor)
 
@@ -529,7 +529,7 @@ func (l *logsScreen) kindsSwitch(*model) bool {
 	return true
 }
 
-// stepKind draws the service log in another format.
+// stepKind renders the service log in another format.
 func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
 	l.format = logview.Format(stepStop(int(l.format), delta, len(logFormatLabels)))
 	if row, ok := rowAt(l.rows(m), l.rowCursor.cursor); ok {
@@ -539,7 +539,7 @@ func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
 	return nil
 }
 
-// applyFormat draws a service log in the chosen format and a run's output as it was written.
+// applyFormat renders a service log in the chosen format and a run's output as it was written.
 func (l *logsScreen) applyFormat(row logSourceRow) {
 	if !row.isServiceLog() {
 		l.viewer.SetFormat(logview.FormatRaw)

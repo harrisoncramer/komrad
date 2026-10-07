@@ -41,12 +41,12 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	now := time.Now()
 	caret := pane.caret
 	if d.isDiffFocused(m) {
-		caret = view.CaretDrawn
+		caret = view.CaretRendered
 	}
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentRow) view.Row {
-			return d.renamingField().drawnOver(view.Row{
+			return d.renamingField().renderedOver(view.Row{
 				Key:     r.key(),
 				Kind:    view.KindResult,
 				Lead:    d.ownerLead(m, r.item),
@@ -64,7 +64,7 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	}
 }
 
-// ownerLead is the agent that wrote a document, drawn before its name on every agent's list.
+// ownerLead is the agent that wrote a document, rendered before its name on every agent's list.
 func (d *documentsScreen) ownerLead(m *model, item documentItem) string {
 	if !d.listsEveryAgent() {
 		return ""
@@ -96,7 +96,7 @@ func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Sna
 	}
 }
 
-// doc is the markdown drawn beside the list for the document the cursor is on.
+// doc is the markdown rendered beside the list for the document the cursor is on.
 func (d *documentsScreen) doc(m *model) string {
 	item, ok := d.hovered(m)
 	if !ok {
@@ -133,7 +133,7 @@ func documentProse(name, body string) string {
 	return body
 }
 
-// docRows is the document drawn beside the list at a width: the write stepped to and what it
+// docRows is the document rendered beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
 func (d *documentsScreen) docRows(m *model, width int) []string {
 	if d.kind == documentKindTypes {
@@ -151,7 +151,7 @@ func (d *documentsScreen) docRows(m *model, width int) []string {
 		return head
 	}
 
-	if !h.isDrawn(m.term.isDark) {
+	if !h.isRendered(m.term.isDark) {
 		return append(head, h.changeRows(width)...)
 	}
 
@@ -221,7 +221,7 @@ func (h *documentHistory) renamedFrom() string {
 	return before
 }
 
-// changeRows is what stands in place of the diff while the change is not drawn as one.
+// changeRows is what stands in place of the diff while the change is not rendered as one.
 func (h *documentHistory) changeRows(width int) []string {
 	indent := strings.Repeat(" ", docMargin())
 
@@ -240,7 +240,7 @@ func (h *documentHistory) changeRows(width int) []string {
 	return []string{fitRow(indent+dimStyle().Render("no change to the text"), width)}
 }
 
-// documentTypeFrom is a type's context as it is drawn beside the list.
+// documentTypeFrom is a type's context as it is rendered beside the list.
 func documentTypeFrom(documentType *agentv1.DocumentType) string {
 	if documentType == nil {
 		return renderDocument("Document types", "_no document types yet_", "", "")

@@ -1,4 +1,4 @@
-// Package ui is the panel: one bubbletea program, drawn in its own tmux session, that holds no
+// Package ui is the panel: one bubbletea program, rendered in its own tmux session, that holds no
 // database connection and knows nothing the service has not told it.
 //
 // It is a client like any other. A keypress becomes an RPC, and the panel learns what came of
@@ -114,7 +114,7 @@ func (p *postbox) close() {
 }
 
 // resize reports the size the panel's own pane landed at as the resize it is, so a frame is never
-// drawn at a width the renderer has not been told about.
+// rendered at a width the renderer has not been told about.
 func (p *postbox) resize(width, height int) {
 	if p == nil {
 		return
@@ -183,7 +183,7 @@ type ReviewGit interface {
 	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)
 }
 
-// harnessFrameReader tells a harness that has drawn itself in a pane from one that has only
+// harnessFrameReader tells a harness that has rendered itself in a pane from one that has only
 // started.
 type harnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
@@ -195,7 +195,7 @@ type PanelSettings struct {
 	Addr string
 	// Editor is the command a text field or a reviewed file is opened in.
 	Editor string
-	// Pane is the tmux pane the panel is drawn in.
+	// Pane is the tmux pane the panel is rendered in.
 	Pane string
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary
 	// directory when empty.
@@ -358,7 +358,7 @@ type terminalState struct {
 	copying bool
 	// paneCopying is whether the pane holding the keys, other than the sidebar, is in copy-mode.
 	paneCopying bool
-	// markingZones is whether this frame carries the marks that say where each block was drawn.
+	// markingZones is whether this frame carries the marks that say where each block was rendered.
 	markingZones bool
 }
 

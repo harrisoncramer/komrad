@@ -15,7 +15,7 @@ import (
 
 const komradName = "komrad"
 
-// viewsBarFloor is the shortest pane the switcher is drawn in.
+// viewsBarFloor is the shortest pane the switcher is rendered in.
 const viewsBarFloor = 20
 
 // viewEntry is one view on the switcher.
@@ -45,17 +45,17 @@ func viewEntries() []viewEntry {
 	}
 }
 
-// drawsSwitcher reports whether the screen draws the row of views and answers the keys that
+// rendersSwitcher reports whether the screen renders the row of views and answers the keys that
 // switch them.
-func drawsSwitcher(s screen) bool {
+func rendersSwitcher(s screen) bool {
 	return slices.ContainsFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == s })
 }
 
 func (m *model) isViewsOpen() bool {
-	return m.viewsOpen && drawsSwitcher(m.screen)
+	return m.viewsOpen && rendersSwitcher(m.screen)
 }
 
-// viewsBar is the logo and the switcher drawn over a list, and under them the trail down to the
+// viewsBar is the logo and the switcher rendered over a list, and under them the trail down to the
 // row or page the cursor is on.
 func (m *model) viewsBar() string {
 	return m.viewsBars()[0]
@@ -86,7 +86,7 @@ func (m *model) viewsBars() []string {
 	})
 }
 
-// switcherLines is the logo and, on a screen that draws the switcher, the row of views.
+// switcherLines is the logo and, on a screen that renders the switcher, the row of views.
 func (m *model) switcherLines(trail crumbs) []string {
 	logo := paint.Panel.Title(glyph.Logo + " " + komradName)
 	if path := trail.view(paint.Panel, 0); path != "" {
@@ -94,7 +94,7 @@ func (m *model) switcherLines(trail crumbs) []string {
 	}
 
 	lines := []string{logo, m.engineLine(m.paneWidth()), ""}
-	if drawsSwitcher(m.screen) {
+	if rendersSwitcher(m.screen) {
 		lines = append(lines, m.viewsRow())
 	}
 	if width := m.paneWidth(); width > 0 {

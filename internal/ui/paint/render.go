@@ -40,12 +40,12 @@ func expandTabs(text string) string {
 	return b.String()
 }
 
-// Render draws markdown in the colours of the region it is drawn in.
+// Render renders markdown in the colours of the region it is rendered in.
 func (p Palette) Render(markdown string, wrap int) string {
 	return renderWith(markdown, wrap, p.Stage())
 }
 
-// renderWith draws markdown in the style it is handed, hard-wrapped to the column so nothing a
+// renderWith renders markdown in the style it is handed, hard-wrapped to the column so nothing a
 // word wrap will not break runs past it.
 func renderWith(markdown string, wrap int, style glamouransi.StyleConfig) string {
 	markdown = expandTabs(markdown)
@@ -66,7 +66,7 @@ func renderWith(markdown string, wrap int, style glamouransi.StyleConfig) string
 	}
 
 	// The markdown wraps on words, which leaves a code block or a link that will not break wider
-	// than the column, and every caller draws the column itself rather than handing it to a pager
+	// than the column, and every caller renders the column itself rather than handing it to a pager
 	// that would fold the overflow.
 	if wrap > 0 {
 		rendered = ansi.Hardwrap(rendered, wrap, true)
@@ -100,15 +100,15 @@ func markSpans(content string, spans []Span) string {
 	return marked.String()
 }
 
-// RenderTranscriptParams is a transcript to draw, the stretches of it to mark, and the column to
-// draw it in.
+// RenderTranscriptParams is a transcript to render, the stretches of it to mark, and the column to
+// render it in.
 type RenderTranscriptParams struct {
 	Conversation string
 	Spans        []Span
 	Width        int
 }
 
-// RenderTranscript draws a transcript as the markdown it is written in, with the matched words
+// RenderTranscript renders a transcript as the markdown it is written in, with the matched words
 // styled, and reports the line the first of them ended up on.
 func (p Palette) RenderTranscript(params RenderTranscriptParams) (string, int) {
 	rendered := p.Render(markSpans(params.Conversation, params.Spans), params.Width)

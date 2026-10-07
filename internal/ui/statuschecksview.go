@@ -74,8 +74,8 @@ func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	}
 }
 
-// statusCheckIcon is the icon drawn beside a check, in the glyphs and tones the forge column of
-// the sidebar draws a pull request's checks with.
+// statusCheckIcon is the icon rendered beside a check, in the glyphs and tones the forge column of
+// the sidebar renders a pull request's checks with.
 func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	switch {
 	case isStatusCheckUnknown(item):

@@ -1,4 +1,4 @@
-// Package submitting draws the writes the panel has sent and is waiting on.
+// Package submitting renders the writes the panel has sent and is waiting on.
 package submitting
 
 import (
@@ -25,7 +25,7 @@ type Write struct {
 	Since time.Time
 }
 
-// Params is what a write is drawn with.
+// Params is what a write is rendered with.
 type Params struct {
 	Palette paint.Palette
 	Frame   string
@@ -64,7 +64,7 @@ func formatElapsed(elapsed time.Duration) string {
 	return fmt.Sprintf("%dm%02ds", int(elapsed.Minutes()), int(elapsed.Seconds())%60)
 }
 
-// Notice is the line drawn at the bottom of a form held for w.
+// Notice is the line rendered at the bottom of a form held for w.
 func (w Write) Notice(params Params) string {
 	elapsed, slow := w.elapsed(params.Now)
 	head := spinner(params, slow) + " " + w.label()
@@ -86,7 +86,7 @@ func (w Write) Notice(params Params) string {
 	return fit(head, params.Width)
 }
 
-// Badge is the newest of the writes in flight, drawn in the corner of the sidebar.
+// Badge is the newest of the writes in flight, rendered in the corner of the sidebar.
 func Badge(writes []Write, params Params) string {
 	if len(writes) == 0 {
 		return ""

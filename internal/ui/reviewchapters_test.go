@@ -65,20 +65,20 @@ func TestThreadsByChapter(t *testing.T) {
 	}
 	threads := []*agentv1.ReviewThread{thread, opened}
 
-	drawn := threadsByChapter(threadsByChapterParams{
+	rendered := threadsByChapter(threadsByChapterParams{
 		Threads:  threads,
 		Chapters: chapters,
 		At:       0,
 	})
-	require.Len(t, drawn, 1, "a thread opened on round 2 is not drawn on round 1")
-	assert.Len(t, drawn[0].GetMessages(), 4, "the replies written after round 1 are kept")
+	require.Len(t, rendered, 1, "a thread opened on round 2 is not rendered on round 1")
+	assert.Len(t, rendered[0].GetMessages(), 4, "the replies written after round 1 are kept")
 
-	drawn = threadsByChapter(threadsByChapterParams{
+	rendered = threadsByChapter(threadsByChapterParams{
 		Threads:  threads,
 		Chapters: chapters,
 		At:       1,
 	})
-	assert.Len(t, drawn, 2, "round 2 draws both")
+	assert.Len(t, rendered, 2, "round 2 renders both")
 
 	whole := threadsByChapter(threadsByChapterParams{
 		Threads:  threads,

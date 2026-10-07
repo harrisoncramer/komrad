@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFitTreeRow covers a row of the file tree giving up what it draws on the right before its
+// TestFitTreeRow covers a row of the file tree giving up what it renders on the right before its
 // name.
 func TestFitTreeRow(t *testing.T) {
 	tests := []struct {
@@ -33,7 +33,7 @@ func TestFitTreeRow(t *testing.T) {
 			want:  "review.go     ○2",
 		},
 		{
-			name:  "a row with room for everything draws it",
+			name:  "a row with room for everything renders it",
 			width: 24,
 			want:  "review.go     +12 −3  ○2",
 		},

@@ -16,7 +16,7 @@ var pickLetters = []string{"d", "f", "j", "k", "l", "s", "a"}
 type pickerState struct {
 	// freezing is whether a snapshot is being taken.
 	freezing bool
-	// frozen is the window drawn as it stood, empty while nothing is frozen.
+	// frozen is the window rendered as it stood, empty while nothing is frozen.
 	frozen string
 	// returnTo is the pane that held the keys before the window froze.
 	returnTo string
@@ -97,7 +97,7 @@ func (m *model) freeze() tea.Cmd {
 		targets := findPickTargets(shown, sidebar, blocks)
 
 		return pickerFrozenMsg{
-			frozen:   window.drawPicker(targets),
+			frozen:   window.renderPicker(targets),
 			returnTo: returnTo,
 			targets:  targets,
 		}
