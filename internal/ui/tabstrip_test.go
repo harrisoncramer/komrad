@@ -121,14 +121,13 @@ func TestTabStrip(t *testing.T) {
 	t.Run("the legend names the strip's own keys while it holds them", func(t *testing.T) {
 		harness := openWorktrees(t)
 		harness.press("?")
-		assert.Regexp(t, `(?m)^f +sort`, readLegend(harness.readFrame()))
+		assert.Regexp(t, `\bf +sort`, readLegend(harness.readFrame()))
 
 		harness.press("f")
 		legend := readLegend(harness.readFrame())
 		assert.Contains(t, legend, "tab/S-tab")
 		assert.Contains(t, legend, "sort down/up, flip")
 		assert.Contains(t, legend, "back to the list")
-		assert.NotContains(t, legend, "jump to agent")
 	})
 
 	t.Run("a pane too short for the strip and a row renders no strip and takes no keys", func(t *testing.T) {

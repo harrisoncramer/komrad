@@ -15,7 +15,6 @@ type subpage int
 
 const (
 	subpageReview subpage = iota
-	subpageDocuments
 	subpageLogs
 	subpageChecks
 	subpageTerminal
@@ -42,19 +41,22 @@ func agentMenu(m *model, openedFrom screen, item panel.AgentRow, own ...submenuE
 	})
 
 	return submenu{
-		kind:    formMenu,
-		title:   m.listing.agentName(agent),
-		entries: slices.Concat(pages, own, []submenuEntry{nestedEntry("git", m.keys.Menu.Git, gitMenu(m, item))}),
+		kind:  formMenu,
+		title: m.listing.agentName(agent),
+		entries: slices.Concat(pages, own, []submenuEntry{
+			nestedEntry("git", m.keys.Menu.Git, gitMenu(m, item)),
+			nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, openedFrom, agentID)),
+		}),
 	}
 }
 
-// agentSubpages is the subpages an agent has, less an orchestrator's work and writing.
+// agentSubpages is the subpages an agent has, less an orchestrator's work.
 func agentSubpages(agent panel.Agent) []subpage {
 	if agent.Role == panel.RoleOrchestrator {
-		return []subpage{subpageLogs, subpageTerminal}
+		return []subpage{subpageDocuments, subpageLogs, subpageTerminal}
 	}
 
-	return []subpage{subpageReview, subpageDocuments, subpageLogs, subpageChecks, subpageTerminal}
+	return []subpage{subpageReview, subpageLogs, subpageChecks, subpageTerminal}
 }
 
 // subpageEntry is how a subpage is rendered in an agent's menu.
@@ -66,8 +68,6 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 			keys:  m.keys.Menu.Review,
 			isOff: reviewRefusal(item.Agent) != nil,
 		}
-	case subpageDocuments:
-		return submenuEntry{label: "documents", keys: m.keys.Menu.Documents}
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
 	case subpageChecks:
@@ -129,10 +129,6 @@ func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) 
 		m.leaveForm()
 
 		return m.enter(screenReview, screenTarget{agentID: agentID})
-	case subpageDocuments:
-		m.leaveForm()
-
-		return m.enter(screenDocuments, screenTarget{agentID: agentID})
 	case subpageLogs:
 		m.leaveForm()
 

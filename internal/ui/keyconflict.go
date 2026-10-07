@@ -90,6 +90,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "edit", keys: keys.DocumentMenu.Edit},
 		{name: "rename", keys: keys.DocumentMenu.Rename},
 		{name: "new", keys: keys.DocumentMenu.New},
+		{name: "jump", keys: keys.Menu.Jump},
 	}); err != nil {
 		return err
 	}
@@ -123,6 +124,14 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
+	if err := validateSubmenuKeys("jump menu", []submenuKeys{
+		{name: "agent", keys: keys.JumpMenu.Agent},
+		{name: "worktree", keys: keys.JumpMenu.Worktree},
+		{name: "documents", keys: keys.JumpMenu.Documents},
+	}); err != nil {
+		return err
+	}
+
 	if err := validateSubmenuKeys("merge menu", []submenuKeys{
 		{name: "merge", keys: keys.Merge.Merge},
 		{name: "merge_archive", keys: keys.Merge.MergeArchive},
@@ -134,7 +143,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 
 	return validateSubmenuKeys("menu", []submenuKeys{
 		{name: "review", keys: keys.Menu.Review},
-		{name: "documents", keys: keys.Menu.Documents},
 		{name: "logs", keys: keys.Menu.Logs},
 		{name: "status checks", keys: keys.Menu.StatusChecks},
 		{name: "terminal", keys: keys.Menu.Terminal},
@@ -143,6 +151,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "retry", keys: keys.Menu.Retry},
 		{name: "snooze", keys: keys.Menu.Snooze},
 		{name: "git", keys: keys.Menu.Git},
+		{name: "jump", keys: keys.Menu.Jump},
 		{name: "archive", keys: keys.Menu.Archive},
 		{name: "hide", keys: keys.Menu.Hide},
 		{name: "edit_workflow", keys: keys.Menu.EditWorkflow},

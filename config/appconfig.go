@@ -149,6 +149,8 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu, nested under the menu on the hovered row, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
+	// The jump menu, nested under the menu on an agent, a document or a worktree.
+	JumpMenu JumpMenuKeys `mapstructure:"jump_menu"`
 	// The hide menu, nested under the menu on the agents list.
 	HideMenu HideMenuKeys `mapstructure:"hide_menu"`
 	// The merge menu, nested under the git menu, which merges the hovered agent's pull request.
@@ -184,8 +186,6 @@ type Keybindings struct {
 	Views ViewsKeys `mapstructure:"views"`
 	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
-	// The worktrees screen, which lists every directory komrad cut for an agent.
-	Worktrees WorktreesKeys `mapstructure:"worktrees"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -361,8 +361,6 @@ type MenuKeys struct {
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
 	Review []string `mapstructure:"review" default:"r"`
-	// Open the documents view on the documents the agent has written.
-	Documents []string `mapstructure:"documents" default:"d"`
 	// Open the agent's logs, the service log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
 	// Open the status checks run on the agent's pull request.
@@ -374,6 +372,9 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
+	// Open the jump menu to the right of this one, for landing on the hovered row's agent, its
+	// worktree or its documents.
+	Jump []string `mapstructure:"jump" default:"J"`
 	// Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
 	// schedule or every chosen agent, for restoring or deleting a row of the archive, or for
 	// deleting worktrees.
@@ -440,9 +441,6 @@ type DocumentMenuKeys struct {
 // under the cursor beside the list. Editing, renaming and writing a new one are in the menu on
 // the hovered document.
 type DocumentsKeys struct {
-	// Jump to the agent that wrote the document under the cursor, on the agents list or in the
-	// archive.
-	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
 	// Step back to an earlier write of the document under the cursor, drawing what that write
 	// changed.
 	Older []string `mapstructure:"older" default:"<"`
@@ -467,11 +465,15 @@ type LogsKeys struct {
 	Copy []string `mapstructure:"copy" default:"y"`
 }
 
-// WorktreesKeys are the bindings for the worktrees screen.
-type WorktreesKeys struct {
-	// Jump to the agent in the directory under the cursor, on the agents list or in the
-	// archive.
-	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
+// JumpMenuKeys are the bindings for the jump menu, nested under the menu on an agent, a document
+// or a worktree, which lands on the rows related to the hovered one.
+type JumpMenuKeys struct {
+	// Land on the agent, on the agents list or in the archive.
+	Agent []string `mapstructure:"agent" default:"a"`
+	// Land on the agent's worktree on the worktrees screen.
+	Worktree []string `mapstructure:"worktree" default:"w"`
+	// Open the documents view on the documents the agent has written.
+	Documents []string `mapstructure:"documents" default:"d"`
 }
 
 // ReviewKeys are the bindings for the review screen, where the diff is in the stage and the

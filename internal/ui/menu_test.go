@@ -30,7 +30,7 @@ func TestMenu(t *testing.T) {
 		harness := openSubpages(t, "quiet")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "› documents")
+		assert.Contains(t, frame, "› logs")
 		assert.Contains(t, frame, "───")
 		assert.Contains(t, frame, "new agent")
 	})

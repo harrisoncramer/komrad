@@ -59,12 +59,6 @@ func (d *documentsScreen) documentTypeTable() []screenAction {
 func (d *documentsScreen) documentTable() []screenAction {
 	return slices.Concat(d.list().actions(), []screenAction{
 		{
-			id:   actionDocumentsJumpToAgent,
-			keys: func(k config.Keybindings) []string { return k.Documents.JumpToAgent },
-			when: d.isOnDocument,
-			nav:  func(m *model, _ string) tea.Cmd { return d.jumpToAgent(m) },
-		},
-		{
 			id:   actionDocumentsOlder,
 			keys: func(k config.Keybindings) []string { return k.Documents.Older },
 			nav: func(m *model, _ string) tea.Cmd {
@@ -103,12 +97,6 @@ func (d *documentsScreen) legend() []screenLegendRow {
 			of:   []actionID{actionDocumentsNewer},
 			desc: func(*model) string { return "a later version" },
 			show: d.isOnDocument,
-		},
-		{
-			of:    []actionID{actionDocumentsJumpToAgent},
-			desc:  func(*model) string { return "jump to agent" },
-			show:  d.isOnDocument,
-			strip: true,
 		},
 		{
 			of:    []actionID{actionFilterClear},
@@ -285,19 +273,4 @@ func (d *documentsScreen) isOnDocument(m *model) bool {
 	_, ok := d.hovered(m)
 
 	return ok
-}
-
-// jumpToAgent lands the live or archived agents list on the agent that wrote the hovered document.
-func (d *documentsScreen) jumpToAgent(m *model) tea.Cmd {
-	item, ok := d.hovered(m)
-	if !ok {
-		return nil
-	}
-
-	target := screenTarget{agentID: item.agentID}
-	if _, live := m.listing.liveAgent(target.agentID); live {
-		return m.enterLive(target)
-	}
-
-	return m.enterArchived(target)
 }
