@@ -43,7 +43,7 @@ func (g queryGrammar) parse(text string, now time.Time) (*searchsyntax.Query, er
 	return parsed, nil
 }
 
-// queryGrammarer is a screen whose filter reads qualifiers, on the lists that read any.
+// queryGrammarer is a screen whose filter reads qualifiers, and says whether the list in view reads any.
 type queryGrammarer interface {
 	queryGrammar() (queryGrammar, bool)
 }

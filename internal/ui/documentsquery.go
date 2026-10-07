@@ -63,7 +63,7 @@ func (m *model) documentRowFits(r documentRow) clauseFits {
 
 // agentClause is the qualifier that picks out one agent's documents by its name.
 func agentClause(name string) string {
-	if strings.ContainsFunc(name, func(r rune) bool { return r == ' ' || r == '\t' }) {
+	if strings.ContainsAny(name, " \t") {
 		return searchsyntax.KeyAgent + `:"` + name + `"`
 	}
 
