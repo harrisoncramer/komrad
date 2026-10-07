@@ -63,7 +63,7 @@ func TestSearchQualifiers(t *testing.T) {
 			harness.press(tt.press...)
 
 			frame := harness.readFrame()
-			for _, qualifier := range []string{"from:agent", "since:3d", "sort:new"} {
+			for _, qualifier := range []string{"from:agent", "since:3d", "on:DATE"} {
 				if tt.want {
 					assert.Contains(t, frame, qualifier)
 				} else {

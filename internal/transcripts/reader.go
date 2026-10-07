@@ -73,7 +73,6 @@ func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchT
 		Cursor:  params.Cursor,
 		AgentID: scope,
 		Filter:  query.Filter,
-		Sort:    query.Sort,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to search transcripts: %w", err)

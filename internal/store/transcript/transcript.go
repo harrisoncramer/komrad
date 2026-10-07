@@ -259,23 +259,22 @@ func (s *TranscriptStore) Delete(ctx context.Context, agentIDs []string) error {
 	return nil
 }
 
-// Sort is the order a search hands its hits back in.
-type Sort string
+// sortOrder is the order a search hands its hits back in.
+type sortOrder string
 
 const (
-	SortBest   Sort = "best"
-	SortNewest Sort = "new"
-	sortOldest Sort = "old"
+	SortBest   sortOrder = "best"
+	sortNewest sortOrder = "new"
 )
 
 // Validate refuses a sort this server does not know.
-func (s Sort) Validate() error {
+func (s sortOrder) Validate() error {
 	switch s {
-	case SortBest, SortNewest, sortOldest:
+	case SortBest, sortNewest:
 		return nil
 	}
 
-	return fmt.Errorf("sort %q is not one of best, new or old", string(s))
+	return fmt.Errorf("sort %q is not one of best or new", string(s))
 }
 
 // Position locates one hit within its own section.
@@ -296,7 +295,7 @@ func (p Position) Validate() error {
 
 // Cursor walks both sections at once, holding nothing for a section that has run out.
 type Cursor struct {
-	Sort    Sort      `json:"o"`
+	Sort    sortOrder `json:"o"`
 	Matches *Position `json:"m,omitempty"`
 	Near    *Position `json:"n,omitempty"`
 }
@@ -374,10 +373,9 @@ type SearchParams struct {
 	Cursor  *Cursor
 	AgentID *string
 	Filter  Filter
-	Sort    Sort
 }
 
-// Search returns one page of each section in the order the sort asks for.
+// Search returns one page of each section, newest first when it has no words and best first otherwise.
 func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Results, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
@@ -387,16 +385,9 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 		return Results{}, nil
 	}
 
-	sort := params.Sort
-	switch {
-	case sort != "":
-	case browse:
-		sort = SortNewest
-	default:
-		sort = SortBest
-	}
-	if err := sort.Validate(); err != nil {
-		return Results{}, err
+	sort := SortBest
+	if browse {
+		sort = sortNewest
 	}
 	if params.Cursor != nil && params.Cursor.Sort != sort {
 		return Results{}, errSortChanged.Saying("the cursor was handed out for sort %q, not %q; search again from the first page", params.Cursor.Sort, sort)
@@ -522,7 +513,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 }
 
 // nextCursor keeps a position for each section that filled its page.
-func nextCursor(limit int64, sort Sort, results Results) *Cursor {
+func nextCursor(limit int64, sort sortOrder, results Results) *Cursor {
 	cursor := Cursor{
 		Sort:    sort,
 		Matches: lastOf(limit, results.Matches),
@@ -557,7 +548,7 @@ func keyOf(p *Position) *float64 {
 	return &p.Key
 }
 
-func toRank(sort Sort, key float64) float64 {
+func toRank(sort sortOrder, key float64) float64 {
 	if sort != SortBest {
 		return 0
 	}

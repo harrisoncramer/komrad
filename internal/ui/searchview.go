@@ -201,7 +201,7 @@ func (w *searchScreen) sidebarView(m *model) string {
 
 // qualifierLegend lays out the qualifiers a search takes the way the legend lays out keys.
 func qualifierLegend(width int) string {
-	rows := xslice.Map(searchsyntax.Qualifiers, func(qualifier searchsyntax.Qualifier) key.Binding {
+	rows := xslice.Map(searchsyntax.Transcripts.Help, func(qualifier searchsyntax.Qualifier) key.Binding {
 		return key.NewBinding(key.WithKeys(qualifier.Syntax), key.WithHelp(qualifier.Syntax, qualifier.Meaning))
 	})
 

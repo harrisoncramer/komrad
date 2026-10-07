@@ -1112,8 +1112,6 @@ ranked AS (
         CASE @sort::text
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
-        WHEN 'old' THEN
-            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         ELSE
             CASE WHEN q.wanted = '' THEN
                 0
@@ -1206,8 +1204,6 @@ ranked AS (
         CASE @sort::text
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
-        WHEN 'old' THEN
-            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         ELSE
             WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content)
         END AS sort_key
