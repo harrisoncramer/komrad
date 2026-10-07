@@ -265,8 +265,7 @@ func (f filterState) holds(fits clauseFits) bool {
 	return true
 }
 
-// spans is the stretches of a row's name the search lights, the whole of it when only qualifiers
-// picked the row.
+// highlight lights the stretches of a row's name the search matches, the whole of it when only qualifiers picked the row.
 func (f filterState) highlight(palette paint.Palette, name string, base lipgloss.Style) string {
 	if f.pattern == nil {
 		return base.Render(name)
