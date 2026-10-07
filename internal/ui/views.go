@@ -190,7 +190,7 @@ func (m *model) updateViews(key tea.KeyPressMsg) tea.Cmd {
 }
 
 func (m *model) enterView(entry viewEntry) tea.Cmd {
-	if entry.screen == m.screen && (m.screen != screenDocuments || m.documents.listsEveryAgent()) {
+	if entry.screen == m.screen {
 		return nil
 	}
 

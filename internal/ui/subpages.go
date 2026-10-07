@@ -132,7 +132,7 @@ func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) 
 	case subpageDocuments:
 		m.leaveForm()
 
-		return m.enter(screenDocuments, screenTarget{agentID: agentID, openedFrom: openedFrom})
+		return m.enter(screenDocuments, screenTarget{agentID: agentID})
 	case subpageLogs:
 		m.leaveForm()
 

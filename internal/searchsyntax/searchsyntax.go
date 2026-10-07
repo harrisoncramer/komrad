@@ -22,6 +22,7 @@ const (
 	KeyHarness  = "harness"
 	KeyPR       = "pr"
 	KeySays     = "says"
+	KeyType     = "type"
 )
 
 const dayLayout = "2006-01-02"
@@ -68,6 +69,18 @@ var Agents = Grammar{
 		{Name: KeySince},
 		{Name: KeyUntil},
 		{Name: KeySays},
+	},
+	Strict: true,
+}
+
+// Documents is the grammar the documents list is filtered by.
+var Documents = Grammar{
+	Keys: []Key{
+		{Name: KeyAgent},
+		{Name: KeyWorkflow},
+		{Name: KeyType},
+		{Name: KeySince},
+		{Name: KeyUntil},
 	},
 	Strict: true,
 }

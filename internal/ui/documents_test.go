@@ -3,6 +3,7 @@ package ui_test
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -25,16 +26,23 @@ import (
 func TestDocumentsOpen(t *testing.T) {
 	t.Parallel()
 
-	t.Run("an agent's row opens its own documents", func(t *testing.T) {
+	t.Run("an agent's row opens every document filtered to the agent's own", func(t *testing.T) {
 		t.Parallel()
 
-		harness, _ := openDocuments(t)
+		docs := newDocumentShelf()
+		docs.add(&agentv1.Document{Id: "d3", AgentId: "quiet", Name: "Quiet notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+		harness := openAgents(t, buildDocumentAuthors()...)
+		docs.answer(harness)
+		moveToAgentRow(t, harness, "author")
+		harness.press("space", "d")
+		harness.fireTimers()
 
 		frame := harness.readFrame()
 		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Equal(t, "▽ agent:author", readSearch(frame))
 		assert.Contains(t, readStageText(frame), "Design the cache")
+		assert.NotContains(t, strings.Join(readListRows(frame), "\n"), "Quiet notes")
 		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
-			AgentId:    xptr.Ptr("author"),
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
 	})
@@ -53,15 +61,14 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Contains(t, readStageText(harness.readFrame()), "no documents")
 	})
 
-	t.Run("back returns to the agents list on the agent it opened for", func(t *testing.T) {
+	t.Run("back clears the agent's filter and stays on the documents", func(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
 		harness.press("esc")
 
-		frame := harness.readFrame()
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(frame), "author")
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.NotContains(t, readSearch(harness.readFrame()), "agent:author")
 	})
 
 	t.Run("closing the menu comes back to the same agent's documents", func(t *testing.T) {
@@ -75,29 +82,20 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Contains(t, readStageText(frame), "Design the cache")
 	})
 
-	t.Run("the switcher opens every agent's documents, each with the agent that wrote it", func(t *testing.T) {
+	t.Run("the switcher opens every agent's documents, the hovered one's writer in its info", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openEveryDocument(t)
 
+		frame := harness.readFrame()
 		assert.Equal(t, documentsScreen, harness.readScreen())
-		assert.Regexp(t, `author Design the cache`, harness.readFrame())
+		assert.NotContains(t, readHoveredRow(frame), "author")
+		assert.Equal(t, "RFC", readRecordField(frame, "type"))
+		assert.Contains(t, readRecordField(frame, "updated"), "Sep 25")
+		assert.Equal(t, "author", readRecordField(frame, "agent"))
 		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
-	})
-
-	t.Run("the switcher steps from an archived agent's documents to every agent's", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openArchivedSubpages(t)
-		harness.press("d")
-		harness.fireTimers()
-		harness.press("tab", "tab")
-		harness.fireTimers()
-
-		assert.Equal(t, documentsScreen, harness.readScreen())
-		assert.Regexp(t, `author Design the cache`, harness.readFrame())
 	})
 
 	t.Run("the jump key lands on the agent that wrote the hovered document", func(t *testing.T) {
@@ -123,6 +121,93 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
 	})
+}
+
+// TestDocumentsFilter covers the qualifiers the documents filter reads.
+func TestDocumentsFilter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		query      string
+		wantNames  []string
+		wantSearch string
+	}{
+		{
+			name:       "agent: keeps the documents the agent wrote",
+			query:      "agent:quiet",
+			wantNames:  []string{"Quiet notes"},
+			wantSearch: "▽ agent:quiet",
+		},
+		{
+			name:       "a negated agent: is a problem on the line and takes nothing off",
+			query:      "-agent:quiet",
+			wantNames:  []string{"Design the cache", "Rollout report", "Quiet notes"},
+			wantSearch: "▽ -agent:quiet  agent: cannot be negated",
+		},
+		{
+			name:       "workflow: keeps the documents written in it",
+			query:      "workflow:komrad",
+			wantNames:  []string{"Design the cache", "Rollout report", "Quiet notes"},
+			wantSearch: "▽ workflow:komrad",
+		},
+		{
+			name:       "workflow: naming none keeps nothing",
+			query:      "workflow:elsewhere",
+			wantSearch: "▽ workflow:elsewhere",
+		},
+		{
+			name:       "type: keeps the documents of the type",
+			query:      "type:rfc",
+			wantNames:  []string{"Design the cache"},
+			wantSearch: "▽ type:rfc",
+		},
+		{
+			name:       "since: keeps the documents written that day or after",
+			query:      "since:2026-09-24",
+			wantNames:  []string{"Design the cache", "Rollout report"},
+			wantSearch: "▽ since:2026-09-24",
+		},
+		{
+			name:       "until: keeps the documents written that day or before",
+			query:      "until:2026-09-24",
+			wantNames:  []string{"Rollout report", "Quiet notes"},
+			wantSearch: "▽ until:2026-09-24",
+		},
+		{
+			name:       "a day that is not one is a problem on the line and takes nothing off",
+			query:      "since:soon",
+			wantNames:  []string{"Design the cache", "Rollout report", "Quiet notes"},
+			wantSearch: "▽ since:soon  since:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			docs := newDocumentShelf()
+			docs.add(&agentv1.Document{Id: "d3", AgentId: "quiet", Name: "Quiet notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+			harness := openAgents(t, buildDocumentAuthors()...)
+			docs.answer(harness)
+			moveToAgentRow(t, harness, "quiet")
+			harness.press("tab", "tab")
+			harness.fireTimers()
+
+			harness.press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
+
+			frame := harness.readFrame()
+			rows := strings.Join(readListRows(frame), "\n")
+			var names []string
+			for _, name := range []string{"Design the cache", "Rollout report", "Quiet notes"} {
+				if strings.Contains(rows, name) {
+					names = append(names, name)
+				}
+			}
+			assert.Equal(t, tt.wantNames, names)
+			assert.True(t, strings.HasPrefix(readSearch(frame), tt.wantSearch), readSearch(frame))
+		})
+	}
 }
 
 // TestDocumentsRead covers the document under the cursor rendered beside the list, read once and
@@ -240,8 +325,8 @@ func TestDocumentsEdit(t *testing.T) {
 			name:  "leaving the screen saves what changed",
 			write: "Rewritten.",
 			close: func(h *panelHarness) {
-				h.press("esc")
-				require.Equal(t, agentsScreen, h.readScreen())
+				h.press("tab")
+				require.Equal(t, worktreesScreen, h.readScreen())
 			},
 			wantSaved: "Rewritten.",
 		},

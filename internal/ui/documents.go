@@ -39,13 +39,9 @@ const (
 	documentKindTypes
 )
 
-// documentsScreen lists documents, every agent's or one agent's, and renders the one under the cursor
-// beside the list.
+// documentsScreen lists every agent's documents and renders the one under the cursor beside the list.
 type documentsScreen struct {
 	rowCursor
-	agentID string
-	// openedFrom is the screen one agent's documents were opened from.
-	openedFrom    screen
 	kind          documentKind
 	kindFocus     bool
 	documentTypes rowCursor
@@ -82,16 +78,14 @@ func (r documentTypeRow) key() string {
 	return "type:" + r.documentType.GetName()
 }
 
-// enter opens on the documents of the agent the target names, or on every agent's for a target
-// naming none, keeping the screen as it was when that is what it already lists.
+// enter opens on every agent's documents, filtered down to the agent the target names when one is.
 func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
-	if !target.resume && target.agentID != d.agentID {
+	if !target.resume && target.agentID != "" {
 		saved = d.closeEdit(m)
-		*d = documentsScreen{agentID: target.agentID}
-	}
-	if target.agentID != "" {
-		d.openedFrom = target.openedFrom
+		d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
+		d.rowCursor = rowCursor{}
+		m.filterDocumentsOf(target.agentID)
 	}
 
 	m.stageTerminal()
@@ -141,9 +135,8 @@ func (d *documentsScreen) kinds(*model) stops {
 	}
 }
 
-// kindsFit reports whether the row of kinds is rendered, only ever over every agent's documents.
 func (d *documentsScreen) kindsFit(m *model) bool {
-	return d.listsEveryAgent() && m.listFitsTabs(d.listParams(m))
+	return m.listFitsTabs(d.listParams(m))
 }
 
 func (d *documentsScreen) kindsFocused(*model) *bool {
@@ -152,13 +145,14 @@ func (d *documentsScreen) kindsFocused(*model) *bool {
 
 // kindsSwitch holds the view on its documents while one is being edited.
 func (d *documentsScreen) kindsSwitch(*model) bool {
-	return d.listsEveryAgent() && d.editing == nil
+	return d.editing == nil
 }
 
 // stepKind moves the view between documents and their types.
 func (d *documentsScreen) stepKind(m *model, delta int) tea.Cmd {
 	d.kind = documentKind(stepStop(int(d.kind), delta, len(d.kinds(m).labels)))
 	d.history, d.focus = nil, false
+	m.filter = filterState{}
 	m.stageTerminal()
 
 	return m.waitToStage()
@@ -169,6 +163,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		cursor: func() *rowCursor { return &d.rowCursor },
 		rows:   d.rows,
 		name:   documentRowName,
+		fits:   (*model).documentRowFits,
 		placed: func(m *model) { m.stageTerminal() },
 		moved: func(m *model) tea.Cmd {
 			d.history, d.focus = nil, false
@@ -195,6 +190,7 @@ func (d *documentsScreen) rows(m *model) []documentRow {
 		}),
 		depth: func(documentRow) int { return 0 },
 		name:  documentRowName,
+		fits:  m.documentRowFits,
 	})
 }
 
@@ -255,20 +251,13 @@ func (d *documentsScreen) listParams(m *model) screenListParams {
 	}
 }
 
-// parent is the view one agent's documents were opened from, and the documents view itself for
-// every agent's.
 func (d *documentsScreen) parent() screen {
-	if d.listsEveryAgent() {
-		return screenDocuments
-	}
-
-	return d.openedFrom
+	return screenDocuments
 }
 
-// crumbs runs through the agent the documents are of down to the version stepped to, and counts
-// the documents while none is.
+// crumbs runs down to the version stepped to, and counts the documents while none is.
 func (d *documentsScreen) crumbs(m *model) crumbs {
-	trail := crumbs{trail: d.crumbRoot(m)}
+	var trail crumbs
 	if d.kind == documentKindTypes {
 		trail.tally = fmt.Sprint(len(m.listing.documentTypes))
 
@@ -287,27 +276,8 @@ func (d *documentsScreen) crumbs(m *model) crumbs {
 	return trail
 }
 
-// back leaves for the screen one agent's documents were opened from, and for the switcher from
-// every agent's.
 func (d *documentsScreen) back(m *model) tea.Cmd {
-	if d.listsEveryAgent() {
-		return m.pickView()
-	}
-
-	return m.enter(d.openedFrom, screenTarget{agentID: d.agentID})
-}
-
-// crumbRoot is the trail down to the list: the agent the documents are of, if one.
-func (d *documentsScreen) crumbRoot(m *model) []string {
-	if d.listsEveryAgent() {
-		return nil
-	}
-
-	return []string{d.agentName(m), "documents"}
-}
-
-func (d *documentsScreen) agentName(m *model) string {
-	return findAgentName(m, d.agentID)
+	return m.pickView()
 }
 
 // findAgentName is the name of the agent an id names, live or archived, and the id when neither.
@@ -323,9 +293,8 @@ func (d *documentsScreen) help(m *model) keyMap {
 	return d.actions(m).help(m)
 }
 
-// documentsListedMsg is one agent's documents come back.
+// documentsListedMsg is the documents come back.
 type documentsListedMsg struct {
-	agentID string
 	written documentsWritten
 	items   []documentItem
 	err     error
@@ -339,9 +308,8 @@ type documentsWritten struct {
 
 // documentReadMsg is one document's text come back.
 type documentReadMsg struct {
-	agentID string
-	id      string
-	read    documentBody
+	id   string
+	read documentBody
 }
 
 // readDocumentsCmd lists the documents again when the agent has written since they were last
@@ -352,7 +320,7 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 	}
 
 	d := &m.documents
-	written := m.documentsWritten(d.agentID)
+	written := m.documentsWritten()
 	if !d.listed || d.listedCount != written.count || !sameStamp(d.listedAt, written.newest) {
 		return m.listDocumentsCmd(written)
 	}
@@ -360,27 +328,17 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 	return tea.Batch(m.readHoveredDocumentCmd(), m.readHistoryCmd())
 }
 
-// documentsWritten is what the agent has written, as its row says, and what every agent has for
-// none.
-func (m *model) documentsWritten(agentID string) documentsWritten {
-	if agentID == "" {
-		var written documentsWritten
-		for _, item := range slices.Concat(m.listing.agents, m.listing.archivedAgents) {
-			written.count += item.Documents
-			if item.DocumentsUpdatedAt != nil && (written.newest == nil || item.DocumentsUpdatedAt.After(*written.newest)) {
-				written.newest = item.DocumentsUpdatedAt
-			}
+// documentsWritten is what every agent has written, as their rows say.
+func (m *model) documentsWritten() documentsWritten {
+	var written documentsWritten
+	for _, item := range slices.Concat(m.listing.agents, m.listing.archivedAgents) {
+		written.count += item.Documents
+		if item.DocumentsUpdatedAt != nil && (written.newest == nil || item.DocumentsUpdatedAt.After(*written.newest)) {
+			written.newest = item.DocumentsUpdatedAt
 		}
-
-		return written
 	}
 
-	item, ok := m.listing.anyAgent(agentID)
-	if !ok {
-		return documentsWritten{}
-	}
-
-	return documentsWritten{count: item.Documents, newest: item.DocumentsUpdatedAt}
+	return written
 }
 
 func sameStamp(a, b *time.Time) bool {
@@ -391,7 +349,7 @@ func sameStamp(a, b *time.Time) bool {
 	return a.Equal(*b)
 }
 
-// listDocumentsCmd asks for the agent's documents, once at a time.
+// listDocumentsCmd asks for the documents, once at a time.
 func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	d := &m.documents
 	if d.listing {
@@ -399,20 +357,18 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	}
 
 	d.listing = true
-	agentID, clients := d.agentID, m.api
+	clients := m.api
 
 	return func() tea.Msg {
-		documents, err := clients.listDocuments(agentID)
+		documents, err := clients.listDocuments("")
 		if err != nil {
 			return documentsListedMsg{
-				agentID: agentID,
 				written: written,
 				err:     err,
 			}
 		}
 
 		return documentsListedMsg{
-			agentID: agentID,
 			written: written,
 			items: xslice.Map(documents, func(document *agentv1.Document) documentItem {
 				return documentItem{
@@ -429,10 +385,6 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 
 func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 	d := &m.documents
-	if msg.agentID != d.agentID {
-		return nil
-	}
-
 	d.listing = false
 	if msg.err != nil {
 		d.err = msg.err
@@ -467,19 +419,18 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	pending := last
 	pending.pending = true
 	d.bodies[item.id] = pending
-	agentID, clients := d.agentID, m.api
+	clients := m.api
 
 	return func() tea.Msg {
 		document, err := clients.getDocument(item.id)
 		if err != nil {
 			return documentReadMsg{
-				agentID: agentID,
-				id:      item.id,
-				read:    documentBody{updatedAt: item.updatedAt, err: err},
+				id:   item.id,
+				read: documentBody{updatedAt: item.updatedAt, err: err},
 			}
 		}
 
-		return documentReadMsg{agentID: agentID, id: item.id, read: documentBody{
+		return documentReadMsg{id: item.id, read: documentBody{
 			updatedAt: dates.Parse(document.GetUpdatedAt()),
 			version:   document.GetVersion(),
 			body:      document.GetBody(),
@@ -489,7 +440,7 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 
 func (m *model) applyDocumentRead(msg documentReadMsg) {
 	d := &m.documents
-	if msg.agentID != d.agentID || d.bodies == nil {
+	if d.bodies == nil {
 		return
 	}
 
@@ -507,6 +458,7 @@ var (
 	_ renamer          = (*documentsScreen)(nil)
 	_ editorReconciler = (*documentsScreen)(nil)
 	_ kindSwitcher     = (*documentsScreen)(nil)
+	_ recordRenderer   = (*documentsScreen)(nil)
 )
 
 func (d *documentsScreen) stage(m *model) {
@@ -562,6 +514,10 @@ func (d *documentsScreen) dispatches(m *model) []dispatching {
 	return []dispatching{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
 }
 
-func (d *documentsScreen) listsEveryAgent() bool {
-	return d.agentID == ""
+func (d *documentsScreen) detailsFit(m *model) bool {
+	return m.listFitsDetails(d.listParams(m))
+}
+
+func (d *documentsScreen) detailsRoom(m *model) int {
+	return m.listRecordRoom(d.listParams(m))
 }

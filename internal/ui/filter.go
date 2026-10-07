@@ -307,7 +307,9 @@ func (m *model) beginFilter() {
 
 	var opts []filterOption
 	if screen, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused() {
-		opts = append(opts, withGrammar(screen.queryGrammar()))
+		if grammar, reads := screen.queryGrammar(); reads {
+			opts = append(opts, withGrammar(grammar))
+		}
 	}
 
 	filter := &m.filter
