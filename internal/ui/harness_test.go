@@ -591,7 +591,12 @@ func (h *panelHarness) fireMatching(is func(tea.Msg) bool) bool {
 }
 
 func (h *panelHarness) fireTimersUnsettled() []tea.Cmd {
-	return xslice.Map(h.runTimers(), h.panel.Update)
+	return xslice.Map(h.runTimers(), func(msg tea.Msg) tea.Cmd {
+		cmd := h.panel.Update(msg)
+		h.panel.View()
+
+		return cmd
+	})
 }
 
 func (h *panelHarness) runTimers() []tea.Msg {
