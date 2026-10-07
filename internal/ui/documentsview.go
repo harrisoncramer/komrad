@@ -38,6 +38,7 @@ func documentColumns() view.Columns {
 
 func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	rows := d.rows(m)
+	picked := pickedRows(m.filter, rows, m.documentRowFits)
 	now := time.Now()
 	caret := pane.caret
 	if d.isDiffFocused(m) {
@@ -50,7 +51,7 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 				Key:     r.key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
-				Matches: matchesIn(m.filter.pattern, r.item.name),
+				Matches: pickedMatches(m.filter.pattern, picked, r.key(), r.item.name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			})

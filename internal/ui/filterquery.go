@@ -51,6 +51,22 @@ type queryGrammarer interface {
 	queryGrammar() (queryGrammar, bool)
 }
 
+// pickedRows is the keys of the rows the filter's qualifiers pick, nil when it names none.
+func pickedRows[T keyed](f filterState, rows []T, fits func(T) clauseFits) map[string]bool {
+	if f.broken || len(f.qualifiers.clauses) == 0 {
+		return nil
+	}
+
+	picked := map[string]bool{}
+	for _, r := range rows {
+		if f.holds(fits(r)) {
+			picked[r.key()] = true
+		}
+	}
+
+	return picked
+}
+
 // saidState is the rows the server found saying the text of a says: qualifier.
 type saidState struct {
 	text    string

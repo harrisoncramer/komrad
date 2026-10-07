@@ -253,6 +253,7 @@ func TestDocumentsSays(t *testing.T) {
 	})
 	line := regexp.MustCompile(`It went out on`)
 	marked := regexp.MustCompile(`\x1b\[[0-9;]*mTuesday`)
+	picked := regexp.MustCompile(`38;5;208mRollout report`)
 
 	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("says:tuesday"))...)
 	harness.fireMatching(ui.IsSaysSettled)
@@ -264,11 +265,13 @@ func TestDocumentsSays(t *testing.T) {
 	assert.Equal(t, []string{"Rollout report"}, readListRows(frame))
 	assert.Equal(t, "▽ says:tuesday", readSearch(frame))
 	assert.Regexp(t, marked, findRawLine(harness.readRawFrame(), line), "the word found is lit in the document")
+	assert.Regexp(t, picked, readRawListRow(harness.readRawFrame(), "Rollout report"), "the document found is lit in the list")
 
 	harness.press("/", "esc")
 	harness.fireTimers()
 
 	assert.NotRegexp(t, marked, findRawLine(harness.readRawFrame(), line), "the word is dark once the qualifier is gone")
+	assert.NotRegexp(t, picked, readRawListRow(harness.readRawFrame(), "Rollout report"), "the document is dark once the qualifier is gone")
 }
 
 // TestDocumentsRead covers the document under the cursor rendered beside the list, read once and

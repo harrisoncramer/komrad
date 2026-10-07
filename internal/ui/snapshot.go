@@ -288,15 +288,21 @@ func snapshotForge(item panel.AgentRow) view.Forge {
 // matchesOf is the stretches of a row's name the search lights, the whole of it when only qualifiers
 // picked the row.
 func (p snapshotParams) matchesOf(r agentRow, name string) []view.Span {
-	if p.picked == nil {
-		return matchesIn(p.matcher, name)
+	return pickedMatches(p.matcher, p.picked, r.key(), name)
+}
+
+// pickedMatches is the stretches of a row's name the search lights, the whole of it when only
+// qualifiers picked the row.
+func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name string) []view.Span {
+	if picked == nil {
+		return matchesIn(matcher, name)
 	}
-	if !p.picked[rowKey(r)] {
+	if !picked[key] {
 		return nil
 	}
-	if p.matcher == nil {
+	if matcher == nil {
 		return []view.Span{{Start: 0, End: len(name)}}
 	}
 
-	return matchesIn(p.matcher, name)
+	return matchesIn(matcher, name)
 }

@@ -1006,3 +1006,14 @@ func (h *panelHarness) pick(to string) {
 
 	h.send(ui.NewKeyPress(letter))
 }
+
+func readRawListRow(frame, name string) string {
+	for _, line := range splitLines(frame) {
+		sidebar := ansi.Truncate(line, ui.SidebarCols, "")
+		if row, isRow := cutListRow(ansi.Strip(sidebar)); isRow && strings.Contains(row, name) {
+			return sidebar
+		}
+	}
+
+	return ""
+}
