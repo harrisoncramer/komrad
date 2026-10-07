@@ -49,7 +49,7 @@ func stepStop(at, delta, count int) int {
 type stripKeys struct {
 	step  func(delta int) tea.Cmd
 	close func()
-	// pick takes the focused stop before enter lets the row go, and is nil on a row whose stops take at once.
+	// pick applies the focused stop on enter, and is nil on a row where stepping already applies it.
 	pick func()
 	// other takes a key the row has a use of its own for, and is nil on a row with none.
 	other func(pressed string) tea.Cmd
