@@ -94,7 +94,7 @@ func documentMenu(m *model, d *documentsScreen) submenu {
 		},
 	}
 
-	return submenu{
+	menu := submenu{
 		kind:  formMenu,
 		title: title,
 		entries: xslice.Map(entries, func(e documentEntry) submenuEntry {
@@ -107,4 +107,9 @@ func documentMenu(m *model, d *documentsScreen) submenu {
 			return entry
 		}),
 	}
+	if !hovered {
+		return menu
+	}
+
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenDocuments, item.agentID))
 }

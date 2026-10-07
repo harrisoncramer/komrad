@@ -34,9 +34,7 @@ const (
 	actionArchiveRename
 	actionArchiveBack
 	actionWorktreesBack
-	actionWorktreesJumpToAgent
 	actionDocumentsBack
-	actionDocumentsJumpToAgent
 	actionDocumentsOlder
 	actionDocumentsNewer
 	actionLogsBack

@@ -3,7 +3,6 @@ package ui
 import (
 	"slices"
 
-	"komrad/config"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -29,12 +28,6 @@ func (w *worktreesScreen) table() []screenAction {
 			when: list.isBrowsing,
 			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
-		screenAction{
-			id:   actionWorktreesJumpToAgent,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.JumpToAgent },
-			when: w.canRowOpen,
-			nav:  func(m *model, _ string) tea.Cmd { return w.jumpToAgent(m) },
-		},
 	)
 }
 
@@ -42,12 +35,6 @@ func (w *worktreesScreen) legend() []screenLegendRow {
 	list := w.list()
 
 	return slices.Concat(list.selectionLegend(), []screenLegendRow{
-		{
-			of:    []actionID{actionWorktreesJumpToAgent},
-			desc:  func(*model) string { return "jump to agent" },
-			show:  w.canRowOpen,
-			strip: true,
-		},
 		{
 			of:   []actionID{actionSelectToggle},
 			desc: list.toggleDesc,
@@ -85,17 +72,6 @@ func (w *worktreesScreen) holdsARow(m *model) bool {
 	return ok
 }
 
-// canRowOpen reports whether the hovered row has an agent the panel can land on.
-func (w *worktreesScreen) canRowOpen(m *model) bool {
-	if w.selected.isActive() {
-		return false
-	}
-
-	row, ok := w.hovered(m)
-
-	return ok && row.item.agent != nil
-}
-
 // worktreeFate is which of the three delete paths a directory takes.
 type worktreeFate int
 
@@ -120,21 +96,6 @@ func (f worktreeFate) deleteDesc() string {
 	}
 
 	return ""
-}
-
-// jumpToAgent lands the agents list or the archive on the hovered row's agent.
-func (w *worktreesScreen) jumpToAgent(m *model) tea.Cmd {
-	row, ok := w.hovered(m)
-	if !ok || row.item.agent == nil {
-		return nil
-	}
-
-	target := screenTarget{agentID: row.item.agent.id}
-	if _, live := m.listing.liveAgent(target.agentID); live {
-		return m.enterLive(target)
-	}
-
-	return m.enterArchived(target)
 }
 
 // deleteWorktree asks before a directory goes the way its fate decides.
@@ -318,5 +279,10 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 	})
 	clearAll.isOff = clearable.isEmpty()
 
-	return withNested(rowMenu(row.name()), "archive", m.keys.Menu.Archive, liveArchiveMenu(append(entries, clearAll)...)), true
+	menu := withNested(rowMenu(row.name()), "archive", m.keys.Menu.Archive, liveArchiveMenu(append(entries, clearAll)...))
+	if row.header || row.item.agent == nil {
+		return menu, true
+	}
+
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, row.item.agent.id)), true
 }

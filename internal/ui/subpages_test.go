@@ -28,11 +28,11 @@ func TestSubpages(t *testing.T) {
 		wantCursor string
 	}{
 		{
-			name:       "an agent with nothing to review starts on documents",
+			name:       "an agent with nothing to review starts on logs",
 			row:        "quiet",
 			wantTitle:  "  quiet",
 			wantCrumb:  "agents › quiet",
-			wantCursor: "› documents",
+			wantCursor: "› logs",
 		},
 		{
 			name:       "a workflow's row opens its orchestrator's under the workflow's name",
@@ -63,14 +63,13 @@ func TestSubpages(t *testing.T) {
 		})
 	}
 
-	t.Run("an entry with nothing behind it is gray, and documents never are", func(t *testing.T) {
+	t.Run("an entry with nothing behind it is gray", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSubpages(t, "quiet")
 
 		frame := harness.readRawFrame()
 		assert.Regexp(t, readOffEntry("review", "r"), frame)
-		assert.NotRegexp(t, readOffEntry("documents", "d"), frame)
 		assert.NotRegexp(t, readOffEntry("logs", "l"), frame)
 	})
 
@@ -146,7 +145,7 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agents › author")
-		assert.Contains(t, frame, "› documents")
+		assert.Contains(t, frame, "› logs")
 		assert.Regexp(t, readOffEntry("review", "r"), harness.readRawFrame())
 		assert.Regexp(t, readOffEntry("terminal", "t"), harness.readRawFrame())
 	})
@@ -168,7 +167,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
-		harness.press("d")
+		harness.press("J", "d")
 		harness.fireTimers()
 
 		require.Equal(t, documentsScreen, harness.readScreen())

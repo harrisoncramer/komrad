@@ -222,10 +222,7 @@ func rowIndexOfWorktreeAgent(rows []worktreeRow, id string) int {
 		if r.header {
 			continue
 		}
-		if agent := r.item.agent; agent != nil && agent.id == id {
-			return i
-		}
-		if slices.ContainsFunc(r.item.occupants, func(occupant worktreeAgent) bool { return occupant.id == id }) {
+		if r.item.holdsAgent(id) {
 			return i
 		}
 	}
