@@ -98,6 +98,17 @@ func TestTabStrip(t *testing.T) {
 		assert.NotEmpty(t, readHoveredRow(frame))
 	})
 
+	t.Run("enter on the group stop keeps the flip j made", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+		strip := slices.IndexFunc(readSidebar(harness.readFrame()), func(line string) bool { return strings.HasPrefix(line, "f ") })
+		require.GreaterOrEqual(t, strip, 0)
+
+		harness.press("f", "shift+tab", "j", "enter")
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebar(frame)[strip], "flat")
+		assert.NotContains(t, readLegend(frame), stripLegend)
+	})
+
 	t.Run("the record and the strip take the keys from each other", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 

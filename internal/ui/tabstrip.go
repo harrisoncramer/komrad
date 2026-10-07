@@ -240,12 +240,9 @@ func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 			return nil
 		},
 		pick: func() {
-			if state.onGroup {
-				state.flat = !state.flat
-
-				return
+			if !state.onGroup {
+				strip.choose(state, state.direction)
 			}
-			strip.choose(state, state.direction)
 		},
 		close: state.leave,
 		other: func(pressed string) tea.Cmd {
