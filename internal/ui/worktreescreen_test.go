@@ -1049,6 +1049,21 @@ func TestWorktreesScope(t *testing.T) {
 		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
 		assert.NotContains(t, readLegend(frame), "F kind")
 	})
+
+	t.Run("a jump to a directory the scope leaves out widens it to every directory", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness.press("F", "tab", "esc", "tab")
+		moveToAgentRow(t, harness, "treeview")
+
+		harness.press("space", "J", "w")
+
+		frame := harness.readFrame()
+		assert.Equal(t, worktreesScreen, harness.readScreen())
+		assert.Equal(t, "treeview", readHoveredWorktree(frame))
+		assert.True(t, strings.HasPrefix(readBelowViews(frame)[0], "5 · "), readBelowViews(frame)[0])
+	})
 }
 
 const worktreesScreen = "the worktrees"

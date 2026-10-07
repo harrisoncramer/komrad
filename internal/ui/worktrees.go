@@ -240,6 +240,15 @@ func (i worktreeItem) isInactive() bool {
 	})
 }
 
+// holdsAgent reports whether the directory was cut for the agent or the agent works in it.
+func (i worktreeItem) holdsAgent(id string) bool {
+	if i.agent != nil && i.agent.id == id {
+		return true
+	}
+
+	return slices.ContainsFunc(i.occupants, func(occupant worktreeAgent) bool { return occupant.id == id })
+}
+
 // worktreeScope is which of the directories the worktrees screen lists.
 type worktreeScope int
 
@@ -262,6 +271,11 @@ func (s worktreeScope) holds(item worktreeItem) bool {
 	}
 
 	return true
+}
+
+// holdsAgent reports whether the scope lists a directory the agent holds.
+func (s worktreeScope) holdsAgent(items []worktreeItem, id string) bool {
+	return slices.ContainsFunc(items, func(item worktreeItem) bool { return s.holds(item) && item.holdsAgent(id) })
 }
 
 // worktreesScreen is the worktrees screen: the directories the listing holds, the cursor in
