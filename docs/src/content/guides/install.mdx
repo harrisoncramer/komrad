@@ -105,6 +105,51 @@ The panel takes over the terminal you open it in, and a tmux pane works like any
 
 If your own tmux prefix is `ctrl+space`, give your tmux a different one, since the panel keeps its own keys behind it.
 
+## Connecting a forge
+
+Komrad connects a forge once with <Command path="forge connect" />, naming its host. Komrad asks the forge who the credential belongs to straight away and refuses one that is wrong.
+
+Make sure this account has access to the repositories your agents work in. <Command path="forge list" /> and <Command path="doctor" /> show what is connected and whether it still works.
+
+The token is read from standard input or from a file, never from an argument, since arguments are visible to every process on the machine.
+
+A self-hosted forge needs two more things. Komrad cannot tell which forge a host runs from its name, so pass `--kind github` or `--kind gitlab`. If its API is somewhere other than `https://<host>/api/v3` for GitHub or `https://<host>/api/v4` for GitLab, pass `--api-url` as well.
+
+Some hosts take SSH on a name of their own, such as `ssh.gitlab.example.com`. List each pair in <Setting path="git.ssh_hosts" label="ssh_hosts" /> so a remote on the SSH name finds the connection for the web host. Public names such as `ssh.github.com` and `altssh.gitlab.com` are already known.
+
+### GitHub
+
+On your laptop, the simplest way is to hand komrad the token the GitHub CLI already holds.
+
+```sh
+gh auth token | komrad forge connect github.com
+```
+
+Any personal access token works the same way, as long as it can read the pull requests of your repositories. For GitHub Enterprise, add `--kind github` and, if needed, `--api-url`.
+
+The remote engine connects through a GitHub App instead, so nobody has to paste a token there. With the App set up in <Setting path="github_app" label="[github_app]" />, connect it with `--method github-app`. Nothing is read. Komrad makes a token from the App, which expires after an hour, and makes a new one whenever it needs to. [Administering the engine](../engine-admin/) covers registering the App.
+
+```sh
+komrad forge connect github.com --method github-app --engine remote
+```
+
+### GitLab
+
+GitLab takes a personal access token with the `api` scope.
+
+```sh
+komrad forge connect gitlab.com --token-file ~/.config/gitlab-token
+komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token
+```
+
+GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as the remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once. From then on it makes a new token each day and lets the old one go. Each token expires within two days of being made, so a token copied off the machine is soon useless. <Command path="forge disconnect" /> revokes the current token with GitLab before forgetting it.
+
+```sh
+komrad forge connect gitlab.com --method rotating-token --token-file ~/.config/gitlab-token --engine remote
+```
+
+If a rotation is ever refused, the connection shows as refused in <Command path="forge list" />. Connect it again with a fresh token.
+
 ## Upgrading
 
 Download the new binary over the old one, then stop the service and migrate.
