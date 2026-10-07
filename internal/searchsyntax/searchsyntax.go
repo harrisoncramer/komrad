@@ -38,16 +38,9 @@ type Key struct {
 	Repeatable bool
 }
 
-// hint is one qualifier as it is typed and what it narrows the search to.
-type hint struct {
-	Syntax  string
-	Meaning string
-}
-
-// Grammar is the qualifiers one kind of search reads and the help shown for them.
+// Grammar is the qualifiers one kind of search reads.
 type Grammar struct {
 	Keys   []Key
-	Help   []hint
 	Strict bool
 }
 
@@ -62,17 +55,6 @@ var Transcripts = Grammar{
 		{Name: KeyUntil},
 		{Name: KeyOn},
 	},
-	Help: []hint{
-		{Syntax: "from:me", Meaning: "prompts, mail included"},
-		{Syntax: "from:agent", Meaning: "what the agent wrote"},
-		{Syntax: "agent:NAME", Meaning: "agents named like NAME"},
-		{Syntax: "workflow:NAME", Meaning: "agents in that workflow"},
-		{Syntax: "is:reviewer", Meaning: "or implementer, orchestrator"},
-		{Syntax: "-is:reviewer", Meaning: "leave that kind out"},
-		{Syntax: "since:3d", Meaning: "or 30m, 5h, 2w, today, a date"},
-		{Syntax: "until:DATE", Meaning: "up to the end of that day"},
-		{Syntax: "on:DATE", Meaning: "that one day"},
-	},
 }
 
 // Agents is the grammar the agents list is filtered by.
@@ -86,17 +68,6 @@ var Agents = Grammar{
 		{Name: KeySince},
 		{Name: KeyUntil},
 		{Name: KeySays},
-	},
-	Help: []hint{
-		{Syntax: "agent:NAME", Meaning: "agents named like NAME"},
-		{Syntax: "workflow:NAME", Meaning: "agents in that workflow"},
-		{Syntax: "is:reviewer", Meaning: "or implementer, orchestrator"},
-		{Syntax: "-is:reviewer", Meaning: "leave that kind out"},
-		{Syntax: "harness:NAME", Meaning: "agents run by that harness"},
-		{Syntax: "pr:NUMBER", Meaning: "the agent holding that pull request"},
-		{Syntax: "since:3d", Meaning: "started since; or 30m, 5h, 2w, today, a date"},
-		{Syntax: "until:DATE", Meaning: "started by the end of that day"},
-		{Syntax: "says:TEXT", Meaning: "agents whose transcript holds TEXT"},
 	},
 	Strict: true,
 }

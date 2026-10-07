@@ -28,7 +28,7 @@ type snapshotParams struct {
 	loaderFrame string
 	// matcher is the search a person is filtering the list by, nil when they are not.
 	matcher *regexp.Regexp
-	// picked are the keys of the rows the search.s qualifiers pick, nil when it names none.
+	// picked are the keys of the rows the search's qualifiers pick, nil when it names none.
 	picked map[string]bool
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
 	scheduled map[string]bool

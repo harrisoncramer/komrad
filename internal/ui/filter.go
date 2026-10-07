@@ -62,16 +62,27 @@ type filterState struct {
 	// openedIn is the section the keys were in when the search opened.
 	openedIn sidebarSection
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
-	origin        string
-	placed        string
+	origin string
+	// appliedAt is the row the cursor sat on when the search was last applied.
+	appliedAt     string
 	debounce      time.Duration
 	minLength     int
 	compiledQuery string
-	grammar       *queryGrammar
-	clauses       []searchsyntax.Clause
 	problem       string
-	compiledAt    time.Time
-	said          saidState
+	qualifiers    qualifierState
+}
+
+// qualifierState is the qualifiers a search reads and what the server found for its says: one.
+type qualifierState struct {
+	grammar    *queryGrammar
+	clauses    []searchsyntax.Clause
+	compiledAt time.Time
+	said       saidState
+}
+
+// fail marks the search broken for the reason given.
+func (f *filterState) fail(reason string) {
+	f.broken, f.problem = true, reason
 }
 
 type filterOption func(*filterState)
@@ -84,7 +95,7 @@ func withDebounce(wait time.Duration) filterOption {
 
 func withGrammar(grammar queryGrammar) filterOption {
 	return func(f *filterState) {
-		f.grammar = &grammar
+		f.qualifiers.grammar = &grammar
 	}
 }
 
@@ -134,7 +145,7 @@ func (f *filterState) setQuery(query string) {
 func (f *filterState) open(opts ...filterOption) {
 	f.typing = true
 	f.mode = filterModeSearch
-	f.debounce, f.minLength, f.grammar = 0, 0, nil
+	f.debounce, f.minLength, f.qualifiers.grammar = 0, 0, nil
 	for _, opt := range opts {
 		opt(f)
 	}
@@ -153,7 +164,7 @@ func (f filterState) isSearched() bool {
 
 // hasQuery reports whether a pattern or a qualifier stands to match rows by.
 func (f filterState) hasQuery() bool {
-	return !f.broken && (f.pattern != nil || len(f.clauses) > 0)
+	return !f.broken && (f.pattern != nil || len(f.qualifiers.clauses) > 0)
 }
 
 func (f filterState) isSettled() bool {
@@ -182,7 +193,7 @@ func (f *filterState) settle(query string) bool {
 func (f *filterState) compile() {
 	query := f.query()
 	f.pattern, f.broken, f.compiledQuery = nil, false, query
-	f.clauses, f.problem, f.compiledAt = nil, "", time.Now()
+	f.problem, f.qualifiers.clauses, f.qualifiers.compiledAt = "", nil, time.Now()
 	defer f.askSaid()
 
 	if f.isTooShort() {
@@ -190,15 +201,15 @@ func (f *filterState) compile() {
 	}
 
 	expr := query
-	if f.grammar != nil {
-		parsed, err := f.grammar.parse(query, f.compiledAt)
+	if f.qualifiers.grammar != nil {
+		parsed, err := f.qualifiers.grammar.parse(query, f.qualifiers.compiledAt)
 		if err != nil {
-			f.broken, f.problem = true, errui.GetReason(err)
+			f.fail(errui.GetReason(err))
 
 			return
 		}
 
-		f.clauses, expr = parsed.Clauses, parsed.Text()
+		f.qualifiers.clauses, expr = parsed.Clauses, parsed.Text()
 		if expr == "" {
 			return
 		}
@@ -237,7 +248,7 @@ func (f filterState) admits(name string, fits clauseFits) bool {
 // holds reports whether a row meets one of the qualifiers given under each key and none of the
 // ones left out.
 func (f filterState) holds(fits clauseFits) bool {
-	if len(f.clauses) == 0 {
+	if len(f.qualifiers.clauses) == 0 {
 		return true
 	}
 	if fits == nil {
@@ -245,7 +256,7 @@ func (f filterState) holds(fits clauseFits) bool {
 	}
 
 	met := map[string]bool{}
-	for _, clause := range f.clauses {
+	for _, clause := range f.qualifiers.clauses {
 		if clause.Negated {
 			if fits(clause) {
 				return false
@@ -266,7 +277,7 @@ func (f filterState) holds(fits clauseFits) bool {
 	return true
 }
 
-// highlight lights the stretches of a row's name the search matches, the whole of it when only qualifiers picked the row.
+// highlight lights the stretches of a row's name the search's pattern matches.
 func (f filterState) highlight(palette paint.Palette, name string, base lipgloss.Style) string {
 	if f.pattern == nil || f.broken {
 		return base.Render(name)
@@ -295,8 +306,8 @@ func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
 	var opts []filterOption
-	if g, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused() {
-		opts = append(opts, withGrammar(g.queryGrammar()))
+	if screen, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused() {
+		opts = append(opts, withGrammar(screen.queryGrammar()))
 	}
 
 	filter := &m.filter
@@ -419,7 +430,7 @@ func (m *model) applyFilter() {
 	}
 
 	m.placeFilteredCursor(found)
-	m.filter.placed = m.hoveredFilterKey()
+	m.filter.appliedAt = m.hoveredFilterKey()
 }
 
 // isFilterRowShown reports whether the pane holding the keys still draws a row.

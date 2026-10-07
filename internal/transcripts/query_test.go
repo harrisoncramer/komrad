@@ -1,7 +1,6 @@
 package transcripts
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -108,18 +107,6 @@ func TestParseSearch(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, &tt.want, got)
-		})
-	}
-}
-
-// TestParseSearchKnowsEveryListedQualifier pins the help the panel shows to the qualifiers the parser reads.
-func TestParseSearchKnowsEveryListedQualifier(t *testing.T) {
-	sample := strings.NewReplacer("NAME", "payouts", "DATE", "2026-09-20")
-	for _, listed := range searchsyntax.Transcripts.Help {
-		t.Run(listed.Syntax, func(t *testing.T) {
-			got, err := parseSearch(sample.Replace(listed.Syntax), time.Now())
-			require.NoError(t, err)
-			assert.Empty(t, got.Words)
 		})
 	}
 }

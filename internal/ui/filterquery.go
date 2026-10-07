@@ -60,25 +60,25 @@ type saidState struct {
 // askSaid notes a says: qualifier whose text changed, for the model to send to the server.
 func (f *filterState) askSaid() {
 	text := ""
-	for _, clause := range f.clauses {
+	for _, clause := range f.qualifiers.clauses {
 		if clause.Key == searchsyntax.KeySays {
 			text = clause.Value
 		}
 	}
-	if text == f.said.text {
-		if f.said.problem != "" {
-			f.broken, f.problem = true, f.said.problem
+	if text == f.qualifiers.said.text {
+		if f.qualifiers.said.problem != "" {
+			f.fail(f.qualifiers.said.problem)
 		}
 
 		return
 	}
 
-	f.said = saidState{text: text, waiting: text != "", queued: text != ""}
+	f.qualifiers.said = saidState{text: text, waiting: text != "", queued: text != ""}
 }
 
-// says reports whether the server found a row saying the text, and false while it has not answered.
-func (f filterState) says(key string) bool {
-	return !f.said.waiting && f.said.found[key]
+// hasSaid reports whether the server found the row saying the text, and false while it has not answered.
+func (f filterState) hasSaid(key string) bool {
+	return !f.qualifiers.said.waiting && f.qualifiers.said.found[key]
 }
 
 type saysSettledMsg struct {
@@ -93,7 +93,7 @@ type saysFoundMsg struct {
 
 // saysCmd waits out the typing before a changed says: qualifier is sent.
 func (m *model) saysCmd() tea.Cmd {
-	said := &m.filter.said
+	said := &m.filter.qualifiers.said
 	if !said.queued {
 		return nil
 	}
@@ -104,7 +104,7 @@ func (m *model) saysCmd() tea.Cmd {
 }
 
 func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
-	said := m.filter.said
+	said := m.filter.qualifiers.said
 	if msg.text != said.text || !said.waiting {
 		return nil
 	}
@@ -113,45 +113,55 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 
 	return func() tea.Msg {
 		found, err := call(agentsTimeout, func(ctx context.Context) (map[string]bool, error) {
-			resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-				Query:      `"` + strings.ReplaceAll(msg.text, `"`, "") + `"`,
-				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
-			}))
-			if err != nil {
-				return nil, err
-			}
-
-			found := map[string]bool{}
-			for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
-				found[hit.GetAgentId()] = true
-			}
-
-			return found, nil
+			return searchSaid(ctx, client, msg.text)
 		})
 
 		return saysFoundMsg{text: msg.text, found: found, err: err}
 	}
 }
 
+// searchSaid asks the server which agents' transcripts hold the text, keyed by agent id.
+func searchSaid(ctx context.Context, client agentReads, text string) (map[string]bool, error) {
+	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+		Query:      phrase(text),
+		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	found := map[string]bool{}
+	for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
+		found[hit.GetAgentId()] = true
+	}
+
+	return found, nil
+}
+
+// phrase quotes text so a transcript search reads it as one phrase.
+func phrase(text string) string {
+	return `"` + strings.ReplaceAll(text, `"`, "") + `"`
+}
+
 func (m *model) applySaysFound(msg saysFoundMsg) {
 	filter := &m.filter
-	if msg.text != filter.said.text {
+	if msg.text != filter.qualifiers.said.text {
 		return
 	}
 
-	filter.said.waiting = false
+	filter.qualifiers.said.waiting = false
 	if msg.err != nil {
-		filter.said.problem = errui.GetReason(msg.err)
-		filter.broken, filter.problem = true, filter.said.problem
+		filter.qualifiers.said.problem = errui.GetReason(msg.err)
+		filter.fail(filter.qualifiers.said.problem)
 	} else {
-		filter.said.found = msg.found
+		filter.qualifiers.said.found = msg.found
 	}
 	if filter.typing {
 		return
 	}
 
 	hovered := m.hoveredFilterKey()
-	if hovered != filter.placed && (!filter.isNarrowing() || m.isFilterRowShown(hovered)) {
+	if hovered != filter.appliedAt && (!filter.isNarrowing() || m.isFilterRowShown(hovered)) {
 		return
 	}
 

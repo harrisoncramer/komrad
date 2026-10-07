@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -41,8 +42,7 @@ func checkAgentsClause(clause searchsyntax.Clause, now time.Time) error {
 	return nil
 }
 
-// agentRowFits is how a row of the tree meets a qualifier: a header by its workflow's name or the
-// orchestrator behind it, an agent by its own.
+// agentRowFits matches a row of the tree against a qualifier, a header standing for its workflow.
 func (m *model) agentRowFits(r agentRow) clauseFits {
 	return func(clause searchsyntax.Clause) bool {
 		if !r.header {
@@ -75,23 +75,18 @@ func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
 		if err != nil {
 			return false
 		}
-		for _, pr := range row.PullRequests {
-			if int(pr.Number) == number {
-				return true
-			}
-		}
 
-		return false
+		return slices.ContainsFunc(row.PullRequests, func(pr panel.PullRequest) bool { return int(pr.Number) == number })
 	case searchsyntax.KeySince:
-		at, err := searchsyntax.ParseStart(clause.Key, clause.Value, m.filter.compiledAt)
+		at, err := searchsyntax.ParseStart(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
 
 		return err == nil && !agent.CreatedAt.Before(at)
 	case searchsyntax.KeyUntil:
-		at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, m.filter.compiledAt)
+		at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
 
 		return err == nil && agent.CreatedAt.Before(at)
 	case searchsyntax.KeySays:
-		return m.filter.says(agent.ID)
+		return m.filter.hasSaid(agent.ID)
 	}
 
 	return false
@@ -99,7 +94,7 @@ func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
 
 // pickedAgentRows is the keys of the rows the filter's qualifiers pick, nil when it names none.
 func (m *model) pickedAgentRows(rows []agentRow) map[string]bool {
-	if m.filter.broken || len(m.filter.clauses) == 0 {
+	if m.filter.broken || len(m.filter.qualifiers.clauses) == 0 {
 		return nil
 	}
 
