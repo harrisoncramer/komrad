@@ -55,7 +55,7 @@ func (m *model) engineTone() paint.Tone {
 	return paint.ToneSuccess
 }
 
-// engineLine is the engine drawn in at most width cells, dropping the commit before the name.
+// engineLine is the engine rendered in at most width cells, dropping the commit before the name.
 func (m *model) engineLine(width int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	line := paint.Panel.Style(m.engineTone()).Render(m.glyphs.Spell(glyph.Engine)) + " " + muted.Render(engineTitle(m.engineStatus.Name))
@@ -65,11 +65,11 @@ func (m *model) engineLine(width int) string {
 		room = math.MaxInt
 	}
 
-	if flash, ok := m.drawMessagesFlash(room); ok {
+	if flash, ok := m.renderMessagesFlash(room); ok {
 		return line + "  " + flash
 	}
 
-	tally := m.drawMessagesTally()
+	tally := m.renderMessagesTally()
 	if tally != "" {
 		tally = "  " + tally
 	}

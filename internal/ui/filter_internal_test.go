@@ -19,7 +19,7 @@ func TestFilterQuery(t *testing.T) {
 		wantBroken bool
 	}{
 		{
-			name:       "a pattern that will not compile draws every row",
+			name:       "a pattern that will not compile renders every row",
 			query:      "api[",
 			row:        "unrelated",
 			wantMatch:  true,

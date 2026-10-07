@@ -59,7 +59,7 @@ func (h *highlighter) splitLines(path, source string) []styledLine {
 		return nil
 	}
 
-	// A file it cannot lex comes back nil, and the caller draws the patch's own text instead.
+	// A file it cannot lex comes back nil, and the caller renders the patch's own text instead.
 	iterator, err := h.getLexer(path).Tokenise(nil, source)
 	if err != nil {
 		return nil

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestWindowSpan covers the rows a window draws around its markers.
+// TestWindowSpan covers the rows a window renders around its markers.
 func TestWindowSpan(t *testing.T) {
 	t.Parallel()
 
@@ -22,7 +22,7 @@ func TestWindowSpan(t *testing.T) {
 		wantEnd   int
 	}{
 		{
-			name: "a document shorter than the window is drawn whole",
+			name: "a document shorter than the window is rendered whole",
 			window: reader.Window{
 				Len:     3,
 				Top:     2,
@@ -81,7 +81,7 @@ func TestWindowSpan(t *testing.T) {
 	}
 }
 
-// TestWindowReveal covers a window moved just far enough to draw a row.
+// TestWindowReveal covers a window moved just far enough to render a row.
 func TestWindowReveal(t *testing.T) {
 	t.Parallel()
 
@@ -93,7 +93,7 @@ func TestWindowReveal(t *testing.T) {
 		want   int
 	}{
 		{
-			name: "a row already drawn leaves the window alone",
+			name: "a row already rendered leaves the window alone",
 			window: reader.Window{
 				Len:     20,
 				Top:     6,
@@ -129,7 +129,7 @@ func TestWindowReveal(t *testing.T) {
 			want:   16,
 		},
 		{
-			name:   "a window too short to draw any text still settles on the row",
+			name:   "a window too short to render any text still settles on the row",
 			window: reader.Window{Len: 20, Markers: true},
 			row:    10,
 			height: 1,
@@ -178,14 +178,14 @@ func TestReader(t *testing.T) {
 			wantTop:  6,
 		},
 		{
-			name:     "settling a cursor scrolled out of the window puts it on the first row drawn",
+			name:     "settling a cursor scrolled out of the window puts it on the first row rendered",
 			start:    reader.Reader{Line: 1, Top: 6},
 			act:      func(r *reader.Reader) { r.Settle(20, 5) },
 			wantLine: 6,
 			wantTop:  6,
 		},
 		{
-			name:     "settling a cursor the window draws leaves it there",
+			name:     "settling a cursor the window renders leaves it there",
 			start:    reader.Reader{Line: 8, Top: 6},
 			act:      func(r *reader.Reader) { r.Settle(20, 5) },
 			wantLine: 8,

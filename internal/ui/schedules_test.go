@@ -23,21 +23,21 @@ import (
 // TestSchedulesKeys covers what each key does on the schedule under the cursor.
 func TestSchedulesKeys(t *testing.T) {
 	tests := []struct {
-		name       string
-		rows       []proto.Message
-		press      []string
-		wantScreen string
-		wantDrawn  []string
-		wantAbsent []string
-		gone       *watchv1.WatchEvent
-		wantSent   []request
+		name         string
+		rows         []proto.Message
+		press        []string
+		wantScreen   string
+		wantRendered []string
+		wantAbsent   []string
+		gone         *watchv1.WatchEvent
+		wantSent     []request
 	}{
 		{
-			name:       "edit on an empty list opens no form",
-			rows:       []proto.Message{newLiveWorkflow("w1", "api")},
-			press:      []string{"space", "e"},
-			wantDrawn:  []string{"no schedules yet"},
-			wantAbsent: []string{scheduleForm},
+			name:         "edit on an empty list opens no form",
+			rows:         []proto.Message{newLiveWorkflow("w1", "api")},
+			press:        []string{"space", "e"},
+			wantRendered: []string{"no schedules yet"},
+			wantAbsent:   []string{scheduleForm},
 		},
 		{
 			name:       "archive on an empty list opens no prompt",
@@ -51,10 +51,10 @@ func TestSchedulesKeys(t *testing.T) {
 			press: []string{"space", "p"},
 		},
 		{
-			name:       "new with no workflows says why rather than opening the form",
-			press:      append(widenListPresses, "space", "c"),
-			wantDrawn:  []string{"Could not create a schedule"},
-			wantAbsent: []string{scheduleForm},
+			name:         "new with no workflows says why rather than opening the form",
+			press:        append(widenListPresses, "space", "c"),
+			wantRendered: []string{"Could not create a schedule"},
+			wantAbsent:   []string{scheduleForm},
 		},
 		{
 			name:       "back opens the view switcher",
@@ -63,35 +63,35 @@ func TestSchedulesKeys(t *testing.T) {
 			wantScreen: agentsScreen,
 		},
 		{
-			name:      "new opens the form on the first workflow",
-			rows:      buildSchedules(),
-			press:     []string{"space", "c"},
-			wantDrawn: []string{scheduleForm, "› api"},
+			name:         "new opens the form on the first workflow",
+			rows:         buildSchedules(),
+			press:        []string{"space", "c"},
+			wantRendered: []string{scheduleForm, "› api"},
 		},
 		{
-			name:      "edit opens the form over the hovered schedule",
-			rows:      buildSchedules(),
-			press:     []string{"space", "e"},
-			wantDrawn: []string{"> morning-ci", "> 0 9 * * 1-5", "check CI"},
+			name:         "edit opens the form over the hovered schedule",
+			rows:         buildSchedules(),
+			press:        []string{"space", "e"},
+			wantRendered: []string{"> morning-ci", "> 0 9 * * 1-5", "check CI"},
 		},
 		{
-			name:       "edit on a kind a newer server added says why rather than opening the form",
-			rows:       []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
-			press:      []string{"space", "e"},
-			wantDrawn:  []string{"Could not edit schedule"},
-			wantAbsent: []string{scheduleForm},
+			name:         "edit on a kind a newer server added says why rather than opening the form",
+			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
+			press:        []string{"space", "e"},
+			wantRendered: []string{"Could not edit schedule"},
+			wantAbsent:   []string{scheduleForm},
 		},
 		{
-			name:      "rename on a kind a newer server added sends nothing",
-			rows:      []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
-			press:     slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
-			wantDrawn: []string{"Could not rename schedule"},
+			name:         "rename on a kind a newer server added sends nothing",
+			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
+			press:        slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
+			wantRendered: []string{"Could not rename schedule"},
 		},
 		{
-			name:      "archive opens its menu",
-			rows:      buildSchedules(),
-			press:     []string{"space", "a"},
-			wantDrawn: []string{archiveMenu},
+			name:         "archive opens its menu",
+			rows:         buildSchedules(),
+			press:        []string{"space", "a"},
+			wantRendered: []string{archiveMenu},
 		},
 		{
 			name:       "archive from its menu archives the hovered schedule and lands back on the schedules",
@@ -106,16 +106,16 @@ func TestSchedulesKeys(t *testing.T) {
 			}},
 		},
 		{
-			name:      "rename types over the hovered schedule's name",
-			rows:      buildSchedules(),
-			press:     slices.Concat([]string{"r"}, spellKeys("-2")),
-			wantDrawn: []string{"morning-ci-2▏", "enter save"},
+			name:         "rename types over the hovered schedule's name",
+			rows:         buildSchedules(),
+			press:        slices.Concat([]string{"r"}, spellKeys("-2")),
+			wantRendered: []string{"morning-ci-2▏", "enter save"},
 		},
 		{
-			name:      "rename on a long name keeps the cursor in view near its start",
-			rows:      []proto.Message{newLiveWorkflow("w1", "api"), newSchedule("s1", "abcdefghijklmnopqrstuvwxyz0123456789")},
-			press:     []string{"r", "home", "right"},
-			wantDrawn: []string{"a[b]cdefghijklmnopqrstuvwxyz012…"},
+			name:         "rename on a long name keeps the cursor in view near its start",
+			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newSchedule("s1", "abcdefghijklmnopqrstuvwxyz0123456789")},
+			press:        []string{"r", "home", "right"},
+			wantRendered: []string{"a[b]cdefghijklmnopqrstuvwxyz012…"},
 		},
 		{
 			name:  "rename sends the typed name with the rest of the schedule as it was",
@@ -143,10 +143,10 @@ func TestSchedulesKeys(t *testing.T) {
 			}},
 		},
 		{
-			name:      "the menu offers resume on a paused schedule",
-			rows:      []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "weekly-report")},
-			press:     []string{"space"},
-			wantDrawn: []string{"resume"},
+			name:         "the menu offers resume on a paused schedule",
+			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "weekly-report")},
+			press:        []string{"space"},
+			wantRendered: []string{"resume"},
 		},
 		{
 			name:  "resume from the menu resumes a paused schedule",
@@ -176,8 +176,8 @@ func TestSchedulesKeys(t *testing.T) {
 				assert.Equal(t, tt.wantScreen, harness.readScreen())
 			}
 			frame := harness.readTypedFrame()
-			for _, drawn := range tt.wantDrawn {
-				assert.Contains(t, frame, drawn)
+			for _, rendered := range tt.wantRendered {
+				assert.Contains(t, frame, rendered)
 			}
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, frame, absent)
@@ -187,7 +187,7 @@ func TestSchedulesKeys(t *testing.T) {
 	}
 }
 
-// TestSchedulesList covers the rows the list draws and the cursor keeping its schedule.
+// TestSchedulesList covers the rows the list renders and the cursor keeping its schedule.
 func TestSchedulesList(t *testing.T) {
 	t.Run("each schedule shows whether it is armed, its name and its expression", func(t *testing.T) {
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
@@ -231,7 +231,7 @@ func TestSchedulesList(t *testing.T) {
 	})
 }
 
-// TestSchedulesDocument covers the document drawn beside the list for the hovered schedule.
+// TestSchedulesDocument covers the document rendered beside the list for the hovered schedule.
 func TestSchedulesDocument(t *testing.T) {
 	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
 
@@ -270,40 +270,40 @@ func TestSchedulesDocument(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		schedule   *schedulev1.Schedule
-		wantDrawn  []string
-		wantAbsent []string
+		name         string
+		schedule     *schedulev1.Schedule
+		wantRendered []string
+		wantAbsent   []string
 	}{
 		{
-			name:      "an empty list says how to write one",
-			wantDrawn: []string{"A schedule launches an agent, or mails an orchestrator, on a cron expression."},
+			name:         "an empty list says how to write one",
+			wantRendered: []string{"A schedule launches an agent, or mails an orchestrator, on a cron expression."},
 		},
 		{
-			name:       "a paused schedule says it will not run",
-			schedule:   newPausedSchedule("s1", "nightly"),
-			wantDrawn:  []string{"nightly", "paused — will not run"},
-			wantAbsent: []string{"next run"},
+			name:         "a paused schedule says it will not run",
+			schedule:     newPausedSchedule("s1", "nightly"),
+			wantRendered: []string{"nightly", "paused — will not run"},
+			wantAbsent:   []string{"next run"},
 		},
 		{
-			name:      "a schedule with no prompt says so rather than paging a blank",
-			schedule:  bare,
-			wantDrawn: []string{"bare", "no prompt set"},
+			name:         "a schedule with no prompt says so rather than paging a blank",
+			schedule:     bare,
+			wantRendered: []string{"bare", "no prompt set"},
 		},
 		{
-			name:      "one whose runs start hidden says so",
-			schedule:  hidden,
-			wantDrawn: []string{"quiet", "Its runs start hidden."},
+			name:         "one whose runs start hidden says so",
+			schedule:     hidden,
+			wantRendered: []string{"quiet", "Its runs start hidden."},
 		},
 		{
-			name:      "a schedule that has never fired says so in one line",
-			schedule:  newSchedule("s1", "fresh"),
-			wantDrawn: []string{"never fired", "check CI"},
+			name:         "a schedule that has never fired says so in one line",
+			schedule:     newSchedule("s1", "fresh"),
+			wantRendered: []string{"never fired", "check CI"},
 		},
 		{
 			name:     "each run reads as its outcome, a skip giving its reason and a failure its error",
 			schedule: flaky,
-			wantDrawn: []string{
+			wantRendered: []string{
 				"07-28 09:00  failed     5/5 attempts",
 				"bad directory",
 				"07-28 08:00  skipped    schedule is paused",
@@ -312,10 +312,10 @@ func TestSchedulesDocument(t *testing.T) {
 			wantAbsent: []string{"an earlier attempt's error"},
 		},
 		{
-			name:       "an armed schedule leads with when it next fires",
-			schedule:   armed,
-			wantDrawn:  []string{"morning-ci", "next run", "check CI"},
-			wantAbsent: []string{"paused"},
+			name:         "an armed schedule leads with when it next fires",
+			schedule:     armed,
+			wantRendered: []string{"morning-ci", "next run", "check CI"},
+			wantAbsent:   []string{"paused"},
 		},
 	}
 
@@ -328,8 +328,8 @@ func TestSchedulesDocument(t *testing.T) {
 			harness := openSchedules(t, rows...)
 
 			document := readStageText(harness.readFrame())
-			for _, drawn := range tt.wantDrawn {
-				assert.Contains(t, document, drawn)
+			for _, rendered := range tt.wantRendered {
+				assert.Contains(t, document, rendered)
 			}
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, document, absent)
@@ -338,7 +338,7 @@ func TestSchedulesDocument(t *testing.T) {
 	}
 }
 
-// TestSchedulesRecord covers the fields the record under the list draws for a schedule.
+// TestSchedulesRecord covers the fields the record under the list renders for a schedule.
 func TestSchedulesRecord(t *testing.T) {
 	configured := &workflowv1.Workflow{
 		Id:      "w1",
@@ -648,7 +648,7 @@ func TestSchedulesForm(t *testing.T) {
 		})
 	})
 
-	t.Run("every confirm draws its buttons in the same column", func(t *testing.T) {
+	t.Run("every confirm renders its buttons in the same column", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 		harness.press("space", "e")
 

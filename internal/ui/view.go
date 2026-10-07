@@ -28,18 +28,18 @@ func (m *model) View() tea.View {
 // render renders the active screen inside its gutters.
 func (m *model) render() string {
 	if m.configErr != nil || m.startupErr != nil {
-		return m.drawInset(m.insideView())
+		return m.renderInset(m.insideView())
 	}
 
 	if m.picker.frozen != "" {
 		return m.fitFrame(m.picker.frozen)
 	}
 
-	if m.term.drawn != "" {
-		return m.term.drawn
+	if m.term.renderedView == "" {
+		m.term.renderedView = m.renderInMode(m.findMode())
 	}
 
-	return m.drawInMode(m.findMode())
+	return m.term.renderedView
 }
 
 // insideView is the frame the gutters surround, taking the failures in the order they happen.
@@ -73,7 +73,7 @@ func (m *model) fitFrame(view string) string {
 	return view + strings.Repeat("\n"+blank, m.term.height-rows)
 }
 
-// gutter is the blank cells left of what the panel draws.
+// gutter is the blank cells left of what the panel renders.
 const gutter = 1
 
 // countInsetCols is the columns the gutter and the divider beside the stage take from the panel.
@@ -94,7 +94,7 @@ func (m *model) countSidebarChrome() int {
 	return 2*gutter + 1
 }
 
-// countInsetLeft is the columns between the left edge of the pane and what the panel draws.
+// countInsetLeft is the columns between the left edge of the pane and what the panel renders.
 func (m *model) countInsetLeft() int {
 	if !m.frame.IsSolo() && m.frame.IsSidebarOnRight() {
 		return gutter + 1
@@ -103,8 +103,8 @@ func (m *model) countInsetLeft() int {
 	return gutter
 }
 
-// drawInset puts the gutter left of the frame, and the divider on the side facing the stage.
-func (m *model) drawInset(view string) string {
+// renderInset puts the gutter left of the frame, and the divider on the side facing the stage.
+func (m *model) renderInset(view string) string {
 	if m.term.width <= 0 {
 		return view
 	}
@@ -121,9 +121,9 @@ func (m *model) drawInset(view string) string {
 		left, right := pad, ""
 		switch {
 		case edged && onRight:
-			left = drawEdgeRow(isRule(line), true)
+			left = renderEdgeRow(isRule(line), true)
 		case edged:
-			right = drawEdgeRow(isRule(line), false)
+			right = renderEdgeRow(isRule(line), false)
 		}
 
 		lines[i] = left + line + right
@@ -132,9 +132,9 @@ func (m *model) drawInset(view string) string {
 	return strings.Join(lines, "\n")
 }
 
-// drawEdgeRow is one row of the divider on the side of the panel facing the stage, joined to a rule
+// renderEdgeRow is one row of the divider on the side of the panel facing the stage, joined to a rule
 // that meets it.
-func drawEdgeRow(rule, facingLeft bool) string {
+func renderEdgeRow(rule, facingLeft bool) string {
 	if !rule {
 		if facingLeft {
 			return dimStyle().Render(dividerGlyph) + strings.Repeat(" ", gutter)
@@ -157,13 +157,13 @@ func (m *model) screenView() string {
 
 	split, ok := m.columnSplit()
 	if !ok && m.isMessagesFocused() {
-		return m.drawMessagesWindow(m.term.width, m.term.height).view(m.term.height)
+		return m.renderMessagesWindow(m.term.width, m.term.height).view(m.term.height)
 	}
 	if !ok {
 		return m.heldFormView()
 	}
 
-	// Asked for before either half is drawn, so the halves are laid out already knowing their
+	// Asked for before either half is rendered, so the halves are laid out already knowing their
 	// column.
 	held := m.measuredAt(split.sidebar)
 
@@ -171,7 +171,7 @@ func (m *model) screenView() string {
 		return m.joinColumns(split, held.active().view(held), m.docColumnView(split))
 	}
 
-	// The list is drawn beside the form as the context the form was opened from, and takes none of
+	// The list is rendered beside the form as the context the form was opened from, and takes none of
 	// the keys while it is there.
 	return m.joinColumns(split, held.active().view(held), m.heldFormView())
 }
@@ -188,7 +188,7 @@ func (m *model) heldFormView() string {
 		view = strings.TrimRight(view, "\n") + "\n" + write.Notice(m.submittingParams(width))
 	} else if m.form.refusal != "" {
 		width, _ := m.formBox()
-		view = strings.TrimRight(view, "\n") + "\n" + m.drawRefusal(width)
+		view = strings.TrimRight(view, "\n") + "\n" + m.renderRefusal(width)
 	}
 
 	leading, _ := m.formLeading()
@@ -206,7 +206,7 @@ func (m *model) heldFormView() string {
 	return joinLeading(append(leading, view), m.form.trailing(max(width-lipgloss.Width(view)-dividerCols, 1), height))
 }
 
-// joinLeading draws blocks side by side ahead of the form, a divider between each.
+// joinLeading renders blocks side by side ahead of the form, a divider between each.
 func joinLeading(leading []string, form string) string {
 	if len(leading) == 0 {
 		return form
@@ -223,7 +223,7 @@ func joinLeading(leading []string, form string) string {
 		for b, lines := range split[:len(leading)] {
 			line := readLineAt(lines, i, 0)
 			row.WriteString(line + strings.Repeat(" ", max(lipgloss.Width(leading[b])-lipgloss.Width(line), 0)))
-			row.WriteString(drawDividerRow(false, false))
+			row.WriteString(renderDividerRow(false, false))
 		}
 
 		if i < len(split[len(leading)]) {
@@ -236,7 +236,7 @@ func joinLeading(leading []string, form string) string {
 	return strings.Join(out, "\n")
 }
 
-func (m *model) drawRefusal(width int) string {
+func (m *model) renderRefusal(width int) string {
 	icon := paint.Panel.Style(kindTone(messageError)).Render(kindIcon(m.glyphs, messageError))
 
 	return icon + " " + paint.Clip(m.form.refusal, max(width-2, 1))

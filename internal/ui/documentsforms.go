@@ -30,7 +30,7 @@ func newDocumentForm(m *model, agentID string) tea.Cmd {
 	}
 	values := &documentFormValues{Type: defaultDocumentType(types)}
 
-	return m.openForm(redrawnForm(redrawnFormParams{
+	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind:  formDocument,
 		Build: func(m *model) (*huh.Form, []string) { return documentForm(values, m.listing.documentTypeNames()) },
 		Submit: holdSubmit(func(m *model) tea.Cmd {

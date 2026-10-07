@@ -295,7 +295,7 @@ func (r *reviewScreen) buildItemMenu(m *model) (submenu, bool) {
 	}, true
 }
 
-// buildScreenMenu builds the review's own band, for the file in the editor, how the diff is drawn
+// buildScreenMenu builds the review's own band, for the file in the editor, how the diff is rendered
 // and the review waiting to be sent.
 func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 	_, history := r.isHistory()

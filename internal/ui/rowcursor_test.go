@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRowCursor covers the arrow the lists draw on the hovered row and how it blinks.
+// TestRowCursor covers the arrow the lists render on the hovered row and how it blinks.
 func TestRowCursor(t *testing.T) {
 	t.Run("the blink hides the arrow and keeps its room", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
@@ -23,7 +23,7 @@ func TestRowCursor(t *testing.T) {
 		assert.Equal(t, findBarColumn(findRowWith(t, shown, "auth")), findBarColumn(findRowWith(t, hidden, "auth")))
 	})
 
-	t.Run("a keypress draws the arrow on the row it lands on", func(t *testing.T) {
+	t.Run("a keypress renders the arrow on the row it lands on", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 		harness.fireTimers()
 
@@ -41,7 +41,7 @@ func TestRowCursor(t *testing.T) {
 		assert.Empty(t, readHoveredRow(harness.readFrame()))
 	})
 
-	t.Run("another pane holding the keys draws the arrow solid", func(t *testing.T) {
+	t.Run("another pane holding the keys renders the arrow solid", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 		harness.panel.SetKeysElsewhere(true)
 		harness.send(tea.BlurMsg{})
@@ -78,7 +78,7 @@ func TestRowCursor(t *testing.T) {
 		harness.press("pick:record")
 
 		shown := harness.readFrame()
-		assert.False(t, strings.HasPrefix(findRowWith(t, shown, "auth"), "›"), "the list draws no arrow")
+		assert.False(t, strings.HasPrefix(findRowWith(t, shown, "auth"), "›"), "the list renders no arrow")
 		assert.Equal(t, "agent      —", readRecordCursor(shown))
 
 		harness.fireTimers()

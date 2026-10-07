@@ -120,15 +120,15 @@ var triageRules = []triageRule{
 	},
 }
 
-// triageZone is the agents waiting on a person, drawn ahead of the tree while it has room for any.
+// triageZone is the agents waiting on a person, rendered ahead of the tree while it has room for any.
 type triageZone struct {
-	// capacity is how many families the zone draws, and zero turns it off.
+	// capacity is how many families the zone renders, and zero turns it off.
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
 	// snoozed are the families taken out of the zone, by head id, until what they wait on changes.
 	snoozed map[string]triageSnooze
-	// frozen is the order of the heads drawn while a person reads the zone, which holds still until
+	// frozen is the order of the heads rendered while a person reads the zone, which holds still until
 	// they leave it, and nil when it is free to move.
 	frozen []string
 	// held is the head of the family the cursor is on, which keeps its place in the zone after it stops
@@ -157,7 +157,7 @@ type triageFamily struct {
 	entry triageEntry
 }
 
-// isOn reports whether the zone is drawn at all.
+// isOn reports whether the zone is rendered at all.
 func (z *triageZone) isOn() bool {
 	return z.capacity > 0
 }
@@ -474,7 +474,7 @@ func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
-// buildZone draws the most urgent families the zone has slots for and counts those left waiting.
+// buildZone renders the most urgent families the zone has slots for and counts those left waiting.
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	children := childrenByParent(m.listing.agents)
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
@@ -494,7 +494,7 @@ func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waitin
 	return zone, len(families) - len(slotted)
 }
 
-// orderFamilies is the families in the order the zone draws them, the order it was frozen in while
+// orderFamilies is the families in the order the zone renders them, the order it was frozen in while
 // it is frozen.
 func (z triageZone) orderFamilies(families []triageFamily) []triageFamily {
 	if z.frozen != nil {
@@ -518,7 +518,7 @@ func (z triageZone) orderFamilies(families []triageFamily) []triageFamily {
 	return families
 }
 
-// compareFamilies orders two families in triage as the zone draws them.
+// compareFamilies orders two families in triage as the zone renders them.
 func (z triageZone) compareFamilies(a, b triageFamily) int {
 	return cmp.Or(
 		compareUrgency(a.entry, b.entry),
@@ -640,15 +640,15 @@ func (a *agentsScreen) jumpToTriage(m *model) {
 	m.stageSelection()
 }
 
-// triageSnapshot is the zone as the agents list draws it.
+// triageSnapshot is the zone as the agents list renders it.
 type triageSnapshot struct {
-	// height is the fewest rows of agents the zone draws, zero when it is off.
+	// height is the fewest rows of agents the zone renders, zero when it is off.
 	height  int
 	zone    []agentRow
 	waiting int
 }
 
-// triageRows are the lines the zone draws ahead of the tree, padded to its height when it holds fewer.
+// triageRows are the lines the zone renders ahead of the tree, padded to its height when it holds fewer.
 func triageRows(params snapshotParams) []view.Row {
 	queue := params.triage
 	if queue.height == 0 {
@@ -657,7 +657,7 @@ func triageRows(params snapshotParams) []view.Row {
 
 	var rows []view.Row
 	for _, r := range queue.zone {
-		row := params.renaming.drawnOver(snapshotRow(r, params))
+		row := params.renaming.renderedOver(snapshotRow(r, params))
 		if !r.child {
 			row.Kind = view.KindAgent
 		}

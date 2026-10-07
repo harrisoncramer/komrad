@@ -100,12 +100,12 @@ func TestEveryToneIsItsOwnColour(t *testing.T) {
 	for _, tone := range []Tone{ToneMuted, TonePrimary, ToneSecondary, ToneSuccess, ToneWarning, ToneDanger, ToneUserMe, ToneUserAgent, ToneUserReviewer, ToneUserGithub, ToneMerged, ToneHighlight, ToneInverse} {
 		color := Panel.Color(tone)
 		other, taken := seen[color]
-		assert.False(t, taken, "tone %d draws in the same colour as tone %d", tone, other)
+		assert.False(t, taken, "tone %d renders in the same colour as tone %d", tone, other)
 		seen[color] = tone
 	}
 }
 
-// TestStageCarriesTheTones covers the markdown a block beside a list is drawn in.
+// TestStageCarriesTheTones covers the markdown a block beside a list is rendered in.
 func TestStageCarriesTheTones(t *testing.T) {
 	stage := Panel.Stage()
 
@@ -115,15 +115,15 @@ func TestStageCarriesTheTones(t *testing.T) {
 	assert.Equal(t, theme.Defaults().Secondary, *stage.Item.Color)
 }
 
-// TestMarkTakesItsToneFromThePalette covers the shape every optional mark on a row is drawn in.
+// TestMarkTakesItsToneFromThePalette covers the shape every optional mark on a row is rendered in.
 func TestMarkTakesItsToneFromThePalette(t *testing.T) {
-	assert.Empty(t, Panel.Mark(false, "✓", ToneSuccess), "a fact that is not true draws nothing")
+	assert.Empty(t, Panel.Mark(false, "✓", ToneSuccess), "a fact that is not true renders nothing")
 	assert.Equal(t, " "+Panel.Style(ToneSuccess).Render("✓"), Panel.Mark(true, "✓", ToneSuccess))
 }
 
-// TestPaletteDrawsHexAndNumbers covers a palette spelling some colours as hex codes and others
+// TestPaletteRendersHexAndNumbers covers a palette spelling some colours as hex codes and others
 // as colour numbers.
-func TestPaletteDrawsHexAndNumbers(t *testing.T) {
+func TestPaletteRendersHexAndNumbers(t *testing.T) {
 	colors := theme.Defaults()
 	colors.Highlight = "#ff8800"
 	colors.Inverse = "16"

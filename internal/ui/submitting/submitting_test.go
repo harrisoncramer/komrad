@@ -79,7 +79,7 @@ func TestNotice(t *testing.T) {
 	}
 }
 
-// TestBadge covers the newest write in flight drawn in the sidebar's corner.
+// TestBadge covers the newest write in flight rendered in the sidebar's corner.
 func TestBadge(t *testing.T) {
 	t.Parallel()
 
@@ -92,7 +92,7 @@ func TestBadge(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "nothing in flight draws nothing",
+			name: "nothing in flight renders nothing",
 			want: "",
 		},
 		{

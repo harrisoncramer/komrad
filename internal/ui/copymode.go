@@ -16,7 +16,7 @@ type copyOpenedMsg struct {
 	err error
 }
 
-// toggleCopy puts a stand-in drawn as the sidebar in the sidebar's place in tmux's copy-mode, copying
+// toggleCopy puts a stand-in rendered as the sidebar in the sidebar's place in tmux's copy-mode, copying
 // only from the block that has the keys, or lets the window move again once the stand-in says
 // copy-mode has ended.
 func (m *model) toggleCopy() tea.Cmd {
@@ -30,7 +30,7 @@ func (m *model) toggleCopy() tea.Cmd {
 		return nil
 	}
 
-	standIn := m.drawCopyLayout()
+	standIn := m.renderCopyLayout()
 	m.term.copying = true
 	m.frame.Hold()
 
@@ -55,9 +55,9 @@ func (m *model) endCopy() {
 	m.frame.Thaw()
 }
 
-// drawCopyLayout is the sidebar as it draws itself, where the borders between its blocks fall, the
+// renderCopyLayout is the sidebar as it renders itself, where the borders between its blocks fall, the
 // block holding the keys, and the cell that block's cursor is on.
-func (m *model) drawCopyLayout() panes.CopyStandIn {
+func (m *model) renderCopyLayout() panes.CopyStandIn {
 	focused := m.atStop()
 
 	rect := panes.Rect{Width: m.term.width, Height: m.term.height}
@@ -67,9 +67,9 @@ func (m *model) drawCopyLayout() panes.CopyStandIn {
 		}
 	}
 
-	drawn := *m
-	drawn.rowCursor.IsBlinked = false
-	lines := strings.Split(drawn.drawInMode(paint.ToneModeVisual, visualModeLabel), "\n")
+	rendered := *m
+	rendered.rowCursor.IsBlinked = false
+	lines := strings.Split(rendered.renderInMode(paint.ToneModeVisual, visualModeLabel), "\n")
 
 	row, col := rect.Top, rect.Left
 	for i := rect.Top; i < min(rect.Top+rect.Height, len(lines)); i++ {
@@ -93,7 +93,7 @@ func (m *model) drawCopyLayout() panes.CopyStandIn {
 
 	marked := *m
 	marked.term.markingZones = true
-	zones := scanZones(marked.drawInset(marked.insideView()))
+	zones := scanZones(marked.renderInset(marked.insideView()))
 
 	if column, ok := zones[zoneColumn]; ok {
 		standIn.Divider = column.Left - gutter - 1
@@ -110,8 +110,8 @@ func (m *model) drawCopyLayout() panes.CopyStandIn {
 	return standIn
 }
 
-// findCursor is the column a row's cursor is drawn at, found only where it starts the row, which
-// a crumb drawn in the same glyph never does.
+// findCursor is the column a row's cursor is rendered at, found only where it starts the row, which
+// a crumb rendered in the same glyph never does.
 func findCursor(plain string) (int, bool) {
 	before, _, found := strings.Cut(plain, rowCursorGlyph)
 	if !found || strings.IndexFunc(before, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }) >= 0 {

@@ -163,7 +163,7 @@ func TestVimEditing(t *testing.T) {
 		})
 	})
 
-	t.Run("a normal-mode edit in the review box is drawn at once", func(t *testing.T) {
+	t.Run("a normal-mode edit in the review box is rendered at once", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
 
 		harness.press("space", "c")
@@ -175,7 +175,7 @@ func TestVimEditing(t *testing.T) {
 		assert.NotContains(t, frame, "still here")
 	})
 
-	t.Run("a normal-mode edit in a form is drawn at once", func(t *testing.T) {
+	t.Run("a normal-mode edit in a form is rendered at once", func(t *testing.T) {
 		harness := openVimForms(t)
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("still here"), []string{"esc", "b", "d", "w"})...)
@@ -283,7 +283,7 @@ func TestVimLineEditing(t *testing.T) {
 	})
 }
 
-// TestVimEditingBadge covers the mode drawn at the foot of the sidebar while a text field holds the keys.
+// TestVimEditingBadge covers the mode rendered at the foot of the sidebar while a text field holds the keys.
 func TestVimEditingBadge(t *testing.T) {
 	tests := []struct {
 		name  string

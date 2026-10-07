@@ -34,7 +34,7 @@ func TestTracingPlacesAThreadThatMoved(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	found, ok := view.GetThreadAt(2)
-	require.True(t, ok, "the thread is drawn on the line git says it became")
+	require.True(t, ok, "the thread is rendered on the line git says it became")
 	assert.Equal(t, "t1", found.GetId())
 }
 
@@ -88,7 +88,7 @@ func TestTracingLeavesTheLinesToTheFoot(t *testing.T) {
 	assert.Equal(t, adrift, view.placed[thread.GetId()], "a thread with no lines left is not placed on one")
 }
 
-// TestTracingLeavesTheOtherAttemptsAlone covers a traced line the patch does not draw, which
+// TestTracingLeavesTheOtherAttemptsAlone covers a traced line the patch does not render, which
 // happens whenever the diff is narrowed or a path is excluded: the answer is dropped and the
 // attempts that follow it still get their turn.
 func TestTracingLeavesTheOtherAttemptsAlone(t *testing.T) {
@@ -111,7 +111,7 @@ func TestTracingLeavesTheOtherAttemptsAlone(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	found, ok := view.GetThreadAt(2)
-	require.True(t, ok, "a line nobody drew does not cost the thread its own coordinates")
+	require.True(t, ok, "a line nobody rendered does not cost the thread its own coordinates")
 	assert.Equal(t, "t1", found.GetId())
 }
 
@@ -152,7 +152,7 @@ func TestAnExactCoordinateKeepsItsRowFromATracedGuess(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{older, newer})
 
 	found, ok := view.GetThreadAt(2)
-	require.True(t, ok, "the row is drawn")
+	require.True(t, ok, "the row is rendered")
 	assert.Equal(t, "newer", found.GetId(), "and belongs to the thread written against it")
 	assert.Equal(t, pinned, view.placed["newer"])
 	assert.Equal(t, adrift, view.placed["older"], "the traced guess gives way rather than taking it")
@@ -185,7 +185,7 @@ func TestAFollowedRenameFoldsWithItsFile(t *testing.T) {
 }
 
 // TestPlacesAThreadWrittenAgainstTheSnapshotOnScreen covers the comment whose numbers were
-// counted in the tree being drawn, which stands on its own line without git being asked.
+// counted in the tree being rendered, which stands on its own line without git being asked.
 func TestPlacesAThreadWrittenAgainstTheSnapshotOnScreen(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",

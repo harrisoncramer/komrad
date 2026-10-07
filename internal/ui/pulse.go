@@ -9,7 +9,7 @@ import (
 // pulseInterval is how long each half of a blink stays on screen.
 const pulseInterval = 150 * time.Millisecond
 
-// pulse is a blink drawing attention to something that has just changed, counted in the halves
+// pulse is a blink rendering attention to something that has just changed, counted in the halves
 // it has left to run.
 type pulse struct {
 	left int
@@ -33,7 +33,7 @@ func (p *pulse) advance() {
 	}
 }
 
-// isRunning reports whether the blink has halves left to draw.
+// isRunning reports whether the blink has halves left to render.
 func (p pulse) isRunning() bool {
 	return p.left > 0
 }
@@ -60,7 +60,7 @@ func (m *model) startPulse(blinking *pulse, blinks int) tea.Cmd {
 	return pulseTick()
 }
 
-// advancePulses takes every blink the panel is drawing to its next half.
+// advancePulses takes every blink the panel is rendering to its next half.
 func (m *model) advancePulses() tea.Cmd {
 	m.messages.pulse.advance()
 

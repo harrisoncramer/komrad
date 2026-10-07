@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestTabStrip covers the sort strip every tabbed list draws under its filter line.
+// TestTabStrip covers the sort strip every tabbed list renders under its filter line.
 func TestTabStrip(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -52,8 +52,7 @@ func TestTabStrip(t *testing.T) {
 			harness.press(tt.press...)
 
 			sidebar := readSidebar(harness.readFrame())
-			strip := slices.IndexFunc(sidebar, func(line string) bool { return strings.HasPrefix(line, "f ") })
-			require.GreaterOrEqual(t, strip, 0)
+			strip := findSortStrip(t, harness)
 			require.Greater(t, len(sidebar), strip+3)
 			gap := strip + 1
 			if tt.kinds != "" {
@@ -80,6 +79,33 @@ func TestTabStrip(t *testing.T) {
 		})
 	}
 
+	t.Run("enter takes the hovered stop and gives the keys back", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+		strip := findSortStrip(t, harness)
+
+		harness.press("f", "tab", "enter")
+		frame := harness.readFrame()
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Contains(t, readSidebar(frame)[strip], "↓ activity")
+		assert.NotContains(t, readLegend(frame), stripLegend)
+		assert.NotEmpty(t, readHoveredRow(frame))
+
+		harness.press("F", "tab", "enter")
+		frame = harness.readFrame()
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.NotEmpty(t, readHoveredRow(frame))
+	})
+
+	t.Run("enter on the group stop keeps the flip j made", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+		strip := findSortStrip(t, harness)
+
+		harness.press("f", "shift+tab", "j", "enter")
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebar(frame)[strip], "flat")
+		assert.NotContains(t, readLegend(frame), stripLegend)
+	})
+
 	t.Run("the record and the strip take the keys from each other", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 
@@ -105,7 +131,7 @@ func TestTabStrip(t *testing.T) {
 		assert.NotContains(t, legend, "jump to agent")
 	})
 
-	t.Run("a pane too short for the strip and a row draws no strip and takes no keys", func(t *testing.T) {
+	t.Run("a pane too short for the strip and a row renders no strip and takes no keys", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
 			height: 7,
@@ -122,7 +148,7 @@ func TestTabStrip(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), stripLegend, "and the refused press does not wake once the pane grows")
 	})
 
-	t.Run("a pane one row taller draws the strip and still the cursor's row", func(t *testing.T) {
+	t.Run("a pane one row taller renders the strip and still the cursor's row", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
 			height: 8,
@@ -152,7 +178,16 @@ func TestTabStrip(t *testing.T) {
 	})
 }
 
-// TestTabStripGolden draws each tabbed sidebar whole, grouped and flat.
+func findSortStrip(t *testing.T, harness *panelHarness) int {
+	t.Helper()
+
+	strip := slices.IndexFunc(readSidebar(harness.readFrame()), func(line string) bool { return strings.HasPrefix(line, "f ") })
+	require.GreaterOrEqual(t, strip, 0)
+
+	return strip
+}
+
+// TestTabStripGolden renders each tabbed sidebar whole, grouped and flat.
 func TestTabStripGolden(t *testing.T) {
 	tests := []struct {
 		name  string

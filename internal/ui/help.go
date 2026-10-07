@@ -104,7 +104,7 @@ func (m *model) doesLegendLeaveARow(legend string, above []string) bool {
 	return m.spareLines(slices.Concat(above, []string{legend})...) >= 1
 }
 
-// refusedExpansion re-labels the legend's own key for the short form drawn in place of an
+// refusedExpansion re-labels the legend's own key for the short form rendered in place of an
 // expansion there was no room for.
 func (m *model) refusedExpansion(bindings []key.Binding) []key.Binding {
 	out := slices.Clone(bindings)
@@ -138,7 +138,7 @@ func helpColumns(bindings []key.Binding, width int) [][]key.Binding {
 	return [][]key.Binding{bindings}
 }
 
-// helpWidth is what the legend wants, measured by the same code that draws it at a width of
+// helpWidth is what the legend wants, measured by the same code that renders it at a width of
 // zero, which truncates nothing.
 func helpWidth(columns [][]key.Binding) int {
 	return lipgloss.Width(helpView(0).FullHelpView(columns))
@@ -155,7 +155,7 @@ func splitColumns(bindings []key.Binding, columns int) [][]key.Binding {
 	return split
 }
 
-// fitLegend cuts each row of the legend to the column it is drawn in.
+// fitLegend cuts each row of the legend to the column it is rendered in.
 func fitLegend(rendered string, width int) string {
 	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {
@@ -223,7 +223,7 @@ func (m *model) menuBinding() key.Binding {
 
 func (m *model) globalHelp() []key.Binding {
 	var keys []key.Binding
-	if drawsSwitcher(m.screen) {
+	if rendersSwitcher(m.screen) {
 		keys = append(keys, m.viewsBinding())
 	}
 
@@ -237,7 +237,7 @@ func (m *model) globalHelp() []key.Binding {
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m *model) fullGlobalHelp() []key.Binding {
 	full := m.globalHelp()
-	if drawsSwitcher(m.screen) {
+	if rendersSwitcher(m.screen) {
 		full = append(full, binding(m.keys.Views.Previous, "previous view"))
 	}
 

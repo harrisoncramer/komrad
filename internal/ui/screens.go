@@ -38,11 +38,11 @@ type screenModel interface {
 	// update takes a message the panel's own bindings did not claim.
 	update(m *model, msg tea.Msg) tea.Cmd
 
-	// view draws the screen into the panel's own pane.
+	// view renders the screen into the panel's own pane.
 	view(m *model) string
 
-	// doesDrawFromListing reports whether the screen draws the watch's listings.
-	doesDrawFromListing() bool
+	// doesRenderFromListing reports whether the screen renders the watch's listings.
+	doesRenderFromListing() bool
 
 	// enter lands the cursor on the target where the target is on screen, and puts the stage
 	// right, once the root has put the screen up.
@@ -51,7 +51,7 @@ type screenModel interface {
 	// takesEveryKey reports whether something on the screen is taking every key.
 	takesEveryKey() bool
 
-	// column is the block the screen draws beside its own list.
+	// column is the block the screen renders beside its own list.
 	column() columnSpec
 
 	// stageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
@@ -72,15 +72,15 @@ type screenTarget struct {
 	resume bool
 }
 
-// recordDrawer is a screen that draws the hovered row's record under its list.
-type recordDrawer interface {
+// recordRenderer is a screen that renders the hovered row's record under its list.
+type recordRenderer interface {
 	// details is the record the cursor is standing on.
 	details(m *model) details
 
-	// detailsFit is whether the screen has the room to draw the record at all.
+	// detailsFit is whether the screen has the room to render the record at all.
 	detailsFit(m *model) bool
 
-	// detailsRoom is the rows the screen has under its header and the legend it is drawing.
+	// detailsRoom is the rows the screen has under its header and the legend it is rendering.
 	detailsRoom(m *model) int
 }
 
@@ -94,7 +94,7 @@ type listFilterer interface {
 	placeAt(m *model, key string)
 
 	// filterRows is every row on screen with the text a search reads, in the order they are
-	// drawn.
+	// rendered.
 	filterRows(m *model) []filterRow
 }
 
@@ -116,7 +116,7 @@ type kindSwitcher interface {
 	// stepKind moves the list delta kinds along, wrapping at both ends.
 	stepKind(m *model, delta int) tea.Cmd
 
-	// kindsFit is whether the screen has the room to draw the row of kinds.
+	// kindsFit is whether the screen has the room to render the row of kinds.
 	kindsFit(m *model) bool
 
 	// kindsSwitch is whether the kind listed may change.
@@ -130,14 +130,14 @@ type tabSwitcher interface {
 	// tabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
 	tabsState() *tabsState
 
-	// tabsFit is whether the screen has the room to draw the strip.
+	// tabsFit is whether the screen has the room to render the strip.
 	tabsFit(m *model) bool
 }
 
 // columnFocuser is a screen whose block beside the list can take the keys and be scrolled.
 type columnFocuser interface {
-	// isBlockDrawn is whether the block is drawn with something in it to take the keys.
-	isBlockDrawn(m *model) bool
+	// isBlockRendered is whether the block is rendered with something in it to take the keys.
+	isBlockRendered(m *model) bool
 
 	// isBlockFocused is whether the block holds the keys.
 	isBlockFocused(m *model) bool
@@ -150,14 +150,14 @@ type columnFocuser interface {
 
 // pullRequestFocuser is a screen whose pull request beside the list can take the keys.
 type pullRequestFocuser interface {
-	isPullRequestDrawn(m *model) bool
+	isPullRequestRendered(m *model) bool
 	isPullRequestFocused(m *model) bool
 	focusPullRequest(m *model)
 	blurPullRequest()
 }
 
-// crumbDrawer is a screen opened from another that draws the trail back to it.
-type crumbDrawer interface {
+// crumbRenderer is a screen opened from another that renders the trail back to it.
+type crumbRenderer interface {
 	// parent is the view the page was opened from.
 	parent() screen
 
@@ -171,8 +171,8 @@ type hoveredAgentReporter interface {
 	hoveredRow(m *model) (agentRow, bool)
 }
 
-// savedScreenDrawer is a screen that draws a stopped agent's saved screen beside its list.
-type savedScreenDrawer interface {
+// savedScreenRenderer is a screen that renders a stopped agent's saved screen beside its list.
+type savedScreenRenderer interface {
 	screenedAgentID(m *model) (string, bool)
 	screenNotice(m *model) string
 }
@@ -212,7 +212,7 @@ type listScroller interface {
 	scrollList(m *model, rows int) tea.Cmd
 }
 
-// loadingReporter is a screen that can be waiting on the service for what it draws.
+// loadingReporter is a screen that can be waiting on the service for what it renders.
 type loadingReporter interface {
 	isLoading(m *model) bool
 }

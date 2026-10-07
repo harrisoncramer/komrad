@@ -31,7 +31,7 @@ type NewSessionParams struct {
 	LeaderTable string
 }
 
-// Session is the tmux session the panel draws in.
+// Session is the tmux session the panel renders in.
 type Session struct {
 	tmux    sessionTmux
 	session string

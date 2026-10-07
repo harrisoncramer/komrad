@@ -11,7 +11,7 @@ import (
 // it.
 const scrollMargin = 4
 
-// Window is the size a pane is drawn at and whether its long lines wrap.
+// Window is the size a pane is rendered at and whether its long lines wrap.
 type Window struct {
 	Width  int
 	Height int
@@ -183,18 +183,18 @@ type expansion int
 const (
 	// ExpandNothing is a cursor standing in no file.
 	ExpandNothing expansion = iota
-	// ExpandWhole is a file now drawn whole.
+	// ExpandWhole is a file now rendered whole.
 	ExpandWhole
-	// ExpandChanged is a file drawn as its changed lines again.
+	// ExpandChanged is a file rendered as its changed lines again.
 	ExpandChanged
 	// ExpandNoMore is a file with nothing more to show than its hunks.
 	ExpandNoMore
 )
 
-// ToggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines and
+// ToggleExpanded renders the whole of the file the cursor is in, or gives back the changed lines and
 // the few around them, keeping the reader on the line they were on.
 func (p *Pane) ToggleExpanded(window Window) expansion {
-	file, ok := p.view.GetDrawnFileAt(p.cursor)
+	file, ok := p.view.GetRenderedFileAt(p.cursor)
 	if !ok {
 		return ExpandNothing
 	}
@@ -280,8 +280,8 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 		offset = 0
 	}
 
-	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
-	// second to draw whole.
+	// Only the rows the pane can show are rendered, a nine thousand row diff taking a tenth of a
+	// second to render whole.
 	lines := make([]string, 0, window.Height)
 	start := p.findWindowStart(window)
 	for y := start; y < p.view.Len() && len(lines) < window.Height; y++ {
@@ -303,7 +303,7 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	return lines
 }
 
-// GetCursorLines is the first line of the window the cursor's row is drawn on and how many lines
+// GetCursorLines is the first line of the window the cursor's row is rendered on and how many lines
 // it takes.
 func (p *Pane) GetCursorLines(window Window) (int, int) {
 	if p.view == nil {
@@ -318,7 +318,7 @@ func (p *Pane) GetCursorLines(window Window) (int, int) {
 	return p.countLines(start, p.cursor, window), p.view.measureRow(p.cursor, window)
 }
 
-// findWindowStart is the first row of the view the window draws.
+// findWindowStart is the first row of the view the window renders.
 func (p *Pane) findWindowStart(window Window) int {
 	if p.view.Len() == 0 {
 		return 0
@@ -331,10 +331,10 @@ func (p *Pane) findWindowStart(window Window) int {
 
 // findFirstFitting is the first row from which the rows through end fit in lines.
 func (p *Pane) findFirstFitting(end, lines int, window Window) int {
-	first, drawn := end, p.view.measureRow(end, window)
-	for first > 0 && drawn+p.view.measureRow(first-1, window) <= lines {
+	first, rendered := end, p.view.measureRow(end, window)
+	for first > 0 && rendered+p.view.measureRow(first-1, window) <= lines {
 		first--
-		drawn += p.view.measureRow(first, window)
+		rendered += p.view.measureRow(first, window)
 	}
 
 	return first
@@ -350,7 +350,7 @@ func (p *Pane) countLines(start, end int, window Window) int {
 	return lines
 }
 
-// coverWithHeader draws the header of the file the window starts inside over the window's first row.
+// coverWithHeader renders the header of the file the window starts inside over the window's first row.
 func (p *Pane) coverWithHeader(lines []string, start int, window Window) {
 	header, ok := p.view.findFileHeader(start)
 	if !ok || p.cursor == start || len(lines) == 0 {

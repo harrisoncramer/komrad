@@ -19,7 +19,7 @@ func flashFieldStyle(palette paint.Palette) lipgloss.Style {
 
 func (m *model) detailsView() string {
 	held := m.hoveredDetails()
-	if !m.isDetailsDrawn(held) {
+	if !m.isDetailsRendered(held) {
 		return ""
 	}
 
@@ -51,7 +51,7 @@ func (m *model) detailsView() string {
 		m.detailsRule(""), m.paneWidth())
 }
 
-func (m *model) drawRecord(above ...string) string {
+func (m *model) renderRecord(above ...string) string {
 	if record := m.detailsView(); record != "" {
 		return record
 	}
@@ -90,25 +90,25 @@ func (m *model) detailsNotices(held details, budget int) []string {
 		return nil
 	}
 
-	drawn := []string{}
+	rendered := []string{}
 	for _, n := range held.notices {
 		lines := m.noticeLines(n, 0)
-		if len(drawn)+len(lines) > budget {
+		if len(rendered)+len(lines) > budget {
 			// The first notice is cut short rather than given up.
-			if len(drawn) > 0 {
+			if len(rendered) > 0 {
 				break
 			}
 
 			lines = m.noticeLines(n, budget)
 		}
 
-		drawn = append(drawn, lines...)
+		rendered = append(rendered, lines...)
 	}
 
-	return drawn
+	return rendered
 }
 
-// noticeLines is one notice as it is drawn: the glyph the row carries, then the sentence wrapped
+// noticeLines is one notice as it is rendered: the glyph the row carries, then the sentence wrapped
 // under it in the column the glyph left, cut off at a number of lines when given one.
 func (m *model) noticeLines(n notice, most int) []string {
 	const indent = "    "

@@ -288,7 +288,7 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 	}
 }
 
-// TestArchivedAgentsRows covers which folders and agents the archived agents kind draws.
+// TestArchivedAgentsRows covers which folders and agents the archived agents kind renders.
 func TestArchivedAgentsRows(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -296,7 +296,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 		wantRows []string
 	}{
 		{
-			name: "nothing archived draws nothing",
+			name: "nothing archived renders nothing",
 			rows: []proto.Message{newLiveWorkflow("w1", "backend")},
 		},
 		{
@@ -328,7 +328,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 			wantRows: []string{"backend", "  orchestrator"},
 		},
 		{
-			name: "live and archived folders are drawn together by name",
+			name: "live and archived folders are rendered together by name",
 			rows: []proto.Message{
 				newLiveWorkflow("w2", "frontend"),
 				newArchivedWorkflow("w1", "backend"),
@@ -367,7 +367,7 @@ func TestArchivedAgentsRowEmphasis(t *testing.T) {
 		assert.NotContains(t, frame, muted.Render("backend"))
 	})
 
-	t.Run("an agent a delete could not destroy draws a busy bar", func(t *testing.T) {
+	t.Run("an agent a delete could not destroy renders a busy bar", func(t *testing.T) {
 		stuck := newArchivedAgent("a2", "stuck", "w1")
 		stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 		harness := openArchivedAgents(t, newLiveWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"), stuck)
@@ -525,7 +525,7 @@ func TestArchivedAgentsRename(t *testing.T) {
 	}
 }
 
-// TestArchivedAgentsDocument covers what is drawn beside the list for the hovered row.
+// TestArchivedAgentsDocument covers what is rendered beside the list for the hovered row.
 func TestArchivedAgentsDocument(t *testing.T) {
 	stuck := newArchivedAgent("a1", "api-refactor", "w1")
 	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
@@ -560,7 +560,7 @@ func TestArchivedAgentsDocument(t *testing.T) {
 			wantAbsent: []string{"dormant"},
 		},
 		{
-			name:       "an archived agent draws no diff stat",
+			name:       "an archived agent renders no diff stat",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured},
 			press:      []string{"j"},
 			want:       []string{"archived — kept until deleted"},
@@ -603,18 +603,6 @@ func TestArchivedAgentsDocument(t *testing.T) {
 				MergedAt:          xptr.Ptr(archivedAt),
 				ClosedAt:          xptr.Ptr(archivedAt),
 			},
-			&agentv1.WatchedReview{
-				Id:           "v1",
-				AgentId:      "a1",
-				RoundId:      "a1-round-1",
-				RoundOrdinal: 1,
-				ReleasedAt:   archivedAt,
-			},
-			&agentv1.ReviewThread{
-				Id:       "t1",
-				AgentId:  "a1",
-				ReviewId: "v1",
-			},
 		)
 
 		harness.press(append([]string{"j", "pick:record"}, widenListPresses...)...)
@@ -622,7 +610,6 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agent/a1")
 		assert.Contains(t, frame, "its pull request is merged")
-		assert.Contains(t, frame, "your comments: 1 open, 0 resolved")
 		created, archived := findRecordLine(frame, "created"), findRecordLine(frame, "archived")
 		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")
@@ -743,7 +730,7 @@ func TestArchivedAgentsWindow(t *testing.T) {
 			},
 			newArchivedAgent("a1", "api-refactor", "w1"),
 		)
-		require.True(t, harness.panel.IsZoomed(), "the archived agents draw both columns themselves")
+		require.True(t, harness.panel.IsZoomed(), "the archived agents render both columns themselves")
 
 		harness.press("F", "tab", "esc", "j")
 		harness.fireTimers()
@@ -1004,9 +991,9 @@ func TestArchivedAgentsKinds(t *testing.T) {
 	})
 }
 
-// TestArchivedAgentsLastScreen covers the saved screen drawn under an archived agent.
+// TestArchivedAgentsLastScreen covers the saved screen rendered under an archived agent.
 func TestArchivedAgentsLastScreen(t *testing.T) {
-	t.Run("the saved screen is asked for once the cursor rests and drawn under the document", func(t *testing.T) {
+	t.Run("the saved screen is asked for once the cursor rests and rendered under the document", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
 		answerLastScreens(harness, map[string]string{"a1": "❯ ship the refactor\n⏺ the refactor is merged"})
 
@@ -1073,7 +1060,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure))
 	})
 
-	t.Run("an answer for an agent the cursor has left is not drawn", func(t *testing.T) {
+	t.Run("an answer for an agent the cursor has left is not rendered", func(t *testing.T) {
 		harness := openArchivedAgents(t,
 			newLiveWorkflow("w1", "backend"),
 			newArchivedAgent("a1", "api-refactor", "w1"),

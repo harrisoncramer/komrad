@@ -120,7 +120,7 @@ func TestEditTargetRefusesADeletedFile(t *testing.T) {
 }
 
 // TestEditTargetStopsAtTheFileItIsIn covers a diff of several files: a file whose every line is
-// gone never borrows a line number from the file drawn after it.
+// gone never borrows a line number from the file rendered after it.
 func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 	view := NewView(patchWith(
 		diff.File{
@@ -182,7 +182,7 @@ func TestCursorCanRestOnACollapsedHeader(t *testing.T) {
 
 	assert.Equal(t, 0, view.GetFirstRow(), "the fold leaves the header as the first row to rest on")
 
-	file, ok := view.GetDrawnFileAt(0)
+	file, ok := view.GetRenderedFileAt(0)
 	require.True(t, ok)
 	assert.Equal(t, "greet.go", file.Path())
 }
@@ -195,7 +195,7 @@ func TestJumpFileLandsOnACollapsedHeader(t *testing.T) {
 
 	landed := view.JumpFile(view.GetFirstRow(), 1)
 
-	file, ok := view.GetDrawnFileAt(landed)
+	file, ok := view.GetRenderedFileAt(landed)
 	require.True(t, ok)
 	assert.Equal(t, "wave.go", file.Path())
 }
@@ -223,14 +223,14 @@ func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 	back, ok := view.locate(place)
 	require.True(t, ok)
 
-	file, ok := view.GetDrawnFileAt(back)
+	file, ok := view.GetRenderedFileAt(back)
 	require.True(t, ok)
 	assert.Equal(t, "greet.go", file.Path())
 	assert.True(t, view.isPinnable(back), "opening the file again lands the cursor on a line of it")
 }
 
 // TestHeaderFoundByASearchIsHeldAcrossARebuild covers the one row only a search reaches: the
-// header of a file drawn whole, which the reader is left standing on and which has no line
+// header of a file rendered whole, which the reader is left standing on and which has no line
 // under it for the place to be read off.
 func TestHeaderFoundByASearchIsHeldAcrossARebuild(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
@@ -317,7 +317,7 @@ func TestHiddenMatchesCountsWhatTheFoldHides(t *testing.T) {
 
 	found := view.SetPattern(regexp.MustCompile("package"))
 
-	assert.Equal(t, 1, found, "only the file still drawn has rows to match")
+	assert.Equal(t, 1, found, "only the file still rendered has rows to match")
 	assert.Equal(t, 1, view.HiddenMatches())
 }
 
@@ -368,8 +368,8 @@ func TestAnAgentsOwnCommentIsNotOwedASettling(t *testing.T) {
 	assert.False(t, ok, "with nothing after it")
 }
 
-// TestHeadlessViewDrawsItsHunksAlone covers a diff with no file headers.
-func TestHeadlessViewDrawsItsHunksAlone(t *testing.T) {
+// TestHeadlessViewRendersItsHunksAlone covers a diff with no file headers.
+func TestHeadlessViewRendersItsHunksAlone(t *testing.T) {
 	view := NewView(patchWith(diff.FromTexts("document.md", "one\ntwo", "one\n2")), false)
 	view.SetHeadless(true)
 

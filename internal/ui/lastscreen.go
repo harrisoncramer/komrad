@@ -20,7 +20,7 @@ import (
 // errNoSavedScreen is an agent whose pane was never saved.
 var errNoSavedScreen = errors.New("no saved screen")
 
-// lastScreen is the saved screen of the agent the column is drawn for.
+// lastScreen is the saved screen of the agent the column is rendered for.
 type lastScreen struct {
 	agentID  string
 	answered bool
@@ -34,9 +34,9 @@ type lastScreenMsg struct {
 	err     error
 }
 
-// screenedAgentID is the agent whose saved screen the column draws.
+// screenedAgentID is the agent whose saved screen the column renders.
 func (m *model) screenedAgentID() (string, bool) {
-	screen, ok := m.active().(savedScreenDrawer)
+	screen, ok := m.active().(savedScreenRenderer)
 	if !ok {
 		return "", false
 	}
@@ -175,7 +175,7 @@ func noticeRows(notice string, width int) []string {
 }
 
 func (m *model) screenNotice() string {
-	screen, ok := m.active().(savedScreenDrawer)
+	screen, ok := m.active().(savedScreenRenderer)
 	if !ok {
 		return ""
 	}
@@ -207,7 +207,7 @@ func (w *worktreesScreen) screenNotice(*model) string {
 	return "not running"
 }
 
-// columnHeight is the rows the block beside the list is drawn in.
+// columnHeight is the rows the block beside the list is rendered in.
 func (m *model) columnHeight() int {
 	split, ok := m.columnSplit()
 	if !ok {
@@ -222,7 +222,7 @@ func (m *model) columnHeight() int {
 const minScreenRows = 8
 
 // withLastScreen is a column's rows under a notice saying the agent is not running, with the
-// saved screen of the agent it screens drawn under them.
+// saved screen of the agent it screens rendered under them.
 func (m *model) withLastScreen(rows []string, width int) []string {
 	agentID, ok := m.screenedAgentID()
 	if !ok {

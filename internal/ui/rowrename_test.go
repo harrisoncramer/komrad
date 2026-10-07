@@ -91,7 +91,7 @@ func TestRenameSends(t *testing.T) {
 	}
 }
 
-// TestRenameField covers the name being typed over its row, drawn where the name was.
+// TestRenameField covers the name being typed over its row, rendered where the name was.
 func TestRenameField(t *testing.T) {
 	t.Run("the field opens on the name the row had", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
@@ -168,7 +168,7 @@ func TestRenameField(t *testing.T) {
 
 		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v2", "w1")))
 		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v3", "w1")))
-		assert.Equal(t, "  author-v3", readHoveredRow(harness.readFrame()), "the listing draws the name once it has caught up")
+		assert.Equal(t, "  author-v3", readHoveredRow(harness.readFrame()), "the listing renders the name once it has caught up")
 	})
 
 	t.Run("a refused name opens the field again holding it", func(t *testing.T) {

@@ -35,7 +35,7 @@ func worktreeColumns() view.Columns {
 	}
 }
 
-// sizeColumns and ageColumns are how wide the two figures are drawn.
+// sizeColumns and ageColumns are how wide the two figures are rendered.
 const (
 	sizeColumns = 4
 	ageColumns  = 4
@@ -153,17 +153,17 @@ func sortWorktreeItems(items []worktreeItem, order sortOrder) {
 	})
 }
 
-// rows is the list as the frame draws it, built once per frame and read from that build after.
+// rows is the list as the frame renders it, built once per frame and read from that build after.
 func (w *worktreesScreen) rows(m *model) []worktreeRow {
-	if w.drawn != nil {
-		return w.drawn
+	if w.frameRows != nil {
+		return w.frameRows
 	}
 
 	return w.buildRows(m)
 }
 
 func (w *worktreesScreen) buildFrame(m *model) {
-	w.drawn = w.buildRows(m)
+	w.frameRows = w.buildRows(m)
 }
 
 func (w *worktreesScreen) buildRows(m *model) []worktreeRow {
@@ -240,9 +240,9 @@ type worktreesSnapshotParams struct {
 	items    []worktreeItem
 	selected selection
 	focused  string
-	// live are the agents the agents listing holds, whose marks a row with one of them draws.
+	// live are the agents the agents listing holds, whose marks a row with one of them renders.
 	live []panel.AgentRow
-	// flat draws every directory at the heading indent.
+	// flat renders every directory at the heading indent.
 	flat       bool
 	caret      view.Caret
 	blinkedOut bool
@@ -251,7 +251,7 @@ type worktreesSnapshotParams struct {
 	now        time.Time
 }
 
-// worktreesSnapshot reads the rows into the plain data the list draws itself from.
+// worktreesSnapshot reads the rows into the plain data the list renders itself from.
 func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 	live := xslice.KeyBy(params.live, func(item panel.AgentRow) string { return item.Agent.ID })
 

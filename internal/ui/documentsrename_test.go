@@ -63,7 +63,7 @@ func TestDocumentsRename(t *testing.T) {
 	}
 }
 
-// TestDocumentsRenameField covers the name being typed over its row, drawn where the name was.
+// TestDocumentsRenameField covers the name being typed over its row, rendered where the name was.
 func TestDocumentsRenameField(t *testing.T) {
 	t.Parallel()
 
@@ -137,7 +137,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		listAgain(harness, "2026-09-26T12:00:00Z")
 		docs.rename("d1", "Design the cache later", "2026-09-27T12:00:00Z")
 		listAgain(harness, "2026-09-27T12:00:00Z")
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache later", "the list draws the name once it has caught up")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache later", "the list renders the name once it has caught up")
 	})
 
 	t.Run("a document the agent rewrote while its name was typed is renamed at that write", func(t *testing.T) {

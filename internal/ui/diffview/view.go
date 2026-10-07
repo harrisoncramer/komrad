@@ -1,5 +1,5 @@
-// Package diffview flattens an agent's diff into a list of drawable rows, pins review threads
-// to the lines they were written against, and draws one row at a time.
+// Package diffview flattens an agent's diff into a list of renderable rows, pins review threads
+// to the lines they were written against, and renders one row at a time.
 package diffview
 
 import (
@@ -22,7 +22,7 @@ const (
 	threadRow
 )
 
-// row is one drawable line of the diff, flattened from the patch once so that moving the cursor
+// row is one renderable line of the diff, flattened from the patch once so that moving the cursor
 // walks a slice rather than the patch.
 type row struct {
 	kind   rowKind
@@ -33,7 +33,7 @@ type row struct {
 	thread *agentv1.ReviewThread
 }
 
-// fileSource is both sides of one file, lexed, with a deletion drawn from the old side and
+// fileSource is both sides of one file, lexed, with a deletion rendered from the old side and
 // everything else from the new one.
 type fileSource struct {
 	old []styledLine
@@ -61,20 +61,20 @@ type View struct {
 	// so one arriving does not move every other row.
 	patchRows int
 
-	// pinned is the thread drawn at each row, one apiece, a second thread on the same line going
+	// pinned is the thread rendered at each row, one apiece, a second thread on the same line going
 	// to the foot instead.
 	pinned map[int]*agentv1.ReviewThread
 
 	// placed is how each thread reached its row, by thread id.
 	placed map[string]placement
-	// files is the patch's files as they are drawn, an expanded one holding every line of itself
+	// files is the patch's files as they are rendered, an expanded one holding every line of itself
 	// rather than its hunks alone.
 	files []diff.File
-	// viewed is the files the person reviewing has read, by path, which are drawn collapsed.
+	// viewed is the files the person reviewing has read, by path, which are rendered collapsed.
 	viewed map[string]bool
 	// expanded is the files the person reviewing has opened out, by path.
 	expanded map[string]bool
-	// whole is each file with every line of it drawn, built the first time it is asked for and
+	// whole is each file with every line of it rendered, built the first time it is asked for and
 	// kept.
 	whole map[string]*diff.File
 	// threads is what was last pinned, kept so collapsing a file can pin them again over the rows
@@ -86,17 +86,17 @@ type View struct {
 	narrowed bool
 	// headless leaves out each file's header.
 	headless bool
-	// glyphs is what the marks on threads and files are drawn in.
+	// glyphs is what the marks on threads and files are rendered in.
 	glyphs glyph.Set
 }
 
-// SetHeadless draws the hunks alone, with no file headers.
+// SetHeadless renders the hunks alone, with no file headers.
 func (v *View) SetHeadless(headless bool) {
 	v.headless = headless
-	v.redraw()
+	v.rerender()
 }
 
-// SetGlyphs says what the marks on threads and files are drawn in.
+// SetGlyphs says what the marks on threads and files are rendered in.
 func (v *View) SetGlyphs(glyphs glyph.Set) {
 	v.glyphs = glyphs
 }
@@ -210,7 +210,7 @@ func (v *View) SetViewed(paths map[string]bool) {
 		v.viewed = map[string]bool{}
 	}
 
-	v.redraw()
+	v.rerender()
 }
 
 // SetFileViewed folds one file away once it has been read, or opens it again.
@@ -224,12 +224,12 @@ func (v *View) SetFileViewed(path string, viewed bool) {
 	v.SetViewed(v.viewed)
 }
 
-// IsViewed reports whether a file is drawn collapsed.
+// IsViewed reports whether a file is rendered collapsed.
 func (v *View) IsViewed(path string) bool {
 	return v.viewed[path]
 }
 
-// SetExpanded says which files are drawn whole, for a view built again over a patch the reader
+// SetExpanded says which files are rendered whole, for a view built again over a patch the reader
 // had already opened files in.
 func (v *View) SetExpanded(paths map[string]bool) {
 	v.expanded = paths
@@ -237,14 +237,14 @@ func (v *View) SetExpanded(paths map[string]bool) {
 		v.expanded = map[string]bool{}
 	}
 
-	v.redraw()
+	v.rerender()
 }
 
-// setFileExpanded draws one file whole, or gives back its hunks alone.
+// setFileExpanded renders one file whole, or gives back its hunks alone.
 func (v *View) setFileExpanded(path string, expanded bool) {
 	if !expanded {
 		delete(v.expanded, path)
-		v.redraw()
+		v.rerender()
 
 		return
 	}
@@ -254,20 +254,20 @@ func (v *View) setFileExpanded(path string, expanded bool) {
 	}
 
 	v.expanded[path] = true
-	v.redraw()
+	v.rerender()
 }
 
-// IsExpanded reports whether a file is drawn whole.
+// IsExpanded reports whether a file is rendered whole.
 func (v *View) IsExpanded(path string) bool {
 	return v.expanded[path]
 }
 
-// GetExpanded is the files drawn whole, by path, as a copy a view built later can be given.
+// GetExpanded is the files rendered whole, by path, as a copy a view built later can be given.
 func (v *View) GetExpanded() map[string]bool {
 	return maps.Clone(v.expanded)
 }
 
-// wholeFile is a file with every line of it drawn, and false for one there is nothing to add to.
+// wholeFile is a file with every line of it rendered, and false for one there is nothing to add to.
 func (v *View) wholeFile(path string) (*diff.File, bool) {
 	if found, ok := v.whole[path]; ok {
 		return found, found != nil
@@ -290,9 +290,9 @@ func (v *View) wholeFile(path string) (*diff.File, bool) {
 	return &expanded, true
 }
 
-// redraw builds the files as they are drawn, flattens them into rows, and puts the threads back
+// rerender builds the files as they are rendered, flattens them into rows, and puts the threads back
 // on the rows they now belong to.
-func (v *View) redraw() {
+func (v *View) rerender() {
 	for index := range v.patch.Files {
 		path := v.patch.Files[index].Path()
 
@@ -333,7 +333,7 @@ func (v *View) CountViewedFiles() (int, int) {
 	return read, len(v.files)
 }
 
-// isCollapsed reports whether a file is drawn as its header alone.
+// isCollapsed reports whether a file is rendered as its header alone.
 func (v *View) isCollapsed(fileIndex int) bool {
 	if fileIndex < 0 || fileIndex >= len(v.files) {
 		return false
@@ -352,12 +352,12 @@ func (v *View) Stat() diff.Stat {
 	return v.patch.Stat()
 }
 
-// GetFile reports whether the patch on screen draws a file at all.
+// GetFile reports whether the patch on screen renders a file at all.
 func (v *View) GetFile(filePath string) (*diff.File, bool) {
 	return v.findFile(filePath)
 }
 
-// CommentPosition is where one comment stands among the comments drawn, counting down the diff.
+// CommentPosition is where one comment stands among the comments rendered, counting down the diff.
 func (v *View) CommentPosition(thread *agentv1.ReviewThread) (int, int) {
 	rows := make([]int, 0, len(v.pinned))
 	for y := range v.pinned {
@@ -382,7 +382,7 @@ func (v *View) GetThreadAt(y int) (*agentv1.ReviewThread, bool) {
 	return thread, ok
 }
 
-// HasMoved reports whether a thread is drawn anywhere other than the line it was written
+// HasMoved reports whether a thread is rendered anywhere other than the line it was written
 // against.
 func (v *View) HasMoved(thread *agentv1.ReviewThread) bool {
 	where, ok := v.placed[thread.GetId()]
@@ -390,7 +390,7 @@ func (v *View) HasMoved(thread *agentv1.ReviewThread) bool {
 	return !ok || where != pinned
 }
 
-// IsGhosted reports whether a thread is drawn on a line whose content has changed under it,
+// IsGhosted reports whether a thread is rendered on a line whose content has changed under it,
 // which is the one thing about placement the gutter has to say out loud: the line beside the
 // mark is not the line the conversation is about.
 func (v *View) IsGhosted(thread *agentv1.ReviewThread) bool {
@@ -423,7 +423,7 @@ type Place struct {
 	NewLine  int
 	OldLine  int
 
-	// Header is set when the cursor was standing on the header of a file drawn whole, which a
+	// Header is set when the cursor was standing on the header of a file rendered whole, which a
 	// search by file name lands on and which has no line under it to come back to, and left
 	// unset for a collapsed file so that opening that file again puts the cursor into it.
 	Header bool
@@ -479,7 +479,7 @@ func (v *View) locate(place Place) (int, bool) {
 		return v.fileHeader(place.FilePath)
 	}
 
-	// A file read since the cursor was last in it is drawn as its header alone.
+	// A file read since the cursor was last in it is rendered as its header alone.
 	if y, ok := v.collapsedHeader(place.FilePath); ok {
 		return y, true
 	}
@@ -509,7 +509,7 @@ func (v *View) locate(place Place) (int, bool) {
 	return nearest, nearest >= 0
 }
 
-// collapsedHeader is the header row of a file drawn collapsed, and false for a file drawn
+// collapsedHeader is the header row of a file rendered collapsed, and false for a file rendered
 // whole.
 func (v *View) collapsedHeader(path string) (int, bool) {
 	if !v.viewed[path] {
@@ -519,7 +519,7 @@ func (v *View) collapsedHeader(path string) (int, bool) {
 	return v.fileHeader(path)
 }
 
-// fileHeader is the row a file is named on, which every file has whether it is drawn collapsed
+// fileHeader is the row a file is named on, which every file has whether it is rendered collapsed
 // or whole.
 func (v *View) fileHeader(path string) (int, bool) {
 	if path == "" {
@@ -657,7 +657,7 @@ func (v *View) IsOpenThreadAt(y int) bool {
 	return ok && isUnsettled(thread)
 }
 
-// CountOpenThreads is how many conversations the person reviewing still owes an answer on, drawn
+// CountOpenThreads is how many conversations the person reviewing still owes an answer on, rendered
 // or folded away.
 func (v *View) CountOpenThreads() int {
 	open := 0
@@ -695,8 +695,8 @@ func (v *View) getKey(y int) (anchorKey, bool) {
 	}, true
 }
 
-// GetDrawnFileAt is the file the cursor is inside as it is drawn, header rows included.
-func (v *View) GetDrawnFileAt(y int) (diff.File, bool) {
+// GetRenderedFileAt is the file the cursor is inside as it is rendered, header rows included.
+func (v *View) GetRenderedFileAt(y int) (diff.File, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.file < 0 {
 		return diff.File{}, false
@@ -728,7 +728,7 @@ func (v *View) getLine(y int) (diff.Line, bool) {
 
 // GetAnchor lifts the cursor's row into an anchor.
 func (v *View) GetAnchor(y int) (*Anchor, bool) {
-	file, fileOK := v.GetDrawnFileAt(y)
+	file, fileOK := v.GetRenderedFileAt(y)
 	line, lineOK := v.getLine(y)
 	if !fileOK || !lineOK {
 		return nil, false
@@ -770,7 +770,7 @@ func (v *View) getStyledLine(current row, line diff.Line) styledLine {
 // GetEditTarget returns the file the cursor is in and the line to open it on, answering with the
 // nearest surviving line when the cursor is on a deleted one.
 func (v *View) GetEditTarget(y int) (string, int, bool) {
-	file, ok := v.GetDrawnFileAt(y)
+	file, ok := v.GetRenderedFileAt(y)
 	if !ok || file.NewPath == "" {
 		return "", 0, false
 	}
@@ -811,7 +811,7 @@ func (v *View) nearestNewLine(y int) int {
 	return 1
 }
 
-// GetThreadRow is the row a thread is drawn on, false for one no row carries.
+// GetThreadRow is the row a thread is rendered on, false for one no row carries.
 func (v *View) GetThreadRow(id string) (int, bool) {
 	for y, thread := range v.pinned {
 		if thread.GetId() == id {

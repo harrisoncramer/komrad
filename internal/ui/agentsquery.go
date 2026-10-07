@@ -111,3 +111,7 @@ func (m *model) pickedAgentRows(rows []agentRow) map[string]bool {
 func containsFold(s, sub string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
 }
+
+func (a *archivedAgents) queryGrammar() queryGrammar {
+	return agentsQuery
+}

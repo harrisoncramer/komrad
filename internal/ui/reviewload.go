@@ -495,14 +495,14 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return r.loadWholeCmd(m)
 	}
 
-	drewNothing := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
+	isEmpty := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
 
-	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
+	// A narrowed diff with nothing in it is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && !r.diff.spec.isWholeChange() {
+	if isEmpty && !r.diff.spec.isWholeChange() {
 		said := "nothing written " + r.diff.spec.label
 		if r.diff.spec.origin != nil {
-			said = "nothing to draw where this comment was written"
+			said = "nothing to render where this comment was written"
 		}
 
 		r.diff.widen()
@@ -511,14 +511,14 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return r.loadWholeCmd(m)
 	}
 
-	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
-	if drewNothing {
+	// Both render nothing, so both back out rather than leaving the reader in an empty viewer.
+	if isEmpty {
 		return r.refuse(m, msg.err)
 	}
 
 	if msg.patch == nil && r.diff.spec.origin != nil {
 		r.diff.widen()
-		m.note(messageWarning, "could not draw where this comment was written: "+msg.err.Error())
+		m.note(messageWarning, "could not render where this comment was written: "+msg.err.Error())
 
 		return r.loadWholeCmd(m)
 	}
@@ -555,7 +555,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	return nil
 }
 
-// drop puts the patch down until the next one arrives, keeping the files drawn whole for it.
+// drop puts the patch down until the next one arrives, keeping the files rendered whole for it.
 func (d *reviewDiff) drop() {
 	if d.View() != nil {
 		d.expanded = d.View().GetExpanded()
@@ -564,7 +564,7 @@ func (d *reviewDiff) drop() {
 	d.Drop()
 }
 
-// load draws a patch just read, over the one on screen, and puts the cursor back where the
+// load renders a patch just read, over the one on screen, and puts the cursor back where the
 // reader was standing.
 func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	d.baseRound = msg.earlier
@@ -655,16 +655,16 @@ func (r *reviewScreen) applyWrote(m *model, msg reviewWroteMsg) tea.Cmd {
 	return nil
 }
 
-// applyThreads draws the review as it now stands, keeping the reader where they were.
+// applyThreads renders the review as it now stands, keeping the reader where they were.
 func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
 	r.threads.set(threads)
 
-	drawn := r.diff.threadsOnScreen(threads)
+	rendered := r.diff.threadsOnScreen(threads)
 
 	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
 	// the rows a settled or deleted thread takes away from under it.
 	place, ok := r.diff.View().GetPlace(r.diff.Cursor())
-	r.diff.View().PinThreads(drawn)
+	r.diff.View().PinThreads(rendered)
 	r.diff.Keep(place, ok)
 
 	r.scrollToCursor(m)
@@ -723,9 +723,9 @@ func (r *reviewScreen) back(m *model) tea.Cmd {
 	return r.drop(m)
 }
 
-// backFromDiff hands the keys to the file tree, or leaves the screen where no tree is drawn.
+// backFromDiff hands the keys to the file tree, or leaves the screen where no tree is rendered.
 func (r *reviewScreen) backFromDiff(m *model) tea.Cmd {
-	if r.hold.isHeld() || !r.isBlockDrawn(m) {
+	if r.hold.isHeld() || !r.isBlockRendered(m) {
 		return r.back(m)
 	}
 

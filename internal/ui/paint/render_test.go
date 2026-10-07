@@ -78,6 +78,7 @@ func TestRenderTranscript(t *testing.T) {
 	assert.Contains(t, rows[line-1], "ledger", "the line reported is the one the match landed on")
 }
 
+<<<<<<< HEAD
 // TestRenderTranscriptOpensOnTheSpanAsked covers a preview opened on a later match, which is
 // what standing on one turn among several that said the word asks for.
 func TestRenderTranscriptOpensOnTheSpanAsked(t *testing.T) {
@@ -125,6 +126,8 @@ func TestRenderTranscriptOpensOnTheSpanAsked(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 // TestRenderTranscriptWithoutAMatch covers a transcript staged with nothing marked in it, which
 // is what a jump with no position left to it looks like.
 func TestRenderTranscriptWithoutAMatch(t *testing.T) {
@@ -188,7 +191,7 @@ func TestScrubMarks(t *testing.T) {
 }
 
 // TestDocRowsFitTheColumn covers a message carrying an indented code block, whose tabs the
-// terminal draws at a width and the panel's own measuring does not, and one carrying a token
+// terminal renders at a width and the panel's own measuring does not, and one carrying a token
 // too long to break on a word, which the word wrap leaves wider than the column.
 func TestDocRowsFitTheColumn(t *testing.T) {
 	bodies := map[string]string{

@@ -9,7 +9,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// TreeRow is one row of the file tree drawn beside the diff.
+// TreeRow is one row of the file tree rendered beside the diff.
 type TreeRow struct {
 	Folder bool
 	Depth  int
@@ -43,7 +43,7 @@ func (c *ThreadCounts) add(thread *agentv1.ReviewThread) {
 	}
 }
 
-// GetFileTree is the patch's files as a tree, in the order the diff draws them.
+// GetFileTree is the patch's files as a tree, in the order the diff renders them.
 func (v *View) GetFileTree() []TreeRow {
 	return v.tree
 }
@@ -64,7 +64,7 @@ func (v *View) GetTreeFocus(y int) string {
 		return v.pathOf(thread)
 	}
 
-	file, ok := v.GetDrawnFileAt(y)
+	file, ok := v.GetRenderedFileAt(y)
 	if !ok {
 		return ""
 	}
@@ -78,7 +78,7 @@ type treeFile struct {
 	folders []string
 }
 
-// buildTree lays the files out as a tree in the order the diff draws them.
+// buildTree lays the files out as a tree in the order the diff renders them.
 func (v *View) buildTree() {
 	files := make([]treeFile, 0, len(v.patch.Files))
 	for index := range v.patch.Files {
@@ -106,7 +106,7 @@ type appendTreeLevelParams struct {
 	counts map[string]ThreadCounts
 }
 
-// appendTreeLevel draws one folder's worth of files, each run of files sharing a subfolder
+// appendTreeLevel renders one folder's worth of files, each run of files sharing a subfolder
 // under a row of its own.
 func (v *View) appendTreeLevel(params appendTreeLevelParams) {
 	for at := 0; at < len(params.files); {
@@ -178,7 +178,7 @@ func isOneFolder(files []treeFile) bool {
 	return true
 }
 
-// appendTreeFile draws one file.
+// appendTreeFile renders one file.
 func (v *View) appendTreeFile(index, depth int, counts map[string]ThreadCounts) {
 	file := v.patch.Files[index]
 	path := file.Path()
@@ -198,7 +198,7 @@ func (v *View) appendTreeFile(index, depth int, counts map[string]ThreadCounts) 
 	})
 }
 
-// findFirstRow is the first row a file draws, for a diff drawn without file headers.
+// findFirstRow is the first row a file renders, for a diff rendered without file headers.
 func (v *View) findFirstRow(index int) int {
 	for y, current := range v.rows {
 		if current.file == index {

@@ -19,20 +19,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestLoaderSpinsWhileChecksRun covers a pull request with checks running drawing the configured loader a frame a tick.
+// TestLoaderSpinsWhileChecksRun covers a pull request with checks running rendering the configured loader a frame a tick.
 func TestLoaderSpinsWhileChecksRun(t *testing.T) {
 	harness := openNoticed(t, panelHarnessParams{loader: loader.Arcs}, newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)...)
 
-	var drawn []string
+	var rendered []string
 	for range 5 {
-		drawn = append(drawn, readChecksFrame(t, harness))
+		rendered = append(rendered, readChecksFrame(t, harness))
 		require.True(t, harness.fireLoader(), "the loader stopped ticking with checks still running")
 	}
 
-	assert.Equal(t, []string{"◜", "◝", "◞", "◟", "◜"}, drawn)
+	assert.Equal(t, []string{"◜", "◝", "◞", "◟", "◜"}, rendered)
 }
 
-// TestLoaderStopsTicking covers the loader tick going quiet once no drawn row is loading.
+// TestLoaderStopsTicking covers the loader tick going quiet once no rendered row is loading.
 func TestLoaderStopsTicking(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -88,7 +88,7 @@ func TestLoaderStopsTicking(t *testing.T) {
 	}
 }
 
-// TestLoaderSpinsWhileAnAgentSetsUp covers the placeholder beside a setting-up agent drawing the configured loader a frame a tick.
+// TestLoaderSpinsWhileAnAgentSetsUp covers the placeholder beside a setting-up agent rendering the configured loader a frame a tick.
 func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -113,13 +113,13 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 			agent.PaneId = tt.pane
 			harness := openNoticed(t, panelHarnessParams{loader: loader.Arcs}, agent)
 
-			var drawn []string
+			var rendered []string
 			for range 3 {
-				drawn = append(drawn, readWriteFrame(t, harness.readFrame(), tt.doing))
+				rendered = append(rendered, readWriteFrame(t, harness.readFrame(), tt.doing))
 				require.True(t, harness.fireLoader(), "the loader stopped ticking with the agent still setting up")
 			}
 
-			assert.Equal(t, []string{"◜", "◝", "◞"}, drawn)
+			assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
 
 			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newRunning()))
 			harness.fireLoader()
@@ -128,7 +128,7 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 	}
 }
 
-// TestLoaderSpinsWhileAWriteIsInFlight covers a held form's notice drawing the configured loader a frame a tick until its write lands.
+// TestLoaderSpinsWhileAWriteIsInFlight covers a held form's notice rendering the configured loader a frame a tick until its write lands.
 func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	create := workflowv1connect.WorkflowServiceCreateWorkflowProcedure
 	harness := newPanelHarness(t, panelHarnessParams{
@@ -144,13 +144,13 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	harness.hold(create)
 	harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
 
-	var drawn []string
+	var rendered []string
 	for range 3 {
-		drawn = append(drawn, readWriteFrame(t, harness.readFrame(), "creating workflow web…"))
+		rendered = append(rendered, readWriteFrame(t, harness.readFrame(), "creating workflow web…"))
 		require.True(t, harness.fireLoader(), "the loader stopped ticking with the write in flight")
 	}
 
-	assert.Equal(t, []string{"◜", "◝", "◞"}, drawn)
+	assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
 
 	harness.release(create)
 	harness.watch(buildPuts(newLiveWorkflow("w2", "web")))
@@ -206,7 +206,7 @@ func readWriteFrame(t *testing.T, frame, doing string) string {
 		return fields[len(fields)-1]
 	}
 
-	require.Fail(t, "nothing is drawn doing "+doing)
+	require.Fail(t, "nothing is rendered doing "+doing)
 
 	return ""
 }

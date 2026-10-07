@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestEngineLine covers the engine drawn beside the logo.
+// TestEngineLine covers the engine rendered beside the logo.
 func TestEngineLine(t *testing.T) {
 	tests := []struct {
 		name string

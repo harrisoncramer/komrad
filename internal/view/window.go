@@ -22,11 +22,11 @@ func Window(params WindowParams) string {
 		Columns: params.List.Columns,
 	}
 
-	return paint.DrawWindow(Rows(shown, params.Palette, params.Width), window, total, params.Palette.Style(paint.ToneMuted))
+	return paint.RenderWindow(Rows(shown, params.Palette, params.Width), window, total, params.Palette.Style(paint.ToneMuted))
 }
 
 // focusIndex is the row the keyboard stands on, counted off the list as it is about to be
-// drawn.
+// rendered.
 func focusIndex(list List) int {
 	for i, line := range list.Lines {
 		if line.Focused {

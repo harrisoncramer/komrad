@@ -17,7 +17,7 @@ func (m *model) activeKinds() (kindSwitcher, bool) {
 	return k, ok
 }
 
-func (m *model) isKindsDrawn() bool {
+func (m *model) isKindsRendered() bool {
 	k, ok := m.activeKinds()
 
 	return ok && k.kindsFit(m)
@@ -82,7 +82,7 @@ func (m *model) kindsBinding() key.Binding {
 
 func (m *model) kindsHelp() keyMap {
 	kind := stopsMoveBinding("switch")
-	back := binding([]string{"esc"}, "back to the list")
+	back := binding([]string{"enter", "esc"}, "back to the list")
 
 	return keyMap{
 		short: []key.Binding{kind, back, m.helpBinding()},

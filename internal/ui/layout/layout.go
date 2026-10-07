@@ -1,7 +1,7 @@
-// Package layout owns the panes the panel is drawn across, turning the regions it asks for
+// Package layout owns the panes the panel is rendered across, turning the regions it asks for
 // into splits on komrad's tmux server.
 //
-// The panel is one pane among several rather than a whole screen. The sidebar it draws
+// The panel is one pane among several rather than a whole screen. The sidebar it renders
 // itself, and beside it sit the stage that pages a file or a diff, the info pane, and the
 // guest pane an attached agent takes over. This package decides where those go and which of
 // them are open, so the screens ask for a region rather than for a pane id.

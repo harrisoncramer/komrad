@@ -49,7 +49,7 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 		assert.Equal(t, []string{"vet", "  └ run vet"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("each check is drawn under its header with its steps marked", func(t *testing.T) {
+	t.Run("each check is rendered under its header with its steps marked", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusCheckLogs(t, checks, logs)
@@ -241,7 +241,7 @@ func TestStatusCheckLogsReading(t *testing.T) {
 	})
 }
 
-// TestStatusCheckLogsNotices covers what is drawn under a check whose log cannot be read.
+// TestStatusCheckLogsNotices covers what is rendered under a check whose log cannot be read.
 func TestStatusCheckLogsNotices(t *testing.T) {
 	t.Parallel()
 

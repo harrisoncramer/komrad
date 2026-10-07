@@ -116,7 +116,7 @@ func TestLeader(t *testing.T) {
 	})
 }
 
-// TestPanePicker covers the letters the leader draws over every place the keys can land.
+// TestPanePicker covers the letters the leader renders over every place the keys can land.
 func TestPanePicker(t *testing.T) {
 	sidebar, agent, info := "%0", "%9", "%77"
 
@@ -198,7 +198,7 @@ func TestPanePicker(t *testing.T) {
 			}
 
 			harness.press("ctrl+space", "j")
-			require.Contains(t, harness.readDrawn(), "JUMP")
+			require.Contains(t, harness.readRendered(), "JUMP")
 			selected := len(harness.panel.ReadSelectedPanes())
 
 			harness.press(tt.press...)
@@ -211,13 +211,13 @@ func TestPanePicker(t *testing.T) {
 		})
 	}
 
-	t.Run("each letter is drawn over its own target on blank cells", func(t *testing.T) {
+	t.Run("each letter is rendered over its own target on blank cells", func(t *testing.T) {
 		harness := openFocus(t)
 		harness.panel.SetScreens(window(sidebarRect, agentRect, infoRect))
 
 		harness.press("ctrl+space", "j")
 
-		lines := strings.Split(harness.readDrawn(), "\n")
+		lines := strings.Split(harness.readRendered(), "\n")
 		rows := func(left, right int) []int {
 			var found []int
 			for row, line := range lines {

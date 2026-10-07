@@ -111,7 +111,11 @@ func TestMatchSpans(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+<<<<<<< HEAD
 			assert.Equal(t, tt.want, MatchSpans(content, tt.offset, tt.length, tt.terms))
+=======
+			assert.Equal(t, tt.want, MatchSpans(MatchSpansParams{Content: content, Offset: tt.offset, Length: tt.length, Terms: tt.terms}))
+>>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 		})
 	}
 }
@@ -152,7 +156,11 @@ func TestMatchSpansMarksWholeWords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+<<<<<<< HEAD
 			spans := MatchSpans(tt.content, 0, int64(len(tt.content)), []string{"sandbox"})
+=======
+			spans := MatchSpans(MatchSpansParams{Content: tt.content, Length: int64(len(tt.content)), Terms: []string{"sandbox"}})
+>>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 
 			if !tt.want {
 				assert.Empty(t, spans, "the word is only spelled inside a longer one")
@@ -176,7 +184,11 @@ func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
 	word := strings.Index(content, "Ökonomie")
 
 	assert.Equal(t, []Span{{Start: word, End: word + len("Ökonomie")}},
+<<<<<<< HEAD
 		MatchSpans(content, 0, int64(len(content)), terms))
+=======
+		MatchSpans(MatchSpansParams{Content: content, Length: int64(len(content)), Terms: terms}))
+>>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 }
 
 func markText(text string) string {

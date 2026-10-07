@@ -91,7 +91,7 @@ func TestIntegrationPanel(t *testing.T) {
 		assert.Equal(t, "1", readZoomedFlag())
 	})
 
-	t.Run("the panel draws at the size of the pane it has just been given", func(t *testing.T) {
+	t.Run("the panel renders at the size of the pane it has just been given", func(t *testing.T) {
 		served := openServedPanel(t, 341)
 		share := readPaneWidth(t, served.instance, served.navPane)
 		require.Less(t, share, 341, "the panel starts on its share of the window")
@@ -106,13 +106,13 @@ func TestIntegrationPanel(t *testing.T) {
 		for _, cmd := range unsettled {
 			served.harness.settle(cmd)
 		}
-		assert.Equal(t, 341, lipgloss.Width(served.harness.readDrawn()), "and once told, the frame covers it")
+		assert.Equal(t, 341, lipgloss.Width(served.harness.readRendered()), "and once told, the frame covers it")
 
 		served.harness.press("j")
 		served.harness.fireTimers()
 
 		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
-		assert.LessOrEqual(t, lipgloss.Width(served.harness.readDrawn()), share, "so nothing drawn runs past the pane and wraps")
+		assert.LessOrEqual(t, lipgloss.Width(served.harness.readRendered()), share, "so nothing rendered runs past the pane and wraps")
 	})
 }
 

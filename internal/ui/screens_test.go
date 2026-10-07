@@ -28,7 +28,7 @@ import (
 func TestScreensStage(t *testing.T) {
 	t.Parallel()
 
-	t.Run("a row with no pane draws its notes beside the list and takes the window", func(t *testing.T) {
+	t.Run("a row with no pane renders its notes beside the list and takes the window", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStaged(t, "g", "g")
@@ -37,7 +37,7 @@ func TestScreensStage(t *testing.T) {
 		assert.True(t, harness.panel.IsZoomed())
 		assert.Contains(t, frame, "always run the linter")
 		assert.Contains(t, readListRows(frame), "backend")
-		for _, line := range splitLines(harness.readDrawn()) {
+		for _, line := range splitLines(harness.readRendered()) {
 			assert.Equal(t, 200, ansi.StringWidth(line), "every row of the frame is squared off")
 		}
 	})
@@ -95,7 +95,7 @@ func TestScreensStage(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
-		assert.Equal(t, 199, measureListRule(frame), "so the list is drawn in the whole of the pane")
+		assert.Equal(t, 199, measureListRule(frame), "so the list is rendered in the whole of the pane")
 
 		harness.panel.SetKeysElsewhere(false)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
@@ -241,7 +241,7 @@ func TestScreensDivider(t *testing.T) {
 				harness.fireTimers()
 
 				rules := 0
-				for _, row := range splitLines(harness.readDrawn()) {
+				for _, row := range splitLines(harness.readRendered()) {
 					if strings.Contains(row, "──") && !strings.ContainsFunc(row, unicode.IsLetter) {
 						rules++
 						assert.Equal(t, tt.rule, tt.edge(row), "a rule meets the edge in a junction")
@@ -258,7 +258,7 @@ func TestScreensDivider(t *testing.T) {
 	t.Run("a gutter stands left of a sidebar on the left", func(t *testing.T) {
 		harness := openStaged(t, "g", "g", "j")
 
-		for _, row := range splitLines(harness.readDrawn()) {
+		for _, row := range splitLines(harness.readRendered()) {
 			assert.True(t, strings.HasPrefix(row, " "), row)
 		}
 	})
@@ -272,8 +272,8 @@ func TestScreensDivider(t *testing.T) {
 		harness.press("g", "g")
 		harness.fireTimers()
 
-		frame := harness.readDrawn()
-		require.Contains(t, frame, "┼", "the table's own separator is drawn")
+		frame := harness.readRendered()
+		require.Contains(t, frame, "┼", "the table's own separator is rendered")
 		for _, row := range splitLines(frame) {
 			if strings.Contains(row, "┼") {
 				assert.NotContains(t, row, "├", "the divider is not joined to the table")
@@ -282,7 +282,7 @@ func TestScreensDivider(t *testing.T) {
 	})
 }
 
-// TestScreensSidebarWidth covers how wide the list is drawn beside a document.
+// TestScreensSidebarWidth covers how wide the list is rendered beside a document.
 func TestScreensSidebarWidth(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -313,7 +313,7 @@ func TestScreensSidebarWidth(t *testing.T) {
 		})
 	}
 
-	t.Run("a divider dragged past the document's floor is drawn where it is", func(t *testing.T) {
+	t.Run("a divider dragged past the document's floor is rendered where it is", func(t *testing.T) {
 		harness := openStaged(t, "g", "g", "j")
 		harness.panel.SetPaneWidth("%0", 174)
 		harness.panel.SetPaneWidth("%9", 25)
@@ -452,12 +452,12 @@ func TestScreensRecordGivesWay(t *testing.T) {
 
 			resize(harness, defaultHarnessWidth, tt.fills)
 			frame := harness.readFrame()
-			assert.False(t, isRecordDrawn(frame), "the record gives up its rows")
+			assert.False(t, isRecordRendered(frame), "the record gives up its rows")
 			assert.Contains(t, readHoveredRow(frame), tt.bottom, "to the row the cursor stands on")
 
 			resize(harness, defaultHarnessWidth, tt.fills+1)
 			frame = harness.readFrame()
-			assert.True(t, isRecordDrawn(frame), "the record is drawn once the list keeps a row beside it")
+			assert.True(t, isRecordRendered(frame), "the record is rendered once the list keeps a row beside it")
 			assert.Contains(t, readHoveredRow(frame), tt.bottom)
 		})
 	}
@@ -543,7 +543,7 @@ func TestScreensFitATightPane(t *testing.T) {
 	}
 }
 
-// TestScreensOutgrowNoPane covers every screen drawing inside the pane it was given, whatever the names in it.
+// TestScreensOutgrowNoPane covers every screen rendering inside the pane it was given, whatever the names in it.
 func TestScreensOutgrowNoPane(t *testing.T) {
 	t.Parallel()
 
@@ -585,7 +585,7 @@ func TestScreensCutLongNames(t *testing.T) {
 
 		row := findRowWith(t, harness.readFrame(), long[:10])
 		assert.Contains(t, row, "…", "the name says it was cut")
-		assert.Contains(t, row, "+1", "the tally beside it is still drawn")
+		assert.Contains(t, row, "+1", "the tally beside it is still rendered")
 	})
 
 	t.Run("a workflow in the archive", func(t *testing.T) {

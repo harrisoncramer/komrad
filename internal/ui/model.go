@@ -1,4 +1,4 @@
-// Package ui is the panel: one bubbletea program, drawn in its own tmux session, that holds no
+// Package ui is the panel: one bubbletea program, rendered in its own tmux session, that holds no
 // database connection and knows nothing the service has not told it.
 //
 // It is a client like any other. A keypress becomes an RPC, and the panel learns what came of
@@ -114,7 +114,7 @@ func (p *postbox) close() {
 }
 
 // resize reports the size the panel's own pane landed at as the resize it is, so a frame is never
-// drawn at a width the renderer has not been told about.
+// rendered at a width the renderer has not been told about.
 func (p *postbox) resize(width, height int) {
 	if p == nil {
 		return
@@ -183,7 +183,7 @@ type ReviewGit interface {
 	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)
 }
 
-// harnessFrameReader tells a harness that has drawn itself in a pane from one that has only
+// harnessFrameReader tells a harness that has rendered itself in a pane from one that has only
 // started.
 type harnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
@@ -195,7 +195,7 @@ type PanelSettings struct {
 	Addr string
 	// Editor is the command a text field or a reviewed file is opened in.
 	Editor string
-	// Pane is the tmux pane the panel is drawn in.
+	// Pane is the tmux pane the panel is rendered in.
 	Pane string
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary
 	// directory when empty.
@@ -352,13 +352,13 @@ type terminalState struct {
 	awaitingSince time.Time
 	// windowCols is how wide the window was when the divider was last read.
 	windowCols int
-	// drawn is the frame the last update drew, which View returns.
-	drawn string
+	// renderedView is the frame View last rendered, emptied by every update unless the panel awaits its size.
+	renderedView string
 	// copying is whether a stand-in in copy-mode has the sidebar's place.
 	copying bool
 	// paneCopying is whether the pane holding the keys, other than the sidebar, is in copy-mode.
 	paneCopying bool
-	// markingZones is whether this frame carries the marks that say where each block was drawn.
+	// markingZones is whether this frame carries the marks that say where each block was rendered.
 	markingZones bool
 }
 

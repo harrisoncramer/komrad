@@ -115,7 +115,7 @@ func TestFold(t *testing.T) {
 	}
 }
 
-// TestScreensFitTheirPane covers the whole of every screen against the pane it draws into, prose
+// TestScreensFitTheirPane covers the whole of every screen against the pane it renders into, prose
 // and hints included.
 func TestScreensFitTheirPane(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")

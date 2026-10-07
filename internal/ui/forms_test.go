@@ -279,7 +279,7 @@ func TestFormsRefused(t *testing.T) {
 			harness.press(tt.press...)
 
 			assert.Contains(t, harness.readFrame(), tt.typed, "the form is still up holding what was filled in")
-			assert.Contains(t, harness.readFrame(), "not allowed", "the reason is drawn under the form")
+			assert.Contains(t, harness.readFrame(), "not allowed", "the reason is rendered under the form")
 
 			harness.press("ctrl+g")
 			frame := harness.readFrame()
@@ -374,7 +374,7 @@ func TestFormsInFlight(t *testing.T) {
 	})
 
 	t.Run("the form keeps saying so while the pane the create made warms up", func(t *testing.T) {
-		frames := &drawReporter{}
+		frames := &harnessFrameFake{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
@@ -390,7 +390,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.watch(buildPuts(newCreatedAgent()))
 		assert.Contains(t, harness.readFrame(), "check CI", "the row alone does not close it")
 
-		frames.isDrawn = true
+		frames.isShowing = true
 		harness.fireTimers()
 
 		frame = harness.readFrame()
@@ -435,7 +435,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.press("esc")
 
 		assert.NotContains(t, harness.readFrame(), "check CI", "the form it was holding is gone")
-		assert.Contains(t, readLegend(harness.readFrame()), "⠋ starting", "the create it left is drawn in the corner")
+		assert.Contains(t, readLegend(harness.readFrame()), "⠋ starting", "the create it left is rendered in the corner")
 		harness.press("j")
 		assert.Equal(t, "  author", readHoveredRow(harness.readFrame()), "the panel takes keys again")
 
@@ -529,7 +529,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness.press("space", "a", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "archive with its agents", "the menu is still drawn")
+		assert.Contains(t, frame, "archive with its agents", "the menu is still rendered")
 		assert.Contains(t, frame, "archiving api…")
 
 		harness.release(archive)
@@ -765,7 +765,7 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 
 // TestFormsWorkflowSections covers drilling into a section of the workflow form and coming back.
 func TestFormsWorkflowSections(t *testing.T) {
-	t.Run("a section opens beside the top form drawn whole", func(t *testing.T) {
+	t.Run("a section opens beside the top form rendered whole", func(t *testing.T) {
 		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0))...)
@@ -1037,7 +1037,7 @@ func TestFormsFieldEditor(t *testing.T) {
 	}
 }
 
-// TestFormsLayout covers a form being drawn in a column beside the list it was opened over.
+// TestFormsLayout covers a form being rendered in a column beside the list it was opened over.
 func TestFormsLayout(t *testing.T) {
 	t.Parallel()
 
@@ -1100,7 +1100,7 @@ func TestFormsLayout(t *testing.T) {
 				name: "the list alone blinks its cursor out",
 			},
 			{
-				name:       "a form holding the keys leaves it drawn",
+				name:       "a form holding the keys leaves it rendered",
 				press:      []string{"space", "w"},
 				wantCursor: true,
 			},
@@ -1120,7 +1120,7 @@ func TestFormsLayout(t *testing.T) {
 		}
 	})
 
-	t.Run("a held form draws its notice under it at every height", func(t *testing.T) {
+	t.Run("a held form renders its notice under it at every height", func(t *testing.T) {
 		t.Parallel()
 
 		tests := []struct {
@@ -1165,7 +1165,7 @@ func TestFormsLayout(t *testing.T) {
 		}
 	})
 
-	t.Run("a window too narrow for both halves draws the form whole", func(t *testing.T) {
+	t.Run("a window too narrow for both halves renders the form whole", func(t *testing.T) {
 		t.Parallel()
 
 		harness := newPanelHarness(t, panelHarnessParams{width: 60})
@@ -1191,7 +1191,7 @@ func TestFormsLayout(t *testing.T) {
 		harness.press("ctrl+g")
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Could not create the workflow")
-		assert.NotContains(t, frame, "New workflow name", "the form gives up what is drawn in its column")
+		assert.NotContains(t, frame, "New workflow name", "the form gives up what is rendered in its column")
 
 		harness.press("ctrl+g")
 		assert.Contains(t, harness.readFrame(), "New workflow name", "and takes it back")

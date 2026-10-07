@@ -180,42 +180,22 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{documentsNotice, "its pull request is open and waiting on a review"},
 		},
 		{
-			name: "the person's comments read",
-			row: buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{
-				Open:     2,
-				Resolved: 1,
-			}}),
-			want: []string{"your comments: 2 open, 1 resolved"},
-		},
-		{
-			name: "a reviewer's comments come before the person's, and their unread replies are not counted",
-			row: buildNoticeRow(panel.AgentRow{
-				ReviewerComments: &agentv1.CommentCounts{
-					Open:   1,
-					Unread: 1,
-				},
-				PersonComments: &agentv1.CommentCounts{Resolved: 3},
-			}),
-			want: []string{
-				"reviewer agents' comments: 1 open, 0 resolved",
-				"your comments: 0 open, 3 resolved",
-			},
+			name: "a reviewer's unread replies are not counted",
+			row:  buildNoticeRow(panel.AgentRow{ReviewerComments: &agentv1.CommentCounts{Unread: 1}}),
+			want: []string{},
 		},
 		{
 			name: "the person's comments with replies unread",
-			row: buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{
-				Open:   1,
-				Unread: 2,
-			}}),
-			want: []string{"your comments: 1 open, 0 resolved", "your comments with a reply you have not read: 2"},
+			row:  buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{Unread: 2}}),
+			want: []string{"your comments with a reply you have not read: 2"},
 		},
 		{
-			name: "an archived row still counts its comments",
+			name: "an archived row still counts its unread replies",
 			row: buildNoticeRow(panel.AgentRow{
 				Agent:          panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				PersonComments: &agentv1.CommentCounts{Open: 1},
+				PersonComments: &agentv1.CommentCounts{Unread: 1},
 			}),
-			want: []string{"your comments: 1 open, 0 resolved"},
+			want: []string{"your comments with a reply you have not read: 1"},
 		},
 		{
 			name: "an agent without a worktree still says its directory is gone",
@@ -234,12 +214,12 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{sequenceNotice},
 		},
 		{
-			name: "an agent without a worktree still counts its comments",
+			name: "an agent without a worktree still counts its unread replies",
 			row: buildPlainRow(panel.AgentRow{
 				Agent:          panel.Agent{ID: "a1"},
-				PersonComments: &agentv1.CommentCounts{Open: 1},
+				PersonComments: &agentv1.CommentCounts{Unread: 1},
 			}),
-			want: []string{"your comments: 1 open, 0 resolved"},
+			want: []string{"your comments with a reply you have not read: 1"},
 		},
 	}
 
@@ -250,8 +230,8 @@ func TestAgentNotices(t *testing.T) {
 	}
 }
 
-// TestAgentNoticesWearTheGlyphTheRowDraws covers each notice taking its glyph and tone from the cell the row draws.
-func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
+// TestAgentNoticesWearTheGlyphTheRowRenders covers each notice taking its glyph and tone from the cell the row renders.
+func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	item := panel.AgentRow{
 		Agent: panel.Agent{
 			State:    panel.StateWaiting,
@@ -285,7 +265,7 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	}
 }
 
-// TestAgentNoticesSpeakForEveryColumnState covers every state a column draws having a sentence or being named as its baseline.
+// TestAgentNoticesSpeakForEveryColumnState covers every state a column renders having a sentence or being named as its baseline.
 func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 	for state := range int(view.RepoEnd) {
 		repo := view.Repo(state)
@@ -316,8 +296,8 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 	}
 
 	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
-		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer draws a broken bar", state)
-		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
+		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer renders a broken bar", state)
+		assert.NotEmpty(t, failureSaid[state], "state %q renders a broken bar with no sentence", state)
 	}
 }
 

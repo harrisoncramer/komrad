@@ -12,7 +12,7 @@ import (
 // actions is the documents screen as one table and the legend that names it.
 func (d *documentsScreen) actions(m *model) screenActionSpec {
 	switch {
-	case d.isDiffFocused(m) && d.isDiffDrawn(m):
+	case d.isDiffFocused(m) && d.isDiffRendered(m):
 		return d.diffActions()
 	case d.isDiffFocused(m):
 		return d.stepActions()
@@ -140,7 +140,7 @@ func (d *documentsScreen) diffActions() screenActionSpec {
 	}
 }
 
-// stepActions is the keys on a focused diff with no write drawn yet.
+// stepActions is the keys on a focused diff with no write rendered yet.
 func (d *documentsScreen) stepActions() screenActionSpec {
 	return screenActionSpec{
 		table: []screenAction{
@@ -206,13 +206,13 @@ func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) tea.Cmd {
 	return d.actions(m).dispatchTop(m, key.String())
 }
 
-// isDiffDrawn reports whether a write's change is drawn as a diff beside the list.
-func (d *documentsScreen) isDiffDrawn(m *model) bool {
+// isDiffRendered reports whether a write's change is rendered as a diff beside the list.
+func (d *documentsScreen) isDiffRendered(m *model) bool {
 	if _, ok := m.screenColumnSplit(); !ok {
 		return false
 	}
 
-	return d.isSteppingHovered(m) && d.history.isDrawn(m.term.isDark)
+	return d.isSteppingHovered(m) && d.history.isRendered(m.term.isDark)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.
@@ -225,8 +225,8 @@ func (d *documentsScreen) isBlockFocused(m *model) bool {
 	return d.isDiffFocused(m)
 }
 
-func (d *documentsScreen) isBlockDrawn(m *model) bool {
-	return d.isDiffDrawn(m)
+func (d *documentsScreen) isBlockRendered(m *model) bool {
+	return d.isDiffRendered(m)
 }
 
 func (d *documentsScreen) focusBlock(*model) {
@@ -245,7 +245,7 @@ func (d *documentsScreen) leaveScreen(m *model) tea.Cmd {
 }
 
 func (d *documentsScreen) doesScrollColumn(m *model) bool {
-	return d.isBlockDrawn(m)
+	return d.isBlockRendered(m)
 }
 
 func (d *documentsScreen) scrollColumn(m *model, rows int) tea.Cmd {

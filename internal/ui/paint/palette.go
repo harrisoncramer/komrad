@@ -15,7 +15,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Panel is the palette the panel draws in.
+// Panel is the palette the panel renders in.
 var Panel = defaultPalette()
 
 // Tone is the part a piece of the panel plays, which the palette turns into a colour.
@@ -52,18 +52,18 @@ const (
 	ShadeMatch
 )
 
-// Palette is the colours the panel draws in.
+// Palette is the colours the panel renders in.
 type Palette struct {
 	colors theme.Colors
 
-	// blinkedOut is the off beat of the blink whatever holds the keys is drawn on.
+	// blinkedOut is the off beat of the blink whatever holds the keys is rendered on.
 	blinkedOut bool
 
 	// stage is held behind a pointer.
 	stage *ansi.StyleConfig
 }
 
-// NewPalette is the palette drawing in the given colours, refusing one it cannot draw.
+// NewPalette is the palette rendering in the given colours, refusing one it cannot render.
 func NewPalette(colors theme.Colors) (*Palette, error) {
 	if err := theme.Check(colors); err != nil {
 		return nil, fmt.Errorf("failed to build the palette: %w", err)
@@ -76,7 +76,7 @@ func NewPalette(colors theme.Colors) (*Palette, error) {
 	return &palette, nil
 }
 
-// Use makes palette the one the panel draws in.
+// Use makes palette the one the panel renders in.
 func Use(palette Palette) {
 	Panel = palette
 }
@@ -103,7 +103,7 @@ func (p Palette) Style(tone Tone) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(p.Color(tone))
 }
 
-// FormTheme is the huh theme a form is drawn in.
+// FormTheme is the huh theme a form is rendered in.
 func (p Palette) FormTheme() huh.Theme {
 	return huh.ThemeFunc(p.formStyles)
 }
@@ -123,7 +123,7 @@ func (p Palette) HelpStyles() help.Styles {
 	}
 }
 
-// Stage is the markdown a block beside a list is drawn in.
+// Stage is the markdown a block beside a list is rendered in.
 func (p Palette) Stage() ansi.StyleConfig {
 	return *p.stage
 }
@@ -221,11 +221,11 @@ func (p Palette) formStyles(isDark bool) *huh.Styles {
 	return theme
 }
 
-// defaultPalette is the palette drawing in the default colours.
+// defaultPalette is the palette rendering in the default colours.
 func defaultPalette() Palette {
 	palette, err := NewPalette(theme.Defaults())
 	if err != nil {
-		panic(fmt.Sprintf("the default colours do not draw: %v", err))
+		panic(fmt.Sprintf("the default colours do not render: %v", err))
 	}
 
 	return *palette

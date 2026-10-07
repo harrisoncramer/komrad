@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSplitOfDrawsTheWidthItIsHanded covers the split being drawn at the measured divider.
-func TestSplitOfDrawsTheWidthItIsHanded(t *testing.T) {
+// TestSplitOfRendersTheWidthItIsHanded covers the split being rendered at the measured divider.
+func TestSplitOfRendersTheWidthItIsHanded(t *testing.T) {
 	tests := []struct {
 		name        string
 		width       int
@@ -23,7 +23,7 @@ func TestSplitOfDrawsTheWidthItIsHanded(t *testing.T) {
 			wantOK:  false,
 		},
 		{
-			name:        "a width in the middle of the range is drawn as it stands",
+			name:        "a width in the middle of the range is rendered as it stands",
 			width:       200,
 			sidebar:     60,
 			wantSidebar: 60,

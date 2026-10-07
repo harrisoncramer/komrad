@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestIsReviewHistory covers a comment being refused on a diff drawn to an older snapshot than its round.
+// TestIsReviewHistory covers a comment being refused on a diff rendered to an older snapshot than its round.
 func TestIsReviewHistory(t *testing.T) {
 	tests := []struct {
 		name string
@@ -26,7 +26,7 @@ func TestIsReviewHistory(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "the base and head were cleared under a diff still drawn to an older round",
+			name: "the base and head were cleared under a diff still rendered to an older round",
 			diff: reviewDiff{
 				spec: wholeChange(),
 				Pane: diffview.NewPane(diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)),

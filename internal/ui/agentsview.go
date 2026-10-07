@@ -46,7 +46,7 @@ func agentDetailFields(m *model, item panel.AgentRow) []recordField {
 	})
 }
 
-// doc is the markdown drawn beside the list for a row with no pane of its own.
+// doc is the markdown rendered beside the list for a row with no pane of its own.
 func (a *agentsScreen) doc(m *model) string {
 	r, ok := a.hoveredRow(m)
 	item, held := r.paneItem()

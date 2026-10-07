@@ -29,7 +29,7 @@ func TestWorkflowContextMarkdown(t *testing.T) {
 	assert.Contains(t, workflowContextMarkdown(workflow), "no shared context set")
 }
 
-// TestWorkflowFields covers what the details draw for a workflow: how many agents it holds,
+// TestWorkflowFields covers what the details render for a workflow: how many agents it holds,
 // then the defaults future agents under it inherit.
 func TestWorkflowFields(t *testing.T) {
 	fields := workflowFields(panel.Workflow{
@@ -55,7 +55,7 @@ func TestWorkflowFields(t *testing.T) {
 	}, fields)
 }
 
-// TestWorkflowFieldsWorktree pins that a worktree workflow's details draw the worktree
+// TestWorkflowFieldsWorktree pins that a worktree workflow's details render the worktree
 // settings the user chose.
 func TestWorkflowFieldsWorktree(t *testing.T) {
 	workflow := panel.Workflow{
@@ -135,7 +135,7 @@ func TestAgentFields(t *testing.T) {
 			wantAbsent: []string{"launched by"},
 		},
 		{
-			name:       "an agent off any branch draws none",
+			name:       "an agent off any branch renders none",
 			wantAbsent: []string{"branch"},
 		},
 		{
@@ -181,7 +181,7 @@ func TestAgentFields(t *testing.T) {
 	}
 }
 
-// TestAgentFieldsReviewingRow pins a reviewer's record drawing whose work it reads exactly
+// TestAgentFieldsReviewingRow pins a reviewer's record rendering whose work it reads exactly
 // once.
 func TestAgentFieldsReviewingRow(t *testing.T) {
 	tests := []struct {
@@ -192,14 +192,14 @@ func TestAgentFieldsReviewingRow(t *testing.T) {
 		wantAbsent []string
 	}{
 		{
-			name:       "a reviewer draws whose work it reads once",
+			name:       "a reviewer renders whose work it reads once",
 			role:       panel.RoleReviewer,
 			wantLabels: []string{"reviewing"},
 			wantOnce:   []string{"reviewing"},
 			wantAbsent: []string{"attached to"},
 		},
 		{
-			name:       "an ordinary child is drawn as attached rather than reviewing",
+			name:       "an ordinary child is rendered as attached rather than reviewing",
 			role:       panel.RoleImplementer,
 			wantLabels: []string{"attached to"},
 			wantAbsent: []string{"reviewing"},
@@ -229,7 +229,7 @@ func TestAgentFieldsReviewingRow(t *testing.T) {
 				assert.NotContains(t, values, absent)
 			}
 			for _, once := range tt.wantOnce {
-				assert.Equal(t, 1, countLabel(labels, once), "the row is drawn once")
+				assert.Equal(t, 1, countLabel(labels, once), "the row is rendered once")
 			}
 		})
 	}

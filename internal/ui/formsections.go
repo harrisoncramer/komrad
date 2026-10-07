@@ -15,12 +15,12 @@ import (
 // sectionsKey is the form key of the list of sections on a sectioned form's top form.
 const sectionsKey = "sections"
 
-// sectionedForm is a form whose top fields are always drawn and whose other fields are kept in
+// sectionedForm is a form whose top fields are always rendered and whose other fields are kept in
 // sections, each opened from the top form on its own.
 type sectionedForm struct {
 	kind  formKind
 	title string
-	// top is the fields drawn above the list of sections.
+	// top is the fields rendered above the list of sections.
 	top         func(m *model) []huh.Field
 	topEditable []editableText
 	// reshaped reports whether an answer on the top form has changed which sections are off.
@@ -89,7 +89,7 @@ func (s sectionedForm) updateTop(m *model, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	return m.openForm(s.sectionState(s.sections[index], drawnGray(m.form.form)))
+	return m.openForm(s.sectionState(s.sections[index], renderedGray(m.form.form)))
 }
 
 func (s sectionedForm) sectionState(section formSection, top []string) formState {
@@ -120,8 +120,8 @@ func (f formSection) off() bool {
 	return f.isOff != nil && f.isOff()
 }
 
-// drawnGray is a form's lines as it stands, without its help, drawn gray.
-func drawnGray(form *huh.Form) []string {
+// renderedGray is a form's lines as it stands, without its help, rendered gray.
+func renderedGray(form *huh.Form) []string {
 	view := form.WithShowHelp(false).View()
 
 	lines := xslice.Map(strings.Split(ansi.Strip(view), "\n"), func(line string) string {

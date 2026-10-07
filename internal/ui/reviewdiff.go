@@ -20,7 +20,7 @@ type reviewDiff struct {
 
 	// restore is where the cursor was standing when the patch was read again.
 	restore *diffview.Place
-	// expanded is the files drawn whole when the patch was put down to be read again.
+	// expanded is the files rendered whole when the patch was put down to be read again.
 	expanded map[string]bool
 
 	// since says how much of the diff is new to the reader.
@@ -43,7 +43,7 @@ type reviewDiff struct {
 	// followedMove is the move the diff last caught up on.
 	followedMove string
 
-	// showsAgentThreads says the conversations agents opened are drawn.
+	// showsAgentThreads says the conversations agents opened are rendered.
 	showsAgentThreads bool
 }
 
@@ -128,7 +128,7 @@ func (d *diffSpec) settle(msg reviewLoadedMsg) {
 	}
 }
 
-// reviewColumn is the diff drawn beside the review's own threads, whose row budget is what the
+// reviewColumn is the diff rendered beside the review's own threads, whose row budget is what the
 // band over it leaves.
 func reviewColumn() columnSpec {
 	return columnSpec{
@@ -138,13 +138,13 @@ func reviewColumn() columnSpec {
 		holds: func(m *model) bool { return !m.review.hold.atEditor },
 		rows: func(m *model, split columnSplit) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
-			// what the patch is drawn in and what the cursor is scrolled against.
+			// what the patch is rendered in and what the cursor is scrolled against.
 			return split.rows - strings.Count(m.review.bandView(m), "\n")
 		},
 	}
 }
 
-// What the review says while there is no patch to draw, which the sidebar's head says as well.
+// What the review says while there is no patch to render, which the sidebar's head says as well.
 const (
 	reviewLoadingWord = "loading the diff…"
 	reviewEmptyWord   = "nothing changed in this worktree"

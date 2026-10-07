@@ -218,7 +218,7 @@ func (a *agentsScreen) toggleHidden(m *model) {
 	a.stage(m)
 }
 
-// seeFinished snoozes the agent's family when it waits only to be looked at and the tree draws the
+// seeFinished snoozes the agent's family when it waits only to be looked at and the tree renders the
 // agent, keeping the cursor on the agent's tree row.
 func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 	treeKey := toTreeRowKey(a.list().hovered(m))
@@ -373,7 +373,7 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 }
 
 var (
-	_ recordDrawer         = (*agentsScreen)(nil)
+	_ recordRenderer       = (*agentsScreen)(nil)
 	_ listFilterer         = (*agentsScreen)(nil)
 	_ tabSwitcher          = (*agentsScreen)(nil)
 	_ screenLeaver         = (*agentsScreen)(nil)
@@ -386,11 +386,11 @@ var (
 	_ renamer              = (*agentsScreen)(nil)
 	_ editorReconciler     = (*agentsScreen)(nil)
 	_ hoveredAgentReporter = (*agentsScreen)(nil)
-	_ savedScreenDrawer    = (*agentsScreen)(nil)
+	_ savedScreenRenderer  = (*agentsScreen)(nil)
 	_ agentPauser          = (*agentsScreen)(nil)
 )
 
-func (a *agentsScreen) doesDrawFromListing() bool {
+func (a *agentsScreen) doesRenderFromListing() bool {
 	return true
 }
 

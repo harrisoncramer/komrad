@@ -52,7 +52,7 @@ func (m *model) activeCrumbs() (crumbs, screen, bool) {
 // pageCrumbs is the trail under the view, from the page that is up or from the form open over a
 // view.
 func (m *model) pageCrumbs() (screen, crumbs, bool) {
-	if c, ok := m.active().(crumbDrawer); ok {
+	if c, ok := m.active().(crumbRenderer); ok {
 		return c.parent(), c.crumbs(m), true
 	}
 

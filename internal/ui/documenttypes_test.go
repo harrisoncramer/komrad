@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestDocumentTypesList covers the types listed on the documents view, each drawn
+// TestDocumentTypesList covers the types listed on the documents view, each rendered
 // with its context and the menu key opening the ways to act on it in the context's place.
 func TestDocumentTypesList(t *testing.T) {
 	t.Parallel()
@@ -25,23 +25,23 @@ func TestDocumentTypesList(t *testing.T) {
 		wantNot []string
 	}{
 		{
-			name: "the list draws every type and the context of the one under the cursor",
+			name: "the list renders every type and the context of the one under the cursor",
 			want: []string{"explainer", "notes", "report", "RFC", "How to write an explainer."},
 		},
 		{
-			name:    "moving down draws the next type's context",
+			name:    "moving down renders the next type's context",
 			presses: []string{"j"},
 			want:    []string{"How to write a notes."},
 			wantNot: []string{"How to write an explainer."},
 		},
 		{
-			name:    "the menu key draws the actions in the context's place",
+			name:    "the menu key renders the actions in the context's place",
 			presses: []string{"space"},
 			want:    []string{"edit", "new type", "delete"},
 			wantNot: []string{"How to write an explainer."},
 		},
 		{
-			name:    "back from the actions draws the context again",
+			name:    "back from the actions renders the context again",
 			presses: []string{"space", "esc"},
 			want:    []string{"How to write an explainer."},
 			wantNot: []string{"new type"},
@@ -52,7 +52,7 @@ func TestDocumentTypesList(t *testing.T) {
 			want:    []string{"Edit document type", "explainer"},
 		},
 		{
-			name:    "back from a form draws the actions again",
+			name:    "back from a form renders the actions again",
 			presses: []string{"space", "e", "esc"},
 			want:    []string{"new type"},
 			wantNot: []string{"Edit document type"},

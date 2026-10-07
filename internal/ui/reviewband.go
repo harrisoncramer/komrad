@@ -15,7 +15,7 @@ func (r reviewScreen) bandView(m *model) string {
 		r.diff.filter.view(paint.Panel, m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
-// reviewColumnStyle is the markdown a notice standing in for the patch is drawn in.
+// reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.
 func reviewColumnStyle() ansi.StyleConfig {
 	return paint.Panel.Stage()
 }

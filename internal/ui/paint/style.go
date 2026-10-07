@@ -17,12 +17,12 @@ const ansiReset = "\x1b[m"
 // resets are the two spellings of a reset a styled line can carry.
 var resets = []string{"\x1b[0m", ansiReset}
 
-// Header is the style a list's title is drawn in.
+// Header is the style a list's title is rendered in.
 func (p Palette) Header() lipgloss.Style {
 	return p.Style(TonePrimary).Bold(true)
 }
 
-// Cursor is the style the row cursor is drawn in.
+// Cursor is the style the row cursor is rendered in.
 func (p Palette) Cursor() lipgloss.Style {
 	if p.blinkedOut {
 		return p.Style(ToneMuted).Bold(true)
@@ -38,7 +38,7 @@ func (p Palette) Blinking(out bool) Palette {
 	return p
 }
 
-// Title draws a list's title.
+// Title renders a list's title.
 func (p Palette) Title(text string) string {
 	return p.Header().Render(text)
 }
@@ -48,7 +48,7 @@ func (p Palette) Match() lipgloss.Style {
 	return p.Style(ToneHighlight).Bold(true)
 }
 
-// Highlight draws text in a base style with the spans a search picked out drawn in the match
+// Highlight renders text in a base style with the spans a search picked out rendered in the match
 // style, skipping a span that runs backwards or past the end.
 func (p Palette) Highlight(text string, spans []Span, base lipgloss.Style) string {
 	var b strings.Builder
@@ -80,7 +80,7 @@ func PlainText(row string) string {
 	return b.String()
 }
 
-// HighlightStyled draws a styled row with the spans a search picked out of its plain text in the
+// HighlightStyled renders a styled row with the spans a search picked out of its plain text in the
 // match style, leaving the row's own styling in force around them.
 func (p Palette) HighlightStyled(row string, spans []Span) string {
 	if len(spans) == 0 {
@@ -147,7 +147,7 @@ func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 	b.WriteString(style.Render(segment))
 }
 
-// Broken is what a row draws in when what it stands for is gone.
+// Broken is what a row renders in when what it stands for is gone.
 func (p Palette) Broken() lipgloss.Style {
 	return p.Style(ToneDanger)
 }
@@ -180,7 +180,7 @@ func Clip(text string, width int) string {
 	return string(runes[:width-1]) + "…"
 }
 
-// WrapRows is prose wrapped into the column it is drawn in, breaking a token longer than the
+// WrapRows is prose wrapped into the column it is rendered in, breaking a token longer than the
 // column.
 func WrapRows(text string, width int) []string {
 	width = max(width, 1)
@@ -198,7 +198,7 @@ func WrapRows(text string, width int) []string {
 // PaintRow lays the selection background under one already-coloured line, setting it again after
 // every reset that line carries and filling the line out to the pane so it reads as a bar.
 func (p Palette) PaintRow(row string, width int) string {
-	// The diff viewer threads a background into every fragment it draws instead.
+	// The diff viewer threads a background into every fragment it renders instead.
 	set := BackgroundSequence(p.Background(ShadeSelection))
 
 	painted := set + strings.NewReplacer(resets[0], ansiReset+set, resets[1], ansiReset+set).Replace(row)
@@ -215,17 +215,17 @@ func BackgroundSequence(background color.Color) string {
 	return ansi.NewStyle().BackgroundColor(background).String()
 }
 
-// Mode is the style a label saying which mode holds the panel is drawn in, in that mode's tone.
+// Mode is the style a label saying which mode holds the panel is rendered in, in that mode's tone.
 func (p Palette) Mode(tone Tone) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(p.Color(tone)).Bold(true)
 }
 
-// TmuxBorder is the style tmux draws a pane border in to match the divider.
+// TmuxBorder is the style tmux renders a pane border in to match the divider.
 func (p Palette) TmuxBorder() string {
 	return "fg=" + tmuxColor(p.colors.Muted)
 }
 
-// TmuxSelection is the style tmux draws a selection in, a bar in the visual mode's tone.
+// TmuxSelection is the style tmux renders a selection in, a bar in the visual mode's tone.
 func (p Palette) TmuxSelection() string {
 	return "fg=" + tmuxColor(p.colors.Inverse) + ",bg=" + tmuxColor(p.colors.Mode.Visual)
 }
@@ -261,10 +261,10 @@ func ClipAround(before, after string, width int) (string, string) {
 	return ClipStart(before, kept), Clip(after, width-kept)
 }
 
-// DrawTyped is text being typed with its cursor in it: a bar after the text while the cursor is at
-// its end, and otherwise the character under the cursor drawn in reverse, so the cursor takes no
+// RenderTyped is text being typed with its cursor in it: a bar after the text while the cursor is at
+// its end, and otherwise the character under the cursor rendered in reverse, so the cursor takes no
 // column of its own.
-func (p Palette) DrawTyped(before, after string, style lipgloss.Style) string {
+func (p Palette) RenderTyped(before, after string, style lipgloss.Style) string {
 	if after == "" {
 		return style.Render(before) + p.Cursor().Render(glyph.TextCursor)
 	}

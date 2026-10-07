@@ -21,10 +21,10 @@ const (
 // entry is a decoded service log line, keyed by attribute name.
 type entry map[string]any
 
-// field is an attribute the compact view shows and the function that draws it.
+// field is an attribute the compact view shows and the function that renders it.
 type field struct {
-	key  string
-	draw func(palette paint.Palette, record entry, key string) string
+	key    string
+	render func(palette paint.Palette, record entry, key string) string
 }
 
 // visibleFields are the attributes the compact view shows, in the order it shows them.
@@ -46,7 +46,7 @@ var visibleFields = []field{
 	{"rpc.connect_rpc.error_code", errorCodeField},
 }
 
-// Compact is a structured service log line drawn on one row as its time, level, message and
+// Compact is a structured service log line rendered on one row as its time, level, message and
 // fields, or the line as it stands when it is not a JSON object.
 func Compact(palette paint.Palette, line string) string {
 	record := parse(line)
@@ -90,7 +90,7 @@ func (e entry) clock() string {
 	return stamp.Format(time.TimeOnly)
 }
 
-// level is the line's severity and the tone it is drawn in.
+// level is the line's severity and the tone it is rendered in.
 func (e entry) level() (string, paint.Tone) {
 	severity := strings.ToUpper(e.text("severity_text"))
 	switch {
@@ -118,19 +118,19 @@ func (e entry) message(palette paint.Palette, tone paint.Tone) string {
 	return body
 }
 
-// fields is each visible field the line carries, drawn in order.
+// fields is each visible field the line carries, rendered in order.
 func (e entry) fields(palette paint.Palette) []string {
-	var drawn []string
+	var rendered []string
 	for _, f := range visibleFields {
 		if !e.has(f.key) {
 			continue
 		}
-		if value := f.draw(palette, e, f.key); value != "" {
-			drawn = append(drawn, value)
+		if value := f.render(palette, e, f.key); value != "" {
+			rendered = append(rendered, value)
 		}
 	}
 
-	return drawn
+	return rendered
 }
 
 // text is the value at key on one line, with anything that is not a string written as JSON.
@@ -157,7 +157,7 @@ func (e entry) has(key string) bool {
 	return ok
 }
 
-// plainField is the value drawn dimmed as it stands.
+// plainField is the value rendered dimmed as it stands.
 func plainField(palette paint.Palette, record entry, key string) string {
 	return palette.Style(paint.ToneMuted).Render(record.text(key))
 }
@@ -190,12 +190,12 @@ func durationField(palette paint.Palette, record entry, key string) string {
 	return palette.Style(paint.ToneMuted).Render(record.text(key) + "ms")
 }
 
-// errorField is an error drawn in red.
+// errorField is an error rendered in red.
 func errorField(palette paint.Palette, record entry, key string) string {
 	return palette.Style(paint.ToneDanger).Render(record.text(key))
 }
 
-// errorCodeField is a connect error code, drawn only when no error message already carries it.
+// errorCodeField is a connect error code, rendered only when no error message already carries it.
 func errorCodeField(palette paint.Palette, record entry, key string) string {
 	if record.has("error.message") {
 		return ""

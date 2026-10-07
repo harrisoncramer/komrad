@@ -9,7 +9,7 @@ import (
 	"komrad/internal/view"
 )
 
-// notice is one of the marks a row draws said in words, carrying the part it plays rather than a
+// notice is one of the marks a row renders said in words, carrying the part it plays rather than a
 // colour.
 type notice struct {
 	icon string
@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	// failureSaid is what the status column drawn broken says about how an agent got there.
+	// failureSaid is what the status column rendered broken says about how an agent got there.
 	failureSaid = map[panel.State]string{
 		panel.StateFailedToCreate:  failedToCreateNotice,
 		panel.StateFailedToCleanup: failedToCleanupNotice,
@@ -65,7 +65,7 @@ var (
 )
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
-// list would draw so a column the row leaves empty is a column the record says nothing about.
+// list would render so a column the row leaves empty is a column the record says nothing about.
 func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
 
@@ -79,21 +79,8 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeSaid[row.Forge]))
-	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
-	notices = appendCommentsNotice(notices, row.PersonComments, "your comments")
 
 	return appendUnreadNotice(notices, glyphs, row.PersonComments)
-}
-
-// appendCommentsNotice says how one side's comments stand.
-func appendCommentsNotice(notices []notice, comments *view.Comments, whose string) []notice {
-	if comments == nil {
-		return notices
-	}
-
-	text := fmt.Sprintf("%s: %d open, %d resolved", whose, comments.Open, comments.Resolved)
-
-	return appendNotice(notices, true, "", paint.ToneMuted, text)
 }
 
 // appendUnreadNotice says how many of the person's comments hold a reply they have not read.
@@ -108,7 +95,7 @@ func appendUnreadNotice(notices []notice, glyphs glyph.Set, comments *view.Comme
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone
-// from that cell, and saying nothing where the row draws nothing.
+// from that cell, and saying nothing where the row renders nothing.
 func appendCellNotice(notices []notice, glyphs glyph.Set, cell view.Cell, text string) []notice {
 	return appendNotice(notices, !cell.IsBlank() && text != "", view.Spell(glyphs, cell), cell.Tone, text)
 }
@@ -125,7 +112,7 @@ func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, tex
 	})
 }
 
-// describeFailure says what the status column drawn broken means about how an agent got there.
+// describeFailure says what the status column rendered broken means about how an agent got there.
 func describeFailure(item panel.AgentRow) string {
 	state := displayState(item)
 	if state != panel.StateErrored {

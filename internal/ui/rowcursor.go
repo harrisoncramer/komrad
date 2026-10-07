@@ -14,7 +14,7 @@ import (
 // blankCursor is the room a row leaves the arrow while the blink has it hidden.
 const blankCursor = "  "
 
-// rowCursorGlyph is the arrow a list draws on the row the cursor is standing on.
+// rowCursorGlyph is the arrow a list renders on the row the cursor is standing on.
 var rowCursorGlyph = glyph.Focus + " "
 
 var rowCursorBlink = 300 * time.Millisecond
@@ -106,16 +106,16 @@ func (m *model) blinkingCaret(held bool) view.Caret {
 		return view.CaretBlinkedOut
 	}
 
-	return view.CaretDrawn
+	return view.CaretRendered
 }
 
-// cursorPrefix is the arrow a section draws on its hovered row.
+// cursorPrefix is the arrow a section renders on its hovered row.
 func (m *model) cursorPrefix(section sidebarSection) string {
 	return caretGlyph(m.caretOf(section))
 }
 
 func caretGlyph(caret view.Caret) string {
-	if caret != view.CaretDrawn {
+	if caret != view.CaretRendered {
 		return blankCursor
 	}
 

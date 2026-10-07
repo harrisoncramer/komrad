@@ -24,7 +24,7 @@ func scheduleDetails(m *model, item scheduleItem) details {
 	}
 }
 
-// docRows is the document drawn beside the list at a width: the notice for an empty list, or
+// docRows is the document rendered beside the list at a width: the notice for an empty list, or
 // the schedule the cursor is on with the firings River holds for it between its next run and
 // its prompt.
 func (w *schedulesScreen) docRows(m *model, width int) []string {
@@ -40,7 +40,7 @@ func (w *schedulesScreen) view(m *model) string {
 	return m.columnListView(w.listParams(m))
 }
 
-// lines is the list as drawn: each row's cursor, icon, name and cron, or one line over no rows.
+// lines is the list as rendered: each row's cursor, icon, name and cron, or one line over no rows.
 func (w *schedulesScreen) lines(m *model, pane listPane) []string {
 	return scheduleLines(m, pane, scheduleLinesParams{
 		rows:     w.listRows(m),
@@ -57,7 +57,7 @@ type scheduleLinesParams struct {
 	renaming *nameEdit
 }
 
-// scheduleLines draws schedule rows with the cursor on one, or the idle line over none.
+// scheduleLines renders schedule rows with the cursor on one, or the idle line over none.
 func scheduleLines(m *model, pane listPane, params scheduleLinesParams) []string {
 	if len(params.rows) == 0 {
 		return []string{dimStyle().Render("  " + emptyLineOf(m.filter, params.idle))}
@@ -74,7 +74,7 @@ func scheduleLines(m *model, pane listPane, params scheduleLinesParams) []string
 		style := nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled)
 		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), style)
 		if e := params.renaming; e != nil && e.key == item.key() {
-			name = drawnName(e, style)
+			name = renderedName(e, style)
 		}
 		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(m.glyphs, item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle().Render(item.schedule.Cron))

@@ -15,11 +15,11 @@ import (
 const (
 	// dividerCols is the columns the divider between the list and the block beside it takes.
 	dividerCols = 2*gutter + 1
-	// dividerGlyph is what the divider is drawn with.
+	// dividerGlyph is what the divider is rendered with.
 	dividerGlyph = glyph.Divider
 )
 
-// columnSplit is how the window is divided while the panel is drawing a block beside its own
+// columnSplit is how the window is divided while the panel is rendering a block beside its own
 // list: the block on one side, and the list, its record and its legend on the other.
 type columnSplit struct {
 	column  int
@@ -43,21 +43,21 @@ func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 	}, true
 }
 
-// columnFloor is the narrowest a document is worth drawing beside a list at.
+// columnFloor is the narrowest a document is worth rendering beside a list at.
 const columnFloor = 40
 
-// columnSpec is the block a screen draws beside its own list, left nil by a screen that draws
+// columnSpec is the block a screen renders beside its own list, left nil by a screen that renders
 // none.
 type columnSpec struct {
-	// floor is the narrowest the block is worth drawing at, below which the sidebar keeps the whole
+	// floor is the narrowest the block is worth rendering at, below which the sidebar keeps the whole
 	// window.
 	floor int
 
-	// doc is the markdown the block is drawn from, and is nil on a screen that draws and scrolls
+	// doc is the markdown the block is rendered from, and is nil on a screen that renders and scrolls
 	// its block itself.
 	doc func(*model) string
 
-	// docRows draws the block's rows at a width in place of doc, for a document with rows markdown
+	// docRows renders the block's rows at a width in place of doc, for a document with rows markdown
 	// cannot style.
 	docRows func(*model, int) []string
 
@@ -67,16 +67,16 @@ type columnSpec struct {
 
 	searchOptions []filterOption
 
-	// holds reports whether the screen is drawing its own block at all, and is nil on a screen that
+	// holds reports whether the screen is rendering its own block at all, and is nil on a screen that
 	// always is.
 	holds func(*model) bool
 
-	// rows is the row budget the block is actually drawn in, and is nil on a screen with nothing
+	// rows is the row budget the block is actually rendered in, and is nil on a screen with nothing
 	// standing over it.
 	rows func(*model, columnSplit) int
 }
 
-// sidebarColumns is how wide the panel's own list is drawn while it holds the window, and the
+// sidebarColumns is how wide the panel's own list is rendered while it holds the window, and the
 // block it is holding it for.
 func (m *model) sidebarColumns() (int, columnSpec, bool) {
 	// Nothing can be divided before the first window size arrives, and the frame has no layout to
@@ -102,30 +102,30 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 
 	// A configured width is a starting point rather than a boundary anybody placed, so it is
 	// widened to what a list of names reads in and capped at what leaves the block its floor,
-	// while a measured one is drawn where the divider is whatever that leaves either half.
+	// while a measured one is rendered where the divider is whatever that leaves either half.
 	chrome := m.countSidebarChrome()
 	if !measured {
 		sidebar = min(max(sidebar, nameWidth+chrome), m.term.width-spec.floor)
 	}
 
-	// Clamped so the fold and the draw are at one width.
+	// Clamped so the fold and the render are at one width.
 	return min(max(sidebar-chrome, 1), m.term.width-1-dividerCols), spec, true
 }
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
-// list is drawn in.
+// list is rendered in.
 func (m *model) columnGeometry() (columnSplit, bool) {
 	sidebar, spec, ok := m.sidebarColumns()
 	if !ok {
 		return columnSplit{}, false
 	}
 
-	// The whole height, with the sidebar's chrome drawn inside the sidebar and no rows reserved
+	// The whole height, with the sidebar's chrome rendered inside the sidebar and no rows reserved
 	// here.
 	return splitOf(m.term.width-dividerCols, m.term.height, sidebar, spec.floor)
 }
 
-// columnSplit is the window the block is actually drawn in, being the geometry with whatever
+// columnSplit is the window the block is actually rendered in, being the geometry with whatever
 // stands over the block taken off its rows.
 func (m *model) columnSplit() (columnSplit, bool) {
 	split, ok := m.columnGeometry()
@@ -133,7 +133,7 @@ func (m *model) columnSplit() (columnSplit, bool) {
 		return split, false
 	}
 
-	// Only ever asked of a block drawn in the other column.
+	// Only ever asked of a block rendered in the other column.
 	if spec, _ := m.columnOf(); spec.rows != nil {
 		split.rows = max(spec.rows(m, split), 1)
 	}
@@ -141,7 +141,7 @@ func (m *model) columnSplit() (columnSplit, bool) {
 	return split, true
 }
 
-// screenColumnSplit is the split a screen's own block is drawn across, refused while a form is
+// screenColumnSplit is the split a screen's own block is rendered across, refused while a form is
 // up.
 func (m *model) screenColumnSplit() (columnSplit, bool) {
 	if (m.form.isOpening() && !m.isPopupMenu()) || m.isMessagesFocused() {
@@ -151,7 +151,7 @@ func (m *model) screenColumnSplit() (columnSplit, bool) {
 	return m.columnSplit()
 }
 
-// columnOf is the block the panel draws beside its list, which is the form's while one is up and
+// columnOf is the block the panel renders beside its list, which is the form's while one is up and
 // the screen's otherwise.
 func (m *model) columnOf() (columnSpec, bool) {
 	if m.isMessagesFocused() {
@@ -165,7 +165,7 @@ func (m *model) columnOf() (columnSpec, bool) {
 	return m.active().column(), true
 }
 
-// holdsWindow reports whether the panel is drawing a block beside its own list, and so takes the
+// holdsWindow reports whether the panel is rendering a block beside its own list, and so takes the
 // window from the panes beside it.
 func (m *model) holdsWindow() bool {
 	spec, ok := m.columnOf()
@@ -243,7 +243,7 @@ func (m *model) joinColumns(split columnSplit, sidebar, column string) string {
 	for i := range rows {
 		l := readLineAt(leftLines, i, leftWidth)
 		r := readLineAt(rightLines, i, rightWidth)
-		out[i] = l + drawDividerRow(isRule(l), isRule(r)) + r
+		out[i] = l + renderDividerRow(isRule(l), isRule(r)) + r
 	}
 
 	return strings.Join(out, "\n")
@@ -265,8 +265,8 @@ func isRule(line string) bool {
 	return plain != "" && strings.Trim(plain, glyph.Rule) == ""
 }
 
-// drawDividerRow is one row of the divider, joined to the rules that meet it from either side.
-func drawDividerRow(fromLeft, fromRight bool) string {
+// renderDividerRow is one row of the divider, joined to the rules that meet it from either side.
+func renderDividerRow(fromLeft, fromRight bool) string {
 	junction := dividerGlyph
 	switch {
 	case fromLeft && fromRight:
@@ -288,8 +288,8 @@ func drawDividerRow(fromLeft, fromRight bool) string {
 	return leftPad + dimStyle().Render(junction) + rightPad
 }
 
-// paneWidth is the column the panel draws its own list, record and legend in, which is the whole
-// pane except while it is drawing a block beside them.
+// paneWidth is the column the panel renders its own list, record and legend in, which is the whole
+// pane except while it is rendering a block beside them.
 func (m *model) paneWidth() int {
 	// A half of a split is laid out at the column already chosen for it rather than asking for the
 	// split again.
@@ -304,7 +304,7 @@ func (m *model) paneWidth() int {
 	return m.term.width
 }
 
-// columnView draws a screen as its list beside its own block, or as the list alone on a window
+// columnView renders a screen as its list beside its own block, or as the list alone on a window
 // that will not hold both.
 func (m *model) columnView(list func(*model) string) string {
 	split, ok := m.screenColumnSplit()
@@ -312,7 +312,7 @@ func (m *model) columnView(list func(*model) string) string {
 		return list(m)
 	}
 
-	// Asked for before either half is drawn, so the halves are laid out already knowing their
+	// Asked for before either half is rendered, so the halves are laid out already knowing their
 	// column.
 	held := m.measuredAt(split.sidebar)
 
@@ -345,10 +345,10 @@ type docNamer interface {
 	docName(m *model) string
 }
 
-// columnDoc is the document the block is drawn from, read where the reader left it.
+// columnDoc is the document the block is rendered from, read where the reader left it.
 func (m *model) columnDoc(split columnSplit) docWindow {
 	if m.isMessagesFocused() {
-		return m.drawMessagesWindow(split.column, split.rows)
+		return m.renderMessagesWindow(split.column, split.rows)
 	}
 
 	if m.isDocReadable() {

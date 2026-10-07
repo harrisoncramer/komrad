@@ -90,7 +90,7 @@ func TestPaneJumpFilePutsTheFileAtTheTop(t *testing.T) {
 	), false))
 
 	require.True(t, pane.JumpFile(1, window))
-	file, ok := pane.View().GetDrawnFileAt(pane.Cursor())
+	file, ok := pane.View().GetRenderedFileAt(pane.Cursor())
 	require.True(t, ok)
 	assert.Equal(t, "b.md", file.Path())
 
@@ -124,7 +124,7 @@ func TestPaneSearch(t *testing.T) {
 	assert.Equal(t, "1 +  first", readCursorText(&pane), "the matches wrap at the end")
 }
 
-// TestPaneToggleExpanded covers drawing a file whole and back, with the cursor kept on its line.
+// TestPaneToggleExpanded covers rendering a file whole and back, with the cursor kept on its line.
 func TestPaneToggleExpanded(t *testing.T) {
 	pane := twoChangePane()
 	pane.Step(1, 1, paneWindow)
@@ -141,7 +141,7 @@ func TestPaneToggleExpanded(t *testing.T) {
 
 // TestPaneToggleExpandedRefuses covers the two files the key does nothing to.
 func TestPaneToggleExpandedRefuses(t *testing.T) {
-	t.Run("a file whose every line is drawn already has nothing more to show", func(t *testing.T) {
+	t.Run("a file whose every line is rendered already has nothing more to show", func(t *testing.T) {
 		pane := NewPane(NewView(patchWith(diff.FromTexts("a.md", "one\ntwo", "one\n2")), false))
 
 		assert.Equal(t, ExpandNoMore, pane.ToggleExpanded(paneWindow))
@@ -197,7 +197,7 @@ func TestPanePanStopsAtTheLeftEdge(t *testing.T) {
 	assert.Equal(t, 0, pane.Pan())
 }
 
-// TestPaneRender covers the window of rows drawn, the cursor's row marked and the rest blank.
+// TestPaneRender covers the window of rows rendered, the cursor's row marked and the rest blank.
 func TestPaneRender(t *testing.T) {
 	pane := twoChangePane()
 	pane.Step(1, 1, paneWindow)
@@ -271,7 +271,7 @@ func TestPaneShowsTheTopOfARowTallerThanTheWindow(t *testing.T) {
 }
 
 // TestPaneKeepsTheCursorInSightWhenLinesStartWrapping covers a window scrolled with lines cut off
-// and drawn again wrapped, before anything scrolls it.
+// and rendered again wrapped, before anything scrolls it.
 func TestPaneKeepsTheCursorInSightWhenLinesStartWrapping(t *testing.T) {
 	pane := NewPane(NewView(patchWith(diff.FromTexts("notes.md", longText("old"), longText("new"))), false))
 	cutOff := Window{Width: wrappedWindow.Width, Height: wrappedWindow.Height}
@@ -295,14 +295,14 @@ func TestPaneKeepsTheFileNameOnTop(t *testing.T) {
 		wantTop  []string
 	}{
 		{
-			name:    "a header scrolled away is drawn over the first line",
+			name:    "a header scrolled away is rendered over the first line",
 			oldText: oldNumbered,
 			newText: newNumbered,
 			window:  paneWindow,
 			wantTop: []string{"notes.md"},
 		},
 		{
-			name:     "a headless view has no header to draw",
+			name:     "a headless view has no header to render",
 			oldText:  oldNumbered,
 			newText:  newNumbered,
 			headless: true,
@@ -341,10 +341,10 @@ func TestPaneKeepsTheFileNameOnTop(t *testing.T) {
 	}
 }
 
-// paneHeight is the rows the panes under test are drawn in.
+// paneHeight is the rows the panes under test are rendered in.
 const paneHeight = 5
 
-// paneWindow is the window the panes under test are drawn in.
+// paneWindow is the window the panes under test are rendered in.
 var paneWindow = Window{Width: 80, Height: paneHeight}
 
 // numberedText is lines "line 1" to "line n", with any line given replaced.
@@ -392,7 +392,7 @@ func longText(word string) string {
 	return strings.Join(lines, "\n")
 }
 
-// assertCursorInSight checks the cursor's row is drawn whole in the window, or from its top when
+// assertCursorInSight checks the cursor's row is rendered whole in the window, or from its top when
 // it is taller than the window.
 func assertCursorInSight(t *testing.T, p *Pane, window Window) {
 	t.Helper()

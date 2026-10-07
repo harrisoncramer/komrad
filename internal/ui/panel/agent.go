@@ -99,7 +99,7 @@ type Agent struct {
 	HeldByAgentID string
 }
 
-// AgentRow is an agent as the listing draws it: the agent, whether its pane is alive, the mail
+// AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail
 // waiting for it, its unread failure, its local review and the pull requests on its branch.
 type AgentRow struct {
 	Agent      Agent

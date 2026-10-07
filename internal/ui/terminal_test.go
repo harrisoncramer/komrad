@@ -37,7 +37,7 @@ func TestTerminal(t *testing.T) {
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("the stage drawn again leaves the shell running", func(t *testing.T) {
+	t.Run("the stage rendered again leaves the shell running", func(t *testing.T) {
 		agent := newStagedShellAgent(t.TempDir())
 		harness := openTerminal(t, panelHarnessParams{}, agent)
 		harness.press("space", "t")

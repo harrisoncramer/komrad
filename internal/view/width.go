@@ -16,7 +16,7 @@ const plainCells = 2
 
 // gutterColumns is how wide everything left of a name is.
 func gutterColumns(columns Columns) int {
-	// Every cell holds its width and the space after it, a cell with nothing to draw included.
+	// Every cell holds its width and the space after it, a cell with nothing to render included.
 	width := plainCells * (plainColumns + spaceColumns)
 	for _, column := range columns {
 		width += column.Width + spaceColumns
@@ -30,7 +30,7 @@ func nameColumns(pane int, columns Columns) int {
 	return max(pane-gutterColumns(columns), 0)
 }
 
-// textCursorColumns is the text cursor drawn after a name being typed.
+// textCursorColumns is the text cursor rendered after a name being typed.
 const textCursorColumns = 1
 
 // ruleColumns is the corner a child hangs off its parent by, and the space after it.
@@ -39,7 +39,7 @@ const ruleColumns = 2
 // indentColumns is how far a name is set in under the row above it.
 const indentColumns = 2
 
-// trailingColumns is everything a row draws after its name, each part a space away from what
+// trailingColumns is everything a row renders after its name, each part a space away from what
 // precedes it.
 func trailingColumns(line line) int {
 	columns := 0
@@ -82,7 +82,7 @@ func roomForName(line line, width int) int {
 	return width - spent
 }
 
-// countCellColumns counts the columns a cell draws.
+// countCellColumns counts the columns a cell renders.
 func countCellColumns(cell Cell) int {
 	if len(cell.Parts) > 0 {
 		columns := 0

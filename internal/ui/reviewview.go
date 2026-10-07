@@ -14,7 +14,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// The tones the review wears, which the region drawing each one turns into a colour.
+// The tones the review wears, which the region rendering each one turns into a colour.
 const (
 	reviewQuoteTone     = paint.ToneMuted
 	reviewHumanTone     = paint.ToneUserMe
@@ -29,7 +29,7 @@ const (
 	reviewForgeHeldTone = paint.ToneDanger
 )
 
-// view draws the diff and, beside it, the file tree, with the thread the cursor is standing on
+// view renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
 func (r reviewScreen) view(m *model) string {
 	split, ok := m.screenColumnSplit()
@@ -40,7 +40,7 @@ func (r reviewScreen) view(m *model) string {
 		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
-		return r.overlayThread(m, strings.TrimRight(band+r.drawSidebar(layout), "\n"))
+		return r.overlayThread(m, strings.TrimRight(band+r.renderSidebar(layout), "\n"))
 	}
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
@@ -52,18 +52,18 @@ func (r reviewScreen) view(m *model) string {
 	return r.overlayThread(m, m.joinColumns(split, r.sidebarView(m), diff))
 }
 
-// sidebarView is the sidebar drawn as one half of a split, trimmed so the two halves are the same
+// sidebarView is the sidebar rendered as one half of a split, trimmed so the two halves are the same
 // height.
 func (r reviewScreen) sidebarView(m *model) string {
 	layout := r.layoutSidebar(m)
 	layout.files = m.markZone(zoneBlock, layout.files, lineWidthOf(m.paneWidth()))
 	layout.pullRequest = m.markZone(zonePullRequest, layout.pullRequest, lineWidthOf(m.paneWidth()))
 
-	return strings.TrimRight(r.drawSidebar(layout), "\n")
+	return strings.TrimRight(r.renderSidebar(layout), "\n")
 }
 
-// overlayThread draws the popup over an area, and leaves the area alone where the popup has
-// nothing to hold or the frame is drawn to find its blocks.
+// overlayThread renders the popup over an area, and leaves the area alone where the popup has
+// nothing to hold or the frame is rendered to find its blocks.
 func (r reviewScreen) overlayThread(m *model, area string) string {
 	if m.isMarkingZones() {
 		return area
@@ -83,13 +83,13 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 
 	slot := r.placeThread(m, body)
 
-	return overlayPopup(area, drawPopup(body, back, slot, tone), slot)
+	return overlayPopup(area, renderPopup(body, back, slot, tone), slot)
 }
 
-// drawSidebar is the panel's own column: what the change is, the pull request open from the
+// renderSidebar is the panel's own column: what the change is, the pull request open from the
 // branch, the files the change touches, where the cursor is standing, and what the reader was
 // last told.
-func (r reviewScreen) drawSidebar(layout sidebarLayout) string {
+func (r reviewScreen) renderSidebar(layout sidebarLayout) string {
 	column := paint.PadRows(layout.change+layout.pullRequest+layout.files+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
@@ -138,7 +138,7 @@ func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 // layoutUnder measures the sidebar with bar over it.
 func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarLayout {
 	help := m.renderHelp(r.help(m), slices.Concat(above, []string{r.placeView()})...)
-	rule := m.drawRecord(slices.Concat(above, []string{bar, help})...)
+	rule := m.renderRecord(slices.Concat(above, []string{bar, help})...)
 	spare := m.listLines(slices.Concat(above, []string{bar, help, rule})...)
 
 	layout := sidebarLayout{
@@ -253,7 +253,7 @@ func (r reviewScreen) notesView(m *model) string {
 }
 
 // anchorView names the place the cursor is standing, so the sidebar says what a new thread
-// would be pinned to without repeating the line the diff already draws beside it.
+// would be pinned to without repeating the line the diff already renders beside it.
 func (d reviewDiff) anchorView() string {
 	anchor, ok := d.View().GetAnchor(d.Cursor())
 	if !ok {
@@ -310,7 +310,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 	return out + r.forgeRepliesView(m, thread, width)
 }
 
-// originView is where a thread was written and the line it was written against, drawn only once
+// originView is where a thread was written and the line it was written against, rendered only once
 // that code has moved.
 func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string {
 	if !r.diff.View().HasMoved(thread) {
@@ -333,7 +333,7 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 // originSaid says why a comment is not on the line it was written against, in terms of what
 // happened rather than of the placement komrad settled on.
 func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
-	if _, drawn := d.View().GetFile(thread.GetFilePath()); !drawn {
+	if _, rendered := d.View().GetFile(thread.GetFilePath()); !rendered {
 		if d.spec.base != "" {
 			return "still in the change, outside what is on screen"
 		}
@@ -357,7 +357,7 @@ type messageViewParams struct {
 // messageView is one message: who wrote it and when, what it says, and how far it got.
 func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, params messageViewParams) string {
 	author, tone := r.authorOf(message)
-	head := drawCommentHead(tone, author, message.GetCreatedAt())
+	head := renderCommentHead(tone, author, message.GetCreatedAt())
 	if params.note != "" {
 		head += "   " + dimStyle().Render(params.note)
 	}
@@ -396,7 +396,7 @@ func (t reviewThreads) sendDesc() string {
 	return "send a note"
 }
 
-func drawCommentHead(tone paint.Tone, author, writtenAt string) string {
+func renderCommentHead(tone paint.Tone, author, writtenAt string) string {
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(writtenAt); when != "" {
 		head += " " + dimStyle().Render(when)
@@ -437,7 +437,7 @@ func (r reviewScreen) backDesc() string {
 }
 
 func (r reviewScreen) diffBackDesc(m *model) string {
-	if r.hold.isHeld() || !r.isBlockDrawn(m) {
+	if r.hold.isHeld() || !r.isBlockRendered(m) {
 		return r.backDesc()
 	}
 

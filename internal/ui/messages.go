@@ -11,7 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// messagesIndent is the gutter every row of a message is drawn behind, which is the cursor's.
+// messagesIndent is the gutter every row of a message is rendered behind, which is the cursor's.
 const messagesIndent = 2
 
 const messagesBodyIndent = messagesIndent + 2
@@ -319,7 +319,7 @@ func (m *model) messagesBinding() key.Binding {
 	return binding(m.keys.Messages.Open, desc)
 }
 
-// mockMessages are the fixtures the region is drawn from while nothing real reports through it,
+// mockMessages are the fixtures the region is rendered from while nothing real reports through it,
 // long enough in the reason to show what the rows do with one that does not fit.
 var mockMessages = []message{
 	{

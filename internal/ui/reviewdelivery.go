@@ -18,14 +18,14 @@ var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
 }
 
-// reviewDelivery is how one delivery state is drawn: what it is called, the glyph a badge opens
+// reviewDelivery is how one delivery state is rendered: what it is called, the glyph a badge opens
 // with, and the colour both of those carry.
 type reviewDelivery struct {
 	word string
 	tone paint.Tone
 }
 
-// reviewDeliveryOf is how a state is drawn wherever it appears, so the count at the top of the
+// reviewDeliveryOf is how a state is rendered wherever it appears, so the count at the top of the
 // sidebar, the badge under a comment and the gutter's own mark read as one thing.
 func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	switch state {
@@ -56,20 +56,20 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	return reviewDelivery{}
 }
 
-// reviewDeliveryBadge is how far one comment has got towards being read, drawn under the comment
+// reviewDeliveryBadge is how far one comment has got towards being read, rendered under the comment
 // itself and not at all for what the agent wrote.
 func reviewDeliveryBadge(palette paint.Palette, glyphs glyph.Set, message *agentv1.ReviewMessage) string {
-	drawn := reviewDeliveryOf(message.GetDelivery())
-	if drawn.word == "" {
+	rendered := reviewDeliveryOf(message.GetDelivery())
+	if rendered.word == "" {
 		return ""
 	}
 
-	badge := reviewDeliveryMark(glyphs, message.GetDelivery()) + " " + drawn.word
+	badge := reviewDeliveryMark(glyphs, message.GetDelivery()) + " " + rendered.word
 	if when := reviewTimeOf(reviewDeliveryStamp(message)); when != "" {
 		badge += " " + when
 	}
 
-	return palette.Style(drawn.tone).Render("  "+badge) + "\n"
+	return palette.Style(rendered.tone).Render("  "+badge) + "\n"
 }
 
 // reviewDeliveryMark is the mark a badge opens with.
@@ -109,8 +109,8 @@ func (t reviewThreads) deliveryCountView() string {
 			continue
 		}
 
-		drawn := reviewDeliveryOf(state)
-		parts = append(parts, paint.Panel.Style(drawn.tone).Render(fmt.Sprintf("%d %s", count, drawn.word)))
+		rendered := reviewDeliveryOf(state)
+		parts = append(parts, paint.Panel.Style(rendered.tone).Render(fmt.Sprintf("%d %s", count, rendered.word)))
 	}
 
 	return strings.Join(parts, dimStyle().Render(separated))

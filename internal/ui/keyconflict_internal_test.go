@@ -42,7 +42,7 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 			screens: []screen{screenReview},
 		},
 		{
-			name:    "a diff key taking a movement key, on both screens that draw a diff",
+			name:    "a diff key taking a movement key, on both screens that render a diff",
 			rebind:  func(k *config.Keybindings) { k.Diff.PanLeft = k.Nav.Down },
 			screens: []screen{screenReview, screenDocuments},
 		},
@@ -76,13 +76,13 @@ func TestValidateKeybindingsAllowsAGuardedArmInFront(t *testing.T) {
 		"both of these read the row under the cursor before they answer, so only one is ever live")
 }
 
-// TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsDrawn covers a screen that lists one
+// TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsRendered covers a screen that lists one
 // kind, where the kinds key is free for its own table.
-func TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsDrawn(t *testing.T) {
+func TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsRendered(t *testing.T) {
 	keys := config.DefaultKeybindings()
 	keys.Review.Base = keys.Kinds.Focus
 
-	assert.NoError(t, ValidateKeybindings(keys), "the review draws no row of kinds, so their own table answers the kinds key")
+	assert.NoError(t, ValidateKeybindings(keys), "the review renders no row of kinds, so their own table answers the kinds key")
 }
 
 // TestValidateKeybindingsReadsTheGlobalKeys covers the keys routeGlobalKey answers before any
@@ -156,9 +156,9 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 	}
 }
 
-// TestValidateSubmenuKeysReadsTheKeysTheMenuIsDrawnOver covers an entry bound to a key the form
+// TestValidateSubmenuKeysReadsTheKeysTheMenuIsRenderedOver covers an entry bound to a key the form
 // around it needs, which the menu would answer first.
-func TestValidateSubmenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
+func TestValidateSubmenuKeysReadsTheKeysTheMenuIsRenderedOver(t *testing.T) {
 	tests := []struct {
 		name   string
 		rebind func(*config.Keybindings)
