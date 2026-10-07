@@ -162,7 +162,7 @@ older         = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
 newer         = [">"]
 
-# The menu on the hovered document, over the panel's own entries.
+# The menu on the hovered document, over the documents view's own entries.
 [keybindings.document_menu]
 # Open the document in your editor, in place of the text drawn beside the list. Quitting the
 # editor, or picking the entry again to close it, saves what it has written.
@@ -372,8 +372,8 @@ toggle = ["v"]
 # The menu on the hovered row, which lists the screens that belong to it and the menus nested
 # under it.
 [keybindings.menu]
-# Open the menu from any screen: the hovered row's entries, or the chosen agents', over the
-# entries that act on the panel itself.
+# Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.
+# The key opens nothing on a screen with neither.
 open          = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.

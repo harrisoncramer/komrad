@@ -390,7 +390,7 @@
         },
         {
           "path": "keybindings.document_menu",
-          "description": "The menu on the hovered document, over the panel's own entries.",
+          "description": "The menu on the hovered document, over the documents view's own entries.",
           "settings": [
             {
               "key": "edit",
@@ -949,7 +949,7 @@
               "key": "open",
               "path": "keybindings.menu.open",
               "type": "array",
-              "description": "Open the menu from any screen: the hovered row's entries, or the chosen agents', over the\nentries that act on the panel itself.",
+              "description": "Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.\nThe key opens nothing on a screen with neither.",
               "default": "[\"space\"]"
             },
             {

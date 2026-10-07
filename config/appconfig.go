@@ -137,7 +137,7 @@ type Keybindings struct {
 	Diff DiffKeys `mapstructure:"diff"`
 	// The documents view, which lists every document agents have written, and the document types.
 	Documents DocumentsKeys `mapstructure:"documents"`
-	// The menu on the hovered document, over the panel's own entries.
+	// The menu on the hovered document, over the documents view's own entries.
 	DocumentMenu DocumentMenuKeys `mapstructure:"document_menu"`
 	// The menu on the document type under the cursor of the documents view.
 	DocumentTypesMenu DocumentTypesMenuKeys `mapstructure:"document_types_menu"`
@@ -352,11 +352,11 @@ type MergeKeys struct {
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
-// panel's own. The rows with entries are an agent, a workflow, a schedule, a worktree, and every
+// screen's own. The rows with entries are an agent, a workflow, a schedule, a worktree, and every
 // row of the archive.
 type MenuKeys struct {
-	// Open the menu from any screen: the hovered row's entries, or the chosen agents', over the
-	// entries that act on the panel itself.
+	// Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.
+	// The key opens nothing on a screen with neither.
 	Open []string `mapstructure:"open" default:"space"`
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
