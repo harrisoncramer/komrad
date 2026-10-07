@@ -1,37 +1,69 @@
 package ui
 
 import (
-	"regexp"
 	"strings"
 
 	"komrad/internal/ui/paint"
-	"komrad/internal/ui/reader"
 	"komrad/lib/xslice"
 )
 
 // saidRows is the turns an agent was found saying a says: qualifier's text in, wrapped to the
-// column with the text marked where it appears.
-func saidRows(text string, snippets []string, width int) []string {
-	pattern := regexp.MustCompile("(?i)" + regexp.QuoteMeta(text))
-
+// column with what the server matched marked.
+func saidRows(snippets []string, width int) []string {
 	rows := []string{}
 	for i, snippet := range snippets {
 		if i > 0 {
 			rows = append(rows, "")
 		}
-		rows = append(rows, xslice.Map(paint.WrapRows(flatSnippet(snippet), width), func(row string) string {
-			return paint.Panel.HighlightStyled(row, reader.Spans(pattern, row))
+
+		text, marks := unmarkSnippet(snippet)
+		at := 0
+		rows = append(rows, xslice.Map(paint.WrapRows(text, width), func(row string) string {
+			if skipped := strings.Index(text[at:], row); skipped > 0 {
+				at += skipped
+			}
+			start := at
+			at += len(row)
+
+			return paint.Panel.HighlightStyled(row, spansWithin(marks, start, at))
 		})...)
 	}
 
 	return rows
 }
 
-// flatSnippet is a search hit's snippet as one run of text, without its match markers.
-func flatSnippet(snippet string) string {
-	unmarked := strings.NewReplacer(paint.MarkOpen, "", paint.MarkClose, "").Replace(snippet)
+// unmarkSnippet is a search hit's snippet as one run of text, and the stretches of it the server
+// marked as matching.
+func unmarkSnippet(snippet string) (string, []paint.Span) {
+	rest := strings.Join(strings.Fields(snippet), " ")
 
-	return strings.Join(strings.Fields(unmarked), " ")
+	var text strings.Builder
+	marks := []paint.Span{}
+	for {
+		before, after, found := strings.Cut(rest, paint.MarkOpen)
+		text.WriteString(strings.ReplaceAll(before, paint.MarkClose, ""))
+		if !found {
+			return text.String(), marks
+		}
+
+		matched, after, _ := strings.Cut(after, paint.MarkClose)
+		matched = strings.ReplaceAll(matched, paint.MarkOpen, "")
+		marks = append(marks, paint.Span{Start: text.Len(), End: text.Len() + len(matched)})
+		text.WriteString(matched)
+		rest = after
+	}
+}
+
+// spansWithin is the part of each span falling between start and end, counted from start.
+func spansWithin(spans []paint.Span, start, end int) []paint.Span {
+	within := []paint.Span{}
+	for _, span := range spans {
+		if span.End > start && span.Start < end {
+			within = append(within, paint.Span{Start: max(span.Start, start) - start, End: min(span.End, end) - start})
+		}
+	}
+
+	return within
 }
 
 // saidColumnRows is the turns the agent was found saying a says: qualifier's text in, drawn for
@@ -42,5 +74,5 @@ func (m *model) saidColumnRows(agentID string, width int) []string {
 		return nil
 	}
 
-	return saidRows(m.filter.qualifiers.said.text, snippets, max(width, 1))
+	return saidRows(snippets, max(width, 1))
 }

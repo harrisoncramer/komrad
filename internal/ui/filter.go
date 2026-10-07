@@ -411,6 +411,7 @@ func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {
 		return tea.Batch(m.waitToStage(), m.saysCmd())
 	default:
 		filter.takeKey(key, m.register)
+		m.reconcileSolo()
 	}
 
 	return m.saysCmd()
