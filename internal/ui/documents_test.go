@@ -430,7 +430,7 @@ func TestDocumentsNewFromEmpty(t *testing.T) {
 	})
 }
 
-// TestDocumentsMenu covers the menu space opens on a document or a type, over the panel's own.
+// TestDocumentsMenu covers the menu space opens on a document or a type, over the documents view's own.
 func TestDocumentsMenu(t *testing.T) {
 	t.Parallel()
 

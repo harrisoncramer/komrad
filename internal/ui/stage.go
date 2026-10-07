@@ -173,7 +173,7 @@ func (m *model) sizeAgentWindows() {
 
 // stageSelection puts the pane of whatever the agents cursor is standing on beside the list.
 func (m *model) stageSelection() {
-	if m.isScratchOpen() || m.agents.isEditorOpen() {
+	if m.agents.isEditorOpen() {
 		return
 	}
 

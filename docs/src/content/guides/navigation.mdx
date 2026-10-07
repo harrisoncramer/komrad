@@ -75,30 +75,6 @@ When komrad reports something, such as an error, its summary flashes for a few s
   </video>
 </figure>
 
-## Submenus
-
-TODO: Fix keybinings.
-
-Komrad's non-navigation actions are accessed by the <Key name="menu.open" /> key. When hovering over an agent, for instance, this <Setting path="keybindings.menu">menu</Setting> and pick one. Leaving it takes you back to the list you came from. The menu opens on every screen, with the panel's own entries under the agent's, such as a scratch file and [document types](../documents/).
-
-<figure>
-  <video
-    autoplay
-    loop
-    muted
-    playsinline
-    poster={media("navigation-subpages.png")}
-    width="1440"
-    height="920"
-    aria-label="Opening an agent's menu, reading its documents, going back to the list, and opening a terminal in its directory."
-  >
-    <source src={media("navigation-subpages.webm")} type="video/webm" />
-    <source src={media("navigation-subpages.mp4")} type="video/mp4" />
-  </video>
-</figure>
-
-Menus nest. Press <Key name="menu.git" /> in the agent menu to open the <Setting path="keybindings.git">git menu</Setting> to its right, for rebasing the agent's branch with <Key name="git.rebase" />, opening its pull request with <Key name="git.open_pull_request" />, copying its address with <Key name="git.copy_pull_request_url" />, toggling its draft with <Key name="git.toggle_draft" />, or merging it on the forge with <Key name="git.merge" />. That opens the <Setting path="keybindings.merge">merge menu</Setting>, which merges with <Key name="merge.merge" /> or merges and then archives the agent with <Key name="merge.merge_archive" />. The menu it came from stays on screen in gray, and going back returns to it.
-
 ## Visual selection
 
 Press <Key name="selection.toggle" /> to take the row under the cursor into a selection, and <Key name="selection.range" /> to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving, or restoring and deleting from the archived agents' menu.

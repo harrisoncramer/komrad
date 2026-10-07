@@ -83,7 +83,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "edit", keys: keys.DocumentTypesMenu.Edit},
 		{name: "new", keys: keys.DocumentTypesMenu.New},
 		{name: "delete", keys: keys.DocumentTypesMenu.Delete},
-		{name: "scratch", keys: keys.Menu.Scratch},
 	}); err != nil {
 		return err
 	}
@@ -92,7 +91,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "edit", keys: keys.DocumentMenu.Edit},
 		{name: "rename", keys: keys.DocumentMenu.Rename},
 		{name: "new", keys: keys.DocumentMenu.New},
-		{name: "scratch", keys: keys.Menu.Scratch},
 	}); err != nil {
 		return err
 	}
@@ -102,7 +100,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "edit", keys: keys.ScheduleMenu.Edit},
 		{name: "new", keys: keys.ScheduleMenu.New},
 		{name: "archive", keys: keys.Menu.Archive},
-		{name: "scratch", keys: keys.Menu.Scratch},
 	}); err != nil {
 		return err
 	}
@@ -123,7 +120,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "forge_discard", keys: keys.Review.ForgeDiscard},
 		{name: "answer", keys: keys.Review.Answer},
 		{name: "jump", keys: keys.Review.Jump},
-		{name: "scratch", keys: keys.Menu.Scratch},
 	}); err != nil {
 		return err
 	}
@@ -154,7 +150,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "adopt", keys: keys.Menu.Adopt},
 		{name: "new_agent", keys: keys.Menu.NewAgent},
 		{name: "new_workflow", keys: keys.Menu.NewWorkflow},
-		{name: "scratch", keys: keys.Menu.Scratch},
 	})
 }
 
