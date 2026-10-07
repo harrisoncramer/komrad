@@ -32,7 +32,7 @@ Run `mise run infra:engine:init` and `mise run infra:engine:apply`. It prints th
 
 Get a shell with `mise run remote:connect` and add the <Setting path="github_app" label="[github_app]" /> table to komrad's config with your App's id, its installation id and the key's path. <Command path="github token" /> should print a token. Then connect the engine's forge through the App.
 
-If agents also work on GitLab, connect it with a rotating token, as [connecting a forge](../reviews/#gitlab) describes. A self-hosted GitLab also needs the credential helper line [the engine's architecture](../architecture-engine/#reaching-it) gives.
+If agents also work on GitLab, connect it with a rotating token, as [connecting a forge](../install/#gitlab) describes. A self-hosted GitLab also needs the credential helper line [the engine's architecture](../architecture-engine/#reaching-it) gives.
 
 Finally, clone the repositories agents will work in onto the data disk, point your panel at the engine, and sign the agent CLI in.
 

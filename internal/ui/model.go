@@ -273,6 +273,7 @@ type model struct {
 	// inspections is what the service answered for each worktree directory.
 	inspections map[string]worktreeInspection
 	lastScreen  lastScreen
+	said        saidTranscript
 	review      reviewScreen
 	filter      filterState
 	rowCursor   cursor.Model

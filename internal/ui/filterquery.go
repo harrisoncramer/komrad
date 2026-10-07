@@ -51,10 +51,17 @@ type queryGrammarer interface {
 // saidState is the rows the server found saying the text of a says: qualifier.
 type saidState struct {
 	text    string
-	hits    map[string][]string
+	hits    map[string][]saidHit
 	problem string
 	waiting bool
 	queued  bool
+}
+
+// saidHit is one turn the server found saying the text of a says: qualifier.
+type saidHit struct {
+	snippet string
+	offset  int64
+	length  int64
 }
 
 // askSaid notes a says: qualifier whose text changed, for the model to send to the server.
@@ -82,7 +89,7 @@ func (f filterState) hasSaid(key string) bool {
 }
 
 // saidHits is the turns the server found the row saying the text in, and none while it has not answered.
-func (f filterState) saidHits(key string) []string {
+func (f filterState) saidHits(key string) []saidHit {
 	if f.qualifiers.said.waiting {
 		return nil
 	}
@@ -96,7 +103,7 @@ type saysSettledMsg struct {
 
 type saysFoundMsg struct {
 	text string
-	hits map[string][]string
+	hits map[string][]saidHit
 	err  error
 }
 
@@ -121,7 +128,7 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 	client := m.api.reads().agents
 
 	return func() tea.Msg {
-		hits, err := call(agentsTimeout, func(ctx context.Context) (map[string][]string, error) {
+		hits, err := call(agentsTimeout, func(ctx context.Context) (map[string][]saidHit, error) {
 			return searchSaid(ctx, client, msg.text)
 		})
 
@@ -130,7 +137,7 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 }
 
 // searchSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
-func searchSaid(ctx context.Context, client agentReads, text string) (map[string][]string, error) {
+func searchSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      phrase(text),
 		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
@@ -139,9 +146,13 @@ func searchSaid(ctx context.Context, client agentReads, text string) (map[string
 		return nil, err
 	}
 
-	hits := map[string][]string{}
+	hits := map[string][]saidHit{}
 	for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
-		hits[hit.GetAgentId()] = append(hits[hit.GetAgentId()], hit.GetSnippet())
+		hits[hit.GetAgentId()] = append(hits[hit.GetAgentId()], saidHit{
+			snippet: hit.GetSnippet(),
+			offset:  hit.GetContentOffset(),
+			length:  hit.GetContentLength(),
+		})
 	}
 
 	return hits, nil
