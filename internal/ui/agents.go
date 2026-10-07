@@ -439,9 +439,15 @@ func (a *agentsScreen) column() columnSpec {
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m *model, width int) []string {
+			if rows := m.saidColumnRows(m.agents.hoveredAgentID(m), width); rows != nil {
+				return rows
+			}
+
 			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(m), max(width, 1), columnStyle()), width)
 		},
-		holds: func(m *model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(m) },
+		holds: func(m *model) bool {
+			return !m.agents.isEditorOpen() && (m.agents.hasNoAgentPane(m) || m.filter.hasSaid(m.agents.hoveredAgentID(m)))
+		},
 	}
 }
 
