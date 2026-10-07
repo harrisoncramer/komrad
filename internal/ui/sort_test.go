@@ -157,7 +157,7 @@ func TestEveryStripIsBuiltFromItsTable(t *testing.T) {
 			table: tabOptionsOf(agentSorts),
 		},
 		{
-			name:  "the archive",
+			name:  "the archived agents",
 			strip: archivedAgentTabs(),
 			table: tabOptionsOf(archivedAgentSorts),
 		},

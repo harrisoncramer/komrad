@@ -11,7 +11,6 @@ type screen int
 const (
 	screenAgents screen = iota
 	screenSchedules
-	screenArchive
 	screenSearch
 	screenReview
 	screenWorktrees
@@ -26,7 +25,7 @@ func (s screen) opensTerminal() bool {
 	switch s {
 	case screenAgents, screenSchedules:
 		return true
-	case screenArchive, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs:
+	case screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs:
 		return false
 	}
 
@@ -249,9 +248,11 @@ func (m *model) screenOf(s screen) screenModel {
 
 		return &m.agents
 	case screenSchedules:
+		if m.schedules.kind == schedulesArchived {
+			return &m.schedules.archived
+		}
+
 		return &m.schedules
-	case screenArchive:
-		return &m.archive
 	case screenSearch:
 		return &m.search
 	case screenReview:

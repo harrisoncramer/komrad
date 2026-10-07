@@ -49,13 +49,6 @@ func (t archived) opensAgent() (*panel.Agent, error) {
 	return &t.agents[0], nil
 }
 
-// menuTarget is the archived schedule the archive menu would act on.
-func (a *archiveScreen) menuTarget(m *model) (archived, bool) {
-	schedule, ok := a.hoveredSchedule(m)
-
-	return archived{schedule: &schedule}, ok
-}
-
 // archiveMenu is the archive's actions on a row, opened from its menu.
 func archiveMenu(m *model, target archived) submenu {
 	restore, remove := "restore", "delete for good"
@@ -190,13 +183,4 @@ func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
 			return m.archiveAndDeleteAgents(agents)
 		}),
 	})
-}
-
-func (a *archiveScreen) buildItemMenu(m *model) (submenu, bool) {
-	target, ok := a.menuTarget(m)
-	if !ok {
-		return submenu{}, false
-	}
-
-	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }

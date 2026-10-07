@@ -4,8 +4,8 @@ import (
 	"komrad/internal/ui/paint"
 )
 
-func (a *archiveScreen) details(m *model) details {
-	item, ok := rowAt(a.scheduleListRows(m), a.schedules.cursor)
+func (a *archivedSchedules) details(m *model) details {
+	item, ok := rowAt(a.listRows(m), a.cursor)
 	if !ok {
 		return details{}
 	}
@@ -14,8 +14,8 @@ func (a *archiveScreen) details(m *model) details {
 }
 
 // docRows is the block drawn beside the list at a width for the row the cursor is on.
-func (a *archiveScreen) docRows(m *model, width int) []string {
-	item, ok := rowAt(a.scheduleListRows(m), a.schedules.cursor)
+func (a *archivedSchedules) docRows(m *model, width int) []string {
+	item, ok := rowAt(a.listRows(m), a.cursor)
 	if !ok {
 		return paint.DocStyledRows(emptyScheduleArchiveMarkdown, width, columnStyle())
 	}
@@ -23,6 +23,6 @@ func (a *archiveScreen) docRows(m *model, width int) []string {
 	return scheduleDocRows(item, width)
 }
 
-func (a *archiveScreen) view(m *model) string {
+func (a *archivedSchedules) view(m *model) string {
 	return m.columnListView(a.listParams(m))
 }

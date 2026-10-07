@@ -43,10 +43,6 @@ func viewEntries() []viewEntry {
 			label:  "documents",
 		},
 		{
-			screen: screenArchive,
-			label:  "archive",
-		},
-		{
 			screen: screenWorktrees,
 			label:  "worktrees",
 		},

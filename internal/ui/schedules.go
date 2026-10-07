@@ -21,6 +21,9 @@ type schedulesScreen struct {
 	// drawn is the rows built for the frame once an update settles, and nil while one runs.
 	drawn []scheduleItem
 	renameSlot
+	kind      schedulesKind
+	kindFocus bool
+	archived  archivedSchedules
 }
 
 type scheduleItem struct {
@@ -275,6 +278,7 @@ var (
 	_ itemMenuBuilder   = (*schedulesScreen)(nil)
 	_ lineTyper         = (*schedulesScreen)(nil)
 	_ renamer           = (*schedulesScreen)(nil)
+	_ kindSwitcher      = (*schedulesScreen)(nil)
 )
 
 func (w *schedulesScreen) doesDrawFromListing() bool {
@@ -339,5 +343,5 @@ func (w *schedulesScreen) settleRename(m *model, row string, err error) {
 }
 
 func (w *schedulesScreen) dispatches(*model) []dispatching {
-	return []dispatching{w.actions()}
+	return []dispatching{w.actions(), w.archived.actions()}
 }
