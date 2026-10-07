@@ -342,13 +342,13 @@ SELECT
     f.agent_id,
     f.name,
     TS_HEADLINE('english_nostop', f.body, q.wanted, $1::text)::text AS snippet,
-    (TS_RANK_CD(f.tsv, q.wanted, 2) + COALESCE((f.body ~* q.phrase)::int, 0))::float8 AS rank
+(TS_RANK_CD(f.tsv, q.wanted, 2) + COALESCE((f.body ~* q.phrase)::int, 0))::float8 AS rank
 FROM
     found f
     CROSS JOIN q
 WHERE
     q.wanted <> ''
-    AND f.tsv @@ (q.wanted && q.unwanted)
+    AND f.tsv @@(q.wanted && q.unwanted)
 ORDER BY
     rank DESC,
     f.id
