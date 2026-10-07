@@ -12,8 +12,8 @@ import (
 
 var agentsQuery = queryGrammar{syntax: searchsyntax.Agents, check: checkAgentsClause}
 
-func (a *agentsScreen) queryGrammar() queryGrammar {
-	return agentsQuery
+func (a *agentsScreen) queryGrammar() (queryGrammar, bool) {
+	return agentsQuery, true
 }
 
 func checkAgentsClause(clause searchsyntax.Clause, now time.Time) error {
@@ -112,6 +112,6 @@ func containsFold(s, sub string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
 }
 
-func (a *archivedAgents) queryGrammar() queryGrammar {
-	return agentsQuery
+func (a *archivedAgents) queryGrammar() (queryGrammar, bool) {
+	return agentsQuery, true
 }

@@ -92,11 +92,12 @@ func defaultDocumentType(types []string) string {
 	return types[0]
 }
 
-// pressNew puts up the form for a new document.
+// pressNew puts up the form for a new document of the one agent the filter names.
 func (d *documentsScreen) pressNew(m *model) tea.Cmd {
-	if d.editing != nil || d.listsEveryAgent() {
+	agentID, ok := m.namedAgentID()
+	if d.editing != nil || !ok {
 		return nil
 	}
 
-	return newDocumentForm(m, d.agentID)
+	return newDocumentForm(m, agentID)
 }

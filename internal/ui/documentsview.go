@@ -49,7 +49,6 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 			return d.renamingField().renderedOver(view.Row{
 				Key:     r.key(),
 				Kind:    view.KindResult,
-				Lead:    d.ownerLead(m, r.item),
 				Name:    r.item.name,
 				Matches: matchesIn(m.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
@@ -64,13 +63,20 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	}
 }
 
-// ownerLead is the agent that wrote a document, rendered before its name on every agent's list.
-func (d *documentsScreen) ownerLead(m *model, item documentItem) string {
-	if !d.listsEveryAgent() {
-		return ""
+func (d *documentsScreen) details(m *model) details {
+	item, ok := d.hovered(m)
+	if !ok {
+		return details{}
 	}
 
-	return findAgentName(m, item.agentID)
+	return details{
+		id: item.id,
+		fields: []recordField{
+			{label: "type", value: label.OrDash(item.typeName)},
+			{label: "updated", value: label.OrDash(label.Friendly(item.updatedAt))},
+			{label: "agent", value: findAgentName(m, item.agentID)},
+		},
+	}
 }
 
 func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Snapshot {
@@ -100,12 +106,7 @@ func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Sna
 func (d *documentsScreen) doc(m *model) string {
 	item, ok := d.hovered(m)
 	if !ok {
-		title := "Documents"
-		if !d.listsEveryAgent() {
-			title = d.agentName(m)
-		}
-
-		return renderDocument(title, "_"+d.emptyLine()+"_", "", "")
+		return renderDocument("Documents", "_"+d.emptyLine()+"_", "", "")
 	}
 
 	read, asked := d.bodies[item.id]
