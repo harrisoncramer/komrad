@@ -288,7 +288,7 @@ func (d *documentsScreen) back(m *model) tea.Cmd {
 // findAgentName is the name of the agent an id names, live or archived, and the id when neither.
 func findAgentName(m *model, agentID string) string {
 	if item, ok := m.listing.anyAgent(agentID); ok {
-		return item.Agent.Name
+		return m.listing.agentName(item.Agent)
 	}
 
 	return agentID
