@@ -115,40 +115,9 @@ These comments are hidden by default, press TODO to show them.
 
 Once you're happy with the work locally, the next step is to push it to a forge, like GitHub or GitLab.
 
-Komrad connects a forge once with <Command path="forge connect" />, naming its host. Komrad asks the forge who the credential belongs to straight away and refuses one that is wrong.
-
-### GitHub
-
-On your laptop, the simplest way is to hand komrad the token the GitHub CLI already holds.
-
-```sh
-gh auth token | komrad forge connect github.com
-```
-
-Any personal access token works the same way, as long as it can read the pull requests of your repositories. For GitHub Enterprise, add `--kind github` and, if needed, `--api-url`.
-
-The remote engine connects through a GitHub App instead, so nobody has to paste a token there. With the App set up in <Setting path="github_app" label="[github_app]" />, connect it with `--method github-app`. Nothing is read. Komrad makes a token from the App, which expires after an hour, and makes a new one whenever it needs to. [Administering the engine](../engine-admin/) covers registering the App.
-
-```sh
-komrad forge connect github.com --method github-app --engine remote
-```
-
-### GitLab
-
-GitLab takes a personal access token with the `api` scope.
-
-```sh
-komrad forge connect gitlab.com --token-file ~/.config/gitlab-token
-komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token
-```
-
-GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as the remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once. From then on it makes a new token each day and lets the old one go. Each token expires within two days of being made, so a token copied off the machine is soon useless. <Command path="forge disconnect" /> revokes the current token with GitLab before forgetting it.
-
-```sh
-komrad forge connect gitlab.com --method rotating-token --token-file ~/.config/gitlab-token --engine remote
-```
-
-If a rotation is ever refused, the connection shows as refused in <Command path="forge list" />. Connect it again with a fresh token.
+<Alert variant="info">
+  Connect a forge before agents can push or komrad can follow their pull requests. [Connecting a forge](../install/#connecting-a-forge) covers GitHub and GitLab.
+</Alert>
 
 ### What komrad reads
 

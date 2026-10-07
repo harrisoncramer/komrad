@@ -9,41 +9,23 @@ import Setting from "../../components/Setting.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad's panel is divided up into a few sections: the sidebar, the info panel, and the main panel. The sidebar
+Komrad's panel is divided up into a few sections: the sidebar, the info panel, and the main panel. These different sections hold differnet things, depending on the view.
 
-## The sidebar elements
+## The sidebar
 
-The sidebar panel is divided into a few regions. It most of komrad's state, typically a list of whatever is in focus: agents and workflows, schedules, worktrees, or documents.
+The sidebar typically lists the resource you're looking at, such as agents or worktrees.
 
-The _view switcher_ across the top of the sidebar moves between the agents, the query, the schedules, the documents and the worktrees. Press <Key name="views.next" /> or <Key name="views.previous" /> to open the next or previous view, and keep pressing them to step through the rest.
+The view switcher at the top of the sidebar moves between these subsections. Press <Key name="views.next" /> or <Key name="views.previous" /> to open the next or previous view.
 
-Under the sidebar is the **details pane**, which shows what is known about the row under the cursor, such as an agent's directory or its base branch.
+The details pane underneath shows what is known about the currently active row. For instance, for an agent, it might show the agent's directory and it's base branch.
 
-Under that, the **help menu** shows hotkeys that work from your current cursor position.
+Finally, the help menu at the bottom of every sidebar shows the available hotkeys. Press the `?` key to bring up the help.
 
 ## The main view
 
-The main view is the wide region beside the sidebar. It shows the agent you have opened, its diff on the review screen, or any other content that's focused at the moment.
+The main view is the wide region beside the sidebar. In the agent list, it shows the agent you have opened.
 
-Komrad keeps its own keys behind a leader, `ctrl+space`. Press `ctrl+space j` to jump between regions: a big letter is drawn over the list, the details, the agent on the stage and every other pane, and pressing a letter hands the keyboard to that region. `ctrl+space ctrl+space` goes back to the region you were in last, or resumes the agent under the cursor when it is not running. `ctrl+space v` starts visual mode in the region you are in, which is tmux's copy-mode with vi keys: move the cursor, start a selection with v, and press y to copy it to your clipboard. In the sidebar it holds only the block you are in, so a selection never runs from the list into the details. The bottom right of the sidebar names the mode you are in. If your own tmux prefix is `ctrl+space`, give your tmux a different one.
-
-When komrad reports something, such as an error, its summary flashes for a few seconds on the engine line at the top of the sidebar. Errors and warnings you have not dismissed are counted there once the flash is over. Press <Key name="messages.open" /> to read every message in the main view, where <Key name="messages.dismiss" /> dismisses the one under the cursor and <Key name="messages.dismiss_all" /> dismisses them all.
-
-<figure>
-  <video
-    autoplay
-    loop
-    muted
-    playsinline
-    poster={media("navigation-views.png")}
-    width="1440"
-    height="920"
-    aria-label="Opening an agent onto the stage, then jumping the keyboard between the list, the agent and the details by the letters drawn over them."
-  >
-    <source src={media("navigation-views.webm")} type="video/webm" />
-    <source src={media("navigation-views.mp4")} type="video/mp4" />
-  </video>
-</figure>
+To move between the sidebar and the main view, press komrad's leader key twice: `ctrl+space`. Komrad also has "jump mode" which lets you jump to any of the different sections on the screen. Press the leader key, followed by `j` to enter jump mode: a big letter is drawn over each section. Komrad also has visual mode (for selecting text) and edit mode (when you are using vim keybindings). The bottom right of the sidebar names the mode you are in.
 
 ## Navigation, Sorting, and Filtering
 
@@ -73,9 +55,9 @@ Press <Key name="tabs.focus" /> to reach the sort strip over the list, where you
   </video>
 </figure>
 
-## The agent menu
+## Notifications
 
-Some screens belong to one agent rather than to a whole view. An agent has the review of its work, the documents it has written, its logs, and a terminal in its directory. Press <Key name="menu.open" /> on an agent to open its <Setting path="keybindings.menu">menu</Setting> and pick one. Leaving it takes you back to the list you came from. The menu opens only on a screen with entries of its own, with the hovered row's above the screen's.
+When komrad reports something, such as an error, its summary flashes for a few seconds at the top of the sidebar. Press <Key name="messages.open" /> to read every message in the main view, where <Key name="messages.dismiss" /> dismisses the one under the cursor and <Key name="messages.dismiss_all" /> dismisses them all.
 
 <figure>
   <video
@@ -83,17 +65,15 @@ Some screens belong to one agent rather than to a whole view. An agent has the r
     loop
     muted
     playsinline
-    poster={media("navigation-subpages.png")}
+    poster={media("navigation-views.png")}
     width="1440"
     height="920"
-    aria-label="Opening an agent's menu, reading its documents, going back to the list, and opening a terminal in its directory."
+    aria-label="Opening an agent onto the stage, then jumping the keyboard between the list, the agent and the details by the letters drawn over them."
   >
-    <source src={media("navigation-subpages.webm")} type="video/webm" />
-    <source src={media("navigation-subpages.mp4")} type="video/mp4" />
+    <source src={media("navigation-views.webm")} type="video/webm" />
+    <source src={media("navigation-views.mp4")} type="video/mp4" />
   </video>
 </figure>
-
-Menus nest. Press <Key name="menu.git" /> in the agent menu to open the <Setting path="keybindings.git">git menu</Setting> to its right, for rebasing the agent's branch with <Key name="git.rebase" />, opening its pull request with <Key name="git.open_pull_request" />, copying its address with <Key name="git.copy_pull_request_url" />, toggling its draft with <Key name="git.toggle_draft" />, or merging it on the forge with <Key name="git.merge" />. That opens the <Setting path="keybindings.merge">merge menu</Setting>, which merges with <Key name="merge.merge" /> or merges and then archives the agent with <Key name="merge.merge_archive" />. The menu it came from stays on screen in gray, and going back returns to it.
 
 ## Visual selection
 
