@@ -440,7 +440,7 @@ func TestScreensRecordGivesWay(t *testing.T) {
 		{
 			name:   "the schedules",
 			press:  []string{"tab", "tab"},
-			fills:  8,
+			fills:  10,
 			bottom: "agent00",
 		},
 	}

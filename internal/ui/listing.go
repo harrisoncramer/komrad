@@ -72,7 +72,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	triageSlot := m.agents.findZoneSlot(m)
 	scheduleRow := m.schedules.list().hovered(m)
 	archiveRow := m.agents.archived.list().hovered(m)
-	archiveScheduleRow := m.archive.scheduleList().hovered(m)
+	archiveScheduleRow := m.schedules.archived.list().hovered(m)
 	worktreeRow := m.worktrees.list().hovered(m)
 	searchRow := m.search.list().hovered(m)
 
@@ -87,7 +87,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.agents.landInTriage(m, treeRow, triageSlot)
 	m.schedules.apply(m, scheduleRow)
 	m.agents.archived.place(m, archiveRow)
-	m.archive.placeSchedule(m, archiveScheduleRow)
+	m.schedules.archived.place(m, archiveScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
 	m.sizeAgentWindows()
 

@@ -50,7 +50,7 @@ func (t archived) opensAgent() (*panel.Agent, error) {
 }
 
 // menuTarget is the archived schedule the archive menu would act on.
-func (a *archiveScreen) menuTarget(m *model) (archived, bool) {
+func (a *archivedSchedules) menuTarget(m *model) (archived, bool) {
 	schedule, ok := a.hoveredSchedule(m)
 
 	return archived{schedule: &schedule}, ok
@@ -192,7 +192,7 @@ func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
 	})
 }
 
-func (a *archiveScreen) buildItemMenu(m *model) (submenu, bool) {
+func (a *archivedSchedules) buildItemMenu(m *model) (submenu, bool) {
 	target, ok := a.menuTarget(m)
 	if !ok {
 		return submenu{}, false

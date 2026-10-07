@@ -7,15 +7,15 @@ import (
 )
 
 // actions is the archive screen as one table and the legend that names it.
-func (a *archiveScreen) actions() screenActionSpec {
+func (a *archivedSchedules) actions() screenActionSpec {
 	return screenActionSpec{
 		table:  a.table(),
 		legend: a.legend(),
 	}
 }
 
-func (a *archiveScreen) table() []screenAction {
-	list := a.scheduleList()
+func (a *archivedSchedules) table() []screenAction {
+	list := a.list()
 
 	return append(list.actions(),
 		screenAction{
@@ -26,7 +26,7 @@ func (a *archiveScreen) table() []screenAction {
 	)
 }
 
-func (a *archiveScreen) legend() []screenLegendRow {
+func (a *archivedSchedules) legend() []screenLegendRow {
 	return slices.Concat([]screenLegendRow{
 		{
 			of:   []actionID{actionFilterOpen},

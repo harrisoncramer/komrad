@@ -378,8 +378,8 @@ func TestFilterScreens(t *testing.T) {
 			name: "the agents say a filter left nothing",
 		},
 		{
-			name:  "the archive says a filter left nothing rather than that nothing is archived",
-			press: []string{"shift+tab", "shift+tab"},
+			name:  "the archived agents say a filter left nothing rather than that nothing is archived",
+			press: []string{"F", "tab", "esc"},
 			idle:  "nothing archived",
 		},
 		{

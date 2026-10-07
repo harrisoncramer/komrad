@@ -229,15 +229,12 @@ func buildDriftScreens() []driftScreen {
 			excused: []undrawn{quit},
 		},
 		{
-			name:   "archive",
-			screen: archiveScreen,
+			name:   "archived schedules",
+			screen: schedulesScreen,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
-				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newArchivedSchedule("s1", "monthly-gone"))
-				harness.press("shift+tab", "shift+tab", "esc")
-
-				return harness
+				return openArchivedSchedules(t, newLiveWorkflow("w1", "backend"), newArchivedSchedule("s1", "monthly-gone"))
 			},
 			excused: []undrawn{quit},
 		},

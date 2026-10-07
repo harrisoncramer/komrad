@@ -16,8 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TestArchiveSchedules covers the archive switched to its archived schedules.
-func TestArchiveSchedules(t *testing.T) {
+// TestArchivedSchedules covers the schedules view switched to its archived kind.
+func TestArchivedSchedules(t *testing.T) {
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newArchivedAgent("a1", "api-refactor", "w1"),
@@ -34,7 +34,7 @@ func TestArchiveSchedules(t *testing.T) {
 		wantSent   []request
 	}{
 		{
-			name:       "the archive lists the archived schedules and none of the live ones",
+			name:       "the archived kind lists the archived schedules and none of the live ones",
 			want:       []string{"weekly-gone", "archived — kept until deleted"},
 			wantAbsent: []string{"nightly-live", "api-refactor", "r rename"},
 		},
@@ -71,9 +71,7 @@ func TestArchiveSchedules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{})
-			harness.press("shift+tab", "shift+tab", "esc")
-			harness.watch(buildSnapshot(rows...))
+			harness := openArchivedSchedules(t, rows...)
 
 			harness.press(tt.press...)
 			if tt.gone != nil {
@@ -83,7 +81,7 @@ func TestArchiveSchedules(t *testing.T) {
 			harness.press(widenListPresses...)
 
 			frame := ansi.Strip(harness.readFrame())
-			assert.Equal(t, archiveScreen, harness.readScreen())
+			assert.Equal(t, schedulesScreen, harness.readScreen())
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
@@ -96,10 +94,9 @@ func TestArchiveSchedules(t *testing.T) {
 }
 
 const (
-	archivedAt    = "2026-07-30T09:00:00Z"
-	archiveScreen = "the archive"
-	agentsScreen  = "the agents list"
-	deletePrompt  = "Permanently delete"
+	archivedAt   = "2026-07-30T09:00:00Z"
+	agentsScreen = "the agents list"
+	deletePrompt = "Permanently delete"
 )
 
 var widenListPresses = slices.Repeat([]string{"}"}, 10)
@@ -109,4 +106,13 @@ func newArchivedSchedule(id, name string) *schedulev1.Schedule {
 	schedule.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
 
 	return schedule
+}
+
+func openArchivedSchedules(t *testing.T, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	harness := openSchedules(t, rows...)
+	harness.press("F", "tab", "esc")
+
+	return harness
 }

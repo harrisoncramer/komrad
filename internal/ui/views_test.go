@@ -20,15 +20,15 @@ func TestViews(t *testing.T) {
 		lines := splitLines(harness.readFrame())
 		require.GreaterOrEqual(t, len(lines), 4)
 		logo, _, _ := strings.Cut(lines[0], "│")
-		assert.True(t, strings.HasPrefix(strings.TrimSpace(logo), "\U000F050C komrad › archive"))
+		assert.True(t, strings.HasPrefix(strings.TrimSpace(logo), "\U000F050C komrad › documents"))
 		engine, _, _ := strings.Cut(lines[1], "│")
 		assert.Equal(t, "\uf444 local", strings.TrimSpace(engine), "the engine stands under the logo")
 		blank, _, _ := strings.Cut(lines[2], "│")
 		assert.Empty(t, strings.TrimSpace(blank), "a blank row stands under the engine")
 		views, _, _ := strings.Cut(lines[3], "│")
-		assert.Equal(t, "agents  query  schedules  documents  archive  worktrees", strings.TrimSpace(views))
+		assert.Equal(t, "agents  query  schedules  documents  worktrees", strings.TrimSpace(views))
 		lit := paint.Panel.Style(paint.TonePrimary)
-		assert.Contains(t, harness.readRawFrame(), lit.Render("archive"), "the view that is up is lit")
+		assert.Contains(t, harness.readRawFrame(), lit.Render("documents"), "the view that is up is lit")
 	})
 
 	t.Run("a page opened from a view draws the trail back to it beside the logo", func(t *testing.T) {
@@ -40,7 +40,7 @@ func TestViews(t *testing.T) {
 	t.Run("a page opened from a view draws no switcher", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
-		assert.NotContains(t, harness.readFrame(), "agents  query  schedules  documents  archive  worktrees")
+		assert.NotContains(t, harness.readFrame(), "agents  query  schedules  documents  worktrees")
 	})
 
 	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestViews(t *testing.T) {
 		{
 			name:       "the switcher keeps shift-tab through each view it opens",
 			press:      []string{"shift+tab", "shift+tab"},
-			wantScreen: archiveScreen,
+			wantScreen: documentsScreen,
 		},
 		{
 			name:       "escape hands the keys back to the view it stands on",
@@ -106,11 +106,6 @@ func TestViews(t *testing.T) {
 		{
 			name:       "escape on the documents opens the switcher",
 			press:      []string{"tab", "tab", "tab", "esc", "esc", "tab"},
-			wantScreen: archiveScreen,
-		},
-		{
-			name:       "escape on the archive opens the switcher",
-			press:      []string{"shift+tab", "shift+tab", "esc", "esc", "tab"},
 			wantScreen: worktreesScreen,
 		},
 		{

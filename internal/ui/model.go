@@ -269,7 +269,6 @@ type model struct {
 	reactors        []worldReactor
 	agents          agentsScreen
 	schedules       schedulesScreen
-	archive         archiveScreen
 	worktrees       worktreesScreen
 	documents       documentsScreen
 	logs            logsScreen
@@ -413,7 +412,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screenAgents,
 		agents:          agentsScreen{triage: triageZone{capacity: deps.Layout.TriageRows}, archived: archivedAgents{sort: tabsState{flat: true}}},
-		archive:         archiveScreen{},
 		worktrees:       worktreesScreen{sort: tabsState{flat: true}},
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
