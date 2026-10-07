@@ -96,8 +96,8 @@ func TestIntegrationPanel(t *testing.T) {
 		share := readPaneWidth(t, served.instance, served.navPane)
 		require.Less(t, share, 341, "the panel starts on its share of the window")
 
-		served.harness.press("k")
 		held := served.harness.readRawFrame()
+		served.harness.press("k")
 		unsettled := served.harness.fireTimersUnsettled()
 
 		require.Equal(t, 341, readPaneWidth(t, served.instance, served.navPane), "the folder row takes the window")
