@@ -153,14 +153,11 @@ wrap       = ["w"]
 
 # The documents view, which lists every document agents have written, and the document types.
 [keybindings.documents]
-# Jump to the agent that wrote the document under the cursor, on the agents list or in the
-# archive.
-jump_to_agent = ["J"]
 # Step back to an earlier write of the document under the cursor, drawing what that write
 # changed.
-older         = ["<"]
+older = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
-newer         = [">"]
+newer = [">"]
 
 # The menu on the hovered document, over the documents view's own entries.
 [keybindings.document_menu]
@@ -221,6 +218,15 @@ rebase                = ["r"]
 request_rereview      = ["v"]
 # Mark the hovered agent's pull request a draft, or ready for review when it is one.
 toggle_draft          = ["d"]
+
+# The jump menu, nested under the menu on an agent, a document or a worktree.
+[keybindings.jump_menu]
+# Land on the agent, on the agents list or in the archive.
+agent     = ["a"]
+# Land on the agent's worktree on the worktrees screen.
+worktree  = ["w"]
+# Open the documents view on the documents the agent has written.
+documents = ["d"]
 
 # The hide menu, nested under the menu on the agents list.
 [keybindings.hide_menu]
@@ -378,8 +384,6 @@ open          = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.
 review        = ["r"]
-# Open the documents view on the documents the agent has written.
-documents     = ["d"]
 # Open the agent's logs, the service log lines about it.
 logs          = ["l"]
 # Open the status checks run on the agent's pull request.
@@ -391,6 +395,9 @@ terminal      = ["t"]
 # Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 # merging its pull request.
 git           = ["g"]
+# Open the jump menu to the right of this one, for landing on the hovered row's agent, its
+# worktree or its documents.
+jump          = ["J"]
 # Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
 # schedule or every chosen agent, for restoring or deleting a row of the archive, or for
 # deleting worktrees.
@@ -444,12 +451,6 @@ previous = ["shift+tab"]
 [keybindings.workflows]
 # Rename the workflow under the cursor.
 rename = ["r"]
-
-# The worktrees screen, which lists every directory komrad cut for an agent.
-[keybindings.worktrees]
-# Jump to the agent in the directory under the cursor, on the agents list or in the
-# archive.
-jump_to_agent = ["J"]
 
 # How the panel draws a diff.
 [diff]

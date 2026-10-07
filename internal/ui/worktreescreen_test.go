@@ -128,7 +128,7 @@ func TestWorktreesJump(t *testing.T) {
 			harness := openWorktrees(t)
 			moveToWorktree(t, harness, tt.row)
 
-			harness.press("J")
+			harness.press("space", "J", "a")
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.wantScreen, harness.readScreen())

@@ -196,13 +196,13 @@ func TestValidateSubmenuKeysReadsTheKeysTheMenuIsRenderedOver(t *testing.T) {
 		},
 		{
 			name:   "two subpages on one key",
-			rebind: func(k *config.Keybindings) { k.Menu.Documents = []string{"r"} },
+			rebind: func(k *config.Keybindings) { k.Menu.Logs = []string{"r"} },
 			names:  "the menu's review entry",
 		},
 		{
 			name:   "the git menu on a subpage's key",
-			rebind: func(k *config.Keybindings) { k.Menu.Git = []string{"d"} },
-			names:  "the menu's documents entry",
+			rebind: func(k *config.Keybindings) { k.Menu.Git = []string{"l"} },
+			names:  "the menu's logs entry",
 		},
 	}
 

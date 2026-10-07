@@ -365,13 +365,6 @@
           "description": "The documents view, which lists every document agents have written, and the document types.",
           "settings": [
             {
-              "key": "jump_to_agent",
-              "path": "keybindings.documents.jump_to_agent",
-              "type": "array",
-              "description": "Jump to the agent that wrote the document under the cursor, on the agents list or in the\narchive.",
-              "default": "[\"J\"]"
-            },
-            {
               "key": "older",
               "path": "keybindings.documents.older",
               "type": "array",
@@ -537,6 +530,34 @@
               "path": "keybindings.git.toggle_draft",
               "type": "array",
               "description": "Mark the hovered agent's pull request a draft, or ready for review when it is one.",
+              "default": "[\"d\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.jump_menu",
+          "description": "The jump menu, nested under the menu on an agent, a document or a worktree.",
+          "settings": [
+            {
+              "key": "agent",
+              "path": "keybindings.jump_menu.agent",
+              "type": "array",
+              "description": "Land on the agent, on the agents list or in the archive.",
+              "default": "[\"a\"]"
+            },
+            {
+              "key": "worktree",
+              "path": "keybindings.jump_menu.worktree",
+              "type": "array",
+              "description": "Land on the agent's worktree on the worktrees screen.",
+              "default": "[\"w\"]"
+            },
+            {
+              "key": "documents",
+              "path": "keybindings.jump_menu.documents",
+              "type": "array",
+              "description": "Open the documents view on the documents the agent has written.",
               "default": "[\"d\"]"
             }
           ],
@@ -960,13 +981,6 @@
               "default": "[\"r\"]"
             },
             {
-              "key": "documents",
-              "path": "keybindings.menu.documents",
-              "type": "array",
-              "description": "Open the documents view on the documents the agent has written.",
-              "default": "[\"d\"]"
-            },
-            {
               "key": "logs",
               "path": "keybindings.menu.logs",
               "type": "array",
@@ -993,6 +1007,13 @@
               "type": "array",
               "description": "Open the git menu to the right of this one, for rebasing the agent's branch or opening or\nmerging its pull request.",
               "default": "[\"g\"]"
+            },
+            {
+              "key": "jump",
+              "path": "keybindings.menu.jump",
+              "type": "array",
+              "description": "Open the jump menu to the right of this one, for landing on the hovered row's agent, its\nworktree or its documents.",
+              "default": "[\"J\"]"
             },
             {
               "key": "archive",
@@ -1126,20 +1147,6 @@
               "type": "array",
               "description": "Rename the workflow under the cursor.",
               "default": "[\"r\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
-          "path": "keybindings.worktrees",
-          "description": "The worktrees screen, which lists every directory komrad cut for an agent.",
-          "settings": [
-            {
-              "key": "jump_to_agent",
-              "path": "keybindings.worktrees.jump_to_agent",
-              "type": "array",
-              "description": "Jump to the agent in the directory under the cursor, on the agents list or in the\narchive.",
-              "default": "[\"J\"]"
             }
           ],
           "sections": []
