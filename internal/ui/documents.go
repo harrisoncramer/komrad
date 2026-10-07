@@ -58,6 +58,8 @@ type documentsScreen struct {
 	history     *documentHistory
 	// focus says the picker handed the keys to the diff beside the list.
 	focus bool
+	// agentID is the agent the screen was opened for, which an agent: clause holding its name means alone.
+	agentID string
 }
 
 // documentRow is one line of the documents list.
@@ -81,6 +83,9 @@ func (r documentTypeRow) key() string {
 // enter opens on every agent's documents, filtered down to the agent the target names when one is.
 func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
+	if !target.resume {
+		d.agentID = target.agentID
+	}
 	if !target.resume && target.agentID != "" {
 		saved = d.closeEdit(m)
 		d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false

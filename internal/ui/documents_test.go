@@ -47,6 +47,34 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	})
 
+	t.Run("an agent's row keeps to its own documents when another agent shares its name", func(t *testing.T) {
+		t.Parallel()
+
+		docs := newDocumentShelf()
+		docs.add(&agentv1.Document{Id: "d4", AgentId: "namesake", Name: "Namesake notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-26T12:00:00Z"})
+		harness := openAgents(t, append(buildDocumentAuthors(), newLiveWorkflow("w2", "zeta"), newAgent("namesake", "author", "w2"))...)
+		docs.answer(harness)
+		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+		})
+		moveToAgentRow(t, harness, "author")
+		harness.press("space", "d")
+		harness.fireTimers()
+
+		rows := strings.Join(readListRows(harness.readFrame()), "\n")
+		assert.Contains(t, rows, "Design the cache")
+		assert.NotContains(t, rows, "Namesake notes")
+
+		harness.press("space", "c", "P", "enter")
+
+		harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+			AgentId: xptr.Ptr("author"),
+			Name:    "P",
+			Type:    "RFC",
+			Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
+		})
+	})
+
 	t.Run("a row with none opens it empty", func(t *testing.T) {
 		t.Parallel()
 

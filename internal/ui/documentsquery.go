@@ -36,6 +36,10 @@ func (m *model) documentRowFits(r documentRow) clauseFits {
 		item := r.item
 		switch clause.Key {
 		case searchsyntax.KeyAgent:
+			if agentID, ok := m.openedForAgent(clause.Value); ok {
+				return item.agentID == agentID
+			}
+
 			return containsFold(findAgentName(m, item.agentID), clause.Value)
 		case searchsyntax.KeyWorkflow:
 			agent, ok := m.listing.anyAgent(item.agentID)
@@ -78,6 +82,9 @@ func (m *model) namedAgentID() (string, bool) {
 	if len(names) != 1 {
 		return "", false
 	}
+	if agentID, ok := m.openedForAgent(names[0]); ok {
+		return agentID, true
+	}
 
 	var ids []string
 	for _, item := range slices.Concat(m.listing.agents, m.listing.archivedAgents) {
@@ -90,6 +97,17 @@ func (m *model) namedAgentID() (string, bool) {
 	}
 
 	return ids[0], true
+}
+
+// openedForAgent is the agent the documents were opened for when the name given is its name, which
+// then means that agent alone among those sharing the name.
+func (m *model) openedForAgent(name string) (string, bool) {
+	agentID := m.documents.agentID
+	if agentID == "" || !strings.EqualFold(findAgentName(m, agentID), name) {
+		return "", false
+	}
+
+	return agentID, true
 }
 
 // filterDocumentsOf narrows the list to one agent's documents, as if its agent: qualifier were
