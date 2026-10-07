@@ -21,15 +21,11 @@ func (m *model) buildFrame() {
 	}
 }
 
-// drawFrame draws the frame the update leaves, keeping the one on screen while the panel waits to be told its size.
-func (m *model) drawFrame() {
-	if m.configErr != nil || m.startupErr != nil || m.picker.frozen != "" {
+// dropRenderedView forgets the frame View last rendered, keeping it while the panel waits to be told its size.
+func (m *model) dropRenderedView() {
+	if m.isAwaitingSize() {
 		return
 	}
 
-	if m.isAwaitingSize() && m.term.drawn != "" {
-		return
-	}
-
-	m.term.drawn = m.drawInMode(m.findMode())
+	m.term.renderedView = ""
 }

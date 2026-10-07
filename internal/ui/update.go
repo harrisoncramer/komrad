@@ -60,7 +60,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.leftStop = was
 	}
 	m.buildFrame()
-	m.drawFrame()
+	m.dropRenderedView()
 
 	return m, tea.Batch(cmd, caught, blink, warming, spinning, pulse, said)
 }
