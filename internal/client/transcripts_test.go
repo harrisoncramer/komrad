@@ -3,10 +3,6 @@ package client
 import (
 	"context"
 	"strconv"
-<<<<<<< HEAD
-	"strings"
-=======
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 	"testing"
 
 	"komrad/lib/xptr"
@@ -20,21 +16,14 @@ import (
 
 // TestGetFullTranscript covers the panel reading a transcript the endpoint hands over a window at
 // a time, where stopping at the first window would show a preview missing most of the match and
-<<<<<<< HEAD
-// giving up at the ceiling would show nothing at all.
-=======
 // stopping at the ceiling would show a transcript cut short as if it were whole.
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 func TestGetFullTranscript(t *testing.T) {
 	tests := []struct {
 		name      string
 		windows   []string
 		neverEnds bool
 		want      string
-<<<<<<< HEAD
-=======
 		wantErr   string
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 	}{
 		{
 			name:    "a transcript that fits in one window",
@@ -55,11 +44,7 @@ func TestGetFullTranscript(t *testing.T) {
 			name:      "an endpoint that never stops handing out tokens",
 			windows:   []string{"round and "},
 			neverEnds: true,
-<<<<<<< HEAD
-			want:      strings.Repeat("round and ", maxPages),
-=======
 			wantErr:   "still paging after 1024 pages",
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 		},
 	}
 
@@ -68,14 +53,6 @@ func TestGetFullTranscript(t *testing.T) {
 			agents := &fakeTranscriptAgents{windows: tt.windows, neverEnds: tt.neverEnds}
 
 			got, err := GetFullTranscript(t.Context(), agents, "a1")
-<<<<<<< HEAD
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-
-			if tt.neverEnds {
-				assert.Equal(t, maxPages, agents.calls, "it stops paging rather than following tokens forever")
-			}
-=======
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				assert.Equal(t, maxTranscriptPages, agents.calls, "it stops paging rather than following tokens forever")
@@ -85,7 +62,6 @@ func TestGetFullTranscript(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 		})
 	}
 }

@@ -82,50 +82,6 @@ func markSpans(content string, spans []Span) string {
 		return content
 	}
 
-<<<<<<< HEAD
-	var b strings.Builder
-	at := 0
-	for _, s := range spans {
-		if s.Start < at || s.End > len(content) {
-			continue
-		}
-
-		b.WriteString(content[at:s.Start])
-		b.WriteString(MarkOpen)
-		b.WriteString(content[s.Start:s.End])
-		b.WriteString(MarkClose)
-		at = s.End
-	}
-	b.WriteString(content[at:])
-
-	return b.String()
-}
-
-// ScrubMarks blanks the search's own markers wherever a transcript holds one itself, using a
-// space to keep the byte offsets the search reports pointing where they did.
-var ScrubMarks = strings.NewReplacer(MarkOpen, " ", MarkClose, " ").Replace
-
-type RenderTranscriptParams struct {
-	Conversation string
-	Spans        []Span
-	Open         int
-	Width        int
-}
-
-// RenderTranscript draws a transcript as the markdown it is written in, with the matched words
-// styled, and reports the line the opened one of them ended up on.
-func (p Palette) RenderTranscript(params RenderTranscriptParams) (string, int) {
-	conversation, spans := params.Conversation, params.Spans
-	rendered := p.Render(markSpans(conversation, spans), params.Width)
-
-	open := min(max(params.Open, 0), max(len(spans)-1, 0))
-	line := markedLine(rendered, open)
-	if line == 0 && len(spans) > 0 {
-		// The rendering drops some constructs whole, a link's destination and an HTML tag among
-		// them, so a marker inside one goes with it and a guess says more about where the match
-		// sat than the top of a transcript thousands of lines long.
-		line = estimatedLine(rendered, spans[open].Start, len(conversation))
-=======
 	var marked strings.Builder
 	at := 0
 	for _, span := range spans {
@@ -163,23 +119,11 @@ func (p Palette) RenderTranscript(params RenderTranscriptParams) (string, int) {
 		// them, so a marker inside one goes with it and a guess says more about where the match
 		// sat than the top of a transcript thousands of lines long.
 		line = estimatedLine(rendered, params.Spans[0].Start, len(params.Conversation))
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 	}
 
 	return styleMarks(rendered, p.stageMatch()), line
 }
 
-<<<<<<< HEAD
-// markedLine is the line the nth marked stretch fell on, counting from one, or zero when it did
-// not survive the rendering.
-func markedLine(rendered string, nth int) int {
-	for i, row := range strings.Split(rendered, "\n") {
-		marks := strings.Count(row, MarkOpen)
-		if nth < marks {
-			return i + 1
-		}
-		nth -= marks
-=======
 // markedLine is the line the first marked stretch fell on, counting from one, or zero when none
 // survived the rendering.
 func markedLine(rendered string) int {
@@ -187,7 +131,6 @@ func markedLine(rendered string) int {
 		if strings.Contains(row, MarkOpen) {
 			return i + 1
 		}
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 	}
 
 	return 0

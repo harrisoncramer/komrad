@@ -343,14 +343,6 @@ func TestFilterSays(t *testing.T) {
 	})
 
 	t.Run("a says: answer opens the hovered agent's conversation beside the list on its first match", func(t *testing.T) {
-<<<<<<< HEAD
-		harness := openFilterable(t, "backend")
-		turn := "the xylophone broke"
-		content := "opening words\n\n" + strings.Repeat("filler\n\n", 80) + turn + "\n\n" + strings.Repeat("after\n\n", 80)
-		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
-				{AgentId: "db", Snippet: "the \x02xylophone\x03 broke", ContentOffset: int64(strings.Index(content, turn)), ContentLength: int64(len(turn))},
-=======
 		tests := []struct {
 			name        string
 			open        func(*testing.T) *panelHarness
@@ -414,7 +406,6 @@ func TestFilterSays(t *testing.T) {
 
 			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
 				{AgentId: "db", Snippet: "\x02" + word + "\x03", ContentOffset: int64(strings.Index(content, turn)), ContentLength: int64(len(turn))},
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 			}}), nil
 		})
 		harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
@@ -431,13 +422,8 @@ func TestFilterSays(t *testing.T) {
 		frame := harness.readFrame()
 		require.Equal(t, "  db", readHoveredRow(frame))
 		stage := joinProse(readStage(frame))
-<<<<<<< HEAD
-		assert.Contains(t, stage, turn)
-		assert.NotContains(t, stage, "opening words")
-=======
 		assert.Contains(t, stage, second)
 		assert.NotContains(t, stage, first)
->>>>>>> 61775cf936138e0857861ae4d254f464ce42b490
 	})
 
 	t.Run("a says: query edited away while typed hands the window back to a live pane", func(t *testing.T) {
