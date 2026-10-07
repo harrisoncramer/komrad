@@ -1,14 +1,12 @@
 package ui
 
 import (
-	"komrad/internal/ui/panel"
-
 	tea "charm.land/bubbletea/v2"
 )
 
 // jumpMenu is the menu landing on the rows related to an agent, less the screen it was opened from.
 func jumpMenu(m *model, from screen, agentID string) submenu {
-	agentRow, found := m.listing.anyAgent(agentID)
+	_, found := m.listing.anyAgent(agentID)
 	target := screenTarget{agentID: agentID}
 
 	var entries []submenuEntry
@@ -34,7 +32,7 @@ func jumpMenu(m *model, from screen, agentID string) submenu {
 		documents := openEntry("documents", m.keys.JumpMenu.Documents, func(m *model) tea.Cmd {
 			return m.enter(screenDocuments, target)
 		})
-		documents.isOff = !found || agentRow.Agent.Role == panel.RoleOrchestrator
+		documents.isOff = !found
 		entries = append(entries, documents)
 	}
 
