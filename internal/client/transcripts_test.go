@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"strconv"
-	"strings"
 	"testing"
 
 	"komrad/lib/xptr"
@@ -17,13 +16,14 @@ import (
 
 // TestGetFullTranscript covers the panel reading a transcript the endpoint hands over a window at
 // a time, where stopping at the first window would show a preview missing most of the match and
-// giving up at the ceiling would show nothing at all.
+// stopping at the ceiling would show a transcript cut short as if it were whole.
 func TestGetFullTranscript(t *testing.T) {
 	tests := []struct {
 		name      string
 		windows   []string
 		neverEnds bool
 		want      string
+		wantErr   string
 	}{
 		{
 			name:    "a transcript that fits in one window",
@@ -44,7 +44,7 @@ func TestGetFullTranscript(t *testing.T) {
 			name:      "an endpoint that never stops handing out tokens",
 			windows:   []string{"round and "},
 			neverEnds: true,
-			want:      strings.Repeat("round and ", maxPages),
+			wantErr:   "still paging after 1024 pages",
 		},
 	}
 
@@ -53,12 +53,15 @@ func TestGetFullTranscript(t *testing.T) {
 			agents := &fakeTranscriptAgents{windows: tt.windows, neverEnds: tt.neverEnds}
 
 			got, err := GetFullTranscript(t.Context(), agents, "a1")
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				assert.Equal(t, maxTranscriptPages, agents.calls, "it stops paging rather than following tokens forever")
+
+				return
+			}
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
-
-			if tt.neverEnds {
-				assert.Equal(t, maxPages, agents.calls, "it stops paging rather than following tokens forever")
-			}
 		})
 	}
 }

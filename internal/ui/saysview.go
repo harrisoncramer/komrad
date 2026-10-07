@@ -62,10 +62,11 @@ func (m *model) readSaidCmd() tea.Cmd {
 	}
 
 	m.said = saidTranscript{agentID: agentID, text: text}
+	m.reading.opened = false
 	agents := m.api.reads().agents
 
 	return func() tea.Msg {
-		content, err := call(agentsTimeout, func(ctx context.Context) (string, error) {
+		content, err := call(saidTimeout, func(ctx context.Context) (string, error) {
 			return client.GetFullTranscript(ctx, agents, agentID)
 		})
 

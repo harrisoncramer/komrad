@@ -394,6 +394,38 @@ func TestFilterSays(t *testing.T) {
 		}
 	})
 
+	t.Run("a says: text edited while the same agent stays hovered moves the conversation to the new first match", func(t *testing.T) {
+		harness := openFilterable(t, "  db")
+		first, second := "the xylophone broke", "the zither snapped"
+		content := "opening words\n\n" + first + "\n\n" + strings.Repeat("filler\n\n", 80) + second + "\n\n" + strings.Repeat("after\n\n", 80)
+		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+			turn, word := first, "xylophone"
+			if strings.Contains(req.Any().(*agentv1.SearchTranscriptsRequest).GetQuery(), "zither") {
+				turn, word = second, "zither"
+			}
+
+			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
+				{AgentId: "db", Snippet: "\x02" + word + "\x03", ContentOffset: int64(strings.Index(content, turn)), ContentLength: int64(len(turn))},
+			}}), nil
+		})
+		harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: content}), nil
+		})
+
+		harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
+		harness.fireMatching(ui.IsSaysSettled)
+		require.Contains(t, joinProse(readStage(harness.readFrame())), first)
+
+		harness.press(slices.Concat(slices.Repeat([]string{"backspace"}, len("xylophone")), spellKeys("zither"), []string{"enter"})...)
+		harness.fireMatching(ui.IsSaysSettled)
+
+		frame := harness.readFrame()
+		require.Equal(t, "  db", readHoveredRow(frame))
+		stage := joinProse(readStage(frame))
+		assert.Contains(t, stage, second)
+		assert.NotContains(t, stage, first)
+	})
+
 	t.Run("a says: query edited away while typed hands the window back to a live pane", func(t *testing.T) {
 		tests := []struct {
 			name  string

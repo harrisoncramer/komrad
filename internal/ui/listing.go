@@ -19,6 +19,7 @@ import (
 const (
 	tickInterval  = time.Second
 	agentsTimeout = 2 * time.Second
+	saidTimeout   = 30 * time.Second
 )
 
 var startTimer = tea.Tick
