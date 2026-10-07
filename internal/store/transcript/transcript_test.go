@@ -1465,16 +1465,6 @@ func TestSearchFilter(t *testing.T) {
 			want:   []string{"alpha:0", "alpha:1", "delta:0", "delta:1"},
 		},
 		{
-			name:   "archived agents",
-			filter: Filter{Archived: xptr.Ptr(true)},
-			want:   []string{"beta:0"},
-		},
-		{
-			name:   "live agents",
-			filter: Filter{Archived: xptr.Ptr(false)},
-			want:   []string{"alpha:0", "alpha:1", "gamma:0", "delta:0", "delta:1"},
-		},
-		{
 			name:   "said since a time, leaving out turns with no time",
 			filter: Filter{Since: &dayAfter},
 			want:   []string{"beta:0", "gamma:0"},

@@ -8,32 +8,32 @@ import (
 	transcriptstore "komrad/internal/store/transcript"
 )
 
-// query is a search's text read as the words it looks for and the qualifiers narrowing it.
-type query struct {
+// search is a query's words and the store filter its qualifiers narrow it to.
+type search struct {
 	Words  string
 	Filter transcriptstore.Filter
 }
 
 // widens reports whether a qualifier names which agents to search.
-func (q query) widens() bool {
+func (q search) widens() bool {
 	filter := q.Filter
 
 	return filter.AgentName != nil || filter.WorkflowName != nil || len(filter.Kinds) > 0 ||
 		len(filter.ExcludedKinds) > 0
 }
 
-// parseQuery reads a search's text, cutting days in the time zone of now.
-func parseQuery(text string, now time.Time) (*query, error) {
+// parseSearch reads a search's text, cutting days in the time zone of now.
+func parseSearch(text string, now time.Time) (*search, error) {
 	parsed, err := searchsyntax.Parse(text, searchsyntax.Transcripts)
 	if err != nil {
 		return nil, err
 	}
 
-	q := query{Words: parsed.Text()}
+	q := search{Words: parsed.Text()}
 	seen := map[string]bool{}
-	for _, given := range parsed.Clauses {
-		seen[given.Key] = true
-		if err := q.apply(given, seen, now); err != nil {
+	for _, clause := range parsed.Clauses {
+		seen[clause.Key] = true
+		if err := q.apply(clause, seen, now); err != nil {
 			return nil, err
 		}
 	}
@@ -41,27 +41,25 @@ func parseQuery(text string, now time.Time) (*query, error) {
 	return &q, nil
 }
 
-func (q *query) apply(given searchsyntax.Clause, seen map[string]bool, now time.Time) error {
-	key, value := given.Key, given.Value
-
-	switch key {
+func (q *search) apply(clause searchsyntax.Clause, seen map[string]bool, now time.Time) error {
+	switch clause.Key {
 	case searchsyntax.KeyFrom:
-		speaker, err := parseSpeaker(value)
+		speaker, err := parseSpeaker(clause.Value)
 		if err != nil {
 			return err
 		}
 		q.Filter.Speaker = &speaker
 	case searchsyntax.KeyAgent:
-		q.Filter.AgentName = &value
+		q.Filter.AgentName = &clause.Value
 	case searchsyntax.KeyWorkflow:
-		q.Filter.WorkflowName = &value
+		q.Filter.WorkflowName = &clause.Value
 	case searchsyntax.KeyIs:
-		return q.applyIs(strings.ToLower(value), given.Negated)
+		return q.applyIs(strings.ToLower(clause.Value), clause.Negated)
 	case searchsyntax.KeySince:
 		if seen[searchsyntax.KeyOn] {
 			return searchsyntax.ErrBadQualifier.Saying("since: cannot be given with on:")
 		}
-		at, err := searchsyntax.ParseStart(key, value, now)
+		at, err := searchsyntax.ParseStart(clause.Key, clause.Value, now)
 		if err != nil {
 			return err
 		}
@@ -70,7 +68,7 @@ func (q *query) apply(given searchsyntax.Clause, seen map[string]bool, now time.
 		if seen[searchsyntax.KeyOn] {
 			return searchsyntax.ErrBadQualifier.Saying("until: cannot be given with on:")
 		}
-		at, err := searchsyntax.ParseEnd(key, value, now)
+		at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, now)
 		if err != nil {
 			return err
 		}
@@ -79,7 +77,7 @@ func (q *query) apply(given searchsyntax.Clause, seen map[string]bool, now time.
 		if seen[searchsyntax.KeySince] || seen[searchsyntax.KeyUntil] {
 			return searchsyntax.ErrBadQualifier.Saying("on: cannot be given with since: or until:")
 		}
-		day, err := searchsyntax.ParseDay(key, value, now)
+		day, err := searchsyntax.ParseDay(clause.Key, clause.Value, now)
 		if err != nil {
 			return err
 		}
@@ -90,7 +88,7 @@ func (q *query) apply(given searchsyntax.Clause, seen map[string]bool, now time.
 	return nil
 }
 
-func (q *query) applyIs(value string, negated bool) error {
+func (q *search) applyIs(value string, negated bool) error {
 	switch value {
 	case "implementer", "reviewer", "orchestrator":
 		if negated {

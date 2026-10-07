@@ -1145,8 +1145,6 @@ ranked AS (
         AND (CARDINALITY(@kinds::text[]) = 0
             OR a.role::text = ANY (@kinds::text[]))
         AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
-        AND (sqlc.narg('archived')::boolean IS NULL
-            OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
         AND (sqlc.narg('since')::timestamptz IS NULL
             OR c.spoken_at >= sqlc.narg('since'))
         AND (sqlc.narg('until')::timestamptz IS NULL
@@ -1236,8 +1234,6 @@ ranked AS (
             AND (CARDINALITY(@kinds::text[]) = 0
                 OR a.role::text = ANY (@kinds::text[]))
             AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
-            AND (sqlc.narg('archived')::boolean IS NULL
-                OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
             AND (sqlc.narg('since')::timestamptz IS NULL
                 OR c.spoken_at >= sqlc.narg('since'))
             AND (sqlc.narg('until')::timestamptz IS NULL

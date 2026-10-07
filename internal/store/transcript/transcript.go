@@ -344,7 +344,6 @@ type Filter struct {
 	WorkflowName  *string
 	Kinds         []string
 	ExcludedKinds []string
-	Archived      *bool
 	Since         *time.Time
 	Until         *time.Time
 }
@@ -352,7 +351,7 @@ type Filter struct {
 // IsZero reports whether the filter narrows nothing.
 func (f Filter) IsZero() bool {
 	return f.Speaker == nil && f.AgentName == nil && f.WorkflowName == nil &&
-		len(f.Kinds) == 0 && len(f.ExcludedKinds) == 0 && f.Archived == nil &&
+		len(f.Kinds) == 0 && len(f.ExcludedKinds) == 0 &&
 		f.Since == nil && f.Until == nil
 }
 
@@ -433,7 +432,6 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			WorkflowName:  toContainsPattern(filter.WorkflowName),
 			Kinds:         orEmpty(filter.Kinds),
 			ExcludedKinds: orEmpty(filter.ExcludedKinds),
-			Archived:      filter.Archived,
 			Since:         filter.Since,
 			Until:         filter.Until,
 			CursorKey:     keyOf(matchesAt),
@@ -479,7 +477,6 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			WorkflowName:  toContainsPattern(filter.WorkflowName),
 			Kinds:         orEmpty(filter.Kinds),
 			ExcludedKinds: orEmpty(filter.ExcludedKinds),
-			Archived:      filter.Archived,
 			Since:         filter.Since,
 			Until:         filter.Until,
 			CursorKey:     keyOf(nearAt),

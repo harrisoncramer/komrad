@@ -35,8 +35,8 @@ type Key struct {
 	Repeatable bool
 }
 
-// Qualifier is one qualifier as it is typed and what it narrows the search to.
-type Qualifier struct {
+// Hint is one qualifier as it is typed and what it narrows the search to.
+type Hint struct {
 	Syntax  string
 	Meaning string
 }
@@ -44,7 +44,7 @@ type Qualifier struct {
 // Grammar is the qualifiers one kind of search reads and the help shown for them.
 type Grammar struct {
 	Keys []Key
-	Help []Qualifier
+	Help []Hint
 }
 
 // Transcripts is the grammar a transcript search reads.
@@ -58,7 +58,7 @@ var Transcripts = Grammar{
 		{Name: KeyUntil},
 		{Name: KeyOn},
 	},
-	Help: []Qualifier{
+	Help: []Hint{
 		{Syntax: "from:me", Meaning: "prompts, mail included"},
 		{Syntax: "from:agent", Meaning: "what the agent wrote"},
 		{Syntax: "agent:NAME", Meaning: "agents named like NAME"},
@@ -207,7 +207,7 @@ func parseSpan(value string) (time.Duration, bool) {
 
 type token struct {
 	raw     string
-	text    string
+	bare    string
 	negated bool
 	quoted  bool
 }
@@ -217,7 +217,7 @@ func readClause(tok token) (Clause, bool) {
 		return Clause{}, false
 	}
 
-	key, value, found := strings.Cut(tok.text, ":")
+	key, value, found := strings.Cut(tok.bare, ":")
 	if !found {
 		return Clause{}, false
 	}
@@ -241,14 +241,14 @@ func tokenize(text string) []token {
 			return
 		}
 
-		tok := token{raw: raw.String(), text: raw.String()}
-		if strings.HasPrefix(tok.text, "-") && !strings.HasPrefix(tok.text, "--") {
-			tok.negated, tok.text = true, tok.text[1:]
+		tok := token{raw: raw.String(), bare: raw.String()}
+		if strings.HasPrefix(tok.bare, "-") && !strings.HasPrefix(tok.bare, "--") {
+			tok.negated, tok.bare = true, tok.bare[1:]
 		}
-		if strings.HasPrefix(tok.text, `"`) {
+		if strings.HasPrefix(tok.bare, `"`) {
 			tok.quoted = true
 		}
-		tok.text = strings.ReplaceAll(tok.text, `"`, "")
+		tok.bare = strings.ReplaceAll(tok.bare, `"`, "")
 
 		tokens = append(tokens, tok)
 		raw.Reset()
