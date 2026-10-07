@@ -180,11 +180,13 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{documentsNotice, "its pull request is open and waiting on a review"},
 		},
 		{
+			name: "a reviewer's unread replies are not counted",
+			row:  buildNoticeRow(panel.AgentRow{ReviewerComments: &agentv1.CommentCounts{Unread: 1}}),
+			want: []string{},
+		},
+		{
 			name: "the person's comments with replies unread",
-			row: buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{
-				Open:   1,
-				Unread: 2,
-			}}),
+			row:  buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{Unread: 2}}),
 			want: []string{"your comments with a reply you have not read: 2"},
 		},
 		{
