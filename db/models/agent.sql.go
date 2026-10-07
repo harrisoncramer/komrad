@@ -2583,8 +2583,6 @@ ranked AS (
         CASE $10::text
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, $11::float8)
-        WHEN 'old' THEN
-            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, $11::float8)
         ELSE
             CASE WHEN q.wanted = '' THEN
                 0
@@ -2618,12 +2616,10 @@ ranked AS (
         AND (CARDINALITY($17::text[]) = 0
             OR a.role::text = ANY ($17::text[]))
         AND NOT (a.role::text = ANY ($18::text[]))
-        AND ($19::boolean IS NULL
-            OR (a.archived_at IS NOT NULL) = $19)
+        AND ($19::timestamptz IS NULL
+            OR c.spoken_at >= $19)
         AND ($20::timestamptz IS NULL
-            OR c.spoken_at >= $20)
-        AND ($21::timestamptz IS NULL
-            OR c.spoken_at < $21))
+            OR c.spoken_at < $20))
 SELECT
     r.agent_id,
     r.seq,
@@ -2669,7 +2665,6 @@ type SearchTranscriptsParams struct {
 	WorkflowName  *string
 	Kinds         []string
 	ExcludedKinds []string
-	Archived      *bool
 	Since         *time.Time
 	Until         *time.Time
 }
@@ -2707,7 +2702,6 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 		arg.WorkflowName,
 		arg.Kinds,
 		arg.ExcludedKinds,
-		arg.Archived,
 		arg.Since,
 		arg.Until,
 	)
@@ -2768,8 +2762,6 @@ ranked AS (
         CASE $11::text
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, $12::float8)
-        WHEN 'old' THEN
-            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, $12::float8)
         ELSE
             WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content)
         END AS sort_key
@@ -2802,12 +2794,10 @@ ranked AS (
             AND (CARDINALITY($17::text[]) = 0
                 OR a.role::text = ANY ($17::text[]))
             AND NOT (a.role::text = ANY ($18::text[]))
-            AND ($19::boolean IS NULL
-                OR (a.archived_at IS NOT NULL) = $19)
+            AND ($19::timestamptz IS NULL
+                OR c.spoken_at >= $19)
             AND ($20::timestamptz IS NULL
-                OR c.spoken_at >= $20)
-            AND ($21::timestamptz IS NULL
-                OR c.spoken_at < $21))
+                OR c.spoken_at < $20))
 SELECT
     r.agent_id,
     r.seq,
@@ -2853,7 +2843,6 @@ type SearchTranscriptsNearParams struct {
 	WorkflowName  *string
 	Kinds         []string
 	ExcludedKinds []string
-	Archived      *bool
 	Since         *time.Time
 	Until         *time.Time
 }
@@ -2891,7 +2880,6 @@ func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscrip
 		arg.WorkflowName,
 		arg.Kinds,
 		arg.ExcludedKinds,
-		arg.Archived,
 		arg.Since,
 		arg.Until,
 	)

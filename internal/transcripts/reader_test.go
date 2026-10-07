@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/agenterr"
 	"komrad/internal/logging"
+	"komrad/internal/searchsyntax"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
 
@@ -190,7 +191,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 		},
 		{
 			name:       "a qualifier naming a kind widens it",
-			query:      "reconciler is:live",
+			query:      "reconciler -is:orchestrator",
 			caller:     alpha.ID,
 			want:       []string{"alpha", "beta"},
 			wantLogged: true,
@@ -215,7 +216,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 		},
 		{
 			name:  "no caller widening is not logged",
-			query: "reconciler is:live",
+			query: "reconciler -is:orchestrator",
 			want:  []string{"alpha", "beta"},
 		},
 	}
@@ -246,5 +247,5 @@ func TestSearchTranscriptsRefusesABadQualifier(t *testing.T) {
 	reader := newTranscriptReader(storetest.Open(t))
 
 	_, err := reader.SearchTranscripts(t.Context(), SearchTranscriptsParams{Query: "since:yesterdy"})
-	require.ErrorIs(t, err, errBadQualifier)
+	require.ErrorIs(t, err, searchsyntax.ErrBadQualifier)
 }

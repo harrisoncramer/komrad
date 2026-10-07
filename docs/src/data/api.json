@@ -397,7 +397,7 @@
             "orchestrator"
           ],
           "summary": "Search agent conversations by full text, archived ones included.",
-          "description": "Search agent conversations by full text, archived ones included. Quote phrases, prefix - to exclude, and narrow with qualifiers such as from:me, agent:NAME, workflow:NAME, is:reviewer, is:live, since:2d and sort:new. Your own conversation is searched unless agent_id or a qualifier names others.",
+          "description": "Search agent conversations by full text, archived ones included. Quote phrases, prefix - to exclude, and narrow with qualifiers such as from:me, agent:NAME, workflow:NAME, is:reviewer, since:2d and on:DATE. Your own conversation is searched unless agent_id or a qualifier names others.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
