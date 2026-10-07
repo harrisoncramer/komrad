@@ -80,6 +80,24 @@ func TestTabStrip(t *testing.T) {
 		})
 	}
 
+	t.Run("enter takes the hovered stop and gives the keys back", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+		strip := slices.IndexFunc(readSidebar(harness.readFrame()), func(line string) bool { return strings.HasPrefix(line, "f ") })
+		require.GreaterOrEqual(t, strip, 0)
+
+		harness.press("f", "tab", "enter")
+		frame := harness.readFrame()
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Contains(t, readSidebar(frame)[strip], "↓ activity")
+		assert.NotContains(t, readLegend(frame), stripLegend)
+		assert.NotEmpty(t, readHoveredRow(frame))
+
+		harness.press("F", "tab", "enter")
+		frame = harness.readFrame()
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.NotEmpty(t, readHoveredRow(frame))
+	})
+
 	t.Run("the record and the strip take the keys from each other", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 
