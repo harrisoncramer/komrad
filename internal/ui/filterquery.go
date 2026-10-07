@@ -43,9 +43,9 @@ func (g queryGrammar) parse(text string, now time.Time) (*searchsyntax.Query, er
 	return parsed, nil
 }
 
-// queryGrammarer is a screen whose filter reads qualifiers.
+// queryGrammarer is a screen whose filter reads qualifiers, and says whether the list in view reads any.
 type queryGrammarer interface {
-	queryGrammar() queryGrammar
+	queryGrammar() (queryGrammar, bool)
 }
 
 // saidState is the rows the server found saying the text of a says: qualifier.

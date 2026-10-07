@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"strings"
-
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -63,10 +61,8 @@ func (d *documentsScreen) buildItemMenu(m *model) (submenu, bool) {
 // documentMenu is the actions on the hovered document, and on the documents it is listed among.
 func documentMenu(m *model, d *documentsScreen) submenu {
 	item, hovered := d.hovered(m)
+	_, named := m.namedAgentID()
 	title := "documents"
-	if root := d.crumbRoot(m); root != nil {
-		title = strings.Join(root, " ")
-	}
 	if hovered {
 		title = item.name
 	}
@@ -92,7 +88,7 @@ func documentMenu(m *model, d *documentsScreen) submenu {
 			entry: submenuEntry{
 				label: "new document",
 				keys:  m.keys.DocumentMenu.New,
-				isOff: d.editing != nil || d.listsEveryAgent(),
+				isOff: d.editing != nil || !named,
 			},
 			run: (*documentsScreen).pressNew,
 		},
