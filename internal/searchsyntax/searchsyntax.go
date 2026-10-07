@@ -81,6 +81,7 @@ var Documents = Grammar{
 		{Name: KeyType},
 		{Name: KeySince},
 		{Name: KeyUntil},
+		{Name: KeySays},
 	},
 	Strict: true,
 }

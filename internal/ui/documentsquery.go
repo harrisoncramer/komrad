@@ -1,14 +1,18 @@
 package ui
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"time"
 
 	"komrad/internal/searchsyntax"
+	agentv1 "komrad/proto/gen/agent/v1"
+
+	"connectrpc.com/connect"
 )
 
-var documentsQuery = queryGrammar{syntax: searchsyntax.Documents, check: checkDocumentsClause}
+var documentsQuery = queryGrammar{syntax: searchsyntax.Documents, check: checkDocumentsClause, search: searchDocumentsSaid}
 
 func (d *documentsScreen) queryGrammar() (queryGrammar, bool) {
 	return documentsQuery, d.kind == documentKindDocuments
@@ -30,7 +34,7 @@ func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {
 }
 
 // documentRowFits matches a document against a qualifier, by the agent that wrote it for agent:
-// and workflow:.
+// and workflow:, and by what the server found it saying for says:.
 func (m *model) documentRowFits(r documentRow) clauseFits {
 	return func(clause searchsyntax.Clause) bool {
 		item := r.item
@@ -55,6 +59,8 @@ func (m *model) documentRowFits(r documentRow) clauseFits {
 			at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
 
 			return err == nil && item.updatedAt.Before(at)
+		case searchsyntax.KeySays:
+			return m.filter.hasSaid(item.id)
 		}
 
 		return false
@@ -116,4 +122,22 @@ func (m *model) filterDocumentsOf(agentID string) {
 	m.filter.openedIn = sectionList
 	m.filter.setQuery(agentClause(findAgentName(m, agentID)))
 	m.applyFilter()
+}
+
+// searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
+func searchDocumentsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
+	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
+		Query: phrase(text),
+		Limit: saysLimit,
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	hits := map[string][]saidHit{}
+	for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
+		hits[hit.GetDocumentId()] = append(hits[hit.GetDocumentId()], saidHit{snippet: hit.GetSnippet()})
+	}
+
+	return hits, nil
 }

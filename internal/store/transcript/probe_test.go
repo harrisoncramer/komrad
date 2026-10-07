@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"komrad/internal/store"
+	textsearchstore "komrad/internal/store/textsearch"
 
 	"github.com/stretchr/testify/require"
 )
@@ -67,7 +68,7 @@ func TestProbeRanking(t *testing.T) {
 }
 
 func oneLine(s string) string {
-	s = strings.NewReplacer(SnippetOpen, "[", SnippetClose, "]", "\n", " ").Replace(s)
+	s = strings.NewReplacer(textsearchstore.MarkOpen, "[", textsearchstore.MarkClose, "]", "\n", " ").Replace(s)
 	if len(s) > 70 {
 		s = s[:70]
 	}

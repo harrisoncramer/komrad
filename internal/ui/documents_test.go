@@ -238,6 +238,39 @@ func TestDocumentsFilter(t *testing.T) {
 	}
 }
 
+// TestDocumentsSays covers the says: qualifier answered by a search of the documents' text on the server.
+func TestDocumentsSays(t *testing.T) {
+	t.Parallel()
+
+	harness, _ := openDocuments(t)
+	var asked []string
+	harness.answer(agentv1connect.AgentServiceSearchDocumentsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		asked = append(asked, req.Any().(*agentv1.SearchDocumentsRequest).GetQuery())
+
+		return connect.NewResponse(&agentv1.SearchDocumentsResponse{Matches: []*agentv1.DocumentHit{
+			{DocumentId: "d2", Snippet: "out on \x02Tuesday\x03"},
+		}}), nil
+	})
+	line := regexp.MustCompile(`It went out on`)
+	marked := regexp.MustCompile(`\x1b\[[0-9;]*mTuesday`)
+
+	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("says:tuesday"))...)
+	harness.fireMatching(ui.IsSaysSettled)
+	harness.press("enter")
+	harness.fireTimers()
+
+	frame := harness.readFrame()
+	assert.Equal(t, []string{`"tuesday"`}, asked)
+	assert.Equal(t, []string{"Rollout report"}, readListRows(frame))
+	assert.Equal(t, "▽ says:tuesday", readSearch(frame))
+	assert.Regexp(t, marked, findRawLine(harness.readRawFrame(), line), "the word found is lit in the document")
+
+	harness.press("/", "esc")
+	harness.fireTimers()
+
+	assert.NotRegexp(t, marked, findRawLine(harness.readRawFrame(), line), "the word is dark once the qualifier is gone")
+}
+
 // TestDocumentsRead covers the document under the cursor rendered beside the list, read once and
 // read again only when the agent writes.
 func TestDocumentsRead(t *testing.T) {

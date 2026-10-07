@@ -44,6 +44,7 @@ type AgentServiceImpl interface {
 	GetLastScreen(context.Context, *v1.GetLastScreenRequest) (*v1.GetLastScreenResponse, *fail.Error)
 	WriteDocument(context.Context, *v1.WriteDocumentRequest) (*v1.WriteDocumentResponse, *fail.Error)
 	ListDocuments(context.Context, *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, *fail.Error)
+	SearchDocuments(context.Context, *v1.SearchDocumentsRequest) (*v1.SearchDocumentsResponse, *fail.Error)
 	GetDocument(context.Context, *v1.GetDocumentRequest) (*v1.GetDocumentResponse, *fail.Error)
 	ListDocumentVersions(context.Context, *v1.ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, *fail.Error)
 	ListDocumentTypes(context.Context, *emptypb.Empty) (*v1.ListDocumentTypesResponse, *fail.Error)
@@ -213,6 +214,11 @@ func (a AgentServiceAdapter) WriteDocument(ctx context.Context, req *connect.Req
 // ListDocuments answers the request as connect serves it.
 func (a AgentServiceAdapter) ListDocuments(ctx context.Context, req *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListDocuments(ctx, req.Msg))
+}
+
+// SearchDocuments answers the request as connect serves it.
+func (a AgentServiceAdapter) SearchDocuments(ctx context.Context, req *connect.Request[v1.SearchDocumentsRequest]) (*connect.Response[v1.SearchDocumentsResponse], error) {
+	return rpcerr.Answer(a.Impl.SearchDocuments(ctx, req.Msg))
 }
 
 // GetDocument answers the request as connect serves it.

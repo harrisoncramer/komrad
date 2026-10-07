@@ -184,6 +184,19 @@ table "documents" {
   check "documents_body_written" {
     expr = "body <> ''"
   }
+  index "documents_body_trgm" {
+    type = GIN
+    on {
+      column = column.body
+      ops    = gin_trgm_ops
+    }
+  }
+  index "documents_body_tsv" {
+    type = GIN
+    on {
+      expr = "to_tsvector('english_nostop', body)"
+    }
+  }
 }
 
 table "document_versions" {

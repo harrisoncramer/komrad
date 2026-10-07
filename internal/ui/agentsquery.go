@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"strings"
@@ -8,9 +9,14 @@ import (
 
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	paginationv1 "komrad/proto/gen/pagination/v1"
+
+	"connectrpc.com/connect"
 )
 
-var agentsQuery = queryGrammar{syntax: searchsyntax.Agents, check: checkAgentsClause}
+var agentsQuery = queryGrammar{syntax: searchsyntax.Agents, check: checkAgentsClause, search: searchTranscriptsSaid}
 
 func (a *agentsScreen) queryGrammar() (queryGrammar, bool) {
 	return agentsQuery, true
@@ -114,4 +120,26 @@ func containsFold(s, sub string) bool {
 
 func (a *archivedAgents) queryGrammar() (queryGrammar, bool) {
 	return agentsQuery, true
+}
+
+// searchTranscriptsSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
+func searchTranscriptsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
+	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+		Query:      phrase(text),
+		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	hits := map[string][]saidHit{}
+	for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
+		hits[hit.GetAgentId()] = append(hits[hit.GetAgentId()], saidHit{
+			snippet: hit.GetSnippet(),
+			offset:  hit.GetContentOffset(),
+			length:  hit.GetContentLength(),
+		})
+	}
+
+	return hits, nil
 }

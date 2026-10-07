@@ -101,6 +101,9 @@ const (
 	// AgentServiceListDocumentsProcedure is the fully-qualified name of the AgentService's
 	// ListDocuments RPC.
 	AgentServiceListDocumentsProcedure = "/agent.v1.AgentService/ListDocuments"
+	// AgentServiceSearchDocumentsProcedure is the fully-qualified name of the AgentService's
+	// SearchDocuments RPC.
+	AgentServiceSearchDocumentsProcedure = "/agent.v1.AgentService/SearchDocuments"
 	// AgentServiceGetDocumentProcedure is the fully-qualified name of the AgentService's GetDocument
 	// RPC.
 	AgentServiceGetDocumentProcedure = "/agent.v1.AgentService/GetDocument"
@@ -227,6 +230,7 @@ type AgentServiceClient interface {
 	GetLastScreen(context.Context, *connect.Request[v1.GetLastScreenRequest]) (*connect.Response[v1.GetLastScreenResponse], error)
 	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
+	SearchDocuments(context.Context, *connect.Request[v1.SearchDocumentsRequest]) (*connect.Response[v1.SearchDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
 	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
 	ListDocumentTypes(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error)
@@ -441,6 +445,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceListDocumentsProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ListDocuments")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		searchDocuments: connect.NewClient[v1.SearchDocumentsRequest, v1.SearchDocumentsResponse](
+			httpClient,
+			baseURL+AgentServiceSearchDocumentsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("SearchDocuments")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -692,6 +703,7 @@ type agentServiceClient struct {
 	getLastScreen            *connect.Client[v1.GetLastScreenRequest, v1.GetLastScreenResponse]
 	writeDocument            *connect.Client[v1.WriteDocumentRequest, v1.WriteDocumentResponse]
 	listDocuments            *connect.Client[v1.ListDocumentsRequest, v1.ListDocumentsResponse]
+	searchDocuments          *connect.Client[v1.SearchDocumentsRequest, v1.SearchDocumentsResponse]
 	getDocument              *connect.Client[v1.GetDocumentRequest, v1.GetDocumentResponse]
 	listDocumentVersions     *connect.Client[v1.ListDocumentVersionsRequest, v1.ListDocumentVersionsResponse]
 	listDocumentTypes        *connect.Client[emptypb.Empty, v1.ListDocumentTypesResponse]
@@ -855,6 +867,11 @@ func (c *agentServiceClient) WriteDocument(ctx context.Context, req *connect.Req
 // ListDocuments calls agent.v1.AgentService.ListDocuments.
 func (c *agentServiceClient) ListDocuments(ctx context.Context, req *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error) {
 	return c.listDocuments.CallUnary(ctx, req)
+}
+
+// SearchDocuments calls agent.v1.AgentService.SearchDocuments.
+func (c *agentServiceClient) SearchDocuments(ctx context.Context, req *connect.Request[v1.SearchDocumentsRequest]) (*connect.Response[v1.SearchDocumentsResponse], error) {
+	return c.searchDocuments.CallUnary(ctx, req)
 }
 
 // GetDocument calls agent.v1.AgentService.GetDocument.
@@ -1050,6 +1067,7 @@ type AgentServiceHandler interface {
 	GetLastScreen(context.Context, *connect.Request[v1.GetLastScreenRequest]) (*connect.Response[v1.GetLastScreenResponse], error)
 	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
+	SearchDocuments(context.Context, *connect.Request[v1.SearchDocumentsRequest]) (*connect.Response[v1.SearchDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
 	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
 	ListDocumentTypes(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error)
@@ -1260,6 +1278,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceListDocumentsProcedure,
 		svc.ListDocuments,
 		connect.WithSchema(agentServiceMethods.ByName("ListDocuments")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceSearchDocumentsHandler := connect.NewUnaryHandler(
+		AgentServiceSearchDocumentsProcedure,
+		svc.SearchDocuments,
+		connect.WithSchema(agentServiceMethods.ByName("SearchDocuments")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -1534,6 +1559,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceWriteDocumentHandler.ServeHTTP(w, r)
 		case AgentServiceListDocumentsProcedure:
 			agentServiceListDocumentsHandler.ServeHTTP(w, r)
+		case AgentServiceSearchDocumentsProcedure:
+			agentServiceSearchDocumentsHandler.ServeHTTP(w, r)
 		case AgentServiceGetDocumentProcedure:
 			agentServiceGetDocumentHandler.ServeHTTP(w, r)
 		case AgentServiceListDocumentVersionsProcedure:
@@ -1711,6 +1738,10 @@ func (UnimplementedAgentServiceHandler) WriteDocument(context.Context, *connect.
 
 func (UnimplementedAgentServiceHandler) ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListDocuments is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) SearchDocuments(context.Context, *connect.Request[v1.SearchDocumentsRequest]) (*connect.Response[v1.SearchDocumentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SearchDocuments is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error) {

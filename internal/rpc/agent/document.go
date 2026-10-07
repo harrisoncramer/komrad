@@ -22,6 +22,7 @@ type documentReadWriter interface {
 	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
 	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
 	ListDocuments(ctx context.Context, params documentstore.ListParams) ([]documentstore.Document, error)
+	SearchDocuments(ctx context.Context, params documentstore.SearchParams) (*documentstore.Results, error)
 	DeleteDocument(ctx context.Context, params documents.DeleteDocumentParams) error
 }
 
@@ -82,6 +83,29 @@ func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsR
 	response.Documents = xslice.Map(page.Resources, func(resource documentPage) *agentv1.Document { return resource.Document })
 
 	return response, nil
+}
+
+// SearchDocuments finds the documents whose current body holds the words of a query, every
+// agent's unless one is named.
+func (s *Handler) SearchDocuments(ctx context.Context, req *agentv1.SearchDocumentsRequest) (*agentv1.SearchDocumentsResponse, *fail.Error) {
+	if req.AgentId != nil {
+		logCrossAgentRead(ctx, req.GetAgentId(), "agent searched another agent's documents")
+	}
+
+	results, err := s.documents.SearchDocuments(ctx, documentstore.SearchParams{
+		Query:   req.GetQuery(),
+		AgentID: req.AgentId,
+		Type:    req.Type,
+		Limit:   req.GetLimit(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to search documents")
+	}
+
+	return &agentv1.SearchDocumentsResponse{
+		Matches: xslice.Map(results.Matches, render.DocumentHit),
+		Near:    xslice.Map(results.Near, render.DocumentHit),
+	}, nil
 }
 
 // GetDocument returns one document whole.

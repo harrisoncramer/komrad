@@ -1,0 +1,216 @@
+// Package textsearch reads a search query into the words it wants and leaves out, and shapes
+// them for the full text and near matching every searchable store shares.
+package textsearch
+
+import (
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"komrad/lib/xslice"
+)
+
+const (
+	// MarkOpen opens a matched word in a snippet.
+	MarkOpen = "\x02"
+	// MarkClose closes a matched word in a snippet.
+	MarkClose = "\x03"
+)
+
+const (
+	// SnippetLead is how many characters of a near snippet come before the match.
+	SnippetLead = 60
+	// SnippetWidth is how many characters a snippet holds at most.
+	SnippetWidth = 200
+	// Headline is the ts_headline options shaping a full text snippet.
+	Headline = "StartSel=" + MarkOpen + ",StopSel=" + MarkClose +
+		",MaxWords=35,MinWords=15,MaxFragments=1"
+)
+
+const minNearRunes = 3
+
+// Terms is the words a query is looking for and the words it wants left out.
+type Terms struct {
+	Wanted   []string
+	Excluded []string
+}
+
+// PreparedQuery is a query cleaned of NULs, its terms, and those terms quoted for a websearch query.
+type PreparedQuery struct {
+	Query    string
+	Terms    Terms
+	Wanted   string
+	Excluded string
+}
+
+// Prepare strips the NULs from a query, splits it into terms and quotes them.
+func Prepare(query string) PreparedQuery {
+	query = strings.ReplaceAll(query, "\x00", "")
+	terms := split(query)
+
+	return PreparedQuery{
+		Query:    query,
+		Terms:    terms,
+		Wanted:   quote(terms.Wanted, ""),
+		Excluded: quote(terms.Excluded, "-"),
+	}
+}
+
+// split reads a query as the words it is looking for, quoted or not, and the words it
+// wants left out.
+func split(query string) Terms {
+	var (
+		found   Terms
+		text    strings.Builder
+		quoted  bool
+		minuses int
+	)
+
+	flush := func() {
+		term, leading := text.String(), minuses
+		text.Reset()
+		quoted, minuses = false, 0
+
+		switch {
+		case term == "":
+		case leading == 1:
+			found.Excluded = append(found.Excluded, term)
+		default:
+			// Only a single minus excludes, so a flag name stays the word it looks like.
+			found.Wanted = append(found.Wanted, strings.Repeat("-", leading)+term)
+		}
+	}
+	for _, r := range query {
+		switch {
+		case r == '"':
+			quoted = !quoted
+		case unicode.IsSpace(r) && !quoted:
+			flush()
+		case r == '-' && !quoted && text.Len() == 0:
+			minuses++
+		default:
+			text.WriteRune(r)
+		}
+	}
+	flush()
+
+	return found
+}
+
+// quote wraps each term in quotes behind a prefix, as a websearch query reads them.
+func quote(terms []string, prefix string) string {
+	quoted := xslice.Map(terms, func(term string) string {
+		return prefix + `"` + term + `"`
+	})
+
+	return strings.Join(quoted, " ")
+}
+
+// HasNear reports whether every term is long enough for a near match to mean anything.
+func HasNear(terms []string) bool {
+	for _, term := range terms {
+		if utf8.RuneCountInString(term) < minNearRunes {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Phrase is the pattern matching the words of the terms in a row as whole words, and nil when they hold none.
+func Phrase(terms []string) *string {
+	var words []string
+	for _, term := range terms {
+		words = append(words, strings.FieldsFunc(term, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		})...)
+	}
+	if len(words) == 0 {
+		return nil
+	}
+
+	pattern := `\m` + strings.Join(words, `[^[:alnum:]]+`) + `\M`
+
+	return &pattern
+}
+
+// LikePatterns is the LIKE pattern of each term.
+func LikePatterns(terms []string) []string {
+	return xslice.Map(terms, LikePattern)
+}
+
+// LikePattern is a LIKE pattern finding the text anywhere, with its wildcards escaped.
+func LikePattern(query string) string {
+	escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(query)
+	return "%" + escaped + "%"
+}
+
+// Mark wraps every place a term appears in a snippet in MarkOpen and MarkClose, ignoring case.
+func Mark(snippet string, terms []string) string {
+	var (
+		out strings.Builder
+		at  int
+	)
+	for at < len(snippet) {
+		start, end, ok := firstMatch(snippet[at:], terms)
+		if !ok {
+			break
+		}
+
+		out.WriteString(snippet[at : at+start])
+		out.WriteString(MarkOpen)
+		out.WriteString(snippet[at+start : at+end])
+		out.WriteString(MarkClose)
+		at += end
+	}
+	out.WriteString(snippet[at:])
+
+	return out.String()
+}
+
+// firstMatch returns the earliest occurrence of any term, preferring the longest where two
+// start at the same place.
+func firstMatch(hay string, terms []string) (int, int, bool) {
+	found := false
+
+	var bestStart, bestEnd int
+	for _, term := range terms {
+		if term == "" {
+			continue
+		}
+
+		start, end, ok := foldIndex(hay, term)
+		if !ok {
+			continue
+		}
+		if !found || start < bestStart || (start == bestStart && end > bestEnd) {
+			found, bestStart, bestEnd = true, start, end
+		}
+	}
+
+	return bestStart, bestEnd, found
+}
+
+func foldIndex(hay, needle string) (int, int, bool) {
+	for start := 0; start < len(hay); {
+		_, width := utf8.DecodeRuneInString(hay[start:])
+
+		i, j := start, 0
+		for j < len(needle) && i < len(hay) {
+			h, hw := utf8.DecodeRuneInString(hay[i:])
+			n, nw := utf8.DecodeRuneInString(needle[j:])
+			if unicode.ToLower(h) != unicode.ToLower(n) {
+				break
+			}
+
+			i, j = i+hw, j+nw
+		}
+		if j == len(needle) {
+			return start, i, true
+		}
+
+		start += width
+	}
+
+	return 0, 0, false
+}
