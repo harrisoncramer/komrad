@@ -342,13 +342,17 @@ func TestFilterSays(t *testing.T) {
 		assert.Equal(t, "▽ says:x d  no search", readSearch(frame))
 	})
 
-	t.Run("a says: answer draws the hovered agent's matching turns beside the list", func(t *testing.T) {
+	t.Run("a says: answer opens the hovered agent's conversation beside the list on its first match", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
+		turn := "the xylophone broke"
+		content := "opening words\n\n" + strings.Repeat("filler\n\n", 80) + turn + "\n\n" + strings.Repeat("after\n\n", 80)
 		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
-				{AgentId: "db", Snippet: "the \x02xylophone\x03 broke"},
-				{AgentId: "db", Snippet: "fixed the\n\x02xylophone\x03 again"},
+				{AgentId: "db", Snippet: "the \x02xylophone\x03 broke", ContentOffset: int64(strings.Index(content, turn)), ContentLength: int64(len(turn))},
 			}}), nil
+		})
+		harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: content}), nil
 		})
 
 		harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"), []string{"enter"})...)
@@ -356,7 +360,9 @@ func TestFilterSays(t *testing.T) {
 
 		frame := harness.readFrame()
 		require.Equal(t, "  db", readHoveredRow(frame))
-		assert.Contains(t, joinProse(readStage(frame)), "the xylophone broke fixed the xylophone again")
+		stage := joinProse(readStage(frame))
+		assert.Contains(t, stage, turn)
+		assert.NotContains(t, stage, "opening words")
 	})
 
 	t.Run("a says: query edited away while typed hands the window back to a live pane", func(t *testing.T) {

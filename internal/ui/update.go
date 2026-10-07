@@ -54,13 +54,15 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	pulse := m.pulseMessages(landed)
 	m.releaseHiddenDetails()
 	m.dropStaleDoc()
+	said := m.readSaidCmd()
+	m.openSaid()
 	if m.atStop() != was {
 		m.leftStop = was
 	}
 	m.buildFrame()
 	m.drawFrame()
 
-	return m, tea.Batch(cmd, caught, blink, warming, spinning, pulse)
+	return m, tea.Batch(cmd, caught, blink, warming, spinning, pulse, said)
 }
 
 func (m *model) route(msg tea.Msg) tea.Cmd {
@@ -435,6 +437,10 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applySaysSettled(msg), true
 	case saysFoundMsg:
 		m.applySaysFound(msg)
+
+		return nil, true
+	case saidTranscriptMsg:
+		m.applySaidTranscript(msg)
 
 		return nil, true
 	case docFilterSettledMsg:
