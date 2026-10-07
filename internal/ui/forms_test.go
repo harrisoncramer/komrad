@@ -321,7 +321,7 @@ func TestFormsAdoptExisting(t *testing.T) {
 		{
 			name:        "an archived agent lands the archive on its row",
 			existing:    newArchivedAgent("a3", "old-work", "w1"),
-			wantScreen:  archiveScreen,
+			wantScreen:  agentsScreen,
 			wantHovered: "old-work",
 		},
 	}

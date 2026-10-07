@@ -131,10 +131,10 @@ func (w *worktreesScreen) jumpToAgent(m *model) tea.Cmd {
 
 	target := screenTarget{agentID: row.item.agent.id}
 	if _, live := m.listing.liveAgent(target.agentID); live {
-		return m.enter(screenAgents, target)
+		return m.enterLive(target)
 	}
 
-	return m.enter(screenArchive, target)
+	return m.enterArchived(target)
 }
 
 // deleteWorktree asks before a directory goes the way its fate decides.

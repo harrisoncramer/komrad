@@ -386,14 +386,14 @@ func TestAgentsLongList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{height: 22, detailsHeight: 8})
+			harness := newPanelHarness(t, panelHarnessParams{height: 23, detailsHeight: 8})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(rows...))
 
 			harness.press(tt.press...)
 
 			frame := harness.readFrame()
-			assert.Len(t, splitLines(frame), 22)
+			assert.Len(t, splitLines(frame), 23)
 			assert.Equal(t, tt.want, readHoveredRow(frame), "the row the cursor stands on is inside the window")
 			for _, marker := range tt.wantMore {
 				assert.Regexp(t, marker+` \d+ more`, frame)
@@ -1535,7 +1535,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("a grown record with no room for a row draws nothing rather than two bare rules", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{
 			width:         40,
-			height:        19,
+			height:        24,
 			detailsHeight: 2,
 		})
 		answerWorktreeReads(harness)
@@ -1546,7 +1546,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		frame := harness.readFrame()
 		assert.False(t, isRecordDrawn(frame))
 		assert.False(t, hasAdjacentRules(frame), "no bare rules stand where the record was")
-		assert.Len(t, splitLines(frame), 19)
+		assert.Len(t, splitLines(frame), 24)
 	})
 }
 
@@ -2231,7 +2231,7 @@ func TestAgentsChildren(t *testing.T) {
 	t.Run("the hard delete counts the children in the archive's own rows", func(t *testing.T) {
 		reviewer := newArchivedAgent("a3", "reviewer", "w1")
 		reviewer.ParentAgentId = xptr.Ptr("a1")
-		harness := openGroupedArchive(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
+		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
 
 		harness.press("j", "space", "a", "d")
 

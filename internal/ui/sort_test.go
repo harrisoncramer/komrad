@@ -158,8 +158,8 @@ func TestEveryStripIsBuiltFromItsTable(t *testing.T) {
 		},
 		{
 			name:  "the archive",
-			strip: archiveTabs(),
-			table: tabOptionsOf(archiveSorts),
+			strip: archivedAgentTabs(),
+			table: tabOptionsOf(archivedAgentSorts),
 		},
 		{
 			name:  "the worktrees",

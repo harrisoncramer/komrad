@@ -10,7 +10,8 @@ func (m *model) dropFrames() {
 	m.agents.drawn = nil
 	m.worktrees.drawn = nil
 	m.schedules.drawn = nil
-	m.archive.drawn, m.archive.drawnSchedules = nil, nil
+	m.agents.archived.drawn = nil
+	m.archive.drawnSchedules = nil
 	m.search.drawn = nil
 }
 

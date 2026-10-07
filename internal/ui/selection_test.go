@@ -27,14 +27,14 @@ func TestSelection(t *testing.T) {
 			rows: buildSelectable(),
 		},
 		{
-			name: "the archive",
+			name: "the archived agents",
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "backend"),
 				newArchivedAgentAt("auth", "2026-07-30T12:00:00Z"),
 				newArchivedAgentAt("api", "2026-07-30T11:00:00Z"),
 				newArchivedAgentAt("db", "2026-07-30T10:00:00Z"),
 			},
-			press: []string{"shift+tab", "shift+tab"},
+			press: []string{"F", "tab", "esc"},
 		},
 	}
 

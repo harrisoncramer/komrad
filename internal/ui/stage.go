@@ -131,12 +131,6 @@ func (d *documentsScreen) stageResting(m *model) tea.Cmd {
 	return m.readDocumentsCmd()
 }
 
-func (a *archiveScreen) stageResting(m *model) tea.Cmd {
-	a.stage(m)
-
-	return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
-}
-
 func (w *schedulesScreen) stageResting(m *model) tea.Cmd {
 	m.stageSelection()
 

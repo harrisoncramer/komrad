@@ -195,7 +195,7 @@ func TestListingKeepsItsPlace(t *testing.T) {
 	t.Run("the archive cursor keeps its agent when a folder above it goes", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openGroupedArchive(t,
+		harness := openArchivedAgents(t,
 			newLiveWorkflow("w1", "api"),
 			newLiveWorkflow("w2", "infra"),
 			newArchivedAgent("x1", "api-spike", "w1"),

@@ -30,6 +30,9 @@ type agentsScreen struct {
 	resuming    map[string]struct{}
 	awaitingCLI map[string]bool
 	renameSlot
+	kind      agentsKind
+	kindFocus bool
+	archived  archivedAgents
 }
 
 type agentRow struct {

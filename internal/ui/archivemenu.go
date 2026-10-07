@@ -49,27 +49,11 @@ func (t archived) opensAgent() (*panel.Agent, error) {
 	return &t.agents[0], nil
 }
 
-// menuTarget is what the archive menu would act on, and none on the folder of a live workflow.
+// menuTarget is the archived schedule the archive menu would act on.
 func (a *archiveScreen) menuTarget(m *model) (archived, bool) {
-	if a.onSchedules(m) {
-		schedule, ok := a.hoveredSchedule(m)
+	schedule, ok := a.hoveredSchedule(m)
 
-		return archived{schedule: &schedule}, ok
-	}
-
-	if a.selected.isActive() {
-		agents := chosenAgents(a.selected, a.listRows(m))
-
-		return archived{agents: agents, chosen: true}, len(agents) > 0
-	}
-
-	if workflow, ok := a.hoveredWorkflow(m); ok {
-		return archived{workflow: &workflow}, true
-	}
-
-	agent, ok := a.hoveredAgent(m)
-
-	return archived{agents: []panel.Agent{agent}}, ok
+	return archived{schedule: &schedule}, ok
 }
 
 // archiveMenu is the archive's actions on a row, opened from its menu.
@@ -206,4 +190,13 @@ func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
 			return m.archiveAndDeleteAgents(agents)
 		}),
 	})
+}
+
+func (a *archiveScreen) buildItemMenu(m *model) (submenu, bool) {
+	target, ok := a.menuTarget(m)
+	if !ok {
+		return submenu{}, false
+	}
+
+	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }

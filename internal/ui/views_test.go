@@ -189,9 +189,9 @@ func TestTrail(t *testing.T) {
 			wantTrail: "schedules › agent00",
 		},
 		{
-			name:      "the archive trail runs to the hovered agent",
-			press:     []string{"shift+tab", "shift+tab", "G"},
-			wantTrail: "archive › agent39",
+			name:      "the archived agents trail runs to the hovered agent",
+			press:     []string{"F", "tab", "esc", "G"},
+			wantTrail: "agents › agent39",
 		},
 		{
 			name:      "the worktrees trail runs to the hovered worktree",
