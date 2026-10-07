@@ -58,7 +58,7 @@ type documentsScreen struct {
 	history     *documentHistory
 	// focus says the picker handed the keys to the diff beside the list.
 	focus bool
-	// agentID is the agent the screen was opened for, which an agent: clause holding its name means alone.
+	// agentID is the agent the screen was opened for from its menu.
 	agentID string
 }
 
@@ -85,12 +85,12 @@ func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
 	if !target.resume {
 		d.agentID = target.agentID
-	}
-	if !target.resume && target.agentID != "" {
-		saved = d.closeEdit(m)
-		d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
-		d.rowCursor = rowCursor{}
-		m.filterDocumentsOf(target.agentID)
+		if target.agentID != "" {
+			saved = d.closeEdit(m)
+			d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
+			d.rowCursor = rowCursor{}
+			m.filterDocumentsOf(target.agentID)
+		}
 	}
 
 	m.stageTerminal()
@@ -317,7 +317,7 @@ type documentReadMsg struct {
 	read documentBody
 }
 
-// readDocumentsCmd lists the documents again when the agent has written since they were last
+// readDocumentsCmd lists the documents again when any agent has written since they were last
 // listed, and otherwise reads the one under the cursor.
 func (m *model) readDocumentsCmd() tea.Cmd {
 	if m.screen != screenDocuments {
@@ -365,7 +365,7 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		documents, err := clients.listDocuments("")
+		documents, err := clients.listDocuments()
 		if err != nil {
 			return documentsListedMsg{
 				written: written,

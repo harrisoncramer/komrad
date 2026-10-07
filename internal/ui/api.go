@@ -561,18 +561,12 @@ func (a api) deleteWorktrees(dirs []string) error {
 	})
 }
 
-func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
-	var owner *string
-	if agentID != "" {
-		owner = &agentID
-	}
-
+func (a api) listDocuments() ([]*agentv1.Document, error) {
 	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.Document, error) {
 		var listed []*agentv1.Document
 		var cursor *string
 		for {
 			resp, err := a.agents.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{
-				AgentId:    owner,
 				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100), Cursor: cursor},
 			}))
 			if err != nil {

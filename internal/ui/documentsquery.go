@@ -70,8 +70,7 @@ func agentClause(name string) string {
 	return searchsyntax.KeyAgent + ":" + name
 }
 
-// namedAgentID is the agent the filter's one agent: qualifier names exactly, which a new document
-// is written for, and none when the filter names no single agent.
+// namedAgentID is the one agent the filter's agent: qualifier names exactly, if any.
 func (m *model) namedAgentID() (string, bool) {
 	var names []string
 	for _, clause := range m.filter.qualifiers.clauses {
@@ -99,8 +98,7 @@ func (m *model) namedAgentID() (string, bool) {
 	return ids[0], true
 }
 
-// openedForAgent is the agent the documents were opened for when the name given is its name, which
-// then means that agent alone among those sharing the name.
+// openedForAgent is the agent the documents were opened for, when the name given is its name.
 func (m *model) openedForAgent(name string) (string, bool) {
 	agentID := m.documents.agentID
 	if agentID == "" || !strings.EqualFold(findAgentName(m, agentID), name) {
