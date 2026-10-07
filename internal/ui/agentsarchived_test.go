@@ -92,7 +92,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 		{
 			name:       "back opens the view switcher",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "esc", "tab", "tab"},
+			press:      []string{"j", "esc", "tab"},
 			wantScreen: schedulesScreen,
 		},
 		{

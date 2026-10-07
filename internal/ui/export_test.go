@@ -468,8 +468,6 @@ func (p *Panel) ReadLegendKeys() []string {
 		} else {
 			legend = p.model.listHelpOf(p.model.schedules.listParams(m))
 		}
-	case screenSearch:
-		legend = p.model.search.help(m)
 	case screenReview:
 		legend = p.model.review.help(m)
 	case screenWorktrees:

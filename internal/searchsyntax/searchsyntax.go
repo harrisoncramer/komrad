@@ -19,6 +19,9 @@ const (
 	KeySince    = "since"
 	KeyUntil    = "until"
 	KeyOn       = "on"
+	KeyHarness  = "harness"
+	KeyPR       = "pr"
+	KeySays     = "says"
 )
 
 const dayLayout = "2006-01-02"
@@ -35,16 +38,17 @@ type Key struct {
 	Repeatable bool
 }
 
-// Hint is one qualifier as it is typed and what it narrows the search to.
-type Hint struct {
+// hint is one qualifier as it is typed and what it narrows the search to.
+type hint struct {
 	Syntax  string
 	Meaning string
 }
 
 // Grammar is the qualifiers one kind of search reads and the help shown for them.
 type Grammar struct {
-	Keys []Key
-	Help []Hint
+	Keys   []Key
+	Help   []hint
+	Strict bool
 }
 
 // Transcripts is the grammar a transcript search reads.
@@ -58,7 +62,7 @@ var Transcripts = Grammar{
 		{Name: KeyUntil},
 		{Name: KeyOn},
 	},
-	Help: []Hint{
+	Help: []hint{
 		{Syntax: "from:me", Meaning: "prompts, mail included"},
 		{Syntax: "from:agent", Meaning: "what the agent wrote"},
 		{Syntax: "agent:NAME", Meaning: "agents named like NAME"},
@@ -69,6 +73,32 @@ var Transcripts = Grammar{
 		{Syntax: "until:DATE", Meaning: "up to the end of that day"},
 		{Syntax: "on:DATE", Meaning: "that one day"},
 	},
+}
+
+// Agents is the grammar the agents list is filtered by.
+var Agents = Grammar{
+	Keys: []Key{
+		{Name: KeyAgent},
+		{Name: KeyWorkflow},
+		{Name: KeyIs, Negatable: true, Repeatable: true},
+		{Name: KeyHarness, Negatable: true},
+		{Name: KeyPR},
+		{Name: KeySince},
+		{Name: KeyUntil},
+		{Name: KeySays},
+	},
+	Help: []hint{
+		{Syntax: "agent:NAME", Meaning: "agents named like NAME"},
+		{Syntax: "workflow:NAME", Meaning: "agents in that workflow"},
+		{Syntax: "is:reviewer", Meaning: "or implementer, orchestrator"},
+		{Syntax: "-is:reviewer", Meaning: "leave that kind out"},
+		{Syntax: "harness:NAME", Meaning: "agents run by that harness"},
+		{Syntax: "pr:NUMBER", Meaning: "the agent holding that pull request"},
+		{Syntax: "since:3d", Meaning: "started since; or 30m, 5h, 2w, today, a date"},
+		{Syntax: "until:DATE", Meaning: "started by the end of that day"},
+		{Syntax: "says:TEXT", Meaning: "agents whose transcript holds TEXT"},
+	},
+	Strict: true,
 }
 
 // Clause is one qualifier read from a query.
@@ -89,7 +119,7 @@ func (q Query) Text() string {
 	return strings.Join(q.Words, " ")
 }
 
-// Parse reads text against the grammar, leaving any token whose key the grammar lacks as a word.
+// Parse reads text against the grammar, leaving any token whose key a lenient grammar lacks as a word.
 func Parse(text string, grammar Grammar) (*Query, error) {
 	keys := make(map[string]Key, len(grammar.Keys))
 	for _, key := range grammar.Keys {
@@ -110,6 +140,9 @@ func Parse(text string, grammar Grammar) (*Query, error) {
 
 		key, known := keys[given.Key]
 		if !known {
+			if grammar.Strict && given.Key != "" {
+				return nil, ErrBadQualifier.Saying("%s: is not a qualifier here", given.Key)
+			}
 			query.Words = append(query.Words, tok.raw)
 
 			continue

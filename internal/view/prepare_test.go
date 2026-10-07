@@ -1171,7 +1171,7 @@ func TestPrepareDrawsTheColumnsAScreenDeclares(t *testing.T) {
 		},
 		{
 			name:    "the archive declares none",
-			columns: NoColumns(),
+			columns: noColumns(),
 			want:    Columns{},
 		},
 		{
@@ -1261,7 +1261,7 @@ func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 	none := Prepare(Snapshot{
 		Rows:    []Row{{Name: "iss-582"}},
 		Pane:    pane,
-		Columns: NoColumns(),
+		Columns: noColumns(),
 	})
 
 	assert.Equal(t, 4, nameColumns(pane, none.Columns)-nameColumns(pane, every.Columns),
@@ -1282,7 +1282,7 @@ func resultRows() []Row {
 		},
 		{
 			Key:     "live/3",
-			Kind:    KindHit,
+			Kind:    kindHit,
 			Lead:    "agent #3",
 			Name:    "the ledger is reconciled nightly",
 			Matches: []Span{{Start: 4, End: 10}},
@@ -1296,7 +1296,7 @@ func resultRows() []Row {
 		},
 		{
 			Key:      "archived/1",
-			Kind:     KindHit,
+			Kind:     kindHit,
 			Lead:     "you #1",
 			Name:     "ledger",
 			Matches:  []Span{{Start: 0, End: 6}},
@@ -1310,7 +1310,7 @@ func resultRows() []Row {
 func drawResults(pane int) []string {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Columns: NoColumns(),
+		Columns: noColumns(),
 		Focused: "live",
 		Pane:    pane,
 	})
@@ -1323,7 +1323,7 @@ func drawResults(pane int) []string {
 func TestPrepareResultsDeclareNoColumn(t *testing.T) {
 	wide := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Columns: NoColumns(),
+		Columns: noColumns(),
 		Pane:    200,
 	})
 
@@ -1338,7 +1338,7 @@ func TestPrepareResultsDeclareNoColumn(t *testing.T) {
 func TestResultRowOpensAtTheGutter(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Columns: NoColumns(),
+		Columns: noColumns(),
 		Pane:    canonicalPane,
 	})
 	drawn := drawResults(canonicalPane)
@@ -1360,7 +1360,7 @@ func TestResultRowOpensAtTheGutter(t *testing.T) {
 func TestHitRowHangsUnderItsResult(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Columns: NoColumns(),
+		Columns: noColumns(),
 		Pane:    canonicalPane,
 	})
 	drawn := drawResults(canonicalPane)
@@ -1378,8 +1378,8 @@ func TestHitRowHangsUnderItsResult(t *testing.T) {
 		assert.False(t, line.Rule, "row %q", drawn[i])
 		lead := strings.Index(drawn[i], line.Lead)
 		require.GreaterOrEqual(t, lead, 0, "row %q", drawn[i])
-		assert.Equal(t, wantNameColumn(KindHit), drawnColumns(drawn[i][:lead]), "row %q", drawn[i])
-		assert.Equal(t, wantNameColumn(KindHit)+len(line.Lead)+1, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(kindHit), drawnColumns(drawn[i][:lead]), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(kindHit)+len(line.Lead)+1, nameColumnOf(drawn[i], line), "row %q", drawn[i])
 		assert.Empty(t, line.Columns, "row %q", drawn[i])
 	}
 
@@ -1389,7 +1389,7 @@ func TestHitRowHangsUnderItsResult(t *testing.T) {
 // TestHitRowGivesItsLeadRoom pins that a narrow pane clips the words rather than the lead.
 func TestHitRowGivesItsLeadRoom(t *testing.T) {
 	line := prepareOne(t, Row{
-		Kind: KindHit,
+		Kind: kindHit,
 		Lead: "agent #3",
 		Name: "the ledger is reconciled nightly",
 	})

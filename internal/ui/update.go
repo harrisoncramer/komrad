@@ -207,11 +207,7 @@ const sidebarStep = 4
 
 // resizeTo takes the panel to the size a window message reports.
 func (m *model) resizeTo(size tea.WindowSizeMsg) {
-	// The transcript is wrapped into the column it is read in rather than into a pane that would
-	// fold it, so only a window that changed width has to wrap it again, and a preview that has
-	// never drawn is one the rows are still owed to.
 	width := size.Width - m.countInsetCols()
-	rewrap := width != m.term.width || len(m.search.preview.doc.rows) == 0
 
 	m.term.height = max(size.Height, 0)
 	m.term.width = max(width, 0)
@@ -235,7 +231,7 @@ func (m *model) resizeTo(size tea.WindowSizeMsg) {
 
 	m.term.windowCols = window
 
-	m.relayout(rewrap)
+	m.relayout()
 }
 
 // applySizeRead settles a size the frame read back, leaving a changed one to the resize the
@@ -246,7 +242,7 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 
 		if width := max(m.term.paneCols-m.countInsetCols(), 0); width != m.term.width {
 			m.term.width = width
-			m.relayout(true)
+			m.relayout()
 		}
 
 		return nil
@@ -267,22 +263,18 @@ func (m *model) applySizeFallback(msg sizeFallbackMsg) tea.Cmd {
 }
 
 // relayout sizes everything drawn off the split again, once the split has moved.
-func (m *model) relayout(rewrap bool) {
+func (m *model) relayout() {
 	m.sizeAgentWindows()
 
 	// A field open in the review's sidebar is drawn in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
 	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m)))
-
-	if rewrap {
-		m.search.drawPreview(m)
-	}
 }
 
 // nudgeSidebar moves the sidebar's edge by a number of columns.
 func (m *model) nudgeSidebar(delta int) {
 	m.frame.Nudge(delta)
-	m.relayout(true)
+	m.relayout()
 }
 
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
@@ -439,6 +431,12 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applyLogsTick(msg), true
 	case logsSettledMsg:
 		return m.applyLogsSettled(msg), true
+	case saysSettledMsg:
+		return m.applySaysSettled(msg), true
+	case saysFoundMsg:
+		m.applySaysFound(msg)
+
+		return nil, true
 	case docFilterSettledMsg:
 		m.applyDocFilterSettled(msg)
 

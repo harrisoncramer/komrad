@@ -280,15 +280,16 @@ func (a *agentsScreen) buildLayout(m *model) agentsLayout {
 	return agentsLayout{
 		zone:    zone,
 		waiting: waiting,
-		tree:    narrowedAgentRows(m.filter, tree),
+		tree:    narrowedAgentRows(m, tree),
 	}
 }
 
-func narrowedAgentRows(filter filterState, rows []agentRow) []agentRow {
-	return narrowed(filter, narrowedParams[agentRow]{
+func narrowedAgentRows(m *model, rows []agentRow) []agentRow {
+	return narrowed(m.filter, narrowedParams[agentRow]{
 		rows:  rows,
 		depth: agentRowDepth,
 		name:  agentRowName,
+		fits:  m.agentRowFits,
 	})
 }
 

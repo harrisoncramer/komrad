@@ -164,6 +164,8 @@ type screenList[T keyed] struct {
 	rows   func(*model) []T
 	// name is the text a search reads a row by, nil on a list that draws no filter.
 	name func(T) string
+	// fits is how a row meets a qualifier, nil on a list that reads none.
+	fits func(*model, T) clauseFits
 	// refs is the rows as the selection sees them, nil on a list nothing can be selected in.
 	refs func([]T) []rowRef
 	// header is what the toggle key names a header row as.
@@ -208,7 +210,12 @@ func (l screenList[T]) place(m *model, hovered string) {
 
 func (l screenList[T]) filterRows(m *model) []filterRow {
 	return xslice.Map(l.rows(m), func(row T) filterRow {
-		return filterRow{key: row.key(), name: l.name(row)}
+		var fits clauseFits
+		if l.fits != nil {
+			fits = l.fits(m, row)
+		}
+
+		return filterRow{key: row.key(), name: l.name(row), fits: fits}
 	})
 }
 

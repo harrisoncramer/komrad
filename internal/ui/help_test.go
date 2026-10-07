@@ -78,10 +78,6 @@ func TestHelpFitsEveryScreen(t *testing.T) {
 	t.Parallel()
 
 	for _, screen := range buildListScreens() {
-		if screen.screen == searchScreen {
-			continue
-		}
-
 		t.Run(screen.name+" is not drawn as an ellipsis at the narrowest sidebar", func(t *testing.T) {
 			t.Parallel()
 
@@ -222,7 +218,7 @@ func buildDriftScreens() []driftScreen {
 				t.Helper()
 
 				harness := openDriftAgents(t)
-				harness.press("tab", "tab")
+				harness.press("tab")
 
 				return harness
 			},
@@ -253,23 +249,6 @@ func buildDriftScreens() []driftScreen {
 				quit,
 				nearest,
 			},
-		},
-		{
-			name:   "search",
-			screen: searchScreen,
-			open: func(t *testing.T) *panelHarness {
-				t.Helper()
-
-				harness := openSearch(t, openSearchParams{
-					server: newSearchServer(newTurnHit("a1", "auth", "ledger")),
-					query:  "ledger",
-					rows:   buildDriftAgent(),
-				})
-				harness.press("enter")
-
-				return harness
-			},
-			excused: []undrawn{quit},
 		},
 		{
 			name:   "review",

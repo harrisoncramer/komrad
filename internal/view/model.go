@@ -105,8 +105,8 @@ func workColumns() Columns {
 	}
 }
 
-// NoColumns is the gutter of a list with nothing to say before a name.
-func NoColumns() Columns {
+// noColumns is the gutter of a list with nothing to say before a name.
+func noColumns() Columns {
 	return Columns{}
 }
 

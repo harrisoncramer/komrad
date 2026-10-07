@@ -7,7 +7,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/paint"
 	"komrad/internal/vim"
 
@@ -64,6 +66,11 @@ type filterState struct {
 	debounce      time.Duration
 	minLength     int
 	compiledQuery string
+	grammar       *queryGrammar
+	clauses       []searchsyntax.Clause
+	problem       string
+	compiledAt    time.Time
+	said          saidState
 }
 
 type filterOption func(*filterState)
@@ -71,6 +78,12 @@ type filterOption func(*filterState)
 func withDebounce(wait time.Duration) filterOption {
 	return func(f *filterState) {
 		f.debounce = wait
+	}
+}
+
+func withGrammar(grammar queryGrammar) filterOption {
+	return func(f *filterState) {
+		f.grammar = &grammar
 	}
 }
 
@@ -103,7 +116,7 @@ func (f filterState) clearDesc() string {
 
 // isNarrowing reports whether the pattern is taking rows off the screen.
 func (f filterState) isNarrowing() bool {
-	return f.mode == filterModeFilter && f.pattern != nil && !f.typing
+	return f.mode == filterModeFilter && f.hasQuery() && !f.typing
 }
 
 // doesNarrow reports whether the pattern is taking rows off one pane, which it does only in the
@@ -120,7 +133,7 @@ func (f *filterState) setQuery(query string) {
 func (f *filterState) open(opts ...filterOption) {
 	f.typing = true
 	f.mode = filterModeSearch
-	f.debounce, f.minLength = 0, 0
+	f.debounce, f.minLength, f.grammar = 0, 0, nil
 	for _, opt := range opts {
 		opt(f)
 	}
@@ -134,7 +147,12 @@ func (f filterState) isTooShort() bool {
 }
 
 func (f filterState) isSearched() bool {
-	return f.pattern != nil || f.broken
+	return f.hasQuery() || f.broken
+}
+
+// hasQuery reports whether a pattern or a qualifier stands to match rows by.
+func (f filterState) hasQuery() bool {
+	return f.pattern != nil || len(f.clauses) > 0
 }
 
 func (f filterState) isSettled() bool {
@@ -163,14 +181,30 @@ func (f *filterState) settle(query string) bool {
 func (f *filterState) compile() {
 	query := f.query()
 	f.pattern, f.broken, f.compiledQuery = nil, false, query
+	f.clauses, f.problem, f.compiledAt = nil, "", time.Now()
+	defer f.askSaid()
 
 	if f.isTooShort() {
 		return
 	}
 
 	expr := query
-	if strings.ToLower(query) == query {
-		expr = "(?i)" + query
+	if f.grammar != nil {
+		parsed, err := f.grammar.parse(query, f.compiledAt)
+		if err != nil {
+			f.broken, f.problem = true, errui.GetReason(err)
+
+			return
+		}
+
+		f.clauses, expr = parsed.Clauses, parsed.Text()
+		if expr == "" {
+			return
+		}
+	}
+
+	if strings.ToLower(expr) == expr {
+		expr = "(?i)" + expr
 	}
 
 	pattern, err := regexp.Compile(expr)
@@ -191,6 +225,48 @@ func (f filterState) doesMatch(name string) bool {
 	return f.pattern.MatchString(name)
 }
 
+// clauseFits reports whether a row meets one qualifier.
+type clauseFits func(searchsyntax.Clause) bool
+
+// admits reports whether a row's name matches the pattern and the row meets the qualifiers.
+func (f filterState) admits(name string, fits clauseFits) bool {
+	return f.doesMatch(name) && f.holds(fits)
+}
+
+// holds reports whether a row meets one of the qualifiers given under each key and none of the
+// ones left out.
+func (f filterState) holds(fits clauseFits) bool {
+	if len(f.clauses) == 0 {
+		return true
+	}
+	if fits == nil {
+		return false
+	}
+
+	met := map[string]bool{}
+	for _, clause := range f.clauses {
+		if clause.Negated {
+			if fits(clause) {
+				return false
+			}
+
+			continue
+		}
+
+		met[clause.Key] = met[clause.Key] || fits(clause)
+	}
+
+	for _, ok := range met {
+		if !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+// spans is the stretches of a row's name the search lights, the whole of it when only qualifiers
+// picked the row.
 func (f filterState) highlight(palette paint.Palette, name string, base lipgloss.Style) string {
 	if f.pattern == nil {
 		return base.Render(name)
@@ -218,8 +294,13 @@ func (m *model) filteredRows() ([]filterRow, bool) {
 func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
+	var opts []filterOption
+	if g, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused() {
+		opts = append(opts, withGrammar(g.queryGrammar()))
+	}
+
 	filter := &m.filter
-	filter.open()
+	filter.open(opts...)
 	filter.openedIn = m.keyholder()
 	filter.origin = origin
 	m.placeFilteredCursor(origin)
@@ -315,12 +396,12 @@ func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {
 	case "enter":
 		m.applyFilter()
 
-		return m.waitToStage()
+		return tea.Batch(m.waitToStage(), m.saysCmd())
 	default:
 		filter.takeKey(key, m.register)
 	}
 
-	return nil
+	return m.saysCmd()
 }
 
 // applyFilter closes the input and settles the cursor of the pane holding the keys: a search
@@ -415,6 +496,7 @@ type narrowedParams[T any] struct {
 	// depth is how far a row is indented.
 	depth func(T) int
 	name  func(T) string
+	fits  func(T) clauseFits
 }
 
 // narrowed is the rows a filter leaves on screen: each match, the rows above it and the rows
@@ -427,7 +509,11 @@ func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 	rows := params.rows
 	matched := make([]bool, len(rows))
 	for i, row := range rows {
-		matched[i] = filter.doesMatch(params.name(row))
+		var fits clauseFits
+		if params.fits != nil {
+			fits = params.fits(row)
+		}
+		matched[i] = filter.admits(params.name(row), fits)
 	}
 
 	keep := make([]bool, len(rows))
@@ -488,10 +574,15 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 
 	line := slash.Render(f.mode.glyph(glyphs)) + " "
 	if !f.typing {
-		return line + text.Render(before+after)
+		line += text.Render(before + after)
+	} else {
+		line += palette.DrawTyped(before, after, text)
+	}
+	if f.problem != "" {
+		line += "  " + palette.Broken().Render(f.problem)
 	}
 
-	return line + palette.DrawTyped(before, after, text)
+	return line
 }
 
 // head is the rows over a block the filter searches: the search, what the last key said, and a
@@ -524,7 +615,7 @@ func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
 // row and wrapping at either end, the hovered row itself counting for a step of nothing.
 func (m *model) matchAt(delta int) (string, bool) {
 	rows, ok := m.filteredRows()
-	if !ok || m.filter.pattern == nil || len(rows) == 0 {
+	if !ok || !m.filter.hasQuery() || len(rows) == 0 {
 		return "", false
 	}
 
@@ -547,7 +638,7 @@ func (m *model) matchAt(delta int) (string, bool) {
 
 	for ; step <= len(rows); step++ {
 		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
-		if m.filter.doesMatch(rows[at].name) {
+		if m.filter.admits(rows[at].name, rows[at].fits) {
 			return rows[at].key, true
 		}
 	}

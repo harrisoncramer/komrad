@@ -250,11 +250,6 @@ func TestVimLineEditing(t *testing.T) {
 			wantSearch: "/ fo[o]",
 		},
 		{
-			name:       "the search line opened again types after its text",
-			press:      []string{"tab", "/", "f", "o", "o", "ctrl+f", "esc", "/", "d"},
-			wantSearch: "/ food▏",
-		},
-		{
 			name:       "a word deleted in normal mode leaves the search line",
 			press:      slices.Concat([]string{"tab", "/"}, spellKeys("foo bar"), []string{"ctrl+f", "0", "d", "w"}),
 			wantSearch: "/ [b]ar",

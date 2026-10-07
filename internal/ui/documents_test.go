@@ -93,7 +93,7 @@ func TestDocumentsOpen(t *testing.T) {
 		harness := openArchivedSubpages(t)
 		harness.press("d")
 		harness.fireTimers()
-		harness.press("tab", "tab", "tab")
+		harness.press("tab", "tab")
 		harness.fireTimers()
 
 		assert.Equal(t, documentsScreen, harness.readScreen())
@@ -116,7 +116,7 @@ func TestDocumentsOpen(t *testing.T) {
 		harness := openArchivedSubpages(t)
 		harness.press("d")
 		harness.fireTimers()
-		harness.press("tab", "tab", "tab")
+		harness.press("tab", "tab")
 		harness.fireTimers()
 		harness.press("J")
 
@@ -923,7 +923,7 @@ func openEveryDocument(t *testing.T) *panelHarness {
 	harness := openAgents(t, buildDocumentAuthors()...)
 	newDocumentShelf().answer(harness)
 	moveToAgentRow(t, harness, "quiet")
-	harness.press("tab", "tab", "tab")
+	harness.press("tab", "tab")
 	harness.fireTimers()
 
 	return harness
