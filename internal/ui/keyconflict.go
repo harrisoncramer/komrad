@@ -90,6 +90,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "edit", keys: keys.DocumentMenu.Edit},
 		{name: "rename", keys: keys.DocumentMenu.Rename},
 		{name: "new", keys: keys.DocumentMenu.New},
+		{name: "jump", keys: keys.Menu.Jump},
 	}); err != nil {
 		return err
 	}
