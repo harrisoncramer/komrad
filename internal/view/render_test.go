@@ -743,7 +743,7 @@ func wantNameColumn(kind RowKind) int {
 		return drawnNameColumn + 2*drawnIndentStep
 	case KindResult:
 		return drawnResultNameColumn
-	case KindHit:
+	case kindHit:
 		return drawnResultNameColumn + drawnIndentStep
 	}
 
@@ -949,7 +949,7 @@ func TestRenderArchiveList(t *testing.T) {
 		Rows:    archiveRows(),
 		Focused: "a:one",
 		Pane:    archivePane,
-		Columns: NoColumns(),
+		Columns: noColumns(),
 	})
 
 	requireGolden(t, "list-archive", render(list, paint.Panel, archivePane))
@@ -962,7 +962,7 @@ func TestArchiveNameOpensPastTheGutterItHas(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    archiveRows(),
 		Pane:    archivePane,
-		Columns: NoColumns(),
+		Columns: noColumns(),
 	})
 	require.Len(t, list.Lines, len(archiveRows()))
 
@@ -1123,7 +1123,7 @@ func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 func TestRenderResultList(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Columns: NoColumns(),
+		Columns: noColumns(),
 		Focused: "live",
 		Pane:    canonicalPane,
 	})

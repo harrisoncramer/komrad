@@ -147,12 +147,6 @@ func (a *agentsScreen) stageResting(m *model) tea.Cmd {
 	return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 }
 
-func (w *searchScreen) stageResting(m *model) tea.Cmd {
-	m.stageSelection()
-
-	return tea.Batch(w.landOnRow(m), m.inspectAgentWorktreeCmd(time.Now()))
-}
-
 func (r *reviewScreen) stageResting(m *model) tea.Cmd {
 	if !r.hold.atEditor {
 		m.stageSelection()

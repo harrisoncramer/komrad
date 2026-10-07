@@ -354,7 +354,7 @@ func TestScreensFitTheLegend(t *testing.T) {
 		{
 			listScreen: listScreen{
 				name:   "the schedules",
-				press:  []string{"tab", "tab"},
+				press:  []string{"tab"},
 				screen: schedulesScreen,
 			},
 			bottom: "agent00",
@@ -439,7 +439,7 @@ func TestScreensRecordGivesWay(t *testing.T) {
 		},
 		{
 			name:   "the schedules",
-			press:  []string{"tab", "tab"},
+			press:  []string{"tab"},
 			fills:  10,
 			bottom: "agent00",
 		},
@@ -525,10 +525,6 @@ func TestScreensFitATightPane(t *testing.T) {
 			t.Parallel()
 
 			for _, screen := range buildListScreens() {
-				if screen.screen == searchScreen && tt.press != nil {
-					continue
-				}
-
 				harness := openCrowded(t, panelHarnessParams{width: tt.width, height: tall})
 				harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 				harness.press(slices.Concat(screen.press, []string{"G"}, tt.press)...)
@@ -538,7 +534,7 @@ func TestScreensFitATightPane(t *testing.T) {
 					frame := harness.readFrame()
 
 					assert.Len(t, splitLines(frame), height, "%s in a pane %d lines tall", screen.name, height)
-					if height > fitsFrom && screen.screen != searchScreen {
+					if height > fitsFrom {
 						assert.NotEmpty(t, readHoveredRow(frame), "%s keeps the hovered row on screen in a pane %d lines tall", screen.name, height)
 					}
 				}
@@ -747,13 +743,8 @@ func buildListScreens() []listScreen {
 		},
 		{
 			name:   "the schedules",
-			press:  []string{"tab", "tab"},
+			press:  []string{"tab"},
 			screen: schedulesScreen,
-		},
-		{
-			name:   "the search",
-			press:  []string{"tab", "/"},
-			screen: searchScreen,
 		},
 		{
 			name:   "the worktrees",

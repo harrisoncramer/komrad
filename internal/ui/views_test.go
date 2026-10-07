@@ -26,7 +26,7 @@ func TestViews(t *testing.T) {
 		blank, _, _ := strings.Cut(lines[2], "│")
 		assert.Empty(t, strings.TrimSpace(blank), "a blank row stands under the engine")
 		views, _, _ := strings.Cut(lines[3], "│")
-		assert.Equal(t, "agents  query  schedules  documents  worktrees", strings.TrimSpace(views))
+		assert.Equal(t, "agents  schedules  documents  worktrees", strings.TrimSpace(views))
 		lit := paint.Panel.Style(paint.TonePrimary)
 		assert.Contains(t, harness.readRawFrame(), lit.Render("documents"), "the view that is up is lit")
 	})
@@ -35,12 +35,6 @@ func TestViews(t *testing.T) {
 		harness, _ := openDocuments(t)
 
 		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › author › documents"))
-	})
-
-	t.Run("a page opened from a view draws no switcher", func(t *testing.T) {
-		harness, _ := openDocuments(t)
-
-		assert.NotContains(t, harness.readFrame(), "agents  query  schedules  documents  worktrees")
 	})
 
 	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
@@ -66,7 +60,7 @@ func TestViews(t *testing.T) {
 		{
 			name:       "tab opens the next view",
 			press:      []string{"tab"},
-			wantScreen: searchScreen,
+			wantScreen: schedulesScreen,
 		},
 		{
 			name:       "shift-tab opens the previous view, wrapping to the last",
@@ -76,7 +70,7 @@ func TestViews(t *testing.T) {
 		{
 			name:       "the switcher keeps tab through each view it opens",
 			press:      []string{"tab", "tab"},
-			wantScreen: schedulesScreen,
+			wantScreen: documentsScreen,
 		},
 		{
 			name:       "the switcher keeps shift-tab through each view it opens",
@@ -86,7 +80,7 @@ func TestViews(t *testing.T) {
 		{
 			name:       "escape hands the keys back to the view it stands on",
 			press:      []string{"tab", "esc", "x"},
-			wantScreen: searchScreen,
+			wantScreen: schedulesScreen,
 		},
 		{
 			name:       "escape on the agents opens the switcher without moving",
@@ -96,27 +90,22 @@ func TestViews(t *testing.T) {
 		{
 			name:       "escape on the agents hands tab to the switcher",
 			press:      []string{"esc", "tab", "tab"},
-			wantScreen: schedulesScreen,
+			wantScreen: documentsScreen,
 		},
 		{
 			name:       "escape on the schedules opens the switcher",
-			press:      []string{"tab", "tab", "esc", "esc", "tab"},
+			press:      []string{"tab", "esc", "esc", "tab"},
 			wantScreen: documentsScreen,
 		},
 		{
 			name:       "escape on the documents opens the switcher",
-			press:      []string{"tab", "tab", "tab", "esc", "esc", "tab"},
+			press:      []string{"tab", "tab", "esc", "esc", "tab"},
 			wantScreen: worktreesScreen,
 		},
 		{
 			name:       "escape on the worktrees opens the switcher",
 			press:      []string{"shift+tab", "esc", "esc", "tab"},
 			wantScreen: agentsScreen,
-		},
-		{
-			name:       "escape in the query line opens the switcher",
-			press:      []string{"tab", "esc", "esc", "tab"},
-			wantScreen: schedulesScreen,
 		},
 	}
 
@@ -143,7 +132,7 @@ func TestViews(t *testing.T) {
 	t.Run("a key the switcher has no use for closes it and reaches the view", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press(append(widenListPresses, "tab", "tab", "G")...)
+		harness.press(append(widenListPresses, "tab", "G")...)
 
 		frame := harness.readFrame()
 		assert.Equal(t, schedulesScreen, harness.readScreen())
@@ -174,13 +163,8 @@ func TestTrail(t *testing.T) {
 			wantTrail: "agents › agent39",
 		},
 		{
-			name:      "the query trail names the view alone before a search",
-			press:     []string{"tab"},
-			wantTrail: "query",
-		},
-		{
 			name:      "the schedules trail runs to the hovered schedule",
-			press:     []string{"tab", "tab", "G"},
+			press:     []string{"tab", "G"},
 			wantTrail: "schedules › agent00",
 		},
 		{
@@ -230,7 +214,7 @@ func TestTrail(t *testing.T) {
 	t.Run("the trail is drawn in one muted tone", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press("tab", "tab", "G")
+		harness.press("tab", "G")
 
 		muted := paint.Panel.Style(paint.ToneMuted)
 		assert.Contains(t, harness.readRawFrame(), muted.Render("schedules › agent00"))

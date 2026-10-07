@@ -1,14 +1,19 @@
 package ui_test
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
 
+	"komrad/internal/ui"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -266,6 +271,38 @@ func TestFilterNarrow(t *testing.T) {
 			wantSearch:  "▽ ^au",
 		},
 		{
+			name:        "a qualifier narrows to the rows it holds for",
+			from:        "backend",
+			press:       slices.Concat([]string{"/", "tab"}, spellKeys("workflow:front"), []string{"enter"}),
+			wantRows:    []string{"frontend", "  ui"},
+			wantHovered: "frontend",
+			wantSearch:  "▽ workflow:front",
+		},
+		{
+			name:        "a qualifier and a pattern must both hold",
+			from:        "backend",
+			press:       slices.Concat([]string{"/", "tab"}, spellKeys("workflow:back db"), []string{"enter"}),
+			wantRows:    []string{"backend", "  db"},
+			wantHovered: "backend",
+			wantSearch:  "▽ workflow:back db",
+		},
+		{
+			name:        "an unknown qualifier is a problem on the line and takes nothing off",
+			from:        "backend",
+			press:       slices.Concat([]string{"/", "tab"}, spellKeys("colour:red"), []string{"enter"}),
+			wantRows:    filterableRows,
+			wantHovered: "backend",
+			wantSearch:  "▽ colour:red  colour: is not a qualifier her",
+		},
+		{
+			name:        "a role the agents never take is a problem on the line",
+			from:        "backend",
+			press:       slices.Concat([]string{"/", "tab"}, spellKeys("is:boss db"), []string{"enter"}),
+			wantRows:    filterableRows,
+			wantHovered: "backend",
+			wantSearch:  "▽ is:boss db  is:boss is not one of implemen",
+		},
+		{
 			name:        "opening the input again starts a search",
 			from:        "backend",
 			press:       []string{"/", "tab", "d", "b", "enter", "/"},
@@ -285,6 +322,54 @@ func TestFilterNarrow(t *testing.T) {
 			assert.Equal(t, tt.wantRows, readListRows(frame))
 			assert.Equal(t, tt.wantHovered, readHoveredRow(frame))
 			assert.Equal(t, tt.wantSearch, readSearch(frame))
+		})
+	}
+}
+
+// TestFilterSays covers the says: qualifier answered by a transcript search on the server.
+func TestFilterSays(t *testing.T) {
+	t.Run("a says: search the server refuses stays a problem while its text stands", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.refuse(agentv1connect.AgentServiceSearchTranscriptsProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no search")))
+
+		harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("says:x"))...)
+		harness.fireMatching(ui.IsSaysSettled)
+		harness.press(slices.Concat(spellKeys(" d"), []string{"enter"})...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, filterableRows, readListRows(frame))
+		assert.Equal(t, "backend", readHoveredRow(frame))
+		assert.Equal(t, "▽ says:x d  no search", readSearch(frame))
+	})
+
+	tests := []struct {
+		name        string
+		press       []string
+		wantHovered string
+	}{
+		{
+			name:        "a says: answer walks a cursor left where the search put it onto the match",
+			press:       slices.Concat([]string{"/"}, spellKeys("says:x"), []string{"enter"}),
+			wantHovered: "  db",
+		},
+		{
+			name:        "a says: answer leaves a cursor moved while it was asked",
+			press:       slices.Concat([]string{"/"}, spellKeys("says:x"), []string{"enter", "j"}),
+			wantHovered: "  auth",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openFilterable(t, "backend")
+			harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "db"}}}), nil
+			})
+
+			harness.press(tt.press...)
+			harness.fireMatching(ui.IsSaysSettled)
+
+			assert.Equal(t, tt.wantHovered, readHoveredRow(harness.readFrame()))
 		})
 	}
 }
@@ -334,7 +419,7 @@ func TestFilterScreens(t *testing.T) {
 
 			return names, hovered
 		}
-		harness.press("tab", "tab")
+		harness.press("tab")
 
 		harness.press("/", "l", "y", "enter")
 		names, hovered := readSchedules()
@@ -384,12 +469,12 @@ func TestFilterScreens(t *testing.T) {
 		},
 		{
 			name:  "the schedules say a filter left nothing rather than that there are none",
-			press: []string{"tab", "tab"},
+			press: []string{"tab"},
 			idle:  "no schedules yet",
 		},
 		{
 			name:  "the archived schedules say a filter left nothing rather than that none are archived",
-			press: []string{"tab", "tab", "F", "tab", "esc"},
+			press: []string{"tab", "F", "tab", "esc"},
 			idle:  "no archived schedules",
 		},
 		{

@@ -22,6 +22,7 @@ func TestParse(t *testing.T) {
 	tests := []struct {
 		name    string
 		text    string
+		strict  bool
 		want    searchsyntax.Query
 		wantErr string
 	}{
@@ -72,11 +73,26 @@ func TestParse(t *testing.T) {
 			text: `"repo:a"`,
 			want: searchsyntax.Query{Words: []string{`"repo:a"`}},
 		},
+		{
+			name:    "a key a strict grammar lacks",
+			text:    "fix state:idle",
+			strict:  true,
+			wantErr: "state: is not a qualifier here",
+		},
+		{
+			name:   "a strict grammar still takes quoted and keyless colons as words",
+			text:   `"state:idle" :8787`,
+			strict: true,
+			want:   searchsyntax.Query{Words: []string{`"state:idle"`, ":8787"}},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := searchsyntax.Parse(tt.text, grammar)
+			strictness := grammar
+			strictness.Strict = tt.strict
+
+			got, err := searchsyntax.Parse(tt.text, strictness)
 			if tt.wantErr != "" {
 				require.ErrorIs(t, err, searchsyntax.ErrBadQualifier)
 				assert.ErrorContains(t, err, tt.wantErr)

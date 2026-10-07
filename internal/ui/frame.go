@@ -12,7 +12,6 @@ func (m *model) dropFrames() {
 	m.schedules.drawn = nil
 	m.agents.archived.drawn = nil
 	m.schedules.archived.drawn = nil
-	m.search.drawn = nil
 }
 
 // buildFrame builds what the active screen draws from the state the update left.

@@ -31,10 +31,6 @@ func viewEntries() []viewEntry {
 			label:  "agents",
 		},
 		{
-			screen: screenSearch,
-			label:  "query",
-		},
-		{
 			screen: screenSchedules,
 			label:  "schedules",
 		},

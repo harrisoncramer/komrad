@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/internal/client"
 	"komrad/internal/rpcapi"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
@@ -60,7 +59,6 @@ type reads struct {
 
 // agentReads is the part of the agent service a screen reads through.
 type agentReads interface {
-	client.TranscriptGetter
 	SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error)
 	ListReviewThreads(ctx context.Context, req *connect.Request[agentv1.ListReviewThreadsRequest]) (*connect.Response[agentv1.ListReviewThreadsResponse], error)
 	OpenReviewRound(ctx context.Context, req *connect.Request[agentv1.OpenReviewRoundRequest]) (*connect.Response[agentv1.OpenReviewRoundResponse], error)

@@ -274,6 +274,13 @@ func IsPulse(msg tea.Msg) bool {
 	return ok
 }
 
+// IsSaysSettled reports whether msg is the tick a says: qualifier waits out the typing on.
+func IsSaysSettled(msg tea.Msg) bool {
+	_, ok := msg.(saysSettledMsg)
+
+	return ok
+}
+
 // IsLoaderTick reports whether msg is a loader tick.
 func IsLoaderTick(msg tea.Msg) bool {
 	_, ok := msg.(loaderTickMsg)
@@ -468,8 +475,6 @@ func (p *Panel) ReadLegendKeys() []string {
 		} else {
 			legend = p.model.listHelpOf(p.model.schedules.listParams(m))
 		}
-	case screenSearch:
-		legend = p.model.search.help(m)
 	case screenReview:
 		legend = p.model.review.help(m)
 	case screenWorktrees:

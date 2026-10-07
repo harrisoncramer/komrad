@@ -100,15 +100,15 @@ func TestHarnessFiresHeldTimers(t *testing.T) {
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot())
 
-	harness.press("tab", "/", "a", "p", "i")
+	harness.press(slices.Concat([]string{"/"}, spellKeys("says:api"))...)
 	harness.assertSent()
 
 	harness.fireTimers()
 	harness.assertSent(request{
 		procedure: agentv1connect.AgentServiceSearchTranscriptsProcedure,
 		msg: &agentv1.SearchTranscriptsRequest{
-			Query:      "api",
-			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](10)},
+			Query:      `"api"`,
+			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		},
 	})
 }
@@ -730,7 +730,7 @@ func readBelowViews(frame string) []string {
 	if len(lines) <= 4 || !strings.Contains(lines[0], "\U000F050C komrad") {
 		return lines
 	}
-	if strings.Contains(lines[3], "agents  query") {
+	if strings.Contains(lines[3], "agents  schedules") {
 		return lines[4:]
 	}
 

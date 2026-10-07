@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -264,4 +265,12 @@ func readNoticeBlock(harness *panelHarness) []string {
 	}
 
 	return block
+}
+
+func newUnreadMail(agentID string) *agentv1.Mail {
+	return &agentv1.Mail{
+		Id:        "m1",
+		ToAgentId: agentID,
+		ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+	}
 }

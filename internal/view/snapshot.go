@@ -14,7 +14,7 @@ const (
 	KindWorkflow
 	KindChild
 	KindResult
-	KindHit
+	kindHit
 	// KindTriageMore counts the agents in triage the zone has no room for.
 	KindTriageMore
 	// KindDivider is a rule across the list titled by its name.
