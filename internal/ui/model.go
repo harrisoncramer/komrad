@@ -351,7 +351,7 @@ type terminalState struct {
 	awaitingSince time.Time
 	// windowCols is how wide the window was when the divider was last read.
 	windowCols int
-	// renderedView is the frame View last rendered, empty once an update changes what it shows.
+	// renderedView is the frame View last rendered, emptied by every update unless the panel awaits its size.
 	renderedView string
 	// copying is whether a stand-in in copy-mode has the sidebar's place.
 	copying bool
