@@ -340,7 +340,7 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	}
 
 	if slices.Contains(m.keys.Menu.Open, key.String()) {
-		if menu, ok := m.menu(); ok && isBound(key.String(), m.keys.Menu.Open) {
+		if menu, ok := m.buildMenu(); ok && isBound(key.String(), m.keys.Menu.Open) {
 			return openSubmenu(m, menu), true
 		}
 	}

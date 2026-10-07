@@ -8,8 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// menu is the hovered row's band over the screen's, false when the screen offers neither.
-func (m *model) menu() (submenu, bool) {
+// buildMenu is the hovered row's band over the screen's, false when the screen offers neither.
+func (m *model) buildMenu() (submenu, bool) {
 	if m.isDetailsFocused() {
 		return submenu{}, false
 	}

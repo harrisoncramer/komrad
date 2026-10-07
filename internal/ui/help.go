@@ -227,7 +227,7 @@ func (m *model) globalHelp() []key.Binding {
 		keys = append(keys, m.viewsBinding())
 	}
 
-	if _, ok := m.menu(); ok {
+	if _, ok := m.buildMenu(); ok {
 		keys = append(keys, m.menuBinding())
 	}
 
