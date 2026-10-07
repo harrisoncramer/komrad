@@ -49,11 +49,13 @@ func stepStop(at, delta, count int) int {
 type stripKeys struct {
 	step  func(delta int) tea.Cmd
 	close func()
+	// pick applies the focused stop on enter, and is nil on a row where stepping already applies it.
+	pick func()
 	// other takes a key the row has a use of its own for, and is nil on a row with none.
 	other func(pressed string) tea.Cmd
 }
 
-// pressStrip applies a key pressed on a row of stops: tab steps along it, esc lets it go, and
+// pressStrip applies a key pressed on a row of stops: tab steps along it, enter or esc lets it go, and
 // the quit keys let it go and hide the panel.
 func (m *model) pressStrip(pressed string, strip stripKeys) tea.Cmd {
 	switch {
@@ -61,6 +63,11 @@ func (m *model) pressStrip(pressed string, strip stripKeys) tea.Cmd {
 		return strip.step(1)
 	case pressed == tabPrevKey:
 		return strip.step(-1)
+	case pressed == "enter":
+		if strip.pick != nil {
+			strip.pick()
+		}
+		strip.close()
 	case pressed == "esc":
 		strip.close()
 	case isBound(pressed, fixedKeys().Quit):
@@ -232,6 +239,11 @@ func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 
 			return nil
 		},
+		pick: func() {
+			if !state.onGroup {
+				strip.choose(state, state.direction)
+			}
+		},
 		close: state.leave,
 		other: func(pressed string) tea.Cmd {
 			switch {
@@ -264,7 +276,7 @@ func (m *model) tabsBinding() key.Binding {
 func (m *model) tabsHelp() keyMap {
 	column := stopsMoveBinding("move")
 	direction := binding(slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up), "sort down/up, flip")
-	back := binding([]string{"esc"}, "back to the list")
+	back := binding([]string{"enter", "esc"}, "back to the list")
 
 	return keyMap{
 		short: []key.Binding{column, direction, back, m.helpBinding()},
