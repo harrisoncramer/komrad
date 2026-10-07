@@ -52,8 +52,7 @@ func TestTabStrip(t *testing.T) {
 			harness.press(tt.press...)
 
 			sidebar := readSidebar(harness.readFrame())
-			strip := slices.IndexFunc(sidebar, func(line string) bool { return strings.HasPrefix(line, "f ") })
-			require.GreaterOrEqual(t, strip, 0)
+			strip := findSortStrip(t, harness)
 			require.Greater(t, len(sidebar), strip+3)
 			gap := strip + 1
 			if tt.kinds != "" {
@@ -82,8 +81,7 @@ func TestTabStrip(t *testing.T) {
 
 	t.Run("enter takes the hovered stop and gives the keys back", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
-		strip := slices.IndexFunc(readSidebar(harness.readFrame()), func(line string) bool { return strings.HasPrefix(line, "f ") })
-		require.GreaterOrEqual(t, strip, 0)
+		strip := findSortStrip(t, harness)
 
 		harness.press("f", "tab", "enter")
 		frame := harness.readFrame()
@@ -100,8 +98,7 @@ func TestTabStrip(t *testing.T) {
 
 	t.Run("enter on the group stop keeps the flip j made", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
-		strip := slices.IndexFunc(readSidebar(harness.readFrame()), func(line string) bool { return strings.HasPrefix(line, "f ") })
-		require.GreaterOrEqual(t, strip, 0)
+		strip := findSortStrip(t, harness)
 
 		harness.press("f", "shift+tab", "j", "enter")
 		frame := harness.readFrame()
@@ -179,6 +176,15 @@ func TestTabStrip(t *testing.T) {
 		harness.press("k")
 		assert.Contains(t, harness.readFrame(), "/trees/agent38", "the next press moves the list")
 	})
+}
+
+func findSortStrip(t *testing.T, harness *panelHarness) int {
+	t.Helper()
+
+	strip := slices.IndexFunc(readSidebar(harness.readFrame()), func(line string) bool { return strings.HasPrefix(line, "f ") })
+	require.GreaterOrEqual(t, strip, 0)
+
+	return strip
 }
 
 // TestTabStripGolden draws each tabbed sidebar whole, grouped and flat.
