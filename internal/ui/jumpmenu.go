@@ -23,7 +23,7 @@ func jumpMenu(m *model, from screen, agentID string) submenu {
 	worktree := openEntry("worktree", m.keys.JumpMenu.Worktree, func(m *model) tea.Cmd {
 		return m.enter(screenWorktrees, target)
 	})
-	worktree.isOff = !scopeAll.holdsAgent(m.listing.worktrees, agentID)
+	worktree.isOff = !scopeAll.listsAgent(m.listing.worktrees, agentID)
 
 	documents := openEntry("documents", m.keys.JumpMenu.Documents, func(m *model) tea.Cmd {
 		return m.enter(screenDocuments, target)

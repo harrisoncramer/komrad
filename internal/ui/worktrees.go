@@ -273,8 +273,8 @@ func (s worktreeScope) holds(item worktreeItem) bool {
 	return true
 }
 
-// holdsAgent reports whether the scope lists a directory the agent holds.
-func (s worktreeScope) holdsAgent(items []worktreeItem, id string) bool {
+// listsAgent reports whether the scope lists a directory the agent holds.
+func (s worktreeScope) listsAgent(items []worktreeItem, id string) bool {
 	return slices.ContainsFunc(items, func(item worktreeItem) bool { return s.holds(item) && item.holdsAgent(id) })
 }
 

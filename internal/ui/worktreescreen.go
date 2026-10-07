@@ -17,7 +17,7 @@ const entriesShown = 10
 // the listing on its way.
 func (w *worktreesScreen) enter(m *model, target screenTarget) tea.Cmd {
 	w.focus = target.agentID
-	if target.agentID != "" && !w.scope.holdsAgent(m.listing.worktrees, target.agentID) {
+	if target.agentID != "" && !w.scope.listsAgent(m.listing.worktrees, target.agentID) {
 		w.scope = scopeAll
 	}
 	w.apply(m, m.listing.worktrees, w.list().hovered(m))
