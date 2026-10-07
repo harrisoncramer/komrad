@@ -495,11 +495,11 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return r.loadWholeCmd(m)
 	}
 
-	renderedNothing := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
+	isEmpty := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
 
-	// A narrowed diff rendering nothing is an answer about the agent rather than a reason to leave,
+	// A narrowed diff with nothing in it is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if renderedNothing && !r.diff.spec.isWholeChange() {
+	if isEmpty && !r.diff.spec.isWholeChange() {
 		said := "nothing written " + r.diff.spec.label
 		if r.diff.spec.origin != nil {
 			said = "nothing to render where this comment was written"
@@ -512,7 +512,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	}
 
 	// Both render nothing, so both back out rather than leaving the reader in an empty viewer.
-	if renderedNothing {
+	if isEmpty {
 		return r.refuse(m, msg.err)
 	}
 

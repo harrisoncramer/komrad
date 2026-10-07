@@ -570,9 +570,9 @@ func TestRenderLivePanelShape(t *testing.T) {
 	requireGolden(t, "list-live-panel", render(list, paint.Panel, 0))
 }
 
-// TestRenderRendersTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
+// TestRenderShowsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
 // they come in, comparing runes rather than the columns they occupy.
-func TestRenderRendersTheSpecifiedGlyphSequence(t *testing.T) {
+func TestRenderShowsTheSpecifiedGlyphSequence(t *testing.T) {
 	want, err := readSpec()
 	require.NoError(t, err)
 	assert.Equal(t, want, strings.Split(renderCanonical(), "\n"))
@@ -621,9 +621,9 @@ func TestRenderBlankBarKeepsTheNameColumn(t *testing.T) {
 	}
 }
 
-// TestRenderRendersASearchMatchInTheMatchColour pins a filtered list still showing what it
+// TestRenderShowsASearchMatchInTheMatchColour pins a filtered list still showing what it
 // matched on, the rest of the name keeping its own lettering.
-func TestRenderRendersASearchMatchInTheMatchColour(t *testing.T) {
+func TestRenderShowsASearchMatchInTheMatchColour(t *testing.T) {
 	row := Row{
 		Key:     "one",
 		Kind:    KindAgent,

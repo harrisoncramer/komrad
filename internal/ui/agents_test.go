@@ -2102,15 +2102,15 @@ func TestAgentsOrchestrator(t *testing.T) {
 		})
 	}
 
-	t.Run("a running orchestrator whose harness renders late is staged once it renders", func(t *testing.T) {
-		frames := &renderReporter{}
+	t.Run("a running orchestrator whose harness shows late is staged once it shows", func(t *testing.T) {
+		frames := &harnessFrameFake{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
 		harness.fireTimers()
 		require.Empty(t, harness.panel.ReadGuestPane())
 
-		frames.isRendered = true
+		frames.isShowing = true
 		harness.fireTimers()
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())

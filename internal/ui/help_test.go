@@ -134,7 +134,7 @@ func TestHelpKeyDrift(t *testing.T) {
 			rendered := harness.panel.ReadLegendKeys()
 
 			for _, pressed := range pressable {
-				isExcused := slices.ContainsFunc(screen.excused, func(excused unrendered) bool {
+				isExcused := slices.ContainsFunc(screen.excused, func(excused excusedKey) bool {
 					return excused.key == pressed
 				})
 				if isExcused {
@@ -174,7 +174,7 @@ func openHelp(t *testing.T, params panelHarnessParams, press ...string) *panelHa
 	return harness
 }
 
-type unrendered struct {
+type excusedKey struct {
 	key    string
 	reason string
 }
@@ -183,15 +183,15 @@ type driftScreen struct {
 	name    string
 	screen  string
 	open    func(t *testing.T) *panelHarness
-	excused []unrendered
+	excused []excusedKey
 }
 
 func buildDriftScreens() []driftScreen {
-	quit := unrendered{
+	quit := excusedKey{
 		key:    "ctrl+c",
 		reason: "quit is not worth a row on any screen",
 	}
-	nearest := unrendered{
+	nearest := excusedKey{
 		key:    "V",
 		reason: "select to nearest is named once the selection it needs is standing",
 	}
@@ -202,7 +202,7 @@ func buildDriftScreens() []driftScreen {
 			name:   "agents",
 			screen: agentsScreen,
 			open:   openDriftAgents,
-			excused: []unrendered{
+			excused: []excusedKey{
 				quit,
 				{
 					key:    "esc",
@@ -222,7 +222,7 @@ func buildDriftScreens() []driftScreen {
 
 				return harness
 			},
-			excused: []unrendered{quit},
+			excused: []excusedKey{quit},
 		},
 		{
 			name:   "archived schedules",
@@ -232,7 +232,7 @@ func buildDriftScreens() []driftScreen {
 
 				return openArchivedSchedules(t, newLiveWorkflow("w1", "backend"), newArchivedSchedule("s1", "monthly-gone"))
 			},
-			excused: []unrendered{quit},
+			excused: []excusedKey{quit},
 		},
 		{
 			name:   "archived agents",
@@ -245,7 +245,7 @@ func buildDriftScreens() []driftScreen {
 
 				return harness
 			},
-			excused: []unrendered{
+			excused: []excusedKey{
 				quit,
 				nearest,
 			},
@@ -258,7 +258,7 @@ func buildDriftScreens() []driftScreen {
 
 				return openReview(t, newReviewServer(t))
 			},
-			excused: []unrendered{
+			excused: []excusedKey{
 				quit,
 				{
 					key:    "ctrl+n",
@@ -278,7 +278,7 @@ func buildDriftScreens() []driftScreen {
 
 				return openWorktrees(t)
 			},
-			excused: []unrendered{
+			excused: []excusedKey{
 				quit,
 				nearest,
 			},
@@ -293,7 +293,7 @@ func buildDriftScreens() []driftScreen {
 
 				return harness
 			},
-			excused: []unrendered{quit},
+			excused: []excusedKey{quit},
 		},
 	}
 }

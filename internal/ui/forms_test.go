@@ -374,7 +374,7 @@ func TestFormsInFlight(t *testing.T) {
 	})
 
 	t.Run("the form keeps saying so while the pane the create made warms up", func(t *testing.T) {
-		frames := &renderReporter{}
+		frames := &harnessFrameFake{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
@@ -390,7 +390,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.watch(buildPuts(newCreatedAgent()))
 		assert.Contains(t, harness.readFrame(), "check CI", "the row alone does not close it")
 
-		frames.isRendered = true
+		frames.isShowing = true
 		harness.fireTimers()
 
 		frame = harness.readFrame()

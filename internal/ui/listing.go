@@ -64,7 +64,7 @@ func (m *model) unreachableHint() string {
 	return "Start it with: komrad serve"
 }
 
-// withListing changes the listing the screens render from and puts each cursor back where it was.
+// withListing changes the listing the screens read from and puts each cursor back where it was.
 func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()

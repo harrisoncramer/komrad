@@ -8,10 +8,10 @@ type frameBuilder interface {
 // dropFrames forgets what the screens built for the last frame, so an update reads the state it changes.
 func (m *model) dropFrames() {
 	m.agents.rendered = nil
-	m.worktrees.rendered = nil
-	m.schedules.rendered = nil
-	m.agents.archived.rendered = nil
-	m.schedules.archived.rendered = nil
+	m.worktrees.frameRows = nil
+	m.schedules.frameRows = nil
+	m.agents.archived.frameRows = nil
+	m.schedules.archived.frameRows = nil
 }
 
 // buildFrame builds what the active screen renders from the state the update left.

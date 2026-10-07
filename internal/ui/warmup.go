@@ -46,7 +46,7 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 
 	// The foreground program starts most of a second before the harness paints, so what settles
 	// the wait is a frame the harness reads as its own.
-	if m.hasHarnessRendered(pane, harnessID) {
+	if m.isShowingHarness(pane, harnessID) {
 		m.warm.markWarm(pane)
 
 		return true
@@ -68,9 +68,9 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 	return true
 }
 
-// hasHarnessRendered reports whether a pane is showing the harness that was typed into it rather
+// isShowingHarness reports whether a pane is showing the harness that was typed into it rather
 // than the shell it was typed at.
-func (m *model) hasHarnessRendered(pane, harnessID string) bool {
+func (m *model) isShowingHarness(pane, harnessID string) bool {
 	if !m.tmux.IsPaneRunningCLI(pane) {
 		return false
 	}

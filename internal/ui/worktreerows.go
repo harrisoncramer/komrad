@@ -155,15 +155,15 @@ func sortWorktreeItems(items []worktreeItem, order sortOrder) {
 
 // rows is the list as the frame renders it, built once per frame and read from that build after.
 func (w *worktreesScreen) rows(m *model) []worktreeRow {
-	if w.rendered != nil {
-		return w.rendered
+	if w.frameRows != nil {
+		return w.frameRows
 	}
 
 	return w.buildRows(m)
 }
 
 func (w *worktreesScreen) buildFrame(m *model) {
-	w.rendered = w.buildRows(m)
+	w.frameRows = w.buildRows(m)
 }
 
 func (w *worktreesScreen) buildRows(m *model) []worktreeRow {

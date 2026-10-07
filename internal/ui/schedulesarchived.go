@@ -20,8 +20,8 @@ const (
 // archivedSchedules is the schedules view on its archived kind: the cursor in the archived schedules.
 type archivedSchedules struct {
 	rowCursor
-	// rendered is the rows built for the frame once an update settles, and nil while one runs.
-	rendered []scheduleItem
+	// frameRows is the rows built for the frame once an update settles, and nil while one runs.
+	frameRows []scheduleItem
 }
 
 func (w *schedulesScreen) kinds(*model) stops {
@@ -112,15 +112,15 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 // listRows is the archived schedules as rendered, or as they would be rendered when nothing has
 // cached them.
 func (a *archivedSchedules) listRows(m *model) []scheduleItem {
-	if a.rendered != nil {
-		return a.rendered
+	if a.frameRows != nil {
+		return a.frameRows
 	}
 
 	return a.buildRows(m)
 }
 
 func (a *archivedSchedules) buildFrame(m *model) {
-	a.rendered = a.buildRows(m)
+	a.frameRows = a.buildRows(m)
 }
 
 func (a *archivedSchedules) buildRows(m *model) []scheduleItem {

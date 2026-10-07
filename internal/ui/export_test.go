@@ -106,7 +106,7 @@ type recordingClipboard struct {
 	err     error
 }
 
-// HarnessFrameReader answers whether a pane is rendering its harness yet.
+// HarnessFrameReader answers whether a pane is showing its harness yet.
 type HarnessFrameReader = harnessFrameReader
 
 // NewPanelParams is what a panel under test is built over.

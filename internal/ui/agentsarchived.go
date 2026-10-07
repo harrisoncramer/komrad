@@ -27,8 +27,8 @@ const (
 type archivedAgents struct {
 	rowCursor
 	sort tabsState
-	// rendered is the rows built for the frame once an update settles, and nil while one runs.
-	rendered []agentRow
+	// frameRows is the rows built for the frame once an update settles, and nil while one runs.
+	frameRows []agentRow
 	renameSlot
 }
 
@@ -174,15 +174,15 @@ var archivedAgentSorts = []sortColumn[panel.AgentRow]{
 
 // listRows is the list as rendered, or as it would be rendered when nothing has cached it.
 func (a *archivedAgents) listRows(m *model) []agentRow {
-	if a.rendered != nil {
-		return a.rendered
+	if a.frameRows != nil {
+		return a.frameRows
 	}
 
 	return a.buildRows(m)
 }
 
 func (a *archivedAgents) buildFrame(m *model) {
-	a.rendered = a.buildRows(m)
+	a.frameRows = a.buildRows(m)
 }
 
 func (a *archivedAgents) buildRows(m *model) []agentRow {
@@ -212,7 +212,7 @@ func archivedAgentHeaders(l listing) []panel.Workflow {
 		}
 	}
 
-	// The merge renders from two listings, so the result is sorted again the way the query sorts.
+	// The merge takes from two listings, so the result is sorted again the way the query sorts.
 	slices.SortStableFunc(headers, panel.ByName)
 
 	return headers

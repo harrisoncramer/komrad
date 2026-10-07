@@ -272,8 +272,8 @@ type worktreesScreen struct {
 	scope      worktreeScope
 	scopeFocus bool
 	sort       tabsState
-	// rendered is the rows built for the frame once an update settles, and nil while one runs.
-	rendered []worktreeRow
+	// frameRows is the rows built for the frame once an update settles, and nil while one runs.
+	frameRows []worktreeRow
 }
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the

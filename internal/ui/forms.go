@@ -118,8 +118,8 @@ func (m *model) openForm(f formState) tea.Cmd {
 	return tea.Batch(m.form.form.Init(), formResized())
 }
 
-// rerenderedFormParams is what a rerendered form is opened from.
-type rerenderedFormParams struct {
+// rebuildableFormParams is what a rebuildable form is opened from.
+type rebuildableFormParams struct {
 	Kind     formKind
 	Build    func(*model) (*huh.Form, []string)
 	Reshaped func() bool
@@ -127,8 +127,8 @@ type rerenderedFormParams struct {
 	Submit   func(*model) tea.Cmd
 }
 
-// rerenderedForm is a form the panel can render again from one builder.
-func rerenderedForm(params rerenderedFormParams) formState {
+// rebuildableForm is a form the panel rebuilds from one builder.
+func rebuildableForm(params rebuildableFormParams) formState {
 	return formState{
 		kind:           params.Kind,
 		keepsOnRefusal: true,
