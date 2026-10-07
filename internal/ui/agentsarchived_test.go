@@ -926,6 +926,84 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	})
 }
 
+// TestArchivedAgentsKinds covers the row of kinds switching the agents view between its live and archived agents.
+func TestArchivedAgentsKinds(t *testing.T) {
+	rows := []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newAgent("a9", "auth-live", "w1"),
+		newArchivedAgent("a1", "api-refactor", "w1"),
+	}
+
+	tests := []struct {
+		name       string
+		press      []string
+		want       string
+		wantAbsent string
+	}{
+		{
+			name:       "tab on the row of kinds switches to the archived agents",
+			press:      []string{"F", "tab", "esc"},
+			want:       "api-refactor",
+			wantAbsent: "auth-live",
+		},
+		{
+			name:       "the row of kinds again goes back to the live agents",
+			press:      []string{"F", "tab", "tab", "esc"},
+			want:       "auth-live",
+			wantAbsent: "api-refactor",
+		},
+		{
+			name:       "shift-tab on the row of kinds wraps to the archived agents",
+			press:      []string{"F", "shift+tab", "esc"},
+			want:       "api-refactor",
+			wantAbsent: "auth-live",
+		},
+		{
+			name:       "tab on the list leaves the kind alone",
+			press:      []string{"F", "tab", "esc", "tab", "shift+tab"},
+			want:       "api-refactor",
+			wantAbsent: "auth-live",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, rows...)
+
+			harness.press(tt.press...)
+			harness.press(widenListPresses...)
+
+			frame := ansi.Strip(harness.readFrame())
+			assert.Equal(t, agentsScreen, harness.readScreen())
+			assert.Contains(t, frame, tt.want)
+			assert.NotContains(t, frame, tt.wantAbsent)
+		})
+	}
+
+	t.Run("the row of kinds refuses the keys while agents are selected", func(t *testing.T) {
+		harness := openAgents(t, rows...)
+
+		harness.press(append(widenListPresses, "j", "v", "F", "?")...)
+		frame := harness.readFrame()
+		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
+		assert.NotContains(t, readLegend(frame), "F kind")
+	})
+
+	t.Run("the row of kinds holds the keys until escape", func(t *testing.T) {
+		harness := openAgents(t, rows...)
+
+		harness.press(append(widenListPresses, "F")...)
+		frame := harness.readFrame()
+		legend := readLegend(frame)
+		assert.Contains(t, legend, "tab/S-tab switch")
+		assert.Contains(t, legend, "esc back to the list")
+		assert.Empty(t, readHoveredRow(frame), "the row's arrow stands down")
+
+		harness.press("esc")
+		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
+	})
+}
+
 // TestArchivedAgentsLastScreen covers the saved screen drawn under an archived agent.
 func TestArchivedAgentsLastScreen(t *testing.T) {
 	t.Run("the saved screen is asked for once the cursor rests and drawn under the document", func(t *testing.T) {
