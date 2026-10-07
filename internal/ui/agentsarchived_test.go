@@ -603,18 +603,6 @@ func TestArchivedAgentsDocument(t *testing.T) {
 				MergedAt:          xptr.Ptr(archivedAt),
 				ClosedAt:          xptr.Ptr(archivedAt),
 			},
-			&agentv1.WatchedReview{
-				Id:           "v1",
-				AgentId:      "a1",
-				RoundId:      "a1-round-1",
-				RoundOrdinal: 1,
-				ReleasedAt:   archivedAt,
-			},
-			&agentv1.ReviewThread{
-				Id:       "t1",
-				AgentId:  "a1",
-				ReviewId: "v1",
-			},
 		)
 
 		harness.press(append([]string{"j", "pick:record"}, widenListPresses...)...)
