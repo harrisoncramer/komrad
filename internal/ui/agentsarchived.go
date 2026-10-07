@@ -469,7 +469,7 @@ func (a *archivedAgents) column() columnSpec {
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m *model, width int) []string {
-			return m.withLastScreen(m.agents.archived.docRows(m, width), width)
+			return m.withLastScreen(a.docRows(m, width), width)
 		},
 	}
 }
