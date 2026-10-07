@@ -11,11 +11,11 @@ import { media } from "../../site";
 
 Often, you'll want an agent to write down something that you can review outside of the codebase. For instance, you may want an implementer to write an RFC first, so that you can review it and fix it's approach.
 
-Komrad suppports this natively. Komrad's _documents_ are markdown files that belong to an agent. Each is kept in komrad's database as one of the types you define, and komrad ships with RFC. A type's context tells agents how to write it, and you add or edit types from the panel's band of the [menu](../navigation/#the-agent-menu) with <Key name="menu.document_types" />. Komrad versions these documents, so you can step through their history.
+Komrad suppports this natively. Komrad's _documents_ are markdown files that belong to an agent. Each is kept in komrad's database as one of the types you define, and komrad ships with RFC. A type's context tells agents how to write it, and you add or edit types from the documents view, where the [menu](../navigation/#the-agent-menu) over a type defines a new one with <Key name="document_types_menu.new" /> and edits it with <Key name="document_types_menu.edit" />. Komrad versions these documents, so you can step through their history.
 
 ## Agent-authored documents
 
-Agents write documents with komrad's tools, so you ask for one in the prompt. Say what to write, what to name it, and that it should not change any code yet. Once it has written one, open the agent's [menu](../navigation/#the-agent-menu) with <Key name="menu.open" />, pick documents with <Key name="menu.documents" />, and view them with <Key name="documents_menu.view" /> to read them beside the list.
+Agents write documents with komrad's tools, so you ask for one in the prompt. Say what to write, what to name it, and that it should not change any code yet. Once it has written one, open the agent's [menu](../navigation/#the-agent-menu) with <Key name="menu.open" />, pick documents with <Key name="menu.documents" />, and read each one beside the list.
 
 <figure>
   <video
@@ -59,7 +59,7 @@ Open the menu on a document with <Key name="menu.open" /> and pick edit with <Ke
 
 Komrad mails the agent to say you changed its document, and the agent can see exactly what you changed.
 
-You can also start a document yourself from the same menu with <Key name="documents_menu.new" />, such as a plan you wrote or notes the agent should keep in mind. Komrad tells the agent it exists.
+You can also start a document yourself from the same menu with <Key name="document_menu.new" />, such as a plan you wrote or notes the agent should keep in mind. Komrad tells the agent it exists.
 
 ## Stepping through versions
 
