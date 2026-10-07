@@ -6,7 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// actions is the archive screen as one table and the legend that names it.
+// actions is the archived schedules as one table and the legend that names it.
 func (a *archivedSchedules) actions() screenActionSpec {
 	return screenActionSpec{
 		table:  a.table(),
