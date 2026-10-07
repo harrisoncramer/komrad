@@ -36,11 +36,15 @@ type saidTranscriptMsg struct {
 
 // saidAgentID is the hovered agent the server found saying the text of a says: qualifier.
 func (m *model) saidAgentID() (string, bool) {
-	if _, ok := m.active().(*agentsScreen); !ok {
+	var agentID string
+	switch screen := m.active().(type) {
+	case *agentsScreen:
+		agentID = screen.hoveredAgentID(m)
+	case *archivedAgents:
+		agentID, _ = screen.screenedAgentID(m)
+	default:
 		return "", false
 	}
-
-	agentID := m.agents.hoveredAgentID(m)
 
 	return agentID, agentID != "" && m.filter.hasSaid(agentID)
 }

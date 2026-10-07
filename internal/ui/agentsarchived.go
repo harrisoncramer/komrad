@@ -470,6 +470,12 @@ func (a *archivedAgents) column() columnSpec {
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m *model, width int) []string {
+			if agentID, ok := a.screenedAgentID(m); ok {
+				if rows := m.saidColumnRows(agentID, width); rows != nil {
+					return rows
+				}
+			}
+
 			return m.withLastScreen(a.docRows(m, width), width)
 		},
 	}
