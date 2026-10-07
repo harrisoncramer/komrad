@@ -141,6 +141,7 @@ func (a *archivedAgents) list() screenList[agentRow] {
 		cursor: func() *rowCursor { return &a.rowCursor },
 		rows:   a.listRows,
 		name:   agentRowName,
+		fits:   (*model).agentRowFits,
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
@@ -193,7 +194,7 @@ func (a *archivedAgents) buildRows(m *model) []agentRow {
 		flat:       a.sort.flat,
 	})
 
-	return narrowedAgentRows(m.filter, rows)
+	return narrowedAgentRows(m, rows)
 }
 
 // archivedAgentHeaders is every workflow the archived agents draw a folder for: the archived ones, and the

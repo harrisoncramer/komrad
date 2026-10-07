@@ -1112,8 +1112,6 @@ ranked AS (
         CASE @sort::text
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
-        WHEN 'old' THEN
-            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         ELSE
             CASE WHEN q.wanted = '' THEN
                 0
@@ -1147,8 +1145,6 @@ ranked AS (
         AND (CARDINALITY(@kinds::text[]) = 0
             OR a.role::text = ANY (@kinds::text[]))
         AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
-        AND (sqlc.narg('archived')::boolean IS NULL
-            OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
         AND (sqlc.narg('since')::timestamptz IS NULL
             OR c.spoken_at >= sqlc.narg('since'))
         AND (sqlc.narg('until')::timestamptz IS NULL
@@ -1206,8 +1202,6 @@ ranked AS (
         CASE @sort::text
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
-        WHEN 'old' THEN
-            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         ELSE
             WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content)
         END AS sort_key
@@ -1240,8 +1234,6 @@ ranked AS (
             AND (CARDINALITY(@kinds::text[]) = 0
                 OR a.role::text = ANY (@kinds::text[]))
             AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
-            AND (sqlc.narg('archived')::boolean IS NULL
-                OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
             AND (sqlc.narg('since')::timestamptz IS NULL
                 OR c.spoken_at >= sqlc.narg('since'))
             AND (sqlc.narg('until')::timestamptz IS NULL

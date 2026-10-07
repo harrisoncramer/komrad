@@ -54,7 +54,7 @@ func TestLoaderStopsTicking(t *testing.T) {
 			name: "leaving the agents list stops it",
 			open: openAgentsWithPullRequest(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING),
 			leave: func(harness *panelHarness) {
-				harness.press("tab", "tab")
+				harness.press("tab")
 			},
 		},
 		{

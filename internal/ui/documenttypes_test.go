@@ -211,7 +211,7 @@ func openDocumentTypes(t *testing.T) *panelHarness {
 
 // pressToDocumentTypes switches from the agents list to the types kind of the documents view.
 func pressToDocumentTypes(harness *panelHarness) {
-	harness.press("tab", "tab", "tab", "F", "tab", "esc")
+	harness.press("tab", "tab", "F", "tab", "esc")
 }
 
 func newDocumentType(id, name string) *agentv1.DocumentType {

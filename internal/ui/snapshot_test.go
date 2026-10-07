@@ -715,10 +715,11 @@ func TestSnapshotListing(t *testing.T) {
 // where the matches are rather than any colour for them.
 func TestSnapshotSearchMatches(t *testing.T) {
 	tests := []struct {
-		name string
-		expr string
-		row  agentRow
-		want []view.Span
+		name   string
+		expr   string
+		picked map[string]bool
+		row    agentRow
+		want   []view.Span
 	}{
 		{
 			name: "a search matching nothing in the name leaves it unmarked",
@@ -738,13 +739,34 @@ func TestSnapshotSearchMatches(t *testing.T) {
 			row:  agentRow{header: true, workflow: panel.Workflow{ID: "w1", Name: "komrad"}},
 			want: []view.Span{{Start: 1, End: 6}},
 		},
+		{
+			name:   "a row only qualifiers picked is lit whole",
+			picked: map[string]bool{"agent:a1": true},
+			row:    agentRow{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "view-gather"}}},
+			want:   []view.Span{{Start: 0, End: 11}},
+		},
+		{
+			name:   "a row the qualifiers passed over is unmarked though the name matches",
+			expr:   "view",
+			picked: map[string]bool{"agent:a2": true},
+			row:    agentRow{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "view-gather"}}},
+			want:   nil,
+		},
+		{
+			name:   "a picked row lights only what the name search matched",
+			expr:   "gather",
+			picked: map[string]bool{"agent:a1": true},
+			row:    agentRow{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "view-gather"}}},
+			want:   []view.Span{{Start: 5, End: 11}},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			row := snapshotRowOf(t, snapshotParams{
 				rows:    []agentRow{tt.row},
-				matcher: regexp.MustCompile(tt.expr),
+				matcher: compileOrNil(tt.expr),
+				picked:  tt.picked,
 			})
 
 			assert.Equal(t, tt.want, row.Matches)
@@ -907,4 +929,12 @@ func snapshotRowOf(t *testing.T, params snapshotParams) view.Row {
 	require.Len(t, snapshot.Rows, 1)
 
 	return snapshot.Rows[0]
+}
+
+func compileOrNil(expr string) *regexp.Regexp {
+	if expr == "" {
+		return nil
+	}
+
+	return regexp.MustCompile(expr)
 }

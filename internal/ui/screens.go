@@ -11,7 +11,6 @@ type screen int
 const (
 	screenAgents screen = iota
 	screenSchedules
-	screenSearch
 	screenReview
 	screenWorktrees
 	screenDocuments
@@ -25,7 +24,7 @@ func (s screen) opensTerminal() bool {
 	switch s {
 	case screenAgents, screenSchedules:
 		return true
-	case screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs:
+	case screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs:
 		return false
 	}
 
@@ -103,6 +102,7 @@ type listFilterer interface {
 type filterRow struct {
 	key  string
 	name string
+	fits clauseFits
 }
 
 // kindSwitcher is a screen that lists more than one kind of resource and switches between them
@@ -253,8 +253,6 @@ func (m *model) screenOf(s screen) screenModel {
 		}
 
 		return &m.schedules
-	case screenSearch:
-		return &m.search
 	case screenReview:
 		return &m.review
 	case screenWorktrees:

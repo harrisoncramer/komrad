@@ -28,6 +28,8 @@ type snapshotParams struct {
 	loaderFrame string
 	// matcher is the search a person is filtering the list by, nil when they are not.
 	matcher *regexp.Regexp
+	// picked are the keys of the rows the search's qualifiers pick, nil when it names none.
+	picked map[string]bool
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
 	scheduled map[string]bool
 	// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
@@ -71,7 +73,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	if r.header {
 		row.Kind = view.KindWorkflow
 		row.Name = r.workflow.Name
-		row.Matches = matchesIn(params.matcher, r.workflow.Name)
+		row.Matches = params.matchesOf(r, r.workflow.Name)
 		row.Scheduled = params.scheduled[r.workflow.ID]
 		row.Archived = r.workflow.ArchivedAt != nil
 		row.UnreadMail = r.orchestrator != nil && r.orchestrator.UnreadMail
@@ -95,7 +97,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row = agentFacts(row, item)
 	row.Kind = snapshotKind(r, params.flat)
 	row.Name = item.Agent.Name
-	row.Matches = matchesIn(params.matcher, item.Agent.Name)
+	row.Matches = params.matchesOf(r, item.Agent.Name)
 	row.Repo = snapshotRepo(item.Agent)
 	row.InWorkflowDir = isInWorkflowDir(item.Agent, params.workflowDirs)
 	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
@@ -281,4 +283,20 @@ func snapshotForge(item panel.AgentRow) view.Forge {
 	}
 
 	return view.ForgeUnread
+}
+
+// matchesOf is the stretches of a row's name the search lights, the whole of it when only qualifiers
+// picked the row.
+func (p snapshotParams) matchesOf(r agentRow, name string) []view.Span {
+	if p.picked == nil {
+		return matchesIn(p.matcher, name)
+	}
+	if !p.picked[rowKey(r)] {
+		return nil
+	}
+	if p.matcher == nil {
+		return []view.Span{{Start: 0, End: len(name)}}
+	}
+
+	return matchesIn(p.matcher, name)
 }

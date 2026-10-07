@@ -74,7 +74,6 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	archivedAgentRow := m.agents.archived.list().hovered(m)
 	archivedScheduleRow := m.schedules.archived.list().hovered(m)
 	worktreeRow := m.worktrees.list().hovered(m)
-	searchRow := m.search.list().hovered(m)
 
 	before := slices.Clone(m.listing.workflows)
 	beforeTypes := m.listing.documentTypeNames()
@@ -91,8 +90,6 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
 	m.sizeAgentWindows()
 
-	preview := m.search.place(m, searchRow)
-
 	// A form draws its options from the listing it was built over, so it is drawn again when
 	// that listing moves under it.
 	var redrawn tea.Cmd
@@ -100,7 +97,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 		redrawn = m.redrawOpenForm()
 	}
 
-	return tea.Batch(preview, redrawn, m.finishParked(), m.afterListing())
+	return tea.Batch(redrawn, m.finishParked(), m.afterListing())
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.

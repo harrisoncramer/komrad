@@ -51,6 +51,7 @@ func (a *agentsScreen) list() screenList[agentRow] {
 		cursor: func() *rowCursor { return &a.rowCursor },
 		rows:   a.rows,
 		name:   agentRowName,
+		fits:   (*model).agentRowFits,
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,

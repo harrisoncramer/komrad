@@ -28,11 +28,6 @@ func (d docWindow) shape() reader.Window {
 	}
 }
 
-// clamp keeps the window inside the document.
-func (d docWindow) clamp(top, rows int) int {
-	return d.shape().Clamp(top, rows)
-}
-
 // view is the screenful of the document from the row the reader has scrolled to, padded out
 // rather than left short so a document smaller than the window keeps its half instead of the
 // list sliding under.

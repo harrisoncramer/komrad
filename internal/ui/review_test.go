@@ -1629,7 +1629,7 @@ func TestReviewLayout(t *testing.T) {
 
 		frame := harness.readFrame()
 		require.Contains(t, splitLines(frame)[0], "komrad")
-		assert.NotContains(t, frame, "agents  query  schedules")
+		assert.NotContains(t, frame, "agents  schedules")
 	})
 
 	t.Run("the logo gives way before the legend does and the engine row stays", func(t *testing.T) {

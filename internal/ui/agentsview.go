@@ -129,6 +129,7 @@ func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 		blinkedOut:   pane.blinkedOut,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
+		picked:       m.pickedAgentRows(layout.cursorRows()),
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
 		flat:         a.sort.flat,

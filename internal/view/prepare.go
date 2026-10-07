@@ -312,7 +312,7 @@ func weightFor(kind RowKind) weight {
 		return weightItalic
 	case KindResult:
 		return weightRegular
-	case KindHit:
+	case kindHit:
 		return weightRegular
 	case KindTriageMore, KindDivider:
 		return weightRegular

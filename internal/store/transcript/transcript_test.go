@@ -748,7 +748,7 @@ func TestCursorValidate(t *testing.T) {
 		{
 			name: "a position in each",
 			cursor: Cursor{
-				Sort:    SortNewest,
+				Sort:    sortNewest,
 				Matches: &valid,
 				Near:    &valid,
 			},
@@ -1465,16 +1465,6 @@ func TestSearchFilter(t *testing.T) {
 			want:   []string{"alpha:0", "alpha:1", "delta:0", "delta:1"},
 		},
 		{
-			name:   "archived agents",
-			filter: Filter{Archived: xptr.Ptr(true)},
-			want:   []string{"beta:0"},
-		},
-		{
-			name:   "live agents",
-			filter: Filter{Archived: xptr.Ptr(false)},
-			want:   []string{"alpha:0", "alpha:1", "gamma:0", "delta:0", "delta:1"},
-		},
-		{
 			name:   "said since a time, leaving out turns with no time",
 			filter: Filter{Since: &dayAfter},
 			want:   []string{"beta:0", "gamma:0"},
@@ -1510,63 +1500,39 @@ func TestSearchFilter(t *testing.T) {
 	}
 }
 
-// TestSearchSort covers the order each sort walks the hits in, page by page, with turns that
-// have no time last.
-func TestSearchSort(t *testing.T) {
+// TestSearchBrowsesNewestFirst covers a query with no words walking its turns newest first, page
+// by page, with turns that have no time last.
+func TestSearchBrowsesNewestFirst(t *testing.T) {
 	st := seedNarrowed(t)
+	every := Filter{Kinds: []string{"implementer", "reviewer", "orchestrator"}}
 
 	tests := []struct {
 		name  string
-		query string
-		sort  Sort
 		limit int64
 		want  []string
 	}{
 		{
-			name: "newest first",
-			sort: SortNewest,
-			want: []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
-		},
-		{
-			name: "oldest first",
-			sort: sortOldest,
-			want: []string{"alpha:0", "alpha:1", "beta:0", "gamma:0", "delta:0", "delta:1"},
-		},
-		{
-			name:  "a page ending inside the turns with no time carries on without repeating one",
-			sort:  SortNewest,
-			limit: 5,
+			name:  "newest first",
+			limit: 2,
 			want:  []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
 		},
 		{
-			name:  "the near section in time order",
-			query: "reconcil",
-			sort:  SortNewest,
+			name:  "a page ending inside the turns with no time carries on without repeating one",
+			limit: 5,
 			want:  []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			query := tt.query
-			if query == "" {
-				query = "reconciler"
-			}
-
-			limit := tt.limit
-			if limit == 0 {
-				limit = 2
-			}
-
 			var (
 				names  []string
 				cursor *Cursor
 			)
 			for range 10 {
 				page, err := st.Search(t.Context(), SearchParams{
-					Query:  query,
-					Limit:  limit,
-					Sort:   tt.sort,
+					Limit:  tt.limit,
+					Filter: every,
 					Cursor: cursor,
 				})
 				require.NoError(t, err)
@@ -1638,9 +1604,8 @@ func TestSearchRefusesACursorFromAnotherSort(t *testing.T) {
 	st := seedNarrowed(t)
 
 	first, err := st.Search(t.Context(), SearchParams{
-		Query: "reconciler",
-		Limit: 1,
-		Sort:  SortNewest,
+		Limit:  1,
+		Filter: Filter{AgentName: xptr.Ptr("alpha")},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, first.Next)

@@ -3569,7 +3569,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\x8cx\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\x82x\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3594,8 +3594,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
 	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00B\x01\x03\x12\xe3\x01\n" +
 	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\x9b\x01\x9a\xb5\x18\x93\x01\b\x01\x10\x01\x1a\rdelete_agents\"yRemove agents for good, with their records, transcripts and worktrees. Prefer archive_agents, and delete only when asked.(\x01B\x01\x03\x90\x02\x02\x12{\n" +
-	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"6\x9a\xb5\x18/\b\x01\x10\x01\x1a\frename_agent\"\x16Rename an agent by id.(\x00B\x01\x03\x90\x02\x02\x12\xae\x03\n" +
-	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xcf\x02\x9a\xb5\x18\xc7\x02\b\x01\x10\x01\x1a\x12search_transcripts\"\xa7\x02Search agent conversations by full text, archived ones included. Quote phrases, prefix - to exclude, and narrow with qualifiers such as from:me, agent:NAME, workflow:NAME, is:reviewer, is:live, since:2d and sort:new. Your own conversation is searched unless agent_id or a qualifier names others.B\x03\x01\x02\x03\x90\x02\x01\x12\xdc\x01\n" +
+	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"6\x9a\xb5\x18/\b\x01\x10\x01\x1a\frename_agent\"\x16Rename an agent by id.(\x00B\x01\x03\x90\x02\x02\x12\xa4\x03\n" +
+	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xc5\x02\x9a\xb5\x18\xbd\x02\b\x01\x10\x01\x1a\x12search_transcripts\"\x9d\x02Search agent conversations by full text, archived ones included. Quote phrases, prefix - to exclude, and narrow with qualifiers such as from:me, agent:NAME, workflow:NAME, is:reviewer, since:2d and on:DATE. Your own conversation is searched unless agent_id or a qualifier names others.B\x03\x01\x02\x03\x90\x02\x01\x12\xdc\x01\n" +
 	"\rGetTranscript\x12\x1e.agent.v1.GetTranscriptRequest\x1a\x1f.agent.v1.GetTranscriptResponse\"\x89\x01\x9a\xb5\x18\x81\x01\b\x01\x10\x01\x1a\x0eget_transcript\"fRead an agent's whole conversation, one window at a time, passing the returned cursor back to read on.B\x03\x01\x02\x03\x90\x02\x01\x12\x85\x02\n" +
 	"\fGetLastTurns\x12\x1d.agent.v1.GetLastTurnsRequest\x1a\x1e.agent.v1.GetLastTurnsResponse\"\xb5\x01\x9a\xb5\x18\xad\x01\b\x01\x10\x01\x1a\x0eget_last_turns\"\x91\x01Read the newest turns of an agent's conversation, the quickest way to learn what it concluded. A long turn is cut from its head to fit max_bytes.B\x03\x01\x02\x03\x90\x02\x01\x12\xf4\x01\n" +
 	"\rGetLastScreen\x12\x1e.agent.v1.GetLastScreenRequest\x1a\x1f.agent.v1.GetLastScreenResponse\"\xa1\x01\x9a\xb5\x18\x99\x01:\x96\x01The saved screen is drawn for a person looking at an agent whose pane is gone, and an agent reads the same conversation better through get_last_turns.\x90\x02\x01\x12\x90\x03\n" +

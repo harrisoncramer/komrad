@@ -12,7 +12,6 @@ var screenNames = map[screen]string{
 	screenAgents:          "the agents list",
 	screenSchedules:       "the schedules",
 	screenReview:          "the review",
-	screenSearch:          "the search",
 	screenWorktrees:       "the worktrees",
 	screenDocuments:       "the documents",
 	screenLogs:            "the logs",
@@ -43,7 +42,7 @@ func actionsOf(s screen) []dispatching {
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
-	for _, s := range []screen{screenAgents, screenSchedules, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs, screenSearch} {
+	for _, s := range []screen{screenAgents, screenSchedules, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs} {
 		if err := validateScreenKeys(s, keys); err != nil {
 			return err
 		}

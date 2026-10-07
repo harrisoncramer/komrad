@@ -173,3 +173,13 @@ func findOrphanDir(t *testing.T) string {
 
 	return ""
 }
+
+func findRow(rows []string, name string) string {
+	for _, row := range rows {
+		if strings.Contains(row, name) {
+			return row
+		}
+	}
+
+	return ""
+}
