@@ -35,11 +35,11 @@ func (m *model) render() string {
 		return m.fitFrame(m.picker.frozen)
 	}
 
-	if m.term.drawn != "" {
-		return m.term.drawn
+	if m.term.renderedView == "" {
+		m.term.renderedView = m.drawInMode(m.findMode())
 	}
 
-	return m.drawInMode(m.findMode())
+	return m.term.renderedView
 }
 
 // insideView is the frame the gutters surround, taking the failures in the order they happen.
