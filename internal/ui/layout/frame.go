@@ -268,13 +268,13 @@ func (f *Frame) Close(region region) {
 	}
 }
 
-// Claimed records that another process has taken a region over, so the next content is drawn
+// Claimed records that another process has taken a region over, so the next content is rendered
 // rather than skipped as already shown.
 func (f *Frame) Claimed(region region) {
 	f.forget(region)
 }
 
-// Show draws content in a region, opening it first when needed, and refuses the sidebar since
+// Show renders content in a region, opening it first when needed, and refuses the sidebar since
 // filling it would replace the panel itself.
 func (f *Frame) Show(region region, content Content) {
 	if region != RegionStage && region != RegionInfo {
@@ -341,7 +341,7 @@ func (f *Frame) Solo(on bool) {
 	}
 
 	// The pane beside the sidebar is covered or uncovered by this, and whatever painted it has
-	// long since exited, so what stands there is drawn again rather than left as it was.
+	// long since exited, so what stands there is rendered again rather than left as it was.
 	f.forget(RegionStage)
 	f.move(panes.Zoom(f.sidebar, on))
 }
@@ -473,7 +473,7 @@ func (f *Frame) sidebarSize() (width, height int) {
 	return f.tmux.GetPaneWidth(f.sidebar), f.tmux.GetPaneHeight(f.sidebar)
 }
 
-// SidebarWidth is how many columns the sidebar draws in when it is holding a window of the given
+// SidebarWidth is how many columns the sidebar renders in when it is holding a window of the given
 // width, and whether that came from the divider rather than from the config.
 func (f *Frame) SidebarWidth(total int) (int, bool) {
 	if width := total - f.stageCols - 1; f.stageCols > 0 && width > 0 {
@@ -501,7 +501,7 @@ func (f *Frame) WindowCols() int {
 	return f.tmux.GetWindowWidth(f.sidebar)
 }
 
-// SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn
+// SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar rendered
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
 	if f.owed || f.frozen {
@@ -562,7 +562,7 @@ func (f *Frame) ShellArgv(dir string) []string {
 	return append(slices.Clone(f.shellCommand), "--", dir)
 }
 
-// IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split
+// IsSidebarOnRight is the side the panel's own column sits on, so a screen rendering its own split
 // puts it where the panes it took the window from would have.
 func (f *Frame) IsSidebarOnRight() bool {
 	return f.spec.sidebarOnRight

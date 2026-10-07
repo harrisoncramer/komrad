@@ -11,7 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Rows draws every row of the agents list as its own string.
+// Rows renders every row of the agents list as its own string.
 func Rows(list List, palette paint.Palette, width int) []string {
 	rows := xslice.Map(list.Lines, func(line line) string {
 		return renderLine(line, list, palette, width)
@@ -24,12 +24,12 @@ func Rows(list List, palette paint.Palette, width int) []string {
 // colours it already carries read through.
 func renderLine(line line, list List, palette paint.Palette, width int) string {
 	if line.Divider {
-		return drawDivider(palette, line.Name, width)
+		return renderDivider(palette, line.Name, width)
 	}
 
-	draw := drawer{palette: palette, glyphs: list.Glyphs}
+	render := renderer{palette: palette, glyphs: list.Glyphs}
 	cells := []string{
-		draw.gutterCell(line.Focus, plainColumns),
+		render.gutterCell(line.Focus, plainColumns),
 	}
 	for i, column := range list.Columns {
 		var cell Cell
@@ -37,16 +37,16 @@ func renderLine(line line, list List, palette paint.Palette, width int) string {
 			cell = line.Columns[i]
 		}
 
-		cells = append(cells, draw.gutterCell(cell, column.Width))
+		cells = append(cells, render.gutterCell(cell, column.Width))
 	}
 
-	gutter := strings.Join(append(cells, draw.gutterCell(line.Status, plainColumns)), " ")
+	gutter := strings.Join(append(cells, render.gutterCell(line.Status, plainColumns)), " ")
 
-	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
-		drawLead(palette, line.Lead) + drawName(palette, line) + draw.trailing(line)
+	row := gutter + " " + strings.Repeat(" ", line.Indent) + renderRule(palette, line.Rule) +
+		renderLead(palette, line.Lead) + renderName(palette, line) + render.trailing(line)
 
 	if len(line.Comments) > 0 {
-		comments := strings.Join(xslice.Map(line.Comments, draw.cell), " ")
+		comments := strings.Join(xslice.Map(line.Comments, render.cell), " ")
 		row += strings.Repeat(" ", max(width-lipgloss.Width(row)-lipgloss.Width(comments), spaceColumns)) + comments
 	}
 
@@ -57,9 +57,9 @@ func renderLine(line line, list List, palette paint.Palette, width int) string {
 	return row
 }
 
-// drawName is a name in its own lettering, with whatever a search picked out of it drawn in the
+// renderName is a name in its own lettering, with whatever a search picked out of it rendered in the
 // match colour instead.
-func drawName(palette paint.Palette, line line) string {
+func renderName(palette paint.Palette, line line) string {
 	style := nameStyle(palette, line.Weight, line.Emphasis)
 	if !line.Editing {
 		return palette.Highlight(line.Name, line.Matches, style)
@@ -68,17 +68,17 @@ func drawName(palette paint.Palette, line line) string {
 	r := []rune(line.Name)
 	at := max(len(r)-line.Behind, 0)
 
-	return palette.DrawTyped(string(r[:at]), string(r[at:]), style)
+	return palette.RenderTyped(string(r[:at]), string(r[at:]), style)
 }
 
-// drawer spells cells out in a palette and a set of glyphs.
-type drawer struct {
+// renderer spells cells out in a palette and a set of glyphs.
+type renderer struct {
 	palette paint.Palette
 	glyphs  glyph.Set
 }
 
 // trailing is the odds and ends after a name, each one a space away from what precedes it.
-func (d drawer) trailing(line line) string {
+func (d renderer) trailing(line line) string {
 	palette := d.palette
 	var b strings.Builder
 	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert} {
@@ -102,9 +102,9 @@ func (d drawer) trailing(line line) string {
 	return b.String()
 }
 
-// gutterCell is a cell that holds its column whether or not it has anything to draw, its text
+// gutterCell is a cell that holds its column whether or not it has anything to render, its text
 // set against the right edge of the column.
-func (d drawer) gutterCell(cell Cell, width int) string {
+func (d renderer) gutterCell(cell Cell, width int) string {
 	if width <= 0 || cell.IsBlank() {
 		return strings.Repeat(" ", max(width, 0))
 	}
@@ -119,7 +119,7 @@ func (d drawer) gutterCell(cell Cell, width int) string {
 	return strings.Repeat(" ", width-lipgloss.Width(text)) + d.cell(cell)
 }
 
-func drawLead(palette paint.Palette, lead string) string {
+func renderLead(palette paint.Palette, lead string) string {
 	if lead == "" {
 		return ""
 	}
@@ -127,13 +127,13 @@ func drawLead(palette paint.Palette, lead string) string {
 	return palette.Style(paint.ToneMuted).Render(lead) + " "
 }
 
-// drawDivider is a rule across the pane titled by name.
-func drawDivider(palette paint.Palette, name string, width int) string {
+// renderDivider is a rule across the pane titled by name.
+func renderDivider(palette paint.Palette, name string, width int) string {
 	return palette.TitledRule(palette.Style(paint.ToneMuted).Render(name), "", max(width-1, 1))
 }
 
-// drawRule is the corner a child hangs off its parent by.
-func drawRule(palette paint.Palette, rule bool) string {
+// renderRule is the corner a child hangs off its parent by.
+func renderRule(palette paint.Palette, rule bool) string {
 	if !rule {
 		return ""
 	}
@@ -142,7 +142,7 @@ func drawRule(palette paint.Palette, rule bool) string {
 }
 
 // cell is what a cell holds, in its own tone or each part in its own.
-func (d drawer) cell(cell Cell) string {
+func (d renderer) cell(cell Cell) string {
 	if len(cell.Parts) > 0 {
 		return strings.Join(xslice.Map(cell.Parts, d.cell), "")
 	}
@@ -151,7 +151,7 @@ func (d drawer) cell(cell Cell) string {
 }
 
 // text is what a cell holds, its text or its glyph spelled out.
-func (d drawer) text(cell Cell) string {
+func (d renderer) text(cell Cell) string {
 	if len(cell.Parts) > 0 {
 		return strings.Join(xslice.Map(cell.Parts, d.text), "")
 	}
@@ -162,7 +162,7 @@ func (d drawer) text(cell Cell) string {
 	return d.glyphs.Spell(cell.Glyph)
 }
 
-// nameStyle is the lettering a name is drawn in: its weight from where it sits in the tree, its
+// nameStyle is the lettering a name is rendered in: its weight from where it sits in the tree, its
 // foreground from what it has to say.
 func nameStyle(palette paint.Palette, weight weight, emphasis emphasis) lipgloss.Style {
 	style := lipgloss.NewStyle()
@@ -186,7 +186,7 @@ func nameStyle(palette paint.Palette, weight weight, emphasis emphasis) lipgloss
 	return style
 }
 
-// Spell is what a cell holds, its text or its glyph drawn in the set given, without its tone.
+// Spell is what a cell holds, its text or its glyph rendered in the set given, without its tone.
 func Spell(glyphs glyph.Set, cell Cell) string {
-	return drawer{glyphs: glyphs}.text(cell)
+	return renderer{glyphs: glyphs}.text(cell)
 }

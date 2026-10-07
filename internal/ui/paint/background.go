@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 )
 
-// lightBackground is whether the terminal the panel is drawn in has a light background.
+// lightBackground is whether the terminal the panel is rendered in has a light background.
 var lightBackground atomic.Bool
 
 // SetDarkBackground records the background the terminal reported.

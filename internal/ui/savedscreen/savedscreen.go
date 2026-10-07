@@ -11,7 +11,7 @@ import (
 // tabStop is how far apart tmux sets a pane's tab stops.
 const tabStop = 8
 
-// Fit is screen drawn width by height, cut at the right, with its rows cut from the longest
+// Fit is screen rendered width by height, cut at the right, with its rows cut from the longest
 // blank run and then the top when it is too tall.
 func Fit(screen string, width, height int) string {
 	if width <= 0 || height <= 0 {

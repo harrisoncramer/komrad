@@ -15,10 +15,10 @@ import (
 // submenuCancel is the choice of the cancel entry every submenu ends on.
 const submenuCancel = -1
 
-// nestedMark is drawn after an entry that opens a menu of its own.
+// nestedMark is rendered after an entry that opens a menu of its own.
 const nestedMark = " " + glyph.Crumb
 
-// submenu is a short list drawn beside the list it was opened over, each entry picked by its
+// submenu is a short list rendered beside the list it was opened over, each entry picked by its
 // own key as well as by the cursor.
 type submenu struct {
 	kind    formKind
@@ -27,9 +27,9 @@ type submenu struct {
 	// actions is the menu the menu key opens on the entry under a list's cursor, nil for a menu
 	// whose entries act on their own.
 	actions func(choice int) submenu
-	// preview draws the entry under a list's cursor beside the list, within width and height.
+	// preview renders the entry under a list's cursor beside the list, within width and height.
 	preview func(choice, width, height int) string
-	// empty is the row a list draws while it holds nothing.
+	// empty is the row a list renders while it holds nothing.
 	empty string
 	// inPlace says a form an entry opens takes the menu's place rather than opening beside it.
 	inPlace bool
@@ -104,7 +104,7 @@ func withNested(menu submenu, label string, keys []string, nested submenu) subme
 
 var dividerEntry = submenuEntry{isOff: true, isDivider: true}
 
-// openSubmenu draws a submenu, its cursor on the first entry that would do something.
+// openSubmenu renders a submenu, its cursor on the first entry that would do something.
 func openSubmenu(m *model, menu submenu) tea.Cmd {
 	return m.openForm(submenuState(nil, newSubmenuLevel(menu)))
 }
@@ -115,7 +115,7 @@ func newSubmenuLevel(menu submenu) submenuLevel {
 	return submenuLevel{menu: menu, choice: &choice}
 }
 
-// submenuState is the form for the menu on top of a stack, the menus under it drawn to its left.
+// submenuState is the form for the menu on top of a stack, the menus under it rendered to its left.
 func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	state := formState{
 		kind:   level.menu.kind,
@@ -167,12 +167,12 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	return state
 }
 
-// pushSubmenu draws a menu to the right of the one it was opened from.
+// pushSubmenu renders a menu to the right of the one it was opened from.
 func (m *model) pushSubmenu(parents []submenuLevel, level submenuLevel) tea.Cmd {
 	return m.openForm(submenuState(parents, level))
 }
 
-// openListActions draws the menu on the entry under a list's cursor in place of what the list
+// openListActions renders the menu on the entry under a list's cursor in place of what the list
 // previews.
 func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd {
 	actions := list.menu.actions(*list.choice)
@@ -181,12 +181,12 @@ func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd
 	return m.pushSubmenu(stack, newSubmenuLevel(actions))
 }
 
-// stackForm draws a form to the right of the menus drawn beside it, going back to the menus it
+// stackForm renders a form to the right of the menus rendered beside it, going back to the menus it
 // was opened from.
-func (m *model) stackForm(drawn, from []submenuLevel, form formState) tea.Cmd {
+func (m *model) stackForm(rendered, from []submenuLevel, form formState) tea.Cmd {
 	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.title }), form.crumbs...)
 	form.leading = func(width, _ int) []string {
-		return frozenMenus(drawn, width-formColumnFloor)
+		return frozenMenus(rendered, width-formColumnFloor)
 	}
 	form.back = func(m *model) tea.Cmd {
 		return m.backSubmenu(from)

@@ -19,7 +19,7 @@ const runTimeLayout = "01-02 15:04"
 // runWordWidth is the column the outcome word is padded to, so every row's detail lines up.
 const runWordWidth = 9
 
-// runOutcome is how one firing is drawn: a coloured word, what goes beside it, and what goes on
+// runOutcome is how one firing is rendered: a coloured word, what goes beside it, and what goes on
 // the row under it.
 type runOutcome struct {
 	word   string
@@ -104,7 +104,7 @@ func describeRun(run panel.ScheduleRun) runOutcome {
 	return runOutcome{word: "pending", tone: paint.ToneMuted}
 }
 
-// docMargin is how far the stage's markdown indents its text, which rows drawn beside it match.
+// docMargin is how far the stage's markdown indents its text, which rows rendered beside it match.
 func docMargin() int {
 	margin := columnStyle().Document.Margin
 	if margin == nil {

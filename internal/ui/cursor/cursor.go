@@ -42,7 +42,7 @@ type Window struct {
 	Rows func(i int) int
 }
 
-// Span is what a window draws: the first and last lines, the line the cursor is on, how many rows
+// Span is what a window renders: the first and last lines, the line the cursor is on, how many rows
 // of the first line fall above the view, and the row of the view the cursor's line starts on.
 type Span struct {
 	First     int

@@ -20,7 +20,7 @@ func (reviewWorldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 	return m.review.followWorld(m)
 }
 
-// doesMoveReview reports whether a batch touched anything the review of an agent draws.
+// doesMoveReview reports whether a batch touched anything the review of an agent renders.
 func doesMoveReview(changed assemble.Changed, agentID string) bool {
 	return changed.Replaced ||
 		len(changed.Keys[watchv1.Resource_RESOURCE_REVIEW_THREAD]) > 0 ||

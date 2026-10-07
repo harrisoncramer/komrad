@@ -77,19 +77,19 @@ const (
 // Span is a stretch of a name a search matched, in bytes of that name.
 type Span = paint.Span
 
-// Caret is how a list draws the arrow on its focused row.
+// Caret is how a list renders the arrow on its focused row.
 type Caret int
 
 const (
-	// CaretDrawn is the arrow on the row, in the accent with the name.
-	CaretDrawn Caret = iota
+	// CaretRendered is the arrow on the row, in the accent with the name.
+	CaretRendered Caret = iota
 	// CaretBlinkedOut is the arrow in the hidden half of its blink, the name still in the accent.
 	CaretBlinkedOut
 	// CaretAbsent is no arrow and no accent, the row only kept on screen.
 	CaretAbsent
 )
 
-// Snapshot is everything the agents list draws itself from.
+// Snapshot is everything the agents list renders itself from.
 type Snapshot struct {
 	Rows []Row
 	// Caret is how the focused row's arrow stands this frame.
@@ -99,16 +99,16 @@ type Snapshot struct {
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string
-	// Pane is how many columns the list is drawn in, from which the view works out what is left
+	// Pane is how many columns the list is rendered in, from which the view works out what is left
 	// for a name, leaving everything whole when it is unset.
 	Pane int
-	// Columns is the gutter this screen draws, and nil is the agents list's own.
+	// Columns is the gutter this screen renders, and nil is the agents list's own.
 	Columns Columns
-	// Glyphs is the character each glyph is drawn with.
+	// Glyphs is the character each glyph is rendered with.
 	Glyphs glyph.Set
 }
 
-// columns is the gutter the snapshot draws, the agents list's own where none was named.
+// columns is the gutter the snapshot renders, the agents list's own where none was named.
 func (s Snapshot) columns() Columns {
 	if s.Columns != nil {
 		return s.Columns
@@ -160,7 +160,7 @@ type Row struct {
 	Selected bool
 	// Archived says the row has been put away, which greys its name.
 	Archived bool
-	// Hidden says a person took the row out of the sidebar, drawn as a mark after its name.
+	// Hidden says a person took the row out of the sidebar, rendered as a mark after its name.
 	Hidden bool
 	Held   bool
 	// HeldWorking says a paused agent is working anyway, which the hold did not stop.
@@ -172,7 +172,7 @@ type Row struct {
 	Scheduled bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
-	// Workflow is the name of the workflow the row is filed under, drawn greyed after its marks.
+	// Workflow is the name of the workflow the row is filed under, rendered greyed after its marks.
 	Workflow string
 	// Faded greys a row the keyboard cannot reach.
 	Faded bool

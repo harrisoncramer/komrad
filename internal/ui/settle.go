@@ -37,7 +37,7 @@ type listedRow struct {
 type awaits struct {
 	shown []listedRow
 	gone  []listedRow
-	// pane is the pane whose harness is to have drawn itself, empty when there is none to wait on.
+	// pane is the pane whose harness is to have rendered itself, empty when there is none to wait on.
 	pane    string
 	harness string
 }
@@ -159,7 +159,7 @@ func (m *model) finishParked() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// isPaneAwaited reports whether a parked write is waiting on a pane's harness to draw itself.
+// isPaneAwaited reports whether a parked write is waiting on a pane's harness to render itself.
 func (m *model) isPaneAwaited(pane string) bool {
 	for _, parked := range m.writes.parked {
 		if parked.result.awaits.pane == pane {

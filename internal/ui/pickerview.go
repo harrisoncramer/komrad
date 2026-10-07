@@ -25,9 +25,9 @@ type frozenWindow struct {
 	palette  paint.Palette
 }
 
-// drawPicker lays each pane's screen where the pane sat, with a letter drawn over each
+// renderPicker lays each pane's screen where the pane sat, with a letter rendered over each
 // target on a patch of blank cells.
-func (w frozenWindow) drawPicker(targets []pickTarget) string {
+func (w frozenWindow) renderPicker(targets []pickTarget) string {
 	shown, palette := w.shown, w.palette
 	if len(shown) == 0 {
 		return ""
@@ -41,12 +41,12 @@ func (w frozenWindow) drawPicker(targets []pickTarget) string {
 		layers = append(layers, lipgloss.NewLayer(fitScreen(w.screens[rect.Pane], rect)).X(rect.Left-left).Y(rect.Top-top))
 
 		if rect.Pane == w.sidebar {
-			layers = append(layers, w.drawLabelLayer(rect, left, top))
+			layers = append(layers, w.renderLabelLayer(rect, left, top))
 		}
 	}
 
 	for _, target := range targets {
-		glyph := drawLetter(target.letter, target.rect)
+		glyph := renderLetter(target.letter, target.rect)
 		glyphWidth, glyphHeight := lipgloss.Width(glyph), strings.Count(glyph, "\n")+1
 		clearWidth, clearHeight := glyphWidth+2*pickMarginX, glyphHeight+2*pickMarginY
 		if clearWidth > target.rect.Width || clearHeight > target.rect.Height {
@@ -78,7 +78,7 @@ func measureBounds(shown []panes.Rect) (left, top, width, height int) {
 	return left, top, right - left, bottom - top
 }
 
-func (w frozenWindow) drawLabelLayer(rect panes.Rect, left, top int) *lipgloss.Layer {
+func (w frozenWindow) renderLabelLayer(rect panes.Rect, left, top int) *lipgloss.Layer {
 	label := w.palette.Mode(paint.ToneModeJump).Render(jumpModeLabel)
 
 	return lipgloss.NewLayer(label).

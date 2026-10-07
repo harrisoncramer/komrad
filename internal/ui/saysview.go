@@ -12,7 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// saidLeadIn is the rows of conversation drawn above the first match when the column opens on it.
+// saidLeadIn is the rows of conversation rendered above the first match when the column opens on it.
 const saidLeadIn = 12
 
 // saidTranscript is the conversation of the agent the column reads beside a says: qualifier.
@@ -82,7 +82,7 @@ func (m *model) applySaidTranscript(msg saidTranscriptMsg) {
 	m.said = saidTranscript{agentID: msg.agentID, text: msg.text, answered: true, content: msg.content, err: msg.err}
 }
 
-// openSaid puts the reader on the first match once the conversation it was read for is drawn,
+// openSaid puts the reader on the first match once the conversation it was read for is rendered,
 // with lead-in above it.
 func (m *model) openSaid() {
 	agentID, ok := m.saidAgentID()
@@ -102,7 +102,7 @@ func (m *model) openSaid() {
 }
 
 // saidColumnRows is the conversation of an agent the server found saying the text of a says:
-// qualifier, drawn for the column, and none when it was found saying nothing.
+// qualifier, rendered for the column, and none when it was found saying nothing.
 func (m *model) saidColumnRows(agentID string, width int) []string {
 	hits := m.filter.saidHits(agentID)
 	if len(hits) == 0 {
@@ -118,7 +118,7 @@ func (m *model) saidColumnRows(agentID string, width int) []string {
 	return m.said.rows
 }
 
-// layoutSaid draws the conversation for the column again when it has not been drawn at its width.
+// layoutSaid renders the conversation for the column again when it has not been rendered at its width.
 func (m *model) layoutSaid(hits []saidHit, width int) {
 	if m.said.rows != nil && m.said.width == width {
 		return
@@ -134,7 +134,7 @@ type saidRowsParams struct {
 	width int
 }
 
-// saidRows is a conversation drawn for the column with every word the server matched in it
+// saidRows is a conversation rendered for the column with every word the server matched in it
 // marked, and the line the first of them is on, or one line saying why there is none.
 func saidRows(params saidRowsParams) ([]string, int) {
 	width := max(params.width, 1)

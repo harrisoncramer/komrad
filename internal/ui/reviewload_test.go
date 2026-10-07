@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestChangedSinceLastReview covers the line drawn above a round saying how much of it the
+// TestChangedSinceLastReview covers the line rendered above a round saying how much of it the
 // person has not seen.
 func TestChangedSinceLastReview(t *testing.T) {
 	tests := []struct {

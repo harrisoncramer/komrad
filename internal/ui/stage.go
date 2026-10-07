@@ -155,7 +155,7 @@ func (r *reviewScreen) stageResting(m *model) tea.Cmd {
 	return tea.Batch(r.markThreadReadCmd(m), m.inspectAgentWorktreeCmd(time.Now()))
 }
 
-// paneStatusRows is the rows the blank status line tmux draws over every pane takes from its window.
+// paneStatusRows is the rows the blank status line tmux renders over every pane takes from its window.
 const paneStatusRows = 1
 
 // sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
@@ -206,7 +206,7 @@ func (m *model) sizeAgentWindow(pane string) {
 	width, height := m.frame.StageCols(), m.term.height+paneStatusRows
 
 	// The guest is standing in the panel's own window, so resizing its window would resize the
-	// terminal komrad is drawn in.
+	// terminal komrad is rendered in.
 	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || m.term.height <= 0 {
 		return
 	}

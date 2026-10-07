@@ -364,7 +364,7 @@ func (h *panelHarness) readScreen() string {
 	return h.panel.ReadScreen()
 }
 
-func (h *panelHarness) readDrawn() string {
+func (h *panelHarness) readRendered() string {
 	return ansi.Strip(h.panel.View())
 }
 
@@ -729,7 +729,7 @@ func splitLines(frame string) []string {
 }
 
 // readBelowViews is the frame's lines under the logo, its header and any row of views, whole
-// when no logo is drawn.
+// when no logo is rendered.
 func readBelowViews(frame string) []string {
 	lines := splitLines(frame)
 	if len(lines) <= 4 || !strings.Contains(lines[0], "\U000F050C komrad") {
@@ -802,15 +802,15 @@ func readRecord(frame string) []string {
 	return record
 }
 
-func isRecordDrawn(frame string) bool {
-	_, drawn := cutRecord(frame)
+func isRecordRendered(frame string) bool {
+	_, rendered := cutRecord(frame)
 
-	return drawn
+	return rendered
 }
 
 var emptyStyle = regexp.MustCompile(`(\x1b\[[0-9;]+m\x1b\[m)+$`)
 
-// typedCursor is a character drawn in reverse, which is how a text cursor stands on one.
+// typedCursor is a character rendered in reverse, which is how a text cursor stands on one.
 var typedCursor = regexp.MustCompile(`\x1b\[(?:[0-9]+;)*7(?:;[0-9]+)*m(.)\x1b\[m`)
 
 func cutStyled(line string, width int) string {
@@ -912,7 +912,7 @@ func readSidebarProse(frame string) string {
 	return joinProse(readSidebar(frame))
 }
 
-// readPopup is the rows inside the review's popup, empty while none is drawn.
+// readPopup is the rows inside the review's popup, empty while none is rendered.
 func readPopup(frame string) []string {
 	lines := splitLines(frame)
 	for top, line := range lines {
@@ -938,7 +938,7 @@ func readPopup(frame string) []string {
 	return nil
 }
 
-// readPopupMiddle is the cell at the middle of the review's popup in a frame drawn whole.
+// readPopupMiddle is the cell at the middle of the review's popup in a frame rendered whole.
 func readPopupMiddle(frame string) (int, int) {
 	lines := splitLines(frame)
 	for top, line := range lines {
@@ -1001,7 +1001,7 @@ func (h *panelHarness) pick(to string) {
 
 	letter := h.panel.ReadPickLetter(to)
 	if letter == "" {
-		h.t.Fatalf("the picker drew no letter over %s", to)
+		h.t.Fatalf("the picker rendered no letter over %s", to)
 	}
 
 	h.send(ui.NewKeyPress(letter))

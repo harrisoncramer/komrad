@@ -8,7 +8,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Prepare turns a snapshot of the agents list into the view model a renderer draws.
+// Prepare turns a snapshot of the agents list into the view model a renderer renders.
 func Prepare(snapshot Snapshot) List {
 	columns := snapshot.columns()
 	lines := xslice.Map(snapshot.Rows, func(row Row) line {
@@ -44,13 +44,13 @@ type prepareLineParams struct {
 	blinkedOut bool
 }
 
-// prepareLine resolves one row to the glyphs, tones and weight it is drawn in.
+// prepareLine resolves one row to the glyphs, tones and weight it is rendered in.
 func prepareLine(params prepareLineParams) line {
 	row, focused := params.row, params.focused
 
 	return line{
 		Focused:  focused,
-		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.TonePrimary),
+		Focus:    textCell(chromeIf(focused && params.caret == CaretRendered, glyph.Focus), paint.TonePrimary),
 		Columns:  columnCells(row, params.columns),
 		Status:   fadedCell(blinkBar(StatusCell(row), row, params.blinkedOut), row),
 		Rule:     row.Kind == KindChild,
@@ -76,7 +76,7 @@ func prepareLine(params prepareLineParams) line {
 	}
 }
 
-// columnCells resolves a row's cell for each column the list draws.
+// columnCells resolves a row's cell for each column the list renders.
 func columnCells(row Row, columns Columns) []Cell {
 	cells := make([]Cell, len(columns))
 	for i, column := range columns {
@@ -253,22 +253,22 @@ func blinkBar(cell Cell, row Row, out bool) Cell {
 	return cell
 }
 
-// HiddenCell is the mark a row draws once a person has taken it out of the sidebar.
+// HiddenCell is the mark a row renders once a person has taken it out of the sidebar.
 func HiddenCell(row Row) Cell {
 	return markCell(row.Hidden, glyph.Hidden, paint.ToneMuted)
 }
 
-// MailCell is the mark a row draws for mail its agent has not read.
+// MailCell is the mark a row renders for mail its agent has not read.
 func MailCell(row Row) Cell {
 	return markCell(row.UnreadMail, glyph.Mail, paint.ToneMuted)
 }
 
-// DocumentCell is the mark a row draws once its agent has written a document for a person to read.
+// DocumentCell is the mark a row renders once its agent has written a document for a person to read.
 func DocumentCell(row Row) Cell {
 	return markCell(row.Documents, glyph.Document, paint.ToneMuted)
 }
 
-// AlertCell is the mark a row draws for a script komrad fired that failed.
+// AlertCell is the mark a row renders for a script komrad fired that failed.
 func AlertCell(row Row) Cell {
 	return markCell(row.FailedRun, glyph.FailedScript, paint.ToneDanger)
 }
@@ -283,7 +283,7 @@ func markCell(show bool, mark glyph.Glyph, tone paint.Tone) Cell {
 	return Cell{Glyph: mark, Tone: tone}
 }
 
-// chromeIf is the chrome given when it is to be drawn, and nothing when it is not.
+// chromeIf is the chrome given when it is to be rendered, and nothing when it is not.
 func chromeIf(show bool, chrome string) string {
 	if !show {
 		return ""
@@ -415,7 +415,7 @@ func HeldCell(row Row) Cell {
 	return markCell(row.Held, glyph.Paused, paint.ToneMuted)
 }
 
-// emphasisFor is how brightly a name is drawn, the row under the cursor beating greying.
+// emphasisFor is how brightly a name is rendered, the row under the cursor beating greying.
 func emphasisFor(row Row, focused bool) emphasis {
 	switch {
 	case focused:

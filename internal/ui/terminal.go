@@ -19,7 +19,7 @@ var (
 )
 
 // terminalContent is a shell rooted where it was opened, keyed to be left alone when the region
-// is drawn again.
+// is rendered again.
 func terminalContent(shell, dir string) layout.Content {
 	if shell == "" {
 		shell = fallbackShell

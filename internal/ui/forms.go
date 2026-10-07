@@ -11,7 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// formState is the form drawn over whichever screen is up, held by value around huh's own
+// formState is the form rendered over whichever screen is up, held by value around huh's own
 // pointer.
 type formState struct {
 	kind formKind
@@ -23,10 +23,10 @@ type formState struct {
 	// crumbs are the steps the form adds to the trail while it is up.
 	crumbs []string
 
-	// leading draws what stands to the left of the form within its width and height, nil for nothing.
+	// leading renders what stands to the left of the form within its width and height, nil for nothing.
 	leading func(width, height int) []string
 
-	// trailing draws what stands to the right of the form within its width and height, nil for nothing.
+	// trailing renders what stands to the right of the form within its width and height, nil for nothing.
 	trailing func(width, height int) string
 
 	// back is what the back key does, nil for closing the form.
@@ -40,20 +40,20 @@ type formState struct {
 	// the form is about.
 	submit func(*model) tea.Cmd
 
-	// rebuild draws the form again around those same values, and lists the fields the cursor can
-	// reach in the order they are drawn.
+	// rebuild renders the form again around those same values, and lists the fields the cursor can
+	// reach in the order they are rendered.
 	rebuild func(*model) (*huh.Form, []string)
 
-	// reshaped reports whether an answer has changed which fields the form draws.
+	// reshaped reports whether an answer has changed which fields the form renders.
 	reshaped func() bool
 
 	// editable are the text fields the panel's editor key can open.
 	editable []editableText
 
-	// order lists the keys of the fields the cursor can reach, in the order they are drawn.
+	// order lists the keys of the fields the cursor can reach, in the order they are rendered.
 	order []string
 
-	// frozen is the form as it was drawn before the key that finished it.
+	// frozen is the form as it was rendered before the key that finished it.
 	frozen string
 
 	// keepsOnRefusal says a refused write leaves the form up to be fixed and submitted again.
@@ -118,8 +118,8 @@ func (m *model) openForm(f formState) tea.Cmd {
 	return tea.Batch(m.form.form.Init(), formResized())
 }
 
-// redrawnFormParams is what a redrawn form is opened from.
-type redrawnFormParams struct {
+// rebuildableFormParams is what a rebuildable form is opened from.
+type rebuildableFormParams struct {
 	Kind     formKind
 	Build    func(*model) (*huh.Form, []string)
 	Reshaped func() bool
@@ -127,8 +127,8 @@ type redrawnFormParams struct {
 	Submit   func(*model) tea.Cmd
 }
 
-// redrawnForm is a form the panel can draw again from one builder.
-func redrawnForm(params redrawnFormParams) formState {
+// rebuildableForm is a form the panel rebuilds from one builder.
+func rebuildableForm(params rebuildableFormParams) formState {
 	return formState{
 		kind:           params.Kind,
 		keepsOnRefusal: true,
@@ -140,14 +140,14 @@ func redrawnForm(params redrawnFormParams) formState {
 	}
 }
 
-// formColumnFloor is the narrowest a form is worth drawing beside a list at, being a field's
+// formColumnFloor is the narrowest a form is worth rendering beside a list at, being a field's
 // title and the prose under it without either folding.
 const formColumnFloor = 50
 
-// formMaxWidth is the widest a form draws its fields at.
+// formMaxWidth is the widest a form renders its fields at.
 const formMaxWidth = 60
 
-// formColumn is the form drawn beside the list it was opened over, so the row it is about is
+// formColumn is the form rendered beside the list it was opened over, so the row it is about is
 // still on screen while it is answered.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
@@ -176,7 +176,7 @@ func formResized() tea.Cmd {
 // formHelpLines is the row the panel keeps back rather than tells the form about.
 const formHelpLines = 1
 
-// submittingLines is the notice drawn under a held form.
+// submittingLines is the notice rendered under a held form.
 const submittingLines = 1
 
 // heldWrite is the write a form is being kept up for.
@@ -214,7 +214,7 @@ func (m *model) formBox() (width, height int) {
 	return max(width-used, floor), max(height-formHelpLines-held, 1)
 }
 
-// formArea is the columns and rows the form and what it draws to its left share.
+// formArea is the columns and rows the form and what it renders to its left share.
 func (m *model) formArea() (width, height int) {
 	if m.isPopupMenu() {
 		return m.review.measurePopupInner(m), m.review.measurePopupRoom(m)
@@ -227,7 +227,7 @@ func (m *model) formArea() (width, height int) {
 	return m.term.width, m.term.height
 }
 
-// formLeading is what the form draws to its left, and the columns that takes with its dividers.
+// formLeading is what the form renders to its left, and the columns that takes with its dividers.
 func (m *model) formLeading() ([]string, int) {
 	if m.form.leading == nil {
 		return nil, 0
@@ -260,8 +260,8 @@ func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 	}
 }
 
-// formOf draws a group of fields as one form, and lists the keys of the fields the cursor can
-// reach, in the order they are drawn.
+// formOf renders a group of fields as one form, and lists the keys of the fields the cursor can
+// reach, in the order they are rendered.
 func formOf(keys config.FixedKeys, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...)).
 		WithShowHelp(true).
@@ -354,9 +354,9 @@ func (m *model) holdForm() tea.Cmd {
 	return formResized()
 }
 
-// redrawOpenForm draws the form on screen again from the listing as it stands now, leaving the
+// rerenderOpenForm renders the form on screen again from the listing as it stands now, leaving the
 // cursor on the field it was on.
-func (m *model) redrawOpenForm() tea.Cmd {
+func (m *model) rerenderOpenForm() tea.Cmd {
 	if !m.form.isActive() || m.writes.held.active {
 		return nil
 	}
@@ -366,7 +366,7 @@ func (m *model) redrawOpenForm() tea.Cmd {
 		key = focused.GetKey()
 	}
 
-	return m.redrawFormOn(key)
+	return m.rerenderFormOn(key)
 }
 
 func (m *model) rebuildForm() tea.Cmd {
@@ -450,13 +450,13 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 			key = focused.GetKey()
 		}
 
-		return tea.Batch(cmd, m.redrawFormOn(key))
+		return tea.Batch(cmd, m.rerenderFormOn(key))
 	}
 
 	return cmd
 }
 
-// stepForm hands a message to huh, keeping the form as drawn before a key that may finish it.
+// stepForm hands a message to huh, keeping the form as rendered before a key that may finish it.
 func (m *model) stepForm(msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(tea.KeyPressMsg); ok && m.form.rebuild == nil {
 		m.form.frozen = m.form.form.View()
@@ -484,7 +484,7 @@ func (m *model) formSizeOf(msg tea.Msg) tea.Msg {
 }
 
 // leaveForm drops the form for an answer that goes on to another screen, which settles the window
-// itself, so the screen the form was drawn over is not drawn again on the way.
+// itself, so the screen the form was rendered over is not rendered again on the way.
 func (m *model) leaveForm() {
 	m.writes.held = heldWrite{}
 	m.form = formState{}
@@ -499,7 +499,7 @@ func (m *model) leaveFormBack() tea.Cmd {
 	return m.closeForm()
 }
 
-// closeForm drops the form and comes back to the screen it was drawn over.
+// closeForm drops the form and comes back to the screen it was rendered over.
 func (m *model) closeForm() tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()

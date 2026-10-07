@@ -33,7 +33,7 @@ type statusCheckLogsScreen struct {
 	// generation tells this visit's reads apart from an earlier one's.
 	generation int
 	logs       map[string]*statusCheckLogRead
-	drawn      statusCheckLogsDrawn
+	rendered   statusCheckLogsRendered
 	// placed is the row of the document the hovered row's header was last put on, and placedTop
 	// the row the window was scrolled to with it.
 	placed    int
@@ -47,8 +47,8 @@ type statusCheckLogRead struct {
 	reading bool
 }
 
-// statusCheckLogsDrawn is the document as last drawn, kept while nothing it was drawn from has changed.
-type statusCheckLogsDrawn struct {
+// statusCheckLogsRendered is the document as last rendered, kept while nothing it was rendered from has changed.
+type statusCheckLogsRendered struct {
 	shape   string
 	rows    []string
 	anchors map[string]int
@@ -256,7 +256,7 @@ func (c *statusCheckLogsScreen) crumbs(m *model) crumbs {
 	return crumbs{trail: []string{name, "status checks", "logs"}}
 }
 
-func (c *statusCheckLogsScreen) doesDrawFromListing() bool {
+func (c *statusCheckLogsScreen) doesRenderFromListing() bool {
 	return true
 }
 
@@ -286,7 +286,7 @@ func (c *statusCheckLogsScreen) dispatches(*model) []dispatching {
 var (
 	_ kindSwitcher    = (*statusCheckLogsScreen)(nil)
 	_ listFilterer    = (*statusCheckLogsScreen)(nil)
-	_ crumbDrawer     = (*statusCheckLogsScreen)(nil)
+	_ crumbRenderer   = (*statusCheckLogsScreen)(nil)
 	_ loadingReporter = (*statusCheckLogsScreen)(nil)
 	_ screenLeaver    = (*statusCheckLogsScreen)(nil)
 	_ docNamer        = (*statusCheckLogsScreen)(nil)
@@ -330,10 +330,10 @@ func (c *statusCheckLogsScreen) buildFrame(m *model) {
 }
 
 // keepDoc builds the document at a width and keeps it for view to read.
-func (c *statusCheckLogsScreen) keepDoc(m *model, width int) statusCheckLogsDrawn {
-	c.drawn = c.doc(m, width)
+func (c *statusCheckLogsScreen) keepDoc(m *model, width int) statusCheckLogsRendered {
+	c.rendered = c.doc(m, width)
 
-	return c.drawn
+	return c.rendered
 }
 
 // readsCmd starts reading the log of each shown check that has one kept and is not read yet.

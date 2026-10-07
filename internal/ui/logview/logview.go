@@ -1,4 +1,4 @@
-// Package logview holds log lines and draws the newest of them, or the ones around a cursor.
+// Package logview holds log lines and renders the newest of them, or the ones around a cursor.
 package logview
 
 import (
@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Tail holds log lines and draws the newest of them, or the ones around a cursor moved back.
+// Tail holds log lines and renders the newest of them, or the ones around a cursor moved back.
 type Tail struct {
 	lines   []string
 	ceiling int
@@ -23,13 +23,13 @@ type Tail struct {
 	scrolled bool
 }
 
-// Format is how a Tail draws each line it holds.
+// Format is how a Tail renders each line it holds.
 type Format int
 
 const (
-	// FormatRaw draws each line as it was written.
+	// FormatRaw renders each line as it was written.
 	FormatRaw Format = iota
-	// FormatCompact draws each structured service log line on one row.
+	// FormatCompact renders each structured service log line on one row.
 	FormatCompact
 )
 
@@ -55,7 +55,7 @@ func (t *Tail) Append(lines []string) {
 	t.cursor, t.back = cursor.Clamp(t.cursor, len(t.lines)), cursor.Clamp(t.back, len(t.lines))
 }
 
-// SetFormat draws the lines held in format from the next draw on.
+// SetFormat renders the lines held in format from the next render on.
 func (t *Tail) SetFormat(format Format) {
 	t.format = format
 }
@@ -149,11 +149,11 @@ func (t *Tail) Current() (string, bool) {
 
 // wrap is one held line broken into the rows it takes at width.
 func (t *Tail) wrap(i, width int) []string {
-	return strings.Split(ansi.Hardwrap(t.draw(t.lines[i]), max(width, 1), true), "\n")
+	return strings.Split(ansi.Hardwrap(t.render(t.lines[i]), max(width, 1), true), "\n")
 }
 
-// draw is one held line as its format draws it.
-func (t *Tail) draw(line string) string {
+// render is one held line as its format renders it.
+func (t *Tail) render(line string) string {
 	if t.format == FormatCompact {
 		return Compact(paint.Panel, line)
 	}
@@ -161,7 +161,7 @@ func (t *Tail) draw(line string) string {
 	return sanitize(line)
 }
 
-// sanitize strips escape sequences and control characters from a line the panel draws itself.
+// sanitize strips escape sequences and control characters from a line the panel renders itself.
 func sanitize(line string) string {
 	return strings.ReplaceAll(paint.StripControls(line), "\t", " ")
 }

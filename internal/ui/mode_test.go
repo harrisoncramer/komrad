@@ -14,7 +14,7 @@ import (
 func TestModeLabel(t *testing.T) {
 	rest := readBottomRow(openFocus(t))
 	divider := findColumn(rest, "│")
-	require.GreaterOrEqual(t, divider, 0, "the list is drawn beside a block")
+	require.GreaterOrEqual(t, divider, 0, "the list is rendered beside a block")
 	at := findColumn(rest, " NORMAL ")
 	require.GreaterOrEqual(t, at, 0)
 	assert.Less(t, at, divider, "the label sits in the sidebar, not the block beside it")
@@ -62,7 +62,7 @@ func TestModeLabel(t *testing.T) {
 }
 
 func readBottomRow(harness *panelHarness) string {
-	rows := strings.Split(harness.readDrawn(), "\n")
+	rows := strings.Split(harness.readRendered(), "\n")
 
 	return rows[len(rows)-1]
 }

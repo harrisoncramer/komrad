@@ -18,7 +18,7 @@ import (
 const traceTimeout = 10 * time.Second
 
 // traceThreadsParams says which conversation to trace, where to read the repository, and which
-// snapshot the diff on screen was drawn to.
+// snapshot the diff on screen was rendered to.
 type traceThreadsParams struct {
 	Git     ReviewGit
 	Dir     string
@@ -86,7 +86,7 @@ func traceOnScreen(params traceThreadsParams) map[string]diffview.Traced {
 }
 
 // groupBySnapshot gathers the threads worth tracing under the snapshot each was written against,
-// leaving out the ones the screen will not draw.
+// leaving out the ones the screen will not render.
 func groupBySnapshot(params traceThreadsParams) map[string][]*agentv1.ReviewThread {
 	snapshots := map[string]string{}
 	ordinals := map[string]int32{}
@@ -111,7 +111,7 @@ func groupBySnapshot(params traceThreadsParams) map[string][]*agentv1.ReviewThre
 			continue
 		}
 
-		// A round later than the one on screen is not drawn there, so tracing it would run a
+		// A round later than the one on screen is not rendered there, so tracing it would run a
 		// backwards diff of the whole tree for an answer nothing reads.
 		if ceiling > 0 && ordinals[thread.GetRoundId()] > ceiling {
 			continue
@@ -178,7 +178,7 @@ func traceAnchors(ctx context.Context, params traceAnchorsParams) (map[string]di
 		id := params.Anchors[result.Index].ID
 
 		// A file copied to two paths answers twice, and the first answer is kept rather than
-		// drawing one comment against whichever copy came last.
+		// rendering one comment against whichever copy came last.
 		if _, held := traced[id]; held {
 			continue
 		}

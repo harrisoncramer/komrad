@@ -238,7 +238,7 @@ func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width 
 		head := paint.Panel.Style(paint.ToneDanger).Bold(true).Render("your reply" + separated + "not posted")
 		refused := paint.Panel.Style(paint.ToneDanger).Render(m.glyphs.Spell(glyph.MessageError) + " " + name + " said: " + reply.GetError())
 
-		return drawForgeBox(width, head, reply.GetBody()+"\n"+refused)
+		return renderForgeBox(width, head, reply.GetBody()+"\n"+refused)
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
@@ -246,12 +246,12 @@ func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width 
 		posting = dimStyle().Render("  "+glyph.Right+" posting to "+name) + "\n"
 	}
 
-	return forgeMark(m.glyphs) + drawCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +
+	return forgeMark(m.glyphs) + renderCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +
 		reviewWrap(width, reply.GetBody()) + "\n" + posting + "\n"
 }
 
-// drawForgeBox is a refused reply set apart in a red frame of its own, its head over its body.
-func drawForgeBox(width int, head, body string) string {
+// renderForgeBox is a refused reply set apart in a red frame of its own, its head over its body.
+func renderForgeBox(width int, head, body string) string {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(paint.Panel.Color(paint.ToneDanger)).

@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSearchMatchesTheLineAsDrawn covers what a pattern is matched against.
-func TestSearchMatchesTheLineAsDrawn(t *testing.T) {
+// TestSearchMatchesTheLineAsRendered covers what a pattern is matched against.
+func TestSearchMatchesTheLineAsRendered(t *testing.T) {
 	view := twoHunkView()
 
 	assert.Equal(t, 2, view.SetPattern(regexp.MustCompile(`^\+`)), "the marker is part of what is searched")
@@ -130,14 +130,14 @@ func TestSearchFindsAViewedFileName(t *testing.T) {
 	assert.Equal(t, 0, at)
 }
 
-// TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it.
+// TestFileNameMatchIsPainted covers the header a search found being rendered with the match on it.
 func TestFileNameMatchIsPainted(t *testing.T) {
 	view := twoHunkView()
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))
 
-	drawn := view.renderRow(0, noCursor, 40, 0)
-	assert.Equal(t, "greet.go", ansi.Strip(drawn))
-	assert.Contains(t, drawn, fileStyle.Background(paint.Panel.Background(paint.ShadeMatch)).Render("eet.g"))
+	rendered := view.renderRow(0, noCursor, 40, 0)
+	assert.Equal(t, "greet.go", ansi.Strip(rendered))
+	assert.Contains(t, rendered, fileStyle.Background(paint.Panel.Background(paint.ShadeMatch)).Render("eet.g"))
 
 	onCursor := view.renderRow(0, LiveCursor, 40, 0)
 	assert.Equal(t, 40, lipgloss.Width(onCursor), "the cursor's row reaches the edge of the pane")

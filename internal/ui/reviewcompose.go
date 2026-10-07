@@ -199,7 +199,7 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 	agents, threadID := m.clients().agents, r.threads.editing
 	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
-		// Nothing is said back: the reply is drawn in the thread it went into.
+		// Nothing is said back: the reply is rendered in the thread it went into.
 		return keepUnsent(kept, r.writeCmd(m, m.beginWrite("replying"), "", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,

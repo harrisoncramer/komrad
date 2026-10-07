@@ -284,7 +284,7 @@ func provisionerOptions() []huh.Option[string] {
 	}
 }
 
-// workflowFormParams is what the workflow form is drawn from and what it does once answered.
+// workflowFormParams is what the workflow form is rendered from and what it does once answered.
 type workflowFormParams struct {
 	NameTitle string
 	Values    *workflowFormValues
@@ -299,19 +299,19 @@ func workflowForm(params workflowFormParams) sectionedForm {
 		values.Provisioner = provisionerWorktree
 	}
 
-	drawnProvisioner := values.Provisioner
+	renderedProvisioner := values.Provisioner
 	choice := workflowSectionAgents
 
 	return sectionedForm{
 		kind:  formWorkflow,
 		title: "Settings",
 		top: func(*model) []huh.Field {
-			drawnProvisioner = values.Provisioner
+			renderedProvisioner = values.Provisioner
 
 			return workflowTopFields(params.NameTitle, values)
 		},
 		topEditable: []editableText{{key: "context", value: &values.Context}},
-		reshaped:    func() bool { return values.Provisioner != drawnProvisioner },
+		reshaped:    func() bool { return values.Provisioner != renderedProvisioner },
 		sections:    workflowSections(values, params.Editing),
 		submit:      params.Submit,
 		choice:      &choice,
@@ -405,7 +405,7 @@ func worktreeDetailFields(values *workflowFormValues, editing bool) []huh.Field 
 			Description("one repo-relative path per line, symlinked back instead of duplicated, such as node_modules").
 			Lines(2).Value(&values.WorktreeSymlinkPaths),
 		textField("worktree_diff_exclude").Title("Diff excludes").
-			Description("one path or glob per line, left out of the diff the review screen draws, such as proto/gen or *.pb.go").
+			Description("one path or glob per line, left out of the diff the review screen renders, such as proto/gen or *.pb.go").
 			Lines(2).Value(&values.WorktreeDiffExclude),
 	}
 }

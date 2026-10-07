@@ -91,7 +91,7 @@ func TestLogsOpen(t *testing.T) {
 	})
 }
 
-// TestLogsFormat covers the service log drawn compact or raw from the format strip.
+// TestLogsFormat covers the service log rendered compact or raw from the format strip.
 func TestLogsFormat(t *testing.T) {
 	t.Parallel()
 
@@ -115,7 +115,7 @@ func TestLogsFormat(t *testing.T) {
 		assert.Contains(t, readStageText(harness.readFrame()), `{"body":"first line"}`)
 	})
 
-	t.Run("a run draws no strip and its output as it was written", func(t *testing.T) {
+	t.Run("a run renders no strip and its output as it was written", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
@@ -127,11 +127,11 @@ func TestLogsFormat(t *testing.T) {
 	})
 }
 
-// TestLogsSources covers moving between sources, each drawn on its own from its newest lines.
+// TestLogsSources covers moving between sources, each rendered on its own from its newest lines.
 func TestLogsSources(t *testing.T) {
 	t.Parallel()
 
-	t.Run("moving to another source draws its lines alone", func(t *testing.T) {
+	t.Run("moving to another source renders its lines alone", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
@@ -444,7 +444,7 @@ func TestLogsScroll(t *testing.T) {
 		notWant string
 	}{
 		{
-			name:    "the list holding the keys draws no cursor in the log",
+			name:    "the list holding the keys renders no cursor in the log",
 			want:    "  entry 100",
 			notWant: "›",
 		},
@@ -607,7 +607,7 @@ func TestLogsLineFilter(t *testing.T) {
 		})
 	}
 
-	t.Run("the prompt is drawn on the lowest row of the log", func(t *testing.T) {
+	t.Run("the prompt is rendered on the lowest row of the log", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, filteredTailOfTwo())
@@ -824,7 +824,7 @@ func serviceReadMatching(pattern, cursor string) *logv1.ReadAgentLogsRequest {
 	return read
 }
 
-// longLog is a service log of a hundred numbered entries, taller than the block draws.
+// longLog is a service log of a hundred numbered entries, taller than the block renders.
 func longLog() logReads {
 	var lines []string
 	for i := 1; i <= 100; i++ {
@@ -846,7 +846,7 @@ func filteredTailOfTwo() logReads {
 	return reads
 }
 
-// lastStageRow is the lowest row of the stage that draws anything.
+// lastStageRow is the lowest row of the stage that renders anything.
 func lastStageRow(frame string) string {
 	rows := readStage(frame)
 	for i := len(rows) - 1; i >= 0; i-- {

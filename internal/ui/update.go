@@ -156,7 +156,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 			}
 		}
 
-		// A resize says how big the panel's window is, and the form is drawn in a column of it, so
+		// A resize says how big the panel's window is, and the form is rendered in a column of it, so
 		// the size is rewritten here rather than in each form's own handler.
 		return m.form.update(m, m.formSizeOf(msg))
 	}
@@ -216,10 +216,10 @@ func (m *model) resizeTo(size tea.WindowSizeMsg) {
 	m.term.paneCols = size.Width
 	m.term.awaitingSince = time.Time{}
 
-	if !m.isTabsDrawn() {
+	if !m.isTabsRendered() {
 		m.blurTabs()
 	}
-	if !m.isKindsDrawn() {
+	if !m.isKindsRendered() {
 		m.blurKinds()
 	}
 
@@ -264,11 +264,11 @@ func (m *model) applySizeFallback(msg sizeFallbackMsg) tea.Cmd {
 	return tea.RequestWindowSize
 }
 
-// relayout sizes everything drawn off the split again, once the split has moved.
+// relayout sizes everything rendered off the split again, once the split has moved.
 func (m *model) relayout() {
 	m.sizeAgentWindows()
 
-	// A field open in the review's sidebar is drawn in a column of this window rather than in the
+	// A field open in the review's sidebar is rendered in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
 	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m)))
 }
@@ -282,7 +282,7 @@ func (m *model) nudgeSidebar(delta int) {
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
 // took the press so the screen underneath gets whatever it left alone.
 func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
-	if drawsSwitcher(m.screen) && !m.isTabsFocused() && !m.isKindsFocused() {
+	if rendersSwitcher(m.screen) && !m.isTabsFocused() && !m.isKindsFocused() {
 		if delta := m.viewsDelta(key.String()); delta != 0 {
 			return m.openViews(delta), true
 		}
@@ -322,7 +322,7 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		}
 	}
 
-	if m.isKindsDrawn() {
+	if m.isKindsRendered() {
 		if m.isKindsFocused() {
 			return m.updateKinds(key), true
 		}

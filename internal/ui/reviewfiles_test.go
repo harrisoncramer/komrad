@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReviewFiles covers the file tree drawn above the thread, which follows the diff cursor.
+// TestReviewFiles covers the file tree rendered above the thread, which follows the diff cursor.
 func TestReviewFiles(t *testing.T) {
 	t.Run("the row the cursor is in is marked as it moves", func(t *testing.T) {
 		adrift := newAdriftThread("gone", newHumanMessage("m1", "this line went away"))

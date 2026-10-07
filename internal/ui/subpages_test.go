@@ -99,7 +99,7 @@ func TestSubpages(t *testing.T) {
 		harness.press("r")
 
 		assert.Equal(t, reviewScreen, harness.readScreen())
-		assert.NotContains(t, harness.panel.ReadZooms()[menuUp:], false, "the list is not drawn again on the way")
+		assert.NotContains(t, harness.panel.ReadZooms()[menuUp:], false, "the list is not rendered again on the way")
 	})
 
 	t.Run("review on an agent with no checkout says why", func(t *testing.T) {
@@ -221,7 +221,7 @@ func buildSubpagesAgents() []proto.Message {
 	return rows
 }
 
-// readOffEntry matches a submenu entry as it is drawn when there is nothing behind it, gray with
+// readOffEntry matches a submenu entry as it is rendered when there is nothing behind it, gray with
 // its key right-aligned.
 func readOffEntry(label, key string) *regexp.Regexp {
 	gray, _, _ := strings.Cut(paint.Panel.Style(paint.ToneMuted).Render("x"), "x")

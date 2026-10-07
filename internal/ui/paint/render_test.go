@@ -141,7 +141,7 @@ func TestScrubMarks(t *testing.T) {
 }
 
 // TestDocRowsFitTheColumn covers a message carrying an indented code block, whose tabs the
-// terminal draws at a width and the panel's own measuring does not, and one carrying a token
+// terminal renders at a width and the panel's own measuring does not, and one carrying a token
 // too long to break on a word, which the word wrap leaves wider than the column.
 func TestDocRowsFitTheColumn(t *testing.T) {
 	bodies := map[string]string{

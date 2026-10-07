@@ -29,7 +29,7 @@ func (d tabDirection) glyph() string {
 	return glyph.Down
 }
 
-// stops is a row of labels the tab keys walk, the focused one drawn as the cursor and the lit one
+// stops is a row of labels the tab keys walk, the focused one rendered as the cursor and the lit one
 // as the choice in force.
 type stops struct {
 	labels []string
@@ -164,14 +164,14 @@ func (s tabStrip) choose(state *tabsState, direction tabDirection) {
 	state.focus = ""
 }
 
-// activeTabs is the tab switcher of the screen that is up, and false on a screen that draws no strip.
+// activeTabs is the tab switcher of the screen that is up, and false on a screen that renders no strip.
 func (m *model) activeTabs() (tabSwitcher, bool) {
 	t, ok := m.active().(tabSwitcher)
 
 	return t, ok
 }
 
-func (m *model) isTabsDrawn() bool {
+func (m *model) isTabsRendered() bool {
 	t, ok := m.activeTabs()
 
 	return ok && t.tabsFit(m)
@@ -183,7 +183,7 @@ func (m *model) isTabsFocused() bool {
 	return ok && t.tabsState().focused && t.tabsFit(m)
 }
 
-// listFitsTabs is whether a list has the room to draw its strips, judged with the keys on the
+// listFitsTabs is whether a list has the room to render its strips, judged with the keys on the
 // list.
 func (m *model) listFitsTabs(params screenListParams) bool {
 	probe := *m

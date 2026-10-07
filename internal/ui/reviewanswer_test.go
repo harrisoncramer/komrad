@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReviewAnswer covers the answer key, which draws the change an addressed reply carried.
+// TestReviewAnswer covers the answer key, which renders the change an addressed reply carried.
 func TestReviewAnswer(t *testing.T) {
 	t.Run("a comment nobody has addressed has no answer to show", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
@@ -27,7 +27,7 @@ func TestReviewAnswer(t *testing.T) {
 		assert.Contains(t, readSidebarProse(harness.readFrame()), "all changes")
 	})
 
-	t.Run("the answer key draws the change the answer carried", func(t *testing.T) {
+	t.Run("the answer key renders the change the answer carried", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
@@ -149,7 +149,7 @@ func TestReviewAnswer(t *testing.T) {
 		require.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
-	t.Run("the whole change draws no rule but still names the answer's round", func(t *testing.T) {
+	t.Run("the whole change renders no rule but still names the answer's round", func(t *testing.T) {
 		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
 
 		harness.press("t")

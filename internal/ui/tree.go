@@ -16,16 +16,16 @@ import (
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
-// are ordered and whether the hidden ones are drawn.
+// are ordered and whether the hidden ones are rendered.
 type agentsScreen struct {
 	rowCursor
 	placed     bool
 	showHidden bool
 	sort       tabsState
-	// drawn is the list built for the frame once an update settles, and nil while one runs.
-	drawn   *agentsLayout
-	triage  triageZone
-	editing *agentEdit
+	// rendered is the list built for the frame once an update settles, and nil while one runs.
+	rendered *agentsLayout
+	triage   triageZone
+	editing  *agentEdit
 	// resuming is the agents a resume is in flight for.
 	resuming    map[string]struct{}
 	awaitingCLI map[string]bool
@@ -42,10 +42,10 @@ type agentRow struct {
 	// under it, and a parent counts its own hidden children.
 	hiddenCount int
 	workflow    panel.Workflow
-	// child says the row is drawn under the one above it rather than under the workflow, which is
+	// child says the row is rendered under the one above it rather than under the workflow, which is
 	// an indent and nothing else.
 	child bool
-	// triage says the row is the triage zone's copy of an agent the tree also draws.
+	// triage says the row is the triage zone's copy of an agent the tree also renders.
 	triage bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
@@ -71,7 +71,7 @@ type family struct {
 	rows       []agentRow
 }
 
-// isFolded reports whether an agent is drawn on its workflow's own row rather than on one of its
+// isFolded reports whether an agent is rendered on its workflow's own row rather than on one of its
 // own.
 func isFolded(params treeRowsParams, it panel.AgentRow) bool {
 	return params.foldOrchestrators && it.Agent.Role == panel.RoleOrchestrator
@@ -80,12 +80,12 @@ func isFolded(params treeRowsParams, it panel.AgentRow) bool {
 type treeRowsParams struct {
 	workflows []panel.Workflow
 	agents    []panel.AgentRow
-	// showHidden draws the agents a person has hidden alongside the rest.
+	// showHidden renders the agents a person has hidden alongside the rest.
 	showHidden bool
-	// foldOrchestrators draws a workflow's orchestrator on the workflow's own row rather than
+	// foldOrchestrators renders a workflow's orchestrator on the workflow's own row rather than
 	// as a row of its own.
 	foldOrchestrators bool
-	// flat draws the families in the order given, with no header over them.
+	// flat renders the families in the order given, with no header over them.
 	flat bool
 }
 
@@ -93,10 +93,10 @@ func treeRows(params treeRowsParams) []agentRow {
 	workflows, agents := params.workflows, params.agents
 
 	children := childrenByParent(agents)
-	drawsRow := make(map[string]bool, len(agents))
+	rendersRow := make(map[string]bool, len(agents))
 	orchestrators := make(map[string]panel.AgentRow)
 	for _, it := range agents {
-		drawsRow[it.Agent.ID] = !isFolded(params, it)
+		rendersRow[it.Agent.ID] = !isFolded(params, it)
 		if isFolded(params, it) {
 			orchestrators[it.Agent.WorkflowID] = it
 		}
@@ -105,15 +105,15 @@ func treeRows(params treeRowsParams) []agentRow {
 	var families []family
 	hiddenCounts := make(map[string]int)
 	for _, it := range agents {
-		// An orchestrator is drawn on its workflow's own row, so it stands in no count and no
+		// An orchestrator is rendered on its workflow's own row, so it stands in no count and no
 		// key reveals it here.
 		if isFolded(params, it) {
 			continue
 		}
 
-		// A child is drawn where its parent is, and one whose parent draws no row has nowhere to
+		// A child is rendered where its parent is, and one whose parent renders no row has nowhere to
 		// be indented under, so it stands on its own rather than going missing.
-		if it.Agent.ParentAgentID != nil && drawsRow[*it.Agent.ParentAgentID] {
+		if it.Agent.ParentAgentID != nil && rendersRow[*it.Agent.ParentAgentID] {
 			continue
 		}
 
@@ -191,7 +191,7 @@ func childrenByParent(agents []panel.AgentRow) map[string][]panel.AgentRow {
 func buildFamilyRows(head panel.AgentRow, children []panel.AgentRow, showHidden bool) []agentRow {
 	rows := []agentRow{{item: head}}
 	for _, child := range children {
-		// A hidden child leaves its count on the parent drawn above it rather than on the
+		// A hidden child leaves its count on the parent rendered above it rather than on the
 		// workflow.
 		if child.Agent.Hidden {
 			rows[0].hiddenCount++
@@ -253,10 +253,10 @@ func (a *agentsScreen) rows(m *model) []agentRow {
 	return a.layout(m).cursorRows()
 }
 
-// layout is the list as drawn, or as it would be drawn when nothing has cached it.
+// layout is the list as rendered, or as it would be rendered when nothing has cached it.
 func (a *agentsScreen) layout(m *model) agentsLayout {
-	if a.drawn != nil {
-		return *a.drawn
+	if a.rendered != nil {
+		return *a.rendered
 	}
 
 	return a.buildLayout(m)
@@ -264,7 +264,7 @@ func (a *agentsScreen) layout(m *model) agentsLayout {
 
 func (a *agentsScreen) buildFrame(m *model) {
 	layout := a.buildLayout(m)
-	a.drawn = &layout
+	a.rendered = &layout
 }
 
 func (a *agentsScreen) buildLayout(m *model) agentsLayout {
@@ -596,7 +596,7 @@ func (a *agentsScreen) apply(m *model, selected string) {
 	a.reconcileRename(m)
 }
 
-// listing is what the screens draw: the resources the watch has delivered, and the live and
+// listing is what the screens render: the resources the watch has delivered, and the live and
 // archived rows assembled from them.
 type listing struct {
 	world             assemble.World
@@ -610,7 +610,7 @@ type listing struct {
 	documentTypes     []*agentv1.DocumentType
 }
 
-// assemble draws the listings, live and archived, from the world as it stands now.
+// assemble renders the listings, live and archived, from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
 	agents := agentRowsFrom(assemble.AgentRows(l.world, now))
 	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents)

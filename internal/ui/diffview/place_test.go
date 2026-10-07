@@ -245,7 +245,7 @@ func TestAdriftThreadsSortByLineNotByText(t *testing.T) {
 }
 
 // TestPinTakesAQuoteStoredWithoutItsMarker covers a thread whose quote is stored as bare code
-// rather than as the diff drew it.
+// rather than as the diff rendered it.
 func TestPinTakesAQuoteStoredWithoutItsMarker(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -338,7 +338,7 @@ func TestPinKeepsAMarkedQuoteOffACollidingLine(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	assert.Equal(t, adrift, view.placed[thread.GetId()],
-		"a context line the newer round draws as a deletion is gone")
+		"a context line the newer round renders as a deletion is gone")
 }
 
 // TestPinSkipsTheOldSideWhenItIsForeign covers a thread whose old side was counted from another
@@ -384,8 +384,8 @@ func TestPinSkipsTheOldSideWhenItIsForeign(t *testing.T) {
 			continue
 		}
 
-		quote, drawn := foreign.quoteAt(row)
-		assert.False(t, drawn && quote == " other code",
+		quote, rendered := foreign.quoteAt(row)
+		assert.False(t, rendered && quote == " other code",
 			"and never the row that happens to hold old line 38")
 	}
 }
@@ -419,7 +419,7 @@ func TestPinHoldsASpaceIndentedQuoteThatNothingTouched(t *testing.T) {
 }
 
 // TestPinRefusesASpaceIndentedQuoteThatTwoRowsAnswerTo covers the same quote reading as a bare
-// line on one row and as the drawn spelling of its neighbour.
+// line on one row and as the rendered spelling of its neighbour.
 func TestPinRefusesASpaceIndentedQuoteThatTwoRowsAnswerTo(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "steps.yml",
@@ -446,7 +446,7 @@ func TestPinRefusesASpaceIndentedQuoteThatTwoRowsAnswerTo(t *testing.T) {
 		"the foot is honest where the neighbour row is a guess")
 }
 
-// TestPinFindsTheOldSideOfARenamedFile covers a thread whose old-side line is drawn in the patch
+// TestPinFindsTheOldSideOfARenamedFile covers a thread whose old-side line is rendered in the patch
 // under a name the thread has never heard of.
 func TestPinFindsTheOldSideOfARenamedFile(t *testing.T) {
 	view := NewView(renamedPatch(), false)
@@ -473,12 +473,12 @@ func TestPinFindsTheQuoteOfARenamedFile(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	assert.Equal(t, pinned, view.placed[thread.GetId()],
-		"the line the thread quoted is drawn unchanged under the new name")
+		"the line the thread quoted is rendered unchanged under the new name")
 }
 
-// TestPinHoldsADrawnQuoteOnARemovedLine covers the spelling a row is actually written in, which
+// TestPinHoldsARenderedQuoteOnARemovedLine covers the spelling a row is actually written in, which
 // answers for itself and is not weighed by the side the thread's line was counted on.
-func TestPinHoldsADrawnQuoteOnARemovedLine(t *testing.T) {
+func TestPinHoldsARenderedQuoteOnARemovedLine(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
 		NewPath: "greet.go",
@@ -496,7 +496,7 @@ func TestPinHoldsADrawnQuoteOnARemovedLine(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	found, ok := view.GetThreadAt(2)
-	require.True(t, ok, "the row the diff draws that text on is the row")
+	require.True(t, ok, "the row the diff renders that text on is the row")
 	assert.Equal(t, "t1", found.GetId())
 }
 
@@ -525,13 +525,13 @@ func TestPinStillReadsAnIndentAsUnchanged(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	assert.Equal(t, pinned, view.placed[thread.GetId()],
-		"the drawn spelling of the line before the indent reads as the bare spelling of it after")
+		"the rendered spelling of the line before the indent reads as the bare spelling of it after")
 }
 
-// TestAnAdriftCommentOnADrawnLineReadsAsChanged covers the agent rewriting the code under a
+// TestAnAdriftCommentOnARenderedLineReadsAsChanged covers the agent rewriting the code under a
 // comment after reading the review, where the line is on screen and calling it off screen would
 // be false.
-func TestAnAdriftCommentOnADrawnLineReadsAsChanged(t *testing.T) {
+func TestAnAdriftCommentOnARenderedLineReadsAsChanged(t *testing.T) {
 	view := expandableView()
 
 	thread := threadAt("t1", "tall.go", 0, 5, "+something else entirely")
@@ -541,27 +541,27 @@ func TestAnAdriftCommentOnADrawnLineReadsAsChanged(t *testing.T) {
 	assert.Equal(t, changedNotice, headingAbove(t, view, "t1"))
 }
 
-// TestAnAdriftCommentOnAnUndrawnLineReadsAsOffScreen covers the line the reader themselves took
-// off the screen by drawing the file tight again, which the agent has not touched.
-func TestAnAdriftCommentOnAnUndrawnLineReadsAsOffScreen(t *testing.T) {
+// TestAnAdriftCommentOnAnUnrenderedLineReadsAsOffScreen covers the line the reader themselves took
+// off the screen by rendering the file tight again, which the agent has not touched.
+func TestAnAdriftCommentOnAnUnrenderedLineReadsAsOffScreen(t *testing.T) {
 	view := expandableView()
 
 	thread := threadAt("t1", "tall.go", 8, 8, "+eight")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	require.Equal(t, adrift, view.placed["t1"], "the patch draws no line eight")
+	require.Equal(t, adrift, view.placed["t1"], "the patch renders no line eight")
 	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
 }
 
 // TestACommentOnAFileThatHasLeftTheChangeSaysSo covers the whole-change diff, where a file the
-// patch does not draw is a file that is gone.
+// patch does not render is a file that is gone.
 func TestACommentOnAFileThatHasLeftTheChangeSaysSo(t *testing.T) {
 	view := expandableView()
 
 	thread := threadAt("t2", "departed.go", 3, 3, "+gone")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	require.Equal(t, adrift, view.placed["t2"], "the patch draws no such file")
+	require.Equal(t, adrift, view.placed["t2"], "the patch renders no such file")
 	assert.Equal(t, goneNotice, headingAbove(t, view, "t2"))
 }
 
@@ -591,7 +591,7 @@ func threadAt(id, path string, oldStart, newStart int32, quote string) *agentv1.
 	}
 }
 
-// renamedPatch is a file the round renamed, whose lines the diff draws under the new name.
+// renamedPatch is a file the round renamed, whose lines the diff renders under the new name.
 func renamedPatch() *diff.Patch {
 	return patchWith(diff.File{
 		OldPath: "greet.go",
@@ -617,7 +617,7 @@ func renamedPatch() *diff.Patch {
 	})
 }
 
-// expandableView is a file whose patch draws one changed line in the middle of it, with the whole
+// expandableView is a file whose patch renders one changed line in the middle of it, with the whole
 // of its new side to hand.
 func expandableView() *View {
 	return NewView(patchWith(diff.File{

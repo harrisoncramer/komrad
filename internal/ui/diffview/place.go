@@ -22,7 +22,7 @@ const outsideNotice = noticeRule + " still in the change, outside what is on scr
 // goneNotice heads the comments whose file has left the change altogether.
 const goneNotice = noticeRule + " these are holding your review, on files that have left the change " + noticeRule
 
-// placement is how a thread reached the row it is drawn on, which separates a thread the diff
+// placement is how a thread reached the row it is rendered on, which separates a thread the diff
 // still agrees with from one the agent has written out from under.
 type placement uint8
 
@@ -46,7 +46,7 @@ const (
 // placeArm is one way of finding a thread's row.
 type placeArm func(*View, lineIndex, *agentv1.ReviewThread) (int, placement, bool)
 
-// PinThreads works out where each thread is drawn now that the agent has been editing under it,
+// PinThreads works out where each thread is rendered now that the agent has been editing under it,
 // and never drops one for having moved.
 func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	v.threads = threads
@@ -152,7 +152,7 @@ func (v *View) rowByOld(index lineIndex, thread *agentv1.ReviewThread) (int, pla
 	return y, v.placementFor(y, quoteOf(thread)), true
 }
 
-// rowByQuote is the row drawing the text the thread quoted, which refuses two matches rather
+// rowByQuote is the row rendering the text the thread quoted, which refuses two matches rather
 // than guessing between them.
 func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
 	quote := quoteOf(thread)
@@ -160,9 +160,9 @@ func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, p
 		return 0, adrift, false
 	}
 
-	drawn, bare := index.quoted(v.pathOf(thread), quote)
+	rendered, bare := index.quoted(v.pathOf(thread), quote)
 
-	found := slices.Clone(drawn)
+	found := slices.Clone(rendered)
 
 	for _, y := range bare {
 		if v.isOnSideOf(y, thread) {
@@ -177,7 +177,7 @@ func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, p
 	return found[0], pinned, true
 }
 
-// isOnSideOf reports whether a row is drawn on the side of the diff the thread's line was
+// isOnSideOf reports whether a row is rendered on the side of the diff the thread's line was
 // counted on.
 func (v *View) isOnSideOf(y int, thread *agentv1.ReviewThread) bool {
 	line, ok := v.getLine(y)
@@ -228,12 +228,12 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	var changed, outside, gone []*agentv1.ReviewThread
 
 	for _, thread := range threads {
-		_, drawn := v.findFile(v.pathOf(thread))
+		_, rendered := v.findFile(v.pathOf(thread))
 
 		switch {
-		case drawn && !v.doesExpandingDraw(thread):
+		case rendered && !v.doesExpandingRender(thread):
 			changed = append(changed, thread)
-		case drawn || v.narrowed:
+		case rendered || v.narrowed:
 			outside = append(outside, thread)
 		default:
 			gone = append(gone, thread)
@@ -245,28 +245,28 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	v.appendFootSection(goneNotice, gone)
 }
 
-// doesExpandingDraw reports whether a thread stands on a line the reader would see again by
+// doesExpandingRender reports whether a thread stands on a line the reader would see again by
 // opening its file out.
-func (v *View) doesExpandingDraw(thread *agentv1.ReviewThread) bool {
+func (v *View) doesExpandingRender(thread *agentv1.ReviewThread) bool {
 	path := v.pathOf(thread)
 	if v.expanded[path] || thread.GetNewStart() == 0 {
 		return false
 	}
 
-	// A line the diff is drawing is on screen, so a thread adrift from it is one whose code has
+	// A line the diff is rendering is on screen, so a thread adrift from it is one whose code has
 	// changed under it rather than one the reader has folded away.
-	drawn, ok := v.findFile(path)
-	if !ok || doesDrawLine(drawn, thread.GetNewStart()) {
+	rendered, ok := v.findFile(path)
+	if !ok || doesRenderLine(rendered, thread.GetNewStart()) {
 		return false
 	}
 
 	whole, ok := v.wholeFile(path)
 
-	return ok && doesDrawLine(whole, thread.GetNewStart())
+	return ok && doesRenderLine(whole, thread.GetNewStart())
 }
 
-// doesDrawLine reports whether a file draws one line of the new side.
-func doesDrawLine(file *diff.File, line int32) bool {
+// doesRenderLine reports whether a file renders one line of the new side.
+func doesRenderLine(file *diff.File, line int32) bool {
 	for hunkIndex := range file.Hunks {
 		for _, candidate := range file.Hunks[hunkIndex].Lines {
 			if int32(candidate.NewNumber) == line {
@@ -278,7 +278,7 @@ func doesDrawLine(file *diff.File, line int32) bool {
 	return false
 }
 
-// appendFootSection draws one heading and the threads under it, and nothing for a section with
+// appendFootSection renders one heading and the threads under it, and nothing for a section with
 // no threads in it.
 func (v *View) appendFootSection(notice string, threads []*agentv1.ReviewThread) {
 	if len(threads) == 0 {

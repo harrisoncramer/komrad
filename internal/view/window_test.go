@@ -35,7 +35,7 @@ func windowedRows() []Row {
 	return rows
 }
 
-// windowed draws a window over the list above, focused on the row named, and hands back its
+// windowed renders a window over the list above, focused on the row named, and hands back its
 // lines with the styling taken off.
 func windowed(t *testing.T, focused string, lines int) []string {
 	t.Helper()
@@ -66,7 +66,7 @@ func TestWindowFitsThePane(t *testing.T) {
 		want    []string
 	}{
 		{
-			name:    "a list shorter than the pane is drawn whole and says nothing",
+			name:    "a list shorter than the pane is rendered whole and says nothing",
 			focused: "alpha",
 			lines:   20,
 			want: []string{
@@ -94,7 +94,7 @@ func TestWindowFitsThePane(t *testing.T) {
 			want:    []string{"  ↑ 5 more", "beta", "beta-0", "beta-1", "beta-2", "  ↓ 6 more"},
 		},
 		{
-			name:    "a pane too short for either count draws rows alone",
+			name:    "a pane too short for either count renders rows alone",
 			focused: "beta-1",
 			lines:   2,
 			want:    []string{"beta-0", "beta-1"},
@@ -109,11 +109,11 @@ func TestWindowFitsThePane(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			drawn := windowed(t, tt.focused, tt.lines)
-			require.Len(t, drawn, len(tt.want))
+			rendered := windowed(t, tt.focused, tt.lines)
+			require.Len(t, rendered, len(tt.want))
 
 			for i, want := range tt.want {
-				assert.True(t, strings.HasSuffix(drawn[i], want), "row %d is %q, wanted it to end in %q", i, drawn[i], want)
+				assert.True(t, strings.HasSuffix(rendered[i], want), "row %d is %q, wanted it to end in %q", i, rendered[i], want)
 			}
 		})
 	}
@@ -122,14 +122,14 @@ func TestWindowFitsThePane(t *testing.T) {
 // TestWindowCountsRowsRatherThanAgents pins the number a marker carries against a fold with a
 // workflow header above it, where the rows hidden outnumber the agents hidden.
 func TestWindowCountsRowsRatherThanAgents(t *testing.T) {
-	drawn := windowed(t, "beta-2", 6)
+	rendered := windowed(t, "beta-2", 6)
 
-	assert.Equal(t, "  ↑ 6 more", drawn[0], "the alpha header, its four agents, and the beta header")
-	assert.True(t, strings.HasSuffix(drawn[1], "beta-0"))
+	assert.Equal(t, "  ↑ 6 more", rendered[0], "the alpha header, its four agents, and the beta header")
+	assert.True(t, strings.HasSuffix(rendered[1], "beta-0"))
 }
 
 // TestWindowNeverOverrunsThePane pins the one thing a caller cannot get wrong: whatever the list
-// and the pane, the block it draws is no taller than the room it was given.
+// and the pane, the block it renders is no taller than the room it was given.
 func TestWindowNeverOverrunsThePane(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    windowedRows(),
@@ -149,7 +149,7 @@ func TestWindowNeverOverrunsThePane(t *testing.T) {
 }
 
 // TestWindowKeepsASelectedRowTheWidthOfThePane pins the bar under a selected row reaching the
-// edge at every width, counted in the columns the font draws.
+// edge at every width, counted in the columns the font renders.
 func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 	tests := []struct {
 		name string
@@ -183,12 +183,12 @@ func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 			})
 			painted, ok := rowNamed(strings.Split(block, "\n"), "beta-1")
 			require.True(t, ok)
-			assert.Equal(t, tt.pane, drawnColumns(ansiEscapes.ReplaceAllString(painted, "")))
+			assert.Equal(t, tt.pane, renderedColumns(ansiEscapes.ReplaceAllString(painted, "")))
 		})
 	}
 }
 
-// rowNamed is the drawn row holding a name, once its styling is off.
+// rowNamed is the rendered row holding a name, once its styling is off.
 func rowNamed(rows []string, name string) (string, bool) {
 	for _, row := range rows {
 		if strings.Contains(ansiEscapes.ReplaceAllString(row, ""), name) {
@@ -199,7 +199,7 @@ func rowNamed(rows []string, name string) (string, bool) {
 	return "", false
 }
 
-// TestWindowOverTheLivePanel draws a window over the listing the panel actually holds, at a pane
+// TestWindowOverTheLivePanel renders a window over the listing the panel actually holds, at a pane
 // short enough to need one, which the agents tab is not today.
 func TestWindowOverTheLivePanel(t *testing.T) {
 	list := Prepare(Snapshot{

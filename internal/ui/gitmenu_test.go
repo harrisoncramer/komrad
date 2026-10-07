@@ -20,7 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestGitMenu covers the menu of git actions drawn over the agent the cursor is on.
+// TestGitMenu covers the menu of git actions rendered over the agent the cursor is on.
 func TestGitMenu(t *testing.T) {
 	t.Parallel()
 
@@ -31,7 +31,7 @@ func TestGitMenu(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "agents › api › git", readTrail(frame))
-		assert.Contains(t, frame, "  › git ›", "the menu it came from stays drawn with its cursor on git")
+		assert.Contains(t, frame, "  › git ›", "the menu it came from stays rendered with its cursor on git")
 	})
 
 	t.Run("esc goes back to the menu it came from, its cursor still on git", func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestGitMenu(t *testing.T) {
 		assert.Contains(t, frame, "› git ›")
 	})
 
-	t.Run("a narrow panel draws only the menu on top", func(t *testing.T) {
+	t.Run("a narrow panel renders only the menu on top", func(t *testing.T) {
 		t.Parallel()
 
 		harness := newPanelHarness(t, panelHarnessParams{width: 36, height: 20})

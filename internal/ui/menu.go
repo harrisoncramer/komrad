@@ -35,7 +35,7 @@ func (m *model) buildMenu() (submenu, bool) {
 	}
 }
 
-// joinMenus draws one band over another with a rule between them, under the top band's title.
+// joinMenus renders one band over another with a rule between them, under the top band's title.
 func joinMenus(top, bottom submenu) submenu {
 	return submenu{
 		kind:    top.kind,

@@ -165,9 +165,9 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 	}
 }
 
-// TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent covers a flat row being a result rather
+// TestWorktreesSnapshotRendersFlatRowsAtTheHeadingIndent covers a flat row being a result rather
 // than an agent under a heading, with its cells as they were.
-func TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent(t *testing.T) {
+func TestWorktreesSnapshotRendersFlatRowsAtTheHeadingIndent(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
@@ -390,7 +390,7 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 
 // TestWorktreesSnapshotCellsAreSizeAgeThenStanding covers every row's cells: the size and the age
 // on a directory with a dash for the size until it is measured or while its walk fails, the
-// standing in the glyphs an agent's row draws, and the header summing the shares of the measured
+// standing in the glyphs an agent's row renders, and the header summing the shares of the measured
 // directories under it over the size column.
 func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)

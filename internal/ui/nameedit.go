@@ -13,7 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// nameEdit is a row's name being typed over where the row is drawn.
+// nameEdit is a row's name being typed over where the row is rendered.
 type nameEdit struct {
 	key   string
 	was   string
@@ -23,7 +23,7 @@ type nameEdit struct {
 	noted bool
 	// saving says the typed name has been sent and the field takes no keys until it lands.
 	saving bool
-	// landed says the typed name was written and is drawn until the listing shows it.
+	// landed says the typed name was written and is rendered until the listing shows it.
 	landed bool
 }
 
@@ -136,8 +136,8 @@ func (e *nameEdit) settle(row string, err error) {
 	e.landed = err == nil
 }
 
-// drawnOver draws the typed name in place of the row's own.
-func (e *nameEdit) drawnOver(row view.Row) view.Row {
+// renderedOver renders the typed name in place of the row's own.
+func (e *nameEdit) renderedOver(row view.Row) view.Row {
 	if e == nil || e.key != row.Key {
 		return row
 	}
@@ -173,8 +173,8 @@ func renameHelp() keyMap {
 	return keyMap{short: []key.Binding{save, cancel}, full: []key.Binding{save, cancel}}
 }
 
-// drawnName is the typed name in a row's lettering, cut to fit around the cursor.
-func drawnName(e *nameEdit, style lipgloss.Style) string {
+// renderedName is the typed name in a row's lettering, cut to fit around the cursor.
+func renderedName(e *nameEdit, style lipgloss.Style) string {
 	if e.saving || e.landed {
 		return style.Render(paint.ClipStart(e.input.value(), nameWidth))
 	}
@@ -182,5 +182,5 @@ func drawnName(e *nameEdit, style lipgloss.Style) string {
 	before, after := e.input.split()
 	before, after = paint.ClipAround(before, after, nameWidth)
 
-	return paint.Panel.DrawTyped(before, after, style)
+	return paint.Panel.RenderTyped(before, after, style)
 }

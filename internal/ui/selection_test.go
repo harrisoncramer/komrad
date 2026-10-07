@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestSelection covers the bar a chosen row is drawn under.
+// TestSelection covers the bar a chosen row is rendered under.
 func TestSelection(t *testing.T) {
 	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
@@ -43,12 +43,12 @@ func TestSelection(t *testing.T) {
 			harness := openAgents(t, tt.rows...)
 			harness.press(tt.press...)
 			harness.press("j")
-			require.NotContains(t, findDrawnRow(t, harness, "api"), bar)
+			require.NotContains(t, findRenderedRow(t, harness, "api"), bar)
 
 			harness.press("v", "j")
 
-			assert.Contains(t, findDrawnRow(t, harness, "api"), bar)
-			assert.NotContains(t, findDrawnRow(t, harness, "db"), bar, "and only that row")
+			assert.Contains(t, findRenderedRow(t, harness, "api"), bar)
+			assert.NotContains(t, findRenderedRow(t, harness, "db"), bar, "and only that row")
 		})
 	}
 
@@ -59,20 +59,20 @@ func TestSelection(t *testing.T) {
 		harness.press("space", "a")
 		require.Contains(t, harness.readFrame(), `agent "api" › archive`)
 
-		assert.Contains(t, findDrawnRow(t, harness, "api"), bar)
+		assert.Contains(t, findRenderedRow(t, harness, "api"), bar)
 	})
 }
 
-func findDrawnRow(t *testing.T, harness *panelHarness, name string) string {
+func findRenderedRow(t *testing.T, harness *panelHarness, name string) string {
 	t.Helper()
 
-	lines := findDrawnRows(t, harness, name)
-	require.NotEmptyf(t, lines, "no row is drawn for %q", name)
+	lines := findRenderedRows(t, harness, name)
+	require.NotEmptyf(t, lines, "no row is rendered for %q", name)
 
 	return lines[0]
 }
 
-func findDrawnRows(t *testing.T, harness *panelHarness, name string) []string {
+func findRenderedRows(t *testing.T, harness *panelHarness, name string) []string {
 	t.Helper()
 
 	return xslice.Filter(splitLines(harness.readRawFrame()), func(line string) bool {

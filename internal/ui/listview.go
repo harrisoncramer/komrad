@@ -9,11 +9,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// listPane is the column a list is drawn in this frame and how its cursor stands.
+// listPane is the column a list is rendered in this frame and how its cursor stands.
 func (m *model) listPane(width int) listPane {
 	caret := m.caretOf(sectionList)
 	if m.isDocFocused() {
-		caret = view.CaretDrawn
+		caret = view.CaretRendered
 	}
 
 	return listPane{
@@ -43,12 +43,12 @@ func (m *model) welcomeView(params screenListParams, text string) string {
 func (m *model) listChrome(params screenListParams) (string, string) {
 	header := m.tabbedHeader(params.title, params.tally)
 	help := m.renderHelp(m.listHelpOf(params), header)
-	record := m.drawRecord(header, help)
+	record := m.renderRecord(header, help)
 
 	return header, record + help
 }
 
-// screenListView draws a screen's list under its header with its record and its legend under
+// screenListView renders a screen's list under its header with its record and its legend under
 // it.
 func (m *model) screenListView(params screenListParams) string {
 	header, below := m.listChrome(params)
@@ -75,7 +75,7 @@ func (m *model) screenListView(params screenListParams) string {
 	return headedBlockView(header, window, lines, below)
 }
 
-// prepareList resolves a snapshot to the list drawn from it, in the glyphs the panel was
+// prepareList resolves a snapshot to the list rendered from it, in the glyphs the panel was
 // configured with.
 func prepareList(glyphs glyph.Set, snapshot view.Snapshot) view.List {
 	snapshot.Glyphs = glyphs
@@ -107,7 +107,7 @@ func (m *model) headerLines(title, tally, tabs string) string {
 	return m.viewsBar() + header + tabs + m.filter.line(m.focusPalette(), m.glyphs) + "\n\n"
 }
 
-// headedListView draws a list under its header, padded out to the record and the legend under it.
+// headedListView renders a list under its header, padded out to the record and the legend under it.
 func (m *model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.listLines(header, help)
 
@@ -128,7 +128,7 @@ func emptyLineOf(filter filterState, idle string) string {
 	return idle
 }
 
-// headedBlockView draws a list already fitted to the pane.
+// headedBlockView renders a list already fitted to the pane.
 func headedBlockView(header, block string, lines int, help string) string {
 	return header + paint.PadRows(block, lines) + help
 }

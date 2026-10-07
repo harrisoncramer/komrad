@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFit covers fitting a saved screen to the space it is drawn in.
+// TestFit covers fitting a saved screen to the space it is rendered in.
 func TestFit(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -20,7 +20,7 @@ func TestFit(t *testing.T) {
 		want   []string
 	}{
 		{
-			name:   "a screen the terminal's size is drawn as it was",
+			name:   "a screen the terminal's size is rendered as it was",
 			screen: "one\ntwo",
 			width:  3,
 			height: 2,

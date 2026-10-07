@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// submenuLeading is the menus under the one on top drawn gray, as many as fit beside it and its preview.
+// submenuLeading is the menus under the one on top rendered gray, as many as fit beside it and its preview.
 func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
 	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
 	if top.menu.preview != nil {
@@ -22,9 +22,9 @@ func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []strin
 	return frozenMenus(parents, room)
 }
 
-// frozenMenus is a stack of menus drawn gray, as many of the nearest as fit in room.
+// frozenMenus is a stack of menus rendered gray, as many of the nearest as fit in room.
 func frozenMenus(levels []submenuLevel, room int) []string {
-	var drawn []string
+	var rendered []string
 
 	for i := len(levels) - 1; i >= 0; i-- {
 		view := frozenSubmenu(levels[i], i > 0)
@@ -34,15 +34,15 @@ func frozenMenus(levels []submenuLevel, room int) []string {
 			break
 		}
 
-		drawn = append(drawn, view)
+		rendered = append(rendered, view)
 	}
 
-	slices.Reverse(drawn)
+	slices.Reverse(rendered)
 
-	return drawn
+	return rendered
 }
 
-// frozenSubmenu is a menu as it is drawn once another has opened to its right.
+// frozenSubmenu is a menu as it is rendered once another has opened to its right.
 func frozenSubmenu(level submenuLevel, nested bool) string {
 	form := submenuForm(level, nested, fixedKeys()).WithShowHelp(false)
 	form.Init()

@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestTriageRows covers which agents the zone draws and in what order.
+// TestTriageRows covers which agents the zone renders and in what order.
 func TestTriageRows(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -27,7 +27,7 @@ func TestTriageRows(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:     "a zone with no rows is not drawn",
+			name:     "a zone with no rows is not rendered",
 			capacity: 0,
 			rows:     buildTriage(),
 			want:     []string{"backend", "third", "asker", "broken", "quiet"},
@@ -236,7 +236,7 @@ func TestTriageSnooze(t *testing.T) {
 		relisted []proto.Message
 		// then is a second listing the watch sends after relisted, none when it sends nothing.
 		then []proto.Message
-		// want is the list as drawn, unchecked when nil.
+		// want is the list as rendered, unchecked when nil.
 		want []string
 	}{
 		{
@@ -565,7 +565,7 @@ func TestTriageFreeze(t *testing.T) {
 	}
 }
 
-// TestTriageCopies covers an agent in triage drawn twice, once in the zone and once in the tree.
+// TestTriageCopies covers an agent in triage rendered twice, once in the zone and once in the tree.
 func TestTriageCopies(t *testing.T) {
 	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
@@ -574,7 +574,7 @@ func TestTriageCopies(t *testing.T) {
 
 		harness.press("t", "v")
 
-		marked := xslice.Filter(findDrawnRows(t, harness, "asker"), func(line string) bool {
+		marked := xslice.Filter(findRenderedRows(t, harness, "asker"), func(line string) bool {
 			return strings.Contains(line, bar)
 		})
 		assert.Len(t, marked, 2)
@@ -689,7 +689,7 @@ func buildAnswered() []proto.Message {
 	return rows
 }
 
-// findTreeLine is the line of the frame the tree's workflow is drawn on.
+// findTreeLine is the line of the frame the tree's workflow is rendered on.
 func findTreeLine(frame string) int {
 	return slices.IndexFunc(splitLines(frame), func(line string) bool { return strings.Contains(line, "│ backend") })
 }

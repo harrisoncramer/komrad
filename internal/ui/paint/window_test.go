@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRenderListFits pins that a list short enough to draw whole is not cut.
+// TestRenderListFits pins that a list short enough to render whole is not cut.
 func TestRenderListFits(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -43,12 +43,12 @@ func TestRenderListFits(t *testing.T) {
 	}
 }
 
-// TestRenderListEmpty pins that a list with no rows draws nothing rather than a blank line.
+// TestRenderListEmpty pins that a list with no rows renders nothing rather than a blank line.
 func TestRenderListEmpty(t *testing.T) {
 	assert.Empty(t, RenderList(nil, 0, 10, dim))
 }
 
-// TestRenderListNoRoom pins that a list handed no room draws nothing rather than every row it
+// TestRenderListNoRoom pins that a list handed no room renders nothing rather than every row it
 // was given.
 func TestRenderListNoRoom(t *testing.T) {
 	assert.Empty(t, RenderList(numbered(100), 0, 0, dim))
@@ -106,10 +106,10 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 
 	for height := 1; height <= len(rows); height++ {
 		for cursor := range rows {
-			drawn := lines(RenderList(rows, cursor, height, dim))
+			rendered := lines(RenderList(rows, cursor, height, dim))
 
-			assert.Contains(t, drawn, fmt.Sprintf("row%d", cursor))
-			assert.LessOrEqual(t, len(drawn), height)
+			assert.Contains(t, rendered, fmt.Sprintf("row%d", cursor))
+			assert.LessOrEqual(t, len(rendered), height)
 		}
 	}
 }
@@ -132,7 +132,7 @@ func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 			out := WindowRows(rows, lines, place, dim)
 
 			assert.Equal(t, lines, strings.Count(out, "\n"),
-				"WindowRows drew %d rows into %d, scroll=%d", strings.Count(out, "\n"), lines, scroll)
+				"WindowRows rendered %d rows into %d, scroll=%d", strings.Count(out, "\n"), lines, scroll)
 		}
 	}
 }

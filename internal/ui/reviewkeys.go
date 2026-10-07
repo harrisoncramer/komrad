@@ -42,7 +42,7 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 	k := key.String()
 
 	// The diff opens for an agent that is not there, and only the back key answers until it has
-	// something to draw.
+	// something to render.
 	if r.diff.View() == nil {
 		if isBound(k, fixedKeys().Back) {
 			return r.back(m), true
@@ -72,7 +72,7 @@ func (r *reviewScreen) refuseHistory(m *model, said string) {
 		back = m.menuChordLabel(m.keys.Review.Jump) + " to go back to where you were, then " + back
 	}
 
-	detail := "This draws code the agent has already rewritten, so the line under the cursor is " +
+	detail := "This renders code the agent has already rewritten, so the line under the cursor is " +
 		"not in the work it has now and a comment on it could not be acted on. Press " + back +
 		", then comment there."
 
@@ -83,7 +83,7 @@ func (r *reviewScreen) refuseHistory(m *model, said string) {
 // change a mark is about.
 func (r *reviewScreen) refuseViewed(m *model) {
 	summary := "a file is read in the whole change, not in one chapter"
-	detail := "This draws one chapter of the change, so the file under the cursor is a different " +
+	detail := "This renders one chapter of the change, so the file under the cursor is a different " +
 		"diff here than it is in the whole of it and a mark taken on it would say you had read " +
 		"something else. Press " + keyLabel(m.keys.Review.BaseForward) + " until the whole change " +
 		"is on screen, then mark it there."
@@ -107,9 +107,9 @@ func (r *reviewScreen) diffKeys() diffKeys {
 	}
 }
 
-// refuseExpand says why the file under the cursor cannot be drawn whole.
+// refuseExpand says why the file under the cursor cannot be rendered whole.
 func (r *reviewScreen) refuseExpand(m *model) string {
-	file, ok := r.diff.View().GetDrawnFileAt(r.diff.Cursor())
+	file, ok := r.diff.View().GetRenderedFileAt(r.diff.Cursor())
 	if !ok || r.diff.View().IsExpanded(file.Path()) || !r.diff.View().IsViewed(file.Path()) {
 		return ""
 	}
@@ -117,7 +117,7 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 	return "that file is folded away" + separated + m.menuChordLabel(m.keys.Review.ToggleViewed) + " to open it"
 }
 
-// diffWindow is the window the diff is drawn in, zero-sized without a split.
+// diffWindow is the window the diff is rendered in, zero-sized without a split.
 func (r *reviewScreen) diffWindow(m *model) diffview.Window {
 	split, ok := m.screenColumnSplit()
 	if !ok {
@@ -279,7 +279,7 @@ func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (tea.Cmd, bool) {
 	return section.moveBy(m, rows), true
 }
 
-// sidebarNavAt is the sidebar section drawn on row y, and false for a row the wheel leaves alone.
+// sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
 func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
 	if _, ok := m.screenColumnSplit(); !ok {
 		return nil, false
@@ -290,9 +290,9 @@ func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
 	filesTop := pullRequestTop + paint.CountLines(layout.pullRequest)
 
 	switch {
-	case y >= pullRequestTop && y < filesTop && r.isPullRequestDrawn(m):
+	case y >= pullRequestTop && y < filesTop && r.isPullRequestRendered(m):
 		return pullRequestNav{r}, true
-	case y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockDrawn(m):
+	case y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(m):
 		return filesNav{r}, true
 	}
 

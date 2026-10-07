@@ -109,7 +109,7 @@ func pullRequestBodyRows(body string, width int) []string {
 	return rows
 }
 
-func (r *reviewScreen) isPullRequestDrawn(m *model) bool {
+func (r *reviewScreen) isPullRequestRendered(m *model) bool {
 	if _, ok := m.screenColumnSplit(); !ok {
 		return false
 	}
@@ -120,7 +120,7 @@ func (r *reviewScreen) isPullRequestDrawn(m *model) bool {
 }
 
 func (r *reviewScreen) isPullRequestFocused(m *model) bool {
-	return r.focus == reviewFocusPullRequest && m.isListFocused() && !r.isWriting() && r.isPullRequestDrawn(m)
+	return r.focus == reviewFocusPullRequest && m.isListFocused() && !r.isWriting() && r.isPullRequestRendered(m)
 }
 
 func (r *reviewScreen) focusPullRequest(*model) {

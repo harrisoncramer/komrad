@@ -156,7 +156,7 @@ func TestClipAround(t *testing.T) {
 			wantAfter:  "",
 		},
 		{
-			name:   "no room draws nothing",
+			name:   "no room renders nothing",
 			before: "abc",
 			after:  "def",
 			width:  0,

@@ -125,12 +125,12 @@ func TestDocumentsOpen(t *testing.T) {
 	})
 }
 
-// TestDocumentsRead covers the document under the cursor drawn beside the list, read once and
+// TestDocumentsRead covers the document under the cursor rendered beside the list, read once and
 // read again only when the agent writes.
 func TestDocumentsRead(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the first document is drawn as it opens", func(t *testing.T) {
+	t.Run("the first document is rendered as it opens", func(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
@@ -138,7 +138,7 @@ func TestDocumentsRead(t *testing.T) {
 		stage := readStageText(harness.readFrame())
 		assert.Contains(t, stage, "RFC, written")
 		assert.Contains(t, stage, "Keep the cache warm.")
-		assert.Equal(t, 1, strings.Count(stage, "Design the cache"), "a heading that repeats the name is drawn once")
+		assert.Equal(t, 1, strings.Count(stage, "Design the cache"), "a heading that repeats the name is rendered once")
 	})
 
 	t.Run("moving the cursor reads the next", func(t *testing.T) {
@@ -305,7 +305,7 @@ func TestDocumentsEdit(t *testing.T) {
 			respawns := harness.panel.ReadRespawns()
 			require.NotEmpty(t, respawns)
 			path := readEditedPath(t, respawns[len(respawns)-1])
-			assert.NotContains(t, readStageText(harness.readFrame()), "Keep the cache warm.", "the editor stands where the document was drawn")
+			assert.NotContains(t, readStageText(harness.readFrame()), "Keep the cache warm.", "the editor stands where the document was rendered")
 
 			require.NoError(t, os.WriteFile(path, []byte(tt.write), 0o600))
 			if tt.between != nil {
@@ -392,9 +392,9 @@ func TestDocumentsNew(t *testing.T) {
 	}
 }
 
-// TestDocumentsNewRedrawsTheTypes covers the new document form offering a type defined while it is
+// TestDocumentsNewRerendersTheTypes covers the new document form offering a type defined while it is
 // open.
-func TestDocumentsNewRedrawsTheTypes(t *testing.T) {
+func TestDocumentsNewRerendersTheTypes(t *testing.T) {
 	t.Parallel()
 
 	harness, _ := openDocuments(t)
@@ -494,7 +494,7 @@ func TestDocumentsMenu(t *testing.T) {
 	}
 }
 
-// TestDocumentsHistory covers stepping back and forward through a document's writes, drawing
+// TestDocumentsHistory covers stepping back and forward through a document's writes, rendering
 // what each changed.
 func TestDocumentsHistory(t *testing.T) {
 	t.Parallel()
@@ -509,28 +509,28 @@ func TestDocumentsHistory(t *testing.T) {
 		note     string
 	}{
 		{
-			name:    "stepping back draws what the newest write changed",
+			name:    "stepping back renders what the newest write changed",
 			presses: []string{"<"},
 			want:    []string{"version 3 of 3, written by you", "3      -  Keep the cache cold.", "5      -  Evict nightly.", "3 +  Keep the cache warm."},
 		},
 		{
-			name:    "stepping back again draws the write before it",
+			name:    "stepping back again renders the write before it",
 			presses: []string{"<", "<"},
 			want:    []string{"version 2 of 3, written by the agent", "5 +  Evict nightly."},
 			wantNot: []string{"Keep the cache warm."},
 		},
 		{
-			name:    "the first write is drawn whole as added, and stepping past it stays there",
+			name:    "the first write is rendered whole as added, and stepping past it stays there",
 			presses: []string{"<", "<", "<", "<"},
 			want:    []string{"version 1 of 3", "@@ -0,0 +1,3 @@", "3 +  Keep the cache cold."},
 		},
 		{
-			name:    "stepping forward draws the later write",
+			name:    "stepping forward renders the later write",
 			presses: []string{"<", "<", ">"},
 			want:    []string{"version 3 of 3"},
 		},
 		{
-			name:    "stepping forward past the newest draws the document as it stands",
+			name:    "stepping forward past the newest renders the document as it stands",
 			presses: []string{"<", ">"},
 			want:    []string{"RFC, written", "Keep the cache warm."},
 			wantNot: []string{"version 3 of 3"},
@@ -547,7 +547,7 @@ func TestDocumentsHistory(t *testing.T) {
 			want:    []string{"version 5 of 5", "1      -  It went out on Monday.", "1 +  It went out on Tuesday."},
 		},
 		{
-			name:    "the oldest write kept when earlier ones were not is drawn as it is",
+			name:    "the oldest write kept when earlier ones were not is rendered as it is",
 			presses: []string{"j", "<", "<"},
 			want:    []string{"version 4 of 5", "the writes before it were not kept", "It went out on Monday."},
 			wantNot: []string{"+  It went out on Monday."},
@@ -564,7 +564,7 @@ func TestDocumentsHistory(t *testing.T) {
 			want:    []string{"3 +  Keep the cache warm."},
 		},
 		{
-			name:    "panning back to the start draws the lines whole",
+			name:    "panning back to the start renders the lines whole",
 			presses: []string{"<", "pick:block", "l", "0"},
 			want:    []string{"3 +  Keep the cache warm."},
 		},
@@ -595,17 +595,17 @@ func TestDocumentsHistory(t *testing.T) {
 			note:    "no matches",
 		},
 		{
-			name:    "the diff keeps the keys across a write it cannot draw",
+			name:    "the diff keeps the keys across a write it cannot render",
 			presses: []string{"j", "<", "pick:block", "<", "k"},
 			want:    []string{"version 4 of 5"},
 		},
 		{
-			name:    "leaving a write it cannot draw stays on the screen",
+			name:    "leaving a write it cannot render stays on the screen",
 			presses: []string{"j", "<", "pick:block", "<", "esc", ">"},
 			want:    []string{"version 5 of 5"},
 		},
 		{
-			name:    "a document drawn whole has no more to show",
+			name:    "a document rendered whole has no more to show",
 			presses: []string{"<", "pick:block", "j", "E"},
 			note:    "there is no more of that file to show",
 		},
@@ -767,7 +767,7 @@ func TestDocumentsReading(t *testing.T) {
 	})
 }
 
-// TestDocumentsReadingCursor covers the cursor drawn in the document once it holds the keys, and
+// TestDocumentsReadingCursor covers the cursor rendered in the document once it holds the keys, and
 // the search's hits painted in it.
 func TestDocumentsReadingCursor(t *testing.T) {
 	t.Parallel()
@@ -786,7 +786,7 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search stands over the focused document")
 	focused := findRawLine(harness.readRawFrame(), line)
 	require.NotEmpty(t, focused)
-	assert.Contains(t, focused, bar, "the cursor is drawn as a bar on the line it moved to")
+	assert.Contains(t, focused, bar, "the cursor is rendered as a bar on the line it moved to")
 
 	harness.press("/", "w", "a", "r", "m", "enter")
 	found := findRawLine(harness.readRawFrame(), line)
@@ -862,7 +862,7 @@ func TestDocumentsDiffCursor(t *testing.T) {
 }
 
 // TestDocumentsDiffSearchOutlastsTheSplit covers the search prompt keeping its keys while the
-// panel is too narrow to draw the diff beside the list.
+// panel is too narrow to render the diff beside the list.
 func TestDocumentsDiffSearchOutlastsTheSplit(t *testing.T) {
 	t.Parallel()
 

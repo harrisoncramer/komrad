@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestViews covers the switcher drawn over every list and the keys that move between views.
+// TestViews covers the switcher rendered over every list and the keys that move between views.
 func TestViews(t *testing.T) {
 	t.Run("the logo and every view open the frame, the current one lit", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
@@ -31,13 +31,13 @@ func TestViews(t *testing.T) {
 		assert.Contains(t, harness.readRawFrame(), lit.Render("documents"), "the view that is up is lit")
 	})
 
-	t.Run("a page opened from a view draws the trail back to it beside the logo", func(t *testing.T) {
+	t.Run("a page opened from a view renders the trail back to it beside the logo", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
 		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › author › documents"))
 	})
 
-	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
+	t.Run("a pane too short for the switcher still renders the trail", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
 		resize(harness, 80, 16)
@@ -46,7 +46,7 @@ func TestViews(t *testing.T) {
 		assert.Contains(t, frame, "agents › author › documents")
 	})
 
-	t.Run("a pane too short for it draws none", func(t *testing.T) {
+	t.Run("a pane too short for it renders none", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{height: 16})
 
 		assert.NotContains(t, harness.readFrame(), "komrad")
@@ -211,7 +211,7 @@ func TestTrail(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "agents ›")
 	})
 
-	t.Run("the trail is drawn in one muted tone", func(t *testing.T) {
+	t.Run("the trail is rendered in one muted tone", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
 		harness.press("tab", "G")

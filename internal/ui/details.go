@@ -30,7 +30,7 @@ type details struct {
 	tags    []string
 }
 
-// detailsRow is one field as the record draws it, keyed by its place in the whole record.
+// detailsRow is one field as the record renders it, keyed by its place in the whole record.
 type detailsRow struct {
 	id    string
 	field recordField
@@ -44,7 +44,7 @@ func (r detailsRow) key() string {
 }
 
 func (m *model) hoveredDetails() details {
-	d, ok := m.active().(recordDrawer)
+	d, ok := m.active().(recordRenderer)
 	if !ok {
 		return details{}
 	}
@@ -53,7 +53,7 @@ func (m *model) hoveredDetails() details {
 }
 
 func (m *model) isDetailsScreen() bool {
-	_, ok := m.active().(recordDrawer)
+	_, ok := m.active().(recordRenderer)
 
 	return ok
 }
@@ -90,12 +90,12 @@ func (m *model) detailsCursor(held details) int {
 	return cursor.Clamp(m.details.cursor, len(m.detailsRows(held)))
 }
 
-func (m *model) isDetailsDrawn(held details) bool {
+func (m *model) isDetailsRendered(held details) bool {
 	if len(held.fields) == 0 || m.detailsLines() == 0 {
 		return false
 	}
 
-	d, ok := m.active().(recordDrawer)
+	d, ok := m.active().(recordRenderer)
 	if !ok {
 		return true
 	}
@@ -121,7 +121,7 @@ func (m *model) listFitsDetails(params screenListParams) bool {
 	return probe.spareLines(header, legend) > probe.detailsLines()+detailsChromeLines
 }
 
-// listRecordRoom is the lines a list screen has under its header and the legend it is drawing.
+// listRecordRoom is the lines a list screen has under its header and the legend it is rendering.
 func (m *model) listRecordRoom(params screenListParams) int {
 	header := m.tabbedHeader(params.title, params.tally)
 
@@ -129,13 +129,13 @@ func (m *model) listRecordRoom(params screenListParams) int {
 }
 
 func (m *model) isDetailsFocused() bool {
-	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
+	return m.details.focused && m.isDetailsRendered(m.hoveredDetails())
 }
 
 // focusDetails gives the record the keys, reading its directory again on the way in.
 func (m *model) focusDetails() tea.Cmd {
 	held := m.hoveredDetails()
-	if !m.isDetailsDrawn(held) {
+	if !m.isDetailsRendered(held) {
 		return nil
 	}
 
@@ -150,9 +150,9 @@ func (m *model) focusDetails() tea.Cmd {
 	return tea.Batch(m.rereadAgentWorktreeCmd(), m.wakeCwdSyncCmd())
 }
 
-// releaseHiddenDetails hands the keys back from a record the pane no longer draws.
+// releaseHiddenDetails hands the keys back from a record the pane no longer renders.
 func (m *model) releaseHiddenDetails() {
-	if !m.details.focused || m.isDetailsDrawn(m.hoveredDetails()) {
+	if !m.details.focused || m.isDetailsRendered(m.hoveredDetails()) {
 		return
 	}
 
@@ -400,7 +400,7 @@ func (m *model) detailsLines() int {
 func (m *model) grownDetailsLines(held details) int {
 	lines := max(m.detailsLines(), m.detailsWanted(held))
 
-	d, ok := m.active().(recordDrawer)
+	d, ok := m.active().(recordRenderer)
 	if !ok {
 		return lines
 	}

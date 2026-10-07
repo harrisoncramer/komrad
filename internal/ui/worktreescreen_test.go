@@ -142,11 +142,11 @@ func TestWorktreesDelete(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		row        string
-		press      []string
-		wantDrawn  string
-		wantAbsent string
+		name         string
+		row          string
+		press        []string
+		wantRendered string
+		wantAbsent   string
 	}{
 		{
 			name:       "a repository header opens nothing",
@@ -155,40 +155,40 @@ func TestWorktreesDelete(t *testing.T) {
 			wantAbsent: "Delete",
 		},
 		{
-			name:      "a selection holding a live agent archives it first",
-			row:       "treeview",
-			press:     []string{"v", "j", "v", "space", "a", "d"},
-			wantDrawn: `Delete 2 worktrees? This first archives agent "treeview", closing any pane still open.`,
+			name:         "a selection holding a live agent archives it first",
+			row:          "treeview",
+			press:        []string{"v", "j", "v", "space", "a", "d"},
+			wantRendered: `Delete 2 worktrees? This first archives agent "treeview", closing any pane still open.`,
 		},
 		{
-			name:      "a live agent is offered the archive",
-			row:       "treeview",
-			press:     []string{"space", "a", "a"},
-			wantDrawn: `Archive agent "treeview"?`,
+			name:         "a live agent is offered the archive",
+			row:          "treeview",
+			press:        []string{"space", "a", "a"},
+			wantRendered: `Archive agent "treeview"?`,
 		},
 		{
-			name:      "an archived agent's directory is offered the delete, which keeps a branch nothing else holds",
-			row:       "reviewer",
-			press:     []string{"space", "a", "d"},
-			wantDrawn: "Delete the worktree of reviewer? The directory goes through the agent delete",
+			name:         "an archived agent's directory is offered the delete, which keeps a branch nothing else holds",
+			row:          "reviewer",
+			press:        []string{"space", "a", "d"},
+			wantRendered: "Delete the worktree of reviewer? The directory goes through the agent delete",
 		},
 		{
-			name:      "a directory nothing answers for is offered the delete on its own",
-			row:       "broken",
-			press:     []string{"space", "a", "d"},
-			wantDrawn: "Delete the worktree of broken? The directory nothing answers for is removed on its own",
+			name:         "a directory nothing answers for is offered the delete on its own",
+			row:          "broken",
+			press:        []string{"space", "a", "d"},
+			wantRendered: "Delete the worktree of broken? The directory nothing answers for is removed on its own",
 		},
 		{
-			name:      "a selection of an archived and two unowned directories counts them",
-			row:       "reviewer",
-			press:     []string{"v", "j", "j", "v", "j", "j", "v", "space", "a", "d"},
-			wantDrawn: "Delete 3 worktrees? The directory goes through the agent delete",
+			name:         "a selection of an archived and two unowned directories counts them",
+			row:          "reviewer",
+			press:        []string{"v", "j", "j", "v", "j", "j", "v", "space", "a", "d"},
+			wantRendered: "Delete 3 worktrees? The directory goes through the agent delete",
 		},
 		{
-			name:      "clear gathers everything but the live directory",
-			row:       "treeview",
-			press:     []string{"space", "a", "c"},
-			wantDrawn: "Delete 4 worktrees?",
+			name:         "clear gathers everything but the live directory",
+			row:          "treeview",
+			press:        []string{"space", "a", "c"},
+			wantRendered: "Delete 4 worktrees?",
 		},
 	}
 
@@ -203,7 +203,7 @@ func TestWorktreesDelete(t *testing.T) {
 
 			frame := harness.readFrame()
 			prose := readFormProse(frame) + " " + readSidebarProse(frame)
-			assert.Contains(t, prose, tt.wantDrawn)
+			assert.Contains(t, prose, tt.wantRendered)
 			if tt.wantAbsent != "" {
 				assert.NotContains(t, prose, tt.wantAbsent)
 			}
@@ -469,7 +469,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 	})
 }
 
-// TestWorktreesRecord covers the record the list draws for a directory.
+// TestWorktreesRecord covers the record the list renders for a directory.
 func TestWorktreesRecord(t *testing.T) {
 	t.Parallel()
 
@@ -675,11 +675,11 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 	}
 }
 
-// TestWorktreesDocument covers the document drawn beside the list.
+// TestWorktreesDocument covers the document rendered beside the list.
 func TestWorktreesDocument(t *testing.T) {
 	t.Parallel()
 
-	t.Run("a read git refused is drawn rather than asked again", func(t *testing.T) {
+	t.Run("a read git refused is rendered rather than asked again", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
@@ -764,11 +764,11 @@ func TestWorktreesDocument(t *testing.T) {
 	})
 }
 
-// TestWorktreesLastScreen covers the owner's saved screen drawn under a worktree.
+// TestWorktreesLastScreen covers the owner's saved screen rendered under a worktree.
 func TestWorktreesLastScreen(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the owner's saved screen is drawn under the git blocks", func(t *testing.T) {
+	t.Run("the owner's saved screen is rendered under the git blocks", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)

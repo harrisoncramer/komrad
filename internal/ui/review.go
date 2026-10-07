@@ -127,7 +127,7 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 var (
 	_ columnFocuser      = (*reviewScreen)(nil)
 	_ pullRequestFocuser = (*reviewScreen)(nil)
-	_ crumbDrawer        = (*reviewScreen)(nil)
+	_ crumbRenderer      = (*reviewScreen)(nil)
 	_ loadingReporter    = (*reviewScreen)(nil)
 	_ lineTyper          = (*reviewScreen)(nil)
 	_ listScroller       = (*reviewScreen)(nil)
@@ -135,7 +135,7 @@ var (
 	_ agentPauser        = (*reviewScreen)(nil)
 )
 
-func (r *reviewScreen) doesDrawFromListing() bool {
+func (r *reviewScreen) doesRenderFromListing() bool {
 	return false
 }
 

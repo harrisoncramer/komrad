@@ -17,22 +17,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestReviewPullRequest covers the pull request open from the branch drawn over the sidebar's
+// TestReviewPullRequest covers the pull request open from the branch rendered over the sidebar's
 // file tree.
 func TestReviewPullRequest(t *testing.T) {
-	t.Run("an agent with no pull request draws no block", func(t *testing.T) {
+	t.Run("an agent with no pull request renders no block", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readSidebarProse(harness.readFrame()), "#7")
 	})
 
-	t.Run("a pull request whose title is not read yet draws no block", func(t *testing.T) {
+	t.Run("a pull request whose title is not read yet renders no block", func(t *testing.T) {
 		harness := openReviewAt(t, newPullRequestReviewServer(t), panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readSidebarProse(harness.readFrame()), "#7")
 	})
 
-	t.Run("a branch moved past its last pull request draws no block", func(t *testing.T) {
+	t.Run("a branch moved past its last pull request renders no block", func(t *testing.T) {
 		server := newDescribedReviewServer(t, "Why it changed.")
 		pullRequest := server.forge[0].(*pullrequestv1.PullRequest)
 		pullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
@@ -84,7 +84,7 @@ func TestReviewPullRequest(t *testing.T) {
 		}
 	})
 
-	t.Run("a long description draws ten rows and marks what runs past them", func(t *testing.T) {
+	t.Run("a long description renders ten rows and marks what runs past them", func(t *testing.T) {
 		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(40)), panelHarnessParams{height: 40})
 
 		sidebar := readSidebar(harness.readFrame())
@@ -93,7 +93,7 @@ func TestReviewPullRequest(t *testing.T) {
 		assert.Contains(t, sidebar, "  ↓ 31 more")
 	})
 
-	t.Run("a description that fits draws whole with nothing marked past it", func(t *testing.T) {
+	t.Run("a description that fits renders whole with nothing marked past it", func(t *testing.T) {
 		harness := openReviewAt(t, newDescribedReviewServer(t, newNumberedBody(5)), panelHarnessParams{height: 40})
 
 		sidebar := readSidebarProse(harness.readFrame())

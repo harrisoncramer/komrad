@@ -185,7 +185,7 @@ func (w *worktreesScreen) stepKind(m *model, delta int) tea.Cmd {
 }
 
 // tally is how many directories the scope lists, what the measured ones take, and whether they
-// are drawn as one list.
+// are rendered as one list.
 func (w *worktreesScreen) tally() string {
 	shown := w.shown()
 	tally := fmt.Sprintf("%d"+separated+"%s", len(shown), totalLabel(shown))
@@ -215,17 +215,17 @@ func (w *worktreesScreen) countUnder(repo string) int {
 }
 
 var (
-	_ recordDrawer      = (*worktreesScreen)(nil)
-	_ listFilterer      = (*worktreesScreen)(nil)
-	_ kindSwitcher      = (*worktreesScreen)(nil)
-	_ tabSwitcher       = (*worktreesScreen)(nil)
-	_ rowStager         = (*worktreesScreen)(nil)
-	_ hoveredNamer      = (*worktreesScreen)(nil)
-	_ itemMenuBuilder   = (*worktreesScreen)(nil)
-	_ savedScreenDrawer = (*worktreesScreen)(nil)
+	_ recordRenderer      = (*worktreesScreen)(nil)
+	_ listFilterer        = (*worktreesScreen)(nil)
+	_ kindSwitcher        = (*worktreesScreen)(nil)
+	_ tabSwitcher         = (*worktreesScreen)(nil)
+	_ rowStager           = (*worktreesScreen)(nil)
+	_ hoveredNamer        = (*worktreesScreen)(nil)
+	_ itemMenuBuilder     = (*worktreesScreen)(nil)
+	_ savedScreenRenderer = (*worktreesScreen)(nil)
 )
 
-func (w *worktreesScreen) doesDrawFromListing() bool {
+func (w *worktreesScreen) doesRenderFromListing() bool {
 	return true
 }
 

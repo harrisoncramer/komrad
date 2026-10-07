@@ -152,7 +152,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	})
 }
 
-// submenuReserved is every key a submenu is drawn over, named as the error would name it.
+// submenuReserved is every key a submenu is rendered over, named as the error would name it.
 func submenuReserved() map[string]string {
 	km := submenuKeyMap(fixedKeys())
 
@@ -256,7 +256,7 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	arms := []dispatchArm{{describe: "the leader", keys: []string{leaderKey}}}
 	var zero model
 
-	if drawsSwitcher(s) {
+	if rendersSwitcher(s) {
 		arms = append(arms, dispatchArm{describe: "the view switcher", keys: slices.Concat(keys.Views.Next, keys.Views.Previous)})
 	}
 
@@ -277,7 +277,7 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	arms = append(arms, dispatchArm{describe: "the menu", keys: keys.Menu.Open})
 
-	if _, ok := zero.screenOf(s).(recordDrawer); ok {
+	if _, ok := zero.screenOf(s).(recordRenderer); ok {
 		arms = append(arms,
 			// Both are read ahead of the screen's own keys.
 			dispatchArm{describe: "the key that pushes a fixture into the messages", keys: []string{messagesMockKey}},

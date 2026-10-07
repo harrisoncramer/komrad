@@ -113,7 +113,7 @@ func TestReviewForgeReplyRefused(t *testing.T) {
 	}
 }
 
-// TestReviewForgeReplyView covers how a forge thread and the replies on it are drawn.
+// TestReviewForgeReplyView covers how a forge thread and the replies on it are rendered.
 func TestReviewForgeReplyView(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -144,7 +144,7 @@ func TestReviewForgeReplyView(t *testing.T) {
 			hides:   []string{"posting"},
 		},
 		{
-			name:     "a sent reply mirrored back from the forge is drawn once",
+			name:     "a sent reply mirrored back from the forge is rendered once",
 			replies:  []*agentv1.ForgeReply{newMirroredReply()},
 			mirrored: []*agentv1.ReviewMessage{newMirroredComment()},
 			shows:    []string{"◆ @harrison", "a map it is"},

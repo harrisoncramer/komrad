@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestVisualMode covers leader v in the sidebar handing tmux's copy-mode a stand-in drawn as the
+// TestVisualMode covers leader v in the sidebar handing tmux's copy-mode a stand-in rendered as the
 // whole sidebar, copying only from the block that has the keys.
 func TestVisualMode(t *testing.T) {
 	tests := []struct {
@@ -58,7 +58,7 @@ func TestVisualMode(t *testing.T) {
 			assert.Equal(t, []string{"C-Space", "v"}, standIns[0].Keys, "the stand-in says when copy-mode ends")
 
 			text := ansi.Strip(strings.Join(standIns[0].Rows, "\n"))
-			assert.Contains(t, text, "komrad › agents", "the rest of the sidebar stays drawn")
+			assert.Contains(t, text, "komrad › agents", "the rest of the sidebar stays rendered")
 
 			block := cutBlock(text, standIns[0].Focus)
 			assert.Contains(t, block, tt.want)
@@ -83,11 +83,11 @@ func TestVisualMode(t *testing.T) {
 
 		harness.press("ctrl+space", "v")
 		harness.press("ctrl+space", "j")
-		assert.NotContains(t, harness.readDrawn(), "JUMP", "the picker waits while the stand-in has the sidebar's place")
+		assert.NotContains(t, harness.readRendered(), "JUMP", "the picker waits while the stand-in has the sidebar's place")
 
 		harness.press("ctrl+space", "v")
 		harness.press("ctrl+space", "j")
-		assert.Contains(t, harness.readDrawn(), "JUMP")
+		assert.Contains(t, harness.readRendered(), "JUMP")
 		assert.Len(t, harness.panel.ReadStandIns(), 1)
 	})
 

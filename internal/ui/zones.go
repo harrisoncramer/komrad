@@ -11,7 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// zone names a block the panel draws inside its own pane.
+// zone names a block the panel renders inside its own pane.
 type zone string
 
 const (
@@ -25,7 +25,7 @@ const (
 // zoneMark is the invisible sequence a marked frame carries at each end of a zone.
 var zoneMark = regexp.MustCompile("\x1b_kz([se]):([a-z]+):([0-9]*)\x1b\\\\")
 
-// markZone wraps a block in the marks that say where it was drawn, while the panel is drawing a
+// markZone wraps a block in the marks that say where it was rendered, while the panel is rendering a
 // marked frame.
 func (m *model) markZone(name zone, block string, width int) string {
 	if !m.term.markingZones || block == "" {
@@ -35,7 +35,7 @@ func (m *model) markZone(name zone, block string, width int) string {
 	return "\x1b_kzs:" + string(name) + ":" + strconv.Itoa(width) + "\x1b\\" + block + "\x1b_kze:" + string(name) + ":\x1b\\"
 }
 
-// isMarkingZones reports whether this frame is drawn to find where its blocks landed.
+// isMarkingZones reports whether this frame is rendered to find where its blocks landed.
 func (m *model) isMarkingZones() bool {
 	return m.term.markingZones
 }
@@ -92,18 +92,18 @@ func scanZones(frame string) map[zone]panes.Rect {
 	return found
 }
 
-// sidebarBlock is a block the panel drew inside its own pane that the picker can land on.
+// sidebarBlock is a block the panel rendered inside its own pane that the picker can land on.
 type sidebarBlock struct {
 	stop stop
 	rect panes.Rect
 }
 
-// findSidebarBlocks draws the panel once with its blocks marked and reads where each one landed.
+// findSidebarBlocks renders the panel once with its blocks marked and reads where each one landed.
 func (m *model) findSidebarBlocks() []sidebarBlock {
 	marked := *m
 	marked.term.markingZones = true
 
-	zones := scanZones(marked.drawInset(marked.insideView()))
+	zones := scanZones(marked.renderInset(marked.insideView()))
 	stops := m.listStops()
 	height := m.term.height
 
