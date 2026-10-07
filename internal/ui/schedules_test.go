@@ -231,6 +231,76 @@ func TestSchedulesList(t *testing.T) {
 	})
 }
 
+// TestSchedulesFilter covers the qualifiers the schedules filter reads.
+func TestSchedulesFilter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		query      string
+		wantRows   []string
+		wantSearch string
+	}{
+		{
+			name:       "name: keeps the schedules whose name holds it",
+			query:      "name:CI",
+			wantRows:   []string{"◆ morning-ci  0 9 * * 1-5"},
+			wantSearch: "▽ name:CI",
+		},
+		{
+			name:       "workflow: keeps the schedules launching into it",
+			query:      "workflow:web",
+			wantRows:   []string{"◇ nightly  0 1 * * *"},
+			wantSearch: "▽ workflow:web",
+		},
+		{
+			name:       "workflow: naming none keeps nothing",
+			query:      "workflow:elsewhere",
+			wantSearch: "▽ workflow:elsewhere",
+		},
+		{
+			name:       "is:paused keeps the paused schedules",
+			query:      "is:paused",
+			wantRows:   []string{"◇ nightly  0 1 * * *"},
+			wantSearch: "▽ is:paused",
+		},
+		{
+			name:       "-is:paused keeps the armed schedules",
+			query:      "-is:paused",
+			wantRows:   []string{"◆ morning-ci  0 9 * * 1-5"},
+			wantSearch: "▽ -is:paused",
+		},
+		{
+			name:       "an is: other than paused is a problem on the line and takes nothing off",
+			query:      "is:armed",
+			wantRows:   []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"},
+			wantSearch: "▽ is:armed  is:",
+		},
+		{
+			name:       "an unknown qualifier is a problem on the line and takes nothing off",
+			query:      "agent:quiet",
+			wantRows:   []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"},
+			wantSearch: "▽ agent:quiet  agent: is not a qualifier",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			nightly := newPausedSchedule("s2", "nightly")
+			nightly.WorkflowId = "w2"
+			harness := openSchedules(t, newLiveWorkflow("w1", "api"), newLiveWorkflow("w2", "web"), newSchedule("s1", "morning-ci"), nightly)
+
+			harness.press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.wantRows, readScheduleRows(frame))
+			assert.True(t, strings.HasPrefix(readSearch(frame), tt.wantSearch), readSearch(frame))
+		})
+	}
+}
+
 // TestSchedulesDocument covers the document rendered beside the list for the hovered schedule.
 func TestSchedulesDocument(t *testing.T) {
 	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)

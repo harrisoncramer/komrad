@@ -23,6 +23,7 @@ const (
 	KeyPR       = "pr"
 	KeySays     = "says"
 	KeyType     = "type"
+	KeyName     = "name"
 )
 
 const dayLayout = "2006-01-02"
@@ -82,6 +83,16 @@ var Documents = Grammar{
 		{Name: KeySince},
 		{Name: KeyUntil},
 		{Name: KeySays},
+	},
+	Strict: true,
+}
+
+// Schedules is the grammar the schedules list is filtered by.
+var Schedules = Grammar{
+	Keys: []Key{
+		{Name: KeyName},
+		{Name: KeyWorkflow},
+		{Name: KeyIs, Negatable: true},
 	},
 	Strict: true,
 }
