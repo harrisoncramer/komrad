@@ -51,7 +51,7 @@ type queryGrammarer interface {
 // saidState is the rows the server found saying the text of a says: qualifier.
 type saidState struct {
 	text    string
-	found   map[string]bool
+	hits    map[string][]string
 	problem string
 	waiting bool
 	queued  bool
@@ -78,7 +78,16 @@ func (f *filterState) askSaid() {
 
 // hasSaid reports whether the server found the row saying the text, and false while it has not answered.
 func (f filterState) hasSaid(key string) bool {
-	return !f.qualifiers.said.waiting && f.qualifiers.said.found[key]
+	return len(f.saidHits(key)) > 0
+}
+
+// saidHits is the turns the server found the row saying the text in, and none while it has not answered.
+func (f filterState) saidHits(key string) []string {
+	if f.qualifiers.said.waiting {
+		return nil
+	}
+
+	return f.qualifiers.said.hits[key]
 }
 
 type saysSettledMsg struct {
@@ -86,9 +95,9 @@ type saysSettledMsg struct {
 }
 
 type saysFoundMsg struct {
-	text  string
-	found map[string]bool
-	err   error
+	text string
+	hits map[string][]string
+	err  error
 }
 
 // saysCmd waits out the typing before a changed says: qualifier is sent.
@@ -112,16 +121,16 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 	client := m.api.reads().agents
 
 	return func() tea.Msg {
-		found, err := call(agentsTimeout, func(ctx context.Context) (map[string]bool, error) {
+		hits, err := call(agentsTimeout, func(ctx context.Context) (map[string][]string, error) {
 			return searchSaid(ctx, client, msg.text)
 		})
 
-		return saysFoundMsg{text: msg.text, found: found, err: err}
+		return saysFoundMsg{text: msg.text, hits: hits, err: err}
 	}
 }
 
-// searchSaid asks the server which agents' transcripts hold the text, keyed by agent id.
-func searchSaid(ctx context.Context, client agentReads, text string) (map[string]bool, error) {
+// searchSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
+func searchSaid(ctx context.Context, client agentReads, text string) (map[string][]string, error) {
 	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      phrase(text),
 		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
@@ -130,12 +139,12 @@ func searchSaid(ctx context.Context, client agentReads, text string) (map[string
 		return nil, err
 	}
 
-	found := map[string]bool{}
+	hits := map[string][]string{}
 	for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
-		found[hit.GetAgentId()] = true
+		hits[hit.GetAgentId()] = append(hits[hit.GetAgentId()], hit.GetSnippet())
 	}
 
-	return found, nil
+	return hits, nil
 }
 
 // phrase quotes text so a transcript search reads it as one phrase.
@@ -154,8 +163,9 @@ func (m *model) applySaysFound(msg saysFoundMsg) {
 		filter.qualifiers.said.problem = errui.GetReason(msg.err)
 		filter.fail(filter.qualifiers.said.problem)
 	} else {
-		filter.qualifiers.said.found = msg.found
+		filter.qualifiers.said.hits = msg.hits
 	}
+	m.reconcileSolo()
 	if filter.typing {
 		return
 	}

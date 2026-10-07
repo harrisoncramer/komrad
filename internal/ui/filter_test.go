@@ -342,6 +342,53 @@ func TestFilterSays(t *testing.T) {
 		assert.Equal(t, "▽ says:x d  no search", readSearch(frame))
 	})
 
+	t.Run("a says: answer draws the hovered agent's matching turns beside the list", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
+				{AgentId: "db", Snippet: "the \x02xylophone\x03 broke"},
+				{AgentId: "db", Snippet: "fixed the\n\x02xylophone\x03 again"},
+			}}), nil
+		})
+
+		harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"), []string{"enter"})...)
+		harness.fireMatching(ui.IsSaysSettled)
+
+		frame := harness.readFrame()
+		require.Equal(t, "  db", readHoveredRow(frame))
+		assert.Contains(t, joinProse(readStage(frame)), "the xylophone broke fixed the xylophone again")
+	})
+
+	t.Run("a says: query edited away while typed hands the window back to a live pane", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			press []string
+		}{
+			{name: "backspaced away", press: slices.Repeat([]string{"backspace"}, len("says:xylophone"))},
+			{name: "escaped", press: []string{"esc"}},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				live := newAgentAt("db", "w1", 3)
+				live.PaneId = "%9"
+				live.Alive = xptr.Ptr(true)
+				harness := openAgents(t, newLiveWorkflow("w1", "backend"), live)
+				harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+					return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "db", Snippet: "\x02xylophone\x03"}}}), nil
+				})
+				harness.press("j")
+				harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
+				harness.fireMatching(ui.IsSaysSettled)
+				require.Equal(t, "  db", readHoveredRow(harness.readFrame()))
+				require.True(t, harness.panel.IsZoomed(), "the turns it said hold the window")
+
+				harness.press(tt.press...)
+
+				assert.False(t, harness.panel.IsZoomed(), "the live pane has its window back")
+			})
+		}
+	})
+
 	tests := []struct {
 		name        string
 		press       []string
