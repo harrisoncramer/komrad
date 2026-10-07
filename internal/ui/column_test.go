@@ -36,7 +36,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
-				return openGroupedArchive(t,
+				return openArchivedAgents(t,
 					withLongContext(newArchivedWorkflow("w1", "backend")), newArchivedAgent("a1", "auth", "w1"),
 					withLongContext(newArchivedWorkflow("w2", "billing")), newArchivedAgent("a2", "ledger", "w2"),
 				)

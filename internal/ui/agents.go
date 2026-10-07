@@ -471,5 +471,5 @@ func (a *agentsScreen) settleRename(m *model, row string, err error) {
 }
 
 func (a *agentsScreen) dispatches(*model) []dispatching {
-	return []dispatching{a.actions()}
+	return []dispatching{a.actions(), a.archived.actions()}
 }

@@ -592,10 +592,10 @@ func (w *searchScreen) jumpToAgent(m *model) tea.Cmd {
 
 	target := screenTarget{agentID: agent.id}
 	if agent.archived {
-		return m.enter(screenArchive, target)
+		return m.enterArchived(target)
 	}
 
-	return m.enter(screenAgents, target)
+	return m.enterLive(target)
 }
 
 // help is the search's legend: the query line's two keys while it is typed at, and the list's

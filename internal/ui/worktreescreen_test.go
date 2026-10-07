@@ -43,8 +43,8 @@ func TestWorktreesOpen(t *testing.T) {
 			wantHovered: "treeview",
 		},
 		{
-			name:        "from the archive it lands on the archived agent's directory",
-			press:       []string{"shift+tab", "shift+tab", "tab", "esc"},
+			name:        "from the archived agents it lands on the archived agent's directory",
+			press:       []string{"F", "tab", "esc", "shift+tab", "esc"},
 			wantHovered: "reviewer",
 		},
 	}
@@ -116,7 +116,7 @@ func TestWorktreesJump(t *testing.T) {
 		{
 			name:        "an archived agent's directory lands in the archive",
 			row:         "reviewer",
-			wantScreen:  archiveScreen,
+			wantScreen:  agentsScreen,
 			wantHovered: "reviewer",
 		},
 	}

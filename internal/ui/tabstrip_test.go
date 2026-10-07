@@ -28,13 +28,14 @@ func TestTabStrip(t *testing.T) {
 			name:   "the agents tree",
 			screen: agentsScreen,
 			second: "activity",
+			kinds:  "F   live  archived",
 		},
 		{
-			name:   "the archive",
-			press:  []string{"shift+tab", "shift+tab"},
-			screen: archiveScreen,
+			name:   "the archived agents",
+			press:  []string{"F", "tab", "esc"},
+			screen: agentsScreen,
 			second: "name",
-			kinds:  "F   agents  schedules",
+			kinds:  "F   live  archived",
 		},
 		{
 			name:   "the worktrees",
@@ -169,14 +170,14 @@ func TestTabStripGolden(t *testing.T) {
 			press: []string{"j", "f", "tab", "j", "shift+tab", "shift+tab", "j", "esc"},
 		},
 		{
-			name:  "archive-sort-strip",
+			name:  "archived-agents-sort-strip",
 			rows:  buildPinnedArchive(),
-			press: []string{"shift+tab", "shift+tab", "f", "shift+tab", "j", "esc", "k"},
+			press: []string{"F", "tab", "esc", "f", "shift+tab", "j", "esc", "k"},
 		},
 		{
-			name:  "archive-sort-strip-flat",
+			name:  "archived-agents-sort-strip-flat",
 			rows:  buildPinnedArchive(),
-			press: []string{"shift+tab", "shift+tab", "esc"},
+			press: []string{"F", "tab", "esc"},
 		},
 		{
 			name:  "worktrees-sort-strip",

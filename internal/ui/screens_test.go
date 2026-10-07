@@ -345,9 +345,9 @@ func TestScreensFitTheLegend(t *testing.T) {
 		},
 		{
 			listScreen: listScreen{
-				name:   "the archive",
-				press:  []string{"shift+tab", "shift+tab"},
-				screen: archiveScreen,
+				name:   "the archived agents",
+				press:  []string{"F", "tab", "esc"},
+				screen: agentsScreen,
 			},
 			bottom: "agent39",
 		},
@@ -428,12 +428,12 @@ func TestScreensRecordGivesWay(t *testing.T) {
 	}{
 		{
 			name:   "the agents tree",
-			fills:  10,
+			fills:  12,
 			bottom: "agent39",
 		},
 		{
-			name:   "the archive",
-			press:  []string{"shift+tab", "shift+tab"},
+			name:   "the archived agents",
+			press:  []string{"F", "tab", "esc"},
 			fills:  12,
 			bottom: "agent39",
 		},
@@ -593,7 +593,7 @@ func TestScreensCutLongNames(t *testing.T) {
 	})
 
 	t.Run("a workflow in the archive", func(t *testing.T) {
-		harness := openGroupedArchive(t, newArchivedWorkflow("w1", long))
+		harness := openArchivedAgents(t, newArchivedWorkflow("w1", long))
 
 		assert.Contains(t, findRowWith(t, harness.readFrame(), long[:10]), "…")
 	})
@@ -741,9 +741,9 @@ func buildListScreens() []listScreen {
 			screen: agentsScreen,
 		},
 		{
-			name:   "the archive",
-			press:  []string{"shift+tab", "shift+tab"},
-			screen: archiveScreen,
+			name:   "the archived agents",
+			press:  []string{"F", "tab", "esc"},
+			screen: agentsScreen,
 		},
 		{
 			name:   "the schedules",

@@ -72,7 +72,7 @@ func TestNotices(t *testing.T) {
 			name: "the record keeps a row to count the fields it left out",
 			params: panelHarnessParams{
 				width:  40,
-				height: 20,
+				height: 21,
 			},
 			rows: []proto.Message{newFailedRun()},
 			want: []string{"agent", "more"},

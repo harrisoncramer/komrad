@@ -80,9 +80,9 @@ func TestValidateKeybindingsAllowsAGuardedArmInFront(t *testing.T) {
 // kind, where the kinds key is free for its own table.
 func TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsDrawn(t *testing.T) {
 	keys := config.DefaultKeybindings()
-	keys.Agents.Rename = keys.Kinds.Focus
+	keys.Schedules.Rename = keys.Kinds.Focus
 
-	assert.NoError(t, ValidateKeybindings(keys), "only the archive answers the kinds key ahead of its own table")
+	assert.NoError(t, ValidateKeybindings(keys), "the schedules draw no row of kinds, so their own table answers the kinds key")
 }
 
 // TestValidateKeybindingsReadsTheGlobalKeys covers the keys routeGlobalKey answers before any

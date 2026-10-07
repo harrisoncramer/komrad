@@ -44,11 +44,7 @@ func (m *model) screenedAgentID() (string, bool) {
 	return screen.screenedAgentID(m)
 }
 
-func (a *archiveScreen) screenedAgentID(m *model) (string, bool) {
-	if a.kind != archiveAgents {
-		return "", false
-	}
-
+func (a *archivedAgents) screenedAgentID(m *model) (string, bool) {
 	agent, ok := a.hoveredAgent(m)
 
 	return agent.ID, ok
@@ -187,7 +183,7 @@ func (m *model) screenNotice() string {
 	return screen.screenNotice(m)
 }
 
-func (a *archiveScreen) screenNotice(m *model) string {
+func (a *archivedAgents) screenNotice(m *model) string {
 	restore := m.keys.ArchiveMenu.Restore
 	if target, ok := a.menuTarget(m); ok {
 		if _, err := target.opensAgent(); err == nil {

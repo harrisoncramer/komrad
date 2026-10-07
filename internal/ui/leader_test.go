@@ -61,7 +61,7 @@ func TestLeader(t *testing.T) {
 	})
 
 	t.Run("the leader twice returns to the record rather than moving on to the next stop", func(t *testing.T) {
-		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
+		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
 
 		harness.press("j", "pick:record", "esc", "ctrl+space", "ctrl+space")
 

@@ -174,7 +174,7 @@ func openArchiveWithChecksRunning(t *testing.T) *panelHarness {
 	require.True(t, ok)
 	agent.ArchivedAt = xptr.Ptr(archivedAt)
 
-	return openGroupedArchive(t, append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...)
+	return openArchivedAgents(t, append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...)
 }
 
 func readChecksFrame(t *testing.T, harness *panelHarness) string {
