@@ -200,8 +200,6 @@ type PanelSettings struct {
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary
 	// directory when empty.
 	DraftDir string
-	// ScratchDir is where each engine's scratch file is kept.
-	ScratchDir string
 	// VimMode edits the text fields the way vim does.
 	VimMode bool
 	// DiffWrap wraps diff lines wider than the pane when the panel starts.
@@ -260,8 +258,6 @@ type model struct {
 	startupFindings []errui.Finding
 	screen          screen
 	terminalDir     string
-	// scratch is the scratch editor on the stage, nil while it is closed.
-	scratch         *scratchEditor
 	details         detailsState
 	messages        messagesState
 	detailsHeight   float64

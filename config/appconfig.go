@@ -137,7 +137,7 @@ type Keybindings struct {
 	Diff DiffKeys `mapstructure:"diff"`
 	// The documents view, which lists every document agents have written, and the document types.
 	Documents DocumentsKeys `mapstructure:"documents"`
-	// The menu on the hovered document, over the panel's own entries.
+	// The menu on the hovered document, over the documents view's own entries.
 	DocumentMenu DocumentMenuKeys `mapstructure:"document_menu"`
 	// The menu on the document type under the cursor of the documents view.
 	DocumentTypesMenu DocumentTypesMenuKeys `mapstructure:"document_types_menu"`
@@ -352,11 +352,11 @@ type MergeKeys struct {
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
-// panel's own. The rows with entries are an agent, a workflow, a schedule, a worktree, and every
+// screen's own. The rows with entries are an agent, a workflow, a schedule, a worktree, and every
 // row of the archive.
 type MenuKeys struct {
-	// Open the menu from any screen: the hovered row's entries, or the chosen agents', over the
-	// entries that act on the panel itself.
+	// Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.
+	// The key opens nothing on a screen with neither.
 	Open []string `mapstructure:"open" default:"space"`
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
@@ -403,10 +403,6 @@ type MenuKeys struct {
 	NewAgent []string `mapstructure:"new_agent" default:"c"`
 	// Create a workflow. The entry is only on the agents list.
 	NewWorkflow []string `mapstructure:"new_workflow" default:"w"`
-	// Open this engine's scratch file in your editor in place of the pane beside the list, or
-	// close it when it is already open. Each engine keeps its own file under komrad's state
-	// directory.
-	Scratch []string `mapstructure:"scratch" default:"s"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.
@@ -953,8 +949,8 @@ type Connection struct {
 	// Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 	// Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
 	CacheDir string `mapstructure:"cache_dir"`
-	// Where komrad keeps its own files about agents: generated worktrees, released reviews,
-	// forge credentials and the panel's scratch files.
+	// Where komrad keeps its own files about agents: generated worktrees, released reviews
+	// and forge credentials.
 	// Left empty this is ~/.local/state/komrad.
 	// It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 	StateDir string `mapstructure:"state_dir"`

@@ -390,7 +390,7 @@
         },
         {
           "path": "keybindings.document_menu",
-          "description": "The menu on the hovered document, over the panel's own entries.",
+          "description": "The menu on the hovered document, over the documents view's own entries.",
           "settings": [
             {
               "key": "edit",
@@ -949,7 +949,7 @@
               "key": "open",
               "path": "keybindings.menu.open",
               "type": "array",
-              "description": "Open the menu from any screen: the hovered row's entries, or the chosen agents', over the\nentries that act on the panel itself.",
+              "description": "Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.\nThe key opens nothing on a screen with neither.",
               "default": "[\"space\"]"
             },
             {
@@ -1063,13 +1063,6 @@
               "type": "array",
               "description": "Create a workflow. The entry is only on the agents list.",
               "default": "[\"w\"]"
-            },
-            {
-              "key": "scratch",
-              "path": "keybindings.menu.scratch",
-              "type": "array",
-              "description": "Open this engine's scratch file in your editor in place of the pane beside the list, or\nclose it when it is already open. Each engine keeps its own file under komrad's state\ndirectory.",
-              "default": "[\"s\"]"
             }
           ],
           "sections": []
@@ -1982,7 +1975,7 @@
           "key": "state_dir",
           "path": "connection.state_dir",
           "type": "string",
-          "description": "Where komrad keeps its own files about agents: generated worktrees, released reviews,\nforge credentials and the panel's scratch files.\nLeft empty this is ~/.local/state/komrad.\nIt holds credentials and is komrad's to manage, so nothing of yours belongs here.",
+          "description": "Where komrad keeps its own files about agents: generated worktrees, released reviews\nand forge credentials.\nLeft empty this is ~/.local/state/komrad.\nIt holds credentials and is komrad's to manage, so nothing of yours belongs here.",
           "default": "\"\""
         },
         {

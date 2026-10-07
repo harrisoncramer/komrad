@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"slices"
 	"time"
 
@@ -162,12 +161,11 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				TerminalCommand: terminalCommand,
 				Binary:          binary,
 				Settings: ui.PanelSettings{
-					Addr:       addr,
-					Editor:     state.env.Editor,
-					Pane:       state.env.TmuxPane,
-					ScratchDir: filepath.Join(state.env.StateDir, "scratch"),
-					VimMode:    state.vimMode,
-					DiffWrap:   state.diffWrap,
+					Addr:     addr,
+					Editor:   state.env.Editor,
+					Pane:     state.env.TmuxPane,
+					VimMode:  state.vimMode,
+					DiffWrap: state.diffWrap,
 				},
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,

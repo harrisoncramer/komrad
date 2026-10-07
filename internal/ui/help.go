@@ -222,11 +222,16 @@ func (m *model) menuBinding() key.Binding {
 }
 
 func (m *model) globalHelp() []key.Binding {
-	if !drawsSwitcher(m.screen) {
-		return []key.Binding{m.menuBinding(), m.helpBinding()}
+	var keys []key.Binding
+	if drawsSwitcher(m.screen) {
+		keys = append(keys, m.viewsBinding())
 	}
 
-	return []key.Binding{m.viewsBinding(), m.menuBinding(), m.helpBinding()}
+	if _, ok := m.buildMenu(); ok {
+		keys = append(keys, m.menuBinding())
+	}
+
+	return append(keys, m.helpBinding())
 }
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.

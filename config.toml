@@ -162,7 +162,7 @@ older         = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
 newer         = [">"]
 
-# The menu on the hovered document, over the panel's own entries.
+# The menu on the hovered document, over the documents view's own entries.
 [keybindings.document_menu]
 # Open the document in your editor, in place of the text drawn beside the list. Quitting the
 # editor, or picking the entry again to close it, saves what it has written.
@@ -372,8 +372,8 @@ toggle = ["v"]
 # The menu on the hovered row, which lists the screens that belong to it and the menus nested
 # under it.
 [keybindings.menu]
-# Open the menu from any screen: the hovered row's entries, or the chosen agents', over the
-# entries that act on the panel itself.
+# Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.
+# The key opens nothing on a screen with neither.
 open          = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.
@@ -420,10 +420,6 @@ adopt         = ["A"]
 new_agent     = ["c"]
 # Create a workflow. The entry is only on the agents list.
 new_workflow  = ["w"]
-# Open this engine's scratch file in your editor in place of the pane beside the list, or
-# close it when it is already open. Each engine keeps its own file under komrad's state
-# directory.
-scratch       = ["s"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]
@@ -762,8 +758,8 @@ tmux_socket           = "komrad"
 # Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 # Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
 cache_dir             = ""
-# Where komrad keeps its own files about agents: generated worktrees, released reviews,
-# forge credentials and the panel's scratch files.
+# Where komrad keeps its own files about agents: generated worktrees, released reviews
+# and forge credentials.
 # Left empty this is ~/.local/state/komrad.
 # It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 state_dir             = ""

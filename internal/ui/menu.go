@@ -8,42 +8,30 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// openMenu draws the menu, the hovered row's band over the screen's and the panel's own.
-func (m *model) openMenu() tea.Cmd {
-	menu := panelMenu(m)
-
-	if screen, ok := m.active().(screenMenuBuilder); ok && !m.isDetailsFocused() {
-		if band, ok := screen.buildScreenMenu(m); ok {
-			menu = joinMenus(band, menu)
-		}
+// buildMenu is the hovered row's band over the screen's, false when the screen offers neither.
+func (m *model) buildMenu() (submenu, bool) {
+	if m.isDetailsFocused() {
+		return submenu{}, false
 	}
 
-	if screen, ok := m.active().(itemMenuBuilder); ok && !m.isDetailsFocused() {
-		if item, ok := screen.buildItemMenu(m); ok {
-			menu = joinMenus(item, menu)
-		}
+	var item, band submenu
+	var hasItem, hasBand bool
+
+	if screen, ok := m.active().(itemMenuBuilder); ok {
+		item, hasItem = screen.buildItemMenu(m)
 	}
 
-	return openSubmenu(m, menu)
-}
-
-// panelMenu is the band of the menu that acts on the panel whatever is hovered.
-func panelMenu(m *model) submenu {
-	scratch := "scratch"
-	if m.isScratchOpen() {
-		scratch = "close scratch"
+	if screen, ok := m.active().(screenMenuBuilder); ok {
+		band, hasBand = screen.buildScreenMenu(m)
 	}
 
-	return submenu{
-		kind:  formMenu,
-		title: "komrad",
-		entries: []submenuEntry{
-			{
-				label: scratch,
-				keys:  m.keys.Menu.Scratch,
-				open:  (*model).openScratch,
-			},
-		},
+	switch {
+	case hasItem && hasBand:
+		return joinMenus(item, band), true
+	case hasItem:
+		return item, true
+	default:
+		return band, hasBand
 	}
 }
 
@@ -138,10 +126,4 @@ func rowMenu(name string) submenu {
 		kind:  formMenu,
 		title: name,
 	}
-}
-
-// openScratch leaves the menu for the scratch, or closes the scratch when it is open.
-func (m *model) openScratch() tea.Cmd {
-	m.leaveForm()
-	return m.toggleScratch()
 }

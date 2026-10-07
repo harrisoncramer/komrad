@@ -104,12 +104,6 @@ func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
 		return r.closeEdit(m)
 	}
 
-	if m.isScratchOpen() {
-		m.note(messageWarning, "close the scratch file first")
-
-		return nil
-	}
-
 	// The refusals are read before the agent is stopped.
 	if reason, refused := r.isEditRefused(m); refused {
 		m.note(messageWarning, reason)
