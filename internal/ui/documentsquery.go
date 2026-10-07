@@ -127,7 +127,7 @@ func (m *model) filterDocumentsOf(agentID string) {
 // searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
 func searchDocumentsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
-		Query: text,
+		Query: phrase(text),
 		Limit: saysLimit,
 	}))
 	if err != nil {

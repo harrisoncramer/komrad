@@ -260,7 +260,7 @@ func TestDocumentsSays(t *testing.T) {
 	harness.fireTimers()
 
 	frame := harness.readFrame()
-	assert.Equal(t, []string{"tuesday"}, asked)
+	assert.Equal(t, []string{`"tuesday"`}, asked)
 	assert.Equal(t, []string{"Rollout report"}, readListRows(frame))
 	assert.Equal(t, "▽ says:tuesday", readSearch(frame))
 	assert.Regexp(t, marked, findRawLine(harness.readRawFrame(), line), "the word found is lit in the document")
