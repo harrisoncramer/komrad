@@ -16,7 +16,7 @@ import (
 	"connectrpc.com/connect"
 )
 
-var agentsQuery = queryGrammar{syntax: searchsyntax.Agents, check: checkAgentsClause, search: searchSaid}
+var agentsQuery = queryGrammar{syntax: searchsyntax.Agents, check: checkAgentsClause, search: searchTranscriptsSaid}
 
 func (a *agentsScreen) queryGrammar() (queryGrammar, bool) {
 	return agentsQuery, true
@@ -122,8 +122,8 @@ func (a *archivedAgents) queryGrammar() (queryGrammar, bool) {
 	return agentsQuery, true
 }
 
-// searchSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
-func searchSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
+// searchTranscriptsSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
+func searchTranscriptsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      phrase(text),
 		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
@@ -142,9 +142,4 @@ func searchSaid(ctx context.Context, client agentReads, text string) (map[string
 	}
 
 	return hits, nil
-}
-
-// phrase quotes text so a transcript search reads it as one phrase.
-func phrase(text string) string {
-	return `"` + strings.ReplaceAll(text, `"`, "") + `"`
 }

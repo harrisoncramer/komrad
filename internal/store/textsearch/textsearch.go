@@ -11,29 +11,56 @@ import (
 )
 
 const (
-	Open  = "\x02"
-	Close = "\x03"
+	// MarkOpen opens a matched word in a snippet.
+	MarkOpen = "\x02"
+	// MarkClose closes a matched word in a snippet.
+	MarkClose = "\x03"
 )
 
 const (
-	Lead     = 60
-	Width    = 200
-	Headline = "StartSel=" + Open + ",StopSel=" + Close +
+	// SnippetLead is how many characters of a near snippet come before the match.
+	SnippetLead = 60
+	// SnippetWidth is how many characters a snippet holds at most.
+	SnippetWidth = 200
+	// Headline is the ts_headline options shaping a full text snippet.
+	Headline = "StartSel=" + MarkOpen + ",StopSel=" + MarkClose +
 		",MaxWords=35,MinWords=15,MaxFragments=1"
 )
 
 const minNearRunes = 3
 
-type terms struct {
+// queryTerms is the words a query is looking for and the words it wants left out.
+type queryTerms struct {
 	Wanted   []string
 	Excluded []string
 }
 
+// preparedQuery is a query cleaned of NULs, its terms, and those terms quoted for a websearch query.
+type preparedQuery struct {
+	Query    string
+	Terms    queryTerms
+	Wanted   string
+	Excluded string
+}
+
+// Prepare strips the NULs from a query, splits it into terms and quotes them.
+func Prepare(query string) preparedQuery {
+	query = strings.ReplaceAll(query, "\x00", "")
+	terms := Split(query)
+
+	return preparedQuery{
+		Query:    query,
+		Terms:    terms,
+		Wanted:   Quote(terms.Wanted, ""),
+		Excluded: Quote(terms.Excluded, "-"),
+	}
+}
+
 // Split reads a query as the words it is looking for, quoted or not, and the words it
 // wants left out.
-func Split(query string) terms {
+func Split(query string) queryTerms {
 	var (
-		split   terms
+		split   queryTerms
 		text    strings.Builder
 		quoted  bool
 		minuses int
@@ -109,9 +136,7 @@ func Phrase(terms []string) *string {
 
 // LikePatterns is the LIKE pattern of each term.
 func LikePatterns(terms []string) []string {
-	patterns := xslice.Map(terms, LikePattern)
-
-	return patterns
+	return xslice.Map(terms, LikePattern)
 }
 
 // LikePattern is a LIKE pattern finding the text anywhere, with its wildcards escaped.
@@ -120,7 +145,7 @@ func LikePattern(query string) string {
 	return "%" + escaped + "%"
 }
 
-// Mark wraps every place a term appears in a snippet in Open and Close, ignoring case.
+// Mark wraps every place a term appears in a snippet in MarkOpen and MarkClose, ignoring case.
 func Mark(snippet string, terms []string) string {
 	var (
 		out strings.Builder
@@ -133,9 +158,9 @@ func Mark(snippet string, terms []string) string {
 		}
 
 		out.WriteString(snippet[at : at+start])
-		out.WriteString(Open)
+		out.WriteString(MarkOpen)
 		out.WriteString(snippet[at+start : at+end])
-		out.WriteString(Close)
+		out.WriteString(MarkClose)
 		at += end
 	}
 	out.WriteString(snippet[at:])

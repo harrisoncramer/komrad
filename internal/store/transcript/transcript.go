@@ -5,7 +5,6 @@ package transcript
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"komrad/db"
@@ -361,10 +360,8 @@ type SearchParams struct {
 
 // Search returns one page of each section, newest first when it has no words and best first otherwise.
 func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Results, error) {
-	query := strings.ReplaceAll(params.Query, "\x00", "")
-
-	terms := textsearchstore.Split(query)
-	browse := len(terms.Wanted) == 0
+	prepared := textsearchstore.Prepare(params.Query)
+	browse := len(prepared.Terms.Wanted) == 0
 	if browse && params.Filter.IsZero() {
 		return Results{}, nil
 	}
@@ -376,8 +373,6 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 	if params.Cursor != nil && params.Cursor.Sort != sort {
 		return Results{}, errSortChanged.Saying("the cursor was handed out for sort %q, not %q; search again from the first page", params.Cursor.Sort, sort)
 	}
-
-	wanted, excluded := textsearchstore.Quote(terms.Wanted, ""), textsearchstore.Quote(terms.Excluded, "-")
 
 	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return Results{}, nil
@@ -402,11 +397,11 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 	matchesRan := first || matchesAt != nil
 	if matchesRan {
 		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
-			Wanted:        wanted,
-			Excluded:      excluded,
-			Phrase:        textsearchstore.Phrase(terms.Wanted),
+			Wanted:        prepared.Wanted,
+			Excluded:      prepared.Excluded,
+			Phrase:        textsearchstore.Phrase(prepared.Terms.Wanted),
 			Headline:      textsearchstore.Headline,
-			Width:         textsearchstore.Width,
+			Width:         textsearchstore.SnippetWidth,
 			Sort:          string(sort),
 			UnknownKey:    unknownTimeKey,
 			Browse:        browse,
@@ -424,7 +419,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			CursorSeq:     seqOf(matchesAt),
 		})
 		if err != nil {
-			return Results{}, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
+			return Results{}, fmt.Errorf("failed to search transcripts for %q: %w", prepared.Query, err)
 		}
 
 		results.Matches = xslice.Map(rows, func(row *models.SearchTranscriptsRow) SearchHit {
@@ -444,15 +439,15 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 		})
 	}
 
-	nearStarts := matchesRan && !browse && int64(len(results.Matches)) < limit && textsearchstore.HasNear(terms.Wanted)
+	nearStarts := matchesRan && !browse && int64(len(results.Matches)) < limit && textsearchstore.HasNear(prepared.Terms.Wanted)
 	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
-			Terms:         terms.Wanted,
-			Patterns:      textsearchstore.LikePatterns(terms.Wanted),
-			Wanted:        wanted,
-			Excluded:      excluded,
-			Lead:          textsearchstore.Lead,
-			Width:         textsearchstore.Width,
+			Terms:         prepared.Terms.Wanted,
+			Patterns:      textsearchstore.LikePatterns(prepared.Terms.Wanted),
+			Wanted:        prepared.Wanted,
+			Excluded:      prepared.Excluded,
+			Lead:          textsearchstore.SnippetLead,
+			Width:         textsearchstore.SnippetWidth,
 			Sort:          string(sort),
 			UnknownKey:    unknownTimeKey,
 			Lim:           int32(limit),
@@ -469,7 +464,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			CursorSeq:     seqOf(nearAt),
 		})
 		if err != nil {
-			return Results{}, fmt.Errorf("failed to search transcripts near %q: %w", query, err)
+			return Results{}, fmt.Errorf("failed to search transcripts near %q: %w", prepared.Query, err)
 		}
 
 		results.Near = xslice.Map(rows, func(row *models.SearchTranscriptsNearRow) SearchHit {
@@ -481,7 +476,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 				Role:          row.Role,
 				ContentOffset: row.ContentOffset,
 				ContentLength: int64(row.ContentLength),
-				Snippet:       textsearchstore.Mark(row.Snippet, terms.Wanted),
+				Snippet:       textsearchstore.Mark(row.Snippet, prepared.Terms.Wanted),
 				Rank:          toRank(sort, row.SortKey),
 				SpokenAt:      row.SpokenAt,
 				Key:           row.SortKey,

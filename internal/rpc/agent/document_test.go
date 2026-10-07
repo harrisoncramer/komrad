@@ -546,8 +546,8 @@ func TestListDocuments(t *testing.T) {
 // it is a recorded read.
 func TestSearchDocuments(t *testing.T) {
 	found := documentstore.Results{
-		Matches: []documentstore.SearchHit{{ID: documentID, AgentID: betaID, Name: "Plan", Snippet: "the trigram index", Rank: 0.5}},
-		Near:    []documentstore.SearchHit{{ID: documentTypeID, AgentID: alphaID, Name: "Notes", Snippet: "reindexing", Rank: 0.2}},
+		Matches: []documentstore.SearchHit{{ID: documentID, AgentID: betaID, Name: "Plan", Snippet: "the trigram index"}},
+		Near:    []documentstore.SearchHit{{ID: documentTypeID, AgentID: alphaID, Name: "Notes", Snippet: "reindexing"}},
 	}
 
 	tests := []struct {

@@ -639,7 +639,7 @@ func TestSearch(t *testing.T) {
 		hit := results.Matches[0]
 		assert.Equal(t, author.ID, hit.AgentID)
 		assert.Equal(t, "plan", hit.Name)
-		assert.Contains(t, hit.Snippet, textsearchstore.Open+"trigram"+textsearchstore.Close)
+		assert.Contains(t, hit.Snippet, textsearchstore.MarkOpen+"trigram"+textsearchstore.MarkClose)
 	})
 
 	t.Run("a near hit marks the word inside the longer one", func(t *testing.T) {
@@ -647,7 +647,7 @@ func TestSearch(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, results.Near, 1)
 
-		assert.Contains(t, results.Near[0].Snippet, "re"+textsearchstore.Open+"index"+textsearchstore.Close+"ing")
+		assert.Contains(t, results.Near[0].Snippet, "re"+textsearchstore.MarkOpen+"index"+textsearchstore.MarkClose+"ing")
 	})
 }
 

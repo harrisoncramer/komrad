@@ -492,7 +492,7 @@ func TestSearch(t *testing.T) {
 			assert.Equal(t, id, hits[0].AgentID)
 			assert.Equal(t, "one", hits[0].Name, "the hit carries the agent's name")
 			assert.Equal(t, tt.wantArchived, hits[0].Archived)
-			assert.Contains(t, hits[0].Snippet, textsearchstore.Open, "the match is marked in the snippet")
+			assert.Contains(t, hits[0].Snippet, textsearchstore.MarkOpen, "the match is marked in the snippet")
 		})
 	}
 }
@@ -523,7 +523,7 @@ func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
 
 	for _, hit := range hits {
 		assert.Equal(t, id, hit.AgentID)
-		assert.Contains(t, hit.Snippet, textsearchstore.Open, "the match is marked in the snippet")
+		assert.Contains(t, hit.Snippet, textsearchstore.MarkOpen, "the match is marked in the snippet")
 		assert.Contains(t, content[hit.ContentOffset:], "reconciler",
 			"the offset lands on the turn that matched")
 		assert.Contains(t, content[hit.ContentOffset:hit.ContentOffset+hit.ContentLength], "reconciler",

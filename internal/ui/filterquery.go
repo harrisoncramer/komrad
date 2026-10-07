@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"komrad/internal/errui"
@@ -23,6 +24,11 @@ type queryGrammar struct {
 	syntax searchsyntax.Grammar
 	check  func(searchsyntax.Clause, time.Time) error
 	search func(context.Context, agentReads, string) (map[string][]saidHit, error)
+}
+
+// phrase quotes text so a search reads it as one phrase.
+func phrase(text string) string {
+	return `"` + strings.ReplaceAll(text, `"`, "") + `"`
 }
 
 func (g queryGrammar) parse(text string, now time.Time) (*searchsyntax.Query, error) {

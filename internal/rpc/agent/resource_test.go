@@ -13,6 +13,6 @@ import (
 func TestPaintMarkersMatchTheStore(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, textsearchstore.Open, paint.MarkOpen)
-	assert.Equal(t, textsearchstore.Close, paint.MarkClose)
+	assert.Equal(t, textsearchstore.MarkOpen, paint.MarkOpen)
+	assert.Equal(t, textsearchstore.MarkClose, paint.MarkClose)
 }

@@ -23,19 +23,19 @@ func TestMark(t *testing.T) {
 			name:    "an occurrence is wrapped",
 			snippet: "talking about postgres today",
 			terms:   []string{"postgres"},
-			want:    "talking about " + textsearchstore.Open + "postgres" + textsearchstore.Close + " today",
+			want:    "talking about " + textsearchstore.MarkOpen + "postgres" + textsearchstore.MarkClose + " today",
 		},
 		{
 			name:    "every occurrence is wrapped",
 			snippet: "postgres and postgres",
 			terms:   []string{"postgres"},
-			want:    textsearchstore.Open + "postgres" + textsearchstore.Close + " and " + textsearchstore.Open + "postgres" + textsearchstore.Close,
+			want:    textsearchstore.MarkOpen + "postgres" + textsearchstore.MarkClose + " and " + textsearchstore.MarkOpen + "postgres" + textsearchstore.MarkClose,
 		},
 		{
 			name:    "a match of another case keeps the casing the snippet had",
 			snippet: "talking about Postgres today",
 			terms:   []string{"postgres"},
-			want:    "talking about " + textsearchstore.Open + "Postgres" + textsearchstore.Close + " today",
+			want:    "talking about " + textsearchstore.MarkOpen + "Postgres" + textsearchstore.MarkClose + " today",
 		},
 		{
 			name:    "a window cut mid-match is left unmarked",
@@ -47,26 +47,26 @@ func TestMark(t *testing.T) {
 			name:    "a query that folds to fewer bytes marks only the bytes it matched",
 			snippet: "ok",
 			terms:   []string{"K"},
-			want:    "o" + textsearchstore.Open + "k" + textsearchstore.Close,
+			want:    "o" + textsearchstore.MarkOpen + "k" + textsearchstore.MarkClose,
 		},
 		{
 			name:    "a query that folds to more bytes marks only the bytes it matched",
 			snippet: "bitİ",
 			terms:   []string{"tİ"},
-			want:    "bi" + textsearchstore.Open + "tİ" + textsearchstore.Close,
+			want:    "bi" + textsearchstore.MarkOpen + "tİ" + textsearchstore.MarkClose,
 		},
 		{
 			name:    "several terms are each wrapped where they fall",
 			snippet: "the pgxpool tuning notes",
 			terms:   []string{"pool", "tuning"},
-			want: "the pgx" + textsearchstore.Open + "pool" + textsearchstore.Close + " " +
-				textsearchstore.Open + "tuning" + textsearchstore.Close + " notes",
+			want: "the pgx" + textsearchstore.MarkOpen + "pool" + textsearchstore.MarkClose + " " +
+				textsearchstore.MarkOpen + "tuning" + textsearchstore.MarkClose + " notes",
 		},
 		{
 			name:    "overlapping terms are marked once, the longer of the two",
 			snippet: "the pgxpool wrapper",
 			terms:   []string{"pgx", "pgxpool"},
-			want:    "the " + textsearchstore.Open + "pgxpool" + textsearchstore.Close + " wrapper",
+			want:    "the " + textsearchstore.MarkOpen + "pgxpool" + textsearchstore.MarkClose + " wrapper",
 		},
 		{
 			name:    "a snippet with no occurrence is returned as it stands",

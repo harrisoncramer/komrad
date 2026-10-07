@@ -68,7 +68,7 @@ func TestProbeRanking(t *testing.T) {
 }
 
 func oneLine(s string) string {
-	s = strings.NewReplacer(textsearchstore.Open, "[", textsearchstore.Close, "]", "\n", " ").Replace(s)
+	s = strings.NewReplacer(textsearchstore.MarkOpen, "[", textsearchstore.MarkClose, "]", "\n", " ").Replace(s)
 	if len(s) > 70 {
 		s = s[:70]
 	}
