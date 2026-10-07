@@ -180,42 +180,22 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{documentsNotice, "its pull request is open and waiting on a review"},
 		},
 		{
-			name: "the person's comments read",
-			row: buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{
-				Open:     2,
-				Resolved: 1,
-			}}),
-			want: []string{"your comments: 2 open, 1 resolved"},
-		},
-		{
-			name: "a reviewer's comments come before the person's, and their unread replies are not counted",
-			row: buildNoticeRow(panel.AgentRow{
-				ReviewerComments: &agentv1.CommentCounts{
-					Open:   1,
-					Unread: 1,
-				},
-				PersonComments: &agentv1.CommentCounts{Resolved: 3},
-			}),
-			want: []string{
-				"reviewer agents' comments: 1 open, 0 resolved",
-				"your comments: 0 open, 3 resolved",
-			},
+			name: "a reviewer's unread replies are not counted",
+			row:  buildNoticeRow(panel.AgentRow{ReviewerComments: &agentv1.CommentCounts{Unread: 1}}),
+			want: []string{},
 		},
 		{
 			name: "the person's comments with replies unread",
-			row: buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{
-				Open:   1,
-				Unread: 2,
-			}}),
-			want: []string{"your comments: 1 open, 0 resolved", "your comments with a reply you have not read: 2"},
+			row:  buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{Unread: 2}}),
+			want: []string{"your comments with a reply you have not read: 2"},
 		},
 		{
-			name: "an archived row still counts its comments",
+			name: "an archived row still counts its unread replies",
 			row: buildNoticeRow(panel.AgentRow{
 				Agent:          panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				PersonComments: &agentv1.CommentCounts{Open: 1},
+				PersonComments: &agentv1.CommentCounts{Unread: 1},
 			}),
-			want: []string{"your comments: 1 open, 0 resolved"},
+			want: []string{"your comments with a reply you have not read: 1"},
 		},
 		{
 			name: "an agent without a worktree still says its directory is gone",
@@ -234,12 +214,12 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{sequenceNotice},
 		},
 		{
-			name: "an agent without a worktree still counts its comments",
+			name: "an agent without a worktree still counts its unread replies",
 			row: buildPlainRow(panel.AgentRow{
 				Agent:          panel.Agent{ID: "a1"},
-				PersonComments: &agentv1.CommentCounts{Open: 1},
+				PersonComments: &agentv1.CommentCounts{Unread: 1},
 			}),
-			want: []string{"your comments: 1 open, 0 resolved"},
+			want: []string{"your comments with a reply you have not read: 1"},
 		},
 	}
 

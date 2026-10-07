@@ -603,18 +603,6 @@ func TestArchivedAgentsDocument(t *testing.T) {
 				MergedAt:          xptr.Ptr(archivedAt),
 				ClosedAt:          xptr.Ptr(archivedAt),
 			},
-			&agentv1.WatchedReview{
-				Id:           "v1",
-				AgentId:      "a1",
-				RoundId:      "a1-round-1",
-				RoundOrdinal: 1,
-				ReleasedAt:   archivedAt,
-			},
-			&agentv1.ReviewThread{
-				Id:       "t1",
-				AgentId:  "a1",
-				ReviewId: "v1",
-			},
 		)
 
 		harness.press(append([]string{"j", "pick:record"}, widenListPresses...)...)
@@ -622,7 +610,6 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agent/a1")
 		assert.Contains(t, frame, "its pull request is merged")
-		assert.Contains(t, frame, "your comments: 1 open, 0 resolved")
 		created, archived := findRecordLine(frame, "created"), findRecordLine(frame, "archived")
 		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")

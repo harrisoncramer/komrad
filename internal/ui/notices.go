@@ -79,21 +79,8 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeSaid[row.Forge]))
-	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
-	notices = appendCommentsNotice(notices, row.PersonComments, "your comments")
 
 	return appendUnreadNotice(notices, glyphs, row.PersonComments)
-}
-
-// appendCommentsNotice says how one side's comments stand.
-func appendCommentsNotice(notices []notice, comments *view.Comments, whose string) []notice {
-	if comments == nil {
-		return notices
-	}
-
-	text := fmt.Sprintf("%s: %d open, %d resolved", whose, comments.Open, comments.Resolved)
-
-	return appendNotice(notices, true, "", paint.ToneMuted, text)
 }
 
 // appendUnreadNotice says how many of the person's comments hold a reply they have not read.
