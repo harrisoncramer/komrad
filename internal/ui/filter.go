@@ -63,6 +63,7 @@ type filterState struct {
 	openedIn sidebarSection
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
 	origin        string
+	placed        string
 	debounce      time.Duration
 	minLength     int
 	compiledQuery string
@@ -152,7 +153,7 @@ func (f filterState) isSearched() bool {
 
 // hasQuery reports whether a pattern or a qualifier stands to match rows by.
 func (f filterState) hasQuery() bool {
-	return f.pattern != nil || len(f.clauses) > 0
+	return !f.broken && (f.pattern != nil || len(f.clauses) > 0)
 }
 
 func (f filterState) isSettled() bool {
@@ -267,7 +268,7 @@ func (f filterState) holds(fits clauseFits) bool {
 
 // highlight lights the stretches of a row's name the search matches, the whole of it when only qualifiers picked the row.
 func (f filterState) highlight(palette paint.Palette, name string, base lipgloss.Style) string {
-	if f.pattern == nil {
+	if f.pattern == nil || f.broken {
 		return base.Render(name)
 	}
 
@@ -418,6 +419,7 @@ func (m *model) applyFilter() {
 	}
 
 	m.placeFilteredCursor(found)
+	m.filter.placed = m.hoveredFilterKey()
 }
 
 // isFilterRowShown reports whether the pane holding the keys still draws a row.

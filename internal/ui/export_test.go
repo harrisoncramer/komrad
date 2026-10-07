@@ -274,6 +274,13 @@ func IsPulse(msg tea.Msg) bool {
 	return ok
 }
 
+// IsSaysSettled reports whether msg is the tick a says: qualifier waits out the typing on.
+func IsSaysSettled(msg tea.Msg) bool {
+	_, ok := msg.(saysSettledMsg)
+
+	return ok
+}
+
 // IsLoaderTick reports whether msg is a loader tick.
 func IsLoaderTick(msg tea.Msg) bool {
 	_, ok := msg.(loaderTickMsg)

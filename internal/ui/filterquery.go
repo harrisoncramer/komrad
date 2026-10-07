@@ -52,6 +52,7 @@ type queryGrammarer interface {
 type saidState struct {
 	text    string
 	found   map[string]bool
+	problem string
 	waiting bool
 	queued  bool
 }
@@ -65,6 +66,10 @@ func (f *filterState) askSaid() {
 		}
 	}
 	if text == f.said.text {
+		if f.said.problem != "" {
+			f.broken, f.problem = true, f.said.problem
+		}
+
 		return
 	}
 
@@ -136,14 +141,19 @@ func (m *model) applySaysFound(msg saysFoundMsg) {
 
 	filter.said.waiting = false
 	if msg.err != nil {
-		filter.said = saidState{}
-		filter.broken, filter.problem = true, errui.GetReason(msg.err)
-
+		filter.said.problem = errui.GetReason(msg.err)
+		filter.broken, filter.problem = true, filter.said.problem
+	} else {
+		filter.said.found = msg.found
+	}
+	if filter.typing {
 		return
 	}
 
-	filter.said.found = msg.found
-	if !filter.typing {
-		m.applyFilter()
+	hovered := m.hoveredFilterKey()
+	if hovered != filter.placed && (!filter.isNarrowing() || m.isFilterRowShown(hovered)) {
+		return
 	}
+
+	m.applyFilter()
 }

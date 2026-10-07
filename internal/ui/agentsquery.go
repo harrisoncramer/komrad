@@ -99,7 +99,7 @@ func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
 
 // pickedAgentRows is the keys of the rows the filter's qualifiers pick, nil when it names none.
 func (m *model) pickedAgentRows(rows []agentRow) map[string]bool {
-	if len(m.filter.clauses) == 0 {
+	if m.filter.broken || len(m.filter.clauses) == 0 {
 		return nil
 	}
 
