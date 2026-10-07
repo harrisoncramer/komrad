@@ -162,12 +162,7 @@ func (m *model) columnOf() (columnSpec, bool) {
 		return formColumn(m.form.kind)
 	}
 
-	spec := m.active().column()
-	if m.isScratchOpen() {
-		spec.holds = func(*model) bool { return false }
-	}
-
-	return spec, true
+	return m.active().column(), true
 }
 
 // holdsWindow reports whether the panel is drawing a block beside its own list, and so takes the

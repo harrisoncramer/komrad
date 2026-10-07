@@ -517,7 +517,6 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 
 		if pane := result.written.pane; pane != "" {
 			cmds = append(cmds, m.agents.closeEdit(m))
-			m.dropScratch()
 			m.frame.Solo(false)
 			m.frame.ShowGuest(layout.Guest{Agent: result.written.agent, Pane: pane})
 			delete(m.warm.since, pane)

@@ -25,12 +25,6 @@ func (d *documentsScreen) pressEdit(m *model) tea.Cmd {
 		return d.closeEdit(m)
 	}
 
-	if m.isScratchOpen() {
-		m.reportBrief("could not open the editor", "close the scratch file first")
-
-		return nil
-	}
-
 	item, ok := d.hovered(m)
 	if !ok {
 		return nil

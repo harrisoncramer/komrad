@@ -403,10 +403,6 @@ type MenuKeys struct {
 	NewAgent []string `mapstructure:"new_agent" default:"c"`
 	// Create a workflow. The entry is only on the agents list.
 	NewWorkflow []string `mapstructure:"new_workflow" default:"w"`
-	// Open this engine's scratch file in your editor in place of the pane beside the list, or
-	// close it when it is already open. Each engine keeps its own file under komrad's state
-	// directory.
-	Scratch []string `mapstructure:"scratch" default:"s"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.
@@ -953,8 +949,8 @@ type Connection struct {
 	// Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 	// Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
 	CacheDir string `mapstructure:"cache_dir"`
-	// Where komrad keeps its own files about agents: generated worktrees, released reviews,
-	// forge credentials and the panel's scratch files.
+	// Where komrad keeps its own files about agents: generated worktrees, released reviews
+	// and forge credentials.
 	// Left empty this is ~/.local/state/komrad.
 	// It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 	StateDir string `mapstructure:"state_dir"`

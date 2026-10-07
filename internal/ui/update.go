@@ -338,8 +338,8 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		}
 	}
 
-	if isBound(key.String(), m.keys.Menu.Open) {
-		return m.openMenu(), true
+	if menu, ok := m.menu(); ok && isBound(key.String(), m.keys.Menu.Open) {
+		return openSubmenu(m, menu), true
 	}
 
 	if m.isDetailsScreen() && m.isDetailsFocused() {
@@ -499,14 +499,9 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	}
 }
 
-// reconcileEditor catches the info pane, the scratch editor and a screen's editor going away on
-// their own.
+// reconcileEditor catches the info pane and a screen's editor going away on their own.
 func (m *model) reconcileEditor() tea.Cmd {
 	m.reconcileTerminal()
-
-	if cmd := m.reconcileScratch(); cmd != nil {
-		return cmd
-	}
 
 	if screen, ok := m.active().(editorReconciler); ok {
 		return screen.reconcileEditor(m)

@@ -40,18 +40,6 @@ func TestStatusChecksOpen(t *testing.T) {
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
 	})
-
-	t.Run("closing the menu comes back to the same agent's status checks", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openStatusChecks(t, answerStatusChecks(
-			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
-		))
-		harness.press("space", "esc")
-
-		assert.Equal(t, statusChecksScreen, harness.readScreen())
-		assert.Equal(t, []string{"lint"}, readListRows(harness.readFrame()))
-	})
 }
 
 // TestStatusChecksList covers the status checks listed for the agent's pull request.
