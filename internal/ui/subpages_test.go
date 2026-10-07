@@ -205,7 +205,7 @@ func openArchivedSubpages(t *testing.T) *panelHarness {
 	author.Documents = 2
 	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
 
-	harness := openGroupedArchive(t, newLiveWorkflow("w1", "komrad"), author)
+	harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author)
 	newDocumentShelf().answer(harness)
 	harness.press("j", "space")
 	require.Contains(t, harness.readFrame(), "  author")

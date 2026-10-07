@@ -247,7 +247,7 @@ func buildDriftScreens() []driftScreen {
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
-				harness := openGroupedArchive(t, buildOneArchivedAgent()...)
+				harness := openArchivedAgents(t, buildOneArchivedAgent()...)
 				harness.press("j")
 
 				return harness

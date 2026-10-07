@@ -593,7 +593,7 @@ func TestScreensCutLongNames(t *testing.T) {
 	})
 
 	t.Run("a workflow in the archive", func(t *testing.T) {
-		harness := openGroupedArchive(t, newArchivedWorkflow("w1", long))
+		harness := openArchivedAgents(t, newArchivedWorkflow("w1", long))
 
 		assert.Contains(t, findRowWith(t, harness.readFrame(), long[:10]), "…")
 	})
