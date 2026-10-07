@@ -4,8 +4,18 @@ import (
 	"strings"
 
 	"komrad/internal/ui/paint"
-	"komrad/lib/xslice"
 )
+
+// saidColumnRows is the turns the agent was found saying a says: qualifier's text in, drawn for
+// the column, and none when the filter found it saying nothing.
+func (m *model) saidColumnRows(agentID string, width int) []string {
+	snippets := m.filter.saidHits(agentID)
+	if len(snippets) == 0 {
+		return nil
+	}
+
+	return saidRows(snippets, width)
+}
 
 // saidRows is the turns an agent was found saying a says: qualifier's text in, wrapped to the
 // column with what the server matched marked.
@@ -18,15 +28,14 @@ func saidRows(snippets []string, width int) []string {
 
 		text, marks := unmarkSnippet(snippet)
 		at := 0
-		rows = append(rows, xslice.Map(paint.WrapRows(text, width), func(row string) string {
+		for _, row := range paint.WrapRows(text, width) {
 			if skipped := strings.Index(text[at:], row); skipped > 0 {
 				at += skipped
 			}
 			start := at
 			at += len(row)
-
-			return paint.Panel.HighlightStyled(row, spansWithin(marks, start, at))
-		})...)
+			rows = append(rows, paint.Panel.HighlightStyled(row, spansWithin(marks, start, at)))
+		}
 	}
 
 	return rows
@@ -64,15 +73,4 @@ func spansWithin(spans []paint.Span, start, end int) []paint.Span {
 	}
 
 	return within
-}
-
-// saidColumnRows is the turns the agent was found saying a says: qualifier's text in, drawn for
-// the column, and none when the filter found it saying nothing.
-func (m *model) saidColumnRows(agentID string, width int) []string {
-	snippets := m.filter.saidHits(agentID)
-	if len(snippets) == 0 {
-		return nil
-	}
-
-	return saidRows(snippets, max(width, 1))
 }
