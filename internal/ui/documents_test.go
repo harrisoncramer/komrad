@@ -47,6 +47,24 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	})
 
+	t.Run("a workflow's row opens its orchestrator's documents under the workflow's name", func(t *testing.T) {
+		t.Parallel()
+
+		docs := newDocumentShelf()
+		docs.add(&agentv1.Document{Id: "d3", AgentId: "o1", Name: "Workflow plan", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+		harness := openAgents(t, buildDocumentAuthors()...)
+		docs.answer(harness)
+		moveToAgentRow(t, harness, "komrad")
+		harness.press("space", "d")
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		rows := strings.Join(readListRows(frame), "\n")
+		assert.Equal(t, "▽ agent:komrad", readSearch(frame))
+		assert.Contains(t, rows, "Workflow plan")
+		assert.NotContains(t, rows, "Design the cache")
+	})
+
 	t.Run("an agent's row keeps to its own documents when another agent shares its name", func(t *testing.T) {
 		t.Parallel()
 
