@@ -8,8 +8,11 @@ import (
 
 	"komrad/config"
 	"komrad/internal/doctor"
+	"komrad/internal/forge"
 	"komrad/internal/setup"
+	forgev1 "komrad/proto/gen/forge/v1"
 
+	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -29,7 +32,11 @@ which steps ran, so running it again after stopping part way finds the finished 
 already done. It ends on the doctor's full report.
 
 With --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an
-answer takes it from a flag, and names the flag when none was given.`,
+answer takes it from a flag, and names the flag when none was given.
+
+The forge step connects github.com or gitlab.com with a pasted token once the engine is
+running, and skips until then. Unattended it skips, and komrad forge connect connects any
+forge after setup.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -108,5 +115,20 @@ func (a *app) setupSteps(harnessFlag string) ([]setup.Step, error) {
 		},
 		&setup.ContextStep{Stack: a.configStack},
 		&setup.AutoSetupStep{Path: path, Stack: a.configStack},
+		&setup.ForgeStep{
+			Connect: a.connectForge,
+		},
 	}, nil
+}
+
+func (a *app) connectForge(ctx context.Context, host string, token forge.Secret) error {
+	return a.withAPI(ctx, func(ctx context.Context, base string) error {
+		_, err := forgeClient(base).ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
+			Host:   host,
+			Method: forge.MethodToken,
+			Token:  tokenForTheWire(token),
+		}))
+
+		return err
+	})
 }

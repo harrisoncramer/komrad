@@ -108,6 +108,11 @@ func TestModelObservesRepairsAndObservesAgain(t *testing.T) {
 			step:  &fakeStep{observations: []observation{{Verdict: verdictStop, Finding: &doctor.Finding{Fix: "do it"}}}},
 			state: stateFailed,
 		},
+		{
+			name:  "a step that skips itself is skipped",
+			step:  &fakeStep{observations: []observation{{Verdict: verdictSkip}}},
+			state: stateSkipped,
+		},
 	}
 
 	for _, tt := range tests {
@@ -153,5 +158,19 @@ func TestRunUnattended(t *testing.T) {
 
 		require.ErrorIs(t, err, errFailed)
 		assert.Contains(t, out.String(), "--harness")
+	})
+
+	t.Run("a step that skips itself carries on", func(t *testing.T) {
+		var out bytes.Buffer
+		later := &fakeStep{observations: []observation{{Verdict: verdictDone}}}
+
+		err := RunUnattended(t.Context(), &out, nil, []Step{
+			&fakeStep{observations: []observation{{Verdict: verdictSkip, Detail: "the engine is not running"}}},
+			later,
+		})
+
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), "- fake      the engine is not running")
+		assert.Contains(t, out.String(), "✓")
 	})
 }

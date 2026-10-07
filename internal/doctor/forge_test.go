@@ -50,7 +50,7 @@ func TestForgesCheck(t *testing.T) {
 			},
 			wantStatus: StatusWarn,
 			wantDetail: "github.com as harrisoncramer",
-			wantFix:    "komrad forge connect gitlab.com --token-file <a personal access token with the api scope>",
+			wantFix:    "komrad forge connect gitlab.com --token-file <token>",
 			wantCode:   "forge_refused",
 		},
 		{
@@ -86,7 +86,7 @@ func TestForgesCheck(t *testing.T) {
 				},
 			},
 			wantStatus: StatusWarn,
-			wantFix:    "gh auth token --hostname github.com | komrad forge connect github.com; komrad forge connect gitlab.com --token-file <a personal access token with the api scope>",
+			wantFix:    "komrad forge connect github.com --token-file <token>; komrad forge connect gitlab.com --token-file <token>",
 			wantCode:   "forge_refused",
 			wantErr:    "github.com: no credential file for github.com; connect it again; gitlab.com: Bad credentials",
 		},
@@ -102,7 +102,7 @@ func TestForgesCheck(t *testing.T) {
 				},
 			},
 			wantStatus: StatusWarn,
-			wantFix:    "gh auth token --hostname github.com | komrad forge connect github.com",
+			wantFix:    "komrad forge connect github.com --token-file <token>",
 			wantCode:   "forge_no_credential",
 		},
 		{
@@ -117,7 +117,7 @@ func TestForgesCheck(t *testing.T) {
 				},
 			},
 			wantStatus: StatusWarn,
-			wantFix:    "komrad forge connect gitlab.example.com --kind gitlab --token-file <a personal access token with the api scope>",
+			wantFix:    "komrad forge connect gitlab.example.com --kind gitlab --token-file <token>",
 			wantCode:   "forge_refused",
 		},
 		{

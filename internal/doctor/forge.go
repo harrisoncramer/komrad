@@ -8,12 +8,11 @@ import (
 	"komrad/internal/forge"
 )
 
-// connectFirstFix is how a person connects either public forge.
-const connectFirstFix = "gh auth token | komrad forge connect github.com, or for GitLab, " +
-	"komrad forge connect gitlab.com --token-file <a personal access token with the api scope>"
+// connectFirstFix is how a person connects a forge, whichever they use.
+const connectFirstFix = "komrad setup, or komrad forge connect <host>"
 
 var errForgesUnreadable = &ProblemError{
-	Code:    "forges_unreadable",
+	Code:    CodeForgesUnreadable,
 	Message: "the service could not check its forges",
 }
 
@@ -28,7 +27,7 @@ var errForgeNoCredential = &ProblemError{
 }
 
 var errNoForges = &ProblemError{
-	Code:    "no_forges",
+	Code:    CodeNoForges,
 	Message: "no forge is connected, so pull requests cannot be read",
 }
 
@@ -83,9 +82,9 @@ type ForgeStatus struct {
 // one that no longer answers.
 func newForgesCheck() Check {
 	return Check{
-		Name:        "forges",
+		Name:        CheckForges,
 		Description: "pull requests are read through the forges the service is connected to",
-		Needs:       []string{"server"},
+		Needs:       []string{CheckServer},
 		Run: func(ctx context.Context, env Env) Result {
 			statuses, err := env.CheckForges(ctx)
 			if err != nil {
@@ -141,12 +140,9 @@ func reconnectFix(status ForgeStatus) string {
 		connect += " --kind " + status.Kind
 	}
 
-	switch {
-	case status.Method == forge.MethodGitHubApp:
+	if status.Method == forge.MethodGitHubApp {
 		return connect + " --method github-app"
-	case status.Kind == forge.KindGitLab:
-		return connect + " --token-file <a personal access token with the api scope>"
-	default:
-		return "gh auth token --hostname " + status.Host + " | " + connect
 	}
+
+	return connect + " --token-file <token>"
 }

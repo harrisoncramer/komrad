@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/doctor"
+	"komrad/internal/forge"
 	"komrad/lib/xslice"
 
 	"charm.land/huh/v2"
@@ -288,4 +289,102 @@ func (s *AutoSetupStep) repair(context.Context) error {
 	}
 
 	return nil
+}
+
+const (
+	githubHost  = "github.com"
+	gitlabHost  = "gitlab.com"
+	choiceLater = "later"
+)
+
+// ForgeStep offers to connect github.com or gitlab.com with a pasted token when the engine has
+// no forge, and skips while the engine is not answering.
+type ForgeStep struct {
+	Connect func(ctx context.Context, host string, token forge.Secret) error
+	choice  string
+	pasted  string
+}
+
+func (s *ForgeStep) name() string {
+	return "forge"
+}
+
+func (s *ForgeStep) observe(ctx context.Context, check checker) observation {
+	report := check(ctx, doctor.CheckServer, doctor.CheckForges)
+	server := findingNamed(report, doctor.CheckServer)
+	forges := findingNamed(report, doctor.CheckForges)
+
+	switch {
+	case server.Status == doctor.StatusFail:
+		return observation{Verdict: verdictSkip, Detail: server.Error, Finding: &server}
+	case server.Status != doctor.StatusOK, forges.Code == doctor.CodeForgesUnreadable:
+		return observation{Verdict: verdictSkip, Detail: "the engine is not running; open the panel, then run setup again"}
+	case forges.Status == doctor.StatusOK:
+		return observation{Verdict: verdictDone, Detail: forges.Detail}
+	case forges.Code != doctor.CodeNoForges:
+		return observation{Verdict: verdictSkip, Detail: forges.Error, Finding: &forges}
+	}
+
+	return observation{Verdict: verdictAsk, Detail: "no forge is connected"}
+}
+
+func (s *ForgeStep) question() *huh.Form {
+	s.choice = githubHost
+
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Connect a forge so komrad can read pull requests").
+				Description("For a self-hosted forge, run komrad forge connect after setup.").
+				Options(
+					huh.NewOption("GitHub (github.com)", githubHost),
+					huh.NewOption("GitLab (gitlab.com)", gitlabHost),
+					huh.NewOption("Not now", choiceLater),
+				).
+				Value(&s.choice),
+		),
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Token").
+				DescriptionFunc(s.tokenHint, &s.choice).
+				EchoMode(huh.EchoModePassword).
+				Validate(requireToken).
+				Value(&s.pasted),
+		).WithHideFunc(func() bool { return s.choice == choiceLater }),
+	)
+}
+
+func (s *ForgeStep) tokenHint() string {
+	if s.choice == gitlabHost {
+		return "A personal access token with the api scope. The forge checks it before anything is stored."
+	}
+
+	return "A token with repo access, which gh auth token prints if you use gh. The forge checks it before anything is stored."
+}
+
+func requireToken(pasted string) error {
+	if forge.NewSecret(pasted).IsZero() {
+		return errors.New("paste a token, or go back and choose not now")
+	}
+
+	return nil
+}
+
+var errForgeLater = fmt.Errorf("%w; komrad forge connect <host> connects one", errSkipped)
+
+func (s *ForgeStep) answerUnattended() error {
+	return errForgeLater
+}
+
+func (s *ForgeStep) repair(ctx context.Context) error {
+	if s.choice == choiceLater {
+		return errForgeLater
+	}
+
+	token := forge.NewSecret(s.pasted)
+	if token.IsZero() {
+		return errors.New("no token was given")
+	}
+
+	return s.Connect(ctx, s.choice, token)
 }

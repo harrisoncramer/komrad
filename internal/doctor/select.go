@@ -7,9 +7,17 @@ const (
 	CheckConfig         = "config"
 	CheckDefaultHarness = "default harness"
 	CheckContext        = "context"
+	CheckServer         = "server"
+	CheckForges         = "forges"
 	CheckTmux           = "tmux"
 	CheckTmuxVersion    = "tmux version"
 	CheckTmuxShell      = "tmux shell"
+)
+
+// The codes of the findings a caller tells apart.
+const (
+	CodeNoForges         = "no_forges"
+	CodeForgesUnreadable = "forges_unreadable"
 )
 
 // Select is the checks among these with one of the names, in the order they were given.

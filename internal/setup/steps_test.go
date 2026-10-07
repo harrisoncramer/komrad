@@ -8,6 +8,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/doctor"
+	"komrad/internal/forge"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -187,4 +188,155 @@ func TestAutoSetupStep(t *testing.T) {
 		assert.Equal(t, "default_harness = \"claude\"\nauto_setup = true\n", string(written))
 		assert.Equal(t, verdictDone, step.observe(t.Context(), check).Verdict)
 	})
+}
+
+// TestForgeStep covers when the forge step is done, asks, or skips.
+func TestForgeStep(t *testing.T) {
+	engineDown := doctor.Finding{Name: doctor.CheckServer, Status: doctor.StatusWarn}
+	unreadable := doctor.Finding{Name: doctor.CheckForges, Status: doctor.StatusWarn, Code: doctor.CodeForgesUnreadable}
+	noForges := doctor.Finding{Name: doctor.CheckForges, Status: doctor.StatusWarn, Code: doctor.CodeNoForges}
+
+	tests := []struct {
+		name     string
+		findings []doctor.Finding
+		verdict  verdict
+		fix      string
+	}{
+		{
+			name:     "a local engine that is not running skips",
+			findings: []doctor.Finding{engineDown, unreadable},
+			verdict:  verdictSkip,
+		},
+		{
+			name: "a remote engine that cannot be reached skips with its fix",
+			findings: []doctor.Finding{
+				{
+					Name:   doctor.CheckServer,
+					Status: doctor.StatusFail,
+					Error:  "the engine cannot be reached",
+					Fix:    "start the forward",
+				},
+				{Name: doctor.CheckForges, Status: doctor.StatusSkip},
+			},
+			verdict: verdictSkip,
+			fix:     "start the forward",
+		},
+		{
+			name:     "an engine that cannot list its forges skips",
+			findings: []doctor.Finding{ok(doctor.CheckServer, ""), unreadable},
+			verdict:  verdictSkip,
+		},
+		{
+			name:     "a connected forge is done",
+			findings: []doctor.Finding{ok(doctor.CheckServer, ""), ok(doctor.CheckForges, "github.com as octocat")},
+			verdict:  verdictDone,
+		},
+		{
+			name:     "no forge asks",
+			findings: []doctor.Finding{ok(doctor.CheckServer, ""), noForges},
+			verdict:  verdictAsk,
+		},
+		{
+			name: "a refused forge skips with its reconnect command",
+			findings: []doctor.Finding{
+				ok(doctor.CheckServer, ""),
+				{
+					Name:   doctor.CheckForges,
+					Status: doctor.StatusWarn,
+					Code:   "forge_refused",
+					Fix:    "komrad forge connect github.com --token-file <token>",
+				},
+			},
+			verdict: verdictSkip,
+			fix:     "komrad forge connect github.com --token-file <token>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			step := &ForgeStep{}
+
+			observation := step.observe(t.Context(), fakeChecker(tt.findings...))
+
+			assert.Equal(t, tt.verdict, observation.Verdict)
+			if tt.fix != "" {
+				require.NotNil(t, observation.Finding)
+				assert.Equal(t, tt.fix, observation.Finding.Fix)
+			}
+		})
+	}
+}
+
+// TestForgeStepUnattendedSkips covers the skip an unattended run takes, naming forge connect.
+func TestForgeStepUnattendedSkips(t *testing.T) {
+	err := (&ForgeStep{}).answerUnattended()
+
+	require.ErrorIs(t, err, errSkipped)
+	assert.ErrorContains(t, err, "komrad forge connect <host>")
+}
+
+// TestForgeStepRepair covers what each answer connects.
+func TestForgeStepRepair(t *testing.T) {
+	tests := []struct {
+		name    string
+		choice  string
+		pasted  string
+		skipped bool
+		err     string
+		host    string
+		token   string
+	}{
+		{
+			name:    "not now skips",
+			choice:  choiceLater,
+			skipped: true,
+		},
+		{
+			name:   "github.com connects the pasted token",
+			choice: githubHost,
+			pasted: "ghp_pasted\n",
+			host:   "github.com",
+			token:  "ghp_pasted",
+		},
+		{
+			name:   "gitlab.com connects the pasted token",
+			choice: gitlabHost,
+			pasted: "glpat-pasted",
+			host:   "gitlab.com",
+			token:  "glpat-pasted",
+		},
+		{
+			name:   "a blank token is refused",
+			choice: githubHost,
+			pasted: "  \n",
+			err:    "no token was given",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var host, token string
+			step := &ForgeStep{
+				Connect: func(_ context.Context, h string, s forge.Secret) error {
+					host, token = h, s.Expose()
+
+					return nil
+				},
+				choice: tt.choice,
+				pasted: tt.pasted,
+			}
+
+			err := step.repair(t.Context())
+			switch {
+			case tt.skipped:
+				require.ErrorIs(t, err, errSkipped)
+			case tt.err != "":
+				require.ErrorContains(t, err, tt.err)
+			default:
+				require.NoError(t, err)
+				assert.Equal(t, tt.host, host)
+				assert.Equal(t, tt.token, token)
+			}
+		})
+	}
 }

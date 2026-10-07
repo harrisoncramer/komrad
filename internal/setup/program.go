@@ -189,6 +189,11 @@ func (m model) observed(msg observedMsg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Quit
 
+	case verdictSkip:
+		r.state = stateSkipped
+
+		return m.advance()
+
 	case verdictAsk, verdictRepair:
 		if r.repaired {
 			r.state = stateFailed
@@ -254,13 +259,14 @@ var (
 	markDone    = glyph.Defaults().Spell(glyph.MessageSuccess)
 	markFailed  = glyph.Defaults().Spell(glyph.MessageError)
 	markPending = glyph.Defaults().Spell(glyph.MessageInfo)
+	markSkipped = "-"
 )
 
 func (m model) View() tea.View {
 	var b strings.Builder
 	for i, r := range m.rows {
 		fmt.Fprintf(&b, "%s %-9s %s\n", m.mark(r), r.step.name(), paint.Panel.Style(paint.ToneMuted).Render(r.detail))
-		if r.state == stateFailed && r.fix != "" {
+		if (r.state == stateFailed || r.state == stateSkipped) && r.fix != "" {
 			fmt.Fprintf(&b, "            fix: %s\n", r.fix)
 		}
 		if i == m.current && m.form != nil && r.state == stateAsking {
@@ -278,7 +284,7 @@ func (m model) mark(r row) string {
 	case stateDone:
 		return paint.Panel.Style(paint.ToneSuccess).Render(markDone)
 	case stateSkipped:
-		return paint.Panel.Style(paint.ToneMuted).Render("-")
+		return paint.Panel.Style(paint.ToneMuted).Render(markSkipped)
 	case stateFailed:
 		return paint.Panel.Style(paint.ToneDanger).Render(markFailed)
 	case stateAsking:
@@ -313,9 +319,15 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 	case verdictDone:
 		return markDone + " " + name + " " + observation.Detail, nil
 	case verdictStop:
-		return describeStop(name, observation), errFailed
+		return describe(markFailed, name, observation), errFailed
+	case verdictSkip:
+		return describe(markSkipped, name, observation), nil
 	case verdictAsk:
 		if err := step.answerUnattended(); err != nil {
+			if errors.Is(err, errSkipped) {
+				return markSkipped + " " + name + " " + err.Error(), nil
+			}
+
 			return markFailed + " " + name + " " + err.Error(), errFailed
 		}
 	case verdictRepair:
@@ -323,22 +335,26 @@ func runUnattended(ctx context.Context, check checker, step Step) (string, error
 
 	if err := step.repair(ctx); err != nil {
 		if errors.Is(err, errSkipped) {
-			return "- " + name + " skipped", nil
+			return markSkipped + " " + name + " skipped", nil
 		}
 
 		return markFailed + " " + name + " " + err.Error(), errFailed
 	}
 
 	observation = step.observe(ctx, check)
-	if observation.Verdict != verdictDone {
-		return describeStop(name, observation), errFailed
+	switch observation.Verdict {
+	case verdictDone:
+		return markDone + " " + name + " " + observation.Detail, nil
+	case verdictSkip:
+		return describe(markSkipped, name, observation), nil
+	case verdictAsk, verdictRepair, verdictStop:
 	}
 
-	return markDone + " " + name + " " + observation.Detail, nil
+	return describe(markFailed, name, observation), errFailed
 }
 
-func describeStop(name string, observation observation) string {
-	line := markFailed + " " + name + " " + observation.Detail
+func describe(mark, name string, observation observation) string {
+	line := mark + " " + name + " " + observation.Detail
 	if observation.Finding != nil && observation.Finding.Fix != "" {
 		line += "\n            fix: " + observation.Finding.Fix
 	}
