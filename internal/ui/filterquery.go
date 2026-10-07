@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"komrad/internal/errui"
@@ -108,7 +109,7 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 	return func() tea.Msg {
 		found, err := call(agentsTimeout, func(ctx context.Context) (map[string]bool, error) {
 			resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-				Query:      msg.text,
+				Query:      `"` + strings.ReplaceAll(msg.text, `"`, "") + `"`,
 				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
 			}))
 			if err != nil {

@@ -107,7 +107,7 @@ func TestHarnessFiresHeldTimers(t *testing.T) {
 	harness.assertSent(request{
 		procedure: agentv1connect.AgentServiceSearchTranscriptsProcedure,
 		msg: &agentv1.SearchTranscriptsRequest{
-			Query:      "api",
+			Query:      `"api"`,
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		},
 	})
