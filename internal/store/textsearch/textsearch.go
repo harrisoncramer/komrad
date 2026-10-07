@@ -29,38 +29,38 @@ const (
 
 const minNearRunes = 3
 
-// queryTerms is the words a query is looking for and the words it wants left out.
-type queryTerms struct {
+// Terms is the words a query is looking for and the words it wants left out.
+type Terms struct {
 	Wanted   []string
 	Excluded []string
 }
 
-// preparedQuery is a query cleaned of NULs, its terms, and those terms quoted for a websearch query.
-type preparedQuery struct {
+// PreparedQuery is a query cleaned of NULs, its terms, and those terms quoted for a websearch query.
+type PreparedQuery struct {
 	Query    string
-	Terms    queryTerms
+	Terms    Terms
 	Wanted   string
 	Excluded string
 }
 
 // Prepare strips the NULs from a query, splits it into terms and quotes them.
-func Prepare(query string) preparedQuery {
+func Prepare(query string) PreparedQuery {
 	query = strings.ReplaceAll(query, "\x00", "")
-	terms := Split(query)
+	terms := split(query)
 
-	return preparedQuery{
+	return PreparedQuery{
 		Query:    query,
 		Terms:    terms,
-		Wanted:   Quote(terms.Wanted, ""),
-		Excluded: Quote(terms.Excluded, "-"),
+		Wanted:   quote(terms.Wanted, ""),
+		Excluded: quote(terms.Excluded, "-"),
 	}
 }
 
-// Split reads a query as the words it is looking for, quoted or not, and the words it
+// split reads a query as the words it is looking for, quoted or not, and the words it
 // wants left out.
-func Split(query string) queryTerms {
+func split(query string) Terms {
 	var (
-		split   queryTerms
+		found   Terms
 		text    strings.Builder
 		quoted  bool
 		minuses int
@@ -74,10 +74,10 @@ func Split(query string) queryTerms {
 		switch {
 		case term == "":
 		case leading == 1:
-			split.Excluded = append(split.Excluded, term)
+			found.Excluded = append(found.Excluded, term)
 		default:
 			// Only a single minus excludes, so a flag name stays the word it looks like.
-			split.Wanted = append(split.Wanted, strings.Repeat("-", leading)+term)
+			found.Wanted = append(found.Wanted, strings.Repeat("-", leading)+term)
 		}
 	}
 	for _, r := range query {
@@ -94,11 +94,11 @@ func Split(query string) queryTerms {
 	}
 	flush()
 
-	return split
+	return found
 }
 
-// Quote wraps each term in quotes behind a prefix, as a websearch query reads them.
-func Quote(terms []string, prefix string) string {
+// quote wraps each term in quotes behind a prefix, as a websearch query reads them.
+func quote(terms []string, prefix string) string {
 	quoted := xslice.Map(terms, func(term string) string {
 		return prefix + `"` + term + `"`
 	})

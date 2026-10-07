@@ -89,9 +89,9 @@ func TestMark(t *testing.T) {
 	}
 }
 
-// TestSplit covers the words pulled out of a query for the substring fallback, which
+// TestPrepareTerms covers the words pulled out of a query for the substring fallback, which
 // matches text as it was typed and so has to be handed the terms rather than the operators.
-func TestSplit(t *testing.T) {
+func TestPrepareTerms(t *testing.T) {
 	tests := []struct {
 		name         string
 		query        string
@@ -172,40 +172,57 @@ func TestSplit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := textsearchstore.Split(tt.query)
-			assert.Equal(t, tt.wantWanted, got.Wanted)
-			assert.Equal(t, tt.wantExcluded, got.Excluded)
+			want := textsearchstore.Terms{Wanted: tt.wantWanted, Excluded: tt.wantExcluded}
+			assert.Equal(t, want, textsearchstore.Prepare(tt.query).Terms)
 		})
 	}
 }
 
-// TestQuote covers how the words a person typed are handed to the database.
-func TestQuote(t *testing.T) {
+// TestPrepare covers how the words a person typed are handed to the database.
+func TestPrepare(t *testing.T) {
 	tests := []struct {
-		name   string
-		terms  []string
-		prefix string
-		want   string
+		name  string
+		query string
+		want  textsearchstore.PreparedQuery
 	}{
 		{
-			name: "no terms is no query",
+			name:  "no terms is no query",
+			query: "   ",
+			want:  textsearchstore.PreparedQuery{Query: "   "},
 		},
 		{
 			name:  "every term is quoted, so or is a word and a phrase stays together",
-			terms: []string{"pane", "or", "derives markers"},
-			want:  `"pane" "or" "derives markers"`,
+			query: `pane or "derives markers"`,
+			want: textsearchstore.PreparedQuery{
+				Query:  `pane or "derives markers"`,
+				Terms:  textsearchstore.Terms{Wanted: []string{"pane", "or", "derives markers"}},
+				Wanted: `"pane" "or" "derives markers"`,
+			},
 		},
 		{
-			name:   "the prefix goes before each quote",
-			terms:  []string{"sqlite", "not yet"},
-			prefix: "-",
-			want:   `-"sqlite" -"not yet"`,
+			name:  "a minus goes before each excluded quote",
+			query: `pane -sqlite -"not yet"`,
+			want: textsearchstore.PreparedQuery{
+				Query:    `pane -sqlite -"not yet"`,
+				Terms:    textsearchstore.Terms{Wanted: []string{"pane"}, Excluded: []string{"sqlite", "not yet"}},
+				Wanted:   `"pane"`,
+				Excluded: `-"sqlite" -"not yet"`,
+			},
+		},
+		{
+			name:  "a NUL is stripped before the query is read",
+			query: "pa\x00ne",
+			want: textsearchstore.PreparedQuery{
+				Query:  "pane",
+				Terms:  textsearchstore.Terms{Wanted: []string{"pane"}},
+				Wanted: `"pane"`,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, textsearchstore.Quote(tt.terms, tt.prefix))
+			assert.Equal(t, tt.want, textsearchstore.Prepare(tt.query))
 		})
 	}
 }
