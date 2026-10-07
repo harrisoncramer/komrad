@@ -62,6 +62,7 @@ type reads struct {
 type agentReads interface {
 	client.TranscriptGetter
 	SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error)
+	SearchDocuments(ctx context.Context, req *connect.Request[agentv1.SearchDocumentsRequest]) (*connect.Response[agentv1.SearchDocumentsResponse], error)
 	ListReviewThreads(ctx context.Context, req *connect.Request[agentv1.ListReviewThreadsRequest]) (*connect.Response[agentv1.ListReviewThreadsResponse], error)
 	OpenReviewRound(ctx context.Context, req *connect.Request[agentv1.OpenReviewRoundRequest]) (*connect.Response[agentv1.OpenReviewRoundResponse], error)
 	ListReviewRounds(ctx context.Context, req *connect.Request[agentv1.ListReviewRoundsRequest]) (*connect.Response[agentv1.ListReviewRoundsResponse], error)

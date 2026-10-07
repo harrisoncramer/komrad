@@ -303,3 +303,8 @@ func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (
 func (s *DocumentService) ListDocuments(ctx context.Context, params documentstore.ListParams) ([]documentstore.Document, error) {
 	return s.documents.List(ctx, params)
 }
+
+// SearchDocuments finds the documents whose current body holds the words of a query.
+func (s *DocumentService) SearchDocuments(ctx context.Context, params documentstore.SearchParams) (*documentstore.Results, error) {
+	return s.documents.Search(ctx, params)
+}

@@ -184,6 +184,13 @@ table "documents" {
   check "documents_body_written" {
     expr = "body <> ''"
   }
+  index "documents_body_trgm" {
+    type = GIN
+    on {
+      column = column.body
+      ops    = gin_trgm_ops
+    }
+  }
 }
 
 table "document_versions" {

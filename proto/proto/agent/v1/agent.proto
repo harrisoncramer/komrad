@@ -993,6 +993,20 @@ service AgentService {
       ]
     };
   }
+  rpc SearchDocuments(SearchDocumentsRequest) returns (SearchDocumentsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "search_documents"
+      description: "Search the documents agents have written by full text, reading each as it stands now and never an earlier version. Quote phrases and prefix - to exclude. Narrow to one agent with agent_id or one type with type."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
+    };
+  }
   rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {

@@ -314,6 +314,207 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 	return items, nil
 }
 
+const searchDocuments = `-- name: SearchDocuments :many
+WITH q AS (
+    SELECT
+        WEBSEARCH_TO_TSQUERY('english_nostop', $3::text) AS wanted,
+        WEBSEARCH_TO_TSQUERY('english_nostop', $4::text) AS unwanted,
+        $5::text AS phrase
+),
+found AS (
+    SELECT
+        d.id,
+        d.agent_id,
+        d.name,
+        d.body,
+        TO_TSVECTOR('english_nostop', d.body) AS tsv
+    FROM
+        documents d
+        JOIN agents a ON a.id = d.agent_id
+    WHERE
+        a.deleting_at IS NULL
+        AND ($6::uuid IS NULL
+            OR d.agent_id = $6::uuid)
+        AND ($7::text IS NULL
+            OR d.type = $7::text))
+SELECT
+    f.id,
+    f.agent_id,
+    f.name,
+    TS_HEADLINE('english_nostop', f.body, q.wanted, $1::text)::text AS snippet,
+    (TS_RANK_CD(f.tsv, q.wanted, 2) + COALESCE((f.body ~* q.phrase)::int, 0))::float8 AS rank
+FROM
+    found f
+    CROSS JOIN q
+WHERE
+    q.wanted <> ''
+    AND f.tsv @@ (q.wanted && q.unwanted)
+ORDER BY
+    rank DESC,
+    f.id
+LIMIT $2
+`
+
+type SearchDocumentsParams struct {
+	Headline string
+	Lim      int32
+	Wanted   string
+	Excluded string
+	Phrase   *string
+	AgentID  *string
+	Type     *string
+}
+
+type SearchDocumentsRow struct {
+	ID      string
+	AgentID string
+	Name    string
+	Snippet string
+	Rank    float64
+}
+
+func (q *Queries) SearchDocuments(ctx context.Context, arg SearchDocumentsParams) ([]*SearchDocumentsRow, error) {
+	rows, err := q.db.Query(ctx, searchDocuments,
+		arg.Headline,
+		arg.Lim,
+		arg.Wanted,
+		arg.Excluded,
+		arg.Phrase,
+		arg.AgentID,
+		arg.Type,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*SearchDocumentsRow
+	for rows.Next() {
+		var i SearchDocumentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgentID,
+			&i.Name,
+			&i.Snippet,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchDocumentsNear = `-- name: SearchDocumentsNear :many
+WITH q AS (
+    SELECT
+        $4::text[] AS terms,
+        $5::text[] AS patterns,
+        WEBSEARCH_TO_TSQUERY('english_nostop', $6::text) AS wanted,
+        WEBSEARCH_TO_TSQUERY('english_nostop', $7::text) AS unwanted
+),
+found AS (
+    SELECT
+        d.id,
+        d.agent_id,
+        d.name,
+        d.body,
+        TO_TSVECTOR('english_nostop', d.body) AS tsv
+    FROM
+        documents d
+        JOIN agents a ON a.id = d.agent_id
+    WHERE
+        a.deleting_at IS NULL
+        AND ($8::uuid IS NULL
+            OR d.agent_id = $8::uuid)
+        AND ($9::text IS NULL
+            OR d.type = $9::text))
+SELECT
+    f.id,
+    f.agent_id,
+    f.name,
+    SUBSTRING(f.body FROM GREATEST(1,(
+                SELECT
+                    MIN(POSITION(LOWER(t) IN LOWER(f.body)))
+                FROM UNNEST(q.terms) t
+                WHERE
+                    POSITION(LOWER(t) IN LOWER(f.body)) > 0) - $1::int)
+            FOR $2::int)::text AS snippet,
+    WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), f.body)::float8 AS rank
+FROM
+    found f
+    CROSS JOIN q
+WHERE
+    CARDINALITY(q.terms) > 0
+    AND f.body ILIKE ALL (q.patterns)
+    AND NOT (q.wanted <> ''
+        AND f.tsv @@ q.wanted)
+    AND (q.unwanted = ''
+        OR f.tsv @@ q.unwanted)
+ORDER BY
+    rank DESC,
+    f.id
+LIMIT $3
+`
+
+type SearchDocumentsNearParams struct {
+	Lead     int32
+	Width    int32
+	Lim      int32
+	Terms    []string
+	Patterns []string
+	Wanted   string
+	Excluded string
+	AgentID  *string
+	Type     *string
+}
+
+type SearchDocumentsNearRow struct {
+	ID      string
+	AgentID string
+	Name    string
+	Snippet string
+	Rank    float64
+}
+
+func (q *Queries) SearchDocumentsNear(ctx context.Context, arg SearchDocumentsNearParams) ([]*SearchDocumentsNearRow, error) {
+	rows, err := q.db.Query(ctx, searchDocumentsNear,
+		arg.Lead,
+		arg.Width,
+		arg.Lim,
+		arg.Terms,
+		arg.Patterns,
+		arg.Wanted,
+		arg.Excluded,
+		arg.AgentID,
+		arg.Type,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*SearchDocumentsNearRow
+	for rows.Next() {
+		var i SearchDocumentsNearRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgentID,
+			&i.Name,
+			&i.Snippet,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateDocument = `-- name: UpdateDocument :one
 WITH updated AS (
     UPDATE

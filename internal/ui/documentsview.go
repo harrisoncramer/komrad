@@ -142,8 +142,11 @@ func (d *documentsScreen) docRows(m *model, width int) []string {
 	}
 
 	item, ok := d.hovered(m)
-	if !ok || !d.isSteppingHovered(m) {
+	if !ok {
 		return paint.DocStyledRows(d.doc(m), max(width, 1), columnStyle())
+	}
+	if !d.isSteppingHovered(m) {
+		return m.filter.markSaid(item.id, paint.DocStyledRows(d.doc(m), max(width, 1), columnStyle()))
 	}
 
 	h := d.history

@@ -2,30 +2,27 @@ package ui
 
 import (
 	"context"
-	"slices"
-	"strings"
 	"time"
 
 	"komrad/internal/errui"
 	"komrad/internal/searchsyntax"
-	"komrad/lib/xptr"
-	agentv1 "komrad/proto/gen/agent/v1"
-	paginationv1 "komrad/proto/gen/pagination/v1"
+	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
-	"connectrpc.com/connect"
 )
 
 // saysWait is how long typing rests before a says: qualifier goes to the server.
 const saysWait = 120 * time.Millisecond
 
-// saysLimit is the most transcript turns a says: qualifier reads the agents from.
+// saysLimit is the most hits a says: qualifier reads the rows from.
 const saysLimit = 100
 
 // queryGrammar is the qualifiers one list's filter reads and the values it takes for each.
 type queryGrammar struct {
 	syntax searchsyntax.Grammar
 	check  func(searchsyntax.Clause, time.Time) error
+	search func(context.Context, agentReads, string) (map[string][]saidHit, error)
 }
 
 func (g queryGrammar) parse(text string, now time.Time) (*searchsyntax.Query, error) {
@@ -97,6 +94,21 @@ func (f filterState) saidHits(key string) []saidHit {
 	return f.qualifiers.said.hits[key]
 }
 
+// markSaid lights the words the server found the row saying wherever they start a word in its rendered rows.
+func (f filterState) markSaid(key string, rows []string) []string {
+	var terms []string
+	for _, hit := range f.saidHits(key) {
+		terms = append(terms, paint.MarkedTerms(hit.snippet)...)
+	}
+	if len(terms) == 0 {
+		return rows
+	}
+
+	return xslice.Map(rows, func(row string) string {
+		return paint.Panel.HighlightStyled(row, paint.TermSpans(paint.PlainText(row), terms))
+	})
+}
+
 type saysSettledMsg struct {
 	text string
 }
@@ -121,46 +133,20 @@ func (m *model) saysCmd() tea.Cmd {
 
 func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 	said := m.filter.qualifiers.said
-	if msg.text != said.text || !said.waiting {
+	grammar := m.filter.qualifiers.grammar
+	if msg.text != said.text || !said.waiting || grammar == nil {
 		return nil
 	}
 
-	client := m.api.reads().agents
+	client, search := m.api.reads().agents, grammar.search
 
 	return func() tea.Msg {
 		hits, err := call(agentsTimeout, func(ctx context.Context) (map[string][]saidHit, error) {
-			return searchSaid(ctx, client, msg.text)
+			return search(ctx, client, msg.text)
 		})
 
 		return saysFoundMsg{text: msg.text, hits: hits, err: err}
 	}
-}
-
-// searchSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
-func searchSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
-	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-		Query:      phrase(text),
-		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
-	}))
-	if err != nil {
-		return nil, err
-	}
-
-	hits := map[string][]saidHit{}
-	for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
-		hits[hit.GetAgentId()] = append(hits[hit.GetAgentId()], saidHit{
-			snippet: hit.GetSnippet(),
-			offset:  hit.GetContentOffset(),
-			length:  hit.GetContentLength(),
-		})
-	}
-
-	return hits, nil
-}
-
-// phrase quotes text so a transcript search reads it as one phrase.
-func phrase(text string) string {
-	return `"` + strings.ReplaceAll(text, `"`, "") + `"`
 }
 
 func (m *model) applySaysFound(msg saysFoundMsg) {

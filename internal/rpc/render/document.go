@@ -32,6 +32,16 @@ func DocumentVersion(stored documentstore.Version) *agentv1.DocumentVersion {
 	}
 }
 
+// DocumentHit draws one document a search found as the wire carries it.
+func DocumentHit(hit documentstore.SearchHit) *agentv1.DocumentHit {
+	return &agentv1.DocumentHit{
+		DocumentId: hit.ID,
+		AgentId:    hit.AgentID,
+		Name:       hit.Name,
+		Snippet:    hit.Snippet,
+	}
+}
+
 // DocumentType draws one document type as the wire carries it.
 func DocumentType(stored documenttypestore.Type) *agentv1.DocumentType {
 	return &agentv1.DocumentType{

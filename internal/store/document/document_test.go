@@ -11,6 +11,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	textsearchstore "komrad/internal/store/textsearch"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -530,4 +531,130 @@ func TestListVersions(t *testing.T) {
 		_, err := stores.Documents.GetVersion(ctx, missing.id, missing.version)
 		assert.ErrorIs(t, err, store.ErrNotFound, "%s at %d", missing.id, missing.version)
 	}
+}
+
+// TestSearch pins which documents a search of their bodies finds and in what order.
+func TestSearch(t *testing.T) {
+	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes")
+	ctx := t.Context()
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
+	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
+
+	write := func(agentID, name, typeName, body string) string {
+		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+			AgentID: agentID,
+			Name:    name,
+			Type:    typeName,
+			Body:    body,
+		})
+		require.NoError(t, err)
+
+		return created.ID
+	}
+	plan := write(author.ID, "plan", "RFC", "the migration adds a trigram index on the body")
+	notes := write(author.ID, "notes", "notes", "an index is mentioned once")
+	elsewhere := write(other.ID, "elsewhere", "RFC", "the trigram index again, trigram index everywhere")
+	rewritten := write(author.ID, "rewritten", "RFC", "the old text said trigram")
+	write(leaving.ID, "doomed", "RFC", "a trigram index nobody can see")
+	near := write(author.ID, "near", "notes", "reindexing happens nightly")
+
+	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
+		ID:      rewritten,
+		AgentID: author.ID,
+		Name:    "rewritten",
+		Type:    "RFC",
+		Body:    "nothing left of it",
+		Version: 1,
+	})
+	require.NoError(t, err)
+	_, err = stores.Agents.MarkDeleting(ctx, []string{leaving.ID})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		params      documentstore.SearchParams
+		wantMatches []string
+		wantNear    []string
+	}{
+		{
+			name:        "every document holding the words, the best first",
+			params:      documentstore.SearchParams{Query: "trigram index"},
+			wantMatches: []string{elsewhere, plan},
+		},
+		{
+			name:        "a word a document holds only inside a longer one comes after as near",
+			params:      documentstore.SearchParams{Query: "index"},
+			wantMatches: []string{elsewhere, plan, notes},
+			wantNear:    []string{near},
+		},
+		{
+			name:        "a word left out drops the documents holding it",
+			params:      documentstore.SearchParams{Query: "index -trigram"},
+			wantMatches: []string{notes},
+			wantNear:    []string{near},
+		},
+		{
+			name:        "narrowed to one agent",
+			params:      documentstore.SearchParams{Query: "trigram", AgentID: xptr.Ptr(other.ID)},
+			wantMatches: []string{elsewhere},
+		},
+		{
+			name:        "narrowed to one type",
+			params:      documentstore.SearchParams{Query: "index", Type: xptr.Ptr("notes")},
+			wantMatches: []string{notes},
+			wantNear:    []string{near},
+		},
+		{
+			name:        "the limit holds across both sections",
+			params:      documentstore.SearchParams{Query: "index", Limit: 3},
+			wantMatches: []string{elsewhere, plan, notes},
+		},
+		{name: "only the current body is searched", params: documentstore.SearchParams{Query: "old text"}},
+		{name: "a query wanting no word finds nothing", params: documentstore.SearchParams{Query: "-trigram"}},
+		{name: "an agent id that is not an id finds nothing", params: documentstore.SearchParams{Query: "trigram", AgentID: xptr.Ptr("not-an-id")}},
+		{name: "a NUL in the query is dropped", params: documentstore.SearchParams{Query: "trig\x00ram", AgentID: xptr.Ptr(other.ID)}, wantMatches: []string{elsewhere}},
+	}
+
+	ids := func(hits []documentstore.SearchHit) []string {
+		return xslice.Map(hits, func(hit documentstore.SearchHit) string { return hit.ID })
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := stores.Documents.Search(ctx, tt.params)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantMatches, nilIfEmpty(ids(results.Matches)))
+			assert.Equal(t, tt.wantNear, nilIfEmpty(ids(results.Near)))
+		})
+	}
+
+	t.Run("a match carries its document and the passage marked", func(t *testing.T) {
+		results, err := stores.Documents.Search(ctx, documentstore.SearchParams{Query: "trigram", AgentID: xptr.Ptr(author.ID)})
+		require.NoError(t, err)
+		require.Len(t, results.Matches, 1)
+
+		hit := results.Matches[0]
+		assert.Equal(t, author.ID, hit.AgentID)
+		assert.Equal(t, "plan", hit.Name)
+		assert.Contains(t, hit.Snippet, textsearchstore.Open+"trigram"+textsearchstore.Close)
+	})
+
+	t.Run("a near hit marks the word inside the longer one", func(t *testing.T) {
+		results, err := stores.Documents.Search(ctx, documentstore.SearchParams{Query: "index", Type: xptr.Ptr("notes")})
+		require.NoError(t, err)
+		require.Len(t, results.Near, 1)
+
+		assert.Contains(t, results.Near[0].Snippet, "re"+textsearchstore.Open+"index"+textsearchstore.Close+"ing")
+	})
+}
+
+func nilIfEmpty(ids []string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	return ids
 }

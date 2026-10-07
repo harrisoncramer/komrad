@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/internal/store"
+	textsearchstore "komrad/internal/store/textsearch"
 	"komrad/lib/xslice"
 )
 
@@ -38,23 +37,9 @@ type SearchHit struct {
 	Key           float64
 }
 
-const (
-	SnippetOpen  = "\x02"
-	SnippetClose = "\x03"
-)
-
-const (
-	snippetLead     = 60
-	snippetWidth    = 200
-	headlineOptions = "StartSel=" + SnippetOpen + ",StopSel=" + SnippetClose +
-		",MaxWords=35,MinWords=15,MaxFragments=1"
-)
-
 const defaultSearchLimit = 50
 
 const unknownTimeKey = -1e18
-
-const minNearTermRunes = 3
 
 // errSortChanged is a cursor passed back under a sort other than the one it was handed out for.
 var errSortChanged = fail.InvalidArgument("the cursor was handed out under another sort; search again from the first page")
@@ -378,8 +363,8 @@ type SearchParams struct {
 func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Results, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
-	terms := splitTerms(query)
-	browse := len(terms.wanted) == 0
+	terms := textsearchstore.Split(query)
+	browse := len(terms.Wanted) == 0
 	if browse && params.Filter.IsZero() {
 		return Results{}, nil
 	}
@@ -392,7 +377,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 		return Results{}, errSortChanged.Saying("the cursor was handed out for sort %q, not %q; search again from the first page", params.Cursor.Sort, sort)
 	}
 
-	wanted, excluded := quoteTerms(terms.wanted, ""), quoteTerms(terms.excluded, "-")
+	wanted, excluded := textsearchstore.Quote(terms.Wanted, ""), textsearchstore.Quote(terms.Excluded, "-")
 
 	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return Results{}, nil
@@ -419,9 +404,9 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
 			Wanted:        wanted,
 			Excluded:      excluded,
-			Phrase:        phrasePattern(terms.wanted),
-			Headline:      headlineOptions,
-			Width:         snippetWidth,
+			Phrase:        textsearchstore.Phrase(terms.Wanted),
+			Headline:      textsearchstore.Headline,
+			Width:         textsearchstore.Width,
 			Sort:          string(sort),
 			UnknownKey:    unknownTimeKey,
 			Browse:        browse,
@@ -459,15 +444,15 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 		})
 	}
 
-	nearStarts := matchesRan && !browse && int64(len(results.Matches)) < limit && hasNearTerms(terms.wanted)
+	nearStarts := matchesRan && !browse && int64(len(results.Matches)) < limit && textsearchstore.HasNear(terms.Wanted)
 	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
-			Terms:         terms.wanted,
-			Patterns:      likePatterns(terms.wanted),
+			Terms:         terms.Wanted,
+			Patterns:      textsearchstore.LikePatterns(terms.Wanted),
 			Wanted:        wanted,
 			Excluded:      excluded,
-			Lead:          snippetLead,
-			Width:         snippetWidth,
+			Lead:          textsearchstore.Lead,
+			Width:         textsearchstore.Width,
 			Sort:          string(sort),
 			UnknownKey:    unknownTimeKey,
 			Lim:           int32(limit),
@@ -496,7 +481,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 				Role:          row.Role,
 				ContentOffset: row.ContentOffset,
 				ContentLength: int64(row.ContentLength),
-				Snippet:       markMatches(row.Snippet, terms.wanted),
+				Snippet:       textsearchstore.Mark(row.Snippet, terms.Wanted),
 				Rank:          toRank(sort, row.SortKey),
 				SpokenAt:      row.SpokenAt,
 				Key:           row.SortKey,
@@ -558,7 +543,7 @@ func toContainsPattern(text *string) *string {
 		return nil
 	}
 
-	pattern := likePattern(*text)
+	pattern := textsearchstore.LikePattern(*text)
 
 	return &pattern
 }
@@ -585,164 +570,4 @@ func seqOf(p *Position) *int32 {
 	}
 
 	return &p.Seq
-}
-
-type queryTerms struct {
-	wanted   []string
-	excluded []string
-}
-
-// splitTerms reads a query as the words it is looking for, quoted or not, and the words it
-// wants left out.
-func splitTerms(query string) queryTerms {
-	var (
-		terms   queryTerms
-		text    strings.Builder
-		quoted  bool
-		minuses int
-	)
-
-	flush := func() {
-		term, leading := text.String(), minuses
-		text.Reset()
-		quoted, minuses = false, 0
-
-		switch {
-		case term == "":
-		case leading == 1:
-			terms.excluded = append(terms.excluded, term)
-		default:
-			// Only a single minus excludes, so a flag name stays the word it looks like.
-			terms.wanted = append(terms.wanted, strings.Repeat("-", leading)+term)
-		}
-	}
-	for _, r := range query {
-		switch {
-		case r == '"':
-			quoted = !quoted
-		case unicode.IsSpace(r) && !quoted:
-			flush()
-		case r == '-' && !quoted && text.Len() == 0:
-			minuses++
-		default:
-			text.WriteRune(r)
-		}
-	}
-	flush()
-
-	return terms
-}
-
-func quoteTerms(terms []string, prefix string) string {
-	quoted := xslice.Map(terms, func(term string) string {
-		return prefix + `"` + term + `"`
-	})
-
-	return strings.Join(quoted, " ")
-}
-
-func hasNearTerms(terms []string) bool {
-	for _, term := range terms {
-		if utf8.RuneCountInString(term) < minNearTermRunes {
-			return false
-		}
-	}
-
-	return true
-}
-
-func phrasePattern(terms []string) *string {
-	var words []string
-	for _, term := range terms {
-		words = append(words, strings.FieldsFunc(term, func(r rune) bool {
-			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-		})...)
-	}
-	if len(words) == 0 {
-		return nil
-	}
-
-	pattern := `\m` + strings.Join(words, `[^[:alnum:]]+`) + `\M`
-
-	return &pattern
-}
-
-func likePatterns(terms []string) []string {
-	patterns := xslice.Map(terms, likePattern)
-
-	return patterns
-}
-
-func likePattern(query string) string {
-	escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(query)
-	return "%" + escaped + "%"
-}
-
-func markMatches(snippet string, terms []string) string {
-	var (
-		out strings.Builder
-		at  int
-	)
-	for at < len(snippet) {
-		start, end, ok := firstMatch(snippet[at:], terms)
-		if !ok {
-			break
-		}
-
-		out.WriteString(snippet[at : at+start])
-		out.WriteString(SnippetOpen)
-		out.WriteString(snippet[at+start : at+end])
-		out.WriteString(SnippetClose)
-		at += end
-	}
-	out.WriteString(snippet[at:])
-
-	return out.String()
-}
-
-// firstMatch returns the earliest occurrence of any term, preferring the longest where two
-// start at the same place.
-func firstMatch(hay string, terms []string) (int, int, bool) {
-	found := false
-
-	var bestStart, bestEnd int
-	for _, term := range terms {
-		if term == "" {
-			continue
-		}
-
-		start, end, ok := foldIndex(hay, term)
-		if !ok {
-			continue
-		}
-		if !found || start < bestStart || (start == bestStart && end > bestEnd) {
-			found, bestStart, bestEnd = true, start, end
-		}
-	}
-
-	return bestStart, bestEnd, found
-}
-
-func foldIndex(hay, needle string) (int, int, bool) {
-	for start := 0; start < len(hay); {
-		_, width := utf8.DecodeRuneInString(hay[start:])
-
-		i, j := start, 0
-		for j < len(needle) && i < len(hay) {
-			h, hw := utf8.DecodeRuneInString(hay[i:])
-			n, nw := utf8.DecodeRuneInString(needle[j:])
-			if unicode.ToLower(h) != unicode.ToLower(n) {
-				break
-			}
-
-			i, j = i+hw, j+nw
-		}
-		if j == len(needle) {
-			return start, i, true
-		}
-
-		start += width
-	}
-
-	return 0, 0, false
 }

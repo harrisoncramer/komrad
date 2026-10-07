@@ -4,12 +4,14 @@ package document
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/internal/store"
+	textsearchstore "komrad/internal/store/textsearch"
 	"komrad/lib/xslice"
 )
 
@@ -304,4 +306,94 @@ func (s *DocumentStore) Delete(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+// defaultSearchLimit is how many documents a search returns when it names no limit.
+const defaultSearchLimit = 50
+
+// SearchHit is one document whose body a search found, with the passage that matched.
+type SearchHit struct {
+	ID      string
+	AgentID string
+	Name    string
+	Snippet string
+	Rank    float64
+}
+
+// Results is what a search found: the documents holding every word, best first, then those
+// holding each word only as part of a longer one.
+type Results struct {
+	Matches []SearchHit
+	Near    []SearchHit
+}
+
+// SearchParams is a search of the documents' current bodies, narrowed to one agent and one type
+// when either is set.
+type SearchParams struct {
+	Query   string
+	AgentID *string
+	Type    *string
+	Limit   int32
+}
+
+// Search finds the documents whose current body holds the words of a query, and nothing when it
+// wants no word.
+func (s *DocumentStore) Search(ctx context.Context, params SearchParams) (*Results, error) {
+	query := strings.ReplaceAll(params.Query, "\x00", "")
+
+	terms := textsearchstore.Split(query)
+	if len(terms.Wanted) == 0 {
+		return &Results{}, nil
+	}
+	if params.AgentID != nil && !store.IsID(*params.AgentID) {
+		return &Results{}, nil
+	}
+
+	if params.Limit <= 0 {
+		params.Limit = defaultSearchLimit
+	}
+
+	wanted, excluded := textsearchstore.Quote(terms.Wanted, ""), textsearchstore.Quote(terms.Excluded, "-")
+
+	rows, err := s.queries.SearchDocuments(ctx, models.SearchDocumentsParams{
+		Wanted:   wanted,
+		Excluded: excluded,
+		Phrase:   textsearchstore.Phrase(terms.Wanted),
+		Headline: textsearchstore.Headline,
+		Lim:      params.Limit,
+		AgentID:  params.AgentID,
+		Type:     params.Type,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to search documents for %q: %w", query, err)
+	}
+
+	results := &Results{Matches: xslice.Map(rows, func(row *models.SearchDocumentsRow) SearchHit {
+		return SearchHit{ID: row.ID, AgentID: row.AgentID, Name: row.Name, Snippet: row.Snippet, Rank: row.Rank}
+	})}
+
+	if int32(len(results.Matches)) >= params.Limit || !textsearchstore.HasNear(terms.Wanted) {
+		return results, nil
+	}
+
+	near, err := s.queries.SearchDocumentsNear(ctx, models.SearchDocumentsNearParams{
+		Terms:    terms.Wanted,
+		Patterns: textsearchstore.LikePatterns(terms.Wanted),
+		Wanted:   wanted,
+		Excluded: excluded,
+		Lead:     textsearchstore.Lead,
+		Width:    textsearchstore.Width,
+		Lim:      params.Limit - int32(len(results.Matches)),
+		AgentID:  params.AgentID,
+		Type:     params.Type,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to search documents near %q: %w", query, err)
+	}
+
+	results.Near = xslice.Map(near, func(row *models.SearchDocumentsNearRow) SearchHit {
+		return SearchHit{ID: row.ID, AgentID: row.AgentID, Name: row.Name, Snippet: textsearchstore.Mark(row.Snippet, terms.Wanted), Rank: row.Rank}
+	})
+
+	return results, nil
 }

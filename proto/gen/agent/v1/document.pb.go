@@ -1283,6 +1283,205 @@ func (x *DeleteDocumentTypeRequest) GetId() string {
 	return ""
 }
 
+type SearchDocumentsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The words to look for in each document as it stands now, matched whole and stemmed, with a
+	// quoted phrase required in that order and a leading minus excluding a word.
+	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	// Whose documents to search, or unset for every agent's, archived agents included.
+	AgentId *string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
+	// Only documents of this type, or unset for every type.
+	Type *string `protobuf:"bytes,3,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	// How many documents to return across both sections, fifty when unset.
+	Limit         int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchDocumentsRequest) Reset() {
+	*x = SearchDocumentsRequest{}
+	mi := &file_agent_v1_document_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchDocumentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchDocumentsRequest) ProtoMessage() {}
+
+func (x *SearchDocumentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchDocumentsRequest.ProtoReflect.Descriptor instead.
+func (*SearchDocumentsRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *SearchDocumentsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *SearchDocumentsRequest) GetAgentId() string {
+	if x != nil && x.AgentId != nil {
+		return *x.AgentId
+	}
+	return ""
+}
+
+func (x *SearchDocumentsRequest) GetType() string {
+	if x != nil && x.Type != nil {
+		return *x.Type
+	}
+	return ""
+}
+
+func (x *SearchDocumentsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type DocumentHit struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The document that matched, to pass to get_document.
+	DocumentId string `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	// The agent that wrote it.
+	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// The title a person reads.
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// The passage that matched with the words marked, cut to a readable window around them.
+	Snippet       string `protobuf:"bytes,4,opt,name=snippet,proto3" json:"snippet,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentHit) Reset() {
+	*x = DocumentHit{}
+	mi := &file_agent_v1_document_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentHit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentHit) ProtoMessage() {}
+
+func (x *DocumentHit) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentHit.ProtoReflect.Descriptor instead.
+func (*DocumentHit) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *DocumentHit) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *DocumentHit) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *DocumentHit) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DocumentHit) GetSnippet() string {
+	if x != nil {
+		return x.Snippet
+	}
+	return ""
+}
+
+type SearchDocumentsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The documents that hold every word, the best first.
+	Matches []*DocumentHit `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
+	// The documents that hold a word only inside a longer one, the closest first.
+	Near          []*DocumentHit `protobuf:"bytes,2,rep,name=near,proto3" json:"near,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchDocumentsResponse) Reset() {
+	*x = SearchDocumentsResponse{}
+	mi := &file_agent_v1_document_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchDocumentsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchDocumentsResponse) ProtoMessage() {}
+
+func (x *SearchDocumentsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchDocumentsResponse.ProtoReflect.Descriptor instead.
+func (*SearchDocumentsResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *SearchDocumentsResponse) GetMatches() []*DocumentHit {
+	if x != nil {
+		return x.Matches
+	}
+	return nil
+}
+
+func (x *SearchDocumentsResponse) GetNear() []*DocumentHit {
+	if x != nil {
+		return x.Near
+	}
+	return nil
+}
+
 var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
@@ -1384,7 +1583,25 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\x15DeleteDocumentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"4\n" +
 	"\x19DeleteDocumentTypeRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02idB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xbf\x01\n" +
+	"\x16SearchDocumentsRequest\x12 \n" +
+	"\x05query\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x05query\x12'\n" +
+	"\bagent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
+	"\x04type\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01\x12 \n" +
+	"\x05limit\x18\x04 \x01(\x05B\n" +
+	"\xbaH\a\x1a\x05\x18\xc8\x01(\x00R\x05limitB\v\n" +
+	"\t_agent_idB\a\n" +
+	"\x05_type\"w\n" +
+	"\vDocumentHit\x12\x1f\n" +
+	"\vdocument_id\x18\x01 \x01(\tR\n" +
+	"documentId\x12\x19\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
+	"\asnippet\x18\x04 \x01(\tR\asnippet\"u\n" +
+	"\x17SearchDocumentsResponse\x12/\n" +
+	"\amatches\x18\x01 \x03(\v2\x15.agent.v1.DocumentHitR\amatches\x12)\n" +
+	"\x04near\x18\x02 \x03(\v2\x15.agent.v1.DocumentHitR\x04nearB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_document_proto_rawDescOnce sync.Once
@@ -1398,7 +1615,7 @@ func file_agent_v1_document_proto_rawDescGZIP() []byte {
 	return file_agent_v1_document_proto_rawDescData
 }
 
-var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_agent_v1_document_proto_goTypes = []any{
 	(*Document)(nil),                         // 0: agent.v1.Document
 	(*WriteDocumentRequest)(nil),             // 1: agent.v1.WriteDocumentRequest
@@ -1421,11 +1638,14 @@ var file_agent_v1_document_proto_goTypes = []any{
 	(*WriteDocumentTypeResponse)(nil),        // 18: agent.v1.WriteDocumentTypeResponse
 	(*DeleteDocumentRequest)(nil),            // 19: agent.v1.DeleteDocumentRequest
 	(*DeleteDocumentTypeRequest)(nil),        // 20: agent.v1.DeleteDocumentTypeRequest
-	(*v1.Pagination)(nil),                    // 21: pagination.v1.Pagination
+	(*SearchDocumentsRequest)(nil),           // 21: agent.v1.SearchDocumentsRequest
+	(*DocumentHit)(nil),                      // 22: agent.v1.DocumentHit
+	(*SearchDocumentsResponse)(nil),          // 23: agent.v1.SearchDocumentsResponse
+	(*v1.Pagination)(nil),                    // 24: pagination.v1.Pagination
 }
 var file_agent_v1_document_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
-	21, // 1: agent.v1.ListDocumentsRequest.pagination:type_name -> pagination.v1.Pagination
+	24, // 1: agent.v1.ListDocumentsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 2: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
 	0,  // 3: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
 	7,  // 4: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
@@ -1433,11 +1653,13 @@ var file_agent_v1_document_proto_depIdxs = []int32{
 	10, // 6: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
 	14, // 7: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
 	10, // 8: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
-	9,  // [9:9] is the sub-list for method output_type
-	9,  // [9:9] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	22, // 9: agent.v1.SearchDocumentsResponse.matches:type_name -> agent.v1.DocumentHit
+	22, // 10: agent.v1.SearchDocumentsResponse.near:type_name -> agent.v1.DocumentHit
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_document_proto_init() }
@@ -1454,13 +1676,14 @@ func file_agent_v1_document_proto_init() {
 	file_agent_v1_document_proto_msgTypes[5].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[12].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[17].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_document_proto_rawDesc), len(file_agent_v1_document_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

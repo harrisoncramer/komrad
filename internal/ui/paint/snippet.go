@@ -133,10 +133,21 @@ func MatchSpans(params MatchSpansParams) []Span {
 	}
 
 	end := min(offset+params.Length, int64(len(content)))
-	turn := foldASCII(content[offset:end])
+	spans := TermSpans(content[offset:end], params.Terms)
+	for i := range spans {
+		spans[i].Start += int(offset)
+		spans[i].End += int(offset)
+	}
+
+	return spans
+}
+
+// TermSpans locates the words a search marked wherever they start a word in the text.
+func TermSpans(text string, terms []string) []Span {
+	turn := foldASCII(text)
 
 	var spans []Span
-	for _, term := range params.Terms {
+	for _, term := range terms {
 		folded := foldASCII(term)
 		if folded == "" {
 			continue
@@ -152,7 +163,7 @@ func MatchSpans(params MatchSpansParams) []Span {
 			// is not what the search matched on, while a match running past the word's end is
 			// kept for the stemmed hit that spells it.
 			if doesStartWord(turn, at+i) {
-				start := int(offset) + at + i
+				start := at + i
 				spans = append(spans, Span{Start: start, End: start + len(folded)})
 			}
 

@@ -29,10 +29,12 @@ const documentTypeID = "01a0d1d7-0000-7000-8000-0000000000e0"
 
 // fakeDocuments answers from its fields and records what each call asked of it.
 type fakeDocuments struct {
-	err     error
-	stored  documentstore.Document
-	written []documents.WriteDocumentParams
-	listed  []fakeDocumentsList
+	err      error
+	stored   documentstore.Document
+	written  []documents.WriteDocumentParams
+	listed   []fakeDocumentsList
+	searched []documentstore.SearchParams
+	found    documentstore.Results
 	// versions is every write of stored, and read the versions a get asked for.
 	versions []documentstore.Version
 	read     []*int32
@@ -87,6 +89,17 @@ func (f *fakeDocuments) ListDocuments(_ context.Context, params documentstore.Li
 	listed.Body = ""
 
 	return []documentstore.Document{listed}, nil
+}
+
+// SearchDocuments records the search and answers found unless err refuses it.
+func (f *fakeDocuments) SearchDocuments(_ context.Context, params documentstore.SearchParams) (*documentstore.Results, error) {
+	f.searched = append(f.searched, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+	found := f.found
+
+	return &found, nil
 }
 
 // ListDocumentVersions answers versions as the writes of stored unless err refuses it.
@@ -523,6 +536,61 @@ func TestListDocuments(t *testing.T) {
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
 				Written: written.String(),
 				Body:    "agent listed another agent's documents",
+				Target:  tt.wantTarget,
+			})
+		})
+	}
+}
+
+// TestSearchDocuments pins what a search asks of the documents, how its hits come back and when
+// it is a recorded read.
+func TestSearchDocuments(t *testing.T) {
+	found := documentstore.Results{
+		Matches: []documentstore.SearchHit{{ID: documentID, AgentID: betaID, Name: "Plan", Snippet: "the trigram index", Rank: 0.5}},
+		Near:    []documentstore.SearchHit{{ID: documentTypeID, AgentID: alphaID, Name: "Notes", Snippet: "reindexing", Rank: 0.2}},
+	}
+
+	tests := []struct {
+		name         string
+		req          *agentv1.SearchDocumentsRequest
+		wantSearched documentstore.SearchParams
+		wantTarget   string
+	}{
+		{
+			name:         "no id searches every agent's and is not a recorded read",
+			req:          &agentv1.SearchDocumentsRequest{Query: "index", Limit: 5},
+			wantSearched: documentstore.SearchParams{Query: "index", Limit: 5},
+		},
+		{
+			name:         "a type narrows the search",
+			req:          &agentv1.SearchDocumentsRequest{Query: "index", Type: xptr.Ptr("notes")},
+			wantSearched: documentstore.SearchParams{Query: "index", Type: xptr.Ptr("notes")},
+		},
+		{
+			name:         "another agent's documents are a recorded read",
+			req:          &agentv1.SearchDocumentsRequest{Query: "index", AgentId: xptr.Ptr(betaID)},
+			wantSearched: documentstore.SearchParams{Query: "index", AgentID: xptr.Ptr(betaID)},
+			wantTarget:   betaID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			docs := &fakeDocuments{found: found}
+			svc := newDocumentHandler(docs)
+			ctx, written := newLoggedCaller(t, alphaID)
+
+			searched, err := svc.SearchDocuments(ctx, connect.NewRequest(tt.req))
+			require.NoError(t, err)
+
+			assert.Equal(t, []documentstore.SearchParams{tt.wantSearched}, docs.searched)
+			assert.Empty(t, cmp.Diff(&agentv1.SearchDocumentsResponse{
+				Matches: []*agentv1.DocumentHit{{DocumentId: documentID, AgentId: betaID, Name: "Plan", Snippet: "the trigram index"}},
+				Near:    []*agentv1.DocumentHit{{DocumentId: documentTypeID, AgentId: alphaID, Name: "Notes", Snippet: "reindexing"}},
+			}, searched.Msg, protocmp.Transform()))
+			assertCrossAgentRead(t, assertCrossAgentReadParams{
+				Written: written.String(),
+				Body:    "agent searched another agent's documents",
 				Target:  tt.wantTarget,
 			})
 		})

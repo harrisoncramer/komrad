@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	transcriptstore "komrad/internal/store/transcript"
+	textsearchstore "komrad/internal/store/textsearch"
 	"komrad/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +13,6 @@ import (
 func TestPaintMarkersMatchTheStore(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, transcriptstore.SnippetOpen, paint.MarkOpen)
-	assert.Equal(t, transcriptstore.SnippetClose, paint.MarkClose)
+	assert.Equal(t, textsearchstore.Open, paint.MarkOpen)
+	assert.Equal(t, textsearchstore.Close, paint.MarkClose)
 }
