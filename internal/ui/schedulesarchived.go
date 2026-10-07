@@ -134,6 +134,22 @@ func (a *archivedSchedules) hoveredSchedule(m *model) (panel.Schedule, bool) {
 	return item.schedule, ok
 }
 
+// menuTarget is the archived schedule the archive menu would act on.
+func (a *archivedSchedules) menuTarget(m *model) (archived, bool) {
+	schedule, ok := a.hoveredSchedule(m)
+
+	return archived{schedule: &schedule}, ok
+}
+
+func (a *archivedSchedules) buildItemMenu(m *model) (submenu, bool) {
+	target, ok := a.menuTarget(m)
+	if !ok {
+		return submenu{}, false
+	}
+
+	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
+}
+
 // confirmDeleteSchedule asks before an archived schedule is deleted for good.
 func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 	form, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
