@@ -48,10 +48,10 @@ func agentMenu(m *model, openedFrom screen, item panel.AgentRow, own ...submenuE
 	}
 }
 
-// agentSubpages is the subpages an agent has, less an orchestrator's work and writing.
+// agentSubpages is the subpages an agent has, less an orchestrator's work.
 func agentSubpages(agent panel.Agent) []subpage {
 	if agent.Role == panel.RoleOrchestrator {
-		return []subpage{subpageLogs, subpageTerminal}
+		return []subpage{subpageDocuments, subpageLogs, subpageTerminal}
 	}
 
 	return []subpage{subpageReview, subpageDocuments, subpageLogs, subpageChecks, subpageTerminal}

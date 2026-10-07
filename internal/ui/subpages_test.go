@@ -39,7 +39,7 @@ func TestSubpages(t *testing.T) {
 			row:        "komrad",
 			wantTitle:  "  komrad",
 			wantCrumb:  "agents › komrad",
-			wantCursor: "› logs",
+			wantCursor: "› documents",
 		},
 		{
 			name:       "an agent with a checkout starts on review",
@@ -74,14 +74,14 @@ func TestSubpages(t *testing.T) {
 		assert.NotRegexp(t, readOffEntry("logs", "l"), frame)
 	})
 
-	t.Run("an orchestrator has no review or documents, which its workflow's agents hold", func(t *testing.T) {
+	t.Run("an orchestrator has documents but no review", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSubpages(t, "komrad")
 
 		frame := readStageText(harness.readFrame())
 		assert.NotContains(t, frame, "review")
-		assert.NotContains(t, frame, "documents")
+		assert.Contains(t, frame, "documents")
 		assert.Contains(t, frame, "terminal")
 	})
 
