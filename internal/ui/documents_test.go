@@ -55,7 +55,7 @@ func TestDocumentsOpen(t *testing.T) {
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
 		moveToAgentRow(t, harness, "komrad")
-		harness.press("space", "d")
+		harness.press("space", "J", "d")
 		harness.fireTimers()
 
 		frame := harness.readFrame()

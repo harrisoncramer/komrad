@@ -586,7 +586,7 @@ func TestSearch(t *testing.T) {
 		{
 			name:        "a word a document holds only inside a longer one comes after as near",
 			params:      documentstore.SearchParams{Query: "index"},
-			wantMatches: []string{elsewhere, plan, notes},
+			wantMatches: []string{elsewhere, notes, plan},
 			wantNear:    []string{near},
 		},
 		{
@@ -609,7 +609,7 @@ func TestSearch(t *testing.T) {
 		{
 			name:        "the limit holds across both sections",
 			params:      documentstore.SearchParams{Query: "index", Limit: 3},
-			wantMatches: []string{elsewhere, plan, notes},
+			wantMatches: []string{elsewhere, notes, plan},
 		},
 		{name: "only the current body is searched", params: documentstore.SearchParams{Query: "old text"}},
 		{name: "a query wanting no word finds nothing", params: documentstore.SearchParams{Query: "-trigram"}},
