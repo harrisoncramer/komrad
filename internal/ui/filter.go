@@ -392,6 +392,7 @@ func (m *model) clearFilter() {
 	if openedIn == m.keyholder() {
 		m.placeFilteredCursor(origin)
 	}
+	m.reconcileSolo()
 }
 
 func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {

@@ -342,6 +342,23 @@ func TestFilterSays(t *testing.T) {
 		assert.Equal(t, "▽ says:x d  no search", readSearch(frame))
 	})
 
+	t.Run("a says: answer draws the hovered agent's matching turns beside the list", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
+				{AgentId: "db", Snippet: "the \x02xylophone\x03 broke"},
+				{AgentId: "db", Snippet: "fixed the\n\x02xylophone\x03 again"},
+			}}), nil
+		})
+
+		harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"), []string{"enter"})...)
+		harness.fireMatching(ui.IsSaysSettled)
+
+		frame := harness.readFrame()
+		require.Equal(t, "  db", readHoveredRow(frame))
+		assert.Contains(t, joinProse(readStage(frame)), "the xylophone broke fixed the xylophone again")
+	})
+
 	tests := []struct {
 		name        string
 		press       []string
