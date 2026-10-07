@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"time"
 
 	"komrad/internal/client"
@@ -338,8 +339,10 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		}
 	}
 
-	if menu, ok := m.menu(); ok && isBound(key.String(), m.keys.Menu.Open) {
-		return openSubmenu(m, menu), true
+	if slices.Contains(m.keys.Menu.Open, key.String()) {
+		if menu, ok := m.menu(); ok && isBound(key.String(), m.keys.Menu.Open) {
+			return openSubmenu(m, menu), true
+		}
 	}
 
 	if m.isDetailsScreen() && m.isDetailsFocused() {
