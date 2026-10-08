@@ -69,6 +69,7 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.listRows,
 		name:   scheduleItemName,
+		fits:   (*model).scheduleItemFits,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
 	}
 }
@@ -91,6 +92,7 @@ func (w *schedulesScreen) buildRows(m *model) []scheduleItem {
 		rows:  m.listing.schedules,
 		depth: func(scheduleItem) int { return 0 },
 		name:  scheduleItemName,
+		fits:  m.scheduleItemFits,
 	})
 }
 

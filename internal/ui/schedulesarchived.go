@@ -100,6 +100,7 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 		cursor: func() *rowCursor { return &a.rowCursor },
 		rows:   a.listRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
+		fits:   (*model).scheduleItemFits,
 		placed: a.stage,
 		moved: func(m *model) tea.Cmd {
 			a.stage(m)
@@ -128,6 +129,7 @@ func (a *archivedSchedules) buildRows(m *model) []scheduleItem {
 		rows:  m.listing.archivedSchedules,
 		depth: func(scheduleItem) int { return 0 },
 		name:  func(item scheduleItem) string { return item.schedule.Name },
+		fits:  m.scheduleItemFits,
 	})
 }
 

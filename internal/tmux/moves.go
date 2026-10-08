@@ -51,7 +51,7 @@ func argsForMove(move panes.Move) [][]string {
 	case panes.KindZoom:
 		return [][]string{zoomArgs(move.Pane, move.Zoomed)}
 	case panes.KindSwap:
-		return [][]string{{"swap-pane", "-d", "-s", move.Pane, "-t", move.Other}}
+		return [][]string{{"swap-pane", "-d", "-Z", "-s", move.Pane, "-t", move.Other}}
 	case panes.KindRespawn:
 		return [][]string{
 			append([]string{"respawn-pane", "-k", "-t", move.Pane, "-c", move.Dir}, move.Argv...),

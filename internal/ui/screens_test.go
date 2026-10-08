@@ -204,6 +204,20 @@ func TestScreensDivider(t *testing.T) {
 		assert.Equal(t, 47, measureListRule(harness.readFrame()))
 	})
 
+	t.Run("a size tmux has already moved past is not rendered", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openDragged(t)
+		harness.press("k")
+		harness.fireTimers()
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+		before := harness.readRendered()
+
+		harness.settle(harness.panel.Update(tea.WindowSizeMsg{Width: 100, Height: defaultHarnessHeight}))
+
+		assert.Equal(t, before, harness.readRendered())
+	})
+
 	t.Run("the edge facing the stage", func(t *testing.T) {
 		tests := []struct {
 			name  string
