@@ -37,6 +37,7 @@ func TestIntegrationMovePanesLeavesTheZoomWhereTheMoveAsksFor(t *testing.T) {
 	require.NotEmpty(t, client.SplitRight("zoom:zoom.0", t.TempDir(), "50%"))
 
 	pane := paneAt(t, client, "zoom", 0)
+	other := paneAt(t, client, "zoom", 1)
 
 	tests := []struct {
 		name   string
@@ -63,7 +64,12 @@ func TestIntegrationMovePanesLeavesTheZoomWhereTheMoveAsksFor(t *testing.T) {
 		},
 		{
 			name:   "a zoom lands after another move in the same invocation",
-			moves:  []panes.Move{panes.Swap(pane, paneAt(t, client, "zoom", 1)), panes.Zoom(pane, true)},
+			moves:  []panes.Move{panes.Swap(pane, other), panes.Zoom(pane, true)},
+			zoomed: true,
+		},
+		{
+			name:   "a swap leaves a zoomed window zoomed",
+			moves:  []panes.Move{panes.Swap(pane, other)},
 			zoomed: true,
 		},
 	}
