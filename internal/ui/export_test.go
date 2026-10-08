@@ -617,7 +617,7 @@ func (p *Panel) SetPaneSize(width, height int) {
 	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
 }
 
-// SetSidebarSize makes tmux report the panel's own pane at the given size.
+// SetSidebarSize makes tmux report the panel's own pane at the given width and every pane at the given height.
 func (p *Panel) SetSidebarSize(width, height int) {
 	p.SetPaneWidth(p.model.settings.Pane, width)
 	p.tmux.height = height
