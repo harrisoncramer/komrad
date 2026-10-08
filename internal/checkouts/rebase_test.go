@@ -128,7 +128,7 @@ func TestRebaseRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := tt.lay(t, fixture)
-			locks := NewTreeLocks()
+			locks := newTreeLocks()
 			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
@@ -145,7 +145,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 // TestTreeLocksHoldOnePathAtATime covers two agents in different trees not blocking each other.
 func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
-	locks := NewTreeLocks()
+	locks := newTreeLocks()
 
 	release, taken := locks.tryLock("/one")
 	require.True(t, taken)
@@ -165,7 +165,7 @@ func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
 
 // TestTreeLocksRefuseAnEmptyPath covers the fail-open a blank path would otherwise be.
 func TestTreeLocksRefuseAnEmptyPath(t *testing.T) {
-	release, taken := NewTreeLocks().tryLock("")
+	release, taken := newTreeLocks().tryLock("")
 
 	assert.False(t, taken, "an empty path is refused")
 	assert.Nil(t, release)

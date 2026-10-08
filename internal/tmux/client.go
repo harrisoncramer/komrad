@@ -44,8 +44,6 @@ type Client struct {
 	server []string
 }
 
-const DefaultSocket = "default"
-
 // NewClient returns a Client bound to a tmux server by socket name.
 func NewClient(socket string) *Client {
 	return &Client{server: []string{"-L", socket}}

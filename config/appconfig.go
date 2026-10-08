@@ -806,8 +806,8 @@ type OrchestratorUsage struct {
 	MaxChildren int `mapstructure:"max_children"`
 }
 
-// NewUsage is the usage limits a config that names none runs on.
-func NewUsage() Usage {
+// newUsage is the usage limits a config that names none runs on.
+func newUsage() Usage {
 	return Usage{
 		MaxAgents: defaultMaxAgents,
 		Implementer: ImplementerUsage{
@@ -1025,7 +1025,7 @@ type Config struct {
 func Defaults() *Config {
 	return &Config{
 		DefaultHarness: DefaultHarness,
-		Usage:          NewUsage(),
+		Usage:          newUsage(),
 		Layout:         DefaultLayout(),
 		Keybindings:    DefaultKeybindings(),
 		Glyphs:         defaultGlyphs(),

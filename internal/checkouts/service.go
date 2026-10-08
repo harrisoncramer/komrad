@@ -89,7 +89,7 @@ type NewServiceParams struct {
 	Events          eventRecorder
 	Git             branchMover
 	PullRequests    *pullrequeststore.PullRequestStore
-	Locks           *TreeLocks
+	Locks           *treeLocks
 	CheckoutSync    wake.Waker
 	PullRequestSync wake.Heater
 }
@@ -102,7 +102,7 @@ type Service struct {
 	events          eventRecorder
 	git             branchMover
 	pullRequests    *pullrequeststore.PullRequestStore
-	locks           *TreeLocks
+	locks           *treeLocks
 	checkoutSync    wake.Waker
 	pullRequestSync wake.Heater
 }
@@ -111,7 +111,7 @@ type Service struct {
 func NewService(params NewServiceParams) *Service {
 	locks := params.Locks
 	if locks == nil {
-		locks = NewTreeLocks()
+		locks = newTreeLocks()
 	}
 
 	return &Service{

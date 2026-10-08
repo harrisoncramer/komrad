@@ -117,7 +117,7 @@ func TestPushRefusals(t *testing.T) {
 			if tt.landed {
 				fixture.seedMerged(t, tt.pusher.State.Branch)
 			}
-			locks := NewTreeLocks()
+			locks := newTreeLocks()
 			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)

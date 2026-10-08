@@ -88,7 +88,7 @@ func (c *Client) getCurrentBranch(ctx context.Context, dir string) *string {
 
 // ReadFile is one file as a commit holds it.
 func (c *Client) ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
-	out, err := RunBytes(ctx, dir, "show", sha+":"+path)
+	out, err := runBytes(ctx, dir, "show", sha+":"+path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q at %q: %w", path, sha, err)
 	}
@@ -235,7 +235,7 @@ func (c *Client) Diff(ctx context.Context, params DiffParams) ([]byte, error) {
 		params.FromSHA, params.ToSHA, "--", ".",
 	}, excludePathspecs(params.Exclude)...)
 
-	raw, err := RunBytes(ctx, params.Dir, args...)
+	raw, err := runBytes(ctx, params.Dir, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.FromSHA, params.ToSHA, err)
 	}

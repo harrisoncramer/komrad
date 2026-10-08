@@ -131,25 +131,25 @@ func (noRecord) SetVerifiedAt(context.Context, string, *time.Time) error {
 	return nil
 }
 
-// NewStoredCredentialParams says whose token to read and how to send it.
-type NewStoredCredentialParams struct {
-	Store        credentialStore
-	ConnectionID string
-	Header       string
-	Connections  verifiedSetter
-}
-
-// StoredCredential is a token a person supplied, read from the store on each use.
-type StoredCredential struct {
+// storedCredential is a token a person supplied, read from the store on each use.
+type storedCredential struct {
 	store        credentialStore
 	connectionID string
 	header       string
 	connections  verifiedSetter
 }
 
-// NewStoredCredential builds an Authenticator over the store.
-func NewStoredCredential(params NewStoredCredentialParams) *StoredCredential {
-	return &StoredCredential{
+// newStoredCredentialParams says whose token to read and how to send it.
+type newStoredCredentialParams struct {
+	Store        credentialStore
+	ConnectionID string
+	Header       string
+	Connections  verifiedSetter
+}
+
+// newStoredCredential builds an Authenticator over the store.
+func newStoredCredential(params newStoredCredentialParams) *storedCredential {
+	return &storedCredential{
 		store:        params.Store,
 		connectionID: params.ConnectionID,
 		header:       params.Header,
@@ -158,7 +158,7 @@ func NewStoredCredential(params NewStoredCredentialParams) *StoredCredential {
 }
 
 // Credential is the token in the store.
-func (s *StoredCredential) Credential(ctx context.Context) (Credential, error) {
+func (s *storedCredential) Credential(ctx context.Context) (Credential, error) {
 	token, err := s.store.Get(ctx, s.connectionID)
 	if err != nil {
 		return Credential{}, err
@@ -168,6 +168,6 @@ func (s *StoredCredential) Credential(ctx context.Context) (Credential, error) {
 }
 
 // Invalidate clears the connection's verified_at.
-func (s *StoredCredential) Invalidate(ctx context.Context) error {
+func (s *storedCredential) Invalidate(ctx context.Context) error {
 	return s.connections.SetVerifiedAt(ctx, s.connectionID, nil)
 }

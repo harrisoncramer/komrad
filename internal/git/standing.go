@@ -81,7 +81,7 @@ func (c *Client) PeekChanges(ctx context.Context, dir string) (Changes, error) {
 
 // pathList runs a git command that prints NUL-separated paths.
 func pathList(ctx context.Context, dir string, args ...string) ([]string, error) {
-	out, err := RunBytes(ctx, dir, args...)
+	out, err := runBytes(ctx, dir, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*
 		mergeBase, tree, "--", ".",
 	}, excludePathspecs(params.Exclude)...)
 
-	out, err := RunBytes(ctx, params.Dir, args...)
+	out, err := runBytes(ctx, params.Dir, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to measure %q against %s: %w", params.Dir, params.Ref, err)
 	}
@@ -238,7 +238,7 @@ func (c *Client) IsBranchHeldElsewhere(ctx context.Context, dir, branch string) 
 
 // ListCommitsSince is the newest commits HEAD holds that ref does not, at most limit of them.
 func (c *Client) ListCommitsSince(ctx context.Context, dir, ref string, limit int) ([]Commit, error) {
-	out, err := RunBytes(ctx, dir, "log", "--format=%H%x00%s%x00%cI", "-n", strconv.Itoa(limit), ref+"..HEAD")
+	out, err := runBytes(ctx, dir, "log", "--format=%H%x00%s%x00%cI", "-n", strconv.Itoa(limit), ref+"..HEAD")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the commits of %q since %s: %w", dir, ref, err)
 	}

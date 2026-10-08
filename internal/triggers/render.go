@@ -54,7 +54,7 @@ type existingFile struct {
 // render writes the SQL for every unit, the functions first and then each table by name.
 func render() ([]unit, error) {
 	tables := tables()
-	functions := Functions()
+	functions := listFunctions()
 	if err := validateFunctions(functions); err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func render() ([]unit, error) {
 	return units, nil
 }
 
-func validateFunctions(functions []Function) error {
+func validateFunctions(functions []triggerFunction) error {
 	seen := map[string]bool{}
 	for _, function := range functions {
 		if !identifier.MatchString(function.Name) {
@@ -97,7 +97,7 @@ func validateFunctions(functions []Function) error {
 	return nil
 }
 
-func validateTables(tables []Table, functions []Function) error {
+func validateTables(tables []triggeredTable, functions []triggerFunction) error {
 	declaredFunctions := map[string]bool{}
 	for _, function := range functions {
 		declaredFunctions[function.Name] = true
@@ -128,7 +128,7 @@ func validateTables(tables []Table, functions []Function) error {
 	return nil
 }
 
-func validateTrigger(table string, trigger Trigger, declaredFunctions map[string]bool) error {
+func validateTrigger(table string, trigger rowTrigger, declaredFunctions map[string]bool) error {
 	if !identifier.MatchString(trigger.Name) {
 		return fmt.Errorf("trigger name %q on %s is not a plain identifier", trigger.Name, table)
 	}
@@ -156,7 +156,7 @@ func quoteAll(values []string) string {
 	return strings.Join(quoted, ", ")
 }
 
-func triggerNames(triggers []Trigger) string {
+func triggerNames(triggers []rowTrigger) string {
 	names := make([]string, len(triggers))
 	for i, trigger := range triggers {
 		names[i] = trigger.Name

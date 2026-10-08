@@ -44,12 +44,12 @@ func TestTheSchemaCarriesExactlyTheDeclaredTriggers(t *testing.T) {
 			    AND relname NOT IN ('schema_migrations', 'schema_triggers')
 			ORDER BY
 			    relname`),
-		xslice.Map(tables, func(table Table) string { return table.Name }),
+		xslice.Map(tables, func(table triggeredTable) string { return table.Name }),
 		"every table in the schema is declared, and only those")
 
 	var declared []string
 	for _, table := range tables {
-		declared = append(declared, xslice.Map(table.Triggers, func(trigger Trigger) string {
+		declared = append(declared, xslice.Map(table.Triggers, func(trigger rowTrigger) string {
 			return spellTrigger(table.Name, trigger.Name, triggerType(t, trigger), trigger.Function, trigger.Args)
 		})...)
 	}
@@ -112,15 +112,15 @@ func TestTheSchemaCarriesExactlyTheDeclaredFunctions(t *testing.T) {
 	require.NoError(t, err)
 	defer rows.Close()
 
-	var migrated []Function
+	var migrated []triggerFunction
 	for rows.Next() {
-		var fn Function
+		var fn triggerFunction
 		require.NoError(t, rows.Scan(&fn.Name, &fn.Body))
 		migrated = append(migrated, fn)
 	}
 	require.NoError(t, rows.Err())
 
-	assert.Equal(t, Functions(), migrated, "the schema's trigger functions drifted from the declaration; run mise run gen:triggers")
+	assert.Equal(t, listFunctions(), migrated, "the schema's trigger functions drifted from the declaration; run mise run gen:triggers")
 }
 
 // TestEveryDeclaredFunctionIsRun pins that no declared function is left without a trigger running it.
@@ -132,7 +132,7 @@ func TestEveryDeclaredFunctionIsRun(t *testing.T) {
 		}
 	}
 
-	for _, fn := range Functions() {
+	for _, fn := range listFunctions() {
 		assert.True(t, run[fn.Name], "%s is declared but no trigger runs it", fn.Name)
 	}
 }
@@ -143,7 +143,7 @@ func TestEveryUpdatedAtColumnIsStamped(t *testing.T) {
 
 	stamped := map[string]bool{}
 	for _, table := range tables() {
-		stamped[table.Name] = slices.ContainsFunc(table.Triggers, func(trigger Trigger) bool {
+		stamped[table.Name] = slices.ContainsFunc(table.Triggers, func(trigger rowTrigger) bool {
 			return trigger.Name == setUpdatedAt.Name && trigger.Function == setUpdatedAt.Function
 		})
 	}
@@ -211,7 +211,7 @@ func listStrings(t *testing.T, pool *pgxpool.Pool, query string) []string {
 	return values
 }
 
-func triggerType(t *testing.T, trigger Trigger) int {
+func triggerType(t *testing.T, trigger rowTrigger) int {
 	t.Helper()
 
 	tgtype := rowBit

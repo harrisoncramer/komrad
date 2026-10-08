@@ -36,7 +36,7 @@ var ansiEscapes = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // render renders every row of a list, one to a line.
 func render(list List, palette paint.Palette, width int) string {
-	return strings.Join(Rows(list, palette, width), "\n")
+	return strings.Join(renderRows(list, palette, width), "\n")
 }
 
 // renderOne renders a single row and hands back the line it made.
@@ -969,7 +969,7 @@ func TestArchiveNameOpensPastTheGutterItHas(t *testing.T) {
 	assert.Equal(t, renderedArchiveNameColumn, gutterColumns(list.Columns))
 
 	rows := archiveRows()
-	for i, rendered := range Rows(list, paint.Panel, archivePane) {
+	for i, rendered := range renderRows(list, paint.Panel, archivePane) {
 		want := wantNameColumn(rows[i].Kind) - renderedNameColumn + renderedArchiveNameColumn
 
 		assert.Equal(t, want, nameColumnOf(ansiEscapes.ReplaceAllString(rendered, ""), list.Lines[i]),

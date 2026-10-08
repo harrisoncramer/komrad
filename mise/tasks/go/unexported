@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+#MISE description="Report exported identifiers only their own package uses, with fussy."
+
+usage() {
+	echo "Usage: mise run go:unexported"
+	echo
+	echo "Runs fussy unexported over komrad, reporting every exported identifier"
+	echo "that nothing outside its own package uses. It reads the whole module at"
+	echo "once, which the fussy golangci-lint plugin cannot, so go:lint runs it as"
+	echo "its own step."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+go list ./... | grep -v /node_modules/ | xargs fussy unexported

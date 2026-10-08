@@ -310,7 +310,7 @@ func (s *Service) proveApp(ctx context.Context, build Builder, params ConnectPar
 	}
 
 	app = app.At(params.APIURL)
-	probe := build(params.APIURL, NewAppCredential(NewAppCredentialParams{App: app, Connections: noRecord{}}))
+	probe := build(params.APIURL, newAppCredential(newAppCredentialParams{App: app, Connections: noRecord{}}))
 	err = requireInstallationReach(ctx, probe)
 	if errors.Is(err, ErrUnauthorized) {
 		return "", fmt.Errorf("failed to verify the app's token with github: %w", err)
@@ -481,7 +481,7 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 		return nil, errUnknownKind.Saying("%q is not a forge this build knows", connection.Kind)
 	}
 
-	var auth Authenticator = NewStoredCredential(NewStoredCredentialParams{
+	var auth Authenticator = newStoredCredential(newStoredCredentialParams{
 		Store:        s.credentials,
 		ConnectionID: connection.ID,
 		Header:       headerFor(connection.Kind, connection.Method),
@@ -493,7 +493,7 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 			return nil, errBadApp.Saying("%v", err)
 		}
 
-		auth = NewAppCredential(NewAppCredentialParams{
+		auth = newAppCredential(newAppCredentialParams{
 			App:          app.At(connection.APIURL),
 			ConnectionID: connection.ID,
 			Connections:  s.verified,

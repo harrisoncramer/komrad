@@ -95,7 +95,7 @@ linters:
       forbid:
         - pattern: ^git\.NewClient$
           msg: a unit test takes the git seam and hands over a fake
-        - pattern: ^git\.(Run|RunBytes)$
+        - pattern: ^git\.Run$
           msg: a unit test does not run git itself
         - pattern: ^exec\.Command(Context)?$
           msg: a unit test does not shell out to git

@@ -2,19 +2,19 @@ package checkouts
 
 import "sync"
 
-// TreeLocks serialises the operations that write to an agent's checkout.
-type TreeLocks struct {
+// treeLocks serialises the operations that write to an agent's checkout.
+type treeLocks struct {
 	mu   sync.Mutex
 	held map[string]struct{}
 }
 
-// NewTreeLocks builds an empty set of locks.
-func NewTreeLocks() *TreeLocks {
-	return &TreeLocks{held: map[string]struct{}{}}
+// newTreeLocks builds an empty set of locks.
+func newTreeLocks() *treeLocks {
+	return &treeLocks{held: map[string]struct{}{}}
 }
 
 // tryLock takes the lock on a directory and hands back what releases it.
-func (l *TreeLocks) tryLock(dir string) (func(), bool) {
+func (l *treeLocks) tryLock(dir string) (func(), bool) {
 	// Refused rather than granted.
 	if dir == "" {
 		return nil, false

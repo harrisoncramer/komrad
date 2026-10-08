@@ -232,7 +232,7 @@ func TestLoadUsage(t *testing.T) {
 		{
 			name: "a file naming none takes the built-in, with no orchestrator limit of its own",
 			file: "default_harness = \"claude\"\n",
-			want: NewUsage(),
+			want: newUsage(),
 		},
 		{
 			name: "zero hands a role's compaction back to the CLI and one role changed leaves the rest",

@@ -25,7 +25,7 @@ func command(ctx context.Context, dir string, env []string, args ...string) *exe
 
 // Run is git's output with the trailing newline off.
 func Run(ctx context.Context, dir string, args ...string) (string, error) {
-	out, err := RunBytes(ctx, dir, args...)
+	out, err := runBytes(ctx, dir, args...)
 
 	return strings.TrimSpace(string(out)), err
 }
@@ -37,8 +37,8 @@ func tryRun(ctx context.Context, dir string, args ...string) (string, bool) {
 	return out, err == nil
 }
 
-// RunBytes is git's output whole, for the callers reading a patch or a file rather than a line.
-func RunBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
+// runBytes is git's output whole, for the callers reading a patch or a file rather than a line.
+func runBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	return runInput(ctx, dir, nil, nil, args...)
 }
 

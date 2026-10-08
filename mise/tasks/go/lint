@@ -62,6 +62,11 @@ if ! mise run go:export ${FIX_ARGS[@]+"${FIX_ARGS[@]}"}; then
 	failed+=("exports")
 fi
 
+echo "==> checking exports with fussy"
+if ! mise run go:unexported; then
+	failed+=("unexported")
+fi
+
 if ((${#failed[@]} > 0)); then
 	echo "lint failed for: ${failed[*]}" >&2
 	exit 1

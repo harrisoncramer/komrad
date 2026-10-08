@@ -11,8 +11,8 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Rows renders every row of the agents list as its own string.
-func Rows(list List, palette paint.Palette, width int) []string {
+// renderRows renders every row of the agents list as its own string.
+func renderRows(list List, palette paint.Palette, width int) []string {
 	rows := xslice.Map(list.Lines, func(line line) string {
 		return renderLine(line, list, palette, width)
 	})

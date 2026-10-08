@@ -33,7 +33,7 @@ func (c *Client) MapRanges(ctx context.Context, params MapRangesParams) ([]posit
 		return nil, err
 	}
 
-	raw, err := RunBytes(ctx, root, mapRangesArgs(params)...)
+	raw, err := runBytes(ctx, root, mapRangesArgs(params)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.FromSHA, params.ToSHA, err)
 	}

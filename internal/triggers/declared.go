@@ -10,14 +10,14 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Function is one function a trigger runs, with its plpgsql body.
-type Function struct {
+// triggerFunction is one function a trigger runs, with its plpgsql body.
+type triggerFunction struct {
 	Name string
 	Body string
 }
 
-// Trigger is one row trigger on a table.
-type Trigger struct {
+// rowTrigger is one row trigger on a table.
+type rowTrigger struct {
 	Name     string
 	Timing   string
 	Events   string
@@ -25,36 +25,36 @@ type Trigger struct {
 	Args     []string
 }
 
-// Table is one table and every trigger it carries.
-type Table struct {
+// triggeredTable is one table and every trigger it carries.
+type triggeredTable struct {
 	Name     string
-	Triggers []Trigger
+	Triggers []rowTrigger
 }
 
-var setUpdatedAt = Trigger{
+var setUpdatedAt = rowTrigger{
 	Name:     "set_updated_at",
 	Timing:   "BEFORE",
 	Events:   "UPDATE",
 	Function: "set_updated_at",
 }
 
-var declared = []Table{
+var declared = []triggeredTable{
 	{Name: "agent_pull_requests"},
 	{Name: "agent_runs"},
 	{Name: "agent_screens"},
 	{Name: "agent_transcript_chunks"},
 	{Name: "agent_transcript_sessions"},
-	{Name: "agents", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "agents", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "document_type_versions"},
-	{Name: "document_types", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "document_types", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "document_versions"},
-	{Name: "documents", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "documents", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "engine_logins"},
 	{Name: "engines"},
 	{Name: "forge_connections"},
-	{Name: "forge_review_comments", Triggers: []Trigger{setUpdatedAt}},
-	{Name: "forge_review_threads", Triggers: []Trigger{setUpdatedAt}},
-	{Name: "mail", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "forge_review_comments", Triggers: []rowTrigger{setUpdatedAt}},
+	{Name: "forge_review_threads", Triggers: []rowTrigger{setUpdatedAt}},
+	{Name: "mail", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "pull_request_check_failure_notes"},
 	{Name: "pull_request_check_log_steps"},
 	{Name: "pull_request_check_logs"},
@@ -63,23 +63,23 @@ var declared = []Table{
 	{Name: "pull_request_checks"},
 	{Name: "pull_request_syncs"},
 	{Name: "pull_requests"},
-	{Name: "review_forge_replies", Triggers: []Trigger{setUpdatedAt}},
-	{Name: "review_messages", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "review_forge_replies", Triggers: []rowTrigger{setUpdatedAt}},
+	{Name: "review_messages", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "review_rounds"},
-	{Name: "review_threads", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "review_threads", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "review_viewed_files"},
-	{Name: "reviews", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "reviews", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "schedule_runs"},
-	{Name: "schedules", Triggers: []Trigger{setUpdatedAt}},
-	{Name: "workflow_configs", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "schedules", Triggers: []rowTrigger{setUpdatedAt}},
+	{Name: "workflow_configs", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "workflow_event_prompts"},
 	{Name: "workflow_hooks"},
-	{Name: "workflow_provisioner_configs", Triggers: []Trigger{setUpdatedAt}},
-	{Name: "workflows", Triggers: []Trigger{setUpdatedAt}},
+	{Name: "workflow_provisioner_configs", Triggers: []rowTrigger{setUpdatedAt}},
+	{Name: "workflows", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "worktrees"},
 }
 
-var functions = []Function{
+var functions = []triggerFunction{
 	{
 		Name: "set_updated_at",
 		Body: `
@@ -92,9 +92,9 @@ END;
 }
 
 // tables lists every table in the schema with the triggers it carries, each table's sorted by name.
-func tables() []Table {
-	tables := xslice.Map(declared, func(table Table) Table {
-		return Table{Name: table.Name, Triggers: slices.Clone(table.Triggers)}
+func tables() []triggeredTable {
+	tables := xslice.Map(declared, func(table triggeredTable) triggeredTable {
+		return triggeredTable{Name: table.Name, Triggers: slices.Clone(table.Triggers)}
 	})
 	indexOf := map[string]int{}
 	for i, table := range tables {
@@ -106,9 +106,9 @@ func tables() []Table {
 		if !ok {
 			i = len(tables)
 			indexOf[trigger.Table] = i
-			tables = append(tables, Table{Name: trigger.Table})
+			tables = append(tables, triggeredTable{Name: trigger.Table})
 		}
-		tables[i].Triggers = append(tables[i].Triggers, Trigger{
+		tables[i].Triggers = append(tables[i].Triggers, rowTrigger{
 			Name:     trigger.Name,
 			Timing:   "AFTER",
 			Events:   "INSERT OR UPDATE OR DELETE",
@@ -118,19 +118,19 @@ func tables() []Table {
 	}
 
 	for i := range tables {
-		slices.SortFunc(tables[i].Triggers, func(a, b Trigger) int { return cmp.Compare(a.Name, b.Name) })
+		slices.SortFunc(tables[i].Triggers, func(a, b rowTrigger) int { return cmp.Compare(a.Name, b.Name) })
 	}
-	slices.SortFunc(tables, func(a, b Table) int { return cmp.Compare(a.Name, b.Name) })
+	slices.SortFunc(tables, func(a, b triggeredTable) int { return cmp.Compare(a.Name, b.Name) })
 
 	return tables
 }
 
-// Functions lists every function a trigger runs, sorted by name.
-func Functions() []Function {
-	all := append(slices.Clone(functions), xslice.Map(watch.TriggerFunctions, func(function watch.TriggerFunction) Function {
-		return Function{Name: function.Name, Body: function.Body}
+// listFunctions lists every function a trigger runs, sorted by name.
+func listFunctions() []triggerFunction {
+	all := append(slices.Clone(functions), xslice.Map(watch.TriggerFunctions, func(function watch.TriggerFunction) triggerFunction {
+		return triggerFunction{Name: function.Name, Body: function.Body}
 	})...)
-	slices.SortFunc(all, func(a, b Function) int { return cmp.Compare(a.Name, b.Name) })
+	slices.SortFunc(all, func(a, b triggerFunction) int { return cmp.Compare(a.Name, b.Name) })
 
 	return all
 }

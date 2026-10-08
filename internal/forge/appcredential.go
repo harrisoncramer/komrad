@@ -60,23 +60,23 @@ func (a App) slug(ctx context.Context) (string, error) {
 	return a.Cache.Identity.Slug(ctx, a.client(), a.now())
 }
 
-// NewAppCredentialParams says which App to mint from and which row a refusal is recorded on.
-type NewAppCredentialParams struct {
-	App          App
-	ConnectionID string
-	Connections  verifiedSetter
-}
-
-// AppCredential is an installation token minted on demand and held until it nears expiry.
-type AppCredential struct {
+// appCredential is an installation token minted on demand and held until it nears expiry.
+type appCredential struct {
 	app          App
 	connectionID string
 	connections  verifiedSetter
 }
 
-// NewAppCredential builds an Authenticator over the App.
-func NewAppCredential(params NewAppCredentialParams) *AppCredential {
-	return &AppCredential{
+// newAppCredentialParams says which App to mint from and which row a refusal is recorded on.
+type newAppCredentialParams struct {
+	App          App
+	ConnectionID string
+	Connections  verifiedSetter
+}
+
+// newAppCredential builds an Authenticator over the App.
+func newAppCredential(params newAppCredentialParams) *appCredential {
+	return &appCredential{
 		app:          params.App,
 		connectionID: params.ConnectionID,
 		connections:  params.Connections,
@@ -84,7 +84,7 @@ func NewAppCredential(params NewAppCredentialParams) *AppCredential {
 }
 
 // Credential is the installation token, minted when the cached one is spent.
-func (c *AppCredential) Credential(ctx context.Context) (Credential, error) {
+func (c *appCredential) Credential(ctx context.Context) (Credential, error) {
 	token, err := c.app.Cache.Fetch(ctx, c.app.client(), c.app.now())
 	if errors.Is(err, githubapp.ErrRefused) {
 		if invalidateErr := c.Invalidate(ctx); invalidateErr != nil {
@@ -105,6 +105,6 @@ func (c *AppCredential) Credential(ctx context.Context) (Credential, error) {
 }
 
 // Invalidate drops the cached token so the next call mints, and clears the row's verified_at.
-func (c *AppCredential) Invalidate(ctx context.Context) error {
+func (c *appCredential) Invalidate(ctx context.Context) error {
 	return errors.Join(c.app.Cache.Forget(), c.connections.SetVerifiedAt(ctx, c.connectionID, nil))
 }
