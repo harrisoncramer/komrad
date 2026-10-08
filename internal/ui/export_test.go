@@ -617,6 +617,12 @@ func (p *Panel) SetPaneSize(width, height int) {
 	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
 }
 
+// SetSidebarSize makes tmux report the panel's own pane at the given size.
+func (p *Panel) SetSidebarSize(width, height int) {
+	p.SetPaneWidth(p.model.settings.Pane, width)
+	p.tmux.height = height
+}
+
 // SetClipboardErr makes every later copy fail with err, or succeed while it is nil.
 func (p *Panel) SetClipboardErr(err error) {
 	p.clip.err = err

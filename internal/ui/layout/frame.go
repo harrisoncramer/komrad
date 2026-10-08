@@ -473,6 +473,13 @@ func (f *Frame) sidebarSize() (width, height int) {
 	return f.tmux.GetPaneWidth(f.sidebar), f.tmux.GetPaneHeight(f.sidebar)
 }
 
+// IsStaleSize reports whether tmux has already moved the panel's own pane off the given size.
+func (f *Frame) IsStaleSize(width, height int) bool {
+	current, rows := f.sidebarSize()
+
+	return current > 0 && rows > 0 && (current != width || rows != height)
+}
+
 // SidebarWidth is how many columns the sidebar renders in when it is holding a window of the given
 // width, and whether that came from the divider rather than from the config.
 func (f *Frame) SidebarWidth(total int) (int, bool) {

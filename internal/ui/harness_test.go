@@ -348,6 +348,9 @@ func (h *panelHarness) press(keys ...string) {
 func (h *panelHarness) send(msg tea.Msg) {
 	h.t.Helper()
 
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		h.panel.SetSidebarSize(size.Width, size.Height)
+	}
 	h.settle(h.panel.Update(msg))
 }
 

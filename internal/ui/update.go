@@ -75,6 +75,10 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 	}
 
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		if m.frame.IsStaleSize(size.Width, size.Height) {
+			return nil
+		}
+
 		m.resizeTo(size)
 	}
 
