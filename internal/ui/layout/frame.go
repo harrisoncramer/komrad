@@ -475,9 +475,9 @@ func (f *Frame) sidebarSize() (width, height int) {
 
 // IsStaleSize reports whether tmux has already moved the panel's own pane off the given size.
 func (f *Frame) IsStaleSize(width, height int) bool {
-	current, rows := f.sidebarSize()
+	paneWidth, paneHeight := f.sidebarSize()
 
-	return current > 0 && rows > 0 && (current != width || rows != height)
+	return paneWidth > 0 && paneHeight > 0 && (paneWidth != width || paneHeight != height)
 }
 
 // SidebarWidth is how many columns the sidebar renders in when it is holding a window of the given
