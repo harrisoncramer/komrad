@@ -6,6 +6,7 @@ import FlagTable from "./FlagTable.astro";
 import Heading from "./Heading.astro";
 import IndexList from "./IndexList.astro";
 import Sidebar from "../Sidebar.astro";
+import ParentLink from "./ParentLink.astro";
 import { commandBySlug, commandHref, prose } from "../../reference";
 import { link } from "../../site";
 import { cliSidebar } from "../../sidebar";
@@ -28,7 +29,7 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
   <Sidebar slot="sidebar" label="CLI" groups={cliSidebar(command.slug)} />
   {parent && (
     <p class="traits">
-      <a href={commandHref(parent.slug)}>{parent.path}</a>
+      <ParentLink href={commandHref(parent.slug)}>{parent.path}</ParentLink>
     </p>
   )}
 

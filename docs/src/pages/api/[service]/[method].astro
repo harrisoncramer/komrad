@@ -5,6 +5,7 @@ import Heading from "../../../components/reference/Heading.astro";
 import EnumTable from "../../../components/reference/EnumTable.astro";
 import MessageTable from "../../../components/reference/MessageTable.astro";
 import Sidebar from "../../../components/Sidebar.astro";
+import ParentLink from "../../../components/reference/ParentLink.astro";
 import { anchor, api, kebab, messageOf, prose, referencedTypes } from "../../../reference";
 import type { Field } from "../../../reference/types";
 import { link } from "../../../site";
@@ -78,12 +79,12 @@ const traits = [
 <DocPage title={method.tool} description={method.summary}>
   <Sidebar slot="sidebar" label="API" groups={apiSidebar({ service: service.slug, method: method.slug })} />
   <p class="traits">
-    <a href={link(`/api/${service.slug}`)}>{service.title}</a>
     {traits.map((trait) => (
       <span class="trait" data-tone={trait.tone}>
         {trait.label}
       </span>
     ))}
+    <ParentLink href={link(`/api/${service.slug}`)}>{service.title}</ParentLink>
   </p>
 
   {details && <div set:html={prose(details)} />}
