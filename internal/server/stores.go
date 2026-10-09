@@ -15,6 +15,7 @@ import (
 	runstore "komrad/internal/store/run"
 	schedulestore "komrad/internal/store/schedule"
 	screenstore "komrad/internal/store/screen"
+	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
@@ -40,6 +41,7 @@ type stores struct {
 	forgeThreads     *pullrequeststore.ForgeThreadStore
 	worktrees        *worktreestore.WorktreeStore
 	screens          *screenstore.ScreenStore
+	tasks            *taskstore.TaskStore
 }
 
 func openStores(ctx context.Context, databaseURL string) (*stores, error) {
@@ -70,5 +72,6 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		forgeThreads:     pullrequeststore.NewForgeThreadStore(db),
 		worktrees:        worktreestore.NewWorktreeStore(db),
 		screens:          screenstore.NewScreenStore(db),
+		tasks:            taskstore.NewTaskStore(db),
 	}, nil
 }

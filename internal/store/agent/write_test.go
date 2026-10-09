@@ -3,7 +3,9 @@ package agent
 import (
 	"testing"
 
+	"komrad/db/testmodels"
 	"komrad/internal/store"
+	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
@@ -563,4 +565,95 @@ func TestOneOrchestratorPerWorkflow(t *testing.T) {
 			require.NoError(t, st.Create(ctx, Agent{Name: "worker", State: StateIdle}))
 		})
 	}
+}
+
+// TestSetTaskID pins which links between an agent and a task are taken.
+func TestSetTaskID(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+	require.NoError(t, f.Create(ctx, Agent{Name: "worker", State: StateIdle}))
+	worker, err := f.Get(ctx, "worker")
+	require.NoError(t, err)
+	task, err := taskstore.NewTaskStore(f.db).Create(ctx, taskstore.CreateParams{
+		WorkflowID: f.defaultWorkflow,
+		Slug:       "work",
+		Title:      "Work",
+	})
+	require.NoError(t, err)
+	missing := "01a11e6f-af0b-7497-91fb-d3750f8cbef2"
+	malformed := "not-an-id"
+
+	tests := []struct {
+		name    string
+		agentID string
+		taskID  *string
+		wantErr error
+	}{
+		{
+			name:    "an agent that does not exist is not found",
+			agentID: missing,
+			taskID:  &task.ID,
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name:    "a task that does not exist is not found",
+			agentID: worker.ID,
+			taskID:  &missing,
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name:    "a task id that is not an id is not found",
+			agentID: worker.ID,
+			taskID:  &malformed,
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name:    "an agent joins a task",
+			agentID: worker.ID,
+			taskID:  &task.ID,
+		},
+		{
+			name:    "an agent leaves its task",
+			agentID: worker.ID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := f.SetTaskID(ctx, tt.agentID, tt.taskID)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+
+			got, err := f.GetByID(ctx, tt.agentID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.taskID, got.TaskID)
+		})
+	}
+}
+
+// TestDeletingATaskKeepsItsAgents pins that a deleted task unlinks its agents rather than taking them.
+func TestDeletingATaskKeepsItsAgents(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+	require.NoError(t, f.Create(ctx, Agent{Name: "worker", State: StateIdle}))
+	worker, err := f.Get(ctx, "worker")
+	require.NoError(t, err)
+	task, err := taskstore.NewTaskStore(f.db).Create(ctx, taskstore.CreateParams{
+		WorkflowID: f.defaultWorkflow,
+		Slug:       "work",
+		Title:      "Work",
+	})
+	require.NoError(t, err)
+	require.NoError(t, f.SetTaskID(ctx, worker.ID, &task.ID))
+
+	require.NoError(t, testmodels.New(f.db).DeleteTask(ctx, task.ID))
+
+	got, err := f.GetByID(ctx, worker.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got, "the agent survives its task's deletion")
+	assert.Nil(t, got.TaskID)
 }
