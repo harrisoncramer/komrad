@@ -54,7 +54,8 @@ const { label, groups } = Astro.props;
     if (!scroller) return;
     const key = `sidebar-scroll:${nav.getAttribute("aria-label")}`;
     const offset = (anchor) => anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-    const take = () => {
+    const outOfView = (anchor) => offset(anchor) < 0 || offset(anchor) + anchor.offsetHeight > scroller.clientHeight;
+    const takeSaved = () => {
       try {
         const saved = sessionStorage.getItem(key);
         sessionStorage.removeItem(key);
@@ -63,23 +64,27 @@ const { label, groups } = Astro.props;
         return null;
       }
     };
-    const saved = take();
+    const save = (value) => {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const saved = takeSaved();
     const anchors = [...nav.querySelectorAll("a[href]")];
     const clicked = saved && anchors.find((anchor) => anchor.getAttribute("href") === saved.href);
     if (clicked) scroller.scrollTop += offset(clicked) - saved.top;
     const current = nav.querySelector('a[aria-current="page"]');
-    if (current && (offset(current) < 0 || offset(current) + current.offsetHeight > scroller.clientHeight)) {
+    if (current && outOfView(current)) {
       scroller.scrollTop += offset(current) - scroller.clientHeight / 2;
     }
     nav.addEventListener("click", (event) => {
       const anchor = event.target.closest("a[href]");
       const href = anchor?.getAttribute("href");
       if (!href || href.startsWith("#")) return;
-      try {
-        sessionStorage.setItem(key, JSON.stringify({ href, top: offset(anchor) }));
-      } catch {
-        return;
-      }
+      save({ href, top: offset(anchor) });
     });
   })();
 </script>
