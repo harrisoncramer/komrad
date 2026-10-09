@@ -1419,7 +1419,6 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		params    func(workflowID string, work, elsewhere *taskstore.Task) NewAgentParams
 		wantErrIs error
 		wantTask  string
-		wantSlug  string
 	}{
 		{
 			name: "a task in another workflow is refused",
@@ -1461,8 +1460,11 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
-			workflowID := seedWorkflow(t, st)
+			fakeHarness := &harnesstest.Fake{}
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: fakeHarness}, &fakeLifecycle{})
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+			workflowID := workflow.ID
 			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
 			elsewhere := st.SeedTask(t, taskstore.CreateParams{Slug: "elsewhere"})
 
@@ -1481,9 +1483,12 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 			}
 			require.NoError(t, err)
 
+			require.Len(t, fakeHarness.Launches, 1)
+			briefing := fakeHarness.Launches[0].Context
 			stored := agentByID(t, st, created.ID)
 			if tt.wantTask == "" {
 				assert.Nil(t, stored.TaskID)
+				assert.NotContains(t, briefing, "You work on task")
 
 				return
 			}
@@ -1492,6 +1497,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantTask, task.Slug)
 			assert.Equal(t, workflowID, task.WorkflowID)
+			assert.Contains(t, briefing, "You work on task "+tt.wantTask+",", "the agent is told its task")
 		})
 	}
 }

@@ -165,6 +165,13 @@ func TestCreateForAgent(t *testing.T) {
 			wantGoal:  "Fix the login page.",
 		},
 		{
+			name:      "a prompt opening on a blank line takes its first line with text as the goal",
+			params:    CreateForAgentParams{Name: "fix-login", Prompt: "\n\n  Fix the login page.\nMore."},
+			wantSlug:  "fix-login",
+			wantTitle: "fix-login",
+			wantGoal:  "Fix the login page.",
+		},
+		{
 			name:      "a title is kept over the name",
 			params:    CreateForAgentParams{Name: "fix-login", Title: " Login is broken ", Prompt: "go"},
 			wantSlug:  "fix-login",

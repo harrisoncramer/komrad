@@ -124,6 +124,6 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 		WorkflowID: params.WorkflowID,
 		Slug:       slug,
 		Title:      title,
-		Goal:       strings.TrimSpace(xstr.FirstLine(params.Prompt)),
+		Goal:       strings.TrimSpace(xstr.FirstLine(strings.TrimSpace(params.Prompt))),
 	})
 }
