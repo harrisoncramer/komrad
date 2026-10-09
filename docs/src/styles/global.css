@@ -51,6 +51,8 @@
   --color-app-gray: #c9d4e5;
   --color-app-gray-light: #a8b5cb;
   --color-app-gray-dim: #7a879e;
+  --color-app-yellow: #f5c26b;
+  --color-app-red: #ff8a8a;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --shadow-3xl: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
@@ -272,11 +274,11 @@
 }
 
 .doc-content .trait[data-tone="warn"]::before {
-  background: #f5c26b;
+  background: var(--color-app-yellow);
 }
 
 .doc-content .trait[data-tone="danger"]::before {
-  background: #ff8a8a;
+  background: var(--color-app-red);
 }
 
 .doc-content .index-list {
