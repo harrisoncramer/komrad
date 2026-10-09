@@ -86,6 +86,7 @@
 
   html {
     scroll-padding-top: 5.5rem;
+    scrollbar-gutter: stable;
   }
 
   html,
