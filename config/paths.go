@@ -7,6 +7,31 @@ import (
 	"strings"
 )
 
+// Hooks is where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
+type Hooks struct {
+	// Directory for hooks: one executable file per hook, named after the hook.
+	// A hook is a script or program komrad runs at a moment a workflow names it against, in the
+	// agent's own directory, with agent info in KOMRAD_AGENT as JSON and the moment in
+	// KOMRAD_TRIGGER. Default is ~/.config/komrad/hooks.
+	Dir string `mapstructure:"dir"`
+}
+
+// Worktrees is where a workflow's generated git worktree provisioner puts what it creates.
+type Worktrees struct {
+	// Directory generated worktrees are created under, one subdirectory per agent.
+	// Left empty this is ~/.local/state/komrad/worktrees.
+	Dir string `mapstructure:"dir"`
+}
+
+// Context is the standing text every agent is started with, above whatever its workflow
+// adds. It is where what is true of your machine and how you want to be worked with goes,
+// so it does not have to be pasted into every workflow.
+type Context struct {
+	// The file holding global context, read at each launch.
+	// Left empty this is ~/.config/komrad/context.md, but will not trigger a failure if left blank.
+	File string `mapstructure:"file"`
+}
+
 // configHome is the directory the panel keeps its own files in, ~/.config/komrad.
 func configHome() (string, error) {
 	return underHome(".config", "komrad")
