@@ -95,6 +95,7 @@ const { label, groups } = Astro.props;
   const BOTTOM_SLACK = 4;
 
   let pinned: string | undefined;
+  let handScrolled = false;
 
   const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - BOTTOM_SLACK;
 
@@ -104,7 +105,7 @@ const { label, groups } = Astro.props;
     return headings.filter((heading) => heading.getBoundingClientRect().top <= READ_LINE).at(-1)?.id;
   };
 
-  const followScroll = (active: string | undefined) => {
+  const writeHash = (active: string | undefined) => {
     const hash = active ? `#${active}` : "";
     if (decodeURIComponent(location.hash) === hash) return;
     history.replaceState(history.state, "", `${location.pathname}${location.search}${hash}`);
@@ -116,14 +117,16 @@ const { label, groups } = Astro.props;
       if (id === active) anchor.setAttribute("aria-current", "location");
       else anchor.removeAttribute("aria-current");
     });
-    if (!pinned) followScroll(active);
+    if (handScrolled) writeHash(active);
   };
 
   const unpin = () => {
     pinned = undefined;
+    handScrolled = true;
   };
 
   const followHash = () => {
+    handScrolled = false;
     pinned = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash))?.id;
   };
 
@@ -136,6 +139,7 @@ const { label, groups } = Astro.props;
     links.forEach((anchor, id) => {
       anchor.addEventListener("click", () => {
         pinned = id;
+        handScrolled = false;
         mark();
       });
     });
