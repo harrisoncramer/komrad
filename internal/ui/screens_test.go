@@ -85,7 +85,7 @@ func TestScreensStage(t *testing.T) {
 		assert.Len(t, splitLines(harness.readFrame()), defaultHarnessHeight)
 	})
 
-	t.Run("a pane moved by hand gives up both halves until the next listing", func(t *testing.T) {
+	t.Run("a pane moved by hand gives up both halves until the keys come back", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStaged(t, "g", "g")
@@ -97,10 +97,14 @@ func TestScreensStage(t *testing.T) {
 		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
 		assert.Equal(t, 199, measureListRule(frame), "so the list is rendered in the whole of the pane")
 
-		harness.panel.SetKeysElsewhere(false)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
 
-		assert.Contains(t, harness.readFrame(), "always run the linter", "and takes the window back on the next listing")
+		assert.False(t, harness.panel.IsZoomed(), "a listing does not zoom the panel over the pane the keys are on")
+
+		harness.panel.SetKeysElsewhere(false)
+		harness.send(tea.FocusMsg{})
+
+		assert.Contains(t, harness.readFrame(), "always run the linter", "and takes the window back once the keys return")
 	})
 
 	t.Run("an unfocused terminal keeps the window", func(t *testing.T) {
