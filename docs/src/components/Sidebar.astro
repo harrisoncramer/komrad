@@ -91,14 +91,17 @@ const { label, groups } = Astro.props;
     return heading ? [heading] : [];
   });
 
-  let clicked: string | undefined;
+  const READ_LINE = 120;
+  const BOTTOM_SLACK = 4;
 
-  const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+  let pinned: string | undefined;
+
+  const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - BOTTOM_SLACK;
 
   const activeId = () => {
-    if (clicked) return clicked;
+    if (pinned) return pinned;
     if (atBottom()) return headings.at(-1)?.id;
-    return headings.filter((heading) => heading.getBoundingClientRect().top <= 120).at(-1)?.id;
+    return headings.filter((heading) => heading.getBoundingClientRect().top <= READ_LINE).at(-1)?.id;
   };
 
   const mark = () => {
@@ -109,12 +112,12 @@ const { label, groups } = Astro.props;
     });
   };
 
-  const release = () => {
-    clicked = undefined;
+  const unpin = () => {
+    pinned = undefined;
   };
 
   const followHash = () => {
-    clicked = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash))?.id;
+    pinned = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash))?.id;
   };
 
   if (headings.length > 0) {
@@ -125,12 +128,12 @@ const { label, groups } = Astro.props;
     });
     links.forEach((anchor, id) => {
       anchor.addEventListener("click", () => {
-        clicked = id;
+        pinned = id;
         mark();
       });
     });
     for (const event of ["wheel", "touchmove", "keydown", "mousedown"]) {
-      window.addEventListener(event, release, { passive: true });
+      window.addEventListener(event, unpin, { passive: true });
     }
     document.addEventListener("scroll", mark, { passive: true });
     mark();
