@@ -1,0 +1,130 @@
+---
+import type { SidebarGroup } from "../sidebar";
+
+type Props = {
+  label: string;
+  groups: SidebarGroup[];
+};
+
+const { label, groups } = Astro.props;
+---
+
+<nav class="sidebar-nav" aria-label={label} data-pagefind-ignore>
+  {groups.map((group) => (
+    <div>
+      <p class="group-title">{group.title}</p>
+      <ul>
+        {group.items.map((item) => (
+          <li>
+            <a
+              class={item.section ? "section" : "item"}
+              href={item.href}
+              data-section={item.section}
+              aria-current={item.current ? "page" : undefined}
+            >
+              {item.label}
+            </a>
+            {item.children && item.children.length > 0 && (
+              <ul class="children">
+                {item.children.map((child) => (
+                  <li>
+                    <a
+                      class="section"
+                      href={child.href}
+                      data-section={child.section}
+                      aria-current={child.current ? "page" : undefined}
+                    >
+                      {child.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  ))}
+</nav>
+
+<style>
+  @reference "../styles/global.css";
+
+  .sidebar-nav {
+    @apply flex flex-col gap-6 text-sm wrap-anywhere;
+  }
+
+  .group-title {
+    @apply mb-2 text-sm font-semibold text-app-gray-dim;
+  }
+
+  .item {
+    @apply block rounded-xs border-l-2 border-transparent py-1 pl-3 text-app-gray-light no-underline transition-colors hover:text-app-white;
+  }
+
+  .item[aria-current="page"] {
+    @apply border-app-blue font-semibold text-app-white;
+  }
+
+  .children {
+    @apply mt-1 mb-2 ml-3 flex flex-col border-l border-app-background-medium;
+  }
+
+  .section {
+    @apply -ml-px block border-l border-transparent py-1 pl-3 text-app-gray-dim no-underline transition-colors hover:text-app-gray;
+  }
+
+  .section:is([aria-current="page"], [aria-current="location"]) {
+    @apply border-app-blue text-app-blue;
+  }
+</style>
+
+<script>
+  const links = new Map(
+    [...document.querySelectorAll<HTMLAnchorElement>(".sidebar-nav [data-section]")].map((anchor) => [
+      anchor.dataset.section,
+      anchor,
+    ]),
+  );
+  const headings = [...links.keys()].flatMap((id) => {
+    const heading = id && document.getElementById(id);
+    return heading ? [heading] : [];
+  });
+
+  let clicked: string | undefined;
+
+  const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+
+  const activeId = () => {
+    if (clicked) return clicked;
+    if (atBottom()) return headings.at(-1)?.id;
+    return headings.filter((heading) => heading.getBoundingClientRect().top <= 120).at(-1)?.id;
+  };
+
+  const mark = () => {
+    const active = activeId();
+    links.forEach((anchor, id) => {
+      if (id === active) anchor.setAttribute("aria-current", "location");
+      else anchor.removeAttribute("aria-current");
+    });
+  };
+
+  const release = () => {
+    clicked = undefined;
+  };
+
+  if (headings.length > 0) {
+    clicked = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash))?.id;
+    links.forEach((anchor, id) => {
+      anchor.addEventListener("click", () => {
+        clicked = id;
+        mark();
+      });
+    });
+    for (const event of ["wheel", "touchmove", "keydown", "mousedown"]) {
+      window.addEventListener(event, release, { passive: true });
+    }
+    document.addEventListener("scroll", mark, { passive: true });
+    mark();
+  }
+</script>

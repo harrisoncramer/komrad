@@ -4,9 +4,11 @@ import CallTabs from "../../../components/reference/CallTabs.astro";
 import Heading from "../../../components/reference/Heading.astro";
 import EnumTable from "../../../components/reference/EnumTable.astro";
 import MessageTable from "../../../components/reference/MessageTable.astro";
+import Sidebar from "../../../components/Sidebar.astro";
 import { anchor, api, kebab, messageOf, prose, referencedTypes } from "../../../reference";
 import type { Field } from "../../../reference/types";
 import { link } from "../../../site";
+import { apiSidebar } from "../../../sidebar";
 
 export function getStaticPaths() {
   return api.services.flatMap((service) =>
@@ -74,6 +76,7 @@ const traits = [
 ---
 
 <DocPage title={method.tool} description={method.summary}>
+  <Sidebar slot="sidebar" label="API" groups={apiSidebar({ service: service.slug, method: method.slug })} />
   <p class="traits">
     <a href={link(`/api/${service.slug}`)} class="trait trait-link">
       {service.title}

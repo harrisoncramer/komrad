@@ -3,10 +3,12 @@ import DocPage from "../../layouts/DocPage.astro";
 import IndexList from "../../components/reference/IndexList.astro";
 import Heading from "../../components/reference/Heading.astro";
 import JumpBar from "../../components/reference/JumpBar.astro";
+import Sidebar from "../../components/Sidebar.astro";
 import { codeTheme } from "../../code-theme.mjs";
 import { Code } from "astro:components";
 import { api, prose } from "../../reference";
 import { link } from "../../site";
+import { apiSidebar } from "../../sidebar";
 
 const request = `POST /agent.v1.AgentService/GetAgent
 Content-Type: application/json
@@ -45,6 +47,7 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
   title="API"
   description="Every endpoint the service answers, and how to reach it over Connect, from the CLI, and as an MCP tool."
 >
+  <Sidebar slot="sidebar" label="API" groups={apiSidebar()} />
   <JumpBar
     items={[
       { href: "#requests", label: "Requests" },

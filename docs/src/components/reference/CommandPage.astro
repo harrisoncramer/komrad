@@ -5,8 +5,10 @@ import DocPage from "../../layouts/DocPage.astro";
 import FlagTable from "./FlagTable.astro";
 import Heading from "./Heading.astro";
 import IndexList from "./IndexList.astro";
+import Sidebar from "../Sidebar.astro";
 import { commandBySlug, commandHref, prose } from "../../reference";
 import { link } from "../../site";
+import { cliSidebar } from "../../sidebar";
 import type { Command } from "../../reference/types";
 
 type Props = {
@@ -23,6 +25,7 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
 ---
 
 <DocPage title={command.path} description={command.short}>
+  <Sidebar slot="sidebar" label="CLI" groups={cliSidebar(command.slug)} />
   {parent && (
     <p class="traits">
       <a href={commandHref(parent.slug)}>{parent.path}</a>
