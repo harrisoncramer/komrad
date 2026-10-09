@@ -56,7 +56,9 @@ export const apiSidebar = (current: { service?: string; method?: string } = {}):
           label: "Calling the API",
           href: link("/api"),
           current: overview,
-          children: overview ? API_SECTIONS.map(({ id, label }) => section(id, label)) : undefined,
+          children: API_SECTIONS.map(({ id, label }) =>
+            overview ? section(id, label) : { label, href: link(`/api#${id}`) },
+          ),
         },
       ],
     },

@@ -347,10 +347,6 @@
   color: var(--color-app-blue);
 }
 
-.doc-content .service h2 a {
-  text-decoration: none;
-}
-
 .doc-content section.convention {
   display: flex;
   flex-direction: column;
