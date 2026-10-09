@@ -91,9 +91,24 @@ const sections = headings.filter((heading) => heading.depth === 2);
     return heading ? [heading] : [];
   });
 
+  const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+
+  const onScreen = (heading: HTMLElement) => {
+    const top = heading.getBoundingClientRect().top;
+    return top >= 0 && top < window.innerHeight;
+  };
+
+  const activeId = () => {
+    if (atBottom()) {
+      const target = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash));
+      if (target && onScreen(target)) return target.id;
+      return headings.at(-1)?.id;
+    }
+    return headings.filter((heading) => heading.getBoundingClientRect().top <= 120).at(-1)?.id;
+  };
+
   const mark = () => {
-    const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= 120);
-    const active = passed.at(-1)?.id;
+    const active = activeId();
     links.forEach((anchor, id) => {
       if (id === active) anchor.setAttribute("aria-current", "location");
       else anchor.removeAttribute("aria-current");
@@ -103,5 +118,6 @@ const sections = headings.filter((heading) => heading.depth === 2);
   if (headings.length > 0) {
     mark();
     document.addEventListener("scroll", mark, { passive: true });
+    window.addEventListener("hashchange", mark);
   }
 </script>
