@@ -36,7 +36,7 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
         <aside class="sidebar">
           <slot name="sidebar" />
         </aside>
-        <main class="min-w-0 max-w-[900px] flex-1 py-6">
+        <main class="min-w-0 max-w-[900px] flex-1 py-6 lg:max-w-[924px] lg:pl-6">
           <slot />
         </main>
       </div>
@@ -61,7 +61,7 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
   @reference "../styles/global.css";
 
   .sidebar {
-    @apply sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 self-start overflow-y-auto overscroll-contain pt-8 pr-12 pb-8 lg:block;
+    @apply sticky top-16 hidden h-[calc(100vh-4rem)] w-66 shrink-0 self-start overflow-y-auto overscroll-contain border-r border-app-background-medium pt-8 pr-6 pb-8 lg:block;
     scrollbar-width: none;
     mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent);
   }
