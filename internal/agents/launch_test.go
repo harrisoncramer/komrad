@@ -18,7 +18,9 @@ import (
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
@@ -1329,6 +1331,16 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			wantErrIs: agenterr.ErrChildOwnsLaunch,
 		},
 		{
+			name: "a task of its own",
+			params: func(parent agentstore.Agent) NewAgentParams {
+				params := childOf(parent, "reviewer")
+				params.Task = "other-work"
+
+				return params
+			},
+			wantErrIs: agenterr.ErrChildOwnsLaunch,
+		},
+		{
 			name: "a parent nothing answers to",
 			params: func(parent agentstore.Agent) NewAgentParams {
 				params := childOf(parent, "reviewer")
@@ -1398,6 +1410,117 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			assert.Len(t, after, len(before), "the refusal records nothing")
 		})
 	}
+}
+
+// TestNewAgentWorksOnATask pins which task a new agent is put on.
+func TestNewAgentWorksOnATask(t *testing.T) {
+	tests := []struct {
+		name      string
+		params    func(workflowID string, work, elsewhere *taskstore.Task) NewAgentParams
+		wantErrIs error
+		wantTask  string
+	}{
+		{
+			name: "a task in another workflow is refused",
+			params: func(workflowID string, _, elsewhere *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: elsewhere.Slug}
+			},
+			wantErrIs: tasks.ErrOtherWorkflow,
+		},
+		{
+			name: "a task named by id is joined",
+			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: work.ID}
+			},
+			wantTask: "work",
+		},
+		{
+			name: "a task named by slug is joined",
+			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: work.Slug}
+			},
+			wantTask: "work",
+		},
+		{
+			name: "no task makes one of its own under an unused slug",
+			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "work", Prompt: "Fix the login page.\nMore.", WorkflowID: workflowID}
+			},
+			wantTask: "work-2",
+		},
+		{
+			name: "an orchestrator is put on no task",
+			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "lead", Prompt: "go", WorkflowID: workflowID, Role: agentstore.RoleOrchestrator}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			fakeHarness := &harnesstest.Fake{}
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: fakeHarness}, &fakeLifecycle{})
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+			workflowID := workflow.ID
+			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
+			elsewhere := st.SeedTask(t, taskstore.CreateParams{Slug: "elsewhere"})
+
+			params := tt.params(workflowID, work, elsewhere)
+			params.Dir = t.TempDir()
+			created, err := manager.launch.NewAgent(t.Context(), params)
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.Nil(t, created)
+
+				listed, listErr := st.Agents.ListAll(t.Context())
+				require.NoError(t, listErr)
+				assert.Empty(t, listed, "the refusal records nothing")
+
+				return
+			}
+			require.NoError(t, err)
+
+			require.Len(t, fakeHarness.Launches, 1)
+			briefing := fakeHarness.Launches[0].Context
+			stored := agentByID(t, st, created.ID)
+			if tt.wantTask == "" {
+				assert.Nil(t, stored.TaskID)
+				assert.NotContains(t, briefing, "You work on task")
+
+				return
+			}
+			require.NotNil(t, stored.TaskID)
+			task, err := st.Tasks.Get(t.Context(), *stored.TaskID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantTask, task.Slug)
+			assert.Equal(t, workflowID, task.WorkflowID)
+			assert.Contains(t, briefing, "You work on task "+tt.wantTask+",", "the agent is told its task")
+		})
+	}
+}
+
+// TestNewChildAgentSharesItsParentsTask pins that a child works on the task its parent does.
+func TestNewChildAgentSharesItsParentsTask(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+
+	parent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, parent.TaskID)
+
+	child, err := manager.launch.NewAgent(t.Context(), childOf(*parent, "reviewer"))
+	require.NoError(t, err)
+
+	assert.Equal(t, parent.TaskID, agentByID(t, st, child.ID).TaskID)
 }
 
 // TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.

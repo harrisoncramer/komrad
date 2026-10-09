@@ -57,3 +57,17 @@ SELECT
             tasks
         WHERE
             slug = sqlc.arg('slug'))::boolean;
+
+-- name: LockTaskSlugs :exec
+SELECT
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_engine()::text, ''), 7240117));
+
+-- name: ListWatchedTasks :many
+SELECT
+    *
+FROM
+    tasks
+WHERE (sqlc.narg('keys')::text[] IS NULL
+    OR id = ANY (sqlc.narg('keys')::uuid[]))
+ORDER BY
+    id DESC;

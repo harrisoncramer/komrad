@@ -563,6 +563,11 @@ func TestRoleBriefing(t *testing.T) {
 			want:   implementerDoc,
 		},
 		{
+			name:   "an agent on a task is told its slug ahead of the document",
+			params: launchParams{Role: agentstore.RoleImplementer, OwnsCheckout: true, TaskSlug: "fix-login"},
+			want:   "You work on task fix-login, and get_task with that slug returns its goal.\n\n" + implementerDoc,
+		},
+		{
 			name:   "an agent holding no checkout is told nothing of the three",
 			params: launchParams{Role: agentstore.RoleImplementer},
 			want:   "",

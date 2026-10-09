@@ -49,6 +49,13 @@ extend buf.validate.StringRules {
     expression: "!rule || this.split(' ').filter(f, f != '').size() == 5"
   }];
 
+  // Refuses control characters, for text the panel draws on one line.
+  bool printable = 50107 [(buf.validate.predefined).cel = {
+    id: "string.printable"
+    message: "must not contain control characters"
+    expression: "!rule || !this.matches('[\\x00-\\x1f\\x7f]')"
+  }];
+
   // Requires a path inside the checkout, with no way up out of it.
   bool relative_path = 50106 [(buf.validate.predefined).cel = {
     id: "string.relative_path"

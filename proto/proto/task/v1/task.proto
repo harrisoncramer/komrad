@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package task.v1;
+
+import "annotation/v1/tool.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "rules/v1/rules.proto";
+
+option go_package = "komrad/proto/gen/task/v1;taskv1";
+
+// Task is one outcome a person wants, which the agents linked to it work toward.
+message Task {
+  // The handle every other call names this task by, alongside its slug.
+  string id = 1;
+  // Which workflow it is filed under, which every agent on it shares.
+  string workflow_id = 2;
+  // The lowercase kebab-case name it is called by, unique and never reused.
+  string slug = 3;
+  // What the panel shows it as.
+  string title = 4;
+  // What it is meant to achieve, as markdown.
+  string goal = 5;
+  // When it was made, in RFC 3339.
+  string created_at = 6;
+  // When it was last changed, in RFC 3339.
+  string updated_at = 7;
+  // When it was archived, unset while it is live.
+  optional string archived_at = 8;
+}
+
+message CreateTaskRequest {
+  // The lowercase kebab-case name to call it by, which no other task has ever had.
+  string slug = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 80
+    pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+  }];
+  // What to show it as in the panel.
+  string title = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
+  // What it is meant to achieve, as markdown.
+  string goal = 3 [(buf.validate.field).string.max_len = 50000];
+  // Which workflow to file it under. Every agent on it must be in the same one.
+  string workflow_id = 4 [(buf.validate.field).string.min_len = 1];
+}
+
+message CreateTaskResponse {
+  // The task as created.
+  Task task = 1;
+}
+
+message GetTaskRequest {
+  // Which task to read, by id or by slug.
+  string task = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message GetTaskResponse {
+  // The task, with its goal whole.
+  Task task = 1;
+}
+
+message ListTasksRequest {
+  // Which workflow's tasks to list.
+  string workflow_id = 1 [(buf.validate.field).string.min_len = 1];
+  // True to list the archived tasks and only those.
+  bool archived = 2;
+}
+
+message ListTasksResponse {
+  // The workflow's tasks, newest first.
+  repeated Task tasks = 1;
+}
+
+message ArchiveTaskRequest {
+  // Which task to archive, by id or by slug.
+  string task = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// TaskService reads and writes the tasks agents work toward.
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "create_task"
+      description: "Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it."
+      destructive: false
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "get_task"
+      description: "Fetch one task by id or slug, with its whole goal."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
+    };
+  }
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_tasks"
+      description: "List a workflow's tasks, newest first. Archived tasks are left out unless archived is set."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
+    };
+  }
+  rpc ArchiveTask(ArchiveTaskRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "archive_task"
+      description: "Archive a task by id or slug, keeping its record. Its agents keep running, and its slug is never reused."
+      destructive: false
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+}

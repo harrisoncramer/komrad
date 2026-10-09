@@ -164,3 +164,12 @@ func (s *TaskStore) IsSlugTaken(ctx context.Context, slug string) (bool, error) 
 
 	return taken, nil
 }
+
+// LockSlugs makes other transactions wait to pick a slug until this one commits, so two agents created at once never pick the same one.
+func (s *TaskStore) LockSlugs(ctx context.Context) error {
+	if err := s.queries.LockTaskSlugs(ctx); err != nil {
+		return fmt.Errorf("failed to lock the task slugs: %w", err)
+	}
+
+	return nil
+}

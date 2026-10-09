@@ -25,10 +25,12 @@ import (
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
 	schedulestore "komrad/internal/store/schedule"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	viewv1 "komrad/proto/gen/view/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
@@ -70,6 +72,8 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	api := agentOn(t, st, pipeline.ID, "api", watchedRepository, "agent/api")
 	base := agentOn(t, st, pipeline.ID, "base", watchedRepository, "main")
 	quiet := agentOn(t, st, docs.ID, "quiet", watchedRepository, "agent/quiet")
+	fixLogin := st.SeedTask(t, taskstore.CreateParams{WorkflowID: pipeline.ID, Slug: "fix-login"})
+	working := st.SeedAgent(t, agentstore.Agent{Name: "working", WorkflowID: pipeline.ID, TaskID: &fixLogin.ID})
 	st.SeedAgent(t, agentstore.Agent{Name: "local", WorkflowID: docs.ID})
 	gone := st.SeedAgent(t, agentstore.Agent{Name: "gone", WorkflowID: docs.ID})
 	_, err := st.Agents.Archive(ctx, []string{gone.ID})
@@ -113,6 +117,8 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())
 	require.NotEmpty(t, seeded.agents[gone.ID].GetAgent().GetArchivedAt(), "the archived agent is watched as archived")
 	require.Len(t, seeded.schedules, 1)
+	require.Len(t, seeded.tasks, 1)
+	require.Equal(t, "fix-login", seeded.agents[working.ID].GetAgent().GetTaskSlug(), "the agent is watched with its task")
 
 	// The stream opens with the snapshot, applied the way the panel applies it.
 	batches := openWatch(t, instance)
@@ -233,6 +239,30 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 		},
 		{
+			name: "a task is created",
+			write: func(t *testing.T) {
+				_, err := instance.Tasks.CreateTask(ctx, connect.NewRequest(&taskv1.CreateTaskRequest{
+					Slug:       "write-docs",
+					Title:      "Write docs",
+					WorkflowId: docs.ID,
+				}))
+				require.NoError(t, err)
+			},
+			took: func(t *testing.T, stores view) {
+				assert.Len(t, stores.tasks, 2)
+			},
+		},
+		{
+			name: "a task is archived",
+			write: func(t *testing.T) {
+				_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: fixLogin.ID}))
+				require.NoError(t, err)
+			},
+			took: func(t *testing.T, stores view) {
+				assert.NotEmpty(t, stores.tasks[fixLogin.ID].GetArchivedAt())
+			},
+		},
+		{
 			name: "an agent is archived",
 			write: func(t *testing.T) {
 				_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{quiet.ID}}))
@@ -253,12 +283,13 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	}
 }
 
-// view is what every reader of the resources is compared on: the agent rows, workflows and
-// schedules by id.
+// view is what every reader of the resources is compared on: the agent rows, workflows,
+// schedules and tasks by id.
 type view struct {
 	agents    map[string]*agentv1.AgentRow
 	workflows map[string]*workflowv1.Workflow
 	schedules map[string]*schedulev1.Schedule
+	tasks     map[string]*taskv1.Task
 }
 
 // viewOf assembles a world.
@@ -267,6 +298,7 @@ func viewOf(w assemble.World, now time.Time) view {
 		agents:    xslice.KeyBy(assemble.AgentRows(w, now), func(row *agentv1.AgentRow) string { return row.GetAgent().GetId() }),
 		workflows: w.Workflows,
 		schedules: w.Schedules,
+		tasks:     w.Tasks,
 	}
 }
 
@@ -293,7 +325,24 @@ func viewFromRPCs(t *testing.T, instance *komradtest.Instance) view {
 		agents:    xslice.KeyBy(slices.Concat(agents.Msg.GetAgents(), archived.Msg.GetAgents()), func(row *agentv1.AgentRow) string { return row.GetAgent().GetId() }),
 		workflows: xslice.KeyBy(workflows.Msg.GetWorkflows(), func(w *workflowv1.Workflow) string { return w.GetId() }),
 		schedules: xslice.KeyBy(schedules.Msg.GetSchedules(), func(s *schedulev1.Schedule) string { return s.GetId() }),
+		tasks:     tasksFromRPCs(t, instance, workflows.Msg.GetWorkflows()),
 	}
+}
+
+// tasksFromRPCs is what ListTasks answers across the workflows, live and archived.
+func tasksFromRPCs(t *testing.T, instance *komradtest.Instance, workflows []*workflowv1.Workflow) map[string]*taskv1.Task {
+	t.Helper()
+
+	var listed []*taskv1.Task
+	for _, workflow := range workflows {
+		for _, archived := range []bool{false, true} {
+			resp, err := instance.Tasks.ListTasks(t.Context(), connect.NewRequest(&taskv1.ListTasksRequest{WorkflowId: workflow.GetId(), Archived: archived}))
+			require.NoError(t, err)
+			listed = append(listed, resp.Msg.GetTasks()...)
+		}
+	}
+
+	return xslice.KeyBy(listed, func(task *taskv1.Task) string { return task.GetId() })
 }
 
 // viewFromGets is what GetAgent answers for each of the agents a view holds, beside the rest of
@@ -305,6 +354,7 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 		agents:    map[string]*agentv1.AgentRow{},
 		workflows: listed.workflows,
 		schedules: listed.schedules,
+		tasks:     listed.tasks,
 	}
 	for id := range listed.agents {
 		one, err := instance.Agents.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
@@ -359,6 +409,9 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	schedules, err := st.Schedules.ListPage(ctx, 100, nil, false)
 	require.NoError(t, err)
 
+	tasks, err := st.Tasks.ListWatched(ctx, nil)
+	require.NoError(t, err)
+
 	now := time.Now()
 
 	return assemble.World{
@@ -371,7 +424,8 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		Schedules: xslice.KeyBy(xslice.Map(schedules, func(s schedulestore.Schedule) *schedulev1.Schedule {
 			return render.Schedule(s, now, render.ScheduleOptions{})
 		}), func(s *schedulev1.Schedule) string { return s.GetId() }),
-		Mail: xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
+		Tasks: xslice.KeyBy(xslice.Map(tasks, render.Task), func(task *taskv1.Task) string { return task.GetId() }),
+		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
 		PullRequests: xslice.KeyBy(xslice.Map(pullRequests, render.PullRequest), func(p *pullrequestv1.PullRequest) string {
 			return p.GetId()
 		}),
@@ -445,6 +499,11 @@ func differences(aName string, a view, bName string, b view) []string {
 	for _, id := range keysOf(a.schedules, b.schedules) {
 		if diff := cmp.Diff(a.schedules[id], b.schedules[id], protocmp.Transform()); diff != "" {
 			report("schedule", id, diff)
+		}
+	}
+	for _, id := range keysOf(a.tasks, b.tasks) {
+		if diff := cmp.Diff(a.tasks[id], b.tasks[id], protocmp.Transform()); diff != "" {
+			report("task", id, diff)
 		}
 	}
 

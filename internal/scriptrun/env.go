@@ -162,6 +162,12 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 		"KOMRAD_SHELL=" + s.tmux.GetDefaultShell(),
 	}
 
+	taskEnv, err := s.taskEnv(ctx, agent)
+	if err != nil {
+		return nil, err
+	}
+	env = append(env, taskEnv...)
+
 	if s.binPath != "" {
 		existing, _ := config.LookupEnv("PATH")
 		env = append(env, "PATH="+filepath.Dir(s.binPath)+string(os.PathListSeparator)+existing)
@@ -180,6 +186,26 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 	}
 
 	return env, nil
+}
+
+// taskEnv names the task an agent works on, and nothing for one with none.
+func (s *ScriptService) taskEnv(ctx context.Context, agent agentstore.Agent) ([]string, error) {
+	if agent.TaskID == nil {
+		return nil, nil
+	}
+
+	task, err := s.tasks.Get(ctx, *agent.TaskID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read task %q: %w", *agent.TaskID, err)
+	}
+
+	return []string{
+		"KOMRAD_TASK_ID=" + task.ID,
+		"KOMRAD_TASK_SLUG=" + task.Slug,
+	}, nil
 }
 
 func gitPromptGuardEnv() []string {

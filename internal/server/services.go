@@ -24,6 +24,7 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/shells"
+	"komrad/internal/tasks"
 	"komrad/internal/transcripts"
 	"komrad/internal/watch"
 	"komrad/internal/worktrees"
@@ -39,6 +40,7 @@ type services struct {
 	review       *reviews.ReviewService
 	schedule     *schedules.ScheduleService
 	documents    *documents.DocumentService
+	tasks        *tasks.TaskService
 	transcripts  transcriptServices
 	pullRequests pullRequestServices
 	checkouts    checkoutServices
@@ -139,7 +141,9 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Channel:  paneChannel,
 		Observer: paneChannel,
 	})
+	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.tasks})
 	agentGroup := buildAgents(buildAgentsParams{
+		Tasks:      taskService,
 		Server:     params,
 		Stores:     st,
 		Wakers:     wakers,
@@ -198,6 +202,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Workflows: st.workflows,
 			Agents:    st.agents,
 		}),
+		tasks: taskService,
 		documents: documents.NewDocumentService(documents.NewDocumentServiceParams{
 			Agents:    st.agents,
 			Documents: st.documents,
@@ -281,6 +286,7 @@ func buildScripts(params buildScriptsParams) (*scriptrun.ScriptService, error) {
 	return scriptrun.NewScriptService(scriptrun.NewScriptServiceParams{
 		Agents:     st.agents,
 		Workflows:  st.workflows,
+		Tasks:      st.tasks,
 		Tmux:       server.Tmux,
 		Runner:     scripts.NewRunner(),
 		Runs:       st.runs,
@@ -303,6 +309,7 @@ type buildAgentsParams struct {
 	Scripts    *scriptrun.ScriptService
 	Panes      *pane.Pane
 	Settler    *agents.Settler
+	Tasks      *tasks.TaskService
 	RunLogsDir string
 	LoadConfig func() (*config.Config, error)
 }
@@ -327,6 +334,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Workflows:          st.workflows,
 		Tx:                 st.pool,
 		Launcher:           harnessLauncher,
+		Tasks:              params.Tasks,
 		Harnesses:          server.Harnesses,
 		Scripts:            params.Scripts,
 		UserDefaultHarness: server.DefaultHarness,

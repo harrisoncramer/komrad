@@ -23,6 +23,7 @@ import (
 	logv1 "komrad/proto/gen/log/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -47,6 +48,7 @@ var files = []protoreflect.FileDescriptor{
 	pullrequestv1.File_pullrequest_v1_pullrequest_proto,
 	worktreev1.File_worktree_v1_worktree_proto,
 	watchv1.File_watch_v1_watch_proto,
+	taskv1.File_task_v1_task_proto,
 }
 
 // HookCallTimeout bounds a call that waits on a workflow's pre hooks.

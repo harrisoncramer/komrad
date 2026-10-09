@@ -65,6 +65,8 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		DiffStat:           diffStatOf(stored.DiffStat),
 		HeldAt:             heldStamp(stored.Hold.At),
 		HeldByAgentId:      xptr.Deref(stored.Hold.ByAgentID),
+		TaskId:             stored.TaskID,
+		TaskSlug:           row.TaskSlug,
 	}
 }
 

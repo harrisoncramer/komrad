@@ -17,6 +17,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/clock"
@@ -313,6 +314,60 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			assert.Equal(t, "develop", values["KOMRAD_WORKTREE_BASE_BRANCH"])
 			assert.Equal(t, ".env\nconfig/local.json", values["KOMRAD_WORKTREE_COPY_PATHS"])
 			assert.Equal(t, "node_modules", values["KOMRAD_WORKTREE_SYMLINK_PATHS"])
+		})
+	}
+}
+
+// TestTaskEnvOnlyWhenTheAgentWorksOnOne pins that a script is told its agent's task, and told
+// nothing of one when the agent has none.
+func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
+	tests := []struct {
+		name     string
+		wantSlug string
+	}{
+		{
+			name: "an agent on no task carries neither key",
+		},
+		{
+			name:     "an agent on a task carries its id and slug",
+			wantSlug: "fix-login",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
+
+			st := storetest.Open(t)
+			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
+			agent := agentstore.Agent{ID: fixtureAgentID, Name: "auth", WorkflowID: workflow.ID}
+			var task *taskstore.Task
+			if tt.wantSlug != "" {
+				task = st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: tt.wantSlug})
+				agent.TaskID = &task.ID
+			}
+			st.SeedAgent(t, agent)
+
+			runner := &recordingRunner{}
+			service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner, LogsDir: t.TempDir()})
+			require.NoError(t, fireScript(t.Context(), t, service))
+
+			values := map[string]string{}
+			for _, entry := range runner.env {
+				key, value, found := strings.Cut(entry, "=")
+				require.True(t, found)
+				values[key] = value
+			}
+
+			if task == nil {
+				assert.NotContains(t, values, "KOMRAD_TASK_ID")
+				assert.NotContains(t, values, "KOMRAD_TASK_SLUG")
+
+				return
+			}
+			assert.Equal(t, task.ID, values["KOMRAD_TASK_ID"])
+			assert.Equal(t, tt.wantSlug, values["KOMRAD_TASK_SLUG"])
 		})
 	}
 }
@@ -1590,6 +1645,7 @@ func scriptServiceOver(t *testing.T, params scriptServiceOverParams) *ScriptServ
 	return NewScriptService(NewScriptServiceParams{
 		Agents:    params.Stores.Agents,
 		Workflows: params.Stores.Workflows,
+		Tasks:     params.Stores.Tasks,
 		Tmux: fakePaneOwner{
 			owner:      fixtureAgentID,
 			hostSocket: "/tmp/host-socket",

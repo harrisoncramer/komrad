@@ -55,6 +55,7 @@ import (
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	"komrad/proto/gen/terminal/v1/terminalv1connect"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -71,6 +72,7 @@ type Instance struct {
 	Agents       agentv1connect.AgentServiceClient
 	Workflows    workflowv1connect.WorkflowServiceClient
 	Schedules    schedulev1connect.ScheduleServiceClient
+	Tasks        taskv1connect.TaskServiceClient
 	Hooks        hookv1connect.HookServiceClient
 	Logs         logv1connect.LogServiceClient
 	Loops        loopv1connect.LoopServiceClient
@@ -216,6 +218,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Agents:       agentv1connect.NewAgentServiceClient(client, url),
 		Workflows:    workflowv1connect.NewWorkflowServiceClient(client, url),
 		Schedules:    schedulev1connect.NewScheduleServiceClient(client, url),
+		Tasks:        taskv1connect.NewTaskServiceClient(client, url),
 		Hooks:        hookv1connect.NewHookServiceClient(client, url),
 		Loops:        loopv1connect.NewLoopServiceClient(client, url),
 		Logs:         logv1connect.NewLogServiceClient(client, url),

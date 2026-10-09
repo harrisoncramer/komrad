@@ -187,3 +187,54 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 	}
 	return items, nil
 }
+
+const listWatchedTasks = `-- name: ListWatchedTasks :many
+SELECT
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id
+FROM
+    tasks
+WHERE ($1::text[] IS NULL
+    OR id = ANY ($1::uuid[]))
+ORDER BY
+    id DESC
+`
+
+func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*Task, error) {
+	rows, err := q.db.Query(ctx, listWatchedTasks, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkflowID,
+			&i.Slug,
+			&i.Title,
+			&i.Goal,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.EngineID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockTaskSlugs = `-- name: LockTaskSlugs :exec
+SELECT
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_engine()::text, ''), 7240117))
+`
+
+func (q *Queries) LockTaskSlugs(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, lockTaskSlugs)
+	return err
+}

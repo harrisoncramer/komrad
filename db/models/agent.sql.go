@@ -683,7 +683,8 @@ INSERT INTO agents(
     adopted_branch,
     branch,
     repository_url,
-    role)
+    role,
+    task_id)
 VALUES (
     $1,
     $2,
@@ -706,7 +707,8 @@ VALUES (
     $18,
     $19,
     $20,
-    $21)
+    $21,
+    $22)
 RETURNING
     id
 `
@@ -733,6 +735,7 @@ type InsertAgentParams struct {
 	Branch             *string
 	RepositoryUrl      *string
 	Role               AgentRole
+	TaskID             *string
 }
 
 func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (string, error) {
@@ -758,6 +761,7 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.Branch,
 		arg.RepositoryUrl,
 		arg.Role,
+		arg.TaskID,
 	)
 	var id string
 	err := row.Scan(&id)
@@ -1820,12 +1824,14 @@ SELECT
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
     f.log_number AS failed_run_log,
     COALESCE(d.documents, 0)::integer AS documents,
-    d.documents_updated_at
+    d.documents_updated_at,
+    t.slug AS task_slug
 FROM
     watched w
     JOIN agents s ON s.id = ANY (w.ids)
     LEFT JOIN failed f ON f.agent_id = s.id
     LEFT JOIN written d ON d.agent_id = s.id
+    LEFT JOIN tasks t ON t.id = s.task_id
 ORDER BY
     s.id DESC
 `
@@ -1836,6 +1842,7 @@ type ListWatchedAgentsRow struct {
 	FailedRunLog       *int32
 	Documents          int32
 	DocumentsUpdatedAt *time.Time
+	TaskSlug           *string
 }
 
 func (q *Queries) ListWatchedAgents(ctx context.Context, keys []string) ([]*ListWatchedAgentsRow, error) {
@@ -1901,6 +1908,7 @@ func (q *Queries) ListWatchedAgents(ctx context.Context, keys []string) ([]*List
 			&i.FailedRunLog,
 			&i.Documents,
 			&i.DocumentsUpdatedAt,
+			&i.TaskSlug,
 		); err != nil {
 			return nil, err
 		}
