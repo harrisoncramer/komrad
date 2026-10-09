@@ -102,7 +102,7 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 	}
 
 	slug := base
-	// The bare base is the first try, so the first suffix is -2.
+	// Tries fix-login, then fix-login-2, fix-login-3 and on until one is free. The bare slug counts as the first, so numbering starts at 2.
 	for i := 2; ; i++ {
 		taken, err := tasks.IsSlugTaken(ctx, slug)
 		if err != nil {
