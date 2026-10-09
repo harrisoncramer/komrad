@@ -67,9 +67,8 @@ func (s *TaskService) ArchiveTask(ctx context.Context, ref string) error {
 	return s.tasks.Archive(ctx, found.ID)
 }
 
-// JoinTask returns the task an id or a slug names for an agent being created in a workflow,
-// refusing one in another workflow or one that is archived.
-func (s *TaskService) JoinTask(ctx context.Context, ref, workflowID string) (*taskstore.Task, error) {
+// GetTaskForWorkflow returns the live task an id or a slug names in a workflow.
+func (s *TaskService) GetTaskForWorkflow(ctx context.Context, ref, workflowID string) (*taskstore.Task, error) {
 	found, err := s.GetTask(ctx, ref)
 	if err != nil {
 		return nil, err
@@ -91,8 +90,7 @@ type CreateForAgentParams struct {
 	Prompt     string
 }
 
-// CreateForAgent makes the task an agent created without one works on, slugged after the agent
-// and suffixed until the slug is unused.
+// CreateForAgent creates a task named after an agent.
 func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (*taskstore.Task, error) {
 	if err := tasks.LockSlugs(ctx); err != nil {
 		return nil, err
@@ -104,6 +102,7 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 	}
 
 	slug := base
+	// The bare base is the first try, so the first suffix is -2.
 	for i := 2; ; i++ {
 		taken, err := tasks.IsSlugTaken(ctx, slug)
 		if err != nil {

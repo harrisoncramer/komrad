@@ -12,6 +12,7 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	_ "komrad/proto/gen/annotation/v1"
+	_ "komrad/proto/gen/rules/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -488,7 +489,7 @@ var File_task_v1_task_proto protoreflect.FileDescriptor
 
 const file_task_v1_task_proto_rawDesc = "" +
 	"\n" +
-	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xe9\x01\n" +
+	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\"\xe9\x01\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -502,11 +503,10 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12$\n" +
 	"\varchived_at\x18\b \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01B\x0e\n" +
-	"\f_archived_at\"\x99\x02\n" +
+	"\f_archived_at\"\xbb\x01\n" +
 	"\x11CreateTaskRequest\x127\n" +
-	"\x04slug\x18\x01 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$R\x04slug\x12\x81\x01\n" +
-	"\x05title\x18\x02 \x01(\tBk\xbaHh\xba\x01^\n" +
-	"\x0ftitle.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x05title\x12\x1d\n" +
+	"\x04slug\x18\x01 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$R\x04slug\x12$\n" +
+	"\x05title\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x05title\x12\x1d\n" +
 	"\x04goal\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x04goal\x12(\n" +
 	"\vworkflow_id\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"workflowId\"7\n" +

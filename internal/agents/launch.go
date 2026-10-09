@@ -432,7 +432,7 @@ func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane strin
 func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
 	var joined *taskstore.Task
 	if params.Task != "" {
-		found, err := s.tasks.JoinTask(ctx, params.Task, params.WorkflowID)
+		found, err := s.tasks.GetTaskForWorkflow(ctx, params.Task, params.WorkflowID)
 		if err != nil {
 			return nil, err
 		}

@@ -73,6 +73,14 @@ var file_rules_v1_rules_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*validate.StringRules)(nil),
 		ExtensionType: (*bool)(nil),
+		Field:         50107,
+		Name:          "rules.v1.printable",
+		Tag:           "varint,50107,opt,name=printable",
+		Filename:      "rules/v1/rules.proto",
+	},
+	{
+		ExtendedType:  (*validate.StringRules)(nil),
+		ExtensionType: (*bool)(nil),
 		Field:         50106,
 		Name:          "rules.v1.relative_path",
 		Tag:           "varint,50106,opt,name=relative_path",
@@ -106,10 +114,14 @@ var (
 	//
 	// optional bool cron_expression = 50103;
 	E_CronExpression = &file_rules_v1_rules_proto_extTypes[5]
+	// Refuses control characters, for text the panel draws on one line.
+	//
+	// optional bool printable = 50107;
+	E_Printable = &file_rules_v1_rules_proto_extTypes[6]
 	// Requires a path inside the checkout, with no way up out of it.
 	//
 	// optional bool relative_path = 50106;
-	E_RelativePath = &file_rules_v1_rules_proto_extTypes[6]
+	E_RelativePath = &file_rules_v1_rules_proto_extTypes[7]
 )
 
 var File_rules_v1_rules_proto protoreflect.FileDescriptor
@@ -136,7 +148,10 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x1bstring.script_name_or_blank\x12Vmust be blank or a file name, with no slash, no leading dot, and no control characters\x1ae!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\x11scriptNameOrBlank:\xe0\x01\n" +
 	"\x0fcron_expression\x12\x19.buf.validate.StringRules\x18\xb7\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
 	"\x92\x01\n" +
-	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpression:\x84\x02\n" +
+	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpression:\xa2\x01\n" +
+	"\tprintable\x12\x19.buf.validate.StringRules\x18\xbb\x87\x03 \x01(\bBg\xc2Hd\n" +
+	"b\n" +
+	"\x10string.printable\x12#must not contain control characters\x1a)!rule || !this.matches('[\\x00-\\x1f\\x7f]')R\tprintable:\x84\x02\n" +
 	"\rrelative_path\x12\x19.buf.validate.StringRules\x18\xba\x87\x03 \x01(\bB\xc1\x01\xc2H\xbd\x01\n" +
 	"\xba\x01\n" +
 	"\x14string.relative_path\x12Amust be a relative path, with no leading / or ~ and no .. segment\x1a_!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))R\frelativePathB#Z!komrad/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
@@ -151,11 +166,12 @@ var file_rules_v1_rules_proto_depIdxs = []int32{
 	0, // 3: rules.v1.script_name:extendee -> buf.validate.StringRules
 	0, // 4: rules.v1.script_name_or_blank:extendee -> buf.validate.StringRules
 	0, // 5: rules.v1.cron_expression:extendee -> buf.validate.StringRules
-	0, // 6: rules.v1.relative_path:extendee -> buf.validate.StringRules
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	0, // [0:7] is the sub-list for extension extendee
+	0, // 6: rules.v1.printable:extendee -> buf.validate.StringRules
+	0, // 7: rules.v1.relative_path:extendee -> buf.validate.StringRules
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	0, // [0:8] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -171,7 +187,7 @@ func file_rules_v1_rules_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rules_v1_rules_proto_rawDesc), len(file_rules_v1_rules_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   0,
-			NumExtensions: 7,
+			NumExtensions: 8,
 			NumServices:   0,
 		},
 		GoTypes:           file_rules_v1_rules_proto_goTypes,

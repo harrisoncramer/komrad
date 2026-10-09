@@ -5,6 +5,7 @@ package task.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "rules/v1/rules.proto";
 
 option go_package = "komrad/proto/gen/task/v1;taskv1";
 
@@ -36,17 +37,11 @@ message CreateTaskRequest {
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
   }];
   // What to show it as in the panel.
-  string title = 2 [
-    (buf.validate.field).string = {
-      min_len: 1
-      max_len: 200
-    },
-    (buf.validate.field).cel = {
-      id: "title.printable"
-      message: "title must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string title = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
   // What it is meant to achieve, as markdown.
   string goal = 3 [(buf.validate.field).string.max_len = 50000];
   // Which workflow to file it under. Every agent on it must be in the same one.

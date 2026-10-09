@@ -81,8 +81,8 @@ func TestArchiveTask(t *testing.T) {
 	assert.NotNil(t, got.ArchivedAt)
 }
 
-// TestJoinTask pins which tasks an agent being created may join.
-func TestJoinTask(t *testing.T) {
+// TestGetTaskForWorkflow pins which tasks an agent being created may be put on.
+func TestGetTaskForWorkflow(t *testing.T) {
 	stores := storetest.Open(t)
 	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
 	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
@@ -120,7 +120,7 @@ func TestJoinTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := svc.JoinTask(t.Context(), tt.ref, workflow.ID)
+			got, err := svc.GetTaskForWorkflow(t.Context(), tt.ref, workflow.ID)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
