@@ -78,7 +78,7 @@ func TestCreate(t *testing.T) {
 			name: "a kebab-case slug is created",
 			params: taskstore.CreateParams{
 				WorkflowID: workflow.ID,
-				Slug:       "record-teardown-2",
+				Slug:       "record-teardown",
 				Title:      "Record teardown",
 				Goal:       "Stop the flash on archive.",
 			},
