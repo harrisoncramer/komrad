@@ -6,7 +6,7 @@ import { link } from "./site";
 export type SidebarLink = {
   label: string;
   href: string;
-  current?: boolean;
+  isCurrent?: boolean;
   section?: string;
 };
 
@@ -19,9 +19,11 @@ export type SidebarGroup = {
   items: SidebarItem[];
 };
 
-const section = (id: string, label: string): SidebarLink => ({ label, href: `#${id}`, section: id });
+function section(id: string, label: string): SidebarLink {
+  return { label, href: `#${id}`, section: id };
+}
 
-export const guideSidebar = async (current: string, headings: MarkdownHeading[]): Promise<SidebarGroup[]> => {
+export async function guideSidebar(current: string, headings: MarkdownHeading[]): Promise<SidebarGroup[]> {
   const guides = await getGuides();
   const sections = headings
     .filter((heading) => heading.depth === 2)
@@ -33,11 +35,11 @@ export const guideSidebar = async (current: string, headings: MarkdownHeading[])
       .map((guide) => ({
         label: guide.data.title,
         href: link(`/guides/${guide.id}`),
-        current: guide.id === current,
+        isCurrent: guide.id === current,
         children: guide.id === current ? sections : undefined,
       })),
   }));
-};
+}
 
 export const API_SECTIONS = [
   { id: "requests", label: "Requests" },
@@ -46,8 +48,8 @@ export const API_SECTIONS = [
   { id: "errors", label: "Errors" },
 ] as const;
 
-export const apiSidebar = (current: { service?: string; method?: string } = {}): SidebarGroup[] => {
-  const overview = current.service === undefined;
+export function apiSidebar(current: { service?: string; method?: string } = {}): SidebarGroup[] {
+  const isOverview = current.service === undefined;
   return [
     {
       title: "Overview",
@@ -55,9 +57,9 @@ export const apiSidebar = (current: { service?: string; method?: string } = {}):
         {
           label: "Calling the API",
           href: link("/api"),
-          current: overview,
+          isCurrent: isOverview,
           children: API_SECTIONS.map(({ id, label }) =>
-            overview ? section(id, label) : { label, href: link(`/api#${id}`) },
+            isOverview ? section(id, label) : { label, href: link(`/api#${id}`) },
           ),
         },
       ],
@@ -67,26 +69,26 @@ export const apiSidebar = (current: { service?: string; method?: string } = {}):
       items: api.services.map((service) => ({
         label: service.title,
         href: link(`/api/${service.slug}`),
-        current: service.slug === current.service && current.method === undefined,
+        isCurrent: service.slug === current.service && current.method === undefined,
         children:
           service.slug === current.service
             ? service.methods.map((method) => ({
                 label: method.tool,
                 href: link(`/api/${service.slug}/${method.slug}`),
-                current: method.slug === current.method,
+                isCurrent: method.slug === current.method,
               }))
             : undefined,
       })),
     },
   ];
-};
+}
 
-export const cliSidebar = (current: string): SidebarGroup[] => {
+export function cliSidebar(current: string): SidebarGroup[] {
   const open = commandBySlug.get(current)?.parent || current;
   const entry = (slug: string): SidebarItem => ({
     label: slug === "" ? "komrad" : slug.replaceAll("/", " "),
     href: commandHref(slug),
-    current: slug === current,
+    isCurrent: slug === current,
   });
   return [
     {
@@ -99,8 +101,8 @@ export const cliSidebar = (current: string): SidebarGroup[] => {
         })),
     },
   ];
-};
+}
 
-export const configSidebar = (tables: { id: string; label: string }[]): SidebarGroup[] => [
-  { title: "Tables", items: tables.map(({ id, label }) => section(id, label)) },
-];
+export function configSidebar(tables: { id: string; label: string }[]): SidebarGroup[] {
+  return [{ title: "Tables", items: tables.map(({ id, label }) => section(id, label)) }];
+}

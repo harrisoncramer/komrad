@@ -20,7 +20,7 @@ const { label, groups } = Astro.props;
               class={item.section ? "section" : "item"}
               href={item.href}
               data-section={item.section}
-              aria-current={item.current ? "page" : undefined}
+              aria-current={item.isCurrent ? "page" : undefined}
             >
               {item.label}
             </a>
@@ -32,7 +32,7 @@ const { label, groups } = Astro.props;
                       class="section"
                       href={child.href}
                       data-section={child.section}
-                      aria-current={child.current ? "page" : undefined}
+                      aria-current={child.isCurrent ? "page" : undefined}
                     >
                       {child.label}
                     </a>
@@ -59,17 +59,16 @@ const { label, groups } = Astro.props;
       try {
         const saved = sessionStorage.getItem(key);
         sessionStorage.removeItem(key);
-        return saved ? JSON.parse(saved) : null;
+        return saved ? JSON.parse(saved) : undefined;
       } catch {
-        return null;
+        return undefined;
       }
     };
     const save = (value) => {
       try {
         sessionStorage.setItem(key, JSON.stringify(value));
-        return true;
       } catch {
-        return false;
+        return;
       }
     };
     const saved = takeSaved();
@@ -128,16 +127,15 @@ const { label, groups } = Astro.props;
       anchor,
     ]),
   );
-  const headings = [...links.keys()].flatMap((id) => {
-    const heading = id && document.getElementById(id);
-    return heading ? [heading] : [];
-  });
+  const headings = [...links.keys()]
+    .map((id) => id && document.getElementById(id))
+    .filter((heading) => heading instanceof HTMLElement);
 
   const READ_LINE = 120;
   const BOTTOM_SLACK = 4;
 
   let pinned: string | undefined;
-  let handScrolled = false;
+  let hasHandScrolled = false;
 
   const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - BOTTOM_SLACK;
 
@@ -155,20 +153,20 @@ const { label, groups } = Astro.props;
 
   const mark = () => {
     const active = activeId();
-    links.forEach((anchor, id) => {
+    for (const [id, anchor] of links) {
       if (id === active) anchor.setAttribute("aria-current", "location");
       else anchor.removeAttribute("aria-current");
-    });
-    if (handScrolled) writeHash(active);
+    }
+    if (hasHandScrolled) writeHash(active);
   };
 
   const unpin = () => {
     pinned = undefined;
-    handScrolled = true;
+    hasHandScrolled = true;
   };
 
   const followHash = () => {
-    handScrolled = false;
+    hasHandScrolled = false;
     pinned = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash))?.id;
   };
 
@@ -178,13 +176,13 @@ const { label, groups } = Astro.props;
       followHash();
       mark();
     });
-    links.forEach((anchor, id) => {
+    for (const [id, anchor] of links) {
       anchor.addEventListener("click", () => {
         pinned = id;
-        handScrolled = false;
+        hasHandScrolled = false;
         mark();
       });
-    });
+    }
     for (const event of ["wheel", "touchmove", "keydown", "mousedown"]) {
       window.addEventListener(event, unpin, { passive: true });
     }
