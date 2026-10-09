@@ -187,6 +187,10 @@ func (m *model) reconcileSolo() {
 		return
 	}
 
+	if want && m.term.keysElsewhere {
+		return
+	}
+
 	m.frame.Solo(want)
 	m.term.awaitingSince = time.Now()
 }
