@@ -16,7 +16,11 @@ import (
 	"connectrpc.com/connect"
 )
 
-var agentsQuery = queryGrammar{syntax: searchsyntax.Agents, check: checkAgentsClause, search: searchTranscriptsSaid}
+var agentsQuery = queryGrammar{
+	syntax: searchsyntax.Agents,
+	check:  checkAgentsClause,
+	search: searchTranscriptsSaid,
+}
 
 func (a *agentsScreen) queryGrammar() (queryGrammar, bool) {
 	return agentsQuery, true

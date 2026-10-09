@@ -36,5 +36,9 @@ func jumpMenu(m *model, from screen, agentID string) submenu {
 		entries = append(entries, documents)
 	}
 
-	return submenu{kind: formMenu, title: "jump", entries: entries}
+	return submenu{
+		kind:    formMenu,
+		title:   "jump",
+		entries: entries,
+	}
 }

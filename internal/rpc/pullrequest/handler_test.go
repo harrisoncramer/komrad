@@ -431,7 +431,11 @@ func TestReadCheckLog(t *testing.T) {
 			reader := &fakePullRequestLister{lines: tt.lines, err: tt.err}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
-			got, err := service.ReadCheckLog(t.Context(), connect.NewRequest(&pullrequestv1.ReadCheckLogRequest{CheckId: "check-1", FirstLine: 1, Count: 2}))
+			got, err := service.ReadCheckLog(t.Context(), connect.NewRequest(&pullrequestv1.ReadCheckLogRequest{
+				CheckId:   "check-1",
+				FirstLine: 1,
+				Count:     2,
+			}))
 			assert.Equal(t, []string{"check-1"}, reader.readsOf)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
@@ -458,15 +462,35 @@ func TestSearchCheckLogs(t *testing.T) {
 			name: "each hit answers its check, line, step and whether it was cut",
 			search: &pullrequeststore.CheckLogSearch{
 				Hits: []pullrequeststore.CheckLogHit{
-					{CheckID: "check-1", Line: 4, StepNumber: 2, Text: "--- FAIL: TestX"},
-					{CheckID: "check-2", Line: 1, Text: "FAIL long", Cut: true},
+					{
+						CheckID:    "check-1",
+						Line:       4,
+						StepNumber: 2,
+						Text:       "--- FAIL: TestX",
+					},
+					{
+						CheckID: "check-2",
+						Line:    1,
+						Text:    "FAIL long",
+						Cut:     true,
+					},
 				},
 				Limited: true,
 			},
 			want: &pullrequestv1.SearchCheckLogsResponse{
 				Hits: []*pullrequestv1.CheckLogHit{
-					{CheckId: "check-1", Line: 4, StepNumber: 2, Text: "--- FAIL: TestX"},
-					{CheckId: "check-2", Line: 1, Text: "FAIL long", Cut: true},
+					{
+						CheckId:    "check-1",
+						Line:       4,
+						StepNumber: 2,
+						Text:       "--- FAIL: TestX",
+					},
+					{
+						CheckId: "check-2",
+						Line:    1,
+						Text:    "FAIL long",
+						Cut:     true,
+					},
 				},
 				Limited: true,
 			},

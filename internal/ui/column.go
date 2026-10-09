@@ -63,8 +63,7 @@ type columnSpec struct {
 
 	// read reports whether the block is a document the keys can be handed to, and is nil on a
 	// screen whose block never is.
-	read func(*model) bool
-
+	read          func(*model) bool
 	searchOptions []filterOption
 
 	// holds reports whether the screen is rendering its own block at all, and is nil on a screen that

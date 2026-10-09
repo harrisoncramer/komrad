@@ -12,7 +12,11 @@ import (
 	"connectrpc.com/connect"
 )
 
-var documentsQuery = queryGrammar{syntax: searchsyntax.Documents, check: checkDocumentsClause, search: searchDocumentsSaid}
+var documentsQuery = queryGrammar{
+	syntax: searchsyntax.Documents,
+	check:  checkDocumentsClause,
+	search: searchDocumentsSaid,
+}
 
 func (d *documentsScreen) queryGrammar() (queryGrammar, bool) {
 	return documentsQuery, d.kind == documentKindDocuments

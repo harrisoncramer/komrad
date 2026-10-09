@@ -99,7 +99,11 @@ func (f *filterState) askSaid() {
 		return
 	}
 
-	f.qualifiers.said = saidState{text: text, waiting: text != "", queued: text != ""}
+	f.qualifiers.said = saidState{
+		text:    text,
+		waiting: text != "",
+		queued:  text != "",
+	}
 }
 
 // hasSaid reports whether the server found the row saying the text, and false while it has not answered.
@@ -167,7 +171,11 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 			return search(ctx, client, msg.text)
 		})
 
-		return saysFoundMsg{text: msg.text, hits: hits, err: err}
+		return saysFoundMsg{
+			text: msg.text,
+			hits: hits,
+			err:  err,
+		}
 	}
 }
 

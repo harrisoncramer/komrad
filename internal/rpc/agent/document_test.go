@@ -546,8 +546,18 @@ func TestListDocuments(t *testing.T) {
 // it is a recorded read.
 func TestSearchDocuments(t *testing.T) {
 	found := documentstore.Results{
-		Matches: []documentstore.SearchHit{{ID: documentID, AgentID: betaID, Name: "Plan", Snippet: "the trigram index"}},
-		Near:    []documentstore.SearchHit{{ID: documentTypeID, AgentID: alphaID, Name: "Notes", Snippet: "reindexing"}},
+		Matches: []documentstore.SearchHit{{
+			ID:      documentID,
+			AgentID: betaID,
+			Name:    "Plan",
+			Snippet: "the trigram index",
+		}},
+		Near: []documentstore.SearchHit{{
+			ID:      documentTypeID,
+			AgentID: alphaID,
+			Name:    "Notes",
+			Snippet: "reindexing",
+		}},
 	}
 
 	tests := []struct {
@@ -585,8 +595,18 @@ func TestSearchDocuments(t *testing.T) {
 
 			assert.Equal(t, []documentstore.SearchParams{tt.wantSearched}, docs.searched)
 			assert.Empty(t, cmp.Diff(&agentv1.SearchDocumentsResponse{
-				Matches: []*agentv1.DocumentHit{{DocumentId: documentID, AgentId: betaID, Name: "Plan", Snippet: "the trigram index"}},
-				Near:    []*agentv1.DocumentHit{{DocumentId: documentTypeID, AgentId: alphaID, Name: "Notes", Snippet: "reindexing"}},
+				Matches: []*agentv1.DocumentHit{{
+					DocumentId: documentID,
+					AgentId:    betaID,
+					Name:       "Plan",
+					Snippet:    "the trigram index",
+				}},
+				Near: []*agentv1.DocumentHit{{
+					DocumentId: documentTypeID,
+					AgentId:    alphaID,
+					Name:       "Notes",
+					Snippet:    "reindexing",
+				}},
 			}, searched.Msg, protocmp.Transform()))
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
 				Written: written.String(),

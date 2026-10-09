@@ -38,7 +38,11 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 
 		harness := openStatusCheckLogs(t, checks, logs)
 
-		harness.assertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, &pullrequestv1.ReadCheckLogRequest{CheckId: "check-1", FirstLine: 1, Count: 2})
+		harness.assertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, &pullrequestv1.ReadCheckLogRequest{
+			CheckId:   "check-1",
+			FirstLine: 1,
+			Count:     2,
+		})
 	})
 
 	t.Run("each check is a row with its steps under it", func(t *testing.T) {
@@ -71,8 +75,16 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 		assert.Contains(t, frame, "═ lint ═")
 		assert.Contains(t, frame, "lint ok")
 		harness.assertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure,
-			&pullrequestv1.ReadCheckLogRequest{CheckId: "check-1", FirstLine: 1, Count: 2},
-			&pullrequestv1.ReadCheckLogRequest{CheckId: "check-2", FirstLine: 1, Count: 1},
+			&pullrequestv1.ReadCheckLogRequest{
+				CheckId:   "check-1",
+				FirstLine: 1,
+				Count:     2,
+			},
+			&pullrequestv1.ReadCheckLogRequest{
+				CheckId:   "check-2",
+				FirstLine: 1,
+				Count:     1,
+			},
 		)
 	})
 
@@ -97,8 +109,16 @@ func TestStatusCheckLogsReading(t *testing.T) {
 		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
 
 		harness.assertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure,
-			&pullrequestv1.ReadCheckLogRequest{CheckId: "check-1", FirstLine: 1, Count: 5000},
-			&pullrequestv1.ReadCheckLogRequest{CheckId: "check-1", FirstLine: 5001, Count: 2000},
+			&pullrequestv1.ReadCheckLogRequest{
+				CheckId:   "check-1",
+				FirstLine: 1,
+				Count:     5000,
+			},
+			&pullrequestv1.ReadCheckLogRequest{
+				CheckId:   "check-1",
+				FirstLine: 5001,
+				Count:     2000,
+			},
 		)
 	})
 
@@ -161,7 +181,11 @@ func TestStatusCheckLogsReading(t *testing.T) {
 		t.Parallel()
 
 		harness := hoverTestStepWhileBuildReads(t)
-		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelUp})
+		harness.send(tea.MouseWheelMsg{
+			X:      defaultHarnessWidth - 1,
+			Y:      5,
+			Button: tea.MouseWheelUp,
+		})
 		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
 
 		frame := harness.readFrame()
@@ -250,13 +274,41 @@ func TestStatusCheckLogsNotices(t *testing.T) {
 		state pullrequestv1.CheckLogState
 		want  string
 	}{
-		{name: "a log not fetched yet", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING, want: "log not fetched yet"},
-		{name: "a log too large to keep", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE, want: "log too large to keep"},
-		{name: "a log the forge does not have", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING, want: "the forge has no log for this check"},
-		{name: "a log expired on the forge", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED, want: "log expired on the forge"},
-		{name: "a log that could not be fetched", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED, want: "log could not be fetched"},
-		{name: "a fetched log with no lines", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED, want: "empty log"},
-		{name: "a check with no log", state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_NONE, want: "no log"},
+		{
+			name:  "a log not fetched yet",
+			state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING,
+			want:  "log not fetched yet",
+		},
+		{
+			name:  "a log too large to keep",
+			state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE,
+			want:  "log too large to keep",
+		},
+		{
+			name:  "a log the forge does not have",
+			state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING,
+			want:  "the forge has no log for this check",
+		},
+		{
+			name:  "a log expired on the forge",
+			state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED,
+			want:  "log expired on the forge",
+		},
+		{
+			name:  "a log that could not be fetched",
+			state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED,
+			want:  "log could not be fetched",
+		},
+		{
+			name:  "a fetched log with no lines",
+			state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
+			want:  "empty log",
+		},
+		{
+			name:  "a check with no log",
+			state: pullrequestv1.CheckLogState_CHECK_LOG_STATE_NONE,
+			want:  "no log",
+		},
 	}
 
 	for _, tt := range tests {

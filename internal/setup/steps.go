@@ -316,13 +316,21 @@ func (s *ForgeStep) observe(ctx context.Context, check checker) observation {
 
 	switch {
 	case server.Status == doctor.StatusFail:
-		return observation{Verdict: verdictSkip, Detail: server.Error, Finding: &server}
+		return observation{
+			Verdict: verdictSkip,
+			Detail:  server.Error,
+			Finding: &server,
+		}
 	case server.Status != doctor.StatusOK, forges.Code == doctor.CodeForgesUnreadable:
 		return observation{Verdict: verdictSkip, Detail: "the engine is not running; open the panel, then run setup again"}
 	case forges.Status == doctor.StatusOK:
 		return observation{Verdict: verdictDone, Detail: forges.Detail}
 	case forges.Code != doctor.CodeNoForges:
-		return observation{Verdict: verdictSkip, Detail: forges.Error, Finding: &forges}
+		return observation{
+			Verdict: verdictSkip,
+			Detail:  forges.Error,
+			Finding: &forges,
+		}
 	}
 
 	return observation{Verdict: verdictAsk, Detail: "no forge is connected"}

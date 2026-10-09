@@ -52,7 +52,11 @@ var Transcripts = Grammar{
 		{Name: KeyFrom},
 		{Name: KeyAgent},
 		{Name: KeyWorkflow},
-		{Name: KeyIs, Negatable: true, Repeatable: true},
+		{
+			Name:       KeyIs,
+			Negatable:  true,
+			Repeatable: true,
+		},
 		{Name: KeySince},
 		{Name: KeyUntil},
 		{Name: KeyOn},
@@ -64,7 +68,11 @@ var Agents = Grammar{
 	Keys: []Key{
 		{Name: KeyAgent},
 		{Name: KeyWorkflow},
-		{Name: KeyIs, Negatable: true, Repeatable: true},
+		{
+			Name:       KeyIs,
+			Negatable:  true,
+			Repeatable: true,
+		},
 		{Name: KeyHarness, Negatable: true},
 		{Name: KeyPR},
 		{Name: KeySince},

@@ -188,7 +188,11 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 		thread.RoundOrdinal = row.RoundOrdinal
 		thread.UnreadByHuman = xptr.Deref(row.UnreadByHuman)
 
-		return ThreadWithMessages{Thread: thread, Messages: byThread[row.ID], ForgeReplies: repliesByThread[row.ID]}
+		return ThreadWithMessages{
+			Thread:       thread,
+			Messages:     byThread[row.ID],
+			ForgeReplies: repliesByThread[row.ID],
+		}
 	}), nil
 }
 

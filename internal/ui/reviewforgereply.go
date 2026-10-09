@@ -194,7 +194,11 @@ func (r *reviewScreen) composeForge(m *model) tea.Cmd {
 // saveForgeReply posts what the composer holds to the forge as the person's own reply.
 func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, body string) tea.Cmd {
 	agents, threadID := m.clients().agents, r.threads.editing
-	kept := reviewUnsent{editing: threadID, body: body, forge: compose}
+	kept := reviewUnsent{
+		editing: threadID,
+		body:    body,
+		forge:   compose,
+	}
 
 	return keepUnsent(kept, r.writeMsgCmd(m, m.beginWrite("replying on the forge"), func(ctx context.Context) (string, error) {
 		res, err := agents.ReplyOnForge(ctx, connect.NewRequest(&agentv1.ReplyOnForgeRequest{

@@ -116,11 +116,35 @@ func TestParseMapsSteps(t *testing.T) {
 	}, "\n") + "\n"
 
 	steps := []checklog.Step{
-		{Number: 1, Name: "Set up job", Conclusion: "success", StartedAt: at(t, "2026-09-20T12:00:01Z")},
-		{Number: 2, Name: "Run actions/checkout@v4", Conclusion: "success", StartedAt: at(t, "2026-09-20T12:00:03Z")},
-		{Number: 3, Name: "Lint", Conclusion: "skipped"},
-		{Number: 4, Name: "Run go test ./...", Conclusion: "failure", StartedAt: at(t, "2026-09-20T12:00:05Z")},
-		{Number: 5, Name: "Complete job", Conclusion: "success", StartedAt: at(t, "2026-09-20T12:00:08Z")},
+		{
+			Number:     1,
+			Name:       "Set up job",
+			Conclusion: "success",
+			StartedAt:  at(t, "2026-09-20T12:00:01Z"),
+		},
+		{
+			Number:     2,
+			Name:       "Run actions/checkout@v4",
+			Conclusion: "success",
+			StartedAt:  at(t, "2026-09-20T12:00:03Z"),
+		},
+		{
+			Number:     3,
+			Name:       "Lint",
+			Conclusion: "skipped",
+		},
+		{
+			Number:     4,
+			Name:       "Run go test ./...",
+			Conclusion: "failure",
+			StartedAt:  at(t, "2026-09-20T12:00:05Z"),
+		},
+		{
+			Number:     5,
+			Name:       "Complete job",
+			Conclusion: "success",
+			StartedAt:  at(t, "2026-09-20T12:00:08Z"),
+		},
 	}
 
 	log, err := checklog.Parse(strings.NewReader(raw), steps)
@@ -128,10 +152,35 @@ func TestParseMapsSteps(t *testing.T) {
 	assert.Equal(t, 11, log.LineCount)
 	assert.Equal(t, 1, log.ErrorCount)
 	assert.Equal(t, []checklog.StepRange{
-		{Number: 1, Name: "Set up job", Conclusion: "success", FirstLine: 1, LineCount: 3},
-		{Number: 2, Name: "Run actions/checkout@v4", Conclusion: "success", FirstLine: 4, LineCount: 3},
-		{Number: 4, Name: "Run go test ./...", Conclusion: "failure", FirstLine: 7, LineCount: 4, ErrorCount: 1},
-		{Number: 5, Name: "Complete job", Conclusion: "success", FirstLine: 11, LineCount: 1},
+		{
+			Number:     1,
+			Name:       "Set up job",
+			Conclusion: "success",
+			FirstLine:  1,
+			LineCount:  3,
+		},
+		{
+			Number:     2,
+			Name:       "Run actions/checkout@v4",
+			Conclusion: "success",
+			FirstLine:  4,
+			LineCount:  3,
+		},
+		{
+			Number:     4,
+			Name:       "Run go test ./...",
+			Conclusion: "failure",
+			FirstLine:  7,
+			LineCount:  4,
+			ErrorCount: 1,
+		},
+		{
+			Number:     5,
+			Name:       "Complete job",
+			Conclusion: "success",
+			FirstLine:  11,
+			LineCount:  1,
+		},
 	}, log.Steps)
 }
 
@@ -149,17 +198,44 @@ func TestParseFindsRenamedStepsByTheFirstGroup(t *testing.T) {
 	}, "\n") + "\n"
 
 	steps := []checklog.Step{
-		{Number: 1, Name: "Set up job", StartedAt: at(t, "2026-09-20T12:00:00Z")},
-		{Number: 2, Name: "Build", StartedAt: at(t, "2026-09-20T12:00:02Z")},
-		{Number: 3, Name: "Run make test", StartedAt: at(t, "2026-09-20T12:00:04Z")},
+		{
+			Number:    1,
+			Name:      "Set up job",
+			StartedAt: at(t, "2026-09-20T12:00:00Z"),
+		},
+		{
+			Number:    2,
+			Name:      "Build",
+			StartedAt: at(t, "2026-09-20T12:00:02Z"),
+		},
+		{
+			Number:    3,
+			Name:      "Run make test",
+			StartedAt: at(t, "2026-09-20T12:00:04Z"),
+		},
 	}
 
 	log, err := checklog.Parse(strings.NewReader(raw), steps)
 	require.NoError(t, err)
 	assert.Equal(t, []checklog.StepRange{
-		{Number: 1, Name: "Set up job", FirstLine: 1, LineCount: 2},
-		{Number: 2, Name: "Build", FirstLine: 3, LineCount: 2},
-		{Number: 3, Name: "Run make test", FirstLine: 5, LineCount: 2},
+		{
+			Number:    1,
+			Name:      "Set up job",
+			FirstLine: 1,
+			LineCount: 2,
+		},
+		{
+			Number:    2,
+			Name:      "Build",
+			FirstLine: 3,
+			LineCount: 2,
+		},
+		{
+			Number:    3,
+			Name:      "Run make test",
+			FirstLine: 5,
+			LineCount: 2,
+		},
 	}, log.Steps)
 }
 
@@ -169,14 +245,32 @@ func TestParseLeavesLinesBeforeTheFirstStepInNone(t *testing.T) {
 
 	raw := "preamble with no stamp\n2026-09-20T12:00:05Z ##[group]Run go test\n2026-09-20T12:00:05Z ok\n"
 	steps := []checklog.Step{
-		{Number: 1, Name: "Run go test", StartedAt: at(t, "2026-09-20T12:00:05Z")},
-		{Number: 2, Name: "Never logged", StartedAt: at(t, "2026-09-20T12:00:09Z")},
+		{
+			Number:    1,
+			Name:      "Run go test",
+			StartedAt: at(t, "2026-09-20T12:00:05Z"),
+		},
+		{
+			Number:    2,
+			Name:      "Never logged",
+			StartedAt: at(t, "2026-09-20T12:00:09Z"),
+		},
 	}
 
 	log, err := checklog.Parse(strings.NewReader(raw), steps)
 	require.NoError(t, err)
 	assert.Equal(t, []checklog.StepRange{
-		{Number: 1, Name: "Run go test", FirstLine: 2, LineCount: 2},
-		{Number: 2, Name: "Never logged", FirstLine: 4, LineCount: 0},
+		{
+			Number:    1,
+			Name:      "Run go test",
+			FirstLine: 2,
+			LineCount: 2,
+		},
+		{
+			Number:    2,
+			Name:      "Never logged",
+			FirstLine: 4,
+			LineCount: 0,
+		},
 	}, log.Steps)
 }

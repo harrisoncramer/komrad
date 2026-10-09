@@ -13,7 +13,11 @@ import (
 var grammar = searchsyntax.Grammar{
 	Keys: []searchsyntax.Key{
 		{Name: "repo"},
-		{Name: "is", Negatable: true, Repeatable: true},
+		{
+			Name:       "is",
+			Negatable:  true,
+			Repeatable: true,
+		},
 	},
 }
 
@@ -53,7 +57,11 @@ func TestParse(t *testing.T) {
 				Words: []string{"fix"},
 				Clauses: []searchsyntax.Clause{
 					{Key: "is", Value: "dirty"},
-					{Key: "is", Value: "paused", Negated: true},
+					{
+						Key:     "is",
+						Value:   "paused",
+						Negated: true,
+					},
 					{Key: "repo", Value: "komrad"},
 				},
 			},

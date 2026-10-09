@@ -219,7 +219,11 @@ func (s *DocumentStore) List(ctx context.Context, params ListParams) ([]Document
 		return nil, nil
 	}
 
-	query := models.ListDocumentsParams{AgentID: params.AgentID, Type: params.Type, Lim: params.Limit}
+	query := models.ListDocumentsParams{
+		AgentID: params.AgentID,
+		Type:    params.Type,
+		Lim:     params.Limit,
+	}
 	if params.Cursor != nil {
 		query.CursorID = &params.Cursor.ID
 		query.CursorUpdatedAt = params.Cursor.UpdatedAt

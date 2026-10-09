@@ -36,7 +36,12 @@ func TestJobLogFollowsTheRedirectWithoutTheCredential(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "2026-09-20T12:00:00Z go test\n", log.Text)
 	assert.False(t, log.TooLarge)
-	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 4000, Limit: 5000, ResetAt: time.Unix(1789900000, 0)}, log.RateLimit)
+	assert.Equal(t, forge.RateLimit{
+		Known:     true,
+		Remaining: 4000,
+		Limit:     5000,
+		ResetAt:   time.Unix(1789900000, 0),
+	}, log.RateLimit)
 
 	require.Len(t, fake.calls, 2)
 	assert.Equal(t, jobLogPath, fake.calls[0].Path)
@@ -130,7 +135,11 @@ func TestJobLogTooLarge(t *testing.T) {
 		want bool
 	}{
 		{name: "a log at the most is read whole", body: strings.Repeat("a", testMaxJobLogBytes)},
-		{name: "a log one byte past the most is too large", body: strings.Repeat("a", testMaxJobLogBytes+1), want: true},
+		{
+			name: "a log one byte past the most is too large",
+			body: strings.Repeat("a", testMaxJobLogBytes+1),
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {

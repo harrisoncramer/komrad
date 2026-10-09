@@ -463,7 +463,11 @@ func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheck
 }
 
 func (i statusCheckItem) key() statusCheckKey {
-	return statusCheckKey{source: i.run.source, event: i.run.event, name: i.name}
+	return statusCheckKey{
+		source: i.run.source,
+		event:  i.run.event,
+		name:   i.name,
+	}
 }
 
 func compareStatusCheckItems(a, b statusCheckItem) int {

@@ -215,7 +215,11 @@ func (l screenList[T]) filterRows(m *model) []filterRow {
 			fits = l.fits(m, row)
 		}
 
-		return filterRow{key: row.key(), name: l.name(row), fits: fits}
+		return filterRow{
+			key:  row.key(),
+			name: l.name(row),
+			fits: fits,
+		}
 	})
 }
 

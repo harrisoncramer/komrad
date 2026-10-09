@@ -197,7 +197,11 @@ func TestFailedStatusChecks(t *testing.T) {
 		Conclusion: "success",
 		Required:   true,
 	}
-	running := StatusCheck{ProviderID: "5", Name: "e2e", State: StatusCheckStateRunning}
+	running := StatusCheck{
+		ProviderID: "5",
+		Name:       "e2e",
+		State:      StatusCheckStateRunning,
+	}
 
 	tests := []struct {
 		name   string

@@ -184,7 +184,11 @@ type redirection struct {
 // Redirect is where the forge redirects a GET of address to without following it, ErrNotFound on a
 // 404 and ErrExpired on a 410.
 func (c *Client) Redirect(ctx context.Context, address string) (*redirection, error) {
-	answer, err := c.send(ctx, xhttp.JSONParams{Client: c.redirects, Method: http.MethodGet, URL: address}, nil)
+	answer, err := c.send(ctx, xhttp.JSONParams{
+		Client: c.redirects,
+		Method: http.MethodGet,
+		URL:    address,
+	}, nil)
 	if err != nil {
 		return nil, err
 	}

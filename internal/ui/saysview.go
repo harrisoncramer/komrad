@@ -70,7 +70,12 @@ func (m *model) readSaidCmd() tea.Cmd {
 			return client.GetFullTranscript(ctx, agents, agentID)
 		})
 
-		return saidTranscriptMsg{agentID: agentID, text: text, content: paint.ScrubMarks(content), err: err}
+		return saidTranscriptMsg{
+			agentID: agentID,
+			text:    text,
+			content: paint.ScrubMarks(content),
+			err:     err,
+		}
 	}
 }
 
@@ -79,7 +84,13 @@ func (m *model) applySaidTranscript(msg saidTranscriptMsg) {
 		return
 	}
 
-	m.said = saidTranscript{agentID: msg.agentID, text: msg.text, answered: true, content: msg.content, err: msg.err}
+	m.said = saidTranscript{
+		agentID:  msg.agentID,
+		text:     msg.text,
+		answered: true,
+		content:  msg.content,
+		err:      msg.err,
+	}
 }
 
 // openSaid puts the reader on the first match once the conversation it was read for is rendered,
@@ -124,7 +135,11 @@ func (m *model) layoutSaid(hits []saidHit, width int) {
 		return
 	}
 
-	m.said.rows, m.said.line = saidRows(saidRowsParams{said: m.said, hits: hits, width: width})
+	m.said.rows, m.said.line = saidRows(saidRowsParams{
+		said:  m.said,
+		hits:  hits,
+		width: width,
+	})
 	m.said.width = width
 }
 

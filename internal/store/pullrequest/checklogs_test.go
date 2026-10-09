@@ -40,7 +40,11 @@ func openCheckLogs(t *testing.T, checks ...forge.StatusCheck) *checkLogHarness {
 		ReadAt:        statusCheckReadAt,
 	}))
 
-	l := &checkLogHarness{harness: h, checks: store, pullRequestID: written.ID}
+	l := &checkLogHarness{
+		harness:       h,
+		checks:        store,
+		pullRequestID: written.ID,
+	}
 	require.NoError(t, h.pool.GetDB().QueryRow(t.Context(), "SELECT id, reading_id FROM pull_request_checks WHERE provider_id = '1'").Scan(&l.checkID, &l.readingID))
 
 	return l
@@ -84,8 +88,21 @@ func fetchedLog() CheckLog {
 		LineCount:  5,
 		ErrorCount: 1,
 		Steps: []checklog.StepRange{
-			{Number: 1, Name: "Run actions/checkout@v4", Conclusion: "success", FirstLine: 2, LineCount: 1},
-			{Number: 3, Name: "Run go test", Conclusion: "failure", FirstLine: 3, LineCount: 3, ErrorCount: 1},
+			{
+				Number:     1,
+				Name:       "Run actions/checkout@v4",
+				Conclusion: "success",
+				FirstLine:  2,
+				LineCount:  1,
+			},
+			{
+				Number:     3,
+				Name:       "Run go test",
+				Conclusion: "failure",
+				FirstLine:  3,
+				LineCount:  3,
+				ErrorCount: 1,
+			},
 		},
 	}
 }
@@ -99,7 +116,13 @@ func TestCheckLogIsReplacedWhole(t *testing.T) {
 		Outcome:   CheckLogFetched,
 		Text:      "whole\nlog\n",
 		LineCount: 2,
-		Steps:     []checklog.StepRange{{Number: 1, Name: "Set up job", Conclusion: "success", FirstLine: 1, LineCount: 2}},
+		Steps: []checklog.StepRange{{
+			Number:     1,
+			Name:       "Set up job",
+			Conclusion: "success",
+			FirstLine:  1,
+			LineCount:  2,
+		}},
 	})
 
 	logs, steps := h.count(t)
@@ -124,7 +147,11 @@ func TestCheckLogsListWithoutText(t *testing.T) {
 	assert.Equal(t, []CheckLog{want}, h.list(t))
 
 	h.record(t, CheckLog{Outcome: CheckLogTooLarge})
-	assert.Equal(t, []CheckLog{{CheckID: h.checkID, FetchedAt: statusCheckReadAt, Outcome: CheckLogTooLarge}}, h.list(t))
+	assert.Equal(t, []CheckLog{{
+		CheckID:   h.checkID,
+		FetchedAt: statusCheckReadAt,
+		Outcome:   CheckLogTooLarge,
+	}}, h.list(t))
 }
 
 // TestGetCheckLogLines covers which lines each window of a log reads back.
@@ -138,11 +165,36 @@ func TestGetCheckLogLines(t *testing.T) {
 		count     int
 		want      []string
 	}{
-		{name: "a window inside the log", firstLine: 2, count: 2, want: []string{"checkout", "go test"}},
-		{name: "a window past the end stops at the last line", firstLine: 4, count: 10, want: []string{"##[error]FAIL", "exit 1"}},
-		{name: "a first line before the start reads from the first", firstLine: 0, count: 1, want: []string{"preamble"}},
-		{name: "a first line past the end reads nothing", firstLine: 9, count: 3, want: []string{}},
-		{name: "a count of nothing reads nothing", firstLine: 1, count: 0, want: []string{}},
+		{
+			name:      "a window inside the log",
+			firstLine: 2,
+			count:     2,
+			want:      []string{"checkout", "go test"},
+		},
+		{
+			name:      "a window past the end stops at the last line",
+			firstLine: 4,
+			count:     10,
+			want:      []string{"##[error]FAIL", "exit 1"},
+		},
+		{
+			name:      "a first line before the start reads from the first",
+			firstLine: 0,
+			count:     1,
+			want:      []string{"preamble"},
+		},
+		{
+			name:      "a first line past the end reads nothing",
+			firstLine: 9,
+			count:     3,
+			want:      []string{},
+		},
+		{
+			name:      "a count of nothing reads nothing",
+			firstLine: 1,
+			count:     0,
+			want:      []string{},
+		},
 	}
 
 	for _, tt := range tests {
@@ -181,20 +233,44 @@ func TestListCheckLogHits(t *testing.T) {
 		{
 			name:    "a line in a step carries its number",
 			pattern: `##\[error\]`,
-			want:    []CheckLogHit{{CheckID: h.checkID, Line: 4, StepNumber: 3, Text: "##[error]FAIL"}},
+			want: []CheckLogHit{{
+				CheckID:    h.checkID,
+				Line:       4,
+				StepNumber: 3,
+				Text:       "##[error]FAIL",
+			}},
 		},
 		{
 			name:    "a line before the first step is in none",
 			pattern: `^pre`,
-			want:    []CheckLogHit{{CheckID: h.checkID, Line: 1, Text: "preamble"}},
+			want: []CheckLogHit{{
+				CheckID: h.checkID,
+				Line:    1,
+				Text:    "preamble",
+			}},
 		},
 		{
 			name:    "matches come in line order",
 			pattern: `t`,
 			want: []CheckLogHit{
-				{CheckID: h.checkID, Line: 2, StepNumber: 1, Text: "checkout"},
-				{CheckID: h.checkID, Line: 3, StepNumber: 3, Text: "go test"},
-				{CheckID: h.checkID, Line: 5, StepNumber: 3, Text: "exit 1"},
+				{
+					CheckID:    h.checkID,
+					Line:       2,
+					StepNumber: 1,
+					Text:       "checkout",
+				},
+				{
+					CheckID:    h.checkID,
+					Line:       3,
+					StepNumber: 3,
+					Text:       "go test",
+				},
+				{
+					CheckID:    h.checkID,
+					Line:       5,
+					StepNumber: 3,
+					Text:       "exit 1",
+				},
 			},
 		},
 		{
@@ -226,7 +302,12 @@ func TestListCheckLogHitsLimits(t *testing.T) {
 
 	search, err := h.checks.ListCheckLogHits(t.Context(), []string{h.checkID}, `é`)
 	require.NoError(t, err)
-	assert.Equal(t, []CheckLogHit{{CheckID: h.checkID, Line: 1, Text: strings.Repeat("é", maxHitRunes), Cut: true}}, search.Hits)
+	assert.Equal(t, []CheckLogHit{{
+		CheckID: h.checkID,
+		Line:    1,
+		Text:    strings.Repeat("é", maxHitRunes),
+		Cut:     true,
+	}}, search.Hits)
 
 	search, err = h.checks.ListCheckLogHits(t.Context(), []string{h.checkID}, `.`)
 	require.NoError(t, err)
@@ -263,8 +344,18 @@ func TestGetCheckForLogFetch(t *testing.T) {
 		Host:          "github.com",
 		RepositoryURL: komrad,
 		Steps: []checklog.Step{
-			{Number: 1, Name: "Set up job", Conclusion: "success", StartedAt: xptr.Ptr(statusCheckReadAt.Add(-time.Minute))},
-			{Number: 2, Name: "Run go test", Conclusion: "failure", StartedAt: xptr.Ptr(statusCheckReadAt.Add(-time.Minute))},
+			{
+				Number:     1,
+				Name:       "Set up job",
+				Conclusion: "success",
+				StartedAt:  xptr.Ptr(statusCheckReadAt.Add(-time.Minute)),
+			},
+			{
+				Number:     2,
+				Name:       "Run go test",
+				Conclusion: "failure",
+				StartedAt:  xptr.Ptr(statusCheckReadAt.Add(-time.Minute)),
+			},
 		},
 	}, check)
 
@@ -314,7 +405,12 @@ func TestCheckLogIDsFromTheWire(t *testing.T) {
 
 	search, err := h.checks.ListCheckLogHits(t.Context(), []string{"check-1", h.checkID}, `FAIL`)
 	require.NoError(t, err)
-	assert.Equal(t, []CheckLogHit{{CheckID: h.checkID, Line: 4, StepNumber: 3, Text: "##[error]FAIL"}}, search.Hits)
+	assert.Equal(t, []CheckLogHit{{
+		CheckID:    h.checkID,
+		Line:       4,
+		StepNumber: 3,
+		Text:       "##[error]FAIL",
+	}}, search.Hits)
 }
 
 // TestReadingsOfAPullRequestCarryTheirLogs covers that a pull request's readings name each check's id and
@@ -354,14 +450,59 @@ func TestLogOf(t *testing.T) {
 		want    CheckLogOutcome
 		wantLog bool
 	}{
-		{name: "a check in no job has none", reading: kept(CheckLogFetched), check: statusCheckRun("1", "app", forge.StatusCheckStateCompleted, "success"), want: CheckLogNone},
-		{name: "a check still running is pending", reading: kept(CheckLogFetched), check: running, want: CheckLogPending},
-		{name: "a finished check with no log kept is pending", reading: StatusCheckReading{CheckIDs: map[string]string{"1": "check-1"}}, check: finished, want: CheckLogPending},
-		{name: "a fetched log", reading: kept(CheckLogFetched), check: finished, want: CheckLogFetched, wantLog: true},
-		{name: "a log too large to keep", reading: kept(CheckLogTooLarge), check: finished, want: CheckLogTooLarge, wantLog: true},
-		{name: "a log the forge never had", reading: kept(CheckLogMissing), check: finished, want: CheckLogMissing, wantLog: true},
-		{name: "a log the forge no longer keeps", reading: kept(CheckLogExpired), check: finished, want: CheckLogExpired, wantLog: true},
-		{name: "a log komrad gave up on", reading: kept(CheckLogFailed), check: finished, want: CheckLogFailed, wantLog: true},
+		{
+			name:    "a check in no job has none",
+			reading: kept(CheckLogFetched),
+			check:   statusCheckRun("1", "app", forge.StatusCheckStateCompleted, "success"),
+			want:    CheckLogNone,
+		},
+		{
+			name:    "a check still running is pending",
+			reading: kept(CheckLogFetched),
+			check:   running,
+			want:    CheckLogPending,
+		},
+		{
+			name:    "a finished check with no log kept is pending",
+			reading: StatusCheckReading{CheckIDs: map[string]string{"1": "check-1"}},
+			check:   finished,
+			want:    CheckLogPending,
+		},
+		{
+			name:    "a fetched log",
+			reading: kept(CheckLogFetched),
+			check:   finished,
+			want:    CheckLogFetched,
+			wantLog: true,
+		},
+		{
+			name:    "a log too large to keep",
+			reading: kept(CheckLogTooLarge),
+			check:   finished,
+			want:    CheckLogTooLarge,
+			wantLog: true,
+		},
+		{
+			name:    "a log the forge never had",
+			reading: kept(CheckLogMissing),
+			check:   finished,
+			want:    CheckLogMissing,
+			wantLog: true,
+		},
+		{
+			name:    "a log the forge no longer keeps",
+			reading: kept(CheckLogExpired),
+			check:   finished,
+			want:    CheckLogExpired,
+			wantLog: true,
+		},
+		{
+			name:    "a log komrad gave up on",
+			reading: kept(CheckLogFailed),
+			check:   finished,
+			want:    CheckLogFailed,
+			wantLog: true,
+		},
 	}
 
 	for _, tt := range tests {

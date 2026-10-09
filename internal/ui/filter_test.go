@@ -375,7 +375,12 @@ func TestFilterSays(t *testing.T) {
 				content := "opening words\n\n" + strings.Repeat("filler\n\n", 80) + turn + "\n\n" + strings.Repeat("after\n\n", 80)
 				harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 					return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
-						{AgentId: tt.found, Snippet: "the \x02xylophone\x03 broke", ContentOffset: int64(strings.Index(content, turn)), ContentLength: int64(len(turn))},
+						{
+							AgentId:       tt.found,
+							Snippet:       "the \x02xylophone\x03 broke",
+							ContentOffset: int64(strings.Index(content, turn)),
+							ContentLength: int64(len(turn)),
+						},
 					}}), nil
 				})
 				harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
@@ -405,7 +410,12 @@ func TestFilterSays(t *testing.T) {
 			}
 
 			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
-				{AgentId: "db", Snippet: "\x02" + word + "\x03", ContentOffset: int64(strings.Index(content, turn)), ContentLength: int64(len(turn))},
+				{
+					AgentId:       "db",
+					Snippet:       "\x02" + word + "\x03",
+					ContentOffset: int64(strings.Index(content, turn)),
+					ContentLength: int64(len(turn)),
+				},
 			}}), nil
 		})
 		harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {

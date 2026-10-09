@@ -366,7 +366,12 @@ func (c *statusCheckLogsScreen) readCmd(m *model, checkID string, first, last in
 	return func() tea.Msg {
 		resp, err := clients.readCheckLog(checkID, first, count)
 
-		return statusCheckLogReadMsg{generation: generation, checkID: checkID, resp: resp, err: err}
+		return statusCheckLogReadMsg{
+			generation: generation,
+			checkID:    checkID,
+			resp:       resp,
+			err:        err,
+		}
 	}
 }
 

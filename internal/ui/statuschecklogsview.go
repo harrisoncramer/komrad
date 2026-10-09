@@ -122,7 +122,11 @@ func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsRendered
 		}
 	}
 
-	return statusCheckLogsRendered{shape: shape, rows: rows, anchors: anchors}
+	return statusCheckLogsRendered{
+		shape:   shape,
+		rows:    rows,
+		anchors: anchors,
+	}
 }
 
 // docShape names everything the document is rendered from, so it is rendered again only once that changes.

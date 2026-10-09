@@ -193,8 +193,16 @@ func TestAutoSetupStep(t *testing.T) {
 // TestForgeStep covers when the forge step is done, asks, or skips.
 func TestForgeStep(t *testing.T) {
 	engineDown := doctor.Finding{Name: doctor.CheckServer, Status: doctor.StatusWarn}
-	unreadable := doctor.Finding{Name: doctor.CheckForges, Status: doctor.StatusWarn, Code: doctor.CodeForgesUnreadable}
-	noForges := doctor.Finding{Name: doctor.CheckForges, Status: doctor.StatusWarn, Code: doctor.CodeNoForges}
+	unreadable := doctor.Finding{
+		Name:   doctor.CheckForges,
+		Status: doctor.StatusWarn,
+		Code:   doctor.CodeForgesUnreadable,
+	}
+	noForges := doctor.Finding{
+		Name:   doctor.CheckForges,
+		Status: doctor.StatusWarn,
+		Code:   doctor.CodeNoForges,
+	}
 
 	tests := []struct {
 		name     string

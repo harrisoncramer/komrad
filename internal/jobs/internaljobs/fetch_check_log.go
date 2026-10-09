@@ -76,9 +76,8 @@ type FetchCheckLogWorker struct {
 	forges   ForgeFinder
 	maxBytes func() (int64, error)
 	now      func() time.Time
-
-	mu     sync.Mutex
-	limits map[string]forge.RateLimit
+	mu       sync.Mutex
+	limits   map[string]forge.RateLimit
 }
 
 // NewFetchCheckLogWorker builds the worker that fetches check logs.

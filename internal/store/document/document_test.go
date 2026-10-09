@@ -381,7 +381,11 @@ func TestList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			listed, err := stores.Documents.List(ctx, documentstore.ListParams{AgentID: tt.agentID, Type: tt.typeName, Limit: 10})
+			listed, err := stores.Documents.List(ctx, documentstore.ListParams{
+				AgentID: tt.agentID,
+				Type:    tt.typeName,
+				Limit:   10,
+			})
 			require.NoError(t, err)
 
 			ids := make([]string, 0, len(listed))
@@ -614,7 +618,11 @@ func TestSearch(t *testing.T) {
 		{name: "only the current body is searched", params: documentstore.SearchParams{Query: "old text"}},
 		{name: "a query wanting no word finds nothing", params: documentstore.SearchParams{Query: "-trigram"}},
 		{name: "an agent id that is not an id finds nothing", params: documentstore.SearchParams{Query: "trigram", AgentID: xptr.Ptr("not-an-id")}},
-		{name: "a NUL in the query is dropped", params: documentstore.SearchParams{Query: "trig\x00ram", AgentID: xptr.Ptr(other.ID)}, wantMatches: []string{elsewhere}},
+		{
+			name:        "a NUL in the query is dropped",
+			params:      documentstore.SearchParams{Query: "trig\x00ram", AgentID: xptr.Ptr(other.ID)},
+			wantMatches: []string{elsewhere},
+		},
 	}
 
 	ids := func(hits []documentstore.SearchHit) []string {

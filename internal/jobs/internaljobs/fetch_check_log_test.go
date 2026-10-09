@@ -102,8 +102,20 @@ func finishedCheck() forge.StatusCheck {
 		FinishedAt: xptr.Ptr(checkFinishedAt),
 		URL:        "https://github.com/harrisoncramer/komrad/runs/1",
 		Steps: []forge.StatusCheckStep{
-			{Number: 1, Name: "Set up job", State: forge.StatusCheckStateCompleted, Conclusion: "success", StartedAt: xptr.Ptr(checkFinishedAt.Add(-time.Minute))},
-			{Number: 2, Name: "Run go test", State: forge.StatusCheckStateCompleted, Conclusion: "failure", StartedAt: xptr.Ptr(checkFinishedAt.Add(-30 * time.Second))},
+			{
+				Number:     1,
+				Name:       "Set up job",
+				State:      forge.StatusCheckStateCompleted,
+				Conclusion: "success",
+				StartedAt:  xptr.Ptr(checkFinishedAt.Add(-time.Minute)),
+			},
+			{
+				Number:     2,
+				Name:       "Run go test",
+				State:      forge.StatusCheckStateCompleted,
+				Conclusion: "failure",
+				StartedAt:  xptr.Ptr(checkFinishedAt.Add(-30 * time.Second)),
+			},
 		},
 		RunID:    "CS_1",
 		RunEvent: "pull_request",
@@ -320,8 +332,13 @@ func TestFetchCheckLogWorkerHoldsOffALowHost(t *testing.T) {
 
 	now := checkFinishedAt.Add(time.Minute)
 	hostForge := &logForge{log: &forge.JobLog{
-		Text:      "2026-09-20T11:59:00Z ok\n",
-		RateLimit: forge.RateLimit{Known: true, Remaining: 10, Limit: 5000, ResetAt: now.Add(20 * time.Minute)},
+		Text: "2026-09-20T11:59:00Z ok\n",
+		RateLimit: forge.RateLimit{
+			Known:     true,
+			Remaining: 10,
+			Limit:     5000,
+			ResetAt:   now.Add(20 * time.Minute),
+		},
 	}}
 	worker := NewFetchCheckLogWorker(NewFetchCheckLogWorkerParams{
 		Store:    stores.Pool,

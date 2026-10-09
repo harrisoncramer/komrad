@@ -30,7 +30,14 @@ func TestDocumentsOpen(t *testing.T) {
 		t.Parallel()
 
 		docs := newDocumentShelf()
-		docs.add(&agentv1.Document{Id: "d3", AgentId: "quiet", Name: "Quiet notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+		docs.add(&agentv1.Document{
+			Id:        "d3",
+			AgentId:   "quiet",
+			Name:      "Quiet notes",
+			Type:      "notes",
+			Version:   1,
+			UpdatedAt: "2026-09-20T12:00:00Z",
+		})
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
 		moveToAgentRow(t, harness, "author")
@@ -51,7 +58,14 @@ func TestDocumentsOpen(t *testing.T) {
 		t.Parallel()
 
 		docs := newDocumentShelf()
-		docs.add(&agentv1.Document{Id: "d3", AgentId: "o1", Name: "Workflow plan", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+		docs.add(&agentv1.Document{
+			Id:        "d3",
+			AgentId:   "o1",
+			Name:      "Workflow plan",
+			Type:      "notes",
+			Version:   1,
+			UpdatedAt: "2026-09-20T12:00:00Z",
+		})
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
 		moveToAgentRow(t, harness, "komrad")
@@ -69,7 +83,14 @@ func TestDocumentsOpen(t *testing.T) {
 		t.Parallel()
 
 		docs := newDocumentShelf()
-		docs.add(&agentv1.Document{Id: "d4", AgentId: "namesake", Name: "Namesake notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-26T12:00:00Z"})
+		docs.add(&agentv1.Document{
+			Id:        "d4",
+			AgentId:   "namesake",
+			Name:      "Namesake notes",
+			Type:      "notes",
+			Version:   1,
+			UpdatedAt: "2026-09-26T12:00:00Z",
+		})
 		harness := openAgents(t, append(buildDocumentAuthors(), newLiveWorkflow("w2", "zeta"), newAgent("namesake", "author", "w2"))...)
 		docs.answer(harness)
 		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
@@ -233,7 +254,14 @@ func TestDocumentsFilter(t *testing.T) {
 			t.Parallel()
 
 			docs := newDocumentShelf()
-			docs.add(&agentv1.Document{Id: "d3", AgentId: "quiet", Name: "Quiet notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+			docs.add(&agentv1.Document{
+				Id:        "d3",
+				AgentId:   "quiet",
+				Name:      "Quiet notes",
+				Type:      "notes",
+				Version:   1,
+				UpdatedAt: "2026-09-20T12:00:00Z",
+			})
 			harness := openAgents(t, buildDocumentAuthors()...)
 			docs.answer(harness)
 			moveToAgentRow(t, harness, "quiet")
