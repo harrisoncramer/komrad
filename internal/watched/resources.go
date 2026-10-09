@@ -10,6 +10,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
 	schedulestore "komrad/internal/store/schedule"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 )
@@ -27,5 +28,6 @@ func All() []watch.Resource {
 		reviewstore.WatchedReviewThreads,
 		worktreestore.WatchedWorktrees,
 		documenttypestore.WatchedDocumentTypes,
+		taskstore.WatchedTasks,
 	}
 }

@@ -13,6 +13,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	rowstore "komrad/internal/store/row"
 	schedulestore "komrad/internal/store/schedule"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -48,6 +49,12 @@ func TestEveryWatchedRendererKeysAndWrapsItsRow(t *testing.T) {
 			name: "schedule",
 			render: func() (string, *watchv1.Row) {
 				return renderWatchedSchedule(schedulestore.Schedule{ID: "k"})
+			},
+		},
+		{
+			name: "task",
+			render: func() (string, *watchv1.Row) {
+				return renderWatchedTask(taskstore.Task{ID: "k"})
 			},
 		},
 		{

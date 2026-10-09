@@ -155,6 +155,10 @@ message Agent {
   string held_at = 36;
   // The agent that took the hold, empty when the panel took it or nobody is holding it.
   string held_by_agent_id = 37;
+  // The task it works on, unset for an orchestrator or once its task is deleted.
+  optional string task_id = 38;
+  // The slug of that task, unset whenever task_id is.
+  optional string task_slug = 39;
 }
 
 // AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests
@@ -262,6 +266,10 @@ message CreateAgentRequest {
   // dir and provision_enabled are refused, and workflow_id must be the parent's own. Neither a
   // child nor an orchestrator may be a parent.
   optional string parent_agent_id = 11 [(buf.validate.field).string.min_len = 1];
+  // Which task it works on, by id or slug, which must be in workflow_id. Unset to have komrad
+  // make one from its title and prompt. A child always works on its parent's task, so this is
+  // refused with parent_agent_id.
+  optional string task = 12 [(buf.validate.field).string.min_len = 1];
 }
 
 message CreateAgentResponse {
@@ -699,7 +707,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_agent"
-      description: "Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. resource_exhausted means the panel is full."
+      description: "Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. Pass task, by id or slug, to put it on a task made with create_task, or leave it unset to give it a task of its own. A child shares its parent's task. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full."
       destructive: false
       roles: [
         ROLE_IMPLEMENTER,

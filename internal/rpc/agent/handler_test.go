@@ -411,6 +411,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Harness:          "codex",
 					IdempotencyKey:   xptr.Ptr("triage:ENG-5260"),
 					ParentAgentId:    xptr.Ptr(ids[0]),
+					Task:             xptr.Ptr("fix-login"),
 				}))
 				if err != nil {
 					return "", err
@@ -429,6 +430,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Harness:          "codex",
 					IdempotencyKey:   "triage:ENG-5260",
 					ParentAgentID:    ids[0],
+					Task:             "fix-login",
 				}, services.created)
 			},
 		},

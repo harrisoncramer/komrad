@@ -164,3 +164,12 @@ func (s *TaskStore) IsSlugTaken(ctx context.Context, slug string) (bool, error) 
 
 	return taken, nil
 }
+
+// LockSlugs serializes the current engine's slug picks for the current transaction.
+func (s *TaskStore) LockSlugs(ctx context.Context) error {
+	if err := s.queries.LockTaskSlugs(ctx); err != nil {
+		return fmt.Errorf("failed to lock the task slugs: %w", err)
+	}
+
+	return nil
+}

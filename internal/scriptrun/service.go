@@ -7,6 +7,7 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -26,6 +27,7 @@ type tmuxReadWriter interface {
 type NewScriptServiceParams struct {
 	Agents     *agentstore.AgentStore
 	Workflows  *workflowstore.WorkflowStore
+	Tasks      *taskstore.TaskStore
 	Tmux       tmuxReadWriter
 	Runner     scriptRunner
 	Runs       *runstore.RunStore
@@ -41,6 +43,7 @@ type NewScriptServiceParams struct {
 type ScriptService struct {
 	agents     *agentstore.AgentStore
 	workflows  *workflowstore.WorkflowStore
+	tasks      *taskstore.TaskStore
 	tmux       tmuxReadWriter
 	runner     scriptRunner
 	runs       *runstore.RunStore
@@ -62,6 +65,7 @@ func NewScriptService(params NewScriptServiceParams) *ScriptService {
 	return &ScriptService{
 		agents:     params.Agents,
 		workflows:  params.Workflows,
+		tasks:      params.Tasks,
 		tmux:       params.Tmux,
 		runner:     params.Runner,
 		runs:       params.Runs,

@@ -28,6 +28,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock"
 	"komrad/lib/clock/clocktest"
@@ -169,6 +170,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Agents:             s.Agents,
 		Reviews:            reviewstore.NewReviewStore(s.Pool.GetDB()),
 		Workflows:          s.Workflows,
+		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
 		Tx:                 tx,
 		Launcher:           launcher,
 		Harnesses:          options.harnesses,

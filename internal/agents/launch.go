@@ -18,7 +18,9 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -31,6 +33,7 @@ type NewLaunchServiceParams struct {
 	Reviews            *reviewstore.ReviewStore
 	Workflows          *workflowstore.WorkflowStore
 	Tx                 txRunner
+	Tasks              *tasks.TaskService
 	Launcher           *Launcher
 	Harnesses          harnessGetter
 	Scripts            agentScriptRunner
@@ -46,6 +49,7 @@ type LaunchService struct {
 	reviews            *reviewstore.ReviewStore
 	workflows          *workflowstore.WorkflowStore
 	tx                 txRunner
+	tasks              *tasks.TaskService
 	starter            *agentStarter
 	harnesses          harnessGetter
 	userDefaultHarness string
@@ -67,6 +71,7 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 		reviews:   params.Reviews,
 		workflows: params.Workflows,
 		tx:        params.Tx,
+		tasks:     params.Tasks,
 		starter: &agentStarter{
 			tmux:     params.Tmux,
 			launcher: params.Launcher,
@@ -95,6 +100,7 @@ type NewAgentParams struct {
 	RepositoryURL    string
 	ParentAgentID    string
 	Role             agentstore.Role
+	Task             string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -251,6 +257,8 @@ func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (
 		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", agenterr.ErrChildOwnsLaunch, parent.WorkflowID)
 	case params.ScheduleID != nil:
 		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", agenterr.ErrChildOwnsLaunch)
+	case params.Task != "":
+		return nil, fmt.Errorf("%w: it works on its parent's task", agenterr.ErrChildOwnsLaunch)
 	}
 
 	return parent, nil
@@ -422,6 +430,15 @@ func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane strin
 }
 
 func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
+	var joined *taskstore.Task
+	if params.Task != "" {
+		found, err := s.tasks.JoinTask(ctx, params.Task, params.WorkflowID)
+		if err != nil {
+			return nil, err
+		}
+		joined = found
+	}
+
 	plan, err := s.planLaunch(ctx, params)
 	if err != nil {
 		return nil, err
@@ -435,8 +452,18 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
+	if parent != nil {
+		agent.TaskID = parent.TaskID
+	}
 
-	if err := s.createUnderCeiling(ctx, agent, spawner, parent); err != nil {
+	task, err := s.createUnderCeiling(ctx, creation{
+		agent:   &agent,
+		task:    joined,
+		spawner: spawner,
+		parent:  parent,
+		title:   params.Title,
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -449,7 +476,17 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		workflowContext: plan.workflowContext,
 		spawner:         spawner,
 		parent:          parent,
+		taskSlug:        taskSlug(task),
 	})
+}
+
+// taskSlug is the slug of the task an agent was created on, empty when it has none of its own.
+func taskSlug(task *taskstore.Task) string {
+	if task == nil {
+		return ""
+	}
+
+	return task.Slug
 }
 
 type resolvedLaunch struct {
@@ -461,6 +498,7 @@ type resolvedLaunch struct {
 	workflowContext string
 	spawner         *agentstore.Agent
 	parent          *agentstore.Agent
+	taskSlug        string
 }
 
 func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (*agentstore.Agent, error) {
@@ -539,6 +577,7 @@ func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 		AgentID:         agent.ID,
 		Role:            agent.Role,
 		OwnsCheckout:    c.resolved.provisioner != "",
+		TaskSlug:        c.resolved.taskSlug,
 	}
 	if c.resolved.spawner != nil {
 		launch.SpawnedByAgentID = c.resolved.spawner.ID
@@ -622,28 +661,68 @@ func namedDir(named string) (string, error) {
 	return dir, nil
 }
 
-func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent, spawner, parent *agentstore.Agent) error {
-	return s.tx.InTx(ctx, func(db store.DBTX) error {
+// creation is an agent row about to be written, the task it joins and the agents it is counted
+// against.
+type creation struct {
+	agent   *agentstore.Agent
+	task    *taskstore.Task
+	spawner *agentstore.Agent
+	parent  *agentstore.Agent
+	title   string
+}
+
+// needsOwnTask is whether the agent is given a task of its own as it is written, which a child
+// sharing its parent's and an orchestrator are not.
+func (c creation) needsOwnTask() bool {
+	return c.task == nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator
+}
+
+// createUnderCeiling writes the agent, and the task it works on when it needs one of its own,
+// returning the task it was created on.
+func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*taskstore.Task, error) {
+	task := c.task
+	err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, 1); err != nil {
 			return err
 		}
-		if err := claimRoomForChildren(ctx, agentStore, s.usage.Implementer.MaxChildren, parent); err != nil {
+		if err := claimRoomForChildren(ctx, agentStore, s.usage.Implementer.MaxChildren, c.parent); err != nil {
 			return err
 		}
-		if parent == nil {
-			if err := claimRoomForSpawned(ctx, agentStore, s.usage.Orchestrator.MaxChildren, spawner); err != nil {
+		if c.parent == nil {
+			if err := claimRoomForSpawned(ctx, agentStore, s.usage.Orchestrator.MaxChildren, c.spawner); err != nil {
 				return err
 			}
 		}
 
-		if err := agentStore.Create(ctx, agent); err != nil {
-			return fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
+		if c.needsOwnTask() {
+			created, err := tasks.CreateForAgent(ctx, taskstore.NewTaskStore(db), tasks.CreateForAgentParams{
+				WorkflowID: c.agent.WorkflowID,
+				Name:       c.agent.Name,
+				Title:      c.title,
+				Prompt:     c.agent.Prompt,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to make a task for agent %q: %w", c.agent.Name, err)
+			}
+			task = created
+		}
+		if task != nil {
+			c.agent.TaskID = &task.ID
+		}
+
+		if err := agentStore.Create(ctx, *c.agent); err != nil {
+			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
 		}
 
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return task, nil
 }
 
 func claimRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxAgents, want int) error {

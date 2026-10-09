@@ -12,6 +12,7 @@ import (
 	documentstore "komrad/internal/store/document"
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -198,6 +199,24 @@ func TestListWatched(t *testing.T) {
 	live, err := st.Rows.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{archived.ID, second.ID, first.ID}, xslice.Map(live, func(row rowstore.Row) string { return row.ID }), "the whole watched set reads the same way")
+}
+
+// TestListWatchedCarriesTheTaskSlug pins that a watched row names its agent's task by slug, and
+// carries none for an agent on no task.
+func TestListWatchedCarriesTheTaskSlug(t *testing.T) {
+	st := storetest.Open(t)
+	task := st.SeedTask(t, taskstore.CreateParams{Slug: "fix-login"})
+	working := st.SeedAgent(t, agentstore.Agent{Name: "working", WorkflowID: task.WorkflowID, TaskID: &task.ID})
+	idle := st.SeedAgent(t, agentstore.Agent{Name: "idle"})
+
+	rows, err := st.Rows.ListWatched(t.Context(), []string{working.ID, idle.ID})
+	require.NoError(t, err)
+
+	slugs := map[string]*string{}
+	for _, row := range rows {
+		slugs[row.ID] = row.TaskSlug
+	}
+	assert.Equal(t, map[string]*string{working.ID: xptr.Ptr("fix-login"), idle.ID: nil}, slugs)
 }
 
 // TestGet pins the one-row read: an archived row answers, and one a delete has claimed, an id

@@ -248,3 +248,79 @@ func TestDeletingAWorkflowTakesItsTasks(t *testing.T) {
 	_, err := stores.Tasks.Get(ctx, task.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
+
+// TestListWatched covers the watched set read whole and by key.
+func TestListWatched(t *testing.T) {
+	tests := []struct {
+		name      string
+		seeds     []string
+		archive   string
+		keys      []string
+		wantSlugs []string
+	}{
+		{
+			name:      "an empty store lists nothing",
+			wantSlugs: []string{},
+		},
+		{
+			name:      "keys naming no task list nothing",
+			seeds:     []string{"a"},
+			keys:      []string{"00000000-0000-0000-0000-000000000000"},
+			wantSlugs: []string{},
+		},
+		{
+			name:      "an empty key list lists nothing",
+			seeds:     []string{"a"},
+			keys:      []string{},
+			wantSlugs: []string{},
+		},
+		{
+			name:      "nil keys list every task",
+			seeds:     []string{"a", "b"},
+			wantSlugs: []string{"a", "b"},
+		},
+		{
+			name:      "an archived one stays in the whole set",
+			seeds:     []string{"a", "b"},
+			archive:   "b",
+			wantSlugs: []string{"a", "b"},
+		},
+		{
+			name:      "keys list only the tasks they name",
+			seeds:     []string{"a", "b"},
+			keys:      []string{"a"},
+			wantSlugs: []string{"a"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			ctx := t.Context()
+
+			bySlug := make(map[string]string, len(tt.seeds))
+			for _, slug := range tt.seeds {
+				bySlug[slug] = stores.SeedTask(t, taskstore.CreateParams{Slug: slug}).ID
+			}
+			if tt.archive != "" {
+				require.NoError(t, stores.Tasks.Archive(ctx, bySlug[tt.archive]))
+			}
+
+			keys := tt.keys
+			if keys != nil {
+				keys = xslice.Map(keys, func(key string) string {
+					if id, ok := bySlug[key]; ok {
+						return id
+					}
+
+					return key
+				})
+			}
+
+			listed, err := stores.Tasks.ListWatched(ctx, keys)
+			require.NoError(t, err)
+
+			assert.ElementsMatch(t, tt.wantSlugs, xslice.Map(listed, func(task taskstore.Task) string { return task.Slug }))
+		})
+	}
+}

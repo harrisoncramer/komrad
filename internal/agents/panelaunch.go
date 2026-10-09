@@ -116,10 +116,19 @@ func roleBriefing(params launchParams) string {
 	case params.Role == agentstore.RoleReviewer:
 		return reviewerDoc
 	case params.OwnsCheckout:
-		return implementerDoc
+		return taskBriefing(params.TaskSlug) + implementerDoc
 	}
 
 	return ""
+}
+
+// taskBriefing is what an implementer is told about the task it works on.
+func taskBriefing(slug string) string {
+	if slug == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("You work on task %s, and get_task with that slug returns its goal.\n\n", slug)
 }
 
 // spawningBriefing is what an agent is told about launching agents of its own.
@@ -223,6 +232,7 @@ type launchParams struct {
 	ParentAgentID    string
 	ParentName       string
 	Role             agentstore.Role
+	TaskSlug         string
 
 	// OwnsCheckout is whether komrad provisioned this agent a tree of its own, which separates an
 	// agent writing a change from one reading somebody else's.
