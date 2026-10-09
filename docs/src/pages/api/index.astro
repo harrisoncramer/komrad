@@ -8,7 +8,7 @@ import { codeTheme } from "../../code-theme.mjs";
 import { Code } from "astro:components";
 import { api, prose } from "../../reference";
 import { link } from "../../site";
-import { apiSidebar } from "../../sidebar";
+import { API_SECTIONS, apiSidebar } from "../../sidebar";
 
 const request = `POST /agent.v1.AgentService/GetAgent
 Content-Type: application/json
@@ -50,10 +50,7 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
   <Sidebar slot="sidebar" label="API" groups={apiSidebar()} />
   <JumpBar
     items={[
-      { href: "#requests", label: "Requests" },
-      { href: "#responses", label: "Responses" },
-      { href: "#pagination", label: "Pagination" },
-      { href: "#errors", label: "Errors" },
+      ...API_SECTIONS.map(({ id, label }) => ({ href: `#${id}`, label })),
       ...api.services.map((service) => ({ href: `#${service.slug}`, label: service.title })),
     ]}
   />
