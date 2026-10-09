@@ -233,14 +233,10 @@ message CreateAgentRequest {
     max_len: 50000
   }];
   // What to call it in the panel, blank to have komrad name it.
-  string title = 2 [
-    (buf.validate.field).string.max_len = 200,
-    (buf.validate.field).cel = {
-      id: "title.printable"
-      message: "title must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string title = 2 [(buf.validate.field).string = {
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
   // Flags for its CLI, blank to take the workflow's own.
   string flags = 4 [(buf.validate.field).string = {
     max_len: 500
@@ -287,14 +283,10 @@ message RequestReviewRequest {
   // Whose work to have read, or unset for the caller's own.
   optional string agent_id = 2 [(buf.validate.field).string.min_len = 1];
   // What to call the reviewer, blank to name it after the agent it is reading.
-  string title = 3 [
-    (buf.validate.field).string.max_len = 200,
-    (buf.validate.field).cel = {
-      id: "review.title.printable"
-      message: "title must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string title = 3 [(buf.validate.field).string = {
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
   // A key that makes a retry safe. A repeat carrying the same key is answered with the reviewer
   // already spawned rather than refused.
   optional string idempotency_key = 4 [(buf.validate.field).string = {
@@ -332,14 +324,10 @@ message AdoptRequest {
   // The opening briefing, blank to launch the CLI with nothing to read.
   string prompt = 3 [(buf.validate.field).string.max_len = 50000];
   // What to call it in the panel, blank to have komrad name it.
-  string title = 4 [
-    (buf.validate.field).string.max_len = 200,
-    (buf.validate.field).cel = {
-      id: "adopt.title.printable"
-      message: "title must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string title = 4 [(buf.validate.field).string = {
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
   // Flags for its CLI, blank to take the workflow's own.
   string flags = 5 [(buf.validate.field).string = {
     max_len: 500
@@ -511,25 +499,17 @@ message SetHiddenRequest {
 
 message RecordReportRequest {
   // What the CLI says it is doing, which annotates the state the pane decided.
-  string reason = 1 [
-    (buf.validate.field).string.max_len = 200,
-    (buf.validate.field).cel = {
-      id: "report.reason.printable"
-      message: "reason must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string reason = 1 [(buf.validate.field).string = {
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
   // Whether the CLI has finished a turn.
   bool turn_ended = 2;
   // What the CLI printed when an API error ended the turn, empty when the turn ended without one.
-  string turn_error = 3 [
-    (buf.validate.field).string.max_len = 200,
-    (buf.validate.field).cel = {
-      id: "report.turn_error.printable"
-      message: "turn_error must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string turn_error = 3 [(buf.validate.field).string = {
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
 }
 
 message MarkRunsReadRequest {
@@ -662,11 +642,12 @@ message UpdateAgentRequest {
     (buf.validate.field).string = {
       min_len: 1
       max_len: 200
+      [rules.v1.printable]: true
     },
     (buf.validate.field).cel = {
       id: "name.storable"
-      message: "name must not contain spaces, colons, dots, slashes, or control characters"
-      expression: "!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')"
+      message: "name must not contain spaces, colons, dots, or slashes"
+      expression: "!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/')"
     }
   ];
 }

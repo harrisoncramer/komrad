@@ -187,6 +187,7 @@ message CreateWorkflowRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
+    [rules.v1.printable]: true
   }];
   // Text to append to the system prompt of every agent launched into it.
   string context = 2 [(buf.validate.field).string.max_len = 50000];
@@ -236,6 +237,7 @@ message UpdateWorkflowRequest {
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
+    [rules.v1.printable]: true
   }];
   // Reaches only agents launched afterwards, since existing ones took a snapshot.
   string context = 3 [(buf.validate.field).string.max_len = 50000];

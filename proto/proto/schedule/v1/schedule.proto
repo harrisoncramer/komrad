@@ -139,17 +139,11 @@ message ListScheduleRunsResponse {
 
 message CreateScheduleRequest {
   // What to list it as, which also becomes the title of each agent it launches.
-  string name = 1 [
-    (buf.validate.field).string = {
-      min_len: 1
-      max_len: 200
-    },
-    (buf.validate.field).cel = {
-      id: "name.printable"
-      message: "name must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
   // When to fire, as five whitespace-separated fields.
   string cron = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -185,17 +179,11 @@ message UpdateScheduleRequest {
   // Which schedule to rewrite.
   string id = 1 [(buf.validate.field).string.min_len = 1];
   // Every field here is written, so send back the ones you are not changing.
-  string name = 2 [
-    (buf.validate.field).string = {
-      min_len: 1
-      max_len: 200
-    },
-    (buf.validate.field).cel = {
-      id: "name.printable"
-      message: "name must not contain control characters"
-      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
-    }
-  ];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
   // When it fires from now on.
   string cron = 3 [(buf.validate.field).string = {
     min_len: 1
