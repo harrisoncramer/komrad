@@ -1,0 +1,107 @@
+---
+import type { MarkdownHeading } from "astro";
+import { GUIDE_GROUPS, getGuides } from "../guides";
+import { link } from "../site";
+
+type Props = {
+  current: string;
+  headings: MarkdownHeading[];
+};
+
+const { current, headings } = Astro.props;
+const guides = await getGuides();
+const sections = headings.filter((heading) => heading.depth === 2);
+---
+
+<nav class="guide-sidebar" aria-label="Guides" data-pagefind-ignore>
+  {GUIDE_GROUPS.map((group) => (
+    <div class="group">
+      <p class="group-title">{group.title}</p>
+      <ul>
+        {guides
+          .filter((guide) => guide.data.group === group.id)
+          .map((guide) => (
+            <li>
+              <a
+                class="guide"
+                href={link(`/guides/${guide.id}`)}
+                aria-current={guide.id === current ? "page" : undefined}
+              >
+                {guide.data.title}
+              </a>
+              {guide.id === current && sections.length > 0 && (
+                <ul class="sections">
+                  {sections.map((heading) => (
+                    <li>
+                      <a class="section" href={`#${heading.slug}`} data-section={heading.slug}>
+                        {heading.text}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+      </ul>
+    </div>
+  ))}
+</nav>
+
+<style>
+  @reference "../styles/global.css";
+
+  .guide-sidebar {
+    @apply flex flex-col gap-6 text-sm;
+  }
+
+  .group-title {
+    @apply mb-2 font-mono text-xs font-normal tracking-widest text-app-gray-dim uppercase;
+  }
+
+  .guide {
+    @apply block rounded-xs border-l-2 border-transparent py-1 pl-3 text-app-gray-light no-underline transition-colors hover:text-app-white;
+  }
+
+  .guide[aria-current="page"] {
+    @apply border-app-blue font-semibold text-app-white;
+  }
+
+  .sections {
+    @apply mt-1 mb-2 ml-3 flex flex-col border-l border-app-background-medium;
+  }
+
+  .section {
+    @apply -ml-px block border-l border-transparent py-1 pl-3 text-app-gray-dim no-underline transition-colors hover:text-app-gray;
+  }
+
+  .section[aria-current="location"] {
+    @apply border-app-blue text-app-blue;
+  }
+</style>
+
+<script>
+  const links = new Map(
+    [...document.querySelectorAll<HTMLAnchorElement>(".guide-sidebar [data-section]")].map((anchor) => [
+      anchor.dataset.section,
+      anchor,
+    ]),
+  );
+  const headings = [...links.keys()].flatMap((id) => {
+    const heading = id && document.getElementById(id);
+    return heading ? [heading] : [];
+  });
+
+  const mark = () => {
+    const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= 120);
+    const active = passed.at(-1)?.id;
+    links.forEach((anchor, id) => {
+      if (id === active) anchor.setAttribute("aria-current", "location");
+      else anchor.removeAttribute("aria-current");
+    });
+  };
+
+  if (headings.length > 0) {
+    mark();
+    document.addEventListener("scroll", mark, { passive: true });
+  }
+</script>

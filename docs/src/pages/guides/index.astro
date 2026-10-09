@@ -1,24 +1,9 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { getGuides } from "../../guides";
+import { GUIDE_GROUPS, getGuides } from "../../guides";
 import { link } from "../../site";
 
 const guides = await getGuides();
-
-const groups = [
-  {
-    id: "start",
-    title: "Getting started",
-  },
-  {
-    id: "operations",
-    title: "Operations",
-  },
-  {
-    id: "architecture",
-    title: "Architecture",
-  },
-] as const;
 
 const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1).padStart(2, "0") }));
 ---
@@ -28,7 +13,7 @@ const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1
     <h1>Guides</h1>
     <p>These guides explain how to install and run komrad, on your own machine or on a remote instance.</p>
   </header>
-  {groups.map((group) => {
+  {GUIDE_GROUPS.map((group) => {
     const entries = numbered.filter(({ guide }) => guide.data.group === group.id);
     return (
       <section class="group" id={group.id}>

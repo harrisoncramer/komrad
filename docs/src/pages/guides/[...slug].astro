@@ -1,6 +1,7 @@
 ---
 import { render } from "astro:content";
 import DocPage from "../../layouts/DocPage.astro";
+import GuideSidebar from "../../components/GuideSidebar.astro";
 import { getGuides } from "../../guides";
 import { link } from "../../site";
 
@@ -13,7 +14,7 @@ export async function getStaticPaths() {
 }
 
 const { guide, prev, next } = Astro.props;
-const { Content } = await render(guide);
+const { Content, headings } = await render(guide);
 const neighbour = (entry: typeof guide | undefined) =>
   entry && { title: entry.data.title, href: link(`/guides/${entry.id}`) };
 ---
@@ -25,5 +26,6 @@ const neighbour = (entry: typeof guide | undefined) =>
   prev={neighbour(prev)}
   next={neighbour(next)}
 >
+  <GuideSidebar slot="sidebar" current={guide.id} headings={headings} />
   <Content />
 </DocPage>

@@ -30,9 +30,20 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
       <Search />
     </Header>
     <slot name="hero" />
-    <main class="mx-auto max-w-[900px] px-6 py-6">
-      <slot />
-    </main>
+    {Astro.slots.has("sidebar") ? (
+      <div class="mx-auto flex max-w-[1240px] justify-center gap-12 px-6">
+        <aside class="sidebar">
+          <slot name="sidebar" />
+        </aside>
+        <main class="min-w-0 max-w-[900px] flex-1 py-6">
+          <slot />
+        </main>
+      </div>
+    ) : (
+      <main class="mx-auto max-w-[900px] px-6 py-6">
+        <slot />
+      </main>
+    )}
     <script>
       if (location.hash) {
         history.scrollRestoration = "manual";
@@ -44,3 +55,11 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     </script>
   </body>
 </html>
+
+<style>
+  @reference "../styles/global.css";
+
+  .sidebar {
+    @apply sticky top-20 hidden max-h-[calc(100vh-6rem)] w-60 shrink-0 self-start overflow-y-auto py-8 lg:block;
+  }
+</style>

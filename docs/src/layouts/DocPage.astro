@@ -16,6 +16,7 @@ const { title, description, filePath, prev, next } = Astro.props;
 ---
 
 <Layout title={title} description={description}>
+  {Astro.slots.has("sidebar") && <slot name="sidebar" slot="sidebar" />}
   <article data-pagefind-body>
     <h1 class="title" data-pagefind-meta="title">
       {title}
