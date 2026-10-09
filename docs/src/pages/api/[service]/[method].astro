@@ -4,9 +4,12 @@ import CallTabs from "../../../components/reference/CallTabs.astro";
 import Heading from "../../../components/reference/Heading.astro";
 import EnumTable from "../../../components/reference/EnumTable.astro";
 import MessageTable from "../../../components/reference/MessageTable.astro";
+import Sidebar from "../../../components/Sidebar.astro";
+import ParentLink from "../../../components/reference/ParentLink.astro";
 import { anchor, api, kebab, messageOf, prose, referencedTypes } from "../../../reference";
 import type { Field } from "../../../reference/types";
 import { link } from "../../../site";
+import { apiSidebar } from "../../../sidebar";
 
 export function getStaticPaths() {
   return api.services.flatMap((service) =>
@@ -66,21 +69,22 @@ const types = referencedTypes([method.request, method.response]);
 const nested = types.messages.filter(([name]) => name !== method.request && name !== method.response);
 
 const traits = [
-  method.readOnly ? "read-only" : "writes",
-  method.idempotent ? "idempotent" : "not idempotent",
-  ...(method.destructive ? ["destructive"] : []),
-  ...(method.mcp ? ["MCP tool"] : ["CLI only"]),
+  method.readOnly ? { label: "read-only" } : { label: "writes", tone: "warn" },
+  { label: method.idempotent ? "idempotent" : "not idempotent" },
+  ...(method.destructive ? [{ label: "destructive", tone: "danger" }] : []),
+  { label: method.mcp ? "MCP tool" : "CLI only" },
 ];
 ---
 
 <DocPage title={method.tool} description={method.summary}>
+  <Sidebar slot="sidebar" label="API" groups={apiSidebar({ service: service.slug, method: method.slug })} />
   <p class="traits">
-    <a href={link(`/api/${service.slug}`)} class="trait trait-link">
-      {service.title}
-    </a>
     {traits.map((trait) => (
-      <span class="trait">{trait}</span>
+      <span class="trait" data-tone={trait.tone}>
+        {trait.label}
+      </span>
     ))}
+    <ParentLink href={link(`/api/${service.slug}`)}>{service.title}</ParentLink>
   </p>
 
   {details && <div set:html={prose(details)} />}
