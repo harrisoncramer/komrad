@@ -178,6 +178,7 @@ func TestList(t *testing.T) {
 		{
 			name:       "an id that is not an id lists nothing",
 			workflowID: "not-an-id",
+			want:       []string{},
 		},
 		{
 			name:       "the live tasks list the newest first",
