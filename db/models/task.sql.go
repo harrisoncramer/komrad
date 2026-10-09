@@ -123,7 +123,7 @@ func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*Task, error)
 	return &i, err
 }
 
-const isSlugTaken = `-- name: IsSlugTaken :one
+const isTaskSlugTaken = `-- name: IsTaskSlugTaken :one
 SELECT
     EXISTS (
         SELECT
@@ -134,8 +134,8 @@ SELECT
             slug = $1)::boolean
 `
 
-func (q *Queries) IsSlugTaken(ctx context.Context, slug string) (bool, error) {
-	row := q.db.QueryRow(ctx, isSlugTaken, slug)
+func (q *Queries) IsTaskSlugTaken(ctx context.Context, slug string) (bool, error) {
+	row := q.db.QueryRow(ctx, isTaskSlugTaken, slug)
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err

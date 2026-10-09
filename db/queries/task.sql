@@ -48,7 +48,7 @@ WHERE
     id = sqlc.arg('id')
     AND archived_at IS NULL;
 
--- name: IsSlugTaken :one
+-- name: IsTaskSlugTaken :one
 SELECT
     EXISTS (
         SELECT

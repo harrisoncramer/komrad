@@ -157,7 +157,7 @@ func (s *TaskStore) Archive(ctx context.Context, id string) error {
 
 // IsSlugTaken reports whether any task, archived ones included, already holds a slug.
 func (s *TaskStore) IsSlugTaken(ctx context.Context, slug string) (bool, error) {
-	taken, err := s.queries.IsSlugTaken(ctx, slug)
+	taken, err := s.queries.IsTaskSlugTaken(ctx, slug)
 	if err != nil {
 		return false, fmt.Errorf("failed to check whether task slug %q is taken: %w", slug, err)
 	}
