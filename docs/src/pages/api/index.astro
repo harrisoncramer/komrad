@@ -179,8 +179,12 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
     </p>
   </section>
 
-  <section class="convention lg:hidden">
-    <Heading id="services">Services</Heading>
-    <IndexList items={api.services.map((service) => ({ href: link(`/api/${service.slug}`), title: service.title }))} />
-  </section>
+  <div class="lg:hidden">
+    <section class="convention">
+      <Heading id="services">Services</Heading>
+      <IndexList
+        items={api.services.map((service) => ({ href: link(`/api/${service.slug}`), title: service.title }))}
+      />
+    </section>
+  </div>
 </DocPage>
