@@ -104,12 +104,19 @@ const { label, groups } = Astro.props;
     return headings.filter((heading) => heading.getBoundingClientRect().top <= READ_LINE).at(-1)?.id;
   };
 
+  const followScroll = (active: string | undefined) => {
+    const hash = active ? `#${active}` : "";
+    if (decodeURIComponent(location.hash) === hash) return;
+    history.replaceState(history.state, "", `${location.pathname}${location.search}${hash}`);
+  };
+
   const mark = () => {
     const active = activeId();
     links.forEach((anchor, id) => {
       if (id === active) anchor.setAttribute("aria-current", "location");
       else anchor.removeAttribute("aria-current");
     });
+    if (!pinned) followScroll(active);
   };
 
   const unpin = () => {
