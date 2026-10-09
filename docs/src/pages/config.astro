@@ -1,7 +1,6 @@
 ---
 import DocPage from "../layouts/DocPage.astro";
 import Heading from "../components/reference/Heading.astro";
-import JumpBar from "../components/reference/JumpBar.astro";
 import Sidebar from "../components/Sidebar.astro";
 import { config, prose } from "../reference";
 import type { Section } from "../reference/types";
@@ -15,7 +14,6 @@ for (const section of sections) {
   if (!firstOf.has(table)) firstOf.set(table, section.path);
 }
 const tables = [...firstOf].map(([table, path]) => ({ id: path || "top-level", label: table || "top level" }));
-const jumps = tables.map(({ id, label }) => ({ href: `#${id}`, label }));
 ---
 
 <DocPage
@@ -23,7 +21,6 @@ const jumps = tables.map(({ id, label }) => ({ href: `#${id}`, label }));
   description="Every key of ~/.config/komrad/config.toml with its built-in default. Write only the keys you are changing; an unknown key is an error."
 >
   <Sidebar slot="sidebar" label="Configuration" groups={configSidebar(tables)} />
-  <JumpBar items={jumps} />
   {sections.map((section) => (
     <section class="type">
       <Heading id={section.path || "top-level"}>
