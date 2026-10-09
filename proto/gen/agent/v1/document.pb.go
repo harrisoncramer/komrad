@@ -11,6 +11,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	v1 "komrad/proto/gen/pagination/v1"
+	_ "komrad/proto/gen/rules/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -1486,7 +1487,7 @@ var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc9\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xc9\x01\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
@@ -1497,11 +1498,10 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
-	"\aversion\x18\b \x01(\x05R\aversion\"\xb7\x02\n" +
+	"\aversion\x18\b \x01(\x05R\aversion\"\xbb\x02\n" +
 	"\x14WriteDocumentRequest\x12\x1c\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\x1e\n" +
-	"\x04name\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\"\n" +
+	"\x04name\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x04name\x12\x1d\n" +
 	"\x04type\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dR\x04type\x12!\n" +
 	"\x04body\x18\x04 \x01(\tB\v\xbaH\br\x06\x10\x01(\x80\x80@H\x00R\x04body\x12\x1d\n" +
 	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04path\x12&\n" +
@@ -1569,10 +1569,11 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\x1fListDocumentTypeVersionsRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"]\n" +
 	" ListDocumentTypeVersionsResponse\x129\n" +
-	"\bversions\x18\x01 \x03(\v2\x1d.agent.v1.DocumentTypeVersionR\bversions\"\xb9\x01\n" +
+	"\bversions\x18\x01 \x03(\v2\x1d.agent.v1.DocumentTypeVersionR\bversions\"\xbd\x01\n" +
 	"\x18WriteDocumentTypeRequest\x12\x1c\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12\x1d\n" +
-	"\x04name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dR\x04name\x12%\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12!\n" +
+	"\x04name\x18\x02 \x01(\tB\r\xbaH\n" +
+	"r\bػ\x18\x01\x10\x01\x18dR\x04name\x12%\n" +
 	"\acontext\x18\x03 \x01(\tB\v\xbaH\br\x06\x10\x01(\x80\x80@R\acontext\x12&\n" +
 	"\aversion\x18\x04 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x01R\aversion\x88\x01\x01B\x05\n" +
 	"\x03_idB\n" +

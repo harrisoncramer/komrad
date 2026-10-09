@@ -24,6 +24,8 @@ type Row struct {
 	Documents int32
 	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
 	DocumentsUpdatedAt *time.Time
+	// TaskSlug is the slug of the task the agent works on, nil when it has none.
+	TaskSlug *string
 }
 
 // Page is one page of rows: how many, from where, and whether the archived ones.
@@ -82,6 +84,7 @@ func fromWatched(watched []*models.ListWatchedAgentsRow) []Row {
 			FailedRunLog:       fact.FailedRunLog,
 			Documents:          fact.Documents,
 			DocumentsUpdatedAt: fact.DocumentsUpdatedAt,
+			TaskSlug:           fact.TaskSlug,
 		}
 	})
 }

@@ -14,6 +14,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -31,6 +32,7 @@ type World struct {
 	ReviewThreads map[string]*agentv1.ReviewThread
 	Worktrees     map[string]*worktreev1.WatchedWorktree
 	DocumentTypes map[string]*agentv1.DocumentType
+	Tasks         map[string]*taskv1.Task
 }
 
 // Changed is the keys a message put or dropped, by resource.
@@ -135,6 +137,10 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.DocumentTypes[row.DocumentType.GetId()] = row.DocumentType
 
 		return watchv1.Resource_RESOURCE_DOCUMENT_TYPE, row.DocumentType.GetId()
+	case *watchv1.Row_Task:
+		w.Tasks[row.Task.GetId()] = row.Task
+
+		return watchv1.Resource_RESOURCE_TASK, row.Task.GetId()
 	case nil:
 	}
 
@@ -172,6 +178,9 @@ func (w *World) ensureMaps() {
 	if w.DocumentTypes == nil {
 		w.DocumentTypes = map[string]*agentv1.DocumentType{}
 	}
+	if w.Tasks == nil {
+		w.Tasks = map[string]*taskv1.Task{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -197,6 +206,8 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Worktrees, key)
 	case watchv1.Resource_RESOURCE_DOCUMENT_TYPE:
 		delete(w.DocumentTypes, key)
+	case watchv1.Resource_RESOURCE_TASK:
+		delete(w.Tasks, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED:
 	}
 }

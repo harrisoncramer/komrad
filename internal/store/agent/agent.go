@@ -147,9 +147,12 @@ type Agent struct {
 	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
 	// follows.
 	ParentAgentID *string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	Branch        *string
+
+	// TaskID is the task the agent works on, nil for an orchestrator or once its task is deleted.
+	TaskID    *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Branch    *string
 
 	// RepositoryURL is the canonical web address of the repository the checkout pushes to.
 	RepositoryURL *string
@@ -319,6 +322,7 @@ func FromRow(agent models.Agent) Agent {
 		SpawnedByAgentID:   agent.SpawnedByAgentID,
 		RequestedByAgentID: agent.RequestedByAgentID,
 		ParentAgentID:      agent.ParentAgentID,
+		TaskID:             agent.TaskID,
 		CreatedAt:          agent.CreatedAt,
 		UpdatedAt:          agent.UpdatedAt,
 		Branch:             agent.Branch,

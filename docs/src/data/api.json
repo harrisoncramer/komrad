@@ -58,7 +58,7 @@
             "orchestrator"
           ],
           "summary": "Launch a new agent with an opening prompt, which is everything it has to go on.",
-          "description": "Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. resource_exhausted means the panel is full.",
+          "description": "Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. Pass task, by id or slug, to put it on a task made with create_task, or leave it unset to give it a task of its own. A child shares its parent's task. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1639,6 +1639,90 @@
           "response": "google.protobuf.Empty"
         }
       ]
+    },
+    {
+      "slug": "task",
+      "title": "Task",
+      "name": "task.v1.TaskService",
+      "description": "TaskService reads and writes the tasks agents work toward.",
+      "methods": [
+        {
+          "slug": "create-task",
+          "name": "CreateTask",
+          "path": "/task.v1.TaskService/CreateTask",
+          "command": "komrad rpc create-task",
+          "tool": "create_task",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Create a task, the outcome one or more agents work toward.",
+          "description": "Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": false,
+          "request": "task.v1.CreateTaskRequest",
+          "response": "task.v1.CreateTaskResponse"
+        },
+        {
+          "slug": "get-task",
+          "name": "GetTask",
+          "path": "/task.v1.TaskService/GetTask",
+          "command": "komrad rpc get-task",
+          "tool": "get_task",
+          "mcp": true,
+          "roles": [
+            "implementer",
+            "reviewer",
+            "orchestrator"
+          ],
+          "summary": "Fetch one task by id or slug, with its whole goal.",
+          "description": "Fetch one task by id or slug, with its whole goal.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "task.v1.GetTaskRequest",
+          "response": "task.v1.GetTaskResponse"
+        },
+        {
+          "slug": "list-tasks",
+          "name": "ListTasks",
+          "path": "/task.v1.TaskService/ListTasks",
+          "command": "komrad rpc list-tasks",
+          "tool": "list_tasks",
+          "mcp": true,
+          "roles": [
+            "implementer",
+            "reviewer",
+            "orchestrator"
+          ],
+          "summary": "List a workflow's tasks, newest first.",
+          "description": "List a workflow's tasks, newest first. Archived tasks are left out unless archived is set.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "task.v1.ListTasksRequest",
+          "response": "task.v1.ListTasksResponse"
+        },
+        {
+          "slug": "archive-task",
+          "name": "ArchiveTask",
+          "path": "/task.v1.TaskService/ArchiveTask",
+          "command": "komrad rpc archive-task",
+          "tool": "archive_task",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Archive a task by id or slug, keeping its record.",
+          "description": "Archive a task by id or slug, keeping its record. Its agents keep running, and its slug is never reused.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": false,
+          "request": "task.v1.ArchiveTaskRequest",
+          "response": "google.protobuf.Empty"
+        }
+      ]
     }
   ],
   "messages": {
@@ -2274,6 +2358,26 @@
           "oneof": "",
           "rules": [],
           "description": "The agent that took the hold, empty when the panel took it or nobody is holding it."
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task it works on, unset for an orchestrator or once its task is deleted."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The slug of that task, unset whenever task_id is."
         }
       ]
     },
@@ -2504,6 +2608,16 @@
           "oneof": "",
           "rules": [],
           "description": "Which agent to attach this one to as its child. A child runs in its parent's directory, so dir and provision_enabled are refused, and workflow_id must be the parent's own. Neither a child nor an orchestrator may be a parent."
+        },
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Which task it works on, by id or slug, which must be in workflow_id. Unset to have komrad make one from its title and prompt. A child always works on its parent's task, so this is refused with parent_agent_id."
         }
       ]
     },
@@ -8562,6 +8676,261 @@
           "oneof": "",
           "rules": [],
           "description": "Whether later launches stay out of the sidebar, leaving existing agents alone."
+        }
+      ]
+    },
+    "task.v1.ArchiveTaskRequest": {
+      "name": "ArchiveTaskRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which task to archive, by id or by slug."
+        }
+      ]
+    },
+    "task.v1.CreateTaskRequest": {
+      "name": "CreateTaskRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 80 characters",
+            "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
+          ],
+          "description": "The lowercase kebab-case name to call it by, which no other task has ever had."
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 200 characters"
+          ],
+          "description": "What to show it as in the panel."
+        },
+        {
+          "name": "goal",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 50000 characters"
+          ],
+          "description": "What it is meant to achieve, as markdown."
+        },
+        {
+          "name": "workflow_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which workflow to file it under. Every agent on it must be in the same one."
+        }
+      ]
+    },
+    "task.v1.CreateTaskResponse": {
+      "name": "CreateTaskResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "Task",
+          "ref": "task.v1.Task",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task as created."
+        }
+      ]
+    },
+    "task.v1.GetTaskRequest": {
+      "name": "GetTaskRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which task to read, by id or by slug."
+        }
+      ]
+    },
+    "task.v1.GetTaskResponse": {
+      "name": "GetTaskResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "Task",
+          "ref": "task.v1.Task",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task, with its goal whole."
+        }
+      ]
+    },
+    "task.v1.ListTasksRequest": {
+      "name": "ListTasksRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "workflow_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which workflow's tasks to list."
+        },
+        {
+          "name": "archived",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "True to list the archived tasks and only those."
+        }
+      ]
+    },
+    "task.v1.ListTasksResponse": {
+      "name": "ListTasksResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "tasks",
+          "type": "Task",
+          "ref": "task.v1.Task",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The workflow's tasks, newest first."
+        }
+      ]
+    },
+    "task.v1.Task": {
+      "name": "Task",
+      "description": "Task is one outcome a person wants, which the agents linked to it work toward.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The handle every other call names this task by, alongside its slug."
+        },
+        {
+          "name": "workflow_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Which workflow it is filed under, which every agent on it shares."
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lowercase kebab-case name it is called by, unique and never reused."
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What the panel shows it as."
+        },
+        {
+          "name": "goal",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What it is meant to achieve, as markdown."
+        },
+        {
+          "name": "created_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When it was made, in RFC 3339."
+        },
+        {
+          "name": "updated_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When it was last changed, in RFC 3339."
+        },
+        {
+          "name": "archived_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When it was archived, unset while it is live."
         }
       ]
     },

@@ -13,6 +13,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
 	schedulestore "komrad/internal/store/schedule"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 )
@@ -30,6 +31,7 @@ func buildWatchLoaders(st *stores) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW_THREAD, st.reviewThreads, renderWatchedReviewThread),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKTREE, st.worktrees, renderWatchedWorktree),
 		watch.NewLoader(watchv1.Resource_RESOURCE_DOCUMENT_TYPE, st.documentTypes, renderWatchedDocumentType),
+		watch.NewLoader(watchv1.Resource_RESOURCE_TASK, st.tasks, renderWatchedTask),
 	}
 }
 
@@ -91,4 +93,10 @@ func renderWatchedDocumentType(row documenttypestore.Type) (string, *watchv1.Row
 	documentType := render.DocumentType(row)
 
 	return documentType.GetId(), &watchv1.Row{Row: &watchv1.Row_DocumentType{DocumentType: documentType}}
+}
+
+func renderWatchedTask(row taskstore.Task) (string, *watchv1.Row) {
+	task := render.Task(row)
+
+	return task.GetId(), &watchv1.Row{Row: &watchv1.Row_Task{Task: task}}
 }

@@ -479,6 +479,8 @@ type Agent struct {
 	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	Sequence           AgentSequence
 	RequestedByAgentID *string
+	// The task the agent works on, null for an orchestrator or once its task is deleted.
+	TaskID *string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
@@ -1115,6 +1117,22 @@ type ScheduleRun struct {
 	StartedAt    time.Time
 	FinalizedAt  *time.Time
 	EngineID     string
+}
+
+// One outcome a person wants, which the agents linked to it work toward.
+type Task struct {
+	ID         string
+	WorkflowID string
+	// The lowercase kebab-case name agents and people call the task by, unique within an engine and never reused.
+	Slug  string
+	Title string
+	// What the task is meant to achieve, as markdown.
+	Goal       string
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
 }
 
 // A named group of related agents. It is grouping only. Nothing here runs.

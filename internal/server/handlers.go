@@ -19,6 +19,7 @@ import (
 	rpcloop "komrad/internal/rpc/loop"
 	rpcpullrequest "komrad/internal/rpc/pullrequest"
 	rpcschedule "komrad/internal/rpc/schedule"
+	rpctask "komrad/internal/rpc/task"
 	rpcterminal "komrad/internal/rpc/terminal"
 	rpcwatch "komrad/internal/rpc/watch"
 	rpcworkflow "komrad/internal/rpc/workflow"
@@ -35,6 +36,7 @@ import (
 	loopv1komrad "komrad/proto/gen/loop/v1/loopv1komrad"
 	pullrequestv1komrad "komrad/proto/gen/pullrequest/v1/pullrequestv1komrad"
 	schedulev1komrad "komrad/proto/gen/schedule/v1/schedulev1komrad"
+	taskv1komrad "komrad/proto/gen/task/v1/taskv1komrad"
 	terminalv1komrad "komrad/proto/gen/terminal/v1/terminalv1komrad"
 	watchv1komrad "komrad/proto/gen/watch/v1/watchv1komrad"
 	workflowv1komrad "komrad/proto/gen/workflow/v1/workflowv1komrad"
@@ -108,6 +110,9 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	}), options...)
 	schedulev1komrad.RegisterScheduleService(mux, rpcschedule.NewHandler(rpcschedule.NewHandlerParams{
 		Schedules: svc.schedule,
+	}), options...)
+	taskv1komrad.RegisterTaskService(mux, rpctask.NewHandler(rpctask.NewHandlerParams{
+		Tasks: svc.tasks,
 	}), options...)
 	configv1komrad.RegisterConfigService(mux, rpcconfig.NewHandler(svc.loadConfig), options...)
 	hookv1komrad.RegisterHookService(mux, rpchook.NewHandler(svc.script), options...)

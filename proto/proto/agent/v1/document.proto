@@ -4,6 +4,7 @@ package agent.v1;
 
 import "buf/validate/validate.proto";
 import "pagination/v1/pagination.proto";
+import "rules/v1/rules.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
@@ -33,6 +34,7 @@ message WriteDocumentRequest {
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
+    [rules.v1.printable]: true
   }];
   // The name of the document type to write it as, one list_document_types returns.
   string type = 3 [(buf.validate.field).string = {
@@ -175,6 +177,7 @@ message WriteDocumentTypeRequest {
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 100
+    [rules.v1.printable]: true
   }];
   // The markdown an agent reads before writing a document of this type.
   string context = 3 [(buf.validate.field).string = {

@@ -365,6 +365,10 @@ type Agent struct {
 	HeldAt string `protobuf:"bytes,36,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
 	// The agent that took the hold, empty when the panel took it or nobody is holding it.
 	HeldByAgentId string `protobuf:"bytes,37,opt,name=held_by_agent_id,json=heldByAgentId,proto3" json:"held_by_agent_id,omitempty"`
+	// The task it works on, unset for an orchestrator or once its task is deleted.
+	TaskId *string `protobuf:"bytes,38,opt,name=task_id,json=taskId,proto3,oneof" json:"task_id,omitempty"`
+	// The slug of that task, unset whenever task_id is.
+	TaskSlug      *string `protobuf:"bytes,39,opt,name=task_slug,json=taskSlug,proto3,oneof" json:"task_slug,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -654,6 +658,20 @@ func (x *Agent) GetHeldAt() string {
 func (x *Agent) GetHeldByAgentId() string {
 	if x != nil {
 		return x.HeldByAgentId
+	}
+	return ""
+}
+
+func (x *Agent) GetTaskId() string {
+	if x != nil && x.TaskId != nil {
+		return *x.TaskId
+	}
+	return ""
+}
+
+func (x *Agent) GetTaskSlug() string {
+	if x != nil && x.TaskSlug != nil {
+		return *x.TaskSlug
 	}
 	return ""
 }
@@ -1064,6 +1082,10 @@ type CreateAgentRequest struct {
 	// dir and provision_enabled are refused, and workflow_id must be the parent's own. Neither a
 	// child nor an orchestrator may be a parent.
 	ParentAgentId *string `protobuf:"bytes,11,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
+	// Which task it works on, by id or slug, which must be in workflow_id. Unset to have komrad
+	// make one from its title and prompt. A child always works on its parent's task, so this is
+	// refused with parent_agent_id.
+	Task          *string `protobuf:"bytes,12,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1150,6 +1172,13 @@ func (x *CreateAgentRequest) GetProvisionEnabled() bool {
 func (x *CreateAgentRequest) GetParentAgentId() string {
 	if x != nil && x.ParentAgentId != nil {
 		return *x.ParentAgentId
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
 	}
 	return ""
 }
@@ -3278,7 +3307,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xfa\v\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xd4\f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -3325,7 +3354,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11moved_since_round\x18\" \x01(\tR\x0fmovedSinceRound\x124\n" +
 	"\tdiff_stat\x18# \x01(\v2\x12.agent.v1.DiffStatH\vR\bdiffStat\x88\x01\x01\x12\x17\n" +
 	"\aheld_at\x18$ \x01(\tR\x06heldAt\x12'\n" +
-	"\x10held_by_agent_id\x18% \x01(\tR\rheldByAgentIdB\x0e\n" +
+	"\x10held_by_agent_id\x18% \x01(\tR\rheldByAgentId\x12\x1c\n" +
+	"\atask_id\x18& \x01(\tH\fR\x06taskId\x88\x01\x01\x12 \n" +
+	"\ttask_slug\x18' \x01(\tH\rR\btaskSlug\x88\x01\x01B\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\x12\n" +
@@ -3338,7 +3369,11 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0f_failed_run_logB\x17\n" +
 	"\x15_documents_updated_atB\f\n" +
 	"\n" +
-	"_diff_stat\"\xc2\x03\n" +
+	"_diff_statB\n" +
+	"\n" +
+	"\b_task_idB\f\n" +
+	"\n" +
+	"_task_slug\"\xc2\x03\n" +
 	"\bAgentRow\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1f\n" +
 	"\vunread_mail\x18\x02 \x01(\bR\n" +
@@ -3377,11 +3412,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12*\n" +
 	"\x06agents\x18\x01 \x03(\v2\x12.agent.v1.AgentRowR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\x99\x04\n" +
+	"\x10_next_page_token\"\xe7\x03\n" +
 	"\x12CreateAgentRequest\x12#\n" +
-	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
-	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
-	"\x0ftitle.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x05title\x12\"\n" +
+	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\"\n" +
+	"\x05title\x18\x02 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12(\n" +
 	"\vworkflow_id\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"workflowId\x12/\n" +
@@ -3389,17 +3423,18 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x120\n" +
 	"\x11provision_enabled\x18\b \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x124\n" +
-	"\x0fparent_agent_id\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\rparentAgentId\x88\x01\x01B\x12\n" +
+	"\x0fparent_agent_id\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\rparentAgentId\x88\x01\x01\x12 \n" +
+	"\x04task\x18\f \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\x04task\x88\x01\x01B\x12\n" +
 	"\x10_idempotency_keyB\x14\n" +
 	"\x12_provision_enabledB\x12\n" +
-	"\x10_parent_agent_id\"<\n" +
+	"\x10_parent_agent_idB\a\n" +
+	"\x05_task\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\x9d\x03\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xb8\x02\n" +
 	"\x14RequestReviewRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12'\n" +
-	"\bagent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\x86\x01\n" +
-	"\x05title\x18\x03 \x01(\tBp\xbaHm\xba\x01e\n" +
-	"\x16review.title.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x05title\x128\n" +
+	"\bagent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
+	"\x05title\x18\x03 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x128\n" +
 	"\x0fidempotency_key\x18\x04 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x01R\x0eidempotencyKey\x88\x01\x01\x12/\n" +
 	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12\"\n" +
@@ -3408,14 +3443,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10_idempotency_key\"`\n" +
 	"\x15RequestReviewResponse\x12+\n" +
 	"\breviewer\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\breviewer\x12\x1a\n" +
-	"\bguidance\x18\x02 \x01(\tR\bguidance\"\xa8\x03\n" +
+	"\bguidance\x18\x02 \x01(\tR\bguidance\"\xc4\x02\n" +
 	"\fAdoptRequest\x12 \n" +
 	"\x03ref\x18\x01 \x01(\tB\x0e\xbaH\vr\t\xa0\xbb\x18\x01\x10\x01\x18\x90\x03R\x03ref\x12(\n" +
 	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"workflowId\x12!\n" +
-	"\x06prompt\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\x12\x85\x01\n" +
-	"\x05title\x18\x04 \x01(\tBo\xbaHl\xba\x01d\n" +
-	"\x15adopt.title.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x05title\x12\"\n" +
+	"\x06prompt\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\x12\"\n" +
+	"\x05title\x18\x04 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x12\"\n" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\a \x01(\tB\n" +
@@ -3492,15 +3526,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vinterrupted\x18\x04 \x01(\bR\vinterrupted\"C\n" +
 	"\x10SetHiddenRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x16\n" +
-	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\xdd\x02\n" +
-	"\x13RecordReportRequest\x12\x8a\x01\n" +
-	"\x06reason\x18\x01 \x01(\tBr\xbaHo\xba\x01g\n" +
-	"\x17report.reason.printable\x12*reason must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x06reason\x12\x1d\n" +
+	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\x87\x01\n" +
+	"\x13RecordReportRequest\x12$\n" +
+	"\x06reason\x18\x01 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x06reason\x12\x1d\n" +
 	"\n" +
-	"turn_ended\x18\x02 \x01(\bR\tturnEnded\x12\x99\x01\n" +
+	"turn_ended\x18\x02 \x01(\bR\tturnEnded\x12+\n" +
 	"\n" +
-	"turn_error\x18\x03 \x01(\tBz\xbaHw\xba\x01o\n" +
-	"\x1breport.turn_error.printable\x12.turn_error must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\tturnError\".\n" +
+	"turn_error\x18\x03 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\tturnError\".\n" +
 	"\x13MarkRunsReadRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xf2\x01\n" +
 	"\n" +
@@ -3541,11 +3573,11 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"9\n" +
 	"\x13DeleteAgentsRequest\x12\"\n" +
 	"\x03ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x03ids\"\xad\x02\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x03ids\"\xf9\x01\n" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
-	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name*\x87\x02\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xc9\x01\n" +
+	"\x04name\x18\x02 \x01(\tB\xb4\x01\xbaH\xb0\x01\xba\x01\xa1\x01\n" +
+	"\rname.storable\x126name must not contain spaces, colons, dots, or slashes\x1aX!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/')r\tػ\x18\x01\x10\x01\x18\xc8\x01R\x04name*\x87\x02\n" +
 	"\n" +
 	"AgentState\x12\x1b\n" +
 	"\x17AGENT_STATE_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -3569,12 +3601,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xd6z\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\x9f|\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
-	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"a\x9a\xb5\x18Z\b\x01\x10\x01\x1a\tget_agent\"DFetch one agent by id, archived ones included, with its full prompt.B\x03\x01\x02\x03\x90\x02\x01\x12\x8e\x03\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xc1\x02\x9a\xb5\x18\xbc\x02\b\x01\x10\x01\x1a\fcreate_agent\"\xa1\x02Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. resource_exhausted means the panel is full.(\x00B\x02\x01\x03\x12\xb3\x02\n" +
+	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"a\x9a\xb5\x18Z\b\x01\x10\x01\x1a\tget_agent\"DFetch one agent by id, archived ones included, with its full prompt.B\x03\x01\x02\x03\x90\x02\x01\x12\xd7\x04\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x8a\x04\x9a\xb5\x18\x85\x04\b\x01\x10\x01\x1a\fcreate_agent\"\xea\x03Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. Pass task, by id or slug, to put it on a task made with create_task, or leave it unset to give it a task of its own. A child shares its parent's task. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.(\x00B\x02\x01\x03\x12\xb3\x02\n" +
 	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xe0\x01\x9a\xb5\x18\xdb\x01\b\x01\x10\x01\x1a\x0erequest_review\"\xbf\x01Spawn a reviewer for your committed work, as your child in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person.(\x00B\x01\x01\x12\x93\x02\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\xd8\x01\x9a\xb5\x18\xd3\x01\b\x01\x10\x01\x1a\x05adopt\"\xc0\x01Start an agent on a branch that already exists, such as one a person pushed. Nothing here creates, resets or deletes the branch, and a branch that already has an agent answers with that agent.(\x00B\x01\x03\x12\xcf\x01\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8d\x01\x9a\xb5\x18\x85\x01\b\x01\x10\x01\x1a\x10set_agent_hidden\"hHide an agent's row from the panel, or show it again. The agent keeps running. Hide one only when asked.(\x00B\x01\x03\x90\x02\x02\x12\xd0\x01\n" +
