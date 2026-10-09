@@ -113,8 +113,16 @@ const { label, groups } = Astro.props;
     clicked = undefined;
   };
 
-  if (headings.length > 0) {
+  const followHash = () => {
     clicked = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash))?.id;
+  };
+
+  if (headings.length > 0) {
+    followHash();
+    window.addEventListener("hashchange", () => {
+      followHash();
+      mark();
+    });
     links.forEach((anchor, id) => {
       anchor.addEventListener("click", () => {
         clicked = id;
