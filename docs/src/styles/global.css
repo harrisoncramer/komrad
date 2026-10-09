@@ -513,12 +513,6 @@
   background: rgba(158, 196, 255, 0.08);
 }
 
-.doc-content .anchored:target {
-  border-radius: 4px;
-  background: rgba(158, 196, 255, 0.08);
-  box-shadow: 0 0 0 0.4rem rgba(158, 196, 255, 0.08);
-}
-
 @media (max-width: 639.98px) {
   .doc-content tr:target {
     margin: 0 -0.75rem;
