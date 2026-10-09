@@ -35,6 +35,7 @@ type app struct {
 	configSources  map[string]config.Source
 	tmux           *tmux.Client
 	self           string
+	debug          config.Debug
 }
 
 // selfPath is the binary a panel window runs, this one unless a test names another.
