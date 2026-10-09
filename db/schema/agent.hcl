@@ -839,6 +839,11 @@ table "agents" {
     type    = integer
     comment = "How many lines the agent's checkout removes since it left its base, null whenever lines_added is."
   }
+  column "task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task the agent works on, null for an orchestrator or once its task is deleted."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -880,6 +885,12 @@ table "agents" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "agents_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
   index "agents_name_active" {
     unique  = true
     columns = [column.workflow_id, column.name]
@@ -898,6 +909,9 @@ table "agents" {
   }
   index "agents_parent_agent_id" {
     columns = [column.parent_agent_id]
+  }
+  index "agents_task_id" {
+    columns = [column.task_id]
   }
   index "agents_idempotency_key" {
     unique  = true

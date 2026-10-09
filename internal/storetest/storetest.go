@@ -20,6 +20,7 @@ import (
 	runstore "komrad/internal/store/run"
 	schedulestore "komrad/internal/store/schedule"
 	screenstore "komrad/internal/store/screen"
+	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
@@ -44,6 +45,7 @@ type Stores struct {
 	PullRequests     *pullrequeststore.PullRequestStore
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
 	ForgeThreads     *pullrequeststore.ForgeThreadStore
+	Tasks            *taskstore.TaskStore
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -74,6 +76,7 @@ func Open(t *testing.T) *Stores {
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		ForgeThreads:     pullrequeststore.NewForgeThreadStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
+		Tasks:            taskstore.NewTaskStore(pool.GetDB()),
 	}
 }
 
@@ -166,6 +169,24 @@ func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflows
 	created, err := s.Workflows.Create(t.Context(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, created)
+
+	return created
+}
+
+// SeedTask creates a task and returns it, filing one with no workflow set under a workflow created
+// for it.
+func (s *Stores) SeedTask(t *testing.T, params taskstore.CreateParams) *taskstore.Task {
+	t.Helper()
+
+	if params.WorkflowID == "" {
+		params.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + params.Slug}).ID
+	}
+	if params.Title == "" {
+		params.Title = params.Slug
+	}
+
+	created, err := s.Tasks.Create(t.Context(), params)
+	require.NoError(t, err)
 
 	return created
 }

@@ -1312,3 +1312,11 @@ FROM
     agents
 WHERE
     id = @id;
+
+-- name: SetAgentTaskID :execrows
+UPDATE
+    agents
+SET
+    task_id = sqlc.narg('task_id')
+WHERE
+    id = sqlc.arg('id');
