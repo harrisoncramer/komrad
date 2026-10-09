@@ -1930,7 +1930,29 @@
           "default": "500"
         }
       ],
-      "sections": []
+      "sections": [
+        {
+          "path": "debug.pprof",
+          "description": "The settings for the pprof tool, go's debugger",
+          "settings": [
+            {
+              "key": "enabled",
+              "path": "debug.pprof.enabled",
+              "type": "boolean",
+              "description": "Whether pprof debugging is enabled or not",
+              "default": "false"
+            },
+            {
+              "key": "address",
+              "path": "debug.pprof.address",
+              "type": "string",
+              "description": "Where to serve the debugging endpoint",
+              "default": "\"\""
+            }
+          ],
+          "sections": []
+        }
+      ]
     },
     {
       "path": "connection",
