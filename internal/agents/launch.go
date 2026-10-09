@@ -452,9 +452,6 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
-	if parent != nil {
-		agent.TaskID = parent.TaskID
-	}
 
 	task, err := s.createUnderCeiling(ctx, creation{
 		agent:   &agent,
@@ -710,6 +707,8 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 		}
 		if task != nil {
 			c.agent.TaskID = &task.ID
+		} else if c.parent != nil {
+			c.agent.TaskID = c.parent.TaskID
 		}
 
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
