@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -197,6 +198,8 @@ func serve(ctx context.Context, params serveParams) error {
 		Protocols:         xhttp.NewServerProtocols(),
 	}
 
+	pprofServer := startPprof(ctx, logger, state.debug.Pprof)
+
 	served := make(chan error, 1)
 	go func() {
 		defer logging.LogAndRepanic(ctx)
@@ -221,6 +224,12 @@ func serve(ctx context.Context, params serveParams) error {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}
 
+	if pprofServer != nil {
+		if err := pprofServer.Shutdown(drain); err != nil {
+			logger.LogAttrs(ctx, slog.LevelError, "the pprof server would not shut down cleanly", logging.Err(err)...)
+		}
+	}
+
 	server.Stop(context.WithoutCancel(ctx))
 
 	if errors.Is(failure, http.ErrServerClosed) {
@@ -228,6 +237,27 @@ func serve(ctx context.Context, params serveParams) error {
 	}
 
 	return failure
+}
+
+func startPprof(ctx context.Context, logger *slog.Logger, settings config.Pprof) *http.Server {
+	if !settings.Enabled {
+		return nil
+	}
+
+	pprofServer := &http.Server{
+		Addr:              settings.Address,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		defer logging.LogAndRepanic(ctx)
+
+		if err := pprofServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.LogAttrs(ctx, slog.LevelError, "the pprof server stopped", logging.Err(err)...)
+		}
+	}()
+
+	return pprofServer
 }
 
 func closeWithin(logger *slog.Logger, what string, fn func()) {
