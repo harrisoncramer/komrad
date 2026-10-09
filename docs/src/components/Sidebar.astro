@@ -47,6 +47,43 @@ const { label, groups } = Astro.props;
   ))}
 </nav>
 
+<script is:inline>
+  (() => {
+    const nav = document.currentScript.previousElementSibling;
+    const scroller = nav.closest(".sidebar");
+    if (!scroller) return;
+    const key = `sidebar-scroll:${nav.getAttribute("aria-label")}`;
+    const offset = (anchor) => anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    const take = () => {
+      try {
+        const saved = sessionStorage.getItem(key);
+        sessionStorage.removeItem(key);
+        return saved ? JSON.parse(saved) : null;
+      } catch {
+        return null;
+      }
+    };
+    const saved = take();
+    const anchors = [...nav.querySelectorAll("a[href]")];
+    const clicked = saved && anchors.find((anchor) => anchor.getAttribute("href") === saved.href);
+    if (clicked) scroller.scrollTop += offset(clicked) - saved.top;
+    const current = nav.querySelector('a[aria-current="page"]');
+    if (current && (offset(current) < 0 || offset(current) + current.offsetHeight > scroller.clientHeight)) {
+      scroller.scrollTop += offset(current) - scroller.clientHeight / 2;
+    }
+    nav.addEventListener("click", (event) => {
+      const anchor = event.target.closest("a[href]");
+      const href = anchor?.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      try {
+        sessionStorage.setItem(key, JSON.stringify({ href, top: offset(anchor) }));
+      } catch {
+        return;
+      }
+    });
+  })();
+</script>
+
 <style>
   @reference "../styles/global.css";
 
