@@ -157,6 +157,7 @@ the service, or call an endpoint from a script.`,
 				claudeHarness.ID(): cfg.Harness.Claude.TrustLaunchDirs,
 				codexHarness.ID():  cfg.Harness.Codex.TrustLaunchDirs,
 			}
+			app.debug = cfg.Debug
 
 			return nil
 		},

@@ -11,6 +11,9 @@ import (
 // service works.
 const defaultLogLevel = "info"
 
+// The default endpoint for the pprof debugger, if enabled.
+const defaultPprofEndpoint = "localhost:6060"
+
 // Log is how much the background service writes about itself. Where it writes is not
 // configurable.
 type Log struct {
@@ -52,10 +55,23 @@ type Debug struct {
 	// How many frames are kept for one agent before the oldest is dropped. A number at or
 	// below zero takes the default.
 	FrameHistory int `mapstructure:"frame_history"`
+	// The settings for the pprof tool, go's debugger
+	Pprof Pprof `mapstructure:"pprof"`
+}
+
+type Pprof struct {
+	// Whether pprof debugging is enabled or not
+	Enabled bool `mapstructure:"enabled"`
+	// Where to serve the debugging endpoint
+	Address string `mapstructure:"address"`
 }
 
 func (d *Debug) normalize() {
 	if d.FrameHistory <= 0 {
 		d.FrameHistory = DefaultFrameHistory
+	}
+
+	if d.Pprof.Address == "" {
+		d.Pprof.Address = defaultPprofEndpoint
 	}
 }

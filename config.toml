@@ -734,6 +734,13 @@ frames        = false
 # below zero takes the default.
 frame_history = 500
 
+# The settings for the pprof tool, go's debugger
+[debug.pprof]
+# Whether pprof debugging is enabled or not
+enabled = false
+# Where to serve the debugging endpoint
+address = ""
+
 # Which komrad this is: the database, the address, the tmux socket, the cache.
 [connection]
 # The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as
