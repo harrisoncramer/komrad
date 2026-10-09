@@ -121,9 +121,9 @@ func (p Palette) Colors() theme.Colors {
 	}
 }
 
-// validatePalette refuses a colour the panel cannot draw, naming the key it was written under.
-func validatePalette(palette Palette) error {
-	if err := theme.Check(palette.Colors()); err != nil {
+// validate refuses a colour the panel cannot draw, naming the key it was written under.
+func (p Palette) validate() error {
+	if err := theme.Check(p.Colors()); err != nil {
 		return fmt.Errorf("palette: %w", err)
 	}
 

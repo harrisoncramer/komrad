@@ -196,14 +196,14 @@ func (g Glyphs) Set() (glyph.Set, error) {
 	return set, nil
 }
 
-// validateGlyphs refuses a glyph outside the approved set, naming the key it was written under.
-func validateGlyphs(glyphs Glyphs) error {
-	if _, err := loader.Parse(glyphs.Loader); err != nil {
+// validate refuses a glyph outside the approved set, naming the key it was written under.
+func (g Glyphs) validate() error {
+	if _, err := loader.Parse(g.Loader); err != nil {
 		return fmt.Errorf("glyphs.loader: %w", err)
 	}
 
 	var err error
-	eachGlyphField(&glyphs, func(key string, field reflect.Value) {
+	eachGlyphField(&g, func(key string, field reflect.Value) {
 		if err != nil {
 			return
 		}

@@ -55,6 +55,10 @@ func newKeyChecker() *keyChecker {
 	return &keyChecker{taken: map[string]string{}}
 }
 
+func (k Keybindings) validate() error {
+	return newKeyChecker().checkKeybindings(k)
+}
+
 // checkKeybindings refuses a binding no press reaches, naming the setting as the file spells it.
 func (c *keyChecker) checkKeybindings(keys Keybindings) error {
 	groups := reflect.ValueOf(keys)
