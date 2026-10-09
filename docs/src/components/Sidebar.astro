@@ -55,15 +55,15 @@ const { label, groups } = Astro.props;
   }
 
   .group-title {
-    @apply mb-2 text-base font-semibold text-app-gray-dim;
+    @apply mb-2 text-base font-semibold text-app-gray-light;
   }
 
   .item {
-    @apply block rounded-xs border-l-2 border-transparent py-1 pl-3 text-app-gray-light no-underline transition-colors hover:text-app-white;
+    @apply block rounded-xs border-l-2 border-transparent py-1 pl-3 text-app-gray-dim no-underline transition-colors hover:text-app-gray-light;
   }
 
   .item[aria-current="page"] {
-    @apply border-app-blue font-semibold text-app-white;
+    @apply border-app-blue text-app-blue;
   }
 
   .children {
@@ -71,7 +71,7 @@ const { label, groups } = Astro.props;
   }
 
   .section {
-    @apply -ml-px block border-l border-transparent py-1 pl-3 text-app-gray-dim no-underline transition-colors hover:text-app-gray;
+    @apply -ml-px block border-l border-transparent py-1 pl-3 text-app-gray-dim no-underline transition-colors hover:text-app-gray-light;
   }
 
   .section:is([aria-current="page"], [aria-current="location"]) {
