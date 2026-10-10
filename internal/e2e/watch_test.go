@@ -175,6 +175,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			write: func(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+					AgentID:     api.ID,
 					TaskID:      *api.TaskID,
 					BaseSHA:     "base",
 					SnapshotSHA: "snapshot",
@@ -202,6 +203,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			write: func(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+					AgentID:     base.ID,
 					TaskID:      *base.TaskID,
 					BaseSHA:     "base",
 					SnapshotSHA: "snapshot",

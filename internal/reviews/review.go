@@ -14,6 +14,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/clock"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
@@ -431,7 +432,7 @@ func (s *ReviewService) AddReviewMessage(
 
 	var roundID *string
 	if params.Addressed {
-		answer, err := s.openAnswerRound(ctx, *thread)
+		answer, err := s.openAnswerRound(ctx, *thread, xptr.Deref(params.Author.AgentID))
 		if err != nil {
 			return nil, err
 		}

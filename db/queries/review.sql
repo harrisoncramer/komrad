@@ -1,11 +1,13 @@
 -- name: InsertReviewRound :one
 INSERT INTO review_rounds(
+    agent_id,
     task_id,
     ordinal,
     base_sha,
     snapshot_sha,
     ref)
 SELECT
+    @agent_id,
     sqlc.arg('task_id')::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
     @base_sha,
@@ -84,11 +86,19 @@ WHERE
 
 -- name: InsertReview :one
 INSERT INTO reviews(
+    agent_id,
     task_id,
     round_id,
     author_kind,
     author_agent_id)
 VALUES (
+    (
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = @round_id),
     sqlc.arg('task_id')::uuid,
     @round_id,
     @author_kind,
@@ -108,7 +118,14 @@ WHERE
 UPDATE
     reviews v
 SET
-    round_id = @round_id
+    round_id = @round_id,
+    agent_id = (
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = @round_id)
 WHERE
     v.id = @id
     AND v.released_at IS NULL
@@ -260,6 +277,7 @@ WHERE id = @id;
 -- name: InsertReviewThreadWithMessage :one
 WITH opened AS (
     INSERT INTO review_threads(
+        agent_id,
         task_id,
         review_id,
         round_id,
@@ -273,6 +291,13 @@ WITH opened AS (
         forge_thread_id,
         last_agent_activity_at)
     VALUES (
+        (
+            SELECT
+                r.agent_id
+            FROM
+                review_rounds r
+            WHERE
+                r.id = @round_id),
         sqlc.arg('task_id')::uuid,
         @review_id,
         @round_id,
@@ -784,12 +809,20 @@ WHERE
 
 -- name: InsertForgeReview :one
 INSERT INTO reviews(
+    agent_id,
     task_id,
     round_id,
     author_kind,
     external_login,
     released_at)
 VALUES (
+    (
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = @round_id),
     sqlc.arg('task_id')::uuid,
     @round_id,
     'forge',
