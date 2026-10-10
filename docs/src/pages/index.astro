@@ -14,13 +14,15 @@ const NEXT = [
   { href: link("/guides"), title: "Guides", text: "Everything else: agents, workflows, mail, reviews, hooks." },
 ];
 
+const homeUrl = canonical(link("/"));
+
 const STRUCTURED_DATA = [
-  { "@type": "WebSite", name: SITE_TITLE, url: canonical(link("/")), description: SITE_DESCRIPTION },
+  { "@type": "WebSite", name: SITE_TITLE, url: homeUrl, description: SITE_DESCRIPTION },
   {
     "@type": "SoftwareApplication",
     name: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    url: canonical(link("/")),
+    url: homeUrl,
     applicationCategory: "DeveloperApplication",
     operatingSystem: "macOS, Linux",
     license: `${REPO_URL}/blob/main/LICENSE`,
