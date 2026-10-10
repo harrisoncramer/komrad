@@ -10,6 +10,35 @@ import (
 	"time"
 )
 
+const archiveIdleTaskBesides = `-- name: ArchiveIdleTaskBesides :exec
+UPDATE
+    tasks t
+SET
+    archived_at = NOW()
+WHERE
+    t.id = $1
+    AND t.archived_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL
+            AND a.id <> $2)
+`
+
+type ArchiveIdleTaskBesidesParams struct {
+	ID      string
+	AgentID string
+}
+
+func (q *Queries) ArchiveIdleTaskBesides(ctx context.Context, arg ArchiveIdleTaskBesidesParams) error {
+	_, err := q.db.Exec(ctx, archiveIdleTaskBesides, arg.ID, arg.AgentID)
+	return err
+}
+
 const archiveIdleTasks = `-- name: ArchiveIdleTasks :many
 UPDATE
     tasks t
@@ -399,6 +428,51 @@ func (q *Queries) GetTaskLastRebase(ctx context.Context, id string) ([]byte, err
 	return last_rebase, err
 }
 
+const getUndeletedTaskForUpdate = `-- name: GetUndeletedTaskForUpdate :one
+SELECT
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
+FROM
+    tasks
+WHERE
+    id = $1
+    AND deleting_at IS NULL
+FOR UPDATE
+`
+
+func (q *Queries) GetUndeletedTaskForUpdate(ctx context.Context, id string) (*Task, error) {
+	row := q.db.QueryRow(ctx, getUndeletedTaskForUpdate, id)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.WorkflowID,
+		&i.Slug,
+		&i.Title,
+		&i.Goal,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.EngineID,
+		&i.Cwd,
+		&i.Branch,
+		&i.AdoptedBranch,
+		&i.ProvisionEnabled,
+		&i.WorktreeRemoved,
+		&i.RepositoryUrl,
+		&i.HeadSha,
+		&i.LastRebase,
+		&i.Sequence,
+		&i.LinesAdded,
+		&i.LinesRemoved,
+		&i.MovedSinceRound,
+		&i.DeletingAt,
+		&i.CleaningAt,
+		&i.FailureReason,
+		&i.Notes,
+		&i.NotesUpdatedAt,
+	)
+	return &i, err
+}
+
 const isTaskSlugTaken = `-- name: IsTaskSlugTaken :one
 SELECT
     EXISTS (
@@ -755,6 +829,23 @@ SELECT
 
 func (q *Queries) LockTaskSlugs(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, lockTaskSlugs)
+	return err
+}
+
+const lockTasks = `-- name: LockTasks :exec
+SELECT
+    id
+FROM
+    tasks
+WHERE
+    id = ANY ($1::uuid[])
+ORDER BY
+    id
+FOR UPDATE
+`
+
+func (q *Queries) LockTasks(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, lockTasks, ids)
 	return err
 }
 

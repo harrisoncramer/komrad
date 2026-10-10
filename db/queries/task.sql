@@ -367,3 +367,42 @@ FROM
     tasks
 WHERE
     deleting_at IS NULL;
+
+-- name: GetUndeletedTaskForUpdate :one
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    id = sqlc.arg('id')
+    AND deleting_at IS NULL
+FOR UPDATE;
+
+-- name: LockTasks :exec
+SELECT
+    id
+FROM
+    tasks
+WHERE
+    id = ANY (sqlc.arg('ids')::uuid[])
+ORDER BY
+    id
+FOR UPDATE;
+
+-- name: ArchiveIdleTaskBesides :exec
+UPDATE
+    tasks t
+SET
+    archived_at = NOW()
+WHERE
+    t.id = sqlc.arg('id')
+    AND t.archived_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL
+            AND a.id <> sqlc.arg('agent_id'));

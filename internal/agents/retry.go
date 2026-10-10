@@ -11,6 +11,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -44,12 +45,22 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		return nil, err
 	}
 
-	marked, err := s.agents.MarkSettingUpIfFailedToCreate(ctx, params.ID)
+	wf := workflowFor(ctx, s.workflows, *agent)
+	provisioner, deprovisioner := worktreeScripts(wf, agent.ProvisionEnabled)
+	hooks := hooksFor(wf, agent.ParentAgentID != nil, agent.ProvisionEnabled)
+
+	marked, err := s.markRetrying(ctx, agent, provisioner)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mark %q for retry: %w", agent.Name, err)
+		return nil, err
 	}
-	if !marked {
-		return nil, ErrAgentNotFailed.Saying("%q was changed while the retry was starting", agent.Name)
+	if marked.joins {
+		provisioner, deprovisioner = "", ""
+	}
+	failRetry := func(err error) {
+		s.failCreate(ctx, *agent, err)
+		if marked.restored {
+			s.rearchiveTask(ctx, *agent)
+		}
 	}
 
 	// The panel prefills its retry form with the flags already composed for the CLI the agent is
@@ -65,10 +76,6 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		agent.Prompt = prompt
 	}
 
-	wf := workflowFor(ctx, s.workflows, *agent)
-	provisioner, deprovisioner := worktreeScripts(wf, agent.ProvisionEnabled)
-	hooks := hooksFor(wf, agent.ParentAgentID != nil, agent.ProvisionEnabled)
-
 	wanted := strings.TrimSpace(params.Harness)
 	switched := wanted != "" && wanted != agent.Harness
 	if wanted == "" {
@@ -77,14 +84,14 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 	hn, err := s.harnesses.GetByID(wanted)
 	if err != nil {
-		s.failCreate(ctx, *agent, err)
+		failRetry(err)
 		return nil, err
 	}
 
 	if switched {
 		agent.Harness = wanted
 		if err := s.moveOntoHarness(ctx, agent, wf, flags, hn); err != nil {
-			s.failCreate(ctx, *agent, err)
+			failRetry(err)
 			return nil, err
 		}
 	}
@@ -104,7 +111,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 	placed, err := s.placeRetry(ctx, *agent)
 	if err != nil {
-		s.failCreate(ctx, *agent, err)
+		failRetry(err)
 		return nil, err
 	}
 	if placed.openTurn != nil {
@@ -114,7 +121,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	claimsCheckout := isCheckoutClaimant(*agent, provisioner)
 	if claimsCheckout {
 		if err := s.claimCheckoutAgain(ctx, *agent); err != nil {
-			s.failCreate(ctx, *agent, err)
+			failRetry(err)
 			return nil, err
 		}
 	}
@@ -130,6 +137,8 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		spawner:        spawner,
 		parent:         parent,
 		claimsCheckout: claimsCheckout,
+		joinsCheckout:  marked.joins,
+		restoredTask:   marked.restored,
 		workflow:       wf,
 		task:           placed.task,
 		openTurn:       placed.openTurn,
@@ -192,4 +201,58 @@ func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.A
 		Flags:     agent.Flags,
 		SessionID: agent.SessionID,
 	})
+}
+
+// retryMark is how a retry was marked: whether it rejoins its task's worktree as the writer, and
+// whether rejoining brought the task back from the archive.
+type retryMark struct {
+	joins    bool
+	restored bool
+}
+
+// markRetrying marks a failed agent for its retry, first making it its task's writer again when it
+// rejoins the task's worktree, so no other writer starts on the task in between.
+func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agent, provisioner string) (*retryMark, error) {
+	var task *taskstore.Task
+	if agent.TaskID != nil {
+		found, err := s.tasks.GetTask(ctx, *agent.TaskID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
+		}
+		task = found
+	}
+
+	joins, err := isJoining(task, provisioner, agent.ParentAgentID == nil && agent.Role.IsImplementer())
+	if err != nil {
+		return nil, err
+	}
+	if joins {
+		agent.Cwd = task.Checkout.Cwd
+	}
+
+	marked := &retryMark{joins: joins}
+	err = s.tx.InTx(ctx, func(db store.DBTX) error {
+		if joins {
+			_, restored, err := claimWriter(ctx, db, claimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
+			if err != nil {
+				return err
+			}
+			marked.restored = restored
+		}
+
+		ok, err := agentstore.NewAgentStore(db).MarkSettingUpIfFailedToCreate(ctx, agent.ID)
+		if err != nil {
+			return fmt.Errorf("failed to mark %q for retry: %w", agent.Name, err)
+		}
+		if !ok {
+			return ErrAgentNotFailed.Saying("%q was changed while the retry was starting", agent.Name)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return marked, nil
 }

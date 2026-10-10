@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -1571,11 +1573,11 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 		wantCheckout bool
 	}{
 		{
-			name: "a second agent that would make the task a checkout is refused",
+			name: "a second writer is refused while the first is live",
 			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
 				return NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir}
 			},
-			wantErrIs:    errTaskHasCheckout,
+			wantErrIs:    errTaskHasWriter,
 			wantCheckout: true,
 		},
 		{
@@ -1635,6 +1637,189 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 	}
 }
 
+// TestNewWriterJoinsItsTasksCheckout pins how a writer launched onto a task whose writer was
+// archived carries on in the task's checkout.
+func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
+	tests := []struct {
+		name      string
+		remove    func(t *testing.T, st *testStore, task taskstore.Task)
+		wantErrIs error
+	}{
+		{
+			name: "a new writer is refused once the worktree is marked removed",
+			remove: func(t *testing.T, st *testStore, task taskstore.Task) {
+				t.Helper()
+				require.NoError(t, st.Tasks.SetHead(t.Context(), task.ID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+			},
+			wantErrIs: errTaskWorktreeRemoved,
+		},
+		{
+			name: "a new writer is refused once the worktree directory is gone",
+			remove: func(t *testing.T, _ *testStore, task taskstore.Task) {
+				t.Helper()
+				require.NoError(t, os.RemoveAll(task.Checkout.Cwd))
+			},
+			wantErrIs: errTaskWorktreeRemoved,
+		},
+		{
+			name: "a new writer is refused on an archived task with no checkout",
+			remove: func(t *testing.T, st *testStore, task taskstore.Task) {
+				t.Helper()
+				require.NoError(t, st.Tasks.ReleaseCheckout(t.Context(), task.ID))
+			},
+			wantErrIs: errTaskArchived,
+		},
+		{
+			name: "a new writer joins the checkout without provisioning",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			fakeHarness := &harnesstest.Fake{}
+			lifecycle := &fakeLifecycle{}
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: fakeHarness}, lifecycle)
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+
+			first, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			require.NoError(t, err)
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+
+			before, err := st.Tasks.Get(ctx, work.ID)
+			require.NoError(t, err)
+			require.NotNil(t, before.ArchivedAt, "archiving the only writer archives the task")
+			if tt.remove != nil {
+				tt.remove(t, st, *before)
+			}
+
+			next, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "next", Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.Nil(t, next)
+
+				return
+			}
+			require.NoError(t, err)
+
+			after, err := st.Tasks.Get(ctx, work.ID)
+			require.NoError(t, err)
+			assert.Equal(t, before.Checkout, after.Checkout, "the checkout is the one the task already had")
+			assert.Nil(t, after.ArchivedAt, "the new writer brings the task back")
+			assert.Equal(t, before.Checkout.Cwd, agentByID(t, st, next.ID).Cwd)
+			assert.Len(t, lifecycle.provision, 1, "only the first writer provisioned")
+
+			writer, err := st.Agents.GetTaskWriter(ctx, work.ID)
+			require.NoError(t, err)
+			assert.Equal(t, next.ID, writer.ID)
+
+			require.Len(t, fakeHarness.Launches, 2)
+			assert.Contains(t, fakeHarness.Launches[1].Context, strings.TrimSpace(implementerDoc), "the joined writer is briefed as the implementer")
+		})
+	}
+}
+
+// TestRetryRejoinsTheTasksCheckout pins a retried writer whose join failed joining the task's checkout again.
+func TestRetryRejoinsTheTasksCheckout(t *testing.T) {
+	tests := []struct {
+		name         string
+		otherJoins   bool
+		wantErrIs    error
+		wantArchived bool
+	}{
+		{
+			name:         "a retry is refused once another writer has joined",
+			otherJoins:   true,
+			wantErrIs:    errTaskHasWriter,
+			wantArchived: false,
+		},
+		{
+			name: "a retry joins the checkout and brings the task back",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{}
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+			first, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			require.NoError(t, err)
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+			tmux.RespawnErr = errors.New("bad flags")
+			_, err = manager.launch.NewAgent(ctx, NewAgentParams{Title: "next", Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+			require.Error(t, err)
+			tmux.RespawnErr = nil
+			listed, err := st.Agents.List(ctx)
+			require.NoError(t, err)
+			failed := xslice.Filter(listed, func(agent agentstore.Agent) bool { return agent.State == agentstore.StateFailedToCreate })
+			require.Len(t, failed, 1)
+			if tt.otherJoins {
+				_, err = manager.launch.NewAgent(ctx, NewAgentParams{Title: "other", Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+				require.NoError(t, err)
+			}
+
+			retried, err := manager.launch.RetryCreate(ctx, RetryCreateParams{ID: failed[0].ID})
+
+			task, getErr := st.Tasks.Get(ctx, work.ID)
+			require.NoError(t, getErr)
+			assert.Len(t, lifecycle.provision, 1, "only the first writer provisioned")
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.Equal(t, agentstore.StateFailedToCreate, agentByID(t, st, failed[0].ID).State)
+				assert.Equal(t, tt.wantArchived, task.ArchivedAt != nil)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Nil(t, task.ArchivedAt)
+			assert.Equal(t, task.Checkout.Cwd, agentByID(t, st, retried.ID).Cwd)
+			writer, err := st.Agents.GetTaskWriter(ctx, work.ID)
+			require.NoError(t, err)
+			assert.Equal(t, failed[0].ID, writer.ID)
+		})
+	}
+}
+
+// TestConcurrentWritersJoinOnce pins that of two writers joining a task's checkout at once only one
+// becomes its writer.
+func TestConcurrentWritersJoinOnce(t *testing.T) {
+	ctx := t.Context()
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
+	workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+
+	first, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+	require.NoError(t, err)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	for i := range errs {
+		wg.Go(func() {
+			_, errs[i] = manager.launch.NewAgent(ctx, NewAgentParams{Title: fmt.Sprintf("next-%d", i), Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+		})
+	}
+	wg.Wait()
+
+	joined := xslice.Filter(errs, func(err error) bool { return err == nil })
+	refused := xslice.Filter(errs, func(err error) bool { return errors.Is(err, errTaskHasWriter) })
+	assert.Len(t, joined, 1, "one writer joins")
+	assert.Len(t, refused, 1, "the other is refused")
+}
+
 // TestFailedCreateGivesUpItsTasksCheckout covers the claim a create that never started leaves
 // behind, which a retry or another writer takes up.
 func TestFailedCreateGivesUpItsTasksCheckout(t *testing.T) {
@@ -1648,7 +1833,7 @@ func TestFailedCreateGivesUpItsTasksCheckout(t *testing.T) {
 			name:      "a retry is refused once another writer has claimed the task",
 			rival:     true,
 			retry:     true,
-			wantErrIs: errTaskHasCheckout,
+			wantErrIs: errTaskHasWriter,
 		},
 		{
 			name:  "another writer claims the task the failed create left",

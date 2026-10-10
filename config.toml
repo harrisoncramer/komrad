@@ -390,9 +390,9 @@ review        = ["r"]
 logs          = ["l"]
 # Open the status checks run on the task's pull request.
 status_checks = ["x"]
-# Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
-# keyboard to the one already rooted there. The entry is gray in the archive and on an agent
-# with no directory.
+# Open a shell in the pane below the stage, rooted at the hovered task's or workflow's directory,
+# or hand the keyboard to the one already rooted there. The entry is gray in the archive and
+# where there is no directory.
 terminal      = ["t"]
 # Open the git menu to the right of this one, for rebasing the task's branch or opening or
 # merging its pull request.
@@ -412,9 +412,6 @@ hide          = ["h"]
 # editor, picking the entry again or leaving the agents list closes it and unpauses the agent.
 # The entry is only on the agents list.
 edit          = ["e"]
-# Attach a child agent to the hovered agent, which runs in that agent's own checkout with no
-# worktree of its own and is archived along with it. The entry is only on the agents list.
-child         = ["C"]
 # Retry the launch of an agent that failed to create, opening a form where the flags can be
 # corrected before confirming. The entry is only on such an agent.
 retry         = ["R"]
@@ -424,10 +421,15 @@ retry         = ["R"]
 snooze        = ["z"]
 # Edit the hovered workflow, or the hovered task's title, goal and notes.
 edit_row      = ["E"]
+# Archive the hovered task's writer and its children and start a new writer in the same
+# checkout, from a form asking for a note to it. The entry is only on a task, and does nothing
+# on one with no live writer.
+hand_off      = ["o"]
 # Put an agent on a branch that already exists, in the hovered workflow.
 adopt         = ["A"]
-# Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only
-# on the agents list.
+# Start a new task on the hovered workflow. On the hovered task it starts a child of the live
+# writer, or else a writer in the task's checkout, and it is not offered once the worktree was
+# removed. The entry is only on the agents list.
 new_agent     = ["c"]
 # Create a workflow. The entry is only on a workflow in the agents list.
 new_workflow  = ["w"]

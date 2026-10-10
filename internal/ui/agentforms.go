@@ -17,8 +17,6 @@ import (
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
-var errChildOfChild = errors.New("a child agent may not have children of its own")
-
 func openNewTask(m *model, workflow *panel.Workflow) tea.Cmd {
 	if workflow == nil {
 		m.report("Could not start a task", errNoWorkflow)
@@ -50,31 +48,25 @@ func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea
 	}))
 }
 
-// openNewAgentOnTask opens the form that starts another agent on a task.
+// openNewAgentOnTask opens the form that starts an agent on a task: a child of its live writer, or
+// else its writer.
 func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.Cmd {
-	values := &agentFormValues{Harness: workflow.Harness, Worktree: inheritWorktree}
+	if writer, ok := m.listing.findLiveWriter(task.ID); ok {
+		values := childPrefill(writer)
+
+		return openChildForm(m, writer, &values)
+	}
+
+	values := &agentFormValues{Harness: workflow.Harness}
 
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formAgent,
 		Build: func(m *model) (*huh.Form, []string) {
-			return taskAgentForm(fixedKeys(), values, task.Slug, workflow.Worktree.Enabled)
+			return taskAgentForm(fixedKeys(), values, task.Slug, describeNewWriter(workflow, task))
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitAgentOnTask(workflow, task, *values) }),
 	}))
-}
-
-// openNewChild opens the form that attaches a child to the hovered agent.
-func openNewChild(m *model, parent panel.Agent) tea.Cmd {
-	if parent.ParentAgentID != nil {
-		m.report("Could not attach a child", errChildOfChild)
-
-		return nil
-	}
-
-	values := childPrefill(parent)
-
-	return openChildForm(m, parent, &values)
 }
 
 // childPrefill is the child form as the parent leaves it.
@@ -179,16 +171,15 @@ func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) tea.C
 	})
 }
 
-// submitAgentOnTask starts another agent on a task.
+// submitAgentOnTask starts a task's writer.
 func (m *model) submitAgentOnTask(workflow panel.Workflow, task panel.Task, values agentFormValues) tea.Cmd {
 	return m.createCmd(createAgentParams{
-		Prompt:           values.Prompt,
-		Title:            values.Title,
-		Harness:          values.Harness,
-		Flags:            values.Flags,
-		ProvisionEnabled: worktreeOverride(values.Worktree),
-		WorkflowID:       workflow.ID,
-		Task:             task.ID,
+		Prompt:     values.Prompt,
+		Title:      values.Title,
+		Harness:    values.Harness,
+		Flags:      values.Flags,
+		WorkflowID: workflow.ID,
+		Task:       task.ID,
 	})
 }
 
@@ -211,11 +202,10 @@ type adoptFormValues struct {
 }
 
 type agentFormValues struct {
-	Prompt   string
-	Title    string
-	Harness  string
-	Flags    string
-	Worktree string
+	Prompt  string
+	Title   string
+	Harness string
+	Flags   string
 }
 
 // The two answers to the only question an agent can override, each a sentinel rather than the
@@ -266,18 +256,30 @@ func worktreeChoice(selected *string, worktree bool) []huh.Field {
 		).Value(selected)}
 }
 
-// taskAgentForm asks for the work another agent does on a task, and asks about the worktree only in
-// a workflow that makes them.
-func taskAgentForm(keys config.FixedKeys, values *agentFormValues, task string, worktree bool) (*huh.Form, []string) {
+// taskAgentForm asks for the work a task's writer does, saying where it will run.
+func taskAgentForm(keys config.FixedKeys, values *agentFormValues, task, where string) (*huh.Form, []string) {
 	fields := []huh.Field{
 		textField("prompt").Title(fmt.Sprintf("On task %q", task)).
 			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
+		huh.NewNote().Description(where),
 	}
 
-	return formOf(keys, append(fields, worktreeChoice(&values.Worktree, worktree)...)...)
+	return formOf(keys, fields...)
+}
+
+// describeNewWriter says where a new writer on a task with no live one will run.
+func describeNewWriter(workflow panel.Workflow, task panel.Task) string {
+	switch {
+	case task.Cwd != "":
+		return fmt.Sprintf("Becomes the task's writer, carrying on in its worktree at %s.", task.Cwd)
+	case workflow.Worktree.Enabled:
+		return "Becomes the task's first writer, in a worktree of its own."
+	}
+
+	return "Becomes the task's first writer, in the workflow's directory."
 }
 
 // childAgentForm asks for the work and little else.

@@ -62,19 +62,6 @@ func TestFormsSubmit(t *testing.T) {
 			},
 		},
 		{
-			name:      "the child form sends its parent and the parent's harness but not its flags",
-			press:     slices.Concat([]string{"j", "space", "C"}, spellKeys("run the tests"), []string{"enter"}),
-			answer:    connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2"}}),
-			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "child", "w1"))},
-			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
-			want: &agentv1.CreateAgentRequest{
-				Prompt:        "run the tests",
-				Harness:       "claude",
-				WorkflowId:    "w1",
-				ParentAgentId: xptr.Ptr("a1"),
-			},
-		},
-		{
 			name: "the adopt form sends the ref and prompt into the workflow",
 			press: slices.Concat([]string{"space", "A"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"tab"},
 				spellKeys("pick it up"), []string{"enter"}),
@@ -1097,7 +1084,7 @@ func TestFormsLayout(t *testing.T) {
 	}{
 		{
 			name:  "a form takes the window beside the list",
-			press: []string{"j", "space", "C"},
+			press: []string{"space", "c"},
 			want:  `Child of "author"`,
 		},
 		{
@@ -1426,6 +1413,7 @@ func newFormAuthor() *agentv1.Agent {
 
 func newLiveAuthor() *agentv1.Agent {
 	author := newAgent("a1", "author", "w1")
+	author.Role = agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
 	author.PaneId = "%9"
 	author.Alive = xptr.Ptr(true)
 

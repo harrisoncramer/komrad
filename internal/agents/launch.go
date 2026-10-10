@@ -36,6 +36,15 @@ var errTaskMadeAndJoined = fail.InvalidArgument("an agent either joins a task or
 // errTaskHasCheckout is a launch that would make a checkout for a task that already has one.
 var errTaskHasCheckout = fail.Precondition("this task already has a checkout, so launch a child of the agent working in it or give this one a task of its own")
 
+// errTaskHasWriter is a writer launched onto a task whose writer is still live.
+var errTaskHasWriter = fail.Precondition("this task already has a live writer, so launch a child of it or hand the task off")
+
+// errTaskWorktreeRemoved is a writer launched onto a task whose worktree was removed.
+var errTaskWorktreeRemoved = fail.Precondition("this task's worktree was removed, so give this agent a task of its own")
+
+// errTaskArchived is an archived task an agent was asked to join.
+var errTaskArchived = fail.Precondition("an agent works only on a live task")
+
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             *agentstore.AgentStore
@@ -352,6 +361,40 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 	}, nil
 }
 
+// joinCheckout points a writer launched onto a task that already has a worktree at that worktree in
+// place of a new one, reporting whether it did.
+func (p *launchPlan) joinCheckout(params NewAgentParams, task *taskstore.Task) (bool, error) {
+	joins, err := isJoining(task, p.provisioner, params.ParentAgentID == "" && params.Role.IsImplementer())
+	if err != nil || !joins {
+		return false, err
+	}
+
+	p.dir = task.Checkout.Cwd
+	p.provisioner = ""
+	p.deprovisioner = ""
+
+	return true, nil
+}
+
+// isJoining reports whether a writer that would provision starts in its task's existing worktree
+// instead, refusing one whose worktree is gone.
+func isJoining(task *taskstore.Task, provisioner string, isWriter bool) (bool, error) {
+	if task == nil || provisioner == "" || !isWriter {
+		return false, nil
+	}
+	if task.Checkout.WorktreeRemoved {
+		return false, errTaskWorktreeRemoved.Saying("task %q has no worktree left", task.Slug)
+	}
+	if !task.Checkout.IsUsable() {
+		return false, nil
+	}
+	if err := scripts.RequireUsableDir(task.Checkout.Cwd); err != nil {
+		return false, errTaskWorktreeRemoved.Saying("task %q has no worktree at %q: %v", task.Slug, task.Checkout.Cwd, err)
+	}
+
+	return true, nil
+}
+
 type launchFlagsParams struct {
 	harnessID       string
 	workflowHarness string
@@ -456,6 +499,14 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		return nil, err
 	}
 
+	joinsCheckout, err := plan.joinCheckout(params, joined)
+	if err != nil {
+		return nil, err
+	}
+	if joined != nil && joined.ArchivedAt != nil && !joinsCheckout {
+		return nil, errTaskArchived.Saying("task %q is archived", joined.Slug)
+	}
+
 	id, err := store.NewID()
 	if err != nil {
 		return nil, err
@@ -476,6 +527,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		adoptedBranch: params.AdoptedBranch,
 		repositoryURL: params.RepositoryURL,
 		provisioner:   plan.provisioner,
+		joinsCheckout: joinsCheckout,
 	})
 	if err != nil {
 		return nil, err
@@ -495,7 +547,9 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		claimsCheckout: isCheckoutClaimant(agent, plan.provisioner),
 		workflow:       plan.workflow,
 		task:           placed.task,
+		restoredTask:   placed.restored,
 		openTurn:       placed.openTurn,
+		joinsCheckout:  joinsCheckout,
 	})
 }
 
@@ -509,8 +563,12 @@ type resolvedLaunch struct {
 	parent        *agentstore.Agent
 	// claimsCheckout is whether the directory the agent starts in becomes its task's checkout.
 	claimsCheckout bool
-	workflow       *workflowstore.Workflow
-	task           *taskstore.Task
+	// joinsCheckout is whether the agent starts in its task's existing checkout as its writer.
+	joinsCheckout bool
+	// restoredTask is whether joining the checkout brought its task back from the archive.
+	restoredTask bool
+	workflow     *workflowstore.Workflow
+	task         *taskstore.Task
 	// openTurn is the place in its task's hook queue an agent taking the task from no live agent to
 	// one holds, nil for any other agent.
 	openTurn *scriptrun.HookTurn
@@ -647,7 +705,7 @@ func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 		SessionID:    agent.SessionID,
 		AgentID:      agent.ID,
 		Role:         agent.Role,
-		OwnsCheckout: c.resolved.provisioner != "",
+		OwnsCheckout: c.resolved.claimsCheckout || c.resolved.joinsCheckout,
 		Task:         c.resolved.task,
 	}
 	if c.resolved.workflow != nil {
@@ -689,6 +747,24 @@ func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, caus
 		c.service.releaseCheckout(ctx, agent)
 	}
 	c.service.failCreate(ctx, agent, cause)
+	if c.resolved.restoredTask {
+		c.service.rearchiveTask(ctx, agent)
+	}
+}
+
+// rearchiveTask archives again the task a failed join brought back, unless another agent has since
+// started on it, logging any failure.
+func (s *LaunchService) rearchiveTask(ctx context.Context, agent agentstore.Agent) {
+	err := s.tx.InTx(ctx, func(db store.DBTX) error {
+		return taskstore.NewTaskStore(db).ArchiveIdleBesides(ctx, *agent.TaskID, agent.ID)
+	})
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to archive the task a failed join restored",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.TaskID, *agent.TaskID),
+			}, logging.Err(err)...)...)
+	}
 }
 
 // releaseCheckout gives up the claim a failed create made on its task's checkout, logging any failure.
@@ -763,6 +839,8 @@ type creation struct {
 	adoptedBranch string
 	repositoryURL string
 	provisioner   string
+	// joinsCheckout is whether the agent becomes the writer of its task's existing checkout.
+	joinsCheckout bool
 }
 
 // needsOwnTask is whether the agent is given a task of its own as it is written, which a child
@@ -777,9 +855,11 @@ func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
 	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role != agentstore.RoleOrchestrator && provisioner != ""
 }
 
-// placement is the task an agent was created on, and the place in its hook queue the agent holds when it opens it.
+// placement is the task an agent was created on, whether creating it brought the task back from the
+// archive, and the place in its hook queue the agent holds when it opens it.
 type placement struct {
 	task     *taskstore.Task
+	restored bool
 	openTurn *scriptrun.HookTurn
 }
 
@@ -787,6 +867,7 @@ type placement struct {
 // returning where it was placed.
 func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*placement, error) {
 	task := c.task
+	var restored bool
 	var openTurn *scriptrun.HookTurn
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
@@ -828,6 +909,13 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 		if task != nil {
 			c.agent.TaskID = &task.ID
 		}
+		if c.joinsCheckout {
+			claimed, wasRestored, err := claimWriter(ctx, db, claimWriterParams{TaskID: task.ID, Cwd: c.agent.Cwd})
+			if err != nil {
+				return err
+			}
+			task, restored = claimed, wasRestored
+		}
 		if c.agent.TaskID != nil {
 			if err := taskStore.LockUndeleted(ctx, *c.agent.TaskID); err != nil {
 				return err
@@ -860,6 +948,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 
 	return &placement{
 		task:     task,
+		restored: restored,
 		openTurn: openTurn,
 	}, nil
 }
@@ -882,6 +971,45 @@ func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
 	return !slices.ContainsFunc(live, func(other agentstore.Agent) bool {
 		return other.ID != agent.ID && other.State != agentstore.StateFailedToCreate
 	})
+}
+
+type claimWriterParams struct {
+	TaskID string
+	Cwd    string
+}
+
+// claimWriter makes a launch joining its task's checkout at Cwd the task's writer, refusing it while
+// another writer is live or once the worktree is gone, and reports whether it brought an archived
+// task back.
+func claimWriter(ctx context.Context, db store.DBTX, params claimWriterParams) (*taskstore.Task, bool, error) {
+	taskStore := taskstore.NewTaskStore(db)
+
+	task, err := taskStore.GetUndeletedForUpdate(ctx, params.TaskID)
+	if err != nil {
+		return nil, false, err
+	}
+	if !task.Checkout.IsUsable() || task.Checkout.Cwd != params.Cwd {
+		return nil, false, errTaskWorktreeRemoved.Saying("task %q no longer has its worktree at %q", task.Slug, params.Cwd)
+	}
+
+	writer, err := agentstore.NewAgentStore(db).GetTaskWriter(ctx, task.ID)
+	switch {
+	case err == nil:
+		return nil, false, errTaskHasWriter.Saying("%q is still writing task %q", writer.Name, task.Slug)
+	case !errors.Is(err, store.ErrNotFound):
+		return nil, false, err
+	}
+
+	if task.ArchivedAt == nil {
+		return task, false, nil
+	}
+
+	if err := taskStore.Restore(ctx, []string{task.ID}); err != nil {
+		return nil, false, fmt.Errorf("failed to restore task %q for its new writer: %w", task.Slug, err)
+	}
+	task.ArchivedAt = nil
+
+	return task, true, nil
 }
 
 // claimCheckout records on a task how its checkout is to be made, ahead of the directory the

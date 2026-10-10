@@ -122,6 +122,21 @@ func (s *TaskStore) LockUndeleted(ctx context.Context, id string) error {
 	return nil
 }
 
+// GetUndeletedForUpdate locks an undeleted task until the transaction ends and returns it.
+func (s *TaskStore) GetUndeletedForUpdate(ctx context.Context, id string) (*Task, error) {
+	row, err := s.queries.GetUndeletedTaskForUpdate(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, ErrDeleting.Saying("task %q is being deleted", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task %q for update: %w", id, err)
+	}
+
+	locked := fromRow(row)
+
+	return &locked, nil
+}
+
 // ListUndeletedSlugs returns the slug of every task no delete has claimed, archived ones
 // included, keyed by the task's id.
 func (s *TaskStore) ListUndeletedSlugs(ctx context.Context) (map[string]string, error) {

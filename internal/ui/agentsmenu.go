@@ -37,12 +37,11 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	lead, task := *row.lead, *row.task
 	writer := m.listing.findTaskWriter(task, lead)
 	own := slices.Concat(
+		newAgentEntries(m, row.workflow, task),
 		[]submenuEntry{
-			openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd {
-				return openNewAgentOnTask(m, row.workflow, task)
-			}),
 			openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
 		},
+		handOffEntries(m, task),
 		a.snoozeEntries(m, lead),
 		a.editEntries(m, writer),
 	)
@@ -55,6 +54,8 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			return taskReviewEntry(m, lead.Agent)
 		case slices.Equal(entry.keys, m.keys.Menu.Logs):
 			return taskLogsEntry(m, task)
+		case slices.Equal(entry.keys, m.keys.Menu.Terminal):
+			return taskTerminalEntry(m, taskDir(task, row.workflow))
 		case slices.Equal(entry.keys, m.keys.Menu.Jump):
 			return nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, row))
 		}
@@ -66,6 +67,28 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, tasks))
 
 	return withNested(menu, "archive", m.keys.Menu.Archive, tasksArchiveMenu(m, tasks, false))
+}
+
+// newAgentEntries is the entry that starts an agent on a task, and none when no agent can start on it.
+func newAgentEntries(m *model, workflow panel.Workflow, task panel.Task) []submenuEntry {
+	if !isTaskStartable(m, task) {
+		return nil
+	}
+
+	return []submenuEntry{openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd {
+		return openNewAgentOnTask(m, workflow, task)
+	})}
+}
+
+// isTaskStartable reports whether an agent can start on a task, which it cannot once the task's
+// worktree is gone, once the task has left the listing as one being deleted does, or once it is
+// archived with no checkout to join.
+func isTaskStartable(m *model, task panel.Task) bool {
+	if _, listed := m.listing.tasks[task.ID]; !listed {
+		return false
+	}
+
+	return !task.WorktreeRemoved && (task.ArchivedAt == nil || task.Cwd != "")
 }
 
 // taskJumpMenu is the jump menu of the agent a task wears, its documents entry landing on the task's.
@@ -93,6 +116,29 @@ func taskLogsEntry(m *model, task panel.Task) submenuEntry {
 	})
 }
 
+// taskTerminalEntry opens a shell in a task's directory, off when it has none.
+func taskTerminalEntry(m *model, dir string) submenuEntry {
+	entry := openEntry("terminal", m.keys.Menu.Terminal, func(m *model) tea.Cmd {
+		if dir == "" {
+			return m.refuseSubpage("Could not open a terminal", errNoTaskDir)
+		}
+
+		return tea.Batch(m.closeForm(), m.openTerminal(dir))
+	})
+	entry.isOff = dir == ""
+
+	return entry
+}
+
+// taskDir is the task's worktree, or its workflow's directory when it has none.
+func taskDir(task panel.Task, workflow panel.Workflow) string {
+	if task.Cwd != "" && !task.WorktreeRemoved {
+		return task.Cwd
+	}
+
+	return workflow.Cwd
+}
+
 // taskReviewEntry opens the review of a task through the agent it wears, archived or not.
 func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
 	entry := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
@@ -110,10 +156,8 @@ func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
 // agentRowMenu is the hovered agent's band, which holds what concerns its session and leaves the
 // work to its task's row.
 func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
-	pages := subpageEntries(m, item, []subpage{subpageLogs, subpageTerminal})
-	own := append(a.editEntries(m, item), openEntry("new child", m.keys.Menu.Child, func(m *model) tea.Cmd {
-		return openNewChild(m, item.Agent)
-	}))
+	pages := subpageEntries(m, item, []subpage{subpageLogs})
+	own := a.editEntries(m, item)
 	if item.Agent.State == panel.StateFailedToCreate {
 		own = append(own, openEntry("retry launch", m.keys.Menu.Retry, func(m *model) tea.Cmd {
 			return openRetryForm(m, item.Agent)

@@ -31,7 +31,7 @@ func TestMenu(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "› logs")
-		assert.Contains(t, frame, "new child")
+		assert.Contains(t, frame, "edit files")
 		assert.NotContains(t, frame, "new task")
 		assert.NotContains(t, frame, "new workflow")
 	})

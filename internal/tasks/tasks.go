@@ -20,8 +20,6 @@ const maxSlugBase = 60
 var (
 	// ErrOtherWorkflow is a task filed under a different workflow from the agent joining it.
 	ErrOtherWorkflow = fail.InvalidArgument("an agent works only on a task in its own workflow")
-	// errArchived is an archived task an agent was asked to join.
-	errArchived = fail.Precondition("an agent works only on a live task")
 	// ErrNotesNotYours is an agent writing the notes of a task it does not work on or orchestrate.
 	ErrNotesNotYours = fail.Denied("an agent writes only the notes of its own task or of one in the workflow it orchestrates")
 )
@@ -138,7 +136,7 @@ func (s *TaskService) ArchiveTask(ctx context.Context, ref string) error {
 	return s.tasks.Archive(ctx, found.ID)
 }
 
-// GetTaskForWorkflow returns the live task an id or a slug names in a workflow.
+// GetTaskForWorkflow returns the task an id or a slug names in a workflow, archived or not.
 func (s *TaskService) GetTaskForWorkflow(ctx context.Context, ref, workflowID string) (*taskstore.Task, error) {
 	found, err := s.GetTask(ctx, ref)
 	if err != nil {
@@ -146,9 +144,6 @@ func (s *TaskService) GetTaskForWorkflow(ctx context.Context, ref, workflowID st
 	}
 	if found.WorkflowID != workflowID {
 		return nil, ErrOtherWorkflow.Saying("task %q is in workflow %q, not %q", found.Slug, found.WorkflowID, workflowID)
-	}
-	if found.ArchivedAt != nil {
-		return nil, errArchived.Saying("task %q is archived", found.Slug)
 	}
 
 	return found, nil

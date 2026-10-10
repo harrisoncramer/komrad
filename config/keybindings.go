@@ -255,9 +255,9 @@ type MenuKeys struct {
 	Logs []string `mapstructure:"logs" default:"l"`
 	// Open the status checks run on the task's pull request.
 	StatusChecks []string `mapstructure:"status_checks" default:"x"`
-	// Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
-	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
-	// with no directory.
+	// Open a shell in the pane below the stage, rooted at the hovered task's or workflow's directory,
+	// or hand the keyboard to the one already rooted there. The entry is gray in the archive and
+	// where there is no directory.
 	Terminal []string `mapstructure:"terminal" default:"t"`
 	// Open the git menu to the right of this one, for rebasing the task's branch or opening or
 	// merging its pull request.
@@ -277,9 +277,6 @@ type MenuKeys struct {
 	// editor, picking the entry again or leaving the agents list closes it and unpauses the agent.
 	// The entry is only on the agents list.
 	Edit []string `mapstructure:"edit" default:"e"`
-	// Attach a child agent to the hovered agent, which runs in that agent's own checkout with no
-	// worktree of its own and is archived along with it. The entry is only on the agents list.
-	Child []string `mapstructure:"child" default:"C"`
 	// Retry the launch of an agent that failed to create, opening a form where the flags can be
 	// corrected before confirming. The entry is only on such an agent.
 	Retry []string `mapstructure:"retry" default:"R"`
@@ -289,10 +286,15 @@ type MenuKeys struct {
 	Snooze []string `mapstructure:"snooze" default:"z"`
 	// Edit the hovered workflow, or the hovered task's title, goal and notes.
 	EditRow []string `mapstructure:"edit_row" default:"E"`
+	// Archive the hovered task's writer and its children and start a new writer in the same
+	// checkout, from a form asking for a note to it. The entry is only on a task, and does nothing
+	// on one with no live writer.
+	HandOff []string `mapstructure:"hand_off" default:"o"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`
-	// Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only
-	// on the agents list.
+	// Start a new task on the hovered workflow. On the hovered task it starts a child of the live
+	// writer, or else a writer in the task's checkout, and it is not offered once the worktree was
+	// removed. The entry is only on the agents list.
 	NewAgent []string `mapstructure:"new_agent" default:"c"`
 	// Create a workflow. The entry is only on a workflow in the agents list.
 	NewWorkflow []string `mapstructure:"new_workflow" default:"w"`
