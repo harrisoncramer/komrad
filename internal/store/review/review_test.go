@@ -10,6 +10,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -1110,11 +1111,30 @@ func (st *fixture) seedReviewerChild(t *testing.T, parentID string) string {
 	})
 }
 
+// taskFor is the task a seeded agent works on: its parent's, or one made for it.
+func (st *fixture) taskFor(t *testing.T, agent agentstore.Agent) *string {
+	t.Helper()
+
+	if agent.ParentAgentID != nil {
+		parent, err := st.agents.GetByID(t.Context(), *agent.ParentAgentID)
+		require.NoError(t, err)
+
+		return parent.TaskID
+	}
+	taskID, err := tasktest.Seed(t.Context(), st.pool, st.workflow)
+	require.NoError(t, err)
+
+	return taskID
+}
+
 func (st *fixture) seedAgentLike(t *testing.T, agent agentstore.Agent) string {
 	t.Helper()
 
 	agent.State = agentstore.StateIdle
 	agent.WorkflowID = st.workflow
+	if agent.TaskID == nil {
+		agent.TaskID = st.taskFor(t, agent)
+	}
 	require.NoError(t, st.agents.Create(t.Context(), agent))
 
 	got, err := st.agents.GetInWorkflow(t.Context(), st.workflow, agent.Name)
