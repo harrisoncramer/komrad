@@ -27,23 +27,39 @@ func getRoot(ctx context.Context, dir string) (string, error) {
 // ErrBaseMissing says the workflow's base branch is not a ref this clone holds.
 var ErrBaseMissing = fail.Precondition("the base branch is not one the clone has")
 
-// resolveBase is the ref a named base is measured as: origin's copy when the clone has one,
-// else the local branch.
+// Base is the ref a checkout is measured against and the commit it points at.
+type Base struct {
+	Ref string
+	Tip string
+}
+
+// resolveBase is the ref readBase reads for a named base.
 func resolveBase(ctx context.Context, root, base string) (string, error) {
+	resolved, err := readBase(ctx, root, base)
+	if err != nil {
+		return "", err
+	}
+
+	return resolved.Ref, nil
+}
+
+// readBase is the ref a named base is measured as and its tip: origin's copy when the clone has
+// one, else the local branch.
+func readBase(ctx context.Context, root, base string) (*Base, error) {
 	base = strings.TrimSpace(base)
 	if base == "" {
-		return "", fmt.Errorf("%w: the workflow names no base branch", ErrBaseMissing)
+		return nil, fmt.Errorf("%w: the workflow names no base branch", ErrBaseMissing)
 	}
 
-	if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+base); err == nil {
-		return "origin/" + base, nil
+	if tip, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+base+"^{commit}"); err == nil {
+		return &Base{Ref: "origin/" + base, Tip: tip}, nil
 	}
 
-	if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/heads/"+base); err == nil {
-		return "refs/heads/" + base, nil
+	if tip, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/heads/"+base+"^{commit}"); err == nil {
+		return &Base{Ref: "refs/heads/" + base, Tip: tip}, nil
 	}
 
-	return "", fmt.Errorf("%w: the clone has no origin/%s and no branch %s; set the workflow's base branch to one it has", ErrBaseMissing, base, base)
+	return nil, fmt.Errorf("%w: the clone has no origin/%s and no branch %s; set the workflow's base branch to one it has", ErrBaseMissing, base, base)
 }
 
 // DefaultBase is the branch a repository would name as its base when nobody has: what the

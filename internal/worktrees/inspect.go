@@ -42,6 +42,7 @@ type gitReader interface {
 	ListCommitsSince(ctx context.Context, dir, ref string, limit int) ([]git.Commit, error)
 	CountAgainstRemote(ctx context.Context, dir, branch string) (*git.RemoteStanding, error)
 	DoesBaseHoldRemote(ctx context.Context, params git.DoesBaseHoldRemoteParams) (bool, error)
+	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 }
 
 type NewInspectorParams struct {
@@ -145,7 +146,7 @@ func (i *Inspector) readStanding(ctx context.Context, worktree Worktree) worktre
 				Err:      err,
 			})
 		}
-		params.Base = config.BaseBranch
+		params.Base, params.BaseErr = i.checkouts.ReadBase(ctx, worktree.Dir, config.BaseBranch)
 	}
 
 	return i.checkouts.ReadStanding(ctx, params)

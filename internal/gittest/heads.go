@@ -39,10 +39,14 @@ type Trees struct {
 	ProbeErr error
 	Probed   []string
 	Tips     map[string]string
-	Fetched  []string
-	FetchErr error
-	Landed   map[string]bool
-	Walked   []string
+	// Unresolved says the clone holds no copy of the base.
+	Unresolved bool
+	// BasesRead is every directory whose base was read.
+	BasesRead []string
+	Fetched   []string
+	FetchErr  error
+	Landed    map[string]bool
+	Walked    []string
 	// DiffStats is what each directory measures against its base.
 	DiffStats map[string]git.DiffStat
 	DiffErr   error
@@ -71,18 +75,18 @@ func (t *Trees) ProbeTree(_ context.Context, root string) (string, error) {
 	return t.Probes[root], nil
 }
 
-// ReadBaseTip answers what Tips holds for the directory, refusing as a missing base when it
-// names none.
-func (t *Trees) ReadBaseTip(_ context.Context, dir, _ string) (string, error) {
+// ReadBase records the directory and answers origin's copy of the base at what Tips holds for the
+// directory, refusing as a missing base when Unresolved says the clone has none.
+func (t *Trees) ReadBase(_ context.Context, dir, base string) (*git.Base, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.BasesRead = append(t.BasesRead, dir)
 
-	tip, ok := t.Tips[dir]
-	if !ok {
-		return "", git.ErrBaseMissing
+	if t.Unresolved {
+		return nil, git.ErrBaseMissing
 	}
 
-	return tip, nil
+	return &git.Base{Ref: "origin/" + base, Tip: t.Tips[dir]}, nil
 }
 
 // FetchBase records the directory whose base was fetched and answers its origin ref, or FetchErr.
@@ -105,15 +109,6 @@ func (t *Trees) HasLanded(_ context.Context, params git.HasLandedParams) (bool, 
 	t.Walked = append(t.Walked, params.SnapshotSHA)
 
 	return t.Landed[params.SnapshotSHA], nil
-}
-
-// ResolveBase answers origin's copy of the base, refusing as a missing base when none is named.
-func (t *Trees) ResolveBase(_ context.Context, _, base string) (string, error) {
-	if base == "" {
-		return "", git.ErrBaseMissing
-	}
-
-	return "origin/" + base, nil
 }
 
 // ReadDiffStat records what was measured and answers what DiffStats holds for the directory,

@@ -38,7 +38,8 @@ type headReader interface {
 
 type treeReader interface {
 	ProbeTree(ctx context.Context, root string) (string, error)
-	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
+	ReadBase(ctx context.Context, dir, base string) (*git.Base, error)
+	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 	HasLanded(ctx context.Context, params git.HasLandedParams) (bool, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 }
@@ -109,7 +110,11 @@ type cwdLook struct {
 	// diffStat is the lines the checkout adds and removes since its base, nil where there is none.
 	diffStat *taskstore.DiffStat
 	// tree is the worktree as the probe hashed it, empty when there was no round to probe against.
-	tree     string
+	tree string
+	// base is the ref and tip the checkout is measured against, nil when baseErr says why it
+	// could not be read.
+	base     *git.Base
+	baseErr  error
 	worktree *worktreestore.Worktree
 	standing *worktreestore.Standing
 	err      error
@@ -254,10 +259,8 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 			}
 
 			config := params.Worktrees[task.WorkflowID]
-			cs.readStanding(ctx, &look, readStandingParams{
-				Owned: params.Owned,
-				Base:  config.BaseBranch,
-			})
+			cs.readBase(ctx, &look, readBaseParams{Owned: params.Owned, Base: config.BaseBranch})
+			cs.readStanding(ctx, &look, params.Owned)
 			if look.removed || look.head.Root == "" {
 				return look, nil
 			}
@@ -434,14 +437,23 @@ type walkLandingsParams struct {
 // walkLandings walks the task's unlanded rounds, recording on the look the newest the base holds
 // whole.
 func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params walkLandingsParams) {
-	if len(params.Rounds) == 0 {
+	if len(params.Rounds) == 0 || errors.Is(look.baseErr, git.ErrBaseMissing) {
+		return
+	}
+	if look.baseErr != nil {
+		look.err = errors.Join(look.err, fmt.Errorf("failed to read the base tip of %q: %w", look.task.Checkout.Cwd, look.baseErr))
+
 		return
 	}
 
-	if err := cs.fetchMergedBase(ctx, look.task, params); err != nil {
+	tip, err := cs.fetchMergedBase(ctx, look.task, params)
+	if err != nil {
 		look.err = errors.Join(look.err, err)
 
 		return
+	}
+	if tip == "" {
+		tip = look.base.Tip
 	}
 
 	landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
@@ -449,6 +461,7 @@ func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params wal
 		Dir:    look.task.Checkout.Cwd,
 		Rounds: params.Rounds,
 		Base:   params.Base,
+		Tip:    tip,
 	})
 	if err != nil {
 		look.err = errors.Join(look.err, err)
@@ -464,6 +477,8 @@ type walkLandingParams struct {
 	Dir    string
 	Rounds []reviewstore.UnlandedRound
 	Base   string
+	// Tip is the commit the base points at.
+	Tip string
 }
 
 // walkLanding finds the newest of a task's unlanded rounds the base holds whole, skipping the
@@ -472,15 +487,7 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	tip, err := cs.trees.ReadBaseTip(ctx, params.Dir, params.Base)
-	if errors.Is(err, git.ErrBaseMissing) {
-		return 0, "", nil
-	}
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to read the base tip of %q: %w", params.Dir, err)
-	}
-
-	walkedAt := tip + ":" + params.Rounds[0].SnapshotSHA
+	walkedAt := params.Tip + ":" + params.Rounds[0].SnapshotSHA
 	cs.walkedMu.Lock()
 	isWalked := cs.walked[params.TaskID] == walkedAt
 	cs.walkedMu.Unlock()
@@ -507,33 +514,33 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 }
 
 // fetchMergedBase fetches the base once for each merge of the task's pull request, so the walk
-// reads a base that holds what merged.
-func (cs *CwdSyncer) fetchMergedBase(ctx context.Context, task taskstore.Task, params walkLandingsParams) error {
+// reads a base that holds what merged, and answers the tip it fetched, empty when it fetched none.
+func (cs *CwdSyncer) fetchMergedBase(ctx context.Context, task taskstore.Task, params walkLandingsParams) (string, error) {
 	merged := params.Rounds[0].MergedAt
 	if merged == nil {
-		return nil
+		return "", nil
 	}
 
 	cs.walkedMu.Lock()
 	isFetched := cs.fetched[task.ID].Equal(*merged)
 	cs.walkedMu.Unlock()
 	if isFetched {
-		return nil
+		return "", nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, baseFetchTimeout)
 	defer cancel()
 
-	_, _, err := cs.trees.FetchBase(ctx, task.Checkout.Cwd, params.Base)
+	_, tip, err := cs.trees.FetchBase(ctx, task.Checkout.Cwd, params.Base)
 	if err != nil && !errors.Is(err, git.ErrBaseMissing) {
-		return fmt.Errorf("failed to fetch the base of task %q: %w", task.Slug, err)
+		return "", fmt.Errorf("failed to fetch the base of task %q: %w", task.Slug, err)
 	}
 
 	cs.walkedMu.Lock()
 	cs.fetched[task.ID] = *merged
 	cs.walkedMu.Unlock()
 
-	return nil
+	return tip, nil
 }
 
 func isCwdRemoved(ctx context.Context, dir string) bool {
@@ -583,16 +590,25 @@ func (cs *CwdSyncer) probeTree(ctx context.Context, head git.HeadState) (string,
 
 // measure records on the look the lines the checkout adds and removes since it left its base.
 func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflowstore.WorktreeConfig) {
+	if errors.Is(look.baseErr, git.ErrBaseMissing) {
+		return
+	}
+	if look.baseErr != nil {
+		look.keepDiffStat(look.baseErr)
+
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	stat, err := cs.checkouts.MeasureDiff(ctx, worktrees.MeasureDiffParams{
+	stat, err := cs.trees.ReadDiffStat(ctx, git.ReadDiffStatParams{
 		Dir:     look.head.Root,
-		Base:    config.BaseBranch,
+		Ref:     look.base.Ref,
 		Tree:    look.tree,
 		Exclude: config.DiffExclude,
 	})
-	if errors.Is(err, git.ErrBaseMissing) || errors.Is(err, git.ErrBaseUnrelated) {
+	if errors.Is(err, git.ErrBaseUnrelated) {
 		return
 	}
 	if err != nil {
@@ -604,13 +620,26 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	look.diffStat = &taskstore.DiffStat{Added: stat.Added, Removed: stat.Removed}
 }
 
-type readStandingParams struct {
+type readBaseParams struct {
 	Owned map[string]worktreestore.Worktree
 	Base  string
 }
 
-func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, params readStandingParams) {
-	worktree, ok := params.Owned[filepath.Clean(look.task.Checkout.Cwd)]
+// readBase records on the look the ref and tip its checkout is measured against.
+func (cs *CwdSyncer) readBase(ctx context.Context, look *cwdLook, params readBaseParams) {
+	_, owned := params.Owned[filepath.Clean(look.task.Checkout.Cwd)]
+	if look.removed || (look.head.Root == "" && !owned) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
+	defer cancel()
+
+	look.base, look.baseErr = cs.trees.ReadBase(ctx, look.task.Checkout.Cwd, params.Base)
+}
+
+func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, owned map[string]worktreestore.Worktree) {
+	worktree, ok := owned[filepath.Clean(look.task.Checkout.Cwd)]
 	if !ok || look.removed {
 		return
 	}
@@ -621,7 +650,8 @@ func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, params rea
 	standing := cs.checkouts.ReadStanding(ctx, worktrees.ReadStandingParams{
 		Dir:      worktree.Dir,
 		Readable: worktree.Readable,
-		Base:     params.Base,
+		Base:     look.base,
+		BaseErr:  look.baseErr,
 		HeadSHA:  look.head.SHA,
 	})
 	look.worktree = &worktree

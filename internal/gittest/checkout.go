@@ -27,8 +27,8 @@ type Checkout struct {
 	Remote       git.RemoteStanding
 	RemoteLanded bool
 	HoldAsked    string
-	Resolved     string
-	Resolves     int
+	BaseRead     string
+	BaseReads    int
 	Fetched      string
 	Fetches      int
 	Pruned       []string
@@ -62,15 +62,15 @@ func (g *Checkout) IsSequenceInProgress(context.Context, string) (bool, error) {
 	return g.State.InProgress, nil
 }
 
-// ResolveBase records the base and answers its origin ref, refusing a blank or unresolved one.
-func (g *Checkout) ResolveBase(_ context.Context, _, base string) (string, error) {
-	g.Resolved = base
-	g.Resolves++
+// ReadBase records the base and answers its origin ref at BaseTip, refusing a blank or unresolved one.
+func (g *Checkout) ReadBase(_ context.Context, _, base string) (*git.Base, error) {
+	g.BaseRead = base
+	g.BaseReads++
 	if g.Unresolved || base == "" {
-		return "", fmt.Errorf("%w: the clone has no origin/%s", git.ErrBaseMissing, base)
+		return nil, fmt.Errorf("%w: the clone has no origin/%s", git.ErrBaseMissing, base)
 	}
 
-	return "origin/" + base, nil
+	return &git.Base{Ref: "origin/" + base, Tip: g.BaseTip}, nil
 }
 
 // FetchBase records the base and answers its origin ref.
@@ -84,11 +84,6 @@ func (g *Checkout) FetchBase(_ context.Context, _, base string) (string, string,
 // CountAheadBehind answers Ahead and Behind.
 func (g *Checkout) CountAheadBehind(context.Context, string, string) (int, int, error) {
 	return g.Ahead, g.Behind, nil
-}
-
-// ReadBaseTip answers BaseTip.
-func (g *Checkout) ReadBaseTip(context.Context, string, string) (string, error) {
-	return g.BaseTip, nil
 }
 
 // PredictRebase answers Prediction and PredictErr.

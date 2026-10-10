@@ -125,7 +125,8 @@ func TestIntegrationPruneWorktreesDropsAGoneRegistration(t *testing.T) {
 }
 
 // TestIntegrationResolveBaseReadsTheCloneAsItStands covers the three answers: origin's copy when the clone
-// holds one, the local branch otherwise, and a refusal naming the branch when it has neither.
+// holds one, the local branch otherwise, and a refusal naming the branch when it has neither, each
+// read with the commit it points at.
 func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 	t.Parallel()
 
@@ -135,6 +136,12 @@ func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 	ref, err := client.ResolveBase(t.Context(), clone, "main")
 	require.NoError(t, err)
 	assert.Equal(t, "origin/main", ref, "origin's copy is read without origin/HEAD")
+
+	tip, err := Run(t.Context(), clone, "rev-parse", "origin/main")
+	require.NoError(t, err)
+	base, err := client.ReadBase(t.Context(), clone, "main")
+	require.NoError(t, err)
+	assert.Equal(t, Base{Ref: "origin/main", Tip: tip}, *base)
 
 	_, err = client.ResolveBase(t.Context(), clone, "trunk")
 	require.ErrorIs(t, err, ErrBaseMissing)
@@ -147,6 +154,12 @@ func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 	ref, err = client.ResolveBase(t.Context(), local, "main")
 	require.NoError(t, err)
 	assert.Equal(t, "refs/heads/main", ref, "a repository with no origin measures against its own branch")
+
+	tip, err = Run(t.Context(), local, "rev-parse", "main")
+	require.NoError(t, err)
+	base, err = client.ReadBase(t.Context(), local, "main")
+	require.NoError(t, err)
+	assert.Equal(t, Base{Ref: "refs/heads/main", Tip: tip}, *base)
 
 	_, err = client.ResolveBase(t.Context(), local, "trunk")
 	require.ErrorIs(t, err, ErrBaseMissing)

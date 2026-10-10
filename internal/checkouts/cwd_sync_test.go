@@ -542,38 +542,109 @@ func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
 	}
 }
 
+// TestCwdSyncerSyncReadsTheBaseOncePerPass covers the standing, the landing walk and the diff stat
+// sharing one reading of the base, and no reading when none of them will run.
+func TestCwdSyncerSyncReadsTheBaseOncePerPass(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          bool
+		owned         bool
+		wantRead      bool
+		wantPredicted int
+		wantWalked    []string
+		wantMeasured  int
+	}{
+		{
+			name:          "a checkout read for every use reads the base once",
+			root:          true,
+			owned:         true,
+			wantRead:      true,
+			wantPredicted: 1,
+			wantWalked:    []string{"snapshot-one"},
+			wantMeasured:  1,
+		},
+		{
+			name:          "an owned worktree git found no root for still reads the base for its standing",
+			owned:         true,
+			wantRead:      true,
+			wantPredicted: 1,
+		},
+		{
+			name: "an unowned checkout git found no root for reads no base",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newSyncFixture(t)
+			fixture.workflowID = fixture.stores.SeedWorkflow(t, workflowstore.Config{
+				Name:     "shared",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+			}).ID
+			cwd := makeCheckout(t)
+			agent := fixture.seed(t, "a", cwd)
+			fixture.release(t, agent.ID, "snapshot-one")
+			if tt.owned {
+				require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: cwd, Readable: true}))
+			}
+			head := git.HeadState{SHA: "head-one"}
+			if tt.root {
+				head.Root = cwd
+			}
+			trees := &gittest.Trees{
+				Tips:      map[string]string{cwd: "tip-one"},
+				DiffStats: map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
+			}
+			syncer := fixture.newSyncer(newSyncerParams{
+				Heads:     buildHeads(cwd, head),
+				Trees:     trees,
+				Checkouts: worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: trees}),
+			})
+
+			require.NoError(t, syncer.Sync(t.Context()))
+
+			var wantBasesRead []string
+			if tt.wantRead {
+				wantBasesRead = []string{cwd}
+			}
+			assert.Equal(t, wantBasesRead, trees.BasesRead)
+			assert.Equal(t, tt.wantPredicted, trees.Predicted)
+			assert.Equal(t, tt.wantWalked, trees.Walked)
+			assert.Len(t, trees.Measured, tt.wantMeasured)
+		})
+	}
+}
+
 // TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
 // first one the base holds whole.
 func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 	tests := []struct {
 		name         string
-		tips         bool
+		unresolved   bool
 		landed       map[string]bool
 		wantWalked   []string
 		wantUnlanded []int32
 	}{
 		{
 			name:         "a base the clone does not have walks nothing",
+			unresolved:   true,
 			landed:       map[string]bool{"snapshot-three": true},
 			wantUnlanded: []int32{3, 2, 1},
 		},
 		{
 			name:         "a base holding no round walks them all and lands none",
-			tips:         true,
 			landed:       map[string]bool{},
 			wantWalked:   []string{"snapshot-three", "snapshot-two", "snapshot-one"},
 			wantUnlanded: []int32{3, 2, 1},
 		},
 		{
 			name:         "a base holding a middle round lands it and every earlier one",
-			tips:         true,
 			landed:       map[string]bool{"snapshot-two": true},
 			wantWalked:   []string{"snapshot-three", "snapshot-two"},
 			wantUnlanded: []int32{3},
 		},
 		{
 			name:         "a base holding the newest round lands them all",
-			tips:         true,
 			landed:       map[string]bool{"snapshot-three": true},
 			wantWalked:   []string{"snapshot-three"},
 			wantUnlanded: []int32{},
@@ -590,9 +661,8 @@ func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 			}
 			trees := buildEmptyTrees()
 			trees.Landed = tt.landed
-			if tt.tips {
-				trees.Tips = map[string]string{cwd: "tip-one"}
-			}
+			trees.Unresolved = tt.unresolved
+			trees.Tips = map[string]string{cwd: "tip-one"}
 
 			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
 

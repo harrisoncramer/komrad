@@ -3,6 +3,7 @@ package worktrees
 import (
 	"testing"
 
+	"komrad/internal/git"
 	"komrad/internal/gittest"
 
 	"github.com/stretchr/testify/assert"
@@ -51,20 +52,19 @@ func TestCheckoutReaderReadStandingPredictsOncePerHeadAndTip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			trees := &gittest.Trees{Tips: map[string]string{dir: "tip-one"}}
+			trees := &gittest.Trees{}
 			reader := NewCheckoutReader(NewCheckoutReaderParams{Git: trees})
 
 			reader.ReadStanding(t.Context(), ReadStandingParams{
 				Dir:      dir,
 				Readable: true,
-				Base:     "main",
+				Base:     &git.Base{Ref: "origin/main", Tip: "tip-one"},
 				HeadSHA:  tt.firstHead,
 			})
-			trees.Tips[dir] = tt.secondTip
 			reader.ReadStanding(t.Context(), ReadStandingParams{
 				Dir:      dir,
 				Readable: true,
-				Base:     "main",
+				Base:     &git.Base{Ref: "origin/main", Tip: tt.secondTip},
 				HeadSHA:  tt.secondHead,
 			})
 
