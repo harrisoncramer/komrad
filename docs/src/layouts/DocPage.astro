@@ -46,13 +46,16 @@ const structuredData = [
       {title}
     </h1>
     {description && <p class="mt-2 mb-8 text-lg text-app-gray-light">{description}</p>}
-    {filePath && (
-      <div class="mb-3 flex justify-end" data-pagefind-ignore>
-        <a class="edit-link" href={`${REPO_URL}/blob/main/docs/${filePath}`}>
+    <div class="mb-3 flex justify-end gap-4" data-pagefind-ignore>
+      <button class="page-action copy-markdown" type="button" data-markdown={markdown}>
+        Copy as Markdown
+      </button>
+      {filePath && (
+        <a class="page-action" href={`${REPO_URL}/blob/main/docs/${filePath}`}>
           Edit this page on Github
         </a>
-      </div>
-    )}
+      )}
+    </div>
     <div class="doc-content mt-4">
       <slot />
     </div>
@@ -84,13 +87,13 @@ const structuredData = [
     @apply leading-tight;
   }
 
-  .edit-link {
-    @apply text-sm text-app-gray opacity-70 transition-opacity duration-200;
+  .page-action {
+    @apply cursor-pointer text-sm text-app-gray opacity-70 transition-opacity duration-200;
     font-family: var(--font-sans);
   }
 
-  .edit-link:hover,
-  .edit-link:focus-visible {
+  .page-action:hover,
+  .page-action:focus-visible {
     @apply opacity-100;
   }
 
@@ -183,6 +186,22 @@ const structuredData = [
           button.textContent = "Copy";
         }, 1500);
       });
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".copy-markdown").forEach((button) => {
+    const label = button.textContent;
+    button.addEventListener("click", () => {
+      const text = fetch(button.dataset.markdown ?? "")
+        .then((response) => (response.ok ? response.text() : Promise.reject(new Error(response.statusText))))
+        .then((markdown) => new Blob([markdown], { type: "text/plain" }));
+      navigator.clipboard
+        .write([new ClipboardItem({ "text/plain": text })])
+        .then(
+          () => (button.textContent = "Copied!"),
+          () => (button.textContent = "Copy failed"),
+        )
+        .finally(() => setTimeout(() => (button.textContent = label), 1500));
     });
   });
 </script>
