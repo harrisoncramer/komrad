@@ -51,11 +51,6 @@ table "review_rounds" {
     type    = text
     comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
   }
-  column "ref" {
-    null    = true
-    type    = text
-    comment = "The git ref holding the snapshot alive, which is released by this name."
-  }
   column "landed_at" {
     null    = true
     type    = timestamptz

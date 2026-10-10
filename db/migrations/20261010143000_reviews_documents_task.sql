@@ -5,7 +5,7 @@ CREATE INDEX "documents_task_id" ON "documents" ("task_id");
 -- Set comment to column: "task_id" on table: "documents"
 COMMENT ON COLUMN "documents"."task_id" IS 'The task its author worked on when it was first written, null for an orchestrator''s document.';
 -- Modify "review_rounds" table
-ALTER TABLE "review_rounds" DROP CONSTRAINT "review_rounds_agent_id_fkey", ADD COLUMN "task_id" uuid NULL, ADD COLUMN "ref" text NULL, ADD CONSTRAINT "review_rounds_task_id_fkey" FOREIGN KEY ("engine_id", "task_id") REFERENCES "tasks" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE CASCADE NOT VALID;
+ALTER TABLE "review_rounds" DROP CONSTRAINT "review_rounds_agent_id_fkey", ADD COLUMN "task_id" uuid NULL, ADD CONSTRAINT "review_rounds_task_id_fkey" FOREIGN KEY ("engine_id", "task_id") REFERENCES "tasks" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE CASCADE NOT VALID;
 -- Create index "review_rounds_task_ordinal" to table: "review_rounds"
 CREATE UNIQUE INDEX "review_rounds_task_ordinal" ON "review_rounds" ("task_id", "ordinal");
 -- Set comment to column: "agent_id" on table: "review_rounds"
@@ -14,8 +14,6 @@ COMMENT ON COLUMN "review_rounds"."agent_id" IS 'The agent the round was taken t
 COMMENT ON COLUMN "review_rounds"."ordinal" IS 'Which round this is for its task, counting from one. The panel names the round by this number.';
 -- Set comment to column: "task_id" on table: "review_rounds"
 COMMENT ON COLUMN "review_rounds"."task_id" IS 'The task whose checkout the round froze.';
--- Set comment to column: "ref" on table: "review_rounds"
-COMMENT ON COLUMN "review_rounds"."ref" IS 'The git ref holding the snapshot alive, which is released by this name.';
 -- Modify "review_threads" table
 ALTER TABLE "review_threads" DROP CONSTRAINT "review_threads_agent_id_fkey", ADD COLUMN "task_id" uuid NULL, ADD CONSTRAINT "review_threads_task_id_fkey" FOREIGN KEY ("engine_id", "task_id") REFERENCES "tasks" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE CASCADE NOT VALID;
 -- Create index "review_threads_task_forge_thread" to table: "review_threads"

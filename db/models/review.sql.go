@@ -49,7 +49,7 @@ func (q *Queries) DeleteReview(ctx context.Context, id string) error {
 
 const getLatestReviewRound = `-- name: GetLatestReviewRound :one
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id, ref
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id
 FROM
     review_rounds r
 WHERE
@@ -72,7 +72,6 @@ func (q *Queries) GetLatestReviewRound(ctx context.Context, taskID string) (*Rev
 		&i.EngineID,
 		&i.LandedAt,
 		&i.TaskID,
-		&i.Ref,
 	)
 	return &i, err
 }
@@ -185,7 +184,7 @@ func (q *Queries) GetReviewMessage(ctx context.Context, id string) (*ReviewMessa
 
 const getReviewRound = `-- name: GetReviewRound :one
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id, ref
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id
 FROM
     review_rounds r
 WHERE
@@ -205,14 +204,13 @@ func (q *Queries) GetReviewRound(ctx context.Context, id string) (*ReviewRound, 
 		&i.EngineID,
 		&i.LandedAt,
 		&i.TaskID,
-		&i.Ref,
 	)
 	return &i, err
 }
 
 const getReviewRoundBySnapshot = `-- name: GetReviewRoundBySnapshot :one
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id, ref
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id
 FROM
     review_rounds r
 WHERE
@@ -241,7 +239,6 @@ func (q *Queries) GetReviewRoundBySnapshot(ctx context.Context, arg GetReviewRou
 		&i.EngineID,
 		&i.LandedAt,
 		&i.TaskID,
-		&i.Ref,
 	)
 	return &i, err
 }
@@ -597,21 +594,19 @@ INSERT INTO review_rounds(
     task_id,
     ordinal,
     base_sha,
-    snapshot_sha,
-    ref)
+    snapshot_sha)
 SELECT
     $1,
     $2::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
     $3,
-    $4,
-    $5::text
+    $4
 FROM
     review_rounds r
 WHERE
     r.task_id = $2::uuid
 RETURNING
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id, ref
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id
 `
 
 type InsertReviewRoundParams struct {
@@ -619,7 +614,6 @@ type InsertReviewRoundParams struct {
 	TaskID      string
 	BaseSha     string
 	SnapshotSha string
-	Ref         string
 }
 
 func (q *Queries) InsertReviewRound(ctx context.Context, arg InsertReviewRoundParams) (*ReviewRound, error) {
@@ -628,7 +622,6 @@ func (q *Queries) InsertReviewRound(ctx context.Context, arg InsertReviewRoundPa
 		arg.TaskID,
 		arg.BaseSha,
 		arg.SnapshotSha,
-		arg.Ref,
 	)
 	var i ReviewRound
 	err := row.Scan(
@@ -641,7 +634,6 @@ func (q *Queries) InsertReviewRound(ctx context.Context, arg InsertReviewRoundPa
 		&i.EngineID,
 		&i.LandedAt,
 		&i.TaskID,
-		&i.Ref,
 	)
 	return &i, err
 }
@@ -853,7 +845,7 @@ FROM
     JOIN tasks t ON t.id = o.task_id
     JOIN LATERAL (
         SELECT
-            id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id, ref
+            id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id
         FROM
             review_rounds r
         WHERE
@@ -1030,8 +1022,6 @@ SELECT DISTINCT ON (r.task_id)
     r.snapshot_sha
 FROM
     review_rounds r
-WHERE
-    r.task_id IS NOT NULL
 ORDER BY
     r.task_id,
     r.ordinal DESC
@@ -1220,7 +1210,7 @@ func (q *Queries) ListReviewMessagesOfThreads(ctx context.Context, threadIds []s
 
 const listReviewRounds = `-- name: ListReviewRounds :many
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id, ref
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id
 FROM
     review_rounds r
 WHERE
@@ -1248,7 +1238,6 @@ func (q *Queries) ListReviewRounds(ctx context.Context, taskID string) ([]*Revie
 			&i.EngineID,
 			&i.LandedAt,
 			&i.TaskID,
-			&i.Ref,
 		); err != nil {
 			return nil, err
 		}
@@ -1269,7 +1258,6 @@ WITH released AS (
         reviews v
     WHERE
         v.released_at IS NOT NULL
-        AND v.task_id IS NOT NULL
     GROUP BY
         v.task_id
 ),
@@ -1571,12 +1559,11 @@ func (q *Queries) ListReviews(ctx context.Context, taskID string) ([]*ListReview
 
 const listRoundsLeftByAgents = `-- name: ListRoundsLeftByAgents :many
 SELECT
-    r.id, r.agent_id, r.ordinal, r.base_sha, r.snapshot_sha, r.created_at, r.engine_id, r.landed_at, r.task_id, r.ref
+    r.id, r.agent_id, r.ordinal, r.base_sha, r.snapshot_sha, r.created_at, r.engine_id, r.landed_at, r.task_id
 FROM
     review_rounds r
 WHERE
-    r.ref IS NOT NULL
-    AND r.task_id IN (
+    r.task_id IN (
         SELECT
             a.task_id
         FROM
@@ -1612,7 +1599,6 @@ func (q *Queries) ListRoundsLeftByAgents(ctx context.Context, agentIds []string)
 			&i.EngineID,
 			&i.LandedAt,
 			&i.TaskID,
-			&i.Ref,
 		); err != nil {
 			return nil, err
 		}
@@ -1647,7 +1633,6 @@ FROM
         LIMIT 1) m ON TRUE
 WHERE
     r.landed_at IS NULL
-    AND r.task_id IS NOT NULL
     AND EXISTS (
         SELECT
             1
@@ -1820,9 +1805,8 @@ FROM
     JOIN review_rounds r ON r.id = v.round_id
     LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
-    v.task_id IS NOT NULL
-    AND ($1::text[] IS NULL
-        OR v.id = ANY ($1::uuid[]))
+    $1::text[] IS NULL
+    OR v.id = ANY ($1::uuid[])
 ORDER BY
     v.id
 `

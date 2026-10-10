@@ -4,15 +4,13 @@ INSERT INTO review_rounds(
     task_id,
     ordinal,
     base_sha,
-    snapshot_sha,
-    ref)
+    snapshot_sha)
 SELECT
     @agent_id,
     sqlc.arg('task_id')::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
     @base_sha,
-    @snapshot_sha,
-    sqlc.arg('ref')::text
+    @snapshot_sha
 FROM
     review_rounds r
 WHERE
@@ -67,8 +65,7 @@ SELECT
 FROM
     review_rounds r
 WHERE
-    r.ref IS NOT NULL
-    AND r.task_id IN (
+    r.task_id IN (
         SELECT
             a.task_id
         FROM
@@ -181,9 +178,8 @@ FROM
     JOIN review_rounds r ON r.id = v.round_id
     LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
-    v.task_id IS NOT NULL
-    AND (sqlc.narg('keys')::text[] IS NULL
-        OR v.id = ANY (sqlc.narg('keys')::uuid[]))
+    sqlc.narg('keys')::text[] IS NULL
+    OR v.id = ANY (sqlc.narg('keys')::uuid[])
 ORDER BY
     v.id;
 
@@ -680,7 +676,6 @@ WITH released AS (
         reviews v
     WHERE
         v.released_at IS NOT NULL
-        AND v.task_id IS NOT NULL
     GROUP BY
         v.task_id
 ),
@@ -715,8 +710,6 @@ SELECT DISTINCT ON (r.task_id)
     r.snapshot_sha
 FROM
     review_rounds r
-WHERE
-    r.task_id IS NOT NULL
 ORDER BY
     r.task_id,
     r.ordinal DESC;
@@ -744,7 +737,6 @@ FROM
         LIMIT 1) m ON TRUE
 WHERE
     r.landed_at IS NULL
-    AND r.task_id IS NOT NULL
     AND EXISTS (
         SELECT
             1

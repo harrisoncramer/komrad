@@ -37,9 +37,7 @@ type Round struct {
 	Ordinal     int32
 	BaseSHA     string
 	SnapshotSHA string
-	// Ref is the git ref holding the snapshot, empty on a round that predates stored refs.
-	Ref       string
-	CreatedAt time.Time
+	CreatedAt   time.Time
 	// LandedAt is when the base branch was first seen holding this round or a later one whole,
 	// nil until then.
 	LandedAt *time.Time
@@ -103,7 +101,6 @@ func (s *ReviewStore) CreateRound(ctx context.Context, params CreateRoundParams)
 		TaskID:      params.TaskID,
 		BaseSha:     params.BaseSHA,
 		SnapshotSha: params.SnapshotSHA,
-		Ref:         RoundRef(params.TaskID, params.SnapshotSHA),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a review round on task %q: %w", params.TaskID, err)
@@ -427,7 +424,6 @@ func roundFromRow(row models.ReviewRound) Round {
 		Ordinal:     row.Ordinal,
 		BaseSHA:     row.BaseSha,
 		SnapshotSHA: row.SnapshotSha,
-		Ref:         xptr.Deref(row.Ref),
 		CreatedAt:   row.CreatedAt,
 		LandedAt:    row.LandedAt,
 	}
