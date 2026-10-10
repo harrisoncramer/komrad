@@ -3,6 +3,8 @@ package reviews
 import (
 	"testing"
 
+	agentstore "komrad/internal/store/agent"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,8 +60,7 @@ func TestAddressedReply(t *testing.T) {
 			thread := fx.releaseFirstReview(t)
 			fx.snapshots.SHA = tt.snapshot
 			if tt.homeless {
-				fx.worker.Cwd = ""
-				require.NoError(t, fx.stores.Agents.Update(t.Context(), *fx.worker))
+				require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), *fx.worker.TaskID, ""))
 			}
 
 			added, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -79,6 +80,58 @@ func TestAddressedReply(t *testing.T) {
 			round, err := fx.reviews.GetRound(t.Context(), *added.Message.RoundID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
+		})
+	}
+}
+
+// TestANewWriterAnswersTheThreadsItInherits pins that a task handed on moves its threads to the new writer, whose addressed answer settles them.
+func TestANewWriterAnswersTheThreadsItInherits(t *testing.T) {
+	tests := []struct {
+		name    string
+		author  func(fx *reviewFixture, successor *agentstore.Agent) ReviewAuthor
+		wantErr error
+	}{
+		{
+			name: "the writer that handed the task on",
+			author: func(fx *reviewFixture, _ *agentstore.Agent) ReviewAuthor {
+				return newAgentAuthor(fx.worker)
+			},
+			wantErr: ErrReviewNotYours,
+		},
+		{
+			name: "the new writer",
+			author: func(_ *reviewFixture, successor *agentstore.Agent) ReviewAuthor {
+				return newAgentAuthor(successor)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+			thread := fx.releaseFirstReview(t)
+			_, err := fx.stores.Agents.Archive(t.Context(), []string{fx.worker.ID})
+			require.NoError(t, err)
+			successor := fx.seedSuccessor(t)
+			fx.snapshots.SHA = secondSnapshot
+
+			_, err = fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+				ThreadID:  thread.ID,
+				Body:      "added the nil check",
+				Author:    tt.author(fx, successor),
+				Addressed: true,
+			})
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+
+			settled, err := fx.reviews.GetThread(t.Context(), thread.ID)
+			require.NoError(t, err)
+			assert.NotNil(t, settled.ResolvedAt)
+			assert.Equal(t, &successor.ID, settled.ResolvedByAgentID)
 		})
 	}
 }

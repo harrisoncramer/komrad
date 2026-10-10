@@ -14,6 +14,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -112,6 +113,44 @@ func TestDocumentsOpen(t *testing.T) {
 			Type:    "RFC",
 			Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
 		})
+	})
+
+	t.Run("a task's row opens only its own documents beside a task whose slug it prefixes", func(t *testing.T) {
+		t.Parallel()
+
+		docs := newDocumentShelf()
+		docs.add(&agentv1.Document{
+			Id:        "d3",
+			AgentId:   "a1",
+			TaskId:    xptr.Ptr("t1"),
+			Name:      "Login plan",
+			Type:      "RFC",
+			Version:   1,
+			UpdatedAt: "2026-09-20T12:00:00Z",
+		})
+		docs.add(&agentv1.Document{
+			Id:        "d4",
+			AgentId:   "a3",
+			TaskId:    xptr.Ptr("t2"),
+			Name:      "Solo notes",
+			Type:      "notes",
+			Version:   1,
+			UpdatedAt: "2026-09-21T12:00:00Z",
+		})
+		rows := buildTasks()
+		rows[2].(*taskv1.Task).Slug = "fix-login-2"
+		harness := openAgents(t, rows...)
+		docs.answer(harness)
+		harness.press("j")
+		require.Contains(t, readHoveredRow(harness.readFrame()), "fix-login")
+		require.NotContains(t, readHoveredRow(harness.readFrame()), "fix-login-2")
+		harness.press("space", "J", "d")
+		harness.fireTimers()
+
+		listed := strings.Join(readListRows(harness.readFrame()), "\n")
+		assert.Contains(t, listed, "Login plan")
+		assert.NotContains(t, listed, "Solo notes")
+		assert.NotContains(t, rows, "Design the cache")
 	})
 
 	t.Run("a row with none opens it empty", func(t *testing.T) {

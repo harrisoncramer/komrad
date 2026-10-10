@@ -132,6 +132,46 @@ func TestCreate(t *testing.T) {
 	}
 }
 
+// TestCreateRecordsTheAuthorsTask pins that a document carries the task its author works on, and an orchestrator's carries none.
+func TestCreateRecordsTheAuthorsTask(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	worker := stores.SeedAgent(t, agentstore.Agent{Name: "worker"})
+	orchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "orchestrator", Role: agentstore.RoleOrchestrator})
+
+	tests := []struct {
+		name     string
+		author   *agentstore.Agent
+		wantTask *string
+	}{
+		{
+			name:   "an orchestrator's document",
+			author: orchestrator,
+		},
+		{
+			name:     "a document written by an agent on a task",
+			author:   worker,
+			wantTask: worker.TaskID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+				AgentID: tt.author.ID,
+				Name:    "Plan",
+				Type:    "RFC",
+				Body:    "# Plan",
+			})
+			require.NoError(t, err)
+
+			got, err := stores.Documents.Get(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantTask, got.TaskID)
+		})
+	}
+}
+
 // TestUpdate pins which rewrites land and that a refused one changes nothing.
 func TestUpdate(t *testing.T) {
 	stores := storetest.Open(t)
@@ -317,6 +357,7 @@ func TestList(t *testing.T) {
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
+	successor := stores.SeedAgent(t, agentstore.Agent{Name: "successor", TaskID: author.TaskID})
 
 	write := func(agentID, name string, typeName string) string {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
@@ -333,6 +374,7 @@ func TestList(t *testing.T) {
 	notes := write(author.ID, "scratch", "notes")
 	elsewhere := write(other.ID, "elsewhere", "RFC")
 	write(leaving.ID, "doomed", "RFC")
+	handover := write(successor.ID, "handover", "notes")
 
 	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
 		ID:      rfc,
@@ -351,6 +393,7 @@ func TestList(t *testing.T) {
 	tests := []struct {
 		name     string
 		agentID  *string
+		taskID   *string
 		typeName *string
 		want     []string
 	}{
@@ -367,13 +410,26 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "every agent's documents, archived agents included",
-			want: []string{rfc, elsewhere, notes},
+			want: []string{rfc, handover, elsewhere, notes},
 		},
 		{
 			name:     "every agent's documents of one type",
 			typeName: xptr.Ptr("RFC"),
 			want:     []string{rfc, elsewhere},
 		},
+		{
+			name:   "a task's documents, from every agent that worked on it",
+			taskID: author.TaskID,
+			want:   []string{rfc, handover, notes},
+		},
+		{
+			name:     "a task's documents of one type",
+			taskID:   author.TaskID,
+			typeName: xptr.Ptr("notes"),
+			want:     []string{handover, notes},
+		},
+		{name: "a task with none", taskID: xptr.Ptr(uuid.NewString())},
+		{name: "a task that is not an id", taskID: xptr.Ptr("not-an-id")},
 		{name: "an agent with none", agentID: xptr.Ptr(uuid.NewString())},
 		{name: "an agent being deleted", agentID: xptr.Ptr(leaving.ID)},
 		{name: "a value that is not an id", agentID: xptr.Ptr("not-an-id")},
@@ -383,6 +439,7 @@ func TestList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			listed, err := stores.Documents.List(ctx, documentstore.ListParams{
 				AgentID: tt.agentID,
+				TaskID:  tt.taskID,
 				Type:    tt.typeName,
 				Limit:   10,
 			})
@@ -411,7 +468,7 @@ func TestList(t *testing.T) {
 	require.NoError(t, err)
 
 	paged := append([]string{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) string { return doc.ID })...)
-	assert.Equal(t, []string{rfc, elsewhere, notes}, paged, "a cursor carries on where its page left off")
+	assert.Equal(t, []string{rfc, handover, elsewhere, notes}, paged, "a cursor carries on where its page left off")
 }
 
 // TestDeletingTheAgentDeletesItsDocuments pins that archiving keeps an agent's documents and deleting it removes them.

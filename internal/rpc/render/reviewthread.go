@@ -20,7 +20,7 @@ func WatchedReviewThread(thread reviewstore.ThreadWithMessages) *agentv1.ReviewT
 func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *agentv1.ReviewThread {
 	answered := &agentv1.ReviewThread{
 		Id:            thread.ID,
-		AgentId:       thread.AgentID,
+		TaskId:        thread.TaskID,
 		ReviewId:      thread.ReviewID,
 		RoundId:       thread.RoundID,
 		RoundOrdinal:  thread.RoundOrdinal,

@@ -25,6 +25,8 @@ message Document {
   string updated_at = 7;
   // How many times it has been written, which a rewrite passes back to say what it replaces.
   int32 version = 8;
+  // The task its author worked on when it was first written, absent for an orchestrator's.
+  optional string task_id = 9;
 }
 
 message WriteDocumentRequest {
@@ -74,6 +76,8 @@ message ListDocumentsRequest {
   }];
   // Where to carry on from.
   optional pagination.v1.Pagination pagination = 3;
+  // Only documents written for this task, named by id or slug, or unset for every task's.
+  optional string task = 4 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListDocumentsResponse {

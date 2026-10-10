@@ -2894,6 +2894,16 @@
           "oneof": "",
           "rules": [],
           "description": "How many times it has been written, which a rewrite passes back to say what it replaces."
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task its author worked on when it was first written, absent for an orchestrator's."
         }
       ]
     },
@@ -3946,6 +3956,16 @@
           "oneof": "",
           "rules": [],
           "description": "Where to carry on from."
+        },
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Only documents written for this task, named by id or slug, or unset for every task's."
         }
       ]
     },
@@ -5150,14 +5170,14 @@
           "description": "The handle the threads in this batch name it by."
         },
         {
-          "name": "agent_id",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose work is being read."
+          "description": "The task whose work is being read."
         },
         {
           "name": "round_id",
@@ -5449,7 +5469,7 @@
     },
     "agent.v1.ReviewRound": {
       "name": "ReviewRound",
-      "description": "ReviewRound is one immutable snapshot of what an agent has written, which is what a review is given against. Nothing a comment is pinned to can move underneath the person reading it, because the snapshot is a commit rather than the worktree.",
+      "description": "ReviewRound is one immutable snapshot of what a task's writer has written, which is what a review is given against. Nothing a comment is pinned to can move underneath the person reading it, because the snapshot is a commit rather than the worktree.",
       "fields": [
         {
           "name": "id",
@@ -5462,14 +5482,14 @@
           "description": "The handle a review or a viewed-file record names this round by."
         },
         {
-          "name": "agent_id",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose work the snapshot was taken of."
+          "description": "The task whose checkout the snapshot was taken of."
         },
         {
           "name": "ordinal",
@@ -5479,7 +5499,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which round this is for its agent, counting from one."
+          "description": "Which round this is for its task, counting from one."
         },
         {
           "name": "base_sha",
@@ -5515,7 +5535,7 @@
     },
     "agent.v1.ReviewThread": {
       "name": "ReviewThread",
-      "description": "ReviewThread is one conversation pinned to a place in a round of an agent's diff.",
+      "description": "ReviewThread is one conversation pinned to a place in a round of a task's diff.",
       "fields": [
         {
           "name": "id",
@@ -5528,14 +5548,14 @@
           "description": "The handle a reply or a resolve names this thread by."
         },
         {
-          "name": "agent_id",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose diff the thread is pinned to."
+          "description": "The task whose diff the thread is pinned to."
         },
         {
           "name": "review_id",

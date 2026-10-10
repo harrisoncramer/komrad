@@ -89,6 +89,7 @@ var Documents = Grammar{
 	Keys: []Key{
 		{Name: KeyAgent},
 		{Name: KeyWorkflow},
+		{Name: KeyTask},
 		{Name: KeyType},
 		{Name: KeySince},
 		{Name: KeyUntil},

@@ -564,6 +564,8 @@ type Document struct {
 	Version int32
 	// The name of the document type it was written as.
 	Type string
+	// The task its author worked on when it was first written, null for an orchestrator's document.
+	TaskID *string
 }
 
 // A sort of document a person defines, with the instructions an agent follows when writing one.
@@ -924,7 +926,7 @@ type PullRequestSync struct {
 // One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.
 type Review struct {
 	ID string
-	// The agent being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join.
+	// The agent its round was taken through, kept for older builds while every read goes by task.
 	AgentID string
 	RoundID string
 	// Whether a person or an agent is giving the review.
@@ -947,6 +949,8 @@ type Review struct {
 	EngineID string
 	// The forge login of whoever wrote a review on the forge, empty when the forge no longer knew them. Null for a review written in komrad.
 	ExternalLogin *string
+	// The task being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join.
+	TaskID *string
 }
 
 // A reply komrad posts to the forge on a mirrored thread, from the agent's proposal or the person's own words through to the forge comment it became.
@@ -1016,9 +1020,10 @@ type ReviewMessage struct {
 
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
 type ReviewRound struct {
-	ID      string
+	ID string
+	// The agent the round was taken through, kept for older builds while every read goes by task.
 	AgentID string
-	// Which round this is for its agent, counting from one. The panel names the round by this number.
+	// Which round this is for its task, counting from one. The panel names the round by this number.
 	Ordinal int32
 	// The commit the agent's branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says.
 	BaseSha string
@@ -1029,12 +1034,14 @@ type ReviewRound struct {
 	EngineID string
 	// When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review.
 	LandedAt *time.Time
+	// The task whose checkout the round froze.
+	TaskID *string
 }
 
 // One conversation pinned to a file and a line range in the round its review was given against.
 type ReviewThread struct {
 	ID string
-	// The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent.
+	// The agent its round was taken through, kept for older builds while every read goes by task.
 	AgentID string
 	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
 	FilePath string
@@ -1071,6 +1078,8 @@ type ReviewThread struct {
 	ForgeThreadID *string
 	// Whether the forge said the thread was resolved as of the last sync, so only a change there resolves or reopens it here.
 	ForgeResolved bool
+	// The task being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by task.
+	TaskID *string
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.
@@ -1078,11 +1087,14 @@ type ReviewViewedFile struct {
 	// The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
 	FilePath string
 	ViewedAt time.Time
-	AgentID  string
+	// The agent whose diff the file was last marked read in.
+	AgentID string
 	// A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.
 	Fingerprint string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// The task whose diff the file is in.
+	TaskID *string
 }
 
 // A recurring firing, holding when to fire and the prompt it launches an implementer with or mails an orchestrator.

@@ -61,8 +61,8 @@ func (s *ReviewService) AcceptForgeMessage(
 	}
 
 	open, err := s.openReviewFor(ctx, openReviewForParams{
-		AgentID: thread.AgentID,
-		Author:  params.Author,
+		TaskID: thread.TaskID,
+		Author: params.Author,
 	})
 	if err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-// Package review stores the conversations pinned to the lines of an agent's diff and the
+// Package review stores the conversations pinned to the lines of a task's diff and the
 // messages in them.
 package review
 
@@ -26,10 +26,10 @@ const (
 	AuthorForge AuthorKind = AuthorKind(models.ReviewAuthorKindForge)
 )
 
-// Thread is one conversation pinned to a place in an agent's diff.
+// Thread is one conversation pinned to a place in a task's diff.
 type Thread struct {
-	ID      string
-	AgentID string
+	ID     string
+	TaskID string
 
 	// ReviewID is the review the thread was opened as part of.
 	ReviewID string
@@ -134,7 +134,7 @@ func NewReviewStore(db store.DBTX) *ReviewStore {
 }
 
 type CreateThreadParams struct {
-	AgentID       string
+	TaskID        string
 	ReviewID      string
 	RoundID       string
 	BaseSHA       string
@@ -160,7 +160,7 @@ type CreateThreadParams struct {
 // statement.
 func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParams) (*Thread, error) {
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
-		AgentID:        params.AgentID,
+		TaskID:         params.TaskID,
 		ReviewID:       params.ReviewID,
 		RoundID:        params.RoundID,
 		BaseSha:        params.BaseSHA,
@@ -186,7 +186,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 
 	return &Thread{
 		ID:                  row.ID,
-		AgentID:             row.AgentID,
+		TaskID:              xptr.Deref(row.TaskID),
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		BaseSHA:             row.BaseSha,
@@ -206,22 +206,22 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 	}, nil
 }
 
-// ListThreads is every thread on an agent, in the order they run down the diff.
-func (s *ReviewStore) ListThreads(ctx context.Context, agentID string) ([]Thread, error) {
-	if !store.IsID(agentID) {
+// ListThreads is every thread on a task, in the order they run down the diff.
+func (s *ReviewStore) ListThreads(ctx context.Context, taskID string) ([]Thread, error) {
+	if !store.IsID(taskID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewThreads(ctx, agentID)
+	rows, err := s.queries.ListReviewThreads(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the review threads on agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list the review threads on task %q: %w", taskID, err)
 	}
 
 	threads := make([]Thread, 0, len(rows))
 	for _, row := range rows {
 		thread := Thread{
 			ID:                  row.ID,
-			AgentID:             row.AgentID,
+			TaskID:              xptr.Deref(row.TaskID),
 			ReviewID:            row.ReviewID,
 			RoundID:             row.RoundID,
 			BaseSHA:             row.BaseSha,
@@ -270,7 +270,7 @@ func (s *ReviewStore) GetThread(ctx context.Context, id string) (*Thread, error)
 
 	thread := threadFromRow(models.ReviewThread{
 		ID:                  row.ID,
-		AgentID:             row.AgentID,
+		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		BaseSha:             row.BaseSha,
@@ -527,9 +527,9 @@ func holdThreads(messages []Message) []Message {
 	return messages
 }
 
-// ViewedFile is one file of an agent's diff that the person reviewing has read.
+// ViewedFile is one file of a task's diff that the person reviewing has read.
 type ViewedFile struct {
-	AgentID     string
+	TaskID      string
 	FilePath    string
 	Fingerprint string
 	ViewedAt    time.Time
@@ -537,6 +537,7 @@ type ViewedFile struct {
 
 type MarkFileViewedParams struct {
 	AgentID     string
+	TaskID      string
 	FilePath    string
 	Fingerprint string
 }
@@ -546,11 +547,12 @@ type MarkFileViewedParams struct {
 func (s *ReviewStore) MarkFileViewed(ctx context.Context, params MarkFileViewedParams) (*ViewedFile, error) {
 	row, err := s.queries.MarkReviewFileViewed(ctx, models.MarkReviewFileViewedParams{
 		AgentID:     params.AgentID,
+		TaskID:      params.TaskID,
 		FilePath:    params.FilePath,
 		Fingerprint: params.Fingerprint,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to mark %q viewed on agent %q: %w", params.FilePath, params.AgentID, err)
+		return nil, fmt.Errorf("failed to mark %q viewed on task %q: %w", params.FilePath, params.TaskID, err)
 	}
 
 	viewed := viewedFileFromRow(*row)
@@ -559,31 +561,31 @@ func (s *ReviewStore) MarkFileViewed(ctx context.Context, params MarkFileViewedP
 }
 
 // UnmarkFileViewed drops the mark on one file.
-func (s *ReviewStore) UnmarkFileViewed(ctx context.Context, agentID, filePath string) error {
-	if !store.IsID(agentID) {
+func (s *ReviewStore) UnmarkFileViewed(ctx context.Context, taskID, filePath string) error {
+	if !store.IsID(taskID) {
 		return nil
 	}
 
 	err := s.queries.UnmarkReviewFileViewed(ctx, models.UnmarkReviewFileViewedParams{
-		AgentID:  agentID,
+		TaskID:   taskID,
 		FilePath: filePath,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to unmark %q viewed on agent %q: %w", filePath, agentID, err)
+		return fmt.Errorf("failed to unmark %q viewed on task %q: %w", filePath, taskID, err)
 	}
 
 	return nil
 }
 
-// ListViewedFiles is every file of an agent marked read.
-func (s *ReviewStore) ListViewedFiles(ctx context.Context, agentID string) ([]ViewedFile, error) {
-	if !store.IsID(agentID) {
+// ListViewedFiles is every file of a task marked read.
+func (s *ReviewStore) ListViewedFiles(ctx context.Context, taskID string) ([]ViewedFile, error) {
+	if !store.IsID(taskID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewViewedFiles(ctx, agentID)
+	rows, err := s.queries.ListReviewViewedFiles(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the viewed files of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list the viewed files of task %q: %w", taskID, err)
 	}
 
 	viewed := xslice.Map(rows, func(row *models.ReviewViewedFile) ViewedFile {
@@ -595,7 +597,7 @@ func (s *ReviewStore) ListViewedFiles(ctx context.Context, agentID string) ([]Vi
 
 func viewedFileFromRow(row models.ReviewViewedFile) ViewedFile {
 	return ViewedFile{
-		AgentID:     row.AgentID,
+		TaskID:      xptr.Deref(row.TaskID),
 		FilePath:    row.FilePath,
 		Fingerprint: row.Fingerprint,
 		ViewedAt:    row.ViewedAt,
@@ -605,7 +607,7 @@ func viewedFileFromRow(row models.ReviewViewedFile) ViewedFile {
 func threadFromRow(row models.ReviewThread) Thread {
 	return Thread{
 		ID:                  row.ID,
-		AgentID:             row.AgentID,
+		TaskID:              xptr.Deref(row.TaskID),
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		BaseSHA:             row.BaseSha,

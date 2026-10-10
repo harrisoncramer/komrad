@@ -25,7 +25,7 @@ func (q *Queries) DeleteDocument(ctx context.Context, id string) (int64, error) 
 
 const getDocument = `-- name: GetDocument :one
 SELECT
-    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
+    id, agent_id, name, body, created_at, updated_at, engine_id, version, type, task_id
 FROM
     documents
 WHERE
@@ -45,6 +45,7 @@ func (q *Queries) GetDocument(ctx context.Context, id string) (*Document, error)
 		&i.EngineID,
 		&i.Version,
 		&i.Type,
+		&i.TaskID,
 	)
 	return &i, err
 }
@@ -106,16 +107,22 @@ const insertDocument = `-- name: InsertDocument :one
 WITH inserted AS (
     INSERT INTO documents(
         agent_id,
+        task_id,
         name,
         type,
         body)
-    VALUES (
+    SELECT
+        a.id,
+        a.task_id,
         $1,
         $2,
-        $3,
-        $4)
-RETURNING
-    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
+        $3
+    FROM
+        agents a
+    WHERE
+        a.id = $4
+    RETURNING
+        id, agent_id, name, body, created_at, updated_at, engine_id, version, type, task_id
 ),
 recorded AS (
     INSERT INTO document_versions(
@@ -138,16 +145,16 @@ recorded AS (
         inserted
 )
 SELECT
-    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
+    id, agent_id, name, body, created_at, updated_at, engine_id, version, type, task_id
 FROM
     inserted
 `
 
 type InsertDocumentParams struct {
-	AgentID  string
 	Name     string
 	Type     string
 	Body     string
+	AgentID  string
 	ByPerson bool
 }
 
@@ -161,14 +168,15 @@ type InsertDocumentRow struct {
 	EngineID  string
 	Version   int32
 	Type      string
+	TaskID    *string
 }
 
 func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) (*InsertDocumentRow, error) {
 	row := q.db.QueryRow(ctx, insertDocument,
-		arg.AgentID,
 		arg.Name,
 		arg.Type,
 		arg.Body,
+		arg.AgentID,
 		arg.ByPerson,
 	)
 	var i InsertDocumentRow
@@ -182,6 +190,7 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 		&i.EngineID,
 		&i.Version,
 		&i.Type,
+		&i.TaskID,
 	)
 	return &i, err
 }
@@ -239,6 +248,7 @@ const listDocuments = `-- name: ListDocuments :many
 SELECT
     d.id,
     d.agent_id,
+    d.task_id,
     d.name,
     d.type,
     d.version,
@@ -251,20 +261,23 @@ WHERE ($1::uuid IS NULL
     OR d.agent_id = $1::uuid)
 AND ($2::text IS NULL
     OR d.type = $2::text)
-AND a.deleting_at IS NULL
 AND ($3::uuid IS NULL
+    OR d.task_id = $3::uuid)
+AND a.deleting_at IS NULL
+AND ($4::uuid IS NULL
     OR (d.updated_at,
-        d.id) <($4::timestamptz,
-        $3::uuid))
+        d.id) <($5::timestamptz,
+        $4::uuid))
 ORDER BY
     d.updated_at DESC,
     d.id DESC
-LIMIT $5
+LIMIT $6
 `
 
 type ListDocumentsParams struct {
 	AgentID         *string
 	Type            *string
+	TaskID          *string
 	CursorID        *string
 	CursorUpdatedAt time.Time
 	Lim             int32
@@ -273,6 +286,7 @@ type ListDocumentsParams struct {
 type ListDocumentsRow struct {
 	ID        string
 	AgentID   string
+	TaskID    *string
 	Name      string
 	Type      string
 	Version   int32
@@ -284,6 +298,7 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 	rows, err := q.db.Query(ctx, listDocuments,
 		arg.AgentID,
 		arg.Type,
+		arg.TaskID,
 		arg.CursorID,
 		arg.CursorUpdatedAt,
 		arg.Lim,
@@ -298,6 +313,7 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.AgentID,
+			&i.TaskID,
 			&i.Name,
 			&i.Type,
 			&i.Version,
@@ -529,7 +545,7 @@ WITH updated AS (
         AND documents.agent_id = $5
         AND documents.version = $6
     RETURNING
-        id, agent_id, name, body, created_at, updated_at, engine_id, version, type
+        id, agent_id, name, body, created_at, updated_at, engine_id, version, type, task_id
 ),
 recorded AS (
     INSERT INTO document_versions(
@@ -552,7 +568,7 @@ recorded AS (
         updated
 )
 SELECT
-    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
+    id, agent_id, name, body, created_at, updated_at, engine_id, version, type, task_id
 FROM
     updated
 `
@@ -577,6 +593,7 @@ type UpdateDocumentRow struct {
 	EngineID  string
 	Version   int32
 	Type      string
+	TaskID    *string
 }
 
 func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (*UpdateDocumentRow, error) {
@@ -600,6 +617,7 @@ func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) 
 		&i.EngineID,
 		&i.Version,
 		&i.Type,
+		&i.TaskID,
 	)
 	return &i, err
 }

@@ -633,8 +633,8 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	return nil
 }
 
-// releaseRounds drops the refs holding an agent's snapshots, which would otherwise pin a commit
-// covering its whole worktree long after the agent is gone.
+// releaseRounds drops the refs holding the snapshots of tasks these agents leave with no agent,
+// which would otherwise pin a commit covering the whole worktree long after the work is gone.
 func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 	if s.reviews == nil {
 		return
@@ -648,30 +648,40 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 		return
 	}
 
+	rounds, err := s.reviews.ListRoundsLeftBy(ctx, ids)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds left by agents being deleted",
+			logging.Err(err)...)
+
+		return
+	}
+
+	onTask := map[string]agentstore.Agent{}
 	for _, agent := range going {
+		if agent.TaskID != nil {
+			onTask[*agent.TaskID] = agent
+		}
+	}
+
+	for _, round := range rounds {
+		agent, ok := onTask[round.TaskID]
+		if !ok {
+			continue
+		}
+
 		dir := s.findRoundRefDir(ctx, agent)
 		if dir == "" {
 			continue
 		}
 
-		rounds, err := s.reviews.ListRounds(ctx, agent.ID)
-		if err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of an agent being deleted",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-			continue
-		}
-
-		for _, round := range rounds {
-			if err := s.snapshots.ReleaseRef(ctx, dir, reviewstore.RoundRef(agent.ID, round.SnapshotSHA)); err != nil {
-				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
-					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-			}
+		if err := s.snapshots.ReleaseRef(ctx, dir, reviewstore.RoundRef(round.TaskID, round.SnapshotSHA)); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+				append([]slog.Attr{slog.String(logging.TaskID, round.TaskID)}, logging.Err(err)...)...)
 		}
 	}
 }
 
-// findRoundRefDir is a checkout of the repository holding an agent's round refs: its own while it
+// findRoundRefDir is a checkout of the repository holding a task's round refs: the agent's own while it
 // stands, else its workflow's directory, which shares the refs of every worktree cut from it.
 func (s *LifecycleService) findRoundRefDir(ctx context.Context, agent agentstore.Agent) string {
 	if doesDirExist(agent.Cwd) {

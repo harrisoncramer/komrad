@@ -50,15 +50,17 @@ enum ReviewVerdict {
   REVIEW_VERDICT_COMMENTED = 3;
 }
 
-// ReviewRound is one immutable snapshot of what an agent has written, which is what a review is
+// ReviewRound is one immutable snapshot of what a task's writer has written, which is what a review is
 // given against. Nothing a comment is pinned to can move underneath the person reading it,
 // because the snapshot is a commit rather than the worktree.
 message ReviewRound {
   // The handle a review or a viewed-file record names this round by.
   string id = 1;
-  // Whose work the snapshot was taken of.
-  string agent_id = 2;
-  // Which round this is for its agent, counting from one.
+  reserved 2;
+  reserved "agent_id";
+  // The task whose checkout the snapshot was taken of.
+  string task_id = 7;
+  // Which round this is for its task, counting from one.
   int32 ordinal = 3;
   // The commit the agent's branch left its base at when the round was taken.
   string base_sha = 4;
@@ -73,8 +75,10 @@ message ReviewRound {
 message Review {
   // The handle the threads in this batch name it by.
   string id = 1;
-  // Whose work is being read.
-  string agent_id = 2;
+  reserved 2;
+  reserved "agent_id";
+  // The task whose work is being read.
+  string task_id = 16;
   // The snapshot the batch was written against.
   string round_id = 3;
   // Which round that is, counting from one, so a caller need not fetch the round to say.
@@ -110,13 +114,15 @@ message Review {
 message WatchedReview {
   // The handle the threads in this batch name it by.
   string id = 1;
-  // Whose work is being read.
-  string agent_id = 2;
+  reserved 2;
+  reserved "agent_id";
+  // The task whose work is being read.
+  string task_id = 15;
   // The snapshot the batch was written against.
   string round_id = 3;
   // Which round that is, counting from one.
   int32 round_ordinal = 4;
-  // The commit that round froze the agent's checkout as.
+  // The commit that round froze the task's checkout as.
   string round_snapshot_sha = 5;
   // Whether a person, an agent or someone on the forge wrote it.
   ReviewAuthorKind author_kind = 6;
@@ -138,12 +144,14 @@ message WatchedReview {
   string external_login = 14;
 }
 
-// ReviewThread is one conversation pinned to a place in a round of an agent's diff.
+// ReviewThread is one conversation pinned to a place in a round of a task's diff.
 message ReviewThread {
   // The handle a reply or a resolve names this thread by.
   string id = 1;
-  // Whose diff the thread is pinned to.
-  string agent_id = 2;
+  reserved 2;
+  reserved "agent_id";
+  // The task whose diff the thread is pinned to.
+  string task_id = 21;
   // The batch this thread was opened as part of.
   string review_id = 15;
   // The round the thread is anchored to, which never moves.
@@ -444,11 +452,13 @@ message ReleaseReviewResponse {
   string path = 3;
 }
 
-// ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read,
+// ReviewViewedFile is one file of a task's diff the person reviewing has marked as read,
 // together with the fingerprint the diff had when they read it.
 message ReviewViewedFile {
-  // Which agent the file belongs to.
-  string agent_id = 1;
+  reserved 1;
+  reserved "agent_id";
+  // Which task the file belongs to.
+  string task_id = 5;
   // Which file, relative to the checkout.
   string file_path = 2;
   // When it was marked, in RFC 3339.

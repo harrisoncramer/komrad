@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
+	"komrad/lib/xptr"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,7 +33,7 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 	replier := st.openForgeReview(t, round, "alice")
 
 	thread, err := st.CreateThread(ctx, CreateThreadParams{
-		AgentID:     agentID,
+		TaskID:      st.taskOf(t, agentID),
 		ReviewID:    opener.ID,
 		RoundID:     round.ID,
 		FilePath:    "internal/thing.go",
@@ -189,7 +191,7 @@ func TestHeldForgeThreadHiddenFromReader(t *testing.T) {
 	opener := st.openForgeReview(t, round, "mallory")
 
 	thread, err := st.CreateThread(ctx, CreateThreadParams{
-		AgentID:     agentID,
+		TaskID:      st.taskOf(t, agentID),
 		ReviewID:    opener.ID,
 		RoundID:     round.ID,
 		FilePath:    "internal/thing.go",
@@ -207,12 +209,12 @@ func TestHeldForgeThreadHiddenFromReader(t *testing.T) {
 	assert.Zero(t, count)
 }
 
-// TestListForgeMirrorTargets covers the agents a pull request's forge threads are mirrored onto.
+// TestListForgeMirrorTargets covers the tasks a pull request's forge threads are mirrored onto.
 func TestListForgeMirrorTargets(t *testing.T) {
 	tests := []struct {
 		name  string
 		seed  func(t *testing.T, st *fixture, agentID string)
-		check func(t *testing.T, targets []ForgeMirrorTarget, agentID string)
+		check func(t *testing.T, targets []ForgeMirrorTarget, taskID string)
 	}{
 		{
 			name: "an agent with no round has nothing to mirror onto",
@@ -233,14 +235,30 @@ func TestListForgeMirrorTargets(t *testing.T) {
 			},
 		},
 		{
+			name: "a task handed to a second writer is mirrored onto once",
+			seed: func(t *testing.T, st *fixture, agentID string) {
+				st.openRound(t, agentID, "tree-one")
+				_, err := st.agents.Archive(t.Context(), []string{agentID})
+				require.NoError(t, err)
+				st.seedAgentLike(t, agentstore.Agent{
+					Name:   "next-worker",
+					TaskID: xptr.Ptr(st.taskOf(t, agentID)),
+				})
+			},
+			check: func(t *testing.T, targets []ForgeMirrorTarget, taskID string) {
+				require.Len(t, targets, 1)
+				assert.Equal(t, taskID, targets[0].TaskID)
+			},
+		},
+		{
 			name: "an agent on the pull request is mirrored onto at its newest round",
 			seed: func(t *testing.T, st *fixture, agentID string) {
 				st.openRound(t, agentID, "tree-one")
 				st.openRound(t, agentID, "tree-two")
 			},
-			check: func(t *testing.T, targets []ForgeMirrorTarget, agentID string) {
+			check: func(t *testing.T, targets []ForgeMirrorTarget, taskID string) {
 				require.Len(t, targets, 1)
-				assert.Equal(t, agentID, targets[0].AgentID)
+				assert.Equal(t, taskID, targets[0].TaskID)
 				assert.Equal(t, "snapshot-tree-two", targets[0].SnapshotSHA)
 				assert.Equal(t, "base-tree-two", targets[0].BaseSHA)
 			},
@@ -256,7 +274,7 @@ func TestListForgeMirrorTargets(t *testing.T) {
 
 			targets, err := st.ListForgeMirrorTargets(t.Context(), pullRequestID)
 			require.NoError(t, err)
-			tt.check(t, targets, agentID)
+			tt.check(t, targets, st.taskOf(t, agentID))
 		})
 	}
 }
@@ -265,7 +283,7 @@ func (st *fixture) openForgeReview(t *testing.T, round *Round, login string) *Re
 	t.Helper()
 
 	review, err := st.OpenForgeReview(t.Context(), OpenForgeReviewParams{
-		AgentID: round.AgentID,
+		TaskID:  round.TaskID,
 		RoundID: round.ID,
 		Login:   login,
 	})

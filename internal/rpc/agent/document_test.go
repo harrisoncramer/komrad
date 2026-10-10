@@ -49,6 +49,7 @@ type fakeDocuments struct {
 
 type fakeDocumentsList struct {
 	AgentID *string
+	Task    *string
 	Type    *string
 }
 
@@ -80,8 +81,8 @@ func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32)
 }
 
 // ListDocuments records whose documents were asked for and answers stored without its body.
-func (f *fakeDocuments) ListDocuments(_ context.Context, params documentstore.ListParams) ([]documentstore.Document, error) {
-	f.listed = append(f.listed, fakeDocumentsList{AgentID: params.AgentID, Type: params.Type})
+func (f *fakeDocuments) ListDocuments(_ context.Context, params documents.ListDocumentsParams) ([]documentstore.Document, error) {
+	f.listed = append(f.listed, fakeDocumentsList{AgentID: params.AgentID, Task: params.Task, Type: params.Type})
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -509,6 +510,11 @@ func TestListDocuments(t *testing.T) {
 			name:       "a type narrows the listing",
 			req:        &agentv1.ListDocumentsRequest{Type: xptr.Ptr("notes")},
 			wantListed: fakeDocumentsList{Type: xptr.Ptr("notes")},
+		},
+		{
+			name:       "a task narrows the listing",
+			req:        &agentv1.ListDocumentsRequest{Task: xptr.Ptr("tasks-own-work")},
+			wantListed: fakeDocumentsList{Task: xptr.Ptr("tasks-own-work")},
 		},
 		{
 			name:       "another agent's documents are a recorded read",

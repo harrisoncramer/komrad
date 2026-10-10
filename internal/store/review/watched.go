@@ -48,16 +48,16 @@ func (s *ReviewStore) ListWatched(ctx context.Context, keys []string) ([]Review,
 	}), nil
 }
 
-// ListIDsOfAgents returns the ids of every review of the given agents.
-func (s *ReviewStore) ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error) {
-	storable := store.KeepIDs(agentIDs)
+// ListIDsOfTasks returns the ids of every review of the given tasks.
+func (s *ReviewStore) ListIDsOfTasks(ctx context.Context, taskIDs []string) ([]string, error) {
+	storable := store.KeepIDs(taskIDs)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	ids, err := s.queries.ListReviewIDsOfAgents(ctx, storable)
+	ids, err := s.queries.ListReviewIDsOfTasks(ctx, storable)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the reviews of %d agents: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the reviews of %d tasks: %w", len(storable), err)
 	}
 
 	return ids, nil
@@ -66,7 +66,7 @@ func (s *ReviewStore) ListIDsOfAgents(ctx context.Context, agentIDs []string) ([
 func watchedReviewFromRow(row models.ListWatchedReviewsRow) Review {
 	review := Review{
 		ID:               row.ID,
-		AgentID:          row.AgentID,
+		TaskID:           row.TaskID,
 		RoundID:          row.RoundID,
 		RoundOrdinal:     row.RoundOrdinal,
 		RoundSnapshotSHA: row.RoundSnapshotSha,
@@ -102,8 +102,8 @@ var WatchedReviewThreads = watch.Resource{
 		{
 			Table: "agents",
 			Lookup: &watch.Lookup{
-				ParentColumn: "agent_id",
-				ChildColumn:  "id",
+				ParentColumn: "task_id",
+				ChildColumn:  "task_id",
 				OnChangeOf:   "archived_at",
 			},
 		},
@@ -166,7 +166,7 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 	return xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) ThreadWithMessages {
 		thread := threadFromRow(models.ReviewThread{
 			ID:                  row.ID,
-			AgentID:             row.AgentID,
+			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
 			RoundID:             row.RoundID,
 			ForgeThreadID:       row.ForgeThreadID,
@@ -196,16 +196,16 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 	}), nil
 }
 
-// ListIDsOfAgents returns the ids of every review thread on the given agents' work.
-func (s *ThreadStore) ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error) {
-	storable := store.KeepIDs(agentIDs)
+// ListIDsOfTasks returns the ids of every review thread on the given tasks.
+func (s *ThreadStore) ListIDsOfTasks(ctx context.Context, taskIDs []string) ([]string, error) {
+	storable := store.KeepIDs(taskIDs)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	ids, err := s.queries.ListReviewThreadIDsOfAgents(ctx, storable)
+	ids, err := s.queries.ListReviewThreadIDsOfTasks(ctx, storable)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the review threads of %d agents: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the review threads of %d tasks: %w", len(storable), err)
 	}
 
 	return ids, nil

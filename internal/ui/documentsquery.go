@@ -38,7 +38,7 @@ func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {
 }
 
 // documentRowFits matches a document against a qualifier, by the agent that wrote it for agent:
-// and workflow:, and by what the server found it saying for says:.
+// and workflow:, by its task for task:, and by what the server found it saying for says:.
 func (m *model) documentRowFits(r documentRow) clauseFits {
 	return func(clause searchsyntax.Clause) bool {
 		item := r.item
@@ -49,6 +49,13 @@ func (m *model) documentRowFits(r documentRow) clauseFits {
 			}
 
 			return containsFold(findAgentName(m, item.agentID), clause.Value)
+		case searchsyntax.KeyTask:
+			if taskID, ok := m.openedForTask(clause.Value); ok {
+				return item.taskID == taskID
+			}
+			task, ok := m.listing.tasks[item.taskID]
+
+			return ok && containsFold(task.Slug, clause.Value)
 		case searchsyntax.KeyWorkflow:
 			agent, ok := m.listing.anyAgent(item.agentID)
 
@@ -73,11 +80,21 @@ func (m *model) documentRowFits(r documentRow) clauseFits {
 
 // agentClause is the qualifier that picks out one agent's documents by its name.
 func agentClause(name string) string {
-	if strings.ContainsAny(name, " \t") {
-		return searchsyntax.KeyAgent + `:"` + name + `"`
+	return quoteClause(searchsyntax.KeyAgent, name)
+}
+
+// taskClause is the qualifier that picks out one task's documents by its slug.
+func taskClause(slug string) string {
+	return quoteClause(searchsyntax.KeyTask, slug)
+}
+
+// quoteClause is a qualifier for a value, quoted when it holds a space.
+func quoteClause(key, value string) string {
+	if strings.ContainsAny(value, " \t") {
+		return key + `:"` + value + `"`
 	}
 
-	return searchsyntax.KeyAgent + ":" + name
+	return key + ":" + value
 }
 
 // namedAgentID is the one agent the filter's agent: qualifier names exactly, if any.
@@ -118,13 +135,23 @@ func (m *model) openedForAgent(name string) (string, bool) {
 	return agentID, true
 }
 
-// filterDocumentsOf narrows the list to one agent's documents, as if its agent: qualifier were
-// typed and applied.
-func (m *model) filterDocumentsOf(agentID string) {
+// openedForTask is the task the documents were opened for, when the slug given is its slug.
+func (m *model) openedForTask(slug string) (string, bool) {
+	taskID := m.documents.taskID
+	task, ok := m.listing.tasks[taskID]
+	if taskID == "" || !ok || !strings.EqualFold(task.Slug, slug) {
+		return "", false
+	}
+
+	return taskID, true
+}
+
+// filterDocuments narrows the list as if the query were typed and applied.
+func (m *model) filterDocuments(query string) {
 	m.filter.open(withGrammar(documentsQuery))
 	m.filter.mode = filterModeFilter
 	m.filter.openedIn = sectionList
-	m.filter.setQuery(agentClause(findAgentName(m, agentID)))
+	m.filter.setQuery(query)
 	m.applyFilter()
 }
 

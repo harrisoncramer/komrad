@@ -8,6 +8,7 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -24,15 +25,15 @@ const (
 )
 
 // RoundRef is the ref a round's snapshot is held by.
-func RoundRef(agentID, snapshotSHA string) string {
-	return "refs/komrad/rounds/" + agentID + "/" + snapshotSHA
+func RoundRef(taskID, snapshotSHA string) string {
+	return "refs/komrad/rounds/" + taskID + "/" + snapshotSHA
 }
 
-// Round is one frozen snapshot of what an agent has written, which every review and comment
+// Round is one frozen snapshot of a task's checkout, which every review and comment
 // is anchored to.
 type Round struct {
 	ID          string
-	AgentID     string
+	TaskID      string
 	Ordinal     int32
 	BaseSHA     string
 	SnapshotSHA string
@@ -45,7 +46,7 @@ type Round struct {
 // Review is one reviewer's batch of comments on one round, released all at once.
 type Review struct {
 	ID            string
-	AgentID       string
+	TaskID        string
 	RoundID       string
 	RoundOrdinal  int32
 	AuthorKind    AuthorKind
@@ -87,20 +88,22 @@ func (r Review) isSettled() bool {
 
 type CreateRoundParams struct {
 	AgentID     string
+	TaskID      string
 	BaseSHA     string
 	SnapshotSHA string
 }
 
-// CreateRound records a snapshot as the next round of an agent, numbered after the rounds
+// CreateRound records a snapshot as the next round of a task, numbered after the rounds
 // already taken.
 func (s *ReviewStore) CreateRound(ctx context.Context, params CreateRoundParams) (*Round, error) {
 	row, err := s.queries.InsertReviewRound(ctx, models.InsertReviewRoundParams{
 		AgentID:     params.AgentID,
+		TaskID:      params.TaskID,
 		BaseSha:     params.BaseSHA,
 		SnapshotSha: params.SnapshotSHA,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a review round on agent %q: %w", params.AgentID, err)
+		return nil, fmt.Errorf("failed to open a review round on task %q: %w", params.TaskID, err)
 	}
 
 	round := roundFromRow(*row)
@@ -127,18 +130,18 @@ func (s *ReviewStore) GetRound(ctx context.Context, id string) (*Round, error) {
 	return &round, nil
 }
 
-// GetLatestRound is the newest round taken of an agent, ErrNotFound when none has been.
-func (s *ReviewStore) GetLatestRound(ctx context.Context, agentID string) (*Round, error) {
-	if !store.IsID(agentID) {
-		return nil, roundNotFound(agentID)
+// GetLatestRound is the newest round taken of a task, ErrNotFound when none has been.
+func (s *ReviewStore) GetLatestRound(ctx context.Context, taskID string) (*Round, error) {
+	if !store.IsID(taskID) {
+		return nil, roundNotFound(taskID)
 	}
 
-	row, err := s.queries.GetLatestReviewRound(ctx, agentID)
+	row, err := s.queries.GetLatestReviewRound(ctx, taskID)
 	if db.IsNoRows(err) {
-		return nil, roundNotFound(agentID)
+		return nil, roundNotFound(taskID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the newest review round of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to read the newest review round of task %q: %w", taskID, err)
 	}
 
 	round := roundFromRow(*row)
@@ -146,22 +149,22 @@ func (s *ReviewStore) GetLatestRound(ctx context.Context, agentID string) (*Roun
 	return &round, nil
 }
 
-// GetRoundBySnapshot is the round an agent's snapshot was frozen as, ErrNotFound when no round
+// GetRoundBySnapshot is the round a task's snapshot was frozen as, ErrNotFound when no round
 // holds that snapshot.
-func (s *ReviewStore) GetRoundBySnapshot(ctx context.Context, agentID, snapshotSHA string) (*Round, error) {
-	if !store.IsID(agentID) || snapshotSHA == "" {
-		return nil, roundNotFound(agentID)
+func (s *ReviewStore) GetRoundBySnapshot(ctx context.Context, taskID, snapshotSHA string) (*Round, error) {
+	if !store.IsID(taskID) || snapshotSHA == "" {
+		return nil, roundNotFound(taskID)
 	}
 
 	row, err := s.queries.GetReviewRoundBySnapshot(ctx, models.GetReviewRoundBySnapshotParams{
-		AgentID:     agentID,
+		TaskID:      taskID,
 		SnapshotSha: snapshotSHA,
 	})
 	if db.IsNoRows(err) {
 		return nil, roundNotFound(snapshotSHA)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the review round of agent %q holding %q: %w", agentID, snapshotSHA, err)
+		return nil, fmt.Errorf("failed to read the review round of task %q holding %q: %w", taskID, snapshotSHA, err)
 	}
 
 	round := roundFromRow(*row)
@@ -169,15 +172,15 @@ func (s *ReviewStore) GetRoundBySnapshot(ctx context.Context, agentID, snapshotS
 	return &round, nil
 }
 
-// ListRounds is every round of an agent, oldest first.
-func (s *ReviewStore) ListRounds(ctx context.Context, agentID string) ([]Round, error) {
-	if !store.IsID(agentID) {
+// ListRounds is every round of a task, oldest first.
+func (s *ReviewStore) ListRounds(ctx context.Context, taskID string) ([]Round, error) {
+	if !store.IsID(taskID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewRounds(ctx, agentID)
+	rows, err := s.queries.ListReviewRounds(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the review rounds of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list the review rounds of task %q: %w", taskID, err)
 	}
 
 	rounds := xslice.Map(rows, func(row *models.ReviewRound) Round {
@@ -187,8 +190,25 @@ func (s *ReviewStore) ListRounds(ctx context.Context, agentID string) ([]Round, 
 	return rounds, nil
 }
 
+// ListRoundsLeftBy is every round holding a ref whose task has no agent but the given ones.
+func (s *ReviewStore) ListRoundsLeftBy(ctx context.Context, agentIDs []string) ([]Round, error) {
+	storable := store.KeepIDs(agentIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListRoundsLeftByAgents(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the review rounds left by %d agent(s): %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, func(row *models.ReviewRound) Round {
+		return roundFromRow(*row)
+	}), nil
+}
+
 type OpenReviewParams struct {
-	AgentID       string
+	TaskID        string
 	RoundID       string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
@@ -198,13 +218,13 @@ type OpenReviewParams struct {
 // of at a time.
 func (s *ReviewStore) OpenReview(ctx context.Context, params OpenReviewParams) (*Review, error) {
 	row, err := s.queries.InsertReview(ctx, models.InsertReviewParams{
-		AgentID:       params.AgentID,
+		TaskID:        params.TaskID,
 		RoundID:       params.RoundID,
 		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
 		AuthorAgentID: params.AuthorAgentID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a review on agent %q: %w", params.AgentID, err)
+		return nil, fmt.Errorf("failed to open a review on task %q: %w", params.TaskID, err)
 	}
 
 	review := reviewFromRow(*row)
@@ -259,28 +279,28 @@ func (s *ReviewStore) MoveOpenReview(ctx context.Context, params MoveOpenReviewP
 }
 
 type OpenReviewOfParams struct {
-	AgentID       string
+	TaskID        string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
 }
 
-// OpenReviewOf is the review a reviewer is still writing against an agent, ErrNotFound when
+// OpenReviewOf is the review a reviewer is still writing against a task, ErrNotFound when
 // they have none open.
 func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParams) (*Review, error) {
-	if !store.IsID(params.AgentID) {
-		return nil, reviewNotFound(params.AgentID)
+	if !store.IsID(params.TaskID) {
+		return nil, reviewNotFound(params.TaskID)
 	}
 
 	row, err := s.queries.GetOpenReview(ctx, models.GetOpenReviewParams{
-		AgentID:       params.AgentID,
+		TaskID:        params.TaskID,
 		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
 		AuthorAgentID: params.AuthorAgentID,
 	})
 	if db.IsNoRows(err) {
-		return nil, reviewNotFound(params.AgentID)
+		return nil, reviewNotFound(params.TaskID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the open review on agent %q: %w", params.AgentID, err)
+		return nil, fmt.Errorf("failed to read the open review on task %q: %w", params.TaskID, err)
 	}
 
 	review := reviewFromRow(*row)
@@ -288,15 +308,15 @@ func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParam
 	return &review, nil
 }
 
-// ListReviews is every review of an agent, in the order their rounds were taken.
-func (s *ReviewStore) ListReviews(ctx context.Context, agentID string) ([]Review, error) {
-	if !store.IsID(agentID) {
+// ListReviews is every review of a task, in the order their rounds were taken.
+func (s *ReviewStore) ListReviews(ctx context.Context, taskID string) ([]Review, error) {
+	if !store.IsID(taskID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviews(ctx, agentID)
+	rows, err := s.queries.ListReviews(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the reviews of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list the reviews of task %q: %w", taskID, err)
 	}
 
 	reviews := make([]Review, 0, len(rows))
@@ -400,7 +420,7 @@ func (s *ReviewStore) DeleteReview(ctx context.Context, id string) error {
 func roundFromRow(row models.ReviewRound) Round {
 	return Round{
 		ID:          row.ID,
-		AgentID:     row.AgentID,
+		TaskID:      xptr.Deref(row.TaskID),
 		Ordinal:     row.Ordinal,
 		BaseSHA:     row.BaseSha,
 		SnapshotSHA: row.SnapshotSha,
@@ -412,7 +432,7 @@ func roundFromRow(row models.ReviewRound) Round {
 func reviewFromRow(row models.Review) Review {
 	review := Review{
 		ID:             row.ID,
-		AgentID:        row.AgentID,
+		TaskID:         xptr.Deref(row.TaskID),
 		RoundID:        row.RoundID,
 		AuthorKind:     AuthorKind(row.AuthorKind),
 		AuthorAgentID:  row.AuthorAgentID,
@@ -441,20 +461,18 @@ func reviewNotFound(id string) error {
 	return fmt.Errorf("%w: review %q", store.ErrNotFound, id)
 }
 
-// tally is where one agent's work stands with the reviews released of it, counted against the
-// agent holding the diff rather than whoever read it.
+// tally is where one task's work stands with the reviews released of it.
 type tally struct {
-	AgentID string
-	Rounds  int32
-	// Verdict is the last conclusion released about the agent's work, nil when every released
+	TaskID string
+	Rounds int32
+	// Verdict is the last conclusion released about the task's work, nil when every released
 	// review only commented.
 	Verdict *Verdict
 	// SnapshotSHA is the round that conclusion was given on, empty when there is none.
 	SnapshotSHA string
 }
 
-// listTallies is where every agent's work stands, leaving out the agents no review has been
-// released of.
+// listTallies is where every task's work stands, leaving out the tasks no review has been released of.
 func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 	rows, err := s.queries.ListReviewTallies(ctx)
 	if err != nil {
@@ -462,7 +480,7 @@ func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) tally {
-		tally := tally{AgentID: row.AgentID, Rounds: row.Rounds}
+		tally := tally{TaskID: row.TaskID, Rounds: row.Rounds}
 		if row.Verdict.Valid {
 			verdict := Verdict(row.Verdict.ReviewVerdict)
 			tally.Verdict = &verdict
@@ -496,7 +514,6 @@ func (s *ReviewStore) ListNewestRounds(ctx context.Context) ([]newestRound, erro
 // UnlandedRound is a round with a released review that the base branch has not yet been seen
 // holding whole.
 type UnlandedRound struct {
-	AgentID     string
 	Ordinal     int32
 	BaseSHA     string
 	SnapshotSHA string
@@ -504,8 +521,8 @@ type UnlandedRound struct {
 	MergedAt *time.Time
 }
 
-// ListUnlandedRounds is every live agent's unlanded rounds with a released review, newest first,
-// keyed by the agent's task.
+// ListUnlandedRounds is the unlanded rounds with a released review of every task with a live
+// agent, newest first, keyed by task.
 func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]UnlandedRound, error) {
 	rows, err := s.queries.ListUnlandedReviewRounds(ctx)
 	if err != nil {
@@ -515,7 +532,6 @@ func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]Unla
 	byTask := map[string][]UnlandedRound{}
 	for _, row := range rows {
 		byTask[row.TaskID] = append(byTask[row.TaskID], UnlandedRound{
-			AgentID:     row.AgentID,
 			Ordinal:     row.Ordinal,
 			BaseSHA:     row.BaseSha,
 			SnapshotSHA: row.SnapshotSha,
@@ -526,15 +542,15 @@ func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]Unla
 	return byTask, nil
 }
 
-// MarkRoundsLanded marks an agent's round and every earlier one as landed, leaving rounds that already
+// MarkRoundsLanded marks a task's round and every earlier one as landed, leaving rounds that already
 // landed alone, and returns how many it marked.
-func (s *ReviewStore) MarkRoundsLanded(ctx context.Context, agentID string, ordinal int32) (int64, error) {
+func (s *ReviewStore) MarkRoundsLanded(ctx context.Context, taskID string, ordinal int32) (int64, error) {
 	landed, err := s.queries.LandReviewRounds(ctx, models.LandReviewRoundsParams{
-		AgentID: agentID,
+		TaskID:  taskID,
 		Ordinal: ordinal,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("failed to land round %d of agent %q: %w", ordinal, agentID, err)
+		return 0, fmt.Errorf("failed to land round %d of task %q: %w", ordinal, taskID, err)
 	}
 
 	return landed, nil
@@ -554,15 +570,9 @@ func (s *ReviewStore) listLiveReviewers(ctx context.Context) ([]liveReviewer, er
 		return nil, fmt.Errorf("failed to list the reviewers still reading: %w", err)
 	}
 
-	live := make([]liveReviewer, 0, len(rows))
-	for _, row := range rows {
-		if row.AgentID == nil {
-			continue
-		}
-		live = append(live, liveReviewer{AgentID: *row.AgentID, ReviewerID: row.ReviewerID})
-	}
-
-	return live, nil
+	return xslice.Map(rows, func(row *models.ListLiveReviewersRow) liveReviewer {
+		return liveReviewer{AgentID: row.AgentID, ReviewerID: row.ReviewerID}
+	}), nil
 }
 
 // GetLiveReviewerOf is the reviewer still owed an answer about one agent's work, ErrNotFound when
