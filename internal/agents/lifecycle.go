@@ -674,7 +674,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 			continue
 		}
 
-		if err := s.snapshots.ReleaseRef(ctx, dir, round.Ref); err != nil {
+		if err := s.snapshots.ReleaseRef(ctx, dir, reviewstore.RoundRef(round.TaskID, round.SnapshotSHA)); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
 				append([]slog.Attr{slog.String(logging.TaskID, round.TaskID)}, logging.Err(err)...)...)
 		}

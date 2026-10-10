@@ -1036,8 +1036,6 @@ type ReviewRound struct {
 	LandedAt *time.Time
 	// The task whose checkout the round froze.
 	TaskID *string
-	// The git ref holding the snapshot alive, which is released by this name.
-	Ref *string
 }
 
 // One conversation pinned to a file and a line range in the round its review was given against.
