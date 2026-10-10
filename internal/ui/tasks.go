@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"errors"
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -206,21 +206,24 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 			return editTaskForm(fixedKeys(), values, task.Slug)
 		},
 		Editable: []editableText{{key: "goal", value: &values.Goal}},
-		Submit: holdSubmit(func(m *model) tea.Cmd {
+		Submit: func(m *model) tea.Cmd {
 			title, goal := strings.TrimSpace(values.Title), strings.TrimSpace(values.Goal)
+			if err := cmp.Or(checkTaskTitle(title), checkTaskGoal(goal)); err != nil {
+				m.form.refusal = err.Error()
 
-			return m.writeCmd(
-				"saving "+task.Slug,
-				fmt.Sprintf("Could not save task %q", task.Slug),
-				func(a api) error {
-					if err := errors.Join(checkTaskTitle(title), checkTaskGoal(goal)); err != nil {
-						return err
-					}
+				return formResized()
+			}
 
-					return a.updateTask(updateTaskParams{id: task.ID, title: &title, goal: &goal})
-				},
-			)
-		}),
+			return holdSubmit(func(m *model) tea.Cmd {
+				return m.writeCmd(
+					"saving "+task.Slug,
+					fmt.Sprintf("Could not save task %q", task.Slug),
+					func(a api) error {
+						return a.updateTask(updateTaskParams{id: task.ID, title: &title, goal: &goal})
+					},
+				)
+			})(m)
+		},
 	}))
 }
 

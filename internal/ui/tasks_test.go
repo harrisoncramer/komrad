@@ -155,7 +155,11 @@ func TestTasksRow(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"j", "space", "E"}, slices.Repeat([]string{"backspace"}, len("Fix login")), []string{"enter"})...)
 
-		assert.Contains(t, harness.readFrame(), "a task needs a title")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, `Task "fix-login"`)
+		assert.Contains(t, frame, "Logins work again.")
+		assert.Contains(t, frame, "a task needs a title")
+		assert.NotContains(t, frame, "Could not save task")
 		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
 	})
 
