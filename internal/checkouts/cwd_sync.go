@@ -259,7 +259,7 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 			}
 
 			config := params.Worktrees[task.WorkflowID]
-			cs.readBase(ctx, &look, config.BaseBranch)
+			cs.readBase(ctx, &look, readBaseParams{Owned: params.Owned, Base: config.BaseBranch})
 			cs.readStanding(ctx, &look, params.Owned)
 			if look.removed || look.head.Root == "" {
 				return look, nil
@@ -620,17 +620,24 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	look.diffStat = &taskstore.DiffStat{Added: stat.Added, Removed: stat.Removed}
 }
 
+type readBaseParams struct {
+	Owned map[string]worktreestore.Worktree
+	Base  string
+}
+
 // readBase records on the look the ref and tip its checkout is measured against, read once for
-// the standing, the landing walk and the diff stat alike.
-func (cs *CwdSyncer) readBase(ctx context.Context, look *cwdLook, base string) {
-	if look.removed {
+// the standing, the landing walk and the diff stat alike, and not at all when none of them will
+// run.
+func (cs *CwdSyncer) readBase(ctx context.Context, look *cwdLook, params readBaseParams) {
+	_, owned := params.Owned[filepath.Clean(look.task.Checkout.Cwd)]
+	if look.removed || (look.head.Root == "" && !owned) {
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	look.base, look.baseErr = cs.trees.ReadBase(ctx, look.task.Checkout.Cwd, base)
+	look.base, look.baseErr = cs.trees.ReadBase(ctx, look.task.Checkout.Cwd, params.Base)
 }
 
 func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, owned map[string]worktreestore.Worktree) {

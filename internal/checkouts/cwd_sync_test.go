@@ -543,33 +543,76 @@ func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
 }
 
 // TestCwdSyncerSyncReadsTheBaseOncePerPass covers the standing, the landing walk and the diff stat
-// sharing one reading of the base.
+// sharing one reading of the base, and no reading when none of them will run.
 func TestCwdSyncerSyncReadsTheBaseOncePerPass(t *testing.T) {
-	fixture := newSyncFixture(t)
-	fixture.workflowID = fixture.stores.SeedWorkflow(t, workflowstore.Config{
-		Name:     "shared",
-		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-	}).ID
-	cwd := makeCheckout(t)
-	agent := fixture.seed(t, "a", cwd)
-	fixture.release(t, agent.ID, "snapshot-one")
-	require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: cwd, Readable: true}))
-	trees := &gittest.Trees{
-		Tips:      map[string]string{cwd: "tip-one"},
-		DiffStats: map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
+	tests := []struct {
+		name          string
+		root          bool
+		owned         bool
+		wantRead      bool
+		wantPredicted int
+		wantWalked    []string
+		wantMeasured  int
+	}{
+		{
+			name:          "a checkout read for every use reads the base once",
+			root:          true,
+			owned:         true,
+			wantRead:      true,
+			wantPredicted: 1,
+			wantWalked:    []string{"snapshot-one"},
+			wantMeasured:  1,
+		},
+		{
+			name:          "an owned worktree git found no root for still reads the base for its standing",
+			owned:         true,
+			wantRead:      true,
+			wantPredicted: 1,
+		},
+		{
+			name: "an unowned checkout git found no root for reads no base",
+		},
 	}
-	syncer := fixture.newSyncer(newSyncerParams{
-		Heads:     buildHeads(cwd, git.HeadState{Root: cwd, SHA: "head-one"}),
-		Trees:     trees,
-		Checkouts: worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: trees}),
-	})
 
-	require.NoError(t, syncer.Sync(t.Context()))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newSyncFixture(t)
+			fixture.workflowID = fixture.stores.SeedWorkflow(t, workflowstore.Config{
+				Name:     "shared",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+			}).ID
+			cwd := makeCheckout(t)
+			agent := fixture.seed(t, "a", cwd)
+			fixture.release(t, agent.ID, "snapshot-one")
+			if tt.owned {
+				require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: cwd, Readable: true}))
+			}
+			head := git.HeadState{SHA: "head-one"}
+			if tt.root {
+				head.Root = cwd
+			}
+			trees := &gittest.Trees{
+				Tips:      map[string]string{cwd: "tip-one"},
+				DiffStats: map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
+			}
+			syncer := fixture.newSyncer(newSyncerParams{
+				Heads:     buildHeads(cwd, head),
+				Trees:     trees,
+				Checkouts: worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: trees}),
+			})
 
-	assert.Equal(t, []string{cwd}, trees.BasesRead)
-	assert.Equal(t, 1, trees.Predicted)
-	assert.Equal(t, []string{"snapshot-one"}, trees.Walked)
-	assert.Len(t, trees.Measured, 1)
+			require.NoError(t, syncer.Sync(t.Context()))
+
+			var wantBasesRead []string
+			if tt.wantRead {
+				wantBasesRead = []string{cwd}
+			}
+			assert.Equal(t, wantBasesRead, trees.BasesRead)
+			assert.Equal(t, tt.wantPredicted, trees.Predicted)
+			assert.Equal(t, tt.wantWalked, trees.Walked)
+			assert.Len(t, trees.Measured, tt.wantMeasured)
+		})
+	}
 }
 
 // TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
