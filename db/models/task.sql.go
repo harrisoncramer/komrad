@@ -10,6 +10,35 @@ import (
 	"time"
 )
 
+const archiveIdleTaskBesides = `-- name: ArchiveIdleTaskBesides :exec
+UPDATE
+    tasks t
+SET
+    archived_at = NOW()
+WHERE
+    t.id = $1
+    AND t.archived_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL
+            AND a.id <> $2)
+`
+
+type ArchiveIdleTaskBesidesParams struct {
+	ID      string
+	AgentID string
+}
+
+func (q *Queries) ArchiveIdleTaskBesides(ctx context.Context, arg ArchiveIdleTaskBesidesParams) error {
+	_, err := q.db.Exec(ctx, archiveIdleTaskBesides, arg.ID, arg.AgentID)
+	return err
+}
+
 const archiveIdleTasks = `-- name: ArchiveIdleTasks :many
 UPDATE
     tasks t

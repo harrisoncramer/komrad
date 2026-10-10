@@ -1643,6 +1643,7 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 	tests := []struct {
 		name      string
 		remove    func(t *testing.T, st *testStore, task taskstore.Task)
+		failStart bool
 		wantErrIs error
 	}{
 		{
@@ -1660,6 +1661,10 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 				require.NoError(t, os.RemoveAll(task.Checkout.Cwd))
 			},
 			wantErrIs: errTaskWorktreeRemoved,
+		},
+		{
+			name:      "a new writer that fails to start leaves the task archived",
+			failStart: true,
 		},
 		{
 			name: "a new writer joins the checkout without provisioning",
@@ -1688,11 +1693,22 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 			if tt.remove != nil {
 				tt.remove(t, st, *before)
 			}
+			if tt.failStart {
+				tmux.RespawnErr = errors.New("bad flags")
+			}
 
 			next, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "next", Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				assert.Nil(t, next)
+
+				return
+			}
+			if tt.failStart {
+				require.Error(t, err)
+				after, err := st.Tasks.Get(ctx, work.ID)
+				require.NoError(t, err)
+				assert.NotNil(t, after.ArchivedAt, "the task the join restored is archived again")
 
 				return
 			}

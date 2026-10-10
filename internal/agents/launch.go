@@ -533,6 +533,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		claimsCheckout: isCheckoutClaimant(agent, plan.provisioner),
 		workflow:       plan.workflow,
 		task:           placed.task,
+		restoredTask:   placed.restored,
 		openTurn:       placed.openTurn,
 		joinsCheckout:  joinsCheckout,
 	})
@@ -550,8 +551,10 @@ type resolvedLaunch struct {
 	claimsCheckout bool
 	// joinsCheckout is whether the agent starts in its task's existing checkout as its writer.
 	joinsCheckout bool
-	workflow      *workflowstore.Workflow
-	task          *taskstore.Task
+	// restoredTask is whether joining the checkout brought its task back from the archive.
+	restoredTask bool
+	workflow     *workflowstore.Workflow
+	task         *taskstore.Task
 	// openTurn is the place in its task's hook queue an agent taking the task from no live agent to
 	// one holds, nil for any other agent.
 	openTurn *scriptrun.HookTurn
@@ -730,6 +733,24 @@ func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, caus
 		c.service.releaseCheckout(ctx, agent)
 	}
 	c.service.failCreate(ctx, agent, cause)
+	if c.resolved.restoredTask {
+		c.service.rearchiveTask(ctx, agent)
+	}
+}
+
+// rearchiveTask archives again the task a failed join brought back, unless another agent has since
+// started on it, logging any failure.
+func (s *LaunchService) rearchiveTask(ctx context.Context, agent agentstore.Agent) {
+	err := s.tx.InTx(ctx, func(db store.DBTX) error {
+		return taskstore.NewTaskStore(db).ArchiveIdleBesides(ctx, *agent.TaskID, agent.ID)
+	})
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to archive the task a failed join restored",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.TaskID, *agent.TaskID),
+			}, logging.Err(err)...)...)
+	}
 }
 
 // releaseCheckout gives up the claim a failed create made on its task's checkout, logging any failure.
@@ -820,9 +841,11 @@ func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
 	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role != agentstore.RoleOrchestrator && provisioner != ""
 }
 
-// placement is the task an agent was created on, and the place in its hook queue the agent holds when it opens it.
+// placement is the task an agent was created on, whether creating it brought the task back from the
+// archive, and the place in its hook queue the agent holds when it opens it.
 type placement struct {
 	task     *taskstore.Task
+	restored bool
 	openTurn *scriptrun.HookTurn
 }
 
@@ -830,6 +853,7 @@ type placement struct {
 // returning where it was placed.
 func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*placement, error) {
 	task := c.task
+	var restored bool
 	var openTurn *scriptrun.HookTurn
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
@@ -872,11 +896,11 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			c.agent.TaskID = &task.ID
 		}
 		if c.joinsCheckout {
-			locked, err := claimWriter(ctx, db, c)
+			claimed, err := claimWriter(ctx, db, c)
 			if err != nil {
 				return err
 			}
-			task = locked
+			task, restored = claimed.task, claimed.restored
 		}
 		if c.agent.TaskID != nil {
 			if err := taskStore.LockUndeleted(ctx, *c.agent.TaskID); err != nil {
@@ -910,6 +934,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 
 	return &placement{
 		task:     task,
+		restored: restored,
 		openTurn: openTurn,
 	}, nil
 }
@@ -936,7 +961,7 @@ func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
 
 // claimWriter makes a launch joining its task's checkout the task's writer, refusing it while another
 // writer is live or once the worktree is gone, and bringing an archived task back.
-func claimWriter(ctx context.Context, db store.DBTX, c creation) (*taskstore.Task, error) {
+func claimWriter(ctx context.Context, db store.DBTX, c creation) (*placement, error) {
 	taskStore := taskstore.NewTaskStore(db)
 
 	task, err := taskStore.LockForWriter(ctx, c.task.ID)
@@ -955,14 +980,16 @@ func claimWriter(ctx context.Context, db store.DBTX, c creation) (*taskstore.Tas
 		return nil, err
 	}
 
-	if task.ArchivedAt != nil {
-		if err := taskStore.Restore(ctx, []string{task.ID}); err != nil {
-			return nil, fmt.Errorf("failed to restore task %q for its new writer: %w", task.Slug, err)
-		}
-		task.ArchivedAt = nil
+	if task.ArchivedAt == nil {
+		return &placement{task: task}, nil
 	}
 
-	return task, nil
+	if err := taskStore.Restore(ctx, []string{task.ID}); err != nil {
+		return nil, fmt.Errorf("failed to restore task %q for its new writer: %w", task.Slug, err)
+	}
+	task.ArchivedAt = nil
+
+	return &placement{task: task, restored: true}, nil
 }
 
 // claimCheckout records on a task how its checkout is to be made, ahead of the directory the
