@@ -11,8 +11,7 @@ import (
 
 // StackLoader reads a config stack and reads it again only once one of its files has changed.
 type StackLoader struct {
-	stack Stack
-
+	stack  Stack
 	mu     sync.Mutex
 	loaded bool
 	stamps []os.FileInfo
@@ -25,8 +24,7 @@ func NewStackLoader(stack Stack) *StackLoader {
 	return &StackLoader{stack: stack}
 }
 
-// Load is the stack's config as LoadStack reads it, kept from the last read while no file in the
-// stack has changed.
+// Load reads the stack's config, reusing the last read while no file in the stack has changed.
 func (l *StackLoader) Load() (*Config, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -36,7 +34,7 @@ func (l *StackLoader) Load() (*Config, error) {
 		return nil, err
 	}
 
-	if l.loaded && slices.EqualFunc(l.stamps, stamps, sameStamp) {
+	if l.loaded && slices.EqualFunc(l.stamps, stamps, isSameStamp) {
 		return l.cfg, l.err
 	}
 
@@ -71,9 +69,8 @@ func (l *StackLoader) stampLayers() ([]os.FileInfo, error) {
 	return stamps, nil
 }
 
-// sameStamp is whether two stats are of one unchanged file, comparing the inode as well as the
-// size and time so a symlink repointed at a file of equal size and time still counts as a change.
-func sameStamp(a, b os.FileInfo) bool {
+// isSameStamp reports whether two stats are of one unchanged file, inode included.
+func isSameStamp(a, b os.FileInfo) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
