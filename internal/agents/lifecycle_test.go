@@ -32,9 +32,14 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	tests := []struct {
 		name        string
 		archive     bool
+		child       bool
 		wantCleanup []string
 		wantRemoved bool
 	}{
+		{
+			name:  "deleting a child leaves its task's checkout to the writer",
+			child: true,
+		},
 		{
 			name:        "deleting an agent releases what setup built and its task's checkout",
 			wantCleanup: []string{worktreeDeprovisioner},
@@ -63,10 +68,16 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			target := agent
+			if tt.child {
+				target, err = manager.launch.NewAgent(t.Context(), childOf(*agent, "reviewer"))
+				require.NoError(t, err)
+			}
+
 			if tt.archive {
-				require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+				require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{target.ID}}))
 			} else {
-				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{target.ID}))
 			}
 
 			assert.Equal(t, tt.wantCleanup, lifecycle.deprovision)

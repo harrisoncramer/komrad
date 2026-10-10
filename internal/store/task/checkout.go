@@ -127,6 +127,34 @@ func (s *TaskStore) ClaimCheckout(ctx context.Context, params ClaimCheckoutParam
 	return claimed > 0, nil
 }
 
+// ClaimCheckoutAgain claims a task's checkout again on the terms its last claim made, reporting false
+// when the task already has one.
+func (s *TaskStore) ClaimCheckoutAgain(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+	}
+
+	claimed, err := s.queries.ReclaimTaskCheckout(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to reclaim the checkout of task %q: %w", id, err)
+	}
+
+	return claimed > 0, nil
+}
+
+// ReleaseCheckout gives up the claim on a task's checkout, leaving it free for another launch.
+func (s *TaskStore) ReleaseCheckout(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.ReleaseTaskCheckout(ctx, id); err != nil {
+		return fmt.Errorf("failed to release the checkout of task %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // SetCheckoutDir records the directory a launch provisioned for a task.
 func (s *TaskStore) SetCheckoutDir(ctx context.Context, id, cwd string) error {
 	if !store.IsID(id) {

@@ -506,6 +506,48 @@ func (q *Queries) MarkTaskCheckoutsRemoved(ctx context.Context, agentIds []strin
 	return err
 }
 
+const reclaimTaskCheckout = `-- name: ReclaimTaskCheckout :execrows
+UPDATE
+    tasks
+SET
+    branch = adopted_branch,
+    worktree_removed = FALSE
+WHERE
+    id = $1
+    AND worktree_removed IS NULL
+`
+
+func (q *Queries) ReclaimTaskCheckout(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, reclaimTaskCheckout, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const releaseTaskCheckout = `-- name: ReleaseTaskCheckout :exec
+UPDATE
+    tasks
+SET
+    cwd = NULL,
+    branch = NULL,
+    head_sha = NULL,
+    SEQUENCE =
+        NULL,
+        lines_added = NULL,
+        lines_removed = NULL,
+        moved_since_round = NULL,
+        last_rebase = NULL,
+        worktree_removed = NULL
+    WHERE
+        id = $1
+`
+
+func (q *Queries) ReleaseTaskCheckout(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, releaseTaskCheckout, id)
+	return err
+}
+
 const restoreTasks = `-- name: RestoreTasks :exec
 UPDATE
     tasks

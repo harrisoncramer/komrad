@@ -473,6 +473,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		taskGoal:      params.TaskGoal,
 		adoptedBranch: params.AdoptedBranch,
 		repositoryURL: params.RepositoryURL,
+		provisioner:   plan.provisioner,
 	}
 	task, err := s.createUnderCeiling(ctx, create)
 	if err != nil {
@@ -489,7 +490,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		spawner:         spawner,
 		parent:          parent,
 		taskSlug:        taskSlug(task),
-		claimsCheckout:  create.claimsCheckout(task),
+		claimsCheckout:  isCheckoutClaimant(agent, plan.provisioner),
 	})
 }
 
@@ -577,7 +578,7 @@ func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 	if !written {
 		return fmt.Errorf("%w: %q was archived or deleted while it was being created", agenterr.ErrAgentArchived, agent.Name)
 	}
-	if c.resolved.claimsCheckout && agent.TaskID != nil {
+	if c.resolved.claimsCheckout {
 		if err := c.service.tasks.RecordCheckout(ctx, *agent.TaskID, agent.Cwd); err != nil {
 			return fmt.Errorf("failed to record the checkout of agent %q on its task: %w", agent.Name, err)
 		}
@@ -631,7 +632,22 @@ func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, caus
 	if c.provisioned {
 		awaitDeprovision(ctx, c.scripts, agent, c.resolved.deprovisioner)
 	}
+	if c.resolved.claimsCheckout {
+		c.service.releaseCheckout(ctx, agent)
+	}
 	c.service.failCreate(ctx, agent, cause)
+}
+
+// releaseCheckout gives up the claim a failed create made on its task's checkout, logging a failure
+// rather than returning it.
+func (s *LaunchService) releaseCheckout(ctx context.Context, agent agentstore.Agent) {
+	if err := s.tasks.ReleaseCheckout(ctx, *agent.TaskID); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release the checkout claim of a failed create",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.TaskID, *agent.TaskID),
+			}, logging.Err(err)...)...)
+	}
 }
 
 // teardownTimeout stands in for the caller's own deadline once that no longer applies.
@@ -694,6 +710,7 @@ type creation struct {
 	// adoptedBranch is the branch the agent's checkout is put on rather than one komrad makes.
 	adoptedBranch string
 	repositoryURL string
+	provisioner   string
 }
 
 // needsOwnTask is whether the agent is given a task of its own as it is written, which a child
@@ -702,10 +719,10 @@ func (c creation) needsOwnTask() bool {
 	return c.task == nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator
 }
 
-// claimsCheckout is whether the agent's directory becomes the checkout of task, which only the one
+// isCheckoutClaimant reports whether an agent's directory becomes its task's checkout, which only a
 // top-level agent that provisions does.
-func (c creation) claimsCheckout(task *taskstore.Task) bool {
-	return task != nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator && !c.agent.IsProvisionerDisabled()
+func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
+	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role != agentstore.RoleOrchestrator && provisioner != ""
 }
 
 // createUnderCeiling writes the agent, and the task it works on when it needs one of its own,
@@ -749,7 +766,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
 		}
-		if c.claimsCheckout(task) {
+		if isCheckoutClaimant(*c.agent, c.provisioner) {
 			if err := claimCheckout(ctx, taskstore.NewTaskStore(db), c, task.ID); err != nil {
 				return err
 			}

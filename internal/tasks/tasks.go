@@ -88,6 +88,17 @@ func (s *TaskService) RecordCheckout(ctx context.Context, id, cwd string) error 
 	return s.tasks.SetCheckoutDir(ctx, id, cwd)
 }
 
+// ClaimCheckoutAgain claims a task's checkout again for a retried launch, reporting false when the
+// task already has one.
+func (s *TaskService) ClaimCheckoutAgain(ctx context.Context, id string) (bool, error) {
+	return s.tasks.ClaimCheckoutAgain(ctx, id)
+}
+
+// ReleaseCheckout gives up the claim a failed launch made on a task's checkout.
+func (s *TaskService) ReleaseCheckout(ctx context.Context, id string) error {
+	return s.tasks.ReleaseCheckout(ctx, id)
+}
+
 // ListTasksByID returns the tasks among ids, archived or not.
 func (s *TaskService) ListTasksByID(ctx context.Context, ids []string) ([]taskstore.Task, error) {
 	return s.tasks.ListByID(ctx, ids)

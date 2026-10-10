@@ -111,6 +111,33 @@ WHERE
     id = sqlc.arg('id')
     AND worktree_removed IS NULL;
 
+-- name: ReclaimTaskCheckout :execrows
+UPDATE
+    tasks
+SET
+    branch = adopted_branch,
+    worktree_removed = FALSE
+WHERE
+    id = sqlc.arg('id')
+    AND worktree_removed IS NULL;
+
+-- name: ReleaseTaskCheckout :exec
+UPDATE
+    tasks
+SET
+    cwd = NULL,
+    branch = NULL,
+    head_sha = NULL,
+    SEQUENCE =
+        NULL,
+        lines_added = NULL,
+        lines_removed = NULL,
+        moved_since_round = NULL,
+        last_rebase = NULL,
+        worktree_removed = NULL
+    WHERE
+        id = sqlc.arg('id');
+
 -- name: SetTaskCheckoutDir :exec
 UPDATE
     tasks

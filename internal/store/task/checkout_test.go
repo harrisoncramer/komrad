@@ -104,6 +104,54 @@ func TestClaimCheckoutConcurrently(t *testing.T) {
 	assert.Equal(t, int32(1), claims.Load())
 }
 
+// TestClaimCheckoutAgain covers a retried launch taking up the claim a failed one gave back, on the
+// terms the failed one made it.
+func TestClaimCheckoutAgain(t *testing.T) {
+	tests := []struct {
+		name    string
+		release bool
+		want    bool
+	}{
+		{
+			name: "a task still claimed is not claimed again",
+			want: false,
+		},
+		{
+			name:    "a task given back is claimed again on the branch it was put on",
+			release: true,
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			ctx := t.Context()
+			workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
+			task := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+
+			claimed, err := stores.Tasks.ClaimCheckout(ctx, taskstore.ClaimCheckoutParams{ID: task.ID, AdoptedBranch: "feature"})
+			require.NoError(t, err)
+			require.True(t, claimed)
+			require.NoError(t, stores.Tasks.SetCheckoutDir(ctx, task.ID, "/tmp/worktrees/work"))
+			if tt.release {
+				require.NoError(t, stores.Tasks.ReleaseCheckout(ctx, task.ID))
+			}
+
+			got, err := stores.Tasks.ClaimCheckoutAgain(ctx, task.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+
+			if tt.release {
+				reclaimed, err := stores.Tasks.Get(ctx, task.ID)
+				require.NoError(t, err)
+				assert.Empty(t, reclaimed.Checkout.Cwd, "the directory the failed launch made is gone")
+				assert.Equal(t, xptr.Ptr("feature"), reclaimed.Checkout.Branch)
+			}
+		})
+	}
+}
+
 // TestCheckoutRoundTrips pins a checkout claimed and given its directory reading back as written.
 func TestCheckoutRoundTrips(t *testing.T) {
 	stores := storetest.Open(t)
