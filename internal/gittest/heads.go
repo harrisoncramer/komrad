@@ -39,9 +39,8 @@ type Trees struct {
 	ProbeErr error
 	Probed   []string
 	// Fingerprints is the key each root fingerprints as.
-	Fingerprints  map[string]string
-	Fingerprinted []string
-	Tips          map[string]string
+	Fingerprints map[string]string
+	Tips         map[string]string
 	// Unresolved says the clone holds no copy of the base.
 	Unresolved bool
 	// BasesRead is every directory whose base was read.
@@ -162,12 +161,10 @@ func (t *Trees) PredictRebase(context.Context, string, string) (git.Prediction, 
 	return t.Prediction, nil
 }
 
-// ReadFingerprint records the root and answers what Fingerprints holds for it, refusing when it
-// names none.
+// ReadFingerprint answers what Fingerprints holds for the root, refusing when it names none.
 func (t *Trees) ReadFingerprint(_ context.Context, params git.ReadFingerprintParams) (*git.Fingerprint, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.Fingerprinted = append(t.Fingerprinted, params.Root)
 
 	key, ok := t.Fingerprints[params.Root]
 	if !ok {

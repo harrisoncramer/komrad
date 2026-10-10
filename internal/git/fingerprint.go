@@ -20,8 +20,7 @@ type HiddenPaths struct {
 	Paths []string
 }
 
-// Fingerprint stands for a worktree as git status sees it, so two that match say nothing a probe
-// of the tree would see has changed between them.
+// Fingerprint stands for a worktree as git status sees it.
 type Fingerprint struct {
 	Key    string
 	Hidden HiddenPaths

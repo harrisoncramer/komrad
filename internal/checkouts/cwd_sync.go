@@ -126,9 +126,9 @@ type cwdLook struct {
 	fingerprint *git.Fingerprint
 	// seen is what the last pass read of the worktree.
 	seen seenWorktree
-	// measuredAt is the base tip and exclusions diffStat was measured against, empty when it was
+	// measureKey is the base tip and exclusions diffStat was measured against, empty when it was
 	// not measured.
-	measuredAt string
+	measureKey string
 	worktree   *worktreestore.Worktree
 	standing   *worktreestore.Standing
 	err        error
@@ -141,7 +141,7 @@ type seenWorktree struct {
 	fingerprint git.Fingerprint
 	// tree is the probe's hash, empty when there was no round to probe against.
 	tree       string
-	measuredAt string
+	measureKey string
 	diffStat   *taskstore.DiffStat
 }
 
@@ -609,7 +609,7 @@ func (cs *CwdSyncer) readHead(ctx context.Context, dir, snapshotSHA string) (*gi
 }
 
 // readFingerprint records on the look what git status sees of the worktree and what the last
-// pass read of it, leaving the fingerprint nil when git could not say, so nothing is reused.
+// pass read of it.
 func (cs *CwdSyncer) readFingerprint(ctx context.Context, look *cwdLook) {
 	if look.head.Root == "" {
 		return
@@ -663,7 +663,7 @@ func (cs *CwdSyncer) remember(look cwdLook) {
 		head:        look.head.SHA,
 		fingerprint: *look.fingerprint,
 		tree:        look.tree,
-		measuredAt:  look.measuredAt,
+		measureKey:  look.measureKey,
 		diffStat:    look.diffStat,
 	}
 }
@@ -679,9 +679,10 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 		return
 	}
 
-	measuredAt := strings.Join(append([]string{look.base.Tip}, config.DiffExclude...), "\x00")
-	if look.isUnchanged() && look.seen.measuredAt == measuredAt {
-		look.diffStat, look.measuredAt = look.seen.diffStat, measuredAt
+	measureKey := strings.Join(append([]string{look.base.Tip}, config.DiffExclude...), "\x00")
+	if look.isUnchanged() && look.seen.measureKey == measureKey {
+		look.diffStat = look.seen.diffStat
+		look.measureKey = measureKey
 
 		return
 	}
@@ -696,7 +697,7 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 		Exclude: config.DiffExclude,
 	})
 	if errors.Is(err, git.ErrBaseUnrelated) {
-		look.measuredAt = measuredAt
+		look.measureKey = measureKey
 
 		return
 	}
@@ -706,7 +707,8 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 		return
 	}
 
-	look.diffStat, look.measuredAt = &taskstore.DiffStat{Added: stat.Added, Removed: stat.Removed}, measuredAt
+	look.diffStat = &taskstore.DiffStat{Added: stat.Added, Removed: stat.Removed}
+	look.measureKey = measureKey
 }
 
 type readBaseParams struct {
