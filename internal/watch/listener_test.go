@@ -173,6 +173,7 @@ type seeded struct {
 	workflow   string
 	config     string
 	agent      string
+	task       string
 	repository string
 }
 
@@ -184,6 +185,7 @@ func (l *listened) seed(t *testing.T) seeded {
 		workflow:   uuid.NewString(),
 		config:     uuid.NewString(),
 		agent:      uuid.NewString(),
+		task:       uuid.NewString(),
 		repository: "https://example.test/" + uuid.NewString(),
 	}
 	provisioner := uuid.NewString()
@@ -191,9 +193,8 @@ func (l *listened) seed(t *testing.T) seeded {
 	l.exec(t, `INSERT INTO workflow_provisioner_configs (id, worktree_enabled, worktree_base_branch, worktree_dir, worktree_copy_paths, worktree_symlink_paths, worktree_diff_exclude)
 		VALUES ($1, false, 'main', '', '{}', '{}', '{}')`, provisioner)
 	l.exec(t, `INSERT INTO workflows (id, name, context, workflow_config_id, provisioner_config_id) VALUES ($1, 'flow', '', $2, $3)`, rows.workflow, rows.config, provisioner)
-	task := uuid.NewString()
-	l.exec(t, `INSERT INTO tasks (id, workflow_id, slug, title) VALUES ($1, $2, $3, 'task')`, task, rows.workflow, "task-"+task)
-	l.exec(t, `INSERT INTO agents (id, name, workflow_id, task_id, branch, repository_url) VALUES ($1, 'agent', $2, $3, 'agent/x', $4)`, rows.agent, rows.workflow, task, rows.repository)
+	l.exec(t, `INSERT INTO tasks (id, workflow_id, slug, title) VALUES ($1, $2, $3, 'task')`, rows.task, rows.workflow, "task-"+rows.task)
+	l.exec(t, `INSERT INTO agents (id, name, workflow_id, task_id, branch, repository_url) VALUES ($1, 'agent', $2, $3, 'agent/x', $4)`, rows.agent, rows.workflow, rows.task, rows.repository)
 
 	return rows
 }
@@ -465,21 +466,21 @@ func TestAReviewIsRaisedByItsDoorbellAndRound(t *testing.T) {
 	}, waitForPayloads(t, conn, 5))
 }
 
-// TestALookupFeederMatchesAcrossColumnTypes pins that an agent's uuid reaches the worktree
-// whose text name holds it, and only when the agent's deleting_at moves.
+// TestALookupFeederMatchesAcrossColumnTypes pins that a task's uuid reaches the worktree
+// whose text name holds it, and only when the task's deleting_at moves.
 func TestALookupFeederMatchesAcrossColumnTypes(t *testing.T) {
 	l := newPooled(t)
 	rows := l.seed(t)
 	dir := "/worktrees/" + uuid.NewString()
-	l.exec(t, `INSERT INTO worktrees (dir, name) VALUES ($1, $2)`, dir, rows.agent)
+	l.exec(t, `INSERT INTO worktrees (dir, name) VALUES ($1, $2)`, dir, rows.task)
 	conn := l.listenRaw(t)
 
-	l.exec(t, `UPDATE agents SET name = 'renamed' WHERE id = $1`, rows.agent)
-	l.exec(t, `UPDATE agents SET deleting_at = now() WHERE id = $1`, rows.agent)
+	l.exec(t, `UPDATE tasks SET title = 'renamed' WHERE id = $1`, rows.task)
+	l.exec(t, `UPDATE tasks SET deleting_at = now() WHERE id = $1`, rows.task)
 
 	assert.Equal(t, []string{
-		"agents " + rows.agent,
-		"agents " + rows.agent,
+		"tasks " + rows.task,
+		"tasks " + rows.task,
 		"worktrees " + dir,
 	}, waitForPayloads(t, conn, 3))
 }

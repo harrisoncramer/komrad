@@ -122,7 +122,7 @@ func agentFields(params agentFieldsParams) []recordField {
 		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
 	}
 	if params.read {
-		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)
+		fields = append(fields, worktreeStandingFields(params.worktree, agent.ID, params.now)...)
 	}
 
 	fields = append(fields,

@@ -6,7 +6,7 @@ import (
 
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
-	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
 
@@ -161,16 +161,16 @@ func TestDeleteForgetsOnlyTheDirectoriesNamed(t *testing.T) {
 	assert.Equal(t, "/trees/b", listed[0].Dir)
 }
 
-// TestDeleteByNameForgetsTheAgentsDirectories covers the rows cut for the agents named going
-// whichever worktree directory holds them, and the rest staying.
-func TestDeleteByNameForgetsTheAgentsDirectories(t *testing.T) {
+// TestDeleteForTaskForgetsTheTasksDirectories covers the rows cut for the task going whichever
+// worktree directory holds them, and the rest staying.
+func TestDeleteForTaskForgetsTheTasksDirectories(t *testing.T) {
 	worktrees := openWorktreeStore(t)
 	for _, dir := range []string{"/trees/a", "/elsewhere/a", "/trees/b"} {
 		require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
 	}
 
-	require.NoError(t, worktrees.DeleteByName(t.Context(), nil))
-	require.NoError(t, worktrees.DeleteByName(t.Context(), []string{"a", "never"}))
+	require.NoError(t, worktrees.DeleteForTask(t.Context(), "never"))
+	require.NoError(t, worktrees.DeleteForTask(t.Context(), "a"))
 
 	listed, err := worktrees.List(t.Context())
 	require.NoError(t, err)
@@ -199,18 +199,17 @@ func TestListWatchedReadsTheKeysNamed(t *testing.T) {
 	assert.Empty(t, none)
 }
 
-// TestListWatchedLeavesOutADeletingAgentsDirectory covers the watch dropping the directory of an
-// agent a delete has claimed, List still reading it, and a cleared claim bringing it back.
-func TestListWatchedLeavesOutADeletingAgentsDirectory(t *testing.T) {
+// TestListWatchedLeavesOutADeletingTasksDirectory covers the watch dropping the directory of a
+// task a delete has claimed, List still reading it, and a cleared claim bringing it back.
+func TestListWatchedLeavesOutADeletingTasksDirectory(t *testing.T) {
 	stores := storetest.Open(t)
 	worktrees := NewWorktreeStore(stores.Pool.GetDB())
-	agent := stores.SeedAgent(t, agentstore.Agent{Name: "going"})
-	dir := "/trees/" + agent.ID
+	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "going"})
+	dir := "/trees/" + task.ID
 	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
 	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: "/trees/other"}))
 
-	_, err := stores.Agents.MarkDeleting(t.Context(), []string{agent.ID})
-	require.NoError(t, err)
+	require.NoError(t, stores.Tasks.MarkDeleting(t.Context(), []string{task.ID}))
 
 	watched, err := worktrees.ListWatched(t.Context(), nil)
 	require.NoError(t, err)
@@ -224,7 +223,7 @@ func TestListWatchedLeavesOutADeletingAgentsDirectory(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{dir, "/trees/other"}, dirsOf(all))
 
-	require.NoError(t, stores.Agents.ClearDeleting(t.Context(), []string{agent.ID}))
+	require.NoError(t, stores.Tasks.ClearDeleting(t.Context(), task.ID))
 
 	watched, err = worktrees.ListWatched(t.Context(), nil)
 	require.NoError(t, err)

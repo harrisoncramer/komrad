@@ -5,7 +5,7 @@
 // request that named only the directory.
 var domain = "${domain}";
 var assetDirs = ["/_astro/", "/pagefind/"];
-var file = /\.(html|css|js|json|xml|txt|ico|svg|png|jpg|webp|webm|mp4|woff2?)$/;
+var file = /\.(html|md|css|js|json|xml|txt|ico|svg|png|jpg|webp|webm|mp4|woff2?)$/;
 
 function redirect(statusCode, location) {
   return {

@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 	loopv1 "komrad/proto/gen/loop/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 
@@ -78,9 +79,10 @@ func agentWorktree(inspections map[string]worktreeInspection, cwd string) (workt
 	return read, true
 }
 
-// worktreeStandingFields are the record's rows for where the directory stands: what is uncommitted
-// in it and what it takes on disk, with the refusal above them when the last read failed.
-func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
+// worktreeStandingFields are the record's rows for where an agent's directory stands: what is
+// uncommitted in it, what it takes on disk and who else works there, with the refusal above them
+// when the last read failed.
+func worktreeStandingFields(read worktreeInspection, agentID string, now time.Time) []recordField {
 	fields := []recordField{}
 	if read.err != nil {
 		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
@@ -100,11 +102,9 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	}
 
 	fields = append(fields, recordField{label: "size", value: sizeField(read.item, now)})
-	if len(read.item.occupants) > 0 {
-		fields = append(fields, recordField{label: "also here", value: occupantsField(read.item)})
-	}
+	others := xslice.Filter(read.item.occupants, func(occupant worktreeAgent) bool { return occupant.id != agentID })
 
-	return fields
+	return appendOccupantsField(fields, "also here", others)
 }
 
 // agentDetailsTags is what the record's rule carries for an agent.

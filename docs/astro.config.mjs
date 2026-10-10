@@ -7,6 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { basename, extname } from "node:path";
 import { codeTheme } from "./src/code-theme.mjs";
+import markdownTwins from "./markdown-twins.mjs";
 
 const version = process.env.PUBLIC_DOCS_VERSION || "dev";
 const base = `/${version}/`;
@@ -125,7 +126,7 @@ export default defineConfig({
   site: "https://komrad.dev",
   base,
   trailingSlash: "ignore",
-  integrations: [mdx(), react(), sitemap({ filter: (page) => !page.endsWith("/404/") })],
+  integrations: [mdx(), react(), sitemap({ filter: (page) => !page.endsWith("/404/") }), markdownTwins()],
   vite: {
     plugins: [tailwindcss(), pagefind, media],
   },

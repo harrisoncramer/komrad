@@ -509,7 +509,7 @@ type ArchiveMenuKeys struct {
 	Archive []string `mapstructure:"archive" default:"a"`
 	// Destroy the row for good, with its transcript or its run history, archiving a live task
 	// first, which takes its agents, documents, reviews and worktree with it. On the worktrees it
-	// deletes the directory, through the agent delete when an archived agent answers for it.
+	// deletes the directory, through the task delete when an archived task answers for it.
 	// Nothing undoes it, so it asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
 	// Put the row back in the panel.

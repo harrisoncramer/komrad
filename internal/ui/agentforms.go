@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"komrad/config"
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
@@ -327,8 +326,6 @@ func retryAgentForm(keys config.FixedKeys, values *retryFormValues) (*huh.Form, 
 	)
 }
 
-type archiveChoice string
-
 // promptSubject names what a prompt is about, counting in the children that were not asked
 // about.
 func promptSubject(agents []panel.Agent, children int) string {
@@ -348,55 +345,6 @@ func promptSubject(agents []panel.Agent, children int) string {
 	}
 
 	return subject
-}
-
-// confirmArchiveAgents asks before archiving agents, counting the children they hold among the
-// live agents, and offers to delete them too.
-func confirmArchiveAgents(m *model, agents []panel.Agent) tea.Cmd {
-	if len(agents) == 0 {
-		return nil
-	}
-
-	form, answer := archiveAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), fixedKeys())
-
-	return m.openForm(formState{
-		kind:   formAgentArchive,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			switch *answer {
-			case archiveChoiceArchive:
-				return m.archiveAgents(agents)
-			case archiveChoiceArchiveDelete:
-				return m.archiveAndDeleteAgents(agents)
-			case archiveChoiceCancel:
-				return nil
-			}
-
-			return nil
-		}),
-	})
-}
-
-func archiveAgentsForm(agents []panel.Agent, children int, keys config.FixedKeys) (*huh.Form, *archiveChoice) {
-	title := "Archive " + promptSubject(agents, children) + "?"
-
-	choice := archiveChoiceArchive
-
-	field := huh.NewSelect[archiveChoice]().
-		Key("archive").
-		Title(title).
-		Value(&choice).
-		Options(
-			huh.NewOption("Archive", archiveChoiceArchive),
-			huh.NewOption("Archive and delete", archiveChoiceArchiveDelete),
-			huh.NewOption("Cancel", archiveChoiceCancel),
-		)
-
-	form := huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.Panel.FormTheme())
-
-	return form, &choice
 }
 
 // rebaseForm asks before a worktree is brought up to date, saying what will happen to the

@@ -10,6 +10,16 @@ import (
 	"time"
 )
 
+const deleteTaskWorktrees = `-- name: DeleteTaskWorktrees :exec
+DELETE FROM worktrees
+WHERE name = $1::text
+`
+
+func (q *Queries) DeleteTaskWorktrees(ctx context.Context, taskID string) error {
+	_, err := q.db.Exec(ctx, deleteTaskWorktrees, taskID)
+	return err
+}
+
 const deleteWorktrees = `-- name: DeleteWorktrees :exec
 DELETE FROM worktrees
 WHERE dir = ANY ($1::text[])
@@ -17,16 +27,6 @@ WHERE dir = ANY ($1::text[])
 
 func (q *Queries) DeleteWorktrees(ctx context.Context, dirs []string) error {
 	_, err := q.db.Exec(ctx, deleteWorktrees, dirs)
-	return err
-}
-
-const deleteWorktreesByName = `-- name: DeleteWorktreesByName :exec
-DELETE FROM worktrees
-WHERE name = ANY ($1::text[])
-`
-
-func (q *Queries) DeleteWorktreesByName(ctx context.Context, names []string) error {
-	_, err := q.db.Exec(ctx, deleteWorktreesByName, names)
 	return err
 }
 
@@ -54,10 +54,10 @@ AND NOT EXISTS (
     SELECT
         1
     FROM
-        agents a
+        tasks t
     WHERE
-        a.id::text = w.name
-        AND a.deleting_at IS NOT NULL)
+        t.id::text = w.name
+        AND t.deleting_at IS NOT NULL)
 ORDER BY
     w.dir
 `

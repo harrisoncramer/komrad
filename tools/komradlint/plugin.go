@@ -114,6 +114,16 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	queries, err := newStoreQuery(l.config.StoreQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	transactions, err := newTxStore(l.config.TxStore)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -132,6 +142,8 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		sleeps,
 		fatals,
 		texts,
+		queries,
+		transactions,
 	}, nil
 }
 
