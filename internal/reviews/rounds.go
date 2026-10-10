@@ -133,11 +133,7 @@ func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task, 
 		SnapshotSHA: snapshot.SHA,
 	})
 	if err != nil {
-		s.releaseUnheldRef(ctx, releaseUnheldRefParams{
-			Task:        task,
-			Ref:         ref,
-			SnapshotSHA: snapshot.SHA,
-		})
+		s.releaseUnheldRef(ctx, task, snapshot.SHA)
 
 		return nil, err
 	}
@@ -145,23 +141,17 @@ func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task, 
 	return round, nil
 }
 
-type releaseUnheldRefParams struct {
-	Task        taskstore.Task
-	Ref         string
-	SnapshotSHA string
-}
-
 // releaseUnheldRef drops a ref taken for a round that was never written, unless an earlier round
 // of the same tree already stands on it.
-func (s *ReviewService) releaseUnheldRef(ctx context.Context, params releaseUnheldRefParams) {
-	_, err := s.reviews.GetRoundBySnapshot(ctx, params.Task.ID, params.SnapshotSHA)
+func (s *ReviewService) releaseUnheldRef(ctx context.Context, task taskstore.Task, snapshotSHA string) {
+	_, err := s.reviews.GetRoundBySnapshot(ctx, task.ID, snapshotSHA)
 	if !errors.Is(err, store.ErrNotFound) {
 		return
 	}
 
-	if err := s.snapshots.ReleaseRef(ctx, params.Task.Checkout.Cwd, params.Ref); err != nil {
+	if err := s.snapshots.ReleaseRef(ctx, task.Checkout.Cwd, reviewstore.RoundRef(task.ID, snapshotSHA)); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a round that was never written",
-			append([]slog.Attr{slog.String(logging.TaskID, params.Task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 	}
 }
 
