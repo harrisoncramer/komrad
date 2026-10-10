@@ -85,7 +85,7 @@ func TestIntegrationPanel(t *testing.T) {
 		}
 		require.Equal(t, "0", readZoomedFlag(), "the agent's own pane has the stage to itself")
 
-		served.harness.press("k")
+		served.harness.press("k", "k")
 		served.harness.fireTimers()
 
 		assert.Equal(t, "1", readZoomedFlag())
