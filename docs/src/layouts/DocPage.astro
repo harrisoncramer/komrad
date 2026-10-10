@@ -42,20 +42,39 @@ const structuredData = [
 >
   <slot name="sidebar" slot="sidebar" />
   <article data-pagefind-body>
-    <h1 class="title" data-pagefind-meta="title">
-      {title}
-    </h1>
-    {description && <p class="mt-2 mb-8 text-lg text-app-gray-light">{description}</p>}
-    <div class="mb-3 flex justify-end gap-4" data-pagefind-ignore>
-      <button class="page-action copy-markdown" type="button" data-markdown={markdown}>
-        Copy as Markdown
-      </button>
-      {filePath && (
-        <a class="page-action" href={`${REPO_URL}/blob/main/docs/${filePath}`}>
-          Edit this page on Github
-        </a>
-      )}
-    </div>
+    <header class="page-head">
+      <div class="min-w-0">
+        <h1 class="title" data-pagefind-meta="title">
+          {title}
+        </h1>
+        {description && <p class="mt-2 mb-8 text-lg text-app-gray-light">{description}</p>}
+      </div>
+      <div class="page-actions" data-pagefind-ignore>
+        <button
+          class="page-action copy-markdown"
+          type="button"
+          title="Copy this page as Markdown"
+          data-markdown={markdown}
+        >
+          <svg aria-hidden="true" viewBox="0 0 208 128">
+            <rect width="198" height="118" x="5" y="5" ry="10" fill="none" stroke="currentColor" stroke-width="10" />
+            <path
+              fill="currentColor"
+              d="M30 98V30h20l20 25 20-25h20v68H90V59L70 84 50 59v39zm125 0-30-33h20V30h20v35h20z"
+            />
+          </svg>
+          <span class="page-action-label">For agents</span>
+        </button>
+        {filePath && (
+          <a class="page-action" href={`${REPO_URL}/blob/main/docs/${filePath}`}>
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+            </svg>
+            <span class="page-action-label">Edit on GitHub</span>
+          </a>
+        )}
+      </div>
+    </header>
     <div class="doc-content mt-4">
       <slot />
     </div>
@@ -87,14 +106,26 @@ const structuredData = [
     @apply leading-tight;
   }
 
+  .page-head {
+    @apply flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-6;
+  }
+
+  .page-actions {
+    @apply mb-6 flex shrink-0 gap-4 sm:mb-0 sm:flex-col sm:items-end sm:gap-2 sm:pt-2;
+  }
+
   .page-action {
-    @apply cursor-pointer text-sm text-app-gray opacity-70 transition-opacity duration-200;
+    @apply inline-flex cursor-pointer items-center gap-2 text-sm whitespace-nowrap text-app-gray opacity-70 transition-opacity duration-200;
     font-family: var(--font-sans);
   }
 
   .page-action:hover,
   .page-action:focus-visible {
     @apply opacity-100;
+  }
+
+  .page-action svg {
+    @apply h-4 w-auto;
   }
 
   .doc-content {
@@ -190,18 +221,20 @@ const structuredData = [
   });
 
   document.querySelectorAll<HTMLButtonElement>(".copy-markdown").forEach((button) => {
-    const label = button.textContent;
+    const label = button.querySelector(".page-action-label");
+    if (!label) return;
+    const text = label.textContent;
     button.addEventListener("click", () => {
-      const text = fetch(button.dataset.markdown ?? "")
+      const markdown = fetch(button.dataset.markdown ?? "")
         .then((response) => (response.ok ? response.text() : Promise.reject(new Error(response.statusText))))
-        .then((markdown) => new Blob([markdown], { type: "text/plain" }));
+        .then((body) => new Blob([body], { type: "text/plain" }));
       navigator.clipboard
-        .write([new ClipboardItem({ "text/plain": text })])
+        .write([new ClipboardItem({ "text/plain": markdown })])
         .then(
-          () => (button.textContent = "Copied!"),
-          () => (button.textContent = "Copy failed"),
+          () => (label.textContent = "Copied!"),
+          () => (label.textContent = "Copy failed"),
         )
-        .finally(() => setTimeout(() => (button.textContent = label), 1500));
+        .finally(() => setTimeout(() => (label.textContent = text), 1500));
     });
   });
 </script>
