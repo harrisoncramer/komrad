@@ -615,79 +615,162 @@ func TestCwdSyncerSyncReadsTheBaseOncePerPass(t *testing.T) {
 	}
 }
 
+// reuseScene is what a case of TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead changes between
+// its passes.
+type reuseScene struct {
+	fixture *syncFixture
+	trees   *gittest.Trees
+	heads   *gittest.Heads
+	cwd     string
+}
+
 // TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead covers a pass reusing the last probe and diff
-// stat while the head, the fingerprint and the base tip hold.
+// stat while the head, the fingerprint, the base tip and the exclusions hold, and never reusing a
+// read that failed.
 func TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead(t *testing.T) {
+	measured := &taskstore.DiffStat{Added: 4, Removed: 1}
+
 	tests := []struct {
 		name         string
-		change       func(trees *gittest.Trees, heads *gittest.Heads, cwd string)
+		setup        func(t *testing.T, scene reuseScene)
+		change       func(t *testing.T, scene reuseScene)
+		wantFirstErr bool
 		wantProbed   int
 		wantMeasured int
+		wantDiffStat *taskstore.DiffStat
 	}{
 		{
 			name:         "an unchanged worktree is read once",
-			change:       func(*gittest.Trees, *gittest.Heads, string) {},
 			wantProbed:   1,
 			wantMeasured: 1,
+			wantDiffStat: measured,
 		},
 		{
 			name: "a changed fingerprint is read again",
-			change: func(trees *gittest.Trees, _ *gittest.Heads, cwd string) {
-				trees.Fingerprints[cwd] = "fingerprint-two"
+			change: func(_ *testing.T, scene reuseScene) {
+				scene.trees.Fingerprints[scene.cwd] = "fingerprint-two"
 			},
 			wantProbed:   2,
 			wantMeasured: 2,
+			wantDiffStat: measured,
 		},
 		{
 			name: "a moved head is read again",
-			change: func(_ *gittest.Trees, heads *gittest.Heads, cwd string) {
-				state := heads.States[cwd]
+			change: func(_ *testing.T, scene reuseScene) {
+				state := scene.heads.States[scene.cwd]
 				state.SHA = "head-two"
-				heads.States[cwd] = state
+				scene.heads.States[scene.cwd] = state
 			},
 			wantProbed:   2,
 			wantMeasured: 2,
+			wantDiffStat: measured,
 		},
 		{
 			name: "a moved base tip measures again on the tree already probed",
-			change: func(trees *gittest.Trees, _ *gittest.Heads, cwd string) {
-				trees.Tips[cwd] = "tip-two"
+			change: func(_ *testing.T, scene reuseScene) {
+				scene.trees.Tips[scene.cwd] = "tip-two"
 			},
 			wantProbed:   1,
 			wantMeasured: 2,
+			wantDiffStat: measured,
+		},
+		{
+			name: "changed exclusions measure again on the tree already probed",
+			change: func(t *testing.T, scene reuseScene) {
+				require.NoError(t, scene.fixture.stores.Workflows.Update(t.Context(), scene.fixture.workflowID, workflowstore.Config{
+					Name:     "reused",
+					Worktree: workflowstore.WorktreeConfig{BaseBranch: "main", DiffExclude: []string{"*.lock"}},
+				}))
+			},
+			wantProbed:   1,
+			wantMeasured: 2,
+			wantDiffStat: measured,
 		},
 		{
 			name: "a worktree git cannot fingerprint is read every pass",
-			change: func(trees *gittest.Trees, _ *gittest.Heads, cwd string) {
-				delete(trees.Fingerprints, cwd)
+			change: func(_ *testing.T, scene reuseScene) {
+				delete(scene.trees.Fingerprints, scene.cwd)
 			},
 			wantProbed:   2,
 			wantMeasured: 2,
+			wantDiffStat: measured,
+		},
+		{
+			name: "a failed probe is not reused",
+			setup: func(_ *testing.T, scene reuseScene) {
+				scene.trees.ProbeErr = errors.New("the index could not be read")
+			},
+			change: func(_ *testing.T, scene reuseScene) {
+				scene.trees.ProbeErr = nil
+			},
+			wantFirstErr: true,
+			wantProbed:   2,
+			wantMeasured: 1,
+			wantDiffStat: measured,
+		},
+		{
+			name: "a failed measure is not reused",
+			setup: func(_ *testing.T, scene reuseScene) {
+				scene.trees.DiffErr = errors.New("the base could not be read")
+			},
+			change: func(_ *testing.T, scene reuseScene) {
+				scene.trees.DiffErr = nil
+			},
+			wantFirstErr: true,
+			wantProbed:   1,
+			wantMeasured: 2,
+			wantDiffStat: measured,
+		},
+		{
+			name: "an unrelated base is measured once",
+			setup: func(_ *testing.T, scene reuseScene) {
+				delete(scene.trees.DiffStats, scene.cwd)
+			},
+			wantProbed:   1,
+			wantMeasured: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newSyncFixture(t)
+			fixture.workflowID = fixture.stores.SeedWorkflow(t, workflowstore.Config{
+				Name:     "reused",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+			}).ID
 			cwd := makeCheckout(t)
 			agent := fixture.seed(t, "a", cwd)
 			fixture.release(t, agent.ID, "snapshot-one")
-			trees := &gittest.Trees{
-				Probes:       map[string]string{cwd: "probed-tree"},
-				Tips:         map[string]string{cwd: "tip-one"},
-				Fingerprints: map[string]string{cwd: "fingerprint-one"},
-				DiffStats:    map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
+			scene := reuseScene{
+				fixture: fixture,
+				trees: &gittest.Trees{
+					Probes:       map[string]string{cwd: "probed-tree"},
+					Tips:         map[string]string{cwd: "tip-one"},
+					Fingerprints: map[string]string{cwd: "fingerprint-one"},
+					DiffStats:    map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
+				},
+				heads: buildHeads(cwd, git.HeadState{Root: cwd, SHA: "head-one", SnapshotTree: "round-tree"}),
+				cwd:   cwd,
 			}
-			heads := buildHeads(cwd, git.HeadState{Root: cwd, SHA: "head-one", SnapshotTree: "round-tree"})
-			syncer := fixture.newSyncer(newSyncerParams{Heads: heads, Trees: trees})
+			if tt.setup != nil {
+				tt.setup(t, scene)
+			}
+			syncer := fixture.newSyncer(newSyncerParams{Heads: scene.heads, Trees: scene.trees})
 
-			require.NoError(t, syncer.Sync(t.Context()))
-			tt.change(trees, heads, cwd)
+			err := syncer.Sync(t.Context())
+			if tt.wantFirstErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			if tt.change != nil {
+				tt.change(t, scene)
+			}
 			require.NoError(t, syncer.Sync(t.Context()))
 
-			assert.Len(t, trees.Probed, tt.wantProbed)
-			assert.Len(t, trees.Measured, tt.wantMeasured)
-			assert.Equal(t, &taskstore.DiffStat{Added: 4, Removed: 1}, fixture.read(t, agent.ID).DiffStat)
+			assert.Len(t, scene.trees.Probed, tt.wantProbed)
+			assert.Len(t, scene.trees.Measured, tt.wantMeasured)
+			assert.Equal(t, tt.wantDiffStat, fixture.read(t, agent.ID).DiffStat)
 		})
 	}
 }
