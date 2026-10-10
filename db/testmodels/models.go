@@ -1255,7 +1255,7 @@ type Worktree struct {
 	SizeError *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
-	// The directory's basename, which is the id of the agent it was cut for.
+	// The directory's basename, which is the id of the task it was cut for.
 	Name string
 	// The repository the directory was cut from, read off its .git file, empty when there is no such file.
 	RepoDir string
