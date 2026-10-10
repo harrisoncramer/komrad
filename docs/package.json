@@ -25,6 +25,7 @@
     "@astrojs/check": "^0.9.10",
     "@astrojs/markdown-remark": "^7.3.1",
     "@eslint/js": "^9.39.5",
+    "@mixmark-io/domino": "^2.2.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "astro-eslint-parser": "^3.2.0",
@@ -39,6 +40,8 @@
     "prettier": "^3.9.9",
     "prettier-plugin-astro": "^1.0.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1"
   }

@@ -9,12 +9,13 @@ type Props = {
   title: string;
   description?: string;
   filePath?: string;
-  markdown?: string;
   prev?: Neighbour;
   next?: Neighbour;
 };
 
-const { title, description, filePath, markdown, prev, next } = Astro.props;
+const { title, description, filePath, prev, next } = Astro.props;
+
+const markdown = `${Astro.url.pathname.replace(/\/$/, "")}.md`;
 
 const crumbs = breadcrumbs(Astro.url.pathname, title);
 const structuredData = [

@@ -8,7 +8,6 @@ import IndexList from "./IndexList.astro";
 import Sidebar from "../Sidebar.astro";
 import ParentLink from "./ParentLink.astro";
 import { commandBySlug, commandHref, prose } from "../../reference";
-import { commandMarkdownPath } from "../../markdown";
 import { link } from "../../site";
 import { cliSidebar } from "../../sidebar";
 import type { Command } from "../../reference/types";
@@ -26,11 +25,7 @@ const long =
 const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? []);
 ---
 
-<DocPage
-  title={command.slug === "" ? "CLI" : command.path}
-  description={command.short}
-  markdown={link(commandMarkdownPath(command.slug))}
->
+<DocPage title={command.slug === "" ? "CLI" : command.path} description={command.short}>
   <Sidebar slot="sidebar" label="CLI" groups={cliSidebar(command.slug)} />
   {parent && (
     <p class="traits">

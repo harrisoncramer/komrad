@@ -3,7 +3,6 @@ import { render } from "astro:content";
 import DocPage from "../../layouts/DocPage.astro";
 import Sidebar from "../../components/Sidebar.astro";
 import { getGuides } from "../../guides";
-import { guideMarkdownPath } from "../../markdown";
 import { link } from "../../site";
 import { guideSidebar } from "../../sidebar";
 
@@ -26,7 +25,6 @@ const neighbour = (entry: typeof guide | undefined) =>
   title={guide.data.title}
   description={guide.data.description}
   filePath={guide.filePath}
-  markdown={link(guideMarkdownPath(guide.id))}
   prev={neighbour(prev)}
   next={neighbour(next)}
 >
