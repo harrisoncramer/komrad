@@ -1,6 +1,7 @@
 ---
 import Layout from "./Layout.astro";
-import { REPO_URL } from "../consts";
+import { REPO_URL, SECTIONS, SITE_TITLE } from "../consts";
+import { canonical, link } from "../site";
 
 type Neighbour = { title: string; href: string };
 
@@ -13,9 +14,33 @@ type Props = {
 };
 
 const { title, description, filePath, prev, next } = Astro.props;
+
+const segments = Astro.url.pathname
+  .slice(import.meta.env.BASE_URL.length)
+  .split("/")
+  .filter(Boolean);
+const section = segments.length > 1 ? SECTIONS.find((entry) => entry.id === segments[0]) : undefined;
+const crumbs = [
+  { name: SITE_TITLE, item: canonical(link("/")) },
+  ...(section ? [{ name: section.title, item: canonical(link(`/${section.id}`)) }] : []),
+  { name: title, item: canonical(Astro.url.pathname) },
+];
+const structuredData = [
+  {
+    "@type": "TechArticle",
+    headline: title,
+    description,
+    url: canonical(Astro.url.pathname),
+    isPartOf: { "@type": "WebSite", name: SITE_TITLE, url: canonical(link("/")) },
+  },
+  {
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb })),
+  },
+];
 ---
 
-<Layout title={title} description={description} sidebar={Astro.slots.has("sidebar")}>
+<Layout title={title} description={description} sidebar={Astro.slots.has("sidebar")} structuredData={structuredData}>
   <slot name="sidebar" slot="sidebar" />
   <article data-pagefind-body>
     <h1 class="title" data-pagefind-meta="title">

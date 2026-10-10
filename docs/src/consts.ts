@@ -1,5 +1,7 @@
 export const SITE_TITLE = "komrad";
-export const SITE_DESCRIPTION = "A tmux panel and CLI for background coding agents.";
+export const HOME_TITLE = "komrad: a terminal agent orchestrator for Claude Code and Codex";
+export const SITE_DESCRIPTION =
+  "An open-source tmux panel that runs, searches, schedules and coordinates Claude Code and Codex agents, on your machine or a remote box.";
 export const REPO_URL = "https://github.com/harrisoncramer/komrad";
 export const CANONICAL_VERSION = "latest";
 
