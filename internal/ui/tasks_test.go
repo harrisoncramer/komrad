@@ -78,17 +78,84 @@ func TestTasksTree(t *testing.T) {
 		assert.NotContains(t, frame, "new workflow")
 	})
 
-	t.Run("a new agent from a task's menu joins the task", func(t *testing.T) {
-		harness := openAgents(t, buildTasks()...)
-		answerAgentCreate(harness, "")
+	t.Run("a new agent from a task's menu", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			task    *taskv1.Task
+			writer  agentv1.AgentState
+			offered bool
+			form    string
+			want    *agentv1.CreateAgentRequest
+		}{
+			{
+				name:    "is not offered once the task's worktree was removed",
+				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login"), WorktreeRemoved: true},
+				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+				offered: false,
+			},
+			{
+				name:    "on a task with a live writer starts a child of the writer",
+				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login")},
+				writer:  agentv1.AgentState_AGENT_STATE_IDLE,
+				offered: true,
+				form:    `Child of "author"`,
+				want: &agentv1.CreateAgentRequest{
+					Prompt:        "review it",
+					Harness:       "claude",
+					WorkflowId:    "w1",
+					ParentAgentId: xptr.Ptr("a1"),
+				},
+			},
+			{
+				name:    "on a task with a checkout and no live writer starts the writer in it",
+				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login")},
+				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+				offered: true,
+				form:    "Becomes the task's writer",
+				want: &agentv1.CreateAgentRequest{
+					Prompt:     "review it",
+					WorkflowId: "w1",
+					Task:       xptr.Ptr("t1"),
+				},
+			},
+			{
+				name:    "on a task with no checkout starts its first writer",
+				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login"},
+				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+				offered: true,
+				form:    "Becomes the task's first writer",
+				want: &agentv1.CreateAgentRequest{
+					Prompt:     "review it",
+					WorkflowId: "w1",
+					Task:       xptr.Ptr("t1"),
+				},
+			},
+		}
 
-		harness.press(slices.Concat([]string{"j", "space", "c"}, spellKeys("review it"), []string{"enter"})...)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				writer := newTaskAgent("a1", "author", "t1", 0)
+				writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+				writer.State = tt.writer
+				harness := openAgents(t, newLiveWorkflow("w1", "komrad"), tt.task, writer)
+				answerAgentCreate(harness, "")
 
-		harness.assertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, &agentv1.CreateAgentRequest{
-			Prompt:     "review it",
-			WorkflowId: "w1",
-			Task:       xptr.Ptr("t1"),
-		})
+				harness.press("k", "space")
+				menu := strings.Join(readStage(harness.readFrame()), "\n")
+				if !tt.offered {
+					assert.NotContains(t, menu, "new agent")
+
+					return
+				}
+				require.Contains(t, menu, "new agent")
+
+				harness.press("c")
+				assert.Contains(t, harness.readFrame(), tt.form)
+				harness.press(slices.Concat(spellKeys("review it"), []string{"enter"})...)
+
+				harness.assertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, tt.want)
+			})
+		}
 	})
 
 	t.Run("the archive on a task's menu archives the task", func(t *testing.T) {
@@ -222,7 +289,6 @@ func TestTasksRow(t *testing.T) {
 		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
 	})
 
-
 	t.Run("a task's menu holds everything done to the work", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
@@ -240,10 +306,10 @@ func TestTasksRow(t *testing.T) {
 		harness.press("j", "j", "space")
 
 		menu := strings.Join(readStage(harness.readFrame()), "\n")
-		for _, entry := range []string{"logs", "terminal", "edit files", "new child", "archive ›"} {
+		for _, entry := range []string{"logs", "edit files", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
-		for _, entry := range []string{"review", "status checks", "git ›", "jump ›", "hide ›", "snooze", "retry launch"} {
+		for _, entry := range []string{"review", "status checks", "terminal", "new child", "new agent", "git ›", "jump ›", "hide ›", "snooze", "retry launch"} {
 			assert.NotContains(t, menu, entry)
 		}
 	})

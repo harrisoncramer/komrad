@@ -2276,15 +2276,6 @@ func TestAgentsChildren(t *testing.T) {
 		assert.Contains(t, frame, "Their transcripts go with them")
 	})
 
-	t.Run("the child key on a child says why rather than opening a form", func(t *testing.T) {
-		harness := openAgents(t, buildFamily()...)
-
-		harness.press(append([]string{"G", "space", "C"}, widenListPresses...)...)
-
-		assert.NotContains(t, harness.readFrame(), "enter submit")
-		assert.Contains(t, readOpenMessages(harness), "may not have children")
-	})
-
 	t.Run("a task whose newest agent is a child offers its writer's worktree a rebase", func(t *testing.T) {
 		rows := buildTaskFamily()
 		rows[0] = &workflowv1.Workflow{

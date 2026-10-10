@@ -147,7 +147,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "status checks", keys: keys.Menu.StatusChecks},
 		{name: "terminal", keys: keys.Menu.Terminal},
 		{name: "edit", keys: keys.Menu.Edit},
-		{name: "child", keys: keys.Menu.Child},
 		{name: "retry", keys: keys.Menu.Retry},
 		{name: "snooze", keys: keys.Menu.Snooze},
 		{name: "git", keys: keys.Menu.Git},

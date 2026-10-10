@@ -37,10 +37,8 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	lead, task := *row.lead, *row.task
 	writer := m.listing.findTaskWriter(task, lead)
 	own := slices.Concat(
+		newAgentEntries(m, row.workflow, task),
 		[]submenuEntry{
-			openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd {
-				return openNewAgentOnTask(m, row.workflow, task)
-			}),
 			openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
 			handOffEntry(m, task),
 		},
@@ -67,6 +65,17 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, tasks))
 
 	return withNested(menu, "archive", m.keys.Menu.Archive, tasksArchiveMenu(m, tasks, false))
+}
+
+// newAgentEntries is the entry that starts an agent on a task, and none once its worktree is gone.
+func newAgentEntries(m *model, workflow panel.Workflow, task panel.Task) []submenuEntry {
+	if task.WorktreeRemoved {
+		return nil
+	}
+
+	return []submenuEntry{openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd {
+		return openNewAgentOnTask(m, workflow, task)
+	})}
 }
 
 // taskJumpMenu is the jump menu of the agent a task wears, its documents entry landing on the task's.
@@ -111,10 +120,8 @@ func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
 // agentRowMenu is the hovered agent's band, which holds what concerns its session and leaves the
 // work to its task's row.
 func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
-	pages := subpageEntries(m, item, []subpage{subpageLogs, subpageTerminal})
-	own := append(a.editEntries(m, item), openEntry("new child", m.keys.Menu.Child, func(m *model) tea.Cmd {
-		return openNewChild(m, item.Agent)
-	}))
+	pages := subpageEntries(m, item, []subpage{subpageLogs})
+	own := a.editEntries(m, item)
 	if item.Agent.State == panel.StateFailedToCreate {
 		own = append(own, openEntry("retry launch", m.keys.Menu.Retry, func(m *model) tea.Cmd {
 			return openRetryForm(m, item.Agent)

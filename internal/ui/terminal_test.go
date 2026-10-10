@@ -14,7 +14,7 @@ import (
 
 // TestTerminal covers the subpage that opens a shell in the pane under the stage.
 func TestTerminal(t *testing.T) {
-	t.Run("the shell opens in the agent's directory and takes the keys", func(t *testing.T) {
+	t.Run("from a task's row the shell opens in its directory and takes the keys", func(t *testing.T) {
 		dir := t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir))
 		require.Equal(t, 1, harness.panel.CountSwaps(), "the live agent is staged to begin with")
@@ -42,8 +42,8 @@ func TestTerminal(t *testing.T) {
 		harness := openTerminal(t, panelHarnessParams{}, agent)
 		harness.press("space", "t")
 
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), agent))
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), agent))
+		harness.watch(buildSnapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
+		harness.watch(buildSnapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
 
 		assert.Len(t, harness.panel.ReadRespawns(), 1)
 	})
@@ -62,7 +62,7 @@ func TestTerminal(t *testing.T) {
 		first, second := t.TempDir(), t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(first), newShellAgent("a2", second))
 
-		harness.press("space", "t", "j", "space", "t")
+		harness.press("space", "t", "j", "j", "space", "t")
 
 		assert.Equal(t, []string{first, second}, readShellDirs(harness))
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
@@ -72,7 +72,7 @@ func TestTerminal(t *testing.T) {
 		dir := t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir), newShellAgent("a2", dir))
 
-		harness.press("space", "t", "j", "space", "t")
+		harness.press("space", "t", "j", "j", "space", "t")
 
 		assert.Equal(t, []string{dir}, readShellDirs(harness), "one directory is one shell")
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
@@ -82,7 +82,7 @@ func TestTerminal(t *testing.T) {
 		dir := t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir), newShellAgent("a2", "/no/such/worktree"))
 
-		harness.press("space", "t", "j", "space", "t")
+		harness.press("space", "t", "j", "j", "space", "t")
 
 		assert.Equal(t, []string{dir}, readShellDirs(harness))
 		assert.Contains(t, harness.readFrame(), terminalRefuse)
@@ -190,8 +190,12 @@ func openTerminal(t *testing.T, params panelHarnessParams, agents ...*agentv1.Ag
 	rows := []proto.Message{newLiveWorkflow("w1", "backend")}
 	for _, agent := range agents {
 		rows = append(rows, agent)
+		if agent.GetRole() != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
+			rows = append(rows, newTaskOf(agent))
+		}
 	}
 	harness.watch(buildSnapshot(rows...))
+	harness.press("k")
 
 	return harness
 }

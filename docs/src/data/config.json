@@ -998,7 +998,7 @@
               "key": "terminal",
               "path": "keybindings.menu.terminal",
               "type": "array",
-              "description": "Open a shell in the pane below the stage, rooted at the agent's directory, or hand the\nkeyboard to the one already rooted there. The entry is gray in the archive and on an agent\nwith no directory.",
+              "description": "Open a shell in the pane below the stage, rooted at the hovered task's or workflow's directory,\nor hand the keyboard to the one already rooted there. The entry is gray in the archive and\nwhere there is no directory.",
               "default": "[\"t\"]"
             },
             {
@@ -1035,13 +1035,6 @@
               "type": "array",
               "description": "Open your editor on the files of the hovered task or agent, in place of the pane beside\nthe list. The agent working there is paused while the editor is open, and quitting the\neditor, picking the entry again or leaving the agents list closes it and unpauses the agent.\nThe entry is only on the agents list.",
               "default": "[\"e\"]"
-            },
-            {
-              "key": "child",
-              "path": "keybindings.menu.child",
-              "type": "array",
-              "description": "Attach a child agent to the hovered agent, which runs in that agent's own checkout with no\nworktree of its own and is archived along with it. The entry is only on the agents list.",
-              "default": "[\"C\"]"
             },
             {
               "key": "retry",
@@ -1082,7 +1075,7 @@
               "key": "new_agent",
               "path": "keybindings.menu.new_agent",
               "type": "array",
-              "description": "Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only\non the agents list.",
+              "description": "Start a new task on the hovered workflow. On the hovered task it starts a child of the live\nwriter, or else a writer in the task's checkout, and it is not offered once the worktree was\nremoved. The entry is only on the agents list.",
               "default": "[\"c\"]"
             },
             {
