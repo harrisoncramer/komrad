@@ -228,6 +228,9 @@ func (s *TaskStore) Archive(ctx context.Context, id string) error {
 
 // ArchiveIdle archives each of the tasks no live agent works on any longer, returning those it archived.
 func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []string) ([]Task, error) {
+	if err := s.queries.LockTasks(ctx, ids); err != nil {
+		return nil, fmt.Errorf("failed to lock %d idle tasks: %w", len(ids), err)
+	}
 	rows, err := s.queries.ArchiveIdleTasks(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to archive %d idle tasks: %w", len(ids), err)

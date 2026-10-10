@@ -66,6 +66,11 @@ const (
 // Roles is every role an agent may hold.
 var Roles = []Role{RoleImplementer, RoleReviewer, RoleOrchestrator}
 
+// IsImplementer reports whether the role is an implementer, which an agent naming none is.
+func (r Role) IsImplementer() bool {
+	return r.orDefault() == RoleImplementer
+}
+
 // orDefault is the role an agent that names none is given.
 func (r Role) orDefault() Role {
 	if r == "" {

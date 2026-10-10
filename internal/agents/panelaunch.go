@@ -258,8 +258,8 @@ type launchParams struct {
 	Role             agentstore.Role
 	Task             *taskstore.Task
 
-	// OwnsCheckout is whether komrad provisioned this agent a tree of its own, which separates an
-	// agent writing a change from one reading somebody else's.
+	// OwnsCheckout is whether the agent is its task's writer, which separates an agent writing a
+	// change from one reading somebody else's.
 	OwnsCheckout bool
 	Resume       bool
 }

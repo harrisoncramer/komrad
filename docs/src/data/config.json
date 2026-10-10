@@ -1065,6 +1065,13 @@
               "default": "[\"E\"]"
             },
             {
+              "key": "hand_off",
+              "path": "keybindings.menu.hand_off",
+              "type": "array",
+              "description": "Archive the hovered task's writer and its children and start a new writer in the same\ncheckout, from a form asking for a note to it. The entry is only on a task, and does nothing\non one with no live writer.",
+              "default": "[\"o\"]"
+            },
+            {
               "key": "adopt",
               "path": "keybindings.menu.adopt",
               "type": "array",

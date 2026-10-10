@@ -106,6 +106,21 @@ func isTaskWriter(agent panel.Agent) bool {
 	return agent.ParentAgentID == nil && !agent.ProvisionDisabled
 }
 
+// findLiveWriter is the top-level implementer working in the task's checkout.
+func (l listing) findLiveWriter(taskID string) (panel.Agent, bool) {
+	at := slices.IndexFunc(l.agents, func(item panel.AgentRow) bool {
+		agent := item.Agent
+
+		return agent.TaskID == taskID && agent.ParentAgentID == nil && agent.ArchivedAt == nil &&
+			agent.Role == panel.RoleImplementer && agent.State != panel.StateFailedToCreate
+	})
+	if at < 0 {
+		return panel.Agent{}, false
+	}
+
+	return l.agents[at].Agent, true
+}
+
 func describeTasks(tasks []panel.Task) string {
 	if len(tasks) == 1 {
 		return fmt.Sprintf("task %q", tasks[0].Slug)

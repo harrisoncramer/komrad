@@ -111,12 +111,11 @@ func TestGetTaskForWorkflow(t *testing.T) {
 			wantErr: ErrOtherWorkflow,
 		},
 		{
-			name:    "an archived task is refused",
-			ref:     "old-work",
-			wantErr: errArchived,
+			name: "an archived task in the workflow is found",
+			ref:  "old-work",
 		},
 		{
-			name: "a live task in the workflow is joined",
+			name: "a live task in the workflow is found",
 			ref:  "work",
 		},
 	}

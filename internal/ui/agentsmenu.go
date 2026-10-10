@@ -42,6 +42,7 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 				return openNewAgentOnTask(m, row.workflow, task)
 			}),
 			openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
+			handOffEntry(m, task),
 		},
 		a.snoozeEntries(m, lead),
 		a.editEntries(m, writer),

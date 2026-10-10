@@ -367,3 +367,24 @@ FROM
     tasks
 WHERE
     deleting_at IS NULL;
+
+-- name: LockTaskForWriter :one
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    id = sqlc.arg('id')
+    AND deleting_at IS NULL
+FOR UPDATE;
+
+-- name: LockTasks :exec
+SELECT
+    id
+FROM
+    tasks
+WHERE
+    id = ANY (sqlc.arg('ids')::uuid[])
+ORDER BY
+    id
+FOR UPDATE;

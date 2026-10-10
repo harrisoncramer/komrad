@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -10,7 +11,9 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
+	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -180,13 +183,53 @@ func TestTasksRow(t *testing.T) {
 		})
 	})
 
+	t.Run("a hand off whose new writer fails to start restores the old one", func(t *testing.T) {
+		harness := openAgents(t, buildHandOff()...)
+		harness.refuse(agentv1connect.AgentServiceCreateAgentProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no harness named cluade")))
+
+		harness.press("k", "space", "o", "enter")
+
+		harness.assertSentTo(agentv1connect.AgentServiceRestoreAgentsProcedure, &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}})
+		assert.Contains(t, harness.readFrame(), "Could not hand off task")
+	})
+
+	t.Run("hand off replaces the writer under the task's row in the same checkout", func(t *testing.T) {
+		harness := openAgents(t, buildHandOff()...)
+		harness.answer(agentv1connect.AgentServiceCreateAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a4"}}), nil
+		})
+		answerResume(harness)
+
+		harness.press(slices.Concat([]string{"k", "space", "o"}, spellKeys("finish the cookie fix"), []string{"enter"})...)
+
+		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}})
+		harness.assertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, &agentv1.CreateAgentRequest{
+			Prompt:     "You take this task over from author, who wrote it until now. Read the task's notes and run git status before you change anything.\n\nfinish the cookie fix",
+			Harness:    "claude",
+			Flags:      "--model opus",
+			WorkflowId: "w1",
+			Task:       xptr.Ptr("t1"),
+		})
+
+		successor := newTaskAgent("a4", "successor", "t1", 20)
+		successor.Cwd = "/worktrees/fix-login"
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "komrad"), buildHandOff()[1], successor))
+		harness.press("k")
+		require.Equal(t, "└─ fix-login", strings.TrimSpace(readHoveredRow(harness.readFrame())))
+		harness.press("enter")
+
+		harness.assertSentTo(agentv1connect.AgentServiceResumeAgentProcedure, &agentv1.ResumeAgentRequest{Id: "a4"})
+		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
+	})
+
+
 	t.Run("a task's menu holds everything done to the work", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
 		harness.press("j", "space")
 
 		menu := strings.Join(readStage(harness.readFrame()), "\n")
-		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "edit files", "git ›", "jump ›", "hide ›", "archive ›"} {
+		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "hand off", "edit files", "git ›", "jump ›", "hide ›", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
 	})
@@ -227,4 +270,19 @@ func TestTasksRow(t *testing.T) {
 
 		assert.Equal(t, "%3", harness.panel.ReadGuestPane())
 	})
+}
+
+func buildHandOff() []proto.Message {
+	writer := newTaskAgent("a1", "author", "t1", 0)
+	writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+	writer.Cwd = "/worktrees/fix-login"
+	child := newTaskAgent("a2", "helper", "t1", 5)
+	child.ParentAgentId = xptr.Ptr("a1")
+
+	return []proto.Message{
+		newLiveWorkflow("w1", "komrad"),
+		&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login", Goal: "Logins work again.", Cwd: xptr.Ptr("/worktrees/fix-login"), Branch: xptr.Ptr("fix-login")},
+		child,
+		writer,
+	}
 }

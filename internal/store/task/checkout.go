@@ -65,6 +65,11 @@ type Checkout struct {
 	DiffStat *DiffStat
 }
 
+// IsUsable reports whether the checkout is a directory on disk its task's agents can work in.
+func (c Checkout) IsUsable() bool {
+	return c.Cwd != "" && !c.WorktreeRemoved
+}
+
 func checkoutFrom(row *models.Task) Checkout {
 	checkout := Checkout{
 		Cwd:             xptr.Deref(row.Cwd),

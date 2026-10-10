@@ -169,6 +169,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "terminal", keys: keys.Menu.Terminal},
 		{name: "new_agent", keys: keys.Menu.NewAgent},
 		{name: "edit_row", keys: keys.Menu.EditRow},
+		{name: "hand_off", keys: keys.Menu.HandOff},
 		{name: "edit", keys: keys.Menu.Edit},
 		{name: "snooze", keys: keys.Menu.Snooze},
 		{name: "git", keys: keys.Menu.Git},

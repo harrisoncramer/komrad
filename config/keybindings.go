@@ -289,6 +289,10 @@ type MenuKeys struct {
 	Snooze []string `mapstructure:"snooze" default:"z"`
 	// Edit the hovered workflow, or the hovered task's title, goal and notes.
 	EditRow []string `mapstructure:"edit_row" default:"E"`
+	// Archive the hovered task's writer and its children and start a new writer in the same
+	// checkout, from a form asking for a note to it. The entry is only on a task, and does nothing
+	// on one with no live writer.
+	HandOff []string `mapstructure:"hand_off" default:"o"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`
 	// Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only
