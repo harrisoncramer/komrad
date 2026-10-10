@@ -21,7 +21,7 @@ type documentReadWriter interface {
 	WriteDocument(ctx context.Context, params documents.WriteDocumentParams) (*documentstore.Document, error)
 	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
 	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
-	ListDocuments(ctx context.Context, params documentstore.ListParams) ([]documentstore.Document, error)
+	ListDocuments(ctx context.Context, params documents.ListDocumentsParams) ([]documentstore.Document, error)
 	SearchDocuments(ctx context.Context, params documentstore.SearchParams) (*documentstore.Results, error)
 	DeleteDocument(ctx context.Context, params documents.DeleteDocumentParams) error
 }
@@ -56,15 +56,16 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 	return &agentv1.WriteDocumentResponse{Document: render.Document(*written)}, nil
 }
 
-// ListDocuments returns a page of documents without their bodies, every agent's unless one is named.
+// ListDocuments returns a page of documents without their bodies, every agent's unless one is named, and every task's unless one is named.
 func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
 	if req.AgentId != nil {
 		logCrossAgentRead(ctx, req.GetAgentId(), "agent listed another agent's documents")
 	}
 
 	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *documentstore.Cursor) ([]documentPage, *fail.Error) {
-		listed, err := s.documents.ListDocuments(ctx, documentstore.ListParams{
+		listed, err := s.documents.ListDocuments(ctx, documents.ListDocumentsParams{
 			AgentID: req.AgentId,
+			Task:    req.Task,
 			Type:    req.Type,
 			Limit:   int32(limit),
 			Cursor:  cursor,

@@ -114,6 +114,39 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	})
 
+	t.Run("a task's row opens every document filtered to the task's", func(t *testing.T) {
+		t.Parallel()
+
+		docs := newDocumentShelf()
+		docs.add(&agentv1.Document{
+			Id:        "d3",
+			AgentId:   "a1",
+			TaskId:    xptr.Ptr("t1"),
+			Name:      "Login plan",
+			Type:      "RFC",
+			Version:   1,
+			UpdatedAt: "2026-09-20T12:00:00Z",
+		})
+		docs.add(&agentv1.Document{
+			Id:        "d4",
+			AgentId:   "a3",
+			TaskId:    xptr.Ptr("t2"),
+			Name:      "Solo notes",
+			Type:      "notes",
+			Version:   1,
+			UpdatedAt: "2026-09-21T12:00:00Z",
+		})
+		harness := openAgents(t, buildTasks()...)
+		docs.answer(harness)
+		harness.press("j", "space", "J", "d")
+		harness.fireTimers()
+
+		rows := strings.Join(readListRows(harness.readFrame()), "\n")
+		assert.Contains(t, rows, "Login plan")
+		assert.NotContains(t, rows, "Solo notes")
+		assert.NotContains(t, rows, "Design the cache")
+	})
+
 	t.Run("a row with none opens it empty", func(t *testing.T) {
 		t.Parallel()
 

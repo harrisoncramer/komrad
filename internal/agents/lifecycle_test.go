@@ -755,11 +755,12 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 	root := t.TempDir()
 	going := seedRoundedAgent(t, st, reviews, "going", root, "same-sha")
 	seedRoundedAgent(t, st, reviews, "staying", root, "same-sha")
+	goingTask := *agentByID(t, st, going).TaskID
 
 	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{going}))
 
-	assert.Equal(t, []string{reviewstore.RoundRef(going, "same-sha")}, manager.snapshots.Released,
-		"only the going agent's round is let go of, since the other's ref names the other agent")
+	assert.Equal(t, []string{reviewstore.RoundRef(goingTask, "same-sha")}, manager.snapshots.Released,
+		"only the going agent's round is let go of, since the other's ref names the other task")
 }
 
 // TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands pins that a removed worktree hands
@@ -803,7 +804,7 @@ func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-				AgentID:     going.ID,
+				TaskID:      *going.TaskID,
 				BaseSHA:     "base",
 				SnapshotSHA: "sha",
 			})
@@ -837,12 +838,12 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	first := seedRoundedAgent(t, st, reviews, "kid-a", root, "kid-a-sha")
 	second := seedRoundedAgent(t, st, reviews, "kid-b", root, "kid-b-sha")
 
-	round, err := reviews.GetLatestRound(t.Context(), worker)
+	round, err := reviews.GetLatestRound(t.Context(), *agentByID(t, st, worker).TaskID)
 	require.NoError(t, err)
 
 	// The first reviewer has had its say and started another; the second is still writing its
 	// first.
-	released := openBatch(t, reviews, worker, round.ID, first)
+	released := openBatch(t, reviews, round, first)
 	_, err = reviews.ReleaseReview(t.Context(), reviewstore.ReleaseReviewParams{
 		ID:      released.ID,
 		Verdict: reviewstore.VerdictChangesRequested,
@@ -850,26 +851,26 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	openBatch(t, reviews, worker, round.ID, first)
-	openBatch(t, reviews, worker, round.ID, second)
+	openBatch(t, reviews, round, first)
+	openBatch(t, reviews, round, second)
 
 	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{first, second}),
 		"two reviewers holding open batches on one agent both delete")
 
-	left, err := reviews.ListReviews(t.Context(), worker)
+	left, err := reviews.ListReviews(t.Context(), round.TaskID)
 	require.NoError(t, err)
 	require.Len(t, left, 1, "the drafts went and the released review stayed")
 	assert.Nil(t, left[0].AuthorAgentID, "with its author nulled rather than the row taken")
 	assert.NotNil(t, left[0].ReleasedAt)
 }
 
-// openBatch starts a review by one agent on another.
-func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, agentID, roundID, author string) *reviewstore.Review {
+// openBatch starts a review by one agent of a round.
+func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, round *reviewstore.Round, author string) *reviewstore.Review {
 	t.Helper()
 
 	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID:       agentID,
-		RoundID:       roundID,
+		TaskID:        round.TaskID,
+		RoundID:       round.ID,
 		AuthorKind:    reviewstore.AuthorAgent,
 		AuthorAgentID: &author,
 	})
@@ -891,7 +892,7 @@ func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewSt
 	require.NoError(t, err)
 
 	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		AgentID:     agent.ID,
+		TaskID:      *agent.TaskID,
 		BaseSHA:     "base",
 		SnapshotSHA: sha,
 	})

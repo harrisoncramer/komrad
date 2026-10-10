@@ -189,6 +189,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Snapshots: gitClient,
 			Workflows: st.workflows,
 			Agents:    st.agents,
+			Tasks:     st.tasks,
 			Events:    queue,
 			StateDir:  params.Env.StateDir,
 			Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
@@ -208,6 +209,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Documents: st.documents,
 			Types:     st.documentTypes,
 			Events:    queue,
+			Tasks:     taskService,
 		}),
 		transcripts: transcriptServices{
 			reader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{

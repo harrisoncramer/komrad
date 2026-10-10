@@ -9,8 +9,8 @@ import (
 	reviewstore "komrad/internal/store/review"
 )
 
-// errReviewAddressedByOwner is answered when anyone but the agent a thread is on replies with addressed.
-var errReviewAddressedByOwner = fail.Denied("only the agent whose work a comment is on can reply with addressed")
+// errReviewAddressedByOwner is answered when anyone but the writer of the task a thread is on replies with addressed.
+var errReviewAddressedByOwner = fail.Denied("only the writer of the task a comment is on can reply with addressed")
 
 // errReviewNothingAddressed is answered when an addressed reply comes while the worktree is unchanged since the thread was written.
 var errReviewNothingAddressed = fail.Precondition(
@@ -26,14 +26,19 @@ const replyHint = "Your worktree has changed since this comment was written. " +
 	"exactly what answered it."
 
 // openAnswerRound takes the round an addressed reply points at, refusing one that changed nothing.
-func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.Thread, author ReviewAuthor) (*reviewstore.Round, error) {
+func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Round, error) {
 	written, err := s.reviews.GetRound(ctx, thread.RoundID)
 	if err != nil {
 		return nil, err
 	}
 
-	answer, err := s.OpenRound(ctx, thread.AgentID, author)
-	if errors.Is(err, ErrReviewNoRound) {
+	task, err := s.tasks.Get(ctx, thread.TaskID)
+	if err != nil {
+		return nil, err
+	}
+
+	answer, err := s.openTaskRound(ctx, *task)
+	if errors.Is(err, ErrReviewNoRound) || errors.Is(err, errReviewWorktreeRemoved) {
 		return nil, errReviewNoAnswerRound
 	}
 	if err != nil {
@@ -47,7 +52,7 @@ func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.
 	return answer, nil
 }
 
-// findReplyHint points a plain reply at addressed when the agent's worktree no longer holds the
+// findReplyHint points a plain reply at addressed when the task's worktree no longer holds the
 // tree its thread was written on, and says nothing when that cannot be read.
 func (s *ReviewService) findReplyHint(ctx context.Context, thread reviewstore.Thread) string {
 	written, err := s.reviews.GetRound(ctx, thread.RoundID)
@@ -55,12 +60,12 @@ func (s *ReviewService) findReplyHint(ctx context.Context, thread reviewstore.Th
 		return ""
 	}
 
-	agent, err := s.getLiveAgent(ctx, thread.AgentID)
-	if err != nil || agent.Cwd == "" {
+	task, err := s.tasks.Get(ctx, thread.TaskID)
+	if err != nil || task.Checkout.Cwd == "" {
 		return ""
 	}
 
-	now, err := s.takeSnapshot(ctx, agent)
+	now, err := s.takeSnapshot(ctx, *task)
 	if err != nil || now.SHA == written.SnapshotSHA {
 		return ""
 	}

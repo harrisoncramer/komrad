@@ -43,7 +43,7 @@ func TestForgeMirror(t *testing.T) {
 				assert.NotNil(t, got.reviews[0].ReleasedAt)
 				assert.Equal(t, []Released{{
 					ReviewID:   got.reviews[0].ID,
-					AgentID:    got.reviews[0].AgentID,
+					TaskID:     got.reviews[0].TaskID,
 					Ordinal:    1,
 					Verdict:    reviewstore.VerdictCommented,
 					Comments:   1,
@@ -185,7 +185,7 @@ func TestForgeMirror(t *testing.T) {
 				{newResolvedForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
 			},
 			meanwhile: func(t *testing.T, fx *reviewFixture) {
-				threads, err := fx.reviews.ListThreads(t.Context(), fx.worker.ID)
+				threads, err := fx.reviews.ListThreads(t.Context(), *fx.worker.TaskID)
 				require.NoError(t, err)
 				require.Len(t, threads, 1)
 				require.NotNil(t, threads[0].ResolvedAt)
@@ -442,13 +442,13 @@ func (fx *reviewFixture) readForgeMirrored(t *testing.T) forgeMirrored {
 	t.Helper()
 	ctx := t.Context()
 
-	threads, err := fx.reviews.ListThreads(ctx, fx.worker.ID)
+	threads, err := fx.reviews.ListThreads(ctx, *fx.worker.TaskID)
 	require.NoError(t, err)
 
 	messages, err := fx.reviews.ListMessages(ctx, xslice.Map(threads, func(thread reviewstore.Thread) string { return thread.ID }))
 	require.NoError(t, err)
 
-	reviews, err := fx.reviews.ListReviews(ctx, fx.worker.ID)
+	reviews, err := fx.reviews.ListReviews(ctx, *fx.worker.TaskID)
 	require.NoError(t, err)
 
 	var released []Released
@@ -507,7 +507,7 @@ func (fx *reviewFixture) sendForgeReply(t *testing.T, providerID string) {
 	t.Helper()
 	ctx := t.Context()
 
-	threads, err := fx.reviews.ListThreads(ctx, fx.worker.ID)
+	threads, err := fx.reviews.ListThreads(ctx, *fx.worker.TaskID)
 	require.NoError(t, err)
 	require.NotEmpty(t, threads)
 

@@ -193,6 +193,23 @@ func (s *AgentStore) ListLiveOnTask(ctx context.Context, taskID string) ([]Agent
 	return fromRows(rows), nil
 }
 
+// GetTaskWriter returns the live top-level implementer of a task, ErrNotFound when it has none.
+func (s *AgentStore) GetTaskWriter(ctx context.Context, taskID string) (*Agent, error) {
+	if !store.IsID(taskID) {
+		return nil, store.ErrNotFound.Saying("no writer on task %q", taskID)
+	}
+
+	row, err := s.queries.GetTaskWriter(ctx, taskID)
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no writer on task %q", taskID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the writer of task %q: %w", taskID, err)
+	}
+
+	return xptr.Ptr(FromRow(*row)), nil
+}
+
 // ListArchivedInWorkflow returns the archived agents in a workflow.
 func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListArchivedWorkflowAgents(ctx, workflowID)

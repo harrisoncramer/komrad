@@ -66,6 +66,8 @@ type screenModel interface {
 // understands.
 type screenTarget struct {
 	agentID string
+	// taskID is the task the screen opens on, for a screen that shows a task's work.
+	taskID string
 	// openedFrom is the view the screen was opened from.
 	openedFrom screen
 	// resume says the screen is being gone back to and keeps what it held.

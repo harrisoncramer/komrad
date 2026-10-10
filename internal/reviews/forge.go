@@ -19,7 +19,7 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// forgeTraceTimeout is how long tracing one agent's new forge threads may take before the rest
+// forgeTraceTimeout is how long tracing one task's new forge threads may take before the rest
 // are placed on their files.
 const forgeTraceTimeout = 10 * time.Second
 
@@ -37,7 +37,7 @@ type NewForgeMirrorParams struct {
 	BotNames func() ([]string, error)
 }
 
-// ForgeMirror copies the forge's review threads into the reviews of the agents on a pull request.
+// ForgeMirror copies the forge's review threads into the reviews of the tasks on a pull request.
 type ForgeMirror struct {
 	reviews      *reviewstore.ReviewStore
 	forgeThreads *pullrequeststore.ForgeThreadStore
@@ -57,7 +57,7 @@ func NewForgeMirror(params NewForgeMirrorParams) *ForgeMirror {
 	}
 }
 
-// Mirror brings every live agent on a pull request up to date with the forge's threads on it.
+// Mirror brings every task with a live agent on a pull request up to date with the forge's threads on it.
 func (m *ForgeMirror) Mirror(ctx context.Context, pullRequestID string) error {
 	threads, err := m.forgeThreads.ListOfPullRequest(ctx, pullRequestID)
 	if err != nil {
@@ -79,7 +79,7 @@ func (m *ForgeMirror) Mirror(ctx context.Context, pullRequestID string) error {
 	var errs []error
 	for _, target := range targets {
 		if err := m.mirrorOnto(ctx, target, threads); err != nil {
-			errs = append(errs, fmt.Errorf("failed to mirror the forge threads onto agent %q: %w", target.AgentID, err))
+			errs = append(errs, fmt.Errorf("failed to mirror the forge threads onto task %q: %w", target.TaskID, err))
 		}
 	}
 
@@ -113,7 +113,7 @@ func (m *ForgeMirror) withoutBots(threads []pullrequeststore.ForgeThread) ([]pul
 	return threads, nil
 }
 
-// mirroredThread is a forge thread an agent already holds, with its forge comments by id.
+// mirroredThread is a forge thread a task already holds, with its forge comments by id.
 type mirroredThread struct {
 	ThreadID       string
 	ResolvedAt     *time.Time
@@ -157,7 +157,7 @@ type forgeReviewKey struct {
 }
 
 func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMirrorTarget, threads []pullrequeststore.ForgeThread) error {
-	rows, err := m.reviews.ListForgeMirrored(ctx, target.AgentID)
+	rows, err := m.reviews.ListForgeMirrored(ctx, target.TaskID)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 			}
 
 			review, err := reviews.OpenForgeReview(ctx, reviewstore.OpenForgeReviewParams{
-				AgentID: target.AgentID,
+				TaskID:  target.TaskID,
 				RoundID: target.RoundID,
 				Login:   comment.AuthorLogin,
 			})
@@ -234,13 +234,13 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 			}
 		}
 
-		return releasedForgeEvents(ctx, reviews, target.AgentID, xslice.Map(order, func(key forgeReviewKey) reviewstore.Review {
+		return releasedForgeEvents(ctx, reviews, target.TaskID, xslice.Map(order, func(key forgeReviewKey) reviewstore.Review {
 			return *opened[key]
 		}))
 	})
 }
 
-// listSentReplyIDs returns the forge comment ids of the replies komrad posted on an agent's mirrored threads.
+// listSentReplyIDs returns the forge comment ids of the replies komrad posted on a task's mirrored threads.
 func (m *ForgeMirror) listSentReplyIDs(ctx context.Context, known map[string]*mirroredThread) (map[string]bool, error) {
 	threadIDs := make([]string, 0, len(known))
 	for _, thread := range known {
@@ -297,7 +297,7 @@ func createForgeThread(ctx context.Context, reviews *reviewstore.ReviewStore, pa
 	}
 
 	thread, err := reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
-		AgentID:       params.Target.AgentID,
+		TaskID:        params.Target.TaskID,
 		ReviewID:      review.ID,
 		RoundID:       params.Target.RoundID,
 		BaseSHA:       params.Target.BaseSHA,
@@ -398,12 +398,12 @@ func syncResolved(ctx context.Context, reviews *reviewstore.ReviewStore, mirrore
 
 // releasedForgeEvents tells the agent about each of the forge reviews a sync opened that holds
 // something it may read.
-func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, agentID string, opened []reviewstore.Review) ([]river.JobArgs, error) {
+func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, taskID string, opened []reviewstore.Review) ([]river.JobArgs, error) {
 	if len(opened) == 0 {
 		return nil, nil
 	}
 
-	threads, err := reviews.ListThreads(ctx, agentID)
+	threads, err := reviews.ListThreads(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +427,7 @@ func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, 
 
 		event, err := events.NewEvent(Released{
 			ReviewID:   review.ID,
-			AgentID:    agentID,
+			TaskID:     taskID,
 			Ordinal:    round.Ordinal,
 			Verdict:    reviewstore.VerdictCommented,
 			Comments:   tally.Comments,
@@ -469,13 +469,13 @@ func tallyForge(reviewID string, threads []reviewstore.Thread, messages []review
 	return tally
 }
 
-// forgePlace is where a new forge thread is pinned in the agent's latest round.
+// forgePlace is where a new forge thread is pinned in the task's latest round.
 type forgePlace struct {
 	FilePath string
 	NewStart int32
 }
 
-// place traces each new forge thread from the commit the forge counted it in to the agent's
+// place traces each new forge thread from the commit the forge counted it in to the task's
 // latest snapshot, keeping its file when the line is gone or the commit cannot be read.
 func (m *ForgeMirror) place(ctx context.Context, target reviewstore.ForgeMirrorTarget, threads []pullrequeststore.ForgeThread) map[string]forgePlace {
 	places := map[string]forgePlace{}

@@ -568,6 +568,22 @@ WHERE
 ORDER BY
     id DESC;
 
+-- name: GetTaskWriter :one
+SELECT
+    *
+FROM
+    agents
+WHERE
+    task_id = sqlc.arg('task_id')::uuid
+    AND ROLE = 'implementer'
+    AND parent_agent_id IS NULL
+    AND archived_at IS NULL
+    AND deleting_at IS NULL
+    AND state <> 'failed_to_create'
+ORDER BY
+    id DESC
+LIMIT 1;
+
 -- name: MarkWorkflowAgentsRestored :exec
 UPDATE
     agents a

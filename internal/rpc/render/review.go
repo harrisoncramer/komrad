@@ -12,7 +12,7 @@ import (
 func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 	watched := &agentv1.WatchedReview{
 		Id:               review.ID,
-		AgentId:          review.AgentID,
+		TaskId:           review.TaskID,
 		RoundId:          review.RoundID,
 		RoundOrdinal:     review.RoundOrdinal,
 		RoundSnapshotSha: review.RoundSnapshotSHA,
@@ -41,7 +41,7 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 func Review(review reviewstore.Review) *agentv1.Review {
 	answered := &agentv1.Review{
 		Id:            review.ID,
-		AgentId:       review.AgentID,
+		TaskId:        review.TaskID,
 		RoundId:       review.RoundID,
 		RoundOrdinal:  review.RoundOrdinal,
 		AuthorKind:    reviewAuthorKindOf(review.AuthorKind),
@@ -70,7 +70,7 @@ func Review(review reviewstore.Review) *agentv1.Review {
 func ReviewRound(round reviewstore.Round) *agentv1.ReviewRound {
 	return &agentv1.ReviewRound{
 		Id:          round.ID,
-		AgentId:     round.AgentID,
+		TaskId:      round.TaskID,
 		Ordinal:     round.Ordinal,
 		BaseSha:     round.BaseSHA,
 		SnapshotSha: round.SnapshotSHA,
@@ -89,7 +89,7 @@ func ReviewThreadInContext(thread reviews.ReviewThreadInContext) *agentv1.Review
 // ReviewViewedFile draws one file of a diff marked read.
 func ReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
 	return &agentv1.ReviewViewedFile{
-		AgentId:     viewed.AgentID,
+		TaskId:      viewed.TaskID,
 		FilePath:    viewed.FilePath,
 		Fingerprint: viewed.Fingerprint,
 		ViewedAt:    dates.Stamp(viewed.ViewedAt),

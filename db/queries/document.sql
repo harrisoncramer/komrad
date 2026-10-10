@@ -2,16 +2,22 @@
 WITH inserted AS (
     INSERT INTO documents(
         agent_id,
+        task_id,
         name,
         type,
         body)
-    VALUES (
-        @agent_id,
+    SELECT
+        a.id,
+        a.task_id,
         @name,
         @type,
-        @body)
-RETURNING
-    *
+        @body
+    FROM
+        agents a
+    WHERE
+        a.id = @agent_id
+    RETURNING
+        *
 ),
 recorded AS (
     INSERT INTO document_versions(
@@ -100,6 +106,7 @@ WHERE
 SELECT
     d.id,
     d.agent_id,
+    d.task_id,
     d.name,
     d.type,
     d.version,
@@ -112,6 +119,8 @@ WHERE (sqlc.narg('agent_id')::uuid IS NULL
     OR d.agent_id = sqlc.narg('agent_id')::uuid)
 AND (sqlc.narg('type')::text IS NULL
     OR d.type = sqlc.narg('type')::text)
+AND (sqlc.narg('task_id')::uuid IS NULL
+    OR d.task_id = sqlc.narg('task_id')::uuid)
 AND a.deleting_at IS NULL
 AND (sqlc.narg('cursor_id')::uuid IS NULL
     OR (d.updated_at,

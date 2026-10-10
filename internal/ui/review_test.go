@@ -43,6 +43,30 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "no change against the base branch")
 	})
 
+	t.Run("a task's row opens the review through its newest agent", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.task.Slug = "login-fix"
+		server.agent.CreatedAt = "2026-09-20T12:05:00Z"
+		server.children = []*agentv1.Agent{{
+			Id:         "a0",
+			Name:       "first-try",
+			WorkflowId: "w1",
+			TaskId:     xptr.Ptr("t1"),
+			State:      agentv1.AgentState_AGENT_STATE_IDLE,
+			CreatedAt:  "2026-09-20T12:00:00Z",
+		}}
+		harness := newPanelHarness(t, panelHarnessParams{width: reviewWidth, height: reviewHeight, git: server.repo})
+		server.serve(harness)
+		harness.watch(server.buildSnapshot())
+		harness.press("k")
+		require.Contains(t, readHoveredRow(harness.readFrame()), "login-fix")
+
+		harness.press("space", "r")
+
+		assert.True(t, harness.panel.IsZoomed())
+		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewRoundProcedure, &agentv1.OpenReviewRoundRequest{AgentId: "a1"})
+	})
+
 	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.WorktreeRemoved = true
@@ -1154,7 +1178,7 @@ func TestReviewWatch(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		thread := newThreadOnFirstLine(newHumanMessage("m0", "fix it"), newAgentMessage("m1", "fixed it"))
-		thread.AgentId = "a1"
+		thread.TaskId = "t1"
 		harness.watch(buildPuts(thread))
 
 		assert.Contains(t, readPopupProse(harness.readFrame()), "fixed it")
@@ -2618,19 +2642,19 @@ func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
 		rows = append(rows, child)
 	}
 	for _, thread := range s.threads {
-		if thread.GetAgentId() == "" {
-			thread.AgentId = s.agent.GetId()
+		if thread.GetTaskId() == "" {
+			thread.TaskId = s.agent.GetTaskId()
 		}
 		rows = append(rows, thread)
 	}
 	for _, review := range s.reviews {
-		agentID := review.GetAgentId()
-		if agentID == "" {
-			agentID = s.agent.GetId()
+		taskID := review.GetTaskId()
+		if taskID == "" {
+			taskID = s.agent.GetTaskId()
 		}
 		rows = append(rows, &agentv1.WatchedReview{
 			Id:           review.GetId(),
-			AgentId:      agentID,
+			TaskId:       taskID,
 			RoundId:      review.GetRoundId(),
 			RoundOrdinal: review.GetRoundOrdinal(),
 			AuthorKind:   review.GetAuthorKind(),
@@ -2661,17 +2685,16 @@ func (s *reviewServer) serve(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceHoldAgentProcedure, s.hold)
 }
 
-func (s *reviewServer) openRound(req connect.AnyRequest) (connect.AnyResponse, error) {
+func (s *reviewServer) openRound(connect.AnyRequest) (connect.AnyResponse, error) {
 	if s.openErr != nil {
 		return nil, s.openErr
 	}
 
-	open, _ := req.Any().(*agentv1.OpenReviewRoundRequest)
 	sha := gittest.NameSnapshot(s.repo.Tree)
 	if len(s.rounds) == 0 || s.rounds[len(s.rounds)-1].GetSnapshotSha() != sha {
 		s.rounds = append(s.rounds, &agentv1.ReviewRound{
 			Id:          fmt.Sprintf("round-%d", len(s.rounds)+1),
-			AgentId:     open.GetAgentId(),
+			TaskId:      s.agent.GetTaskId(),
 			Ordinal:     int32(len(s.rounds) + 1),
 			BaseSha:     gittest.BaseSHA,
 			SnapshotSha: sha,
@@ -2716,7 +2739,7 @@ func (s *reviewServer) markViewed(req connect.AnyRequest) (connect.AnyResponse, 
 	}
 	if mark.GetViewed() {
 		kept = append(kept, &agentv1.ReviewViewedFile{
-			AgentId:     mark.GetAgentId(),
+			TaskId:      s.agent.GetTaskId(),
 			FilePath:    mark.GetFilePath(),
 			Fingerprint: mark.GetFingerprint(),
 		})
@@ -2975,7 +2998,7 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 	server := newReviewServer(t)
 	server.rounds = []*agentv1.ReviewRound{{
 		Id:          "round-1",
-		AgentId:     "a1",
+		TaskId:      "t1",
 		Ordinal:     1,
 		BaseSha:     gittest.BaseSHA,
 		SnapshotSha: gittest.SnapshotSHA,
