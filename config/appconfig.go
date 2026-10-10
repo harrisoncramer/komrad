@@ -76,9 +76,15 @@ func Defaults() *Config {
 		Forge:          Forge{MaxCheckLogBytes: defaultMaxCheckLogBytes},
 		Mail:           Mail{DeliveryDeadline: defaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log:            Log{Level: defaultLogLevel},
-		Debug:          Debug{FrameHistory: DefaultFrameHistory},
-		Diff:           Diff{Wrap: true},
-		Connection:     defaultConnection(),
+		Debug: Debug{
+			FrameHistory: DefaultFrameHistory,
+			Pprof: Pprof{
+				Server: Profiler{Address: defaultPprofServerAddress},
+				Client: Profiler{Address: defaultPprofClientAddress},
+			},
+		},
+		Diff:       Diff{Wrap: true},
+		Connection: defaultConnection(),
 	}
 }
 

@@ -59,6 +59,15 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				return err
 			}
 
+			logger := logging.From(cmd.Context())
+			if pprofServer := startPprof(cmd.Context(), logger, state.debug.Pprof.Client); pprofServer != nil {
+				defer func() {
+					if err := pprofServer.Close(); err != nil {
+						logger.LogAttrs(cmd.Context(), slog.LevelError, "the pprof server would not close", logging.Err(err)...)
+					}
+				}()
+			}
+
 			// Recorded before anything slow: while no pane is on record the session looks like one
 			// whose panel has gone, and a second open would start a second panel in it.
 			state.tmux.RecordPanelPane(state.env.TmuxPane)

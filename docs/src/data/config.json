@@ -1933,24 +1933,52 @@
       "sections": [
         {
           "path": "debug.pprof",
-          "description": "The settings for the pprof tool, go's debugger",
-          "settings": [
+          "description": "Go's pprof profiler, served by the background service and the panel.",
+          "settings": [],
+          "sections": [
             {
-              "key": "enabled",
-              "path": "debug.pprof.enabled",
-              "type": "boolean",
-              "description": "Whether pprof debugging is enabled or not",
-              "default": "false"
+              "path": "debug.pprof.server",
+              "description": "The background service, which runs the agents and answers the API.",
+              "settings": [
+                {
+                  "key": "enabled",
+                  "path": "debug.pprof.server.enabled",
+                  "type": "boolean",
+                  "description": "Whether the process serves profiles, read when it starts.",
+                  "default": "false"
+                },
+                {
+                  "key": "address",
+                  "path": "debug.pprof.server.address",
+                  "type": "string",
+                  "description": "The host and port the profiles are served on.",
+                  "default": "\"localhost:6060\""
+                }
+              ],
+              "sections": []
             },
             {
-              "key": "address",
-              "path": "debug.pprof.address",
-              "type": "string",
-              "description": "Where to serve the debugging endpoint",
-              "default": "\"\""
+              "path": "debug.pprof.client",
+              "description": "The panel, which draws the screen and talks to the service.",
+              "settings": [
+                {
+                  "key": "enabled",
+                  "path": "debug.pprof.client.enabled",
+                  "type": "boolean",
+                  "description": "Whether the process serves profiles, read when it starts.",
+                  "default": "false"
+                },
+                {
+                  "key": "address",
+                  "path": "debug.pprof.client.address",
+                  "type": "string",
+                  "description": "The host and port the profiles are served on.",
+                  "default": "\"localhost:6061\""
+                }
+              ],
+              "sections": []
             }
-          ],
-          "sections": []
+          ]
         }
       ]
     },
