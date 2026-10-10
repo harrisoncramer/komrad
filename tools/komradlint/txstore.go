@@ -130,11 +130,9 @@ func reportEscapes(pass *analysis.Pass, scope txScope, body *ast.BlockStmt) {
 	})
 }
 
-// isQueryingReceiver says whether a method call queries through its receiver: a query on a store
-// package's type, or one other than InTx on a service that can be rebuilt over a transaction.
+// isQueryingReceiver says whether a method call queries through a store or a service that can be rebuilt over a transaction.
 func isQueryingReceiver(pass *analysis.Pass, callee *types.Func, selector *ast.SelectorExpr) bool {
-	signature, ok := callee.Type().(*types.Signature)
-	if !ok || signature.Recv() == nil || !isQuerySignature(callee) {
+	if callee.Signature().Recv() == nil || !isQuerySignature(callee) {
 		return false
 	}
 
@@ -157,9 +155,9 @@ func isBindable(typ types.Type) bool {
 		return false
 	}
 
-	signature, ok := method.Type().(*types.Signature)
+	signature := method.Signature()
 
-	return ok && signature.Params().Len() == 1 && isTransaction(signature.Params().At(0).Type())
+	return signature.Params().Len() == 1 && isTransaction(signature.Params().At(0).Type())
 }
 
 // isOutside says whether a name is declared outside the scope, which a missing name or a package never is.
