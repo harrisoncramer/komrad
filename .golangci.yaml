@@ -174,12 +174,15 @@ linters:
           files:
             - "**/internal/agents/**"
             - "**/internal/checkouts/**"
+            - "**/internal/documents/**"
             - "**/internal/mail/**"
             - "**/internal/pullrequests/**"
             - "**/internal/reviews/**"
             - "**/internal/schedules/**"
             - "**/internal/scriptrun/**"
+            - "**/internal/tasks/**"
             - "**/internal/transcripts/**"
+            - "**/internal/worktrees/**"
           deny:
             - pkg: komrad/proto/gen
               desc: the service decides in its own types, and rendering them onto the wire is the handler's job
@@ -189,10 +192,18 @@ linters:
           files:
             - "!$test"
             - "**/internal/checkouts/**"
+            - "**/internal/documents/**"
+            - "**/internal/mail/**"
+            - "**/internal/pullrequests/**"
             - "**/internal/reviews/**"
+            - "**/internal/schedules/**"
+            - "**/internal/scriptrun/**"
+            - "**/internal/tasks/**"
+            - "**/internal/transcripts/**"
+            - "**/internal/worktrees/**"
           deny:
             - pkg: komrad/internal/agents$
-              desc: checkouts and reviews sit beside the lifecycle, so its sentinels reach them through agenterr
+              desc: the other domain services sit beside the lifecycle and below it, so the lifecycle calls them and its sentinels reach them through agenterr
         agenterr:
           files:
             - "**/internal/agenterr/**"
@@ -306,6 +317,7 @@ linters:
         - name: receiver-naming
           arguments:
             - maxLength: 2
+        - name: context-as-argument
         - name: argument-limit
           arguments:
             - 4
@@ -486,6 +498,19 @@ linters:
               - ^komrad/
           error_text:
             skip: false
+          store_query:
+            skip: false
+            # Unanchored regexps over the import path. The domain services, the jobs that run beside
+            # them, the server that wires stores into both, the watch broker and doctor that each hold
+            # a connection of their own, and the fixtures the tests share.
+            allow:
+              - ^komrad/internal/(agents|checkouts|documents|forge|mail|pullrequests|reviews|schedules|scriptrun|tasks|transcripts|worktrees)$
+              - ^komrad/internal/jobs(/internaljobs)?$
+              - ^komrad/internal/(server|watch|doctor)$
+              - ^komrad/internal/(storetest|komradtest)$
+          tx_store:
+            skip: false
+            exclude: []
       fussy:
         type: module
         description: General Go checks from fussy.
@@ -648,6 +673,12 @@ linters:
       - path: ^tools/komradlint/
         linters:
           - nilnil
+      # Migrating the schema and setting up the engine login run before any service exists, so the
+      # commands that do them call the store themselves.
+      - path: ^internal/cli/(migrate|engine)\.go$
+        linters:
+          - komradlint
+        text: is a store query
       # A test asserts on the assertion it just made, so an unchecked assertion fails the
       # test on the spot rather than travelling as a wrong value the way it would in the server.
       # The same files shell out to git and tmux to build their fixtures, where the command
