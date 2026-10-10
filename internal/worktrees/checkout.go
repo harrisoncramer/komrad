@@ -87,7 +87,7 @@ func (r *CheckoutReader) ReadStanding(ctx context.Context, params ReadStandingPa
 	var checkout Checkout
 	var err error
 	if params.Readable {
-		err = r.readAgainst(ctx, &checkout, againstParams{
+		err = r.readAgainst(ctx, &checkout, readAgainstParams{
 			Dir:     params.Dir,
 			Base:    params.Base,
 			BaseErr: params.BaseErr,
@@ -119,14 +119,14 @@ type readParams struct {
 func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, params readParams) error {
 	base, err := r.readBase(ctx, params)
 
-	return r.readAgainst(ctx, checkout, againstParams{
+	return r.readAgainst(ctx, checkout, readAgainstParams{
 		Dir:     params.Dir,
 		Base:    base,
 		BaseErr: err,
 	})
 }
 
-type againstParams struct {
+type readAgainstParams struct {
 	Dir     string
 	Base    *git.Base
 	BaseErr error
@@ -136,7 +136,7 @@ type againstParams struct {
 }
 
 // readAgainst reads where the directory stands against a base already read.
-func (r *CheckoutReader) readAgainst(ctx context.Context, checkout *Checkout, params againstParams) error {
+func (r *CheckoutReader) readAgainst(ctx context.Context, checkout *Checkout, params readAgainstParams) error {
 	if errors.Is(params.BaseErr, git.ErrBaseMissing) {
 		checkout.BaseErr = params.BaseErr
 
@@ -164,7 +164,7 @@ func (r *CheckoutReader) readAgainst(ctx context.Context, checkout *Checkout, pa
 	return nil
 }
 
-func (r *CheckoutReader) predictRebase(ctx context.Context, params againstParams) (prediction, error) {
+func (r *CheckoutReader) predictRebase(ctx context.Context, params readAgainstParams) (prediction, error) {
 	var key string
 	if params.HeadSHA != "" {
 		key = params.HeadSHA + ":" + params.Base.Tip

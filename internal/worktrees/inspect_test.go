@@ -46,7 +46,7 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
-	assert.Equal(t, "develop", fixture.git.Resolved)
+	assert.Equal(t, "develop", fixture.git.BaseRead)
 	assert.Equal(t, 0, fixture.git.Fetches)
 	assert.Equal(t, dir, inspection.Worktree.Dir)
 	assert.Equal(t, "origin/develop", inspection.BaseRef)
@@ -173,7 +173,7 @@ func TestInspectFetchesWhenAsked(t *testing.T) {
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir, Fetch: true})
 	require.NoError(t, err)
 
-	assert.Equal(t, 0, fixture.git.Resolves)
+	assert.Equal(t, 0, fixture.git.BaseReads)
 	assert.Equal(t, 1, fixture.git.Fetches)
 	assert.Equal(t, "main", fixture.git.Fetched)
 	assert.Equal(t, "origin/main", inspection.BaseRef)

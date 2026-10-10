@@ -33,8 +33,7 @@ type Base struct {
 	Tip string
 }
 
-// resolveBase is the ref a named base is measured as: origin's copy when the clone has one,
-// else the local branch.
+// resolveBase is the ref readBase reads for a named base.
 func resolveBase(ctx context.Context, root, base string) (string, error) {
 	resolved, err := readBase(ctx, root, base)
 	if err != nil {
@@ -44,7 +43,8 @@ func resolveBase(ctx context.Context, root, base string) (string, error) {
 	return resolved.Ref, nil
 }
 
-// readBase is the ref resolveBase names and its tip, read in the one command that finds the ref.
+// readBase is the ref a named base is measured as and its tip: origin's copy when the clone has
+// one, else the local branch.
 func readBase(ctx context.Context, root, base string) (*Base, error) {
 	base = strings.TrimSpace(base)
 	if base == "" {

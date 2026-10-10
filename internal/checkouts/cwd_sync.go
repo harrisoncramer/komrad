@@ -625,9 +625,7 @@ type readBaseParams struct {
 	Base  string
 }
 
-// readBase records on the look the ref and tip its checkout is measured against, read once for
-// the standing, the landing walk and the diff stat alike, and not at all when none of them will
-// run.
+// readBase records on the look the ref and tip its checkout is measured against.
 func (cs *CwdSyncer) readBase(ctx context.Context, look *cwdLook, params readBaseParams) {
 	_, owned := params.Owned[filepath.Clean(look.task.Checkout.Cwd)]
 	if look.removed || (look.head.Root == "" && !owned) {

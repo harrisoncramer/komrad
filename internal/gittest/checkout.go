@@ -27,8 +27,8 @@ type Checkout struct {
 	Remote       git.RemoteStanding
 	RemoteLanded bool
 	HoldAsked    string
-	Resolved     string
-	Resolves     int
+	BaseRead     string
+	BaseReads    int
 	Fetched      string
 	Fetches      int
 	Pruned       []string
@@ -64,8 +64,8 @@ func (g *Checkout) IsSequenceInProgress(context.Context, string) (bool, error) {
 
 // ReadBase records the base and answers its origin ref at BaseTip, refusing a blank or unresolved one.
 func (g *Checkout) ReadBase(_ context.Context, _, base string) (*git.Base, error) {
-	g.Resolved = base
-	g.Resolves++
+	g.BaseRead = base
+	g.BaseReads++
 	if g.Unresolved || base == "" {
 		return nil, fmt.Errorf("%w: the clone has no origin/%s", git.ErrBaseMissing, base)
 	}
