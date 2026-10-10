@@ -93,8 +93,8 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 	return s.openTaskRound(ctx, *task, agent.ID)
 }
 
-// openTaskRound freezes a task's checkout through one of its agents, handing back the newest round when the tree has not
-// moved since it was taken.
+// openTaskRound freezes a task's checkout through one of its agents, handing back the newest
+// round when the tree has not moved since it was taken.
 func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task, agentID string) (*reviewstore.Round, error) {
 	if task.Checkout.WorktreeRemoved {
 		return nil, fmt.Errorf("%w: %q", errReviewWorktreeRemoved, task.Slug)
@@ -717,7 +717,8 @@ type ReviewInFull struct {
 	Threads []ReviewThreadInContext
 }
 
-// GetReview is one released review whole, which the agents on its task and the person may read, and which its author alone may read before it is released.
+// GetReview is one released review whole, which the agents on its task and the person may read,
+// and which its author alone may read before it is released.
 func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author ReviewAuthor) (*ReviewInFull, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if errors.Is(err, store.ErrNotFound) {
