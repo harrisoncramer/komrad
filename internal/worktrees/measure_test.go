@@ -162,7 +162,7 @@ func TestMeasureRecordsWhatTheFilesystemSays(t *testing.T) {
 	require.Len(t, stored, len(dirs)+1, "a directory the pass does not walk still has its row")
 	record := stored[dirs[0]]
 	assert.Equal(t, fixture.repo, record.RepoDir)
-	assert.Equal(t, "agent/"+filepath.Base(dirs[0]), record.Branch)
+	assert.Equal(t, "task/"+filepath.Base(dirs[0]), record.Branch)
 	assert.True(t, record.Readable)
 	assert.NotNil(t, record.ModifiedAt)
 

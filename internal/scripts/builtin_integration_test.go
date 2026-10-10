@@ -28,7 +28,7 @@ func TestIntegrationBuiltinWorktreeSetup(t *testing.T) {
 	worktreesDir := t.TempDir()
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-a",
+		taskID:       "task-a",
 		repo:         repo,
 		worktreesDir: worktreesDir,
 		copyPaths:    []string{".env"},
@@ -37,9 +37,9 @@ func TestIntegrationBuiltinWorktreeSetup(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 
 	tree := strings.TrimSpace(string(result.Stdout))
-	assert.Equal(t, filepath.Join(worktreesDir, "agent-a"), tree)
+	assert.Equal(t, filepath.Join(worktreesDir, "task-a"), tree)
 	assertIsDir(t, tree)
-	assertBranch(t, tree, "agent/agent-a")
+	assertBranch(t, tree, "task/task-a")
 
 	envContent, err := os.ReadFile(filepath.Join(tree, ".env"))
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestIntegrationBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	repo := initRepo(t)
 	worktreesDir := t.TempDir()
 	env := worktreeEnv{
-		agentID:      "agent-b",
+		taskID:       "task-b",
 		repo:         repo,
 		worktreesDir: worktreesDir,
 	}
@@ -86,7 +86,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *test
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
 
 	env := worktreeEnv{
-		agentID:      "agent-resume-link",
+		taskID:       "task-resume-link",
 		repo:         repo,
 		agentCwd:     repo,
 		worktreesDir: t.TempDir(),
@@ -118,7 +118,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesAPathWithADotSegment(t *testing.T
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-dot-segment",
+		taskID:       "task-dot-segment",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"./.env"},
@@ -139,7 +139,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testi
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "node_modules", "mod.txt"), []byte("dep\n"), 0o644))
 
 	env := worktreeEnv{
-		agentID:      "agent-resume-copy",
+		taskID:       "task-resume-copy",
 		repo:         repo,
 		agentCwd:     repo,
 		worktreesDir: t.TempDir(),
@@ -173,7 +173,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBran
 	repo := initRepo(t)
 	worktreesDir := t.TempDir()
 	env := worktreeEnv{
-		agentID:      "agent-g",
+		taskID:       "task-g",
 		repo:         repo,
 		agentCwd:     repo,
 		worktreesDir: worktreesDir,
@@ -187,7 +187,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBran
 	env.trigger = "resume"
 	env.agentCwd = tree
 
-	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "agent/agent-g").Output()
+	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "task/task-g").Output()
 	require.NoError(t, err)
 	require.NotEmpty(t, strings.TrimSpace(string(branches)), "the branch is still there after only the directory was removed")
 
@@ -202,7 +202,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBran
 func TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
-		agentID:      "agent-moved-dir",
+		taskID:       "task-moved-dir",
 		repo:         repo,
 		agentCwd:     repo,
 		worktreesDir: t.TempDir(),
@@ -222,7 +222,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *tes
 
 	assert.Equal(t, tree, strings.TrimSpace(string(second.Stdout)), "the resume goes back to the tree the agent already has")
 	assert.Contains(t, string(second.Stderr), "already exists", "the resume finds the worktree rather than trying to make it again")
-	assert.NoDirExists(t, filepath.Join(moved, "agent-moved-dir"), "nothing is made under the directory worktrees now live in")
+	assert.NoDirExists(t, filepath.Join(moved, "task-moved-dir"), "nothing is made under the directory worktrees now live in")
 }
 
 // TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory covers the tree an agent
@@ -231,7 +231,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *tes
 func TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
-		agentID:      "agent-moved-gone",
+		taskID:       "task-moved-gone",
 		repo:         repo,
 		agentCwd:     repo,
 		worktreesDir: t.TempDir(),
@@ -251,9 +251,9 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirect
 	require.NoError(t, err, "stderr: %s", second.Stderr)
 
 	rebuilt := strings.TrimSpace(string(second.Stdout))
-	assert.Equal(t, filepath.Join(moved, "agent-moved-gone"), rebuilt)
+	assert.Equal(t, filepath.Join(moved, "task-moved-gone"), rebuilt)
 	assertIsDir(t, rebuilt)
-	assertBranch(t, rebuilt, "agent/agent-moved-gone")
+	assertBranch(t, rebuilt, "task/task-moved-gone")
 }
 
 // TestIntegrationBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory covers a create never going back
@@ -261,7 +261,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirect
 func TestIntegrationBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
-		agentID:      "agent-provision-dir",
+		taskID:       "task-provision-dir",
 		repo:         repo,
 		agentCwd:     repo,
 		worktreesDir: t.TempDir(),
@@ -276,7 +276,7 @@ func TestIntegrationBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t 
 	env.worktreesDir = moved
 
 	second, _ := runBuiltin(t, "_worktree_setup", env)
-	assert.Contains(t, string(second.Stderr), filepath.Join(moved, "agent-provision-dir"), "the create aims at the directory worktrees live in now")
+	assert.Contains(t, string(second.Stderr), filepath.Join(moved, "task-provision-dir"), "the create aims at the directory worktrees live in now")
 	assert.NotContains(t, string(second.Stderr), "already exists", "the tree the cwd names is not taken for a create")
 }
 
@@ -285,11 +285,11 @@ func TestIntegrationBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t 
 // checkout: resuming into that would run the agent inside the repository.
 func TestIntegrationBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *testing.T) {
 	repo := initRepo(t)
-	agentID := filepath.Base(repo)
+	taskID := filepath.Base(repo)
 	worktreesDir := t.TempDir()
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      agentID,
+		taskID:       taskID,
 		repo:         repo,
 		agentCwd:     repo,
 		trigger:      "resume",
@@ -298,9 +298,9 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *test
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 
 	tree := strings.TrimSpace(string(result.Stdout))
-	assert.Equal(t, filepath.Join(worktreesDir, agentID), tree, "the repository is not taken for the agent's worktree")
+	assert.Equal(t, filepath.Join(worktreesDir, taskID), tree, "the repository is not taken for the agent's worktree")
 	assertIsDir(t, tree)
-	assertBranch(t, tree, "agent/"+agentID)
+	assertBranch(t, tree, "task/"+taskID)
 }
 
 // TestIntegrationBuiltinWorktreeSetupCopiesADirectory covers a copy path naming a directory rather
@@ -312,7 +312,7 @@ func TestIntegrationBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "after.env"), []byte("AFTER=1\n"), 0o644))
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-h",
+		taskID:       "task-h",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"assets", "after.env"},
@@ -338,7 +338,7 @@ func TestIntegrationBuiltinWorktreeSetupSkipsATrackedCopyPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "settings.json"), []byte("local\n"), 0o644))
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-tracked-skip",
+		taskID:       "task-tracked-skip",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"settings.json"},
@@ -362,7 +362,7 @@ func TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkPath(t *testing.T) {
 	commitAll(t, repo)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-tracked-link",
+		taskID:       "task-tracked-link",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		symlinkPaths: []string{"vendor"},
@@ -390,7 +390,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testin
 	require.NoError(t, os.WriteFile(filepath.Join(outside, "keep.txt"), []byte("keep\n"), 0o644))
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-escape",
+		taskID:       "task-escape",
 		repo:         repo,
 		worktreesDir: worktreesDir,
 		copyPaths:    []string{"../sibling"},
@@ -416,7 +416,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade
 	commitAll(t, repo)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-nested-link",
+		taskID:       "task-nested-link",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		symlinkPaths: []string{"local", "local/bin"},
@@ -446,7 +446,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *test
 	commitAll(t, repo)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-tracked-symlink",
+		taskID:       "task-tracked-symlink",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"shared/cache"},
@@ -467,7 +467,7 @@ func TestIntegrationBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash(t 
 	commitAll(t, repo)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-trailing-slash",
+		taskID:       "task-trailing-slash",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		symlinkPaths: []string{"local", "local/"},
@@ -495,7 +495,7 @@ func TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailing
 	commitAll(t, repo)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-tracked-symlink-slash",
+		taskID:       "task-tracked-symlink-slash",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"shared/"},
@@ -510,13 +510,13 @@ func TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailing
 // cleanup must not run worktree remove or branch -D against it.
 func TestIntegrationBuiltinWorktreeCleanupRefusesAPlainCheckout(t *testing.T) {
 	repo := initRepo(t)
-	runGit(t, repo, "branch", "agent/agent-i")
+	runGit(t, repo, "branch", "task/task-i")
 
-	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-i", agentCwd: repo})
+	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-i", agentCwd: repo})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 
 	assertIsDir(t, repo)
-	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "agent/agent-i").Output()
+	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "task/task-i").Output()
 	require.NoError(t, err)
 	assert.NotEmpty(t, strings.TrimSpace(string(branches)), "the branch survives since this was never a linked worktree")
 }
@@ -527,7 +527,7 @@ func TestIntegrationBuiltinWorktreeSetupCopyMissingSourceIsNonFatal(t *testing.T
 	repo := initRepo(t)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-c",
+		taskID:       "task-c",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"missing.env"},
@@ -545,7 +545,7 @@ func TestIntegrationBuiltinWorktreeSetupCopyMissingSourceIsNonFatal(t *testing.T
 func TestIntegrationBuiltinWorktreeSetupRefusesABlankBase(t *testing.T) {
 	worktreesDir := t.TempDir()
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-d",
+		taskID:       "task-d",
 		repo:         initRepo(t),
 		worktreesDir: worktreesDir,
 		noBase:       true,
@@ -553,7 +553,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesABlankBase(t *testing.T) {
 	require.Error(t, err, "the provisioner fails rather than picking a branch of its own")
 
 	assert.Contains(t, string(result.Stderr), "names no base branch")
-	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-d"), "no worktree was made")
+	assert.NoDirExists(t, filepath.Join(worktreesDir, "task-d"), "no worktree was made")
 }
 
 // TestIntegrationBuiltinWorktreeSetupFetchesFromOrigin covers the repo that has a remote: setup has to
@@ -564,7 +564,7 @@ func TestIntegrationBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 	repo := cloneRepo(t, upstream)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-e",
+		taskID:       "task-e",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		baseBranch:   "main",
@@ -584,7 +584,7 @@ func TestIntegrationBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(
 	require.False(t, hasRef(t, repo, "refs/remotes/origin/main"), "the clone's refspec covers only the branch it asked for")
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-single-branch",
+		taskID:       "task-single-branch",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -595,7 +595,7 @@ func TestIntegrationBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(
 	assert.FileExists(t, filepath.Join(tree, "README.md"))
 	assert.NoFileExists(t, filepath.Join(tree, "feature-only.txt"), "the worktree is cut from origin's default branch rather than the one the clone happens to hold")
 	assert.False(t, hasRef(t, repo, "refs/remotes/origin/main"), "the human's remote refs are left as their refspec asked for")
-	assert.False(t, hasRef(t, repo, "refs/komrad/base/agent-single-branch"), "the ref that named the branch point for one command is not left behind")
+	assert.False(t, hasRef(t, repo, "refs/komrad/base/agent-of-task-single-branch"), "the ref that named the branch point for one command is not left behind")
 }
 
 // TestIntegrationBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll covers the repo wired to a
@@ -608,7 +608,7 @@ func TestIntegrationBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll(t *t
 	runGit(t, repo, "config", "remote.origin.url", upstream)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-no-refspec",
+		taskID:       "task-no-refspec",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -630,13 +630,13 @@ func TestIntegrationBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing
 	worktreesDir := t.TempDir()
 	outcomes := runBuiltinConcurrently(t, "_worktree_setup", []worktreeEnv{
 		{
-			agentID:      "agent-on-main",
+			taskID:       "task-on-main",
 			repo:         repo,
 			worktreesDir: worktreesDir,
 			baseBranch:   "main",
 		},
 		{
-			agentID:      "agent-on-other",
+			taskID:       "task-on-other",
 			repo:         repo,
 			worktreesDir: worktreesDir,
 			baseBranch:   "other",
@@ -644,28 +644,28 @@ func TestIntegrationBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing
 	})
 
 	wants := []struct {
-		agentID string
-		file    string
-		absent  string
+		taskID string
+		file   string
+		absent string
 	}{
 		{
-			agentID: "agent-on-main",
-			file:    "main-only.txt",
-			absent:  "other-only.txt",
+			taskID: "task-on-main",
+			file:   "main-only.txt",
+			absent: "other-only.txt",
 		},
 		{
-			agentID: "agent-on-other",
-			file:    "other-only.txt",
-			absent:  "main-only.txt",
+			taskID: "task-on-other",
+			file:   "other-only.txt",
+			absent: "main-only.txt",
 		},
 	}
 
 	for i, want := range wants {
-		require.NoErrorf(t, outcomes[i].err, "%s: stderr: %s", want.agentID, outcomes[i].result.Stderr)
+		require.NoErrorf(t, outcomes[i].err, "%s: stderr: %s", want.taskID, outcomes[i].result.Stderr)
 
-		tree := filepath.Join(worktreesDir, want.agentID)
-		assert.FileExists(t, filepath.Join(tree, want.file), "%s is on the base its own workflow named", want.agentID)
-		assert.NoFileExists(t, filepath.Join(tree, want.absent), "%s did not read the other setup's branch point", want.agentID)
+		tree := filepath.Join(worktreesDir, want.taskID)
+		assert.FileExists(t, filepath.Join(tree, want.file), "%s is on the base its own workflow named", want.taskID)
+		assert.NoFileExists(t, filepath.Join(tree, want.absent), "%s did not read the other setup's branch point", want.taskID)
 	}
 }
 
@@ -677,7 +677,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testin
 
 	worktreesDir := t.TempDir()
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-bad-base",
+		taskID:       "task-bad-base",
 		repo:         repo,
 		worktreesDir: worktreesDir,
 		baseBranch:   "no-such-branch",
@@ -685,7 +685,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testin
 	require.Error(t, err, "the provisioner fails rather than handing the add a reference nothing resolved")
 
 	assert.Contains(t, string(result.Stderr), "no-such-branch is not a branch")
-	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-bad-base"), "no worktree was made")
+	assert.NoDirExists(t, filepath.Join(worktreesDir, "task-bad-base"), "no worktree was made")
 }
 
 // TestIntegrationBuiltinWorktreeCleanup covers the ordinary case: the worktree and its branch both
@@ -693,50 +693,22 @@ func TestIntegrationBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testin
 func TestIntegrationBuiltinWorktreeCleanup(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-f",
+		taskID:       "task-f",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-f", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-f", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	_, statErr := os.Stat(tree)
 	assert.True(t, os.IsNotExist(statErr), "the worktree directory is gone")
 
-	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "agent/agent-f").Output()
+	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "task/task-f").Output()
 	require.NoError(t, err)
 	assert.Empty(t, strings.TrimSpace(string(branches)), "the branch is gone")
-}
-
-// TestIntegrationBuiltinWorktreeUnderTheNameItIsHanded covers a worktree named after its task
-// rather than the agent that provisions it.
-func TestIntegrationBuiltinWorktreeUnderTheNameItIsHanded(t *testing.T) {
-	repo := initRepo(t)
-	worktreesDir := t.TempDir()
-	env := worktreeEnv{
-		agentID:        "agent-t",
-		worktreeName:   "task-t",
-		worktreeBranch: "task/task-t",
-		repo:           repo,
-		worktreesDir:   worktreesDir,
-	}
-
-	setup, err := runBuiltin(t, "_worktree_setup", env)
-	require.NoError(t, err, "stderr: %s", setup.Stderr)
-	tree := strings.TrimSpace(string(setup.Stdout))
-	assert.Equal(t, filepath.Join(worktreesDir, "task-t"), tree)
-	assertBranch(t, tree, "task/task-t")
-
-	env.agentCwd = tree
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", env)
-	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
-
-	_, statErr := os.Stat(tree)
-	assert.True(t, os.IsNotExist(statErr), "the worktree directory is gone")
-	assert.Empty(t, readBranchList(t, repo, "task/task-t"), "the branch is gone")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone covers what docs/scripts.md requires
@@ -744,7 +716,7 @@ func TestIntegrationBuiltinWorktreeUnderTheNameItIsHanded(t *testing.T) {
 // target is in, so running cleanup against a directory that was never a worktree, or was
 // already removed, must still exit zero.
 func TestIntegrationBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone(t *testing.T) {
-	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-never-existed", agentCwd: t.TempDir()})
+	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-never-existed", agentCwd: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 }
 
@@ -755,7 +727,7 @@ func TestIntegrationBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
 	repo := cloneRepo(t, upstream)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-untracked",
+		taskID:       "task-untracked",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		baseBranch:   "main",
@@ -763,8 +735,8 @@ func TestIntegrationBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 	tree := strings.TrimSpace(string(result.Stdout))
 
-	assert.Empty(t, readGitConfig(t, tree, "branch.agent/agent-untracked.remote"), "the branch has no upstream remote")
-	assert.Empty(t, readGitConfig(t, tree, "branch.agent/agent-untracked.merge"), "the branch has no upstream ref")
+	assert.Empty(t, readGitConfig(t, tree, "branch.task/task-untracked.remote"), "the branch has no upstream remote")
+	assert.Empty(t, readGitConfig(t, tree, "branch.task/task-untracked.merge"), "the branch has no upstream ref")
 	assert.Equal(t, "true", readGitConfig(t, tree, "push.autoSetupRemote"), "a plain push can create the remote branch")
 }
 
@@ -780,7 +752,7 @@ func TestIntegrationBuiltinWorktreeSetupRunsConcurrentlyInOneRepo(t *testing.T) 
 	envs := make([]worktreeEnv, 0, concurrent)
 	for i := range concurrent {
 		envs = append(envs, worktreeEnv{
-			agentID:      fmt.Sprintf("agent-parallel-%d", i),
+			taskID:       fmt.Sprintf("task-parallel-%d", i),
 			repo:         repo,
 			worktreesDir: worktreesDir,
 			baseBranch:   "main",
@@ -798,7 +770,7 @@ func TestIntegrationBuiltinWorktreeSetupRunsConcurrentlyInOneRepo(t *testing.T) 
 func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
-		agentID:      "agent-rmrf",
+		taskID:       "task-rmrf",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	}
@@ -814,7 +786,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutrigh
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
 	assertIsDir(t, strings.TrimSpace(string(second.Stdout)))
-	assertBranch(t, tree, "agent/agent-rmrf")
+	assertBranch(t, tree, "task/task-rmrf")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn covers KOMRAD_AGENT_CWD pointing at a
@@ -824,7 +796,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testin
 	theirs := filepath.Join(t.TempDir(), "theirs")
 	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someone-else", theirs)
 
-	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-thief", agentCwd: theirs})
+	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-thief", agentCwd: theirs})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 
 	assertIsDir(t, theirs)
@@ -836,7 +808,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testin
 func TestIntegrationBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-unmerged",
+		taskID:       "task-unmerged",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -847,12 +819,12 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	runGit(t, tree, "add", "work.txt")
 	runGit(t, tree, "commit", "--quiet", "-m", "the agent's work")
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-unmerged", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-unmerged", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree, "the worktree still goes")
-	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-unmerged"), "the branch holding the commit survives")
-	assert.Contains(t, string(cleanup.Stderr), "agent/agent-unmerged", "the branch that was kept is named")
+	assert.NotEmpty(t, readBranchList(t, repo, "task/task-unmerged"), "the branch holding the commit survives")
+	assert.Contains(t, string(cleanup.Stderr), "task/task-unmerged", "the branch that was kept is named")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys covers a dirty worktree, where
@@ -860,7 +832,7 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 func TestIntegrationBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-dirty",
+		taskID:       "task-dirty",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -869,7 +841,7 @@ func TestIntegrationBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *te
 
 	require.NoError(t, os.WriteFile(filepath.Join(tree, "scratch.txt"), []byte("unsaved\n"), 0o644))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-dirty", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-dirty", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree, "a delete is not blocked by a dirty worktree")
@@ -882,7 +854,7 @@ func TestIntegrationBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *te
 func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-nest",
+		taskID:       "task-nest",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -892,7 +864,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *test
 	inner := filepath.Join(tree, "inner")
 	runGit(t, repo, "worktree", "add", "--quiet", "-b", "inner-branch", inner)
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-nest", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-nest", agentCwd: tree})
 	require.Error(t, err, "the refusal is reported rather than exiting zero")
 	assert.Contains(t, string(cleanup.Stderr), "holds another registered worktree")
 
@@ -905,7 +877,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *test
 func TestIntegrationBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-detached",
+		taskID:       "task-detached",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -914,11 +886,11 @@ func TestIntegrationBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 
 	runGit(t, tree, "checkout", "--quiet", "--detach", "HEAD")
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-detached", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-detached", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree, "a detached head is still this agent's worktree")
-	assert.Empty(t, readBranchList(t, repo, "agent/agent-detached"), "the branch goes with it")
+	assert.Empty(t, readBranchList(t, repo, "task/task-detached"), "the branch goes with it")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew covers a local base behind origin,
@@ -935,7 +907,7 @@ func TestIntegrationBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *tes
 	runGit(t, repo, "reset", "--quiet", "--hard", "HEAD~1")
 
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-nothing-new",
+		taskID:       "task-nothing-new",
 		repo:         repo,
 		worktreesDir: worktreesDir,
 		baseBranch:   "main",
@@ -943,11 +915,11 @@ func TestIntegrationBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *tes
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-nothing-new", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-nothing-new", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree)
-	assert.Empty(t, readBranchList(t, repo, "agent/agent-nothing-new"), "a branch whose commits are all on origin is not worth keeping")
+	assert.Empty(t, readBranchList(t, repo, "task/task-nothing-new"), "a branch whose commits are all on origin is not worth keeping")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead covers the nested-worktree
@@ -955,7 +927,7 @@ func TestIntegrationBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *tes
 func TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-blind",
+		taskID:       "task-blind",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -963,7 +935,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead
 	tree := strings.TrimSpace(string(setup.Stdout))
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
-		agentID:    "agent-blind",
+		taskID:     "task-blind",
 		agentCwd:   tree,
 		pathPrefix: failingGitDir(t, "worktree list"),
 	})
@@ -971,7 +943,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead
 
 	assertIsDir(t, tree)
 	assert.Contains(t, string(cleanup.Stderr), "could not list the worktrees")
-	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-blind"), "nothing was removed")
+	assert.NotEmpty(t, readBranchList(t, repo, "task/task-blind"), "nothing was removed")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved covers a worktree whose .git file
@@ -980,7 +952,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead
 func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-adrift",
+		taskID:       "task-adrift",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
@@ -995,13 +967,13 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testi
 	moved := filepath.Join(t.TempDir(), "moved")
 	require.NoError(t, os.Rename(repo, moved)) //nolint:forbidigo // moves a directory, which WriteAtomic does not
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-adrift", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-adrift", agentCwd: tree})
 	require.Error(t, err, "the refusal is reported rather than exiting zero")
 
 	assertIsDir(t, tree)
 	assert.Contains(t, string(cleanup.Stderr), "git cannot read "+resolvedTree)
-	assert.Contains(t, string(cleanup.Stderr), filepath.Join(resolvedRepo, ".git", "worktrees", "agent-adrift"), "the message names the gitdir the .git file points at")
-	assert.NotEmpty(t, readBranchList(t, moved, "agent/agent-adrift"), "nothing was removed")
+	assert.Contains(t, string(cleanup.Stderr), filepath.Join(resolvedRepo, ".git", "worktrees", "task-adrift"), "the message names the gitdir the .git file points at")
+	assert.NotEmpty(t, readBranchList(t, moved, "task/task-adrift"), "nothing was removed")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone covers the retry of a delete
@@ -1010,21 +982,21 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testi
 func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-unregistered",
+		taskID:       "task-unregistered",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
-	require.NoError(t, os.RemoveAll(filepath.Join(repo, ".git", "worktrees", "agent-unregistered")))
+	require.NoError(t, os.RemoveAll(filepath.Join(repo, ".git", "worktrees", "task-unregistered")))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-unregistered", agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-unregistered", agentCwd: tree})
 	require.Error(t, err, "the refusal is reported rather than exiting zero")
 
 	assertIsDir(t, tree)
 	assert.Contains(t, string(cleanup.Stderr), "the registration is gone")
-	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-unregistered"), "the branch is left for a person to deal with")
+	assert.NotEmpty(t, readBranchList(t, repo, "task/task-unregistered"), "the branch is left for a person to deal with")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer covers the two
@@ -1038,11 +1010,11 @@ func TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGi
 	moved := filepath.Join(t.TempDir(), "moved")
 	require.NoError(t, os.Rename(repo, moved)) //nolint:forbidigo // moves a directory, which WriteAtomic does not
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-thief", agentCwd: theirs})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-thief", agentCwd: theirs})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assertIsDir(t, theirs)
-	assert.Contains(t, string(cleanup.Stderr), "is not named agent-thief")
+	assert.Contains(t, string(cleanup.Stderr), "is not named task-thief")
 	assert.NotEmpty(t, readBranchList(t, moved, "someone-else"), "someone else's branch survives")
 }
 
@@ -1066,16 +1038,12 @@ exec %q "$@"
 }
 
 type worktreeEnv struct {
-	agentID string
-	// worktreeName is the name komrad hands the scripts, the agent id when blank.
-	worktreeName string
-	// worktreeBranch is the branch komrad hands the scripts, agent/<worktreeName> when blank.
-	worktreeBranch string
-	agentCwd       string
-	trigger        string
-	repo           string
-	worktreesDir   string
-	baseBranch     string
+	taskID       string
+	agentCwd     string
+	trigger      string
+	repo         string
+	worktreesDir string
+	baseBranch   string
 	// noBase leaves the base blank, which every other test fills with main.
 	noBase       bool
 	adoptBranch  string
@@ -1095,18 +1063,8 @@ func (e worktreeEnv) toEnv() []string {
 		baseBranch = "main"
 	}
 
-	name := e.worktreeName
-	if name == "" {
-		name = e.agentID
-	}
-
-	branch := e.worktreeBranch
-	if branch == "" {
-		branch = "agent/" + name
-	}
-
 	env := []string{
-		"KOMRAD_AGENT_ID=" + e.agentID,
+		"KOMRAD_AGENT_ID=agent-of-" + e.taskID,
 		"KOMRAD_AGENT_CWD=" + e.agentCwd,
 		"KOMRAD_TRIGGER=" + trigger,
 		"KOMRAD_WORKTREE_REPO=" + e.repo,
@@ -1115,8 +1073,8 @@ func (e worktreeEnv) toEnv() []string {
 		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + e.adoptBranch,
 		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
 		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(e.symlinkPaths, "\n"),
-		"KOMRAD_WORKTREE_NAME=" + name,
-		"KOMRAD_WORKTREE_BRANCH=" + branch,
+		"KOMRAD_WORKTREE_NAME=" + e.taskID,
+		"KOMRAD_WORKTREE_BRANCH=task/" + e.taskID,
 	}
 
 	if e.pathPrefix != "" {
@@ -1378,7 +1336,7 @@ func TestIntegrationBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
 	runGit(t, repo, "checkout", "--quiet", "main")
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-adopt-local",
+		taskID:       "task-adopt-local",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		adoptBranch:  "someones/work",
@@ -1405,7 +1363,7 @@ func TestIntegrationBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) 
 	require.False(t, hasRef(t, repo, "refs/heads/feature/theirs"), "the branch is not in this checkout before adoption")
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-adopt-remote",
+		taskID:       "task-adopt-remote",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		adoptBranch:  "feature/theirs",
@@ -1428,7 +1386,7 @@ func TestIntegrationBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach(t *testin
 	repo := initRepo(t)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-adopt-missing",
+		taskID:       "task-adopt-missing",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		adoptBranch:  "no/such/branch",
@@ -1444,7 +1402,7 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 	runGit(t, repo, "branch", "someones/work")
 
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-adopt-cleanup",
+		taskID:       "task-adopt-cleanup",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		adoptBranch:  "someones/work",
@@ -1453,7 +1411,7 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 	tree := strings.TrimSpace(string(setup.Stdout))
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
-		agentID:     "agent-adopt-cleanup",
+		taskID:      "task-adopt-cleanup",
 		agentCwd:    tree,
 		adoptBranch: "someones/work",
 	})
@@ -1489,9 +1447,9 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 			wantFreed:  true,
 		},
 		{
-			name:     "a komrad checkout named after its agent rather than its worktree is left alone",
+			name:     "a komrad checkout not named for its worktree is left alone",
 			checkout: true,
-			dirName:  "agent-a",
+			dirName:  "elsewhere",
 		},
 		{name: "any other checkout is left alone", dirName: "task-a"},
 	}
@@ -1519,11 +1477,10 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0o755))
 
 			result, err := runBuiltin(t, "komrad-checkout-teardown", worktreeEnv{
-				agentID:      "agent-a",
-				worktreeName: "task-a",
-				agentCwd:     tree,
-				trigger:      "pre-delete",
-				pathPrefix:   bin,
+				taskID:     "task-a",
+				agentCwd:   tree,
+				trigger:    "pre-delete",
+				pathPrefix: bin,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
 
@@ -1564,9 +1521,9 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 			wantShrunk: true,
 		},
 		{
-			name:     "a komrad checkout named after its agent rather than its worktree is left alone",
+			name:     "a komrad checkout not named for its worktree is left alone",
 			checkout: true,
-			dirName:  "agent-a",
+			dirName:  "elsewhere",
 		},
 		{name: "any other checkout is left alone", dirName: "task-a"},
 	}
@@ -1589,10 +1546,9 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 			}
 
 			result, err := runBuiltin(t, "komrad-checkout-archive", worktreeEnv{
-				agentID:      "agent-a",
-				worktreeName: "task-a",
-				agentCwd:     tree,
-				trigger:      "post-archive",
+				taskID:   "task-a",
+				agentCwd: tree,
+				trigger:  "post-archive",
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
 

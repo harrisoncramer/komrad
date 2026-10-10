@@ -136,11 +136,11 @@ func TestWatch(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		require.Contains(t, harness.readFrame(), "agent/orphan")
+		require.Contains(t, harness.readFrame(), "task/orphan")
 
 		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_WORKTREE, findOrphanDir(t)))
 
-		assert.NotContains(t, harness.readFrame(), "agent/orphan")
+		assert.NotContains(t, harness.readFrame(), "task/orphan")
 	})
 }
 

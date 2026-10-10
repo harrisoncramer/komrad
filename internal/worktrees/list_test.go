@@ -36,7 +36,7 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	tree := listing.Worktrees[0]
 	assert.Equal(t, dir, tree.Dir)
 	assert.Equal(t, fixture.repo, tree.RepoDir)
-	assert.Equal(t, "agent/"+agent.ID, tree.Branch)
+	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
 	assert.True(t, tree.Readable)
 	require.NotNil(t, tree.Agent)
 	assert.Equal(t, "first", tree.Agent.Name)
@@ -325,7 +325,7 @@ func TestGetReadsOneDirectory(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, dir, tree.Dir)
-	assert.Equal(t, "agent/"+agent.ID, tree.Branch)
+	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
 	require.NotNil(t, tree.Agent)
 	assert.Equal(t, "first", tree.Agent.Name)
 	require.NotNil(t, tree.Size)
@@ -602,14 +602,14 @@ func (f *worktreeFixture) newListerOver(shared string) *Lister {
 	})
 }
 
-// cut lays out a worktree named with a fresh agent id, with HEAD on the agent's branch.
+// cut lays out a worktree named after a fresh task, with HEAD on the task's branch.
 func (f *worktreeFixture) cut(t *testing.T) string {
 	t.Helper()
 
-	id, err := store.NewID()
+	id, err := tasktest.Seed(t.Context(), f.stores.Pool.GetDB(), f.workflowID)
 	require.NoError(t, err)
 
-	return f.cutAs(t, id, "agent/"+id)
+	return f.cutAs(t, *id, "task/"+*id)
 }
 
 // cutAs lays out a worktree under a name, with HEAD on a branch.
@@ -628,7 +628,7 @@ func (f *worktreeFixture) cutAs(t *testing.T, name, branch string) string {
 func (f *worktreeFixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
-	agent.ID = filepath.Base(dir)
+	agent.TaskID = xptr.Ptr(filepath.Base(dir))
 	agent.Cwd = dir
 	if agent.WorkflowID == "" {
 		agent.WorkflowID = f.workflowID
