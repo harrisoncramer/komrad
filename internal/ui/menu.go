@@ -73,7 +73,7 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		menu := rowMenu(workflow.Name)
 		if hasAgent {
-			menu = agentMenu(m, item, slices.Concat(a.editEntries(m, nil), a.snoozeEntries(m, item))...)
+			menu = agentMenu(m, item, slices.Concat(a.closeEditEntries(m), a.snoozeEntries(m, item))...)
 		}
 		menu.entries = append(menu.entries, workflowEntries(m, workflow)...)
 

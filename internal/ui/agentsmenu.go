@@ -44,7 +44,7 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
 		},
 		a.snoozeEntries(m, lead),
-		a.editEntries(m, &writer),
+		a.editEntries(m, writer),
 	)
 
 	menu := agentMenu(m, lead, own...)
@@ -100,7 +100,7 @@ func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
 // work to its task's row.
 func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
 	pages := subpageEntries(m, item, []subpage{subpageLogs, subpageTerminal})
-	own := append(a.editEntries(m, &item), openEntry("new child", m.keys.Menu.Child, func(m *model) tea.Cmd {
+	own := append(a.editEntries(m, item), openEntry("new child", m.keys.Menu.Child, func(m *model) tea.Cmd {
 		return openNewChild(m, item.Agent)
 	}))
 	if item.Agent.State == panel.StateFailedToCreate {
@@ -146,22 +146,25 @@ func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []submenuEnt
 	}}
 }
 
-// editEntries is the entry that closes the editor already open, or opens one on the agent's
-// worktree, and none with neither.
-func (a *agentsScreen) editEntries(m *model, item *panel.AgentRow) []submenuEntry {
-	switch {
-	case a.editing != nil:
-		return []submenuEntry{writeEntry("close the editor", m.keys.Menu.Edit, func(m *model) tea.Cmd {
-			return m.agents.releaseEdit(m)
-		})}
-	case item == nil:
+// closeEditEntries is the entry that closes the editor already open, and none while it is shut.
+func (a *agentsScreen) closeEditEntries(m *model) []submenuEntry {
+	if a.editing == nil {
 		return nil
 	}
 
-	edited := *item
+	return []submenuEntry{writeEntry("close the editor", m.keys.Menu.Edit, func(m *model) tea.Cmd {
+		return m.agents.releaseEdit(m)
+	})}
+}
+
+// editEntries is the entry that closes the editor already open, or opens one on the agent's worktree.
+func (a *agentsScreen) editEntries(m *model, item panel.AgentRow) []submenuEntry {
+	if a.editing != nil {
+		return a.closeEditEntries(m)
+	}
 
 	return []submenuEntry{writeEntry("edit files", m.keys.Menu.Edit, func(m *model) tea.Cmd {
-		return m.agents.pressEdit(m, edited)
+		return m.agents.pressEdit(m, item)
 	})}
 }
 
