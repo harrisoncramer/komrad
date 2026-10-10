@@ -9,7 +9,6 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -200,19 +199,6 @@ type taskEditValues struct {
 // openEditTask opens the form that edits a task's title and goal.
 func openEditTask(m *model, task panel.Task) tea.Cmd {
 	values := &taskEditValues{Title: task.Title, Goal: task.Goal}
-	save := holdSubmit(func(m *model) tea.Cmd {
-		return m.writeCmd(
-			"saving "+task.Slug,
-			fmt.Sprintf("Could not save task %q", task.Slug),
-			func(a api) error {
-				return a.updateTask(updateTaskParams{
-					id:    task.ID,
-					title: xptr.Ptr(strings.TrimSpace(values.Title)),
-					goal:  xptr.Ptr(strings.TrimSpace(values.Goal)),
-				})
-			},
-		)
-	})
 
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formTask,
@@ -220,15 +206,21 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 			return editTaskForm(fixedKeys(), values, task.Slug)
 		},
 		Editable: []editableText{{key: "goal", value: &values.Goal}},
-		Submit: func(m *model) tea.Cmd {
-			if err := checkTaskEdit(*values); err != nil {
-				m.form.refusal = err.Error()
+		Submit: holdSubmit(func(m *model) tea.Cmd {
+			title, goal := strings.TrimSpace(values.Title), strings.TrimSpace(values.Goal)
 
-				return formResized()
-			}
+			return m.writeCmd(
+				"saving "+task.Slug,
+				fmt.Sprintf("Could not save task %q", task.Slug),
+				func(a api) error {
+					if err := errors.Join(checkTaskTitle(title), checkTaskGoal(goal)); err != nil {
+						return err
+					}
 
-			return save(m)
-		},
+					return a.updateTask(updateTaskParams{id: task.ID, title: &title, goal: &goal})
+				},
+			)
+		}),
 	}))
 }
 
@@ -275,20 +267,4 @@ func chosenTasks(l listing, agents []panel.Agent) []panel.Task {
 	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
 
 	return xslice.Map(unique, l.findTask)
-}
-
-func checkTaskTitle(title string) error {
-	if strings.TrimSpace(title) == "" {
-		return errors.New("a task needs a title")
-	}
-
-	return nil
-}
-
-func checkTaskEdit(values taskEditValues) error {
-	if err := checkTaskTitle(values.Title); err != nil {
-		return err
-	}
-
-	return checkTaskGoal(values.Goal)
 }
