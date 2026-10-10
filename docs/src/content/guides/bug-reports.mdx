@@ -41,3 +41,33 @@ The service also writes a log file, `komrad.log`, in your cache directory. That'
 Finally, if an agent shows the wrong state, such as thinking when its pane has stopped, the recorded pane frames really help. Please set <Setting path="debug.frames" label="frames = true" /> under <Setting path="debug" label="[debug]" /> in your config, replicate the issue, and attach the frame file. The files are kept by default in `komrad-frames/<agent id>/` in the same cache directory.
 
 For anything visual (UI flicker, regressions, etc) please attach a screenshot or a short screen recording.
+
+## Performance problems
+
+If komrad is slow, uses a lot of memory, or keeps a CPU busy, a profile shows where that time and memory go. Komrad runs as two processes: the background service, which runs the agents and answers the API, and the panel, which draws the screen. Each can serve Go's [pprof](https://pkg.go.dev/net/http/pprof) profiles on its own port.
+
+Turn on the one that seems slow. If the screen lags, that's the panel. If requests or agents lag, that's the service. When unsure, turn on both:
+
+```toml
+[debug.pprof.server]
+enabled = true
+
+[debug.pprof.client]
+enabled = true
+```
+
+The service serves on <Setting path="debug.pprof.server.address" label="localhost:6060" /> and the panel on <Setting path="debug.pprof.client.address" label="localhost:6061" />. Both read the setting only when they start, so run <Command path="stop" /> and restart the panel after changing it.
+
+Wait until the problem is happening, then save the profiles. These commands are for the service; swap the port for 6061 to profile the panel:
+
+```sh
+curl -o heap.pb.gz 'http://localhost:6060/debug/pprof/heap'
+curl -o goroutine.pb.gz 'http://localhost:6060/debug/pprof/goroutine'
+curl -o cpu.pb.gz 'http://localhost:6060/debug/pprof/profile?seconds=30'
+```
+
+The heap profile shows what is holding memory, the goroutine profile shows what every goroutine is doing, and the CPU profile records 30 seconds of work, so keep using komrad while it runs. Attach all three files to the issue and say which process they came from.
+
+To look at a profile yourself, `go tool pprof -http=:8080 heap.pb.gz` opens it in a browser.
+
+Turn profiling back off when you're done. Anything on your machine can read the profiles while it's on.
