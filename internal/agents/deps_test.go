@@ -28,6 +28,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
@@ -172,6 +173,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	emptyTasks := NewEmptyTaskDeleter(NewEmptyTaskDeleterParams{
 		Tasks:     s.Tasks,
 		Workflows: s.Workflows,
+		Worktrees: worktreestore.NewWorktreeStore(s.Pool.GetDB()),
 		Scripts:   taskScripts,
 	})
 	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{

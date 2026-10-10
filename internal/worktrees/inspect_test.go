@@ -23,11 +23,11 @@ import (
 // commits, and the branch being kept since nothing else reaches its tip.
 func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	fixture := newFixture(t)
-	dir := fixture.cut(t)
 	develop := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "develop", Worktree: workflowstore.WorktreeConfig{
 		BaseBranch:  "develop",
 		DiffExclude: []string{"proto/gen"},
 	}})
+	dir := fixture.cutIn(t, develop.ID)
 	fixture.own(t, dir, agentstore.Agent{Name: "first", WorkflowID: develop.ID})
 	fixture.git.State = git.TreeState{Branch: filepath.Base(dir), InProgress: true}
 	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
@@ -150,11 +150,11 @@ func TestInspectLeavesADetachedHeadWithNoRemote(t *testing.T) {
 	assert.Zero(t, inspection.Remote)
 }
 
-// TestInspectReportsADirectoryWithNoRowAsHavingNoBase covers a directory whose agent row is
-// gone, which names no workflow and so no base.
-func TestInspectReportsADirectoryWithNoRowAsHavingNoBase(t *testing.T) {
+// TestInspectReportsADirectoryWithNoTaskAsHavingNoBase covers a directory no task answers
+// for, which names no workflow and so no base.
+func TestInspectReportsADirectoryWithNoTaskAsHavingNoBase(t *testing.T) {
 	fixture := newFixture(t)
-	dir := fixture.cut(t)
+	dir := fixture.cutUnowned(t)
 
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
@@ -334,8 +334,8 @@ func TestInspectRecordsWhereTheDirectoryStands(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newFixture(t)
-			dir := fixture.cut(t)
 			main := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "main", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
+			dir := fixture.cutIn(t, main.ID)
 			require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: dir}))
 			fixture.own(t, dir, agentstore.Agent{Name: "standing", WorkflowID: main.ID})
 			tt.setup(fixture)

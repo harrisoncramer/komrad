@@ -8,7 +8,6 @@ import (
 
 	"komrad/internal/git"
 	agentstore "komrad/internal/store/agent"
-	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -54,42 +53,39 @@ func TestRemoveRefuses(t *testing.T) {
 		wantFailed bool
 	}{
 		{
-			name: "a live agent's directory",
+			name: "a directory whose task is being deleted",
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				dir := fixture.cut(t)
+				require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{filepath.Base(dir)}))
+
+				return dir
+			},
+			wantReason: "is being deleted",
+		},
+		{
+			name: "an archived task's directory",
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				dir := fixture.cut(t)
+				fixture.archiveTask(t, dir)
+
+				return dir
+			},
+			wantReason: "delete the task instead",
+		},
+		{
+			name: "a live task's directory with an agent in it",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
 				dir := fixture.cut(t)
 				fixture.own(t, dir, agentstore.Agent{Name: "live-agent"})
 
 				return dir
 			},
-			wantReason: "live-agent",
+			wantReason: "delete the task instead",
 		},
 		{
-			name: "an archived agent's directory",
+			name: "a live task's directory no agent is left in",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
-				dir := fixture.cut(t)
-				fixture.archive(t, fixture.own(t, dir, agentstore.Agent{Name: "archived-agent"}).ID)
-
-				return dir
-			},
-			wantReason: "archived-agent",
-		},
-		{
-			name: "a directory whose agent's cleanup failed while git can still read it",
-			lay: func(t *testing.T, fixture *worktreeFixture) string {
-				dir := fixture.cut(t)
-				fixture.own(t, dir, agentstore.Agent{Name: "vetoed-agent", State: agentstore.StateFailedToCleanup})
-
-				return dir
-			},
-			wantReason: "vetoed-agent",
-		},
-		{
-			name: "a directory named after a task no agent is left on",
-			lay: func(t *testing.T, fixture *worktreeFixture) string {
-				taskID, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
-				require.NoError(t, err)
-
-				return fixture.cutAs(t, *taskID, "task/"+*taskID)
+				return fixture.cut(t)
 			},
 			wantReason: "delete the task instead",
 		},
@@ -175,37 +171,6 @@ func TestRemoveRefuses(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestRemoveTakesADirectoryWhoseRowFailedToCleanUp covers the one owned directory the
-// remover accepts, a cleanup that failed on a registration git cannot read.
-func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
-	fixture := newFixture(t)
-	dir := fixture.cut(t)
-	require.NoError(t, os.RemoveAll(filepath.Join(fixture.repo, ".git", "worktrees", filepath.Base(dir))))
-	fixture.own(t, dir, agentstore.Agent{Name: "stuck", State: agentstore.StateFailedToCleanup})
-	require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{filepath.Base(dir)}))
-
-	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{dir}, removal.Removed)
-	assert.NoDirExists(t, dir)
-}
-
-// TestRemoveTakesTheCheckoutOfATaskBeingDeleted covers a task giving up its directory once a delete has claimed it.
-func TestRemoveTakesTheCheckoutOfATaskBeingDeleted(t *testing.T) {
-	fixture := newFixture(t)
-	taskID, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
-	require.NoError(t, err)
-	dir := fixture.cutAs(t, *taskID, "task/"+*taskID)
-	require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{*taskID}))
-
-	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{dir}, removal.Removed)
-	assert.NoDirExists(t, dir)
 }
 
 // TestRemoveRefusesADirectoryHoldingAnotherWorktree covers a directory being left alone while

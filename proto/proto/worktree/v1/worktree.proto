@@ -18,23 +18,36 @@ message WorktreeAgent {
   agent.v1.AgentState state = 3;
   // When the agent was put away, in RFC 3339, unset while it is live.
   optional string archived_at = 4;
-  // Whether the branch was somebody's before the agent was put on it, which cleanup never
+  reserved 5;
+  reserved "adopted";
+}
+
+message WorktreeTask {
+  // The task's id, which is also the directory's name.
+  string id = 1;
+  // The task's slug.
+  string slug = 2;
+  // When the task was put away, in RFC 3339, unset while it is open.
+  optional string archived_at = 3;
+  // Whether the branch was somebody's before the task was put on it, which cleanup never
   // deletes.
-  bool adopted = 5;
+  bool adopted = 4;
 }
 
 // WorktreeFate is which delete path a directory takes.
 enum WorktreeFate {
   // Never sent.
   WORKTREE_FATE_UNSPECIFIED = 0;
-  // Nothing answers for the directory, which the remover takes.
+  // No task answers for the directory, which the remover takes.
   WORKTREE_FATE_UNOWNED = 1;
-  // The directory's agent is put away, which the agent delete takes.
+  // The directory's task is put away, which the task delete takes.
   WORKTREE_FATE_ARCHIVED = 2;
-  // The directory's agent is running, which nothing takes.
+  // The directory's task is open, which nothing takes.
   WORKTREE_FATE_LIVE = 3;
-  // Only the directory's task answers for it, which the task delete takes.
-  WORKTREE_FATE_TASK = 4;
+  reserved 4;
+  reserved "WORKTREE_FATE_TASK";
+  // A delete has claimed the directory's task, which that delete takes.
+  WORKTREE_FATE_DELETING = 5;
 }
 
 message Worktree {
@@ -49,9 +62,9 @@ message Worktree {
   // Whether the gitdir the .git file names is still there, without which git will not answer
   // for the directory.
   bool readable = 4;
-  // The agent the directory was made for, unset when no row answers for it.
-  WorktreeAgent agent = 5;
-  // The other agents working in this directory, which hold none of their own.
+  reserved 5;
+  reserved "agent";
+  // The agents working in this directory, live ones first.
   repeated WorktreeAgent occupants = 6;
   // The disk the directory takes, in bytes, as it was last measured in the background or by
   // get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has
@@ -62,15 +75,17 @@ message Worktree {
   optional string measured_at = 8;
   // Why the last walk failed, empty when it did not.
   string size_error = 9;
-  // When the directory was last active, in RFC 3339: the later of its agent's last state change
-  // and its archiving when an agent answers for it, else when git last wrote the directory's
-  // .git file, else the directory's own modification time.
+  // When the directory was last active, in RFC 3339: the latest state change or archiving of
+  // its occupants when it has any, else when git last wrote the directory's .git file, else the
+  // directory's own modification time.
   string last_active_at = 10;
   // Which delete path the directory takes.
   WorktreeFate fate = 11;
   // The directory's share of size_bytes, each hard linked file's blocks split evenly across its
   // links. Unset with size_bytes.
   optional int64 share_bytes = 12;
+  // The task whose checkout the directory is, unset when none answers for it.
+  WorktreeTask task = 13;
 }
 
 // WatchedWorktree is a worktree as the filesystem holds it.

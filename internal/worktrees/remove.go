@@ -55,9 +55,9 @@ func NewRemover(params NewRemoverParams) *Remover {
 	}
 }
 
-// RefuseForTask is the refusal of a directory only its task answers for.
+// RefuseForTask is the refusal of a directory its task answers for.
 func (w Worktree) RefuseForTask() Refusal {
-	return Refusal{Dir: w.Dir, Reason: fmt.Sprintf("task %s holds it; delete the task instead", w.TaskSlug)}
+	return Refusal{Dir: w.Dir, Reason: fmt.Sprintf("task %s holds it; delete the task instead", w.Task.Slug)}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.
@@ -133,11 +133,12 @@ func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, 
 	}
 
 	worktree := listing.Worktrees[at]
-	if worktree.Fate() == FateTask {
+	switch worktree.Fate() {
+	case FateLive, FateArchived:
 		return worktree.RefuseForTask(), true
-	}
-	if worktree.Fate() != FateUnowned {
-		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s answers for it; delete the agent instead", worktree.Agent.Name)}, true
+	case FateDeleting:
+		return Refusal{Dir: dir, Reason: fmt.Sprintf("task %s is being deleted, which takes it", worktree.Task.Slug)}, true
+	case FateUnowned:
 	}
 	if len(worktree.Occupants) > 0 {
 		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is working in it; delete the agent instead", worktree.Occupants[0].Name)}, true

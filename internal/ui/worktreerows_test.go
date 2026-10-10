@@ -188,20 +188,16 @@ func TestWorktreesSnapshotRendersFlatRowsAtTheHeadingIndent(t *testing.T) {
 	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}}, snapshot.Rows[0].Cells)
 }
 
-// TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in another's directory
+// TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in a task's directory
 // getting no row of its own.
 func TestWorktreeRowsLeaveTheOccupantOffTheList(t *testing.T) {
 	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
 
 	assert.Len(t, rows, 8)
-	for _, row := range rows {
-		if row.item.agent != nil {
-			assert.NotEqual(t, "occ", row.item.agent.id)
-		}
-	}
+	assert.NotContains(t, xslice.Map(rows, func(row worktreeRow) string { return row.name() }), "review-607")
 }
 
-// TestWorktreeRowNames covers the name falling from the agent to the branch to the directory.
+// TestWorktreeRowNames covers the name falling from the task to the branch to the directory.
 func TestWorktreeRowNames(t *testing.T) {
 	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
 
@@ -231,7 +227,7 @@ func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
 	assert.Equal(t, "stray", rows[1].name())
 }
 
-// TestRowIndexOfWorktreeAgent covers the owner and an occupant both landing on the directory,
+// TestRowIndexOfWorktreeAgent covers the lead and another occupant both landing on the directory,
 // and an agent with no directory landing nowhere.
 func TestRowIndexOfWorktreeAgent(t *testing.T) {
 	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
@@ -252,7 +248,7 @@ func TestRowIndexOfWorktreeAgent(t *testing.T) {
 			want: -1,
 		},
 		{
-			name: "the owner lands on its directory",
+			name: "the lead lands on its directory",
 			id:   "live",
 			want: 4,
 		},
@@ -418,9 +414,9 @@ func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	}, cells)
 }
 
-// worktreeFixture is two repositories' worth of directories: a live agent, one archived mid-turn
-// with the state it stopped in still stored, a directory nothing answers for, an unreadable one,
-// and an occupant working in the live one.
+// worktreeFixture is two repositories' worth of directories: a live task with an agent and a
+// reviewer in it, one archived with an agent stopped mid-turn still stored, a directory nothing
+// answers for, an unreadable one, and another archived task's.
 func worktreeFixture() []worktreeItem {
 	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 
@@ -430,16 +426,22 @@ func worktreeFixture() []worktreeItem {
 			repoDir:  "/home/h/komrad",
 			branch:   "agent/live",
 			readable: true,
-			agent: &worktreeAgent{
-				id:    "live",
-				name:  "worktree-view",
-				state: panel.StateThinking,
+			task: &panel.Task{
+				ID:   "live",
+				Slug: "worktree-view",
 			},
-			occupants: []worktreeAgent{{
-				id:    "occ",
-				name:  "review-607",
-				state: panel.StateIdle,
-			}},
+			occupants: []worktreeAgent{
+				{
+					id:    "live",
+					name:  "worktree-view",
+					state: panel.StateThinking,
+				},
+				{
+					id:    "occ",
+					name:  "review-607",
+					state: panel.StateIdle,
+				},
+			},
 			fate: fateLive,
 		},
 		{
@@ -447,12 +449,17 @@ func worktreeFixture() []worktreeItem {
 			repoDir:  "/home/h/komrad",
 			branch:   "agent/archived",
 			readable: true,
-			agent: &worktreeAgent{
+			task: &panel.Task{
+				ID:         "archived",
+				Slug:       "review-column",
+				ArchivedAt: &archived,
+			},
+			occupants: []worktreeAgent{{
 				id:         "archived",
 				name:       "review-column",
 				state:      panel.StateThinking,
 				archivedAt: &archived,
-			},
+			}},
 			fate: fateArchived,
 		},
 		{
@@ -470,12 +477,17 @@ func worktreeFixture() []worktreeItem {
 			repoDir:  "/home/h/gadgets/admin",
 			branch:   "agent/admin",
 			readable: true,
-			agent: &worktreeAgent{
+			task: &panel.Task{
+				ID:         "admin",
+				Slug:       "custom-cargo-fixes",
+				ArchivedAt: &archived,
+			},
+			occupants: []worktreeAgent{{
 				id:         "admin",
 				name:       "custom-cargo-fixes",
 				state:      panel.StateIdle,
 				archivedAt: &archived,
-			},
+			}},
 			fate: fateArchived,
 		},
 	}

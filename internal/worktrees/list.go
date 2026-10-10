@@ -20,20 +20,25 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Agent is what a listing says about an agent that holds a directory.
+// Agent is what a listing says about an agent working in a directory.
 type Agent struct {
 	ID             string
 	Name           string
 	State          agentstore.State
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
-	// Adopted says the branch was somebody's before the agent was put on it.
-	Adopted bool
-	// FailedToCleanup says the agent's own delete refused the directory.
-	FailedToCleanup bool
-	// Deleting says a delete has claimed the agent and not yet taken it.
-	Deleting   bool
+}
+
+// Task is what a listing says about the task whose checkout a directory is.
+type Task struct {
+	ID         string
 	WorkflowID string
+	Slug       string
+	// Adopted says the branch was somebody's before the task was put on it.
+	Adopted    bool
+	ArchivedAt *time.Time
+	// Deleting says a delete has claimed the task and not yet taken it.
+	Deleting bool
 }
 
 // Worktree is one directory under the worktree directories, and what answers for it.
@@ -46,20 +51,17 @@ type Worktree struct {
 	Branch string
 	// Readable says the gitdir the .git file names is still there.
 	Readable bool
-	// Agent is the row the directory was made for, nil when none answers.
-	Agent *Agent
-	// Occupants are the other rows working in this directory.
+	// Task is the task whose checkout the directory is, nil when none answers.
+	Task *Task
+	// Occupants are the agents working in the directory, live ones first.
 	Occupants []Agent
-	// TaskSlug names the task whose checkout the directory is, empty when none answers or a delete
-	// has claimed it.
-	TaskSlug string
 	// ModifiedAt is when git last wrote the directory's .git file, else the directory's own
 	// modification time, zero when neither could be read.
 	ModifiedAt time.Time
 	// Size is the directory's last measurement, nil until the loop has been round.
 	Size *worktreestore.Size
-	// LastActiveAt is when the directory was last touched, read off its agent when one answers
-	// and off the filesystem otherwise.
+	// LastActiveAt is when the directory was last touched, read off its occupants when there are
+	// any and off the filesystem otherwise.
 	LastActiveAt time.Time
 }
 
@@ -67,26 +69,24 @@ type Worktree struct {
 type Fate int
 
 const (
-	// FateUnowned is a directory nothing answers for, which the remover takes.
+	// FateUnowned is a directory no task answers for, which the remover takes.
 	FateUnowned Fate = iota
-	// FateArchived is a directory whose agent is put away, which the agent delete takes.
-	FateArchived
-	// FateLive is a directory whose agent is running, which nothing takes.
+	// FateLive is a directory whose task is open, which nothing takes.
 	FateLive
-	// FateTask is a directory only its task answers for, which the task delete takes.
-	FateTask
+	// FateArchived is a directory whose task is put away, which the task delete takes.
+	FateArchived
+	// FateDeleting is a directory whose task a delete has claimed, which that delete takes.
+	FateDeleting
 )
 
 // Fate is which delete path the directory takes.
 func (w Worktree) Fate() Fate {
-	if w.Agent == nil || (w.Agent.FailedToCleanup && !w.Readable) {
-		if w.TaskSlug != "" {
-			return FateTask
-		}
-
+	switch {
+	case w.Task == nil:
 		return FateUnowned
-	}
-	if w.Agent.ArchivedAt != nil {
+	case w.Task.Deleting:
+		return FateDeleting
+	case w.Task.ArchivedAt != nil:
 		return FateArchived
 	}
 
@@ -199,15 +199,16 @@ func (l *Lister) Get(ctx context.Context, dir string) (*Worktree, error) {
 
 // answerer reads the rows and the sizes once and describes any directory against them.
 func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error) {
-	owners, err := l.agents.ListDirs(ctx)
+	rows, err := l.agents.ListDirs(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	taskSlugs, err := l.tasks.ListUndeletedSlugs(ctx)
+	summaries, err := l.tasks.ListSummaries(ctx)
 	if err != nil {
 		return nil, err
 	}
+	tasks := xslice.KeyBy(summaries, func(summary taskstore.Summary) string { return summary.ID })
 
 	sizes, err := l.worktrees.ListSizes(ctx)
 	if err != nil {
@@ -217,8 +218,10 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 
 	return func(dir string) Worktree {
 		worktree := read(dir)
-		worktree.Agent, worktree.Occupants = owned(dir, owners)
-		worktree.TaskSlug = taskSlugs[filepath.Base(dir)]
+		if summary, ok := tasks[filepath.Base(dir)]; ok {
+			worktree.Task = describeTask(summary)
+		}
+		worktree.Occupants = listOccupants(dir, rows)
 		if size, ok := sized[dir]; ok {
 			worktree.Size = &size
 		}
@@ -258,18 +261,25 @@ func walk(dirs []string) paths {
 	return found
 }
 
-// lastActive is when a directory was last touched, by its agent when one answers and by its
-// mtime otherwise.
+// lastActive is when a directory was last touched, by its occupants when there are any and by
+// its mtime otherwise.
 func lastActive(worktree Worktree) time.Time {
-	agent := worktree.Agent
-	if agent == nil {
+	if len(worktree.Occupants) == 0 {
 		return worktree.ModifiedAt
 	}
-	if agent.ArchivedAt != nil && agent.ArchivedAt.After(agent.StateChangedAt) {
-		return *agent.ArchivedAt
+
+	var latest time.Time
+	for _, agent := range worktree.Occupants {
+		touched := agent.StateChangedAt
+		if agent.ArchivedAt != nil && agent.ArchivedAt.After(touched) {
+			touched = *agent.ArchivedAt
+		}
+		if touched.After(latest) {
+			latest = touched
+		}
 	}
 
-	return agent.StateChangedAt
+	return latest
 }
 
 // modifiedAt is the mtime of a directory's .git file, else its own.
@@ -341,36 +351,21 @@ func readBranch(gitdir string) string {
 	return ref
 }
 
-// owned is the row a directory was made for, and every other row working in it.
-func owned(dir string, owners []agentstore.AgentDir) (*Agent, []Agent) {
-	var provisioned []agentstore.AgentDir
-	var occupants []Agent
-
+// listOccupants is every agent working in a directory, those provisioned for its task included,
+// live ones first and then newer before older.
+func listOccupants(dir string, rows []agentstore.AgentDir) []Agent {
 	name := filepath.Base(dir)
-	for _, row := range owners {
-		switch {
-		case row.ProvisionedTaskID == name:
-			provisioned = append(provisioned, row)
-		case filepath.Clean(row.Cwd) == dir:
-			occupants = append(occupants, *describe(row))
-		}
-	}
+	working := xslice.Filter(rows, func(row agentstore.AgentDir) bool {
+		return row.ProvisionedTaskID == name || filepath.Clean(row.Cwd) == dir
+	})
+	slices.SortFunc(working, compareOccupants)
 
-	var owner *Agent
-	slices.SortFunc(provisioned, compareOwners)
-	if len(provisioned) > 0 {
-		owner = describe(provisioned[0])
-		occupants = append(occupants, xslice.Map(provisioned[1:], func(row agentstore.AgentDir) Agent { return *describe(row) })...)
-	}
-
-	slices.SortFunc(occupants, func(a, b Agent) int { return strings.Compare(a.Name, b.Name) })
-
-	return owner, occupants
+	return xslice.Map(working, describeAgent)
 }
 
-// compareOwners orders the rows provisioned for one task by which owns its directory, a live one
-// before an archived one and then a newer one before an older.
-func compareOwners(a, b agentstore.AgentDir) int {
+// compareOccupants orders the agents in a directory, a live one before an archived one and then
+// a newer one before an older.
+func compareOccupants(a, b agentstore.AgentDir) int {
 	if (a.ArchivedAt == nil) != (b.ArchivedAt == nil) {
 		if a.ArchivedAt == nil {
 			return -1
@@ -382,25 +377,32 @@ func compareOwners(a, b agentstore.AgentDir) int {
 	return b.CreatedAt.Compare(a.CreatedAt)
 }
 
-func describe(row agentstore.AgentDir) *Agent {
-	return &Agent{
-		ID:              row.ID,
-		Name:            row.Name,
-		State:           row.State,
-		StateChangedAt:  row.StateChangedAt,
-		ArchivedAt:      row.ArchivedAt,
-		Adopted:         row.Adopted,
-		FailedToCleanup: row.State == agentstore.StateFailedToCleanup,
-		Deleting:        row.DeletingAt != nil,
-		WorkflowID:      row.WorkflowID,
+func describeAgent(row agentstore.AgentDir) Agent {
+	return Agent{
+		ID:             row.ID,
+		Name:           row.Name,
+		State:          row.State,
+		StateChangedAt: row.StateChangedAt,
+		ArchivedAt:     row.ArchivedAt,
 	}
 }
 
-// Unclaimed drops the directories a delete has claimed: those whose agent is being deleted, and
+func describeTask(summary taskstore.Summary) *Task {
+	return &Task{
+		ID:         summary.ID,
+		WorkflowID: summary.WorkflowID,
+		Slug:       summary.Slug,
+		Adopted:    summary.Adopted,
+		ArchivedAt: summary.ArchivedAt,
+		Deleting:   summary.Deleting,
+	}
+}
+
+// Unclaimed drops the directories a delete has claimed: those whose task is being deleted, and
 // those nothing answers for that an unfinished delete names.
 func Unclaimed(listing []Worktree, claimed []string) []Worktree {
 	return xslice.Filter(unnamed(listing, claimed), func(worktree Worktree) bool {
-		return worktree.Agent == nil || !worktree.Agent.Deleting
+		return worktree.Fate() != FateDeleting
 	})
 }
 

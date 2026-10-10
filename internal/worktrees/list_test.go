@@ -22,12 +22,13 @@ import (
 )
 
 // TestListReadsADirectoryWithoutGit covers the repository, the branch and the readability of
-// a worktree coming off its own files, and the agent row that answers for it.
+// a worktree coming off its own files, the task it was cut for, and the agents in it.
 func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	fixture := newFixture(t)
 	dir := fixture.cut(t)
 	agent := fixture.own(t, dir, agentstore.Agent{Name: "first"})
 	fixture.archive(t, agent.ID)
+	fixture.archiveTask(t, dir)
 
 	listing, err := fixture.lister.List(t.Context())
 	require.NoError(t, err)
@@ -38,11 +39,14 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	assert.Equal(t, fixture.repo, tree.RepoDir)
 	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
 	assert.True(t, tree.Readable)
-	require.NotNil(t, tree.Agent)
-	assert.Equal(t, "first", tree.Agent.Name)
-	assert.Equal(t, agentstore.StateIdle, tree.Agent.State)
-	assert.NotNil(t, tree.Agent.ArchivedAt)
-	assert.Equal(t, fixture.workflowID, tree.Agent.WorkflowID)
+	require.NotNil(t, tree.Task)
+	assert.Equal(t, *agent.TaskID, tree.Task.ID)
+	assert.Equal(t, fixture.workflowID, tree.Task.WorkflowID)
+	assert.NotNil(t, tree.Task.ArchivedAt)
+	require.Len(t, tree.Occupants, 1)
+	assert.Equal(t, "first", tree.Occupants[0].Name)
+	assert.Equal(t, agentstore.StateIdle, tree.Occupants[0].State)
+	assert.NotNil(t, tree.Occupants[0].ArchivedAt)
 	assert.Equal(t, []string{fixture.shared}, listing.Dirs)
 	assert.Empty(t, listing.UnreadableDirs)
 }
@@ -97,147 +101,86 @@ func TestListReadsWhatADirectorySaysOfItself(t *testing.T) {
 			assert.Equal(t, wantRepoDir, tree.RepoDir)
 			assert.Equal(t, tt.wantReadable, tree.Readable)
 			assert.Empty(t, tree.Branch)
-			assert.Nil(t, tree.Agent)
+			assert.Empty(t, tree.Occupants)
 		})
 	}
 }
 
-// TestListNamesTheOccupantsOfADirectory covers every row whose cwd is the directory, however
-// the path is spelled, being listed beside the row it was cut for, sorted by name.
+// TestListNamesTheOccupantsOfADirectory covers which agents a directory lists as working in it,
+// live ones first and then newer before older.
 func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
-	fixture := newFixture(t)
-	dir := fixture.cut(t)
-	fixture.own(t, dir, agentstore.Agent{Name: "parent"})
-	fixture.occupy(t, dir, "zed-reviewer")
-	fixture.occupy(t, dir+string(filepath.Separator), "amy-alone")
-
-	listing, err := fixture.lister.List(t.Context())
-	require.NoError(t, err)
-
-	require.Len(t, listing.Worktrees, 1)
-	require.NotNil(t, listing.Worktrees[0].Agent)
-	assert.Equal(t, "parent", listing.Worktrees[0].Agent.Name)
-	require.Len(t, listing.Worktrees[0].Occupants, 2)
-	assert.Equal(t, "amy-alone", listing.Worktrees[0].Occupants[0].Name)
-	assert.Equal(t, "zed-reviewer", listing.Worktrees[0].Occupants[1].Name)
-}
-
-// TestListOwnsADirectoryNamedAfterATask covers a directory named after a task being owned by the
-// top-level agent spawned to work it.
-func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 	tests := []struct {
-		name          string
-		elsewhere     bool
-		inside        bool
-		child         bool
-		adopter       bool
-		rival         bool
-		wantOwner     bool
-		wantOccupants int
+		name string
+		// seed lays out the agents and returns the names the directory should list.
+		seed func(t *testing.T, fixture *worktreeFixture, dir string) []string
 	}{
 		{
-			name:          "an agent in a directory named after another task only occupies it",
-			elsewhere:     true,
-			inside:        true,
-			wantOccupants: 1,
+			name: "an agent working in another task's directory is not in this one",
+			seed: func(t *testing.T, fixture *worktreeFixture, dir string) []string {
+				fixture.occupy(t, fixture.cut(t), "elsewhere")
+
+				return []string{}
+			},
 		},
 		{
-			name:          "a top-level agent kept in the directory it was given only occupies its task's directory",
-			inside:        true,
-			adopter:       true,
-			wantOwner:     true,
-			wantOccupants: 1,
+			name: "an agent kept in the repository off its task's directory is not in it",
+			seed: func(t *testing.T, fixture *worktreeFixture, dir string) []string {
+				fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:             "kept",
+					Cwd:              fixture.repo,
+					WorkflowID:       fixture.workflowID,
+					TaskID:           xptr.Ptr(filepath.Base(dir)),
+					ProvisionEnabled: xptr.Ptr(false),
+				})
+
+				return []string{}
+			},
 		},
 		{
-			name:          "a child working in its task's directory only occupies it",
-			inside:        true,
-			child:         true,
-			wantOwner:     true,
-			wantOccupants: 1,
+			name: "an agent provisioned for the task is in its directory before it works there",
+			seed: func(t *testing.T, fixture *worktreeFixture, dir string) []string {
+				fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:       "writer",
+					Cwd:        fixture.repo,
+					WorkflowID: fixture.workflowID,
+					TaskID:     xptr.Ptr(filepath.Base(dir)),
+				})
+
+				return []string{"writer"}
+			},
 		},
 		{
-			name:          "a live agent leading a task owns its directory before a newer archived one provisioned for it",
-			inside:        true,
-			rival:         true,
-			wantOwner:     true,
-			wantOccupants: 1,
+			name: "an archived agent comes after a live one",
+			seed: func(t *testing.T, fixture *worktreeFixture, dir string) []string {
+				fixture.own(t, dir, agentstore.Agent{Name: "live"})
+				fixture.archive(t, fixture.own(t, dir, agentstore.Agent{Name: "archived"}).ID)
+
+				return []string{"live", "archived"}
+			},
 		},
 		{
-			name:      "the agent leading a task owns its directory before it works there",
-			wantOwner: true,
-		},
-		{
-			name:      "the agent leading a task owns the directory it works in",
-			inside:    true,
-			wantOwner: true,
+			name: "every agent working in the directory however the path is spelled, newer first",
+			seed: func(t *testing.T, fixture *worktreeFixture, dir string) []string {
+				fixture.own(t, dir, agentstore.Agent{Name: "parent"})
+				fixture.occupy(t, dir, "reviewer")
+				fixture.occupy(t, dir+string(filepath.Separator), "alone")
+
+				return []string{"alone", "reviewer", "parent"}
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newFixture(t)
-			taskID, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
+			dir := fixture.cut(t)
+			want := tt.seed(t, fixture, dir)
+
+			tree, err := fixture.lister.Get(t.Context(), dir)
 			require.NoError(t, err)
 
-			named := *taskID
-			if tt.elsewhere {
-				other, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
-				require.NoError(t, err)
-				named = *other
-			}
-			dir := fixture.cutAs(t, named, "task/"+named)
-
-			cwd := fixture.repo
-			if tt.inside {
-				cwd = dir
-			}
-			writer := fixture.stores.SeedAgent(t, agentstore.Agent{
-				Name:       "writer",
-				Cwd:        cwd,
-				WorkflowID: fixture.workflowID,
-				TaskID:     taskID,
-			})
-			if tt.child {
-				fixture.stores.SeedAgent(t, agentstore.Agent{
-					Name:          "reviewer",
-					Cwd:           dir,
-					WorkflowID:    fixture.workflowID,
-					ParentAgentID: &writer.ID,
-				})
-			}
-			if tt.adopter {
-				fixture.stores.SeedAgent(t, agentstore.Agent{
-					Name:             "adopter",
-					Cwd:              dir,
-					WorkflowID:       fixture.workflowID,
-					TaskID:           taskID,
-					ProvisionEnabled: xptr.Ptr(false),
-				})
-			}
-			if tt.rival {
-				rival := fixture.stores.SeedAgent(t, agentstore.Agent{
-					Name:       "rival",
-					Cwd:        dir,
-					WorkflowID: fixture.workflowID,
-					TaskID:     taskID,
-				})
-				_, err := fixture.stores.Agents.Archive(t.Context(), []string{rival.ID})
-				require.NoError(t, err)
-			}
-
-			listing, err := fixture.lister.List(t.Context())
-			require.NoError(t, err)
-
-			require.Len(t, listing.Worktrees, 1)
-			tree := listing.Worktrees[0]
-			assert.Len(t, tree.Occupants, tt.wantOccupants)
-			if !tt.wantOwner {
-				assert.Nil(t, tree.Agent)
-
-				return
-			}
-			require.NotNil(t, tree.Agent)
-			assert.Equal(t, writer.ID, tree.Agent.ID)
+			got := xslice.Map(tree.Occupants, func(agent Agent) string { return agent.Name })
+			assert.Equal(t, want, got)
 		})
 	}
 }
@@ -344,14 +287,14 @@ func TestGetReadsOneDirectory(t *testing.T) {
 
 	assert.Equal(t, dir, tree.Dir)
 	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
-	require.NotNil(t, tree.Agent)
-	assert.Equal(t, "first", tree.Agent.Name)
+	require.NotNil(t, tree.Task)
+	assert.Equal(t, *agent.TaskID, tree.Task.ID)
 	require.NotNil(t, tree.Size)
 	assert.Equal(t, int64(1), tree.Size.Bytes)
 }
 
-// TestLastActiveIsTheLaterOfTheAgentsTimes covers when a directory was last touched.
-func TestLastActiveIsTheLaterOfTheAgentsTimes(t *testing.T) {
+// TestLastActiveIsTheLatestOfTheOccupantsTimes covers when a directory was last touched.
+func TestLastActiveIsTheLatestOfTheOccupantsTimes(t *testing.T) {
 	earlier := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	later := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 
@@ -361,29 +304,37 @@ func TestLastActiveIsTheLaterOfTheAgentsTimes(t *testing.T) {
 		want     time.Time
 	}{
 		{
-			name:     "no agent reads the directory's mtime",
+			name:     "no occupant reads the directory's mtime",
 			worktree: Worktree{ModifiedAt: earlier},
 			want:     earlier,
 		},
 		{
 			name: "an agent archived after its last state change",
-			worktree: Worktree{Agent: &Agent{
+			worktree: Worktree{Occupants: []Agent{{
 				StateChangedAt: earlier,
 				ArchivedAt:     &later,
-			}},
+			}}},
 			want: later,
 		},
 		{
 			name: "an agent whose state changed after it was archived",
-			worktree: Worktree{Agent: &Agent{
+			worktree: Worktree{Occupants: []Agent{{
 				StateChangedAt: later,
 				ArchivedAt:     &earlier,
+			}}},
+			want: later,
+		},
+		{
+			name: "an older occupant touching it last",
+			worktree: Worktree{Occupants: []Agent{
+				{StateChangedAt: earlier},
+				{StateChangedAt: later},
 			}},
 			want: later,
 		},
 		{
 			name:     "a live agent reads its state change",
-			worktree: Worktree{Agent: &Agent{StateChangedAt: earlier}},
+			worktree: Worktree{Occupants: []Agent{{StateChangedAt: earlier}}},
 			want:     earlier,
 		},
 	}
@@ -430,8 +381,8 @@ func TestModifiedAtPrefersTheGitFile(t *testing.T) {
 	}
 }
 
-// TestFateIsDecidedByTheRow covers which delete path each directory takes.
-func TestFateIsDecidedByTheRow(t *testing.T) {
+// TestFateIsDecidedByTheTask covers which delete path each directory takes.
+func TestFateIsDecidedByTheTask(t *testing.T) {
 	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -440,56 +391,27 @@ func TestFateIsDecidedByTheRow(t *testing.T) {
 		want     Fate
 	}{
 		{
-			name:     "a directory nothing answers for",
-			worktree: Worktree{Readable: true},
+			name:     "a directory no task answers for, whoever works in it",
+			worktree: Worktree{Occupants: []Agent{{Name: "stray"}}},
 			want:     FateUnowned,
 		},
 		{
-			name: "a directory only its task answers for",
-			worktree: Worktree{
-				Readable: true,
-				TaskSlug: "flow-task",
-			},
-			want: FateTask,
-		},
-		{
-			name: "a row whose delete failed on a directory git cannot read",
-			worktree: Worktree{Agent: &Agent{
-				FailedToCleanup: true,
+			name: "a directory whose archived task a delete has claimed",
+			worktree: Worktree{Task: &Task{
+				ArchivedAt: &archived,
+				Deleting:   true,
 			}},
-			want: FateUnowned,
+			want: FateDeleting,
 		},
 		{
-			name: "a row whose delete failed on its task's directory git cannot read",
-			worktree: Worktree{
-				Agent:    &Agent{FailedToCleanup: true},
-				TaskSlug: "flow-task",
-			},
-			want: FateTask,
+			name:     "a directory whose task is archived, with nobody in it",
+			worktree: Worktree{Task: &Task{ArchivedAt: &archived}},
+			want:     FateArchived,
 		},
 		{
-			name: "a row whose delete failed on a directory git still reads",
-			worktree: Worktree{
-				Readable: true,
-				Agent:    &Agent{FailedToCleanup: true},
-			},
-			want: FateLive,
-		},
-		{
-			name: "an archived row",
-			worktree: Worktree{
-				Readable: true,
-				Agent:    &Agent{ArchivedAt: &archived},
-			},
-			want: FateArchived,
-		},
-		{
-			name: "a live row",
-			worktree: Worktree{
-				Readable: true,
-				Agent:    &Agent{},
-			},
-			want: FateLive,
+			name:     "a directory whose task is open",
+			worktree: Worktree{Task: &Task{}},
+			want:     FateLive,
 		},
 	}
 
@@ -504,11 +426,10 @@ func TestFateIsDecidedByTheRow(t *testing.T) {
 func TestUnclaimedLeavesOutWhatADeleteHasClaimed(t *testing.T) {
 	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	owned := Worktree{
-		Dir:      "/trees/owned",
-		Readable: true,
-		Agent:    &Agent{ArchivedAt: &archived},
+		Dir:  "/trees/owned",
+		Task: &Task{ArchivedAt: &archived},
 	}
-	unowned := Worktree{Dir: "/trees/unowned", Readable: true}
+	unowned := Worktree{Dir: "/trees/unowned"}
 
 	tests := []struct {
 		name    string
@@ -517,12 +438,11 @@ func TestUnclaimedLeavesOutWhatADeleteHasClaimed(t *testing.T) {
 		want    []string
 	}{
 		{
-			name: "an agent a delete has claimed",
+			name: "a directory whose task a delete has claimed",
 			listing: []Worktree{
 				{
-					Dir:      "/trees/deleting",
-					Readable: true,
-					Agent:    &Agent{Deleting: true},
+					Dir:  "/trees/deleting",
+					Task: &Task{Deleting: true},
 				},
 				unowned,
 			},
@@ -535,19 +455,7 @@ func TestUnclaimedLeavesOutWhatADeleteHasClaimed(t *testing.T) {
 			want:    []string{"/trees/owned"},
 		},
 		{
-			name: "a directory whose agent's delete failed that a delete names",
-			listing: []Worktree{
-				owned,
-				{
-					Dir:   "/trees/stuck",
-					Agent: &Agent{FailedToCleanup: true},
-				},
-			},
-			claimed: []string{"/trees/stuck"},
-			want:    []string{"/trees/owned"},
-		},
-		{
-			name:    "an archived agent's directory that a delete names",
+			name:    "an archived task's directory that a delete names",
 			listing: []Worktree{owned},
 			claimed: []string{"/trees/owned"},
 			want:    []string{"/trees/owned"},
@@ -641,7 +549,14 @@ func (f *worktreeFixture) newListerOver(shared string) *Lister {
 func (f *worktreeFixture) cut(t *testing.T) string {
 	t.Helper()
 
-	id, err := tasktest.Seed(t.Context(), f.stores.Pool.GetDB(), f.workflowID)
+	return f.cutIn(t, f.workflowID)
+}
+
+// cutIn lays out a worktree named after a fresh task in the workflow.
+func (f *worktreeFixture) cutIn(t *testing.T, workflowID string) string {
+	t.Helper()
+
+	id, err := tasktest.Seed(t.Context(), f.stores.Pool.GetDB(), workflowID)
 	require.NoError(t, err)
 
 	return f.cutAs(t, *id, "task/"+*id)
@@ -698,6 +613,13 @@ func (f *worktreeFixture) archive(t *testing.T, id string) {
 
 	_, err := f.stores.Agents.Archive(t.Context(), []string{id})
 	require.NoError(t, err)
+}
+
+// archiveTask archives the task a directory was cut for.
+func (f *worktreeFixture) archiveTask(t *testing.T, dir string) {
+	t.Helper()
+
+	require.NoError(t, f.stores.Tasks.Archive(t.Context(), filepath.Base(dir)))
 }
 
 func (f *worktreeFixture) recordSize(t *testing.T, dir string, at time.Time) {

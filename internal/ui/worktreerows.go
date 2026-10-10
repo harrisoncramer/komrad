@@ -65,8 +65,6 @@ func (r worktreeRow) name() string {
 	switch {
 	case r.header:
 		return label.Path(r.repo, homeDir())
-	case r.item.agent != nil:
-		return r.item.agent.name
 	case r.item.task != nil:
 		return r.item.task.Slug
 	case r.item.branch != "":
@@ -272,8 +270,8 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 				row.Kind = view.KindResult
 			}
 			row.Cells = rowCells(r.item, params.now)
-			if r.item.agent != nil {
-				row = worktreeAgentFacts(row, *r.item.agent, live)
+			if occupant, ok := r.item.firstOccupant(); ok {
+				row = worktreeAgentFacts(row, occupant, live)
 			} else {
 				row.Process = view.ProcessStopped
 			}

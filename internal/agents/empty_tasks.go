@@ -10,6 +10,7 @@ import (
 
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 )
 
 // taskScriptRunner runs a task's hooks and gives back the checkout of a task no agent is left on.
@@ -21,14 +22,16 @@ type taskScriptRunner interface {
 type NewEmptyTaskDeleterParams struct {
 	Tasks     *taskstore.TaskStore
 	Workflows *workflowstore.WorkflowStore
+	Worktrees *worktreestore.WorktreeStore
 	Scripts   taskScriptRunner
 }
 
 // EmptyTaskDeleter removes a task being deleted once no agent is left on it, giving its checkout
-// back first.
+// back and forgetting its worktree row first.
 type EmptyTaskDeleter struct {
 	tasks     *taskstore.TaskStore
 	workflows *workflowstore.WorkflowStore
+	worktrees *worktreestore.WorktreeStore
 	scripts   taskScriptRunner
 }
 
@@ -37,6 +40,7 @@ func NewEmptyTaskDeleter(params NewEmptyTaskDeleterParams) *EmptyTaskDeleter {
 	return &EmptyTaskDeleter{
 		tasks:     params.Tasks,
 		workflows: params.Workflows,
+		worktrees: params.Worktrees,
 		scripts:   params.Scripts,
 	}
 }
@@ -60,6 +64,10 @@ func (d *EmptyTaskDeleter) DeleteIfEmpty(ctx context.Context, id string) error {
 		failed := fmt.Errorf("%w: task %s: %w", agenterr.ErrTeardownFailed, found.Slug, err)
 
 		return errors.Join(failed, d.tasks.RecordCleanupFailure(cleanup, found.ID, err))
+	}
+
+	if err := d.worktrees.DeleteForTask(cleanup, found.ID); err != nil {
+		return errors.Join(err, d.tasks.ClearDeleting(cleanup, found.ID))
 	}
 
 	if err := d.tasks.Delete(cleanup, found.ID); err != nil {

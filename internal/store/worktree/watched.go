@@ -17,7 +17,7 @@ var WatchedWorktrees = watch.Resource{
 	KeyColumn: "dir",
 	Feeders: []watch.Feeder{
 		{
-			Table: "agents",
+			Table: "tasks",
 			Lookup: &watch.Lookup{
 				ParentColumn: "name",
 				ChildColumn:  "id",
@@ -27,7 +27,7 @@ var WatchedWorktrees = watch.Resource{
 	},
 }
 
-// ListWatched returns whichever of keys are recorded directories whose agent is not being deleted, or every one when keys is nil.
+// ListWatched returns whichever of keys are recorded directories whose task is not being deleted, or every one when keys is nil.
 func (s *WorktreeStore) ListWatched(ctx context.Context, keys []string) ([]Worktree, error) {
 	rows, err := s.queries.ListWatchedWorktrees(ctx, keys)
 	if err != nil {

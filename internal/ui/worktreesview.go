@@ -62,21 +62,15 @@ func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
 	}
 
 	if !item.readable {
-		fields = append(fields, recordField{label: "repository", value: label.OrDash(item.repoDir)})
-		if len(item.occupants) > 0 {
-			fields = append(fields, recordField{label: "also here", value: occupantsField(item)})
-		}
+		fields = append(fields, recordField{label: "repository", value: label.OrDash(item.repoDir)}, worktreeTaskField(item))
 
-		return append(fields, worktreeOwnerFields(m.listing, item)...)
+		return appendOccupantsField(fields, "agents", item.occupants)
 	}
 
 	fields = append(fields,
 		recordField{label: "branch", value: label.OrDash(item.branch)},
 		recordField{label: "repository", value: label.OrDash(label.Path(item.repoDir, homeDir()))},
 	)
-	if len(item.occupants) > 0 {
-		fields = append(fields, recordField{label: "also here", value: occupantsField(item)})
-	}
 	read := m.inspections[item.dir]
 	if read.answered && read.err != nil {
 		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
@@ -88,20 +82,27 @@ func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
 		)
 	}
 
-	return append(append(fields, worktreeOwnerFields(m.listing, item)...), recordField{label: "workflow", value: worktreeWorkflowField(m.listing, item)})
+	fields = append(fields, worktreeTaskField(item), recordField{label: "workflow", value: worktreeWorkflowField(m.listing, item)})
+
+	return appendOccupantsField(fields, "agents", item.occupants)
 }
 
-// worktreeOwnerFields name what answers for a directory: its agent, or its task when no agent does.
-func worktreeOwnerFields(l listing, item worktreeItem) []recordField {
-	if item.task != nil {
-		return []recordField{{label: "task", value: item.task.Slug}}
+// worktreeTaskField names the task a directory is the checkout of.
+func worktreeTaskField(item worktreeItem) recordField {
+	if item.task == nil {
+		return recordField{label: "task", value: "none"}
 	}
 
-	return []recordField{{label: "agent", value: worktreeAgentField(l, item)}}
+	return recordField{label: "task", value: item.task.Slug}
 }
 
-func occupantsField(item worktreeItem) string {
-	return strings.Join(xslice.Map(item.occupants, func(occupant worktreeAgent) string { return occupant.name }), ", ")
+// appendOccupantsField names the agents under the label when there are any.
+func appendOccupantsField(fields []recordField, name string, occupants []worktreeAgent) []recordField {
+	if len(occupants) == 0 {
+		return fields
+	}
+
+	return append(fields, recordField{label: name, value: strings.Join(xslice.Map(occupants, func(occupant worktreeAgent) string { return occupant.name }), ", ")})
 }
 
 // sizeField is what the directory takes and when that was measured, or why it could not be.
@@ -123,7 +124,7 @@ func lastActiveField(item worktreeItem, now time.Time) string {
 	}
 
 	field := label.AgeAt(item.lastActiveAt, now) + " ago"
-	if item.agent != nil && item.agent.archivedAt != nil {
+	if item.task != nil && item.task.ArchivedAt != nil {
 		field += ", archived"
 	}
 
@@ -176,37 +177,12 @@ func changesField(read worktreeInspection) string {
 	return strings.Join(parts, ", ")
 }
 
-// worktreeAgentField is the agent behind a directory as the record names it.
-func worktreeAgentField(l listing, item worktreeItem) string {
-	if item.agent == nil {
-		return "none"
-	}
-	if live, ok := l.liveAgent(item.agent.id); ok {
-		return live.Agent.Harness + ", " + string(displayState(live))
-	}
-	if archived, ok := l.archivedAgent(item.agent.id); ok && archived.ArchivedAt != nil {
-		return archived.Harness + ", archived " + label.Day(*archived.ArchivedAt)
-	}
-	if item.agent.archivedAt != nil {
-		return "archived " + label.Day(*item.agent.archivedAt)
-	}
-
-	return string(item.agent.state)
-}
-
 func worktreeWorkflowField(l listing, item worktreeItem) string {
-	if item.agent == nil {
+	if item.task == nil {
 		return label.Dash
 	}
 
-	workflowID := ""
-	if live, ok := l.liveAgent(item.agent.id); ok {
-		workflowID = live.Agent.WorkflowID
-	} else if archived, ok := l.archivedAgent(item.agent.id); ok {
-		workflowID = archived.WorkflowID
-	}
-
-	return l.workflowName(workflowID)
+	return l.workflowName(item.task.WorkflowID)
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.

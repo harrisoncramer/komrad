@@ -159,14 +159,10 @@ func (s *WorktreeStore) Delete(ctx context.Context, dirs []string) error {
 	return nil
 }
 
-// DeleteByName forgets the directories cut for the agents named.
-func (s *WorktreeStore) DeleteByName(ctx context.Context, names []string) error {
-	if len(names) == 0 {
-		return nil
-	}
-
-	if err := s.queries.DeleteWorktreesByName(ctx, names); err != nil {
-		return fmt.Errorf("failed to forget the worktrees of %d agents: %w", len(names), err)
+// DeleteForTask forgets the directories cut for the task.
+func (s *WorktreeStore) DeleteForTask(ctx context.Context, taskID string) error {
+	if err := s.queries.DeleteTaskWorktrees(ctx, taskID); err != nil {
+		return fmt.Errorf("failed to forget the worktrees of task %q: %w", taskID, err)
 	}
 
 	return nil

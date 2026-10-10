@@ -890,14 +890,11 @@ SELECT
     a.deleting_at,
     a.workflow_id,
     a.created_at,
-    COALESCE(t.adopted_branch IS NOT NULL
-        AND t.cwd = a.cwd, FALSE)::boolean AS adopted,
     a.task_id,
     a.parent_agent_id,
     a.provision_enabled
 FROM
     agents a
-    LEFT JOIN tasks t ON t.id = a.task_id
 `
 
 type ListAgentDirsRow struct {
@@ -910,7 +907,6 @@ type ListAgentDirsRow struct {
 	DeletingAt       *time.Time
 	WorkflowID       string
 	CreatedAt        time.Time
-	Adopted          bool
 	TaskID           *string
 	ParentAgentID    *string
 	ProvisionEnabled *bool
@@ -935,7 +931,6 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.DeletingAt,
 			&i.WorkflowID,
 			&i.CreatedAt,
-			&i.Adopted,
 			&i.TaskID,
 			&i.ParentAgentID,
 			&i.ProvisionEnabled,

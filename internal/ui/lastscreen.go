@@ -58,15 +58,20 @@ func (a *agentsScreen) screenedAgentID(m *model) (string, bool) {
 
 func (w *worktreesScreen) screenedAgentID(m *model) (string, bool) {
 	row, ok := w.hovered(m)
-	if !ok || row.item.agent == nil {
+	if !ok {
 		return "", false
 	}
 
-	if live, ok := m.listing.liveAgent(row.item.agent.id); ok && live.Alive {
+	occupant, ok := row.item.firstOccupant()
+	if !ok {
 		return "", false
 	}
 
-	return row.item.agent.id, true
+	if live, ok := m.listing.liveAgent(occupant.id); ok && live.Alive {
+		return "", false
+	}
+
+	return occupant.id, true
 }
 
 func (m *model) isScreenShown() bool {
