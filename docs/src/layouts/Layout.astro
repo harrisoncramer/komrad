@@ -4,8 +4,8 @@ import "../styles/global.css";
 
 import Header from "../components/Header";
 import Search from "../components/Search.astro";
-import { HOME_TITLE, SITE_TITLE } from "../consts";
-import { canonical, link } from "../site";
+import { HOME_TITLE, SITE_TITLE, SPLASH } from "../consts";
+import { canonical, link, media } from "../site";
 
 type Props = {
   title: string;
@@ -18,7 +18,7 @@ type Props = {
 const { title, description, sidebar, noindex, structuredData } = Astro.props;
 const pageTitle = title === HOME_TITLE ? title : `${title} | ${SITE_TITLE}`;
 const canonicalUrl = canonical(Astro.url.pathname);
-const imageUrl = new URL("/media/splash.png", Astro.site).href;
+const imageUrl = new URL(media(SPLASH.name), Astro.site).href;
 const jsonLd =
   structuredData &&
   JSON.stringify({ "@context": "https://schema.org", "@graph": structuredData }).replace(/</g, "\\u003c");
@@ -41,12 +41,9 @@ const jsonLd =
     {description && <meta property="og:description" content={description} />}
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:image" content={imageUrl} />
-    <meta property="og:image:width" content="1920" />
-    <meta property="og:image:height" content="930" />
-    <meta
-      property="og:image:alt"
-      content="The komrad panel: a list of agents grouped by project beside a live Claude session."
-    />
+    <meta property="og:image:width" content={String(SPLASH.width)} />
+    <meta property="og:image:height" content={String(SPLASH.height)} />
+    <meta property="og:image:alt" content={SPLASH.alt} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     {description && <meta name="twitter:description" content={description} />}

@@ -2,7 +2,7 @@
 import { Code } from "astro:components";
 import Layout from "../layouts/Layout.astro";
 import { codeTheme } from "../code-theme.mjs";
-import { HOME_TITLE, REPO_URL, SITE_DESCRIPTION, SITE_TITLE } from "../consts";
+import { HOME_TITLE, REPO_URL, SITE_DESCRIPTION, SITE_TITLE, SPLASH } from "../consts";
 import { canonical, link, media } from "../site";
 
 const INSTALL = `gh release download tip --repo harrisoncramer/komrad --pattern komrad-darwin-arm64 --output ~/.local/bin/komrad
@@ -45,10 +45,10 @@ const STRUCTURED_DATA = [
     </p>
     <p>Komrad runs on your machine by default, but can be deployed to a remote instance that you control.</p>
     <img
-      src={media("splash.png")}
-      alt="The komrad panel: a list of agents grouped by project beside a live Claude session."
-      width="1920"
-      height="930"
+      src={media(SPLASH.name)}
+      alt={SPLASH.alt}
+      width={SPLASH.width}
+      height={SPLASH.height}
       fetchpriority="high"
       decoding="async"
     />

@@ -12,3 +12,10 @@ export const SECTIONS = [
   { id: "config", title: "Config" },
   { id: "pricing", title: "Pricing" },
 ] as const;
+
+export const SPLASH = {
+  name: "splash.png",
+  alt: "The komrad panel: a list of agents grouped by project beside a live Claude session.",
+  width: 1920,
+  height: 930,
+};
