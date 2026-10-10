@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+#MISE description="Capture pprof profiles from the running service or panel into profiling/."
+set -euo pipefail
+
+usage() {
+	echo "Usage: mise run debug:pprof <server|panel> [--include-cpu] [--seconds N] [--address host:port]"
+	echo
+	echo "Captures the heap, allocations, goroutines, threads, blocking and lock"
+	echo "contention of one running process into profiling/<target>-<time>/. The"
+	echo "process must have debug.pprof.server or debug.pprof.client enabled in"
+	echo "its configuration, and it reads that only when it starts."
+	echo
+	echo "  server         the background service, on localhost:6060 by default"
+	echo "  panel          the panel, on localhost:6061 by default"
+	echo "  --include-cpu  also take a CPU profile, which blocks for its duration"
+	echo "  --seconds N    how long the CPU profile runs (default 30)"
+	echo "  --address A    where the process serves profiles, when not the default"
+}
+
+target=""
+include_cpu=false
+seconds=30
+address=""
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--include-cpu)
+		include_cpu=true
+		;;
+	--seconds)
+		seconds="${2:?--seconds needs a value}"
+		shift
+		;;
+	--address)
+		address="${2:?--address needs a value}"
+		shift
+		;;
+	server | panel)
+		target="$1"
+		;;
+	*)
+		usage >&2
+		exit 1
+		;;
+	esac
+	shift
+done
+
+case "$target" in
+server) address="${address:-localhost:6060}" ;;
+panel) address="${address:-localhost:6061}" ;;
+*)
+	usage >&2
+	exit 1
+	;;
+esac
+
+base="http://$address/debug/pprof"
+
+if ! curl -fs -o /dev/null "$base/"; then
+	echo "debug:pprof: nothing serves profiles at $address; enable debug.pprof for the $target and restart it" >&2
+	exit 1
+fi
+
+out="$MISE_CONFIG_ROOT/profiling/$target-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$out"
+
+capture() {
+	local name="$1" query="$2"
+	echo "$name"
+	curl -fsS -o "$out/$name" "$base/$query"
+}
+
+capture heap.pb.gz "heap?gc=1"
+capture allocs.pb.gz "allocs"
+capture goroutine.pb.gz "goroutine"
+capture goroutine.txt "goroutine?debug=2"
+capture threadcreate.pb.gz "threadcreate"
+capture block.pb.gz "block"
+capture mutex.pb.gz "mutex"
+capture heap.txt "heap?debug=1"
+
+if [ "$include_cpu" = true ]; then
+	echo "cpu.pb.gz (${seconds}s)"
+	curl -fsS --max-time "$((seconds + 30))" -o "$out/cpu.pb.gz" "$base/profile?seconds=$seconds"
+fi
+
+echo
+echo "wrote $out"
+echo "view one with: go tool pprof -http=:8080 $out/heap.pb.gz"
