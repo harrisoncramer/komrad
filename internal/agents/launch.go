@@ -488,18 +488,9 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		workflowContext: plan.workflowContext,
 		spawner:         spawner,
 		parent:          parent,
-		taskSlug:        taskSlug(task),
+		task:            task,
 		claimsCheckout:  isCheckoutClaimant(agent, plan.provisioner),
 	})
-}
-
-// taskSlug is the slug of the task an agent was created on, empty when it has none of its own.
-func taskSlug(task *taskstore.Task) string {
-	if task == nil {
-		return ""
-	}
-
-	return task.Slug
 }
 
 type resolvedLaunch struct {
@@ -511,7 +502,7 @@ type resolvedLaunch struct {
 	workflowContext string
 	spawner         *agentstore.Agent
 	parent          *agentstore.Agent
-	taskSlug        string
+	task            *taskstore.Task
 	// claimsCheckout is whether the directory the agent starts in becomes its task's checkout.
 	claimsCheckout bool
 }
@@ -597,7 +588,7 @@ func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 		AgentID:         agent.ID,
 		Role:            agent.Role,
 		OwnsCheckout:    c.resolved.provisioner != "",
-		TaskSlug:        c.resolved.taskSlug,
+		Task:            c.resolved.task,
 	}
 	if c.resolved.spawner != nil {
 		launch.SpawnedByAgentID = c.resolved.spawner.ID
@@ -756,10 +747,15 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 			}
 			task = created
 		}
+		if task == nil && c.parent != nil && c.parent.TaskID != nil {
+			found, err := taskstore.NewTaskStore(db).Get(ctx, *c.parent.TaskID)
+			if err != nil {
+				return fmt.Errorf("failed to read the task of agent %q's parent: %w", c.agent.Name, err)
+			}
+			task = found
+		}
 		if task != nil {
 			c.agent.TaskID = &task.ID
-		} else if c.parent != nil {
-			c.agent.TaskID = c.parent.TaskID
 		}
 		if c.agent.TaskID != nil {
 			if err := taskstore.NewTaskStore(db).LockUndeleted(ctx, *c.agent.TaskID); err != nil {

@@ -34,12 +34,16 @@ func taskFields(task panel.Task, agents []panel.AgentRow) []recordField {
 	return fields
 }
 
-// taskMarkdown is a task's goal with the agents working on it, each with its branch and pull
-// request.
+// taskMarkdown is a task's goal and notes with the agents working on it, each with its branch and
+// pull request.
 func taskMarkdown(task panel.Task, agents []panel.AgentRow) string {
 	goal := task.Goal
 	if strings.TrimSpace(goal) == "" {
 		goal = "_no goal set_"
+	}
+	notes := task.Notes
+	if strings.TrimSpace(notes) == "" {
+		notes = "_no notes yet_"
 	}
 
 	lines := xslice.Map(agents, func(item panel.AgentRow) string {
@@ -58,7 +62,7 @@ func taskMarkdown(task panel.Task, agents []panel.AgentRow) string {
 		return "- " + strings.Join(parts, ", ")
 	})
 
-	return renderDocument(task.Title, "", goal, strings.Join(lines, "\n"))
+	return renderDocument(task.Title, "", goal+"\n\n## Notes\n\n"+notes, strings.Join(lines, "\n"))
 }
 
 // agentsOnTasks is the live agents on any of the tasks, hidden ones included.
@@ -194,18 +198,23 @@ func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
 type taskEditValues struct {
 	Title string
 	Goal  string
+	Notes string
 }
 
-// openEditTask opens the form that edits a task's title and goal.
+// openEditTask opens the form that edits a task's title, goal and notes.
 func openEditTask(m *model, task panel.Task) tea.Cmd {
-	values := &taskEditValues{Title: task.Title, Goal: task.Goal}
+	values := &taskEditValues{
+		Title: task.Title,
+		Goal:  task.Goal,
+		Notes: task.Notes,
+	}
 
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formTask,
 		Build: func(m *model) (*huh.Form, []string) {
 			return editTaskForm(fixedKeys(), values, task.Slug)
 		},
-		Editable: []editableText{{key: "goal", value: &values.Goal}},
+		Editable: []editableText{{key: "goal", value: &values.Goal}, {key: "notes", value: &values.Notes}},
 		Submit: func(m *model) tea.Cmd {
 			title, goal := strings.TrimSpace(values.Title), strings.TrimSpace(values.Goal)
 			if err := cmp.Or(checkTaskTitle(title), checkTaskGoal(goal)); err != nil {
@@ -214,13 +223,16 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 				return formResized()
 			}
 
+			params := updateTaskParams{id: task.ID, title: &title, goal: &goal}
+			if notes := strings.TrimSpace(values.Notes); notes != strings.TrimSpace(task.Notes) {
+				params.notes, params.notesUpdatedAt = &notes, task.NotesUpdatedAt
+			}
+
 			return holdSubmit(func(m *model) tea.Cmd {
 				return m.writeCmd(
 					"saving "+task.Slug,
 					fmt.Sprintf("Could not save task %q", task.Slug),
-					func(a api) error {
-						return a.updateTask(updateTaskParams{id: task.ID, title: &title, goal: &goal})
-					},
+					func(a api) error { return a.updateTask(params) },
 				)
 			})(m)
 		},
@@ -234,6 +246,9 @@ func editTaskForm(keys config.FixedKeys, values *taskEditValues, slug string) (*
 		textField("goal").Title("Goal").
 			Description(fmt.Sprintf("what is done when this task is; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
 			Validate(checkTaskGoal).Value(&values.Goal),
+		textField("notes").Title("Notes").
+			Description(fmt.Sprintf("what has been found and decided; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
+			Value(&values.Notes),
 	)
 }
 

@@ -59,13 +59,15 @@ func branchOf(task *taskv1.Task) *string {
 func tasksFrom(listed []*taskv1.Task) []panel.Task {
 	return xslice.Map(listed, func(t *taskv1.Task) panel.Task {
 		return panel.Task{
-			ID:         t.GetId(),
-			WorkflowID: t.GetWorkflowId(),
-			Slug:       t.GetSlug(),
-			Title:      t.GetTitle(),
-			Goal:       t.GetGoal(),
-			CreatedAt:  dates.Parse(t.GetCreatedAt()),
-			ArchivedAt: dates.ParsePtr(t.GetArchivedAt()),
+			ID:             t.GetId(),
+			WorkflowID:     t.GetWorkflowId(),
+			Slug:           t.GetSlug(),
+			Title:          t.GetTitle(),
+			Goal:           t.GetGoal(),
+			Notes:          t.GetNotes(),
+			NotesUpdatedAt: t.NotesUpdatedAt,
+			CreatedAt:      dates.Parse(t.GetCreatedAt()),
+			ArchivedAt:     dates.ParsePtr(t.GetArchivedAt()),
 		}
 	})
 }

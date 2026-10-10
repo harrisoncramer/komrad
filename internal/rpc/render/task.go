@@ -30,6 +30,8 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		DiffStat:        diffStatOf(checkout.DiffStat),
 		AdoptedBranch:   xptr.NonEmpty(checkout.AdoptedBranch),
 		FailureReason:   stored.FailureReason,
+		Notes:           stored.Notes,
+		NotesUpdatedAt:  dates.PreciseStampPtr(stored.NotesUpdatedAt),
 	}
 }
 

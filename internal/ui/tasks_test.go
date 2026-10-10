@@ -32,6 +32,7 @@ func TestTasksTree(t *testing.T) {
 		frame := harness.readFrame()
 		require.Equal(t, "└─ fix-login", readHoveredRow(frame))
 		assert.Contains(t, frame, "Logins work again.")
+		assert.Contains(t, frame, "The session cookie expires early.")
 		assert.Contains(t, frame, "• follow-up")
 		assert.Contains(t, frame, "• author")
 	})
@@ -99,7 +100,7 @@ func TestTasksTree(t *testing.T) {
 func buildTasks() []proto.Message {
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
-		&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login", Goal: "Logins work again."},
+		&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login", Goal: "Logins work again.", Notes: "The session cookie expires early.", NotesUpdatedAt: xptr.Ptr("2026-10-10T10:00:00.5Z")},
 		&taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "solo", Title: "Solo"},
 		newTaskAgent("a1", "author", "t1", 0),
 		newTaskAgent("a2", "follow-up", "t1", 5),
@@ -161,6 +162,22 @@ func TestTasksRow(t *testing.T) {
 		assert.Contains(t, frame, "a task needs a title")
 		assert.NotContains(t, frame, "Could not save task")
 		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
+	})
+
+	t.Run("editing the task's notes saves them over the version they were read at", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press("j", "space", "E", "tab", "tab", "ctrl+e")
+		harness.send(harness.panel.NewFieldEdited("notes", "Fixed.\n"))
+		harness.press("enter")
+
+		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
+			Task:           "t1",
+			Title:          xptr.Ptr("Fix login"),
+			Goal:           xptr.Ptr("Logins work again."),
+			Notes:          xptr.Ptr("Fixed."),
+			NotesUpdatedAt: xptr.Ptr("2026-10-10T10:00:00.5Z"),
+		})
 	})
 
 	t.Run("a task's menu holds everything done to the work", func(t *testing.T) {

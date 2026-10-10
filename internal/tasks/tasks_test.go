@@ -2,11 +2,14 @@ package tasks
 
 import (
 	"testing"
+	"time"
 
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -197,6 +200,102 @@ func TestCreateForAgent(t *testing.T) {
 			assert.Equal(t, tt.wantTitle, got.Title)
 			assert.Equal(t, tt.wantGoal, got.Goal)
 			assert.Equal(t, workflow.ID, got.WorkflowID)
+		})
+	}
+}
+
+// TestSetTaskNotes pins who may write a task's notes and that a write over a stale version is refused.
+func TestSetTaskNotes(t *testing.T) {
+	stores := storetest.Open(t)
+	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks, Agents: stores.Agents})
+	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
+	elsewhere := stores.SeedWorkflow(t, workflowstore.Config{Name: "elsewhere"})
+	work := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+	other := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "other"})
+	writer := stores.SeedAgent(t, agentstore.Agent{Name: "writer", WorkflowID: workflow.ID, TaskID: &work.ID})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", WorkflowID: workflow.ID, ParentAgentID: &writer.ID, TaskID: &work.ID})
+	stranger := stores.SeedAgent(t, agentstore.Agent{Name: "stranger", WorkflowID: workflow.ID, TaskID: &other.ID})
+	orchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "orchestrator", WorkflowID: workflow.ID, Role: agentstore.RoleOrchestrator})
+	farOrchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "far", WorkflowID: elsewhere.ID, Role: agentstore.RoleOrchestrator})
+
+	tests := []struct {
+		name      string
+		callerID  string
+		stale     bool
+		viaUpdate bool
+		wantErr   error
+	}{
+		{
+			name:     "an agent on another task is refused",
+			callerID: stranger.ID,
+			wantErr:  ErrNotesNotYours,
+		},
+		{
+			name:     "the orchestrator of another workflow is refused",
+			callerID: farOrchestrator.ID,
+			wantErr:  ErrNotesNotYours,
+		},
+		{
+			name:      "the orchestrator of another workflow is refused through an update",
+			callerID:  farOrchestrator.ID,
+			viaUpdate: true,
+			wantErr:   ErrNotesNotYours,
+		},
+		{
+			name:     "a write over a version since rewritten is refused",
+			callerID: writer.ID,
+			stale:    true,
+			wantErr:  taskstore.ErrNotesChanged,
+		},
+		{
+			name:     "the writer on the task writes them",
+			callerID: writer.ID,
+		},
+		{
+			name:     "a child on the task writes them",
+			callerID: reviewer.ID,
+		},
+		{
+			name:     "the workflow's orchestrator writes them",
+			callerID: orchestrator.ID,
+		},
+		{
+			name: "the person writes them",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			current, err := stores.Tasks.Get(t.Context(), work.ID)
+			require.NoError(t, err)
+
+			read := current.NotesUpdatedAt
+			if tt.stale {
+				read = xptr.Ptr(time.Now().Add(-time.Hour))
+			}
+
+			var got *taskstore.Task
+			if tt.viaUpdate {
+				got, err = svc.UpdateTask(t.Context(), UpdateTaskParams{
+					Ref:           "work",
+					Fields:        taskstore.UpdateParams{Notes: &tt.name, ReadNotesUpdatedAt: read},
+					CallerAgentID: tt.callerID,
+				})
+			} else {
+				got, err = svc.SetTaskNotes(t.Context(), SetTaskNotesParams{
+					Ref:                "work",
+					Notes:              tt.name,
+					ReadNotesUpdatedAt: read,
+					CallerAgentID:      tt.callerID,
+				})
+			}
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.name, got.Notes)
 		})
 	}
 }

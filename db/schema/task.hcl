@@ -25,6 +25,17 @@ table "tasks" {
     default = ""
     comment = "What the task is meant to achieve, as markdown."
   }
+  column "notes" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "What the agents on the task and the person have written down about it, as markdown."
+  }
+  column "notes_updated_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the notes were last written, null until they first are. A write names the value it read and is refused once it has moved."
+  }
   column "cwd" {
     null    = true
     type    = text

@@ -12,6 +12,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	"komrad/internal/tmux"
 	"komrad/lib/xslice"
 )
@@ -40,6 +41,10 @@ var spawningDoc string
 const mcpURLPlaceholder = "{{MCP_URL}}"
 
 const logPathPlaceholder = "{{LOG_PATH}}"
+
+// maxBriefedNotes is the most bytes of a task's goal and notes a briefing repeats, past which it
+// points at get_task instead.
+const maxBriefedNotes = 16 << 10
 
 // fallbackShell is what an agent is started under when tmux names no default shell.
 const fallbackShell = "/bin/sh"
@@ -95,6 +100,7 @@ func (l *Launcher) appendedSystemPrompt(ctx context.Context, params launchParams
 	parts := []string{
 		l.buildBriefing(),
 		roleBriefing(params),
+		taskBriefing(params.Task),
 		spawningBriefing(params),
 		relationBriefing(params),
 		l.globalContext(ctx),
@@ -116,19 +122,38 @@ func roleBriefing(params launchParams) string {
 	case params.Role == agentstore.RoleReviewer:
 		return reviewerDoc
 	case params.OwnsCheckout:
-		return taskBriefing(params.TaskSlug) + implementerDoc
+		return implementerDoc
 	}
 
 	return ""
 }
 
-// taskBriefing is what an implementer is told about the task it works on.
-func taskBriefing(slug string) string {
-	if slug == "" {
+// taskBriefing is what an agent is told of its task's goal and notes and where to read the rest.
+func taskBriefing(task *taskstore.Task) string {
+	if task == nil {
 		return ""
 	}
 
-	return fmt.Sprintf("You work on task %s, and get_task with that slug returns its goal.\n\n", slug)
+	var b strings.Builder
+	fmt.Fprintf(&b, "You work on task %s. get_task with that slug returns its goal and notes, list_review_threads its open review threads, and list_documents with task %s its documents.", task.Slug, task.Slug)
+
+	if len(task.Goal)+len(task.Notes) > maxBriefedNotes {
+		b.WriteString("\n\nIts goal and notes are too long to repeat here, so read them with get_task before you start.")
+
+		return b.String()
+	}
+
+	if goal := strings.TrimSpace(task.Goal); goal != "" {
+		fmt.Fprintf(&b, "\n\nIts goal:\n\n%s", goal)
+	}
+
+	if notes := strings.TrimSpace(task.Notes); notes != "" {
+		fmt.Fprintf(&b, "\n\nIts notes as they stood when you started:\n\n%s", notes)
+	} else {
+		b.WriteString("\n\nIt has no notes yet.")
+	}
+
+	return b.String()
 }
 
 // spawningBriefing is what an agent is told about launching agents of its own.
@@ -232,7 +257,7 @@ type launchParams struct {
 	ParentAgentID    string
 	ParentName       string
 	Role             agentstore.Role
-	TaskSlug         string
+	Task             *taskstore.Task
 
 	// OwnsCheckout is whether komrad provisioned this agent a tree of its own, which separates an
 	// agent writing a change from one reading somebody else's.

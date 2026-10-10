@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/caller"
 	"komrad/internal/store"
+	"komrad/internal/tasks"
 	"komrad/lib/xptr"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1komrad"
@@ -32,14 +34,10 @@ type fakeTasks struct {
 	created  []taskstore.CreateParams
 	got      []string
 	listed   []listCall
-	updated  []updateCall
+	updated  []tasks.UpdateTaskParams
+	noted    []tasks.SetTaskNotesParams
 	archived []string
 	deleted  [][]string
-}
-
-type updateCall struct {
-	ref    string
-	params taskstore.UpdateParams
 }
 
 // CreateTask records the params and answers them as stored unless err refuses it.
@@ -78,9 +76,19 @@ func (f *fakeTasks) ListTasks(_ context.Context, workflowID string, archived boo
 	return []taskstore.Task{f.stored}, nil
 }
 
-// UpdateTask records the ref and params and answers the stored task unless err refuses it.
-func (f *fakeTasks) UpdateTask(_ context.Context, ref string, params taskstore.UpdateParams) (*taskstore.Task, error) {
-	f.updated = append(f.updated, updateCall{ref: ref, params: params})
+// UpdateTask records the params and answers the stored task unless err refuses it.
+func (f *fakeTasks) UpdateTask(_ context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error) {
+	f.updated = append(f.updated, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.stored, nil
+}
+
+// SetTaskNotes records the params and answers the stored task unless err refuses it.
+func (f *fakeTasks) SetTaskNotes(_ context.Context, params tasks.SetTaskNotesParams) (*taskstore.Task, error) {
+	f.noted = append(f.noted, params)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -126,6 +134,11 @@ func TestTaskRefusalsMapToCodes(t *testing.T) {
 
 		return err
 	}
+	setNotes := func(ctx context.Context, svc taskv1komrad.TaskServiceAdapter) error {
+		_, err := svc.SetTaskNotes(ctx, connect.NewRequest(&taskv1.SetTaskNotesRequest{Task: "fix-login", Notes: "Found it."}))
+
+		return err
+	}
 
 	tests := []struct {
 		name     string
@@ -166,6 +179,18 @@ func TestTaskRefusalsMapToCodes(t *testing.T) {
 			},
 			err:      store.ErrNameTaken,
 			wantCode: connect.CodeAlreadyExists,
+		},
+		{
+			name:     "notes written since they were read",
+			call:     setNotes,
+			err:      taskstore.ErrNotesChanged,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "notes of a task the agent is not on",
+			call:     setNotes,
+			err:      tasks.ErrNotesNotYours,
+			wantCode: connect.CodePermissionDenied,
 		},
 		{
 			name: "deleting a task nothing holds",
@@ -254,9 +279,9 @@ func TestTaskCallsPassDown(t *testing.T) {
 
 	updated, err := svc.UpdateTask(ctx, connect.NewRequest(&taskv1.UpdateTaskRequest{Task: "fix-login", Title: xptr.Ptr("Fix the login")}))
 	require.NoError(t, err)
-	assert.Equal(t, []updateCall{{
-		ref:    "fix-login",
-		params: taskstore.UpdateParams{Title: xptr.Ptr("Fix the login")},
+	assert.Equal(t, []tasks.UpdateTaskParams{{
+		Ref:    "fix-login",
+		Fields: taskstore.UpdateParams{Title: xptr.Ptr("Fix the login")},
 	}}, fake.updated, "a field left unset reaches the service as nil")
 	assert.Equal(t, taskID, updated.Msg.GetTask().GetId())
 
@@ -267,4 +292,34 @@ func TestTaskCallsPassDown(t *testing.T) {
 	_, err = svc.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{taskID, "fix-logout"}}))
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{taskID, "fix-logout"}}, fake.deleted)
+}
+
+// TestSetTaskNotesPassesDown pins that a notes write hands down the caller and the version it read,
+// and renders the version written back.
+func TestSetTaskNotesPassesDown(t *testing.T) {
+	readAt := time.Date(2026, 10, 9, 12, 0, 0, 123456000, time.UTC)
+	writtenAt := time.Date(2026, 10, 9, 13, 0, 0, 654321000, time.UTC)
+	fake := &fakeTasks{stored: taskstore.Task{
+		ID:             taskID,
+		Slug:           "fix-login",
+		Notes:          "Found it.",
+		NotesUpdatedAt: &writtenAt,
+	}}
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: "agent-1"})
+
+	written, err := newTaskHandler(fake).SetTaskNotes(ctx, connect.NewRequest(&taskv1.SetTaskNotesRequest{
+		Task:           "fix-login",
+		Notes:          "Found it.",
+		NotesUpdatedAt: xptr.Ptr(readAt.Format(time.RFC3339Nano)),
+	}))
+	require.NoError(t, err)
+
+	require.Len(t, fake.noted, 1)
+	assert.Equal(t, "fix-login", fake.noted[0].Ref)
+	assert.Equal(t, "Found it.", fake.noted[0].Notes)
+	assert.Equal(t, "agent-1", fake.noted[0].CallerAgentID)
+	require.NotNil(t, fake.noted[0].ReadNotesUpdatedAt)
+	assert.True(t, readAt.Equal(*fake.noted[0].ReadNotesUpdatedAt))
+	assert.Equal(t, "Found it.", written.Msg.GetTask().GetNotes())
+	assert.Equal(t, writtenAt.Format(time.RFC3339Nano), written.Msg.GetTask().GetNotesUpdatedAt())
 }

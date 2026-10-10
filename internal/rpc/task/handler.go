@@ -5,9 +5,12 @@ package task
 import (
 	"context"
 
+	"komrad/internal/caller"
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
+	"komrad/internal/tasks"
+	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	taskv1 "komrad/proto/gen/task/v1"
 
@@ -20,7 +23,8 @@ type taskReadWriter interface {
 	CreateTask(ctx context.Context, params taskstore.CreateParams) (*taskstore.Task, error)
 	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
-	UpdateTask(ctx context.Context, ref string, params taskstore.UpdateParams) (*taskstore.Task, error)
+	UpdateTask(ctx context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error)
+	SetTaskNotes(ctx context.Context, params tasks.SetTaskNotesParams) (*taskstore.Task, error)
 }
 
 type taskArchiver interface {
@@ -87,18 +91,39 @@ func (s *Handler) ListTasks(ctx context.Context, req *taskv1.ListTasksRequest) (
 	return &taskv1.ListTasksResponse{Tasks: xslice.Map(listed, render.Task)}, nil
 }
 
-// UpdateTask rewrites the slug, title or goal of a task and returns it as stored.
+// UpdateTask rewrites the slug, title, goal or notes of a task and returns it as stored.
 func (s *Handler) UpdateTask(ctx context.Context, req *taskv1.UpdateTaskRequest) (*taskv1.UpdateTaskResponse, *fail.Error) {
-	updated, err := s.tasks.UpdateTask(ctx, req.GetTask(), taskstore.UpdateParams{
-		Slug:  req.Slug,
-		Title: req.Title,
-		Goal:  req.Goal,
+	updated, err := s.tasks.UpdateTask(ctx, tasks.UpdateTaskParams{
+		Ref: req.GetTask(),
+		Fields: taskstore.UpdateParams{
+			Slug:               req.Slug,
+			Title:              req.Title,
+			Goal:               req.Goal,
+			Notes:              req.Notes,
+			ReadNotesUpdatedAt: dates.ParsePtr(req.GetNotesUpdatedAt()),
+		},
+		CallerAgentID: caller.From(ctx).AgentID,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update task")
 	}
 
 	return &taskv1.UpdateTaskResponse{Task: render.Task(*updated)}, nil
+}
+
+// SetTaskNotes replaces a task's notes for the person or an agent that may write them.
+func (s *Handler) SetTaskNotes(ctx context.Context, req *taskv1.SetTaskNotesRequest) (*taskv1.SetTaskNotesResponse, *fail.Error) {
+	written, err := s.tasks.SetTaskNotes(ctx, tasks.SetTaskNotesParams{
+		Ref:                req.GetTask(),
+		Notes:              req.GetNotes(),
+		ReadNotesUpdatedAt: dates.ParsePtr(req.GetNotesUpdatedAt()),
+		CallerAgentID:      caller.From(ctx).AgentID,
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to set task notes")
+	}
+
+	return &taskv1.SetTaskNotesResponse{Task: render.Task(*written)}, nil
 }
 
 // ArchiveTask takes a task and the live agents on it out of the live listings.

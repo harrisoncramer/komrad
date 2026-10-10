@@ -42,6 +42,9 @@ const (
 	TaskServiceListTasksProcedure = "/task.v1.TaskService/ListTasks"
 	// TaskServiceUpdateTaskProcedure is the fully-qualified name of the TaskService's UpdateTask RPC.
 	TaskServiceUpdateTaskProcedure = "/task.v1.TaskService/UpdateTask"
+	// TaskServiceSetTaskNotesProcedure is the fully-qualified name of the TaskService's SetTaskNotes
+	// RPC.
+	TaskServiceSetTaskNotesProcedure = "/task.v1.TaskService/SetTaskNotes"
 	// TaskServiceArchiveTaskProcedure is the fully-qualified name of the TaskService's ArchiveTask RPC.
 	TaskServiceArchiveTaskProcedure = "/task.v1.TaskService/ArchiveTask"
 	// TaskServiceDeleteTasksProcedure is the fully-qualified name of the TaskService's DeleteTasks RPC.
@@ -54,6 +57,7 @@ type TaskServiceClient interface {
 	GetTask(context.Context, *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error)
 	ListTasks(context.Context, *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error)
 	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
+	SetTaskNotes(context.Context, *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error)
 	ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error)
 }
@@ -96,6 +100,13 @@ func NewTaskServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		setTaskNotes: connect.NewClient[v1.SetTaskNotesRequest, v1.SetTaskNotesResponse](
+			httpClient,
+			baseURL+TaskServiceSetTaskNotesProcedure,
+			connect.WithSchema(taskServiceMethods.ByName("SetTaskNotes")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		archiveTask: connect.NewClient[v1.ArchiveTaskRequest, emptypb.Empty](
 			httpClient,
 			baseURL+TaskServiceArchiveTaskProcedure,
@@ -115,12 +126,13 @@ func NewTaskServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // taskServiceClient implements TaskServiceClient.
 type taskServiceClient struct {
-	createTask  *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
-	getTask     *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
-	listTasks   *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
-	updateTask  *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
-	archiveTask *connect.Client[v1.ArchiveTaskRequest, emptypb.Empty]
-	deleteTasks *connect.Client[v1.DeleteTasksRequest, emptypb.Empty]
+	createTask   *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
+	getTask      *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
+	listTasks    *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
+	updateTask   *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
+	setTaskNotes *connect.Client[v1.SetTaskNotesRequest, v1.SetTaskNotesResponse]
+	archiveTask  *connect.Client[v1.ArchiveTaskRequest, emptypb.Empty]
+	deleteTasks  *connect.Client[v1.DeleteTasksRequest, emptypb.Empty]
 }
 
 // CreateTask calls task.v1.TaskService.CreateTask.
@@ -143,6 +155,11 @@ func (c *taskServiceClient) UpdateTask(ctx context.Context, req *connect.Request
 	return c.updateTask.CallUnary(ctx, req)
 }
 
+// SetTaskNotes calls task.v1.TaskService.SetTaskNotes.
+func (c *taskServiceClient) SetTaskNotes(ctx context.Context, req *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error) {
+	return c.setTaskNotes.CallUnary(ctx, req)
+}
+
 // ArchiveTask calls task.v1.TaskService.ArchiveTask.
 func (c *taskServiceClient) ArchiveTask(ctx context.Context, req *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.archiveTask.CallUnary(ctx, req)
@@ -159,6 +176,7 @@ type TaskServiceHandler interface {
 	GetTask(context.Context, *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error)
 	ListTasks(context.Context, *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error)
 	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
+	SetTaskNotes(context.Context, *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error)
 	ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error)
 }
@@ -197,6 +215,13 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	taskServiceSetTaskNotesHandler := connect.NewUnaryHandler(
+		TaskServiceSetTaskNotesProcedure,
+		svc.SetTaskNotes,
+		connect.WithSchema(taskServiceMethods.ByName("SetTaskNotes")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	taskServiceArchiveTaskHandler := connect.NewUnaryHandler(
 		TaskServiceArchiveTaskProcedure,
 		svc.ArchiveTask,
@@ -221,6 +246,8 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 			taskServiceListTasksHandler.ServeHTTP(w, r)
 		case TaskServiceUpdateTaskProcedure:
 			taskServiceUpdateTaskHandler.ServeHTTP(w, r)
+		case TaskServiceSetTaskNotesProcedure:
+			taskServiceSetTaskNotesHandler.ServeHTTP(w, r)
 		case TaskServiceArchiveTaskProcedure:
 			taskServiceArchiveTaskHandler.ServeHTTP(w, r)
 		case TaskServiceDeleteTasksProcedure:
@@ -248,6 +275,10 @@ func (UnimplementedTaskServiceHandler) ListTasks(context.Context, *connect.Reque
 
 func (UnimplementedTaskServiceHandler) UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.UpdateTask is not implemented"))
+}
+
+func (UnimplementedTaskServiceHandler) SetTaskNotes(context.Context, *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.SetTaskNotes is not implemented"))
 }
 
 func (UnimplementedTaskServiceHandler) ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error) {

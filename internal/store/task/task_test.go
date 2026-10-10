@@ -2,6 +2,7 @@ package task_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -409,6 +410,7 @@ func TestUpdate(t *testing.T) {
 		wantErr   error
 		wantTitle string
 		wantGoal  string
+		wantNotes string
 	}{
 		{
 			name:    "a slug that is not kebab-case is refused",
@@ -435,11 +437,18 @@ func TestUpdate(t *testing.T) {
 			wantErr: store.ErrNotFound,
 		},
 		{
+			name:    "notes over a version that was never written are refused",
+			id:      task.ID,
+			params:  taskstore.UpdateParams{Notes: xptr.Ptr("Found it."), ReadNotesUpdatedAt: xptr.Ptr(time.Now())},
+			wantErr: taskstore.ErrNotesChanged,
+		},
+		{
 			name:      "only the fields set are rewritten",
 			id:        task.ID,
-			params:    taskstore.UpdateParams{Title: xptr.Ptr("Renamed")},
+			params:    taskstore.UpdateParams{Title: xptr.Ptr("Renamed"), Notes: xptr.Ptr("Found it.")},
 			wantTitle: "Renamed",
 			wantGoal:  "It works.",
+			wantNotes: "Found it.",
 		},
 	}
 
@@ -455,6 +464,26 @@ func TestUpdate(t *testing.T) {
 			assert.Equal(t, task.Slug, got.Slug)
 			assert.Equal(t, tt.wantTitle, got.Title)
 			assert.Equal(t, tt.wantGoal, got.Goal)
+			assert.Equal(t, tt.wantNotes, got.Notes)
+			assert.NotNil(t, got.NotesUpdatedAt)
 		})
 	}
+}
+
+// TestUpdateNotesVersion pins that a write of the notes must name the version it read.
+func TestUpdateNotesVersion(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
+
+	first, err := stores.Tasks.Update(ctx, task.ID, taskstore.UpdateParams{Notes: xptr.Ptr("One.")})
+	require.NoError(t, err)
+
+	_, err = stores.Tasks.Update(ctx, task.ID, taskstore.UpdateParams{Notes: xptr.Ptr("Stale.")})
+	require.ErrorIs(t, err, taskstore.ErrNotesChanged)
+
+	second, err := stores.Tasks.Update(ctx, task.ID, taskstore.UpdateParams{Notes: xptr.Ptr("Two."), ReadNotesUpdatedAt: first.NotesUpdatedAt})
+	require.NoError(t, err)
+	assert.Equal(t, "Two.", second.Notes)
+	assert.True(t, second.NotesUpdatedAt.After(*first.NotesUpdatedAt))
 }
