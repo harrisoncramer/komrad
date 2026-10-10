@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xstr"
 )
@@ -20,19 +21,23 @@ var (
 	ErrOtherWorkflow = fail.InvalidArgument("an agent works only on a task in its own workflow")
 	// errArchived is an archived task an agent was asked to join.
 	errArchived = fail.Precondition("an agent works only on a live task")
+	// ErrNotesNotYours is an agent writing the notes of a task it does not work on or orchestrate.
+	ErrNotesNotYours = fail.Denied("an agent writes only the notes of its own task or of one in the workflow it orchestrates")
 )
 
 type NewTaskServiceParams struct {
-	Tasks *taskstore.TaskStore
+	Tasks  *taskstore.TaskStore
+	Agents *agentstore.AgentStore
 }
 
 type TaskService struct {
-	tasks *taskstore.TaskStore
+	tasks  *taskstore.TaskStore
+	agents *agentstore.AgentStore
 }
 
 // NewTaskService builds the service from its dependencies.
 func NewTaskService(params NewTaskServiceParams) *TaskService {
-	return &TaskService{tasks: params.Tasks}
+	return &TaskService{tasks: params.Tasks, agents: params.Agents}
 }
 
 // CreateTask writes a new task, refusing a slug that is malformed or already used.
@@ -57,14 +62,53 @@ func (s *TaskService) ListTasks(ctx context.Context, workflowID string, archived
 	return s.tasks.List(ctx, workflowID, archived)
 }
 
-// UpdateTask rewrites the fields params sets on the task an id or a slug names.
-func (s *TaskService) UpdateTask(ctx context.Context, ref string, params taskstore.UpdateParams) (*taskstore.Task, error) {
-	found, err := s.GetTask(ctx, ref)
+type UpdateTaskParams struct {
+	Ref           string
+	Fields        taskstore.UpdateParams
+	CallerAgentID string
+}
+
+// UpdateTask rewrites the fields params sets on the task an id or a slug names, refusing notes
+// from a caller that may not write them.
+func (s *TaskService) UpdateTask(ctx context.Context, params UpdateTaskParams) (*taskstore.Task, error) {
+	found, err := s.GetTask(ctx, params.Ref)
 	if err != nil {
 		return nil, err
 	}
+	if params.Fields.Notes != nil {
+		if err := s.requireMayWriteNotes(ctx, params.CallerAgentID, *found); err != nil {
+			return nil, err
+		}
+	}
 
-	return s.tasks.Update(ctx, found.ID, params)
+	return s.tasks.Update(ctx, found.ID, params.Fields)
+}
+
+// requireMayWriteNotes refuses a calling agent that neither works on the task nor orchestrates its workflow.
+func (s *TaskService) requireMayWriteNotes(ctx context.Context, callerAgentID string, target taskstore.Task) error {
+	if callerAgentID == "" {
+		return nil
+	}
+
+	caller, err := s.agents.GetByID(ctx, callerAgentID)
+	if err != nil {
+		return err
+	}
+	if !mayWriteNotes(*caller, target) {
+		return fmt.Errorf("%w: %q on task %q", ErrNotesNotYours, caller.Name, target.Slug)
+	}
+
+	return nil
+}
+
+// mayWriteNotes reports whether an agent may write a task's notes, being on the task or the
+// orchestrator of its workflow.
+func mayWriteNotes(caller agentstore.Agent, target taskstore.Task) bool {
+	if caller.Role == agentstore.RoleOrchestrator {
+		return caller.WorkflowID == target.WorkflowID
+	}
+
+	return caller.TaskID != nil && *caller.TaskID == target.ID
 }
 
 // ArchiveTask archives the task an id or a slug names, leaving one already archived as it was.

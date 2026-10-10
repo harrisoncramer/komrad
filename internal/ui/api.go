@@ -200,19 +200,23 @@ func (a api) archiveTask(id string) error {
 
 // updateTaskParams is what a task edit changes, a nil field left as it stands.
 type updateTaskParams struct {
-	id    string
-	slug  *string
-	title *string
-	goal  *string
+	id             string
+	slug           *string
+	title          *string
+	goal           *string
+	notes          *string
+	notesUpdatedAt *string
 }
 
 func (a api) updateTask(params updateTaskParams) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.tasks.UpdateTask(ctx, connect.NewRequest(&taskv1.UpdateTaskRequest{
-			Task:  params.id,
-			Slug:  params.slug,
-			Title: params.title,
-			Goal:  params.goal,
+			Task:           params.id,
+			Slug:           params.slug,
+			Title:          params.title,
+			Goal:           params.goal,
+			Notes:          params.notes,
+			NotesUpdatedAt: params.notesUpdatedAt,
 		}))
 	})
 }

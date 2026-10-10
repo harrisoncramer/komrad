@@ -78,6 +78,11 @@ message Task {
   optional string adopted_branch = 17;
   // Why its last delete could not give its checkout back, empty unless one failed.
   string failure_reason = 18;
+  // What the agents on it and the person have written down about it, as markdown.
+  string notes = 19;
+  // When its notes were last written, in RFC 3339 to the nanosecond, unset until they first are.
+  // A write of the notes names the value it read.
+  optional string notes_updated_at = 20;
 }
 
 message CreateTaskRequest {
@@ -144,10 +149,31 @@ message UpdateTaskRequest {
   }];
   // What it is meant to achieve, as markdown, left as it is when unset.
   optional string goal = 4 [(buf.validate.field).string.max_len = 50000];
+  // What to write down about it as markdown, replacing the notes it has, left as they are when
+  // unset.
+  optional string notes = 5 [(buf.validate.field).string.max_len = 100000];
+  // The notes_updated_at the notes were read with, unset when they had never been written. A
+  // notes write is refused once they have been written since.
+  optional string notes_updated_at = 6 [(buf.validate.field).string.pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"];
 }
 
 message UpdateTaskResponse {
   // The task as rewritten.
+  Task task = 1;
+}
+
+message SetTaskNotesRequest {
+  // Which task to write the notes of, by id or by slug.
+  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // The notes in full as markdown, replacing what the task has.
+  string notes = 2 [(buf.validate.field).string.max_len = 100000];
+  // The notes_updated_at get_task returned with the notes, unset when they had never been
+  // written. The write is refused once they have been written since.
+  optional string notes_updated_at = 3 [(buf.validate.field).string.pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"];
+}
+
+message SetTaskNotesResponse {
+  // The task with its notes as written.
   Task task = 1;
 }
 
@@ -185,7 +211,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "get_task"
-      description: "Fetch one task by id or slug, with its whole goal."
+      description: "Fetch one task by id or slug, with its whole goal and its notes."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
@@ -213,9 +239,24 @@ service TaskService {
       cli: true
       mcp: true
       name: "update_task"
-      description: "Rewrite a task's slug, title or goal by id or slug, leaving each field you leave out as it is. A goal edit reaches agents only when they read the task again."
+      description: "Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is. A notes write names the notes_updated_at it read. An edit reaches agents only when they read the task again."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc SetTaskNotes(SetTaskNotesRequest) returns (SetTaskNotesResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "set_task_notes"
+      description: "Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since."
+      destructive: false
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
     };
   }
   rpc ArchiveTask(ArchiveTaskRequest) returns (google.protobuf.Empty) {

@@ -1534,7 +1534,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 				assert.Equal(t, tt.wantGoal, task.Goal)
 			}
 			assert.Equal(t, workflowID, task.WorkflowID)
-			assert.Contains(t, briefing, "You work on task "+tt.wantTask+",", "the agent is told its task")
+			assert.Contains(t, briefing, "You work on task "+tt.wantTask+".", "the agent is told its task")
 		})
 	}
 }
@@ -1829,6 +1829,35 @@ func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
 
 	_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{first.ID})
 	require.ErrorIs(t, err, agenterr.ErrTooManySpawned)
+}
+
+// TestNewAgentIsBriefedOnItsTask pins that an agent on a task and its child both launch knowing the
+// task's notes.
+func TestNewAgentIsBriefedOnItsTask(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager, fakeHarness := newManagerWithHarness(tmux, st, "")
+	workflowID := seedWorkflow(t, st)
+	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "fix-login", Goal: "Logins work."})
+	_, err := st.Tasks.Update(t.Context(), work.ID, taskstore.UpdateParams{Notes: xptr.Ptr("The cookie expires early.")})
+	require.NoError(t, err)
+
+	writer, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "writer",
+		Dir:        t.TempDir(),
+		Prompt:     "go",
+		WorkflowID: workflowID,
+		Task:       work.ID,
+	})
+	require.NoError(t, err)
+	_, err = manager.launch.NewAgent(t.Context(), childOf(*writer, "reader"))
+	require.NoError(t, err)
+
+	require.Len(t, fakeHarness.Launches, 2)
+	for _, launch := range fakeHarness.Launches {
+		assert.Contains(t, launch.Context, "You work on task fix-login.")
+		assert.Contains(t, launch.Context, "The cookie expires early.")
+	}
 }
 
 func childOf(parent agentstore.Agent, title string) NewAgentParams {

@@ -22,6 +22,7 @@ type TaskServiceImpl interface {
 	GetTask(context.Context, *v1.GetTaskRequest) (*v1.GetTaskResponse, *fail.Error)
 	ListTasks(context.Context, *v1.ListTasksRequest) (*v1.ListTasksResponse, *fail.Error)
 	UpdateTask(context.Context, *v1.UpdateTaskRequest) (*v1.UpdateTaskResponse, *fail.Error)
+	SetTaskNotes(context.Context, *v1.SetTaskNotesRequest) (*v1.SetTaskNotesResponse, *fail.Error)
 	ArchiveTask(context.Context, *v1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error)
 	DeleteTasks(context.Context, *v1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error)
 }
@@ -50,6 +51,11 @@ func (a TaskServiceAdapter) ListTasks(ctx context.Context, req *connect.Request[
 // UpdateTask answers the request as connect serves it.
 func (a TaskServiceAdapter) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
 	return rpcerr.Answer(a.Impl.UpdateTask(ctx, req.Msg))
+}
+
+// SetTaskNotes answers the request as connect serves it.
+func (a TaskServiceAdapter) SetTaskNotes(ctx context.Context, req *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error) {
+	return rpcerr.Answer(a.Impl.SetTaskNotes(ctx, req.Msg))
 }
 
 // ArchiveTask answers the request as connect serves it.

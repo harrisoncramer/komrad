@@ -237,10 +237,18 @@ UPDATE
 SET
     slug = COALESCE(sqlc.narg('slug'), slug),
     title = COALESCE(sqlc.narg('title'), title),
-    goal = COALESCE(sqlc.narg('goal'), goal)
+    goal = COALESCE(sqlc.narg('goal'), goal),
+    notes = COALESCE(sqlc.narg('notes'), notes),
+    notes_updated_at = CASE WHEN sqlc.narg('notes')::text IS NULL THEN
+        notes_updated_at
+    ELSE
+        NOW()
+    END
 WHERE
     id = sqlc.arg('id')
     AND deleting_at IS NULL
+    AND (sqlc.narg('notes')::text IS NULL
+        OR notes_updated_at IS NOT DISTINCT FROM sqlc.narg('read_notes_updated_at')::timestamptz)
 RETURNING
     *;
 

@@ -11,6 +11,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
@@ -563,11 +564,6 @@ func TestRoleBriefing(t *testing.T) {
 			want:   implementerDoc,
 		},
 		{
-			name:   "an agent on a task is told its slug ahead of the document",
-			params: launchParams{Role: agentstore.RoleImplementer, OwnsCheckout: true, TaskSlug: "fix-login"},
-			want:   "You work on task fix-login, and get_task with that slug returns its goal.\n\n" + implementerDoc,
-		},
-		{
 			name:   "an agent holding no checkout is told nothing of the three",
 			params: launchParams{Role: agentstore.RoleImplementer},
 			want:   "",
@@ -739,4 +735,47 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 	assert.Contains(t, prompt, "never commit")
 	assert.NotContains(t, prompt, "You were spawned by agent",
 		"the spawner paragraph would understate what a child runs under")
+}
+
+// TestTaskBriefing pins what an agent is told of its task's goal and notes, and where it is pointed
+// for the rest.
+func TestTaskBriefing(t *testing.T) {
+	pointers := "You work on task fix-login. get_task with that slug returns its goal and notes, list_review_threads its open review threads, and list_documents with task fix-login its documents.\n\n"
+
+	tests := []struct {
+		name string
+		task *taskstore.Task
+		want string
+	}{
+		{
+			name: "an agent on no task is told nothing",
+			want: "",
+		},
+		{
+			name: "notes over the cap are read with get_task",
+			task: &taskstore.Task{Slug: "fix-login", Goal: "Logins work.", Notes: strings.Repeat("x", maxBriefedTask)},
+			want: pointers + "Its goal and notes are too long to repeat here, so read them with get_task before you start.",
+		},
+		{
+			name: "a task with no goal leaves it out",
+			task: &taskstore.Task{Slug: "fix-login"},
+			want: pointers + "It has no notes yet.",
+		},
+		{
+			name: "a task with no notes says so",
+			task: &taskstore.Task{Slug: "fix-login", Goal: "Logins work."},
+			want: pointers + "Its goal:\n\nLogins work.\n\nIt has no notes yet.",
+		},
+		{
+			name: "notes under the cap are inlined",
+			task: &taskstore.Task{Slug: "fix-login", Goal: "Logins work.", Notes: "The cookie expires early."},
+			want: pointers + "Its goal:\n\nLogins work.\n\nIts notes as they stood when you started:\n\nThe cookie expires early.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, taskBriefing(tt.task))
+		})
+	}
 }

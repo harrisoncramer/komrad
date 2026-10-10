@@ -422,7 +422,7 @@ retry         = ["R"]
 # wait on changes, or wake it when it is snoozed. The entry is only on a task or an
 # orchestrator in triage.
 snooze        = ["z"]
-# Edit the hovered workflow, or the hovered task's title and goal.
+# Edit the hovered workflow, or the hovered task's title, goal and notes.
 edit_row      = ["E"]
 # Put an agent on a branch that already exists, in the hovered workflow.
 adopt         = ["A"]

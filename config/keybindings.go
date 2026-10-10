@@ -287,7 +287,7 @@ type MenuKeys struct {
 	// wait on changes, or wake it when it is snoozed. The entry is only on a task or an
 	// orchestrator in triage.
 	Snooze []string `mapstructure:"snooze" default:"z"`
-	// Edit the hovered workflow, or the hovered task's title and goal.
+	// Edit the hovered workflow, or the hovered task's title, goal and notes.
 	EditRow []string `mapstructure:"edit_row" default:"E"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`

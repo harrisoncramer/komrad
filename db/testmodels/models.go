@@ -1176,6 +1176,10 @@ type Task struct {
 	CleaningAt pgtype.Timestamptz
 	// Why the task's last delete could not give its checkout back, empty unless one failed.
 	FailureReason string
+	// What the agents on the task and the person have written down about it, as markdown.
+	Notes string
+	// When the notes were last written, null until they first are. A write names the value it read and is refused once it has moved.
+	NotesUpdatedAt pgtype.Timestamptz
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

@@ -1,3 +1,7 @@
+### Your task's notes
+
+Your task's notes are what the next agent on it starts from, and the person reads and edits them too. Write findings and decisions into them with set_task_notes as you make them, and before you stop or wait on someone, say where things stand. Read the task again with get_task before each write, pass the notes_updated_at it returns, and on failed_precondition read again and keep what was written since. Read them again before acting on mail about the plan, since the notes in your briefing are as they stood when you started.
+
 ### Getting your own work read
 
 Work is not finished until a reviewer has read it. Commit on your branch, then call request_review yourself. Its prompt is the reviewer's whole briefing, so say what the change is meant to do and where you are unsure. Its response says how to settle what the reviewer raises.

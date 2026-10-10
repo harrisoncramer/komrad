@@ -1676,8 +1676,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Fetch one task by id or slug, with its whole goal.",
-          "description": "Fetch one task by id or slug, with its whole goal.",
+          "summary": "Fetch one task by id or slug, with its whole goal and its notes.",
+          "description": "Fetch one task by id or slug, with its whole goal and its notes.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1714,13 +1714,33 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Rewrite a task's slug, title or goal by id or slug, leaving each field you leave out as it is.",
-          "description": "Rewrite a task's slug, title or goal by id or slug, leaving each field you leave out as it is. A goal edit reaches agents only when they read the task again.",
+          "summary": "Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is.",
+          "description": "Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is. A notes write names the notes_updated_at it read. An edit reaches agents only when they read the task again.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
           "request": "task.v1.UpdateTaskRequest",
           "response": "task.v1.UpdateTaskResponse"
+        },
+        {
+          "slug": "set-task-notes",
+          "name": "SetTaskNotes",
+          "path": "/task.v1.TaskService/SetTaskNotes",
+          "command": "komrad rpc set-task-notes",
+          "tool": "set_task_notes",
+          "mcp": true,
+          "roles": [
+            "implementer",
+            "reviewer",
+            "orchestrator"
+          ],
+          "summary": "Replace a task's notes, the markdown every agent joining it is briefed with.",
+          "description": "Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": false,
+          "request": "task.v1.SetTaskNotesRequest",
+          "response": "task.v1.SetTaskNotesResponse"
         },
         {
           "slug": "archive-task",
@@ -8897,6 +8917,64 @@
         }
       ]
     },
+    "task.v1.SetTaskNotesRequest": {
+      "name": "SetTaskNotesRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which task to write the notes of, by id or by slug."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 100000 characters"
+          ],
+          "description": "The notes in full as markdown, replacing what the task has."
+        },
+        {
+          "name": "notes_updated_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "matching ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+          ],
+          "description": "The notes_updated_at get_task returned with the notes, unset when they had never been written. The write is refused once they have been written since."
+        }
+      ]
+    },
+    "task.v1.SetTaskNotesResponse": {
+      "name": "SetTaskNotesResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "Task",
+          "ref": "task.v1.Task",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task with its notes as written."
+        }
+      ]
+    },
     "task.v1.Task": {
       "name": "Task",
       "description": "Task is one outcome a person wants, which the agents linked to it work toward.",
@@ -9080,6 +9158,26 @@
           "oneof": "",
           "rules": [],
           "description": "Why its last delete could not give its checkout back, empty unless one failed."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What the agents on it and the person have written down about it, as markdown."
+        },
+        {
+          "name": "notes_updated_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When its notes were last written, in RFC 3339 to the nanosecond, unset until they first are. A write of the notes names the value it read."
         }
       ]
     },
@@ -9135,6 +9233,30 @@
             "at most 50000 characters"
           ],
           "description": "What it is meant to achieve, as markdown, left as it is when unset."
+        },
+        {
+          "name": "notes",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 100000 characters"
+          ],
+          "description": "What to write down about it as markdown, replacing the notes it has, left as they are when unset."
+        },
+        {
+          "name": "notes_updated_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "matching ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+          ],
+          "description": "The notes_updated_at the notes were read with, unset when they had never been written. A notes write is refused once they have been written since."
         }
       ]
     },

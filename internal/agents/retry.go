@@ -11,6 +11,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -107,6 +108,18 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		}
 	}
 
+	var task *taskstore.Task
+	if agent.TaskID != nil {
+		found, err := s.tasks.GetTask(ctx, *agent.TaskID)
+		if err != nil {
+			err = fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
+			s.failCreate(ctx, *agent, err)
+
+			return nil, err
+		}
+		task = found
+	}
+
 	claimsCheckout := isCheckoutClaimant(*agent, provisioner)
 	if claimsCheckout {
 		if err := s.claimCheckoutAgain(ctx, *agent); err != nil {
@@ -126,6 +139,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		workflowContext: workflowContext,
 		spawner:         spawner,
 		parent:          parent,
+		task:            task,
 		claimsCheckout:  claimsCheckout,
 	})
 }

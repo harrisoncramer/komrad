@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 const archiveIdleTasks = `-- name: ArchiveIdleTasks :exec
@@ -172,7 +173,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
 `
 
 type CreateTaskParams struct {
@@ -215,6 +216,8 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, 
 		&i.DeletingAt,
 		&i.CleaningAt,
 		&i.FailureReason,
+		&i.Notes,
+		&i.NotesUpdatedAt,
 	)
 	return &i, err
 }
@@ -252,7 +255,7 @@ func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams
 
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
 FROM
     tasks
 WHERE
@@ -287,13 +290,15 @@ func (q *Queries) GetTaskByID(ctx context.Context, id string) (*Task, error) {
 		&i.DeletingAt,
 		&i.CleaningAt,
 		&i.FailureReason,
+		&i.Notes,
+		&i.NotesUpdatedAt,
 	)
 	return &i, err
 }
 
 const getTaskBySlug = `-- name: GetTaskBySlug :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
 FROM
     tasks
 WHERE
@@ -328,6 +333,8 @@ func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*Task, error)
 		&i.DeletingAt,
 		&i.CleaningAt,
 		&i.FailureReason,
+		&i.Notes,
+		&i.NotesUpdatedAt,
 	)
 	return &i, err
 }
@@ -368,7 +375,7 @@ func (q *Queries) IsTaskSlugTaken(ctx context.Context, slug string) (bool, error
 
 const listTaskCheckouts = `-- name: ListTaskCheckouts :many
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at
 FROM
     tasks t
 WHERE
@@ -421,6 +428,8 @@ func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
 			&i.DeletingAt,
 			&i.CleaningAt,
 			&i.FailureReason,
+			&i.Notes,
+			&i.NotesUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -434,7 +443,7 @@ func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
 
 const listTasks = `-- name: ListTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
 FROM
     tasks
 WHERE
@@ -484,6 +493,8 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 			&i.DeletingAt,
 			&i.CleaningAt,
 			&i.FailureReason,
+			&i.Notes,
+			&i.NotesUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -497,7 +508,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 
 const listTasksByID = `-- name: ListTasksByID :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
 FROM
     tasks
 WHERE
@@ -540,6 +551,8 @@ func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*Task, err
 			&i.DeletingAt,
 			&i.CleaningAt,
 			&i.FailureReason,
+			&i.Notes,
+			&i.NotesUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -588,7 +601,7 @@ func (q *Queries) ListUndeletedTaskSlugs(ctx context.Context) ([]*ListUndeletedT
 
 const listWatchedTasks = `-- name: ListWatchedTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
 FROM
     tasks
 WHERE
@@ -633,6 +646,8 @@ func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*Task,
 			&i.DeletingAt,
 			&i.CleaningAt,
 			&i.FailureReason,
+			&i.Notes,
+			&i.NotesUpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -908,19 +923,29 @@ UPDATE
 SET
     slug = COALESCE($1, slug),
     title = COALESCE($2, title),
-    goal = COALESCE($3, goal)
+    goal = COALESCE($3, goal),
+    notes = COALESCE($4, notes),
+    notes_updated_at = CASE WHEN $4::text IS NULL THEN
+        notes_updated_at
+    ELSE
+        NOW()
+    END
 WHERE
-    id = $4
+    id = $5
     AND deleting_at IS NULL
+    AND ($4::text IS NULL
+        OR notes_updated_at IS NOT DISTINCT FROM $6::timestamptz)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
 `
 
 type UpdateTaskParams struct {
-	Slug  *string
-	Title *string
-	Goal  *string
-	ID    string
+	Slug               *string
+	Title              *string
+	Goal               *string
+	Notes              *string
+	ID                 string
+	ReadNotesUpdatedAt *time.Time
 }
 
 func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (*Task, error) {
@@ -928,7 +953,9 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (*Task, 
 		arg.Slug,
 		arg.Title,
 		arg.Goal,
+		arg.Notes,
 		arg.ID,
+		arg.ReadNotesUpdatedAt,
 	)
 	var i Task
 	err := row.Scan(
@@ -956,6 +983,8 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (*Task, 
 		&i.DeletingAt,
 		&i.CleaningAt,
 		&i.FailureReason,
+		&i.Notes,
+		&i.NotesUpdatedAt,
 	)
 	return &i, err
 }

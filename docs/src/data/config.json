@@ -1061,7 +1061,7 @@
               "key": "edit_row",
               "path": "keybindings.menu.edit_row",
               "type": "array",
-              "description": "Edit the hovered workflow, or the hovered task's title and goal.",
+              "description": "Edit the hovered workflow, or the hovered task's title, goal and notes.",
               "default": "[\"E\"]"
             },
             {
