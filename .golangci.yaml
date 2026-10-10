@@ -317,7 +317,6 @@ linters:
         - name: receiver-naming
           arguments:
             - maxLength: 2
-        - name: context-as-argument
         - name: argument-limit
           arguments:
             - 4
