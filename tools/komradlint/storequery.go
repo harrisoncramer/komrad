@@ -67,6 +67,11 @@ func isStoreQuery(function *types.Func) bool {
 		return false
 	}
 
+	return isQuerySignature(function)
+}
+
+// isQuerySignature says whether a function takes a context or a transaction, which is how a query reaches the database.
+func isQuerySignature(function *types.Func) bool {
 	signature, ok := function.Type().(*types.Signature)
 	if !ok {
 		return false

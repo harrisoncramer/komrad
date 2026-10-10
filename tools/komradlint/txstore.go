@@ -125,11 +125,11 @@ func reportEscapes(pass *analysis.Pass, scope txScope, body *ast.BlockStmt) {
 	})
 }
 
-// isQueryingReceiver says whether a method call queries through its receiver: a store package's
-// method, or a method other than InTx on a service that can be rebuilt over a transaction.
+// isQueryingReceiver says whether a method call queries through its receiver: a query on a store
+// package's type, or one other than InTx on a service that can be rebuilt over a transaction.
 func isQueryingReceiver(pass *analysis.Pass, callee *types.Func, selector *ast.SelectorExpr) bool {
 	signature, ok := callee.Type().(*types.Signature)
-	if !ok || signature.Recv() == nil {
+	if !ok || signature.Recv() == nil || !isQuerySignature(callee) {
 		return false
 	}
 

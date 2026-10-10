@@ -90,3 +90,19 @@ func (s *Service) Nested(ctx context.Context) error {
 		})
 	})
 }
+
+func (m *Mailer) GetFrom() string {
+	return ""
+}
+
+func (s *Service) Getters(ctx context.Context) error {
+	return s.pool.InTx(ctx, func(db store.DBTX) error {
+		if s.pool.GetEngine() == s.mail.GetFrom() {
+			return nil
+		}
+
+		_, err := notestore.NewNoteStore(db).Get(ctx, "a")
+
+		return err
+	})
+}
