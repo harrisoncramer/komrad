@@ -134,19 +134,9 @@ func TestTriageRows(t *testing.T) {
 		{
 			name:     "a hidden child shown comes into the zone with its family",
 			capacity: 1,
-			rows: []proto.Message{
-				newLiveWorkflow("w1", "backend"),
-				newAgentAt("quiet", "w1", 1),
-				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
-				func() *agentv1.Agent {
-					reviewer := newChild("reviewer", "reviewer", "asker")
-					reviewer.Hidden = true
-
-					return reviewer
-				}(),
-			},
-			press: []string{"space", "h", "H"},
-			want:  []string{"asker", "└ reviewer \uf4c5", "backend", "├─ asker", "│ └─ reviewer \uf4c5", "└─ quiet"},
+			rows:     buildAskerWithHiddenReviewer(),
+			press:    []string{"space", "h", "H"},
+			want:     []string{"asker", "└ reviewer \uf4c5", "backend", "├─ task-asker", "│ ├─ asker", "│ └─ reviewer \uf4c5", "└─ task-quiet", "└─ quiet"},
 		},
 	}
 
@@ -301,6 +291,13 @@ func TestTriageSnooze(t *testing.T) {
 			rows:     buildTriage(),
 			press:    []string{"t", "space", "z", "G", "k", "k", "space", "z"},
 			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
+		},
+		{
+			name:     "waking a snoozed task from its row in the tree puts it back in the zone",
+			capacity: 3,
+			rows:     withTasks(buildTriage()),
+			press:    []string{"t", "space", "z", "G", "k", "k", "k", "k", "k", "space", "z"},
+			want:     []string{"asker", "third", "broken", "backend", "├─ task-third", "│ └─ third", "├─ task-asker", "│ └─ asker", "├─ task-broken", "│ └─ broken", "└─ task-quiet", "└─ quiet"},
 		},
 		{
 			name:     "waking a snoozed orchestrator from its workflow puts it back in the zone",
@@ -580,14 +577,29 @@ func TestTriageCopies(t *testing.T) {
 		assert.Len(t, marked, 2)
 	})
 
-	t.Run("an action over both copies takes the agent once", func(t *testing.T) {
-		harness := openTriage(t, 3, buildTriage()...)
+	t.Run("an action over both copies takes the task once", func(t *testing.T) {
+		harness := openTriage(t, 3, withTasks(buildTriage())...)
 
-		harness.press("t", "v", "space")
+		harness.press("t", "v", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, `agent "asker"`)
-		assert.NotContains(t, frame, "2 agents")
+		assert.Contains(t, frame, `task "task-asker"`)
+		assert.NotContains(t, frame, "2 tasks")
+	})
+
+	t.Run("a zone row acts through the agent its task's row wears", func(t *testing.T) {
+		writer := newTriageAgent("writer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
+		task := newTaskOf(writer)
+		sweeper := newAgentAt("sweeper", "w1", 9)
+		sweeper.Hidden = true
+		sweeper.PaneId = "%5"
+		sweeper.Alive = xptr.Ptr(true)
+		sweeper.TaskId = writer.TaskId
+		harness := openTriage(t, 3, newLiveWorkflow("w1", "backend"), writer, task, sweeper)
+
+		harness.press("t", "space", "l")
+
+		assert.Contains(t, harness.readFrame(), "agents › writer › logs")
 	})
 }
 
@@ -676,4 +688,17 @@ func buildAnswered() []proto.Message {
 // findTreeLine is the line of the frame the tree's workflow is rendered on.
 func findTreeLine(frame string) int {
 	return slices.IndexFunc(splitLines(frame), func(line string) bool { return strings.Contains(line, "│ backend") })
+}
+
+// buildAskerWithHiddenReviewer is a task waiting on a person whose reviewer is hidden, beside a
+// quiet task.
+func buildAskerWithHiddenReviewer() []proto.Message {
+	quiet := newAgentAt("quiet", "w1", 1)
+	asker := newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3)
+	reviewer := newChild("reviewer", "reviewer", "asker")
+	reviewer.Hidden = true
+	askerTask := newTaskOf(asker)
+	reviewer.TaskId = asker.TaskId
+
+	return []proto.Message{newLiveWorkflow("w1", "backend"), quiet, newTaskOf(quiet), asker, askerTask, reviewer}
 }

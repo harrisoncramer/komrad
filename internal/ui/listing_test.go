@@ -56,7 +56,7 @@ func TestListingSettlesWrites(t *testing.T) {
 				answerAgentCreate(harness, "")
 				harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 			},
-			press:   []string{"k", "space", "c", "h", "i", "enter"},
+			press:   []string{"k", "k", "space", "c", "h", "i", "enter"},
 			wantRow: "├─ new",
 		},
 		{

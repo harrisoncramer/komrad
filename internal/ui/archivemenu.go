@@ -133,22 +133,13 @@ func liveArchiveMenu(entries ...submenuEntry) submenu {
 	}
 }
 
-func agentsArchiveMenu(m *model, agents []panel.Agent, chosen bool) submenu {
-	archive, remove := "archive", "archive and delete for good"
-	if chosen {
-		archive, remove = "archive all", "archive and delete all for good"
-	}
-
-	return liveArchiveMenu(
-		submenuEntry{
-			label: archive,
-			keys:  m.keys.ArchiveMenu.Archive,
-			write: func(m *model) tea.Cmd { return m.archiveAgents(agents) },
-		},
-		openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
-			return confirmArchiveDeleteAgents(m, agents)
-		}),
-	)
+// agentArchiveMenu archives the hovered agent alone, its task left standing.
+func agentArchiveMenu(m *model, agent panel.Agent) submenu {
+	return liveArchiveMenu(submenuEntry{
+		label: "archive this agent",
+		keys:  m.keys.ArchiveMenu.Archive,
+		write: func(m *model) tea.Cmd { return m.archiveAgents([]panel.Agent{agent}) },
+	})
 }
 
 func workflowArchiveMenu(m *model, workflow panel.Workflow) submenu {
@@ -159,12 +150,24 @@ func workflowArchiveMenu(m *model, workflow panel.Workflow) submenu {
 	})
 }
 
-func taskArchiveMenu(m *model, task panel.Task) submenu {
-	return liveArchiveMenu(submenuEntry{
-		label: "archive with its agents",
-		keys:  m.keys.ArchiveMenu.Archive,
-		write: func(m *model) tea.Cmd { return m.archiveTask(task) },
-	})
+// tasksArchiveMenu archives the hovered task or the chosen ones with their agents, or deletes them
+// for good.
+func tasksArchiveMenu(m *model, tasks []panel.Task, chosen bool) submenu {
+	archive, remove := "archive with its agents", "archive and delete for good"
+	if chosen {
+		archive, remove = "archive all", "archive and delete all for good"
+	}
+
+	return liveArchiveMenu(
+		submenuEntry{
+			label: archive,
+			keys:  m.keys.ArchiveMenu.Archive,
+			write: func(m *model) tea.Cmd { return m.archiveTasks(tasks) },
+		},
+		openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+			return confirmDeleteTasks(m, tasks)
+		}),
+	)
 }
 
 func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
@@ -172,23 +175,5 @@ func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
 		label: "archive",
 		keys:  m.keys.ArchiveMenu.Archive,
 		write: func(m *model) tea.Cmd { return m.archiveSchedule(schedule) },
-	})
-}
-
-// confirmArchiveDeleteAgents asks before live agents are archived and then deleted for good.
-func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), fixedKeys())
-
-	return m.openForm(formState{
-		kind:   formArchiveDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !*confirmed {
-				return nil
-			}
-
-			return m.archiveAndDeleteAgents(agents)
-		}),
 	})
 }

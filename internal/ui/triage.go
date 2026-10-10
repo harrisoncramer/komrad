@@ -3,7 +3,6 @@ package ui
 import (
 	"cmp"
 	"fmt"
-	"maps"
 	"slices"
 	"time"
 
@@ -126,7 +125,7 @@ type triageZone struct {
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
-	// snoozed are the families taken out of the zone, by head id, until what they wait on changes.
+	// snoozed are the tasks taken out of the zone, by triageKey, until what they wait on changes.
 	snoozed map[string]triageSnooze
 	// frozen is the order of the heads rendered while a person reads the zone, which holds still until
 	// they leave it, and nil when it is free to move.
@@ -145,10 +144,11 @@ type triageEntry struct {
 	rule  triageRule
 }
 
-// triageSnooze is the reason a family was snoozed on.
+// triageSnooze is the reason a task was snoozed on, read off its most urgent family.
 type triageSnooze struct {
-	rule  string
-	began time.Time
+	headID string
+	rule   string
+	began  time.Time
 }
 
 // triageFamily is a head and its children in triage, named by the most urgent entry among them.
@@ -228,18 +228,18 @@ func (z *triageZone) isHeld(item panel.AgentRow) bool {
 	return z.held != "" && headID == z.held
 }
 
-// pruneSnoozes ends every snooze whose family has left triage or now waits on something else.
+// pruneSnoozes ends every snooze whose task has left triage or now waits on something else.
 func (z *triageZone) pruneSnoozes(agents []panel.AgentRow) {
 	byID := keyAgentsByID(agents)
-	families := z.familiesByHead(agents)
-	for headID, snooze := range z.snoozed {
-		if byID[headID].Agent.Hidden {
+	families := z.familiesByKey(agents)
+	for key, snooze := range z.snoozed {
+		if byID[snooze.headID].Agent.Hidden {
 			continue
 		}
 
-		family, ok := families[headID]
+		family, ok := families[key]
 		if !ok || !snooze.isFor(family.entry) {
-			delete(z.snoozed, headID)
+			delete(z.snoozed, key)
 		}
 	}
 }
@@ -249,23 +249,23 @@ func (s triageSnooze) isFor(entry triageEntry) bool {
 	return s.rule == entry.rule.name && s.began.Equal(entry.began)
 }
 
-// isSnoozed reports whether the family under the head is snoozed.
-func (z *triageZone) isSnoozed(headID string) bool {
-	_, ok := z.snoozed[headID]
+// isSnoozed reports whether the task, or the agent standing alone, under the key is snoozed.
+func (z *triageZone) isSnoozed(key string) bool {
+	_, ok := z.snoozed[key]
 
 	return ok
 }
 
-// toggleSnooze snoozes the agent's family in triage, or wakes it when it is snoozed, reporting
-// false when the family is not in triage.
-func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) bool {
-	family, ok := z.findFamily(item, agents)
+// toggleSnooze snoozes the task under the key in triage, or wakes it when it is snoozed,
+// reporting false when the task is not in triage.
+func (z *triageZone) toggleSnooze(key string, agents []panel.AgentRow) bool {
+	family, ok := z.familiesByKey(agents)[key]
 	if !ok {
 		return false
 	}
 
-	if z.isSnoozed(family.head.Agent.ID) {
-		delete(z.snoozed, family.head.Agent.ID)
+	if z.isSnoozed(key) {
+		delete(z.snoozed, key)
 	} else {
 		z.snooze(family)
 	}
@@ -282,15 +282,16 @@ func (z *triageZone) refreeze(agents []panel.AgentRow) {
 		return
 	}
 
-	frozen := xslice.Filter(z.frozen, func(id string) bool { return !z.isSnoozed(id) })
-	waiting := xslice.Filter(slices.Collect(maps.Values(z.familiesByHead(agents))), func(f triageFamily) bool {
-		return !z.isSnoozed(f.head.Agent.ID) && !slices.Contains(frozen, f.head.Agent.ID)
+	byID := keyAgentsByID(agents)
+	frozen := xslice.Filter(z.frozen, func(id string) bool { return !z.isSnoozed(triageKey(byID[id])) })
+	waiting := xslice.Filter(findTriageFamilies(z.entries, agents), func(f triageFamily) bool {
+		return !z.isSnoozed(triageKey(f.head)) && !slices.Contains(frozen, f.head.Agent.ID)
 	})
 	slices.SortFunc(waiting, z.compareFamilies)
 	z.frozen = slices.Concat(frozen, xslice.Map(waiting, func(f triageFamily) string { return f.head.Agent.ID }))
 }
 
-// seeFinished snoozes the agent's family when it waits only to be looked at.
+// seeFinished snoozes the agent's task when it waits only to be looked at.
 func (z *triageZone) seeFinished(item panel.AgentRow, agents []panel.AgentRow) {
 	family, ok := z.findFamily(item, agents)
 	if ok && family.entry.rule.tier == tierFinished {
@@ -298,25 +299,49 @@ func (z *triageZone) seeFinished(item panel.AgentRow, agents []panel.AgentRow) {
 	}
 }
 
-// snooze takes the family out of the zone until what it waits on changes.
+// snooze takes the family's task out of the zone until what it waits on changes.
 func (z *triageZone) snooze(family triageFamily) {
 	if z.snoozed == nil {
 		z.snoozed = make(map[string]triageSnooze)
 	}
 
-	z.snoozed[family.head.Agent.ID] = triageSnooze{rule: family.entry.rule.name, began: family.entry.began}
+	z.snoozed[triageKey(family.head)] = triageSnooze{
+		headID: family.head.Agent.ID,
+		rule:   family.entry.rule.name,
+		began:  family.entry.began,
+	}
 }
 
-// findFamily is the family in triage the agent belongs to.
+// findFamily is the most urgent family in triage on the agent's task.
 func (z *triageZone) findFamily(item panel.AgentRow, agents []panel.AgentRow) (triageFamily, bool) {
 	head := findTriageHead(item, keyAgentsByID(agents))
-	family, ok := z.familiesByHead(agents)[head.Agent.ID]
+	family, ok := z.familiesByKey(agents)[triageKey(head)]
 
 	return family, ok
 }
 
-func (z *triageZone) familiesByHead(agents []panel.AgentRow) map[string]triageFamily {
-	return xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })
+// familiesByKey is the most urgent family in triage on each task, or of each agent standing alone.
+func (z *triageZone) familiesByKey(agents []panel.AgentRow) map[string]triageFamily {
+	byKey := make(map[string]triageFamily)
+	for _, family := range findTriageFamilies(z.entries, agents) {
+		key := triageKey(family.head)
+		if was, ok := byKey[key]; ok && compareUrgency(was.entry, family.entry) <= 0 {
+			continue
+		}
+		byKey[key] = family
+	}
+
+	return byKey
+}
+
+// triageKey is what a snooze of the head's family is kept under: its task, or the head itself when
+// it is on none.
+func triageKey(head panel.AgentRow) string {
+	if head.Agent.TaskID != "" {
+		return head.Agent.TaskID
+	}
+
+	return head.Agent.ID
 }
 
 // findTriageFamilies groups the agents in triage under their heads, in the listing's order.
@@ -478,7 +503,7 @@ func (l agentsLayout) cursorRows() []agentRow {
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	children := childrenByParent(m.listing.agents)
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
-		return (!f.head.Agent.Hidden || showHidden) && !z.isSnoozed(f.head.Agent.ID)
+		return (!f.head.Agent.Hidden || showHidden) && !z.isSnoozed(triageKey(f.head))
 	})
 	ordered := z.orderFamilies(families)
 	slotted := ordered[:min(len(ordered), z.capacity)]

@@ -31,7 +31,7 @@ func TestGitMenu(t *testing.T) {
 		harness := openGitMenu(t, buildGitAgent()...)
 
 		frame := harness.readFrame()
-		assert.Equal(t, "agents › api › git", readTrail(frame))
+		assert.Equal(t, "agents › task-a1 › git", readTrail(frame))
 		assert.Contains(t, frame, "  › git ›", "the menu it came from stays rendered with its cursor on git")
 	})
 
@@ -45,7 +45,7 @@ func TestGitMenu(t *testing.T) {
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, gitMenuEntry)
 		assert.Contains(t, frame, "› git ›")
-		assert.Equal(t, "agents › api", readTrail(frame))
+		assert.Equal(t, "agents › task-a1", readTrail(frame))
 
 		harness.press("esc")
 
@@ -72,7 +72,7 @@ func TestGitMenu(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{width: 36, height: 20})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(buildGitAgent()...))
-		harness.press("space", "g")
+		harness.press("k", "space", "g")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, gitMenuEntry)
@@ -309,7 +309,7 @@ func TestGitMenuMerges(t *testing.T) {
 			}
 
 			harness.press("m")
-			require.Equal(t, "agents › api › git › merge", readTrail(harness.readFrame()))
+			require.Equal(t, "agents › task-a1 › git › merge", readTrail(harness.readFrame()))
 			harness.press(tt.press...)
 
 			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
@@ -821,7 +821,7 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 			harness := newPanelHarness(t, panelHarnessParams{browser: opener})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(append(buildGitAgent(), newOpenPullRequest())...))
-			harness.press("space", "g", "o")
+			harness.press("k", "space", "g", "o")
 
 			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
 			frame := harness.readFrame()
@@ -882,7 +882,7 @@ func openGitMenu(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
-	harness.press("space", "g")
+	harness.press("k", "space", "g")
 	require.Contains(t, harness.readFrame(), gitMenuEntry)
 
 	return harness

@@ -94,7 +94,7 @@ triage_rows    = 3
 [keybindings.agents]
 # Jump to the first agent in the triage zone at the top of the list.
 triage = ["t"]
-# Rename the hovered agent.
+# Rename the hovered agent, or the slug of the hovered task.
 rename = ["r"]
 
 # The archive screen.
@@ -104,11 +104,12 @@ rename = ["r"]
 
 # The archive menu, nested under the menu on the hovered row of the archive.
 [keybindings.archive_menu]
-# Archive the agent, workflow or schedule, or every chosen agent.
+# Archive the agent, task, workflow or schedule, or every chosen task.
 archive      = ["a"]
-# Destroy the row for good, with its transcript or its run history, archiving a live agent
-# first. On the worktrees it deletes the directory, through the agent delete when an archived
-# agent answers for it. Nothing undoes it, so it asks first.
+# Destroy the row for good, with its transcript or its run history, archiving a live task
+# first, which takes its agents, documents, reviews and worktree with it. On the worktrees it
+# deletes the directory, through the agent delete when an archived agent answers for it.
+# Nothing undoes it, so it asks first.
 delete       = ["d"]
 # Put the row back in the panel.
 restore      = ["r"]
@@ -230,9 +231,10 @@ documents = ["d"]
 
 # The hide menu, nested under the menu on the agents list.
 [keybindings.hide_menu]
-# Hide the hovered agent from the list, or unhide it when it is hidden.
+# Hide the hovered task and every agent on it, or every chosen task, or unhide them when they
+# are all hidden.
 hide        = ["h"]
-# Show the hidden agents alongside the rest, or put them away again.
+# Show the hidden tasks and agents alongside the rest, or put them away again.
 show_hidden = ["H"]
 
 # The merge menu, nested under the git menu, which merges the hovered agent's pull request.
@@ -378,37 +380,37 @@ toggle = ["v"]
 # The menu on the hovered row, which lists the screens that belong to it and the menus nested
 # under it.
 [keybindings.menu]
-# Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.
+# Open the menu: the hovered row's entries, or the chosen tasks', over the screen's own.
 # The key opens nothing on a screen with neither.
 open          = ["space"]
-# Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
-# own, and in the archive.
+# Open the review of the task's diff. The entry is gray on a task with no worktree, and in
+# the archive.
 review        = ["r"]
 # Open the agent's logs, the service log lines about it.
 logs          = ["l"]
-# Open the status checks run on the agent's pull request.
+# Open the status checks run on the task's pull request.
 status_checks = ["x"]
 # Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 # keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 # with no directory.
 terminal      = ["t"]
-# Open the git menu to the right of this one, for rebasing the agent's branch or opening or
+# Open the git menu to the right of this one, for rebasing the task's branch or opening or
 # merging its pull request.
 git           = ["g"]
 # Open the jump menu to the right of this one, for landing on the hovered row's agent, its
 # worktree or its documents.
 jump          = ["J"]
-# Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
-# schedule or every chosen agent, for restoring or deleting a row of the archive, or for
-# deleting worktrees.
+# Open the archive menu to the right of this one, for archiving or deleting the hovered task
+# or every chosen task, for archiving the hovered agent, workflow or schedule, for restoring
+# or deleting a row of the archive, or for deleting worktrees.
 archive       = ["a"]
-# Open the hide menu to the right of this one, for hiding the hovered agent or showing the
-# hidden ones. The entry is only on the agents list.
+# Open the hide menu to the right of this one, for hiding the hovered task or every chosen
+# task, or showing the hidden ones. The entry is only on the agents list.
 hide          = ["h"]
-# Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
-# agent is paused while the editor is open, and quitting the editor, picking the entry again
-# or leaving the agents list closes it and unpauses the agent. The entry is only on the agents
-# list.
+# Open your editor on the files of the hovered task or agent, in place of the pane beside
+# the list. The agent working there is paused while the editor is open, and quitting the
+# editor, picking the entry again or leaving the agents list closes it and unpauses the agent.
+# The entry is only on the agents list.
 edit          = ["e"]
 # Attach a child agent to the hovered agent, which runs in that agent's own checkout with no
 # worktree of its own and is archived along with it. The entry is only on the agents list.
@@ -416,11 +418,12 @@ child         = ["C"]
 # Retry the launch of an agent that failed to create, opening a form where the flags can be
 # corrected before confirming. The entry is only on such an agent.
 retry         = ["R"]
-# Snooze the hovered agent's family in triage, which takes it out of the zone until what it
-# waits on changes, or wake it when it is snoozed. The entry is only on an agent in triage.
+# Snooze the hovered task in triage, which takes its agents out of the zone until what they
+# wait on changes, or wake it when it is snoozed. The entry is only on a task or an
+# orchestrator in triage.
 snooze        = ["z"]
-# Edit the hovered workflow.
-edit_workflow = ["E"]
+# Edit the hovered workflow, or the hovered task's title and goal.
+edit_row      = ["E"]
 # Put an agent on a branch that already exists, in the hovered workflow.
 adopt         = ["A"]
 # Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only

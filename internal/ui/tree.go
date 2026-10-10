@@ -51,7 +51,8 @@ type agentRow struct {
 	orchestrator *panel.AgentRow
 	// task makes a header the task's rather than the workflow's, standing over the agents on it.
 	task *panel.Task
-	// lead is the newest agent under a task's header, whose state and pull request it wears.
+	// lead is the agent a task's header wears the state and pull request of: the newest with a
+	// pane, or the newest when none has one.
 	lead *panel.AgentRow
 	// underTask sets the row in under the task header above it.
 	underTask bool
@@ -63,8 +64,11 @@ func (r agentRow) isTask() bool {
 }
 
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
-// orchestrator standing behind it.
+// orchestrator standing behind it and for a task the lead while it has a pane.
 func (r agentRow) paneItem() (panel.AgentRow, bool) {
+	if r.isTask() {
+		return *r.lead, hasPane(*r.lead)
+	}
 	if r.header {
 		if r.orchestrator == nil {
 			return panel.AgentRow{}, false
@@ -224,21 +228,28 @@ func taskRows(families []family, tasks map[string]panel.Task) []agentRow {
 	return rows
 }
 
-// taskHeader is the row over the families on one task, led by the newest of their agents.
+// taskHeader is the row over the families on one task, led by the newest of their heads with a
+// pane, or the newest of them when none has one.
 func taskHeader(gathered []family, tasks map[string]panel.Task) agentRow {
 	lead := gathered[0].rows[0].item
 	for _, f := range gathered[1:] {
-		if head := f.rows[0].item; head.Agent.CreatedAt.After(lead.Agent.CreatedAt) {
+		if head := f.rows[0].item; isBetterLead(head, lead) {
 			lead = head
 		}
 	}
 
-	task, ok := tasks[lead.Agent.TaskID]
-	if !ok {
-		task = panel.Task{ID: lead.Agent.TaskID, WorkflowID: lead.Agent.WorkflowID, Slug: lead.Agent.TaskSlug}
-	}
+	task := findAgentTask(tasks, lead.Agent)
 
 	return agentRow{header: true, task: &task, lead: &lead}
+}
+
+// isBetterLead reports whether a task's header should wear the head over the lead it has so far.
+func isBetterLead(head, lead panel.AgentRow) bool {
+	if hasPane(head) != hasPane(lead) {
+		return hasPane(head)
+	}
+
+	return head.Agent.CreatedAt.After(lead.Agent.CreatedAt)
 }
 
 func keyAgentsByID(agents []panel.AgentRow) map[string]panel.AgentRow {
@@ -366,16 +377,6 @@ func (a *agentsScreen) hoveredRow(m *model) (agentRow, bool) {
 	return rowAt(a.rows(m), a.cursor)
 }
 
-// selectedAgent is the agent the cursor is on, and none on a workflow.
-func (a *agentsScreen) selectedAgent(m *model) (panel.AgentRow, bool) {
-	row, ok := a.hoveredRow(m)
-	if !ok || row.header {
-		return panel.AgentRow{}, false
-	}
-
-	return row.item, true
-}
-
 func (a *agentsScreen) hoveredWorkflow(m *model) (panel.Workflow, bool) {
 	return hoveredHeader(a.rows(m), a.cursor)
 }
@@ -491,7 +492,7 @@ func nearestAgentRowIndex(rows []agentRow, idx int) int {
 func rowIndexOfAgentID(rows []agentRow, id string) int {
 	for i, r := range rows {
 		item, held := r.paneItem()
-		if held && item.Agent.ID == id {
+		if held && !r.isTask() && item.Agent.ID == id {
 			return i
 		}
 	}
@@ -692,7 +693,8 @@ type listing struct {
 // assemble renders the listings, live and archived, from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
 	agents := agentRowsFrom(assemble.AgentRows(l.world, now), l.world.Tasks)
-	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents)
+	l.tasks = xslice.KeyBy(tasksFrom(slices.Collect(maps.Values(l.world.Tasks))), func(t panel.Task) string { return t.ID })
+	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents, l.tasks)
 	isArchivedAgent := func(row panel.AgentRow) bool {
 		return row.Agent.ArchivedAt != nil
 	}
@@ -712,7 +714,6 @@ func (l *listing) assemble(now time.Time) {
 	l.archivedWorkflows = slices.DeleteFunc(workflows, func(workflow panel.Workflow) bool {
 		return !isArchivedWorkflow(workflow)
 	})
-	l.tasks = xslice.KeyBy(tasksFrom(slices.Collect(maps.Values(l.world.Tasks))), func(t panel.Task) string { return t.ID })
 	schedules := scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
 	slices.SortFunc(schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })
 	isArchivedSchedule := func(item scheduleItem) bool {
@@ -727,7 +728,7 @@ func (l *listing) assemble(now time.Time) {
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it needs them.
 func (a *agentsScreen) revealAgent(m *model, id string) {
-	if a.hoveredAgentID(m) == id {
+	if toTreeRowKey(a.list().hovered(m)) == agentRowKey(id) {
 		return
 	}
 

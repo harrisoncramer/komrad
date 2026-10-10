@@ -52,11 +52,11 @@ func TestSelection(t *testing.T) {
 	}
 
 	t.Run("the bar stays while a menu has the keys", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
-		harness.press("j", "v")
+		harness := openAgents(t, withTasks(buildSelectable())...)
+		harness.press("j", "j", "v")
 
 		harness.press("space", "a")
-		require.Contains(t, harness.readFrame(), `agent "api" › archive`)
+		require.Contains(t, harness.readFrame(), "archive all")
 
 		assert.Contains(t, findRenderedRow(t, harness, "api"), bar)
 	})

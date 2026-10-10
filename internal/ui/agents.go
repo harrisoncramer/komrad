@@ -103,24 +103,26 @@ func (m *model) archiveAndDeleteAgents(agents []panel.Agent) tea.Cmd {
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
-// standing behind it.
+// standing behind it and for a task its lead.
 func (a *agentsScreen) openHovered(m *model) tea.Cmd {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		return startOrchestrator(m, workflow)
 	}
-	if row, ok := a.hoveredRow(m); ok && row.isTask() {
-		a.revealAgent(m, row.lead.Agent.ID)
-	}
 
-	return a.openAgent(m)
-}
-
-func (a *agentsScreen) openAgent(m *model) tea.Cmd {
-	item, ok := a.selectedAgent(m)
-	if !ok {
+	row, ok := a.hoveredRow(m)
+	switch {
+	case !ok:
+		return nil
+	case row.isTask():
+		return a.openAgent(m, *row.lead)
+	case row.header:
 		return nil
 	}
 
+	return a.openAgent(m, row.item)
+}
+
+func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) tea.Cmd {
 	if _, waking := a.resuming[item.Agent.ID]; waking {
 		return nil
 	}
@@ -235,17 +237,11 @@ func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 	a.cursor = cursor.Place(rowIndexOfKey(rows, treeKey), a.cursor, len(rows))
 }
 
-// toggleSnooze snoozes or wakes the triage family of the hovered agent, or of the orchestrator behind
-// a hovered workflow.
-func (a *agentsScreen) toggleSnooze(m *model) {
-	item, ok := a.hoveredPaneItem(m)
-	if !ok {
-		return
-	}
-
+// toggleSnooze snoozes or wakes the task under the key in triage, keeping the cursor in the zone.
+func (a *agentsScreen) toggleSnooze(m *model, key string) {
 	selected := a.list().hovered(m)
 	slot := a.findZoneSlot(m)
-	if !a.triage.toggleSnooze(item, m.listing.agents) {
+	if !a.triage.toggleSnooze(key, m.listing.agents) {
 		return
 	}
 
@@ -256,15 +252,6 @@ func (a *agentsScreen) toggleSnooze(m *model) {
 	}
 
 	a.stage(m)
-}
-
-func hideAgent(m *model, agent panel.Agent) tea.Cmd {
-	doing, failure := "hiding "+agent.Name, fmt.Sprintf("Could not hide agent %q", agent.Name)
-	if agent.Hidden {
-		doing, failure = "unhiding "+agent.Name, fmt.Sprintf("Could not unhide agent %q", agent.Name)
-	}
-
-	return m.writeCmd(doing, failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
 // hasPane reports whether an agent has a pane of its own worth putting in the window.

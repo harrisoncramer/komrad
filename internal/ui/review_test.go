@@ -123,7 +123,7 @@ func TestReviewOpen(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 		harness.hold("git.Diff")
 
-		harness.press("space", "r", "?")
+		harness.press("k", "space", "r", "?")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStageText(frame), "loading the diff")
@@ -140,7 +140,7 @@ func TestReviewOpen(t *testing.T) {
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
 		harness.hold("git.Diff")
-		harness.press("space", "r")
+		harness.press("k", "space", "r")
 
 		for _, x := range []int{1, reviewWidth - 1} {
 			harness.send(tea.MouseWheelMsg{
@@ -2631,7 +2631,7 @@ func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams)
 	harness := newPanelHarness(t, params)
 	server.serve(harness)
 	harness.watch(server.buildSnapshot())
-	harness.press("space", "r")
+	harness.press("k", "space", "r")
 
 	return harness
 }

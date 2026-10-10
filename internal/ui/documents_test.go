@@ -27,13 +27,14 @@ import (
 func TestDocumentsOpen(t *testing.T) {
 	t.Parallel()
 
-	t.Run("an agent's row opens every document filtered to the agent's own", func(t *testing.T) {
+	t.Run("a task's row opens every document filtered to the task's own", func(t *testing.T) {
 		t.Parallel()
 
 		docs := newDocumentShelf()
 		docs.add(&agentv1.Document{
 			Id:        "d3",
 			AgentId:   "quiet",
+			TaskId:    xptr.Ptr("task-quiet"),
 			Name:      "Quiet notes",
 			Type:      "notes",
 			Version:   1,
@@ -41,13 +42,13 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
-		moveToAgentRow(t, harness, "author")
+		moveToAgentRow(t, harness, "task-author")
 		harness.press("space", "J", "d")
 		harness.fireTimers()
 
 		frame := harness.readFrame()
 		assert.Equal(t, documentsScreen, harness.readScreen())
-		assert.Equal(t, "▽ agent:author", readSearch(frame))
+		assert.Equal(t, "▽ task:task-author", readSearch(frame))
 		assert.Contains(t, readStageText(frame), "Design the cache")
 		assert.NotContains(t, strings.Join(readListRows(frame), "\n"), "Quiet notes")
 		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
@@ -80,30 +81,13 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.NotContains(t, rows, "Design the cache")
 	})
 
-	t.Run("an agent's row keeps to its own documents when another agent shares its name", func(t *testing.T) {
+	t.Run("a new document from a task's documents is written by the agent its row wears", func(t *testing.T) {
 		t.Parallel()
 
-		docs := newDocumentShelf()
-		docs.add(&agentv1.Document{
-			Id:        "d4",
-			AgentId:   "namesake",
-			Name:      "Namesake notes",
-			Type:      "notes",
-			Version:   1,
-			UpdatedAt: "2026-09-26T12:00:00Z",
-		})
-		harness := openAgents(t, append(buildDocumentAuthors(), newLiveWorkflow("w2", "zeta"), newAgent("namesake", "author", "w2"))...)
-		docs.answer(harness)
+		harness, _ := openDocuments(t)
 		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 		})
-		moveToAgentRow(t, harness, "author")
-		harness.press("space", "J", "d")
-		harness.fireTimers()
-
-		rows := strings.Join(readListRows(harness.readFrame()), "\n")
-		assert.Contains(t, rows, "Design the cache")
-		assert.NotContains(t, rows, "Namesake notes")
 
 		harness.press("space", "c", "P", "enter")
 
@@ -159,7 +143,7 @@ func TestDocumentsOpen(t *testing.T) {
 		docs := newDocumentShelf()
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
-		moveToAgentRow(t, harness, "quiet")
+		moveToAgentRow(t, harness, "task-quiet")
 		harness.press("space", "J", "d")
 		harness.fireTimers()
 
@@ -426,6 +410,7 @@ func TestDocumentsRead(t *testing.T) {
 		docs.add(&agentv1.Document{
 			Id:        "d3",
 			AgentId:   "author",
+			TaskId:    xptr.Ptr("task-author"),
 			Name:      "Cache notes",
 			Type:      "notes",
 			UpdatedAt: "2026-09-25T12:00:00Z",
@@ -650,7 +635,7 @@ func TestDocumentsNewFromEmpty(t *testing.T) {
 	harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 	})
-	moveToAgentRow(t, harness, "quiet")
+	moveToAgentRow(t, harness, "task-quiet")
 	harness.press("space", "J", "d")
 	harness.fireTimers()
 	harness.press("space", "c", "P", "l", "a", "n", "enter")
@@ -1143,7 +1128,7 @@ func openDocumentsWith(t *testing.T, params panelHarnessParams) (*panelHarness, 
 	harness.watch(buildSnapshot(buildDocumentAuthors()...))
 	docs.answer(harness)
 
-	moveToAgentRow(t, harness, "author")
+	moveToAgentRow(t, harness, "task-author")
 	harness.press("space", "J", "d")
 	harness.fireTimers()
 
@@ -1163,19 +1148,19 @@ func openEveryDocument(t *testing.T) *panelHarness {
 	return harness
 }
 
-// moveToAgentRow puts the agents list's cursor on the row whose name holds the one given.
+// moveToAgentRow puts the agents list's cursor on the row named the one given.
 func moveToAgentRow(t *testing.T, harness *panelHarness, name string) {
 	t.Helper()
 
 	harness.press("g", "g")
-	for range 10 {
-		if strings.Contains(readHoveredRow(harness.readFrame()), name) {
+	for range 12 {
+		if slices.Contains(strings.Fields(readHoveredRow(harness.readFrame())), name) {
 			return
 		}
 		harness.press("j")
 	}
 
-	require.Contains(t, readHoveredRow(harness.readFrame()), name, "no row is named %q", name)
+	require.Contains(t, strings.Fields(readHoveredRow(harness.readFrame())), name, "no row is named %q", name)
 }
 
 // buildDocumentAuthors is a workflow whose orchestrator and one agent have written, beside an
@@ -1188,12 +1173,15 @@ func buildDocumentAuthors() []proto.Message {
 	author := newAgent("author", "author", "w1")
 	author.Documents = 2
 	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+	quiet := newAgent("quiet", "quiet", "w1")
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
 		orchestrator,
 		author,
-		newAgent("quiet", "quiet", "w1"),
+		newTaskOf(author),
+		quiet,
+		newTaskOf(quiet),
 		newDocumentType("t1", "RFC"),
 		newDocumentType("t2", "report"),
 		newDocumentType("t3", "explainer"),
@@ -1226,6 +1214,7 @@ func newDocumentShelf() *documentShelf {
 			{
 				Id:        "d1",
 				AgentId:   "author",
+				TaskId:    xptr.Ptr("task-author"),
 				Name:      "Design the cache",
 				Type:      "RFC",
 				Version:   3,
@@ -1234,6 +1223,7 @@ func newDocumentShelf() *documentShelf {
 			{
 				Id:        "d2",
 				AgentId:   "author",
+				TaskId:    xptr.Ptr("task-author"),
 				Name:      "Rollout report",
 				Type:      "report",
 				Version:   5,

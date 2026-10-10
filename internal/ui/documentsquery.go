@@ -97,13 +97,17 @@ func quoteClause(key, value string) string {
 	return key + ":" + value
 }
 
-// namedAgentID is the one agent the filter's agent: qualifier names exactly, if any.
+// namedAgentID is the one agent the filter's agent: qualifier names exactly, or the lead of the
+// task the documents were opened for.
 func (m *model) namedAgentID() (string, bool) {
 	var names []string
 	for _, clause := range m.filter.qualifiers.clauses {
 		if clause.Key == searchsyntax.KeyAgent && !clause.Negated {
 			names = append(names, clause.Value)
 		}
+	}
+	if len(names) == 0 {
+		return m.openedTaskLead()
 	}
 	if len(names) != 1 {
 		return "", false
@@ -133,6 +137,21 @@ func (m *model) openedForAgent(name string) (string, bool) {
 	}
 
 	return agentID, true
+}
+
+// openedTaskLead is the agent the task's row wore when the documents were opened for it, while
+// the filter still names that task.
+func (m *model) openedTaskLead() (string, bool) {
+	for _, clause := range m.filter.qualifiers.clauses {
+		if clause.Key != searchsyntax.KeyTask || clause.Negated {
+			continue
+		}
+		if _, ok := m.openedForTask(clause.Value); ok && m.documents.agentID != "" {
+			return m.documents.agentID, true
+		}
+	}
+
+	return "", false
 }
 
 // openedForTask is the task the documents were opened for, when the slug given is its slug.

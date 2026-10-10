@@ -46,30 +46,34 @@ func joinMenus(top, bottom submenu) submenu {
 
 func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if a.list().isSelecting(m) {
-		agents := chosenAgents(a.selected, a.rows(m))
-		if len(agents) == 0 {
+		tasks := chosenTasks(m.listing, chosenAgents(a.selected, a.rows(m)))
+		if len(tasks) == 0 {
 			return submenu{}, false
 		}
 
-		menu := withNested(rowMenu(describeAgents(agents)), "hide", m.keys.Menu.Hide, a.hideMenu(m, nil))
+		menu := withNested(rowMenu(describeTasks(tasks)), "hide", m.keys.Menu.Hide, a.hideMenu(m, tasks))
 
-		return withNested(menu, "archive", m.keys.Menu.Archive, agentsArchiveMenu(m, agents, true)), true
+		return withNested(menu, "archive", m.keys.Menu.Archive, tasksArchiveMenu(m, tasks, true)), true
 	}
 
 	if !a.isBrowsing(m) {
 		return submenu{}, false
 	}
 
-	if row, ok := a.hoveredRow(m); ok && row.isTask() {
-		return withNested(taskMenu(m, row), "archive", m.keys.Menu.Archive, taskArchiveMenu(m, *row.task)), true
+	row, ok := a.hoveredRow(m)
+	if !ok {
+		return submenu{}, false
+	}
+	if task, ok := a.taskRowOf(m, row); ok {
+		return a.taskMenu(m, task), true
 	}
 
-	item, hasAgent := a.hoveredPaneItem(m)
+	item, hasAgent := row.paneItem()
 
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		menu := rowMenu(workflow.Name)
 		if hasAgent {
-			menu = agentMenu(m, item, slices.Concat(a.editEntries(m), a.snoozeEntries(m, item))...)
+			menu = agentMenu(m, item, slices.Concat(a.closeEditEntries(m), a.snoozeEntries(m, item))...)
 		}
 		menu.entries = append(menu.entries, workflowEntries(m, workflow)...)
 
@@ -82,9 +86,7 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	menu := withNested(agentMenu(m, item, a.agentEntries(m, item)...), "hide", m.keys.Menu.Hide, a.hideMenu(m, &item.Agent))
-
-	return withNested(menu, "archive", m.keys.Menu.Archive, agentsArchiveMenu(m, []panel.Agent{item.Agent}, false)), true
+	return a.agentRowMenu(m, item), true
 }
 
 func (w *schedulesScreen) buildItemMenu(m *model) (submenu, bool) {

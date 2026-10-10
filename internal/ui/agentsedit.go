@@ -17,21 +17,22 @@ func (a *agentsScreen) isEditorOpen() bool {
 	return a.editing != nil && a.editing.pane != ""
 }
 
-func (a *agentsScreen) pressEdit(m *model) tea.Cmd {
-	if a.editing != nil {
-		if a.editing.pausing {
-			return nil
-		}
-
-		cmd := a.closeEdit(m)
-		m.stageSelection()
-
-		return cmd
+// releaseEdit closes the open editor and lets its agent go, unless the agent is still being paused.
+func (a *agentsScreen) releaseEdit(m *model) tea.Cmd {
+	if a.editing == nil || a.editing.pausing {
+		return nil
 	}
 
-	item, ok := a.selectedAgent(m)
-	if !ok {
-		return nil
+	cmd := a.closeEdit(m)
+	m.stageSelection()
+
+	return cmd
+}
+
+// pressEdit opens an editor on the agent's worktree, or closes the one already open.
+func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) tea.Cmd {
+	if a.editing != nil {
+		return a.releaseEdit(m)
 	}
 
 	agent := item.Agent
@@ -143,16 +144,4 @@ func (a *agentsScreen) leaveScreen(m *model) tea.Cmd {
 	a.renaming = nil
 
 	return a.closeEdit(m)
-}
-
-func (a *agentsScreen) isEditable(m *model) bool {
-	return a.editing != nil || a.isHoveringAgent(m)
-}
-
-func (a *agentsScreen) editDesc(*model) string {
-	if a.editing != nil {
-		return "close the editor"
-	}
-
-	return "edit worktree"
 }

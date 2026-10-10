@@ -19,6 +19,7 @@ import (
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -183,46 +184,63 @@ func TestAgentsRows(t *testing.T) {
 // TestAgentsShowHidden covers the hide menu, which hides the hovered agent and shows and puts away
 // the hidden ones.
 func TestAgentsShowHidden(t *testing.T) {
+	auth := newAgent("a1", "auth", "w1")
+	chore := newHiddenAgent("a2", "chore")
+	ui := newAgent("a3", "ui", "w2")
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newLiveWorkflow("w2", "frontend"),
-		newAgent("a1", "auth", "w1"),
-		newHiddenAgent("a2", "chore"),
-		newAgent("a3", "ui", "w2"),
+		auth,
+		newTaskOf(auth),
+		chore,
+		newTaskOf(chore),
+		ui,
+		newTaskOf(ui),
 	}
 
-	t.Run("a hidden agent comes back under its own workflow and the cursor keeps its row", func(t *testing.T) {
+	t.Run("a hidden task comes back under its own workflow and the cursor keeps its row", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 		harness.press("j", "j")
-		require.Equal(t, "└─ ui", readHoveredRow(harness.readFrame()))
+		require.Equal(t, "└─ task-a3", readHoveredRow(harness.readFrame()))
 
 		harness.press("space", "h", "H")
 
 		frame := harness.readFrame()
-		assert.Equal(t, []string{"backend", "├─ chore" + hiddenMark, "└─ auth", "frontend", "└─ ui"}, readListRows(frame))
-		assert.Equal(t, "└─ ui", readHoveredRow(frame))
+		assert.Equal(t, []string{"backend", "├─ task-a2", "│  └─ chore" + hiddenMark, "└─ task-a1", "   └─ auth", "frontend", "└─ task-a3", "   └─ ui"}, readListRows(frame))
+		assert.Equal(t, "└─ task-a3", readHoveredRow(frame))
 	})
 
 	t.Run("the hidden parent's family comes back whole", func(t *testing.T) {
 		harness := openAgents(t, hideAgent(buildFamily(), "author")...)
 
-		harness.press("space", "h", "H")
+		harness.press("k", "space", "h", "H")
 
 		assert.Equal(t, []string{"komrad", "├─ fix-gutter", "└─ author" + hiddenMark, "   ├─ test-runner", "   └─ reviewer"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("the hide entry hides the hovered agent", func(t *testing.T) {
+	t.Run("the hide entry hides the hovered task's agents", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press("space", "h", "h")
+		harness.press("k", "space", "h", "h")
 
 		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a1", Hidden: true})
 	})
 
-	t.Run("the hide entry unhides a revealed agent", func(t *testing.T) {
+	t.Run("the hide entry hides every agent on the task", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press("j", "space", "h", "h")
+
+		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure,
+			&agentv1.SetHiddenRequest{Id: "a2", Hidden: true},
+			&agentv1.SetHiddenRequest{Id: "a1", Hidden: true},
+		)
+	})
+
+	t.Run("the hide entry unhides a revealed task", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press("space", "h", "H", "k", "space", "h", "h")
+		harness.press("k", "space", "h", "H", "k", "k", "space", "h", "h")
 
 		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a2", Hidden: false})
 	})
@@ -233,18 +251,18 @@ func TestAgentsShowHidden(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:  "on a listed agent the menu offers to hide it and show the rest",
-			press: nil,
+			name:  "on a listed task the menu offers to hide it and show the rest",
+			press: []string{"k"},
 			want:  []string{"› hide", "show hidden"},
 		},
 		{
-			name:  "on a revealed agent the menu offers to unhide it and put the rest away",
-			press: []string{"space", "h", "H", "k"},
+			name:  "on a revealed task the menu offers to unhide it and put the rest away",
+			press: []string{"k", "space", "h", "H", "k", "k"},
 			want:  []string{"› unhide", "put hidden away"},
 		},
 		{
 			name:  "on a workflow header only the toggle is live",
-			press: []string{"k"},
+			press: []string{"k", "k"},
 			want:  []string{"› show hidden"},
 		},
 	}
@@ -1863,6 +1881,26 @@ func TestAgentsEdit(t *testing.T) {
 		}
 	})
 
+	t.Run("a task's edit opens the worktree its writer was provisioned, not a newer agent's own directory", func(t *testing.T) {
+		writer := newEditable("")
+		task := newTaskOf(writer)
+		adopter := newPausable("")
+		adopter.Id = "a2"
+		adopter.Name = "adopter"
+		adopter.PaneId = "%8"
+		adopter.Cwd = "/work/repo"
+		adopter.CreatedAt = "2026-09-20T13:00:00Z"
+		adopter.ProvisionDisabled = true
+		adopter.TaskId = writer.TaskId
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), writer, adopter, task)
+
+		harness.press("k", "space", "e")
+
+		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		require.NotEmpty(t, harness.panel.ReadRespawnDirs())
+		assert.Equal(t, "/work/telescope", harness.panel.ReadRespawnDirs()[0])
+	})
+
 	t.Run("a snapshot leaves alone the pause the editor holds", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 		said := recordRelease(harness)
@@ -2200,25 +2238,25 @@ func TestAgentsChildren(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "one agent with nothing attached",
-			press: []string{"space", "a", "d"},
-			want:  `Permanently delete agent "fix-gutter"?`,
+			name:  "one task with one agent",
+			press: []string{"k", "space", "a", "d"},
+			want:  `Permanently delete task "task-fix-gutter"?`,
 		},
 		{
-			name:  "one agent with children",
+			name:  "a task whose agent has children",
 			press: []string{"j", "space", "a", "d"},
-			want:  `Permanently delete agent "author" and its 2 children?`,
+			want:  `Permanently delete task "task-author"?`,
 		},
 		{
-			name:  "a selection of agents counts every child that goes with it",
-			press: []string{"v", "j", "v", "space", "a", "d"},
-			want:  "Permanently delete 2 agents and 2 children?",
+			name:  "a selection of tasks names how many go",
+			press: []string{"v", "j", "j", "v", "space", "a", "d"},
+			want:  "Permanently delete 2 tasks?",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, buildFamily()...)
+			harness := openAgents(t, buildTaskFamily()...)
 
 			harness.press(tt.press...)
 
@@ -2247,33 +2285,20 @@ func TestAgentsChildren(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "may not have children")
 	})
 
-	t.Run("the review subpage on a child says why rather than opening", func(t *testing.T) {
-		harness := openAgents(t, buildFamily()...)
-
-		harness.press("G", "space", "r")
-
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readOpenMessages(harness), "its work is reviewed there")
-	})
-
-	t.Run("only the parent's own worktree is offered a rebase", func(t *testing.T) {
-		rows := buildFamily()
+	t.Run("a task whose newest agent is a child offers its writer's worktree a rebase", func(t *testing.T) {
+		rows := buildTaskFamily()
 		rows[0] = &workflowv1.Workflow{
 			Id:       "w1",
 			Name:     "komrad",
 			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		}
-		author, _ := rows[1].(*agentv1.Agent)
+		author, _ := rows[3].(*agentv1.Agent)
 		author.Cwd = "/tmp/tree"
 		harness := openAgents(t, rows...)
 
-		off := readOffEntry("rebase with base", "r")
-
 		harness.press("j", "space", "g")
-		assert.NotRegexp(t, off, harness.readRawFrame())
 
-		harness.press("esc", "esc", "j", "space", "g")
-		assert.Regexp(t, off, harness.readRawFrame())
+		assert.NotRegexp(t, readOffEntry("rebase with base", "r"), harness.readRawFrame())
 	})
 }
 
@@ -2364,94 +2389,100 @@ func TestAgentsWatchedEdits(t *testing.T) {
 	})
 }
 
-// TestAgentsSelection covers choosing several agents and acting on them at once.
+// TestAgentsSelection covers choosing several tasks and acting on them at once.
 func TestAgentsSelection(t *testing.T) {
 	tests := []struct {
-		name    string
-		press   []string
-		wantIDs []string
+		name      string
+		press     []string
+		wantTasks []string
 	}{
 		{
-			name:    "with nothing selected the archive key takes the hovered row",
-			wantIDs: []string{"auth"},
+			name:      "with nothing selected the archive key takes the hovered task",
+			press:     []string{"k"},
+			wantTasks: []string{"task-auth"},
 		},
 		{
-			name:    "the select key takes in the agent under the cursor",
-			press:   []string{"j", "v"},
-			wantIDs: []string{"api"},
+			name:      "the select key takes in the agent under the cursor",
+			press:     []string{"j", "j", "v"},
+			wantTasks: []string{"task-api"},
 		},
 		{
-			name:    "and drops one already selected",
-			press:   []string{"v", "j", "v", "v"},
-			wantIDs: []string{"auth"},
+			name:      "and drops one already selected",
+			press:     []string{"v", "j", "j", "v", "v"},
+			wantTasks: []string{"task-auth"},
 		},
 		{
-			name:    "a header takes its whole folder less the hidden agent with no row",
-			press:   []string{"k", "v"},
-			wantIDs: []string{"auth", "api", "db"},
+			name:      "a header takes its whole folder less the hidden agent with no row",
+			press:     []string{"k", "k", "v"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
-			name:    "a partly selected folder is filled in rather than emptied",
-			press:   []string{"j", "v", "k", "k", "v"},
-			wantIDs: []string{"auth", "api", "db"},
+			name:      "a task header takes the agents on it",
+			press:     []string{"j", "v"},
+			wantTasks: []string{"task-api"},
 		},
 		{
-			name:    "a wholly selected folder drops and leaves what is outside it",
-			press:   []string{"k", "v", "G", "v", "g", "g", "v", "G"},
-			wantIDs: []string{"ui"},
+			name:      "a partly selected folder is filled in rather than emptied",
+			press:     []string{"j", "j", "v", "k", "k", "k", "k", "v"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
-			name:    "the range key from a list at rest takes the agent under the cursor",
-			press:   []string{"j", "j", "V"},
-			wantIDs: []string{"db"},
+			name:      "a wholly selected folder drops and leaves what is outside it",
+			press:     []string{"k", "k", "v", "G", "v", "g", "g", "v", "G"},
+			wantTasks: []string{"task-ui"},
 		},
 		{
-			name:    "and on a header takes the folder",
-			press:   []string{"k", "V"},
-			wantIDs: []string{"auth", "api", "db"},
+			name:      "the range key from a list at rest takes the agent under the cursor",
+			press:     []string{"j", "j", "j", "j", "V"},
+			wantTasks: []string{"task-db"},
 		},
 		{
-			name:    "a header takes no range once the mode is up",
-			press:   []string{"j", "j", "v", "g", "g", "V", "j", "j", "j"},
-			wantIDs: []string{"db"},
+			name:      "and on a header takes the folder",
+			press:     []string{"k", "k", "V"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
-			name:    "a selection above reaches down to the cursor",
-			press:   []string{"v", "j", "j", "V"},
-			wantIDs: []string{"auth", "api", "db"},
+			name:      "a header takes no range once the mode is up",
+			press:     []string{"j", "j", "j", "j", "v", "g", "g", "V", "j", "j", "j"},
+			wantTasks: []string{"task-db"},
 		},
 		{
-			name:    "a selection below reaches up to it",
-			press:   []string{"j", "j", "v", "k", "k", "V"},
-			wantIDs: []string{"auth", "api", "db"},
+			name:      "a selection above reaches down to the cursor",
+			press:     []string{"v", "j", "j", "j", "j", "V"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
-			name:    "a header inside the range is passed over",
-			press:   []string{"j", "j", "v", "G", "V"},
-			wantIDs: []string{"db", "ui"},
+			name:      "a selection below reaches up to it",
+			press:     []string{"j", "j", "j", "j", "v", "k", "k", "k", "k", "V"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
-			name:    "a cursor as far from a selection either side takes the one above",
-			press:   []string{"v", "j", "j", "v", "k", "V"},
-			wantIDs: []string{"auth", "api", "db"},
+			name:      "a header inside the range is passed over",
+			press:     []string{"j", "j", "j", "j", "v", "G", "V"},
+			wantTasks: []string{"task-db", "task-ui"},
 		},
 		{
-			name:    "a selection spanning folders goes in one call",
-			press:   []string{"v", "G", "v", "g", "g", "j"},
-			wantIDs: []string{"auth", "ui"},
+			name:      "a cursor as far from a selection either side takes the one above",
+			press:     []string{"v", "j", "j", "j", "j", "v", "k", "k", "V"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
+		},
+		{
+			name:      "a selection spanning folders archives every task in it",
+			press:     []string{"v", "G", "v", "g", "g", "j"},
+			wantTasks: []string{"task-auth", "task-ui"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, buildSelectable()...)
+			harness := openAgents(t, withTasks(buildSelectable())...)
 			harness.press(tt.press...)
 
 			harness.press("space", "a")
-			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure)
+			harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure)
 			harness.press("enter")
 
-			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: tt.wantIDs})
+			harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests(tt.wantTasks)...)
 		})
 	}
 
@@ -2480,23 +2511,28 @@ func TestAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("an agent gone from the listing drops out of the selection", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
+		harness := openAgents(t, withTasks(buildSelectable())...)
 		harness.press("v", "G", "v")
 
-		harness.watch(buildSnapshot(newLiveWorkflow("w2", "frontend"), newAgentAt("ui", "w2", 1)))
+		ui := newAgentAt("ui", "w2", 1)
+		harness.watch(buildSnapshot(newLiveWorkflow("w2", "frontend"), ui, newTaskOf(ui)))
 		harness.press("space", "a", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"ui"}})
+		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests([]string{"task-ui"})...)
 	})
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
-		harness.press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
+		harness := openAgents(t, withTasks(buildSelectable())...)
+		harness.press("k", "space", "h", "H", "v", "j", "j", "j", "j", "j", "j", "j", "v", "space", "h", "H")
 
 		harness.press("space", "a", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}})
+		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests([]string{"task-auth"})...)
 	})
+}
+
+func readArchiveTaskRequests(ids []string) []proto.Message {
+	return xslice.Map(ids, func(id string) proto.Message { return &taskv1.ArchiveTaskRequest{Task: id} })
 }
 
 const (
@@ -2547,6 +2583,27 @@ func buildFamily() []proto.Message {
 		newAgentAt("fix-gutter", "w1", 2),
 		newChild("a3", "reviewer", "author"),
 		newChild("a4", "test-runner", "author"),
+	}
+}
+
+func buildTaskFamily() []proto.Message {
+	fixGutter := newAgentAt("fix-gutter", "w1", 2)
+	author := newAgentAt("author", "w1", 1)
+	reviewer := newChild("a3", "reviewer", "author")
+	runner := newChild("a4", "test-runner", "author")
+	runner.CreatedAt = "2026-09-20T12:09:00Z"
+	authorTask := newTaskOf(author)
+	reviewer.TaskId = author.TaskId
+	runner.TaskId = author.TaskId
+
+	return []proto.Message{
+		newLiveWorkflow("w1", "komrad"),
+		fixGutter,
+		newTaskOf(fixGutter),
+		author,
+		reviewer,
+		runner,
+		authorTask,
 	}
 }
 
@@ -2604,6 +2661,18 @@ func newTaskOf(agent *agentv1.Agent) *taskv1.Task {
 		WorkflowId: agent.GetWorkflowId(),
 		Slug:       "task-" + agent.GetId(),
 	}
+}
+
+func withTasks(rows []proto.Message) []proto.Message {
+	var placed []proto.Message
+	for _, row := range rows {
+		placed = append(placed, row)
+		if agent, ok := row.(*agentv1.Agent); ok {
+			placed = append(placed, newTaskOf(agent))
+		}
+	}
+
+	return placed
 }
 
 func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {

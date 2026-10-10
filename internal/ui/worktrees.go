@@ -48,6 +48,8 @@ type worktreeItem struct {
 	branch   string
 	readable bool
 	agent    *worktreeAgent
+	// task is the task the directory is the checkout of, set only when no agent answers for it.
+	task *panel.Task
 	// occupants are the other agents working in the directory.
 	occupants []worktreeAgent
 	// size is the last measurement, nil until the loop has reached the directory.
@@ -75,18 +77,20 @@ type worktreeHolders struct {
 	// byTask holds the top-level agents provisioned for each task, owner first.
 	byTask map[string][]panel.Agent
 	byCwd  map[string][]panel.Agent
+	tasks  map[string]panel.Task
 }
 
 // worktreeItemsFrom renders every directory in the world with the agents that answer for it.
-func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow) []worktreeItem {
+func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks map[string]panel.Task) []worktreeItem {
 	holders := worktreeHolders{
 		byTask: map[string][]panel.Agent{},
+		tasks:  tasks,
 		byCwd:  map[string][]panel.Agent{},
 	}
 	for _, row := range agents {
 		cwd := filepath.Clean(row.Agent.Cwd)
 		holders.byCwd[cwd] = append(holders.byCwd[cwd], row.Agent)
-		if row.Agent.ParentAgentID == nil && !row.Agent.ProvisionDisabled && row.Agent.TaskID != "" {
+		if row.Agent.TaskID != "" && isTaskWriter(row.Agent) {
 			holders.byTask[row.Agent.TaskID] = append(holders.byTask[row.Agent.TaskID], row.Agent)
 		}
 	}
@@ -147,6 +151,12 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, holders workt
 	slices.SortFunc(item.occupants, func(a, b worktreeAgent) int { return strings.Compare(a.name, b.name) })
 
 	item.fate = fateOf(owner, item.readable)
+	if item.fate == fateUnowned {
+		if task, ok := holders.tasks[filepath.Base(item.dir)]; ok {
+			item.task = &task
+			item.fate = fateTask
+		}
+	}
 	item.lastActiveAt = lastActiveOf(owner, dates.Parse(worktree.GetModifiedAt()))
 
 	return item

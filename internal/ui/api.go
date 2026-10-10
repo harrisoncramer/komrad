@@ -198,6 +198,31 @@ func (a api) archiveTask(id string) error {
 	})
 }
 
+// updateTaskParams is what a task edit changes, a nil field left as it stands.
+type updateTaskParams struct {
+	id    string
+	slug  *string
+	title *string
+	goal  *string
+}
+
+func (a api) updateTask(params updateTaskParams) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.tasks.UpdateTask(ctx, connect.NewRequest(&taskv1.UpdateTaskRequest{
+			Task:  params.id,
+			Slug:  params.slug,
+			Title: params.title,
+			Goal:  params.goal,
+		}))
+	})
+}
+
+func (a api) deleteTasks(ids []string) error {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
+		return a.tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: ids}))
+	})
+}
+
 // mergePullRequest asks the forge to merge the pull request at the address.
 func (a api) mergePullRequest(address string) error {
 	_, err := call(mergeTimeout, func(ctx context.Context) (any, error) {

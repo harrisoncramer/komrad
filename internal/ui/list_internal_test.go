@@ -60,7 +60,7 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 	want := map[screen][]actionID{
 		screenAgents: {
 			actionWorkflowRename,
-			actionAgentOpen, actionAgentRename,
+			actionAgentOpen, actionAgentRename, actionTaskRename,
 			actionArchiveRename,
 		},
 		screenSchedules: {actionScheduleRename},

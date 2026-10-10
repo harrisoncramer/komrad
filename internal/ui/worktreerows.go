@@ -67,6 +67,8 @@ func (r worktreeRow) name() string {
 		return label.Path(r.repo, homeDir())
 	case r.item.agent != nil:
 		return r.item.agent.name
+	case r.item.task != nil:
+		return r.item.task.Slug
 	case r.item.branch != "":
 		return r.item.branch
 	}

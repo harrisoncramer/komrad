@@ -67,7 +67,7 @@ func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
 			fields = append(fields, recordField{label: "also here", value: occupantsField(item)})
 		}
 
-		return append(fields, recordField{label: "agent", value: worktreeAgentField(m.listing, item)})
+		return append(fields, worktreeOwnerFields(m.listing, item)...)
 	}
 
 	fields = append(fields,
@@ -88,7 +88,16 @@ func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
 		)
 	}
 
-	return append(fields, recordField{label: "agent", value: worktreeAgentField(m.listing, item)}, recordField{label: "workflow", value: worktreeWorkflowField(m.listing, item)})
+	return append(append(fields, worktreeOwnerFields(m.listing, item)...), recordField{label: "workflow", value: worktreeWorkflowField(m.listing, item)})
+}
+
+// worktreeOwnerFields name what answers for a directory: its agent, or its task when no agent does.
+func worktreeOwnerFields(l listing, item worktreeItem) []recordField {
+	if item.task != nil {
+		return []recordField{{label: "task", value: item.task.Slug}}
+	}
+
+	return []recordField{{label: "agent", value: worktreeAgentField(l, item)}}
 }
 
 func occupantsField(item worktreeItem) string {

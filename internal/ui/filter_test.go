@@ -148,11 +148,11 @@ func TestFilterSearch(t *testing.T) {
 	}
 
 	t.Run("a selection survives a search", func(t *testing.T) {
-		harness := openFilterable(t, "├─ auth")
+		harness := openAgents(t, withTasks(buildSelectable())...)
 
-		harness.press("v", "j", "v", "/", "d", "b", "enter", "space", "a")
+		harness.press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
 
-		assert.Contains(t, harness.readFrame(), "2 agents › archive")
+		assert.Contains(t, harness.readFrame(), "2 tasks › archive")
 	})
 
 	t.Run("the search stays on the screen it was typed on", func(t *testing.T) {

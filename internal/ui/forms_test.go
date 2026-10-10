@@ -17,6 +17,8 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	hookv1 "komrad/proto/gen/hook/v1"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -465,64 +467,109 @@ func TestFormsInFlight(t *testing.T) {
 	})
 }
 
-// TestFormsArchivePrompt covers the ways the agent archive menu can be answered.
+// TestFormsArchivePrompt covers the ways the agent and task archive menus can be answered.
 func TestFormsArchivePrompt(t *testing.T) {
-	t.Run("the menu opens on the reversible answer", func(t *testing.T) {
+	t.Run("an agent's menu archives that one agent and nothing more", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press("j", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "› archive  ")
+		assert.Contains(t, frame, "› archive this agent")
+		assert.Contains(t, frame, "back")
+		assert.NotContains(t, frame, "for good")
+	})
+
+	t.Run("a task's menu opens on the reversible answer", func(t *testing.T) {
+		harness := openTaskForms(t, newFormAuthor())
+
+		harness.press("j", "space", "a")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "› archive with its agents")
 		assert.Contains(t, frame, "archive and delete for good")
 		assert.Contains(t, frame, "back")
 	})
 
-	tests := []struct {
-		name     string
-		press    []string
-		wantSent []request
-	}{
-		{
-			name:  "submitting without moving archives and keeps the record",
-			press: []string{"enter"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-				msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}},
-			}},
-		},
-		{
-			name:  "one row down archives and then destroys once confirmed",
-			press: []string{"down", "enter", "y"},
-			wantSent: []request{
-				{
+	t.Run("an agent's archive menu", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			press    []string
+			wantSent []request
+		}{
+			{
+				name:  "submitting without moving archives the agent",
+				press: []string{"enter"},
+				wantSent: []request{{
 					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
 					msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}},
-				},
-				{
-					procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
-					msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a1"}},
-				},
+				}},
 			},
-		},
-		{
-			name:  "the last row leaves the agent where it is",
-			press: []string{"down", "down", "enter"},
-		},
-	}
+			{
+				name:  "the last row leaves the agent where it is",
+				press: []string{"down", "enter"},
+			},
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openForms(t, newFormWorkflow(), newFormAuthor())
-			harness.press("j", "space", "a")
-			before := harness.readRequests()
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openForms(t, newFormWorkflow(), newFormAuthor())
+				harness.press("j", "space", "a")
+				before := harness.readRequests()
 
-			harness.press(tt.press...)
+				harness.press(tt.press...)
 
-			harness.assertSent(append(before, tt.wantSent...)...)
-			assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
-		})
-	}
+				harness.assertSent(append(before, tt.wantSent...)...)
+				assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
+			})
+		}
+	})
+
+	t.Run("a task's archive menu", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			press    []string
+			wantSent []request
+		}{
+			{
+				name:  "submitting without moving archives the task and keeps the record",
+				press: []string{"enter"},
+				wantSent: []request{{
+					procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
+					msg:       &taskv1.ArchiveTaskRequest{Task: "task-a1"},
+				}},
+			},
+			{
+				name:  "one row down deletes the task once confirmed",
+				press: []string{"down", "enter", "y"},
+				wantSent: []request{{
+					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+				}},
+			},
+			{
+				name:  "declining the confirm deletes nothing",
+				press: []string{"down", "enter", "n"},
+			},
+			{
+				name:  "the last row leaves the task where it is",
+				press: []string{"down", "down", "enter"},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openTaskForms(t, newFormAuthor())
+				harness.press("j", "space", "a")
+				before := harness.readRequests()
+
+				harness.press(tt.press...)
+
+				harness.assertSent(append(before, tt.wantSent...)...)
+				assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
+			})
+		}
+	})
 
 	t.Run("the workflow menu stays up until the archive lands", func(t *testing.T) {
 		archive := workflowv1connect.WorkflowServiceArchiveWorkflowProcedure
@@ -544,29 +591,29 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "archive with its agents")
 	})
 
-	t.Run("an archive and delete keeps its form up until the watch drops the agent", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+	t.Run("a task delete keeps its form up until the watch drops the task", func(t *testing.T) {
+		harness := openTaskForms(t, newFormAuthor())
 
 		harness.press("j", "space", "a", "down", "enter", "y")
 
-		require.Contains(t, harness.readFrame(), `archiving and deleting agent "author"`)
+		require.Contains(t, harness.readFrame(), `deleting task "task-a1"`)
 
 		harness.watch(buildSnapshot(newFormWorkflow()))
 
-		assert.NotContains(t, harness.readFrame(), `archiving and deleting agent "author"`)
+		assert.NotContains(t, harness.readFrame(), `deleting task "task-a1"`)
 		assert.NotContains(t, harness.readFrame(), "enter submit")
 	})
 
-	t.Run("an archive the watch never drops closes its form once the wait runs out", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+	t.Run("a delete the watch never drops closes its form once the wait runs out", func(t *testing.T) {
+		harness := openTaskForms(t, newFormAuthor())
 
 		harness.press("j", "space", "a", "down", "enter", "y")
-		require.Contains(t, harness.readFrame(), `archiving and deleting agent "author"`)
+		require.Contains(t, harness.readFrame(), `deleting task "task-a1"`)
 
 		harness.panel.ExpireParked()
 		harness.fireMatching(ui.IsWarmupTick)
 
-		assert.NotContains(t, harness.readFrame(), `archiving and deleting agent "author"`)
+		assert.NotContains(t, harness.readFrame(), `deleting task "task-a1"`)
 	})
 
 	t.Run("a refused archive takes the menu down", func(t *testing.T) {
@@ -620,17 +667,17 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "dormant")
 	})
 
-	t.Run("an archive that lands before its delete is refused leaves the agent dormant", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+	t.Run("a refused task delete puts the pane back on the stage", func(t *testing.T) {
+		harness := openTaskForms(t, newLiveAuthor())
 		harness.press("j")
 		harness.fireTimers()
 		require.Equal(t, "%9", harness.panel.ReadGuestPane())
-		harness.refuse(agentv1connect.AgentServiceDeleteAgentsProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
+		harness.refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
 
 		harness.press("space", "a", "down", "enter", "y")
 
-		assert.Empty(t, harness.panel.ReadGuestPane())
-		assert.False(t, harness.panel.IsAgentAlive("a1"))
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.True(t, harness.panel.IsAgentAlive("a1"))
 	})
 
 	t.Run("an archive in flight takes the pane off the stage and leaves the agent live until it lands", func(t *testing.T) {
@@ -674,17 +721,16 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, readListRows(frame), "author")
-		assert.NotContains(t, frame, "archive and delete for good")
+		assert.NotContains(t, frame, "archive this agent")
 	})
 
-	t.Run("a refused archive destroys nothing", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
+	t.Run("a refused task delete says why", func(t *testing.T) {
+		harness := openTaskForms(t, newFormAuthor())
+		harness.refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already deleting")))
 
 		harness.press(slices.Concat([]string{"j", "space", "a", "down", "enter", "y"}, widenListPresses)...)
 
-		assert.Contains(t, harness.readFrame(), `Could not archive and delete agent "author"`)
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceDeleteAgentsProcedure))
+		assert.Contains(t, harness.readFrame(), `Could not delete task "task-a1"`)
 	})
 }
 
@@ -1051,13 +1097,13 @@ func TestFormsLayout(t *testing.T) {
 	}{
 		{
 			name:  "a form takes the window beside the list",
-			press: []string{"space", "C"},
+			press: []string{"j", "space", "C"},
 			want:  `Child of "author"`,
 		},
 		{
 			name:  "a confirmation takes the window beside the list",
 			press: []string{"space", "a", "d"},
-			want:  `Permanently delete agent "author"?`,
+			want:  `Permanently delete task "task-a1"?`,
 		},
 	}
 
@@ -1065,7 +1111,7 @@ func TestFormsLayout(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+			harness := openTaskForms(t, newLiveAuthor())
 			harness.press("j")
 			harness.fireTimers()
 			require.False(t, harness.panel.IsZoomed(), "a live agent's pane shares the window")
@@ -1075,7 +1121,7 @@ func TestFormsLayout(t *testing.T) {
 			frame := harness.readFrame()
 			assert.True(t, harness.panel.IsZoomed())
 			assert.Contains(t, readStage(frame)[0], tt.want)
-			assert.Contains(t, readListRows(frame), "└─ author", "the list it was opened over is still beside it")
+			assert.Contains(t, readListRows(frame), "   └─ author", "the list it was opened over is still beside it")
 		})
 	}
 
@@ -1277,6 +1323,15 @@ func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agen
 	t.Helper()
 
 	harness := openAgents(t, workflow, author)
+	harness.press("g", "g")
+
+	return harness
+}
+
+func openTaskForms(t *testing.T, author *agentv1.Agent) *panelHarness {
+	t.Helper()
+
+	harness := openAgents(t, newFormWorkflow(), author, newTaskOf(author))
 	harness.press("g", "g")
 
 	return harness
