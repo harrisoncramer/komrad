@@ -18,6 +18,7 @@ import (
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -179,23 +180,19 @@ func TestIntegrationWorktrees(t *testing.T) {
 
 		fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: synced.GetId()}))
 		require.NoError(t, err)
-		assert.NotEmpty(t, fetched.Msg.GetAgent().GetBranch())
-		assert.Equal(t, "https://github.com/harrisoncramer/komrad", fetched.Msg.GetAgent().GetRepositoryUrl())
+		assert.NotEmpty(t, fetched.Msg.GetTask().GetBranch())
+		assert.Equal(t, "https://github.com/harrisoncramer/komrad", fetched.Msg.GetTask().GetRepositoryUrl())
 	})
 
 	t.Run("a worktree removed by hand reaches the caller", func(t *testing.T) {
 		require.NoError(t, os.RemoveAll(publisher.GetCwd()))
 		instance.SyncCwds()
 
-		fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: publisher.GetId()}))
-		require.NoError(t, err)
-		assert.True(t, fetched.Msg.GetAgent().GetWorktreeRemoved())
-
-		listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
-		require.NoError(t, err)
 		removed := map[string]bool{}
-		for _, row := range listed.Msg.GetAgents() {
-			removed[row.GetAgent().GetId()] = row.GetAgent().GetWorktreeRemoved()
+		for _, agent := range []*agentv1.Agent{publisher, lister, synced} {
+			fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
+			require.NoError(t, err)
+			removed[agent.GetId()] = fetched.Msg.GetTask().GetWorktreeRemoved()
 		}
 		assert.Equal(t, map[string]bool{
 			publisher.GetId(): true,
@@ -296,7 +293,7 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	t.Run("an abort puts the branch back and keeps the conflicted tree", func(t *testing.T) {
 		aborted, err := instance.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: agentID}))
 		require.NoError(t, err)
-		assert.Equal(t, agentv1.Sequence_SEQUENCE_REBASE, aborted.Msg.GetSequence())
+		assert.Equal(t, taskv1.Sequence_SEQUENCE_REBASE, aborted.Msg.GetSequence())
 		assert.Equal(t, branch, aborted.Msg.GetBranch())
 		assert.Equal(t, head, readGitOutput(t, tree, "rev-parse", "HEAD"))
 		assert.Empty(t, readGitOutput(t, tree, "status", "--porcelain"))

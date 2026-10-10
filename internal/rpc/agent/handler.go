@@ -10,6 +10,7 @@ import (
 
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
+	"komrad/internal/assemble"
 	"komrad/internal/caller"
 	"komrad/internal/fail"
 	"komrad/internal/logging"
@@ -295,12 +296,12 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
 
-	resources, failure := s.assembleRows(ctx, []rowstore.Row{*row}, render.AgentOptions{})
+	world, failure := s.world(ctx, []rowstore.Row{*row}, render.AgentOptions{})
 	if failure != nil {
 		return nil, failure
 	}
 
-	drawn := resources[0].AgentRow
+	drawn := assemble.AgentRows(world, s.now())[0]
 
 	return &agentv1.GetAgentResponse{
 		Agent:             drawn.GetAgent(),
@@ -310,6 +311,7 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		LocalReviewRounds: drawn.GetLocalReviewRounds(),
 		ReviewerComments:  drawn.ReviewerComments,
 		PersonComments:    drawn.PersonComments,
+		Task:              world.Tasks[drawn.GetAgent().GetTaskId()],
 	}, nil
 }
 

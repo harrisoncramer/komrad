@@ -9,6 +9,7 @@ import (
 	"komrad/internal/gittest"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -22,6 +23,7 @@ func TestPushRefusals(t *testing.T) {
 	type testCase struct {
 		name    string
 		agent   agentstore.Agent
+		adopted string
 		pusher  gittest.Mover
 		landed  bool
 		wantErr error
@@ -95,8 +97,8 @@ func TestPushRefusals(t *testing.T) {
 			wantErr: git.ErrPushRejected,
 		},
 		{
-			name:  "a branch a human made, whose copy on origin it would overwrite",
-			agent: agentstore.Agent{AdoptedBranch: "harry/spike"},
+			name:    "a branch a human made, whose copy on origin it would overwrite",
+			adopted: "harry/spike",
 			pusher: gittest.Mover{
 				State: git.TreeState{Branch: "harry/spike"},
 				Own:   1,
@@ -113,7 +115,7 @@ func TestPushRefusals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
-			agent := fixture.seedPushable(t, tt.agent)
+			agent := fixture.seedPushable(t, tt.agent, tt.adopted)
 			if tt.landed {
 				fixture.seedMerged(t, tt.pusher.State.Branch)
 			}
@@ -134,7 +136,7 @@ func TestPushRefusals(t *testing.T) {
 // TestPlanPushInSync covers a branch origin already holds whole planning as nothing to push.
 func TestPlanPushInSync(t *testing.T) {
 	fixture := newRebaseFixture(t)
-	agent := fixture.seedPushable(t, agentstore.Agent{})
+	agent := fixture.seedPushable(t, agentstore.Agent{}, "")
 	pusher := gittest.Mover{
 		State:  git.TreeState{Branch: "agent/a1"},
 		Own:    1,
@@ -151,7 +153,7 @@ func TestPlanPushInSync(t *testing.T) {
 func TestPushSendsTheBranch(t *testing.T) {
 	type testCase struct {
 		name       string
-		agent      agentstore.Agent
+		adopted    string
 		pusher     gittest.Mover
 		landed     bool
 		wantPlan   PushPlan
@@ -213,8 +215,8 @@ func TestPushSendsTheBranch(t *testing.T) {
 			},
 		},
 		{
-			name:  "a branch a human made goes up when origin's copy is behind it",
-			agent: agentstore.Agent{AdoptedBranch: "harry/spike"},
+			name:    "a branch a human made goes up when origin's copy is behind it",
+			adopted: "harry/spike",
 			pusher: gittest.Mover{
 				State:  git.TreeState{Branch: "harry/spike"},
 				Own:    2,
@@ -231,7 +233,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
-			agent := fixture.seedPushable(t, tt.agent)
+			agent := fixture.seedPushable(t, agentstore.Agent{}, tt.adopted)
 			if tt.landed {
 				fixture.seedMerged(t, tt.pusher.State.Branch)
 			}
@@ -270,7 +272,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 // TestPushReportsWhatOriginSaid covers a refused push reaching the caller and still waking the syncs.
 func TestPushReportsWhatOriginSaid(t *testing.T) {
 	fixture := newRebaseFixture(t)
-	agent := fixture.seedPushable(t, agentstore.Agent{})
+	agent := fixture.seedPushable(t, agentstore.Agent{}, "")
 	pusher := &gittest.Mover{
 		State: git.TreeState{Branch: "agent/a1"},
 		Own:   1,
@@ -289,14 +291,18 @@ func TestPushReportsWhatOriginSaid(t *testing.T) {
 	assert.Empty(t, fixture.readInbox(t, agent.ID), "nothing on origin moved")
 }
 
-// seedPushable records an agent whose checkout pushes to the test repository.
-func (f *rebaseFixture) seedPushable(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
+// seedPushable records an agent whose task's checkout, on the branch adopted if one is named, pushes to the test repository.
+func (f *rebaseFixture) seedPushable(t *testing.T, agent agentstore.Agent, adopted string) *agentstore.Agent {
 	t.Helper()
 
 	seeded := f.seed(t, agent)
-	require.NoError(t, f.stores.Agents.SetCheckout(t.Context(), seeded.ID, agentstore.SetCheckoutParams{
-		RepositoryURL: xptr.Ptr(pushRepository),
-	}))
+	claimed, err := f.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{
+		ID:            *seeded.TaskID,
+		AdoptedBranch: adopted,
+		RepositoryURL: pushRepository,
+	})
+	require.NoError(t, err)
+	require.True(t, claimed)
 
 	return seeded
 }

@@ -16,7 +16,7 @@ var WatchedPullRequests = watch.Resource{
 	KeyColumn: "id",
 	Feeders: []watch.Feeder{
 		{
-			Table:  "agent_pull_requests",
+			Table:  "task_pull_requests",
 			Column: "pull_request_id",
 		},
 		{

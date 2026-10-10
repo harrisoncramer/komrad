@@ -23,7 +23,7 @@ func (s *Handler) AbortSequence(ctx context.Context, req *agentv1.AbortSequenceR
 	}
 
 	return &agentv1.AbortSequenceResponse{
-		Sequence:    render.AgentSequenceOf(result.Sequence),
+		Sequence:    render.SequenceOf(result.Sequence),
 		Branch:      result.Branch,
 		ParkedRef:   result.ParkedRef,
 		Interrupted: result.Interrupted,

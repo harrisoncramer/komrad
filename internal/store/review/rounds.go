@@ -475,45 +475,47 @@ func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 	}), nil
 }
 
-// newestRound is the snapshot of an agent's newest review round.
+// newestRound is the snapshot of the newest review round of a task's agents.
 type newestRound struct {
-	AgentID     string
+	TaskID      string
 	SnapshotSHA string
 }
 
-// ListNewestRounds is the newest round of every agent that has one.
+// ListNewestRounds is the newest round of every task whose agents have one.
 func (s *ReviewStore) ListNewestRounds(ctx context.Context) ([]newestRound, error) {
-	rows, err := s.queries.ListNewestReviewRounds(ctx)
+	rows, err := s.queries.ListNewestTaskReviewRounds(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the newest review rounds: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListNewestReviewRoundsRow) newestRound {
-		return newestRound{AgentID: row.AgentID, SnapshotSHA: row.SnapshotSha}
+	return xslice.Map(rows, func(row *models.ListNewestTaskReviewRoundsRow) newestRound {
+		return newestRound{TaskID: row.TaskID, SnapshotSHA: row.SnapshotSha}
 	}), nil
 }
 
 // UnlandedRound is a round with a released review that the base branch has not yet been seen
 // holding whole.
 type UnlandedRound struct {
+	AgentID     string
 	Ordinal     int32
 	BaseSHA     string
 	SnapshotSHA string
-	// MergedAt is when the agent's newest merged pull request merged, nil while none has.
+	// MergedAt is when the task's newest merged pull request merged, nil while none has.
 	MergedAt *time.Time
 }
 
 // ListUnlandedRounds is every live agent's unlanded rounds with a released review, newest first,
-// keyed by agent.
+// keyed by the agent's task.
 func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]UnlandedRound, error) {
 	rows, err := s.queries.ListUnlandedReviewRounds(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the unlanded review rounds: %w", err)
 	}
 
-	byAgent := map[string][]UnlandedRound{}
+	byTask := map[string][]UnlandedRound{}
 	for _, row := range rows {
-		byAgent[row.AgentID] = append(byAgent[row.AgentID], UnlandedRound{
+		byTask[row.TaskID] = append(byTask[row.TaskID], UnlandedRound{
+			AgentID:     row.AgentID,
 			Ordinal:     row.Ordinal,
 			BaseSHA:     row.BaseSha,
 			SnapshotSHA: row.SnapshotSha,
@@ -521,7 +523,7 @@ func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]Unla
 		})
 	}
 
-	return byAgent, nil
+	return byTask, nil
 }
 
 // MarkRoundsLanded marks an agent's round and every earlier one as landed, leaving rounds that already

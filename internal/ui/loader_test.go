@@ -38,13 +38,16 @@ func TestLoaderSpinsForATaskWithoutItsLead(t *testing.T) {
 	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)
 	lead, ok := rows[0].(*agentv1.Agent)
 	require.True(t, ok)
+	task, ok := rows[3].(*taskv1.Task)
+	require.True(t, ok)
+	task.Id, task.Slug, task.Title = "t1", "fix-login", "Fix login"
 	lead.TaskId = xptr.Ptr("t1")
 	lead.TaskSlug = xptr.Ptr("fix-login")
 	lead.CreatedAt = "2026-09-20T12:05:00Z"
 	other := newAgentAt("checker", "w1", 0)
 	other.TaskId = xptr.Ptr("t1")
 	other.TaskSlug = xptr.Ptr("fix-login")
-	rows = append(rows, other, &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login"})
+	rows = append(rows, other)
 	harness := openNoticed(t, panelHarnessParams{loader: loader.Arcs}, rows...)
 
 	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("checker"), []string{"enter"})...)

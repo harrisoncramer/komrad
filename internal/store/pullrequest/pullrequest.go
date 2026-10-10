@@ -85,9 +85,9 @@ type MergeReadinessChange struct {
 	NewFailure bool
 }
 
-// Observation is one agent having been seen with one pull request.
+// Observation is one task having been seen with one pull request.
 type Observation struct {
-	AgentID       string
+	TaskID        string
 	PullRequestID string
 	FirstSeenAt   time.Time
 	LastSeenAt    time.Time
@@ -300,33 +300,33 @@ func (s *PullRequestStore) withMergeReadiness(ctx context.Context, rows []*model
 	return xslice.Map(rows, func(row *models.PullRequest) PullRequest { return fromRow(row, readings[row.ID]) }), nil
 }
 
-// Observe records every agent not being deleted beside every stored pull request opened from
-// its branch in its repository, inserting a pair not seen before and moving last_seen_at on one
+// Observe records every task beside every stored pull request opened from its checkout's branch
+// in its repository, inserting a pair not seen before and moving last_seen_at on one
 // seen more than an hour ago, and answers how many rows it wrote.
 func (s *PullRequestStore) Observe(ctx context.Context) (int64, error) {
-	written, err := s.queries.ObserveAgentPullRequests(ctx)
+	written, err := s.queries.ObserveTaskPullRequests(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("failed to observe agents beside their pull requests: %w", err)
+		return 0, fmt.Errorf("failed to observe tasks beside their pull requests: %w", err)
 	}
 
 	return written, nil
 }
 
-// ListObservations is every pull request any of the given agents has been seen with, oldest first.
-func (s *PullRequestStore) ListObservations(ctx context.Context, agentIDs []string) ([]Observation, error) {
-	storable := store.KeepIDs(agentIDs)
+// ListObservations is every pull request any of the given tasks has been seen with, oldest first.
+func (s *PullRequestStore) ListObservations(ctx context.Context, taskIDs []string) ([]Observation, error) {
+	storable := store.KeepIDs(taskIDs)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentPullRequests(ctx, storable)
+	rows, err := s.queries.ListTaskPullRequests(ctx, storable)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests %d agents were seen with: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the pull requests %d tasks were seen with: %w", len(storable), err)
 	}
 
-	return xslice.Map(rows, func(row *models.AgentPullRequest) Observation {
+	return xslice.Map(rows, func(row *models.TaskPullRequest) Observation {
 		return Observation{
-			AgentID:       row.AgentID,
+			TaskID:        row.TaskID,
 			PullRequestID: row.PullRequestID,
 			FirstSeenAt:   row.FirstSeenAt,
 			LastSeenAt:    row.LastSeenAt,
@@ -334,11 +334,11 @@ func (s *PullRequestStore) ListObservations(ctx context.Context, agentIDs []stri
 	}), nil
 }
 
-// ListLiveRepositories is every repository a live agent sits on.
+// ListLiveRepositories is every repository a live task's checkout sits on.
 func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListLiveRepositories(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the repositories live agents sit on: %w", err)
+		return nil, fmt.Errorf("failed to list the repositories live tasks sit on: %w", err)
 	}
 
 	repositories := make([]string, 0, len(rows))
@@ -447,8 +447,8 @@ func (s *PullRequestStore) GetByID(ctx context.Context, id string) (*PullRequest
 	return s.withOneMergeReadiness(ctx, row)
 }
 
-// ListRecipients is every live agent, children aside, whose checkout is on a pull request's
-// branch in its repository, in id order.
+// ListRecipients is every live agent, children aside, whose task's checkout is on a pull request's
+// branch in its repository, in agent id order.
 func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]string, error) {
 	if !store.IsID(id) {
 		return nil, nil

@@ -21,6 +21,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	taskstore "komrad/internal/store/task"
 	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -201,7 +202,7 @@ func (f *syncFixture) agentIn(t *testing.T, name, repository, branch string) str
 	}))
 	created, err := f.agents.GetInWorkflow(ctx, f.workflow, name)
 	require.NoError(t, err)
-	require.NoError(t, f.agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
+	f.stores.SeedTaskHead(t, created.ID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &branch})
 
 	return created.ID
 }
@@ -455,11 +456,11 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 			after: func(t *testing.T, f *syncFixture, agentID string) {
 				t.Helper()
 				repository, branch, head := syncRepository, "agent/x", "def"
-				require.NoError(t, f.agents.SetCheckout(t.Context(), agentID, agentstore.SetCheckoutParams{
+				f.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
 					RepositoryURL: &repository,
 					Branch:        &branch,
 					HeadSHA:       &head,
-				}))
+				})
 			},
 			wantRead: true,
 		},
@@ -827,11 +828,11 @@ func TestSyncRetriesAFailedReadOnceAMinute(t *testing.T) {
 	f.sync(t)
 
 	repository, branch, head := syncRepository, "agent/x", "def"
-	require.NoError(t, f.agents.SetCheckout(t.Context(), agentID, agentstore.SetCheckoutParams{
+	f.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
 		RepositoryURL: &repository,
 		Branch:        &branch,
 		HeadSHA:       &head,
-	}))
+	})
 	f.forge.refuse = errors.New("resource not accessible")
 	f.pass(t, syncNow.Add(time.Minute))
 	require.Len(t, f.forge.requests, 1)
@@ -945,7 +946,9 @@ func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 	require.NoError(t, f.syncer.Sync(ctx))
 
 	assert.True(t, f.isRead(t, spelled.Canonical()))
-	seen, err := f.pullRequests.ListObservations(t.Context(), []string{agent})
+	observed, err := f.agents.GetByID(t.Context(), agent)
+	require.NoError(t, err)
+	seen, err := f.pullRequests.ListObservations(t.Context(), []string{*observed.TaskID})
 	require.NoError(t, err)
 	assert.Len(t, seen, 1, "the agent is observed beside its pull request")
 	assert.NotContains(t, logged.String(), "under another name")

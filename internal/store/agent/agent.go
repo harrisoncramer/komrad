@@ -75,32 +75,6 @@ func (r Role) orDefault() Role {
 	return r
 }
 
-// Sequence is what git has part-way through an agent's checkout.
-type Sequence string
-
-const (
-	SequenceNone       Sequence = Sequence(models.AgentSequenceNone)
-	SequenceRebase     Sequence = Sequence(models.AgentSequenceRebase)
-	SequenceApply      Sequence = Sequence(models.AgentSequenceAm)
-	SequenceMerge      Sequence = Sequence(models.AgentSequenceMerge)
-	SequenceCherryPick Sequence = Sequence(models.AgentSequenceCherryPick)
-	SequenceRevert     Sequence = Sequence(models.AgentSequenceRevert)
-)
-
-// IsInProgress reports whether anything is part-way through.
-func (s Sequence) IsInProgress() bool {
-	return s != SequenceNone && s != ""
-}
-
-// orNone is the sequence a checkout that names none is given.
-func (s Sequence) orNone() Sequence {
-	if s == "" {
-		return SequenceNone
-	}
-
-	return s
-}
-
 type Agent struct {
 	ID    string
 	Name  string
@@ -149,39 +123,14 @@ type Agent struct {
 	ParentAgentID *string
 
 	// TaskID is the task the agent works on, nil only for an orchestrator.
-	TaskID    *string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Branch    *string
-
-	// RepositoryURL is the canonical web address of the repository the checkout pushes to.
-	RepositoryURL *string
-
-	// HeadSHA is the commit the checkout has checked out.
-	HeadSHA *string
-
-	// AdoptedBranch is the branch an agent was put on rather than one komrad made for it.
-	AdoptedBranch   string
-	WorktreeRemoved bool
-	InterruptedAt   *time.Time
-
-	// Sequence is what git has part-way through the agent's checkout and waiting on somebody.
-	Sequence Sequence
-	Hold     Hold
+	TaskID        *string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	InterruptedAt *time.Time
+	Hold          Hold
 
 	// Alive is whether the agent still owns the pane its row names.
 	Alive bool
-	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
-	MovedSinceRound string
-	// DiffStat is the lines the checkout adds and removes since it left its base, nil where there is
-	// no base to measure against.
-	DiffStat *DiffStat
-}
-
-// DiffStat is how many lines a checkout adds and removes.
-type DiffStat struct {
-	Added   int
-	Removed int
 }
 
 // Turn is how the agent's last turn ended.
@@ -334,28 +283,12 @@ func FromRow(agent models.Agent) Agent {
 		TaskID:             agent.TaskID,
 		CreatedAt:          agent.CreatedAt,
 		UpdatedAt:          agent.UpdatedAt,
-		Branch:             agent.Branch,
-		RepositoryURL:      agent.RepositoryUrl,
-		HeadSHA:            agent.HeadSha,
-		AdoptedBranch:      agent.AdoptedBranch,
-		WorktreeRemoved:    agent.WorktreeRemoved,
 		InterruptedAt:      agent.InterruptedAt,
-		Sequence:           Sequence(agent.Sequence),
 		Hold: Hold{
 			At:        agent.HeldAt,
 			MidTurn:   agent.HeldMidTurn,
 			ByAgentID: agent.HeldByAgentID,
 		},
-		Alive:           agent.Alive,
-		MovedSinceRound: agent.MovedSinceRound,
-		DiffStat:        diffStatFrom(agent.LinesAdded, agent.LinesRemoved),
+		Alive: agent.Alive,
 	}
-}
-
-func diffStatFrom(added, removed *int32) *DiffStat {
-	if added == nil || removed == nil {
-		return nil
-	}
-
-	return &DiffStat{Added: int(*added), Removed: int(*removed)}
 }

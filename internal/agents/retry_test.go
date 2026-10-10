@@ -9,6 +9,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 
 	"github.com/google/uuid"
@@ -149,6 +150,7 @@ func TestRetryCreateOntoAnotherHarness(t *testing.T) {
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
+		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
 		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
@@ -199,6 +201,7 @@ func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
+		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
 		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
@@ -249,6 +252,7 @@ func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
+		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
 		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
@@ -346,6 +350,7 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 			launch := NewLaunchService(NewLaunchServiceParams{
 				Tmux:               tmux,
 				Agents:             st.Agents,
+				Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
 				Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 				Workflows:          st.Workflows,
 				Tx:                 st.Pool,

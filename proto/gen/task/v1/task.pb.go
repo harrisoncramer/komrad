@@ -25,6 +25,130 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Sequence is what git has part-way through a task's checkout and waiting on somebody.
+type Sequence int32
+
+const (
+	// Nothing was recorded, which no stored checkout answers with.
+	Sequence_SEQUENCE_UNSPECIFIED Sequence = 0
+	// Nothing is part-way through.
+	Sequence_SEQUENCE_NONE Sequence = 1
+	// A rebase stopped on a commit it could not replay.
+	Sequence_SEQUENCE_REBASE Sequence = 2
+	// An am stopped on a patch it could not apply.
+	Sequence_SEQUENCE_AM Sequence = 3
+	// A merge stopped on conflicts.
+	Sequence_SEQUENCE_MERGE Sequence = 4
+	// A cherry-pick stopped on conflicts or resting between its picks.
+	Sequence_SEQUENCE_CHERRY_PICK Sequence = 5
+	// A revert stopped on conflicts or resting between its picks.
+	Sequence_SEQUENCE_REVERT Sequence = 6
+)
+
+// Enum value maps for Sequence.
+var (
+	Sequence_name = map[int32]string{
+		0: "SEQUENCE_UNSPECIFIED",
+		1: "SEQUENCE_NONE",
+		2: "SEQUENCE_REBASE",
+		3: "SEQUENCE_AM",
+		4: "SEQUENCE_MERGE",
+		5: "SEQUENCE_CHERRY_PICK",
+		6: "SEQUENCE_REVERT",
+	}
+	Sequence_value = map[string]int32{
+		"SEQUENCE_UNSPECIFIED": 0,
+		"SEQUENCE_NONE":        1,
+		"SEQUENCE_REBASE":      2,
+		"SEQUENCE_AM":          3,
+		"SEQUENCE_MERGE":       4,
+		"SEQUENCE_CHERRY_PICK": 5,
+		"SEQUENCE_REVERT":      6,
+	}
+)
+
+func (x Sequence) Enum() *Sequence {
+	p := new(Sequence)
+	*p = x
+	return p
+}
+
+func (x Sequence) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Sequence) Descriptor() protoreflect.EnumDescriptor {
+	return file_task_v1_task_proto_enumTypes[0].Descriptor()
+}
+
+func (Sequence) Type() protoreflect.EnumType {
+	return &file_task_v1_task_proto_enumTypes[0]
+}
+
+func (x Sequence) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Sequence.Descriptor instead.
+func (Sequence) EnumDescriptor() ([]byte, []int) {
+	return file_task_v1_task_proto_rawDescGZIP(), []int{0}
+}
+
+// DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
+type DiffStat struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The lines it adds.
+	Added int32 `protobuf:"varint,1,opt,name=added,proto3" json:"added,omitempty"`
+	// The lines it removes.
+	Removed       int32 `protobuf:"varint,2,opt,name=removed,proto3" json:"removed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiffStat) Reset() {
+	*x = DiffStat{}
+	mi := &file_task_v1_task_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiffStat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiffStat) ProtoMessage() {}
+
+func (x *DiffStat) ProtoReflect() protoreflect.Message {
+	mi := &file_task_v1_task_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiffStat.ProtoReflect.Descriptor instead.
+func (*DiffStat) Descriptor() ([]byte, []int) {
+	return file_task_v1_task_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *DiffStat) GetAdded() int32 {
+	if x != nil {
+		return x.Added
+	}
+	return 0
+}
+
+func (x *DiffStat) GetRemoved() int32 {
+	if x != nil {
+		return x.Removed
+	}
+	return 0
+}
+
 // Task is one outcome a person wants, which the agents linked to it work toward.
 type Task struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -43,14 +167,37 @@ type Task struct {
 	// When it was last changed, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// When it was archived, unset while it is live.
-	ArchivedAt    *string `protobuf:"bytes,8,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	ArchivedAt *string `protobuf:"bytes,8,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	// The directory of its checkout, which every agent on it works in, unset while it has none.
+	Cwd *string `protobuf:"bytes,9,opt,name=cwd,proto3,oneof" json:"cwd,omitempty"`
+	// The git branch its checkout is on, unset while it has none or git cannot read it.
+	Branch *string `protobuf:"bytes,10,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
+	// The canonical web address of the repository its checkout pushes to, such as
+	// https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin
+	// is not a forge.
+	RepositoryUrl *string `protobuf:"bytes,11,opt,name=repository_url,json=repositoryUrl,proto3,oneof" json:"repository_url,omitempty"`
+	// The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
+	HeadSha *string `protobuf:"bytes,12,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
+	// Whether its checkout has been taken away.
+	WorktreeRemoved bool `protobuf:"varint,13,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
+	// What git has part-way through its checkout, waiting on somebody to settle it.
+	Sequence Sequence `protobuf:"varint,14,opt,name=sequence,proto3,enum=task.v1.Sequence" json:"sequence,omitempty"`
+	// The snapshot of the newest review round of its agents while its checkout no longer hashes
+	// to it, empty otherwise.
+	MovedSinceRound string `protobuf:"bytes,15,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
+	// How many lines its checkout adds and removes since it left its base, unset where there is
+	// no base to measure against.
+	DiffStat *DiffStat `protobuf:"bytes,16,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
+	// The branch its checkout was put on rather than one komrad made for it, unset when komrad
+	// made it.
+	AdoptedBranch *string `protobuf:"bytes,17,opt,name=adopted_branch,json=adoptedBranch,proto3,oneof" json:"adopted_branch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Task) Reset() {
 	*x = Task{}
-	mi := &file_task_v1_task_proto_msgTypes[0]
+	mi := &file_task_v1_task_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -62,7 +209,7 @@ func (x *Task) String() string {
 func (*Task) ProtoMessage() {}
 
 func (x *Task) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[0]
+	mi := &file_task_v1_task_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -75,7 +222,7 @@ func (x *Task) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Task.ProtoReflect.Descriptor instead.
 func (*Task) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{0}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Task) GetId() string {
@@ -134,6 +281,69 @@ func (x *Task) GetArchivedAt() string {
 	return ""
 }
 
+func (x *Task) GetCwd() string {
+	if x != nil && x.Cwd != nil {
+		return *x.Cwd
+	}
+	return ""
+}
+
+func (x *Task) GetBranch() string {
+	if x != nil && x.Branch != nil {
+		return *x.Branch
+	}
+	return ""
+}
+
+func (x *Task) GetRepositoryUrl() string {
+	if x != nil && x.RepositoryUrl != nil {
+		return *x.RepositoryUrl
+	}
+	return ""
+}
+
+func (x *Task) GetHeadSha() string {
+	if x != nil && x.HeadSha != nil {
+		return *x.HeadSha
+	}
+	return ""
+}
+
+func (x *Task) GetWorktreeRemoved() bool {
+	if x != nil {
+		return x.WorktreeRemoved
+	}
+	return false
+}
+
+func (x *Task) GetSequence() Sequence {
+	if x != nil {
+		return x.Sequence
+	}
+	return Sequence_SEQUENCE_UNSPECIFIED
+}
+
+func (x *Task) GetMovedSinceRound() string {
+	if x != nil {
+		return x.MovedSinceRound
+	}
+	return ""
+}
+
+func (x *Task) GetDiffStat() *DiffStat {
+	if x != nil {
+		return x.DiffStat
+	}
+	return nil
+}
+
+func (x *Task) GetAdoptedBranch() string {
+	if x != nil && x.AdoptedBranch != nil {
+		return *x.AdoptedBranch
+	}
+	return ""
+}
+
 type CreateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The lowercase kebab-case name to call it by, which no other task has ever had.
@@ -150,7 +360,7 @@ type CreateTaskRequest struct {
 
 func (x *CreateTaskRequest) Reset() {
 	*x = CreateTaskRequest{}
-	mi := &file_task_v1_task_proto_msgTypes[1]
+	mi := &file_task_v1_task_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -162,7 +372,7 @@ func (x *CreateTaskRequest) String() string {
 func (*CreateTaskRequest) ProtoMessage() {}
 
 func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[1]
+	mi := &file_task_v1_task_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -175,7 +385,7 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{1}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CreateTaskRequest) GetSlug() string {
@@ -216,7 +426,7 @@ type CreateTaskResponse struct {
 
 func (x *CreateTaskResponse) Reset() {
 	*x = CreateTaskResponse{}
-	mi := &file_task_v1_task_proto_msgTypes[2]
+	mi := &file_task_v1_task_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -228,7 +438,7 @@ func (x *CreateTaskResponse) String() string {
 func (*CreateTaskResponse) ProtoMessage() {}
 
 func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[2]
+	mi := &file_task_v1_task_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -241,7 +451,7 @@ func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskResponse.ProtoReflect.Descriptor instead.
 func (*CreateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{2}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreateTaskResponse) GetTask() *Task {
@@ -261,7 +471,7 @@ type GetTaskRequest struct {
 
 func (x *GetTaskRequest) Reset() {
 	*x = GetTaskRequest{}
-	mi := &file_task_v1_task_proto_msgTypes[3]
+	mi := &file_task_v1_task_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -273,7 +483,7 @@ func (x *GetTaskRequest) String() string {
 func (*GetTaskRequest) ProtoMessage() {}
 
 func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[3]
+	mi := &file_task_v1_task_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -286,7 +496,7 @@ func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskRequest) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{3}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetTaskRequest) GetTask() string {
@@ -306,7 +516,7 @@ type GetTaskResponse struct {
 
 func (x *GetTaskResponse) Reset() {
 	*x = GetTaskResponse{}
-	mi := &file_task_v1_task_proto_msgTypes[4]
+	mi := &file_task_v1_task_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +528,7 @@ func (x *GetTaskResponse) String() string {
 func (*GetTaskResponse) ProtoMessage() {}
 
 func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[4]
+	mi := &file_task_v1_task_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -331,7 +541,7 @@ func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskResponse) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{4}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetTaskResponse) GetTask() *Task {
@@ -353,7 +563,7 @@ type ListTasksRequest struct {
 
 func (x *ListTasksRequest) Reset() {
 	*x = ListTasksRequest{}
-	mi := &file_task_v1_task_proto_msgTypes[5]
+	mi := &file_task_v1_task_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -365,7 +575,7 @@ func (x *ListTasksRequest) String() string {
 func (*ListTasksRequest) ProtoMessage() {}
 
 func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[5]
+	mi := &file_task_v1_task_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -378,7 +588,7 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListTasksRequest) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{5}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListTasksRequest) GetWorkflowId() string {
@@ -405,7 +615,7 @@ type ListTasksResponse struct {
 
 func (x *ListTasksResponse) Reset() {
 	*x = ListTasksResponse{}
-	mi := &file_task_v1_task_proto_msgTypes[6]
+	mi := &file_task_v1_task_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -417,7 +627,7 @@ func (x *ListTasksResponse) String() string {
 func (*ListTasksResponse) ProtoMessage() {}
 
 func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[6]
+	mi := &file_task_v1_task_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -430,7 +640,7 @@ func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListTasksResponse) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{6}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListTasksResponse) GetTasks() []*Task {
@@ -450,7 +660,7 @@ type ArchiveTaskRequest struct {
 
 func (x *ArchiveTaskRequest) Reset() {
 	*x = ArchiveTaskRequest{}
-	mi := &file_task_v1_task_proto_msgTypes[7]
+	mi := &file_task_v1_task_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +672,7 @@ func (x *ArchiveTaskRequest) String() string {
 func (*ArchiveTaskRequest) ProtoMessage() {}
 
 func (x *ArchiveTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[7]
+	mi := &file_task_v1_task_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +685,7 @@ func (x *ArchiveTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArchiveTaskRequest.ProtoReflect.Descriptor instead.
 func (*ArchiveTaskRequest) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{7}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ArchiveTaskRequest) GetTask() string {
@@ -489,7 +699,10 @@ var File_task_v1_task_proto protoreflect.FileDescriptor
 
 const file_task_v1_task_proto_rawDesc = "" +
 	"\n" +
-	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\"\xe9\x01\n" +
+	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
+	"\bDiffStat\x12\x14\n" +
+	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xa4\x05\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -502,8 +715,25 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12$\n" +
 	"\varchived_at\x18\b \x01(\tH\x00R\n" +
-	"archivedAt\x88\x01\x01B\x0e\n" +
-	"\f_archived_at\"\xbb\x01\n" +
+	"archivedAt\x88\x01\x01\x12\x15\n" +
+	"\x03cwd\x18\t \x01(\tH\x01R\x03cwd\x88\x01\x01\x12\x1b\n" +
+	"\x06branch\x18\n" +
+	" \x01(\tH\x02R\x06branch\x88\x01\x01\x12*\n" +
+	"\x0erepository_url\x18\v \x01(\tH\x03R\rrepositoryUrl\x88\x01\x01\x12\x1e\n" +
+	"\bhead_sha\x18\f \x01(\tH\x04R\aheadSha\x88\x01\x01\x12)\n" +
+	"\x10worktree_removed\x18\r \x01(\bR\x0fworktreeRemoved\x12-\n" +
+	"\bsequence\x18\x0e \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x12*\n" +
+	"\x11moved_since_round\x18\x0f \x01(\tR\x0fmovedSinceRound\x123\n" +
+	"\tdiff_stat\x18\x10 \x01(\v2\x11.task.v1.DiffStatH\x05R\bdiffStat\x88\x01\x01\x12*\n" +
+	"\x0eadopted_branch\x18\x11 \x01(\tH\x06R\radoptedBranch\x88\x01\x01B\x0e\n" +
+	"\f_archived_atB\x06\n" +
+	"\x04_cwdB\t\n" +
+	"\a_branchB\x11\n" +
+	"\x0f_repository_urlB\v\n" +
+	"\t_head_shaB\f\n" +
+	"\n" +
+	"_diff_statB\x11\n" +
+	"\x0f_adopted_branch\"\xbb\x01\n" +
 	"\x11CreateTaskRequest\x127\n" +
 	"\x04slug\x18\x01 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$R\x04slug\x12$\n" +
 	"\x05title\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x05title\x12\x1d\n" +
@@ -523,7 +753,15 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x11ListTasksResponse\x12#\n" +
 	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"1\n" +
 	"\x12ArchiveTaskRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task2\xa2\x06\n" +
+	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task*\xa0\x01\n" +
+	"\bSequence\x12\x18\n" +
+	"\x14SEQUENCE_UNSPECIFIED\x10\x00\x12\x11\n" +
+	"\rSEQUENCE_NONE\x10\x01\x12\x13\n" +
+	"\x0fSEQUENCE_REBASE\x10\x02\x12\x0f\n" +
+	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
+	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
+	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xa2\x06\n" +
 	"\vTaskService\x12\xe8\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\xa0\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\vcreate_task\"\x82\x01Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.(\x00B\x01\x03\x12\x8c\x01\n" +
@@ -544,35 +782,40 @@ func file_task_v1_task_proto_rawDescGZIP() []byte {
 	return file_task_v1_task_proto_rawDescData
 }
 
-var file_task_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_task_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_task_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_task_v1_task_proto_goTypes = []any{
-	(*Task)(nil),               // 0: task.v1.Task
-	(*CreateTaskRequest)(nil),  // 1: task.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil), // 2: task.v1.CreateTaskResponse
-	(*GetTaskRequest)(nil),     // 3: task.v1.GetTaskRequest
-	(*GetTaskResponse)(nil),    // 4: task.v1.GetTaskResponse
-	(*ListTasksRequest)(nil),   // 5: task.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),  // 6: task.v1.ListTasksResponse
-	(*ArchiveTaskRequest)(nil), // 7: task.v1.ArchiveTaskRequest
-	(*emptypb.Empty)(nil),      // 8: google.protobuf.Empty
+	(Sequence)(0),              // 0: task.v1.Sequence
+	(*DiffStat)(nil),           // 1: task.v1.DiffStat
+	(*Task)(nil),               // 2: task.v1.Task
+	(*CreateTaskRequest)(nil),  // 3: task.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil), // 4: task.v1.CreateTaskResponse
+	(*GetTaskRequest)(nil),     // 5: task.v1.GetTaskRequest
+	(*GetTaskResponse)(nil),    // 6: task.v1.GetTaskResponse
+	(*ListTasksRequest)(nil),   // 7: task.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),  // 8: task.v1.ListTasksResponse
+	(*ArchiveTaskRequest)(nil), // 9: task.v1.ArchiveTaskRequest
+	(*emptypb.Empty)(nil),      // 10: google.protobuf.Empty
 }
 var file_task_v1_task_proto_depIdxs = []int32{
-	0, // 0: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
-	0, // 1: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
-	0, // 2: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
-	1, // 3: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
-	3, // 4: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
-	5, // 5: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
-	7, // 6: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
-	2, // 7: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
-	4, // 8: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
-	6, // 9: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
-	8, // 10: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0,  // 0: task.v1.Task.sequence:type_name -> task.v1.Sequence
+	1,  // 1: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
+	2,  // 2: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
+	2,  // 3: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
+	2,  // 4: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
+	3,  // 5: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
+	5,  // 6: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
+	7,  // 7: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
+	9,  // 8: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
+	4,  // 9: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
+	6,  // 10: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
+	8,  // 11: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
+	10, // 12: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
+	9,  // [9:13] is the sub-list for method output_type
+	5,  // [5:9] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_task_v1_task_proto_init() }
@@ -580,19 +823,20 @@ func file_task_v1_task_proto_init() {
 	if File_task_v1_task_proto != nil {
 		return
 	}
-	file_task_v1_task_proto_msgTypes[0].OneofWrappers = []any{}
+	file_task_v1_task_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_task_v1_task_proto_rawDesc), len(file_task_v1_task_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   8,
+			NumEnums:      1,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_task_v1_task_proto_goTypes,
 		DependencyIndexes: file_task_v1_task_proto_depIdxs,
+		EnumInfos:         file_task_v1_task_proto_enumTypes,
 		MessageInfos:      file_task_v1_task_proto_msgTypes,
 	}.Build()
 	File_task_v1_task_proto = out.File

@@ -14,6 +14,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,7 @@ func newRowReader(st *storetest.Stores) *RowReader {
 		Reviews:       reviews,
 		ReviewThreads: reviewstore.NewThreadStore(st.Pool.GetDB()),
 		Workflows:     st.Workflows,
+		Tasks:         st.Tasks,
 	})
 }
 
@@ -200,10 +202,10 @@ func seedAgentOnBranch(t *testing.T, st *storetest.Stores, name, repositoryURL, 
 	t.Helper()
 
 	agent := st.SeedAgent(t, agentstore.Agent{Name: name})
-	require.NoError(t, st.Agents.SetCheckout(t.Context(), agent.ID, agentstore.SetCheckoutParams{
+	st.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{
 		RepositoryURL: &repositoryURL,
 		Branch:        &branch,
-	}))
+	})
 
 	return agent
 }

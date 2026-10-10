@@ -83,6 +83,16 @@ func (s *TaskService) GetTaskForWorkflow(ctx context.Context, ref, workflowID st
 	return found, nil
 }
 
+// RecordCheckout records the directory a launch provisioned for a task.
+func (s *TaskService) RecordCheckout(ctx context.Context, id, cwd string) error {
+	return s.tasks.SetCheckoutDir(ctx, id, cwd)
+}
+
+// ListTasksByID returns the tasks among ids, archived or not.
+func (s *TaskService) ListTasksByID(ctx context.Context, ids []string) ([]taskstore.Task, error) {
+	return s.tasks.ListByID(ctx, ids)
+}
+
 type CreateForAgentParams struct {
 	WorkflowID string
 	Name       string
@@ -145,4 +155,9 @@ func pickSlug(ctx context.Context, tasks *taskstore.TaskStore, params CreateForA
 	}
 
 	return slug, nil
+}
+
+// MarkCheckoutsRemoved records that the task checkouts the given agents worked in were taken away.
+func (s *TaskService) MarkCheckoutsRemoved(ctx context.Context, agentIDs []string) error {
+	return s.tasks.MarkCheckoutsRemoved(ctx, agentIDs)
 }

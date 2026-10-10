@@ -10,6 +10,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +53,7 @@ func TestAbortRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, tt.agent)
-			require.NoError(t, fixture.stores.Agents.SetSequenceByID(t.Context(), agent.ID, agentstore.SequenceRebase))
+			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, taskstore.SequenceRebase))
 			locks := newTreeLocks()
 			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
@@ -63,9 +64,7 @@ func TestAbortRefusals(t *testing.T) {
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.wantCalls, tt.aborter.Calls)
 			assert.Empty(t, fixture.readInbox(t, agent.ID))
-			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.Equal(t, agentstore.SequenceRebase, stored.Sequence, "nothing was undone, so the row still says so")
+			assert.Equal(t, taskstore.SequenceRebase, fixture.readCheckout(t, agent).Sequence, "nothing was undone, so the row still says so")
 		})
 	}
 }
@@ -135,11 +134,11 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
-			require.NoError(t, fixture.stores.Agents.SetSequenceByID(t.Context(), agent.ID, agentstore.Sequence(tt.aborter.Sequence)))
+			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, taskstore.Sequence(tt.aborter.Sequence)))
 			if tt.lastRebase != nil {
 				raw, err := json.Marshal(tt.lastRebase)
 				require.NoError(t, err)
-				require.NoError(t, fixture.stores.Agents.SetLastRebaseByID(t.Context(), agent.ID, raw))
+				require.NoError(t, fixture.stores.Tasks.SetLastRebase(t.Context(), *agent.TaskID, raw))
 			}
 			sequence := tt.aborter.Sequence
 
@@ -154,9 +153,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			assert.Contains(t, result.ParkedRef, "refs/komrad/aborted/"+agent.ID+"/")
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 
-			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.Equal(t, agentstore.SequenceNone, stored.Sequence)
+			assert.Equal(t, taskstore.SequenceNone, fixture.readCheckout(t, agent).Sequence)
 
 			inbox := fixture.readInbox(t, agent.ID)
 			require.Len(t, inbox, 1)

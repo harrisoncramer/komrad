@@ -31,6 +31,9 @@ import (
 // errTaskMadeAndJoined is a launch naming a task to join and describing one to make.
 var errTaskMadeAndJoined = fail.InvalidArgument("an agent either joins a task or has one made for it, not both")
 
+// errTaskHasCheckout is a launch that would make a checkout for a task that already has one.
+var errTaskHasCheckout = fail.Precondition("this task already has a checkout, so launch a child of the agent working in it or give this one a task of its own")
+
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             *agentstore.AgentStore
@@ -428,9 +431,6 @@ func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane strin
 		SpawnedByAgentID: spawnedBy,
 		ParentAgentID:    nullable(params.ParentAgentID),
 		Hidden:           params.Hidden,
-		AdoptedBranch:    params.AdoptedBranch,
-		Branch:           nullable(params.AdoptedBranch),
-		RepositoryURL:    nullable(params.RepositoryURL),
 		Role:             params.Role,
 	}
 }
@@ -463,15 +463,18 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
 
-	task, err := s.createUnderCeiling(ctx, creation{
-		agent:    &agent,
-		task:     joined,
-		spawner:  spawner,
-		parent:   parent,
-		title:    params.Title,
-		taskSlug: params.TaskSlug,
-		taskGoal: params.TaskGoal,
-	})
+	create := creation{
+		agent:         &agent,
+		task:          joined,
+		spawner:       spawner,
+		parent:        parent,
+		title:         params.Title,
+		taskSlug:      params.TaskSlug,
+		taskGoal:      params.TaskGoal,
+		adoptedBranch: params.AdoptedBranch,
+		repositoryURL: params.RepositoryURL,
+	}
+	task, err := s.createUnderCeiling(ctx, create)
 	if err != nil {
 		return nil, err
 	}
@@ -486,6 +489,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		spawner:         spawner,
 		parent:          parent,
 		taskSlug:        taskSlug(task),
+		claimsCheckout:  create.claimsCheckout(task),
 	})
 }
 
@@ -508,6 +512,8 @@ type resolvedLaunch struct {
 	spawner         *agentstore.Agent
 	parent          *agentstore.Agent
 	taskSlug        string
+	// claimsCheckout is whether the directory the agent starts in becomes its task's checkout.
+	claimsCheckout bool
 }
 
 func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (*agentstore.Agent, error) {
@@ -570,6 +576,11 @@ func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 	}
 	if !written {
 		return fmt.Errorf("%w: %q was archived or deleted while it was being created", agenterr.ErrAgentArchived, agent.Name)
+	}
+	if c.resolved.claimsCheckout && agent.TaskID != nil {
+		if err := c.service.tasks.RecordCheckout(ctx, *agent.TaskID, agent.Cwd); err != nil {
+			return fmt.Errorf("failed to record the checkout of agent %q on its task: %w", agent.Name, err)
+		}
 	}
 
 	return nil
@@ -680,12 +691,21 @@ type creation struct {
 	title    string
 	taskSlug string
 	taskGoal string
+	// adoptedBranch is the branch the agent's checkout is put on rather than one komrad makes.
+	adoptedBranch string
+	repositoryURL string
 }
 
 // needsOwnTask is whether the agent is given a task of its own as it is written, which a child
 // sharing its parent's and an orchestrator are not.
 func (c creation) needsOwnTask() bool {
 	return c.task == nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator
+}
+
+// claimsCheckout is whether the agent's directory becomes the checkout of task, which only the one
+// top-level agent that provisions does.
+func (c creation) claimsCheckout(task *taskstore.Task) bool {
+	return task != nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator && !c.agent.IsProvisionerDisabled()
 }
 
 // createUnderCeiling writes the agent, and the task it works on when it needs one of its own,
@@ -726,9 +746,13 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 		} else if c.parent != nil {
 			c.agent.TaskID = c.parent.TaskID
 		}
-
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
+		}
+		if c.claimsCheckout(task) {
+			if err := claimCheckout(ctx, taskstore.NewTaskStore(db), c, task.ID); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -738,6 +762,25 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 	}
 
 	return task, nil
+}
+
+// claimCheckout records on a task how its checkout is to be made, ahead of the directory the
+// launch then provisions.
+func claimCheckout(ctx context.Context, tasks *taskstore.TaskStore, c creation, taskID string) error {
+	claimed, err := tasks.ClaimCheckout(ctx, taskstore.ClaimCheckoutParams{
+		ID:               taskID,
+		AdoptedBranch:    c.adoptedBranch,
+		RepositoryURL:    c.repositoryURL,
+		ProvisionEnabled: c.agent.ProvisionEnabled,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to claim the checkout of task %q for agent %q: %w", taskID, c.agent.Name, err)
+	}
+	if !claimed {
+		return errTaskHasCheckout
+	}
+
+	return nil
 }
 
 func claimRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxAgents, want int) error {

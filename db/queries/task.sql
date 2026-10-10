@@ -97,3 +97,119 @@ WHERE (sqlc.narg('keys')::text[] IS NULL
     OR id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     id DESC;
+
+-- name: ClaimTaskCheckout :execrows
+UPDATE
+    tasks
+SET
+    adopted_branch = sqlc.narg('adopted_branch'),
+    branch = sqlc.narg('adopted_branch'),
+    repository_url = sqlc.narg('repository_url'),
+    provision_enabled = sqlc.narg('provision_enabled'),
+    worktree_removed = FALSE
+WHERE
+    id = sqlc.arg('id')
+    AND worktree_removed IS NULL;
+
+-- name: SetTaskCheckoutDir :exec
+UPDATE
+    tasks
+SET
+    cwd = sqlc.arg('cwd')
+WHERE
+    id = sqlc.arg('id');
+
+-- name: SetTaskHead :exec
+UPDATE
+    tasks
+SET
+    branch = sqlc.narg('branch'),
+    repository_url = sqlc.narg('repository_url'),
+    head_sha = sqlc.narg('head_sha'),
+    worktree_removed = sqlc.arg('worktree_removed'),
+    "sequence" = sqlc.arg('sequence')
+WHERE
+    id = sqlc.arg('id');
+
+-- name: SetTaskSequence :exec
+UPDATE
+    tasks
+SET
+    "sequence" = sqlc.arg('sequence')
+WHERE
+    id = sqlc.arg('id');
+
+-- name: SetTaskMovedSinceRound :exec
+UPDATE
+    tasks
+SET
+    moved_since_round = sqlc.arg('moved_since_round')
+WHERE
+    id = sqlc.arg('id');
+
+-- name: SetTaskDiffStat :exec
+UPDATE
+    tasks
+SET
+    lines_added = sqlc.narg('lines_added'),
+    lines_removed = sqlc.narg('lines_removed')
+WHERE
+    id = sqlc.arg('id');
+
+-- name: SetTaskLastRebase :exec
+UPDATE
+    tasks
+SET
+    last_rebase = sqlc.arg('last_rebase')
+WHERE
+    id = sqlc.arg('id');
+
+-- name: GetTaskLastRebase :one
+SELECT
+    last_rebase
+FROM
+    tasks
+WHERE
+    id = sqlc.arg('id');
+
+-- name: ListTaskCheckouts :many
+SELECT
+    t.*
+FROM
+    tasks t
+WHERE
+    t.archived_at IS NULL
+    AND t.cwd IS NOT NULL
+    AND t.cwd <> ''
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
+ORDER BY
+    t.id;
+
+-- name: ListTasksByID :many
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    id = ANY (sqlc.arg('ids')::uuid[])
+ORDER BY
+    id;
+
+-- name: MarkTaskCheckoutsRemoved :exec
+UPDATE
+    tasks t
+SET
+    worktree_removed = TRUE
+FROM
+    agents a
+WHERE
+    a.id = ANY (sqlc.arg('agent_ids')::uuid[])
+    AND a.task_id = t.id
+    AND t.cwd = a.cwd;

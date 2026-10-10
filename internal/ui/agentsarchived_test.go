@@ -15,6 +15,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -521,7 +522,8 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 	stuck.FailureReason = "the worktree is dirty"
 	measured := newArchivedAgent("a1", "api-refactor", "w1")
-	measured.DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
+	measuredTask := newTaskOf(measured)
+	measuredTask.DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
 
 	tests := []struct {
 		name       string
@@ -551,7 +553,7 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		},
 		{
 			name:       "an archived agent renders no diff stat",
-			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured},
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured, measuredTask},
 			press:      []string{"j"},
 			want:       []string{"archived — kept until deleted"},
 			wantAbsent: []string{"+200"},
@@ -577,11 +579,13 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	t.Run("the record says what the agents list would say of it", func(t *testing.T) {
 		agent := newArchivedAgent("a1", "api-refactor", "w1")
 		agent.CreatedAt = "2026-07-29T09:00:00Z"
-		agent.Branch = xptr.Ptr("agent/a1")
-		agent.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
+		task := newTaskOf(agent)
+		task.Branch = xptr.Ptr("agent/a1")
+		task.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
 		harness := openArchivedAgents(t,
 			newLiveWorkflow("w1", "backend"),
 			agent,
+			task,
 			&pullrequestv1.PullRequest{
 				Id:                "pr-42",
 				RepositoryUrl:     "https://github.com/harrisoncramer/komrad",

@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -13,12 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProtoToAgentCarriesTheSyncedColumns pins the branch and the worktree removal flag
-// surviving the conversion.
+// TestProtoToAgentCarriesTheSyncedColumns pins the branch and the worktree removal flag of the
+// agent's task surviving the conversion.
 func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	branch := "fix/thing"
-	converted := agentFrom(&agentv1.Agent{
-		Id:              "a1",
+	converted := agentFrom(&agentv1.Agent{Id: "a1"}, &taskv1.Task{
+		Id:              "t1",
 		Branch:          &branch,
 		WorktreeRemoved: true,
 	})
@@ -30,7 +31,7 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 
 // TestProtoToAgentCarriesAFailedTurn pins the text a turn an API error ended is rendered with.
 func TestProtoToAgentCarriesAFailedTurn(t *testing.T) {
-	assert.Equal(t, "Overloaded", agentFrom(&agentv1.Agent{Id: "a1", TurnError: "Overloaded"}).TurnError)
+	assert.Equal(t, "Overloaded", agentFrom(&agentv1.Agent{Id: "a1", TurnError: "Overloaded"}, nil).TurnError)
 }
 
 // TestProtoToAgentCarriesTheStateChange pins the timestamp the row's state is dated by.
@@ -39,7 +40,7 @@ func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 	converted := agentFrom(&agentv1.Agent{
 		Id:             "a1",
 		StateChangedAt: changed.Format(time.RFC3339),
-	})
+	}, nil)
 
 	assert.True(t, converted.StateChangedAt.Equal(changed))
 }
@@ -47,7 +48,7 @@ func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 // TestProtoToAgentWithoutAStateChange covers a server that sent no timestamp, which leaves the
 // zero time rather than an instant nothing dated it from.
 func TestProtoToAgentWithoutAStateChange(t *testing.T) {
-	assert.True(t, agentFrom(&agentv1.Agent{Id: "a1"}).StateChangedAt.IsZero())
+	assert.True(t, agentFrom(&agentv1.Agent{Id: "a1"}, nil).StateChangedAt.IsZero())
 }
 
 // TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.

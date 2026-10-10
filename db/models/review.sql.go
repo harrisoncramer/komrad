@@ -796,13 +796,14 @@ func (q *Queries) LandReviewRounds(ctx context.Context, arg LandReviewRoundsPara
 const listForgeMirrorAgents = `-- name: ListForgeMirrorAgents :many
 SELECT
     a.id AS agent_id,
-    a.cwd,
+    COALESCE(t.cwd, '')::text AS cwd,
     r.id AS round_id,
     r.base_sha,
     r.snapshot_sha
 FROM
-    agent_pull_requests o
-    JOIN agents a ON a.id = o.agent_id
+    task_pull_requests o
+    JOIN tasks t ON t.id = o.task_id
+    JOIN agents a ON a.task_id = t.id
     JOIN LATERAL (
         SELECT
             id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at
@@ -969,32 +970,36 @@ func (q *Queries) ListLiveReviewers(ctx context.Context) ([]*ListLiveReviewersRo
 	return items, nil
 }
 
-const listNewestReviewRounds = `-- name: ListNewestReviewRounds :many
-SELECT DISTINCT ON (agent_id)
-    agent_id,
-    snapshot_sha
+const listNewestTaskReviewRounds = `-- name: ListNewestTaskReviewRounds :many
+SELECT DISTINCT ON (a.task_id)
+    a.task_id::uuid AS task_id,
+    r.snapshot_sha
 FROM
-    review_rounds
+    review_rounds r
+    JOIN agents a ON a.id = r.agent_id
+WHERE
+    a.task_id IS NOT NULL
 ORDER BY
-    agent_id,
-    ordinal DESC
+    a.task_id,
+    r.created_at DESC,
+    r.ordinal DESC
 `
 
-type ListNewestReviewRoundsRow struct {
-	AgentID     string
+type ListNewestTaskReviewRoundsRow struct {
+	TaskID      string
 	SnapshotSha string
 }
 
-func (q *Queries) ListNewestReviewRounds(ctx context.Context) ([]*ListNewestReviewRoundsRow, error) {
-	rows, err := q.db.Query(ctx, listNewestReviewRounds)
+func (q *Queries) ListNewestTaskReviewRounds(ctx context.Context) ([]*ListNewestTaskReviewRoundsRow, error) {
+	rows, err := q.db.Query(ctx, listNewestTaskReviewRounds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListNewestReviewRoundsRow
+	var items []*ListNewestTaskReviewRoundsRow
 	for rows.Next() {
-		var i ListNewestReviewRoundsRow
-		if err := rows.Scan(&i.AgentID, &i.SnapshotSha); err != nil {
+		var i ListNewestTaskReviewRoundsRow
+		if err := rows.Scan(&i.TaskID, &i.SnapshotSha); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -1507,6 +1512,7 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 
 const listUnlandedReviewRounds = `-- name: ListUnlandedReviewRounds :many
 SELECT
+    a.task_id::uuid AS task_id,
     r.agent_id,
     r.ordinal,
     r.base_sha,
@@ -1519,10 +1525,10 @@ FROM
         SELECT
             p.merged_at
         FROM
-            agent_pull_requests o
+            task_pull_requests o
             JOIN pull_requests p ON p.id = o.pull_request_id
         WHERE
-            o.agent_id = r.agent_id
+            o.task_id = a.task_id
             AND p.merged_at IS NOT NULL
         ORDER BY
             p.merged_at DESC
@@ -1530,6 +1536,7 @@ FROM
 WHERE
     r.landed_at IS NULL
     AND a.archived_at IS NULL
+    AND a.task_id IS NOT NULL
     AND EXISTS (
         SELECT
             1
@@ -1544,6 +1551,7 @@ ORDER BY
 `
 
 type ListUnlandedReviewRoundsRow struct {
+	TaskID      string
 	AgentID     string
 	Ordinal     int32
 	BaseSha     string
@@ -1561,6 +1569,7 @@ func (q *Queries) ListUnlandedReviewRounds(ctx context.Context) ([]*ListUnlanded
 	for rows.Next() {
 		var i ListUnlandedReviewRoundsRow
 		if err := rows.Scan(
+			&i.TaskID,
 			&i.AgentID,
 			&i.Ordinal,
 			&i.BaseSha,

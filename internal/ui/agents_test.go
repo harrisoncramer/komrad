@@ -18,6 +18,7 @@ import (
 	loopv1 "komrad/proto/gen/loop/v1"
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -156,11 +157,13 @@ func TestAgentsRows(t *testing.T) {
 	})
 
 	t.Run("a branch renders nothing on the row", func(t *testing.T) {
-		branch := newAgent("a1", "worker", "w1")
+		plainAgent := newAgent("a1", "worker", "w1")
+		branchedAgent := newAgent("a1", "worker", "w1")
+		branch := newTaskOf(branchedAgent)
 		branch.Branch = xptr.Ptr("agent/a1")
 
-		plain := openAgents(t, newLiveWorkflow("w1", "backend"), newAgent("a1", "worker", "w1"))
-		branched := openAgents(t, newLiveWorkflow("w1", "backend"), branch)
+		plain := openAgents(t, newLiveWorkflow("w1", "backend"), plainAgent, newTaskOf(plainAgent))
+		branched := openAgents(t, newLiveWorkflow("w1", "backend"), branchedAgent, branch)
 
 		assert.Equal(t, readListRows(plain.readFrame()), readListRows(branched.readFrame()))
 	})
@@ -730,12 +733,14 @@ func TestAgentsRecordFocus(t *testing.T) {
 	t.Run("a record shortened under the cursor holds it on its last field", func(t *testing.T) {
 		rows := buildRecorded()
 		agent, _ := rows[1].(*agentv1.Agent)
-		agent.Branch = xptr.Ptr("agent/auth")
+		task := newTaskOf(agent)
+		task.Branch = xptr.Ptr("agent/auth")
+		rows = append(rows, task)
 		harness := openAgents(t, rows...)
 		harness.press("pick:record", "G")
 		require.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
 
-		agent.Branch = nil
+		task.Branch = nil
 		harness.watch(buildSnapshot(rows...))
 
 		assert.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
@@ -840,7 +845,9 @@ func TestAgentsRecordCopy(t *testing.T) {
 func TestAgentsRecordEmphasis(t *testing.T) {
 	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
 		rows := buildRecorded()
-		rows[1].(*agentv1.Agent).Branch = xptr.Ptr("agent/auth")
+		task := newTaskOf(rows[1].(*agentv1.Agent))
+		task.Branch = xptr.Ptr("agent/auth")
+		rows = append(rows, task)
 		harness := openAgents(t, rows...)
 
 		harness.press("/", "a", "u", "t", "h")
@@ -858,7 +865,9 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 
 	t.Run("the counts wear the tone of what they count", func(t *testing.T) {
 		recorded := buildRecorded()
-		recorded[1].(*agentv1.Agent).DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
+		task := newTaskOf(recorded[1].(*agentv1.Agent))
+		task.DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
+		recorded = append(recorded, task)
 		harness := openWorktreeRecord(t, panelHarnessParams{}, recorded...)
 		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
 
@@ -959,8 +968,9 @@ func TestAgentsRecordHeight(t *testing.T) {
 
 	t.Run("a record longer than its share says how much is left either side of the cursor", func(t *testing.T) {
 		rows := buildRecorded()
-		agent, _ := rows[1].(*agentv1.Agent)
-		agent.Branch = xptr.Ptr("agent/auth")
+		task := newTaskOf(rows[1].(*agentv1.Agent))
+		task.Branch = xptr.Ptr("agent/auth")
+		rows = append(rows, task)
 		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 7})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(rows...))
@@ -1108,7 +1118,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 	})
 
 	t.Run("the top rule carries where the directory stands left of the lines the branch changed", func(t *testing.T) {
-		changed := &agentv1.DiffStat{Added: 200, Removed: 100}
+		changed := &taskv1.DiffStat{Added: 200, Removed: 100}
 		unpushed := buildWorktreeRead()
 		unpushed.Modified, unpushed.Untracked, unpushed.Unpulled = nil, nil, 0
 		unpulledLanded := buildWorktreeRead()
@@ -1116,7 +1126,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		tests := []struct {
 			name     string
 			read     *worktreev1.GetWorktreeResponse
-			diffStat *agentv1.DiffStat
+			diffStat *taskv1.DiffStat
 			presses  []string
 			want     string
 		}{
@@ -1125,7 +1135,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 			},
 			{
 				name:     "a branch with nothing changed reads clean",
-				diffStat: &agentv1.DiffStat{},
+				diffStat: &taskv1.DiffStat{},
 				want:     "clean",
 			},
 			{
@@ -1209,7 +1219,9 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				recorded := buildRecorded()
-				recorded[1].(*agentv1.Agent).DiffStat = tt.diffStat
+				task := newTaskOf(recorded[1].(*agentv1.Agent))
+				task.DiffStat = tt.diffStat
+				recorded = append(recorded, task)
 				harness := newPanelHarness(t, panelHarnessParams{})
 				if tt.read == nil {
 					harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
@@ -2285,9 +2297,11 @@ func TestAgentsWatchedEdits(t *testing.T) {
 	})
 
 	t.Run("a pull request for a branch nobody is on waits for the agent that arrives on it", func(t *testing.T) {
+		agent, task := newBranchAgent("a1", "api", "agent/x")
 		harness := openAgents(t,
 			newLiveWorkflow("w1", "api"),
-			newBranchAgent("a1", "api", "agent/x"),
+			agent,
+			task,
 			&pullrequestv1.Repository{Url: repositoryURL},
 		)
 		harness.press(widenListPresses...)
@@ -2312,20 +2326,22 @@ func TestAgentsWatchedEdits(t *testing.T) {
 		}))
 		require.Negative(t, findRecordLine(harness.readFrame(), "pull requests"), "the row on another branch is untouched")
 
-		arrived := newBranchAgent("a2", "web", "agent/other")
+		arrived, arrivedTask := newBranchAgent("a2", "web", "agent/other")
 		arrived.CreatedAt = "2026-09-20T12:00:00Z"
-		harness.watch(buildPuts(arrived))
-		harness.press("k")
+		harness.watch(buildPuts(arrived, arrivedTask))
+		harness.press("k", "k")
 
 		frame := harness.readFrame()
-		require.Equal(t, "├─ web", readHoveredRow(frame))
+		require.Equal(t, "│  └─ web", readHoveredRow(frame))
 		assert.Equal(t, "#5 closed", readRecordField(frame, "pull requests"))
 	})
 
 	t.Run("a pull request's title and author reach the record of the agent on its branch", func(t *testing.T) {
+		agent, task := newBranchAgent("a1", "api", "agent/x")
 		harness := openAgents(t,
 			newLiveWorkflow("w1", "api"),
-			newBranchAgent("a1", "api", "agent/x"),
+			agent,
+			task,
 			&pullrequestv1.Repository{Url: repositoryURL},
 		)
 		harness.press(widenListPresses...)
@@ -2579,6 +2595,17 @@ func newAgent(id, name, workflowID string) *agentv1.Agent {
 	}
 }
 
+// newTaskOf puts an agent on a task of its own and returns the task, for a test to give its checkout.
+func newTaskOf(agent *agentv1.Agent) *taskv1.Task {
+	agent.TaskId = xptr.Ptr("task-" + agent.GetId())
+
+	return &taskv1.Task{
+		Id:         agent.GetTaskId(),
+		WorkflowId: agent.GetWorkflowId(),
+		Slug:       "task-" + agent.GetId(),
+	}
+}
+
 func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {
 	agent := newAgent(name, name, workflowID)
 	agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", minute)
@@ -2792,12 +2819,13 @@ func answerWorkflowCreate(harness *panelHarness) {
 	})
 }
 
-func newBranchAgent(id, name, branch string) *agentv1.Agent {
+func newBranchAgent(id, name, branch string) (*agentv1.Agent, *taskv1.Task) {
 	agent := newAgent(id, name, "w1")
-	agent.RepositoryUrl = xptr.Ptr(repositoryURL)
-	agent.Branch = xptr.Ptr(branch)
+	task := newTaskOf(agent)
+	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.Branch = xptr.Ptr(branch)
 
-	return agent
+	return agent, task
 }
 
 func buildSelectable() []proto.Message {

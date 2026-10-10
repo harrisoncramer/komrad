@@ -538,22 +538,6 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 	return &i, err
 }
 
-const getAgentLastRebaseByID = `-- name: GetAgentLastRebaseByID :one
-SELECT
-    last_rebase
-FROM
-    agents
-WHERE
-    id = $1
-`
-
-func (q *Queries) GetAgentLastRebaseByID(ctx context.Context, id string) ([]byte, error) {
-	row := q.db.QueryRow(ctx, getAgentLastRebaseByID, id)
-	var last_rebase []byte
-	err := row.Scan(&last_rebase)
-	return last_rebase, err
-}
-
 const getTranscript = `-- name: GetTranscript :one
 SELECT
     COALESCE(STRING_AGG(content, E'\n\n' ORDER BY seq), '')::text AS content
@@ -680,9 +664,6 @@ INSERT INTO agents(
     spawned_by_agent_id,
     requested_by_agent_id,
     parent_agent_id,
-    adopted_branch,
-    branch,
-    repository_url,
     role,
     task_id)
 VALUES (
@@ -705,10 +686,7 @@ VALUES (
     $16,
     $17,
     $18,
-    $19,
-    $20,
-    $21,
-    $22)
+    $19)
 RETURNING
     id
 `
@@ -731,9 +709,6 @@ type InsertAgentParams struct {
 	SpawnedByAgentID   *string
 	RequestedByAgentID *string
 	ParentAgentID      *string
-	AdoptedBranch      string
-	Branch             *string
-	RepositoryUrl      *string
 	Role               AgentRole
 	TaskID             *string
 }
@@ -757,9 +732,6 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.SpawnedByAgentID,
 		arg.RequestedByAgentID,
 		arg.ParentAgentID,
-		arg.AdoptedBranch,
-		arg.Branch,
-		arg.RepositoryUrl,
 		arg.Role,
 		arg.TaskID,
 	)
@@ -821,17 +793,18 @@ func (q *Queries) InsertTranscriptChunks(ctx context.Context, arg InsertTranscri
 
 const listAgentDirs = `-- name: ListAgentDirs :many
 SELECT
-    id,
-    name,
-    cwd,
-    state,
-    state_changed_at,
-    archived_at,
-    deleting_at,
-    adopted_branch,
-    workflow_id
+    a.id,
+    a.name,
+    a.cwd,
+    a.state,
+    a.state_changed_at,
+    a.archived_at,
+    a.deleting_at,
+    a.workflow_id,
+    COALESCE(t.adopted_branch IS NOT NULL AND t.cwd = a.cwd, FALSE)::boolean AS adopted
 FROM
-    agents
+    agents a
+    LEFT JOIN tasks t ON t.id = a.task_id
 `
 
 type ListAgentDirsRow struct {
@@ -842,8 +815,8 @@ type ListAgentDirsRow struct {
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
 	DeletingAt     *time.Time
-	AdoptedBranch  string
 	WorkflowID     string
+	Adopted        bool
 }
 
 func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error) {
@@ -863,8 +836,8 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.StateChangedAt,
 			&i.ArchivedAt,
 			&i.DeletingAt,
-			&i.AdoptedBranch,
 			&i.WorkflowID,
+			&i.Adopted,
 		); err != nil {
 			return nil, err
 		}
@@ -3015,61 +2988,6 @@ func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscrip
 	return items, nil
 }
 
-const setAgentCheckoutByID = `-- name: SetAgentCheckoutByID :exec
-UPDATE
-    agents
-SET
-    branch = $1,
-    repository_url = $2,
-    head_sha = $3,
-    worktree_removed = $4,
-    "sequence" = $5
-WHERE
-    id = $6
-`
-
-type SetAgentCheckoutByIDParams struct {
-	Branch          *string
-	RepositoryUrl   *string
-	HeadSha         *string
-	WorktreeRemoved bool
-	Sequence        AgentSequence
-	ID              string
-}
-
-func (q *Queries) SetAgentCheckoutByID(ctx context.Context, arg SetAgentCheckoutByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentCheckoutByID,
-		arg.Branch,
-		arg.RepositoryUrl,
-		arg.HeadSha,
-		arg.WorktreeRemoved,
-		arg.Sequence,
-		arg.ID,
-	)
-	return err
-}
-
-const setAgentDiffStatByID = `-- name: SetAgentDiffStatByID :exec
-UPDATE
-    agents
-SET
-    lines_added = $1,
-    lines_removed = $2
-WHERE
-    id = $3
-`
-
-type SetAgentDiffStatByIDParams struct {
-	LinesAdded   *int32
-	LinesRemoved *int32
-	ID           string
-}
-
-func (q *Queries) SetAgentDiffStatByID(ctx context.Context, arg SetAgentDiffStatByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentDiffStatByID, arg.LinesAdded, arg.LinesRemoved, arg.ID)
-	return err
-}
-
 const setAgentFailureReason = `-- name: SetAgentFailureReason :many
 UPDATE
     agents
@@ -3190,44 +3108,6 @@ func (q *Queries) SetAgentInterruptedAtByID(ctx context.Context, arg SetAgentInt
 	return err
 }
 
-const setAgentLastRebaseByID = `-- name: SetAgentLastRebaseByID :exec
-UPDATE
-    agents
-SET
-    last_rebase = $1
-WHERE
-    id = $2
-`
-
-type SetAgentLastRebaseByIDParams struct {
-	LastRebase []byte
-	ID         string
-}
-
-func (q *Queries) SetAgentLastRebaseByID(ctx context.Context, arg SetAgentLastRebaseByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentLastRebaseByID, arg.LastRebase, arg.ID)
-	return err
-}
-
-const setAgentMovedSinceRound = `-- name: SetAgentMovedSinceRound :exec
-UPDATE
-    agents
-SET
-    moved_since_round = $1
-WHERE
-    id = $2
-`
-
-type SetAgentMovedSinceRoundParams struct {
-	MovedSinceRound string
-	ID              string
-}
-
-func (q *Queries) SetAgentMovedSinceRound(ctx context.Context, arg SetAgentMovedSinceRoundParams) error {
-	_, err := q.db.Exec(ctx, setAgentMovedSinceRound, arg.MovedSinceRound, arg.ID)
-	return err
-}
-
 const setAgentNudgeSentByID = `-- name: SetAgentNudgeSentByID :exec
 UPDATE
     agents
@@ -3258,25 +3138,6 @@ type SetAgentReportedReasonByIDParams struct {
 
 func (q *Queries) SetAgentReportedReasonByID(ctx context.Context, arg SetAgentReportedReasonByIDParams) error {
 	_, err := q.db.Exec(ctx, setAgentReportedReasonByID, arg.ReportedReason, arg.ID)
-	return err
-}
-
-const setAgentSequenceByID = `-- name: SetAgentSequenceByID :exec
-UPDATE
-    agents
-SET
-    "sequence" = $1
-WHERE
-    id = $2
-`
-
-type SetAgentSequenceByIDParams struct {
-	Sequence AgentSequence
-	ID       string
-}
-
-func (q *Queries) SetAgentSequenceByID(ctx context.Context, arg SetAgentSequenceByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentSequenceByID, arg.Sequence, arg.ID)
 	return err
 }
 

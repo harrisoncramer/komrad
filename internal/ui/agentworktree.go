@@ -12,8 +12,8 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
-	agentv1 "komrad/proto/gen/agent/v1"
 	loopv1 "komrad/proto/gen/loop/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -144,7 +144,7 @@ func buildWorktreeStateTags(read worktreeInspection) []string {
 
 // buildDiffStatTag is the lines the branch adds and removes since its base, and nothing where no
 // base could be measured against.
-func buildDiffStatTag(stat *agentv1.DiffStat) string {
+func buildDiffStatTag(stat *taskv1.DiffStat) string {
 	if stat == nil {
 		return ""
 	}

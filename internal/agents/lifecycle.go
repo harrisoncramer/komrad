@@ -151,6 +151,10 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 		return errors.Join(failed...)
 	}
 
+	if err := s.tasks.MarkCheckoutsRemoved(ctx, agentstore.IDs(torn)); err != nil {
+		return err
+	}
+
 	if err := s.removeAgents(ctx, agentstore.IDs(torn)); err != nil {
 		return err
 	}
@@ -664,7 +668,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 // findRoundRefDir is a checkout of the repository holding an agent's round refs: its own while it
 // stands, else its workflow's directory, which shares the refs of every worktree cut from it.
 func (s *LifecycleService) findRoundRefDir(ctx context.Context, agent agentstore.Agent) string {
-	if agent.Cwd != "" && !agent.WorktreeRemoved {
+	if doesDirExist(agent.Cwd) {
 		return agent.Cwd
 	}
 

@@ -52,17 +52,10 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		IdempotencyKey:     stored.IdempotencyKey,
 		SpawnedByAgentId:   stored.SpawnedByAgentID,
 		ParentAgentId:      stored.ParentAgentID,
-		Branch:             stored.Branch,
-		RepositoryUrl:      stored.RepositoryURL,
-		HeadSha:            stored.HeadSHA,
-		WorktreeRemoved:    stored.WorktreeRemoved,
-		Sequence:           AgentSequenceOf(stored.Sequence),
 		FailedRun:          row.FailedRun,
 		FailedRunLog:       row.FailedRunLog,
 		Documents:          row.Documents,
 		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
-		MovedSinceRound:    stored.MovedSinceRound,
-		DiffStat:           diffStatOf(stored.DiffStat),
 		HeldAt:             heldStamp(stored.Hold.At),
 		HeldByAgentId:      xptr.Deref(stored.Hold.ByAgentID),
 		TaskId:             stored.TaskID,
@@ -91,14 +84,6 @@ func reviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	default:
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 	}
-}
-
-func diffStatOf(stat *agentstore.DiffStat) *agentv1.DiffStat {
-	if stat == nil {
-		return nil
-	}
-
-	return &agentv1.DiffStat{Added: int32(stat.Added), Removed: int32(stat.Removed)}
 }
 
 // heldStamp is when a person took the agent's worktree, empty while nobody has.
@@ -146,26 +131,6 @@ func agentRoleOf(role agentstore.Role) agentv1.AgentRole {
 	}
 
 	return agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED
-}
-
-// AgentSequenceOf is a stored sequence as the wire carries it.
-func AgentSequenceOf(sequence agentstore.Sequence) agentv1.Sequence {
-	switch sequence {
-	case agentstore.SequenceNone:
-		return agentv1.Sequence_SEQUENCE_NONE
-	case agentstore.SequenceRebase:
-		return agentv1.Sequence_SEQUENCE_REBASE
-	case agentstore.SequenceApply:
-		return agentv1.Sequence_SEQUENCE_AM
-	case agentstore.SequenceMerge:
-		return agentv1.Sequence_SEQUENCE_MERGE
-	case agentstore.SequenceCherryPick:
-		return agentv1.Sequence_SEQUENCE_CHERRY_PICK
-	case agentstore.SequenceRevert:
-		return agentv1.Sequence_SEQUENCE_REVERT
-	}
-
-	return agentv1.Sequence_SEQUENCE_UNSPECIFIED
 }
 
 func readTurnError(stored agentstore.Agent) string {

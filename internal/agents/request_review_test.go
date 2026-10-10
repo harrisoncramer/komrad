@@ -9,6 +9,7 @@ import (
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
@@ -76,7 +77,7 @@ func TestRequestReviewNamesTheBranch(t *testing.T) {
 		WorkflowID: seedWorkflow(t, st),
 	})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetCheckout(ctx, author.ID, agentstore.SetCheckoutParams{Branch: xptr.Ptr("agent/one")}))
+	st.SeedTaskHead(t, author.ID, taskstore.SetHeadParams{Branch: xptr.Ptr("agent/one")})
 
 	reviewer, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
 	require.NoError(t, err)

@@ -1550,6 +1550,61 @@ func TestNewChildAgentSharesItsParentsTask(t *testing.T) {
 	assert.Equal(t, parent.TaskID, agentByID(t, st, child.ID).TaskID)
 }
 
+// TestNewAgentClaimsItsTasksCheckout pins that one top-level agent makes a task's checkout, and who
+// else may join the task once it has.
+func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
+	tests := []struct {
+		name      string
+		second    func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams
+		wantErrIs error
+	}{
+		{
+			name: "a second agent that would make the task a checkout is refused",
+			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
+				return NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir}
+			},
+			wantErrIs: errTaskHasCheckout,
+		},
+		{
+			name: "an agent told to keep the directory it was given joins without a checkout",
+			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
+				return NewAgentParams{Title: "helper", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir, ProvisionEnabled: xptr.Ptr(false)}
+			},
+		},
+		{
+			name: "a child works in its parent's checkout",
+			second: func(first agentstore.Agent, _ *taskstore.Task, _ string) NewAgentParams {
+				return childOf(first, "reviewer")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+
+			first, err := manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			require.NoError(t, err)
+
+			_, err = manager.launch.NewAgent(t.Context(), tt.second(*first, work, t.TempDir()))
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+			} else {
+				require.NoError(t, err)
+			}
+
+			task, err := st.Tasks.Get(t.Context(), work.ID)
+			require.NoError(t, err)
+			assert.Equal(t, agentByID(t, st, first.ID).Cwd, task.Checkout.Cwd, "the task keeps the first writer's checkout")
+		})
+	}
+}
+
 // TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.
 func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
@@ -1976,6 +2031,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	service := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
+		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
 		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,

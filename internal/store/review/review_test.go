@@ -9,6 +9,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
@@ -758,8 +759,8 @@ func TestListTallies(t *testing.T) {
 	}
 }
 
-// TestNewestRoundsAreEachAgentsLastRound pins the round listed for each agent, released or not.
-func TestNewestRoundsAreEachAgentsLastRound(t *testing.T) {
+// TestNewestRoundsAreEachTasksLastRound pins the round listed for each task, released or not.
+func TestNewestRoundsAreEachTasksLastRound(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
 	other := st.seedAgent(t, "other")
@@ -774,11 +775,11 @@ func TestNewestRoundsAreEachAgentsLastRound(t *testing.T) {
 
 	assert.ElementsMatch(t, []newestRound{
 		{
-			AgentID:     agentID,
+			TaskID:      st.taskOf(t, agentID),
 			SnapshotSHA: "snapshot-tree-two",
 		},
 		{
-			AgentID:     other,
+			TaskID:      st.taskOf(t, other),
 			SnapshotSHA: "snapshot-tree-three",
 		},
 	}, newest)
@@ -803,18 +804,21 @@ func TestUnlandedRoundsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	unlanded, err := st.ListUnlandedRounds(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]UnlandedRound{
-		agentID: {
+		st.taskOf(t, agentID): {
 			{
+				AgentID:     agentID,
 				Ordinal:     3,
 				BaseSHA:     "base-tree-three",
 				SnapshotSHA: "snapshot-tree-three",
 			},
 			{
+				AgentID:     agentID,
 				Ordinal:     2,
 				BaseSHA:     "base-tree-two",
 				SnapshotSHA: "snapshot-tree-two",
 			},
 			{
+				AgentID:     agentID,
 				Ordinal:     1,
 				BaseSHA:     "base-tree-one",
 				SnapshotSHA: "snapshot-tree-one",
@@ -852,10 +856,10 @@ func TestUnlandedRoundsCarryTheNewestMerge(t *testing.T) {
 	st.releaseReview(t, st.openReview(t, st.openRound(t, agentID, "tree-one")), VerdictCommented)
 
 	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/worker"
-	require.NoError(t, st.agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{
+	st.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
 		RepositoryURL: &repository,
 		Branch:        &branch,
-	}))
+	})
 	require.NoError(t, pullrequeststore.NewPullRequestSyncStore(st.pool).EnsureSync(ctx, repository))
 	pullRequests := pullrequeststore.NewPullRequestStore(st.pool)
 	earlier := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
@@ -883,9 +887,10 @@ func TestUnlandedRoundsCarryTheNewestMerge(t *testing.T) {
 
 	unlanded, err := st.ListUnlandedRounds(ctx)
 	require.NoError(t, err)
-	require.Len(t, unlanded[agentID], 1)
-	require.NotNil(t, unlanded[agentID][0].MergedAt)
-	assert.True(t, later.Equal(*unlanded[agentID][0].MergedAt))
+	taskID := st.taskOf(t, agentID)
+	require.Len(t, unlanded[taskID], 1)
+	require.NotNil(t, unlanded[taskID][0].MergedAt)
+	assert.True(t, later.Equal(*unlanded[taskID][0].MergedAt))
 }
 
 // TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it.
@@ -1113,6 +1118,17 @@ func (st *fixture) seedAgentLike(t *testing.T, agent agentstore.Agent) string {
 	agent.WorkflowID = st.workflow
 
 	return st.stores.SeedAgent(t, agent).ID
+}
+
+// taskOf is the task an agent works on.
+func (st *fixture) taskOf(t *testing.T, agentID string) string {
+	t.Helper()
+
+	agent, err := st.agents.GetByID(t.Context(), agentID)
+	require.NoError(t, err)
+	require.NotNil(t, agent.TaskID)
+
+	return *agent.TaskID
 }
 
 func (st *fixture) openRound(t *testing.T, agentID, tree string) *Round {

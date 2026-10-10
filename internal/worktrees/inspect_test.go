@@ -10,6 +10,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 
@@ -196,7 +197,11 @@ func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
 func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 	fixture := newFixture(t)
 	dir := fixture.cut(t)
-	fixture.own(t, dir, agentstore.Agent{Name: "adopted", AdoptedBranch: "agent/" + filepath.Base(dir)})
+	agent := fixture.own(t, dir, agentstore.Agent{Name: "adopted"})
+	claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *agent.TaskID, AdoptedBranch: "agent/" + filepath.Base(dir)})
+	require.NoError(t, err)
+	require.True(t, claimed)
+	require.NoError(t, fixture.stores.Tasks.SetCheckoutDir(t.Context(), *agent.TaskID, dir))
 	fixture.git.Held = true
 
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})

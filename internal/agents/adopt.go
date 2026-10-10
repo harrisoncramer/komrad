@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,9 +15,12 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 	"komrad/lib/xpath"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 )
 
@@ -45,6 +49,7 @@ type NewAdoptServiceParams struct {
 	Workflows *workflowstore.WorkflowStore
 	Launch    *LaunchService
 	Worktrees checkoutReader
+	Tasks     *tasks.TaskService
 }
 
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
@@ -54,6 +59,7 @@ type AdoptService struct {
 	workflows *workflowstore.WorkflowStore
 	launch    *LaunchService
 	worktrees checkoutReader
+	tasks     *tasks.TaskService
 }
 
 // NewAdoptService builds the service from its dependencies.
@@ -63,6 +69,7 @@ func NewAdoptService(params NewAdoptServiceParams) *AdoptService {
 		workflows: params.Workflows,
 		launch:    params.Launch,
 		worktrees: params.Worktrees,
+		tasks:     params.Tasks,
 	}
 }
 
@@ -178,8 +185,17 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	for _, agent := range agents {
-		if agent.WorkflowID == workflowID && isAdopted(agent, branch) {
+	working := xslice.Filter(agents, func(agent agentstore.Agent) bool {
+		return agent.WorkflowID == workflowID && agent.ParentAgentID == nil && isWorking(agent)
+	})
+	found, err := s.tasks.ListTasksByID(ctx, agentstore.TaskIDs(working))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the tasks of agents: %w", err)
+	}
+
+	adopted := xslice.Filter(found, func(task taskstore.Task) bool { return isAdopted(task, branch) })
+	for _, agent := range working {
+		if agent.TaskID != nil && slices.ContainsFunc(adopted, func(task taskstore.Task) bool { return task.ID == *agent.TaskID }) {
 			return &agent, nil
 		}
 	}
@@ -192,13 +208,16 @@ func isKeyedReplay(key string, agent agentstore.Agent) bool {
 	return key != "" && agent.IdempotencyKey != nil && *agent.IdempotencyKey == key
 }
 
-// isAdopted reports whether an agent is the one working on a branch right now, which rules out
-// a create that never launched, an agent whose worktree is gone, and an archived one.
-func isAdopted(agent agentstore.Agent, branch string) bool {
-	return agent.AdoptedBranch == branch &&
-		agent.State != agentstore.StateFailedToCreate &&
-		!agent.WorktreeRemoved &&
-		agent.ArchivedAt == nil
+// isAdopted reports whether a task's checkout is on a branch right now, which rules out one whose
+// worktree is gone.
+func isAdopted(task taskstore.Task, branch string) bool {
+	return task.Checkout.AdoptedBranch == branch && !task.Checkout.WorktreeRemoved
+}
+
+// isWorking reports whether an agent is still working, which rules out a create that never
+// launched and an archived one.
+func isWorking(agent agentstore.Agent) bool {
+	return agent.State != agentstore.StateFailedToCreate && agent.ArchivedAt == nil
 }
 
 // agentIn returns the top-level agent whose cwd is a directory, archived ones included.

@@ -26,6 +26,7 @@ type Task struct {
 	Slug       string
 	Title      string
 	Goal       string
+	Checkout   Checkout
 	ArchivedAt *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
@@ -47,6 +48,7 @@ func fromRow(row *models.Task) Task {
 		Slug:       row.Slug,
 		Title:      row.Title,
 		Goal:       row.Goal,
+		Checkout:   checkoutFrom(row),
 		ArchivedAt: row.ArchivedAt,
 		CreatedAt:  row.CreatedAt,
 		UpdatedAt:  row.UpdatedAt,

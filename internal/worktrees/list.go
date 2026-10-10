@@ -351,7 +351,7 @@ func describe(row agentstore.AgentDir) *Agent {
 		State:           row.State,
 		StateChangedAt:  row.StateChangedAt,
 		ArchivedAt:      row.ArchivedAt,
-		Adopted:         row.AdoptedBranch != "",
+		Adopted:         row.Adopted,
 		FailedToCleanup: row.State == agentstore.StateFailedToCleanup,
 		Deleting:        row.DeletingAt != nil,
 		WorkflowID:      row.WorkflowID,

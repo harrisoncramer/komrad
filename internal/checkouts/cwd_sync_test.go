@@ -11,10 +11,10 @@ import (
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
-	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/storetest"
@@ -52,7 +52,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		before      agentstore.SetCheckoutParams
+		before      taskstore.SetHeadParams
 		cwd         func(t *testing.T) string
 		head        git.HeadState
 		headErr     error
@@ -75,7 +75,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 		},
 		{
 			name: "a cwd that no longer exists is reported removed and cleared",
-			before: agentstore.SetCheckoutParams{
+			before: taskstore.SetHeadParams{
 				Branch:        xptr.Ptr("main"),
 				RepositoryURL: xptr.Ptr(komrad),
 				HeadSHA:       xptr.Ptr("aaa"),
@@ -90,7 +90,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 		},
 		{
 			name: "a checkout git cannot read in time keeps what an earlier pass wrote",
-			before: agentstore.SetCheckoutParams{
+			before: taskstore.SetHeadParams{
 				Branch:        xptr.Ptr("main"),
 				RepositoryURL: xptr.Ptr(komrad),
 				HeadSHA:       xptr.Ptr("aaa"),
@@ -103,14 +103,14 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 		},
 		{
 			name:       "a checkout whose origin is not a forge clears what an earlier pass wrote",
-			before:     agentstore.SetCheckoutParams{RepositoryURL: xptr.Ptr(komrad)},
+			before:     taskstore.SetHeadParams{RepositoryURL: xptr.Ptr(komrad)},
 			cwd:        makeCheckout,
 			head:       git.HeadState{Branch: "main"},
 			wantBranch: xptr.Ptr("main"),
 		},
 		{
 			name: "a checkout records its branch, canonical address and commit over what an earlier pass wrote",
-			before: agentstore.SetCheckoutParams{
+			before: taskstore.SetHeadParams{
 				Branch:        xptr.Ptr("main"),
 				RepositoryURL: xptr.Ptr(komrad),
 				HeadSHA:       xptr.Ptr("aaa"),
@@ -132,7 +132,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 			fixture := newSyncFixture(t)
 			cwd := tt.cwd(t)
 			agent := fixture.seed(t, "a", cwd)
-			require.NoError(t, fixture.stores.Agents.SetCheckout(t.Context(), agent.ID, tt.before))
+			fixture.stores.SeedTaskHead(t, agent.ID, tt.before)
 
 			heads := buildHeads(cwd, tt.head)
 			heads.Err = tt.headErr
@@ -192,8 +192,9 @@ func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, agents, count)
 	for _, agent := range agents {
-		require.NotNil(t, agent.Branch, agent.Name)
-		assert.Equal(t, heads.States[agent.Cwd].Branch, *agent.Branch)
+		got := fixture.read(t, agent.ID)
+		require.NotNil(t, got.Branch, agent.Name)
+		assert.Equal(t, heads.States[agent.Cwd].Branch, *got.Branch)
 	}
 }
 
@@ -206,12 +207,12 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", Sequence: git.SequenceMerge})}).Sync(t.Context()))
 
 	got := fixture.read(t, agent.ID)
-	assert.Equal(t, agentstore.SequenceMerge, got.Sequence)
+	assert.Equal(t, taskstore.SequenceMerge, got.Sequence)
 	assert.Equal(t, xptr.Ptr("topic"), got.Branch)
 
 	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic"})}).Sync(t.Context()))
 
-	assert.Equal(t, agentstore.SequenceNone, fixture.read(t, agent.ID).Sequence)
+	assert.Equal(t, taskstore.SequenceNone, fixture.read(t, agent.ID).Sequence)
 }
 
 // TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers a cwd that is gone never being asked for its branch.
@@ -237,10 +238,8 @@ func TestCwdSyncerSyncClearsWhatAnEarlierPassWrote(t *testing.T) {
 	require.Equal(t, xptr.Ptr("main"), fixture.read(t, onBranch.ID).Branch)
 	require.True(t, fixture.read(t, removed.ID).WorktreeRemoved)
 
-	for _, id := range []string{onBranch.ID, removed.ID} {
-		agent := fixture.read(t, id)
-		agent.Cwd = t.TempDir()
-		require.NoError(t, fixture.stores.Agents.Update(t.Context(), *agent))
+	for _, agent := range []*agentstore.Agent{onBranch, removed} {
+		require.NoError(t, fixture.stores.Tasks.SetCheckoutDir(t.Context(), *agent.TaskID, t.TempDir()))
 	}
 
 	require.NoError(t, syncer.Sync(t.Context()))
@@ -337,7 +336,7 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	trees.ProbeErr = errors.New("the index could not be read")
 	err := syncer.Sync(t.Context())
 
-	require.ErrorContains(t, err, `failed to hash the worktree of "a"`)
+	require.ErrorContains(t, err, "failed to hash the worktree of task")
 	assert.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
 }
 
@@ -349,7 +348,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 		diffStats    func(cwd string) map[string]git.DiffStat
 		probe        string
 		headErr      error
-		want         *agentstore.DiffStat
+		want         *taskstore.DiffStat
 		wantMeasured bool
 	}{
 		{
@@ -366,7 +365,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			diffStats: func(cwd string) map[string]git.DiffStat {
 				return map[string]git.DiffStat{cwd: {Added: 4}}
 			},
-			want: &agentstore.DiffStat{Added: 1, Removed: 1},
+			want: &taskstore.DiffStat{Added: 1, Removed: 1},
 		},
 		{
 			name: "a branch that shares no history with the base clears the stat",
@@ -382,7 +381,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			diffStats: func(cwd string) map[string]git.DiffStat {
 				return map[string]git.DiffStat{cwd: {Added: 12, Removed: 3}}
 			},
-			want:         &agentstore.DiffStat{Added: 12, Removed: 3},
+			want:         &taskstore.DiffStat{Added: 12, Removed: 3},
 			wantMeasured: true,
 		},
 		{
@@ -392,7 +391,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			diffStats: func(cwd string) map[string]git.DiffStat {
 				return map[string]git.DiffStat{cwd: {Added: 12, Removed: 3}}
 			},
-			want:         &agentstore.DiffStat{Added: 12, Removed: 3},
+			want:         &taskstore.DiffStat{Added: 12, Removed: 3},
 			wantMeasured: true,
 		},
 	}
@@ -406,7 +405,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			}).ID
 			cwd := tt.cwd(t)
 			agent := fixture.seed(t, "a", cwd)
-			require.NoError(t, fixture.stores.Agents.SetDiffStat(t.Context(), agent.ID, &agentstore.DiffStat{Added: 1, Removed: 1}))
+			require.NoError(t, fixture.stores.Tasks.SetDiffStat(t.Context(), *agent.TaskID, &taskstore.DiffStat{Added: 1, Removed: 1}))
 			trees := &gittest.Trees{DiffStats: tt.diffStats(cwd)}
 			head := git.HeadState{Root: cwd}
 			if tt.probe != "" {
@@ -448,34 +447,27 @@ func TestCwdSyncerSyncKeepsADiffStatItCouldNotMeasure(t *testing.T) {
 	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
 
 	require.NoError(t, syncer.Sync(t.Context()))
-	require.Equal(t, &agentstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
+	require.Equal(t, &taskstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
 
 	trees.DiffErr = errors.New("the index could not be read")
 	err := syncer.Sync(t.Context())
 
-	require.ErrorContains(t, err, `failed to measure the checkout of "a"`)
-	assert.Equal(t, &agentstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
+	require.ErrorContains(t, err, "failed to measure the checkout of task")
+	assert.Equal(t, &taskstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
 }
 
-// TestCwdSyncerSyncRecordsWhereTheWorktreeStands covers a pass reading the worktree an agent was cut.
+// TestCwdSyncerSyncRecordsWhereTheWorktreeStands covers a pass reading where the worktree of a task's checkout stands.
 func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
 	earlier := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
 	now := earlier.Add(time.Hour)
 
 	tests := []struct {
-		name    string
-		isOwned bool
-		stored  *worktreestore.Standing
-		want    *worktreestore.Standing
+		name   string
+		stored *worktreestore.Standing
+		want   *worktreestore.Standing
 	}{
 		{
-			name:    "a worktree cut for another agent is left to the measurer",
-			isOwned: false,
-			want:    nil,
-		},
-		{
-			name:    "a reading the row already holds writes nothing",
-			isOwned: true,
+			name: "a reading the row already holds writes nothing",
 			stored: &worktreestore.Standing{
 				ReadAt:   earlier,
 				Dirty:    true,
@@ -488,8 +480,7 @@ func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
 			},
 		},
 		{
-			name:    "the worktree the agent was cut records where it stands",
-			isOwned: true,
+			name: "the task's worktree records where it stands",
 			stored: &worktreestore.Standing{
 				ReadAt:   earlier,
 				Unlanded: 1,
@@ -509,20 +500,8 @@ func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
 				Name:     "cut",
 				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 			}).ID
-			id, err := store.NewID()
-			require.NoError(t, err)
-			dirName := "someone-else"
-			if tt.isOwned {
-				dirName = id
-			}
-			cwd := filepath.Join(t.TempDir(), dirName)
-			require.NoError(t, os.MkdirAll(filepath.Join(cwd, ".git"), 0o755))
-			fixture.stores.SeedAgent(t, agentstore.Agent{
-				ID:         id,
-				Name:       "a",
-				WorkflowID: fixture.workflowID,
-				Cwd:        cwd,
-			})
+			cwd := makeCheckout(t)
+			fixture.seed(t, "a", cwd)
 			require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: cwd, Readable: true}))
 			if tt.stored != nil {
 				stored := *tt.stored
@@ -618,7 +597,7 @@ func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
 
 			assert.Equal(t, tt.wantWalked, trees.Walked)
-			assert.Equal(t, tt.wantUnlanded, fixture.readUnlanded(t, agent.ID))
+			assert.Equal(t, tt.wantUnlanded, fixture.readUnlanded(t, *agent.TaskID))
 		})
 	}
 }
@@ -646,7 +625,7 @@ func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
 	trees.Landed = map[string]bool{"snapshot-two": true}
 	require.NoError(t, syncer.Sync(t.Context()))
 	assert.Equal(t, []string{"snapshot-one", "snapshot-two", "snapshot-one", "snapshot-two"}, trees.Walked, "a moved base is walked")
-	assert.Empty(t, fixture.readUnlanded(t, agent.ID))
+	assert.Empty(t, fixture.readUnlanded(t, *agent.TaskID))
 }
 
 // TestCwdSyncerSyncFetchesTheBaseOncePerMerge covers the base being fetched when the agent's pull
@@ -690,21 +669,29 @@ func newSyncFixture(t *testing.T) *syncFixture {
 func (f *syncFixture) seed(t *testing.T, name, cwd string) *agentstore.Agent {
 	t.Helper()
 
-	return f.stores.SeedAgent(t, agentstore.Agent{
+	agent := f.stores.SeedAgent(t, agentstore.Agent{
 		Name:       name,
 		WorkflowID: f.workflowID,
 		Cwd:        cwd,
 	})
-}
-
-func (f *syncFixture) read(t *testing.T, id string) *agentstore.Agent {
-	t.Helper()
-
-	agent, err := f.stores.Agents.GetByID(t.Context(), id)
-	require.NoError(t, err)
-	require.NotNil(t, agent)
+	if cwd != "" {
+		require.NoError(t, f.stores.Tasks.SetCheckoutDir(t.Context(), *agent.TaskID, cwd))
+	}
 
 	return agent
+}
+
+// read returns the checkout of the agent's task.
+func (f *syncFixture) read(t *testing.T, agentID string) taskstore.Checkout {
+	t.Helper()
+
+	agent, err := f.stores.Agents.GetByID(t.Context(), agentID)
+	require.NoError(t, err)
+	require.NotNil(t, agent.TaskID)
+	task, err := f.stores.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+
+	return task.Checkout
 }
 
 // release releases a review of a new round on the snapshot.
@@ -732,10 +719,10 @@ func (f *syncFixture) merge(t *testing.T, agentID string, mergedAt time.Time) {
 
 	ctx := t.Context()
 	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/a"
-	require.NoError(t, f.stores.Agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{
+	f.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
 		RepositoryURL: &repository,
 		Branch:        &branch,
-	}))
+	})
 	require.NoError(t, f.stores.PullRequestSyncs.EnsureSync(ctx, repository))
 	_, err := f.stores.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
@@ -793,7 +780,7 @@ func (f *syncFixture) newSyncer(params newSyncerParams) *CwdSyncer {
 	}
 
 	return NewCwdSyncer(NewCwdSyncerParams{
-		Agents:       f.stores.Agents,
+		Tasks:        f.stores.Tasks,
 		Heads:        params.Heads,
 		Trees:        params.Trees,
 		Checkouts:    params.Checkouts,
@@ -804,14 +791,14 @@ func (f *syncFixture) newSyncer(params newSyncerParams) *CwdSyncer {
 	})
 }
 
-// readUnlanded is the ordinals of the agent's rounds that have not landed, newest first.
-func (f *syncFixture) readUnlanded(t *testing.T, id string) []int32 {
+// readUnlanded is the ordinals of the task's rounds that have not landed, newest first.
+func (f *syncFixture) readUnlanded(t *testing.T, taskID string) []int32 {
 	t.Helper()
 
 	unlanded, err := f.reviews.ListUnlandedRounds(t.Context())
 	require.NoError(t, err)
 
-	return xslice.Map(unlanded[id], func(round reviewstore.UnlandedRound) int32 {
+	return xslice.Map(unlanded[taskID], func(round reviewstore.UnlandedRound) int32 {
 		return round.Ordinal
 	})
 }
