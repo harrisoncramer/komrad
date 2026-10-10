@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/fail"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	"komrad/lib/xstr"
@@ -20,9 +19,6 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
-
-// errNoTask is an agent that works on no task.
-var errNoTask = fail.NotFound("the agent works on no task")
 
 const maxScriptPrompt = 16 * 1024
 
@@ -167,9 +163,13 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 		"KOMRAD_SHELL=" + s.tmux.GetDefaultShell(),
 	}
 
-	task, err := s.agentTask(ctx, agent)
-	if err != nil && !errors.Is(err, errNoTask) {
-		return nil, err
+	var task *taskstore.Task
+	if agent.TaskID != nil {
+		found, err := s.tasks.Get(ctx, *agent.TaskID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("failed to read task %q: %w", *agent.TaskID, err)
+		}
+		task = found
 	}
 	env = append(env, taskEnv(task)...)
 
@@ -191,23 +191,6 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 	}
 
 	return env, nil
-}
-
-// agentTask is the task an agent works on, errNoTask for one with none.
-func (s *ScriptService) agentTask(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
-	if agent.TaskID == nil {
-		return nil, errNoTask
-	}
-
-	task, err := s.tasks.Get(ctx, *agent.TaskID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, errNoTask
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read task %q: %w", *agent.TaskID, err)
-	}
-
-	return task, nil
 }
 
 // taskEnv names the task an agent works on, and nothing for one with none.
