@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"komrad/lib/xptr"
@@ -52,12 +53,12 @@ func TestTasksTree(t *testing.T) {
 		assert.Equal(t, []string{"komrad", "└─ fix-login", "   ├─ follow-up", "   └─ author"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("selecting a task takes only the agents on it", func(t *testing.T) {
+	t.Run("selecting a task archives only that task", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
 		harness.press("j", "v", "space", "a", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"a2", "a1"}})
+		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
 	})
 
 	t.Run("a task's menu is its newest agent's pages and another agent on it", func(t *testing.T) {
@@ -114,4 +115,86 @@ func newTaskAgent(id, name, taskID string, minute int) *agentv1.Agent {
 	agent.TaskSlug = xptr.Ptr(slugs[taskID])
 
 	return agent
+}
+
+// TestTasksRow covers what is done to the work from a task's row, and what is left on an agent's.
+func TestTasksRow(t *testing.T) {
+	t.Run("r renames the task's slug", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+
+		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{Task: "t1", Slug: xptr.Ptr("fix-login-v2")})
+	})
+
+	t.Run("r inside the task's menu is the review", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press("j", "space", "r")
+
+		assert.Contains(t, harness.readFrame(), "Could not open the review of fix")
+		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
+	})
+
+	t.Run("editing the task saves its title and goal", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press(slices.Concat([]string{"j", "space", "E"}, spellKeys(" now"), []string{"tab", "ctrl+e"})...)
+		harness.send(harness.panel.NewFieldEdited("goal", "Logins work.\n"))
+		harness.press("enter")
+
+		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
+			Task:  "t1",
+			Title: xptr.Ptr("Fix login now"),
+			Goal:  xptr.Ptr("Logins work."),
+		})
+	})
+
+	t.Run("a task's menu holds everything done to the work", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press("j", "space")
+
+		menu := strings.Join(readStage(harness.readFrame()), "\n")
+		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "edit worktree", "git ›", "jump ›", "hide ›", "archive ›"} {
+			assert.Contains(t, menu, entry)
+		}
+	})
+
+	t.Run("an agent's menu holds only its session", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press("j", "j", "space")
+
+		menu := strings.Join(readStage(harness.readFrame()), "\n")
+		for _, entry := range []string{"logs", "terminal", "edit worktree", "new child", "archive ›"} {
+			assert.Contains(t, menu, entry)
+		}
+		for _, entry := range []string{"review", "status checks", "git ›", "jump ›", "hide ›", "snooze", "retry launch"} {
+			assert.NotContains(t, menu, entry)
+		}
+	})
+
+	t.Run("an agent that failed to launch offers a retry", func(t *testing.T) {
+		rows := buildTasks()
+		rows[5].(*agentv1.Agent).State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+		harness := openAgents(t, rows...)
+
+		harness.press("space")
+
+		assert.Contains(t, strings.Join(readStage(harness.readFrame()), "\n"), "retry launch")
+	})
+
+	t.Run("a task's row shows the pane of an agent on it with one over a newer agent without", func(t *testing.T) {
+		rows := buildTasks()
+		writer := rows[3].(*agentv1.Agent)
+		writer.PaneId = "%3"
+		writer.Alive = xptr.Ptr(true)
+		harness := openAgents(t, rows...)
+
+		harness.press("j")
+		harness.fireTimers()
+
+		assert.Equal(t, "%3", harness.panel.ReadGuestPane())
+	})
 }

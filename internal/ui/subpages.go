@@ -31,23 +31,27 @@ var (
 func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 	agent := item.Agent
 	agentID := agent.ID
-	pages := xslice.Map(agentSubpages(agent), func(page subpage) submenuEntry {
-		entry := subpageEntry(m, screenAgents, item, page)
-		if entry.opens == nil {
-			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(screenAgents, agentID, page) }
-		}
-
-		return entry
-	})
 
 	return submenu{
 		kind:  formMenu,
 		title: m.listing.agentName(agent),
-		entries: slices.Concat(pages, own, []submenuEntry{
+		entries: slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own, []submenuEntry{
 			nestedEntry("git", m.keys.Menu.Git, gitMenu(m, item)),
 			nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, agentID)),
 		}),
 	}
+}
+
+// subpageEntries are the entries that open the agent's pages from the agents list.
+func subpageEntries(m *model, item panel.AgentRow, pages []subpage) []submenuEntry {
+	return xslice.Map(pages, func(page subpage) submenuEntry {
+		entry := subpageEntry(m, screenAgents, item, page)
+		if entry.opens == nil {
+			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(screenAgents, item.Agent.ID, page) }
+		}
+
+		return entry
+	})
 }
 
 // agentSubpages is the subpages an agent has, less an orchestrator's work.

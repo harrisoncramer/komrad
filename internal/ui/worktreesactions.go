@@ -72,7 +72,7 @@ func (w *worktreesScreen) holdsARow(m *model) bool {
 	return ok
 }
 
-// worktreeFate is which of the three delete paths a directory takes.
+// worktreeFate is which of the four delete paths a directory takes.
 type worktreeFate int
 
 const (
@@ -82,6 +82,8 @@ const (
 	fateArchived
 	// fateLive is a directory whose agent is running, which is offered the archive.
 	fateLive
+	// fateTask is a directory only its task answers for, which the task delete takes.
+	fateTask
 )
 
 // deleteDesc names what the delete entry does to a directory of this fate.
@@ -93,6 +95,8 @@ func (f worktreeFate) deleteDesc() string {
 		return "delete the agent"
 	case fateUnowned:
 		return "remove"
+	case fateTask:
+		return "delete the task"
 	}
 
 	return ""
@@ -109,6 +113,10 @@ func deleteWorktree(m *model, item worktreeItem) tea.Cmd {
 		return confirmDeleteWorktrees(m, worktreeDeletion{agents: []worktreeItem{item}})
 	case fateUnowned:
 		return confirmDeleteWorktrees(m, worktreeDeletion{unowned: []worktreeItem{item}})
+	case fateTask:
+		if item.task != nil {
+			return confirmDeleteTasks(m, []panel.Task{*item.task})
+		}
 	}
 
 	return nil
@@ -132,6 +140,10 @@ func (w *worktreesScreen) chosenDeletion(m *model) worktreeDeletion {
 			deletion.agents = append(deletion.agents, row.item)
 		case fateUnowned:
 			deletion.unowned = append(deletion.unowned, row.item)
+		case fateTask:
+			if row.item.task != nil {
+				deletion.tasks = append(deletion.tasks, *row.item.task)
+			}
 		}
 	}
 	deletion.children = unnamedChildren(m.listing.liveAgents(), deletion.live)
@@ -152,7 +164,7 @@ func (w *worktreesScreen) clearDeletion(m *model) worktreeDeletion {
 			deletion.agents = append(deletion.agents, row.item)
 		case fateUnowned:
 			deletion.unowned = append(deletion.unowned, row.item)
-		case fateLive:
+		case fateLive, fateTask:
 		}
 	}
 
@@ -168,6 +180,8 @@ type worktreeDeletion struct {
 	live []panel.Agent
 	// children is how many agents not named in live go into the archive with them.
 	children int
+	// tasks are the chosen directories that go with their task, which the task delete takes.
+	tasks []panel.Task
 }
 
 func (d worktreeDeletion) count() int {
@@ -176,6 +190,29 @@ func (d worktreeDeletion) count() int {
 
 func (d worktreeDeletion) isEmpty() bool {
 	return d.count() == 0
+}
+
+// chosen is how many chosen directories the deletion holds, task checkouts included.
+func (d worktreeDeletion) chosen() int {
+	return d.count() + len(d.tasks)
+}
+
+// confirmDeleteChosen asks before the chosen directories go, refusing a choice that mixes task
+// checkouts with the rest.
+func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
+	switch {
+	case len(deletion.tasks) == 0:
+		return confirmDeleteWorktrees(m, deletion)
+	case deletion.isEmpty():
+		return confirmDeleteTasks(m, deletion.tasks)
+	}
+
+	m.reportBrief(
+		"Could not delete "+label.Count(deletion.chosen(), "worktree", "worktrees"),
+		"a task's worktree goes with its task, so choose those apart from the rest",
+	)
+
+	return nil
 }
 
 // confirmDeleteWorktrees asks before a deletion, saying where a lone branch would stand.
@@ -247,12 +284,12 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion, pending *unstaged) 
 func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 	if w.list().isSelecting(m) {
 		deletion := w.chosenDeletion(m)
-		if deletion.isEmpty() {
+		if deletion.chosen() == 0 {
 			return submenu{}, false
 		}
 
-		return withNested(rowMenu(label.Count(deletion.count(), "worktree", "worktrees")), "archive", m.keys.Menu.Archive, liveArchiveMenu(openEntry("delete all", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
-			return confirmDeleteWorktrees(m, deletion)
+		return withNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", m.keys.Menu.Archive, liveArchiveMenu(openEntry("delete all", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+			return confirmDeleteChosen(m, deletion)
 		}))), true
 	}
 

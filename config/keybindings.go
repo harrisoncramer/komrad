@@ -186,7 +186,7 @@ func Fixed() FixedKeys {
 type AgentsKeys struct {
 	// Jump to the first agent in the triage zone at the top of the list.
 	Triage []string `mapstructure:"triage" default:"t"`
-	// Rename the hovered agent.
+	// Rename the hovered agent, or the slug of the hovered task.
 	Rename []string `mapstructure:"rename" default:"r"`
 }
 
@@ -219,9 +219,10 @@ type GitKeys struct {
 
 // HideMenuKeys are the bindings for the hide menu, which opens from the menu on the agents list.
 type HideMenuKeys struct {
-	// Hide the hovered agent from the list, or unhide it when it is hidden.
+	// Hide the hovered task and every agent on it, or every chosen task, or unhide them when they
+	// are all hidden.
 	Hide []string `mapstructure:"hide" default:"h"`
-	// Show the hidden agents alongside the rest, or put them away again.
+	// Show the hidden tasks and agents alongside the rest, or put them away again.
 	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 
@@ -240,40 +241,41 @@ type MergeKeys struct {
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
-// screen's own. The rows with entries are an agent, a workflow, a schedule, a worktree, and every
-// row of the archive.
+// screen's own. The rows with entries are a task, an agent, a workflow, a schedule, a worktree,
+// and every row of the archive. On the agents list the work is acted on from its task, and an
+// agent's own menu holds only what concerns its session.
 type MenuKeys struct {
-	// Open the menu: the hovered row's entries, or the chosen agents', over the screen's own.
+	// Open the menu: the hovered row's entries, or the chosen tasks', over the screen's own.
 	// The key opens nothing on a screen with neither.
 	Open []string `mapstructure:"open" default:"space"`
-	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
-	// own, and in the archive.
+	// Open the review of the task's diff. The entry is gray on a task with no worktree, and in
+	// the archive.
 	Review []string `mapstructure:"review" default:"r"`
 	// Open the agent's logs, the service log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
-	// Open the status checks run on the agent's pull request.
+	// Open the status checks run on the task's pull request.
 	StatusChecks []string `mapstructure:"status_checks" default:"x"`
 	// Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 	// with no directory.
 	Terminal []string `mapstructure:"terminal" default:"t"`
-	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
+	// Open the git menu to the right of this one, for rebasing the task's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
 	// Open the jump menu to the right of this one, for landing on the hovered row's agent, its
 	// worktree or its documents.
 	Jump []string `mapstructure:"jump" default:"J"`
-	// Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
-	// schedule or every chosen agent, for restoring or deleting a row of the archive, or for
-	// deleting worktrees.
+	// Open the archive menu to the right of this one, for archiving or deleting the hovered task
+	// or every chosen task, for archiving the hovered agent, workflow or schedule, for restoring
+	// or deleting a row of the archive, or for deleting worktrees.
 	Archive []string `mapstructure:"archive" default:"a"`
-	// Open the hide menu to the right of this one, for hiding the hovered agent or showing the
-	// hidden ones. The entry is only on the agents list.
+	// Open the hide menu to the right of this one, for hiding the hovered task or every chosen
+	// task, or showing the hidden ones. The entry is only on the agents list.
 	Hide []string `mapstructure:"hide" default:"h"`
-	// Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
-	// agent is paused while the editor is open, and quitting the editor, picking the entry again
-	// or leaving the agents list closes it and unpauses the agent. The entry is only on the agents
-	// list.
+	// Open your editor on the worktree of the hovered task or agent, in place of the pane beside
+	// the list. The agent working there is paused while the editor is open, and quitting the
+	// editor, picking the entry again or leaving the agents list closes it and unpauses the agent.
+	// The entry is only on the agents list.
 	Edit []string `mapstructure:"edit" default:"e"`
 	// Attach a child agent to the hovered agent, which runs in that agent's own checkout with no
 	// worktree of its own and is archived along with it. The entry is only on the agents list.
@@ -281,11 +283,12 @@ type MenuKeys struct {
 	// Retry the launch of an agent that failed to create, opening a form where the flags can be
 	// corrected before confirming. The entry is only on such an agent.
 	Retry []string `mapstructure:"retry" default:"R"`
-	// Snooze the hovered agent's family in triage, which takes it out of the zone until what it
-	// waits on changes, or wake it when it is snoozed. The entry is only on an agent in triage.
+	// Snooze the hovered task in triage, which takes its agents out of the zone until what they
+	// wait on changes, or wake it when it is snoozed. The entry is only on a task or an
+	// orchestrator in triage.
 	Snooze []string `mapstructure:"snooze" default:"z"`
-	// Edit the hovered workflow.
-	EditWorkflow []string `mapstructure:"edit_workflow" default:"E"`
+	// Edit the hovered workflow, or the hovered task's title and goal.
+	EditRow []string `mapstructure:"edit_row" default:"E"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`
 	// Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only
@@ -500,11 +503,12 @@ type ArchiveKeys struct {
 // ArchiveMenuKeys are the bindings for the archive menu, which opens from the menu on the hovered
 // row and acts on every chosen agent while some are.
 type ArchiveMenuKeys struct {
-	// Archive the agent, workflow or schedule, or every chosen agent.
+	// Archive the agent, task, workflow or schedule, or every chosen task.
 	Archive []string `mapstructure:"archive" default:"a"`
-	// Destroy the row for good, with its transcript or its run history, archiving a live agent
-	// first. On the worktrees it deletes the directory, through the agent delete when an archived
-	// agent answers for it. Nothing undoes it, so it asks first.
+	// Destroy the row for good, with its transcript or its run history, archiving a live task
+	// first, which takes its agents, documents, reviews and worktree with it. On the worktrees it
+	// deletes the directory, through the agent delete when an archived agent answers for it.
+	// Nothing undoes it, so it asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
 	// Put the row back in the panel.
 	Restore []string `mapstructure:"restore" default:"r"`

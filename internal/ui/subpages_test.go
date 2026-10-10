@@ -28,10 +28,17 @@ func TestSubpages(t *testing.T) {
 		wantCursor string
 	}{
 		{
-			name:       "an agent with nothing to review starts on logs",
+			name:       "an agent's row starts on logs",
 			row:        "quiet",
 			wantTitle:  "  quiet",
 			wantCrumb:  "agents › quiet",
+			wantCursor: "› logs",
+		},
+		{
+			name:       "a task with nothing to review starts on logs",
+			row:        "task-quiet",
+			wantTitle:  "  task-quiet",
+			wantCrumb:  "agents › task-quiet",
 			wantCursor: "› logs",
 		},
 		{
@@ -42,10 +49,10 @@ func TestSubpages(t *testing.T) {
 			wantCursor: "› logs",
 		},
 		{
-			name:       "an agent with a checkout starts on review",
-			row:        "author",
-			wantTitle:  "  author",
-			wantCrumb:  "agents › author",
+			name:       "a task with a checkout starts on review",
+			row:        "task-author",
+			wantTitle:  "  task-author",
+			wantCrumb:  "agents › task-author",
 			wantCursor: "› review",
 		},
 	}
@@ -66,7 +73,7 @@ func TestSubpages(t *testing.T) {
 	t.Run("an entry with nothing behind it is gray", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSubpages(t, "quiet")
+		harness := openSubpages(t, "task-quiet")
 
 		frame := harness.readRawFrame()
 		assert.Regexp(t, readOffEntry("review", "r"), frame)
@@ -90,7 +97,7 @@ func TestSubpages(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{git: server.repo})
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
-		harness.press("space")
+		harness.press("k", "space")
 		menuUp := len(harness.panel.ReadZooms())
 		require.True(t, harness.panel.IsZoomed())
 
@@ -100,10 +107,10 @@ func TestSubpages(t *testing.T) {
 		assert.NotContains(t, harness.panel.ReadZooms()[menuUp:], false, "the list is not rendered again on the way")
 	})
 
-	t.Run("review on an agent with no checkout says why", func(t *testing.T) {
+	t.Run("review on a task with no checkout says why", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSubpages(t, "quiet")
+		harness := openSubpages(t, "task-quiet")
 		harness.press("r")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
@@ -113,12 +120,12 @@ func TestSubpages(t *testing.T) {
 	t.Run("esc closes the menu and leaves the trail on the row", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSubpages(t, "author")
+		harness := openSubpages(t, "task-author")
 		harness.press("esc")
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "› review")
-		assert.Equal(t, "agents › author", readTrail(frame))
+		assert.Equal(t, "agents › task-author", readTrail(frame))
 	})
 
 	t.Run("the legend offers it", func(t *testing.T) {

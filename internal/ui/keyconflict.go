@@ -141,7 +141,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
-	return validateSubmenuKeys("menu", []submenuKeys{
+	if err := validateSubmenuKeys("menu", []submenuKeys{
 		{name: "review", keys: keys.Menu.Review},
 		{name: "logs", keys: keys.Menu.Logs},
 		{name: "status checks", keys: keys.Menu.StatusChecks},
@@ -154,10 +154,27 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "jump", keys: keys.Menu.Jump},
 		{name: "archive", keys: keys.Menu.Archive},
 		{name: "hide", keys: keys.Menu.Hide},
-		{name: "edit_workflow", keys: keys.Menu.EditWorkflow},
+		{name: "edit_row", keys: keys.Menu.EditRow},
 		{name: "adopt", keys: keys.Menu.Adopt},
 		{name: "new_agent", keys: keys.Menu.NewAgent},
 		{name: "new_workflow", keys: keys.Menu.NewWorkflow},
+	}); err != nil {
+		return err
+	}
+
+	return validateSubmenuKeys("task menu", []submenuKeys{
+		{name: "review", keys: keys.Menu.Review},
+		{name: "logs", keys: keys.Menu.Logs},
+		{name: "status checks", keys: keys.Menu.StatusChecks},
+		{name: "terminal", keys: keys.Menu.Terminal},
+		{name: "new_agent", keys: keys.Menu.NewAgent},
+		{name: "edit_row", keys: keys.Menu.EditRow},
+		{name: "edit", keys: keys.Menu.Edit},
+		{name: "snooze", keys: keys.Menu.Snooze},
+		{name: "git", keys: keys.Menu.Git},
+		{name: "jump", keys: keys.Menu.Jump},
+		{name: "hide", keys: keys.Menu.Hide},
+		{name: "archive", keys: keys.Menu.Archive},
 	})
 }
 

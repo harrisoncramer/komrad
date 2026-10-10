@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 
 	"charm.land/huh/v2"
@@ -41,4 +42,18 @@ func deleteScheduleForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
 		"Delete",
 		keys,
 	)
+}
+
+func deleteTasksForm(tasks []panel.Task, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
+	title := "Permanently delete " + describeTasks(tasks) + "?"
+
+	warning := "Their agents, documents, reviews and worktrees go with them."
+	if len(tasks) == 1 {
+		warning = "Its agents, documents, reviews and worktree go with it."
+	}
+	if agentCount > 0 {
+		warning = fmt.Sprintf("%s %s archived first.", warning, label.Count(agentCount, "live agent is", "live agents are"))
+	}
+
+	return confirmForm(title, warning, "Delete", keys)
 }

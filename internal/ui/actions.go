@@ -22,6 +22,7 @@ const (
 	actionAgentTriage
 	actionAgentOpen
 	actionAgentRename
+	actionTaskRename
 	actionSearchOpen
 	actionSearchEdit
 	actionSearchBack

@@ -16,6 +16,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
@@ -255,6 +256,30 @@ func TestWorktreesDelete(t *testing.T) {
 		harness.press("c", "y")
 
 		assert.NotContains(t, readFormProse(harness.readFrame()), "Delete")
+		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
+	})
+
+	t.Run("chosen task checkouts are deleted with their tasks", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildTaskWorktrees()...)
+		moveToWorktree(t, harness, "alpha")
+
+		harness.press("v", "j", "v", "space", "a", "d", "y")
+
+		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}})
+	})
+
+	t.Run("a choice mixing a task checkout with the rest says why it deletes nothing", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildTaskWorktrees()...)
+		moveToWorktree(t, harness, "beta")
+
+		harness.press("v", "j", "v", "space", "a", "d")
+
+		assert.Contains(t, harness.readFrame(), "Could not delete 2 worktrees")
+		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure)
 		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
 	})
 }
@@ -571,6 +596,27 @@ func TestWorktreesRecord(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, "writer", readRecordField(frame, "name"))
 		assert.Equal(t, "rival", readRecordField(frame, "also here"))
+	})
+
+	t.Run("a task's checkout no agent answers for names its task", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "komrad"),
+			&taskv1.Task{Id: "t9", WorkflowId: "w1", Slug: "fix-login"},
+			&worktreev1.WatchedWorktree{
+				Dir:      "/trees/t9",
+				RepoDir:  "/home/h/komrad",
+				Branch:   "task/t9",
+				Readable: true,
+			},
+		)
+		moveToWorktree(t, harness, "fix-login")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "fix-login", readRecordField(frame, "task"))
+		assert.Empty(t, readRecordField(frame, "agent"))
 	})
 
 	t.Run("the read of the directory adds where the branch stands and what it changed", func(t *testing.T) {
@@ -1126,7 +1172,7 @@ func TestWorktreesScope(t *testing.T) {
 
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
 		harness.press("F", "tab", "esc", "tab")
-		moveToAgentRow(t, harness, "treeview")
+		moveToAgentRow(t, harness, "live")
 
 		harness.press("space", "J", "w")
 
@@ -1348,5 +1394,17 @@ func newWorktreeTask(agent *agentv1.Agent) *taskv1.Task {
 		Id:         agent.GetTaskId(),
 		WorkflowId: agent.GetWorkflowId(),
 		Slug:       agent.GetTaskId(),
+	}
+}
+
+// buildTaskWorktrees is two tasks' checkouts no agent answers for, beside a directory nothing does.
+func buildTaskWorktrees() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "komrad"),
+		&taskv1.Task{Id: "t8", WorkflowId: "w1", Slug: "alpha"},
+		&taskv1.Task{Id: "t9", WorkflowId: "w1", Slug: "beta"},
+		&worktreev1.WatchedWorktree{Dir: "/trees/t8", RepoDir: "/home/h/komrad", Branch: "task/t8", Readable: true},
+		&worktreev1.WatchedWorktree{Dir: "/trees/t9", RepoDir: "/home/h/komrad", Branch: "task/t9", Readable: true},
+		&worktreev1.WatchedWorktree{Dir: "/trees/zz", RepoDir: "/home/h/komrad", Branch: "agent/zz", Readable: true},
 	}
 }

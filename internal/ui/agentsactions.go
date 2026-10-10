@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	"komrad/config"
-	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -69,6 +68,12 @@ func (a *agentsScreen) rowActions() []screenAction {
 			when:   a.isHoveringAgent,
 			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
+		{
+			id:     actionTaskRename,
+			keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
+			when:   a.isHoveringTask,
+			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+		},
 	}
 }
 
@@ -87,16 +92,16 @@ func (a *agentsScreen) isHoveringWorkflow(m *model) bool {
 	return a.isBrowsing(m) && ok
 }
 
+func (a *agentsScreen) isHoveringTask(m *model) bool {
+	row, ok := a.hoveredRow(m)
+
+	return a.isBrowsing(m) && ok && row.isTask()
+}
+
 func (a *agentsScreen) isHoveringAgent(m *model) bool {
 	row, ok := a.hoveredRow(m)
 
 	return a.isBrowsing(m) && (!ok || !row.header)
-}
-
-func (a *agentsScreen) isRetryableAgent(m *model) bool {
-	item, ok := a.selectedAgent(m)
-
-	return a.isHoveringAgent(m) && ok && item.Agent.State == panel.StateFailedToCreate
 }
 
 func (a *agentsScreen) legend() []screenLegendRow {
@@ -130,6 +135,11 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			of:   []actionID{actionAgentRename},
 			desc: func(*model) string { return "rename" },
 			show: a.isHoveringAgent,
+		},
+		{
+			of:   []actionID{actionTaskRename},
+			desc: func(*model) string { return "rename" },
+			show: a.isHoveringTask,
 		},
 		{
 			of:   []actionID{actionFilterOpen},

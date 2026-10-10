@@ -83,6 +83,7 @@ const (
 	formHideMenu
 	formMenu
 	formWorkflow
+	formTask
 	formWorkflowArchive
 	formSchedule
 	formScheduleArchive
@@ -151,7 +152,7 @@ const formMaxWidth = 60
 // still on screen while it is answered.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
-	case formAgent, formChild, formAdopt, formAgentRetry, formWorkflow, formSchedule,
+	case formAgent, formChild, formAdopt, formAgentRetry, formWorkflow, formTask, formSchedule,
 		formDocument, formDocumentType:
 		return columnSpec{floor: formColumnFloor}, true
 	case formGit, formArchiveMenu, formHideMenu, formMerge, formMenu, formAgentArchive, formAgentRebase, formAgentPush, formAgentAbort, formWorkflowArchive, formScheduleArchive,

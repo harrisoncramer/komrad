@@ -108,6 +108,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		docs.add(&agentv1.Document{
 			Id:        "d3",
 			AgentId:   "author",
+			TaskId:    xptr.Ptr("task-author"),
 			Name:      "Notes",
 			Type:      "notes",
 			Version:   1,

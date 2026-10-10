@@ -8,15 +8,22 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// rowRename is a listed row's name being typed over: an agent's, a workflow's or a schedule's.
+// rowRename is a listed row's name being typed over: an agent's, a task's slug, a workflow's or a
+// schedule's.
 type rowRename struct {
 	*nameEdit
 	agent    panel.Agent
+	task     *panel.Task
 	workflow *panel.Workflow
 	schedule *panel.Schedule
 }
 
 func renameAgentRow(row agentRow) *rowRename {
+	if row.isTask() {
+		task := *row.task
+
+		return &rowRename{nameEdit: openNameEdit(rowKey(row), task.Slug), task: &task}
+	}
 	if row.header {
 		workflow := row.workflow
 
@@ -49,6 +56,14 @@ func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 			"renaming "+r.was,
 			fmt.Sprintf("Could not rename schedule %q", r.was),
 			func(a api) error { return a.updateSchedule(id, renamed) },
+		), r.key), true
+	case r.task != nil:
+		id := r.task.ID
+
+		return stampRename(m.writeCmd(
+			"renaming "+r.was,
+			fmt.Sprintf("Could not rename task %q", r.was),
+			func(a api) error { return a.updateTask(updateTaskParams{id: id, slug: &name}) },
 		), r.key), true
 	case r.workflow != nil:
 		renamed := *r.workflow

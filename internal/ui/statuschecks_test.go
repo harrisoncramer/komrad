@@ -17,11 +17,11 @@ import (
 func TestStatusChecksOpen(t *testing.T) {
 	t.Parallel()
 
-	t.Run("an agent with no pull request has no status checks to list", func(t *testing.T) {
+	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSubpagesAgents()...)
-		moveToAgentRow(t, harness, "author")
+		moveToAgentRow(t, harness, "task-author")
 		harness.press("space", "x")
 
 		frame := harness.readFrame()
@@ -34,7 +34,7 @@ func TestStatusChecksOpen(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSubpagesAgents()...)
-		moveToAgentRow(t, harness, "author")
+		moveToAgentRow(t, harness, "task-author")
 		harness.press("space", "x", "esc")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())

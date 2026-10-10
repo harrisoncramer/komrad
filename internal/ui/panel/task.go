@@ -9,6 +9,7 @@ type Task struct {
 	Slug       string
 	Title      string
 	Goal       string
+	Cwd        string
 	CreatedAt  time.Time
 	ArchivedAt *time.Time
 }

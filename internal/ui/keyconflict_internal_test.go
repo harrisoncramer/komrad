@@ -204,6 +204,16 @@ func TestValidateSubmenuKeysReadsTheKeysTheMenuIsRenderedOver(t *testing.T) {
 			rebind: func(k *config.Keybindings) { k.Menu.Git = []string{"l"} },
 			names:  "the menu's logs entry",
 		},
+		{
+			name:   "editing a task on the review key",
+			rebind: func(k *config.Keybindings) { k.Menu.EditRow = []string{"r"} },
+			names:  "edit_row is bound to \"r\", which is the menu's review entry",
+		},
+		{
+			name:   "editing a task on the key that takes the menu down",
+			rebind: func(k *config.Keybindings) { k.Menu.EditRow = []string{"esc"} },
+			names:  "edit_row",
+		},
 	}
 
 	for _, tt := range tests {

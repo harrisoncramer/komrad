@@ -144,6 +144,7 @@ func TestRoleFromReadsEveryWireRole(t *testing.T) {
 func TestWorktreeFateIsReadOffTheWire(t *testing.T) {
 	for wire, want := range map[worktreev1.WorktreeFate]worktreeFate{
 		worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:        fateLive,
+		worktreev1.WorktreeFate_WORKTREE_FATE_TASK:        fateTask,
 		worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:    fateArchived,
 		worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED:     fateUnowned,
 		worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED: fateUnowned,

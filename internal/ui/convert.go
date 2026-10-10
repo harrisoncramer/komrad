@@ -64,6 +64,7 @@ func tasksFrom(listed []*taskv1.Task) []panel.Task {
 			Slug:       t.GetSlug(),
 			Title:      t.GetTitle(),
 			Goal:       t.GetGoal(),
+			Cwd:        t.GetCwd(),
 			CreatedAt:  dates.Parse(t.GetCreatedAt()),
 			ArchivedAt: dates.ParsePtr(t.GetArchivedAt()),
 		}
@@ -325,7 +326,9 @@ func worktreeFateFrom(fate worktreev1.WorktreeFate) worktreeFate {
 		return fateArchived
 	case worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:
 		return fateLive
-	case worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED, worktreev1.WorktreeFate_WORKTREE_FATE_TASK, worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED:
+	case worktreev1.WorktreeFate_WORKTREE_FATE_TASK:
+		return fateTask
+	case worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED, worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED:
 		return fateUnowned
 	}
 
