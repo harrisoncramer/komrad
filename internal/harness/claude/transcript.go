@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -10,10 +11,16 @@ import (
 )
 
 // LogPath finds the JSONL log for a session id by globbing the id, so nothing here has to
-// reproduce Claude's directory-name encoding.
+// reproduce Claude's directory-name encoding, and reuses the path while the log is still there.
 func (h *Harness) LogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
+	}
+
+	if known := h.knownLogPath(sessionID); known != "" {
+		if _, err := os.Stat(known); err == nil {
+			return known
+		}
 	}
 
 	configDir, err := h.resolveConfigDir()
@@ -26,7 +33,23 @@ func (h *Harness) LogPath(sessionID string) string {
 		return ""
 	}
 
+	h.rememberLogPath(sessionID, matches[0])
+
 	return matches[0]
+}
+
+func (h *Harness) knownLogPath(sessionID string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return h.logPaths[sessionID]
+}
+
+func (h *Harness) rememberLogPath(sessionID, path string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.logPaths[sessionID] = path
 }
 
 // ReadLog reads whatever the log at path holds past offset and flattens it into turns, treating

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"komrad/config"
 	"komrad/internal/harness"
@@ -25,12 +26,16 @@ type NewHarnessParams struct {
 
 type Harness struct {
 	configDir string
+	mu        sync.Mutex
+	// logPaths remembers where each session's log was found, keyed by session id.
+	logPaths map[string]string
 }
 
 // NewHarness builds a harness rooted at configDir.
 func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
 		configDir: params.ConfigDir,
+		logPaths:  map[string]string{},
 	}
 }
 

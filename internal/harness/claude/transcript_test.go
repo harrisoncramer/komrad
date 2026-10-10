@@ -177,4 +177,13 @@ func TestLogPath(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, "sess-1.jsonl"), h.LogPath("sess-1"))
 	assert.Empty(t, h.LogPath("sess-2"), "a session with no log on disk has no path")
 	assert.Empty(t, h.LogPath(""), "and neither does an agent with no session")
+
+	moved := filepath.Join(configDir, "projects", "-other-project")
+	require.NoError(t, os.MkdirAll(moved, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(moved, "sess-1.jsonl"), []byte("{}\n"), 0o600))
+	require.NoError(t, os.Remove(filepath.Join(dir, "sess-1.jsonl")))
+	assert.Equal(t, filepath.Join(moved, "sess-1.jsonl"), h.LogPath("sess-1"), "a log found once is looked for again once it has gone")
+
+	require.NoError(t, os.Remove(filepath.Join(moved, "sess-1.jsonl")))
+	assert.Empty(t, h.LogPath("sess-1"), "and a log removed for good has no path")
 }
