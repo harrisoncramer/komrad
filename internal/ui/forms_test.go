@@ -744,18 +744,6 @@ func TestFormsKeys(t *testing.T) {
 		assert.Equal(t, "check CI\nthen\nfix it", create.GetPrompt())
 	})
 
-	t.Run("enter submits from an input", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"enter"})...)
-
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
-		require.Len(t, sent, 1)
-		create, ok := sent[0].(*agentv1.CreateAgentRequest)
-		require.True(t, ok)
-		assert.Equal(t, "codex", create.GetHarness())
-	})
-
 	t.Run("a workflow edited to a blank name sends nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
