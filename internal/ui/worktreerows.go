@@ -270,8 +270,8 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 				row.Kind = view.KindResult
 			}
 			row.Cells = rowCells(r.item, params.now)
-			if lead, ok := r.item.findLead(); ok {
-				row = worktreeAgentFacts(row, lead, live)
+			if occupant, ok := r.item.firstOccupant(); ok {
+				row = worktreeAgentFacts(row, occupant, live)
 			} else {
 				row.Process = view.ProcessStopped
 			}

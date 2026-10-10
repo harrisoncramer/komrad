@@ -27,7 +27,6 @@ type Agent struct {
 	State          agentstore.State
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
-	WorkflowID     string
 }
 
 // Task is what a listing says about the task whose checkout a directory is.
@@ -385,7 +384,6 @@ func describeAgent(row agentstore.AgentDir) Agent {
 		State:          row.State,
 		StateChangedAt: row.StateChangedAt,
 		ArchivedAt:     row.ArchivedAt,
-		WorkflowID:     row.WorkflowID,
 	}
 }
 

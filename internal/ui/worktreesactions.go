@@ -264,12 +264,12 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 		return menu, true
 	}
 
-	lead, ok := row.item.findLead()
+	occupant, ok := row.item.firstOccupant()
 	if !ok {
 		return menu, true
 	}
 
-	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, lead.id)), true
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, occupant.id)), true
 }
 
 // worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when

@@ -37,8 +37,6 @@ type AgentDir struct {
 	DeletingAt     *time.Time
 	WorkflowID     string
 	CreatedAt      time.Time
-	// Adopted is whether the directory is its task's checkout and that checkout was put on a branch komrad did not make.
-	Adopted bool
 	// ProvisionedTaskID is the task the agent was provisioned a worktree for, empty for a child or an agent that keeps the directory it was given.
 	ProvisionedTaskID string
 }
@@ -61,7 +59,6 @@ func (s *AgentStore) ListDirs(ctx context.Context) ([]AgentDir, error) {
 			DeletingAt:        row.DeletingAt,
 			WorkflowID:        row.WorkflowID,
 			CreatedAt:         row.CreatedAt,
-			Adopted:           row.Adopted,
 			ProvisionedTaskID: provisionedTaskIDOf(row),
 		}
 	}), nil

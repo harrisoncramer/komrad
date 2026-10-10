@@ -62,16 +62,16 @@ func (w *worktreesScreen) screenedAgentID(m *model) (string, bool) {
 		return "", false
 	}
 
-	lead, ok := row.item.findLead()
+	occupant, ok := row.item.firstOccupant()
 	if !ok {
 		return "", false
 	}
 
-	if live, ok := m.listing.liveAgent(lead.id); ok && live.Alive {
+	if live, ok := m.listing.liveAgent(occupant.id); ok && live.Alive {
 		return "", false
 	}
 
-	return lead.id, true
+	return occupant.id, true
 }
 
 func (m *model) isScreenShown() bool {

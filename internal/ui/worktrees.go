@@ -71,8 +71,8 @@ func (i worktreeItem) isMerged() bool {
 	return standing != nil && standing.err == "" && !standing.dirty && !standing.sequencing && standing.unlanded == 0
 }
 
-// findLead is the occupant the row draws and jumps to, false when the directory has none.
-func (i worktreeItem) findLead() (worktreeAgent, bool) {
+// firstOccupant is the occupant the row draws and jumps to, false when the directory has none.
+func (i worktreeItem) firstOccupant() (worktreeAgent, bool) {
 	if len(i.occupants) == 0 {
 		return worktreeAgent{}, false
 	}

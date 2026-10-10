@@ -55,20 +55,20 @@ func TestEmptyTaskDeleteForgetsItsWorktree(t *testing.T) {
 		name           string
 		deprovisionErr error
 		wantErr        bool
-		wantDirs       func(dir string) []string
+		wantDirs       func(dir, other string) []string
 	}{
 		{
 			name:           "a checkout that could not be given back keeps the task and its row",
 			deprovisionErr: errors.New("the hook failed"),
 			wantErr:        true,
-			wantDirs: func(dir string) []string {
-				return []string{dir, "/trees/other"}
+			wantDirs: func(dir, other string) []string {
+				return []string{dir, other}
 			},
 		},
 		{
 			name: "a deleted task's row is forgotten and another task's kept",
-			wantDirs: func(string) []string {
-				return []string{"/trees/other"}
+			wantDirs: func(_, other string) []string {
+				return []string{other}
 			},
 		},
 	}
@@ -80,8 +80,9 @@ func TestEmptyTaskDeleteForgetsItsWorktree(t *testing.T) {
 			worktrees := worktreestore.NewWorktreeStore(fx.st.Pool.GetDB())
 			task := fx.st.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "work"})
 			dir := filepath.Join(t.TempDir(), task.ID)
+			other := filepath.Join(filepath.Dir(dir), fx.st.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "other"}).ID)
 			require.NoError(t, fx.st.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
-			for _, tree := range []string{dir, "/trees/other"} {
+			for _, tree := range []string{dir, other} {
 				require.NoError(t, worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: tree}))
 			}
 			require.NoError(t, fx.st.Tasks.MarkDeleting(t.Context(), []string{task.ID}))
@@ -97,7 +98,7 @@ func TestEmptyTaskDeleteForgetsItsWorktree(t *testing.T) {
 			}
 			listed, err := worktrees.List(t.Context())
 			require.NoError(t, err)
-			assert.ElementsMatch(t, tt.wantDirs(dir), xslice.Map(listed, func(worktree worktreestore.Worktree) string { return worktree.Dir }))
+			assert.ElementsMatch(t, tt.wantDirs(dir, other), xslice.Map(listed, func(worktree worktreestore.Worktree) string { return worktree.Dir }))
 		})
 	}
 }
