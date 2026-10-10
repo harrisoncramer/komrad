@@ -328,19 +328,13 @@ INSERT INTO reviews(
     author_kind,
     external_login,
     released_at)
-VALUES (
-    (
+VALUES ((
         SELECT
             r.agent_id
         FROM
             review_rounds r
         WHERE
-            r.id = $1),
-    $2::uuid,
-    $1,
-    'forge',
-    $3,
-    NOW())
+            r.id = $1), $2::uuid, $1, 'forge', $3, NOW())
 RETURNING
     id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
 `
@@ -381,18 +375,13 @@ INSERT INTO reviews(
     round_id,
     author_kind,
     author_agent_id)
-VALUES (
-    (
+VALUES ((
         SELECT
             r.agent_id
         FROM
             review_rounds r
         WHERE
-            r.id = $1),
-    $2::uuid,
-    $1,
-    $3,
-    $4)
+            r.id = $1), $2::uuid, $1, $3, $4)
 RETURNING
     id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
 `
@@ -483,10 +472,10 @@ said AS (
                     a.id = w.author_agent_id
                     AND a.task_id = t.task_id
                     AND a.parent_agent_id IS NULL)) AS reopens
-    FROM
-        written w
-        JOIN review_threads t ON t.id = w.thread_id
-        JOIN reviews v ON v.id = t.review_id
+        FROM
+            written w
+            JOIN review_threads t ON t.id = w.thread_id
+            JOIN reviews v ON v.id = t.review_id
 ),
 touched AS (
     UPDATE
@@ -673,30 +662,29 @@ WITH opened AS (
         quoted_lines,
         forge_thread_id,
         last_agent_activity_at)
-    VALUES (
-        (
+    VALUES ((
             SELECT
                 r.agent_id
             FROM
                 review_rounds r
             WHERE
                 r.id = $1),
-        $2::uuid,
-        $3,
-        $1,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10,
-        $11::uuid,
-        CASE WHEN $12::review_author_kind = 'agent' THEN
-            NOW()
-        END)
-RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id
+            $2::uuid,
+            $3,
+            $1,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            $10,
+            $11::uuid,
+            CASE WHEN $12::review_author_kind = 'agent' THEN
+                NOW()
+            END)
+    RETURNING
+        id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id
 ),
 said AS (
     INSERT INTO review_messages(
@@ -1983,7 +1971,7 @@ UPDATE
     reviews v
 SET
     round_id = $1,
-    agent_id = (
+    agent_id =(
         SELECT
             r.agent_id
         FROM

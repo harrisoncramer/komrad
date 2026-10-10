@@ -14,6 +14,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -114,7 +115,7 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	})
 
-	t.Run("a task's row opens every document filtered to the task's", func(t *testing.T) {
+	t.Run("a task's row opens only its own documents beside a task whose slug it prefixes", func(t *testing.T) {
 		t.Parallel()
 
 		docs := newDocumentShelf()
@@ -136,14 +137,19 @@ func TestDocumentsOpen(t *testing.T) {
 			Version:   1,
 			UpdatedAt: "2026-09-21T12:00:00Z",
 		})
-		harness := openAgents(t, buildTasks()...)
+		rows := buildTasks()
+		rows[2].(*taskv1.Task).Slug = "fix-login-2"
+		harness := openAgents(t, rows...)
 		docs.answer(harness)
-		harness.press("j", "space", "J", "d")
+		harness.press("j")
+		require.Contains(t, readHoveredRow(harness.readFrame()), "fix-login")
+		require.NotContains(t, readHoveredRow(harness.readFrame()), "fix-login-2")
+		harness.press("space", "J", "d")
 		harness.fireTimers()
 
-		rows := strings.Join(readListRows(harness.readFrame()), "\n")
-		assert.Contains(t, rows, "Login plan")
-		assert.NotContains(t, rows, "Solo notes")
+		listed := strings.Join(readListRows(harness.readFrame()), "\n")
+		assert.Contains(t, listed, "Login plan")
+		assert.NotContains(t, listed, "Solo notes")
 		assert.NotContains(t, rows, "Design the cache")
 	})
 
