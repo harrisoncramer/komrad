@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"slices"
+
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -34,8 +37,44 @@ func taskMenu(m *model, row agentRow) submenu {
 		return openNewAgentOnTask(m, row.workflow, *row.task)
 	}))
 	menu.title = row.task.Slug
+	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {
+		switch {
+		case slices.Equal(entry.keys, m.keys.Menu.Review):
+			return taskReviewEntry(m, row.lead.Agent)
+		case slices.Equal(entry.keys, m.keys.Menu.Jump):
+			return nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, row))
+		}
+
+		return entry
+	})
 
 	return menu
+}
+
+// taskJumpMenu is the jump menu of the agent a task wears, its documents entry landing on the task's.
+func taskJumpMenu(m *model, row agentRow) submenu {
+	menu := jumpMenu(m, screenAgents, row.lead.Agent.ID)
+	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {
+		if !slices.Equal(entry.keys, m.keys.JumpMenu.Documents) {
+			return entry
+		}
+
+		return openEntry("documents", m.keys.JumpMenu.Documents, func(m *model) tea.Cmd {
+			return m.enter(screenDocuments, screenTarget{taskID: row.task.ID})
+		})
+	})
+
+	return menu
+}
+
+// taskReviewEntry opens the review of a task through the agent it wears, archived or not.
+func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
+	entry := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
+		return m.enterReview(lead)
+	})
+	entry.isOff = !isReviewable(lead)
+
+	return entry
 }
 
 // agentEntries are the entries the agents list adds to the band on the hovered agent.

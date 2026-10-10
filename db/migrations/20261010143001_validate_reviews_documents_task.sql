@@ -1,0 +1,10 @@
+-- Validate "documents_task_id_fkey" on table: "documents"
+ALTER TABLE "documents" VALIDATE CONSTRAINT "documents_task_id_fkey";
+-- Validate "review_rounds_task_id_fkey" on table: "review_rounds"
+ALTER TABLE "review_rounds" VALIDATE CONSTRAINT "review_rounds_task_id_fkey";
+-- Validate "review_threads_task_id_fkey" on table: "review_threads"
+ALTER TABLE "review_threads" VALIDATE CONSTRAINT "review_threads_task_id_fkey";
+-- Validate "review_viewed_files_task_id_fkey" on table: "review_viewed_files"
+ALTER TABLE "review_viewed_files" VALIDATE CONSTRAINT "review_viewed_files_task_id_fkey";
+-- Validate "reviews_task_id_fkey" on table: "reviews"
+ALTER TABLE "reviews" VALIDATE CONSTRAINT "reviews_task_id_fkey";

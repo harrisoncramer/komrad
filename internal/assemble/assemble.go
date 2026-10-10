@@ -213,12 +213,12 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 }
 
 // AgentRows draws every agent in the world with its unread mail, its pull requests and where the
-// local review of its work stands, newest first.
+// local review of its task's work stands on a top-level agent, newest first.
 func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	unread := getAgentsWithUnreadMail(w.Mail, now)
 	onBranch := groupPullRequestsByBranch(w.PullRequests)
-	reviewed := groupReviewsByAgent(w.Reviews)
-	threaded := groupThreadsByAgent(w.ReviewThreads)
+	reviewed := groupReviewsByTask(w.Reviews)
+	threaded := groupThreadsByTask(w.ReviewThreads)
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
@@ -231,8 +231,10 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 			PullRequest:  calculatePullRequestStanding(task, w.Repositories[task.GetRepositoryUrl()], pullRequests),
 			PullRequests: pullRequests,
 		}
-		setLocalReview(row, reviewed[agent.GetId()])
-		setCommentCounts(row, reviewed[agent.GetId()], threaded[agent.GetId()])
+		if agent.ParentAgentId == nil {
+			setLocalReview(row, reviewed[agent.GetTaskId()])
+			setCommentCounts(row, reviewed[agent.GetTaskId()], threaded[agent.GetTaskId()])
+		}
 
 		rows = append(rows, row)
 	}

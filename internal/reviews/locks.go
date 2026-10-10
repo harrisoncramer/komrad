@@ -2,29 +2,29 @@ package reviews
 
 import "sync"
 
-// agentLocks serialises the work done for one agent at a time, leaving other agents free.
-type agentLocks struct {
+// taskLocks serialises the work done for one task at a time, leaving other tasks free.
+type taskLocks struct {
 	mu   sync.Mutex
-	held map[string]*agentLock
+	held map[string]*taskLock
 }
 
-// agentLock is one agent's lock and how many callers are holding or waiting on it.
-type agentLock struct {
+// taskLock is one task's lock and how many callers are holding or waiting on it.
+type taskLock struct {
 	mu      sync.Mutex
 	waiters int
 }
 
-func newAgentLocks() *agentLocks {
-	return &agentLocks{held: map[string]*agentLock{}}
+func newTaskLocks() *taskLocks {
+	return &taskLocks{held: map[string]*taskLock{}}
 }
 
-// lock waits for the agent's lock and hands back what releases it.
-func (l *agentLocks) lock(agentID string) func() {
+// lock waits for the task's lock and hands back what releases it.
+func (l *taskLocks) lock(taskID string) func() {
 	l.mu.Lock()
-	held, ok := l.held[agentID]
+	held, ok := l.held[taskID]
 	if !ok {
-		held = &agentLock{}
-		l.held[agentID] = held
+		held = &taskLock{}
+		l.held[taskID] = held
 	}
 	held.waiters++
 	l.mu.Unlock()
@@ -38,7 +38,7 @@ func (l *agentLocks) lock(agentID string) func() {
 		defer l.mu.Unlock()
 		held.waiters--
 		if held.waiters == 0 {
-			delete(l.held, agentID)
+			delete(l.held, taskID)
 		}
 	}
 }

@@ -42,13 +42,13 @@ func TestListWatched(t *testing.T) {
 	require.Len(t, listed, 1)
 	assert.NotNil(t, listed[0].DeliveredAt, "claiming the doorbell delivers the review")
 
-	ofOther, err := st.ListIDsOfAgents(ctx, []string{other, "not-an-id"})
+	ofOther, err := st.ListIDsOfTasks(ctx, []string{st.taskOf(t, other), "not-an-id"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{elsewhere.ID}, ofOther)
 
-	ofNobody, err := st.ListIDsOfAgents(ctx, nil)
+	ofNobody, err := st.ListIDsOfTasks(ctx, nil)
 	require.NoError(t, err)
-	assert.Empty(t, ofNobody, "no agents is no reviews rather than every review")
+	assert.Empty(t, ofNobody, "no tasks is no reviews rather than every review")
 }
 
 // TestListWatchedThreads pins that the threads of live agents are carried with their messages
@@ -81,13 +81,13 @@ func TestListWatchedThreads(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, listed, "a key on an archived agent is gone")
 
-	ofWorker, err := threads.ListIDsOfAgents(ctx, []string{worker, "not-an-id"})
+	ofWorker, err := threads.ListIDsOfTasks(ctx, []string{st.taskOf(t, worker), "not-an-id"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{thread.ID}, ofWorker)
 
-	ofNobody, err := threads.ListIDsOfAgents(ctx, nil)
+	ofNobody, err := threads.ListIDsOfTasks(ctx, nil)
 	require.NoError(t, err)
-	assert.Empty(t, ofNobody, "no agents is no threads rather than every thread")
+	assert.Empty(t, ofNobody, "no tasks is no threads rather than every thread")
 }
 
 // TestListWatchedThreadsCarriesForgeReplies pins that a mirrored thread carries the forge thread it

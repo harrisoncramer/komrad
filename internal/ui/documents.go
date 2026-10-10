@@ -17,6 +17,7 @@ import (
 type documentItem struct {
 	id        string
 	agentID   string
+	taskID    string
 	name      string
 	typeName  string
 	updatedAt time.Time
@@ -60,6 +61,8 @@ type documentsScreen struct {
 	focus bool
 	// agentID is the agent the screen was opened for from its menu.
 	agentID string
+	// taskID is the task the screen was opened for from its row.
+	taskID string
 }
 
 // documentRow is one line of the documents list.
@@ -80,16 +83,21 @@ func (r documentTypeRow) key() string {
 	return "type:" + r.documentType.GetName()
 }
 
-// enter opens on every agent's documents, filtered down to the agent the target names when one is.
+// enter opens on every agent's documents, filtered down to the task or agent the target names when one is.
 func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
 	if !target.resume {
-		d.agentID = target.agentID
-		if target.agentID != "" {
+		d.agentID, d.taskID = target.agentID, target.taskID
+		if target.agentID != "" || target.taskID != "" {
 			saved = d.closeEdit(m)
 			d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
 			d.rowCursor = rowCursor{}
-			m.filterDocumentsOf(target.agentID)
+		}
+		switch {
+		case target.taskID != "":
+			m.filterDocuments(taskClause(m.listing.tasks[target.taskID].Slug))
+		case target.agentID != "":
+			m.filterDocuments(agentClause(findAgentName(m, target.agentID)))
 		}
 	}
 
@@ -379,6 +387,7 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 				return documentItem{
 					id:        document.GetId(),
 					agentID:   document.GetAgentId(),
+					taskID:    document.GetTaskId(),
 					name:      document.GetName(),
 					typeName:  document.GetType(),
 					updatedAt: dates.Parse(document.GetUpdatedAt()),

@@ -264,16 +264,16 @@ func (ForgeReplyState) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{3}
 }
 
-// ReviewRound is one immutable snapshot of what an agent has written, which is what a review is
+// ReviewRound is one immutable snapshot of what a task's writer has written, which is what a review is
 // given against. Nothing a comment is pinned to can move underneath the person reading it,
 // because the snapshot is a commit rather than the worktree.
 type ReviewRound struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The handle a review or a viewed-file record names this round by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whose work the snapshot was taken of.
-	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// Which round this is for its agent, counting from one.
+	// The task whose checkout the snapshot was taken of.
+	TaskId string `protobuf:"bytes,7,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// Which round this is for its task, counting from one.
 	Ordinal int32 `protobuf:"varint,3,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
 	// The commit the agent's branch left its base at when the round was taken.
 	BaseSha string `protobuf:"bytes,4,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
@@ -322,9 +322,9 @@ func (x *ReviewRound) GetId() string {
 	return ""
 }
 
-func (x *ReviewRound) GetAgentId() string {
+func (x *ReviewRound) GetTaskId() string {
 	if x != nil {
-		return x.AgentId
+		return x.TaskId
 	}
 	return ""
 }
@@ -363,8 +363,8 @@ type Review struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The handle the threads in this batch name it by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whose work is being read.
-	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// The task whose work is being read.
+	TaskId string `protobuf:"bytes,16,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The snapshot the batch was written against.
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one, so a caller need not fetch the round to say.
@@ -435,9 +435,9 @@ func (x *Review) GetId() string {
 	return ""
 }
 
-func (x *Review) GetAgentId() string {
+func (x *Review) GetTaskId() string {
 	if x != nil {
-		return x.AgentId
+		return x.TaskId
 	}
 	return ""
 }
@@ -538,13 +538,13 @@ type WatchedReview struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The handle the threads in this batch name it by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whose work is being read.
-	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// The task whose work is being read.
+	TaskId string `protobuf:"bytes,15,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The snapshot the batch was written against.
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one.
 	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	// The commit that round froze the agent's checkout as.
+	// The commit that round froze the task's checkout as.
 	RoundSnapshotSha string `protobuf:"bytes,5,opt,name=round_snapshot_sha,json=roundSnapshotSha,proto3" json:"round_snapshot_sha,omitempty"`
 	// Whether a person, an agent or someone on the forge wrote it.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,6,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
@@ -605,9 +605,9 @@ func (x *WatchedReview) GetId() string {
 	return ""
 }
 
-func (x *WatchedReview) GetAgentId() string {
+func (x *WatchedReview) GetTaskId() string {
 	if x != nil {
-		return x.AgentId
+		return x.TaskId
 	}
 	return ""
 }
@@ -696,13 +696,13 @@ func (x *WatchedReview) GetExternalLogin() string {
 	return ""
 }
 
-// ReviewThread is one conversation pinned to a place in a round of an agent's diff.
+// ReviewThread is one conversation pinned to a place in a round of a task's diff.
 type ReviewThread struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The handle a reply or a resolve names this thread by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whose diff the thread is pinned to.
-	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// The task whose diff the thread is pinned to.
+	TaskId string `protobuf:"bytes,21,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The batch this thread was opened as part of.
 	ReviewId string `protobuf:"bytes,15,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
 	// The round the thread is anchored to, which never moves.
@@ -782,9 +782,9 @@ func (x *ReviewThread) GetId() string {
 	return ""
 }
 
-func (x *ReviewThread) GetAgentId() string {
+func (x *ReviewThread) GetTaskId() string {
 	if x != nil {
-		return x.AgentId
+		return x.TaskId
 	}
 	return ""
 }
@@ -2517,12 +2517,12 @@ func (x *ReleaseReviewResponse) GetPath() string {
 	return ""
 }
 
-// ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read,
+// ReviewViewedFile is one file of a task's diff the person reviewing has marked as read,
 // together with the fingerprint the diff had when they read it.
 type ReviewViewedFile struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which agent the file belongs to.
-	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task the file belongs to.
+	TaskId string `protobuf:"bytes,5,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// When it was marked, in RFC 3339.
@@ -2564,9 +2564,9 @@ func (*ReviewViewedFile) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{31}
 }
 
-func (x *ReviewViewedFile) GetAgentId() string {
+func (x *ReviewViewedFile) GetTaskId() string {
 	if x != nil {
-		return x.AgentId
+		return x.TaskId
 	}
 	return ""
 }
@@ -3165,18 +3165,18 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xaf\x01\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xbd\x01\n" +
 	"\vReviewRound\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\atask_id\x18\a \x01(\tR\x06taskId\x12\x18\n" +
 	"\aordinal\x18\x03 \x01(\x05R\aordinal\x12\x19\n" +
 	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\x05 \x01(\tR\vsnapshotSha\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\x98\x04\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAtJ\x04\b\x02\x10\x03R\bagent_id\"\xa6\x04\n" +
 	"\x06Review\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\atask_id\x18\x10 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bround_id\x18\x03 \x01(\tR\aroundId\x12#\n" +
 	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12;\n" +
 	"\vauthor_kind\x18\x05 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
@@ -3195,10 +3195,10 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreads\x12%\n" +
 	"\x0eexternal_login\x18\x0f \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_id\"\xaa\x04\n" +
+	"\x10_author_agent_idJ\x04\b\x02\x10\x03R\bagent_id\"\xb8\x04\n" +
 	"\rWatchedReview\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\atask_id\x18\x0f \x01(\tR\x06taskId\x12\x19\n" +
 	"\bround_id\x18\x03 \x01(\tR\aroundId\x12#\n" +
 	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12,\n" +
 	"\x12round_snapshot_sha\x18\x05 \x01(\tR\x10roundSnapshotSha\x12;\n" +
@@ -3216,10 +3216,10 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12&\n" +
 	"\x0fround_landed_at\x18\r \x01(\tR\rroundLandedAt\x12%\n" +
 	"\x0eexternal_login\x18\x0e \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_id\"\xf9\x04\n" +
+	"\x10_author_agent_idJ\x04\b\x02\x10\x03R\bagent_id\"\x87\x05\n" +
 	"\fReviewThread\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\atask_id\x18\x15 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\treview_id\x18\x0f \x01(\tR\breviewId\x12\x19\n" +
 	"\bround_id\x18\x10 \x01(\tR\aroundId\x12#\n" +
 	"\rround_ordinal\x18\x11 \x01(\x05R\froundOrdinal\x12\x19\n" +
@@ -3239,7 +3239,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x0e \x01(\tR\tupdatedAt\x12#\n" +
 	"\rmirrors_forge\x18\x12 \x01(\bR\fmirrorsForge\x129\n" +
-	"\rforge_replies\x18\x14 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeReplies\"\xf8\x04\n" +
+	"\rforge_replies\x18\x14 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeRepliesJ\x04\b\x02\x10\x03R\bagent_id\"\xf8\x04\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -3360,12 +3360,12 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\"\x89\x01\n" +
-	"\x10ReviewViewedFile\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1b\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"\x97\x01\n" +
+	"\x10ReviewViewedFile\x12\x17\n" +
+	"\atask_id\x18\x05 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
 	"\tviewed_at\x18\x03 \x01(\tR\bviewedAt\x12 \n" +
-	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xa0\x01\n" +
+	"\vfingerprint\x18\x04 \x01(\tR\vfingerprintJ\x04\b\x01\x10\x02R\bagent_id\"\xa0\x01\n" +
 	"\x1aSetReviewFileViewedRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
 	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x16\n" +

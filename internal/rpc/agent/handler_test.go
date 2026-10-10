@@ -1012,7 +1012,7 @@ func TestGetAgent(t *testing.T) {
 			Reviews: []reviewstore.Review{
 				{
 					ID:               "review-1",
-					AgentID:          alphaID,
+					TaskID:           "task-1",
 					RoundID:          "round-1",
 					RoundOrdinal:     1,
 					RoundSnapshotSHA: "round-1-sha",

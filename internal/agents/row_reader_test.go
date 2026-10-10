@@ -151,20 +151,24 @@ func TestListRowsByID(t *testing.T) {
 	}
 }
 
-// seedReview opens a review of the agent's first round and returns its id.
+// seedReview opens a review of the first round of the agent's task and returns its id.
 func seedReview(t *testing.T, st *storetest.Stores, agentID string) string {
 	t.Helper()
 
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+	agent, err := st.Agents.GetByID(t.Context(), agentID)
+	require.NoError(t, err)
+
 	round, err := reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		AgentID:     agentID,
+		AgentID:     agent.ID,
+		TaskID:      *agent.TaskID,
 		BaseSHA:     "base",
 		SnapshotSHA: "snapshot",
 	})
 	require.NoError(t, err)
 
 	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID:    agentID,
+		TaskID:     round.TaskID,
 		RoundID:    round.ID,
 		AuthorKind: reviewstore.AuthorHuman,
 	})
@@ -181,7 +185,7 @@ func seedThread(t *testing.T, st *storetest.Stores, reviewID string) string {
 	require.NoError(t, err)
 
 	thread, err := reviews.CreateThread(t.Context(), reviewstore.CreateThreadParams{
-		AgentID:     review.AgentID,
+		TaskID:      review.TaskID,
 		ReviewID:    review.ID,
 		RoundID:     review.RoundID,
 		BaseSHA:     "base",

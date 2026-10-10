@@ -17,6 +17,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -25,12 +26,17 @@ import (
 // reviewDirName is where released reviews are kept under komrad's own state directory.
 const reviewDirName = "reviews"
 
-// ErrReviewNoRound is answered when a review is asked for on an agent no round has been taken
-// of.
-var ErrReviewNoRound = fail.Precondition("no round has been taken of that agent yet")
+// ErrReviewNoRound is answered when a review is asked for on a task no round has been taken of.
+var ErrReviewNoRound = fail.Precondition("no round has been taken of that task yet")
 
-// ErrReviewNotEntitled is answered when an agent asks to review one it is not attached to.
-var ErrReviewNotEntitled = fail.Denied("an agent may only review the agent it is a child of")
+// errReviewNoTask is answered when a review call names an orchestrator, which works on no task.
+var errReviewNoTask = fail.Precondition("that agent works on no task, so it has no work to review")
+
+// errReviewWorktreeRemoved is answered when a round is asked for on a task whose worktree is gone.
+var errReviewWorktreeRemoved = fail.Precondition("that task's worktree was removed, so there is nothing to take a round of")
+
+// ErrReviewNotEntitled is answered when an agent asks to review a task it does not work on.
+var ErrReviewNotEntitled = fail.Denied("an agent may only review the task it works on")
 
 // ErrReviewOwnWork is answered when an agent asks to review its own work.
 var ErrReviewOwnWork = fail.Denied("an agent cannot review its own work")
@@ -50,7 +56,7 @@ var ErrReviewVerdictFromPerson = fail.InvalidArgument("a person's review carries
 var errReviewVerdictMissing = fail.InvalidArgument("a review from an agent needs a verdict")
 
 // ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot no
-// round of that agent was taken of.
+// round of that task was taken of.
 var ErrReviewNotCurrent = fail.Precondition("those lines were read from a snapshot komrad never froze")
 
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
@@ -66,34 +72,48 @@ type reviewSnapshotter interface {
 	ReleaseRef(ctx context.Context, dir, ref string) error
 }
 
-// OpenRound freezes what an agent has written now and records it as its next round.
+// OpenRound freezes the checkout of an agent's task now and records it as the task's next round.
 func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author ReviewAuthor) (*reviewstore.Round, error) {
-	if err := s.requireMayRead(ctx, agentID, author); err != nil {
-		return nil, err
-	}
-
-	agent, err := s.getLiveAgent(ctx, agentID)
+	agent, err := s.getAgent(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 	if agent.ParentAgentID != nil {
 		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agenterr.ErrReviewNeedsOwnWork, agent.Name)
 	}
-	if agent.Cwd == "" {
-		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
+
+	task, err := s.getTaskOfAgent(ctx, *agent)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.requireMayRead(ctx, *task, author); err != nil {
+		return nil, err
 	}
 
-	unlock := s.roundLocks.lock(agentID)
+	return s.openTaskRound(ctx, *task, agent.ID)
+}
+
+// openTaskRound freezes a task's checkout through one of its agents, handing back the newest
+// round when the tree has not moved since it was taken.
+func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task, agentID string) (*reviewstore.Round, error) {
+	if task.Checkout.WorktreeRemoved {
+		return nil, fmt.Errorf("%w: %q", errReviewWorktreeRemoved, task.Slug)
+	}
+	if task.Checkout.Cwd == "" {
+		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, task.Slug)
+	}
+
+	unlock := s.roundLocks.lock(task.ID)
 	defer unlock()
 
-	snapshot, err := s.takeSnapshot(ctx, agent)
+	snapshot, err := s.takeSnapshot(ctx, task)
 	if err != nil {
 		return nil, err
 	}
 
 	// A tree that has not moved is the round that was already taken of it, so opening the diff
 	// twice without the agent writing anything does not walk the ordinal on.
-	latest, err := s.reviews.GetLatestRound(ctx, agentID)
+	latest, err := s.reviews.GetLatestRound(ctx, task.ID)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
@@ -101,22 +121,19 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return latest, nil
 	}
 
-	ref := reviewstore.RoundRef(agentID, snapshot.SHA)
-	if err := s.snapshots.HoldRef(ctx, agent.Cwd, ref, snapshot.SHA); err != nil {
+	ref := reviewstore.RoundRef(task.ID, snapshot.SHA)
+	if err := s.snapshots.HoldRef(ctx, task.Checkout.Cwd, ref, snapshot.SHA); err != nil {
 		return nil, err
 	}
 
 	round, err := s.reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
 		AgentID:     agentID,
+		TaskID:      task.ID,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
 	})
 	if err != nil {
-		s.releaseUnheldRef(ctx, releaseUnheldRefParams{
-			Agent:       agent,
-			Ref:         ref,
-			SnapshotSHA: snapshot.SHA,
-		})
+		s.releaseUnheldRef(ctx, task, snapshot.SHA)
 
 		return nil, err
 	}
@@ -124,31 +141,25 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 	return round, nil
 }
 
-type releaseUnheldRefParams struct {
-	Agent       *agentstore.Agent
-	Ref         string
-	SnapshotSHA string
-}
-
 // releaseUnheldRef drops a ref taken for a round that was never written, unless an earlier round
 // of the same tree already stands on it.
-func (s *ReviewService) releaseUnheldRef(ctx context.Context, params releaseUnheldRefParams) {
-	_, err := s.reviews.GetRoundBySnapshot(ctx, params.Agent.ID, params.SnapshotSHA)
+func (s *ReviewService) releaseUnheldRef(ctx context.Context, task taskstore.Task, snapshotSHA string) {
+	_, err := s.reviews.GetRoundBySnapshot(ctx, task.ID, snapshotSHA)
 	if !errors.Is(err, store.ErrNotFound) {
 		return
 	}
 
-	if err := s.snapshots.ReleaseRef(ctx, params.Agent.Cwd, params.Ref); err != nil {
+	if err := s.snapshots.ReleaseRef(ctx, task.Checkout.Cwd, reviewstore.RoundRef(task.ID, snapshotSHA)); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a round that was never written",
-			append([]slog.Attr{slog.String(logging.AgentID, params.Agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 	}
 }
 
-// getLatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
-func (s *ReviewService) getLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
-	round, err := s.reviews.GetLatestRound(ctx, agentID)
+// getLatestRound is the newest round of a task, ErrReviewNoRound when none has been taken.
+func (s *ReviewService) getLatestRound(ctx context.Context, taskID string) (*reviewstore.Round, error) {
+	round, err := s.reviews.GetLatestRound(ctx, taskID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrReviewNoRound, agentID)
+		return nil, fmt.Errorf("%w: %q", ErrReviewNoRound, taskID)
 	}
 	if err != nil {
 		return nil, err
@@ -157,31 +168,40 @@ func (s *ReviewService) getLatestRound(ctx context.Context, agentID string) (*re
 	return round, nil
 }
 
-// ListRounds is every round taken of an agent, oldest first.
+// ListRounds is every round taken of an agent's task, oldest first.
 func (s *ReviewService) ListRounds(
 	ctx context.Context,
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Round, error) {
-	if err := s.requireMayRead(ctx, agentID, author); err != nil {
+	task, err := s.getTaskOfAgentID(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.requireMayRead(ctx, *task, author); err != nil {
 		return nil, err
 	}
 
-	return s.reviews.ListRounds(ctx, agentID)
+	return s.reviews.ListRounds(ctx, task.ID)
 }
 
-// ListReviews is every review given on an agent, in the order their rounds were taken, keeping
-// another author's unreleased review, and the path of their released one, from an agent caller.
+// ListReviews is every review given on an agent's task, in the order their rounds were taken,
+// keeping another author's unreleased review, and the path of their released one, from an agent
+// caller.
 func (s *ReviewService) ListReviews(
 	ctx context.Context,
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Review, error) {
-	if err := s.requireMayRead(ctx, agentID, author); err != nil {
+	task, err := s.getTaskOfAgentID(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.requireMayRead(ctx, *task, author); err != nil {
 		return nil, err
 	}
 
-	reviews, err := s.reviews.ListReviews(ctx, agentID)
+	reviews, err := s.reviews.ListReviews(ctx, task.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +239,7 @@ func doesOwnReviewBatch(author ReviewAuthor, review reviewstore.Review) bool {
 // one holding the snapshot it read, or the round its own open review sits on.
 func (s *ReviewService) roundFor(
 	ctx context.Context,
+	taskID string,
 	params CreateReviewThreadParams,
 ) (*reviewstore.Round, error) {
 	if params.RoundID != "" {
@@ -226,9 +247,9 @@ func (s *ReviewService) roundFor(
 	}
 
 	if params.SnapshotSHA != "" {
-		round, err := s.reviews.GetRoundBySnapshot(ctx, params.AgentID, params.SnapshotSHA)
+		round, err := s.reviews.GetRoundBySnapshot(ctx, taskID, params.SnapshotSHA)
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, fmt.Errorf("%w: %s is the snapshot of no round of this agent",
+			return nil, fmt.Errorf("%w: %s is the snapshot of no round of this task",
 				ErrReviewNotCurrent, params.SnapshotSHA[:min(len(params.SnapshotSHA), 12)])
 		}
 
@@ -236,7 +257,7 @@ func (s *ReviewService) roundFor(
 	}
 
 	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
-		AgentID:       params.AgentID,
+		TaskID:        taskID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	})
@@ -247,30 +268,26 @@ func (s *ReviewService) roundFor(
 		return nil, err
 	}
 
-	return s.getLatestRound(ctx, params.AgentID)
+	return s.getLatestRound(ctx, taskID)
 }
 
 // openReviewForParams says whose work an author is writing about, and from where.
 type openReviewForParams struct {
-	AgentID string
-	Author  ReviewAuthor
+	TaskID string
+	Author ReviewAuthor
 	// Round is the round the author read their line numbers from, nil for a caller with nothing
 	// to say about which round that was.
 	Round *reviewstore.Round
 }
 
-// openReviewFor is the review an author is writing against an agent, opened against the round
+// openReviewFor is the review an author is writing against a task, opened against the round
 // they read when they have none.
 func (s *ReviewService) openReviewFor(
 	ctx context.Context,
 	params openReviewForParams,
 ) (*reviewstore.Review, error) {
-	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
-		return nil, err
-	}
-
 	author := reviewstore.OpenReviewOfParams{
-		AgentID:       params.AgentID,
+		TaskID:        params.TaskID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	}
@@ -285,7 +302,7 @@ func (s *ReviewService) openReviewFor(
 
 	round := params.Round
 	if round == nil {
-		round, err = s.getLatestRound(ctx, params.AgentID)
+		round, err = s.getLatestRound(ctx, params.TaskID)
 		if err != nil {
 			return nil, err
 		}
@@ -296,7 +313,7 @@ func (s *ReviewService) openReviewFor(
 	}
 
 	return s.reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
-		AgentID:       params.AgentID,
+		TaskID:        params.TaskID,
 		RoundID:       round.ID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
@@ -314,7 +331,7 @@ func (s *ReviewService) requireNotReviewedAlready(
 		return nil
 	}
 
-	reviews, err := s.reviews.ListReviews(ctx, params.AgentID)
+	reviews, err := s.reviews.ListReviews(ctx, params.TaskID)
 	if err != nil {
 		return err
 	}
@@ -334,48 +351,98 @@ func (s *ReviewService) requireNotReviewedAlready(
 	return nil
 }
 
-// requireEntitled refuses an author that may not give a review on an agent, which the person
-// always may, an agent only on the agent it is a child of, and nobody on their own work.
+// requireEntitled refuses an author that may not give a review on a task, which the person always
+// may, a child agent only on the task it works on, and a top-level agent never.
 func (s *ReviewService) requireEntitled(
 	ctx context.Context,
-	agentID string,
-	author ReviewAuthor,
-) error {
-	if !author.isHuman() && author.AgentID != nil && *author.AgentID == agentID {
-		return ErrReviewOwnWork
-	}
-
-	return s.requireMayRead(ctx, agentID, author)
-}
-
-// requireMayRead refuses an author that may not look at an agent's rounds and reviews at all.
-func (s *ReviewService) requireMayRead(
-	ctx context.Context,
-	agentID string,
+	task taskstore.Task,
 	author ReviewAuthor,
 ) error {
 	if author.isHuman() {
 		return nil
 	}
-	if author.AgentID == nil {
-		return fmt.Errorf("%w: %q", ErrReviewNotEntitled, agentID)
-	}
-	if *author.AgentID == agentID {
-		return nil
-	}
 
-	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
-	}
+	agent, err := s.getAuthorOnTask(ctx, task, author)
 	if err != nil {
 		return err
 	}
-	if reviewer.ParentAgentID == nil || *reviewer.ParentAgentID != agentID {
-		return fmt.Errorf("%w: %q", ErrReviewNotEntitled, agentID)
+	if agent.ParentAgentID == nil {
+		return ErrReviewOwnWork
 	}
 
 	return nil
+}
+
+// requireMayRead refuses an author that may not look at a task's rounds and reviews at all.
+func (s *ReviewService) requireMayRead(
+	ctx context.Context,
+	task taskstore.Task,
+	author ReviewAuthor,
+) error {
+	if author.isHuman() {
+		return nil
+	}
+
+	_, err := s.getAuthorOnTask(ctx, task, author)
+
+	return err
+}
+
+// getAuthorOnTask reads the agent behind an author, refusing one that works on another task.
+func (s *ReviewService) getAuthorOnTask(
+	ctx context.Context,
+	task taskstore.Task,
+	author ReviewAuthor,
+) (*agentstore.Agent, error) {
+	if author.AgentID == nil {
+		return nil, fmt.Errorf("%w: %q", ErrReviewNotEntitled, task.Slug)
+	}
+
+	agent, err := s.getAgent(ctx, *author.AgentID)
+	if err != nil {
+		return nil, err
+	}
+	if agent.TaskID == nil || *agent.TaskID != task.ID {
+		return nil, fmt.Errorf("%w: %q", ErrReviewNotEntitled, task.Slug)
+	}
+
+	return agent, nil
+}
+
+// getTaskOfAgentID reads the task the agent with this id works on.
+func (s *ReviewService) getTaskOfAgentID(ctx context.Context, agentID string) (*taskstore.Task, error) {
+	agent, err := s.getAgent(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.getTaskOfAgent(ctx, *agent)
+}
+
+// getTaskOfAgent reads the task an agent works on, refusing an orchestrator, which works on none.
+func (s *ReviewService) getTaskOfAgent(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
+	if agent.TaskID == nil {
+		return nil, fmt.Errorf("%w: %q", errReviewNoTask, agent.Name)
+	}
+
+	return s.tasks.Get(ctx, *agent.TaskID)
+}
+
+// isTaskWriter reports whether an author is the live writer of a task.
+func (s *ReviewService) isTaskWriter(ctx context.Context, author ReviewAuthor, taskID string) (bool, error) {
+	if author.isHuman() || author.AgentID == nil {
+		return false, nil
+	}
+
+	writer, err := s.agents.GetTaskWriter(ctx, taskID)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return writer.ID == *author.AgentID, nil
 }
 
 // ReleaseReviewResult reports what letting go of a review did.
@@ -404,12 +471,11 @@ func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
 ) (*ReleaseReviewResult, error) {
-	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
+	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
+	if err != nil {
 		return nil, err
 	}
-
-	agent, err := s.getLiveAgent(ctx, params.AgentID)
-	if err != nil {
+	if err := s.requireEntitled(ctx, *task, params.Author); err != nil {
 		return nil, err
 	}
 
@@ -420,16 +486,16 @@ func (s *ReviewService) ReleaseReview(
 
 	// A release opens a batch unless it is an agent's comment-only review with nothing in it.
 	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
-		AgentID:       params.AgentID,
+		TaskID:        task.ID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		if isSayingNothing(params.Author, verdict) {
-			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
+			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 		}
 
-		open, err = s.openReviewFor(ctx, openReviewForParams{AgentID: params.AgentID, Author: params.Author})
+		open, err = s.openReviewFor(ctx, openReviewForParams{TaskID: task.ID, Author: params.Author})
 	}
 	if err != nil {
 		return nil, err
@@ -449,7 +515,7 @@ func (s *ReviewService) ReleaseReview(
 	// An agent's notes with no conclusion have to say something, whether pinned to a line, a
 	// reply in an earlier thread, or about the work as a whole.
 	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && isSayingNothing(params.Author, verdict) {
-		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
+		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 	}
 
 	round, err := s.reviews.GetRound(ctx, open.RoundID)
@@ -458,20 +524,20 @@ func (s *ReviewService) ReleaseReview(
 	}
 
 	path, err := s.writeReview(ctx, writeReviewParams{
-		Agent:   *agent,
+		Task:    *task,
 		Round:   *round,
 		Review:  *open,
 		Verdict: verdict,
 		Body:    params.Body,
-		Threads: s.threadsInContext(ctx, agent.Cwd, threads),
+		Threads: s.threadsInContext(ctx, task.Checkout.Cwd, threads),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// A person's review stops the agent so it reads the comments now.
-	if params.Author.isHuman() && agent.Alive {
-		s.interrupt(ctx, params.AgentID)
+	// A person's review stops the task's writer so it reads the comments now.
+	if params.Author.isHuman() {
+		s.interruptWriter(ctx, task.ID)
 	}
 
 	var released *reviewstore.ReleasedReview
@@ -489,7 +555,7 @@ func (s *ReviewService) ReleaseReview(
 
 		event, err := events.NewEvent(Released{
 			ReviewID: open.ID,
-			AgentID:  params.AgentID,
+			TaskID:   task.ID,
 			Ordinal:  round.Ordinal,
 			ByPerson: params.Author.isHuman(),
 			Verdict:  verdict,
@@ -600,10 +666,7 @@ func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID string) (
 		return nil, err
 	}
 
-	all, err := s.ListReviewThreads(ctx, ListReviewThreadsParams{
-		AgentID: review.AgentID,
-		Author:  ReviewAuthor{Kind: reviewstore.AuthorHuman},
-	})
+	all, err := s.listThreads(ctx, review.TaskID, ReviewAuthor{Kind: reviewstore.AuthorHuman})
 	if err != nil {
 		return nil, err
 	}
@@ -644,8 +707,8 @@ type ReviewInFull struct {
 	Threads []ReviewThreadInContext
 }
 
-// GetReview is one released review whole, which the agent it is about, its reviewer and the
-// person may read, and which its author alone may read before it is released.
+// GetReview is one released review whole, which the agents on its task and the person may read,
+// and which its author alone may read before it is released.
 func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author ReviewAuthor) (*ReviewInFull, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -659,19 +722,15 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 	if review.ReleasedAt == nil && !author.isHuman() && !doesOwnReviewBatch(author, *review) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotFound, reviewID)
 	}
-	if err := s.requireMayRead(ctx, review.AgentID, author); err != nil {
+	task, err := s.tasks.Get(ctx, review.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.requireMayRead(ctx, *task, author); err != nil {
 		return nil, err
 	}
 	if !author.isHuman() && !doesOwnReviewBatch(author, *review) {
 		review.Path = ""
-	}
-
-	agent, err := s.agents.GetByID(ctx, review.AgentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", review.AgentID)
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	round, err := s.reviews.GetRound(ctx, review.RoundID)
@@ -697,13 +756,13 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 	return &ReviewInFull{
 		Review:  *review,
 		Round:   *round,
-		Threads: s.threadsInContext(ctx, agent.Cwd, threads),
+		Threads: s.threadsInContext(ctx, task.Checkout.Cwd, threads),
 	}, nil
 }
 
 // writeReviewParams is everything one review file is written from.
 type writeReviewParams struct {
-	Agent   agentstore.Agent
+	Task    taskstore.Task
 	Round   reviewstore.Round
 	Review  reviewstore.Review
 	Verdict reviewstore.Verdict
@@ -712,15 +771,15 @@ type writeReviewParams struct {
 }
 
 // writeReview puts the whole review under komrad's own state directory rather than in the
-// agent's worktree, and leaves it there for good.
+// task's worktree, and leaves it there for good.
 func (s *ReviewService) writeReview(ctx context.Context, params writeReviewParams) (string, error) {
-	dir := filepath.Join(s.stateDir, reviewDirName, params.Agent.ID)
+	dir := filepath.Join(s.stateDir, reviewDirName, params.Task.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("failed to make room for the review of %q: %w", params.Agent.Name, err)
+		return "", fmt.Errorf("failed to make room for the review of %q: %w", params.Task.Slug, err)
 	}
 
 	body := renderReview(renderReviewParams{
-		Agent:   params.Agent,
+		Task:    params.Task,
 		Round:   params.Round,
 		Author:  s.getAuthorName(ctx, params.Review),
 		Verdict: params.Verdict,
@@ -730,7 +789,7 @@ func (s *ReviewService) writeReview(ctx context.Context, params writeReviewParam
 
 	full := filepath.Join(dir, fmt.Sprintf("round-%d-%s.md", params.Round.Ordinal, params.Review.ID))
 	if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write the review of %q: %w", params.Agent.Name, err)
+		return "", fmt.Errorf("failed to write the review of %q: %w", params.Task.Slug, err)
 	}
 
 	return full, nil
@@ -814,8 +873,8 @@ func (s *ReviewService) readRoundFile(ctx context.Context, params readRoundFileP
 	return lines
 }
 
-// getLiveAgent refuses an agent that has been archived.
-func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+// getAgent reads an agent, archived or not, ErrAgentNotFound for an id that names none.
+func (s *ReviewService) getAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
@@ -823,19 +882,26 @@ func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agen
 	if err != nil {
 		return nil, err
 	}
-	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", agenterr.ErrAgentArchived, agent.Name)
-	}
 
 	return agent, nil
 }
 
-// takeSnapshot freezes an agent's worktree against the base branch its workflow cuts from.
-func (s *ReviewService) takeSnapshot(ctx context.Context, agent *agentstore.Agent) (*git.Snapshot, error) {
+// interruptWriter stops a task's live writer where it stands, doing nothing when it has none.
+func (s *ReviewService) interruptWriter(ctx context.Context, taskID string) {
+	writer, err := s.agents.GetTaskWriter(ctx, taskID)
+	if err != nil || !writer.Alive {
+		return
+	}
+
+	s.interrupt(ctx, writer.ID)
+}
+
+// takeSnapshot freezes a task's checkout against the base branch its workflow cuts from.
+func (s *ReviewService) takeSnapshot(ctx context.Context, task taskstore.Task) (*git.Snapshot, error) {
 	base := ""
-	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
+	if flow, err := s.workflows.Get(ctx, task.WorkflowID); err == nil {
 		base = flow.Worktree.BaseBranch
 	}
 
-	return s.snapshots.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: agent.Cwd, Base: base})
+	return s.snapshots.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: task.Checkout.Cwd, Base: base})
 }

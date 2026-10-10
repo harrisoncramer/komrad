@@ -480,7 +480,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 	reviewer := &fakeReviewer{
 		review: reviewstore.Review{
 			ID:            "review-1",
-			AgentID:       betaID,
+			TaskID:        "task-beta",
 			RoundID:       "round-1",
 			RoundOrdinal:  1,
 			AuthorKind:    reviewstore.AuthorAgent,
@@ -495,7 +495,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 		},
 		round: reviewstore.Round{
 			ID:          "round-1",
-			AgentID:     betaID,
+			TaskID:      "task-beta",
 			Ordinal:     1,
 			BaseSHA:     "base-sha",
 			SnapshotSHA: "snapshot-sha",
@@ -503,7 +503,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 		},
 		thread: reviewstore.Thread{
 			ID:       "thread-1",
-			AgentID:  betaID,
+			TaskID:   "task-beta",
 			FilePath: "greet.go",
 		},
 	}
@@ -517,7 +517,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 	assert.Empty(t, cmp.Diff(&agentv1.GetReviewResponse{
 		Review: &agentv1.Review{
 			Id:            "review-1",
-			AgentId:       betaID,
+			TaskId:        "task-beta",
 			RoundId:       "round-1",
 			RoundOrdinal:  1,
 			AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
@@ -532,7 +532,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 		},
 		Round: &agentv1.ReviewRound{
 			Id:          "round-1",
-			AgentId:     betaID,
+			TaskId:      "task-beta",
 			Ordinal:     1,
 			BaseSha:     "base-sha",
 			SnapshotSha: "snapshot-sha",
@@ -541,7 +541,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 		Threads: []*agentv1.ReviewThreadInContext{{
 			Thread: &agentv1.ReviewThread{
 				Id:       "thread-1",
-				AgentId:  betaID,
+				TaskId:   "task-beta",
 				FilePath: "greet.go",
 			},
 			Context: []string{">> 1  package greet"},
@@ -562,13 +562,13 @@ func TestSetReviewFileViewedRendersTheMark(t *testing.T) {
 		{
 			name: "a file marked read",
 			viewed: &reviewstore.ViewedFile{
-				AgentID:     betaID,
+				TaskID:      "task-beta",
 				FilePath:    "greet.go",
 				Fingerprint: "abc123",
 				ViewedAt:    reviewedAt,
 			},
 			wantViewed: &agentv1.ReviewViewedFile{
-				AgentId:     betaID,
+				TaskId:      "task-beta",
 				FilePath:    "greet.go",
 				Fingerprint: "abc123",
 				ViewedAt:    "2026-09-24T09:00:00Z",

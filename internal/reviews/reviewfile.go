@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"komrad/internal/git"
-	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 )
 
 // contextLines is how much of the file either side of a comment goes into the review.
@@ -15,8 +15,8 @@ const contextLines = 6
 
 // renderReviewParams is everything one review file has to say for itself.
 type renderReviewParams struct {
-	// Agent is the agent whose work was reviewed.
-	Agent agentstore.Agent
+	// Task is the task whose work was reviewed.
+	Task  taskstore.Task
 	Round reviewstore.Round
 	// Author names who gave the review, and is empty when a person gave it.
 	Author  string
@@ -39,8 +39,8 @@ func renderReview(params renderReviewParams) string {
 		Verdict: verdict,
 		Person:  params.Author == "",
 	}))
-	fmt.Fprintf(&out, "On the work of **%s** (`%s`), reviewed by %s.\n\n",
-		params.Agent.Name, params.Agent.ID, reviewerName(params.Author))
+	fmt.Fprintf(&out, "On the work of task **%s** (`%s`), reviewed by %s.\n\n",
+		params.Task.Slug, params.Task.ID, reviewerName(params.Author))
 	fmt.Fprintf(&out, "This review was written against the snapshot `%s`, taken from `%s`. "+
 		"To see exactly what was reviewed, run `git diff %s %s`.\n",
 		git.ShortSHA(round.SnapshotSHA), git.ShortSHA(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)

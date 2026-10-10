@@ -21,6 +21,7 @@ import (
 	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
 	"komrad/internal/storetest"
+	"komrad/internal/tasks"
 	"komrad/lib/xptr"
 )
 
@@ -191,10 +192,62 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, draft.ID, revised.ID)
 
-	listed, err := service.ListDocuments(ctx, documentstore.ListParams{AgentID: xptr.Ptr(author.ID), Limit: 10})
+	listed, err := service.ListDocuments(ctx, documents.ListDocumentsParams{AgentID: xptr.Ptr(author.ID), Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, listed, 1, "a retitled document is the same document")
 	assert.Equal(t, "Documents RFC", listed[0].Name)
+}
+
+// TestListDocumentsByTask pins that a listing names its task by id or by slug.
+func TestListDocumentsByTask(t *testing.T) {
+	stores := storetest.Open(t)
+	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
+	ctx := t.Context()
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+	task, err := stores.Tasks.Get(ctx, *author.TaskID)
+	require.NoError(t, err)
+
+	written, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+		AgentID: author.ID,
+		Name:    "Plan",
+		Type:    "RFC",
+		Body:    "# Plan",
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		task    string
+		wantErr error
+	}{
+		{
+			name:    "a task nobody made",
+			task:    "no-such-task",
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name: "a task named by its slug",
+			task: task.Slug,
+		},
+		{
+			name: "a task named by its id",
+			task: task.ID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listed, err := service.ListDocuments(ctx, documents.ListDocumentsParams{Task: &tt.task, Limit: 10})
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, listed, 1)
+			assert.Equal(t, written.ID, listed[0].ID)
+		})
+	}
 }
 
 // TestReadAnEarlierWrite pins that a document reads as an earlier write left it, and that a write
@@ -528,6 +581,7 @@ func newService(stores *storetest.Stores, events *eventstest.Queue) *documents.D
 		Documents: stores.Documents,
 		Types:     stores.DocumentTypes,
 		Events:    events,
+		Tasks:     tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: stores.Tasks}),
 	})
 }
 

@@ -176,12 +176,13 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
 					AgentID:     api.ID,
+					TaskID:      *api.TaskID,
 					BaseSHA:     "base",
 					SnapshotSHA: "snapshot",
 				})
 				require.NoError(t, err)
 				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
-					AgentID:    api.ID,
+					TaskID:     *api.TaskID,
 					RoundID:    round.ID,
 					AuthorKind: reviewstore.AuthorHuman,
 				})
@@ -203,19 +204,20 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
 					AgentID:     base.ID,
+					TaskID:      *base.TaskID,
 					BaseSHA:     "base",
 					SnapshotSHA: "snapshot",
 				})
 				require.NoError(t, err)
 				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
-					AgentID:       base.ID,
+					TaskID:        *base.TaskID,
 					RoundID:       round.ID,
 					AuthorKind:    reviewstore.AuthorAgent,
 					AuthorAgentID: &api.ID,
 				})
 				require.NoError(t, err)
 				_, err = reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
-					AgentID:       base.ID,
+					TaskID:        *base.TaskID,
 					ReviewID:      review.ID,
 					RoundID:       round.ID,
 					BaseSHA:       "base",
@@ -384,7 +386,6 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	archived, err := st.Rows.ListPage(ctx, rowstore.Page{Limit: 100, Archived: true})
 	require.NoError(t, err)
 	rows := slices.Concat(live, archived)
-	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 
 	mail, err := st.Mail.ListWatched(ctx, nil)
 	require.NoError(t, err)
@@ -399,7 +400,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	require.NoError(t, err)
 
 	reviewStore := reviewstore.NewReviewStore(st.Pool.GetDB())
-	reviewIDs, err := reviewStore.ListIDsOfAgents(ctx, agentIDs)
+	reviewIDs, err := reviewStore.ListIDsOfTasks(ctx, xslice.Map(tasks, func(task taskstore.Task) string { return task.ID }))
 	require.NoError(t, err)
 	reviews, err := reviewStore.ListWatched(ctx, reviewIDs)
 	require.NoError(t, err)

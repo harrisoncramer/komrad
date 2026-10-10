@@ -1,18 +1,20 @@
 -- name: InsertReviewRound :one
 INSERT INTO review_rounds(
     agent_id,
+    task_id,
     ordinal,
     base_sha,
     snapshot_sha)
 SELECT
     @agent_id,
+    sqlc.arg('task_id')::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
     @base_sha,
     @snapshot_sha
 FROM
     review_rounds r
 WHERE
-    r.agent_id = @agent_id
+    r.task_id = sqlc.arg('task_id')::uuid
 RETURNING
     *;
 
@@ -30,7 +32,7 @@ SELECT
 FROM
     review_rounds r
 WHERE
-    r.agent_id = @agent_id
+    r.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
     r.ordinal DESC
 LIMIT 1;
@@ -41,7 +43,7 @@ SELECT
 FROM
     review_rounds r
 WHERE
-    r.agent_id = @agent_id
+    r.task_id = sqlc.arg('task_id')::uuid
     AND r.snapshot_sha = @snapshot_sha
 ORDER BY
     r.ordinal DESC
@@ -53,21 +55,46 @@ SELECT
 FROM
     review_rounds r
 WHERE
-    r.agent_id = @agent_id
+    r.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
     r.ordinal;
+
+-- name: ListRoundsLeftByAgents :many
+SELECT
+    r.*
+FROM
+    review_rounds r
+WHERE
+    r.task_id IN (
+        SELECT
+            a.task_id
+        FROM
+            agents a
+        WHERE
+            a.id = ANY (sqlc.arg('agent_ids')::uuid[]))
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents o
+        WHERE
+            o.task_id = r.task_id
+            AND o.id <> ALL (sqlc.arg('agent_ids')::uuid[]));
 
 -- name: InsertReview :one
 INSERT INTO reviews(
     agent_id,
+    task_id,
     round_id,
     author_kind,
     author_agent_id)
-VALUES (
-    @agent_id,
-    @round_id,
-    @author_kind,
-    sqlc.narg('author_agent_id'))
+VALUES ((
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = @round_id), sqlc.arg('task_id')::uuid, @round_id, @author_kind, sqlc.narg('author_agent_id'))
 RETURNING
     *;
 
@@ -83,7 +110,14 @@ WHERE
 UPDATE
     reviews v
 SET
-    round_id = @round_id
+    round_id = @round_id,
+    agent_id =(
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = @round_id)
 WHERE
     v.id = @id
     AND v.released_at IS NULL
@@ -96,7 +130,7 @@ SELECT
 FROM
     reviews v
 WHERE
-    v.agent_id = @agent_id
+    v.task_id = sqlc.arg('task_id')::uuid
     AND v.author_kind = @author_kind
     AND v.author_agent_id IS NOT DISTINCT FROM sqlc.narg('author_agent_id')
     AND v.released_at IS NULL;
@@ -119,7 +153,7 @@ FROM
     JOIN review_rounds r ON r.id = v.round_id
     LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
-    v.agent_id = @agent_id
+    v.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
     r.ordinal,
     v.id;
@@ -127,7 +161,7 @@ ORDER BY
 -- name: ListWatchedReviews :many
 SELECT
     v.id,
-    v.agent_id,
+    v.task_id::uuid AS task_id,
     v.round_id,
     v.author_kind,
     v.author_agent_id,
@@ -149,23 +183,23 @@ WHERE
 ORDER BY
     v.id;
 
--- name: ListReviewIDsOfAgents :many
+-- name: ListReviewIDsOfTasks :many
 SELECT
     v.id
 FROM
     reviews v
 WHERE
-    v.agent_id = ANY (@agent_ids::uuid[])
+    v.task_id = ANY (sqlc.arg('task_ids')::uuid[])
 ORDER BY
     v.id;
 
--- name: ListReviewThreadIDsOfAgents :many
+-- name: ListReviewThreadIDsOfTasks :many
 SELECT
     t.id
 FROM
     review_threads t
 WHERE
-    t.agent_id = ANY (@agent_ids::uuid[])
+    t.task_id = ANY (sqlc.arg('task_ids')::uuid[])
 ORDER BY
     t.id;
 
@@ -235,6 +269,7 @@ WHERE id = @id;
 WITH opened AS (
     INSERT INTO review_threads(
         agent_id,
+        task_id,
         review_id,
         round_id,
         base_sha,
@@ -246,23 +281,29 @@ WITH opened AS (
         quoted_lines,
         forge_thread_id,
         last_agent_activity_at)
-    VALUES (
-        @agent_id,
-        @review_id,
-        @round_id,
-        @base_sha,
-        @file_path,
-        @old_start,
-        @old_end,
-        @new_start,
-        @new_end,
-        @quoted_lines,
-        sqlc.narg('forge_thread_id')::uuid,
-        CASE WHEN @author_kind::review_author_kind = 'agent' THEN
-            NOW()
-        END)
-RETURNING
-    *
+    VALUES ((
+            SELECT
+                r.agent_id
+            FROM
+                review_rounds r
+            WHERE
+                r.id = @round_id),
+            sqlc.arg('task_id')::uuid,
+            @review_id,
+            @round_id,
+            @base_sha,
+            @file_path,
+            @old_start,
+            @old_end,
+            @new_start,
+            @new_end,
+            @quoted_lines,
+            sqlc.narg('forge_thread_id')::uuid,
+            CASE WHEN @author_kind::review_author_kind = 'agent' THEN
+                NOW()
+            END)
+    RETURNING
+        *
 ),
 said AS (
     INSERT INTO review_messages(
@@ -311,7 +352,7 @@ FROM
     JOIN reviews v ON v.id = t.review_id
     JOIN review_rounds r ON r.id = t.round_id
 WHERE
-    t.agent_id = @agent_id
+    t.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
     r.ordinal,
     t.file_path,
@@ -329,9 +370,15 @@ SELECT
 FROM
     review_threads t
     JOIN review_rounds r ON r.id = t.round_id
-    JOIN agents a ON a.id = t.agent_id
 WHERE
-    a.archived_at IS NULL
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.task_id
+            AND a.archived_at IS NULL)
     AND (sqlc.narg('keys')::text[] IS NULL
         OR t.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
@@ -436,11 +483,19 @@ said AS (
             AND w.author_kind = t.resolved_by_kind
             AND w.author_kind <> 'human'
             AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
-            AND w.author_agent_id IS DISTINCT FROM t.agent_id) AS reopens
-    FROM
-        written w
-        JOIN review_threads t ON t.id = w.thread_id
-        JOIN reviews v ON v.id = t.review_id
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    agents a
+                WHERE
+                    a.id = w.author_agent_id
+                    AND a.task_id = t.task_id
+                    AND a.parent_agent_id IS NULL)) AS reopens
+        FROM
+            written w
+            JOIN review_threads t ON t.id = w.thread_id
+            JOIN reviews v ON v.id = t.review_id
 ),
 touched AS (
     UPDATE
@@ -504,7 +559,15 @@ said AS (
             AND w.author_kind = t.resolved_by_kind
             AND w.author_kind <> 'human'
             AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
-            AND w.author_agent_id IS DISTINCT FROM t.agent_id) AS reopens
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    agents a
+                WHERE
+                    a.id = w.author_agent_id
+                    AND a.task_id = t.task_id
+                    AND a.parent_agent_id IS NULL)) AS reopens
     FROM
         written w
         JOIN review_threads t ON t.id = w.thread_id
@@ -571,16 +634,19 @@ ORDER BY
 -- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(
     agent_id,
+    task_id,
     file_path,
     fingerprint)
 VALUES (
     @agent_id,
+    sqlc.arg('task_id')::uuid,
     @file_path,
     @fingerprint)
 ON CONFLICT (
-    agent_id,
+    task_id,
     file_path)
     DO UPDATE SET
+        agent_id = @agent_id,
         fingerprint = @fingerprint,
         viewed_at = NOW()
     RETURNING
@@ -588,7 +654,7 @@ ON CONFLICT (
 
 -- name: UnmarkReviewFileViewed :exec
 DELETE FROM review_viewed_files
-WHERE agent_id = @agent_id
+WHERE task_id = sqlc.arg('task_id')::uuid
     AND file_path = @file_path;
 
 -- name: ListReviewViewedFiles :many
@@ -597,25 +663,25 @@ SELECT
 FROM
     review_viewed_files v
 WHERE
-    v.agent_id = @agent_id
+    v.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
     v.file_path;
 
 -- name: ListReviewTallies :many
 WITH released AS (
     SELECT
-        v.agent_id,
+        v.task_id::uuid AS task_id,
         COUNT(DISTINCT v.round_id)::int AS rounds
     FROM
         reviews v
     WHERE
         v.released_at IS NOT NULL
     GROUP BY
-        v.agent_id
+        v.task_id
 ),
 concluded AS (
-    SELECT DISTINCT ON (v.agent_id)
-        v.agent_id,
+    SELECT DISTINCT ON (v.task_id)
+        v.task_id,
         v.verdict,
         n.snapshot_sha
     FROM
@@ -625,44 +691,38 @@ concluded AS (
         v.released_at IS NOT NULL
         AND v.verdict IN ('approved', 'changes_requested')
     ORDER BY
-        v.agent_id,
+        v.task_id,
         n.ordinal DESC,
         v.released_at DESC
 )
 SELECT
-    r.agent_id,
+    r.task_id,
     r.rounds,
     c.verdict,
     c.snapshot_sha
 FROM
     released r
-    LEFT JOIN concluded c ON c.agent_id = r.agent_id;
+    LEFT JOIN concluded c ON c.task_id = r.task_id;
 
 -- name: ListNewestTaskReviewRounds :many
-SELECT DISTINCT ON (a.task_id)
-    a.task_id::uuid AS task_id,
+SELECT DISTINCT ON (r.task_id)
+    r.task_id::uuid AS task_id,
     r.snapshot_sha
 FROM
     review_rounds r
-    JOIN agents a ON a.id = r.agent_id
-WHERE
-    a.task_id IS NOT NULL
 ORDER BY
-    a.task_id,
-    r.created_at DESC,
+    r.task_id,
     r.ordinal DESC;
 
 -- name: ListUnlandedReviewRounds :many
 SELECT
-    a.task_id::uuid AS task_id,
-    r.agent_id,
+    r.task_id::uuid AS task_id,
     r.ordinal,
     r.base_sha,
     r.snapshot_sha,
     m.merged_at
 FROM
     review_rounds r
-    JOIN agents a ON a.id = r.agent_id
     LEFT JOIN LATERAL (
         SELECT
             p.merged_at
@@ -670,15 +730,21 @@ FROM
             task_pull_requests o
             JOIN pull_requests p ON p.id = o.pull_request_id
         WHERE
-            o.task_id = a.task_id
+            o.task_id = r.task_id
             AND p.merged_at IS NOT NULL
         ORDER BY
             p.merged_at DESC
         LIMIT 1) m ON TRUE
 WHERE
     r.landed_at IS NULL
-    AND a.archived_at IS NULL
-    AND a.task_id IS NOT NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = r.task_id
+            AND a.archived_at IS NULL)
     AND EXISTS (
         SELECT
             1
@@ -688,7 +754,7 @@ WHERE
             v.round_id = r.id
             AND v.released_at IS NOT NULL)
 ORDER BY
-    r.agent_id,
+    r.task_id,
     r.ordinal DESC;
 
 -- name: LandReviewRounds :execrows
@@ -697,19 +763,19 @@ UPDATE
 SET
     landed_at = NOW()
 WHERE
-    agent_id = @agent_id
+    task_id = sqlc.arg('task_id')::uuid
     AND ordinal <= @ordinal
     AND landed_at IS NULL;
 
 -- name: ListLiveReviewers :many
 SELECT
-    c.parent_agent_id AS agent_id,
+    p.id AS agent_id,
     c.id AS reviewer_id
 FROM
     agents c
+    JOIN agents p ON p.id = c.parent_agent_id
 WHERE
     c.role = 'reviewer'
-    AND c.parent_agent_id IS NOT NULL
     AND c.archived_at IS NULL
     AND c.state <> 'failed_to_create'
     AND c.state <> 'failed_to_cleanup'
@@ -719,7 +785,7 @@ WHERE
         FROM
             reviews v
         WHERE
-            v.agent_id = c.parent_agent_id
+            v.task_id = p.task_id
             AND v.author_kind = 'agent'
             AND v.author_agent_id = c.id
             AND v.released_at IS NOT NULL
@@ -730,16 +796,18 @@ WHERE
 -- name: InsertForgeReview :one
 INSERT INTO reviews(
     agent_id,
+    task_id,
     round_id,
     author_kind,
     external_login,
     released_at)
-VALUES (
-    @agent_id,
-    @round_id,
-    'forge',
-    @external_login,
-    NOW())
+VALUES ((
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = @round_id), sqlc.arg('task_id')::uuid, @round_id, 'forge', @external_login, NOW())
 RETURNING
     *;
 
@@ -768,15 +836,15 @@ FROM
     LEFT JOIN review_messages m ON m.thread_id = t.id
         AND m.forge_comment_id IS NOT NULL
 WHERE
-    t.agent_id = @agent_id
+    t.task_id = sqlc.arg('task_id')::uuid
     AND t.forge_thread_id IS NOT NULL
 ORDER BY
     t.id,
     m.id;
 
--- name: ListForgeMirrorAgents :many
+-- name: ListForgeMirrorTasks :many
 SELECT
-    a.id AS agent_id,
+    t.id AS task_id,
     COALESCE(t.cwd, '')::text AS cwd,
     r.id AS round_id,
     r.base_sha,
@@ -784,23 +852,29 @@ SELECT
 FROM
     task_pull_requests o
     JOIN tasks t ON t.id = o.task_id
-    JOIN agents a ON a.task_id = t.id
     JOIN LATERAL (
         SELECT
             *
         FROM
             review_rounds r
         WHERE
-            r.agent_id = a.id
+            r.task_id = t.id
         ORDER BY
             r.ordinal DESC
         LIMIT 1) r ON TRUE
 WHERE
     o.pull_request_id = sqlc.arg('pull_request_id')
-    AND a.archived_at IS NULL
-    AND a.deleting_at IS NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL
+            AND a.deleting_at IS NULL)
 ORDER BY
-    a.id;
+    t.id;
 
 -- name: SetForgeThreadResolved :exec
 UPDATE

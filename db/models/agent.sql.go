@@ -538,6 +538,80 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 	return &i, err
 }
 
+const getTaskWriter = `-- name: GetTaskWriter :one
+SELECT
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, repository_url, deleting_at, alive, engine_id, head_sha, moved_since_round, failure_reason, last_rebase, archive_batch_id, turn_failed_at, turn_error, lines_added, lines_removed, held_by_agent_id, sequence, requested_by_agent_id, task_id
+FROM
+    agents
+WHERE
+    task_id = $1::uuid
+    AND ROLE = 'implementer'
+    AND parent_agent_id IS NULL
+    AND archived_at IS NULL
+    AND deleting_at IS NULL
+    AND state <> 'failed_to_create'
+ORDER BY
+    id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetTaskWriter(ctx context.Context, taskID string) (*Agent, error) {
+	row := q.db.QueryRow(ctx, getTaskWriter, taskID)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Cwd,
+		&i.Flags,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.StateChangedAt,
+		&i.Harness,
+		&i.SessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.SpawnedByAgentID,
+		&i.ArchivedAt,
+		&i.IsHidden,
+		&i.NudgedAt,
+		&i.Branch,
+		&i.WorktreeRemoved,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StateSeenAt,
+		&i.InterruptedAt,
+		&i.AdoptedBranch,
+		&i.ParentAgentID,
+		&i.TurnEndedAt,
+		&i.ProvisionEnabled,
+		&i.ReportedReason,
+		&i.Role,
+		&i.HeldAt,
+		&i.HeldMidTurn,
+		&i.NudgeSentAt,
+		&i.RepositoryUrl,
+		&i.DeletingAt,
+		&i.Alive,
+		&i.EngineID,
+		&i.HeadSha,
+		&i.MovedSinceRound,
+		&i.FailureReason,
+		&i.LastRebase,
+		&i.ArchiveBatchID,
+		&i.TurnFailedAt,
+		&i.TurnError,
+		&i.LinesAdded,
+		&i.LinesRemoved,
+		&i.HeldByAgentID,
+		&i.Sequence,
+		&i.RequestedByAgentID,
+		&i.TaskID,
+	)
+	return &i, err
+}
+
 const getTranscript = `-- name: GetTranscript :one
 SELECT
     COALESCE(STRING_AGG(content, E'\n\n' ORDER BY seq), '')::text AS content

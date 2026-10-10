@@ -51,7 +51,7 @@ func TestReviewAnswer(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		server.rounds = append(server.rounds, &agentv1.ReviewRound{
 			Id:          "round-2",
-			AgentId:     "a1",
+			TaskId:      "t1",
 			Ordinal:     2,
 			BaseSha:     gittest.BaseSHA,
 			SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
@@ -65,7 +65,7 @@ func TestReviewAnswer(t *testing.T) {
 			gittest.PatchOfTheSecondFile + gittest.PatchOfATallFile
 		server.rounds = append(server.rounds, &agentv1.ReviewRound{
 			Id:          "round-3",
-			AgentId:     "a1",
+			TaskId:      "t1",
 			Ordinal:     3,
 			BaseSha:     gittest.BaseSHA,
 			SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
@@ -106,7 +106,7 @@ func TestReviewAnswer(t *testing.T) {
 		answer.RoundId = xptr.Ptr("round-3")
 		server.rounds = append(server.rounds, &agentv1.ReviewRound{
 			Id:          "round-3",
-			AgentId:     "a1",
+			TaskId:      "t1",
 			Ordinal:     3,
 			BaseSha:     gittest.BaseSHA,
 			SnapshotSha: server.rounds[len(server.rounds)-1].GetSnapshotSha(),
@@ -200,7 +200,7 @@ func newLaterRepliesServer(t *testing.T) *reviewServer {
 	server.rounds[0].CreatedAt = "2026-09-08T09:00:00Z"
 	server.rounds = append(server.rounds, &agentv1.ReviewRound{
 		Id:          "round-2",
-		AgentId:     "a1",
+		TaskId:      "t1",
 		Ordinal:     2,
 		BaseSha:     gittest.BaseSHA,
 		SnapshotSha: gittest.NameSnapshot(server.repo.Tree),

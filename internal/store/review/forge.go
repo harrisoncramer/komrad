@@ -12,7 +12,7 @@ import (
 
 // OpenForgeReviewParams is one forge reviewer's comments from one sync, gathered into a review.
 type OpenForgeReviewParams struct {
-	AgentID string
+	TaskID  string
 	RoundID string
 	// Login is the forge login of whoever wrote the comments.
 	Login string
@@ -21,12 +21,12 @@ type OpenForgeReviewParams struct {
 // OpenForgeReview starts a review holding comments mirrored from the forge.
 func (s *ReviewStore) OpenForgeReview(ctx context.Context, params OpenForgeReviewParams) (*Review, error) {
 	row, err := s.queries.InsertForgeReview(ctx, models.InsertForgeReviewParams{
-		AgentID:       params.AgentID,
+		TaskID:        params.TaskID,
 		RoundID:       params.RoundID,
 		ExternalLogin: &params.Login,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a forge review on agent %q: %w", params.AgentID, err)
+		return nil, fmt.Errorf("failed to open a forge review on task %q: %w", params.TaskID, err)
 	}
 
 	review := reviewFromRow(*row)
@@ -85,15 +85,15 @@ type ForgeMirrored struct {
 	ForgeEditedAt  *time.Time
 }
 
-// ListForgeMirrored is every forge comment already mirrored onto an agent, by thread.
-func (s *ReviewStore) ListForgeMirrored(ctx context.Context, agentID string) ([]ForgeMirrored, error) {
-	if !store.IsID(agentID) {
+// ListForgeMirrored is every forge comment already mirrored onto a task, by thread.
+func (s *ReviewStore) ListForgeMirrored(ctx context.Context, taskID string) ([]ForgeMirrored, error) {
+	if !store.IsID(taskID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListForgeMirroredMessages(ctx, agentID)
+	rows, err := s.queries.ListForgeMirroredMessages(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the forge comments mirrored onto agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list the forge comments mirrored onto task %q: %w", taskID, err)
 	}
 
 	return xslice.Map(rows, func(row *models.ListForgeMirroredMessagesRow) ForgeMirrored {
@@ -110,30 +110,30 @@ func (s *ReviewStore) ListForgeMirrored(ctx context.Context, agentID string) ([]
 	}), nil
 }
 
-// ForgeMirrorTarget is an agent on a pull request that forge comments are mirrored onto.
+// ForgeMirrorTarget is a task on a pull request that forge comments are mirrored onto.
 type ForgeMirrorTarget struct {
-	AgentID string
-	// Cwd is the agent's checkout, where comments are traced to its latest round.
+	TaskID string
+	// Cwd is the task's checkout, where comments are traced to its latest round.
 	Cwd         string
 	RoundID     string
 	BaseSHA     string
 	SnapshotSHA string
 }
 
-// ListForgeMirrorTargets is every live agent on a pull request that has a round to mirror onto.
+// ListForgeMirrorTargets is every task with a live agent on a pull request that has a round to mirror onto.
 func (s *ReviewStore) ListForgeMirrorTargets(ctx context.Context, pullRequestID string) ([]ForgeMirrorTarget, error) {
 	if !store.IsID(pullRequestID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListForgeMirrorAgents(ctx, pullRequestID)
+	rows, err := s.queries.ListForgeMirrorTasks(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the agents on pull request %q: %w", pullRequestID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListForgeMirrorAgentsRow) ForgeMirrorTarget {
+	return xslice.Map(rows, func(row *models.ListForgeMirrorTasksRow) ForgeMirrorTarget {
 		return ForgeMirrorTarget{
-			AgentID:     row.AgentID,
+			TaskID:      row.TaskID,
 			Cwd:         row.Cwd,
 			RoundID:     row.RoundID,
 			BaseSHA:     row.BaseSha,

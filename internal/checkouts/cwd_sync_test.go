@@ -685,13 +685,21 @@ func (f *syncFixture) seed(t *testing.T, name, cwd string) *agentstore.Agent {
 func (f *syncFixture) read(t *testing.T, agentID string) taskstore.Checkout {
 	t.Helper()
 
-	agent, err := f.stores.Agents.GetByID(t.Context(), agentID)
-	require.NoError(t, err)
-	require.NotNil(t, agent.TaskID)
-	task, err := f.stores.Tasks.Get(t.Context(), *agent.TaskID)
+	task, err := f.stores.Tasks.Get(t.Context(), f.taskOf(t, agentID))
 	require.NoError(t, err)
 
 	return task.Checkout
+}
+
+// taskOf is the task an agent works on.
+func (f *syncFixture) taskOf(t *testing.T, agentID string) string {
+	t.Helper()
+
+	agent, err := f.stores.Agents.GetByID(t.Context(), agentID)
+	require.NoError(t, err)
+	require.NotNil(t, agent.TaskID)
+
+	return *agent.TaskID
 }
 
 // release releases a review of a new round on the snapshot.
@@ -700,7 +708,7 @@ func (f *syncFixture) release(t *testing.T, agentID, snapshot string) {
 
 	round := f.openRound(t, agentID, snapshot)
 	review, err := f.reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID:    agentID,
+		TaskID:     round.TaskID,
 		RoundID:    round.ID,
 		AuthorKind: reviewstore.AuthorHuman,
 	})
@@ -749,6 +757,7 @@ func (f *syncFixture) openRound(t *testing.T, agentID, snapshot string) *reviews
 
 	round, err := f.reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
 		AgentID:     agentID,
+		TaskID:      f.taskOf(t, agentID),
 		BaseSHA:     gittest.BaseSHA,
 		SnapshotSHA: snapshot,
 	})

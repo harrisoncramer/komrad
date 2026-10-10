@@ -294,19 +294,14 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: ErrReviewNoRound,
 		},
 		{
-			name: "releasing to an archived agent",
+			name: "taking a round of a task whose worktree was removed",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.stores.Agents.Archive(t.Context(), []string{fx.worker.ID})
-				require.NoError(t, err)
-
-				_, err = fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-					AgentID: fx.worker.ID,
-					Author:  personAuthor,
-				})
+				require.NoError(t, fx.stores.Tasks.MarkCheckoutsRemoved(t.Context(), []string{fx.worker.ID}))
+				_, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
 
 				return err
 			},
-			wantErr: agenterr.ErrAgentArchived,
+			wantErr: errReviewWorktreeRemoved,
 		},
 		{
 			name: "a reviewer releasing notes with nothing in them",
@@ -973,12 +968,14 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		Name: "stranger",
 		Cwd:  "/elsewhere",
 	})
+	require.NoError(t, stores.Tasks.SetCheckoutDir(t.Context(), *worker.TaskID, "/tree"))
 
 	service := NewReviewService(NewReviewServiceParams{
 		Reviews:     reviews,
 		Snapshots:   snapshots,
 		Workflows:   stores.Workflows,
 		Agents:      stores.Agents,
+		Tasks:       stores.Tasks,
 		Events:      events,
 		Interrupter: interrupter,
 		StateDir:    t.TempDir(),
@@ -1113,6 +1110,17 @@ func (fx *reviewFixture) advanceTree(t *testing.T) *reviewstore.Round {
 	require.NoError(t, err)
 
 	return round
+}
+
+// seedSuccessor launches a new writer onto the worker's task.
+func (fx *reviewFixture) seedSuccessor(t *testing.T) *agentstore.Agent {
+	t.Helper()
+
+	return fx.stores.SeedAgent(t, agentstore.Agent{
+		Name:       "successor",
+		WorkflowID: fx.worker.WorkflowID,
+		TaskID:     fx.worker.TaskID,
+	})
 }
 
 // listMail is every piece of mail addressed to an agent, oldest first.

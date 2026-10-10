@@ -12,6 +12,7 @@ func Document(stored documentstore.Document) *agentv1.Document {
 	return &agentv1.Document{
 		Id:        stored.ID,
 		AgentId:   stored.AgentID,
+		TaskId:    stored.TaskID,
 		Name:      stored.Name,
 		Type:      stored.Type,
 		Body:      stored.Body,

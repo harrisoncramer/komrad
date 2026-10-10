@@ -119,6 +119,11 @@ table "documents" {
     null = false
     type = uuid
   }
+  column "task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task its author worked on when it was first written, null for an orchestrator's document."
+  }
   column "name" {
     null    = false
     type    = text
@@ -175,6 +180,12 @@ table "documents" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "documents_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
   foreign_key "documents_type_fkey" {
     columns     = [column.engine_id, column.type]
     ref_columns = [table.document_types.column.engine_id, table.document_types.column.name]
@@ -183,6 +194,9 @@ table "documents" {
   }
   check "documents_body_written" {
     expr = "body <> ''"
+  }
+  index "documents_task_id" {
+    columns = [column.task_id]
   }
   index "documents_body_trgm" {
     type = GIN
