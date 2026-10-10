@@ -22,16 +22,17 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // Task is one outcome a person wants, which the agents linked to it work toward.
 type Task struct {
-	ID         string
-	WorkflowID string
-	Slug       string
-	Title      string
-	Goal       string
-	Checkout   Checkout
-	ArchivedAt *time.Time
-	DeletingAt *time.Time
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID            string
+	WorkflowID    string
+	Slug          string
+	Title         string
+	Goal          string
+	Checkout      Checkout
+	ArchivedAt    *time.Time
+	DeletingAt    *time.Time
+	FailureReason string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type TaskStore struct {
@@ -45,16 +46,17 @@ func NewTaskStore(db store.DBTX) *TaskStore {
 
 func fromRow(row *models.Task) Task {
 	return Task{
-		ID:         row.ID,
-		WorkflowID: row.WorkflowID,
-		Slug:       row.Slug,
-		Title:      row.Title,
-		Goal:       row.Goal,
-		Checkout:   checkoutFrom(row),
-		ArchivedAt: row.ArchivedAt,
-		DeletingAt: row.DeletingAt,
-		CreatedAt:  row.CreatedAt,
-		UpdatedAt:  row.UpdatedAt,
+		ID:            row.ID,
+		WorkflowID:    row.WorkflowID,
+		Slug:          row.Slug,
+		Title:         row.Title,
+		Goal:          row.Goal,
+		Checkout:      checkoutFrom(row),
+		ArchivedAt:    row.ArchivedAt,
+		DeletingAt:    row.DeletingAt,
+		FailureReason: row.FailureReason,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
 	}
 }
 

@@ -1,6 +1,7 @@
 package task_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +10,6 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/storetest"
-	"komrad/lib/xslice"
 )
 
 // TestClaimEmpty pins which tasks a cleanup can take, and that only one cleanup takes each.
@@ -88,6 +88,33 @@ func TestClearDeleting(t *testing.T) {
 	assert.True(t, again)
 }
 
+// TestRecordCleanupFailure pins a failed cleanup releasing the task with its reason, and the next delete
+// clearing that reason.
+func TestRecordCleanupFailure(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{task.ID}))
+	claimed, err := stores.Tasks.ClaimEmpty(ctx, task.ID)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	require.NoError(t, stores.Tasks.RecordCleanupFailure(ctx, task.ID, errors.New("teardown exited 1")))
+
+	failed, err := stores.Tasks.Get(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Nil(t, failed.DeletingAt)
+	assert.Equal(t, "teardown exited 1", failed.FailureReason)
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{task.ID}))
+	retried, err := stores.Tasks.ClaimEmpty(ctx, task.ID)
+	require.NoError(t, err)
+	assert.True(t, retried)
+	require.NoError(t, stores.Tasks.ClearDeleting(ctx, task.ID))
+	cleared, err := stores.Tasks.Get(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Empty(t, cleared.FailureReason)
+}
+
 // TestClearAbandonedDeleting pins that only a task an agent delete still holds keeps its claim.
 func TestClearAbandonedDeleting(t *testing.T) {
 	stores := storetest.Open(t)
@@ -164,8 +191,8 @@ func TestLockUndeleted(t *testing.T) {
 	require.NoError(t, stores.Tasks.LockUndeleted(ctx, live.ID))
 }
 
-// TestListUndeleted pins a task leaving the listing once a delete claims it, archived or not.
-func TestListUndeleted(t *testing.T) {
+// TestListUndeletedSlugs pins a task leaving the listing once a delete claims it, archived or not.
+func TestListUndeletedSlugs(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
@@ -174,8 +201,8 @@ func TestListUndeleted(t *testing.T) {
 	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
 	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
 
-	got, err := stores.Tasks.ListUndeleted(ctx)
+	got, err := stores.Tasks.ListUndeletedSlugs(ctx)
 	require.NoError(t, err)
 
-	assert.ElementsMatch(t, []string{live.ID, archived.ID}, xslice.Map(got, func(task taskstore.Task) string { return task.ID }))
+	assert.Equal(t, map[string]string{live.ID: "live", archived.ID: "archived"}, got)
 }

@@ -42,10 +42,11 @@ func TestTask(t *testing.T) {
 		{
 			name: "a task the syncers have written to",
 			stored: taskstore.Task{
-				ID:        "t2",
-				Slug:      "worked",
-				CreatedAt: created,
-				UpdatedAt: created,
+				ID:            "t2",
+				Slug:          "worked",
+				FailureReason: "teardown exited 1",
+				CreatedAt:     created,
+				UpdatedAt:     created,
 				Checkout: taskstore.Checkout{
 					Cwd:             "/tmp/worktrees/worked",
 					Branch:          xptr.Ptr("harry/spike"),
@@ -72,6 +73,7 @@ func TestTask(t *testing.T) {
 				Sequence:        taskv1.Sequence_SEQUENCE_REBASE,
 				MovedSinceRound: "snapshot-one",
 				DiffStat:        &taskv1.DiffStat{Added: 12, Removed: 3},
+				FailureReason:   "teardown exited 1",
 			},
 		},
 	}

@@ -172,7 +172,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
 `
 
 type CreateTaskParams struct {
@@ -214,6 +214,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, 
 		&i.MovedSinceRound,
 		&i.DeletingAt,
 		&i.CleaningAt,
+		&i.FailureReason,
 	)
 	return &i, err
 }
@@ -228,9 +229,30 @@ func (q *Queries) DeleteTask(ctx context.Context, id string) error {
 	return err
 }
 
+const failTaskCleanup = `-- name: FailTaskCleanup :exec
+UPDATE
+    tasks
+SET
+    deleting_at = NULL,
+    cleaning_at = NULL,
+    failure_reason = $1
+WHERE
+    id = $2
+`
+
+type FailTaskCleanupParams struct {
+	FailureReason string
+	ID            string
+}
+
+func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams) error {
+	_, err := q.db.Exec(ctx, failTaskCleanup, arg.FailureReason, arg.ID)
+	return err
+}
+
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
 FROM
     tasks
 WHERE
@@ -264,13 +286,14 @@ func (q *Queries) GetTaskByID(ctx context.Context, id string) (*Task, error) {
 		&i.MovedSinceRound,
 		&i.DeletingAt,
 		&i.CleaningAt,
+		&i.FailureReason,
 	)
 	return &i, err
 }
 
 const getTaskBySlug = `-- name: GetTaskBySlug :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
 FROM
     tasks
 WHERE
@@ -304,6 +327,7 @@ func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*Task, error)
 		&i.MovedSinceRound,
 		&i.DeletingAt,
 		&i.CleaningAt,
+		&i.FailureReason,
 	)
 	return &i, err
 }
@@ -344,7 +368,7 @@ func (q *Queries) IsTaskSlugTaken(ctx context.Context, slug string) (bool, error
 
 const listTaskCheckouts = `-- name: ListTaskCheckouts :many
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason
 FROM
     tasks t
 WHERE
@@ -396,6 +420,7 @@ func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
 			&i.MovedSinceRound,
 			&i.DeletingAt,
 			&i.CleaningAt,
+			&i.FailureReason,
 		); err != nil {
 			return nil, err
 		}
@@ -409,7 +434,7 @@ func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
 
 const listTasks = `-- name: ListTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
 FROM
     tasks
 WHERE
@@ -458,6 +483,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 			&i.MovedSinceRound,
 			&i.DeletingAt,
 			&i.CleaningAt,
+			&i.FailureReason,
 		); err != nil {
 			return nil, err
 		}
@@ -471,7 +497,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 
 const listTasksByID = `-- name: ListTasksByID :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
 FROM
     tasks
 WHERE
@@ -513,6 +539,7 @@ func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*Task, err
 			&i.MovedSinceRound,
 			&i.DeletingAt,
 			&i.CleaningAt,
+			&i.FailureReason,
 		); err != nil {
 			return nil, err
 		}
@@ -524,51 +551,31 @@ func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*Task, err
 	return items, nil
 }
 
-const listUndeletedTasks = `-- name: ListUndeletedTasks :many
+const listUndeletedTaskSlugs = `-- name: ListUndeletedTaskSlugs :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id,
+    slug
 FROM
     tasks
 WHERE
     deleting_at IS NULL
-ORDER BY
-    id
 `
 
-func (q *Queries) ListUndeletedTasks(ctx context.Context) ([]*Task, error) {
-	rows, err := q.db.Query(ctx, listUndeletedTasks)
+type ListUndeletedTaskSlugsRow struct {
+	ID   string
+	Slug string
+}
+
+func (q *Queries) ListUndeletedTaskSlugs(ctx context.Context) ([]*ListUndeletedTaskSlugsRow, error) {
+	rows, err := q.db.Query(ctx, listUndeletedTaskSlugs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Task
+	var items []*ListUndeletedTaskSlugsRow
 	for rows.Next() {
-		var i Task
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkflowID,
-			&i.Slug,
-			&i.Title,
-			&i.Goal,
-			&i.ArchivedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.EngineID,
-			&i.Cwd,
-			&i.Branch,
-			&i.AdoptedBranch,
-			&i.ProvisionEnabled,
-			&i.WorktreeRemoved,
-			&i.RepositoryUrl,
-			&i.HeadSha,
-			&i.LastRebase,
-			&i.Sequence,
-			&i.LinesAdded,
-			&i.LinesRemoved,
-			&i.MovedSinceRound,
-			&i.DeletingAt,
-			&i.CleaningAt,
-		); err != nil {
+		var i ListUndeletedTaskSlugsRow
+		if err := rows.Scan(&i.ID, &i.Slug); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -581,7 +588,7 @@ func (q *Queries) ListUndeletedTasks(ctx context.Context) ([]*Task, error) {
 
 const listWatchedTasks = `-- name: ListWatchedTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
 FROM
     tasks
 WHERE
@@ -625,6 +632,7 @@ func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*Task,
 			&i.MovedSinceRound,
 			&i.DeletingAt,
 			&i.CleaningAt,
+			&i.FailureReason,
 		); err != nil {
 			return nil, err
 		}
@@ -697,7 +705,8 @@ const markTasksDeleting = `-- name: MarkTasksDeleting :exec
 UPDATE
     tasks
 SET
-    deleting_at = NOW()
+    deleting_at = NOW(),
+    failure_reason = ''
 WHERE
     id = ANY ($1::uuid[])
     AND deleting_at IS NULL
@@ -712,7 +721,8 @@ const markWorkflowTasksDeleting = `-- name: MarkWorkflowTasksDeleting :exec
 UPDATE
     tasks
 SET
-    deleting_at = NOW()
+    deleting_at = NOW(),
+    failure_reason = ''
 WHERE
     workflow_id = $1
     AND deleting_at IS NULL
@@ -903,7 +913,7 @@ WHERE
     id = $4
     AND deleting_at IS NULL
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason
 `
 
 type UpdateTaskParams struct {
@@ -945,6 +955,7 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (*Task, 
 		&i.MovedSinceRound,
 		&i.DeletingAt,
 		&i.CleaningAt,
+		&i.FailureReason,
 	)
 	return &i, err
 }

@@ -29,6 +29,7 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		MovedSinceRound: checkout.MovedSinceRound,
 		DiffStat:        diffStatOf(checkout.DiffStat),
 		AdoptedBranch:   xptr.NonEmpty(checkout.AdoptedBranch),
+		FailureReason:   stored.FailureReason,
 	}
 }
 

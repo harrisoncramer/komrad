@@ -191,6 +191,8 @@ type Task struct {
 	// The branch its checkout was put on rather than one komrad made for it, unset when komrad
 	// made it.
 	AdoptedBranch *string `protobuf:"bytes,17,opt,name=adopted_branch,json=adoptedBranch,proto3,oneof" json:"adopted_branch,omitempty"`
+	// Why its last delete could not give its checkout back, empty unless one failed.
+	FailureReason string `protobuf:"bytes,18,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -340,6 +342,13 @@ func (x *Task) GetDiffStat() *DiffStat {
 func (x *Task) GetAdoptedBranch() string {
 	if x != nil && x.AdoptedBranch != nil {
 		return *x.AdoptedBranch
+	}
+	return ""
+}
+
+func (x *Task) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
 	}
 	return ""
 }
@@ -865,7 +874,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xa4\x05\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xcb\x05\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -888,7 +897,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\bsequence\x18\x0e \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x12*\n" +
 	"\x11moved_since_round\x18\x0f \x01(\tR\x0fmovedSinceRound\x123\n" +
 	"\tdiff_stat\x18\x10 \x01(\v2\x11.task.v1.DiffStatH\x05R\bdiffStat\x88\x01\x01\x12*\n" +
-	"\x0eadopted_branch\x18\x11 \x01(\tH\x06R\radoptedBranch\x88\x01\x01B\x0e\n" +
+	"\x0eadopted_branch\x18\x11 \x01(\tH\x06R\radoptedBranch\x88\x01\x01\x12%\n" +
+	"\x0efailure_reason\x18\x12 \x01(\tR\rfailureReasonB\x0e\n" +
 	"\f_archived_atB\x06\n" +
 	"\x04_cwdB\t\n" +
 	"\a_branchB\x11\n" +

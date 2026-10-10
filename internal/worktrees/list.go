@@ -50,8 +50,9 @@ type Worktree struct {
 	Agent *Agent
 	// Occupants are the other rows working in this directory.
 	Occupants []Agent
-	// Task is the task whose checkout the directory is, nil when none answers or a delete has claimed it.
-	Task *taskstore.Task
+	// TaskSlug names the task whose checkout the directory is, empty when none answers or a delete
+	// has claimed it.
+	TaskSlug string
 	// ModifiedAt is when git last wrote the directory's .git file, else the directory's own
 	// modification time, zero when neither could be read.
 	ModifiedAt time.Time
@@ -79,7 +80,7 @@ const (
 // Fate is which delete path the directory takes.
 func (w Worktree) Fate() Fate {
 	if w.Agent == nil || (w.Agent.FailedToCleanup && !w.Readable) {
-		if w.Task != nil {
+		if w.TaskSlug != "" {
 			return FateTask
 		}
 
@@ -203,7 +204,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 		return nil, err
 	}
 
-	tasks, err := l.tasks.ListUndeleted(ctx)
+	taskSlugs, err := l.tasks.ListUndeletedSlugs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 	return func(dir string) Worktree {
 		worktree := read(dir)
 		worktree.Agent, worktree.Occupants = owned(dir, owners)
-		worktree.Task = findTask(dir, tasks)
+		worktree.TaskSlug = taskSlugs[filepath.Base(dir)]
 		if size, ok := sized[dir]; ok {
 			worktree.Size = &size
 		}
@@ -379,16 +380,6 @@ func compareOwners(a, b agentstore.AgentDir) int {
 	}
 
 	return b.CreatedAt.Compare(a.CreatedAt)
-}
-
-// findTask is the task whose checkout a directory is, the one whose id names it.
-func findTask(dir string, tasks []taskstore.Task) *taskstore.Task {
-	at := slices.IndexFunc(tasks, func(task taskstore.Task) bool { return task.ID == filepath.Base(dir) })
-	if at < 0 {
-		return nil
-	}
-
-	return &tasks[at]
 }
 
 func describe(row agentstore.AgentDir) *Agent {

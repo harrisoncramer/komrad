@@ -248,7 +248,8 @@ RETURNING
 UPDATE
     tasks
 SET
-    deleting_at = NOW()
+    deleting_at = NOW(),
+    failure_reason = ''
 WHERE
     id = ANY (sqlc.arg('ids')::uuid[])
     AND deleting_at IS NULL;
@@ -257,7 +258,8 @@ WHERE
 UPDATE
     tasks
 SET
-    deleting_at = NOW()
+    deleting_at = NOW(),
+    failure_reason = ''
 WHERE
     workflow_id = sqlc.arg('workflow_id')
     AND deleting_at IS NULL;
@@ -285,6 +287,16 @@ UPDATE
 SET
     deleting_at = NULL,
     cleaning_at = NULL
+WHERE
+    id = sqlc.arg('id');
+
+-- name: FailTaskCleanup :exec
+UPDATE
+    tasks
+SET
+    deleting_at = NULL,
+    cleaning_at = NULL,
+    failure_reason = sqlc.arg('failure_reason')
 WHERE
     id = sqlc.arg('id');
 
@@ -328,12 +340,11 @@ WHERE
     id = sqlc.arg('id')
     AND deleting_at IS NULL FOR SHARE;
 
--- name: ListUndeletedTasks :many
+-- name: ListUndeletedTaskSlugs :many
 SELECT
-    *
+    id,
+    slug
 FROM
     tasks
 WHERE
-    deleting_at IS NULL
-ORDER BY
-    id;
+    deleting_at IS NULL;

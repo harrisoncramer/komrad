@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -216,13 +218,11 @@ func readWorktreeOwners(ctx context.Context, url string) (worktreeOwners, error)
 		}
 	}
 
-	tasks, err := taskstore.NewTaskStore(pool).ListUndeleted(ctx)
+	taskSlugs, err := taskstore.NewTaskStore(pool).ListUndeletedSlugs(ctx)
 	if err != nil {
 		return worktreeOwners{}, err
 	}
-	owners.TaskIDs = append(owners.TaskIDs, xslice.Map(tasks, func(task taskstore.Task) string {
-		return task.ID
-	})...)
+	owners.TaskIDs = slices.AppendSeq(owners.TaskIDs, maps.Keys(taskSlugs))
 
 	owners.WorkflowDirs, err = workflowstore.NewWorkflowStore(pool).ListWorktreeDirs(ctx)
 	if err != nil {

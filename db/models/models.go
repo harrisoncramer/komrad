@@ -1173,6 +1173,8 @@ type Task struct {
 	DeletingAt *time.Time
 	// When the one cleanup that gives back a deleted task's checkout and removes the row took it, so no other cleanup runs it as well.
 	CleaningAt *time.Time
+	// Why the task's last delete could not give its checkout back, empty unless one failed.
+	FailureReason string
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

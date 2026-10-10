@@ -41,7 +41,8 @@ func NewEmptyTaskDeleter(params NewEmptyTaskDeleterParams) *EmptyTaskDeleter {
 }
 
 // DeleteIfEmpty permanently removes a task once it is being deleted and no agent is left on it,
-// leaving it archived and no longer deleting when its checkout could not be given back.
+// leaving it archived and no longer deleting, with the reason, when its checkout could not be
+// given back.
 func (d *EmptyTaskDeleter) DeleteIfEmpty(ctx context.Context, id string) error {
 	claimed, err := d.tasks.ClaimEmpty(ctx, id)
 	if err != nil || !claimed {
@@ -57,7 +58,7 @@ func (d *EmptyTaskDeleter) DeleteIfEmpty(ctx context.Context, id string) error {
 	if err := d.deprovision(cleanup, *found); err != nil {
 		failed := fmt.Errorf("%w: task %s: %w", agenterr.ErrTeardownFailed, found.Slug, err)
 
-		return errors.Join(failed, d.tasks.ClearDeleting(cleanup, found.ID))
+		return errors.Join(failed, d.tasks.RecordCleanupFailure(cleanup, found.ID, err))
 	}
 
 	if err := d.tasks.Delete(cleanup, found.ID); err != nil {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"komrad/db"
+	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/internal/store"
-	"komrad/lib/xslice"
 )
 
 // ErrDeleting is a task an agent was asked to join while it is being deleted.
@@ -64,6 +64,18 @@ func (s *TaskStore) ClearDeleting(ctx context.Context, id string) error {
 	return nil
 }
 
+// RecordCleanupFailure gives a task back from its delete with why its checkout could not be given back.
+func (s *TaskStore) RecordCleanupFailure(ctx context.Context, id string, cause error) error {
+	if err := s.queries.FailTaskCleanup(ctx, models.FailTaskCleanupParams{
+		ID:            id,
+		FailureReason: store.FailureReason(cause),
+	}); err != nil {
+		return fmt.Errorf("failed to record the failed cleanup of task %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // ClearAbandonedDeleting takes the delete's claim off every task no agent delete still holds.
 func (s *TaskStore) ClearAbandonedDeleting(ctx context.Context) error {
 	if err := s.queries.ClearAbandonedTasksDeleting(ctx); err != nil {
@@ -110,12 +122,18 @@ func (s *TaskStore) LockUndeleted(ctx context.Context, id string) error {
 	return nil
 }
 
-// ListUndeleted returns every task no delete has claimed, archived ones included.
-func (s *TaskStore) ListUndeleted(ctx context.Context) ([]Task, error) {
-	rows, err := s.queries.ListUndeletedTasks(ctx)
+// ListUndeletedSlugs returns the slug of every task no delete has claimed, archived ones
+// included, keyed by the task's id.
+func (s *TaskStore) ListUndeletedSlugs(ctx context.Context) (map[string]string, error) {
+	rows, err := s.queries.ListUndeletedTaskSlugs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the tasks not being deleted: %w", err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	slugs := make(map[string]string, len(rows))
+	for _, row := range rows {
+		slugs[row.ID] = row.Slug
+	}
+
+	return slugs, nil
 }

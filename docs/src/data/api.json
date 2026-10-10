@@ -9070,6 +9070,16 @@
           "oneof": "",
           "rules": [],
           "description": "The branch its checkout was put on rather than one komrad made for it, unset when komrad made it."
+        },
+        {
+          "name": "failure_reason",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why its last delete could not give its checkout back, empty unless one failed."
         }
       ]
     },

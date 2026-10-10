@@ -1986,7 +1986,8 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 	assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 }
 
-// TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone covers where the last hook of an agent's life runs.
+// TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone covers where the last hook of an agent's life runs,
+// once its task has gone with it.
 func TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "forget"), []byte(
@@ -1997,7 +1998,11 @@ func TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone(t *testin
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
 	gone := filepath.Join(t.TempDir(), "worktree")
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: gone}, "forget", workflowstore.HookPostDelete)
+	err := svc.RunHook(t.Context(), agentstore.Agent{
+		ID:     fixtureAgentID,
+		Cwd:    gone,
+		TaskID: xptr.Ptr("01a12668-9788-70e8-b1a4-a1886fbae3f6"),
+	}, "forget", workflowstore.HookPostDelete)
 	require.NoError(t, err)
 
 	landed, readErr := os.ReadFile(filepath.Join(dir, "forgotten"))

@@ -99,6 +99,12 @@ table "tasks" {
     type    = timestamptz
     comment = "When the one cleanup that gives back a deleted task's checkout and removes the row took it, so no other cleanup runs it as well."
   }
+  column "failure_reason" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "Why the task's last delete could not give its checkout back, empty unless one failed."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

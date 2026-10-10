@@ -76,6 +76,8 @@ message Task {
   // The branch its checkout was put on rather than one komrad made for it, unset when komrad
   // made it.
   optional string adopted_branch = 17;
+  // Why its last delete could not give its checkout back, empty unless one failed.
+  string failure_reason = 18;
 }
 
 message CreateTaskRequest {

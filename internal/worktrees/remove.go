@@ -57,7 +57,7 @@ func NewRemover(params NewRemoverParams) *Remover {
 
 // RefuseForTask is the refusal of a directory only its task answers for.
 func (w Worktree) RefuseForTask() Refusal {
-	return Refusal{Dir: w.Dir, Reason: fmt.Sprintf("task %s holds it; delete the task instead", w.Task.Slug)}
+	return Refusal{Dir: w.Dir, Reason: fmt.Sprintf("task %s holds it; delete the task instead", w.TaskSlug)}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.

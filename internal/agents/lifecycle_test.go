@@ -1869,7 +1869,7 @@ func TestDeleteTasksGivesBackATaskAnAgentWillNotLeave(t *testing.T) {
 }
 
 // TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo pins a failed deprovision leaving the task archived
-// and deletable again.
+// with the reason, and deletable again.
 func TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo(t *testing.T) {
 	lifecycle := &fakeLifecycle{taskDeprovisionErr: errors.New("worktree is dirty")}
 	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
@@ -1881,6 +1881,7 @@ func TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kept.ArchivedAt)
 	assert.Nil(t, kept.DeletingAt)
+	assert.Contains(t, kept.FailureReason, "worktree is dirty")
 	archived, err := fx.st.Tasks.List(t.Context(), fx.workflow.ID, true)
 	require.NoError(t, err)
 	assert.Len(t, archived, 1, "it is back in the archive")

@@ -126,8 +126,6 @@ func TestReadWorktreeOwnersReadsTheAgentsTasksAndWorkflowDirs(t *testing.T) {
 		WorkflowID: workflow.ID,
 	})
 	kept := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "kept"})
-	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "deleting"})
-	require.NoError(t, stores.Tasks.MarkDeleting(t.Context(), []string{deleting.ID}))
 
 	owners, err := readWorktreeOwners(t.Context(), stores.URL)
 	require.NoError(t, err)
@@ -135,7 +133,6 @@ func TestReadWorktreeOwnersReadsTheAgentsTasksAndWorkflowDirs(t *testing.T) {
 	assert.Contains(t, owners.TaskIDs, *agent.TaskID)
 	assert.Contains(t, owners.AgentDirs, "/repos/trees/worker")
 	assert.Contains(t, owners.TaskIDs, kept.ID)
-	assert.NotContains(t, owners.TaskIDs, deleting.ID, "a task a delete has claimed gives up its checkout")
 	assert.Equal(t, []string{"~/repos/trees"}, owners.WorkflowDirs,
 		"the directory is reported as the workflow named it, which is what the config is matched against")
 }

@@ -10,7 +10,6 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	taskstore "komrad/internal/store/task"
 	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
@@ -449,7 +448,7 @@ func TestFateIsDecidedByTheRow(t *testing.T) {
 			name: "a directory only its task answers for",
 			worktree: Worktree{
 				Readable: true,
-				Task:     &taskstore.Task{},
+				TaskSlug: "flow-task",
 			},
 			want: FateTask,
 		},
@@ -463,8 +462,8 @@ func TestFateIsDecidedByTheRow(t *testing.T) {
 		{
 			name: "a row whose delete failed on its task's directory git cannot read",
 			worktree: Worktree{
-				Agent: &Agent{FailedToCleanup: true},
-				Task:  &taskstore.Task{},
+				Agent:    &Agent{FailedToCleanup: true},
+				TaskSlug: "flow-task",
 			},
 			want: FateTask,
 		},
