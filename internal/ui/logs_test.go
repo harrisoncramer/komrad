@@ -9,6 +9,7 @@ import (
 
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
 
@@ -89,6 +90,42 @@ func TestLogsOpen(t *testing.T) {
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
 	})
+}
+
+// TestLogsFailedRunRead covers opening the run that failed claiming the agent's unread failure.
+func TestLogsFailedRunRead(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		failedRun *int32
+		presses   []string
+		want      []proto.Message
+	}{
+		{
+			name:    "opening a run that did not fail sends nothing",
+			presses: []string{"j", rest},
+		},
+		{
+			name:      "opening the failed run marks the agent's runs read",
+			failedRun: xptr.Ptr[int32](1),
+			want:      []proto.Message{&agentv1.MarkRunsReadRequest{Id: "author"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rows := buildSubpagesAgents()
+			author, _ := rows[2].(*agentv1.Agent)
+			author.FailedRunLog = tt.failedRun
+			harness := openLogs(t, tailOfTwo(), rows...)
+			harness.press(tt.presses...)
+
+			harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure, tt.want...)
+		})
+	}
 }
 
 // TestLogsFormat covers the service log rendered compact or raw from the format strip.

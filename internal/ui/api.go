@@ -247,6 +247,12 @@ func (a api) setHidden(agent panel.Agent, hidden bool) error {
 	})
 }
 
+func (a api) markRunsRead(id string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: id}))
+	})
+}
+
 // startOrchestrator brings a workflow's orchestrator back, starting the one it has never had.
 func (a api) startOrchestrator(workflowID string) (*agentv1.Agent, error) {
 	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {

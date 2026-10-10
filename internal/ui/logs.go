@@ -239,7 +239,18 @@ func (l *logsScreen) switchSource(m *model) tea.Cmd {
 	l.logFilter, l.pattern = filterState{}, ""
 	l.applyFormat(row)
 
-	return l.restart(m)
+	return tea.Batch(l.restart(m), l.markFailedRunReadCmd(m, row))
+}
+
+// markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened.
+func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
+	if !row.failed {
+		return nil
+	}
+
+	agentID := l.agentID
+
+	return m.writeCmd("marking the failed run read", "Could not mark the failed run read", func(a api) error { return a.markRunsRead(agentID) })
 }
 
 // restart drops the lines held and reads the source over again with the pattern the block is read with.
