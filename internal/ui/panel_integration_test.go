@@ -96,7 +96,7 @@ func TestIntegrationPanel(t *testing.T) {
 		share := readPaneWidth(t, served.instance, served.navPane)
 		require.Less(t, share, 341, "the panel starts on its share of the window")
 
-		served.harness.press("k")
+		served.harness.press("k", "k")
 		held := served.harness.readRawFrame()
 		unsettled := served.harness.fireTimersUnsettled()
 
@@ -108,7 +108,7 @@ func TestIntegrationPanel(t *testing.T) {
 		}
 		assert.Equal(t, 341, lipgloss.Width(served.harness.readRendered()), "and once told, the frame covers it")
 
-		served.harness.press("j")
+		served.harness.press("j", "j")
 		served.harness.fireTimers()
 
 		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
