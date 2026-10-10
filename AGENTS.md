@@ -39,14 +39,6 @@ refuses one, split the change: ship the addition, and drop what is unused in a l
 once no build reads it. Never edit `.squawk.toml` to get a migration past it. CI fails any pull
 request that changes that file.
 
-## Forward-looking code
-
-Code reads only the current shape of state. Never keep an exception for an older shape, such as a
-directory, branch or row left behind by an earlier build, in code or in tests. Migrate that state
-once instead, by renaming the directories and branches and updating the rows, and write each step
-in the pull request description for a person to run. The additive migration rule above is the one
-exception: an older build still reads the schema, so a column it reads stays until it does not.
-
 ## Tests
 
 Each behaviour is tested at the lowest layer that can see it, and only there. A higher layer
