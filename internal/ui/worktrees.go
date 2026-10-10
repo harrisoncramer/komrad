@@ -47,10 +47,9 @@ type worktreeItem struct {
 	repoDir  string
 	branch   string
 	readable bool
-	agent    *worktreeAgent
-	// task is the task the directory is the checkout of, set only when no agent answers for it.
+	// task is the task the directory is the checkout of, nil when none answers for it.
 	task *panel.Task
-	// occupants are the other agents working in the directory.
+	// occupants are the agents working in the directory, live ones first.
 	occupants []worktreeAgent
 	// size is the last measurement, nil until the loop has reached the directory.
 	size *worktreeSize
@@ -72,15 +71,24 @@ func (i worktreeItem) isMerged() bool {
 	return standing != nil && standing.err == "" && !standing.dirty && !standing.sequencing && standing.unlanded == 0
 }
 
+// findLead is the occupant the row draws and jumps to, false when the directory has none.
+func (i worktreeItem) findLead() (worktreeAgent, bool) {
+	if len(i.occupants) == 0 {
+		return worktreeAgent{}, false
+	}
+
+	return i.occupants[0], true
+}
+
 // worktreeHolders is every agent indexed by what ties it to a directory.
 type worktreeHolders struct {
-	// byTask holds the top-level agents provisioned for each task, owner first.
+	// byTask holds the top-level agents provisioned for each task.
 	byTask map[string][]panel.Agent
 	byCwd  map[string][]panel.Agent
 	tasks  map[string]panel.Task
 }
 
-// worktreeItemsFrom renders every directory in the world with the agents that answer for it.
+// worktreeItemsFrom renders every directory in the world with its task and the agents working in it.
 func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks map[string]panel.Task) []worktreeItem {
 	holders := worktreeHolders{
 		byTask: map[string][]panel.Agent{},
@@ -93,9 +101,6 @@ func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents 
 		if row.Agent.TaskID != "" && isTaskWriter(row.Agent) {
 			holders.byTask[row.Agent.TaskID] = append(holders.byTask[row.Agent.TaskID], row.Agent)
 		}
-	}
-	for _, leads := range holders.byTask {
-		slices.SortFunc(leads, compareOwners)
 	}
 
 	items := make([]worktreeItem, 0, len(worktrees))
@@ -131,33 +136,16 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, holders workt
 		}
 	}
 
-	var owner *panel.Agent
-	leads := holders.byTask[filepath.Base(item.dir)]
-	counted := map[string]bool{}
-	for _, agent := range leads {
-		counted[agent.ID] = true
+	name := filepath.Base(item.dir)
+	if task, ok := holders.tasks[name]; ok {
+		item.task = &task
 	}
-	if len(leads) > 0 {
-		owner = &leads[0]
-		described := worktreeAgentOf(leads[0])
-		item.agent = &described
-		item.occupants = append(item.occupants, xslice.Map(leads[1:], worktreeAgentOf)...)
-	}
-	for _, agent := range holders.byCwd[item.dir] {
-		if !counted[agent.ID] {
-			item.occupants = append(item.occupants, worktreeAgentOf(agent))
-		}
-	}
-	slices.SortFunc(item.occupants, func(a, b worktreeAgent) int { return strings.Compare(a.name, b.name) })
+	item.fate = fateOf(item.task)
 
-	item.fate = fateOf(owner, item.readable)
-	if item.fate == fateUnowned {
-		if task, ok := holders.tasks[filepath.Base(item.dir)]; ok {
-			item.task = &task
-			item.fate = fateTask
-		}
-	}
-	item.lastActiveAt = lastActiveOf(owner, dates.Parse(worktree.GetModifiedAt()))
+	occupants := xslice.UniqueBy(slices.Concat(holders.byTask[name], holders.byCwd[item.dir]), func(agent panel.Agent) string { return agent.ID })
+	slices.SortFunc(occupants, compareOccupants)
+	item.occupants = xslice.Map(occupants, worktreeAgentOf)
+	item.lastActiveAt = lastActiveOf(occupants, dates.Parse(worktree.GetModifiedAt()))
 
 	return item
 }
@@ -171,31 +159,37 @@ func worktreeAgentOf(agent panel.Agent) worktreeAgent {
 	}
 }
 
-// fateOf is which delete path a directory takes, decided by the agent it was made for.
-func fateOf(owner *panel.Agent, readable bool) worktreeFate {
+// fateOf is which delete path a directory takes, decided by the task it is the checkout of.
+func fateOf(task *panel.Task) worktreeFate {
 	switch {
-	case owner == nil:
+	case task == nil:
 		return fateUnowned
-	case owner.State == panel.StateFailedToCleanup && !readable:
-		return fateUnowned
-	case owner.ArchivedAt != nil:
+	case task.ArchivedAt != nil:
 		return fateArchived
 	}
 
 	return fateLive
 }
 
-// lastActiveOf is when a directory was last touched, by its agent when one answers and by its
-// mtime otherwise.
-func lastActiveOf(owner *panel.Agent, modifiedAt time.Time) time.Time {
-	switch {
-	case owner == nil:
+// lastActiveOf is when a directory was last touched, by its occupants when there are any and by
+// its mtime otherwise.
+func lastActiveOf(occupants []panel.Agent, modifiedAt time.Time) time.Time {
+	if len(occupants) == 0 {
 		return modifiedAt
-	case owner.ArchivedAt != nil && owner.ArchivedAt.After(owner.StateChangedAt):
-		return *owner.ArchivedAt
 	}
 
-	return owner.StateChangedAt
+	var latest time.Time
+	for _, agent := range occupants {
+		touched := agent.StateChangedAt
+		if agent.ArchivedAt != nil && agent.ArchivedAt.After(touched) {
+			touched = *agent.ArchivedAt
+		}
+		if touched.After(latest) {
+			latest = touched
+		}
+	}
+
+	return latest
 }
 
 // worktreeEntry is one top-level entry of a directory.
@@ -269,12 +263,8 @@ func (i worktreeItem) isInactive() bool {
 	})
 }
 
-// holdsAgent reports whether the directory was cut for the agent or the agent works in it.
+// holdsAgent reports whether the agent works in the directory.
 func (i worktreeItem) holdsAgent(id string) bool {
-	if i.agent != nil && i.agent.id == id {
-		return true
-	}
-
 	return slices.ContainsFunc(i.occupants, func(occupant worktreeAgent) bool { return occupant.id == id })
 }
 
@@ -348,9 +338,9 @@ func (w *worktreesScreen) place(m *model, hovered string) {
 	w.cursor = cursor.Place(rowIndexOfKey(rows, hovered), w.cursor, len(rows))
 }
 
-// compareOwners orders the agents provisioned for one task by which owns its directory, a live
-// one before an archived one and then a newer one before an older.
-func compareOwners(a, b panel.Agent) int {
+// compareOccupants orders the agents in a directory, a live one before an archived one and then
+// a newer one before an older.
+func compareOccupants(a, b panel.Agent) int {
 	if (a.ArchivedAt == nil) != (b.ArchivedAt == nil) {
 		if a.ArchivedAt == nil {
 			return -1

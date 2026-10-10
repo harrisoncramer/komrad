@@ -80,28 +80,6 @@ func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 	))
 }
 
-func (m *model) archiveAndDeleteAgents(agents []panel.Agent) tea.Cmd {
-	if len(agents) == 0 {
-		return nil
-	}
-
-	ids := panel.IDs(agents)
-
-	pending := m.unstageAhead(agents)
-
-	return pending.attach(m.writeCmd(
-		"archiving and deleting "+describeAgents(agents),
-		fmt.Sprintf("Could not archive and delete %s", describeAgents(agents)),
-		func(a api) error {
-			if err := pending.noteArchive(a.archiveAgents(ids)); err != nil {
-				return err
-			}
-
-			return a.deleteAgents(ids)
-		},
-	))
-}
-
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
 // standing behind it and for a task its lead.
 func (a *agentsScreen) openHovered(m *model) tea.Cmd {

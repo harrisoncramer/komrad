@@ -10555,16 +10555,6 @@
           "description": "Whether the gitdir the .git file names is still there, without which git will not answer for the directory."
         },
         {
-          "name": "agent",
-          "type": "WorktreeAgent",
-          "ref": "worktree.v1.WorktreeAgent",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The agent the directory was made for, unset when no row answers for it."
-        },
-        {
           "name": "occupants",
           "type": "WorktreeAgent",
           "ref": "worktree.v1.WorktreeAgent",
@@ -10572,7 +10562,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The other agents working in this directory, which hold none of their own."
+          "description": "The agents working in this directory, live ones first."
         },
         {
           "name": "size_bytes",
@@ -10612,7 +10602,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the directory was last active, in RFC 3339: the later of its agent's last state change and its archiving when an agent answers for it, else when git last wrote the directory's .git file, else the directory's own modification time."
+          "description": "When the directory was last active, in RFC 3339: the latest state change or archiving of its occupants when it has any, else when git last wrote the directory's .git file, else the directory's own modification time."
         },
         {
           "name": "fate",
@@ -10633,6 +10623,16 @@
           "oneof": "",
           "rules": [],
           "description": "The directory's share of size_bytes, each hard linked file's blocks split evenly across its links. Unset with size_bytes."
+        },
+        {
+          "name": "task",
+          "type": "WorktreeTask",
+          "ref": "worktree.v1.WorktreeTask",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task whose checkout the directory is, unset when none answers for it."
         }
       ]
     },
@@ -10679,6 +10679,42 @@
           "oneof": "",
           "rules": [],
           "description": "When the agent was put away, in RFC 3339, unset while it is live."
+        }
+      ]
+    },
+    "worktree.v1.WorktreeTask": {
+      "name": "WorktreeTask",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task's id, which is also the directory's name."
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task's slug."
+        },
+        {
+          "name": "archived_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When the task was put away, in RFC 3339, unset while it is open."
         },
         {
           "name": "adopted",
@@ -10688,7 +10724,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the branch was somebody's before the agent was put on it, which cleanup never deletes."
+          "description": "Whether the branch was somebody's before the task was put on it, which cleanup never deletes."
         }
       ]
     }
@@ -11124,19 +11160,19 @@
       "values": [
         {
           "name": "WORKTREE_FATE_UNOWNED",
-          "description": "Nothing answers for the directory, which the remover takes."
+          "description": "No task answers for the directory, which the remover takes."
         },
         {
           "name": "WORKTREE_FATE_ARCHIVED",
-          "description": "The directory's agent is put away, which the agent delete takes."
+          "description": "The directory's task is put away, which the task delete takes."
         },
         {
           "name": "WORKTREE_FATE_LIVE",
-          "description": "The directory's agent is running, which nothing takes."
+          "description": "The directory's task is open, which nothing takes."
         },
         {
-          "name": "WORKTREE_FATE_TASK",
-          "description": "Only the directory's task answers for it, which the task delete takes."
+          "name": "WORKTREE_FATE_DELETING",
+          "description": "A delete has claimed the directory's task, which that delete takes."
         }
       ]
     }

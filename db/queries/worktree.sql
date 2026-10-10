@@ -43,10 +43,10 @@ AND NOT EXISTS (
     SELECT
         1
     FROM
-        agents a
+        tasks t
     WHERE
-        a.id::text = w.name
-        AND a.deleting_at IS NOT NULL)
+        t.id::text = w.name
+        AND t.deleting_at IS NOT NULL)
 ORDER BY
     w.dir;
 
@@ -97,9 +97,9 @@ WHERE
 DELETE FROM worktrees
 WHERE dir = ANY (@dirs::text[]);
 
--- name: DeleteWorktreesByName :exec
+-- name: DeleteTaskWorktrees :exec
 DELETE FROM worktrees
-WHERE name = ANY (@names::text[]);
+WHERE name = sqlc.arg(task_id)::text;
 
 -- name: RecordWorktreeStanding :exec
 UPDATE

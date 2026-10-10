@@ -12,7 +12,6 @@ import (
 
 	"komrad/internal/logging"
 	"komrad/internal/worktrees"
-	"komrad/lib/xslice"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -83,7 +82,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		return fmt.Errorf("failed to list the worktrees: %w", err)
 	}
 
-	var owned []worktrees.Worktree
+	var tearing []string
 	var dirs []string
 	var refused []worktrees.Refusal
 	for _, dir := range job.Args.Dirs {
@@ -96,18 +95,16 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		switch worktree.Fate() {
 		case worktrees.FateUnowned:
 			dirs = append(dirs, dir)
-		case worktrees.FateArchived:
-			owned = append(owned, worktree)
+		case worktrees.FateDeleting:
+			tearing = append(tearing, dir)
 		case worktrees.FateLive:
-			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is live; archive it first", worktree.Agent.Name)})
-		case worktrees.FateTask:
+			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: fmt.Sprintf("task %s is live; archive it first", worktree.Task.Slug)})
+		case worktrees.FateArchived:
 			refused = append(refused, worktree.RefuseForTask())
 		}
 	}
 
 	var failed []error
-	tearing := xslice.Map(owned, func(worktree worktrees.Worktree) string { return worktree.Dir })
-
 	for _, level := range deepestFirst(dirs) {
 		removal, err := w.remover.Remove(ctx, level)
 		if err != nil {
@@ -120,7 +117,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 			case refusal.Failed:
 				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, refusal.Reason))
 			case hasAny(refusal.Dir, tearing):
-				failed = append(failed, fmt.Errorf("%s: %s; an agent's teardown is still running under it", refusal.Dir, refusal.Reason))
+				failed = append(failed, fmt.Errorf("%s: %s; a task's teardown is still running under it", refusal.Dir, refusal.Reason))
 			default:
 				refused = append(refused, refusal)
 			}

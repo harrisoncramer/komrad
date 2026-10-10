@@ -559,6 +559,54 @@ func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
 	return items, nil
 }
 
+const listTaskSummaries = `-- name: ListTaskSummaries :many
+SELECT
+    id,
+    workflow_id,
+    slug,
+    adopted_branch,
+    archived_at,
+    deleting_at
+FROM
+    tasks
+`
+
+type ListTaskSummariesRow struct {
+	ID            string
+	WorkflowID    string
+	Slug          string
+	AdoptedBranch *string
+	ArchivedAt    *time.Time
+	DeletingAt    *time.Time
+}
+
+func (q *Queries) ListTaskSummaries(ctx context.Context) ([]*ListTaskSummariesRow, error) {
+	rows, err := q.db.Query(ctx, listTaskSummaries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListTaskSummariesRow
+	for rows.Next() {
+		var i ListTaskSummariesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkflowID,
+			&i.Slug,
+			&i.AdoptedBranch,
+			&i.ArchivedAt,
+			&i.DeletingAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTasks = `-- name: ListTasks :many
 SELECT
     id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at

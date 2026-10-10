@@ -47,16 +47,20 @@ func newDeleteWorktreesWorker(fake *fakeWorktrees) *DeleteWorktreesWorker {
 	})
 }
 
-func archivedWorktree(dir, id string) worktrees.Worktree {
+func taskWorktree(dir string, task worktrees.Task) worktrees.Worktree {
 	return worktrees.Worktree{
 		Dir:      dir,
 		Readable: true,
-		Agent: &worktrees.Agent{
-			ID:         id,
-			Name:       "put-away-" + id,
-			ArchivedAt: xptr.Ptr(time.Now()),
-		},
+		Task:     &task,
 	}
+}
+
+func deletingWorktree(dir string) worktrees.Worktree {
+	return taskWorktree(dir, worktrees.Task{
+		Slug:       "going",
+		ArchivedAt: xptr.Ptr(time.Now()),
+		Deleting:   true,
+	})
 }
 
 // TestDeleteWorktreesSendsEachDirectoryDownItsPath covers the listing deciding how a directory
@@ -75,18 +79,22 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 	}{
 		{
 			name:    "a directory the listing no longer holds is skipped",
-			listing: []worktrees.Worktree{archivedWorktree("/trees/a", "a")},
+			listing: []worktrees.Worktree{deletingWorktree("/trees/a")},
 			dirs:    []string{"/trees/gone"},
 		},
 		{
-			name: "a live agent's directory is refused and the job is cancelled",
-			listing: []worktrees.Worktree{{
-				Dir:      "/trees/live",
-				Readable: true,
-				Agent:    &worktrees.Agent{ID: "live", Name: "worktree-view"},
-			}},
+			name:       "a live task's directory is refused and the job is cancelled",
+			listing:    []worktrees.Worktree{taskWorktree("/trees/live", worktrees.Task{Slug: "worktree-view"})},
 			dirs:       []string{"/trees/live"},
 			wantCancel: true,
+			wantSaid:   "task worktree-view is live; archive it first",
+		},
+		{
+			name:       "an archived task's directory is refused and the job is cancelled",
+			listing:    []worktrees.Worktree{taskWorktree("/trees/a", worktrees.Task{Slug: "put-away", ArchivedAt: xptr.Ptr(time.Now())})},
+			dirs:       []string{"/trees/a"},
+			wantCancel: true,
+			wantSaid:   "task put-away holds it; delete the task instead",
 		},
 		{
 			name:        "the remover's refusal is cancelled rather than retried",
@@ -119,8 +127,8 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			wantErr:     true,
 		},
 		{
-			name:    "an archived agent's directory is left to the agent's own delete",
-			listing: []worktrees.Worktree{archivedWorktree("/trees/a", "a")},
+			name:    "a directory whose task is being deleted is left to that delete",
+			listing: []worktrees.Worktree{deletingWorktree("/trees/a")},
 			dirs:    []string{"/trees/a"},
 		},
 		{
@@ -130,38 +138,25 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			wantRemoved: [][]string{{"/trees/orphan"}},
 		},
 		{
-			name: "a row whose own delete failed on a registration git cannot read goes to the remover",
-			listing: []worktrees.Worktree{{
-				Dir: "/trees/stuck",
-				Agent: &worktrees.Agent{
-					ID:              "stuck",
-					Name:            "stuck",
-					FailedToCleanup: true,
-				},
-			}},
-			dirs:        []string{"/trees/stuck"},
-			wantRemoved: [][]string{{"/trees/stuck"}},
-		},
-		{
 			name: "both paths in one job",
 			listing: []worktrees.Worktree{
-				archivedWorktree("/trees/a", "a"),
+				deletingWorktree("/trees/a"),
 				{Dir: "/trees/orphan", Readable: true},
 			},
 			dirs:        []string{"/trees/orphan", "/trees/a"},
 			wantRemoved: [][]string{{"/trees/orphan"}},
 		},
 		{
-			name: "a directory refused over an agent whose teardown this run started is retried",
+			name: "a directory refused over a task whose teardown is running is retried",
 			listing: []worktrees.Worktree{
 				{Dir: "/trees/outer", Readable: true},
-				archivedWorktree("/trees/outer/inner", "inner"),
+				deletingWorktree("/trees/outer/inner"),
 			},
 			dirs:        []string{"/trees/outer", "/trees/outer/inner"},
 			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
 			wantRemoved: [][]string{{"/trees/outer"}},
 			wantErr:     true,
-			wantSaid:    "an agent's teardown is still running under it",
+			wantSaid:    "a task's teardown is still running under it",
 		},
 		{
 			name: "a directory goes before the one holding it, each depth its own call",

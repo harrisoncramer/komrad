@@ -25,7 +25,6 @@ import (
 	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
-	worktreestore "komrad/internal/store/worktree"
 )
 
 // errArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself nor its child.
@@ -661,11 +660,7 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 		}
 		taken = deleted
 
-		if err := transcriptstore.NewTranscriptStore(db).Delete(ctx, ids); err != nil {
-			return err
-		}
-
-		return worktreestore.NewWorktreeStore(db).DeleteByName(ctx, ids)
+		return transcriptstore.NewTranscriptStore(db).Delete(ctx, ids)
 	}); err != nil {
 		return err
 	}

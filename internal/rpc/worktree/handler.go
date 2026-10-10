@@ -162,8 +162,8 @@ func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {
 		LastActiveAt: dates.Stamp(worktree.LastActiveAt),
 		Fate:         renderFate(worktree.Fate()),
 	}
-	if worktree.Agent != nil {
-		rendered.Agent = renderAgent(*worktree.Agent)
+	if worktree.Task != nil {
+		rendered.Task = renderTask(*worktree.Task)
 	}
 	if size := worktree.Size; size != nil {
 		rendered.MeasuredAt = dates.StampPtr(&size.MeasuredAt)
@@ -185,8 +185,8 @@ func renderFate(fate worktrees.Fate) worktreev1.WorktreeFate {
 		return worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED
 	case worktrees.FateLive:
 		return worktreev1.WorktreeFate_WORKTREE_FATE_LIVE
-	case worktrees.FateTask:
-		return worktreev1.WorktreeFate_WORKTREE_FATE_TASK
+	case worktrees.FateDeleting:
+		return worktreev1.WorktreeFate_WORKTREE_FATE_DELETING
 	}
 
 	return worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED
@@ -198,7 +198,15 @@ func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {
 		Name:       agent.Name,
 		State:      render.AgentStateOf(agent.State),
 		ArchivedAt: dates.StampPtr(agent.ArchivedAt),
-		Adopted:    agent.Adopted,
+	}
+}
+
+func renderTask(task worktrees.Task) *worktreev1.WorktreeTask {
+	return &worktreev1.WorktreeTask{
+		Id:         task.ID,
+		Slug:       task.Slug,
+		ArchivedAt: dates.StampPtr(task.ArchivedAt),
+		Adopted:    task.Adopted,
 	}
 }
 

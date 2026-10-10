@@ -97,7 +97,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 	require.NoError(t, os.MkdirAll(orphan, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(orphan, "blob"), make([]byte, 1<<20), 0o644))
 
-	t.Run("the listing names each worktree after its task, under the agent it was cut for", func(t *testing.T) {
+	t.Run("the listing names each worktree after its task, with the agents working in it", func(t *testing.T) {
 		found := listWorktrees(t, instance)
 
 		require.Contains(t, found, lister.GetCwd())
@@ -105,8 +105,10 @@ func TestIntegrationWorktrees(t *testing.T) {
 		assert.True(t, tree.GetReadable())
 		assert.Equal(t, lister.GetTaskId(), filepath.Base(lister.GetCwd()))
 		assert.Equal(t, "task/"+lister.GetTaskId(), tree.GetBranch())
-		assert.Equal(t, lister.GetId(), tree.GetAgent().GetId())
-		assert.Equal(t, "sibling-1", tree.GetAgent().GetName())
+		assert.Equal(t, lister.GetTaskId(), tree.GetTask().GetId())
+		assert.Equal(t, lister.GetTaskSlug(), tree.GetTask().GetSlug())
+		assert.Contains(t, xslice.Map(tree.GetOccupants(), func(agent *worktreev1.WorktreeAgent) string { return agent.GetId() }), lister.GetId())
+		assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_LIVE, tree.GetFate())
 		assert.NotEmpty(t, tree.GetLastActiveAt())
 		assert.Contains(t, found, orphan)
 		for dir, worktree := range found {
@@ -143,7 +145,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 		assert.Equal(t, read.Msg.GetSizeBytes(), listWorktrees(t, instance)[tree].GetSizeBytes())
 	})
 
-	t.Run("the remover refuses a worktree an agent answers for and takes an orphan", func(t *testing.T) {
+	t.Run("the remover refuses a worktree a task answers for and takes an orphan", func(t *testing.T) {
 		removal, err := instance.Worktrees.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{
 			Dirs: []string{lister.GetCwd(), orphan},
 		}))
@@ -151,7 +153,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 
 		assert.Equal(t, []string{orphan}, removal.Msg.GetRemoved())
 		require.Len(t, removal.Msg.GetRefused(), 1)
-		assert.Contains(t, removal.Msg.GetRefused()[0].GetReason(), "sibling-1")
+		assert.Contains(t, removal.Msg.GetRefused()[0].GetReason(), lister.GetTaskSlug())
 		assert.DirExists(t, lister.GetCwd())
 		assert.NoDirExists(t, orphan)
 
@@ -174,7 +176,9 @@ func TestIntegrationWorktrees(t *testing.T) {
 			assert.ErrorIs(collect, err, store.ErrNotFound)
 		}, 10*time.Second, 100*time.Millisecond)
 
-		assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_TASK, listWorktrees(t, instance)[leaver.GetCwd()].GetFate())
+		left := listWorktrees(t, instance)[leaver.GetCwd()]
+		assert.Equal(t, leaver.GetTaskId(), left.GetTask().GetId())
+		assert.Empty(t, left.GetOccupants())
 		removal, err := instance.Worktrees.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{
 			Dirs: []string{leaver.GetCwd()},
 		}))

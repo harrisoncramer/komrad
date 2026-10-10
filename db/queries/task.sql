@@ -406,3 +406,14 @@ WHERE
             a.task_id = t.id
             AND a.archived_at IS NULL
             AND a.id <> sqlc.arg('agent_id'));
+
+-- name: ListTaskSummaries :many
+SELECT
+    id,
+    workflow_id,
+    slug,
+    adopted_branch,
+    archived_at,
+    deleting_at
+FROM
+    tasks;

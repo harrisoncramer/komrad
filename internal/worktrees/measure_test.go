@@ -179,9 +179,7 @@ func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
 	named := fixture.cutUnowned(t)
 	owned := fixture.cut(t)
 	kept := fixture.cut(t)
-	going := fixture.own(t, deleting, agentstore.Agent{Name: "going"})
-	_, err := fixture.stores.Agents.MarkDeleting(t.Context(), []string{going.ID})
-	require.NoError(t, err)
+	require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{filepath.Base(deleting)}))
 	fixture.own(t, owned, agentstore.Agent{Name: "live"})
 	for _, dir := range []string{deleting, named, owned, kept} {
 		fixture.recordSize(t, dir, fixture.now.Add(-2*time.Hour))

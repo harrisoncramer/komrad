@@ -308,9 +308,12 @@ func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 		lastActiveAt: dates.Parse(w.GetLastActiveAt()),
 		fate:         worktreeFateFrom(w.GetFate()),
 	}
-	if w.Agent != nil {
-		agent := worktreeAgentFrom(w.GetAgent())
-		item.agent = &agent
+	if task := w.GetTask(); task != nil {
+		item.task = &panel.Task{
+			ID:         task.GetId(),
+			Slug:       task.GetSlug(),
+			ArchivedAt: dates.ParsePtr(task.GetArchivedAt()),
+		}
 	}
 	if w.MeasuredAt != nil {
 		item.size = &worktreeSize{
@@ -330,8 +333,8 @@ func worktreeFateFrom(fate worktreev1.WorktreeFate) worktreeFate {
 		return fateArchived
 	case worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:
 		return fateLive
-	case worktreev1.WorktreeFate_WORKTREE_FATE_TASK:
-		return fateTask
+	case worktreev1.WorktreeFate_WORKTREE_FATE_DELETING:
+		return fateDeleting
 	case worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED, worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED:
 		return fateUnowned
 	}

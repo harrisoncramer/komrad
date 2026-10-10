@@ -200,11 +200,11 @@ func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, fet
 
 // getWorktreeConfig is the worktree settings the directory's workflow names, empty when no row names one.
 func (i *Inspector) getWorktreeConfig(ctx context.Context, worktree Worktree) (workflowstore.WorktreeConfig, error) {
-	if worktree.Agent == nil || worktree.Agent.WorkflowID == "" {
+	if worktree.Task == nil {
 		return workflowstore.WorktreeConfig{}, nil
 	}
 
-	workflow, err := i.workflows.GetIncludingArchived(ctx, worktree.Agent.WorkflowID)
+	workflow, err := i.workflows.GetIncludingArchived(ctx, worktree.Task.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return workflowstore.WorktreeConfig{}, nil
 	}
@@ -259,7 +259,7 @@ func (i *Inspector) keepsBranch(ctx context.Context, worktree Worktree) (bool, e
 	if worktree.Branch == "" {
 		return false, nil
 	}
-	if worktree.Agent != nil && worktree.Agent.Adopted {
+	if worktree.Task != nil && worktree.Task.Adopted {
 		return true, nil
 	}
 

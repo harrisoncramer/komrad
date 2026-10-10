@@ -362,6 +362,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 	emptyTasks := agents.NewEmptyTaskDeleter(agents.NewEmptyTaskDeleterParams{
 		Tasks:     st.tasks,
 		Workflows: st.workflows,
+		Worktrees: st.worktrees,
 		Scripts:   params.Scripts,
 	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{

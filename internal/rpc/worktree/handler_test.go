@@ -71,7 +71,7 @@ func (f *fakeWorktrees) ListClaimedDirs(context.Context) ([]string, error) {
 	return f.claimed, f.claimErr
 }
 
-// TestListWorktrees covers the listing rendered whole: the agent with its stamp, the
+// TestListWorktrees covers the listing rendered whole: the task and its stamp, the
 // occupants, the size and when it was measured, the last activity, the fate, a failed measurement
 // carrying its error and no size, an unmeasured directory carrying neither, and the
 // directories walked.
@@ -106,12 +106,15 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, "/trees/aaaa", first.GetDir())
 	assert.Equal(t, "agent/aaaa", first.GetBranch())
 	assert.True(t, first.GetReadable())
-	assert.Equal(t, "first", first.GetAgent().GetName())
-	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, first.GetAgent().GetState())
-	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetAgent().GetArchivedAt())
-	assert.True(t, first.GetAgent().GetAdopted())
-	require.Len(t, first.GetOccupants(), 1)
-	assert.Equal(t, "first-reviewer", first.GetOccupants()[0].GetName())
+	assert.Equal(t, "aaaa", first.GetTask().GetId())
+	assert.Equal(t, "first-task", first.GetTask().GetSlug())
+	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetTask().GetArchivedAt())
+	assert.True(t, first.GetTask().GetAdopted())
+	require.Len(t, first.GetOccupants(), 2)
+	assert.Equal(t, "first", first.GetOccupants()[0].GetName())
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, first.GetOccupants()[0].GetState())
+	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetOccupants()[0].GetArchivedAt())
+	assert.Equal(t, "first-reviewer", first.GetOccupants()[1].GetName())
 	require.NotNil(t, first.SizeBytes)
 	assert.Equal(t, int64(49*1024*1024), first.GetSizeBytes())
 	assert.Equal(t, int64(20*1024*1024), first.GetShareBytes())
@@ -121,7 +124,7 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED, first.GetFate())
 
 	gone := resp.Msg.GetWorktrees()[1]
-	assert.Nil(t, gone.Agent)
+	assert.Nil(t, gone.Task)
 	assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED, gone.GetFate())
 	assert.False(t, gone.GetReadable())
 	assert.Nil(t, gone.SizeBytes, "a failed measurement carries no size")
@@ -331,18 +334,25 @@ func buildListedWorktree() worktrees.Worktree {
 		RepoDir:  "/repo",
 		Branch:   "agent/aaaa",
 		Readable: true,
-		Agent: &worktrees.Agent{
+		Task: &worktrees.Task{
 			ID:         "aaaa",
-			Name:       "first",
-			State:      agentstore.StateIdle,
-			ArchivedAt: &archived,
+			Slug:       "first-task",
 			Adopted:    true,
+			ArchivedAt: &archived,
 		},
-		Occupants: []worktrees.Agent{{
-			ID:    "bbbb",
-			Name:  "first-reviewer",
-			State: agentstore.StateThinking,
-		}},
+		Occupants: []worktrees.Agent{
+			{
+				ID:         "first",
+				Name:       "first",
+				State:      agentstore.StateIdle,
+				ArchivedAt: &archived,
+			},
+			{
+				ID:    "bbbb",
+				Name:  "first-reviewer",
+				State: agentstore.StateThinking,
+			},
+		},
 		Size: &worktreestore.Size{
 			Dir:        "/trees/aaaa",
 			Bytes:      49 * 1024 * 1024,
