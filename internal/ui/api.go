@@ -133,8 +133,6 @@ type createAgentParams struct {
 	WorkflowID       string
 	ParentAgentID    string
 	Task             string
-	TaskSlug         string
-	TaskGoal         string
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
@@ -148,8 +146,6 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			WorkflowId:       params.WorkflowID,
 			ParentAgentId:    nilIfBlank(params.ParentAgentID),
 			Task:             nilIfBlank(params.Task),
-			TaskSlug:         nilIfBlank(params.TaskSlug),
-			TaskGoal:         params.TaskGoal,
 		}))
 		if err != nil {
 			return nil, err
