@@ -1,7 +1,7 @@
 ---
 import Layout from "./Layout.astro";
-import { REPO_URL, SECTIONS, SITE_TITLE } from "../consts";
-import { canonical, link } from "../site";
+import { REPO_URL, SITE_TITLE } from "../consts";
+import { breadcrumbs, canonical, link } from "../site";
 
 type Neighbour = { title: string; href: string };
 
@@ -15,16 +15,7 @@ type Props = {
 
 const { title, description, filePath, prev, next } = Astro.props;
 
-const segments = Astro.url.pathname
-  .slice(import.meta.env.BASE_URL.length)
-  .split("/")
-  .filter(Boolean);
-const section = segments.length > 1 ? SECTIONS.find((entry) => entry.id === segments[0]) : undefined;
-const crumbs = [
-  { name: SITE_TITLE, item: canonical(link("/")) },
-  ...(section ? [{ name: section.title, item: canonical(link(`/${section.id}`)) }] : []),
-  { name: title, item: canonical(Astro.url.pathname) },
-];
+const crumbs = breadcrumbs(Astro.url.pathname, title);
 const structuredData = [
   {
     "@type": "TechArticle",
