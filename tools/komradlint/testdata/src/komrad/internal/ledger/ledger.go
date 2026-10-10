@@ -59,7 +59,11 @@ func (s *Service) Leak(ctx context.Context) error {
 			return err
 		}
 
-		if _, err := notestore.NewNoteStore(s.db).Get(ctx, "c"); err != nil { // want `notestore.NewNoteStore is built over a transaction this function was not handed`
+		if _, err := notestore.NewNoteStore(s.db).Get(ctx, "c"); err != nil { // want `notestore.NewNoteStore is handed a transaction this function was not handed`
+			return err
+		}
+
+		if err := s.mail.InTx(s.db).Send(ctx); err != nil { // want `s.mail.InTx is handed a transaction this function was not handed`
 			return err
 		}
 

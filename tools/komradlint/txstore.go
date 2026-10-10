@@ -92,7 +92,7 @@ func isTransaction(typ types.Type) bool {
 }
 
 // reportEscapes reports every call in a transaction's function on a store or a bindable service
-// built outside it, and every store it builds over a transaction from outside it.
+// built outside it, and every call it hands a transaction from outside it.
 func reportEscapes(pass *analysis.Pass, scope txScope, body *ast.BlockStmt) {
 	ast.Inspect(body, func(node ast.Node) bool {
 		if literal, ok := node.(*ast.FuncLit); ok && takesTransaction(pass, literal.Type) {
@@ -115,13 +115,9 @@ func reportEscapes(pass *analysis.Pass, scope txScope, body *ast.BlockStmt) {
 			return true
 		}
 
-		if !isStorePackage(callee.Pkg()) {
-			return true
-		}
-
 		for _, arg := range call.Args {
 			if isTransaction(pass.TypesInfo.TypeOf(arg)) && scope.isOutside(pass, arg) {
-				pass.Reportf(arg.Pos(), "%s is built over a transaction this function was not handed; build it over its own", types.ExprString(call.Fun))
+				pass.Reportf(arg.Pos(), "%s is handed a transaction this function was not handed; hand it its own", types.ExprString(call.Fun))
 			}
 		}
 
