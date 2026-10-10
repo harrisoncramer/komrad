@@ -45,7 +45,7 @@ func task(agentID string, set ...func(*taskv1.Task)) *taskv1.Task {
 	t := &taskv1.Task{
 		Id:            "task-" + agentID,
 		WorkflowId:    flowID,
-		Branch:        xptr.Ptr("agent/" + agentID),
+		Branch:        xptr.Ptr("task/task-" + agentID),
 		RepositoryUrl: xptr.Ptr(repo),
 	}
 	for _, f := range set {
@@ -165,14 +165,14 @@ func TestAgentRows(t *testing.T) {
 	onBranch := pullRequest{
 		id:        "p1",
 		headRepo:  repo,
-		branch:    "agent/" + newer,
+		branch:    "task/task-" + newer,
 		number:    1,
 		openedAgo: time.Hour,
 	}
 	oldest := pullRequest{
 		id:        "p1",
 		headRepo:  repo,
-		branch:    "agent/" + newer,
+		branch:    "task/task-" + newer,
 		number:    1,
 		openedAgo: 3 * time.Hour,
 		merged:    true,
@@ -180,7 +180,7 @@ func TestAgentRows(t *testing.T) {
 	open := pullRequest{
 		id:        "p2",
 		headRepo:  repo,
-		branch:    "agent/" + newer,
+		branch:    "task/task-" + newer,
 		number:    2,
 		openedAgo: 2 * time.Hour,
 		autoMerge: true,
@@ -188,7 +188,7 @@ func TestAgentRows(t *testing.T) {
 	latest := pullRequest{
 		id:        "p3",
 		headRepo:  repo,
-		branch:    "agent/" + newer,
+		branch:    "task/task-" + newer,
 		number:    3,
 		openedAgo: time.Hour,
 		merged:    true,
@@ -197,7 +197,7 @@ func TestAgentRows(t *testing.T) {
 	closed := pullRequest{
 		id:        "p4",
 		headRepo:  repo,
-		branch:    "agent/" + newer,
+		branch:    "task/task-" + newer,
 		number:    4,
 		openedAgo: time.Hour,
 		closed:    true,
@@ -368,14 +368,14 @@ func TestAgentRows(t *testing.T) {
 					pullRequest{
 						id:        "p1",
 						headRepo:  fork,
-						branch:    "agent/" + newer,
+						branch:    "task/task-" + newer,
 						number:    1,
 						openedAgo: time.Hour,
 					},
 					pullRequest{
 						id:        "p2",
 						headRepo:  repo,
-						branch:    "agent/" + older,
+						branch:    "task/task-" + older,
 						number:    2,
 						openedAgo: time.Hour,
 					},

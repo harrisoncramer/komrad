@@ -701,7 +701,7 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 		worktree := &worktreev1.WatchedWorktree{
 			Dir:      "/trees/" + name,
 			RepoDir:  "/home/h/komrad",
-			Branch:   "agent/" + name,
+			Branch:   "task/" + name,
 			Readable: true,
 		}
 

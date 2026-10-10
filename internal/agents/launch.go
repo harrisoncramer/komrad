@@ -783,10 +783,9 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 // launch then provisions.
 func claimCheckout(ctx context.Context, tasks *taskstore.TaskStore, c creation, taskID string) error {
 	claimed, err := tasks.ClaimCheckout(ctx, taskstore.ClaimCheckoutParams{
-		ID:               taskID,
-		AdoptedBranch:    c.adoptedBranch,
-		RepositoryURL:    c.repositoryURL,
-		ProvisionEnabled: c.agent.ProvisionEnabled,
+		ID:            taskID,
+		AdoptedBranch: c.adoptedBranch,
+		RepositoryURL: c.repositoryURL,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to claim the checkout of task %q for agent %q: %w", taskID, c.agent.Name, err)

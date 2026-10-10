@@ -161,10 +161,9 @@ func TestCheckoutRoundTrips(t *testing.T) {
 	assert.Empty(t, task.Checkout.Cwd, "a fresh task has no checkout")
 
 	claimed, err := stores.Tasks.ClaimCheckout(ctx, taskstore.ClaimCheckoutParams{
-		ID:               task.ID,
-		AdoptedBranch:    "feature",
-		RepositoryURL:    "https://github.com/harrisoncramer/komrad",
-		ProvisionEnabled: xptr.Ptr(true),
+		ID:            task.ID,
+		AdoptedBranch: "feature",
+		RepositoryURL: "https://github.com/harrisoncramer/komrad",
 	})
 	require.NoError(t, err)
 	require.True(t, claimed)

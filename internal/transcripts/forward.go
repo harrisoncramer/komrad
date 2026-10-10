@@ -2,7 +2,6 @@ package transcripts
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/mail"
-	"komrad/internal/store"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 
@@ -123,9 +121,6 @@ func (r *TranscriptReader) readTaskBranch(ctx context.Context, agent agentstore.
 	}
 
 	task, err := r.tasks.Get(ctx, *agent.TaskID)
-	if errors.Is(err, store.ErrNotFound) {
-		return "", nil
-	}
 	if err != nil {
 		return "", fmt.Errorf("failed to read the task of %q: %w", agent.ID, err)
 	}
