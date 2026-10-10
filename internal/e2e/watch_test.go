@@ -117,7 +117,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())
 	require.NotEmpty(t, seeded.agents[gone.ID].GetAgent().GetArchivedAt(), "the archived agent is watched as archived")
 	require.Len(t, seeded.schedules, 1)
-	require.Len(t, seeded.tasks, 1)
+	require.Contains(t, seeded.tasks, fixLogin.ID)
 	require.Equal(t, "fix-login", seeded.agents[working.ID].GetAgent().GetTaskSlug(), "the agent is watched with its task")
 
 	// The stream opens with the snapshot, applied the way the panel applies it.
@@ -250,7 +250,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.Len(t, stores.tasks, 2)
+				assert.Len(t, stores.tasks, len(seeded.tasks)+1)
 			},
 		},
 		{

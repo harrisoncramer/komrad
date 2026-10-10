@@ -29,7 +29,7 @@ func TestIntegrationPanel(t *testing.T) {
 		instance, agentID := startServedAgent(t)
 		harness := newPanelHarness(t, panelHarnessParams{remote: newPanelRemote(instance)})
 		relist(t, instance, harness)
-		require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
+		require.Equal(t, []string{"backend", "└─ login", "   └─ login"}, readListRows(harness.readFrame()))
 
 		harness.press("space", "a")
 		require.Contains(t, harness.readFrame(), "enter submit", "the key opens the confirm prompt rather than archiving outright")
@@ -67,7 +67,7 @@ func TestIntegrationPanel(t *testing.T) {
 		dragged := readPaneWidth(t, served.instance, served.agentPane)
 		require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
-		served.harness.press("k", "space", "a")
+		served.harness.press("k", "k", "space", "a")
 		require.Contains(t, served.harness.readFrame(), "backend › archive")
 		served.harness.press("a")
 		relist(t, served.instance, served.harness)
@@ -169,7 +169,7 @@ func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
 		remote:   newPanelRemote(instance),
 	})
 	relist(t, instance, harness)
-	require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
+	require.Equal(t, []string{"backend", "└─ login", "   └─ login"}, readListRows(harness.readFrame()))
 
 	harness.fireTimers()
 	agentPane := instance.GetOwnedPane(agentID)
