@@ -364,9 +364,6 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 			if err := agentstore.NewAgentStore(db).Restore(ctx, agentstore.IDs(archived)); err != nil {
 				return err
 			}
-			if err := taskstore.NewTaskStore(db).Restore(ctx, agentstore.TaskIDs(archived)); err != nil {
-				return err
-			}
 			workflowStore := workflowstore.NewWorkflowStore(db)
 			for _, id := range workflowIDs(archived) {
 				if err := workflowStore.Restore(ctx, id); err != nil {
@@ -428,11 +425,7 @@ func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID strin
 				return err
 			}
 
-			if err := agentstore.NewAgentStore(db).RestoreWorkflowAgents(ctx, workflowID); err != nil {
-				return err
-			}
-
-			return taskstore.NewTaskStore(db).Restore(ctx, agentstore.TaskIDs(archived))
+			return agentstore.NewAgentStore(db).RestoreWorkflowAgents(ctx, workflowID)
 		},
 	})
 }
