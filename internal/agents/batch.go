@@ -164,7 +164,8 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 	return nil
 }
 
-// runTaskPreOpen runs the pre-open hooks of each task a restore takes from no live agent to one, stopping at the first that fails.
+// runTaskPreOpen runs the pre-open hooks of each task a restore takes from no live agent to one, stopping at
+// the first that fails, and waits for those of each task it joins.
 func runTaskPreOpen(ctx context.Context, params restoreBatchParams) error {
 	if params.scripts == nil {
 		return nil
@@ -182,7 +183,14 @@ func runTaskPreOpen(ctx context.Context, params restoreBatchParams) error {
 		}
 
 		actor := findTaskActor(params.archived, task.ID)
-		if actor == nil || !isOpening(*actor, live) {
+		if actor == nil {
+			continue
+		}
+		if !isOpening(*actor, live) {
+			if err := params.scripts.AwaitHooks(ctx, task.ID); err != nil {
+				return err
+			}
+
 			continue
 		}
 

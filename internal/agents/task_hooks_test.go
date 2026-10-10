@@ -2,6 +2,7 @@ package agents
 
 import (
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -305,6 +306,7 @@ func TestTaskPreDelete(t *testing.T) {
 		worktree        bool
 		hookErr         error
 		deleteAgentOnly bool
+		removeWorktree  bool
 		wantDeleted     bool
 		wantRan         bool
 		wantInWorktree  bool
@@ -320,6 +322,13 @@ func TestTaskPreDelete(t *testing.T) {
 			name:            "deleting the agent of a task it leaves behind runs no pre-delete",
 			worktree:        true,
 			deleteAgentOnly: true,
+		},
+		{
+			name:           "a task whose worktree has gone runs pre-delete in the workflow's directory",
+			worktree:       true,
+			removeWorktree: true,
+			wantDeleted:    true,
+			wantRan:        true,
 		},
 		{
 			name:        "a task with no worktree runs pre-delete in the workflow's directory",
@@ -345,6 +354,9 @@ func TestTaskPreDelete(t *testing.T) {
 			agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 			require.NoError(t, err)
 
+			if tt.removeWorktree {
+				require.NoError(t, os.RemoveAll(agent.Cwd))
+			}
 			if tt.deleteAgentOnly {
 				require.NoError(t, fx.agents.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 			} else {
@@ -422,6 +434,73 @@ func TestIsOpening(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, isOpening(tt.agent, tt.live))
+		})
+	}
+}
+
+// TestJoiningAgentWaitsForTheTaskToOpen covers an agent joining a task while another is still opening it.
+func TestJoiningAgentWaitsForTheTaskToOpen(t *testing.T) {
+	tests := []struct {
+		name        string
+		hookErr     error
+		wantOpeners int
+	}{
+		{
+			name:        "a joiner opens the task itself once the agent opening it fails",
+			hookErr:     errors.New("cache is cold"),
+			wantOpeners: 2,
+		},
+		{
+			name:        "a joiner starts once the task has opened, without opening it again",
+			wantOpeners: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hold := make(chan struct{})
+			lifecycle := &fakeLifecycle{
+				dir:          t.TempDir(),
+				holdHooks:    hold,
+				hookErrsOnce: map[string]error{taskHook: tt.hookErr},
+			}
+			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, false))
+
+			opened := make(chan error, 1)
+			go func() {
+				_, err := launchOnTask(t, fx, NewAgentParams{
+					Title:    "auth",
+					TaskSlug: "work",
+				})
+				opened <- err
+			}()
+			require.Eventually(t, func() bool {
+				_, err := fx.st.Tasks.GetBySlug(t.Context(), "work")
+				return err == nil
+			}, 5*time.Second, 10*time.Millisecond)
+
+			joined := make(chan error, 1)
+			var joiner *agentstore.Agent
+			go func() {
+				agent, err := launchOnTask(t, fx, NewAgentParams{
+					Title: "follow-up",
+					Task:  "work",
+				})
+				joiner = agent
+				joined <- err
+			}()
+			require.Never(t, func() bool { return len(joined) > 0 }, 200*time.Millisecond, 20*time.Millisecond)
+
+			close(hold)
+			openErr := <-opened
+			require.NoError(t, <-joined)
+			assert.Equal(t, tt.hookErr != nil, openErr != nil)
+
+			ran := lifecycle.ranTaskHooks()
+			require.Len(t, ran, tt.wantOpeners)
+			if tt.hookErr != nil {
+				assert.Equal(t, joiner.ID, ran[1].ID)
+			}
 		})
 	}
 }

@@ -112,6 +112,9 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		s.failCreate(ctx, *agent, err)
 		return nil, err
 	}
+	if placed.openTurn != nil {
+		defer placed.openTurn.Done()
+	}
 
 	claimsCheckout := isCheckoutClaimant(*agent, provisioner)
 	if claimsCheckout {
@@ -135,11 +138,11 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		claimsCheckout:  claimsCheckout,
 		workflow:        wf,
 		task:            placed.task,
-		opensTask:       placed.opensTask,
+		openTurn:        placed.openTurn,
 	})
 }
 
-// placeRetry reads the task a retried agent is on, and whether the retry opens it.
+// placeRetry reads the task a retried agent is on, taking a place in its hook queue when the retry opens it.
 func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) (*placement, error) {
 	if agent.TaskID == nil {
 		return &placement{}, nil
@@ -156,8 +159,8 @@ func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) 
 	}
 
 	return &placement{
-		task:      task,
-		opensTask: isOpening(agent, live),
+		task:     task,
+		openTurn: s.queueOpening(agent, live),
 	}, nil
 }
 

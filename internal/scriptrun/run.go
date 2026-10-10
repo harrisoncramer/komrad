@@ -79,7 +79,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 	dir := agent.Cwd
 	if err := scripts.RequireUsableDir(dir); err != nil {
-		if !gone && !workflowstore.IsTaskEvent(event) {
+		if !gone && !isOutsideWorktree(agent, event) {
 			return s.refuseHook(ctx, record, name, err)
 		}
 
@@ -351,4 +351,9 @@ func (s *ScriptService) RunTaskDeprovision(ctx context.Context, task taskstore.T
 	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 
 	return nil
+}
+
+// isOutsideWorktree reports whether a hook is one of a task's run with no worktree, which may fall back to the script's own directory.
+func isOutsideWorktree(agent agentstore.Agent, event string) bool {
+	return workflowstore.IsTaskEvent(event) && agent.IsProvisionerDisabled()
 }

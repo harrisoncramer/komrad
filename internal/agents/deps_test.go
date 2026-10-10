@@ -308,6 +308,7 @@ type fakeLifecycle struct {
 	resumeErr           error
 	deprovisionStartErr error
 	hookErrs            map[string]error
+	hookErrsOnce        map[string]error
 	holdHooks           chan struct{}
 	hooksMu             sync.Mutex
 	hooks               []ranHook
@@ -359,6 +360,11 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 		Cwd:    agent.Cwd,
 	})
 	f.ranAs = append(f.ranAs, agent)
+	if err, ok := f.hookErrsOnce[name]; ok {
+		delete(f.hookErrsOnce, name)
+
+		return err
+	}
 
 	return f.hookErrs[name]
 }

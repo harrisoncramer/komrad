@@ -86,7 +86,7 @@ Hooks run one at a time, in the order the lifecycle events happen. Calls that wa
 
 ## Task Lifecycle
 
-A task has moments of its own, which fire once for the whole task however many agents work on it. Hang anything that belongs to the task's worktree here rather than on an agent, since a reviewer or a second agent shares that worktree and comes and goes without it.
+A task has moments of its own, which fire for the task as a whole rather than for each agent on it. Hang anything that belongs to the task's worktree here rather than on an agent, since a reviewer or a second agent shares that worktree and comes and goes without it.
 
 | Moment              | Fires                                                                                              | If it fails                                                                            |
 | ------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |

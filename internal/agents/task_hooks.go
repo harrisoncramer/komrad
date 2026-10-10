@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/scriptrun"
+	"komrad/internal/scripts"
 	"komrad/lib/xptr"
 
 	agentstore "komrad/internal/store/agent"
@@ -23,6 +25,15 @@ type taskHookParams struct {
 
 func runTaskPreHooks(ctx context.Context, params taskHookParams) error {
 	return runPreHooks(ctx, params.hookRun())
+}
+
+// runTaskPreHooksInTurn runs a task's pre hooks in a place already taken in its hook queue.
+func runTaskPreHooksInTurn(ctx context.Context, turn *scriptrun.HookTurn, params taskHookParams) error {
+	if err := turn.Wait(ctx); err != nil {
+		return err
+	}
+
+	return runHooks(ctx, params.hookRun())
 }
 
 func startTaskHooks(ctx context.Context, params taskHookParams) {
@@ -64,7 +75,7 @@ func (p taskHookParams) hookRun() hookRunParams {
 
 // hasLiveCheckout reports whether a task has a worktree that is still there.
 func hasLiveCheckout(task taskstore.Task) bool {
-	return task.Checkout.Cwd != "" && !task.Checkout.WorktreeRemoved
+	return task.Checkout.Cwd != "" && !task.Checkout.WorktreeRemoved && scripts.RequireUsableDir(task.Checkout.Cwd) == nil
 }
 
 func workflowDir(wf *workflowstore.Workflow) string {
