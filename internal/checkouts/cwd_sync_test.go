@@ -615,8 +615,7 @@ func TestCwdSyncerSyncReadsTheBaseOncePerPass(t *testing.T) {
 	}
 }
 
-// reuseScene is what a case of TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead changes between
-// its passes.
+// reuseScene is the checkout and fakes a reuse case changes between its passes.
 type reuseScene struct {
 	fixture *syncFixture
 	trees   *gittest.Trees
