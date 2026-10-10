@@ -73,7 +73,7 @@ func (i worktreeItem) isMerged() bool {
 // worktreeHolders is every agent indexed by what ties it to a directory.
 type worktreeHolders struct {
 	byID map[string]panel.Agent
-	// byTask is the top-level agent spawned to work each task, by the task's id.
+	// byTask is the top-level agent provisioned a worktree for each task, by the task's id.
 	byTask map[string]panel.Agent
 	byCwd  map[string][]panel.Agent
 }
@@ -89,7 +89,7 @@ func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents 
 		holders.byID[row.Agent.ID] = row.Agent
 		cwd := filepath.Clean(row.Agent.Cwd)
 		holders.byCwd[cwd] = append(holders.byCwd[cwd], row.Agent)
-		if row.Agent.ParentAgentID == nil && row.Agent.TaskID != "" {
+		if row.Agent.ParentAgentID == nil && !row.Agent.ProvisionDisabled && row.Agent.TaskID != "" {
 			holders.byTask[row.Agent.TaskID] = row.Agent
 		}
 	}

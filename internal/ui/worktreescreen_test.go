@@ -502,7 +502,7 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Empty(t, readRecordField(frame, "base"))
 	})
 
-	t.Run("a directory named after its task names the agent spawned to work the task", func(t *testing.T) {
+	t.Run("a directory named after its task names the agent provisioned it for the task", func(t *testing.T) {
 		t.Parallel()
 
 		writer := newAgent("writer-id", "writer", "w1")
@@ -512,11 +512,16 @@ func TestWorktreesRecord(t *testing.T) {
 		reviewer.Cwd = "/trees/" + task.GetId()
 		reviewer.TaskId = writer.TaskId
 		reviewer.ParentAgentId = xptr.Ptr(writer.GetId())
+		adopter := newAgent("adopter-id", "adopter", "w1")
+		adopter.Cwd = writer.GetCwd()
+		adopter.TaskId = writer.TaskId
+		adopter.ProvisionDisabled = true
 
 		harness := openWorktrees(t,
 			newLiveWorkflow("w1", "komrad"),
 			writer,
 			reviewer,
+			adopter,
 			task,
 			&worktreev1.WatchedWorktree{
 				Dir:      reviewer.GetCwd(),

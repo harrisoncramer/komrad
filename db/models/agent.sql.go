@@ -804,24 +804,26 @@ SELECT
     COALESCE(t.adopted_branch IS NOT NULL
         AND t.cwd = a.cwd, FALSE)::boolean AS adopted,
     a.task_id,
-    a.parent_agent_id
+    a.parent_agent_id,
+    a.provision_enabled
 FROM
     agents a
     LEFT JOIN tasks t ON t.id = a.task_id
 `
 
 type ListAgentDirsRow struct {
-	ID             string
-	Name           string
-	Cwd            string
-	State          AgentState
-	StateChangedAt time.Time
-	ArchivedAt     *time.Time
-	DeletingAt     *time.Time
-	WorkflowID     string
-	Adopted        bool
-	TaskID         *string
-	ParentAgentID  *string
+	ID               string
+	Name             string
+	Cwd              string
+	State            AgentState
+	StateChangedAt   time.Time
+	ArchivedAt       *time.Time
+	DeletingAt       *time.Time
+	WorkflowID       string
+	Adopted          bool
+	TaskID           *string
+	ParentAgentID    *string
+	ProvisionEnabled *bool
 }
 
 func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error) {
@@ -845,6 +847,7 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.Adopted,
 			&i.TaskID,
 			&i.ParentAgentID,
+			&i.ProvisionEnabled,
 		); err != nil {
 			return nil, err
 		}

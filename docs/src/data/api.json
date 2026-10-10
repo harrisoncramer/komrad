@@ -2308,6 +2308,16 @@
           "oneof": "",
           "rules": [],
           "description": "The slug of that task, unset whenever task_id is."
+        },
+        {
+          "name": "provision_disabled",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether it was told to keep the directory it was given rather than be provisioned a worktree."
         }
       ]
     },

@@ -101,6 +101,8 @@ type Agent struct {
 	// TaskID is the task the agent works on, empty for an orchestrator.
 	TaskID   string
 	TaskSlug string
+	// ProvisionDisabled is whether it was told to keep the directory it was given rather than be provisioned a worktree.
+	ProvisionDisabled bool
 }
 
 // AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail

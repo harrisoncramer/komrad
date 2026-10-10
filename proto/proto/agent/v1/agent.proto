@@ -121,6 +121,8 @@ message Agent {
   optional string task_id = 38;
   // The slug of that task, unset whenever task_id is.
   optional string task_slug = 39;
+  // Whether it was told to keep the directory it was given rather than be provisioned a worktree.
+  bool provision_disabled = 40;
 }
 
 // AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests

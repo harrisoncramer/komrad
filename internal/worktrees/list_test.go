@@ -14,6 +14,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -129,6 +130,7 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 		elsewhere  bool
 		inside     bool
 		child      bool
+		sibling    bool
 		wantOwner  bool
 		wantOthers int
 	}{
@@ -136,6 +138,13 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 			name:       "an agent in a directory named after another task only occupies it",
 			elsewhere:  true,
 			inside:     true,
+			wantOthers: 1,
+		},
+		{
+			name:       "a top-level agent kept in the directory it was given only occupies its task's directory",
+			inside:     true,
+			sibling:    true,
+			wantOwner:  true,
 			wantOthers: 1,
 		},
 		{
@@ -186,6 +195,15 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 					Cwd:           dir,
 					WorkflowID:    fixture.workflowID,
 					ParentAgentID: &writer.ID,
+				})
+			}
+			if tt.sibling {
+				fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:             "adopter",
+					Cwd:              dir,
+					WorkflowID:       fixture.workflowID,
+					TaskID:           taskID,
+					ProvisionEnabled: xptr.Ptr(false),
 				})
 			}
 

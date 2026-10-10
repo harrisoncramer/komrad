@@ -38,7 +38,7 @@ type AgentDir struct {
 	WorkflowID     string
 	// Adopted is whether the directory is its task's checkout and that checkout was put on a branch komrad did not make.
 	Adopted bool
-	// LedTaskID is the task the agent was spawned to work, empty for a child or an agent with none.
+	// LedTaskID is the task the agent was provisioned a worktree for, empty for a child or an agent that keeps the directory it was given.
 	LedTaskID string
 }
 
@@ -274,7 +274,7 @@ func (s *AgentStore) GetWorkflowOrchestrator(ctx context.Context, workflowID str
 }
 
 func ledTaskIDOf(row *models.ListAgentDirsRow) string {
-	if row.ParentAgentID != nil {
+	if row.ParentAgentID != nil || IsProvisionerDisabled(row.ProvisionEnabled) {
 		return ""
 	}
 
