@@ -239,11 +239,11 @@ func (l *logsScreen) switchSource(m *model) tea.Cmd {
 	l.logFilter, l.pattern = filterState{}, ""
 	l.applyFormat(row)
 
-	return tea.Batch(l.restart(m), l.markFailureRead(m, row))
+	return tea.Batch(l.restart(m), l.markFailedRunReadCmd(m, row))
 }
 
-// markFailureRead claims the agent's failed runs once the run that failed is opened.
-func (l *logsScreen) markFailureRead(m *model, row logSourceRow) tea.Cmd {
+// markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened.
+func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
 	if !row.failed {
 		return nil
 	}
