@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	triggerProvision   = config.TriggerProvision
-	triggerResume      = config.TriggerResume
-	triggerDeprovision = config.TriggerDeprovision
+	triggerProvision   = config.TriggerAgentProvision
+	triggerResume      = config.TriggerAgentResume
+	triggerDeprovision = config.TriggerAgentDeprovision
 )
 
 type tmuxReadWriter interface {

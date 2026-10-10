@@ -98,7 +98,7 @@ The context is provided after your <Setting path="context">global context</Setti
 
 Like most agent orchestrators, komrad ships with first-class support for [worktrees](https://git-scm.com/docs/git-worktree).
 
-When creating a workflow or an agent, tell komrad to automatically create a worktree for each task, and it'll cut one from the base branch. The agents on that task, its implementer and the reviewers it spawns, work within that worktree, isolated from other tasks. The worktree is automatically cleaned up when the agent's task is deleted.
+When creating a workflow or an agent, tell komrad to automatically create a worktree for each task, and it'll cut one from the base branch. The agents on that task, its implementer and the reviewers it spawns, work within that worktree, isolated from other tasks. The worktree is automatically cleaned up when the task is deleted.
 
 Komrad places worktrees into <Setting path="worktrees.dir" /> unless the workflow names its own location.
 

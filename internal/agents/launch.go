@@ -567,7 +567,7 @@ func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 		scripts: c.scripts,
 		agent:   agent,
 		hooks:   c.resolved.hooks,
-		event:   workflowstore.HookPreLaunch,
+		event:   workflowstore.HookAgentPreLaunch,
 	})
 }
 
@@ -674,7 +674,7 @@ func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		scripts: c.scripts,
 		agent:   agent,
 		hooks:   c.resolved.hooks,
-		event:   workflowstore.HookPostLaunch,
+		event:   workflowstore.HookAgentPostLaunch,
 	})
 	c.service.watchStartup(ctx, agent)
 

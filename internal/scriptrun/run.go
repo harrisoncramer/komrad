@@ -60,7 +60,7 @@ func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent
 
 // RunHook runs one of a workflow's hooks for an agent and waits for it.
 func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
-	gone := event == workflowstore.HookPostDelete
+	gone := event == workflowstore.HookAgentPostDelete
 
 	var record runRecord
 	if !gone {

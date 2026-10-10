@@ -167,7 +167,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 			scripts: s.scripts,
 			agent:   agent,
 			hooks:   hooks[agent.ID],
-			event:   workflowstore.HookPostDelete,
+			event:   workflowstore.HookAgentPostDelete,
 		})
 	}
 
@@ -219,7 +219,7 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 			scripts: s.scripts,
 			agent:   agent,
 			hooks:   hooks,
-			event:   workflowstore.HookPreDelete,
+			event:   workflowstore.HookAgentPreDelete,
 		})
 	}
 

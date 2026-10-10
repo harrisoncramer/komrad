@@ -356,8 +356,8 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 
 			logDir := config.RunLogDir(logsDir, agent.ID)
 			require.NoError(t, os.MkdirAll(logDir, 0o755))
-			provisionPath := filepath.Join(logDir, config.RunLogName(1, config.TriggerProvision, "make-worktree"))
-			deprovisionPath := filepath.Join(logDir, config.RunLogName(2, config.TriggerDeprovision, "drop-worktree"))
+			provisionPath := filepath.Join(logDir, config.RunLogName(1, config.TriggerAgentProvision, "make-worktree"))
+			deprovisionPath := filepath.Join(logDir, config.RunLogName(2, config.TriggerAgentDeprovision, "drop-worktree"))
 			require.NoError(t, os.WriteFile(provisionPath, []byte("cloning\n"), 0o644))
 			require.NoError(t, os.WriteFile(deprovisionPath, []byte("dropping\n"), 0o644))
 
@@ -1793,7 +1793,7 @@ func refusingConfig(t *testing.T, name string) workflowstore.Config {
 	t.Helper()
 
 	config := worktreeConfig(t, name)
-	config.Hooks = []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: refusingHook}}
+	config.Hooks = []workflowstore.Hook{{Event: workflowstore.HookAgentPreDelete, Script: refusingHook}}
 
 	return config
 }

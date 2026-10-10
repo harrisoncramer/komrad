@@ -60,10 +60,10 @@ func TestListRunLogs(t *testing.T) {
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
 
 	for _, name := range []string{
-		RunLogName(999, TriggerProvision, "make-worktree"),
-		RunLogName(1000, TriggerDeprovision, "_worktree_cleanup"),
-		RunLogName(1, TriggerProvision, "make-worktree"),
-		RunLogName(500, HookPreLaunch, "install-deps"),
+		RunLogName(999, TriggerAgentProvision, "make-worktree"),
+		RunLogName(1000, TriggerAgentDeprovision, "_worktree_cleanup"),
+		RunLogName(1, TriggerAgentProvision, "make-worktree"),
+		RunLogName(500, HookAgentPreLaunch, "install-deps"),
 		RunLogName(700, HookTaskPostArchive, "shrink"),
 		"notes.txt",
 		"garbled.log",
@@ -75,15 +75,15 @@ func TestListRunLogs(t *testing.T) {
 
 	require.Len(t, runs, 5, "only the numbered logs are runs")
 	assert.Equal(t, 1000, runs[0].Number, "the newest run is first")
-	assert.Equal(t, TriggerDeprovision, runs[0].Trigger)
+	assert.Equal(t, TriggerAgentDeprovision, runs[0].Trigger)
 	assert.Equal(t, "_worktree_cleanup", runs[0].Script)
 	assert.Equal(t, 999, runs[1].Number)
 	assert.Equal(t, HookTaskPostArchive, runs[2].Trigger, "a task's moment is read whole")
 	assert.Equal(t, "shrink", runs[2].Script)
-	assert.Equal(t, HookPreLaunch, runs[3].Trigger, "a moment whose own name holds a hyphen is read whole")
+	assert.Equal(t, HookAgentPreLaunch, runs[3].Trigger, "a moment whose own name holds a hyphen is read whole")
 	assert.Equal(t, "install-deps", runs[3].Script)
 	assert.Equal(t, 1, runs[4].Number)
-	assert.Equal(t, filepath.Join(logDir, RunLogName(1000, TriggerDeprovision, "_worktree_cleanup")), runs[0].Path)
+	assert.Equal(t, filepath.Join(logDir, RunLogName(1000, TriggerAgentDeprovision, "_worktree_cleanup")), runs[0].Path)
 }
 
 // TestListRunLogsWithNothingToRead pins the empty answer an agent that has run no script gets.

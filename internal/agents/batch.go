@@ -34,7 +34,7 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 		scripts:     params.scripts,
 		workflows:   params.workflows,
 		agents:      params.live,
-		event:       workflowstore.HookPreArchive,
+		event:       workflowstore.HookAgentPreArchive,
 		skipGoneDir: true,
 	})); err != nil {
 		return err
@@ -63,7 +63,7 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 		scripts:   params.scripts,
 		workflows: params.workflows,
 		agents:    params.live,
-		event:     workflowstore.HookPostArchive,
+		event:     workflowstore.HookAgentPostArchive,
 	})
 	startTaskPostArchive(ctx, params, taken.tasks)
 
@@ -110,7 +110,7 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 		scripts:     params.scripts,
 		workflows:   params.workflows,
 		agents:      params.archived,
-		event:       workflowstore.HookPreRestore,
+		event:       workflowstore.HookAgentPreRestore,
 		skipGoneDir: true,
 	})); err != nil {
 		return err
@@ -158,7 +158,7 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 		scripts:   params.scripts,
 		workflows: params.workflows,
 		agents:    restored,
-		event:     workflowstore.HookPostRestore,
+		event:     workflowstore.HookAgentPostRestore,
 	})
 
 	return nil

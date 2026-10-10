@@ -234,7 +234,7 @@ func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 		scripts: r.scripts,
 		agent:   agent,
 		hooks:   agentHooks(ctx, r.service.workflows, agent),
-		event:   workflowstore.HookPreResume,
+		event:   workflowstore.HookAgentPreResume,
 	}); err != nil {
 		return fmt.Errorf("failed to run the pre-resume hook of %q: %w", agent.Name, err)
 	}
@@ -296,7 +296,7 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		scripts: r.scripts,
 		agent:   agent,
 		hooks:   agentHooks(ctx, r.service.workflows, agent),
-		event:   workflowstore.HookPostResume,
+		event:   workflowstore.HookAgentPostResume,
 	})
 
 	return nil

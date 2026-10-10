@@ -12,34 +12,34 @@ import (
 // The moments a workflow can hang a script on, each named for the event it hangs on and the
 // side of it that runs, so reading the name says when it fires.
 const (
-	HookPreLaunch       = config.HookPreLaunch
-	HookPostLaunch      = config.HookPostLaunch
-	HookPreResume       = config.HookPreResume
-	HookPostResume      = config.HookPostResume
-	HookPreArchive      = config.HookPreArchive
-	HookPostArchive     = config.HookPostArchive
-	HookPreRestore      = config.HookPreRestore
-	HookPostRestore     = config.HookPostRestore
-	HookPreDelete       = config.HookPreDelete
-	HookPostDelete      = config.HookPostDelete
-	HookTaskPreOpen     = config.HookTaskPreOpen
-	HookTaskPostArchive = config.HookTaskPostArchive
-	HookTaskPreDelete   = config.HookTaskPreDelete
+	HookAgentPreLaunch   = config.HookAgentPreLaunch
+	HookAgentPostLaunch  = config.HookAgentPostLaunch
+	HookAgentPreResume   = config.HookAgentPreResume
+	HookAgentPostResume  = config.HookAgentPostResume
+	HookAgentPreArchive  = config.HookAgentPreArchive
+	HookAgentPostArchive = config.HookAgentPostArchive
+	HookAgentPreRestore  = config.HookAgentPreRestore
+	HookAgentPostRestore = config.HookAgentPostRestore
+	HookAgentPreDelete   = config.HookAgentPreDelete
+	HookAgentPostDelete  = config.HookAgentPostDelete
+	HookTaskPreOpen      = config.HookTaskPreOpen
+	HookTaskPostArchive  = config.HookTaskPostArchive
+	HookTaskPreDelete    = config.HookTaskPreDelete
 )
 
 // HookEvents are the moments a workflow can hang a script on, an agent's in the order they fire and then its task's.
 func HookEvents() []string {
 	return []string{
-		HookPreLaunch,
-		HookPostLaunch,
-		HookPreResume,
-		HookPostResume,
-		HookPreArchive,
-		HookPostArchive,
-		HookPreRestore,
-		HookPostRestore,
-		HookPreDelete,
-		HookPostDelete,
+		HookAgentPreLaunch,
+		HookAgentPostLaunch,
+		HookAgentPreResume,
+		HookAgentPostResume,
+		HookAgentPreArchive,
+		HookAgentPostArchive,
+		HookAgentPreRestore,
+		HookAgentPostRestore,
+		HookAgentPreDelete,
+		HookAgentPostDelete,
 		HookTaskPreOpen,
 		HookTaskPostArchive,
 		HookTaskPreDelete,

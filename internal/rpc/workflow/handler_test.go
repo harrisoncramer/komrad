@@ -284,7 +284,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 		},
 		Hooks: []workflowstore.Hook{
 			{
-				Event:  workflowstore.HookPreLaunch,
+				Event:  workflowstore.HookAgentPreLaunch,
 				Script: "warm-cache",
 			},
 		},
@@ -300,7 +300,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 	}
 	hooks := []*workflowv1.WorkflowHook{
 		{
-			Event:  workflowstore.HookPreLaunch,
+			Event:  workflowstore.HookAgentPreLaunch,
 			Script: "warm-cache",
 		},
 	}
