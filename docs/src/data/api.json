@@ -1751,7 +1751,7 @@
         {
           "name": "sequence",
           "type": "Sequence",
-          "ref": "agent.v1.Sequence",
+          "ref": "task.v1.Sequence",
           "repeated": false,
           "map": false,
           "oneof": "",
@@ -2170,56 +2170,6 @@
           "description": "The agent this one is a child of, unset for an agent standing on its own."
         },
         {
-          "name": "branch",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The git branch its worktree is on, unset for an agent that provisions none."
-        },
-        {
-          "name": "repository_url",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The canonical web address of the repository its checkout pushes to, such as https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin is not a forge."
-        },
-        {
-          "name": "head_sha",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The commit its checkout has checked out, unset when the checkout is gone or git cannot read it."
-        },
-        {
-          "name": "worktree_removed",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether its checkout has been taken away, which leaves the record and the transcript."
-        },
-        {
-          "name": "sequence",
-          "type": "Sequence",
-          "ref": "agent.v1.Sequence",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "What git has part-way through its checkout, waiting on somebody to settle it."
-        },
-        {
           "name": "failed_run",
           "type": "bool",
           "ref": "",
@@ -2318,26 +2268,6 @@
           "oneof": "",
           "rules": [],
           "description": "Whether prompt holds only its opening, as a summary listing returns it."
-        },
-        {
-          "name": "moved_since_round",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise."
-        },
-        {
-          "name": "diff_stat",
-          "type": "DiffStat",
-          "ref": "agent.v1.DiffStat",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "How many lines its checkout adds and removes since it left its base, unset where there is no base to measure against."
         },
         {
           "name": "held_at",
@@ -2868,32 +2798,6 @@
             "required"
           ],
           "description": "The mail to erase, read or not, which the recipient will then never see."
-        }
-      ]
-    },
-    "agent.v1.DiffStat": {
-      "name": "DiffStat",
-      "description": "DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.",
-      "fields": [
-        {
-          "name": "added",
-          "type": "int32",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The lines it adds."
-        },
-        {
-          "name": "removed",
-          "type": "int32",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The lines it removes."
         }
       ]
     },
@@ -3540,6 +3444,16 @@
           "oneof": "",
           "rules": [],
           "description": "Comments the person has left on its work. Absent while there are none to count."
+        },
+        {
+          "name": "task",
+          "type": "Task",
+          "ref": "task.v1.Task",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task it works on, whose checkout it works in, unset for an agent on none."
         }
       ]
     },
@@ -8795,6 +8709,32 @@
         }
       ]
     },
+    "task.v1.DiffStat": {
+      "name": "DiffStat",
+      "description": "DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.",
+      "fields": [
+        {
+          "name": "added",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lines it adds."
+        },
+        {
+          "name": "removed",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lines it removes."
+        }
+      ]
+    },
     "task.v1.GetTaskRequest": {
       "name": "GetTaskRequest",
       "description": "",
@@ -8956,6 +8896,96 @@
           "oneof": "",
           "rules": [],
           "description": "When it was archived, unset while it is live."
+        },
+        {
+          "name": "cwd",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The directory of its checkout, which every agent on it works in, unset while it has none."
+        },
+        {
+          "name": "branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The git branch its checkout is on, unset while it has none or git cannot read it."
+        },
+        {
+          "name": "repository_url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The canonical web address of the repository its checkout pushes to, such as https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin is not a forge."
+        },
+        {
+          "name": "head_sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit its checkout has checked out, unset when the checkout is gone or git cannot read it."
+        },
+        {
+          "name": "worktree_removed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether its checkout has been taken away."
+        },
+        {
+          "name": "sequence",
+          "type": "Sequence",
+          "ref": "task.v1.Sequence",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What git has part-way through its checkout, waiting on somebody to settle it."
+        },
+        {
+          "name": "moved_since_round",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The snapshot of the newest review round of its agents while its checkout no longer hashes to it, empty otherwise."
+        },
+        {
+          "name": "diff_stat",
+          "type": "DiffStat",
+          "ref": "task.v1.DiffStat",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many lines its checkout adds and removes since it left its base, unset where there is no base to measure against."
+        },
+        {
+          "name": "adopted_branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The branch its checkout was put on rather than one komrad made for it, unset when komrad made it."
         }
       ]
     },
@@ -10483,36 +10513,6 @@
         }
       ]
     },
-    "agent.v1.Sequence": {
-      "name": "Sequence",
-      "description": "Sequence is what git has part-way through an agent's checkout and waiting on somebody.",
-      "values": [
-        {
-          "name": "SEQUENCE_NONE",
-          "description": "Nothing is part-way through."
-        },
-        {
-          "name": "SEQUENCE_REBASE",
-          "description": "A rebase stopped on a commit it could not replay."
-        },
-        {
-          "name": "SEQUENCE_AM",
-          "description": "An am stopped on a patch it could not apply."
-        },
-        {
-          "name": "SEQUENCE_MERGE",
-          "description": "A merge stopped on conflicts."
-        },
-        {
-          "name": "SEQUENCE_CHERRY_PICK",
-          "description": "A cherry-pick stopped on conflicts or resting between its picks."
-        },
-        {
-          "name": "SEQUENCE_REVERT",
-          "description": "A revert stopped on conflicts or resting between its picks."
-        }
-      ]
-    },
     "pullrequest.v1.Checks": {
       "name": "Checks",
       "description": "Checks is where the checks on a pull request's head commit stand, as the forge last reported them.",
@@ -10702,6 +10702,36 @@
         {
           "name": "SCHEDULE_RUN_STATE_DISCARDED",
           "description": "Ran out of attempts, with the last error in its message."
+        }
+      ]
+    },
+    "task.v1.Sequence": {
+      "name": "Sequence",
+      "description": "Sequence is what git has part-way through a task's checkout and waiting on somebody.",
+      "values": [
+        {
+          "name": "SEQUENCE_NONE",
+          "description": "Nothing is part-way through."
+        },
+        {
+          "name": "SEQUENCE_REBASE",
+          "description": "A rebase stopped on a commit it could not replay."
+        },
+        {
+          "name": "SEQUENCE_AM",
+          "description": "An am stopped on a patch it could not apply."
+        },
+        {
+          "name": "SEQUENCE_MERGE",
+          "description": "A merge stopped on conflicts."
+        },
+        {
+          "name": "SEQUENCE_CHERRY_PICK",
+          "description": "A cherry-pick stopped on conflicts or resting between its picks."
+        },
+        {
+          "name": "SEQUENCE_REVERT",
+          "description": "A revert stopped on conflicts or resting between its picks."
         }
       ]
     },
