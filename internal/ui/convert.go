@@ -64,7 +64,6 @@ func tasksFrom(listed []*taskv1.Task) []panel.Task {
 			Slug:       t.GetSlug(),
 			Title:      t.GetTitle(),
 			Goal:       t.GetGoal(),
-			Cwd:        t.GetCwd(),
 			CreatedAt:  dates.Parse(t.GetCreatedAt()),
 			ArchivedAt: dates.ParsePtr(t.GetArchivedAt()),
 		}
