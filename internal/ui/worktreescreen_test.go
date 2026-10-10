@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	taskv1 "komrad/proto/gen/task/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
@@ -39,7 +41,7 @@ func TestWorktreesOpen(t *testing.T) {
 		},
 		{
 			name:        "an occupant lands on the directory it works in",
-			press:       []string{"j", "shift+tab", "esc"},
+			press:       []string{"j", "j", "shift+tab", "esc"},
 			wantHovered: "treeview",
 		},
 		{
@@ -103,9 +105,9 @@ func TestWorktreesJump(t *testing.T) {
 	}{
 		{
 			name:        "a directory nothing answers for stays put",
-			row:         "agent/orphan",
+			row:         "task/orphan",
 			wantScreen:  worktreesScreen,
-			wantHovered: "agent/orphan",
+			wantHovered: "task/orphan",
 		},
 		{
 			name:        "a live agent's directory lands on the agents list",
@@ -233,6 +235,7 @@ func TestWorktreesDelete(t *testing.T) {
 
 		live := newAgent("live", "treeview", "w1")
 		live.Cwd = "/trees/live"
+		live.TaskId = xptr.Ptr("live")
 		live.Alive = xptr.Ptr(true)
 		harness := openWorktrees(t,
 			newLiveWorkflow("w1", "komrad"),
@@ -240,7 +243,7 @@ func TestWorktreesDelete(t *testing.T) {
 			&worktreev1.WatchedWorktree{
 				Dir:      "/trees/live",
 				RepoDir:  "/home/h/komrad",
-				Branch:   "agent/live",
+				Branch:   "task/live",
 				Readable: true,
 			},
 		)
@@ -496,10 +499,78 @@ func TestWorktreesRecord(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, "reviewer", readRecordField(frame, "name"))
 		assert.Equal(t, "—", readRecordField(frame, "size"))
-		assert.Equal(t, "agent/archived", readRecordField(frame, "branch"))
+		assert.Equal(t, "task/archived", readRecordField(frame, "branch"))
 		assert.Equal(t, "komrad", readRecordField(frame, "workflow"))
 		assert.True(t, strings.HasPrefix(readRecordField(frame, "agent"), "claude, archived "))
 		assert.Empty(t, readRecordField(frame, "base"))
+	})
+
+	t.Run("a directory named after its task names the agent provisioned it for the task", func(t *testing.T) {
+		t.Parallel()
+
+		writer := newAgent("writer-id", "writer", "w1")
+		writer.Cwd = "/home/h/komrad"
+		task := newTaskOf(writer)
+		reviewer := newAgent("reviewer-id", "reviewer", "w1")
+		reviewer.Cwd = "/trees/" + task.GetId()
+		reviewer.TaskId = writer.TaskId
+		reviewer.ParentAgentId = xptr.Ptr(writer.GetId())
+		adopter := newAgent("adopter-id", "adopter", "w1")
+		adopter.Cwd = writer.GetCwd()
+		adopter.TaskId = writer.TaskId
+		adopter.ProvisionDisabled = true
+
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "komrad"),
+			writer,
+			reviewer,
+			adopter,
+			task,
+			&worktreev1.WatchedWorktree{
+				Dir:      reviewer.GetCwd(),
+				RepoDir:  "/home/h/komrad",
+				Branch:   "task/" + task.GetId(),
+				Readable: true,
+			},
+		)
+		moveToWorktree(t, harness, "writer")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "writer", readRecordField(frame, "name"))
+		assert.Equal(t, "reviewer", readRecordField(frame, "also here"))
+	})
+
+	t.Run("a live agent provisioned for the task owns its directory before a newer archived one", func(t *testing.T) {
+		t.Parallel()
+
+		writer := newAgent("writer-id", "writer", "w1")
+		writer.CreatedAt = "2026-09-20T12:00:00Z"
+		task := newTaskOf(writer)
+		writer.Cwd = "/trees/" + task.GetId()
+		rival := newArchivedAgent("rival-id", "rival", "w1")
+		rival.CreatedAt = "2026-09-20T13:00:00Z"
+		rival.Cwd = "/home/h/komrad"
+		rival.TaskId = writer.TaskId
+
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "komrad"),
+			writer,
+			rival,
+			task,
+			&worktreev1.WatchedWorktree{
+				Dir:      writer.GetCwd(),
+				RepoDir:  "/home/h/komrad",
+				Branch:   "task/" + task.GetId(),
+				Readable: true,
+			},
+		)
+		moveToWorktree(t, harness, "writer")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "writer", readRecordField(frame, "name"))
+		assert.Equal(t, "rival", readRecordField(frame, "also here"))
 	})
 
 	t.Run("the read of the directory adds where the branch stands and what it changed", func(t *testing.T) {
@@ -553,9 +624,9 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			worktree: &worktreev1.WatchedWorktree{
 				Dir:      "/trees/orphan",
 				Readable: true,
-				Branch:   "agent/orphan",
+				Branch:   "task/orphan",
 			},
-			row:            "agent/orphan",
+			row:            "task/orphan",
 			wantSize:       "—",
 			wantLastActive: "—",
 		},
@@ -564,12 +635,12 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			worktree: &worktreev1.WatchedWorktree{
 				Dir:        "/trees/orphan",
 				Readable:   true,
-				Branch:     "agent/orphan",
+				Branch:     "task/orphan",
 				MeasuredAt: xptr.Ptr(formatStampAgo(5 * time.Minute)),
 				SizeError:  "permission denied",
 				ModifiedAt: formatStampAgo(90 * time.Minute),
 			},
-			row:            "agent/orphan",
+			row:            "task/orphan",
 			wantSize:       "—, could not measure: permission denied",
 			wantLastActive: "1h ago",
 		},
@@ -578,7 +649,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			worktree: &worktreev1.WatchedWorktree{
 				Dir:        "/trees/archived",
 				Readable:   true,
-				Branch:     "agent/archived",
+				Branch:     "task/archived",
 				SizeBytes:  xptr.Ptr[int64](49 * 1024 * 1024),
 				MeasuredAt: xptr.Ptr(formatStampAgo(90 * time.Minute)),
 			},
@@ -684,7 +755,7 @@ func TestWorktreesDocument(t *testing.T) {
 
 		harness := openWorktrees(t)
 		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
-		moveToWorktree(t, harness, "agent/orphan")
+		moveToWorktree(t, harness, "task/orphan")
 		harness.fireTimers()
 		asked := len(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure))
 
@@ -788,7 +859,7 @@ func TestWorktreesLastScreen(t *testing.T) {
 		harness := openWorktrees(t)
 		answerLastScreens(harness, nil)
 
-		moveToWorktree(t, harness, "agent/orphan")
+		moveToWorktree(t, harness, "task/orphan")
 		harness.fireTimers()
 
 		assert.NotContains(t, readStageText(harness.readFrame()), "saved screen")
@@ -816,11 +887,11 @@ func TestWorktreesInspection(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		moveToWorktree(t, harness, "agent/orphan")
+		moveToWorktree(t, harness, "task/orphan")
 
 		harness.watch(buildSnapshot(append(buildWorktrees()[:5], buildWatchedWorktrees()[1:]...)...))
 
-		assert.Equal(t, "agent/orphan", readHoveredWorktree(harness.readFrame()))
+		assert.Equal(t, "task/orphan", readHoveredWorktree(harness.readFrame()))
 	})
 
 	t.Run("a directory whose read is on its way is not asked for again", func(t *testing.T) {
@@ -873,22 +944,22 @@ func TestWorktreesSort(t *testing.T) {
 	}{
 		{
 			name: "size down is the fallback, under each repository",
-			want: []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/T/repo", "  broken"},
+			want: []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  task/orphan", "/var/folders/T/repo", "  broken"},
 		},
 		{
 			name:  "moving the focus reorders nothing",
 			press: []string{"f", "tab", "esc"},
-			want:  []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/T/repo", "  broken"},
+			want:  []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  task/orphan", "/var/folders/T/repo", "  broken"},
 		},
 		{
 			name:  "last accessed down is the most recent first",
 			press: []string{"f", "tab", "j", "esc"},
-			want:  []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  treeview", "  agent/orphan", "  reviewer", "/var/folders/T/repo", "  broken"},
+			want:  []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  treeview", "  task/orphan", "  reviewer", "/var/folders/T/repo", "  broken"},
 		},
 		{
 			name:  "the stop drops the headings and settles a tie in size by path",
 			press: []string{"f", "shift+tab", "j", "esc"},
-			want:  []string{"cargo-fix", "reviewer", "treeview", "broken", "agent/orphan"},
+			want:  []string{"cargo-fix", "reviewer", "treeview", "broken", "task/orphan"},
 		},
 	}
 
@@ -981,21 +1052,21 @@ func TestWorktreesScope(t *testing.T) {
 		{
 			name:      "the listing opens flat on every directory, the largest first",
 			rows:      buildMeasuredWorktrees(),
-			want:      []string{"cargo-fix", "reviewer", "treeview", "broken", "agent/orphan"},
+			want:      []string{"cargo-fix", "reviewer", "treeview", "broken", "task/orphan"},
 			wantTally: "5 · ",
 		},
 		{
 			name:      "inactive leaves out the directory a live agent answers for",
 			rows:      buildMeasuredWorktrees(),
 			press:     []string{"F", "tab", "esc"},
-			want:      []string{"cargo-fix", "reviewer", "broken", "agent/orphan"},
+			want:      []string{"cargo-fix", "reviewer", "broken", "task/orphan"},
 			wantTally: "4 · ",
 		},
 		{
 			name:      "inactive leaves out an archived agent's directory a live agent works in",
 			rows:      occupied,
 			press:     []string{"F", "tab", "esc"},
-			want:      []string{"cargo-fix", "broken", "agent/orphan"},
+			want:      []string{"cargo-fix", "broken", "task/orphan"},
 			wantTally: "3 · ",
 		},
 		{
@@ -1009,7 +1080,7 @@ func TestWorktreesScope(t *testing.T) {
 			name:      "the row wraps back to every directory",
 			rows:      buildMeasuredWorktrees(),
 			press:     []string{"F", "tab", "tab", "tab", "esc"},
-			want:      []string{"cargo-fix", "reviewer", "treeview", "broken", "agent/orphan"},
+			want:      []string{"cargo-fix", "reviewer", "treeview", "broken", "task/orphan"},
 			wantTally: "5 · ",
 		},
 	}
@@ -1132,6 +1203,9 @@ func buildWorktrees() []proto.Message {
 		occupant,
 		archived,
 		admin,
+		newWorktreeTask(live),
+		newWorktreeTask(archived),
+		newWorktreeTask(admin),
 	}, buildWatchedWorktrees()...)
 }
 
@@ -1140,13 +1214,13 @@ func buildWatchedWorktrees() []proto.Message {
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/admin",
 			RepoDir:  "/home/h/gadgets/admin",
-			Branch:   "agent/admin",
+			Branch:   "task/admin",
 			Readable: true,
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/archived",
 			RepoDir:  "/home/h/komrad",
-			Branch:   "agent/archived",
+			Branch:   "task/archived",
 			Readable: true,
 		},
 		&worktreev1.WatchedWorktree{
@@ -1156,13 +1230,13 @@ func buildWatchedWorktrees() []proto.Message {
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/live",
 			RepoDir:  "/home/h/komrad",
-			Branch:   "agent/live",
+			Branch:   "task/live",
 			Readable: true,
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/orphan",
 			RepoDir:  "/home/h/komrad",
-			Branch:   "agent/orphan",
+			Branch:   "task/orphan",
 			Readable: true,
 		},
 	}
@@ -1264,4 +1338,15 @@ func readFormProse(frame string) string {
 	lines := xslice.Map(readStage(frame), strings.TrimSpace)
 
 	return joinProse(lines)
+}
+
+// newWorktreeTask is the task an agent leads, named after the directory it works in.
+func newWorktreeTask(agent *agentv1.Agent) *taskv1.Task {
+	agent.TaskId = xptr.Ptr(filepath.Base(agent.GetCwd()))
+
+	return &taskv1.Task{
+		Id:         agent.GetTaskId(),
+		WorkflowId: agent.GetWorkflowId(),
+		Slug:       agent.GetTaskId(),
+	}
 }

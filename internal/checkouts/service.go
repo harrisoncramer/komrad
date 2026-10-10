@@ -195,9 +195,6 @@ func (s *Service) readCheckoutTask(ctx context.Context, agent agentstore.Agent) 
 	}
 
 	task, err := s.tasks.Get(ctx, *agent.TaskID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: its task is gone", ErrNoWorktree)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}

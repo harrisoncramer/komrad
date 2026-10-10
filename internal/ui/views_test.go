@@ -175,7 +175,7 @@ func TestTrail(t *testing.T) {
 		{
 			name:      "the worktrees trail runs to the hovered worktree",
 			press:     []string{"shift+tab", "G"},
-			wantTrail: "worktrees › agent/agent39",
+			wantTrail: "worktrees › task/agent39",
 		},
 	}
 

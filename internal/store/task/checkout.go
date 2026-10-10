@@ -50,11 +50,8 @@ type Checkout struct {
 	// Branch is the branch checked out there, nil when git names none.
 	Branch *string
 	// AdoptedBranch is the branch the checkout was put on rather than one komrad made for it.
-	AdoptedBranch string
-	// ProvisionEnabled is whether the checkout was provisioned: unset inherits the workflow, and
-	// false means it is a directory the task was given.
-	ProvisionEnabled *bool
-	WorktreeRemoved  bool
+	AdoptedBranch   string
+	WorktreeRemoved bool
 	// RepositoryURL is the canonical web address of the repository the checkout pushes to.
 	RepositoryURL *string
 	// HeadSHA is the commit the checkout has checked out.
@@ -68,23 +65,16 @@ type Checkout struct {
 	DiffStat *DiffStat
 }
 
-// IsProvisionerDisabled reports whether the checkout is a directory the task was given rather
-// than one provisioned for it.
-func (c Checkout) IsProvisionerDisabled() bool {
-	return c.ProvisionEnabled != nil && !*c.ProvisionEnabled
-}
-
 func checkoutFrom(row *models.Task) Checkout {
 	checkout := Checkout{
-		Cwd:              xptr.Deref(row.Cwd),
-		Branch:           row.Branch,
-		AdoptedBranch:    xptr.Deref(row.AdoptedBranch),
-		ProvisionEnabled: row.ProvisionEnabled,
-		WorktreeRemoved:  xptr.Deref(row.WorktreeRemoved),
-		RepositoryURL:    row.RepositoryUrl,
-		HeadSHA:          row.HeadSha,
-		Sequence:         SequenceNone,
-		MovedSinceRound:  xptr.Deref(row.MovedSinceRound),
+		Cwd:             xptr.Deref(row.Cwd),
+		Branch:          row.Branch,
+		AdoptedBranch:   xptr.Deref(row.AdoptedBranch),
+		WorktreeRemoved: xptr.Deref(row.WorktreeRemoved),
+		RepositoryURL:   row.RepositoryUrl,
+		HeadSHA:         row.HeadSha,
+		Sequence:        SequenceNone,
+		MovedSinceRound: xptr.Deref(row.MovedSinceRound),
 	}
 	if row.Sequence.Valid {
 		checkout.Sequence = Sequence(row.Sequence.AgentSequence)
@@ -102,10 +92,9 @@ func sequenceParam(sequence Sequence) models.NullAgentSequence {
 
 // ClaimCheckoutParams is how a launch is to make a task's checkout.
 type ClaimCheckoutParams struct {
-	ID               string
-	AdoptedBranch    string
-	RepositoryURL    string
-	ProvisionEnabled *bool
+	ID            string
+	AdoptedBranch string
+	RepositoryURL string
 }
 
 // ClaimCheckout records how a launch is to make a task's checkout, reporting false when the task already has one.
@@ -115,10 +104,9 @@ func (s *TaskStore) ClaimCheckout(ctx context.Context, params ClaimCheckoutParam
 	}
 
 	claimed, err := s.queries.ClaimTaskCheckout(ctx, models.ClaimTaskCheckoutParams{
-		ID:               params.ID,
-		AdoptedBranch:    xptr.NonEmpty(params.AdoptedBranch),
-		RepositoryUrl:    xptr.NonEmpty(params.RepositoryURL),
-		ProvisionEnabled: params.ProvisionEnabled,
+		ID:            params.ID,
+		AdoptedBranch: xptr.NonEmpty(params.AdoptedBranch),
+		RepositoryUrl: xptr.NonEmpty(params.RepositoryURL),
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to claim the checkout of task %q: %w", params.ID, err)

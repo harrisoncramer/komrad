@@ -36,8 +36,11 @@ type AgentDir struct {
 	ArchivedAt     *time.Time
 	DeletingAt     *time.Time
 	WorkflowID     string
+	CreatedAt      time.Time
 	// Adopted is whether the directory is its task's checkout and that checkout was put on a branch komrad did not make.
 	Adopted bool
+	// ProvisionedTaskID is the task the agent was provisioned a worktree for, empty for a child or an agent that keeps the directory it was given.
+	ProvisionedTaskID string
 }
 
 // ListDirs returns the directory every agent holds, archived ones included.
@@ -49,15 +52,17 @@ func (s *AgentStore) ListDirs(ctx context.Context) ([]AgentDir, error) {
 
 	return xslice.Map(rows, func(row *models.ListAgentDirsRow) AgentDir {
 		return AgentDir{
-			ID:             row.ID,
-			Name:           row.Name,
-			Cwd:            row.Cwd,
-			State:          State(row.State),
-			StateChangedAt: row.StateChangedAt,
-			ArchivedAt:     row.ArchivedAt,
-			DeletingAt:     row.DeletingAt,
-			WorkflowID:     row.WorkflowID,
-			Adopted:        row.Adopted,
+			ID:                row.ID,
+			Name:              row.Name,
+			Cwd:               row.Cwd,
+			State:             State(row.State),
+			StateChangedAt:    row.StateChangedAt,
+			ArchivedAt:        row.ArchivedAt,
+			DeletingAt:        row.DeletingAt,
+			WorkflowID:        row.WorkflowID,
+			CreatedAt:         row.CreatedAt,
+			Adopted:           row.Adopted,
+			ProvisionedTaskID: provisionedTaskIDOf(row),
 		}
 	}), nil
 }
@@ -268,4 +273,12 @@ func (s *AgentStore) GetWorkflowOrchestrator(ctx context.Context, workflowID str
 	}
 
 	return s.GetByID(ctx, id)
+}
+
+func provisionedTaskIDOf(row *models.ListAgentDirsRow) string {
+	if row.ParentAgentID != nil || IsProvisionerDisabled(row.ProvisionEnabled) {
+		return ""
+	}
+
+	return xptr.Deref(row.TaskID)
 }

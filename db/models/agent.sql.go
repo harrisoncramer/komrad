@@ -801,23 +801,31 @@ SELECT
     a.archived_at,
     a.deleting_at,
     a.workflow_id,
+    a.created_at,
     COALESCE(t.adopted_branch IS NOT NULL
-        AND t.cwd = a.cwd, FALSE)::boolean AS adopted
+        AND t.cwd = a.cwd, FALSE)::boolean AS adopted,
+    a.task_id,
+    a.parent_agent_id,
+    a.provision_enabled
 FROM
     agents a
     LEFT JOIN tasks t ON t.id = a.task_id
 `
 
 type ListAgentDirsRow struct {
-	ID             string
-	Name           string
-	Cwd            string
-	State          AgentState
-	StateChangedAt time.Time
-	ArchivedAt     *time.Time
-	DeletingAt     *time.Time
-	WorkflowID     string
-	Adopted        bool
+	ID               string
+	Name             string
+	Cwd              string
+	State            AgentState
+	StateChangedAt   time.Time
+	ArchivedAt       *time.Time
+	DeletingAt       *time.Time
+	WorkflowID       string
+	CreatedAt        time.Time
+	Adopted          bool
+	TaskID           *string
+	ParentAgentID    *string
+	ProvisionEnabled *bool
 }
 
 func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error) {
@@ -838,7 +846,11 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.ArchivedAt,
 			&i.DeletingAt,
 			&i.WorkflowID,
+			&i.CreatedAt,
 			&i.Adopted,
+			&i.TaskID,
+			&i.ParentAgentID,
+			&i.ProvisionEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -1738,6 +1750,47 @@ func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string)
 			return nil, err
 		}
 		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProvisionedAgentIDsByTask = `-- name: ListProvisionedAgentIDsByTask :many
+SELECT
+    a.id
+FROM
+    agents a
+WHERE
+    a.task_id = ANY ($1::uuid[])
+    AND a.parent_agent_id IS NULL
+    AND a.provision_enabled IS DISTINCT FROM FALSE
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents l
+        WHERE
+            l.task_id = a.task_id
+            AND l.parent_agent_id IS NULL
+            AND l.provision_enabled IS DISTINCT FROM FALSE
+            AND l.archived_at IS NULL)
+`
+
+func (q *Queries) ListProvisionedAgentIDsByTask(ctx context.Context, taskIds []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listProvisionedAgentIDsByTask, taskIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

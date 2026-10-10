@@ -128,7 +128,7 @@ func TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs(t *testing.T) {
 	owners, err := readWorktreeOwners(t.Context(), stores.URL)
 	require.NoError(t, err)
 
-	assert.Contains(t, owners.AgentIDs, agent.ID)
+	assert.Contains(t, owners.TaskIDs, *agent.TaskID)
 	assert.Contains(t, owners.AgentDirs, "/repos/trees/worker")
 	assert.Equal(t, []string{"~/repos/trees"}, owners.WorkflowDirs,
 		"the directory is reported as the workflow named it, which is what the config is matched against")

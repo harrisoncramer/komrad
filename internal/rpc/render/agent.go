@@ -60,6 +60,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		HeldByAgentId:      xptr.Deref(stored.Hold.ByAgentID),
 		TaskId:             stored.TaskID,
 		TaskSlug:           row.TaskSlug,
+		ProvisionDisabled:  stored.IsProvisionerDisabled(),
 	}
 }
 

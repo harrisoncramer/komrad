@@ -3,7 +3,7 @@
 set -eu
 
 tree="$KOMRAD_AGENT_CWD"
-branch="agent/$KOMRAD_AGENT_ID"
+branch="$KOMRAD_WORKTREE_BRANCH"
 adopted="${KOMRAD_WORKTREE_ADOPT_BRANCH:-}"
 
 if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
@@ -16,13 +16,13 @@ tree=$(cd "$tree" && pwd -P)
 
 # Being a worktree is not proof of being this agent's worktree: one made by hand passes the
 # check above, and the launch path reaches cleanup with the agent's cwd still set to whatever
-# the workflow named when setup never got as far as replacing it. Setup names the directory
-# after the agent, and nothing an agent does renames it, so the directory's own name is the
-# claim. A worktree komrad did not make carries a name a human chose, never an agent id, and
-# the branch the tree is on proves nothing once an agent detaches HEAD or works on a branch
-# of its own.
-if [ "$(basename "$tree")" != "$KOMRAD_AGENT_ID" ]; then
-	echo "worktree cleanup: $tree is not named after $KOMRAD_AGENT_ID, so it is not this agent's to remove" >&2
+# the workflow named when setup never got as far as replacing it. Setup gives the directory the
+# worktree name komrad hands it, and nothing an agent does renames it, so the directory's own
+# name is the claim. A worktree komrad did not make carries a name a human chose, never one
+# komrad hands out, and the branch the tree is on proves nothing once an agent detaches HEAD
+# or works on a branch of its own.
+if [ "$(basename "$tree")" != "$KOMRAD_WORKTREE_NAME" ]; then
+	echo "worktree cleanup: $tree is not named $KOMRAD_WORKTREE_NAME, so it is not this agent's to remove" >&2
 	exit 0
 fi
 

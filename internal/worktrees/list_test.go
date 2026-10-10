@@ -10,9 +10,11 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -34,7 +36,7 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	tree := listing.Worktrees[0]
 	assert.Equal(t, dir, tree.Dir)
 	assert.Equal(t, fixture.repo, tree.RepoDir)
-	assert.Equal(t, "agent/"+agent.ID, tree.Branch)
+	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
 	assert.True(t, tree.Readable)
 	require.NotNil(t, tree.Agent)
 	assert.Equal(t, "first", tree.Agent.Name)
@@ -118,6 +120,126 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	require.Len(t, listing.Worktrees[0].Occupants, 2)
 	assert.Equal(t, "amy-alone", listing.Worktrees[0].Occupants[0].Name)
 	assert.Equal(t, "zed-reviewer", listing.Worktrees[0].Occupants[1].Name)
+}
+
+// TestListOwnsADirectoryNamedAfterATask covers a directory named after a task being owned by the
+// top-level agent spawned to work it.
+func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
+	tests := []struct {
+		name          string
+		elsewhere     bool
+		inside        bool
+		child         bool
+		adopter       bool
+		rival         bool
+		wantOwner     bool
+		wantOccupants int
+	}{
+		{
+			name:          "an agent in a directory named after another task only occupies it",
+			elsewhere:     true,
+			inside:        true,
+			wantOccupants: 1,
+		},
+		{
+			name:          "a top-level agent kept in the directory it was given only occupies its task's directory",
+			inside:        true,
+			adopter:       true,
+			wantOwner:     true,
+			wantOccupants: 1,
+		},
+		{
+			name:          "a child working in its task's directory only occupies it",
+			inside:        true,
+			child:         true,
+			wantOwner:     true,
+			wantOccupants: 1,
+		},
+		{
+			name:          "a live agent leading a task owns its directory before a newer archived one provisioned for it",
+			inside:        true,
+			rival:         true,
+			wantOwner:     true,
+			wantOccupants: 1,
+		},
+		{
+			name:      "the agent leading a task owns its directory before it works there",
+			wantOwner: true,
+		},
+		{
+			name:      "the agent leading a task owns the directory it works in",
+			inside:    true,
+			wantOwner: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newFixture(t)
+			taskID, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
+			require.NoError(t, err)
+
+			named := *taskID
+			if tt.elsewhere {
+				other, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
+				require.NoError(t, err)
+				named = *other
+			}
+			dir := fixture.cutAs(t, named, "task/"+named)
+
+			cwd := fixture.repo
+			if tt.inside {
+				cwd = dir
+			}
+			writer := fixture.stores.SeedAgent(t, agentstore.Agent{
+				Name:       "writer",
+				Cwd:        cwd,
+				WorkflowID: fixture.workflowID,
+				TaskID:     taskID,
+			})
+			if tt.child {
+				fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:          "reviewer",
+					Cwd:           dir,
+					WorkflowID:    fixture.workflowID,
+					ParentAgentID: &writer.ID,
+				})
+			}
+			if tt.adopter {
+				fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:             "adopter",
+					Cwd:              dir,
+					WorkflowID:       fixture.workflowID,
+					TaskID:           taskID,
+					ProvisionEnabled: xptr.Ptr(false),
+				})
+			}
+			if tt.rival {
+				rival := fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:       "rival",
+					Cwd:        dir,
+					WorkflowID: fixture.workflowID,
+					TaskID:     taskID,
+				})
+				_, err := fixture.stores.Agents.Archive(t.Context(), []string{rival.ID})
+				require.NoError(t, err)
+			}
+
+			listing, err := fixture.lister.List(t.Context())
+			require.NoError(t, err)
+
+			require.Len(t, listing.Worktrees, 1)
+			tree := listing.Worktrees[0]
+			assert.Len(t, tree.Occupants, tt.wantOccupants)
+			if !tt.wantOwner {
+				assert.Nil(t, tree.Agent)
+
+				return
+			}
+			require.NotNil(t, tree.Agent)
+			assert.Equal(t, writer.ID, tree.Agent.ID)
+		})
+	}
 }
 
 // TestListWalksEachWorkflowsOwnDirectory covers a workflow's own directory being walked beside the shared one.
@@ -221,7 +343,7 @@ func TestGetReadsOneDirectory(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, dir, tree.Dir)
-	assert.Equal(t, "agent/"+agent.ID, tree.Branch)
+	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
 	require.NotNil(t, tree.Agent)
 	assert.Equal(t, "first", tree.Agent.Name)
 	require.NotNil(t, tree.Size)
@@ -498,17 +620,24 @@ func (f *worktreeFixture) newListerOver(shared string) *Lister {
 	})
 }
 
-// cut lays out a worktree named with a fresh agent id, with HEAD on the agent's branch.
+// cut lays out a worktree named after a fresh task, with HEAD on the task's branch.
 func (f *worktreeFixture) cut(t *testing.T) string {
 	t.Helper()
 
-	id, err := store.NewID()
+	id, err := tasktest.Seed(t.Context(), f.stores.Pool.GetDB(), f.workflowID)
 	require.NoError(t, err)
 
-	dir := filepath.Join(f.shared, id)
-	gitdir := filepath.Join(f.repo, ".git", "worktrees", id)
+	return f.cutAs(t, *id, "task/"+*id)
+}
+
+// cutAs lays out a worktree under a name, with HEAD on a branch.
+func (f *worktreeFixture) cutAs(t *testing.T, name, branch string) string {
+	t.Helper()
+
+	dir := filepath.Join(f.shared, name)
+	gitdir := filepath.Join(f.repo, ".git", "worktrees", name)
 	write(t, dir, ".git", "gitdir: "+gitdir+"\n")
-	write(t, gitdir, "HEAD", "ref: refs/heads/agent/"+id+"\n")
+	write(t, gitdir, "HEAD", "ref: refs/heads/"+branch+"\n")
 	write(t, dir, "own.go", "package main\n")
 
 	return dir
@@ -517,7 +646,7 @@ func (f *worktreeFixture) cut(t *testing.T) string {
 func (f *worktreeFixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
-	agent.ID = filepath.Base(dir)
+	agent.TaskID = xptr.Ptr(filepath.Base(dir))
 	agent.Cwd = dir
 	if agent.WorkflowID == "" {
 		agent.WorkflowID = f.workflowID

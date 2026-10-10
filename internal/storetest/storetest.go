@@ -243,12 +243,16 @@ func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge
 	t.Helper()
 	ctx := t.Context()
 
-	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/"+agentID
+	agent, err := s.Agents.GetByID(ctx, agentID)
+	require.NoError(t, err)
+	require.NotNil(t, agent.TaskID)
+
+	repository, branch := "https://github.com/harrisoncramer/komrad", "task/"+*agent.TaskID
 	s.SeedTaskHead(t, agentID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &branch})
 
 	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
 	providerID := "PR_" + agentID
-	_, err := s.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
+	_, err = s.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
 		Forge:             "github",
 		ProviderID:        providerID,

@@ -196,7 +196,7 @@ func TestTabStripGolden(t *testing.T) {
 		{
 			name:  "agents-sort-strip",
 			rows:  buildPinnedArchive(),
-			press: []string{"j"},
+			press: []string{"j", "j"},
 		},
 		{
 			name:  "agents-sort-strip-flat",

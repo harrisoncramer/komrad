@@ -9,7 +9,7 @@ table "worktrees" {
     null    = false
     type    = text
     default = ""
-    comment = "The directory's basename, which is the id of the agent it was cut for."
+    comment = "The directory's basename, which is the id of the task it was cut for."
   }
   column "repo_dir" {
     null    = false

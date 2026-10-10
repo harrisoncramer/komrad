@@ -198,7 +198,7 @@ func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 	fixture := newFixture(t)
 	dir := fixture.cut(t)
 	agent := fixture.own(t, dir, agentstore.Agent{Name: "adopted"})
-	claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *agent.TaskID, AdoptedBranch: "agent/" + filepath.Base(dir)})
+	claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *agent.TaskID, AdoptedBranch: "task/" + filepath.Base(dir)})
 	require.NoError(t, err)
 	require.True(t, claimed)
 	require.NoError(t, fixture.stores.Tasks.SetCheckoutDir(t.Context(), *agent.TaskID, dir))

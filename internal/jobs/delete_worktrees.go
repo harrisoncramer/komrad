@@ -24,12 +24,18 @@ func NewWorktreeDelete(queue *Enqueuer) *WorktreeDelete {
 	return &WorktreeDelete{queue: queue}
 }
 
-// DeleteWorktrees claims the archived agents the directories were cut for, forgets the
-// directories' rows, and queues a delete of each claimed agent and one delete of the
-// directories, all in the same transaction.
+// DeleteWorktrees claims the archived agents provisioned for the tasks the directories are
+// named after, forgets the directories' rows, and queues a delete of each claimed agent and
+// one delete of the directories, all in the same transaction.
 func (d *WorktreeDelete) DeleteWorktrees(ctx context.Context, dirs []string) error {
 	return d.queue.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		claims, err := agentstore.NewAgentStore(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base))
+		agents := agentstore.NewAgentStore(tx)
+		ids, err := agents.ListProvisionedIDsByTask(ctx, xslice.Map(dirs, filepath.Base))
+		if err != nil {
+			return nil, err
+		}
+
+		claims, err := agents.MarkArchivedDeletingByID(ctx, ids)
 		if err != nil {
 			return nil, err
 		}

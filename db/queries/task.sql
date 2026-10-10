@@ -105,7 +105,6 @@ SET
     adopted_branch = sqlc.narg('adopted_branch'),
     branch = sqlc.narg('adopted_branch'),
     repository_url = sqlc.narg('repository_url'),
-    provision_enabled = sqlc.narg('provision_enabled'),
     worktree_removed = FALSE
 WHERE
     id = sqlc.arg('id')

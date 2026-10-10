@@ -215,7 +215,7 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 		{
 			name:     "a directory with no agent",
 			state:    map[string]dirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
-			owners:   worktreeOwners{AgentIDs: []string{"01a0"}},
+			owners:   worktreeOwners{TaskIDs: []string{"01a0"}},
 			want:     StatusWarn,
 			wantCode: "worktrees_unowned",
 			wantIn:   []string{shared, "01a1"},
@@ -225,14 +225,14 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 		{
 			name:   "every directory has one",
 			state:  map[string]dirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
-			owners: worktreeOwners{AgentIDs: []string{"01a0", "01a1"}},
+			owners: worktreeOwners{TaskIDs: []string{"01a0", "01a1"}},
 			want:   StatusOK,
 			wantIn: []string{"2 worktrees"},
 		},
 		{
 			name:   "an adopted agent running in one komrad did not name",
 			state:  map[string]dirState{shared: presentDir(nil, []string{"borrowed"}, true)},
-			owners: worktreeOwners{AgentIDs: []string{"01a0"}, AgentDirs: []string{filepath.Join(shared, "borrowed")}},
+			owners: worktreeOwners{TaskIDs: []string{"01a0"}, AgentDirs: []string{filepath.Join(shared, "borrowed")}},
 			want:   StatusOK,
 		},
 		{
@@ -284,7 +284,7 @@ func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 	env := dirsEnv(configWithDirs(t, "", shared), map[string]dirState{
 		shared: presentDir(nil, []string{"01a0"}, true),
 		own:    presentDir(nil, []string{"01a9"}, true),
-	}, worktreeOwners{AgentIDs: []string{"01a0"}, WorkflowDirs: []string{own}}, nil)
+	}, worktreeOwners{TaskIDs: []string{"01a0"}, WorkflowDirs: []string{own}}, nil)
 
 	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 

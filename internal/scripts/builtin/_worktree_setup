@@ -3,17 +3,18 @@
 set -eu
 
 repo="$KOMRAD_WORKTREE_REPO"
-tree="$KOMRAD_WORKTREES_DIR/$KOMRAD_AGENT_ID"
+tree="$KOMRAD_WORKTREES_DIR/$KOMRAD_WORKTREE_NAME"
 
 # The directory worktrees are made in can be pointed somewhere else while an agent is already
 # provisioned, and the tree it holds is where its branch is checked out, so a resume goes back
 # to that rather than to wherever worktrees live now. Holding a directory is not the claim: the
 # launch path reaches a resume with the agent's cwd still set to whatever the workflow named
 # when setup never got as far as replacing it, and taking that would put the agent inside the
-# repository. Setup names the directory after the agent, and a linked worktree carries a .git
-# file where a checkout carries a directory, which is the same claim cleanup makes.
+# repository. Setup gives the directory the worktree name komrad hands it, and a linked
+# worktree carries a .git file where a checkout carries a directory, which is the same claim
+# cleanup makes.
 if [ "$KOMRAD_TRIGGER" = resume ] && [ -d "$KOMRAD_AGENT_CWD" ] &&
-	[ "$(basename "$KOMRAD_AGENT_CWD")" = "$KOMRAD_AGENT_ID" ] && [ -f "$KOMRAD_AGENT_CWD/.git" ]; then
+	[ "$(basename "$KOMRAD_AGENT_CWD")" = "$KOMRAD_WORKTREE_NAME" ] && [ -f "$KOMRAD_AGENT_CWD/.git" ]; then
 	tree="$KOMRAD_AGENT_CWD"
 fi
 
@@ -144,10 +145,10 @@ adopt_worktree() {
 	add_worktree "$tree" "$branch"
 }
 
-# The worktree of an agent starting fresh work is its own branch cut from the base, named
-# after the agent so nothing else claims it.
+# The worktree of an agent starting fresh work is its own branch cut from the base, under the
+# name komrad hands it so nothing else claims it.
 fresh_worktree() {
-	branch="agent/$KOMRAD_AGENT_ID"
+	branch="$KOMRAD_WORKTREE_BRANCH"
 
 	# A branch this agent already has holds commits of its own, so it is checked out as it
 	# stands rather than reset onto the base, which is what the -B below would do.

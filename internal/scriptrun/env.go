@@ -166,7 +166,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 	var task *taskstore.Task
 	if agent.TaskID != nil {
 		found, err := s.tasks.Get(ctx, *agent.TaskID)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
+		if err != nil {
 			return nil, fmt.Errorf("failed to read task %q: %w", *agent.TaskID, err)
 		}
 		task = found
@@ -181,8 +181,8 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 	env = append(env, gitPromptGuardEnv()...)
 
 	// An agent that provisions nothing is not handed KOMRAD_WORKTREE_REPO.
-	if workflow != nil && workflow.Worktree.Enabled && !agent.IsProvisionerDisabled() {
-		worktreeEnv, err := s.worktreeEnv(*workflow, adoptedBranchOf(task))
+	if workflow != nil && workflow.Worktree.Enabled && !agent.IsProvisionerDisabled() && task != nil {
+		worktreeEnv, err := s.worktreeEnv(*workflow, *task)
 		if err != nil {
 			return nil, err
 		}
@@ -203,15 +203,6 @@ func taskEnv(task *taskstore.Task) []string {
 		"KOMRAD_TASK_ID=" + task.ID,
 		"KOMRAD_TASK_SLUG=" + task.Slug,
 	}
-}
-
-// adoptedBranchOf is the branch a task's checkout was put on, empty for none.
-func adoptedBranchOf(task *taskstore.Task) string {
-	if task == nil {
-		return ""
-	}
-
-	return task.Checkout.AdoptedBranch
 }
 
 func gitPromptGuardEnv() []string {
@@ -238,7 +229,7 @@ func workflowName(workflow *workflowstore.Workflow) string {
 	return workflow.Name
 }
 
-func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, adoptedBranch string) ([]string, error) {
+func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, task taskstore.Task) ([]string, error) {
 	loaded, err := s.load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config: %w", err)
@@ -262,6 +253,8 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, adoptedBran
 		"KOMRAD_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
 		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
 		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
-		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + adoptedBranch,
+		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + task.Checkout.AdoptedBranch,
+		"KOMRAD_WORKTREE_NAME=" + task.ID,
+		"KOMRAD_WORKTREE_BRANCH=task/" + task.ID,
 	}, nil
 }

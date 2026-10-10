@@ -188,7 +188,7 @@ func TestWorktreeDeleteClaimsWhatItQueues(t *testing.T) {
 	require.NoError(t, stores.Agents.Create(ctx, archived))
 	_, err = stores.Agents.Archive(ctx, []string{archived.ID})
 	require.NoError(t, err)
-	dirs := []string{"/trees/" + archived.ID, "/trees/" + live.ID, "/trees/orphan"}
+	dirs := []string{"/trees/" + *archivedTask, "/trees/" + *liveTask, "/trees/orphan"}
 
 	require.NoError(t, worktreeDelete.DeleteWorktrees(ctx, dirs))
 

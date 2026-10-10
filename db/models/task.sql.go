@@ -57,27 +57,20 @@ SET
     adopted_branch = $1,
     branch = $1,
     repository_url = $2,
-    provision_enabled = $3,
     worktree_removed = FALSE
 WHERE
-    id = $4
+    id = $3
     AND worktree_removed IS NULL
 `
 
 type ClaimTaskCheckoutParams struct {
-	AdoptedBranch    *string
-	RepositoryUrl    *string
-	ProvisionEnabled *bool
-	ID               string
+	AdoptedBranch *string
+	RepositoryUrl *string
+	ID            string
 }
 
 func (q *Queries) ClaimTaskCheckout(ctx context.Context, arg ClaimTaskCheckoutParams) (int64, error) {
-	result, err := q.db.Exec(ctx, claimTaskCheckout,
-		arg.AdoptedBranch,
-		arg.RepositoryUrl,
-		arg.ProvisionEnabled,
-		arg.ID,
-	)
+	result, err := q.db.Exec(ctx, claimTaskCheckout, arg.AdoptedBranch, arg.RepositoryUrl, arg.ID)
 	if err != nil {
 		return 0, err
 	}

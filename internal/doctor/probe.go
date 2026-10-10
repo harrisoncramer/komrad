@@ -207,7 +207,9 @@ func readWorktreeOwners(ctx context.Context, url string) (worktreeOwners, error)
 
 	var owners worktreeOwners
 	for _, agent := range agents {
-		owners.AgentIDs = append(owners.AgentIDs, agent.ID)
+		if agent.ProvisionedTaskID != "" {
+			owners.TaskIDs = append(owners.TaskIDs, agent.ProvisionedTaskID)
+		}
 		if trimmed := strings.TrimSpace(agent.Cwd); trimmed != "" {
 			owners.AgentDirs = append(owners.AgentDirs, trimmed)
 		}
