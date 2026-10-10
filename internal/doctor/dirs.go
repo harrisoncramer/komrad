@@ -65,7 +65,7 @@ type dirState struct {
 }
 
 type worktreeOwners struct {
-	AgentIDs     []string
+	TaskIDs      []string
 	AgentDirs    []string
 	WorkflowDirs []string
 }
@@ -183,7 +183,7 @@ type worktreeDir struct {
 }
 
 func reportOrphans(env Env, owners worktreeOwners, dirs []worktreeDir) Result {
-	ids := toSet(owners.AgentIDs)
+	tasks := toSet(owners.TaskIDs)
 	held := toSet(owners.AgentDirs)
 
 	var described, unreadable []string
@@ -203,7 +203,7 @@ func reportOrphans(env Env, owners worktreeOwners, dirs []worktreeDir) Result {
 		var unowned []string
 		for _, name := range state.Directories {
 			checked++
-			if ids[name] || held[filepath.Join(dir.resolved, name)] {
+			if tasks[name] || held[filepath.Join(dir.resolved, name)] {
 				continue
 			}
 

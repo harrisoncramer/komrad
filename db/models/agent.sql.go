@@ -801,6 +801,7 @@ SELECT
     a.archived_at,
     a.deleting_at,
     a.workflow_id,
+    a.created_at,
     COALESCE(t.adopted_branch IS NOT NULL
         AND t.cwd = a.cwd, FALSE)::boolean AS adopted,
     a.task_id,
@@ -820,6 +821,7 @@ type ListAgentDirsRow struct {
 	ArchivedAt       *time.Time
 	DeletingAt       *time.Time
 	WorkflowID       string
+	CreatedAt        time.Time
 	Adopted          bool
 	TaskID           *string
 	ParentAgentID    *string
@@ -844,6 +846,7 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.ArchivedAt,
 			&i.DeletingAt,
 			&i.WorkflowID,
+			&i.CreatedAt,
 			&i.Adopted,
 			&i.TaskID,
 			&i.ParentAgentID,
@@ -1763,6 +1766,16 @@ WHERE
     a.task_id = ANY ($1::uuid[])
     AND a.parent_agent_id IS NULL
     AND a.provision_enabled IS DISTINCT FROM FALSE
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents l
+        WHERE
+            l.task_id = a.task_id
+            AND l.parent_agent_id IS NULL
+            AND l.provision_enabled IS DISTINCT FROM FALSE
+            AND l.archived_at IS NULL)
 `
 
 func (q *Queries) ListProvisionedAgentIDsByTask(ctx context.Context, taskIds []string) ([]string, error) {

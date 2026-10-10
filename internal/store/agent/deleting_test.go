@@ -233,8 +233,9 @@ func TestClaimRoots(t *testing.T) {
 	}
 }
 
-// TestListProvisionedIDsByTask covers resolving a task-named worktree to the agent it was made
-// for, never a child sharing the task or a sibling that kept the directory it was given.
+// TestListProvisionedIDsByTask covers resolving a task-named worktree to the agents it was made
+// for, never a child sharing the task or a sibling that kept the directory it was given, and
+// none while a live agent still leads the task.
 func TestListProvisionedIDsByTask(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
@@ -255,8 +256,19 @@ func TestListProvisionedIDsByTask(t *testing.T) {
 		State:            StateIdle,
 	}))
 	require.NoError(t, f.Create(ctx, Agent{Name: "other", State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "failed", State: StateIdle}))
+	failed, err := f.Get(ctx, "failed")
+	require.NoError(t, err)
+	require.NotNil(t, failed)
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:   "relaunched",
+		TaskID: failed.TaskID,
+		State:  StateIdle,
+	}))
+	_, err = f.Archive(ctx, []string{author.ID, failed.ID})
+	require.NoError(t, err)
 
-	ids, err := f.ListProvisionedIDsByTask(ctx, []string{*author.TaskID, "not-a-task"})
+	ids, err := f.ListProvisionedIDsByTask(ctx, []string{*author.TaskID, *failed.TaskID, "not-a-task"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{author.ID}, ids)
 }

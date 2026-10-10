@@ -131,6 +131,7 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 		inside        bool
 		child         bool
 		adopter       bool
+		rival         bool
 		wantOwner     bool
 		wantOccupants int
 	}{
@@ -151,6 +152,13 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 			name:          "a child working in its task's directory only occupies it",
 			inside:        true,
 			child:         true,
+			wantOwner:     true,
+			wantOccupants: 1,
+		},
+		{
+			name:          "a live agent leading a task owns its directory before a newer archived one provisioned for it",
+			inside:        true,
+			rival:         true,
 			wantOwner:     true,
 			wantOccupants: 1,
 		},
@@ -205,6 +213,16 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 					TaskID:           taskID,
 					ProvisionEnabled: xptr.Ptr(false),
 				})
+			}
+			if tt.rival {
+				rival := fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:       "rival",
+					Cwd:        dir,
+					WorkflowID: fixture.workflowID,
+					TaskID:     taskID,
+				})
+				_, err := fixture.stores.Agents.Archive(t.Context(), []string{rival.ID})
+				require.NoError(t, err)
 			}
 
 			listing, err := fixture.lister.List(t.Context())

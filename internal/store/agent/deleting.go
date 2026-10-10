@@ -55,7 +55,8 @@ func (s *AgentStore) MarkArchivedDeletingByID(ctx context.Context, ids []string)
 	}), nil
 }
 
-// ListProvisionedIDsByTask returns the agents each named task was provisioned a worktree for.
+// ListProvisionedIDsByTask returns the agents each named task was provisioned a worktree for,
+// none for a task a live agent still leads.
 func (s *AgentStore) ListProvisionedIDsByTask(ctx context.Context, taskIDs []string) ([]string, error) {
 	storable := store.KeepIDs(taskIDs)
 	if len(storable) == 0 {

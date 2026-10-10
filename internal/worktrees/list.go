@@ -326,22 +326,47 @@ func readBranch(gitdir string) string {
 
 // owned is the row a directory was made for, and every other row working in it.
 func owned(dir string, owners []agentstore.AgentDir) (*Agent, []Agent) {
-	var owner *Agent
+	var provisioned []agentstore.AgentDir
 	var occupants []Agent
 
 	name := filepath.Base(dir)
 	for _, row := range owners {
 		switch {
 		case row.ProvisionedTaskID == name:
-			owner = describe(row)
+			provisioned = append(provisioned, row)
 		case filepath.Clean(row.Cwd) == dir:
 			occupants = append(occupants, *describe(row))
 		}
 	}
 
+	var owner *Agent
+	slices.SortFunc(provisioned, compareOwners)
+	for i, row := range provisioned {
+		if i == 0 {
+			owner = describe(row)
+
+			continue
+		}
+		occupants = append(occupants, *describe(row))
+	}
+
 	slices.SortFunc(occupants, func(a, b Agent) int { return strings.Compare(a.Name, b.Name) })
 
 	return owner, occupants
+}
+
+// compareOwners orders the rows provisioned for one task by which owns its directory, a live one
+// before an archived one and then a newer one before an older.
+func compareOwners(a, b agentstore.AgentDir) int {
+	if (a.ArchivedAt == nil) != (b.ArchivedAt == nil) {
+		if a.ArchivedAt == nil {
+			return -1
+		}
+
+		return 1
+	}
+
+	return b.CreatedAt.Compare(a.CreatedAt)
 }
 
 func describe(row agentstore.AgentDir) *Agent {

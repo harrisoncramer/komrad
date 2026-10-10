@@ -540,6 +540,38 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Equal(t, "reviewer", readRecordField(frame, "also here"))
 	})
 
+	t.Run("a live agent provisioned for the task owns its directory before a newer archived one", func(t *testing.T) {
+		t.Parallel()
+
+		writer := newAgent("writer-id", "writer", "w1")
+		writer.CreatedAt = "2026-09-20T12:00:00Z"
+		task := newTaskOf(writer)
+		writer.Cwd = "/trees/" + task.GetId()
+		rival := newArchivedAgent("rival-id", "rival", "w1")
+		rival.CreatedAt = "2026-09-20T13:00:00Z"
+		rival.Cwd = "/home/h/komrad"
+		rival.TaskId = writer.TaskId
+
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "komrad"),
+			writer,
+			rival,
+			task,
+			&worktreev1.WatchedWorktree{
+				Dir:      writer.GetCwd(),
+				RepoDir:  "/home/h/komrad",
+				Branch:   "task/" + task.GetId(),
+				Readable: true,
+			},
+		)
+		moveToWorktree(t, harness, "writer")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "writer", readRecordField(frame, "name"))
+		assert.Equal(t, "rival", readRecordField(frame, "also here"))
+	})
+
 	t.Run("the read of the directory adds where the branch stands and what it changed", func(t *testing.T) {
 		t.Parallel()
 

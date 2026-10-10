@@ -72,23 +72,27 @@ func (i worktreeItem) isMerged() bool {
 
 // worktreeHolders is every agent indexed by what ties it to a directory.
 type worktreeHolders struct {
-	// byTask is the top-level agent provisioned a worktree for each task, by the task's id.
-	byTask map[string]panel.Agent
+	// byTask is the top-level agents provisioned a worktree for each task, by the task's id, the
+	// one that owns it first.
+	byTask map[string][]panel.Agent
 	byCwd  map[string][]panel.Agent
 }
 
 // worktreeItemsFrom renders every directory in the world with the agents that answer for it.
 func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow) []worktreeItem {
 	holders := worktreeHolders{
-		byTask: map[string]panel.Agent{},
+		byTask: map[string][]panel.Agent{},
 		byCwd:  map[string][]panel.Agent{},
 	}
 	for _, row := range agents {
 		cwd := filepath.Clean(row.Agent.Cwd)
 		holders.byCwd[cwd] = append(holders.byCwd[cwd], row.Agent)
 		if row.Agent.ParentAgentID == nil && !row.Agent.ProvisionDisabled && row.Agent.TaskID != "" {
-			holders.byTask[row.Agent.TaskID] = row.Agent
+			holders.byTask[row.Agent.TaskID] = append(holders.byTask[row.Agent.TaskID], row.Agent)
 		}
+	}
+	for _, leads := range holders.byTask {
+		slices.SortFunc(leads, compareOwners)
 	}
 
 	items := make([]worktreeItem, 0, len(worktrees))
@@ -125,14 +129,20 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, holders workt
 	}
 
 	var owner *panel.Agent
-	agent, ok := holders.byTask[filepath.Base(item.dir)]
-	if ok {
-		owner = &agent
-		described := worktreeAgentOf(agent)
-		item.agent = &described
+	counted := map[string]bool{}
+	for i, agent := range holders.byTask[filepath.Base(item.dir)] {
+		counted[agent.ID] = true
+		if i == 0 {
+			owner = &agent
+			described := worktreeAgentOf(agent)
+			item.agent = &described
+
+			continue
+		}
+		item.occupants = append(item.occupants, worktreeAgentOf(agent))
 	}
 	for _, agent := range holders.byCwd[item.dir] {
-		if owner == nil || agent.ID != owner.ID {
+		if !counted[agent.ID] {
 			item.occupants = append(item.occupants, worktreeAgentOf(agent))
 		}
 	}
@@ -328,4 +338,18 @@ func (w *worktreesScreen) place(m *model, hovered string) {
 	w.selected = w.selected.pruned(worktreeRefs(rows))
 
 	w.cursor = cursor.Place(rowIndexOfKey(rows, hovered), w.cursor, len(rows))
+}
+
+// compareOwners orders the agents provisioned for one task by which owns its directory, a live
+// one before an archived one and then a newer one before an older.
+func compareOwners(a, b panel.Agent) int {
+	if (a.ArchivedAt == nil) != (b.ArchivedAt == nil) {
+		if a.ArchivedAt == nil {
+			return -1
+		}
+
+		return 1
+	}
+
+	return b.CreatedAt.Compare(a.CreatedAt)
 }
