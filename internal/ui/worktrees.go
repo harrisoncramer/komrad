@@ -72,8 +72,7 @@ func (i worktreeItem) isMerged() bool {
 
 // worktreeHolders is every agent indexed by what ties it to a directory.
 type worktreeHolders struct {
-	// byTask is the top-level agents provisioned a worktree for each task, by the task's id, the
-	// one that owns it first.
+	// byTask holds the top-level agents provisioned for each task, owner first.
 	byTask map[string][]panel.Agent
 	byCwd  map[string][]panel.Agent
 }
@@ -129,17 +128,16 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, holders workt
 	}
 
 	var owner *panel.Agent
+	leads := holders.byTask[filepath.Base(item.dir)]
 	counted := map[string]bool{}
-	for i, agent := range holders.byTask[filepath.Base(item.dir)] {
+	for _, agent := range leads {
 		counted[agent.ID] = true
-		if i == 0 {
-			owner = &agent
-			described := worktreeAgentOf(agent)
-			item.agent = &described
-
-			continue
-		}
-		item.occupants = append(item.occupants, worktreeAgentOf(agent))
+	}
+	if len(leads) > 0 {
+		owner = &leads[0]
+		described := worktreeAgentOf(leads[0])
+		item.agent = &described
+		item.occupants = append(item.occupants, xslice.Map(leads[1:], worktreeAgentOf)...)
 	}
 	for _, agent := range holders.byCwd[item.dir] {
 		if !counted[agent.ID] {

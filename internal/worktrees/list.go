@@ -341,13 +341,9 @@ func owned(dir string, owners []agentstore.AgentDir) (*Agent, []Agent) {
 
 	var owner *Agent
 	slices.SortFunc(provisioned, compareOwners)
-	for i, row := range provisioned {
-		if i == 0 {
-			owner = describe(row)
-
-			continue
-		}
-		occupants = append(occupants, *describe(row))
+	if len(provisioned) > 0 {
+		owner = describe(provisioned[0])
+		occupants = append(occupants, xslice.Map(provisioned[1:], func(row agentstore.AgentDir) Agent { return *describe(row) })...)
 	}
 
 	slices.SortFunc(occupants, func(a, b Agent) int { return strings.Compare(a.Name, b.Name) })

@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -1182,7 +1183,6 @@ func buildWorktrees() []proto.Message {
 	live := newAgent("live", "treeview", "w1")
 	live.Harness = "claude"
 	live.Cwd = "/trees/live"
-	live.TaskId = xptr.Ptr("live")
 	live.Alive = xptr.Ptr(true)
 	live.State = agentv1.AgentState_AGENT_STATE_THINKING
 
@@ -1193,11 +1193,9 @@ func buildWorktrees() []proto.Message {
 	archived := newArchivedAgent("archived", "reviewer", "w1")
 	archived.Harness = "claude"
 	archived.Cwd = "/trees/archived"
-	archived.TaskId = xptr.Ptr("archived")
 
 	admin := newArchivedAgent("admin", "cargo-fix", "w1")
 	admin.Cwd = "/trees/admin"
-	admin.TaskId = xptr.Ptr("admin")
 
 	return append([]proto.Message{
 		newLiveWorkflow("w1", "komrad"),
@@ -1205,9 +1203,9 @@ func buildWorktrees() []proto.Message {
 		occupant,
 		archived,
 		admin,
-		newWorktreeTask("live"),
-		newWorktreeTask("archived"),
-		newWorktreeTask("admin"),
+		newWorktreeTask(live),
+		newWorktreeTask(archived),
+		newWorktreeTask(admin),
 	}, buildWatchedWorktrees()...)
 }
 
@@ -1342,11 +1340,13 @@ func readFormProse(frame string) string {
 	return joinProse(lines)
 }
 
-// newWorktreeTask is a task in w1 whose worktree is named after its id.
-func newWorktreeTask(id string) *taskv1.Task {
+// newWorktreeTask is the task an agent leads, named after the directory it works in.
+func newWorktreeTask(agent *agentv1.Agent) *taskv1.Task {
+	agent.TaskId = xptr.Ptr(filepath.Base(agent.GetCwd()))
+
 	return &taskv1.Task{
-		Id:         id,
-		WorkflowId: "w1",
-		Slug:       id,
+		Id:         agent.GetTaskId(),
+		WorkflowId: agent.GetWorkflowId(),
+		Slug:       agent.GetTaskId(),
 	}
 }
