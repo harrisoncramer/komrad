@@ -801,7 +801,8 @@ SELECT
     a.archived_at,
     a.deleting_at,
     a.workflow_id,
-    COALESCE(t.adopted_branch IS NOT NULL AND t.cwd = a.cwd, FALSE)::boolean AS adopted
+    COALESCE(t.adopted_branch IS NOT NULL
+        AND t.cwd = a.cwd, FALSE)::boolean AS adopted
 FROM
     agents a
     LEFT JOIN tasks t ON t.id = a.task_id
