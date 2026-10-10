@@ -126,33 +126,33 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 // top-level agent spawned to work it.
 func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 	tests := []struct {
-		name       string
-		elsewhere  bool
-		inside     bool
-		child      bool
-		sibling    bool
-		wantOwner  bool
-		wantOthers int
+		name          string
+		elsewhere     bool
+		inside        bool
+		child         bool
+		adopter       bool
+		wantOwner     bool
+		wantOccupants int
 	}{
 		{
-			name:       "an agent in a directory named after another task only occupies it",
-			elsewhere:  true,
-			inside:     true,
-			wantOthers: 1,
+			name:          "an agent in a directory named after another task only occupies it",
+			elsewhere:     true,
+			inside:        true,
+			wantOccupants: 1,
 		},
 		{
-			name:       "a top-level agent kept in the directory it was given only occupies its task's directory",
-			inside:     true,
-			sibling:    true,
-			wantOwner:  true,
-			wantOthers: 1,
+			name:          "a top-level agent kept in the directory it was given only occupies its task's directory",
+			inside:        true,
+			adopter:       true,
+			wantOwner:     true,
+			wantOccupants: 1,
 		},
 		{
-			name:       "a child working in its task's directory only occupies it",
-			inside:     true,
-			child:      true,
-			wantOwner:  true,
-			wantOthers: 1,
+			name:          "a child working in its task's directory only occupies it",
+			inside:        true,
+			child:         true,
+			wantOwner:     true,
+			wantOccupants: 1,
 		},
 		{
 			name:      "the agent leading a task owns its directory before it works there",
@@ -197,7 +197,7 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 					ParentAgentID: &writer.ID,
 				})
 			}
-			if tt.sibling {
+			if tt.adopter {
 				fixture.stores.SeedAgent(t, agentstore.Agent{
 					Name:             "adopter",
 					Cwd:              dir,
@@ -212,7 +212,7 @@ func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 
 			require.Len(t, listing.Worktrees, 1)
 			tree := listing.Worktrees[0]
-			assert.Len(t, tree.Occupants, tt.wantOthers)
+			assert.Len(t, tree.Occupants, tt.wantOccupants)
 			if !tt.wantOwner {
 				assert.Nil(t, tree.Agent)
 

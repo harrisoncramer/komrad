@@ -280,7 +280,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			},
 		},
 		{
-			name: "enabled names a recorded checkout named after neither the agent nor the task after the task",
+			name: "enabled names a checkout recorded under some other name after the task",
 			worktree: workflowstore.WorktreeConfig{
 				Enabled:      true,
 				BaseBranch:   "develop",
