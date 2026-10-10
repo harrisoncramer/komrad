@@ -50,6 +50,9 @@ func (m *model) documentRowFits(r documentRow) clauseFits {
 
 			return containsFold(findAgentName(m, item.agentID), clause.Value)
 		case searchsyntax.KeyTask:
+			if taskID, ok := m.openedForTask(clause.Value); ok {
+				return item.taskID == taskID
+			}
 			task, ok := m.listing.tasks[item.taskID]
 
 			return ok && containsFold(task.Slug, clause.Value)
@@ -130,6 +133,17 @@ func (m *model) openedForAgent(name string) (string, bool) {
 	}
 
 	return agentID, true
+}
+
+// openedForTask is the task the documents were opened for, when the slug given is its slug.
+func (m *model) openedForTask(slug string) (string, bool) {
+	taskID := m.documents.taskID
+	task, ok := m.listing.tasks[taskID]
+	if taskID == "" || !ok || !strings.EqualFold(task.Slug, slug) {
+		return "", false
+	}
+
+	return taskID, true
 }
 
 // filterDocuments narrows the list as if the query were typed and applied.
