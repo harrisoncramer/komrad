@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -219,6 +220,72 @@ func TestArchive(t *testing.T) {
 	second, err := stores.Tasks.Get(ctx, task.ID)
 	require.NoError(t, err)
 	assert.Equal(t, first.ArchivedAt, second.ArchivedAt, "a second archive keeps the first stamp")
+}
+
+// TestArchiveIdle pins that only the named tasks no live agent works on are archived.
+func TestArchiveIdle(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	busy := stores.SeedTask(t, taskstore.CreateParams{Slug: "busy"})
+	stores.SeedAgent(t, agentstore.Agent{Name: "worker", WorkflowID: busy.WorkflowID, TaskID: &busy.ID})
+	done := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "done"})
+	finished := stores.SeedAgent(t, agentstore.Agent{Name: "finished", WorkflowID: busy.WorkflowID, TaskID: &done.ID})
+	_, err := stores.Agents.Archive(ctx, []string{finished.ID})
+	require.NoError(t, err)
+	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "empty"})
+	unnamed := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "unnamed"})
+
+	require.NoError(t, stores.Tasks.ArchiveIdle(ctx, []string{busy.ID, done.ID, empty.ID}))
+
+	tests := []struct {
+		name         string
+		id           string
+		wantArchived bool
+	}{
+		{name: "a task a live agent works on stays live", id: busy.ID},
+		{name: "a task whose agents are all archived is archived", id: done.ID, wantArchived: true},
+		{name: "a task no agent works on is archived", id: empty.ID, wantArchived: true},
+		{name: "a task not named stays live", id: unnamed.ID},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := stores.Tasks.Get(ctx, tt.id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantArchived, got.ArchivedAt != nil)
+		})
+	}
+}
+
+// TestRestore pins that restoring returns the named archived tasks and leaves every other task as it was.
+func TestRestore(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	archived := stores.SeedTask(t, taskstore.CreateParams{Slug: "archived"})
+	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
+	live := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: archived.WorkflowID, Slug: "live"})
+	unnamed := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: archived.WorkflowID, Slug: "unnamed"})
+	require.NoError(t, stores.Tasks.Archive(ctx, unnamed.ID))
+
+	require.NoError(t, stores.Tasks.Restore(ctx, []string{archived.ID, live.ID}))
+
+	tests := []struct {
+		name         string
+		id           string
+		wantArchived bool
+	}{
+		{name: "an archived task named is restored", id: archived.ID},
+		{name: "a live task named stays live", id: live.ID},
+		{name: "an archived task not named stays archived", id: unnamed.ID, wantArchived: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := stores.Tasks.Get(ctx, tt.id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantArchived, got.ArchivedAt != nil)
+		})
+	}
 }
 
 // TestIsSlugTaken pins that a slug stays taken once its task is archived.

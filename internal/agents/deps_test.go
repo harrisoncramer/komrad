@@ -219,6 +219,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Screens:        NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
+			Tasks:          tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
 			Usage:          options.usage,
 		}),
 		panes:   NewPaneLiveness(options.tmux),

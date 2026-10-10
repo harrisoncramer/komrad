@@ -24,15 +24,29 @@ func TestMenu(t *testing.T) {
 		assert.NotContains(t, frame, "logs")
 	})
 
-	t.Run("an agent's entries sit over the agents list's own", func(t *testing.T) {
+	t.Run("an agent's entries stand alone, with no band of the list's", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSubpages(t, "quiet")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "› logs")
+		assert.Contains(t, frame, "new child")
+		assert.NotContains(t, frame, "new task")
+		assert.NotContains(t, frame, "new workflow")
+	})
+
+	t.Run("a workflow's entries sit over the agents list's own", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, buildSubpagesAgents()...)
+		harness.press("g", "g", "space")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "edit workflow")
 		assert.Contains(t, frame, "───")
 		assert.Contains(t, frame, "new task")
+		assert.Contains(t, frame, "new workflow")
 	})
 
 	t.Run("a screen with no band of its own opens nothing", func(t *testing.T) {

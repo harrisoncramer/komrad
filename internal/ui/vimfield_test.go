@@ -9,8 +9,6 @@ import (
 	"komrad/internal/ui"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
-	taskv1 "komrad/proto/gen/task/v1"
-	"komrad/proto/gen/task/v1/taskv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
@@ -76,11 +74,11 @@ func TestVimEditing(t *testing.T) {
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"esc", "c", "i", "w"}, spellKeys("it"),
 			[]string{"esc", "0", "~", "enter"})...)
 
-		sent := harness.readSent(taskv1connect.TaskServiceCreateTaskProcedure)
+		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
-		create, ok := sent[0].(*taskv1.CreateTaskRequest)
+		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "Check it", create.GetGoal())
+		assert.Equal(t, "Check it", create.GetTaskGoal())
 	})
 
 	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
@@ -88,11 +86,11 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "enter"})...)
 
-		sent := harness.readSent(taskv1connect.TaskServiceCreateTaskProcedure)
+		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
-		create, ok := sent[0].(*taskv1.CreateTaskRequest)
+		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "go far", create.GetGoal())
+		assert.Equal(t, "go far", create.GetTaskGoal())
 	})
 
 	t.Run("k on the first field stays on it", func(t *testing.T) {
@@ -100,11 +98,11 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc", "k", "x", "enter"})...)
 
-		sent := harness.readSent(taskv1connect.TaskServiceCreateTaskProcedure)
+		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
-		create, ok := sent[0].(*taskv1.CreateTaskRequest)
+		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "g", create.GetGoal())
+		assert.Equal(t, "g", create.GetTaskGoal())
 	})
 
 	t.Run("j above only fields that are not text stays on the field", func(t *testing.T) {

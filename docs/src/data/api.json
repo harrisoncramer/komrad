@@ -2618,6 +2618,31 @@
           "oneof": "",
           "rules": [],
           "description": "Which task it works on, by id or slug, which must be in workflow_id. Unset to have komrad make one from its title and prompt. A child always works on its parent's task, so this is refused with parent_agent_id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 80 characters",
+            "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
+          ],
+          "description": "The slug of the task komrad makes for it when task is unset, which no other task has ever had. Unset to make one from its name, numbered until it is free."
+        },
+        {
+          "name": "task_goal",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 50000 characters"
+          ],
+          "description": "What the task komrad makes for it is meant to achieve, as markdown. Blank to take the first line of the prompt."
         }
       ]
     },

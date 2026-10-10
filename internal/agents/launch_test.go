@@ -16,6 +16,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
@@ -1419,6 +1420,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		params    func(workflowID string, work, elsewhere *taskstore.Task) NewAgentParams
 		wantErrIs error
 		wantTask  string
+		wantGoal  string
 	}{
 		{
 			name: "a task in another workflow is refused",
@@ -1447,6 +1449,28 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 				return NewAgentParams{Title: "work", Prompt: "Fix the login page.\nMore.", WorkflowID: workflowID}
 			},
 			wantTask: "work-2",
+		},
+		{
+			name: "joining a task and describing one to make is refused",
+			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: work.ID, TaskSlug: "login"}
+			},
+			wantErrIs: errTaskMadeAndJoined,
+		},
+		{
+			name: "a slug asked for that a task already has is refused",
+			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, TaskSlug: work.Slug}
+			},
+			wantErrIs: store.ErrNameTaken,
+		},
+		{
+			name: "a slug and a goal asked for make the task as given",
+			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "Fix login", Prompt: "Look at it.", WorkflowID: workflowID, TaskSlug: "login", TaskGoal: "Logins work."}
+			},
+			wantTask: "login",
+			wantGoal: "Logins work.",
 		},
 		{
 			name: "an orchestrator is put on no task",
@@ -1496,54 +1520,34 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 			task, err := st.Tasks.Get(t.Context(), *stored.TaskID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantTask, task.Slug)
+			if tt.wantGoal != "" {
+				assert.Equal(t, tt.wantGoal, task.Goal)
+			}
 			assert.Equal(t, workflowID, task.WorkflowID)
 			assert.Contains(t, briefing, "You work on task "+tt.wantTask+",", "the agent is told its task")
 		})
 	}
 }
 
-// TestNewChildAgentTask pins which task a child works on.
-func TestNewChildAgentTask(t *testing.T) {
-	tests := []struct {
-		name       string
-		parentRole agentstore.Role
-		// wantOwn says the child is given a task of its own rather than its parent's.
-		wantOwn bool
-	}{
-		{name: "a child shares its parent's task", parentRole: agentstore.RoleImplementer},
-		{name: "an orchestrator's child is given its own", parentRole: agentstore.RoleOrchestrator, wantOwn: true},
-	}
+// TestNewChildAgentSharesItsParentsTask pins that a child works on the task its parent does.
+func TestNewChildAgentSharesItsParentsTask(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := tmuxtest.NewFake()
-			st := newStore(t)
-			manager := newManager(tmux, st, "")
+	parent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, parent.TaskID)
 
-			parent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-				Title:      "author",
-				Dir:        t.TempDir(),
-				Prompt:     "write the change",
-				WorkflowID: seedWorkflow(t, st),
-				Role:       tt.parentRole,
-			})
-			require.NoError(t, err)
+	child, err := manager.launch.NewAgent(t.Context(), childOf(*parent, "reviewer"))
+	require.NoError(t, err)
 
-			child, err := manager.launch.NewAgent(t.Context(), childOf(*parent, "reviewer"))
-			require.NoError(t, err)
-
-			stored := agentByID(t, st, child.ID)
-			if !tt.wantOwn {
-				assert.Equal(t, parent.TaskID, stored.TaskID)
-
-				return
-			}
-			require.NotNil(t, stored.TaskID)
-			task, err := st.Tasks.Get(t.Context(), *stored.TaskID)
-			require.NoError(t, err)
-			assert.Equal(t, "reviewer", task.Slug)
-		})
-	}
+	assert.Equal(t, parent.TaskID, agentByID(t, st, child.ID).TaskID)
 }
 
 // TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.

@@ -297,7 +297,7 @@ func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
 	archive := archiveMenu(m, target)
 
 	if row, ok := rowAt(a.listRows(m), a.cursor); ok && a.holdsAnAgent(m) && !row.header {
-		return withNested(agentMenu(m, screenAgents, row.item), "archive", m.keys.Menu.Archive, archive), true
+		return withNested(agentMenu(m, row.item), "archive", m.keys.Menu.Archive, archive), true
 	}
 
 	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archive), true

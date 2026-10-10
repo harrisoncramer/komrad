@@ -88,12 +88,42 @@ type CreateForAgentParams struct {
 	Name       string
 	Title      string
 	Prompt     string
+	Slug       string
+	Goal       string
 }
 
-// CreateForAgent creates a task named after an agent.
+// CreateForAgent creates a task for an agent, under the slug given or one named after the agent.
 func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (*taskstore.Task, error) {
-	if err := tasks.LockSlugs(ctx); err != nil {
+	slug, err := freeSlug(ctx, tasks, params)
+	if err != nil {
 		return nil, err
+	}
+
+	title := strings.TrimSpace(params.Title)
+	if title == "" {
+		title = params.Name
+	}
+
+	goal := strings.TrimSpace(params.Goal)
+	if goal == "" {
+		goal = strings.TrimSpace(xstr.FirstLine(strings.TrimSpace(params.Prompt)))
+	}
+
+	return tasks.Create(ctx, taskstore.CreateParams{
+		WorkflowID: params.WorkflowID,
+		Slug:       slug,
+		Title:      title,
+		Goal:       goal,
+	})
+}
+
+// freeSlug is the slug asked for, or the first numbered from the agent's name that no task has had.
+func freeSlug(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (string, error) {
+	if params.Slug != "" {
+		return params.Slug, nil
+	}
+	if err := tasks.LockSlugs(ctx); err != nil {
+		return "", err
 	}
 
 	base := xstr.Slug(params.Name, maxSlugBase)
@@ -102,11 +132,11 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 	}
 
 	slug := base
-	// Tries fix-login, then fix-login-2, fix-login-3 and on until one is free. The bare slug counts as the first, so numbering starts at 2.
+	// Tries fix-login, then fix-login-2 and on, the bare slug counting as the first.
 	for i := 2; ; i++ {
 		taken, err := tasks.IsSlugTaken(ctx, slug)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		if !taken {
 			break
@@ -114,15 +144,5 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 		slug = fmt.Sprintf("%s-%d", base, i)
 	}
 
-	title := strings.TrimSpace(params.Title)
-	if title == "" {
-		title = params.Name
-	}
-
-	return tasks.Create(ctx, taskstore.CreateParams{
-		WorkflowID: params.WorkflowID,
-		Slug:       slug,
-		Title:      title,
-		Goal:       strings.TrimSpace(xstr.FirstLine(strings.TrimSpace(params.Prompt))),
-	})
+	return slug, nil
 }

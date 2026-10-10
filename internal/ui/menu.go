@@ -61,7 +61,7 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	}
 
 	if row, ok := a.hoveredRow(m); ok && row.isTask() {
-		return withNested(rowMenu(row.task.Slug), "archive", m.keys.Menu.Archive, taskArchiveMenu(m, *row.task)), true
+		return withNested(taskMenu(m, row), "archive", m.keys.Menu.Archive, taskArchiveMenu(m, *row.task)), true
 	}
 
 	item, hasAgent := a.hoveredPaneItem(m)
@@ -69,7 +69,7 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		menu := rowMenu(workflow.Name)
 		if hasAgent {
-			menu = agentMenu(m, screenAgents, item, slices.Concat(a.editEntries(m), a.snoozeEntries(m, item))...)
+			menu = agentMenu(m, item, slices.Concat(a.editEntries(m), a.snoozeEntries(m, item))...)
 		}
 		menu.entries = append(menu.entries, workflowEntries(m, workflow)...)
 
@@ -82,7 +82,7 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	menu := withNested(agentMenu(m, screenAgents, item, a.agentEntries(m, item)...), "hide", m.keys.Menu.Hide, a.hideMenu(m, &item.Agent))
+	menu := withNested(agentMenu(m, item, a.agentEntries(m, item)...), "hide", m.keys.Menu.Hide, a.hideMenu(m, &item.Agent))
 
 	return withNested(menu, "archive", m.keys.Menu.Archive, agentsArchiveMenu(m, []panel.Agent{item.Agent}, false)), true
 }

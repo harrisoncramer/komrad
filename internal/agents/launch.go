@@ -12,6 +12,7 @@ import (
 	"komrad/config"
 	"komrad/internal/agenterr"
 	"komrad/internal/caller"
+	"komrad/internal/fail"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
@@ -85,6 +86,9 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 	}
 }
 
+// errTaskMadeAndJoined is a launch naming a task to join and describing one to make.
+var errTaskMadeAndJoined = fail.InvalidArgument("an agent either joins a task or has one made for it, not both")
+
 type NewAgentParams struct {
 	Title            string
 	Dir              string
@@ -101,6 +105,8 @@ type NewAgentParams struct {
 	ParentAgentID    string
 	Role             agentstore.Role
 	Task             string
+	TaskSlug         string
+	TaskGoal         string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -257,7 +263,7 @@ func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (
 		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", agenterr.ErrChildOwnsLaunch, parent.WorkflowID)
 	case params.ScheduleID != nil:
 		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", agenterr.ErrChildOwnsLaunch)
-	case params.Task != "":
+	case params.Task != "" || params.TaskSlug != "" || params.TaskGoal != "":
 		return nil, fmt.Errorf("%w: it works on its parent's task", agenterr.ErrChildOwnsLaunch)
 	}
 
@@ -430,6 +436,10 @@ func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane strin
 }
 
 func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
+	if params.Task != "" && (params.TaskSlug != "" || params.TaskGoal != "") {
+		return nil, errTaskMadeAndJoined
+	}
+
 	var joined *taskstore.Task
 	if params.Task != "" {
 		found, err := s.tasks.GetTaskForWorkflow(ctx, params.Task, params.WorkflowID)
@@ -454,11 +464,13 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent.State = agentstore.StateSettingUp
 
 	task, err := s.createUnderCeiling(ctx, creation{
-		agent:   &agent,
-		task:    joined,
-		spawner: spawner,
-		parent:  parent,
-		title:   params.Title,
+		agent:    &agent,
+		task:     joined,
+		spawner:  spawner,
+		parent:   parent,
+		title:    params.Title,
+		taskSlug: params.TaskSlug,
+		taskGoal: params.TaskGoal,
 	})
 	if err != nil {
 		return nil, err
@@ -661,19 +673,19 @@ func namedDir(named string) (string, error) {
 // creation is an agent row about to be written, the task it joins and the agents it is counted
 // against.
 type creation struct {
-	agent   *agentstore.Agent
-	task    *taskstore.Task
-	spawner *agentstore.Agent
-	parent  *agentstore.Agent
-	title   string
+	agent    *agentstore.Agent
+	task     *taskstore.Task
+	spawner  *agentstore.Agent
+	parent   *agentstore.Agent
+	title    string
+	taskSlug string
+	taskGoal string
 }
 
 // needsOwnTask is whether the agent is given a task of its own as it is written, which a child
 // sharing its parent's and an orchestrator are not.
 func (c creation) needsOwnTask() bool {
-	sharesParents := c.parent != nil && c.parent.TaskID != nil
-
-	return c.task == nil && !sharesParents && c.agent.Role != agentstore.RoleOrchestrator
+	return c.task == nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator
 }
 
 // createUnderCeiling writes the agent, and the task it works on when it needs one of its own,
@@ -701,6 +713,8 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 				Name:       c.agent.Name,
 				Title:      c.title,
 				Prompt:     c.agent.Prompt,
+				Slug:       c.taskSlug,
+				Goal:       c.taskGoal,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to make a task for agent %q: %w", c.agent.Name, err)

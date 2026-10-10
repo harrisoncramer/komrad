@@ -133,6 +133,8 @@ type createAgentParams struct {
 	WorkflowID       string
 	ParentAgentID    string
 	Task             string
+	TaskSlug         string
+	TaskGoal         string
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
@@ -146,6 +148,8 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			WorkflowId:       params.WorkflowID,
 			ParentAgentId:    nilIfBlank(params.ParentAgentID),
 			Task:             nilIfBlank(params.Task),
+			TaskSlug:         nilIfBlank(params.TaskSlug),
+			TaskGoal:         params.TaskGoal,
 		}))
 		if err != nil {
 			return nil, err
@@ -743,28 +747,5 @@ func (a reads) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 func (a api) wakeLoop(loop loopv1.Loop) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.loops.WakeLoop(ctx, connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loop}))
-	})
-}
-
-type createTaskParams struct {
-	WorkflowID string
-	Slug       string
-	Title      string
-	Goal       string
-}
-
-func (a api) createTask(params createTaskParams) (*taskv1.Task, error) {
-	return call(requestTimeout, func(ctx context.Context) (*taskv1.Task, error) {
-		resp, err := a.tasks.CreateTask(ctx, connect.NewRequest(&taskv1.CreateTaskRequest{
-			WorkflowId: params.WorkflowID,
-			Slug:       params.Slug,
-			Title:      params.Title,
-			Goal:       params.Goal,
-		}))
-		if err != nil {
-			return nil, err
-		}
-
-		return resp.Msg.GetTask(), nil
 	})
 }

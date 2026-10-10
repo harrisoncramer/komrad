@@ -60,6 +60,32 @@ func TestTasksTree(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"a2", "a1"}})
 	})
 
+	t.Run("a task's menu is its newest agent's pages and another agent on it", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press("j", "space")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "status checks")
+		assert.Contains(t, frame, "logs")
+		assert.Contains(t, frame, "new agent")
+		assert.NotContains(t, frame, "new task")
+		assert.NotContains(t, frame, "new workflow")
+	})
+
+	t.Run("a new agent from a task's menu joins the task", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+		answerAgentCreate(harness, "")
+
+		harness.press(slices.Concat([]string{"j", "space", "c"}, spellKeys("review it"), []string{"enter"})...)
+
+		harness.assertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, &agentv1.CreateAgentRequest{
+			Prompt:     "review it",
+			WorkflowId: "w1",
+			Task:       xptr.Ptr("t1"),
+		})
+	})
+
 	t.Run("the archive on a task's menu archives the task", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 

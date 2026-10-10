@@ -1085,7 +1085,13 @@ type CreateAgentRequest struct {
 	// Which task it works on, by id or slug, which must be in workflow_id. Unset to have komrad
 	// make one from its title and prompt. A child always works on its parent's task, so this is
 	// refused with parent_agent_id.
-	Task          *string `protobuf:"bytes,12,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	Task *string `protobuf:"bytes,12,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The slug of the task komrad makes for it when task is unset, which no other task has ever
+	// had. Unset to make one from its name, numbered until it is free.
+	TaskSlug *string `protobuf:"bytes,13,opt,name=task_slug,json=taskSlug,proto3,oneof" json:"task_slug,omitempty"`
+	// What the task komrad makes for it is meant to achieve, as markdown. Blank to take the first
+	// line of the prompt.
+	TaskGoal      string `protobuf:"bytes,14,opt,name=task_goal,json=taskGoal,proto3" json:"task_goal,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1179,6 +1185,20 @@ func (x *CreateAgentRequest) GetParentAgentId() string {
 func (x *CreateAgentRequest) GetTask() string {
 	if x != nil && x.Task != nil {
 		return *x.Task
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetTaskSlug() string {
+	if x != nil && x.TaskSlug != nil {
+		return *x.TaskSlug
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetTaskGoal() string {
+	if x != nil {
+		return x.TaskGoal
 	}
 	return ""
 }
@@ -3412,7 +3432,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12*\n" +
 	"\x06agents\x18\x01 \x03(\v2\x12.agent.v1.AgentRowR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xe7\x03\n" +
+	"\x10_next_page_token\"\xe2\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\"\n" +
 	"\x05title\x18\x02 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x12\"\n" +
@@ -3424,11 +3444,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x120\n" +
 	"\x11provision_enabled\x18\b \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x124\n" +
 	"\x0fparent_agent_id\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\rparentAgentId\x88\x01\x01\x12 \n" +
-	"\x04task\x18\f \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\x04task\x88\x01\x01B\x12\n" +
+	"\x04task\x18\f \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\x04task\x88\x01\x01\x12C\n" +
+	"\ttask_slug\x18\r \x01(\tB!\xbaH\x1er\x1c\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x04R\btaskSlug\x88\x01\x01\x12&\n" +
+	"\ttask_goal\x18\x0e \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\btaskGoalB\x12\n" +
 	"\x10_idempotency_keyB\x14\n" +
 	"\x12_provision_enabledB\x12\n" +
 	"\x10_parent_agent_idB\a\n" +
-	"\x05_task\"<\n" +
+	"\x05_taskB\f\n" +
+	"\n" +
+	"_task_slug\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xb8\x02\n" +
 	"\x14RequestReviewRequest\x12#\n" +

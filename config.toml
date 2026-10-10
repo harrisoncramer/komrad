@@ -423,9 +423,10 @@ snooze        = ["z"]
 edit_workflow = ["E"]
 # Put an agent on a branch that already exists, in the hovered workflow.
 adopt         = ["A"]
-# Start a new agent, in the workflow the cursor is in. The entry is only on the agents list.
+# Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only
+# on the agents list.
 new_agent     = ["c"]
-# Create a workflow. The entry is only on the agents list.
+# Create a workflow. The entry is only on a workflow in the agents list.
 new_workflow  = ["w"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.

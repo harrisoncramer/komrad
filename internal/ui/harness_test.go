@@ -2,7 +2,6 @@ package ui_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -219,7 +218,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 		parked: make(chan parkedCall),
 	}
 	recorder := &requestRecorder{
-		answers: map[string]answerFunc{taskv1connect.TaskServiceCreateTaskProcedure: echoCreatedTask},
+		answers: map[string]answerFunc{},
 		gate:    gate,
 	}
 	interceptors := connect.WithInterceptors(recorder)
@@ -438,22 +437,6 @@ func (h *panelHarness) answer(procedure string, answer answerFunc) {
 	defer h.recorder.mu.Unlock()
 
 	h.recorder.answers[procedure] = answer
-}
-
-// echoCreatedTask answers a create with the task it asked for, so a form can go on to start its agent.
-func echoCreatedTask(req connect.AnyRequest) (connect.AnyResponse, error) {
-	asked, ok := req.Any().(*taskv1.CreateTaskRequest)
-	if !ok {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("not a task create"))
-	}
-
-	return connect.NewResponse(&taskv1.CreateTaskResponse{Task: &taskv1.Task{
-		Id:         "t1",
-		WorkflowId: asked.GetWorkflowId(),
-		Slug:       asked.GetSlug(),
-		Title:      asked.GetTitle(),
-		Goal:       asked.GetGoal(),
-	}}), nil
 }
 
 func (h *panelHarness) refuse(procedure string, err error) {

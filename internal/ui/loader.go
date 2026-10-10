@@ -55,6 +55,9 @@ func (r reviewScreen) isLoading(m *model) bool {
 }
 
 func isRowLoading(r agentRow) bool {
+	if r.isTask() {
+		return r.lead != nil && isChecksRunning(*r.lead)
+	}
 	if r.header {
 		return r.orchestrator != nil && isThinking(*r.orchestrator)
 	}

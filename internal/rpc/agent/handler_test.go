@@ -412,6 +412,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					IdempotencyKey:   xptr.Ptr("triage:ENG-5260"),
 					ParentAgentId:    xptr.Ptr(ids[0]),
 					Task:             xptr.Ptr("fix-login"),
+					TaskSlug:         xptr.Ptr("login"),
+					TaskGoal:         "Logins work.",
 				}))
 				if err != nil {
 					return "", err
@@ -431,6 +433,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					IdempotencyKey:   "triage:ENG-5260",
 					ParentAgentID:    ids[0],
 					Task:             "fix-login",
+					TaskSlug:         "login",
+					TaskGoal:         "Logins work.",
 				}, services.created)
 			},
 		},
