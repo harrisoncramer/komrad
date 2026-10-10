@@ -26,9 +26,9 @@ func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
 }
 
-// TestDeprovisionerLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
-// answering, which skips a teardown as quietly as a workflow naming none.
-func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
+// TestProvisionerLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
+// answering, which skips a setup as quietly as a workflow naming none.
+func TestProvisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	st := newStore(t)
 	workflowID := seedWorkflow(t, st)
 	logged, records := loggedContext(t)
@@ -40,7 +40,7 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 		Cwd:        "/repo/.worktrees/auth",
 		WorkflowID: workflowID,
 	}
-	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
+	assert.Empty(t, provisionerFor(ctx, st.Workflows, agent))
 
 	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
@@ -49,9 +49,9 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
 }
 
-// TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown pins that no teardown is named and
+// TestProvisionerSaysNothingWhenThereIsNothingToSetUp pins that no setup is named and
 // nothing is logged.
-func TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown(t *testing.T) {
+func TestProvisionerSaysNothingWhenThereIsNothingToSetUp(t *testing.T) {
 	tests := []struct {
 		name       string
 		workflowID func(t *testing.T, st *testStore) string
@@ -77,7 +77,7 @@ func TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown(t *testing.T) {
 			}
 			ctx, records := loggedContext(t)
 
-			assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
+			assert.Empty(t, provisionerFor(ctx, st.Workflows, agent))
 			assert.Empty(t, records())
 		})
 	}
@@ -88,21 +88,19 @@ func TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown(t *testing.T) {
 // nothing at all otherwise.
 func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 	tests := []struct {
-		name            string
-		worktree        bool
-		provision       *bool
-		wantProvision   string
-		wantDeprovision string
+		name          string
+		worktree      bool
+		provision     *bool
+		wantProvision string
 	}{
 		{
 			name:     "a workflow that provisions nothing has nothing to run either way",
 			worktree: false,
 		},
 		{
-			name:            "the toggle on names the built-in pair",
-			worktree:        true,
-			wantProvision:   worktreeProvisioner,
-			wantDeprovision: worktreeDeprovisioner,
+			name:          "the toggle on names the built-in pair",
+			worktree:      true,
+			wantProvision: worktreeProvisioner,
 		},
 		{
 			name:      "an agent told to keep its own directory runs neither half",
@@ -110,11 +108,10 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 			provision: xptr.Ptr(false),
 		},
 		{
-			name:            "an agent following its workflow runs both",
-			worktree:        true,
-			provision:       xptr.Ptr(true),
-			wantProvision:   worktreeProvisioner,
-			wantDeprovision: worktreeDeprovisioner,
+			name:          "an agent following its workflow runs both",
+			worktree:      true,
+			provision:     xptr.Ptr(true),
+			wantProvision: worktreeProvisioner,
 		},
 		{
 			name:      "the override cannot conjure a worktree a workflow does not make",
@@ -138,7 +135,6 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantProvision, provisionerFor(t.Context(), st.Workflows, agent))
-			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(t.Context(), st.Workflows, agent))
 		})
 	}
 }

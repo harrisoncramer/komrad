@@ -37,6 +37,8 @@ const (
 	WorktreeFate_WORKTREE_FATE_ARCHIVED WorktreeFate = 2
 	// The directory's agent is running, which nothing takes.
 	WorktreeFate_WORKTREE_FATE_LIVE WorktreeFate = 3
+	// Only the directory's task answers for it, which the task delete takes.
+	WorktreeFate_WORKTREE_FATE_TASK WorktreeFate = 4
 )
 
 // Enum value maps for WorktreeFate.
@@ -46,12 +48,14 @@ var (
 		1: "WORKTREE_FATE_UNOWNED",
 		2: "WORKTREE_FATE_ARCHIVED",
 		3: "WORKTREE_FATE_LIVE",
+		4: "WORKTREE_FATE_TASK",
 	}
 	WorktreeFate_value = map[string]int32{
 		"WORKTREE_FATE_UNSPECIFIED": 0,
 		"WORKTREE_FATE_UNOWNED":     1,
 		"WORKTREE_FATE_ARCHIVED":    2,
 		"WORKTREE_FATE_LIVE":        3,
+		"WORKTREE_FATE_TASK":        4,
 	}
 )
 
@@ -1298,17 +1302,18 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\">\n" +
 	"\x16DeleteWorktreesRequest\x12$\n" +
 	"\x04dirs\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*|\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*\x94\x01\n" +
 	"\fWorktreeFate\x12\x1d\n" +
 	"\x19WORKTREE_FATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
 	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
-	"\x12WORKTREE_FATE_LIVE\x10\x032\xd7\n" +
+	"\x12WORKTREE_FATE_LIVE\x10\x03\x12\x16\n" +
+	"\x12WORKTREE_FATE_TASK\x10\x042\xdc\n" +
 	"\n" +
 	"\x0fWorktreeService\x12\xf6\x01\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"\x86\x01List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap.B\x01\x03\x90\x02\x01\x12\x85\x02\n" +
-	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\fget_worktree\"\x92\x01Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first.B\x01\x03\x90\x02\x01\x12\xa3\x02\n" +
-	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xaf\x01\x9a\xb5\x18\xa7\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x81\x01Remove worktree directories no agent answers for, such as those list_worktrees reports with no agent. Branches are never touched.(\x01B\x01\x03\x90\x02\x02\x12\x9c\x04\n" +
+	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\fget_worktree\"\x92\x01Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first.B\x01\x03\x90\x02\x01\x12\xa8\x02\n" +
+	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x86\x01Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.(\x01B\x01\x03\x90\x02\x02\x12\x9c\x04\n" +
 	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xcb\x03\x9a\xb5\x18\xc3\x03\b\x01\x1a\x10delete_worktrees\"\x96\x01Queue deleting worktree directories in the background, each through the path its agent's state decides. A directory whose agent is live is left alone.(\x01:\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (

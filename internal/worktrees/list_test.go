@@ -10,6 +10,7 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
@@ -445,11 +446,27 @@ func TestFateIsDecidedByTheRow(t *testing.T) {
 			want:     FateUnowned,
 		},
 		{
+			name: "a directory only its task answers for",
+			worktree: Worktree{
+				Readable: true,
+				Task:     &taskstore.Task{},
+			},
+			want: FateTask,
+		},
+		{
 			name: "a row whose delete failed on a directory git cannot read",
 			worktree: Worktree{Agent: &Agent{
 				FailedToCleanup: true,
 			}},
 			want: FateUnowned,
+		},
+		{
+			name: "a row whose delete failed on its task's directory git cannot read",
+			worktree: Worktree{
+				Agent: &Agent{FailedToCleanup: true},
+				Task:  &taskstore.Task{},
+			},
+			want: FateTask,
 		},
 		{
 			name: "a row whose delete failed on a directory git still reads",
@@ -615,6 +632,7 @@ func (f *worktreeFixture) newListerOver(shared string) *Lister {
 			return shared, nil
 		},
 		Agents:    f.stores.Agents,
+		Tasks:     f.stores.Tasks,
 		Workflows: f.stores.Workflows,
 		Worktrees: f.worktrees,
 	})
@@ -628,6 +646,16 @@ func (f *worktreeFixture) cut(t *testing.T) string {
 	require.NoError(t, err)
 
 	return f.cutAs(t, *id, "task/"+*id)
+}
+
+// cutUnowned lays out a worktree named after a task that has no row.
+func (f *worktreeFixture) cutUnowned(t *testing.T) string {
+	t.Helper()
+
+	id, err := store.NewID()
+	require.NoError(t, err)
+
+	return f.cutAs(t, id, "task/"+id)
 }
 
 // cutAs lays out a worktree under a name, with HEAD on a branch.

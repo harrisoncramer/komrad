@@ -34,16 +34,6 @@ func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent ag
 	}
 }
 
-func deprovisionerFor(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) string {
-	if agent.IsProvisionerDisabled() {
-		return ""
-	}
-
-	_, deprovisioner := worktreeScripts(workflowFor(ctx, workflows, agent), agent.ProvisionEnabled)
-
-	return deprovisioner
-}
-
 func provisionerFor(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) string {
 	if agent.IsProvisionerDisabled() {
 		return ""

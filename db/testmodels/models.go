@@ -1170,6 +1170,10 @@ type Task struct {
 	LinesRemoved *int32
 	// The snapshot of the newest review round of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no round.
 	MovedSinceRound *string
+	// When a delete claimed the task, which keeps it out of every listing until it is gone or the delete gives it back.
+	DeletingAt pgtype.Timestamptz
+	// When the one cleanup that gives back a deleted task's checkout and removes the row took it, so no other cleanup runs it as well.
+	CleaningAt pgtype.Timestamptz
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

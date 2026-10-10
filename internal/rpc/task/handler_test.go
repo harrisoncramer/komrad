@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1komrad"
 
@@ -31,7 +32,14 @@ type fakeTasks struct {
 	created  []taskstore.CreateParams
 	got      []string
 	listed   []listCall
+	updated  []updateCall
 	archived []string
+	deleted  [][]string
+}
+
+type updateCall struct {
+	ref    string
+	params taskstore.UpdateParams
 }
 
 // CreateTask records the params and answers them as stored unless err refuses it.
@@ -70,6 +78,16 @@ func (f *fakeTasks) ListTasks(_ context.Context, workflowID string, archived boo
 	return []taskstore.Task{f.stored}, nil
 }
 
+// UpdateTask records the ref and params and answers the stored task unless err refuses it.
+func (f *fakeTasks) UpdateTask(_ context.Context, ref string, params taskstore.UpdateParams) (*taskstore.Task, error) {
+	f.updated = append(f.updated, updateCall{ref: ref, params: params})
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.stored, nil
+}
+
 // ArchiveTask records the ref and answers err.
 func (f *fakeTasks) ArchiveTask(_ context.Context, ref string) error {
 	f.archived = append(f.archived, ref)
@@ -77,8 +95,19 @@ func (f *fakeTasks) ArchiveTask(_ context.Context, ref string) error {
 	return f.err
 }
 
+// DeleteTasks records the refs and answers err.
+func (f *fakeTasks) DeleteTasks(_ context.Context, refs []string) error {
+	f.deleted = append(f.deleted, refs)
+
+	return f.err
+}
+
 func newTaskHandler(fake *fakeTasks) taskv1komrad.TaskServiceAdapter {
-	return taskv1komrad.TaskServiceAdapter{Impl: NewHandler(NewHandlerParams{Tasks: fake, Archiver: fake})}
+	return taskv1komrad.TaskServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Tasks:    fake,
+		Archiver: fake,
+		Deleter:  fake,
+	})}
 }
 
 // TestTaskRefusalsMapToCodes pins the code each refusal of the task service reaches the caller as.
@@ -125,6 +154,26 @@ func TestTaskRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "reading a task nothing holds",
 			call:     get,
+			err:      store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "renaming a task to a slug another task holds",
+			call: func(ctx context.Context, svc taskv1komrad.TaskServiceAdapter) error {
+				_, err := svc.UpdateTask(ctx, connect.NewRequest(&taskv1.UpdateTaskRequest{Task: "fix-login", Slug: xptr.Ptr("fix-logout")}))
+
+				return err
+			},
+			err:      store.ErrNameTaken,
+			wantCode: connect.CodeAlreadyExists,
+		},
+		{
+			name: "deleting a task nothing holds",
+			call: func(ctx context.Context, svc taskv1komrad.TaskServiceAdapter) error {
+				_, err := svc.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{"fix-login"}}))
+
+				return err
+			},
 			err:      store.ErrNotFound,
 			wantCode: connect.CodeNotFound,
 		},
@@ -203,7 +252,19 @@ func TestTaskCallsPassDown(t *testing.T) {
 	require.Len(t, listed.Msg.GetTasks(), 1)
 	assert.Equal(t, "fix-login", listed.Msg.GetTasks()[0].GetSlug())
 
+	updated, err := svc.UpdateTask(ctx, connect.NewRequest(&taskv1.UpdateTaskRequest{Task: "fix-login", Title: xptr.Ptr("Fix the login")}))
+	require.NoError(t, err)
+	assert.Equal(t, []updateCall{{
+		ref:    "fix-login",
+		params: taskstore.UpdateParams{Title: xptr.Ptr("Fix the login")},
+	}}, fake.updated, "a field left unset reaches the service as nil")
+	assert.Equal(t, taskID, updated.Msg.GetTask().GetId())
+
 	_, err = svc.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: taskID}))
 	require.NoError(t, err)
 	assert.Equal(t, []string{taskID}, fake.archived)
+
+	_, err = svc.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{taskID, "fix-logout"}}))
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{taskID, "fix-logout"}}, fake.deleted)
 }

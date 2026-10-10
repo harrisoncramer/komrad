@@ -100,6 +100,8 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 			owned = append(owned, worktree)
 		case worktrees.FateLive:
 			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is live; archive it first", worktree.Agent.Name)})
+		case worktrees.FateTask:
+			refused = append(refused, worktree.RefuseForTask())
 		}
 	}
 

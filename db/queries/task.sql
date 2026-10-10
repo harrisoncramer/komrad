@@ -35,6 +35,7 @@ FROM
     tasks
 WHERE
     workflow_id = sqlc.arg('workflow_id')
+    AND deleting_at IS NULL
     AND (sqlc.arg('archived')::boolean) =(archived_at IS NOT NULL)
 ORDER BY
     id DESC;
@@ -93,8 +94,10 @@ SELECT
     *
 FROM
     tasks
-WHERE (sqlc.narg('keys')::text[] IS NULL
-    OR id = ANY (sqlc.narg('keys')::uuid[]))
+WHERE
+    deleting_at IS NULL
+    AND (sqlc.narg('keys')::text[] IS NULL
+        OR id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     id DESC;
 
@@ -228,14 +231,109 @@ WHERE
 ORDER BY
     id;
 
--- name: MarkTaskCheckoutsRemoved :exec
+-- name: UpdateTask :one
+UPDATE
+    tasks
+SET
+    slug = COALESCE(sqlc.narg('slug'), slug),
+    title = COALESCE(sqlc.narg('title'), title),
+    goal = COALESCE(sqlc.narg('goal'), goal)
+WHERE
+    id = sqlc.arg('id')
+    AND deleting_at IS NULL
+RETURNING
+    *;
+
+-- name: MarkTasksDeleting :exec
+UPDATE
+    tasks
+SET
+    deleting_at = NOW()
+WHERE
+    id = ANY (sqlc.arg('ids')::uuid[])
+    AND deleting_at IS NULL;
+
+-- name: MarkWorkflowTasksDeleting :exec
+UPDATE
+    tasks
+SET
+    deleting_at = NOW()
+WHERE
+    workflow_id = sqlc.arg('workflow_id')
+    AND deleting_at IS NULL;
+
+-- name: ClaimEmptyDeletingTask :execrows
 UPDATE
     tasks t
 SET
-    worktree_removed = TRUE
-FROM
-    agents a
+    cleaning_at = NOW()
 WHERE
-    a.id = ANY (sqlc.arg('agent_ids')::uuid[])
-    AND a.task_id = t.id
-    AND t.cwd = a.cwd;
+    t.id = sqlc.arg('id')
+    AND t.deleting_at IS NOT NULL
+    AND t.cleaning_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id);
+
+-- name: ClearTaskDeleting :exec
+UPDATE
+    tasks
+SET
+    deleting_at = NULL,
+    cleaning_at = NULL
+WHERE
+    id = sqlc.arg('id');
+
+-- name: ClearAbandonedTasksDeleting :exec
+UPDATE
+    tasks t
+SET
+    deleting_at = NULL,
+    cleaning_at = NULL
+WHERE
+    t.deleting_at IS NOT NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.deleting_at IS NOT NULL);
+
+-- name: ListWorkflowTaskIDs :many
+SELECT
+    id
+FROM
+    tasks
+WHERE
+    workflow_id = sqlc.arg('workflow_id')
+ORDER BY
+    id;
+
+-- name: DeleteTask :exec
+DELETE FROM tasks
+WHERE id = sqlc.arg('id');
+
+-- name: LockUndeletedTask :one
+SELECT
+    id
+FROM
+    tasks
+WHERE
+    id = sqlc.arg('id')
+    AND deleting_at IS NULL FOR SHARE;
+
+-- name: ListUndeletedTasks :many
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    deleting_at IS NULL
+ORDER BY
+    id;

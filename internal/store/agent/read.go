@@ -193,6 +193,21 @@ func (s *AgentStore) ListLiveOnTask(ctx context.Context, taskID string) ([]Agent
 	return fromRows(rows), nil
 }
 
+// ListOnTasks returns every agent on the tasks among taskIDs, archived ones included.
+func (s *AgentStore) ListOnTasks(ctx context.Context, taskIDs []string) ([]Agent, error) {
+	storable := store.KeepIDs(taskIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListAgentsOnTasks(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the agents of %d tasks: %w", len(storable), err)
+	}
+
+	return fromRows(rows), nil
+}
+
 // GetTaskWriter returns the live top-level implementer of a task, ErrNotFound when it has none.
 func (s *AgentStore) GetTaskWriter(ctx context.Context, taskID string) (*Agent, error) {
 	if !store.IsID(taskID) {

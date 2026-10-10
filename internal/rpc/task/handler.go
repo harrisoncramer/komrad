@@ -1,5 +1,5 @@
-// Package task serves the task RPCs, which create, read and archive the outcomes agents work
-// toward.
+// Package task serves the task RPCs, which create, read, rewrite, archive and delete the
+// outcomes agents work toward.
 package task
 
 import (
@@ -20,25 +20,36 @@ type taskReadWriter interface {
 	CreateTask(ctx context.Context, params taskstore.CreateParams) (*taskstore.Task, error)
 	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
+	UpdateTask(ctx context.Context, ref string, params taskstore.UpdateParams) (*taskstore.Task, error)
 }
 
 type taskArchiver interface {
 	ArchiveTask(ctx context.Context, ref string) error
 }
 
+type taskDeleter interface {
+	DeleteTasks(ctx context.Context, refs []string) error
+}
+
 type NewHandlerParams struct {
 	Tasks    taskReadWriter
 	Archiver taskArchiver
+	Deleter  taskDeleter
 }
 
 type Handler struct {
 	tasks    taskReadWriter
 	archiver taskArchiver
+	deleter  taskDeleter
 }
 
 // NewHandler constructs the handler over the service that owns the rules.
 func NewHandler(params NewHandlerParams) *Handler {
-	return &Handler{tasks: params.Tasks, archiver: params.Archiver}
+	return &Handler{
+		tasks:    params.Tasks,
+		archiver: params.Archiver,
+		deleter:  params.Deleter,
+	}
 }
 
 // CreateTask records a task and returns it as stored.
@@ -76,10 +87,33 @@ func (s *Handler) ListTasks(ctx context.Context, req *taskv1.ListTasksRequest) (
 	return &taskv1.ListTasksResponse{Tasks: xslice.Map(listed, render.Task)}, nil
 }
 
+// UpdateTask rewrites the slug, title or goal of a task and returns it as stored.
+func (s *Handler) UpdateTask(ctx context.Context, req *taskv1.UpdateTaskRequest) (*taskv1.UpdateTaskResponse, *fail.Error) {
+	updated, err := s.tasks.UpdateTask(ctx, req.GetTask(), taskstore.UpdateParams{
+		Slug:  req.Slug,
+		Title: req.Title,
+		Goal:  req.Goal,
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to update task")
+	}
+
+	return &taskv1.UpdateTaskResponse{Task: render.Task(*updated)}, nil
+}
+
 // ArchiveTask takes a task and the live agents on it out of the live listings.
 func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.archiver.ArchiveTask(ctx, req.GetTask()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive task")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// DeleteTasks removes tasks for good along with every agent on them.
+func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.deleter.DeleteTasks(ctx, req.GetTasks()); err != nil {
+		return nil, rpcerr.From(err, "failed to delete tasks")
 	}
 
 	return &emptypb.Empty{}, nil

@@ -41,6 +41,8 @@ type NewLifecycleServiceParams struct {
 	Agents         *agentstore.AgentStore
 	Workflows      *workflowstore.WorkflowStore
 	EmptyWorkflows *EmptyWorkflowDeleter
+	EmptyTasks     *EmptyTaskDeleter
+	AgentDeleter   workflowAgentDeleter
 	Tx             txRunner
 	Scripts        agentScriptRunner
 	Reviews        *reviewstore.ReviewStore
@@ -52,13 +54,14 @@ type NewLifecycleServiceParams struct {
 	Usage          config.Usage
 }
 
-// LifecycleService moves agents between the live listing, the archive and gone, running the
-// deprovisioner on the way out.
+// LifecycleService moves agents between the live listing, the archive and gone.
 type LifecycleService struct {
 	tmux           paneKiller
 	agents         *agentstore.AgentStore
 	workflows      *workflowstore.WorkflowStore
 	emptyWorkflows *EmptyWorkflowDeleter
+	emptyTasks     *EmptyTaskDeleter
+	agentDeleter   workflowAgentDeleter
 	tx             txRunner
 	scripts        agentScriptRunner
 	reviews        *reviewstore.ReviewStore
@@ -77,6 +80,8 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		agents:         params.Agents,
 		workflows:      params.Workflows,
 		emptyWorkflows: params.EmptyWorkflows,
+		emptyTasks:     params.EmptyTasks,
+		agentDeleter:   params.AgentDeleter,
 		tx:             params.Tx,
 		scripts:        params.Scripts,
 		reviews:        params.Reviews,
@@ -129,17 +134,15 @@ func (s *LifecycleService) deleteNow(ctx context.Context, ids []string) error {
 // deleteAgents stops agents, tears each down, and removes those whose teardown worked,
 // returning only once every teardown has finished.
 func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore.Agent) error {
-	// A deprovisioner must not run against a directory a CLI is still working in.
+	// A pre-delete hook must not run against a directory a CLI is still working in.
 	killOwnedPanes(ctx, s.tmux, agents)
 
 	hooks := make(map[string][]workflowstore.Hook, len(agents))
 	var torn []agentstore.Agent
-	var deprovisioned []string
 	var failed []error
 	for _, agent := range slices.Backward(agents) {
 		hooks[agent.ID] = agentHooks(ctx, s.workflows, agent)
-		removed, err := s.tearDown(ctx, agent, hooks[agent.ID])
-		if err != nil {
+		if err := s.tearDown(ctx, agent, hooks[agent.ID]); err != nil {
 			s.failCleanup(context.WithoutCancel(ctx), agent, err)
 			failed = append(failed, fmt.Errorf("%w: agent %s: %w", agenterr.ErrTeardownFailed, agent.ID, err))
 
@@ -147,22 +150,17 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 		}
 
 		torn = append(torn, agent)
-		if removed {
-			deprovisioned = append(deprovisioned, agent.ID)
-		}
 	}
 
 	if len(torn) == 0 {
 		return errors.Join(failed...)
 	}
 
-	if err := s.tasks.MarkCheckoutsRemoved(ctx, deprovisioned); err != nil {
-		return err
-	}
-
 	if err := s.removeAgents(ctx, agentstore.IDs(torn)); err != nil {
 		return err
 	}
+
+	s.cleanupEmptyTasks(ctx, torn)
 
 	for _, agent := range torn {
 		startHooks(ctx, hookRunParams{
@@ -204,44 +202,28 @@ func (s *LifecycleService) claimedBy(ctx context.Context, id string, claim time.
 	}), nil
 }
 
-// tearDown waits out an agent's hooks still running, runs its pre-delete hooks while its
-// directory is still there, then its deprovisioner, and waits for both, reporting whether it
-// deprovisioned.
-func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook) (bool, error) {
+// tearDown waits out an agent's hooks still running, then runs its pre-delete hooks while its
+// directory is still there.
+func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook) error {
 	if s.scripts == nil {
-		return false, nil
+		return nil
 	}
 
 	if err := s.scripts.AwaitHooks(ctx, agent.ID); err != nil {
-		return false, err
+		return err
 	}
 
 	// A hook has nothing to run against once the directory has gone.
 	if scripts.RequireUsableDir(agent.Cwd) == nil {
-		if err := runPreHooks(ctx, hookRunParams{
+		return runPreHooks(ctx, hookRunParams{
 			scripts: s.scripts,
 			agent:   agent,
 			hooks:   hooks,
 			event:   workflowstore.HookPreDelete,
-		}); err != nil {
-			return false, err
-		}
+		})
 	}
 
-	name := deprovisionerFor(ctx, s.workflows, agent)
-	if name == "" {
-		return false, nil
-	}
-
-	done := make(chan error, 1)
-	runDeprovision(ctx, s.scripts, agent, name, func(err error) { done <- err })
-
-	select {
-	case err := <-done:
-		return err == nil, err
-	case <-ctx.Done():
-		return false, ctx.Err()
-	}
+	return nil
 }
 
 func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
@@ -250,6 +232,17 @@ func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Age
 	if err := s.agents.ClearDeleting(ctx, []string{agent.ID}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release an agent whose cleanup failed",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+}
+
+// cleanupEmptyTasks deletes each task among removed's that is being deleted and now has no agent
+// on it, logging a failure rather than returning it.
+func (s *LifecycleService) cleanupEmptyTasks(ctx context.Context, removed []agentstore.Agent) {
+	for _, taskID := range agentstore.TaskIDs(removed) {
+		if err := s.emptyTasks.DeleteIfEmpty(ctx, taskID); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to delete a task a delete left with no agent on it",
+				append([]slog.Attr{slog.String(logging.TaskID, taskID)}, logging.Err(err)...)...)
+		}
 	}
 }
 
@@ -339,6 +332,51 @@ func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
 	}
 
 	return s.tasks.ArchiveTask(ctx, found.ID)
+}
+
+// DeleteTasks archives the tasks refs name, claims them for a delete and queues the deletes of
+// every agent on them, removing at once each task no agent is on.
+func (s *LifecycleService) DeleteTasks(ctx context.Context, refs []string) error {
+	ids := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		found, err := s.tasks.GetTask(ctx, ref)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, found.ID)
+	}
+	ids = xslice.UniqueBy(ids, func(id string) string { return id })
+
+	for _, id := range ids {
+		if err := s.ArchiveTask(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	if err := s.emptyTasks.markDeleting(ctx, ids); err != nil {
+		return err
+	}
+
+	if err := s.deleteAgentsOnTasks(ctx, ids); err != nil {
+		return errors.Join(err, s.emptyTasks.release(context.WithoutCancel(ctx), ids))
+	}
+
+	return errors.Join(xslice.Map(ids, func(id string) error {
+		return s.emptyTasks.DeleteIfEmpty(ctx, id)
+	})...)
+}
+
+func (s *LifecycleService) deleteAgentsOnTasks(ctx context.Context, taskIDs []string) error {
+	on, err := s.agents.ListOnTasks(ctx, taskIDs)
+	if err != nil {
+		return err
+	}
+
+	if len(on) == 0 {
+		return nil
+	}
+
+	return s.agentDeleter.DeleteAgents(ctx, agentstore.IDs(on))
 }
 
 // RestoreAgents returns archived agents and their workflows to live listings.

@@ -32,7 +32,7 @@ enum AgentState {
   AGENT_STATE_SETTING_UP = 4;
   // The launch failed, which retry_agent is for.
   AGENT_STATE_FAILED_TO_CREATE = 5;
-  // A delete failed to take the worktree down, and the reason is on the row.
+  // A delete failed to clean up after the agent, and the reason is on the row.
   AGENT_STATE_FAILED_TO_CLEANUP = 6;
   // The pane could be read but its tail decided nothing.
   AGENT_STATE_UNCERTAIN = 7;
@@ -598,7 +598,7 @@ message ReleaseAgentResponse {
 }
 
 message DeleteAgentsRequest {
-  // The agents to remove for good, transcripts and worktrees with them.
+  // The agents to remove for good, transcripts with them.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     unique: true
@@ -863,7 +863,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "delete_agents"
-      description: "Remove agents for good, with their records, transcripts and worktrees. Prefer archive_agents, and delete only when asked."
+      description: "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. Prefer archive_agents, and delete only when asked."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };

@@ -114,6 +114,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	taskv1komrad.RegisterTaskService(mux, rpctask.NewHandler(rpctask.NewHandlerParams{
 		Tasks:    svc.tasks,
 		Archiver: svc.agents.lifecycle,
+		Deleter:  svc.agents.lifecycle,
 	}), options...)
 	configv1komrad.RegisterConfigService(mux, rpcconfig.NewHandler(svc.loadConfig), options...)
 	hookv1komrad.RegisterHookService(mux, rpchook.NewHandler(svc.script), options...)

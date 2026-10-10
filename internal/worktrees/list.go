@@ -14,6 +14,7 @@ import (
 	"komrad/config"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
@@ -49,6 +50,8 @@ type Worktree struct {
 	Agent *Agent
 	// Occupants are the other rows working in this directory.
 	Occupants []Agent
+	// Task is the task whose checkout the directory is, nil when none answers or a delete has claimed it.
+	Task *taskstore.Task
 	// ModifiedAt is when git last wrote the directory's .git file, else the directory's own
 	// modification time, zero when neither could be read.
 	ModifiedAt time.Time
@@ -69,16 +72,20 @@ const (
 	FateArchived
 	// FateLive is a directory whose agent is running, which nothing takes.
 	FateLive
+	// FateTask is a directory only its task answers for, which the task delete takes.
+	FateTask
 )
 
 // Fate is which delete path the directory takes.
 func (w Worktree) Fate() Fate {
-	switch {
-	case w.Agent == nil:
+	if w.Agent == nil || (w.Agent.FailedToCleanup && !w.Readable) {
+		if w.Task != nil {
+			return FateTask
+		}
+
 		return FateUnowned
-	case w.Agent.FailedToCleanup && !w.Readable:
-		return FateUnowned
-	case w.Agent.ArchivedAt != nil:
+	}
+	if w.Agent.ArchivedAt != nil {
 		return FateArchived
 	}
 
@@ -98,6 +105,7 @@ type NewListerParams struct {
 	// SharedDir reads the configured worktrees directory, resolved.
 	SharedDir func() (string, error)
 	Agents    *agentstore.AgentStore
+	Tasks     *taskstore.TaskStore
 	Workflows *workflowstore.WorkflowStore
 	Worktrees *worktreestore.WorktreeStore
 }
@@ -106,6 +114,7 @@ type NewListerParams struct {
 type Lister struct {
 	shared    func() (string, error)
 	agents    *agentstore.AgentStore
+	tasks     *taskstore.TaskStore
 	workflows *workflowstore.WorkflowStore
 	worktrees *worktreestore.WorktreeStore
 }
@@ -115,6 +124,7 @@ func NewLister(params NewListerParams) *Lister {
 	return &Lister{
 		shared:    params.SharedDir,
 		agents:    params.Agents,
+		tasks:     params.Tasks,
 		workflows: params.Workflows,
 		worktrees: params.Worktrees,
 	}
@@ -193,6 +203,11 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 		return nil, err
 	}
 
+	tasks, err := l.tasks.ListUndeleted(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	sizes, err := l.worktrees.ListSizes(ctx)
 	if err != nil {
 		return nil, err
@@ -202,6 +217,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 	return func(dir string) Worktree {
 		worktree := read(dir)
 		worktree.Agent, worktree.Occupants = owned(dir, owners)
+		worktree.Task = findTask(dir, tasks)
 		if size, ok := sized[dir]; ok {
 			worktree.Size = &size
 		}
@@ -363,6 +379,16 @@ func compareOwners(a, b agentstore.AgentDir) int {
 	}
 
 	return b.CreatedAt.Compare(a.CreatedAt)
+}
+
+// findTask is the task whose checkout a directory is, the one whose id names it.
+func findTask(dir string, tasks []taskstore.Task) *taskstore.Task {
+	at := slices.IndexFunc(tasks, func(task taskstore.Task) bool { return task.ID == filepath.Base(dir) })
+	if at < 0 {
+		return nil
+	}
+
+	return &tasks[at]
 }
 
 func describe(row agentstore.AgentDir) *Agent {

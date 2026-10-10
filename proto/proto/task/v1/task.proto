@@ -124,9 +124,45 @@ message ListTasksResponse {
   repeated Task tasks = 1;
 }
 
+message UpdateTaskRequest {
+  // Which task to rewrite, by id or by slug.
+  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // The lowercase kebab-case name to call it by from now on, which no other task holds,
+  // left as it is when unset.
+  optional string slug = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 80
+    pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+  }];
+  // What to show it as in the panel, left as it is when unset.
+  optional string title = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+    [rules.v1.printable]: true
+  }];
+  // What it is meant to achieve, as markdown, left as it is when unset.
+  optional string goal = 4 [(buf.validate.field).string.max_len = 50000];
+}
+
+message UpdateTaskResponse {
+  // The task as rewritten.
+  Task task = 1;
+}
+
 message ArchiveTaskRequest {
   // Which task to archive, by id or by slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DeleteTasksRequest {
+  // The tasks to remove for good, by id or by slug, with every agent on them.
+  repeated string tasks = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
 }
 
 // TaskService reads and writes the tasks agents work toward.
@@ -169,6 +205,17 @@ service TaskService {
       ]
     };
   }
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "update_task"
+      description: "Rewrite a task's slug, title or goal by id or slug, leaving each field you leave out as it is. A goal edit reaches agents only when they read the task again."
+      destructive: false
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
   rpc ArchiveTask(ArchiveTaskRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {
@@ -177,6 +224,17 @@ service TaskService {
       name: "archive_task"
       description: "Archive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused."
       destructive: false
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc DeleteTasks(DeleteTasksRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "delete_tasks"
+      description: "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked."
+      destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
   }

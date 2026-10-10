@@ -40,8 +40,12 @@ const (
 	TaskServiceGetTaskProcedure = "/task.v1.TaskService/GetTask"
 	// TaskServiceListTasksProcedure is the fully-qualified name of the TaskService's ListTasks RPC.
 	TaskServiceListTasksProcedure = "/task.v1.TaskService/ListTasks"
+	// TaskServiceUpdateTaskProcedure is the fully-qualified name of the TaskService's UpdateTask RPC.
+	TaskServiceUpdateTaskProcedure = "/task.v1.TaskService/UpdateTask"
 	// TaskServiceArchiveTaskProcedure is the fully-qualified name of the TaskService's ArchiveTask RPC.
 	TaskServiceArchiveTaskProcedure = "/task.v1.TaskService/ArchiveTask"
+	// TaskServiceDeleteTasksProcedure is the fully-qualified name of the TaskService's DeleteTasks RPC.
+	TaskServiceDeleteTasksProcedure = "/task.v1.TaskService/DeleteTasks"
 )
 
 // TaskServiceClient is a client for the task.v1.TaskService service.
@@ -49,7 +53,9 @@ type TaskServiceClient interface {
 	CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error)
 	GetTask(context.Context, *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error)
 	ListTasks(context.Context, *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error)
+	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
 	ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error)
+	DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewTaskServiceClient constructs a client for the task.v1.TaskService service. By default, it uses
@@ -83,10 +89,24 @@ func NewTaskServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		updateTask: connect.NewClient[v1.UpdateTaskRequest, v1.UpdateTaskResponse](
+			httpClient,
+			baseURL+TaskServiceUpdateTaskProcedure,
+			connect.WithSchema(taskServiceMethods.ByName("UpdateTask")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		archiveTask: connect.NewClient[v1.ArchiveTaskRequest, emptypb.Empty](
 			httpClient,
 			baseURL+TaskServiceArchiveTaskProcedure,
 			connect.WithSchema(taskServiceMethods.ByName("ArchiveTask")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
+		deleteTasks: connect.NewClient[v1.DeleteTasksRequest, emptypb.Empty](
+			httpClient,
+			baseURL+TaskServiceDeleteTasksProcedure,
+			connect.WithSchema(taskServiceMethods.ByName("DeleteTasks")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -98,7 +118,9 @@ type taskServiceClient struct {
 	createTask  *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
 	getTask     *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
 	listTasks   *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
+	updateTask  *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
 	archiveTask *connect.Client[v1.ArchiveTaskRequest, emptypb.Empty]
+	deleteTasks *connect.Client[v1.DeleteTasksRequest, emptypb.Empty]
 }
 
 // CreateTask calls task.v1.TaskService.CreateTask.
@@ -116,9 +138,19 @@ func (c *taskServiceClient) ListTasks(ctx context.Context, req *connect.Request[
 	return c.listTasks.CallUnary(ctx, req)
 }
 
+// UpdateTask calls task.v1.TaskService.UpdateTask.
+func (c *taskServiceClient) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
+	return c.updateTask.CallUnary(ctx, req)
+}
+
 // ArchiveTask calls task.v1.TaskService.ArchiveTask.
 func (c *taskServiceClient) ArchiveTask(ctx context.Context, req *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.archiveTask.CallUnary(ctx, req)
+}
+
+// DeleteTasks calls task.v1.TaskService.DeleteTasks.
+func (c *taskServiceClient) DeleteTasks(ctx context.Context, req *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteTasks.CallUnary(ctx, req)
 }
 
 // TaskServiceHandler is an implementation of the task.v1.TaskService service.
@@ -126,7 +158,9 @@ type TaskServiceHandler interface {
 	CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error)
 	GetTask(context.Context, *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error)
 	ListTasks(context.Context, *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error)
+	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
 	ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error)
+	DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewTaskServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -156,10 +190,24 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	taskServiceUpdateTaskHandler := connect.NewUnaryHandler(
+		TaskServiceUpdateTaskProcedure,
+		svc.UpdateTask,
+		connect.WithSchema(taskServiceMethods.ByName("UpdateTask")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	taskServiceArchiveTaskHandler := connect.NewUnaryHandler(
 		TaskServiceArchiveTaskProcedure,
 		svc.ArchiveTask,
 		connect.WithSchema(taskServiceMethods.ByName("ArchiveTask")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
+	taskServiceDeleteTasksHandler := connect.NewUnaryHandler(
+		TaskServiceDeleteTasksProcedure,
+		svc.DeleteTasks,
+		connect.WithSchema(taskServiceMethods.ByName("DeleteTasks")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -171,8 +219,12 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 			taskServiceGetTaskHandler.ServeHTTP(w, r)
 		case TaskServiceListTasksProcedure:
 			taskServiceListTasksHandler.ServeHTTP(w, r)
+		case TaskServiceUpdateTaskProcedure:
+			taskServiceUpdateTaskHandler.ServeHTTP(w, r)
 		case TaskServiceArchiveTaskProcedure:
 			taskServiceArchiveTaskHandler.ServeHTTP(w, r)
+		case TaskServiceDeleteTasksProcedure:
+			taskServiceDeleteTasksHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -194,6 +246,14 @@ func (UnimplementedTaskServiceHandler) ListTasks(context.Context, *connect.Reque
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.ListTasks is not implemented"))
 }
 
+func (UnimplementedTaskServiceHandler) UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.UpdateTask is not implemented"))
+}
+
 func (UnimplementedTaskServiceHandler) ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.ArchiveTask is not implemented"))
+}
+
+func (UnimplementedTaskServiceHandler) DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.DeleteTasks is not implemented"))
 }

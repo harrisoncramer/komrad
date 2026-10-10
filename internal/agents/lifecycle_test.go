@@ -27,26 +27,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDeleteAgentRunsWorkflowCleanup covers cleanup firing on the irreversible half only.
-func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
+// TestDeleteAgentLeavesItsTasksCheckout covers the task's worktree outliving every agent on it.
+func TestDeleteAgentLeavesItsTasksCheckout(t *testing.T) {
 	tests := []struct {
-		name        string
-		archive     bool
-		child       bool
-		wantCleanup []string
-		wantRemoved bool
+		name    string
+		archive bool
+		child   bool
 	}{
 		{
-			name:  "deleting a child leaves its task's checkout to the writer",
+			name:  "deleting a child",
 			child: true,
 		},
 		{
-			name:        "deleting an agent releases what setup built and its task's checkout",
-			wantCleanup: []string{worktreeDeprovisioner},
-			wantRemoved: true,
+			name: "deleting the task's writer",
 		},
 		{
-			name:    "archiving one keeps it",
+			name:    "archiving one",
 			archive: true,
 		},
 	}
@@ -80,18 +76,18 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{target.ID}))
 			}
 
-			assert.Equal(t, tt.wantCleanup, lifecycle.deprovision)
+			assert.Empty(t, lifecycle.ranDeprovisions())
+			assert.Empty(t, lifecycle.ranTaskDeprovisions())
 			task, err := st.Tasks.Get(t.Context(), *agent.TaskID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantRemoved, task.Checkout.WorktreeRemoved)
+			assert.False(t, task.Checkout.WorktreeRemoved)
 		})
 	}
 }
 
-// TestDeleteAgentRunsCleanupFromAnArchivedWorkflow covers deleting an agent out of the
-// archive, where the worktree setup built is still on disk and the cleanup is the only
-// thing that takes it back.
-func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
+// TestDeleteAgentGivesBackTheCheckoutsOfAnArchivedWorkflow covers the last agent of an archived
+// workflow taking the workflow, its tasks and their worktrees with it.
+func TestDeleteAgentGivesBackTheCheckoutsOfAnArchivedWorkflow(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
@@ -107,22 +103,29 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 		WorkflowID: created.ID,
 	})
 	require.NoError(t, err)
+	task, err := st.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+	require.NotEmpty(t, task.Checkout.Cwd)
 
 	require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
 	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 
-	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision)
+	assert.Equal(t, []string{task.Checkout.Cwd}, lifecycle.ranTaskDeprovisions())
+	_, err = st.Tasks.Get(t.Context(), task.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	_, err = st.Workflows.GetIncludingArchived(t.Context(), created.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
 // TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown: a
-// delete whose deprovisioner fails leaves the row behind, marked so.
+// delete whose pre-delete hook fails leaves the row behind, marked so.
 func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{hookErrs: map[string]error{refusingHook: errors.New("worktree is dirty")}}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), refusingConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -166,10 +169,10 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			lifecycle := &fakeLifecycle{deprovisionRunErr: tt.teardownErr}
+			lifecycle := &fakeLifecycle{hookErrs: map[string]error{refusingHook: tt.teardownErr}}
 			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), refusingConfig(t, "backend"))
 			require.NoError(t, err)
 
 			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -209,10 +212,10 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{hookErrs: map[string]error{refusingHook: errors.New("worktree is dirty")}}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), refusingConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -240,10 +243,10 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{hookErrs: map[string]error{refusingHook: errors.New("worktree is dirty")}}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), refusingConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -260,7 +263,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	require.Len(t, agents, 1)
 	assert.Contains(t, agents[0].FailureReason, "worktree is dirty")
 
-	lifecycle.deprovisionRunErr = errors.New("network unreachable")
+	lifecycle.hookErrs[refusingHook] = errors.New("network unreachable")
 	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 
 	agents, err = st.Agents.List(t.Context())
@@ -282,7 +285,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 
 	backend, err := workflows.NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
-	frontend, err := workflows.NewWorkflow(t.Context(), worktreeConfig(t, "frontend"))
+	frontend, err := workflows.NewWorkflow(t.Context(), refusingConfig(t, "frontend"))
 	require.NoError(t, err)
 
 	ok, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -298,7 +301,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lifecycle.deprovisionRunErrByAgent = map[string]error{bad.ID: errors.New("container is still running")}
+	lifecycle.hookErrs = map[string]error{refusingHook: errors.New("container is still running")}
 
 	require.ErrorContains(t, manager.lifecycle.deleteNow(t.Context(), []string{ok.ID, bad.ID}), "container is still running")
 
@@ -327,7 +330,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			lifecycle := &fakeLifecycle{deprovisionRunErr: tt.cleanupErr}
+			lifecycle := &fakeLifecycle{hookErrs: map[string]error{refusingHook: tt.cleanupErr}}
 			logsDir := t.TempDir()
 			manager := st.agentService(agentServiceOptions{
 				tmux:      tmux,
@@ -339,7 +342,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 
 			cfg := workflowstore.Config{Name: "backend"}
 			if tt.name != "no cleanup configured" {
-				cfg = worktreeConfig(t, "backend")
+				cfg = refusingConfig(t, "backend")
 			}
 			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), cfg)
 			require.NoError(t, err)
@@ -1066,43 +1069,6 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 	}
 }
 
-// TestDeleteAgentsFiresEveryWorkflowsCleanup pins each agent's own worktree being removed.
-func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-	workflows := newWorkflowService(st, tmux)
-	ctx := t.Context()
-
-	backend, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
-	require.NoError(t, err)
-	frontend, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "frontend"))
-	require.NoError(t, err)
-
-	auth, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:      "auth",
-		Dir:        t.TempDir(),
-		WorkflowID: backend.ID,
-	})
-	require.NoError(t, err)
-	ui, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:      "ui",
-		Dir:        t.TempDir(),
-		WorkflowID: frontend.ID,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{auth.ID, ui.ID}))
-
-	assert.Equal(t, []string{worktreeDeprovisioner, worktreeDeprovisioner}, lifecycle.deprovision,
-		"one run per agent, whichever order the listing put them in")
-
-	all, err := st.Agents.ListAll(ctx)
-	require.NoError(t, err)
-	assert.Empty(t, all)
-}
-
 // TestDeleteAgentsTakesTheirTranscripts pins the conversations going with the rows.
 func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 	st := newStore(t)
@@ -1575,15 +1541,13 @@ func collectAgentNames(agents []agentstore.Agent) []string {
 // longer holds.
 func TestDeleteAgentTakesOnlyAClaimedAgent(t *testing.T) {
 	tests := []struct {
-		name            string
-		claims          int
-		wantDeprovision []string
-		wantLeft        int
+		name     string
+		claims   int
+		wantLeft int
 	}{
 		{
-			name:            "an agent the claim holds is torn down and removed",
-			claims:          1,
-			wantDeprovision: []string{worktreeDeprovisioner},
+			name:   "an agent the claim holds is torn down and removed",
+			claims: 1,
 		},
 		{
 			name:     "an agent nobody claimed is left alone",
@@ -1628,7 +1592,6 @@ func TestDeleteAgentTakesOnlyAClaimedAgent(t *testing.T) {
 
 			require.NoError(t, manager.lifecycle.DeleteAgent(ctx, agent.ID, first))
 
-			assert.Equal(t, tt.wantDeprovision, lifecycle.deprovision)
 			all, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)
 			assert.Len(t, all, tt.wantLeft)
@@ -1669,7 +1632,6 @@ func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
 
 	err = manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt)
 	require.ErrorIs(t, err, agenterr.ErrChildDeleting)
-	assert.Empty(t, lifecycle.deprovision, "nothing is torn down while the child's delete runs")
 	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 2)
@@ -1677,7 +1639,6 @@ func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
 	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, child.ID, childClaims[0].DeletingAt))
 	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt))
 
-	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision)
 	all, err = st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, all)
@@ -1823,4 +1784,145 @@ func isTaskArchived(t *testing.T, st *testStore, id string) bool {
 	require.NoError(t, err)
 
 	return got.ArchivedAt != nil
+}
+
+const refusingHook = "refuse-delete"
+
+// refusingConfig is a worktree workflow whose pre-delete hook can refuse a delete.
+func refusingConfig(t *testing.T, name string) workflowstore.Config {
+	t.Helper()
+
+	config := worktreeConfig(t, name)
+	config.Hooks = []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: refusingHook}}
+
+	return config
+}
+
+type taskDeleteFixture struct {
+	st       *testStore
+	agents   *testAgents
+	workflow *workflowstore.Workflow
+}
+
+func newTaskDeleteFixture(t *testing.T, lifecycle *fakeLifecycle, config workflowstore.Config) *taskDeleteFixture {
+	t.Helper()
+
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	built := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	created, err := st.workflowService(workflowServiceOptions{tmux: tmux, lifecycle: lifecycle, hooks: everyHook{}}).NewWorkflow(t.Context(), config)
+	require.NoError(t, err)
+
+	return &taskDeleteFixture{
+		st:       st,
+		agents:   built,
+		workflow: created,
+	}
+}
+
+func (f *taskDeleteFixture) launch(t *testing.T, title string) (*agentstore.Agent, *taskstore.Task) {
+	t.Helper()
+
+	agent, err := f.agents.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      title,
+		Dir:        t.TempDir(),
+		WorkflowID: f.workflow.ID,
+	})
+	require.NoError(t, err)
+	task, err := f.st.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+	require.NotEmpty(t, task.Checkout.Cwd)
+
+	return agent, task
+}
+
+// TestDeleteTasksRefusesATaskNothingHolds pins that one ref nothing holds deletes none of the others.
+func TestDeleteTasksRefusesATaskNothingHolds(t *testing.T) {
+	fx := newTaskDeleteFixture(t, &fakeLifecycle{}, worktreeConfig(t, "backend"))
+	agent, task := fx.launch(t, "auth")
+
+	err := fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.Slug, "no-such-task"})
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.Nil(t, kept.ArchivedAt)
+	assert.Nil(t, kept.DeletingAt)
+	assert.Nil(t, agentByID(t, fx.st, agent.ID).ArchivedAt)
+}
+
+// TestDeleteTasksGivesBackATaskAnAgentWillNotLeave pins a task whose agent's cleanup fails staying
+// archived and no longer claimed, with its checkout in place.
+func TestDeleteTasksGivesBackATaskAnAgentWillNotLeave(t *testing.T) {
+	lifecycle := &fakeLifecycle{hookErrs: map[string]error{refusingHook: errors.New("worktree is dirty")}}
+	fx := newTaskDeleteFixture(t, lifecycle, refusingConfig(t, "backend"))
+	agent, task := fx.launch(t, "auth")
+
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.ID}))
+
+	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, kept.ArchivedAt)
+	assert.Nil(t, kept.DeletingAt, "the failed agent gives the task back")
+	assert.Empty(t, lifecycle.ranTaskDeprovisions())
+	assert.Equal(t, agentstore.StateFailedToCleanup, agentByID(t, fx.st, agent.ID).State)
+}
+
+// TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo pins a failed deprovision leaving the task archived
+// and deletable again.
+func TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo(t *testing.T) {
+	lifecycle := &fakeLifecycle{taskDeprovisionErr: errors.New("worktree is dirty")}
+	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
+	_, task := fx.launch(t, "auth")
+
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.ID}), "the agent delete reports the failure itself")
+
+	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, kept.ArchivedAt)
+	assert.Nil(t, kept.DeletingAt)
+	archived, err := fx.st.Tasks.List(t.Context(), fx.workflow.ID, true)
+	require.NoError(t, err)
+	assert.Len(t, archived, 1, "it is back in the archive")
+
+	lifecycle.taskDeprovisionErr = nil
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.ID}))
+
+	_, err = fx.st.Tasks.Get(t.Context(), task.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "a second delete takes it")
+	assert.Equal(t, []string{task.Checkout.Cwd, task.Checkout.Cwd}, lifecycle.ranTaskDeprovisions())
+}
+
+// TestDeleteTasksTakesItsAgentsCheckoutAndReviews pins a task going only once its agents have, with
+// its worktree given back and its review rounds gone.
+func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
+	lifecycle := &fakeLifecycle{}
+	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
+	writer, task := fx.launch(t, "auth")
+	_, err := fx.agents.launch.NewAgent(t.Context(), childOf(*writer, "reviewer"))
+	require.NoError(t, err)
+	_, other := fx.launch(t, "ui")
+	reviews := reviewstore.NewReviewStore(fx.st.Pool.GetDB())
+	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID:     writer.ID,
+		TaskID:      task.ID,
+		BaseSHA:     "base",
+		SnapshotSHA: "sha",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.Slug}))
+
+	_, err = fx.st.Tasks.Get(t.Context(), task.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	rounds, err := reviews.ListRounds(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.Empty(t, rounds)
+	assert.Equal(t, []string{task.Checkout.Cwd}, lifecycle.ranTaskDeprovisions())
+	assert.Empty(t, lifecycle.ranDeprovisions(), "no agent gives back a checkout itself")
+
+	left, err := fx.st.Agents.ListAll(t.Context())
+	require.NoError(t, err)
+	require.Len(t, left, 1, "only the agent on the other task is left")
+	assert.Equal(t, other.ID, *left[0].TaskID)
 }

@@ -1290,7 +1290,7 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	require.NotNil(t, child.ProvisionEnabled)
 	assert.False(t, *child.ProvisionEnabled)
 
-	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
+	assert.Empty(t, provisionerFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
 }
 
 // TestNewChildAgentRefusals pins each child a launch refuses and records nothing for.
@@ -1360,6 +1360,16 @@ func TestNewChildAgentRefusals(t *testing.T) {
 				return parent
 			},
 			wantErrIs: agenterr.ErrAgentArchived,
+		},
+		{
+			name: "a parent whose task is being deleted",
+			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+				t.Helper()
+				require.NoError(t, st.Tasks.MarkDeleting(t.Context(), []string{*parent.TaskID}))
+
+				return parent
+			},
+			wantErrIs: taskstore.ErrDeleting,
 		},
 		{
 			name: "a parent with no directory",

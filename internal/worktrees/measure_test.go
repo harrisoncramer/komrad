@@ -176,7 +176,7 @@ func TestMeasureRecordsWhatTheFilesystemSays(t *testing.T) {
 func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
 	fixture := newFixture(t)
 	deleting := fixture.cut(t)
-	named := fixture.cut(t)
+	named := fixture.cutUnowned(t)
 	owned := fixture.cut(t)
 	kept := fixture.cut(t)
 	going := fixture.own(t, deleting, agentstore.Agent{Name: "going"})

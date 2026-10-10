@@ -15,6 +15,7 @@ import (
 	"komrad/config"
 	"komrad/internal/harness"
 	"komrad/internal/komradtest"
+	"komrad/internal/store"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -164,8 +165,29 @@ func TestIntegrationWorktrees(t *testing.T) {
 			"the row of a directory that has gone is forgotten")
 	})
 
-	t.Run("deleting an agent takes its worktree out of the listing", func(t *testing.T) {
+	t.Run("deleting a task's last agent leaves its worktree to the task", func(t *testing.T) {
 		_, err := instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{leaver.GetId()}}))
+		require.NoError(t, err)
+		instance.WorkQueue()
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			_, err := instance.Stores.Agents.GetByID(ctx, leaver.GetId())
+			assert.ErrorIs(collect, err, store.ErrNotFound)
+		}, 10*time.Second, 100*time.Millisecond)
+
+		assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_TASK, listWorktrees(t, instance)[leaver.GetCwd()].GetFate())
+		removal, err := instance.Worktrees.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{
+			Dirs: []string{leaver.GetCwd()},
+		}))
+		require.NoError(t, err)
+
+		assert.Empty(t, removal.Msg.GetRemoved())
+		require.Len(t, removal.Msg.GetRefused(), 1)
+		assert.Contains(t, removal.Msg.GetRefused()[0].GetReason(), "delete the task instead")
+		assert.DirExists(t, leaver.GetCwd())
+	})
+
+	t.Run("deleting a task takes its worktree out of the listing", func(t *testing.T) {
+		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{leaver.GetTaskId()}}))
 		require.NoError(t, err)
 
 		assert.NotContains(t, listWorktrees(t, instance), leaver.GetCwd(), "the directory leaves the listing as soon as the delete claims it")

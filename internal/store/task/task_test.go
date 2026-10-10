@@ -11,6 +11,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -388,6 +389,72 @@ func TestListWatched(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.ElementsMatch(t, tt.wantSlugs, xslice.Map(listed, func(task taskstore.Task) string { return task.Slug }))
+		})
+	}
+}
+
+// TestUpdate pins which rewrites of a task are refused and that a field left unset keeps its value.
+func TestUpdate(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work", Title: "Work", Goal: "It works."})
+	other := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: task.WorkflowID, Slug: "other"})
+	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: task.WorkflowID, Slug: "deleting"})
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+
+	tests := []struct {
+		name      string
+		id        string
+		params    taskstore.UpdateParams
+		wantErr   error
+		wantTitle string
+		wantGoal  string
+	}{
+		{
+			name:    "a slug that is not kebab-case is refused",
+			id:      task.ID,
+			params:  taskstore.UpdateParams{Slug: xptr.Ptr("Not Kebab")},
+			wantErr: taskstore.ErrBadSlug,
+		},
+		{
+			name:    "a slug another task holds is refused",
+			id:      task.ID,
+			params:  taskstore.UpdateParams{Slug: xptr.Ptr(other.Slug)},
+			wantErr: store.ErrNameTaken,
+		},
+		{
+			name:    "a ref that is not an id is not found",
+			id:      "work",
+			params:  taskstore.UpdateParams{Title: xptr.Ptr("Renamed")},
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name:    "a task being deleted is not found",
+			id:      deleting.ID,
+			params:  taskstore.UpdateParams{Title: xptr.Ptr("Renamed")},
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name:      "only the fields set are rewritten",
+			id:        task.ID,
+			params:    taskstore.UpdateParams{Title: xptr.Ptr("Renamed")},
+			wantTitle: "Renamed",
+			wantGoal:  "It works.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := stores.Tasks.Update(ctx, tt.id, tt.params)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, task.Slug, got.Slug)
+			assert.Equal(t, tt.wantTitle, got.Title)
+			assert.Equal(t, tt.wantGoal, got.Goal)
 		})
 	}
 }

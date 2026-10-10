@@ -21,7 +21,9 @@ type TaskServiceImpl interface {
 	CreateTask(context.Context, *v1.CreateTaskRequest) (*v1.CreateTaskResponse, *fail.Error)
 	GetTask(context.Context, *v1.GetTaskRequest) (*v1.GetTaskResponse, *fail.Error)
 	ListTasks(context.Context, *v1.ListTasksRequest) (*v1.ListTasksResponse, *fail.Error)
+	UpdateTask(context.Context, *v1.UpdateTaskRequest) (*v1.UpdateTaskResponse, *fail.Error)
 	ArchiveTask(context.Context, *v1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error)
+	DeleteTasks(context.Context, *v1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // TaskServiceAdapter carries what the implementation returned across to the signature
@@ -45,9 +47,19 @@ func (a TaskServiceAdapter) ListTasks(ctx context.Context, req *connect.Request[
 	return rpcerr.Answer(a.Impl.ListTasks(ctx, req.Msg))
 }
 
+// UpdateTask answers the request as connect serves it.
+func (a TaskServiceAdapter) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
+	return rpcerr.Answer(a.Impl.UpdateTask(ctx, req.Msg))
+}
+
 // ArchiveTask answers the request as connect serves it.
 func (a TaskServiceAdapter) ArchiveTask(ctx context.Context, req *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.ArchiveTask(ctx, req.Msg))
+}
+
+// DeleteTasks answers the request as connect serves it.
+func (a TaskServiceAdapter) DeleteTasks(ctx context.Context, req *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.DeleteTasks(ctx, req.Msg))
 }
 
 // RegisterTaskService mounts the implementation on the mux behind its adapter.

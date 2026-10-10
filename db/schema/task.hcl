@@ -89,6 +89,16 @@ table "tasks" {
     null = true
     type = timestamptz
   }
+  column "deleting_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When a delete claimed the task, which keeps it out of every listing until it is gone or the delete gives it back."
+  }
+  column "cleaning_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the one cleanup that gives back a deleted task's checkout and removes the row took it, so no other cleanup runs it as well."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

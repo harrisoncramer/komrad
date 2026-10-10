@@ -33,6 +33,8 @@ enum WorktreeFate {
   WORKTREE_FATE_ARCHIVED = 2;
   // The directory's agent is running, which nothing takes.
   WORKTREE_FATE_LIVE = 3;
+  // Only the directory's task answers for it, which the task delete takes.
+  WORKTREE_FATE_TASK = 4;
 }
 
 message Worktree {
@@ -259,7 +261,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "remove_unowned_worktrees"
-      description: "Remove worktree directories no agent answers for, such as those list_worktrees reports with no agent. Branches are never touched."
+      description: "Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };

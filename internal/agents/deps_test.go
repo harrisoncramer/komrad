@@ -134,6 +134,7 @@ type testAgents struct {
 	lifecycle    *LifecycleService
 	panes        *PaneLiveness
 	emptied      *EmptyWorkflowDeleter
+	emptyTasks   *EmptyTaskDeleter
 	orchestrator *OrchestratorService
 	snapshots    *gittest.Snapshots
 }
@@ -167,10 +168,17 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Addr:  options.addr,
 		Usage: options.usage,
 	})
+	taskScripts, _ := options.lifecycle.(taskDeprovisioner)
+	emptyTasks := NewEmptyTaskDeleter(NewEmptyTaskDeleterParams{
+		Tasks:     s.Tasks,
+		Workflows: s.Workflows,
+		Scripts:   taskScripts,
+	})
 	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,
 		Schedules: s.Schedules,
+		Tasks:     emptyTasks,
 	})
 
 	launch := NewLaunchService(NewLaunchServiceParams{
@@ -214,6 +222,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Agents:         s.Agents,
 			Workflows:      s.Workflows,
 			EmptyWorkflows: emptied,
+			EmptyTasks:     emptyTasks,
 			Tx:             tx,
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.NewReviewStore(s.Pool.GetDB()),
@@ -224,9 +233,11 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Tasks:          tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
 			Usage:          options.usage,
 		}),
-		panes:   NewPaneLiveness(options.tmux),
-		emptied: emptied,
+		panes:      NewPaneLiveness(options.tmux),
+		emptied:    emptied,
+		emptyTasks: emptyTasks,
 	}
+	built.lifecycle.agentDeleter = inlineDelete{lifecycle: built.lifecycle}
 
 	built.orchestrator = NewOrchestratorService(NewOrchestratorServiceParams{
 		Agents:      s.Agents,
@@ -308,6 +319,9 @@ type fakeLifecycle struct {
 	deprovision              []string
 	deprovisionCwd           []string
 	deprovisionCtxErr        []error
+	taskDeprovisionErr       error
+	holdTaskDeprovision      chan struct{}
+	taskDeprovisions         []string
 	scriptrun.HookQueue
 }
 
@@ -383,6 +397,26 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 	}
 
 	return nil
+}
+
+// RunTaskDeprovision records the checkout of each task it was asked to give back.
+func (f *fakeLifecycle) RunTaskDeprovision(_ context.Context, task taskstore.Task, _ string) error {
+	f.deprovisionMu.Lock()
+	f.taskDeprovisions = append(f.taskDeprovisions, task.Checkout.Cwd)
+	f.deprovisionMu.Unlock()
+
+	if f.holdTaskDeprovision != nil {
+		<-f.holdTaskDeprovision
+	}
+
+	return f.taskDeprovisionErr
+}
+
+func (f *fakeLifecycle) ranTaskDeprovisions() []string {
+	f.deprovisionMu.Lock()
+	defer f.deprovisionMu.Unlock()
+
+	return slices.Clone(f.taskDeprovisions)
 }
 
 type workflowServiceOptions struct {

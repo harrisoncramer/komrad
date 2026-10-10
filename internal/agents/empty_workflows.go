@@ -16,22 +16,25 @@ type NewEmptyWorkflowDeleterParams struct {
 	Workflows *workflowstore.WorkflowStore
 	Agents    *agentstore.AgentStore
 	Schedules *schedulestore.ScheduleStore
+	Tasks     *EmptyTaskDeleter
 }
 
-// EmptyWorkflowDeleter removes an archived workflow once nothing is left inside it, taking the
-// archived schedules pointing at it with the row and deleting no agents itself.
+// EmptyWorkflowDeleter removes an archived workflow once nothing is left inside it, taking its
+// tasks and the archived schedules pointing at it with the row and deleting no agents itself.
 type EmptyWorkflowDeleter struct {
 	workflows *workflowstore.WorkflowStore
 	agents    *agentstore.AgentStore
 	schedules *schedulestore.ScheduleStore
+	tasks     *EmptyTaskDeleter
 }
 
-// NewEmptyWorkflowDeleter builds the deleter over the three stores a workflow's removal touches.
+// NewEmptyWorkflowDeleter builds the deleter over the stores a workflow's removal touches.
 func NewEmptyWorkflowDeleter(params NewEmptyWorkflowDeleterParams) *EmptyWorkflowDeleter {
 	return &EmptyWorkflowDeleter{
 		workflows: params.Workflows,
 		agents:    params.Agents,
 		schedules: params.Schedules,
+		tasks:     params.Tasks,
 	}
 }
 
@@ -64,6 +67,11 @@ func (d *EmptyWorkflowDeleter) deleteIfEmpty(ctx context.Context, existing *work
 }
 
 func (d *EmptyWorkflowDeleter) deleteWithSchedules(ctx context.Context, existing *workflowstore.Workflow) error {
+	cleared, err := d.tasks.clearWorkflow(ctx, existing.ID)
+	if err != nil || !cleared {
+		return err
+	}
+
 	schedules, err := d.schedules.ListInWorkflow(ctx, existing.ID)
 	if err != nil {
 		return err

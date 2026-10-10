@@ -11,6 +11,7 @@ import (
 	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -28,6 +29,7 @@ type Task struct {
 	Goal       string
 	Checkout   Checkout
 	ArchivedAt *time.Time
+	DeletingAt *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -50,6 +52,7 @@ func fromRow(row *models.Task) Task {
 		Goal:       row.Goal,
 		Checkout:   checkoutFrom(row),
 		ArchivedAt: row.ArchivedAt,
+		DeletingAt: row.DeletingAt,
 		CreatedAt:  row.CreatedAt,
 		UpdatedAt:  row.UpdatedAt,
 	}
@@ -87,6 +90,43 @@ func (s *TaskStore) Create(ctx context.Context, params CreateParams) (*Task, err
 	created := fromRow(row)
 
 	return &created, nil
+}
+
+// UpdateParams is the fields of a task to rewrite, each left as it is when nil.
+type UpdateParams struct {
+	Slug  *string
+	Title *string
+	Goal  *string
+}
+
+// Update rewrites the fields of a task that params sets, refusing a slug that is malformed or held by another task.
+func (s *TaskStore) Update(ctx context.Context, id string, params UpdateParams) (*Task, error) {
+	if !store.IsID(id) {
+		return nil, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+	}
+	if params.Slug != nil && !slugPattern.MatchString(*params.Slug) {
+		return nil, fmt.Errorf("%w: %q", ErrBadSlug, *params.Slug)
+	}
+
+	row, err := s.queries.UpdateTask(ctx, models.UpdateTaskParams{
+		ID:    id,
+		Slug:  params.Slug,
+		Title: params.Title,
+		Goal:  params.Goal,
+	})
+	if db.IsUniqueViolation(err) {
+		return nil, fmt.Errorf("%w: a task is already named %q", store.ErrNameTaken, xptr.Deref(params.Slug))
+	}
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update task %q: %w", id, err)
+	}
+
+	updated := fromRow(row)
+
+	return &updated, nil
 }
 
 // Get returns one task by id, archived or not.

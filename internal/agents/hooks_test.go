@@ -882,7 +882,7 @@ func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 	assert.Empty(t, remaining)
 }
 
-// TestDeleteWaitsForTheHooksStillRunning covers the worktree outliving a hook from an earlier moment.
+// TestDeleteWaitsForTheHooksStillRunning covers the row outliving a hook from an earlier moment.
 func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
@@ -918,13 +918,11 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 
 	require.Never(t, func() bool { return !present() }, 300*time.Millisecond, 20*time.Millisecond,
 		"the row stays while a hook is running")
-	assert.Empty(t, lifecycle.ranDeprovisions(), "and the worktree stays under it")
 
 	close(running)
 
 	require.NoError(t, <-deleted)
 	assert.False(t, present(), "and goes once it has finished")
-	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.ranDeprovisions(), "torn down only after")
 }
 
 // TestAStartedHookHoldsItsPlaceBeforeItsGoroutineIsScheduled covers the gap between a start and the goroutine running.

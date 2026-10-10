@@ -45,7 +45,7 @@ const (
 	AgentState_AGENT_STATE_SETTING_UP AgentState = 4
 	// The launch failed, which retry_agent is for.
 	AgentState_AGENT_STATE_FAILED_TO_CREATE AgentState = 5
-	// A delete failed to take the worktree down, and the reason is on the row.
+	// A delete failed to clean up after the agent, and the reason is on the row.
 	AgentState_AGENT_STATE_FAILED_TO_CLEANUP AgentState = 6
 	// The pane could be read but its tail decided nothing.
 	AgentState_AGENT_STATE_UNCERTAIN AgentState = 7
@@ -3051,7 +3051,7 @@ func (x *ReleaseAgentResponse) GetAgent() *Agent {
 
 type DeleteAgentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agents to remove for good, transcripts and worktrees with them.
+	// The agents to remove for good, transcripts with them.
 	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3433,7 +3433,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
-	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\x9f|\n" +
+	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\xd1|\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3456,8 +3456,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00B\x01\x03\x12\xbf\x02\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\xf2\x01\x9a\xb5\x18\xea\x01\b\x01\x10\x01\x1a\fresume_agent\"\xce\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An implementer or reviewer may resume only its parent and its workflow's orchestrator.(\x00B\x03\x01\x02\x03\x90\x02\x02\x12\xbf\x01\n" +
 	"\n" +
-	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00B\x01\x03\x12\xe3\x01\n" +
-	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\x9b\x01\x9a\xb5\x18\x93\x01\b\x01\x10\x01\x1a\rdelete_agents\"yRemove agents for good, with their records, transcripts and worktrees. Prefer archive_agents, and delete only when asked.(\x01B\x01\x03\x90\x02\x02\x12{\n" +
+	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00B\x01\x03\x12\x95\x02\n" +
+	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xcd\x01\x9a\xb5\x18\xc5\x01\b\x01\x10\x01\x1a\rdelete_agents\"\xaa\x01Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. Prefer archive_agents, and delete only when asked.(\x01B\x01\x03\x90\x02\x02\x12{\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"6\x9a\xb5\x18/\b\x01\x10\x01\x1a\frename_agent\"\x16Rename an agent by id.(\x00B\x01\x03\x90\x02\x02\x12\xa4\x03\n" +
 	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xc5\x02\x9a\xb5\x18\xbd\x02\b\x01\x10\x01\x1a\x12search_transcripts\"\x9d\x02Search agent conversations by full text, archived ones included. Quote phrases, prefix - to exclude, and narrow with qualifiers such as from:me, agent:NAME, workflow:NAME, is:reviewer, since:2d and on:DATE. Your own conversation is searched unless agent_id or a qualifier names others.B\x03\x01\x02\x03\x90\x02\x01\x12\xdc\x01\n" +
 	"\rGetTranscript\x12\x1e.agent.v1.GetTranscriptRequest\x1a\x1f.agent.v1.GetTranscriptResponse\"\x89\x01\x9a\xb5\x18\x81\x01\b\x01\x10\x01\x1a\x0eget_transcript\"fRead an agent's whole conversation, one window at a time, passing the returned cursor back to read on.B\x03\x01\x02\x03\x90\x02\x01\x12\x85\x02\n" +

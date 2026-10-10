@@ -39,7 +39,7 @@ type NewRemoverParams struct {
 	Git    registrar
 }
 
-// Remover takes away the directories no agent answers for.
+// Remover takes away the directories no agent or task answers for.
 type Remover struct {
 	lister *Lister
 	agents *agentstore.AgentStore
@@ -53,6 +53,11 @@ func NewRemover(params NewRemoverParams) *Remover {
 		agents: params.Agents,
 		git:    params.Git,
 	}
+}
+
+// RefuseForTask is the refusal of a directory only its task answers for.
+func (w Worktree) RefuseForTask() Refusal {
+	return Refusal{Dir: w.Dir, Reason: fmt.Sprintf("task %s holds it; delete the task instead", w.Task.Slug)}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.
@@ -128,6 +133,9 @@ func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, 
 	}
 
 	worktree := listing.Worktrees[at]
+	if worktree.Fate() == FateTask {
+		return worktree.RefuseForTask(), true
+	}
 	if worktree.Fate() != FateUnowned {
 		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s answers for it; delete the agent instead", worktree.Agent.Name)}, true
 	}

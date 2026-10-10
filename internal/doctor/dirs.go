@@ -48,11 +48,11 @@ var (
 	}
 	errWorktreesUnowned = &ProblemError{
 		Code:    "worktrees_unowned",
-		Message: "there are worktree directories no agent answers for",
+		Message: "there are worktree directories no agent or task answers for",
 	}
 	errWorktreeOwnersUnreadable = &ProblemError{
 		Code:    "worktree_owners_unreadable",
-		Message: "the agents that own the worktrees could not be read",
+		Message: "the agents and tasks that own the worktrees could not be read",
 	}
 )
 
@@ -150,11 +150,11 @@ func newWorktreesCheck() Check {
 	}
 }
 
-// newOrphanedWorktreesCheck reports worktree directories no agent answers for.
+// newOrphanedWorktreesCheck reports worktree directories no agent or task answers for.
 func newOrphanedWorktreesCheck() Check {
 	return Check{
 		Name:        "orphaned worktrees",
-		Description: "a worktree outlives its agent when the agent's row goes without it",
+		Description: "a worktree outlives its task when the task's row goes without it",
 		Needs:       []string{"config", "database"},
 		Run: func(ctx context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
