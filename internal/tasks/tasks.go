@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/store"
@@ -85,28 +84,7 @@ func (s *TaskService) UpdateTask(ctx context.Context, params UpdateTaskParams) (
 	return s.tasks.Update(ctx, found.ID, params.Fields)
 }
 
-type SetTaskNotesParams struct {
-	Ref                string
-	Notes              string
-	ReadNotesUpdatedAt *time.Time
-	CallerAgentID      string
-}
-
-// SetTaskNotes replaces the notes of the task a ref names, refusing a caller that may not write
-// them and notes written since they were read.
-func (s *TaskService) SetTaskNotes(ctx context.Context, params SetTaskNotesParams) (*taskstore.Task, error) {
-	return s.UpdateTask(ctx, UpdateTaskParams{
-		Ref: params.Ref,
-		Fields: taskstore.UpdateParams{
-			Notes:              &params.Notes,
-			ReadNotesUpdatedAt: params.ReadNotesUpdatedAt,
-		},
-		CallerAgentID: params.CallerAgentID,
-	})
-}
-
-// requireMayWriteNotes refuses an agent that neither works on the task nor orchestrates its
-// workflow, which the person never is.
+// requireMayWriteNotes refuses a calling agent that neither works on the task nor orchestrates its workflow.
 func (s *TaskService) requireMayWriteNotes(ctx context.Context, callerAgentID string, target taskstore.Task) error {
 	if callerAgentID == "" {
 		return nil

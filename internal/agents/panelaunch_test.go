@@ -753,7 +753,7 @@ func TestTaskBriefing(t *testing.T) {
 		},
 		{
 			name: "notes over the cap are read with get_task",
-			task: &taskstore.Task{Slug: "fix-login", Goal: "Logins work.", Notes: strings.Repeat("x", maxBriefedNotes)},
+			task: &taskstore.Task{Slug: "fix-login", Goal: "Logins work.", Notes: strings.Repeat("x", maxBriefedTask)},
 			want: pointers + "Its goal and notes are too long to repeat here, so read them with get_task before you start.",
 		},
 		{

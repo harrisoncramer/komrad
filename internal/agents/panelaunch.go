@@ -42,9 +42,8 @@ const mcpURLPlaceholder = "{{MCP_URL}}"
 
 const logPathPlaceholder = "{{LOG_PATH}}"
 
-// maxBriefedNotes is the most bytes of a task's goal and notes a briefing repeats, past which it
-// points at get_task instead.
-const maxBriefedNotes = 16 << 10
+// maxBriefedTask is the most bytes of a task's goal and notes a briefing repeats.
+const maxBriefedTask = 16 << 10
 
 // fallbackShell is what an agent is started under when tmux names no default shell.
 const fallbackShell = "/bin/sh"
@@ -137,7 +136,7 @@ func taskBriefing(task *taskstore.Task) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "You work on task %s. get_task with that slug returns its goal and notes, list_review_threads its open review threads, and list_documents with task %s its documents.", task.Slug, task.Slug)
 
-	if len(task.Goal)+len(task.Notes) > maxBriefedNotes {
+	if len(task.Goal)+len(task.Notes) > maxBriefedTask {
 		b.WriteString("\n\nIts goal and notes are too long to repeat here, so read them with get_task before you start.")
 
 		return b.String()

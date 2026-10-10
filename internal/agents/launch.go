@@ -720,6 +720,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 	task := c.task
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
+		taskStore := taskstore.NewTaskStore(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, 1); err != nil {
 			return err
@@ -734,7 +735,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 		}
 
 		if c.needsOwnTask() {
-			created, err := tasks.CreateForAgent(ctx, taskstore.NewTaskStore(db), tasks.CreateForAgentParams{
+			created, err := tasks.CreateForAgent(ctx, taskStore, tasks.CreateForAgentParams{
 				WorkflowID: c.agent.WorkflowID,
 				Name:       c.agent.Name,
 				Title:      c.title,
@@ -748,7 +749,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 			task = created
 		}
 		if task == nil && c.parent != nil && c.parent.TaskID != nil {
-			found, err := taskstore.NewTaskStore(db).Get(ctx, *c.parent.TaskID)
+			found, err := taskStore.Get(ctx, *c.parent.TaskID)
 			if err != nil {
 				return fmt.Errorf("failed to read the task of agent %q's parent: %w", c.agent.Name, err)
 			}
@@ -758,7 +759,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 			c.agent.TaskID = &task.ID
 		}
 		if c.agent.TaskID != nil {
-			if err := taskstore.NewTaskStore(db).LockUndeleted(ctx, *c.agent.TaskID); err != nil {
+			if err := taskStore.LockUndeleted(ctx, *c.agent.TaskID); err != nil {
 				return err
 			}
 		}
@@ -766,7 +767,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
 		}
 		if isCheckoutClaimant(*c.agent, c.provisioner) {
-			if err := claimCheckout(ctx, taskstore.NewTaskStore(db), c, task.ID); err != nil {
+			if err := claimCheckout(ctx, taskStore, c, task.ID); err != nil {
 				return err
 			}
 		}

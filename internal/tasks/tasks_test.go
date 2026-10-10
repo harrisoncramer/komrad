@@ -204,8 +204,8 @@ func TestCreateForAgent(t *testing.T) {
 	}
 }
 
-// TestSetTaskNotes pins who may write a task's notes and that a write over a stale version is refused.
-func TestSetTaskNotes(t *testing.T) {
+// TestUpdateTaskNotes pins who may write a task's notes and that a write over a stale version is refused.
+func TestUpdateTaskNotes(t *testing.T) {
 	stores := storetest.Open(t)
 	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks, Agents: stores.Agents})
 	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
@@ -219,11 +219,10 @@ func TestSetTaskNotes(t *testing.T) {
 	farOrchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "far", WorkflowID: elsewhere.ID, Role: agentstore.RoleOrchestrator})
 
 	tests := []struct {
-		name      string
-		callerID  string
-		stale     bool
-		viaUpdate bool
-		wantErr   error
+		name     string
+		callerID string
+		stale    bool
+		wantErr  error
 	}{
 		{
 			name:     "an agent on another task is refused",
@@ -234,12 +233,6 @@ func TestSetTaskNotes(t *testing.T) {
 			name:     "the orchestrator of another workflow is refused",
 			callerID: farOrchestrator.ID,
 			wantErr:  ErrNotesNotYours,
-		},
-		{
-			name:      "the orchestrator of another workflow is refused through an update",
-			callerID:  farOrchestrator.ID,
-			viaUpdate: true,
-			wantErr:   ErrNotesNotYours,
 		},
 		{
 			name:     "a write over a version since rewritten is refused",
@@ -274,21 +267,11 @@ func TestSetTaskNotes(t *testing.T) {
 				read = xptr.Ptr(time.Now().Add(-time.Hour))
 			}
 
-			var got *taskstore.Task
-			if tt.viaUpdate {
-				got, err = svc.UpdateTask(t.Context(), UpdateTaskParams{
-					Ref:           "work",
-					Fields:        taskstore.UpdateParams{Notes: &tt.name, ReadNotesUpdatedAt: read},
-					CallerAgentID: tt.callerID,
-				})
-			} else {
-				got, err = svc.SetTaskNotes(t.Context(), SetTaskNotesParams{
-					Ref:                "work",
-					Notes:              tt.name,
-					ReadNotesUpdatedAt: read,
-					CallerAgentID:      tt.callerID,
-				})
-			}
+			got, err := svc.UpdateTask(t.Context(), UpdateTaskParams{
+				Ref:           "work",
+				Fields:        taskstore.UpdateParams{Notes: &tt.name, ReadNotesUpdatedAt: read},
+				CallerAgentID: tt.callerID,
+			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 

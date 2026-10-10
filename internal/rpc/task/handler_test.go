@@ -35,7 +35,6 @@ type fakeTasks struct {
 	got      []string
 	listed   []listCall
 	updated  []tasks.UpdateTaskParams
-	noted    []tasks.SetTaskNotesParams
 	archived []string
 	deleted  [][]string
 }
@@ -79,16 +78,6 @@ func (f *fakeTasks) ListTasks(_ context.Context, workflowID string, archived boo
 // UpdateTask records the params and answers the stored task unless err refuses it.
 func (f *fakeTasks) UpdateTask(_ context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error) {
 	f.updated = append(f.updated, params)
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return &f.stored, nil
-}
-
-// SetTaskNotes records the params and answers the stored task unless err refuses it.
-func (f *fakeTasks) SetTaskNotes(_ context.Context, params tasks.SetTaskNotesParams) (*taskstore.Task, error) {
-	f.noted = append(f.noted, params)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -314,12 +303,12 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	require.Len(t, fake.noted, 1)
-	assert.Equal(t, "fix-login", fake.noted[0].Ref)
-	assert.Equal(t, "Found it.", fake.noted[0].Notes)
-	assert.Equal(t, "agent-1", fake.noted[0].CallerAgentID)
-	require.NotNil(t, fake.noted[0].ReadNotesUpdatedAt)
-	assert.True(t, readAt.Equal(*fake.noted[0].ReadNotesUpdatedAt))
+	require.Len(t, fake.updated, 1)
+	assert.Equal(t, "fix-login", fake.updated[0].Ref)
+	assert.Equal(t, xptr.Ptr("Found it."), fake.updated[0].Fields.Notes)
+	assert.Equal(t, "agent-1", fake.updated[0].CallerAgentID)
+	require.NotNil(t, fake.updated[0].Fields.ReadNotesUpdatedAt)
+	assert.True(t, readAt.Equal(*fake.updated[0].Fields.ReadNotesUpdatedAt))
 	assert.Equal(t, "Found it.", written.Msg.GetTask().GetNotes())
 	assert.Equal(t, writtenAt.Format(time.RFC3339Nano), written.Msg.GetTask().GetNotesUpdatedAt())
 }

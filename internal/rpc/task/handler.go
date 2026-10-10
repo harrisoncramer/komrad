@@ -11,6 +11,7 @@ import (
 	"komrad/internal/rpcerr"
 	"komrad/internal/tasks"
 	"komrad/lib/dates"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	taskv1 "komrad/proto/gen/task/v1"
 
@@ -24,7 +25,6 @@ type taskReadWriter interface {
 	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
 	UpdateTask(ctx context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error)
-	SetTaskNotes(ctx context.Context, params tasks.SetTaskNotesParams) (*taskstore.Task, error)
 }
 
 type taskArchiver interface {
@@ -113,11 +113,13 @@ func (s *Handler) UpdateTask(ctx context.Context, req *taskv1.UpdateTaskRequest)
 
 // SetTaskNotes replaces a task's notes for the person or an agent that may write them.
 func (s *Handler) SetTaskNotes(ctx context.Context, req *taskv1.SetTaskNotesRequest) (*taskv1.SetTaskNotesResponse, *fail.Error) {
-	written, err := s.tasks.SetTaskNotes(ctx, tasks.SetTaskNotesParams{
-		Ref:                req.GetTask(),
-		Notes:              req.GetNotes(),
-		ReadNotesUpdatedAt: dates.ParsePtr(req.GetNotesUpdatedAt()),
-		CallerAgentID:      caller.From(ctx).AgentID,
+	written, err := s.tasks.UpdateTask(ctx, tasks.UpdateTaskParams{
+		Ref: req.GetTask(),
+		Fields: taskstore.UpdateParams{
+			Notes:              xptr.Ptr(req.GetNotes()),
+			ReadNotesUpdatedAt: dates.ParsePtr(req.GetNotesUpdatedAt()),
+		},
+		CallerAgentID: caller.From(ctx).AgentID,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to set task notes")

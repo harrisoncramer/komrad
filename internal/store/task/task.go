@@ -143,14 +143,13 @@ func (s *TaskStore) Update(ctx context.Context, id string, params UpdateParams) 
 	return &updated, nil
 }
 
-// explainUnwritten is why an update wrote no row: a task gone or being deleted, or notes written
-// since they were read.
-func (s *TaskStore) explainUnwritten(ctx context.Context, id string, wroteNotes bool) error {
+// explainUnwritten says why an update wrote no row, a task gone or being deleted or notes written since they were read.
+func (s *TaskStore) explainUnwritten(ctx context.Context, id string, setsNotes bool) error {
 	found, err := s.Get(ctx, id)
 	if err != nil {
 		return err
 	}
-	if found.DeletingAt != nil || !wroteNotes {
+	if found.DeletingAt != nil || !setsNotes {
 		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
 	}
 
