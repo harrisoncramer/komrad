@@ -372,7 +372,7 @@ func (s *ReviewService) requireEntitled(
 		return nil
 	}
 
-	reader, err := s.getReader(ctx, task, author)
+	reader, err := s.getAuthorOnTask(ctx, task, author)
 	if err != nil {
 		return err
 	}
@@ -393,13 +393,13 @@ func (s *ReviewService) requireMayRead(
 		return nil
 	}
 
-	_, err := s.getReader(ctx, task, author)
+	_, err := s.getAuthorOnTask(ctx, task, author)
 
 	return err
 }
 
-// getReader is the agent an author is, refusing one that works on another task.
-func (s *ReviewService) getReader(
+// getAuthorOnTask reads the agent behind an author, refusing one that works on another task.
+func (s *ReviewService) getAuthorOnTask(
 	ctx context.Context,
 	task taskstore.Task,
 	author ReviewAuthor,
