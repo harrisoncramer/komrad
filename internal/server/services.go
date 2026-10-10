@@ -109,7 +109,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 }
 
 func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*services, error) {
-	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
+	loadConfig := config.NewStackLoader(params.ConfigStack).Load
 	gitClient := git.NewClient(git.NewClientParams{SSHHosts: func() (map[string]string, error) {
 		cfg, err := loadConfig()
 		if err != nil {
