@@ -20,6 +20,24 @@ type Config struct {
 	CtxSleep       CtxSleepConfig       `json:"ctx_sleep"`
 	TestFatalErr   FatalErrConfig       `json:"test_fatal_err"`
 	ErrorText      ErrorTextConfig      `json:"error_text"`
+	StoreQuery     StoreQueryConfig     `json:"store_query"`
+	TxStore        TxStoreConfig        `json:"tx_store"`
+}
+
+// StoreQueryConfig settles which packages may call a store query.
+type StoreQueryConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Allow is unanchored regexps over the import path of the packages that may call a store query.
+	Allow []string `json:"allow"`
+}
+
+// TxStoreConfig settles where a function handed a transaction must query through it.
+type TxStoreConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
 }
 
 // CtxSleepConfig settles where a select may wait out a delay by hand.
