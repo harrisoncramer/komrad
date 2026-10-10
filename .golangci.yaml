@@ -510,7 +510,6 @@ linters:
               - ^komrad/internal/(storetest|komradtest)$
           tx_store:
             skip: false
-            exclude: []
       fussy:
         type: module
         description: General Go checks from fussy.
