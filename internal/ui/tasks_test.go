@@ -11,6 +11,7 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
+	watchv1 "komrad/proto/gen/watch/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
@@ -80,18 +81,26 @@ func TestTasksTree(t *testing.T) {
 
 	t.Run("a new agent from a task's menu", func(t *testing.T) {
 		tests := []struct {
-			name    string
-			task    *taskv1.Task
-			writer  agentv1.AgentState
-			offered bool
-			form    string
-			want    *agentv1.CreateAgentRequest
+			name     string
+			task     *taskv1.Task
+			writer   agentv1.AgentState
+			deleting bool
+			offered  bool
+			form     string
+			want     *agentv1.CreateAgentRequest
 		}{
 			{
 				name:    "is not offered once the task's worktree was removed",
 				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login"), WorktreeRemoved: true},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: false,
+			},
+			{
+				name:     "is not offered once the task is being deleted",
+				task:     &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login")},
+				writer:   agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+				deleting: true,
+				offered:  false,
 			},
 			{
 				name:    "on a task with a live writer starts a child of the writer",
@@ -139,6 +148,9 @@ func TestTasksTree(t *testing.T) {
 				writer.State = tt.writer
 				harness := openAgents(t, newLiveWorkflow("w1", "komrad"), tt.task, writer)
 				answerAgentCreate(harness, "")
+				if tt.deleting {
+					harness.watch(buildDeleted(watchv1.Resource_RESOURCE_TASK, "t1"))
+				}
 
 				harness.press("k", "space")
 				menu := strings.Join(readStage(harness.readFrame()), "\n")

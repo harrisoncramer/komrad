@@ -67,9 +67,10 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	return withNested(menu, "archive", m.keys.Menu.Archive, tasksArchiveMenu(m, tasks, false))
 }
 
-// newAgentEntries is the entry that starts an agent on a task, and none once its worktree is gone.
+// newAgentEntries is the entry that starts an agent on a task, and none once its worktree is gone
+// or the task has left the listing, as one being deleted does.
 func newAgentEntries(m *model, workflow panel.Workflow, task panel.Task) []submenuEntry {
-	if task.WorktreeRemoved {
+	if _, listed := m.listing.tasks[task.ID]; !listed || task.WorktreeRemoved {
 		return nil
 	}
 
