@@ -1,4 +1,4 @@
-# The still on the hooks guide: an agent whose pre-launch hook failed, with the hook's log open.
+# The still on the hooks guide: an agent whose agent.pre-launch hook failed, with the hook's log open.
 # hook-failed.before hangs a build-neovim hook on the workflow that fails in a fresh worktree,
 # since nothing has configured the build, and hook-failed.after removes it.
 Source recordings/shell.tape

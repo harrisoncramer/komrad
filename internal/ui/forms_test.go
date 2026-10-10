@@ -659,7 +659,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness.press("j")
 		harness.fireTimers()
 		require.Equal(t, "%9", harness.panel.ReadGuestPane())
-		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("pre-archive hook refused")))
+		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agent.pre-archive hook refused")))
 
 		harness.press("space", "a", "a")
 

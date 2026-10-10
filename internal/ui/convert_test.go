@@ -70,8 +70,8 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			DiffExclude:  []string{"proto/gen"},
 		},
 		Hooks: []*workflowv1.WorkflowHook{
-			{Event: "pre-launch", Script: "install-deps"},
-			{Event: "post-launch", Script: "announce"},
+			{Event: "agent.pre-launch", Script: "install-deps"},
+			{Event: "agent.post-launch", Script: "announce"},
 		},
 		EventPrompts: []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
 	}})
@@ -87,8 +87,8 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		ReviewerHarness: "codex",
 		ReviewerFlags:   "--model gpt-5",
 		Hooks: []panel.Hook{
-			{Event: "pre-launch", Script: "install-deps"},
-			{Event: "post-launch", Script: "announce"},
+			{Event: "agent.pre-launch", Script: "install-deps"},
+			{Event: "agent.post-launch", Script: "announce"},
 		},
 		EventPrompts: []panel.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
 		Worktree: panel.WorktreeConfig{

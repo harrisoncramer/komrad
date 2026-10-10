@@ -36,8 +36,8 @@ func TestCompact(t *testing.T) {
 		},
 		{
 			name: "a finished script shows its name, trigger, exit code and duration but not its output",
-			line: `{"timestamp":"2026-10-04T21:36:58-04:00","severity_text":"INFO","body":"script finished","komrad.script.name":"_worktree_setup","komrad.run.trigger":"provision","komrad.script.agent.cwd":"/tmp/x","process.exit.code":0,"duration_ms":811,"komrad.script.stderr":"fetching\ncreating"}`,
-			want: "21:36:58 INFO  script finished                _worktree_setup provision exit 0 811ms",
+			line: `{"timestamp":"2026-10-04T21:36:58-04:00","severity_text":"INFO","body":"script finished","komrad.script.name":"_worktree_setup","komrad.run.trigger":"agent.provision","komrad.script.agent.cwd":"/tmp/x","process.exit.code":0,"duration_ms":811,"komrad.script.stderr":"fetching\ncreating"}`,
+			want: "21:36:58 INFO  script finished                _worktree_setup agent.provision exit 0 811ms",
 		},
 		{
 			name: "a mail nudge shows its loop and unread count",

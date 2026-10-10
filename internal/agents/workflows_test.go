@@ -914,7 +914,7 @@ func TestDeleteWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a pre-delete hook that will
+// TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers an agent.pre-delete hook that will
 // not run: DeleteAgents cannot destroy that row, so the workflow it is still in cannot be
 // destroyed either, and neither is an error the caller sees.
 func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {

@@ -13,7 +13,7 @@ tree="$KOMRAD_WORKTREES_DIR/$KOMRAD_WORKTREE_NAME"
 # repository. Setup gives the directory the worktree name komrad hands it, and a linked
 # worktree carries a .git file where a checkout carries a directory, which is the same claim
 # cleanup makes.
-if [ "$KOMRAD_TRIGGER" = resume ] && [ -d "$KOMRAD_AGENT_CWD" ] &&
+if [ "$KOMRAD_TRIGGER" = agent.resume ] && [ -d "$KOMRAD_AGENT_CWD" ] &&
 	[ "$(basename "$KOMRAD_AGENT_CWD")" = "$KOMRAD_WORKTREE_NAME" ] && [ -f "$KOMRAD_AGENT_CWD/.git" ]; then
 	tree="$KOMRAD_AGENT_CWD"
 fi

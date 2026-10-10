@@ -54,7 +54,7 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 		Script: "install-deps",
 		Cwd:    provisioned,
 	}, ran[0],
-		"the first pre-launch hook runs in the directory the provisioner named")
+		"the first agent.pre-launch hook runs in the directory the provisioner named")
 	assert.Equal(t, ranHook{
 		Event:  workflowstore.HookPreLaunch,
 		Script: "copy-env",
@@ -87,14 +87,14 @@ func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the post-launch hook runs once the pane is up")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-launch hook runs once the pane is up")
 
 	ran := lifecycle.ranHooks()
 	assert.Equal(t, workflowstore.HookPostLaunch, ran[0].Event)
 	assert.Equal(t, "announce", ran[0].Script)
 }
 
-// TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing pre-launch hook taking the
+// TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing agent.pre-launch hook taking the
 // create with it.
 func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	tmux := tmuxtest.NewFake()
@@ -315,11 +315,11 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the post-resume hook runs once the pane is back")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-resume hook runs once the pane is back")
 
 	ran := lifecycle.ranHooks()
 	assert.Equal(t, workflowstore.HookPostResume, ran[0].Event)
-	assert.Equal(t, "announce-back", ran[0].Script, "and pre-launch does not rerun")
+	assert.Equal(t, "announce-back", ran[0].Script, "and agent.pre-launch does not rerun")
 }
 
 // TestRestoreFiresPostRestoreHooks pins the moment the row comes back.
@@ -346,7 +346,7 @@ func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the post-restore hook runs once the row is back")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-restore hook runs once the row is back")
 
 	assert.Equal(t, workflowstore.HookPostRestore, lifecycle.ranHooks()[0].Event)
 }
@@ -457,7 +457,7 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) > 0
-	}, 5*time.Second, 10*time.Millisecond, "the archived agent's post-restore hook runs")
+	}, 5*time.Second, 10*time.Millisecond, "the archived agent's agent.post-restore hook runs")
 
 	// Long enough for a second chain to have started if one was going to.
 	require.Never(t, func() bool {
@@ -494,7 +494,7 @@ func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) > 0
-	}, 5*time.Second, 10*time.Millisecond, "the post-restore hook runs for the agent inside")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-restore hook runs for the agent inside")
 
 	assert.Equal(t, []ranHook{{
 		Event:  workflowstore.HookPostRestore,
@@ -533,7 +533,7 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 
 	require.Never(t, func() bool {
 		return len(lifecycle.ranHooks()) > 1
-	}, 300*time.Millisecond, 20*time.Millisecond, "post-resume never follows a refused resume")
+	}, 300*time.Millisecond, 20*time.Millisecond, "agent.post-resume never follows a refused resume")
 
 	assert.Equal(t, []ranHook{{
 		Event:  workflowstore.HookPreResume,
@@ -630,21 +630,21 @@ func TestArchiveHooks(t *testing.T) {
 		wantEvents   []string
 	}{
 		{
-			name:       "a failed pre-archive refuses archiving the agents",
+			name:       "a failed agent.pre-archive refuses archiving the agents",
 			call:       byAgents,
 			hookErrs:   map[string]error{"lock": errors.New("uncommitted work")},
 			wantErr:    "uncommitted work",
 			wantEvents: refused,
 		},
 		{
-			name:       "a failed pre-archive refuses archiving the workflow",
+			name:       "a failed agent.pre-archive refuses archiving the workflow",
 			call:       byWorkflow,
 			hookErrs:   map[string]error{"lock": errors.New("uncommitted work")},
 			wantErr:    "uncommitted work",
 			wantEvents: refused,
 		},
 		{
-			name:         "archiving the agents passes pre-archive over a directory that has gone",
+			name:         "archiving the agents passes agent.pre-archive over a directory that has gone",
 			call:         byAgents,
 			hookErrs:     map[string]error{"lock": errors.New("uncommitted work")},
 			removeDir:    true,
@@ -652,7 +652,7 @@ func TestArchiveHooks(t *testing.T) {
 			wantEvents:   postOnly,
 		},
 		{
-			name:         "archiving the workflow passes pre-archive over a directory that has gone",
+			name:         "archiving the workflow passes agent.pre-archive over a directory that has gone",
 			call:         byWorkflow,
 			hookErrs:     map[string]error{"lock": errors.New("uncommitted work")},
 			removeDir:    true,
@@ -660,13 +660,13 @@ func TestArchiveHooks(t *testing.T) {
 			wantEvents:   postOnly,
 		},
 		{
-			name:         "archiving the agents runs post-archive once it has",
+			name:         "archiving the agents runs agent.post-archive once it has",
 			call:         byAgents,
 			wantArchived: true,
 			wantEvents:   archived,
 		},
 		{
-			name:         "archiving the workflow runs post-archive once it has",
+			name:         "archiving the workflow runs agent.post-archive once it has",
 			call:         byWorkflow,
 			wantArchived: true,
 			wantEvents:   archived,
@@ -862,7 +862,7 @@ func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 2
-	}, 5*time.Second, 10*time.Millisecond, "post-delete runs once the row is dropped")
+	}, 5*time.Second, 10*time.Millisecond, "agent.post-delete runs once the row is dropped")
 
 	assert.Equal(t, []ranHook{
 		{

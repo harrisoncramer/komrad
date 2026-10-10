@@ -95,7 +95,7 @@ func TestBeginRefusesAnIdNoAgentHolds(t *testing.T) {
 
 	_, err := f.Begin(t.Context(), BeginParams{
 		AgentID: "not-an-id",
-		Trigger: "post-launch",
+		Trigger: "agent.post-launch",
 		Script:  "setup",
 	})
 
@@ -135,7 +135,7 @@ func TestFinishRecordsWhatTheRunDid(t *testing.T) {
 
 			id, err := f.Begin(t.Context(), BeginParams{
 				AgentID:   agentID,
-				Trigger:   "post-launch",
+				Trigger:   "agent.post-launch",
 				Script:    "setup",
 				LogNumber: xptr.Ptr(int32(7)),
 			})
@@ -173,7 +173,7 @@ func TestUnreadFailuresNameTheNewestRun(t *testing.T) {
 	for number := range 3 {
 		id, err := f.Begin(t.Context(), BeginParams{
 			AgentID:   agentID,
-			Trigger:   "post-launch",
+			Trigger:   "agent.post-launch",
 			Script:    "setup",
 			LogNumber: xptr.Ptr(int32(number + 1)),
 		})
@@ -192,7 +192,7 @@ func TestAbandonDropsTheRow(t *testing.T) {
 
 	id, err := f.Begin(t.Context(), BeginParams{
 		AgentID: agentID,
-		Trigger: "deprovision",
+		Trigger: "agent.deprovision",
 		Script:  "_worktree_cleanup",
 	})
 	require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 	for range 5 {
 		id, err := f.Begin(t.Context(), BeginParams{
 			AgentID: agentID,
-			Trigger: "resume",
+			Trigger: "agent.resume",
 			Script:  "worktree",
 		})
 		require.NoError(t, err)
@@ -224,7 +224,7 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 
 	kept, err := f.Begin(t.Context(), BeginParams{
 		AgentID: other,
-		Trigger: "resume",
+		Trigger: "agent.resume",
 		Script:  "worktree",
 	})
 	require.NoError(t, err)
@@ -318,14 +318,14 @@ func TestTaskRunsKeepTaskEventsOffTheAgent(t *testing.T) {
 		},
 		{
 			name:          "opening a task's logs claims a failed agent event on it too",
-			trigger:       "pre-launch",
+			trigger:       "agent.pre-launch",
 			wantAgentMark: true,
 			wantTaskMark:  true,
 			markTaskRead:  true,
 		},
 		{
 			name:          "a failed agent event marks both the agent and its task",
-			trigger:       "pre-launch",
+			trigger:       "agent.pre-launch",
 			wantAgentMark: true,
 			wantTaskMark:  true,
 		},
@@ -383,14 +383,14 @@ func TestListByTask(t *testing.T) {
 	launched := f.record(t, recordParams{
 		agentID: reviewer,
 		taskID:  taskID,
-		trigger: "pre-launch",
+		trigger: "agent.pre-launch",
 		failure: "it failed",
 		number:  1,
 	})
 	f.record(t, recordParams{
 		agentID: elsewhere,
 		taskID:  otherTask,
-		trigger: "pre-launch",
+		trigger: "agent.pre-launch",
 		number:  1,
 	})
 

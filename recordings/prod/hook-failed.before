@@ -20,4 +20,4 @@ HOOK
 chmod +x "$hooks/build-neovim"
 
 komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled \
-	--request-json '{"hooks":[{"event":"pre-launch","script":"build-neovim"}]}' >/dev/null
+	--request-json '{"hooks":[{"event":"agent.pre-launch","script":"build-neovim"}]}' >/dev/null

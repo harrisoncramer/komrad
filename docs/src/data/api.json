@@ -7533,7 +7533,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the source is called, such as service or 003 pre-launch setup."
+          "description": "What the source is called, such as service or 003 agent.pre-launch setup."
         },
         {
           "name": "run",
@@ -10003,7 +10003,7 @@
             "required",
             "at most 40 characters"
           ],
-          "description": "Which moment fires it, such as pre-launch or post-archive in an agent's life or task.pre-open in its task's."
+          "description": "Which moment fires it, such as agent.pre-launch or agent.post-archive in an agent's life or task.pre-open in its task's."
         },
         {
           "name": "script",

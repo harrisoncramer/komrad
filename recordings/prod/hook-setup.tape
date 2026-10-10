@@ -1,4 +1,4 @@
-# The video on the hooks guide: write a pre-launch hook in the shell, hang it on the workflow,
+# The video on the hooks guide: write an agent.pre-launch hook in the shell, hang it on the workflow,
 # and spawn an agent to see it ran. The hook goes in the throwaway instance's own hooks
 # directory, which the slot names in its config, so the picker offers nothing else.
 # hook-setup.before makes the workflow out of shot, and hook-setup.after removes the hook. The

@@ -60,7 +60,7 @@ func TestFailedRun(t *testing.T) {
 
 	fine, err := st.Runs.Begin(ctx, runstore.BeginParams{
 		AgentID: alpha.ID,
-		Trigger: "post-launch",
+		Trigger: "agent.post-launch",
 		Script:  "setup",
 	})
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestFailedRun(t *testing.T) {
 	for number := range 3 {
 		id, err := st.Runs.Begin(ctx, runstore.BeginParams{
 			AgentID:   alpha.ID,
-			Trigger:   "post-launch",
+			Trigger:   "agent.post-launch",
 			Script:    "setup",
 			LogNumber: xptr.Ptr(int32(number + 1)),
 		})

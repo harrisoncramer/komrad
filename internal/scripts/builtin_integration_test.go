@@ -65,7 +65,7 @@ func TestIntegrationBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	first, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = strings.TrimSpace(string(first.Stdout))
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -97,7 +97,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *test
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 	tree := strings.TrimSpace(string(first.Stdout))
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -153,7 +153,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testi
 	edited := filepath.Join(tree, "node_modules", "mod.txt")
 	require.NoError(t, os.WriteFile(edited, []byte("patched\n"), 0o644))
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -184,7 +184,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBran
 	tree := strings.TrimSpace(string(first.Stdout))
 
 	runGit(t, repo, "worktree", "remove", "--force", tree)
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 
 	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "task/task-g").Output()
@@ -213,7 +213,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *tes
 	tree := strings.TrimSpace(string(first.Stdout))
 
 	moved := t.TempDir()
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	env.worktreesDir = moved
 
@@ -243,7 +243,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirect
 	require.NoError(t, os.RemoveAll(tree))
 
 	moved := t.TempDir()
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	env.worktreesDir = moved
 
@@ -292,7 +292,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *test
 		taskID:       taskID,
 		repo:         repo,
 		agentCwd:     repo,
-		trigger:      "resume",
+		trigger:      "agent.resume",
 		worktreesDir: worktreesDir,
 	})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
@@ -781,7 +781,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutrigh
 
 	require.NoError(t, os.RemoveAll(tree))
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -1057,7 +1057,7 @@ type worktreeEnv struct {
 func (e worktreeEnv) toEnv() []string {
 	trigger := e.trigger
 	if trigger == "" {
-		trigger = "provision"
+		trigger = "agent.provision"
 	}
 
 	baseBranch := e.baseBranch
@@ -1492,7 +1492,7 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 			result, err := runBuiltin(t, "komrad-checkout-teardown", worktreeEnv{
 				taskID:     "task-a",
 				agentCwd:   tree,
-				trigger:    "pre-delete",
+				trigger:    "agent.pre-delete",
 				pathPrefix: bin,
 				noWorktree: tt.noWorktree,
 			})
@@ -1572,7 +1572,7 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 			result, err := runBuiltin(t, "komrad-checkout-archive", worktreeEnv{
 				taskID:     "task-a",
 				agentCwd:   tree,
-				trigger:    "post-archive",
+				trigger:    "agent.post-archive",
 				noWorktree: tt.noWorktree,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)

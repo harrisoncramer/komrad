@@ -118,7 +118,7 @@ func TestDeleteAgentGivesBackTheCheckoutsOfAnArchivedWorkflow(t *testing.T) {
 }
 
 // TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown: a
-// delete whose pre-delete hook fails leaves the row behind, marked so.
+// delete whose agent.pre-delete hook fails leaves the row behind, marked so.
 func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
@@ -1788,7 +1788,7 @@ func isTaskArchived(t *testing.T, st *testStore, id string) bool {
 
 const refusingHook = "refuse-delete"
 
-// refusingConfig is a worktree workflow whose pre-delete hook can refuse a delete.
+// refusingConfig is a worktree workflow whose agent.pre-delete hook can refuse a delete.
 func refusingConfig(t *testing.T, name string) workflowstore.Config {
 	t.Helper()
 

@@ -175,7 +175,7 @@ func TestTaskPostArchive(t *testing.T) {
 			wantNoneRun: true,
 		},
 		{
-			name: "a task with no worktree runs post-archive in the workflow's directory",
+			name: "a task with no worktree runs agent.post-archive in the workflow's directory",
 			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []string) error {
 				t.Helper()
 
@@ -184,7 +184,7 @@ func TestTaskPostArchive(t *testing.T) {
 			wantCwd: func(fx *taskDeleteFixture, _ agentstore.Agent) string { return fx.workflow.Cwd },
 		},
 		{
-			name:     "archiving the last agents runs post-archive once, in the worktree",
+			name:     "archiving the last agents runs agent.post-archive once, in the worktree",
 			worktree: true,
 			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []string) error {
 				t.Helper()
@@ -194,7 +194,7 @@ func TestTaskPostArchive(t *testing.T) {
 			wantCwd: func(_ *taskDeleteFixture, writer agentstore.Agent) string { return writer.Cwd },
 		},
 		{
-			name:     "archiving the workflow runs post-archive",
+			name:     "archiving the workflow runs agent.post-archive",
 			worktree: true,
 			archive: func(t *testing.T, fx *taskDeleteFixture, lifecycle *fakeLifecycle, _ []string) error {
 				t.Helper()
@@ -312,31 +312,31 @@ func TestTaskPreDelete(t *testing.T) {
 		wantInWorktree  bool
 	}{
 		{
-			name:           "a failed pre-delete keeps the task and its worktree",
+			name:           "a failed agent.pre-delete keeps the task and its worktree",
 			worktree:       true,
 			hookErr:        errors.New("unpushed work"),
 			wantRan:        true,
 			wantInWorktree: true,
 		},
 		{
-			name:            "deleting the agent of a task it leaves behind runs no pre-delete",
+			name:            "deleting the agent of a task it leaves behind runs no agent.pre-delete",
 			worktree:        true,
 			deleteAgentOnly: true,
 		},
 		{
-			name:           "a task whose worktree has gone runs pre-delete in the workflow's directory",
+			name:           "a task whose worktree has gone runs agent.pre-delete in the workflow's directory",
 			worktree:       true,
 			removeWorktree: true,
 			wantDeleted:    true,
 			wantRan:        true,
 		},
 		{
-			name:        "a task with no worktree runs pre-delete in the workflow's directory",
+			name:        "a task with no worktree runs agent.pre-delete in the workflow's directory",
 			wantDeleted: true,
 			wantRan:     true,
 		},
 		{
-			name:           "a task with a worktree runs pre-delete in it before giving it back",
+			name:           "a task with a worktree runs agent.pre-delete in it before giving it back",
 			worktree:       true,
 			wantDeleted:    true,
 			wantRan:        true,
