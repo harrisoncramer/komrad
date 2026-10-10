@@ -502,6 +502,38 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Empty(t, readRecordField(frame, "base"))
 	})
 
+	t.Run("a directory named after its task names the agent holding the task's checkout", func(t *testing.T) {
+		t.Parallel()
+
+		writer := newAgent("writer-id", "writer", "w1")
+		writer.Cwd = "/trees/task-writer-id"
+		task := newTaskOf(writer)
+		task.Cwd = xptr.Ptr(writer.GetCwd())
+		reviewer := newAgent("reviewer-id", "reviewer", "w1")
+		reviewer.Cwd = writer.GetCwd()
+		reviewer.TaskId = writer.TaskId
+		reviewer.ParentAgentId = xptr.Ptr(writer.GetId())
+
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "komrad"),
+			writer,
+			reviewer,
+			task,
+			&worktreev1.WatchedWorktree{
+				Dir:      writer.GetCwd(),
+				RepoDir:  "/home/h/komrad",
+				Branch:   "task/" + task.GetId(),
+				Readable: true,
+			},
+		)
+		moveToWorktree(t, harness, "writer")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "writer", readRecordField(frame, "name"))
+		assert.Equal(t, "reviewer", readRecordField(frame, "also here"))
+	})
+
 	t.Run("the read of the directory adds where the branch stands and what it changed", func(t *testing.T) {
 		t.Parallel()
 

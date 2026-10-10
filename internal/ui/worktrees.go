@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
+	taskv1 "komrad/proto/gen/task/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 )
 
@@ -70,26 +71,40 @@ func (i worktreeItem) isMerged() bool {
 	return standing != nil && standing.err == "" && !standing.dirty && !standing.sequencing && standing.unlanded == 0
 }
 
+// worktreeHolders is every agent indexed by what ties it to a directory.
+type worktreeHolders struct {
+	byID map[string]panel.Agent
+	// byCheckout is the top-level agent working in each task checkout, by directory.
+	byCheckout map[string]panel.Agent
+	byCwd      map[string][]panel.Agent
+}
+
 // worktreeItemsFrom renders every directory in the world with the agents that answer for it.
-func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow) []worktreeItem {
-	byID := make(map[string]panel.Agent, len(agents))
-	byCwd := map[string][]panel.Agent{}
+func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks map[string]*taskv1.Task) []worktreeItem {
+	holders := worktreeHolders{
+		byID:       make(map[string]panel.Agent, len(agents)),
+		byCheckout: map[string]panel.Agent{},
+		byCwd:      map[string][]panel.Agent{},
+	}
 	for _, row := range agents {
-		byID[row.Agent.ID] = row.Agent
+		holders.byID[row.Agent.ID] = row.Agent
 		cwd := filepath.Clean(row.Agent.Cwd)
-		byCwd[cwd] = append(byCwd[cwd], row.Agent)
+		holders.byCwd[cwd] = append(holders.byCwd[cwd], row.Agent)
+		if task, ok := tasks[row.Agent.TaskID]; ok && row.Agent.ParentAgentID == nil && task.Cwd != nil && filepath.Clean(task.GetCwd()) == cwd {
+			holders.byCheckout[cwd] = row.Agent
+		}
 	}
 
 	items := make([]worktreeItem, 0, len(worktrees))
 	for _, worktree := range worktrees {
-		items = append(items, worktreeItemFromWatched(worktree, byID, byCwd))
+		items = append(items, worktreeItemFromWatched(worktree, holders))
 	}
 	slices.SortFunc(items, func(a, b worktreeItem) int { return strings.Compare(a.dir, b.dir) })
 
 	return items
 }
 
-func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, byID map[string]panel.Agent, byCwd map[string][]panel.Agent) worktreeItem {
+func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, holders worktreeHolders) worktreeItem {
 	item := worktreeItem{
 		dir:      worktree.GetDir(),
 		repoDir:  worktree.GetRepoDir(),
@@ -114,14 +129,17 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, byID map[stri
 	}
 
 	var owner *panel.Agent
-	name := filepath.Base(item.dir)
-	if agent, ok := byID[name]; ok {
+	agent, ok := holders.byID[filepath.Base(item.dir)]
+	if !ok {
+		agent, ok = holders.byCheckout[item.dir]
+	}
+	if ok {
 		owner = &agent
 		described := worktreeAgentOf(agent)
 		item.agent = &described
 	}
-	for _, agent := range byCwd[item.dir] {
-		if agent.ID != name {
+	for _, agent := range holders.byCwd[item.dir] {
+		if owner == nil || agent.ID != owner.ID {
 			item.occupants = append(item.occupants, worktreeAgentOf(agent))
 		}
 	}
