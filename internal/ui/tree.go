@@ -693,8 +693,8 @@ type listing struct {
 // assemble renders the listings, live and archived, from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
 	agents := agentRowsFrom(assemble.AgentRows(l.world, now), l.world.Tasks)
-	tasks := tasksFrom(slices.Collect(maps.Values(l.world.Tasks)))
-	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents, tasks)
+	l.tasks = xslice.KeyBy(tasksFrom(slices.Collect(maps.Values(l.world.Tasks))), func(t panel.Task) string { return t.ID })
+	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents, l.tasks)
 	isArchivedAgent := func(row panel.AgentRow) bool {
 		return row.Agent.ArchivedAt != nil
 	}
@@ -714,7 +714,6 @@ func (l *listing) assemble(now time.Time) {
 	l.archivedWorkflows = slices.DeleteFunc(workflows, func(workflow panel.Workflow) bool {
 		return !isArchivedWorkflow(workflow)
 	})
-	l.tasks = xslice.KeyBy(tasks, func(t panel.Task) string { return t.ID })
 	schedules := scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
 	slices.SortFunc(schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })
 	isArchivedSchedule := func(item scheduleItem) bool {

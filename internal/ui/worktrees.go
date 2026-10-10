@@ -77,11 +77,11 @@ type worktreeHolders struct {
 	// byTask holds the top-level agents provisioned for each task, owner first.
 	byTask map[string][]panel.Agent
 	byCwd  map[string][]panel.Agent
-	tasks  []panel.Task
+	tasks  map[string]panel.Task
 }
 
 // worktreeItemsFrom renders every directory in the world with the agents that answer for it.
-func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks []panel.Task) []worktreeItem {
+func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks map[string]panel.Task) []worktreeItem {
 	holders := worktreeHolders{
 		byTask: map[string][]panel.Agent{},
 		tasks:  tasks,
@@ -152,8 +152,8 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, holders workt
 
 	item.fate = fateOf(owner, item.readable)
 	if item.fate == fateUnowned {
-		item.task = findWorktreeTask(item.dir, holders.tasks)
-		if item.task != nil {
+		if task, ok := holders.tasks[filepath.Base(item.dir)]; ok {
+			item.task = &task
 			item.fate = fateTask
 		}
 	}
@@ -183,18 +183,6 @@ func fateOf(owner *panel.Agent, readable bool) worktreeFate {
 	}
 
 	return fateLive
-}
-
-// findWorktreeTask is the task whose checkout a directory is, named for the task's id.
-func findWorktreeTask(dir string, tasks []panel.Task) *panel.Task {
-	at := slices.IndexFunc(tasks, func(task panel.Task) bool {
-		return task.ID == filepath.Base(dir)
-	})
-	if at < 0 {
-		return nil
-	}
-
-	return &tasks[at]
 }
 
 // lastActiveOf is when a directory was last touched, by its agent when one answers and by its
