@@ -28,6 +28,9 @@ import (
 	"komrad/lib/xstr"
 )
 
+// errTaskMadeAndJoined is a launch naming a task to join and describing one to make.
+var errTaskMadeAndJoined = fail.InvalidArgument("an agent either joins a task or has one made for it, not both")
+
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             *agentstore.AgentStore
@@ -85,9 +88,6 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 		sleeper:            sleeper,
 	}
 }
-
-// errTaskMadeAndJoined is a launch naming a task to join and describing one to make.
-var errTaskMadeAndJoined = fail.InvalidArgument("an agent either joins a task or has one made for it, not both")
 
 type NewAgentParams struct {
 	Title            string

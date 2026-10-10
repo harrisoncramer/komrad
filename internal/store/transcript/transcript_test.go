@@ -1087,6 +1087,11 @@ func seedNarrowed(t *testing.T) narrowed {
 func seedAgentAs(t *testing.T, st *fixture, agent agentstore.Agent) string {
 	t.Helper()
 	agent.State = agentstore.StateIdle
+	if agent.Role != agentstore.RoleOrchestrator {
+		taskID, err := tasktest.Seed(t.Context(), st.db, agent.WorkflowID)
+		require.NoError(t, err)
+		agent.TaskID = taskID
+	}
 	require.NoError(t, st.agents.Create(t.Context(), agent))
 	got, err := st.agents.GetInWorkflow(t.Context(), agent.WorkflowID, agent.Name)
 	require.NoError(t, err)

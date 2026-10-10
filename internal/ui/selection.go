@@ -148,22 +148,24 @@ func groupKeys(refs []rowRef, header rowRef) []string {
 
 // refsOf is the tree as the selection sees it.
 func refsOf(rows []agentRow) []rowRef {
+	refs := make([]rowRef, 0, len(rows))
 	var task string
-	return xslice.Map(rows, func(row agentRow) rowRef {
+	for _, row := range rows {
 		switch {
 		case row.isTask():
 			task = rowKey(row)
 		case !row.underTask:
 			task = ""
 		}
-
-		return rowRef{
+		refs = append(refs, rowRef{
 			key:    toTreeRowKey(rowKey(row)),
 			header: row.header,
 			group:  workflowRowKey(row.workflow.ID),
 			task:   task,
-		}
-	})
+		})
+	}
+
+	return refs
 }
 
 func chosenAgents(sel selection, rows []agentRow) []panel.Agent {

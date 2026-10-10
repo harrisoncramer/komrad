@@ -705,17 +705,20 @@ func TestDelete(t *testing.T) {
 		Attempt:     1,
 		MaxAttempts: 3,
 	}))
+	taskID, err := tasktest.Seed(ctx, st.db, created.WorkflowID)
+	require.NoError(t, err)
 	agent := agentstore.Agent{
 		Name:       "launched",
 		WorkflowID: created.WorkflowID,
 		ScheduleID: &created.ID,
 		State:      agentstore.StateIdle,
+		TaskID:     taskID,
 	}
 	require.NoError(t, st.agents.Create(ctx, agent))
 
 	require.NoError(t, st.Delete(ctx, created.ID))
 
-	_, err := st.GetIncludingArchived(ctx, created.ID)
+	_, err = st.GetIncludingArchived(ctx, created.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	runs, err := st.ListRuns(ctx, created.ID, 10)

@@ -275,6 +275,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			service := NewScriptService(NewScriptServiceParams{
 				Agents:     st.Agents,
 				Workflows:  st.Workflows,
+				Tasks:      st.Tasks,
 				Tmux:       fakePaneOwner{},
 				Runner:     runner,
 				BuiltinDir: builtinDir,
@@ -323,10 +324,12 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
 	tests := []struct {
 		name     string
+		role     agentstore.Role
 		wantSlug string
 	}{
 		{
-			name: "an agent on no task carries neither key",
+			name: "an orchestrator, on no task, carries neither key",
+			role: agentstore.RoleOrchestrator,
 		},
 		{
 			name:     "an agent on a task carries its id and slug",
@@ -341,7 +344,7 @@ func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
 
 			st := storetest.Open(t)
 			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
-			agent := agentstore.Agent{ID: fixtureAgentID, Name: "auth", WorkflowID: workflow.ID}
+			agent := agentstore.Agent{ID: fixtureAgentID, Name: "auth", WorkflowID: workflow.ID, Role: tt.role}
 			var task *taskstore.Task
 			if tt.wantSlug != "" {
 				task = st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: tt.wantSlug})
@@ -1862,6 +1865,7 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 			service := NewScriptService(NewScriptServiceParams{
 				Agents:     st.Agents,
 				Workflows:  st.Workflows,
+				Tasks:      st.Tasks,
 				Tmux:       fakePaneOwner{},
 				Runner:     runner,
 				BuiltinDir: builtinDir,

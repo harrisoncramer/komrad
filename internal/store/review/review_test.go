@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -21,6 +21,7 @@ import (
 
 type fixture struct {
 	*ReviewStore
+	stores   *storetest.Stores
 	agents   *agentstore.AgentStore
 	mail     *mailstore.MailStore
 	pool     store.DBTX
@@ -1070,25 +1071,20 @@ func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 func openFixture(t *testing.T) *fixture {
 	t.Helper()
 
-	engine := dbtest.NewEngine(t, dbtest.New(t))
-	pool, err := store.Open(t.Context(), engine.URL)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = pool.Close() })
-
-	workflows := workflowstore.NewWorkflowStore(pool.GetDB())
-	created, err := workflows.Create(t.Context(), workflowstore.Config{
+	stores := storetest.Open(t)
+	created := stores.SeedWorkflow(t, workflowstore.Config{
 		Name:     "default",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 	})
-	require.NoError(t, err)
 
 	return &fixture{
-		ReviewStore: NewReviewStore(pool.GetDB()),
-		agents:      agentstore.NewAgentStore(pool.GetDB()),
-		mail:        mailstore.NewMailStore(pool.GetDB()),
-		pool:        pool.GetDB(),
-		reader:      engine.ReaderURL,
-		engineID:    pool.GetEngine().ID,
+		ReviewStore: NewReviewStore(stores.Pool.GetDB()),
+		stores:      stores,
+		agents:      stores.Agents,
+		mail:        stores.Mail,
+		pool:        stores.Pool.GetDB(),
+		reader:      stores.ReadOnlyURL,
+		engineID:    stores.Pool.GetEngine().ID,
 		workflow:    created.ID,
 	}
 }
@@ -1115,13 +1111,8 @@ func (st *fixture) seedAgentLike(t *testing.T, agent agentstore.Agent) string {
 
 	agent.State = agentstore.StateIdle
 	agent.WorkflowID = st.workflow
-	require.NoError(t, st.agents.Create(t.Context(), agent))
 
-	got, err := st.agents.GetInWorkflow(t.Context(), st.workflow, agent.Name)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-
-	return got.ID
+	return st.stores.SeedAgent(t, agent).ID
 }
 
 func (st *fixture) openRound(t *testing.T, agentID, tree string) *Round {

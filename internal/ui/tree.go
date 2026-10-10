@@ -541,12 +541,14 @@ func findLandingKey(rows []agentRow, hovered, key string) string {
 
 const workflowRowPrefix = "workflow:"
 
+const taskRowPrefix = "task:"
+
 func workflowRowKey(id string) string {
 	return workflowRowPrefix + id
 }
 
 func taskRowKey(id string) string {
-	return "task:" + id
+	return taskRowPrefix + id
 }
 
 func (r agentRow) key() string {
