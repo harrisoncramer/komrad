@@ -15,11 +15,9 @@ type checkoutGit interface {
 	PeekChanges(ctx context.Context, dir string) (git.Changes, error)
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	IsSequenceInProgress(ctx context.Context, dir string) (bool, error)
-	ResolveBase(ctx context.Context, dir, base string) (string, error)
+	ReadBase(ctx context.Context, dir, base string) (*git.Base, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
-	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
-	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 }
 
 // Checkout is where one directory stands against its base.
@@ -77,8 +75,9 @@ func NewCheckoutReader(params NewCheckoutReaderParams) *CheckoutReader {
 type ReadStandingParams struct {
 	Dir      string
 	Readable bool
-	// Base is the branch the directory is measured against.
-	Base    string
+	// Base is the base already read for the directory, nil when BaseErr says why it could not be.
+	Base    *git.Base
+	BaseErr error
 	HeadSHA string
 }
 
@@ -88,9 +87,10 @@ func (r *CheckoutReader) ReadStanding(ctx context.Context, params ReadStandingPa
 	var checkout Checkout
 	var err error
 	if params.Readable {
-		err = r.readCheckout(ctx, &checkout, readParams{
+		err = r.readAgainst(ctx, &checkout, againstParams{
 			Dir:     params.Dir,
 			Base:    params.Base,
+			BaseErr: params.BaseErr,
 			Peek:    true,
 			HeadSHA: params.HeadSHA,
 		})
@@ -104,52 +104,48 @@ func (r *CheckoutReader) ReadStanding(ctx context.Context, params ReadStandingPa
 	})
 }
 
-type MeasureDiffParams struct {
-	Dir  string
-	Base string
-	// Tree is the worktree already hashed, empty when it should be hashed here.
-	Tree    string
-	Exclude []string
-}
-
-// MeasureDiff is the lines a directory adds and removes since it left its base.
-func (r *CheckoutReader) MeasureDiff(ctx context.Context, params MeasureDiffParams) (*git.DiffStat, error) {
-	ref, err := r.nameBase(ctx, readParams{
-		Dir:  params.Dir,
-		Base: params.Base,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return r.git.ReadDiffStat(ctx, git.ReadDiffStatParams{
-		Dir:     params.Dir,
-		Ref:     ref,
-		Tree:    params.Tree,
-		Exclude: params.Exclude,
-	})
+// ReadBase is the ref a directory is measured against and the commit it points at, as the clone
+// last fetched it.
+func (r *CheckoutReader) ReadBase(ctx context.Context, dir, base string) (*git.Base, error) {
+	return r.git.ReadBase(ctx, dir, base)
 }
 
 type readParams struct {
 	Dir   string
 	Base  string
 	Fetch bool
+}
+
+func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, params readParams) error {
+	base, err := r.readBase(ctx, params)
+
+	return r.readAgainst(ctx, checkout, againstParams{
+		Dir:     params.Dir,
+		Base:    base,
+		BaseErr: err,
+	})
+}
+
+type againstParams struct {
+	Dir     string
+	Base    *git.Base
+	BaseErr error
 	// Peek reads the checkout without writing the index.
 	Peek    bool
 	HeadSHA string
 }
 
-func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, params readParams) error {
-	ref, err := r.nameBase(ctx, params)
-	if errors.Is(err, git.ErrBaseMissing) {
-		checkout.BaseErr = err
+// readAgainst reads where the directory stands against a base already read.
+func (r *CheckoutReader) readAgainst(ctx context.Context, checkout *Checkout, params againstParams) error {
+	if errors.Is(params.BaseErr, git.ErrBaseMissing) {
+		checkout.BaseErr = params.BaseErr
 
 		return nil
 	}
-	if err != nil {
-		return err
+	if params.BaseErr != nil {
+		return params.BaseErr
 	}
-	checkout.BaseRef = ref
+	checkout.BaseRef = params.Base.Ref
 
 	readTree := r.readTree
 	if params.Peek {
@@ -159,7 +155,7 @@ func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, p
 		return err
 	}
 
-	predicted, err := r.predictRebase(ctx, params, ref)
+	predicted, err := r.predictRebase(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -168,8 +164,12 @@ func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, p
 	return nil
 }
 
-func (r *CheckoutReader) predictRebase(ctx context.Context, params readParams, ref string) (prediction, error) {
-	key := r.readPredictionKey(ctx, params)
+func (r *CheckoutReader) predictRebase(ctx context.Context, params againstParams) (prediction, error) {
+	var key string
+	if params.HeadSHA != "" {
+		key = params.HeadSHA + ":" + params.Base.Tip
+	}
+
 	r.predictedMu.Lock()
 	last, ok := r.predicted[params.Dir]
 	r.predictedMu.Unlock()
@@ -178,7 +178,7 @@ func (r *CheckoutReader) predictRebase(ctx context.Context, params readParams, r
 	}
 
 	predicted := prediction{key: key}
-	rebase, err := r.git.PredictRebase(ctx, params.Dir, ref)
+	rebase, err := r.git.PredictRebase(ctx, params.Dir, params.Base.Ref)
 	switch {
 	case errors.Is(err, git.ErrBaseUnrelated):
 		predicted.unrelated = true
@@ -197,28 +197,18 @@ func (r *CheckoutReader) predictRebase(ctx context.Context, params readParams, r
 	return predicted, nil
 }
 
-func (r *CheckoutReader) readPredictionKey(ctx context.Context, params readParams) string {
-	if params.HeadSHA == "" {
-		return ""
-	}
-
-	tip, err := r.git.ReadBaseTip(ctx, params.Dir, params.Base)
-	if err != nil {
-		return ""
-	}
-
-	return params.HeadSHA + ":" + tip
-}
-
-// nameBase is the ref the branch is measured against, fetched from origin first when asked.
-func (r *CheckoutReader) nameBase(ctx context.Context, params readParams) (string, error) {
+// readBase is the base the branch is measured against, fetched from origin first when asked.
+func (r *CheckoutReader) readBase(ctx context.Context, params readParams) (*git.Base, error) {
 	if !params.Fetch {
-		return r.git.ResolveBase(ctx, params.Dir, params.Base)
+		return r.git.ReadBase(ctx, params.Dir, params.Base)
 	}
 
-	ref, _, err := r.git.FetchBase(ctx, params.Dir, params.Base)
+	ref, sha, err := r.git.FetchBase(ctx, params.Dir, params.Base)
+	if err != nil {
+		return nil, err
+	}
 
-	return ref, err
+	return &git.Base{Ref: ref, Tip: sha}, nil
 }
 
 // readTree reads whether a sequence is part-way through and what is uncommitted, refreshing the

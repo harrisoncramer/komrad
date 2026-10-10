@@ -109,7 +109,7 @@ func (c *Client) FetchBase(ctx context.Context, dir, base string) (ref, sha stri
 
 	// A base origin no longer has fails at the fetch, and is a missing base when the clone
 	// holds no copy of its own either.
-	ref, err = resolveBase(ctx, root, base)
+	resolved, err := readBase(ctx, root, base)
 	if err != nil && fetchErr != nil {
 		return "", "", fmt.Errorf("%w: %w", err, fetchErr)
 	}
@@ -120,12 +120,7 @@ func (c *Client) FetchBase(ctx context.Context, dir, base string) (ref, sha stri
 		return "", "", fmt.Errorf("failed to fetch %s from origin: %w", base, fetchErr)
 	}
 
-	sha, err = Run(ctx, dir, "rev-parse", "--verify", ref)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to resolve the base %q: %w", ref, err)
-	}
-
-	return ref, sha, nil
+	return resolved.Ref, resolved.Tip, nil
 }
 
 // CountCommitsToReplay is how many of the checkout's own commits a rebase onto ref would move.

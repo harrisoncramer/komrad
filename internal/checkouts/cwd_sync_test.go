@@ -542,38 +542,66 @@ func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
 	}
 }
 
+// TestCwdSyncerSyncReadsTheBaseOncePerPass covers the standing, the landing walk and the diff stat
+// sharing one reading of the base.
+func TestCwdSyncerSyncReadsTheBaseOncePerPass(t *testing.T) {
+	fixture := newSyncFixture(t)
+	fixture.workflowID = fixture.stores.SeedWorkflow(t, workflowstore.Config{
+		Name:     "shared",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+	}).ID
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+	fixture.release(t, agent.ID, "snapshot-one")
+	require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: cwd, Readable: true}))
+	trees := &gittest.Trees{
+		Tips:      map[string]string{cwd: "tip-one"},
+		DiffStats: map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
+	}
+	syncer := fixture.newSyncer(newSyncerParams{
+		Heads:     buildHeads(cwd, git.HeadState{Root: cwd, SHA: "head-one"}),
+		Trees:     trees,
+		Checkouts: worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: trees}),
+	})
+
+	require.NoError(t, syncer.Sync(t.Context()))
+
+	assert.Equal(t, []string{cwd}, trees.BasesRead)
+	assert.Equal(t, 1, trees.Predicted)
+	assert.Equal(t, []string{"snapshot-one"}, trees.Walked)
+	assert.Len(t, trees.Measured, 1)
+}
+
 // TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
 // first one the base holds whole.
 func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 	tests := []struct {
 		name         string
-		tips         bool
+		unresolved   bool
 		landed       map[string]bool
 		wantWalked   []string
 		wantUnlanded []int32
 	}{
 		{
 			name:         "a base the clone does not have walks nothing",
+			unresolved:   true,
 			landed:       map[string]bool{"snapshot-three": true},
 			wantUnlanded: []int32{3, 2, 1},
 		},
 		{
 			name:         "a base holding no round walks them all and lands none",
-			tips:         true,
 			landed:       map[string]bool{},
 			wantWalked:   []string{"snapshot-three", "snapshot-two", "snapshot-one"},
 			wantUnlanded: []int32{3, 2, 1},
 		},
 		{
 			name:         "a base holding a middle round lands it and every earlier one",
-			tips:         true,
 			landed:       map[string]bool{"snapshot-two": true},
 			wantWalked:   []string{"snapshot-three", "snapshot-two"},
 			wantUnlanded: []int32{3},
 		},
 		{
 			name:         "a base holding the newest round lands them all",
-			tips:         true,
 			landed:       map[string]bool{"snapshot-three": true},
 			wantWalked:   []string{"snapshot-three"},
 			wantUnlanded: []int32{},
@@ -590,9 +618,8 @@ func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 			}
 			trees := buildEmptyTrees()
 			trees.Landed = tt.landed
-			if tt.tips {
-				trees.Tips = map[string]string{cwd: "tip-one"}
-			}
+			trees.Unresolved = tt.unresolved
+			trees.Tips = map[string]string{cwd: "tip-one"}
 
 			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
 
