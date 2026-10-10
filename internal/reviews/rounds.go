@@ -82,7 +82,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agenterr.ErrReviewNeedsOwnWork, agent.Name)
 	}
 
-	task, err := s.taskOfAgent(ctx, *agent)
+	task, err := s.getTaskOfAgent(ctx, *agent)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (s *ReviewService) ListRounds(
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Round, error) {
-	task, err := s.taskOf(ctx, agentID)
+	task, err := s.getTaskOfAgentID(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (s *ReviewService) ListReviews(
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Review, error) {
-	task, err := s.taskOf(ctx, agentID)
+	task, err := s.getTaskOfAgentID(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -419,18 +419,18 @@ func (s *ReviewService) getAuthorOnTask(
 	return agent, nil
 }
 
-// taskOf is the task whose work a review call naming an agent reads.
-func (s *ReviewService) taskOf(ctx context.Context, agentID string) (*taskstore.Task, error) {
+// getTaskOfAgentID reads the task the agent with this id works on.
+func (s *ReviewService) getTaskOfAgentID(ctx context.Context, agentID string) (*taskstore.Task, error) {
 	agent, err := s.getAgent(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.taskOfAgent(ctx, *agent)
+	return s.getTaskOfAgent(ctx, *agent)
 }
 
-// taskOfAgent is the task an agent works on, refusing an orchestrator, which works on none.
-func (s *ReviewService) taskOfAgent(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
+// getTaskOfAgent reads the task an agent works on, refusing an orchestrator, which works on none.
+func (s *ReviewService) getTaskOfAgent(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
 	if agent.TaskID == nil {
 		return nil, fmt.Errorf("%w: %q", errReviewNoTask, agent.Name)
 	}
@@ -481,7 +481,7 @@ func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
 ) (*ReleaseReviewResult, error) {
-	task, err := s.taskOf(ctx, params.AgentID)
+	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}

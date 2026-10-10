@@ -126,7 +126,7 @@ func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
 	params ListReviewThreadsParams,
 ) ([]ReviewThreadWithMessages, error) {
-	task, err := s.taskOf(ctx, params.AgentID)
+	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, errReviewThreadNoFile
 	}
 
-	task, err := s.taskOf(ctx, params.AgentID)
+	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -577,7 +577,7 @@ func (s *ReviewService) SetReviewFileViewed(
 		return nil, fmt.Errorf("%w: marking a file viewed", ErrReviewHumanOnly)
 	}
 
-	task, err := s.taskOf(ctx, params.AgentID)
+	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -609,7 +609,7 @@ func (s *ReviewService) ListReviewViewedFiles(
 		return nil, fmt.Errorf("%w: reading which files have been viewed", ErrReviewHumanOnly)
 	}
 
-	task, err := s.taskOf(ctx, params.AgentID)
+	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
