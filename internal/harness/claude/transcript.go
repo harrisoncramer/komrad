@@ -10,8 +10,8 @@ import (
 	"komrad/internal/harness"
 )
 
-// LogPath finds the JSONL log for a session id by globbing the id, so nothing here has to
-// reproduce Claude's directory-name encoding, and reuses the path while the log is still there.
+// LogPath finds the JSONL log for a session id, reusing the path last found while it is still
+// there and otherwise globbing the id so nothing has to reproduce Claude's directory-name encoding.
 func (h *Harness) LogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
