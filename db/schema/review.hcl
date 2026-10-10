@@ -83,12 +83,6 @@ table "review_rounds" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  foreign_key "review_rounds_agent_id_fkey" {
-    columns     = [column.engine_id, column.agent_id]
-    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
-    on_delete   = CASCADE
-    on_update   = NO_ACTION
-  }
   foreign_key "review_rounds_task_id_fkey" {
     columns     = [column.engine_id, column.task_id]
     ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
@@ -194,12 +188,6 @@ table "reviews" {
     columns     = [column.engine_id]
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
-    on_update   = NO_ACTION
-  }
-  foreign_key "reviews_agent_id_fkey" {
-    columns     = [column.engine_id, column.agent_id]
-    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
-    on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "reviews_task_id_fkey" {
@@ -391,12 +379,6 @@ table "review_threads" {
     columns     = [column.engine_id]
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
-    on_update   = NO_ACTION
-  }
-  foreign_key "review_threads_agent_id_fkey" {
-    columns     = [column.engine_id, column.agent_id]
-    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
-    on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_task_id_fkey" {
@@ -791,12 +773,6 @@ table "review_viewed_files" {
     columns     = [column.engine_id]
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
-    on_update   = NO_ACTION
-  }
-  foreign_key "review_viewed_files_agent_id_fkey" {
-    columns     = [column.engine_id, column.agent_id]
-    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
-    on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_viewed_files_task_id_fkey" {
