@@ -1042,7 +1042,7 @@ func TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGi
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assertIsDir(t, theirs)
-	assert.Contains(t, string(cleanup.Stderr), "is not named after agent-thief")
+	assert.Contains(t, string(cleanup.Stderr), "is not named agent-thief")
 	assert.NotEmpty(t, readBranchList(t, moved, "someone-else"), "someone else's branch survives")
 }
 
