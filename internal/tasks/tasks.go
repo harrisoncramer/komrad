@@ -94,7 +94,7 @@ type CreateForAgentParams struct {
 
 // CreateForAgent creates a task for an agent, under the slug given or one named after the agent.
 func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (*taskstore.Task, error) {
-	slug, err := freeSlug(ctx, tasks, params)
+	slug, err := pickSlug(ctx, tasks, params)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +117,8 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 	})
 }
 
-// freeSlug is the slug asked for, or the first numbered from the agent's name that no task has had.
-func freeSlug(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (string, error) {
+// pickSlug is the slug asked for, or the first numbered from the agent's name that no task has had.
+func pickSlug(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (string, error) {
 	if params.Slug != "" {
 		return params.Slug, nil
 	}

@@ -57,20 +57,10 @@ func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formAgent,
 		Build: func(m *model) (*huh.Form, []string) {
-			return taskAgentForm(fixedKeys(), values, task, workflow.Worktree.Enabled)
+			return taskAgentForm(fixedKeys(), values, task.Slug, workflow.Worktree.Enabled)
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit: holdSubmit(func(m *model) tea.Cmd {
-			return m.createCmd(createAgentParams{
-				Prompt:           values.Prompt,
-				Title:            values.Title,
-				Harness:          values.Harness,
-				Flags:            values.Flags,
-				ProvisionEnabled: worktreeOverride(values.Worktree),
-				WorkflowID:       workflow.ID,
-				Task:             task.ID,
-			})
-		}),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitAgentOnTask(workflow, task, *values) }),
 	}))
 }
 
@@ -189,6 +179,19 @@ func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) tea.C
 	})
 }
 
+// submitAgentOnTask starts another agent on a task.
+func (m *model) submitAgentOnTask(workflow panel.Workflow, task panel.Task, values agentFormValues) tea.Cmd {
+	return m.createCmd(createAgentParams{
+		Prompt:           values.Prompt,
+		Title:            values.Title,
+		Harness:          values.Harness,
+		Flags:            values.Flags,
+		ProvisionEnabled: worktreeOverride(values.Worktree),
+		WorkflowID:       workflow.ID,
+		Task:             task.ID,
+	})
+}
+
 // worktreeOverride is what the form says about the agent's directory: nil to follow the
 // workflow, false to keep the directory it was given.
 func worktreeOverride(selected string) *bool {
@@ -222,6 +225,9 @@ const (
 	withoutWorktree = "\x00none"
 )
 
+// maxTaskTitle is the longest title a task takes, which the goal it is made from is held to.
+const maxTaskTitle = 200
+
 type taskFormValues struct {
 	Goal     string
 	Slug     string
@@ -230,9 +236,6 @@ type taskFormValues struct {
 	Flags    string
 	Worktree string
 }
-
-// maxTaskTitle is the longest title a task takes, which the goal it is made from is held to.
-const maxTaskTitle = 200
 
 // newTaskForm asks for the goal and the brief, and asks about the worktree only in a workflow
 // that makes them.
@@ -265,9 +268,9 @@ func worktreeChoice(selected *string, worktree bool) []huh.Field {
 
 // taskAgentForm asks for the work another agent does on a task, and asks about the worktree only in
 // a workflow that makes them.
-func taskAgentForm(keys config.FixedKeys, values *agentFormValues, task panel.Task, worktree bool) (*huh.Form, []string) {
+func taskAgentForm(keys config.FixedKeys, values *agentFormValues, task string, worktree bool) (*huh.Form, []string) {
 	fields := []huh.Field{
-		textField("prompt").Title(fmt.Sprintf("On task %q", task.Slug)).
+		textField("prompt").Title(fmt.Sprintf("On task %q", task)).
 			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
