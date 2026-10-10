@@ -615,6 +615,83 @@ func TestCwdSyncerSyncReadsTheBaseOncePerPass(t *testing.T) {
 	}
 }
 
+// TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead covers a pass reusing the last probe and diff
+// stat while the head, the fingerprint and the base tip hold.
+func TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead(t *testing.T) {
+	tests := []struct {
+		name         string
+		change       func(trees *gittest.Trees, heads *gittest.Heads, cwd string)
+		wantProbed   int
+		wantMeasured int
+	}{
+		{
+			name:         "an unchanged worktree is read once",
+			change:       func(*gittest.Trees, *gittest.Heads, string) {},
+			wantProbed:   1,
+			wantMeasured: 1,
+		},
+		{
+			name: "a changed fingerprint is read again",
+			change: func(trees *gittest.Trees, _ *gittest.Heads, cwd string) {
+				trees.Fingerprints[cwd] = "fingerprint-two"
+			},
+			wantProbed:   2,
+			wantMeasured: 2,
+		},
+		{
+			name: "a moved head is read again",
+			change: func(_ *gittest.Trees, heads *gittest.Heads, cwd string) {
+				state := heads.States[cwd]
+				state.SHA = "head-two"
+				heads.States[cwd] = state
+			},
+			wantProbed:   2,
+			wantMeasured: 2,
+		},
+		{
+			name: "a moved base tip measures again on the tree already probed",
+			change: func(trees *gittest.Trees, _ *gittest.Heads, cwd string) {
+				trees.Tips[cwd] = "tip-two"
+			},
+			wantProbed:   1,
+			wantMeasured: 2,
+		},
+		{
+			name: "a worktree git cannot fingerprint is read every pass",
+			change: func(trees *gittest.Trees, _ *gittest.Heads, cwd string) {
+				delete(trees.Fingerprints, cwd)
+			},
+			wantProbed:   2,
+			wantMeasured: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newSyncFixture(t)
+			cwd := makeCheckout(t)
+			agent := fixture.seed(t, "a", cwd)
+			fixture.release(t, agent.ID, "snapshot-one")
+			trees := &gittest.Trees{
+				Probes:       map[string]string{cwd: "probed-tree"},
+				Tips:         map[string]string{cwd: "tip-one"},
+				Fingerprints: map[string]string{cwd: "fingerprint-one"},
+				DiffStats:    map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
+			}
+			heads := buildHeads(cwd, git.HeadState{Root: cwd, SHA: "head-one", SnapshotTree: "round-tree"})
+			syncer := fixture.newSyncer(newSyncerParams{Heads: heads, Trees: trees})
+
+			require.NoError(t, syncer.Sync(t.Context()))
+			tt.change(trees, heads, cwd)
+			require.NoError(t, syncer.Sync(t.Context()))
+
+			assert.Len(t, trees.Probed, tt.wantProbed)
+			assert.Len(t, trees.Measured, tt.wantMeasured)
+			assert.Equal(t, &taskstore.DiffStat{Added: 4, Removed: 1}, fixture.read(t, agent.ID).DiffStat)
+		})
+	}
+}
+
 // TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
 // first one the base holds whole.
 func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {

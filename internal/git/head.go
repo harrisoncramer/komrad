@@ -26,6 +26,8 @@ type HeadState struct {
 	RepositoryURL string
 	// Root is the top of the checkout.
 	Root string
+	// GitDir is the directory git keeps the checkout's HEAD and index in.
+	GitDir string
 	// SnapshotTree is the tree the named snapshot holds, empty when none was named or git cannot
 	// read it.
 	SnapshotTree string
@@ -83,6 +85,7 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 		Sequence:      readSequence(gitDir),
 		RepositoryURL: repositoryURL,
 		Root:          root,
+		GitDir:        gitDir,
 		SnapshotTree:  snapshotTree,
 	}, nil
 }
