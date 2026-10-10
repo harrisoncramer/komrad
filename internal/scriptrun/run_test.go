@@ -280,6 +280,20 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			},
 		},
 		{
+			name: "enabled names a recorded checkout named after neither the agent nor the task after the task",
+			worktree: workflowstore.WorktreeConfig{
+				Enabled:      true,
+				BaseBranch:   "develop",
+				CopyPaths:    []string{".env", "config/local.json"},
+				SymlinkPaths: []string{"node_modules"},
+			},
+			recordedCwd: "/worktrees/komrad",
+			wantKeys: []string{
+				"KOMRAD_WORKTREE_NAME",
+				"KOMRAD_WORKTREE_BRANCH",
+			},
+		},
+		{
 			name: "enabled keeps the name of a checkout recorded before tasks named them",
 			worktree: workflowstore.WorktreeConfig{
 				Enabled:      true,

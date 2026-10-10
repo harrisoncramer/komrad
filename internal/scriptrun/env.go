@@ -215,13 +215,10 @@ func adoptedBranchOf(task *taskstore.Task) string {
 }
 
 // getWorktreeName is the directory name and branch an agent's checkout is made under: its task's
-// id, or the name a checkout recorded before tasks named them keeps.
+// id, or its own id for a checkout recorded before tasks named them.
 func getWorktreeName(agent agentstore.Agent, task *taskstore.Task) (string, string) {
-	if task == nil {
+	if task == nil || filepath.Base(task.Checkout.Cwd) == agent.ID {
 		return agent.ID, "agent/" + agent.ID
-	}
-	if recorded := filepath.Base(task.Checkout.Cwd); task.Checkout.Cwd != "" && recorded != task.ID {
-		return recorded, "agent/" + recorded
 	}
 
 	return task.ID, "task/" + task.ID
