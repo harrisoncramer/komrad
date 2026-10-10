@@ -4,17 +4,24 @@ import "../styles/global.css";
 
 import Header from "../components/Header";
 import Search from "../components/Search.astro";
-import { SITE_TITLE } from "../consts";
-import { canonical, link } from "../site";
+import { HOME_TITLE, SITE_TITLE, SPLASH } from "../consts";
+import { canonical, link, media } from "../site";
 
 type Props = {
   title: string;
   description?: string;
   sidebar?: boolean;
+  noindex?: boolean;
+  structuredData?: Record<string, unknown>[];
 };
 
-const { title, description, sidebar } = Astro.props;
-const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
+const { title, description, sidebar, noindex, structuredData } = Astro.props;
+const pageTitle = title === HOME_TITLE ? title : `${title} | ${SITE_TITLE}`;
+const canonicalUrl = canonical(Astro.url.pathname);
+const imageUrl = new URL(media(SPLASH.name), Astro.site).href;
+const jsonLd =
+  structuredData &&
+  JSON.stringify({ "@context": "https://schema.org", "@graph": structuredData }).replace(/</g, "\\u003c");
 ---
 
 <html lang="en">
@@ -22,11 +29,31 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     {description && <meta name="description" content={description} />}
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#080d1a" />
     <link rel="icon" type="image/png" href={link("/favicon.png")} />
-    <link rel="canonical" href={canonical(Astro.url.pathname)} />
+    <link rel="apple-touch-icon" href={link("/favicon.png")} />
+    <link rel="canonical" href={canonicalUrl} />
     <title>{pageTitle}</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE_TITLE} />
+    <meta property="og:title" content={pageTitle} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={imageUrl} />
+    <meta property="og:image:width" content={String(SPLASH.width)} />
+    <meta property="og:image:height" content={String(SPLASH.height)} />
+    <meta property="og:image:alt" content={SPLASH.alt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    {description && <meta name="twitter:description" content={description} />}
+    <meta name="twitter:image" content={imageUrl} />
+    {jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd} />}
   </head>
   <body>
+    <a class="skip-link" href="#content">
+      Skip to content
+    </a>
     <Header client:load path={Astro.url.pathname}>
       <Search />
     </Header>
@@ -36,12 +63,12 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
         <aside class="sidebar">
           <slot name="sidebar" />
         </aside>
-        <main class="min-w-0 max-w-[900px] flex-1 py-6 lg:max-w-[924px] lg:pl-6">
+        <main id="content" class="min-w-0 max-w-[900px] flex-1 py-6 lg:max-w-[924px] lg:pl-6">
           <slot />
         </main>
       </div>
     ) : (
-      <main class="mx-auto max-w-[900px] px-6 py-6">
+      <main id="content" class="mx-auto max-w-[900px] px-6 py-6">
         <slot />
       </main>
     )}
@@ -64,5 +91,9 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     @apply sticky top-16 hidden h-[calc(100vh-4rem)] w-66 shrink-0 self-start overflow-y-auto overscroll-contain border-r border-app-background-medium pt-8 pr-6 pb-8 lg:block;
     scrollbar-width: none;
     mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent);
+  }
+
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-20 focus:rounded-sm focus:bg-app-background-light focus:px-3 focus:py-2 focus:text-app-white;
   }
 </style>

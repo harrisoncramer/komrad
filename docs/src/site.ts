@@ -1,4 +1,4 @@
-import { CANONICAL_VERSION } from "./consts";
+import { CANONICAL_VERSION, SECTIONS, SITE_TITLE } from "./consts";
 
 export const BUILD = {
   version: import.meta.env.PUBLIC_DOCS_VERSION || "dev",
@@ -18,3 +18,13 @@ export const link = (path: string) => {
 
 export const media = (name: string) =>
   `${import.meta.env.DEV ? "" : import.meta.env.SITE.replace(/\/$/, "")}/media/${name}`;
+
+export function breadcrumbs(pathname: string, title: string) {
+  const segments = pathname.slice(base.length).split("/").filter(Boolean);
+  const section = segments.length > 1 ? SECTIONS.find((entry) => entry.id === segments[0]) : undefined;
+  return [
+    { name: SITE_TITLE, item: canonical(link("/")) },
+    ...(section ? [{ name: section.title, item: canonical(link(`/${section.id}`)) }] : []),
+    { name: title, item: canonical(pathname) },
+  ];
+}

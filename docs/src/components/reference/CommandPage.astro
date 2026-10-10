@@ -25,7 +25,7 @@ const long =
 const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? []);
 ---
 
-<DocPage title={command.path} description={command.short}>
+<DocPage title={command.slug === "" ? "CLI" : command.path} description={command.short}>
   <Sidebar slot="sidebar" label="CLI" groups={cliSidebar(command.slug)} />
   {parent && (
     <p class="traits">

@@ -2,8 +2,8 @@
 import { Code } from "astro:components";
 import Layout from "../layouts/Layout.astro";
 import { codeTheme } from "../code-theme.mjs";
-import { SITE_DESCRIPTION, SITE_TITLE } from "../consts";
-import { link, media } from "../site";
+import { HOME_TITLE, REPO_URL, SITE_DESCRIPTION, SITE_TITLE, SPLASH } from "../consts";
+import { canonical, link, media } from "../site";
 
 const INSTALL = `gh release download tip --repo harrisoncramer/komrad --pattern komrad-darwin-arm64 --output ~/.local/bin/komrad
 chmod +x ~/.local/bin/komrad`;
@@ -13,9 +13,26 @@ const NEXT = [
   { href: link("/guides/how-it-works"), title: "How it works", text: "The engine, the panel, and what each one owns." },
   { href: link("/guides"), title: "Guides", text: "Everything else: agents, workflows, mail, reviews, hooks." },
 ];
+
+const homeUrl = canonical(link("/"));
+
+const STRUCTURED_DATA = [
+  { "@type": "WebSite", name: SITE_TITLE, url: homeUrl, description: SITE_DESCRIPTION },
+  {
+    "@type": "SoftwareApplication",
+    name: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: homeUrl,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "macOS, Linux",
+    license: `${REPO_URL}/blob/main/LICENSE`,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    sameAs: [REPO_URL],
+  },
+];
 ---
 
-<Layout title={SITE_TITLE} description={SITE_DESCRIPTION}>
+<Layout title={HOME_TITLE} description={SITE_DESCRIPTION} structuredData={STRUCTURED_DATA}>
   <article class="home">
     <h1>komrad</h1>
 
@@ -28,10 +45,10 @@ const NEXT = [
     </p>
     <p>Komrad runs on your machine by default, but can be deployed to a remote instance that you control.</p>
     <img
-      src={media("splash.png")}
-      alt="The komrad panel: a list of agents grouped by project beside a live Claude session."
-      width="1920"
-      height="930"
+      src={media(SPLASH.name)}
+      alt={SPLASH.alt}
+      width={SPLASH.width}
+      height={SPLASH.height}
       fetchpriority="high"
       decoding="async"
     />

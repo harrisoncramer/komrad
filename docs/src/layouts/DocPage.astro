@@ -1,6 +1,7 @@
 ---
 import Layout from "./Layout.astro";
-import { REPO_URL } from "../consts";
+import { REPO_URL, SITE_TITLE } from "../consts";
+import { breadcrumbs, canonical, link } from "../site";
 
 type Neighbour = { title: string; href: string };
 
@@ -13,9 +14,24 @@ type Props = {
 };
 
 const { title, description, filePath, prev, next } = Astro.props;
+
+const crumbs = breadcrumbs(Astro.url.pathname, title);
+const structuredData = [
+  {
+    "@type": "TechArticle",
+    headline: title,
+    description,
+    url: canonical(Astro.url.pathname),
+    isPartOf: { "@type": "WebSite", name: SITE_TITLE, url: canonical(link("/")) },
+  },
+  {
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb })),
+  },
+];
 ---
 
-<Layout title={title} description={description} sidebar={Astro.slots.has("sidebar")}>
+<Layout title={title} description={description} sidebar={Astro.slots.has("sidebar")} structuredData={structuredData}>
   <slot name="sidebar" slot="sidebar" />
   <article data-pagefind-body>
     <h1 class="title" data-pagefind-meta="title">
