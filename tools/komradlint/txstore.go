@@ -22,7 +22,7 @@ const (
 	bindMethod = "InTx"
 )
 
-// txScope is a function handed a transaction, spanning its parameters and body, which leaves out a method's receiver.
+// txScope is the span of a transaction's function from its parameters to the end of its body.
 type txScope struct {
 	start token.Pos
 	end   token.Pos
