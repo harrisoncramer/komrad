@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"komrad/internal/ui/layout"
-	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -15,6 +14,7 @@ const fallbackShell = "sh"
 
 var (
 	errNoAgentDir    = errors.New("the agent has no directory")
+	errNoTaskDir     = errors.New("the task has no checkout and its workflow no directory")
 	errNoEngineShell = errors.New("the engine is not reachable")
 )
 
@@ -41,9 +41,9 @@ func remoteTerminalContent(argv []string) layout.Content {
 	}
 }
 
-// openTerminal puts a shell in the pane below the stage, rooted at the agent's directory, and
-// hands the keyboard to the shell already there when it is rooted in the same place.
-func (m *model) openTerminal(agent panel.Agent) tea.Cmd {
+// openTerminal puts a shell in the pane below the stage, rooted at dir, and hands the keyboard to
+// the shell already there when it is rooted in the same place.
+func (m *model) openTerminal(dir string) tea.Cmd {
 	focus := func() tea.Cmd {
 		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
@@ -53,12 +53,12 @@ func (m *model) openTerminal(agent panel.Agent) tea.Cmd {
 	up := m.terminalDir != "" && m.frame.IsOpen(layout.RegionInfo)
 
 	// The shell already rooted there takes the keyboard.
-	if up && agent.Cwd == m.terminalDir {
+	if up && dir == m.terminalDir {
 		return focus()
 	}
 
 	// A directory on the engine cannot be checked from here.
-	if err := m.checkTerminalDir(agent.Cwd); err != nil {
+	if err := m.checkTerminalDir(dir); err != nil {
 		m.report("Could not open a terminal", err)
 
 		// The shell up still takes the keyboard.
@@ -69,7 +69,7 @@ func (m *model) openTerminal(agent panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	if !m.claimTerminal(agent.Cwd) {
+	if !m.claimTerminal(dir) {
 		return nil
 	}
 	m.stageTerminal()

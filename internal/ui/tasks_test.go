@@ -79,7 +79,7 @@ func TestTasksTree(t *testing.T) {
 		assert.NotContains(t, frame, "new workflow")
 	})
 
-	t.Run("a new agent from a task's menu", func(t *testing.T) {
+	t.Run("a new agent or a hand off from a task's menu", func(t *testing.T) {
 		tests := []struct {
 			name     string
 			task     *taskv1.Task
@@ -92,6 +92,12 @@ func TestTasksTree(t *testing.T) {
 			{
 				name:    "is not offered once the task's worktree was removed",
 				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login"), WorktreeRemoved: true},
+				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+				offered: false,
+			},
+			{
+				name:    "is not offered on an archived task with no checkout",
+				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", ArchivedAt: xptr.Ptr("2026-10-10T10:00:00Z")},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: false,
 			},
@@ -154,8 +160,10 @@ func TestTasksTree(t *testing.T) {
 
 				harness.press("k", "space")
 				menu := strings.Join(readStage(harness.readFrame()), "\n")
+				require.Contains(t, menu, "edit task")
 				if !tt.offered {
 					assert.NotContains(t, menu, "new agent")
+					assert.NotContains(t, menu, "hand off")
 
 					return
 				}

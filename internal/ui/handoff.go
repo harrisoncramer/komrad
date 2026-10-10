@@ -17,8 +17,13 @@ import (
 
 var errNoLiveWriter = errors.New("this task has no live writer, so start a new agent on it instead")
 
-// handOffEntry is the entry that hands a task from its live writer to a new one.
-func handOffEntry(m *model, task panel.Task) submenuEntry {
+// handOffEntries is the entry that hands a task from its live writer to a new one, and none when no
+// agent can start on the task.
+func handOffEntries(m *model, task panel.Task) []submenuEntry {
+	if !isTaskStartable(m, task) {
+		return nil
+	}
+
 	writer, ok := m.listing.findLiveWriter(task.ID)
 	entry := openEntry("hand off", m.keys.Menu.HandOff, func(m *model) tea.Cmd {
 		if !ok {
@@ -31,7 +36,7 @@ func handOffEntry(m *model, task panel.Task) submenuEntry {
 	})
 	entry.isOff = !ok
 
-	return entry
+	return []submenuEntry{entry}
 }
 
 type handOffValues struct {

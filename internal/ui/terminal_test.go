@@ -78,7 +78,7 @@ func TestTerminal(t *testing.T) {
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("picked on an agent whose worktree has gone it says why and keeps the shell", func(t *testing.T) {
+	t.Run("picked on a task whose worktree has gone it says why and keeps the shell", func(t *testing.T) {
 		dir := t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir), newShellAgent("a2", "/no/such/worktree"))
 
@@ -89,7 +89,7 @@ func TestTerminal(t *testing.T) {
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("an agent whose worktree has gone opens no shell", func(t *testing.T) {
+	t.Run("a task whose worktree has gone opens no shell", func(t *testing.T) {
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent("/no/such/worktree"))
 
 		harness.press("space", "t")
@@ -107,6 +107,33 @@ func TestTerminal(t *testing.T) {
 		harness.press("k", "space", "t", "j", "space", "t")
 
 		assert.Equal(t, []string{workflowDir, agentDir}, readShellDirs(harness))
+	})
+
+	t.Run("a task with no checkout opens the shell in its workflow's directory", func(t *testing.T) {
+		workflowDir := t.TempDir()
+		workflow := newLiveWorkflow("w1", "backend")
+		workflow.Cwd = workflowDir
+		agent := newStagedShellAgent(t.TempDir())
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(workflow, agent, newTaskOf(agent)))
+		harness.press("k", "space", "t")
+
+		assert.Equal(t, []string{workflowDir}, readShellDirs(harness))
+	})
+
+	t.Run("an archived task opens the shell in its worktree rather than where its agent ran", func(t *testing.T) {
+		dir := t.TempDir()
+		agent := newShellAgent("a1", t.TempDir())
+		agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+		task := newTaskOf(agent)
+		task.Cwd, task.ArchivedAt = xptr.Ptr(dir), xptr.Ptr(archivedAt)
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), agent, task))
+		harness.press("k", "space", "t")
+
+		assert.Equal(t, []string{dir}, readShellDirs(harness))
 	})
 
 	t.Run("a remote engine with no way to reach it opens no shell", func(t *testing.T) {
@@ -136,7 +163,7 @@ func TestTerminal(t *testing.T) {
 		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("an agent with no directory has it gray and opens no shell", func(t *testing.T) {
+	t.Run("a task and workflow with no directory have it gray and open no shell", func(t *testing.T) {
 		remote := panelHarnessParams{
 			engine:       engine.Remote{Destination: "ubuntu@engine"},
 			shellCommand: []string{"komrad", "shell", "--addr", "127.0.0.1:19001"},
@@ -191,7 +218,9 @@ func openTerminal(t *testing.T, params panelHarnessParams, agents ...*agentv1.Ag
 	for _, agent := range agents {
 		rows = append(rows, agent)
 		if agent.GetRole() != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
-			rows = append(rows, newTaskOf(agent))
+			task := newTaskOf(agent)
+			task.Cwd = xptr.Ptr(agent.GetCwd())
+			rows = append(rows, task)
 		}
 	}
 	harness.watch(buildSnapshot(rows...))

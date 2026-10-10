@@ -40,8 +40,8 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 		newAgentEntries(m, row.workflow, task),
 		[]submenuEntry{
 			openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
-			handOffEntry(m, task),
 		},
+		handOffEntries(m, task),
 		a.snoozeEntries(m, lead),
 		a.editEntries(m, writer),
 	)
@@ -54,6 +54,8 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			return taskReviewEntry(m, lead.Agent)
 		case slices.Equal(entry.keys, m.keys.Menu.Logs):
 			return taskLogsEntry(m, task)
+		case slices.Equal(entry.keys, m.keys.Menu.Terminal):
+			return taskTerminalEntry(m, taskDir(task, row.workflow))
 		case slices.Equal(entry.keys, m.keys.Menu.Jump):
 			return nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, row))
 		}
@@ -67,16 +69,26 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	return withNested(menu, "archive", m.keys.Menu.Archive, tasksArchiveMenu(m, tasks, false))
 }
 
-// newAgentEntries is the entry that starts an agent on a task, and none once its worktree is gone
-// or the task has left the listing, as one being deleted does.
+// newAgentEntries is the entry that starts an agent on a task, and none when no agent can start on it.
 func newAgentEntries(m *model, workflow panel.Workflow, task panel.Task) []submenuEntry {
-	if _, listed := m.listing.tasks[task.ID]; !listed || task.WorktreeRemoved {
+	if !isTaskStartable(m, task) {
 		return nil
 	}
 
 	return []submenuEntry{openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd {
 		return openNewAgentOnTask(m, workflow, task)
 	})}
+}
+
+// isTaskStartable reports whether an agent can start on a task, which it cannot once the task's
+// worktree is gone, once the task has left the listing as one being deleted does, or once it is
+// archived with no checkout to join.
+func isTaskStartable(m *model, task panel.Task) bool {
+	if _, listed := m.listing.tasks[task.ID]; !listed {
+		return false
+	}
+
+	return !task.WorktreeRemoved && (task.ArchivedAt == nil || task.Cwd != "")
 }
 
 // taskJumpMenu is the jump menu of the agent a task wears, its documents entry landing on the task's.
@@ -102,6 +114,29 @@ func taskLogsEntry(m *model, task panel.Task) submenuEntry {
 
 		return m.enter(screenLogs, screenTarget{taskID: task.ID, openedFrom: screenAgents})
 	})
+}
+
+// taskTerminalEntry opens a shell in a task's directory, off when it has none.
+func taskTerminalEntry(m *model, dir string) submenuEntry {
+	entry := openEntry("terminal", m.keys.Menu.Terminal, func(m *model) tea.Cmd {
+		if dir == "" {
+			return m.refuseSubpage("Could not open a terminal", errNoTaskDir)
+		}
+
+		return tea.Batch(m.closeForm(), m.openTerminal(dir))
+	})
+	entry.isOff = dir == ""
+
+	return entry
+}
+
+// taskDir is the task's worktree, or its workflow's directory when it has none.
+func taskDir(task panel.Task, workflow panel.Workflow) string {
+	if task.Cwd != "" && !task.WorktreeRemoved {
+		return task.Cwd
+	}
+
+	return workflow.Cwd
 }
 
 // taskReviewEntry opens the review of a task through the agent it wears, archived or not.
