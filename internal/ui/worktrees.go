@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
-	taskv1 "komrad/proto/gen/task/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 )
 
@@ -74,24 +73,24 @@ func (i worktreeItem) isMerged() bool {
 // worktreeHolders is every agent indexed by what ties it to a directory.
 type worktreeHolders struct {
 	byID map[string]panel.Agent
-	// byCheckout is the top-level agent working in each task checkout, by directory.
-	byCheckout map[string]panel.Agent
-	byCwd      map[string][]panel.Agent
+	// byTask is the top-level agent spawned to work each task, by the task's id.
+	byTask map[string]panel.Agent
+	byCwd  map[string][]panel.Agent
 }
 
 // worktreeItemsFrom renders every directory in the world with the agents that answer for it.
-func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks map[string]*taskv1.Task) []worktreeItem {
+func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow) []worktreeItem {
 	holders := worktreeHolders{
-		byID:       make(map[string]panel.Agent, len(agents)),
-		byCheckout: map[string]panel.Agent{},
-		byCwd:      map[string][]panel.Agent{},
+		byID:   make(map[string]panel.Agent, len(agents)),
+		byTask: map[string]panel.Agent{},
+		byCwd:  map[string][]panel.Agent{},
 	}
 	for _, row := range agents {
 		holders.byID[row.Agent.ID] = row.Agent
 		cwd := filepath.Clean(row.Agent.Cwd)
 		holders.byCwd[cwd] = append(holders.byCwd[cwd], row.Agent)
-		if task, ok := tasks[row.Agent.TaskID]; ok && row.Agent.ParentAgentID == nil && task.Cwd != nil && filepath.Clean(task.GetCwd()) == cwd {
-			holders.byCheckout[cwd] = row.Agent
+		if row.Agent.ParentAgentID == nil && row.Agent.TaskID != "" {
+			holders.byTask[row.Agent.TaskID] = row.Agent
 		}
 	}
 
@@ -129,9 +128,10 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, holders workt
 	}
 
 	var owner *panel.Agent
-	agent, ok := holders.byID[filepath.Base(item.dir)]
+	name := filepath.Base(item.dir)
+	agent, ok := holders.byID[name]
 	if !ok {
-		agent, ok = holders.byCheckout[item.dir]
+		agent, ok = holders.byTask[name]
 	}
 	if ok {
 		owner = &agent

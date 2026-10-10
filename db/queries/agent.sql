@@ -1257,8 +1257,8 @@ SELECT
     a.workflow_id,
     COALESCE(t.adopted_branch IS NOT NULL
         AND t.cwd = a.cwd, FALSE)::boolean AS adopted,
-    COALESCE(a.parent_agent_id IS NULL
-        AND t.cwd = a.cwd, FALSE)::boolean AS holds_checkout
+    a.task_id,
+    a.parent_agent_id
 FROM
     agents a
     LEFT JOIN tasks t ON t.id = a.task_id;

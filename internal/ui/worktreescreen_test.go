@@ -502,15 +502,14 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Empty(t, readRecordField(frame, "base"))
 	})
 
-	t.Run("a directory named after its task names the agent holding the task's checkout", func(t *testing.T) {
+	t.Run("a directory named after its task names the agent spawned to work the task", func(t *testing.T) {
 		t.Parallel()
 
 		writer := newAgent("writer-id", "writer", "w1")
-		writer.Cwd = "/trees/task-writer-id"
+		writer.Cwd = "/home/h/komrad"
 		task := newTaskOf(writer)
-		task.Cwd = xptr.Ptr(writer.GetCwd())
 		reviewer := newAgent("reviewer-id", "reviewer", "w1")
-		reviewer.Cwd = writer.GetCwd()
+		reviewer.Cwd = "/trees/" + task.GetId()
 		reviewer.TaskId = writer.TaskId
 		reviewer.ParentAgentId = xptr.Ptr(writer.GetId())
 
@@ -520,7 +519,7 @@ func TestWorktreesRecord(t *testing.T) {
 			reviewer,
 			task,
 			&worktreev1.WatchedWorktree{
-				Dir:      writer.GetCwd(),
+				Dir:      reviewer.GetCwd(),
 				RepoDir:  "/home/h/komrad",
 				Branch:   "task/" + task.GetId(),
 				Readable: true,

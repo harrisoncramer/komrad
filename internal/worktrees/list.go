@@ -332,7 +332,7 @@ func owned(dir string, owners []agentstore.AgentDir) (*Agent, []Agent) {
 	name := filepath.Base(dir)
 	for _, row := range owners {
 		switch {
-		case row.ID == name, row.HoldsCheckout && filepath.Clean(row.Cwd) == dir:
+		case row.ID == name, row.LedTaskID == name:
 			owner = describe(row)
 		case filepath.Clean(row.Cwd) == dir:
 			occupants = append(occupants, *describe(row))

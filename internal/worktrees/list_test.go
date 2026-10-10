@@ -10,7 +10,7 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	taskstore "komrad/internal/store/task"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/storetest"
@@ -121,30 +121,37 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	assert.Equal(t, "zed-reviewer", listing.Worktrees[0].Occupants[1].Name)
 }
 
-// TestListOwnsADirectoryByItsTasksCheckout covers a directory not named after any agent being
-// owned by the top-level agent whose task records it as its checkout.
-func TestListOwnsADirectoryByItsTasksCheckout(t *testing.T) {
+// TestListOwnsADirectoryNamedAfterATask covers a directory named after a task being owned by the
+// top-level agent spawned to work it.
+func TestListOwnsADirectoryNamedAfterATask(t *testing.T) {
 	tests := []struct {
 		name       string
-		recorded   bool
+		elsewhere  bool
+		inside     bool
 		child      bool
 		wantOwner  bool
 		wantOthers int
 	}{
 		{
-			name:       "an agent in a directory its task never recorded only occupies it",
+			name:       "an agent in a directory named after another task only occupies it",
+			elsewhere:  true,
+			inside:     true,
 			wantOthers: 1,
 		},
 		{
-			name:       "a child working in its task's checkout only occupies it",
-			recorded:   true,
+			name:       "a child working in its task's directory only occupies it",
+			inside:     true,
 			child:      true,
 			wantOwner:  true,
 			wantOthers: 1,
 		},
 		{
-			name:      "the agent holding its task's checkout owns it",
-			recorded:  true,
+			name:      "the agent leading a task owns its directory before it works there",
+			wantOwner: true,
+		},
+		{
+			name:      "the agent leading a task owns the directory it works in",
+			inside:    true,
 			wantOwner: true,
 		},
 	}
@@ -152,18 +159,27 @@ func TestListOwnsADirectoryByItsTasksCheckout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newFixture(t)
-			dir := fixture.cut(t)
+			taskID, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
+			require.NoError(t, err)
+
+			named := *taskID
+			if tt.elsewhere {
+				other, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
+				require.NoError(t, err)
+				named = *other
+			}
+			dir := fixture.cutAs(t, named, "task/"+named)
+
+			cwd := fixture.repo
+			if tt.inside {
+				cwd = dir
+			}
 			writer := fixture.stores.SeedAgent(t, agentstore.Agent{
 				Name:       "writer",
-				Cwd:        dir,
+				Cwd:        cwd,
 				WorkflowID: fixture.workflowID,
+				TaskID:     taskID,
 			})
-			if tt.recorded {
-				claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *writer.TaskID})
-				require.NoError(t, err)
-				require.True(t, claimed)
-				require.NoError(t, fixture.stores.Tasks.SetCheckoutDir(t.Context(), *writer.TaskID, dir))
-			}
 			if tt.child {
 				fixture.stores.SeedAgent(t, agentstore.Agent{
 					Name:          "reviewer",
@@ -575,10 +591,17 @@ func (f *worktreeFixture) cut(t *testing.T) string {
 	id, err := store.NewID()
 	require.NoError(t, err)
 
-	dir := filepath.Join(f.shared, id)
-	gitdir := filepath.Join(f.repo, ".git", "worktrees", id)
+	return f.cutAs(t, id, "agent/"+id)
+}
+
+// cutAs lays out a worktree under a name, with HEAD on a branch.
+func (f *worktreeFixture) cutAs(t *testing.T, name, branch string) string {
+	t.Helper()
+
+	dir := filepath.Join(f.shared, name)
+	gitdir := filepath.Join(f.repo, ".git", "worktrees", name)
 	write(t, dir, ".git", "gitdir: "+gitdir+"\n")
-	write(t, gitdir, "HEAD", "ref: refs/heads/agent/"+id+"\n")
+	write(t, gitdir, "HEAD", "ref: refs/heads/"+branch+"\n")
 	write(t, dir, "own.go", "package main\n")
 
 	return dir

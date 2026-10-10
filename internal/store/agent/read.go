@@ -38,8 +38,8 @@ type AgentDir struct {
 	WorkflowID     string
 	// Adopted is whether the directory is its task's checkout and that checkout was put on a branch komrad did not make.
 	Adopted bool
-	// HoldsCheckout is whether the directory is its task's checkout and the agent is not a child working in it.
-	HoldsCheckout bool
+	// LedTaskID is the task the agent was spawned to work, empty for a child or an agent with none.
+	LedTaskID string
 }
 
 // ListDirs returns the directory every agent holds, archived ones included.
@@ -60,7 +60,7 @@ func (s *AgentStore) ListDirs(ctx context.Context) ([]AgentDir, error) {
 			DeletingAt:     row.DeletingAt,
 			WorkflowID:     row.WorkflowID,
 			Adopted:        row.Adopted,
-			HoldsCheckout:  row.HoldsCheckout,
+			LedTaskID:      ledTaskIDOf(row),
 		}
 	}), nil
 }
@@ -271,4 +271,12 @@ func (s *AgentStore) GetWorkflowOrchestrator(ctx context.Context, workflowID str
 	}
 
 	return s.GetByID(ctx, id)
+}
+
+func ledTaskIDOf(row *models.ListAgentDirsRow) string {
+	if row.ParentAgentID != nil {
+		return ""
+	}
+
+	return xptr.Deref(row.TaskID)
 }
