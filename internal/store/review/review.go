@@ -1,4 +1,4 @@
-// Package review stores the conversations pinned to the lines of an agent's diff and the
+// Package review stores the conversations pinned to the lines of a task's diff and the
 // messages in them.
 package review
 
@@ -26,7 +26,7 @@ const (
 	AuthorForge AuthorKind = AuthorKind(models.ReviewAuthorKindForge)
 )
 
-// Thread is one conversation pinned to a place in an agent's diff.
+// Thread is one conversation pinned to a place in a task's diff.
 type Thread struct {
 	ID     string
 	TaskID string

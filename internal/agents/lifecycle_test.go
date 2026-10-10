@@ -743,10 +743,8 @@ func TestRestoreCeiling(t *testing.T) {
 	require.NoError(t, err, "archiving one makes room again")
 }
 
-// TestDeletingAnAgentLeavesAnotherAgentsRoundHeld is what the pinned snapshot dates cost: two
-// agents on one base whose worktrees hash the same produce the same commit, so the ref holding a
-// round has to be named per agent or either of them deleting pulls the other's out from under it.
-func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
+// TestDeletingAnAgentLeavesAnotherTasksRoundHeld pins that two tasks whose worktrees hash the same each keep their own round ref.
+func TestDeletingAnAgentLeavesAnotherTasksRoundHeld(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
