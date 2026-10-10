@@ -478,13 +478,14 @@ func TestListTaskLogSources(t *testing.T) {
 			wantCode: connect.CodeInternal,
 		},
 		{
-			name: "every run on the task is listed under the agent that ran it",
+			name: "every run on the task is listed under the agent that ran it, a failed one marked",
 			runs: []runstore.Run{
 				{
 					AgentID:   "a2",
 					Trigger:   "pre-launch",
 					Script:    "setup",
 					LogNumber: xptr.Ptr[int32](4),
+					Failure:   "exit status 1",
 				},
 				{
 					AgentID: "a1",
@@ -504,6 +505,7 @@ func TestListTaskLogSources(t *testing.T) {
 					Name:    "004 pre-launch setup",
 					Run:     xptr.Ptr[int32](4),
 					AgentId: "a2",
+					Failed:  true,
 				},
 				{
 					Id:      "007-task.pre-open-setup.log",

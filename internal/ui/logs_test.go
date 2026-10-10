@@ -930,7 +930,7 @@ func TestLogsTask(t *testing.T) {
 	t.Run("opening a task's logs marks its runs read", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openTaskLogs(t)
+		harness := openTaskLogs(t, taskRunSources())
 
 		harness.assertSentTo(taskv1connect.TaskServiceMarkRunsReadProcedure, &taskv1.MarkTaskRunsReadRequest{Id: "t1"})
 	})
@@ -938,7 +938,7 @@ func TestLogsTask(t *testing.T) {
 	t.Run("a task's logs list the runs of each agent on it under its slug", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openTaskLogs(t)
+		harness := openTaskLogs(t, taskRunSources())
 
 		frame := harness.readFrame()
 		assert.Equal(t, logsScreen, harness.readScreen())
@@ -949,10 +949,21 @@ func TestLogsTask(t *testing.T) {
 		harness.assertSentTo(logv1connect.LogServiceListTaskLogSourcesProcedure, &logv1.ListTaskLogSourcesRequest{TaskId: "t1"})
 	})
 
+	t.Run("a task's logs land on the run that failed without claiming the agent's runs", func(t *testing.T) {
+		t.Parallel()
+
+		sources := taskRunSources()
+		sources[1].Failed = true
+		harness := openTaskLogs(t, sources)
+
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "author 001 pre-launch setup \uf489")
+		harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure)
+	})
+
 	t.Run("a run of the same name is read from the agent that ran it", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openTaskLogs(t)
+		harness := openTaskLogs(t, taskRunSources())
 		harness.press("j", rest)
 
 		assert.Contains(t, readStageText(harness.readFrame()), "launched the author")
@@ -963,26 +974,31 @@ func TestLogsTask(t *testing.T) {
 	})
 }
 
-// openTaskLogs opens the logs of task fix-login from its row's menu, over a run of each agent on it.
-func openTaskLogs(t *testing.T) *panelHarness {
+// taskRunSources is a run of each agent on task fix-login, the follow-up's newest.
+func taskRunSources() []*logv1.LogSource {
+	return []*logv1.LogSource{
+		{
+			Id:      "001-task.pre-open-setup.log",
+			Name:    "001 task.pre-open setup",
+			Run:     xptr.Ptr[int32](1),
+			AgentId: "a2",
+		},
+		{
+			Id:      "001-pre-launch-setup.log",
+			Name:    "001 pre-launch setup",
+			Run:     xptr.Ptr[int32](1),
+			AgentId: "a1",
+		},
+	}
+}
+
+// openTaskLogs opens the logs of task fix-login from its row's menu, over the sources given.
+func openTaskLogs(t *testing.T, sources []*logv1.LogSource) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, buildTasks()...)
 	harness.answer(logv1connect.LogServiceListTaskLogSourcesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&logv1.ListTaskLogSourcesResponse{Sources: []*logv1.LogSource{
-			{
-				Id:      "001-task.pre-open-setup.log",
-				Name:    "001 task.pre-open setup",
-				Run:     xptr.Ptr[int32](1),
-				AgentId: "a2",
-			},
-			{
-				Id:      "001-pre-launch-setup.log",
-				Name:    "001 pre-launch setup",
-				Run:     xptr.Ptr[int32](1),
-				AgentId: "a1",
-			},
-		}}), nil
+		return connect.NewResponse(&logv1.ListTaskLogSourcesResponse{Sources: sources}), nil
 	})
 	harness.answer(logv1connect.LogServiceReadAgentLogsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		read, _ := req.Any().(*logv1.ReadAgentLogsRequest)

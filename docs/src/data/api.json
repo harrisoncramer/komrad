@@ -7554,6 +7554,16 @@
           "oneof": "",
           "rules": [],
           "description": "The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log."
+        },
+        {
+          "name": "failed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the script run failed, set only on a task's log sources."
         }
       ]
     },

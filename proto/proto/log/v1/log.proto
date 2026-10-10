@@ -98,6 +98,8 @@ message LogSource {
   optional int32 run = 3;
   // The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log.
   string agent_id = 4;
+  // Whether the script run failed, set only on a task's log sources.
+  bool failed = 5;
 }
 
 message ListAgentLogSourcesRequest {

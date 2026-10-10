@@ -192,7 +192,10 @@ func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1.ListTaskLog
 
 	return &logv1.ListTaskLogSourcesResponse{
 		Sources: xslice.Map(logged, func(run runstore.Run) *logv1.LogSource {
-			return renderRunSource(run.AgentID, int(*run.LogNumber), run.Trigger, run.Script)
+			source := renderRunSource(run.AgentID, int(*run.LogNumber), run.Trigger, run.Script)
+			source.Failed = run.Failure != ""
+
+			return source
 		}),
 	}, nil
 }

@@ -268,9 +268,10 @@ func (l *logsScreen) switchSource(m *model) tea.Cmd {
 	return tea.Batch(l.restart(m), l.markFailedRunReadCmd(m, row))
 }
 
-// markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened.
+// markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened, leaving a
+// task's to the screen opening.
 func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
-	if !row.failed {
+	if !row.failed || l.taskID != "" {
 		return nil
 	}
 
@@ -396,7 +397,7 @@ func (l *logsScreen) rows(m *model) []logSourceRow {
 			return logSourceRow{
 				source: source,
 				name:   l.nameSource(m, source),
-				failed: source.Run != nil && failedRun != nil && *source.Run == *failedRun,
+				failed: source.GetFailed() || (source.Run != nil && failedRun != nil && *source.Run == *failedRun),
 			}
 		}),
 		depth: func(logSourceRow) int { return 0 },

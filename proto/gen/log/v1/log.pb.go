@@ -510,7 +510,9 @@ type LogSource struct {
 	// The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log.
 	Run *int32 `protobuf:"varint,3,opt,name=run,proto3,oneof" json:"run,omitempty"`
 	// The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log.
-	AgentId       string `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	AgentId string `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Whether the script run failed, set only on a task's log sources.
+	Failed        bool `protobuf:"varint,5,opt,name=failed,proto3" json:"failed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -571,6 +573,13 @@ func (x *LogSource) GetAgentId() string {
 		return x.AgentId
 	}
 	return ""
+}
+
+func (x *LogSource) GetFailed() bool {
+	if x != nil {
+		return x.Failed
+	}
+	return false
 }
 
 type ListAgentLogSourcesRequest struct {
@@ -791,12 +800,13 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x05lines\x18\x01 \x03(\tR\x05lines\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12\x14\n" +
 	"\x05reset\x18\x03 \x01(\bR\x05reset\x12\x12\n" +
-	"\x04more\x18\x04 \x01(\bR\x04more\"i\n" +
+	"\x04more\x18\x04 \x01(\bR\x04more\"\x81\x01\n" +
 	"\tLogSource\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x15\n" +
 	"\x03run\x18\x03 \x01(\x05H\x00R\x03run\x88\x01\x01\x12\x19\n" +
-	"\bagent_id\x18\x04 \x01(\tR\aagentIdB\x06\n" +
+	"\bagent_id\x18\x04 \x01(\tR\aagentId\x12\x16\n" +
+	"\x06failed\x18\x05 \x01(\bR\x06failedB\x06\n" +
 	"\x04_run\"@\n" +
 	"\x1aListAgentLogSourcesRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"J\n" +
