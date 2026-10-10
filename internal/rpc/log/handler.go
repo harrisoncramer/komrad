@@ -4,7 +4,6 @@ package log
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -17,6 +16,9 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
+
+	runstore "komrad/internal/store/run"
+	workflowstore "komrad/internal/store/workflow"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -46,14 +48,23 @@ type runReader interface {
 	Since(ctx context.Context, run logread.Run, offset int64, query logread.Query) (*logread.Window, error)
 }
 
-type Handler struct {
-	log  logReader
-	runs runReader
+type taskRunLister interface {
+	ListRuns(ctx context.Context, taskID string) ([]runstore.Run, error)
 }
 
-// NewHandler constructs the handler over the service log and the script runs agents recorded.
-func NewHandler(log logReader, runs runReader) *Handler {
-	return &Handler{log: log, runs: runs}
+type Handler struct {
+	log      logReader
+	runs     runReader
+	taskRuns taskRunLister
+}
+
+// NewHandler constructs the handler over the service log, the script runs agents recorded, and the record of which ran on each task.
+func NewHandler(log logReader, runs runReader, taskRuns taskRunLister) *Handler {
+	return &Handler{
+		log:      log,
+		runs:     runs,
+		taskRuns: taskRuns,
+	}
 }
 
 // GetLogLines is every line written under one trace id.
@@ -156,19 +167,64 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 	}, nil
 }
 
-// ListAgentLogSources is the service log and then each script run the agent recorded, newest first.
+// ListAgentLogSources is the service log and then each script run of the agent's own moments it recorded, newest first.
 func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1.ListAgentLogSourcesRequest) (*logv1.ListAgentLogSourcesResponse, *fail.Error) {
-	runs := xslice.Map(s.runs.List(req.GetAgentId()), func(run config.RunLog) *logv1.LogSource {
-		return &logv1.LogSource{
-			Id:   filepath.Base(run.Path),
-			Name: fmt.Sprintf("%03d %s %s", run.Number, run.Trigger, run.Script),
-			Run:  xptr.Ptr(int32(run.Number)),
-		}
+	owned := xslice.Filter(s.runs.List(req.GetAgentId()), func(run config.RunLog) bool {
+		return !workflowstore.IsTaskEvent(run.Trigger)
+	})
+	runs := xslice.Map(owned, func(run config.RunLog) *logv1.LogSource {
+		return renderRunSource(renderRunSourceParams{
+			agentID: req.GetAgentId(),
+			number:  run.Number,
+			trigger: run.Trigger,
+			script:  run.Script,
+		})
 	})
 
 	return &logv1.ListAgentLogSourcesResponse{
 		Sources: slices.Concat([]*logv1.LogSource{{Id: serviceSource, Name: serviceSource}}, runs),
 	}, nil
+}
+
+// ListTaskLogSources is each script run recorded on the task, by any agent on it, newest first.
+func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1.ListTaskLogSourcesRequest) (*logv1.ListTaskLogSourcesResponse, *fail.Error) {
+	runs, err := s.taskRuns.ListRuns(ctx, req.GetTaskId())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the task's runs")
+	}
+
+	logged := xslice.Filter(runs, func(run runstore.Run) bool { return run.LogNumber != nil })
+
+	return &logv1.ListTaskLogSourcesResponse{
+		Sources: xslice.Map(logged, func(run runstore.Run) *logv1.LogSource {
+			source := renderRunSource(renderRunSourceParams{
+				agentID: run.AgentID,
+				number:  int(*run.LogNumber),
+				trigger: run.Trigger,
+				script:  run.Script,
+			})
+			source.Failed = run.Failure != ""
+
+			return source
+		}),
+	}, nil
+}
+
+type renderRunSourceParams struct {
+	agentID string
+	number  int
+	trigger string
+	script  string
+}
+
+// renderRunSource is the source one script run an agent recorded is read from.
+func renderRunSource(params renderRunSourceParams) *logv1.LogSource {
+	return &logv1.LogSource{
+		Id:      config.RunLogName(params.number, params.trigger, params.script),
+		Name:    fmt.Sprintf("%03d %s %s", params.number, params.trigger, params.script),
+		Run:     xptr.Ptr(int32(params.number)),
+		AgentId: params.agentID,
+	}
 }
 
 // plain leaves out the fields the line already carries on its own, and anything a Struct

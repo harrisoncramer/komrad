@@ -659,7 +659,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness.press("j")
 		harness.fireTimers()
 		require.Equal(t, "%9", harness.panel.ReadGuestPane())
-		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("pre-archive hook refused")))
+		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agent.pre-archive hook refused")))
 
 		harness.press("space", "a", "a")
 
@@ -869,20 +869,20 @@ func TestFormsWorkflowSections(t *testing.T) {
 // TestFormsWorkflowHooks covers the hook pickers offering what the hooks directory holds.
 func TestFormsWorkflowHooks(t *testing.T) {
 	every := []*workflowv1.WorkflowHook{
-		{Event: config.HookPreLaunch, Script: "install-deps"},
-		{Event: config.HookPostLaunch, Script: "announce"},
-		{Event: config.HookPreResume, Script: "warm-up"},
-		{Event: config.HookPostResume, Script: "announce-back"},
-		{Event: config.HookPreArchive, Script: "check-in"},
-		{Event: config.HookPostArchive, Script: "give-back-the-slot"},
-		{Event: config.HookPreRestore, Script: "lock"},
-		{Event: config.HookPostRestore, Script: "unlock"},
-		{Event: config.HookPreDelete, Script: "take-the-stack-down"},
-		{Event: config.HookPostDelete, Script: "say-goodbye"},
+		{Event: config.HookAgentPreLaunch, Script: "install-deps"},
+		{Event: config.HookAgentPostLaunch, Script: "announce"},
+		{Event: config.HookAgentPreResume, Script: "warm-up"},
+		{Event: config.HookAgentPostResume, Script: "announce-back"},
+		{Event: config.HookAgentPreArchive, Script: "check-in"},
+		{Event: config.HookAgentPostArchive, Script: "give-back-the-slot"},
+		{Event: config.HookAgentPreRestore, Script: "lock"},
+		{Event: config.HookAgentPostRestore, Script: "unlock"},
+		{Event: config.HookAgentPreDelete, Script: "take-the-stack-down"},
+		{Event: config.HookAgentPostDelete, Script: "say-goodbye"},
 	}
 
 	t.Run("a picker offers every hook and opens on the one the workflow names", func(t *testing.T) {
-		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookPreLaunch, Script: "copy-env"}}, "install-deps", "copy-env")
+		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "copy-env"}}, "install-deps", "copy-env")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "install-deps")
@@ -901,7 +901,7 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	})
 
 	t.Run("a hook the directory no longer holds is still offered", func(t *testing.T) {
-		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookPreLaunch, Script: "copy-env"}}, "install-deps")
+		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "copy-env"}}, "install-deps")
 
 		assert.Contains(t, harness.readFrame(), "missing")
 	})
@@ -923,13 +923,13 @@ func TestFormsWorkflowHooks(t *testing.T) {
 
 	t.Run("a moment holding two keeps the one that ran first", func(t *testing.T) {
 		harness := openHookForm(t, []*workflowv1.WorkflowHook{
-			{Event: config.HookPreLaunch, Script: "install-deps"},
-			{Event: config.HookPreLaunch, Script: "copy-env"},
+			{Event: config.HookAgentPreLaunch, Script: "install-deps"},
+			{Event: config.HookAgentPreLaunch, Script: "copy-env"},
 		}, "install-deps", "copy-env")
 
 		harness.press("enter")
 
-		assertSentHooks(t, harness, []*workflowv1.WorkflowHook{{Event: config.HookPreLaunch, Script: "install-deps"}})
+		assertSentHooks(t, harness, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "install-deps"}})
 	})
 }
 

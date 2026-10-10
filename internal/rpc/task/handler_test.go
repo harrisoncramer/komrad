@@ -37,6 +37,7 @@ type fakeTasks struct {
 	updated  []tasks.UpdateTaskParams
 	archived []string
 	deleted  [][]string
+	marked   []string
 }
 
 // CreateTask records the params and answers them as stored unless err refuses it.
@@ -95,6 +96,13 @@ func (f *fakeTasks) ArchiveTask(_ context.Context, ref string) error {
 // DeleteTasks records the refs and answers err.
 func (f *fakeTasks) DeleteTasks(_ context.Context, refs []string) error {
 	f.deleted = append(f.deleted, refs)
+
+	return f.err
+}
+
+// MarkTaskRunsRead records the task and answers err.
+func (f *fakeTasks) MarkTaskRunsRead(_ context.Context, taskID string) error {
+	f.marked = append(f.marked, taskID)
 
 	return f.err
 }
@@ -281,6 +289,10 @@ func TestTaskCallsPassDown(t *testing.T) {
 	_, err = svc.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{taskID, "fix-logout"}}))
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{taskID, "fix-logout"}}, fake.deleted)
+
+	_, err = svc.MarkTaskRunsRead(ctx, connect.NewRequest(&taskv1.MarkTaskRunsReadRequest{Id: taskID}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{taskID}, fake.marked)
 }
 
 // TestSetTaskNotesPassesDown pins that a notes write hands down the caller and the version it read,

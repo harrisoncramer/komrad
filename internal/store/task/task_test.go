@@ -224,7 +224,7 @@ func TestArchive(t *testing.T) {
 	assert.Equal(t, first.ArchivedAt, second.ArchivedAt, "a second archive keeps the first stamp")
 }
 
-// TestArchiveIdle pins that only the named tasks no live agent works on are archived.
+// TestArchiveIdle pins that only the named tasks no live agent works on are archived, and are the ones it returns.
 func TestArchiveIdle(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
@@ -237,7 +237,9 @@ func TestArchiveIdle(t *testing.T) {
 	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "empty"})
 	unnamed := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "unnamed"})
 
-	require.NoError(t, stores.Tasks.ArchiveIdle(ctx, []string{busy.ID, done.ID, empty.ID}))
+	archived, err := stores.Tasks.ArchiveIdle(ctx, []string{busy.ID, done.ID, empty.ID})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{done.ID, empty.ID}, xslice.Map(archived, func(task taskstore.Task) string { return task.ID }))
 
 	tests := []struct {
 		name         string

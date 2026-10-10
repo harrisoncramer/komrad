@@ -108,8 +108,8 @@ func (s *TaskStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// LockUndeleted holds a task against a delete's cleanup until the transaction ends, refusing one
-// already being deleted.
+// LockUndeleted holds a task against a delete's cleanup and any other create on it until the
+// transaction ends, refusing one already being deleted.
 func (s *TaskStore) LockUndeleted(ctx context.Context, id string) error {
 	_, err := s.queries.LockUndeletedTask(ctx, id)
 	if db.IsNoRows(err) {

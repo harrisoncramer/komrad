@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
+	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -283,15 +285,15 @@ func childParams(params NewAgentParams, parent agentstore.Agent) NewAgentParams 
 }
 
 type launchPlan struct {
-	name            string
-	harness         harness.Harness
-	harnessID       string
-	dir             string
-	flags           string
-	workflowContext string
-	provisioner     string
-	deprovisioner   string
-	hooks           []workflowstore.Hook
+	name          string
+	harness       harness.Harness
+	harnessID     string
+	dir           string
+	flags         string
+	provisioner   string
+	deprovisioner string
+	hooks         []workflowstore.Hook
+	workflow      *workflowstore.Workflow
 }
 
 func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (*launchPlan, error) {
@@ -343,10 +345,10 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 			agentFlags:      params.Flags,
 			workflowFlags:   workflowFlags,
 		}),
-		workflowContext: wf.Context,
-		provisioner:     provisioner,
-		deprovisioner:   deprovisioner,
-		hooks:           hooksFor(wf, params.ParentAgentID != "", params.ProvisionEnabled),
+		provisioner:   provisioner,
+		deprovisioner: deprovisioner,
+		hooks:         hooksFor(wf, params.ParentAgentID != "", params.ProvisionEnabled),
+		workflow:      wf,
 	}, nil
 }
 
@@ -463,7 +465,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
 
-	task, err := s.createUnderCeiling(ctx, creation{
+	placed, err := s.createUnderCeiling(ctx, creation{
 		agent:         &agent,
 		task:          joined,
 		spawner:       spawner,
@@ -478,33 +480,40 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	if err != nil {
 		return nil, err
 	}
+	if placed.openTurn != nil {
+		defer placed.openTurn.Done()
+	}
 
 	return s.startInPane(ctx, agent, resolvedLaunch{
-		harness:         plan.harness,
-		provisioner:     plan.provisioner,
-		deprovisioner:   plan.deprovisioner,
-		hooks:           plan.hooks,
-		defaultDir:      plan.dir,
-		workflowContext: plan.workflowContext,
-		spawner:         spawner,
-		parent:          parent,
-		task:            task,
-		claimsCheckout:  isCheckoutClaimant(agent, plan.provisioner),
+		harness:        plan.harness,
+		provisioner:    plan.provisioner,
+		deprovisioner:  plan.deprovisioner,
+		hooks:          plan.hooks,
+		defaultDir:     plan.dir,
+		spawner:        spawner,
+		parent:         parent,
+		claimsCheckout: isCheckoutClaimant(agent, plan.provisioner),
+		workflow:       plan.workflow,
+		task:           placed.task,
+		openTurn:       placed.openTurn,
 	})
 }
 
 type resolvedLaunch struct {
-	harness         harness.Harness
-	provisioner     string
-	deprovisioner   string
-	hooks           []workflowstore.Hook
-	defaultDir      string
-	workflowContext string
-	spawner         *agentstore.Agent
-	parent          *agentstore.Agent
-	task            *taskstore.Task
+	harness       harness.Harness
+	provisioner   string
+	deprovisioner string
+	hooks         []workflowstore.Hook
+	defaultDir    string
+	spawner       *agentstore.Agent
+	parent        *agentstore.Agent
 	// claimsCheckout is whether the directory the agent starts in becomes its task's checkout.
 	claimsCheckout bool
+	workflow       *workflowstore.Workflow
+	task           *taskstore.Task
+	// openTurn is the place in its task's hook queue an agent taking the task from no live agent to
+	// one holds, nil for any other agent.
+	openTurn *scriptrun.HookTurn
 }
 
 func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (*agentstore.Agent, error) {
@@ -550,12 +559,64 @@ func (c *createStart) getDefaultDir(agentstore.Agent) string {
 }
 
 func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) error {
+	if err := c.openTask(ctx, agent); err != nil {
+		return err
+	}
+
 	return runPreHooks(ctx, hookRunParams{
 		scripts: c.scripts,
 		agent:   agent,
 		hooks:   c.resolved.hooks,
-		event:   workflowstore.HookPreLaunch,
+		event:   workflowstore.HookAgentPreLaunch,
 	})
+}
+
+// openTask runs the pre-open hooks of the task an agent opens, and otherwise waits for an agent opening it
+// already, opening it in that agent's place when it failed.
+func (c *createStart) openTask(ctx context.Context, agent agentstore.Agent) error {
+	if c.scripts == nil || agent.TaskID == nil || c.resolved.task == nil {
+		return nil
+	}
+
+	turn := c.resolved.openTurn
+	if turn == nil {
+		if err := c.scripts.AwaitHooks(ctx, *agent.TaskID); err != nil {
+			return err
+		}
+
+		live, err := c.service.agents.ListLiveOnTask(ctx, *agent.TaskID)
+		if err != nil {
+			return err
+		}
+		if !isOpening(agent, live) {
+			return nil
+		}
+
+		turn = c.scripts.QueueHooks(*agent.TaskID)
+		defer turn.Done()
+	}
+
+	if err := turn.Wait(ctx); err != nil {
+		return err
+	}
+
+	return runHooks(ctx, taskHookParams{
+		scripts:  c.scripts,
+		workflow: c.resolved.workflow,
+		task:     c.buildOpenedTask(agent),
+		actor:    &agent,
+		event:    workflowstore.HookTaskPreOpen,
+	}.toHookRun())
+}
+
+// buildOpenedTask builds the task the agent opens, carrying the checkout it was just given before the row records it.
+func (c *createStart) buildOpenedTask(agent agentstore.Agent) taskstore.Task {
+	task := *c.resolved.task
+	if c.resolved.claimsCheckout {
+		task.Checkout.Cwd = agent.Cwd
+	}
+
+	return task
 }
 
 func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
@@ -579,16 +640,18 @@ func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 
 func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 	launch := launchParams{
-		Pane:            agent.Pane,
-		Dir:             agent.Cwd,
-		Flags:           agent.Flags,
-		Prompt:          agent.Prompt,
-		WorkflowContext: c.resolved.workflowContext,
-		SessionID:       agent.SessionID,
-		AgentID:         agent.ID,
-		Role:            agent.Role,
-		OwnsCheckout:    c.resolved.provisioner != "",
-		Task:            c.resolved.task,
+		Pane:         agent.Pane,
+		Dir:          agent.Cwd,
+		Flags:        agent.Flags,
+		Prompt:       agent.Prompt,
+		SessionID:    agent.SessionID,
+		AgentID:      agent.ID,
+		Role:         agent.Role,
+		OwnsCheckout: c.resolved.provisioner != "",
+		Task:         c.resolved.task,
+	}
+	if c.resolved.workflow != nil {
+		launch.WorkflowContext = c.resolved.workflow.Context
 	}
 	if c.resolved.spawner != nil {
 		launch.SpawnedByAgentID = c.resolved.spawner.ID
@@ -611,7 +674,7 @@ func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		scripts: c.scripts,
 		agent:   agent,
 		hooks:   c.resolved.hooks,
-		event:   workflowstore.HookPostLaunch,
+		event:   workflowstore.HookAgentPostLaunch,
 	})
 	c.service.watchStartup(ctx, agent)
 
@@ -714,10 +777,17 @@ func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
 	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role != agentstore.RoleOrchestrator && provisioner != ""
 }
 
+// placement is the task an agent was created on, and the place in its hook queue the agent holds when it opens it.
+type placement struct {
+	task     *taskstore.Task
+	openTurn *scriptrun.HookTurn
+}
+
 // createUnderCeiling writes the agent, and the task it works on when it needs one of its own,
-// returning the task it was created on.
-func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*taskstore.Task, error) {
+// returning where it was placed.
+func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*placement, error) {
 	task := c.task
+	var openTurn *scriptrun.HookTurn
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
 		taskStore := taskstore.NewTaskStore(db)
@@ -762,6 +832,12 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 			if err := taskStore.LockUndeleted(ctx, *c.agent.TaskID); err != nil {
 				return err
 			}
+
+			live, err := agentStore.ListLiveOnTask(ctx, *c.agent.TaskID)
+			if err != nil {
+				return err
+			}
+			openTurn = s.queueOpening(*c.agent, live)
 		}
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
@@ -775,10 +851,37 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 		return nil
 	})
 	if err != nil {
+		if openTurn != nil {
+			openTurn.Done()
+		}
+
 		return nil, err
 	}
 
-	return task, nil
+	return &placement{
+		task:     task,
+		openTurn: openTurn,
+	}, nil
+}
+
+// queueOpening takes a place in its task's hook queue for an agent opening the task, nil when it does not open it.
+func (s *LaunchService) queueOpening(agent agentstore.Agent, live []agentstore.Agent) *scriptrun.HookTurn {
+	if s.starter.scripts == nil || !isOpening(agent, live) {
+		return nil
+	}
+
+	return s.starter.scripts.QueueHooks(*agent.TaskID)
+}
+
+// isOpening reports whether an agent starting on a task opens it, which it does when no other agent on the task is live.
+func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
+	if agent.TaskID == nil || agent.ParentAgentID != nil {
+		return false
+	}
+
+	return !slices.ContainsFunc(live, func(other agentstore.Agent) bool {
+		return other.ID != agent.ID && other.State != agentstore.StateFailedToCreate
+	})
 }
 
 // claimCheckout records on a task how its checkout is to be made, ahead of the directory the

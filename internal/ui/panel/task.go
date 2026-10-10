@@ -13,4 +13,6 @@ type Task struct {
 	NotesUpdatedAt *string
 	CreatedAt      time.Time
 	ArchivedAt     *time.Time
+	// FailedRun is whether a script run on the task failed and its logs have not been opened since.
+	FailedRun bool
 }

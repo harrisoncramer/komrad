@@ -49,6 +49,9 @@ const (
 	TaskServiceArchiveTaskProcedure = "/task.v1.TaskService/ArchiveTask"
 	// TaskServiceDeleteTasksProcedure is the fully-qualified name of the TaskService's DeleteTasks RPC.
 	TaskServiceDeleteTasksProcedure = "/task.v1.TaskService/DeleteTasks"
+	// TaskServiceMarkTaskRunsReadProcedure is the fully-qualified name of the TaskService's
+	// MarkTaskRunsRead RPC.
+	TaskServiceMarkTaskRunsReadProcedure = "/task.v1.TaskService/MarkTaskRunsRead"
 )
 
 // TaskServiceClient is a client for the task.v1.TaskService service.
@@ -60,6 +63,7 @@ type TaskServiceClient interface {
 	SetTaskNotes(context.Context, *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error)
 	ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error)
+	MarkTaskRunsRead(context.Context, *connect.Request[v1.MarkTaskRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewTaskServiceClient constructs a client for the task.v1.TaskService service. By default, it uses
@@ -121,18 +125,26 @@ func NewTaskServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		markTaskRunsRead: connect.NewClient[v1.MarkTaskRunsReadRequest, emptypb.Empty](
+			httpClient,
+			baseURL+TaskServiceMarkTaskRunsReadProcedure,
+			connect.WithSchema(taskServiceMethods.ByName("MarkTaskRunsRead")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // taskServiceClient implements TaskServiceClient.
 type taskServiceClient struct {
-	createTask   *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
-	getTask      *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
-	listTasks    *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
-	updateTask   *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
-	setTaskNotes *connect.Client[v1.SetTaskNotesRequest, v1.SetTaskNotesResponse]
-	archiveTask  *connect.Client[v1.ArchiveTaskRequest, emptypb.Empty]
-	deleteTasks  *connect.Client[v1.DeleteTasksRequest, emptypb.Empty]
+	createTask       *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
+	getTask          *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
+	listTasks        *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
+	updateTask       *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
+	setTaskNotes     *connect.Client[v1.SetTaskNotesRequest, v1.SetTaskNotesResponse]
+	archiveTask      *connect.Client[v1.ArchiveTaskRequest, emptypb.Empty]
+	deleteTasks      *connect.Client[v1.DeleteTasksRequest, emptypb.Empty]
+	markTaskRunsRead *connect.Client[v1.MarkTaskRunsReadRequest, emptypb.Empty]
 }
 
 // CreateTask calls task.v1.TaskService.CreateTask.
@@ -170,6 +182,11 @@ func (c *taskServiceClient) DeleteTasks(ctx context.Context, req *connect.Reques
 	return c.deleteTasks.CallUnary(ctx, req)
 }
 
+// MarkTaskRunsRead calls task.v1.TaskService.MarkTaskRunsRead.
+func (c *taskServiceClient) MarkTaskRunsRead(ctx context.Context, req *connect.Request[v1.MarkTaskRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.markTaskRunsRead.CallUnary(ctx, req)
+}
+
 // TaskServiceHandler is an implementation of the task.v1.TaskService service.
 type TaskServiceHandler interface {
 	CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error)
@@ -179,6 +196,7 @@ type TaskServiceHandler interface {
 	SetTaskNotes(context.Context, *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error)
 	ArchiveTask(context.Context, *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error)
+	MarkTaskRunsRead(context.Context, *connect.Request[v1.MarkTaskRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewTaskServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -236,6 +254,13 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	taskServiceMarkTaskRunsReadHandler := connect.NewUnaryHandler(
+		TaskServiceMarkTaskRunsReadProcedure,
+		svc.MarkTaskRunsRead,
+		connect.WithSchema(taskServiceMethods.ByName("MarkTaskRunsRead")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/task.v1.TaskService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TaskServiceCreateTaskProcedure:
@@ -252,6 +277,8 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 			taskServiceArchiveTaskHandler.ServeHTTP(w, r)
 		case TaskServiceDeleteTasksProcedure:
 			taskServiceDeleteTasksHandler.ServeHTTP(w, r)
+		case TaskServiceMarkTaskRunsReadProcedure:
+			taskServiceMarkTaskRunsReadHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -287,4 +314,8 @@ func (UnimplementedTaskServiceHandler) ArchiveTask(context.Context, *connect.Req
 
 func (UnimplementedTaskServiceHandler) DeleteTasks(context.Context, *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.DeleteTasks is not implemented"))
+}
+
+func (UnimplementedTaskServiceHandler) MarkTaskRunsRead(context.Context, *connect.Request[v1.MarkTaskRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("task.v1.TaskService.MarkTaskRunsRead is not implemented"))
 }

@@ -1,11 +1,13 @@
 -- name: InsertAgentRun :one
 INSERT INTO agent_runs(
     agent_id,
+    task_id,
     TRIGGER,
     script,
     log_number)
 VALUES (
     @agent_id,
+    sqlc.narg('task_id'),
     @trigger,
     @script,
     sqlc.narg('log_number'))
@@ -54,4 +56,26 @@ SET
 WHERE
     agent_id = @agent_id
     AND failure <> ''
+    AND viewed_at IS NULL
+    AND TRIGGER NOT LIKE 'task.%';
+
+-- name: MarkTaskRunsRead :exec
+UPDATE
+    agent_runs
+SET
+    viewed_at = NOW()
+WHERE
+    task_id = @task_id::uuid
+    AND failure <> ''
     AND viewed_at IS NULL;
+
+-- name: ListTaskRuns :many
+SELECT
+    *
+FROM
+    agent_runs
+WHERE
+    task_id = @task_id::uuid
+ORDER BY
+    started_at DESC,
+    id DESC;

@@ -141,7 +141,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Channel:  paneChannel,
 		Observer: paneChannel,
 	})
-	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.tasks, Agents: st.agents})
+	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
+		Tasks:  st.tasks,
+		Agents: st.agents,
+		Runs:   st.runs,
+	})
 	agentGroup := buildAgents(buildAgentsParams{
 		Tasks:      taskService,
 		Server:     params,

@@ -1,7 +1,11 @@
 #!/bin/sh
-#KOMRAD description="Give back what a komrad checkout claimed: its throwaway test instance and any docker stack it brought up. Does nothing in any other checkout."
+#KOMRAD description="Give back what a deleted task's komrad checkout claimed: its throwaway test instance and any docker stack it brought up. Does nothing in any other checkout."
 #KOMRAD timeout="10m"
 set -eu
+
+if [ -z "${KOMRAD_WORKTREE_NAME:-}" ]; then
+	exit 0
+fi
 
 tree="$KOMRAD_AGENT_CWD"
 

@@ -194,7 +194,7 @@ func TestWatchedWorkflowsSpanTheArchive(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	hooks := []Hook{{Event: HookPreLaunch, Script: "setup.sh"}}
+	hooks := []Hook{{Event: HookAgentPreLaunch, Script: "setup.sh"}}
 	create := func(name string) *Workflow {
 		created, err := st.Create(ctx, Config{
 			Name:     name,

@@ -1383,13 +1383,31 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List where an agent's logs can be read from, the service log and each script run it recorded.",
-          "description": "List where an agent's logs can be read from, the service log and each script run it recorded.",
+          "summary": "List where an agent's logs can be read from, the service log and each script run of its own moments it recorded.",
+          "description": "List where an agent's logs can be read from, the service log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
           "request": "log.v1.ListAgentLogSourcesRequest",
           "response": "log.v1.ListAgentLogSourcesResponse"
+        },
+        {
+          "slug": "list-task-log-sources",
+          "name": "ListTaskLogSources",
+          "path": "/log.v1.LogService/ListTaskLogSources",
+          "command": "komrad rpc list-task-log-sources",
+          "tool": "list_task_log_sources",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "List the script runs recorded on a task, its own moments and those of every agent on it, newest first.",
+          "description": "List the script runs recorded on a task, its own moments and those of every agent on it, newest first. Pass a source with its agent_id to read_agent_logs to read its output.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "log.v1.ListTaskLogSourcesRequest",
+          "response": "log.v1.ListTaskLogSourcesResponse"
         }
       ]
     },
@@ -7413,6 +7431,40 @@
         }
       ]
     },
+    "log.v1.ListTaskLogSourcesRequest": {
+      "name": "ListTaskLogSourcesRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The task whose log sources to list, by id."
+        }
+      ]
+    },
+    "log.v1.ListTaskLogSourcesResponse": {
+      "name": "ListTaskLogSourcesResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "sources",
+          "type": "LogSource",
+          "ref": "log.v1.LogSource",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Each script run recorded on the task by any agent on it, its own moments and theirs, newest first."
+        }
+      ]
+    },
     "log.v1.LogLine": {
       "name": "LogLine",
       "description": "",
@@ -7481,7 +7533,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the source is called, such as service or 003 pre-launch setup."
+          "description": "What the source is called, such as service or 003 agent.pre-launch setup."
         },
         {
           "name": "run",
@@ -7492,6 +7544,26 @@
           "oneof": "",
           "rules": [],
           "description": "The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log."
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log."
+        },
+        {
+          "name": "failed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the script run failed, set only on a task's log sources."
         }
       ]
     },
@@ -9178,6 +9250,16 @@
           "oneof": "",
           "rules": [],
           "description": "When its notes were last written, in RFC 3339 to the nanosecond, unset until they first are. A write of the notes names the value it read."
+        },
+        {
+          "name": "failed_run",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether a script run on it failed and the person has not opened its logs since."
         }
       ]
     },
@@ -9921,7 +10003,7 @@
             "required",
             "at most 40 characters"
           ],
-          "description": "Which moment fires it, such as pre-launch or post-archive."
+          "description": "Which moment fires it, such as agent.pre-launch or agent.post-archive in an agent's life or task.pre-open in its task's."
         },
         {
           "name": "script",

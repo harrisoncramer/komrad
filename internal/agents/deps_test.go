@@ -168,7 +168,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Addr:  options.addr,
 		Usage: options.usage,
 	})
-	taskScripts, _ := options.lifecycle.(taskDeprovisioner)
+	taskScripts, _ := options.lifecycle.(taskScriptRunner)
 	emptyTasks := NewEmptyTaskDeleter(NewEmptyTaskDeleterParams{
 		Tasks:     s.Tasks,
 		Workflows: s.Workflows,
@@ -308,9 +308,11 @@ type fakeLifecycle struct {
 	resumeErr           error
 	deprovisionStartErr error
 	hookErrs            map[string]error
+	hookErrsOnce        map[string]error
 	holdHooks           chan struct{}
 	hooksMu             sync.Mutex
 	hooks               []ranHook
+	ranAs               []agentstore.Agent
 	provision           []string
 	resumed             []string
 	deprovisionMu       sync.Mutex
@@ -357,6 +359,12 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 		Script: name,
 		Cwd:    agent.Cwd,
 	})
+	f.ranAs = append(f.ranAs, agent)
+	if err, ok := f.hookErrsOnce[name]; ok {
+		delete(f.hookErrsOnce, name)
+
+		return err
+	}
 
 	return f.hookErrs[name]
 }
@@ -366,6 +374,21 @@ func (f *fakeLifecycle) ranHooks() []ranHook {
 	defer f.hooksMu.Unlock()
 
 	return slices.Clone(f.hooks)
+}
+
+// ranTaskHooks is each task hook the fake ran, as the agent it ran as.
+func (f *fakeLifecycle) ranTaskHooks() []agentstore.Agent {
+	f.hooksMu.Lock()
+	defer f.hooksMu.Unlock()
+
+	var ran []agentstore.Agent
+	for i, hook := range f.hooks {
+		if workflowstore.IsTaskEvent(hook.Event) {
+			ran = append(ran, f.ranAs[i])
+		}
+	}
+
+	return ran
 }
 
 func (f *fakeLifecycle) ranDeprovisions() []string {

@@ -44,6 +44,7 @@ func (q *Queries) FinishAgentRun(ctx context.Context, arg FinishAgentRunParams) 
 const insertAgentRun = `-- name: InsertAgentRun :one
 INSERT INTO agent_runs(
     agent_id,
+    task_id,
     TRIGGER,
     script,
     log_number)
@@ -51,13 +52,15 @@ VALUES (
     $1,
     $2,
     $3,
-    $4)
+    $4,
+    $5)
 RETURNING
     id
 `
 
 type InsertAgentRunParams struct {
 	AgentID   string
+	TaskID    *string
 	Trigger   string
 	Script    string
 	LogNumber *int32
@@ -66,6 +69,7 @@ type InsertAgentRunParams struct {
 func (q *Queries) InsertAgentRun(ctx context.Context, arg InsertAgentRunParams) (string, error) {
 	row := q.db.QueryRow(ctx, insertAgentRun,
 		arg.AgentID,
+		arg.TaskID,
 		arg.Trigger,
 		arg.Script,
 		arg.LogNumber,
@@ -73,6 +77,51 @@ func (q *Queries) InsertAgentRun(ctx context.Context, arg InsertAgentRunParams) 
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listTaskRuns = `-- name: ListTaskRuns :many
+SELECT
+    id, agent_id, trigger, script, log_number, started_at, finished_at, exit_code, failure, viewed_at, engine_id, task_id
+FROM
+    agent_runs
+WHERE
+    task_id = $1::uuid
+ORDER BY
+    started_at DESC,
+    id DESC
+`
+
+func (q *Queries) ListTaskRuns(ctx context.Context, taskID string) ([]*AgentRun, error) {
+	rows, err := q.db.Query(ctx, listTaskRuns, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*AgentRun
+	for rows.Next() {
+		var i AgentRun
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgentID,
+			&i.Trigger,
+			&i.Script,
+			&i.LogNumber,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.ExitCode,
+			&i.Failure,
+			&i.ViewedAt,
+			&i.EngineID,
+			&i.TaskID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markAgentRunsRead = `-- name: MarkAgentRunsRead :exec
@@ -84,10 +133,27 @@ WHERE
     agent_id = $1
     AND failure <> ''
     AND viewed_at IS NULL
+    AND TRIGGER NOT LIKE 'task.%'
 `
 
 func (q *Queries) MarkAgentRunsRead(ctx context.Context, agentID string) error {
 	_, err := q.db.Exec(ctx, markAgentRunsRead, agentID)
+	return err
+}
+
+const markTaskRunsRead = `-- name: MarkTaskRunsRead :exec
+UPDATE
+    agent_runs
+SET
+    viewed_at = NOW()
+WHERE
+    task_id = $1::uuid
+    AND failure <> ''
+    AND viewed_at IS NULL
+`
+
+func (q *Queries) MarkTaskRunsRead(ctx context.Context, taskID string) error {
+	_, err := q.db.Exec(ctx, markTaskRunsRead, taskID)
 	return err
 }
 

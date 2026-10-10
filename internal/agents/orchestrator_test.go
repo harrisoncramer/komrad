@@ -34,7 +34,7 @@ func TestStartOrchestratorLaunchesOne(t *testing.T) {
 		Name:     "generous",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Script: "install-deps"}},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"}},
 	})
 	require.NoError(t, err)
 

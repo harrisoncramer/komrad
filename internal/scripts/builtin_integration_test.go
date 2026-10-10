@@ -65,7 +65,7 @@ func TestIntegrationBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	first, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = strings.TrimSpace(string(first.Stdout))
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -97,7 +97,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *test
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 	tree := strings.TrimSpace(string(first.Stdout))
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -153,7 +153,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testi
 	edited := filepath.Join(tree, "node_modules", "mod.txt")
 	require.NoError(t, os.WriteFile(edited, []byte("patched\n"), 0o644))
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -184,7 +184,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBran
 	tree := strings.TrimSpace(string(first.Stdout))
 
 	runGit(t, repo, "worktree", "remove", "--force", tree)
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 
 	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "task/task-g").Output()
@@ -213,7 +213,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *tes
 	tree := strings.TrimSpace(string(first.Stdout))
 
 	moved := t.TempDir()
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	env.worktreesDir = moved
 
@@ -243,7 +243,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirect
 	require.NoError(t, os.RemoveAll(tree))
 
 	moved := t.TempDir()
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	env.worktreesDir = moved
 
@@ -292,7 +292,7 @@ func TestIntegrationBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *test
 		taskID:       taskID,
 		repo:         repo,
 		agentCwd:     repo,
-		trigger:      "resume",
+		trigger:      "agent.resume",
 		worktreesDir: worktreesDir,
 	})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
@@ -781,7 +781,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutrigh
 
 	require.NoError(t, os.RemoveAll(tree))
 
-	env.trigger = "resume"
+	env.trigger = "agent.resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -1050,12 +1050,14 @@ type worktreeEnv struct {
 	copyPaths    []string
 	symlinkPaths []string
 	pathPrefix   string
+	// noWorktree leaves out the worktree's variables, as for a task that has none.
+	noWorktree bool
 }
 
 func (e worktreeEnv) toEnv() []string {
 	trigger := e.trigger
 	if trigger == "" {
-		trigger = "provision"
+		trigger = "agent.provision"
 	}
 
 	baseBranch := e.baseBranch
@@ -1067,14 +1069,18 @@ func (e worktreeEnv) toEnv() []string {
 		"KOMRAD_AGENT_ID=agent-of-" + e.taskID,
 		"KOMRAD_AGENT_CWD=" + e.agentCwd,
 		"KOMRAD_TRIGGER=" + trigger,
-		"KOMRAD_WORKTREE_REPO=" + e.repo,
-		"KOMRAD_WORKTREES_DIR=" + e.worktreesDir,
-		"KOMRAD_WORKTREE_BASE_BRANCH=" + baseBranch,
-		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + e.adoptBranch,
-		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
-		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(e.symlinkPaths, "\n"),
-		"KOMRAD_WORKTREE_NAME=" + e.taskID,
-		"KOMRAD_WORKTREE_BRANCH=task/" + e.taskID,
+	}
+	if !e.noWorktree {
+		env = append(env,
+			"KOMRAD_WORKTREE_REPO="+e.repo,
+			"KOMRAD_WORKTREES_DIR="+e.worktreesDir,
+			"KOMRAD_WORKTREE_BASE_BRANCH="+baseBranch,
+			"KOMRAD_WORKTREE_ADOPT_BRANCH="+e.adoptBranch,
+			"KOMRAD_WORKTREE_COPY_PATHS="+strings.Join(e.copyPaths, "\n"),
+			"KOMRAD_WORKTREE_SYMLINK_PATHS="+strings.Join(e.symlinkPaths, "\n"),
+			"KOMRAD_WORKTREE_NAME="+e.taskID,
+			"KOMRAD_WORKTREE_BRANCH=task/"+e.taskID,
+		)
 	}
 
 	if e.pathPrefix != "" {
@@ -1429,9 +1435,16 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 		checkout    bool
 		dirName     string
 		dockerDown  bool
+		noWorktree  bool
 		wantFreed   bool
 		wantCompose bool
 	}{
+		{
+			name:       "a komrad checkout run for a task with no worktree is left alone",
+			checkout:   true,
+			dirName:    "task-a",
+			noWorktree: true,
+		},
 		{
 			name:        "a komrad checkout gives back its instance and stack",
 			checkout:    true,
@@ -1479,10 +1492,14 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 			result, err := runBuiltin(t, "komrad-checkout-teardown", worktreeEnv{
 				taskID:     "task-a",
 				agentCwd:   tree,
-				trigger:    "pre-delete",
+				trigger:    "agent.pre-delete",
 				pathPrefix: bin,
+				noWorktree: tt.noWorktree,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
+			if tt.noWorktree {
+				assert.Empty(t, result.Stderr, "a task with no worktree is not even looked at")
+			}
 
 			said, freedErr := os.ReadFile(freed)
 			ran, dockerErr := os.ReadFile(dockered)
@@ -1512,8 +1529,15 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 		name       string
 		checkout   bool
 		dirName    string
+		noWorktree bool
 		wantShrunk bool
 	}{
+		{
+			name:       "a komrad checkout run for a task with no worktree is left alone",
+			checkout:   true,
+			dirName:    "task-a",
+			noWorktree: true,
+		},
 		{
 			name:       "a komrad checkout gives back its instance and drops what it rebuilds",
 			checkout:   true,
@@ -1546,11 +1570,15 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 			}
 
 			result, err := runBuiltin(t, "komrad-checkout-archive", worktreeEnv{
-				taskID:   "task-a",
-				agentCwd: tree,
-				trigger:  "post-archive",
+				taskID:     "task-a",
+				agentCwd:   tree,
+				trigger:    "agent.post-archive",
+				noWorktree: tt.noWorktree,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
+			if tt.noWorktree {
+				assert.Empty(t, result.Stderr, "a task with no worktree is not even looked at")
+			}
 
 			said, freedErr := os.ReadFile(freed)
 			if tt.wantShrunk {

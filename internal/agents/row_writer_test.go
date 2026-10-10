@@ -123,7 +123,7 @@ func TestRowWriterWrites(t *testing.T) {
 			alpha := seed(t, st, "alpha", "", agentstore.StateIdle)
 			failed, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
 				AgentID: alpha.ID,
-				Trigger: "post-launch",
+				Trigger: "agent.post-launch",
 				Script:  "install-deps",
 			})
 			require.NoError(t, err)

@@ -293,7 +293,7 @@ func (x *WorkflowEventPrompts) GetPrompts() []*WorkflowEventPrompt {
 
 type WorkflowHook struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which moment fires it, such as pre-launch or post-archive.
+	// Which moment fires it, such as agent.pre-launch or agent.post-archive in an agent's life or task.pre-open in its task's.
 	Event string `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
 	// The file in the hooks directory to run, blank to fire nothing at that moment.
 	Script        string `protobuf:"bytes,2,opt,name=script,proto3" json:"script,omitempty"`

@@ -14,9 +14,9 @@ func TestHooksComeBackWithEveryReader(t *testing.T) {
 	ctx := t.Context()
 
 	hooks := []Hook{
-		{Event: HookPreLaunch, Script: "install-deps"},
-		{Event: HookPreLaunch, Script: "copy-env"},
-		{Event: HookPostLaunch, Script: "announce"},
+		{Event: HookAgentPreLaunch, Script: "install-deps"},
+		{Event: HookAgentPreLaunch, Script: "copy-env"},
+		{Event: HookAgentPostLaunch, Script: "announce"},
 	}
 
 	created, err := st.Create(ctx, Config{

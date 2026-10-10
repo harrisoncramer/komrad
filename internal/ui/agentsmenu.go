@@ -53,6 +53,8 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 		switch {
 		case slices.Equal(entry.keys, m.keys.Menu.Review):
 			return taskReviewEntry(m, lead.Agent)
+		case slices.Equal(entry.keys, m.keys.Menu.Logs):
+			return taskLogsEntry(m, task)
 		case slices.Equal(entry.keys, m.keys.Menu.Jump):
 			return nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, row))
 		}
@@ -80,6 +82,15 @@ func taskJumpMenu(m *model, row agentRow) submenu {
 	})
 
 	return menu
+}
+
+// taskLogsEntry opens the runs of every agent on a task.
+func taskLogsEntry(m *model, task panel.Task) submenuEntry {
+	return openEntry("logs", m.keys.Menu.Logs, func(m *model) tea.Cmd {
+		m.leaveForm()
+
+		return m.enter(screenLogs, screenTarget{taskID: task.ID, openedFrom: screenAgents})
+	})
 }
 
 // taskReviewEntry opens the review of a task through the agent it wears, archived or not.

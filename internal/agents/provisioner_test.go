@@ -42,7 +42,7 @@ func TestProvisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	}
 	assert.Empty(t, provisionerFor(ctx, st.Workflows, agent))
 
-	got := recordFor(t, records(), "the workflow behind an agent could not be read")
+	got := recordFor(t, records(), "the workflow could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
 	assert.Equal(t, workflowID, got["komrad.workflow.id"])
 	assert.Equal(t, "a1", got["komrad.script.agent.id"])

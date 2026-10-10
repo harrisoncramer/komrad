@@ -29,49 +29,49 @@ func TestRuns(t *testing.T) {
 		{
 			name:    "a name the agent never wrote",
 			agentID: "a1",
-			run:     "009-provision-setup.log",
+			run:     "009-agent.provision-setup.log",
 			limit:   10,
 			wantErr: ErrNoSuchRun,
 		},
 		{
 			name:    "a name that leaves the agent's directory",
 			agentID: "a1",
-			run:     "../b2/001-provision-setup.log",
+			run:     "../b2/001-agent.provision-setup.log",
 			limit:   10,
 			wantErr: ErrNoSuchRun,
 		},
 		{
 			name:    "an agent id that leaves the runs directory",
 			agentID: "../outside",
-			run:     "001-provision-setup.log",
+			run:     "001-agent.provision-setup.log",
 			limit:   10,
 			wantErr: ErrNoSuchRun,
 		},
 		{
 			name:    "another agent's run",
 			agentID: "b2",
-			run:     "001-provision-setup.log",
+			run:     "001-agent.provision-setup.log",
 			limit:   10,
 			wantErr: ErrNoSuchRun,
 		},
 		{
 			name:    "every line the run wrote, oldest first",
 			agentID: "a1",
-			run:     "001-provision-setup.log",
+			run:     "001-agent.provision-setup.log",
 			limit:   10,
 			want:    output,
 		},
 		{
 			name:    "the limit keeps the newest",
 			agentID: "a1",
-			run:     "001-provision-setup.log",
+			run:     "001-agent.provision-setup.log",
 			limit:   1,
 			want:    output[2:],
 		},
 		{
 			name:    "a read from an offset answers what came after it",
 			agentID: "a1",
-			run:     "001-provision-setup.log",
+			run:     "001-agent.provision-setup.log",
 			from:    1,
 			limit:   10,
 			want:    output[1:],
@@ -79,7 +79,7 @@ func TestRuns(t *testing.T) {
 		{
 			name:    "a pattern keeps only the lines it matches",
 			agentID: "a1",
-			run:     "001-provision-setup.log",
+			run:     "001-agent.provision-setup.log",
 			pattern: "worktree",
 			limit:   10,
 			want:    output[:2],
@@ -87,7 +87,7 @@ func TestRuns(t *testing.T) {
 		{
 			name:    "a half-written last line is left for the next read",
 			agentID: "a1",
-			run:     "001-provision-setup.log",
+			run:     "001-agent.provision-setup.log",
 			tail:    "Container komrad-test",
 			limit:   10,
 			want:    output,
@@ -106,7 +106,7 @@ func TestRuns(t *testing.T) {
 			}
 			for _, agentDir := range []string{filepath.Join(dir, "a1"), filepath.Join(root, "outside")} {
 				require.NoError(t, os.MkdirAll(agentDir, 0o755))
-				require.NoError(t, os.WriteFile(filepath.Join(agentDir, "001-provision-setup.log"), []byte(body+tt.tail), 0o600))
+				require.NoError(t, os.WriteFile(filepath.Join(agentDir, "001-agent.provision-setup.log"), []byte(body+tt.tail), 0o600))
 			}
 
 			runs := NewRuns(dir)

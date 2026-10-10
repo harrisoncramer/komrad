@@ -508,6 +508,8 @@ type AgentRun struct {
 	ViewedAt   *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// The task the agent was on when the run started, null for an agent on no task.
+	TaskID *string
 }
 
 // The last screen an agent's pane drew while it was at rest, kept so the panel can show it once the pane is gone.

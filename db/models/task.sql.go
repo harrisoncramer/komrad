@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const archiveIdleTasks = `-- name: ArchiveIdleTasks :exec
+const archiveIdleTasks = `-- name: ArchiveIdleTasks :many
 UPDATE
     tasks t
 SET
@@ -26,11 +26,55 @@ WHERE
         WHERE
             a.task_id = t.id
             AND a.archived_at IS NULL)
+RETURNING
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at
 `
 
-func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, archiveIdleTasks, ids)
-	return err
+func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) ([]*Task, error) {
+	rows, err := q.db.Query(ctx, archiveIdleTasks, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkflowID,
+			&i.Slug,
+			&i.Title,
+			&i.Goal,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.EngineID,
+			&i.Cwd,
+			&i.Branch,
+			&i.AdoptedBranch,
+			&i.ProvisionEnabled,
+			&i.WorktreeRemoved,
+			&i.RepositoryUrl,
+			&i.HeadSha,
+			&i.LastRebase,
+			&i.Sequence,
+			&i.LinesAdded,
+			&i.LinesRemoved,
+			&i.MovedSinceRound,
+			&i.DeletingAt,
+			&i.CleaningAt,
+			&i.FailureReason,
+			&i.Notes,
+			&i.NotesUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const archiveTask = `-- name: ArchiveTask :execrows
@@ -601,53 +645,67 @@ func (q *Queries) ListUndeletedTaskSlugs(ctx context.Context) ([]*ListUndeletedT
 
 const listWatchedTasks = `-- name: ListWatchedTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at,
+    EXISTS (
+        SELECT
+        FROM
+            agent_runs r
+        WHERE
+            r.task_id = t.id
+            AND r.failure <> ''
+            AND r.viewed_at IS NULL)::boolean AS failed_run
 FROM
-    tasks
+    tasks t
 WHERE
-    deleting_at IS NULL
+    t.deleting_at IS NULL
     AND ($1::text[] IS NULL
-        OR id = ANY ($1::uuid[]))
+        OR t.id = ANY ($1::uuid[]))
 ORDER BY
-    id DESC
+    t.id DESC
 `
 
-func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*Task, error) {
+type ListWatchedTasksRow struct {
+	Task      Task
+	FailedRun bool
+}
+
+func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListWatchedTasksRow, error) {
 	rows, err := q.db.Query(ctx, listWatchedTasks, keys)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Task
+	var items []*ListWatchedTasksRow
 	for rows.Next() {
-		var i Task
+		var i ListWatchedTasksRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.WorkflowID,
-			&i.Slug,
-			&i.Title,
-			&i.Goal,
-			&i.ArchivedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.EngineID,
-			&i.Cwd,
-			&i.Branch,
-			&i.AdoptedBranch,
-			&i.ProvisionEnabled,
-			&i.WorktreeRemoved,
-			&i.RepositoryUrl,
-			&i.HeadSha,
-			&i.LastRebase,
-			&i.Sequence,
-			&i.LinesAdded,
-			&i.LinesRemoved,
-			&i.MovedSinceRound,
-			&i.DeletingAt,
-			&i.CleaningAt,
-			&i.FailureReason,
-			&i.Notes,
-			&i.NotesUpdatedAt,
+			&i.Task.ID,
+			&i.Task.WorkflowID,
+			&i.Task.Slug,
+			&i.Task.Title,
+			&i.Task.Goal,
+			&i.Task.ArchivedAt,
+			&i.Task.CreatedAt,
+			&i.Task.UpdatedAt,
+			&i.Task.EngineID,
+			&i.Task.Cwd,
+			&i.Task.Branch,
+			&i.Task.AdoptedBranch,
+			&i.Task.ProvisionEnabled,
+			&i.Task.WorktreeRemoved,
+			&i.Task.RepositoryUrl,
+			&i.Task.HeadSha,
+			&i.Task.LastRebase,
+			&i.Task.Sequence,
+			&i.Task.LinesAdded,
+			&i.Task.LinesRemoved,
+			&i.Task.MovedSinceRound,
+			&i.Task.DeletingAt,
+			&i.Task.CleaningAt,
+			&i.Task.FailureReason,
+			&i.Task.Notes,
+			&i.Task.NotesUpdatedAt,
+			&i.FailedRun,
 		); err != nil {
 			return nil, err
 		}
@@ -707,7 +765,8 @@ FROM
     tasks
 WHERE
     id = $1
-    AND deleting_at IS NULL FOR SHARE
+    AND deleting_at IS NULL
+FOR NO KEY UPDATE
 `
 
 func (q *Queries) LockUndeletedTask(ctx context.Context, id string) (string, error) {

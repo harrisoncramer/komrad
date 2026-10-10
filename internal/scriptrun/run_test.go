@@ -1083,16 +1083,16 @@ func TestRunHookRunsInTheAgentsDirectory(t *testing.T) {
 	worktree := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: worktree}, "install-deps", workflowstore.HookPreLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: worktree}, "install-deps", workflowstore.HookAgentPreLaunch)
 	require.NoError(t, err)
 
 	landed, readErr := os.ReadFile(filepath.Join(worktree, "installed"))
 	require.NoError(t, readErr, "the hook ran in the agent's own directory rather than the script's")
-	assert.Contains(t, string(landed), workflowstore.HookPreLaunch, "and read the moment out of KOMRAD_TRIGGER")
+	assert.Contains(t, string(landed), workflowstore.HookAgentPreLaunch, "and read the moment out of KOMRAD_TRIGGER")
 
 	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
-	assert.Equal(t, workflowstore.HookPreLaunch, runs[0].Trigger)
+	assert.Equal(t, workflowstore.HookAgentPreLaunch, runs[0].Trigger)
 	assert.Equal(t, "install-deps", runs[0].Script)
 
 	logged, logErr := os.ReadFile(runs[0].Path)
@@ -1109,7 +1109,7 @@ func TestRunHookCarriesWhatTheScriptSaid(t *testing.T) {
 
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), t.TempDir())
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookAgentPreLaunch)
 
 	require.ErrorIs(t, err, ErrHookFailed)
 	require.ErrorContains(t, err, "install-deps")
@@ -1124,7 +1124,7 @@ func TestRunHookRefusesADirectoryThatIsGone(t *testing.T) {
 
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), t.TempDir())
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPreLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookAgentPreLaunch)
 
 	require.ErrorIs(t, err, ErrHookFailed)
 	assert.ErrorContains(t, err, "/definitely/not/here")
@@ -1145,7 +1145,7 @@ func TestChmodMakesAHookRunnable(t *testing.T) {
 	require.Len(t, listed, 1)
 	require.False(t, listed[0].Executable)
 
-	err = svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
+	err = svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookAgentPreLaunch)
 	require.ErrorIs(t, err, scripts.ErrNotExecutable)
 
 	require.NoError(t, os.Chmod(path, 0o755))
@@ -1155,7 +1155,7 @@ func TestChmodMakesAHookRunnable(t *testing.T) {
 	require.Len(t, listed, 1)
 	assert.True(t, listed[0].Executable)
 
-	require.NoError(t, svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch))
+	require.NoError(t, svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookAgentPreLaunch))
 }
 
 // TestARefusedRunLeavesNoRunBehind pins a refusal spending no number.
@@ -1235,7 +1235,7 @@ func TestRunHookRecordsTheRun(t *testing.T) {
 			logsDir := t.TempDir()
 			svc, st := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
 
-			err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: tt.cwd(t)}, "install-deps", workflowstore.HookPostLaunch)
+			err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: tt.cwd(t)}, "install-deps", workflowstore.HookAgentPostLaunch)
 			if tt.wantFailure == "" {
 				require.NoError(t, err)
 			} else {
@@ -1245,7 +1245,7 @@ func TestRunHookRecordsTheRun(t *testing.T) {
 			runs := listRuns(t, st)
 
 			require.Len(t, runs, 1)
-			assert.Equal(t, workflowstore.HookPostLaunch, runs[0].Trigger)
+			assert.Equal(t, workflowstore.HookAgentPostLaunch, runs[0].Trigger)
 			assert.Equal(t, "install-deps", runs[0].Script)
 			require.NotNil(t, runs[0].LogNumber, "the row points at the log the output went to")
 			assert.Equal(t, int32(1), *runs[0].LogNumber)
@@ -1271,7 +1271,7 @@ func TestAHookThatFailedSilentlySaysSoInItsLog(t *testing.T) {
 	logsDir := t.TempDir()
 	svc, st := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookAgentPostLaunch)
 	require.ErrorIs(t, err, ErrHookFailed)
 
 	runs := listRuns(t, st)
@@ -1338,7 +1338,7 @@ func TestClaimRunLogNumbersEveryRun(t *testing.T) {
 	require.Len(t, runs, 2, "the second run does not overwrite the first")
 	assert.Equal(t, 2, runs[0].Number)
 	assert.Equal(t, 1, runs[1].Number)
-	assert.Equal(t, config.TriggerProvision, runs[0].Trigger)
+	assert.Equal(t, config.TriggerAgentProvision, runs[0].Trigger)
 	assert.Equal(t, "setup", runs[0].Script)
 
 	for _, run := range runs {
@@ -1357,11 +1357,11 @@ func TestClaimRunLogPrunesTheOldestRuns(t *testing.T) {
 	logDir := config.RunLogDir(logsDir, fixtureAgentID)
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
 	for number := 1; number <= config.MaxRunLogs; number++ {
-		name := config.RunLogName(number, config.TriggerDeprovision, firedScript)
+		name := config.RunLogName(number, config.TriggerAgentDeprovision, firedScript)
 		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
 	}
 
-	path, number := svc.claimRunLog(t.Context(), fixtureAgentID, config.TriggerDeprovision, firedScript)
+	path, number := svc.claimRunLog(t.Context(), fixtureAgentID, config.TriggerAgentDeprovision, firedScript)
 	require.NotEmpty(t, path)
 	assert.Equal(t, config.MaxRunLogs+1, number)
 
@@ -1380,10 +1380,10 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 
 	logDir := config.RunLogDir(logsDir, fixtureAgentID)
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
-	taken := filepath.Join(logDir, config.RunLogName(1, config.TriggerDeprovision, firedScript))
+	taken := filepath.Join(logDir, config.RunLogName(1, config.TriggerAgentDeprovision, firedScript))
 	require.NoError(t, os.WriteFile(taken, []byte("someone else\n"), 0o644))
 
-	path, number := svc.claimRunLog(t.Context(), fixtureAgentID, config.TriggerDeprovision, firedScript)
+	path, number := svc.claimRunLog(t.Context(), fixtureAgentID, config.TriggerAgentDeprovision, firedScript)
 
 	assert.NotEqual(t, taken, path, "the name already there is left as it stands")
 	assert.Equal(t, 2, number, "it steps past the number that was taken")
@@ -1526,7 +1526,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a hook that declares one is bounded by it",
 			script: "declared",
 			fire: func(s *ScriptService, name string) error {
-				return s.RunHook(t.Context(), agent, name, workflowstore.HookPreLaunch)
+				return s.RunHook(t.Context(), agent, name, workflowstore.HookAgentPreLaunch)
 			},
 			want: 30 * time.Second,
 		},
@@ -1605,7 +1605,7 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 		{
 			name: "a hook is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				return svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, firedScript, workflowstore.HookPreLaunch)
+				return svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, firedScript, workflowstore.HookAgentPreLaunch)
 			},
 		},
 		{
@@ -1930,12 +1930,12 @@ func TestARefusedHookLeavesARunLogSayingWhy(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPostRestore)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookAgentPostRestore)
 	require.ErrorIs(t, err, ErrHookFailed)
 
 	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
-	assert.Equal(t, workflowstore.HookPostRestore, runs[0].Trigger)
+	assert.Equal(t, workflowstore.HookAgentPostRestore, runs[0].Trigger)
 	assert.Equal(t, "install-deps", runs[0].Script)
 
 	logged, readErr := os.ReadFile(runs[0].Path)
@@ -1949,7 +1949,7 @@ func TestAHookThatCannotStartLeavesARunLogSayingWhy(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, t.TempDir(), scripts.NewRunner(), logsDir)
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookAgentPostLaunch)
 	require.ErrorIs(t, err, ErrHookFailed)
 
 	runs := config.ListRunLogs(logsDir, fixtureAgentID)
@@ -2002,7 +2002,7 @@ func TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone(t *testin
 		ID:     fixtureAgentID,
 		Cwd:    gone,
 		TaskID: xptr.Ptr("01a12668-9788-70e8-b1a4-a1886fbae3f6"),
-	}, "forget", workflowstore.HookPostDelete)
+	}, "forget", workflowstore.HookAgentPostDelete)
 	require.NoError(t, err)
 
 	landed, readErr := os.ReadFile(filepath.Join(dir, "forgotten"))

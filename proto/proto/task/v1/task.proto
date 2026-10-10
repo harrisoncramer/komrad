@@ -83,6 +83,8 @@ message Task {
   // When its notes were last written, in RFC 3339 to the nanosecond, unset until they first are.
   // A write of the notes names the value it read.
   optional string notes_updated_at = 20;
+  // Whether a script run on it failed and the person has not opened its logs since.
+  bool failed_run = 21;
 }
 
 message CreateTaskRequest {
@@ -182,6 +184,11 @@ message ArchiveTaskRequest {
   string task = 1 [(buf.validate.field).string.min_len = 1];
 }
 
+message MarkTaskRunsReadRequest {
+  // Which task's failed script runs the person has looked at, by id.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
 message DeleteTasksRequest {
   // The tasks to remove for good, by id or by slug, with every agent on them.
   repeated string tasks = 1 [(buf.validate.field).repeated = {
@@ -279,6 +286,14 @@ service TaskService {
       description: "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc MarkTaskRunsRead(MarkTaskRunsReadRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Whether a person has looked at a task's failed script runs is that person's own reading, which no agent can claim on their behalf."
     };
   }
 }

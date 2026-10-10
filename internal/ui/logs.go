@@ -22,17 +22,19 @@ const (
 	logsFilterSettle = 300 * time.Millisecond
 )
 
-// logsScreen lists where one agent's logs can be read from and renders the newest lines of the
-// source under the cursor beside the list.
+// logsScreen lists where one agent's logs, or every run on one task, can be read from and renders
+// the newest lines of the source under the cursor beside the list.
 type logsScreen struct {
 	rowCursor
 	agentID string
+	// taskID is the task whose runs the screen lists, empty for an agent's logs.
+	taskID string
 	// openedFrom is the view the screen was opened from.
 	openedFrom screen
 	sources    []*logv1.LogSource
 	listed     bool
-	// reading is the id of the source the block holds lines of.
-	reading string
+	// reading is the source the block holds lines of.
+	reading *logv1.LogSource
 	viewer  *logview.Tail
 	cursor  string
 	// generation tells this visit's and this source's reads apart from an earlier one's.
@@ -54,11 +56,17 @@ type logsScreen struct {
 // logSourceRow is one line of the list of log sources.
 type logSourceRow struct {
 	source *logv1.LogSource
+	name   string
 	failed bool
 }
 
 func (r logSourceRow) key() string {
-	return "log:" + r.source.GetId()
+	return sourceKey(r.source)
+}
+
+// sourceKey tells apart sources of the same name two agents on a task recorded.
+func sourceKey(source *logv1.LogSource) string {
+	return "log:" + source.GetAgentId() + "/" + source.GetId()
 }
 
 // isServiceLog reports whether the row is komrad's own structured service log rather than a run's output.
@@ -90,17 +98,26 @@ type logsSettledMsg struct {
 	edits      int
 }
 
-// enter starts over on the agent the target names, listing where its logs can be read from.
+// enter starts over on the agent or task the target names, listing where its logs can be read
+// from and claiming a task's failed runs.
 func (l *logsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	*l = logsScreen{
 		agentID:    target.agentID,
+		taskID:     target.taskID,
 		openedFrom: target.openedFrom,
 		viewer:     logview.NewTail(logsCeiling),
 		format:     logview.FormatCompact,
 		generation: l.generation + 1,
 	}
+	if l.taskID == "" {
+		return l.listCmd(m)
+	}
 
-	return l.listCmd(m)
+	taskID := l.taskID
+
+	return tea.Batch(l.listCmd(m), m.writeCmd("marking the task's runs read", "Could not mark the task's runs read", func(a api) error {
+		return a.markTaskRunsRead(taskID)
+	}))
 }
 
 // leaveScreen ends the chain of reads.
@@ -111,14 +128,19 @@ func (l *logsScreen) leaveScreen(*model) tea.Cmd {
 }
 
 func (l *logsScreen) listCmd(m *model) tea.Cmd {
-	if l.agentID == "" {
+	if l.agentID == "" && l.taskID == "" {
 		return nil
 	}
 
-	agentID, generation, clients := l.agentID, l.generation, m.api.reads()
+	agentID, taskID, generation, clients := l.agentID, l.taskID, l.generation, m.api.reads()
 
 	return func() tea.Msg {
-		sources, err := clients.listAgentLogSources(agentID)
+		list := clients.listAgentLogSources
+		id := agentID
+		if taskID != "" {
+			list, id = clients.listTaskLogSources, taskID
+		}
+		sources, err := list(id)
 
 		return logsSourcesMsg{
 			generation: generation,
@@ -129,15 +151,19 @@ func (l *logsScreen) listCmd(m *model) tea.Cmd {
 }
 
 func (l *logsScreen) readCmd(m *model) tea.Cmd {
-	if l.reading == "" {
+	if l.reading == nil {
 		return nil
 	}
 
+	agentID := l.reading.GetAgentId()
+	if agentID == "" {
+		agentID = l.agentID
+	}
 	req := &logv1.ReadAgentLogsRequest{
-		AgentIds: []string{l.agentID},
+		AgentIds: []string{agentID},
 		Cursor:   l.cursor,
 		Limit:    logsReadLimit,
-		Source:   l.reading,
+		Source:   l.reading.GetId(),
 		Pattern:  l.pattern,
 	}
 	generation, clients := l.generation, m.api.reads()
@@ -231,20 +257,21 @@ func (l *logsScreen) tickCmd() tea.Cmd {
 // switchSource starts the block over on the source the cursor is on, unless it is the one being read.
 func (l *logsScreen) switchSource(m *model) tea.Cmd {
 	row, ok := rowAt(l.rows(m), l.rowCursor.cursor)
-	if !ok || row.source.GetId() == l.reading {
+	if !ok || row.key() == sourceKey(l.reading) {
 		return nil
 	}
 
-	l.reading, l.logFocus = row.source.GetId(), false
+	l.reading, l.logFocus = row.source, false
 	l.logFilter, l.pattern = filterState{}, ""
 	l.applyFormat(row)
 
 	return tea.Batch(l.restart(m), l.markFailedRunReadCmd(m, row))
 }
 
-// markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened.
+// markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened, leaving a
+// task's to the screen opening.
 func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
-	if !row.failed {
+	if !row.failed || l.taskID != "" {
 		return nil
 	}
 
@@ -369,7 +396,8 @@ func (l *logsScreen) rows(m *model) []logSourceRow {
 		rows: xslice.Map(l.sources, func(source *logv1.LogSource) logSourceRow {
 			return logSourceRow{
 				source: source,
-				failed: source.Run != nil && failedRun != nil && *source.Run == *failedRun,
+				name:   l.nameSource(m, source),
+				failed: source.GetFailed() || (source.Run != nil && failedRun != nil && *source.Run == *failedRun),
 			}
 		}),
 		depth: func(logSourceRow) int { return 0 },
@@ -378,7 +406,21 @@ func (l *logsScreen) rows(m *model) []logSourceRow {
 }
 
 func logSourceRowName(row logSourceRow) string {
-	return row.source.GetName()
+	return row.name
+}
+
+// nameSource is what a source is called, led by the agent that ran it when the screen lists a task's runs.
+func (l *logsScreen) nameSource(m *model, source *logv1.LogSource) string {
+	if l.taskID == "" {
+		return source.GetName()
+	}
+
+	name := source.GetAgentId()
+	if item, ok := m.listing.anyAgent(name); ok {
+		name = m.listing.agentName(item.Agent)
+	}
+
+	return name + " " + source.GetName()
 }
 
 func (l *logsScreen) listParams(m *model) screenListParams {
@@ -405,6 +447,10 @@ func (l *logsScreen) parent() screen {
 }
 
 func (l *logsScreen) crumbs(m *model) crumbs {
+	if task, ok := m.listing.tasks[l.taskID]; ok {
+		return crumbs{trail: []string{task.Slug, "logs"}}
+	}
+
 	name := l.agentID
 	if item, ok := m.listing.anyAgent(l.agentID); ok {
 		name = m.listing.agentName(item.Agent)

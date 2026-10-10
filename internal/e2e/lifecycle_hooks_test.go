@@ -46,7 +46,7 @@ func TestIntegrationPreDeleteRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 
 	seen := filepath.Join(t.TempDir(), "seen")
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookPreDelete, "#!/bin/sh\nls .git >"+seen+"\n")))
+		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\nls .git >"+seen+"\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -84,7 +84,7 @@ func TestIntegrationAFailedPreDeleteHoldsTheDelete(t *testing.T) {
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookPreDelete, "#!/bin/sh\necho boom >&2\nexit 1\n")))
+		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\necho boom >&2\nexit 1\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -124,7 +124,7 @@ func TestIntegrationPreDeleteIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 
 	ran := filepath.Join(t.TempDir(), "ran")
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookPreDelete, "#!/bin/sh\ntouch "+ran+"\nexit 1\n")))
+		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\ntouch "+ran+"\nexit 1\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -159,7 +159,7 @@ func TestIntegrationOverlappingDeletesRunThePreDeleteOnce(t *testing.T) {
 
 	counted := filepath.Join(t.TempDir(), "counted")
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookPreDelete, "#!/bin/sh\necho run >>"+counted+"\nsleep 1\n")))
+		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\necho run >>"+counted+"\nsleep 1\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -229,7 +229,7 @@ func TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived(t *testin
 	ctx := t.Context()
 
 	seen := filepath.Join(t.TempDir(), "seen")
-	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookPostArchive,
+	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostArchive,
 		"#!/bin/sh\npwd -P >"+seen+"\n"))
 
 	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{agent.GetId()}}))
@@ -254,7 +254,7 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 	ctx := t.Context()
 
 	seen := filepath.Join(t.TempDir(), "seen")
-	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookPostDelete,
+	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostDelete,
 		"#!/bin/sh\n{ pwd -P; echo \"$KOMRAD_AGENT_CWD\"; test -d \"$KOMRAD_AGENT_CWD\" && echo there || echo gone; } >"+seen+"\n"))
 
 	_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{agent.GetTaskId()}}))
@@ -278,16 +278,16 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 
 func everyMoment() []string {
 	return []string{
-		workflowstore.HookPreLaunch,
-		workflowstore.HookPostLaunch,
-		workflowstore.HookPreResume,
-		workflowstore.HookPostResume,
-		workflowstore.HookPreArchive,
-		workflowstore.HookPostArchive,
-		workflowstore.HookPreRestore,
-		workflowstore.HookPostRestore,
-		workflowstore.HookPreDelete,
-		workflowstore.HookPostDelete,
+		workflowstore.HookAgentPreLaunch,
+		workflowstore.HookAgentPostLaunch,
+		workflowstore.HookAgentPreResume,
+		workflowstore.HookAgentPostResume,
+		workflowstore.HookAgentPreArchive,
+		workflowstore.HookAgentPostArchive,
+		workflowstore.HookAgentPreRestore,
+		workflowstore.HookAgentPostRestore,
+		workflowstore.HookAgentPreDelete,
+		workflowstore.HookAgentPostDelete,
 	}
 }
 
@@ -329,28 +329,28 @@ func TestIntegrationEveryMomentFiresInOrderOverAnAgentsLife(t *testing.T) {
 		"#!/bin/sh\necho \"$KOMRAD_TRIGGER\" >>"+record+"\n"))
 	ids := []string{agent.GetId()}
 
-	seen := []string{workflowstore.HookPreLaunch, workflowstore.HookPostLaunch}
+	seen := []string{workflowstore.HookAgentPreLaunch, workflowstore.HookAgentPostLaunch}
 	waitForMoments(t, record, seen...)
 
 	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
 	require.NoError(t, err)
-	seen = append(seen, workflowstore.HookPreArchive, workflowstore.HookPostArchive)
+	seen = append(seen, workflowstore.HookAgentPreArchive, workflowstore.HookAgentPostArchive)
 	waitForMoments(t, record, seen...)
 
 	_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
 	require.NoError(t, err)
-	seen = append(seen, workflowstore.HookPreRestore, workflowstore.HookPostRestore)
+	seen = append(seen, workflowstore.HookAgentPreRestore, workflowstore.HookAgentPostRestore)
 	waitForMoments(t, record, seen...)
 
 	_, err = instance.Agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: agent.GetId()}))
 	require.NoError(t, err)
-	seen = append(seen, workflowstore.HookPreResume, workflowstore.HookPostResume)
+	seen = append(seen, workflowstore.HookAgentPreResume, workflowstore.HookAgentPostResume)
 	waitForMoments(t, record, seen...)
 
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
 	require.NoError(t, err)
 	instance.WorkQueue()
-	seen = append(seen, workflowstore.HookPreDelete, workflowstore.HookPostDelete)
+	seen = append(seen, workflowstore.HookAgentPreDelete, workflowstore.HookAgentPostDelete)
 	waitForMoments(t, record, seen...)
 }
 
@@ -361,7 +361,7 @@ func TestIntegrationAFailedPostArchiveOnlyMarksItsRun(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
-	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookPostArchive,
+	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostArchive,
 		"#!/bin/sh\necho could not give the slot back >&2\nexit 1\n"))
 
 	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{agent.GetId()}}))

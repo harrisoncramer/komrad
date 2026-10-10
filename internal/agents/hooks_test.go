@@ -32,9 +32,9 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
-			{Event: workflowstore.HookPostLaunch, Script: "announce"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "copy-env"},
+			{Event: workflowstore.HookAgentPostLaunch, Script: "announce"},
 		},
 	})
 	require.NoError(t, err)
@@ -50,13 +50,13 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 	ran := lifecycle.ranHooks()
 	require.GreaterOrEqual(t, len(ran), 2)
 	assert.Equal(t, ranHook{
-		Event:  workflowstore.HookPreLaunch,
+		Event:  workflowstore.HookAgentPreLaunch,
 		Script: "install-deps",
 		Cwd:    provisioned,
 	}, ran[0],
-		"the first pre-launch hook runs in the directory the provisioner named")
+		"the first agent.pre-launch hook runs in the directory the provisioner named")
 	assert.Equal(t, ranHook{
-		Event:  workflowstore.HookPreLaunch,
+		Event:  workflowstore.HookAgentPreLaunch,
 		Script: "copy-env",
 		Cwd:    provisioned,
 	}, ran[1],
@@ -73,7 +73,7 @@ func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 
 	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookAgentPostLaunch, Script: "announce"}},
 	})
 	require.NoError(t, err)
 
@@ -87,14 +87,14 @@ func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the post-launch hook runs once the pane is up")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-launch hook runs once the pane is up")
 
 	ran := lifecycle.ranHooks()
-	assert.Equal(t, workflowstore.HookPostLaunch, ran[0].Event)
+	assert.Equal(t, workflowstore.HookAgentPostLaunch, ran[0].Event)
 	assert.Equal(t, "announce", ran[0].Script)
 }
 
-// TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing pre-launch hook taking the
+// TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing agent.pre-launch hook taking the
 // create with it.
 func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	tmux := tmuxtest.NewFake()
@@ -110,8 +110,8 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "copy-env"},
 		},
 	})
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestNewChildAgentRunsNoHooks(t *testing.T) {
 
 	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Script: "install-deps"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"}},
 	})
 	require.NoError(t, err)
 
@@ -182,8 +182,8 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookPostLaunch, Script: "announce"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookAgentPostLaunch, Script: "announce"},
 		},
 	})
 	require.NoError(t, err)
@@ -225,27 +225,27 @@ func TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold(t *testing.T) {
 
 	_, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "instal-deps"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookAgentPreDelete, Script: "instal-deps"}},
 	})
 	require.ErrorIs(t, err, ErrUnknownHookScript)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "install-deps"}},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPreDelete, Script: "install-deps"}},
 	})
 	require.NoError(t, err)
 
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "instal-deps"}},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPreDelete, Script: "instal-deps"}},
 	})
 	require.ErrorIs(t, err, ErrUnknownHookScript)
 
 	stored, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "install-deps"}}, stored.Hooks,
+	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookAgentPreDelete, Script: "install-deps"}}, stored.Hooks,
 		"the refused update leaves the hooks it had")
 }
 
@@ -259,10 +259,10 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
-			{Event: workflowstore.HookPostLaunch, Script: "announce"},
-			{Event: workflowstore.HookPreLaunch, Script: ""},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "copy-env"},
+			{Event: workflowstore.HookAgentPostLaunch, Script: "announce"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: ""},
 		},
 	})
 	require.NoError(t, err)
@@ -270,20 +270,20 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	got, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []workflowstore.Hook{
-		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-		{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
-		{Event: workflowstore.HookPostLaunch, Script: "announce"},
+		{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"},
+		{Event: workflowstore.HookAgentPreLaunch, Script: "copy-env"},
+		{Event: workflowstore.HookAgentPostLaunch, Script: "announce"},
 	}, got.Hooks, "the blank a None select sends is dropped rather than stored")
 
 	require.NoError(t, workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPostLaunch, Script: "announce"}},
 	}))
 
 	updated, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}}, updated.Hooks,
+	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookAgentPostLaunch, Script: "announce"}}, updated.Hooks,
 		"an update writes the whole list rather than adding to it")
 }
 
@@ -300,8 +300,8 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookPostResume, Script: "announce-back"},
+			{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookAgentPostResume, Script: "announce-back"},
 		},
 	})
 	require.NoError(t, err)
@@ -315,11 +315,11 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the post-resume hook runs once the pane is back")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-resume hook runs once the pane is back")
 
 	ran := lifecycle.ranHooks()
-	assert.Equal(t, workflowstore.HookPostResume, ran[0].Event)
-	assert.Equal(t, "announce-back", ran[0].Script, "and pre-launch does not rerun")
+	assert.Equal(t, workflowstore.HookAgentPostResume, ran[0].Event)
+	assert.Equal(t, "announce-back", ran[0].Script, "and agent.pre-launch does not rerun")
 }
 
 // TestRestoreFiresPostRestoreHooks pins the moment the row comes back.
@@ -334,7 +334,7 @@ func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPostRestore, Script: "unlock"}},
 	})
 	require.NoError(t, err)
 
@@ -346,9 +346,9 @@ func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the post-restore hook runs once the row is back")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-restore hook runs once the row is back")
 
-	assert.Equal(t, workflowstore.HookPostRestore, lifecycle.ranHooks()[0].Event)
+	assert.Equal(t, workflowstore.HookAgentPostRestore, lifecycle.ranHooks()[0].Event)
 }
 
 // TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn pins the moments off the create path
@@ -393,8 +393,8 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 				Cwd:      fakeCheckout(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 				Hooks: []workflowstore.Hook{
-					{Event: workflowstore.HookPostResume, Script: "announce-back"},
-					{Event: workflowstore.HookPostRestore, Script: "unlock"},
+					{Event: workflowstore.HookAgentPostResume, Script: "announce-back"},
+					{Event: workflowstore.HookAgentPostRestore, Script: "unlock"},
 				},
 			})
 			require.NoError(t, err)
@@ -437,7 +437,7 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPostRestore, Script: "unlock"}},
 	})
 	require.NoError(t, err)
 
@@ -457,7 +457,7 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) > 0
-	}, 5*time.Second, 10*time.Millisecond, "the archived agent's post-restore hook runs")
+	}, 5*time.Second, 10*time.Millisecond, "the archived agent's agent.post-restore hook runs")
 
 	// Long enough for a second chain to have started if one was going to.
 	require.Never(t, func() bool {
@@ -479,7 +479,7 @@ func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPostRestore, Script: "unlock"}},
 	})
 	require.NoError(t, err)
 
@@ -494,10 +494,10 @@ func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) > 0
-	}, 5*time.Second, 10*time.Millisecond, "the post-restore hook runs for the agent inside")
+	}, 5*time.Second, 10*time.Millisecond, "the agent.post-restore hook runs for the agent inside")
 
 	assert.Equal(t, []ranHook{{
-		Event:  workflowstore.HookPostRestore,
+		Event:  workflowstore.HookAgentPostRestore,
 		Script: "unlock",
 		Cwd:    agent.Cwd,
 	}}, lifecycle.ranHooks())
@@ -516,8 +516,8 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreResume, Script: "warm-up"},
-			{Event: workflowstore.HookPostResume, Script: "announce-back"},
+			{Event: workflowstore.HookAgentPreResume, Script: "warm-up"},
+			{Event: workflowstore.HookAgentPostResume, Script: "announce-back"},
 		},
 	})
 	require.NoError(t, err)
@@ -533,10 +533,10 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 
 	require.Never(t, func() bool {
 		return len(lifecycle.ranHooks()) > 1
-	}, 300*time.Millisecond, 20*time.Millisecond, "post-resume never follows a refused resume")
+	}, 300*time.Millisecond, 20*time.Millisecond, "agent.post-resume never follows a refused resume")
 
 	assert.Equal(t, []ranHook{{
-		Event:  workflowstore.HookPreResume,
+		Event:  workflowstore.HookAgentPreResume,
 		Script: "warm-up",
 		Cwd:    agent.Cwd,
 	}}, lifecycle.ranHooks())
@@ -605,18 +605,18 @@ func ranEvents(lifecycle *fakeLifecycle) []string {
 // TestArchiveHooks covers both moments around an archive, through both calls that archive.
 func TestArchiveHooks(t *testing.T) {
 	refused := []string{
-		workflowstore.HookPreArchive,
-		workflowstore.HookPreArchive,
+		workflowstore.HookAgentPreArchive,
+		workflowstore.HookAgentPreArchive,
 	}
 	archived := []string{
-		workflowstore.HookPreArchive,
-		workflowstore.HookPreArchive,
-		workflowstore.HookPostArchive,
-		workflowstore.HookPostArchive,
+		workflowstore.HookAgentPreArchive,
+		workflowstore.HookAgentPreArchive,
+		workflowstore.HookAgentPostArchive,
+		workflowstore.HookAgentPostArchive,
 	}
 	postOnly := []string{
-		workflowstore.HookPostArchive,
-		workflowstore.HookPostArchive,
+		workflowstore.HookAgentPostArchive,
+		workflowstore.HookAgentPostArchive,
 	}
 	byAgents, byWorkflow := archiveCalls()[0], archiveCalls()[1]
 
@@ -630,21 +630,21 @@ func TestArchiveHooks(t *testing.T) {
 		wantEvents   []string
 	}{
 		{
-			name:       "a failed pre-archive refuses archiving the agents",
+			name:       "a failed agent.pre-archive refuses archiving the agents",
 			call:       byAgents,
 			hookErrs:   map[string]error{"lock": errors.New("uncommitted work")},
 			wantErr:    "uncommitted work",
 			wantEvents: refused,
 		},
 		{
-			name:       "a failed pre-archive refuses archiving the workflow",
+			name:       "a failed agent.pre-archive refuses archiving the workflow",
 			call:       byWorkflow,
 			hookErrs:   map[string]error{"lock": errors.New("uncommitted work")},
 			wantErr:    "uncommitted work",
 			wantEvents: refused,
 		},
 		{
-			name:         "archiving the agents passes pre-archive over a directory that has gone",
+			name:         "archiving the agents passes agent.pre-archive over a directory that has gone",
 			call:         byAgents,
 			hookErrs:     map[string]error{"lock": errors.New("uncommitted work")},
 			removeDir:    true,
@@ -652,7 +652,7 @@ func TestArchiveHooks(t *testing.T) {
 			wantEvents:   postOnly,
 		},
 		{
-			name:         "archiving the workflow passes pre-archive over a directory that has gone",
+			name:         "archiving the workflow passes agent.pre-archive over a directory that has gone",
 			call:         byWorkflow,
 			hookErrs:     map[string]error{"lock": errors.New("uncommitted work")},
 			removeDir:    true,
@@ -660,13 +660,13 @@ func TestArchiveHooks(t *testing.T) {
 			wantEvents:   postOnly,
 		},
 		{
-			name:         "archiving the agents runs post-archive once it has",
+			name:         "archiving the agents runs agent.post-archive once it has",
 			call:         byAgents,
 			wantArchived: true,
 			wantEvents:   archived,
 		},
 		{
-			name:         "archiving the workflow runs post-archive once it has",
+			name:         "archiving the workflow runs agent.post-archive once it has",
 			call:         byWorkflow,
 			wantArchived: true,
 			wantEvents:   archived,
@@ -680,8 +680,8 @@ func TestArchiveHooks(t *testing.T) {
 
 			lifecycle := &fakeLifecycle{hookErrs: tt.hookErrs}
 			workflowID, agents := seedHookedAgents(t, st, []workflowstore.Hook{
-				{Event: workflowstore.HookPreArchive, Script: "lock"},
-				{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
+				{Event: workflowstore.HookAgentPreArchive, Script: "lock"},
+				{Event: workflowstore.HookAgentPostArchive, Script: "give-back-the-slot"},
 			}, "auth", "billing")
 			if tt.removeDir {
 				for _, agent := range agents {
@@ -787,7 +787,7 @@ func TestPreRestore(t *testing.T) {
 
 			lifecycle := &fakeLifecycle{hookErrs: map[string]error{"check-in": errors.New("slot taken")}}
 			workflowID, agents := seedHookedAgents(t, st, []workflowstore.Hook{
-				{Event: workflowstore.HookPreRestore, Script: "check-in"},
+				{Event: workflowstore.HookAgentPreRestore, Script: "check-in"},
 			}, "auth")
 			require.NoError(t, st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake()}).ArchiveWorkflow(ctx, workflowID))
 			if tt.removeDir {
@@ -821,8 +821,8 @@ func TestArchivingAnArchivedAgentRunsNoHooks(t *testing.T) {
 	lifecycle := &fakeLifecycle{}
 	manager := st.agentServiceWithLifecycle(tmuxtest.NewFake(), harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	_, agents := seedHookedAgents(t, st, []workflowstore.Hook{
-		{Event: workflowstore.HookPreArchive, Script: "lock"},
-		{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
+		{Event: workflowstore.HookAgentPreArchive, Script: "lock"},
+		{Event: workflowstore.HookAgentPostArchive, Script: "give-back-the-slot"},
 	}, "auth")
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(agents)}))
@@ -848,8 +848,8 @@ func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 
 	config := worktreeConfig(t, "backend")
 	config.Hooks = []workflowstore.Hook{
-		{Event: workflowstore.HookPreDelete, Script: "say-goodbye"},
-		{Event: workflowstore.HookPostDelete, Script: "forget"},
+		{Event: workflowstore.HookAgentPreDelete, Script: "say-goodbye"},
+		{Event: workflowstore.HookAgentPostDelete, Script: "forget"},
 	}
 	created, err := st.Workflows.Create(ctx, config)
 	require.NoError(t, err)
@@ -862,16 +862,16 @@ func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 2
-	}, 5*time.Second, 10*time.Millisecond, "post-delete runs once the row is dropped")
+	}, 5*time.Second, 10*time.Millisecond, "agent.post-delete runs once the row is dropped")
 
 	assert.Equal(t, []ranHook{
 		{
-			Event:  workflowstore.HookPreDelete,
+			Event:  workflowstore.HookAgentPreDelete,
 			Script: "say-goodbye",
 			Cwd:    agent.Cwd,
 		},
 		{
-			Event:  workflowstore.HookPostDelete,
+			Event:  workflowstore.HookAgentPostDelete,
 			Script: "forget",
 			Cwd:    agent.Cwd,
 		},
@@ -893,7 +893,7 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
 	config := worktreeConfig(t, "backend")
-	config.Hooks = []workflowstore.Hook{{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"}}
+	config.Hooks = []workflowstore.Hook{{Event: workflowstore.HookAgentPostArchive, Script: "give-back-the-slot"}}
 	created, err := st.Workflows.Create(ctx, config)
 	require.NoError(t, err)
 
@@ -905,7 +905,7 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 		scripts: lifecycle,
 		agent:   agent,
 		hooks:   config.Hooks,
-		event:   workflowstore.HookPostArchive,
+		event:   workflowstore.HookAgentPostArchive,
 	})
 	deleted := make(chan error, 1)
 	go func() { deleted <- manager.lifecycle.deleteNow(ctx, []string{agent.ID}) }()
@@ -933,14 +933,14 @@ func TestAStartedHookHoldsItsPlaceBeforeItsGoroutineIsScheduled(t *testing.T) {
 	hold := make(chan struct{})
 	lifecycle := &fakeLifecycle{holdHooks: hold}
 	_, agents := seedHookedAgents(t, st, []workflowstore.Hook{
-		{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
+		{Event: workflowstore.HookAgentPostArchive, Script: "give-back-the-slot"},
 	}, "auth")
 
 	startHooksFor(ctx, batchHooksParams{
 		scripts:   lifecycle,
 		workflows: st.Workflows,
 		agents:    agents,
-		event:     workflowstore.HookPostArchive,
+		event:     workflowstore.HookAgentPostArchive,
 	})
 
 	waiting, cancel := context.WithTimeout(ctx, 50*time.Millisecond)

@@ -11,7 +11,6 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -70,11 +69,6 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	provisioner, deprovisioner := worktreeScripts(wf, agent.ProvisionEnabled)
 	hooks := hooksFor(wf, agent.ParentAgentID != nil, agent.ProvisionEnabled)
 
-	workflowContext := ""
-	if wf != nil {
-		workflowContext = wf.Context
-	}
-
 	wanted := strings.TrimSpace(params.Harness)
 	switched := wanted != "" && wanted != agent.Harness
 	if wanted == "" {
@@ -108,16 +102,13 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		}
 	}
 
-	var task *taskstore.Task
-	if agent.TaskID != nil {
-		found, err := s.tasks.GetTask(ctx, *agent.TaskID)
-		if err != nil {
-			err = fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
-			s.failCreate(ctx, *agent, err)
-
-			return nil, err
-		}
-		task = found
+	placed, err := s.placeRetry(ctx, *agent)
+	if err != nil {
+		s.failCreate(ctx, *agent, err)
+		return nil, err
+	}
+	if placed.openTurn != nil {
+		defer placed.openTurn.Done()
 	}
 
 	claimsCheckout := isCheckoutClaimant(*agent, provisioner)
@@ -131,17 +122,40 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	agent.State = agentstore.StateSettingUp
 
 	return s.startInPane(ctx, *agent, resolvedLaunch{
-		harness:         hn,
-		provisioner:     provisioner,
-		deprovisioner:   deprovisioner,
-		hooks:           hooks,
-		defaultDir:      agent.Cwd,
-		workflowContext: workflowContext,
-		spawner:         spawner,
-		parent:          parent,
-		task:            task,
-		claimsCheckout:  claimsCheckout,
+		harness:        hn,
+		provisioner:    provisioner,
+		deprovisioner:  deprovisioner,
+		hooks:          hooks,
+		defaultDir:     agent.Cwd,
+		spawner:        spawner,
+		parent:         parent,
+		claimsCheckout: claimsCheckout,
+		workflow:       wf,
+		task:           placed.task,
+		openTurn:       placed.openTurn,
 	})
+}
+
+// placeRetry reads the task a retried agent is on, taking a place in its hook queue when the retry opens it.
+func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) (*placement, error) {
+	if agent.TaskID == nil {
+		return &placement{}, nil
+	}
+
+	task, err := s.tasks.GetTask(ctx, *agent.TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
+	}
+
+	live, err := s.agents.ListLiveOnTask(ctx, task.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &placement{
+		task:     task,
+		openTurn: s.queueOpening(agent, live),
+	}, nil
 }
 
 // claimCheckoutAgain claims the checkout of a retried agent's task again, refusing when another launch

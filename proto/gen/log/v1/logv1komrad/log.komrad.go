@@ -21,6 +21,7 @@ type LogServiceImpl interface {
 	ListRecentTraces(context.Context, *v1.ListRecentTracesRequest) (*v1.ListRecentTracesResponse, *fail.Error)
 	ReadAgentLogs(context.Context, *v1.ReadAgentLogsRequest) (*v1.ReadAgentLogsResponse, *fail.Error)
 	ListAgentLogSources(context.Context, *v1.ListAgentLogSourcesRequest) (*v1.ListAgentLogSourcesResponse, *fail.Error)
+	ListTaskLogSources(context.Context, *v1.ListTaskLogSourcesRequest) (*v1.ListTaskLogSourcesResponse, *fail.Error)
 }
 
 // LogServiceAdapter carries what the implementation returned across to the signature
@@ -47,6 +48,11 @@ func (a LogServiceAdapter) ReadAgentLogs(ctx context.Context, req *connect.Reque
 // ListAgentLogSources answers the request as connect serves it.
 func (a LogServiceAdapter) ListAgentLogSources(ctx context.Context, req *connect.Request[v1.ListAgentLogSourcesRequest]) (*connect.Response[v1.ListAgentLogSourcesResponse], error) {
 	return rpcerr.Answer(a.Impl.ListAgentLogSources(ctx, req.Msg))
+}
+
+// ListTaskLogSources answers the request as connect serves it.
+func (a LogServiceAdapter) ListTaskLogSources(ctx context.Context, req *connect.Request[v1.ListTaskLogSourcesRequest]) (*connect.Response[v1.ListTaskLogSourcesResponse], error) {
+	return rpcerr.Answer(a.Impl.ListTaskLogSources(ctx, req.Msg))
 }
 
 // RegisterLogService mounts the implementation on the mux behind its adapter.

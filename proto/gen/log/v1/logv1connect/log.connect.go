@@ -44,6 +44,9 @@ const (
 	// LogServiceListAgentLogSourcesProcedure is the fully-qualified name of the LogService's
 	// ListAgentLogSources RPC.
 	LogServiceListAgentLogSourcesProcedure = "/log.v1.LogService/ListAgentLogSources"
+	// LogServiceListTaskLogSourcesProcedure is the fully-qualified name of the LogService's
+	// ListTaskLogSources RPC.
+	LogServiceListTaskLogSourcesProcedure = "/log.v1.LogService/ListTaskLogSources"
 )
 
 // LogServiceClient is a client for the log.v1.LogService service.
@@ -52,6 +55,7 @@ type LogServiceClient interface {
 	ListRecentTraces(context.Context, *connect.Request[v1.ListRecentTracesRequest]) (*connect.Response[v1.ListRecentTracesResponse], error)
 	ReadAgentLogs(context.Context, *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error)
 	ListAgentLogSources(context.Context, *connect.Request[v1.ListAgentLogSourcesRequest]) (*connect.Response[v1.ListAgentLogSourcesResponse], error)
+	ListTaskLogSources(context.Context, *connect.Request[v1.ListTaskLogSourcesRequest]) (*connect.Response[v1.ListTaskLogSourcesResponse], error)
 }
 
 // NewLogServiceClient constructs a client for the log.v1.LogService service. By default, it uses
@@ -93,6 +97,13 @@ func NewLogServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listTaskLogSources: connect.NewClient[v1.ListTaskLogSourcesRequest, v1.ListTaskLogSourcesResponse](
+			httpClient,
+			baseURL+LogServiceListTaskLogSourcesProcedure,
+			connect.WithSchema(logServiceMethods.ByName("ListTaskLogSources")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -102,6 +113,7 @@ type logServiceClient struct {
 	listRecentTraces    *connect.Client[v1.ListRecentTracesRequest, v1.ListRecentTracesResponse]
 	readAgentLogs       *connect.Client[v1.ReadAgentLogsRequest, v1.ReadAgentLogsResponse]
 	listAgentLogSources *connect.Client[v1.ListAgentLogSourcesRequest, v1.ListAgentLogSourcesResponse]
+	listTaskLogSources  *connect.Client[v1.ListTaskLogSourcesRequest, v1.ListTaskLogSourcesResponse]
 }
 
 // GetLogLines calls log.v1.LogService.GetLogLines.
@@ -124,12 +136,18 @@ func (c *logServiceClient) ListAgentLogSources(ctx context.Context, req *connect
 	return c.listAgentLogSources.CallUnary(ctx, req)
 }
 
+// ListTaskLogSources calls log.v1.LogService.ListTaskLogSources.
+func (c *logServiceClient) ListTaskLogSources(ctx context.Context, req *connect.Request[v1.ListTaskLogSourcesRequest]) (*connect.Response[v1.ListTaskLogSourcesResponse], error) {
+	return c.listTaskLogSources.CallUnary(ctx, req)
+}
+
 // LogServiceHandler is an implementation of the log.v1.LogService service.
 type LogServiceHandler interface {
 	GetLogLines(context.Context, *connect.Request[v1.GetLogLinesRequest]) (*connect.Response[v1.GetLogLinesResponse], error)
 	ListRecentTraces(context.Context, *connect.Request[v1.ListRecentTracesRequest]) (*connect.Response[v1.ListRecentTracesResponse], error)
 	ReadAgentLogs(context.Context, *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error)
 	ListAgentLogSources(context.Context, *connect.Request[v1.ListAgentLogSourcesRequest]) (*connect.Response[v1.ListAgentLogSourcesResponse], error)
+	ListTaskLogSources(context.Context, *connect.Request[v1.ListTaskLogSourcesRequest]) (*connect.Response[v1.ListTaskLogSourcesResponse], error)
 }
 
 // NewLogServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -167,6 +185,13 @@ func NewLogServiceHandler(svc LogServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	logServiceListTaskLogSourcesHandler := connect.NewUnaryHandler(
+		LogServiceListTaskLogSourcesProcedure,
+		svc.ListTaskLogSources,
+		connect.WithSchema(logServiceMethods.ByName("ListTaskLogSources")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/log.v1.LogService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LogServiceGetLogLinesProcedure:
@@ -177,6 +202,8 @@ func NewLogServiceHandler(svc LogServiceHandler, opts ...connect.HandlerOption) 
 			logServiceReadAgentLogsHandler.ServeHTTP(w, r)
 		case LogServiceListAgentLogSourcesProcedure:
 			logServiceListAgentLogSourcesHandler.ServeHTTP(w, r)
+		case LogServiceListTaskLogSourcesProcedure:
+			logServiceListTaskLogSourcesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -200,4 +227,8 @@ func (UnimplementedLogServiceHandler) ReadAgentLogs(context.Context, *connect.Re
 
 func (UnimplementedLogServiceHandler) ListAgentLogSources(context.Context, *connect.Request[v1.ListAgentLogSourcesRequest]) (*connect.Response[v1.ListAgentLogSourcesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("log.v1.LogService.ListAgentLogSources is not implemented"))
+}
+
+func (UnimplementedLogServiceHandler) ListTaskLogSources(context.Context, *connect.Request[v1.ListTaskLogSourcesRequest]) (*connect.Response[v1.ListTaskLogSourcesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("log.v1.LogService.ListTaskLogSources is not implemented"))
 }

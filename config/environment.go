@@ -101,37 +101,43 @@ func (e *Environment) FramesDir() string {
 // what a run's log file is named after: the worktree provisioner's own three, and the moments
 // a workflow can hang a hook on.
 const (
-	TriggerProvision   = "provision"
-	TriggerResume      = "resume"
-	TriggerDeprovision = "deprovision"
-	HookPreLaunch      = "pre-launch"
-	HookPostLaunch     = "post-launch"
-	HookPreResume      = "pre-resume"
-	HookPostResume     = "post-resume"
-	HookPreArchive     = "pre-archive"
-	HookPostArchive    = "post-archive"
-	HookPreRestore     = "pre-restore"
-	HookPostRestore    = "post-restore"
-	HookPreDelete      = "pre-delete"
-	HookPostDelete     = "post-delete"
+	TriggerAgentProvision   = "agent.provision"
+	TriggerAgentResume      = "agent.resume"
+	TriggerAgentDeprovision = "agent.deprovision"
+	HookAgentPreLaunch      = "agent.pre-launch"
+	HookAgentPostLaunch     = "agent.post-launch"
+	HookAgentPreResume      = "agent.pre-resume"
+	HookAgentPostResume     = "agent.post-resume"
+	HookAgentPreArchive     = "agent.pre-archive"
+	HookAgentPostArchive    = "agent.post-archive"
+	HookAgentPreRestore     = "agent.pre-restore"
+	HookAgentPostRestore    = "agent.post-restore"
+	HookAgentPreDelete      = "agent.pre-delete"
+	HookAgentPostDelete     = "agent.post-delete"
+	HookTaskPreOpen         = "task.pre-open"
+	HookTaskPostArchive     = "task.post-archive"
+	HookTaskPreDelete       = "task.pre-delete"
 )
 
 // runMoments is every moment by name.
 func runMoments() []string {
 	return []string{
-		TriggerProvision,
-		TriggerResume,
-		TriggerDeprovision,
-		HookPreLaunch,
-		HookPostLaunch,
-		HookPreResume,
-		HookPostResume,
-		HookPreArchive,
-		HookPostArchive,
-		HookPreRestore,
-		HookPostRestore,
-		HookPreDelete,
-		HookPostDelete,
+		TriggerAgentProvision,
+		TriggerAgentResume,
+		TriggerAgentDeprovision,
+		HookAgentPreLaunch,
+		HookAgentPostLaunch,
+		HookAgentPreResume,
+		HookAgentPostResume,
+		HookAgentPreArchive,
+		HookAgentPostArchive,
+		HookAgentPreRestore,
+		HookAgentPostRestore,
+		HookAgentPreDelete,
+		HookAgentPostDelete,
+		HookTaskPreOpen,
+		HookTaskPostArchive,
+		HookTaskPreDelete,
 	}
 }
 

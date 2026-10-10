@@ -12,6 +12,8 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
+	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -33,7 +35,7 @@ func TestLogsOpen(t *testing.T) {
 		assert.True(t, harness.panel.IsZoomed(), "the screen holds the whole window")
 		assert.Contains(t, frame, "agents › author › logs")
 		assert.Contains(t, readHoveredRow(frame), "service")
-		assert.Contains(t, readSidebarProse(frame), "001 provision setup")
+		assert.Contains(t, readSidebarProse(frame), "001 agent.provision setup")
 		assert.Contains(t, readStageText(frame), "first line")
 		assert.Contains(t, readStageText(frame), "second line")
 		harness.assertSentTo(logv1connect.LogServiceListAgentLogSourcesProcedure, &logv1.ListAgentLogSourcesRequest{AgentId: "author"})
@@ -59,7 +61,7 @@ func TestLogsOpen(t *testing.T) {
 		harness := openLogs(t, tailOfTwo(), rows...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, readHoveredRow(frame), "001 provision setup \uf489")
+		assert.Contains(t, readHoveredRow(frame), "001 agent.provision setup \uf489")
 		assert.Contains(t, readStageText(frame), "error: port 5470 already allocated")
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead(provisionRun, ""))
 	})
@@ -175,7 +177,7 @@ func TestLogsSources(t *testing.T) {
 		harness.press("j", rest)
 
 		stage := readStageText(harness.readFrame())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "001 provision setup")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "001 agent.provision setup")
 		assert.Contains(t, stage, "error: port 5470 already allocated")
 		assert.NotContains(t, stage, "first line")
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead(provisionRun, ""))
@@ -219,7 +221,7 @@ func TestLogsSources(t *testing.T) {
 		harness.fireTimers()
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "002 pre-launch setup")
+		assert.Contains(t, readSidebarProse(frame), "002 agent.pre-launch setup")
 		assert.Contains(t, readStageText(frame), "error: port 5470 already allocated")
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead(provisionRun, ""), logRead(provisionRun, "35"))
 	})
@@ -233,7 +235,7 @@ func TestLogsSources(t *testing.T) {
 		harness.fireTimers()
 
 		frame := harness.readFrame()
-		assert.NotContains(t, readSidebarProse(frame), "001 provision setup")
+		assert.NotContains(t, readSidebarProse(frame), "001 agent.provision setup")
 		assert.Contains(t, readStageText(frame), "second line")
 		assert.NotContains(t, readStageText(frame), "error: port")
 		sent := harness.readSent(logv1connect.LogServiceReadAgentLogsProcedure)
@@ -304,7 +306,7 @@ func TestLogsFilter(t *testing.T) {
 			name:        "clearing the filter goes back to the source it opened on",
 			presses:     []string{"/", "tab", "p", "r", "o", "v", "enter", "esc"},
 			wantStage:   "second line",
-			wantSidebar: "001 provision setup",
+			wantSidebar: "001 agent.provision setup",
 		},
 	}
 
@@ -777,7 +779,7 @@ func TestLogsCopy(t *testing.T) {
 
 const logsScreen = "the logs"
 
-const provisionRun = "001-provision-setup.log"
+const provisionRun = "001-agent.provision-setup.log"
 
 // logReads answers each read of an agent's logs by the source, the pattern after a ~ when there is one, and
 // the cursor it was sent with.
@@ -787,12 +789,12 @@ var (
 	serviceSource   = &logv1.LogSource{Id: "service", Name: "service"}
 	provisionSource = &logv1.LogSource{
 		Id:   provisionRun,
-		Name: "001 provision setup",
+		Name: "001 agent.provision setup",
 		Run:  xptr.Ptr[int32](1),
 	}
 	launchSource = &logv1.LogSource{
-		Id:   "002-pre-launch-setup.log",
-		Name: "002 pre-launch setup",
+		Id:   "002-agent.pre-launch-setup.log",
+		Name: "002 agent.pre-launch setup",
 		Run:  xptr.Ptr[int32](2),
 	}
 )
@@ -906,4 +908,107 @@ func pressSettling(harness *panelHarness, presses ...string) {
 		}
 		harness.press(press)
 	}
+}
+
+// TestLogsTask covers a task's logs listing the runs of every agent on it from the task's row.
+func TestLogsTask(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a task with a failed run nobody opened marks its row", func(t *testing.T) {
+		t.Parallel()
+
+		rows := buildTasks()
+		task, _ := rows[1].(*taskv1.Task)
+		task.FailedRun = true
+		harness := openAgents(t, rows...)
+
+		harness.press("j")
+
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "fix-login ")
+	})
+
+	t.Run("opening a task's logs marks its runs read", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskLogs(t, taskRunSources())
+
+		harness.assertSentTo(taskv1connect.TaskServiceMarkTaskRunsReadProcedure, &taskv1.MarkTaskRunsReadRequest{Id: "t1"})
+	})
+
+	t.Run("a task's logs list the runs of each agent on it under its slug", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskLogs(t, taskRunSources())
+
+		frame := harness.readFrame()
+		assert.Equal(t, logsScreen, harness.readScreen())
+		assert.Contains(t, frame, "agents › fix-login › logs")
+		assert.Contains(t, readHoveredRow(frame), "follow-up 001 task.pre-open")
+		assert.Contains(t, readSidebarProse(frame), "author 001 agent.pre-launch")
+		assert.Contains(t, readStageText(frame), "opened the checkout")
+		harness.assertSentTo(logv1connect.LogServiceListTaskLogSourcesProcedure, &logv1.ListTaskLogSourcesRequest{TaskId: "t1"})
+	})
+
+	t.Run("a task's logs land on the run that failed without claiming the agent's runs", func(t *testing.T) {
+		t.Parallel()
+
+		sources := taskRunSources()
+		sources[1].Failed = true
+		harness := openTaskLogs(t, sources)
+
+		row := readHoveredRow(harness.readFrame())
+		assert.Contains(t, row, "author 001 agent.pre-launch")
+		assert.Contains(t, row, "\uf489")
+		harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure)
+	})
+
+	t.Run("a run of the same name is read from the agent that ran it", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskLogs(t, taskRunSources())
+		harness.press("j", rest)
+
+		assert.Contains(t, readStageText(harness.readFrame()), "launched the author")
+		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure,
+			&logv1.ReadAgentLogsRequest{AgentIds: []string{"a2"}, Source: "001-task.pre-open-setup.log", Limit: 500},
+			&logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-agent.pre-launch-setup.log", Limit: 500},
+		)
+	})
+}
+
+// taskRunSources is a run of each agent on task fix-login, the follow-up's newest.
+func taskRunSources() []*logv1.LogSource {
+	return []*logv1.LogSource{
+		{
+			Id:      "001-task.pre-open-setup.log",
+			Name:    "001 task.pre-open setup",
+			Run:     xptr.Ptr[int32](1),
+			AgentId: "a2",
+		},
+		{
+			Id:      "001-agent.pre-launch-setup.log",
+			Name:    "001 agent.pre-launch setup",
+			Run:     xptr.Ptr[int32](1),
+			AgentId: "a1",
+		},
+	}
+}
+
+// openTaskLogs opens the logs of task fix-login from its row's menu, over the sources given.
+func openTaskLogs(t *testing.T, sources []*logv1.LogSource) *panelHarness {
+	t.Helper()
+
+	harness := openAgents(t, buildTasks()...)
+	harness.answer(logv1connect.LogServiceListTaskLogSourcesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&logv1.ListTaskLogSourcesResponse{Sources: sources}), nil
+	})
+	harness.answer(logv1connect.LogServiceReadAgentLogsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*logv1.ReadAgentLogsRequest)
+		lines := map[string]string{"a1": "launched the author", "a2": "opened the checkout"}
+
+		return connect.NewResponse(&logv1.ReadAgentLogsResponse{Lines: []string{lines[read.GetAgentIds()[0]]}}), nil
+	})
+	harness.press("j", "space", "l")
+
+	return harness
 }
