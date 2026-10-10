@@ -11,8 +11,11 @@ import (
 // service works.
 const defaultLogLevel = "info"
 
-// defaultPprofAddress is where the profiler listens when the config names no address.
-const defaultPprofAddress = "localhost:6060"
+// defaultPprofServerAddress is where the service serves profiles when the config names no address.
+const defaultPprofServerAddress = "localhost:6060"
+
+// defaultPprofClientAddress is where the panel serves profiles when the config names no address.
+const defaultPprofClientAddress = "localhost:6061"
 
 // Log is how much the background service writes about itself. Where it writes is not
 // configurable.
@@ -55,13 +58,21 @@ type Debug struct {
 	// How many frames are kept for one agent before the oldest is dropped. A number at or
 	// below zero takes the default.
 	FrameHistory int `mapstructure:"frame_history"`
-	// Go's pprof profiler, served by the background service.
+	// Go's pprof profiler, served by the background service and the panel.
 	Pprof Pprof `mapstructure:"pprof"`
 }
 
-// Pprof is where the background service serves its runtime profiles.
+// Pprof is where each komrad process serves its runtime profiles.
 type Pprof struct {
-	// Whether the service serves profiles, read when it starts.
+	// The background service, which runs the agents and answers the API.
+	Server Profiler `mapstructure:"server"`
+	// The panel, which draws the screen and talks to the service.
+	Client Profiler `mapstructure:"client"`
+}
+
+// Profiler is whether and where one process serves its runtime profiles.
+type Profiler struct {
+	// Whether the process serves profiles, read when it starts.
 	Enabled bool `mapstructure:"enabled"`
 	// The host and port the profiles are served on.
 	Address string `mapstructure:"address"`
@@ -72,7 +83,11 @@ func (d *Debug) normalize() {
 		d.FrameHistory = DefaultFrameHistory
 	}
 
-	if d.Pprof.Address == "" {
-		d.Pprof.Address = defaultPprofAddress
+	if d.Pprof.Server.Address == "" {
+		d.Pprof.Server.Address = defaultPprofServerAddress
+	}
+
+	if d.Pprof.Client.Address == "" {
+		d.Pprof.Client.Address = defaultPprofClientAddress
 	}
 }
