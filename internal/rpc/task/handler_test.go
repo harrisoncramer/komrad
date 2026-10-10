@@ -100,8 +100,8 @@ func (f *fakeTasks) DeleteTasks(_ context.Context, refs []string) error {
 	return f.err
 }
 
-// MarkRunsRead records the task and answers err.
-func (f *fakeTasks) MarkRunsRead(_ context.Context, taskID string) error {
+// MarkTaskRunsRead records the task and answers err.
+func (f *fakeTasks) MarkTaskRunsRead(_ context.Context, taskID string) error {
 	f.marked = append(f.marked, taskID)
 
 	return f.err
@@ -290,7 +290,7 @@ func TestTaskCallsPassDown(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{taskID, "fix-logout"}}, fake.deleted)
 
-	_, err = svc.MarkRunsRead(ctx, connect.NewRequest(&taskv1.MarkTaskRunsReadRequest{Id: taskID}))
+	_, err = svc.MarkTaskRunsRead(ctx, connect.NewRequest(&taskv1.MarkTaskRunsReadRequest{Id: taskID}))
 	require.NoError(t, err)
 	assert.Equal(t, []string{taskID}, fake.marked)
 }

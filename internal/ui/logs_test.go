@@ -932,7 +932,7 @@ func TestLogsTask(t *testing.T) {
 
 		harness := openTaskLogs(t, taskRunSources())
 
-		harness.assertSentTo(taskv1connect.TaskServiceMarkRunsReadProcedure, &taskv1.MarkTaskRunsReadRequest{Id: "t1"})
+		harness.assertSentTo(taskv1connect.TaskServiceMarkTaskRunsReadProcedure, &taskv1.MarkTaskRunsReadRequest{Id: "t1"})
 	})
 
 	t.Run("a task's logs list the runs of each agent on it under its slug", func(t *testing.T) {

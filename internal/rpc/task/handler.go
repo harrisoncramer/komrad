@@ -25,7 +25,7 @@ type taskReadWriter interface {
 	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
 	UpdateTask(ctx context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error)
-	MarkRunsRead(ctx context.Context, taskID string) error
+	MarkTaskRunsRead(ctx context.Context, taskID string) error
 }
 
 type taskArchiver interface {
@@ -147,9 +147,9 @@ func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksReques
 	return &emptypb.Empty{}, nil
 }
 
-// MarkRunsRead claims the failed runs on a task.
-func (s *Handler) MarkRunsRead(ctx context.Context, req *taskv1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.tasks.MarkRunsRead(ctx, req.GetId()); err != nil {
+// MarkTaskRunsRead claims the failed runs on a task.
+func (s *Handler) MarkTaskRunsRead(ctx context.Context, req *taskv1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.tasks.MarkTaskRunsRead(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to mark the task's runs read")
 	}
 

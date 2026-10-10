@@ -288,7 +288,7 @@ service TaskService {
       roles: [ROLE_ORCHESTRATOR]
     };
   }
-  rpc MarkRunsRead(MarkTaskRunsReadRequest) returns (google.protobuf.Empty) {
+  rpc MarkTaskRunsRead(MarkTaskRunsReadRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {
       cli: false

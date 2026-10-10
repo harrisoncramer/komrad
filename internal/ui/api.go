@@ -284,7 +284,7 @@ func (a api) markRunsRead(id string) error {
 
 func (a api) markTaskRunsRead(taskID string) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.tasks.MarkRunsRead(ctx, connect.NewRequest(&taskv1.MarkTaskRunsReadRequest{Id: taskID}))
+		return a.tasks.MarkTaskRunsRead(ctx, connect.NewRequest(&taskv1.MarkTaskRunsReadRequest{Id: taskID}))
 	})
 }
 

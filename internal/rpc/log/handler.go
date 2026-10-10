@@ -173,7 +173,12 @@ func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1.ListAgentLog
 		return !workflowstore.IsTaskEvent(run.Trigger)
 	})
 	runs := xslice.Map(owned, func(run config.RunLog) *logv1.LogSource {
-		return renderRunSource(req.GetAgentId(), run.Number, run.Trigger, run.Script)
+		return renderRunSource(renderRunSourceParams{
+			agentID: req.GetAgentId(),
+			number:  run.Number,
+			trigger: run.Trigger,
+			script:  run.Script,
+		})
 	})
 
 	return &logv1.ListAgentLogSourcesResponse{
@@ -192,7 +197,12 @@ func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1.ListTaskLog
 
 	return &logv1.ListTaskLogSourcesResponse{
 		Sources: xslice.Map(logged, func(run runstore.Run) *logv1.LogSource {
-			source := renderRunSource(run.AgentID, int(*run.LogNumber), run.Trigger, run.Script)
+			source := renderRunSource(renderRunSourceParams{
+				agentID: run.AgentID,
+				number:  int(*run.LogNumber),
+				trigger: run.Trigger,
+				script:  run.Script,
+			})
 			source.Failed = run.Failure != ""
 
 			return source
@@ -200,13 +210,20 @@ func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1.ListTaskLog
 	}, nil
 }
 
+type renderRunSourceParams struct {
+	agentID string
+	number  int
+	trigger string
+	script  string
+}
+
 // renderRunSource is the source one script run an agent recorded is read from.
-func renderRunSource(agentID string, number int, trigger, script string) *logv1.LogSource {
+func renderRunSource(params renderRunSourceParams) *logv1.LogSource {
 	return &logv1.LogSource{
-		Id:      config.RunLogName(number, trigger, script),
-		Name:    fmt.Sprintf("%03d %s %s", number, trigger, script),
-		Run:     xptr.Ptr(int32(number)),
-		AgentId: agentID,
+		Id:      config.RunLogName(params.number, params.trigger, params.script),
+		Name:    fmt.Sprintf("%03d %s %s", params.number, params.trigger, params.script),
+		Run:     xptr.Ptr(int32(params.number)),
+		AgentId: params.agentID,
 	}
 }
 

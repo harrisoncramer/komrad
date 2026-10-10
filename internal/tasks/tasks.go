@@ -74,8 +74,8 @@ func (s *TaskService) ListRuns(ctx context.Context, taskID string) ([]runstore.R
 	return s.runs.ListByTask(ctx, taskID)
 }
 
-// MarkRunsRead claims the failed runs on a task.
-func (s *TaskService) MarkRunsRead(ctx context.Context, taskID string) error {
+// MarkTaskRunsRead claims the failed runs on a task.
+func (s *TaskService) MarkTaskRunsRead(ctx context.Context, taskID string) error {
 	return s.runs.MarkTaskRead(ctx, taskID)
 }
 

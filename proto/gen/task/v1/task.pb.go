@@ -1167,7 +1167,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\x8c\x0f\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\x90\x0f\n" +
 	"\vTaskService\x12\xe8\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\xa0\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\vcreate_task\"\x82\x01Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.(\x00B\x01\x03\x12\x9a\x01\n" +
@@ -1178,8 +1178,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xf3\x01\x9a\xb5\x18\xeb\x01\b\x01\x10\x01\x1a\vupdate_task\"\xd2\x01Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is. A notes write names the notes_updated_at it read. An edit reaches agents only when they read the task again.(\x00B\x01\x03\x90\x02\x02\x12\xbd\x02\n" +
 	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\xef\x01\x9a\xb5\x18\xe7\x01\b\x01\x10\x01\x1a\x0eset_task_notes\"\xc9\x01Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since.(\x00B\x03\x01\x02\x03\x90\x02\x02\x12\xd9\x01\n" +
 	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x94\x01\x9a\xb5\x18\x8c\x01\b\x01\x10\x01\x1a\farchive_task\"sArchive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.(\x00B\x01\x03\x90\x02\x02\x12\x80\x02\n" +
-	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\fdelete_tasks\"\x99\x01Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked.(\x01B\x01\x03\x90\x02\x02\x12\xd8\x01\n" +
-	"\fMarkRunsRead\x12 .task.v1.MarkTaskRunsReadRequest\x1a\x16.google.protobuf.Empty\"\x8d\x01\x9a\xb5\x18\x85\x01:\x82\x01Whether a person has looked at a task's failed script runs is that person's own reading, which no agent can claim on their behalf.\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
+	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\fdelete_tasks\"\x99\x01Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked.(\x01B\x01\x03\x90\x02\x02\x12\xdc\x01\n" +
+	"\x10MarkTaskRunsRead\x12 .task.v1.MarkTaskRunsReadRequest\x1a\x16.google.protobuf.Empty\"\x8d\x01\x9a\xb5\x18\x85\x01:\x82\x01Whether a person has looked at a task's failed script runs is that person's own reading, which no agent can claim on their behalf.\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
 
 var (
 	file_task_v1_task_proto_rawDescOnce sync.Once
@@ -1229,7 +1229,7 @@ var file_task_v1_task_proto_depIdxs = []int32{
 	11, // 11: task.v1.TaskService.SetTaskNotes:input_type -> task.v1.SetTaskNotesRequest
 	13, // 12: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
 	15, // 13: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
-	14, // 14: task.v1.TaskService.MarkRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
+	14, // 14: task.v1.TaskService.MarkTaskRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
 	4,  // 15: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
 	6,  // 16: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
 	8,  // 17: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
@@ -1237,7 +1237,7 @@ var file_task_v1_task_proto_depIdxs = []int32{
 	12, // 19: task.v1.TaskService.SetTaskNotes:output_type -> task.v1.SetTaskNotesResponse
 	16, // 20: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
 	16, // 21: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
-	16, // 22: task.v1.TaskService.MarkRunsRead:output_type -> google.protobuf.Empty
+	16, // 22: task.v1.TaskService.MarkTaskRunsRead:output_type -> google.protobuf.Empty
 	15, // [15:23] is the sub-list for method output_type
 	7,  // [7:15] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
