@@ -20,7 +20,7 @@ Komrad currently supports Claude and Codex. Agents are designed to be durable: y
 
 This is komrad's core benefit: durable agentic sessions, that you can run and manage yourself.
 
-Komrad has three types of agents, and you've already seen one: the [orchestrator](../workflows/#the-orchestrator). Orchestrator agents can spawn children called "implementer" agents, which each (typically) get their own worktree. Implementer agents can spawn reviewer agents. Reviewer agents live inside the same directory as the implementer.
+Komrad has three types of agents, and you've already seen one: the [orchestrator](../workflows/#the-orchestrator). Orchestrator agents can spawn children called "implementer" agents, which each (typically) work on a task of their own, in that task's worktree. Implementer agents can spawn reviewer agents. Reviewer agents live inside the same directory as the implementer.
 
 ```
   workflow

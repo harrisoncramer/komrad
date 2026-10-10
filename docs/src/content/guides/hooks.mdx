@@ -12,7 +12,7 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Hooks provide a way to run arbitrary code at a given moment in your agent's life.
+Hooks provide a way to run arbitrary code during an event in komrad's system.
 
 You can use hooks to cover setup that komrad cannot handle out of the box, such as tearing down a docker stack, or configuring a network.
 
@@ -23,11 +23,11 @@ You can use hooks to cover setup that komrad cannot handle out of the box, such 
   every new worktree before the agent starts.
 </Alert>
 
-Hooks can also be used to clean up when an agent is destroyed. For instance, run an `agent.pre-delete` hook to remove the network the agent needs.
+Hooks can also be used to clean up when a task or agent is deleted. For instance, run a `task.pre-delete` hook to kill any processes the task needed for local development.
 
 ## Writing a hook
 
-Hooks are executable files in <Setting path="hooks.dir" />, which is `~/.config/komrad/hooks` by default. Each hook runs inside its agent's directory.
+Hooks are executable files in <Setting path="hooks.dir" />, which is `~/.config/komrad/hooks` by default. An agent's hooks run in the agent's directory. A task's hooks run in its worktree, or in the workflow's directory when it has none.
 
 In our example, Neovim keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git only honours the file when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
 
@@ -100,43 +100,44 @@ Komrad ships two hooks for its own checkouts: `komrad-checkout-archive` for `tas
 
 ## Examples
 
-A few small hooks, each hung on the moment named above it.
-
-On `agent.post-launch`, tell you an agent is up:
+You can use `agent.post-launch` to tell you an agent is up:
 
 ```sh
 #!/usr/bin/env bash
 osascript -e "display notification \"$KOMRAD_AGENT_ID is up\" with title komrad"
 ```
 
-On `agent.post-archive`, stop anything still running out of the agent's directory:
+You can use the `agent.post-archive` hook to stop a dev server the agent started in a tmux session named after it:
 
 ```sh
 #!/usr/bin/env bash
-pkill -f "$KOMRAD_AGENT_CWD" || true
+tmux kill-session -t "dev-$KOMRAD_AGENT_ID" 2>/dev/null || true
 ```
 
-On `task.pre-open`, start the database the task's code talks to:
+Use `task.pre-open` to start the database the task's code talks to:
 
 ```sh
 #!/usr/bin/env bash
+[ -n "${KOMRAD_WORKTREE_NAME:-}" ] || exit 0
 docker compose -p "$KOMRAD_WORKTREE_NAME" up -d db
 ```
 
-On `task.pre-delete`, take that database down with its data:
+And use the `task.pre-delete` hook to take that database down with its data:
 
 ```sh
 #!/usr/bin/env bash
+[ -n "${KOMRAD_WORKTREE_NAME:-}" ] || exit 0
 docker compose -p "$KOMRAD_WORKTREE_NAME" down -v
 ```
 
 ## What a hook knows
 
-Komrad tells a hook about its agent through environment variables.
+Komrad tells a hook about its agent and its task through environment variables. A task hook sees the agent that brought it about, except `task.pre-delete`, whose `KOMRAD_AGENT_ID` is empty.
 
 - `KOMRAD_AGENT_ID` names the agent
-- `KOMRAD_AGENT_CWD` is its directory
-- `KOMRAD_WORKTREE_NAME` names the worktree komrad makes for it, after its task
+- `KOMRAD_AGENT_CWD` is the directory the hook runs in
+- `KOMRAD_TASK_ID` and `KOMRAD_TASK_SLUG` name the task
+- `KOMRAD_WORKTREE_NAME` names the task's worktree, and is unset when the task has none
 - `KOMRAD_WORKTREE_BRANCH` is that worktree's branch, `task/<task id>`
 - `KOMRAD_TRIGGER` says which moment fired the hook
 - `KOMRAD_ADDR` is where to reach the API
