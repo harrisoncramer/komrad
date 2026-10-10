@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -199,6 +200,19 @@ type taskEditValues struct {
 // openEditTask opens the form that edits a task's title and goal.
 func openEditTask(m *model, task panel.Task) tea.Cmd {
 	values := &taskEditValues{Title: task.Title, Goal: task.Goal}
+	save := holdSubmit(func(m *model) tea.Cmd {
+		return m.writeCmd(
+			"saving "+task.Slug,
+			fmt.Sprintf("Could not save task %q", task.Slug),
+			func(a api) error {
+				return a.updateTask(updateTaskParams{
+					id:    task.ID,
+					title: xptr.Ptr(strings.TrimSpace(values.Title)),
+					goal:  xptr.Ptr(strings.TrimSpace(values.Goal)),
+				})
+			},
+		)
+	})
 
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formTask,
@@ -206,26 +220,22 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 			return editTaskForm(fixedKeys(), values, task.Slug)
 		},
 		Editable: []editableText{{key: "goal", value: &values.Goal}},
-		Submit: holdSubmit(func(m *model) tea.Cmd {
-			return m.writeCmd(
-				"saving "+task.Slug,
-				fmt.Sprintf("Could not save task %q", task.Slug),
-				func(a api) error {
-					return a.updateTask(updateTaskParams{
-						id:    task.ID,
-						title: xptr.Ptr(strings.TrimSpace(values.Title)),
-						goal:  xptr.Ptr(strings.TrimSpace(values.Goal)),
-					})
-				},
-			)
-		}),
+		Submit: func(m *model) tea.Cmd {
+			if err := checkTaskEdit(*values); err != nil {
+				m.form.refusal = err.Error()
+
+				return formResized()
+			}
+
+			return save(m)
+		},
 	}))
 }
 
 func editTaskForm(keys config.FixedKeys, values *taskEditValues, slug string) (*huh.Form, []string) {
 	return formOf(keys,
 		huh.NewInput().Key("title").Title(fmt.Sprintf("Task %q", slug)).Description("its title").
-			CharLimit(maxTaskTitle).Value(&values.Title),
+			CharLimit(maxTaskTitle).Validate(checkTaskTitle).Value(&values.Title),
 		textField("goal").Title("Goal").
 			Description(fmt.Sprintf("what is done when this task is; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
 			Validate(checkTaskGoal).Value(&values.Goal),
@@ -265,4 +275,20 @@ func chosenTasks(l listing, agents []panel.Agent) []panel.Task {
 	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
 
 	return xslice.Map(unique, l.findTask)
+}
+
+func checkTaskTitle(title string) error {
+	if strings.TrimSpace(title) == "" {
+		return errors.New("a task needs a title")
+	}
+
+	return nil
+}
+
+func checkTaskEdit(values taskEditValues) error {
+	if err := checkTaskTitle(values.Title); err != nil {
+		return err
+	}
+
+	return checkTaskGoal(values.Goal)
 }

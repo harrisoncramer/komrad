@@ -150,6 +150,15 @@ func TestTasksRow(t *testing.T) {
 		})
 	})
 
+	t.Run("a blank title keeps the task's form open", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+
+		harness.press(slices.Concat([]string{"j", "space", "E"}, slices.Repeat([]string{"backspace"}, len("Fix login")), []string{"enter"})...)
+
+		assert.Contains(t, harness.readFrame(), "a task needs a title")
+		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
+	})
+
 	t.Run("a task's menu holds everything done to the work", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
