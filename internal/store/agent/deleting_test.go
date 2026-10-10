@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -230,6 +231,34 @@ func TestClaimRoots(t *testing.T) {
 			assert.Equal(t, tt.want, claimIDs(ClaimRoots(tt.claims)))
 		})
 	}
+}
+
+// TestListProvisionedIDsByTask covers resolving a task-named worktree to the agent it was made
+// for, never a child sharing the task or a sibling that kept the directory it was given.
+func TestListProvisionedIDsByTask(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	author, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NotNil(t, author)
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "reviewer",
+		ParentAgentID: &author.ID,
+		State:         StateIdle,
+	}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:             "adopter",
+		TaskID:           author.TaskID,
+		ProvisionEnabled: xptr.Ptr(false),
+		State:            StateIdle,
+	}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "other", State: StateIdle}))
+
+	ids, err := f.ListProvisionedIDsByTask(ctx, []string{*author.TaskID, "not-a-task"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{author.ID}, ids)
 }
 
 func claimIDs(claims []Claim) []string {

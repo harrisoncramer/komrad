@@ -1754,6 +1754,37 @@ func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string)
 	return items, nil
 }
 
+const listProvisionedAgentIDsByTask = `-- name: ListProvisionedAgentIDsByTask :many
+SELECT
+    a.id
+FROM
+    agents a
+WHERE
+    a.task_id = ANY ($1::uuid[])
+    AND a.parent_agent_id IS NULL
+    AND a.provision_enabled IS DISTINCT FROM FALSE
+`
+
+func (q *Queries) ListProvisionedAgentIDsByTask(ctx context.Context, taskIds []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listProvisionedAgentIDsByTask, taskIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRestorableWorkflowAgents = `-- name: ListRestorableWorkflowAgents :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, repository_url, deleting_at, alive, engine_id, head_sha, moved_since_round, failure_reason, last_rebase, archive_batch_id, turn_failed_at, turn_error, lines_added, lines_removed, held_by_agent_id, sequence, requested_by_agent_id, task_id

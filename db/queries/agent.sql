@@ -1281,3 +1281,13 @@ SET
     task_id = sqlc.narg('task_id')
 WHERE
     id = sqlc.arg('id');
+
+-- name: ListProvisionedAgentIDsByTask :many
+SELECT
+    a.id
+FROM
+    agents a
+WHERE
+    a.task_id = ANY (@task_ids::uuid[])
+    AND a.parent_agent_id IS NULL
+    AND a.provision_enabled IS DISTINCT FROM FALSE;
