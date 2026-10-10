@@ -428,6 +428,51 @@ func (q *Queries) GetTaskLastRebase(ctx context.Context, id string) ([]byte, err
 	return last_rebase, err
 }
 
+const getUndeletedTaskForUpdate = `-- name: GetUndeletedTaskForUpdate :one
+SELECT
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
+FROM
+    tasks
+WHERE
+    id = $1
+    AND deleting_at IS NULL
+FOR UPDATE
+`
+
+func (q *Queries) GetUndeletedTaskForUpdate(ctx context.Context, id string) (*Task, error) {
+	row := q.db.QueryRow(ctx, getUndeletedTaskForUpdate, id)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.WorkflowID,
+		&i.Slug,
+		&i.Title,
+		&i.Goal,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.EngineID,
+		&i.Cwd,
+		&i.Branch,
+		&i.AdoptedBranch,
+		&i.ProvisionEnabled,
+		&i.WorktreeRemoved,
+		&i.RepositoryUrl,
+		&i.HeadSha,
+		&i.LastRebase,
+		&i.Sequence,
+		&i.LinesAdded,
+		&i.LinesRemoved,
+		&i.MovedSinceRound,
+		&i.DeletingAt,
+		&i.CleaningAt,
+		&i.FailureReason,
+		&i.Notes,
+		&i.NotesUpdatedAt,
+	)
+	return &i, err
+}
+
 const isTaskSlugTaken = `-- name: IsTaskSlugTaken :one
 SELECT
     EXISTS (
@@ -775,51 +820,6 @@ func (q *Queries) ListWorkflowTaskIDs(ctx context.Context, workflowID string) ([
 		return nil, err
 	}
 	return items, nil
-}
-
-const lockTaskForWriter = `-- name: LockTaskForWriter :one
-SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
-FROM
-    tasks
-WHERE
-    id = $1
-    AND deleting_at IS NULL
-FOR UPDATE
-`
-
-func (q *Queries) LockTaskForWriter(ctx context.Context, id string) (*Task, error) {
-	row := q.db.QueryRow(ctx, lockTaskForWriter, id)
-	var i Task
-	err := row.Scan(
-		&i.ID,
-		&i.WorkflowID,
-		&i.Slug,
-		&i.Title,
-		&i.Goal,
-		&i.ArchivedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.EngineID,
-		&i.Cwd,
-		&i.Branch,
-		&i.AdoptedBranch,
-		&i.ProvisionEnabled,
-		&i.WorktreeRemoved,
-		&i.RepositoryUrl,
-		&i.HeadSha,
-		&i.LastRebase,
-		&i.Sequence,
-		&i.LinesAdded,
-		&i.LinesRemoved,
-		&i.MovedSinceRound,
-		&i.DeletingAt,
-		&i.CleaningAt,
-		&i.FailureReason,
-		&i.Notes,
-		&i.NotesUpdatedAt,
-	)
-	return &i, err
 }
 
 const lockTaskSlugs = `-- name: LockTaskSlugs :exec

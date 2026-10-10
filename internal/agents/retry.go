@@ -233,11 +233,11 @@ func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agen
 	marked := &retryMark{joins: joins}
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		if joins {
-			claimed, err := claimWriter(ctx, db, creation{agent: agent, task: task})
+			_, restored, err := claimWriter(ctx, db, claimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
 			if err != nil {
 				return err
 			}
-			marked.restored = claimed.restored
+			marked.restored = restored
 		}
 
 		ok, err := agentstore.NewAgentStore(db).MarkSettingUpIfFailedToCreate(ctx, agent.ID)

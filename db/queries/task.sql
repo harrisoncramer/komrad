@@ -368,7 +368,7 @@ FROM
 WHERE
     deleting_at IS NULL;
 
--- name: LockTaskForWriter :one
+-- name: GetUndeletedTaskForUpdate :one
 SELECT
     *
 FROM

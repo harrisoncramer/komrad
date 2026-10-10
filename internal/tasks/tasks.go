@@ -20,8 +20,6 @@ const maxSlugBase = 60
 var (
 	// ErrOtherWorkflow is a task filed under a different workflow from the agent joining it.
 	ErrOtherWorkflow = fail.InvalidArgument("an agent works only on a task in its own workflow")
-	// ErrArchived is an archived task an agent was asked to join.
-	ErrArchived = fail.Precondition("an agent works only on a live task")
 	// ErrNotesNotYours is an agent writing the notes of a task it does not work on or orchestrate.
 	ErrNotesNotYours = fail.Denied("an agent writes only the notes of its own task or of one in the workflow it orchestrates")
 )

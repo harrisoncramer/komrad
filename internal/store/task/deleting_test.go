@@ -191,6 +191,23 @@ func TestLockUndeleted(t *testing.T) {
 	require.NoError(t, stores.Tasks.LockUndeleted(ctx, live.ID))
 }
 
+// TestGetUndeletedForUpdate pins a task being deleted refusing the lock a joining writer takes, and a
+// live one coming back as it stands.
+func TestGetUndeletedForUpdate(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
+	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+
+	_, err := stores.Tasks.GetUndeletedForUpdate(ctx, deleting.ID)
+	require.ErrorIs(t, err, taskstore.ErrDeleting)
+
+	got, err := stores.Tasks.GetUndeletedForUpdate(ctx, live.ID)
+	require.NoError(t, err)
+	assert.Equal(t, live.Slug, got.Slug)
+}
+
 // TestListUndeletedSlugs pins a task leaving the listing once a delete claims it, archived or not.
 func TestListUndeletedSlugs(t *testing.T) {
 	stores := storetest.Open(t)

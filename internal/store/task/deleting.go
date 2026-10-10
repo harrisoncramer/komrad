@@ -122,14 +122,14 @@ func (s *TaskStore) LockUndeleted(ctx context.Context, id string) error {
 	return nil
 }
 
-// LockForWriter locks an undeleted task until the transaction ends and returns it.
-func (s *TaskStore) LockForWriter(ctx context.Context, id string) (*Task, error) {
-	row, err := s.queries.LockTaskForWriter(ctx, id)
+// GetUndeletedForUpdate locks an undeleted task until the transaction ends and returns it.
+func (s *TaskStore) GetUndeletedForUpdate(ctx context.Context, id string) (*Task, error) {
+	row, err := s.queries.GetUndeletedTaskForUpdate(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, ErrDeleting.Saying("task %q is being deleted", id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to lock task %q for its writer: %w", id, err)
+		return nil, fmt.Errorf("failed to get task %q for update: %w", id, err)
 	}
 
 	locked := fromRow(row)

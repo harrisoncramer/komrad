@@ -42,6 +42,9 @@ var errTaskHasWriter = fail.Precondition("this task already has a live writer, s
 // errTaskWorktreeRemoved is a writer launched onto a task whose worktree was removed.
 var errTaskWorktreeRemoved = fail.Precondition("this task's worktree was removed, so give this agent a task of its own")
 
+// errTaskArchived is an archived task an agent was asked to join.
+var errTaskArchived = fail.Precondition("an agent works only on a live task")
+
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             *agentstore.AgentStore
@@ -501,7 +504,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		return nil, err
 	}
 	if joined != nil && joined.ArchivedAt != nil && !joinsCheckout {
-		return nil, tasks.ErrArchived.Saying("task %q is archived", joined.Slug)
+		return nil, errTaskArchived.Saying("task %q is archived", joined.Slug)
 	}
 
 	id, err := store.NewID()
@@ -907,11 +910,11 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			c.agent.TaskID = &task.ID
 		}
 		if c.joinsCheckout {
-			claimed, err := claimWriter(ctx, db, c)
+			claimed, wasRestored, err := claimWriter(ctx, db, claimWriterParams{TaskID: task.ID, Cwd: c.agent.Cwd})
 			if err != nil {
 				return err
 			}
-			task, restored = claimed.task, claimed.restored
+			task, restored = claimed, wasRestored
 		}
 		if c.agent.TaskID != nil {
 			if err := taskStore.LockUndeleted(ctx, *c.agent.TaskID); err != nil {
@@ -970,37 +973,43 @@ func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
 	})
 }
 
-// claimWriter makes a launch joining its task's checkout the task's writer, refusing it while another
-// writer is live or once the worktree is gone, and bringing an archived task back.
-func claimWriter(ctx context.Context, db store.DBTX, c creation) (*placement, error) {
+type claimWriterParams struct {
+	TaskID string
+	Cwd    string
+}
+
+// claimWriter makes a launch joining its task's checkout at Cwd the task's writer, refusing it while
+// another writer is live or once the worktree is gone, and reports whether it brought an archived
+// task back.
+func claimWriter(ctx context.Context, db store.DBTX, params claimWriterParams) (*taskstore.Task, bool, error) {
 	taskStore := taskstore.NewTaskStore(db)
 
-	task, err := taskStore.LockForWriter(ctx, c.task.ID)
+	task, err := taskStore.GetUndeletedForUpdate(ctx, params.TaskID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	if !task.Checkout.IsUsable() || task.Checkout.Cwd != c.agent.Cwd {
-		return nil, errTaskWorktreeRemoved.Saying("task %q no longer has its worktree at %q", task.Slug, c.agent.Cwd)
+	if !task.Checkout.IsUsable() || task.Checkout.Cwd != params.Cwd {
+		return nil, false, errTaskWorktreeRemoved.Saying("task %q no longer has its worktree at %q", task.Slug, params.Cwd)
 	}
 
 	writer, err := agentstore.NewAgentStore(db).GetTaskWriter(ctx, task.ID)
 	switch {
 	case err == nil:
-		return nil, errTaskHasWriter.Saying("%q is still writing task %q", writer.Name, task.Slug)
+		return nil, false, errTaskHasWriter.Saying("%q is still writing task %q", writer.Name, task.Slug)
 	case !errors.Is(err, store.ErrNotFound):
-		return nil, err
+		return nil, false, err
 	}
 
 	if task.ArchivedAt == nil {
-		return &placement{task: task}, nil
+		return task, false, nil
 	}
 
 	if err := taskStore.Restore(ctx, []string{task.ID}); err != nil {
-		return nil, fmt.Errorf("failed to restore task %q for its new writer: %w", task.Slug, err)
+		return nil, false, fmt.Errorf("failed to restore task %q for its new writer: %w", task.Slug, err)
 	}
 	task.ArchivedAt = nil
 
-	return &placement{task: task, restored: true}, nil
+	return task, true, nil
 }
 
 // claimCheckout records on a task how its checkout is to be made, ahead of the directory the

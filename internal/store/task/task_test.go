@@ -261,6 +261,44 @@ func TestArchiveIdle(t *testing.T) {
 	}
 }
 
+// TestArchiveIdleBesides pins that a task is archived only when no live agent but the one named works on it.
+func TestArchiveIdleBesides(t *testing.T) {
+	tests := []struct {
+		name         string
+		other        bool
+		wantArchived bool
+	}{
+		{
+			name:         "a task another live agent works on stays live",
+			other:        true,
+			wantArchived: false,
+		},
+		{
+			name:         "a task only the named agent works on is archived",
+			other:        false,
+			wantArchived: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			ctx := t.Context()
+			task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
+			named := stores.SeedAgent(t, agentstore.Agent{Name: "joiner", WorkflowID: task.WorkflowID, TaskID: &task.ID})
+			if tt.other {
+				stores.SeedAgent(t, agentstore.Agent{Name: "other", WorkflowID: task.WorkflowID, TaskID: &task.ID})
+			}
+
+			require.NoError(t, stores.Tasks.ArchiveIdleBesides(ctx, task.ID, named.ID))
+
+			got, err := stores.Tasks.Get(ctx, task.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantArchived, got.ArchivedAt != nil)
+		})
+	}
+}
+
 // TestRestore pins that restoring returns the named archived tasks and leaves every other task as it was.
 func TestRestore(t *testing.T) {
 	stores := storetest.Open(t)

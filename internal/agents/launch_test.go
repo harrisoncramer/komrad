@@ -1667,7 +1667,7 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 				t.Helper()
 				require.NoError(t, st.Tasks.ReleaseCheckout(t.Context(), task.ID))
 			},
-			wantErrIs: tasks.ErrArchived,
+			wantErrIs: errTaskArchived,
 		},
 		{
 			name: "a new writer joins the checkout without provisioning",
