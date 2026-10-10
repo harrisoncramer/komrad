@@ -68,6 +68,7 @@ func tasksFrom(listed []*taskv1.Task) []panel.Task {
 			NotesUpdatedAt: t.NotesUpdatedAt,
 			CreatedAt:      dates.Parse(t.GetCreatedAt()),
 			ArchivedAt:     dates.ParsePtr(t.GetArchivedAt()),
+			FailedRun:      t.GetFailedRun(),
 		}
 	})
 }

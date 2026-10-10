@@ -13,6 +13,7 @@ import (
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 
+	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
 )
 
@@ -81,11 +82,11 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 }
 
 // beginRun claims a run's log file and opens the row that indexes it.
-func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name string) runRecord {
-	path, number := s.claimRunLog(ctx, agentID, trigger, name)
+func (s *ScriptService) beginRun(ctx context.Context, agent agentstore.Agent, trigger, name string) runRecord {
+	path, number := s.claimRunLog(ctx, agent.ID, trigger, name)
 	record := runRecord{logPath: path}
 
-	if s.runs == nil || agentID == "" {
+	if s.runs == nil || agent.ID == "" {
 		return record
 	}
 
@@ -96,7 +97,8 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 	}
 
 	id, err := s.runs.Begin(ctx, runstore.BeginParams{
-		AgentID:   agentID,
+		AgentID:   agent.ID,
+		TaskID:    agent.TaskID,
 		Trigger:   trigger,
 		Script:    name,
 		LogNumber: logNumber,
@@ -104,7 +106,7 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record a run of a script",
 			append([]slog.Attr{
-				slog.String(logging.AgentID, agentID),
+				slog.String(logging.AgentID, agent.ID),
 				slog.String(logging.ScriptName, name),
 			}, logging.Err(err)...)...)
 
@@ -113,9 +115,9 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 	record.id = id
 
 	// Bounded by the log-file count so a row never outlives the output it points at.
-	if err := s.runs.Prune(ctx, agentID, config.MaxRunLogs); err != nil {
+	if err := s.runs.Prune(ctx, agent.ID, config.MaxRunLogs); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to prune an agent's runs",
-			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 
 	return record

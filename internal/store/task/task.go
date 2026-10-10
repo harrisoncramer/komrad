@@ -38,6 +38,8 @@ type Task struct {
 	FailureReason  string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	// FailedRun is whether a run on the task failed and nobody has opened it, which only a watch reads.
+	FailedRun bool
 }
 
 type TaskStore struct {

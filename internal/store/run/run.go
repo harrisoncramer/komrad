@@ -6,10 +6,24 @@ package run
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"komrad/db/models"
 	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
+
+// Run is one script run komrad recorded.
+type Run struct {
+	ID        string
+	AgentID   string
+	Trigger   string
+	Script    string
+	LogNumber *int32
+	StartedAt time.Time
+	Failure   string
+	ViewedAt  *time.Time
+}
 
 type RunStore struct {
 	queries *models.Queries
@@ -22,6 +36,7 @@ func NewRunStore(db store.DBTX) *RunStore {
 
 type BeginParams struct {
 	AgentID   string
+	TaskID    *string
 	Trigger   string
 	Script    string
 	LogNumber *int32
@@ -35,6 +50,7 @@ func (s *RunStore) Begin(ctx context.Context, params BeginParams) (string, error
 
 	id, err := s.queries.InsertAgentRun(ctx, models.InsertAgentRunParams{
 		AgentID:   params.AgentID,
+		TaskID:    params.TaskID,
 		Trigger:   params.Trigger,
 		Script:    params.Script,
 		LogNumber: params.LogNumber,
@@ -109,4 +125,42 @@ func (s *RunStore) MarkRead(ctx context.Context, agentID string) error {
 	}
 
 	return nil
+}
+
+// MarkTaskRead claims every failed run on a task.
+func (s *RunStore) MarkTaskRead(ctx context.Context, taskID string) error {
+	if !store.IsID(taskID) {
+		return nil
+	}
+
+	if err := s.queries.MarkTaskRunsRead(ctx, taskID); err != nil {
+		return fmt.Errorf("failed to claim the failed runs of task %q: %w", taskID, err)
+	}
+
+	return nil
+}
+
+// ListByTask returns every run on a task, newest first.
+func (s *RunStore) ListByTask(ctx context.Context, taskID string) ([]Run, error) {
+	if !store.IsID(taskID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListTaskRuns(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the runs of task %q: %w", taskID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.AgentRun) Run {
+		return Run{
+			ID:        row.ID,
+			AgentID:   row.AgentID,
+			Trigger:   row.Trigger,
+			Script:    row.Script,
+			LogNumber: row.LogNumber,
+			StartedAt: row.StartedAt,
+			Failure:   row.Failure,
+			ViewedAt:  row.ViewedAt,
+		}
+	}), nil
 }

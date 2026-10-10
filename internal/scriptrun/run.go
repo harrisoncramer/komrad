@@ -64,7 +64,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 	var record runRecord
 	if !gone {
-		record = s.beginRun(ctx, agent.ID, event, name)
+		record = s.beginRun(ctx, agent, event, name)
 	}
 
 	script, env, err := s.prepare(ctx, prepareParams{
@@ -159,7 +159,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, params prepareParams) (s
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
 	began := time.Now()
 
-	record := s.beginRun(ctx, params.agent.ID, params.trigger, params.name)
+	record := s.beginRun(ctx, params.agent, params.trigger, params.name)
 
 	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
 		Script:  script,
@@ -204,7 +204,7 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 		return err
 	}
 
-	run := s.beginRun(ctx, agent.ID, triggerDeprovision, name)
+	run := s.beginRun(ctx, agent, triggerDeprovision, name)
 
 	key := scriptKey{agentID: agent.ID, name: script.Name}
 	if !s.claim(key) {

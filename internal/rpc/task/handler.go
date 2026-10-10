@@ -25,6 +25,7 @@ type taskReadWriter interface {
 	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
 	UpdateTask(ctx context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error)
+	MarkRunsRead(ctx context.Context, taskID string) error
 }
 
 type taskArchiver interface {
@@ -141,6 +142,16 @@ func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1.ArchiveTaskReques
 func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.deleter.DeleteTasks(ctx, req.GetTasks()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete tasks")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// MarkRunsRead claims the failed runs on a task, and carries no tool annotation because an agent
+// must not move the marks on the user's screen.
+func (s *Handler) MarkRunsRead(ctx context.Context, req *taskv1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.tasks.MarkRunsRead(ctx, req.GetId()); err != nil {
+		return nil, rpcerr.From(err, "failed to mark the task's runs read")
 	}
 
 	return &emptypb.Empty{}, nil

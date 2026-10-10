@@ -25,6 +25,7 @@ type TaskServiceImpl interface {
 	SetTaskNotes(context.Context, *v1.SetTaskNotesRequest) (*v1.SetTaskNotesResponse, *fail.Error)
 	ArchiveTask(context.Context, *v1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error)
 	DeleteTasks(context.Context, *v1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error)
+	MarkRunsRead(context.Context, *v1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // TaskServiceAdapter carries what the implementation returned across to the signature
@@ -66,6 +67,11 @@ func (a TaskServiceAdapter) ArchiveTask(ctx context.Context, req *connect.Reques
 // DeleteTasks answers the request as connect serves it.
 func (a TaskServiceAdapter) DeleteTasks(ctx context.Context, req *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.DeleteTasks(ctx, req.Msg))
+}
+
+// MarkRunsRead answers the request as connect serves it.
+func (a TaskServiceAdapter) MarkRunsRead(ctx context.Context, req *connect.Request[v1.MarkTaskRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.MarkRunsRead(ctx, req.Msg))
 }
 
 // RegisterTaskService mounts the implementation on the mux behind its adapter.

@@ -537,6 +537,11 @@ table "agent_runs" {
     null = false
     type = uuid
   }
+  column "task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task the agent was on when the run started, null for an agent on no task."
+  }
   column "trigger" {
     null = false
     type = text
@@ -591,9 +596,24 @@ table "agent_runs" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "agent_runs_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
   index "agent_runs_agent_id_started_at" {
     on {
       column = column.agent_id
+    }
+    on {
+      column = column.started_at
+      desc   = true
+    }
+  }
+  index "agent_runs_task_id_started_at" {
+    on {
+      column = column.task_id
     }
     on {
       column = column.started_at

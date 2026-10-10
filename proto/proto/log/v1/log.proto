@@ -96,6 +96,8 @@ message LogSource {
   string name = 2;
   // The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log.
   optional int32 run = 3;
+  // The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log.
+  string agent_id = 4;
 }
 
 message ListAgentLogSourcesRequest {
@@ -105,6 +107,16 @@ message ListAgentLogSourcesRequest {
 
 message ListAgentLogSourcesResponse {
   // The service log first, then each script run the agent recorded, newest first.
+  repeated LogSource sources = 1;
+}
+
+message ListTaskLogSourcesRequest {
+  // The task whose log sources to list, by id.
+  string task_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListTaskLogSourcesResponse {
+  // Each script run recorded on the task by any agent on it, its own moments and theirs, newest first.
   repeated LogSource sources = 1;
 }
 
@@ -146,7 +158,17 @@ service LogService {
       cli: true
       mcp: true
       name: "list_agent_log_sources"
-      description: "List where an agent's logs can be read from, the service log and each script run it recorded."
+      description: "List where an agent's logs can be read from, the service log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources."
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc ListTaskLogSources(ListTaskLogSourcesRequest) returns (ListTaskLogSourcesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_task_log_sources"
+      description: "List the script runs recorded on a task, its own moments and those of every agent on it, newest first. Pass a source with its agent_id to read_agent_logs to read its output."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

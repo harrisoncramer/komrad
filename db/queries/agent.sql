@@ -44,6 +44,7 @@ failed AS (
     WHERE
         r.failure <> ''
         AND r.viewed_at IS NULL
+        AND r.trigger NOT LIKE 'task.%'
     ORDER BY
         r.agent_id,
         r.started_at DESC,

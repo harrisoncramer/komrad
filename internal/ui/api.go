@@ -282,6 +282,12 @@ func (a api) markRunsRead(id string) error {
 	})
 }
 
+func (a api) markTaskRunsRead(taskID string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.tasks.MarkRunsRead(ctx, connect.NewRequest(&taskv1.MarkTaskRunsReadRequest{Id: taskID}))
+	})
+}
+
 // startOrchestrator brings a workflow's orchestrator back, starting the one it has never had.
 func (a api) startOrchestrator(workflowID string) (*agentv1.Agent, error) {
 	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
@@ -772,6 +778,17 @@ func (a reads) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 		resp, err := a.logs.ListAgentLogSources(ctx, connect.NewRequest(&logv1.ListAgentLogSourcesRequest{AgentId: agentID}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to list the log sources of agent %q: %w", agentID, err)
+		}
+
+		return resp.Msg.GetSources(), nil
+	})
+}
+
+func (a reads) listTaskLogSources(taskID string) ([]*logv1.LogSource, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]*logv1.LogSource, error) {
+		resp, err := a.logs.ListTaskLogSources(ctx, connect.NewRequest(&logv1.ListTaskLogSourcesRequest{TaskId: taskID}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the log sources of task %q: %w", taskID, err)
 		}
 
 		return resp.Msg.GetSources(), nil

@@ -96,7 +96,7 @@ A task has moments of its own, which fire for the task as a whole rather than fo
 
 Task hooks fire for every task, whether or not it has a worktree. They run in the task's worktree while it has one and in the workflow's directory otherwise, and the `KOMRAD_WORKTREE_` variables are set only when there is a worktree. A hook that removes things, such as a docker stack named after its directory, should start with `[ -n "${KOMRAD_WORKTREE_NAME:-}" ] || exit 0` so it never runs in the workflow's own checkout.
 
-`task.pre-open` and `task.post-archive` run as the agent that brought them about, so their logs sit on that agent's row. `task.pre-delete` runs after every agent on the task is gone, so it has no `KOMRAD_AGENT_ID` and only komrad's own log records it. A task's hooks run one at a time, so `task.pre-open` waits for a `task.post-archive` still running from the last time the task closed.
+`task.pre-open` and `task.post-archive` run as the agent that brought them about, but their logs sit on the task's row rather than that agent's. A task's logs list every run on it, its own hooks and those of each agent on it, and an agent's logs list only its own. `task.pre-delete` runs after every agent on the task is gone, so it has no `KOMRAD_AGENT_ID` and only komrad's own log records it. A task's hooks run one at a time, so `task.pre-open` waits for a `task.post-archive` still running from the last time the task closed.
 
 Komrad ships two hooks for its own checkouts: `komrad-checkout-archive` for `task.post-archive`, which gives back a checkout's test instance and drops what it rebuilds, and `komrad-checkout-teardown` for `task.pre-delete`, which also takes down its docker stack.
 

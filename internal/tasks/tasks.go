@@ -10,6 +10,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xstr"
 )
@@ -28,16 +29,22 @@ var (
 type NewTaskServiceParams struct {
 	Tasks  *taskstore.TaskStore
 	Agents *agentstore.AgentStore
+	Runs   *runstore.RunStore
 }
 
 type TaskService struct {
 	tasks  *taskstore.TaskStore
 	agents *agentstore.AgentStore
+	runs   *runstore.RunStore
 }
 
 // NewTaskService builds the service from its dependencies.
 func NewTaskService(params NewTaskServiceParams) *TaskService {
-	return &TaskService{tasks: params.Tasks, agents: params.Agents}
+	return &TaskService{
+		tasks:  params.Tasks,
+		agents: params.Agents,
+		runs:   params.Runs,
+	}
 }
 
 // CreateTask writes a new task, refusing a slug that is malformed or already used.
@@ -60,6 +67,16 @@ func (s *TaskService) GetTask(ctx context.Context, ref string) (*taskstore.Task,
 // ListTasks returns a workflow's live or archived tasks, the newest first.
 func (s *TaskService) ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error) {
 	return s.tasks.List(ctx, workflowID, archived)
+}
+
+// ListRuns returns every script run recorded on a task, by any agent on it, newest first.
+func (s *TaskService) ListRuns(ctx context.Context, taskID string) ([]runstore.Run, error) {
+	return s.runs.ListByTask(ctx, taskID)
+}
+
+// MarkRunsRead claims the failed runs on a task.
+func (s *TaskService) MarkRunsRead(ctx context.Context, taskID string) error {
+	return s.runs.MarkTaskRead(ctx, taskID)
 }
 
 type UpdateTaskParams struct {

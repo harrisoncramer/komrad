@@ -42,7 +42,7 @@ func (l *logsScreen) lines(m *model, pane listPane) []string {
 			prefix = caretGlyph(caret)
 		}
 
-		line := prefix + " " + m.filter.highlight(paint.Panel, clipName(row.source.GetName()), nameStyle(hovered && caret != view.CaretAbsent, false))
+		line := prefix + " " + m.filter.highlight(paint.Panel, clipName(logSourceRowName(row)), nameStyle(hovered && caret != view.CaretAbsent, false))
 		if row.failed {
 			line += " " + paint.Panel.Style(paint.ToneDanger).Render(m.glyphs.Spell(glyph.FailedScript))
 		}

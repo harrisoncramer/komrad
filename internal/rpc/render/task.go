@@ -32,6 +32,7 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		FailureReason:   stored.FailureReason,
 		Notes:           stored.Notes,
 		NotesUpdatedAt:  dates.PreciseStampPtr(stored.NotesUpdatedAt),
+		FailedRun:       stored.FailedRun,
 	}
 }
 

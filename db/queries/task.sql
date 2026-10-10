@@ -93,15 +93,23 @@ SELECT
 
 -- name: ListWatchedTasks :many
 SELECT
-    *
+    sqlc.embed(t),
+    EXISTS (
+        SELECT
+        FROM
+            agent_runs r
+        WHERE
+            r.task_id = t.id
+            AND r.failure <> ''
+            AND r.viewed_at IS NULL)::boolean AS failed_run
 FROM
-    tasks
+    tasks t
 WHERE
-    deleting_at IS NULL
+    t.deleting_at IS NULL
     AND (sqlc.narg('keys')::text[] IS NULL
-        OR id = ANY (sqlc.narg('keys')::uuid[]))
+        OR t.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
-    id DESC;
+    t.id DESC;
 
 -- name: ClaimTaskCheckout :execrows
 UPDATE

@@ -75,6 +75,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Name = r.task.Slug
 		row.Matches = params.matchesOf(r, r.task.Slug)
 		row.Archived = r.task.ArchivedAt != nil
+		row.FailedRun = r.task.FailedRun
 		row.Process = view.ProcessNone
 		row.Repo = snapshotRepo(r.lead.Agent)
 		row.InWorkflowDir = isInWorkflowDir(r.lead.Agent, params.workflowDirs)

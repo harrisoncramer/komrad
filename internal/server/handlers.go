@@ -137,7 +137,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Attaches: svc.terminal.attaches,
 	}), options...)
 	gitv1komrad.RegisterGitService(mux, rpcgit.NewHandler(rpcgit.NewHandlerParams{Git: svc.agentGit}), options...)
-	logv1komrad.RegisterLogService(mux, rpclog.NewHandler(logread.New(params.LogPath), logread.NewRuns(params.RunLogsDir)), options...)
+	logv1komrad.RegisterLogService(mux, rpclog.NewHandler(logread.New(params.LogPath), logread.NewRuns(params.RunLogsDir), svc.tasks), options...)
 	loopv1komrad.RegisterLoopService(mux, rpcloop.NewHandler(rpcloop.NewHandlerParams{
 		CwdSync:         params.Wakers.cwdSync,
 		TranscriptSync:  params.Wakers.transcriptSync,

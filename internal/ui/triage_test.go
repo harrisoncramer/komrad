@@ -597,9 +597,9 @@ func TestTriageCopies(t *testing.T) {
 		sweeper.TaskId = writer.TaskId
 		harness := openTriage(t, 3, newLiveWorkflow("w1", "backend"), writer, task, sweeper)
 
-		harness.press("t", "space", "l")
+		harness.press("t", "space", "x")
 
-		assert.Contains(t, harness.readFrame(), "agents › writer › logs")
+		assert.Contains(t, harness.readFrame(), "agents › writer › status checks")
 	})
 }
 

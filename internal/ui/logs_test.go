@@ -12,6 +12,8 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
+	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -906,4 +908,89 @@ func pressSettling(harness *panelHarness, presses ...string) {
 		}
 		harness.press(press)
 	}
+}
+
+// TestLogsTask covers a task's logs listing the runs of every agent on it from the task's row.
+func TestLogsTask(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a task with a failed run nobody opened marks its row", func(t *testing.T) {
+		t.Parallel()
+
+		rows := buildTasks()
+		task, _ := rows[1].(*taskv1.Task)
+		task.FailedRun = true
+		harness := openAgents(t, rows...)
+
+		harness.press("j")
+
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "fix-login ")
+	})
+
+	t.Run("opening a task's logs marks its runs read", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskLogs(t)
+
+		harness.assertSentTo(taskv1connect.TaskServiceMarkRunsReadProcedure, &taskv1.MarkTaskRunsReadRequest{Id: "t1"})
+	})
+
+	t.Run("a task's logs list the runs of each agent on it under its slug", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskLogs(t)
+
+		frame := harness.readFrame()
+		assert.Equal(t, logsScreen, harness.readScreen())
+		assert.Contains(t, frame, "agents › fix-login › logs")
+		assert.Contains(t, readHoveredRow(frame), "follow-up 001 task.pre-open")
+		assert.Contains(t, readSidebarProse(frame), "author 001 pre-launch")
+		assert.Contains(t, readStageText(frame), "opened the checkout")
+		harness.assertSentTo(logv1connect.LogServiceListTaskLogSourcesProcedure, &logv1.ListTaskLogSourcesRequest{TaskId: "t1"})
+	})
+
+	t.Run("a run of the same name is read from the agent that ran it", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskLogs(t)
+		harness.press("j", rest)
+
+		assert.Contains(t, readStageText(harness.readFrame()), "launched the author")
+		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure,
+			&logv1.ReadAgentLogsRequest{AgentIds: []string{"a2"}, Source: "001-task.pre-open-setup.log", Limit: 500},
+			&logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-pre-launch-setup.log", Limit: 500},
+		)
+	})
+}
+
+// openTaskLogs opens the logs of task fix-login from its row's menu, over a run of each agent on it.
+func openTaskLogs(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := openAgents(t, buildTasks()...)
+	harness.answer(logv1connect.LogServiceListTaskLogSourcesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&logv1.ListTaskLogSourcesResponse{Sources: []*logv1.LogSource{
+			{
+				Id:      "001-task.pre-open-setup.log",
+				Name:    "001 task.pre-open setup",
+				Run:     xptr.Ptr[int32](1),
+				AgentId: "a2",
+			},
+			{
+				Id:      "001-pre-launch-setup.log",
+				Name:    "001 pre-launch setup",
+				Run:     xptr.Ptr[int32](1),
+				AgentId: "a1",
+			},
+		}}), nil
+	})
+	harness.answer(logv1connect.LogServiceReadAgentLogsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*logv1.ReadAgentLogsRequest)
+		lines := map[string]string{"a1": "launched the author", "a2": "opened the checkout"}
+
+		return connect.NewResponse(&logv1.ReadAgentLogsResponse{Lines: []string{lines[read.GetAgentIds()[0]]}}), nil
+	})
+	harness.press("j", "space", "l")
+
+	return harness
 }
