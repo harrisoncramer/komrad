@@ -155,6 +155,54 @@ func TestRetryOpensTheTaskAFailedPreOpenLeft(t *testing.T) {
 	assert.Equal(t, failed[0].ID, ran[1].ID)
 }
 
+// TestJoinOpensTheTaskItRestores covers a writer joining an archived task's checkout running task.pre-open there.
+func TestJoinOpensTheTaskItRestores(t *testing.T) {
+	tests := []struct {
+		name         string
+		hookErr      error
+		wantArchived bool
+	}{
+		{
+			name:         "a failed pre-open archives the task again",
+			hookErr:      errors.New("cache is cold"),
+			wantArchived: true,
+		},
+		{
+			name: "a join that restores the task opens it in the worktree",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			provisioned := t.TempDir()
+			lifecycle := &fakeLifecycle{dir: provisioned}
+			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, true))
+			first, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
+			require.NoError(t, err)
+			require.NoError(t, fx.agents.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+			lifecycle.hookErrs = map[string]error{taskHook: tt.hookErr}
+
+			next, err := fx.agents.launch.NewAgent(ctx, NewAgentParams{Title: "next", Prompt: "carry on", WorkflowID: fx.workflow.ID, Task: *first.TaskID})
+
+			task, getErr := fx.st.Tasks.Get(ctx, *first.TaskID)
+			require.NoError(t, getErr)
+			ran := lifecycle.ranTaskHooks()
+			require.Len(t, ran, 2, "the join opens the task again")
+			assert.Equal(t, provisioned, ran[1].Cwd)
+			if tt.wantArchived {
+				require.ErrorContains(t, err, "cache is cold")
+				assert.NotNil(t, task.ArchivedAt)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Nil(t, task.ArchivedAt)
+			assert.Equal(t, next.ID, ran[1].ID, "the hook runs as the joining writer")
+		})
+	}
+}
+
 // TestTaskPostArchive covers task.post-archive firing once a task's last live agent is archived.
 func TestTaskPostArchive(t *testing.T) {
 	tests := []struct {
