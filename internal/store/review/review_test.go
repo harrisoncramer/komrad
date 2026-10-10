@@ -152,27 +152,55 @@ func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
 
 // TestThreadsAreReadByTask pins that a task's threads outlive the agent they were written to and stay off other tasks.
 func TestThreadsAreReadByTask(t *testing.T) {
-	st := openFixture(t)
-	ctx := t.Context()
-	firstWriter := st.seedAgent(t, "worker")
-	taskID := st.taskOf(t, firstWriter)
-	opened := st.openThread(t, st.openReview(t, st.openRound(t, firstWriter, "tree-one")), "this needs a nil check")
+	tests := []struct {
+		name   string
+		retire func(t *testing.T, st *fixture, agentID string)
+	}{
+		{
+			name: "the first writer archived",
+			retire: func(t *testing.T, st *fixture, agentID string) {
+				_, err := st.agents.Archive(t.Context(), []string{agentID})
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "the first writer deleted",
+			retire: func(t *testing.T, st *fixture, agentID string) {
+				_, err := st.agents.Delete(t.Context(), []string{agentID})
+				require.NoError(t, err)
+			},
+		},
+	}
 
-	_, err := st.agents.Archive(ctx, []string{firstWriter})
-	require.NoError(t, err)
-	st.seedAgentLike(t, agentstore.Agent{
-		Name:   "next-worker",
-		TaskID: &taskID,
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openFixture(t)
+			ctx := t.Context()
+			firstWriter := st.seedAgent(t, "worker")
+			taskID := st.taskOf(t, firstWriter)
+			round := st.openRound(t, firstWriter, "tree-one")
+			opened := st.openThread(t, st.openReview(t, round), "this needs a nil check")
+			st.seedAgentLike(t, agentstore.Agent{
+				Name:   "next-worker",
+				TaskID: &taskID,
+			})
 
-	threads, err := st.ListThreads(ctx, taskID)
-	require.NoError(t, err)
-	require.Len(t, threads, 1)
-	assert.Equal(t, opened.ID, threads[0].ID)
+			tt.retire(t, st, firstWriter)
 
-	elsewhere, err := st.ListThreads(ctx, st.taskOf(t, st.seedAgent(t, "other")))
-	require.NoError(t, err)
-	assert.Empty(t, elsewhere)
+			threads, err := st.ListThreads(ctx, taskID)
+			require.NoError(t, err)
+			require.Len(t, threads, 1)
+			assert.Equal(t, opened.ID, threads[0].ID)
+			rounds, err := st.ListRounds(ctx, taskID)
+			require.NoError(t, err)
+			require.Len(t, rounds, 1)
+			assert.Equal(t, round.ID, rounds[0].ID)
+
+			elsewhere, err := st.ListThreads(ctx, st.taskOf(t, st.seedAgent(t, "other")))
+			require.NoError(t, err)
+			assert.Empty(t, elsewhere)
+		})
+	}
 }
 
 // TestRewritingAReplyIsNewActivity pins that an answer rewritten after the person read it reads unread again.
