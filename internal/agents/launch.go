@@ -361,7 +361,22 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 // joinCheckout points a writer launched onto a task that already has a worktree at that worktree in
 // place of a new one, reporting whether it did.
 func (p *launchPlan) joinCheckout(params NewAgentParams, task *taskstore.Task) (bool, error) {
-	if task == nil || p.provisioner == "" || params.ParentAgentID != "" || !params.Role.IsImplementer() {
+	joins, err := isJoining(task, p.provisioner, params.ParentAgentID == "" && params.Role.IsImplementer())
+	if err != nil || !joins {
+		return false, err
+	}
+
+	p.dir = task.Checkout.Cwd
+	p.provisioner = ""
+	p.deprovisioner = ""
+
+	return true, nil
+}
+
+// isJoining reports whether a writer that would provision starts in its task's existing worktree
+// instead, refusing one whose worktree is gone.
+func isJoining(task *taskstore.Task, provisioner string, isWriter bool) (bool, error) {
+	if task == nil || provisioner == "" || !isWriter {
 		return false, nil
 	}
 	if task.Checkout.WorktreeRemoved {
@@ -373,10 +388,6 @@ func (p *launchPlan) joinCheckout(params NewAgentParams, task *taskstore.Task) (
 	if err := scripts.RequireUsableDir(task.Checkout.Cwd); err != nil {
 		return false, errTaskWorktreeRemoved.Saying("task %q has no worktree at %q: %v", task.Slug, task.Checkout.Cwd, err)
 	}
-
-	p.dir = task.Checkout.Cwd
-	p.provisioner = ""
-	p.deprovisioner = ""
 
 	return true, nil
 }
