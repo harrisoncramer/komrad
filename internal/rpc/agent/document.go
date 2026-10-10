@@ -56,7 +56,8 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 	return &agentv1.WriteDocumentResponse{Document: render.Document(*written)}, nil
 }
 
-// ListDocuments returns a page of documents without their bodies, every agent's unless one is named, and every task's unless one is named.
+// ListDocuments returns a page of documents without their bodies, narrowed to an agent or task
+// when one is named.
 func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
 	if req.AgentId != nil {
 		logCrossAgentRead(ctx, req.GetAgentId(), "agent listed another agent's documents")
