@@ -88,7 +88,11 @@ func reportFakeStores(pass *analysis.Pass, file *ast.File) {
 
 // isStoreType says whether a type is declared in a store package.
 func isStoreType(named *types.Named) bool {
-	pkg := named.Obj().Pkg()
+	return isStorePackage(named.Obj().Pkg())
+}
+
+// isStorePackage says whether a package is the store package or one under it.
+func isStorePackage(pkg *types.Package) bool {
 	if pkg == nil {
 		return false
 	}
