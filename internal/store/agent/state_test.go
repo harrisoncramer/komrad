@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -118,12 +117,6 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 		write func(*AgentStore, string) error
 	}{
 		{
-			name: "the checkout",
-			write: func(s *AgentStore, id string) error {
-				return s.SetCheckout(t.Context(), id, SetCheckoutParams{Branch: xptr.Ptr("main")})
-			},
-		},
-		{
 			name: "the cut-off turn",
 			write: func(s *AgentStore, id string) error {
 				return s.SetInterruptedAtByID(t.Context(), id, xptr.Ptr(time.Now()))
@@ -140,18 +133,6 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 		{
 			name:  "the failed turn",
 			write: func(s *AgentStore, id string) error { return s.SetTurnFailed(t.Context(), id, "overloaded") },
-		},
-		{
-			name: "the last rebase",
-			write: func(s *AgentStore, id string) error {
-				return s.SetLastRebaseByID(t.Context(), id, json.RawMessage(`{}`))
-			},
-		},
-		{
-			name: "the diff stat",
-			write: func(s *AgentStore, id string) error {
-				return s.SetDiffStat(t.Context(), id, &DiffStat{Added: 1})
-			},
 		},
 	}
 
@@ -529,50 +510,6 @@ func TestSetAlive(t *testing.T) {
 	assert.True(t, a.Alive)
 
 	require.NoError(t, st.SetAlive(ctx, nil, true), "no ids is nothing to write")
-}
-
-// TestLastRebaseRoundTrips pins an agent's last rebase reading back as written, nil before its first.
-func TestLastRebaseRoundTrips(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
-	created, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-
-	never, err := st.GetLastRebaseByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.Nil(t, never)
-
-	require.NoError(t, st.SetLastRebaseByID(ctx, created.ID, json.RawMessage(`{"failure": "first"}`)))
-	require.NoError(t, st.SetLastRebaseByID(ctx, created.ID, json.RawMessage(`{"failure": "second"}`)))
-	last, err := st.GetLastRebaseByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"failure": "second"}`, string(last))
-
-	_, err = st.GetLastRebaseByID(ctx, "00000000-0000-0000-0000-0000000000ff")
-	require.ErrorIs(t, err, store.ErrNotFound)
-}
-
-// TestDiffStatRoundTrips covers a diff stat written, read back and cleared.
-func TestDiffStatRoundTrips(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
-	created, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	assert.Nil(t, created.DiffStat, "a fresh agent has not been measured")
-
-	require.NoError(t, st.SetDiffStat(ctx, created.ID, &DiffStat{Added: 12, Removed: 3}))
-	measured, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	assert.Equal(t, &DiffStat{Added: 12, Removed: 3}, measured.DiffStat)
-
-	require.NoError(t, st.SetDiffStat(ctx, created.ID, nil))
-	cleared, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	assert.Nil(t, cleared.DiffStat)
 }
 
 // TestHoldSettlesTheState pins that a hold records a state the pane decides as idle and leaves a

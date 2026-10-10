@@ -145,81 +145,96 @@ WHERE
     host = @host
     AND provider_id = @provider_id;
 
--- name: ObserveAgentPullRequests :execrows
-INSERT INTO agent_pull_requests(
-    agent_id,
+-- name: ObserveTaskPullRequests :execrows
+INSERT INTO task_pull_requests(
+    task_id,
     pull_request_id,
     first_seen_at,
     last_seen_at)
 SELECT
-    a.id,
+    t.id,
     p.id,
     NOW(),
     NOW()
 FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
+    tasks t
+    JOIN pull_requests p ON p.repository_url = t.repository_url
+        AND p.head_repository_url = t.repository_url
+        AND p.head_branch = t.branch
+    JOIN workflows w ON w.id = t.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    a.deleting_at IS NULL
-    AND a.repository_url IS NOT NULL
-    AND a.branch IS NOT NULL
-    AND a.branch <> ''
+    t.repository_url IS NOT NULL
+    AND t.branch IS NOT NULL
+    AND t.branch <> ''
     AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
-ON CONFLICT (agent_id,
+        OR t.branch <> c.worktree_base_branch)
+ON CONFLICT (task_id,
     pull_request_id)
     DO UPDATE SET
         last_seen_at = NOW()
     WHERE
-        agent_pull_requests.last_seen_at < NOW() - interval '1 hour';
+        task_pull_requests.last_seen_at < NOW() - interval '1 hour';
 
--- name: ListAgentPullRequests :many
+-- name: ListTaskPullRequests :many
 SELECT
-    o.agent_id,
+    o.task_id,
     o.pull_request_id,
     o.first_seen_at,
     o.last_seen_at,
     o.engine_id
 FROM
-    agent_pull_requests o
+    task_pull_requests o
 WHERE
-    o.agent_id = ANY (@agent_ids::uuid[])
+    o.task_id = ANY (sqlc.arg('task_ids')::uuid[])
 ORDER BY
     o.first_seen_at;
 
 -- name: ListLiveRepositories :many
 SELECT DISTINCT
-    repository_url
+    t.repository_url
 FROM
-    agents
+    tasks t
 WHERE
-    archived_at IS NULL
-    AND repository_url IS NOT NULL
-    AND repository_url <> ''
+    t.archived_at IS NULL
+    AND t.repository_url IS NOT NULL
+    AND t.repository_url <> ''
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
 ORDER BY
     repository_url;
 
 -- name: ListSyncTargets :many
 SELECT DISTINCT
-    a.repository_url::text AS repository_url,
-    a.branch::text AS branch,
-    COALESCE(a.head_sha, '')::text AS head_sha
+    t.repository_url::text AS repository_url,
+    t.branch::text AS branch,
+    COALESCE(t.head_sha, '')::text AS head_sha
 FROM
-    agents a
-    JOIN workflows w ON w.id = a.workflow_id
+    tasks t
+    JOIN workflows w ON w.id = t.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    a.archived_at IS NULL
-    AND a.repository_url IS NOT NULL
-    AND a.repository_url <> ''
-    AND a.branch IS NOT NULL
-    AND a.branch <> ''
+    t.archived_at IS NULL
+    AND t.repository_url IS NOT NULL
+    AND t.repository_url <> ''
+    AND t.branch IS NOT NULL
+    AND t.branch <> ''
     AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
+        OR t.branch <> c.worktree_base_branch)
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
 ORDER BY
     repository_url,
     branch,
@@ -287,7 +302,7 @@ WHERE
         SELECT
             1
         FROM
-            agent_pull_requests o
+            task_pull_requests o
         WHERE
             o.pull_request_id = p.id)
     AND (sqlc.narg('keys')::text[] IS NULL
@@ -343,18 +358,19 @@ SELECT
     a.id
 FROM
     agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
+    JOIN tasks t ON t.id = a.task_id
+    JOIN pull_requests p ON p.repository_url = t.repository_url
+        AND p.head_repository_url = t.repository_url
+        AND p.head_branch = t.branch
+    JOIN workflows w ON w.id = t.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    p.id = @id
+    p.id = sqlc.arg('id')
     AND a.deleting_at IS NULL
     AND a.archived_at IS NULL
     AND a.parent_agent_id IS NULL
-    AND a.branch <> ''
+    AND t.branch <> ''
     AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
+        OR t.branch <> c.worktree_base_branch)
 ORDER BY
     a.id;

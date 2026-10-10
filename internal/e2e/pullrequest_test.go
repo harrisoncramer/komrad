@@ -66,11 +66,10 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 
 			repo := initGitRepo(t)
 			runGitIn(t, repo, "remote", "set-url", "origin", tt.remote)
-			runGitIn(t, repo, "checkout", "--quiet", "-b", "feature/widgets")
-
 			workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-				Name: "widgets",
-				Cwd:  repo,
+				Name:     "widgets",
+				Cwd:      repo,
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 			}))
 			require.NoError(t, err)
 
@@ -81,6 +80,7 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			}))
 			require.NoError(t, err)
 			agentID := created.Msg.GetAgent().GetId()
+			runGitIn(t, created.Msg.GetAgent().GetCwd(), "checkout", "--quiet", "-b", "feature/widgets")
 
 			instance.SyncCwds()
 			instance.SyncPullRequests()

@@ -2,6 +2,7 @@ package transcripts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,7 +10,9 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/mail"
+	"komrad/internal/store"
 	"komrad/lib/dates"
+	"komrad/lib/xptr"
 
 	agentstore "komrad/internal/store/agent"
 )
@@ -46,8 +49,14 @@ func (r *TranscriptReader) ComposeForward(ctx context.Context, params ComposeFor
 		return nil, errNothingToForward.Saying("%q has no turns synced yet, so there is nothing to forward", params.Source.Name)
 	}
 
+	branch, err := r.readTaskBranch(ctx, params.Source)
+	if err != nil {
+		return nil, err
+	}
+
 	body := buildForwardBody(buildForwardBodyParams{
 		Source: params.Source,
+		Branch: branch,
 		Turns:  turns,
 		Note:   params.Note,
 		At:     r.now(),
@@ -67,6 +76,7 @@ func (r *TranscriptReader) ComposeForward(ctx context.Context, params ComposeFor
 
 type buildForwardBodyParams struct {
 	Source agentstore.Agent
+	Branch string
 	Turns  []Turn
 	Note   string
 	At     time.Time
@@ -77,8 +87,8 @@ func buildForwardBody(params buildForwardBodyParams) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "Forwarded from %s (%s)", params.Source.Name, params.Source.ID)
-	if params.Source.Branch != nil {
-		fmt.Fprintf(&b, ", on branch %s", *params.Source.Branch)
+	if params.Branch != "" {
+		fmt.Fprintf(&b, ", on branch %s", params.Branch)
 	}
 
 	first, last := params.Turns[0].Seq, params.Turns[len(params.Turns)-1].Seq
@@ -104,4 +114,21 @@ func buildForwardBody(params buildForwardBodyParams) string {
 	}
 
 	return strings.TrimSuffix(b.String(), "\n")
+}
+
+// readTaskBranch is the branch the checkout of an agent's task is on, empty when there is none.
+func (r *TranscriptReader) readTaskBranch(ctx context.Context, agent agentstore.Agent) (string, error) {
+	if agent.TaskID == nil {
+		return "", nil
+	}
+
+	task, err := r.tasks.Get(ctx, *agent.TaskID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to read the task of %q: %w", agent.ID, err)
+	}
+
+	return xptr.Deref(task.Checkout.Branch), nil
 }

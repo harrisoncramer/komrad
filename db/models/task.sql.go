@@ -50,6 +50,59 @@ func (q *Queries) ArchiveTask(ctx context.Context, id string) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const claimTaskCheckout = `-- name: ClaimTaskCheckout :execrows
+UPDATE
+    tasks
+SET
+    adopted_branch = $1,
+    branch = $1,
+    repository_url = $2,
+    provision_enabled = $3,
+    worktree_removed = FALSE
+WHERE
+    id = $4
+    AND worktree_removed IS NULL
+`
+
+type ClaimTaskCheckoutParams struct {
+	AdoptedBranch    *string
+	RepositoryUrl    *string
+	ProvisionEnabled *bool
+	ID               string
+}
+
+func (q *Queries) ClaimTaskCheckout(ctx context.Context, arg ClaimTaskCheckoutParams) (int64, error) {
+	result, err := q.db.Exec(ctx, claimTaskCheckout,
+		arg.AdoptedBranch,
+		arg.RepositoryUrl,
+		arg.ProvisionEnabled,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const claimTaskCheckoutAgain = `-- name: ClaimTaskCheckoutAgain :execrows
+UPDATE
+    tasks
+SET
+    branch = adopted_branch,
+    worktree_removed = FALSE
+WHERE
+    id = $1
+    AND worktree_removed IS NULL
+`
+
+func (q *Queries) ClaimTaskCheckoutAgain(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, claimTaskCheckoutAgain, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createTask = `-- name: CreateTask :one
 INSERT INTO tasks(
     workflow_id,
@@ -62,7 +115,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round
 `
 
 type CreateTaskParams struct {
@@ -90,13 +143,25 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.Cwd,
+		&i.Branch,
+		&i.AdoptedBranch,
+		&i.ProvisionEnabled,
+		&i.WorktreeRemoved,
+		&i.RepositoryUrl,
+		&i.HeadSha,
+		&i.LastRebase,
+		&i.Sequence,
+		&i.LinesAdded,
+		&i.LinesRemoved,
+		&i.MovedSinceRound,
 	)
 	return &i, err
 }
 
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round
 FROM
     tasks
 WHERE
@@ -116,13 +181,25 @@ func (q *Queries) GetTaskByID(ctx context.Context, id string) (*Task, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.Cwd,
+		&i.Branch,
+		&i.AdoptedBranch,
+		&i.ProvisionEnabled,
+		&i.WorktreeRemoved,
+		&i.RepositoryUrl,
+		&i.HeadSha,
+		&i.LastRebase,
+		&i.Sequence,
+		&i.LinesAdded,
+		&i.LinesRemoved,
+		&i.MovedSinceRound,
 	)
 	return &i, err
 }
 
 const getTaskBySlug = `-- name: GetTaskBySlug :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round
 FROM
     tasks
 WHERE
@@ -142,8 +219,36 @@ func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*Task, error)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.Cwd,
+		&i.Branch,
+		&i.AdoptedBranch,
+		&i.ProvisionEnabled,
+		&i.WorktreeRemoved,
+		&i.RepositoryUrl,
+		&i.HeadSha,
+		&i.LastRebase,
+		&i.Sequence,
+		&i.LinesAdded,
+		&i.LinesRemoved,
+		&i.MovedSinceRound,
 	)
 	return &i, err
+}
+
+const getTaskLastRebase = `-- name: GetTaskLastRebase :one
+SELECT
+    last_rebase
+FROM
+    tasks
+WHERE
+    id = $1
+`
+
+func (q *Queries) GetTaskLastRebase(ctx context.Context, id string) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getTaskLastRebase, id)
+	var last_rebase []byte
+	err := row.Scan(&last_rebase)
+	return last_rebase, err
 }
 
 const isTaskSlugTaken = `-- name: IsTaskSlugTaken :one
@@ -164,9 +269,72 @@ func (q *Queries) IsTaskSlugTaken(ctx context.Context, slug string) (bool, error
 	return column_1, err
 }
 
+const listTaskCheckouts = `-- name: ListTaskCheckouts :many
+SELECT
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round
+FROM
+    tasks t
+WHERE
+    t.archived_at IS NULL
+    AND t.cwd IS NOT NULL
+    AND t.cwd <> ''
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
+ORDER BY
+    t.id
+`
+
+func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
+	rows, err := q.db.Query(ctx, listTaskCheckouts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkflowID,
+			&i.Slug,
+			&i.Title,
+			&i.Goal,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.EngineID,
+			&i.Cwd,
+			&i.Branch,
+			&i.AdoptedBranch,
+			&i.ProvisionEnabled,
+			&i.WorktreeRemoved,
+			&i.RepositoryUrl,
+			&i.HeadSha,
+			&i.LastRebase,
+			&i.Sequence,
+			&i.LinesAdded,
+			&i.LinesRemoved,
+			&i.MovedSinceRound,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTasks = `-- name: ListTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round
 FROM
     tasks
 WHERE
@@ -200,6 +368,71 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EngineID,
+			&i.Cwd,
+			&i.Branch,
+			&i.AdoptedBranch,
+			&i.ProvisionEnabled,
+			&i.WorktreeRemoved,
+			&i.RepositoryUrl,
+			&i.HeadSha,
+			&i.LastRebase,
+			&i.Sequence,
+			&i.LinesAdded,
+			&i.LinesRemoved,
+			&i.MovedSinceRound,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksByID = `-- name: ListTasksByID :many
+SELECT
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round
+FROM
+    tasks
+WHERE
+    id = ANY ($1::uuid[])
+ORDER BY
+    id
+`
+
+func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*Task, error) {
+	rows, err := q.db.Query(ctx, listTasksByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkflowID,
+			&i.Slug,
+			&i.Title,
+			&i.Goal,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.EngineID,
+			&i.Cwd,
+			&i.Branch,
+			&i.AdoptedBranch,
+			&i.ProvisionEnabled,
+			&i.WorktreeRemoved,
+			&i.RepositoryUrl,
+			&i.HeadSha,
+			&i.LastRebase,
+			&i.Sequence,
+			&i.LinesAdded,
+			&i.LinesRemoved,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -213,7 +446,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 
 const listWatchedTasks = `-- name: ListWatchedTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round
 FROM
     tasks
 WHERE ($1::text[] IS NULL
@@ -241,6 +474,18 @@ func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*Task,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EngineID,
+			&i.Cwd,
+			&i.Branch,
+			&i.AdoptedBranch,
+			&i.ProvisionEnabled,
+			&i.WorktreeRemoved,
+			&i.RepositoryUrl,
+			&i.HeadSha,
+			&i.LastRebase,
+			&i.Sequence,
+			&i.LinesAdded,
+			&i.LinesRemoved,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -262,6 +507,47 @@ func (q *Queries) LockTaskSlugs(ctx context.Context) error {
 	return err
 }
 
+const markTaskCheckoutsRemoved = `-- name: MarkTaskCheckoutsRemoved :exec
+UPDATE
+    tasks t
+SET
+    worktree_removed = TRUE
+FROM
+    agents a
+WHERE
+    a.id = ANY ($1::uuid[])
+    AND a.task_id = t.id
+    AND t.cwd = a.cwd
+`
+
+func (q *Queries) MarkTaskCheckoutsRemoved(ctx context.Context, agentIds []string) error {
+	_, err := q.db.Exec(ctx, markTaskCheckoutsRemoved, agentIds)
+	return err
+}
+
+const releaseTaskCheckout = `-- name: ReleaseTaskCheckout :exec
+UPDATE
+    tasks
+SET
+    cwd = NULL,
+    branch = NULL,
+    head_sha = NULL,
+    SEQUENCE =
+        NULL,
+        lines_added = NULL,
+        lines_removed = NULL,
+        moved_since_round = NULL,
+        last_rebase = NULL,
+        worktree_removed = NULL
+    WHERE
+        id = $1
+`
+
+func (q *Queries) ReleaseTaskCheckout(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, releaseTaskCheckout, id)
+	return err
+}
+
 const restoreTasks = `-- name: RestoreTasks :exec
 UPDATE
     tasks
@@ -274,5 +560,136 @@ WHERE
 
 func (q *Queries) RestoreTasks(ctx context.Context, ids []string) error {
 	_, err := q.db.Exec(ctx, restoreTasks, ids)
+	return err
+}
+
+const setTaskCheckoutDir = `-- name: SetTaskCheckoutDir :exec
+UPDATE
+    tasks
+SET
+    cwd = $1
+WHERE
+    id = $2
+`
+
+type SetTaskCheckoutDirParams struct {
+	Cwd *string
+	ID  string
+}
+
+func (q *Queries) SetTaskCheckoutDir(ctx context.Context, arg SetTaskCheckoutDirParams) error {
+	_, err := q.db.Exec(ctx, setTaskCheckoutDir, arg.Cwd, arg.ID)
+	return err
+}
+
+const setTaskDiffStat = `-- name: SetTaskDiffStat :exec
+UPDATE
+    tasks
+SET
+    lines_added = $1,
+    lines_removed = $2
+WHERE
+    id = $3
+`
+
+type SetTaskDiffStatParams struct {
+	LinesAdded   *int32
+	LinesRemoved *int32
+	ID           string
+}
+
+func (q *Queries) SetTaskDiffStat(ctx context.Context, arg SetTaskDiffStatParams) error {
+	_, err := q.db.Exec(ctx, setTaskDiffStat, arg.LinesAdded, arg.LinesRemoved, arg.ID)
+	return err
+}
+
+const setTaskHead = `-- name: SetTaskHead :exec
+UPDATE
+    tasks
+SET
+    branch = $1,
+    repository_url = $2,
+    head_sha = $3,
+    worktree_removed = $4,
+    "sequence" = $5
+WHERE
+    id = $6
+`
+
+type SetTaskHeadParams struct {
+	Branch          *string
+	RepositoryUrl   *string
+	HeadSha         *string
+	WorktreeRemoved *bool
+	Sequence        NullAgentSequence
+	ID              string
+}
+
+func (q *Queries) SetTaskHead(ctx context.Context, arg SetTaskHeadParams) error {
+	_, err := q.db.Exec(ctx, setTaskHead,
+		arg.Branch,
+		arg.RepositoryUrl,
+		arg.HeadSha,
+		arg.WorktreeRemoved,
+		arg.Sequence,
+		arg.ID,
+	)
+	return err
+}
+
+const setTaskLastRebase = `-- name: SetTaskLastRebase :exec
+UPDATE
+    tasks
+SET
+    last_rebase = $1
+WHERE
+    id = $2
+`
+
+type SetTaskLastRebaseParams struct {
+	LastRebase []byte
+	ID         string
+}
+
+func (q *Queries) SetTaskLastRebase(ctx context.Context, arg SetTaskLastRebaseParams) error {
+	_, err := q.db.Exec(ctx, setTaskLastRebase, arg.LastRebase, arg.ID)
+	return err
+}
+
+const setTaskMovedSinceRound = `-- name: SetTaskMovedSinceRound :exec
+UPDATE
+    tasks
+SET
+    moved_since_round = $1
+WHERE
+    id = $2
+`
+
+type SetTaskMovedSinceRoundParams struct {
+	MovedSinceRound *string
+	ID              string
+}
+
+func (q *Queries) SetTaskMovedSinceRound(ctx context.Context, arg SetTaskMovedSinceRoundParams) error {
+	_, err := q.db.Exec(ctx, setTaskMovedSinceRound, arg.MovedSinceRound, arg.ID)
+	return err
+}
+
+const setTaskSequence = `-- name: SetTaskSequence :exec
+UPDATE
+    tasks
+SET
+    "sequence" = $1
+WHERE
+    id = $2
+`
+
+type SetTaskSequenceParams struct {
+	Sequence NullAgentSequence
+	ID       string
+}
+
+func (q *Queries) SetTaskSequence(ctx context.Context, arg SetTaskSequenceParams) error {
+	_, err := q.db.Exec(ctx, setTaskSequence, arg.Sequence, arg.ID)
 	return err
 }

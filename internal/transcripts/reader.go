@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	"komrad/lib/xstr"
 )
@@ -19,6 +20,7 @@ type NewTranscriptReaderParams struct {
 	Agents      *agentstore.AgentStore
 	Transcripts *transcriptstore.TranscriptStore
 	Clock       func() time.Time
+	Tasks       *taskstore.TaskStore
 }
 
 // TranscriptReader reads what agents wrote.
@@ -26,6 +28,7 @@ type TranscriptReader struct {
 	agents      *agentstore.AgentStore
 	transcripts *transcriptstore.TranscriptStore
 	now         func() time.Time
+	tasks       *taskstore.TaskStore
 }
 
 // NewTranscriptReader builds the reader over the agent and transcript stores.
@@ -39,6 +42,7 @@ func NewTranscriptReader(params NewTranscriptReaderParams) *TranscriptReader {
 		agents:      params.Agents,
 		transcripts: params.Transcripts,
 		now:         now,
+		tasks:       params.Tasks,
 	}
 }
 

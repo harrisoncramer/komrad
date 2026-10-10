@@ -24,6 +24,7 @@ func newTranscriptReader(st *storetest.Stores) *TranscriptReader {
 	return NewTranscriptReader(NewTranscriptReaderParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
+		Tasks:       st.Tasks,
 	})
 }
 

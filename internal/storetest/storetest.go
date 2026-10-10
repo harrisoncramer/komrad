@@ -228,13 +228,23 @@ func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedules
 	return created
 }
 
+// SeedTaskHead records what the cwd syncer would read of the checkout of an agent's task.
+func (s *Stores) SeedTaskHead(t *testing.T, agentID string, params taskstore.SetHeadParams) {
+	t.Helper()
+
+	agent, err := s.Agents.GetByID(t.Context(), agentID)
+	require.NoError(t, err)
+	require.NotNil(t, agent.TaskID)
+	require.NoError(t, s.Tasks.SetHead(t.Context(), *agent.TaskID, params))
+}
+
 // SeedForgeThreads opens a pull request on the agent's branch and stores the forge's threads on it, returning them as stored.
 func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge.ReviewThread) []pullrequeststore.ForgeThread {
 	t.Helper()
 	ctx := t.Context()
 
 	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/"+agentID
-	require.NoError(t, s.Agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
+	s.SeedTaskHead(t, agentID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &branch})
 
 	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
 	providerID := "PR_" + agentID

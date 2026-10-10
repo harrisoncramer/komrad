@@ -68,6 +68,9 @@ var (
 // list would render so a column the row leaves empty is a column the record says nothing about.
 func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
+	if r.isTask() {
+		item = *r.lead
+	}
 
 	failure := describeFailure(item)
 	notices := appendNotice(nil, failure != "", glyphs.Spell(glyph.MessageError), paint.ToneDanger, failure)

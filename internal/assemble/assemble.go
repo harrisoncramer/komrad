@@ -222,12 +222,13 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
-		pullRequests := onBranch[getBranchForAgent(w, agent)]
+		task := w.Tasks[agent.GetTaskId()]
+		pullRequests := onBranch[getBranchForTask(w, agent, task)]
 
 		row := &agentv1.AgentRow{
 			Agent:        agent,
 			UnreadMail:   unread[agent.GetId()],
-			PullRequest:  calculatePullRequestStanding(agent, w.Repositories[agent.GetRepositoryUrl()], pullRequests),
+			PullRequest:  calculatePullRequestStanding(task, w.Repositories[task.GetRepositoryUrl()], pullRequests),
 			PullRequests: pullRequests,
 		}
 		setLocalReview(row, reviewed[agent.GetId()])
@@ -250,18 +251,18 @@ type branch struct {
 	name           string
 }
 
-// getBranchForAgent is the branch an agent's pull requests are on, and no branch at all when
-// it is the base branch its workflow cuts worktrees from.
-func getBranchForAgent(w World, agent *agentv1.Agent) branch {
+// getBranchForTask is the branch the pull requests of an agent's task are on, and no branch at
+// all when it is the base branch the agent's workflow cuts worktrees from.
+func getBranchForTask(w World, agent *agentv1.Agent, task *taskv1.Task) branch {
 	base := w.Workflows[agent.GetWorkflowId()].GetWorktree().GetBaseBranch()
-	if base != "" && agent.GetBranch() == base {
+	if base != "" && task.GetBranch() == base {
 		return branch{}
 	}
 
 	return branch{
-		repository:     agent.GetRepositoryUrl(),
-		headRepository: agent.GetRepositoryUrl(),
-		name:           agent.GetBranch(),
+		repository:     task.GetRepositoryUrl(),
+		headRepository: task.GetRepositoryUrl(),
+		name:           task.GetBranch(),
 	}
 }
 
@@ -300,10 +301,10 @@ func finishedRank(pullRequest *pullrequestv1.PullRequest) int {
 	return 0
 }
 
-// calculatePullRequestStanding is where an agent's pull request stands: unread until the sync
-// has looked at the repository, none when it has and found nothing on the branch or the agent
-// has moved past a finished one, else the current one.
-func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv1.Repository, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
+// calculatePullRequestStanding is where a task's pull request stands: unread until the sync
+// has looked at the repository, none when it has and found nothing on the branch or the task's
+// checkout has moved past a finished one, else the current one.
+func calculatePullRequestStanding(task *taskv1.Task, repository *pullrequestv1.Repository, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
 	if len(pullRequests) == 0 {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
 		if repository != nil {
@@ -314,7 +315,7 @@ func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv
 	}
 
 	current := pullRequests[0]
-	if isMovedPast(agent, current) {
+	if isMovedPast(task, current) {
 		return &agentv1.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE}
 	}
 
@@ -329,13 +330,13 @@ func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv
 	}
 }
 
-// isMovedPast is whether the agent's checkout has left the commit a finished pull request ended on.
-func isMovedPast(agent *agentv1.Agent, pullRequest *pullrequestv1.PullRequest) bool {
-	if finishedRank(pullRequest) == 0 || agent.HeadSha == nil {
+// isMovedPast is whether the task's checkout has left the commit a finished pull request ended on.
+func isMovedPast(task *taskv1.Task, pullRequest *pullrequestv1.PullRequest) bool {
+	if finishedRank(pullRequest) == 0 || task.HeadSha == nil {
 		return false
 	}
 
-	return agent.GetHeadSha() != pullRequest.GetHeadSha()
+	return task.GetHeadSha() != pullRequest.GetHeadSha()
 }
 
 // getAgentsWithUnreadMail is the set of agents with mail waiting that has not expired by now.

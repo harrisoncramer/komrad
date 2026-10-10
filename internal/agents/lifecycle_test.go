@@ -32,11 +32,18 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	tests := []struct {
 		name        string
 		archive     bool
+		child       bool
 		wantCleanup []string
+		wantRemoved bool
 	}{
 		{
-			name:        "deleting an agent releases what setup built",
+			name:  "deleting a child leaves its task's checkout to the writer",
+			child: true,
+		},
+		{
+			name:        "deleting an agent releases what setup built and its task's checkout",
 			wantCleanup: []string{worktreeDeprovisioner},
+			wantRemoved: true,
 		},
 		{
 			name:    "archiving one keeps it",
@@ -61,13 +68,22 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			target := agent
+			if tt.child {
+				target, err = manager.launch.NewAgent(t.Context(), childOf(*agent, "reviewer"))
+				require.NoError(t, err)
+			}
+
 			if tt.archive {
-				require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+				require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{target.ID}}))
 			} else {
-				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{target.ID}))
 			}
 
 			assert.Equal(t, tt.wantCleanup, lifecycle.deprovision)
+			task, err := st.Tasks.Get(t.Context(), *agent.TaskID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantRemoved, task.Checkout.WorktreeRemoved)
 		})
 	}
 }
@@ -751,17 +767,17 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
 	tests := []struct {
 		name            string
-		worktreeRemoved bool
+		dirGone         bool
 		wantWorkflowDir bool
 	}{
 		{
 			name:            "a worktree already removed",
-			worktreeRemoved: true,
+			dirGone:         true,
 			wantWorkflowDir: true,
 		},
 		{
 			name:            "a worktree that stands",
-			worktreeRemoved: false,
+			dirGone:         false,
 			wantWorkflowDir: false,
 		},
 	}
@@ -792,7 +808,9 @@ func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
 				SnapshotSHA: "sha",
 			})
 			require.NoError(t, err)
-			require.NoError(t, st.Agents.SetCheckout(t.Context(), going.ID, agentstore.SetCheckoutParams{WorktreeRemoved: tt.worktreeRemoved}))
+			if tt.dirGone {
+				require.NoError(t, os.RemoveAll(agentDir))
+			}
 
 			require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{going.ID}))
 

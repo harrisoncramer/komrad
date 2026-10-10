@@ -155,8 +155,8 @@ func renderCompactedRecord(row *agentv1.GetAgentResponse, threads []*agentv1.Rev
 		fmt.Sprintf("You are %s (%s), the %s agent.", agent.GetName(), agent.GetId(), roleName(agent.GetRole())),
 	}
 
-	if agent.GetBranch() != "" {
-		lines = append(lines, "Branch: "+agent.GetBranch())
+	if branch := row.GetTask().GetBranch(); branch != "" {
+		lines = append(lines, "Branch: "+branch)
 	}
 	if prs := row.GetPullRequests(); len(prs) > 0 {
 		lines = append(lines, fmt.Sprintf("Pull request: %s (%s)", prs[0].GetUrl(), enumWords(prs[0].GetState().String(), "PULL_REQUEST_STATE_")))

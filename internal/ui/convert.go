@@ -15,7 +15,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-func agentFrom(s *agentv1.Agent) panel.Agent {
+func agentFrom(s *agentv1.Agent, task *taskv1.Task) panel.Agent {
 	return panel.Agent{
 		ID:              s.GetId(),
 		Name:            s.GetName(),
@@ -35,15 +35,24 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		StateChangedAt:  dates.Parse(s.GetStateChangedAt()),
 		ArchivedAt:      dates.ParsePtr(s.GetArchivedAt()),
 		Hidden:          s.GetHidden(),
-		Branch:          s.Branch,
-		WorktreeRemoved: s.GetWorktreeRemoved(),
-		Sequence:        sequenceFrom(s.GetSequence()),
+		Branch:          branchOf(task),
+		WorktreeRemoved: task.GetWorktreeRemoved(),
+		Sequence:        sequenceFrom(task.GetSequence()),
 		ParentAgentID:   s.ParentAgentId,
 		HeldAt:          dates.ParsePtr(s.GetHeldAt()),
 		HeldByAgentID:   s.GetHeldByAgentId(),
 		TaskID:          s.GetTaskId(),
 		TaskSlug:        s.GetTaskSlug(),
 	}
+}
+
+// branchOf is the branch a task's checkout is on, nil for no task or none.
+func branchOf(task *taskv1.Task) *string {
+	if task == nil {
+		return nil
+	}
+
+	return task.Branch
 }
 
 func tasksFrom(listed []*taskv1.Task) []panel.Task {
@@ -99,35 +108,37 @@ func roleFrom(role agentv1.AgentRole) panel.Role {
 }
 
 // sequenceFrom is a wire sequence as the panel keeps it.
-func sequenceFrom(sequence agentv1.Sequence) panel.Sequence {
+func sequenceFrom(sequence taskv1.Sequence) panel.Sequence {
 	switch sequence {
-	case agentv1.Sequence_SEQUENCE_REBASE:
+	case taskv1.Sequence_SEQUENCE_REBASE:
 		return panel.SequenceRebase
-	case agentv1.Sequence_SEQUENCE_AM:
+	case taskv1.Sequence_SEQUENCE_AM:
 		return panel.SequenceApply
-	case agentv1.Sequence_SEQUENCE_MERGE:
+	case taskv1.Sequence_SEQUENCE_MERGE:
 		return panel.SequenceMerge
-	case agentv1.Sequence_SEQUENCE_CHERRY_PICK:
+	case taskv1.Sequence_SEQUENCE_CHERRY_PICK:
 		return panel.SequenceCherryPick
-	case agentv1.Sequence_SEQUENCE_REVERT:
+	case taskv1.Sequence_SEQUENCE_REVERT:
 		return panel.SequenceRevert
-	case agentv1.Sequence_SEQUENCE_UNSPECIFIED, agentv1.Sequence_SEQUENCE_NONE:
+	case taskv1.Sequence_SEQUENCE_UNSPECIFIED, taskv1.Sequence_SEQUENCE_NONE:
 		return panel.SequenceNone
 	}
 
 	return panel.SequenceUnknown
 }
 
-// agentRowsFrom is a listing of assembled rows as the panel keeps them.
-func agentRowsFrom(listed []*agentv1.AgentRow) []panel.AgentRow {
-	return xslice.Map(listed, agentRowFrom)
+// agentRowsFrom is a listing of assembled rows as the panel keeps them, each beside its task.
+func agentRowsFrom(listed []*agentv1.AgentRow, tasks map[string]*taskv1.Task) []panel.AgentRow {
+	return xslice.Map(listed, func(row *agentv1.AgentRow) panel.AgentRow {
+		return agentRowFrom(row, tasks[row.GetAgent().GetTaskId()])
+	})
 }
 
-func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
+func agentRowFrom(row *agentv1.AgentRow, task *taskv1.Task) panel.AgentRow {
 	agent := row.GetAgent()
 
 	return panel.AgentRow{
-		Agent:              agentFrom(agent),
+		Agent:              agentFrom(agent, task),
 		Alive:              agent.GetAlive(),
 		UnreadMail:         row.GetUnreadMail(),
 		FailedRun:          agent.GetFailedRun(),
@@ -136,8 +147,8 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 		DocumentsUpdatedAt: dates.ParsePtr(agent.GetDocumentsUpdatedAt()),
 		PullRequest:        pullRequestStandingFrom(row.GetPullRequest()),
 		PullRequests:       xslice.Map(row.GetPullRequests(), pullRequestFrom),
-		MovedSinceRound:    agent.GetMovedSinceRound(),
-		DiffStat:           agent.GetDiffStat(),
+		MovedSinceRound:    task.GetMovedSinceRound(),
+		DiffStat:           task.GetDiffStat(),
 		ReviewerComments:   row.GetReviewerComments(),
 		PersonComments:     row.GetPersonComments(),
 	}

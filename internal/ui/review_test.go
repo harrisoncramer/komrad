@@ -15,6 +15,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	taskv1 "komrad/proto/gen/task/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -44,7 +45,7 @@ func TestReviewOpen(t *testing.T) {
 
 	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.agent.WorktreeRemoved = true
+		server.task.WorktreeRemoved = true
 
 		harness := openReview(t, server)
 
@@ -841,7 +842,7 @@ func TestReviewSearch(t *testing.T) {
 		server.serve(harness)
 		second := newAgent("a2", "billing", "w1")
 		second.Cwd = server.repo.Root
-		harness.watch(buildSnapshot(server.workflow, server.agent, second))
+		harness.watch(buildSnapshot(server.workflow, server.agent, server.task, second))
 		harness.press("j")
 		require.Contains(t, readHoveredRow(harness.readFrame()), "auth")
 
@@ -850,7 +851,7 @@ func TestReviewSearch(t *testing.T) {
 		harness.press("enter", "esc", "esc")
 
 		frame := harness.readFrame()
-		assert.Len(t, readListRows(frame), 3)
+		assert.Len(t, readListRows(frame), 4)
 		assert.Contains(t, readHoveredRow(frame), "auth")
 	})
 }
@@ -1204,7 +1205,7 @@ func TestReviewWatch(t *testing.T) {
 		harness := openReview(t, server)
 
 		server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
-		harness.watch(buildSnapshot(server.workflow, server.agent))
+		harness.watch(buildSnapshot(server.workflow, server.agent, server.task))
 		require.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "○")
 
 		harness.press("space", "R")
@@ -1359,7 +1360,7 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
@@ -1375,7 +1376,7 @@ func TestReviewReload(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
-		server.agent.MovedSinceRound = "snapshot-of-another-round"
+		server.task.MovedSinceRound = "snapshot-of-another-round"
 		harness.watch(server.buildSnapshot())
 
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), 1)
@@ -1387,7 +1388,7 @@ func TestReviewReload(t *testing.T) {
 		harness.press("/", "a")
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		assert.NotContains(t, harness.readFrame(), "written by the agent")
 
@@ -1402,7 +1403,7 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
@@ -1420,7 +1421,7 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
 
@@ -1438,7 +1439,7 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		require.Contains(t, readEngineLine(harness.readFrame()), "the worktree has moved")
 
@@ -1458,7 +1459,7 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		require.Contains(t, readEngineLine(harness.readFrame()), "the worktree has moved")
 
@@ -1474,7 +1475,7 @@ func TestReviewReload(t *testing.T) {
 		harness.press("space", "e")
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 
 		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
@@ -2252,7 +2253,7 @@ func TestReviewHold(t *testing.T) {
 		harness.press("esc")
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
@@ -2462,7 +2463,7 @@ func TestReviewHold(t *testing.T) {
 		harness := openReview(t, server)
 
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
+		server.task.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "written by the agent")
@@ -2489,8 +2490,8 @@ func TestReviewHold(t *testing.T) {
 
 		harness.press("space", "r")
 		server.repo.Wrote(newRoundWrittenOver())
-		server.agent.MovedSinceRound = gittest.SnapshotSHA
-		harness.watch(buildSnapshot(server.workflow, server.agent, idle))
+		server.task.MovedSinceRound = gittest.SnapshotSHA
+		harness.watch(buildSnapshot(server.workflow, server.agent, server.task, idle))
 		assert.NotContains(t, harness.readFrame(), "written by the agent")
 
 		harness.press("space", "e")
@@ -2523,6 +2524,7 @@ type reviewServer struct {
 	repo       *gittest.Repo
 	workflow   *workflowv1.Workflow
 	agent      *agentv1.Agent
+	task       *taskv1.Task
 	children   []*agentv1.Agent
 	threads    []*agentv1.ReviewThread
 	viewed     []*agentv1.ReviewViewedFile
@@ -2553,10 +2555,17 @@ func newReviewServerOver(repo *gittest.Repo) *reviewServer {
 			Id:         "a1",
 			Name:       "auth",
 			WorkflowId: "w1",
+			TaskId:     xptr.Ptr("t1"),
 			Cwd:        repo.Root,
 			PaneId:     "%9",
 			Alive:      xptr.Ptr(true),
 			State:      agentv1.AgentState_AGENT_STATE_IDLE,
+		},
+		task: &taskv1.Task{
+			Id:         "t1",
+			WorkflowId: "w1",
+			Slug:       "auth",
+			Cwd:        xptr.Ptr(repo.Root),
 		},
 	}
 }
@@ -2604,7 +2613,7 @@ func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams)
 }
 
 func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
-	rows := []proto.Message{s.workflow, s.agent}
+	rows := []proto.Message{s.workflow, s.agent, s.task}
 	for _, child := range s.children {
 		rows = append(rows, child)
 	}

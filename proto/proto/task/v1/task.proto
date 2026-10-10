@@ -9,6 +9,32 @@ import "rules/v1/rules.proto";
 
 option go_package = "komrad/proto/gen/task/v1;taskv1";
 
+// Sequence is what git has part-way through a task's checkout and waiting on somebody.
+enum Sequence {
+  // Nothing was recorded, which no stored checkout answers with.
+  SEQUENCE_UNSPECIFIED = 0;
+  // Nothing is part-way through.
+  SEQUENCE_NONE = 1;
+  // A rebase stopped on a commit it could not replay.
+  SEQUENCE_REBASE = 2;
+  // An am stopped on a patch it could not apply.
+  SEQUENCE_AM = 3;
+  // A merge stopped on conflicts.
+  SEQUENCE_MERGE = 4;
+  // A cherry-pick stopped on conflicts or resting between its picks.
+  SEQUENCE_CHERRY_PICK = 5;
+  // A revert stopped on conflicts or resting between its picks.
+  SEQUENCE_REVERT = 6;
+}
+
+// DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
+message DiffStat {
+  // The lines it adds.
+  int32 added = 1;
+  // The lines it removes.
+  int32 removed = 2;
+}
+
 // Task is one outcome a person wants, which the agents linked to it work toward.
 message Task {
   // The handle every other call names this task by, alongside its slug.
@@ -27,6 +53,29 @@ message Task {
   string updated_at = 7;
   // When it was archived, unset while it is live.
   optional string archived_at = 8;
+  // The directory of its checkout, which every agent on it works in, unset while it has none.
+  optional string cwd = 9;
+  // The git branch its checkout is on, unset while it has none or git cannot read it.
+  optional string branch = 10;
+  // The canonical web address of the repository its checkout pushes to, such as
+  // https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin
+  // is not a forge.
+  optional string repository_url = 11;
+  // The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
+  optional string head_sha = 12;
+  // Whether its checkout has been taken away.
+  bool worktree_removed = 13;
+  // What git has part-way through its checkout, waiting on somebody to settle it.
+  Sequence sequence = 14;
+  // The snapshot of the newest review round of its agents while its checkout no longer hashes
+  // to it, empty otherwise.
+  string moved_since_round = 15;
+  // How many lines its checkout adds and removes since it left its base, unset where there is
+  // no base to measure against.
+  optional DiffStat diff_stat = 16;
+  // The branch its checkout was put on rather than one komrad made for it, unset when komrad
+  // made it.
+  optional string adopted_branch = 17;
 }
 
 message CreateTaskRequest {

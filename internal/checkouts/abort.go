@@ -12,6 +12,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 )
 
 // ErrAbortNothing says nothing is part-way through the checkout.
@@ -19,7 +20,7 @@ var ErrAbortNothing = fail.Precondition("nothing is part-way through in this wor
 
 // AbortResult is what an abort did.
 type AbortResult struct {
-	Sequence agentstore.Sequence `json:"sequence"`
+	Sequence taskstore.Sequence `json:"sequence"`
 	// Command is the git command that ran the sequence.
 	Command string `json:"command"`
 	// Branch is where the checkout stands once the sequence is undone, empty when detached.
@@ -56,7 +57,7 @@ func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, erro
 		return nil, err
 	}
 
-	result, err := s.abort(ctx, *agent)
+	result, err := s.abort(ctx, *target)
 	if err != nil {
 		if interrupted {
 			s.queueEvent(ctx, agent.ID, aborted{AgentID: agent.ID, Failure: err.Error()})
@@ -72,7 +73,8 @@ func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, erro
 }
 
 // abort reads the sequence again, parks the checkout and undoes it.
-func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResult, error) {
+func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResult, error) {
+	agent := *target.agent
 	if _, err := s.read(ctx, agent.ID); err != nil {
 		return nil, err
 	}
@@ -82,7 +84,7 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 		return nil, err
 	}
 
-	ours, err := s.isOwnRebase(ctx, agent, sequence)
+	ours, err := s.isOwnRebase(ctx, target, sequence)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +108,7 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 		return nil, err
 	}
 
-	s.recordAborted(ctx, agent)
+	s.recordAborted(ctx, *target.task)
 
 	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
@@ -132,12 +134,12 @@ func (s *Service) readSequence(ctx context.Context, agent agentstore.Agent) (git
 
 // isOwnRebase reports whether the sequence is the rebase komrad started and left stopped on
 // conflicts, which is the one the agent was told to wait on.
-func (s *Service) isOwnRebase(ctx context.Context, agent agentstore.Agent, sequence git.Sequence) (bool, error) {
+func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequence git.Sequence) (bool, error) {
 	if sequence != git.SequenceRebase {
 		return false, nil
 	}
 
-	raw, err := s.agents.GetLastRebaseByID(ctx, agent.ID)
+	raw, err := s.tasks.GetLastRebase(ctx, target.task.ID)
 	if err != nil {
 		return false, err
 	}
@@ -147,13 +149,13 @@ func (s *Service) isOwnRebase(ctx context.Context, agent agentstore.Agent, seque
 
 	var outcome rebaseOutcome
 	if err := json.Unmarshal(raw, &outcome); err != nil {
-		return false, fmt.Errorf("failed to read the last rebase of agent %q: %w", agent.Name, err)
+		return false, fmt.Errorf("failed to read the last rebase of task %q: %w", target.task.Slug, err)
 	}
 	if outcome.Result == nil || !outcome.Result.Conflicted {
 		return false, nil
 	}
 
-	onto, err := s.git.ReadRebaseOnto(ctx, agent.Cwd)
+	onto, err := s.git.ReadRebaseOnto(ctx, target.agent.Cwd)
 	if err != nil {
 		return false, err
 	}
@@ -161,11 +163,11 @@ func (s *Service) isOwnRebase(ctx context.Context, agent agentstore.Agent, seque
 	return onto != "" && onto == outcome.Result.BaseSHA, nil
 }
 
-// recordAborted clears the sequence on the agent's row ahead of the checkout sync.
-func (s *Service) recordAborted(ctx context.Context, agent agentstore.Agent) {
-	if err := s.agents.SetSequenceByID(ctx, agent.ID, agentstore.SequenceNone); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's sequence was aborted",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+// recordAborted clears the sequence on the task ahead of the checkout sync.
+func (s *Service) recordAborted(ctx context.Context, task taskstore.Task) {
+	if err := s.tasks.SetSequence(ctx, task.ID, taskstore.SequenceNone); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's sequence was aborted",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 	}
 }
 

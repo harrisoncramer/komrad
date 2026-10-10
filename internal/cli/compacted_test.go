@@ -15,6 +15,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,9 +39,9 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 					Id:     "agent-a",
 					Name:   "compaction",
 					Role:   agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
-					Branch: xptr.Ptr("agent/compaction"),
 					Prompt: "build the usage block",
 				},
+				Task:       &taskv1.Task{Branch: xptr.Ptr("agent/compaction")},
 				UnreadMail: true,
 				PullRequests: []*pullrequestv1.PullRequest{{
 					Url:   "https://github.com/o/r/pull/9",

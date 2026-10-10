@@ -180,56 +180,23 @@ func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*Pull
 	return &i, err
 }
 
-const listAgentPullRequests = `-- name: ListAgentPullRequests :many
-SELECT
-    o.agent_id,
-    o.pull_request_id,
-    o.first_seen_at,
-    o.last_seen_at,
-    o.engine_id
-FROM
-    agent_pull_requests o
-WHERE
-    o.agent_id = ANY ($1::uuid[])
-ORDER BY
-    o.first_seen_at
-`
-
-func (q *Queries) ListAgentPullRequests(ctx context.Context, agentIds []string) ([]*AgentPullRequest, error) {
-	rows, err := q.db.Query(ctx, listAgentPullRequests, agentIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*AgentPullRequest
-	for rows.Next() {
-		var i AgentPullRequest
-		if err := rows.Scan(
-			&i.AgentID,
-			&i.PullRequestID,
-			&i.FirstSeenAt,
-			&i.LastSeenAt,
-			&i.EngineID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLiveRepositories = `-- name: ListLiveRepositories :many
 SELECT DISTINCT
-    repository_url
+    t.repository_url
 FROM
-    agents
+    tasks t
 WHERE
-    archived_at IS NULL
-    AND repository_url IS NOT NULL
-    AND repository_url <> ''
+    t.archived_at IS NULL
+    AND t.repository_url IS NOT NULL
+    AND t.repository_url <> ''
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
 ORDER BY
     repository_url
 `
@@ -259,19 +226,20 @@ SELECT
     a.id
 FROM
     agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
+    JOIN tasks t ON t.id = a.task_id
+    JOIN pull_requests p ON p.repository_url = t.repository_url
+        AND p.head_repository_url = t.repository_url
+        AND p.head_branch = t.branch
+    JOIN workflows w ON w.id = t.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
     p.id = $1
     AND a.deleting_at IS NULL
     AND a.archived_at IS NULL
     AND a.parent_agent_id IS NULL
-    AND a.branch <> ''
+    AND t.branch <> ''
     AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
+        OR t.branch <> c.worktree_base_branch)
 ORDER BY
     a.id
 `
@@ -392,21 +360,29 @@ func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequests
 
 const listSyncTargets = `-- name: ListSyncTargets :many
 SELECT DISTINCT
-    a.repository_url::text AS repository_url,
-    a.branch::text AS branch,
-    COALESCE(a.head_sha, '')::text AS head_sha
+    t.repository_url::text AS repository_url,
+    t.branch::text AS branch,
+    COALESCE(t.head_sha, '')::text AS head_sha
 FROM
-    agents a
-    JOIN workflows w ON w.id = a.workflow_id
+    tasks t
+    JOIN workflows w ON w.id = t.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    a.archived_at IS NULL
-    AND a.repository_url IS NOT NULL
-    AND a.repository_url <> ''
-    AND a.branch IS NOT NULL
-    AND a.branch <> ''
+    t.archived_at IS NULL
+    AND t.repository_url IS NOT NULL
+    AND t.repository_url <> ''
+    AND t.branch IS NOT NULL
+    AND t.branch <> ''
     AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
+        OR t.branch <> c.worktree_base_branch)
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
 ORDER BY
     repository_url,
     branch,
@@ -439,6 +415,47 @@ func (q *Queries) ListSyncTargets(ctx context.Context) ([]*ListSyncTargetsRow, e
 	return items, nil
 }
 
+const listTaskPullRequests = `-- name: ListTaskPullRequests :many
+SELECT
+    o.task_id,
+    o.pull_request_id,
+    o.first_seen_at,
+    o.last_seen_at,
+    o.engine_id
+FROM
+    task_pull_requests o
+WHERE
+    o.task_id = ANY ($1::uuid[])
+ORDER BY
+    o.first_seen_at
+`
+
+func (q *Queries) ListTaskPullRequests(ctx context.Context, taskIds []string) ([]*TaskPullRequest, error) {
+	rows, err := q.db.Query(ctx, listTaskPullRequests, taskIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*TaskPullRequest
+	for rows.Next() {
+		var i TaskPullRequest
+		if err := rows.Scan(
+			&i.TaskID,
+			&i.PullRequestID,
+			&i.FirstSeenAt,
+			&i.LastSeenAt,
+			&i.EngineID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWatchedPullRequests = `-- name: ListWatchedPullRequests :many
 SELECT
     p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body
@@ -449,7 +466,7 @@ WHERE
         SELECT
             1
         FROM
-            agent_pull_requests o
+            task_pull_requests o
         WHERE
             o.pull_request_id = p.id)
     AND ($1::text[] IS NULL
@@ -543,41 +560,40 @@ func (q *Queries) ListWatchedRepositories(ctx context.Context, keys []string) ([
 	return items, nil
 }
 
-const observeAgentPullRequests = `-- name: ObserveAgentPullRequests :execrows
-INSERT INTO agent_pull_requests(
-    agent_id,
+const observeTaskPullRequests = `-- name: ObserveTaskPullRequests :execrows
+INSERT INTO task_pull_requests(
+    task_id,
     pull_request_id,
     first_seen_at,
     last_seen_at)
 SELECT
-    a.id,
+    t.id,
     p.id,
     NOW(),
     NOW()
 FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
+    tasks t
+    JOIN pull_requests p ON p.repository_url = t.repository_url
+        AND p.head_repository_url = t.repository_url
+        AND p.head_branch = t.branch
+    JOIN workflows w ON w.id = t.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    a.deleting_at IS NULL
-    AND a.repository_url IS NOT NULL
-    AND a.branch IS NOT NULL
-    AND a.branch <> ''
+    t.repository_url IS NOT NULL
+    AND t.branch IS NOT NULL
+    AND t.branch <> ''
     AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
-ON CONFLICT (agent_id,
+        OR t.branch <> c.worktree_base_branch)
+ON CONFLICT (task_id,
     pull_request_id)
     DO UPDATE SET
         last_seen_at = NOW()
     WHERE
-        agent_pull_requests.last_seen_at < NOW() - interval '1 hour'
+        task_pull_requests.last_seen_at < NOW() - interval '1 hour'
 `
 
-func (q *Queries) ObserveAgentPullRequests(ctx context.Context) (int64, error) {
-	result, err := q.db.Exec(ctx, observeAgentPullRequests)
+func (q *Queries) ObserveTaskPullRequests(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, observeTaskPullRequests)
 	if err != nil {
 		return 0, err
 	}

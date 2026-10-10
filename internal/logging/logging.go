@@ -27,6 +27,7 @@ const (
 	RequestHost            = "http.request.header.host"
 	RequestOrigin          = "http.request.header.origin"
 	AgentID                = "komrad.agent.id"
+	TaskID                 = "komrad.task.id"
 	SessionID              = "komrad.session.id"
 	TargetAgentID          = "komrad.target_agent.id"
 	LifecycleAction        = "komrad.lifecycle.action"

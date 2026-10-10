@@ -17,8 +17,9 @@ func (a *agentsScreen) details(m *model) details {
 
 	if r.isTask() {
 		return details{
-			id:     r.task.ID,
-			fields: taskFields(*r.task, m.listing.taskAgents(r.task.ID)),
+			id:      r.task.ID,
+			notices: agentNotices(m.glyphs, m.loading.frame(), r),
+			fields:  taskFields(*r.task, m.listing.taskAgents(r.task.ID)),
 		}
 	}
 

@@ -222,6 +222,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 		name      string
 		worktree  workflowstore.WorktreeConfig
 		provision *bool
+		adopted   string
 		wantKeys  []string
 	}{
 		{
@@ -251,6 +252,24 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				"KOMRAD_WORKTREE_SYMLINK_PATHS",
 			},
 		},
+		{
+			name: "enabled hands on the branch the task's checkout was put on",
+			worktree: workflowstore.WorktreeConfig{
+				Enabled:      true,
+				BaseBranch:   "develop",
+				CopyPaths:    []string{".env", "config/local.json"},
+				SymlinkPaths: []string{"node_modules"},
+			},
+			adopted: "harry/spike",
+			wantKeys: []string{
+				"KOMRAD_WORKTREE_REPO",
+				"KOMRAD_WORKTREES_DIR",
+				"KOMRAD_WORKTREE_BASE_BRANCH",
+				"KOMRAD_WORKTREE_COPY_PATHS",
+				"KOMRAD_WORKTREE_SYMLINK_PATHS",
+				"KOMRAD_WORKTREE_ADOPT_BRANCH",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -260,7 +279,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			worktreesDir := t.TempDir()
 
 			st := storetest.Open(t)
-			seedFixture(t, st, agentstore.Agent{
+			seeded := seedFixture(t, st, agentstore.Agent{
 				ID:               fixtureAgentID,
 				Name:             "auth",
 				Cwd:              "/worktrees/a1",
@@ -270,6 +289,9 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: tt.worktree,
 			})
+			claimed, err := st.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *seeded.TaskID, AdoptedBranch: tt.adopted})
+			require.NoError(t, err)
+			require.True(t, claimed)
 
 			runner := &recordingRunner{}
 			service := NewScriptService(NewScriptServiceParams{
@@ -315,6 +337,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			assert.Equal(t, "develop", values["KOMRAD_WORKTREE_BASE_BRANCH"])
 			assert.Equal(t, ".env\nconfig/local.json", values["KOMRAD_WORKTREE_COPY_PATHS"])
 			assert.Equal(t, "node_modules", values["KOMRAD_WORKTREE_SYMLINK_PATHS"])
+			assert.Equal(t, tt.adopted, values["KOMRAD_WORKTREE_ADOPT_BRANCH"])
 		})
 	}
 }

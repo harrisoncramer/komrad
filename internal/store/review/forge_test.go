@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"komrad/internal/store"
-	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -281,10 +281,10 @@ func (st *fixture) seedPullRequest(t *testing.T, agentID string) string {
 	ctx := t.Context()
 
 	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/worker"
-	require.NoError(t, st.agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{
+	st.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
 		RepositoryURL: &repository,
 		Branch:        &branch,
-	}))
+	})
 	require.NoError(t, pullrequeststore.NewPullRequestSyncStore(st.pool).EnsureSync(ctx, repository))
 
 	pullRequests := pullrequeststore.NewPullRequestStore(st.pool)

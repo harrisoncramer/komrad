@@ -18,6 +18,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/waketest"
@@ -54,7 +55,12 @@ func TestRebaseRefusals(t *testing.T) {
 		{
 			name: "a branch a human made, whose history is not komrad's to rewrite",
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				return fixture.seed(t, agentstore.Agent{AdoptedBranch: "harry/spike"})
+				agent := fixture.seed(t, agentstore.Agent{})
+				claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *agent.TaskID, AdoptedBranch: "harry/spike"})
+				require.NoError(t, err)
+				require.True(t, claimed)
+
+				return agent
 			},
 			wantErr: errRebaseAdopted,
 		},
@@ -78,7 +84,7 @@ func TestRebaseRefusals(t *testing.T) {
 			name: "an agent whose directory is gone",
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				agent := fixture.seed(t, agentstore.Agent{})
-				require.NoError(t, fixture.stores.Agents.SetCheckout(t.Context(), agent.ID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
+				fixture.stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemoved: true})
 
 				return agent
 			},
@@ -272,9 +278,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			assert.Equal(t, tt.rebaser.Prediction.Replay, result.Replay)
 			assert.False(t, result.Moved, "work was replayed or stopped, so the branch was not merely moved")
 
-			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStopped, stored.Sequence.IsInProgress())
+			assert.Equal(t, tt.wantStopped, fixture.readCheckout(t, agent).Sequence.IsInProgress())
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 		})
 	}
@@ -697,12 +701,26 @@ func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.A
 		agent.WorkflowID = f.workflowID
 	}
 
-	return f.stores.SeedAgent(t, agent)
+	seeded := f.stores.SeedAgent(t, agent)
+	require.NoError(t, f.stores.Tasks.SetCheckoutDir(t.Context(), *seeded.TaskID, seeded.Cwd))
+
+	return seeded
+}
+
+// readCheckout returns the checkout of the agent's task.
+func (f *rebaseFixture) readCheckout(t *testing.T, agent *agentstore.Agent) taskstore.Checkout {
+	t.Helper()
+
+	task, err := f.stores.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+
+	return task.Checkout
 }
 
 // newService builds the service over the real stores.
 func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	params.Agents = f.stores.Agents
+	params.Tasks = f.stores.Tasks
 	params.Workflows = f.stores.Workflows
 	if params.Events == nil {
 		params.Events = f.events
@@ -766,9 +784,11 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 	queue := fixture.events
 	service := fixture.newService(NewServiceParams{})
+	target, err := service.rebaseEligible(t.Context(), agent.ID)
+	require.NoError(t, err)
 
-	require.NoError(t, service.recordRebase(t.Context(), agent.ID, rebaseOutcome{Failure: "the older rebase failed"}))
-	require.NoError(t, service.recordRebase(t.Context(), agent.ID, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
+	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Failure: "the older rebase failed"}))
+	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
 	stale := queue.ListEvents()[0]
 	require.NoError(t, queue.InsertTx(t.Context(), stale))
 

@@ -25,6 +25,66 @@ table "tasks" {
     default = ""
     comment = "What the task is meant to achieve, as markdown."
   }
+  column "cwd" {
+    null    = true
+    type    = text
+    comment = "The directory of the task's checkout, which every agent on the task works in. Null while the task has none."
+  }
+  column "branch" {
+    null    = true
+    type    = text
+    comment = "The git branch the task's checkout is on, null while it has no checkout or git cannot read it."
+  }
+  column "adopted_branch" {
+    null    = true
+    type    = text
+    comment = "The branch the task's checkout was put on rather than one komrad made for it, null when komrad made it."
+  }
+  column "provision_enabled" {
+    null    = true
+    type    = boolean
+    comment = "Whether the task's checkout was provisioned for it: unset inherits the workflow's setting, and false means the checkout is a directory it was given."
+  }
+  column "worktree_removed" {
+    null    = true
+    type    = boolean
+    comment = "Whether the task's checkout has been taken away, null while it has none."
+  }
+  column "repository_url" {
+    null    = true
+    type    = text
+    comment = "The canonical web address of the repository the task's checkout pushes to, such as https://github.com/harrisoncramer/komrad. Null when the checkout is gone or its origin is not a forge."
+  }
+  column "head_sha" {
+    null    = true
+    type    = text
+    comment = "The commit the task's checkout has checked out, null when the checkout is gone or git cannot read it."
+  }
+  column "last_rebase" {
+    null    = true
+    type    = jsonb
+    comment = "What the latest rebase of the task's checkout came to, as the result or the failure; null until its first rebase."
+  }
+  column "sequence" {
+    null    = true
+    type    = enum.agent_sequence
+    comment = "What git has part-way through the task's checkout and waiting on somebody, null while it has no checkout."
+  }
+  column "lines_added" {
+    null    = true
+    type    = integer
+    comment = "How many lines the task's checkout adds since it left its base, committed and uncommitted alike, null when there is no base to measure against."
+  }
+  column "lines_removed" {
+    null    = true
+    type    = integer
+    comment = "How many lines the task's checkout removes since it left its base, null whenever lines_added is."
+  }
+  column "moved_since_round" {
+    null    = true
+    type    = text
+    comment = "The snapshot of the newest review round of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no round."
+  }
   column "archived_at" {
     null = true
     type = timestamptz
@@ -70,5 +130,58 @@ table "tasks" {
   }
   index "tasks_workflow_id" {
     columns = [column.workflow_id]
+  }
+}
+
+table "task_pull_requests" {
+  schema  = schema.public
+  comment = "Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here."
+  column "task_id" {
+    null = false
+    type = uuid
+  }
+  column "pull_request_id" {
+    null = false
+    type = uuid
+  }
+  column "first_seen_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "last_seen_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+    comment = "When the pair was last seen together, moved at most once an hour."
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.task_id, column.pull_request_id]
+  }
+  foreign_key "task_pull_requests_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "task_pull_requests_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "task_pull_requests_pull_request_id_fkey" {
+    columns     = [column.engine_id, column.pull_request_id]
+    ref_columns = [table.pull_requests.column.engine_id, table.pull_requests.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "task_pull_requests_pull_request_id" {
+    columns = [column.pull_request_id]
   }
 }

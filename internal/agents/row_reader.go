@@ -12,6 +12,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -29,6 +30,7 @@ type NewRowReaderParams struct {
 	Reviews       *reviewstore.ReviewStore
 	ReviewThreads *reviewstore.ThreadStore
 	Workflows     *workflowstore.WorkflowStore
+	Tasks         *taskstore.TaskStore
 }
 
 // RowReader reads what an agent's row says and what is drawn beside it.
@@ -41,6 +43,7 @@ type RowReader struct {
 	reviews       *reviewstore.ReviewStore
 	reviewThreads *reviewstore.ThreadStore
 	workflows     *workflowstore.WorkflowStore
+	tasks         *taskstore.TaskStore
 }
 
 // NewRowReader builds the reader over the stores.
@@ -54,6 +57,7 @@ func NewRowReader(params NewRowReaderParams) *RowReader {
 		reviews:       params.Reviews,
 		reviewThreads: params.ReviewThreads,
 		workflows:     params.Workflows,
+		tasks:         params.Tasks,
 	}
 }
 
@@ -65,6 +69,7 @@ type Surroundings struct {
 	Reviews       []reviewstore.Review
 	ReviewThreads []reviewstore.ThreadWithMessages
 	Workflows     []workflowstore.Workflow
+	Tasks         []taskstore.Task
 }
 
 // GetAgent returns one agent by id, archived or not.
@@ -107,8 +112,8 @@ func (r *RowReader) GetRow(ctx context.Context, id string) (*rowstore.Row, error
 	return row, nil
 }
 
-// ListSurroundings reads every unclaimed mail, and the pull requests, repositories, reviews, review
-// threads and workflows of the agents on the rows.
+// ListSurroundings reads every unclaimed mail, the tasks of the agents on the rows with their pull
+// requests and repositories, and the reviews, review threads and workflows of those agents.
 func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (*Surroundings, error) {
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 
@@ -117,9 +122,14 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the unclaimed mail: %w", err)
 	}
 
-	observations, err := r.pullRequests.ListObservations(ctx, agentIDs)
+	tasks, err := listWatchedByKey(ctx, r.tasks, agentstore.TaskIDs(xslice.Map(rows, func(row rowstore.Row) agentstore.Agent { return row.Agent })))
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests the agents were seen with: %w", err)
+		return nil, fmt.Errorf("failed to list the tasks of the agents: %w", err)
+	}
+
+	observations, err := r.pullRequests.ListObservations(ctx, xslice.Map(tasks, func(task taskstore.Task) string { return task.ID }))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the pull requests the tasks were seen with: %w", err)
 	}
 
 	pullRequests, err := listWatchedByKey(ctx, r.pullRequests, xslice.Map(observations, func(o pullrequeststore.Observation) string {
@@ -129,8 +139,8 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the pull requests: %w", err)
 	}
 
-	repositories, err := listWatchedByKey(ctx, r.repositories, xslice.Map(rows, func(row rowstore.Row) string {
-		return xptr.Deref(row.RepositoryURL)
+	repositories, err := listWatchedByKey(ctx, r.repositories, xslice.Map(tasks, func(task taskstore.Task) string {
+		return xptr.Deref(task.Checkout.RepositoryURL)
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the repositories: %w", err)
@@ -168,6 +178,7 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		Reviews:       reviews,
 		ReviewThreads: reviewThreads,
 		Workflows:     workflows,
+		Tasks:         tasks,
 	}, nil
 }
 

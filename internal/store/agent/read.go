@@ -35,8 +35,9 @@ type AgentDir struct {
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
 	DeletingAt     *time.Time
-	AdoptedBranch  string
 	WorkflowID     string
+	// Adopted is whether the directory is its task's checkout and that checkout was put on a branch komrad did not make.
+	Adopted bool
 }
 
 // ListDirs returns the directory every agent holds, archived ones included.
@@ -55,8 +56,8 @@ func (s *AgentStore) ListDirs(ctx context.Context) ([]AgentDir, error) {
 			StateChangedAt: row.StateChangedAt,
 			ArchivedAt:     row.ArchivedAt,
 			DeletingAt:     row.DeletingAt,
-			AdoptedBranch:  row.AdoptedBranch,
 			WorkflowID:     row.WorkflowID,
+			Adopted:        row.Adopted,
 		}
 	}), nil
 }

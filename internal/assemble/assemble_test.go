@@ -7,9 +7,11 @@ import (
 	"komrad/internal/assemble"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
@@ -31,18 +33,30 @@ func stamp(offset time.Duration) string {
 	return dates.Stamp(now.Add(offset))
 }
 
-func agent(id string, set ...func(*agentv1.Agent)) *agentv1.Agent {
-	a := &agentv1.Agent{
-		Id:            id,
+func agent(id string) *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         id,
+		WorkflowId: flowID,
+		TaskId:     xptr.Ptr("task-" + id),
+	}
+}
+
+func task(agentID string, set ...func(*taskv1.Task)) *taskv1.Task {
+	t := &taskv1.Task{
+		Id:            "task-" + agentID,
 		WorkflowId:    flowID,
-		Branch:        xptr.Ptr("agent/" + id),
+		Branch:        xptr.Ptr("agent/" + agentID),
 		RepositoryUrl: xptr.Ptr(repo),
 	}
 	for _, f := range set {
-		f(a)
+		f(t)
 	}
 
-	return a
+	return t
+}
+
+func tasks(rows ...*taskv1.Task) map[string]*taskv1.Task {
+	return xslice.KeyBy(rows, func(t *taskv1.Task) string { return t.GetId() })
 }
 
 func readRepositories(urls ...string) map[string]*pullrequestv1.Repository {
@@ -54,8 +68,12 @@ func readRepositories(urls ...string) map[string]*pullrequestv1.Repository {
 	return rows
 }
 
-func at(sha string) func(*agentv1.Agent) {
-	return func(a *agentv1.Agent) { a.HeadSha = xptr.Ptr(sha) }
+func at(sha string) func(*taskv1.Task) {
+	return func(t *taskv1.Task) { t.HeadSha = xptr.Ptr(sha) }
+}
+
+func onBase(t *taskv1.Task) {
+	t.Branch = xptr.Ptr("main")
 }
 
 func workflow(base string) *workflowv1.Workflow {
@@ -192,21 +210,21 @@ func TestAgentRows(t *testing.T) {
 	}{
 		{
 			name:  "an agent nobody has read the repository of is unread",
-			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}},
+			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Tasks: tasks(task(newer))},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
 			},
 		},
 		{
 			name:  "a read repository with nothing on the branch is none",
-			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Repositories: readRepositories(repo)},
+			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Tasks: tasks(task(newer)), Repositories: readRepositories(repo)},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE)},
 			},
 		},
 		{
 			name:  "a read repository that is not the agent's leaves it unread",
-			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Repositories: readRepositories(fork)},
+			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Tasks: tasks(task(newer)), Repositories: readRepositories(fork)},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
 			},
@@ -215,6 +233,7 @@ func TestAgentRows(t *testing.T) {
 			name: "mail is unread while it has not expired, and only for the agent it is to",
 			world: assemble.World{
 				Agents: map[string]*agentv1.Agent{newer: agent(newer), older: agent(older)},
+				Tasks:  tasks(task(newer), task(older)),
 				Mail: map[string]*agentv1.Mail{
 					"m1": mail("m1", newer, -time.Minute),
 					"m2": mail("m2", older, time.Minute),
@@ -233,6 +252,7 @@ func TestAgentRows(t *testing.T) {
 			name: "the pull request on the branch is the standing",
 			world: assemble.World{
 				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer)),
 				PullRequests: pullRequests(onBranch),
 				Repositories: readRepositories(repo),
 			},
@@ -248,6 +268,7 @@ func TestAgentRows(t *testing.T) {
 			name: "an unfinished pull request is current over a newer finished one, and the finished are newest first",
 			world: assemble.World{
 				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer)),
 				PullRequests: pullRequests(oldest, open, latest),
 			},
 			want: []*agentv1.AgentRow{
@@ -261,13 +282,14 @@ func TestAgentRows(t *testing.T) {
 		{
 			name: "a merged pull request stands while the checkout is still on its head",
 			world: assemble.World{
-				Agents:       map[string]*agentv1.Agent{newer: agent(newer, at("sha-p3"))},
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer, at("sha-p3"))),
 				PullRequests: pullRequests(latest),
 				Repositories: readRepositories(repo),
 			},
 			want: []*agentv1.AgentRow{
 				{
-					Agent:        agent(newer, at("sha-p3")),
+					Agent:        agent(newer),
 					PullRequest:  currentStanding(latest),
 					PullRequests: []*pullrequestv1.PullRequest{latest.row()},
 				},
@@ -276,13 +298,14 @@ func TestAgentRows(t *testing.T) {
 		{
 			name: "a merged pull request is none once the checkout has moved off its head",
 			world: assemble.World{
-				Agents:       map[string]*agentv1.Agent{newer: agent(newer, at("elsewhere"))},
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer, at("elsewhere"))),
 				PullRequests: pullRequests(oldest, latest),
 				Repositories: readRepositories(repo),
 			},
 			want: []*agentv1.AgentRow{
 				{
-					Agent:        agent(newer, at("elsewhere")),
+					Agent:        agent(newer),
 					PullRequest:  standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE),
 					PullRequests: []*pullrequestv1.PullRequest{latest.row(), oldest.row()},
 				},
@@ -291,13 +314,14 @@ func TestAgentRows(t *testing.T) {
 		{
 			name: "a closed pull request is none once the checkout has moved off its head",
 			world: assemble.World{
-				Agents:       map[string]*agentv1.Agent{newer: agent(newer, at("elsewhere"))},
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer, at("elsewhere"))),
 				PullRequests: pullRequests(closed),
 				Repositories: readRepositories(repo),
 			},
 			want: []*agentv1.AgentRow{
 				{
-					Agent:        agent(newer, at("elsewhere")),
+					Agent:        agent(newer),
 					PullRequest:  standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE),
 					PullRequests: []*pullrequestv1.PullRequest{closed.row()},
 				},
@@ -306,13 +330,14 @@ func TestAgentRows(t *testing.T) {
 		{
 			name: "an open pull request stands whatever the checkout is on",
 			world: assemble.World{
-				Agents:       map[string]*agentv1.Agent{newer: agent(newer, at("elsewhere"))},
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer, at("elsewhere"))),
 				PullRequests: pullRequests(latest, open),
 				Repositories: readRepositories(repo),
 			},
 			want: []*agentv1.AgentRow{
 				{
-					Agent:        agent(newer, at("elsewhere")),
+					Agent:        agent(newer),
 					PullRequest:  currentStanding(open),
 					PullRequests: []*pullrequestv1.PullRequest{open.row(), latest.row()},
 				},
@@ -322,6 +347,7 @@ func TestAgentRows(t *testing.T) {
 			name: "a merged pull request stands for a checkout whose head was never read",
 			world: assemble.World{
 				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer)),
 				PullRequests: pullRequests(latest),
 				Repositories: readRepositories(repo),
 			},
@@ -337,6 +363,7 @@ func TestAgentRows(t *testing.T) {
 			name: "a pull request from a fork, another branch or a branch nobody is on is not drawn",
 			world: assemble.World{
 				Agents: map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:  tasks(task(newer)),
 				PullRequests: pullRequests(
 					pullRequest{
 						id:        "p1",
@@ -369,7 +396,8 @@ func TestAgentRows(t *testing.T) {
 		{
 			name: "an agent on its workflow's base branch has no pull requests",
 			world: assemble.World{
-				Agents:    map[string]*agentv1.Agent{newer: agent(newer, func(a *agentv1.Agent) { a.Branch = xptr.Ptr("main") })},
+				Agents:    map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:     tasks(task(newer, onBase)),
 				Workflows: map[string]*workflowv1.Workflow{flowID: workflow("main")},
 				PullRequests: pullRequests(pullRequest{
 					id:        "p1",
@@ -382,7 +410,7 @@ func TestAgentRows(t *testing.T) {
 			},
 			want: []*agentv1.AgentRow{
 				{
-					Agent:       agent(newer, func(a *agentv1.Agent) { a.Branch = xptr.Ptr("main") }),
+					Agent:       agent(newer),
 					PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE),
 				},
 			},
@@ -391,6 +419,7 @@ func TestAgentRows(t *testing.T) {
 			name: "an agent on another branch than the base keeps its pull requests",
 			world: assemble.World{
 				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer)),
 				Workflows:    map[string]*workflowv1.Workflow{flowID: workflow("main")},
 				PullRequests: pullRequests(onBranch),
 				Repositories: readRepositories(repo),
@@ -407,6 +436,7 @@ func TestAgentRows(t *testing.T) {
 			name: "rows are newest first",
 			world: assemble.World{
 				Agents: map[string]*agentv1.Agent{older: agent(older), newer: agent(newer)},
+				Tasks:  tasks(task(older), task(newer)),
 			},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
@@ -464,6 +494,7 @@ func TestApplyRepository(t *testing.T) {
 	var world assemble.World
 
 	world.Apply(put(agentRow(agent(newer))))
+	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Task{Task: task(newer)}}))
 	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Repository{Repository: &pullrequestv1.Repository{Url: repo}}}))
 	assert.Equal(t, standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE), assemble.AgentRows(world, now)[0].PullRequest)
 

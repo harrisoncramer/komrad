@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xptr"
 )
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the sidebar says
@@ -66,9 +67,14 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 			agenterr.ErrReviewerAlreadyRunning, running.Name, running.ID)
 	}
 
+	branch, err := s.readTaskBranch(ctx, *author)
+	if err != nil {
+		return nil, "", err
+	}
+
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
 		Title:          reviewerTitle(params.Title, author.Name),
-		Prompt:         reviewerPrompt(*author, params.Prompt),
+		Prompt:         reviewerPrompt(*author, branch, params.Prompt),
 		Harness:        params.Harness,
 		Flags:          params.Flags,
 		WorkflowID:     author.WorkflowID,
@@ -105,13 +111,27 @@ func reviewerTitle(title, authorName string) string {
 	return authorName + reviewerNameSuffix
 }
 
+// readTaskBranch is the branch the checkout of an agent's task is on, empty when it names none.
+func (s *LaunchService) readTaskBranch(ctx context.Context, agent agentstore.Agent) (string, error) {
+	if agent.TaskID == nil {
+		return "", nil
+	}
+
+	task, err := s.tasks.GetTask(ctx, *agent.TaskID)
+	if err != nil {
+		return "", fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
+	}
+
+	return xptr.Deref(task.Checkout.Branch), nil
+}
+
 // reviewerPrompt says whose work this is and where it sits before handing over what the agent
 // asking wrote.
-func reviewerPrompt(author agentstore.Agent, prompt string) string {
+func reviewerPrompt(author agentstore.Agent, branch, prompt string) string {
 	opening := fmt.Sprintf("You are the reviewer for agent %s (%s). Read the work in %s and release a review of it.",
 		author.Name, author.ID, author.Cwd)
-	if author.Branch != nil && *author.Branch != "" {
-		opening = fmt.Sprintf("%s The change is on branch %s.", opening, *author.Branch)
+	if branch != "" {
+		opening = fmt.Sprintf("%s The change is on branch %s.", opening, branch)
 	}
 
 	return opening + "\n\n" + strings.TrimSpace(prompt)
