@@ -926,8 +926,8 @@ type PullRequestSync struct {
 // One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.
 type Review struct {
 	ID string
-	// The agent reviewed before reviews belonged to tasks, null on every review given since.
-	AgentID *string
+	// The agent its round was taken through, kept for older builds while every read goes by task.
+	AgentID string
 	RoundID string
 	// Whether a person or an agent is giving the review.
 	AuthorKind ReviewAuthorKind
@@ -1021,8 +1021,8 @@ type ReviewMessage struct {
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
 type ReviewRound struct {
 	ID string
-	// The agent a round was taken of before rounds belonged to tasks, null on every round taken since.
-	AgentID *string
+	// The agent the round was taken through, kept for older builds while every read goes by task.
+	AgentID string
 	// Which round this is for its task, counting from one. The panel names the round by this number.
 	Ordinal int32
 	// The commit the agent's branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says.
@@ -1043,8 +1043,8 @@ type ReviewRound struct {
 // One conversation pinned to a file and a line range in the round its review was given against.
 type ReviewThread struct {
 	ID string
-	// The agent reviewed before threads belonged to tasks, null on every thread opened since.
-	AgentID *string
+	// The agent its round was taken through, kept for older builds while every read goes by task.
+	AgentID string
 	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
 	FilePath string
 	// First line of the range on the old side of the diff. Zero means the thread is pinned to lines that exist only on the new side.

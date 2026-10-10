@@ -927,7 +927,7 @@ type PullRequestSync struct {
 // One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.
 type Review struct {
 	ID pgtype.UUID
-	// The agent reviewed before reviews belonged to tasks, null on every review given since.
+	// The agent its round was taken through, kept for older builds while every read goes by task.
 	AgentID pgtype.UUID
 	RoundID pgtype.UUID
 	// Whether a person or an agent is giving the review.
@@ -1022,7 +1022,7 @@ type ReviewMessage struct {
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
 type ReviewRound struct {
 	ID pgtype.UUID
-	// The agent a round was taken of before rounds belonged to tasks, null on every round taken since.
+	// The agent the round was taken through, kept for older builds while every read goes by task.
 	AgentID pgtype.UUID
 	// Which round this is for its task, counting from one. The panel names the round by this number.
 	Ordinal int32
@@ -1044,7 +1044,7 @@ type ReviewRound struct {
 // One conversation pinned to a file and a line range in the round its review was given against.
 type ReviewThread struct {
 	ID pgtype.UUID
-	// The agent reviewed before threads belonged to tasks, null on every thread opened since.
+	// The agent its round was taken through, kept for older builds while every read goes by task.
 	AgentID pgtype.UUID
 	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
 	FilePath string

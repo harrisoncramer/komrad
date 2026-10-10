@@ -90,12 +90,12 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, err
 	}
 
-	return s.openTaskRound(ctx, *task)
+	return s.openTaskRound(ctx, *task, agent.ID)
 }
 
-// openTaskRound freezes a task's checkout, handing back the newest round when the tree has not
+// openTaskRound freezes a task's checkout through one of its agents, handing back the newest round when the tree has not
 // moved since it was taken.
-func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task) (*reviewstore.Round, error) {
+func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task, agentID string) (*reviewstore.Round, error) {
 	if task.Checkout.WorktreeRemoved {
 		return nil, fmt.Errorf("%w: %q", errReviewWorktreeRemoved, task.Slug)
 	}
@@ -127,6 +127,7 @@ func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task) 
 	}
 
 	round, err := s.reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+		AgentID:     agentID,
 		TaskID:      task.ID,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,

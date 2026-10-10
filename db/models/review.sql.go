@@ -261,7 +261,7 @@ WHERE
 
 type GetReviewThreadRow struct {
 	ID                  string
-	AgentID             *string
+	AgentID             string
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -322,14 +322,22 @@ func (q *Queries) GetReviewThread(ctx context.Context, id string) (*GetReviewThr
 
 const insertForgeReview = `-- name: InsertForgeReview :one
 INSERT INTO reviews(
+    agent_id,
     task_id,
     round_id,
     author_kind,
     external_login,
     released_at)
 VALUES (
-    $1::uuid,
-    $2,
+    (
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = $1),
+    $2::uuid,
+    $1,
     'forge',
     $3,
     NOW())
@@ -338,13 +346,13 @@ RETURNING
 `
 
 type InsertForgeReviewParams struct {
-	TaskID        string
 	RoundID       string
+	TaskID        string
 	ExternalLogin *string
 }
 
 func (q *Queries) InsertForgeReview(ctx context.Context, arg InsertForgeReviewParams) (*Review, error) {
-	row := q.db.QueryRow(ctx, insertForgeReview, arg.TaskID, arg.RoundID, arg.ExternalLogin)
+	row := q.db.QueryRow(ctx, insertForgeReview, arg.RoundID, arg.TaskID, arg.ExternalLogin)
 	var i Review
 	err := row.Scan(
 		&i.ID,
@@ -368,13 +376,21 @@ func (q *Queries) InsertForgeReview(ctx context.Context, arg InsertForgeReviewPa
 
 const insertReview = `-- name: InsertReview :one
 INSERT INTO reviews(
+    agent_id,
     task_id,
     round_id,
     author_kind,
     author_agent_id)
 VALUES (
-    $1::uuid,
-    $2,
+    (
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = $1),
+    $2::uuid,
+    $1,
     $3,
     $4)
 RETURNING
@@ -382,16 +398,16 @@ RETURNING
 `
 
 type InsertReviewParams struct {
-	TaskID        string
 	RoundID       string
+	TaskID        string
 	AuthorKind    ReviewAuthorKind
 	AuthorAgentID *string
 }
 
 func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (*Review, error) {
 	row := q.db.QueryRow(ctx, insertReview,
-		arg.TaskID,
 		arg.RoundID,
+		arg.TaskID,
 		arg.AuthorKind,
 		arg.AuthorAgentID,
 	)
@@ -588,26 +604,29 @@ func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessa
 
 const insertReviewRound = `-- name: InsertReviewRound :one
 INSERT INTO review_rounds(
+    agent_id,
     task_id,
     ordinal,
     base_sha,
     snapshot_sha,
     ref)
 SELECT
-    $1::uuid,
+    $1,
+    $2::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
-    $2,
     $3,
-    $4::text
+    $4,
+    $5::text
 FROM
     review_rounds r
 WHERE
-    r.task_id = $1::uuid
+    r.task_id = $2::uuid
 RETURNING
     id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at, task_id, ref
 `
 
 type InsertReviewRoundParams struct {
+	AgentID     string
 	TaskID      string
 	BaseSha     string
 	SnapshotSha string
@@ -616,6 +635,7 @@ type InsertReviewRoundParams struct {
 
 func (q *Queries) InsertReviewRound(ctx context.Context, arg InsertReviewRoundParams) (*ReviewRound, error) {
 	row := q.db.QueryRow(ctx, insertReviewRound,
+		arg.AgentID,
 		arg.TaskID,
 		arg.BaseSha,
 		arg.SnapshotSha,
@@ -640,6 +660,7 @@ func (q *Queries) InsertReviewRound(ctx context.Context, arg InsertReviewRoundPa
 const insertReviewThreadWithMessage = `-- name: InsertReviewThreadWithMessage :one
 WITH opened AS (
     INSERT INTO review_threads(
+        agent_id,
         task_id,
         review_id,
         round_id,
@@ -653,9 +674,16 @@ WITH opened AS (
         forge_thread_id,
         last_agent_activity_at)
     VALUES (
-        $1::uuid,
-        $2,
+        (
+            SELECT
+                r.agent_id
+            FROM
+                review_rounds r
+            WHERE
+                r.id = $1),
+        $2::uuid,
         $3,
+        $1,
         $4,
         $5,
         $6,
@@ -684,7 +712,7 @@ said AS (
         held)
     SELECT
         o.id,
-        $2,
+        $3,
         $12::review_author_kind,
         $13,
         $14,
@@ -705,9 +733,9 @@ FROM
 `
 
 type InsertReviewThreadWithMessageParams struct {
+	RoundID        string
 	TaskID         string
 	ReviewID       string
-	RoundID        string
 	BaseSha        string
 	FilePath       string
 	OldStart       int32
@@ -728,7 +756,7 @@ type InsertReviewThreadWithMessageParams struct {
 
 type InsertReviewThreadWithMessageRow struct {
 	ID                  string
-	AgentID             *string
+	AgentID             string
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -753,9 +781,9 @@ type InsertReviewThreadWithMessageRow struct {
 
 func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertReviewThreadWithMessageParams) (*InsertReviewThreadWithMessageRow, error) {
 	row := q.db.QueryRow(ctx, insertReviewThreadWithMessage,
+		arg.RoundID,
 		arg.TaskID,
 		arg.ReviewID,
-		arg.RoundID,
 		arg.BaseSha,
 		arg.FilePath,
 		arg.OldStart,
@@ -1371,7 +1399,7 @@ ORDER BY
 
 type ListReviewThreadsRow struct {
 	ID                  string
-	AgentID             *string
+	AgentID             string
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -1714,7 +1742,7 @@ ORDER BY
 
 type ListWatchedReviewThreadsRow struct {
 	ID                  string
-	AgentID             *string
+	AgentID             string
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -1954,7 +1982,14 @@ const moveOpenReview = `-- name: MoveOpenReview :one
 UPDATE
     reviews v
 SET
-    round_id = $1
+    round_id = $1,
+    agent_id = (
+        SELECT
+            r.agent_id
+        FROM
+            review_rounds r
+        WHERE
+            r.id = $1)
 WHERE
     v.id = $2
     AND v.released_at IS NULL

@@ -756,6 +756,7 @@ func (f *syncFixture) openRound(t *testing.T, agentID, snapshot string) *reviews
 	t.Helper()
 
 	round, err := f.reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID:     agentID,
 		TaskID:      f.taskOf(t, agentID),
 		BaseSHA:     gittest.BaseSHA,
 		SnapshotSHA: snapshot,

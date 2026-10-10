@@ -1170,6 +1170,7 @@ func (st *fixture) openRound(t *testing.T, agentID, tree string) *Round {
 	t.Helper()
 
 	round, err := st.CreateRound(t.Context(), CreateRoundParams{
+		AgentID:     agentID,
 		TaskID:      st.taskOf(t, agentID),
 		BaseSHA:     "base-" + tree,
 		SnapshotSHA: "snapshot-" + tree,

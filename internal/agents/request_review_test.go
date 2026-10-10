@@ -318,6 +318,7 @@ func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
 	require.NoError(t, err)
 
 	round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+		AgentID:     author.ID,
 		TaskID:      *agentByID(t, st, author.ID).TaskID,
 		BaseSHA:     "base-sha",
 		SnapshotSHA: "snapshot-sha",

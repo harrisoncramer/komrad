@@ -160,6 +160,7 @@ func seedReview(t *testing.T, st *storetest.Stores, agentID string) string {
 	require.NoError(t, err)
 
 	round, err := reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID:     agent.ID,
 		TaskID:      *agent.TaskID,
 		BaseSHA:     "base",
 		SnapshotSHA: "snapshot",

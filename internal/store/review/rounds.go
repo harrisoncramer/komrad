@@ -89,6 +89,7 @@ func (r Review) isSettled() bool {
 }
 
 type CreateRoundParams struct {
+	AgentID     string
 	TaskID      string
 	BaseSHA     string
 	SnapshotSHA string
@@ -98,6 +99,7 @@ type CreateRoundParams struct {
 // already taken.
 func (s *ReviewStore) CreateRound(ctx context.Context, params CreateRoundParams) (*Round, error) {
 	row, err := s.queries.InsertReviewRound(ctx, models.InsertReviewRoundParams{
+		AgentID:     params.AgentID,
 		TaskID:      params.TaskID,
 		BaseSha:     params.BaseSHA,
 		SnapshotSha: params.SnapshotSHA,

@@ -804,6 +804,7 @@ func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+				AgentID:     going.ID,
 				TaskID:      *going.TaskID,
 				BaseSHA:     "base",
 				SnapshotSHA: "sha",
@@ -892,6 +893,7 @@ func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewSt
 	require.NoError(t, err)
 
 	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID:     agent.ID,
 		TaskID:      *agent.TaskID,
 		BaseSHA:     "base",
 		SnapshotSHA: sha,

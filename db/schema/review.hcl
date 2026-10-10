@@ -27,9 +27,9 @@ table "review_rounds" {
     default = sql("uuidv7()")
   }
   column "agent_id" {
-    null    = true
+    null    = false
     type    = uuid
-    comment = "The agent a round was taken of before rounds belonged to tasks, null on every round taken since."
+    comment = "The agent the round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
     null    = true
@@ -114,9 +114,9 @@ table "reviews" {
     default = sql("uuidv7()")
   }
   column "agent_id" {
-    null    = true
+    null    = false
     type    = uuid
-    comment = "The agent reviewed before reviews belonged to tasks, null on every review given since."
+    comment = "The agent its round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
     null    = true
@@ -271,9 +271,9 @@ table "review_threads" {
     default = sql("uuidv7()")
   }
   column "agent_id" {
-    null    = true
+    null    = false
     type    = uuid
-    comment = "The agent reviewed before threads belonged to tasks, null on every thread opened since."
+    comment = "The agent its round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
     null    = true
