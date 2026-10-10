@@ -11,7 +11,8 @@ usage() {
 	echo "v0.3.0) into docs/dist/<version> and syncs it to s3://<bucket>/<version>/,"
 	echo "then folds the version into versions.json, at the bucket root, that the"
 	echo "site's version picker reads, and writes the robots.txt that names latest's"
-	echo "sitemap. The distribution sends komrad.dev/ to latest."
+	echo "sitemap. Latest also publishes its llms.txt at the bucket root. The"
+	echo "distribution sends komrad.dev/ to latest."
 	echo
 	echo "Reads the bucket and distribution id from infra/docs; run"
 	echo "'mise run infra:docs:apply' first if there is none."
@@ -57,6 +58,10 @@ aws s3 sync "dist/$VERSION/" "s3://$BUCKET/$VERSION/" --delete \
 	--exclude "_astro/*" --exclude "pagefind/*" \
 	--cache-control "public,max-age=300,must-revalidate"
 
+aws s3 cp "dist/$VERSION/" "s3://$BUCKET/$VERSION/" --recursive \
+	--exclude "*" --include "*.md" \
+	--cache-control "public,max-age=300,must-revalidate" --content-type "text/markdown; charset=utf-8"
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -84,6 +89,11 @@ aws s3 cp "$TMP/versions.new.json" "s3://$BUCKET/versions.json" \
 	--cache-control "public,max-age=60,must-revalidate" --content-type "application/json"
 aws s3 cp "$TMP/robots.txt" "s3://$BUCKET/robots.txt" \
 	--cache-control "public,max-age=60,must-revalidate" --content-type "text/plain"
+
+if [ "$VERSION" = latest ]; then
+	aws s3 cp "dist/$VERSION/llms.txt" "s3://$BUCKET/llms.txt" \
+		--cache-control "public,max-age=300,must-revalidate" --content-type "text/plain; charset=utf-8"
+fi
 
 aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" >/dev/null
 

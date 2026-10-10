@@ -9,11 +9,12 @@ type Props = {
   title: string;
   description?: string;
   filePath?: string;
+  markdown?: string;
   prev?: Neighbour;
   next?: Neighbour;
 };
 
-const { title, description, filePath, prev, next } = Astro.props;
+const { title, description, filePath, markdown, prev, next } = Astro.props;
 
 const crumbs = breadcrumbs(Astro.url.pathname, title);
 const structuredData = [
@@ -31,7 +32,13 @@ const structuredData = [
 ];
 ---
 
-<Layout title={title} description={description} sidebar={Astro.slots.has("sidebar")} structuredData={structuredData}>
+<Layout
+  title={title}
+  description={description}
+  sidebar={Astro.slots.has("sidebar")}
+  markdown={markdown}
+  structuredData={structuredData}
+>
   <slot name="sidebar" slot="sidebar" />
   <article data-pagefind-body>
     <h1 class="title" data-pagefind-meta="title">
