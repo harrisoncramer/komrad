@@ -63,19 +63,12 @@ func reportStoreQueries(pass *analysis.Pass, file *ast.File) {
 
 // isStoreQuery says whether a function is declared in a store package and takes a context or a transaction.
 func isStoreQuery(function *types.Func) bool {
-	if !isStorePackage(function.Pkg()) {
-		return false
-	}
-
-	return isQuerySignature(function)
+	return isStorePackage(function.Pkg()) && isQuerySignature(function)
 }
 
-// isQuerySignature says whether a function takes a context or a transaction, which is how a query reaches the database.
+// isQuerySignature says whether a function takes a context or a transaction.
 func isQuerySignature(function *types.Func) bool {
-	signature, ok := function.Type().(*types.Signature)
-	if !ok {
-		return false
-	}
+	signature := function.Signature()
 
 	for param := range signature.Params().Variables() {
 		if isNamed(param.Type(), "context", "Context") || isTransaction(param.Type()) {
