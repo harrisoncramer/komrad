@@ -134,9 +134,9 @@ func (s *TaskStore) ClaimCheckoutAgain(ctx context.Context, id string) (bool, er
 		return false, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
 	}
 
-	claimed, err := s.queries.ReclaimTaskCheckout(ctx, id)
+	claimed, err := s.queries.ClaimTaskCheckoutAgain(ctx, id)
 	if err != nil {
-		return false, fmt.Errorf("failed to reclaim the checkout of task %q: %w", id, err)
+		return false, fmt.Errorf("failed to claim the checkout of task %q again: %w", id, err)
 	}
 
 	return claimed > 0, nil

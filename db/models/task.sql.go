@@ -84,6 +84,25 @@ func (q *Queries) ClaimTaskCheckout(ctx context.Context, arg ClaimTaskCheckoutPa
 	return result.RowsAffected(), nil
 }
 
+const claimTaskCheckoutAgain = `-- name: ClaimTaskCheckoutAgain :execrows
+UPDATE
+    tasks
+SET
+    branch = adopted_branch,
+    worktree_removed = FALSE
+WHERE
+    id = $1
+    AND worktree_removed IS NULL
+`
+
+func (q *Queries) ClaimTaskCheckoutAgain(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, claimTaskCheckoutAgain, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createTask = `-- name: CreateTask :one
 INSERT INTO tasks(
     workflow_id,
@@ -504,25 +523,6 @@ WHERE
 func (q *Queries) MarkTaskCheckoutsRemoved(ctx context.Context, agentIds []string) error {
 	_, err := q.db.Exec(ctx, markTaskCheckoutsRemoved, agentIds)
 	return err
-}
-
-const reclaimTaskCheckout = `-- name: ReclaimTaskCheckout :execrows
-UPDATE
-    tasks
-SET
-    branch = adopted_branch,
-    worktree_removed = FALSE
-WHERE
-    id = $1
-    AND worktree_removed IS NULL
-`
-
-func (q *Queries) ReclaimTaskCheckout(ctx context.Context, id string) (int64, error) {
-	result, err := q.db.Exec(ctx, reclaimTaskCheckout, id)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const releaseTaskCheckout = `-- name: ReleaseTaskCheckout :exec

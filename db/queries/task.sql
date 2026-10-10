@@ -111,7 +111,7 @@ WHERE
     id = sqlc.arg('id')
     AND worktree_removed IS NULL;
 
--- name: ReclaimTaskCheckout :execrows
+-- name: ClaimTaskCheckoutAgain :execrows
 UPDATE
     tasks
 SET

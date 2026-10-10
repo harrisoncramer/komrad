@@ -135,7 +135,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 func (s *LaunchService) claimCheckoutAgain(ctx context.Context, agent agentstore.Agent) error {
 	claimed, err := s.tasks.ClaimCheckoutAgain(ctx, *agent.TaskID)
 	if err != nil {
-		return fmt.Errorf("failed to reclaim the checkout of task %q for agent %q: %w", *agent.TaskID, agent.Name, err)
+		return fmt.Errorf("failed to claim the checkout of task %q again for agent %q: %w", *agent.TaskID, agent.Name, err)
 	}
 	if !claimed {
 		return errTaskHasCheckout

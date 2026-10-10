@@ -21,6 +21,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
+// errNoTask is an agent that works on no task.
 var errNoTask = fail.NotFound("the agent works on no task")
 
 const maxScriptPrompt = 16 * 1024

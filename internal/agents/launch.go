@@ -463,7 +463,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
 
-	create := creation{
+	task, err := s.createUnderCeiling(ctx, creation{
 		agent:         &agent,
 		task:          joined,
 		spawner:       spawner,
@@ -474,8 +474,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		adoptedBranch: params.AdoptedBranch,
 		repositoryURL: params.RepositoryURL,
 		provisioner:   plan.provisioner,
-	}
-	task, err := s.createUnderCeiling(ctx, create)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -579,7 +578,7 @@ func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 		return fmt.Errorf("%w: %q was archived or deleted while it was being created", agenterr.ErrAgentArchived, agent.Name)
 	}
 	if c.resolved.claimsCheckout {
-		if err := c.service.tasks.RecordCheckout(ctx, *agent.TaskID, agent.Cwd); err != nil {
+		if err := c.service.tasks.SetCheckoutDir(ctx, *agent.TaskID, agent.Cwd); err != nil {
 			return fmt.Errorf("failed to record the checkout of agent %q on its task: %w", agent.Name, err)
 		}
 	}
@@ -638,8 +637,7 @@ func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, caus
 	c.service.failCreate(ctx, agent, cause)
 }
 
-// releaseCheckout gives up the claim a failed create made on its task's checkout, logging a failure
-// rather than returning it.
+// releaseCheckout gives up the claim a failed create made on its task's checkout, logging any failure.
 func (s *LaunchService) releaseCheckout(ctx context.Context, agent agentstore.Agent) {
 	if err := s.tasks.ReleaseCheckout(ctx, *agent.TaskID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release the checkout claim of a failed create",

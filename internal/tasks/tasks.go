@@ -83,8 +83,8 @@ func (s *TaskService) GetTaskForWorkflow(ctx context.Context, ref, workflowID st
 	return found, nil
 }
 
-// RecordCheckout records the directory a launch provisioned for a task.
-func (s *TaskService) RecordCheckout(ctx context.Context, id, cwd string) error {
+// SetCheckoutDir records the directory a launch provisioned for a task.
+func (s *TaskService) SetCheckoutDir(ctx context.Context, id, cwd string) error {
 	return s.tasks.SetCheckoutDir(ctx, id, cwd)
 }
 
@@ -97,6 +97,11 @@ func (s *TaskService) ClaimCheckoutAgain(ctx context.Context, id string) (bool, 
 // ReleaseCheckout gives up the claim a failed launch made on a task's checkout.
 func (s *TaskService) ReleaseCheckout(ctx context.Context, id string) error {
 	return s.tasks.ReleaseCheckout(ctx, id)
+}
+
+// MarkCheckoutsRemoved records that the task checkouts the given agents worked in were taken away.
+func (s *TaskService) MarkCheckoutsRemoved(ctx context.Context, agentIDs []string) error {
+	return s.tasks.MarkCheckoutsRemoved(ctx, agentIDs)
 }
 
 // ListTasksByID returns the tasks among ids, archived or not.
@@ -166,9 +171,4 @@ func pickSlug(ctx context.Context, tasks *taskstore.TaskStore, params CreateForA
 	}
 
 	return slug, nil
-}
-
-// MarkCheckoutsRemoved records that the task checkouts the given agents worked in were taken away.
-func (s *TaskService) MarkCheckoutsRemoved(ctx context.Context, agentIDs []string) error {
-	return s.tasks.MarkCheckoutsRemoved(ctx, agentIDs)
 }
