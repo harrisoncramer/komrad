@@ -47,7 +47,9 @@ For anything visual (UI flicker, regressions, etc) please attach a screenshot or
 Komrad runs two services: the background service, which runs the agents and answers the API, and the panel, which draws the screen. Each can serve Go's [pprof](https://pkg.go.dev/net/http/pprof) profiles on its own port to debug performance issues.
 
 <Alert variant="warning">
-  It's likely that your performance issues are actually related to something outside Komrad, such as old Docker pods for your various worktrees, or too many Claude agents running at once. These will not show up in Komrad's debugger, which only profiles the Go code.
+  It's likely that your performance issues are actually related to something outside Komrad, such as old Docker pods for
+  your various worktrees, or too many Claude agents running at once. These will not show up in Komrad's debugger, which
+  only profiles the Go code.
 </Alert>
 
 To use the profiling tool, turn it on in your configuration file for either/both processes:
