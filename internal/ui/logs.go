@@ -99,7 +99,7 @@ type logsSettledMsg struct {
 }
 
 // enter starts over on the agent or task the target names, listing where its logs can be read
-// from, and claims a task's failed runs once they are listed.
+// from and claiming a task's failed runs.
 func (l *logsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	*l = logsScreen{
 		agentID:    target.agentID,

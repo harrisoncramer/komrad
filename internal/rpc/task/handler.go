@@ -147,8 +147,7 @@ func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksReques
 	return &emptypb.Empty{}, nil
 }
 
-// MarkRunsRead claims the failed runs on a task, and carries no tool annotation because an agent
-// must not move the marks on the user's screen.
+// MarkRunsRead claims the failed runs on a task.
 func (s *Handler) MarkRunsRead(ctx context.Context, req *taskv1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.tasks.MarkRunsRead(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to mark the task's runs read")

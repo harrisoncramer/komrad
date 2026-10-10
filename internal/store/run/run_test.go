@@ -257,6 +257,14 @@ func (f *fixture) runIDs(t *testing.T, agentID string) []string {
 	return found
 }
 
+type recordParams struct {
+	agentID string
+	taskID  *string
+	trigger string
+	failure string
+	number  int32
+}
+
 // record begins and finishes one run of an agent on a task, failing it when failure is set.
 func (f *fixture) record(t *testing.T, params recordParams) string {
 	t.Helper()
@@ -272,14 +280,6 @@ func (f *fixture) record(t *testing.T, params recordParams) string {
 	require.NoError(t, f.Finish(t.Context(), FinishParams{ID: id, Failure: params.failure}))
 
 	return id
-}
-
-type recordParams struct {
-	agentID string
-	taskID  *string
-	trigger string
-	failure string
-	number  int32
 }
 
 // taskFailedRun is whether a task's row carries the mark of a failed run nobody has looked at.

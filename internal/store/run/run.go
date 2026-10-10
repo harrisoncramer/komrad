@@ -6,7 +6,6 @@ package run
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"komrad/db/models"
 	"komrad/internal/store"
@@ -20,9 +19,7 @@ type Run struct {
 	Trigger   string
 	Script    string
 	LogNumber *int32
-	StartedAt time.Time
 	Failure   string
-	ViewedAt  *time.Time
 }
 
 type RunStore struct {
@@ -158,9 +155,7 @@ func (s *RunStore) ListByTask(ctx context.Context, taskID string) ([]Run, error)
 			Trigger:   row.Trigger,
 			Script:    row.Script,
 			LogNumber: row.LogNumber,
-			StartedAt: row.StartedAt,
 			Failure:   row.Failure,
-			ViewedAt:  row.ViewedAt,
 		}
 	}), nil
 }
