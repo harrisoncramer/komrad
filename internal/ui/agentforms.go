@@ -209,9 +209,6 @@ const (
 	withoutWorktree = "\x00none"
 )
 
-// maxTaskTitle is the longest title a task takes.
-const maxTaskTitle = 200
-
 type taskFormValues struct {
 	Prompt   string
 	Harness  string
@@ -412,20 +409,4 @@ func namedPaths(paths []string, most int) string {
 	}
 
 	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
-}
-
-func checkTaskTitle(title string) error {
-	if strings.TrimSpace(title) == "" {
-		return errors.New("a task needs a title")
-	}
-
-	return nil
-}
-
-func checkTaskGoal(goal string) error {
-	if strings.TrimSpace(goal) == "" {
-		return errors.New("a task needs a goal")
-	}
-
-	return nil
 }
