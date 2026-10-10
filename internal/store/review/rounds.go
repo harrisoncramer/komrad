@@ -525,8 +525,8 @@ type UnlandedRound struct {
 	MergedAt *time.Time
 }
 
-// ListUnlandedRounds is every live agent's unlanded rounds with a released review, newest first,
-// keyed by the agent's task.
+// ListUnlandedRounds is the unlanded rounds with a released review of every task with a live
+// agent, newest first, keyed by task.
 func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]UnlandedRound, error) {
 	rows, err := s.queries.ListUnlandedReviewRounds(ctx)
 	if err != nil {
@@ -535,8 +535,7 @@ func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]Unla
 
 	byTask := map[string][]UnlandedRound{}
 	for _, row := range rows {
-		taskID := row.TaskID
-		byTask[taskID] = append(byTask[taskID], UnlandedRound{
+		byTask[row.TaskID] = append(byTask[row.TaskID], UnlandedRound{
 			Ordinal:     row.Ordinal,
 			BaseSHA:     row.BaseSha,
 			SnapshotSHA: row.SnapshotSha,
