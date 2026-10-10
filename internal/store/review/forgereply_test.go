@@ -45,7 +45,7 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 
 	round := st.openRound(t, agentID, "tree-one")
 	mirrored, err := st.CreateThread(ctx, CreateThreadParams{
-		AgentID:       agentID,
+		TaskID:        st.taskOf(t, agentID),
 		ReviewID:      st.openForgeReview(t, round, "alice").ID,
 		RoundID:       round.ID,
 		FilePath:      "internal/thing.go",
@@ -59,7 +59,7 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 	require.NoError(t, err)
 
 	local, err := st.CreateThread(ctx, CreateThreadParams{
-		AgentID:     agentID,
+		TaskID:      st.taskOf(t, agentID),
 		ReviewID:    st.openReview(t, round).ID,
 		RoundID:     round.ID,
 		FilePath:    "internal/thing.go",

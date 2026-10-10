@@ -11,6 +11,7 @@ import (
 	"komrad/config"
 	"komrad/internal/eventprompts"
 	"komrad/internal/mail"
+	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/clock"
@@ -60,14 +61,15 @@ func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
-		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.worker.ID})
+		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.worker.ID, fx.reviewer.ID})
 		require.NoError(t, err)
+		require.NoError(t, fx.stores.Workflows.Delete(t.Context(), fx.worker.WorkflowID))
 	}
 
 	_, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
 	require.Error(t, err)
 
-	assert.Equal(t, []string{reviewstore.RoundRef(fx.worker.ID, secondSnapshot)}, fx.snapshots.Released)
+	assert.Equal(t, []string{reviewstore.RoundRef(*fx.worker.TaskID, secondSnapshot)}, fx.snapshots.Released)
 }
 
 // TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce pins that two callers racing on the same
@@ -120,7 +122,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 
 				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
 			},
-			wantSaid: []string{"Changes requested", "this needs a nil check", "greet.go:41", "worker", "reviewer"},
+			wantSaid: []string{"Changes requested", "this needs a nil check", "greet.go:41", "reviewer"},
 		},
 		{
 			name: "a comment on a file the round holds",
@@ -166,7 +168,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			written, err := os.ReadFile(released.Path)
 			require.NoError(t, err)
 
-			for _, said := range append(tt.wantSaid, fx.worker.ID) {
+			for _, said := range append(tt.wantSaid, *fx.worker.TaskID) {
 				assert.Contains(t, string(written), said)
 			}
 			for _, unsaid := range tt.wantNotSaid {
@@ -203,6 +205,50 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[1].Events, "a person's release is told apart from a reviewer's")
 	assert.Contains(t, rung[1].Body, "released: 0 comment(s).")
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
+}
+
+// TestReleaseReviewRingsTheTasksWriter pins that a release mails whoever writes the task now, and nobody when nobody does.
+func TestReleaseReviewRingsTheTasksWriter(t *testing.T) {
+	tests := []struct {
+		name          string
+		successor     bool
+		wantSuccessor bool
+	}{
+		{
+			name: "a task with no writer",
+		},
+		{
+			name:          "a task handed to a new writer",
+			successor:     true,
+			wantSuccessor: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+			_, err := fx.stores.Agents.Archive(t.Context(), []string{fx.worker.ID})
+			require.NoError(t, err)
+			var successor *agentstore.Agent
+			if tt.successor {
+				successor = fx.seedSuccessor(t)
+			}
+
+			released := fx.releaseReview(t, personAuthor, "")
+
+			assert.Empty(t, fx.listMail(t, fx.worker.ID), "the writer that left is told nothing")
+			stored, err := fx.reviews.GetReview(t.Context(), released.Review.ID)
+			require.NoError(t, err)
+			if !tt.wantSuccessor {
+				assert.Nil(t, stored.DoorbellMailID)
+
+				return
+			}
+			rung := fx.listMail(t, successor.ID)
+			require.Len(t, rung, 1)
+			assert.Equal(t, &rung[0].ID, stored.DoorbellMailID)
+		})
+	}
 }
 
 // TestReleaseReviewInterrupts pins that only a person's release stops the agent, and only while it holds its pane.

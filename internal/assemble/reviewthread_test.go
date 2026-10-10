@@ -60,6 +60,7 @@ func TestReviewThreadsWorksOutDelivery(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var w assemble.World
+			w.Apply(put(agentRow(agent("a1"))))
 			if tt.review != nil {
 				w.Put(&watchv1.Row{Row: &watchv1.Row_Review{Review: tt.review}})
 			}
@@ -80,10 +81,11 @@ func TestReviewThreadsWorksOutDelivery(t *testing.T) {
 	}
 }
 
-// TestReviewThreadsRunsDownTheDiff pins the order: one agent's threads, by round, then file, then
+// TestReviewThreadsRunsDownTheDiff pins the order: the threads of one agent's task, by round, then file, then
 // line.
 func TestReviewThreadsRunsDownTheDiff(t *testing.T) {
 	var w assemble.World
+	w.Apply(put(agentRow(agent("a1"))))
 	for _, thread := range []*agentv1.ReviewThread{
 		threadOf("t4", "a1", 2, "a.go", 1),
 		threadOf("t3", "a1", 1, "b.go", 1),
@@ -102,7 +104,7 @@ func TestReviewThreadsRunsDownTheDiff(t *testing.T) {
 func threadOf(id, agentID string, round int32, file string, line int32) *agentv1.ReviewThread {
 	return &agentv1.ReviewThread{
 		Id:           id,
-		AgentId:      agentID,
+		TaskId:       "task-" + agentID,
 		RoundOrdinal: round,
 		FilePath:     file,
 		NewStart:     line,

@@ -114,7 +114,7 @@ func TestNoticesGolden(t *testing.T) {
 			rows: append(newRebasing(),
 				&agentv1.WatchedReview{
 					Id:           "v1",
-					AgentId:      "n1",
+					TaskId:       "task-n1",
 					RoundId:      "n1-round-1",
 					RoundOrdinal: 1,
 					ReleasedAt:   "2026-09-20T12:00:00Z",

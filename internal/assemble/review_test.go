@@ -191,7 +191,7 @@ func TestApplyReview(t *testing.T) {
 func review(id, agentID string, ordinal int32, releasedAt string, verdict agentv1.ReviewVerdict) *agentv1.WatchedReview {
 	watched := &agentv1.WatchedReview{
 		Id:               id,
-		AgentId:          agentID,
+		TaskId:           "task-" + agentID,
 		RoundId:          agentID + "-round-" + strconv.Itoa(int(ordinal)),
 		RoundOrdinal:     ordinal,
 		RoundSnapshotSha: "snapshot-" + strconv.Itoa(int(ordinal)),
@@ -219,7 +219,7 @@ func byReviewer(review *agentv1.WatchedReview) *agentv1.WatchedReview {
 func thread(id, reviewID string, resolved, unread bool) *agentv1.ReviewThread {
 	thread := &agentv1.ReviewThread{
 		Id:            id,
-		AgentId:       newer,
+		TaskId:        "task-" + newer,
 		ReviewId:      reviewID,
 		UnreadByHuman: unread,
 	}

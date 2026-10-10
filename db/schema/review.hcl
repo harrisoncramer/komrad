@@ -27,13 +27,19 @@ table "review_rounds" {
     default = sql("uuidv7()")
   }
   column "agent_id" {
-    null = false
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "The agent a round was taken of before rounds belonged to tasks, null on every round taken since."
+  }
+  column "task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task whose checkout the round froze."
   }
   column "ordinal" {
     null    = false
     type    = int
-    comment = "Which round this is for its agent, counting from one. The panel names the round by this number."
+    comment = "Which round this is for its task, counting from one. The panel names the round by this number."
   }
   column "base_sha" {
     null    = false
@@ -44,6 +50,11 @@ table "review_rounds" {
     null    = false
     type    = text
     comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
+  }
+  column "ref" {
+    null    = true
+    type    = text
+    comment = "The git ref holding the snapshot alive, which is released by this name."
   }
   column "landed_at" {
     null    = true
@@ -78,8 +89,18 @@ table "review_rounds" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "review_rounds_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
   index "review_rounds_agent_ordinal" {
     columns = [column.agent_id, column.ordinal]
+    unique  = true
+  }
+  index "review_rounds_task_ordinal" {
+    columns = [column.task_id, column.ordinal]
     unique  = true
   }
 }
@@ -93,9 +114,14 @@ table "reviews" {
     default = sql("uuidv7()")
   }
   column "agent_id" {
-    null    = false
+    null    = true
     type    = uuid
-    comment = "The agent being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join."
+    comment = "The agent reviewed before reviews belonged to tasks, null on every review given since."
+  }
+  column "task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join."
   }
   column "round_id" {
     null = false
@@ -176,6 +202,12 @@ table "reviews" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "reviews_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
   foreign_key "reviews_round_id_fkey" {
     columns     = [column.engine_id, column.round_id]
     ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
@@ -206,6 +238,21 @@ table "reviews" {
     where   = "released_at IS NULL AND author_kind = 'agent'"
     comment = "Holds each reviewing agent to one unreleased review at a time. Postgres counts two nulls in this column as different values, and the index relies on that. If nulls collided, deleting a second reviewer agent would fail, because the foreign key clears this column and would land on the null the first delete left behind."
   }
+  index "reviews_open_human_task" {
+    columns = [column.task_id]
+    unique  = true
+    where   = "released_at IS NULL AND author_kind = 'human'"
+    comment = "Holds the person to one unreleased review of a task at a time, the way GitHub holds one pending review per reviewer."
+  }
+  index "reviews_open_agent_task" {
+    columns = [column.task_id, column.author_agent_id]
+    unique  = true
+    where   = "released_at IS NULL AND author_kind = 'agent'"
+    comment = "Holds each reviewing agent to one unreleased review of a task at a time, relying on Postgres counting two null authors as different values."
+  }
+  index "reviews_task_id" {
+    columns = [column.task_id, column.id]
+  }
   index "reviews_round_id" {
     columns = [column.round_id, column.id]
   }
@@ -224,9 +271,14 @@ table "review_threads" {
     default = sql("uuidv7()")
   }
   column "agent_id" {
-    null    = false
+    null    = true
     type    = uuid
-    comment = "The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent."
+    comment = "The agent reviewed before threads belonged to tasks, null on every thread opened since."
+  }
+  column "task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by task."
   }
   column "file_path" {
     null    = false
@@ -347,6 +399,12 @@ table "review_threads" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "review_threads_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
   foreign_key "review_threads_review_id_fkey" {
     columns     = [column.engine_id, column.review_id]
     ref_columns = [table.reviews.column.engine_id, table.reviews.column.id]
@@ -385,6 +443,15 @@ table "review_threads" {
     unique  = true
     where   = "forge_thread_id IS NOT NULL"
     comment = "Holds each agent to one mirror of a forge thread."
+  }
+  index "review_threads_task_id" {
+    columns = [column.task_id, column.file_path, column.new_start, column.old_start]
+  }
+  index "review_threads_task_forge_thread" {
+    columns = [column.task_id, column.forge_thread_id]
+    unique  = true
+    where   = "forge_thread_id IS NOT NULL"
+    comment = "Holds each task to one mirror of a forge thread."
   }
 }
 
@@ -698,8 +765,14 @@ table "review_viewed_files" {
     default = sql("now()")
   }
   column "agent_id" {
-    null = false
-    type = uuid
+    null    = false
+    type    = uuid
+    comment = "The agent whose diff the file was last marked read in."
+  }
+  column "task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task whose diff the file is in."
   }
   column "fingerprint" {
     null    = false
@@ -725,5 +798,15 @@ table "review_viewed_files" {
     ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
+  }
+  foreign_key "review_viewed_files_task_id_fkey" {
+    columns     = [column.engine_id, column.task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "review_viewed_files_task_file" {
+    columns = [column.task_id, column.file_path]
+    unique  = true
   }
 }

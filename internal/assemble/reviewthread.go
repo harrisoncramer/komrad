@@ -10,11 +10,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ReviewThreads is the conversation on an agent's diff, with each comment's delivery read off its review.
+// ReviewThreads is the conversation on the diff of an agent's task, with each comment's delivery read off its review.
 func ReviewThreads(w World, agentID string) []*agentv1.ReviewThread {
+	taskID := w.Agents[agentID].GetTaskId()
+	if taskID == "" {
+		return nil
+	}
+
 	var threads []*agentv1.ReviewThread
 	for _, held := range w.ReviewThreads {
-		if held.GetAgentId() != agentID {
+		if held.GetTaskId() != taskID {
 			continue
 		}
 

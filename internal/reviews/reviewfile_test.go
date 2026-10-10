@@ -3,8 +3,8 @@ package reviews
 import (
 	"testing"
 
-	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -66,9 +66,9 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := renderReview(renderReviewParams{
-				Agent: agentstore.Agent{
+				Task: taskstore.Task{
 					ID:   "01a0d224-0000-7000-8000-000000000001",
-					Name: "worker",
+					Slug: "worker",
 				},
 				Round: reviewstore.Round{
 					Ordinal:     1,
@@ -118,7 +118,7 @@ func TestRenderReviewQuotesForgeComments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := renderReview(renderReviewParams{
-				Agent: agentstore.Agent{ID: "01a0d224-0000-7000-8000-000000000001", Name: "worker"},
+				Task: taskstore.Task{ID: "01a0d224-0000-7000-8000-000000000001", Slug: "worker"},
 				Round: reviewstore.Round{
 					Ordinal:     1,
 					BaseSHA:     "base-sha",

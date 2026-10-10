@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -72,7 +71,7 @@ type CwdSyncer struct {
 	pullRequests pullRequestObserver
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
-	// walked is the base tip and newest unlanded round each agent's landing was last walked at,
+	// walked is the base tip and newest unlanded round each task's landing was last walked at,
 	// so a walk that would find what the last one did is skipped.
 	walked map[string]string
 	// fetched is the merge each task's base was last fetched for.
@@ -103,10 +102,10 @@ type cwdLook struct {
 	head       git.HeadState
 	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	movedSinceRound string
-	// landed is the newest round the base holds whole, by the agent whose round it is.
-	landed map[string]int32
-	// walkedAt is the base tip and newest round each agent's landing walk read, by agent.
-	walkedAt map[string]string
+	// landed is the newest round the base holds whole, zero when none does.
+	landed int32
+	// walkedAt is the base tip and newest round the landing walk read, empty when it was skipped.
+	walkedAt string
 	// diffStat is the lines the checkout adds and removes since its base, nil where there is none.
 	diffStat *taskstore.DiffStat
 	// tree is the worktree as the probe hashed it, empty when there was no round to probe against.
@@ -384,18 +383,20 @@ func (cs *CwdSyncer) writeMovedSinceRound(ctx context.Context, look cwdLook) err
 	return nil
 }
 
-// writeLanded marks the rounds the look found landed, and every earlier one of the same agent,
-// then remembers where each walk stood so the next pass can skip it.
+// writeLanded marks the round the look found landed and every earlier one of the task, then
+// remembers where the walk stood so the next pass can skip it.
 func (cs *CwdSyncer) writeLanded(ctx context.Context, look cwdLook) error {
-	for agentID, ordinal := range look.landed {
-		if _, err := cs.rounds.MarkRoundsLanded(ctx, agentID, ordinal); err != nil {
-			return fmt.Errorf("failed to land the rounds of agent %q: %w", agentID, err)
+	if look.landed > 0 {
+		if _, err := cs.rounds.MarkRoundsLanded(ctx, look.task.ID, look.landed); err != nil {
+			return fmt.Errorf("failed to land the rounds of task %q: %w", look.task.Slug, err)
 		}
 	}
 
-	cs.walkedMu.Lock()
-	maps.Copy(cs.walked, look.walkedAt)
-	cs.walkedMu.Unlock()
+	if look.walkedAt != "" {
+		cs.walkedMu.Lock()
+		cs.walked[look.task.ID] = look.walkedAt
+		cs.walkedMu.Unlock()
+	}
 
 	return nil
 }
@@ -430,8 +431,8 @@ type walkLandingsParams struct {
 	Base   string
 }
 
-// walkLandings walks the unlanded rounds of each agent on the task, recording on the look the
-// newest of each the base holds whole.
+// walkLandings walks the task's unlanded rounds, recording on the look the newest the base holds
+// whole.
 func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params walkLandingsParams) {
 	if len(params.Rounds) == 0 {
 		return
@@ -443,38 +444,31 @@ func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params wal
 		return
 	}
 
-	look.landed, look.walkedAt = map[string]int32{}, map[string]string{}
-	for _, rounds := range groupRoundsByAgent(params.Rounds) {
-		landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
-			Dir:    look.task.Checkout.Cwd,
-			Rounds: rounds,
-			Base:   params.Base,
-		})
-		if err != nil {
-			look.err = errors.Join(look.err, err)
+	landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
+		TaskID: look.task.ID,
+		Dir:    look.task.Checkout.Cwd,
+		Rounds: params.Rounds,
+		Base:   params.Base,
+	})
+	if err != nil {
+		look.err = errors.Join(look.err, err)
 
-			continue
-		}
-		if landed > 0 {
-			look.landed[rounds[0].AgentID] = landed
-		}
-		if walkedAt != "" {
-			look.walkedAt[rounds[0].AgentID] = walkedAt
-		}
+		return
 	}
+
+	look.landed, look.walkedAt = landed, walkedAt
 }
 
 type walkLandingParams struct {
+	TaskID string
 	Dir    string
 	Rounds []reviewstore.UnlandedRound
 	Base   string
 }
 
-// walkLanding finds the newest of one agent's unlanded rounds the base holds whole, skipping the
+// walkLanding finds the newest of a task's unlanded rounds the base holds whole, skipping the
 // walk while neither the base tip nor the newest round has moved since the last one.
 func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) (int32, string, error) {
-	agentID := params.Rounds[0].AgentID
-
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
@@ -488,7 +482,7 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 
 	walkedAt := tip + ":" + params.Rounds[0].SnapshotSHA
 	cs.walkedMu.Lock()
-	isWalked := cs.walked[agentID] == walkedAt
+	isWalked := cs.walked[params.TaskID] == walkedAt
 	cs.walkedMu.Unlock()
 	if isWalked {
 		return 0, "", nil
@@ -502,7 +496,7 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 			SnapshotSHA: round.SnapshotSHA,
 		})
 		if err != nil {
-			return 0, "", fmt.Errorf("failed to read whether round %d of agent %q landed: %w", round.Ordinal, agentID, err)
+			return 0, "", fmt.Errorf("failed to read whether round %d of task %q landed: %w", round.Ordinal, params.TaskID, err)
 		}
 		if landed {
 			return round.Ordinal, walkedAt, nil
@@ -540,23 +534,6 @@ func (cs *CwdSyncer) fetchMergedBase(ctx context.Context, task taskstore.Task, p
 	cs.walkedMu.Unlock()
 
 	return nil
-}
-
-// groupRoundsByAgent splits a task's unlanded rounds into each agent's, newest first as they came.
-func groupRoundsByAgent(rounds []reviewstore.UnlandedRound) [][]reviewstore.UnlandedRound {
-	var groups [][]reviewstore.UnlandedRound
-	index := map[string]int{}
-	for _, round := range rounds {
-		at, seen := index[round.AgentID]
-		if !seen {
-			at = len(groups)
-			index[round.AgentID] = at
-			groups = append(groups, nil)
-		}
-		groups[at] = append(groups[at], round)
-	}
-
-	return groups
 }
 
 func isCwdRemoved(ctx context.Context, dir string) bool {

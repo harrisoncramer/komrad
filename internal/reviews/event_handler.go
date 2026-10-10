@@ -21,10 +21,10 @@ const (
 	answeredTopic = "review_answered"
 )
 
-// Released is a review released on an agent's work.
+// Released is a review released on a task's work.
 type Released struct {
 	ReviewID string              `json:"review_id"`
-	AgentID  string              `json:"agent_id"`
+	TaskID   string              `json:"task_id"`
 	Ordinal  int32               `json:"ordinal"`
 	ByPerson bool                `json:"by_person"`
 	Verdict  reviewstore.Verdict `json:"verdict"`
@@ -38,7 +38,7 @@ type Released struct {
 	ForgeLogin string `json:"forge_login"`
 }
 
-// Topic names the handler that tells the agent under review.
+// Topic names the handler that tells the task's writer.
 func (Released) Topic() string {
 	return releasedTopic
 }
@@ -58,10 +58,19 @@ func NewReleasedHandler() events.HandlerFor[Released] {
 	return handleReleased
 }
 
-// handleReleased tells the agent under review and stamps the review with the mail that told it.
+// handleReleased tells the task's live writer and stamps the review with the mail that told it,
+// sending nothing when the task has no writer.
 func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) ([]river.JobArgs, error) {
+	writer, err := agentstore.NewAgentStore(tx).GetTaskWriter(ctx, released.TaskID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
-		ToAgentID: released.AgentID,
+		ToAgentID: writer.ID,
 		Body:      releaseMail(released),
 		Kind:      mailstore.KindReviewActivity,
 		SubjectID: released.ReviewID,

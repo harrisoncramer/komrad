@@ -24,6 +24,7 @@ var ErrChanged = fail.Precondition("the document has been written since that ver
 type Document struct {
 	ID        string
 	AgentID   string
+	TaskID    *string
 	Name      string
 	Type      string
 	Body      string
@@ -45,6 +46,7 @@ func fromRow(row *models.Document) Document {
 	return Document{
 		ID:        row.ID,
 		AgentID:   row.AgentID,
+		TaskID:    row.TaskID,
 		Name:      row.Name,
 		Type:      row.Type,
 		Body:      row.Body,
@@ -58,6 +60,7 @@ func fromListRow(row *models.ListDocumentsRow) Document {
 	return Document{
 		ID:        row.ID,
 		AgentID:   row.AgentID,
+		TaskID:    row.TaskID,
 		Name:      row.Name,
 		Type:      row.Type,
 		Version:   row.Version,
@@ -205,9 +208,10 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
-// ListParams narrows a page of documents to one agent and one type when either is set.
+// ListParams narrows a page of documents to one agent, one task and one type when any is set.
 type ListParams struct {
 	AgentID *string
+	TaskID  *string
 	Type    *string
 	Limit   int32
 	Cursor  *Cursor
@@ -218,9 +222,13 @@ func (s *DocumentStore) List(ctx context.Context, params ListParams) ([]Document
 	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return nil, nil
 	}
+	if params.TaskID != nil && !store.IsID(*params.TaskID) {
+		return nil, nil
+	}
 
 	query := models.ListDocumentsParams{
 		AgentID: params.AgentID,
+		TaskID:  params.TaskID,
 		Type:    params.Type,
 		Lim:     params.Limit,
 	}

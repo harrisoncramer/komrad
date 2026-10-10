@@ -113,10 +113,8 @@ func (r *RowReader) GetRow(ctx context.Context, id string) (*rowstore.Row, error
 }
 
 // ListSurroundings reads every unclaimed mail, the tasks of the agents on the rows with their pull
-// requests and repositories, and the reviews, review threads and workflows of those agents.
+// requests and repositories, and the reviews, review threads and workflows of those tasks and agents.
 func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (*Surroundings, error) {
-	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
-
 	mail, err := r.mail.ListWatched(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the unclaimed mail: %w", err)
@@ -127,7 +125,9 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the tasks of the agents: %w", err)
 	}
 
-	observations, err := r.pullRequests.ListObservations(ctx, xslice.Map(tasks, func(task taskstore.Task) string { return task.ID }))
+	taskIDs := xslice.Map(tasks, func(task taskstore.Task) string { return task.ID })
+
+	observations, err := r.pullRequests.ListObservations(ctx, taskIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the pull requests the tasks were seen with: %w", err)
 	}
@@ -146,9 +146,9 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the repositories: %w", err)
 	}
 
-	reviewIDs, err := r.reviews.ListIDsOfAgents(ctx, agentIDs)
+	reviewIDs, err := r.reviews.ListIDsOfTasks(ctx, taskIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the reviews of the agents: %w", err)
+		return nil, fmt.Errorf("failed to list the reviews of the tasks: %w", err)
 	}
 
 	reviews, err := listWatchedByKey(ctx, r.reviews, reviewIDs)
@@ -156,9 +156,9 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the reviews: %w", err)
 	}
 
-	reviewThreadIDs, err := r.reviewThreads.ListIDsOfAgents(ctx, agentIDs)
+	reviewThreadIDs, err := r.reviewThreads.ListIDsOfTasks(ctx, taskIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the review threads of the agents: %w", err)
+		return nil, fmt.Errorf("failed to list the review threads of the tasks: %w", err)
 	}
 
 	reviewThreads, err := listWatchedByKey(ctx, r.reviewThreads, reviewThreadIDs)

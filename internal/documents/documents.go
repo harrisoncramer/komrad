@@ -15,6 +15,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
 	documenttypestore "komrad/internal/store/documenttype"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -54,11 +55,16 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
+type taskGetter interface {
+	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
+}
+
 type NewDocumentServiceParams struct {
 	Agents    *agentstore.AgentStore
 	Documents *documentstore.DocumentStore
 	Types     *documenttypestore.DocumentTypeStore
 	Events    eventRecorder
+	Tasks     taskGetter
 }
 
 type DocumentService struct {
@@ -66,6 +72,7 @@ type DocumentService struct {
 	documents *documentstore.DocumentStore
 	types     *documenttypestore.DocumentTypeStore
 	events    eventRecorder
+	tasks     taskGetter
 }
 
 // NewDocumentService builds the service over the agents that write documents, the store that
@@ -76,6 +83,7 @@ func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
 		documents: params.Documents,
 		types:     params.Types,
 		events:    params.Events,
+		tasks:     params.Tasks,
 	}
 }
 
@@ -299,9 +307,34 @@ func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (
 	return got.AgentID, versions, nil
 }
 
+// ListDocumentsParams narrows a page of documents, naming the task by id or slug.
+type ListDocumentsParams struct {
+	AgentID *string
+	Task    *string
+	Type    *string
+	Limit   int32
+	Cursor  *documentstore.Cursor
+}
+
 // ListDocuments returns a page of documents without their bodies, newest write first.
-func (s *DocumentService) ListDocuments(ctx context.Context, params documentstore.ListParams) ([]documentstore.Document, error) {
-	return s.documents.List(ctx, params)
+func (s *DocumentService) ListDocuments(ctx context.Context, params ListDocumentsParams) ([]documentstore.Document, error) {
+	var taskID *string
+	if params.Task != nil {
+		task, err := s.tasks.GetTask(ctx, *params.Task)
+		if err != nil {
+			return nil, err
+		}
+
+		taskID = &task.ID
+	}
+
+	return s.documents.List(ctx, documentstore.ListParams{
+		AgentID: params.AgentID,
+		TaskID:  taskID,
+		Type:    params.Type,
+		Limit:   params.Limit,
+		Cursor:  params.Cursor,
+	})
 }
 
 // SearchDocuments finds the documents whose current body holds the words of a query.

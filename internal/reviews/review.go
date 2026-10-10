@@ -11,6 +11,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/clock"
 	"komrad/lib/xslice"
@@ -76,23 +77,25 @@ type NewReviewServiceParams struct {
 	Snapshots   reviewSnapshotter
 	Workflows   *workflowstore.WorkflowStore
 	Agents      *agentstore.AgentStore
+	Tasks       *taskstore.TaskStore
 	Events      eventRecorder
 	Interrupter agentInterrupter
 	// StateDir is where komrad keeps its own files.
 	StateDir string
 }
 
-// ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
-// only copy.
+// ReviewService owns the conversations pinned to the lines of a task's diff, and holds the only
+// copy.
 type ReviewService struct {
 	reviews     *reviewstore.ReviewStore
 	snapshots   reviewSnapshotter
 	workflows   *workflowstore.WorkflowStore
 	agents      *agentstore.AgentStore
+	tasks       *taskstore.TaskStore
 	events      eventRecorder
 	interrupter agentInterrupter
 	stateDir    string
-	roundLocks  *agentLocks
+	roundLocks  *taskLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
@@ -102,10 +105,11 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 		snapshots:   params.Snapshots,
 		workflows:   params.Workflows,
 		agents:      params.Agents,
+		tasks:       params.Tasks,
 		events:      params.Events,
 		interrupter: params.Interrupter,
 		stateDir:    params.StateDir,
-		roundLocks:  newAgentLocks(),
+		roundLocks:  newTaskLocks(),
 	}
 }
 
@@ -115,13 +119,27 @@ type ListReviewThreadsParams struct {
 	Author  ReviewAuthor
 }
 
-// ListReviewThreads is every thread on an agent's diff with its messages, all of it for the
+// ListReviewThreads is every thread on the task of an agent with its messages, all of it for the
 // person reviewing and only the released part for an agent.
 func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
 	params ListReviewThreadsParams,
 ) ([]ReviewThreadWithMessages, error) {
-	threads, err := s.reviews.ListThreads(ctx, params.AgentID)
+	task, err := s.taskOf(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.listThreads(ctx, task.ID, params.Author)
+}
+
+// listThreads is every thread on a task's diff with what the author may read of its messages.
+func (s *ReviewService) listThreads(
+	ctx context.Context,
+	taskID string,
+	author ReviewAuthor,
+) ([]ReviewThreadWithMessages, error) {
+	threads, err := s.reviews.ListThreads(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +164,8 @@ func (s *ReviewService) ListReviewThreads(
 	answered := make([]ReviewThreadWithMessages, 0, len(threads))
 	for _, thread := range threads {
 		messages := byThread[thread.ID]
-		if !params.Author.isHuman() {
-			messages = releasedMessages(messages, params.Author)
+		if !author.isHuman() {
+			messages = releasedMessages(messages, author)
 			if len(messages) == 0 {
 				continue
 			}
@@ -238,13 +256,18 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, errReviewThreadNoFile
 	}
 
-	place, err := s.placeThread(ctx, params)
+	task, err := s.taskOf(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	place, err := s.placeThread(ctx, *task, params)
 	if err != nil {
 		return nil, err
 	}
 
 	thread, err := s.reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
-		AgentID:       params.AgentID,
+		TaskID:        task.ID,
 		ReviewID:      place.ReviewID,
 		RoundID:       place.RoundID,
 		BaseSHA:       place.BaseSHA,
@@ -280,20 +303,24 @@ type threadPlace struct {
 
 // placeThread finds the round a new thread's lines were measured in and the author's open review
 // on it, opening or carrying one forward when needed.
-func (s *ReviewService) placeThread(ctx context.Context, params CreateReviewThreadParams) (*threadPlace, error) {
-	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
+func (s *ReviewService) placeThread(
+	ctx context.Context,
+	task taskstore.Task,
+	params CreateReviewThreadParams,
+) (*threadPlace, error) {
+	if err := s.requireEntitled(ctx, task, params.Author); err != nil {
 		return nil, err
 	}
 
-	round, err := s.roundFor(ctx, params)
+	round, err := s.roundFor(ctx, task.ID, params)
 	if err != nil {
 		return nil, err
 	}
 
 	open, err := s.openReviewFor(ctx, openReviewForParams{
-		AgentID: params.AgentID,
-		Author:  params.Author,
-		Round:   round,
+		TaskID: task.ID,
+		Author: params.Author,
+		Round:  round,
 	})
 	if err != nil {
 		return nil, err
@@ -373,7 +400,10 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, err
 	}
 
-	answering := !params.Author.isHuman() && doesOwnAgent(params.Author, thread.AgentID)
+	answering, err := s.isTaskWriter(ctx, params.Author, thread.TaskID)
+	if err != nil {
+		return nil, err
+	}
 	if params.Addressed && !answering {
 		return nil, errReviewAddressedByOwner
 	}
@@ -389,8 +419,8 @@ func (s *ReviewService) AddReviewMessage(
 	var reviewID *string
 	if !answering {
 		open, err := s.openReviewFor(ctx, openReviewForParams{
-			AgentID: thread.AgentID,
-			Author:  params.Author,
+			TaskID: thread.TaskID,
+			Author: params.Author,
 		})
 		if err != nil {
 			return nil, err
@@ -401,7 +431,7 @@ func (s *ReviewService) AddReviewMessage(
 
 	var roundID *string
 	if params.Addressed {
-		answer, err := s.openAnswerRound(ctx, *thread, params.Author)
+		answer, err := s.openAnswerRound(ctx, *thread)
 		if err != nil {
 			return nil, err
 		}
@@ -428,7 +458,7 @@ func (s *ReviewService) AddReviewMessage(
 			return nil, nil
 		}
 
-		event, err := events.NewEvent(answered{AgentID: thread.AgentID})
+		event, err := events.NewEvent(answered{AgentID: *params.Author.AgentID})
 		if err != nil {
 			return nil, err
 		}
@@ -527,7 +557,7 @@ func (s *ReviewService) SetReviewThreadResolved(
 	})
 }
 
-// SetReviewFileViewedParams names one file of an agent's diff to mark read or unread.
+// SetReviewFileViewedParams names one file of the diff of an agent's task to mark read or unread.
 type SetReviewFileViewedParams struct {
 	AgentID     string
 	FilePath    string
@@ -546,24 +576,30 @@ func (s *ReviewService) SetReviewFileViewed(
 		return nil, fmt.Errorf("%w: marking a file viewed", ErrReviewHumanOnly)
 	}
 
+	task, err := s.taskOf(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
 	if !params.Viewed {
-		return nil, s.reviews.UnmarkFileViewed(ctx, params.AgentID, params.FilePath)
+		return nil, s.reviews.UnmarkFileViewed(ctx, task.ID, params.FilePath)
 	}
 
 	return s.reviews.MarkFileViewed(ctx, reviewstore.MarkFileViewedParams{
 		AgentID:     params.AgentID,
+		TaskID:      task.ID,
 		FilePath:    params.FilePath,
 		Fingerprint: params.Fingerprint,
 	})
 }
 
-// ListReviewViewedFilesParams names the agent whose read files are wanted.
+// ListReviewViewedFilesParams names the agent whose task's read files are wanted.
 type ListReviewViewedFilesParams struct {
 	AgentID string
 	Author  ReviewAuthor
 }
 
-// ListReviewViewedFiles is every file of an agent the person reviewing has marked read.
+// ListReviewViewedFiles is every file of an agent's task the person reviewing has marked read.
 func (s *ReviewService) ListReviewViewedFiles(
 	ctx context.Context,
 	params ListReviewViewedFilesParams,
@@ -572,7 +608,12 @@ func (s *ReviewService) ListReviewViewedFiles(
 		return nil, fmt.Errorf("%w: reading which files have been viewed", ErrReviewHumanOnly)
 	}
 
-	return s.reviews.ListViewedFiles(ctx, params.AgentID)
+	task, err := s.taskOf(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.reviews.ListViewedFiles(ctx, task.ID)
 }
 
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the
@@ -594,7 +635,7 @@ func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author 
 }
 
 // getOwnThread reads a thread and says whether the caller has any business in it, which the
-// person, the agent under review and the reviewing agent that wrote it all do.
+// person, the task's writer and the reviewing agent that wrote it all do.
 func (s *ReviewService) getOwnThread(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Thread, error) {
 	thread, err := s.reviews.GetThread(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -603,7 +644,15 @@ func (s *ReviewService) getOwnThread(ctx context.Context, id string, author Revi
 	if err != nil {
 		return nil, err
 	}
-	if author.isHuman() || doesOwnAgent(author, thread.AgentID) || doesOwnReview(author, *thread) {
+	if author.isHuman() || doesOwnReview(author, *thread) {
+		return thread, nil
+	}
+
+	writer, err := s.isTaskWriter(ctx, author, thread.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	if writer {
 		return thread, nil
 	}
 

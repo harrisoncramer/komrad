@@ -44,18 +44,20 @@ type liveReviewerSeed struct {
 	reviewerID string
 }
 
-// TestARoundIsNumberedAfterTheOnesBeforeIt pins that the ordinal is the store's to decide.
+// TestARoundIsNumberedAfterTheOnesBeforeIt pins that the ordinal is the store's to decide, counted per task.
 func TestARoundIsNumberedAfterTheOnesBeforeIt(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
 
 	first := st.openRound(t, agentID, "tree-one")
 	second := st.openRound(t, agentID, "tree-two")
+	elsewhere := st.openRound(t, st.seedAgent(t, "other"), "tree-one")
 
 	assert.Equal(t, int32(1), first.Ordinal)
 	assert.Equal(t, int32(2), second.Ordinal)
+	assert.Equal(t, int32(1), elsewhere.Ordinal, "another task counts its own rounds")
 
-	latest, err := st.GetLatestRound(t.Context(), agentID)
+	latest, err := st.GetLatestRound(t.Context(), st.taskOf(t, agentID))
 	require.NoError(t, err)
 	require.NotNil(t, latest)
 	assert.Equal(t, second.ID, latest.ID)
@@ -71,7 +73,7 @@ func TestAnAuthorHoldsOneOpenReviewAtATime(t *testing.T) {
 	st.openReview(t, round)
 
 	_, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID:    agentID,
+		TaskID:     st.taskOf(t, agentID),
 		RoundID:    round.ID,
 		AuthorKind: AuthorHuman,
 	})
@@ -79,7 +81,7 @@ func TestAnAuthorHoldsOneOpenReviewAtATime(t *testing.T) {
 
 	reviewer := st.seedAgent(t, "reviewer")
 	_, err = st.OpenReview(ctx, OpenReviewParams{
-		AgentID:       agentID,
+		TaskID:        st.taskOf(t, agentID),
 		RoundID:       round.ID,
 		AuthorKind:    AuthorAgent,
 		AuthorAgentID: &reviewer,
@@ -138,7 +140,7 @@ func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
 
 	opened := st.openThread(t, review, "this needs a nil check")
 
-	threads, err := st.ListThreads(t.Context(), agentID)
+	threads, err := st.ListThreads(t.Context(), st.taskOf(t, agentID))
 	require.NoError(t, err)
 	require.Len(t, threads, 1)
 
@@ -146,6 +148,31 @@ func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
 	assert.Equal(t, round.ID, threads[0].RoundID)
 	assert.Equal(t, review.ID, threads[0].ReviewID)
 	assert.Equal(t, int32(1), threads[0].RoundOrdinal)
+}
+
+// TestThreadsAreReadByTask pins that a task's threads outlive the agent they were written to and stay off other tasks.
+func TestThreadsAreReadByTask(t *testing.T) {
+	st := openFixture(t)
+	ctx := t.Context()
+	firstWriter := st.seedAgent(t, "worker")
+	taskID := st.taskOf(t, firstWriter)
+	opened := st.openThread(t, st.openReview(t, st.openRound(t, firstWriter, "tree-one")), "this needs a nil check")
+
+	_, err := st.agents.Archive(ctx, []string{firstWriter})
+	require.NoError(t, err)
+	st.seedAgentLike(t, agentstore.Agent{
+		Name:   "next-worker",
+		TaskID: &taskID,
+	})
+
+	threads, err := st.ListThreads(ctx, taskID)
+	require.NoError(t, err)
+	require.Len(t, threads, 1)
+	assert.Equal(t, opened.ID, threads[0].ID)
+
+	elsewhere, err := st.ListThreads(ctx, st.taskOf(t, st.seedAgent(t, "other")))
+	require.NoError(t, err)
+	assert.Empty(t, elsewhere)
 }
 
 // TestRewritingAReplyIsNewActivity pins that an answer rewritten after the person read it reads unread again.
@@ -156,12 +183,12 @@ func TestRewritingAReplyIsNewActivity(t *testing.T) {
 	review := st.openReview(t, st.openRound(t, agentID, "tree-one"))
 
 	answered := st.writeAnswer(t, st.openThread(t, review, "this needs a nil check"))
-	st.markAllRead(t, agentID)
+	st.markAllRead(t, st.taskOf(t, agentID))
 
 	_, err := st.UpdateMessage(ctx, answered.ID, "rewritten", nil)
 	require.NoError(t, err)
 
-	threads, err := st.ListThreads(ctx, agentID)
+	threads, err := st.ListThreads(ctx, st.taskOf(t, agentID))
 	require.NoError(t, err)
 	require.Len(t, threads, 1)
 	assert.True(t, threads[0].UnreadByHuman)
@@ -182,7 +209,7 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 	_, err := st.MarkThreadRead(ctx, first.ID)
 	require.NoError(t, err)
 
-	threads, err := st.ListThreads(ctx, agentID)
+	threads, err := st.ListThreads(ctx, st.taskOf(t, agentID))
 	require.NoError(t, err)
 	require.Len(t, threads, 2)
 
@@ -244,20 +271,21 @@ func TestViewedMarkUsesFingerprint(t *testing.T) {
 	for _, fingerprint := range []string{"abc123", "def456"} {
 		_, err := st.MarkFileViewed(ctx, MarkFileViewedParams{
 			AgentID:     agentID,
+			TaskID:      st.taskOf(t, agentID),
 			FilePath:    "greet.go",
 			Fingerprint: fingerprint,
 		})
 		require.NoError(t, err)
 
-		viewed, err := st.ListViewedFiles(ctx, agentID)
+		viewed, err := st.ListViewedFiles(ctx, st.taskOf(t, agentID))
 		require.NoError(t, err)
 		require.Len(t, viewed, 1)
 		assert.Equal(t, fingerprint, viewed[0].Fingerprint)
 	}
 
-	require.NoError(t, st.UnmarkFileViewed(ctx, agentID, "greet.go"))
+	require.NoError(t, st.UnmarkFileViewed(ctx, st.taskOf(t, agentID), "greet.go"))
 
-	viewed, err := st.ListViewedFiles(ctx, agentID)
+	viewed, err := st.ListViewedFiles(ctx, st.taskOf(t, agentID))
 	require.NoError(t, err)
 	assert.Empty(t, viewed)
 }
@@ -271,7 +299,7 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 	thread := st.openThread(t, review, "this needs a nil check")
 	st.settle(t, thread, nil)
 
-	threads, err := st.ListThreads(t.Context(), agentID)
+	threads, err := st.ListThreads(t.Context(), st.taskOf(t, agentID))
 	require.NoError(t, err)
 	require.Len(t, threads, 1)
 	assert.NotNil(t, threads[0].ResolvedAt)
@@ -596,7 +624,7 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	review := st.openReview(t, round)
 
 	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
-		AgentID:    agentID,
+		TaskID:     st.taskOf(t, agentID),
 		ReviewID:   review.ID,
 		RoundID:    round.ID,
 		FilePath:   "internal/thing.go",
@@ -753,7 +781,7 @@ func TestListTallies(t *testing.T) {
 				return
 			}
 
-			tt.wantTally.AgentID = agentID
+			tt.wantTally.TaskID = st.taskOf(t, agentID)
 			assert.Equal(t, []tally{*tt.wantTally}, tallies, "the reviewer holds no diff of its own to have gone round")
 		})
 	}
@@ -806,19 +834,16 @@ func TestUnlandedRoundsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	assert.Equal(t, map[string][]UnlandedRound{
 		st.taskOf(t, agentID): {
 			{
-				AgentID:     agentID,
 				Ordinal:     3,
 				BaseSHA:     "base-tree-three",
 				SnapshotSHA: "snapshot-tree-three",
 			},
 			{
-				AgentID:     agentID,
 				Ordinal:     2,
 				BaseSHA:     "base-tree-two",
 				SnapshotSHA: "snapshot-tree-two",
 			},
 			{
-				AgentID:     agentID,
 				Ordinal:     1,
 				BaseSHA:     "base-tree-one",
 				SnapshotSHA: "snapshot-tree-one",
@@ -826,11 +851,11 @@ func TestUnlandedRoundsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 		},
 	}, unlanded, "a draft round and an archived agent's rounds are not walked")
 
-	landed, err := st.MarkRoundsLanded(ctx, agentID, 2)
+	landed, err := st.MarkRoundsLanded(ctx, st.taskOf(t, agentID), 2)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), landed)
 
-	again, err := st.MarkRoundsLanded(ctx, agentID, 3)
+	again, err := st.MarkRoundsLanded(ctx, st.taskOf(t, agentID), 3)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), again, "a round already landed keeps when it landed")
 
@@ -841,7 +866,7 @@ func TestUnlandedRoundsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	reviews, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	for _, review := range reviews {
-		if review.AgentID == agentID && review.RoundOrdinal <= 3 {
+		if review.TaskID == st.taskOf(t, agentID) && review.RoundOrdinal <= 3 {
 			assert.NotNil(t, review.RoundLandedAt, "round %d", review.RoundOrdinal)
 		}
 	}
@@ -899,7 +924,7 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
 	author := OpenReviewOfParams{
-		AgentID:    agentID,
+		TaskID:     st.taskOf(t, agentID),
 		AuthorKind: AuthorHuman,
 	}
 
@@ -1131,11 +1156,21 @@ func (st *fixture) taskOf(t *testing.T, agentID string) string {
 	return *agent.TaskID
 }
 
+// writerOf is the live writer of a task.
+func (st *fixture) writerOf(t *testing.T, taskID string) string {
+	t.Helper()
+
+	writer, err := st.agents.GetTaskWriter(t.Context(), taskID)
+	require.NoError(t, err)
+
+	return writer.ID
+}
+
 func (st *fixture) openRound(t *testing.T, agentID, tree string) *Round {
 	t.Helper()
 
 	round, err := st.CreateRound(t.Context(), CreateRoundParams{
-		AgentID:     agentID,
+		TaskID:      st.taskOf(t, agentID),
 		BaseSHA:     "base-" + tree,
 		SnapshotSHA: "snapshot-" + tree,
 	})
@@ -1150,7 +1185,7 @@ func (st *fixture) openReview(t *testing.T, round *Round) *Review {
 	t.Helper()
 
 	review, err := st.OpenReview(t.Context(), OpenReviewParams{
-		AgentID:    round.AgentID,
+		TaskID:     round.TaskID,
 		RoundID:    round.ID,
 		AuthorKind: AuthorHuman,
 	})
@@ -1165,7 +1200,7 @@ func (st *fixture) openReviewBy(t *testing.T, round *Round, reviewerID string) *
 	t.Helper()
 
 	review, err := st.OpenReview(t.Context(), OpenReviewParams{
-		AgentID:       round.AgentID,
+		TaskID:        round.TaskID,
 		RoundID:       round.ID,
 		AuthorKind:    AuthorAgent,
 		AuthorAgentID: &reviewerID,
@@ -1180,7 +1215,7 @@ func (st *fixture) openThread(t *testing.T, review *Review, body string) *Thread
 	t.Helper()
 
 	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
-		AgentID:     review.AgentID,
+		TaskID:      review.TaskID,
 		ReviewID:    review.ID,
 		RoundID:     review.RoundID,
 		FilePath:    "internal/thing.go",
@@ -1203,7 +1238,7 @@ func (st *fixture) writeAnswer(t *testing.T, thread *Thread) *Message {
 	answer, err := st.CreateMessage(t.Context(), CreateMessageParams{
 		ThreadID:      thread.ID,
 		AuthorKind:    AuthorAgent,
-		AuthorAgentID: &thread.AgentID,
+		AuthorAgentID: xptr.Ptr(st.writerOf(t, thread.TaskID)),
 		Body:          "done",
 	})
 	require.NoError(t, err)
@@ -1234,7 +1269,7 @@ func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) 
 	t.Helper()
 
 	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
-		ToAgentID: review.AgentID,
+		ToAgentID: st.writerOf(t, review.TaskID),
 		Body:      "komrad: review of round 1, changes requested, 1 comment(s)",
 		Kind:      mailstore.KindReviewActivity,
 		Deadline:  time.Hour,
@@ -1271,11 +1306,11 @@ func (st *fixture) readDelivery(t *testing.T, threadID string, kind AuthorKind) 
 	return DeliveryNone
 }
 
-// markAllRead reads the person up to date on every thread of an agent.
-func (st *fixture) markAllRead(t *testing.T, agentID string) {
+// markAllRead reads the person up to date on every thread of a task.
+func (st *fixture) markAllRead(t *testing.T, taskID string) {
 	t.Helper()
 
-	threads, err := st.ListThreads(t.Context(), agentID)
+	threads, err := st.ListThreads(t.Context(), taskID)
 	require.NoError(t, err)
 
 	for _, thread := range threads {
@@ -1284,11 +1319,11 @@ func (st *fixture) markAllRead(t *testing.T, agentID string) {
 	}
 }
 
-// findListedReview is one review read back off its agent's listing.
+// findListedReview is one review read back off its task's listing.
 func (st *fixture) findListedReview(t *testing.T, review *Review) Review {
 	t.Helper()
 
-	listed, err := st.ListReviews(t.Context(), review.AgentID)
+	listed, err := st.ListReviews(t.Context(), review.TaskID)
 	require.NoError(t, err)
 
 	for _, candidate := range listed {

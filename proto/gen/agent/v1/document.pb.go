@@ -41,7 +41,9 @@ type Document struct {
 	// When it was last written, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// How many times it has been written, which a rewrite passes back to say what it replaces.
-	Version       int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
+	Version int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
+	// The task its author worked on when it was first written, absent for an orchestrator's.
+	TaskId        *string `protobuf:"bytes,9,opt,name=task_id,json=taskId,proto3,oneof" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -130,6 +132,13 @@ func (x *Document) GetVersion() int32 {
 		return x.Version
 	}
 	return 0
+}
+
+func (x *Document) GetTaskId() string {
+	if x != nil && x.TaskId != nil {
+		return *x.TaskId
+	}
+	return ""
 }
 
 type WriteDocumentRequest struct {
@@ -316,7 +325,9 @@ type ListDocumentsRequest struct {
 	// Only documents of this type, or unset for every type.
 	Type *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
 	// Where to carry on from.
-	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	Pagination *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// Only documents written for this task, named by id or slug, or unset for every task's.
+	Task          *string `protobuf:"bytes,4,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -370,6 +381,13 @@ func (x *ListDocumentsRequest) GetPagination() *v1.Pagination {
 		return x.Pagination
 	}
 	return nil
+}
+
+func (x *ListDocumentsRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
+	}
+	return ""
 }
 
 type ListDocumentsResponse struct {
@@ -1487,7 +1505,7 @@ var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xc9\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xf3\x01\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
@@ -1498,7 +1516,10 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
-	"\aversion\x18\b \x01(\x05R\aversion\"\xbb\x02\n" +
+	"\aversion\x18\b \x01(\x05R\aversion\x12\x1c\n" +
+	"\atask_id\x18\t \x01(\tH\x00R\x06taskId\x88\x01\x01B\n" +
+	"\n" +
+	"\b_task_id\"\xbb\x02\n" +
 	"\x14WriteDocumentRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\"\n" +
 	"\x04name\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x04name\x12\x1d\n" +
@@ -1513,16 +1534,18 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\b_versionB\v\n" +
 	"\t_agent_id\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\xc8\x01\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\xf3\x01\n" +
 	"\x14ListDocumentsRequest\x12'\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
 	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01\x12>\n" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x02R\n" +
-	"pagination\x88\x01\x01B\v\n" +
+	"pagination\x88\x01\x01\x12 \n" +
+	"\x04task\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\x04task\x88\x01\x01B\v\n" +
 	"\t_agent_idB\a\n" +
 	"\x05_typeB\r\n" +
-	"\v_pagination\"\x8a\x01\n" +
+	"\v_paginationB\a\n" +
+	"\x05_task\"\x8a\x01\n" +
 	"\x15ListDocumentsResponse\x120\n" +
 	"\tdocuments\x18\x01 \x03(\v2\x12.agent.v1.DocumentR\tdocuments\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
@@ -1668,6 +1691,7 @@ func file_agent_v1_document_proto_init() {
 	if File_agent_v1_document_proto != nil {
 		return
 	}
+	file_agent_v1_document_proto_msgTypes[0].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[1].OneofWrappers = []any{
 		(*WriteDocumentRequest_Body)(nil),
 		(*WriteDocumentRequest_Path)(nil),

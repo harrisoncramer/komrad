@@ -4,17 +4,17 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// groupReviewsByAgent indexes the reviews by the agent whose work they read.
-func groupReviewsByAgent(reviews map[string]*agentv1.WatchedReview) map[string][]*agentv1.WatchedReview {
-	byAgent := map[string][]*agentv1.WatchedReview{}
+// groupReviewsByTask indexes the reviews by the task whose work they read.
+func groupReviewsByTask(reviews map[string]*agentv1.WatchedReview) map[string][]*agentv1.WatchedReview {
+	byTask := map[string][]*agentv1.WatchedReview{}
 	for _, review := range reviews {
-		byAgent[review.GetAgentId()] = append(byAgent[review.GetAgentId()], review)
+		byTask[review.GetTaskId()] = append(byTask[review.GetTaskId()], review)
 	}
 
-	return byAgent
+	return byTask
 }
 
-// setLocalReview draws how many rounds of the agent's work were reviewed.
+// setLocalReview draws how many rounds of the task's work were reviewed.
 func setLocalReview(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview) {
 	rounds := map[string]bool{}
 	for _, review := range reviews {
@@ -26,17 +26,17 @@ func setLocalReview(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview) {
 	row.LocalReviewRounds = int32(len(rounds))
 }
 
-// groupThreadsByAgent indexes the review threads by the agent whose work they are on.
-func groupThreadsByAgent(threads map[string]*agentv1.ReviewThread) map[string][]*agentv1.ReviewThread {
-	byAgent := map[string][]*agentv1.ReviewThread{}
+// groupThreadsByTask indexes the review threads by the task whose work they are on.
+func groupThreadsByTask(threads map[string]*agentv1.ReviewThread) map[string][]*agentv1.ReviewThread {
+	byTask := map[string][]*agentv1.ReviewThread{}
 	for _, thread := range threads {
-		byAgent[thread.GetAgentId()] = append(byAgent[thread.GetAgentId()], thread)
+		byTask[thread.GetTaskId()] = append(byTask[thread.GetTaskId()], thread)
 	}
 
-	return byAgent
+	return byTask
 }
 
-// setCommentCounts counts the comments on the agent's work, reviewer agents apart from the
+// setCommentCounts counts the comments on the task's work, reviewer agents apart from the
 // person, leaving out a resolved conversation once its round has landed.
 func setCommentCounts(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview, threads []*agentv1.ReviewThread) {
 	released := map[string]*agentv1.WatchedReview{}
