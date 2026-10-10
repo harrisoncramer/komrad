@@ -372,11 +372,11 @@ func (s *ReviewService) requireEntitled(
 		return nil
 	}
 
-	reader, err := s.getAuthorOnTask(ctx, task, author)
+	agent, err := s.getAuthorOnTask(ctx, task, author)
 	if err != nil {
 		return err
 	}
-	if reader.ParentAgentID == nil {
+	if agent.ParentAgentID == nil {
 		return ErrReviewOwnWork
 	}
 
@@ -408,15 +408,15 @@ func (s *ReviewService) getAuthorOnTask(
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotEntitled, task.Slug)
 	}
 
-	reader, err := s.getAgent(ctx, *author.AgentID)
+	agent, err := s.getAgent(ctx, *author.AgentID)
 	if err != nil {
 		return nil, err
 	}
-	if reader.TaskID == nil || *reader.TaskID != task.ID {
+	if agent.TaskID == nil || *agent.TaskID != task.ID {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotEntitled, task.Slug)
 	}
 
-	return reader, nil
+	return agent, nil
 }
 
 // taskOf is the task whose work a review call naming an agent reads.
