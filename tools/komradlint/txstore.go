@@ -48,19 +48,24 @@ func newTxStore(settings config.TxStoreConfig) (*analysis.Analyzer, error) {
 					continue
 				}
 
-				ast.Inspect(file, func(node ast.Node) bool {
-					signature, body := splitFunction(node)
-					if body != nil && takesTransaction(pass, signature) {
-						reportEscapes(pass, txScope{start: signature.Params.Pos(), end: body.End()}, body)
-					}
-
-					return true
-				})
+				reportTransactions(pass, file)
 			}
 
 			return nil, nil
 		},
 	}, nil
+}
+
+// reportTransactions reports the escapes from every function in a file that takes a transaction.
+func reportTransactions(pass *analysis.Pass, file *ast.File) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		signature, body := splitFunction(node)
+		if body != nil && takesTransaction(pass, signature) {
+			reportEscapes(pass, txScope{start: signature.Params.Pos(), end: body.End()}, body)
+		}
+
+		return true
+	})
 }
 
 // splitFunction is a declared or literal function's signature and body, or nothing for any other node.
