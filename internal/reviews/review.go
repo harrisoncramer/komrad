@@ -628,7 +628,7 @@ func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
 }
 
 // requireOwnThread refuses an id that names no thread, and refuses an agent reaching into a
-// review it is neither the subject nor the author of.
+// review it neither writes the task of nor authored.
 func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author ReviewAuthor) error {
 	_, err := s.getOwnThread(ctx, id, author)
 
