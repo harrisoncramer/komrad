@@ -91,18 +91,13 @@ INSERT INTO reviews(
     round_id,
     author_kind,
     author_agent_id)
-VALUES (
-    (
+VALUES ((
         SELECT
             r.agent_id
         FROM
             review_rounds r
         WHERE
-            r.id = @round_id),
-    sqlc.arg('task_id')::uuid,
-    @round_id,
-    @author_kind,
-    sqlc.narg('author_agent_id'))
+            r.id = @round_id), sqlc.arg('task_id')::uuid, @round_id, @author_kind, sqlc.narg('author_agent_id'))
 RETURNING
     *;
 
@@ -119,7 +114,7 @@ UPDATE
     reviews v
 SET
     round_id = @round_id,
-    agent_id = (
+    agent_id =(
         SELECT
             r.agent_id
         FROM
@@ -290,30 +285,29 @@ WITH opened AS (
         quoted_lines,
         forge_thread_id,
         last_agent_activity_at)
-    VALUES (
-        (
+    VALUES ((
             SELECT
                 r.agent_id
             FROM
                 review_rounds r
             WHERE
                 r.id = @round_id),
-        sqlc.arg('task_id')::uuid,
-        @review_id,
-        @round_id,
-        @base_sha,
-        @file_path,
-        @old_start,
-        @old_end,
-        @new_start,
-        @new_end,
-        @quoted_lines,
-        sqlc.narg('forge_thread_id')::uuid,
-        CASE WHEN @author_kind::review_author_kind = 'agent' THEN
-            NOW()
-        END)
-RETURNING
-    *
+            sqlc.arg('task_id')::uuid,
+            @review_id,
+            @round_id,
+            @base_sha,
+            @file_path,
+            @old_start,
+            @old_end,
+            @new_start,
+            @new_end,
+            @quoted_lines,
+            sqlc.narg('forge_thread_id')::uuid,
+            CASE WHEN @author_kind::review_author_kind = 'agent' THEN
+                NOW()
+            END)
+    RETURNING
+        *
 ),
 said AS (
     INSERT INTO review_messages(
@@ -502,10 +496,10 @@ said AS (
                     a.id = w.author_agent_id
                     AND a.task_id = t.task_id
                     AND a.parent_agent_id IS NULL)) AS reopens
-    FROM
-        written w
-        JOIN review_threads t ON t.id = w.thread_id
-        JOIN reviews v ON v.id = t.review_id
+        FROM
+            written w
+            JOIN review_threads t ON t.id = w.thread_id
+            JOIN reviews v ON v.id = t.review_id
 ),
 touched AS (
     UPDATE
@@ -815,19 +809,13 @@ INSERT INTO reviews(
     author_kind,
     external_login,
     released_at)
-VALUES (
-    (
+VALUES ((
         SELECT
             r.agent_id
         FROM
             review_rounds r
         WHERE
-            r.id = @round_id),
-    sqlc.arg('task_id')::uuid,
-    @round_id,
-    'forge',
-    @external_login,
-    NOW())
+            r.id = @round_id), sqlc.arg('task_id')::uuid, @round_id, 'forge', @external_login, NOW())
 RETURNING
     *;
 
