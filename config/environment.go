@@ -101,19 +101,22 @@ func (e *Environment) FramesDir() string {
 // what a run's log file is named after: the worktree provisioner's own three, and the moments
 // a workflow can hang a hook on.
 const (
-	TriggerProvision   = "provision"
-	TriggerResume      = "resume"
-	TriggerDeprovision = "deprovision"
-	HookPreLaunch      = "pre-launch"
-	HookPostLaunch     = "post-launch"
-	HookPreResume      = "pre-resume"
-	HookPostResume     = "post-resume"
-	HookPreArchive     = "pre-archive"
-	HookPostArchive    = "post-archive"
-	HookPreRestore     = "pre-restore"
-	HookPostRestore    = "post-restore"
-	HookPreDelete      = "pre-delete"
-	HookPostDelete     = "post-delete"
+	TriggerProvision    = "provision"
+	TriggerResume       = "resume"
+	TriggerDeprovision  = "deprovision"
+	HookPreLaunch       = "pre-launch"
+	HookPostLaunch      = "post-launch"
+	HookPreResume       = "pre-resume"
+	HookPostResume      = "post-resume"
+	HookPreArchive      = "pre-archive"
+	HookPostArchive     = "post-archive"
+	HookPreRestore      = "pre-restore"
+	HookPostRestore     = "post-restore"
+	HookPreDelete       = "pre-delete"
+	HookPostDelete      = "post-delete"
+	HookTaskPreOpen     = "task.pre-open"
+	HookTaskPostArchive = "task.post-archive"
+	HookTaskPreDelete   = "task.pre-delete"
 )
 
 // runMoments is every moment by name.
@@ -132,6 +135,9 @@ func runMoments() []string {
 		HookPostRestore,
 		HookPreDelete,
 		HookPostDelete,
+		HookTaskPreOpen,
+		HookTaskPostArchive,
+		HookTaskPreDelete,
 	}
 }
 

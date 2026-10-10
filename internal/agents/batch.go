@@ -2,14 +2,22 @@ package agents
 
 import (
 	"context"
+	"fmt"
 
 	"komrad/config"
 	"komrad/internal/store"
+	"komrad/internal/tasks"
 
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
+
+// archived is what an archive's write took: the panes off its rows and the tasks it archived.
+type archived struct {
+	panes []agentstore.AgentPane
+	tasks []taskstore.Task
+}
 
 type archiveBatchParams struct {
 	tmux      paneKiller
@@ -18,7 +26,7 @@ type archiveBatchParams struct {
 	live      []agentstore.Agent
 	owned     []agentstore.Agent
 	screens   screenKeeper
-	archive   func(ctx context.Context) ([]agentstore.AgentPane, error)
+	archive   func(ctx context.Context) (*archived, error)
 }
 
 func archiveBatch(ctx context.Context, params archiveBatchParams) error {
@@ -49,7 +57,7 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 		return err
 	}
 	// A pane recorded in between only reaches here through what the write took off the rows.
-	killPanes(ctx, params.tmux, taken)
+	killPanes(ctx, params.tmux, taken.panes)
 
 	startHooksFor(ctx, batchHooksParams{
 		scripts:   params.scripts,
@@ -57,8 +65,22 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 		agents:    params.live,
 		event:     workflowstore.HookPostArchive,
 	})
+	startTaskPostArchive(ctx, params, taken.tasks)
 
 	return nil
+}
+
+// startTaskPostArchive starts the post-archive hooks of each task an archive archived.
+func startTaskPostArchive(ctx context.Context, params archiveBatchParams, archivedTasks []taskstore.Task) {
+	for _, task := range archivedTasks {
+		startTaskHooks(ctx, taskHookParams{
+			scripts:  params.scripts,
+			workflow: readWorkflow(ctx, params.workflows, task.WorkflowID),
+			task:     task,
+			actor:    findTaskActor(params.live, task.ID),
+			event:    workflowstore.HookTaskPostArchive,
+		})
+	}
 }
 
 type restoreBatchParams struct {
@@ -67,6 +89,7 @@ type restoreBatchParams struct {
 	scripts   agentScriptRunner
 	workflows *workflowstore.WorkflowStore
 	agents    *agentstore.AgentStore
+	tasks     *tasks.TaskService
 	archived  []agentstore.Agent
 	relist    func(ctx context.Context, agents *agentstore.AgentStore) ([]agentstore.Agent, error)
 	restore   func(ctx context.Context, db store.DBTX) error
@@ -90,6 +113,9 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 		event:       workflowstore.HookPreRestore,
 		skipGoneDir: true,
 	})); err != nil {
+		return err
+	}
+	if err := runTaskPreOpen(ctx, params); err != nil {
 		return err
 	}
 
@@ -134,6 +160,42 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 		agents:    restored,
 		event:     workflowstore.HookPostRestore,
 	})
+
+	return nil
+}
+
+// runTaskPreOpen runs the pre-open hooks of each task a restore takes from no live agent to one, stopping at the first that fails.
+func runTaskPreOpen(ctx context.Context, params restoreBatchParams) error {
+	if params.scripts == nil {
+		return nil
+	}
+
+	found, err := params.tasks.ListTasksByID(ctx, agentstore.TaskIDs(params.archived))
+	if err != nil {
+		return err
+	}
+
+	for _, task := range found {
+		live, err := params.agents.ListLiveOnTask(ctx, task.ID)
+		if err != nil {
+			return err
+		}
+
+		actor := findTaskActor(params.archived, task.ID)
+		if actor == nil || !isOpening(*actor, live) {
+			continue
+		}
+
+		if err := runTaskPreHooks(ctx, taskHookParams{
+			scripts:  params.scripts,
+			workflow: readWorkflow(ctx, params.workflows, task.WorkflowID),
+			task:     task,
+			actor:    actor,
+			event:    workflowstore.HookTaskPreOpen,
+		}); err != nil {
+			return fmt.Errorf("failed to run the %s hook of task %q: %w", workflowstore.HookTaskPreOpen, task.Slug, err)
+		}
+	}
 
 	return nil
 }

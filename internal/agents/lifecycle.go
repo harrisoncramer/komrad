@@ -293,16 +293,18 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgen
 		live:      xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt == nil }),
 		owned:     agents,
 		screens:   s.screens,
-		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
-			var taken []agentstore.AgentPane
+		archive: func(ctx context.Context) (*archived, error) {
+			taken := &archived{}
 			err := s.tx.InTx(ctx, func(db store.DBTX) error {
-				archived, err := agentstore.NewAgentStore(db).Archive(ctx, agentstore.IDs(agents))
+				panes, err := agentstore.NewAgentStore(db).Archive(ctx, agentstore.IDs(agents))
 				if err != nil {
 					return err
 				}
-				taken = archived
+				taken.panes = panes
 
-				return taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(agents))
+				taken.tasks, err = taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(agents))
+
+				return err
 			})
 
 			return taken, err
@@ -407,6 +409,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		scripts:   s.scripts,
 		workflows: s.workflows,
 		agents:    s.agents,
+		tasks:     s.tasks,
 		archived:  archived,
 		restore: func(ctx context.Context, db store.DBTX) error {
 			if err := agentstore.NewAgentStore(db).Restore(ctx, agentstore.IDs(archived)); err != nil {
@@ -436,20 +439,22 @@ func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID strin
 		live:      live,
 		owned:     live,
 		screens:   s.screens,
-		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
-			var taken []agentstore.AgentPane
+		archive: func(ctx context.Context) (*archived, error) {
+			taken := &archived{}
 			err := s.tx.InTx(ctx, func(db store.DBTX) error {
 				if err := workflowstore.NewWorkflowStore(db).Archive(ctx, workflowID); err != nil {
 					return err
 				}
 
-				archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, workflowID)
+				panes, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, workflowID)
 				if err != nil {
 					return err
 				}
-				taken = archived
+				taken.panes = panes
 
-				return taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(live))
+				taken.tasks, err = taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(live))
+
+				return err
 			})
 
 			return taken, err
@@ -464,6 +469,7 @@ func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID strin
 		scripts:   s.scripts,
 		workflows: s.workflows,
 		agents:    s.agents,
+		tasks:     s.tasks,
 		archived:  archived,
 		relist: func(ctx context.Context, agents *agentstore.AgentStore) ([]agentstore.Agent, error) {
 			return agents.ListRestorableInWorkflow(ctx, workflowID)

@@ -1,7 +1,11 @@
 #!/bin/sh
-#KOMRAD description="Shrink an archived komrad checkout back to its work: give back its throwaway test instance and drop the installs and builds any checkout makes again when it needs them. Does nothing in any other checkout."
+#KOMRAD description="Shrink a komrad checkout whose task archived back to its work: give back its throwaway test instance and drop the installs and builds any checkout makes again when it needs them. Does nothing in any other checkout."
 #KOMRAD timeout="2m"
 set -eu
+
+if [ -z "${KOMRAD_WORKTREE_NAME:-}" ]; then
+	exit 0
+fi
 
 tree="$KOMRAD_AGENT_CWD"
 

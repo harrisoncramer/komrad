@@ -12,15 +12,16 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
-// taskDeprovisioner gives back the checkout of a task no agent is left on.
-type taskDeprovisioner interface {
+// taskScriptRunner runs a task's hooks and gives back the checkout of a task no agent is left on.
+type taskScriptRunner interface {
+	hookRunner
 	RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error
 }
 
 type NewEmptyTaskDeleterParams struct {
 	Tasks     *taskstore.TaskStore
 	Workflows *workflowstore.WorkflowStore
-	Scripts   taskDeprovisioner
+	Scripts   taskScriptRunner
 }
 
 // EmptyTaskDeleter removes a task being deleted once no agent is left on it, giving its checkout
@@ -28,7 +29,7 @@ type NewEmptyTaskDeleterParams struct {
 type EmptyTaskDeleter struct {
 	tasks     *taskstore.TaskStore
 	workflows *workflowstore.WorkflowStore
-	scripts   taskDeprovisioner
+	scripts   taskScriptRunner
 }
 
 // NewEmptyTaskDeleter builds the deleter over the stores and the deprovisioner a task's removal needs.
@@ -55,7 +56,7 @@ func (d *EmptyTaskDeleter) DeleteIfEmpty(ctx context.Context, id string) error {
 		return errors.Join(err, d.tasks.ClearDeleting(cleanup, id))
 	}
 
-	if err := d.deprovision(cleanup, *found); err != nil {
+	if err := d.tearDown(cleanup, *found); err != nil {
 		failed := fmt.Errorf("%w: task %s: %w", agenterr.ErrTeardownFailed, found.Slug, err)
 
 		return errors.Join(failed, d.tasks.RecordCleanupFailure(cleanup, found.ID, err))
@@ -98,14 +99,36 @@ func (d *EmptyTaskDeleter) clearWorkflow(ctx context.Context, workflowID string)
 	return len(left) == 0, nil
 }
 
-func (d *EmptyTaskDeleter) deprovision(ctx context.Context, task taskstore.Task) error {
-	if d.scripts == nil || task.Checkout.Cwd == "" {
+// tearDown runs a task's pre-delete hooks once any of its hooks still running have finished, then gives back its checkout.
+func (d *EmptyTaskDeleter) tearDown(ctx context.Context, task taskstore.Task) error {
+	if d.scripts == nil {
 		return nil
 	}
 
 	flow, err := d.workflows.GetIncludingArchived(ctx, task.WorkflowID)
 	if err != nil {
 		return err
+	}
+
+	if err := d.scripts.AwaitHooks(ctx, task.ID); err != nil {
+		return err
+	}
+
+	if err := runTaskPreHooks(ctx, taskHookParams{
+		scripts:  d.scripts,
+		workflow: flow,
+		task:     task,
+		event:    workflowstore.HookTaskPreDelete,
+	}); err != nil {
+		return err
+	}
+
+	return d.deprovision(ctx, task, flow)
+}
+
+func (d *EmptyTaskDeleter) deprovision(ctx context.Context, task taskstore.Task, flow *workflowstore.Workflow) error {
+	if task.Checkout.Cwd == "" {
+		return nil
 	}
 
 	_, deprovisioner := worktreeScripts(flow, nil)

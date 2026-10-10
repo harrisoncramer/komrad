@@ -79,7 +79,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 	dir := agent.Cwd
 	if err := scripts.RequireUsableDir(dir); err != nil {
-		if !gone {
+		if !gone && !workflowstore.IsTaskEvent(event) {
 			return s.refuseHook(ctx, record, name, err)
 		}
 

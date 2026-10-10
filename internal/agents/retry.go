@@ -11,7 +11,6 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -108,16 +107,10 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		}
 	}
 
-	var task *taskstore.Task
-	if agent.TaskID != nil {
-		found, err := s.tasks.GetTask(ctx, *agent.TaskID)
-		if err != nil {
-			err = fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
-			s.failCreate(ctx, *agent, err)
-
-			return nil, err
-		}
-		task = found
+	placed, err := s.placeRetry(ctx, *agent)
+	if err != nil {
+		s.failCreate(ctx, *agent, err)
+		return nil, err
 	}
 
 	claimsCheckout := isCheckoutClaimant(*agent, provisioner)
@@ -139,9 +132,33 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		workflowContext: workflowContext,
 		spawner:         spawner,
 		parent:          parent,
-		task:            task,
 		claimsCheckout:  claimsCheckout,
+		workflow:        wf,
+		task:            placed.task,
+		opensTask:       placed.opensTask,
 	})
+}
+
+// placeRetry reads the task a retried agent is on, and whether the retry opens it.
+func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) (*placement, error) {
+	if agent.TaskID == nil {
+		return &placement{}, nil
+	}
+
+	task, err := s.tasks.GetTask(ctx, *agent.TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
+	}
+
+	live, err := s.agents.ListLiveOnTask(ctx, task.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &placement{
+		task:      task,
+		opensTask: isOpening(agent, live),
+	}, nil
 }
 
 // claimCheckoutAgain claims the checkout of a retried agent's task again, refusing when another launch

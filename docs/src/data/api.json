@@ -9921,7 +9921,7 @@
             "required",
             "at most 40 characters"
           ],
-          "description": "Which moment fires it, such as pre-launch or post-archive."
+          "description": "Which moment fires it, such as pre-launch or post-archive in an agent's life or task.pre-open in its task's."
         },
         {
           "name": "script",

@@ -157,6 +157,24 @@ var hookMoments = []hookMoment{
 		title:       "Post-delete hook",
 		description: "runs once the agent and its worktree are gone",
 	},
+	{
+		event:       config.HookTaskPreOpen,
+		key:         "task_pre_open_hook",
+		title:       "Task pre-open hook",
+		description: "runs before a task's first live agent opens its pane, and a failure abandons the create or restore",
+	},
+	{
+		event:       config.HookTaskPostArchive,
+		key:         "task_post_archive_hook",
+		title:       "Task post-archive hook",
+		description: "runs once a task's last live agent is archived and the task with it",
+	},
+	{
+		event:       config.HookTaskPreDelete,
+		key:         "task_pre_delete_hook",
+		title:       "Task pre-delete hook",
+		description: "runs as a task is deleted, before its worktree is given back, and a failure keeps the task",
+	},
 }
 
 // hooksByEvent is each event's first hook, which is the one the form shows.

@@ -1,6 +1,6 @@
 ---
 title: Hooks
-description: Your own scripts, run by komrad at moments in an agent's life.
+description: Your own scripts, run by komrad at moments in an agent's or a task's life.
 group: start
 order: 7
 ---
@@ -80,9 +80,25 @@ Every moment in an agent's life has a hook before it and a hook after it. Komrad
 | `pre-delete`   | Once the panes are closed, while the worktree is still there.                            | The delete stops, and the agent is marked as failed to clean up.                                     |
 | `post-delete`  | Once the agent's row is gone, and its task's worktree too when the delete took the task. | Komrad's own log says so, since the agent has no run log left.                                       |
 
-Anything an agent brought up that should not outlive it, such as a server or a database slot, belongs on `post-archive`. Put it on `pre-delete` as well, written so it is safe to run twice, to cover an agent deleted without being archived.
+Anything one agent brought up that should not outlive it, such as a server it started, belongs on `post-archive`. Put it on `pre-delete` as well, written so it is safe to run twice, to cover an agent deleted without being archived.
 
 Hooks run one at a time, in the order the lifecycle events happen. Calls that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, is given eleven minutes rather than the usual thirty seconds. Reviewer agents do not run hooks.
+
+## Task Lifecycle
+
+A task has moments of its own, which fire once for the whole task however many agents work on it. Hang anything that belongs to the task's worktree here rather than on an agent, since a reviewer or a second agent shares that worktree and comes and goes without it.
+
+| Moment              | Fires                                                                                              | If it fails                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `task.pre-open`     | When an agent starts on a task no live agent works on, whether it is created, retried or restored. | The agent is not started, as when its `pre-launch` hook fails, or nothing is restored. |
+| `task.post-archive` | Once the task's last live agent is archived and the task with it.                                  | The run's log says so, and the task stays archived.                                    |
+| `task.pre-delete`   | When the task is deleted, once no agent is left on it and before its worktree is given back.       | The task stays archived with the reason, and its worktree stays where it was.          |
+
+Task hooks fire for every task, whether or not it has a worktree. They run in the task's worktree while it has one and in the workflow's directory otherwise, and the `KOMRAD_WORKTREE_` variables are set only when there is a worktree. A hook that removes things, such as a docker stack named after its directory, should start with `[ -n "${KOMRAD_WORKTREE_NAME:-}" ] || exit 0` so it never runs in the workflow's own checkout.
+
+`task.pre-open` and `task.post-archive` run as the agent that brought them about, so their logs sit on that agent's row. `task.pre-delete` runs after every agent on the task is gone, so it has no `KOMRAD_AGENT_ID` and only komrad's own log records it. A task's hooks run one at a time, so `task.pre-open` waits for a `task.post-archive` still running from the last time the task closed.
+
+Komrad ships two hooks for its own checkouts: `komrad-checkout-archive` for `task.post-archive`, which gives back a checkout's test instance and drops what it rebuilds, and `komrad-checkout-teardown` for `task.pre-delete`, which also takes down its docker stack.
 
 ## What a hook knows
 

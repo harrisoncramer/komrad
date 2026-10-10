@@ -19,7 +19,7 @@ import (
 // hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
 // against, and the moment itself.
 type hookRunParams struct {
-	scripts agentScriptRunner
+	scripts hookRunner
 	agent   agentstore.Agent
 	hooks   []workflowstore.Hook
 	event   string
@@ -45,12 +45,21 @@ func runHooks(ctx context.Context, params hookRunParams) error {
 	return nil
 }
 
+// queueKey is what a moment's hooks queue under, the task's id for a moment in a task's life and the agent's otherwise.
+func (p hookRunParams) queueKey() string {
+	if workflowstore.IsTaskEvent(p.event) && p.agent.TaskID != nil {
+		return *p.agent.TaskID
+	}
+
+	return p.agent.ID
+}
+
 func runPreHooks(ctx context.Context, params hookRunParams) error {
 	if params.scripts == nil || !hasHookOn(params.hooks, params.event) {
 		return nil
 	}
 
-	turn := params.scripts.QueueHooks(params.agent.ID)
+	turn := params.scripts.QueueHooks(params.queueKey())
 	defer turn.Done()
 
 	if err := turn.Wait(ctx); err != nil {
@@ -132,7 +141,7 @@ func startHooks(ctx context.Context, params hookRunParams) {
 	}
 
 	bg := context.WithoutCancel(ctx)
-	turn := params.scripts.QueueHooks(params.agent.ID)
+	turn := params.scripts.QueueHooks(params.queueKey())
 
 	go func() {
 		defer turn.Done()
@@ -188,16 +197,18 @@ func hooksFor(wf *workflowstore.Workflow, hasParent bool, provisionEnabled *bool
 }
 
 func workflowFor(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) *workflowstore.Workflow {
-	wf, err := workflows.GetIncludingArchived(ctx, agent.WorkflowID)
+	return readWorkflow(ctx, workflows, agent.WorkflowID,
+		slog.String(logging.ScriptAgentID, agent.ID),
+		slog.String(logging.ScriptAgentCwd, agent.Cwd))
+}
+
+func readWorkflow(ctx context.Context, workflows *workflowstore.WorkflowStore, workflowID string, about ...slog.Attr) *workflowstore.Workflow {
+	wf, err := workflows.GetIncludingArchived(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
-		attrs := []slog.Attr{
-			slog.String(logging.WorkflowID, agent.WorkflowID),
-			slog.String(logging.ScriptAgentID, agent.ID),
-			slog.String(logging.ScriptAgentCwd, agent.Cwd),
-		}
+		attrs := append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, about...)
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow behind an agent could not be read", append(attrs, logging.Err(err)...)...)
 
 		return nil

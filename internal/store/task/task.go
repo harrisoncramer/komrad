@@ -224,13 +224,14 @@ func (s *TaskStore) Archive(ctx context.Context, id string) error {
 	return err
 }
 
-// ArchiveIdle archives each of the tasks no live agent works on any longer.
-func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []string) error {
-	if err := s.queries.ArchiveIdleTasks(ctx, ids); err != nil {
-		return fmt.Errorf("failed to archive %d idle tasks: %w", len(ids), err)
+// ArchiveIdle archives each of the tasks no live agent works on any longer, returning those it archived.
+func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []string) ([]Task, error) {
+	rows, err := s.queries.ArchiveIdleTasks(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to archive %d idle tasks: %w", len(ids), err)
 	}
 
-	return nil
+	return xslice.Map(rows, fromRow), nil
 }
 
 // Restore returns archived tasks to live listings, leaving live ones as they were.

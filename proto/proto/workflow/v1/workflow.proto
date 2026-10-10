@@ -95,7 +95,7 @@ message WorkflowEventPrompts {
 }
 
 message WorkflowHook {
-  // Which moment fires it, such as pre-launch or post-archive.
+  // Which moment fires it, such as pre-launch or post-archive in an agent's life or task.pre-open in its task's.
   string event = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 40

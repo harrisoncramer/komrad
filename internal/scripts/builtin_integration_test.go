@@ -1050,6 +1050,8 @@ type worktreeEnv struct {
 	copyPaths    []string
 	symlinkPaths []string
 	pathPrefix   string
+	// noWorktree leaves out the worktree's variables, as for a task that has none.
+	noWorktree bool
 }
 
 func (e worktreeEnv) toEnv() []string {
@@ -1067,14 +1069,18 @@ func (e worktreeEnv) toEnv() []string {
 		"KOMRAD_AGENT_ID=agent-of-" + e.taskID,
 		"KOMRAD_AGENT_CWD=" + e.agentCwd,
 		"KOMRAD_TRIGGER=" + trigger,
-		"KOMRAD_WORKTREE_REPO=" + e.repo,
-		"KOMRAD_WORKTREES_DIR=" + e.worktreesDir,
-		"KOMRAD_WORKTREE_BASE_BRANCH=" + baseBranch,
-		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + e.adoptBranch,
-		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
-		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(e.symlinkPaths, "\n"),
-		"KOMRAD_WORKTREE_NAME=" + e.taskID,
-		"KOMRAD_WORKTREE_BRANCH=task/" + e.taskID,
+	}
+	if !e.noWorktree {
+		env = append(env,
+			"KOMRAD_WORKTREE_REPO="+e.repo,
+			"KOMRAD_WORKTREES_DIR="+e.worktreesDir,
+			"KOMRAD_WORKTREE_BASE_BRANCH="+baseBranch,
+			"KOMRAD_WORKTREE_ADOPT_BRANCH="+e.adoptBranch,
+			"KOMRAD_WORKTREE_COPY_PATHS="+strings.Join(e.copyPaths, "\n"),
+			"KOMRAD_WORKTREE_SYMLINK_PATHS="+strings.Join(e.symlinkPaths, "\n"),
+			"KOMRAD_WORKTREE_NAME="+e.taskID,
+			"KOMRAD_WORKTREE_BRANCH=task/"+e.taskID,
+		)
 	}
 
 	if e.pathPrefix != "" {
@@ -1429,9 +1435,16 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 		checkout    bool
 		dirName     string
 		dockerDown  bool
+		noWorktree  bool
 		wantFreed   bool
 		wantCompose bool
 	}{
+		{
+			name:       "a komrad checkout run for a task with no worktree is left alone",
+			checkout:   true,
+			dirName:    "task-a",
+			noWorktree: true,
+		},
 		{
 			name:        "a komrad checkout gives back its instance and stack",
 			checkout:    true,
@@ -1481,8 +1494,12 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 				agentCwd:   tree,
 				trigger:    "pre-delete",
 				pathPrefix: bin,
+				noWorktree: tt.noWorktree,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
+			if tt.noWorktree {
+				assert.Empty(t, result.Stderr, "a task with no worktree is not even looked at")
+			}
 
 			said, freedErr := os.ReadFile(freed)
 			ran, dockerErr := os.ReadFile(dockered)
@@ -1512,8 +1529,15 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 		name       string
 		checkout   bool
 		dirName    string
+		noWorktree bool
 		wantShrunk bool
 	}{
+		{
+			name:       "a komrad checkout run for a task with no worktree is left alone",
+			checkout:   true,
+			dirName:    "task-a",
+			noWorktree: true,
+		},
 		{
 			name:       "a komrad checkout gives back its instance and drops what it rebuilds",
 			checkout:   true,
@@ -1546,11 +1570,15 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 			}
 
 			result, err := runBuiltin(t, "komrad-checkout-archive", worktreeEnv{
-				taskID:   "task-a",
-				agentCwd: tree,
-				trigger:  "post-archive",
+				taskID:     "task-a",
+				agentCwd:   tree,
+				trigger:    "post-archive",
+				noWorktree: tt.noWorktree,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
+			if tt.noWorktree {
+				assert.Empty(t, result.Stderr, "a task with no worktree is not even looked at")
+			}
 
 			said, freedErr := os.ReadFile(freed)
 			if tt.wantShrunk {

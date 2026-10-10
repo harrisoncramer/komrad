@@ -6,21 +6,21 @@ import (
 	"sync"
 )
 
-// HookQueue orders each agent's hooks one moment at a time.
+// HookQueue orders the hooks queued under each key, an agent's id or a task's, one moment at a time.
 type HookQueue struct {
 	mu    sync.Mutex
 	tails map[string]chan struct{}
 }
 
-// HookTurn is one moment's place in an agent's hook queue.
+// HookTurn is one moment's place in a key's hook queue.
 type HookTurn struct {
-	agentID string
-	ahead   <-chan struct{}
-	done    func()
+	key   string
+	ahead <-chan struct{}
+	done  func()
 }
 
-// QueueHooks takes the next place in an agent's hook queue, which is held until Done.
-func (q *HookQueue) QueueHooks(agentID string) *HookTurn {
+// QueueHooks takes the next place in a key's hook queue, which is held until Done.
+func (q *HookQueue) QueueHooks(key string) *HookTurn {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -28,23 +28,23 @@ func (q *HookQueue) QueueHooks(agentID string) *HookTurn {
 		q.tails = make(map[string]chan struct{})
 	}
 
-	ahead := q.tails[agentID]
+	ahead := q.tails[key]
 	mine := make(chan struct{})
-	q.tails[agentID] = mine
+	q.tails[key] = mine
 
 	release := func() {
 		q.mu.Lock()
 		defer q.mu.Unlock()
 
 		close(mine)
-		if q.tails[agentID] == mine {
-			delete(q.tails, agentID)
+		if q.tails[key] == mine {
+			delete(q.tails, key)
 		}
 	}
 
 	return &HookTurn{
-		agentID: agentID,
-		ahead:   ahead,
+		key:   key,
+		ahead: ahead,
 		done: sync.OnceFunc(func() {
 			if ahead == nil {
 				release()
@@ -65,18 +65,18 @@ func (q *HookQueue) QueueHooks(agentID string) *HookTurn {
 	}
 }
 
-// AwaitHooks waits until every hook already queued for an agent has finished.
-func (q *HookQueue) AwaitHooks(ctx context.Context, agentID string) error {
+// AwaitHooks waits until every hook already queued under a key has finished.
+func (q *HookQueue) AwaitHooks(ctx context.Context, key string) error {
 	q.mu.Lock()
-	tail := q.tails[agentID]
+	tail := q.tails[key]
 	q.mu.Unlock()
 
-	return awaitHooks(ctx, agentID, tail)
+	return awaitHooks(ctx, key, tail)
 }
 
 // Wait waits until every moment queued ahead of this one has finished.
 func (t *HookTurn) Wait(ctx context.Context) error {
-	return awaitHooks(ctx, t.agentID, t.ahead)
+	return awaitHooks(ctx, t.key, t.ahead)
 }
 
 // Done gives up the place, once the moments ahead of it have finished.
@@ -84,7 +84,7 @@ func (t *HookTurn) Done() {
 	t.done()
 }
 
-func awaitHooks(ctx context.Context, agentID string, ahead <-chan struct{}) error {
+func awaitHooks(ctx context.Context, key string, ahead <-chan struct{}) error {
 	if ahead == nil {
 		return nil
 	}
@@ -93,6 +93,6 @@ func awaitHooks(ctx context.Context, agentID string, ahead <-chan struct{}) erro
 	case <-ahead:
 		return nil
 	case <-ctx.Done():
-		return fmt.Errorf("failed to wait for the hooks already running for agent %q: %w", agentID, context.Cause(ctx))
+		return fmt.Errorf("failed to wait for the hooks already running under %q: %w", key, context.Cause(ctx))
 	}
 }

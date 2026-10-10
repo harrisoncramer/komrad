@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -292,6 +293,7 @@ type launchPlan struct {
 	provisioner     string
 	deprovisioner   string
 	hooks           []workflowstore.Hook
+	workflow        *workflowstore.Workflow
 }
 
 func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (*launchPlan, error) {
@@ -347,6 +349,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		provisioner:     provisioner,
 		deprovisioner:   deprovisioner,
 		hooks:           hooksFor(wf, params.ParentAgentID != "", params.ProvisionEnabled),
+		workflow:        wf,
 	}, nil
 }
 
@@ -463,7 +466,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
 	agent.State = agentstore.StateSettingUp
 
-	task, err := s.createUnderCeiling(ctx, creation{
+	placed, err := s.createUnderCeiling(ctx, creation{
 		agent:         &agent,
 		task:          joined,
 		spawner:       spawner,
@@ -488,8 +491,10 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		workflowContext: plan.workflowContext,
 		spawner:         spawner,
 		parent:          parent,
-		task:            task,
 		claimsCheckout:  isCheckoutClaimant(agent, plan.provisioner),
+		workflow:        plan.workflow,
+		task:            placed.task,
+		opensTask:       placed.opensTask,
 	})
 }
 
@@ -502,9 +507,12 @@ type resolvedLaunch struct {
 	workflowContext string
 	spawner         *agentstore.Agent
 	parent          *agentstore.Agent
-	task            *taskstore.Task
 	// claimsCheckout is whether the directory the agent starts in becomes its task's checkout.
 	claimsCheckout bool
+	workflow       *workflowstore.Workflow
+	task           *taskstore.Task
+	// opensTask is whether the agent is the one taking its task from no live agent to one.
+	opensTask bool
 }
 
 func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (*agentstore.Agent, error) {
@@ -550,12 +558,34 @@ func (c *createStart) getDefaultDir(agentstore.Agent) string {
 }
 
 func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) error {
+	if c.resolved.opensTask {
+		if err := runTaskPreHooks(ctx, taskHookParams{
+			scripts:  c.scripts,
+			workflow: c.resolved.workflow,
+			task:     c.openedTask(agent),
+			actor:    &agent,
+			event:    workflowstore.HookTaskPreOpen,
+		}); err != nil {
+			return err
+		}
+	}
+
 	return runPreHooks(ctx, hookRunParams{
 		scripts: c.scripts,
 		agent:   agent,
 		hooks:   c.resolved.hooks,
 		event:   workflowstore.HookPreLaunch,
 	})
+}
+
+// openedTask is the task the agent opens, carrying the checkout it was just given before the row records it.
+func (c *createStart) openedTask(agent agentstore.Agent) taskstore.Task {
+	task := *c.resolved.task
+	if c.resolved.claimsCheckout {
+		task.Checkout.Cwd = agent.Cwd
+	}
+
+	return task
 }
 
 func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
@@ -714,10 +744,17 @@ func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
 	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role != agentstore.RoleOrchestrator && provisioner != ""
 }
 
+// placement is the task an agent was created on, and whether the agent opens it.
+type placement struct {
+	task      *taskstore.Task
+	opensTask bool
+}
+
 // createUnderCeiling writes the agent, and the task it works on when it needs one of its own,
-// returning the task it was created on.
-func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*taskstore.Task, error) {
+// returning where it was placed.
+func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*placement, error) {
 	task := c.task
+	opensTask := false
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
 		taskStore := taskstore.NewTaskStore(db)
@@ -762,6 +799,12 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 			if err := taskStore.LockUndeleted(ctx, *c.agent.TaskID); err != nil {
 				return err
 			}
+
+			live, err := agentStore.ListLiveOnTask(ctx, *c.agent.TaskID)
+			if err != nil {
+				return err
+			}
+			opensTask = isOpening(*c.agent, live)
 		}
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
@@ -778,7 +821,21 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 		return nil, err
 	}
 
-	return task, nil
+	return &placement{
+		task:      task,
+		opensTask: opensTask,
+	}, nil
+}
+
+// isOpening reports whether an agent starting on a task opens it, which it does when no other agent on the task is live.
+func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
+	if agent.TaskID == nil || agent.ParentAgentID != nil {
+		return false
+	}
+
+	return !slices.ContainsFunc(live, func(other agentstore.Agent) bool {
+		return other.ID != agent.ID && other.State != agentstore.StateFailedToCreate
+	})
 }
 
 // claimCheckout records on a task how its checkout is to be made, ahead of the directory the

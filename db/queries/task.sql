@@ -49,7 +49,7 @@ WHERE
     id = sqlc.arg('id')
     AND archived_at IS NULL;
 
--- name: ArchiveIdleTasks :exec
+-- name: ArchiveIdleTasks :many
 UPDATE
     tasks t
 SET
@@ -64,7 +64,9 @@ WHERE
             agents a
         WHERE
             a.task_id = t.id
-            AND a.archived_at IS NULL);
+            AND a.archived_at IS NULL)
+RETURNING
+    t.*;
 
 -- name: RestoreTasks :exec
 UPDATE
@@ -346,7 +348,8 @@ FROM
     tasks
 WHERE
     id = sqlc.arg('id')
-    AND deleting_at IS NULL FOR SHARE;
+    AND deleting_at IS NULL
+FOR NO KEY UPDATE;
 
 -- name: ListUndeletedTaskSlugs :many
 SELECT
