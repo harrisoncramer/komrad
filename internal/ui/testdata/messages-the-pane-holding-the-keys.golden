@@ -6,7 +6,7 @@
 [90m[m[34m[m[90m[m[90m[m    [90mwarning · <landed> · komrad log 91be40c2[m
 [90m[m[90m[m
 [90m[m  [91m✗[m Nothing to review in fix-ci
-[90m[m[1m[m[90m[m    the worktree holds no change against the base, so there is nothing to open a round on.
+[1m[m[90m[m    the worktree holds no change against the base, so there is nothing to open a round on.
 [34m[m[90m[m[90m[m[34m[m[90m[m    commit first, then ask again.
 [90m[m    [90merror · <landed> · komrad log 7c1f2a94[m
 [90m[m

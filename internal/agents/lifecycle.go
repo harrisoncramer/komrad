@@ -16,11 +16,13 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
+	"komrad/internal/tasks"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
@@ -46,6 +48,7 @@ type NewLifecycleServiceParams struct {
 	Screens        screenKeeper
 	LogsDir        string
 	FramesDir      string
+	Tasks          *tasks.TaskService
 	Usage          config.Usage
 }
 
@@ -64,6 +67,7 @@ type LifecycleService struct {
 	logsDir        string
 	framesDir      string
 	usage          config.Usage
+	tasks          *tasks.TaskService
 }
 
 // NewLifecycleService builds the service from its dependencies.
@@ -81,6 +85,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
 		usage:          params.Usage,
+		tasks:          params.Tasks,
 	}
 }
 
@@ -129,10 +134,12 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 
 	hooks := make(map[string][]workflowstore.Hook, len(agents))
 	var torn []agentstore.Agent
+	var deprovisioned []string
 	var failed []error
 	for _, agent := range slices.Backward(agents) {
 		hooks[agent.ID] = agentHooks(ctx, s.workflows, agent)
-		if err := s.tearDown(ctx, agent, hooks[agent.ID]); err != nil {
+		removed, err := s.tearDown(ctx, agent, hooks[agent.ID])
+		if err != nil {
 			s.failCleanup(context.WithoutCancel(ctx), agent, err)
 			failed = append(failed, fmt.Errorf("%w: agent %s: %w", agenterr.ErrTeardownFailed, agent.ID, err))
 
@@ -140,10 +147,17 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 		}
 
 		torn = append(torn, agent)
+		if removed {
+			deprovisioned = append(deprovisioned, agent.ID)
+		}
 	}
 
 	if len(torn) == 0 {
 		return errors.Join(failed...)
+	}
+
+	if err := s.tasks.MarkCheckoutsRemoved(ctx, deprovisioned); err != nil {
+		return err
 	}
 
 	if err := s.removeAgents(ctx, agentstore.IDs(torn)); err != nil {
@@ -191,14 +205,15 @@ func (s *LifecycleService) claimedBy(ctx context.Context, id string, claim time.
 }
 
 // tearDown waits out an agent's hooks still running, runs its pre-delete hooks while its
-// directory is still there, then its deprovisioner, and waits for both.
-func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook) error {
+// directory is still there, then its deprovisioner, and waits for both, reporting whether it
+// deprovisioned.
+func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook) (bool, error) {
 	if s.scripts == nil {
-		return nil
+		return false, nil
 	}
 
 	if err := s.scripts.AwaitHooks(ctx, agent.ID); err != nil {
-		return err
+		return false, err
 	}
 
 	// A hook has nothing to run against once the directory has gone.
@@ -209,13 +224,13 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 			hooks:   hooks,
 			event:   workflowstore.HookPreDelete,
 		}); err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	name := deprovisionerFor(ctx, s.workflows, agent)
 	if name == "" {
-		return nil
+		return false, nil
 	}
 
 	done := make(chan error, 1)
@@ -223,9 +238,9 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 
 	select {
 	case err := <-done:
-		return err
+		return err == nil, err
 	case <-ctx.Done():
-		return ctx.Err()
+		return false, ctx.Err()
 	}
 }
 
@@ -286,13 +301,44 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgen
 		owned:     agents,
 		screens:   s.screens,
 		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
-			return s.agents.Archive(ctx, agentstore.IDs(agents))
+			var taken []agentstore.AgentPane
+			err := s.tx.InTx(ctx, func(db store.DBTX) error {
+				archived, err := agentstore.NewAgentStore(db).Archive(ctx, agentstore.IDs(agents))
+				if err != nil {
+					return err
+				}
+				taken = archived
+
+				return taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(agents))
+			})
+
+			return taken, err
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
 	}
 
 	return nil
+}
+
+// ArchiveTask archives the task an id or a slug names along with the live agents working on it.
+func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
+	found, err := s.tasks.GetTask(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	live, err := s.agents.ListLiveOnTask(ctx, found.ID)
+	if err != nil {
+		return err
+	}
+	if len(live) > 0 {
+		if err := s.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(live)}); err != nil {
+			return err
+		}
+	}
+
+	return s.tasks.ArchiveTask(ctx, found.ID)
 }
 
 // RestoreAgents returns archived agents and their workflows to live listings.
@@ -360,9 +406,12 @@ func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID strin
 				}
 
 				archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, workflowID)
+				if err != nil {
+					return err
+				}
 				taken = archived
 
-				return err
+				return taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(live))
 			})
 
 			return taken, err
@@ -625,7 +674,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 // findRoundRefDir is a checkout of the repository holding an agent's round refs: its own while it
 // stands, else its workflow's directory, which shares the refs of every worktree cut from it.
 func (s *LifecycleService) findRoundRefDir(ctx context.Context, agent agentstore.Agent) string {
-	if agent.Cwd != "" && !agent.WorktreeRemoved {
+	if doesDirExist(agent.Cwd) {
 		return agent.Cwd
 	}
 

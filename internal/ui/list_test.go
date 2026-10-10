@@ -18,7 +18,7 @@ func TestListPageKeys(t *testing.T) {
 		{
 			name:  "a page down is ten rows",
 			press: []string{"ctrl+d"},
-			want:  "  agent10",
+			want:  "├─ agent10",
 		},
 		{
 			name:  "a page past the top lands on the first row",
@@ -28,7 +28,7 @@ func TestListPageKeys(t *testing.T) {
 		{
 			name:  "a page past the bottom lands on the last row",
 			press: []string{"G", "k", "ctrl+d"},
-			want:  "  agent39",
+			want:  "└─ agent39",
 		},
 	}
 
@@ -54,7 +54,7 @@ func TestListScrollKeys(t *testing.T) {
 		{
 			name:   "the agents tree",
 			first:  "everything",
-			second: "  agent00",
+			second: "├─ agent00",
 		},
 		{
 			name:   "the archived agents",

@@ -71,6 +71,7 @@ var declared = []triggeredTable{
 	{Name: "reviews", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "schedule_runs"},
 	{Name: "schedules", Triggers: []rowTrigger{setUpdatedAt}},
+	{Name: "task_pull_requests"},
 	{Name: "tasks", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "workflow_configs", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "workflow_event_prompts"},

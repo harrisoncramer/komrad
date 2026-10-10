@@ -6,6 +6,7 @@ import (
 
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // State is what an agent is doing.
@@ -97,6 +98,9 @@ type Agent struct {
 	HeldAt *time.Time
 	// HeldByAgentID is the agent that took the hold, empty when the panel took it.
 	HeldByAgentID string
+	// TaskID is the task the agent works on, empty for an orchestrator.
+	TaskID   string
+	TaskSlug string
 }
 
 // AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail
@@ -115,7 +119,7 @@ type AgentRow struct {
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
 	// DiffStat is the lines its checkout adds and removes since its base, nil where there is none.
-	DiffStat *agentv1.DiffStat
+	DiffStat *taskv1.DiffStat
 	// ReviewerComments counts the comments reviewer agents left on its work, nil while there
 	// are none to show.
 	ReviewerComments *agentv1.CommentCounts

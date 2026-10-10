@@ -38,7 +38,7 @@ func TestReviewPullRequest(t *testing.T) {
 		pullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
 		pullRequest.MergedAt = xptr.Ptr("2026-09-20T12:00:00Z")
 		pullRequest.HeadSha = "old"
-		server.agent.HeadSha = xptr.Ptr("new")
+		server.task.HeadSha = xptr.Ptr("new")
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readSidebarProse(harness.readFrame()), "fix the greeting")
@@ -206,8 +206,8 @@ func newPullRequestReviewServer(t *testing.T) *reviewServer {
 	t.Helper()
 
 	server := newReviewServer(t)
-	server.agent.RepositoryUrl = xptr.Ptr(repositoryURL)
-	server.agent.Branch = xptr.Ptr("agent/auth")
+	server.task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	server.task.Branch = xptr.Ptr("agent/auth")
 	server.forge = []proto.Message{&pullrequestv1.PullRequest{
 		Id:                "pr-1",
 		RepositoryUrl:     repositoryURL,

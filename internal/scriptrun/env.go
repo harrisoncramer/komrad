@@ -16,6 +16,7 @@ import (
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -162,11 +163,15 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 		"KOMRAD_SHELL=" + s.tmux.GetDefaultShell(),
 	}
 
-	taskEnv, err := s.taskEnv(ctx, agent)
-	if err != nil {
-		return nil, err
+	var task *taskstore.Task
+	if agent.TaskID != nil {
+		found, err := s.tasks.Get(ctx, *agent.TaskID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("failed to read task %q: %w", *agent.TaskID, err)
+		}
+		task = found
 	}
-	env = append(env, taskEnv...)
+	env = append(env, taskEnv(task)...)
 
 	if s.binPath != "" {
 		existing, _ := config.LookupEnv("PATH")
@@ -177,7 +182,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 
 	// An agent that provisions nothing is not handed KOMRAD_WORKTREE_REPO.
 	if workflow != nil && workflow.Worktree.Enabled && !agent.IsProvisionerDisabled() {
-		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
+		worktreeEnv, err := s.worktreeEnv(*workflow, adoptedBranchOf(task))
 		if err != nil {
 			return nil, err
 		}
@@ -189,23 +194,24 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 }
 
 // taskEnv names the task an agent works on, and nothing for one with none.
-func (s *ScriptService) taskEnv(ctx context.Context, agent agentstore.Agent) ([]string, error) {
-	if agent.TaskID == nil {
-		return nil, nil
-	}
-
-	task, err := s.tasks.Get(ctx, *agent.TaskID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read task %q: %w", *agent.TaskID, err)
+func taskEnv(task *taskstore.Task) []string {
+	if task == nil {
+		return nil
 	}
 
 	return []string{
 		"KOMRAD_TASK_ID=" + task.ID,
 		"KOMRAD_TASK_SLUG=" + task.Slug,
-	}, nil
+	}
+}
+
+// adoptedBranchOf is the branch a task's checkout was put on, empty for none.
+func adoptedBranchOf(task *taskstore.Task) string {
+	if task == nil {
+		return ""
+	}
+
+	return task.Checkout.AdoptedBranch
 }
 
 func gitPromptGuardEnv() []string {
@@ -232,7 +238,7 @@ func workflowName(workflow *workflowstore.Workflow) string {
 	return workflow.Name
 }
 
-func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, agent agentstore.Agent) ([]string, error) {
+func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, adoptedBranch string) ([]string, error) {
 	loaded, err := s.load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config: %w", err)
@@ -256,6 +262,6 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, agent agent
 		"KOMRAD_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
 		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
 		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
-		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + agent.AdoptedBranch,
+		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + adoptedBranch,
 	}, nil
 }

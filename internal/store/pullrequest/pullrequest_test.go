@@ -8,6 +8,8 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -51,7 +53,10 @@ func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, bra
 	t.Helper()
 	ctx := t.Context()
 
+	taskID, err := tasktest.Seed(ctx, h.pool.GetDB(), workflowID)
+	require.NoError(t, err)
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:     taskID,
 		Name:       name,
 		Pane:       "%1",
 		State:      agentstore.StateIdle,
@@ -59,9 +64,27 @@ func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, bra
 	}))
 	created, err := h.agents.GetInWorkflow(ctx, workflowID, name)
 	require.NoError(t, err)
-	require.NoError(t, h.agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{RepositoryURL: &repositoryURL, Branch: &branch}))
+	h.setHead(t, created.ID, taskstore.SetHeadParams{RepositoryURL: &repositoryURL, Branch: &branch})
 
 	return created.ID
+}
+
+// setHead records what the cwd syncer would read of the checkout of an agent's task.
+func (h *harness) setHead(t *testing.T, agentID string, params taskstore.SetHeadParams) {
+	t.Helper()
+
+	require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetHead(t.Context(), h.taskOf(t, agentID), params))
+}
+
+// taskOf is the id of the task the agent works on.
+func (h *harness) taskOf(t *testing.T, agentID string) string {
+	t.Helper()
+
+	agent, err := h.agents.GetByID(t.Context(), agentID)
+	require.NoError(t, err)
+	require.NotNil(t, agent.TaskID)
+
+	return *agent.TaskID
 }
 
 func (h *harness) createWorkflow(t *testing.T) string {
@@ -202,12 +225,12 @@ func TestObserveJoinsAgentsToTheirBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), written)
 
-	seen, err := h.ListObservations(ctx, []string{onBranch})
+	seen, err := h.ListObservations(ctx, []string{h.taskOf(t, onBranch)})
 	require.NoError(t, err)
 	require.Len(t, seen, 1)
 	assert.Equal(t, seen[0].FirstSeenAt, seen[0].LastSeenAt)
 
-	none, err := h.ListObservations(ctx, []string{other, onMain, "not-an-id"})
+	none, err := h.ListObservations(ctx, []string{h.taskOf(t, other), h.taskOf(t, onMain), "not-an-id"})
 	require.NoError(t, err)
 	assert.Empty(t, none)
 
@@ -251,11 +274,11 @@ func TestLiveRepositoriesAndSyncTargets(t *testing.T) {
 	require.NoError(t, err)
 	headed := h.createAgent(t, workflow, "g", komrad, "agent/y")
 	repository, branch, head := komrad, "agent/y", "abc"
-	require.NoError(t, h.agents.SetCheckout(ctx, headed, agentstore.SetCheckoutParams{
+	h.setHead(t, headed, taskstore.SetHeadParams{
 		RepositoryURL: &repository,
 		Branch:        &branch,
 		HeadSHA:       &head,
-	}))
+	})
 
 	repositories, err := h.ListLiveRepositories(ctx)
 	require.NoError(t, err)
@@ -381,17 +404,16 @@ func TestListRecipients(t *testing.T) {
 	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
+	parent, err := h.agents.GetByID(ctx, onBranch)
+	require.NoError(t, err)
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:        parent.TaskID,
 		Name:          "child",
 		Pane:          "%2",
 		State:         agentstore.StateIdle,
 		WorkflowID:    workflow,
 		ParentAgentID: &onBranch,
 	}))
-	child, err := h.agents.GetInWorkflow(ctx, workflow, "child")
-	require.NoError(t, err)
-	branch, repository := "agent/x", komrad
-	require.NoError(t, h.agents.SetCheckout(ctx, child.ID, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
 
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)

@@ -117,7 +117,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())
 	require.NotEmpty(t, seeded.agents[gone.ID].GetAgent().GetArchivedAt(), "the archived agent is watched as archived")
 	require.Len(t, seeded.schedules, 1)
-	require.Len(t, seeded.tasks, 1)
+	require.Contains(t, seeded.tasks, fixLogin.ID)
 	require.Equal(t, "fix-login", seeded.agents[working.ID].GetAgent().GetTaskSlug(), "the agent is watched with its task")
 
 	// The stream opens with the snapshot, applied the way the panel applies it.
@@ -145,16 +145,17 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 		},
 		{
-			name: "an agent moves onto a branch and is seen with its pull request",
+			name: "a task's checkout moves onto a branch and its agent is seen with its pull request",
 			write: func(t *testing.T) {
-				require.NoError(t, st.Agents.SetCheckout(ctx, quiet.ID, agentstore.SetCheckoutParams{
+				st.SeedTaskHead(t, quiet.ID, taskstore.SetHeadParams{
 					Branch:        xptr.Ptr("agent/nobody"),
 					RepositoryURL: xptr.Ptr(watchedRepository),
-				}))
+				})
 				_, err := st.PullRequests.Observe(ctx)
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
+				assert.Equal(t, "agent/nobody", stores.tasks[*quiet.TaskID].GetBranch())
 				assert.Equal(t, int32(3), stores.agents[quiet.ID].GetPullRequest().GetNumber())
 			},
 		},
@@ -249,7 +250,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.Len(t, stores.tasks, 2)
+				assert.Len(t, stores.tasks, len(seeded.tasks)+1)
 			},
 		},
 		{
@@ -391,7 +392,10 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	pullRequests, err := st.PullRequests.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
-	repositories, err := st.PullRequestSyncs.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return xptr.Deref(row.RepositoryURL) }))
+	tasks, err := st.Tasks.ListWatched(ctx, nil)
+	require.NoError(t, err)
+
+	repositories, err := st.PullRequestSyncs.ListWatched(ctx, xslice.Map(tasks, func(task taskstore.Task) string { return xptr.Deref(task.Checkout.RepositoryURL) }))
 	require.NoError(t, err)
 
 	reviewStore := reviewstore.NewReviewStore(st.Pool.GetDB())
@@ -407,9 +411,6 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	require.NoError(t, err)
 
 	schedules, err := st.Schedules.ListPage(ctx, 100, nil, false)
-	require.NoError(t, err)
-
-	tasks, err := st.Tasks.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
 	now := time.Now()
@@ -574,12 +575,12 @@ func applyBatch(world *assemble.World, batch client.WatchBatch) {
 	}
 }
 
-// agentOn is a live agent in a workflow whose checkout is on a branch of a repository.
+// agentOn is a live agent in a workflow whose task's checkout is on a branch of a repository.
 func agentOn(t *testing.T, st *storetest.Stores, workflowID, name, repositoryURL, branch string) *agentstore.Agent {
 	t.Helper()
 
 	agent := st.SeedAgent(t, agentstore.Agent{Name: name, WorkflowID: workflowID})
-	require.NoError(t, st.Agents.SetCheckout(t.Context(), agent.ID, agentstore.SetCheckoutParams{RepositoryURL: &repositoryURL, Branch: &branch}))
+	st.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{RepositoryURL: &repositoryURL, Branch: &branch})
 
 	return agent
 }

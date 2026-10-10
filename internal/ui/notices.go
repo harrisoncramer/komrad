@@ -68,8 +68,12 @@ var (
 // list would render so a column the row leaves empty is a column the record says nothing about.
 func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
+	if r.isTask() {
+		item = *r.lead
+	}
 
-	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), describeFailure(item))
+	failure := describeFailure(item)
+	notices := appendNotice(nil, failure != "", glyphs.Spell(glyph.MessageError), paint.ToneDanger, failure)
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeAlertSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
@@ -112,7 +116,7 @@ func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, tex
 	})
 }
 
-// describeFailure says what the status column rendered broken means about how an agent got there.
+// describeFailure says how a broken agent came to be broken.
 func describeFailure(item panel.AgentRow) string {
 	state := displayState(item)
 	if state != panel.StateErrored {

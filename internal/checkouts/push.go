@@ -6,8 +6,8 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/git"
-	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 )
 
@@ -92,7 +92,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	// whether or not whoever asked is still waiting.
 	ctx = context.WithoutCancel(ctx)
 	defer s.checkoutSync.Wake()
-	defer s.heat(*agent)
+	defer s.heat(*target.task)
 
 	sha, err := s.git.Push(ctx, git.PushParams{
 		Dir:    agent.Cwd,
@@ -118,7 +118,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 // planPush reads the checkout and says what a push of it would do, or why it may not have one,
 // reading origin's copy of a finished branch afresh first when refresh is set.
 func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh bool) (*PushPlan, error) {
-	agent, flow := *target.agent, target.workflow
+	agent, checkout, flow := *target.agent, target.task.Checkout, target.workflow
 	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh b
 		return nil, fmt.Errorf("%w: %s", errPushBase, state.Branch)
 	}
 
-	finished, err := s.refuseFinished(ctx, agent, state)
+	finished, err := s.refuseFinished(ctx, target, state)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +149,8 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh b
 	if err != nil {
 		return nil, err
 	}
-	if plan.Forced && agent.AdoptedBranch != "" {
-		return nil, fmt.Errorf("%w: %s", errPushAdoptedForce, agent.AdoptedBranch)
+	if plan.Forced && checkout.AdoptedBranch != "" {
+		return nil, fmt.Errorf("%w: %s", errPushAdoptedForce, checkout.AdoptedBranch)
 	}
 
 	changes, err := s.git.PeekChanges(ctx, agent.Cwd)
@@ -201,13 +201,14 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 
 // refuseFinished turns down a branch whose pull request has merged or closed until the checkout
 // moves past where it ended, and says whether there was such a pull request.
-func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, state git.TreeState) (bool, error) {
-	if agent.RepositoryURL == nil || *agent.RepositoryURL == "" {
+func (s *Service) refuseFinished(ctx context.Context, target checkoutTarget, state git.TreeState) (bool, error) {
+	repository := xptr.Deref(target.task.Checkout.RepositoryURL)
+	if repository == "" {
 		return false, nil
 	}
 
 	listed, err := s.pullRequests.ListPage(ctx, pullrequeststore.ListPageParams{
-		RepositoryURL: *agent.RepositoryURL,
+		RepositoryURL: repository,
 		HeadBranch:    state.Branch,
 		Limit:         1,
 	})
@@ -222,7 +223,7 @@ func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, st
 		return false, fmt.Errorf("%w: %s", errPushFinished, pr.URL)
 	}
 	if pr.MergedAt != nil && pr.HeadSHA != "" {
-		held, err := s.git.HoldsCommit(ctx, agent.Cwd, pr.HeadSHA)
+		held, err := s.git.HoldsCommit(ctx, target.agent.Cwd, pr.HeadSHA)
 		if err != nil {
 			return false, err
 		}
@@ -242,10 +243,10 @@ func pushedMail(pushed pushed) string {
 		pushed.Branch, git.ShortSHA(pushed.SHA))
 }
 
-// heat keeps the pull request sync reading the host the agent's checkout pushes to often for a
+// heat keeps the pull request sync reading the host the task's checkout pushes to often for a
 // while.
-func (s *Service) heat(agent agentstore.Agent) {
-	remote, err := git.ParseRemoteURL(xptr.Deref(agent.RepositoryURL))
+func (s *Service) heat(task taskstore.Task) {
+	remote, err := git.ParseRemoteURL(xptr.Deref(task.Checkout.RepositoryURL))
 	if err != nil || remote.Host == "" {
 		return
 	}

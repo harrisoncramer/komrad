@@ -25,6 +25,8 @@ import (
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
+	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -50,6 +52,7 @@ type api struct {
 	forges       forgev1connect.ForgeServiceClient
 	pullRequests pullrequestv1connect.PullRequestServiceClient
 	loops        loopv1connect.LoopServiceClient
+	tasks        taskv1connect.TaskServiceClient
 }
 
 // reads is the half of the service a screen reads through.
@@ -129,6 +132,9 @@ type createAgentParams struct {
 	ProvisionEnabled *bool
 	WorkflowID       string
 	ParentAgentID    string
+	Task             string
+	TaskSlug         string
+	TaskGoal         string
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
@@ -141,6 +147,9 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
 			ParentAgentId:    nilIfBlank(params.ParentAgentID),
+			Task:             nilIfBlank(params.Task),
+			TaskSlug:         nilIfBlank(params.TaskSlug),
+			TaskGoal:         params.TaskGoal,
 		}))
 		if err != nil {
 			return nil, err
@@ -180,6 +189,12 @@ func (a api) adopt(params adoptParams) (*agentv1.AdoptResponse, error) {
 func (a api) archiveAgents(ids []string) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		return a.agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+	})
+}
+
+func (a api) archiveTask(id string) error {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
+		return a.tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: id}))
 	})
 }
 

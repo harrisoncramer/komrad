@@ -485,8 +485,11 @@ func (m *model) placeFilteredCursor(hovered string) {
 }
 
 // agentRowName is the text a search reads a row of the tree by: the workflow's own name on a
-// header, the agent's on a row.
+// header, the slug on a task, the agent's on a row.
 func agentRowName(row agentRow) string {
+	if row.isTask() {
+		return row.task.Slug
+	}
 	if row.header {
 		return row.workflow.Name
 	}
@@ -494,17 +497,25 @@ func agentRowName(row agentRow) string {
 	return row.item.Agent.Name
 }
 
-// agentRowDepth is how far a row of the tree is indented: a header, an agent under it, or a
-// child under that.
+// agentRowDepth is how far a row of the tree is indented: a header, an agent or a task under it,
+// an agent under the task, or a child under an agent.
 func agentRowDepth(row agentRow) int {
 	switch {
+	case row.isTask():
+		return 1
 	case row.header:
 		return 0
-	case row.child:
-		return 2
 	}
 
-	return 1
+	depth := 1
+	if row.child {
+		depth++
+	}
+	if row.underTask {
+		depth++
+	}
+
+	return depth
 }
 
 type narrowedParams[T any] struct {

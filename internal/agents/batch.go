@@ -7,6 +7,7 @@ import (
 	"komrad/internal/store"
 
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -113,7 +114,11 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 			return err
 		}
 
-		return params.restore(ctx, db)
+		if err := params.restore(ctx, db); err != nil {
+			return err
+		}
+
+		return taskstore.NewTaskStore(db).Restore(ctx, agentstore.TaskIDs(restoring))
 	})
 	if err != nil {
 		return err

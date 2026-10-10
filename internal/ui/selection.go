@@ -13,6 +13,8 @@ type rowRef struct {
 	key    string
 	header bool
 	group  string
+	// task is the key of the task the row is a header of or sits under, empty off a task.
+	task string
 }
 
 type selection struct {
@@ -41,7 +43,7 @@ func (s selection) toggle(refs []rowRef, cursor int) selection {
 		return s.with(ref.key)
 	}
 
-	keys := groupKeys(refs, ref.group)
+	keys := groupKeys(refs, ref)
 	if len(keys) == 0 {
 		return s
 	}
@@ -130,11 +132,13 @@ func (s selection) without(keys ...string) selection {
 	return selection{keys: next}
 }
 
-// groupKeys is every row under one header.
-func groupKeys(refs []rowRef, group string) []string {
+// groupKeys is every row under one header, which for a task header is the rows on its task.
+func groupKeys(refs []rowRef, header rowRef) []string {
 	var keys []string
 	for _, r := range refs {
-		if !r.header && r.group == group {
+		underTask := header.task != "" && r.task == header.task
+		underWorkflow := header.task == "" && r.group == header.group
+		if !r.header && (underTask || underWorkflow) {
 			keys = append(keys, r.key)
 		}
 	}
@@ -144,13 +148,24 @@ func groupKeys(refs []rowRef, group string) []string {
 
 // refsOf is the tree as the selection sees it.
 func refsOf(rows []agentRow) []rowRef {
-	return xslice.Map(rows, func(row agentRow) rowRef {
-		return rowRef{
+	refs := make([]rowRef, 0, len(rows))
+	var task string
+	for _, row := range rows {
+		switch {
+		case row.isTask():
+			task = rowKey(row)
+		case !row.underTask:
+			task = ""
+		}
+		refs = append(refs, rowRef{
 			key:    toTreeRowKey(rowKey(row)),
 			header: row.header,
 			group:  workflowRowKey(row.workflow.ID),
-		}
-	})
+			task:   task,
+		})
+	}
+
+	return refs
 }
 
 func chosenAgents(sel selection, rows []agentRow) []panel.Agent {

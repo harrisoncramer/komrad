@@ -1,0 +1,192 @@
+---
+import type { SidebarGroup } from "../sidebar";
+
+type Props = {
+  label: string;
+  groups: SidebarGroup[];
+};
+
+const { label, groups } = Astro.props;
+---
+
+<nav class="sidebar-nav" aria-label={label} data-pagefind-ignore>
+  {groups.map((group) => (
+    <div>
+      <p class="group-title">{group.title}</p>
+      <ul>
+        {group.items.map((item) => (
+          <li>
+            <a
+              class={item.section ? "section" : "item"}
+              href={item.href}
+              data-section={item.section}
+              aria-current={item.isCurrent ? "page" : undefined}
+            >
+              {item.label}
+            </a>
+            {item.children && item.children.length > 0 && (
+              <ul class="children">
+                {item.children.map((child) => (
+                  <li>
+                    <a
+                      class="section"
+                      href={child.href}
+                      data-section={child.section}
+                      aria-current={child.isCurrent ? "page" : undefined}
+                    >
+                      {child.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  ))}
+</nav>
+
+<script is:inline>
+  (() => {
+    const nav = document.currentScript.previousElementSibling;
+    const scroller = nav.closest(".sidebar");
+    if (!scroller) return;
+    const key = `sidebar-scroll:${nav.getAttribute("aria-label")}`;
+    const offset = (anchor) => anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    const outOfView = (anchor) => offset(anchor) < 0 || offset(anchor) + anchor.offsetHeight > scroller.clientHeight;
+    const takeSaved = () => {
+      try {
+        const saved = sessionStorage.getItem(key);
+        sessionStorage.removeItem(key);
+        return saved ? JSON.parse(saved) : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const save = (value) => {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(value));
+      } catch {
+        return;
+      }
+    };
+    const saved = takeSaved();
+    const anchors = [...nav.querySelectorAll("a[href]")];
+    const clicked = saved && anchors.find((anchor) => anchor.getAttribute("href") === saved.href);
+    if (clicked) scroller.scrollTop += offset(clicked) - saved.top;
+    const current = nav.querySelector('a[aria-current="page"]');
+    if (current && outOfView(current)) {
+      scroller.scrollTop += offset(current) - scroller.clientHeight / 2;
+    }
+    nav.addEventListener("click", (event) => {
+      const anchor = event.target.closest("a[href]");
+      const href = anchor?.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      save({ href, top: offset(anchor) });
+    });
+  })();
+</script>
+
+<style>
+  @reference "../styles/global.css";
+
+  .sidebar-nav {
+    @apply flex flex-col gap-6 text-sm wrap-anywhere;
+  }
+
+  .group-title {
+    @apply mb-2 text-base font-semibold text-app-gray-light;
+  }
+
+  .item {
+    @apply block rounded-xs border-l-2 border-transparent py-1 pl-3 text-app-gray-dim no-underline transition-colors hover:text-app-gray-light;
+  }
+
+  .item[aria-current="page"] {
+    @apply border-app-blue text-app-blue;
+  }
+
+  .children {
+    @apply mt-1 mb-2 ml-3 flex flex-col border-l border-app-background-medium;
+  }
+
+  .section {
+    @apply -ml-px block border-l border-transparent py-1 pl-3 text-app-gray-dim no-underline transition-colors hover:text-app-gray-light;
+  }
+
+  .section:is([aria-current="page"], [aria-current="location"]) {
+    @apply border-app-blue text-app-blue;
+  }
+</style>
+
+<script>
+  const links = new Map(
+    [...document.querySelectorAll<HTMLAnchorElement>(".sidebar-nav [data-section]")].map((anchor) => [
+      anchor.dataset.section,
+      anchor,
+    ]),
+  );
+  const headings = [...links.keys()]
+    .map((id) => id && document.getElementById(id))
+    .filter((heading) => heading instanceof HTMLElement);
+
+  const READ_LINE = 120;
+  const BOTTOM_SLACK = 4;
+
+  let pinned: string | undefined;
+  let hasHandScrolled = false;
+
+  const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - BOTTOM_SLACK;
+
+  const activeId = () => {
+    if (pinned) return pinned;
+    if (atBottom()) return headings.at(-1)?.id;
+    return headings.filter((heading) => heading.getBoundingClientRect().top <= READ_LINE).at(-1)?.id;
+  };
+
+  const writeHash = (active: string | undefined) => {
+    const hash = active ? `#${active}` : "";
+    if (decodeURIComponent(location.hash) === hash) return;
+    history.replaceState(history.state, "", `${location.pathname}${location.search}${hash}`);
+  };
+
+  const mark = () => {
+    const active = activeId();
+    for (const [id, anchor] of links) {
+      if (id === active) anchor.setAttribute("aria-current", "location");
+      else anchor.removeAttribute("aria-current");
+    }
+    if (hasHandScrolled) writeHash(active);
+  };
+
+  const unpin = () => {
+    pinned = undefined;
+    hasHandScrolled = true;
+  };
+
+  const followHash = () => {
+    hasHandScrolled = false;
+    pinned = headings.find((heading) => `#${heading.id}` === decodeURIComponent(location.hash))?.id;
+  };
+
+  if (headings.length > 0) {
+    followHash();
+    window.addEventListener("hashchange", () => {
+      followHash();
+      mark();
+    });
+    for (const [id, anchor] of links) {
+      anchor.addEventListener("click", () => {
+        pinned = id;
+        hasHandScrolled = false;
+        mark();
+      });
+    }
+    for (const event of ["wheel", "touchmove", "keydown", "mousedown"]) {
+      window.addEventListener(event, unpin, { passive: true });
+    }
+    document.addEventListener("scroll", mark, { passive: true });
+    mark();
+  }
+</script>

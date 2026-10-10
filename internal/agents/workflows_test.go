@@ -14,6 +14,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xslice"
@@ -632,7 +633,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			}
 
 			if tt.takeName {
-				require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 					Name:       "agent",
 					State:      agentstore.StateIdle,
 					Harness:    harnesstest.FakeID,
@@ -790,7 +791,7 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	require.NoError(t, err)
 
 	for range 2 {
-		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 			Name:       "agent",
 			State:      agentstore.StateIdle,
 			Harness:    harnesstest.FakeID,
@@ -1175,4 +1176,23 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 			assert.Equal(t, tt.want, stored.EventPrompts, "an update cleans them the same")
 		})
 	}
+}
+
+// TestArchivingAWorkflowTakesItsTasks pins that a workflow's tasks go to the archive with it and come back with it.
+func TestArchivingAWorkflowTakesItsTasks(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	workflows := newWorkflowService(st, tmux)
+	ctx := t.Context()
+	workflow, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
+	require.NoError(t, err)
+	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+	seedOnTask(t, st, workflow.ID, "author", work.ID)
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, workflow.ID))
+	require.True(t, isTaskArchived(t, st, work.ID), "the task went with its workflow")
+
+	_, err = workflows.RestoreWorkflow(ctx, workflow.ID)
+	require.NoError(t, err)
+	assert.False(t, isTaskArchived(t, st, work.ID), "and came back with it")
 }

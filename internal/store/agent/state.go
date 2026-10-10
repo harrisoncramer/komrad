@@ -2,14 +2,11 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
-	"komrad/lib/xptr"
 )
 
 // ClaimNudge takes the right to tell an agent about waiting mail, checking and stamping in
@@ -132,54 +129,6 @@ func (s *AgentStore) MarkSettingUpIfFailedToCreate(ctx context.Context, id strin
 	return len(marked) > 0, nil
 }
 
-// SetCheckoutParams is what the cwd syncer read of an agent's checkout.
-type SetCheckoutParams struct {
-	// Branch is the branch checked out at the cwd, nil when git names none.
-	Branch *string
-	// RepositoryURL is the repository the cwd pushes to, nil when it names none.
-	RepositoryURL *string
-	// HeadSHA is the commit checked out at the cwd, nil when git reads none.
-	HeadSHA *string
-	// WorktreeRemoved says the cwd no longer exists on disk.
-	WorktreeRemoved bool
-	// Sequence is what git has part-way through the checkout.
-	Sequence Sequence
-}
-
-// SetCheckout records what the cwd syncer read of an agent's checkout.
-func (s *AgentStore) SetCheckout(ctx context.Context, id string, params SetCheckoutParams) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	err := s.queries.SetAgentCheckoutByID(ctx, models.SetAgentCheckoutByIDParams{
-		ID:              id,
-		Branch:          params.Branch,
-		RepositoryUrl:   params.RepositoryURL,
-		HeadSha:         params.HeadSHA,
-		WorktreeRemoved: params.WorktreeRemoved,
-		Sequence:        models.AgentSequence(params.Sequence.orNone()),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to set the checkout for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
-// SetSequenceByID records what git has part-way through an agent's checkout.
-func (s *AgentStore) SetSequenceByID(ctx context.Context, id string, sequence Sequence) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
-	}
-
-	if err := s.queries.SetAgentSequenceByID(ctx, models.SetAgentSequenceByIDParams{ID: id, Sequence: models.AgentSequence(sequence.orNone())}); err != nil {
-		return fmt.Errorf("failed to set the sequence for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
 // SetInterruptedAtByID records when an agent's conversation was cut off part-way through a
 // turn.
 func (s *AgentStore) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
@@ -290,41 +239,6 @@ func (s *AgentStore) SetAlive(ctx context.Context, ids []string, alive bool) err
 	return nil
 }
 
-// SetMovedSinceRound records the newest round's snapshot the worktree has moved away from, or
-// clears it with an empty one.
-func (s *AgentStore) SetMovedSinceRound(ctx context.Context, id, snapshotSHA string) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	if err := s.queries.SetAgentMovedSinceRound(ctx, models.SetAgentMovedSinceRoundParams{
-		ID:              id,
-		MovedSinceRound: snapshotSHA,
-	}); err != nil {
-		return fmt.Errorf("failed to set the round moved since for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
-// SetDiffStat records the lines the agent's checkout adds and removes, or clears them with nil.
-func (s *AgentStore) SetDiffStat(ctx context.Context, id string, stat *DiffStat) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	params := models.SetAgentDiffStatByIDParams{ID: id}
-	if stat != nil {
-		params.LinesAdded, params.LinesRemoved = xptr.Ptr(int32(stat.Added)), xptr.Ptr(int32(stat.Removed))
-	}
-
-	if err := s.queries.SetAgentDiffStatByID(ctx, params); err != nil {
-		return fmt.Errorf("failed to set the diff stat for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
 type ForgetPaneParams struct {
 	ID            string
 	Pane          string
@@ -352,34 +266,4 @@ func (s *AgentStore) ForgetPane(ctx context.Context, params ForgetPaneParams) (b
 	}
 
 	return len(forgotten) > 0, nil
-}
-
-// SetLastRebaseByID records what the latest rebase of an agent's checkout came to.
-func (s *AgentStore) SetLastRebaseByID(ctx context.Context, id string, rebase json.RawMessage) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	if err := s.queries.SetAgentLastRebaseByID(ctx, models.SetAgentLastRebaseByIDParams{ID: id, LastRebase: rebase}); err != nil {
-		return fmt.Errorf("failed to set last_rebase for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
-// GetLastRebaseByID reads what the latest rebase of an agent's checkout came to, nil when it was never rebased.
-func (s *AgentStore) GetLastRebaseByID(ctx context.Context, id string) (json.RawMessage, error) {
-	if !store.IsID(id) {
-		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	rebase, err := s.queries.GetAgentLastRebaseByID(ctx, id)
-	if db.IsNoRows(err) {
-		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last_rebase for id %q: %w", id, err)
-	}
-
-	return rebase, nil
 }

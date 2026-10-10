@@ -10,6 +10,7 @@ import (
 	"komrad/internal/tmuxtest"
 
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xpath"
 	"komrad/lib/xptr"
@@ -94,17 +95,20 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			created := adoption.Agent
 
 			stored := agentByID(t, st, created.ID)
-			assert.Equal(t, "someones/work", stored.AdoptedBranch, "the branch it was put on is recorded as asked for")
+			checkout := checkoutOf(t, st, created.ID)
 			assert.Contains(t, stored.Prompt, "someones/work", "the agent is told what it walked into")
 			assert.Contains(t, stored.Prompt, "look at it", "and still asked to do what it was asked to do")
-			assert.Equal(t, xptr.Ptr("someones/work"), stored.Branch, "the branch is on the row before the cwd sync reads the checkout")
-			assert.Equal(t, xptr.Ptr("github.com/someone/repo"), stored.RepositoryURL, "and so is the repository it pushes to")
 
 			if tt.wantOwnWorktree {
 				assert.Nil(t, stored.ProvisionEnabled, "the workflow's own worktree is the one it gets")
+				assert.Equal(t, "someones/work", checkout.AdoptedBranch, "the branch it was put on is recorded as asked for")
+				assert.Equal(t, xptr.Ptr("someones/work"), checkout.Branch, "the branch is on the task before the cwd sync reads the checkout")
+				assert.Equal(t, xptr.Ptr("github.com/someone/repo"), checkout.RepositoryURL, "and so is the repository it pushes to")
 
 				return
 			}
+
+			assert.Empty(t, checkout.AdoptedBranch, "a checkout somebody else made is not the task's")
 
 			assert.True(t, xpath.IsSameDir(elsewhere, stored.Cwd), "the agent is launched into the checkout that already holds the branch")
 			require.NotNil(t, stored.ProvisionEnabled)
@@ -157,12 +161,14 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 			manager.withWorktrees(&gittest.Checkout{Registered: []git.Worktree{{Dir: repo}, {Dir: sitting, Branch: tt.branch}}})
 
 			require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
-				Name:          "sitting",
-				Cwd:           sitting,
-				State:         agentstore.StateIdle,
-				WorkflowID:    workflow,
-				AdoptedBranch: tt.adoptedBranch,
+				Name:       "sitting",
+				Cwd:        sitting,
+				State:      agentstore.StateIdle,
+				WorkflowID: workflow,
 			}))
+			if tt.adoptedBranch != "" {
+				st.seedAdopted(t, "sitting", tt.adoptedBranch)
+			}
 			if tt.archived {
 				require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
 			}
@@ -199,13 +205,13 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetCheckout(t.Context(), first.Agent.ID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
+	st.SeedTaskHead(t, first.Agent.ID, taskstore.SetHeadParams{WorktreeRemoved: true})
 
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.Agent.ID, second.Agent.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
-	assert.Equal(t, "someones/work", agentByID(t, st, second.Agent.ID).AdoptedBranch)
+	assert.Equal(t, "someones/work", checkoutOf(t, st, second.Agent.ID).AdoptedBranch)
 }
 
 // TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory pins that a checkout deleted by hand
@@ -223,19 +229,19 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	manager.withWorktrees(&gittest.Checkout{Registered: []git.Worktree{{Dir: repo}, {Dir: sitting, Branch: "someones/work"}}})
 
 	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
-		Name:          "sitting",
-		Cwd:           sitting,
-		State:         agentstore.StateIdle,
-		WorkflowID:    workflow,
-		AdoptedBranch: "someones/work",
+		Name:       "sitting",
+		Cwd:        sitting,
+		State:      agentstore.StateIdle,
+		WorkflowID: workflow,
 	}))
+	st.seedAdopted(t, "sitting", "someones/work")
 	require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
 
 	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
 	stored := agentByID(t, st, created.Agent.ID)
-	assert.Equal(t, "someones/work", stored.AdoptedBranch)
+	assert.Equal(t, "someones/work", checkoutOf(t, st, created.Agent.ID).AdoptedBranch)
 	assert.Nil(t, stored.ProvisionEnabled, "a worktree of its own is made rather than the directory that is not there")
 }
 

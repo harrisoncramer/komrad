@@ -24,17 +24,16 @@ func (w *worktreesScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	rows := w.rows(m)
 
 	return worktreesSnapshot(worktreesSnapshotParams{
-		rows:       rows,
-		items:      w.shown(),
-		selected:   w.selected,
-		focused:    rowKeyAt(rows, w.cursor),
-		live:       m.listing.agents,
-		flat:       w.sort.flat,
-		caret:      pane.caret,
-		blinkedOut: pane.blinkedOut,
-		matcher:    m.filter.pattern,
-		pane:       pane.width,
-		now:        time.Now(),
+		rows:     rows,
+		items:    w.shown(),
+		selected: w.selected,
+		focused:  rowKeyAt(rows, w.cursor),
+		live:     m.listing.agents,
+		flat:     w.sort.flat,
+		caret:    pane.caret,
+		matcher:  m.filter.pattern,
+		pane:     pane.width,
+		now:      time.Now(),
 	})
 }
 

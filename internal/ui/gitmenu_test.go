@@ -12,6 +12,7 @@ import (
 	forgev1 "komrad/proto/gen/forge/v1"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
@@ -599,7 +600,7 @@ func TestGitMenuAborts(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		sequence    agentv1.Sequence
+		sequence    taskv1.Sequence
 		noun        string
 		refuse      error
 		press       []string
@@ -625,7 +626,7 @@ func TestGitMenuAborts(t *testing.T) {
 		},
 		{
 			name:        "an operation a newer server added is offered and named neutrally",
-			sequence:    agentv1.Sequence(99),
+			sequence:    taskv1.Sequence(99),
 			noun:        "git operation",
 			press:       []string{"y"},
 			wantAborts:  []proto.Message{abort},
@@ -637,12 +638,12 @@ func TestGitMenuAborts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sequence, noun := agentv1.Sequence_SEQUENCE_REBASE, "rebase"
-			if tt.sequence != agentv1.Sequence_SEQUENCE_UNSPECIFIED {
+			sequence, noun := taskv1.Sequence_SEQUENCE_REBASE, "rebase"
+			if tt.sequence != taskv1.Sequence_SEQUENCE_UNSPECIFIED {
 				sequence, noun = tt.sequence, tt.noun
 			}
 			rows := buildGitAgent()
-			rows[1].(*agentv1.Agent).Sequence = sequence
+			rows[2].(*taskv1.Task).Sequence = sequence
 
 			harness := openGitMenu(t, rows...)
 			harness.answer(agentv1connect.AgentServiceAbortSequenceProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
@@ -888,9 +889,10 @@ func openGitMenu(t *testing.T, rows ...proto.Message) *panelHarness {
 }
 
 func buildGitAgent() []proto.Message {
-	agent := newBranchAgent("a1", "api", "agent/a1")
+	agent, task := newBranchAgent("a1", "api", "agent/a1")
 	agent.Cwd = "/trees/a1"
-	agent.HeadSha = xptr.Ptr("new")
+	task.Cwd = xptr.Ptr("/trees/a1")
+	task.HeadSha = xptr.Ptr("new")
 
 	return []proto.Message{
 		&workflowv1.Workflow{
@@ -899,6 +901,7 @@ func buildGitAgent() []proto.Message {
 			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		},
 		agent,
+		task,
 	}
 }
 
@@ -940,7 +943,7 @@ func newCurrentMergedPullRequest() *pullrequestv1.PullRequest {
 
 func buildRebasingGitAgent() []proto.Message {
 	rows := buildGitAgent()
-	rows[1].(*agentv1.Agent).Sequence = agentv1.Sequence_SEQUENCE_REBASE
+	rows[2].(*taskv1.Task).Sequence = taskv1.Sequence_SEQUENCE_REBASE
 
 	return rows
 }

@@ -14,6 +14,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 )
 
@@ -65,6 +66,9 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 		}),
 		ReviewThreads: xslice.KeyBy(xslice.Map(surroundings.ReviewThreads, render.WatchedReviewThread), func(thread *agentv1.ReviewThread) string {
 			return thread.GetId()
+		}),
+		Tasks: xslice.KeyBy(xslice.Map(surroundings.Tasks, render.Task), func(task *taskv1.Task) string {
+			return task.GetId()
 		}),
 	}, nil
 }

@@ -3,10 +3,12 @@ import DocPage from "../../layouts/DocPage.astro";
 import IndexList from "../../components/reference/IndexList.astro";
 import Heading from "../../components/reference/Heading.astro";
 import JumpBar from "../../components/reference/JumpBar.astro";
+import Sidebar from "../../components/Sidebar.astro";
 import { codeTheme } from "../../code-theme.mjs";
 import { Code } from "astro:components";
-import { api, prose } from "../../reference";
+import { api } from "../../reference";
 import { link } from "../../site";
+import { API_SECTIONS, apiSidebar } from "../../sidebar";
 
 const request = `POST /agent.v1.AgentService/GetAgent
 Content-Type: application/json
@@ -45,15 +47,8 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
   title="API"
   description="Every endpoint the service answers, and how to reach it over Connect, from the CLI, and as an MCP tool."
 >
-  <JumpBar
-    items={[
-      { href: "#requests", label: "Requests" },
-      { href: "#responses", label: "Responses" },
-      { href: "#pagination", label: "Pagination" },
-      { href: "#errors", label: "Errors" },
-      ...api.services.map((service) => ({ href: `#${service.slug}`, label: service.title })),
-    ]}
-  />
+  <Sidebar slot="sidebar" label="API" groups={apiSidebar()} />
+  <JumpBar items={API_SECTIONS.map(({ id, label }) => ({ href: `#${id}`, label }))} />
 
   <section class="convention">
     <Heading id="requests">Requests</Heading>
@@ -184,21 +179,12 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
     </p>
   </section>
 
-  {api.services.map((service) => (
-    <section class="service">
-      <Heading id={service.slug}>
-        <a href={link(`/api/${service.slug}`)}>{service.title}</a>
-      </Heading>
-      <div class="service-description" set:html={prose(service.description)} />
+  <div class="lg:hidden">
+    <section class="convention">
+      <Heading id="services">Services</Heading>
       <IndexList
-        rows
-        items={service.methods.map((method) => ({
-          href: link(`/api/${service.slug}/${method.slug}`),
-          title: method.tool,
-          summary: method.summary,
-          id: `${service.slug}-${method.slug}`,
-        }))}
+        items={api.services.map((service) => ({ href: link(`/api/${service.slug}`), title: service.title }))}
       />
     </section>
-  ))}
+  </div>
 </DocPage>

@@ -357,9 +357,6 @@ INSERT INTO agents(
     spawned_by_agent_id,
     requested_by_agent_id,
     parent_agent_id,
-    adopted_branch,
-    branch,
-    repository_url,
     role,
     task_id)
 VALUES (
@@ -381,9 +378,6 @@ VALUES (
     sqlc.narg('spawned_by_agent_id'),
     sqlc.narg('requested_by_agent_id'),
     sqlc.narg('parent_agent_id'),
-    @adopted_branch,
-    sqlc.narg('branch'),
-    sqlc.narg('repository_url'),
     @role,
     sqlc.narg('task_id'))
 RETURNING
@@ -563,6 +557,17 @@ WHERE
 ORDER BY
     id DESC;
 
+-- name: ListLiveTaskAgents :many
+SELECT
+    *
+FROM
+    agents
+WHERE
+    task_id = sqlc.arg('task_id')
+    AND archived_at IS NULL
+ORDER BY
+    id DESC;
+
 -- name: MarkWorkflowAgentsRestored :exec
 UPDATE
     agents a
@@ -721,26 +726,6 @@ WHERE
 RETURNING
     id;
 
--- name: SetAgentCheckoutByID :exec
-UPDATE
-    agents
-SET
-    branch = sqlc.narg('branch'),
-    repository_url = sqlc.narg('repository_url'),
-    head_sha = sqlc.narg('head_sha'),
-    worktree_removed = @worktree_removed,
-    "sequence" = @sequence
-WHERE
-    id = @id;
-
--- name: SetAgentSequenceByID :exec
-UPDATE
-    agents
-SET
-    "sequence" = @sequence
-WHERE
-    id = @id;
-
 -- name: SetAgentInterruptedAtByID :exec
 UPDATE
     agents
@@ -841,23 +826,6 @@ SET
     alive = @alive
 WHERE
     id = ANY (@ids::uuid[]);
-
--- name: SetAgentMovedSinceRound :exec
-UPDATE
-    agents
-SET
-    moved_since_round = @moved_since_round
-WHERE
-    id = @id;
-
--- name: SetAgentDiffStatByID :exec
-UPDATE
-    agents
-SET
-    lines_added = sqlc.narg('lines_added'),
-    lines_removed = sqlc.narg('lines_removed')
-WHERE
-    id = @id;
 
 -- name: SetAgentHidden :many
 UPDATE
@@ -1279,17 +1247,19 @@ WHERE
 
 -- name: ListAgentDirs :many
 SELECT
-    id,
-    name,
-    cwd,
-    state,
-    state_changed_at,
-    archived_at,
-    deleting_at,
-    adopted_branch,
-    workflow_id
+    a.id,
+    a.name,
+    a.cwd,
+    a.state,
+    a.state_changed_at,
+    a.archived_at,
+    a.deleting_at,
+    a.workflow_id,
+    COALESCE(t.adopted_branch IS NOT NULL
+        AND t.cwd = a.cwd, FALSE)::boolean AS adopted
 FROM
-    agents;
+    agents a
+    LEFT JOIN tasks t ON t.id = a.task_id;
 
 -- name: GetWorkflowOrchestratorID :one
 SELECT
@@ -1300,22 +1270,6 @@ WHERE
     s.workflow_id = @workflow_id
     AND s.role = 'orchestrator'
 LIMIT 1;
-
--- name: SetAgentLastRebaseByID :exec
-UPDATE
-    agents
-SET
-    last_rebase = @last_rebase
-WHERE
-    id = @id;
-
--- name: GetAgentLastRebaseByID :one
-SELECT
-    last_rebase
-FROM
-    agents
-WHERE
-    id = @id;
 
 -- name: SetAgentTaskID :execrows
 UPDATE

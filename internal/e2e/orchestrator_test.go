@@ -41,7 +41,7 @@ func TestIntegrationOrchestrator(t *testing.T) {
 		assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, orchestrator.GetRole())
 		assert.Equal(t, workflowID, orchestrator.GetWorkflowId())
 		assert.Equal(t, workflowID, filepath.Base(orchestrator.GetCwd()), "it runs in a scratch directory named for its workflow")
-		assert.Empty(t, orchestrator.GetBranch(), "it is given no worktree")
+		assert.Nil(t, orchestrator.TaskId, "it is on no task, so it is given no worktree")
 
 		instance.WaitForHarness(orchestrator.GetId())
 	})

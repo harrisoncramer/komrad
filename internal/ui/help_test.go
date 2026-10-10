@@ -66,7 +66,7 @@ func TestHelp(t *testing.T) {
 		for height := 8; height <= defaultHarnessHeight; height++ {
 			resize(harness, defaultHarnessWidth, height)
 
-			assert.Equal(t, "  api-refactor", readHoveredRow(harness.readFrame()), "the list keeps its row at height %d", height)
+			assert.Equal(t, "├─ api-refactor", readHoveredRow(harness.readFrame()), "the list keeps its row at height %d", height)
 		}
 
 		assert.Contains(t, readLegend(harness.readFrame()), "hide help", "a tall pane renders the legend whole")

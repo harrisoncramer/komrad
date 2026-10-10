@@ -99,7 +99,7 @@ func TestRenameField(t *testing.T) {
 		harness.press("j", "r")
 
 		frame := harness.readFrame()
-		assert.Equal(t, "  author▏", readHoveredRow(frame))
+		assert.Equal(t, "└─ author▏", readHoveredRow(frame))
 		assert.Contains(t, readLegend(frame), "enter save")
 		assert.Contains(t, readLegend(frame), "esc cancel")
 		assert.NotContains(t, frame, "enter submit", "no form opens")
@@ -112,7 +112,7 @@ func TestRenameField(t *testing.T) {
 		harness.press("j", "r")
 		harness.send(tea.PasteMsg{Content: "-a\nb"})
 
-		assert.Equal(t, "  author-a b▏", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ author-a b▏", readHoveredRow(harness.readFrame()))
 	})
 
 	t.Run("esc puts the name back and the keys go back to the list", func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestRenameField(t *testing.T) {
 		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"esc", "k"})...)
 
 		assert.Equal(t, "api", readHoveredRow(harness.readFrame()))
-		assert.Contains(t, readListRows(harness.readFrame()), "  author")
+		assert.Contains(t, readListRows(harness.readFrame()), "└─ author")
 	})
 
 	t.Run("a row that leaves the list holds the keys until esc or enter and says it is gone", func(t *testing.T) {
@@ -145,7 +145,7 @@ func TestRenameField(t *testing.T) {
 
 		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor(), newAgent("a2", "another", "w1")))
 
-		assert.Equal(t, "  author-v2▏", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ author-v2▏", readHoveredRow(harness.readFrame()))
 	})
 
 	t.Run("the field takes no keys while the name is being saved", func(t *testing.T) {
@@ -153,7 +153,7 @@ func TestRenameField(t *testing.T) {
 		harness.hold(agentv1connect.AgentServiceUpdateAgentProcedure)
 
 		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter", "x", "k"})...)
-		assert.Equal(t, "  author-v2", readHoveredRow(harness.readFrame()), "the typed name stands without a cursor")
+		assert.Equal(t, "└─ author-v2", readHoveredRow(harness.readFrame()), "the typed name stands without a cursor")
 
 		harness.release(agentv1connect.AgentServiceUpdateAgentProcedure)
 		harness.press("k")
@@ -164,11 +164,11 @@ func TestRenameField(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
-		assert.Equal(t, "  author-v2", readHoveredRow(harness.readFrame()), "not the old name before the watch catches up")
+		assert.Equal(t, "└─ author-v2", readHoveredRow(harness.readFrame()), "not the old name before the watch catches up")
 
 		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v2", "w1")))
 		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v3", "w1")))
-		assert.Equal(t, "  author-v3", readHoveredRow(harness.readFrame()), "the listing renders the name once it has caught up")
+		assert.Equal(t, "└─ author-v3", readHoveredRow(harness.readFrame()), "the listing renders the name once it has caught up")
 	})
 
 	t.Run("a refused name opens the field again holding it", func(t *testing.T) {
@@ -179,9 +179,9 @@ func TestRenameField(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Could not rename agent")
-		require.Equal(t, "  author-v2▏", readHoveredRow(frame))
+		require.Equal(t, "└─ author-v2▏", readHoveredRow(frame))
 
 		harness.press("!")
-		assert.Equal(t, "  author-v2!▏", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ author-v2!▏", readHoveredRow(harness.readFrame()))
 	})
 }

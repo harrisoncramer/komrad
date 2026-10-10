@@ -3,6 +3,7 @@ package ui
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -22,9 +23,7 @@ type snapshotParams struct {
 	// focused is the key of the row the cursor stands on, empty when it stands on none.
 	focused string
 	// caret is how the arrow on the focused row stands this frame.
-	caret view.Caret
-	// blinkedOut says the blink is on its off beat this frame.
-	blinkedOut  bool
+	caret       view.Caret
 	loaderFrame string
 	// matcher is the search a person is filtering the list by, nil when they are not.
 	matcher *regexp.Regexp
@@ -47,17 +46,18 @@ type snapshotParams struct {
 // agentsSnapshot reads the listing into the plain data the agents list renders itself from.
 func agentsSnapshot(params snapshotParams) view.Snapshot {
 	rows := triageRows(params)
-	for _, r := range params.rows {
+	trees := treesOf(params.rows, params.flat)
+	for i, r := range params.rows {
 		row := params.renaming.renderedOver(snapshotRow(r, params))
+		row.Tree = trees[i]
 		rows = append(rows, row)
 	}
 
 	return view.Snapshot{
-		Rows:       rows,
-		Caret:      params.caret,
-		BlinkedOut: params.blinkedOut,
-		Focused:    params.focused,
-		Pane:       params.pane,
+		Rows:    rows,
+		Caret:   params.caret,
+		Focused: params.focused,
+		Pane:    params.pane,
 	}
 }
 
@@ -68,6 +68,22 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row := view.Row{
 		Key:         key,
 		HiddenCount: standingIn(r.hiddenCount, params.showHidden),
+	}
+
+	if r.isTask() {
+		row.Kind = view.KindTask
+		row.Name = r.task.Slug
+		row.Matches = params.matchesOf(r, r.task.Slug)
+		row.Archived = r.task.ArchivedAt != nil
+		row.Process = view.ProcessNone
+		row.Repo = snapshotRepo(r.lead.Agent)
+		row.InWorkflowDir = isInWorkflowDir(r.lead.Agent, params.workflowDirs)
+		row.ReviewerComments, row.PersonComments = readSnapshotComments(*r.lead)
+		row.Forge = snapshotForge(*r.lead)
+		row.AutoMerge = r.lead.PullRequest.MergeReadiness.AutoMerge
+		row.LoaderFrame = params.loaderFrame
+
+		return row
 	}
 
 	if r.header {
@@ -89,6 +105,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 
 		row.Status = snapshotStatus(*r.orchestrator)
 		row.Process = view.ProcessAlive
+		row.LoaderFrame = params.loaderFrame
 
 		return row
 	}
@@ -96,6 +113,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	item := r.item
 	row = agentFacts(row, item)
 	row.Kind = snapshotKind(r, params.flat)
+	row.Nested = r.underTask
 	row.Name = item.Agent.Name
 	row.Matches = params.matchesOf(r, item.Agent.Name)
 	row.Repo = snapshotRepo(item.Agent)
@@ -125,6 +143,57 @@ func agentFacts(row view.Row, item panel.AgentRow) view.Row {
 	return row
 }
 
+// treesOf is where each row hangs in the tree drawn down the list, read off the rows as they are
+// rendered so a row the search left out leaves no gap in it, and none at all on a flat list.
+func treesOf(rows []agentRow, flat bool) []*view.Tree {
+	trees := make([]*view.Tree, len(rows))
+	if flat {
+		return trees
+	}
+
+	depths := xslice.Map(rows, treeDepth)
+	var above []bool
+	for i, depth := range depths {
+		if depth < 0 {
+			continue
+		}
+
+		last := true
+		for _, next := range depths[i+1:] {
+			if next <= depth {
+				last = next < depth
+				break
+			}
+		}
+
+		for len(above) < depth {
+			above = append(above, true)
+		}
+
+		trees[i] = &view.Tree{Last: last}
+		if depth > 0 {
+			trees[i].Above = slices.Clone(above[:depth])
+		}
+		above = append(above[:depth], last)
+	}
+
+	return trees
+}
+
+// treeDepth is how many rows one hangs under below its workflow, and -1 for the workflow itself.
+func treeDepth(r agentRow) int {
+	switch {
+	case r.isTask():
+		return 0
+	case r.header:
+		return -1
+	case r.underTask, r.child:
+		return 1
+	}
+
+	return 0
+}
+
 // standingIn is how many rows one stands in for, which is none at all while they are all rendered.
 func standingIn(count int, showHidden bool) int {
 	if showHidden {
@@ -134,9 +203,12 @@ func standingIn(count int, showHidden bool) int {
 	return count
 }
 
-// snapshotKind is where an agent sits in the tree.
+// snapshotKind is where an agent sits in the tree, every agent on a task hanging off the task
+// alike.
 func snapshotKind(r agentRow, flat bool) view.RowKind {
 	switch {
+	case r.underTask:
+		return view.KindAgent
 	case r.child:
 		return view.KindChild
 	case flat:

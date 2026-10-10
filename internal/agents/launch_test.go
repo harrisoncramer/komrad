@@ -16,6 +16,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
@@ -1419,6 +1420,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		params    func(workflowID string, work, elsewhere *taskstore.Task) NewAgentParams
 		wantErrIs error
 		wantTask  string
+		wantGoal  string
 	}{
 		{
 			name: "a task in another workflow is refused",
@@ -1447,6 +1449,28 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 				return NewAgentParams{Title: "work", Prompt: "Fix the login page.\nMore.", WorkflowID: workflowID}
 			},
 			wantTask: "work-2",
+		},
+		{
+			name: "joining a task and describing one to make is refused",
+			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: work.ID, TaskSlug: "login"}
+			},
+			wantErrIs: errTaskMadeAndJoined,
+		},
+		{
+			name: "a slug asked for that a task already has is refused",
+			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, TaskSlug: work.Slug}
+			},
+			wantErrIs: store.ErrNameTaken,
+		},
+		{
+			name: "a slug and a goal asked for make the task as given",
+			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
+				return NewAgentParams{Title: "Fix login", Prompt: "Look at it.", WorkflowID: workflowID, TaskSlug: "login", TaskGoal: "Logins work."}
+			},
+			wantTask: "login",
+			wantGoal: "Logins work.",
 		},
 		{
 			name: "an orchestrator is put on no task",
@@ -1496,6 +1520,9 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 			task, err := st.Tasks.Get(t.Context(), *stored.TaskID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantTask, task.Slug)
+			if tt.wantGoal != "" {
+				assert.Equal(t, tt.wantGoal, task.Goal)
+			}
 			assert.Equal(t, workflowID, task.WorkflowID)
 			assert.Contains(t, briefing, "You work on task "+tt.wantTask+",", "the agent is told its task")
 		})
@@ -1521,6 +1548,145 @@ func TestNewChildAgentSharesItsParentsTask(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, parent.TaskID, agentByID(t, st, child.ID).TaskID)
+}
+
+// TestNewAgentClaimsItsTasksCheckout pins that one top-level agent makes a task's checkout, and who
+// else may join the task once it has.
+func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
+	tests := []struct {
+		name         string
+		noWorktrees  bool
+		second       func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams
+		wantErrIs    error
+		wantCheckout bool
+	}{
+		{
+			name: "a second agent that would make the task a checkout is refused",
+			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
+				return NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir}
+			},
+			wantErrIs:    errTaskHasCheckout,
+			wantCheckout: true,
+		},
+		{
+			name: "an agent told to keep the directory it was given joins without a checkout",
+			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
+				return NewAgentParams{Title: "helper", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir, ProvisionEnabled: xptr.Ptr(false)}
+			},
+			wantCheckout: true,
+		},
+		{
+			name: "a child works in its parent's checkout",
+			second: func(first agentstore.Agent, _ *taskstore.Task, _ string) NewAgentParams {
+				return childOf(first, "reviewer")
+			},
+			wantCheckout: true,
+		},
+		{
+			name:        "agents in a workflow without worktrees share the task and claim no checkout",
+			noWorktrees: true,
+			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
+				return NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
+			cfg := worktreeConfig(t, "backend")
+			if tt.noWorktrees {
+				cfg.Worktree = workflowstore.WorktreeConfig{}
+			}
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), cfg)
+			require.NoError(t, err)
+			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+
+			first, err := manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			require.NoError(t, err)
+
+			_, err = manager.launch.NewAgent(t.Context(), tt.second(*first, work, t.TempDir()))
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+			} else {
+				require.NoError(t, err)
+			}
+
+			task, err := st.Tasks.Get(t.Context(), work.ID)
+			require.NoError(t, err)
+			want := ""
+			if tt.wantCheckout {
+				want = agentByID(t, st, first.ID).Cwd
+			}
+			assert.Equal(t, want, task.Checkout.Cwd)
+		})
+	}
+}
+
+// TestFailedCreateGivesUpItsTasksCheckout covers the claim a create that never started leaves
+// behind, which a retry or another writer takes up.
+func TestFailedCreateGivesUpItsTasksCheckout(t *testing.T) {
+	tests := []struct {
+		name      string
+		rival     bool
+		retry     bool
+		wantErrIs error
+	}{
+		{
+			name:      "a retry is refused once another writer has claimed the task",
+			rival:     true,
+			retry:     true,
+			wantErrIs: errTaskHasCheckout,
+		},
+		{
+			name:  "another writer claims the task the failed create left",
+			rival: true,
+		},
+		{
+			name:  "a retry records its checkout on the task",
+			retry: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			tmux.RespawnErr = errors.New("bad flags")
+			st := newStore(t)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+
+			_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			require.Error(t, err)
+			failed, err := st.Agents.List(t.Context())
+			require.NoError(t, err)
+			require.Len(t, failed, 1)
+			tmux.RespawnErr = nil
+
+			holder := failed[0].ID
+			if tt.rival {
+				rival, err := manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+				require.NoError(t, err)
+				holder = rival.ID
+			}
+			if tt.retry {
+				_, err = manager.launch.RetryCreate(t.Context(), RetryCreateParams{ID: failed[0].ID})
+			}
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+			} else {
+				require.NoError(t, err)
+			}
+
+			task, err := st.Tasks.Get(t.Context(), work.ID)
+			require.NoError(t, err)
+			assert.Equal(t, agentByID(t, st, holder).Cwd, task.Checkout.Cwd)
+		})
+	}
 }
 
 // TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.
@@ -1949,6 +2115,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	service := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
+		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
 		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,

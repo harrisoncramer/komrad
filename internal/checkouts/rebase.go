@@ -13,6 +13,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -92,8 +93,8 @@ func (s *Service) rebaseEligible(ctx context.Context, agentID string) (*checkout
 		return nil, err
 	}
 
-	if target.agent.AdoptedBranch != "" {
-		return nil, fmt.Errorf("%w: %s", errRebaseAdopted, target.agent.AdoptedBranch)
+	if adopted := target.task.Checkout.AdoptedBranch; adopted != "" {
+		return nil, fmt.Errorf("%w: %s", errRebaseAdopted, adopted)
 	}
 
 	return target, nil
@@ -179,14 +180,14 @@ func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, er
 	result, err := s.rebase(ctx, *target)
 	if err != nil {
 		if interrupted {
-			s.tellRebaseCut(ctx, *agent, err)
+			s.tellRebaseCut(ctx, *target, err)
 		}
 
 		return nil, err
 	}
 	result.Interrupted = interrupted
 
-	s.tellRebased(ctx, *agent, *result)
+	s.tellRebased(ctx, *target, *result)
 
 	return result, nil
 }
@@ -218,7 +219,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 	s.releaseOlderParks(ctx, agent, result.ParkedRef)
 
 	if result.Conflicted {
-		s.recordRebaseStopped(ctx, agent)
+		s.recordRebaseStopped(ctx, *target.task)
 	}
 
 	return result, nil
@@ -254,25 +255,27 @@ func (s *Service) moveRebase(ctx context.Context, dir string, result *RebaseResu
 	return nil
 }
 
-// recordRebaseStopped puts the stopped rebase on the agent's row.
-func (s *Service) recordRebaseStopped(ctx context.Context, agent agentstore.Agent) {
-	if err := s.agents.SetSequenceByID(ctx, agent.ID, agentstore.SequenceRebase); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's rebase stopped part-way",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+// recordRebaseStopped puts the stopped rebase on the task.
+func (s *Service) recordRebaseStopped(ctx context.Context, task taskstore.Task) {
+	if err := s.tasks.SetSequence(ctx, task.ID, taskstore.SequenceRebase); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's rebase stopped part-way",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 	}
 }
 
 // tellRebased says what happened in the agent's mailbox.
-func (s *Service) tellRebased(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
-	if err := s.recordRebase(ctx, agent.ID, rebaseOutcome{Result: &result}); err != nil {
+func (s *Service) tellRebased(ctx context.Context, target checkoutTarget, result RebaseResult) {
+	agent := *target.agent
+	if err := s.recordRebase(ctx, target, rebaseOutcome{Result: &result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }
 
 // tellRebaseCut says in the agent's mailbox that its turn was cut for a rebase that then failed.
-func (s *Service) tellRebaseCut(ctx context.Context, agent agentstore.Agent, failure error) {
-	if err := s.recordRebase(ctx, agent.ID, rebaseOutcome{Failure: failure.Error()}); err != nil {
+func (s *Service) tellRebaseCut(ctx context.Context, target checkoutTarget, failure error) {
+	agent := *target.agent
+	if err := s.recordRebase(ctx, target, rebaseOutcome{Failure: failure.Error()}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -408,19 +411,19 @@ func refuseTreeState(state git.TreeState) error {
 	return nil
 }
 
-func (s *Service) recordRebase(ctx context.Context, agentID string, outcome rebaseOutcome) error {
+func (s *Service) recordRebase(ctx context.Context, target checkoutTarget, outcome rebaseOutcome) error {
 	raw, err := json.Marshal(outcome)
 	if err != nil {
-		return fmt.Errorf("failed to encode the rebase of agent %q: %w", agentID, err)
+		return fmt.Errorf("failed to encode the rebase of task %q: %w", target.task.Slug, err)
 	}
 
-	event, err := events.NewEvent(rebased{AgentID: agentID})
+	event, err := events.NewEvent(rebased{AgentID: target.agent.ID, TaskID: target.task.ID})
 	if err != nil {
 		return err
 	}
 
 	return s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		if err := agentstore.NewAgentStore(tx).SetLastRebaseByID(ctx, agentID, raw); err != nil {
+		if err := taskstore.NewTaskStore(tx).SetLastRebase(ctx, target.task.ID, raw); err != nil {
 			return nil, err
 		}
 

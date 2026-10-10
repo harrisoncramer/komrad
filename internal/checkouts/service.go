@@ -16,6 +16,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/wake"
 	"komrad/lib/xpath"
@@ -43,9 +44,10 @@ var (
 // parkSpace is the ref namespace a park sits under.
 type parkSpace string
 
-// checkoutTarget is an agent whose worktree komrad may act on, with the workflow it was cut for.
+// checkoutTarget is an agent whose task's checkout komrad may act on, with the workflow it was cut for.
 type checkoutTarget struct {
 	agent    *agentstore.Agent
+	task     *taskstore.Task
 	workflow *workflowstore.Workflow
 }
 
@@ -84,6 +86,7 @@ type branchMover interface {
 // NewServiceParams is what the service is built over.
 type NewServiceParams struct {
 	Agents          *agentstore.AgentStore
+	Tasks           *taskstore.TaskStore
 	Workflows       *workflowstore.WorkflowStore
 	Settler         agentSettler
 	Events          eventRecorder
@@ -97,6 +100,7 @@ type NewServiceParams struct {
 // Service rebases, pushes and aborts in an agent's existing worktree on a person's say-so.
 type Service struct {
 	agents          *agentstore.AgentStore
+	tasks           *taskstore.TaskStore
 	workflows       *workflowstore.WorkflowStore
 	settler         agentSettler
 	events          eventRecorder
@@ -116,6 +120,7 @@ func NewService(params NewServiceParams) *Service {
 
 	return &Service{
 		agents:          params.Agents,
+		tasks:           params.Tasks,
 		workflows:       params.Workflows,
 		settler:         params.Settler,
 		events:          params.Events,
@@ -163,8 +168,13 @@ func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget
 	if agent.IsProvisionerDisabled() {
 		return nil, fmt.Errorf("%w: it was told to keep the directory it was given", ErrNoWorktree)
 	}
-	if agent.Cwd == "" || agent.WorktreeRemoved {
+	if agent.Cwd == "" {
 		return nil, fmt.Errorf("%w: it has no directory on disk", ErrNoWorktree)
+	}
+
+	task, err := s.readCheckoutTask(ctx, *agent)
+	if err != nil {
+		return nil, err
 	}
 
 	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
@@ -175,7 +185,30 @@ func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget
 		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrNoWorktree)
 	}
 
-	return &checkoutTarget{agent: agent, workflow: flow}, nil
+	return &checkoutTarget{agent: agent, task: task, workflow: flow}, nil
+}
+
+// readCheckoutTask is the task whose checkout the agent works in, refusing an agent outside it.
+func (s *Service) readCheckoutTask(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
+	if agent.TaskID == nil {
+		return nil, fmt.Errorf("%w: it is on no task", ErrNoWorktree)
+	}
+
+	task, err := s.tasks.Get(ctx, *agent.TaskID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: its task is gone", ErrNoWorktree)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
+	}
+	if !xpath.IsSameDir(task.Checkout.Cwd, agent.Cwd) {
+		return nil, fmt.Errorf("%w: it does not work in its task's checkout", ErrNoWorktree)
+	}
+	if task.Checkout.WorktreeRemoved {
+		return nil, fmt.Errorf("%w: it has no directory on disk", ErrNoWorktree)
+	}
+
+	return task, nil
 }
 
 // read fetches the row, refusing an agent that is archived or that a person is holding.

@@ -17,6 +17,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xslice"
@@ -31,11 +32,18 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	tests := []struct {
 		name        string
 		archive     bool
+		child       bool
 		wantCleanup []string
+		wantRemoved bool
 	}{
 		{
-			name:        "deleting an agent releases what setup built",
+			name:  "deleting a child leaves its task's checkout to the writer",
+			child: true,
+		},
+		{
+			name:        "deleting an agent releases what setup built and its task's checkout",
 			wantCleanup: []string{worktreeDeprovisioner},
+			wantRemoved: true,
 		},
 		{
 			name:    "archiving one keeps it",
@@ -60,13 +68,22 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			target := agent
+			if tt.child {
+				target, err = manager.launch.NewAgent(t.Context(), childOf(*agent, "reviewer"))
+				require.NoError(t, err)
+			}
+
 			if tt.archive {
-				require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+				require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{target.ID}}))
 			} else {
-				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{target.ID}))
 			}
 
 			assert.Equal(t, tt.wantCleanup, lifecycle.deprovision)
+			task, err := st.Tasks.Get(t.Context(), *agent.TaskID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantRemoved, task.Checkout.WorktreeRemoved)
 		})
 	}
 }
@@ -750,17 +767,17 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
 	tests := []struct {
 		name            string
-		worktreeRemoved bool
+		dirGone         bool
 		wantWorkflowDir bool
 	}{
 		{
 			name:            "a worktree already removed",
-			worktreeRemoved: true,
+			dirGone:         true,
 			wantWorkflowDir: true,
 		},
 		{
 			name:            "a worktree that stands",
-			worktreeRemoved: false,
+			dirGone:         false,
 			wantWorkflowDir: false,
 		},
 	}
@@ -791,7 +808,9 @@ func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
 				SnapshotSHA: "sha",
 			})
 			require.NoError(t, err)
-			require.NoError(t, st.Agents.SetCheckout(t.Context(), going.ID, agentstore.SetCheckoutParams{WorktreeRemoved: tt.worktreeRemoved}))
+			if tt.dirGone {
+				require.NoError(t, os.RemoveAll(agentDir))
+			}
 
 			require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{going.ID}))
 
@@ -1698,4 +1717,109 @@ func TestFailDeleteGivesTheRowBack(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCleanup, page[0].State)
 	assert.Contains(t, page[0].FailureReason, "the store is away")
 	assert.Nil(t, page[0].DeletingAt)
+}
+
+// TestArchiveTaskTakesItsLiveAgents pins that archiving a task archives every live agent on it and nothing on another task.
+func TestArchiveTaskTakesItsLiveAgents(t *testing.T) {
+	st := newStore(t)
+	manager := newManager(tmuxtest.NewFake(), st, "")
+	ctx := t.Context()
+	workflowID := seedWorkflow(t, st)
+	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
+	other := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "other"})
+	author := seedOnTask(t, st, workflowID, "author", work.ID)
+	followUp := seedOnTask(t, st, workflowID, "follow-up", work.ID)
+	bystander := seedOnTask(t, st, workflowID, "bystander", other.ID)
+
+	require.NoError(t, manager.lifecycle.ArchiveTask(ctx, work.Slug))
+
+	assert.NotNil(t, agentByID(t, st, author.ID).ArchivedAt)
+	assert.NotNil(t, agentByID(t, st, followUp.ID).ArchivedAt)
+	assert.True(t, isTaskArchived(t, st, work.ID))
+	assert.Nil(t, agentByID(t, st, bystander.ID).ArchivedAt, "an agent on another task stays live")
+	assert.False(t, isTaskArchived(t, st, other.ID))
+}
+
+// TestArchivingAgentsArchivesTheirIdleTasks pins that a task is archived once no live agent works on it.
+func TestArchivingAgentsArchivesTheirIdleTasks(t *testing.T) {
+	tests := []struct {
+		name         string
+		archive      func(author, followUp, reviewer agentstore.Agent) []string
+		wantArchived bool
+	}{
+		{
+			name:    "an agent going while another stays leaves the task live",
+			archive: func(_, followUp, _ agentstore.Agent) []string { return []string{followUp.ID} },
+		},
+		{
+			name:    "an implementer archiving its reviewer leaves the task live",
+			archive: func(_, _, reviewer agentstore.Agent) []string { return []string{reviewer.ID} },
+		},
+		{
+			name: "the last live agent going archives the task",
+			archive: func(author, followUp, _ agentstore.Agent) []string {
+				return []string{author.ID, followUp.ID}
+			},
+			wantArchived: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+			manager := newManager(tmux, st, "")
+			workflowID := seedWorkflow(t, st)
+			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
+			author := seedOnTask(t, st, workflowID, "author", work.ID)
+			followUp := seedOnTask(t, st, workflowID, "follow-up", work.ID)
+			reviewer := seedChild(t, st, tmux, author)
+
+			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: tt.archive(author, followUp, reviewer)}))
+
+			assert.Equal(t, tt.wantArchived, isTaskArchived(t, st, work.ID))
+		})
+	}
+}
+
+// TestRestoringAgentsRestoresTheirTasks pins that an agent never comes back under an archived task.
+func TestRestoringAgentsRestoresTheirTasks(t *testing.T) {
+	st := newStore(t)
+	manager := newManager(tmuxtest.NewFake(), st, "")
+	ctx := t.Context()
+	workflowID := seedWorkflow(t, st)
+	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
+	author := seedOnTask(t, st, workflowID, "author", work.ID)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{author.ID}}))
+	require.True(t, isTaskArchived(t, st, work.ID))
+
+	_, err := manager.lifecycle.RestoreAgents(ctx, []string{author.ID})
+	require.NoError(t, err)
+
+	assert.False(t, isTaskArchived(t, st, work.ID))
+}
+
+func seedOnTask(t *testing.T, st *testStore, workflowID, name, taskID string) agentstore.Agent {
+	t.Helper()
+
+	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
+		Name:       name,
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		TaskID:     &taskID,
+	}))
+
+	got, err := st.Agents.GetInWorkflow(t.Context(), workflowID, name)
+	require.NoError(t, err)
+
+	return *got
+}
+
+func isTaskArchived(t *testing.T, st *testStore, id string) bool {
+	t.Helper()
+
+	got, err := st.Tasks.Get(t.Context(), id)
+	require.NoError(t, err)
+
+	return got.ArchivedAt != nil
 }

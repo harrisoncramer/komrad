@@ -24,8 +24,8 @@ const Header = ({ children, path }: HeaderProps) => {
   const currentPath = normalizePath(path);
 
   return (
-    <header className="sticky top-0 z-10 border-b border-app-background-medium bg-app-black/90 text-app-white shadow-sm backdrop-blur">
-      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-2 px-4 py-3 md:grid-cols-[1fr_auto_1fr] md:gap-x-8">
+    <header className="sticky top-0 z-10 h-16 border-b border-app-background-medium bg-app-black/90 text-app-white shadow-sm backdrop-blur">
+      <div className="grid h-full grid-cols-[1fr_auto_auto] items-center gap-x-2 px-4 md:grid-cols-[1fr_auto_1fr] md:gap-x-8">
         <a
           href={link("/")}
           data-site-title

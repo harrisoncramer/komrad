@@ -21,80 +21,91 @@ func prepareOne(t *testing.T, row Row) line {
 	return list.Lines[0]
 }
 
-// TestPrepareStatusBar pins the bar every state of an agent is rendered as.
-func TestPrepareStatusBar(t *testing.T) {
-	tests := []struct {
-		name   string
-		status Status
-		want   Cell
-	}{
-		{
-			name:   "a broken agent gets the danger bar",
-			status: StatusBroken,
-			want:   Cell{Text: glyph.Busy, Tone: paint.ToneDanger},
-		},
-		{
-			name:   "an agent that wants you gets the warning bar",
-			status: StatusWaiting,
-			want:   Cell{Text: glyph.Busy, Tone: paint.ToneWarning},
-		},
-		{
-			name:   "a thinking agent gets the bright bar",
-			status: StatusThinking,
-			want:   Cell{Text: glyph.Busy, Tone: paint.TonePrimary},
-		},
-		{
-			name:   "an idle agent gets the muted pipe",
-			status: StatusIdle,
-			want:   Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Status: tt.status}).Status)
-		})
-	}
-}
-
-// TestPrepareBarSaysWhatStandsBehindARow pins the bar rendering on every row whatever became of
-// its process, so the rail runs unbroken down the list.
-func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
+// TestWorkingCell pins the loader turning after the name of an agent at work and nowhere else.
+func TestWorkingCell(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
 		want Cell
 	}{
 		{
-			name: "a process sitting quiet is a solid pipe",
-			row:  Row{Status: StatusIdle},
-			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
+			name: "a thinking agent turns the loader after its name",
+			row:  Row{Process: ProcessAlive, Status: StatusThinking, LoaderFrame: "⠋"},
+			want: Cell{Text: "⠋", Tone: paint.ToneMuted},
 		},
 		{
-			name: "a process that has stopped keeps the quiet pipe",
-			row:  Row{Status: StatusIdle, Process: ProcessStopped},
-			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
+			name: "an idle agent turns nothing",
+			row:  Row{Process: ProcessAlive, Status: StatusIdle, LoaderFrame: "⠋"},
 		},
 		{
-			name: "a process that stopped mid-thought keeps the bar it stopped in",
-			row:  Row{Status: StatusThinking, Process: ProcessStopped},
-			want: Cell{Text: glyph.Busy, Tone: paint.TonePrimary},
+			name: "an agent waiting on a person turns nothing",
+			row:  Row{Process: ProcessAlive, Status: StatusWaiting, LoaderFrame: "⠋"},
 		},
 		{
-			name: "a row that never had a process renders the quiet pipe all the same",
-			row:  Row{Status: StatusIdle, Process: ProcessNone},
-			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
+			name: "a stopped agent turns nothing",
+			row:  Row{Process: ProcessStopped, Status: StatusThinking, LoaderFrame: "⠋"},
 		},
 		{
-			name: "a row the keyboard cannot reach greys its bar",
-			row:  Row{Status: StatusWaiting, Faded: true},
-			want: Cell{Text: glyph.Busy, Tone: paint.ToneMuted},
+			name: "a row without a frame turns nothing",
+			row:  Row{Process: ProcessAlive, Status: StatusThinking},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, tt.row).Status)
+			assert.Equal(t, tt.want, workingCell(tt.row))
+		})
+	}
+}
+
+// TestPrepareNameSaysWhatTheAgentIsDoing pins the lettering each state of the agent behind a row
+// gives its name.
+func TestPrepareNameSaysWhatTheAgentIsDoing(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want emphasis
+	}{
+		{
+			name: "an agent that wants you stands out",
+			row:  Row{Status: StatusWaiting},
+			want: emphasisAlert,
+		},
+		{
+			name: "a broken agent stands out",
+			row:  Row{Status: StatusBroken},
+			want: emphasisAlert,
+		},
+		{
+			name: "a thinking agent is plain",
+			row:  Row{Status: StatusThinking},
+			want: emphasisNormal,
+		},
+		{
+			name: "an idle agent is plain",
+			row:  Row{Status: StatusIdle},
+			want: emphasisNormal,
+		},
+		{
+			name: "a stopped agent that stopped waiting is only dim",
+			row:  Row{Status: StatusWaiting, Process: ProcessStopped},
+			want: EmphasisDim,
+		},
+		{
+			name: "a row with nothing behind it says nothing of a state",
+			row:  Row{Status: StatusWaiting, Process: ProcessNone},
+			want: emphasisNormal,
+		},
+		{
+			name: "a row the keyboard cannot reach is only dim",
+			row:  Row{Status: StatusWaiting, Faded: true},
+			want: EmphasisDim,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Emphasis)
 		})
 	}
 }
@@ -299,7 +310,6 @@ func TestPrepareBlankColumnsKeepEveryOtherCell(t *testing.T) {
 	row.Kind = KindChild
 	child := prepareOne(t, row)
 
-	assert.Equal(t, own.Status, child.Status)
 	assert.Equal(t, own.Held, child.Held)
 	assert.Equal(t, own.Mail, child.Mail)
 	assert.Equal(t, own.Alert, child.Alert)
@@ -571,6 +581,12 @@ func TestPrepareWeight(t *testing.T) {
 			want:     weightBold,
 			wantRule: false,
 		},
+		{
+			name:     "a task is regular",
+			kind:     KindTask,
+			want:     weightRegular,
+			wantRule: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -796,13 +812,13 @@ func TestPrepareClipsName(t *testing.T) {
 		{
 			name: "a name past the column ends in an ellipsis",
 			rows: []Row{{Name: "eng-6994-unable-to-create"}},
-			pane: 25,
+			pane: 23,
 			want: []string{"eng-6994-unabl…"},
 		},
 		{
 			name: "a name inside the column is left alone",
 			rows: []Row{{Name: "iss-582"}},
-			pane: 25,
+			pane: 23,
 			want: []string{"iss-582"},
 		},
 		{
@@ -819,7 +835,7 @@ func TestPrepareClipsName(t *testing.T) {
 					ReviewerComments: &Comments{Open: 2},
 				},
 			},
-			pane:         25,
+			pane:         23,
 			want:         []string{"eng-6994-unabl…", "eng-6994-u…"},
 			wantComments: []int{0, 1},
 		},
@@ -829,21 +845,21 @@ func TestPrepareClipsName(t *testing.T) {
 				Name:             "eng-6994-unable-to-create",
 				ReviewerComments: &Comments{Open: 2},
 			}},
-			pane:         13,
+			pane:         11,
 			want:         []string{"en…"},
 			wantComments: []int{0},
 		},
 		{
 			name:         "a name with room for its workflow keeps both",
 			rows:         []Row{{Name: "iss-582", Workflow: "backend"}},
-			pane:         25,
+			pane:         23,
 			want:         []string{"iss-582"},
 			wantWorkflow: []string{"backend"},
 		},
 		{
 			name:         "a name that fits only alone drops its workflow rather than being cut",
 			rows:         []Row{{Name: "fix-login-redi", Workflow: "backend"}},
-			pane:         25,
+			pane:         23,
 			want:         []string{"fix-login-redi"},
 			wantWorkflow: []string{""},
 		},
@@ -971,19 +987,19 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 		{
 			name:    "a match wholly past the cut is dropped",
 			matches: []Span{{Start: 10, End: 14}},
-			pane:    17,
+			pane:    15,
 			want:    nil,
 		},
 		{
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
-			pane:    17,
+			pane:    15,
 			want:    []Span{{Start: 3, End: 6}},
 		},
 		{
 			name:    "a match before the cut is left alone",
 			matches: []Span{{Start: 0, End: 4}},
-			pane:    17,
+			pane:    15,
 			want:    []Span{{Start: 0, End: 4}},
 		},
 		{
@@ -1055,19 +1071,19 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 	}{
 		{
 			name:      "a pane with nothing left for a name gives the tally up and spends what it frees",
-			pane:      13,
+			pane:      11,
 			wantName:  "an…",
 			wantTally: 0,
 		},
 		{
 			name:      "the default sidebar has room for both",
-			pane:      26,
+			pane:      24,
 			wantName:  "an agent wi…",
 			wantTally: 12,
 		},
 		{
 			name:      "a wide sidebar cuts nothing at all",
-			pane:      58,
+			pane:      56,
 			wantName:  "an agent with a very long name indeed",
 			wantTally: 12,
 		},
@@ -1107,32 +1123,32 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	}{
 		{
 			name: "a pane with room for one mark keeps the failed run alone",
-			pane: 13,
+			pane: 11,
 			want: []glyph.Glyph{glyph.FailedScript},
 		},
 		{
 			name: "a pane two wider keeps the mail as well",
-			pane: 15,
+			pane: 13,
 			want: []glyph.Glyph{glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "a pane one wider keeps the pause too",
-			pane: 16,
+			pane: 14,
 			want: []glyph.Glyph{glyph.Paused, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "the next keeps the hiding, which goes before the pause",
-			pane: 18,
+			pane: 16,
 			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "the next keeps the documents, which go before the hiding",
-			pane: 20,
+			pane: 18,
 			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "wider still keeps every mark, the schedule last",
-			pane: 22,
+			pane: 20,
 			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript, glyph.Schedule},
 		},
 	}
@@ -1270,7 +1286,7 @@ func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 
 // renderedResultNameColumn is the column a result list opens its name at, counted off the rendering
 // by hand rather than from the package's own arithmetic.
-const renderedResultNameColumn = 4
+const renderedResultNameColumn = 2
 
 // resultRows are the rows a list of search hits is made of.
 func resultRows() []Row {
@@ -1397,4 +1413,74 @@ func TestHitRowGivesItsLeadRoom(t *testing.T) {
 
 	assert.Equal(t, "agent #3", fitted.Lead)
 	assert.Len(t, []rune(fitted.Name), 20-indentColumns-len("agent #3")-1)
+}
+
+// TestPrepareTaskRowCarriesTheWork pins that a task's row wears the checkout, pull request and
+// comments of the work on it, and an agent under it wears none of them.
+func TestPrepareTaskRowCarriesTheWork(t *testing.T) {
+	work := Row{Repo: RepoGone, Forge: ForgeMerged, ReviewerComments: &Comments{Open: 2}}
+	own := prepareOne(t, work)
+
+	task := work
+	task.Kind = KindTask
+	onTask := prepareOne(t, task)
+
+	nested := work
+	nested.Nested = true
+	under := prepareOne(t, nested)
+
+	assert.Equal(t, own.Columns, onTask.Columns)
+	assert.Equal(t, own.Comments, onTask.Comments)
+	assert.Equal(t, []Cell{{}, {}}, under.Columns)
+	assert.Empty(t, under.Comments)
+}
+
+// TestPrepareBranch pins the tree drawn before a name in place of its indent.
+func TestPrepareBranch(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want string
+	}{
+		{
+			name: "a row in no tree draws none",
+			row:  Row{Name: "worker"},
+		},
+		{
+			name: "a row with siblings to come hangs off a tee",
+			row:  Row{Kind: KindTask, Tree: &Tree{}},
+			want: "├─ ",
+		},
+		{
+			name: "the last of its siblings hangs off a corner",
+			row:  Row{Kind: KindTask, Tree: &Tree{Last: true}},
+			want: "└─ ",
+		},
+		{
+			name: "a row under one with siblings to come runs a rail past them",
+			row:  Row{Nested: true, Tree: &Tree{Above: []bool{false}, Last: true}},
+			want: "│  └─ ",
+		},
+		{
+			name: "a row under the last of its siblings leaves the rail out",
+			row:  Row{Nested: true, Tree: &Tree{Above: []bool{true}}},
+			want: "   ├─ ",
+		},
+		{
+			name: "a child in a tree hangs off the tree rather than its own corner",
+			row:  Row{Kind: KindChild, Tree: &Tree{Last: true}},
+			want: "└─ ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			line := prepareOne(t, tt.row)
+			assert.Equal(t, tt.want, line.Branch)
+			if tt.row.Tree != nil {
+				assert.Zero(t, line.Indent)
+				assert.False(t, line.Rule)
+			}
+		})
+	}
 }

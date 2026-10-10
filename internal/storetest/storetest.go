@@ -21,6 +21,7 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	screenstore "komrad/internal/store/screen"
 	taskstore "komrad/internal/store/task"
+	"komrad/internal/store/task/tasktest"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
@@ -95,6 +96,12 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 		agent.State = agentstore.StateIdle
 	}
 
+	if agent.TaskID == nil && agent.Role != agentstore.RoleOrchestrator {
+		taskID, err := s.TaskFor(t.Context(), agent)
+		require.NoError(t, err)
+		agent.TaskID = taskID
+	}
+
 	require.NoError(t, s.Agents.Create(t.Context(), agent))
 
 	stored, err := s.Agents.GetInWorkflow(t.Context(), agent.WorkflowID, agent.Name)
@@ -102,6 +109,20 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 	require.NotNil(t, stored)
 
 	return stored
+}
+
+// TaskFor is the task an agent written by a test works on: its parent's, or one made for it.
+func (s *Stores) TaskFor(ctx context.Context, agent agentstore.Agent) (*string, error) {
+	if agent.ParentAgentID == nil {
+		return tasktest.Seed(ctx, s.Pool.GetDB(), agent.WorkflowID)
+	}
+
+	parent, err := s.Agents.GetByID(ctx, *agent.ParentAgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return parent.TaskID, nil
 }
 
 // LiveAgentByName finds the one live agent holding a name, which only a test can ask for
@@ -207,13 +228,23 @@ func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedules
 	return created
 }
 
+// SeedTaskHead records what the cwd syncer would read of the checkout of an agent's task.
+func (s *Stores) SeedTaskHead(t *testing.T, agentID string, params taskstore.SetHeadParams) {
+	t.Helper()
+
+	agent, err := s.Agents.GetByID(t.Context(), agentID)
+	require.NoError(t, err)
+	require.NotNil(t, agent.TaskID)
+	require.NoError(t, s.Tasks.SetHead(t.Context(), *agent.TaskID, params))
+}
+
 // SeedForgeThreads opens a pull request on the agent's branch and stores the forge's threads on it, returning them as stored.
 func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge.ReviewThread) []pullrequeststore.ForgeThread {
 	t.Helper()
 	ctx := t.Context()
 
 	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/"+agentID
-	require.NoError(t, s.Agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
+	s.SeedTaskHead(t, agentID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &branch})
 
 	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
 	providerID := "PR_" + agentID

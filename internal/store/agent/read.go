@@ -35,8 +35,9 @@ type AgentDir struct {
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
 	DeletingAt     *time.Time
-	AdoptedBranch  string
 	WorkflowID     string
+	// Adopted is whether the directory is its task's checkout and that checkout was put on a branch komrad did not make.
+	Adopted bool
 }
 
 // ListDirs returns the directory every agent holds, archived ones included.
@@ -55,8 +56,8 @@ func (s *AgentStore) ListDirs(ctx context.Context) ([]AgentDir, error) {
 			StateChangedAt: row.StateChangedAt,
 			ArchivedAt:     row.ArchivedAt,
 			DeletingAt:     row.DeletingAt,
-			AdoptedBranch:  row.AdoptedBranch,
 			WorkflowID:     row.WorkflowID,
+			Adopted:        row.Adopted,
 		}
 	}), nil
 }
@@ -172,6 +173,16 @@ func (s *AgentStore) ListLiveInWorkflow(ctx context.Context, workflowID string) 
 	rows, err := s.queries.ListLiveWorkflowAgents(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
+	}
+
+	return fromRows(rows), nil
+}
+
+// ListLiveOnTask returns the live agents working on a task.
+func (s *AgentStore) ListLiveOnTask(ctx context.Context, taskID string) ([]Agent, error) {
+	rows, err := s.queries.ListLiveTaskAgents(ctx, &taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list live agents of task %q: %w", taskID, err)
 	}
 
 	return fromRows(rows), nil

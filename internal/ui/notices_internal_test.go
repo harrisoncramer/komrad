@@ -296,18 +296,17 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 	}
 
 	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
-		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer renders a broken bar", state)
-		assert.NotEmpty(t, failureSaid[state], "state %q renders a broken bar with no sentence", state)
+		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer renders broken", state)
+		assert.NotEmpty(t, failureSaid[state], "state %q renders broken with no sentence", state)
 	}
 }
 
-// TestAgentNoticesLeaveAStoppedRowToItsBar covers a row whose process has gone saying so with its quiet bar and grey name alone.
-func TestAgentNoticesLeaveAStoppedRowToItsBar(t *testing.T) {
+// TestAgentNoticesLeaveAStoppedRowToItsName covers a row whose process has gone saying so with its grey name alone.
+func TestAgentNoticesLeaveAStoppedRowToItsName(t *testing.T) {
 	stopped := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}})
 	row := snapshotRow(stopped, snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process)
-	require.Equal(t, glyph.Quiet, view.StatusCell(row).Text)
 	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis)
 	assert.Empty(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", stopped)))
 

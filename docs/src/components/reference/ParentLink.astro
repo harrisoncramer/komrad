@@ -1,0 +1,35 @@
+---
+type Props = {
+  href: string;
+};
+
+const { href } = Astro.props;
+---
+
+<a class="parent-link" href={href}>
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M14 9 9 4 4 9" />
+    <path d="M20 20h-7a4 4 0 0 1-4-4V4" />
+  </svg>
+  <slot />
+</a>
+
+<style>
+  @reference "../../styles/global.css";
+
+  .parent-link {
+    @apply ml-auto inline-flex items-center gap-1.5 text-[0.85em] text-app-blue no-underline hover:underline;
+  }
+
+  .parent-link svg {
+    @apply h-3.5 w-3.5 shrink-0;
+  }
+</style>

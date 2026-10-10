@@ -26,6 +26,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
@@ -76,7 +77,7 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 	return s.LiveAgentByName(ctx, name)
 }
 
-// createAgent records an agent, filing it under a workflow of its own when the test
+// createAgent records an agent, filing it under a workflow and a task of its own when the test
 // did not name one.
 func (s *testStore) createAgent(ctx context.Context, agent agentstore.Agent) error {
 	if agent.Harness == "" {
@@ -89,6 +90,13 @@ func (s *testStore) createAgent(ctx context.Context, agent agentstore.Agent) err
 		}
 
 		agent.WorkflowID = created.ID
+	}
+	if agent.TaskID == nil && agent.Role != agentstore.RoleOrchestrator {
+		taskID, err := s.TaskFor(ctx, agent)
+		if err != nil {
+			return err
+		}
+		agent.TaskID = taskID
 	}
 
 	return s.Agents.Create(ctx, agent)
@@ -199,6 +207,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Workflows: s.Workflows,
 			Launch:    launch,
 			Worktrees: &gittest.Checkout{},
+			Tasks:     tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
@@ -212,6 +221,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Screens:        NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
+			Tasks:          tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
 			Usage:          options.usage,
 		}),
 		panes:   NewPaneLiveness(options.tmux),
@@ -239,6 +249,7 @@ func (a *testAgents) withWorktrees(worktrees checkoutReader) *testAgents {
 		Workflows: a.adopt.workflows,
 		Launch:    a.adopt.launch,
 		Worktrees: worktrees,
+		Tasks:     a.adopt.tasks,
 	})
 
 	return a
@@ -704,4 +715,26 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	require.FailNowf(t, "no record was written", "wanted %q, got %v", body, records)
 
 	return nil
+}
+
+func checkoutOf(t *testing.T, st *testStore, agentID string) taskstore.Checkout {
+	t.Helper()
+
+	agent := agentByID(t, st, agentID)
+	require.NotNil(t, agent.TaskID, "agent %q is on no task", agentID)
+	task, err := st.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+
+	return task.Checkout
+}
+
+func (s *testStore) seedAdopted(t *testing.T, name, branch string) {
+	t.Helper()
+
+	agent, err := s.LiveAgentByName(t.Context(), name)
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+	claimed, err := s.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *agent.TaskID, AdoptedBranch: branch})
+	require.NoError(t, err)
+	require.True(t, claimed)
 }

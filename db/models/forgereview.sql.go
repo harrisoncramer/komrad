@@ -56,8 +56,8 @@ WHERE
         SELECT
             1
         FROM
-            agent_pull_requests o
-            JOIN agents a ON a.id = o.agent_id
+            task_pull_requests o
+            JOIN agents a ON a.task_id = o.task_id
         WHERE
             o.pull_request_id = p.id
             AND a.archived_at IS NULL

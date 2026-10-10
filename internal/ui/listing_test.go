@@ -39,14 +39,14 @@ func TestListingSettlesWrites(t *testing.T) {
 		{
 			name:    "a created agent is parked until the watch carries it",
 			setup:   func(harness *panelHarness) { answerAgentCreate(harness, "") },
-			press:   []string{"space", "c", "h", "i", "enter"},
+			press:   []string{"k", "space", "c", "h", "i", "enter"},
 			settle:  []*watchv1.WatchEvent{buildPuts(newAgent("a2", "new", "w1"))},
-			wantRow: "  new",
+			wantRow: "├─ new",
 		},
 		{
 			name:    "a created workflow settles once its header arrives",
 			setup:   answerWorkflowCreate,
-			press:   []string{"space", "w", "w", "e", "b", "enter"},
+			press:   []string{"k", "space", "w", "w", "e", "b", "enter"},
 			settle:  []*watchv1.WatchEvent{buildPuts(newLiveWorkflow("w2", "web"))},
 			wantRow: "web",
 		},
@@ -56,25 +56,25 @@ func TestListingSettlesWrites(t *testing.T) {
 				answerAgentCreate(harness, "")
 				harness.watch(buildPuts(newAgent("a2", "new", "w1")))
 			},
-			press:   []string{"space", "c", "h", "i", "enter"},
-			wantRow: "  new",
+			press:   []string{"k", "space", "c", "h", "i", "enter"},
+			wantRow: "├─ new",
 		},
 		{
 			name: "a refused create parks nothing",
 			setup: func(harness *panelHarness) {
 				harness.refuse(agentv1connect.AgentServiceCreateAgentProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")))
 			},
-			press:   []string{"space", "c", "h", "i", "enter", "esc"},
+			press:   []string{"k", "space", "c", "h", "i", "enter", "esc"},
 			settle:  []*watchv1.WatchEvent{buildPuts(newAgent("a2", "new", "w1"))},
-			wantRow: "  old",
+			wantRow: "api",
 		},
 		{
 			name:    "a row arriving after the parked write ran out of time leaves the cursor where it was",
 			setup:   func(harness *panelHarness) { answerAgentCreate(harness, "") },
-			press:   []string{"space", "c", "h", "i", "enter"},
+			press:   []string{"k", "space", "c", "h", "i", "enter"},
 			expire:  true,
 			settle:  []*watchv1.WatchEvent{buildPuts(newAgent("a2", "new", "w1"))},
-			wantRow: "  old",
+			wantRow: "api",
 		},
 		{
 			name: "a key pressed while a write is parked takes the cursor back",
@@ -96,7 +96,7 @@ func TestListingSettlesWrites(t *testing.T) {
 			wait:         true,
 			settle:       []*watchv1.WatchEvent{buildPuts(newOrchestrator())},
 			showsLate:    true,
-			wantRow:      "  telescope",
+			wantRow:      "└─ telescope",
 			wantGuest:    "%9",
 			wantSelected: []string{"%9"},
 		},
@@ -116,17 +116,17 @@ func TestListingSettlesWrites(t *testing.T) {
 		{
 			name:    "a row the filter hides leaves the cursor on a row it can see",
 			setup:   func(harness *panelHarness) { answerAgentCreate(harness, "") },
-			press:   []string{"/", "tab", "^", "o", "l", "d", "$", "enter", "space", "c", "h", "i", "enter"},
+			press:   []string{"/", "tab", "^", "o", "l", "d", "$", "enter", "k", "space", "c", "h", "i", "enter"},
 			settle:  []*watchv1.WatchEvent{buildPuts(newAgent("a2", "new", "w1"))},
-			wantRow: "  old",
+			wantRow: "api",
 		},
 		{
 			name:         "a batch for another row after the write settled keeps the pane the write showed",
 			open:         openSettlingStaged,
 			setup:        func(harness *panelHarness) { answerAgentCreate(harness, "%9") },
-			press:        []string{"space", "c", "h", "i", "enter"},
+			press:        []string{"k", "space", "c", "h", "i", "enter"},
 			settle:       []*watchv1.WatchEvent{buildPuts(newCreatedAgent()), buildPuts(newStagedOld("renamed"))},
-			wantRow:      "  check-ci",
+			wantRow:      "├─ check-ci",
 			wantGuest:    "%9",
 			wantSelected: []string{},
 		},
@@ -203,7 +203,7 @@ func TestListingKeepsItsPlace(t *testing.T) {
 			newArchivedAgent("x3", "infra-upgrade", "w2"),
 		)
 		harness.press("j", "j", "j")
-		require.Equal(t, "  infra-upgrade", readHoveredRow(harness.readFrame()))
+		require.Equal(t, "├─ infra-upgrade", readHoveredRow(harness.readFrame()))
 
 		harness.watch(buildSnapshot(
 			newLiveWorkflow("w2", "infra"),
@@ -211,7 +211,7 @@ func TestListingKeepsItsPlace(t *testing.T) {
 			newArchivedAgent("x3", "infra-upgrade", "w2"),
 		))
 
-		assert.Equal(t, "  infra-upgrade", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "├─ infra-upgrade", readHoveredRow(harness.readFrame()))
 	})
 }
 
@@ -251,7 +251,7 @@ func TestListingFocus(t *testing.T) {
 		harness := openSettling(t)
 		answerAgentCreate(harness, "%9")
 
-		harness.press("space", "c", "h", "i", "enter")
+		harness.press("k", "space", "c", "h", "i", "enter")
 		harness.watch(buildPuts(newCreatedAgent()))
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())

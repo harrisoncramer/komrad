@@ -83,17 +83,73 @@ func (s *TaskService) GetTaskForWorkflow(ctx context.Context, ref, workflowID st
 	return found, nil
 }
 
+// SetCheckoutDir records the directory a launch provisioned for a task.
+func (s *TaskService) SetCheckoutDir(ctx context.Context, id, cwd string) error {
+	return s.tasks.SetCheckoutDir(ctx, id, cwd)
+}
+
+// ClaimCheckoutAgain claims a task's checkout again for a retried launch, reporting false when the
+// task already has one.
+func (s *TaskService) ClaimCheckoutAgain(ctx context.Context, id string) (bool, error) {
+	return s.tasks.ClaimCheckoutAgain(ctx, id)
+}
+
+// ReleaseCheckout gives up the claim a failed launch made on a task's checkout.
+func (s *TaskService) ReleaseCheckout(ctx context.Context, id string) error {
+	return s.tasks.ReleaseCheckout(ctx, id)
+}
+
+// MarkCheckoutsRemoved records that the task checkouts the given agents worked in were taken away.
+func (s *TaskService) MarkCheckoutsRemoved(ctx context.Context, agentIDs []string) error {
+	return s.tasks.MarkCheckoutsRemoved(ctx, agentIDs)
+}
+
+// ListTasksByID returns the tasks among ids, archived or not.
+func (s *TaskService) ListTasksByID(ctx context.Context, ids []string) ([]taskstore.Task, error) {
+	return s.tasks.ListByID(ctx, ids)
+}
+
 type CreateForAgentParams struct {
 	WorkflowID string
 	Name       string
 	Title      string
 	Prompt     string
+	Slug       string
+	Goal       string
 }
 
-// CreateForAgent creates a task named after an agent.
+// CreateForAgent creates a task for an agent, under the slug given or one named after the agent.
 func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (*taskstore.Task, error) {
-	if err := tasks.LockSlugs(ctx); err != nil {
+	slug, err := pickSlug(ctx, tasks, params)
+	if err != nil {
 		return nil, err
+	}
+
+	title := strings.TrimSpace(params.Title)
+	if title == "" {
+		title = params.Name
+	}
+
+	goal := strings.TrimSpace(params.Goal)
+	if goal == "" {
+		goal = strings.TrimSpace(xstr.FirstLine(strings.TrimSpace(params.Prompt)))
+	}
+
+	return tasks.Create(ctx, taskstore.CreateParams{
+		WorkflowID: params.WorkflowID,
+		Slug:       slug,
+		Title:      title,
+		Goal:       goal,
+	})
+}
+
+// pickSlug is the slug asked for, or the first numbered from the agent's name that no task has had.
+func pickSlug(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (string, error) {
+	if params.Slug != "" {
+		return params.Slug, nil
+	}
+	if err := tasks.LockSlugs(ctx); err != nil {
+		return "", err
 	}
 
 	base := xstr.Slug(params.Name, maxSlugBase)
@@ -102,11 +158,11 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 	}
 
 	slug := base
-	// Tries fix-login, then fix-login-2, fix-login-3 and on until one is free. The bare slug counts as the first, so numbering starts at 2.
+	// Tries fix-login, then fix-login-2 and on, the bare slug counting as the first.
 	for i := 2; ; i++ {
 		taken, err := tasks.IsSlugTaken(ctx, slug)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		if !taken {
 			break
@@ -114,15 +170,5 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 		slug = fmt.Sprintf("%s-%d", base, i)
 	}
 
-	title := strings.TrimSpace(params.Title)
-	if title == "" {
-		title = params.Name
-	}
-
-	return tasks.Create(ctx, taskstore.CreateParams{
-		WorkflowID: params.WorkflowID,
-		Slug:       slug,
-		Title:      title,
-		Goal:       strings.TrimSpace(xstr.FirstLine(strings.TrimSpace(params.Prompt))),
-	})
+	return slug, nil
 }

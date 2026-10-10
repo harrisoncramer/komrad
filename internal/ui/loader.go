@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/submitting"
+	"komrad/internal/view"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -54,7 +55,20 @@ func (r reviewScreen) isLoading(m *model) bool {
 }
 
 func isRowLoading(r agentRow) bool {
-	return !r.header && (isChecksRunning(r.item) || r.item.Agent.State == panel.StateSettingUp)
+	if r.isTask() {
+		return isChecksRunning(*r.lead)
+	}
+	if r.header {
+		return r.orchestrator != nil && isThinking(*r.orchestrator)
+	}
+
+	return isChecksRunning(r.item) || r.item.Agent.State == panel.StateSettingUp || isThinking(r.item)
+}
+
+// isThinking reports whether an agent is at work behind a pane still running, which turns the
+// loader after its name.
+func isThinking(item panel.AgentRow) bool {
+	return snapshotProcess(item) == view.ProcessAlive && snapshotStatus(item) == view.StatusThinking
 }
 
 func isChecksRunning(row panel.AgentRow) bool {

@@ -1,8 +1,10 @@
 ---
 import DocPage from "../../../layouts/DocPage.astro";
 import IndexList from "../../../components/reference/IndexList.astro";
+import Sidebar from "../../../components/Sidebar.astro";
 import { api, prose } from "../../../reference";
 import { link } from "../../../site";
+import { apiSidebar } from "../../../sidebar";
 
 export function getStaticPaths() {
   return api.services.map((service) => ({
@@ -15,6 +17,7 @@ const { service } = Astro.props;
 ---
 
 <DocPage title={service.title}>
+  <Sidebar slot="sidebar" label="API" groups={apiSidebar({ service: service.slug })} />
   <div class="service-description" set:html={prose(service.description)} />
   <p>
     <code>{service.name}</code>

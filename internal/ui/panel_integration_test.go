@@ -29,7 +29,7 @@ func TestIntegrationPanel(t *testing.T) {
 		instance, agentID := startServedAgent(t)
 		harness := newPanelHarness(t, panelHarnessParams{remote: newPanelRemote(instance)})
 		relist(t, instance, harness)
-		require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
+		require.Equal(t, []string{"backend", "└─ login", "   └─ login"}, readListRows(harness.readFrame()))
 
 		harness.press("space", "a")
 		require.Contains(t, harness.readFrame(), "enter submit", "the key opens the confirm prompt rather than archiving outright")
@@ -67,7 +67,7 @@ func TestIntegrationPanel(t *testing.T) {
 		dragged := readPaneWidth(t, served.instance, served.agentPane)
 		require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
-		served.harness.press("k", "space", "a")
+		served.harness.press("k", "k", "space", "a")
 		require.Contains(t, served.harness.readFrame(), "backend › archive")
 		served.harness.press("a")
 		relist(t, served.instance, served.harness)
@@ -85,7 +85,7 @@ func TestIntegrationPanel(t *testing.T) {
 		}
 		require.Equal(t, "0", readZoomedFlag(), "the agent's own pane has the stage to itself")
 
-		served.harness.press("k")
+		served.harness.press("k", "k")
 		served.harness.fireTimers()
 
 		assert.Equal(t, "1", readZoomedFlag())
@@ -96,7 +96,7 @@ func TestIntegrationPanel(t *testing.T) {
 		share := readPaneWidth(t, served.instance, served.navPane)
 		require.Less(t, share, 341, "the panel starts on its share of the window")
 
-		served.harness.press("k")
+		served.harness.press("k", "k")
 		held := served.harness.readRawFrame()
 		unsettled := served.harness.fireTimersUnsettled()
 
@@ -108,7 +108,7 @@ func TestIntegrationPanel(t *testing.T) {
 		}
 		assert.Equal(t, 341, lipgloss.Width(served.harness.readRendered()), "and once told, the frame covers it")
 
-		served.harness.press("j")
+		served.harness.press("j", "j")
 		served.harness.fireTimers()
 
 		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
@@ -169,7 +169,7 @@ func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
 		remote:   newPanelRemote(instance),
 	})
 	relist(t, instance, harness)
-	require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
+	require.Equal(t, []string{"backend", "└─ login", "   └─ login"}, readListRows(harness.readFrame()))
 
 	harness.fireTimers()
 	agentPane := instance.GetOwnedPane(agentID)
@@ -195,6 +195,7 @@ func newPanelRemote(instance *komradtest.Instance) *panelRemote {
 		forges:       instance.Forges,
 		pullRequests: instance.PullRequests,
 		loops:        instance.Loops,
+		tasks:        instance.Tasks,
 		logs:         instance.Logs,
 	}
 }

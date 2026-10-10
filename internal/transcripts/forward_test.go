@@ -11,6 +11,7 @@ import (
 	"komrad/lib/xptr"
 
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
@@ -138,15 +139,14 @@ func TestComposeForward(t *testing.T) {
 			reader := NewTranscriptReader(NewTranscriptReaderParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
+				Tasks:       st.Tasks,
 				Clock: func() time.Time {
 					return forwardedAt
 				},
 			})
 
-			alpha := st.SeedAgent(t, agentstore.Agent{
-				Name:   "alpha",
-				Branch: tt.branch,
-			})
+			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
+			st.SeedTaskHead(t, alpha.ID, taskstore.SetHeadParams{Branch: tt.branch})
 			if len(tt.turns) > 0 {
 				st.SeedTurns(t, alpha.ID, tt.turns...)
 			}

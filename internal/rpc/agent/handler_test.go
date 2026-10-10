@@ -36,6 +36,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -412,6 +413,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					IdempotencyKey:   xptr.Ptr("triage:ENG-5260"),
 					ParentAgentId:    xptr.Ptr(ids[0]),
 					Task:             xptr.Ptr("fix-login"),
+					TaskSlug:         xptr.Ptr("login"),
+					TaskGoal:         "Logins work.",
 				}))
 				if err != nil {
 					return "", err
@@ -431,6 +434,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					IdempotencyKey:   "triage:ENG-5260",
 					ParentAgentID:    ids[0],
 					Task:             "fix-login",
+					TaskSlug:         "login",
+					TaskGoal:         "Logins work.",
 				}, services.created)
 			},
 		},
@@ -971,15 +976,14 @@ func TestGetAgent(t *testing.T) {
 		rows: []rowstore.Row{
 			{
 				Agent: agentstore.Agent{
-					ID:            alphaID,
-					Name:          "alpha",
-					Cwd:           "/repo",
-					Prompt:        prompt,
-					State:         agentstore.StateThinking,
-					CreatedAt:     created,
-					WorkflowID:    "wf-1",
-					RepositoryURL: xptr.Ptr(komradRepository),
-					Branch:        xptr.Ptr("agent/x"),
+					ID:         alphaID,
+					Name:       "alpha",
+					Cwd:        "/repo",
+					Prompt:     prompt,
+					State:      agentstore.StateThinking,
+					CreatedAt:  created,
+					WorkflowID: "wf-1",
+					TaskID:     xptr.Ptr("task-1"),
 				},
 				FailedRun:    true,
 				FailedRunLog: xptr.Ptr(int32(4)),
@@ -1016,6 +1020,13 @@ func TestGetAgent(t *testing.T) {
 				},
 			},
 			Workflows: []workflowstore.Workflow{{ID: "wf-1"}},
+			Tasks: []taskstore.Task{{
+				ID: "task-1",
+				Checkout: taskstore.Checkout{
+					RepositoryURL: xptr.Ptr(komradRepository),
+					Branch:        xptr.Ptr("agent/x"),
+				},
+			}},
 		},
 	}
 
@@ -1027,6 +1038,7 @@ func TestGetAgent(t *testing.T) {
 	assert.Equal(t, int32(740), got.Msg.GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
 	assert.Equal(t, int32(740), got.Msg.GetPullRequest().GetNumber(), "and the current one's standing")
 	assert.Equal(t, int32(1), got.Msg.GetLocalReviewRounds())
+	assert.Equal(t, "agent/x", got.Msg.GetTask().GetBranch(), "and the task whose checkout it works in")
 
 	agent := got.Msg.GetAgent()
 	assert.Equal(t, "/repo", agent.GetCwd())
@@ -1039,14 +1051,15 @@ func TestGetAgent(t *testing.T) {
 }
 
 // TestGetAgentResponseMirrorsAgentRow pins that every field AgentRow draws beside an agent is
-// declared on GetAgentResponse the same way.
+// declared on GetAgentResponse the same way, which adds only the task.
 func TestGetAgentResponseMirrorsAgentRow(t *testing.T) {
 	t.Parallel()
 
 	rowFields := (&agentv1.AgentRow{}).ProtoReflect().Descriptor().Fields()
 	responseFields := (&agentv1.GetAgentResponse{}).ProtoReflect().Descriptor().Fields()
 
-	assert.Equal(t, rowFields.Len(), responseFields.Len())
+	assert.Equal(t, rowFields.Len()+1, responseFields.Len())
+	assert.NotNil(t, responseFields.ByName("task"), "GetAgentResponse carries the task")
 
 	for i := range rowFields.Len() {
 		want := rowFields.Get(i)
@@ -1641,7 +1654,7 @@ func (f *recordingAgentServices) Abort(_ context.Context, agentID string) (*chec
 	}
 
 	return &checkouts.AbortResult{
-		Sequence:    agentstore.SequenceCherryPick,
+		Sequence:    taskstore.SequenceCherryPick,
 		Branch:      "agent/alpha",
 		ParkedRef:   "refs/komrad/aborted/alpha/1",
 		Interrupted: true,

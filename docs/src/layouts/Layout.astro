@@ -10,9 +10,10 @@ import { canonical, link } from "../site";
 type Props = {
   title: string;
   description?: string;
+  sidebar?: boolean;
 };
 
-const { title, description } = Astro.props;
+const { title, description, sidebar } = Astro.props;
 const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
 ---
 
@@ -30,9 +31,20 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
       <Search />
     </Header>
     <slot name="hero" />
-    <main class="mx-auto max-w-[900px] px-6 py-6">
-      <slot />
-    </main>
+    {sidebar ? (
+      <div class="mx-auto flex max-w-[1240px] justify-center px-6">
+        <aside class="sidebar">
+          <slot name="sidebar" />
+        </aside>
+        <main class="min-w-0 max-w-[900px] flex-1 py-6 lg:max-w-[924px] lg:pl-6">
+          <slot />
+        </main>
+      </div>
+    ) : (
+      <main class="mx-auto max-w-[900px] px-6 py-6">
+        <slot />
+      </main>
+    )}
     <script>
       if (location.hash) {
         history.scrollRestoration = "manual";
@@ -44,3 +56,13 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     </script>
   </body>
 </html>
+
+<style>
+  @reference "../styles/global.css";
+
+  .sidebar {
+    @apply sticky top-16 hidden h-[calc(100vh-4rem)] w-66 shrink-0 self-start overflow-y-auto overscroll-contain border-r border-app-background-medium pt-8 pr-6 pb-8 lg:block;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent);
+  }
+</style>

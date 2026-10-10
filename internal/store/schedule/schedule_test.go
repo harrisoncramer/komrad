@@ -9,6 +9,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
@@ -614,6 +615,7 @@ func TestListPage(t *testing.T) {
 
 type fixture struct {
 	*ScheduleStore
+	db        store.DBTX
 	workflows *workflowstore.WorkflowStore
 	agents    *agentstore.AgentStore
 }
@@ -703,17 +705,20 @@ func TestDelete(t *testing.T) {
 		Attempt:     1,
 		MaxAttempts: 3,
 	}))
+	taskID, err := tasktest.Seed(ctx, st.db, created.WorkflowID)
+	require.NoError(t, err)
 	agent := agentstore.Agent{
 		Name:       "launched",
 		WorkflowID: created.WorkflowID,
 		ScheduleID: &created.ID,
 		State:      agentstore.StateIdle,
+		TaskID:     taskID,
 	}
 	require.NoError(t, st.agents.Create(ctx, agent))
 
 	require.NoError(t, st.Delete(ctx, created.ID))
 
-	_, err := st.GetIncludingArchived(ctx, created.ID)
+	_, err = st.GetIncludingArchived(ctx, created.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	runs, err := st.ListRuns(ctx, created.ID, 10)
@@ -770,6 +775,7 @@ func open(t *testing.T) *fixture {
 
 	return &fixture{
 		ScheduleStore: NewScheduleStore(pool.GetDB()),
+		db:            pool.GetDB(),
 		workflows:     workflowstore.NewWorkflowStore(pool.GetDB()),
 		agents:        agentstore.NewAgentStore(pool.GetDB()),
 	}
@@ -803,7 +809,10 @@ func seedAgent(t *testing.T, st *fixture, workflowID string) string {
 	t.Helper()
 
 	id := uuid.NewString()
+	taskID, err := tasktest.Seed(t.Context(), st.db, workflowID)
+	require.NoError(t, err)
 	require.NoError(t, st.agents.Create(t.Context(), agentstore.Agent{
+		TaskID:     taskID,
 		ID:         id,
 		Name:       "orchestrator-" + id,
 		WorkflowID: workflowID,

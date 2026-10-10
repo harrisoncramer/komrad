@@ -345,6 +345,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 				Name:   "held",
 				Held:   true,
 				Status: view.StatusWaiting,
+				Tree:   &view.Tree{Last: true},
 			},
 		},
 		{
@@ -357,6 +358,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 				Key:       "agent:a1",
 				Name:      "alert",
 				FailedRun: true,
+				Tree:      &view.Tree{Last: true},
 			},
 		},
 		{
@@ -369,6 +371,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 				Key:        "agent:a1",
 				Name:       "mail",
 				UnreadMail: true,
+				Tree:       &view.Tree{Last: true},
 			},
 		},
 		{
@@ -382,6 +385,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 				Key:       "agent:a1",
 				Name:      "nightly",
 				Scheduled: true,
+				Tree:      &view.Tree{Last: true},
 			},
 		},
 		{
@@ -395,6 +399,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 				Key:    "agent:a1",
 				Name:   "hidden",
 				Hidden: true,
+				Tree:   &view.Tree{Last: true},
 			},
 		},
 		{
@@ -408,6 +413,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 				Key:      "agent:a1",
 				Name:     "put-away",
 				Archived: true,
+				Tree:     &view.Tree{Last: true},
 			},
 		},
 		{
@@ -416,6 +422,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 			want: view.Row{
 				Key:  "agent:a1",
 				Name: "ordinary",
+				Tree: &view.Tree{Last: true},
 			},
 		},
 	}
@@ -587,6 +594,7 @@ func TestSnapshotKinds(t *testing.T) {
 				Kind:    view.KindAgent,
 				Name:    "worker",
 				Process: view.ProcessStopped,
+				Tree:    &view.Tree{Last: true},
 			},
 		},
 		{
@@ -604,6 +612,7 @@ func TestSnapshotKinds(t *testing.T) {
 				Key:  "agent:a1",
 				Kind: view.KindChild,
 				Name: "reviewer",
+				Tree: &view.Tree{Above: []bool{true}, Last: true},
 			},
 		},
 		{
@@ -613,6 +622,7 @@ func TestSnapshotKinds(t *testing.T) {
 				Key:  "agent:a1",
 				Kind: view.KindAgent,
 				Name: "worker",
+				Tree: &view.Tree{Last: true},
 			},
 		},
 	}

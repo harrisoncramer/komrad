@@ -56,11 +56,10 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			})
 		}),
-		Caret:      caret,
-		BlinkedOut: pane.blinkedOut,
-		Focused:    rowKeyAt(rows, d.cursor),
-		Pane:       pane.width,
-		Columns:    documentColumns(),
+		Caret:   caret,
+		Focused: rowKeyAt(rows, d.cursor),
+		Pane:    pane.width,
+		Columns: documentColumns(),
 	}
 }
 
@@ -95,11 +94,10 @@ func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Sna
 				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Parse(r.documentType.GetUpdatedAt()), now))},
 			}
 		}),
-		Caret:      pane.caret,
-		BlinkedOut: pane.blinkedOut,
-		Focused:    rowKeyAt(rows, d.documentTypes.cursor),
-		Pane:       pane.width,
-		Columns:    documentColumns(),
+		Caret:   pane.caret,
+		Focused: rowKeyAt(rows, d.documentTypes.cursor),
+		Pane:    pane.width,
+		Columns: documentColumns(),
 	}
 }
 

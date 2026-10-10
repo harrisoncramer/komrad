@@ -480,7 +480,7 @@ type Agent struct {
 	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	Sequence           AgentSequence
 	RequestedByAgentID pgtype.UUID
-	// The task the agent works on, null for an orchestrator or once its task is deleted.
+	// The task the agent works on, null only for an orchestrator.
 	TaskID pgtype.UUID
 }
 
@@ -1132,6 +1132,41 @@ type Task struct {
 	ArchivedAt pgtype.Timestamptz
 	CreatedAt  pgtype.Timestamptz
 	UpdatedAt  pgtype.Timestamptz
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID pgtype.UUID
+	// The directory of the task's checkout, which every agent on the task works in. Null while the task has none.
+	Cwd *string
+	// The git branch the task's checkout is on, null while it has no checkout or git cannot read it.
+	Branch *string
+	// The branch the task's checkout was put on rather than one komrad made for it, null when komrad made it.
+	AdoptedBranch *string
+	// Whether the task's checkout was provisioned for it: unset inherits the workflow's setting, and false means the checkout is a directory it was given.
+	ProvisionEnabled *bool
+	// Whether the task's checkout has been taken away, null while it has none.
+	WorktreeRemoved *bool
+	// The canonical web address of the repository the task's checkout pushes to, such as https://github.com/harrisoncramer/komrad. Null when the checkout is gone or its origin is not a forge.
+	RepositoryUrl *string
+	// The commit the task's checkout has checked out, null when the checkout is gone or git cannot read it.
+	HeadSha *string
+	// What the latest rebase of the task's checkout came to, as the result or the failure; null until its first rebase.
+	LastRebase []byte
+	// What git has part-way through the task's checkout and waiting on somebody, null while it has no checkout.
+	Sequence NullAgentSequence
+	// How many lines the task's checkout adds since it left its base, committed and uncommitted alike, null when there is no base to measure against.
+	LinesAdded *int32
+	// How many lines the task's checkout removes since it left its base, null whenever lines_added is.
+	LinesRemoved *int32
+	// The snapshot of the newest review round of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no round.
+	MovedSinceRound *string
+}
+
+// Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
+type TaskPullRequest struct {
+	TaskID        pgtype.UUID
+	PullRequestID pgtype.UUID
+	FirstSeenAt   pgtype.Timestamptz
+	// When the pair was last seen together, moved at most once an hour.
+	LastSeenAt pgtype.Timestamptz
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
 }

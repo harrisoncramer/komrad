@@ -638,18 +638,23 @@ FROM
     released r
     LEFT JOIN concluded c ON c.agent_id = r.agent_id;
 
--- name: ListNewestReviewRounds :many
-SELECT DISTINCT ON (agent_id)
-    agent_id,
-    snapshot_sha
+-- name: ListNewestTaskReviewRounds :many
+SELECT DISTINCT ON (a.task_id)
+    a.task_id::uuid AS task_id,
+    r.snapshot_sha
 FROM
-    review_rounds
+    review_rounds r
+    JOIN agents a ON a.id = r.agent_id
+WHERE
+    a.task_id IS NOT NULL
 ORDER BY
-    agent_id,
-    ordinal DESC;
+    a.task_id,
+    r.created_at DESC,
+    r.ordinal DESC;
 
 -- name: ListUnlandedReviewRounds :many
 SELECT
+    a.task_id::uuid AS task_id,
     r.agent_id,
     r.ordinal,
     r.base_sha,
@@ -662,10 +667,10 @@ FROM
         SELECT
             p.merged_at
         FROM
-            agent_pull_requests o
+            task_pull_requests o
             JOIN pull_requests p ON p.id = o.pull_request_id
         WHERE
-            o.agent_id = r.agent_id
+            o.task_id = a.task_id
             AND p.merged_at IS NOT NULL
         ORDER BY
             p.merged_at DESC
@@ -673,6 +678,7 @@ FROM
 WHERE
     r.landed_at IS NULL
     AND a.archived_at IS NULL
+    AND a.task_id IS NOT NULL
     AND EXISTS (
         SELECT
             1
@@ -771,13 +777,14 @@ ORDER BY
 -- name: ListForgeMirrorAgents :many
 SELECT
     a.id AS agent_id,
-    a.cwd,
+    COALESCE(t.cwd, '')::text AS cwd,
     r.id AS round_id,
     r.base_sha,
     r.snapshot_sha
 FROM
-    agent_pull_requests o
-    JOIN agents a ON a.id = o.agent_id
+    task_pull_requests o
+    JOIN tasks t ON t.id = o.task_id
+    JOIN agents a ON a.task_id = t.id
     JOIN LATERAL (
         SELECT
             *
@@ -789,7 +796,7 @@ FROM
             r.ordinal DESC
         LIMIT 1) r ON TRUE
 WHERE
-    o.pull_request_id = @pull_request_id
+    o.pull_request_id = sqlc.arg('pull_request_id')
     AND a.archived_at IS NULL
     AND a.deleting_at IS NULL
 ORDER BY

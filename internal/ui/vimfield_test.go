@@ -23,17 +23,17 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
 
-		assert.NotContains(t, harness.readFrame(), "Initial prompt")
+		assert.NotContains(t, harness.readFrame(), "Brief")
 	})
 
 	t.Run("with vim on the first esc goes to normal mode and the second closes the form", func(t *testing.T) {
 		harness := openVimForms(t)
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
-		assert.Contains(t, harness.readFrame(), "Initial prompt")
+		assert.Contains(t, harness.readFrame(), "Brief")
 
 		harness.press("esc")
-		assert.NotContains(t, harness.readFrame(), "Initial prompt")
+		assert.NotContains(t, harness.readFrame(), "Brief")
 	})
 
 	t.Run("with vim on the second esc in a section goes back to the top form", func(t *testing.T) {
@@ -50,10 +50,10 @@ func TestVimEditing(t *testing.T) {
 		harness := openVimForms(t)
 
 		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"ctrl+["})...)
-		assert.Contains(t, harness.readFrame(), "Initial prompt")
+		assert.Contains(t, harness.readFrame(), "Brief")
 
 		harness.press("ctrl+[")
-		assert.NotContains(t, harness.readFrame(), "Initial prompt")
+		assert.NotContains(t, harness.readFrame(), "Brief")
 	})
 
 	t.Run("ctrl+[ counts as esc in the review box", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestVimEditing(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "Check it", create.GetPrompt())
+		assert.Equal(t, "Check it", create.GetTaskGoal())
 	})
 
 	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestVimEditing(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "go far", create.GetPrompt())
+		assert.Equal(t, "go far", create.GetTaskGoal())
 	})
 
 	t.Run("k on the first field stays on it", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestVimEditing(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "g", create.GetPrompt())
+		assert.Equal(t, "g", create.GetTaskGoal())
 	})
 
 	t.Run("j above only fields that are not text stays on the field", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestVimEditing(t *testing.T) {
 		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.press("g", "g")
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 3), spellKeys("ab"), []string{"esc", "j"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 4), spellKeys("ab"), []string{"esc", "j"})...)
 		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.readFrame(), "Worktree")
 

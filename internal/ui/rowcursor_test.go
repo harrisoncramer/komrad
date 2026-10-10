@@ -14,13 +14,13 @@ func TestRowCursor(t *testing.T) {
 	t.Run("the blink hides the arrow and keeps its room", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 		shown := harness.readFrame()
-		require.Equal(t, "  auth", readHoveredRow(shown))
+		require.Equal(t, "├─ auth", readHoveredRow(shown))
 
 		harness.fireTimers()
 
 		hidden := harness.readFrame()
 		assert.Empty(t, readHoveredRow(hidden))
-		assert.Equal(t, findBarColumn(findRowWith(t, shown, "auth")), findBarColumn(findRowWith(t, hidden, "auth")))
+		assert.Equal(t, findNameColumn(findRowWith(t, shown, "auth")), findNameColumn(findRowWith(t, hidden, "auth")))
 	})
 
 	t.Run("a keypress renders the arrow on the row it lands on", func(t *testing.T) {
@@ -29,7 +29,7 @@ func TestRowCursor(t *testing.T) {
 
 		harness.press("j")
 
-		assert.Equal(t, "  api", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "├─ api", readHoveredRow(harness.readFrame()))
 	})
 
 	t.Run("the timer a keypress starts hides the arrow again", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestRowCursor(t *testing.T) {
 
 		harness.fireTimers()
 
-		assert.Equal(t, "  auth", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "├─ auth", readHoveredRow(harness.readFrame()))
 	})
 
 	t.Run("the keys coming back to the panel start the blink again", func(t *testing.T) {
@@ -69,7 +69,7 @@ func TestRowCursor(t *testing.T) {
 
 		harness.fireTimers()
 
-		assert.Equal(t, "  auth", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "├─ auth", readHoveredRow(harness.readFrame()))
 	})
 
 	t.Run("the record holding the keys takes the arrow and blinks it", func(t *testing.T) {

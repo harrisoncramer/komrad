@@ -14,17 +14,17 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // TestNotices covers the record spelling out the marks on the hovered row above its fields.
 func TestNotices(t *testing.T) {
 	t.Run("every mark the row carries is said above its fields", func(t *testing.T) {
-		harness := openNoticed(t, panelHarnessParams{}, newMarked(), newUnreadMail("n1"))
+		harness := openNoticed(t, panelHarnessParams{}, newFailedRun(), newUnreadMail("n1"))
 
 		record := readRecordProse(harness.readFrame())
 		assert.Contains(t, record, "a script komrad fired failed, log unread")
 		assert.Contains(t, record, "mail waiting, it has not read it")
-		assert.Contains(t, record, "its directory no longer exists")
 		assert.Equal(t, "/repo", readRecordField(harness.readFrame(), "directory"))
 	})
 
@@ -36,7 +36,7 @@ func TestNotices(t *testing.T) {
 
 	t.Run("the notices take their lines from the fields rather than the list", func(t *testing.T) {
 		plain := openNoticed(t, panelHarnessParams{}, newNoticed())
-		marked := openNoticed(t, panelHarnessParams{}, newMarked(), newUnreadMail("n1"))
+		marked := openNoticed(t, panelHarnessParams{}, newFailedRun(), newUnreadMail("n1"))
 
 		assert.Len(t, readRecord(marked.readFrame()), len(readRecord(plain.readFrame())))
 		assert.Equal(t, findRule(plain.readFrame()), findRule(marked.readFrame()), "the record starts on the same line")
@@ -55,9 +55,9 @@ func TestNotices(t *testing.T) {
 				width:  40,
 				height: 13,
 			},
-			rows:       []proto.Message{newMarked(), newUnreadMail("n1")},
+			rows:       []proto.Message{newFailedRun(), newUnreadMail("n1")},
 			want:       []string{"agent", "a script komrad fired failed"},
-			wantAbsent: []string{"no longer exists"},
+			wantAbsent: []string{"mail waiting"},
 		},
 		{
 			name: "a pane too narrow for one whole sentence cuts it short and says so",
@@ -111,8 +111,7 @@ func TestNoticesGolden(t *testing.T) {
 		{
 			name:  "column-facts",
 			press: widenListPresses,
-			rows: []proto.Message{
-				newRebasing(),
+			rows: append(newRebasing(),
 				&agentv1.WatchedReview{
 					Id:           "v1",
 					AgentId:      "n1",
@@ -121,7 +120,7 @@ func TestNoticesGolden(t *testing.T) {
 					ReleasedAt:   "2026-09-20T12:00:00Z",
 					Verdict:      agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				},
-			},
+			),
 		},
 		{
 			name:  "a-conflicting-pull-request",
@@ -135,7 +134,7 @@ func TestNoticesGolden(t *testing.T) {
 		},
 		{
 			name: "a-failed-create",
-			rows: []proto.Message{newFailedCreate()},
+			rows: newFailedCreate(),
 		},
 		{
 			name:  "a-wrapped-sentence",
@@ -161,6 +160,9 @@ func openNoticed(t *testing.T, params panelHarnessParams, rows ...proto.Message)
 	answerWorktreeReads(harness)
 	harness.watch(buildSnapshot(append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...))
 	harness.press("j")
+	if slices.ContainsFunc(rows, isTask) {
+		harness.press("k")
+	}
 
 	return harness
 }
@@ -177,8 +179,9 @@ func newNoticed() *agentv1.Agent {
 
 func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 	agent := newNoticed()
-	agent.RepositoryUrl = xptr.Ptr(repositoryURL)
-	agent.Branch = xptr.Ptr("agent/n1")
+	task := newTaskOf(agent)
+	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.Branch = xptr.Ptr("agent/n1")
 
 	return []proto.Message{
 		agent,
@@ -192,14 +195,8 @@ func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 			State:             state,
 			OpenedAt:          "2026-09-19T12:00:00Z",
 		},
+		task,
 	}
-}
-
-func newMarked() *agentv1.Agent {
-	agent := newFailedRun()
-	agent.WorktreeRemoved = true
-
-	return agent
 }
 
 func newFailedRun() *agentv1.Agent {
@@ -215,19 +212,21 @@ func newHeld(agent *agentv1.Agent) *agentv1.Agent {
 	return agent
 }
 
-func newRebasing() *agentv1.Agent {
+func newRebasing() []proto.Message {
 	agent := newNoticed()
-	agent.Sequence = agentv1.Sequence_SEQUENCE_REBASE
+	task := newTaskOf(agent)
+	task.Sequence = taskv1.Sequence_SEQUENCE_REBASE
 
-	return agent
+	return []proto.Message{agent, task}
 }
 
-func newFailedCreate() *agentv1.Agent {
+func newFailedCreate() []proto.Message {
 	agent := newNoticed()
 	agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
-	agent.WorktreeRemoved = true
+	task := newTaskOf(agent)
+	task.WorktreeRemoved = true
 
-	return agent
+	return []proto.Message{agent, task}
 }
 
 func findRule(frame string) int {
@@ -255,7 +254,7 @@ func readNoticeBlock(harness *panelHarness) []string {
 		if rules != 1 {
 			continue
 		}
-		if strings.HasPrefix(strings.TrimLeft(line, "› "), "agent ") {
+		if field := strings.TrimLeft(line, "› "); strings.HasPrefix(field, "agent ") || strings.HasPrefix(field, "task ") {
 			break
 		}
 
@@ -273,4 +272,10 @@ func newUnreadMail(agentID string) *agentv1.Mail {
 		ToAgentId: agentID,
 		ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
 	}
+}
+
+func isTask(row proto.Message) bool {
+	_, ok := row.(*taskv1.Task)
+
+	return ok
 }

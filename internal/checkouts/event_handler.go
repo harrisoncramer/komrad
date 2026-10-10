@@ -10,8 +10,8 @@ import (
 	"komrad/internal/events"
 	"komrad/internal/mail"
 	"komrad/internal/store"
-	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	taskstore "komrad/internal/store/task"
 
 	"github.com/riverqueue/river"
 )
@@ -21,6 +21,7 @@ const rebasedTopic = "worktree_rebased"
 // rebased is an agent's worktree having been rebased, or a rebase of it having failed.
 type rebased struct {
 	AgentID string `json:"agent_id"`
+	TaskID  string `json:"task_id"`
 }
 
 // Topic names the handler that tells the agent.
@@ -41,7 +42,7 @@ func NewEventHandler() events.HandlerFor[rebased] {
 
 // handleRebased tells the agent what the latest rebase of its worktree came to.
 func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, rebased rebased) ([]river.JobArgs, error) {
-	raw, err := agentstore.NewAgentStore(tx).GetLastRebaseByID(ctx, rebased.AgentID)
+	raw, err := taskstore.NewTaskStore(tx).GetLastRebase(ctx, rebased.TaskID)
 	if errors.Is(err, store.ErrNotFound) || (err == nil && raw == nil) {
 		return nil, nil
 	}

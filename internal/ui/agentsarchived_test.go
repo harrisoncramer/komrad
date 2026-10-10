@@ -15,6 +15,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -296,8 +297,9 @@ func TestArchivedAgentsRows(t *testing.T) {
 		wantRows []string
 	}{
 		{
-			name: "nothing archived renders nothing",
-			rows: []proto.Message{newLiveWorkflow("w1", "backend")},
+			name:     "nothing archived renders nothing",
+			rows:     []proto.Message{newLiveWorkflow("w1", "backend")},
+			wantRows: []string{},
 		},
 		{
 			name:     "an archived folder emptied of its agents keeps its header",
@@ -311,7 +313,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 				newLiveWorkflow("w2", "frontend"),
 				newArchivedAgent("a1", "auth", "w1"),
 			},
-			wantRows: []string{"backend", "  auth"},
+			wantRows: []string{"backend", "└─ auth"},
 		},
 		{
 			name: "an orchestrator is a row of its own rather than folded onto its folder",
@@ -325,7 +327,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 					ArchivedAt: xptr.Ptr(archivedAt),
 				},
 			},
-			wantRows: []string{"backend", "  orchestrator"},
+			wantRows: []string{"backend", "└─ orchestrator"},
 		},
 		{
 			name: "live and archived folders are rendered together by name",
@@ -336,7 +338,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 				newArchivedAgent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "ui", "w2"),
 			},
-			wantRows: []string{"backend", "  auth", "frontend", "  ui", "infra"},
+			wantRows: []string{"backend", "└─ auth", "frontend", "└─ ui", "infra"},
 		},
 	}
 
@@ -349,7 +351,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 	}
 }
 
-// TestArchivedAgentsRowEmphasis covers what the archived agents' rows say in colour and in their bar.
+// TestArchivedAgentsRowEmphasis covers what the archived agents' rows say in colour.
 func TestArchivedAgentsRowEmphasis(t *testing.T) {
 	t.Run("an archived folder is greyed and a live one is not", func(t *testing.T) {
 		harness := openArchivedAgents(t,
@@ -365,17 +367,6 @@ func TestArchivedAgentsRowEmphasis(t *testing.T) {
 		muted := paint.Panel.Style(paint.ToneMuted).Bold(true)
 		assert.Contains(t, frame, muted.Render("frontend"))
 		assert.NotContains(t, frame, muted.Render("backend"))
-	})
-
-	t.Run("an agent a delete could not destroy renders a busy bar", func(t *testing.T) {
-		stuck := newArchivedAgent("a2", "stuck", "w1")
-		stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
-		harness := openArchivedAgents(t, newLiveWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"), stuck)
-
-		frame := harness.readFrame()
-
-		assert.Contains(t, findLine(splitLines(frame), "auth"), "│   auth")
-		assert.Contains(t, findLine(splitLines(frame), "stuck"), "┃   stuck")
 	})
 }
 
@@ -531,7 +522,8 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 	stuck.FailureReason = "the worktree is dirty"
 	measured := newArchivedAgent("a1", "api-refactor", "w1")
-	measured.DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
+	measuredTask := newTaskOf(measured)
+	measuredTask.DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
 
 	tests := []struct {
 		name       string
@@ -561,7 +553,7 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		},
 		{
 			name:       "an archived agent renders no diff stat",
-			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured},
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured, measuredTask},
 			press:      []string{"j"},
 			want:       []string{"archived — kept until deleted"},
 			wantAbsent: []string{"+200"},
@@ -587,11 +579,13 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	t.Run("the record says what the agents list would say of it", func(t *testing.T) {
 		agent := newArchivedAgent("a1", "api-refactor", "w1")
 		agent.CreatedAt = "2026-07-29T09:00:00Z"
-		agent.Branch = xptr.Ptr("agent/a1")
-		agent.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
+		task := newTaskOf(agent)
+		task.Branch = xptr.Ptr("agent/a1")
+		task.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
 		harness := openArchivedAgents(t,
 			newLiveWorkflow("w1", "backend"),
 			agent,
+			task,
 			&pullrequestv1.PullRequest{
 				Id:                "pr-42",
 				RepositoryUrl:     "https://github.com/harrisoncramer/komrad",
@@ -644,22 +638,22 @@ func TestArchivedAgentsSort(t *testing.T) {
 	}{
 		{
 			name: "archived down is the fallback, the most recently archived first",
-			want: []string{"backend", "  mid", "  zeta", "  alpha"},
+			want: []string{"backend", "├─ mid", "├─ zeta", "└─ alpha"},
 		},
 		{
 			name:  "archived up is the oldest first",
 			press: []string{"f", "k"},
-			want:  []string{"backend", "  alpha", "  zeta", "  mid"},
+			want:  []string{"backend", "├─ alpha", "├─ zeta", "└─ mid"},
 		},
 		{
 			name:  "name up takes every row",
 			press: []string{"f", "tab", "k"},
-			want:  []string{"backend", "  alpha", "  mid", "  zeta"},
+			want:  []string{"backend", "├─ alpha", "├─ mid", "└─ zeta"},
 		},
 		{
 			name:  "name down",
 			press: []string{"f", "tab", "k", "j"},
-			want:  []string{"backend", "  zeta", "  mid", "  alpha"},
+			want:  []string{"backend", "├─ zeta", "├─ mid", "└─ alpha"},
 		},
 	}
 
@@ -686,10 +680,10 @@ func TestArchivedAgentsSort(t *testing.T) {
 		harness := openArchivedAgents(t, unsorted...)
 
 		harness.press("G")
-		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()))
 
 		harness.press("g")
-		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()), "the first press waits for the second")
+		assert.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()), "the first press waits for the second")
 
 		harness.press("g")
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
@@ -698,13 +692,13 @@ func TestArchivedAgentsSort(t *testing.T) {
 	t.Run("the cursor keeps its row as the archived agents are reordered", func(t *testing.T) {
 		harness := openArchivedAgents(t, unsorted...)
 		harness.press("j", "j", "j")
-		require.Equal(t, "  alpha", readHoveredRow(harness.readFrame()))
+		require.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()))
 
 		harness.press("f", "tab", "k", "esc")
-		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()), "name up")
+		assert.Equal(t, "├─ alpha", readHoveredRow(harness.readFrame()), "name up")
 
 		harness.press("f", "j", "esc")
-		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()), "name down")
+		assert.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()), "name down")
 	})
 }
 

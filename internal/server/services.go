@@ -213,6 +213,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			reader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{
 				Agents:      st.agents,
 				Transcripts: st.transcripts,
+				Tasks:       st.tasks,
 			}),
 			sync: transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
 				Agents:      st.agents,
@@ -225,6 +226,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		checkouts: checkoutServices{
 			service: checkouts.NewService(checkouts.NewServiceParams{
 				Agents:          st.agents,
+				Tasks:           st.tasks,
 				Workflows:       st.workflows,
 				Settler:         settler,
 				Events:          queue,
@@ -234,7 +236,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				PullRequestSync: pullRequestGroup.sync,
 			}),
 			cwdSync: checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
-				Agents:       st.agents,
+				Tasks:        st.tasks,
 				Heads:        gitClient,
 				Trees:        gitClient,
 				Checkouts:    worktreeGroup.checkouts,
@@ -373,6 +375,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		LogsDir:        params.RunLogsDir,
 		FramesDir:      server.Env.FramesDir(),
 		Usage:          server.Usage,
+		Tasks:          params.Tasks,
 	})
 	reconciler := agents.NewReconciler(agents.NewReconcilerParams{
 		Panes:    server.Tmux,
@@ -391,6 +394,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 			Workflows: st.workflows,
 			Launch:    launchService,
 			Worktrees: params.Git,
+			Tasks:     params.Tasks,
 		}),
 		workflow: agents.NewWorkflowService(agents.NewWorkflowServiceParams{
 			Workflows:      st.workflows,
@@ -427,6 +431,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 			Reviews:       st.review,
 			ReviewThreads: st.reviewThreads,
 			Workflows:     st.workflows,
+			Tasks:         st.tasks,
 		}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:         st.agents,

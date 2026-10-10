@@ -13,6 +13,7 @@ import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 import "pullrequest/v1/pullrequest.proto";
 import "rules/v1/rules.proto";
+import "task/v1/task.proto";
 import "view/v1/view.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
@@ -49,32 +50,6 @@ enum AgentRole {
   AGENT_ROLE_REVIEWER = 2;
   // The agent drawn on a workflow's own row that hands work out.
   AGENT_ROLE_ORCHESTRATOR = 3;
-}
-
-// Sequence is what git has part-way through an agent's checkout and waiting on somebody.
-enum Sequence {
-  // Nothing was recorded, which no stored agent answers with.
-  SEQUENCE_UNSPECIFIED = 0;
-  // Nothing is part-way through.
-  SEQUENCE_NONE = 1;
-  // A rebase stopped on a commit it could not replay.
-  SEQUENCE_REBASE = 2;
-  // An am stopped on a patch it could not apply.
-  SEQUENCE_AM = 3;
-  // A merge stopped on conflicts.
-  SEQUENCE_MERGE = 4;
-  // A cherry-pick stopped on conflicts or resting between its picks.
-  SEQUENCE_CHERRY_PICK = 5;
-  // A revert stopped on conflicts or resting between its picks.
-  SEQUENCE_REVERT = 6;
-}
-
-// DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
-message DiffStat {
-  // The lines it adds.
-  int32 added = 1;
-  // The lines it removes.
-  int32 removed = 2;
 }
 
 message Agent {
@@ -114,18 +89,8 @@ message Agent {
   optional string spawned_by_agent_id = 17;
   // The agent this one is a child of, unset for an agent standing on its own.
   optional string parent_agent_id = 18;
-  // The git branch its worktree is on, unset for an agent that provisions none.
-  optional string branch = 19;
-  // The canonical web address of the repository its checkout pushes to, such as
-  // https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin
-  // is not a forge.
-  optional string repository_url = 20;
-  // The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
-  optional string head_sha = 21;
-  // Whether its checkout has been taken away, which leaves the record and the transcript.
-  bool worktree_removed = 22;
-  // What git has part-way through its checkout, waiting on somebody to settle it.
-  Sequence sequence = 23;
+  reserved 19, 20, 21, 22, 23;
+  reserved "branch", "repository_url", "head_sha", "worktree_removed", "sequence";
   // Whether a script komrad fired for the agent failed and nobody has looked at it since.
   bool failed_run = 24;
   // The run log that failure was written to, which is the run the panel opens on.
@@ -146,11 +111,8 @@ message Agent {
   AgentRole role = 32;
   // Whether prompt holds only its opening, as a summary listing returns it.
   bool prompt_truncated = 33;
-  // The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
-  string moved_since_round = 34;
-  // How many lines its checkout adds and removes since it left its base, unset where there is no
-  // base to measure against.
-  optional DiffStat diff_stat = 35;
+  reserved 34, 35;
+  reserved "moved_since_round", "diff_stat";
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 36;
   // The agent that took the hold, empty when the panel took it or nobody is holding it.
@@ -266,6 +228,15 @@ message CreateAgentRequest {
   // make one from its title and prompt. A child always works on its parent's task, so this is
   // refused with parent_agent_id.
   optional string task = 12 [(buf.validate.field).string.min_len = 1];
+  // The slug of the task komrad makes for it when task is unset, which no other task has ever
+  // had. Unset to make one from its name, numbered until it is free.
+  optional string task_slug = 13 [(buf.validate.field).string = {
+    max_len: 80
+    pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+  }];
+  // What the task komrad makes for it is meant to achieve, as markdown. Blank to take the first
+  // line of the prompt.
+  string task_goal = 14 [(buf.validate.field).string.max_len = 50000];
 }
 
 message CreateAgentResponse {
@@ -373,6 +344,8 @@ message GetAgentResponse {
   optional CommentCounts reviewer_comments = 6;
   // Comments the person has left on its work. Absent while there are none to count.
   optional CommentCounts person_comments = 7;
+  // The task it works on, whose checkout it works in, unset for an agent on none.
+  optional task.v1.Task task = 8;
 }
 
 // PlanRebaseRequest asks what a rebase would do without doing it.
@@ -481,7 +454,7 @@ message AbortSequenceRequest {
 
 message AbortSequenceResponse {
   // What was undone.
-  Sequence sequence = 1;
+  task.v1.Sequence sequence = 1;
   // Where the checkout stands now, empty when it is detached.
   string branch = 2;
   // The ref holding the checkout as it stood before the abort, conflicts and all.

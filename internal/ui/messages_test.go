@@ -98,7 +98,7 @@ func TestMessagesPane(t *testing.T) {
 		assert.Contains(t, pane, "no such agent")
 		assert.Contains(t, pane, "error ·")
 		assert.Contains(t, pane, "komrad log "+traceID)
-		assert.Equal(t, "  api-refactor", readHoveredRow(frame))
+		assert.Equal(t, "└─ api-refactor", readHoveredRow(frame))
 		assert.Contains(t, readLegend(frame), "back to list")
 	})
 

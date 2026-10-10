@@ -2,6 +2,7 @@ package view
 
 import (
 	"strconv"
+	"strings"
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -13,11 +14,10 @@ func Prepare(snapshot Snapshot) List {
 	columns := snapshot.columns()
 	lines := xslice.Map(snapshot.Rows, func(row Row) line {
 		return prepareLine(prepareLineParams{
-			row:        row,
-			columns:    columns,
-			focused:    isFocused(row, snapshot.Focused),
-			caret:      snapshot.Caret,
-			blinkedOut: snapshot.BlinkedOut,
+			row:     row,
+			columns: columns,
+			focused: isFocused(row, snapshot.Focused),
+			caret:   snapshot.Caret,
 		})
 	})
 
@@ -37,11 +37,10 @@ func Prepare(snapshot Snapshot) List {
 
 // prepareLineParams is one row and what the list around it says about that row.
 type prepareLineParams struct {
-	row        Row
-	columns    Columns
-	focused    bool
-	caret      Caret
-	blinkedOut bool
+	row     Row
+	columns Columns
+	focused bool
+	caret   Caret
 }
 
 // prepareLine resolves one row to the glyphs, tones and weight it is rendered in.
@@ -52,9 +51,9 @@ func prepareLine(params prepareLineParams) line {
 		Focused:  focused,
 		Focus:    textCell(chromeIf(focused && params.caret == CaretRendered, glyph.Focus), paint.TonePrimary),
 		Columns:  columnCells(row, params.columns),
-		Status:   fadedCell(blinkBar(StatusCell(row), row, params.blinkedOut), row),
-		Rule:     row.Kind == KindChild,
-		Indent:   indentFor(row.Kind),
+		Branch:   branchFor(row.Tree),
+		Rule:     row.Kind == KindChild && row.Tree == nil,
+		Indent:   indentFor(row),
 		Lead:     row.Lead,
 		Name:     row.Name,
 		Matches:  row.Matches,
@@ -62,6 +61,7 @@ func prepareLine(params prepareLineParams) line {
 		Behind:   row.Behind,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused && params.caret != CaretAbsent),
+		Working:  workingCell(row),
 		Held:     HeldCell(row),
 		Hidden:   HiddenCell(row),
 		Document: DocumentCell(row),
@@ -105,15 +105,22 @@ func isFocused(row Row, focused string) bool {
 	return focused != "" && row.Key == focused
 }
 
-// isOwn reports whether a row is an agent's own rather than a header's or a child's.
+// isOwn reports whether a row is an agent's own rather than a header's, a child's or one under
+// the task whose row speaks for it.
 func isOwn(row Row) bool {
-	return row.Kind == KindAgent || row.Kind == KindResult
+	return (row.Kind == KindAgent || row.Kind == KindResult) && !row.Nested
+}
+
+// carriesWork reports whether a row's gutter and comments say how the work behind it stands,
+// which an agent's own row and a task's do.
+func carriesWork(row Row) bool {
+	return isOwn(row) || row.Kind == KindTask
 }
 
 // RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
-// it and empty on a row that is not an agent's own or one in its workflow's own directory.
+// it and empty on a row that carries no work or one in its workflow's own directory.
 func RepoCell(row Row) Cell {
-	if !isOwn(row) || row.InWorkflowDir {
+	if !carriesWork(row) || row.InWorkflowDir {
 		return Cell{}
 	}
 
@@ -131,7 +138,7 @@ func RepoCell(row Row) Cell {
 
 // buildCommentCells lays out the counts outstanding on an agent's work against the right edge.
 func buildCommentCells(row Row) []Cell {
-	if !isOwn(row) {
+	if !carriesWork(row) {
 		return nil
 	}
 
@@ -172,9 +179,9 @@ func countCell(mark glyph.Glyph, count int, tone paint.Tone) Cell {
 }
 
 // ForgeCell is where the pull request opened from an agent's branch stands, blank while
-// nothing is known or nothing was opened, and empty on a row that is not an agent's own.
+// nothing is known or nothing was opened, and empty on a row that carries no work.
 func ForgeCell(row Row) Cell {
-	if !isOwn(row) {
+	if !carriesWork(row) {
 		return Cell{}
 	}
 
@@ -218,39 +225,14 @@ func isQueueable(forge Forge) bool {
 	return forge == ForgeOpen || forge == ForgeApprovedWaiting || forge == ForgeApproved
 }
 
-// StatusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed
-// rather than decoded.
-func StatusCell(row Row) Cell {
-	switch row.Status {
-	case StatusIdle:
-		return Cell{Text: glyph.Quiet, Tone: paint.ToneMuted}
-	case StatusThinking:
-		return Cell{Text: glyph.Busy, Tone: paint.TonePrimary}
-	case StatusWaiting:
-		return Cell{Text: glyph.Busy, Tone: paint.ToneWarning}
-	case StatusBroken:
-		return Cell{Text: glyph.Busy, Tone: paint.ToneDanger}
+// workingCell is the loader turning after the name of an agent at work, greyed so it is there to
+// glance at rather than to draw the eye.
+func workingCell(row Row) Cell {
+	if row.Process != ProcessAlive || row.Status != StatusThinking || row.LoaderFrame == "" {
+		return Cell{}
 	}
 
-	return Cell{Text: glyph.Quiet, Tone: paint.ToneMuted}
-}
-
-// fadedCell greys a cell on a row the keyboard cannot reach.
-func fadedCell(cell Cell, row Row) Cell {
-	if row.Faded && !cell.IsBlank() {
-		cell.Tone = paint.ToneMuted
-	}
-
-	return cell
-}
-
-// blinkBar thins a working agent's bar on the off half of the blink.
-func blinkBar(cell Cell, row Row, out bool) Cell {
-	if out && row.Status == StatusThinking && cell.Text == glyph.Busy {
-		cell.Text = glyph.Quiet
-	}
-
-	return cell
+	return Cell{Text: row.LoaderFrame, Tone: paint.ToneMuted}
 }
 
 // HiddenCell is the mark a row renders once a person has taken it out of the sidebar.
@@ -314,6 +296,8 @@ func weightFor(kind RowKind) weight {
 		return weightRegular
 	case kindHit:
 		return weightRegular
+	case KindTask:
+		return weightRegular
 	case KindTriageMore, KindDivider:
 		return weightRegular
 	}
@@ -322,13 +306,38 @@ func weightFor(kind RowKind) weight {
 }
 
 // indentFor is how far a row's name is set in from the gutter, an agent under its workflow and
-// a child under its agent.
-func indentFor(kind RowKind) int {
-	if kind == KindWorkflow || kind == KindResult || kind == KindDivider {
+// a child under its agent, and none where a tree is drawn in its place.
+func indentFor(row Row) int {
+	if row.Tree != nil || row.Kind == KindWorkflow || row.Kind == KindResult || row.Kind == KindDivider {
 		return 0
 	}
 
 	return indentColumns
+}
+
+// branchFor is the tree drawn before a row's name: a rail down past each row it hangs under that
+// has siblings still to come, then the corner it hangs off.
+func branchFor(tree *Tree) string {
+	if tree == nil {
+		return ""
+	}
+
+	var b strings.Builder
+	for _, last := range tree.Above {
+		if last {
+			b.WriteString("   ")
+		} else {
+			b.WriteString(glyph.Divider + "  ")
+		}
+	}
+
+	if tree.Last {
+		b.WriteString(glyph.Child + glyph.Rule + " ")
+	} else {
+		b.WriteString(glyph.TeeLeft + glyph.Rule + " ")
+	}
+
+	return b.String()
 }
 
 // fitRow gives a row's width up in order: the workflow, the tally, the comment counts, the name,
@@ -359,9 +368,10 @@ func fitRow(line line, width int) line {
 // where even a nameless row will not fit the pane.
 func shedMarks(line line, width int) line {
 	// The schedule and the documents are standing facts about the row, hiding and pausing are
-	// things a person did themselves, mail goes before the output nobody has read, which asks
-	// the person to look, and the failed run nobody else will mention goes last.
-	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
+	// things a person did themselves, the loader only says what the name already did, mail goes
+	// before the output nobody has read, which asks the person to look, and the failed run nobody
+	// else will mention goes last.
+	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Held, &line.Working, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}
@@ -415,13 +425,18 @@ func HeldCell(row Row) Cell {
 	return markCell(row.Held, glyph.Paused, paint.ToneMuted)
 }
 
-// emphasisFor is how brightly a name is rendered, the row under the cursor beating greying.
+// emphasisFor is how brightly a name is rendered: the row under the cursor beating greying, and
+// greying beating an agent waiting on a person or broken.
 func emphasisFor(row Row, focused bool) emphasis {
 	switch {
 	case focused:
 		return emphasisFocused
 	case isDim(row):
 		return EmphasisDim
+	case row.Process != ProcessAlive:
+		return emphasisNormal
+	case row.Status == StatusWaiting || row.Status == StatusBroken:
+		return emphasisAlert
 	}
 
 	return emphasisNormal
