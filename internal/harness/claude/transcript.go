@@ -17,7 +17,7 @@ func (h *Harness) LogPath(sessionID string) string {
 		return ""
 	}
 
-	if known := h.knownLogPath(sessionID); known != "" {
+	if known := h.recallLogPath(sessionID); known != "" {
 		if _, err := os.Stat(known); err == nil {
 			return known
 		}
@@ -38,7 +38,7 @@ func (h *Harness) LogPath(sessionID string) string {
 	return matches[0]
 }
 
-func (h *Harness) knownLogPath(sessionID string) string {
+func (h *Harness) recallLogPath(sessionID string) string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
