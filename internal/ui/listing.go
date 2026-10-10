@@ -328,6 +328,26 @@ func (m *model) createCmd(params createAgentParams) tea.Cmd {
 	})
 }
 
+// createTaskCmdParams is a task and the agent that starts on it.
+type createTaskCmdParams struct {
+	task  createTaskParams
+	agent createAgentParams
+}
+
+// createTaskCmd creates the task, then the agent on it, as one write.
+func (m *model) createTaskCmd(params createTaskCmdParams) tea.Cmd {
+	return m.agentWriteCmd(startingLabel(params.task.Slug), "Could not start the task", func(clients api) (*agentv1.Agent, error) {
+		created, err := clients.createTask(params.task)
+		if err != nil {
+			return nil, err
+		}
+		agent := params.agent
+		agent.Task = created.GetId()
+
+		return clients.createAgent(agent)
+	})
+}
+
 func startingLabel(title string) string {
 	if title = strings.TrimSpace(title); title != "" {
 		return "starting " + title

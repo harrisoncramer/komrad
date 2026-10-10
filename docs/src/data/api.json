@@ -1715,7 +1715,7 @@
             "orchestrator"
           ],
           "summary": "Archive a task by id or slug, keeping its record.",
-          "description": "Archive a task by id or slug, keeping its record. Its agents keep running, and its slug is never reused.",
+          "description": "Archive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,

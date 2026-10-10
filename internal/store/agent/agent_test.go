@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -92,13 +93,34 @@ func (f *fixture) archiveByName(ctx context.Context, name string) error {
 	return err
 }
 
-// Create fills in the default workflow when the test did not name one.
+// Create fills in the default workflow and a task when the test did not name them.
 func (f *fixture) Create(ctx context.Context, agent Agent) error {
 	if agent.WorkflowID == "" {
 		agent.WorkflowID = f.defaultWorkflow
 	}
+	if agent.TaskID == nil && agent.Role != RoleOrchestrator {
+		taskID, err := f.taskFor(ctx, agent)
+		if err != nil {
+			return err
+		}
+		agent.TaskID = taskID
+	}
 
 	return f.AgentStore.Create(ctx, agent)
+}
+
+// taskFor is the task an agent written by a test works on: its parent's, or one made for it.
+func (f *fixture) taskFor(ctx context.Context, agent Agent) (*string, error) {
+	if agent.ParentAgentID == nil {
+		return tasktest.Seed(ctx, f.db, agent.WorkflowID)
+	}
+
+	parent, err := f.GetByID(ctx, *agent.ParentAgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return parent.TaskID, nil
 }
 
 func open(t *testing.T) *fixture {

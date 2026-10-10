@@ -8,6 +8,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -51,7 +52,10 @@ func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, bra
 	t.Helper()
 	ctx := t.Context()
 
+	taskID, err := tasktest.Seed(ctx, h.pool.GetDB(), workflowID)
+	require.NoError(t, err)
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:     taskID,
 		Name:       name,
 		Pane:       "%1",
 		State:      agentstore.StateIdle,
@@ -381,7 +385,10 @@ func TestListRecipients(t *testing.T) {
 	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
+	taskID, err := tasktest.Seed(ctx, h.pool.GetDB(), workflow)
+	require.NoError(t, err)
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:        taskID,
 		Name:          "child",
 		Pane:          "%2",
 		State:         agentstore.StateIdle,

@@ -191,7 +191,9 @@ func (l *listened) seed(t *testing.T) seeded {
 	l.exec(t, `INSERT INTO workflow_provisioner_configs (id, worktree_enabled, worktree_base_branch, worktree_dir, worktree_copy_paths, worktree_symlink_paths, worktree_diff_exclude)
 		VALUES ($1, false, 'main', '', '{}', '{}', '{}')`, provisioner)
 	l.exec(t, `INSERT INTO workflows (id, name, context, workflow_config_id, provisioner_config_id) VALUES ($1, 'flow', '', $2, $3)`, rows.workflow, rows.config, provisioner)
-	l.exec(t, `INSERT INTO agents (id, name, workflow_id, branch, repository_url) VALUES ($1, 'agent', $2, 'agent/x', $3)`, rows.agent, rows.workflow, rows.repository)
+	task := uuid.NewString()
+	l.exec(t, `INSERT INTO tasks (id, workflow_id, slug, title) VALUES ($1, $2, $3, 'task')`, task, rows.workflow, "task-"+task)
+	l.exec(t, `INSERT INTO agents (id, name, workflow_id, task_id, branch, repository_url) VALUES ($1, 'agent', $2, $3, 'agent/x', $4)`, rows.agent, rows.workflow, task, rows.repository)
 
 	return rows
 }

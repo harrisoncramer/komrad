@@ -145,6 +145,50 @@ func TestCreateWithProvisionOverride(t *testing.T) {
 	}
 }
 
+// TestCreateNeedsATask pins that every agent but an orchestrator is written onto a task.
+func TestCreateNeedsATask(t *testing.T) {
+	tests := []struct {
+		name    string
+		role    Role
+		wantErr bool
+	}{
+		{
+			name:    "an implementer with no task is refused",
+			role:    RoleImplementer,
+			wantErr: true,
+		},
+		{
+			name:    "a reviewer with no task is refused",
+			role:    RoleReviewer,
+			wantErr: true,
+		},
+		{
+			name: "an orchestrator needs none",
+			role: RoleOrchestrator,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := open(t)
+
+			err := f.AgentStore.Create(t.Context(), Agent{
+				Name:       "agent",
+				State:      StateIdle,
+				Role:       tt.role,
+				WorkflowID: f.defaultWorkflow,
+			})
+
+			if tt.wantErr {
+				require.Error(t, err)
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 // TestSpawnedByAgentID pins that an agent a person started reads back a nil parent rather
 // than a sentinel standing in for nobody.
 func TestSpawnedByAgentID(t *testing.T) {

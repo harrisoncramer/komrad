@@ -25,6 +25,7 @@ import (
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
@@ -121,6 +122,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			forgeClient := forgev1connect.NewForgeServiceClient(httpClient, base)
 			pullRequestClient := pullrequestv1connect.NewPullRequestServiceClient(httpClient, base)
 			loopClient := loopv1connect.NewLoopServiceClient(httpClient, base)
+			taskClient := taskv1connect.NewTaskServiceClient(httpClient, base)
 			watchClient := watchv1connect.NewWatchServiceClient(httpClient, base)
 
 			state.session.SilenceStatus()
@@ -154,6 +156,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				Forges:          forgeClient,
 				PullRequests:    pullRequestClient,
 				Loops:           loopClient,
+				Tasks:           taskClient,
 				Watch:           watchClient,
 				Layout:          state.layout,
 				Engine:          remote,

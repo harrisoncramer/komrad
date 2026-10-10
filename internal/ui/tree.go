@@ -49,6 +49,17 @@ type agentRow struct {
 	triage bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
+	// task makes a header the task's rather than the workflow's, standing over the agents on it.
+	task *panel.Task
+	// lead is the newest agent under a task's header, whose state and pull request it wears.
+	lead *panel.AgentRow
+	// underTask sets the row in under the task header above it.
+	underTask bool
+}
+
+// isTask reports whether the row is a task's header.
+func (r agentRow) isTask() bool {
+	return r.header && r.task != nil
 }
 
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
@@ -68,6 +79,7 @@ func (r agentRow) paneItem() (panel.AgentRow, bool) {
 // family is one agent and its children as rows, under the workflow the head belongs to.
 type family struct {
 	workflowID string
+	taskID     string
 	rows       []agentRow
 }
 
@@ -87,6 +99,8 @@ type treeRowsParams struct {
 	foldOrchestrators bool
 	// flat renders the families in the order given, with no header over them.
 	flat bool
+	// tasks are the tasks the agents work on, keyed by id, and nil renders no task headers.
+	tasks map[string]panel.Task
 }
 
 func treeRows(params treeRowsParams) []agentRow {
@@ -129,6 +143,7 @@ func treeRows(params treeRowsParams) []agentRow {
 
 		families = append(families, family{
 			workflowID: workflowID,
+			taskID:     it.Agent.TaskID,
 			rows:       buildFamilyRows(it, children[it.Agent.ID], params.showHidden),
 		})
 	}
@@ -159,18 +174,71 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		rows = append(rows, header)
-		for _, f := range families {
-			if f.workflowID != w.ID {
-				continue
-			}
-			for _, row := range f.rows {
-				row.workflow = w
+		inWorkflow := xslice.Filter(families, func(f family) bool { return f.workflowID == w.ID })
+		for _, row := range taskRows(inWorkflow, params.tasks) {
+			row.workflow = w
+			rows = append(rows, row)
+		}
+	}
+
+	return rows
+}
+
+// taskRows lays out a workflow's families, gathering those on one task under a header for it,
+// so only an agent on no task, an orchestrator, sits at the agent's step.
+func taskRows(families []family, tasks map[string]panel.Task) []agentRow {
+	if tasks == nil {
+		return slices.Concat(xslice.Map(families, func(f family) []agentRow { return f.rows })...)
+	}
+
+	onTask := make(map[string][]family)
+	for _, f := range families {
+		if f.taskID != "" {
+			onTask[f.taskID] = append(onTask[f.taskID], f)
+		}
+	}
+
+	var rows []agentRow
+	laid := make(map[string]bool)
+	for _, f := range families {
+		gathered := onTask[f.taskID]
+		if len(gathered) == 0 {
+			rows = append(rows, f.rows...)
+
+			continue
+		}
+		if laid[f.taskID] {
+			continue
+		}
+		laid[f.taskID] = true
+
+		rows = append(rows, taskHeader(gathered, tasks))
+		for _, g := range gathered {
+			for _, row := range g.rows {
+				row.underTask = true
 				rows = append(rows, row)
 			}
 		}
 	}
 
 	return rows
+}
+
+// taskHeader is the row over the families on one task, led by the newest of their agents.
+func taskHeader(gathered []family, tasks map[string]panel.Task) agentRow {
+	lead := gathered[0].rows[0].item
+	for _, f := range gathered[1:] {
+		if head := f.rows[0].item; head.Agent.CreatedAt.After(lead.Agent.CreatedAt) {
+			lead = head
+		}
+	}
+
+	task, ok := tasks[lead.Agent.TaskID]
+	if !ok {
+		task = panel.Task{ID: lead.Agent.TaskID, WorkflowID: lead.Agent.WorkflowID, Slug: lead.Agent.TaskSlug}
+	}
+
+	return agentRow{header: true, task: &task, lead: &lead}
 }
 
 func keyAgentsByID(agents []panel.AgentRow) map[string]panel.AgentRow {
@@ -275,6 +343,7 @@ func (a *agentsScreen) buildLayout(m *model) agentsLayout {
 		showHidden:        a.showHidden,
 		foldOrchestrators: true,
 		flat:              a.sort.flat,
+		tasks:             m.listing.tasks,
 	})
 
 	return agentsLayout{
@@ -371,7 +440,7 @@ func (a *agentsScreen) hoveredPaneItem(m *model) (panel.AgentRow, bool) {
 
 func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
 	row, ok := rowAt(rows, cursor)
-	if !ok || !row.header {
+	if !ok || !row.header || row.isTask() {
 		return panel.Workflow{}, false
 	}
 
@@ -431,6 +500,9 @@ func rowIndexOfAgentID(rows []agentRow, id string) int {
 }
 
 func rowKey(row agentRow) string {
+	if row.isTask() {
+		return taskRowKey(row.task.ID)
+	}
 	if row.header {
 		return workflowRowKey(row.workflow.ID)
 	}
@@ -471,6 +543,10 @@ const workflowRowPrefix = "workflow:"
 
 func workflowRowKey(id string) string {
 	return workflowRowPrefix + id
+}
+
+func taskRowKey(id string) string {
+	return "task:" + id
 }
 
 func (r agentRow) key() string {
@@ -604,6 +680,7 @@ type listing struct {
 	workflows         []panel.Workflow
 	archivedAgents    []panel.AgentRow
 	archivedWorkflows []panel.Workflow
+	tasks             map[string]panel.Task
 	schedules         []scheduleItem
 	archivedSchedules []scheduleItem
 	worktrees         []worktreeItem
@@ -633,6 +710,7 @@ func (l *listing) assemble(now time.Time) {
 	l.archivedWorkflows = slices.DeleteFunc(workflows, func(workflow panel.Workflow) bool {
 		return !isArchivedWorkflow(workflow)
 	})
+	l.tasks = xslice.KeyBy(tasksFrom(slices.Collect(maps.Values(l.world.Tasks))), func(t panel.Task) string { return t.ID })
 	schedules := scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
 	slices.SortFunc(schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })
 	isArchivedSchedule := func(item scheduleItem) bool {

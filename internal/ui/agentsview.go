@@ -15,6 +15,13 @@ func (a *agentsScreen) details(m *model) details {
 		return details{}
 	}
 
+	if r.isTask() {
+		return details{
+			id:     r.task.ID,
+			fields: taskFields(*r.task, m.listing.taskAgents(r.task.ID)),
+		}
+	}
+
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
@@ -54,6 +61,8 @@ func (a *agentsScreen) doc(m *model) string {
 	switch {
 	case !ok:
 		return ""
+	case r.isTask():
+		return taskMarkdown(*r.task, m.listing.taskAgents(r.task.ID))
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.Agent.State == panel.StateSettingUp && item.Agent.Pane != "":
@@ -126,7 +135,6 @@ func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 		workflowDirs: m.listing.workflowDirs(),
 		focused:      rowKeyAt(layout.cursorRows(), a.cursor),
 		caret:        pane.caret,
-		blinkedOut:   pane.blinkedOut,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits),

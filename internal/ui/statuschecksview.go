@@ -66,11 +66,10 @@ func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
 				},
 			}
 		}),
-		Caret:      pane.caret,
-		BlinkedOut: pane.blinkedOut,
-		Focused:    rowKeyAt(rows, c.cursor),
-		Pane:       pane.width,
-		Columns:    statusCheckColumns(),
+		Caret:   pane.caret,
+		Focused: rowKeyAt(rows, c.cursor),
+		Pane:    pane.width,
+		Columns: statusCheckColumns(),
 	}
 }
 

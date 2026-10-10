@@ -17,6 +17,8 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	hookv1 "komrad/proto/gen/hook/v1"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -44,16 +46,18 @@ func TestFormsSubmit(t *testing.T) {
 		want      proto.Message
 	}{
 		{
-			name:      "the new-agent form sends an overridden harness",
-			press:     slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"tab"}, spellKeys("ci"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"enter"}),
+			name: "the new-task form starts its agent on the task with an overridden harness",
+			press: slices.Concat([]string{"space", "c"}, spellKeys("Check CI"), []string{"tab"}, spellKeys("ci"), []string{"tab"},
+				spellKeys("run the checks"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"enter"}),
 			answer:    connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2"}}),
 			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "ci", "w1"))},
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
-				Prompt:     "check CI",
+				Prompt:     "run the checks",
 				Title:      "ci",
 				Harness:    "codex",
 				WorkflowId: "w1",
+				Task:       xptr.Ptr("t1"),
 			},
 		},
 		{
@@ -204,6 +208,52 @@ func TestFormsSubmit(t *testing.T) {
 			assert.NotContains(t, harness.readFrame(), "enter submit", "and the form it closed is gone")
 		})
 	}
+}
+
+// TestFormsNewTask covers the new-task form filing its task before it starts the agent on it.
+func TestFormsNewTask(t *testing.T) {
+	tests := []struct {
+		name  string
+		press []string
+		want  *taskv1.CreateTaskRequest
+	}{
+		{
+			name:  "a blank slug is made from the goal",
+			press: slices.Concat(spellKeys("Check CI"), []string{"tab", "tab"}, spellKeys("run the checks"), []string{"enter"}),
+			want:  &taskv1.CreateTaskRequest{Slug: "check-ci", Title: "Check CI", Goal: "Check CI", WorkflowId: "w1"},
+		},
+		{
+			name:  "a typed slug is sent as it is",
+			press: slices.Concat(spellKeys("Check CI"), []string{"tab"}, spellKeys("ci"), []string{"enter"}),
+			want:  &taskv1.CreateTaskRequest{Slug: "ci", Title: "Check CI", Goal: "Check CI", WorkflowId: "w1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openForms(t, newFormWorkflow(), newFormAuthor())
+			answerAgentCreate(harness, "")
+
+			harness.press(slices.Concat([]string{"space", "c"}, tt.press)...)
+
+			harness.assertSentTo(taskv1connect.TaskServiceCreateTaskProcedure, tt.want)
+			sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+			require.Len(t, sent, 1)
+			create, ok := sent[0].(*agentv1.CreateAgentRequest)
+			require.True(t, ok)
+			assert.Equal(t, "t1", create.GetTask(), "the agent is started on the task just filed")
+		})
+	}
+
+	t.Run("a refused task starts no agent", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.refuse(taskv1connect.TaskServiceCreateTaskProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("a task is already named check-ci")))
+
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("Check CI"), []string{"enter"})...)
+
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
+		assert.Contains(t, harness.readFrame(), "a task is already named check-ci")
+	})
 }
 
 // TestFormsNewAgentWorktree covers the one thing an agent can say for itself about its worktree.
@@ -358,7 +408,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.press(submit...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "starting the agent…")
+		assert.Contains(t, frame, "starting check-ci…")
 		assert.Contains(t, frame, "check CI", "the form is still up")
 		assert.Empty(t, harness.panel.ReadRespawns(), "no pane is opened for the provisioner")
 
@@ -369,7 +419,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
 
 		frame = harness.readFrame()
-		assert.NotContains(t, frame, "starting the agent…")
+		assert.NotContains(t, frame, "starting check-ci…")
 		assert.NotContains(t, frame, "check CI", "the form goes once the row is shown")
 	})
 
@@ -384,7 +434,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.press(submit...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "starting the agent…")
+		assert.Contains(t, frame, "starting check-ci…")
 		assert.Contains(t, frame, "check CI", "the form is still up")
 
 		harness.watch(buildPuts(newCreatedAgent()))
@@ -394,7 +444,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.fireTimers()
 
 		frame = harness.readFrame()
-		assert.NotContains(t, frame, "starting the agent…")
+		assert.NotContains(t, frame, "starting check-ci…")
 		assert.NotContains(t, frame, "check CI", "the form goes with the reveal")
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 	})
@@ -437,14 +487,14 @@ func TestFormsInFlight(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "check CI", "the form it was holding is gone")
 		assert.Contains(t, readLegend(harness.readFrame()), "⠋ starting", "the create it left is rendered in the corner")
 		harness.press("j")
-		assert.Equal(t, "  author", readHoveredRow(harness.readFrame()), "the panel takes keys again")
+		assert.Equal(t, "└─ author", readHoveredRow(harness.readFrame()), "the panel takes keys again")
 
 		harness.release(create)
 		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
 
 		frame := harness.readFrame()
 		assert.Equal(t, "\uf444 local", readEngineLine(frame), "nothing is reported")
-		assert.Equal(t, "  author", readHoveredRow(frame), "the cursor stays where the reader left it")
+		assert.Equal(t, "└─ author", readHoveredRow(frame), "the cursor stays where the reader left it")
 	})
 
 	t.Run("an escaped create landing leaves a later form held", func(t *testing.T) {
@@ -457,7 +507,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.release(create)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "starting the agent…", "the second form is still held")
+		assert.Contains(t, frame, "starting the-second-one…", "the second form is still held")
 		assert.Contains(t, frame, "the second one")
 	})
 }
@@ -690,7 +740,7 @@ func TestFormsKeys(t *testing.T) {
 	t.Run("enter submits from a text field", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"enter"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("ci"), []string{"tab", "tab"}, spellKeys("go"), []string{"enter"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -702,7 +752,7 @@ func TestFormsKeys(t *testing.T) {
 	t.Run("ctrl+j and alt+enter break a line in a text field", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"ctrl+j"}, spellKeys("then"),
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("ci"), []string{"tab", "tab"}, spellKeys("check CI"), []string{"ctrl+j"}, spellKeys("then"),
 			[]string{"alt+enter"}, spellKeys("fix it"), []string{"enter"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
@@ -715,13 +765,13 @@ func TestFormsKeys(t *testing.T) {
 	t.Run("enter submits from an input", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "c", "tab"}, spellKeys("ci"), []string{"enter"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"tab"}, spellKeys("ci"), []string{"enter"})...)
 
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		sent := harness.readSent(taskv1connect.TaskServiceCreateTaskProcedure)
 		require.Len(t, sent, 1)
-		create, ok := sent[0].(*agentv1.CreateAgentRequest)
+		create, ok := sent[0].(*taskv1.CreateTaskRequest)
 		require.True(t, ok)
-		assert.Equal(t, "ci", create.GetTitle())
+		assert.Equal(t, "ci", create.GetSlug())
 	})
 
 	t.Run("a workflow edited to a blank name sends nothing", func(t *testing.T) {
@@ -738,7 +788,7 @@ func TestFormsKeys(t *testing.T) {
 		harness.press("j", "a")
 
 		assert.NotContains(t, harness.readFrame(), "Adopt")
-		assert.Equal(t, "  author", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ author", readHoveredRow(harness.readFrame()))
 	})
 }
 
@@ -1072,7 +1122,7 @@ func TestFormsLayout(t *testing.T) {
 			frame := harness.readFrame()
 			assert.True(t, harness.panel.IsZoomed())
 			assert.Contains(t, readStage(frame)[0], tt.want)
-			assert.Contains(t, readListRows(frame), "  author", "the list it was opened over is still beside it")
+			assert.Contains(t, readListRows(frame), "└─ author", "the list it was opened over is still beside it")
 		})
 	}
 

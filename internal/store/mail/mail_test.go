@@ -7,6 +7,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -672,7 +673,10 @@ func open(t *testing.T) *fixture {
 func seedAgent(t *testing.T, st *fixture, name string) string {
 	t.Helper()
 	ctx := t.Context()
+	taskID, err := tasktest.Seed(ctx, st.pool, st.workflow)
+	require.NoError(t, err)
 	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
+		TaskID:     taskID,
 		Name:       name,
 		State:      agentstore.StateIdle,
 		WorkflowID: st.workflow,

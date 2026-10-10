@@ -373,6 +373,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		LogsDir:        params.RunLogsDir,
 		FramesDir:      server.Env.FramesDir(),
 		Usage:          server.Usage,
+		Tasks:          params.Tasks,
 	})
 	reconciler := agents.NewReconciler(agents.NewReconcilerParams{
 		Panes:    server.Tmux,

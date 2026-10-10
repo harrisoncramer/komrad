@@ -21,6 +21,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/waketest"
@@ -189,7 +190,10 @@ func (f *syncFixture) agentIn(t *testing.T, name, repository, branch string) str
 	t.Helper()
 	ctx := t.Context()
 
+	taskID, err := tasktest.Seed(ctx, f.stores.Pool.GetDB(), f.workflow)
+	require.NoError(t, err)
 	require.NoError(t, f.agents.Create(ctx, agentstore.Agent{
+		TaskID:     taskID,
 		Name:       name,
 		Pane:       "%1",
 		State:      agentstore.StateIdle,

@@ -49,8 +49,8 @@ func renderOne(t *testing.T, row Row) string {
 	return render(list, paint.Panel, canonicalPane)
 }
 
-// TestRenderStatusBar renders the four bars an agent's state is carried by.
-func TestRenderStatusBar(t *testing.T) {
+// TestRenderNameByState renders the lettering each state of an agent gives its name.
+func TestRenderNameByState(t *testing.T) {
 	tests := []struct {
 		name   string
 		golden string
@@ -559,7 +559,7 @@ func livePanelRows() []Row {
 }
 
 // TestRenderLivePanelShape renders the distribution a panel actually holds, which the settled
-// design does not: it shows every value once, where a real listing is mostly empty bars.
+// design does not: it shows every value once, where a real listing is mostly empty columns.
 func TestRenderLivePanelShape(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    livePanelRows(),
@@ -595,32 +595,6 @@ func TestRenderIndentsEachKindUnderTheOneAbove(t *testing.T) {
 	}
 }
 
-// TestRenderBlankBarKeepsTheNameColumn pins that the empty status cell holds its column, so a
-// row with no bar opens its name where a row of its kind does.
-func TestRenderBlankBarKeepsTheNameColumn(t *testing.T) {
-	rows := []Row{
-		{
-			Key:  "quiet",
-			Kind: KindAgent,
-			Name: "quiet",
-		},
-		{
-			Key:     "barless",
-			Kind:    KindAgent,
-			Name:    "barless",
-			Process: ProcessNone,
-		},
-	}
-
-	list := Prepare(Snapshot{Rows: rows})
-	rendered := strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
-	require.Len(t, rendered, len(rows))
-
-	for i, line := range list.Lines {
-		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(rendered[i], line), "row %q", rendered[i])
-	}
-}
-
 // TestRenderShowsASearchMatchInTheMatchColour pins a filtered list still showing what it
 // matched on, the rest of the name keeping its own lettering.
 func TestRenderShowsASearchMatchInTheMatchColour(t *testing.T) {
@@ -648,12 +622,12 @@ func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 		{
 			name:     "a sidebar narrower than a name keeps the columns and cuts the name",
 			pane:     16,
-			wantName: 8,
+			wantName: 10,
 		},
 		{
 			name:     "the default sidebar renders both with room to spare",
 			pane:     30,
-			wantName: 22,
+			wantName: 24,
 		},
 	}
 
@@ -726,7 +700,7 @@ func TestGutterColumnsAgreesWithWhatIsRendered(t *testing.T) {
 
 // renderedNameColumn is the column the settled design opens a workflow's name at, counted off the
 // rendering by hand rather than from the package's own arithmetic.
-const renderedNameColumn = 8
+const renderedNameColumn = 6
 
 // renderedIndentStep is how far each level of the tree sets its name in, written out here rather
 // than taken from the package so a change to the package's own constant fails these tests.
@@ -737,7 +711,7 @@ func wantNameColumn(kind RowKind) int {
 	switch kind {
 	case KindWorkflow, KindDivider:
 		return renderedNameColumn
-	case KindAgent, KindTriageMore:
+	case KindAgent, KindTask, KindTriageMore:
 		return renderedNameColumn + renderedIndentStep
 	case KindChild:
 		return renderedNameColumn + 2*renderedIndentStep
@@ -898,8 +872,8 @@ const archivePane = 39
 
 // renderedArchiveNameColumn is the column a workflow opens its name at on a screen that renders none
 // of the three columns, counted off the rendering by hand rather than from the package's own
-// arithmetic: the caret and the bar, a space apart, and a space before the name.
-const renderedArchiveNameColumn = 4
+// arithmetic: the caret and a space before the name.
+const renderedArchiveNameColumn = 2
 
 // archiveRows is a list shaped like the archive: everything put away and so greyed, with a
 // workflow still live above the agents archived out of it.
@@ -1030,10 +1004,10 @@ func muted(text string) Cell {
 	return Cell{Text: text, Tone: paint.ToneMuted}
 }
 
-// TestRenderTextColumnsSitBesideTheBar renders a list declaring two figure columns: each figure
+// TestRenderTextColumnsSitBeforeTheName renders a list declaring two figure columns: each figure
 // set against the right edge of its column, a header carrying only the first, and a child
 // carrying none.
-func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
+func TestRenderTextColumnsSitBeforeTheName(t *testing.T) {
 	rows := []Row{
 		{
 			Kind:  KindWorkflow,
@@ -1076,9 +1050,9 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 		assert.Equalf(t, want, nameColumnOf(line, list.Lines[i]), "row %d opens its name past the gutter", i)
 	}
 
-	assert.Equal(t, "   24G      │ ~/komrad", lines[0])
-	assert.Equal(t, "  9.2M  12h │   issue-607-pan…", lines[2])
-	assert.Equal(t, "            │   └ review-607", lines[3])
+	assert.Equal(t, "   24G      ~/komrad", lines[0])
+	assert.Equal(t, "  9.2M  12h   issue-607-panel…", lines[2])
+	assert.Equal(t, "              └ review-607", lines[3])
 }
 
 // TestRenderTextCellIsClippedToItsColumn pins a figure wider than its column being cut rather
@@ -1092,12 +1066,12 @@ func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 		{
 			name:  "a column of no width renders nothing",
 			width: 0,
-			want:  "   │ komrad",
+			want:  "   komrad",
 		},
 		{
 			name:  "a figure wider than its column is cut",
 			width: 4,
-			want:  "  123… │ komrad",
+			want:  "  123… komrad",
 		},
 	}
 
@@ -1129,4 +1103,29 @@ func TestRenderResultList(t *testing.T) {
 	})
 
 	requireGolden(t, "list-results", render(list, paint.Panel, canonicalPane))
+}
+
+// TestRenderTaskTree renders a workflow's tasks hung off it and the agents hung off each task,
+// the gutter speaking for the task and each name for what its agent is doing.
+func TestRenderTaskTree(t *testing.T) {
+	rows := []Row{
+		{Key: "komrad", Kind: KindWorkflow, Name: "komrad", Status: StatusWaiting},
+		{
+			Key:              "fix-login",
+			Kind:             KindTask,
+			Name:             "fix-login",
+			Forge:            ForgeOpen,
+			Process:          ProcessNone,
+			ReviewerComments: &Comments{Open: 3},
+			Tree:             &Tree{},
+		},
+		{Key: "author", Name: "author", Status: StatusWaiting, Nested: true, Tree: &Tree{Above: []bool{false}}},
+		{Key: "reviewer", Name: "reviewer", Status: StatusThinking, Nested: true, Tree: &Tree{Above: []bool{false}, Last: true}},
+		{Key: "docs", Kind: KindTask, Name: "docs", Forge: ForgeMerged, Process: ProcessNone, Tree: &Tree{Last: true}},
+		{Key: "writer", Name: "writer", Process: ProcessStopped, Nested: true, Tree: &Tree{Above: []bool{true}, Last: true}},
+	}
+
+	list := Prepare(Snapshot{Rows: rows, Pane: canonicalPane})
+
+	requireGolden(t, "list-task-tree", render(list, paint.Panel, canonicalPane))
 }

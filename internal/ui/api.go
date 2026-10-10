@@ -25,6 +25,8 @@ import (
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
+	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -50,6 +52,7 @@ type api struct {
 	forges       forgev1connect.ForgeServiceClient
 	pullRequests pullrequestv1connect.PullRequestServiceClient
 	loops        loopv1connect.LoopServiceClient
+	tasks        taskv1connect.TaskServiceClient
 }
 
 // reads is the half of the service a screen reads through.
@@ -129,6 +132,7 @@ type createAgentParams struct {
 	ProvisionEnabled *bool
 	WorkflowID       string
 	ParentAgentID    string
+	Task             string
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
@@ -141,6 +145,7 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
 			ParentAgentId:    nilIfBlank(params.ParentAgentID),
+			Task:             nilIfBlank(params.Task),
 		}))
 		if err != nil {
 			return nil, err
@@ -180,6 +185,12 @@ func (a api) adopt(params adoptParams) (*agentv1.AdoptResponse, error) {
 func (a api) archiveAgents(ids []string) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		return a.agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+	})
+}
+
+func (a api) archiveTask(id string) error {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
+		return a.tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: id}))
 	})
 }
 
@@ -732,5 +743,28 @@ func (a reads) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 func (a api) wakeLoop(loop loopv1.Loop) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.loops.WakeLoop(ctx, connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loop}))
+	})
+}
+
+type createTaskParams struct {
+	WorkflowID string
+	Slug       string
+	Title      string
+	Goal       string
+}
+
+func (a api) createTask(params createTaskParams) (*taskv1.Task, error) {
+	return call(requestTimeout, func(ctx context.Context) (*taskv1.Task, error) {
+		resp, err := a.tasks.CreateTask(ctx, connect.NewRequest(&taskv1.CreateTaskRequest{
+			WorkflowId: params.WorkflowID,
+			Slug:       params.Slug,
+			Title:      params.Title,
+			Goal:       params.Goal,
+		}))
+		if err != nil {
+			return nil, err
+		}
+
+		return resp.Msg.GetTask(), nil
 	})
 }

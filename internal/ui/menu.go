@@ -60,6 +60,10 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 		return submenu{}, false
 	}
 
+	if row, ok := a.hoveredRow(m); ok && row.isTask() {
+		return withNested(rowMenu(row.task.Slug), "archive", m.keys.Menu.Archive, taskArchiveMenu(m, *row.task)), true
+	}
+
 	item, hasAgent := a.hoveredPaneItem(m)
 
 	if workflow, ok := a.hoveredWorkflow(m); ok {

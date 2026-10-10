@@ -11,8 +11,8 @@ const plainColumns = glyph.Columns
 // spaceColumns is the space a cell carries after its glyph.
 const spaceColumns = 1
 
-// plainCells is the focus and the bar, which no width gives up.
-const plainCells = 2
+// plainCells is the focus, which no width gives up.
+const plainCells = 1
 
 // gutterColumns is how wide everything left of a name is.
 func gutterColumns(columns Columns) int {
@@ -47,7 +47,7 @@ func trailingColumns(line line) int {
 		columns += textCursorColumns
 	}
 
-	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert, line.Schedule} {
+	for _, cell := range []Cell{line.Working, line.Held, line.Hidden, line.Document, line.Mail, line.Alert, line.Schedule} {
 		if !cell.IsBlank() {
 			columns += plainColumns + spaceColumns
 		}
@@ -71,7 +71,7 @@ func trailingColumns(line line) int {
 // roomForName is what one row has left for its name once its own corner and the marks after its
 // name have taken theirs.
 func roomForName(line line, width int) int {
-	spent := trailingColumns(line) + line.Indent
+	spent := trailingColumns(line) + line.Indent + len([]rune(line.Branch))
 	if line.Rule {
 		spent += ruleColumns
 	}

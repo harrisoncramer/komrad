@@ -78,7 +78,7 @@ func (f *fakeTasks) ArchiveTask(_ context.Context, ref string) error {
 }
 
 func newTaskHandler(fake *fakeTasks) taskv1komrad.TaskServiceAdapter {
-	return taskv1komrad.TaskServiceAdapter{Impl: NewHandler(NewHandlerParams{Tasks: fake})}
+	return taskv1komrad.TaskServiceAdapter{Impl: NewHandler(NewHandlerParams{Tasks: fake, Archiver: fake})}
 }
 
 // TestTaskRefusalsMapToCodes pins the code each refusal of the task service reaches the caller as.

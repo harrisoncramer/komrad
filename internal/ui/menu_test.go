@@ -32,7 +32,7 @@ func TestMenu(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "› logs")
 		assert.Contains(t, frame, "───")
-		assert.Contains(t, frame, "new agent")
+		assert.Contains(t, frame, "new task")
 	})
 
 	t.Run("a screen with no band of its own opens nothing", func(t *testing.T) {

@@ -1607,6 +1607,88 @@ func (q *Queries) ListLiveAgentsNamed(ctx context.Context, name string) ([]*Agen
 	return items, nil
 }
 
+const listLiveTaskAgents = `-- name: ListLiveTaskAgents :many
+SELECT
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, repository_url, deleting_at, alive, engine_id, head_sha, moved_since_round, failure_reason, last_rebase, archive_batch_id, turn_failed_at, turn_error, lines_added, lines_removed, held_by_agent_id, sequence, requested_by_agent_id, task_id
+FROM
+    agents
+WHERE
+    task_id = $1
+    AND archived_at IS NULL
+ORDER BY
+    id DESC
+`
+
+func (q *Queries) ListLiveTaskAgents(ctx context.Context, taskID *string) ([]*Agent, error) {
+	rows, err := q.db.Query(ctx, listLiveTaskAgents, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Agent
+	for rows.Next() {
+		var i Agent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Cwd,
+			&i.Flags,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.StateChangedAt,
+			&i.Harness,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.SpawnedByAgentID,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.NudgedAt,
+			&i.Branch,
+			&i.WorktreeRemoved,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StateSeenAt,
+			&i.InterruptedAt,
+			&i.AdoptedBranch,
+			&i.ParentAgentID,
+			&i.TurnEndedAt,
+			&i.ProvisionEnabled,
+			&i.ReportedReason,
+			&i.Role,
+			&i.HeldAt,
+			&i.HeldMidTurn,
+			&i.NudgeSentAt,
+			&i.RepositoryUrl,
+			&i.DeletingAt,
+			&i.Alive,
+			&i.EngineID,
+			&i.HeadSha,
+			&i.MovedSinceRound,
+			&i.FailureReason,
+			&i.LastRebase,
+			&i.ArchiveBatchID,
+			&i.TurnFailedAt,
+			&i.TurnError,
+			&i.LinesAdded,
+			&i.LinesRemoved,
+			&i.HeldByAgentID,
+			&i.Sequence,
+			&i.RequestedByAgentID,
+			&i.TaskID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveWorkflowAgents = `-- name: ListLiveWorkflowAgents :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, repository_url, deleting_at, alive, engine_id, head_sha, moved_since_round, failure_reason, last_rebase, archive_batch_id, turn_failed_at, turn_error, lines_added, lines_removed, held_by_agent_id, sequence, requested_by_agent_id, task_id

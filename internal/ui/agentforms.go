@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
+	"komrad/lib/xstr"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -19,34 +20,34 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 
 var errChildOfChild = errors.New("a child agent may not have children of its own")
 
-func openNewAgent(m *model, workflow *panel.Workflow) tea.Cmd {
+func openNewTask(m *model, workflow *panel.Workflow) tea.Cmd {
 	if workflow == nil {
-		m.report("Could not start an agent", errNoWorkflow)
+		m.report("Could not start a task", errNoWorkflow)
 
 		return nil
 	}
 
-	values := agentPrefill(*workflow)
+	values := taskPrefill(*workflow)
 
-	return openAgentForm(m, *workflow, &values)
+	return openTaskForm(m, *workflow, &values)
 }
 
-// agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
-func agentPrefill(workflow panel.Workflow) agentFormValues {
-	return agentFormValues{
+// taskPrefill is the new-task form as the workflow leaves it, before anything is typed.
+func taskPrefill(workflow panel.Workflow) taskFormValues {
+	return taskFormValues{
 		Harness:  workflow.Harness,
 		Worktree: inheritWorktree,
 	}
 }
 
-func openAgentForm(m *model, workflow panel.Workflow, values *agentFormValues) tea.Cmd {
+func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea.Cmd {
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formAgent,
 		Build: func(m *model) (*huh.Form, []string) {
-			return newAgentForm(fixedKeys(), values, workflow.Worktree.Enabled)
+			return newTaskForm(fixedKeys(), values, workflow.Worktree.Enabled)
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitAgent(workflow, *values) }),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitTask(workflow, *values) }),
 	}))
 }
 
@@ -149,17 +150,30 @@ func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) tea
 	return cmd
 }
 
-func (m *model) submitAgent(workflow panel.Workflow, values agentFormValues) tea.Cmd {
-	cmd := m.createCmd(createAgentParams{
-		Prompt:           values.Prompt,
-		Title:            values.Title,
-		Harness:          values.Harness,
-		Flags:            values.Flags,
-		ProvisionEnabled: worktreeOverride(values.Worktree),
-		WorkflowID:       workflow.ID,
-	})
+// submitTask creates the task, then the agent that works on it.
+func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) tea.Cmd {
+	goal := strings.TrimSpace(values.Goal)
+	slug := strings.TrimSpace(values.Slug)
+	if slug == "" {
+		slug = xstr.Slug(goal, maxTaskSlug)
+	}
 
-	return cmd
+	return m.createTaskCmd(createTaskCmdParams{
+		task: createTaskParams{
+			WorkflowID: workflow.ID,
+			Slug:       slug,
+			Title:      goal,
+			Goal:       goal,
+		},
+		agent: createAgentParams{
+			Prompt:           values.Prompt,
+			Title:            slug,
+			Harness:          values.Harness,
+			Flags:            values.Flags,
+			ProvisionEnabled: worktreeOverride(values.Worktree),
+			WorkflowID:       workflow.ID,
+		},
+	})
 }
 
 // worktreeOverride is what the form says about the agent's directory: nil to follow the
@@ -181,11 +195,10 @@ type adoptFormValues struct {
 }
 
 type agentFormValues struct {
-	Prompt   string
-	Title    string
-	Harness  string
-	Flags    string
-	Worktree string
+	Prompt  string
+	Title   string
+	Harness string
+	Flags   string
 }
 
 // The two answers to the only question an agent can override, each a sentinel rather than the
@@ -195,12 +208,29 @@ const (
 	withoutWorktree = "\x00none"
 )
 
-// newAgentForm asks for the work, and asks about the worktree only in a workflow that makes
-// them.
-func newAgentForm(keys config.FixedKeys, values *agentFormValues, worktree bool) (*huh.Form, []string) {
+type taskFormValues struct {
+	Goal     string
+	Slug     string
+	Prompt   string
+	Harness  string
+	Flags    string
+	Worktree string
+}
+
+// maxTaskSlug is how long a slug the form makes from a goal may run.
+const maxTaskSlug = 60
+
+// maxTaskTitle is the longest title a task takes, which the goal it is made from is held to.
+const maxTaskTitle = 200
+
+// newTaskForm asks for the goal and the brief, and asks about the worktree only in a workflow
+// that makes them.
+func newTaskForm(keys config.FixedKeys, values *taskFormValues, worktree bool) (*huh.Form, []string) {
 	fields := []huh.Field{
-		textField("prompt").Title("Initial prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
-		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
+		huh.NewInput().Key("goal").Title("Goal").Description("what is done when this task is").
+			CharLimit(maxTaskTitle).Validate(checkTaskGoal).Value(&values.Goal),
+		huh.NewInput().Key("slug").Title("Slug").Description("blank makes one from the goal").Value(&values.Slug),
+		textField("prompt").Title("Brief").Description(fmt.Sprintf("what the agent is told; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
@@ -409,4 +439,12 @@ func namedPaths(paths []string, most int) string {
 	}
 
 	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
+}
+
+func checkTaskGoal(goal string) error {
+	if strings.TrimSpace(goal) == "" {
+		return errors.New("a task needs a goal")
+	}
+
+	return nil
 }

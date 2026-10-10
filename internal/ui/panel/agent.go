@@ -97,6 +97,9 @@ type Agent struct {
 	HeldAt *time.Time
 	// HeldByAgentID is the agent that took the hold, empty when the panel took it.
 	HeldByAgentID string
+	// TaskID is the task the agent works on, empty for an orchestrator.
+	TaskID   string
+	TaskSlug string
 }
 
 // AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail

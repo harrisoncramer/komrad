@@ -9,6 +9,29 @@ import (
 	"context"
 )
 
+const archiveIdleTasks = `-- name: ArchiveIdleTasks :exec
+UPDATE
+    tasks t
+SET
+    archived_at = NOW()
+WHERE
+    t.id = ANY ($1::uuid[])
+    AND t.archived_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
+`
+
+func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, archiveIdleTasks, ids)
+	return err
+}
+
 const archiveTask = `-- name: ArchiveTask :execrows
 UPDATE
     tasks
@@ -236,5 +259,20 @@ SELECT
 
 func (q *Queries) LockTaskSlugs(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, lockTaskSlugs)
+	return err
+}
+
+const restoreTasks = `-- name: RestoreTasks :exec
+UPDATE
+    tasks
+SET
+    archived_at = NULL
+WHERE
+    id = ANY ($1::uuid[])
+    AND archived_at IS NOT NULL
+`
+
+func (q *Queries) RestoreTasks(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, restoreTasks, ids)
 	return err
 }

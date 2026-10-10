@@ -25,6 +25,7 @@ import (
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
@@ -119,6 +120,7 @@ type NewPanelParams struct {
 	Forges          forgev1connect.ForgeServiceClient
 	PullRequests    pullrequestv1connect.PullRequestServiceClient
 	Loops           loopv1connect.LoopServiceClient
+	Tasks           taskv1connect.TaskServiceClient
 	Logs            logv1connect.LogServiceClient
 	Git             ReviewGit
 	Keys            config.Keybindings
@@ -192,6 +194,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Forges:          params.Forges,
 			PullRequests:    params.PullRequests,
 			Loops:           params.Loops,
+			Tasks:           params.Tasks,
 			Logs:            params.Logs,
 			Keys:            params.Keys,
 			Layout:          layout,

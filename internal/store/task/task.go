@@ -155,6 +155,24 @@ func (s *TaskStore) Archive(ctx context.Context, id string) error {
 	return err
 }
 
+// ArchiveIdle archives each of the tasks no live agent works on any longer.
+func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []string) error {
+	if err := s.queries.ArchiveIdleTasks(ctx, ids); err != nil {
+		return fmt.Errorf("failed to archive %d idle tasks: %w", len(ids), err)
+	}
+
+	return nil
+}
+
+// Restore returns archived tasks to live listings, leaving live ones as they were.
+func (s *TaskStore) Restore(ctx context.Context, ids []string) error {
+	if err := s.queries.RestoreTasks(ctx, ids); err != nil {
+		return fmt.Errorf("failed to restore %d tasks: %w", len(ids), err)
+	}
+
+	return nil
+}
+
 // IsSlugTaken reports whether any task, archived ones included, already holds a slug.
 func (s *TaskStore) IsSlugTaken(ctx context.Context, slug string) (bool, error) {
 	taken, err := s.queries.IsTaskSlugTaken(ctx, slug)

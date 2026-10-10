@@ -17,7 +17,7 @@ func (a *agentsScreen) buildScreenMenu(m *model) (submenu, bool) {
 		kind:  formMenu,
 		title: "agents",
 		entries: []submenuEntry{
-			openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd { return openNewAgent(m, in) }),
+			openEntry("new task", m.keys.Menu.NewAgent, func(m *model) tea.Cmd { return openNewTask(m, in) }),
 			openEntry("new workflow", m.keys.Menu.NewWorkflow, newWorkflowForm),
 		},
 	}, true

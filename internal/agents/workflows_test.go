@@ -632,7 +632,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			}
 
 			if tt.takeName {
-				require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 					Name:       "agent",
 					State:      agentstore.StateIdle,
 					Harness:    harnesstest.FakeID,
@@ -790,7 +790,7 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	require.NoError(t, err)
 
 	for range 2 {
-		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 			Name:       "agent",
 			State:      agentstore.StateIdle,
 			Harness:    harnesstest.FakeID,

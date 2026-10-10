@@ -24,6 +24,7 @@ const (
 	KeySays     = "says"
 	KeyType     = "type"
 	KeyName     = "name"
+	KeyTask     = "task"
 )
 
 const dayLayout = "2006-01-02"
@@ -68,6 +69,7 @@ var Agents = Grammar{
 	Keys: []Key{
 		{Name: KeyAgent},
 		{Name: KeyWorkflow},
+		{Name: KeyTask},
 		{
 			Name:       KeyIs,
 			Negatable:  true,

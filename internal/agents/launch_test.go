@@ -1502,25 +1502,48 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 	}
 }
 
-// TestNewChildAgentSharesItsParentsTask pins that a child works on the task its parent does.
-func TestNewChildAgentSharesItsParentsTask(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
+// TestNewChildAgentTask pins which task a child works on.
+func TestNewChildAgentTask(t *testing.T) {
+	tests := []struct {
+		name       string
+		parentRole agentstore.Role
+		// wantOwn says the child is given a task of its own rather than its parent's.
+		wantOwn bool
+	}{
+		{name: "a child shares its parent's task", parentRole: agentstore.RoleImplementer},
+		{name: "an orchestrator's child is given its own", parentRole: agentstore.RoleOrchestrator, wantOwn: true},
+	}
 
-	parent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:      "author",
-		Dir:        t.TempDir(),
-		Prompt:     "write the change",
-		WorkflowID: seedWorkflow(t, st),
-	})
-	require.NoError(t, err)
-	require.NotNil(t, parent.TaskID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
 
-	child, err := manager.launch.NewAgent(t.Context(), childOf(*parent, "reviewer"))
-	require.NoError(t, err)
+			parent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "author",
+				Dir:        t.TempDir(),
+				Prompt:     "write the change",
+				WorkflowID: seedWorkflow(t, st),
+				Role:       tt.parentRole,
+			})
+			require.NoError(t, err)
 
-	assert.Equal(t, parent.TaskID, agentByID(t, st, child.ID).TaskID)
+			child, err := manager.launch.NewAgent(t.Context(), childOf(*parent, "reviewer"))
+			require.NoError(t, err)
+
+			stored := agentByID(t, st, child.ID)
+			if !tt.wantOwn {
+				assert.Equal(t, parent.TaskID, stored.TaskID)
+
+				return
+			}
+			require.NotNil(t, stored.TaskID)
+			task, err := st.Tasks.Get(t.Context(), *stored.TaskID)
+			require.NoError(t, err)
+			assert.Equal(t, "reviewer", task.Slug)
+		})
+	}
 }
 
 // TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.

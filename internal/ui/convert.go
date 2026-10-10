@@ -7,6 +7,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -40,7 +41,23 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		ParentAgentID:   s.ParentAgentId,
 		HeldAt:          dates.ParsePtr(s.GetHeldAt()),
 		HeldByAgentID:   s.GetHeldByAgentId(),
+		TaskID:          s.GetTaskId(),
+		TaskSlug:        s.GetTaskSlug(),
 	}
+}
+
+func tasksFrom(listed []*taskv1.Task) []panel.Task {
+	return xslice.Map(listed, func(t *taskv1.Task) panel.Task {
+		return panel.Task{
+			ID:         t.GetId(),
+			WorkflowID: t.GetWorkflowId(),
+			Slug:       t.GetSlug(),
+			Title:      t.GetTitle(),
+			Goal:       t.GetGoal(),
+			CreatedAt:  dates.Parse(t.GetCreatedAt()),
+			ArchivedAt: dates.ParsePtr(t.GetArchivedAt()),
+		}
+	})
 }
 
 // stateFrom is a wire state as the panel keeps it.

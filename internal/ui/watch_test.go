@@ -25,7 +25,7 @@ func TestWatch(t *testing.T) {
 			newLiveWorkflow("w2", "web"),
 			newAgentAt("older", "w1", 1),
 		)
-		require.Equal(t, []string{"api", "  older", "web"}, readListRows(harness.readFrame()))
+		require.Equal(t, []string{"api", "└─ older", "web"}, readListRows(harness.readFrame()))
 
 		harness.watch(buildSnapshot(
 			newLiveWorkflow("w1", "api"),
@@ -33,7 +33,7 @@ func TestWatch(t *testing.T) {
 			newAgentAt("older", "w1", 1),
 		))
 
-		assert.Equal(t, []string{"api", "  two", "  older"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"api", "├─ two", "└─ older"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("an agent's tombstone takes its children with it", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestWatch(t *testing.T) {
 			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a2"),
 		)
 
-		assert.Equal(t, []string{"api", "  other"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"api", "└─ other"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("a put lands over the row it names and the cursor stays on it", func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestWatch(t *testing.T) {
 			newAgentAt("two", "w1", 2),
 		)
 		harness.press("j")
-		require.Equal(t, "  one", readHoveredRow(harness.readFrame()))
+		require.Equal(t, "└─ one", readHoveredRow(harness.readFrame()))
 
 		renamed := newAgentAt("one", "w1", 1)
 		renamed.Name = "renamed"
@@ -74,8 +74,8 @@ func TestWatch(t *testing.T) {
 		)
 
 		frame := harness.readFrame()
-		assert.Equal(t, []string{"aaa", "api", "  three", "  renamed"}, readListRows(frame))
-		assert.Equal(t, "  renamed", readHoveredRow(frame))
+		assert.Equal(t, []string{"aaa", "api", "├─ three", "└─ renamed"}, readListRows(frame))
+		assert.Equal(t, "└─ renamed", readHoveredRow(frame))
 	})
 
 	t.Run("a workflow renamed out of its place is filed again", func(t *testing.T) {

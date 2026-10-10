@@ -84,12 +84,12 @@ func TestStatusChecksList(t *testing.T) {
 		harness.press(everyStatusCheck...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckPassing)+" │ lint")
-		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ docs")
-		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckFailing)+" │ vet")
-		assert.Contains(t, frame, "⠋ │ test")
-		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" │ deploy")
-		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" │ e2e")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckPassing)+" lint")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" docs")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckFailing)+" vet")
+		assert.Contains(t, frame, "⠋ test")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" deploy")
+		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" e2e")
 		assert.NotContains(t, frame, "success")
 	})
 

@@ -21,6 +21,8 @@ const (
 	emphasisNormal emphasis = iota
 	EmphasisDim
 	emphasisFocused
+	// emphasisAlert is an agent waiting on a person or broken, which wants that person.
+	emphasisAlert
 )
 
 // Cell is one rendered position, carrying either a named glyph or text, in a tone the palette turns
@@ -45,7 +47,8 @@ type line struct {
 	Focus   Cell
 	// Columns are the cells of the list's own columns, one per column in the order they are rendered.
 	Columns []Cell
-	Status  Cell
+	// Branch is the tree a row hangs in, rendered greyed before its name.
+	Branch string
 	// Rule renders the corner a child hangs off, inside the name cell rather than before it.
 	Rule bool
 	// Indent is how far this row's name is set in from the gutter.
@@ -61,6 +64,8 @@ type line struct {
 	Behind   int
 	Weight   weight
 	Emphasis emphasis
+	// Working is the loader turning after the name of an agent at work.
+	Working  Cell
 	Held     Cell
 	Hidden   Cell
 	Document Cell
@@ -88,7 +93,7 @@ const (
 	ColumnText
 )
 
-// Column is one column of the gutter a list renders between the mark and the bar.
+// Column is one column of the gutter a list renders between the mark and the name.
 type Column struct {
 	Kind  columnKind
 	Width int

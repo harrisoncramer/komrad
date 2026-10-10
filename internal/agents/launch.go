@@ -671,7 +671,9 @@ type creation struct {
 // needsOwnTask is whether the agent is given a task of its own as it is written, which a child
 // sharing its parent's and an orchestrator are not.
 func (c creation) needsOwnTask() bool {
-	return c.task == nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator
+	sharesParents := c.parent != nil && c.parent.TaskID != nil
+
+	return c.task == nil && !sharesParents && c.agent.Role != agentstore.RoleOrchestrator
 }
 
 // createUnderCeiling writes the agent, and the task it works on when it needs one of its own,

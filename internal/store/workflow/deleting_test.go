@@ -7,6 +7,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/store/task/tasktest"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -160,7 +161,10 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			var ids []string
 			for i := range tt.agents {
 				name := "author-" + string(rune('a'+i))
+				taskID, err := tasktest.Seed(ctx, pool.GetDB(), created.ID)
+				require.NoError(t, err)
 				require.NoError(t, agents.Create(ctx, agentstore.Agent{
+					TaskID:     taskID,
 					Name:       name,
 					WorkflowID: created.ID,
 					State:      agentstore.StateIdle,
