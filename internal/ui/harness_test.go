@@ -34,6 +34,8 @@ import (
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
+	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -123,8 +125,6 @@ var reviewCursorLine = regexp.MustCompile(`^[^ ]+:\d+`)
 
 var taggedRule = regexp.MustCompile(`^─+ [^│┤┼]*[^─│┤┼ ] ─`)
 
-var listBars = []string{"│ ", "┃ "}
-
 var timerCmds = []string{
 	"bubbletea/v2.Tick.",
 	"bubbletea/v2.Every.",
@@ -167,6 +167,7 @@ type panelRemote struct {
 	forges       forgev1connect.ForgeServiceClient
 	pullRequests pullrequestv1connect.PullRequestServiceClient
 	loops        loopv1connect.LoopServiceClient
+	tasks        taskv1connect.TaskServiceClient
 }
 
 type request struct {
@@ -232,6 +233,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	mux.Handle(forgev1connect.NewForgeServiceHandler(forgev1connect.UnimplementedForgeServiceHandler{}, interceptors))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(pullrequestv1connect.UnimplementedPullRequestServiceHandler{}, interceptors))
 	mux.Handle(loopv1connect.NewLoopServiceHandler(loopv1connect.UnimplementedLoopServiceHandler{}, interceptors))
+	mux.Handle(taskv1connect.NewTaskServiceHandler(taskv1connect.UnimplementedTaskServiceHandler{}, interceptors))
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -248,6 +250,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			forges:       forgev1connect.NewForgeServiceClient(server.Client(), server.URL),
 			pullRequests: pullrequestv1connect.NewPullRequestServiceClient(server.Client(), server.URL),
 			loops:        loopv1connect.NewLoopServiceClient(server.Client(), server.URL),
+			tasks:        taskv1connect.NewTaskServiceClient(server.Client(), server.URL),
 		}
 	}
 
@@ -284,6 +287,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Forges:          remote.forges,
 			PullRequests:    remote.pullRequests,
 			Loops:           remote.loops,
+			Tasks:           remote.tasks,
 			Logs:            remote.logs,
 			Git:             reviewGit,
 			Keys:            keys,
@@ -722,6 +726,8 @@ func wrapRow(row proto.Message) *watchv1.Row {
 		return &watchv1.Row{Row: &watchv1.Row_Worktree{Worktree: row}}
 	case *agentv1.DocumentType:
 		return &watchv1.Row{Row: &watchv1.Row_DocumentType{DocumentType: row}}
+	case *taskv1.Task:
+		return &watchv1.Row{Row: &watchv1.Row_Task{Task: row}}
 	default:
 		panic(fmt.Sprintf("no watch row holds a %T", row))
 	}
@@ -760,43 +766,112 @@ func readTrail(frame string) string {
 }
 
 func readListRows(frame string) []string {
-	var rows []string
-	for _, line := range splitLines(frame) {
-		row, isRow := cutListRow(line)
-		if isRow {
-			rows = append(rows, row)
-		}
-	}
-
-	return rows
+	return xslice.Map(readListLines(frame), func(line listLine) string { return line.row })
 }
 
 func readHoveredRow(frame string) string {
-	for _, line := range splitLines(frame) {
-		if !strings.HasPrefix(line, "›") {
-			continue
+	for _, line := range readListLines(frame) {
+		if strings.HasPrefix(line.sidebar, "›") {
+			return line.row
 		}
+	}
 
-		row, isRow := cutListRow(line)
-		if !isRow {
+	for _, line := range splitLines(frame) {
+		if strings.HasPrefix(line, "›") {
 			return strings.TrimSpace(strings.TrimPrefix(ansi.Truncate(line, ui.SidebarCols, ""), "›"))
 		}
-
-		return row
 	}
 
 	return ""
 }
 
-func cutListRow(line string) (string, bool) {
-	sidebar := ansi.Truncate(line, ui.SidebarCols, "")
-	for _, bar := range listBars {
-		if _, row, isRow := strings.Cut(sidebar, bar); isRow {
-			return strings.TrimRight(row, " "), true
-		}
+// listLine is one row of the list a frame renders: where it stands in the frame, the sidebar's
+// part of the line, and the row with the gutter every row shares cut off.
+type listLine struct {
+	index   int
+	sidebar string
+	row     string
+}
+
+// listDivider is a rule the list renders among its own rows.
+var listDivider = regexp.MustCompile(`^─+ (Triage|All Agents) ─`)
+
+// gutterToken is what a list's gutter holds: the focus, a glyph, a loader frame or a figure.
+var gutterToken = regexp.MustCompile(`^(›|[\x{E000}-\x{F8FF}\x{F0000}-\x{FFFFD}\x{2800}-\x{28FF}]|[0-9][0-9.]*[KMGTkhdwmsy]?|—)$`)
+
+// readListLines reads the rows between the search prompt and the first rule the list does not
+// render itself, cutting them all at the leftmost column a name opens at.
+func readListLines(frame string) []listLine {
+	lines := splitLines(frame)
+	start := slices.IndexFunc(lines, func(line string) bool {
+		prompt := strings.TrimSpace(ansi.Truncate(line, ui.SidebarCols, ""))
+
+		return strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, "▽")
+	})
+	if start < 0 {
+		return nil
 	}
 
-	return "", false
+	var found []listLine
+	for i := start + 1; i < len(lines); i++ {
+		sidebar := strings.TrimRight(ansi.Truncate(lines[i], ui.SidebarCols, ""), " ")
+		if strings.HasPrefix(sidebar, "─") {
+			if listDivider.MatchString(sidebar) {
+				continue
+			}
+
+			break
+		}
+		if !isListRow(sidebar) {
+			continue
+		}
+
+		found = append(found, listLine{index: i, sidebar: sidebar})
+	}
+
+	if len(found) == 0 {
+		return nil
+	}
+
+	column := ui.SidebarCols
+	for _, line := range found {
+		column = min(column, findNameColumn(line.sidebar))
+	}
+
+	for i := range found {
+		found[i].row = ansi.Cut(found[i].sidebar, column, ui.SidebarCols)
+	}
+
+	return found
+}
+
+// isListRow reports whether a line opens on the focus column with a cell inside the gutter, which
+// the line a list says over no rows and text set across the pane do not.
+func isListRow(sidebar string) bool {
+	indent := len(sidebar) - len(strings.TrimLeft(sidebar, " "))
+
+	return sidebar != "" && !scrollCount.MatchString(sidebar) && indent <= listRowIndent && (indent > 0 || strings.HasPrefix(sidebar, "›"))
+}
+
+// scrollCount is the line a scrolled list says how many rows lie past its edge on.
+var scrollCount = regexp.MustCompile(`^\s*[↑↓] [0-9]+ more`)
+
+// listRowIndent is the most a row leaves blank before its first cell.
+const listRowIndent = 16
+
+// findNameColumn is the column a row's name opens at, past every token of the gutter.
+func findNameColumn(sidebar string) int {
+	at := 0
+	for _, field := range strings.SplitAfter(sidebar, " ") {
+		token := strings.TrimSpace(field)
+		if token != "" && !gutterToken.MatchString(token) {
+			return at
+		}
+
+		at += ansi.StringWidth(field)
+	}
+
+	return at
 }
 
 func readRecord(frame string) []string {
@@ -1011,10 +1086,10 @@ func (h *panelHarness) pick(to string) {
 }
 
 func readRawListRow(frame, name string) string {
-	for _, line := range splitLines(frame) {
-		sidebar := ansi.Truncate(line, ui.SidebarCols, "")
-		if row, isRow := cutListRow(ansi.Strip(sidebar)); isRow && strings.Contains(row, name) {
-			return sidebar
+	lines := splitLines(frame)
+	for _, line := range readListLines(ansi.Strip(frame)) {
+		if strings.Contains(line.row, name) {
+			return ansi.Truncate(lines[line.index], ui.SidebarCols, "")
 		}
 	}
 

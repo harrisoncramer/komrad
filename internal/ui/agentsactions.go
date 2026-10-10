@@ -88,9 +88,9 @@ func (a *agentsScreen) isHoveringWorkflow(m *model) bool {
 }
 
 func (a *agentsScreen) isHoveringAgent(m *model) bool {
-	_, ok := a.hoveredWorkflow(m)
+	row, ok := a.hoveredRow(m)
 
-	return a.isBrowsing(m) && !ok
+	return a.isBrowsing(m) && (!ok || !row.header)
 }
 
 func (a *agentsScreen) isRetryableAgent(m *model) bool {

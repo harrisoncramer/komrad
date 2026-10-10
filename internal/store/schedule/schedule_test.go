@@ -9,6 +9,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
@@ -614,6 +615,7 @@ func TestListPage(t *testing.T) {
 
 type fixture struct {
 	*ScheduleStore
+	db        store.DBTX
 	workflows *workflowstore.WorkflowStore
 	agents    *agentstore.AgentStore
 }
@@ -770,6 +772,7 @@ func open(t *testing.T) *fixture {
 
 	return &fixture{
 		ScheduleStore: NewScheduleStore(pool.GetDB()),
+		db:            pool.GetDB(),
 		workflows:     workflowstore.NewWorkflowStore(pool.GetDB()),
 		agents:        agentstore.NewAgentStore(pool.GetDB()),
 	}
@@ -803,7 +806,10 @@ func seedAgent(t *testing.T, st *fixture, workflowID string) string {
 	t.Helper()
 
 	id := uuid.NewString()
+	taskID, err := tasktest.Seed(t.Context(), st.db, workflowID)
+	require.NoError(t, err)
 	require.NoError(t, st.agents.Create(t.Context(), agentstore.Agent{
+		TaskID:     taskID,
 		ID:         id,
 		Name:       "orchestrator-" + id,
 		WorkflowID: workflowID,

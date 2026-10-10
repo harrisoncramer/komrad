@@ -19,6 +19,8 @@ const (
 	KindTriageMore
 	// KindDivider is a rule across the list titled by its name.
 	KindDivider
+	// KindTask stands for a task several agents work on, with those agents nested under it.
+	KindTask
 )
 
 // Process is how much of a process stands behind a row.
@@ -94,8 +96,6 @@ type Snapshot struct {
 	Rows []Row
 	// Caret is how the focused row's arrow stands this frame.
 	Caret Caret
-	// BlinkedOut says the blink is on its off beat this frame.
-	BlinkedOut bool
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string
@@ -176,4 +176,17 @@ type Row struct {
 	Workflow string
 	// Faded greys a row the keyboard cannot reach.
 	Faded bool
+	// Nested says the row is an agent under its task's row, which carries the gutter for it.
+	Nested bool
+	// Tree is where the row hangs in the tree drawn before its name, nil on a row drawn in no tree.
+	Tree *Tree
+}
+
+// Tree is where one row hangs among the rows around it.
+type Tree struct {
+	// Above says, for each row the row hangs under from the outermost in, whether that row is the
+	// last of its own siblings.
+	Above []bool
+	// Last says the row is the last of its siblings.
+	Last bool
 }

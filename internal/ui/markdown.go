@@ -108,6 +108,10 @@ func agentFields(params agentFieldsParams) []recordField {
 		fields = append(fields, recordField{label: attachmentFieldKey(agent.Role), value: label.OrDash(parent)})
 	}
 
+	if agent.TaskSlug != "" {
+		fields = append(fields, recordField{label: "task", value: agent.TaskSlug})
+	}
+
 	fields = append(fields,
 		recordField{label: "agent", value: label.OrDash(agent.Harness)},
 		recordField{label: "directory", value: label.OrDash(agent.Cwd)},

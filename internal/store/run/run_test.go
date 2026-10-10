@@ -7,6 +7,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 
@@ -64,7 +65,10 @@ func (f *fixture) seedAgent(t *testing.T) string {
 	t.Helper()
 
 	id := uuid.NewString()
+	taskID, err := tasktest.Seed(t.Context(), f.db, f.workflow)
+	require.NoError(t, err)
 	require.NoError(t, f.agents.Create(t.Context(), agentstore.Agent{
+		TaskID:     taskID,
 		ID:         id,
 		Name:       "agent-" + id,
 		Cwd:        "/repo",

@@ -30,13 +30,13 @@ func TestTriageRows(t *testing.T) {
 			name:     "a zone with no rows is not rendered",
 			capacity: 0,
 			rows:     buildTriage(),
-			want:     []string{"backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "a zone with nothing in triage says so",
 			capacity: 2,
-			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newTriageAgent("quiet", agentv1.AgentState_AGENT_STATE_IDLE, 1)},
-			want:     []string{"nothing to triage", "backend", "quiet"},
+			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newTriageAgent("└─ └─ quiet", agentv1.AgentState_AGENT_STATE_IDLE, 1)},
+			want:     []string{"nothing to triage", "backend", "└─ └─ └─ quiet"},
 		},
 		{
 			name:     "an orchestrator is named for its workflow",
@@ -56,7 +56,7 @@ func TestTriageRows(t *testing.T) {
 			name:     "an implementer is followed by its workflow",
 			capacity: 2,
 			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newFinishedAgent("done", 5)},
-			want:     []string{"done backend", "backend", "done"},
+			want:     []string{"done backend", "backend", "└─ done"},
 		},
 		{
 			name:     "a parent in triage brings its children with it",
@@ -68,7 +68,7 @@ func TestTriageRows(t *testing.T) {
 				newChild("reviewer", "reviewer", "asker"),
 				newChild("tester", "tester", "asker"),
 			},
-			want: []string{"asker", "└ tester", "└ reviewer", "backend", "asker", "└ tester", "└ reviewer", "quiet"},
+			want: []string{"asker", "└ tester", "└ reviewer", "backend", "├─ asker", "│ ├─ tester", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "a hidden child counts on its parent in triage",
@@ -84,7 +84,7 @@ func TestTriageRows(t *testing.T) {
 					return reviewer
 				}(),
 			},
-			want: []string{"asker +1", "backend", "asker +1", "quiet"},
+			want: []string{"asker +1", "backend", "├─ asker +1", "└─ quiet"},
 		},
 		{
 			name:     "a child in triage brings its parent with it",
@@ -100,25 +100,25 @@ func TestTriageRows(t *testing.T) {
 					return reviewer
 				}(),
 			},
-			want: []string{"parent", "└ reviewer", "backend", "parent", "└ reviewer", "quiet"},
+			want: []string{"parent", "└ reviewer", "backend", "├─ parent", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "the most urgent tier takes the slots and the rest wait in the tree",
 			capacity: 2,
 			rows:     buildTriage(),
-			want:     []string{"asker", "third", "+1 more waiting for a slot", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "third", "+1 more waiting for a slot", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "within a tier the agent waiting longest comes first",
 			capacity: 3,
 			rows:     buildTriage(),
-			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "a family with a child asking takes one slot",
 			capacity: 2,
 			rows:     append(buildTriage()[:3], buildTriageFamily()[2:4]...),
-			want:     []string{"asker", "parent", "└ reviewer", "backend", "asker", "parent", "└ reviewer", "quiet"},
+			want:     []string{"asker", "parent", "└ reviewer", "backend", "├─ asker", "├─ parent", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "three families come whole with their children and a fourth waits for a slot",
@@ -129,7 +129,7 @@ func TestTriageRows(t *testing.T) {
 				buildTriageFamily()[3],
 				newChild("helper", "helper", "third"),
 			),
-			want: []string{"asker", "└ tester", "parent", "└ reviewer", "third", "└ helper", "+1 more waiting for a slot", "backend", "third", "└ helper", "asker", "└ tester", "parent", "└ reviewer", "broken", "quiet"},
+			want: []string{"asker", "└ tester", "parent", "└ reviewer", "third", "└ helper", "+1 more waiting for a slot", "backend", "├─ third", "│ └─ helper", "├─ asker", "│ └─ tester", "├─ parent", "│ └─ reviewer", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "a hidden child shown comes into the zone with its family",
@@ -146,7 +146,7 @@ func TestTriageRows(t *testing.T) {
 				}(),
 			},
 			press: []string{"space", "h", "H"},
-			want:  []string{"asker", "└ reviewer \uf4c5", "backend", "asker", "└ reviewer \uf4c5", "quiet"},
+			want:  []string{"asker", "└ reviewer \uf4c5", "backend", "├─ asker", "│ └─ reviewer \uf4c5", "└─ quiet"},
 		},
 	}
 
@@ -192,9 +192,9 @@ func TestTriageJump(t *testing.T) {
 	}{
 		{
 			name:  "with nothing in triage the key says so and stays in the tree",
-			rows:  []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1)},
+			rows:  []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("└─ quiet", "w1", 1)},
 			press: []string{"t"},
-			want:  "quiet",
+			want:  "└─ └─ quiet",
 			note:  "nothing to triage",
 		},
 		{
@@ -246,7 +246,7 @@ func TestTriageSnooze(t *testing.T) {
 			press:    []string{"t", "space", "z"},
 			relisted: []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageFamily()[4]},
 			then:     buildTriageFamily(),
-			want:     []string{"parent", "└ reviewer", "third", "backend", "third", "parent", "└ reviewer", "quiet"},
+			want:     []string{"parent", "└ reviewer", "third", "backend", "├─ third", "├─ parent", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "a family hidden and shown again keeps its snooze",
@@ -260,7 +260,7 @@ func TestTriageSnooze(t *testing.T) {
 				return rows
 			}(),
 			then: buildTriage(),
-			want: []string{"third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want: []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "an agent that asks again ends its snooze",
@@ -273,7 +273,7 @@ func TestTriageSnooze(t *testing.T) {
 
 				return rows
 			}(),
-			want: []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want: []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "an agent that moves tier ends its snooze",
@@ -286,21 +286,21 @@ func TestTriageSnooze(t *testing.T) {
 
 				return rows
 			}(),
-			want: []string{"third", "asker", "broken", "backend", "third", "broken", "quiet", "asker"},
+			want: []string{"third", "asker", "broken", "backend", "├─ third", "├─ broken", "├─ quiet", "└─ asker"},
 		},
 		{
 			name:     "opening an agent that asks leaves it where it is",
 			capacity: 3,
 			rows:     buildFinished(),
 			press:    []string{"t", "enter"},
-			want:     []string{"asker", "done backend", "later backend", "backend", "later", "done", "asker", "quiet"},
+			want:     []string{"asker", "done backend", "later backend", "backend", "├─ later", "├─ done", "├─ asker", "└─ quiet"},
 		},
 		{
 			name:     "waking a snoozed family from the tree puts it back in the zone",
 			capacity: 3,
 			rows:     buildTriage(),
 			press:    []string{"t", "space", "z", "G", "k", "k", "space", "z"},
-			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "waking a snoozed orchestrator from its workflow puts it back in the zone",
@@ -316,14 +316,14 @@ func TestTriageSnooze(t *testing.T) {
 				}(),
 			},
 			press: []string{"t", "space", "z", "k", "space", "z"},
-			want:  []string{"backend", "backend", "quiet"},
+			want:  []string{"backend", "backend", "└─ quiet"},
 		},
 		{
 			name:     "a snoozed family gives up its slot",
 			capacity: 2,
 			rows:     buildTriage(),
 			press:    []string{"t", "space", "z"},
-			want:     []string{"third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "a snooze outlasts a listing that changes nothing",
@@ -331,21 +331,21 @@ func TestTriageSnooze(t *testing.T) {
 			rows:     buildTriage(),
 			press:    []string{"t", "space", "z"},
 			relisted: buildTriage(),
-			want:     []string{"third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "opening a finished agent snoozes it",
 			capacity: 3,
 			rows:     buildFinished(),
 			press:    []string{"t", "j", "enter"},
-			want:     []string{"asker", "later backend", "backend", "later", "done", "asker", "quiet"},
+			want:     []string{"asker", "later backend", "backend", "├─ later", "├─ done", "├─ asker", "└─ quiet"},
 		},
 		{
 			name:     "a snoozed family leaves the zone and stays in the tree",
 			capacity: 3,
 			rows:     buildTriage(),
 			press:    []string{"t", "space", "z"},
-			want:     []string{"third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 	}
 
@@ -393,7 +393,7 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     withoutThird(),
 			relisted: buildTriage(),
-			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "asker",
 		},
 		{
@@ -406,7 +406,7 @@ func TestTriageFreeze(t *testing.T) {
 
 				return rows
 			}(),
-			want:    []string{"asker", "+1 more waiting for a slot", "backend", "third", "asker", "broken", "quiet"},
+			want:    []string{"asker", "+1 more waiting for a slot", "backend", "├─ third ⠋", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered: "asker",
 		},
 		{
@@ -414,7 +414,7 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     buildTriage(),
 			press:    []string{"space", "z"},
-			want:     []string{"third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "third",
 		},
 		{
@@ -422,7 +422,7 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     buildTriage(),
 			press:    []string{"j", "j", "space", "z"},
-			want:     []string{"asker", "third", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "third", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "third",
 		},
 		{
@@ -430,16 +430,16 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     append(buildTriage(), newTriageAgent("fourth", agentv1.AgentState_AGENT_STATE_WAITING, 5)),
 			press:    []string{"space", "z", "space", "z", "space", "z"},
-			want:     []string{"broken", "backend", "fourth", "third", "asker", "broken", "quiet"},
+			want:     []string{"broken", "backend", "├─ fourth", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "broken",
 		},
 		{
 			name:     "the last family snoozed takes the cursor to the first agent in the list and says so",
 			capacity: 3,
-			rows:     append(buildTriage()[:3], newTriageAgent("newest", agentv1.AgentState_AGENT_STATE_IDLE, 9)),
+			rows:     append(buildTriage()[:3], newTriageAgent("├─ newest", agentv1.AgentState_AGENT_STATE_IDLE, 9)),
 			press:    []string{"space", "z"},
-			want:     []string{"nothing to triage", "backend", "newest", "asker", "quiet"},
-			hovered:  "newest",
+			want:     []string{"nothing to triage", "backend", "├─ ├─ newest", "├─ asker", "└─ quiet"},
+			hovered:  "├─ ├─ newest",
 			note:     "nothing left to triage",
 		},
 		{
@@ -447,15 +447,15 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     buildFinished(),
 			press:    []string{"j", "enter"},
-			want:     []string{"asker", "later backend", "backend", "later", "done", "asker", "quiet"},
-			hovered:  "done",
+			want:     []string{"asker", "later backend", "backend", "├─ later", "├─ done", "├─ asker", "└─ quiet"},
+			hovered:  "├─ done",
 		},
 		{
 			name:     "opening a finished agent the filter keeps out of the tree leaves it in the zone",
 			capacity: 3,
 			rows:     buildFinished(),
 			press:    []string{"/", "tab", "q", "u", "i", "enter", "t", "j", "enter"},
-			want:     []string{"asker", "done backend", "later backend", "backend", "quiet"},
+			want:     []string{"asker", "done backend", "later backend", "backend", "└─ quiet"},
 			hovered:  "done backend",
 		},
 		{
@@ -463,7 +463,7 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     buildTriage()[:3],
 			relisted: buildTriage()[:2],
-			hovered:  "quiet",
+			hovered:  "└─ quiet",
 		},
 		{
 			name:     "a family archived from the bottom of the zone lands the cursor on the one above",
@@ -471,7 +471,7 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     append(buildTriageFamily()[:4], newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)),
 			press:    []string{"j"},
 			then:     []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)},
-			want:     []string{"early", "backend", "quiet", "early"},
+			want:     []string{"early", "backend", "├─ quiet", "└─ early"},
 			hovered:  "early",
 		},
 		{
@@ -480,7 +480,7 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     buildTriage(),
 			press:    []string{"j"},
 			then:     withoutThird(),
-			want:     []string{"asker", "broken", "backend", "asker", "broken", "quiet"},
+			want:     []string{"asker", "broken", "backend", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "broken",
 		},
 		{
@@ -490,7 +490,7 @@ func TestTriageFreeze(t *testing.T) {
 			relisted: buildAnswered(),
 			press:    []string{"j"},
 			then:     buildAnswered(),
-			want:     []string{"third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker ⠋", "├─ broken", "└─ quiet"},
 			hovered:  "third",
 		},
 		{
@@ -499,16 +499,16 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     buildTriage(),
 			blur:     true,
 			relisted: buildAnswered(),
-			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
-			hovered:  "asker",
+			want:     []string{"asker ⠋", "third", "broken", "backend", "├─ third", "├─ asker ⠋", "├─ broken", "└─ quiet"},
+			hovered:  "asker ⠋",
 		},
 		{
 			name:     "the agent the cursor is on keeps its place once it is answered",
 			capacity: 3,
 			rows:     buildTriage(),
 			relisted: buildAnswered(),
-			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
-			hovered:  "asker",
+			want:     []string{"asker ⠋", "third", "broken", "backend", "├─ third", "├─ asker ⠋", "├─ broken", "└─ quiet"},
+			hovered:  "asker ⠋",
 		},
 		{
 			name:     "the zone holds while the panel gives up the keys",
@@ -516,7 +516,7 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     withoutThird(),
 			blur:     true,
 			relisted: buildTriage(),
-			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "asker",
 		},
 		{
@@ -525,7 +525,7 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     withoutThird(),
 			relisted: buildTriage(),
 			press:    []string{"tab", "shift+tab", "esc"},
-			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "asker",
 		},
 		{
@@ -534,7 +534,7 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     withoutThird(),
 			relisted: buildTriage(),
 			press:    []string{"j", "j"},
-			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
+			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "backend",
 		},
 	}
@@ -625,25 +625,9 @@ func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.
 // readTriageList is the list's rows down to the record under it, with every run of spaces cut
 // to one.
 func readTriageList(frame string) []string {
-	var rows []string
-	for _, line := range splitLines(frame) {
-		if strings.HasPrefix(line, "─── Triage") || strings.HasPrefix(line, "─── All Agents") {
-			continue
-		}
-		if strings.HasPrefix(line, "─") {
-			break
-		}
-
-		for _, bar := range []string{"│ ", "┃ "} {
-			if _, row, isRow := strings.Cut(line, bar); isRow {
-				rows = append(rows, strings.Join(strings.Fields(row), " "))
-
-				break
-			}
-		}
-	}
-
-	return rows
+	return xslice.Map(readListLines(frame), func(line listLine) string {
+		return strings.Join(strings.Fields(line.row), " ")
+	})
 }
 
 // buildFinished is a workflow with an agent asking and two implementers that have finished their

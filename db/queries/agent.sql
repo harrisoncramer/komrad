@@ -563,6 +563,17 @@ WHERE
 ORDER BY
     id DESC;
 
+-- name: ListLiveTaskAgents :many
+SELECT
+    *
+FROM
+    agents
+WHERE
+    task_id = sqlc.arg('task_id')
+    AND archived_at IS NULL
+ORDER BY
+    id DESC;
+
 -- name: MarkWorkflowAgentsRestored :exec
 UPDATE
     agents a

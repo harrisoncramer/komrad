@@ -177,6 +177,16 @@ func (s *AgentStore) ListLiveInWorkflow(ctx context.Context, workflowID string) 
 	return fromRows(rows), nil
 }
 
+// ListLiveOnTask returns the live agents working on a task.
+func (s *AgentStore) ListLiveOnTask(ctx context.Context, taskID string) ([]Agent, error) {
+	rows, err := s.queries.ListLiveTaskAgents(ctx, &taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list live agents of task %q: %w", taskID, err)
+	}
+
+	return fromRows(rows), nil
+}
+
 // ListArchivedInWorkflow returns the archived agents in a workflow.
 func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListArchivedWorkflowAgents(ctx, workflowID)

@@ -266,6 +266,15 @@ message CreateAgentRequest {
   // make one from its title and prompt. A child always works on its parent's task, so this is
   // refused with parent_agent_id.
   optional string task = 12 [(buf.validate.field).string.min_len = 1];
+  // The slug of the task komrad makes for it when task is unset, which no other task has ever
+  // had. Unset to make one from its name, numbered until it is free.
+  optional string task_slug = 13 [(buf.validate.field).string = {
+    max_len: 80
+    pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+  }];
+  // What the task komrad makes for it is meant to achieve, as markdown. Blank to take the first
+  // line of the prompt.
+  string task_goal = 14 [(buf.validate.field).string.max_len = 50000];
 }
 
 message CreateAgentResponse {

@@ -523,14 +523,14 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x11ListTasksResponse\x12#\n" +
 	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"1\n" +
 	"\x12ArchiveTaskRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task2\x97\x06\n" +
+	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task2\xa2\x06\n" +
 	"\vTaskService\x12\xe8\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\xa0\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\vcreate_task\"\x82\x01Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.(\x00B\x01\x03\x12\x8c\x01\n" +
 	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"N\x9a\xb5\x18G\b\x01\x10\x01\x1a\bget_task\"2Fetch one task by id or slug, with its whole goal.B\x03\x01\x02\x03\x90\x02\x01\x12\xbc\x01\n" +
 	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"x\x9a\xb5\x18q\b\x01\x10\x01\x1a\n" +
-	"list_tasks\"ZList a workflow's tasks, newest first. Archived tasks are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xce\x01\n" +
-	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x89\x01\x9a\xb5\x18\x81\x01\b\x01\x10\x01\x1a\farchive_task\"hArchive a task by id or slug, keeping its record. Its agents keep running, and its slug is never reused.(\x00B\x01\x03\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
+	"list_tasks\"ZList a workflow's tasks, newest first. Archived tasks are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xd9\x01\n" +
+	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x94\x01\x9a\xb5\x18\x8c\x01\b\x01\x10\x01\x1a\farchive_task\"sArchive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.(\x00B\x01\x03\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
 
 var (
 	file_task_v1_task_proto_rawDescOnce sync.Once

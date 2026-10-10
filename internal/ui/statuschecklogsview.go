@@ -43,11 +43,10 @@ func (c *statusCheckLogsScreen) snapshot(m *model, pane listPane) view.Snapshot 
 
 			return row
 		}),
-		Caret:      pane.caret,
-		BlinkedOut: pane.blinkedOut,
-		Focused:    rowKeyAt(rows, c.cursor),
-		Pane:       pane.width,
-		Columns:    statusCheckColumns(),
+		Caret:   pane.caret,
+		Focused: rowKeyAt(rows, c.cursor),
+		Pane:    pane.width,
+		Columns: statusCheckColumns(),
 	}
 }
 

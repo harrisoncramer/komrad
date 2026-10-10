@@ -108,6 +108,9 @@ func (a *agentsScreen) openHovered(m *model) tea.Cmd {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		return startOrchestrator(m, workflow)
 	}
+	if row, ok := a.hoveredRow(m); ok && row.isTask() {
+		a.revealAgent(m, row.lead.Agent.ID)
+	}
 
 	return a.openAgent(m)
 }

@@ -8,25 +8,32 @@
 // The split is what lets a change of logic fail a readable assertion and a change of palette
 // move only a golden file.
 //
-// # Agents indent under their workflow
+// # Tasks hang off their workflow
 //
-// A row is a fixed sequence of cells: focus, the columns the list declares, status bar, name,
-// trailing marks, then the comment counts against the right edge. Every gutter cell
-// is always rendered and holds its column whether or not it has anything to say, so the gutter is
-// identical on every row whatever kind it is.
-// Only the name is indented: a workflow opens at the gutter, an agent one step in, and a child
-// one step further, on the corner it hangs off its parent by. Weight carries the same structure
-// over again, bold for a workflow and italic for a child, so neither the indent nor the
-// lettering is the only thing saying where a row sits.
+// A row is a fixed sequence of cells: focus, the columns the list declares, name, trailing marks,
+// then the comment counts against the right edge. Every gutter cell is always rendered and holds
+// its column whether or not it has anything to say, so the gutter is identical on every row
+// whatever kind it is.
+//
+// Only the name is set in. The agents list draws a tree in grey before each name: a workflow at
+// the gutter, its tasks hung off it, and the agents on each task hung off the task, a Tree saying
+// where each row hangs. A list with no tree indents instead, a workflow at the gutter, an agent
+// one step in, and a child one step further on the corner it hangs off its parent by. Weight
+// carries the same structure over again, bold for a workflow and italic for a child, so neither
+// the tree nor the lettering is the only thing saying where a row sits.
+//
+// The task row wears the checkout, the pull request and the comments of the newest agent on it,
+// and says nothing of what any agent is doing. The agents under it are Nested and leave their
+// gutter blank, since the task row already says how their work stands.
+//
+// What an agent is doing is said in its name rather than a bar: bold in the warning colour while
+// it waits on a person or is broken, and plain otherwise, with the loader turning greyed after it
+// while it thinks. A workflow's name says the same of its orchestrator.
 //
 // One rule covers every cell of the row: blank is nothing to say, anything rendered is applicable,
 // and the shape says which state it is in. The agents list declares three glyph columns, repo,
 // review and forge, and they are blank on a row that can never own a checkout, the review column
-// blank as well on a branch no review has been released on. The bar is the exception: it is
-// rendered on every row, a thin pipe where nothing is happening and a heavy one where an agent is
-// thinking, waiting or broken, so it runs as one rail down the list. A thinking agent's bar
-// pulses between the two on the cursor's blink. Whether a process is still there is the weight's
-// to say, not the bar's.
+// blank as well on a branch no review has been released on.
 //
 // # Dim means the process is gone
 //
@@ -37,7 +44,7 @@
 //
 // Only an agent's own row is ever ProcessStopped. A workflow is not a process, its orchestrator
 // is, and a workflow whose orchestrator has died still has live agents under it, so its header
-// stays bright with the quiet pipe, the same as one whose orchestrator was archived or never
+// stays bright and plain, the same as one whose orchestrator was archived or never
 // existed. The sidebar does not tell those apart; an archived orchestrator has
 // a row in the archive, and a stopped one reads the same as none at all.
 //
@@ -45,13 +52,13 @@
 // pause and the schedule belong to. A hidden agent still running is bright with the mark, a
 // dormant one is dim with the mark, and an archived one is dim without it.
 //
-// An indent costs the name the columns it spends, so an agent has less room for its name than a
-// workflow at the same pane, and the name clip and the mark shedding both read the indent rather
-// than the gutter alone.
+// A branch or an indent costs the name the columns it spends, so an agent has less room for its
+// name than a workflow at the same pane, and the name clip and the mark shedding both read them
+// rather than the gutter alone.
 //
 // # A list declares its columns
 //
-// The columns between the mark and the bar are the screen's to name, in Snapshot.Columns, each
+// The columns between the mark and the name are the screen's to name, in Snapshot.Columns, each
 // with a kind and a width. A glyph column is one of repo, review or forge, one column wide and
 // filled from the row's own state. A text column is as wide as the screen says and filled by the
 // row through Row.Cells, indexed by column position, set against the right edge of the column.
@@ -67,7 +74,8 @@
 // room. Nothing is given up for width but the row's own odds and ends: a row too full for what
 // is left gives up its tally, then its comment counts, then its name, a row at a time rather
 // than the whole list, and gives up its marks only where the marks alone would not fit the pane:
-// the schedule first, then the hiding, then the pause, then the mail, and the failed run last.
+// the schedule first, then the hiding, then the pause, then the loader, then the mail, and the
+// failed run last.
 //
 // # A list of results is not a tree
 //

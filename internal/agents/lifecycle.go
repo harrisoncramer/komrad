@@ -16,11 +16,13 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
+	"komrad/internal/tasks"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
@@ -46,6 +48,7 @@ type NewLifecycleServiceParams struct {
 	Screens        screenKeeper
 	LogsDir        string
 	FramesDir      string
+	Tasks          *tasks.TaskService
 	Usage          config.Usage
 }
 
@@ -64,6 +67,7 @@ type LifecycleService struct {
 	logsDir        string
 	framesDir      string
 	usage          config.Usage
+	tasks          *tasks.TaskService
 }
 
 // NewLifecycleService builds the service from its dependencies.
@@ -81,6 +85,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
 		usage:          params.Usage,
+		tasks:          params.Tasks,
 	}
 }
 
@@ -286,13 +291,44 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgen
 		owned:     agents,
 		screens:   s.screens,
 		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
-			return s.agents.Archive(ctx, agentstore.IDs(agents))
+			var taken []agentstore.AgentPane
+			err := s.tx.InTx(ctx, func(db store.DBTX) error {
+				archived, err := agentstore.NewAgentStore(db).Archive(ctx, agentstore.IDs(agents))
+				if err != nil {
+					return err
+				}
+				taken = archived
+
+				return taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(agents))
+			})
+
+			return taken, err
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
 	}
 
 	return nil
+}
+
+// ArchiveTask archives the task an id or a slug names along with the live agents working on it.
+func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
+	found, err := s.tasks.GetTask(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	live, err := s.agents.ListLiveOnTask(ctx, found.ID)
+	if err != nil {
+		return err
+	}
+	if len(live) > 0 {
+		if err := s.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(live)}); err != nil {
+			return err
+		}
+	}
+
+	return s.tasks.ArchiveTask(ctx, found.ID)
 }
 
 // RestoreAgents returns archived agents and their workflows to live listings.
@@ -360,9 +396,12 @@ func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID strin
 				}
 
 				archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, workflowID)
+				if err != nil {
+					return err
+				}
 				taken = archived
 
-				return err
+				return taskstore.NewTaskStore(db).ArchiveIdle(ctx, agentstore.TaskIDs(live))
 			})
 
 			return taken, err

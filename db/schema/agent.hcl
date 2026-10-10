@@ -842,7 +842,7 @@ table "agents" {
   column "task_id" {
     null    = true
     type    = uuid
-    comment = "The task the agent works on, null for an orchestrator or once its task is deleted."
+    comment = "The task the agent works on, null only for an orchestrator."
   }
   column "engine_id" {
     null    = false
@@ -912,6 +912,9 @@ table "agents" {
   }
   index "agents_task_id" {
     columns = [column.task_id]
+  }
+  check "agents_task_unless_orchestrator" {
+    expr = "role = 'orchestrator' OR task_id IS NOT NULL"
   }
   index "agents_idempotency_key" {
     unique  = true

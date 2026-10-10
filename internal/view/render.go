@@ -40,9 +40,9 @@ func renderLine(line line, list List, palette paint.Palette, width int) string {
 		cells = append(cells, render.gutterCell(cell, column.Width))
 	}
 
-	gutter := strings.Join(append(cells, render.gutterCell(line.Status, plainColumns)), " ")
+	gutter := strings.Join(cells, " ")
 
-	row := gutter + " " + strings.Repeat(" ", line.Indent) + renderRule(palette, line.Rule) +
+	row := gutter + " " + strings.Repeat(" ", line.Indent) + renderBranch(palette, line.Branch) + renderRule(palette, line.Rule) +
 		renderLead(palette, line.Lead) + renderName(palette, line) + render.trailing(line)
 
 	if len(line.Comments) > 0 {
@@ -81,7 +81,7 @@ type renderer struct {
 func (d renderer) trailing(line line) string {
 	palette := d.palette
 	var b strings.Builder
-	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert} {
+	for _, cell := range []Cell{line.Working, line.Held, line.Hidden, line.Document, line.Mail, line.Alert} {
 		if !cell.IsBlank() {
 			b.WriteString(" " + d.cell(cell))
 		}
@@ -132,6 +132,15 @@ func renderDivider(palette paint.Palette, name string, width int) string {
 	return palette.TitledRule(palette.Style(paint.ToneMuted).Render(name), "", max(width-1, 1))
 }
 
+// renderBranch is the tree a row hangs in, greyed.
+func renderBranch(palette paint.Palette, branch string) string {
+	if branch == "" {
+		return ""
+	}
+
+	return palette.Style(paint.ToneMuted).Render(branch)
+}
+
 // renderRule is the corner a child hangs off its parent by.
 func renderRule(palette paint.Palette, rule bool) string {
 	if !rule {
@@ -173,6 +182,8 @@ func nameStyle(palette paint.Palette, weight weight, emphasis emphasis) lipgloss
 		style = style.Foreground(palette.Color(paint.ToneMuted))
 	case emphasisFocused:
 		style = style.Foreground(palette.Color(paint.TonePrimary))
+	case emphasisAlert:
+		style = style.Bold(true).Foreground(palette.Color(paint.ToneWarning))
 	}
 
 	switch weight {

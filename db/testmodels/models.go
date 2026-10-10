@@ -480,7 +480,7 @@ type Agent struct {
 	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	Sequence           AgentSequence
 	RequestedByAgentID pgtype.UUID
-	// The task the agent works on, null for an orchestrator or once its task is deleted.
+	// The task the agent works on, null only for an orchestrator.
 	TaskID pgtype.UUID
 }
 

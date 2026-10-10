@@ -48,6 +48,32 @@ WHERE
     id = sqlc.arg('id')
     AND archived_at IS NULL;
 
+-- name: ArchiveIdleTasks :exec
+UPDATE
+    tasks t
+SET
+    archived_at = NOW()
+WHERE
+    t.id = ANY (sqlc.arg('ids')::uuid[])
+    AND t.archived_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL);
+
+-- name: RestoreTasks :exec
+UPDATE
+    tasks
+SET
+    archived_at = NULL
+WHERE
+    id = ANY (sqlc.arg('ids')::uuid[])
+    AND archived_at IS NOT NULL;
+
 -- name: IsTaskSlugTaken :one
 SELECT
     EXISTS (

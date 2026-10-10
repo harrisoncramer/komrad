@@ -240,12 +240,11 @@ type worktreesSnapshotParams struct {
 	// live are the agents the agents listing holds, whose marks a row with one of them renders.
 	live []panel.AgentRow
 	// flat renders every directory at the heading indent.
-	flat       bool
-	caret      view.Caret
-	blinkedOut bool
-	matcher    *regexp.Regexp
-	pane       int
-	now        time.Time
+	flat    bool
+	caret   view.Caret
+	matcher *regexp.Regexp
+	pane    int
+	now     time.Time
 }
 
 // worktreesSnapshot reads the rows into the plain data the list renders itself from.
@@ -283,12 +282,11 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 	}
 
 	return view.Snapshot{
-		Rows:       rows,
-		Caret:      params.caret,
-		BlinkedOut: params.blinkedOut,
-		Focused:    params.focused,
-		Pane:       params.pane,
-		Columns:    worktreeColumns(),
+		Rows:    rows,
+		Caret:   params.caret,
+		Focused: params.focused,
+		Pane:    params.pane,
+		Columns: worktreeColumns(),
 	}
 }
 

@@ -470,9 +470,8 @@ type screenListParams struct {
 
 // listPane is the column a list is rendered in this frame and how its cursor stands.
 type listPane struct {
-	width      int
-	caret      view.Caret
-	blinkedOut bool
+	width int
+	caret view.Caret
 }
 
 // listHelpOf is a screen's legend as the root renders it under the list.

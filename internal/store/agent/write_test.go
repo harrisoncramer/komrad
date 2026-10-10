@@ -145,6 +145,50 @@ func TestCreateWithProvisionOverride(t *testing.T) {
 	}
 }
 
+// TestCreateNeedsATask pins that every agent but an orchestrator is written onto a task.
+func TestCreateNeedsATask(t *testing.T) {
+	tests := []struct {
+		name    string
+		role    Role
+		wantErr bool
+	}{
+		{
+			name:    "an implementer with no task is refused",
+			role:    RoleImplementer,
+			wantErr: true,
+		},
+		{
+			name:    "a reviewer with no task is refused",
+			role:    RoleReviewer,
+			wantErr: true,
+		},
+		{
+			name: "an orchestrator needs none",
+			role: RoleOrchestrator,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := open(t)
+
+			err := f.AgentStore.Create(t.Context(), Agent{
+				Name:       "agent",
+				State:      StateIdle,
+				Role:       tt.role,
+				WorkflowID: f.defaultWorkflow,
+			})
+
+			if tt.wantErr {
+				require.Error(t, err)
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 // TestSpawnedByAgentID pins that an agent a person started reads back a nil parent rather
 // than a sentinel standing in for nobody.
 func TestSpawnedByAgentID(t *testing.T) {
@@ -584,10 +628,11 @@ func TestSetTaskID(t *testing.T) {
 	malformed := "not-an-id"
 
 	tests := []struct {
-		name    string
-		agentID string
-		taskID  *string
-		wantErr error
+		name        string
+		agentID     string
+		taskID      *string
+		wantErr     error
+		wantRefused bool
 	}{
 		{
 			name:    "an agent that does not exist is not found",
@@ -613,14 +658,20 @@ func TestSetTaskID(t *testing.T) {
 			taskID:  &task.ID,
 		},
 		{
-			name:    "an agent leaves its task",
-			agentID: worker.ID,
+			name:        "an agent other than an orchestrator may not leave its task",
+			agentID:     worker.ID,
+			wantRefused: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := f.SetTaskID(ctx, tt.agentID, tt.taskID)
+			if tt.wantRefused {
+				require.Error(t, err)
+
+				return
+			}
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
@@ -635,8 +686,8 @@ func TestSetTaskID(t *testing.T) {
 	}
 }
 
-// TestDeletingATaskKeepsItsAgents pins that a deleted task unlinks its agents rather than taking them.
-func TestDeletingATaskKeepsItsAgents(t *testing.T) {
+// TestDeletingATaskAnAgentIsOnIsRefused pins that a task keeps every agent working on it.
+func TestDeletingATaskAnAgentIsOnIsRefused(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 	require.NoError(t, f.Create(ctx, Agent{Name: "worker", State: StateIdle}))
@@ -650,10 +701,9 @@ func TestDeletingATaskKeepsItsAgents(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.SetTaskID(ctx, worker.ID, &task.ID))
 
-	require.NoError(t, testmodels.New(f.db).DeleteTask(ctx, task.ID))
+	require.Error(t, testmodels.New(f.db).DeleteTask(ctx, task.ID))
 
 	got, err := f.GetByID(ctx, worker.ID)
 	require.NoError(t, err)
-	require.NotNil(t, got, "the agent survives its task's deletion")
-	assert.Nil(t, got.TaskID)
+	assert.Equal(t, &task.ID, got.TaskID, "the agent is still on its task")
 }

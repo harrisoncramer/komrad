@@ -58,6 +58,9 @@ func (m *model) agentRowFits(r agentRow) clauseFits {
 		if !r.header {
 			return m.agentFits(r.item, clause)
 		}
+		if r.isTask() {
+			return clause.Key == searchsyntax.KeyTask && containsFold(r.task.Slug, clause.Value)
+		}
 		if clause.Key == searchsyntax.KeyWorkflow {
 			return containsFold(r.workflow.Name, clause.Value)
 		}
@@ -78,6 +81,8 @@ func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
 		return containsFold(m.listing.workflowName(agent.WorkflowID), clause.Value)
 	case searchsyntax.KeyIs:
 		return strings.EqualFold(string(agent.Role), clause.Value)
+	case searchsyntax.KeyTask:
+		return containsFold(agent.TaskSlug, clause.Value)
 	case searchsyntax.KeyHarness:
 		return strings.EqualFold(agent.Harness, clause.Value)
 	case searchsyntax.KeyPR:

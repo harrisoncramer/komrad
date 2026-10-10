@@ -159,6 +159,14 @@ func workflowArchiveMenu(m *model, workflow panel.Workflow) submenu {
 	})
 }
 
+func taskArchiveMenu(m *model, task panel.Task) submenu {
+	return liveArchiveMenu(submenuEntry{
+		label: "archive with its agents",
+		keys:  m.keys.ArchiveMenu.Archive,
+		write: func(m *model) tea.Cmd { return m.archiveTask(task) },
+	})
+}
+
 func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
 	return liveArchiveMenu(submenuEntry{
 		label: "archive",

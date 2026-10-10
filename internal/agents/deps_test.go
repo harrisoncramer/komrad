@@ -76,7 +76,7 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 	return s.LiveAgentByName(ctx, name)
 }
 
-// createAgent records an agent, filing it under a workflow of its own when the test
+// createAgent records an agent, filing it under a workflow and a task of its own when the test
 // did not name one.
 func (s *testStore) createAgent(ctx context.Context, agent agentstore.Agent) error {
 	if agent.Harness == "" {
@@ -89,6 +89,13 @@ func (s *testStore) createAgent(ctx context.Context, agent agentstore.Agent) err
 		}
 
 		agent.WorkflowID = created.ID
+	}
+	if agent.TaskID == nil && agent.Role != agentstore.RoleOrchestrator {
+		taskID, err := s.TaskFor(ctx, agent)
+		if err != nil {
+			return err
+		}
+		agent.TaskID = taskID
 	}
 
 	return s.Agents.Create(ctx, agent)
@@ -212,6 +219,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Screens:        NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
+			Tasks:          tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
 			Usage:          options.usage,
 		}),
 		panes:   NewPaneLiveness(options.tmux),

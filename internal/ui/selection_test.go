@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"komrad/internal/ui/paint"
-	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -75,9 +74,14 @@ func findRenderedRow(t *testing.T, harness *panelHarness, name string) string {
 func findRenderedRows(t *testing.T, harness *panelHarness, name string) []string {
 	t.Helper()
 
-	return xslice.Filter(splitLines(harness.readRawFrame()), func(line string) bool {
-		row, isRow := cutListRow(ansi.Strip(line))
+	raw := harness.readRawFrame()
+	lines := splitLines(raw)
+	var found []string
+	for _, line := range readListLines(ansi.Strip(raw)) {
+		if strings.TrimLeft(line.row, "│├└─ ") == name {
+			found = append(found, lines[line.index])
+		}
+	}
 
-		return isRow && strings.TrimSpace(row) == name
-	})
+	return found
 }

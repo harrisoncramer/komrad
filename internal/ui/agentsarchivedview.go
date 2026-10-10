@@ -68,7 +68,6 @@ func (a *archivedAgents) snapshot(m *model, pane listPane) view.Snapshot {
 		workflowDirs: m.listing.workflowDirs(),
 		focused:      rowKeyAt(rows, a.cursor),
 		caret:        pane.caret,
-		blinkedOut:   pane.blinkedOut,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, rows, m.agentRowFits),

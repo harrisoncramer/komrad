@@ -17,9 +17,8 @@ func (m *model) listPane(width int) listPane {
 	}
 
 	return listPane{
-		width:      width,
-		caret:      caret,
-		blinkedOut: m.rowCursor.IsBlinked,
+		width: width,
+		caret: caret,
 	}
 }
 

@@ -20,20 +20,25 @@ type taskReadWriter interface {
 	CreateTask(ctx context.Context, params taskstore.CreateParams) (*taskstore.Task, error)
 	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
+}
+
+type taskArchiver interface {
 	ArchiveTask(ctx context.Context, ref string) error
 }
 
 type NewHandlerParams struct {
-	Tasks taskReadWriter
+	Tasks    taskReadWriter
+	Archiver taskArchiver
 }
 
 type Handler struct {
-	tasks taskReadWriter
+	tasks    taskReadWriter
+	archiver taskArchiver
 }
 
 // NewHandler constructs the handler over the service that owns the rules.
 func NewHandler(params NewHandlerParams) *Handler {
-	return &Handler{tasks: params.Tasks}
+	return &Handler{tasks: params.Tasks, archiver: params.Archiver}
 }
 
 // CreateTask records a task and returns it as stored.
@@ -71,9 +76,9 @@ func (s *Handler) ListTasks(ctx context.Context, req *taskv1.ListTasksRequest) (
 	return &taskv1.ListTasksResponse{Tasks: xslice.Map(listed, render.Task)}, nil
 }
 
-// ArchiveTask takes a task out of the live listings.
+// ArchiveTask takes a task and the live agents on it out of the live listings.
 func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.tasks.ArchiveTask(ctx, req.GetTask()); err != nil {
+	if err := s.archiver.ArchiveTask(ctx, req.GetTask()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive task")
 	}
 

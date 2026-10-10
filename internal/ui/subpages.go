@@ -28,13 +28,13 @@ var (
 )
 
 // agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
-func agentMenu(m *model, openedFrom screen, item panel.AgentRow, own ...submenuEntry) submenu {
+func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 	agent := item.Agent
 	agentID := agent.ID
 	pages := xslice.Map(agentSubpages(agent), func(page subpage) submenuEntry {
-		entry := subpageEntry(m, openedFrom, item, page)
+		entry := subpageEntry(m, screenAgents, item, page)
 		if entry.opens == nil {
-			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(openedFrom, agentID, page) }
+			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(screenAgents, agentID, page) }
 		}
 
 		return entry
@@ -45,7 +45,7 @@ func agentMenu(m *model, openedFrom screen, item panel.AgentRow, own ...submenuE
 		title: m.listing.agentName(agent),
 		entries: slices.Concat(pages, own, []submenuEntry{
 			nestedEntry("git", m.keys.Menu.Git, gitMenu(m, item)),
-			nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, openedFrom, agentID)),
+			nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, agentID)),
 		}),
 	}
 }

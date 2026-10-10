@@ -1075,14 +1075,14 @@
               "key": "new_agent",
               "path": "keybindings.menu.new_agent",
               "type": "array",
-              "description": "Start a new agent, in the workflow the cursor is in. The entry is only on the agents list.",
+              "description": "Start a new task on the hovered workflow, or another agent on the hovered task. The entry is only\non the agents list.",
               "default": "[\"c\"]"
             },
             {
               "key": "new_workflow",
               "path": "keybindings.menu.new_workflow",
               "type": "array",
-              "description": "Create a workflow. The entry is only on the agents list.",
+              "description": "Create a workflow. The entry is only on a workflow in the agents list.",
               "default": "[\"w\"]"
             }
           ],

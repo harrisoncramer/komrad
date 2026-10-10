@@ -21,6 +21,7 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	screenstore "komrad/internal/store/screen"
 	taskstore "komrad/internal/store/task"
+	"komrad/internal/store/task/tasktest"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
@@ -95,6 +96,12 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 		agent.State = agentstore.StateIdle
 	}
 
+	if agent.TaskID == nil && agent.Role != agentstore.RoleOrchestrator {
+		taskID, err := s.TaskFor(t.Context(), agent)
+		require.NoError(t, err)
+		agent.TaskID = taskID
+	}
+
 	require.NoError(t, s.Agents.Create(t.Context(), agent))
 
 	stored, err := s.Agents.GetInWorkflow(t.Context(), agent.WorkflowID, agent.Name)
@@ -102,6 +109,20 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 	require.NotNil(t, stored)
 
 	return stored
+}
+
+// TaskFor is the task an agent written by a test works on: its parent's, or one made for it.
+func (s *Stores) TaskFor(ctx context.Context, agent agentstore.Agent) (*string, error) {
+	if agent.ParentAgentID == nil {
+		return tasktest.Seed(ctx, s.Pool.GetDB(), agent.WorkflowID)
+	}
+
+	parent, err := s.Agents.GetByID(ctx, *agent.ParentAgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return parent.TaskID, nil
 }
 
 // LiveAgentByName finds the one live agent holding a name, which only a test can ask for

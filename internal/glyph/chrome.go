@@ -4,10 +4,6 @@ import "komrad/lib/xslice"
 
 // The chrome is what the layout is drawn with, and it is fixed.
 const (
-	// Busy is the status bar of an agent that is working or waiting on a person.
-	Busy = "┃"
-	// Quiet is the status bar of an agent with nothing going on.
-	Quiet = "│"
 	// Child is the corner a child hangs off its parent by.
 	Child = "└"
 	// Focus is the arrow on the row the keyboard stands on.
@@ -44,8 +40,6 @@ const Logo = "\U000F050C"
 // Chrome is every piece of chrome and what a report calls it.
 func Chrome() []Named {
 	return []Named{
-		{Name: "busy", Text: Busy},
-		{Name: "quiet", Text: Quiet},
 		{Name: "child", Text: Child},
 		{Name: "focus", Text: Focus},
 		{Name: "divider", Text: Divider},

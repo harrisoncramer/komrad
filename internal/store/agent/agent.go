@@ -148,7 +148,7 @@ type Agent struct {
 	// follows.
 	ParentAgentID *string
 
-	// TaskID is the task the agent works on, nil for an orchestrator or once its task is deleted.
+	// TaskID is the task the agent works on, nil only for an orchestrator.
 	TaskID    *string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -285,6 +285,15 @@ func fromRows(rows []*models.Agent) []Agent {
 // IDs is the id of each agent, in the order they were given.
 func IDs(agents []Agent) []string {
 	return xslice.Map(agents, func(agent Agent) string { return agent.ID })
+}
+
+// TaskIDs is the tasks the agents work on, each once.
+func TaskIDs(agents []Agent) []string {
+	linked := xslice.Filter(agents, func(agent Agent) bool { return agent.TaskID != nil })
+
+	ids := xslice.Map(linked, func(agent Agent) string { return *agent.TaskID })
+
+	return xslice.UniqueBy(ids, func(id string) string { return id })
 }
 
 // FromRow is the agent one stored row describes.
