@@ -166,7 +166,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 	var task *taskstore.Task
 	if agent.TaskID != nil {
 		found, err := s.tasks.Get(ctx, *agent.TaskID)
-		if err != nil {
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return nil, fmt.Errorf("failed to read task %q: %w", *agent.TaskID, err)
 		}
 		task = found

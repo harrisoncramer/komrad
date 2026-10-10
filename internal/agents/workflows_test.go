@@ -914,13 +914,13 @@ func TestDeleteWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a deprovisioner that will
+// TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a pre-delete hook that will
 // not run: DeleteAgents cannot destroy that row, so the workflow it is still in cannot be
 // destroyed either, and neither is an error the caller sees.
 func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{hookErrs: map[string]error{refusingHook: errors.New("worktree is dirty")}}
 	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:      st.Workflows,
@@ -930,10 +930,11 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 		Schedules:      st.Schedules,
 		Lifecycle:      agentSvc.lifecycle,
 		Tx:             st.Pool,
+		Hooks:          everyHook{},
 	})
 	ctx := t.Context()
 
-	created, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	created, err := workflows.NewWorkflow(ctx, refusingConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := agentSvc.launch.NewAgent(ctx, NewAgentParams{
@@ -953,6 +954,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	assert.Nil(t, got.DeletingAt, "and is given back to the archive with it")
 
 	assert.Equal(t, agentstore.StateFailedToCleanup, agentByID(t, st, agent.ID).State)
+	assert.Empty(t, lifecycle.ranTaskDeprovisions(), "and so is the checkout of its task")
 }
 
 type claimOnly struct {
@@ -1195,4 +1197,55 @@ func TestArchivingAWorkflowTakesItsTasks(t *testing.T) {
 	_, err = workflows.RestoreWorkflow(ctx, workflow.ID)
 	require.NoError(t, err)
 	assert.False(t, isTaskArchived(t, st, work.ID), "and came back with it")
+}
+
+// TestDeleteWorkflowGivesBackItsTasksCheckouts pins a workflow going only once each task in it has
+// given its worktree back.
+func TestDeleteWorkflowGivesBackItsTasksCheckouts(t *testing.T) {
+	tests := []struct {
+		name        string
+		deprovision error
+		wantKept    bool
+	}{
+		{
+			name:        "a checkout that will not go keeps the workflow and the task",
+			deprovision: errors.New("worktree is dirty"),
+			wantKept:    true,
+		},
+		{
+			name: "a checkout that goes takes both",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{taskDeprovisionErr: tt.deprovision}
+			workflows := st.workflowService(workflowServiceOptions{tmux: tmux, lifecycle: lifecycle})
+			created, err := workflows.NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+			task := st.SeedTask(t, taskstore.CreateParams{WorkflowID: created.ID, Slug: "work"})
+			dir := t.TempDir()
+			require.NoError(t, st.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
+			require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
+
+			err = workflows.DeleteWorkflow(t.Context(), created.ID)
+
+			assert.Equal(t, []string{dir}, lifecycle.ranTaskDeprovisions())
+			_, workflowErr := st.Workflows.GetIncludingArchived(t.Context(), created.ID)
+			kept, taskErr := st.Tasks.Get(t.Context(), task.ID)
+			if !tt.wantKept {
+				require.NoError(t, err)
+				require.ErrorIs(t, workflowErr, store.ErrNotFound)
+				require.ErrorIs(t, taskErr, store.ErrNotFound)
+
+				return
+			}
+			require.ErrorIs(t, err, agenterr.ErrTeardownFailed)
+			require.NoError(t, workflowErr)
+			require.NoError(t, taskErr)
+			assert.Nil(t, kept.DeletingAt)
+		})
+	}
 }

@@ -761,6 +761,11 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*ta
 		} else if c.parent != nil {
 			c.agent.TaskID = c.parent.TaskID
 		}
+		if c.agent.TaskID != nil {
+			if err := taskstore.NewTaskStore(db).LockUndeleted(ctx, *c.agent.TaskID); err != nil {
+				return err
+			}
+		}
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
 		}

@@ -1220,15 +1220,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xae\f\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xb5\f\n" +
 	"\x0fWorkflowService\x12\xf9\x01\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa0\x01\x9a\xb5\x18\x98\x01\b\x01\x10\x01\x1a\x0elist_workflows\"}List the workflows, alphabetically, with the opening of each context. Archived workflows are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\x8b\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"9\x9a\xb5\x182\b\x01\x10\x01\x1a\fget_workflow\"\x19Fetch one workflow by id.B\x03\x01\x02\x03\x90\x02\x01\x12\xde\x01\n" +
 	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x82\x01\x9a\xb5\x18~\b\x01\x10\x01\x1a\x0fcreate_workflow\"bCreate a workflow to group agents under. docs/src/content/guides/workflows.md explains each field.(\x00B\x01\x03\x12\xa9\x02\n" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xda\x01\x9a\xb5\x18\xd2\x01\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb5\x01Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards.(\x00B\x01\x03\x90\x02\x02\x12\xcd\x01\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\x10archive_workflow\"YArchive a workflow and the agents in it. Refused while a schedule still launches into it.(\x00B\x01\x03\x90\x02\x02\x12\xf0\x01\n" +
-	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x10restore_workflow\"lTake a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running.(\x00B\x01\x03\x90\x02\x02\x12\xc0\x01\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"r\x9a\xb5\x18k\b\x01\x10\x01\x1a\x0fdelete_workflow\"OPermanently delete an archived workflow with its archived agents and schedules.(\x01B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x10restore_workflow\"lTake a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running.(\x00B\x01\x03\x90\x02\x02\x12\xc7\x01\n" +
+	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"y\x9a\xb5\x18r\b\x01\x10\x01\x1a\x0fdelete_workflow\"VPermanently delete an archived workflow with its archived agents, tasks and schedules.(\x01B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

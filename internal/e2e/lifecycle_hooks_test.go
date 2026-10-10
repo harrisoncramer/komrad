@@ -14,6 +14,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
@@ -36,7 +37,7 @@ func writeHook(t *testing.T, instance *komradtest.Instance, event, body string) 
 }
 
 // TestIntegrationPreDeleteRunsWhileTheWorktreeIsStillThere covers the hook reading the worktree before
-// the deprovisioner hands it back.
+// the task's delete hands it back.
 func TestIntegrationPreDeleteRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 	isolateGit(t)
 
@@ -59,7 +60,7 @@ func TestIntegrationPreDeleteRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 	tree := created.Msg.GetAgent().GetCwd()
 	require.DirExists(t, tree)
 
-	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{id}}))
+	_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{created.Msg.GetAgent().GetTaskId()}}))
 	require.NoError(t, err)
 	instance.WorkQueue()
 
@@ -245,7 +246,7 @@ func TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived(t *testin
 	}, 10*time.Second, 10*time.Millisecond)
 }
 
-// TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone covers the last hook of an agent's life running somewhere that still exists.
+// TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone covers the last hook of a deleted task's agent running somewhere that still exists.
 func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 	isolateGit(t)
 
@@ -256,7 +257,7 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookPostDelete,
 		"#!/bin/sh\n{ pwd -P; echo \"$KOMRAD_AGENT_CWD\"; test -d \"$KOMRAD_AGENT_CWD\" && echo there || echo gone; } >"+seen+"\n"))
 
-	_, err := instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{agent.GetId()}}))
+	_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{agent.GetTaskId()}}))
 	require.NoError(t, err)
 	instance.WorkQueue()
 

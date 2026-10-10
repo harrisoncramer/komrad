@@ -8,6 +8,7 @@ import (
 	"komrad/db/migrator"
 	"komrad/internal/pgtest"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 
@@ -109,10 +110,10 @@ func TestInspectDirReportsADirectoryItCannotWrite(t *testing.T) {
 	assert.False(t, state.Writable)
 }
 
-// TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs covers what makes an orphan
-// answerable: the ids komrad names its worktrees after, the directories agents actually run
-// in, and the places the workflows cut their trees.
-func TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs(t *testing.T) {
+// TestReadWorktreeOwnersReadsTheAgentsTasksAndWorkflowDirs covers what makes an orphan
+// answerable: the ids komrad names its worktrees after, the directories agents actually
+// run in, and the places the workflows cut their trees.
+func TestReadWorktreeOwnersReadsTheAgentsTasksAndWorkflowDirs(t *testing.T) {
 	stores := storetest.Open(t)
 
 	workflow := stores.SeedWorkflow(t, workflowstore.Config{
@@ -124,12 +125,14 @@ func TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs(t *testing.T) {
 		Cwd:        "/repos/trees/worker",
 		WorkflowID: workflow.ID,
 	})
+	kept := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "kept"})
 
 	owners, err := readWorktreeOwners(t.Context(), stores.URL)
 	require.NoError(t, err)
 
 	assert.Contains(t, owners.TaskIDs, *agent.TaskID)
 	assert.Contains(t, owners.AgentDirs, "/repos/trees/worker")
+	assert.Contains(t, owners.TaskIDs, kept.ID)
 	assert.Equal(t, []string{"~/repos/trees"}, owners.WorkflowDirs,
 		"the directory is reported as the workflow named it, which is what the config is matched against")
 }

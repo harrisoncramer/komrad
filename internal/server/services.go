@@ -355,10 +355,16 @@ func buildAgents(params buildAgentsParams) agentServices {
 		FallbackResumeRoot: server.FallbackResumeRoot,
 	})
 	agentDelete := jobs.NewAgentDelete(params.Queue)
+	emptyTasks := agents.NewEmptyTaskDeleter(agents.NewEmptyTaskDeleterParams{
+		Tasks:     st.tasks,
+		Workflows: st.workflows,
+		Scripts:   params.Scripts,
+	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Schedules: st.schedules,
+		Tasks:     emptyTasks,
 	})
 	screenKeeper := agents.NewScreenKeeper(agents.NewScreenKeeperParams{
 		Panes:   server.Tmux,
@@ -369,6 +375,8 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Agents:         st.agents,
 		Workflows:      st.workflows,
 		EmptyWorkflows: emptyWorkflows,
+		EmptyTasks:     emptyTasks,
+		AgentDeleter:   agentDelete,
 		Tx:             st.pool,
 		Scripts:        params.Scripts,
 		Reviews:        st.review,
@@ -529,6 +537,7 @@ func buildWorktrees(st *stores, gitClient *git.Client, loadConfig func() (*confi
 			return cfg.GetWorktreesDir()
 		},
 		Agents:    st.agents,
+		Tasks:     st.tasks,
 		Workflows: st.workflows,
 		Worktrees: st.worktrees,
 	})

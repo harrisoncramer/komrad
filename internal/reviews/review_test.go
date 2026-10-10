@@ -13,6 +13,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
@@ -296,7 +297,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "taking a round of a task whose worktree was removed",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				require.NoError(t, fx.stores.Tasks.MarkCheckoutsRemoved(t.Context(), []string{fx.worker.ID}))
+				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.worker.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
 				_, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
 
 				return err

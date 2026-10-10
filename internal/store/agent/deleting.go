@@ -71,7 +71,7 @@ func (s *AgentStore) ListProvisionedIDsByTask(ctx context.Context, taskIDs []str
 	return ids, nil
 }
 
-// ClearDeleting takes the delete's claim off agents, their children and their workflows.
+// ClearDeleting takes the delete's claim off agents, their children, their tasks and their workflows.
 func (s *AgentStore) ClearDeleting(ctx context.Context, ids []string) error {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {

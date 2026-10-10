@@ -128,7 +128,7 @@ func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRe
 	}, nil
 }
 
-// RemoveUnownedWorktrees takes away the directories no agent answers for.
+// RemoveUnownedWorktrees takes away the directories no agent or task answers for.
 func (s *Handler) RemoveUnownedWorktrees(ctx context.Context, req *worktreev1.RemoveUnownedWorktreesRequest) (*worktreev1.RemoveUnownedWorktreesResponse, *fail.Error) {
 	removal, err := s.remover.Remove(ctx, req.GetDirs())
 	if err != nil {
@@ -185,6 +185,8 @@ func renderFate(fate worktrees.Fate) worktreev1.WorktreeFate {
 		return worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED
 	case worktrees.FateLive:
 		return worktreev1.WorktreeFate_WORKTREE_FATE_LIVE
+	case worktrees.FateTask:
+		return worktreev1.WorktreeFate_WORKTREE_FATE_TASK
 	}
 
 	return worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED

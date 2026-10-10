@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
@@ -214,6 +217,12 @@ func readWorktreeOwners(ctx context.Context, url string) (worktreeOwners, error)
 			owners.AgentDirs = append(owners.AgentDirs, trimmed)
 		}
 	}
+
+	taskSlugs, err := taskstore.NewTaskStore(pool).ListUndeletedSlugs(ctx)
+	if err != nil {
+		return worktreeOwners{}, err
+	}
+	owners.TaskIDs = slices.AppendSeq(owners.TaskIDs, maps.Keys(taskSlugs))
 
 	owners.WorkflowDirs, err = workflowstore.NewWorkflowStore(pool).ListWorktreeDirs(ctx)
 	if err != nil {

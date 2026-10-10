@@ -1,7 +1,6 @@
 package task_test
 
 import (
-	"context"
 	"encoding/json"
 	"sync/atomic"
 	"testing"
@@ -11,7 +10,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"komrad/internal/store"
-	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -203,76 +201,4 @@ func TestLastRebaseRoundTrips(t *testing.T) {
 
 	_, err = stores.Tasks.GetLastRebase(ctx, "01a11e6f-af0b-7497-91fb-d3750f8cbef2")
 	require.ErrorIs(t, err, store.ErrNotFound)
-}
-
-// TestMarkCheckoutsRemoved pins that only a task whose checkout a torn agent worked in is marked removed.
-func TestMarkCheckoutsRemoved(t *testing.T) {
-	stores := storetest.Open(t)
-	ctx := t.Context()
-	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
-
-	owned := seedCheckout(ctx, t, seedCheckoutParams{stores: stores, workflowID: workflow.ID, slug: "owned", taskDir: "/tmp/owned", agentDir: "/tmp/owned"})
-	elsewhere := seedCheckout(ctx, t, seedCheckoutParams{stores: stores, workflowID: workflow.ID, slug: "elsewhere", taskDir: "/tmp/elsewhere", agentDir: "/tmp/given"})
-	untouched := seedCheckout(ctx, t, seedCheckoutParams{stores: stores, workflowID: workflow.ID, slug: "untouched", taskDir: "/tmp/untouched", agentDir: "/tmp/untouched"})
-
-	require.NoError(t, stores.Tasks.MarkCheckoutsRemoved(ctx, []string{owned.agentID, elsewhere.agentID}))
-	require.NoError(t, stores.Tasks.MarkCheckoutsRemoved(ctx, nil), "no agents is nothing to write")
-
-	tests := []struct {
-		name   string
-		taskID string
-		want   bool
-	}{
-		{
-			name:   "a task whose checkout the agent did not work in is kept",
-			taskID: elsewhere.taskID,
-			want:   false,
-		},
-		{
-			name:   "a task no torn agent was on is kept",
-			taskID: untouched.taskID,
-			want:   false,
-		},
-		{
-			name:   "a task whose checkout the agent worked in is marked removed",
-			taskID: owned.taskID,
-			want:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := stores.Tasks.Get(ctx, tt.taskID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got.Checkout.WorktreeRemoved)
-		})
-	}
-}
-
-type seedCheckoutParams struct {
-	stores     *storetest.Stores
-	workflowID string
-	slug       string
-	taskDir    string
-	agentDir   string
-}
-
-type seededCheckout struct {
-	taskID  string
-	agentID string
-}
-
-func seedCheckout(ctx context.Context, t *testing.T, params seedCheckoutParams) seededCheckout {
-	t.Helper()
-
-	task := params.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: params.workflowID, Slug: params.slug})
-	require.NoError(t, params.stores.Tasks.SetCheckoutDir(ctx, task.ID, params.taskDir))
-	agent := params.stores.SeedAgent(t, agentstore.Agent{
-		Name:       params.slug,
-		WorkflowID: params.workflowID,
-		TaskID:     &task.ID,
-		Cwd:        params.agentDir,
-	})
-
-	return seededCheckout{taskID: task.ID, agentID: agent.ID}
 }

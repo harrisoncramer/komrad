@@ -358,8 +358,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Remove agents for good, with their records, transcripts and worktrees.",
-          "description": "Remove agents for good, with their records, transcripts and worktrees. Prefer archive_agents, and delete only when asked.",
+          "summary": "Remove agents for good, with their records and transcripts.",
+          "description": "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. Prefer archive_agents, and delete only when asked.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1055,8 +1055,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Permanently delete an archived workflow with its archived agents and schedules.",
-          "description": "Permanently delete an archived workflow with its archived agents and schedules.",
+          "summary": "Permanently delete an archived workflow with its archived agents, tasks and schedules.",
+          "description": "Permanently delete an archived workflow with its archived agents, tasks and schedules.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1614,8 +1614,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Remove worktree directories no agent answers for, such as those list_worktrees reports with no agent.",
-          "description": "Remove worktree directories no agent answers for, such as those list_worktrees reports with no agent. Branches are never touched.",
+          "summary": "Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned.",
+          "description": "Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1705,6 +1705,24 @@
           "response": "task.v1.ListTasksResponse"
         },
         {
+          "slug": "update-task",
+          "name": "UpdateTask",
+          "path": "/task.v1.TaskService/UpdateTask",
+          "command": "komrad rpc update-task",
+          "tool": "update_task",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Rewrite a task's slug, title or goal by id or slug, leaving each field you leave out as it is.",
+          "description": "Rewrite a task's slug, title or goal by id or slug, leaving each field you leave out as it is. A goal edit reaches agents only when they read the task again.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": false,
+          "request": "task.v1.UpdateTaskRequest",
+          "response": "task.v1.UpdateTaskResponse"
+        },
+        {
           "slug": "archive-task",
           "name": "ArchiveTask",
           "path": "/task.v1.TaskService/ArchiveTask",
@@ -1720,6 +1738,24 @@
           "idempotent": true,
           "destructive": false,
           "request": "task.v1.ArchiveTaskRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
+          "slug": "delete-tasks",
+          "name": "DeleteTasks",
+          "path": "/task.v1.TaskService/DeleteTasks",
+          "command": "komrad rpc delete-tasks",
+          "tool": "delete_tasks",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree.",
+          "description": "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "task.v1.DeleteTasksRequest",
           "response": "google.protobuf.Empty"
         }
       ]
@@ -2753,7 +2789,7 @@
           "rules": [
             "required"
           ],
-          "description": "The agents to remove for good, transcripts and worktrees with them."
+          "description": "The agents to remove for good, transcripts with them."
         }
       ]
     },
@@ -8739,6 +8775,24 @@
         }
       ]
     },
+    "task.v1.DeleteTasksRequest": {
+      "name": "DeleteTasksRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "tasks",
+          "type": "string",
+          "ref": "",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The tasks to remove for good, by id or by slug, with every agent on them."
+        }
+      ]
+    },
     "task.v1.DiffStat": {
       "name": "DiffStat",
       "description": "DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.",
@@ -9016,6 +9070,87 @@
           "oneof": "",
           "rules": [],
           "description": "The branch its checkout was put on rather than one komrad made for it, unset when komrad made it."
+        },
+        {
+          "name": "failure_reason",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why its last delete could not give its checkout back, empty unless one failed."
+        }
+      ]
+    },
+    "task.v1.UpdateTaskRequest": {
+      "name": "UpdateTaskRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which task to rewrite, by id or by slug."
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 80 characters",
+            "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
+          ],
+          "description": "The lowercase kebab-case name to call it by from now on, which no other task holds, left as it is when unset."
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 200 characters"
+          ],
+          "description": "What to show it as in the panel, left as it is when unset."
+        },
+        {
+          "name": "goal",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 50000 characters"
+          ],
+          "description": "What it is meant to achieve, as markdown, left as it is when unset."
+        }
+      ]
+    },
+    "task.v1.UpdateTaskResponse": {
+      "name": "UpdateTaskResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "Task",
+          "ref": "task.v1.Task",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task as rewritten."
         }
       ]
     },
@@ -10399,7 +10534,7 @@
         },
         {
           "name": "AGENT_STATE_FAILED_TO_CLEANUP",
-          "description": "A delete failed to take the worktree down, and the reason is on the row."
+          "description": "A delete failed to clean up after the agent, and the reason is on the row."
         },
         {
           "name": "AGENT_STATE_UNCERTAIN",
@@ -10794,6 +10929,10 @@
         {
           "name": "WORKTREE_FATE_LIVE",
           "description": "The directory's agent is running, which nothing takes."
+        },
+        {
+          "name": "WORKTREE_FATE_TASK",
+          "description": "Only the directory's task answers for it, which the task delete takes."
         }
       ]
     }

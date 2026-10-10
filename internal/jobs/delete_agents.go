@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/jobs/internaljobs"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
@@ -73,6 +74,9 @@ func (d *AgentDelete) Resume(ctx context.Context) error {
 
 	return d.queue.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		if err := workflowstore.NewWorkflowStore(tx).ClearAbandonedDeleting(ctx); err != nil {
+			return nil, err
+		}
+		if err := taskstore.NewTaskStore(tx).ClearAbandonedDeleting(ctx); err != nil {
 			return nil, err
 		}
 

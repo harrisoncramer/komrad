@@ -57,6 +57,16 @@ func (s *TaskService) ListTasks(ctx context.Context, workflowID string, archived
 	return s.tasks.List(ctx, workflowID, archived)
 }
 
+// UpdateTask rewrites the fields params sets on the task an id or a slug names.
+func (s *TaskService) UpdateTask(ctx context.Context, ref string, params taskstore.UpdateParams) (*taskstore.Task, error) {
+	found, err := s.GetTask(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.tasks.Update(ctx, found.ID, params)
+}
+
 // ArchiveTask archives the task an id or a slug names, leaving one already archived as it was.
 func (s *TaskService) ArchiveTask(ctx context.Context, ref string) error {
 	found, err := s.GetTask(ctx, ref)
@@ -97,11 +107,6 @@ func (s *TaskService) ClaimCheckoutAgain(ctx context.Context, id string) (bool, 
 // ReleaseCheckout gives up the claim a failed launch made on a task's checkout.
 func (s *TaskService) ReleaseCheckout(ctx context.Context, id string) error {
 	return s.tasks.ReleaseCheckout(ctx, id)
-}
-
-// MarkCheckoutsRemoved records that the task checkouts the given agents worked in were taken away.
-func (s *TaskService) MarkCheckoutsRemoved(ctx context.Context, agentIDs []string) error {
-	return s.tasks.MarkCheckoutsRemoved(ctx, agentIDs)
 }
 
 // ListTasksByID returns the tasks among ids, archived or not.

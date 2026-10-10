@@ -200,7 +200,21 @@ WITH released AS (
         OR parent_agent_id = ANY (@ids::uuid[]))
     AND deleting_at IS NOT NULL
 RETURNING
-    workflow_id)
+    workflow_id,
+    task_id
+),
+released_tasks AS (
+    UPDATE
+        tasks
+    SET
+        deleting_at = NULL
+    WHERE
+        deleting_at IS NOT NULL
+        AND id IN (
+            SELECT
+                task_id
+            FROM
+                released))
 UPDATE
     workflows
 SET
@@ -567,6 +581,16 @@ WHERE
     AND archived_at IS NULL
 ORDER BY
     id DESC;
+
+-- name: ListAgentsOnTasks :many
+SELECT
+    *
+FROM
+    agents
+WHERE
+    task_id = ANY (sqlc.arg('task_ids')::uuid[])
+ORDER BY
+    id;
 
 -- name: GetTaskWriter :one
 SELECT

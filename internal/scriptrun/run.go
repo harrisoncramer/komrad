@@ -16,6 +16,7 @@ import (
 	"komrad/internal/scripts"
 
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -314,4 +315,40 @@ func readProvisionedDir(path string) ([]byte, error) {
 	defer file.Close()
 
 	return io.ReadAll(io.LimitReader(file, maxProvisionedDir+1))
+}
+
+// RunTaskDeprovision runs the deprovisioner over the checkout of a task no agent is left on, and waits for it.
+func (s *ScriptService) RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error {
+	owner := agentstore.Agent{
+		Cwd:        task.Checkout.Cwd,
+		WorkflowID: task.WorkflowID,
+		TaskID:     &task.ID,
+	}
+
+	script, env, err := s.prepare(ctx, prepareParams{
+		agent:   owner,
+		name:    name,
+		trigger: triggerDeprovision,
+	})
+	if err != nil {
+		return err
+	}
+
+	logger := s.runLogger(ctx, script.Name, triggerDeprovision, owner).With(slog.String(logging.TaskID, task.ID))
+	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
+	began := time.Now()
+
+	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
+		Script:  script,
+		Dir:     script.GetDir(),
+		Env:     env,
+		Timeout: script.Header.TimeoutOr(deprovisionTimeout),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to run %s: %w%s", script.Name, err, scriptDetail(result.Stdout, result.Stderr, ""))
+	}
+
+	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
+
+	return nil
 }

@@ -296,17 +296,3 @@ func (s *TaskStore) ListByID(ctx context.Context, ids []string) ([]Task, error) 
 
 	return xslice.Map(rows, fromRow), nil
 }
-
-// MarkCheckoutsRemoved records that the task checkouts the given agents worked in were taken away.
-func (s *TaskStore) MarkCheckoutsRemoved(ctx context.Context, agentIDs []string) error {
-	storable := store.KeepIDs(agentIDs)
-	if len(storable) == 0 {
-		return nil
-	}
-
-	if err := s.queries.MarkTaskCheckoutsRemoved(ctx, storable); err != nil {
-		return fmt.Errorf("failed to mark the checkouts of %d agents removed: %w", len(storable), err)
-	}
-
-	return nil
-}

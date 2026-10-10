@@ -191,6 +191,8 @@ type Task struct {
 	// The branch its checkout was put on rather than one komrad made for it, unset when komrad
 	// made it.
 	AdoptedBranch *string `protobuf:"bytes,17,opt,name=adopted_branch,json=adoptedBranch,proto3,oneof" json:"adopted_branch,omitempty"`
+	// Why its last delete could not give its checkout back, empty unless one failed.
+	FailureReason string `protobuf:"bytes,18,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -340,6 +342,13 @@ func (x *Task) GetDiffStat() *DiffStat {
 func (x *Task) GetAdoptedBranch() string {
 	if x != nil && x.AdoptedBranch != nil {
 		return *x.AdoptedBranch
+	}
+	return ""
+}
+
+func (x *Task) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
 	}
 	return ""
 }
@@ -650,6 +659,124 @@ func (x *ListTasksResponse) GetTasks() []*Task {
 	return nil
 }
 
+type UpdateTaskRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which task to rewrite, by id or by slug.
+	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The lowercase kebab-case name to call it by from now on, which no other task holds,
+	// left as it is when unset.
+	Slug *string `protobuf:"bytes,2,opt,name=slug,proto3,oneof" json:"slug,omitempty"`
+	// What to show it as in the panel, left as it is when unset.
+	Title *string `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	// What it is meant to achieve, as markdown, left as it is when unset.
+	Goal          *string `protobuf:"bytes,4,opt,name=goal,proto3,oneof" json:"goal,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateTaskRequest) Reset() {
+	*x = UpdateTaskRequest{}
+	mi := &file_task_v1_task_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTaskRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTaskRequest) ProtoMessage() {}
+
+func (x *UpdateTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_task_v1_task_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTaskRequest.ProtoReflect.Descriptor instead.
+func (*UpdateTaskRequest) Descriptor() ([]byte, []int) {
+	return file_task_v1_task_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UpdateTaskRequest) GetTask() string {
+	if x != nil {
+		return x.Task
+	}
+	return ""
+}
+
+func (x *UpdateTaskRequest) GetSlug() string {
+	if x != nil && x.Slug != nil {
+		return *x.Slug
+	}
+	return ""
+}
+
+func (x *UpdateTaskRequest) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *UpdateTaskRequest) GetGoal() string {
+	if x != nil && x.Goal != nil {
+		return *x.Goal
+	}
+	return ""
+}
+
+type UpdateTaskResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The task as rewritten.
+	Task          *Task `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateTaskResponse) Reset() {
+	*x = UpdateTaskResponse{}
+	mi := &file_task_v1_task_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTaskResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTaskResponse) ProtoMessage() {}
+
+func (x *UpdateTaskResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_task_v1_task_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTaskResponse.ProtoReflect.Descriptor instead.
+func (*UpdateTaskResponse) Descriptor() ([]byte, []int) {
+	return file_task_v1_task_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UpdateTaskResponse) GetTask() *Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
 type ArchiveTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which task to archive, by id or by slug.
@@ -660,7 +787,7 @@ type ArchiveTaskRequest struct {
 
 func (x *ArchiveTaskRequest) Reset() {
 	*x = ArchiveTaskRequest{}
-	mi := &file_task_v1_task_proto_msgTypes[8]
+	mi := &file_task_v1_task_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -672,7 +799,7 @@ func (x *ArchiveTaskRequest) String() string {
 func (*ArchiveTaskRequest) ProtoMessage() {}
 
 func (x *ArchiveTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_task_v1_task_proto_msgTypes[8]
+	mi := &file_task_v1_task_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -685,7 +812,7 @@ func (x *ArchiveTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArchiveTaskRequest.ProtoReflect.Descriptor instead.
 func (*ArchiveTaskRequest) Descriptor() ([]byte, []int) {
-	return file_task_v1_task_proto_rawDescGZIP(), []int{8}
+	return file_task_v1_task_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ArchiveTaskRequest) GetTask() string {
@@ -695,6 +822,51 @@ func (x *ArchiveTaskRequest) GetTask() string {
 	return ""
 }
 
+type DeleteTasksRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The tasks to remove for good, by id or by slug, with every agent on them.
+	Tasks         []string `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteTasksRequest) Reset() {
+	*x = DeleteTasksRequest{}
+	mi := &file_task_v1_task_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteTasksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteTasksRequest) ProtoMessage() {}
+
+func (x *DeleteTasksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_task_v1_task_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteTasksRequest.ProtoReflect.Descriptor instead.
+func (*DeleteTasksRequest) Descriptor() ([]byte, []int) {
+	return file_task_v1_task_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *DeleteTasksRequest) GetTasks() []string {
+	if x != nil {
+		return x.Tasks
+	}
+	return nil
+}
+
 var File_task_v1_task_proto protoreflect.FileDescriptor
 
 const file_task_v1_task_proto_rawDesc = "" +
@@ -702,7 +874,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xa4\x05\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xcb\x05\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -725,7 +897,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\bsequence\x18\x0e \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x12*\n" +
 	"\x11moved_since_round\x18\x0f \x01(\tR\x0fmovedSinceRound\x123\n" +
 	"\tdiff_stat\x18\x10 \x01(\v2\x11.task.v1.DiffStatH\x05R\bdiffStat\x88\x01\x01\x12*\n" +
-	"\x0eadopted_branch\x18\x11 \x01(\tH\x06R\radoptedBranch\x88\x01\x01B\x0e\n" +
+	"\x0eadopted_branch\x18\x11 \x01(\tH\x06R\radoptedBranch\x88\x01\x01\x12%\n" +
+	"\x0efailure_reason\x18\x12 \x01(\tR\rfailureReasonB\x0e\n" +
 	"\f_archived_atB\x06\n" +
 	"\x04_cwdB\t\n" +
 	"\a_branchB\x11\n" +
@@ -751,9 +924,22 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"workflowId\x12\x1a\n" +
 	"\barchived\x18\x02 \x01(\bR\barchived\"8\n" +
 	"\x11ListTasksResponse\x12#\n" +
-	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"1\n" +
+	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"\xd9\x01\n" +
+	"\x11UpdateTaskRequest\x12\x1b\n" +
+	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\x12<\n" +
+	"\x04slug\x18\x02 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x00R\x04slug\x88\x01\x01\x12)\n" +
+	"\x05title\x18\x03 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01H\x01R\x05title\x88\x01\x01\x12\"\n" +
+	"\x04goal\x18\x04 \x01(\tB\t\xbaH\x06r\x04\x18І\x03H\x02R\x04goal\x88\x01\x01B\a\n" +
+	"\x05_slugB\b\n" +
+	"\x06_titleB\a\n" +
+	"\x05_goal\"7\n" +
+	"\x12UpdateTaskResponse\x12!\n" +
+	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"1\n" +
 	"\x12ArchiveTaskRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task*\xa0\x01\n" +
+	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\"<\n" +
+	"\x12DeleteTasksRequest\x12&\n" +
+	"\x05tasks\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x05tasks*\xa0\x01\n" +
 	"\bSequence\x12\x18\n" +
 	"\x14SEQUENCE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rSEQUENCE_NONE\x10\x01\x12\x13\n" +
@@ -761,14 +947,18 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xa2\x06\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xae\n" +
+	"\n" +
 	"\vTaskService\x12\xe8\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\xa0\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\vcreate_task\"\x82\x01Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.(\x00B\x01\x03\x12\x8c\x01\n" +
 	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"N\x9a\xb5\x18G\b\x01\x10\x01\x1a\bget_task\"2Fetch one task by id or slug, with its whole goal.B\x03\x01\x02\x03\x90\x02\x01\x12\xbc\x01\n" +
 	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"x\x9a\xb5\x18q\b\x01\x10\x01\x1a\n" +
-	"list_tasks\"ZList a workflow's tasks, newest first. Archived tasks are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\xd9\x01\n" +
-	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x94\x01\x9a\xb5\x18\x8c\x01\b\x01\x10\x01\x1a\farchive_task\"sArchive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.(\x00B\x01\x03\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
+	"list_tasks\"ZList a workflow's tasks, newest first. Archived tasks are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\x86\x02\n" +
+	"\n" +
+	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xbe\x01\x9a\xb5\x18\xb6\x01\b\x01\x10\x01\x1a\vupdate_task\"\x9d\x01Rewrite a task's slug, title or goal by id or slug, leaving each field you leave out as it is. A goal edit reaches agents only when they read the task again.(\x00B\x01\x03\x90\x02\x02\x12\xd9\x01\n" +
+	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x94\x01\x9a\xb5\x18\x8c\x01\b\x01\x10\x01\x1a\farchive_task\"sArchive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.(\x00B\x01\x03\x90\x02\x02\x12\x80\x02\n" +
+	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\fdelete_tasks\"\x99\x01Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked.(\x01B\x01\x03\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
 
 var (
 	file_task_v1_task_proto_rawDescOnce sync.Once
@@ -783,7 +973,7 @@ func file_task_v1_task_proto_rawDescGZIP() []byte {
 }
 
 var file_task_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_task_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_task_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_task_v1_task_proto_goTypes = []any{
 	(Sequence)(0),              // 0: task.v1.Sequence
 	(*DiffStat)(nil),           // 1: task.v1.DiffStat
@@ -794,8 +984,11 @@ var file_task_v1_task_proto_goTypes = []any{
 	(*GetTaskResponse)(nil),    // 6: task.v1.GetTaskResponse
 	(*ListTasksRequest)(nil),   // 7: task.v1.ListTasksRequest
 	(*ListTasksResponse)(nil),  // 8: task.v1.ListTasksResponse
-	(*ArchiveTaskRequest)(nil), // 9: task.v1.ArchiveTaskRequest
-	(*emptypb.Empty)(nil),      // 10: google.protobuf.Empty
+	(*UpdateTaskRequest)(nil),  // 9: task.v1.UpdateTaskRequest
+	(*UpdateTaskResponse)(nil), // 10: task.v1.UpdateTaskResponse
+	(*ArchiveTaskRequest)(nil), // 11: task.v1.ArchiveTaskRequest
+	(*DeleteTasksRequest)(nil), // 12: task.v1.DeleteTasksRequest
+	(*emptypb.Empty)(nil),      // 13: google.protobuf.Empty
 }
 var file_task_v1_task_proto_depIdxs = []int32{
 	0,  // 0: task.v1.Task.sequence:type_name -> task.v1.Sequence
@@ -803,19 +996,24 @@ var file_task_v1_task_proto_depIdxs = []int32{
 	2,  // 2: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
 	2,  // 3: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
 	2,  // 4: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
-	3,  // 5: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
-	5,  // 6: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
-	7,  // 7: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
-	9,  // 8: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
-	4,  // 9: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
-	6,  // 10: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
-	8,  // 11: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
-	10, // 12: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
-	9,  // [9:13] is the sub-list for method output_type
-	5,  // [5:9] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	2,  // 5: task.v1.UpdateTaskResponse.task:type_name -> task.v1.Task
+	3,  // 6: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
+	5,  // 7: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
+	7,  // 8: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
+	9,  // 9: task.v1.TaskService.UpdateTask:input_type -> task.v1.UpdateTaskRequest
+	11, // 10: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
+	12, // 11: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
+	4,  // 12: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
+	6,  // 13: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
+	8,  // 14: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
+	10, // 15: task.v1.TaskService.UpdateTask:output_type -> task.v1.UpdateTaskResponse
+	13, // 16: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
+	13, // 17: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
+	12, // [12:18] is the sub-list for method output_type
+	6,  // [6:12] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_task_v1_task_proto_init() }
@@ -824,13 +1022,14 @@ func file_task_v1_task_proto_init() {
 		return
 	}
 	file_task_v1_task_proto_msgTypes[1].OneofWrappers = []any{}
+	file_task_v1_task_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_task_v1_task_proto_rawDesc), len(file_task_v1_task_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   9,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

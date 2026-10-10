@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/git"
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,7 @@ import (
 // for going and its repository being pruned.
 func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 	fixture := newFixture(t)
-	dir := fixture.cut(t)
+	dir := fixture.cutUnowned(t)
 
 	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
@@ -83,9 +84,19 @@ func TestRemoveRefuses(t *testing.T) {
 			wantReason: "vetoed-agent",
 		},
 		{
+			name: "a directory named after a task no agent is left on",
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				taskID, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
+				require.NoError(t, err)
+
+				return fixture.cutAs(t, *taskID, "task/"+*taskID)
+			},
+			wantReason: "delete the task instead",
+		},
+		{
 			name: "a directory another agent works in",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
-				dir := fixture.cut(t)
+				dir := fixture.cutUnowned(t)
 				fixture.occupy(t, dir, "child-agent")
 
 				return dir
@@ -95,7 +106,7 @@ func TestRemoveRefuses(t *testing.T) {
 		{
 			name: "a directory an agent works somewhere under",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
-				dir := fixture.cut(t)
+				dir := fixture.cutUnowned(t)
 				fixture.occupy(t, filepath.Join(dir, "packages", "api"), "under-agent")
 
 				return dir
@@ -122,7 +133,7 @@ func TestRemoveRefuses(t *testing.T) {
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
 				fixture.git.ListErr = errors.New("git is not on the path")
 
-				return fixture.cut(t)
+				return fixture.cutUnowned(t)
 			},
 			wantReason: "could not list the worktrees",
 			wantFailed: true,
@@ -130,7 +141,7 @@ func TestRemoveRefuses(t *testing.T) {
 		{
 			name: "a directory that could not be removed",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
-				dir := fixture.cut(t)
+				dir := fixture.cutUnowned(t)
 				require.NoError(t, os.Chmod(fixture.shared, 0o500))
 				t.Cleanup(func() {
 					assert.NoError(t, os.Chmod(fixture.shared, 0o700))
@@ -173,6 +184,22 @@ func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
 	dir := fixture.cut(t)
 	require.NoError(t, os.RemoveAll(filepath.Join(fixture.repo, ".git", "worktrees", filepath.Base(dir))))
 	fixture.own(t, dir, agentstore.Agent{Name: "stuck", State: agentstore.StateFailedToCleanup})
+	require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{filepath.Base(dir)}))
+
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{dir}, removal.Removed)
+	assert.NoDirExists(t, dir)
+}
+
+// TestRemoveTakesTheCheckoutOfATaskBeingDeleted covers a task giving up its directory once a delete has claimed it.
+func TestRemoveTakesTheCheckoutOfATaskBeingDeleted(t *testing.T) {
+	fixture := newFixture(t)
+	taskID, err := tasktest.Seed(t.Context(), fixture.stores.Pool.GetDB(), fixture.workflowID)
+	require.NoError(t, err)
+	dir := fixture.cutAs(t, *taskID, "task/"+*taskID)
+	require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{*taskID}))
 
 	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
@@ -186,11 +213,11 @@ func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
 // or only the repository has it registered.
 func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 	fixture := newFixture(t)
-	listed := fixture.cut(t)
+	listed := fixture.cutUnowned(t)
 	fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "nested", Worktree: workflowstore.WorktreeConfig{Dir: listed}})
 	inner := filepath.Join(listed, "inner")
 	write(t, inner, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/inner\n")
-	registered := fixture.cut(t)
+	registered := fixture.cutUnowned(t)
 	byHand := filepath.Join(registered, "by-hand")
 	write(t, byHand, ".git", "gitdir: "+filepath.Join(fixture.repo, ".git", "worktrees", "by-hand")+"\n")
 	fixture.git.Registered = []git.Worktree{{Dir: fixture.repo}, {Dir: byHand}}
