@@ -665,7 +665,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 
 	for _, round := range rounds {
 		agent, ok := onTask[round.TaskID]
-		if !ok || round.Ref == "" {
+		if !ok {
 			continue
 		}
 
