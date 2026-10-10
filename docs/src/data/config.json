@@ -1033,7 +1033,7 @@
               "key": "edit",
               "path": "keybindings.menu.edit",
               "type": "array",
-              "description": "Open your editor on the worktree of the hovered task or agent, in place of the pane beside\nthe list. The agent working there is paused while the editor is open, and quitting the\neditor, picking the entry again or leaving the agents list closes it and unpauses the agent.\nThe entry is only on the agents list.",
+              "description": "Open your editor on the files of the hovered task or agent, in place of the pane beside\nthe list. The agent working there is paused while the editor is open, and quitting the\neditor, picking the entry again or leaving the agents list closes it and unpauses the agent.\nThe entry is only on the agents list.",
               "default": "[\"e\"]"
             },
             {

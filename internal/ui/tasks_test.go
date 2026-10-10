@@ -156,7 +156,7 @@ func TestTasksRow(t *testing.T) {
 		harness.press("j", "space")
 
 		menu := strings.Join(readStage(harness.readFrame()), "\n")
-		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "edit worktree", "git ›", "jump ›", "hide ›", "archive ›"} {
+		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "edit files", "git ›", "jump ›", "hide ›", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
 	})
@@ -167,7 +167,7 @@ func TestTasksRow(t *testing.T) {
 		harness.press("j", "j", "space")
 
 		menu := strings.Join(readStage(harness.readFrame()), "\n")
-		for _, entry := range []string{"logs", "terminal", "edit worktree", "new child", "archive ›"} {
+		for _, entry := range []string{"logs", "terminal", "edit files", "new child", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
 		for _, entry := range []string{"review", "status checks", "git ›", "jump ›", "hide ›", "snooze", "retry launch"} {

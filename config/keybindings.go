@@ -272,7 +272,7 @@ type MenuKeys struct {
 	// Open the hide menu to the right of this one, for hiding the hovered task or every chosen
 	// task, or showing the hidden ones. The entry is only on the agents list.
 	Hide []string `mapstructure:"hide" default:"h"`
-	// Open your editor on the worktree of the hovered task or agent, in place of the pane beside
+	// Open your editor on the files of the hovered task or agent, in place of the pane beside
 	// the list. The agent working there is paused while the editor is open, and quitting the
 	// editor, picking the entry again or leaving the agents list closes it and unpauses the agent.
 	// The entry is only on the agents list.

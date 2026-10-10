@@ -43,8 +43,8 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			}),
 			openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
 		},
-		a.editEntries(m, &writer),
 		a.snoozeEntries(m, lead),
+		a.editEntries(m, &writer),
 	)
 
 	menu := agentMenu(m, lead, own...)
@@ -160,7 +160,7 @@ func (a *agentsScreen) editEntries(m *model, item *panel.AgentRow) []submenuEntr
 
 	edited := *item
 
-	return []submenuEntry{writeEntry("edit worktree", m.keys.Menu.Edit, func(m *model) tea.Cmd {
+	return []submenuEntry{writeEntry("edit files", m.keys.Menu.Edit, func(m *model) tea.Cmd {
 		return m.agents.pressEdit(m, edited)
 	})}
 }
