@@ -1,6 +1,9 @@
 package config
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"slices"
 	"sync"
@@ -52,8 +55,16 @@ func (l *StackLoader) stampLayers() ([]os.FileInfo, error) {
 
 	stamps := make([]os.FileInfo, len(layers))
 	for i, layer := range layers {
-		if info, err := os.Stat(layer.Path); err == nil {
+		info, err := os.Stat(layer.Path)
+		if err == nil {
 			stamps[i] = info
+			continue
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("failed to read config %s: %w", layer.Path, err)
+		}
+		if link, err := os.Lstat(layer.Path); err == nil {
+			stamps[i] = link
 		}
 	}
 

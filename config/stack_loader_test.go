@@ -58,4 +58,13 @@ func TestStackLoader(t *testing.T) {
 	fixed, err := loader.Load()
 	require.NoError(t, err)
 	assert.Equal(t, "debug", fixed.Log.Level, "and fixing it is read too")
+
+	pending := filepath.Join(dir, "pending.toml")
+	waiting := NewStackLoader(Stack{Paths: []string{pending}})
+	_, err = waiting.Load()
+	require.ErrorContains(t, err, "there is no file there")
+
+	require.NoError(t, os.Symlink(filepath.Join(dir, "missing.toml"), pending))
+	_, err = waiting.Load()
+	require.ErrorContains(t, err, "which does not exist", "a dangling link where nothing was is read again")
 }
