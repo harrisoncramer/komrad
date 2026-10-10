@@ -109,14 +109,14 @@ func reportEscapes(pass *analysis.Pass, scope txScope, body *ast.BlockStmt) {
 			return true
 		}
 
-		if selector, ok := call.Fun.(*ast.SelectorExpr); ok && isQueryingReceiver(pass, callee, selector) && scope.isOutside(pass, selector.X) {
+		if selector, ok := call.Fun.(*ast.SelectorExpr); ok && isQueryingReceiver(pass, callee, selector) && scope.isOutside(pass, receiverRoot(selector.X)) {
 			pass.Reportf(call.Pos(), "%s runs outside the transaction this function holds; call it on a store built over the transaction", types.ExprString(call.Fun))
 
 			return true
 		}
 
 		for _, arg := range call.Args {
-			if isTransaction(pass.TypesInfo.TypeOf(arg)) && scope.isOutside(pass, arg) {
+			if isTransaction(pass.TypesInfo.TypeOf(arg)) && scope.isOutside(pass, valueRoot(arg)) {
 				pass.Reportf(arg.Pos(), "%s is handed a transaction this function was not handed; hand it its own", types.ExprString(call.Fun))
 			}
 		}
@@ -157,25 +157,13 @@ func isBindable(typ types.Type) bool {
 	return ok && signature.Params().Len() == 1 && isTransaction(signature.Params().At(0).Type())
 }
 
-// isOutside says whether an expression is rooted in a name declared outside the scope, which a
-// value reached through a call or a literal never is.
-func (s txScope) isOutside(pass *analysis.Pass, expr ast.Expr) bool {
-	root := ast.Unparen(expr)
-	for {
-		selector, ok := root.(*ast.SelectorExpr)
-		if !ok {
-			break
-		}
-
-		root = ast.Unparen(selector.X)
-	}
-
-	ident, ok := root.(*ast.Ident)
-	if !ok {
+// isOutside says whether a name is declared outside the scope, which a missing name or a package never is.
+func (s txScope) isOutside(pass *analysis.Pass, root *ast.Ident) bool {
+	if root == nil {
 		return false
 	}
 
-	object := pass.TypesInfo.Uses[ident]
+	object := pass.TypesInfo.Uses[root]
 	if object == nil {
 		return false
 	}
@@ -185,4 +173,40 @@ func (s txScope) isOutside(pass *analysis.Pass, expr ast.Expr) bool {
 	}
 
 	return object.Pos() < s.start || object.Pos() > s.end
+}
+
+// receiverRoot is the name a chain of selectors starts from, or nil when it starts from a call or a literal.
+func receiverRoot(expr ast.Expr) *ast.Ident {
+	for {
+		selector, ok := ast.Unparen(expr).(*ast.SelectorExpr)
+		if !ok {
+			break
+		}
+
+		expr = selector.X
+	}
+
+	ident, ok := ast.Unparen(expr).(*ast.Ident)
+	if !ok {
+		return nil
+	}
+
+	return ident
+}
+
+// valueRoot is the name a value starts from, following a method call back to its receiver, or nil when it starts from a plain call or a literal.
+func valueRoot(expr ast.Expr) *ast.Ident {
+	for {
+		call, ok := ast.Unparen(expr).(*ast.CallExpr)
+		if !ok {
+			return receiverRoot(expr)
+		}
+
+		selector, ok := ast.Unparen(call.Fun).(*ast.SelectorExpr)
+		if !ok {
+			return nil
+		}
+
+		expr = selector.X
+	}
 }
