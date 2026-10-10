@@ -96,13 +96,14 @@ func TestIntegrationWorktrees(t *testing.T) {
 	require.NoError(t, os.MkdirAll(orphan, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(orphan, "blob"), make([]byte, 1<<20), 0o644))
 
-	t.Run("the listing names each worktree under the agent it was cut for", func(t *testing.T) {
+	t.Run("the listing names each worktree after its task, under the agent it was cut for", func(t *testing.T) {
 		found := listWorktrees(t, instance)
 
 		require.Contains(t, found, lister.GetCwd())
 		tree := found[lister.GetCwd()]
 		assert.True(t, tree.GetReadable())
-		assert.Equal(t, "agent/"+lister.GetId(), tree.GetBranch())
+		assert.Equal(t, lister.GetTaskId(), filepath.Base(lister.GetCwd()))
+		assert.Equal(t, "task/"+lister.GetTaskId(), tree.GetBranch())
 		assert.Equal(t, lister.GetId(), tree.GetAgent().GetId())
 		assert.Equal(t, "sibling-1", tree.GetAgent().GetName())
 		assert.NotEmpty(t, tree.GetLastActiveAt())

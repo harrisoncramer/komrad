@@ -223,7 +223,12 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 		worktree  workflowstore.WorktreeConfig
 		provision *bool
 		adopted   string
-		wantKeys  []string
+		// recordedCwd is the checkout directory the task already records.
+		recordedCwd string
+		// wantName is the worktree name handed on, the task id when blank.
+		wantName   string
+		wantBranch string
+		wantKeys   []string
 	}{
 		{
 			name: "disabled carries none of the worktree keys",
@@ -250,6 +255,8 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				"KOMRAD_WORKTREE_BASE_BRANCH",
 				"KOMRAD_WORKTREE_COPY_PATHS",
 				"KOMRAD_WORKTREE_SYMLINK_PATHS",
+				"KOMRAD_WORKTREE_NAME",
+				"KOMRAD_WORKTREE_BRANCH",
 			},
 		},
 		{
@@ -268,6 +275,24 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				"KOMRAD_WORKTREE_COPY_PATHS",
 				"KOMRAD_WORKTREE_SYMLINK_PATHS",
 				"KOMRAD_WORKTREE_ADOPT_BRANCH",
+				"KOMRAD_WORKTREE_NAME",
+				"KOMRAD_WORKTREE_BRANCH",
+			},
+		},
+		{
+			name: "enabled keeps the name of a checkout recorded before tasks named them",
+			worktree: workflowstore.WorktreeConfig{
+				Enabled:      true,
+				BaseBranch:   "develop",
+				CopyPaths:    []string{".env", "config/local.json"},
+				SymlinkPaths: []string{"node_modules"},
+			},
+			recordedCwd: "/worktrees/" + fixtureAgentID,
+			wantName:    fixtureAgentID,
+			wantBranch:  "agent/" + fixtureAgentID,
+			wantKeys: []string{
+				"KOMRAD_WORKTREE_NAME",
+				"KOMRAD_WORKTREE_BRANCH",
 			},
 		},
 	}
@@ -292,6 +317,9 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			claimed, err := st.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *seeded.TaskID, AdoptedBranch: tt.adopted})
 			require.NoError(t, err)
 			require.True(t, claimed)
+			if tt.recordedCwd != "" {
+				require.NoError(t, st.Tasks.SetCheckoutDir(t.Context(), *seeded.TaskID, tt.recordedCwd))
+			}
 
 			runner := &recordingRunner{}
 			service := NewScriptService(NewScriptServiceParams{
@@ -319,7 +347,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			}
 
 			if len(tt.wantKeys) == 0 {
-				for _, key := range []string{"KOMRAD_WORKTREE_REPO", "KOMRAD_WORKTREES_DIR", "KOMRAD_WORKTREE_BASE_BRANCH", "KOMRAD_WORKTREE_COPY_PATHS", "KOMRAD_WORKTREE_SYMLINK_PATHS"} {
+				for _, key := range []string{"KOMRAD_WORKTREE_REPO", "KOMRAD_WORKTREES_DIR", "KOMRAD_WORKTREE_BASE_BRANCH", "KOMRAD_WORKTREE_COPY_PATHS", "KOMRAD_WORKTREE_SYMLINK_PATHS", "KOMRAD_WORKTREE_NAME", "KOMRAD_WORKTREE_BRANCH"} {
 					_, ok := values[key]
 					assert.False(t, ok, "%s is not set for a workflow with worktree support off", key)
 				}
@@ -338,6 +366,13 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			assert.Equal(t, ".env\nconfig/local.json", values["KOMRAD_WORKTREE_COPY_PATHS"])
 			assert.Equal(t, "node_modules", values["KOMRAD_WORKTREE_SYMLINK_PATHS"])
 			assert.Equal(t, tt.adopted, values["KOMRAD_WORKTREE_ADOPT_BRANCH"])
+
+			wantName, wantBranch := tt.wantName, tt.wantBranch
+			if wantName == "" {
+				wantName, wantBranch = *seeded.TaskID, "task/"+*seeded.TaskID
+			}
+			assert.Equal(t, wantName, values["KOMRAD_WORKTREE_NAME"])
+			assert.Equal(t, wantBranch, values["KOMRAD_WORKTREE_BRANCH"])
 		})
 	}
 }

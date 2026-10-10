@@ -9,8 +9,10 @@ if [ ! -x "$tree/mise/tasks/_test_instance" ]; then
 	exit 0
 fi
 
-if [ "$(basename "$tree")" != "$KOMRAD_AGENT_ID" ]; then
-	echo "archive: $tree is not named after $KOMRAD_AGENT_ID, so it is not this agent's to shrink" >&2
+name="${KOMRAD_WORKTREE_NAME:-}"
+
+if [ "$(basename "$tree")" != "$name" ]; then
+	echo "archive: $tree is not named $name, so it is not this agent's to shrink" >&2
 	exit 0
 fi
 

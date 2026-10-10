@@ -711,6 +711,34 @@ func TestIntegrationBuiltinWorktreeCleanup(t *testing.T) {
 	assert.Empty(t, strings.TrimSpace(string(branches)), "the branch is gone")
 }
 
+// TestIntegrationBuiltinWorktreeUnderTheNameItIsHanded covers a worktree named after its task
+// rather than the agent that provisions it.
+func TestIntegrationBuiltinWorktreeUnderTheNameItIsHanded(t *testing.T) {
+	repo := initRepo(t)
+	worktreesDir := t.TempDir()
+	env := worktreeEnv{
+		agentID:        "agent-t",
+		worktreeName:   "task-t",
+		worktreeBranch: "task/task-t",
+		repo:           repo,
+		worktreesDir:   worktreesDir,
+	}
+
+	setup, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+	assert.Equal(t, filepath.Join(worktreesDir, "task-t"), tree)
+	assertBranch(t, tree, "task/task-t")
+
+	env.agentCwd = tree
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", env)
+	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
+
+	_, statErr := os.Stat(tree)
+	assert.True(t, os.IsNotExist(statErr), "the worktree directory is gone")
+	assert.Empty(t, readBranchList(t, repo, "task/task-t"), "the branch is gone")
+}
+
 // TestIntegrationBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone covers what docs/scripts.md requires
 // of every deprovisioner: a workflow's cleanup must not block a delete whatever state its
 // target is in, so running cleanup against a directory that was never a worktree, or was
@@ -1038,12 +1066,16 @@ exec %q "$@"
 }
 
 type worktreeEnv struct {
-	agentID      string
-	agentCwd     string
-	trigger      string
-	repo         string
-	worktreesDir string
-	baseBranch   string
+	agentID string
+	// worktreeName is the name komrad hands the scripts, the agent id when blank.
+	worktreeName string
+	// worktreeBranch is the branch komrad hands the scripts, agent/<worktreeName> when blank.
+	worktreeBranch string
+	agentCwd       string
+	trigger        string
+	repo           string
+	worktreesDir   string
+	baseBranch     string
 	// noBase leaves the base blank, which every other test fills with main.
 	noBase       bool
 	adoptBranch  string
@@ -1063,6 +1095,16 @@ func (e worktreeEnv) toEnv() []string {
 		baseBranch = "main"
 	}
 
+	name := e.worktreeName
+	if name == "" {
+		name = e.agentID
+	}
+
+	branch := e.worktreeBranch
+	if branch == "" {
+		branch = "agent/" + name
+	}
+
 	env := []string{
 		"KOMRAD_AGENT_ID=" + e.agentID,
 		"KOMRAD_AGENT_CWD=" + e.agentCwd,
@@ -1073,6 +1115,8 @@ func (e worktreeEnv) toEnv() []string {
 		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + e.adoptBranch,
 		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
 		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(e.symlinkPaths, "\n"),
+		"KOMRAD_WORKTREE_NAME=" + name,
+		"KOMRAD_WORKTREE_BRANCH=" + branch,
 	}
 
 	if e.pathPrefix != "" {
@@ -1433,23 +1477,23 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 		{
 			name:        "a komrad checkout gives back its instance and stack",
 			checkout:    true,
-			dirName:     "agent-a",
+			dirName:     "task-a",
 			wantFreed:   true,
 			wantCompose: true,
 		},
 		{
 			name:       "a komrad checkout with docker down still gives back its instance",
 			checkout:   true,
-			dirName:    "agent-a",
+			dirName:    "task-a",
 			dockerDown: true,
 			wantFreed:  true,
 		},
 		{
-			name:     "a komrad checkout not named after its agent is left alone",
+			name:     "a komrad checkout named after its agent rather than its worktree is left alone",
 			checkout: true,
-			dirName:  "komrad",
+			dirName:  "agent-a",
 		},
-		{name: "any other checkout is left alone", dirName: "agent-a"},
+		{name: "any other checkout is left alone", dirName: "task-a"},
 	}
 
 	for _, tt := range tests {
@@ -1475,10 +1519,11 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0o755))
 
 			result, err := runBuiltin(t, "komrad-checkout-teardown", worktreeEnv{
-				agentID:    "agent-a",
-				agentCwd:   tree,
-				trigger:    "pre-delete",
-				pathPrefix: bin,
+				agentID:      "agent-a",
+				worktreeName: "task-a",
+				agentCwd:     tree,
+				trigger:      "pre-delete",
+				pathPrefix:   bin,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
 
@@ -1493,7 +1538,7 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 
 			if tt.wantCompose {
 				require.NoError(t, dockerErr)
-				assert.Contains(t, string(ran), "compose -p agent-a --profile * down --volumes --remove-orphans --rmi local\n")
+				assert.Contains(t, string(ran), "compose -p task-a --profile * down --volumes --remove-orphans --rmi local\n")
 			} else {
 				assert.NotContains(t, string(ran), "compose", "no stack was taken down")
 			}
@@ -1515,15 +1560,15 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 		{
 			name:       "a komrad checkout gives back its instance and drops what it rebuilds",
 			checkout:   true,
-			dirName:    "agent-a",
+			dirName:    "task-a",
 			wantShrunk: true,
 		},
 		{
-			name:     "a komrad checkout not named after its agent is left alone",
+			name:     "a komrad checkout named after its agent rather than its worktree is left alone",
 			checkout: true,
-			dirName:  "komrad",
+			dirName:  "agent-a",
 		},
-		{name: "any other checkout is left alone", dirName: "agent-a"},
+		{name: "any other checkout is left alone", dirName: "task-a"},
 	}
 
 	for _, tt := range tests {
@@ -1544,9 +1589,10 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 			}
 
 			result, err := runBuiltin(t, "komrad-checkout-archive", worktreeEnv{
-				agentID:  "agent-a",
-				agentCwd: tree,
-				trigger:  "post-archive",
+				agentID:      "agent-a",
+				worktreeName: "task-a",
+				agentCwd:     tree,
+				trigger:      "post-archive",
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
 
