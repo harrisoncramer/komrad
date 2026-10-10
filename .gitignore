@@ -1,6 +1,7 @@
 bin/
 local/
 dist/
+profiling/
 /komrad
 /gen-docs
 /mockup
