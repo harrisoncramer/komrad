@@ -293,8 +293,8 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgen
 		live:      xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt == nil }),
 		owned:     agents,
 		screens:   s.screens,
-		archive: func(ctx context.Context) (*archived, error) {
-			taken := &archived{}
+		archive: func(ctx context.Context) (*archiveTaken, error) {
+			taken := &archiveTaken{}
 			err := s.tx.InTx(ctx, func(db store.DBTX) error {
 				panes, err := agentstore.NewAgentStore(db).Archive(ctx, agentstore.IDs(agents))
 				if err != nil {
@@ -439,8 +439,8 @@ func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID strin
 		live:      live,
 		owned:     live,
 		screens:   s.screens,
-		archive: func(ctx context.Context) (*archived, error) {
-			taken := &archived{}
+		archive: func(ctx context.Context) (*archiveTaken, error) {
+			taken := &archiveTaken{}
 			err := s.tx.InTx(ctx, func(db store.DBTX) error {
 				if err := workflowstore.NewWorkflowStore(db).Archive(ctx, workflowID); err != nil {
 					return err

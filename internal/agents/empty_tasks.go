@@ -32,7 +32,7 @@ type EmptyTaskDeleter struct {
 	scripts   taskScriptRunner
 }
 
-// NewEmptyTaskDeleter builds the deleter over the stores and the deprovisioner a task's removal needs.
+// NewEmptyTaskDeleter builds the deleter over the stores and the scripts a task's removal runs.
 func NewEmptyTaskDeleter(params NewEmptyTaskDeleterParams) *EmptyTaskDeleter {
 	return &EmptyTaskDeleter{
 		tasks:     params.Tasks,
@@ -114,12 +114,12 @@ func (d *EmptyTaskDeleter) tearDown(ctx context.Context, task taskstore.Task) er
 		return err
 	}
 
-	if err := runTaskPreHooks(ctx, taskHookParams{
+	if err := runPreHooks(ctx, taskHookParams{
 		scripts:  d.scripts,
 		workflow: flow,
 		task:     task,
 		event:    workflowstore.HookTaskPreDelete,
-	}); err != nil {
+	}.toHookRun()); err != nil {
 		return err
 	}
 

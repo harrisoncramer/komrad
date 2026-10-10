@@ -209,7 +209,7 @@ func readWorkflow(ctx context.Context, workflows *workflowstore.WorkflowStore, w
 	}
 	if err != nil {
 		attrs := append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, about...)
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow behind an agent could not be read", append(attrs, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow could not be read", append(attrs, logging.Err(err)...)...)
 
 		return nil
 	}

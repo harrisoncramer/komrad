@@ -1,11 +1,9 @@
 package agents
 
 import (
-	"context"
 	"strings"
 
 	"komrad/config"
-	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/lib/xptr"
 
@@ -23,26 +21,9 @@ type taskHookParams struct {
 	event    string
 }
 
-func runTaskPreHooks(ctx context.Context, params taskHookParams) error {
-	return runPreHooks(ctx, params.hookRun())
-}
-
-// runTaskPreHooksInTurn runs a task's pre hooks in a place already taken in its hook queue.
-func runTaskPreHooksInTurn(ctx context.Context, turn *scriptrun.HookTurn, params taskHookParams) error {
-	if err := turn.Wait(ctx); err != nil {
-		return err
-	}
-
-	return runHooks(ctx, params.hookRun())
-}
-
-func startTaskHooks(ctx context.Context, params taskHookParams) {
-	startHooks(ctx, params.hookRun())
-}
-
-// hookRun runs a task's hooks as the acting agent, standing in the task's worktree while it has
-// one and in its workflow's directory otherwise.
-func (p taskHookParams) hookRun() hookRunParams {
+// toHookRun is the hook run of a task's moment, as the acting agent, in the task's worktree while it
+// has one and its workflow's directory otherwise.
+func (p taskHookParams) toHookRun() hookRunParams {
 	var runAs agentstore.Agent
 	if p.actor != nil {
 		runAs = *p.actor
@@ -56,7 +37,7 @@ func (p taskHookParams) hookRun() hookRunParams {
 		runAs.Cwd = p.task.Checkout.Cwd
 		runAs.ProvisionEnabled = nil
 	} else {
-		runAs.Cwd = workflowDir(p.workflow)
+		runAs.Cwd = resolveWorkflowDir(p.workflow)
 		runAs.ProvisionEnabled = xptr.Ptr(false)
 	}
 
@@ -78,7 +59,7 @@ func hasLiveCheckout(task taskstore.Task) bool {
 	return task.Checkout.Cwd != "" && !task.Checkout.WorktreeRemoved && scripts.RequireUsableDir(task.Checkout.Cwd) == nil
 }
 
-func workflowDir(wf *workflowstore.Workflow) string {
+func resolveWorkflowDir(wf *workflowstore.Workflow) string {
 	if wf == nil {
 		return ""
 	}
@@ -94,7 +75,7 @@ func findTaskActor(agents []agentstore.Agent, taskID string) *agentstore.Agent {
 		if agent.TaskID == nil || *agent.TaskID != taskID {
 			continue
 		}
-		if actor == nil || actorRank(agent) > actorRank(*actor) {
+		if actor == nil || rankActor(agent) > rankActor(*actor) {
 			actor = &agent
 		}
 	}
@@ -102,7 +83,7 @@ func findTaskActor(agents []agentstore.Agent, taskID string) *agentstore.Agent {
 	return actor
 }
 
-func actorRank(agent agentstore.Agent) int {
+func rankActor(agent agentstore.Agent) int {
 	switch {
 	case agent.ParentAgentID != nil:
 		return 0

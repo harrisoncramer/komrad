@@ -69,11 +69,6 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	provisioner, deprovisioner := worktreeScripts(wf, agent.ProvisionEnabled)
 	hooks := hooksFor(wf, agent.ParentAgentID != nil, agent.ProvisionEnabled)
 
-	workflowContext := ""
-	if wf != nil {
-		workflowContext = wf.Context
-	}
-
 	wanted := strings.TrimSpace(params.Harness)
 	switched := wanted != "" && wanted != agent.Harness
 	if wanted == "" {
@@ -127,18 +122,17 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	agent.State = agentstore.StateSettingUp
 
 	return s.startInPane(ctx, *agent, resolvedLaunch{
-		harness:         hn,
-		provisioner:     provisioner,
-		deprovisioner:   deprovisioner,
-		hooks:           hooks,
-		defaultDir:      agent.Cwd,
-		workflowContext: workflowContext,
-		spawner:         spawner,
-		parent:          parent,
-		claimsCheckout:  claimsCheckout,
-		workflow:        wf,
-		task:            placed.task,
-		openTurn:        placed.openTurn,
+		harness:        hn,
+		provisioner:    provisioner,
+		deprovisioner:  deprovisioner,
+		hooks:          hooks,
+		defaultDir:     agent.Cwd,
+		spawner:        spawner,
+		parent:         parent,
+		claimsCheckout: claimsCheckout,
+		workflow:       wf,
+		task:           placed.task,
+		openTurn:       placed.openTurn,
 	})
 }
 

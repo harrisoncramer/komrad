@@ -285,16 +285,15 @@ func childParams(params NewAgentParams, parent agentstore.Agent) NewAgentParams 
 }
 
 type launchPlan struct {
-	name            string
-	harness         harness.Harness
-	harnessID       string
-	dir             string
-	flags           string
-	workflowContext string
-	provisioner     string
-	deprovisioner   string
-	hooks           []workflowstore.Hook
-	workflow        *workflowstore.Workflow
+	name          string
+	harness       harness.Harness
+	harnessID     string
+	dir           string
+	flags         string
+	provisioner   string
+	deprovisioner string
+	hooks         []workflowstore.Hook
+	workflow      *workflowstore.Workflow
 }
 
 func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (*launchPlan, error) {
@@ -346,11 +345,10 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 			agentFlags:      params.Flags,
 			workflowFlags:   workflowFlags,
 		}),
-		workflowContext: wf.Context,
-		provisioner:     provisioner,
-		deprovisioner:   deprovisioner,
-		hooks:           hooksFor(wf, params.ParentAgentID != "", params.ProvisionEnabled),
-		workflow:        wf,
+		provisioner:   provisioner,
+		deprovisioner: deprovisioner,
+		hooks:         hooksFor(wf, params.ParentAgentID != "", params.ProvisionEnabled),
+		workflow:      wf,
 	}, nil
 }
 
@@ -487,30 +485,28 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	}
 
 	return s.startInPane(ctx, agent, resolvedLaunch{
-		harness:         plan.harness,
-		provisioner:     plan.provisioner,
-		deprovisioner:   plan.deprovisioner,
-		hooks:           plan.hooks,
-		defaultDir:      plan.dir,
-		workflowContext: plan.workflowContext,
-		spawner:         spawner,
-		parent:          parent,
-		claimsCheckout:  isCheckoutClaimant(agent, plan.provisioner),
-		workflow:        plan.workflow,
-		task:            placed.task,
-		openTurn:        placed.openTurn,
+		harness:        plan.harness,
+		provisioner:    plan.provisioner,
+		deprovisioner:  plan.deprovisioner,
+		hooks:          plan.hooks,
+		defaultDir:     plan.dir,
+		spawner:        spawner,
+		parent:         parent,
+		claimsCheckout: isCheckoutClaimant(agent, plan.provisioner),
+		workflow:       plan.workflow,
+		task:           placed.task,
+		openTurn:       placed.openTurn,
 	})
 }
 
 type resolvedLaunch struct {
-	harness         harness.Harness
-	provisioner     string
-	deprovisioner   string
-	hooks           []workflowstore.Hook
-	defaultDir      string
-	workflowContext string
-	spawner         *agentstore.Agent
-	parent          *agentstore.Agent
+	harness       harness.Harness
+	provisioner   string
+	deprovisioner string
+	hooks         []workflowstore.Hook
+	defaultDir    string
+	spawner       *agentstore.Agent
+	parent        *agentstore.Agent
 	// claimsCheckout is whether the directory the agent starts in becomes its task's checkout.
 	claimsCheckout bool
 	workflow       *workflowstore.Workflow
@@ -600,17 +596,21 @@ func (c *createStart) openTask(ctx context.Context, agent agentstore.Agent) erro
 		defer turn.Done()
 	}
 
-	return runTaskPreHooksInTurn(ctx, turn, taskHookParams{
+	if err := turn.Wait(ctx); err != nil {
+		return err
+	}
+
+	return runHooks(ctx, taskHookParams{
 		scripts:  c.scripts,
 		workflow: c.resolved.workflow,
-		task:     c.openedTask(agent),
+		task:     c.buildOpenedTask(agent),
 		actor:    &agent,
 		event:    workflowstore.HookTaskPreOpen,
-	})
+	}.toHookRun())
 }
 
-// openedTask is the task the agent opens, carrying the checkout it was just given before the row records it.
-func (c *createStart) openedTask(agent agentstore.Agent) taskstore.Task {
+// buildOpenedTask builds the task the agent opens, carrying the checkout it was just given before the row records it.
+func (c *createStart) buildOpenedTask(agent agentstore.Agent) taskstore.Task {
 	task := *c.resolved.task
 	if c.resolved.claimsCheckout {
 		task.Checkout.Cwd = agent.Cwd
@@ -640,16 +640,18 @@ func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 
 func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 	launch := launchParams{
-		Pane:            agent.Pane,
-		Dir:             agent.Cwd,
-		Flags:           agent.Flags,
-		Prompt:          agent.Prompt,
-		WorkflowContext: c.resolved.workflowContext,
-		SessionID:       agent.SessionID,
-		AgentID:         agent.ID,
-		Role:            agent.Role,
-		OwnsCheckout:    c.resolved.provisioner != "",
-		Task:            c.resolved.task,
+		Pane:         agent.Pane,
+		Dir:          agent.Cwd,
+		Flags:        agent.Flags,
+		Prompt:       agent.Prompt,
+		SessionID:    agent.SessionID,
+		AgentID:      agent.ID,
+		Role:         agent.Role,
+		OwnsCheckout: c.resolved.provisioner != "",
+		Task:         c.resolved.task,
+	}
+	if c.resolved.workflow != nil {
+		launch.WorkflowContext = c.resolved.workflow.Context
 	}
 	if c.resolved.spawner != nil {
 		launch.SpawnedByAgentID = c.resolved.spawner.ID

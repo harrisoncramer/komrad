@@ -227,7 +227,7 @@ func TestTaskPostArchive(t *testing.T) {
 	}
 }
 
-// TestRestoreOpensTheTask covers task.pre-open on a restore that brings an archived task back.
+// TestRestoreOpensTheTask pins that a restore runs task.pre-open before it brings an archived task back.
 func TestRestoreOpensTheTask(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -438,7 +438,7 @@ func TestIsOpening(t *testing.T) {
 	}
 }
 
-// TestJoiningAgentWaitsForTheTaskToOpen covers an agent joining a task while another is still opening it.
+// TestJoiningAgentWaitsForTheTaskToOpen pins that a joiner waits out the opener's task.pre-open and opens the task itself when that failed.
 func TestJoiningAgentWaitsForTheTaskToOpen(t *testing.T) {
 	tests := []struct {
 		name        string

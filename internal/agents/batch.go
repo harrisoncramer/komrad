@@ -13,8 +13,8 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
-// archived is what an archive's write took: the panes off its rows and the tasks it archived.
-type archived struct {
+// archiveTaken is what an archive's write took off its rows, the panes and the tasks it archived.
+type archiveTaken struct {
 	panes []agentstore.AgentPane
 	tasks []taskstore.Task
 }
@@ -26,7 +26,7 @@ type archiveBatchParams struct {
 	live      []agentstore.Agent
 	owned     []agentstore.Agent
 	screens   screenKeeper
-	archive   func(ctx context.Context) (*archived, error)
+	archive   func(ctx context.Context) (*archiveTaken, error)
 }
 
 func archiveBatch(ctx context.Context, params archiveBatchParams) error {
@@ -73,13 +73,13 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 // startTaskPostArchive starts the post-archive hooks of each task an archive archived.
 func startTaskPostArchive(ctx context.Context, params archiveBatchParams, archivedTasks []taskstore.Task) {
 	for _, task := range archivedTasks {
-		startTaskHooks(ctx, taskHookParams{
+		startHooks(ctx, taskHookParams{
 			scripts:  params.scripts,
 			workflow: readWorkflow(ctx, params.workflows, task.WorkflowID),
 			task:     task,
 			actor:    findTaskActor(params.live, task.ID),
 			event:    workflowstore.HookTaskPostArchive,
-		})
+		}.toHookRun())
 	}
 }
 
@@ -177,14 +177,14 @@ func runTaskPreOpen(ctx context.Context, params restoreBatchParams) error {
 	}
 
 	for _, task := range found {
-		live, err := params.agents.ListLiveOnTask(ctx, task.ID)
-		if err != nil {
-			return err
-		}
-
 		actor := findTaskActor(params.archived, task.ID)
 		if actor == nil {
 			continue
+		}
+
+		live, err := params.agents.ListLiveOnTask(ctx, task.ID)
+		if err != nil {
+			return err
 		}
 		if !isOpening(*actor, live) {
 			if err := params.scripts.AwaitHooks(ctx, task.ID); err != nil {
@@ -194,13 +194,13 @@ func runTaskPreOpen(ctx context.Context, params restoreBatchParams) error {
 			continue
 		}
 
-		if err := runTaskPreHooks(ctx, taskHookParams{
+		if err := runPreHooks(ctx, taskHookParams{
 			scripts:  params.scripts,
 			workflow: readWorkflow(ctx, params.workflows, task.WorkflowID),
 			task:     task,
 			actor:    actor,
 			event:    workflowstore.HookTaskPreOpen,
-		}); err != nil {
+		}.toHookRun()); err != nil {
 			return fmt.Errorf("failed to run the %s hook of task %q: %w", workflowstore.HookTaskPreOpen, task.Slug, err)
 		}
 	}
