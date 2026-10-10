@@ -2,6 +2,7 @@ package ui
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -210,6 +211,9 @@ func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
 	})
 }
 
+// maxTaskTitle is the longest title a task takes.
+const maxTaskTitle = 200
+
 type taskEditValues struct {
 	Title string
 	Goal  string
@@ -265,6 +269,22 @@ func editTaskForm(keys config.FixedKeys, values *taskEditValues, slug string) (*
 			Description(fmt.Sprintf("what has been found and decided; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
 			Value(&values.Notes),
 	)
+}
+
+func checkTaskTitle(title string) error {
+	if strings.TrimSpace(title) == "" {
+		return errors.New("a task needs a title")
+	}
+
+	return nil
+}
+
+func checkTaskGoal(goal string) error {
+	if strings.TrimSpace(goal) == "" {
+		return errors.New("a task needs a goal")
+	}
+
+	return nil
 }
 
 // taskRowOf is the task row the hovered row acts as: itself on a task's header, and the header of

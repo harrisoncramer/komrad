@@ -156,17 +156,12 @@ func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) tea
 
 // submitTask starts the agent along with the task it works on.
 func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) tea.Cmd {
-	goal := strings.TrimSpace(values.Goal)
-
 	return m.createCmd(createAgentParams{
 		Prompt:           values.Prompt,
-		Title:            goal,
 		Harness:          values.Harness,
 		Flags:            values.Flags,
 		ProvisionEnabled: worktreeOverride(values.Worktree),
 		WorkflowID:       workflow.ID,
-		TaskSlug:         strings.TrimSpace(values.Slug),
-		TaskGoal:         goal,
 	})
 }
 
@@ -214,25 +209,16 @@ const (
 	withoutWorktree = "\x00none"
 )
 
-// maxTaskTitle is the longest title a task takes, which the goal it is made from is held to.
-const maxTaskTitle = 200
-
 type taskFormValues struct {
-	Goal     string
-	Slug     string
 	Prompt   string
 	Harness  string
 	Flags    string
 	Worktree string
 }
 
-// newTaskForm asks for the goal and the brief, and asks about the worktree only in a workflow
-// that makes them.
+// newTaskForm asks for the brief, and asks about the worktree only in a workflow that makes them.
 func newTaskForm(keys config.FixedKeys, values *taskFormValues, worktree bool) (*huh.Form, []string) {
 	fields := []huh.Field{
-		huh.NewInput().Key("goal").Title("Goal").Description("what is done when this task is").
-			CharLimit(maxTaskTitle).Validate(checkTaskGoal).Value(&values.Goal),
-		huh.NewInput().Key("slug").Title("Slug").Description("blank makes one from the goal").Value(&values.Slug),
 		textField("prompt").Title("Brief").Description(fmt.Sprintf("what the agent is told; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
@@ -423,20 +409,4 @@ func namedPaths(paths []string, most int) string {
 	}
 
 	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
-}
-
-func checkTaskTitle(title string) error {
-	if strings.TrimSpace(title) == "" {
-		return errors.New("a task needs a title")
-	}
-
-	return nil
-}
-
-func checkTaskGoal(goal string) error {
-	if strings.TrimSpace(goal) == "" {
-		return errors.New("a task needs a goal")
-	}
-
-	return nil
 }

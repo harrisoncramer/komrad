@@ -78,7 +78,7 @@ func TestVimEditing(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "Check it", create.GetTaskGoal())
+		assert.Equal(t, "Check it", create.GetPrompt())
 	})
 
 	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestVimEditing(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "go far", create.GetTaskGoal())
+		assert.Equal(t, "go far", create.GetPrompt())
 	})
 
 	t.Run("k on the first field stays on it", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestVimEditing(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
-		assert.Equal(t, "g", create.GetTaskGoal())
+		assert.Equal(t, "g", create.GetPrompt())
 	})
 
 	t.Run("j above only fields that are not text stays on the field", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestVimEditing(t *testing.T) {
 		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.press("g", "g")
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 4), spellKeys("ab"), []string{"esc", "j"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 2), spellKeys("ab"), []string{"esc", "j"})...)
 		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.readFrame(), "Worktree")
 
