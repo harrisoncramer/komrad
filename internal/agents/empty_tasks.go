@@ -108,19 +108,19 @@ func (d *EmptyTaskDeleter) deprovision(ctx context.Context, task taskstore.Task)
 		return err
 	}
 
-	_, name := worktreeScripts(flow, nil)
-	if name == "" {
+	_, deprovisioner := worktreeScripts(flow, nil)
+	if deprovisioner == "" {
 		return nil
 	}
 
-	return d.scripts.RunTaskDeprovision(ctx, task, name)
+	return d.scripts.RunTaskDeprovision(ctx, task, deprovisioner)
 }
 
 func (d *EmptyTaskDeleter) markDeleting(ctx context.Context, ids []string) error {
 	return d.tasks.MarkDeleting(ctx, ids)
 }
 
-func (d *EmptyTaskDeleter) release(ctx context.Context, ids []string) error {
+func (d *EmptyTaskDeleter) clearDeleting(ctx context.Context, ids []string) error {
 	return errors.Join(xslice.Map(ids, func(id string) error {
 		return d.tasks.ClearDeleting(ctx, id)
 	})...)

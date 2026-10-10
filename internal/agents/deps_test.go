@@ -302,26 +302,24 @@ type ranHook struct {
 }
 
 type fakeLifecycle struct {
-	dir                      string
-	resumeDir                string
-	provisionErr             error
-	resumeErr                error
-	deprovisionStartErr      error
-	deprovisionRunErr        error
-	deprovisionRunErrByAgent map[string]error
-	hookErrs                 map[string]error
-	holdHooks                chan struct{}
-	hooksMu                  sync.Mutex
-	hooks                    []ranHook
-	provision                []string
-	resumed                  []string
-	deprovisionMu            sync.Mutex
-	deprovision              []string
-	deprovisionCwd           []string
-	deprovisionCtxErr        []error
-	taskDeprovisionErr       error
-	holdTaskDeprovision      chan struct{}
-	taskDeprovisions         []string
+	dir                 string
+	resumeDir           string
+	provisionErr        error
+	resumeErr           error
+	deprovisionStartErr error
+	hookErrs            map[string]error
+	holdHooks           chan struct{}
+	hooksMu             sync.Mutex
+	hooks               []ranHook
+	provision           []string
+	resumed             []string
+	deprovisionMu       sync.Mutex
+	deprovision         []string
+	deprovisionCwd      []string
+	deprovisionCtxErr   []error
+	taskDeprovisionErr  error
+	holdTaskDeprovision chan struct{}
+	taskDeprovisions    []string
 	scriptrun.HookQueue
 }
 
@@ -389,11 +387,7 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 	}
 
 	if done != nil {
-		runErr := f.deprovisionRunErr
-		if byAgent, ok := f.deprovisionRunErrByAgent[agent.ID]; ok {
-			runErr = byAgent
-		}
-		done(runErr)
+		done(nil)
 	}
 
 	return nil

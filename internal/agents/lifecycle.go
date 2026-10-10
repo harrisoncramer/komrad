@@ -358,7 +358,7 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, refs []string) error
 	}
 
 	if err := s.deleteAgentsOnTasks(ctx, ids); err != nil {
-		return errors.Join(err, s.emptyTasks.release(context.WithoutCancel(ctx), ids))
+		return errors.Join(err, s.emptyTasks.clearDeleting(context.WithoutCancel(ctx), ids))
 	}
 
 	return errors.Join(xslice.Map(ids, func(id string) error {
@@ -367,16 +367,16 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, refs []string) error
 }
 
 func (s *LifecycleService) deleteAgentsOnTasks(ctx context.Context, taskIDs []string) error {
-	on, err := s.agents.ListOnTasks(ctx, taskIDs)
+	onTasks, err := s.agents.ListOnTasks(ctx, taskIDs)
 	if err != nil {
 		return err
 	}
 
-	if len(on) == 0 {
+	if len(onTasks) == 0 {
 		return nil
 	}
 
-	return s.agentDeleter.DeleteAgents(ctx, agentstore.IDs(on))
+	return s.agentDeleter.DeleteAgents(ctx, agentstore.IDs(onTasks))
 }
 
 // RestoreAgents returns archived agents and their workflows to live listings.
