@@ -735,12 +735,12 @@ frames        = false
 # below zero takes the default.
 frame_history = 500
 
-# The settings for the pprof tool, go's debugger
+# Go's pprof profiler, served by the background service.
 [debug.pprof]
-# Whether pprof debugging is enabled or not
+# Whether the service serves profiles, read when it starts.
 enabled = false
-# Where to serve the debugging endpoint
-address = ""
+# The host and port the profiles are served on.
+address = "localhost:6060"
 
 # Which komrad this is: the database, the address, the tmux socket, the cache.
 [connection]

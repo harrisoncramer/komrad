@@ -1933,21 +1933,21 @@
       "sections": [
         {
           "path": "debug.pprof",
-          "description": "The settings for the pprof tool, go's debugger",
+          "description": "Go's pprof profiler, served by the background service.",
           "settings": [
             {
               "key": "enabled",
               "path": "debug.pprof.enabled",
               "type": "boolean",
-              "description": "Whether pprof debugging is enabled or not",
+              "description": "Whether the service serves profiles, read when it starts.",
               "default": "false"
             },
             {
               "key": "address",
               "path": "debug.pprof.address",
               "type": "string",
-              "description": "Where to serve the debugging endpoint",
-              "default": "\"\""
+              "description": "The host and port the profiles are served on.",
+              "default": "\"localhost:6060\""
             }
           ],
           "sections": []
