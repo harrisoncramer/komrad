@@ -50,7 +50,7 @@ func TestMeasureOnlyReadsWhereASettledDirectoryStands(t *testing.T) {
 	for _, dir := range []string{before, after, unmeasured} {
 		require.NoError(t, fixture.stores.Tasks.Archive(t.Context(), filepath.Base(dir)))
 	}
-	fixture.now = time.Now().Add(3 * time.Hour)
+	fixture.now = time.Now().Add(3 * time.Hour).Truncate(time.Second)
 	fixture.recordSize(t, after, fixture.now.Add(-2*time.Hour))
 	fixture.recordSize(t, live, fixture.now.Add(-2*time.Hour))
 
