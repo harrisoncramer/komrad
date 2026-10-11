@@ -151,11 +151,12 @@ func (t *Tail) Current() (string, bool) {
 
 // wrap is one held line broken into the rows it takes at width.
 func (t *Tail) wrap(i, width int) []string {
-	return strings.Split(restyle(ansi.Hardwrap(t.render(t.lines[i]), max(width, 1), true)), "\n")
+	return strings.Split(hardwrap(t.render(t.lines[i]), max(width, 1)), "\n")
 }
 
-// restyle is wrapped text with each row reopening the style the row above left open and closing it at its end.
-func restyle(wrapped string) string {
+// hardwrap is text broken at width with every row opening and closing its own style.
+func hardwrap(text string, width int) string {
+	wrapped := ansi.Hardwrap(text, width, true)
 	var rows strings.Builder
 	writer := lipgloss.NewWrapWriter(&rows)
 	if _, err := io.WriteString(writer, wrapped); err != nil {
