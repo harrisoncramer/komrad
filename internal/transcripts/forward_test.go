@@ -1,20 +1,21 @@
 package transcripts
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
 
+	"komrad/config"
 	"komrad/internal/agenterr"
+	"komrad/internal/agents"
 	"komrad/internal/fail"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	"komrad/internal/storetest"
+	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 
 	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 
@@ -176,42 +177,18 @@ func TestComposeForward(t *testing.T) {
 	}
 }
 
-// fakeMailSender records each send and answers mail unless err refuses it, reading every recipient as dormant when dormant is set.
-type fakeMailSender struct {
-	err     error
-	dormant bool
-	sent    []mail.SendMailParams
-}
-
-func (f *fakeMailSender) SendMail(_ context.Context, params mail.SendMailParams) (*mailstore.Mail, error) {
-	f.sent = append(f.sent, params)
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return &mailstore.Mail{
-		ID:        "mail-1",
-		ToAgentID: params.ToAgentID,
-		Body:      params.Body,
-	}, nil
-}
-
-func (f *fakeMailSender) IsDormant(agentstore.Agent) bool {
-	return f.dormant
-}
-
 // TestForwardLastTurns covers a forward looking up both agents, composing from the source and
-// sending what it composed to the recipient.
+// sending what it composed to the recipient through the mail service.
 func TestForwardLastTurns(t *testing.T) {
 	tests := []struct {
 		name        string
 		noSource    bool
 		noTurns     bool
 		noRecipient bool
-		sendErr     error
-		dormant     bool
+		running     bool
 		wantErr     error
 		wantKind    fail.Kind
+		wantDormant bool
 	}{
 		{
 			name:     "a source no agent holds",
@@ -229,33 +206,42 @@ func TestForwardLastTurns(t *testing.T) {
 			wantErr:     mail.ErrRecipientNotFound,
 		},
 		{
-			name:    "a send the mail service refuses",
-			sendErr: mail.ErrExchangeCapped,
-			wantErr: mail.ErrExchangeCapped,
+			name:        "a forward to a recipient nothing runs behind",
+			wantDormant: true,
 		},
 		{
-			name:    "a forward to a recipient nothing runs behind",
-			dormant: true,
+			name:    "a forward to a recipient running in its pane",
+			running: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
-			sender := &fakeMailSender{
-				err:     tt.sendErr,
-				dormant: tt.dormant,
-			}
+			terminal := tmuxtest.NewFake()
 			reader := NewTranscriptReader(NewTranscriptReaderParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
 				Tasks:       st.Tasks,
-				Mail:        sender,
+				Mail: mail.NewMailService(mail.NewMailServiceParams{
+					Mail:      st.Mail,
+					Agents:    st.Agents,
+					Workflows: st.Workflows,
+					Config:    config.Mail{},
+					Panes:     agents.NewPaneLiveness(terminal),
+				}),
 			})
 
 			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
-			beta := st.SeedAgent(t, agentstore.Agent{Name: "beta"})
+			beta := st.SeedAgent(t, agentstore.Agent{
+				Name:  "beta",
+				Pane:  "%beta",
+				State: agentstore.StateIdle,
+			})
 			gamma := st.SeedAgent(t, agentstore.Agent{Name: "gamma"})
+			if tt.running {
+				terminal.Owners[beta.Pane] = beta.ID
+			}
 			if !tt.noTurns {
 				st.SeedTurns(t, alpha.ID, transcriptstore.Turn{
 					Role:    "assistant",
@@ -286,23 +272,23 @@ func TestForwardLastTurns(t *testing.T) {
 					require.NotNil(t, fail.Of(err))
 					assert.Equal(t, tt.wantKind, fail.Of(err).Kind())
 				}
-				if tt.sendErr == nil {
-					assert.Empty(t, sender.sent, "a refused forward sends nothing")
-				}
+				sent, err := st.Mail.ListSentPage(t.Context(), gamma.ID, 10, nil)
+				require.NoError(t, err)
+				assert.Empty(t, sent, "a refused forward sends nothing")
 
 				return
 			}
 
 			require.NoError(t, err)
-			require.Len(t, sender.sent, 1)
-			assert.Equal(t, gamma.ID, sender.sent[0].From)
-			assert.Equal(t, beta.ID, sender.sent[0].ToAgentID)
-			assert.Contains(t, sender.sent[0].Body, "then the conclusion")
-			assert.Equal(t, "mail-1", forwarded.Mail.ID)
+			stored, err := st.Mail.GetByID(t.Context(), forwarded.Mail.ID)
+			require.NoError(t, err)
+			assert.Equal(t, gamma.ID, *stored.FromAgentID)
+			assert.Equal(t, beta.ID, stored.ToAgentID)
+			assert.Contains(t, stored.Body, "then the conclusion")
 			assert.Equal(t, beta.ID, forwarded.Recipient.ID)
-			assert.Equal(t, tt.dormant, forwarded.Dormant)
+			assert.Equal(t, tt.wantDormant, forwarded.Dormant)
 			assert.Equal(t, 1, forwarded.Turns)
-			assert.Equal(t, len(sender.sent[0].Body), forwarded.Characters)
+			assert.Equal(t, len(stored.Body), forwarded.Characters)
 		})
 	}
 }
