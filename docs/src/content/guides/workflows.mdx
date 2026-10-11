@@ -1,6 +1,6 @@
 ---
 title: Workflows
-description: The templates agents are created from, and what each one decides for them.
+description: The templates tasks and agents are created from, and what each one decides for them.
 group: start
 order: 2
 ---
@@ -11,24 +11,22 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad agents run inside of _workflows_. Workflows are just a bucket of settings: the directory for an agent to run in, the harness it'll use, like Claude or Codex, and other settings for every agent that spawns within them.
+Everything you do in komrad happens inside a _workflow_. A workflow is a bucket of settings: the directory work starts from, the harness its agents run, like Claude or Codex, the flags they launch with, and whether each task gets a worktree of its own.
 
 <Alert variant="warning">This guide assumes you have [installed komrad](../install/) already.</Alert>
 
-Think of a workflow a shared blueprint for every agent that does the same kind of work. Workflows control where agents start, which CLI they run, and what flags their agents use, like the `--dangerously-skip-permissions` flag for Claude.
+Think of a workflow as a shared blueprint for one kind of work in one repository. You might keep one for bug fixes and another for feature work in the same repository, each with its own flags and context.
 
-Each workflow also has one _orchestrator_ agent, responssible for managing every _implementer_ agent within it. The orchestrator is created automatically alongside the workflow.
+## Creating your first workflow
 
-## Creating your first Workflow
-
-Let's clone a real repository to work in. This guide uses Neovim:
+Clone a real repository to work in. This guide uses Neovim.
 
 ```sh
 git clone https://github.com/neovim/neovim ~/neovim
 cd ~/neovim
 ```
 
-Next, run <Command path="open" /> then open the menu with <Key name="menu.open" /> and press <Key name="menu.new_workflow" />, name the workflow `neovim` and press enter to create it. By default, your workflow takes the current directory as it's active directory:
+Run <Command path="open" />, open the menu with <Key name="menu.open" /> and press <Key name="menu.new_workflow" />. Name the workflow `neovim`. Its directory defaults to the one you opened komrad in, and its provisioner decides whether each task gets a worktree. Press enter to create it.
 
 <figure>
   <video
@@ -39,7 +37,7 @@ Next, run <Command path="open" /> then open the menu with <Key name="menu.open" 
     poster={media("first-workflow.png")}
     width="1440"
     height="920"
-    aria-label="Cloning neovim in a shell, opening komrad in it, and creating a workflow called neovim, whose orchestrator then looks around the repository."
+    aria-label="Cloning neovim in a shell, opening komrad in it, and creating a workflow called neovim with a worktree for each task."
   >
     <source src={media("first-workflow.webm")} type="video/webm" />
     <source src={media("first-workflow.mp4")} type="video/mp4" />
@@ -48,7 +46,7 @@ Next, run <Command path="open" /> then open the menu with <Key name="menu.open" 
 
 ## The orchestrator
 
-Creating a workflow also starts its _orchestrator_. This is a agent that belongs to the workflow. In this case, let's tell Claude to trust the folder we're executing in.
+Creating a workflow also starts its _orchestrator_, an agent that belongs to the workflow itself. It is folded into the workflow's row in the list, and pressing enter on the workflow opens it.
 
 <figure>
   <video
@@ -66,17 +64,17 @@ Creating a workflow also starts its _orchestrator_. This is a agent that belongs
   </video>
 </figure>
 
-The orchestrator writes no code of its own. You tell it what you want done, and it spawns agents into the workflow to do the work, passes messages between them, and gathers what they find. The orchestrator is the "brains" of every subagent that is doing real work and often stitches their work together or passes work between them.
+The orchestrator writes no code of its own. You tell it what you want done, and it creates [tasks](../tasks/) for the work and puts agents on them. It passes messages between those agents and gathers what they find. Think of it as a lead who splits the work up and keeps track of it.
 
-You can learn more about the orchestrator and the other kinds of agent in the [agents](../agents/) guide.
+You don't have to go through the orchestrator. You can start a task yourself, which the [next guide](../tasks/) shows.
 
 ## Shared context
 
-Workflows can set _shared context_ for each implementer agent they create. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, and so forth.
+A workflow can carry _shared context_, which every agent it starts reads. This is where you put what you would otherwise tell each agent by hand: how tests run, how commits are written, and so forth.
 
-In our Neovim example, that might be: "Run make lint before committing any Lua change."
+In the Neovim example, that might be "Run make lint before committing any Lua change."
 
-The context is provided after your <Setting path="context">global context</Setting>, which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
+The workflow's context comes after your <Setting path="context">global context</Setting>, which every agent reads whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
 
 <figure>
   <video
@@ -87,7 +85,7 @@ The context is provided after your <Setting path="context">global context</Setti
     poster={media("shared-context.png")}
     width="1440"
     height="920"
-    aria-label="Creating a neovim workflow whose shared context says to run make lint before committing Lua changes, then spawning an agent and asking what to run after changing a Lua file and which editor is best. It answers from the shared context and from the global context that says Neovim."
+    aria-label="Creating a neovim workflow whose shared context says to run make lint before committing Lua changes, then starting a task that asks what to run after changing a Lua file and which editor is best. Its agent answers from the shared context and from the global context that says Neovim."
   >
     <source src={media("shared-context.webm")} type="video/webm" />
     <source src={media("shared-context.mp4")} type="video/mp4" />
@@ -96,27 +94,26 @@ The context is provided after your <Setting path="context">global context</Setti
 
 ## Worktrees
 
-Like most agent orchestrators, komrad ships with first-class support for [worktrees](https://git-scm.com/docs/git-worktree).
+Komrad has first-class support for [git worktrees](https://git-scm.com/docs/git-worktree). Set the workflow's provisioner to worktree and each new task gets a worktree of its own, cut from the workflow's base branch. Every agent on that task works inside it, isolated from every other task. The worktree is removed when the task is deleted.
 
-When creating a workflow or an agent, tell komrad to automatically create a worktree for each task, and it'll cut one from the base branch. The agents on that task, its implementer and the reviewers it spawns, work within that worktree, isolated from other tasks. The worktree is automatically cleaned up when the task is deleted.
+Komrad puts worktrees in <Setting path="worktrees.dir" /> unless the workflow names a directory of its own. The worktree section of the workflow's settings also lists files to copy or link into each new worktree, such as a `.env` file git does not track.
 
-Komrad places worktrees into <Setting path="worktrees.dir" /> unless the workflow names its own location.
+When you start a task you can still choose to run it in the workflow's directory instead. That suits work that only reads, such as answering a question about the code.
 
 <Alert variant="info">
-  Agents do not have to create worktrees, but be careful: those that don't will run directly inside of their parent
-  directory.
+  A task without a worktree works directly in the workflow's directory, alongside every other task that does the same.
 </Alert>
+
+## Changing a workflow
+
+Hover the workflow, open the menu with <Key name="menu.open" /> and pick edit with <Key name="menu.edit_row" />. The settings are the same as when you created it, plus the [hooks](../hooks/) and the prompts komrad sends agents when something happens.
 
 ## Archiving and restoring
 
-Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view. Open the menu on a workflow with <Key name="menu.open" /> and press <Key name="menu.archive" /> to archive it.
+Archiving a workflow puts it in cold storage. Open its menu with <Key name="menu.open" /> and press <Key name="menu.archive" />. Its orchestrator and every live agent in it are archived, and with them its tasks. Nothing is deleted. The workflow moves to the archive, where you can restore it, or delete it for good later.
 
-This doesn't delete the agent or it's wokflows. Instead, the agents inside of the workflow will be paused, and removed from the active agent list. If you want to resume their conversations later, you can restore them from the archive.
+## Next steps
 
-## Next Steps
+You don't have to build the whole workflow right away. Start with a directory and a provisioner. Add context once you notice yourself telling every agent the same thing.
 
-You don't have to build your entire workflow right away.
-
-Start with a directory and a worktree setting. Add context later. You can always have multiple workflows in the same directory, for instance, for different purposes like bugfixing or feature work.
-
-Next, the fun part: spawn a worker [agent](../agents/) into it.
+Next, start a [task](../tasks/) in it.
