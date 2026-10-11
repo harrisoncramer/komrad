@@ -26,15 +26,15 @@ import (
 
 // TestIntegrationPanel covers the panel driven against a real service and a real tmux server.
 func TestIntegrationPanel(t *testing.T) {
-	t.Run("the archive key takes an agent all the way to the database", func(t *testing.T) {
+	t.Run("the archive key takes a task's agents all the way to the database", func(t *testing.T) {
 		instance, agentID := startServedAgent(t)
 		harness := newPanelHarness(t, panelHarnessParams{remote: newPanelRemote(instance)})
 		relist(t, instance, harness)
 		require.Equal(t, []string{"backend", "└─ login", "   └─ login"}, readListRows(harness.readFrame()))
 
-		harness.press("space", "a")
-		require.Contains(t, harness.readFrame(), "enter submit", "the key opens the confirm prompt rather than archiving outright")
-		harness.press("enter")
+		harness.press("k")
+		require.Equal(t, "└─ login", readHoveredRow(harness.readFrame()))
+		harness.press("space", "a", "enter")
 
 		listed, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
 		require.NoError(t, err)
