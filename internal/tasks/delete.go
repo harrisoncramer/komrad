@@ -102,7 +102,7 @@ func (s *TaskService) tearDown(ctx context.Context, task taskstore.Task) error {
 		return err
 	}
 
-	if err := (taskHookParams{
+	if err := (moment{
 		scripts:  s.scripts,
 		workflow: flow,
 		task:     task,

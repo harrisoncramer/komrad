@@ -20,8 +20,8 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
-// taskHookParams is one moment in a task's life and the agent whose action brought it about, nil when none did.
-type taskHookParams struct {
+// moment is one moment in a task's life and the agent whose action brought it about, nil when none did.
+type moment struct {
 	scripts  scriptrun.HookRunner
 	workflow *workflowstore.Workflow
 	task     taskstore.Task
@@ -75,7 +75,7 @@ func (s *TaskService) RunPreOpen(ctx context.Context, params RunPreOpenParams) e
 		return err
 	}
 
-	return taskHookParams{
+	return moment{
 		scripts:  s.scripts,
 		workflow: params.Workflow,
 		task:     params.Task,
@@ -114,7 +114,7 @@ func (s *TaskService) RunPreOpenRestored(ctx context.Context, archived []agentst
 			continue
 		}
 
-		if err := (taskHookParams{
+		if err := (moment{
 			scripts:  s.scripts,
 			workflow: s.readWorkflow(ctx, task.WorkflowID),
 			task:     task,
@@ -131,7 +131,7 @@ func (s *TaskService) RunPreOpenRestored(ctx context.Context, archived []agentst
 // StartPostArchive starts the post-archive hooks of each task an archive archived, as the agent among actors that archived it.
 func (s *TaskService) StartPostArchive(ctx context.Context, archived []taskstore.Task, actors []agentstore.Agent) {
 	for _, task := range archived {
-		taskHookParams{
+		moment{
 			scripts:  s.scripts,
 			workflow: s.readWorkflow(ctx, task.WorkflowID),
 			task:     task,
@@ -154,7 +154,7 @@ func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
 
 // toHookRun is the hook run of a task's moment, as the acting agent, in the task's worktree while it
 // has one and its workflow's directory otherwise.
-func (p taskHookParams) toHookRun() scriptrun.HookRun {
+func (p moment) toHookRun() scriptrun.HookRun {
 	var runAs agentstore.Agent
 	if p.actor != nil {
 		runAs = *p.actor
