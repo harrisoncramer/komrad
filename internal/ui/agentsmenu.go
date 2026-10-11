@@ -168,6 +168,9 @@ func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
 		title:   m.listing.agentName(item.Agent),
 		entries: slices.Concat(pages, own),
 	}
+	if item.Agent.Role == panel.RoleWriter {
+		return menu
+	}
 
 	return withNested(menu, "archive", m.keys.Menu.Archive, agentArchiveMenu(m, item.Agent))
 }

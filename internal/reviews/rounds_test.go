@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/eventprompts"
+	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -18,6 +19,7 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
+	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -296,6 +298,55 @@ func TestReleaseReviewInterrupts(t *testing.T) {
 			} else {
 				assert.Empty(t, fx.interrupter.interrupted)
 			}
+		})
+	}
+}
+
+// TestReleaseReviewArchivesAnApprovingReviewer pins that only a reviewer's approval puts the reviewer away.
+func TestReleaseReviewArchivesAnApprovingReviewer(t *testing.T) {
+	tests := []struct {
+		name    string
+		author  func(fx *reviewFixture) ReviewAuthor
+		verdict reviewstore.Verdict
+		want    func(fx *reviewFixture) []river.JobArgs
+	}{
+		{
+			name: "a reviewer approving",
+			author: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.reviewer)
+			},
+			verdict: reviewstore.VerdictApproved,
+			want: func(fx *reviewFixture) []river.JobArgs {
+				return []river.JobArgs{internaljobs.ArchiveAgentArgs{AgentID: fx.reviewer.ID}}
+			},
+		},
+		{
+			name: "a reviewer asking for changes",
+			author: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.reviewer)
+			},
+			verdict: reviewstore.VerdictChangesRequested,
+		},
+		{
+			name: "a person commenting",
+			author: func(*reviewFixture) ReviewAuthor {
+				return personAuthor
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+
+			fx.releaseReview(t, tt.author(fx), tt.verdict)
+
+			if tt.want == nil {
+				assert.Empty(t, fx.events.ListFollowUps())
+
+				return
+			}
+			assert.Equal(t, tt.want(fx), fx.events.ListFollowUps())
 		})
 	}
 }

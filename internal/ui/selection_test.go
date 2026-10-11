@@ -61,17 +61,17 @@ func TestSelection(t *testing.T) {
 		assert.Contains(t, findRenderedRow(t, harness, "api"), bar)
 	})
 
-	t.Run("a task's row is under the bar while every agent on it is", func(t *testing.T) {
+	t.Run("a task's row is under the bar while its writer is", func(t *testing.T) {
 		harness := openAgents(t, buildTaskFamily()...)
 
 		harness.press("j", "j", "j", "v", "j", "v")
-		require.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "two of its three agents")
+		require.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "its reviewers alone")
 
 		harness.press("k", "k", "v")
-		require.Contains(t, findRenderedRow(t, harness, "task-author"), bar, "all three")
+		require.Contains(t, findRenderedRow(t, harness, "task-author"), bar, "its writer too")
 
-		harness.press("j", "v")
-		assert.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "one dropped again")
+		harness.press("v")
+		assert.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "its writer dropped again")
 	})
 }
 

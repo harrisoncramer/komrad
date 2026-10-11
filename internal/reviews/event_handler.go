@@ -23,16 +23,18 @@ const (
 
 // Released is a review released on a task's work.
 type Released struct {
-	ReviewID string              `json:"review_id"`
-	TaskID   string              `json:"task_id"`
-	Ordinal  int32               `json:"ordinal"`
-	ByPerson bool                `json:"by_person"`
-	Verdict  reviewstore.Verdict `json:"verdict"`
-	Comments int                 `json:"comments"`
-	Replies  int                 `json:"replies"`
-	Reopens  int                 `json:"reopens"`
-	Path     string              `json:"path"`
-	HasBody  bool                `json:"has_body"`
+	ReviewID string `json:"review_id"`
+	TaskID   string `json:"task_id"`
+	Ordinal  int32  `json:"ordinal"`
+	ByPerson bool   `json:"by_person"`
+	// ReviewerID is the agent that wrote the review, blank for a person or a forge reviewer.
+	ReviewerID string              `json:"reviewer_id"`
+	Verdict    reviewstore.Verdict `json:"verdict"`
+	Comments   int                 `json:"comments"`
+	Replies    int                 `json:"replies"`
+	Reopens    int                 `json:"reopens"`
+	Path       string              `json:"path"`
+	HasBody    bool                `json:"has_body"`
 	// ForgeLogin is the forge reviewer whose mirrored comments were released, blank for a review
 	// written in komrad.
 	ForgeLogin string `json:"forge_login"`
@@ -59,14 +61,28 @@ func NewReleasedHandler() events.HandlerFor[Released] {
 }
 
 // handleReleased tells the task's live writer and stamps the review with the mail that told it,
-// sending nothing when the task has no writer.
+// then puts away a reviewer that approved.
 func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) ([]river.JobArgs, error) {
-	writer, err := agentstore.NewAgentStore(tx).GetTaskWriter(ctx, released.TaskID)
-	if errors.Is(err, store.ErrNotFound) {
+	if err := tellWriter(ctx, tx, mailer, released); err != nil {
+		return nil, err
+	}
+
+	if released.Verdict != reviewstore.VerdictApproved || released.ReviewerID == "" {
 		return nil, nil
 	}
+
+	return []river.JobArgs{internaljobs.ArchiveAgentArgs{AgentID: released.ReviewerID}}, nil
+}
+
+// tellWriter mails the task's live writer about the release, sending nothing when the task has
+// no writer.
+func tellWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) error {
+	writer, err := agentstore.NewAgentStore(tx).GetTaskWriter(ctx, released.TaskID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
@@ -77,10 +93,10 @@ func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		Events:    []string{released.event()},
 	})
 	if err != nil || sent == nil {
-		return nil, err
+		return err
 	}
 
-	return nil, reviewstore.NewReviewStore(tx).SetDoorbell(ctx, released.ReviewID, sent.ID)
+	return reviewstore.NewReviewStore(tx).SetDoorbell(ctx, released.ReviewID, sent.ID)
 }
 
 // event is the event the release starts.

@@ -29,31 +29,15 @@ func (l listing) taskAgents(task panel.Task) []panel.AgentRow {
 	return xslice.Filter(pool, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
 }
 
-// taskFieldsParams is a task's checkout with the agents and checkout owner its info panel shows.
-type taskFieldsParams struct {
-	checkout checkoutFieldsParams
-	agents   []panel.AgentRow
-	owner    panel.AgentRow
-}
-
-func taskFields(params taskFieldsParams) []recordField {
-	task, owner := params.checkout.task, params.owner
-	names := xslice.Map(params.agents, func(item panel.AgentRow) string { return item.Agent.Name })
-	fields := []recordField{
-		{label: "task", value: task.Slug},
-		{label: "title", value: label.OrDash(task.Title)},
-		{label: "agents", value: label.OrDash(strings.Join(names, ", "))},
-	}
-	if isCheckoutOwner(owner.Agent) {
-		fields = append(fields, recordField{label: "writer", value: owner.Agent.Name})
-	}
+func taskFields(params checkoutFieldsParams) []recordField {
+	task := params.task
 
 	directory := label.OrDash(task.Cwd)
 	if task.WorktreeRemoved {
 		directory = "— (removed)"
 	}
-	fields = append(fields, recordField{label: "directory", value: directory})
-	fields = append(fields, checkoutFields(params.checkout)...)
+	fields := []recordField{{label: "directory", value: directory}}
+	fields = append(fields, checkoutFields(params)...)
 
 	fields = append(fields, recordField{label: "task_id", value: task.ID})
 	if created := label.Friendly(task.CreatedAt); created != "" {
@@ -382,24 +366,10 @@ type chosenWork struct {
 	loneAgents []panel.Agent
 }
 
-// splitChosen sorts the chosen agents into the tasks they wholly cover and the agents left over.
+// splitChosen sorts the chosen agents into the tasks whose writer is chosen and the agents left over.
 func splitChosen(l listing, chosen []panel.Agent) chosenWork {
-	onTasks := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" })
-	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
-
-	return splitAcross(l, chosen, xslice.Map(unique, l.tasks.findForAgent))
-}
-
-// splitAcross sorts the chosen agents into the candidate tasks they wholly cover and the agents left over.
-func splitAcross(l listing, chosen []panel.Agent, candidates []panel.Task) chosenWork {
-	ids := panel.IDs(chosen)
-	isUnchosen := func(agent panel.Agent) bool { return !slices.Contains(ids, agent.ID) }
-
-	wholeTasks := xslice.Filter(candidates, func(task panel.Task) bool {
-		onTask := xslice.Map(l.taskAgents(task), func(item panel.AgentRow) panel.Agent { return item.Agent })
-
-		return len(onTask) > 0 && !slices.ContainsFunc(onTask, isUnchosen)
-	})
+	writers := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" && agent.Role == panel.RoleWriter })
+	wholeTasks := xslice.Map(xslice.UniqueBy(writers, func(agent panel.Agent) string { return agent.TaskID }), l.tasks.findForAgent)
 
 	whole := taskIDs(wholeTasks)
 	loneAgents := xslice.Filter(chosen, func(agent panel.Agent) bool { return !slices.Contains(whole, agent.TaskID) })
@@ -409,11 +379,6 @@ func splitAcross(l listing, chosen []panel.Agent, candidates []panel.Task) chose
 		wholeTasks: wholeTasks,
 		loneAgents: loneAgents,
 	}
-}
-
-// rechecked is the work with each task an agent has joined since handed back to its chosen agents.
-func (w chosenWork) rechecked(l listing) chosenWork {
-	return splitAcross(l, w.chosen, w.wholeTasks)
 }
 
 // affected is every live agent the work takes.

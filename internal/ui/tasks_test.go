@@ -29,7 +29,7 @@ func TestTasksTree(t *testing.T) {
 		assert.Equal(t, []string{"komrad", "├─ solo", "│  └─ loner", "└─ fix-login", "   ├─ follow-up", "   └─ author"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("a task's record is its goal and notes, with the agents on it in its info", func(t *testing.T) {
+	t.Run("a task's record is its goal and notes", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
 		harness.press("j")
@@ -38,7 +38,6 @@ func TestTasksTree(t *testing.T) {
 		require.Equal(t, "└─ fix-login", readHoveredRow(frame))
 		assert.Contains(t, frame, "Logins work again.")
 		assert.Contains(t, frame, "The session cookie expires early.")
-		assert.Contains(t, frame, "follow-up, author")
 		assert.NotContains(t, frame, "• follow-up")
 	})
 
@@ -126,7 +125,7 @@ func TestTasksTree(t *testing.T) {
 				offered:  false,
 			},
 			{
-				name: "on a task with a live writer starts a child of the writer",
+				name: "on a task with a live writer starts a reviewer in the writer's checkout",
 				task: &taskv1.Task{
 					Id:         "t1",
 					WorkflowId: "w1",
@@ -135,7 +134,7 @@ func TestTasksTree(t *testing.T) {
 				},
 				writer:  agentv1.AgentState_AGENT_STATE_IDLE,
 				offered: true,
-				form:    `Child of "author"`,
+				form:    `Reviewer on "fix-login"`,
 				want: &agentv1.CreateAgentRequest{
 					Prompt:        "review it",
 					Harness:       "claude",
@@ -180,8 +179,8 @@ func TestTasksTree(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				writer := newTaskAgent("a1", "author", "t1", 0)
-				writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_WRITER
+				writer := newTaskAgent("a1", "author", "t1", agentv1.AgentRole_AGENT_ROLE_WRITER, 0)
+				writer.Harness, writer.Flags = "claude", "--model opus"
 				writer.State = tt.writer
 				harness := openAgents(t, newLiveWorkflow("w1", "komrad"), tt.task, writer)
 				answerAgentCreate(harness, "")
@@ -236,16 +235,17 @@ func buildTasks() []proto.Message {
 			Slug:       "solo",
 			Title:      "Solo",
 		},
-		newTaskAgent("a1", "author", "t1", 0),
-		newTaskAgent("a2", "follow-up", "t1", 5),
-		newTaskAgent("a3", "loner", "t2", 10),
+		newTaskAgent("a1", "author", "t1", agentv1.AgentRole_AGENT_ROLE_WRITER, 0),
+		newTaskAgent("a2", "follow-up", "t1", agentv1.AgentRole_AGENT_ROLE_REVIEWER, 5),
+		newTaskAgent("a3", "loner", "t2", agentv1.AgentRole_AGENT_ROLE_WRITER, 10),
 	}
 }
 
-func newTaskAgent(id, name, taskID string, minute int) *agentv1.Agent {
+func newTaskAgent(id, name, taskID string, role agentv1.AgentRole, minute int) *agentv1.Agent {
 	slugs := map[string]string{"t1": "fix-login", "t2": "solo"}
 	agent := newAgentAt(name, "w1", minute)
 	agent.Id = id
+	agent.Role = role
 	agent.TaskId = xptr.Ptr(taskID)
 	agent.TaskSlug = xptr.Ptr(slugs[taskID])
 
@@ -260,6 +260,39 @@ func TestTasksRow(t *testing.T) {
 		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
 
 		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{Task: "t1", Slug: xptr.Ptr("fix-login-v2")})
+	})
+
+	t.Run("a writer's row leaves the archive to its task and a reviewer's offers it", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			press       []string
+			row         string
+			wantArchive bool
+		}{
+			{
+				name:  "the writer",
+				press: []string{"G"},
+				row:   "   └─ author",
+			},
+			{
+				name:        "the reviewer",
+				press:       []string{"G", "k"},
+				row:         "   ├─ follow-up",
+				wantArchive: true,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, buildTasks()...)
+				harness.press(tt.press...)
+				require.Equal(t, tt.row, readHoveredRow(harness.readFrame()))
+
+				harness.press("space")
+
+				assert.Equal(t, tt.wantArchive, strings.Contains(readStageText(harness.readFrame()), "archive"))
+			})
+		}
 	})
 
 	t.Run("r inside the task's menu is the review", func(t *testing.T) {
@@ -342,7 +375,7 @@ func TestTasksRow(t *testing.T) {
 			Task:       xptr.Ptr("t1"),
 		})
 
-		successor := newTaskAgent("a4", "successor", "t1", 20)
+		successor := newTaskAgent("a4", "successor", "t1", agentv1.AgentRole_AGENT_ROLE_WRITER, 20)
 		successor.Cwd = "/worktrees/fix-login"
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "komrad"), buildHandOff()[1], successor))
 		harness.press("k")
@@ -430,11 +463,11 @@ func TestTasksRow(t *testing.T) {
 }
 
 func buildHandOff() []proto.Message {
-	writer := newTaskAgent("a1", "author", "t1", 0)
-	writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_WRITER
+	writer := newTaskAgent("a1", "author", "t1", agentv1.AgentRole_AGENT_ROLE_WRITER, 0)
+	writer.Harness, writer.Flags = "claude", "--model opus"
 	writer.Cwd = "/worktrees/fix-login"
-	child := newTaskAgent("a2", "helper", "t1", 5)
-	child.ParentAgentId = xptr.Ptr("a1")
+	reviewer := newTaskAgent("a2", "reviewer", "t1", agentv1.AgentRole_AGENT_ROLE_REVIEWER, 5)
+	reviewer.ParentAgentId = xptr.Ptr("a1")
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
@@ -447,7 +480,7 @@ func buildHandOff() []proto.Message {
 			Cwd:        xptr.Ptr("/worktrees/fix-login"),
 			Branch:     xptr.Ptr("fix-login"),
 		},
-		child,
+		reviewer,
 		writer,
 	}
 }

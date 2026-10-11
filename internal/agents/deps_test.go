@@ -806,3 +806,20 @@ func (s *testStore) seedAdopted(t *testing.T, name, branch string) {
 	require.NoError(t, err)
 	require.True(t, claimed)
 }
+
+// archiveWriters archives the tasks the agents ids name write for, the one way a writer reaches
+// the archive.
+func archiveWriters(ctx context.Context, lifecycle *LifecycleService, ids []string) error {
+	agents, err := lifecycle.agents.ListByID(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, taskID := range agentstore.TaskIDs(agents) {
+		if err := lifecycle.ArchiveTask(ctx, taskID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

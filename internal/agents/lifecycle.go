@@ -28,8 +28,9 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
-// errArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself nor its child.
-var errArchiveNotYours = fail.Denied("an agent may archive only itself and its own children")
+// errArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself
+// nor, for a writer, a reviewer on its task.
+var errArchiveNotYours = fail.Denied("an agent may archive only itself and, as a writer, the reviewers on its task")
 
 type NewLifecycleServiceParams struct {
 	Tmux           paneKiller
@@ -253,6 +254,21 @@ func (s *LifecycleService) cleanupEmptyWorkflows(ctx context.Context, removed []
 	}
 }
 
+// DeleteAgents claims agents and queues their deletes, refusing a task's writer, which goes only
+// with its task.
+func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
+	named, err := s.requireEveryAgent(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	if err := refuseWriters(named, "delete"); err != nil {
+		return err
+	}
+
+	return s.agentDeleter.DeleteAgents(ctx, ids)
+}
+
 // ArchiveAgentsParams is the agents to archive and the agent asking.
 type ArchiveAgentsParams struct {
 	IDs []string
@@ -260,7 +276,8 @@ type ArchiveAgentsParams struct {
 	ByAgentID string
 }
 
-// ArchiveAgents stops agents while preserving their records and workspaces.
+// ArchiveAgents stops agents while preserving their records and workspaces, refusing a task's
+// writer, which goes only with its task.
 func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgentsParams) error {
 	listed, err := s.agents.ListByID(ctx, params.IDs)
 	if err != nil {
@@ -276,11 +293,15 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgen
 		return err
 	}
 
-	agents, err := s.withChildren(ctx, named)
-	if err != nil {
+	if err := refuseWriters(named, "archive"); err != nil {
 		return err
 	}
 
+	return s.archiveAgents(ctx, named)
+}
+
+// archiveAgents stops agents while preserving their records and workspaces.
+func (s *LifecycleService) archiveAgents(ctx context.Context, agents []agentstore.Agent) error {
 	if err := archiveBatch(ctx, archiveBatchParams{
 		tmux:      s.tmux,
 		scripts:   s.scripts,
@@ -324,12 +345,12 @@ func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
 		return err
 	}
 	if len(live) > 0 {
-		if err := s.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(live)}); err != nil {
+		if err := s.archiveAgents(ctx, live); err != nil {
 			return err
 		}
 	}
 
-	return s.tasks.Archive(ctx, found.ID)
+	return s.tasks.Archive(context.WithoutCancel(ctx), found.ID)
 }
 
 // DeleteTasks archives the tasks refs name, claims them for a delete and queues the deletes of
@@ -377,20 +398,15 @@ func (s *LifecycleService) deleteAgentsOnTasks(ctx context.Context, taskIDs []st
 	return s.agentDeleter.DeleteAgents(ctx, agentstore.IDs(onTasks))
 }
 
-// RestoreAgents returns archived agents and their workflows to live listings.
+// RestoreAgents returns archived agents and their workflows to live listings, a writer bringing
+// its task back with it and a reviewer waiting until its task is back.
 func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
-	named, err := s.requireEveryAgent(ctx, ids)
+	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 
-	whole, err := s.withChildren(ctx, named)
-	if err != nil {
-		return nil, err
-	}
-	agents := archivedTogether(named, whole)
-
-	if err := s.requireParentsPresent(ctx, agents); err != nil {
+	if err := s.requireTasksLive(ctx, agents); err != nil {
 		return nil, err
 	}
 
@@ -481,111 +497,43 @@ func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID strin
 	})
 }
 
-// archivedTogether keeps the agents a call named and the children that went into the archive
-// with their parent.
-func archivedTogether(named, whole []agentstore.Agent) []agentstore.Agent {
-	batches := make(map[string]*string, len(named))
-	for _, agent := range named {
-		batches[agent.ID] = agent.ArchiveBatchID
-	}
-
-	return xslice.Filter(whole, func(agent agentstore.Agent) bool {
-		if _, ok := batches[agent.ID]; ok {
-			return true
-		}
-		if agent.ArchivedAt == nil || agent.ParentAgentID == nil {
-			return true
-		}
-		batch := batches[*agent.ParentAgentID]
-
-		return batch != nil && agent.ArchiveBatchID != nil && *batch == *agent.ArchiveBatchID
-	})
-}
-
-// requireParentsPresent refuses a child coming back while the agent it hangs under is still
-// archived.
-func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []agentstore.Agent) error {
-	held := make(map[string]bool, len(agents))
+// requireTasksLive refuses a reviewer coming back while its task stays archived, letting one
+// through whose writer comes back alongside it.
+func (s *LifecycleService) requireTasksLive(ctx context.Context, agents []agentstore.Agent) error {
+	returning := make(map[string]bool, len(agents))
 	for _, agent := range agents {
-		held[agent.ID] = true
-	}
-
-	var wanted []string
-	for _, agent := range agents {
-		if agent.ParentAgentID != nil && !held[*agent.ParentAgentID] {
-			wanted = append(wanted, *agent.ParentAgentID)
+		if isTaskWriter(agent) {
+			returning[*agent.TaskID] = true
 		}
-	}
-	if len(wanted) == 0 {
-		return nil
-	}
-
-	parents, err := s.agents.ListByID(ctx, wanted)
-	if err != nil {
-		return fmt.Errorf("failed to look up the parents of %d children: %w", len(wanted), err)
-	}
-
-	live := make(map[string]bool, len(parents))
-	names := make(map[string]string, len(parents))
-	for _, parent := range parents {
-		live[parent.ID] = parent.ArchivedAt == nil
-		names[parent.ID] = parent.Name
 	}
 
 	for _, agent := range agents {
-		if agent.ParentAgentID == nil || held[*agent.ParentAgentID] {
+		if agent.TaskID == nil || isTaskWriter(agent) || agent.ArchivedAt == nil || returning[*agent.TaskID] {
 			continue
 		}
-		if !live[*agent.ParentAgentID] {
-			return fmt.Errorf("%w: restore %s to bring %q back with it",
-				agenterr.ErrParentStillArchived, describeParent(names[*agent.ParentAgentID]), agent.Name)
+
+		task, err := s.tasks.GetTask(ctx, *agent.TaskID)
+		if err != nil {
+			return err
+		}
+		if task.ArchivedAt != nil {
+			return agenterr.ErrTaskArchived.Saying("restore task %q to bring %q back", task.Slug, agent.Name)
 		}
 	}
 
 	return nil
 }
 
-// describeParent names the agent a child hangs under, falling back to a phrase for a parent no
-// longer in the listing.
-func describeParent(name string) string {
-	if name == "" {
-		return "the agent it is attached to"
-	}
-
-	return fmt.Sprintf("%q", name)
-}
-
-// withChildren adds the children of the agents a call named to the list it acts on, leaving a
-// child named on its own alone.
-func (s *LifecycleService) withChildren(ctx context.Context, named []agentstore.Agent) ([]agentstore.Agent, error) {
-	held := make(map[string]bool, len(named))
-	for _, agent := range named {
-		held[agent.ID] = true
-	}
-
-	var parents []string
-	for _, agent := range named {
-		if agent.ParentAgentID == nil {
-			parents = append(parents, agent.ID)
+// refuseWriters refuses a call that names a task's writer on its own, saying what to do to its
+// task instead.
+func refuseWriters(agents []agentstore.Agent, verb string) error {
+	for _, agent := range agents {
+		if isTaskWriter(agent) {
+			return agenterr.ErrWriterGoesWithTask.Saying("%s the task %q writes for instead", verb, agent.Name)
 		}
 	}
 
-	children, err := s.agents.ListChildren(ctx, parents)
-	if err != nil {
-		return nil, err
-	}
-
-	whole := make([]agentstore.Agent, 0, len(named)+len(children))
-	whole = append(whole, named...)
-	for _, child := range children {
-		if held[child.ID] {
-			continue
-		}
-
-		whole = append(whole, child)
-	}
-
-	return whole, nil
+	return nil
 }
 
 func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
@@ -613,7 +561,8 @@ func requireListed(ids []string, agents []agentstore.Agent) ([]agentstore.Agent,
 	return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, namedMissing))
 }
 
-// refuseArchivingOthers holds an agent other than an orchestrator to itself and its own children.
+// refuseArchivingOthers holds an agent other than an orchestrator to itself and, as a writer, the
+// reviewers on its task.
 func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params ArchiveAgentsParams, listed []agentstore.Agent) error {
 	if params.ByAgentID == "" {
 		return nil
@@ -633,8 +582,8 @@ func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params Arc
 		if id == asker.ID || !ok {
 			continue
 		}
-		if target.ParentAgentID == nil || *target.ParentAgentID != asker.ID {
-			return errArchiveNotYours.Saying("%s is not a child of %s", target.Name, asker.Name)
+		if !isTaskWriter(*asker) || !isReviewerOf(target, *asker) {
+			return errArchiveNotYours.Saying("%s is not a reviewer on the task %s writes for", target.Name, asker.Name)
 		}
 	}
 

@@ -94,7 +94,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Lifecycle:     svc.agents.lifecycle,
 		Resumer:       svc.agents.resume,
 		Holder:        svc.agents.holder,
-		Deleter:       svc.agents.delete,
+		Deleter:       svc.agents.lifecycle,
 		Review:        svc.review,
 		ForgeReplies:  svc.pullRequests.forgeReply,
 		Documents:     svc.documents,

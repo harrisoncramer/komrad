@@ -148,7 +148,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
 		service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
-		require.NoError(t, service.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+		require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{agent.ID}))
 		archived := agentByID(t, st, agent.ID)
 		assert.Equal(t, agentstore.StateIdle, archived.State, "no reconcile pass visits an archived row, so the archive settles it")
 		require.NotNil(t, archived.InterruptedAt)
@@ -422,7 +422,7 @@ func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 	var once sync.Once
 	tmux.BeforeGetOwner = func() {
 		once.Do(func() {
-			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{agent.ID}}))
+			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
 		})
 	}
 
@@ -468,7 +468,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{agent.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
 
 	close(lifecycle.release)
 	select {
@@ -801,24 +801,24 @@ func TestResumeHoldsTheCheckoutForItsLaunch(t *testing.T) {
 	again()
 }
 
-// TestResumeLeavesAHeldCheckoutToItsWriter pins a reviewer launching in its parent's locked checkout.
+// TestResumeLeavesAHeldCheckoutToItsWriter pins a reviewer launching in its writer's locked checkout.
 func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	harness := &harnesstest.Fake{}
-	parent := seed(t, st, "auth", "", agentstore.StateIdle)
-	parent.Cwd = t.TempDir()
-	require.NoError(t, st.Agents.Update(ctx, parent))
+	writer := seed(t, st, "auth", "", agentstore.StateIdle)
+	writer.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(ctx, writer))
 	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:             "reviewer",
 		State:            agentstore.StateIdle,
-		Cwd:              parent.Cwd,
-		WorkflowID:       parent.WorkflowID,
+		Cwd:              writer.Cwd,
+		WorkflowID:       writer.WorkflowID,
 		Role:             agentstore.RoleReviewer,
-		ParentAgentID:    &parent.ID,
+		ParentAgentID:    &writer.ID,
 		ProvisionEnabled: xptr.Ptr(false),
 	}))
-	reviewer, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, "reviewer")
+	reviewer, err := st.Agents.GetInWorkflow(ctx, writer.WorkflowID, "reviewer")
 	require.NoError(t, err)
 	locks := checkouts.NewTreeLocks()
 	manager := st.agentService(agentServiceOptions{
@@ -828,7 +828,7 @@ func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
 		locks:     locks,
 	})
 
-	release, taken := locks.TryLock(parent.Cwd)
+	release, taken := locks.TryLock(writer.Cwd)
 	require.True(t, taken)
 	defer release()
 
@@ -838,8 +838,8 @@ func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
 	assert.Len(t, harness.Launches, 1)
 }
 
-// TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator pins which agents a caller other than an orchestrator may wake.
-func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
+// TestResumeAgentHoldsAnAgentToItsTaskAndOrchestrator pins which agents a caller other than an orchestrator may wake.
+func TestResumeAgentHoldsAnAgentToItsTaskAndOrchestrator(t *testing.T) {
 	tests := []struct {
 		name      string
 		from      string
@@ -847,21 +847,21 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 		wantErrIs error
 	}{
 		{
-			name:      "an agent waking another workflow's orchestrator",
-			from:      "stranger",
+			name:      "a writer waking another workflow's orchestrator",
+			from:      "writer in another workflow",
 			resume:    "orchestrator",
 			wantErrIs: errResumeNotYours,
 		},
 		{
-			name:      "a writer waking a peer",
+			name:      "a writer waking the writer of another task",
 			from:      "writer",
-			resume:    "peer",
+			resume:    "writer on another task",
 			wantErrIs: errResumeNotYours,
 		},
 		{
-			name:      "a reviewer waking a peer of its parent",
+			name:      "a reviewer waking the writer of another task",
 			from:      "reviewer",
-			resume:    "peer",
+			resume:    "writer on another task",
 			wantErrIs: errResumeNotYours,
 		},
 		{
@@ -870,7 +870,7 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 			resume: "orchestrator",
 		},
 		{
-			name:   "a reviewer waking its parent",
+			name:   "a reviewer waking its writer",
 			from:   "reviewer",
 			resume: "writer",
 		},
@@ -880,13 +880,13 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 			resume: "orchestrator",
 		},
 		{
-			name:   "an orchestrator waking a stranger",
+			name:   "an orchestrator waking a writer in another workflow",
 			from:   "orchestrator",
-			resume: "stranger",
+			resume: "writer in another workflow",
 		},
 		{
 			name:   "the panel waking anybody",
-			resume: "stranger",
+			resume: "writer in another workflow",
 		},
 	}
 
@@ -899,11 +899,11 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 			orchestrator := seedOrchestrator(t, st, tmux)
 			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
 			seeded := map[string]string{
-				"orchestrator": orchestrator.ID,
-				"writer":       writer.ID,
-				"reviewer":     seedChild(t, st, tmux, writer).ID,
-				"peer":         seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "peer", "%2").ID,
-				"stranger":     seedRunning(t, st, tmux, "stranger", "%3", agentstore.StateIdle).ID,
+				"orchestrator":               orchestrator.ID,
+				"writer":                     writer.ID,
+				"reviewer":                   seedChild(t, st, tmux, writer).ID,
+				"writer on another task":     seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "billing", "%2").ID,
+				"writer in another workflow": seedRunning(t, st, tmux, "api", "%3", agentstore.StateIdle).ID,
 			}
 
 			_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{

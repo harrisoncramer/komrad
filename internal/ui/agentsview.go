@@ -73,13 +73,7 @@ func agentDetails(m *model, r agentRow) details {
 
 // taskDetailFields is the record for a task as the listing holds it.
 func taskDetailFields(m *model, task panel.Task) []recordField {
-	owner := m.listing.findCheckoutOwner(task)
-
-	return taskFields(taskFieldsParams{
-		checkout: m.buildCheckoutParams(task),
-		agents:   m.listing.taskAgents(task),
-		owner:    owner,
-	})
+	return taskFields(m.buildCheckoutParams(task))
 }
 
 // doc is the markdown rendered beside the list for a row with no pane of its own.

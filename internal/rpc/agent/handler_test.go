@@ -244,9 +244,9 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeAlreadyExists,
 		},
 		{
-			name:     "a restore of a child before its parent",
+			name:     "a restore of a reviewer before its task",
 			call:     restoreAlpha,
-			err:      agenterr.ErrParentStillArchived,
+			err:      agenterr.ErrTaskArchived,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{

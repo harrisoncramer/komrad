@@ -18,6 +18,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
+	"komrad/lib/xptr"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -583,16 +584,17 @@ func (s *ReviewService) ReleaseReview(
 		}
 
 		event, err := events.NewEvent(Released{
-			ReviewID: open.ID,
-			TaskID:   task.ID,
-			Ordinal:  round.Ordinal,
-			ByPerson: params.Author.isHuman(),
-			Verdict:  verdict,
-			Comments: tally.Comments,
-			Replies:  tally.Replies,
-			Reopens:  released.Reopens,
-			Path:     path,
-			HasBody:  strings.TrimSpace(params.Body) != "",
+			ReviewID:   open.ID,
+			TaskID:     task.ID,
+			Ordinal:    round.Ordinal,
+			ByPerson:   params.Author.isHuman(),
+			ReviewerID: xptr.Deref(params.Author.AgentID),
+			Verdict:    verdict,
+			Comments:   tally.Comments,
+			Replies:    tally.Replies,
+			Reopens:    released.Reopens,
+			Path:       path,
+			HasBody:    strings.TrimSpace(params.Body) != "",
 		})
 		if err != nil {
 			return nil, err

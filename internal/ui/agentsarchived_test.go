@@ -1291,7 +1291,7 @@ func requireLastScreenFor(t *testing.T, harness *panelHarness, agentIDs ...strin
 func TestArchivedTasks(t *testing.T) {
 	unstarted := buildArchivedTasks()
 	for _, row := range unstarted {
-		if agent, ok := row.(*agentv1.Agent); ok && agent.GetId() == "a2" {
+		if agent, ok := row.(*agentv1.Agent); ok && agent.GetId() == "a1" {
 			agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 		}
 	}
@@ -1310,26 +1310,26 @@ func TestArchivedTasks(t *testing.T) {
 		wantSent  []request
 	}{
 		{
-			name:  "restore on a task restores every agent on it",
+			name:  "restore on a task restores its writer alone",
 			rows:  buildArchivedTasks(),
 			press: append(onAPIWork, "space", "a", "r"),
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a2", "a1"}},
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
 			}},
 		},
 		{
-			name:  "restore and open on a task restores it and opens its lead",
+			name:  "restore and open on a task restores its writer and opens it",
 			rows:  buildArchivedTasks(),
 			press: append(onAPIWork, "space", "a", "o"),
 			wantSent: []request{
 				{
 					procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-					msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a2", "a1"}},
+					msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
 				},
 				{
 					procedure: agentv1connect.AgentServiceResumeAgentProcedure,
-					msg:       &agentv1.ResumeAgentRequest{Id: "a2"},
+					msg:       &agentv1.ResumeAgentRequest{Id: "a1"},
 				},
 			},
 		},
@@ -1416,14 +1416,6 @@ func TestArchivedTasks(t *testing.T) {
 		assert.NotContains(t, frame, "hide")
 		assert.NotContains(t, frame, "edit task")
 	})
-
-	t.Run("a task's record lists the archived agents on it", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildArchivedTasks()...)
-
-		harness.press(onAPIWork...)
-
-		assert.Contains(t, harness.readFrame(), "api-review, api-refactor")
-	})
 }
 
 // buildArchivedTasks is two archived tasks and a live one with an agent archived out of it.
@@ -1439,6 +1431,12 @@ func buildArchivedTasks() []proto.Message {
 	tune.TaskId = xptr.Ptr("t2")
 	for _, agent := range []*agentv1.Agent{auth, authLive} {
 		agent.TaskId = xptr.Ptr("t3")
+	}
+	for _, agent := range []*agentv1.Agent{refactor, tune, authLive} {
+		agent.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
+	}
+	for _, agent := range []*agentv1.Agent{review, auth} {
+		agent.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 	}
 
 	return []proto.Message{

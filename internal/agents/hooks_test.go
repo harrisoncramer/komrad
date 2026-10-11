@@ -564,7 +564,7 @@ func archiveCalls() []archiveCall {
 
 				manager := st.agentServiceWithLifecycle(tmuxtest.NewFake(), harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-				return manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: agentstore.IDs(agents)})
+				return manager.lifecycle.archiveAgents(t.Context(), agents)
 			},
 		},
 		{
@@ -829,13 +829,13 @@ func TestArchivingAnArchivedAgentRunsNoHooks(t *testing.T) {
 		{Event: workflowstore.HookAgentPostArchive, Script: "give-back-the-slot"},
 	}, "auth")
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(agents)}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, agentstore.IDs(agents)))
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 2
 	}, 5*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, os.RemoveAll(agents[0].Cwd))
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(agents)}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, agentstore.IDs(agents)))
 	require.Never(t, func() bool {
 		return len(lifecycle.ranHooks()) > 2
 	}, 300*time.Millisecond, 20*time.Millisecond)
@@ -1119,7 +1119,7 @@ func TestJoinOpensTheTaskItRestores(t *testing.T) {
 			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, true))
 			first, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 			require.NoError(t, err)
-			require.NoError(t, fx.agents.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+			require.NoError(t, archiveWriters(ctx, fx.agents.lifecycle, []string{first.ID}))
 			lifecycle.hookErrs = map[string]error{taskHook: tt.hookErr}
 
 			next, err := fx.agents.launch.NewAgent(ctx, NewAgentParams{
@@ -1171,7 +1171,7 @@ func TestTaskPostArchive(t *testing.T) {
 			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []string) error {
 				t.Helper()
 
-				return fx.agents.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: ids})
+				return archiveWriters(t.Context(), fx.agents.lifecycle, ids)
 			},
 			wantCwd: func(fx *taskDeleteFixture, _ agentstore.Agent) string { return fx.workflow.Cwd },
 		},
@@ -1181,7 +1181,7 @@ func TestTaskPostArchive(t *testing.T) {
 			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []string) error {
 				t.Helper()
 
-				return fx.agents.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: ids})
+				return archiveWriters(t.Context(), fx.agents.lifecycle, ids)
 			},
 			wantCwd: func(_ *taskDeleteFixture, writer agentstore.Agent) string { return writer.Cwd },
 		},
@@ -1242,7 +1242,7 @@ func TestRestoreOpensTheTask(t *testing.T) {
 			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, true))
 			agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 			require.NoError(t, err)
-			require.NoError(t, fx.agents.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+			require.NoError(t, archiveWriters(t.Context(), fx.agents.lifecycle, []string{agent.ID}))
 
 			lifecycle.hookErrs = map[string]error{taskHook: tt.hookErr}
 			_, err = fx.agents.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
@@ -1273,7 +1273,7 @@ func TestTaskPreOpenWaitsForTheTasksPostArchive(t *testing.T) {
 
 	hold := make(chan struct{})
 	lifecycle.holdHooks = hold
-	require.NoError(t, fx.agents.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+	require.NoError(t, archiveWriters(t.Context(), fx.agents.lifecycle, []string{agent.ID}))
 
 	restored := make(chan error, 1)
 	go func() {
