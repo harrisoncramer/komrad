@@ -1075,7 +1075,7 @@
               "key": "notes",
               "path": "keybindings.menu.notes",
               "type": "array",
-              "description": "Show the hovered task's goal and notes in place of its writer's pane beside the list, and its\nwriter's pane again. Escape puts the writer's pane back too. The entry is only on a task.",
+              "description": "Swap the pane beside the list between the hovered task's goal and notes and its writer's pane.\nEscape puts the writer's pane back too. The entry is only on a task.",
               "default": "[\"n\"]"
             },
             {

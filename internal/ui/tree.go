@@ -123,7 +123,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 	}
 
-	var listed [][]agentRow
+	var listed []agentRow
 	hiddenCounts := make(map[string]int)
 	countedTasks := make(map[string]bool)
 	for _, it := range agents {
@@ -150,18 +150,16 @@ func treeRows(params treeRowsParams) []agentRow {
 			}
 		}
 
-		listed = append(listed, buildAgentRows(it, reviewers[it.Agent.ID]))
+		listed = append(listed, buildAgentRows(it, reviewers[it.Agent.ID])...)
 	}
 
 	if params.flat {
 		byID := xslice.KeyBy(workflows, func(w panel.Workflow) string { return w.ID })
 
 		var rows []agentRow
-		for _, agentRows := range listed {
-			for _, row := range agentRows {
-				row.workflow = byID[row.item.Agent.WorkflowID]
-				rows = append(rows, row)
-			}
+		for _, row := range listed {
+			row.workflow = byID[row.item.Agent.WorkflowID]
+			rows = append(rows, row)
 		}
 
 		return rows
@@ -179,7 +177,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		rows = append(rows, header)
-		inWorkflow := xslice.Filter(listed, func(agentRows []agentRow) bool { return agentRows[0].item.Agent.WorkflowID == w.ID })
+		inWorkflow := xslice.Filter(listed, func(row agentRow) bool { return row.item.Agent.WorkflowID == w.ID })
 		for _, row := range taskRows(inWorkflow, params.tasks) {
 			row.workflow = w
 			rows = append(rows, row)
@@ -191,25 +189,25 @@ func treeRows(params treeRowsParams) []agentRow {
 
 // taskRows lays out a workflow's agents, gathering those on one task under a row for it, so only an
 // agent on no task, an orchestrator, sits at the agent's step.
-func taskRows(listed [][]agentRow, tasks taskIndex) []agentRow {
+func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 	if tasks == nil {
-		return slices.Concat(listed...)
+		return listed
 	}
 
-	onTask := make(map[string][][]agentRow)
-	for _, agentRows := range listed {
-		if taskID := agentRows[0].item.Agent.TaskID; taskID != "" {
-			onTask[taskID] = append(onTask[taskID], agentRows)
+	onTask := make(map[string][]agentRow)
+	for _, row := range listed {
+		if taskID := row.item.Agent.TaskID; taskID != "" {
+			onTask[taskID] = append(onTask[taskID], row)
 		}
 	}
 
 	var rows []agentRow
 	laid := make(map[string]bool)
-	for _, agentRows := range listed {
-		taskID := agentRows[0].item.Agent.TaskID
+	for _, row := range listed {
+		taskID := row.item.Agent.TaskID
 		gathered := onTask[taskID]
 		if len(gathered) == 0 {
-			rows = append(rows, agentRows...)
+			rows = append(rows, row)
 
 			continue
 		}
@@ -221,12 +219,12 @@ func taskRows(listed [][]agentRow, tasks taskIndex) []agentRow {
 		header := taskHeader(gathered, tasks)
 		rows = append(rows, header)
 		writer, _ := header.writer()
-		for _, row := range slices.Concat(gathered...) {
-			if row.item.Agent.ID == writer.Agent.ID {
+		for _, reviewer := range gathered {
+			if reviewer.item.Agent.ID == writer.Agent.ID {
 				continue
 			}
-			row.underTask = true
-			rows = append(rows, row)
+			reviewer.underTask = true
+			rows = append(rows, reviewer)
 		}
 	}
 
@@ -234,15 +232,15 @@ func taskRows(listed [][]agentRow, tasks taskIndex) []agentRow {
 }
 
 // taskHeader is the row for one task, standing for its writer when the writer is listed.
-func taskHeader(gathered [][]agentRow, tasks taskIndex) agentRow {
-	task := tasks.findForAgent(gathered[0][0].item.Agent)
+func taskHeader(gathered []agentRow, tasks taskIndex) agentRow {
+	task := tasks.findForAgent(gathered[0].item.Agent)
 	header := agentRow{
 		header: true,
 		task:   &task,
 	}
-	for _, agentRows := range gathered {
-		if head := agentRows[0].item; head.Agent.Role == panel.RoleWriter {
-			header.item = head
+	for _, row := range gathered {
+		if row.item.Agent.Role == panel.RoleWriter {
+			header.item = row.item
 		}
 	}
 

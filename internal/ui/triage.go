@@ -281,11 +281,11 @@ func (z *triageZone) refreeze(agents []panel.AgentRow) {
 
 	byID := keyAgentsByID(agents)
 	frozen := xslice.Filter(z.frozen, func(id string) bool { return !z.isSnoozed(triageKey(byID[id])) })
-	waiting := xslice.Filter(findTriageTasks(z.entries, agents), func(f triageTask) bool {
-		return !z.isSnoozed(triageKey(f.head)) && !slices.Contains(frozen, f.head.Agent.ID)
+	waiting := xslice.Filter(findTriageTasks(z.entries, agents), func(triaged triageTask) bool {
+		return !z.isSnoozed(triageKey(triaged.head)) && !slices.Contains(frozen, triaged.head.Agent.ID)
 	})
 	slices.SortFunc(waiting, z.compareTasks)
-	z.frozen = slices.Concat(frozen, xslice.Map(waiting, func(f triageTask) string { return f.head.Agent.ID }))
+	z.frozen = slices.Concat(frozen, xslice.Map(waiting, func(triaged triageTask) string { return triaged.head.Agent.ID }))
 }
 
 // seeFinished snoozes the agent's task when it waits only to be looked at.
@@ -505,8 +505,8 @@ func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {
 // buildZone renders the most urgent tasks the zone has slots for and counts those left waiting.
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	reviewers := m.listing.reviewers
-	allTriaged := xslice.Filter(findTriageTasks(z.entries, m.listing.agents), func(f triageTask) bool {
-		return (!m.listing.tasks.isHidden(f.head.Agent) || showHidden) && !z.isSnoozed(triageKey(f.head))
+	allTriaged := xslice.Filter(findTriageTasks(z.entries, m.listing.agents), func(triaged triageTask) bool {
+		return (!m.listing.tasks.isHidden(triaged.head.Agent) || showHidden) && !z.isSnoozed(triageKey(triaged.head))
 	})
 	ordered := z.orderTasks(allTriaged)
 	slotted := ordered[:min(len(ordered), z.capacity)]
@@ -531,8 +531,8 @@ func (z triageZone) orderTasks(allTriaged []triageTask) []triageTask {
 			rank[headID] = i
 		}
 
-		kept := xslice.Filter(allTriaged, func(f triageTask) bool {
-			_, ok := rank[f.head.Agent.ID]
+		kept := xslice.Filter(allTriaged, func(triaged triageTask) bool {
+			_, ok := rank[triaged.head.Agent.ID]
 
 			return ok
 		})

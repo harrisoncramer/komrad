@@ -879,7 +879,7 @@ func TestReviewSearch(t *testing.T) {
 		harness.press("enter", "esc", "esc")
 
 		frame := harness.readFrame()
-		assert.Len(t, readListRows(frame), 4)
+		assert.Len(t, readListRows(frame), 3)
 		assert.Contains(t, readHoveredRow(frame), "auth")
 	})
 }
@@ -2609,6 +2609,7 @@ func newReviewServerOver(repo *gittest.Repo) *reviewServer {
 			Id:         "a1",
 			Name:       "auth",
 			WorkflowId: "w1",
+			Role:       agentv1.AgentRole_AGENT_ROLE_WRITER,
 			TaskId:     xptr.Ptr("t1"),
 			Cwd:        repo.Root,
 			PaneId:     "%9",

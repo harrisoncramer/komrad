@@ -35,14 +35,13 @@ func (a *agentsScreen) buildScreenMenu(m *model) (submenu, bool) {
 // the menus that hide, archive or delete it.
 func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	task := *row.task
-	lead, _ := m.listing.findTaskLead(task)
 	writer, _ := row.writer()
 	menu := submenu{
 		kind:  formMenu,
 		title: task.Slug,
 		entries: slices.Concat(
-			[]submenuEntry{taskReviewEntry(m, lead.Agent), taskLogsEntry(m, task)},
-			subpageEntries(m, lead, []subpage{subpageChecks}),
+			[]submenuEntry{taskReviewEntry(m, writer.Agent), taskLogsEntry(m, task)},
+			subpageEntries(m, writer, []subpage{subpageChecks}),
 			[]submenuEntry{
 				taskTerminalEntry(m, taskDir(task, row.workflow)),
 			},
@@ -53,11 +52,11 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			},
 			restartEntries(m, task),
 			retryEntries(m, writer),
-			a.snoozeEntries(m, lead),
+			a.snoozeEntries(m, writer),
 			a.editEntries(m, m.listing.findCheckoutOwner(task)),
 			[]submenuEntry{
 				nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task)),
-				nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, lead.Agent.ID, task.ID)),
+				nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, writer.Agent.ID, task.ID)),
 			},
 		),
 	}
@@ -139,15 +138,15 @@ func taskDir(task panel.Task, workflow panel.Workflow) string {
 }
 
 // taskReviewEntry opens the review of a task through the agent it wears, archived or not.
-func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
+func taskReviewEntry(m *model, writer panel.Agent) submenuEntry {
 	entry := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
-		if !m.listing.isReviewable(lead) {
-			return m.refuseSubpage("Could not open the review of "+m.listing.tasks.findForAgent(lead).Slug, errReviewNoCheckout)
+		if !m.listing.isReviewable(writer) {
+			return m.refuseSubpage("Could not open the review of "+m.listing.tasks.findForAgent(writer).Slug, errReviewNoCheckout)
 		}
 
-		return m.enterReview(lead)
+		return m.enterReview(writer)
 	})
-	entry.isOff = !m.listing.isReviewable(lead)
+	entry.isOff = !m.listing.isReviewable(writer)
 
 	return entry
 }

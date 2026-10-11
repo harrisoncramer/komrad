@@ -58,17 +58,17 @@ func (l listing) isRowLoading(r agentRow) bool {
 	if r.isTask() {
 		writer, ok := r.writer()
 
-		return isChecksRunning(r.task.PullRequest) || ok && isStarting(writer)
+		return isChecksRunning(r.task.PullRequest) || ok && isAgentLoading(writer)
 	}
 	if r.header {
 		return r.orchestrator != nil && isThinking(*r.orchestrator)
 	}
 
-	return isChecksRunning(l.tasks.findForAgent(r.item.Agent).PullRequest) || isStarting(r.item)
+	return isChecksRunning(l.tasks.findForAgent(r.item.Agent).PullRequest) || isAgentLoading(r.item)
 }
 
-// isStarting reports whether an agent is setting up or at work, either of which turns the loader.
-func isStarting(item panel.AgentRow) bool {
+// isAgentLoading reports whether an agent is setting up or at work, either of which turns the loader.
+func isAgentLoading(item panel.AgentRow) bool {
 	return item.Agent.State == panel.StateSettingUp || isThinking(item)
 }
 

@@ -551,18 +551,19 @@ func TestTriageCopies(t *testing.T) {
 		assert.NotContains(t, frame, "2 agents")
 	})
 
-	t.Run("a zone row acts through the agent its task's row wears", func(t *testing.T) {
+	t.Run("a zone row acts through its task's writer", func(t *testing.T) {
 		writer := newTriageAgent("writer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
 		task := newTaskOf(writer)
 		sweeper := newAgentAt("sweeper", "w1", 9)
 		sweeper.PaneId = "%5"
 		sweeper.Alive = xptr.Ptr(true)
 		sweeper.TaskId = writer.TaskId
+		sweeper.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 		harness := openTriage(t, 3, newLiveWorkflow("w1", "backend"), writer, task, sweeper)
 
 		harness.press("t", "space", "x")
 
-		assert.Contains(t, harness.readFrame(), "agents › sweeper › status checks")
+		assert.Contains(t, harness.readFrame(), "agents › writer › status checks")
 	})
 }
 

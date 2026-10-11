@@ -285,8 +285,8 @@ type MenuKeys struct {
 	Snooze []string `mapstructure:"snooze" default:"z"`
 	// Edit the hovered workflow, or the hovered task's title, goal and notes.
 	EditRow []string `mapstructure:"edit_row" default:"E"`
-	// Show the hovered task's goal and notes in place of its writer's pane beside the list, and its
-	// writer's pane again. Escape puts the writer's pane back too. The entry is only on a task.
+	// Swap the pane beside the list between the hovered task's goal and notes and its writer's pane.
+	// Escape puts the writer's pane back too. The entry is only on a task.
 	Notes []string `mapstructure:"notes" default:"n"`
 	// Restart the hovered task's writer on a new conversation in the same checkout, from a form
 	// asking for a note to it. The entry is only on a task, and does nothing on one with no live
