@@ -801,6 +801,44 @@ func TestResumeHoldsTheCheckoutForItsLaunch(t *testing.T) {
 	again()
 }
 
+// TestResumeLeavesAHeldCheckoutToItsWriter lets an agent sharing its parent's checkout resume while the
+// tree is held.
+func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	harness := &harnesstest.Fake{}
+	parent := seed(t, st, "auth", "", agentstore.StateIdle)
+	parent.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(ctx, parent))
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
+		Name:             "reviewer",
+		State:            agentstore.StateIdle,
+		Cwd:              parent.Cwd,
+		WorkflowID:       parent.WorkflowID,
+		Role:             agentstore.RoleReviewer,
+		ParentAgentID:    &parent.ID,
+		ProvisionEnabled: xptr.Ptr(false),
+	}))
+	reviewer, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, "reviewer")
+	require.NoError(t, err)
+	locks := checkouts.NewTreeLocks()
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmuxtest.NewFake(),
+		harnesses: harnesstest.Registry{Harness: harness},
+		lifecycle: &fakeLifecycle{},
+		locks:     locks,
+	})
+
+	release, taken := locks.TryLock(parent.Cwd)
+	require.True(t, taken)
+	defer release()
+
+	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: reviewer.ID})
+
+	require.NoError(t, err)
+	assert.Len(t, harness.Launches, 1)
+}
+
 // TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator pins which agents a caller other than an orchestrator may wake.
 func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 	tests := []struct {

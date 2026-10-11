@@ -149,9 +149,9 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID stri
 	return errResumeNotYours.Saying("%s is neither the parent of %s nor its workflow's orchestrator", target.Name, asker.Name)
 }
 
-// lockTree holds the agent's checkout for its launch, refusing one komrad is moving.
+// lockTree holds a task writer's checkout for its launch, refusing one komrad is moving.
 func (s *ResumeService) lockTree(agent agentstore.Agent) (func(), error) {
-	if s.locks == nil || agent.Cwd == "" {
+	if s.locks == nil || agent.Cwd == "" || !isWriter(agent) {
 		return func() {}, nil
 	}
 
@@ -161,6 +161,11 @@ func (s *ResumeService) lockTree(agent agentstore.Agent) (func(), error) {
 	}
 
 	return release, nil
+}
+
+// isWriter reports whether the agent is the top-level implementer a move of its task's checkout answers to.
+func isWriter(agent agentstore.Agent) bool {
+	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role.IsImplementer()
 }
 
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
