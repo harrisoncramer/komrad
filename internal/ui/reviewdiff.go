@@ -43,9 +43,6 @@ type reviewDiff struct {
 	// followedMove is the move the diff last caught up on.
 	followedMove string
 
-	frozenRoundsMove  string
-	frozenRoundsAsked int
-
 	// showsAgentThreads says the conversations agents opened are rendered.
 	showsAgentThreads bool
 }

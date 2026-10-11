@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/git"
@@ -2050,53 +2051,30 @@ func TestReviewPin(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
 
-	t.Run("a diff frozen behind later rounds says how far behind and how to catch up", func(t *testing.T) {
-		harness := openReview(t, newFrozenServer(t))
+	t.Run("a held review says the diff is frozen and how to see the latest", func(t *testing.T) {
+		taken := time.Date(2026, 10, 9, 15, 4, 0, 0, time.UTC)
+		server := newReviewServer(t)
+		server.rounds = []*agentv1.ReviewRound{{
+			Id:          "round-1",
+			TaskId:      "t1",
+			Ordinal:     1,
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+			CreatedAt:   taken.Format(time.RFC3339),
+		}}
+		server.reviews = []*agentv1.Review{{
+			Id:         "v1",
+			RoundId:    "round-1",
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		}}
+		harness := openReview(t, server)
 
-		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "all changes as of round 1")
-		assert.Contains(t, joinProse(readStage(frame)), "frozen on round 1 ("+git.ShortSHA(gittest.SnapshotSHA)+
-			") until you send your review · 2 rounds behind · rebased since, from "+git.ShortSHA(gittest.BaseSHA)+
-			" onto "+git.ShortSHA(rebasedBase)+" · space R shows the current diff")
+		assert.Contains(t, joinProse(readStage(harness.readFrame())), "Frozen on round 1 from "+
+			taken.Local().Format("Jan 2 at 3:04pm")+" until you send your review · space R shows the latest")
 
 		harness.press("space", "R")
 
-		frame = harness.readFrame()
-		assert.NotContains(t, frame, "frozen on round")
-		assert.NotContains(t, readSidebarProse(frame), "as of round")
-	})
-
-	t.Run("a diff frozen on the newest round says the worktree moved once it has", func(t *testing.T) {
-		server := newFrozenServer(t)
-		server.rounds = server.rounds[:1]
-		harness := openReview(t, server)
-		require.NotContains(t, harness.readFrame(), "shows the current diff")
-
-		server.task.MovedSinceRound = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-
-		assert.Contains(t, joinProse(readStage(harness.readFrame())),
-			"until you send your review · the worktree has moved since · space R shows the current diff")
-	})
-
-	t.Run("a diff frozen while a later round is taken says it is behind that round", func(t *testing.T) {
-		server := newFrozenServer(t)
-		rounds := server.rounds
-		server.rounds = rounds[:1]
-		server.task.MovedSinceRound = gittest.SnapshotSHA
-		harness := openReview(t, server)
-
-		server.rounds = rounds[:2]
-		server.task.MovedSinceRound = ""
-		server.roundsErr = errors.New("the server went away")
-		harness.watch(server.buildSnapshot())
-		require.NotContains(t, harness.readFrame(), "behind")
-
-		server.roundsErr = nil
-		harness.watch(server.buildSnapshot())
-
-		assert.Contains(t, joinProse(readStage(harness.readFrame())),
-			"until you send your review · 1 round behind · space R shows the current diff")
+		assert.NotContains(t, harness.readFrame(), "Frozen on round")
 	})
 
 	t.Run("the reviews failing to read fails the load rather than moving the pin", func(t *testing.T) {
@@ -2580,7 +2558,6 @@ const (
 	reviewWidth  = 200
 	reviewHeight = 30
 	olderBase    = "1111111111111111111111111111111111111111"
-	rebasedBase  = "2222222222222222222222222222222222222222"
 	replayedTree = "replayed-round-one"
 	secondTree   = "tree-with-a-second-file"
 )
@@ -3073,43 +3050,6 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
-
-	return server
-}
-
-func newFrozenServer(t *testing.T) *reviewServer {
-	t.Helper()
-
-	server := newReviewServer(t)
-	server.rounds = []*agentv1.ReviewRound{
-		{
-			Id:          "round-1",
-			TaskId:      "t1",
-			Ordinal:     1,
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: gittest.SnapshotSHA,
-		},
-		{
-			Id:          "round-2",
-			TaskId:      "t1",
-			Ordinal:     2,
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: "snapshot-of-round-2",
-		},
-		{
-			Id:          "round-3",
-			TaskId:      "t1",
-			Ordinal:     3,
-			BaseSha:     rebasedBase,
-			SnapshotSha: "snapshot-of-round-3",
-		},
-	}
-	server.reviews = []*agentv1.Review{{
-		Id:           "v1",
-		RoundId:      "round-1",
-		RoundOrdinal: 1,
-		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-	}}
 
 	return server
 }

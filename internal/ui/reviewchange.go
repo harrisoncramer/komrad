@@ -106,9 +106,6 @@ func (r reviewScreen) scopeView() string {
 	}
 
 	from := "all changes"
-	if r.isFrozen() {
-		from = fmt.Sprintf("all changes as of round %d", r.round.GetOrdinal())
-	}
 	if r.diff.spec.label != "" {
 		from = r.diff.spec.label
 	}
