@@ -126,6 +126,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 
 	if err := validateSubmenuKeys("jump menu", []submenuKeys{
 		{name: "agent", keys: keys.JumpMenu.Agent},
+		{name: "task", keys: keys.JumpMenu.Task},
 		{name: "worktree", keys: keys.JumpMenu.Worktree},
 		{name: "documents", keys: keys.JumpMenu.Documents},
 	}); err != nil {

@@ -85,9 +85,12 @@ func (a *agentsScreen) stepKind(m *model, delta int) tea.Cmd {
 	return tea.Batch(left, m.waitToStage())
 }
 
-// enter lands on the agent the target names.
+// enter lands on the task the target names, or on its agent when no row stands for the task.
 func (a *archivedAgents) enter(m *model, target screenTarget) tea.Cmd {
-	if idx := rowIndexOfAgentID(a.listRows(m), target.agentID); target.agentID != "" && idx >= 0 {
+	rows := a.listRows(m)
+	if idx := rowIndexOfKey(rows, taskRowKey(target.taskID)); target.taskID != "" && idx >= 0 {
+		a.cursor = idx
+	} else if idx := rowIndexOfAgentID(rows, target.agentID); target.agentID != "" && idx >= 0 {
 		a.cursor = idx
 	}
 

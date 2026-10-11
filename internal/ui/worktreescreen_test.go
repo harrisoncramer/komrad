@@ -33,6 +33,7 @@ func TestWorktreesOpen(t *testing.T) {
 		name        string
 		press       []string
 		wantHovered string
+		wantTaskID  string
 	}{
 		{
 			name:        "from the agents list it lands on the hovered agent's directory",
@@ -98,7 +99,7 @@ func TestWorktreesOpen(t *testing.T) {
 	})
 }
 
-// TestWorktreesJump covers jumping from a directory to the agent it belongs to.
+// TestWorktreesJump covers jumping from a directory to the task it belongs to.
 func TestWorktreesJump(t *testing.T) {
 	t.Parallel()
 
@@ -107,6 +108,7 @@ func TestWorktreesJump(t *testing.T) {
 		row         string
 		wantScreen  string
 		wantHovered string
+		wantTaskID  string
 	}{
 		{
 			name:        "a directory nothing answers for stays put",
@@ -115,16 +117,18 @@ func TestWorktreesJump(t *testing.T) {
 			wantHovered: "task/orphan",
 		},
 		{
-			name:        "a live agent's directory lands on the agents list",
+			name:        "a live task's directory lands on the agents list",
 			row:         "treeview",
 			wantScreen:  agentsScreen,
 			wantHovered: "treeview",
+			wantTaskID:  "live",
 		},
 		{
-			name:        "an archived agent's directory lands in the archive",
+			name:        "an archived task's directory lands in the archive",
 			row:         "reviewer",
 			wantScreen:  agentsScreen,
 			wantHovered: "reviewer",
+			wantTaskID:  "archived",
 		},
 	}
 
@@ -135,11 +139,12 @@ func TestWorktreesJump(t *testing.T) {
 			harness := openWorktrees(t)
 			moveToWorktree(t, harness, tt.row)
 
-			harness.press("space", "J", "a")
+			harness.press("space", "J", "t")
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
 			assert.Contains(t, readHoveredRow(frame), tt.wantHovered)
+			assert.Equal(t, tt.wantTaskID, readRecordField(frame, "task_id"))
 		})
 	}
 }

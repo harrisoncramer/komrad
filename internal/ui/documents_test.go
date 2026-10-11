@@ -188,28 +188,26 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	})
 
-	t.Run("the jump menu lands on the agent that wrote the hovered document", func(t *testing.T) {
+	t.Run("the jump menu lands on the task the hovered document belongs to", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openEveryDocument(t)
-		harness.press("space", "J", "a")
+		harness.press("space", "J", "t")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
 	})
 
-	t.Run("the jump menu lands on an archived author among the archived agents", func(t *testing.T) {
+	t.Run("the jump menu lands on an archived task among the archived agents", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
-		harness.press("d")
+		harness.press("J", "d")
 		harness.fireTimers()
-		harness.press("tab", "tab")
-		harness.fireTimers()
-		harness.press("space", "J", "a")
+		harness.press("space", "J", "t")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
 	})
 }
 

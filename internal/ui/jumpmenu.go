@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"slices"
+
+	"komrad/lib/xslice"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -41,4 +45,34 @@ func jumpMenu(m *model, from screen, agentID string) submenu {
 		title:   "jump",
 		entries: entries,
 	}
+}
+
+// withTaskJump swaps a jump menu's agent entry for one landing on the task's row.
+func withTaskJump(m *model, menu submenu, taskID string) submenu {
+	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {
+		if !slices.Equal(entry.keys, m.keys.JumpMenu.Agent) {
+			return entry
+		}
+
+		return taskJumpEntry(m, taskID)
+	})
+
+	return menu
+}
+
+// taskJumpEntry lands on a task's row, off when no agent on it lists the task.
+func taskJumpEntry(m *model, taskID string) submenuEntry {
+	task := m.listing.tasks[taskID]
+	lead, found := m.listing.findTaskLead(task)
+	entry := openEntry("task", m.keys.JumpMenu.Task, func(m *model) tea.Cmd {
+		target := screenTarget{agentID: lead.Agent.ID, taskID: taskID}
+		if task.ArchivedAt != nil {
+			return m.enterArchived(target)
+		}
+
+		return m.enterLive(target)
+	})
+	entry.isOff = !found
+
+	return entry
 }

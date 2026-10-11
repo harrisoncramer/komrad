@@ -261,8 +261,8 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the task's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
-	// Open the jump menu to the right of this one, for landing on the hovered row's agent, its
-	// worktree or its documents.
+	// Open the jump menu to the right of this one, for landing on the hovered row's agent or task,
+	// its worktree or its documents.
 	Jump []string `mapstructure:"jump" default:"J"`
 	// Open the archive menu to the right of this one, for archiving or deleting the hovered task
 	// or every chosen task, for archiving the hovered agent, workflow or schedule, for restoring
@@ -363,6 +363,8 @@ type LogsKeys struct {
 type JumpMenuKeys struct {
 	// Land on the agent, on the agents list or in the archive.
 	Agent []string `mapstructure:"agent" default:"a"`
+	// Land on the task, on the agents list or in the archive.
+	Task []string `mapstructure:"task" default:"t"`
 	// Land on the agent's worktree on the worktrees screen.
 	Worktree []string `mapstructure:"worktree" default:"w"`
 	// Open the documents view on the documents the agent has written.
