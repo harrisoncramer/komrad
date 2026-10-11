@@ -2466,7 +2466,7 @@ func TestAgentsSelection(t *testing.T) {
 			wantTasks: []string{"task-api", "task-db"},
 		},
 		{
-			name:      "a header inside the range is passed over",
+			name:      "a workflow header inside the range is passed over",
 			press:     []string{"j", "j", "j", "j", "v", "G", "V"},
 			wantTasks: []string{"task-db", "task-ui"},
 		},
