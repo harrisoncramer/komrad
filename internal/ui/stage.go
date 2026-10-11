@@ -190,6 +190,18 @@ func (m *model) stageSelection() {
 	m.stageTerminal()
 }
 
+// isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back
+// a kill still in flight.
+func (m *model) isPaneStageable(pane string) bool {
+	if pane == "" {
+		return false
+	}
+
+	_, inFlight := m.unstaging[pane]
+
+	return !inFlight
+}
+
 // afterStaging sends the pane moves staging collected.
 func (m *model) afterStaging() {
 	m.frame.Flush()

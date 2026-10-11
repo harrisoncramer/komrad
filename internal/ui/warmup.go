@@ -82,18 +82,6 @@ func (m *model) isShowingHarness(pane, harnessID string) bool {
 	return m.harnessFrames.DoesFrameShowHarness(pane, harnessID)
 }
 
-// isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back
-// a kill still in flight.
-func (m *model) isPaneStageable(pane string) bool {
-	if pane == "" {
-		return false
-	}
-
-	_, inFlight := m.unstaging[pane]
-
-	return !inFlight
-}
-
 func (w *warmupState) markWarm(pane string) {
 	w.ready[pane] = true
 	delete(w.since, pane)
