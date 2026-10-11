@@ -132,7 +132,7 @@ func TestRebaseRefusals(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			ref := tt.lay(t, fixture)
 			locks := NewTreeLocks()
-			release, taken := locks.tryLock("/locked")
+			release, taken := locks.TryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
@@ -176,25 +176,25 @@ func TestRebaseWithNoWriter(t *testing.T) {
 func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
 	locks := NewTreeLocks()
 
-	release, taken := locks.tryLock("/one")
+	release, taken := locks.TryLock("/one")
 	require.True(t, taken)
 
-	_, again := locks.tryLock("/one")
+	_, again := locks.TryLock("/one")
 	assert.False(t, again, "the same path is held once")
 
-	other, taken := locks.tryLock("/two")
+	other, taken := locks.TryLock("/two")
 	assert.True(t, taken, "a different path is not blocked")
 	other()
 
 	release()
 
-	_, afterRelease := locks.tryLock("/one")
+	_, afterRelease := locks.TryLock("/one")
 	assert.True(t, afterRelease, "releasing hands the path back")
 }
 
 // TestTreeLocksRefuseAnEmptyPath covers the fail-open a blank path would otherwise be.
 func TestTreeLocksRefuseAnEmptyPath(t *testing.T) {
-	release, taken := NewTreeLocks().tryLock("")
+	release, taken := NewTreeLocks().TryLock("")
 
 	assert.False(t, taken, "an empty path is refused")
 	assert.Nil(t, release)

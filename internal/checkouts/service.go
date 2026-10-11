@@ -284,7 +284,7 @@ func (s *Service) queueEvent(ctx context.Context, taskID string, payload events.
 
 // lockTree takes the lock on a checkout, refusing one something else is already moving.
 func (s *Service) lockTree(dir string) (func(), error) {
-	unlock, taken := s.locks.tryLock(dir)
+	unlock, taken := s.locks.TryLock(dir)
 	if !taken {
 		return nil, fmt.Errorf("%w: %s", errBusy, dir)
 	}

@@ -164,7 +164,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Scripts:    scriptService,
 		Panes:      paneChannel,
 		Settler:    settler,
-		Moves:      checkoutLocks,
+		Locks:      checkoutLocks,
 		RunLogsDir: runLogsDir,
 		LoadConfig: loadConfig,
 	})
@@ -340,7 +340,7 @@ type buildAgentsParams struct {
 	Panes      *pane.Pane
 	Settler    *agents.Settler
 	Tasks      *tasks.TaskService
-	Moves      *checkouts.TreeLocks
+	Locks      *checkouts.TreeLocks
 	RunLogsDir string
 	LoadConfig func() (*config.Config, error)
 }
@@ -379,7 +379,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Launcher:           harnessLauncher,
 		Harnesses:          server.Harnesses,
 		Scripts:            params.Scripts,
-		Moves:              params.Moves,
+		Locks:              params.Locks,
 		FallbackResumeRoot: server.FallbackResumeRoot,
 	})
 	agentDelete := jobs.NewAgentDelete(params.Queue)

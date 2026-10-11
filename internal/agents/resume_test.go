@@ -11,6 +11,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agenterr"
+	"komrad/internal/checkouts"
 	"komrad/internal/harness"
 	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
@@ -768,32 +769,36 @@ func TestResumeRefusesArchived(t *testing.T) {
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
 }
 
-type fakeMoves struct {
-	moving string
-}
-
-func (f fakeMoves) IsMoving(dir string) bool {
-	return dir == f.moving
-}
-
-// TestResumeRefusesACheckoutKomradIsMoving keeps a relaunch out of a tree komrad is rebasing,
-// pushing or aborting in.
-func TestResumeRefusesACheckoutKomradIsMoving(t *testing.T) {
+// TestResumeHoldsTheCheckoutForItsLaunch keeps a relaunch out of a tree komrad is rebasing,
+// pushing or aborting in, and frees the tree once the launch is done.
+func TestResumeHoldsTheCheckoutForItsLaunch(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	harness := &harnesstest.Fake{}
 	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	agent.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(t.Context(), agent))
+	locks := checkouts.NewTreeLocks()
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: harness},
 		lifecycle: &fakeLifecycle{},
-		moves:     fakeMoves{moving: agent.Cwd},
+		locks:     locks,
 	})
 
+	release, taken := locks.TryLock(agent.Cwd)
+	require.True(t, taken)
 	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
-
 	require.ErrorIs(t, err, errResumeMoving)
 	assert.Empty(t, harness.Launches, "and launches nothing")
+	release()
+
+	_, err = manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
+	require.NoError(t, err)
+	assert.Len(t, harness.Launches, 1, "launches once the move has finished")
+	again, taken := locks.TryLock(agent.Cwd)
+	require.True(t, taken, "and lets go of the tree after the launch")
+	again()
 }
 
 // TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator pins which agents a caller other than an orchestrator may wake.
