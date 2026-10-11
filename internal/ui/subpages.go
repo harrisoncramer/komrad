@@ -32,15 +32,15 @@ func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 	agent := item.Agent
 	task := m.listing.findTask(agent)
 
-	var git []submenuEntry
+	entries := slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own)
 	if agent.ArchivedAt == nil || task.ArchivedAt != nil {
-		git = []submenuEntry{nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task))}
+		entries = append(entries, nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task)))
 	}
 
 	return submenu{
 		kind:    formMenu,
 		title:   m.listing.agentName(agent),
-		entries: slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own, git, []submenuEntry{nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, agent.ID))}),
+		entries: append(entries, nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, agent.ID))),
 	}
 }
 
