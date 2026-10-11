@@ -447,8 +447,8 @@ func (s *PullRequestStore) GetByID(ctx context.Context, id string) (*PullRequest
 	return s.withOneMergeReadiness(ctx, row)
 }
 
-// ListRecipients is every live agent, children aside, whose task's checkout is on a pull request's
-// branch in its repository, in agent id order.
+// ListRecipients is the live writer of each task whose checkout is on a pull request's branch in its
+// repository, in agent id order.
 func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]string, error) {
 	if !store.IsID(id) {
 		return nil, nil
