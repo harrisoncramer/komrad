@@ -1104,6 +1104,7 @@ func buildWorktrees() []proto.Message {
 	live.Cwd = "/trees/live"
 	live.Alive = xptr.Ptr(true)
 	live.State = agentv1.AgentState_AGENT_STATE_THINKING
+	live.Role = agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
 
 	occupant := newAgent("occ", "review-607", "w1")
 	occupant.Cwd = "/trees/live"
