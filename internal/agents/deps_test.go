@@ -152,6 +152,7 @@ type agentServiceOptions struct {
 	tx        txRunner
 	stateDir  string
 	sleeper   clock.Sleeper
+	moves     moveChecker
 }
 
 // taskScriptRunner is what a task service needs of the scripts a test hands its agents.
@@ -221,6 +222,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Launcher:  launcher,
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
+			Moves:     options.moves,
 		}),
 		adopt: NewAdoptService(NewAdoptServiceParams{
 			Agents:    s.Agents,

@@ -31,6 +31,14 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 // errResumeNotYours is an agent other than an orchestrator resuming an agent that is neither its parent nor its workflow's orchestrator.
 var errResumeNotYours = fail.Denied("an agent may resume only its parent and its workflow's orchestrator")
 
+// errResumeMoving is a resume into a checkout komrad is rebasing, pushing or aborting in.
+var errResumeMoving = fail.Precondition("komrad is rebasing, pushing or aborting in this agent's checkout, so resume it once that finishes")
+
+// moveChecker says whether komrad is rebasing, pushing or aborting in a checkout.
+type moveChecker interface {
+	IsMoving(dir string) bool
+}
+
 type NewResumeServiceParams struct {
 	Tmux               paneController
 	Agents             *agentstore.AgentStore
@@ -38,6 +46,7 @@ type NewResumeServiceParams struct {
 	Launcher           *Launcher
 	Harnesses          harnessGetter
 	Scripts            agentScriptRunner
+	Moves              moveChecker
 	FallbackResumeRoot string
 }
 
@@ -47,6 +56,7 @@ type ResumeService struct {
 	agents             *agentstore.AgentStore
 	workflows          *workflowstore.WorkflowStore
 	harnesses          harnessGetter
+	moves              moveChecker
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
@@ -69,6 +79,7 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 		agents:             params.Agents,
 		workflows:          params.Workflows,
 		harnesses:          params.Harnesses,
+		moves:              params.Moves,
 		fallbackResumeRoot: params.FallbackResumeRoot,
 		inFlight:           map[string]struct{}{},
 	}
@@ -101,6 +112,9 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, params ResumeAgentParam
 
 	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {
 		return agent, nil
+	}
+	if s.moves != nil && s.moves.IsMoving(agent.Cwd) {
+		return nil, errResumeMoving.Saying("%q works in %q, which komrad is moving", agent.Name, agent.Cwd)
 	}
 
 	if err := s.resume(ctx, *agent); err != nil {

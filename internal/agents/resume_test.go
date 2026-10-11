@@ -768,6 +768,34 @@ func TestResumeRefusesArchived(t *testing.T) {
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
 }
 
+type fakeMoves struct {
+	moving string
+}
+
+func (f fakeMoves) IsMoving(dir string) bool {
+	return dir == f.moving
+}
+
+// TestResumeRefusesACheckoutKomradIsMoving keeps a relaunch out of a tree komrad is rebasing,
+// pushing or aborting in.
+func TestResumeRefusesACheckoutKomradIsMoving(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	harness := &harnesstest.Fake{}
+	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: harness},
+		lifecycle: &fakeLifecycle{},
+		moves:     fakeMoves{moving: agent.Cwd},
+	})
+
+	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
+
+	require.ErrorIs(t, err, errResumeMoving)
+	assert.Empty(t, harness.Launches, "and launches nothing")
+}
+
 // TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator pins which agents a caller other than an orchestrator may wake.
 func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 	tests := []struct {
