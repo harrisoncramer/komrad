@@ -161,7 +161,16 @@ func (m *model) focusBlockAt(x, y int) tea.Cmd {
 }
 
 func (m *model) scrollSidebar(rows int) tea.Cmd {
-	if screen, ok := m.active().(listScroller); ok && !m.isDetailsFocused() {
+	if m.isDetailsFocused() {
+		return m.pressWheel(rows)
+	}
+
+	return m.wheelList(rows)
+}
+
+// wheelList scrolls the screen's list, or presses the scroll key on a screen without one.
+func (m *model) wheelList(rows int) tea.Cmd {
+	if screen, ok := m.active().(listScroller); ok {
 		return screen.scrollList(m, rows)
 	}
 
