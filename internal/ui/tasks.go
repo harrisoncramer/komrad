@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"komrad/config"
 	"komrad/internal/ui/paint/label"
@@ -22,18 +21,15 @@ func (l listing) taskAgents(taskID string) []panel.AgentRow {
 	return xslice.Filter(l.agents, func(item panel.AgentRow) bool { return item.Agent.TaskID == taskID })
 }
 
-// taskFieldsParams is a task with the agents, writer and worktree read its info panel shows.
+// taskFieldsParams is a task's checkout with the agents and writer its info panel shows.
 type taskFieldsParams struct {
-	task     panel.Task
+	checkout checkoutFieldsParams
 	agents   []panel.AgentRow
 	writer   panel.AgentRow
-	worktree worktreeInspection
-	read     bool
-	now      time.Time
 }
 
 func taskFields(params taskFieldsParams) []recordField {
-	task, writer := params.task, params.writer
+	task, writer := params.checkout.task, params.writer
 	names := xslice.Map(params.agents, func(item panel.AgentRow) string { return item.Agent.Name })
 	fields := []recordField{
 		{label: "task", value: task.Slug},
@@ -49,14 +45,7 @@ func taskFields(params taskFieldsParams) []recordField {
 		directory = "— (removed)"
 	}
 	fields = append(fields, recordField{label: "directory", value: directory})
-
-	if writer.Agent.Branch != nil {
-		fields = append(fields, recordField{label: branchFieldKey, value: *writer.Agent.Branch})
-		fields = append(fields, pullRequestFields(writer.PullRequest, writer.PullRequests)...)
-	}
-	if params.read {
-		fields = append(fields, worktreeStandingFields(params.worktree, writer.Agent.ID, params.now)...)
-	}
+	fields = append(fields, checkoutFields(params.checkout)...)
 
 	fields = append(fields, recordField{label: "task_id", value: task.ID})
 	if created := label.Friendly(task.CreatedAt); created != "" {

@@ -174,7 +174,7 @@ func TestPullRequestFields(t *testing.T) {
 			pullRequests: []panel.PullRequest{current},
 		},
 		{
-			name: "the current one's title and author",
+			name: "the current one's number, title and author",
 			pullRequests: []panel.PullRequest{
 				{
 					Number: 742,
@@ -183,7 +183,7 @@ func TestPullRequestFields(t *testing.T) {
 				},
 			},
 			want: []recordField{
-				{label: "title", value: "Read pull request authors"},
+				{label: "pull request", value: "#742 Read pull request authors"},
 				{label: "author", value: "@harrisoncramer"},
 			},
 		},
@@ -254,11 +254,11 @@ func TestPullRequestFields(t *testing.T) {
 	}
 }
 
-// TestAgentFieldsPlaceThePullRequestsAfterTheBranch covers the rows landing under the branch
-// they are about, and not at all on an agent whose checkout is on no branch.
-func TestAgentFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
-	agent := panel.Agent{
-		Name:   "worker",
+// TestTaskFieldsPlaceThePullRequestsAfterTheBranch covers the rows landing under the branch
+// they are about, and not at all on a task whose checkout is on no branch.
+func TestTaskFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
+	task := panel.Task{
+		Slug:   "worker",
 		Branch: xptr.Ptr("agent/x"),
 	}
 	pullRequests := []panel.PullRequest{
@@ -271,15 +271,15 @@ func TestAgentFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
 		{Number: 5, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED},
 	}
 
-	labels := readLabels(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}))
+	labels := readLabels(taskFields(taskFieldsParams{checkout: checkoutFieldsParams{task: task, pullRequests: pullRequests}}))
 
 	branch := indexOf(labels, "branch")
 	require.NotEqual(t, -1, branch)
-	assert.Equal(t, []string{"title", "author", "pull requests"}, labels[branch+1:branch+4])
+	assert.Equal(t, []string{"pull request", "author", "pull requests"}, labels[branch+1:branch+4])
 
-	agent.Branch = nil
-	labels = readLabels(agentFields(agentFieldsParams{agent: agent, pullRequests: pullRequests}))
-	for _, absent := range []string{"title", "author", "pull requests"} {
+	task.Branch = nil
+	labels = readLabels(taskFields(taskFieldsParams{checkout: checkoutFieldsParams{task: task, pullRequests: pullRequests}}))
+	for _, absent := range []string{"pull request", "author", "pull requests"} {
 		assert.NotContains(t, labels, absent)
 	}
 }

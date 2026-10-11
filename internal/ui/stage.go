@@ -134,7 +134,7 @@ func (d *documentsScreen) stageResting(m *model) tea.Cmd {
 func (w *schedulesScreen) stageResting(m *model) tea.Cmd {
 	m.stageSelection()
 
-	return m.inspectAgentWorktreeCmd(time.Now())
+	return nil
 }
 
 func (l *logsScreen) stageResting(m *model) tea.Cmd {
@@ -144,7 +144,7 @@ func (l *logsScreen) stageResting(m *model) tea.Cmd {
 func (a *agentsScreen) stageResting(m *model) tea.Cmd {
 	m.stageSelection()
 
-	return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
+	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(time.Now()))
 }
 
 func (r *reviewScreen) stageResting(m *model) tea.Cmd {
@@ -152,7 +152,7 @@ func (r *reviewScreen) stageResting(m *model) tea.Cmd {
 		m.stageSelection()
 	}
 
-	return tea.Batch(r.markThreadReadCmd(m), m.inspectAgentWorktreeCmd(time.Now()))
+	return r.markThreadReadCmd(m)
 }
 
 // paneStatusRows is the rows the blank status line tmux renders over every pane takes from its window.

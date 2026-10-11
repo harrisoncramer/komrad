@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"komrad/config"
 	"komrad/internal/ui/panel"
@@ -16,25 +15,11 @@ func (a *agentsScreen) details(m *model) details {
 	}
 
 	if r.isTask() {
-		writer := m.listing.findTaskWriter(*r.task, *r.lead)
-		worktree, read := agentWorktree(m.inspections, r.task.Cwd)
-		var tags []string
-		if item, ok := m.listing.findCheckoutWriter(*r.task, *r.lead); ok {
-			tags = agentDetailsTags(m, item)
-		}
-
 		return details{
 			id:      r.task.ID,
 			notices: agentNotices(m.glyphs, m.loading.frame(), r),
-			fields: taskFields(taskFieldsParams{
-				task:     *r.task,
-				agents:   m.listing.taskAgents(r.task.ID),
-				writer:   writer,
-				worktree: worktree,
-				read:     read,
-				now:      time.Now(),
-			}),
-			tags: tags,
+			fields:  taskDetailFields(m, *r.task, *r.lead),
+			tags:    taskDetailsTags(m, *r.task),
 		}
 	}
 
@@ -45,27 +30,45 @@ func (a *agentsScreen) details(m *model) details {
 		}
 	}
 
+	return agentDetails(m, r)
+}
+
+// agentDetails is the record for an agent's row, carrying its task's checkout where no task
+// header stands over it and the rule's tags too while the agent is live.
+func agentDetails(m *model, r agentRow) details {
+	task := m.listing.findTask(r.item.Agent)
+	params := agentFieldsParams{
+		agent:    r.item.Agent,
+		schedule: m.listing.scheduleName(r.item.Agent),
+		parent:   m.listing.parentName(r.item.Agent),
+	}
+	var tags []string
+	if r.underTask {
+		params.headerCwd = task.Cwd
+	} else {
+		params.checkout = checkoutFields(m.buildCheckoutParams(task, r.item))
+		if r.item.Agent.ArchivedAt == nil {
+			tags = taskDetailsTags(m, task)
+		}
+	}
+
 	return details{
 		id:      r.item.Agent.ID,
 		notices: agentNotices(m.glyphs, m.loading.frame(), r),
-		fields:  agentDetailFields(m, r.item),
-		tags:    agentDetailsTags(m, r.item),
+		fields:  agentFields(params),
+		tags:    tags,
 	}
 }
 
-// agentDetailFields is the record for an agent as the listing holds it.
-func agentDetailFields(m *model, item panel.AgentRow) []recordField {
-	worktree, read := agentWorktree(m.inspections, item.Agent.Cwd)
+// taskDetailFields is the record for a task as the listing holds it, with the pull requests its
+// writer carries.
+func taskDetailFields(m *model, task panel.Task, lead panel.AgentRow) []recordField {
+	writer := m.listing.findTaskWriter(task, lead)
 
-	return agentFields(agentFieldsParams{
-		agent:        item.Agent,
-		schedule:     m.listing.scheduleName(item.Agent),
-		parent:       m.listing.parentName(item.Agent),
-		standing:     item.PullRequest,
-		pullRequests: item.PullRequests,
-		worktree:     worktree,
-		read:         read,
-		now:          time.Now(),
+	return taskFields(taskFieldsParams{
+		checkout: m.buildCheckoutParams(task, writer),
+		agents:   m.listing.taskAgents(task.ID),
+		writer:   writer,
 	})
 }
 

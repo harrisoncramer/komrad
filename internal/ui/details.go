@@ -147,7 +147,7 @@ func (m *model) focusDetails() tea.Cmd {
 	}
 	m.details.row = held.id
 
-	return tea.Batch(m.rereadAgentWorktreeCmd(), m.wakeCwdSyncCmd())
+	return tea.Batch(m.rereadTaskWorktreeCmd(), m.wakeCwdSyncCmd())
 }
 
 // releaseHiddenDetails hands the keys back from a record the pane no longer renders.

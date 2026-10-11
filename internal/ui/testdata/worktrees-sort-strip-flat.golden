@@ -20,9 +20,9 @@
   [90mlast active[m 5m ago
   [90mbranch     [m task/live
   [90mrepository [m /home/h/komrad
-  [90mbase       [m —
-  [90mchanges    [m none
-[90m  ↓ 3 more[m
+  [90mtask       [m treeview
+  [90mworkflow   [m komrad
+  [90magents     [m treeview, review-607
 [90m───────────────────────────────────────────[m
 [90mspace[m [90mmenu[m[90m • [m[90m?[m [90mshow help[m[90m • [m[90mtab[m [90mswitch view[m
                                    [1;34m NORMAL [m

@@ -268,7 +268,7 @@ func (a *archivedAgents) isLoading(m *model) bool {
 func (a *archivedAgents) stageResting(m *model) tea.Cmd {
 	a.stage(m)
 
-	return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
+	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(time.Now()))
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow.
