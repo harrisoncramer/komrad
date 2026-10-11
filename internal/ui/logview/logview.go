@@ -2,11 +2,13 @@
 package logview
 
 import (
+	"io"
 	"strings"
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -149,7 +151,22 @@ func (t *Tail) Current() (string, bool) {
 
 // wrap is one held line broken into the rows it takes at width.
 func (t *Tail) wrap(i, width int) []string {
-	return strings.Split(ansi.Hardwrap(t.render(t.lines[i]), max(width, 1), true), "\n")
+	return strings.Split(hardwrap(t.render(t.lines[i]), max(width, 1)), "\n")
+}
+
+// hardwrap is text broken at width with every row opening and closing its own style.
+func hardwrap(text string, width int) string {
+	wrapped := ansi.Hardwrap(text, width, true)
+	var rows strings.Builder
+	writer := lipgloss.NewWrapWriter(&rows)
+	if _, err := io.WriteString(writer, wrapped); err != nil {
+		return wrapped
+	}
+	if err := writer.Close(); err != nil {
+		return wrapped
+	}
+
+	return rows.String()
 }
 
 // render is one held line as its format renders it.
