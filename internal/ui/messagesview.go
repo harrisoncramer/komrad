@@ -96,9 +96,10 @@ func (m *model) renderMessagesHeading(width, count, at int) string {
 func (m *model) renderMessageRows(at, width int) []string {
 	held := m.messages.items[at]
 	hovered := at == m.messages.clampedCursor()
+	flashed := held.landed == m.messages.flashed
 	summary := lipgloss.NewStyle()
 	switch {
-	case held.landed == m.messages.flashed:
+	case flashed:
 		summary = flashFieldStyle(paint.Panel)
 	case hovered:
 		summary = summary.Bold(true)
@@ -135,8 +136,13 @@ func (m *model) renderMessageRows(at, width int) []string {
 			continue
 		}
 
+		style := piece.style
+		if flashed {
+			style = flashFieldStyle(paint.Panel)
+		}
+
 		rows = append(rows, xslice.Map(paint.WrapRows(piece.text, width), func(line string) string {
-			return indent + piece.style.Render(line)
+			return indent + style.Render(line)
 		})...)
 	}
 
