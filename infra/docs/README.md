@@ -40,5 +40,3 @@ Run `mise run docs:deploy <version>` to build the site as that version, upload i
 Copy the `backend.hcl.example` to `backend.hcl`, then `mise run infra:docs:init` to initialize the infrastructure.
 
 Then run the `mise run infra:docs:apply` command. Applying needs a Cloudflare API token in `CLOUDFLARE_API_TOKEN` that can read the four zones and edit their DNS and redirect rules.
-
-Setting `engine_ip` to the engine's `instance_public_ip` output points `engine.komrad.dev` at it. Set `domain_name` to `engine.komrad.dev` in the engine's variables so its certificate is for that name.

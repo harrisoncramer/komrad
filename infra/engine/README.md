@@ -36,6 +36,8 @@ This initializes the terraform provider.
 
 Next, run the `mise run infra:engine:apply` command, to deploy the infrastructure.
 
+To serve the engine on a domain, set `domain_name` and add an A record for it at your DNS host, pointing at the `instance_public_ip` output. Terraform leaves the record to you, so the engine does not depend on any one DNS provider.
+
 For more information on deploying and managing the engine, read: `docs/src/content/guides/engine-admin.md`.
 
 ## This Engine's Relationship to CI/CD
