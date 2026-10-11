@@ -9,8 +9,8 @@ import (
 // warmupPoll is how often a pane komrad is waiting on is asked whether its harness has started.
 const warmupPoll = 100 * time.Millisecond
 
-// warmupCap is how long a pane is waited on before it is shown regardless, so a launch that
-// never starts a harness does not hold a parked write forever.
+// warmupCap is how long a pane is waited on before it is taken as warm regardless, so a launch
+// that never starts a harness does not hold a parked write forever.
 const warmupCap = 4 * time.Second
 
 type warmupTickMsg struct{}
