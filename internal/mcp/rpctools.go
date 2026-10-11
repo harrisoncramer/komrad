@@ -180,7 +180,7 @@ func (r *rpcTools) handler(path string, timeout time.Duration) func(context.Cont
 
 		resp, err := r.client.Do(req)
 		if err != nil {
-			return errorResult(fmt.Errorf("failed to reach the agent service: %w", err)), nil, nil
+			return errorResult(fmt.Errorf("failed to reach the server: %w", err)), nil, nil
 		}
 		defer func() { _ = resp.Body.Close() }()
 

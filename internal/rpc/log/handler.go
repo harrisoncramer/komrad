@@ -30,7 +30,7 @@ const defaultAgentLogLimit = 200
 const serviceSource = "service"
 
 var (
-	errBadCursor      = fail.InvalidArgument("the cursor is not one this service answered")
+	errBadCursor      = fail.InvalidArgument("the cursor is not one this server answered")
 	errOneAgentPerRun = fail.InvalidArgument("a script run's source is read for one agent at a time")
 	errBadPattern     = fail.InvalidArgument("the pattern is not a regular expression")
 )
@@ -123,7 +123,7 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 	if req.GetCursor() != "" {
 		parsed, err := strconv.ParseInt(req.GetCursor(), 10, 64)
 		if err != nil || parsed < 0 {
-			return nil, errBadCursor.Saying("cursor %q is not one this service answered", req.GetCursor())
+			return nil, errBadCursor.Saying("cursor %q is not one this server answered", req.GetCursor())
 		}
 		offset = parsed
 	}

@@ -18,7 +18,7 @@ import (
 var ErrNoSuchTrace = fail.NotFound("no line was written under that trace")
 
 // errNoLog says the service has written no log yet.
-var errNoLog = fail.Precondition("the service has no log yet")
+var errNoLog = fail.Precondition("the server has no log yet")
 
 // scanBuffer is the longest line the log is read with.
 const scanBuffer = 1 << 20
