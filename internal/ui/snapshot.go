@@ -128,7 +128,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Matches = params.matchesOf(r, item.Agent.Name)
 	row.Repo = snapshotRepo(task.WorktreeRemoved, task.Sequence)
 	row.InWorkflowDir = isInWorkflowDir(item.Agent.WorkflowID, item.Agent.Cwd, params.workflowDirs)
-	if item.Agent.ParentAgentID == nil {
+	if item.Agent.Role != panel.RoleReviewer {
 		row.ReviewerComments, row.PersonComments = convertComments(task.ReviewerComments), convertComments(task.PersonComments)
 	}
 	row.Forge = snapshotForge(task.PullRequest)

@@ -171,7 +171,7 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 			launcher := NewLauncher(NewLauncherParams{
 				Tmux: tmuxtest.NewFake(),
 				Usage: config.Usage{
-					Implementer:  config.ImplementerUsage{AutoCompaction: 250000},
+					Writer:       config.WriterUsage{AutoCompaction: 250000},
 					Orchestrator: config.OrchestratorUsage{AutoCompaction: 150000},
 				},
 			})
@@ -451,7 +451,7 @@ func TestBriefingCarriesTheReviewRules(t *testing.T) {
 	assert.Contains(t, base, "add_review_message",
 		"answering one reaches every agent, since a person may review any of them from the panel")
 	assert.Contains(t, base, "`gh`", "and every agent is told plainly not to reach for the forge")
-	assert.Contains(t, reviewer, "the agent you are a child of",
+	assert.Contains(t, reviewer, "You review your task's writer and nothing else",
 		"and who it may review, since the rule is refused at the server either way")
 }
 
@@ -595,7 +595,7 @@ func TestSpawningBriefing(t *testing.T) {
 			want:   spawningDoc,
 		},
 		{
-			name:   "a reviewer sends new work to its parent",
+			name:   "a reviewer sends new work to its task's writer",
 			params: launchParams{Role: agentstore.RoleReviewer},
 			want:   "",
 		},
@@ -615,9 +615,7 @@ func TestSpawningBriefing(t *testing.T) {
 	t.Run("a reviewer is never told to call create_agent", func(t *testing.T) {
 		launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), LogPath: briefedLogPath})
 		prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
-			Role:          agentstore.RoleReviewer,
-			ParentAgentID: "parent",
-			ParentName:    "author",
+			Role: agentstore.RoleReviewer,
 		})
 
 		assert.NotContains(t, prompt, "create_agent")
@@ -716,8 +714,8 @@ func TestLaunchWithoutAKomradBinaryGivesNoStandIn(t *testing.T) {
 	assert.Empty(t, fakeHarness.Launches[0].ToolsDir)
 }
 
-// TestChildBriefingReplacesTheDelegateOne pins what a child is told.
-func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
+// TestReviewerBriefing pins what a reviewer is told.
+func TestReviewerBriefing(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{
 		Tmux:    tmuxtest.NewFake(),
 		Addr:    "127.0.0.1:9999",
@@ -725,16 +723,13 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 	})
 
 	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
-		SpawnedByAgentID: "agent-parent",
+		Role:             agentstore.RoleReviewer,
+		SpawnedByAgentID: "agent-author",
 		SpawnedByName:    "author",
-		ParentAgentID:    "agent-parent",
-		ParentName:       "author",
 	})
 
-	assert.Contains(t, prompt, "You are a child of agent author (agent-parent)")
+	assert.Contains(t, prompt, "You were spawned by agent author (agent-author)")
 	assert.Contains(t, prompt, "never commit")
-	assert.NotContains(t, prompt, "You were spawned by agent",
-		"the spawner paragraph would understate what a child runs under")
 }
 
 // TestTaskBriefing pins what an agent is told of its task's goal and notes, and where it is pointed

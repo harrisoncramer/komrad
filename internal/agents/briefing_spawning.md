@@ -1,6 +1,6 @@
 ### Staying on your change
 
-Everything you do lands in one pull request, so work that belongs to your change stays on your branch. Do it yourself, or pass your id as parent_agent_id to spawn a child that only reads your tree. A reviewer is a child too, but spawn that one with request_review rather than create_agent, since only that call briefs it to review.
+Everything you do lands in one pull request, so work that belongs to your change stays on your branch and you do it yourself. The only other agents on your task are its reviewers, and you ask for one with request_review.
 
 When you are asked for work unrelated to your prompt, such as fixing a bug you found while profiling, decline it and offer to have another agent take it. Fold it into your pull request only when the person explicitly asks for that. A request your reviewer passes on from the person has already been decided, so act on it without asking again.
 

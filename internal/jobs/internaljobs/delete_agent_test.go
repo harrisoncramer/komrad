@@ -69,7 +69,7 @@ func TestDeleteAgentWorker(t *testing.T) {
 		},
 		{
 			name:       "a delete waiting on a child's is snoozed, even on its last attempt",
-			deleteErr:  agenterr.ErrChildDeleting,
+			deleteErr:  agenterr.ErrReviewerDeleting,
 			attempt:    3,
 			wantErr:    true,
 			wantSnooze: true,

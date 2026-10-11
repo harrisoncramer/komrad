@@ -469,7 +469,7 @@ said AS (
                 WHERE
                     a.id = w.author_agent_id
                     AND a.task_id = t.task_id
-                    AND a.parent_agent_id IS NULL)) AS reopens
+                    AND a.role = 'writer')) AS reopens
         FROM
             written w
             JOIN review_threads t ON t.id = w.thread_id
@@ -545,7 +545,7 @@ said AS (
                 WHERE
                     a.id = w.author_agent_id
                     AND a.task_id = t.task_id
-                    AND a.parent_agent_id IS NULL)) AS reopens
+                    AND a.role = 'writer')) AS reopens
     FROM
         written w
         JOIN review_threads t ON t.id = w.thread_id
@@ -751,7 +751,8 @@ SELECT
     c.id AS reviewer_id
 FROM
     agents c
-    JOIN agents p ON p.id = c.parent_agent_id
+    JOIN agents p ON p.task_id = c.task_id
+        AND p.role = 'writer'
 WHERE
     c.role = 'reviewer'
     AND c.archived_at IS NULL

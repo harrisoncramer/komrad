@@ -56,7 +56,7 @@ func TestIntegrationLogReadsTheServersOwnLog(t *testing.T) {
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 }
 
-// TestIntegrationLogReadsWhatWasLoggedAboutAgents covers an orchestrator reading its children's
+// TestIntegrationLogReadsWhatWasLoggedAboutAgents covers an orchestrator reading its writers'
 // lines at once, then reading back only what was written since.
 func TestIntegrationLogReadsWhatWasLoggedAboutAgents(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{KeepLog: true})

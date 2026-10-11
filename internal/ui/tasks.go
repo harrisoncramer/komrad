@@ -91,18 +91,10 @@ func (l listing) findTaskLead(task panel.Task) (panel.AgentRow, bool) {
 	return findLead(l.taskAgents(task))
 }
 
-// findLead is the newest of the agents on a task no parent among them stands over, preferring
-// one with a pane.
+// findLead is the newest of the agents on a task other than its reviewers, preferring one with a
+// pane.
 func findLead(onTask []panel.AgentRow) (panel.AgentRow, bool) {
-	byID := keyAgentsByID(onTask)
-	heads := xslice.Filter(onTask, func(item panel.AgentRow) bool {
-		if item.Agent.ParentAgentID == nil {
-			return true
-		}
-		_, onIt := byID[*item.Agent.ParentAgentID]
-
-		return !onIt
-	})
+	heads := xslice.Filter(onTask, func(item panel.AgentRow) bool { return item.Agent.Role != panel.RoleReviewer })
 	if len(heads) == 0 {
 		return panel.AgentRow{}, false
 	}
@@ -143,7 +135,7 @@ func (l listing) findOwnerInCheckout(task panel.Task) (panel.AgentRow, bool) {
 
 // isCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
 func isCheckoutOwner(agent panel.Agent) bool {
-	return agent.ParentAgentID == nil && !agent.ProvisionDisabled
+	return agent.Role == panel.RoleWriter && !agent.ProvisionDisabled
 }
 
 // findLiveWriter is the writer working in the task's checkout.

@@ -141,7 +141,7 @@ func (s *TaskService) StartPostArchive(ctx context.Context, archived []taskstore
 
 // isOpening reports whether an agent starting on a task opens it, which it does when no other agent on the task is live.
 func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
-	if agent.TaskID == nil || agent.ParentAgentID != nil {
+	if agent.TaskID == nil || agent.Role != agentstore.RoleWriter {
 		return false
 	}
 
@@ -209,7 +209,7 @@ func findTaskActor(agents []agentstore.Agent, taskID string) *agentstore.Agent {
 
 func rankActor(agent agentstore.Agent) int {
 	switch {
-	case agent.ParentAgentID != nil:
+	case agent.Role == agentstore.RoleReviewer:
 		return 0
 	case agent.IsProvisionerDisabled():
 		return 1

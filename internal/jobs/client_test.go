@@ -220,15 +220,15 @@ func TestWorktreeDeleteClaimsWhatItQueues(t *testing.T) {
 }
 
 // TestAgentDeleteQueuesWhatItClaims covers a delete queuing one job for each agent it took
-// whose parent it did not, nothing for a second press, and nothing at all when an id names
+// other than a reviewer whose task's writer it took, nothing for a second press, and nothing at all when an id names
 // no agent.
 func TestAgentDeleteQueuesWhatItClaims(t *testing.T) {
 	client, stores := newRiverClientWithStores(t)
 	ctx := t.Context()
 	agentDelete := NewAgentDelete(NewEnqueuer(client, stores.Pool.GetRawPool()))
 
-	parent := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
-	stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", ParentAgentID: &parent.ID})
+	writer := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+	stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", Role: agentstore.RoleReviewer, TaskID: writer.TaskID})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 
 	err := agentDelete.DeleteAgents(ctx, []string{other.ID, newID(t)})
@@ -238,11 +238,11 @@ func TestAgentDeleteQueuesWhatItClaims(t *testing.T) {
 	assert.Nil(t, untouched.DeletingAt, "a refused batch claims nothing")
 	assert.Empty(t, queuedDeletes(t, client))
 
-	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{parent.ID}))
-	assert.Equal(t, []string{parent.ID}, queuedDeletes(t, client), "the child goes with its parent's job")
+	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{writer.ID}))
+	assert.Equal(t, []string{writer.ID}, queuedDeletes(t, client), "the reviewer goes with its writer's job")
 
-	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{parent.ID, other.ID}))
-	assert.ElementsMatch(t, []string{parent.ID, other.ID}, queuedDeletes(t, client), "a second press queues only what it newly took")
+	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{writer.ID, other.ID}))
+	assert.ElementsMatch(t, []string{writer.ID, other.ID}, queuedDeletes(t, client), "a second press queues only what it newly took")
 }
 
 // TestAgentDeleteResume covers a starting server queuing the deletes the last one left owed

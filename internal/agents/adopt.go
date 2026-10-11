@@ -183,7 +183,7 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	}
 
 	working := xslice.Filter(agents, func(agent agentstore.Agent) bool {
-		return agent.WorkflowID == workflowID && agent.ParentAgentID == nil && isWorking(agent)
+		return agent.WorkflowID == workflowID && agent.Role == agentstore.RoleWriter && isWorking(agent)
 	})
 	found, err := s.tasks.ListTasksByID(ctx, agentstore.TaskIDs(working))
 	if err != nil {
@@ -217,7 +217,7 @@ func isWorking(agent agentstore.Agent) bool {
 	return agent.State != agentstore.StateFailedToCreate && agent.ArchivedAt == nil
 }
 
-// agentIn returns the top-level agent whose cwd is a directory, archived ones included.
+// agentIn returns the agent other than a reviewer whose cwd is a directory, archived ones included.
 func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
 	agents, err := s.agents.ListAll(ctx)
 	if err != nil {
@@ -225,7 +225,7 @@ func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Age
 	}
 
 	for _, agent := range agents {
-		if agent.ParentAgentID != nil {
+		if agent.Role == agentstore.RoleReviewer {
 			continue
 		}
 

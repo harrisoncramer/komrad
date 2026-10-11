@@ -84,13 +84,12 @@ func workflowProse(w panel.Workflow) string {
 }
 
 // agentFieldsParams is an agent and what the record says about it that is not on its row: the
-// names of what launched it and what it hangs off, and its task's directory and checkout.
+// name of what launched it, and its task's directory and checkout.
 type agentFieldsParams struct {
 	agent panel.Agent
 	// task is the slug of the task the agent works on, empty for one on none.
 	task     string
 	schedule string
-	parent   string
 	// headerCwd is the directory of the task header standing over the agent, empty where none does.
 	headerCwd string
 	// checkout is its task's checkout rows, for a record no task header stands over.
@@ -98,14 +97,8 @@ type agentFieldsParams struct {
 }
 
 func agentFields(params agentFieldsParams) []recordField {
-	agent, schedule, parent := params.agent, params.schedule, params.parent
+	agent, schedule := params.agent, params.schedule
 	var fields []recordField
-	// What a child is attached to comes early, and for a reviewer that same row is whose work it
-	// is reading.
-	if agent.ParentAgentID != nil {
-		fields = append(fields, recordField{label: attachmentFieldKey(agent.Role), value: label.OrDash(parent)})
-	}
-
 	if params.task != "" {
 		fields = append(fields, recordField{label: "task", value: params.task})
 	}
@@ -136,19 +129,6 @@ func agentFields(params agentFieldsParams) []recordField {
 
 	return fields
 }
-
-// attachmentFieldKey labels the agent a child hangs off, which for a reviewer is the work it was
-// launched to read rather than only where it happens to be running.
-func attachmentFieldKey(role panel.Role) string {
-	if role == panel.RoleReviewer {
-		return reviewingFieldKey
-	}
-
-	return "attached to"
-}
-
-// reviewingFieldKey labels whose work a reviewer is reading.
-const reviewingFieldKey = "reviewing"
 
 const noSchedulesMarkdown = `# Schedules
 

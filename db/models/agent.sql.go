@@ -115,15 +115,22 @@ func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams
 const clearAgentsDeleting = `-- name: ClearAgentsDeleting :exec
 WITH released AS (
     UPDATE
-        agents
+        agents a
     SET
         deleting_at = NULL
-    WHERE (id = ANY ($1::uuid[])
-        OR parent_agent_id = ANY ($1::uuid[]))
-    AND deleting_at IS NOT NULL
+    WHERE (a.id = ANY ($1::uuid[])
+        OR a.task_id IN (
+            SELECT
+                w.task_id
+            FROM
+                agents w
+            WHERE
+                w.id = ANY ($1::uuid[])
+                AND w.role = 'writer'))
+    AND a.deleting_at IS NOT NULL
 RETURNING
-    workflow_id,
-    task_id
+    a.workflow_id,
+    a.task_id
 ),
 released_tasks AS (
     UPDATE
@@ -172,23 +179,6 @@ func (q *Queries) CountLiveAgents(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const countLiveChildAgents = `-- name: CountLiveChildAgents :one
-SELECT
-    COUNT(*)
-FROM
-    agents
-WHERE
-    parent_agent_id = $1
-    AND archived_at IS NULL
-`
-
-func (q *Queries) CountLiveChildAgents(ctx context.Context, parentAgentID *string) (int64, error) {
-	row := q.db.QueryRow(ctx, countLiveChildAgents, parentAgentID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countLiveScheduleAgents = `-- name: CountLiveScheduleAgents :one
 SELECT
     COUNT(*)
@@ -207,20 +197,38 @@ func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *strin
 	return count, err
 }
 
-const countLiveSpawnedAgents = `-- name: CountLiveSpawnedAgents :one
+const countLiveTaskReviewers = `-- name: CountLiveTaskReviewers :one
+SELECT
+    COUNT(*)
+FROM
+    agents
+WHERE
+    task_id = $1
+    AND role = 'reviewer'
+    AND archived_at IS NULL
+`
+
+func (q *Queries) CountLiveTaskReviewers(ctx context.Context, taskID *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveTaskReviewers, taskID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countLiveTasksStartedBy = `-- name: CountLiveTasksStartedBy :one
 SELECT
     COUNT(*)
 FROM
     agents
 WHERE
     spawned_by_agent_id = $1
-    AND parent_agent_id IS NULL
+    AND role = 'writer'
     AND archived_at IS NULL
     AND state NOT IN ('failed_to_create', 'failed_to_cleanup')
 `
 
-func (q *Queries) CountLiveSpawnedAgents(ctx context.Context, spawnedByAgentID *string) (int64, error) {
-	row := q.db.QueryRow(ctx, countLiveSpawnedAgents, spawnedByAgentID)
+func (q *Queries) CountLiveTasksStartedBy(ctx context.Context, spawnedByAgentID *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveTasksStartedBy, spawnedByAgentID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -884,7 +892,7 @@ SELECT
     a.workflow_id,
     a.created_at,
     a.task_id,
-    a.parent_agent_id,
+    a.role,
     a.provision_enabled
 FROM
     agents a
@@ -901,7 +909,7 @@ type ListAgentDirsRow struct {
 	WorkflowID       string
 	CreatedAt        time.Time
 	TaskID           *string
-	ParentAgentID    *string
+	Role             AgentRole
 	ProvisionEnabled *bool
 }
 
@@ -925,7 +933,7 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.WorkflowID,
 			&i.CreatedAt,
 			&i.TaskID,
-			&i.ParentAgentID,
+			&i.Role,
 			&i.ProvisionEnabled,
 		); err != nil {
 			return nil, err
@@ -1473,91 +1481,11 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 	return items, nil
 }
 
-const listChildAgents = `-- name: ListChildAgents :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, repository_url, deleting_at, alive, engine_id, head_sha, moved_since_round, failure_reason, last_rebase, archive_batch_id, turn_failed_at, turn_error, lines_added, lines_removed, held_by_agent_id, sequence, requested_by_agent_id, task_id
-FROM
-    agents
-WHERE
-    parent_agent_id = ANY ($1::uuid[])
-ORDER BY
-    id DESC
-`
-
-func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, listChildAgents, parentIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-			&i.HeldAt,
-			&i.HeldMidTurn,
-			&i.NudgeSentAt,
-			&i.RepositoryUrl,
-			&i.DeletingAt,
-			&i.Alive,
-			&i.EngineID,
-			&i.HeadSha,
-			&i.MovedSinceRound,
-			&i.FailureReason,
-			&i.LastRebase,
-			&i.ArchiveBatchID,
-			&i.TurnFailedAt,
-			&i.TurnError,
-			&i.LinesAdded,
-			&i.LinesRemoved,
-			&i.HeldByAgentID,
-			&i.Sequence,
-			&i.RequestedByAgentID,
-			&i.TaskID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listDeletingRoots = `-- name: ListDeletingRoots :many
 SELECT
     a.id,
-    a.parent_agent_id,
+    a.task_id,
+    a.role,
     a.deleting_at
 FROM
     agents a
@@ -1567,18 +1495,21 @@ WHERE
         SELECT
             1
         FROM
-            agents parent
+            agents w
         WHERE
-            parent.id = a.parent_agent_id
-            AND parent.deleting_at = a.deleting_at)
+            a.role = 'reviewer'
+            AND w.task_id = a.task_id
+            AND w.role = 'writer'
+            AND w.deleting_at = a.deleting_at)
 ORDER BY
     a.id
 `
 
 type ListDeletingRootsRow struct {
-	ID            string
-	ParentAgentID *string
-	DeletingAt    *time.Time
+	ID         string
+	TaskID     *string
+	Role       AgentRole
+	DeletingAt *time.Time
 }
 
 func (q *Queries) ListDeletingRoots(ctx context.Context) ([]*ListDeletingRootsRow, error) {
@@ -1590,7 +1521,12 @@ func (q *Queries) ListDeletingRoots(ctx context.Context) ([]*ListDeletingRootsRo
 	var items []*ListDeletingRootsRow
 	for rows.Next() {
 		var i ListDeletingRootsRow
-		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Role,
+			&i.DeletingAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -1921,7 +1857,7 @@ FROM
     agents a
 WHERE
     a.task_id = ANY ($1::uuid[])
-    AND a.parent_agent_id IS NULL
+    AND a.role = 'writer'
     AND a.provision_enabled IS DISTINCT FROM FALSE
     AND NOT EXISTS (
         SELECT
@@ -1930,7 +1866,7 @@ WHERE
             agents l
         WHERE
             l.task_id = a.task_id
-            AND l.parent_agent_id IS NULL
+            AND l.role = 'writer'
             AND l.provision_enabled IS DISTINCT FROM FALSE
             AND l.archived_at IS NULL)
 `
@@ -1963,15 +1899,7 @@ FROM
 WHERE
     a.workflow_id = $1
     AND a.archived_at IS NOT NULL
-    AND (a.parent_agent_id IS NULL
-        OR EXISTS (
-            SELECT
-                1
-            FROM
-                agents p
-            WHERE
-                p.id = a.parent_agent_id
-                AND p.archive_batch_id = a.archive_batch_id))
+    AND a.role <> 'reviewer'
 ORDER BY
     a.id DESC
 `
@@ -2364,17 +2292,25 @@ func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) ([]*Mark
 const markAgentsDeleting = `-- name: MarkAgentsDeleting :many
 WITH claimed AS (
     UPDATE
-        agents
+        agents a
     SET
         deleting_at = NOW()
-    WHERE (id = ANY ($1::uuid[])
-        OR parent_agent_id = ANY ($1::uuid[]))
-    AND deleting_at IS NULL
+    WHERE (a.id = ANY ($1::uuid[])
+        OR a.task_id IN (
+            SELECT
+                w.task_id
+            FROM
+                agents w
+            WHERE
+                w.id = ANY ($1::uuid[])
+                AND w.role = 'writer'))
+    AND a.deleting_at IS NULL
 RETURNING
-    id,
-    parent_agent_id,
-    workflow_id,
-    deleting_at
+    a.id,
+    a.task_id,
+    a.role,
+    a.workflow_id,
+    a.deleting_at
 ),
 marked AS (
     UPDATE
@@ -2408,16 +2344,18 @@ marked AS (
 )
         SELECT
             id,
-            parent_agent_id,
+            task_id,
+            role,
             deleting_at
         FROM
             claimed
 `
 
 type MarkAgentsDeletingRow struct {
-	ID            string
-	ParentAgentID *string
-	DeletingAt    *time.Time
+	ID         string
+	TaskID     *string
+	Role       AgentRole
+	DeletingAt *time.Time
 }
 
 func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) ([]*MarkAgentsDeletingRow, error) {
@@ -2429,7 +2367,12 @@ func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) ([]*Mark
 	var items []*MarkAgentsDeletingRow
 	for rows.Next() {
 		var i MarkAgentsDeletingRow
-		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Role,
+			&i.DeletingAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -2447,7 +2390,14 @@ WITH claimed AS (
     SET
         deleting_at = NOW()
     WHERE (a.id = ANY ($1::uuid[])
-        OR a.parent_agent_id = ANY ($1::uuid[]))
+        OR a.task_id IN (
+            SELECT
+                w.task_id
+            FROM
+                agents w
+            WHERE
+                w.id = ANY ($1::uuid[])
+                AND w.role = 'writer'))
     AND a.archived_at IS NOT NULL
     AND a.state <> 'failed_to_cleanup'
     AND a.deleting_at IS NULL
@@ -2455,13 +2405,16 @@ WITH claimed AS (
         SELECT
             1
         FROM
-            agents parent
+            agents w
         WHERE
-            parent.id = a.parent_agent_id
-            AND parent.state = 'failed_to_cleanup')
+            a.role = 'reviewer'
+            AND w.task_id = a.task_id
+            AND w.role = 'writer'
+            AND w.state = 'failed_to_cleanup')
     RETURNING
         a.id,
-        a.parent_agent_id,
+        a.task_id,
+        a.role,
         a.workflow_id,
         a.deleting_at
 ),
@@ -2497,16 +2450,18 @@ marked AS (
 )
         SELECT
             id,
-            parent_agent_id,
+            task_id,
+            role,
             deleting_at
         FROM
             claimed
 `
 
 type MarkArchivedAgentsDeletingByIDRow struct {
-	ID            string
-	ParentAgentID *string
-	DeletingAt    *time.Time
+	ID         string
+	TaskID     *string
+	Role       AgentRole
+	DeletingAt *time.Time
 }
 
 func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) ([]*MarkArchivedAgentsDeletingByIDRow, error) {
@@ -2518,7 +2473,12 @@ func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []stri
 	var items []*MarkArchivedAgentsDeletingByIDRow
 	for rows.Next() {
 		var i MarkArchivedAgentsDeletingByIDRow
-		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Role,
+			&i.DeletingAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -2641,15 +2601,7 @@ SET
 WHERE
     a.workflow_id = $1
     AND a.archived_at IS NOT NULL
-    AND (a.parent_agent_id IS NULL
-        OR EXISTS (
-            SELECT
-                1
-            FROM
-                agents p
-            WHERE
-                p.id = a.parent_agent_id
-                AND p.archive_batch_id = a.archive_batch_id))
+    AND a.role <> 'reviewer'
 `
 
 func (q *Queries) MarkWorkflowAgentsRestored(ctx context.Context, workflowID string) error {

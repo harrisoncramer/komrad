@@ -491,7 +491,7 @@ func TestAnAnswerCarryingARoundSettlesTheThread(t *testing.T) {
 			round := st.openRound(t, workerID, "tree-one")
 			review := st.openReview(t, round)
 			if tt.byReviewer {
-				review = st.openReviewBy(t, round, st.seedReviewerChild(t, workerID))
+				review = st.openReviewBy(t, round, st.seedReviewer(t, workerID))
 			}
 			thread := st.openThread(t, review, "this needs a nil check")
 			st.releaseReview(t, review, VerdictChangesRequested)
@@ -601,7 +601,7 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 			var authorAgentID *string
 			var second *Review
 			if tt.byReviewer {
-				reviewerID := st.seedReviewerChild(t, workerID)
+				reviewerID := st.seedReviewer(t, workerID)
 				second = st.openReviewBy(t, round, reviewerID)
 				author, authorAgentID = AuthorAgent, &reviewerID
 			} else {
@@ -778,7 +778,7 @@ func TestListTallies(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := openFixture(t)
 			agentID := st.seedAgent(t, "worker")
-			reviewerID := st.seedReviewerChild(t, agentID)
+			reviewerID := st.seedReviewer(t, agentID)
 
 			rounds := map[string]*Round{}
 			for _, released := range append(tt.releases, tallyRelease{tree: tt.openOn}) {
@@ -1060,7 +1060,7 @@ func TestLiveReviewers(t *testing.T) {
 			agentID := st.seedAgent(t, "worker")
 			seeded := liveReviewerSeed{
 				agentID:    agentID,
-				reviewerID: st.seedReviewerChild(t, agentID),
+				reviewerID: st.seedReviewer(t, agentID),
 			}
 			unread := st.seedAgent(t, "unread")
 
@@ -1153,14 +1153,16 @@ func (st *fixture) seedAgent(t *testing.T, name string) string {
 	return st.seedAgentLike(t, agentstore.Agent{Name: name})
 }
 
-// seedReviewerChild is a reviewer attached to the agent whose work it reads.
-func (st *fixture) seedReviewerChild(t *testing.T, parentID string) string {
+// seedReviewer is a reviewer on the task of the writer whose work it reads.
+func (st *fixture) seedReviewer(t *testing.T, writerID string) string {
 	t.Helper()
 
+	taskID := st.taskOf(t, writerID)
+
 	return st.seedAgentLike(t, agentstore.Agent{
-		Name:          "worker-reviewer",
-		Role:          agentstore.RoleReviewer,
-		ParentAgentID: &parentID,
+		Name:   "worker-reviewer",
+		Role:   agentstore.RoleReviewer,
+		TaskID: &taskID,
 	})
 }
 

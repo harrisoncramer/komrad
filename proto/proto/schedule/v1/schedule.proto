@@ -38,7 +38,7 @@ enum ScheduleRunState {
 enum ScheduleKind {
   // No kind was recorded.
   SCHEDULE_KIND_UNSPECIFIED = 0;
-  // Launches a new implementer into the workflow with the prompt.
+  // Unused.
   SCHEDULE_KIND_IMPLEMENTER = 1;
   // Mails the prompt to an orchestrator that is already running.
   SCHEDULE_KIND_ORCHESTRATOR = 2;

@@ -80,17 +80,25 @@ ORDER BY
 -- name: MarkAgentsDeleting :many
 WITH claimed AS (
     UPDATE
-        agents
+        agents a
     SET
         deleting_at = NOW()
-    WHERE (id = ANY (@ids::uuid[])
-        OR parent_agent_id = ANY (@ids::uuid[]))
-    AND deleting_at IS NULL
+    WHERE (a.id = ANY (@ids::uuid[])
+        OR a.task_id IN (
+            SELECT
+                w.task_id
+            FROM
+                agents w
+            WHERE
+                w.id = ANY (@ids::uuid[])
+                AND w.role = 'writer'))
+    AND a.deleting_at IS NULL
 RETURNING
-    id,
-    parent_agent_id,
-    workflow_id,
-    deleting_at
+    a.id,
+    a.task_id,
+    a.role,
+    a.workflow_id,
+    a.deleting_at
 ),
 marked AS (
     UPDATE
@@ -124,7 +132,8 @@ marked AS (
 )
         SELECT
             id,
-            parent_agent_id,
+            task_id,
+            role,
             deleting_at
         FROM
             claimed;
@@ -136,7 +145,14 @@ WITH claimed AS (
     SET
         deleting_at = NOW()
     WHERE (a.id = ANY (@ids::uuid[])
-        OR a.parent_agent_id = ANY (@ids::uuid[]))
+        OR a.task_id IN (
+            SELECT
+                w.task_id
+            FROM
+                agents w
+            WHERE
+                w.id = ANY (@ids::uuid[])
+                AND w.role = 'writer'))
     AND a.archived_at IS NOT NULL
     AND a.state <> 'failed_to_cleanup'
     AND a.deleting_at IS NULL
@@ -144,13 +160,16 @@ WITH claimed AS (
         SELECT
             1
         FROM
-            agents parent
+            agents w
         WHERE
-            parent.id = a.parent_agent_id
-            AND parent.state = 'failed_to_cleanup')
+            a.role = 'reviewer'
+            AND w.task_id = a.task_id
+            AND w.role = 'writer'
+            AND w.state = 'failed_to_cleanup')
     RETURNING
         a.id,
-        a.parent_agent_id,
+        a.task_id,
+        a.role,
         a.workflow_id,
         a.deleting_at
 ),
@@ -186,7 +205,8 @@ marked AS (
 )
         SELECT
             id,
-            parent_agent_id,
+            task_id,
+            role,
             deleting_at
         FROM
             claimed;
@@ -194,15 +214,22 @@ marked AS (
 -- name: ClearAgentsDeleting :exec
 WITH released AS (
     UPDATE
-        agents
+        agents a
     SET
         deleting_at = NULL
-    WHERE (id = ANY (@ids::uuid[])
-        OR parent_agent_id = ANY (@ids::uuid[]))
-    AND deleting_at IS NOT NULL
+    WHERE (a.id = ANY (@ids::uuid[])
+        OR a.task_id IN (
+            SELECT
+                w.task_id
+            FROM
+                agents w
+            WHERE
+                w.id = ANY (@ids::uuid[])
+                AND w.role = 'writer'))
+    AND a.deleting_at IS NOT NULL
 RETURNING
-    workflow_id,
-    task_id
+    a.workflow_id,
+    a.task_id
 ),
 released_tasks AS (
     UPDATE
@@ -231,7 +258,8 @@ WHERE
 -- name: ListDeletingRoots :many
 SELECT
     a.id,
-    a.parent_agent_id,
+    a.task_id,
+    a.role,
     a.deleting_at
 FROM
     agents a
@@ -241,10 +269,12 @@ WHERE
         SELECT
             1
         FROM
-            agents parent
+            agents w
         WHERE
-            parent.id = a.parent_agent_id
-            AND parent.deleting_at = a.deleting_at)
+            a.role = 'reviewer'
+            AND w.task_id = a.task_id
+            AND w.role = 'writer'
+            AND w.deleting_at = a.deleting_at)
 ORDER BY
     a.id;
 
@@ -527,33 +557,24 @@ RETURNING
     a.id,
     prior.pane_id;
 
--- name: ListChildAgents :many
-SELECT
-    *
-FROM
-    agents
-WHERE
-    parent_agent_id = ANY (@parent_ids::uuid[])
-ORDER BY
-    id DESC;
-
--- name: CountLiveChildAgents :one
+-- name: CountLiveTaskReviewers :one
 SELECT
     COUNT(*)
 FROM
     agents
 WHERE
-    parent_agent_id = @parent_agent_id
+    task_id = @task_id
+    AND role = 'reviewer'
     AND archived_at IS NULL;
 
--- name: CountLiveSpawnedAgents :one
+-- name: CountLiveTasksStartedBy :one
 SELECT
     COUNT(*)
 FROM
     agents
 WHERE
     spawned_by_agent_id = @spawned_by_agent_id
-    AND parent_agent_id IS NULL
+    AND role = 'writer'
     AND archived_at IS NULL
     AND state NOT IN ('failed_to_create', 'failed_to_cleanup');
 
@@ -613,15 +634,7 @@ SET
 WHERE
     a.workflow_id = @workflow_id
     AND a.archived_at IS NOT NULL
-    AND (a.parent_agent_id IS NULL
-        OR EXISTS (
-            SELECT
-                1
-            FROM
-                agents p
-            WHERE
-                p.id = a.parent_agent_id
-                AND p.archive_batch_id = a.archive_batch_id));
+    AND a.role <> 'reviewer';
 
 -- name: ListRestorableWorkflowAgents :many
 SELECT
@@ -631,15 +644,7 @@ FROM
 WHERE
     a.workflow_id = @workflow_id
     AND a.archived_at IS NOT NULL
-    AND (a.parent_agent_id IS NULL
-        OR EXISTS (
-            SELECT
-                1
-            FROM
-                agents p
-            WHERE
-                p.id = a.parent_agent_id
-                AND p.archive_batch_id = a.archive_batch_id))
+    AND a.role <> 'reviewer'
 ORDER BY
     a.id DESC;
 
@@ -1288,7 +1293,7 @@ SELECT
     a.workflow_id,
     a.created_at,
     a.task_id,
-    a.parent_agent_id,
+    a.role,
     a.provision_enabled
 FROM
     agents a;
@@ -1310,7 +1315,7 @@ FROM
     agents a
 WHERE
     a.task_id = ANY (@task_ids::uuid[])
-    AND a.parent_agent_id IS NULL
+    AND a.role = 'writer'
     AND a.provision_enabled IS DISTINCT FROM FALSE
     AND NOT EXISTS (
         SELECT
@@ -1319,6 +1324,6 @@ WHERE
             agents l
         WHERE
             l.task_id = a.task_id
-            AND l.parent_agent_id IS NULL
+            AND l.role = 'writer'
             AND l.provision_enabled IS DISTINCT FROM FALSE
             AND l.archived_at IS NULL);

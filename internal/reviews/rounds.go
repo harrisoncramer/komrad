@@ -374,7 +374,7 @@ func (s *ReviewService) requireNotReviewedAlready(
 }
 
 // requireEntitled refuses an author that may not give a review on a task, which the person always
-// may, a child agent only on the task it works on, and a top-level agent never.
+// may, a reviewer only on the task it works on, and any other agent never.
 func (s *ReviewService) requireEntitled(
 	ctx context.Context,
 	task taskstore.Task,
@@ -388,7 +388,7 @@ func (s *ReviewService) requireEntitled(
 	if err != nil {
 		return err
 	}
-	if agent.ParentAgentID == nil {
+	if agent.Role != agentstore.RoleReviewer {
 		return ErrReviewOwnWork
 	}
 

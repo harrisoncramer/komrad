@@ -201,7 +201,7 @@ type Agent struct {
 	IdempotencyKey *string `protobuf:"bytes,15,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	// Which agent called create, unset for one a person spawned.
 	SpawnedByAgentId *string `protobuf:"bytes,16,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
-	// The agent this one is a child of, unset for an agent standing on its own.
+	// Unused.
 	ParentAgentId *string `protobuf:"bytes,17,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
 	// Whether a script komrad fired for the agent failed and nobody has looked at it since.
 	FailedRun bool `protobuf:"varint,18,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
@@ -893,13 +893,12 @@ type CreateAgentRequest struct {
 	// False to run in the directory named above rather than a fresh worktree, which is how an
 	// agent reads a checkout somebody else has open. Unset to do whatever the workflow does.
 	ProvisionEnabled *bool `protobuf:"varint,7,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
-	// Which agent to attach this one to as its child. A child runs in its parent's directory, so
-	// dir and provision_enabled are refused, and workflow_id must be the parent's own. Neither a
-	// child nor an orchestrator may be a parent.
+	// Unused.
 	ParentAgentId *string `protobuf:"bytes,8,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
-	// Which task it works on, by id or slug, which must be in workflow_id. Unset to have komrad
-	// make one from its title and prompt. A child always works on its parent's task, so this is
-	// refused with parent_agent_id.
+	// Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer
+	// when the task has none yet, and otherwise a reviewer in the writer's checkout, for which
+	// provision_enabled is refused. Unset to start a task of its own, made from its title and
+	// prompt, with this agent as its writer.
 	Task *string `protobuf:"bytes,9,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	// The slug of the task komrad makes for it when task is unset, which no other task has ever
 	// had. Unset to make one from its name, numbered until it is free.
@@ -1156,7 +1155,7 @@ func (x *RequestReviewRequest) GetFlags() string {
 
 type RequestReviewResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The reviewer as spawned, which is a child of the agent being read.
+	// The reviewer as spawned, on the task of the agent being read.
 	Reviewer *Agent `protobuf:"bytes,1,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
 	// What the agent that asked does next: how the review reaches it and how it answers.
 	Guidance      string `protobuf:"bytes,2,opt,name=guidance,proto3" json:"guidance,omitempty"`
@@ -3481,16 +3480,16 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
 	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x03\x12\x15\n" +
-	"\x11AGENT_ROLE_WRITER\x10\x042\xc3\x7f\n" +
+	"\x11AGENT_ROLE_WRITER\x10\x042\xa6\x80\x01\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.:\x03\x04\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
-	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"a\x9a\xb5\x18Z\b\x01\x10\x01\x1a\tget_agent\"DFetch one agent by id, archived ones included, with its full prompt.:\x03\x04\x02\x03\x90\x02\x01\x12\xd7\x04\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x8a\x04\x9a\xb5\x18\x85\x04\b\x01\x10\x01\x1a\fcreate_agent\"\xea\x03Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. Pass task, by id or slug, to put it on a task made with create_task, or leave it unset to give it a task of its own. A child shares its parent's task. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.(\x00:\x02\x04\x03\x12\xb3\x02\n" +
-	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xe0\x01\x9a\xb5\x18\xdb\x01\b\x01\x10\x01\x1a\x0erequest_review\"\xbf\x01Spawn a reviewer for your committed work, as your child in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person.(\x00:\x01\x04\x12\x93\x02\n" +
+	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"a\x9a\xb5\x18Z\b\x01\x10\x01\x1a\tget_agent\"DFetch one agent by id, archived ones included, with its full prompt.:\x03\x04\x02\x03\x90\x02\x01\x12\xee\x04\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xa1\x04\x9a\xb5\x18\x9c\x04\b\x01\x10\x01\x1a\fcreate_agent\"\x81\x04Launch a new agent with an opening prompt, which is everything it has to go on. Pass task, by id or slug, to put it on that task, as its writer when it has none yet, such as one made with create_task, and otherwise as a reviewer in the writer's checkout. Leave task unset to start a task with this agent as its writer. Pass provision_enabled false to keep a writer in the workflow's directory instead of a new worktree. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.(\x00:\x02\x04\x03\x12\xb2\x02\n" +
+	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xdf\x01\x9a\xb5\x18\xda\x01\b\x01\x10\x01\x1a\x0erequest_review\"\xbe\x01Spawn a reviewer for your committed work, on your task in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person.(\x00:\x01\x04\x12\x93\x02\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\xd8\x01\x9a\xb5\x18\xd3\x01\b\x01\x10\x01\x1a\x05adopt\"\xc0\x01Start an agent on a branch that already exists, such as one a person pushed. Nothing here creates, resets or deletes the branch, and a branch that already has an agent answers with that agent.(\x00:\x01\x03\x12\xd0\x01\n" +
-	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\x9a\x01\x9a\xb5\x18\x95\x01\b\x01\x10\x01\x1a\x03log\"\x80\x01Write one line to komrad's log, filed under the calling agent unless id names another. This is how a hook script leaves a trace.(\x000\x00:\x03\x04\x02\x03\x12\x93\x02\n" +
-	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\xcf\x01\x9a\xb5\x18\xca\x01\b\x01\x10\x01\x1a\tsend_mail\"\xaf\x01Send mail to another agent by id or name, setting reply_to when answering. A name held in more than one workflow is refused, and a child may mail only its parent and siblings.(\x000\x00:\x03\x04\x02\x03\x12\xc7\x02\n" +
+	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\x9a\x01\x9a\xb5\x18\x95\x01\b\x01\x10\x01\x1a\x03log\"\x80\x01Write one line to komrad's log, filed under the calling agent unless id names another. This is how a hook script leaves a trace.(\x000\x00:\x03\x04\x02\x03\x12\xb5\x02\n" +
+	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\xf1\x01\x9a\xb5\x18\xec\x01\b\x01\x10\x01\x1a\tsend_mail\"\xd1\x01Send mail to another agent by id or name, setting reply_to when answering. A name held in more than one workflow is refused, and a reviewer may mail only the agents on its task and its workflow's orchestrator.(\x000\x00:\x03\x04\x02\x03\x12\xc7\x02\n" +
 	"\x10ForwardLastTurns\x12!.agent.v1.ForwardLastTurnsRequest\x1a\".agent.v1.ForwardLastTurnsResponse\"\xeb\x01\x9a\xb5\x18\xe6\x01\b\x01\x10\x01\x1a\x12forward_last_turns\"\xc2\x01Send an agent's latest turns to another agent as mail without the text passing through your context. Mail holds at most 10000 characters, so pass fewer turns or a smaller max_bytes when refused.(\x000\x00:\x03\x04\x02\x03\x12\xa4\x02\n" +
 	"\bReadMail\x12\x19.agent.v1.ReadMailRequest\x1a\x1a.agent.v1.ReadMailResponse\"\xe0\x01\x9a\xb5\x18\xdb\x01\b\x01\x10\x01\x1a\tread_mail\"\xc0\x01Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which is almost never what you want.(\x000\x00:\x03\x04\x02\x03\x12\xc0\x01\n" +
 	"\bListMail\x12\x19.agent.v1.ListMailRequest\x1a\x1a.agent.v1.ListMailResponse\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\tlist_mail\"`List an agent's mail without claiming it, most recent first. Set direction to list what it sent.:\x03\x04\x02\x03\x90\x02\x01\x12\xa9\x01\n" +
@@ -3500,8 +3499,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xf4\x01\x9a\xb5\x18\xec\x01\b\x01\x10\x01\x1a\x0erestore_agents\"\xd0\x01Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it, and a reviewer is refused until its task is back. Call resume_agent on each one you want running.(\x00:\x01\x03\x90\x02\x02\x12\xfc\x01\n" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xb5\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\n" +
 	"hold_agent\"\x98\x01Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.(\x00:\x01\x03\x12\xaf\x01\n" +
-	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00:\x01\x03\x12\xb7\x02\n" +
-	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\xea\x01\x9a\xb5\x18\xe2\x01\b\x01\x10\x01\x1a\fresume_agent\"\xc6\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An agent on a task may resume only its parent and its workflow's orchestrator.(\x00:\x03\x04\x02\x03\x90\x02\x02\x12\xa4\x02\n" +
+	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00:\x01\x03\x12\xe2\x02\n" +
+	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x95\x02\x9a\xb5\x18\x8d\x02\b\x01\x10\x01\x1a\fresume_agent\"\xf1\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either its workflow's orchestrator.(\x00:\x03\x04\x02\x03\x90\x02\x02\x12\xa4\x02\n" +
 	"\fRestartAgent\x12\x1d.agent.v1.RestartAgentRequest\x1a\x1e.agent.v1.RestartAgentResponse\"\xd4\x01\x9a\xb5\x18\xcf\x01\b\x01\x10\x01\x1a\rrestart_agent\"\xb4\x01Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. Its earlier conversation stays in its transcript, and the task's reviewers carry on.(\x01:\x01\x03\x12\xbf\x01\n" +
 	"\n" +
 	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00:\x01\x03\x12\xe8\x02\n" +

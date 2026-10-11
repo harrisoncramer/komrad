@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -27,7 +26,6 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
-	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -443,7 +441,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				spawner = &seeded
 				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
 				if tt.child {
-					params = childOf(seeded, "reader")
+					params = reviewerOf(seeded, "reader")
 				}
 			}
 
@@ -1257,16 +1255,16 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 	require.Len(t, panes, ceiling)
 }
 
-// TestNewChildAgentTakesItsLaunchFromTheParent pins what a child is given rather than asked
-// for: the parent's checkout, no provisioner of its own, and the parent's workflow.
-func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
+// TestNewReviewerTakesItsLaunchFromItsTask pins what a reviewer is given rather than asked for:
+// its task's checkout, no provisioner of its own, and its task's workflow.
+func TestNewReviewerTakesItsLaunchFromItsTask(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
 
 	dir := t.TempDir()
-	parent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+	writer, err := manager.launch.NewAgent(ctx, NewAgentParams{
 		Title:      "author",
 		Dir:        dir,
 		Prompt:     "write the change",
@@ -1274,124 +1272,130 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	child, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:         "reviewer",
-		Prompt:        "read the change",
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
-	})
+	reviewer, err := manager.launch.NewAgent(ctx, reviewerOf(*writer, "reviewer"))
 	require.NoError(t, err)
-	require.NotNil(t, child)
+	require.NotNil(t, reviewer)
 
-	assert.Equal(t, dir, child.Cwd, "a child runs where its parent runs")
-	require.NotNil(t, child.ParentAgentID)
-	assert.Equal(t, parent.ID, *child.ParentAgentID)
-	assert.Equal(t, parent.WorkflowID, child.WorkflowID)
+	assert.Equal(t, agentstore.RoleReviewer, reviewer.Role)
+	assert.Equal(t, dir, reviewer.Cwd, "a reviewer runs where its task's writer runs")
+	assert.Equal(t, writer.TaskID, reviewer.TaskID)
+	assert.Equal(t, writer.WorkflowID, reviewer.WorkflowID)
 
 	// An unset provisioner falls back to the workflow's, which for a worktree-enabled workflow
-	// would tear the parent's checkout down, so the blank has to be on the row itself.
-	require.NotNil(t, child.ProvisionEnabled)
-	assert.False(t, *child.ProvisionEnabled)
+	// would tear the writer's checkout down, so the blank has to be on the row itself.
+	require.NotNil(t, reviewer.ProvisionEnabled)
+	assert.False(t, *reviewer.ProvisionEnabled)
 
-	assert.Empty(t, provisionerFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
+	assert.Empty(t, provisionerFor(ctx, st.Workflows, *reviewer), "and a provisioner turned off leaves nothing to run against it")
 }
 
-// TestNewChildAgentRefusals pins each child a launch refuses and records nothing for.
-func TestNewChildAgentRefusals(t *testing.T) {
+// TestNewReviewerRefusals pins each reviewer a launch refuses and records nothing for.
+func TestNewReviewerRefusals(t *testing.T) {
 	tests := []struct {
 		name          string
-		prepareParent func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent
-		params        func(parent agentstore.Agent) NewAgentParams
+		prepareWriter func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent
+		params        func(writer agentstore.Agent) NewAgentParams
 		wantErrIs     error
 	}{
 		{
 			name: "a directory of its own",
-			params: func(parent agentstore.Agent) NewAgentParams {
-				params := childOf(parent, "reviewer")
+			params: func(writer agentstore.Agent) NewAgentParams {
+				params := reviewerOf(writer, "reviewer")
 				params.Dir = "/tmp"
 
 				return params
 			},
-			wantErrIs: agenterr.ErrChildOwnsLaunch,
+			wantErrIs: agenterr.ErrReviewerOwnsLaunch,
 		},
 		{
 			name: "a provisioner of its own",
-			params: func(parent agentstore.Agent) NewAgentParams {
-				params := childOf(parent, "reviewer")
+			params: func(writer agentstore.Agent) NewAgentParams {
+				params := reviewerOf(writer, "reviewer")
 				params.ProvisionEnabled = xptr.Ptr(true)
 
 				return params
 			},
-			wantErrIs: agenterr.ErrChildOwnsLaunch,
+			wantErrIs: agenterr.ErrReviewerOwnsLaunch,
 		},
 		{
-			name: "a workflow other than its parent's",
-			params: func(parent agentstore.Agent) NewAgentParams {
-				params := childOf(parent, "reviewer")
+			name: "a schedule of its own",
+			params: func(writer agentstore.Agent) NewAgentParams {
+				params := reviewerOf(writer, "reviewer")
+				params.ScheduleID = xptr.Ptr("b9b1a1de-0000-7000-8000-000000000000")
+
+				return params
+			},
+			wantErrIs: agenterr.ErrReviewerOwnsLaunch,
+		},
+		{
+			name: "a workflow other than its task's",
+			params: func(writer agentstore.Agent) NewAgentParams {
+				params := reviewerOf(writer, "reviewer")
 				params.WorkflowID = "b9b1a1de-0000-7000-8000-000000000000"
 
 				return params
 			},
-			wantErrIs: agenterr.ErrChildOwnsLaunch,
+			wantErrIs: tasks.ErrOtherWorkflow,
 		},
 		{
-			name: "a task of its own",
-			params: func(parent agentstore.Agent) NewAgentParams {
-				params := childOf(parent, "reviewer")
-				params.Task = "other-work"
+			name: "a task made as it joins one",
+			params: func(writer agentstore.Agent) NewAgentParams {
+				params := reviewerOf(writer, "reviewer")
+				params.TaskSlug = "other-work"
 
 				return params
 			},
-			wantErrIs: agenterr.ErrChildOwnsLaunch,
+			wantErrIs: errTaskMadeAndJoined,
 		},
 		{
-			name: "a parent nothing answers to",
-			params: func(parent agentstore.Agent) NewAgentParams {
-				params := childOf(parent, "reviewer")
-				params.ParentAgentID = "b9b1a1de-0000-7000-8000-000000000000"
+			name: "a task nothing answers to",
+			params: func(writer agentstore.Agent) NewAgentParams {
+				params := reviewerOf(writer, "reviewer")
+				params.Task = "b9b1a1de-0000-7000-8000-000000000000"
 
 				return params
 			},
-			wantErrIs: agenterr.ErrParentNotFound,
+			wantErrIs: store.ErrNotFound,
 		},
 		{
-			name: "a parent already archived",
-			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+			name: "a task already archived",
+			prepareWriter: func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent {
 				t.Helper()
-				require.NoError(t, st.SoftDelete(t.Context(), parent.Name))
+				require.NoError(t, st.Tasks.Archive(t.Context(), *writer.TaskID))
 
-				return parent
+				return writer
 			},
-			wantErrIs: agenterr.ErrAgentArchived,
+			wantErrIs: tasks.ErrArchived,
 		},
 		{
-			name: "a parent whose task is being deleted",
-			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+			name: "a task being deleted",
+			prepareWriter: func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent {
 				t.Helper()
-				require.NoError(t, st.Tasks.MarkDeleting(t.Context(), []string{*parent.TaskID}))
+				require.NoError(t, st.Tasks.MarkDeleting(t.Context(), []string{*writer.TaskID}))
 
-				return parent
+				return writer
 			},
 			wantErrIs: taskstore.ErrDeleting,
 		},
 		{
-			name: "a parent with no directory",
-			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+			name: "a task whose worktree was removed",
+			prepareWriter: func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent {
 				t.Helper()
-				require.NoError(t, st.Agents.Update(t.Context(), withCwd(parent, "")))
+				require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
 
-				return parent
+				return writer
 			},
-			wantErrIs: agenterr.ErrChildNeedsParentDirectory,
+			wantErrIs: tasks.ErrWorktreeRemoved,
 		},
 		{
-			name: "a parent that is itself a child",
-			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+			name: "a writer with no directory",
+			prepareWriter: func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent {
 				t.Helper()
+				require.NoError(t, st.Agents.Update(t.Context(), withCwd(writer, "")))
 
-				return seedChild(t, st, tmuxtest.NewFake(), parent)
+				return writer
 			},
-			wantErrIs: agenterr.ErrParentIsChild,
+			wantErrIs: agenterr.ErrReviewerNeedsDirectory,
 		},
 	}
 
@@ -1401,15 +1405,15 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			parent := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
-			require.NoError(t, st.Agents.Update(t.Context(), parent))
-			if tt.prepareParent != nil {
-				parent = tt.prepareParent(t, st, parent)
+			writer := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
+			require.NoError(t, st.Agents.Update(t.Context(), writer))
+			if tt.prepareWriter != nil {
+				writer = tt.prepareWriter(t, st, writer)
 			}
 
-			params := childOf(parent, "second-reviewer")
+			params := reviewerOf(writer, "second-reviewer")
 			if tt.params != nil {
-				params = tt.params(parent)
+				params = tt.params(writer)
 			}
 
 			before, err := st.Agents.ListAll(t.Context())
@@ -1583,29 +1587,8 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 	}
 }
 
-// TestNewChildAgentSharesItsParentsTask pins that a child works on the task its parent does.
-func TestNewChildAgentSharesItsParentsTask(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-
-	parent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:      "author",
-		Dir:        t.TempDir(),
-		Prompt:     "write the change",
-		WorkflowID: seedWorkflow(t, st),
-	})
-	require.NoError(t, err)
-	require.NotNil(t, parent.TaskID)
-
-	child, err := manager.launch.NewAgent(t.Context(), childOf(*parent, "reviewer"))
-	require.NoError(t, err)
-
-	assert.Equal(t, parent.TaskID, agentByID(t, st, child.ID).TaskID)
-}
-
-// TestNewAgentClaimsItsTasksCheckout pins that one top-level agent makes a task's checkout, and who
-// else may join the task once it has.
+// TestNewAgentClaimsItsTasksCheckout pins that a task's writer makes its checkout, and who else
+// may join the task once it has.
 func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1615,51 +1598,31 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 		wantCheckout bool
 	}{
 		{
-			name: "a second writer is refused while the first is live",
+			name: "a second agent with a directory of its own is refused",
 			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
 				return NewAgentParams{
-					Title:      "rival",
+					Title:      "second",
 					Prompt:     "go",
 					WorkflowID: first.WorkflowID,
 					Task:       task.ID,
 					Dir:        dir,
 				}
 			},
-			wantErrIs:    tasks.ErrHasWriter,
+			wantErrIs:    agenterr.ErrReviewerOwnsLaunch,
 			wantCheckout: true,
 		},
 		{
-			name: "an agent told to keep the directory it was given joins without a checkout",
-			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
-				return NewAgentParams{
-					Title:            "helper",
-					Prompt:           "go",
-					WorkflowID:       first.WorkflowID,
-					Task:             task.ID,
-					Dir:              dir,
-					ProvisionEnabled: xptr.Ptr(false),
-				}
-			},
-			wantCheckout: true,
-		},
-		{
-			name: "a child works in its parent's checkout",
+			name: "a reviewer works in its writer's checkout",
 			second: func(first agentstore.Agent, _ *taskstore.Task, _ string) NewAgentParams {
-				return childOf(first, "reviewer")
+				return reviewerOf(first, "reviewer")
 			},
 			wantCheckout: true,
 		},
 		{
-			name:        "agents in a workflow without worktrees share the task and claim no checkout",
+			name:        "a reviewer in a workflow without worktrees claims no checkout",
 			noWorktrees: true,
-			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
-				return NewAgentParams{
-					Title:      "rival",
-					Prompt:     "go",
-					WorkflowID: first.WorkflowID,
-					Task:       task.ID,
-					Dir:        dir,
-				}
+			second: func(first agentstore.Agent, _ *taskstore.Task, _ string) NewAgentParams {
+				return reviewerOf(first, "reviewer")
 			},
 		},
 	}
@@ -1704,346 +1667,81 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 	}
 }
 
-// TestNewWriterJoinsItsTasksCheckout pins how a writer launched onto a task whose writer was
-// archived carries on in the task's checkout.
-func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
-	tests := []struct {
-		name      string
-		remove    func(t *testing.T, st *testStore, task taskstore.Task)
-		wantErrIs error
-	}{
-		{
-			name: "a new writer is refused once the worktree is marked removed",
-			remove: func(t *testing.T, st *testStore, task taskstore.Task) {
-				t.Helper()
-				require.NoError(t, st.Tasks.SetHead(t.Context(), task.ID, taskstore.SetHeadParams{WorktreeRemoved: true}))
-			},
-			wantErrIs: tasks.ErrWorktreeRemoved,
-		},
-		{
-			name: "a new writer is refused once the worktree directory is gone",
-			remove: func(t *testing.T, _ *testStore, task taskstore.Task) {
-				t.Helper()
-				require.NoError(t, os.RemoveAll(task.Checkout.Cwd))
-			},
-			wantErrIs: tasks.ErrWorktreeRemoved,
-		},
-		{
-			name: "a new writer is refused on an archived task with no checkout",
-			remove: func(t *testing.T, st *testStore, task taskstore.Task) {
-				t.Helper()
-				require.NoError(t, st.Tasks.ReleaseCheckout(t.Context(), task.ID))
-			},
-			wantErrIs: tasks.ErrArchived,
-		},
-		{
-			name: "a new writer joins the checkout without provisioning",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
-			tmux := tmuxtest.NewFake()
-			st := newStore(t)
-			fakeHarness := &harnesstest.Fake{}
-			lifecycle := &fakeLifecycle{}
-			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: fakeHarness}, lifecycle)
-			workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
-			require.NoError(t, err)
-			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
-
-			first, err := manager.launch.NewAgent(ctx, NewAgentParams{
-				Title:      "writer",
-				Prompt:     "go",
-				WorkflowID: workflow.ID,
-				Task:       work.ID,
-				Dir:        t.TempDir(),
-			})
-			require.NoError(t, err)
-			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{first.ID}))
-
-			before, err := st.Tasks.Get(ctx, work.ID)
-			require.NoError(t, err)
-			require.NotNil(t, before.ArchivedAt, "archiving the only writer archives the task")
-			if tt.remove != nil {
-				tt.remove(t, st, *before)
-			}
-
-			next, err := manager.launch.NewAgent(ctx, NewAgentParams{
-				Title:      "next",
-				Prompt:     "carry on",
-				WorkflowID: workflow.ID,
-				Task:       work.ID,
-			})
-			if tt.wantErrIs != nil {
-				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.Nil(t, next)
-
-				return
-			}
-			require.NoError(t, err)
-
-			after, err := st.Tasks.Get(ctx, work.ID)
-			require.NoError(t, err)
-			assert.Equal(t, before.Checkout, after.Checkout, "the checkout is the one the task already had")
-			assert.Nil(t, after.ArchivedAt, "the new writer brings the task back")
-			assert.Equal(t, before.Checkout.Cwd, agentByID(t, st, next.ID).Cwd)
-			assert.Len(t, lifecycle.provision, 1, "only the first writer provisioned")
-
-			writer, err := st.Agents.GetTaskWriter(ctx, work.ID)
-			require.NoError(t, err)
-			assert.Equal(t, next.ID, writer.ID)
-
-			require.Len(t, fakeHarness.Launches, 2)
-			assert.Contains(t, fakeHarness.Launches[1].Context, strings.TrimSpace(writerDoc), "the joined writer is briefed as the writer")
-		})
-	}
-}
-
-// TestRetryRejoinsTheTasksCheckout pins a retried writer whose join failed joining the task's checkout again.
-func TestRetryRejoinsTheTasksCheckout(t *testing.T) {
-	tests := []struct {
-		name         string
-		otherJoins   bool
-		wantErrIs    error
-		wantArchived bool
-	}{
-		{
-			name:         "a retry is refused once another writer has joined",
-			otherJoins:   true,
-			wantErrIs:    tasks.ErrHasWriter,
-			wantArchived: false,
-		},
-		{
-			name: "a retry joins the checkout and brings the task back",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
-			tmux := tmuxtest.NewFake()
-			st := newStore(t)
-			lifecycle := &fakeLifecycle{}
-			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-			workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
-			require.NoError(t, err)
-			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
-			first, err := manager.launch.NewAgent(ctx, NewAgentParams{
-				Title:      "writer",
-				Prompt:     "go",
-				WorkflowID: workflow.ID,
-				Task:       work.ID,
-				Dir:        t.TempDir(),
-			})
-			require.NoError(t, err)
-			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{first.ID}))
-			tmux.RespawnErr = errors.New("bad flags")
-			_, err = manager.launch.NewAgent(ctx, NewAgentParams{
-				Title:      "next",
-				Prompt:     "carry on",
-				WorkflowID: workflow.ID,
-				Task:       work.ID,
-			})
-			require.Error(t, err)
-			tmux.RespawnErr = nil
-			listed, err := st.Agents.List(ctx)
-			require.NoError(t, err)
-			failed := xslice.Filter(listed, func(agent agentstore.Agent) bool { return agent.State == agentstore.StateFailedToCreate })
-			require.Len(t, failed, 1)
-			if tt.otherJoins {
-				_, err = manager.launch.NewAgent(ctx, NewAgentParams{
-					Title:      "other",
-					Prompt:     "carry on",
-					WorkflowID: workflow.ID,
-					Task:       work.ID,
-				})
-				require.NoError(t, err)
-			}
-
-			retried, err := manager.launch.RetryCreate(ctx, RetryCreateParams{ID: failed[0].ID})
-
-			task, getErr := st.Tasks.Get(ctx, work.ID)
-			require.NoError(t, getErr)
-			assert.Len(t, lifecycle.provision, 1, "only the first writer provisioned")
-			if tt.wantErrIs != nil {
-				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.Equal(t, agentstore.StateFailedToCreate, agentByID(t, st, failed[0].ID).State)
-				assert.Equal(t, tt.wantArchived, task.ArchivedAt != nil)
-
-				return
-			}
-			require.NoError(t, err)
-			assert.Nil(t, task.ArchivedAt)
-			assert.Equal(t, task.Checkout.Cwd, agentByID(t, st, retried.ID).Cwd)
-			writer, err := st.Agents.GetTaskWriter(ctx, work.ID)
-			require.NoError(t, err)
-			assert.Equal(t, failed[0].ID, writer.ID)
-		})
-	}
-}
-
-// TestConcurrentWritersJoinOnce pins that of two writers joining a task's checkout at once only one
-// becomes its writer.
-func TestConcurrentWritersJoinOnce(t *testing.T) {
-	ctx := t.Context()
+// TestRetryRecordsItsTasksCheckout covers a retried writer taking up the checkout claim its
+// failed create left behind.
+func TestRetryRecordsItsTasksCheckout(t *testing.T) {
 	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("bad flags")
 	st := newStore(t)
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
-	workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 
-	first, err := manager.launch.NewAgent(ctx, NewAgentParams{
+	_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
 		Title:      "writer",
 		Prompt:     "go",
 		WorkflowID: workflow.ID,
 		Task:       work.ID,
 		Dir:        t.TempDir(),
 	})
+	require.Error(t, err)
+	failed, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{first.ID}))
+	require.Len(t, failed, 1)
+	tmux.RespawnErr = nil
 
-	errs := make([]error, 2)
-	var wg sync.WaitGroup
-	for i := range errs {
-		wg.Go(func() {
-			_, errs[i] = manager.launch.NewAgent(ctx, NewAgentParams{
-				Title:      fmt.Sprintf("next-%d", i),
-				Prompt:     "carry on",
-				WorkflowID: workflow.ID,
-				Task:       work.ID,
-			})
-		})
-	}
-	wg.Wait()
+	_, err = manager.launch.RetryCreate(t.Context(), RetryCreateParams{ID: failed[0].ID})
+	require.NoError(t, err)
 
-	joined := xslice.Filter(errs, func(err error) bool { return err == nil })
-	refused := xslice.Filter(errs, func(err error) bool { return errors.Is(err, tasks.ErrHasWriter) })
-	assert.Len(t, joined, 1, "one writer joins")
-	assert.Len(t, refused, 1, "the other is refused")
+	task, err := st.Tasks.Get(t.Context(), work.ID)
+	require.NoError(t, err)
+	assert.Equal(t, agentByID(t, st, failed[0].ID).Cwd, task.Checkout.Cwd)
 }
 
-// TestFailedCreateGivesUpItsTasksCheckout covers the claim a create that never started leaves
-// behind, which a retry or another writer takes up.
-func TestFailedCreateGivesUpItsTasksCheckout(t *testing.T) {
-	tests := []struct {
-		name      string
-		rival     bool
-		retry     bool
-		wantErrIs error
-	}{
-		{
-			name:      "a retry is refused once another writer has claimed the task",
-			rival:     true,
-			retry:     true,
-			wantErrIs: tasks.ErrHasWriter,
-		},
-		{
-			name:  "another writer claims the task the failed create left",
-			rival: true,
-		},
-		{
-			name:  "a retry records its checkout on the task",
-			retry: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := tmuxtest.NewFake()
-			tmux.RespawnErr = errors.New("bad flags")
-			st := newStore(t)
-			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
-			workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
-			require.NoError(t, err)
-			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
-
-			_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
-				Title:      "writer",
-				Prompt:     "go",
-				WorkflowID: workflow.ID,
-				Task:       work.ID,
-				Dir:        t.TempDir(),
-			})
-			require.Error(t, err)
-			failed, err := st.Agents.List(t.Context())
-			require.NoError(t, err)
-			require.Len(t, failed, 1)
-			tmux.RespawnErr = nil
-
-			holder := failed[0].ID
-			if tt.rival {
-				rival, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-					Title:      "rival",
-					Prompt:     "go",
-					WorkflowID: workflow.ID,
-					Task:       work.ID,
-					Dir:        t.TempDir(),
-				})
-				require.NoError(t, err)
-				holder = rival.ID
-			}
-			if tt.retry {
-				_, err = manager.launch.RetryCreate(t.Context(), RetryCreateParams{ID: failed[0].ID})
-			}
-			if tt.wantErrIs != nil {
-				require.ErrorIs(t, err, tt.wantErrIs)
-			} else {
-				require.NoError(t, err)
-			}
-
-			task, err := st.Tasks.Get(t.Context(), work.ID)
-			require.NoError(t, err)
-			assert.Equal(t, agentByID(t, st, holder).Cwd, task.Checkout.Cwd)
-		})
-	}
-}
-
-// TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.
-func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
+// TestNewReviewerUnderTheReviewerCeiling pins the cap on the reviewers one task holds.
+func TestNewReviewerUnderTheReviewerCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		usage:     config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}},
+		usage:     config.Usage{Task: config.TaskUsage{MaxReviewers: 1}},
 	})
 	ctx := t.Context()
 
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
+	writer := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Agents.Update(ctx, withCwd(writer, t.TempDir())))
 
-	attach := func(title string) error {
-		_, err := manager.launch.NewAgent(ctx, childOf(parent, title))
+	join := func(title string) error {
+		_, err := manager.launch.NewAgent(ctx, reviewerOf(writer, title))
 
 		return err
 	}
 
-	require.NoError(t, attach("reviewer"))
-	require.ErrorIs(t, attach("second-reviewer"), agenterr.ErrTooManyChildren)
+	require.NoError(t, join("reviewer"))
+	require.ErrorIs(t, join("second-reviewer"), agenterr.ErrTooManyReviewers)
 }
 
-// TestNewAgentUnderTheOrchestratorCeiling pins the cap on agents one orchestrator runs, which
-// leaves their children out.
-func TestNewAgentUnderTheOrchestratorCeiling(t *testing.T) {
+// TestNewAgentUnderTheTaskCeiling pins the cap on the tasks one orchestrator starts, which leaves
+// their reviewers out.
+func TestNewAgentUnderTheTaskCeiling(t *testing.T) {
 	tests := []struct {
-		name       string
-		maxSpawned int
-		child      bool
-		wantErrIs  error
+		name      string
+		maxTasks  int
+		reviewer  bool
+		wantErrIs error
 	}{
 		{
-			name:       "a second agent past a limit of one is refused",
-			maxSpawned: 1,
-			wantErrIs:  agenterr.ErrTooManySpawned,
+			name:      "a second task past a limit of one is refused",
+			maxTasks:  1,
+			wantErrIs: agenterr.ErrTooManyTasks,
 		},
 		{
-			name:       "a child hung under the agent it spawned does not count",
-			maxSpawned: 1,
-			child:      true,
+			name:     "a reviewer on a task it started does not count",
+			maxTasks: 1,
+			reviewer: true,
 		},
 		{
 			name: "no limit of its own leaves max_agents as the cap",
@@ -2059,8 +1757,8 @@ func TestNewAgentUnderTheOrchestratorCeiling(t *testing.T) {
 				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 				addr:      "127.0.0.1:9999",
 				usage: config.Usage{
-					Implementer:  config.ImplementerUsage{MaxChildren: 3},
-					Orchestrator: config.OrchestratorUsage{MaxChildren: tt.maxSpawned},
+					Task:         config.TaskUsage{MaxReviewers: 3},
+					Orchestrator: config.OrchestratorUsage{MaxTasks: tt.maxTasks},
 				},
 			})
 
@@ -2081,8 +1779,8 @@ func TestNewAgentUnderTheOrchestratorCeiling(t *testing.T) {
 				Prompt:     "do the other thing",
 				WorkflowID: orchestrator.WorkflowID,
 			}
-			if tt.child {
-				second = childOf(*first, "reader")
+			if tt.reviewer {
+				second = reviewerOf(*first, "reader")
 			}
 
 			_, err = manager.launch.NewAgent(ctx, second)
@@ -2097,9 +1795,9 @@ func TestNewAgentUnderTheOrchestratorCeiling(t *testing.T) {
 	}
 }
 
-// TestRestoreUnderTheOrchestratorCeiling pins that bringing an orchestrator's agent back is held
-// to the same cap as spawning one.
-func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
+// TestRestoreUnderTheTaskCeiling pins that bringing back a task an orchestrator started is held
+// to the same cap as starting one.
+func TestRestoreUnderTheTaskCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
@@ -2107,7 +1805,7 @@ func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		lifecycle: &fakeLifecycle{},
-		usage:     config.Usage{Orchestrator: config.OrchestratorUsage{MaxChildren: 1}},
+		usage:     config.Usage{Orchestrator: config.OrchestratorUsage{MaxTasks: 1}},
 	})
 
 	orchestrator := seedOrchestrator(t, st, tmux)
@@ -2130,10 +1828,10 @@ func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
 	spawn("second")
 
 	_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{first.ID})
-	require.ErrorIs(t, err, agenterr.ErrTooManySpawned)
+	require.ErrorIs(t, err, agenterr.ErrTooManyTasks)
 }
 
-// TestNewAgentIsBriefedOnItsTask pins that an agent on a task and its child both launch knowing the
+// TestNewAgentIsBriefedOnItsTask pins that a writer and its reviewer both launch knowing the
 // task's notes.
 func TestNewAgentIsBriefedOnItsTask(t *testing.T) {
 	tmux := tmuxtest.NewFake()
@@ -2156,7 +1854,7 @@ func TestNewAgentIsBriefedOnItsTask(t *testing.T) {
 		Task:       work.ID,
 	})
 	require.NoError(t, err)
-	_, err = manager.launch.NewAgent(t.Context(), childOf(*writer, "reader"))
+	_, err = manager.launch.NewAgent(t.Context(), reviewerOf(*writer, "reader"))
 	require.NoError(t, err)
 
 	require.Len(t, fakeHarness.Launches, 2)
@@ -2166,12 +1864,12 @@ func TestNewAgentIsBriefedOnItsTask(t *testing.T) {
 	}
 }
 
-func childOf(parent agentstore.Agent, title string) NewAgentParams {
+func reviewerOf(writer agentstore.Agent, title string) NewAgentParams {
 	return NewAgentParams{
-		Title:         title,
-		Prompt:        "read the change",
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
+		Title:      title,
+		Prompt:     "read the change",
+		WorkflowID: writer.WorkflowID,
+		Task:       *writer.TaskID,
 	}
 }
 
@@ -2179,27 +1877,6 @@ func withCwd(agent agentstore.Agent, dir string) agentstore.Agent {
 	agent.Cwd = dir
 
 	return agent
-}
-
-// TestNewChildAgentRefusesAnOrchestratorParent pins that the agent folded onto a workflow's own row
-// holds no children.
-func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-	ctx := t.Context()
-
-	parent := seedOrchestrator(t, st, tmux)
-	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
-
-	created, err := manager.launch.NewAgent(ctx, childOf(parent, "reader"))
-	require.ErrorIs(t, err, agenterr.ErrParentIsOrchestrator)
-	assert.Nil(t, created)
-	require.ErrorContains(t, err, "provision_enabled false", "the refusal names the shape to use instead")
-
-	live, err := st.Agents.List(ctx)
-	require.NoError(t, err)
-	assert.Len(t, live, 1, "the refusal records nothing beside the orchestrator")
 }
 
 // seedOrchestrator records the agent folded onto a workflow's own row.

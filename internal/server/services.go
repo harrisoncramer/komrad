@@ -151,7 +151,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Reviews:   st.review,
 		Snapshots: gitClient,
 		Scripts:   scriptService,
-		Moves:     checkoutLocks,
 		Tx:        st.pool,
 	})
 	transcriptSync := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{

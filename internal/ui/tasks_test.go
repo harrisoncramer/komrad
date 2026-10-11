@@ -25,7 +25,7 @@ func TestTasksTree(t *testing.T) {
 	t.Run("every task stands over the agents on it", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		assert.Equal(t, []string{"komrad", "├─ solo", "│  └─ loner", "└─ fix-login", "   ├─ follow-up", "   └─ author"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ solo", "│  └─ loner", "└─ fix-login", "   ├─ author", "   └─ follow-up"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("a task's record is its goal and notes", func(t *testing.T) {
@@ -40,13 +40,13 @@ func TestTasksTree(t *testing.T) {
 		assert.NotContains(t, frame, "• follow-up")
 	})
 
-	t.Run("enter on a task opens its newest agent", func(t *testing.T) {
+	t.Run("enter on a task opens its writer", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 		answerResume(harness)
 
 		harness.press("j", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceResumeAgentProcedure, &agentv1.ResumeAgentRequest{Id: "a2"})
+		harness.assertSentTo(agentv1connect.AgentServiceResumeAgentProcedure, &agentv1.ResumeAgentRequest{Id: "a1"})
 	})
 
 	t.Run("the task qualifier keeps the task and the agents on it", func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestTasksTree(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("task:fix"), []string{"enter"})...)
 
-		assert.Equal(t, []string{"komrad", "└─ fix-login", "   ├─ follow-up", "   └─ author"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "└─ fix-login", "   ├─ author", "   └─ follow-up"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("selecting a task archives only that task", func(t *testing.T) {
@@ -135,10 +135,10 @@ func TestTasksTree(t *testing.T) {
 				offered: true,
 				form:    `Reviewer on "fix-login"`,
 				want: &agentv1.CreateAgentRequest{
-					Prompt:        "review it",
-					Harness:       "claude",
-					WorkflowId:    "w1",
-					ParentAgentId: xptr.Ptr("a1"),
+					Prompt:     "review it",
+					Harness:    "claude",
+					WorkflowId: "w1",
+					Task:       xptr.Ptr("t1"),
 				},
 			},
 			{
@@ -270,13 +270,13 @@ func TestTasksRow(t *testing.T) {
 		}{
 			{
 				name:  "the writer",
-				press: []string{"G"},
-				row:   "   └─ author",
+				press: []string{"G", "k"},
+				row:   "   ├─ author",
 			},
 			{
 				name:        "the reviewer",
-				press:       []string{"G", "k"},
-				row:         "   ├─ follow-up",
+				press:       []string{"G"},
+				row:         "   └─ follow-up",
 				wantArchive: true,
 			},
 		}
@@ -383,13 +383,13 @@ func TestTasksRow(t *testing.T) {
 	t.Run("an agent's menu holds only its session", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "j", "space")
+		harness.press("j", "j", "j", "space")
 
 		menu := strings.Join(readStage(harness.readFrame()), "\n")
 		for _, entry := range []string{"logs", "edit files", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
-		for _, entry := range []string{"review", "status checks", "terminal", "new child", "new agent", "git ›", "jump ›", "hide ›", "snooze", "retry launch"} {
+		for _, entry := range []string{"review", "status checks", "terminal", "new agent", "git ›", "jump ›", "hide ›", "snooze", "retry launch"} {
 			assert.NotContains(t, menu, entry)
 		}
 	})
@@ -450,7 +450,6 @@ func buildRestart() []proto.Message {
 	writer.Harness, writer.Flags = "claude", "--model opus"
 	writer.Cwd = "/worktrees/fix-login"
 	reviewer := newTaskAgent("a2", "reviewer", "t1", agentv1.AgentRole_AGENT_ROLE_REVIEWER, 5)
-	reviewer.ParentAgentId = xptr.Ptr("a1")
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),

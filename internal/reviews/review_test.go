@@ -993,11 +993,11 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		Cwd:  "/tree",
 	})
 	reviewer := stores.SeedAgent(t, agentstore.Agent{
-		Name:          "reviewer",
-		Cwd:           "/tree",
-		WorkflowID:    worker.WorkflowID,
-		Role:          agentstore.RoleReviewer,
-		ParentAgentID: &worker.ID,
+		Name:       "reviewer",
+		Cwd:        "/tree",
+		WorkflowID: worker.WorkflowID,
+		Role:       agentstore.RoleReviewer,
+		TaskID:     worker.TaskID,
 	})
 	stranger := stores.SeedAgent(t, agentstore.Agent{
 		Name: "stranger",

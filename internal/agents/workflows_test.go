@@ -1016,38 +1016,32 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "the last agent going takes the workflow with it")
 }
 
-// TestRestoreOfAWorkflowUnderTheChildCeiling pins a workflow coming back with only the children
-// its own archive took.
-func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
+// TestRestoreOfAWorkflowLeavesReviewersArchived pins a workflow coming back with its writers and
+// none of its reviewers.
+func TestRestoreOfAWorkflowLeavesReviewersArchived(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		usage:     config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}},
 	})
-	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, usage: config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}}})
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux})
 	ctx := t.Context()
 
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
+	writer := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Agents.Update(ctx, withCwd(writer, t.TempDir())))
 
-	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
-	require.NoError(t, err)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
-
-	second, err := manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
+	reviewer, err := manager.launch.NewAgent(ctx, reviewerOf(writer, "reviewer"))
 	require.NoError(t, err)
 
-	require.NoError(t, workflows.ArchiveWorkflow(ctx, parent.WorkflowID))
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, writer.WorkflowID))
 
-	_, err = workflows.RestoreWorkflow(ctx, parent.WorkflowID)
-	require.NoError(t, err, "the child archived before the workflow does not count against the ceiling")
+	_, err = workflows.RestoreWorkflow(ctx, writer.WorkflowID)
+	require.NoError(t, err)
 
-	assert.Nil(t, agentByID(t, st, parent.ID).ArchivedAt, "the parent comes back")
-	assert.Nil(t, agentByID(t, st, second.ID).ArchivedAt, "with the child the workflow's archive took")
-	assert.NotNil(t, agentByID(t, st, first.ID).ArchivedAt, "and the earlier child stays archived")
+	assert.Nil(t, agentByID(t, st, writer.ID).ArchivedAt, "the writer comes back")
+	assert.NotNil(t, agentByID(t, st, reviewer.ID).ArchivedAt, "and its reviewer stays archived")
 }
 
 // TestListWorkflows pins that a listing reads the live or the archived workflows as asked.

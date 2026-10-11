@@ -59,9 +59,9 @@ type triageRule struct {
 
 // triageSubject is an agent as the rules read it.
 type triageSubject struct {
-	item             panel.AgentRow
-	task             panel.Task
-	hasThinkingChild bool
+	item                panel.AgentRow
+	task                panel.Task
+	hasThinkingReviewer bool
 }
 
 // triageRules are the reasons an agent needs triage in order of urgency, the first that holds
@@ -108,7 +108,7 @@ var triageRules = []triageRule{
 		kind:  kindAgent,
 		clock: clockSeen,
 		is: func(s triageSubject) bool {
-			return s.task.Sequence.IsInProgress() && s.item.Agent.ParentAgentID == nil
+			return s.task.Sequence.IsInProgress() && s.item.Agent.Role == panel.RoleWriter
 		},
 	},
 	{
@@ -152,7 +152,7 @@ type triageSnooze struct {
 	began  time.Time
 }
 
-// triageFamily is a head and its children in triage, named by the most urgent entry among them.
+// triageFamily is a head and its reviewers in triage, named by the most urgent entry among them.
 type triageFamily struct {
 	head  panel.AgentRow
 	entry triageEntry
@@ -172,7 +172,8 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.
 		return
 	}
 
-	thinkingParents := findThinkingParents(agents)
+	thinkingWriters := findThinkingWriters(agents)
+	writers := writersByTask(agents)
 	entries := make(map[string]triageEntry)
 	for _, item := range agents {
 		id := item.Agent.ID
@@ -190,9 +191,9 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.
 			continue
 		}
 
-		rule, ok := findTriageRule(triageSubject{item: item, task: tasks.findForAgent(item.Agent), hasThinkingChild: thinkingParents[id]})
+		rule, ok := findTriageRule(triageSubject{item: item, task: tasks.findForAgent(item.Agent), hasThinkingReviewer: thinkingWriters[id]})
 		if !ok {
-			if wasQueued && z.isHeld(item) {
+			if wasQueued && z.isHeld(item, writers) {
 				entries[id] = was
 			}
 
@@ -220,13 +221,8 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.
 }
 
 // isHeld reports whether the agent is in the family the cursor is on.
-func (z *triageZone) isHeld(item panel.AgentRow) bool {
-	headID := item.Agent.ID
-	if parentID := item.Agent.ParentAgentID; parentID != nil {
-		headID = *parentID
-	}
-
-	return z.held != "" && headID == z.held
+func (z *triageZone) isHeld(item panel.AgentRow, writers map[string]panel.AgentRow) bool {
+	return z.held != "" && findTriageHead(item, writers).Agent.ID == z.held
 }
 
 // pruneSnoozes ends every snooze whose task has left triage or now waits on something else.
@@ -285,7 +281,7 @@ func (z *triageZone) refreeze(agents []panel.AgentRow) {
 
 	byID := keyAgentsByID(agents)
 	frozen := xslice.Filter(z.frozen, func(id string) bool { return !z.isSnoozed(triageKey(byID[id])) })
-	waiting := xslice.Filter(findTriageFamilies(z.entries, agents, byID), func(f triageFamily) bool {
+	waiting := xslice.Filter(findTriageFamilies(z.entries, agents), func(f triageFamily) bool {
 		return !z.isSnoozed(triageKey(f.head)) && !slices.Contains(frozen, f.head.Agent.ID)
 	})
 	slices.SortFunc(waiting, z.compareFamilies)
@@ -315,7 +311,7 @@ func (z *triageZone) snooze(family triageFamily) {
 
 // findFamily is the most urgent family in triage on the agent's task.
 func (z *triageZone) findFamily(item panel.AgentRow, agents []panel.AgentRow) (triageFamily, bool) {
-	head := findTriageHead(item, keyAgentsByID(agents))
+	head := findTriageHead(item, writersByTask(agents))
 	family, ok := z.familiesByKey(agents)[triageKey(head)]
 
 	return family, ok
@@ -324,7 +320,7 @@ func (z *triageZone) findFamily(item panel.AgentRow, agents []panel.AgentRow) (t
 // familiesByKey is the most urgent family in triage on each task, or of each agent standing alone.
 func (z *triageZone) familiesByKey(agents []panel.AgentRow) map[string]triageFamily {
 	byKey := make(map[string]triageFamily)
-	for _, family := range findTriageFamilies(z.entries, agents, keyAgentsByID(agents)) {
+	for _, family := range findTriageFamilies(z.entries, agents) {
 		key := triageKey(family.head)
 		if was, ok := byKey[key]; ok && compareUrgency(was.entry, family.entry) <= 0 {
 			continue
@@ -346,7 +342,8 @@ func triageKey(head panel.AgentRow) string {
 }
 
 // findTriageFamilies groups the agents in triage under their heads, in the listing's order.
-func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow, byID map[string]panel.AgentRow) []triageFamily {
+func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow) []triageFamily {
+	writers := writersByTask(agents)
 	at := make(map[string]int)
 	var families []triageFamily
 	for _, item := range agents {
@@ -355,7 +352,7 @@ func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow,
 			continue
 		}
 
-		head := findTriageHead(item, byID)
+		head := findTriageHead(item, writers)
 		i, seen := at[head.Agent.ID]
 		if !seen {
 			at[head.Agent.ID] = len(families)
@@ -372,12 +369,10 @@ func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow,
 	return families
 }
 
-// findTriageHead is the agent a family in triage is led by: its parent when the parent is listed.
-func findTriageHead(item panel.AgentRow, byID map[string]panel.AgentRow) panel.AgentRow {
-	if parentID := item.Agent.ParentAgentID; parentID != nil {
-		if parent, ok := byID[*parentID]; ok {
-			return parent
-		}
+// findTriageHead is the agent a family in triage is led by: its task's writer when the writer is listed.
+func findTriageHead(item panel.AgentRow, writers map[string]panel.AgentRow) panel.AgentRow {
+	if writer, ok := findWriter(item, writers); ok {
+		return writer
 	}
 
 	return item
@@ -469,20 +464,21 @@ func isFinishedWriter(s triageSubject) bool {
 	return s.item.Alive &&
 		displayState(s.item) == panel.StateIdle &&
 		agent.Role == panel.RoleWriter &&
-		!s.hasThinkingChild &&
+		!s.hasThinkingReviewer &&
 		s.task.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
 }
 
-// findThinkingParents is the ids of the agents with a child at work.
-func findThinkingParents(agents []panel.AgentRow) map[string]bool {
-	parents := make(map[string]bool)
+// findThinkingWriters is the ids of the writers with a reviewer on their task at work.
+func findThinkingWriters(agents []panel.AgentRow) map[string]bool {
+	writers := writersByTask(agents)
+	thinking := make(map[string]bool)
 	for _, item := range agents {
-		if item.Agent.ParentAgentID != nil && displayState(item) == panel.StateThinking {
-			parents[*item.Agent.ParentAgentID] = true
+		if writer, ok := findWriter(item, writers); ok && displayState(item) == panel.StateThinking {
+			thinking[writer.Agent.ID] = true
 		}
 	}
 
-	return parents
+	return thinking
 }
 
 // agentsLayout is the agents list split into triage and the tree under it.
@@ -509,15 +505,15 @@ func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {
 
 // buildZone renders the most urgent families the zone has slots for and counts those left waiting.
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
-	children := m.listing.children
-	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents, m.listing.agentsByID), func(f triageFamily) bool {
+	reviewers := m.listing.reviewers
+	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
 		return (!m.listing.tasks.isHidden(f.head.Agent) || showHidden) && !z.isSnoozed(triageKey(f.head))
 	})
 	ordered := z.orderFamilies(families)
 	slotted := ordered[:min(len(ordered), z.capacity)]
 	workflows := xslice.KeyBy(m.listing.workflows, func(w panel.Workflow) string { return w.ID })
 	for _, family := range slotted {
-		for _, row := range buildFamilyRows(family.head, children[family.head.Agent.ID]) {
+		for _, row := range buildFamilyRows(family.head, reviewers[family.head.Agent.ID]) {
 			row.workflow = workflows[row.item.Agent.WorkflowID]
 			row.triage = true
 			zone = append(zone, row)

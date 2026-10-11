@@ -430,7 +430,7 @@ func TestWorktreesRecord(t *testing.T) {
 		reviewer := newAgent("reviewer-id", "reviewer", "w1")
 		reviewer.Cwd = "/trees/" + task.GetId()
 		reviewer.TaskId = writer.TaskId
-		reviewer.ParentAgentId = xptr.Ptr(writer.GetId())
+		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 		adopter := newAgent("adopter-id", "adopter", "w1")
 		adopter.Cwd = writer.GetCwd()
 		adopter.TaskId = writer.TaskId
@@ -456,22 +456,23 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Equal(t, "writer, reviewer", readRecordField(harness.readFrame(), "agents"))
 	})
 
-	t.Run("a live agent provisioned for the task is named before a newer archived one", func(t *testing.T) {
+	t.Run("a live writer is named before a newer archived reviewer", func(t *testing.T) {
 		t.Parallel()
 
 		writer := newAgent("writer-id", "writer", "w1")
 		writer.CreatedAt = "2026-09-20T12:00:00Z"
 		task := newTaskOf(writer)
 		writer.Cwd = "/trees/" + task.GetId()
-		rival := newArchivedAgent("rival-id", "rival", "w1")
-		rival.CreatedAt = "2026-09-20T13:00:00Z"
-		rival.Cwd = "/home/h/komrad"
-		rival.TaskId = writer.TaskId
+		reviewer := newArchivedAgent("reviewer-id", "reviewer", "w1")
+		reviewer.CreatedAt = "2026-09-20T13:00:00Z"
+		reviewer.Cwd = writer.GetCwd()
+		reviewer.TaskId = writer.TaskId
+		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 		harness := openWorktrees(t,
 			newLiveWorkflow("w1", "komrad"),
 			writer,
-			rival,
+			reviewer,
 			task,
 			&worktreev1.WatchedWorktree{
 				Dir:      writer.GetCwd(),
@@ -484,7 +485,7 @@ func TestWorktreesRecord(t *testing.T) {
 		harness.press(widenListPresses...)
 		harness.press("pick:record")
 
-		assert.Equal(t, "writer, rival", readRecordField(harness.readFrame(), "agents"))
+		assert.Equal(t, "writer, reviewer", readRecordField(harness.readFrame(), "agents"))
 	})
 
 	t.Run("a task's checkout no agent answers for names its task", func(t *testing.T) {

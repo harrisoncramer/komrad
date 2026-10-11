@@ -10,31 +10,31 @@ import (
 	"charm.land/huh/v2"
 )
 
-func deleteAgentsForm(agents []panel.Agent, children int, keys config.FixedKeys) (*huh.Form, *bool) {
-	title := "Permanently delete " + promptSubject(agents, children) + "?"
+func deleteAgentsForm(agents []panel.Agent, reviewers int, keys config.FixedKeys) (*huh.Form, *bool) {
+	title := "Permanently delete " + promptSubject(agents, reviewers) + "?"
 
-	return confirmForm(title, transcriptWarning(agents, children), "Delete", keys)
+	return confirmForm(title, transcriptWarning(agents, reviewers), "Delete", keys)
 }
 
 // deleteChosenForm asks before chosen agents are deleted, naming any task that goes whole with them.
-func deleteChosenForm(work chosenWork, children int, keys config.FixedKeys) (*huh.Form, *bool) {
+func deleteChosenForm(work chosenWork, reviewers int, keys config.FixedKeys) (*huh.Form, *bool) {
 	if len(work.wholeTasks) == 0 {
-		return deleteAgentsForm(work.chosen, children, keys)
+		return deleteAgentsForm(work.chosen, reviewers, keys)
 	}
 
-	title := "Permanently delete " + promptSubject(work.chosen, children) + "?"
+	title := "Permanently delete " + promptSubject(work.chosen, reviewers) + "?"
 
 	tasksGoing := fmt.Sprintf("%d tasks go too, with the documents, reviews and worktrees on them.", len(work.wholeTasks))
 	if len(work.wholeTasks) == 1 {
 		tasksGoing = fmt.Sprintf("Task %q goes too, with the documents, reviews and worktree on it.", work.wholeTasks[0].Slug)
 	}
 
-	return confirmForm(title, transcriptWarning(work.chosen, children)+" "+tasksGoing, "Delete", keys)
+	return confirmForm(title, transcriptWarning(work.chosen, reviewers)+" "+tasksGoing, "Delete", keys)
 }
 
 // transcriptWarning says the transcripts of the agents being deleted go with them.
-func transcriptWarning(agents []panel.Agent, children int) string {
-	if len(agents) == 1 && children == 0 {
+func transcriptWarning(agents []panel.Agent, reviewers int) string {
+	if len(agents) == 1 && reviewers == 0 {
 		return "Its transcript goes with it and search will not find the conversation again."
 	}
 

@@ -176,11 +176,12 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 				parent, err := st.LiveAgentByName(t.Context(), "sitting")
 				require.NoError(t, err)
 				require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
-					Name:          "reviewer",
-					Cwd:           sitting,
-					State:         agentstore.StateIdle,
-					WorkflowID:    workflow,
-					ParentAgentID: &parent.ID,
+					Name:       "reviewer",
+					Cwd:        sitting,
+					State:      agentstore.StateIdle,
+					WorkflowID: workflow,
+					TaskID:     parent.TaskID,
+					Role:       agentstore.RoleReviewer,
 				}))
 				require.NoError(t, st.SoftDelete(t.Context(), "reviewer"))
 			}

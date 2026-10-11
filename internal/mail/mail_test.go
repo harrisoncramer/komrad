@@ -230,17 +230,17 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 func TestSendMailRefusesAPairAtTheExchangeCap(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, 2)
-	family := seedFamily(t, st)
+	agents := seedTask(t, st)
 
 	exchange(t, svc, exchangeParams{
-		Child:    family["child-one"],
-		Parent:   family["parent"],
+		Reviewer: agents["reviewer"],
+		Writer:   agents["writer"],
 		Messages: 2,
 	})
 
 	sent, err := svc.SendMail(t.Context(), SendMailParams{
-		From:      family["child-one"].ID,
-		ToAgentID: family["parent"].ID,
+		From:      agents["reviewer"].ID,
+		ToAgentID: agents["writer"].ID,
 		Body:      "one more",
 	})
 	require.ErrorIs(t, err, ErrExchangeCapped)
@@ -263,17 +263,17 @@ func TestSendMailLetsThroughWhatTheCapDoesNotStop(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			svc := newMailService(st, 2)
-			family := seedFamily(t, st)
+			agents := seedTask(t, st)
 
 			exchange(t, svc, exchangeParams{
-				Child:    family["child-one"],
-				Parent:   family["parent"],
+				Reviewer: agents["reviewer"],
+				Writer:   agents["writer"],
 				Messages: tt.exchanged,
 			})
 
 			_, err := svc.SendMail(t.Context(), SendMailParams{
-				From:      family["child-one"].ID,
-				ToAgentID: family["parent"].ID,
+				From:      agents["reviewer"].ID,
+				ToAgentID: agents["writer"].ID,
 				Body:      "one more",
 			})
 			require.NoError(t, err)
@@ -285,93 +285,94 @@ func TestSendMailLetsThroughWhatTheCapDoesNotStop(t *testing.T) {
 func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, 2)
-	family := seedFamily(t, st)
-	parent, childOne, childTwo := family["parent"], family["child-one"], family["child-two"]
+	agents := seedTask(t, st)
+	writer, reviewer, secondReviewer := agents["writer"], agents["reviewer"], agents["second-reviewer"]
 
 	refuse := func(t *testing.T, from agentstore.Agent) {
 		t.Helper()
 
 		_, err := svc.SendMail(t.Context(), SendMailParams{
 			From:      from.ID,
-			ToAgentID: parent.ID,
+			ToAgentID: writer.ID,
 			Body:      "one more",
 		})
 		require.ErrorIs(t, err, ErrExchangeCapped)
 	}
 
 	exchange(t, svc, exchangeParams{
-		Child:    childOne,
-		Parent:   parent,
+		Reviewer: reviewer,
+		Writer:   writer,
 		Messages: 2,
 	})
 
 	t.Run("a pair at the cap is nobody's business until a send is refused", func(t *testing.T) {
-		assert.Empty(t, listCappedMail(t, st, parent.ID))
+		assert.Empty(t, listCappedMail(t, st, writer.ID))
 	})
 
 	t.Run("the refusal leaves the recipient mail naming the sender", func(t *testing.T) {
-		refuse(t, childOne)
+		refuse(t, reviewer)
 
-		told := listCappedMail(t, st, parent.ID)
+		told := listCappedMail(t, st, writer.ID)
 		require.Len(t, told, 1)
-		assert.Contains(t, told[0].Body, childOne.Name)
-		assert.Contains(t, told[0].Body, childOne.ID, "the id, since two workflows may hold one name")
+		assert.Contains(t, told[0].Body, reviewer.Name)
+		assert.Contains(t, told[0].Body, reviewer.ID, "the id, since two workflows may hold one name")
 	})
 
 	t.Run("unread mail stands for the refusals behind it", func(t *testing.T) {
-		refuse(t, childOne)
-		refuse(t, childOne)
+		refuse(t, reviewer)
+		refuse(t, reviewer)
 
-		assert.Len(t, listCappedMail(t, st, parent.ID), 1)
+		assert.Len(t, listCappedMail(t, st, writer.ID), 1)
 	})
 
 	t.Run("a recipient that has read the mail is told again", func(t *testing.T) {
-		_, err := st.Mail.Claim(t.Context(), parent.ID, maxPendingMail)
+		_, err := st.Mail.Claim(t.Context(), writer.ID, maxPendingMail)
 		require.NoError(t, err)
 
-		refuse(t, childOne)
+		refuse(t, reviewer)
 
-		assert.Len(t, listCappedMail(t, st, parent.ID), 2)
+		assert.Len(t, listCappedMail(t, st, writer.ID), 2)
 	})
 
 	t.Run("a second severed pair gets mail of its own", func(t *testing.T) {
 		exchange(t, svc, exchangeParams{
-			Child:    childTwo,
-			Parent:   parent,
+			Reviewer: secondReviewer,
+			Writer:   writer,
 			Messages: 2,
 		})
-		refuse(t, childTwo)
+		refuse(t, secondReviewer)
 
-		about := xslice.Map(listCappedMail(t, st, parent.ID), func(told mailstore.Mail) string {
+		about := xslice.Map(listCappedMail(t, st, writer.ID), func(told mailstore.Mail) string {
 			require.NotNil(t, told.SubjectID)
 
 			return *told.SubjectID
 		})
-		assert.ElementsMatch(t, []string{childOne.ID, childOne.ID, childTwo.ID}, about)
+		assert.ElementsMatch(t, []string{reviewer.ID, reviewer.ID, secondReviewer.ID}, about)
 	})
 }
 
-// TestChildMailStaysInTheFamily pins that a child may reach nobody outside its parent and that parent's other children.
-func TestChildMailStaysInTheFamily(t *testing.T) {
+// TestReviewerMailStaysOnItsTask pins that a reviewer may reach nobody outside its task and its
+// workflow's orchestrator.
+func TestReviewerMailStaysOnItsTask(t *testing.T) {
 	tests := []struct {
 		name string
 		from string
 		to   string
 	}{
 		{
-			name: "a child reaching an unrelated agent",
-			from: "child-one",
-			to:   "stranger",
+			name: "a reviewer reaching another task's writer",
+			from: "reviewer",
+			to:   "other-writer",
 		},
 		{
-			name: "a child reaching another parent's child",
-			from: "child-one",
-			to:   "cousin",
+			name: "a reviewer reaching another task's reviewer",
+			from: "reviewer",
+			to:   "other-reviewer",
 		},
 		{
-			name: "an unrelated agent reaching a child",
-			from: "stranger",
-			to:   "child-one",
+			name: "another task's writer reaching a reviewer",
+			from: "other-writer",
+			to:   "reviewer",
 		},
 	}
 
@@ -379,45 +380,55 @@ func TestChildMailStaysInTheFamily(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			svc := newMailService(st, config.DefaultMaxExchange)
-			family := seedFamily(t, st)
+			agents := seedTask(t, st)
 
 			sent, err := svc.SendMail(t.Context(), SendMailParams{
-				From:      family[tt.from].ID,
-				ToAgentID: family[tt.to].ID,
+				From:      agents[tt.from].ID,
+				ToAgentID: agents[tt.to].ID,
 				Body:      "hello",
 			})
-			require.ErrorIs(t, err, ErrOutsideFamily)
+			require.ErrorIs(t, err, ErrOutsideTask)
 			assert.Nil(t, sent)
 		})
 	}
 }
 
-// TestFamilyMailGetsThrough pins the sends the family rule leaves alone.
-func TestFamilyMailGetsThrough(t *testing.T) {
+// TestTaskMailGetsThrough pins the sends the task rule leaves alone.
+func TestTaskMailGetsThrough(t *testing.T) {
 	tests := []struct {
 		name string
 		from string
 		to   string
 	}{
 		{
-			name: "a child answers its parent",
-			from: "child-one",
-			to:   "parent",
+			name: "a reviewer answers its task's writer",
+			from: "reviewer",
+			to:   "writer",
 		},
 		{
-			name: "a parent reaches its child",
-			from: "parent",
-			to:   "child-one",
+			name: "a writer reaches its reviewer",
+			from: "writer",
+			to:   "reviewer",
 		},
 		{
-			name: "one child reaches its sibling",
-			from: "child-one",
-			to:   "child-two",
+			name: "one reviewer reaches another on its task",
+			from: "reviewer",
+			to:   "second-reviewer",
 		},
 		{
-			name: "two agents that are nobody's children",
-			from: "parent",
-			to:   "stranger",
+			name: "one writer reaches another",
+			from: "writer",
+			to:   "other-writer",
+		},
+		{
+			name: "a reviewer reaches its workflow's orchestrator",
+			from: "reviewer",
+			to:   "orchestrator",
+		},
+		{
+			name: "the orchestrator reaches a reviewer",
+			from: "orchestrator",
+			to:   "reviewer",
 		},
 	}
 
@@ -425,15 +436,15 @@ func TestFamilyMailGetsThrough(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			svc := newMailService(st, config.DefaultMaxExchange)
-			family := seedFamily(t, st)
+			agents := seedTask(t, st)
 
 			sent, err := svc.SendMail(t.Context(), SendMailParams{
-				From:      family[tt.from].ID,
-				ToAgentID: family[tt.to].ID,
+				From:      agents[tt.from].ID,
+				ToAgentID: agents[tt.to].ID,
 				Body:      "hello",
 			})
 			require.NoError(t, err)
-			assert.Equal(t, family[tt.to].ID, sent.ToAgentID)
+			assert.Equal(t, agents[tt.to].ID, sent.ToAgentID)
 		})
 	}
 }
@@ -1018,43 +1029,51 @@ func newMailService(st *storetest.Stores, maxExchange int) *MailService {
 	})
 }
 
-// seedFamily records one parent with two children, an unrelated agent, and another parent's child.
-func seedFamily(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent {
+// seedTask records a writer with two reviewers on its task, its workflow's orchestrator, and another
+// task's writer and reviewer.
+func seedTask(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent {
 	t.Helper()
 
-	parent := st.SeedAgent(t, agentstore.Agent{Name: "author"})
-	otherParent := st.SeedAgent(t, agentstore.Agent{Name: "other-author"})
+	writer := st.SeedAgent(t, agentstore.Agent{Name: "author"})
+	otherWriter := st.SeedAgent(t, agentstore.Agent{Name: "other-author"})
 
-	seedChild := func(name, parentID string) agentstore.Agent {
+	seedReviewer := func(name string, writer agentstore.Agent) agentstore.Agent {
 		return *st.SeedAgent(t, agentstore.Agent{
-			Name:          name,
-			ParentAgentID: &parentID,
+			Name:       name,
+			Role:       agentstore.RoleReviewer,
+			WorkflowID: writer.WorkflowID,
+			TaskID:     writer.TaskID,
 		})
 	}
 
 	return map[string]agentstore.Agent{
-		"parent":    *parent,
-		"child-one": seedChild("reviewer", parent.ID),
-		"child-two": seedChild("test-runner", parent.ID),
-		"cousin":    seedChild("their-reviewer", otherParent.ID),
-		"stranger":  *st.SeedAgent(t, agentstore.Agent{Name: "unrelated"}),
+		"writer":          *writer,
+		"reviewer":        seedReviewer("reviewer", *writer),
+		"second-reviewer": seedReviewer("test-runner", *writer),
+		"orchestrator": *st.SeedAgent(t, agentstore.Agent{
+			Name:       "orchestrator",
+			Role:       agentstore.RoleOrchestrator,
+			WorkflowID: writer.WorkflowID,
+		}),
+		"other-writer":   *otherWriter,
+		"other-reviewer": seedReviewer("their-reviewer", *otherWriter),
 	}
 }
 
 type exchangeParams struct {
-	Child    agentstore.Agent
-	Parent   agentstore.Agent
+	Reviewer agentstore.Agent
+	Writer   agentstore.Agent
 	Messages int
 }
 
-// exchange sends mail back and forth between a child and its parent, every message opening a thread of its own.
+// exchange sends mail back and forth between a reviewer and its task's writer, every message opening a thread of its own.
 func exchange(t *testing.T, svc *MailService, params exchangeParams) {
 	t.Helper()
 
 	for at := range params.Messages {
-		from, to := params.Child, params.Parent
+		from, to := params.Reviewer, params.Writer
 		if at%2 == 1 {
-			from, to = params.Parent, params.Child
+			from, to = params.Writer, params.Reviewer
 		}
 
 		_, err := svc.SendMail(t.Context(), SendMailParams{

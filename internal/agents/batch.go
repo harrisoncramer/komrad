@@ -168,10 +168,10 @@ func claimRoomToRestore(ctx context.Context, params claimRoomToRestoreParams) er
 	if err := claimRoomForAgents(ctx, params.agents, params.usage.MaxAgents, len(params.archived)); err != nil {
 		return err
 	}
-	if err := claimRoomForRestoredChildren(ctx, params.agents, params.usage.Implementer.MaxChildren, params.archived); err != nil {
+	if err := claimRoomForRestoredReviewers(ctx, params.agents, params.usage.Task.MaxReviewers, params.archived); err != nil {
 		return err
 	}
-	if err := claimRoomForRestoredSpawned(ctx, params.agents, params.usage.Orchestrator.MaxChildren, params.archived); err != nil {
+	if err := claimRoomForRestoredTasks(ctx, params.agents, params.usage.Orchestrator.MaxTasks, params.archived); err != nil {
 		return err
 	}
 

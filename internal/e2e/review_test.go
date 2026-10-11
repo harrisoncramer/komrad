@@ -36,7 +36,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 	var reviewer *agentv1.Agent
 
-	t.Run("the worker asks for a review and a reviewer is attached to it", func(t *testing.T) {
+	t.Run("the worker asks for a review and a reviewer joins its task", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.RequestReviewRequest{Prompt: "read greet.go"})
 		callAs(req, worker.GetId())
 
@@ -44,7 +44,7 @@ func TestIntegrationReviews(t *testing.T) {
 		require.NoError(t, err)
 
 		reviewer = requested.Msg.GetReviewer()
-		assert.Equal(t, worker.GetId(), reviewer.GetParentAgentId())
+		assert.Equal(t, worker.GetTaskId(), reviewer.GetTaskId())
 		assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_REVIEWER, reviewer.GetRole())
 		assert.Equal(t, worker.GetCwd(), reviewer.GetCwd(), "the reviewer reads the worker's own checkout")
 		instance.WaitForHarness(reviewer.GetId())

@@ -77,12 +77,11 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 		{
 			name: "a reviewer is handed the threads on the work it reads",
 			row: &agentv1.GetAgentResponse{Agent: &agentv1.Agent{
-				Id:            "agent-r",
-				TaskId:        xptr.Ptr("task-a"),
-				Name:          "compaction-review",
-				Role:          agentv1.AgentRole_AGENT_ROLE_REVIEWER,
-				ParentAgentId: xptr.Ptr("agent-a"),
-			}},
+				Id:     "agent-r",
+				TaskId: xptr.Ptr("task-a"),
+				Name:   "compaction-review",
+				Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+			}, Task: &taskv1.Task{Slug: "compaction"}},
 			threads: []*agentv1.ReviewThread{{
 				Id:       "thread-open",
 				FilePath: "a.go",
@@ -92,7 +91,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			wantThreadsTask: "task-a",
 			wantText: []string{
 				"the reviewer agent",
-				"Parent agent: agent-a",
+				"Task: compaction",
 				"Your open threads on the work you review (1)",
 				"- thread-open on a.go lines 1-1",
 			},

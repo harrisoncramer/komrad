@@ -216,18 +216,18 @@ func TestLoadUsage(t *testing.T) {
 	}{
 		{
 			name:    "a negative compaction point is refused",
-			file:    "[usage.implementer]\nauto_compaction = -1\n",
-			wantErr: "usage.implementer.auto_compaction",
+			file:    "[usage.writer]\nauto_compaction = -1\n",
+			wantErr: "usage.writer.auto_compaction",
 		},
 		{
-			name:    "a negative child limit on an implementer is refused",
-			file:    "[usage.implementer]\nmax_children = -1\n",
-			wantErr: "usage.implementer.max_children",
+			name:    "a negative reviewer limit on a task is refused",
+			file:    "[usage.task]\nmax_reviewers = -1\n",
+			wantErr: "usage.task.max_reviewers",
 		},
 		{
-			name:    "a negative child limit on an orchestrator is refused",
-			file:    "[usage.orchestrator]\nmax_children = -2\n",
-			wantErr: "usage.orchestrator.max_children",
+			name:    "a negative task limit on an orchestrator is refused",
+			file:    "[usage.orchestrator]\nmax_tasks = -2\n",
+			wantErr: "usage.orchestrator.max_tasks",
 		},
 		{
 			name: "a file naming none takes the built-in, with no orchestrator limit of its own",
@@ -236,15 +236,13 @@ func TestLoadUsage(t *testing.T) {
 		},
 		{
 			name: "zero hands a role's compaction back to the CLI and one role changed leaves the rest",
-			file: "[usage.reviewer]\nauto_compaction = 120000\n[usage.orchestrator]\nauto_compaction = 0\nmax_children = 4\n",
+			file: "[usage.reviewer]\nauto_compaction = 120000\n[usage.orchestrator]\nauto_compaction = 0\nmax_tasks = 4\n",
 			want: Usage{
-				MaxAgents: defaultMaxAgents,
-				Implementer: ImplementerUsage{
-					AutoCompaction: defaultImplementerAutoCompaction,
-					MaxChildren:    defaultMaxChildren,
-				},
+				MaxAgents:    defaultMaxAgents,
+				Task:         TaskUsage{MaxReviewers: defaultMaxReviewers},
+				Writer:       WriterUsage{AutoCompaction: defaultWriterAutoCompaction},
 				Reviewer:     ReviewerUsage{AutoCompaction: 120000},
-				Orchestrator: OrchestratorUsage{MaxChildren: 4},
+				Orchestrator: OrchestratorUsage{MaxTasks: 4},
 			},
 		},
 	}

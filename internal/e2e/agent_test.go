@@ -199,8 +199,8 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 	})
 }
 
-// TestIntegrationAgentsSpawnAgents walks an agent spawning another on its own and a child attached
-// to it.
+// TestIntegrationAgentsSpawnAgents walks an agent spawning another on its own and a reviewer put
+// on its task.
 func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
@@ -212,11 +212,11 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 	require.NoError(t, err)
 	workflowID := workflow.Msg.GetWorkflow().GetId()
 
-	parent := createAgent(t, instance, workflowID, "author")
-	var child *agentv1.Agent
+	writer := createAgent(t, instance, workflowID, "author")
+	var reviewer *agentv1.Agent
 
 	t.Run("a person creating from the panel records no spawner", func(t *testing.T) {
-		assert.Nil(t, parent.SpawnedByAgentId)
+		assert.Nil(t, writer.SpawnedByAgentId)
 	})
 
 	t.Run("an agent spawning another on its own records itself as the spawner", func(t *testing.T) {
@@ -225,36 +225,38 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 			Title:      "unrelated",
 			WorkflowId: workflowID,
 		})
-		callAs(req, parent.GetId())
+		callAs(req, writer.GetId())
 
 		created, err := instance.Agents.CreateAgent(ctx, req)
 		require.NoError(t, err)
 
 		spawned := created.Msg.GetAgent()
-		assert.Equal(t, parent.GetId(), spawned.GetSpawnedByAgentId())
-		assert.Nil(t, spawned.ParentAgentId, "an agent spawned on its own is nobody's child")
+		assert.Equal(t, writer.GetId(), spawned.GetSpawnedByAgentId())
+		assert.NotEqual(t, writer.GetTaskId(), spawned.GetTaskId(), "an agent spawned on its own starts a task of its own")
+		assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_WRITER, spawned.GetRole())
 	})
 
-	t.Run("a child runs in its parent's checkout", func(t *testing.T) {
+	t.Run("a reviewer runs in its writer's checkout", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.CreateAgentRequest{
-			Prompt:        "read the change",
-			Title:         "reviewer",
-			WorkflowId:    workflowID,
-			ParentAgentId: &parent.Id,
+			Prompt:     "read the change",
+			Title:      "reviewer",
+			WorkflowId: workflowID,
+			Task:       writer.TaskId,
 		})
-		callAs(req, parent.GetId())
+		callAs(req, writer.GetId())
 
 		created, err := instance.Agents.CreateAgent(ctx, req)
 		require.NoError(t, err)
 
-		child = created.Msg.GetAgent()
-		assert.Equal(t, parent.GetId(), child.GetParentAgentId())
-		assert.Equal(t, parent.GetCwd(), child.GetCwd())
+		reviewer = created.Msg.GetAgent()
+		assert.Equal(t, writer.GetTaskId(), reviewer.GetTaskId())
+		assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_REVIEWER, reviewer.GetRole())
+		assert.Equal(t, writer.GetCwd(), reviewer.GetCwd())
 	})
 
 	t.Run("archiving the task takes its reviewer", func(t *testing.T) {
 		_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{
-			Task: parent.GetTaskId(),
+			Task: writer.GetTaskId(),
 		}))
 		require.NoError(t, err)
 
@@ -264,7 +266,7 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 
 	t.Run("a reviewer cannot come back before its task", func(t *testing.T) {
 		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
-			Ids: []string{child.GetId()},
+			Ids: []string{reviewer.GetId()},
 		}))
 		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 		assert.ElementsMatch(t, []string{"author", "reviewer"}, archivedNames(t, instance))
@@ -272,7 +274,7 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 
 	t.Run("restoring the task brings back its writer alone", func(t *testing.T) {
 		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
-			Ids: []string{parent.GetId()},
+			Ids: []string{writer.GetId()},
 		}))
 		require.NoError(t, err)
 
@@ -282,7 +284,7 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 
 	t.Run("a reviewer comes back once its task is live", func(t *testing.T) {
 		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
-			Ids: []string{child.GetId()},
+			Ids: []string{reviewer.GetId()},
 		}))
 		require.NoError(t, err)
 
@@ -291,7 +293,7 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 
 	t.Run("a reviewer is archived on its own", func(t *testing.T) {
 		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-			Ids: []string{child.GetId()},
+			Ids: []string{reviewer.GetId()},
 		}))
 		require.NoError(t, err)
 

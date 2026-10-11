@@ -115,7 +115,7 @@ func TestRestartAgentRefuses(t *testing.T) {
 			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{archived.ID}))
 			seeded := map[string]string{
 				"orchestrator":    orchestrator.ID,
-				"reviewer":        seedChild(t, st, tmux, writer).ID,
+				"reviewer":        seedReviewer(t, st, tmux, writer).ID,
 				"archived writer": archived.ID,
 			}
 

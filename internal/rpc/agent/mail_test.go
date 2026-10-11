@@ -183,7 +183,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "a child reaching outside its family",
 			call:     send,
-			err:      mail.ErrOutsideFamily,
+			err:      mail.ErrOutsideTask,
 			wantCode: connect.CodePermissionDenied,
 		},
 		{

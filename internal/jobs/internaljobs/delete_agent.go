@@ -49,7 +49,7 @@ func (w *DeleteAgentWorker) Timeout(*river.Job[DeleteAgentArgs]) time.Duration {
 // Work deletes one agent and its children, failing the agent's cleanup on the last attempt.
 func (w *DeleteAgentWorker) Work(ctx context.Context, job *river.Job[DeleteAgentArgs]) error {
 	err := w.agents.DeleteAgent(ctx, job.Args.AgentID, job.Args.Claim)
-	if errors.Is(err, agenterr.ErrChildDeleting) {
+	if errors.Is(err, agenterr.ErrReviewerDeleting) {
 		return river.JobSnooze(deleteAgentWait)
 	}
 	if errors.Is(err, agenterr.ErrTeardownFailed) {

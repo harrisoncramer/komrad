@@ -44,15 +44,15 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		return nil, "", fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, author.Name)
 	}
 
-	// A child reads its parent's checkout rather than writing one of its own, so neither a
-	// reviewer nor any other child has a change of its own for a second agent to be shown.
+	// A reviewer reads its task's checkout rather than writing one, so it has no change of its own
+	// for a second agent to be shown.
 	switch {
 	case author.Role == agentstore.RoleReviewer:
 		return nil, "", fmt.Errorf("%w: %q was launched to review", agenterr.ErrReviewNeedsOwnWork, author.Name)
 	case author.Role == agentstore.RoleOrchestrator:
 		return nil, "", fmt.Errorf("%w: %q writes no code, so it has no change to be read", agenterr.ErrReviewNeedsOwnWork, author.Name)
-	case author.ParentAgentID != nil:
-		return nil, "", fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agenterr.ErrReviewNeedsOwnWork, author.Name)
+	case author.TaskID == nil:
+		return nil, "", fmt.Errorf("%w: %q works on no task, so it has no change to be read", agenterr.ErrReviewNeedsOwnWork, author.Name)
 	}
 
 	running, err := s.liveReviewerFor(ctx, *author)
@@ -82,7 +82,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		Harness:        params.Harness,
 		Flags:          params.Flags,
 		WorkflowID:     author.WorkflowID,
-		ParentAgentID:  author.ID,
+		Task:           *author.TaskID,
 		Role:           agentstore.RoleReviewer,
 		IdempotencyKey: params.IdempotencyKey,
 	})

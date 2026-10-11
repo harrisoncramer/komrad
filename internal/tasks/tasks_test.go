@@ -247,10 +247,10 @@ func TestUpdateTaskNotes(t *testing.T) {
 		TaskID:     &work.ID,
 	})
 	reviewer := stores.SeedAgent(t, agentstore.Agent{
-		Name:          "reviewer",
-		WorkflowID:    workflow.ID,
-		ParentAgentID: &writer.ID,
-		TaskID:        &work.ID,
+		Name:       "reviewer",
+		WorkflowID: workflow.ID,
+		Role:       agentstore.RoleReviewer,
+		TaskID:     &work.ID,
 	})
 	stranger := stores.SeedAgent(t, agentstore.Agent{
 		Name:       "stranger",

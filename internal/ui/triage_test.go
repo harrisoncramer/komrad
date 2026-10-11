@@ -59,32 +59,23 @@ func TestTriageRows(t *testing.T) {
 			want:     []string{"done backend", "backend", "└─ done"},
 		},
 		{
-			name:     "a parent in triage brings its children with it",
+			name:     "a writer in triage brings its reviewers with it",
 			capacity: 3,
-			rows: []proto.Message{
+			rows: append(withTasks([]proto.Message{
 				newLiveWorkflow("w1", "backend"),
 				newAgentAt("quiet", "w1", 1),
 				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
-				newChild("reviewer", "reviewer", "asker"),
-				newChild("tester", "tester", "asker"),
-			},
-			want: []string{"asker", "└ tester", "└ reviewer", "backend", "├─ asker", "│ ├─ tester", "│ └─ reviewer", "└─ quiet"},
+			}),
+				newReviewer("reviewer", "reviewer", "asker"),
+				newReviewer("tester", "tester", "asker"),
+			),
+			want: []string{"asker backend", "└ tester", "└ reviewer", "backend", "├─ task-asker", "│ ├─ asker", "│ ├─ tester", "│ └─ reviewer", "└─ task-quiet", "└─ quiet"},
 		},
 		{
-			name:     "a child in triage brings its parent with it",
+			name:     "a reviewer in triage brings its writer with it",
 			capacity: 2,
-			rows: []proto.Message{
-				newLiveWorkflow("w1", "backend"),
-				newAgentAt("quiet", "w1", 1),
-				newTriageAgent("parent", agentv1.AgentState_AGENT_STATE_IDLE, 2),
-				func() *agentv1.Agent {
-					reviewer := newTriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
-					reviewer.ParentAgentId = xptr.Ptr("parent")
-
-					return reviewer
-				}(),
-			},
-			want: []string{"parent", "└ reviewer", "backend", "├─ parent", "│ └─ reviewer", "└─ quiet"},
+			rows:     buildTriageFamily()[:5],
+			want:     []string{"author backend", "└ reviewer", "backend", "├─ task-author", "│ ├─ author", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "the most urgent tier takes the slots and the rest wait in the tree",
@@ -99,21 +90,22 @@ func TestTriageRows(t *testing.T) {
 			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
-			name:     "a family with a child asking takes one slot",
+			name:     "a family with a reviewer asking takes one slot",
 			capacity: 2,
-			rows:     append(buildTriage()[:3], buildTriageFamily()[2:4]...),
-			want:     []string{"asker", "parent", "└ reviewer", "backend", "├─ asker", "├─ parent", "│ └─ reviewer", "└─ quiet"},
+			rows:     append(withTasks(buildTriage()[:3]), buildTriageFamily()[2:5]...),
+			want:     []string{"asker backend", "author backend", "└ reviewer", "backend", "├─ task-asker", "│ └─ asker", "├─ task-author", "│ ├─ author", "│ └─ reviewer", "└─ task-quiet", "└─ quiet"},
 		},
 		{
-			name:     "three families come whole with their children and a fourth waits for a slot",
+			name:     "three families come whole with their reviewers and a fourth waits for a slot",
 			capacity: 3,
-			rows: append(buildTriage(),
-				newChild("tester", "tester", "asker"),
+			rows: append(withTasks(buildTriage()),
+				newReviewer("tester", "tester", "asker"),
 				buildTriageFamily()[2],
 				buildTriageFamily()[3],
-				newChild("helper", "helper", "third"),
+				buildTriageFamily()[4],
+				newReviewer("helper", "helper", "third"),
 			),
-			want: []string{"asker", "└ tester", "parent", "└ reviewer", "third", "└ helper", "+1 more waiting for a slot", "backend", "├─ third", "│ └─ helper", "├─ asker", "│ └─ tester", "├─ parent", "│ └─ reviewer", "├─ broken", "└─ quiet"},
+			want: []string{"asker backend", "└ tester", "author backend", "└ reviewer", "third backend", "└ helper", "+1 more waiting for a slot", "backend", "├─ task-third", "│ ├─ third", "│ └─ helper", "├─ task-asker", "│ ├─ asker", "│ └─ tester", "├─ task-broken", "│ └─ broken"},
 		},
 	}
 
@@ -211,9 +203,9 @@ func TestTriageSnooze(t *testing.T) {
 			capacity: 3,
 			rows:     buildTriageFamily(),
 			press:    []string{"t", "space", "z"},
-			relisted: []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageFamily()[4]},
+			relisted: []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageFamily()[5]},
 			then:     buildTriageFamily(),
-			want:     []string{"parent", "└ reviewer", "third", "backend", "├─ third", "├─ parent", "│ └─ reviewer", "└─ quiet"},
+			want:     []string{"author backend", "└ reviewer", "third", "backend", "├─ third", "├─ task-author", "│ ├─ author", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "a family hidden and shown again keeps its snooze",
@@ -437,7 +429,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "a family archived from the bottom of the zone lands the cursor on the one above",
 			capacity: 3,
-			rows:     append(buildTriageFamily()[:4], newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)),
+			rows:     append(buildTriageFamily()[:5], newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)),
 			press:    []string{"j"},
 			then:     []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)},
 			want:     []string{"early", "backend", "├─ quiet", "└─ early"},
@@ -633,17 +625,21 @@ func newFinishedAgent(name string, minute int) *agentv1.Agent {
 	return agent
 }
 
-// buildTriageFamily is a workflow with a parent whose reviewer is asking, ahead of another agent
+// buildTriageFamily is a workflow with a writer whose reviewer is asking, ahead of another agent
 // asking.
 func buildTriageFamily() []proto.Message {
+	author := newTriageAgent("author", agentv1.AgentState_AGENT_STATE_IDLE, 2)
+	authorTask := newTaskOf(author)
 	reviewer := newTriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
-	reviewer.ParentAgentId = xptr.Ptr("parent")
+	reviewer.TaskId = author.TaskId
+	reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newAgentAt("quiet", "w1", 1),
-		newTriageAgent("parent", agentv1.AgentState_AGENT_STATE_IDLE, 2),
+		author,
 		reviewer,
+		authorTask,
 		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
 	}
 }

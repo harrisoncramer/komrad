@@ -36,20 +36,23 @@ func TestWatch(t *testing.T) {
 		assert.Equal(t, []string{"api", "├─ two", "└─ older"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("an agent's tombstone takes its children with it", func(t *testing.T) {
+	t.Run("a task's tombstones take its writer and reviewer with them", func(t *testing.T) {
 		t.Parallel()
 
+		writer := newAgent("a1", "writer", "w1")
 		harness := openAgents(t,
 			newLiveWorkflow("w1", "api"),
-			newAgent("a1", "parent", "w1"),
-			newChild("a2", "child", "a1"),
+			writer,
+			newTaskOf(writer),
+			newReviewer("a2", "reviewer", "a1"),
 			newAgent("a3", "other", "w1"),
 		)
-		require.Len(t, readListRows(harness.readFrame()), 4)
+		require.Len(t, readListRows(harness.readFrame()), 5)
 
 		harness.watch(
 			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
 			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a2"),
+			buildDeleted(watchv1.Resource_RESOURCE_TASK, "task-a1"),
 		)
 
 		assert.Equal(t, []string{"api", "└─ other"}, readListRows(harness.readFrame()))

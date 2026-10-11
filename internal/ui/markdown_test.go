@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -180,60 +179,6 @@ func TestAgentFields(t *testing.T) {
 			}
 			for _, once := range tt.wantOnce {
 				assert.Equal(t, 1, countLabel(labels, once))
-			}
-		})
-	}
-}
-
-// TestAgentFieldsReviewingRow pins a reviewer's record rendering whose work it reads exactly
-// once.
-func TestAgentFieldsReviewingRow(t *testing.T) {
-	tests := []struct {
-		name       string
-		role       panel.Role
-		wantLabels []string
-		wantOnce   []string
-		wantAbsent []string
-	}{
-		{
-			name:       "a reviewer renders whose work it reads once",
-			role:       panel.RoleReviewer,
-			wantLabels: []string{"reviewing"},
-			wantOnce:   []string{"reviewing"},
-			wantAbsent: []string{"attached to"},
-		},
-		{
-			name:       "an ordinary child is rendered as attached rather than reviewing",
-			role:       panel.RoleWriter,
-			wantLabels: []string{"attached to"},
-			wantAbsent: []string{"reviewing"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			agent := panel.Agent{
-				Name:          "reader",
-				Role:          tt.role,
-				ParentAgentID: xptr.Ptr("01a0-parent"),
-			}
-
-			fields := agentFields(agentFieldsParams{agent: agent, parent: "author"})
-
-			labels := make([]string, 0, len(fields))
-			values := make([]string, 0, len(fields))
-			for _, field := range fields {
-				labels = append(labels, field.label)
-				values = append(values, field.value)
-			}
-
-			assert.Subset(t, labels, tt.wantLabels)
-			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, labels, absent)
-				assert.NotContains(t, values, absent)
-			}
-			for _, once := range tt.wantOnce {
-				assert.Equal(t, 1, countLabel(labels, once), "the row is rendered once")
 			}
 		})
 	}

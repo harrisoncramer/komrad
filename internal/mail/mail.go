@@ -53,9 +53,8 @@ var ErrAgentNotFound = fail.NotFound("agent not found")
 
 var ErrAgentArchived = fail.Precondition("agent is archived")
 
-// ErrOutsideFamily says a child tried to reach an agent other than its parent or one of that
-// parent's other children.
-var ErrOutsideFamily = fail.Denied("a child agent may only mail its parent and its parent's other children")
+// ErrOutsideTask says a reviewer and an agent off its task tried to reach each other.
+var ErrOutsideTask = fail.Denied("a reviewer mails and is mailed only by the agents on its task and its workflow's orchestrator")
 
 const KomradSenderName = "komrad"
 
@@ -307,30 +306,23 @@ func (s *MailService) requireRoom(ctx context.Context, recipient agentstore.Agen
 	return nil
 }
 
-// familyID names a family, being a parent's own id and for a child the parent it is attached
-// to.
-func familyID(agent agentstore.Agent) string {
-	if agent.ParentAgentID != nil {
-		return *agent.ParentAgentID
+// requireSameTask holds a reviewer to the agents on its task and its workflow's orchestrator, both
+// ways, letting through the mail komrad raises itself and the mail a person sends.
+func requireSameTask(sender *agentstore.Agent, recipient agentstore.Agent) error {
+	switch {
+	case sender == nil:
+	case sender.Role != agentstore.RoleReviewer && recipient.Role != agentstore.RoleReviewer:
+	case isOrchestratorOf(*sender, recipient) || isOrchestratorOf(recipient, *sender):
+	case sender.TaskID != nil && recipient.TaskID != nil && *sender.TaskID == *recipient.TaskID:
+	default:
+		return fmt.Errorf("%w: %q and %q work on different tasks, so mail the agents on your own task or your workflow's orchestrator", ErrOutsideTask, sender.Name, recipient.Name)
 	}
 
-	return agent.ID
+	return nil
 }
 
-// requireSameFamily holds a child to its parent and that parent's other children, letting
-// through the mail komrad raises itself and the mail a person sends.
-func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) error {
-	if sender == nil {
-		return nil
-	}
-	if sender.ParentAgentID == nil && recipient.ParentAgentID == nil {
-		return nil
-	}
-	if familyID(*sender) == familyID(recipient) {
-		return nil
-	}
-
-	return fmt.Errorf("%w: %q is outside %q's family, so reply to your parent rather than looking for another way around", ErrOutsideFamily, recipient.Name, sender.Name)
+func isOrchestratorOf(orchestrator, agent agentstore.Agent) bool {
+	return orchestrator.Role == agentstore.RoleOrchestrator && orchestrator.WorkflowID == agent.WorkflowID
 }
 
 type sendParams struct {
@@ -367,7 +359,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	if sender != nil && sender.ID == recipient.ID {
 		return nil, ErrSelfAddressed
 	}
-	if err := requireSameFamily(sender, *recipient); err != nil {
+	if err := requireSameTask(sender, *recipient); err != nil {
 		return nil, err
 	}
 

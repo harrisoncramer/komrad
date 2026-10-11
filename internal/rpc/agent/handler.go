@@ -173,7 +173,6 @@ func (s *Handler) CreateAgent(ctx context.Context, req *agentv1.CreateAgentReque
 		WorkflowID:       req.GetWorkflowId(),
 		Harness:          req.GetHarness(),
 		IdempotencyKey:   req.GetIdempotencyKey(),
-		ParentAgentID:    req.GetParentAgentId(),
 		Task:             req.GetTask(),
 		TaskSlug:         req.GetTaskSlug(),
 		TaskGoal:         req.GetTaskGoal(),

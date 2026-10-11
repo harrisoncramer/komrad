@@ -107,7 +107,8 @@ type treeRowsParams struct {
 func treeRows(params treeRowsParams) []agentRow {
 	workflows, agents := params.workflows, params.agents
 
-	children := childrenByParent(agents)
+	writers := writersByTask(agents)
+	reviewers := reviewersByWriter(agents)
 	rendersRow := make(map[string]bool, len(agents))
 	orchestrators := make(map[string]panel.AgentRow)
 	for _, it := range agents {
@@ -127,9 +128,9 @@ func treeRows(params treeRowsParams) []agentRow {
 			continue
 		}
 
-		// A child is rendered where its parent is, and one whose parent renders no row has nowhere to
-		// be indented under, so it stands on its own rather than going missing.
-		if it.Agent.ParentAgentID != nil && rendersRow[*it.Agent.ParentAgentID] {
+		// A reviewer is rendered where its task's writer is, and one whose writer renders no row has
+		// nowhere to be indented under, so it stands on its own rather than going missing.
+		if writer, ok := findWriter(it, writers); ok && rendersRow[writer.Agent.ID] {
 			continue
 		}
 
@@ -147,7 +148,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		families = append(families, family{
 			workflowID: workflowID,
 			taskID:     it.Agent.TaskID,
-			rows:       buildFamilyRows(it, children[it.Agent.ID]),
+			rows:       buildFamilyRows(it, reviewers[it.Agent.ID]),
 		})
 	}
 
@@ -241,20 +242,44 @@ func keyAgentsByID(agents []panel.AgentRow) map[string]panel.AgentRow {
 	return xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
 }
 
-func childrenByParent(agents []panel.AgentRow) map[string][]panel.AgentRow {
-	children := make(map[string][]panel.AgentRow)
+// writersByTask is the writer of each task among the agents, keyed by its task.
+func writersByTask(agents []panel.AgentRow) map[string]panel.AgentRow {
+	writers := make(map[string]panel.AgentRow)
 	for _, item := range agents {
-		if parentID := item.Agent.ParentAgentID; parentID != nil {
-			children[*parentID] = append(children[*parentID], item)
+		if item.Agent.Role == panel.RoleWriter && item.Agent.TaskID != "" {
+			writers[item.Agent.TaskID] = item
 		}
 	}
 
-	return children
+	return writers
 }
 
-func buildFamilyRows(head panel.AgentRow, children []panel.AgentRow) []agentRow {
-	return append([]agentRow{{item: head}}, xslice.Map(children, func(child panel.AgentRow) agentRow {
-		return agentRow{item: child, child: true}
+// findWriter is the writer of a reviewer's task, when it is among the writers.
+func findWriter(item panel.AgentRow, writers map[string]panel.AgentRow) (panel.AgentRow, bool) {
+	if item.Agent.Role != panel.RoleReviewer {
+		return panel.AgentRow{}, false
+	}
+	writer, ok := writers[item.Agent.TaskID]
+
+	return writer, ok
+}
+
+// reviewersByWriter is the reviewers on each writer's task, keyed by the writer.
+func reviewersByWriter(agents []panel.AgentRow) map[string][]panel.AgentRow {
+	writers := writersByTask(agents)
+	reviewers := make(map[string][]panel.AgentRow)
+	for _, item := range agents {
+		if writer, ok := findWriter(item, writers); ok {
+			reviewers[writer.Agent.ID] = append(reviewers[writer.Agent.ID], item)
+		}
+	}
+
+	return reviewers
+}
+
+func buildFamilyRows(head panel.AgentRow, reviewers []panel.AgentRow) []agentRow {
+	return append([]agentRow{{item: head}}, xslice.Map(reviewers, func(reviewer panel.AgentRow) agentRow {
+		return agentRow{item: reviewer, child: true}
 	})...)
 }
 
@@ -552,16 +577,20 @@ func (r agentRow) key() string {
 	return rowKey(r)
 }
 
-// unnamedChildren counts the children the named agents hold that are not among them, taking the
-// pool from the screen doing the asking.
-func unnamedChildren(pool, named []panel.Agent) int {
+// unnamedReviewers counts the reviewers on the named writers' tasks that are not among the named,
+// taking the pool from the screen doing the asking.
+func unnamedReviewers(pool, named []panel.Agent) int {
 	held := make(map[string]bool, len(named))
+	writing := make(map[string]bool, len(named))
 	for _, agent := range named {
 		held[agent.ID] = true
+		if agent.Role == panel.RoleWriter {
+			writing[agent.TaskID] = true
+		}
 	}
 
 	return xslice.Count(pool, func(agent panel.Agent) bool {
-		return agent.ParentAgentID != nil && held[*agent.ParentAgentID] && !held[agent.ID]
+		return agent.Role == panel.RoleReviewer && writing[agent.TaskID] && !held[agent.ID]
 	})
 }
 
@@ -611,16 +640,6 @@ func (l listing) anyAgent(id string) (panel.AgentRow, bool) {
 	}
 
 	return panel.AgentRow{}, false
-}
-
-func (l listing) archivedAgent(id string) (panel.Agent, bool) {
-	for _, item := range l.archivedAgents {
-		if item.Agent.ID == id {
-			return item.Agent, true
-		}
-	}
-
-	return panel.Agent{}, false
 }
 
 // agentName is what an agent is called in the panel, its workflow's name for an orchestrator.
@@ -685,7 +704,7 @@ type listing struct {
 	worktrees         []worktreeItem
 	documentTypes     []*agentv1.DocumentType
 	agentsByID        map[string]panel.AgentRow
-	children          map[string][]panel.AgentRow
+	reviewers         map[string][]panel.AgentRow
 	generation        int
 }
 
@@ -703,7 +722,7 @@ func (l *listing) assemble(now time.Time) {
 		return !isArchivedAgent(row)
 	})
 	l.agentsByID = keyAgentsByID(l.agents)
-	l.children = childrenByParent(l.agents)
+	l.reviewers = reviewersByWriter(l.agents)
 
 	workflows := workflowsFrom(slices.Collect(maps.Values(l.world.Workflows)))
 	slices.SortFunc(workflows, func(a, b panel.Workflow) int {

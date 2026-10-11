@@ -87,20 +87,20 @@ func startHooksFor(ctx context.Context, params batchHooksParams) {
 	}
 }
 
-// agentHooks are the hooks a workflow lists for one of its agents, none for an agent working in
-// a directory somebody else prepared.
+// agentHooks are the hooks a workflow lists for one of its agents, which only a writer that owns its
+// directory runs.
 func agentHooks(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) []workflowstore.Hook {
-	if agent.ParentAgentID != nil || agent.IsProvisionerDisabled() {
+	if agent.Role != agentstore.RoleWriter || agent.IsProvisionerDisabled() {
 		return nil
 	}
 
-	return hooksFor(workflowFor(ctx, workflows, agent), agent.ParentAgentID != nil, agent.ProvisionEnabled)
+	return hooksFor(workflowFor(ctx, workflows, agent), agent.Role, agent.ProvisionEnabled)
 }
 
-func hooksFor(wf *workflowstore.Workflow, hasParent bool, provisionEnabled *bool) []workflowstore.Hook {
-	// The hooks a workflow lists are read only for the agents that own their own directory, and a
-	// child or an agent told to keep the directory it was given was handed somebody else's.
-	if wf == nil || hasParent || agentstore.IsProvisionerDisabled(provisionEnabled) {
+func hooksFor(wf *workflowstore.Workflow, role agentstore.Role, provisionEnabled *bool) []workflowstore.Hook {
+	// The hooks a workflow lists are read only for a writer that owns its own directory, and a
+	// writer told to keep the directory it was given was handed somebody else's.
+	if wf == nil || role != agentstore.RoleWriter || agentstore.IsProvisionerDisabled(provisionEnabled) {
 		return nil
 	}
 
