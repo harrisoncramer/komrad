@@ -133,12 +133,12 @@ func TestPrepareDim(t *testing.T) {
 			want: EmphasisDim,
 		},
 		{
-			name: "a hidden agent still running is bright",
+			name: "a hidden task still running is bright",
 			row:  Row{Hidden: true},
 			want: emphasisNormal,
 		},
 		{
-			name: "a hidden agent whose process has stopped is dim",
+			name: "a hidden task whose process has stopped is dim",
 			row:  Row{Hidden: true, Process: ProcessStopped},
 			want: EmphasisDim,
 		},
@@ -716,7 +716,7 @@ func TestPrepareTrailingMarks(t *testing.T) {
 			want: line{Held: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted}},
 		},
 		{
-			name: "a hidden agent is the muted closed eye",
+			name: "a hidden task is the muted closed eye",
 			row:  Row{Hidden: true},
 			want: line{Hidden: Cell{Glyph: glyph.Hidden, Tone: paint.ToneMuted}},
 		},

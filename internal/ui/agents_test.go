@@ -175,7 +175,7 @@ func TestAgentsRows(t *testing.T) {
 	})
 }
 
-// TestAgentsShowHidden covers the hide menu, which hides the hovered agent and shows and puts away
+// TestAgentsShowHidden covers the hide menu, which hides the hovered task and shows and puts away
 // the hidden ones.
 func TestAgentsShowHidden(t *testing.T) {
 	auth := newAgent("a1", "auth", "w1")
@@ -2423,7 +2423,7 @@ func TestAgentsSelection(t *testing.T) {
 			wantTasks: []string{"task-auth"},
 		},
 		{
-			name:      "a header takes its whole folder less the hidden agent with no row",
+			name:      "a header takes its whole folder less the hidden task with no row",
 			press:     []string{"k", "k", "v"},
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
