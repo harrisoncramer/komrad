@@ -51,7 +51,6 @@ func agentDetails(m *model, r agentRow) details {
 		agent:    r.item.Agent,
 		task:     task.Slug,
 		schedule: m.listing.scheduleName(r.item.Agent),
-		parent:   m.listing.parentName(r.item.Agent),
 	}
 	var tags []string
 	if r.underTask {

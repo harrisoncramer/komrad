@@ -131,7 +131,6 @@ type createAgentParams struct {
 	Flags            string
 	ProvisionEnabled *bool
 	WorkflowID       string
-	ParentAgentID    string
 	Task             string
 }
 
@@ -144,7 +143,6 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			Flags:            params.Flags,
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
-			ParentAgentId:    nilIfBlank(params.ParentAgentID),
 			Task:             nilIfBlank(params.Task),
 		}))
 		if err != nil {

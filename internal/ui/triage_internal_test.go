@@ -40,12 +40,13 @@ func TestTriageRefresh(t *testing.T) {
 			change(item)
 		})
 	}
-	child := func(state panel.State) panel.AgentRow {
+	reviewer := func(state panel.State) panel.AgentRow {
 		return panel.AgentRow{
 			Agent: panel.Agent{
-				ID:            "c1",
-				State:         state,
-				ParentAgentID: xptr.Ptr("a1"),
+				ID:     "r1",
+				State:  state,
+				Role:   panel.RoleReviewer,
+				TaskID: "t1",
 			},
 			Alive: true,
 		}
@@ -111,9 +112,9 @@ func TestTriageRefresh(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "a child in its parent's conflicted checkout is not in triage",
+			name: "a reviewer in its writer's conflicted checkout is not in triage",
 			item: idle(func(item *panel.AgentRow) {
-				item.Agent.ParentAgentID = xptr.Ptr("p1")
+				item.Agent.Role = panel.RoleReviewer
 			}),
 			task: panel.Task{Sequence: panel.SequenceRebase},
 			want: "",
@@ -171,9 +172,9 @@ func TestTriageRefresh(t *testing.T) {
 			since: seen,
 		},
 		{
-			name:   "an idle writer with a child at work is not in triage",
+			name:   "an idle writer with a reviewer at work is not in triage",
 			item:   writer(func(*panel.AgentRow) {}),
-			others: []panel.AgentRow{child(panel.StateThinking)},
+			others: []panel.AgentRow{reviewer(panel.StateThinking)},
 			want:   "",
 		},
 		{
@@ -235,7 +236,7 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name:  "a conflict left for a person",
-			item:  idle(func(*panel.AgentRow) {}),
+			item:  writer(func(*panel.AgentRow) {}),
 			task:  panel.Task{Sequence: panel.SequenceRebase},
 			want:  "checkout conflict",
 			since: seen,
@@ -290,7 +291,7 @@ func TestTriageRefresh(t *testing.T) {
 		{
 			name:   "a writer that finished its turn is finished",
 			item:   writer(func(*panel.AgentRow) {}),
-			others: []panel.AgentRow{child(panel.StateIdle)},
+			others: []panel.AgentRow{reviewer(panel.StateIdle)},
 			want:   "finished",
 			since:  changed,
 		},

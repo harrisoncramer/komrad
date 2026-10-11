@@ -85,7 +85,7 @@ The writer asks for a review when it thinks its work is ready, and komrad starts
 
 Neither you nor the orchestrator starts reviewers directly. Starting a new agent on a task from its menu with <Key name="menu.new_agent" /> while it has a live writer does not make a reviewer. It makes a plain child of the writer: a helper that runs in the writer's checkout with only the brief you give it, cannot ask for a review, and is archived with the writer. Use it for side work such as answering a question about the change. Keep the writing itself with the writer, since a child that edits the checkout works under the writer's feet.
 
-Set <Setting path="usage.implementer.max_children" /> to cap how many children, reviewers included, one writer can hold at a time.
+Set <Setting path="usage.task.max_reviewers" /> to cap how many reviewers one task can hold at a time.
 
 ## Adopting work
 

@@ -58,7 +58,7 @@
             "orchestrator"
           ],
           "summary": "Launch a new agent with an opening prompt, which is everything it has to go on.",
-          "description": "Launch a new agent with an opening prompt, which is everything it has to go on. Pass parent_agent_id to make it a child sharing that agent's directory, and provision_enabled false to keep it in the workflow's directory instead of a new worktree. Pass task, by id or slug, to put it on a task made with create_task, or leave it unset to give it a task of its own. A child shares its parent's task. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.",
+          "description": "Launch a new agent with an opening prompt, which is everything it has to go on. Pass task, by id or slug, to put it on that task, as its writer when it has none yet, such as one made with create_task, and otherwise as a reviewer in the writer's checkout. Leave task unset to start a task with this agent as its writer. Pass provision_enabled false to keep a writer in the workflow's directory instead of a new worktree. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -75,8 +75,8 @@
           "roles": [
             "writer"
           ],
-          "summary": "Spawn a reviewer for your committed work, as your child in your checkout.",
-          "description": "Spawn a reviewer for your committed work, as your child in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person.",
+          "summary": "Spawn a reviewer for your committed work, on your task in your checkout.",
+          "description": "Spawn a reviewer for your committed work, on your task in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -134,7 +134,7 @@
             "orchestrator"
           ],
           "summary": "Send mail to another agent by id or name, setting reply_to when answering.",
-          "description": "Send mail to another agent by id or name, setting reply_to when answering. A name held in more than one workflow is refused, and a child may mail only its parent and siblings.",
+          "description": "Send mail to another agent by id or name, setting reply_to when answering. A name held in more than one workflow is refused, and a reviewer may mail only the agents on its task and its workflow's orchestrator.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -305,7 +305,7 @@
             "orchestrator"
           ],
           "summary": "Relaunch an agent's CLI on the same conversation, such as when its pane died.",
-          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An agent on a task may resume only its parent and its workflow's orchestrator.",
+          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either its workflow's orchestrator.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -2247,7 +2247,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent this one is a child of, unset for an agent standing on its own."
+          "description": "Unused."
         },
         {
           "name": "failed_run",
@@ -2627,7 +2627,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which agent to attach this one to as its child. A child runs in its parent's directory, so dir and provision_enabled are refused, and workflow_id must be the parent's own. Neither a child nor an orchestrator may be a parent."
+          "description": "Refused. Pass task instead."
         },
         {
           "name": "task",
@@ -2637,7 +2637,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task it works on, by id or slug, which must be in workflow_id. Unset to have komrad make one from its title and prompt. A child always works on its parent's task, so this is refused with parent_agent_id."
+          "description": "Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer when the task has none yet, and otherwise a reviewer in the writer's checkout, for which provision_enabled is refused. Unset to start a task of its own, made from its title and prompt, with this agent as its writer."
         },
         {
           "name": "task_slug",
@@ -5064,7 +5064,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The reviewer as spawned, which is a child of the agent being read."
+          "description": "The reviewer as spawned, on the task of the agent being read."
         },
         {
           "name": "guidance",
@@ -11132,7 +11132,7 @@
       "values": [
         {
           "name": "SCHEDULE_KIND_IMPLEMENTER",
-          "description": "Launches a new implementer into the workflow with the prompt."
+          "description": "Unused."
         },
         {
           "name": "SCHEDULE_KIND_ORCHESTRATOR",

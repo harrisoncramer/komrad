@@ -430,12 +430,12 @@ func TestListRecipients(t *testing.T) {
 		WorkflowID: workflow,
 	}))
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
-		TaskID:        &task,
-		Name:          "child",
-		Pane:          "%3",
-		State:         agentstore.StateIdle,
-		WorkflowID:    workflow,
-		ParentAgentID: &writer.ID,
+		TaskID:     &task,
+		Name:       "reviewer",
+		Role:       agentstore.RoleReviewer,
+		Pane:       "%3",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflow,
 	}))
 
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))

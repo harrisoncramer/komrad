@@ -88,29 +88,36 @@
       ],
       "sections": [
         {
-          "path": "usage.implementer",
-          "description": "What an implementer, the agent that lands work on a branch of its own, may use.",
+          "path": "usage.task",
+          "description": "What one task may hold.",
           "settings": [
             {
-              "key": "auto_compaction",
-              "path": "usage.implementer.auto_compaction",
+              "key": "max_reviewers",
+              "path": "usage.task.max_reviewers",
               "type": "integer",
-              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
-              "default": "250000"
-            },
-            {
-              "key": "max_children",
-              "path": "usage.implementer.max_children",
-              "type": "integer",
-              "description": "How many children, such as its reviewer, one implementer may hold at once. Children share\ntheir parent's checkout, so this is deliberately far lower than max_agents.",
+              "description": "How many live reviewers one task may hold at once. Reviewers read their task's checkout,\nso this is deliberately far lower than max_agents.",
               "default": "3"
             }
           ],
           "sections": []
         },
         {
+          "path": "usage.writer",
+          "description": "What a writer, the agent that lands a task's work on its branch, may use.",
+          "settings": [
+            {
+              "key": "auto_compaction",
+              "path": "usage.writer.auto_compaction",
+              "type": "integer",
+              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
+              "default": "250000"
+            }
+          ],
+          "sections": []
+        },
+        {
           "path": "usage.reviewer",
-          "description": "What a reviewer, the child that reads another agent's work, may use.",
+          "description": "What a reviewer, the agent that reads a task's work, may use.",
           "settings": [
             {
               "key": "auto_compaction",
@@ -134,10 +141,10 @@
               "default": "150000"
             },
             {
-              "key": "max_children",
-              "path": "usage.orchestrator.max_children",
+              "key": "max_tasks",
+              "path": "usage.orchestrator.max_tasks",
               "type": "integer",
-              "description": "How many agents one orchestrator may have spawned and running at once, not counting their\nchildren. 0 sets no limit of its own, leaving max_agents as the cap.",
+              "description": "How many live tasks one orchestrator may have started at once. 0 sets no limit of its own,\nleaving max_agents as the cap.",
               "default": "0"
             }
           ],

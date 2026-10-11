@@ -30,10 +30,10 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{},
 		},
 		{
-			name: "a child without a worktree leaves its directory to its parent's row",
-			row: buildPlainChildRow(panel.AgentRow{Agent: panel.Agent{
-				ID:            "a2",
-				ParentAgentID: xptr.Ptr("a1"),
+			name: "a reviewer leaves its task's removed directory to its writer's row",
+			row: buildPlainReviewerRow(panel.AgentRow{Agent: panel.Agent{
+				ID:   "a2",
+				Role: panel.RoleReviewer,
 			}}),
 			task: panel.Task{WorktreeRemoved: true},
 			want: []string{},
@@ -383,7 +383,7 @@ func buildPlainRow(item panel.AgentRow) agentRow {
 	}
 }
 
-func buildPlainChildRow(item panel.AgentRow) agentRow {
+func buildPlainReviewerRow(item panel.AgentRow) agentRow {
 	row := buildPlainRow(item)
 	row.child = true
 

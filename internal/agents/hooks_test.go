@@ -139,8 +139,8 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
 }
 
-// TestNewChildAgentRunsNoHooks pins a child running no moment of its own.
-func TestNewChildAgentRunsNoHooks(t *testing.T) {
+// TestNewReviewerRunsNoHooks pins a reviewer running no moment of its own.
+func TestNewReviewerRunsNoHooks(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{dir: t.TempDir()}
@@ -152,7 +152,7 @@ func TestNewChildAgentRunsNoHooks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	parent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+	writer, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
 		Title:      "author",
 		Dir:        t.TempDir(),
 		WorkflowID: created.ID,
@@ -161,16 +161,16 @@ func TestNewChildAgentRunsNoHooks(t *testing.T) {
 
 	before := len(lifecycle.ranHooks())
 
-	child, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:         "reviewer",
-		Prompt:        "read the change",
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
+	reviewer, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "reviewer",
+		Prompt:     "read the change",
+		WorkflowID: writer.WorkflowID,
+		Task:       *writer.TaskID,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, child)
+	require.NotNil(t, reviewer)
 
-	assert.Len(t, lifecycle.ranHooks(), before, "no moment fires for a child")
+	assert.Len(t, lifecycle.ranHooks(), before, "no moment fires for a reviewer")
 }
 
 // TestARetiredProvisionerRunsNoHooks pins the other half of the ownership rule: an agent handed
@@ -977,7 +977,7 @@ func launchOnTask(t *testing.T, fx *taskDeleteFixture, params NewAgentParams) (*
 	t.Helper()
 
 	params.WorkflowID = fx.workflow.ID
-	if params.ParentAgentID == "" {
+	if params.Task == "" {
 		params.Dir = t.TempDir()
 	}
 
@@ -1012,7 +1012,7 @@ func TestTaskPreOpen(t *testing.T) {
 			wantOpens: 1,
 		},
 		{
-			name:           "a reviewer joining its parent's task does not open it",
+			name:           "a reviewer joining its writer's task does not open it",
 			worktree:       true,
 			join:           true,
 			wantOpens:      1,
@@ -1042,7 +1042,7 @@ func TestTaskPreOpen(t *testing.T) {
 			agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 			if tt.join {
 				require.NoError(t, err)
-				_, err = launchOnTask(t, fx, childOf(*agent, "reviewer"))
+				_, err = launchOnTask(t, fx, reviewerOf(*agent, "reviewer"))
 			}
 			if tt.wantErr {
 				require.ErrorContains(t, err, "cache is cold")
@@ -1092,59 +1092,6 @@ func TestRetryOpensTheTaskAFailedPreOpenLeft(t *testing.T) {
 	ran := lifecycle.ranTaskHooks()
 	require.Len(t, ran, 2, "the retry opens the task again")
 	assert.Equal(t, failed[0].ID, ran[1].ID)
-}
-
-// TestJoinOpensTheTaskItRestores covers a writer joining an archived task's checkout running task.pre-open there.
-func TestJoinOpensTheTaskItRestores(t *testing.T) {
-	tests := []struct {
-		name         string
-		hookErr      error
-		wantArchived bool
-	}{
-		{
-			name:         "a failed pre-open archives the task again",
-			hookErr:      errors.New("cache is cold"),
-			wantArchived: true,
-		},
-		{
-			name: "a join that restores the task opens it in the worktree",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
-			provisioned := t.TempDir()
-			lifecycle := &fakeLifecycle{dir: provisioned}
-			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, true))
-			first, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
-			require.NoError(t, err)
-			require.NoError(t, archiveWriters(ctx, fx.agents.lifecycle, []string{first.ID}))
-			lifecycle.hookErrs = map[string]error{taskHook: tt.hookErr}
-
-			next, err := fx.agents.launch.NewAgent(ctx, NewAgentParams{
-				Title:      "next",
-				Prompt:     "carry on",
-				WorkflowID: fx.workflow.ID,
-				Task:       *first.TaskID,
-			})
-
-			task, getErr := fx.st.Tasks.Get(ctx, *first.TaskID)
-			require.NoError(t, getErr)
-			ran := lifecycle.ranTaskHooks()
-			require.Len(t, ran, 2, "the join opens the task again")
-			assert.Equal(t, provisioned, ran[1].Cwd)
-			if tt.wantArchived {
-				require.ErrorContains(t, err, "cache is cold")
-				assert.NotNil(t, task.ArchivedAt)
-
-				return
-			}
-			require.NoError(t, err)
-			assert.Nil(t, task.ArchivedAt)
-			assert.Equal(t, next.ID, ran[1].ID, "the hook runs as the joining writer")
-		})
-	}
 }
 
 // TestTaskPostArchive covers task.post-archive firing once a task's last live agent is archived.
@@ -1203,7 +1150,7 @@ func TestTaskPostArchive(t *testing.T) {
 			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPostArchive, tt.worktree))
 			writer, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 			require.NoError(t, err)
-			reviewer, err := launchOnTask(t, fx, childOf(*writer, "reviewer"))
+			reviewer, err := launchOnTask(t, fx, reviewerOf(*writer, "reviewer"))
 			require.NoError(t, err)
 
 			require.NoError(t, tt.archive(t, fx, lifecycle, []string{writer.ID, reviewer.ID}))
@@ -1384,69 +1331,37 @@ func TestTaskPreDelete(t *testing.T) {
 	}
 }
 
-// TestJoiningAgentWaitsForTheTaskToOpen pins that a joiner waits out the opener's task.pre-open and opens the task itself when that failed.
-func TestJoiningAgentWaitsForTheTaskToOpen(t *testing.T) {
-	tests := []struct {
-		name        string
-		hookErr     error
-		wantOpeners int
-	}{
-		{
-			name:        "a joiner opens the task itself once the agent opening it fails",
-			hookErr:     errors.New("cache is cold"),
-			wantOpeners: 2,
-		},
-		{
-			name:        "a joiner starts once the task has opened, without opening it again",
-			wantOpeners: 1,
-		},
-	}
+// TestReviewerWaitsForTheTaskToOpen pins that a reviewer waits out its writer's task.pre-open and opens nothing itself.
+func TestReviewerWaitsForTheTaskToOpen(t *testing.T) {
+	hold := make(chan struct{})
+	lifecycle := &fakeLifecycle{dir: t.TempDir(), holdHooks: hold}
+	fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, false))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hold := make(chan struct{})
-			lifecycle := &fakeLifecycle{
-				dir:          t.TempDir(),
-				holdHooks:    hold,
-				hookErrsOnce: map[string]error{taskHook: tt.hookErr},
-			}
-			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, false))
-
-			opened := make(chan error, 1)
-			go func() {
-				_, err := launchOnTask(t, fx, NewAgentParams{
-					Title:    "auth",
-					TaskSlug: "work",
-				})
-				opened <- err
-			}()
-			require.Eventually(t, func() bool {
-				_, err := fx.st.Tasks.GetBySlug(t.Context(), "work")
-				return err == nil
-			}, 5*time.Second, 10*time.Millisecond)
-
-			joined := make(chan error, 1)
-			var joiner *agentstore.Agent
-			go func() {
-				agent, err := launchOnTask(t, fx, NewAgentParams{
-					Title: "follow-up",
-					Task:  "work",
-				})
-				joiner = agent
-				joined <- err
-			}()
-			require.Never(t, func() bool { return len(joined) > 0 }, 200*time.Millisecond, 20*time.Millisecond)
-
-			close(hold)
-			openErr := <-opened
-			require.NoError(t, <-joined)
-			assert.Equal(t, tt.hookErr != nil, openErr != nil)
-
-			ran := lifecycle.ranTaskHooks()
-			require.Len(t, ran, tt.wantOpeners)
-			if tt.hookErr != nil {
-				assert.Equal(t, joiner.ID, ran[1].ID)
-			}
+	opened := make(chan error, 1)
+	go func() {
+		_, err := launchOnTask(t, fx, NewAgentParams{
+			Title:    "auth",
+			TaskSlug: "work",
 		})
-	}
+		opened <- err
+	}()
+	require.Eventually(t, func() bool {
+		_, err := fx.st.Tasks.GetBySlug(t.Context(), "work")
+		return err == nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	joined := make(chan error, 1)
+	go func() {
+		_, err := launchOnTask(t, fx, NewAgentParams{
+			Title: "follow-up",
+			Task:  "work",
+		})
+		joined <- err
+	}()
+	require.Never(t, func() bool { return len(joined) > 0 }, 200*time.Millisecond, 20*time.Millisecond)
+
+	close(hold)
+	require.NoError(t, <-opened)
+	require.NoError(t, <-joined)
+	assert.Len(t, lifecycle.ranTaskHooks(), 1)
 }

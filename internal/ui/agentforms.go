@@ -78,19 +78,19 @@ func openReviewerForm(m *model, writer panel.Agent, task panel.Task, values *age
 		Kind:     formReviewer,
 		Build:    func(m *model) (*huh.Form, []string) { return reviewerAgentForm(fixedKeys(), values, writer, task) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitReviewer(writer, *values) }),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitReviewer(writer, task, *values) }),
 	}))
 }
 
-// submitReviewer launches the reviewer in the writer's checkout without a provisioner.
-func (m *model) submitReviewer(writer panel.Agent, values agentFormValues) tea.Cmd {
+// submitReviewer launches a reviewer onto the writer's task.
+func (m *model) submitReviewer(writer panel.Agent, task panel.Task, values agentFormValues) tea.Cmd {
 	cmd := m.createCmd(createAgentParams{
-		Prompt:        values.Prompt,
-		Title:         values.Title,
-		Harness:       values.Harness,
-		Flags:         values.Flags,
-		WorkflowID:    writer.WorkflowID,
-		ParentAgentID: writer.ID,
+		Prompt:     values.Prompt,
+		Title:      values.Title,
+		Harness:    values.Harness,
+		Flags:      values.Flags,
+		WorkflowID: writer.WorkflowID,
+		Task:       task.ID,
 	})
 
 	return cmd
@@ -312,22 +312,22 @@ func retryAgentForm(keys config.FixedKeys, values *retryFormValues) (*huh.Form, 
 	)
 }
 
-// promptSubject names what a prompt is about, counting in the children that were not asked
+// promptSubject names what a prompt is about, counting in the reviewers that were not asked
 // about.
-func promptSubject(agents []panel.Agent, children int) string {
+func promptSubject(agents []panel.Agent, reviewers int) string {
 	subject := fmt.Sprintf("%d agents", len(agents))
 	if len(agents) == 1 {
 		subject = fmt.Sprintf("agent %q", agents[0].Name)
 	}
 
 	switch {
-	case children == 0:
+	case reviewers == 0:
 	case len(agents) > 1:
-		subject += fmt.Sprintf(" and %d children", children)
-	case children == 1:
-		subject += " and its child"
+		subject += fmt.Sprintf(" and %d reviewers", reviewers)
+	case reviewers == 1:
+		subject += " and its reviewer"
 	default:
-		subject += fmt.Sprintf(" and its %d children", children)
+		subject += fmt.Sprintf(" and its %d reviewers", reviewers)
 	}
 
 	return subject

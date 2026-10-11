@@ -228,7 +228,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 			PullRequest:  task.PullRequest,
 			PullRequests: task.PullRequests,
 		}
-		if agent.ParentAgentId == nil {
+		if agent.GetRole() != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 			row.LocalReviewRounds = task.LocalReviewRounds
 			row.ReviewerComments = task.ReviewerComments
 			row.PersonComments = task.PersonComments

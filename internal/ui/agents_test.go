@@ -35,6 +35,8 @@ import (
 
 // TestAgentsRows covers which rows the agents tree renders and where.
 func TestAgentsRows(t *testing.T) {
+	archivedWriter := newArchivedAgent("writer", "writer", "w1")
+
 	tests := []struct {
 		name string
 		rows []proto.Message
@@ -75,19 +77,21 @@ func TestAgentsRows(t *testing.T) {
 			want: []string{"backend", "└─ auth", "frontend", "└─ ui"},
 		},
 		{
-			name: "a child is rendered under its parent rather than where the listing put it",
-			rows: buildFamily(),
-			want: []string{"komrad", "├─ fix-gutter", "└─ author", "   ├─ test-runner", "   └─ reviewer"},
+			name: "a reviewer is rendered under its writer rather than where the listing put it",
+			rows: buildTaskFamily(),
+			want: []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author", "   ├─ author", "   ├─ second-reviewer", "   └─ reviewer"},
 		},
 		{
-			name: "a child whose parent is not listed stands on its own",
+			name: "a reviewer whose writer is archived stays under its task",
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "komrad"),
 				newAgentAt("fix-gutter", "w1", 2),
-				newChild("a3", "reviewer", "author"),
-				newChild("a4", "test-runner", "author"),
+				archivedWriter,
+				newTaskOf(archivedWriter),
+				newReviewer("a3", "reviewer", "writer"),
+				newReviewer("a4", "second-reviewer", "writer"),
 			},
-			want: []string{"komrad", "├─ fix-gutter", "├─ test-runner", "└─ reviewer"},
+			want: []string{"komrad", "├─ fix-gutter", "└─ task-writer", "   ├─ second-reviewer", "   └─ reviewer"},
 		},
 		{
 			name: "a hidden task gives its row to its workflow's count",
@@ -111,15 +115,6 @@ func TestAgentsRows(t *testing.T) {
 				newAgent("a1", "telescope", "w1"),
 			},
 			want: []string{"backend ⠋", "└─ telescope"},
-		},
-		{
-			name: "an orchestrator's child stands on its own",
-			rows: []proto.Message{
-				newLiveWorkflow("w1", "backend"),
-				newOrchestrator(),
-				newChild("a1", "reader", "o1"),
-			},
-			want: []string{"backend ⠋", "└─ reader"},
 		},
 	}
 
@@ -203,7 +198,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author" + hiddenMark, "   ├─ author", "   ├─ test-runner", "   └─ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author" + hiddenMark, "   ├─ author", "   ├─ second-reviewer", "   └─ reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
@@ -283,27 +278,27 @@ func TestAgentsSort(t *testing.T) {
 	}{
 		{
 			name: "created down is the fallback, the newest family first",
-			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ alpha", "   ├─ charlie", "   └─ bob"},
+			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ alpha", "   ├─ charlie", "   └─ bob"},
 		},
 		{
 			name:  "created up is the oldest family first",
 			press: []string{"f", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ alpha", "│  ├─ bob", "│  └─ charlie", "├─ Zulu", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ alpha", "│  ├─ bob", "│  └─ charlie", "├─ Zulu", "└─ delta"},
 		},
 		{
 			name:  "activity down is the family whose head changed state last first",
 			press: []string{"f", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ alpha", "│  ├─ bob", "│  └─ charlie", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ alpha", "│  ├─ bob", "│  └─ charlie", "└─ delta"},
 		},
 		{
 			name:  "name up sorts a name in capitals as its lowercase",
 			press: []string{"f", "tab", "tab", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ alpha", "│  ├─ bob", "│  └─ charlie", "├─ delta", "└─ Zulu"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ alpha", "│  ├─ bob", "│  └─ charlie", "├─ delta", "└─ Zulu"},
 		},
 		{
 			name:  "name down",
 			press: []string{"f", "tab", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ alpha", "   ├─ charlie", "   └─ bob"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ task-alpha", "   ├─ alpha", "   ├─ charlie", "   └─ bob"},
 		},
 		{
 			name:  "a flat list drops the headers and walks every workflow's families together",
@@ -324,17 +319,17 @@ func TestAgentsSort(t *testing.T) {
 
 	t.Run("the cursor keeps its row as the tree is reordered", func(t *testing.T) {
 		harness := openAgents(t, buildSortable()...)
-		harness.press("j", "j", "j", "j")
-		require.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()))
+		harness.press("j", "j", "j", "j", "j")
+		require.Equal(t, "   ├─ alpha", readHoveredRow(harness.readFrame()))
 
 		harness.press("f", "tab", "esc")
-		assert.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()), "walking to a tab reorders nothing")
+		assert.Equal(t, "   ├─ alpha", readHoveredRow(harness.readFrame()), "walking to a tab reorders nothing")
 
 		harness.press("f", "tab", "j", "esc")
-		assert.Equal(t, "├─ alpha", readHoveredRow(harness.readFrame()), "activity down")
+		assert.Equal(t, "│  ├─ alpha", readHoveredRow(harness.readFrame()), "activity down")
 
 		harness.press("f", "tab", "k", "esc")
-		assert.Equal(t, "├─ alpha", readHoveredRow(harness.readFrame()), "name up")
+		assert.Equal(t, "│  ├─ alpha", readHoveredRow(harness.readFrame()), "name up")
 	})
 
 	t.Run("the cursor keeps its agent across the flip to a flat list and back", func(t *testing.T) {
@@ -646,12 +641,6 @@ func TestAgentsRecord(t *testing.T) {
 			press:      []string{"k"},
 			want:       map[string]string{"name": "backend", "agents": "1"},
 			wantAbsent: []string{"session_id"},
-		},
-		{
-			name:  "a child leads with the parent it is attached to",
-			rows:  buildFamily(),
-			press: []string{"G"},
-			want:  map[string]string{"attached to": "author"},
 		},
 		{
 			name: "an agent shows what it was launched with",
@@ -2229,16 +2218,18 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("a flat list renders no row for the orchestrator it folded away", func(t *testing.T) {
+		telescope := newAgentAt("telescope", "w1", 1)
 		harness := openAgents(t,
 			newLiveWorkflow("w1", "backend"),
 			newOrchestrator(),
-			newAgentAt("telescope", "w1", 1),
-			newChild("a2", "reader", "telescope"),
+			telescope,
+			newTaskOf(telescope),
+			newReviewer("a2", "reviewer", "telescope"),
 		)
 
 		harness.press("f", "shift+tab", "j")
 
-		assert.Equal(t, []string{"telescope", "  └ reader"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"telescope", "  └ reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
@@ -2276,8 +2267,8 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 }
 
-// TestAgentsChildren covers what a parent and its children allow and say about each other.
-func TestAgentsChildren(t *testing.T) {
+// TestAgentsReviewers covers what a writer and its reviewers allow and say about each other.
+func TestAgentsReviewers(t *testing.T) {
 	tests := []struct {
 		name  string
 		press []string
@@ -2289,14 +2280,14 @@ func TestAgentsChildren(t *testing.T) {
 			want:  `Permanently delete task "task-fix-gutter"?`,
 		},
 		{
-			name:  "a task whose agent has children",
+			name:  "a task whose writer has reviewers",
 			press: []string{"j", "space", "a", "d"},
 			want:  `Permanently delete task "task-author"?`,
 		},
 		{
-			name:  "a selection names its agents and the children going with them",
+			name:  "a selection names its agents and the reviewers going with them",
 			press: []string{"v", "j", "j", "v", "space", "a", "d"},
-			want:  "Permanently delete 2 agents and 2 children?",
+			want:  "Permanently delete 2 agents and 2 reviewers?",
 		},
 	}
 
@@ -2310,29 +2301,32 @@ func TestAgentsChildren(t *testing.T) {
 		})
 	}
 
-	t.Run("the hard delete counts the children in the archive's own rows", func(t *testing.T) {
+	t.Run("the hard delete counts the reviewers in the archive's own rows", func(t *testing.T) {
+		writer := newArchivedAgent("a1", "writer", "w1")
+		writerTask := newTaskOf(writer)
 		reviewer := newArchivedAgent("a3", "reviewer", "w1")
-		reviewer.ParentAgentId = xptr.Ptr("a1")
-		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
+		reviewer.TaskId = writer.TaskId
+		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
+		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), writer, writerTask, reviewer)
 
-		harness.press("j", "space", "a", "d")
+		harness.press("j", "j", "space", "a", "d")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, `Permanently delete agent "author" and its child?`)
+		assert.Contains(t, frame, `Permanently delete agent "writer" and its reviewer?`)
 		assert.Contains(t, frame, "Their transcripts go with them")
 	})
 
-	t.Run("a task whose newest agent is a child offers its writer's worktree a rebase", func(t *testing.T) {
+	t.Run("a task whose newest agent is a reviewer offers its writer's worktree a rebase", func(t *testing.T) {
 		rows := buildTaskFamily()
 		rows[0] = &workflowv1.Workflow{
 			Id:       "w1",
 			Name:     "komrad",
 			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		}
-		author, _ := rows[3].(*agentv1.Agent)
-		author.Cwd = "/tmp/tree"
-		authorTask, _ := rows[6].(*taskv1.Task)
-		authorTask.Cwd = xptr.Ptr("/tmp/tree")
+		writer, _ := rows[3].(*agentv1.Agent)
+		writer.Cwd = "/tmp/tree"
+		writerTask, _ := rows[6].(*taskv1.Task)
+		writerTask.Cwd = xptr.Ptr("/tmp/tree")
 		harness := openAgents(t, rows...)
 
 		harness.press("j", "space", "g")
@@ -2633,27 +2627,13 @@ func buildCursorable() []proto.Message {
 	}
 }
 
-func buildFamily() []proto.Message {
-	return []proto.Message{
-		newLiveWorkflow("w1", "komrad"),
-		newAgentAt("author", "w1", 1),
-		newAgentAt("fix-gutter", "w1", 2),
-		newChild("a3", "reviewer", "author"),
-		newChild("a4", "test-runner", "author"),
-	}
-}
-
 func buildTaskFamily() []proto.Message {
 	fixGutter := newAgentAt("fix-gutter", "w1", 2)
 	author := newAgentAt("author", "w1", 1)
-	reviewer := newChild("a3", "reviewer", "author")
-	runner := newChild("a4", "test-runner", "author")
-	runner.CreatedAt = "2026-09-20T12:09:00Z"
+	reviewer := newReviewer("a3", "reviewer", "author")
+	secondReviewer := newReviewer("a4", "second-reviewer", "author")
+	secondReviewer.CreatedAt = "2026-09-20T12:09:00Z"
 	authorTask := newTaskOf(author)
-	reviewer.TaskId = author.TaskId
-	runner.TaskId = author.TaskId
-	reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
-	runner.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
@@ -2661,7 +2641,7 @@ func buildTaskFamily() []proto.Message {
 		newTaskOf(fixGutter),
 		author,
 		reviewer,
-		runner,
+		secondReviewer,
 		authorTask,
 	}
 }
@@ -2674,11 +2654,14 @@ func buildSortable() []proto.Message {
 		return agent
 	}
 	charlie := newSortable("charlie", "w1", 25, 5)
-	charlie.ParentAgentId = xptr.Ptr("alpha")
+	charlie.TaskId = xptr.Ptr("task-alpha")
+	charlie.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 	bob := newSortable("bob", "w1", 5, 40)
-	bob.ParentAgentId = xptr.Ptr("alpha")
+	bob.TaskId = xptr.Ptr("task-alpha")
+	bob.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 	zulu := newSortable("zulu", "w1", 20, 30)
 	zulu.Name = "Zulu"
+	alpha := newSortable("alpha", "w1", 10, 20)
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
@@ -2686,7 +2669,8 @@ func buildSortable() []proto.Message {
 		newSortable("delta", "w1", 30, 10),
 		charlie,
 		zulu,
-		newSortable("alpha", "w1", 10, 20),
+		alpha,
+		newTaskOf(alpha),
 		bob,
 		newSortable("echo", "w2", 0, 50),
 	}
@@ -2756,9 +2740,10 @@ func newAgentOnHiddenTask(id, name string) []proto.Message {
 	return []proto.Message{agent, task}
 }
 
-func newChild(id, name, parentID string) *agentv1.Agent {
+func newReviewer(id, name, writerID string) *agentv1.Agent {
 	agent := newAgent(id, name, "w1")
-	agent.ParentAgentId = xptr.Ptr(parentID)
+	agent.TaskId = xptr.Ptr("task-" + writerID)
+	agent.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 	return agent
 }

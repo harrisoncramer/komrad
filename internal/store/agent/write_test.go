@@ -268,57 +268,6 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	assert.Nil(t, stillThere.SpawnedByAgentID, "the reference is nulled rather than left dangling")
 }
 
-// TestParentAgentID pins the attachment reading back on its own rather than through the spawner
-// column, which answers a different question about the same pair.
-func TestParentAgentID(t *testing.T) {
-	f := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
-	parent, err := f.Get(ctx, "author")
-	require.NoError(t, err)
-	require.NotNil(t, parent)
-
-	require.NoError(t, f.Create(ctx, Agent{
-		Name:          "reviewer",
-		ParentAgentID: &parent.ID,
-		State:         StateIdle,
-	}))
-	stored, err := f.Get(ctx, "reviewer")
-	require.NoError(t, err)
-	require.NotNil(t, stored)
-
-	require.NotNil(t, stored.ParentAgentID)
-	assert.Equal(t, parent.ID, *stored.ParentAgentID)
-	assert.Nil(t, stored.SpawnedByAgentID, "who called create is a separate fact")
-}
-
-// TestDeleteTakesTheChildren pins the cascade.
-func TestDeleteTakesTheChildren(t *testing.T) {
-	f := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
-	parent, err := f.Get(ctx, "author")
-	require.NoError(t, err)
-	require.NotNil(t, parent)
-
-	require.NoError(t, f.Create(ctx, Agent{
-		Name:          "reviewer",
-		ParentAgentID: &parent.ID,
-		State:         StateIdle,
-	}))
-	child, err := f.Get(ctx, "reviewer")
-	require.NoError(t, err)
-	require.NotNil(t, child)
-
-	_, deleteErr := f.Delete(ctx, []string{parent.ID})
-	require.NoError(t, deleteErr)
-
-	_, err = f.GetByID(ctx, child.ID)
-	require.ErrorIs(t, err, store.ErrNotFound)
-}
-
 // TestRename pins that a rename onto a live agent's name comes back as the caller's mistake
 // while a rename onto a name only an archived row holds is allowed.
 func TestRename(t *testing.T) {

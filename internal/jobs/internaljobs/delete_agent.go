@@ -10,10 +10,11 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// deleteAgentTimeout covers an agent's teardown hooks and deprovisioner, and its children's.
+// deleteAgentTimeout covers an agent's teardown hooks and deprovisioner, and for a writer those of
+// the reviewers on its task.
 const deleteAgentTimeout = 30 * time.Minute
 
-// deleteAgentWait is how long a delete waits for a child another delete is tearing down.
+// deleteAgentWait is how long a delete waits for a reviewer another delete is tearing down.
 const deleteAgentWait = 10 * time.Second
 
 type DeleteAgentArgs struct {
@@ -46,10 +47,11 @@ func (w *DeleteAgentWorker) Timeout(*river.Job[DeleteAgentArgs]) time.Duration {
 	return deleteAgentTimeout
 }
 
-// Work deletes one agent and its children, failing the agent's cleanup on the last attempt.
+// Work deletes one agent, and for a writer the reviewers on its task, failing the agent's cleanup on
+// the last attempt.
 func (w *DeleteAgentWorker) Work(ctx context.Context, job *river.Job[DeleteAgentArgs]) error {
 	err := w.agents.DeleteAgent(ctx, job.Args.AgentID, job.Args.Claim)
-	if errors.Is(err, agenterr.ErrChildDeleting) {
+	if errors.Is(err, agenterr.ErrReviewerDeleting) {
 		return river.JobSnooze(deleteAgentWait)
 	}
 	if errors.Is(err, agenterr.ErrTeardownFailed) {

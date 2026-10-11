@@ -111,7 +111,7 @@ type ScheduleKind int32
 const (
 	// No kind was recorded.
 	ScheduleKind_SCHEDULE_KIND_UNSPECIFIED ScheduleKind = 0
-	// Launches a new implementer into the workflow with the prompt.
+	// Unused.
 	ScheduleKind_SCHEDULE_KIND_IMPLEMENTER ScheduleKind = 1
 	// Mails the prompt to an orchestrator that is already running.
 	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 2

@@ -109,18 +109,9 @@ func (f *fixture) Create(ctx context.Context, agent Agent) error {
 	return f.AgentStore.Create(ctx, agent)
 }
 
-// taskFor is the task an agent written by a test works on: its parent's, or one made for it.
+// taskFor is a task made for an agent written by a test.
 func (f *fixture) taskFor(ctx context.Context, agent Agent) (*string, error) {
-	if agent.ParentAgentID == nil {
-		return tasktest.Seed(ctx, f.db, agent.WorkflowID)
-	}
-
-	parent, err := f.GetByID(ctx, *agent.ParentAgentID)
-	if err != nil {
-		return nil, err
-	}
-
-	return parent.TaskID, nil
+	return tasktest.Seed(ctx, f.db, agent.WorkflowID)
 }
 
 func open(t *testing.T) *fixture {

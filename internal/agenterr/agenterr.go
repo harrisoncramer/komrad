@@ -4,24 +4,20 @@ package agenterr
 import "komrad/internal/fail"
 
 var (
-	ErrAgentNotFound        = fail.NotFound("agent not found")
-	ErrWorkflowNotFound     = fail.NotFound("workflow not found")
-	ErrTooManyAgents        = fail.Exhausted("too many agents")
-	ErrAgentArchived        = fail.Precondition("agent is archived")
-	ErrSpawnerUnknown       = fail.InvalidArgument("the spawning agent is not one this panel knows")
-	ErrOutsideWorkflow      = fail.Denied("an orchestrator spawns only into its own workflow")
-	ErrParentNotFound       = fail.NotFound("parent agent not found")
-	ErrParentIsChild        = fail.InvalidArgument("a child agent may not have children of its own")
-	ErrParentIsOrchestrator = fail.InvalidArgument("an orchestrator may not have children of its own")
-	ErrChildOwnsLaunch      = fail.InvalidArgument("a child agent takes its launch from its parent")
-	ErrTooManyChildren      = fail.Exhausted("too many children")
-	ErrTooManySpawned       = fail.Exhausted("too many spawned agents")
-	ErrChildDeleting        = fail.Precondition("a child is still being deleted by another delete")
-	ErrTeardownFailed       = fail.Internal("an agent's teardown failed")
+	ErrAgentNotFound      = fail.NotFound("agent not found")
+	ErrWorkflowNotFound   = fail.NotFound("workflow not found")
+	ErrTooManyAgents      = fail.Exhausted("too many agents")
+	ErrAgentArchived      = fail.Precondition("agent is archived")
+	ErrSpawnerUnknown     = fail.InvalidArgument("the spawning agent is not one this panel knows")
+	ErrOutsideWorkflow    = fail.Denied("an orchestrator spawns only into its own workflow")
+	ErrReviewerOwnsLaunch = fail.InvalidArgument("a reviewer takes its launch from its task")
+	ErrTooManyReviewers   = fail.Exhausted("too many reviewers")
+	ErrTooManyTasks       = fail.Exhausted("too many tasks")
+	ErrReviewerDeleting   = fail.Precondition("a reviewer is still being deleted by another delete")
+	ErrTeardownFailed     = fail.Internal("an agent's teardown failed")
 
-	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
-	// recorded.
-	ErrChildNeedsParentDirectory = fail.Precondition("a child agent needs its parent's directory to run in")
+	// ErrReviewerNeedsDirectory says the task a reviewer was launched onto has no directory recorded.
+	ErrReviewerNeedsDirectory = fail.Precondition("a reviewer needs its task's directory to run in")
 
 	// ErrWriterGoesWithTask says a call named a task's writer on its own, which only ever moves
 	// with its task.

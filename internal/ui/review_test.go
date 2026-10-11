@@ -48,7 +48,7 @@ func TestReviewOpen(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.Slug = "login-fix"
 		server.agent.CreatedAt = "2026-09-20T12:05:00Z"
-		server.children = []*agentv1.Agent{{
+		server.onTask = []*agentv1.Agent{{
 			Id:         "a0",
 			Name:       "first-try",
 			WorkflowId: "w1",
@@ -432,12 +432,12 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("the agent under review and its reviewer are each named by role in the thread", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.children = []*agentv1.Agent{{
-			Id:            "r1",
-			Name:          "review-auth",
-			ParentAgentId: xptr.Ptr("a1"),
-			WorkflowId:    "w1",
-			Role:          agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+		server.onTask = []*agentv1.Agent{{
+			Id:         "r1",
+			Name:       "review-auth",
+			TaskId:     xptr.Ptr("t1"),
+			WorkflowId: "w1",
+			Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		}}
 		asked := newAgentMessage("m1", "this drops the error")
 		asked.AuthorAgentId = xptr.Ptr("r1")
@@ -2580,7 +2580,7 @@ type reviewServer struct {
 	workflow   *workflowv1.Workflow
 	agent      *agentv1.Agent
 	task       *taskv1.Task
-	children   []*agentv1.Agent
+	onTask     []*agentv1.Agent
 	threads    []*agentv1.ReviewThread
 	viewed     []*agentv1.ReviewViewedFile
 	rounds     []*agentv1.ReviewRound
@@ -2669,8 +2669,8 @@ func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams)
 
 func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
 	rows := []proto.Message{s.workflow, s.agent, s.task}
-	for _, child := range s.children {
-		rows = append(rows, child)
+	for _, agent := range s.onTask {
+		rows = append(rows, agent)
 	}
 	for _, thread := range s.threads {
 		if thread.GetTaskId() == "" {

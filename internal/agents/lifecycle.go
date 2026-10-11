@@ -84,29 +84,46 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 	}
 }
 
-// DeleteAgent deletes an agent and the children the same claim took, and does nothing to an
-// agent that claim no longer holds.
+// DeleteAgent deletes an agent and, for a writer, the reviewers on its task the same claim took,
+// and does nothing to an agent that claim no longer holds.
 func (s *LifecycleService) DeleteAgent(ctx context.Context, id string, claim time.Time) error {
 	named, err := s.claimedBy(ctx, id, claim)
 	if err != nil || len(named) == 0 {
 		return err
 	}
 
-	children, err := s.agents.ListChildren(ctx, []string{id})
+	reviewers, err := s.listTaskReviewers(ctx, named[0])
 	if err != nil {
 		return err
 	}
 
 	agents := named
-	for _, child := range children {
-		if child.DeletingAt != nil && !child.DeletingAt.Equal(claim) {
-			return agenterr.ErrChildDeleting.Saying("agent %s waits on the delete of its child %s", id, child.ID)
+	for _, reviewer := range reviewers {
+		if reviewer.DeletingAt != nil && !reviewer.DeletingAt.Equal(claim) {
+			return agenterr.ErrReviewerDeleting.Saying("agent %s waits on the delete of reviewer %s", id, reviewer.ID)
 		}
 
-		agents = append(agents, child)
+		agents = append(agents, reviewer)
 	}
 
 	return s.deleteAgents(ctx, agents)
+}
+
+// listTaskReviewers returns the reviewers on a writer's task, archived ones included, and none for
+// any other agent.
+func (s *LifecycleService) listTaskReviewers(ctx context.Context, agent agentstore.Agent) ([]agentstore.Agent, error) {
+	if !isTaskWriter(agent) {
+		return nil, nil
+	}
+
+	onTask, err := s.agents.ListOnTasks(ctx, []string{*agent.TaskID})
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Filter(onTask, func(other agentstore.Agent) bool {
+		return other.Role == agentstore.RoleReviewer
+	}), nil
 }
 
 // deleteNow claims agents and runs the delete of each root the claim took, as the queued jobs do.

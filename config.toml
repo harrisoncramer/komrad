@@ -46,17 +46,20 @@ trust_launch_dirs = false
 # How many unarchived agents this engine may run at once, past which a create is refused.
 max_agents = 50
 
-# What an implementer, the agent that lands work on a branch of its own, may use.
-[usage.implementer]
+# What one task may hold.
+[usage.task]
+# How many live reviewers one task may hold at once. Reviewers read their task's checkout,
+# so this is deliberately far lower than max_agents.
+max_reviewers = 3
+
+# What a writer, the agent that lands a task's work on its branch, may use.
+[usage.writer]
 # The conversation size in tokens an agent is held under, summarizing its history a little
 # before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 # own default, and a value the CLI will not take is moved to the nearest one it will.
 auto_compaction = 250000
-# How many children, such as its reviewer, one implementer may hold at once. Children share
-# their parent's checkout, so this is deliberately far lower than max_agents.
-max_children    = 3
 
-# What a reviewer, the child that reads another agent's work, may use.
+# What a reviewer, the agent that reads a task's work, may use.
 [usage.reviewer]
 # The conversation size in tokens an agent is held under, summarizing its history a little
 # before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
@@ -69,9 +72,9 @@ auto_compaction = 250000
 # before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 # own default, and a value the CLI will not take is moved to the nearest one it will.
 auto_compaction = 150000
-# How many agents one orchestrator may have spawned and running at once, not counting their
-# children. 0 sets no limit of its own, leaving max_agents as the cap.
-max_children    = 0
+# How many live tasks one orchestrator may have started at once. 0 sets no limit of its own,
+# leaving max_agents as the cap.
+max_tasks       = 0
 
 # Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
 [layout]

@@ -66,7 +66,7 @@ func TestDeleteAgentLeavesItsTasksCheckout(t *testing.T) {
 
 			target := agent
 			if tt.child {
-				target, err = manager.launch.NewAgent(t.Context(), childOf(*agent, "reviewer"))
+				target, err = manager.launch.NewAgent(t.Context(), reviewerOf(*agent, "reviewer"))
 				require.NoError(t, err)
 			}
 
@@ -438,7 +438,7 @@ func TestArchiveAgent(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
-			reviewer := seedChild(t, st, tmux, writer)
+			reviewer := seedReviewer(t, st, tmux, writer)
 			require.NoError(t, st.Agents.SetStateByID(t.Context(), reviewer.ID, agentstore.StateThinking))
 			target := tt.target(writer, reviewer)
 
@@ -617,7 +617,7 @@ func TestDeleteAgentsTakesAReviewerAndNotItsWriter(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
-			reviewer := seedChild(t, st, tmux, writer)
+			reviewer := seedReviewer(t, st, tmux, writer)
 
 			err := manager.lifecycle.DeleteAgents(t.Context(), []string{tt.target(writer, reviewer)})
 			if tt.wantErrIs != nil {
@@ -939,8 +939,8 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			auth := seedChild(t, st, tmux, seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking))
-			api := seedChild(t, st, tmux, seedRunning(t, st, tmux, "api", "%2", agentstore.StateThinking))
+			auth := seedReviewer(t, st, tmux, seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking))
+			api := seedReviewer(t, st, tmux, seedRunning(t, st, tmux, "api", "%2", agentstore.StateThinking))
 
 			err := manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{auth.ID, tt.stray, api.ID}})
 
@@ -1036,8 +1036,8 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsTasksReviewers(t *testing.T) {
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
 			seeded := map[string]string{
 				"writer":                   writer.ID,
-				"reviewer":                 seedChild(t, st, tmux, writer).ID,
-				"reviewer on another task": seedChild(t, st, tmux, seedRunning(t, st, tmux, "billing", "%2", agentstore.StateIdle)).ID,
+				"reviewer":                 seedReviewer(t, st, tmux, writer).ID,
+				"reviewer on another task": seedReviewer(t, st, tmux, seedRunning(t, st, tmux, "billing", "%2", agentstore.StateIdle)).ID,
 				"orchestrator":             seedOrchestrator(t, st, tmux).ID,
 				"missing":                  uuid.NewString(),
 			}
@@ -1299,34 +1299,34 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	assert.NotContains(t, err.Error(), ids[19], "rather than spelled out")
 }
 
-// TestRestoreOfAChildUnderTheChildCeiling pins that a child comes back only while its parent
-// still has room.
-func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
+// TestRestoreOfAReviewerUnderTheReviewerCeiling pins that a reviewer comes back only while its
+// task still has room.
+func TestRestoreOfAReviewerUnderTheReviewerCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		usage:     config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}},
+		usage:     config.Usage{Task: config.TaskUsage{MaxReviewers: 1}},
 	})
 	ctx := t.Context()
 
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
+	writer := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Agents.Update(ctx, withCwd(writer, t.TempDir())))
 
-	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
+	first, err := manager.launch.NewAgent(ctx, reviewerOf(writer, "reviewer"))
 	require.NoError(t, err)
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
 
-	_, err = manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
-	require.NoError(t, err, "the ceiling frees up once one child is archived")
+	_, err = manager.launch.NewAgent(ctx, reviewerOf(writer, "second-reviewer"))
+	require.NoError(t, err, "the ceiling frees up once one reviewer is archived")
 
 	_, err = manager.lifecycle.RestoreAgents(ctx, []string{first.ID})
-	require.ErrorIs(t, err, agenterr.ErrTooManyChildren)
+	require.ErrorIs(t, err, agenterr.ErrTooManyReviewers)
 	assert.NotNil(t, agentByID(t, st, first.ID).ArchivedAt, "the refusal restores nothing")
 
-	held, err := st.Agents.CountLiveChildren(ctx, parent.ID)
+	held, err := st.Agents.CountLiveReviewers(ctx, *writer.TaskID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, held)
 }
@@ -1409,7 +1409,7 @@ func TestATasksWriterMovesWithItsTask(t *testing.T) {
 			ctx := t.Context()
 
 			writer := seedRunning(t, st, tmux, "writer", "%writer", agentstore.StateIdle)
-			reviewer := seedChild(t, st, tmux, writer)
+			reviewer := seedReviewer(t, st, tmux, writer)
 
 			require.NoError(t, tt.act(ctx, manager.lifecycle, writer, reviewer))
 
@@ -1450,7 +1450,7 @@ func TestRestoreOfAReviewerNeedsItsTaskBack(t *testing.T) {
 			ctx := t.Context()
 
 			writer := seedRunning(t, st, tmux, "writer", "%writer", agentstore.StateIdle)
-			reviewer := seedChild(t, st, tmux, writer)
+			reviewer := seedReviewer(t, st, tmux, writer)
 
 			require.NoError(t, manager.lifecycle.ArchiveTask(ctx, *writer.TaskID))
 			if tt.restoreTask {
@@ -1559,9 +1559,9 @@ func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
 	})
 	require.NoError(t, err)
 	child, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:         "reviewer",
-		WorkflowID:    created.ID,
-		ParentAgentID: parent.ID,
+		Title:      "reviewer",
+		WorkflowID: created.ID,
+		Task:       *parent.TaskID,
 	})
 	require.NoError(t, err)
 
@@ -1573,7 +1573,7 @@ func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
 	require.Len(t, parentClaims, 1, "the child is not taken twice")
 
 	err = manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt)
-	require.ErrorIs(t, err, agenterr.ErrChildDeleting)
+	require.ErrorIs(t, err, agenterr.ErrReviewerDeleting)
 	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 2)
@@ -1650,7 +1650,7 @@ func TestArchivingAReviewerLeavesItsTaskLive(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
 	writer := seed(t, st, "writer", "", agentstore.StateIdle)
-	reviewer := seedChild(t, st, tmux, writer)
+	reviewer := seedReviewer(t, st, tmux, writer)
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{reviewer.ID}}))
 
@@ -1817,7 +1817,7 @@ func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 	lifecycle := &fakeLifecycle{}
 	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
 	writer, task := fx.launch(t, "auth")
-	_, err := fx.agents.launch.NewAgent(t.Context(), childOf(*writer, "reviewer"))
+	_, err := fx.agents.launch.NewAgent(t.Context(), reviewerOf(*writer, "reviewer"))
 	require.NoError(t, err)
 	_, other := fx.launch(t, "ui")
 	reviews := reviewstore.NewReviewStore(fx.st.Pool.GetDB())

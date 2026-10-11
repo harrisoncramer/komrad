@@ -248,22 +248,6 @@ func hasPane(item panel.AgentRow) bool {
 		!item.Agent.State.IsFailed()
 }
 
-// parentName is what the agent a child is attached to is called.
-func (l listing) parentName(agent panel.Agent) string {
-	if agent.ParentAgentID == nil {
-		return ""
-	}
-
-	if item, ok := l.liveAgent(*agent.ParentAgentID); ok {
-		return item.Agent.Name
-	}
-	if parent, ok := l.archivedAgent(*agent.ParentAgentID); ok {
-		return parent.Name
-	}
-
-	return *agent.ParentAgentID
-}
-
 func (l listing) scheduleName(agent panel.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""

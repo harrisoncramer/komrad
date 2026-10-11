@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -102,7 +103,6 @@ type NewAgentParams struct {
 	IdempotencyKey   string
 	AdoptedBranch    string
 	RepositoryURL    string
-	ParentAgentID    string
 	Role             agentstore.Role
 	Task             string
 	TaskSlug         string
@@ -147,24 +147,28 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		}
 	}
 
-	var parent *agentstore.Agent
-	if params.ParentAgentID != "" {
-		found, err := s.findParent(ctx, params)
+	var joined *taskstore.Task
+	if params.Task != "" {
+		found, err := s.findJoinedTask(ctx, params)
 		if err != nil {
 			return nil, err
 		}
-		parent = found
-		params = childParams(params, *found)
+		joined = found
+
+		params, err = s.joinParams(ctx, params, *found)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if params.Role == "" {
-		params.Role = agentstore.DefaultRole(parent != nil)
+		params.Role = agentstore.RoleWriter
 	}
 
 	if err := requireRoomForAgents(ctx, s.agents, s.usage.MaxAgents, 1); err != nil {
 		return nil, err
 	}
 
-	return s.launchAgent(ctx, params, spawner, parent)
+	return s.launchAgent(ctx, params, spawner, joined)
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
@@ -196,10 +200,10 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 	return fmt.Errorf("%w: %q stands behind workflow %q", agenterr.ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
 }
 
-// findSpawnedBy picks the agent a new one answers to, the workflow's orchestrator for a standalone
-// spawn by a writer.
+// findSpawnedBy picks the agent a new one answers to, the workflow's orchestrator for a writer
+// starting a task of its own.
 func (s *LaunchService) findSpawnedBy(ctx context.Context, spawner agentstore.Agent, params NewAgentParams) (*agentstore.Agent, error) {
-	if spawner.Role != agentstore.RoleWriter || params.ParentAgentID != "" {
+	if spawner.Role != agentstore.RoleWriter || params.Task != "" {
 		return &spawner, nil
 	}
 
@@ -229,57 +233,74 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 	return spawner, nil
 }
 
-// findParent resolves the agent a child is being attached to, and refuses a request naming the
-// checkout, the provisioner or the workflow, all of which the parent decides.
-func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
-	parent, err := s.agents.GetByID(ctx, params.ParentAgentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", agenterr.ErrParentNotFound, params.ParentAgentID)
+// findJoinedTask resolves the live task a launch names, refusing one that also describes a task
+// to make.
+func (s *LaunchService) findJoinedTask(ctx context.Context, params NewAgentParams) (*taskstore.Task, error) {
+	if params.TaskSlug != "" || params.TaskGoal != "" {
+		return nil, errTaskMadeAndJoined
 	}
+
+	task, err := s.tasks.GetTaskForWorkflow(ctx, params.Task, params.WorkflowID)
 	if err != nil {
 		return nil, err
 	}
-	if parent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, parent.Name)
-	}
-	if parent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: %q is itself attached to another agent", agenterr.ErrParentIsChild, parent.Name)
-	}
-	if parent.Role == agentstore.RoleOrchestrator {
-		return nil, fmt.Errorf(
-			"%w: %q is drawn on its workflow's own row, so a child of it would have no row anywhere; spawn an ordinary agent into the workflow with provision_enabled false instead",
-			agenterr.ErrParentIsOrchestrator, parent.Name)
+	if task.ArchivedAt != nil {
+		return nil, tasks.ErrArchived.Saying("task %q is archived", task.Slug)
 	}
 
-	// Ahead of what the request asked for, which puts the parent's missing directory in the
-	// refusal rather than a conflict with an empty one.
-	if parent.Cwd == "" {
-		return nil, fmt.Errorf("%w: %q has none recorded", agenterr.ErrChildNeedsParentDirectory, parent.Name)
+	return task, nil
+}
+
+// joinParams makes a launch onto a task that has a writer one of its reviewers, holding it to
+// the checkout the task already has, and leaves the first agent on a task to become its writer.
+func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, task taskstore.Task) (NewAgentParams, error) {
+	onTask, err := s.agents.ListOnTasks(ctx, []string{task.ID})
+	if err != nil {
+		return params, err
+	}
+
+	var writer *agentstore.Agent
+	if i := slices.IndexFunc(onTask, isTaskWriter); i >= 0 {
+		writer = &onTask[i]
+	}
+	if writer == nil && params.Role != agentstore.RoleReviewer {
+		return params, nil
 	}
 
 	switch {
 	case strings.TrimSpace(params.Dir) != "":
-		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", agenterr.ErrChildOwnsLaunch, parent.Cwd)
+		return params, fmt.Errorf("%w: it runs in task %q's checkout", agenterr.ErrReviewerOwnsLaunch, task.Slug)
 	case params.ProvisionEnabled != nil && *params.ProvisionEnabled:
-		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", agenterr.ErrChildOwnsLaunch)
-	case params.WorkflowID != parent.WorkflowID:
-		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", agenterr.ErrChildOwnsLaunch, parent.WorkflowID)
+		return params, fmt.Errorf("%w: it provisions nothing, since task %q's checkout is already there", agenterr.ErrReviewerOwnsLaunch, task.Slug)
 	case params.ScheduleID != nil:
-		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", agenterr.ErrChildOwnsLaunch)
-	case params.Task != "" || params.TaskSlug != "" || params.TaskGoal != "":
-		return nil, fmt.Errorf("%w: it works on its parent's task", agenterr.ErrChildOwnsLaunch)
+		return params, fmt.Errorf("%w: a schedule starts a task rather than joining one", agenterr.ErrReviewerOwnsLaunch)
+	case task.Checkout.WorktreeRemoved:
+		return params, tasks.ErrWorktreeRemoved.Saying("task %q's worktree was removed, so there is no checkout to review", task.Slug)
 	}
 
-	return parent, nil
+	dir := reviewerDir(task, writer)
+	if dir == "" {
+		return params, fmt.Errorf("%w: task %q has none recorded", agenterr.ErrReviewerNeedsDirectory, task.Slug)
+	}
+
+	params.Dir = dir
+	params.ProvisionEnabled = xptr.Ptr(false)
+	params.Role = agentstore.RoleReviewer
+
+	return params, nil
 }
 
-// childParams holds a child to what its parent gives it, writing the disabled provisioner onto
-// the row.
-func childParams(params NewAgentParams, parent agentstore.Agent) NewAgentParams {
-	params.Dir = parent.Cwd
-	params.ProvisionEnabled = xptr.Ptr(false)
+// reviewerDir is where a reviewer on a task runs: the task's checkout, or the directory its writer
+// works in when the task has none of its own.
+func reviewerDir(task taskstore.Task, writer *agentstore.Agent) string {
+	if task.Checkout.IsUsable() {
+		return task.Checkout.Cwd
+	}
+	if writer != nil {
+		return writer.Cwd
+	}
 
-	return params
+	return ""
 }
 
 type launchPlan struct {
@@ -345,43 +366,9 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		}),
 		provisioner:   provisioner,
 		deprovisioner: deprovisioner,
-		hooks:         hooksFor(wf, params.ParentAgentID != "", params.ProvisionEnabled),
+		hooks:         hooksFor(wf, params.Role, params.ProvisionEnabled),
 		workflow:      wf,
 	}, nil
-}
-
-// joinCheckout points a writer launched onto a task that already has a worktree at that worktree in
-// place of a new one, reporting whether it did.
-func (p *launchPlan) joinCheckout(params NewAgentParams, task *taskstore.Task) (bool, error) {
-	joins, err := isJoining(task, p.provisioner, params.Role == agentstore.RoleWriter)
-	if err != nil || !joins {
-		return false, err
-	}
-
-	p.dir = task.Checkout.Cwd
-	p.provisioner = ""
-	p.deprovisioner = ""
-
-	return true, nil
-}
-
-// isJoining reports whether a writer that would provision starts in its task's existing worktree
-// instead, refusing one whose worktree is gone.
-func isJoining(task *taskstore.Task, provisioner string, isWriter bool) (bool, error) {
-	if task == nil || provisioner == "" || !isWriter {
-		return false, nil
-	}
-	if task.Checkout.WorktreeRemoved {
-		return false, tasks.ErrWorktreeRemoved.Saying("task %q has no worktree left", task.Slug)
-	}
-	if !task.Checkout.IsUsable() {
-		return false, nil
-	}
-	if err := scripts.RequireUsableDir(task.Checkout.Cwd); err != nil {
-		return false, tasks.ErrWorktreeRemoved.Saying("task %q has no worktree at %q: %v", task.Slug, task.Checkout.Cwd, err)
-	}
-
-	return true, nil
 }
 
 type launchFlagsParams struct {
@@ -467,36 +454,14 @@ func (p *launchPlan) newAgent(params NewAgentParams, spawner *agentstore.Agent) 
 		ScheduleID:       params.ScheduleID,
 		IdempotencyKey:   nullable(params.IdempotencyKey),
 		SpawnedByAgentID: spawnedBy,
-		ParentAgentID:    nullable(params.ParentAgentID),
 		Role:             params.Role,
 	}, nil
 }
 
-func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
-	if params.Task != "" && (params.TaskSlug != "" || params.TaskGoal != "") {
-		return nil, errTaskMadeAndJoined
-	}
-
-	var joined *taskstore.Task
-	if params.Task != "" {
-		found, err := s.tasks.GetTaskForWorkflow(ctx, params.Task, params.WorkflowID)
-		if err != nil {
-			return nil, err
-		}
-		joined = found
-	}
-
+func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner *agentstore.Agent, joined *taskstore.Task) (*agentstore.Agent, error) {
 	plan, err := s.planLaunch(ctx, params)
 	if err != nil {
 		return nil, err
-	}
-
-	joinsCheckout, err := plan.joinCheckout(params, joined)
-	if err != nil {
-		return nil, err
-	}
-	if joined != nil && joined.ArchivedAt != nil && !joinsCheckout {
-		return nil, tasks.ErrArchived.Saying("task %q is archived", joined.Slug)
 	}
 
 	agent, err := plan.newAgent(params, spawner)
@@ -509,14 +474,12 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		agent:         agent,
 		task:          joined,
 		spawner:       spawner,
-		parent:        parent,
 		title:         params.Title,
 		taskSlug:      params.TaskSlug,
 		taskGoal:      params.TaskGoal,
 		adoptedBranch: params.AdoptedBranch,
 		repositoryURL: params.RepositoryURL,
 		provisioner:   plan.provisioner,
-		joinsCheckout: joinsCheckout,
 		hideTask:      params.HideTask,
 	})
 	if err != nil {
@@ -533,13 +496,10 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		hooks:          plan.hooks,
 		defaultDir:     plan.dir,
 		spawner:        spawner,
-		parent:         parent,
 		claimsCheckout: isCheckoutClaimant(*agent, plan.provisioner),
 		workflow:       plan.workflow,
 		task:           placed.task,
-		restoredTask:   placed.restored,
 		openTurn:       placed.openTurn,
-		joinsCheckout:  joinsCheckout,
 	})
 }
 
@@ -550,15 +510,10 @@ type resolvedLaunch struct {
 	hooks         []workflowstore.Hook
 	defaultDir    string
 	spawner       *agentstore.Agent
-	parent        *agentstore.Agent
 	// claimsCheckout is whether the directory the agent starts in becomes its task's checkout.
 	claimsCheckout bool
-	// joinsCheckout is whether the agent starts in its task's existing checkout as its writer.
-	joinsCheckout bool
-	// restoredTask is whether joining the checkout brought its task back from the archive.
-	restoredTask bool
-	workflow     *workflowstore.Workflow
-	task         *taskstore.Task
+	workflow       *workflowstore.Workflow
+	task           *taskstore.Task
 	// openTurn is the place in its task's hook queue an agent taking the task from no live agent to
 	// one holds, nil for any other agent.
 	openTurn *scriptrun.HookTurn
@@ -671,7 +626,7 @@ func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 		SessionID:    agent.SessionID,
 		AgentID:      agent.ID,
 		Role:         agent.Role,
-		OwnsCheckout: c.resolved.claimsCheckout || c.resolved.joinsCheckout,
+		OwnsCheckout: c.resolved.claimsCheckout,
 		Task:         c.resolved.task,
 	}
 	if c.resolved.workflow != nil {
@@ -680,10 +635,6 @@ func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 	if c.resolved.spawner != nil {
 		launch.SpawnedByAgentID = c.resolved.spawner.ID
 		launch.SpawnedByName = c.resolved.spawner.Name
-	}
-	if c.resolved.parent != nil {
-		launch.ParentAgentID = c.resolved.parent.ID
-		launch.ParentName = c.resolved.parent.Name
 	}
 
 	return paneLaunch{
@@ -713,9 +664,6 @@ func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, caus
 		c.service.releaseCheckout(ctx, agent)
 	}
 	c.service.failCreate(ctx, agent, cause)
-	if c.resolved.restoredTask {
-		c.service.tasks.Rearchive(ctx, *agent.TaskID, agent.ID)
-	}
 }
 
 // releaseCheckout gives up the claim a failed create made on its task's checkout, logging any failure.
@@ -793,7 +741,6 @@ type creation struct {
 	agent    *agentstore.Agent
 	task     *taskstore.Task
 	spawner  *agentstore.Agent
-	parent   *agentstore.Agent
 	title    string
 	taskSlug string
 	taskGoal string
@@ -801,22 +748,19 @@ type creation struct {
 	adoptedBranch string
 	repositoryURL string
 	provisioner   string
-	// joinsCheckout is whether the agent becomes the writer of its task's existing checkout.
-	joinsCheckout bool
 	hideTask      bool
 }
 
 // isCheckoutClaimant reports whether an agent's directory becomes its task's checkout, which only a
-// top-level agent that provisions does.
+// writer that provisions does.
 func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
-	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role != agentstore.RoleOrchestrator && provisioner != ""
+	return agent.TaskID != nil && agent.Role == agentstore.RoleWriter && provisioner != ""
 }
 
-// placement is the task an agent was created on, whether creating it brought the task back from the
-// archive, and the place in its hook queue the agent holds when it opens it.
+// placement is the task an agent was created on and the place in its hook queue the agent holds
+// when it opens it.
 type placement struct {
 	task     *taskstore.Task
-	restored bool
 	openTurn *scriptrun.HookTurn
 }
 
@@ -830,25 +774,20 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, 1); err != nil {
 			return err
 		}
-		if err := claimRoomForChildren(ctx, agentStore, s.usage.Implementer.MaxChildren, c.parent); err != nil {
-			return err
-		}
-		if c.parent == nil {
-			if err := claimRoomForSpawned(ctx, agentStore, s.usage.Orchestrator.MaxChildren, c.spawner); err != nil {
+		if c.agent.Role == agentstore.RoleWriter {
+			if err := claimRoomForTask(ctx, agentStore, s.usage.Orchestrator.MaxTasks, c.spawner); err != nil {
 				return err
 			}
 		}
 
 		var err error
 		opened, err = s.tasks.Open(ctx, db, tasks.OpenParams{
-			Agent:         *c.agent,
-			Joined:        c.task,
-			Parent:        c.parent,
-			Title:         c.title,
-			Slug:          c.taskSlug,
-			Goal:          c.taskGoal,
-			JoinsCheckout: c.joinsCheckout,
-			Hidden:        c.hideTask,
+			Agent:  *c.agent,
+			Joined: c.task,
+			Title:  c.title,
+			Slug:   c.taskSlug,
+			Goal:   c.taskGoal,
+			Hidden: c.hideTask,
 		})
 		if err != nil {
 			return err
@@ -857,6 +796,11 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			c.agent.TaskID = &opened.Task.ID
 		}
 
+		if c.agent.Role == agentstore.RoleReviewer {
+			if err := claimRoomForReviewer(ctx, agentStore, s.usage.Task.MaxReviewers, *c.agent.TaskID); err != nil {
+				return err
+			}
+		}
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
 		}
@@ -881,7 +825,6 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 
 	return &placement{
 		task:     opened.Task,
-		restored: opened.Restored,
 		openTurn: opened.Turn,
 	}, nil
 }

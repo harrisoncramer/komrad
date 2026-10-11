@@ -37,7 +37,7 @@ type AgentDir struct {
 	DeletingAt     *time.Time
 	WorkflowID     string
 	CreatedAt      time.Time
-	// ProvisionedTaskID is the task the agent was provisioned a worktree for, empty for a child or an agent that keeps the directory it was given.
+	// ProvisionedTaskID is the task the agent was provisioned a worktree for, empty for an agent other than a writer or one that keeps the directory it was given.
 	ProvisionedTaskID string
 }
 
@@ -233,7 +233,7 @@ func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID stri
 }
 
 // ListRestorableInWorkflow returns the archived agents a workflow's restore brings back, leaving
-// children archived apart from their parent.
+// reviewers archived.
 func (s *AgentStore) ListRestorableInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListRestorableWorkflowAgents(ctx, workflowID)
 	if err != nil {
@@ -243,44 +243,29 @@ func (s *AgentStore) ListRestorableInWorkflow(ctx context.Context, workflowID st
 	return fromRows(rows), nil
 }
 
-// ListChildren returns the agents attached to the given parents, archived ones included.
-func (s *AgentStore) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, error) {
-	storable := store.KeepIDs(parentIDs)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListChildAgents(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the children of %d agents: %w", len(storable), err)
-	}
-
-	return fromRows(rows), nil
-}
-
-// CountLiveSpawned returns how many live agents one agent spawned that are not attached to a parent.
-func (s *AgentStore) CountLiveSpawned(ctx context.Context, spawnerID string) (int, error) {
+// CountLiveTasksStartedBy returns how many live tasks one agent started, counted by their writers.
+func (s *AgentStore) CountLiveTasksStartedBy(ctx context.Context, spawnerID string) (int, error) {
 	if !store.IsID(spawnerID) {
 		return 0, nil
 	}
 
-	count, err := s.queries.CountLiveSpawnedAgents(ctx, &spawnerID)
+	count, err := s.queries.CountLiveTasksStartedBy(ctx, &spawnerID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to count the agents spawned by %q: %w", spawnerID, err)
+		return 0, fmt.Errorf("failed to count the tasks started by %q: %w", spawnerID, err)
 	}
 
 	return int(count), nil
 }
 
-// CountLiveChildren returns how many live agents are attached to one parent.
-func (s *AgentStore) CountLiveChildren(ctx context.Context, parentID string) (int, error) {
-	if !store.IsID(parentID) {
+// CountLiveReviewers returns how many live reviewers one task holds.
+func (s *AgentStore) CountLiveReviewers(ctx context.Context, taskID string) (int, error) {
+	if !store.IsID(taskID) {
 		return 0, nil
 	}
 
-	count, err := s.queries.CountLiveChildAgents(ctx, &parentID)
+	count, err := s.queries.CountLiveTaskReviewers(ctx, &taskID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to count the children of agent %q: %w", parentID, err)
+		return 0, fmt.Errorf("failed to count the reviewers of task %q: %w", taskID, err)
 	}
 
 	return int(count), nil
@@ -305,7 +290,7 @@ func (s *AgentStore) GetWorkflowOrchestrator(ctx context.Context, workflowID str
 }
 
 func provisionedTaskIDOf(row *models.ListAgentDirsRow) string {
-	if row.ParentAgentID != nil || IsProvisionerDisabled(row.ProvisionEnabled) {
+	if Role(row.Role) != RoleWriter || IsProvisionerDisabled(row.ProvisionEnabled) {
 		return ""
 	}
 

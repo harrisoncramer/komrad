@@ -581,13 +581,13 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 		},
 		{
-			name: "a child hangs off the row above it",
+			name: "a reviewer hangs off its writer's row above it",
 			row: agentRow{
 				workflow: checkoutWorkflow(),
 				item: panel.AgentRow{Agent: panel.Agent{
-					ID:            "a1",
-					Name:          "reviewer",
-					ParentAgentID: xptr.Ptr("a0"),
+					ID:   "a1",
+					Name: "reviewer",
+					Role: panel.RoleReviewer,
 				}},
 				child: true,
 			},
@@ -614,7 +614,7 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 		},
 		{
-			name: "any other agent on a task hangs off it like a child",
+			name: "a reviewer on a task hangs off it",
 			row: agentRow{
 				workflow:  checkoutWorkflow(),
 				item:      panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "reviewer", Role: panel.RoleReviewer}},

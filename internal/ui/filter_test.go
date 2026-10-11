@@ -43,16 +43,16 @@ func TestFilterSearch(t *testing.T) {
 		},
 		{
 			name:        "a pattern nothing matches leaves the cursor where it is",
-			from:        "├─ auth",
+			from:        "│  ├─ auth",
 			press:       []string{"/", "z", "z", "z", "enter"},
-			wantHovered: "├─ auth",
+			wantHovered: "│  ├─ auth",
 			wantSearch:  "/ zzz",
 		},
 		{
 			name:        "n does nothing before a search stands",
-			from:        "├─ auth",
+			from:        "│  ├─ auth",
 			press:       []string{"n"},
-			wantHovered: "├─ auth",
+			wantHovered: "│  ├─ auth",
 			wantSearch:  "/",
 		},
 		{
@@ -71,14 +71,14 @@ func TestFilterSearch(t *testing.T) {
 		},
 		{
 			name:        "the row the cursor is on counts as the nearest match",
-			from:        "├─ auth",
+			from:        "│  ├─ auth",
 			press:       []string{"/", "a", "u", "t", "h", "enter"},
-			wantHovered: "├─ auth",
+			wantHovered: "│  ├─ auth",
 			wantSearch:  "/ auth",
 		},
 		{
 			name:        "a header matches by its own name",
-			from:        "├─ auth",
+			from:        "│  ├─ auth",
 			press:       []string{"/", "^", "f", "r", "o", "n", "t", "enter"},
 			wantHovered: "frontend",
 			wantSearch:  "/ ^front",
@@ -113,16 +113,16 @@ func TestFilterSearch(t *testing.T) {
 		},
 		{
 			name:        "n walks forward from the row it is on",
-			from:        "├─ auth",
+			from:        "│  ├─ auth",
 			press:       []string{"/", "a", "enter", "n"},
 			wantHovered: "│  └─ api",
 			wantSearch:  "/ a",
 		},
 		{
 			name:        "N walks back",
-			from:        "├─ auth",
+			from:        "│  ├─ auth",
 			press:       []string{"/", "a", "enter", "n", "N"},
-			wantHovered: "├─ auth",
+			wantHovered: "│  ├─ auth",
 			wantSearch:  "/ a",
 		},
 		{
@@ -223,18 +223,18 @@ func TestFilterNarrow(t *testing.T) {
 			wantSearch:  "/ db",
 		},
 		{
-			name:        "a matching parent keeps its children",
+			name:        "a matching writer keeps its reviewers",
 			from:        "backend",
 			press:       []string{"/", "tab", "^", "a", "u", "t", "h", "$", "enter"},
-			wantRows:    []string{"backend", "└─ auth", "   └─ api"},
+			wantRows:    []string{"backend", "└─ task-auth", "   ├─ auth", "   └─ api"},
 			wantHovered: "backend",
 			wantSearch:  "▽ ^auth$",
 		},
 		{
-			name:        "a matching child keeps its parent and the header above that",
+			name:        "a matching reviewer keeps its writer and the headers above that",
 			from:        "backend",
 			press:       []string{"/", "tab", "^", "a", "p", "i", "$", "enter"},
-			wantRows:    []string{"backend", "└─ auth", "   └─ api"},
+			wantRows:    []string{"backend", "└─ task-auth", "   ├─ auth", "   └─ api"},
 			wantHovered: "backend",
 			wantSearch:  "▽ ^api$",
 		},
@@ -242,7 +242,7 @@ func TestFilterNarrow(t *testing.T) {
 			name:        "a matching header keeps the whole group under it",
 			from:        "backend",
 			press:       []string{"/", "tab", "^", "b", "a", "c", "k", "e", "n", "d", "$", "enter"},
-			wantRows:    []string{"backend", "├─ auth", "│  └─ api", "└─ db"},
+			wantRows:    []string{"backend", "├─ task-auth", "│  ├─ auth", "│  └─ api", "└─ db"},
 			wantHovered: "backend",
 			wantSearch:  "▽ ^backend$",
 		},
@@ -250,24 +250,24 @@ func TestFilterNarrow(t *testing.T) {
 			name:        "a row it takes away hands the cursor to the nearest match forward",
 			from:        "└─ db",
 			press:       []string{"/", "u", "tab", "enter"},
-			wantRows:    []string{"backend", "└─ auth", "   └─ api", "frontend", "└─ ui"},
+			wantRows:    []string{"backend", "└─ task-auth", "   ├─ auth", "   └─ api", "frontend", "└─ ui"},
 			wantHovered: "└─ ui",
 			wantSearch:  "▽ u",
 		},
 		{
 			name:        "a row it keeps under a matched header holds the cursor",
-			from:        "├─ auth",
+			from:        "│  ├─ auth",
 			press:       []string{"/", "b", "a", "c", "k", "e", "n", "d", "|", "a", "p", "i", "tab", "enter"},
-			wantRows:    []string{"backend", "├─ auth", "│  └─ api", "└─ db"},
-			wantHovered: "├─ auth",
+			wantRows:    []string{"backend", "├─ task-auth", "│  ├─ auth", "│  └─ api", "└─ db"},
+			wantHovered: "│  ├─ auth",
 			wantSearch:  "▽ backend|api",
 		},
 		{
 			name:        "the last row taken away hands the cursor back up to a match",
 			from:        "└─ ui",
 			press:       []string{"/", "^", "a", "u", "tab", "enter"},
-			wantRows:    []string{"backend", "└─ auth", "   └─ api"},
-			wantHovered: "└─ auth",
+			wantRows:    []string{"backend", "└─ task-auth", "   ├─ auth", "   └─ api"},
+			wantHovered: "   ├─ auth",
 			wantSearch:  "▽ ^au",
 		},
 		{
@@ -479,7 +479,7 @@ func TestFilterSays(t *testing.T) {
 		{
 			name:        "a says: answer leaves a cursor moved while it was asked",
 			press:       slices.Concat([]string{"/"}, spellKeys("says:x"), []string{"enter", "j"}),
-			wantHovered: "├─ auth",
+			wantHovered: "├─ task-auth",
 		},
 	}
 
@@ -673,16 +673,18 @@ func TestFilterWorktreeHeader(t *testing.T) {
 	assert.Contains(t, frame, "2 worktrees", "as does its count")
 }
 
-var filterableRows = []string{"backend", "├─ auth", "│  └─ api", "└─ db", "frontend", "└─ ui"}
+var filterableRows = []string{"backend", "├─ task-auth", "│  ├─ auth", "│  └─ api", "└─ db", "frontend", "└─ ui"}
 
 func openFilterable(t *testing.T, from string) *panelHarness {
 	t.Helper()
 
+	auth := newAgentAt("auth", "w1", 5)
 	harness := openAgents(t,
 		newLiveWorkflow("w1", "backend"),
 		newLiveWorkflow("w2", "frontend"),
-		newAgentAt("auth", "w1", 5),
-		newChild("api", "api", "auth"),
+		auth,
+		newTaskOf(auth),
+		newReviewer("api", "api", "auth"),
 		newAgentAt("db", "w1", 3),
 		newAgentAt("ui", "w2", 1),
 	)

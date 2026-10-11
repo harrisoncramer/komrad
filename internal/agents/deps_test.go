@@ -332,7 +332,6 @@ type fakeLifecycle struct {
 	resumeErr           error
 	deprovisionStartErr error
 	hookErrs            map[string]error
-	hookErrsOnce        map[string]error
 	holdHooks           chan struct{}
 	hooksMu             sync.Mutex
 	hooks               []ranHook
@@ -384,11 +383,6 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 		Cwd:    agent.Cwd,
 	})
 	f.ranAs = append(f.ranAs, agent)
-	if err, ok := f.hookErrsOnce[name]; ok {
-		delete(f.hookErrsOnce, name)
-
-		return err
-	}
 
 	return f.hookErrs[name]
 }
@@ -630,9 +624,9 @@ func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane strin
 	return agent
 }
 
-// seedChild records an agent attached to a parent that spawned it, in that parent's workflow and
+// seedReviewer records a reviewer the writer spawned on its task, in the writer's workflow and
 // directory.
-func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.Agent) agentstore.Agent {
+func seedReviewer(t *testing.T, st *testStore, tmux paneStamper, writer agentstore.Agent) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -642,14 +636,15 @@ func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.
 		Name:             name,
 		Pane:             "%" + name,
 		State:            agentstore.StateIdle,
-		Cwd:              parent.Cwd,
-		WorkflowID:       parent.WorkflowID,
-		ParentAgentID:    &parent.ID,
-		SpawnedByAgentID: &parent.ID,
+		Role:             agentstore.RoleReviewer,
+		Cwd:              writer.Cwd,
+		WorkflowID:       writer.WorkflowID,
+		TaskID:           writer.TaskID,
+		SpawnedByAgentID: &writer.ID,
 		ProvisionEnabled: xptr.Ptr(false),
 	}))
 
-	got, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, name)
+	got, err := st.Agents.GetInWorkflow(ctx, writer.WorkflowID, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.NoError(t, tmux.SetPaneOwner(got.Pane, got.ID))

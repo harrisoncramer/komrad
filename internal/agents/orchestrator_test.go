@@ -43,7 +43,7 @@ func TestStartOrchestratorLaunchesOne(t *testing.T) {
 
 	assert.Equal(t, agentstore.RoleOrchestrator, started.Role)
 	assert.Equal(t, workflow.ID, started.WorkflowID)
-	assert.Nil(t, started.ParentAgentID, "it stands on its own rather than inside another agent")
+	assert.Nil(t, started.TaskID, "it stands outside every task")
 	require.NotNil(t, started.ProvisionEnabled)
 	assert.False(t, *started.ProvisionEnabled)
 	assert.Equal(t, filepath.Join(stateDir, orchestratorDirName, workflow.ID), started.Cwd,

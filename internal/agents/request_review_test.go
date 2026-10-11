@@ -44,9 +44,9 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 
 	assert.Equal(t, agentstore.RoleReviewer, reviewer.Role, "so it is briefed to read rather than to write")
 	assert.Equal(t, "author-reviewer", reviewer.Name, "named after the work it reads")
-	require.NotNil(t, reviewer.ParentAgentID)
-	assert.Equal(t, author.ID, *reviewer.ParentAgentID, "a reviewer may only review its parent")
-	assert.Equal(t, dir, reviewer.Cwd, "and reads that parent's checkout rather than one of its own")
+	require.NotNil(t, reviewer.TaskID)
+	assert.Equal(t, agentByID(t, st, author.ID).TaskID, reviewer.TaskID, "a reviewer reads its writer's task")
+	assert.Equal(t, dir, reviewer.Cwd, "and reads its writer's checkout rather than one of its own")
 	assert.Equal(t, author.WorkflowID, reviewer.WorkflowID)
 
 	assert.Contains(t, reviewer.Prompt, "it rewrites the parser", "what the asker said reaches it")
@@ -179,9 +179,9 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning)
 	require.ErrorContains(t, err, reviewer.Name, "so the asker is told which agent is already reading")
 
-	children, err := st.Agents.ListChildren(ctx, []string{author.ID})
+	reviewers, err := st.Agents.CountLiveReviewers(ctx, *agentByID(t, st, author.ID).TaskID)
 	require.NoError(t, err)
-	assert.Len(t, children, 1, "and no second reviewer was spawned")
+	assert.Equal(t, 1, reviewers, "and no second reviewer was spawned")
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{reviewer.ID}}))
 
@@ -264,8 +264,7 @@ func TestRequestReviewKeyIsScopedToCaller(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ID, second.ID)
-	require.NotNil(t, second.ParentAgentID)
-	assert.Equal(t, ids["other author"], *second.ParentAgentID)
+	assert.Equal(t, agentByID(t, st, ids["other author"]).TaskID, second.TaskID)
 }
 
 // TestRequestReviewRefusesAKeySpentOnAnotherAgent pins that a key one caller already spent on an
@@ -383,15 +382,15 @@ func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
 	assert.NotEqual(t, first.ID, second.ID)
 }
 
-// TestRequestReviewRefusesAChild pins that an ordinary child is refused too, however it was
-// briefed.
-func TestRequestReviewRefusesAChild(t *testing.T) {
+// TestRequestReviewRefusesAReviewer pins that a reviewer spawned onto a task is refused, however
+// it was briefed.
+func TestRequestReviewRefusesAReviewer(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
 
-	parent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+	writer, err := manager.launch.NewAgent(ctx, NewAgentParams{
 		Title:      "author",
 		Dir:        t.TempDir(),
 		Prompt:     "write the change",
@@ -399,15 +398,10 @@ func TestRequestReviewRefusesAChild(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	child, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:         "runner",
-		Prompt:        "run the tests",
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
-	})
+	reviewer, err := manager.launch.NewAgent(ctx, reviewerOf(agentByID(t, st, writer.ID), "runner"))
 	require.NoError(t, err)
 
-	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: child.ID, Prompt: "read it"})
+	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: reviewer.ID, Prompt: "read it"})
 	require.ErrorIs(t, err, agenterr.ErrReviewNeedsOwnWork)
 }
 
@@ -437,35 +431,8 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	assert.NotContains(t, briefing, "### When you are the one reviewing")
 }
 
-// TestRequestReviewIsNotCaughtByTheOrchestratorRefusal pins that the ordinary use of a child still
-// stands.
-func TestRequestReviewIsNotCaughtByTheOrchestratorRefusal(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-	ctx := t.Context()
-
-	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:      "author",
-		Dir:        t.TempDir(),
-		Prompt:     "write the change",
-		WorkflowID: seedWorkflow(t, st),
-	})
-	require.NoError(t, err)
-
-	reviewer, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
-		AgentID: author.ID,
-		Prompt:  "read the parser change",
-	})
-	require.NotErrorIs(t, err, agenterr.ErrParentIsOrchestrator)
-	require.NoError(t, err)
-	require.NotNil(t, reviewer)
-	require.NotNil(t, reviewer.ParentAgentID)
-	assert.Equal(t, author.ID, *reviewer.ParentAgentID)
-}
-
 // TestRequestReviewRefusesAnOrchestratorBeforeItSpawns pins that an orchestrator asking for a
-// review is turned away by the role check rather than by the parent check.
+// review is turned away before a reviewer is spawned.
 func TestRequestReviewRefusesAnOrchestratorBeforeItSpawns(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
@@ -544,8 +511,7 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 
 			assert.Equal(t, tt.want, reviewer.Harness)
 			assert.Equal(t, agentstore.RoleReviewer, reviewer.Role, "a different CLI is still a reviewer")
-			require.NotNil(t, reviewer.ParentAgentID)
-			assert.Equal(t, author.ID, *reviewer.ParentAgentID, "and still the asker's child")
+			assert.Equal(t, agentByID(t, st, author.ID).TaskID, reviewer.TaskID, "and still on the asker's task")
 			assert.Equal(t, author.Cwd, reviewer.Cwd, "reading the asker's checkout")
 
 			launches := byID[tt.want].Launches

@@ -241,7 +241,7 @@ func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 
 // confirmDeleteChosenAgents asks before the chosen agents are deleted for good.
 func confirmDeleteChosenAgents(m *model, work chosenWork, pool []panel.Agent) tea.Cmd {
-	form, confirmed := deleteChosenForm(work, unnamedChildren(pool, work.chosen), fixedKeys())
+	form, confirmed := deleteChosenForm(work, unnamedReviewers(pool, work.chosen), fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formArchiveDelete,

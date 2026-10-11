@@ -737,7 +737,7 @@ func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
 		harnesses: harnesstest.Registry{Harness: harness},
 		lifecycle: &fakeLifecycle{},
 		usage: config.Usage{
-			Implementer:  config.ImplementerUsage{AutoCompaction: 250000},
+			Writer:       config.WriterUsage{AutoCompaction: 250000},
 			Orchestrator: config.OrchestratorUsage{AutoCompaction: 150000},
 		},
 	})
@@ -815,7 +815,7 @@ func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
 		Cwd:              writer.Cwd,
 		WorkflowID:       writer.WorkflowID,
 		Role:             agentstore.RoleReviewer,
-		ParentAgentID:    &writer.ID,
+		TaskID:           writer.TaskID,
 		ProvisionEnabled: xptr.Ptr(false),
 	}))
 	reviewer, err := st.Agents.GetInWorkflow(ctx, writer.WorkflowID, "reviewer")
@@ -901,7 +901,7 @@ func TestResumeAgentHoldsAnAgentToItsTaskAndOrchestrator(t *testing.T) {
 			seeded := map[string]string{
 				"orchestrator":               orchestrator.ID,
 				"writer":                     writer.ID,
-				"reviewer":                   seedChild(t, st, tmux, writer).ID,
+				"reviewer":                   seedReviewer(t, st, tmux, writer).ID,
 				"writer on another task":     seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "billing", "%2").ID,
 				"writer in another workflow": seedRunning(t, st, tmux, "api", "%3", agentstore.StateIdle).ID,
 			}

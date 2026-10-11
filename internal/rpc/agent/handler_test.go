@@ -398,7 +398,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					WorkflowId:       "wf-1",
 					Harness:          "codex",
 					IdempotencyKey:   xptr.Ptr("triage:ENG-5260"),
-					ParentAgentId:    xptr.Ptr(ids[0]),
 					Task:             xptr.Ptr("fix-login"),
 					TaskSlug:         xptr.Ptr("login"),
 					TaskGoal:         "Logins work.",
@@ -419,7 +418,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					WorkflowID:       "wf-1",
 					Harness:          "codex",
 					IdempotencyKey:   "triage:ENG-5260",
-					ParentAgentID:    ids[0],
 					Task:             "fix-login",
 					TaskSlug:         "login",
 					TaskGoal:         "Logins work.",
@@ -1455,6 +1453,11 @@ func TestCreateAgentValidation(t *testing.T) {
 				WorkflowId: "wf-1",
 				Flags:      "--model opus; rm -rf /",
 			},
+			wantErr: true,
+		},
+		{
+			name:    "a parent agent id is refused in favour of task",
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1", ParentAgentId: xptr.Ptr("agent-1")},
 			wantErr: true,
 		},
 	}

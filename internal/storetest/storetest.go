@@ -111,18 +111,9 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 	return stored
 }
 
-// TaskFor is the task an agent written by a test works on: its parent's, or one made for it.
+// TaskFor is a task made for an agent written by a test.
 func (s *Stores) TaskFor(ctx context.Context, agent agentstore.Agent) (*string, error) {
-	if agent.ParentAgentID == nil {
-		return tasktest.Seed(ctx, s.Pool.GetDB(), agent.WorkflowID)
-	}
-
-	parent, err := s.Agents.GetByID(ctx, *agent.ParentAgentID)
-	if err != nil {
-		return nil, err
-	}
-
-	return parent.TaskID, nil
+	return tasktest.Seed(ctx, s.Pool.GetDB(), agent.WorkflowID)
 }
 
 // LiveAgentByName finds the one live agent holding a name, which only a test can ask for

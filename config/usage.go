@@ -4,14 +4,12 @@ package config
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
 const defaultMaxAgents = 50
 
-// defaultMaxChildren is how many children one agent may hold at once when the config names no
-// number. It is far lower than the panel's own ceiling because they all work in the one
-// checkout, so a third is usually a sign an orchestrator is fanning out where it wanted agents
-// of their own.
-const defaultMaxChildren = 3
+// defaultMaxReviewers is how many reviewers one task may hold at once when the config names no
+// number. It is far lower than the panel's own ceiling because they all read the one checkout.
+const defaultMaxReviewers = 3
 
-// defaultImplementerAutoCompaction is the conversation size an implementer compacts at.
-const defaultImplementerAutoCompaction = 250_000
+// defaultWriterAutoCompaction is the conversation size a writer compacts at.
+const defaultWriterAutoCompaction = 250_000
 
 // defaultReviewerAutoCompaction is the conversation size a reviewer compacts at.
 const defaultReviewerAutoCompaction = 250_000
@@ -23,23 +21,29 @@ const defaultOrchestratorAutoCompaction = 150_000
 type Usage struct {
 	// How many unarchived agents this engine may run at once, past which a create is refused.
 	MaxAgents int `mapstructure:"max_agents"`
-	// What an implementer, the agent that lands work on a branch of its own, may use.
-	Implementer ImplementerUsage `mapstructure:"implementer"`
-	// What a reviewer, the child that reads another agent's work, may use.
+	// What one task may hold.
+	Task TaskUsage `mapstructure:"task"`
+	// What a writer, the agent that lands a task's work on its branch, may use.
+	Writer WriterUsage `mapstructure:"writer"`
+	// What a reviewer, the agent that reads a task's work, may use.
 	Reviewer ReviewerUsage `mapstructure:"reviewer"`
 	// What a workflow's orchestrator may use.
 	Orchestrator OrchestratorUsage `mapstructure:"orchestrator"`
 }
 
-// ImplementerUsage is what one implementer may use.
-type ImplementerUsage struct {
+// TaskUsage is what one task may hold.
+type TaskUsage struct {
+	// How many live reviewers one task may hold at once. Reviewers read their task's checkout,
+	// so this is deliberately far lower than max_agents.
+	MaxReviewers int `mapstructure:"max_reviewers"`
+}
+
+// WriterUsage is what one writer may use.
+type WriterUsage struct {
 	// The conversation size in tokens an agent is held under, summarizing its history a little
 	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 	// own default, and a value the CLI will not take is moved to the nearest one it will.
 	AutoCompaction int `mapstructure:"auto_compaction"`
-	// How many children, such as its reviewer, one implementer may hold at once. Children share
-	// their parent's checkout, so this is deliberately far lower than max_agents.
-	MaxChildren int `mapstructure:"max_children"`
 }
 
 // ReviewerUsage is what one reviewer may use.
@@ -56,19 +60,17 @@ type OrchestratorUsage struct {
 	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 	// own default, and a value the CLI will not take is moved to the nearest one it will.
 	AutoCompaction int `mapstructure:"auto_compaction"`
-	// How many agents one orchestrator may have spawned and running at once, not counting their
-	// children. 0 sets no limit of its own, leaving max_agents as the cap.
-	MaxChildren int `mapstructure:"max_children"`
+	// How many live tasks one orchestrator may have started at once. 0 sets no limit of its own,
+	// leaving max_agents as the cap.
+	MaxTasks int `mapstructure:"max_tasks"`
 }
 
 // newUsage is the usage limits a config that names none runs on.
 func newUsage() Usage {
 	return Usage{
-		MaxAgents: defaultMaxAgents,
-		Implementer: ImplementerUsage{
-			AutoCompaction: defaultImplementerAutoCompaction,
-			MaxChildren:    defaultMaxChildren,
-		},
+		MaxAgents:    defaultMaxAgents,
+		Task:         TaskUsage{MaxReviewers: defaultMaxReviewers},
+		Writer:       WriterUsage{AutoCompaction: defaultWriterAutoCompaction},
 		Reviewer:     ReviewerUsage{AutoCompaction: defaultReviewerAutoCompaction},
 		Orchestrator: OrchestratorUsage{AutoCompaction: defaultOrchestratorAutoCompaction},
 	}
@@ -78,8 +80,8 @@ func (u *Usage) normalize() {
 	if u.MaxAgents == 0 {
 		u.MaxAgents = defaultMaxAgents
 	}
-	if u.Implementer.MaxChildren == 0 {
-		u.Implementer.MaxChildren = defaultMaxChildren
+	if u.Task.MaxReviewers == 0 {
+		u.Task.MaxReviewers = defaultMaxReviewers
 	}
 }
 
@@ -92,9 +94,9 @@ func (u Usage) validate() error {
 		unit  string
 	}{
 		{"usage.max_agents", u.MaxAgents, "a number of agents"},
-		{"usage.implementer.max_children", u.Implementer.MaxChildren, "a number of agents"},
-		{"usage.orchestrator.max_children", u.Orchestrator.MaxChildren, "a number of agents"},
-		{"usage.implementer.auto_compaction", u.Implementer.AutoCompaction, "a number of tokens"},
+		{"usage.task.max_reviewers", u.Task.MaxReviewers, "a number of agents"},
+		{"usage.orchestrator.max_tasks", u.Orchestrator.MaxTasks, "a number of tasks"},
+		{"usage.writer.auto_compaction", u.Writer.AutoCompaction, "a number of tokens"},
 		{"usage.reviewer.auto_compaction", u.Reviewer.AutoCompaction, "a number of tokens"},
 		{"usage.orchestrator.auto_compaction", u.Orchestrator.AutoCompaction, "a number of tokens"},
 	}

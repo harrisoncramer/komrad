@@ -279,18 +279,6 @@ func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []string) ([]Task, erro
 	return xslice.Map(rows, fromRow), nil
 }
 
-// ArchiveIdleBesides archives a task once no live agent but agentID works on it.
-func (s *TaskStore) ArchiveIdleBesides(ctx context.Context, id, agentID string) error {
-	if err := s.queries.LockTasks(ctx, []string{id}); err != nil {
-		return fmt.Errorf("failed to lock task %q: %w", id, err)
-	}
-	if err := s.queries.ArchiveIdleTaskBesides(ctx, models.ArchiveIdleTaskBesidesParams{ID: id, AgentID: agentID}); err != nil {
-		return fmt.Errorf("failed to archive task %q: %w", id, err)
-	}
-
-	return nil
-}
-
 // Restore returns archived tasks to live listings, leaving live ones as they were.
 func (s *TaskStore) Restore(ctx context.Context, ids []string) error {
 	if err := s.queries.RestoreTasks(ctx, ids); err != nil {

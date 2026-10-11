@@ -171,16 +171,16 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 	}
 }
 
-// TestAgentRowsLocalReviewOnTheTopLevelAgent pins that a task's local review is drawn beside the
-// agent leading it, and not beside a child working in the same task.
-func TestAgentRowsLocalReviewOnTheTopLevelAgent(t *testing.T) {
+// TestAgentRowsLocalReviewOnTheWriter pins that a task's local review is drawn beside its writer,
+// and not beside a reviewer on the same task.
+func TestAgentRowsLocalReviewOnTheWriter(t *testing.T) {
 	t.Parallel()
 
-	child := agent(older)
-	child.TaskId = xptr.Ptr("task-" + newer)
-	child.ParentAgentId = xptr.Ptr(newer)
+	reviewer := agent(older)
+	reviewer.TaskId = xptr.Ptr("task-" + newer)
+	reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 	world := assemble.World{
-		Agents:  map[string]*agentv1.Agent{newer: agent(newer), older: child},
+		Agents:  map[string]*agentv1.Agent{newer: agent(newer), older: reviewer},
 		Tasks:   tasks(task(newer)),
 		Reviews: map[string]*agentv1.WatchedReview{},
 	}

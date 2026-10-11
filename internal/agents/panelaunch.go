@@ -101,7 +101,7 @@ func (l *Launcher) appendedSystemPrompt(ctx context.Context, params launchParams
 		roleBriefing(params),
 		taskBriefing(params.Task),
 		spawningBriefing(params),
-		relationBriefing(params),
+		delegateBriefing(params.SpawnedByAgentID, params.SpawnedByName),
 		l.globalContext(ctx),
 		contextBriefing(params),
 		params.WorkflowContext,
@@ -173,16 +173,6 @@ func contextBriefing(params launchParams) string {
 	return orchestratorContextDoc
 }
 
-// relationBriefing is what an agent is told about whoever it answers to, and for a child the
-// rules it runs under as well.
-func relationBriefing(params launchParams) string {
-	if params.ParentAgentID != "" {
-		return childBriefing(params.ParentName, params.ParentAgentID)
-	}
-
-	return delegateBriefing(params.SpawnedByAgentID, params.SpawnedByName)
-}
-
 func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
 	if spawnedByAgentID == "" {
 		return ""
@@ -191,13 +181,6 @@ func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
 	return fmt.Sprintf(
 		"You were spawned by agent %s (%s) to do this piece of work. Answer its mail as it arrives, and tell it when you are done rather than waiting to be asked.",
 		spawnedByName, spawnedByAgentID)
-}
-
-func childBriefing(parentName, parentAgentID string) string {
-	return fmt.Sprintf(`You are a child of agent %s (%s), working in its checkout. Answer its mail, and tell it when you are done.
-
-Read and run things there, but never commit, push, stash or switch branches, and put back anything you change. You may mail only your parent and its other children.`,
-		parentName, parentAgentID)
 }
 
 func (l *Launcher) globalContext(ctx context.Context) string {
@@ -237,7 +220,7 @@ func (l *Launcher) getAutoCompaction(role agentstore.Role) int {
 	case agentstore.RoleOrchestrator:
 		return l.usage.Orchestrator.AutoCompaction
 	case agentstore.RoleWriter:
-		return l.usage.Implementer.AutoCompaction
+		return l.usage.Writer.AutoCompaction
 	default:
 		return 0
 	}
@@ -253,8 +236,6 @@ type launchParams struct {
 	AgentID          string
 	SpawnedByAgentID string
 	SpawnedByName    string
-	ParentAgentID    string
-	ParentName       string
 	Role             agentstore.Role
 	Task             *taskstore.Task
 

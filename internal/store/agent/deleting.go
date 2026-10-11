@@ -10,16 +10,17 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Claim is one agent a delete took, with the parent it hangs under and the stamp every agent
-// that delete took shares.
+// Claim is one agent a delete took, with its task and role and the stamp every agent that delete
+// took shares.
 type Claim struct {
-	ID            string
-	ParentAgentID *string
-	DeletingAt    time.Time
+	ID         string
+	TaskID     *string
+	Role       Role
+	DeletingAt time.Time
 }
 
-// MarkDeleting claims agents and their children for a delete, and with them any archived
-// workflow whose last archived agent that claim takes, returning the agents it claimed.
+// MarkDeleting claims agents for a delete, a writer taking the reviewers on its task with it, and
+// any archived workflow whose last archived agent that claim takes, returning the agents it claimed.
 func (s *AgentStore) MarkDeleting(ctx context.Context, ids []string) ([]Claim, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
@@ -32,13 +33,13 @@ func (s *AgentStore) MarkDeleting(ctx context.Context, ids []string) ([]Claim, e
 	}
 
 	return xslice.Map(rows, func(row *models.MarkAgentsDeletingRow) Claim {
-		return newClaim(row.ID, row.ParentAgentID, row.DeletingAt)
+		return newClaim(row.ID, row.TaskID, Role(row.Role), row.DeletingAt)
 	}), nil
 }
 
 // MarkArchivedDeletingByID claims the archived agents among those named whose delete has not
-// already failed, their children, and any archived workflow left with nothing unclaimed,
-// returning the agents it claimed.
+// already failed, a writer taking the reviewers on its task with it, and any archived workflow left
+// with nothing unclaimed, returning the agents it claimed.
 func (s *AgentStore) MarkArchivedDeletingByID(ctx context.Context, ids []string) ([]Claim, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
@@ -51,7 +52,7 @@ func (s *AgentStore) MarkArchivedDeletingByID(ctx context.Context, ids []string)
 	}
 
 	return xslice.Map(rows, func(row *models.MarkArchivedAgentsDeletingByIDRow) Claim {
-		return newClaim(row.ID, row.ParentAgentID, row.DeletingAt)
+		return newClaim(row.ID, row.TaskID, Role(row.Role), row.DeletingAt)
 	}), nil
 }
 
@@ -71,7 +72,8 @@ func (s *AgentStore) ListProvisionedIDsByTask(ctx context.Context, taskIDs []str
 	return ids, nil
 }
 
-// ClearDeleting takes the delete's claim off agents, their children, their tasks and their workflows.
+// ClearDeleting takes the delete's claim off agents, a writer's reviewers, their tasks and their
+// workflows.
 func (s *AgentStore) ClearDeleting(ctx context.Context, ids []string) error {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
@@ -85,7 +87,7 @@ func (s *AgentStore) ClearDeleting(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// ListDeletingRoots returns every claimed agent whose parent the same delete did not take.
+// ListDeletingRoots returns every claimed agent but a reviewer whose task's writer the same delete took.
 func (s *AgentStore) ListDeletingRoots(ctx context.Context) ([]Claim, error) {
 	rows, err := s.queries.ListDeletingRoots(ctx)
 	if err != nil {
@@ -93,24 +95,27 @@ func (s *AgentStore) ListDeletingRoots(ctx context.Context) ([]Claim, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListDeletingRootsRow) Claim {
-		return newClaim(row.ID, row.ParentAgentID, row.DeletingAt)
+		return newClaim(row.ID, row.TaskID, Role(row.Role), row.DeletingAt)
 	}), nil
 }
 
-// ClaimRoots are the claimed agents whose parent the same claim did not take, one per delete.
+// ClaimRoots are the claimed agents other than a reviewer whose task's writer the same claim took,
+// one per delete.
 func ClaimRoots(claims []Claim) []Claim {
-	claimed := make(map[string]bool, len(claims))
+	writerClaimed := make(map[string]bool, len(claims))
 	for _, claim := range claims {
-		claimed[claim.ID] = true
+		if claim.Role == RoleWriter && claim.TaskID != nil {
+			writerClaimed[*claim.TaskID] = true
+		}
 	}
 
 	return xslice.Filter(claims, func(claim Claim) bool {
-		return claim.ParentAgentID == nil || !claimed[*claim.ParentAgentID]
+		return claim.Role != RoleReviewer || claim.TaskID == nil || !writerClaimed[*claim.TaskID]
 	})
 }
 
-func newClaim(id string, parentAgentID *string, deletingAt *time.Time) Claim {
-	claim := Claim{ID: id, ParentAgentID: parentAgentID}
+func newClaim(id string, taskID *string, role Role, deletingAt *time.Time) Claim {
+	claim := Claim{ID: id, TaskID: taskID, Role: role}
 	if deletingAt != nil {
 		claim.DeletingAt = *deletingAt
 	}

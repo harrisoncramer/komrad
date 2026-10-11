@@ -22,7 +22,7 @@ const (
 
 var (
 	errReviewArchived   = errors.New("an archived agent's work is not reviewed")
-	errReviewChild      = errors.New("this agent works in its parent's checkout, so its work is reviewed there")
+	errReviewReviewer   = errors.New("this agent reviews its task's checkout, so the work there is its writer's")
 	errReviewNoCheckout = errors.New("this agent has no checkout of its own to read")
 	errTerminalHere     = errors.New("a terminal opens from the agents list")
 )
@@ -94,8 +94,8 @@ func (l listing) reviewRefusal(agent panel.Agent) error {
 	switch {
 	case agent.ArchivedAt != nil:
 		return errReviewArchived
-	case agent.ParentAgentID != nil:
-		return errReviewChild
+	case agent.Role == panel.RoleReviewer:
+		return errReviewReviewer
 	case !l.isReviewable(agent):
 		return errReviewNoCheckout
 	}

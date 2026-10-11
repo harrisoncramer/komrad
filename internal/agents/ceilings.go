@@ -9,8 +9,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// parentRoom is one parent and how many children a call wants to put under it.
-type parentRoom struct {
+// room is one task or orchestrator and how many agents a call wants to put under it.
+type room struct {
 	id   string
 	name string
 	want int
@@ -27,34 +27,39 @@ func claimRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxA
 	return requireRoomForAgents(ctx, agents, maxAgents, want)
 }
 
-// claimRoomForChildren holds one parent to the children it may run at once, a lower ceiling
-// than the panel's own.
-func claimRoomForChildren(ctx context.Context, agents *agentstore.AgentStore, maxChildren int, parent *agentstore.Agent) error {
-	if parent == nil || maxChildren <= 0 {
+// claimRoomForReviewer holds one task to the reviewers it may run at once, a lower ceiling than the
+// panel's own.
+func claimRoomForReviewer(ctx context.Context, agents *agentstore.AgentStore, maxReviewers int, taskID string) error {
+	if maxReviewers <= 0 {
 		return nil
 	}
 	if err := agents.LockSlots(ctx); err != nil {
 		return err
 	}
 
-	return requireRoomForChildren(ctx, agents, maxChildren, []parentRoom{{
-		id:   parent.ID,
-		name: parent.Name,
+	return requireRoomForReviewers(ctx, agents, maxReviewers, []room{{
+		id:   taskID,
 		want: 1,
 	}})
 }
 
-// claimRoomForRestoredChildren holds every parent a restoring batch hangs a child under to the
+// claimRoomForRestoredReviewers holds every task a restoring batch puts a reviewer back on to the
 // ceiling a create is held to.
-func claimRoomForRestoredChildren(ctx context.Context, agents *agentstore.AgentStore, maxChildren int, restoring []agentstore.Agent) error {
-	if maxChildren <= 0 {
+func claimRoomForRestoredReviewers(ctx context.Context, agents *agentstore.AgentStore, maxReviewers int, restoring []agentstore.Agent) error {
+	if maxReviewers <= 0 {
 		return nil
 	}
 
-	// The whole batch is counted against each parent at once, which children checked one at a time
+	// The whole batch is counted against each task at once, which reviewers checked one at a time
 	// would walk past together.
-	parentIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *string { return agent.ParentAgentID })
-	if len(parentIDs) == 0 {
+	taskIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *string {
+		if agent.Role != agentstore.RoleReviewer {
+			return nil
+		}
+
+		return agent.TaskID
+	})
+	if len(taskIDs) == 0 {
 		return nil
 	}
 
@@ -62,36 +67,36 @@ func claimRoomForRestoredChildren(ctx context.Context, agents *agentstore.AgentS
 		return err
 	}
 
-	parents, err := agents.ListByID(ctx, parentIDs)
-	if err != nil {
-		return fmt.Errorf("failed to look up %d parents of the restoring children: %w", len(parentIDs), err)
-	}
-
-	return requireRoomForChildren(ctx, agents, maxChildren, buildParentRooms(parents, want))
+	return requireRoomForReviewers(ctx, agents, maxReviewers, xslice.Map(taskIDs, func(id string) room {
+		return room{
+			id:   id,
+			want: want[id],
+		}
+	}))
 }
 
-func claimRoomForSpawned(ctx context.Context, agents *agentstore.AgentStore, maxSpawned int, spawner *agentstore.Agent) error {
-	if spawner == nil || spawner.Role != agentstore.RoleOrchestrator || maxSpawned <= 0 {
+func claimRoomForTask(ctx context.Context, agents *agentstore.AgentStore, maxTasks int, spawner *agentstore.Agent) error {
+	if spawner == nil || spawner.Role != agentstore.RoleOrchestrator || maxTasks <= 0 {
 		return nil
 	}
 	if err := agents.LockSlots(ctx); err != nil {
 		return err
 	}
 
-	return requireRoomForSpawned(ctx, agents, maxSpawned, []parentRoom{{
+	return requireRoomForTasks(ctx, agents, maxTasks, []room{{
 		id:   spawner.ID,
 		name: spawner.Name,
 		want: 1,
 	}})
 }
 
-func claimRoomForRestoredSpawned(ctx context.Context, agents *agentstore.AgentStore, maxSpawned int, restoring []agentstore.Agent) error {
-	if maxSpawned <= 0 {
+func claimRoomForRestoredTasks(ctx context.Context, agents *agentstore.AgentStore, maxTasks int, restoring []agentstore.Agent) error {
+	if maxTasks <= 0 {
 		return nil
 	}
 
 	spawnerIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *string {
-		if agent.ParentAgentID != nil {
+		if agent.Role != agentstore.RoleWriter {
 			return nil
 		}
 
@@ -107,14 +112,20 @@ func claimRoomForRestoredSpawned(ctx context.Context, agents *agentstore.AgentSt
 
 	spawners, err := agents.ListByID(ctx, spawnerIDs)
 	if err != nil {
-		return fmt.Errorf("failed to look up %d agents that spawned the restoring ones: %w", len(spawnerIDs), err)
+		return fmt.Errorf("failed to look up %d agents that started the restoring tasks: %w", len(spawnerIDs), err)
 	}
 
 	orchestrators := xslice.Filter(spawners, func(spawner agentstore.Agent) bool {
 		return spawner.Role == agentstore.RoleOrchestrator
 	})
 
-	return requireRoomForSpawned(ctx, agents, maxSpawned, buildParentRooms(orchestrators, want))
+	return requireRoomForTasks(ctx, agents, maxTasks, xslice.Map(orchestrators, func(orchestrator agentstore.Agent) room {
+		return room{
+			id:   orchestrator.ID,
+			name: orchestrator.Name,
+			want: want[orchestrator.ID],
+		}
+	}))
 }
 
 func countWantedUnder(restoring []agentstore.Agent, under func(agentstore.Agent) *string) ([]string, map[string]int) {
@@ -134,40 +145,30 @@ func countWantedUnder(restoring []agentstore.Agent, under func(agentstore.Agent)
 	return ids, want
 }
 
-func buildParentRooms(parents []agentstore.Agent, want map[string]int) []parentRoom {
-	return xslice.Map(parents, func(parent agentstore.Agent) parentRoom {
-		return parentRoom{
-			id:   parent.ID,
-			name: parent.Name,
-			want: want[parent.ID],
-		}
-	})
-}
-
-func requireRoomForSpawned(ctx context.Context, agents *agentstore.AgentStore, maxSpawned int, wanted []parentRoom) error {
-	for _, spawner := range wanted {
-		held, err := agents.CountLiveSpawned(ctx, spawner.id)
+func requireRoomForTasks(ctx context.Context, agents *agentstore.AgentStore, maxTasks int, wanted []room) error {
+	for _, orchestrator := range wanted {
+		held, err := agents.CountLiveTasksStartedBy(ctx, orchestrator.id)
 		if err != nil {
-			return fmt.Errorf("failed to count the agents spawned by %q: %w", spawner.name, err)
+			return fmt.Errorf("failed to count the tasks started by %q: %w", orchestrator.name, err)
 		}
-		if held+spawner.want > maxSpawned {
-			return fmt.Errorf("%w: %q may run %d agents it spawned at once and this would make %d",
-				agenterr.ErrTooManySpawned, spawner.name, maxSpawned, held+spawner.want)
+		if held+orchestrator.want > maxTasks {
+			return fmt.Errorf("%w: %q may run %d tasks it started at once and this would make %d",
+				agenterr.ErrTooManyTasks, orchestrator.name, maxTasks, held+orchestrator.want)
 		}
 	}
 
 	return nil
 }
 
-func requireRoomForChildren(ctx context.Context, agents *agentstore.AgentStore, maxChildren int, wanted []parentRoom) error {
-	for _, parent := range wanted {
-		held, err := agents.CountLiveChildren(ctx, parent.id)
+func requireRoomForReviewers(ctx context.Context, agents *agentstore.AgentStore, maxReviewers int, wanted []room) error {
+	for _, task := range wanted {
+		held, err := agents.CountLiveReviewers(ctx, task.id)
 		if err != nil {
-			return fmt.Errorf("failed to count the children of agent %q: %w", parent.name, err)
+			return fmt.Errorf("failed to count the reviewers of task %s: %w", task.id, err)
 		}
-		if held+parent.want > maxChildren {
-			return fmt.Errorf("%w: %q may run %d at once and this would make %d, and they share one checkout",
-				agenterr.ErrTooManyChildren, parent.name, maxChildren, held+parent.want)
+		if held+task.want > maxReviewers {
+			return fmt.Errorf("%w: task %s may hold %d at once and this would make %d, and they share one checkout",
+				agenterr.ErrTooManyReviewers, task.id, maxReviewers, held+task.want)
 		}
 	}
 

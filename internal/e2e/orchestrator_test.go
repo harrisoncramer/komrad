@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"komrad/internal/komradtest"
-	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
@@ -75,19 +74,6 @@ func TestIntegrationOrchestrator(t *testing.T) {
 
 		_, err := instance.Agents.CreateAgent(ctx, req)
 		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
-	})
-
-	t.Run("it cannot be given a child", func(t *testing.T) {
-		req := connect.NewRequest(&agentv1.CreateAgentRequest{
-			Prompt:        "read the plan",
-			Title:         "reader",
-			WorkflowId:    workflowID,
-			ParentAgentId: xptr.Ptr(orchestrator.GetId()),
-		})
-		callAs(req, orchestrator.GetId())
-
-		_, err := instance.Agents.CreateAgent(ctx, req)
-		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 	})
 
 	t.Run("one that held a conversation comes back out of the archive", func(t *testing.T) {

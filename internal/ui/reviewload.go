@@ -21,7 +21,7 @@ const reviewEditorHeight = 4
 
 // isReviewable reports whether an agent has work of its own to read, in a directory still there.
 func (l listing) isReviewable(agent panel.Agent) bool {
-	return agent.Cwd != "" && !l.tasks.findForAgent(agent).WorktreeRemoved && agent.ParentAgentID == nil
+	return agent.Cwd != "" && !l.tasks.findForAgent(agent).WorktreeRemoved && agent.Role != panel.RoleReviewer
 }
 
 type reviewLoadedMsg struct {

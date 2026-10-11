@@ -66,16 +66,6 @@ const (
 // Roles is every role an agent may hold.
 var Roles = []Role{RoleWriter, RoleReviewer, RoleOrchestrator}
 
-// DefaultRole is the role an agent naming none takes, a reviewer when it is attached to a parent and
-// otherwise the writer of its task.
-func DefaultRole(hasParent bool) Role {
-	if hasParent {
-		return RoleReviewer
-	}
-
-	return RoleWriter
-}
-
 type Agent struct {
 	ID    string
 	Name  string
@@ -192,13 +182,13 @@ func (a Agent) IsProvisionerDisabled() bool {
 
 // IsWriter reports whether the agent is its task's writer.
 func (a Agent) IsWriter() bool {
-	return a.roleOrDefault() == RoleWriter
+	return a.Role == RoleWriter
 }
 
-// roleOrDefault is the agent's role, or the one it takes when it names none.
+// roleOrDefault is the agent's role, or the writer's when it names none.
 func (a Agent) roleOrDefault() Role {
 	if a.Role == "" {
-		return DefaultRole(a.ParentAgentID != nil)
+		return RoleWriter
 	}
 
 	return a.Role
