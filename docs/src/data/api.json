@@ -2240,16 +2240,6 @@
           "description": "Which agent called create, unset for one a person spawned."
         },
         {
-          "name": "parent_agent_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Unused."
-        },
-        {
           "name": "failed_run",
           "type": "bool",
           "ref": "",
@@ -2618,16 +2608,6 @@
           "oneof": "",
           "rules": [],
           "description": "False to run in the directory named above rather than a fresh worktree, which is how an agent reads a checkout somebody else has open. Unset to do whatever the workflow does."
-        },
-        {
-          "name": "parent_agent_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Refused. Pass task instead."
         },
         {
           "name": "task",
@@ -10799,10 +10779,6 @@
       "description": "AgentRole is what an agent was launched to do.",
       "values": [
         {
-          "name": "AGENT_ROLE_IMPLEMENTER",
-          "description": "An agent that lands work on a branch of its own."
-        },
-        {
           "name": "AGENT_ROLE_REVIEWER",
           "description": "An agent on a task that reads its change and gives a review."
         },
@@ -11130,10 +11106,6 @@
       "name": "ScheduleKind",
       "description": "ScheduleKind is what a schedule does each time it fires.",
       "values": [
-        {
-          "name": "SCHEDULE_KIND_IMPLEMENTER",
-          "description": "Unused."
-        },
         {
           "name": "SCHEDULE_KIND_ORCHESTRATOR",
           "description": "Mails the prompt to an orchestrator that is already running."

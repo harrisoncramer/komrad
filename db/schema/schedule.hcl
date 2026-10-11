@@ -1,6 +1,6 @@
 enum "schedule_kind" {
   schema = schema.public
-  values = ["implementer", "task", "orchestrator"]
+  values = ["task", "orchestrator"]
 }
 
 table "schedules" {
@@ -46,7 +46,7 @@ table "schedules" {
   column "kind" {
     null    = false
     type    = enum.schedule_kind
-    default = "implementer"
+    default = "task"
     comment = "Whether a firing starts a task in the workflow or mails the prompt to an orchestrator."
   }
   column "orchestrator_agent_id" {

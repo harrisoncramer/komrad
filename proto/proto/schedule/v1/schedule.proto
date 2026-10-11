@@ -38,8 +38,6 @@ enum ScheduleRunState {
 enum ScheduleKind {
   // No kind was recorded.
   SCHEDULE_KIND_UNSPECIFIED = 0;
-  // Unused.
-  SCHEDULE_KIND_IMPLEMENTER = 1;
   // Mails the prompt to an orchestrator that is already running.
   SCHEDULE_KIND_ORCHESTRATOR = 2;
   // Starts a new task in the workflow, its writer given the prompt.

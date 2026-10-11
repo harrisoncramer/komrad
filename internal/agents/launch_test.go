@@ -367,7 +367,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 		name             string
 		spawnerRole      agentstore.Role
 		orchestrator     orchestratorState
-		child            bool
+		reviewer         bool
 		unknownSpawner   bool
 		wantOrchestrator bool
 		wantErrIs        error
@@ -378,7 +378,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			wantErrIs:      agenterr.ErrSpawnerUnknown,
 		},
 		{
-			name: "a person creating from the panel records no parent",
+			name: "a person creating from the panel records no spawner",
 		},
 		{
 			name:        "a writer in a workflow with no orchestrator answers for what it spawns",
@@ -396,10 +396,10 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			orchestrator: archivedOrchestrator,
 		},
 		{
-			name:         "a writer's child answers to the writer",
+			name:         "a writer's reviewer answers to the writer",
 			spawnerRole:  agentstore.RoleWriter,
 			orchestrator: liveOrchestrator,
-			child:        true,
+			reviewer:     true,
 		},
 		{
 			name:         "a reviewer's standalone agent answers to the reviewer",
@@ -440,8 +440,8 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				seeded := seedWithRole(t, st, workflowID, "spawner", tt.spawnerRole)
 				spawner = &seeded
 				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
-				if tt.child {
-					params = reviewerOf(seeded, "reader")
+				if tt.reviewer {
+					params = reviewerOf(seeded, "reviewer")
 				}
 			}
 
@@ -463,7 +463,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			launch := fakeHarness.Launches[0]
 
 			if spawner == nil {
-				assert.Nil(t, created.SpawnedByAgentID, "a create with no caller header names no parent")
+				assert.Nil(t, created.SpawnedByAgentID, "a create with no caller header names no spawner")
 				assert.NotContains(t, launch.Context, "You were spawned by", "a delegate briefing with nothing to say names nobody")
 
 				return
@@ -475,7 +475,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			}
 			require.NotNil(t, created.SpawnedByAgentID)
 			assert.Equal(t, want.ID, *created.SpawnedByAgentID)
-			if !tt.child {
+			if !tt.reviewer {
 				assert.Contains(t, launch.Context, fmt.Sprintf("spawned by agent %s (%s)", want.Name, want.ID))
 				assert.Contains(t, launch.Context, "tell it when you are done")
 			}

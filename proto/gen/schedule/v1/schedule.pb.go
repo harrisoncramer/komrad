@@ -111,8 +111,6 @@ type ScheduleKind int32
 const (
 	// No kind was recorded.
 	ScheduleKind_SCHEDULE_KIND_UNSPECIFIED ScheduleKind = 0
-	// Unused.
-	ScheduleKind_SCHEDULE_KIND_IMPLEMENTER ScheduleKind = 1
 	// Mails the prompt to an orchestrator that is already running.
 	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 2
 	// Starts a new task in the workflow, its writer given the prompt.
@@ -123,13 +121,11 @@ const (
 var (
 	ScheduleKind_name = map[int32]string{
 		0: "SCHEDULE_KIND_UNSPECIFIED",
-		1: "SCHEDULE_KIND_IMPLEMENTER",
 		2: "SCHEDULE_KIND_ORCHESTRATOR",
 		3: "SCHEDULE_KIND_TASK",
 	}
 	ScheduleKind_value = map[string]int32{
 		"SCHEDULE_KIND_UNSPECIFIED":  0,
-		"SCHEDULE_KIND_IMPLEMENTER":  1,
 		"SCHEDULE_KIND_ORCHESTRATOR": 2,
 		"SCHEDULE_KIND_TASK":         3,
 	}
@@ -1370,10 +1366,9 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x1cSCHEDULE_RUN_STATE_RETRYABLE\x10\x05\x12 \n" +
 	"\x1cSCHEDULE_RUN_STATE_COMPLETED\x10\x06\x12 \n" +
 	"\x1cSCHEDULE_RUN_STATE_CANCELLED\x10\a\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b*\x84\x01\n" +
+	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b*e\n" +
 	"\fScheduleKind\x12\x1d\n" +
-	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
-	"\x19SCHEDULE_KIND_IMPLEMENTER\x10\x01\x12\x1e\n" +
+	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x02\x12\x16\n" +
 	"\x12SCHEDULE_KIND_TASK\x10\x032\xfa\x0e\n" +
 	"\x0fScheduleService\x12\x97\x02\n" +

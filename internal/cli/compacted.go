@@ -73,7 +73,7 @@ func threadTask(agent *agentv1.Agent) string {
 	switch agent.GetRole() {
 	case agentv1.AgentRole_AGENT_ROLE_WRITER, agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return agent.GetTaskId()
-	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
+	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
 		return ""
 	default:
 		return ""

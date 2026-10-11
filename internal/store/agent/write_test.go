@@ -237,34 +237,34 @@ func TestSpawnedByAgentID(t *testing.T) {
 	}
 }
 
-// TestDeleteNullsSpawnedByAgentID pins that deleting a parent nulls the reference rather
-// than taking the work its children did with it.
+// TestDeleteNullsSpawnedByAgentID pins that deleting the orchestrator that spawned a writer nulls
+// the reference rather than taking the writer with it.
 func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "parent", State: StateIdle}))
-	parent, err := f.Get(ctx, "parent")
+	require.NoError(t, f.Create(ctx, Agent{Name: "orchestrator", Role: RoleOrchestrator, State: StateIdle}))
+	orchestrator, err := f.Get(ctx, "orchestrator")
 	require.NoError(t, err)
-	require.NotNil(t, parent)
+	require.NotNil(t, orchestrator)
 
 	require.NoError(t, f.Create(ctx, Agent{
-		Name:             "child",
-		SpawnedByAgentID: &parent.ID,
+		Name:             "writer",
+		SpawnedByAgentID: &orchestrator.ID,
 		State:            StateIdle,
 	}))
-	child, err := f.Get(ctx, "child")
+	writer, err := f.Get(ctx, "writer")
 	require.NoError(t, err)
-	require.NotNil(t, child)
-	require.NotNil(t, child.SpawnedByAgentID)
+	require.NotNil(t, writer)
+	require.NotNil(t, writer.SpawnedByAgentID)
 
-	_, deleteErr := f.Delete(ctx, []string{parent.ID})
+	_, deleteErr := f.Delete(ctx, []string{orchestrator.ID})
 
 	require.NoError(t, deleteErr)
 
-	stillThere, err := f.GetByID(ctx, child.ID)
+	stillThere, err := f.GetByID(ctx, writer.ID)
 	require.NoError(t, err)
-	require.NotNil(t, stillThere, "the child survives its parent's deletion")
+	require.NotNil(t, stillThere, "the writer survives its orchestrator's deletion")
 	assert.Nil(t, stillThere.SpawnedByAgentID, "the reference is nulled rather than left dangling")
 }
 

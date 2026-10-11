@@ -400,7 +400,6 @@ INSERT INTO agents(
     provision_enabled,
     spawned_by_agent_id,
     requested_by_agent_id,
-    parent_agent_id,
     role,
     task_id)
 VALUES (
@@ -420,7 +419,6 @@ VALUES (
     sqlc.narg('provision_enabled'),
     sqlc.narg('spawned_by_agent_id'),
     sqlc.narg('requested_by_agent_id'),
-    sqlc.narg('parent_agent_id'),
     @role,
     sqlc.narg('task_id'))
 RETURNING

@@ -44,8 +44,6 @@ enum AgentState {
 enum AgentRole {
   // No role was recorded, which no stored agent answers with.
   AGENT_ROLE_UNSPECIFIED = 0;
-  // An agent that lands work on a branch of its own.
-  AGENT_ROLE_IMPLEMENTER = 1;
   // An agent on a task that reads its change and gives a review.
   AGENT_ROLE_REVIEWER = 2;
   // The agent drawn on a workflow's own row that hands work out.
@@ -87,8 +85,6 @@ message Agent {
   optional string idempotency_key = 15;
   // Which agent called create, unset for one a person spawned.
   optional string spawned_by_agent_id = 16;
-  // Unused.
-  optional string parent_agent_id = 17;
   // Whether a script komrad fired for the agent failed and nobody has looked at it since.
   bool failed_run = 18;
   // The run log that failure was written to, which is the run the panel opens on.
@@ -218,8 +214,6 @@ message CreateAgentRequest {
   // False to run in the directory named above rather than a fresh worktree, which is how an
   // agent reads a checkout somebody else has open. Unset to do whatever the workflow does.
   optional bool provision_enabled = 7;
-  // Refused. Pass task instead.
-  optional string parent_agent_id = 8 [(buf.validate.field).string.min_len = 1];
   // Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer
   // when the task has none yet, and otherwise a reviewer in the writer's checkout, for which
   // provision_enabled is refused. Unset to start a task of its own, made from its title and

@@ -14,7 +14,6 @@ import (
 type AgentRole string
 
 const (
-	AgentRoleImplementer  AgentRole = "implementer"
 	AgentRoleWriter       AgentRole = "writer"
 	AgentRoleReviewer     AgentRole = "reviewer"
 	AgentRoleOrchestrator AgentRole = "orchestrator"
@@ -372,7 +371,6 @@ func (ns NullReviewVerdict) Value() (driver.Value, error) {
 type ScheduleKind string
 
 const (
-	ScheduleKindImplementer  ScheduleKind = "implementer"
 	ScheduleKindTask         ScheduleKind = "task"
 	ScheduleKindOrchestrator ScheduleKind = "orchestrator"
 )
@@ -439,12 +437,11 @@ type Agent struct {
 	StateSeenAt      pgtype.Timestamptz
 	InterruptedAt    pgtype.Timestamptz
 	AdoptedBranch    string
-	ParentAgentID    pgtype.UUID
 	TurnEndedAt      pgtype.Timestamptz
 	ProvisionEnabled *bool
 	// What the agent's own CLI last said it was doing. It only decorates the state read off the terminal and never sets that state. It is cleared whenever the state changes and when a turn ends, so an empty value means there is nothing to say.
 	ReportedReason string
-	// What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own.
+	// What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of its task's writer and never writes any code of its own.
 	Role AgentRole
 	// When a person stopped this agent and took the tree, null while nobody is holding it. Held is not a state, since the states are decided by reading the pane and would overwrite it.
 	HeldAt pgtype.Timestamptz

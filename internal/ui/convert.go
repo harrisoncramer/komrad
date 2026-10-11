@@ -35,7 +35,6 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		CreatedAt:         dates.Parse(s.GetCreatedAt()),
 		StateChangedAt:    dates.Parse(s.GetStateChangedAt()),
 		ArchivedAt:        dates.ParsePtr(s.GetArchivedAt()),
-		ParentAgentID:     s.ParentAgentId,
 		HeldAt:            dates.ParsePtr(s.GetHeldAt()),
 		HeldByAgentID:     s.GetHeldByAgentId(),
 		TaskID:            s.GetTaskId(),
@@ -115,7 +114,7 @@ func roleFrom(role agentv1.AgentRole) panel.Role {
 		return panel.RoleReviewer
 	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
 		return panel.RoleOrchestrator
-	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
+	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
 	}
 
 	return ""

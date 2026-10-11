@@ -50,7 +50,6 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		Alive:              xptr.Ptr(stored.Alive),
 		IdempotencyKey:     stored.IdempotencyKey,
 		SpawnedByAgentId:   stored.SpawnedByAgentID,
-		ParentAgentId:      stored.ParentAgentID,
 		FailedRun:          row.FailedRun,
 		FailedRunLog:       row.FailedRunLog,
 		Documents:          row.Documents,
