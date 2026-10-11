@@ -43,3 +43,8 @@ func (r reviewScreen) isHistory() (string, bool) {
 func (r reviewScreen) doesWalk() bool {
 	return !r.hold.atEditor && len(r.diff.chapters) > 0
 }
+
+// frozenRound is the round a held review pins the diff to, false while the diff follows the work.
+func (r reviewScreen) frozenRound() (*agentv1.ReviewRound, bool) {
+	return r.round, r.diff.pinned && r.round != nil
+}

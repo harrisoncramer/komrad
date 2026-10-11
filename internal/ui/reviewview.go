@@ -17,6 +17,7 @@ import (
 // The tones the review wears, which the region rendering each one turns into a colour.
 const (
 	reviewQuoteTone     = paint.ToneMuted
+	reviewScopeOnTone   = paint.TonePrimary
 	reviewHumanTone     = paint.ToneUserMe
 	reviewAgentTone     = paint.ToneUserAgent
 	reviewerTone        = paint.ToneUserReviewer
