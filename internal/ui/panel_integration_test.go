@@ -13,6 +13,7 @@ import (
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	viewv1 "komrad/proto/gen/view/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
@@ -210,6 +211,13 @@ func relist(t *testing.T, instance *komradtest.Instance, harness *panelHarness) 
 	schedules, err := instance.Schedules.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
 
+	var tasks []*taskv1.Task
+	for _, workflow := range workflows.Msg.GetWorkflows() {
+		listed, err := instance.Tasks.ListTasks(t.Context(), connect.NewRequest(&taskv1.ListTasksRequest{WorkflowId: workflow.GetId()}))
+		require.NoError(t, err)
+		tasks = append(tasks, listed.Msg.GetTasks()...)
+	}
+
 	rows := slices.Concat(
 		xslice.Map(agents.Msg.GetAgents(), func(row *agentv1.AgentRow) proto.Message {
 			return row.GetAgent()
@@ -219,6 +227,9 @@ func relist(t *testing.T, instance *komradtest.Instance, harness *panelHarness) 
 		}),
 		xslice.Map(schedules.Msg.GetSchedules(), func(schedule *schedulev1.Schedule) proto.Message {
 			return schedule
+		}),
+		xslice.Map(tasks, func(task *taskv1.Task) proto.Message {
+			return task
 		}),
 	)
 
