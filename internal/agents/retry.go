@@ -201,10 +201,7 @@ type retryMark struct {
 // rejoins the task's worktree, so no other writer starts on the task in between.
 func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agent, provisioner string) (*retryMark, error) {
 	task, err := s.tasks.GetAgentTask(ctx, agent.ID)
-	if errors.Is(err, taskstore.ErrNoTask) {
-		task, err = nil, nil
-	}
-	if err != nil {
+	if err != nil && !errors.Is(err, taskstore.ErrNoTask) {
 		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}
 
