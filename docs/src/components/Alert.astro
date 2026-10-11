@@ -8,7 +8,7 @@ type Props = {
 const { title, subtitle, variant = "info" } = Astro.props;
 ---
 
-<aside class:list={["alert", variant]} role={variant === "info" ? "note" : "alert"}>
+<aside class:list={["alert", variant]} role="note">
   {title && <p class="alert-title">{title}</p>}
   {subtitle && <p class="alert-subtitle">{subtitle}</p>}
   <div class="alert-body">

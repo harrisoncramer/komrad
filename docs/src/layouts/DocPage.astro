@@ -8,12 +8,13 @@ type Neighbour = { title: string; href: string };
 type Props = {
   title: string;
   description?: string;
+  summary?: string;
   filePath?: string;
   prev?: Neighbour;
   next?: Neighbour;
 };
 
-const { title, description, filePath, prev, next } = Astro.props;
+const { title, description, summary = description, filePath, prev, next } = Astro.props;
 
 const markdown = `${Astro.url.pathname.replace(/\/$/, "")}.md`;
 
@@ -22,7 +23,7 @@ const structuredData = [
   {
     "@type": "TechArticle",
     headline: title,
-    description,
+    description: summary,
     url: canonical(Astro.url.pathname),
     isPartOf: { "@type": "WebSite", name: SITE_TITLE, url: canonical(link("/")) },
   },
@@ -35,7 +36,7 @@ const structuredData = [
 
 <Layout
   title={title}
-  description={description}
+  description={summary}
   sidebar={Astro.slots.has("sidebar")}
   markdown={markdown}
   structuredData={structuredData}
@@ -219,6 +220,20 @@ const structuredData = [
       });
     });
   });
+
+  const videos = document.querySelectorAll<HTMLVideoElement>(".doc-content video");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    videos.forEach((video) => (video.controls = true));
+  } else {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(({ target, isIntersecting }) => {
+        const video = target as HTMLVideoElement;
+        if (isIntersecting) void video.play().catch(() => (video.controls = true));
+        else video.pause();
+      });
+    });
+    videos.forEach((video) => observer.observe(video));
+  }
 
   document.querySelectorAll<HTMLButtonElement>(".copy-markdown").forEach((button) => {
     const label = button.querySelector(".page-action-label");

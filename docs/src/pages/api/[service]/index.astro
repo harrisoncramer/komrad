@@ -14,9 +14,13 @@ export function getStaticPaths() {
 }
 
 const { service } = Astro.props;
+const summary = service.description
+  .replace(/\n\s*\n[\s\S]*/, "")
+  .replace(/\s+/g, " ")
+  .replaceAll("`", "");
 ---
 
-<DocPage title={service.title}>
+<DocPage title={service.title} summary={summary}>
   <Sidebar slot="sidebar" label="API" groups={apiSidebar({ service: service.slug })} />
   <div class="service-description" set:html={prose(service.description)} />
   <p>
