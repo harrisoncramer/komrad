@@ -212,8 +212,8 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 	}
 }
 
-// AgentRows draws every agent in the world with its unread mail, and its task's pull requests and
-// local review on a top-level agent, newest first.
+// AgentRows draws every agent in the world with its unread mail and its task's pull requests, and
+// the task's local review on a top-level agent, newest first.
 func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	unread := getAgentsWithUnreadMail(w.Mail, now)
 	draw := newTaskDrawer(w)
@@ -244,8 +244,8 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	return rows
 }
 
-// TaskRow is a task with what is drawn beside it: the pull requests on its branch and where the
-// local review of its work stands.
+// TaskRow is a task with the pull requests on its branch and where the local review of its work
+// stands.
 type TaskRow struct {
 	Task         *taskv1.Task
 	PullRequest  *agentv1.PullRequestStanding
@@ -291,15 +291,15 @@ func newTaskDrawer(w World) taskDrawer {
 func (d taskDrawer) row(id string) TaskRow {
 	task := d.world.Tasks[id]
 	pullRequests := d.onBranch[getBranchForTask(d.world, task)]
-	reviewer, person := countComments(d.reviewed[id], d.threaded[id])
+	comments := countComments(d.reviewed[id], d.threaded[id])
 
 	return TaskRow{
 		Task:              task,
 		PullRequest:       calculatePullRequestStanding(task, d.world.Repositories[task.GetRepositoryUrl()], pullRequests),
 		PullRequests:      pullRequests,
 		LocalReviewRounds: countLocalReviewRounds(d.reviewed[id]),
-		ReviewerComments:  reviewer,
-		PersonComments:    person,
+		ReviewerComments:  comments.reviewer,
+		PersonComments:    comments.person,
 	}
 }
 
