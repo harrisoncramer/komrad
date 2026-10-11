@@ -2088,6 +2088,11 @@ func TestReviewPin(t *testing.T) {
 
 		server.rounds = rounds[:2]
 		server.task.MovedSinceRound = ""
+		server.roundsErr = errors.New("the server went away")
+		harness.watch(server.buildSnapshot())
+		require.NotContains(t, harness.readFrame(), "behind")
+
+		server.roundsErr = nil
 		harness.watch(server.buildSnapshot())
 
 		assert.Contains(t, joinProse(readStage(harness.readFrame())),

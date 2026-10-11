@@ -105,7 +105,9 @@ func reviewColumnStyle() ansi.StyleConfig {
 
 type reviewRoundsReadMsg struct {
 	agentID string
+	moved   string
 	rounds  []*agentv1.ReviewRound
+	err     error
 }
 
 func (r *reviewScreen) followRounds(m *model) tea.Cmd {
@@ -119,10 +121,10 @@ func (r *reviewScreen) followRounds(m *model) tea.Cmd {
 	}
 
 	moved := m.listing.tasks.findForAgent(item.Agent).MovedSinceRound
-	if moved == r.diff.roundsMove {
+	if moved == r.diff.roundsMove || m.listing.generation == r.diff.roundsAsked {
 		return nil
 	}
-	r.diff.roundsMove = moved
+	r.diff.roundsAsked = m.listing.generation
 
 	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
 
@@ -131,16 +133,18 @@ func (r *reviewScreen) followRounds(m *model) tea.Cmd {
 		defer cancel()
 
 		rounds, err := listReviewRounds(ctx, agents, taskID)
-		if err != nil {
-			return nil
-		}
 
-		return reviewRoundsReadMsg{agentID: agentID, rounds: rounds}
+		return reviewRoundsReadMsg{agentID: agentID, moved: moved, rounds: rounds, err: err}
 	}
 }
 
 func (r *reviewScreen) applyRoundsRead(msg reviewRoundsReadMsg) {
-	if msg.agentID == r.agentID && len(msg.rounds) >= len(r.diff.rounds) {
+	if msg.agentID != r.agentID || msg.err != nil {
+		return
+	}
+
+	r.diff.roundsMove = msg.moved
+	if len(msg.rounds) >= len(r.diff.rounds) {
 		r.diff.rounds = msg.rounds
 	}
 }
