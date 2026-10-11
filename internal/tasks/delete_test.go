@@ -92,8 +92,8 @@ func newDeleteFixture(t *testing.T, scripts *fakeScripts) *deleteFixture {
 	}
 }
 
-// TestEmptyTaskCleanupRunsOnce pins that cleanups finishing together give a task's checkout back once.
-func TestEmptyTaskCleanupRunsOnce(t *testing.T) {
+// TestDeleteIfEmptyGivesCheckoutBackOnce pins that cleanups finishing together give a task's checkout back once.
+func TestDeleteIfEmptyGivesCheckoutBackOnce(t *testing.T) {
 	scripts := &fakeScripts{hold: make(chan struct{})}
 	fx := newDeleteFixture(t, scripts)
 	task := fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "work"})
@@ -122,9 +122,9 @@ func TestEmptyTaskCleanupRunsOnce(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestEmptyTaskDeleteForgetsItsWorktree covers a deleted task's worktree row going with it, and
+// TestDeleteIfEmptyForgetsItsWorktree covers a deleted task's worktree row going with it, and
 // a checkout that could not be given back keeping both.
-func TestEmptyTaskDeleteForgetsItsWorktree(t *testing.T) {
+func TestDeleteIfEmptyForgetsItsWorktree(t *testing.T) {
 	tests := []struct {
 		name           string
 		deprovisionErr error
