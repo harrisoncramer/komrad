@@ -39,9 +39,9 @@ enum ScheduleKind {
   // No kind was recorded.
   SCHEDULE_KIND_UNSPECIFIED = 0;
   // Mails the prompt to an orchestrator that is already running.
-  SCHEDULE_KIND_ORCHESTRATOR = 2;
+  SCHEDULE_KIND_ORCHESTRATOR = 1;
   // Starts a new task in the workflow, its writer given the prompt.
-  SCHEDULE_KIND_TASK = 3;
+  SCHEDULE_KIND_TASK = 2;
 }
 
 // ScheduleRun is one firing of a schedule, as the job that carried it out stands.

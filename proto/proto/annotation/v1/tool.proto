@@ -17,11 +17,11 @@ enum Role {
   // No role, which is offered every tool.
   ROLE_UNSPECIFIED = 0;
   // An agent on a task that reads its change and gives a review.
-  ROLE_REVIEWER = 2;
+  ROLE_REVIEWER = 1;
   // The agent drawn on a workflow's own row that hands work out.
-  ROLE_ORCHESTRATOR = 3;
+  ROLE_ORCHESTRATOR = 2;
   // The one agent on a task that writes its change.
-  ROLE_WRITER = 4;
+  ROLE_WRITER = 3;
 }
 
 message Surfaces {
