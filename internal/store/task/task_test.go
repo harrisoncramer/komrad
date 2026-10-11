@@ -467,7 +467,7 @@ func TestListWatchedDocuments(t *testing.T) {
 	second := stores.SeedAgent(t, agentstore.Agent{Name: "second", TaskID: first.TaskID})
 	elsewhere := stores.SeedAgent(t, agentstore.Agent{Name: "elsewhere"})
 
-	documents := func(id string) taskstore.Task {
+	watched := func(id string) taskstore.Task {
 		listed, err := stores.Tasks.ListWatched(ctx, []string{id})
 		require.NoError(t, err)
 		require.Len(t, listed, 1)
@@ -475,7 +475,7 @@ func TestListWatchedDocuments(t *testing.T) {
 		return listed[0]
 	}
 
-	task := documents(*first.TaskID)
+	task := watched(*first.TaskID)
 	assert.Zero(t, task.Documents)
 	assert.Nil(t, task.DocumentsUpdatedAt, "a task with no documents has no newest write")
 
@@ -488,11 +488,11 @@ func TestListWatchedDocuments(t *testing.T) {
 	write(first.ID, "plan")
 	newest := write(second.ID, "notes")
 
-	task = documents(*first.TaskID)
+	task = watched(*first.TaskID)
 	assert.Equal(t, int32(2), task.Documents, "every agent on the task counts toward it")
 	require.NotNil(t, task.DocumentsUpdatedAt)
 	assert.True(t, task.DocumentsUpdatedAt.Equal(newest.UpdatedAt), "the newest write is the one that landed last")
-	assert.Zero(t, documents(*elsewhere.TaskID).Documents, "another task's documents are not counted")
+	assert.Zero(t, watched(*elsewhere.TaskID).Documents, "another task's documents are not counted")
 }
 
 // TestUpdate pins which rewrites of a task are refused and that a field left unset keeps its value.
