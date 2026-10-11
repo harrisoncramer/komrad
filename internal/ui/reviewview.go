@@ -33,6 +33,9 @@ const (
 	reviewForgeHeldTone = paint.ToneDanger
 )
 
+// reviewChangeFolds is how many ways the change block can be rendered, roomiest first.
+const reviewChangeFolds = 3
+
 // view renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
 func (r reviewScreen) view(m *model) string {
@@ -487,9 +490,6 @@ func (d reviewDiff) viewedDesc() string {
 
 	return "mark the file viewed"
 }
-
-// reviewChangeFolds is how many ways the change block can be rendered, roomiest first.
-const reviewChangeFolds = 3
 
 // changeView is what the sidebar says about the change under review, which a higher fold joins
 // onto fewer rows before they wrap.
