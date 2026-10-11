@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -403,6 +404,21 @@ func TestTasksRow(t *testing.T) {
 		harness.fireTimers()
 
 		assert.False(t, harness.panel.IsZoomed())
+	})
+
+	t.Run("a says: search that finds the writer leaves its task's notes to show", func(t *testing.T) {
+		harness := openAgents(t, buildTasks()...)
+		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "a1", Snippet: "\x02cookie\x03"}}}), nil
+		})
+		harness.press(slices.Concat([]string{"/"}, spellKeys("says:cookie"), []string{"enter"})...)
+		harness.fireMatching(ui.IsSaysSettled)
+		require.Contains(t, readHoveredRow(harness.readFrame()), "fix-login")
+
+		harness.press("space", "n")
+		harness.fireTimers()
+
+		assert.Contains(t, readStageText(harness.readFrame()), "The session cookie expires early.")
 	})
 }
 
