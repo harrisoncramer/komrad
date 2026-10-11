@@ -179,7 +179,7 @@ func (m *model) stageSelection() {
 	staged, ok := m.agents.hoveredPane(m)
 
 	switch {
-	case ok && m.isPaneStageable(staged.Agent.Pane, staged.Agent.Harness):
+	case ok && m.isPaneStageable(staged.Agent.Pane):
 		m.sizeAgentWindow(staged.Agent.Pane)
 		m.frame.ShowGuest(layout.Guest{Agent: staged.Agent.ID, Pane: staged.Agent.Pane})
 	case m.frame.IsSolo() && m.isGuestLive():
@@ -188,6 +188,18 @@ func (m *model) stageSelection() {
 	}
 
 	m.stageTerminal()
+}
+
+// isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back
+// a kill still in flight.
+func (m *model) isPaneStageable(pane string) bool {
+	if pane == "" {
+		return false
+	}
+
+	_, inFlight := m.unstaging[pane]
+
+	return !inFlight
 }
 
 // afterStaging sends the pane moves staging collected.

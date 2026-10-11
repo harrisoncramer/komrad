@@ -9,8 +9,8 @@ import (
 // warmupPoll is how often a pane komrad is waiting on is asked whether its harness has started.
 const warmupPoll = 100 * time.Millisecond
 
-// warmupCap is how long a pane is waited on before it is shown regardless, so a launch that
-// never starts a harness does not hold the stage forever.
+// warmupCap is how long a pane is waited on before it is taken as warm regardless, so a launch
+// that never starts a harness does not hold a parked write forever.
 const warmupCap = 4 * time.Second
 
 type warmupTickMsg struct{}
@@ -31,8 +31,7 @@ func newWarmupState() warmupState {
 	return warmupState{ready: map[string]bool{}, since: map[string]time.Time{}}
 }
 
-// isPaneWarm reports whether a pane may be swapped into the stage, which holds once its harness
-// has rendered itself there.
+// isPaneWarm reports whether a pane's harness has rendered itself, or the wait on it has run out.
 func (m *model) isPaneWarm(pane, harnessID string) bool {
 	if pane == "" {
 		return false
@@ -83,63 +82,23 @@ func (m *model) isShowingHarness(pane, harnessID string) bool {
 	return m.harnessFrames.DoesFrameShowHarness(pane, harnessID)
 }
 
-// isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back
-// a launch or a kill still in flight.
-func (m *model) isPaneStageable(pane, harnessID string) bool {
-	if pane == "" {
-		return false
-	}
-
-	if _, inFlight := m.unstaging[pane]; inFlight {
-		return false
-	}
-
-	// A pane sitting at its shell has nothing coming that waiting would catch, and komrad has seen
-	// no harness in it to mark.
-	if !m.warm.ready[pane] && !m.tmux.IsPaneRunningCLI(pane) {
-		return true
-	}
-
-	return m.isPaneWarm(pane, harnessID)
-}
-
 func (w *warmupState) markWarm(pane string) {
 	w.ready[pane] = true
 	delete(w.since, pane)
 }
 
-// applyWarmupTick stages the selection again so a cursor sitting on a pane that has just come up
-// catches it, and finishes the parked writes that have settled.
+// applyWarmupTick finishes the parked writes that have settled, forgetting the panes no write
+// waits on any longer.
 func (m *model) applyWarmupTick() tea.Cmd {
 	m.warm.polling = false
 
-	selected, _ := m.selectedAgentPane()
 	for pane := range m.warm.since {
-		if pane != selected && !m.isPaneAwaited(pane) {
+		if !m.isPaneAwaited(pane) {
 			delete(m.warm.since, pane)
 		}
 	}
 
-	if selected != "" && !m.warm.ready[selected] {
-		m.stageSelection()
-	}
-
 	return m.finishParked()
-}
-
-// selectedAgentPane is the pane of the row the cursor is standing on, empty when that row has
-// none to give the stage.
-func (m *model) selectedAgentPane() (pane, harnessID string) {
-	if m.screen != screenAgents {
-		return "", ""
-	}
-
-	item, ok := m.agents.hoveredPane(m)
-	if !ok {
-		return "", ""
-	}
-
-	return item.Agent.Pane, item.Agent.Harness
 }
 
 // pollWarmup keeps a tick going while a pane is still being waited on or a write is parked.

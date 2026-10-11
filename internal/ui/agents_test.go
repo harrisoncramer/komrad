@@ -2148,16 +2148,24 @@ func TestAgentsOrchestrator(t *testing.T) {
 		})
 	}
 
-	t.Run("a running orchestrator whose harness shows late is staged once it shows", func(t *testing.T) {
-		frames := &harnessFrameFake{}
-		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
+	t.Run("a running orchestrator whose frame reads as no harness is staged at once", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: &harnessFrameFake{}})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
+
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+	})
+
+	t.Run("an orchestrator setting up is staged once it is running", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: &harnessFrameFake{}})
+		answerWorktreeReads(harness)
+		settingUp := newOrchestrator()
+		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), settingUp))
 		harness.fireTimers()
 		require.Empty(t, harness.panel.ReadGuestPane())
 
-		frames.isShowing = true
-		harness.fireTimers()
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 	})
