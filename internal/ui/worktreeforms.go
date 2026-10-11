@@ -31,8 +31,7 @@ func deleteWorktreesForm(deletion worktreeDeletion, keys config.FixedKeys) (*huh
 	return confirmFormStartingOn(false, title, strings.Join(lines, " "), "Delete", keys)
 }
 
-// deleteMixedForm asks before a choice of task checkouts and directories no task answers for
-// goes, the checkouts with their tasks.
+// deleteMixedForm asks before task checkouts and other directories are deleted together.
 func deleteMixedForm(deletion worktreeDeletion, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Permanently delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees"))
 
