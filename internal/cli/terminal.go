@@ -39,7 +39,7 @@ var (
 var unreachableCodes = []connect.Code{connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeAborted}
 
 // droppedCodes are what a carried stream fails with when its connection is lost.
-var droppedCodes = append(slices.Clone(unreachableCodes), connect.CodeUnknown)
+var droppedCodes = append(slices.Clone(unreachableCodes), connect.CodeUnknown, connect.CodeInternal, connect.CodeInvalidArgument)
 
 // received is one message from the engine, whichever kind of terminal it came from.
 type received struct {
@@ -443,8 +443,7 @@ func redial(ctx context.Context, params runTerminalParams) (terminalConn, error)
 	}
 }
 
-// isDropped reports whether a stream ended without a word, broke under the engine rather than
-// being failed by it, or failed with one of codes.
+// isDropped reports whether a stream failed with one of codes, or ended without a word.
 func isDropped(ctx context.Context, err error, codes []connect.Code) bool {
 	if ctx.Err() != nil {
 		return false
@@ -459,7 +458,7 @@ func isDropped(ctx context.Context, err error, codes []connect.Code) bool {
 		return false
 	}
 
-	return !connect.IsWireError(connectErr) || slices.Contains(codes, connectErr.Code())
+	return slices.Contains(codes, connectErr.Code())
 }
 
 func readConsoleSize(fd int) *terminalv1.Size {
