@@ -7,10 +7,12 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/agents"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -1073,4 +1075,46 @@ func listCappedMail(t *testing.T, st *storetest.Stores, agentID string) []mailst
 	return xslice.Filter(listed, func(mail mailstore.Mail) bool {
 		return mail.Kind == mailstore.KindExchangeCapped
 	})
+}
+
+// TestIsDormant covers which agents nothing runs behind, so mail to them waits for a resume.
+func TestIsDormant(t *testing.T) {
+	tests := []struct {
+		name        string
+		state       agentstore.State
+		running     bool
+		wantDormant bool
+	}{
+		{
+			name:        "an idle agent whose pane is gone",
+			state:       agentstore.StateIdle,
+			wantDormant: true,
+		},
+		{
+			name:  "an agent still being set up, whose pane does not decide yet",
+			state: agentstore.StateSettingUp,
+		},
+		{
+			name:    "an idle agent in its pane",
+			state:   agentstore.StateIdle,
+			running: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			terminal := tmuxtest.NewFake()
+			agent := agentstore.Agent{
+				ID:    uuid.NewString(),
+				Pane:  "%beta",
+				State: tt.state,
+			}
+			if tt.running {
+				terminal.Owners[agent.Pane] = agent.ID
+			}
+			svc := NewMailService(NewMailServiceParams{Panes: agents.NewPaneLiveness(terminal)})
+
+			assert.Equal(t, tt.wantDormant, svc.IsDormant(agent))
+		})
+	}
 }

@@ -22,6 +22,7 @@ type Config struct {
 	ErrorText      ErrorTextConfig      `json:"error_text"`
 	StoreQuery     StoreQueryConfig     `json:"store_query"`
 	TxStore        TxStoreConfig        `json:"tx_store"`
+	OneService     OneServiceConfig     `json:"one_service"`
 }
 
 // StoreQueryConfig settles which packages may call a store query.
@@ -36,6 +37,17 @@ type StoreQueryConfig struct {
 type TxStoreConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// OneServiceConfig settles where an RPC handler must hand its request to one service.
+type OneServiceConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Readers is the names of the fields a strict half may reach besides its one service, to read
+	// back what that service changed.
+	Readers []string `json:"readers"`
 	// Exclude is unanchored regexps over the file path.
 	Exclude []string `json:"exclude"`
 }

@@ -109,6 +109,7 @@ type NewListerParams struct {
 	Tasks     *taskstore.TaskStore
 	Workflows *workflowstore.WorkflowStore
 	Worktrees *worktreestore.WorktreeStore
+	Claimed   claimedDirLister
 }
 
 // Lister reads the worktree directories and the rows that answer for them.
@@ -118,6 +119,7 @@ type Lister struct {
 	tasks     *taskstore.TaskStore
 	workflows *workflowstore.WorkflowStore
 	worktrees *worktreestore.WorktreeStore
+	claimed   claimedDirLister
 }
 
 // NewLister builds a lister over the stores.
@@ -128,6 +130,7 @@ func NewLister(params NewListerParams) *Lister {
 		tasks:     params.Tasks,
 		workflows: params.Workflows,
 		worktrees: params.Worktrees,
+		claimed:   params.Claimed,
 	}
 }
 
@@ -172,6 +175,23 @@ func (l *Lister) List(ctx context.Context) (*Listing, error) {
 		UnreadableDirs: found.Unreadable,
 		Worktrees:      xslice.Map(found.Paths, answer),
 	}, nil
+}
+
+// ListUnclaimed is the listing without the directories a delete has claimed.
+func (l *Lister) ListUnclaimed(ctx context.Context) (*Listing, error) {
+	listing, err := l.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	claimed, err := l.claimed.ListClaimedDirs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	listing.Worktrees = unclaimed(listing.Worktrees, claimed)
+
+	return listing, nil
 }
 
 // Get is one directory under the worktree directories, with what answers for it.
@@ -398,9 +418,9 @@ func describeTask(summary taskstore.Summary) *Task {
 	}
 }
 
-// Unclaimed drops the directories a delete has claimed: those whose task is being deleted, and
+// unclaimed drops the directories a delete has claimed: those whose task is being deleted, and
 // those nothing answers for that an unfinished delete names.
-func Unclaimed(listing []Worktree, claimed []string) []Worktree {
+func unclaimed(listing []Worktree, claimed []string) []Worktree {
 	return xslice.Filter(unnamed(listing, claimed), func(worktree Worktree) bool {
 		return worktree.Fate() != FateDeleting
 	})

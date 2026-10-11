@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/internal/fail"
+	"komrad/internal/git"
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 )
@@ -73,6 +74,11 @@ type CheckResult struct {
 	ProblemKind string
 }
 
+// remoteURLParser takes a git remote apart, swapping a named SSH host for its web host.
+type remoteURLParser interface {
+	ParseRemoteURL(ctx context.Context, raw string) (git.RemoteURL, error)
+}
+
 // NewServiceParams says what the service writes to and which forges it can build.
 type NewServiceParams struct {
 	Connections *forgestore.ForgeStore
@@ -84,6 +90,8 @@ type NewServiceParams struct {
 	// LoadApp reads the GitHub App this machine can connect as, on every call that needs it,
 	// and is unset or answers an unconfigured App when it has none.
 	LoadApp func() (App, error)
+	// Remotes takes a git remote apart, swapping a named SSH host for its web host.
+	Remotes remoteURLParser
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -96,6 +104,7 @@ type Service struct {
 	verified    verifiedSetter
 	loadApp     func() (App, error)
 	now         func() time.Time
+	remotes     remoteURLParser
 	rotation    sync.Mutex
 }
 
@@ -123,6 +132,7 @@ func NewService(params NewServiceParams) *Service {
 		verified:    verified,
 		loadApp:     loadApp,
 		now:         now,
+		remotes:     params.Remotes,
 	}
 }
 
@@ -449,6 +459,34 @@ func (s *Service) ForHost(ctx context.Context, host string) (Forge, error) {
 	}
 
 	return hostForge, nil
+}
+
+type ListPullRequestsParams struct {
+	RemoteURL string
+	Branch    string
+	Cursor    string
+	PerPage   int
+}
+
+// ListPullRequests is one page of a remote's pull requests, read through the connection for the
+// remote's host.
+func (s *Service) ListPullRequests(ctx context.Context, params ListPullRequestsParams) (*Page, error) {
+	repo, err := s.remotes.ParseRemoteURL(ctx, params.RemoteURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the remote %q: %w", params.RemoteURL, err)
+	}
+
+	hostForge, err := s.ForHost(ctx, repo.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	return hostForge.List(ctx, ListParams{
+		Repo:    repo,
+		Branch:  params.Branch,
+		Cursor:  params.Cursor,
+		PerPage: params.PerPage,
+	})
 }
 
 // HasCredential says whether a connection still has what it needs to speak, which for an App

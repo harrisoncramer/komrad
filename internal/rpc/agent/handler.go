@@ -36,10 +36,6 @@ type agentAdopter interface {
 	Adopt(ctx context.Context, p agents.AdoptParams) (*agents.Adoption, error)
 }
 
-type agentLiveness interface {
-	IsAgentRunning(agent agentstore.Agent) bool
-}
-
 // rowReader is what an agent's row says, read for a page, for the agents a write moved, and
 // for one agent.
 type rowReader interface {
@@ -88,7 +84,6 @@ type NewHandlerParams struct {
 	Mail          mailer
 	Creator       agentCreator
 	Adopter       agentAdopter
-	Liveness      agentLiveness
 	Lifecycle     agentLifecycle
 	Resumer       agentResumer
 	Holder        agentHolder
@@ -113,7 +108,6 @@ type Handler struct {
 	mail          mailer
 	creator       agentCreator
 	adopter       agentAdopter
-	liveness      agentLiveness
 	lifecycle     agentLifecycle
 	resumer       agentResumer
 	holder        agentHolder
@@ -146,7 +140,6 @@ func NewHandler(params NewHandlerParams) *Handler {
 		mail:          params.Mail,
 		creator:       params.Creator,
 		adopter:       params.Adopter,
-		liveness:      params.Liveness,
 		lifecycle:     params.Lifecycle,
 		resumer:       params.Resumer,
 		holder:        params.Holder,

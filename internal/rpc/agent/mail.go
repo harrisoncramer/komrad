@@ -26,6 +26,7 @@ type mailer interface {
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
 	ListMail(ctx context.Context, params mail.ListMailParams) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
+	IsDormant(agent agentstore.Agent) bool
 }
 
 // SendMail records mail from the calling agent to the recipient the request names.
@@ -52,12 +53,12 @@ func (s *Handler) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*
 
 	return &agentv1.SendMailResponse{
 		Mail:    render.Mail(*sent),
-		Warning: s.buildDormantWarning(*recipient),
+		Warning: buildDormantWarning(*recipient, s.mail.IsDormant(*recipient)),
 	}, nil
 }
 
-func (s *Handler) buildDormantWarning(recipient agentstore.Agent) *string {
-	if s.liveness.IsAgentRunning(recipient) || !recipient.State.DoesPaneDecide() {
+func buildDormantWarning(recipient agentstore.Agent, dormant bool) *string {
+	if !dormant {
 		return nil
 	}
 

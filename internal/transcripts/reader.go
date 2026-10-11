@@ -21,6 +21,7 @@ type NewTranscriptReaderParams struct {
 	Transcripts *transcriptstore.TranscriptStore
 	Clock       func() time.Time
 	Tasks       *taskstore.TaskStore
+	Mail        mailSender
 }
 
 // TranscriptReader reads what agents wrote.
@@ -29,9 +30,10 @@ type TranscriptReader struct {
 	transcripts *transcriptstore.TranscriptStore
 	now         func() time.Time
 	tasks       *taskstore.TaskStore
+	mail        mailSender
 }
 
-// NewTranscriptReader builds the reader over the agent and transcript stores.
+// NewTranscriptReader builds the reader over the agent and transcript stores and the mail a forward is sent through.
 func NewTranscriptReader(params NewTranscriptReaderParams) *TranscriptReader {
 	now := params.Clock
 	if now == nil {
@@ -43,6 +45,7 @@ func NewTranscriptReader(params NewTranscriptReaderParams) *TranscriptReader {
 		transcripts: params.Transcripts,
 		now:         now,
 		tasks:       params.Tasks,
+		mail:        params.Mail,
 	}
 }
 

@@ -240,6 +240,21 @@ func TestListJoinsTheStoredSize(t *testing.T) {
 	assert.Equal(t, map[string]bool{measured: true, unmeasured: false}, sizes)
 }
 
+// TestListUnclaimedLeavesOutWhatADeleteNames covers the listing dropping a directory an unfinished
+// delete names while keeping the directories it walked.
+func TestListUnclaimedLeavesOutWhatADeleteNames(t *testing.T) {
+	fixture := newFixture(t)
+	named := fixture.cutUnowned(t)
+	kept := fixture.cut(t)
+	fixture.claims.dirs = []string{named}
+
+	listing, err := fixture.lister.ListUnclaimed(t.Context())
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{kept}, xslice.Map(listing.Worktrees, func(worktree Worktree) string { return worktree.Dir }))
+	assert.Equal(t, []string{fixture.shared}, listing.Dirs)
+}
+
 // TestGetRefusesADirectoryTheListingDoesNotHold covers a path outside the worktree directories being not found.
 func TestGetRefusesADirectoryTheListingDoesNotHold(t *testing.T) {
 	tests := []struct {
@@ -469,7 +484,7 @@ func TestUnclaimedLeavesOutWhatADeleteHasClaimed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := xslice.Map(Unclaimed(tt.listing, tt.claimed), func(worktree Worktree) string {
+			got := xslice.Map(unclaimed(tt.listing, tt.claimed), func(worktree Worktree) string {
 				return worktree.Dir
 			})
 
@@ -542,6 +557,7 @@ func (f *worktreeFixture) newListerOver(shared string) *Lister {
 		Tasks:     f.stores.Tasks,
 		Workflows: f.stores.Workflows,
 		Worktrees: f.worktrees,
+		Claimed:   f.claims,
 	})
 }
 

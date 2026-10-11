@@ -124,6 +124,11 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	services, err := newOneService(l.config.OneService)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -144,6 +149,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		texts,
 		queries,
 		transactions,
+		services,
 	}, nil
 }
 

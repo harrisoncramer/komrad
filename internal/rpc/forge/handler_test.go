@@ -25,13 +25,13 @@ import (
 // fakeConnector answers from its fields and records what each call asked of it.
 type fakeConnector struct {
 	connections  []forgestore.Connection
-	forge        forge.Forge
+	page         forge.Page
 	err          error
 	checked      forge.CheckResult
 	held         bool
 	connected    []forge.ConnectParams
 	disconnected []string
-	hosts        []string
+	listed       []forge.ListPullRequestsParams
 }
 
 // Connect records the params and answers the first connection unless err refuses it.
@@ -74,14 +74,14 @@ func (f *fakeConnector) HasCredential(context.Context, forgestore.Connection) (b
 	return f.held, nil
 }
 
-// ForHost records the host and answers forge unless err refuses it.
-func (f *fakeConnector) ForHost(_ context.Context, host string) (forge.Forge, error) {
-	f.hosts = append(f.hosts, host)
+// ListPullRequests records the params and answers page unless err refuses it.
+func (f *fakeConnector) ListPullRequests(_ context.Context, params forge.ListPullRequestsParams) (*forge.Page, error) {
+	f.listed = append(f.listed, params)
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return f.forge, nil
+	return &f.page, nil
 }
 
 // TestForgeRefusalsMapToCodes pins the code each refusal reaches the caller as.
@@ -155,7 +155,8 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name:     "listing pull requests of a remote that is not a forge",
-			call:     listPullRequests("/local/path", ""),
+			call:     listPullRequests(remote, ""),
+			err:      git.ErrNotForgeRemote,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
@@ -185,11 +186,10 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			connector := &fakeConnector{
 				connections: []forgestore.Connection{newConnection()},
-				forge:       &fakeForge{},
 				err:         tt.err,
 			}
 
-			err := tt.call(t.Context(), forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})})
+			err := tt.call(t.Context(), forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)})
 			require.Error(t, err)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 		})
@@ -202,7 +202,7 @@ func TestConnectForge(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		held:        true,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	resp, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{
 		Host:  "github.com",
@@ -220,7 +220,7 @@ func TestConnectForge(t *testing.T) {
 // TestDisconnectForge pins that the host asked for reaches the service.
 func TestDisconnectForge(t *testing.T) {
 	connector := &fakeConnector{}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
 	require.NoError(t, err)
@@ -263,7 +263,7 @@ func TestCheckForges(t *testing.T) {
 				connections: []forgestore.Connection{newConnection()},
 				checked:     tt.checked,
 			}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil, &fakeRemoteURLParser{})}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 			resp, err := service.CheckForges(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -289,21 +289,4 @@ func newConnection() forgestore.Connection {
 		VerifiedAt: &at,
 		CreatedAt:  at,
 	}
-}
-
-// fakeRemoteURLParser parses a remote as git does, answering host in place of the remote's own when one is set.
-type fakeRemoteURLParser struct {
-	host string
-}
-
-func (f *fakeRemoteURLParser) ParseRemoteURL(_ context.Context, raw string) (git.RemoteURL, error) {
-	remote, err := git.ParseRemoteURL(raw)
-	if err != nil {
-		return git.RemoteURL{}, err
-	}
-	if f.host != "" {
-		remote.Host = f.host
-	}
-
-	return remote, nil
 }

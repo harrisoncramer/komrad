@@ -7,7 +7,6 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/forge"
-	"komrad/internal/git"
 	"komrad/internal/rpcerr"
 	forgestore "komrad/internal/store/forge"
 	"komrad/lib/dates"
@@ -16,15 +15,15 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// connector is what the handler asks of the forge service: the connections, and the forge to
-// speak to as one of them.
+// connector is what the handler asks of the forge service: the connections, and the pull
+// requests read through one of them.
 type connector interface {
 	Connect(ctx context.Context, params forge.ConnectParams) (*forgestore.Connection, error)
 	ListConnections(ctx context.Context) ([]forgestore.Connection, error)
 	Disconnect(ctx context.Context, host string) error
 	RecheckConnection(ctx context.Context, connection forgestore.Connection) (*forge.CheckResult, error)
 	HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error)
-	ForHost(ctx context.Context, host string) (forge.Forge, error)
+	ListPullRequests(ctx context.Context, params forge.ListPullRequestsParams) (*forge.Page, error)
 }
 
 // pullRequestWriter changes a pull request through the connection for its host.
@@ -35,23 +34,16 @@ type pullRequestWriter interface {
 	RequestPullRequestRereview(ctx context.Context, address string) error
 }
 
-// remoteURLParser takes a git remote apart, swapping a named SSH host for its web host.
-type remoteURLParser interface {
-	ParseRemoteURL(ctx context.Context, raw string) (git.RemoteURL, error)
-}
-
 type Handler struct {
-	forges  connector
-	writer  pullRequestWriter
-	remotes remoteURLParser
+	forges connector
+	writer pullRequestWriter
 }
 
-// NewHandler constructs the handler over the forge service, the pull request writer and the remote URL parser.
-func NewHandler(forges connector, writer pullRequestWriter, remotes remoteURLParser) *Handler {
+// NewHandler constructs the handler over the forge service and the pull request writer.
+func NewHandler(forges connector, writer pullRequestWriter) *Handler {
 	return &Handler{
-		forges:  forges,
-		writer:  writer,
-		remotes: remotes,
+		forges: forges,
+		writer: writer,
 	}
 }
 

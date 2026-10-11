@@ -71,6 +71,7 @@ type NewMailServiceParams struct {
 	Agents    *agentstore.AgentStore
 	Workflows *workflowstore.WorkflowStore
 	Config    mailConfigReader
+	Panes     paneReader
 }
 
 type MailService struct {
@@ -78,6 +79,7 @@ type MailService struct {
 	agents    *agentstore.AgentStore
 	workflows *workflowstore.WorkflowStore
 	config    mailConfigReader
+	panes     paneReader
 }
 
 // NewMailService builds the service that sends, claims and lists the mail agents leave for
@@ -88,7 +90,14 @@ func NewMailService(params NewMailServiceParams) *MailService {
 		agents:    params.Agents,
 		workflows: params.Workflows,
 		config:    params.Config,
+		panes:     params.Panes,
 	}
+}
+
+// IsDormant says whether nothing runs behind an agent whose pane decides its state, so mail to it
+// waits until it is resumed.
+func (s *MailService) IsDormant(agent agentstore.Agent) bool {
+	return agent.State.DoesPaneDecide() && !s.panes.IsAgentRunning(agent)
 }
 
 type ResolveRecipientParams struct {

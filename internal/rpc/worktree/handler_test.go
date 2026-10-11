@@ -27,15 +27,13 @@ type fakeWorktrees struct {
 	inspection worktrees.Inspection
 	removal    worktrees.Removal
 	err        error
-	claimErr   error
 	inspected  string
 	fetched    bool
 	removed    []string
 	queued     []string
-	claimed    []string
 }
 
-func (f *fakeWorktrees) List(context.Context) (*worktrees.Listing, error) {
+func (f *fakeWorktrees) ListUnclaimed(context.Context) (*worktrees.Listing, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -65,10 +63,6 @@ func (f *fakeWorktrees) DeleteWorktrees(_ context.Context, dirs []string) error 
 	f.queued = dirs
 
 	return f.err
-}
-
-func (f *fakeWorktrees) ListClaimedDirs(context.Context) ([]string, error) {
-	return f.claimed, f.claimErr
 }
 
 // TestListWorktrees covers the listing rendered whole: the task and its stamp, the
@@ -264,16 +258,6 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 			wantCode: connect.CodeInternal,
 		},
 		{
-			name: "a claim read that fails",
-			fake: &fakeWorktrees{claimErr: broke},
-			call: func(ctx context.Context, service worktreev1komrad.WorktreeServiceAdapter) error {
-				_, err := service.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-				return err
-			},
-			wantCode: connect.CodeInternal,
-		},
-		{
 			name: "a directory outside the worktree directories",
 			fake: &fakeWorktrees{err: notUnder},
 			call: func(ctx context.Context, service worktreev1komrad.WorktreeServiceAdapter) error {
@@ -322,7 +306,6 @@ func newService(fake *fakeWorktrees) worktreev1komrad.WorktreeServiceAdapter {
 		Inspector: fake,
 		Remover:   fake,
 		Deleter:   fake,
-		Claimed:   fake,
 	})}
 }
 

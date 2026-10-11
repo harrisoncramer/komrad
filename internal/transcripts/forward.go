@@ -2,39 +2,113 @@ package transcripts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/fail"
 	"komrad/internal/mail"
+	"komrad/internal/store"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 
 	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
 )
 
 var errNothingToForward = fail.Precondition("the source has no turns synced yet, so there is nothing to forward")
 
 var errForwardTooLong = fail.InvalidArgument("the forward would run past what one piece of mail holds")
 
-// Forward is the mail a forward carries, with how many turns and characters went into it.
-type Forward struct {
+type mailSender interface {
+	SendMail(ctx context.Context, params mail.SendMailParams) (*mailstore.Mail, error)
+	IsDormant(agent agentstore.Agent) bool
+}
+
+// Forwarded is the mail a forward sent, the agent it went to and whether nothing runs behind
+// that agent to read it, with how many turns and characters went into it.
+type Forwarded struct {
+	Mail       mailstore.Mail
+	Recipient  agentstore.Agent
+	Dormant    bool
+	Turns      int
+	Characters int
+}
+
+// composition is the mail a forward carries, with how many turns and characters went into it.
+type composition struct {
 	Body       string
 	Turns      int
 	Characters int
 }
 
-type ComposeForwardParams struct {
+type ForwardLastTurnsParams struct {
+	From      string
+	SourceID  string
+	ToAgentID string
+	Turns     int32
+	MaxBytes  int32
+	Note      string
+}
+
+// ForwardLastTurns sends an agent's newest turns to another agent as mail komrad composes.
+func (r *TranscriptReader) ForwardLastTurns(ctx context.Context, params ForwardLastTurnsParams) (*Forwarded, error) {
+	source, err := r.agents.GetByID(ctx, params.SourceID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", params.SourceID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up agent %q: %w", params.SourceID, err)
+	}
+
+	composed, err := r.composeForward(ctx, composeForwardParams{
+		Source:   *source,
+		Turns:    params.Turns,
+		MaxBytes: params.MaxBytes,
+		Note:     params.Note,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	recipient, err := r.agents.GetByID(ctx, params.ToAgentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, mail.ErrRecipientNotFound.Saying("no agent with id %q", params.ToAgentID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up the recipient %q: %w", params.ToAgentID, err)
+	}
+
+	sent, err := r.mail.SendMail(ctx, mail.SendMailParams{
+		From:      params.From,
+		ToAgentID: recipient.ID,
+		Body:      composed.Body,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Forwarded{
+		Mail:       *sent,
+		Recipient:  *recipient,
+		Dormant:    r.mail.IsDormant(*recipient),
+		Turns:      composed.Turns,
+		Characters: composed.Characters,
+	}, nil
+}
+
+type composeForwardParams struct {
 	Source   agentstore.Agent
 	Turns    int32
 	MaxBytes int32
 	Note     string
 }
 
-// ComposeForward composes the mail that forwards an agent's newest turns, refusing one past what mail holds.
-func (r *TranscriptReader) ComposeForward(ctx context.Context, params ComposeForwardParams) (*Forward, error) {
+// composeForward composes the mail that forwards an agent's newest turns, refusing one past what mail holds.
+func (r *TranscriptReader) composeForward(ctx context.Context, params composeForwardParams) (*composition, error) {
 	turns, err := r.ListLastTurns(ctx, ListLastTurnsParams{
 		AgentID:  params.Source.ID,
 		Turns:    params.Turns,
@@ -65,7 +139,7 @@ func (r *TranscriptReader) ComposeForward(ctx context.Context, params ComposeFor
 		return nil, errForwardTooLong.Saying("the forward would run to %d characters and mail holds at most %d; pass a smaller max_bytes or fewer turns", length, mail.MaxMailBody)
 	}
 
-	return &Forward{
+	return &composition{
 		Body:       body,
 		Turns:      len(turns),
 		Characters: length,

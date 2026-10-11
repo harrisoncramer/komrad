@@ -1256,10 +1256,6 @@ func (f *recordingAgentServices) Adopt(_ context.Context, params agents.AdoptPar
 	return &agents.Adoption{Agent: agent, Existing: f.adoptExisting}, err
 }
 
-func (f *recordingAgentServices) IsAgentRunning(agentstore.Agent) bool {
-	return false
-}
-
 func (f *recordingAgentServices) ResumeAgent(_ context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error) {
 	f.resumed = append(f.resumed, params)
 
@@ -1412,12 +1408,11 @@ func restoreAlpha(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) er
 	return err
 }
 
-// newRowHandler is the handler over a fake of the rows, reading every agent as dormant.
+// newRowHandler is the handler over a fake of the rows.
 func newRowHandler(rows *fakeRowReader) agentv1komrad.AgentServiceAdapter {
 	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:   rows,
-		Rows:     rows,
-		Liveness: &recordingAgentServices{},
+		Agents: rows,
+		Rows:   rows,
 	})}
 }
 
@@ -1435,7 +1430,6 @@ func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recor
 		Mail:         &fakeMailer{},
 		Creator:      services,
 		Adopter:      services,
-		Liveness:     services,
 		Lifecycle:    services,
 		Resumer:      services,
 		Holder:       services,

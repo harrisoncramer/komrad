@@ -509,6 +509,16 @@ linters:
               - ^komrad/internal/(storetest|komradtest)$
           tx_store:
             skip: false
+          one_service:
+            skip: false
+            # An agent handler acts through one service and then reads the row back to render it.
+            readers:
+              - rows
+            exclude:
+              - ^internal/fail/
+              # Reading the agents' logs picks between the service log and a run's log, which is a
+              # choice of source the request makes rather than a combining of two answers.
+              - ^internal/rpc/log/handler\.go$
       fussy:
         type: module
         description: General Go checks from fussy.

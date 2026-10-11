@@ -18,7 +18,7 @@ import (
 type transcriptReader interface {
 	ReadTranscriptWindow(ctx context.Context, params transcripts.ReadTranscriptWindowParams) (*transcripts.Window, error)
 	ListLastTurns(ctx context.Context, params transcripts.ListLastTurnsParams) ([]transcripts.Turn, error)
-	ComposeForward(ctx context.Context, params transcripts.ComposeForwardParams) (*transcripts.Forward, error)
+	ForwardLastTurns(ctx context.Context, params transcripts.ForwardLastTurnsParams) (*transcripts.Forwarded, error)
 	SearchTranscripts(ctx context.Context, params transcripts.SearchTranscriptsParams) (*transcriptstore.Results, error)
 }
 
