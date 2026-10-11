@@ -191,16 +191,16 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 		"archiving "+subject,
 		"Could not archive "+subject,
 		func(a api) error {
-			for _, task := range work.tasks {
+			for _, task := range work.wholeTasks {
 				if err := pending.noteArchive(a.archiveTask(task.ID)); err != nil {
 					return err
 				}
 			}
-			if len(work.agents) == 0 {
+			if len(work.loneAgents) == 0 {
 				return nil
 			}
 
-			return pending.noteArchive(a.archiveAgents(panel.IDs(work.agents)))
+			return pending.noteArchive(a.archiveAgents(panel.IDs(work.loneAgents)))
 		},
 	))
 }
@@ -215,16 +215,16 @@ func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 		"deleting "+subject,
 		"Could not delete "+subject,
 		func(a api) error {
-			if len(work.tasks) > 0 {
-				if err := pending.noteArchive(a.deleteTasks(taskIDs(work.tasks))); err != nil {
+			if len(work.wholeTasks) > 0 {
+				if err := pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks))); err != nil {
 					return err
 				}
 			}
-			if len(work.agents) == 0 {
+			if len(work.loneAgents) == 0 {
 				return nil
 			}
 
-			ids := panel.IDs(work.agents)
+			ids := panel.IDs(work.loneAgents)
 			if err := pending.noteArchive(a.archiveAgents(ids)); err != nil {
 				return err
 			}

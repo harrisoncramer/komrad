@@ -315,11 +315,9 @@ func (a *agentsScreen) taskRowOf(m *model, row agentRow) (agentRow, bool) {
 
 // chosenWork is what a selection of agents acts on.
 type chosenWork struct {
-	chosen []panel.Agent
-	// tasks are the tasks whose every live agent is chosen, which go whole.
-	tasks []panel.Task
-	// agents are the chosen agents on no task in tasks, which go alone.
-	agents []panel.Agent
+	chosen     []panel.Agent
+	wholeTasks []panel.Task
+	loneAgents []panel.Agent
 }
 
 // splitChosen sorts the chosen agents into the tasks they wholly cover and the agents left over.
@@ -327,31 +325,30 @@ func splitChosen(l listing, chosen []panel.Agent) chosenWork {
 	onTasks := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" })
 	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
 
-	return keepWhole(l, chosen, xslice.Map(unique, l.findTask))
+	return splitAcross(l, chosen, xslice.Map(unique, l.findTask))
 }
 
-// keepWhole sorts the chosen agents into those of the candidate tasks every live agent on is chosen
-// and the agents left over.
-func keepWhole(l listing, chosen []panel.Agent, candidates []panel.Task) chosenWork {
+// splitAcross sorts the chosen agents into the candidate tasks they wholly cover and the agents left over.
+func splitAcross(l listing, chosen []panel.Agent, candidates []panel.Task) chosenWork {
 	ids := panel.IDs(chosen)
-	isChosen := func(agent panel.Agent) bool { return slices.Contains(ids, agent.ID) }
+	isUnchosen := func(agent panel.Agent) bool { return !slices.Contains(ids, agent.ID) }
 
-	tasks := xslice.Filter(candidates, func(task panel.Task) bool {
-		return !slices.ContainsFunc(l.agentsOnTasks([]panel.Task{task}), func(agent panel.Agent) bool { return !isChosen(agent) })
+	wholeTasks := xslice.Filter(candidates, func(task panel.Task) bool {
+		return !slices.ContainsFunc(l.agentsOnTasks([]panel.Task{task}), isUnchosen)
 	})
 
-	whole := taskIDs(tasks)
-	agents := xslice.Filter(chosen, func(agent panel.Agent) bool { return !slices.Contains(whole, agent.TaskID) })
+	whole := taskIDs(wholeTasks)
+	loneAgents := xslice.Filter(chosen, func(agent panel.Agent) bool { return !slices.Contains(whole, agent.TaskID) })
 
-	return chosenWork{chosen: chosen, tasks: tasks, agents: agents}
+	return chosenWork{chosen: chosen, wholeTasks: wholeTasks, loneAgents: loneAgents}
 }
 
 // rechecked is the work with each task an agent has joined since handed back to its chosen agents.
 func (w chosenWork) rechecked(l listing) chosenWork {
-	return keepWhole(l, w.chosen, w.tasks)
+	return splitAcross(l, w.chosen, w.wholeTasks)
 }
 
 // affected is every live agent the work takes.
 func (w chosenWork) affected(l listing) []panel.Agent {
-	return slices.Concat(l.agentsOnTasks(w.tasks), w.agents)
+	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)
 }

@@ -23,7 +23,7 @@ func deleteAgentsForm(agents []panel.Agent, children int, keys config.FixedKeys)
 
 // deleteChosenForm asks before chosen agents are deleted, naming any task that goes whole with them.
 func deleteChosenForm(work chosenWork, children int, keys config.FixedKeys) (*huh.Form, *bool) {
-	if len(work.tasks) == 0 {
+	if len(work.wholeTasks) == 0 {
 		return deleteAgentsForm(work.chosen, children, keys)
 	}
 
@@ -34,9 +34,9 @@ func deleteChosenForm(work chosenWork, children int, keys config.FixedKeys) (*hu
 		transcripts = "Its transcript goes with it"
 	}
 
-	warning := fmt.Sprintf("%s, and so do %d tasks with the documents, reviews and worktrees on them.", transcripts, len(work.tasks))
-	if len(work.tasks) == 1 {
-		warning = fmt.Sprintf("%s, and so does task %q with the documents, reviews and worktree on it.", transcripts, work.tasks[0].Slug)
+	warning := fmt.Sprintf("%s, and so do %d tasks with the documents, reviews and worktrees on them.", transcripts, len(work.wholeTasks))
+	if len(work.wholeTasks) == 1 {
+		warning = fmt.Sprintf("%s, and so does task %q with the documents, reviews and worktree on it.", transcripts, work.wholeTasks[0].Slug)
 	}
 
 	return confirmForm(title, warning, "Delete", keys)
