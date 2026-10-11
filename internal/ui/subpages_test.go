@@ -177,7 +177,9 @@ func TestSubpagesInArchive(t *testing.T) {
 		harness.press("j", "j", "space")
 		require.Contains(t, harness.readFrame(), "  author")
 
-		assert.NotContains(t, readStageText(harness.readFrame()), "git")
+		stage := readStageText(harness.readFrame())
+		require.Contains(t, stage, "jump")
+		assert.NotContains(t, stage, "git")
 	})
 
 	t.Run("documents open filtered to the archived agent", func(t *testing.T) {
