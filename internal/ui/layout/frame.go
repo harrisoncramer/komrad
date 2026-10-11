@@ -823,9 +823,9 @@ func (f *Frame) claimInfo() {
 
 	anchor, home := f.visibleStagePane(), getHomeDir()
 	if f.spec.infoAbove {
-		f.info = f.tmux.SplitAbove(anchor, home, f.spec.infoSize)
+		f.info = f.tmux.SplitAbove(anchor, home, f.spec.infoSize())
 	} else {
-		f.info = f.tmux.SplitBelow(anchor, home, f.spec.infoSize)
+		f.info = f.tmux.SplitBelow(anchor, home, f.spec.infoSize())
 	}
 
 	f.forget(RegionInfo)

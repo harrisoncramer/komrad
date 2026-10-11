@@ -48,7 +48,7 @@ func TestNewSpecSizes(t *testing.T) {
 			spec := newSpec(tt.layout)
 
 			assert.Equal(t, tt.wantNav, spec.sidebarCols)
-			assert.Equal(t, tt.wantInfo, spec.infoSize)
+			assert.Equal(t, tt.wantInfo, spec.infoSize())
 		})
 	}
 }
