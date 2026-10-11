@@ -25,7 +25,7 @@ func NewEventHandler() events.HandlerFor[Change] {
 	return handleChange
 }
 
-// handleChange tells every agent on the pull request's branch where it now stands, starting the checks failing
+// handleChange tells the writer of each task on the pull request's branch where it now stands, starting the checks failing
 // event for an agent not yet told of a failed check.
 func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, change Change) ([]river.JobArgs, error) {
 	pullRequests := pullrequeststore.NewPullRequestStore(tx)

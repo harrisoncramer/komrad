@@ -398,21 +398,44 @@ func TestListRecipients(t *testing.T) {
 	ctx := t.Context()
 	workflow := h.createWorkflow(t)
 
-	onBranch := h.createAgent(t, workflow, "on-branch", komrad, "agent/x")
+	older := h.createAgent(t, workflow, "older", komrad, "agent/x")
 	h.createAgent(t, workflow, "elsewhere", komrad, "agent/y")
 	h.createAgent(t, workflow, "other-repo", "https://github.com/someone/else", "agent/x")
 	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
-	parent, err := h.agents.GetByID(ctx, onBranch)
+	task := h.taskOf(t, older)
+	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:     &task,
+		Name:       "writer",
+		Pane:       "%2",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflow,
+	}))
+	writer, err := h.agents.GetInWorkflow(ctx, workflow, "writer")
 	require.NoError(t, err)
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
-		TaskID:        parent.TaskID,
+		TaskID:     &task,
+		Name:       "top-level-reviewer",
+		Pane:       "%4",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflow,
+		Role:       agentstore.RoleReviewer,
+	}))
+	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:     &task,
+		Name:       "failed",
+		Pane:       "%5",
+		State:      agentstore.StateFailedToCreate,
+		WorkflowID: workflow,
+	}))
+	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:        &task,
 		Name:          "child",
-		Pane:          "%2",
+		Pane:          "%3",
 		State:         agentstore.StateIdle,
 		WorkflowID:    workflow,
-		ParentAgentID: &onBranch,
+		ParentAgentID: &writer.ID,
 	}))
 
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
@@ -420,7 +443,7 @@ func TestListRecipients(t *testing.T) {
 
 	recipients, err := h.ListRecipients(ctx, written.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []string{onBranch}, recipients, "only the live parent on the branch is told")
+	assert.Equal(t, []string{writer.ID}, recipients, "only the task's live writer on the branch is told")
 }
 
 var failedTest = statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")

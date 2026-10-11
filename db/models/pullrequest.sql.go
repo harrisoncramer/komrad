@@ -223,25 +223,32 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 
 const listPullRequestRecipients = `-- name: ListPullRequestRecipients :many
 SELECT
-    a.id
-FROM
-    agents a
-    JOIN tasks t ON t.id = a.task_id
-    JOIN pull_requests p ON p.repository_url = t.repository_url
-        AND p.head_repository_url = t.repository_url
-        AND p.head_branch = t.branch
-    JOIN workflows w ON w.id = t.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-WHERE
-    p.id = $1
-    AND a.deleting_at IS NULL
-    AND a.archived_at IS NULL
-    AND a.parent_agent_id IS NULL
-    AND t.branch <> ''
-    AND (c.worktree_base_branch IS NULL
-        OR t.branch <> c.worktree_base_branch)
+    writers.id
+FROM ( SELECT DISTINCT ON (t.id)
+        a.id
+    FROM
+        agents a
+        JOIN tasks t ON t.id = a.task_id
+        JOIN pull_requests p ON p.repository_url = t.repository_url
+            AND p.head_repository_url = t.repository_url
+            AND p.head_branch = t.branch
+        JOIN workflows w ON w.id = t.workflow_id
+        LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+    WHERE
+        p.id = $1
+        AND a.role = 'implementer'
+        AND a.deleting_at IS NULL
+        AND a.archived_at IS NULL
+        AND a.parent_agent_id IS NULL
+        AND a.state <> 'failed_to_create'
+        AND t.branch <> ''
+        AND (c.worktree_base_branch IS NULL
+            OR t.branch <> c.worktree_base_branch)
+    ORDER BY
+        t.id,
+        a.id DESC) writers
 ORDER BY
-    a.id
+    writers.id
 `
 
 func (q *Queries) ListPullRequestRecipients(ctx context.Context, id string) ([]string, error) {
