@@ -39,7 +39,7 @@ var (
 var unreachableCodes = []connect.Code{connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeAborted}
 
 // droppedCodes are what a carried stream fails with when its connection is lost.
-var droppedCodes = append(slices.Clone(unreachableCodes), connect.CodeUnknown)
+var droppedCodes = append(slices.Clone(unreachableCodes), connect.CodeUnknown, connect.CodeInternal, connect.CodeInvalidArgument)
 
 // received is one message from the engine, whichever kind of terminal it came from.
 type received struct {
