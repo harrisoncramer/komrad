@@ -37,8 +37,8 @@ func taskDetails(m *model, r agentRow) details {
 
 	return details{
 		id:      r.task.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), r),
-		fields:  taskDetailFields(m, *r.task, *r.lead),
+		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.tasks, r),
+		fields:  taskDetailFields(m, *r.task),
 		tags:    tags,
 	}
 }
@@ -49,6 +49,7 @@ func agentDetails(m *model, r agentRow) details {
 	task := m.listing.findTask(r.item.Agent)
 	params := agentFieldsParams{
 		agent:    r.item.Agent,
+		task:     task.Slug,
 		schedule: m.listing.scheduleName(r.item.Agent),
 		parent:   m.listing.parentName(r.item.Agent),
 	}
@@ -64,15 +65,15 @@ func agentDetails(m *model, r agentRow) details {
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), r),
+		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.tasks, r),
 		fields:  agentFields(params),
 		tags:    tags,
 	}
 }
 
 // taskDetailFields is the record for a task as the listing holds it.
-func taskDetailFields(m *model, task panel.Task, lead panel.AgentRow) []recordField {
-	writer := m.listing.findTaskWriter(task, lead)
+func taskDetailFields(m *model, task panel.Task) []recordField {
+	writer := m.listing.findTaskWriter(task)
 
 	return taskFields(taskFieldsParams{
 		checkout: m.buildCheckoutParams(task),
@@ -168,6 +169,7 @@ func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits),
+		tasks:        m.listing.tasks,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
 		flat:         a.sort.flat,

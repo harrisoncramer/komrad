@@ -166,7 +166,7 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		harness.press("r")
 
-		assert.Contains(t, readOpenMessages(harness), "an archived agent's worktree is not touched")
+		assert.Contains(t, readOpenMessages(harness), "an archived task's worktree is not touched")
 	})
 
 	t.Run("documents open filtered to the archived agent", func(t *testing.T) {
@@ -204,10 +204,12 @@ func openArchivedSubpages(t *testing.T) *panelHarness {
 	author := newArchivedAgent("author", "author", "w1")
 	author.Documents = 2
 	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+	task := newTaskOf(author)
+	task.ArchivedAt = xptr.Ptr(archivedAt)
 
-	harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author)
+	harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author, task)
 	newDocumentShelf().answer(harness)
-	harness.press("j", "space")
+	harness.press("j", "j", "space")
 	require.Contains(t, harness.readFrame(), "  author")
 
 	return harness

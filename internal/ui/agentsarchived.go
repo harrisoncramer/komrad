@@ -264,7 +264,7 @@ func (a *archivedAgents) hoveredRow(m *model) (agentRow, bool) {
 }
 
 func (a *archivedAgents) isLoading(m *model) bool {
-	return slices.ContainsFunc(a.listRows(m), isRowLoading)
+	return slices.ContainsFunc(a.listRows(m), m.listing.isRowLoading)
 }
 
 func (a *archivedAgents) stageResting(m *model) tea.Cmd {
@@ -297,13 +297,16 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 
 	if row.isTask() {
 		task := *row.task
-		onTask := xslice.Filter(archivedAgentsOf(m.listing), func(agent panel.Agent) bool { return agent.TaskID == task.ID })
-
-		return archived{
-			work:  splitAcross(m.listing, onTask, []panel.Task{task}),
-			lead:  &row.lead.Agent,
+		onTask := xslice.Filter(m.listing.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
+		target := archived{
+			work:  splitAcross(m.listing, xslice.Map(onTask, func(item panel.AgentRow) panel.Agent { return item.Agent }), []panel.Task{task}),
 			title: task.Slug,
-		}, true
+		}
+		if lead, ok := findLead(onTask); ok {
+			target.lead = &lead.Agent
+		}
+
+		return target, true
 	}
 
 	item, ok := row.paneItem()

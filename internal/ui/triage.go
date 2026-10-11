@@ -60,6 +60,7 @@ type triageRule struct {
 // triageSubject is an agent as the rules read it.
 type triageSubject struct {
 	item             panel.AgentRow
+	task             panel.Task
 	hasThinkingChild bool
 }
 
@@ -107,7 +108,7 @@ var triageRules = []triageRule{
 		kind:  kindAgent,
 		clock: clockSeen,
 		is: func(s triageSubject) bool {
-			return s.item.Agent.Sequence.IsInProgress() && s.item.Agent.ParentAgentID == nil
+			return s.task.Sequence.IsInProgress() && s.item.Agent.ParentAgentID == nil
 		},
 	},
 	{
@@ -189,7 +190,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks map[string]panel.Tas
 			continue
 		}
 
-		rule, ok := findTriageRule(triageSubject{item: item, hasThinkingChild: thinkingParents[id]})
+		rule, ok := findTriageRule(triageSubject{item: item, task: findAgentTask(tasks, item.Agent), hasThinkingChild: thinkingParents[id]})
 		if !ok {
 			if wasQueued && z.isHeld(item) {
 				entries[id] = was
@@ -395,7 +396,7 @@ func findTriageRule(subject triageSubject) (triageRule, bool) {
 
 // holds reports whether the rule puts the agent in triage.
 func (r triageRule) holds(subject triageSubject) bool {
-	if r.kind == kindAgent && isAgentOnIt(subject.item) {
+	if r.kind == kindAgent && isAgentOnIt(subject.item, subject.task) {
 		return false
 	}
 
@@ -412,7 +413,7 @@ func (r triageRule) startedAt(item panel.AgentRow, now time.Time) time.Time {
 }
 
 // isAgentOnIt reports whether the agent is working, or is owed something that will set it working.
-func isAgentOnIt(item panel.AgentRow) bool {
+func isAgentOnIt(item panel.AgentRow, task panel.Task) bool {
 	//nolint:godox,fussy // follow-ups kept beside the rule they would change
 	// TODO(@harrisoncramer): A check that never finishes, like a required check that never
 	// reports, keeps the agent out of triage until something else on its pull request changes.
@@ -426,7 +427,7 @@ func isAgentOnIt(item panel.AgentRow) bool {
 		return true
 	}
 
-	return item.Alive && (item.UnreadMail || isAwaitingChecks(item.PullRequest))
+	return item.Alive && (item.UnreadMail || isAwaitingChecks(task.PullRequest))
 }
 
 // isAwaitingChecks reports whether an open pull request has checks still running on its head,
@@ -470,7 +471,7 @@ func isFinishedImplementer(s triageSubject) bool {
 		agent.Role == panel.RoleImplementer &&
 		agent.ParentAgentID == nil &&
 		!s.hasThinkingChild &&
-		s.item.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
+		s.task.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
 }
 
 // findThinkingParents is the ids of the agents with a child at work.

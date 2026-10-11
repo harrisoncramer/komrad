@@ -300,11 +300,16 @@ type statusChecksListedMsg struct {
 // statusChecksPullRequestID is the pull request the agent's row stands for, empty when it has none.
 func (m *model) statusChecksPullRequestID(agentID string) string {
 	item, ok := m.listing.anyAgent(agentID)
-	if !ok || len(item.PullRequests) == 0 {
+	if !ok {
 		return ""
 	}
 
-	return item.PullRequests[0].ID
+	pullRequests := m.listing.findTask(item.Agent).PullRequests
+	if len(pullRequests) == 0 {
+		return ""
+	}
+
+	return pullRequests[0].ID
 }
 
 // readStatusChecksCmd lists the status checks again when the agent's pull request or its head has moved since
@@ -321,7 +326,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 	}
 
 	item, _ := m.listing.anyAgent(c.agentID)
-	head := item.PullRequest.HeadSHA
+	head := m.listing.findTask(item.Agent).PullRequest.HeadSHA
 	if c.listed && c.listedPullRequest == pullRequestID && c.listedHead == head {
 		return nil
 	}

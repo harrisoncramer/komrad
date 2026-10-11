@@ -88,7 +88,7 @@ func pullRequestWords(pullRequest panel.PullRequest) string {
 	return word
 }
 
-// describePullRequest says something of an agent's pull request in its forge's words.
+// describePullRequest says something of a task's pull request in its forge's words.
 func describePullRequest(standing panel.PullRequestStanding, said string) string {
 	if said == "" {
 		return ""
@@ -133,10 +133,10 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 
 // openPullRequest hands the agent's current pull request to the browser, or says why there is
 // none to open.
-func (m *model) openPullRequest(item panel.AgentRow) tea.Cmd {
-	standing := item.PullRequest
+func (m *model) openPullRequest(task panel.Task) tea.Cmd {
+	standing := task.PullRequest
 	if standing.URL == "" {
-		m.report("Could not open the pull request of "+item.Agent.Name, pullRequestRefusal(item))
+		m.report("Could not open the pull request of "+task.Slug, pullRequestRefusal(task))
 
 		return nil
 	}
@@ -146,10 +146,10 @@ func (m *model) openPullRequest(item panel.AgentRow) tea.Cmd {
 
 // copyPullRequestURL puts the agent's current pull request's address on the clipboard, or says
 // why there is none to copy.
-func (m *model) copyPullRequestURL(item panel.AgentRow) tea.Cmd {
-	standing := item.PullRequest
+func (m *model) copyPullRequestURL(task panel.Task) tea.Cmd {
+	standing := task.PullRequest
 	if standing.URL == "" {
-		m.report("Could not copy the pull request of "+item.Agent.Name, pullRequestRefusal(item))
+		m.report("Could not copy the pull request of "+task.Slug, pullRequestRefusal(task))
 
 		return nil
 	}

@@ -31,40 +31,35 @@ func (a *agentsScreen) buildScreenMenu(m *model) (submenu, bool) {
 	}, true
 }
 
-// taskMenu is the hovered task's band: the pages of its lead, what starts or edits work on it,
-// and the menus that hide, archive or delete it.
+// taskMenu is the hovered task's band: its pages, what starts or edits work on it, its git, and
+// the menus that hide, archive or delete it.
 func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
-	lead, task := *row.lead, *row.task
-	writer := m.listing.findTaskWriter(task, lead)
-	own := slices.Concat(
-		newAgentEntries(m, row.workflow, task),
-		[]submenuEntry{
-			openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
-		},
-		handOffEntries(m, task),
-		a.snoozeEntries(m, lead),
-		a.editEntries(m, writer),
-	)
+	task := *row.task
+	lead, _ := m.listing.findTaskLead(task)
+	menu := submenu{
+		kind:  formMenu,
+		title: task.Slug,
+		entries: slices.Concat(
+			[]submenuEntry{taskReviewEntry(m, lead.Agent), taskLogsEntry(m, task)},
+			subpageEntries(m, lead, []subpage{subpageChecks}),
+			[]submenuEntry{
+				taskTerminalEntry(m, taskDir(task, row.workflow)),
+			},
+			newAgentEntries(m, row.workflow, task),
+			[]submenuEntry{
+				openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
+			},
+			handOffEntries(m, task),
+			a.snoozeEntries(m, lead),
+			a.editEntries(m, m.listing.findTaskWriter(task)),
+			[]submenuEntry{
+				nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task)),
+				nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, lead.Agent.ID, task.ID)),
+			},
+		),
+	}
 
-	menu := agentMenu(m, lead, own...)
-	menu.title = task.Slug
-	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {
-		switch {
-		case slices.Equal(entry.keys, m.keys.Menu.Review):
-			return taskReviewEntry(m, lead.Agent)
-		case slices.Equal(entry.keys, m.keys.Menu.Logs):
-			return taskLogsEntry(m, task)
-		case slices.Equal(entry.keys, m.keys.Menu.Terminal):
-			return taskTerminalEntry(m, taskDir(task, row.workflow))
-		case slices.Equal(entry.keys, m.keys.Menu.Jump):
-			return nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, row))
-		}
-
-		return entry
-	})
-
-	tasks := []panel.Task{task}
-	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, tasks))
+	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, []panel.Task{task}))
 
 	return withNested(menu, "archive", m.keys.Menu.Archive, taskArchiveMenu(m, task))
 }
@@ -91,16 +86,17 @@ func isTaskStartable(m *model, task panel.Task) bool {
 	return !task.WorktreeRemoved && (task.ArchivedAt == nil || task.Cwd != "")
 }
 
-// taskJumpMenu is the jump menu of the agent a task wears, its documents entry landing on the task's.
-func taskJumpMenu(m *model, row agentRow) submenu {
-	menu := jumpMenu(m, screenAgents, row.lead.Agent.ID)
+// taskJumpMenu is the jump menu of the agent a task is opened through, its documents entry
+// landing on the task's.
+func taskJumpMenu(m *model, agentID, taskID string) submenu {
+	menu := jumpMenu(m, screenAgents, agentID)
 	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {
 		if !slices.Equal(entry.keys, m.keys.JumpMenu.Documents) {
 			return entry
 		}
 
 		return openEntry("documents", m.keys.JumpMenu.Documents, func(m *model) tea.Cmd {
-			return m.enter(screenDocuments, screenTarget{agentID: row.lead.Agent.ID, taskID: row.task.ID})
+			return m.enter(screenDocuments, screenTarget{agentID: agentID, taskID: taskID})
 		})
 	})
 
@@ -142,13 +138,13 @@ func taskDir(task panel.Task, workflow panel.Workflow) string {
 // taskReviewEntry opens the review of a task through the agent it wears, archived or not.
 func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
 	entry := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
-		if !isReviewable(lead) {
+		if !m.listing.isReviewable(lead) {
 			return m.refuseSubpage("Could not open the review of "+m.listing.findTask(lead).Slug, errReviewNoCheckout)
 		}
 
 		return m.enterReview(lead)
 	})
-	entry.isOff = !isReviewable(lead)
+	entry.isOff = !m.listing.isReviewable(lead)
 
 	return entry
 }

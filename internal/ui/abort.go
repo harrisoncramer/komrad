@@ -58,7 +58,7 @@ func abortForm(name string, sequence panel.Sequence) gitConfirmForm {
 			fmt.Sprintf("Abort the %s in the worktree of %s?", sequence, name),
 			fmt.Sprintf("The branch goes back to where it stood before the %s began, and its files with it. "+
 				"A copy of the worktree as it stands now, conflicts and all, is kept first. "+
-				"%s is stopped first if it is working, and is told either way.", sequence, name),
+				"The agent working in it is stopped first if it is working, and is told either way.", sequence),
 			"Abort "+string(sequence),
 			keys,
 		)

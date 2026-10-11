@@ -213,7 +213,7 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 		return panel.AgentRow{}, false
 	}
 	if row.isTask() {
-		return m.listing.findCheckoutWriter(*row.task, *row.lead)
+		return m.listing.findCheckoutWriter(*row.task)
 	}
 	if row.header {
 		return panel.AgentRow{}, false

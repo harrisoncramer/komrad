@@ -30,8 +30,8 @@ type pushPlan struct {
 	pullRequest panel.PullRequestStanding
 }
 
-func pushOp(item panel.AgentRow) gitOp {
-	taskID, name := item.Agent.TaskID, item.Agent.Name
+func pushOp(task panel.Task) gitOp {
+	taskID, name := task.ID, task.Slug
 
 	return gitOp{
 		kind:       formAgentPush,
@@ -52,7 +52,7 @@ func pushOp(item panel.AgentRow) gitOp {
 				commits:     int(response.GetCommits()),
 				forced:      response.GetForced(),
 				uncommitted: int(response.GetUncommittedFiles()),
-				pullRequest: item.PullRequest,
+				pullRequest: task.PullRequest,
 			}
 
 			return pushForm(plan), nil

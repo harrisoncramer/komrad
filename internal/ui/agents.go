@@ -92,7 +92,12 @@ func (a *agentsScreen) openHovered(m *model) tea.Cmd {
 	case !ok:
 		return nil
 	case row.isTask():
-		return a.openAgent(m, *row.lead)
+		lead, ok := m.listing.findTaskLead(*row.task)
+		if !ok {
+			return nil
+		}
+
+		return a.openAgent(m, lead)
 	case row.header:
 		return nil
 	}

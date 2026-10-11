@@ -24,46 +24,46 @@ type autoMergedMsg struct {
 }
 
 // autoMergeLabel is the merge menu entry that turns auto-merge on or off, naming which way it goes.
-func autoMergeLabel(item panel.AgentRow) string {
-	if item.PullRequest.MergeReadiness.AutoMerge {
+func autoMergeLabel(task panel.Task) string {
+	if task.PullRequest.MergeReadiness.AutoMerge {
 		return "cancel auto-merge"
 	}
 
 	return "merge when ready"
 }
 
-// autoMergeRefusal says why auto-merge cannot be changed on the agent's pull request, nil when it
+// autoMergeRefusal says why auto-merge cannot be changed on the task's pull request, nil when it
 // can, which it always can be while it is on.
-func autoMergeRefusal(item panel.AgentRow) error {
-	if err := openPullRequestRefusal(item); err != nil {
+func autoMergeRefusal(task panel.Task) error {
+	if err := openPullRequestRefusal(task); err != nil {
 		return err
 	}
 
 	switch {
-	case item.PullRequest.MergeReadiness.AutoMerge:
+	case task.PullRequest.MergeReadiness.AutoMerge:
 		return nil
-	case isDraft(item):
-		return errors.New(describePullRequest(item.PullRequest, "is a draft, so mark it ready first"))
-	case !item.PullRequest.MergeReadiness.AutoMergeable:
+	case isDraft(task):
+		return errors.New(describePullRequest(task.PullRequest, "is a draft, so mark it ready first"))
+	case !task.PullRequest.MergeReadiness.AutoMergeable:
 		return errNoAutoMerge
 	}
 
 	return nil
 }
 
-// toggleAutoMerge asks the forge to merge the agent's pull request once its checks and reviews
+// toggleAutoMerge asks the forge to merge the task's pull request once its checks and reviews
 // pass, or to stop waiting to, or says why it cannot.
-func (m *model) toggleAutoMerge(item panel.AgentRow) tea.Cmd {
-	if err := autoMergeRefusal(item); err != nil {
-		m.report("Could not change auto-merge on the "+item.PullRequest.Noun()+" of "+item.Agent.Name, err)
+func (m *model) toggleAutoMerge(task panel.Task) tea.Cmd {
+	if err := autoMergeRefusal(task); err != nil {
+		m.report("Could not change auto-merge on the "+task.PullRequest.Noun()+" of "+task.Slug, err)
 
 		return nil
 	}
 
 	clients := m.api
-	standing := item.PullRequest
+	standing := task.PullRequest
 	autoMerged := autoMergedMsg{
-		name:  item.Agent.Name,
+		name:  task.Slug,
 		ref:   standing.Ref(),
 		title: standing.Title,
 		on:    !standing.MergeReadiness.AutoMerge,
