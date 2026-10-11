@@ -146,7 +146,11 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 			return nil
 		}
 
-		reportHookEvent(cmd, state, claude.HarnessID, hook.event, body)
+		reportHookEvent(cmd, state, reportHookEventParams{
+			harnessID: claude.HarnessID,
+			event:     hook.event,
+			payload:   body,
+		})
 
 		return nil
 	}
@@ -177,7 +181,11 @@ nobody has read. Anything but a completed turn is ignored.`,
 			payload = []byte(args[0])
 		}
 
-		reportHookEvent(cmd, state, codex.HarnessID, codex.EventNotify, payload)
+		reportHookEvent(cmd, state, reportHookEventParams{
+			harnessID: codex.HarnessID,
+			event:     codex.EventNotify,
+			payload:   payload,
+		})
 
 		return nil
 	}
@@ -220,7 +228,11 @@ turn end.`,
 
 		// Recorded before the re-entry check, which the turn the agent answered its mail in would
 		// otherwise skip.
-		reportHookEvent(cmd, state, claude.HarnessID, claude.EventStop, body)
+		reportHookEvent(cmd, state, reportHookEventParams{
+			harnessID: claude.HarnessID,
+			event:     claude.EventStop,
+			payload:   body,
+		})
 
 		if payload.StopHookActive {
 			return nil
@@ -268,16 +280,22 @@ func readStopHookPayload(body []byte) (*stopHookPayload, error) {
 	return &payload, nil
 }
 
+type reportHookEventParams struct {
+	harnessID string
+	event     harness.Event
+	payload   []byte
+}
+
 // reportHookEvent hands one hook payload to the harness that fired it and records what it read.
-func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event harness.Event, payload []byte) { //nolint:revive // a params struct is the follow-up
-	hn, err := state.harnesses.GetByID(harnessID)
+func reportHookEvent(cmd *cobra.Command, state *app, params reportHookEventParams) {
+	hn, err := state.harnesses.GetByID(params.harnessID)
 	if err != nil {
 		reportHookProblem(cmd, "komrad has no harness to read the hook payload with, so nothing was recorded", err)
 
 		return
 	}
 
-	report, err := hn.ReadReport(event, payload)
+	report, err := hn.ReadReport(params.event, params.payload)
 	if errors.Is(err, harness.ErrNoReport) {
 		return
 	}

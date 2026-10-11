@@ -92,7 +92,12 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 	if switched {
 		agent.Harness = wanted
-		if err := s.moveOntoHarness(ctx, agent, wf, flags, hn); err != nil {
+		if err := s.moveOntoHarness(ctx, moveOntoHarnessParams{
+			agent:    agent,
+			workflow: wf,
+			flags:    flags,
+			harness:  hn,
+		}); err != nil {
 			failRetry(err)
 			return nil, err
 		}
@@ -168,19 +173,27 @@ func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) 
 	}, nil
 }
 
+type moveOntoHarnessParams struct {
+	agent    *agentstore.Agent
+	workflow *workflowstore.Workflow
+	flags    string
+	harness  harness.Harness
+}
+
 // moveOntoHarness records the CLI a retry corrected an agent onto, with the flags and the
 // conversation that belong to it.
-func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.Agent, wf *workflowstore.Workflow, flags string, hn harness.Harness) error { //nolint:revive // a params struct is the follow-up
-	workflowHarness, workflowFlags := s.roleDefaults(wf, agent.Role)
+func (s *LaunchService) moveOntoHarness(ctx context.Context, params moveOntoHarnessParams) error {
+	agent := params.agent
+	workflowHarness, workflowFlags := s.roleDefaults(params.workflow, agent.Role)
 
 	agent.Flags = s.launchFlags(launchFlagsParams{
 		harnessID:       agent.Harness,
 		workflowHarness: workflowHarness,
-		agentFlags:      flags,
+		agentFlags:      params.flags,
 		workflowFlags:   workflowFlags,
 	})
 
-	agent.SessionID = harness.MintSessionID(hn)
+	agent.SessionID = harness.MintSessionID(params.harness)
 
 	return s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
 		ID:        agent.ID,

@@ -265,7 +265,12 @@ func seedIndexFromAgent(ctx context.Context, root, index string, env []string) e
 		return err
 	}
 
-	return revealPaths(ctx, root, index, env, presentPaths(root, hidden))
+	return revealPaths(ctx, revealPathsParams{
+		Root:  root,
+		Index: index,
+		Env:   env,
+		Paths: presentPaths(root, hidden),
+	})
 }
 
 // agentEnv is the environment for the commands that read the agent's own index, with the variable
@@ -318,34 +323,45 @@ func presentPaths(root string, paths []string) []string {
 	return present
 }
 
+type revealPathsParams struct {
+	Root  string
+	Index string
+	Env   []string
+	Paths []string
+}
+
 // revealPaths clears both flags in the temporary index, one command each.
-func revealPaths(ctx context.Context, root, index string, env []string, paths []string) error { //nolint:revive // a params struct is the follow-up
-	if len(paths) == 0 {
+func revealPaths(ctx context.Context, params revealPathsParams) error {
+	if len(params.Paths) == 0 {
 		return nil
 	}
 
-	stat, err := os.Stat(index)
+	stat, err := os.Stat(params.Index)
 	if err != nil {
-		return fmt.Errorf("failed to read a snapshot index for %q: %w", root, err)
+		return fmt.Errorf("failed to read a snapshot index for %q: %w", params.Root, err)
 	}
 
 	var input bytes.Buffer
-	for _, path := range paths {
+	for _, path := range params.Paths {
 		input.WriteString(path)
 		input.WriteByte(0)
 	}
 
 	for _, flag := range []string{"--no-skip-worktree", "--no-assume-unchanged"} {
-		args := []string{"update-index", flag, "-z", "--stdin"}
-		if _, err := runInput(ctx, root, env, input.Bytes(), args...); err != nil {
-			return fmt.Errorf("failed to unflag the files of %q for a snapshot: %w", root, err)
+		if _, err := runInput(ctx, runInputParams{
+			Dir:   params.Root,
+			Env:   params.Env,
+			Input: input.Bytes(),
+			Args:  []string{"update-index", flag, "-z", "--stdin"},
+		}); err != nil {
+			return fmt.Errorf("failed to unflag the files of %q for a snapshot: %w", params.Root, err)
 		}
 	}
 
 	// Writing the index stamps it with the current time, which would leave every entry in it
 	// older than the index and so trusted on its recorded stat alone.
-	if err := os.Chtimes(index, stat.ModTime(), stat.ModTime()); err != nil {
-		return fmt.Errorf("failed to write a snapshot index for %q: %w", root, err)
+	if err := os.Chtimes(params.Index, stat.ModTime(), stat.ModTime()); err != nil {
+		return fmt.Errorf("failed to write a snapshot index for %q: %w", params.Root, err)
 	}
 
 	return nil
@@ -413,7 +429,12 @@ func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, e
 		return false, nil
 	}
 
-	return doesHoldWhole(ctx, root, base, baseTree, params.SnapshotSHA)
+	return doesHoldWhole(ctx, doesHoldWholeParams{
+		Dir:      root,
+		Base:     base,
+		BaseTree: baseTree,
+		SHA:      params.SnapshotSHA,
+	})
 }
 
 // isOwnHead reports whether a base names the very branch the worktree is on, which can hold
@@ -424,18 +445,25 @@ func isOwnHead(ctx context.Context, root, base string) bool {
 	return err == nil && branch == base
 }
 
+type doesHoldWholeParams struct {
+	Dir      string
+	Base     string
+	BaseTree string
+	SHA      string
+}
+
 // doesHoldWhole reports whether merging a commit into the base would change nothing of it.
-func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool, error) { //nolint:revive // a params struct is the follow-up
+func doesHoldWhole(ctx context.Context, params doesHoldWholeParams) (bool, error) {
 	merged, _, err := readMergedTree(ctx, readMergedTreeParams{
-		Dir:   root,
-		Left:  base,
-		Right: sha,
+		Dir:   params.Dir,
+		Left:  params.Base,
+		Right: params.SHA,
 	})
 	if err != nil {
 		return false, err
 	}
 
-	return merged == baseTree, nil
+	return merged == params.BaseTree, nil
 }
 
 // Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.

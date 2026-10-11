@@ -132,7 +132,11 @@ func checkRead(
 	_ check.Request,
 	method protoreflect.MethodDescriptor,
 ) error {
-	return requireLevel(responseWriter, method, readPrefixes, "a read", descriptorpb.MethodOptions_NO_SIDE_EFFECTS)
+	return requireLevel(responseWriter, method, requireLevelParams{
+		prefixes: readPrefixes,
+		kind:     "a read",
+		want:     descriptorpb.MethodOptions_NO_SIDE_EFFECTS,
+	})
 }
 
 func checkMutation(
@@ -141,7 +145,11 @@ func checkMutation(
 	_ check.Request,
 	method protoreflect.MethodDescriptor,
 ) error {
-	return requireLevel(responseWriter, method, mutationPrefixes, "a write that can be repeated", descriptorpb.MethodOptions_IDEMPOTENT)
+	return requireLevel(responseWriter, method, requireLevelParams{
+		prefixes: mutationPrefixes,
+		kind:     "a write that can be repeated",
+		want:     descriptorpb.MethodOptions_IDEMPOTENT,
+	})
 }
 
 func checkRequestIDs(
@@ -257,18 +265,18 @@ func fieldRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	return rules
 }
 
-func requireLevel( //nolint:revive // a params struct is the follow-up
-	responseWriter check.ResponseWriter,
-	method protoreflect.MethodDescriptor,
-	prefixes []string,
-	kind string,
-	want descriptorpb.MethodOptions_IdempotencyLevel,
-) error {
-	if !isNamedFor(method, prefixes) {
+type requireLevelParams struct {
+	prefixes []string
+	kind     string
+	want     descriptorpb.MethodOptions_IdempotencyLevel
+}
+
+func requireLevel(responseWriter check.ResponseWriter, method protoreflect.MethodDescriptor, params requireLevelParams) error {
+	if !isNamedFor(method, params.prefixes) {
 		return nil
 	}
 
-	if idempotencyLevel(method) == want {
+	if idempotencyLevel(method) == params.want {
 		return nil
 	}
 
@@ -277,8 +285,8 @@ func requireLevel( //nolint:revive // a params struct is the follow-up
 		check.WithMessagef(
 			"%q is named for %s, so it must declare \"option idempotency_level = %s;\". The MCP tool hints derive from that option, so without it the method reaches every client as one that changes the panel and cannot be retried.",
 			method.Name(),
-			kind,
-			want,
+			params.kind,
+			params.want,
 		),
 	)
 
