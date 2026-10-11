@@ -16,10 +16,25 @@ func (a *agentsScreen) details(m *model) details {
 	}
 
 	if r.isTask() {
+		writer := m.listing.findTaskWriter(*r.task, *r.lead)
+		worktree, read := agentWorktree(m.inspections, r.task.Cwd)
+		var tags []string
+		if item, ok := m.listing.findCheckoutWriter(*r.task, *r.lead); ok {
+			tags = agentDetailsTags(m, item)
+		}
+
 		return details{
 			id:      r.task.ID,
 			notices: agentNotices(m.glyphs, m.loading.frame(), r),
-			fields:  taskFields(*r.task, m.listing.taskAgents(r.task.ID)),
+			fields: taskFields(taskFieldsParams{
+				task:     *r.task,
+				agents:   m.listing.taskAgents(r.task.ID),
+				writer:   writer,
+				worktree: worktree,
+				read:     read,
+				now:      time.Now(),
+			}),
+			tags: tags,
 		}
 	}
 
@@ -63,7 +78,7 @@ func (a *agentsScreen) doc(m *model) string {
 	case !ok:
 		return ""
 	case r.isTask():
-		return taskMarkdown(*r.task, m.listing.taskAgents(r.task.ID))
+		return taskMarkdown(*r.task)
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.Agent.State == panel.StateSettingUp && item.Agent.Pane != "":

@@ -28,7 +28,7 @@ func TestTasksTree(t *testing.T) {
 		assert.Equal(t, []string{"komrad", "├─ solo", "│  └─ loner", "└─ fix-login", "   ├─ follow-up", "   └─ author"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("a task's record is its goal and the agents on it", func(t *testing.T) {
+	t.Run("a task's record is its goal and notes, with the agents on it in its info", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
 		harness.press("j")
@@ -37,8 +37,8 @@ func TestTasksTree(t *testing.T) {
 		require.Equal(t, "└─ fix-login", readHoveredRow(frame))
 		assert.Contains(t, frame, "Logins work again.")
 		assert.Contains(t, frame, "The session cookie expires early.")
-		assert.Contains(t, frame, "• follow-up")
-		assert.Contains(t, frame, "• author")
+		assert.Contains(t, frame, "follow-up, author")
+		assert.NotContains(t, frame, "• follow-up")
 	})
 
 	t.Run("enter on a task opens its newest agent", func(t *testing.T) {
@@ -344,7 +344,7 @@ func TestTasksRow(t *testing.T) {
 		assert.Contains(t, strings.Join(readStage(harness.readFrame()), "\n"), "retry launch")
 	})
 
-	t.Run("a task's row shows the pane of an agent on it with one over a newer agent without", func(t *testing.T) {
+	t.Run("a task's row shows what is written about it rather than the pane of a live agent on it", func(t *testing.T) {
 		rows := buildTasks()
 		writer := rows[3].(*agentv1.Agent)
 		writer.PaneId = "%3"
@@ -354,7 +354,8 @@ func TestTasksRow(t *testing.T) {
 		harness.press("j")
 		harness.fireTimers()
 
-		assert.Equal(t, "%3", harness.panel.ReadGuestPane())
+		assert.Empty(t, harness.panel.ReadGuestPane())
+		assert.Contains(t, harness.readFrame(), "The session cookie expires early.")
 	})
 }
 
