@@ -133,14 +133,9 @@ func TestPrepareDim(t *testing.T) {
 			want: EmphasisDim,
 		},
 		{
-			name: "a hidden task still running is bright",
+			name: "a hidden task is bright",
 			row:  Row{Hidden: true},
 			want: emphasisNormal,
-		},
-		{
-			name: "a hidden task whose process has stopped is dim",
-			row:  Row{Hidden: true, Process: ProcessStopped},
-			want: EmphasisDim,
 		},
 		{
 			name: "an idle agent is alive and stays bright",

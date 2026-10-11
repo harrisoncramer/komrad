@@ -49,8 +49,8 @@
 // a row in the archive, and a stopped one reads the same as none at all.
 //
 // Hidden is a thing a person did to the row, so it is a mark after the name, in the family the
-// pause and the schedule belong to. A hidden task still running is bright with the mark, a
-// dormant one is dim with the mark, and an archived one is dim without it.
+// pause and the schedule belong to. A hidden task is bright with the mark, and an archived one is
+// dim without it.
 //
 // A branch or an indent costs the name the columns it spends, so an agent has less room for its
 // name than a workflow at the same pane, and the name clip and the mark shedding both read them

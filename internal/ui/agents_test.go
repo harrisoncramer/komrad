@@ -206,7 +206,7 @@ func TestAgentsShowHidden(t *testing.T) {
 		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author" + hiddenMark, "   ├─ author", "   ├─ test-runner", "   └─ reviewer"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("the hide entry hides the hovered task's agents", func(t *testing.T) {
+	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
 		harness.press("k", "space", "h", "h")
