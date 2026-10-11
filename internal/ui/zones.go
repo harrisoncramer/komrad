@@ -169,3 +169,8 @@ func clipRect(rect, bounds panes.Rect) (panes.Rect, bool) {
 		Height: bottom - top,
 	}, true
 }
+
+// isInRect is whether the cell at x, y falls inside rect.
+func isInRect(rect panes.Rect, x, y int) bool {
+	return x >= rect.Left && x < rect.Left+rect.Width && y >= rect.Top && y < rect.Top+rect.Height
+}

@@ -54,7 +54,19 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				wheelOver(harness, defaultHarnessWidth-1)
 
 				frame := harness.readFrame()
-				assert.NotEqual(t, readStage(before), readStage(frame))
+				assert.NotContains(t, readStage(frame), "context line 0")
+				assert.Equal(t, readHoveredRow(before), readHoveredRow(frame))
+			})
+
+			t.Run("over the block it hands the block the keys", func(t *testing.T) {
+				harness := tt.open(t)
+				before := harness.readFrame()
+				wheelOver(harness, defaultHarnessWidth-1)
+
+				harness.press("G")
+
+				frame := harness.readFrame()
+				assert.Contains(t, frame, "context line 79")
 				assert.Equal(t, readHoveredRow(before), readHoveredRow(frame))
 			})
 
@@ -62,8 +74,9 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				harness := tt.open(t)
 				top := readStage(harness.readFrame())
 				wheelOver(harness, defaultHarnessWidth-1)
+				wheelOver(harness, 1)
 
-				harness.press("j", "k")
+				harness.press("k")
 
 				assert.Equal(t, top, readStage(harness.readFrame()))
 			})
