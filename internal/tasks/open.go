@@ -14,6 +14,14 @@ import (
 	taskstore "komrad/internal/store/task"
 )
 
+// Opened is the task an agent was put on, whether putting it there brought the task back from the
+// archive, and the place in its hook queue the agent holds when it opens it.
+type Opened struct {
+	Task     *taskstore.Task
+	Restored bool
+	Turn     *scriptrun.HookTurn
+}
+
 type OpenParams struct {
 	Agent  agentstore.Agent
 	Joined *taskstore.Task
@@ -23,14 +31,6 @@ type OpenParams struct {
 	Goal   string
 	// JoinsCheckout is whether the agent becomes the writer of its task's existing checkout.
 	JoinsCheckout bool
-}
-
-// Opened is the task an agent was put on, whether putting it there brought the task back from the
-// archive, and the place in its hook queue the agent holds when it opens it.
-type Opened struct {
-	Task     *taskstore.Task
-	Restored bool
-	Turn     *scriptrun.HookTurn
 }
 
 // Open puts an agent about to be written in db on its task, making it one of its own when it needs one.
