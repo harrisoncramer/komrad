@@ -96,16 +96,10 @@ func (m *Measurer) Measure(ctx context.Context) error {
 		}
 	}
 
-	sizes := make(map[string]worktreestore.Size, len(stored))
-	for _, worktree := range stored {
-		if worktree.Size != nil {
-			sizes[worktree.Dir] = *worktree.Size
-		}
-	}
-
 	byDir := xslice.KeyBy(present, func(worktree Worktree) string { return worktree.Dir })
 	dirs := xslice.Map(present, func(worktree Worktree) string { return worktree.Dir })
-	for _, dir := range choose(dirs, sizes, m.now()) {
+	storedByDir := xslice.KeyBy(stored, func(worktree worktreestore.Worktree) string { return worktree.Dir })
+	for _, dir := range choose(dirs, storedByDir, m.now()) {
 		if err := m.measure(ctx, byDir[dir]); err != nil {
 			if ctx.Err() != nil {
 				return err
@@ -203,23 +197,29 @@ func forgotten(listing *Listing, present []Worktree, stored []worktreestore.Work
 }
 
 // choose is the directories a pass walks: the unmeasured first, in listing order, then the
-// stale ones oldest first, cut to what one pass takes.
-func choose(paths []string, stored map[string]worktreestore.Size, now time.Time) []string {
+// stale ones oldest first save the settled, cut to what one pass takes.
+func choose(paths []string, stored map[string]worktreestore.Worktree, now time.Time) []string {
 	var unmeasured, stale []string
 	for _, dir := range paths {
-		size, ok := stored[dir]
+		size := stored[dir].Size
 		switch {
-		case !ok:
+		case size == nil:
 			unmeasured = append(unmeasured, dir)
+		case isSettled(stored[dir]):
 		case now.Sub(size.MeasuredAt) >= measureStaleAfter:
 			stale = append(stale, dir)
 		}
 	}
 	slices.SortStableFunc(stale, func(a, b string) int {
-		return cmp.Compare(stored[a].MeasuredAt.UnixNano(), stored[b].MeasuredAt.UnixNano())
+		return cmp.Compare(stored[a].Size.MeasuredAt.UnixNano(), stored[b].Size.MeasuredAt.UnixNano())
 	})
 
 	chosen := slices.Concat(unmeasured, stale)
 
 	return chosen[:min(len(chosen), measuresPerPass)]
+}
+
+// isSettled says a directory was measured after its task was archived, and so will not grow.
+func isSettled(worktree worktreestore.Worktree) bool {
+	return worktree.TaskArchivedAt != nil && worktree.Size != nil && worktree.Size.MeasuredAt.After(*worktree.TaskArchivedAt)
 }

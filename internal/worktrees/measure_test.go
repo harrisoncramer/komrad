@@ -41,6 +41,24 @@ func TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst(t *testing.T) {
 	assert.Equal(t, int64(1), fixture.readSize(t, fresh).Bytes, "a fresh measurement is left alone")
 }
 
+// TestMeasureLeavesAloneWhatWasMeasuredSinceItsTaskWasArchived covers a stale directory of an
+// archived task being walked only while its last measurement predates the archive.
+func TestMeasureLeavesAloneWhatWasMeasuredSinceItsTaskWasArchived(t *testing.T) {
+	fixture := newFixture(t)
+	before, after, unmeasured, live := fixture.cut(t), fixture.cut(t), fixture.cut(t), fixture.cut(t)
+	fixture.recordSize(t, before, time.Now().Add(-time.Hour))
+	for _, dir := range []string{before, after, unmeasured} {
+		require.NoError(t, fixture.stores.Tasks.Archive(t.Context(), filepath.Base(dir)))
+	}
+	fixture.now = time.Now().Add(3 * time.Hour)
+	fixture.recordSize(t, after, fixture.now.Add(-2*time.Hour))
+	fixture.recordSize(t, live, fixture.now.Add(-2*time.Hour))
+
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
+
+	assert.ElementsMatch(t, []string{before, unmeasured, live}, fixture.listMeasuredAt(t, fixture.now))
+}
+
 // TestMeasureReadsWhereEachWalkedDirectoryStands covers a pass reading git for the directories
 // it walks without refreshing their index, and leaving one it does not walk unread.
 func TestMeasureReadsWhereEachWalkedDirectoryStands(t *testing.T) {

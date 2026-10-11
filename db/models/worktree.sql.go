@@ -45,19 +45,14 @@ SELECT
     w.dirty,
     w.sequencing,
     w.unlanded,
-    w.standing_error
+    w.standing_error,
+    t.archived_at
 FROM
     worktrees w
+    LEFT JOIN tasks t ON t.id::text = w.name
 WHERE ($1::text[] IS NULL
     OR w.dir = ANY ($1::text[]))
-AND NOT EXISTS (
-    SELECT
-        1
-    FROM
-        tasks t
-    WHERE
-        t.id::text = w.name
-        AND t.deleting_at IS NOT NULL)
+AND t.deleting_at IS NULL
 ORDER BY
     w.dir
 `
@@ -77,6 +72,7 @@ type ListWatchedWorktreesRow struct {
 	Sequencing     bool
 	Unlanded       int32
 	StandingError  *string
+	ArchivedAt     *time.Time
 }
 
 func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*ListWatchedWorktreesRow, error) {
@@ -103,6 +99,7 @@ func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*L
 			&i.Sequencing,
 			&i.Unlanded,
 			&i.StandingError,
+			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -116,24 +113,26 @@ func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*L
 
 const listWorktrees = `-- name: ListWorktrees :many
 SELECT
-    dir,
-    repo_dir,
-    branch,
-    readable,
-    mtime,
-    size_bytes,
-    share_bytes,
-    measured_at,
-    size_error,
-    standing_read_at,
-    dirty,
-    sequencing,
-    unlanded,
-    standing_error
+    w.dir,
+    w.repo_dir,
+    w.branch,
+    w.readable,
+    w.mtime,
+    w.size_bytes,
+    w.share_bytes,
+    w.measured_at,
+    w.size_error,
+    w.standing_read_at,
+    w.dirty,
+    w.sequencing,
+    w.unlanded,
+    w.standing_error,
+    t.archived_at
 FROM
-    worktrees
+    worktrees w
+    LEFT JOIN tasks t ON t.id::text = w.name
 ORDER BY
-    dir
+    w.dir
 `
 
 type ListWorktreesRow struct {
@@ -151,6 +150,7 @@ type ListWorktreesRow struct {
 	Sequencing     bool
 	Unlanded       int32
 	StandingError  *string
+	ArchivedAt     *time.Time
 }
 
 func (q *Queries) ListWorktrees(ctx context.Context) ([]*ListWorktreesRow, error) {
@@ -177,6 +177,7 @@ func (q *Queries) ListWorktrees(ctx context.Context) ([]*ListWorktreesRow, error
 			&i.Sequencing,
 			&i.Unlanded,
 			&i.StandingError,
+			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
