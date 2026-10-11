@@ -40,6 +40,11 @@ func TestWorktreesOpen(t *testing.T) {
 			wantHovered: "treeview",
 		},
 		{
+			name:        "a task lands on its writer's directory",
+			press:       []string{"j", "shift+tab", "esc"},
+			wantHovered: "treeview",
+		},
+		{
 			name:        "an occupant lands on the directory it works in",
 			press:       []string{"j", "j", "shift+tab", "esc"},
 			wantHovered: "treeview",
@@ -1264,6 +1269,7 @@ func newWorktreeTask(agent *agentv1.Agent) *taskv1.Task {
 		Id:         agent.GetTaskId(),
 		WorkflowId: agent.GetWorkflowId(),
 		Slug:       agent.GetName(),
+		Cwd:        xptr.Ptr(agent.GetCwd()),
 		ArchivedAt: agent.ArchivedAt,
 	}
 }

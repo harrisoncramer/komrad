@@ -197,6 +197,9 @@ func (m *model) enterView(entry viewEntry) tea.Cmd {
 	var target screenTarget
 	if entry.screen == screenWorktrees {
 		target.agentID = m.hoveredAgentID()
+		if item, ok := m.hoveredRecordAgent(); ok {
+			target.agentID = item.Agent.ID
+		}
 	}
 
 	return m.enter(entry.screen, target)
