@@ -2050,6 +2050,35 @@ func TestReviewPin(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
 
+	t.Run("a diff frozen behind later rounds says how far behind and how to catch up", func(t *testing.T) {
+		harness := openReview(t, newFrozenServer(t))
+
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebarProse(frame), "all changes as of round 1")
+		assert.Contains(t, joinProse(readStage(frame)), "frozen on round 1 ("+git.ShortSHA(gittest.SnapshotSHA)+
+			") until you send your review · 2 rounds behind · rebased since, from "+git.ShortSHA(gittest.BaseSHA)+
+			" onto "+git.ShortSHA(rebasedBase)+" · space R shows the current diff")
+
+		harness.press("space", "R")
+
+		frame = harness.readFrame()
+		assert.NotContains(t, frame, "frozen on round")
+		assert.NotContains(t, readSidebarProse(frame), "as of round")
+	})
+
+	t.Run("a diff frozen on the newest round says the worktree moved once it has", func(t *testing.T) {
+		server := newFrozenServer(t)
+		server.rounds = server.rounds[:1]
+		harness := openReview(t, server)
+		require.NotContains(t, harness.readFrame(), "shows the current diff")
+
+		server.task.MovedSinceRound = gittest.SnapshotSHA
+		harness.watch(server.buildSnapshot())
+
+		assert.Contains(t, joinProse(readStage(harness.readFrame())),
+			"until you send your review · the worktree has moved since · space R shows the current diff")
+	})
+
 	t.Run("the reviews failing to read fails the load rather than moving the pin", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.reviewsErr = errors.New("the server went away")
@@ -2531,6 +2560,7 @@ const (
 	reviewWidth  = 200
 	reviewHeight = 30
 	olderBase    = "1111111111111111111111111111111111111111"
+	rebasedBase  = "2222222222222222222222222222222222222222"
 	replayedTree = "replayed-round-one"
 	secondTree   = "tree-with-a-second-file"
 )
@@ -3023,6 +3053,25 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
+
+	return server
+}
+
+func newFrozenServer(t *testing.T) *reviewServer {
+	t.Helper()
+
+	server := newReviewServer(t)
+	server.rounds = []*agentv1.ReviewRound{
+		{Id: "round-1", TaskId: "t1", Ordinal: 1, BaseSha: gittest.BaseSHA, SnapshotSha: gittest.SnapshotSHA},
+		{Id: "round-2", TaskId: "t1", Ordinal: 2, BaseSha: gittest.BaseSHA, SnapshotSha: "snapshot-of-round-2"},
+		{Id: "round-3", TaskId: "t1", Ordinal: 3, BaseSha: rebasedBase, SnapshotSha: "snapshot-of-round-3"},
+	}
+	server.reviews = []*agentv1.Review{{
+		Id:           "v1",
+		RoundId:      "round-1",
+		RoundOrdinal: 1,
+		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+	}}
 
 	return server
 }
