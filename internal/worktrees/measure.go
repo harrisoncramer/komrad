@@ -20,7 +20,7 @@ const measuresPerPass = 8
 // measureDeadline is how long one walk may take before it is recorded as failed.
 const measureDeadline = 30 * time.Second
 
-// measureStaleAfter is how old a measurement is before a pass takes it again.
+// measureStaleAfter is how long after a pass took a directory the next takes it again.
 const measureStaleAfter = time.Hour
 
 type worktreeLister interface {
@@ -66,8 +66,8 @@ func NewMeasurer(params NewMeasurerParams) *Measurer {
 	}
 }
 
-// Measure records every directory no delete names, forgets the rest, and walks the few most in
-// need of a size and reads where they stand, carrying on past one it cannot record.
+// Measure records every directory no delete names, forgets the rest, and takes the few most in
+// need, carrying on past one it cannot record.
 func (m *Measurer) Measure(ctx context.Context) error {
 	listing, err := m.lister.List(ctx)
 	if err != nil {
@@ -206,7 +206,7 @@ func forgotten(listing *Listing, present []Worktree, stored []worktreestore.Work
 	return dirs
 }
 
-// choose is the directories a pass walks: the unmeasured first, in listing order, then the
+// choose is the directories a pass takes, the unmeasured first in listing order and then the
 // stale ones oldest first, cut to what one pass takes.
 func choose(paths []string, stored map[string]worktreestore.Worktree, now time.Time) []string {
 	var unmeasured, stale []string
