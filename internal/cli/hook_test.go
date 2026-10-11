@@ -176,9 +176,9 @@ func TestIntegrationStopHookDeliversMail(t *testing.T) {
 	}
 }
 
-// TestIntegrationClampReason covers what the hook does with a reason the endpoint would refuse, which it
+// TestIntegrationClampPrintable covers what the hook does with a reason the endpoint would refuse, which it
 // takes off rather than lose the turn end travelling with it.
-func TestIntegrationClampReason(t *testing.T) {
+func TestIntegrationClampPrintable(t *testing.T) {
 	tests := []struct {
 		name   string
 		reason string
