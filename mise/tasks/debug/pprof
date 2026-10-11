@@ -7,7 +7,7 @@ usage() {
 	echo
 	echo "Captures the heap, allocations, goroutines, threads, blocking and lock"
 	echo "contention of one running process into profiling/<target>-<time>/. The"
-	echo "process must have debug.pprof.server or debug.pprof.client enabled in"
+	echo "process must have debug.pprof.server or debug.pprof.panel enabled in"
 	echo "its configuration, and it reads that only when it starts."
 	echo
 	echo "  server         the background service, on localhost:6060 by default"

@@ -749,7 +749,7 @@ enabled = false
 address = "localhost:6060"
 
 # The panel, which draws the screen and talks to the service.
-[debug.pprof.client]
+[debug.pprof.panel]
 # Whether the process serves profiles, read when it starts.
 enabled = false
 # The host and port the profiles are served on.
