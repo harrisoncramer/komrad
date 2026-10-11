@@ -151,7 +151,7 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID stri
 
 // lockTree holds a task writer's checkout for its launch, refusing one komrad is moving.
 func (s *ResumeService) lockTree(agent agentstore.Agent) (func(), error) {
-	if s.locks == nil || agent.Cwd == "" || !isTaskImplementer(agent) {
+	if agent.Cwd == "" || !isTaskImplementer(agent) {
 		return func() {}, nil
 	}
 

@@ -16,6 +16,7 @@ import (
 
 	"komrad/config"
 	"komrad/db/testmodels"
+	"komrad/internal/checkouts"
 	"komrad/internal/frames"
 	"komrad/internal/gittest"
 	"komrad/internal/harness"
@@ -170,6 +171,10 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	if sleeper == nil {
 		sleeper = &clocktest.Sleeper{}
 	}
+	locks := options.locks
+	if locks == nil {
+		locks = checkouts.NewTreeLocks()
+	}
 
 	launcher := NewLauncher(NewLauncherParams{
 		Tmux:  options.tmux,
@@ -222,7 +227,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Launcher:  launcher,
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
-			Locks:     options.locks,
+			Locks:     locks,
 		}),
 		adopt: NewAdoptService(NewAdoptServiceParams{
 			Agents:    s.Agents,
