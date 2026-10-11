@@ -2,7 +2,6 @@ package diffview
 
 import (
 	"regexp"
-	"strings"
 
 	"komrad/internal/ui/cursor"
 )
@@ -272,37 +271,6 @@ func (p *Pane) ScrollToCursor(window Window) {
 	}
 }
 
-// Render is the window of rows the pane shows, with the cursor's row marked as given and blank
-// lines under a view shorter than the pane.
-func (p *Pane) Render(window Window, held Cursor) []string {
-	offset := p.pan
-	if window.Wrap {
-		offset = 0
-	}
-
-	// Only the rows the pane can show are rendered, a nine thousand row diff taking a tenth of a
-	// second to render whole.
-	lines := make([]string, 0, window.Height)
-	start := p.findWindowStart(window)
-	for y := start; y < p.view.Len() && len(lines) < window.Height; y++ {
-		mark := noCursor
-		if y == p.cursor {
-			mark = held
-		}
-
-		lines = append(lines, p.view.renderLines(y, mark, window, offset)...)
-	}
-
-	lines = lines[:min(len(lines), max(window.Height, 0))]
-	p.coverWithHeader(lines, start, window)
-
-	for len(lines) < window.Height {
-		lines = append(lines, strings.Repeat(" ", window.Width))
-	}
-
-	return lines
-}
-
 // GetCursorLines is the first line of the window the cursor's row is rendered on and how many lines
 // it takes.
 func (p *Pane) GetCursorLines(window Window) (int, int) {
@@ -348,17 +316,4 @@ func (p *Pane) countLines(start, end int, window Window) int {
 	}
 
 	return lines
-}
-
-// coverWithHeader renders the header of the file the window starts inside over the window's first row.
-func (p *Pane) coverWithHeader(lines []string, start int, window Window) {
-	header, ok := p.view.findFileHeader(start)
-	if !ok || p.cursor == start || len(lines) == 0 {
-		return
-	}
-
-	lines[0] = p.view.renderRow(header, noCursor, window.Width, 0)
-	for i := 1; i < min(p.view.measureRow(start, window), len(lines)); i++ {
-		lines[i] = strings.Repeat(" ", window.Width)
-	}
 }

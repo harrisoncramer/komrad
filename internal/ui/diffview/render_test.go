@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestAThreadIsNamedByItsOpeningLine pins what the sidebar names a thread by.
@@ -273,4 +274,25 @@ func TestCarryStyleOpensEachLineInTheStyleLeftOpen(t *testing.T) {
 			assert.Equal(t, tt.want, carryStyle(tt.lines))
 		})
 	}
+}
+
+// TestPaneRender covers the window of rows rendered, the cursor's row marked and the rest blank.
+func TestPaneRender(t *testing.T) {
+	pane := twoChangePane()
+	pane.Step(1, 1, paneWindow)
+	height := pane.View().Len() + 2
+
+	rows := pane.Render(Window{Width: 40, Height: height}, LiveCursor)
+
+	require.Len(t, rows, height)
+	assert.Equal(t, pane.View().renderRow(pane.Cursor(), LiveCursor, 40, 0), rows[pane.Cursor()])
+	assert.Equal(t, pane.View().renderRow(0, noCursor, 40, 0), rows[0])
+	assert.Equal(t, strings.Repeat(" ", 40), rows[height-1])
+
+	pane.MoveTo(pane.View().GetLastRow(), paneWindow)
+	window := pane.Render(Window{Width: 40, Height: paneHeight}, DimCursor)
+	require.Len(t, window, paneHeight)
+	start := min(pane.Top(), pane.View().Len()-paneHeight)
+	assert.Equal(t, pane.View().renderRow(start, noCursor, 40, 0), window[0], "the window never runs past the last row")
+	assert.Equal(t, pane.View().renderRow(pane.Cursor(), DimCursor, 40, 0), window[pane.Cursor()-start])
 }
