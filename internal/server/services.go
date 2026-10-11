@@ -250,7 +250,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			service: checkouts.NewService(checkouts.NewServiceParams{
 				Agents:          st.agents,
 				Tasks:           st.tasks,
-				Refs:            taskService,
+				TaskFinder:      taskService,
 				Workflows:       st.workflows,
 				Settler:         settler,
 				Events:          queue,

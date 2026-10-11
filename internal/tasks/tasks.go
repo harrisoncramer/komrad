@@ -51,8 +51,8 @@ type taskScriptRunner interface {
 	RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error
 }
 
-// checkoutMoves says whether komrad is rebasing, pushing or aborting in a checkout.
-type checkoutMoves interface {
+// moveChecker says whether komrad is rebasing, pushing or aborting in a checkout.
+type moveChecker interface {
 	IsMoving(dir string) bool
 }
 
@@ -70,7 +70,7 @@ type NewTaskServiceParams struct {
 	Reviews   *reviewstore.ReviewStore
 	Snapshots snapshotReleaser
 	Scripts   taskScriptRunner
-	Moves     checkoutMoves
+	Moves     moveChecker
 	Tx        txRunner
 }
 
@@ -83,7 +83,7 @@ type TaskService struct {
 	reviews   *reviewstore.ReviewStore
 	snapshots snapshotReleaser
 	scripts   taskScriptRunner
-	moves     checkoutMoves
+	moves     moveChecker
 	tx        txRunner
 }
 

@@ -102,7 +102,7 @@ type branchMover interface {
 type NewServiceParams struct {
 	Agents          *agentstore.AgentStore
 	Tasks           *taskstore.TaskStore
-	Refs            taskFinder
+	TaskFinder      taskFinder
 	Workflows       *workflowstore.WorkflowStore
 	Settler         agentSettler
 	Events          eventRecorder
@@ -118,7 +118,7 @@ type NewServiceParams struct {
 type Service struct {
 	agents          *agentstore.AgentStore
 	tasks           *taskstore.TaskStore
-	refs            taskFinder
+	taskFinder      taskFinder
 	workflows       *workflowstore.WorkflowStore
 	settler         agentSettler
 	events          eventRecorder
@@ -140,7 +140,7 @@ func NewService(params NewServiceParams) *Service {
 	return &Service{
 		agents:          params.Agents,
 		tasks:           params.Tasks,
-		refs:            params.Refs,
+		taskFinder:      params.TaskFinder,
 		workflows:       params.Workflows,
 		settler:         params.Settler,
 		events:          params.Events,
@@ -169,7 +169,7 @@ func buildParkRef(space parkSpace, taskID string) string {
 
 // eligible answers the task and its workflow when its worktree is komrad's to act on, or the reason it is not.
 func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, error) {
-	task, err := s.refs.GetTask(ctx, ref)
+	task, err := s.taskFinder.GetTask(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, er
 		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrNoWorktree)
 	}
 
-	writer, err := s.readWriter(ctx, s.agents, *task)
+	writer, err := readWriter(ctx, s.agents, *task)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, er
 
 // readWriter is the task's live writer, answering store.ErrNotFound when it has none and refusing
 // one that is still being set up or that a person is holding.
-func (s *Service) readWriter(ctx context.Context, agents *agentstore.AgentStore, task taskstore.Task) (*agentstore.Agent, error) {
+func readWriter(ctx context.Context, agents *agentstore.AgentStore, task taskstore.Task) (*agentstore.Agent, error) {
 	writer, err := agents.GetTaskWriter(ctx, task.ID)
 	if err != nil {
 		return nil, err
@@ -227,7 +227,7 @@ func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) erro
 			return err
 		}
 
-		writer, err := s.readWriter(ctx, agentstore.NewAgentStore(db), *target.task)
+		writer, err := readWriter(ctx, agentstore.NewAgentStore(db), *target.task)
 		if errors.Is(err, store.ErrNotFound) {
 			return nil
 		}

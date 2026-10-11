@@ -271,7 +271,7 @@ func (s *Service) tellRebased(ctx context.Context, target checkoutTarget, result
 // tellRebaseCut records that the writer's turn was cut for a rebase that then failed.
 func (s *Service) tellRebaseCut(ctx context.Context, target checkoutTarget, failure error) {
 	if err := s.recordRebase(ctx, target, rebaseOutcome{Failure: failure.Error()}); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell a writer its turn was cut for nothing",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a writer's turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID)}, logging.Err(err)...)...)
 	}
 }

@@ -756,7 +756,7 @@ func (f *rebaseFixture) readCheckout(t *testing.T, agent *agentstore.Agent) task
 func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	params.Agents = f.stores.Agents
 	params.Tasks = f.stores.Tasks
-	params.Refs = tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: f.stores.Tasks})
+	params.TaskFinder = tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: f.stores.Tasks})
 	params.Tx = f.stores.Pool
 	params.Workflows = f.stores.Workflows
 	if params.Events == nil {

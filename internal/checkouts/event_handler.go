@@ -40,8 +40,7 @@ func NewEventHandler() events.HandlerFor[rebased] {
 	return handleRebased
 }
 
-// handleRebased tells the task's writer what the latest rebase of its worktree came to, and
-// nobody when the task has no writer.
+// handleRebased tells the task's writer what the latest rebase of its worktree came to.
 func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, rebased rebased) ([]river.JobArgs, error) {
 	raw, err := taskstore.NewTaskStore(tx).GetLastRebase(ctx, rebased.TaskID)
 	if errors.Is(err, store.ErrNotFound) || (err == nil && raw == nil) {
@@ -61,7 +60,7 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 		body = rebaseMail(*outcome.Result)
 	}
 
-	return nil, mailWriter(ctx, tx, mailer, writerMail{
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{
 		TaskID: rebased.TaskID,
 		Kind:   mailstore.KindWorktreeRebased,
 		Body:   body,
@@ -88,10 +87,9 @@ func NewPushedHandler() events.HandlerFor[pushed] {
 	return handlePushed
 }
 
-// handlePushed tells the task's writer its branch on origin was overwritten, and nobody when
-// the task has no writer.
+// handlePushed tells the task's writer its branch on origin was overwritten.
 func handlePushed(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pushed pushed) ([]river.JobArgs, error) {
-	return nil, mailWriter(ctx, tx, mailer, writerMail{
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{
 		TaskID: pushed.TaskID,
 		Kind:   mailstore.KindWorktreePushed,
 		Body:   pushedMail(pushed),
@@ -118,18 +116,17 @@ func NewAbortedHandler() events.HandlerFor[aborted] {
 	return handleAborted
 }
 
-// handleAborted tells the task's writer what became of the sequence it had part-way through,
-// and nobody when the task has no writer.
+// handleAborted tells the task's writer what became of the sequence it had part-way through.
 func handleAborted(ctx context.Context, tx store.DBTX, mailer *mail.MailService, aborted aborted) ([]river.JobArgs, error) {
-	return nil, mailWriter(ctx, tx, mailer, writerMail{
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{
 		TaskID: aborted.TaskID,
 		Kind:   mailstore.KindWorktreeAborted,
 		Body:   abortedMail(aborted),
 	})
 }
 
-// writerMail is a piece of mail for whoever writes a task.
-type writerMail struct {
+// mailWriterParams is a piece of mail for whoever writes a task.
+type mailWriterParams struct {
 	TaskID string
 	Kind   mailstore.Kind
 	Body   string
@@ -138,7 +135,7 @@ type writerMail struct {
 
 // mailWriter sends the mail to whoever writes the task as the event is handled, and to nobody
 // when the task has no writer.
-func mailWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, params writerMail) error {
+func mailWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, params mailWriterParams) error {
 	writer, err := agentstore.NewAgentStore(tx).GetTaskWriter(ctx, params.TaskID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
