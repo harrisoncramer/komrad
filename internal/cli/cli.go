@@ -72,8 +72,7 @@ the server, or call an endpoint from a script.`,
 				}
 
 				app.configErr = err
-				cfg = config.Defaults()
-				report = &config.Report{Sources: map[string]config.Source{}}
+				cfg, report = fallbackConfig()
 			}
 
 			env, err := loadEnvironment(cfg)
@@ -197,13 +196,7 @@ the server, or call an endpoint from a script.`,
 	return root
 }
 
-var commandsSurvivingBadConfig = map[string]bool{
-	"doctor":  true,
-	"setup":   true,
-	"version": true,
-	"panel":   true,
-	"visual":  true,
-}
+const survivesBadConfig = "komrad.survives-bad-config"
 
 func resolveConfigStack(flags []string, engine string) (config.Stack, error) {
 	paths := flags
@@ -248,7 +241,22 @@ func configArgs(stack config.Stack) []string {
 }
 
 func isConfigFatal(cmd *cobra.Command) bool {
-	return !commandsSurvivingBadConfig[cmd.Name()]
+	for current := cmd; current != nil; current = current.Parent() {
+		if _, ok := current.Annotations[survivesBadConfig]; ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+func fallbackConfig() (*config.Config, *config.Report) {
+	cfg, report, err := config.LoadDefaults()
+	if err != nil {
+		return config.Defaults(), &config.Report{Sources: map[string]config.Source{}}
+	}
+
+	return cfg, report
 }
 
 func loadEnvironment(cfg *config.Config) (*config.Environment, error) {

@@ -11,8 +11,9 @@ import (
 
 func visualCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:   "visual <file>",
-		Short: "Run the stand-in visual mode selects in",
+		Use:         "visual <file>",
+		Annotations: map[string]string{survivesBadConfig: ""},
+		Short:       "Run the stand-in visual mode selects in",
 		Long: `Run the stand-in visual mode selects in.
 
 Visual mode draws the sidebar as tiles on a private tmux server, one for each of

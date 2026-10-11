@@ -56,8 +56,9 @@ type deliveredMail struct {
 
 func hookCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "hook",
-		Short: "Run one of the agent CLI hooks komrad installs",
+		Use:         "hook",
+		Annotations: map[string]string{survivesBadConfig: ""},
+		Short:       "Run one of the agent CLI hooks komrad installs",
 		Long: `Run one of the agent CLI hooks komrad installs.
 
 An agent CLI runs these itself at a point in its own loop. They read the hook
@@ -244,6 +245,9 @@ turn end.`,
 
 			return nil
 		}
+
+		reportConfigProblem(cmd, state)
+
 		if len(mail.Mail) == 0 {
 			return nil
 		}
@@ -317,9 +321,9 @@ func recordReport(ctx context.Context, state *app, report harness.Report) {
 		Path: agentv1connect.AgentServiceRecordReportProcedure,
 		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: map[string]any{
-			"reason":    clampReason(report.Reason),
+			"reason":    clampPrintable(report.Reason, reasonLimit),
 			"turnEnded": report.TurnEnded,
-			"turnError": clampReason(report.TurnError),
+			"turnError": clampPrintable(report.TurnError, reasonLimit),
 		},
 	})
 }
@@ -328,23 +332,25 @@ func recordReport(ctx context.Context, state *app, report harness.Report) {
 // than have a turn end refused over a label.
 const reasonLimit = 200
 
-// clampReason drops the control characters the endpoint refuses and cuts what is left to the
+const logLimit = 2048
+
+// clampPrintable drops the control characters an endpoint refuses and cuts what is left to the
 // length it takes, on a rune boundary since half a rune is refused too.
-func clampReason(reason string) string {
+func clampPrintable(text string, limit int) string {
 	cleaned := strings.Map(func(r rune) rune {
 		if r < 0x20 || r == 0x7f {
 			return -1
 		}
 
 		return r
-	}, reason)
+	}, text)
 
 	runes := []rune(cleaned)
-	if len(runes) <= reasonLimit {
+	if len(runes) <= limit {
 		return cleaned
 	}
 
-	return string(runes[:reasonLimit])
+	return string(runes[:limit])
 }
 
 func readMail(ctx context.Context, state *app) (*deliveredMail, error) {
@@ -384,26 +390,40 @@ func readMail(ctx context.Context, state *app) (*deliveredMail, error) {
 	return &deliveredMail{Mail: items}, nil
 }
 
+func reportConfigProblem(cmd *cobra.Command, state *app) {
+	if state.configErr == nil {
+		return
+	}
+
+	const what = "komrad found a problem in its config, so defaults stand in for what it could not use"
+	reportHookProblem(cmd, what, state.configErr)
+	if err := logToKomrad(cmd.Context(), state, fmt.Sprintf("%s: %v", what, state.configErr)); err != nil {
+		reportHookProblem(cmd, "komrad did not record the config problem", err)
+	}
+}
+
 func recordDelivery(ctx context.Context, state *app, mail []mailItem) error {
+	ids := xslice.Map(mail, func(item mailItem) string {
+		return item.ID
+	})
+
+	return logToKomrad(ctx, state, fmt.Sprintf("the stop hook delivered %d piece(s) of mail: %s", len(mail), strings.Join(ids, ", ")))
+}
+
+func logToKomrad(ctx context.Context, state *app, message string) error {
 	path, err := toolPath(logTool)
 	if err != nil {
 		return err
 	}
 
-	ids := xslice.Map(mail, func(item mailItem) string {
-		return item.ID
-	})
-
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
 	_, err = callRPC(ctx, callRPCParams{
-		Addr: state.env.Addr,
-		Path: path,
-		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
-		Request: map[string]any{
-			"message": fmt.Sprintf("the stop hook delivered %d piece(s) of mail: %s", len(mail), strings.Join(ids, ", ")),
-		},
+		Addr:    state.env.Addr,
+		Path:    path,
+		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
+		Request: map[string]any{"message": clampPrintable(message, logLimit)},
 	})
 
 	return err

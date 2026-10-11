@@ -22,8 +22,9 @@ func setupCmd(state *app) *cobra.Command {
 	var harnessFlag string
 
 	cmd := &cobra.Command{
-		Use:   "setup",
-		Short: "Set this machine up for komrad, asking for whatever is missing",
+		Use:         "setup",
+		Annotations: map[string]string{survivesBadConfig: ""},
+		Short:       "Set this machine up for komrad, asking for whatever is missing",
 		Long: `Set this machine up for komrad, asking for whatever is missing.
 
 Each step asks the doctor whether its part of the machine is ready, and only when it is not
