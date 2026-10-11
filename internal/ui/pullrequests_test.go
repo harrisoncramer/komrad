@@ -271,14 +271,14 @@ func TestTaskFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
 		{Number: 5, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED},
 	}
 
-	labels := readLabels(taskFields(taskFieldsParams{checkout: checkoutFieldsParams{task: task}}))
+	labels := readLabels(taskFields(checkoutFieldsParams{task: task}))
 
 	branch := indexOf(labels, "branch")
 	require.NotEqual(t, -1, branch)
 	assert.Equal(t, []string{"pull request", "author", "pull requests"}, labels[branch+1:branch+4])
 
 	task.Branch = nil
-	labels = readLabels(taskFields(taskFieldsParams{checkout: checkoutFieldsParams{task: task}}))
+	labels = readLabels(taskFields(checkoutFieldsParams{task: task}))
 	for _, absent := range []string{"pull request", "author", "pull requests"} {
 		assert.NotContains(t, labels, absent)
 	}

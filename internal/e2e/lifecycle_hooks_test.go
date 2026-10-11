@@ -97,7 +97,7 @@ func TestIntegrationAFailedPreDeleteHoldsTheDelete(t *testing.T) {
 	id := created.Msg.GetAgent().GetId()
 	tree := created.Msg.GetAgent().GetCwd()
 
-	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{id}}))
+	_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{created.Msg.GetAgent().GetTaskId()}}))
 	require.NoError(t, err)
 	instance.WorkQueue()
 
@@ -137,7 +137,7 @@ func TestIntegrationPreDeleteIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 	id := created.Msg.GetAgent().GetId()
 	require.NoError(t, os.RemoveAll(created.Msg.GetAgent().GetCwd()))
 
-	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{id}}))
+	_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{created.Msg.GetAgent().GetTaskId()}}))
 	require.NoError(t, err)
 	instance.WorkQueue()
 
@@ -170,18 +170,18 @@ func TestIntegrationOverlappingDeletesRunThePreDeleteOnce(t *testing.T) {
 	require.NoError(t, err)
 
 	id := created.Msg.GetAgent().GetId()
-	request := &agentv1.DeleteAgentsRequest{Ids: []string{id}}
+	request := &taskv1.DeleteTasksRequest{Tasks: []string{created.Msg.GetAgent().GetTaskId()}}
 
 	instance.WorkQueue()
 
-	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(request))
+	_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(request))
 	require.NoError(t, err)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.FileExists(c, counted, "the first delete has the hook running")
 	}, 10*time.Second, 10*time.Millisecond)
 
-	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(request))
+	_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(request))
 	require.NoError(t, err, "a second delete while the teardown runs is answered rather than refused")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -232,7 +232,7 @@ func TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived(t *testin
 	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostArchive,
 		"#!/bin/sh\npwd -P >"+seen+"\n"))
 
-	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{agent.GetId()}}))
+	_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: agent.GetTaskId()}))
 	require.NoError(t, err)
 
 	archived, err := instance.Stores.Agents.GetByID(ctx, agent.GetId())
@@ -332,7 +332,7 @@ func TestIntegrationEveryMomentFiresInOrderOverAnAgentsLife(t *testing.T) {
 	seen := []string{workflowstore.HookAgentPreLaunch, workflowstore.HookAgentPostLaunch}
 	waitForMoments(t, record, seen...)
 
-	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+	_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: agent.GetTaskId()}))
 	require.NoError(t, err)
 	seen = append(seen, workflowstore.HookAgentPreArchive, workflowstore.HookAgentPostArchive)
 	waitForMoments(t, record, seen...)
@@ -347,10 +347,11 @@ func TestIntegrationEveryMomentFiresInOrderOverAnAgentsLife(t *testing.T) {
 	seen = append(seen, workflowstore.HookAgentPreResume, workflowstore.HookAgentPostResume)
 	waitForMoments(t, record, seen...)
 
-	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
+	_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{agent.GetTaskId()}}))
 	require.NoError(t, err)
 	instance.WorkQueue()
-	seen = append(seen, workflowstore.HookAgentPreDelete, workflowstore.HookAgentPostDelete)
+	seen = append(seen, workflowstore.HookAgentPreArchive, workflowstore.HookAgentPostArchive,
+		workflowstore.HookAgentPreDelete, workflowstore.HookAgentPostDelete)
 	waitForMoments(t, record, seen...)
 }
 
@@ -364,7 +365,7 @@ func TestIntegrationAFailedPostArchiveOnlyMarksItsRun(t *testing.T) {
 	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostArchive,
 		"#!/bin/sh\necho could not give the slot back >&2\nexit 1\n"))
 
-	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{agent.GetId()}}))
+	_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: agent.GetTaskId()}))
 	require.NoError(t, err)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {

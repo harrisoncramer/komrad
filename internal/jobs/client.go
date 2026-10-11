@@ -28,6 +28,8 @@ const eventWorkers = 4
 
 const wakeAgentWorkers = 2
 
+const archiveAgentWorkers = 2
+
 const fetchCheckLogWorkers = 2
 
 type NewClientParams struct {
@@ -45,6 +47,8 @@ type NewClientParams struct {
 	Worktrees     internaljobs.WorktreeLister
 	Remover       internaljobs.WorktreeRemover
 	Resumer       internaljobs.AgentResumer
+	Archiver      internaljobs.AgentArchiver
+	Agents        internaljobs.AgentGetter
 	Router        internaljobs.EventRouter
 	Forges        internaljobs.ForgeFinder
 	MaxLogBytes   func() (int64, error)
@@ -72,6 +76,10 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	}))
 	river.AddWorker(workers, internaljobs.NewEventWorker(params.Pool, params.Router))
 	river.AddWorker(workers, internaljobs.NewWakeAgentWorker(params.Resumer))
+	river.AddWorker(workers, internaljobs.NewArchiveAgentWorker(internaljobs.NewArchiveAgentWorkerParams{
+		Archiver: params.Archiver,
+		Agents:   params.Agents,
+	}))
 	river.AddWorker(workers, internaljobs.NewFetchCheckLogWorker(internaljobs.NewFetchCheckLogWorkerParams{
 		Store:    params.Store,
 		Forges:   params.Forges,
@@ -90,6 +98,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 			internaljobs.QueueDeleteWorktrees: {MaxWorkers: 1},
 			events.Queue:                      {MaxWorkers: eventWorkers},
 			internaljobs.QueueWakeAgent:       {MaxWorkers: wakeAgentWorkers},
+			internaljobs.QueueArchiveAgent:    {MaxWorkers: archiveAgentWorkers},
 			internaljobs.QueueFetchCheckLog:   {MaxWorkers: fetchCheckLogWorkers},
 		},
 	})

@@ -222,7 +222,7 @@ func TestTriageSnooze(t *testing.T) {
 			press:    []string{"t", "space", "z"},
 			relisted: hideTaskOf(withTasks(buildTriage()), "asker"),
 			then:     withTasks(buildTriage()),
-			want:     []string{"third", "broken", "backend", "├─ task-third", "│ └─ third", "├─ task-asker", "│ └─ asker", "├─ task-broken", "│ └─ broken", "└─ task-quiet", "└─ quiet"},
+			want:     []string{"third backend", "broken backend", "backend", "├─ task-third", "│ └─ third", "├─ task-asker", "│ └─ asker", "├─ task-broken", "│ └─ broken", "└─ task-quiet", "└─ quiet"},
 		},
 		{
 			name:     "an agent that asks again ends its snooze",
@@ -269,7 +269,7 @@ func TestTriageSnooze(t *testing.T) {
 			capacity: 3,
 			rows:     withTasks(buildTriage()),
 			press:    []string{"t", "space", "z", "G", "k", "k", "k", "k", "k", "space", "z"},
-			want:     []string{"asker", "third", "broken", "backend", "├─ task-third", "│ └─ third", "├─ task-asker", "│ └─ asker", "├─ task-broken", "│ └─ broken", "└─ task-quiet", "└─ quiet"},
+			want:     []string{"asker backend", "third backend", "broken backend", "backend", "├─ task-third", "│ └─ third", "├─ task-asker", "│ └─ asker", "├─ task-broken", "│ └─ broken", "└─ task-quiet", "└─ quiet"},
 		},
 		{
 			name:     "waking a snoozed orchestrator from its workflow puts it back in the zone",

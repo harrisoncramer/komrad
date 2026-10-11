@@ -252,7 +252,7 @@ func readNoticeBlock(harness *panelHarness) []string {
 		if rules != 1 {
 			continue
 		}
-		if field := strings.TrimLeft(line, "› "); strings.HasPrefix(field, "agent ") || strings.HasPrefix(field, "task ") {
+		if field := strings.TrimLeft(line, "› "); strings.HasPrefix(field, "agent ") || strings.HasPrefix(field, "directory ") {
 			break
 		}
 

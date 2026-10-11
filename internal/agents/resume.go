@@ -28,8 +28,9 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
-// errResumeNotYours is an agent other than an orchestrator resuming an agent that is neither its parent nor its workflow's orchestrator.
-var errResumeNotYours = fail.Denied("an agent may resume only its parent and its workflow's orchestrator")
+// errResumeNotYours is an agent other than an orchestrator resuming an agent that is neither its task's
+// writer, a reviewer on the task it writes for, nor its workflow's orchestrator.
+var errResumeNotYours = fail.Denied("a reviewer may resume only its task's writer, a writer only its task's reviewers, and either its workflow's orchestrator")
 
 // errResumeMoving is a resume into a checkout komrad is rebasing, pushing or aborting in.
 var errResumeMoving = fail.Precondition("komrad is rebasing, pushing or aborting in this agent's checkout, so resume it once that finishes")
@@ -126,7 +127,8 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, params ResumeAgentParam
 	return s.getByID(ctx, params.ID)
 }
 
-// refuseResumingOthers holds an agent other than an orchestrator to its parent and its workflow's orchestrator.
+// refuseResumingOthers holds a reviewer to its task's writer, a writer to its task's reviewers, and
+// either to its workflow's orchestrator.
 func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID string, target agentstore.Agent) error {
 	if byAgentID == "" {
 		return nil
@@ -139,14 +141,14 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID stri
 	if asker.Role == agentstore.RoleOrchestrator {
 		return nil
 	}
-	if asker.ParentAgentID != nil && *asker.ParentAgentID == target.ID {
+	if isWriterAndReviewer(*asker, target) {
 		return nil
 	}
 	if target.Role == agentstore.RoleOrchestrator && target.WorkflowID == asker.WorkflowID {
 		return nil
 	}
 
-	return errResumeNotYours.Saying("%s is neither the parent of %s nor its workflow's orchestrator", target.Name, asker.Name)
+	return errResumeNotYours.Saying("%s may not resume %s", asker.Name, target.Name)
 }
 
 // lockTree holds a task writer's checkout for its launch, refusing one komrad is moving.
@@ -367,4 +369,9 @@ func (s *ResumeService) getResumeDir(agent agentstore.Agent) string {
 	}
 
 	return standIn
+}
+
+// isWriterAndReviewer reports whether one of the two agents writes for the task the other reviews.
+func isWriterAndReviewer(asker, target agentstore.Agent) bool {
+	return (isTaskWriter(asker) && isReviewerOf(target, asker)) || (isTaskWriter(target) && isReviewerOf(asker, target))
 }

@@ -997,12 +997,12 @@ func TestAgentsRecordHeight(t *testing.T) {
 	})
 
 	t.Run("a record longer than its share says how much is left either side of the cursor", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 7})
+		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 3})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(buildRecordedTask()...))
 		harness.press("k")
 		harness.fireTimers()
-		require.Equal(t, "  ↓ 3 more", readRecord(harness.readFrame())[6])
+		require.Equal(t, "  ↓ 3 more", readRecord(harness.readFrame())[2])
 
 		harness.press("pick:record", "G", "pick:list")
 
@@ -1377,7 +1377,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 	})
 
 	t.Run("a focused record grows to show every field and shrinks back", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
+		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 5})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecordedTask()...))
 		harness.press("k")
@@ -1420,7 +1420,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.press("/", "s", "i", "z")
 
 		frame := harness.readFrame()
-		assert.Regexp(t, `^task\s`, readRecordCursor(frame))
+		assert.Regexp(t, `^directory\s`, readRecordCursor(frame))
 		assert.Contains(t, frame, "/ siz", "the header's search line is the record's")
 
 		harness.press("enter")
@@ -1474,7 +1474,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "/", readSearch(frame))
-		assert.Regexp(t, `^task\s`, readRecordCursor(frame), "the record keeps the keys and its cursor")
+		assert.Regexp(t, `^directory\s`, readRecordCursor(frame), "the record keeps the keys and its cursor")
 
 		harness.press("/", "s", "i", "z", "enter", "esc")
 
@@ -1651,7 +1651,10 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("the page keys move the record's cursor ten fields at a time", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
+		rows := buildRecorded()
+		rows[0].(*workflowv1.Workflow).Worktree.CopyPaths = []string{".env"}
+		harness := openAgents(t, rows...)
+		harness.press("k", "pick:record")
 		first := readRecordCursor(harness.readFrame())
 
 		harness.press("ctrl+d")
@@ -2649,6 +2652,8 @@ func buildTaskFamily() []proto.Message {
 	authorTask := newTaskOf(author)
 	reviewer.TaskId = author.TaskId
 	runner.TaskId = author.TaskId
+	reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
+	runner.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
@@ -2712,9 +2717,10 @@ func newAgent(id, name, workflowID string) *agentv1.Agent {
 	}
 }
 
-// newTaskOf puts an agent on a task of its own and returns the task, for a test to give its checkout.
+// newTaskOf makes an agent the writer of a task of its own and returns the task, for a test to give its checkout.
 func newTaskOf(agent *agentv1.Agent) *taskv1.Task {
 	agent.TaskId = xptr.Ptr("task-" + agent.GetId())
+	agent.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 
 	return &taskv1.Task{
 		Id:         agent.GetTaskId(),

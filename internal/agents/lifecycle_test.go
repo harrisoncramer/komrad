@@ -71,7 +71,7 @@ func TestDeleteAgentLeavesItsTasksCheckout(t *testing.T) {
 			}
 
 			if tt.archive {
-				require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{target.ID}}))
+				require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{target.ID}))
 			} else {
 				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{target.ID}))
 			}
@@ -181,7 +181,7 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 				WorkflowID: created.ID,
 			})
 			require.NoError(t, err)
-			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+			require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{agent.ID}))
 
 			claims, err := st.Agents.MarkDeleting(t.Context(), []string{agent.ID})
 			require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
+	require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{agent.ID}))
 	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 
 	live, listErr := st.Agents.List(t.Context())
@@ -412,18 +412,22 @@ func TestDeleteAgentRemovesItsRecordedFrames(t *testing.T) {
 func TestArchiveAgent(t *testing.T) {
 	tests := []struct {
 		name      string
-		seed      string
-		missing   bool
+		target    func(writer, reviewer agentstore.Agent) string
 		wantErrIs error
 	}{
 		{
 			name:      "an id nobody holds is not a quiet success",
-			missing:   true,
+			target:    func(agentstore.Agent, agentstore.Agent) string { return "00000000-0000-0000-0000-000000000000" },
 			wantErrIs: agenterr.ErrAgentNotFound,
 		},
 		{
-			name: "a live agent is stopped and hidden",
-			seed: "target",
+			name:      "a task's writer goes only with its task",
+			target:    func(writer, _ agentstore.Agent) string { return writer.ID },
+			wantErrIs: agenterr.ErrWriterGoesWithTask,
+		},
+		{
+			name:   "a live reviewer is stopped and hidden",
+			target: func(_, reviewer agentstore.Agent) string { return reviewer.ID },
 		},
 	}
 
@@ -433,27 +437,25 @@ func TestArchiveAgent(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 
-			target := "00000000-0000-0000-0000-000000000000"
-			if tt.seed != "" {
-				target = seedRunning(t, st, tmux, tt.seed, "%1", agentstore.StateThinking).ID
-			}
-			if tt.missing {
-				target = "00000000-0000-0000-0000-000000000000"
-			}
+			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
+			reviewer := seedChild(t, st, tmux, writer)
+			require.NoError(t, st.Agents.SetStateByID(t.Context(), reviewer.ID, agentstore.StateThinking))
+			target := tt.target(writer, reviewer)
 
 			err := manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{target}})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.Nil(t, agentByID(t, st, writer.ID).ArchivedAt, "nothing is archived")
+
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Contains(t, tmux.KilledPanes, "%1", "the agent's pane is killed")
-
-			_, err = st.Get(t.Context(), tt.seed)
-			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
+			assert.Contains(t, tmux.KilledPanes, reviewer.Pane, "the agent's pane is killed")
+			assert.NotContains(t, tmux.KilledPanes, writer.Pane, "its writer works on")
 
 			archived := agentByID(t, st, target)
+			assert.NotNil(t, archived.ArchivedAt, "the agent is hidden from listings")
 			assert.Equal(t, agentstore.StateIdle, archived.State, "the state settles with the pane")
 			assert.NotNil(t, archived.InterruptedAt, "the turn the kill cut is written down for the resume")
 		})
@@ -477,7 +479,7 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 
 	manager := newManager(tmux, st, "")
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{agent.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
 
 	after := agentByID(t, st, agent.ID)
 	require.NotNil(t, after.ArchivedAt, "the row really is archived")
@@ -497,7 +499,7 @@ func TestArchiveFinishesAfterKillingTheCallersOwnPane(t *testing.T) {
 	defer cancel()
 	tmux.AfterKillPane = func(string) { cancel() }
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{agent.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
 
 	after := agentByID(t, st, agent.ID)
 	assert.Contains(t, tmux.KilledPanes, "%1")
@@ -586,6 +588,51 @@ func TestDeleteAgent(t *testing.T) {
 	}
 }
 
+// TestDeleteAgentsTakesAReviewerAndNotItsWriter pins that a delete naming a task's writer is
+// refused while one naming a reviewer goes ahead.
+func TestDeleteAgentsTakesAReviewerAndNotItsWriter(t *testing.T) {
+	tests := []struct {
+		name      string
+		target    func(writer, reviewer agentstore.Agent) string
+		wantErrIs error
+		wantKept  []string
+	}{
+		{
+			name:      "a task's writer goes only with its task",
+			target:    func(writer, _ agentstore.Agent) string { return writer.ID },
+			wantErrIs: agenterr.ErrWriterGoesWithTask,
+			wantKept:  []string{"writer", "reviewer"},
+		},
+		{
+			name:     "a reviewer goes alone",
+			target:   func(_, reviewer agentstore.Agent) string { return reviewer.ID },
+			wantKept: []string{"writer"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+			manager := newManager(tmux, st, "")
+
+			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
+			reviewer := seedChild(t, st, tmux, writer)
+
+			err := manager.lifecycle.DeleteAgents(t.Context(), []string{tt.target(writer, reviewer)})
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+			} else {
+				require.NoError(t, err)
+			}
+
+			all, err := st.Agents.ListAll(t.Context())
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tt.wantKept, xslice.Map(all, func(a agentstore.Agent) string { return a.Name }))
+		})
+	}
+}
+
 // TestAReissuedPaneIsNotTheAgents pins every read of a stored pane id surviving reissue.
 func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	const shared = "%4"
@@ -607,7 +654,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("archiving it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
-		require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{dormant.ID}}))
+		require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{dormant.ID}))
 		assert.Empty(t, tmux.KilledPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
@@ -741,7 +788,7 @@ func TestRestoreCeiling(t *testing.T) {
 	still := agentByID(t, st, archived.ID)
 	assert.NotNil(t, still.ArchivedAt, "the refused restore leaves it in the archive")
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{liveTwo.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{liveTwo.ID}))
 	_, err = manager.lifecycle.RestoreAgents(ctx, []string{archived.ID})
 	require.NoError(t, err, "archiving one makes room again")
 }
@@ -856,7 +903,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 
 	ui := seedInWorkflow(t, st, frontend, "ui", "", agentstore.StateIdle)
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{auth.ID, api.ID, ui.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{auth.ID, api.ID, ui.ID}))
 
 	for _, agent := range []agentstore.Agent{auth, api, ui} {
 		assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt, "%s is archived", agent.Name)
@@ -892,8 +939,8 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			auth := seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking)
-			api := seedRunning(t, st, tmux, "api", "%2", agentstore.StateThinking)
+			auth := seedChild(t, st, tmux, seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking))
+			api := seedChild(t, st, tmux, seedRunning(t, st, tmux, "api", "%2", agentstore.StateThinking))
 
 			err := manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{auth.ID, tt.stray, api.ID}})
 
@@ -903,13 +950,14 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 
 			live, err := st.Agents.List(ctx)
 			require.NoError(t, err)
-			assert.Len(t, live, 2, "and nothing was archived")
+			assert.Len(t, live, 4, "and nothing was archived")
 		})
 	}
 }
 
-// TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren leaves an orchestrator and the panel unrestricted.
-func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
+// TestArchiveAgentsHoldsAnAgentToItselfAndItsTasksReviewers leaves an orchestrator and the panel
+// unrestricted.
+func TestArchiveAgentsHoldsAnAgentToItselfAndItsTasksReviewers(t *testing.T) {
 	tests := []struct {
 		name      string
 		from      string
@@ -917,58 +965,64 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 		wantErrIs error
 	}{
 		{
-			name:      "an agent archiving a stranger",
-			from:      "parent",
-			archive:   []string{"stranger"},
+			name:      "a writer archiving another task's reviewer",
+			from:      "writer",
+			archive:   []string{"reviewer on another task"},
 			wantErrIs: errArchiveNotYours,
 		},
 		{
-			name:      "one stranger refuses the whole batch",
-			from:      "parent",
-			archive:   []string{"child", "stranger"},
+			name:      "another task's reviewer refuses the whole batch",
+			from:      "writer",
+			archive:   []string{"reviewer", "reviewer on another task"},
 			wantErrIs: errArchiveNotYours,
 		},
 		{
-			name:      "a child archiving its parent",
-			from:      "child",
-			archive:   []string{"parent"},
+			name:      "a reviewer archiving its writer",
+			from:      "reviewer",
+			archive:   []string{"writer"},
 			wantErrIs: errArchiveNotYours,
 		},
 		{
-			name:      "a stranger is refused ahead of an id nobody holds",
-			from:      "parent",
-			archive:   []string{"stranger", "missing"},
+			name:      "another task's reviewer is refused ahead of an id nobody holds",
+			from:      "writer",
+			archive:   []string{"reviewer on another task", "missing"},
 			wantErrIs: errArchiveNotYours,
 		},
 		{
 			name:      "an id nobody holds is skipped by the ownership check and then not found",
-			from:      "parent",
-			archive:   []string{"child", "missing"},
+			from:      "writer",
+			archive:   []string{"reviewer", "missing"},
 			wantErrIs: agenterr.ErrAgentNotFound,
 		},
 		{
-			name:    "an agent archiving its own child",
-			from:    "parent",
-			archive: []string{"child"},
+			name:      "a writer archiving itself",
+			from:      "writer",
+			archive:   []string{"writer"},
+			wantErrIs: agenterr.ErrWriterGoesWithTask,
 		},
 		{
-			name:    "an agent archiving itself",
-			from:    "parent",
-			archive: []string{"parent"},
+			name:      "the panel archiving a writer",
+			archive:   []string{"writer"},
+			wantErrIs: agenterr.ErrWriterGoesWithTask,
 		},
 		{
-			name:    "an agent archiving itself and its own child",
-			from:    "parent",
-			archive: []string{"parent", "child"},
+			name:    "a writer archiving its task's reviewer",
+			from:    "writer",
+			archive: []string{"reviewer"},
+		},
+		{
+			name:    "a reviewer archiving itself",
+			from:    "reviewer",
+			archive: []string{"reviewer"},
 		},
 		{
 			name:    "an orchestrator archiving anybody",
 			from:    "orchestrator",
-			archive: []string{"stranger"},
+			archive: []string{"reviewer on another task"},
 		},
 		{
-			name:    "the panel archiving anybody",
-			archive: []string{"parent"},
+			name:    "the panel archiving a reviewer",
+			archive: []string{"reviewer"},
 		},
 	}
 
@@ -979,13 +1033,13 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			parent := seedRunning(t, st, tmux, "parent", "%1", agentstore.StateIdle)
+			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
 			seeded := map[string]string{
-				"parent":       parent.ID,
-				"child":        seedChild(t, st, tmux, parent).ID,
-				"stranger":     seedRunning(t, st, tmux, "stranger", "%2", agentstore.StateIdle).ID,
-				"orchestrator": seedOrchestrator(t, st, tmux).ID,
-				"missing":      uuid.NewString(),
+				"writer":                   writer.ID,
+				"reviewer":                 seedChild(t, st, tmux, writer).ID,
+				"reviewer on another task": seedChild(t, st, tmux, seedRunning(t, st, tmux, "billing", "%2", agentstore.StateIdle)).ID,
+				"orchestrator":             seedOrchestrator(t, st, tmux).ID,
+				"missing":                  uuid.NewString(),
 			}
 
 			err := manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{
@@ -1277,118 +1331,73 @@ func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
 	assert.Equal(t, 1, held)
 }
 
-// family is a parent and the child attached to it.
-type family struct {
-	parent agentstore.Agent
-	child  agentstore.Agent
-}
+// TestATasksWriterMovesWithItsTask pins that a task's archive and restore carry its writer while
+// a reviewer comes and goes on its own.
+func TestATasksWriterMovesWithItsTask(t *testing.T) {
+	archiveTask := func(ctx context.Context, lifecycle *LifecycleService, writer, _ agentstore.Agent) error {
+		return lifecycle.ArchiveTask(ctx, *writer.TaskID)
+	}
 
-// TestTheFamilyMovesTogether pins that a parent's archive, delete and restore carry its children
-// and a child's own leave the parent.
-func TestTheFamilyMovesTogether(t *testing.T) {
 	tests := []struct {
 		name     string
-		act      func(ctx context.Context, lifecycle *LifecycleService, members family) error
+		act      func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error
 		wantLive []string
 		wantKept []string
 	}{
 		{
-			name: "archiving the parent takes the child",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				return lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.parent.ID}})
-			},
-			wantKept: []string{"author", "reviewer"},
+			name:     "archiving the task takes the reviewer",
+			act:      archiveTask,
+			wantKept: []string{"writer", "reviewer"},
 		},
 		{
-			name: "archiving both is the same archive",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				return lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.parent.ID, members.child.ID}})
+			name: "archiving the reviewer leaves the writer",
+			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
+				return lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{reviewer.ID}})
 			},
-			wantKept: []string{"author", "reviewer"},
+			wantLive: []string{"writer"},
+			wantKept: []string{"writer", "reviewer"},
 		},
 		{
-			name: "archiving the child leaves the parent",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				return lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.child.ID}})
-			},
-			wantLive: []string{"author"},
-			wantKept: []string{"author", "reviewer"},
-		},
-		{
-			name: "deleting the parent takes the child",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				return lifecycle.deleteNow(ctx, []string{members.parent.ID})
+			name: "deleting the writer takes the reviewer",
+			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
+				return lifecycle.deleteNow(ctx, []string{writer.ID})
 			},
 		},
 		{
-			name: "deleting the child leaves the parent",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				return lifecycle.deleteNow(ctx, []string{members.child.ID})
+			name: "deleting the reviewer leaves the writer",
+			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
+				return lifecycle.deleteNow(ctx, []string{reviewer.ID})
 			},
-			wantLive: []string{"author"},
-			wantKept: []string{"author"},
+			wantLive: []string{"writer"},
+			wantKept: []string{"writer"},
 		},
 		{
-			name: "restoring the parent brings the child back",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				if err := lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.parent.ID}}); err != nil {
+			name: "restoring the writer brings the task back alone",
+			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
+				if err := archiveTask(ctx, lifecycle, writer, reviewer); err != nil {
 					return err
 				}
 
-				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID})
+				_, err := lifecycle.RestoreAgents(ctx, []string{writer.ID})
 
 				return err
 			},
-			wantLive: []string{"author", "reviewer"},
-			wantKept: []string{"author", "reviewer"},
+			wantLive: []string{"writer"},
+			wantKept: []string{"writer", "reviewer"},
 		},
 		{
-			name: "restoring the parent brings back a child named in its archive",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				if err := lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.parent.ID, members.child.ID}}); err != nil {
+			name: "restoring the writer and the reviewer brings both back",
+			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
+				if err := archiveTask(ctx, lifecycle, writer, reviewer); err != nil {
 					return err
 				}
 
-				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID})
+				_, err := lifecycle.RestoreAgents(ctx, []string{writer.ID, reviewer.ID})
 
 				return err
 			},
-			wantLive: []string{"author", "reviewer"},
-			wantKept: []string{"author", "reviewer"},
-		},
-		{
-			name: "restoring the parent leaves a child archived before it",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				if err := lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.child.ID}}); err != nil {
-					return err
-				}
-				if err := lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.parent.ID}}); err != nil {
-					return err
-				}
-
-				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID})
-
-				return err
-			},
-			wantLive: []string{"author"},
-			wantKept: []string{"author", "reviewer"},
-		},
-		{
-			name: "restoring the parent and a child archived before it brings both back",
-			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
-				if err := lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.child.ID}}); err != nil {
-					return err
-				}
-				if err := lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{members.parent.ID}}); err != nil {
-					return err
-				}
-
-				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID, members.child.ID})
-
-				return err
-			},
-			wantLive: []string{"author", "reviewer"},
-			wantKept: []string{"author", "reviewer"},
+			wantLive: []string{"writer", "reviewer"},
+			wantKept: []string{"writer", "reviewer"},
 		},
 	}
 
@@ -1399,13 +1408,10 @@ func TestTheFamilyMovesTogether(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-			child := seedChild(t, st, tmux, parent)
+			writer := seedRunning(t, st, tmux, "writer", "%writer", agentstore.StateIdle)
+			reviewer := seedChild(t, st, tmux, writer)
 
-			require.NoError(t, tt.act(ctx, manager.lifecycle, family{
-				parent: parent,
-				child:  child,
-			}))
+			require.NoError(t, tt.act(ctx, manager.lifecycle, writer, reviewer))
 
 			live, err := st.Agents.List(ctx)
 			require.NoError(t, err)
@@ -1414,26 +1420,25 @@ func TestTheFamilyMovesTogether(t *testing.T) {
 			kept, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)
 			assert.ElementsMatch(t, tt.wantKept, collectAgentNames(kept))
-			assert.Contains(t, tmux.KilledPanes, child.Pane, "the child's pane goes with its row")
+			assert.Contains(t, tmux.KilledPanes, reviewer.Pane, "the reviewer's pane goes with its row")
 		})
 	}
 }
 
-// TestRestoreOfAChildNeedsItsParentBack pins the one direction the family rule still holds in:
-// a child comes back only once there is a live row for it to be drawn under.
-func TestRestoreOfAChildNeedsItsParentBack(t *testing.T) {
+// TestRestoreOfAReviewerNeedsItsTaskBack pins that a reviewer comes back only onto a live task.
+func TestRestoreOfAReviewerNeedsItsTaskBack(t *testing.T) {
 	tests := []struct {
 		name        string
-		restoreBoth bool
+		restoreTask bool
 		wantErrIs   error
 	}{
 		{
-			name:        "the parent is live again",
-			restoreBoth: true,
+			name:        "the task is live again",
+			restoreTask: true,
 		},
 		{
-			name:      "the parent is still archived",
-			wantErrIs: agenterr.ErrParentStillArchived,
+			name:      "the task is still archived",
+			wantErrIs: agenterr.ErrTaskArchived,
 		},
 	}
 
@@ -1444,27 +1449,26 @@ func TestRestoreOfAChildNeedsItsParentBack(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-			child := seedChild(t, st, tmux, parent)
+			writer := seedRunning(t, st, tmux, "writer", "%writer", agentstore.StateIdle)
+			reviewer := seedChild(t, st, tmux, writer)
 
-			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{parent.ID}}))
-			if tt.restoreBoth {
-				_, err := manager.lifecycle.RestoreAgents(ctx, []string{parent.ID})
+			require.NoError(t, manager.lifecycle.ArchiveTask(ctx, *writer.TaskID))
+			if tt.restoreTask {
+				_, err := manager.lifecycle.RestoreAgents(ctx, []string{writer.ID})
 				require.NoError(t, err)
-				require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{child.ID}}))
 			}
 
-			restored, err := manager.lifecycle.RestoreAgents(ctx, []string{child.ID})
+			restored, err := manager.lifecycle.RestoreAgents(ctx, []string{reviewer.ID})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.NotNil(t, agentByID(t, st, child.ID).ArchivedAt, "the refusal restores nothing")
+				assert.NotNil(t, agentByID(t, st, reviewer.ID).ArchivedAt, "the refusal restores nothing")
 
 				return
 			}
 
 			require.NoError(t, err)
 			assert.Len(t, restored, 1)
-			assert.Nil(t, agentByID(t, st, child.ID).ArchivedAt)
+			assert.Nil(t, agentByID(t, st, reviewer.ID).ArchivedAt)
 		})
 	}
 }
@@ -1598,7 +1602,7 @@ func TestFailDeleteGivesTheRowBack(t *testing.T) {
 		WorkflowID: created.ID,
 	})
 	require.NoError(t, err)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{agent.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
 	claims, err := st.Agents.MarkDeleting(ctx, []string{agent.ID})
 	require.NoError(t, err)
 	require.Len(t, claims, 1)
@@ -1640,46 +1644,17 @@ func TestArchiveTaskTakesItsLiveAgents(t *testing.T) {
 	assert.False(t, isTaskArchived(t, st, other.ID))
 }
 
-// TestArchivingAgentsArchivesTheirIdleTasks pins that a task is archived once no live agent works on it.
-func TestArchivingAgentsArchivesTheirIdleTasks(t *testing.T) {
-	tests := []struct {
-		name         string
-		archive      func(author, followUp, reviewer agentstore.Agent) []string
-		wantArchived bool
-	}{
-		{
-			name:    "an agent going while another stays leaves the task live",
-			archive: func(_, followUp, _ agentstore.Agent) []string { return []string{followUp.ID} },
-		},
-		{
-			name:    "a writer archiving its reviewer leaves the task live",
-			archive: func(_, _, reviewer agentstore.Agent) []string { return []string{reviewer.ID} },
-		},
-		{
-			name: "the last live agent going archives the task",
-			archive: func(author, followUp, _ agentstore.Agent) []string {
-				return []string{author.ID, followUp.ID}
-			},
-			wantArchived: true,
-		},
-	}
+// TestArchivingAReviewerLeavesItsTaskLive pins that a reviewer leaving does not take its task with it.
+func TestArchivingAReviewerLeavesItsTaskLive(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	manager := newManager(tmux, st, "")
+	writer := seed(t, st, "writer", "", agentstore.StateIdle)
+	reviewer := seedChild(t, st, tmux, writer)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
-			workflowID := seedWorkflow(t, st)
-			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
-			author := seedOnTask(t, st, workflowID, "author", work.ID)
-			followUp := seedOnTask(t, st, workflowID, "follow-up", work.ID)
-			reviewer := seedChild(t, st, tmux, author)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{reviewer.ID}}))
 
-			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: tt.archive(author, followUp, reviewer)}))
-
-			assert.Equal(t, tt.wantArchived, isTaskArchived(t, st, work.ID))
-		})
-	}
+	assert.False(t, isTaskArchived(t, st, *writer.TaskID))
 }
 
 // TestRestoringAgentsRestoresTheirTasks pins that an agent never comes back under an archived task.
@@ -1690,7 +1665,7 @@ func TestRestoringAgentsRestoresTheirTasks(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
 	author := seedOnTask(t, st, workflowID, "author", work.ID)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{author.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{author.ID}))
 	require.True(t, isTaskArchived(t, st, work.ID))
 
 	_, err := manager.lifecycle.RestoreAgents(ctx, []string{author.ID})

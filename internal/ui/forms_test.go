@@ -626,30 +626,6 @@ func TestFormsArchivePrompt(t *testing.T) {
 				harness.assertSent(append(before, tt.wantSent...)...)
 			})
 		}
-
-		t.Run("an agent joining a chosen task before the confirm keeps the task standing", func(t *testing.T) {
-			harness := openAgents(t, buildTaskFamily()...)
-			harness.press(wholeTask...)
-			harness.press("space", "a", "down", "enter")
-			before := harness.readRequests()
-
-			late := newAgentAt("late", "w1", 3)
-			late.TaskId = xptr.Ptr("task-author")
-			harness.watch(buildSnapshot(append(buildTaskFamily(), late)...))
-			harness.press("y")
-
-			ids := []string{"author", "a4", "a3"}
-			harness.assertSent(append(before,
-				request{
-					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-					msg:       &agentv1.ArchiveAgentsRequest{Ids: ids},
-				},
-				request{
-					procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
-					msg:       &agentv1.DeleteAgentsRequest{Ids: ids},
-				},
-			)...)
-		})
 	})
 
 	t.Run("the workflow menu stays up until the archive lands", func(t *testing.T) {
@@ -736,7 +712,9 @@ func TestFormsArchivePrompt(t *testing.T) {
 	})
 
 	t.Run("a refused archive puts the agent's pane back on the stage", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+		reviewer := newLiveAuthor()
+		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
+		harness := openForms(t, newFormWorkflow(), reviewer)
 		harness.press("j")
 		harness.fireTimers()
 		require.Equal(t, "%9", harness.panel.ReadGuestPane())
@@ -761,7 +739,9 @@ func TestFormsArchivePrompt(t *testing.T) {
 	})
 
 	t.Run("an archive in flight takes the pane off the stage and leaves the agent live until it lands", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+		reviewer := newLiveAuthor()
+		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
+		harness := openForms(t, newFormWorkflow(), reviewer)
 		harness.press("j")
 		harness.fireTimers()
 		require.Equal(t, "%9", harness.panel.ReadGuestPane())
@@ -1166,7 +1146,7 @@ func TestFormsLayout(t *testing.T) {
 		{
 			name:  "a form takes the stage beside the list",
 			press: []string{"space", "c"},
-			want:  `Child of "author"`,
+			want:  `Reviewer on "task-a1"`,
 		},
 		{
 			name:  "a confirmation takes the stage beside the list",

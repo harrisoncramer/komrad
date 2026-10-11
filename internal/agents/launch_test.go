@@ -1021,7 +1021,7 @@ func TestNewAgentArchivedDuringSetupIsNotLaunched(t *testing.T) {
 	lifecycle := &archivingSetupLifecycle{fakeLifecycle: &fakeLifecycle{dir: t.TempDir()}}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	lifecycle.archive = func(id string) error {
-		return manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{id}})
+		return archiveWriters(t.Context(), manager.lifecycle, []string{id})
 	}
 
 	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
@@ -1761,7 +1761,7 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 				Dir:        t.TempDir(),
 			})
 			require.NoError(t, err)
-			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{first.ID}))
 
 			before, err := st.Tasks.Get(ctx, work.ID)
 			require.NoError(t, err)
@@ -1838,7 +1838,7 @@ func TestRetryRejoinsTheTasksCheckout(t *testing.T) {
 				Dir:        t.TempDir(),
 			})
 			require.NoError(t, err)
-			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{first.ID}))
 			tmux.RespawnErr = errors.New("bad flags")
 			_, err = manager.launch.NewAgent(ctx, NewAgentParams{
 				Title:      "next",
@@ -1903,7 +1903,7 @@ func TestConcurrentWritersJoinOnce(t *testing.T) {
 		Dir:        t.TempDir(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{first.ID}))
 
 	errs := make([]error, 2)
 	var wg sync.WaitGroup
@@ -2126,7 +2126,7 @@ func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
 	}
 
 	first := spawn("first")
-	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{first.ID}}))
+	require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{first.ID}))
 	spawn("second")
 
 	_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{first.ID})

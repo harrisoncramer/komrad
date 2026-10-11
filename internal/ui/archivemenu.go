@@ -168,8 +168,8 @@ func taskArchiveMenu(m *model, task panel.Task) submenu {
 	)
 }
 
-// chosenArchiveMenu archives the chosen agents, or deletes them for good, taking a task only when
-// every agent on it is chosen.
+// chosenArchiveMenu archives the chosen agents, or deletes them for good, taking the whole task of
+// each chosen writer.
 func chosenArchiveMenu(m *model, work chosenWork) submenu {
 	return liveArchiveMenu(
 		submenuEntry{
@@ -183,9 +183,9 @@ func chosenArchiveMenu(m *model, work chosenWork) submenu {
 	)
 }
 
-// archiveChosenAgents archives each wholly chosen task with its agents and the other chosen agents alone.
+// archiveChosenAgents archives the task of each chosen writer with its agents and the other chosen
+// agents alone.
 func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
-	work = work.rechecked(m.listing)
 	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
 
@@ -207,9 +207,9 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 	))
 }
 
-// deleteChosenAgents deletes each wholly chosen task with its agents and the other chosen agents alone.
+// deleteChosenAgents deletes the task of each chosen writer with its agents and the other chosen
+// agents alone.
 func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
-	work = work.rechecked(m.listing)
 	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
 

@@ -231,7 +231,7 @@
             "orchestrator"
           ],
           "summary": "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents.",
-          "description": "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Children go with their parent, and a child named alone goes alone.",
+          "description": "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. A task's writer is refused, since it goes only with its task through archive_task.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -249,7 +249,7 @@
             "orchestrator"
           ],
           "summary": "Bring archived agents back, dormant, along with their workflows.",
-          "description": "Bring archived agents back, dormant, along with their workflows. Call resume_agent on each one you want running.",
+          "description": "Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it, and a reviewer is refused until its task is back. Call resume_agent on each one you want running.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -341,7 +341,7 @@
             "orchestrator"
           ],
           "summary": "Remove agents for good, with their records and transcripts.",
-          "description": "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. Prefer archive_agents, and delete only when asked.",
+          "description": "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. A task's writer is refused, since it goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -2473,7 +2473,7 @@
           "rules": [
             "required"
           ],
-          "description": "The agents to stop and hide, keeping their records and transcripts, children along with them. The batch goes whole or not at all."
+          "description": "The agents to stop and hide, keeping their records and transcripts. A task's writer is refused. The batch goes whole or not at all."
         }
       ]
     },

@@ -23,8 +23,12 @@ var (
 	// recorded.
 	ErrChildNeedsParentDirectory = fail.Precondition("a child agent needs its parent's directory to run in")
 
-	// ErrParentStillArchived says a restore named a child whose parent stays archived.
-	ErrParentStillArchived = fail.Precondition("a child agent cannot come back before its parent")
+	// ErrWriterGoesWithTask says a call named a task's writer on its own, which only ever moves
+	// with its task.
+	ErrWriterGoesWithTask = fail.Precondition("a task's writer is archived and deleted with its task")
+
+	// ErrTaskArchived says a restore named a reviewer whose task is still archived.
+	ErrTaskArchived = fail.Precondition("the agent's task is archived")
 
 	// ErrResumeInFlight says another resume of the same agent is already under way.
 	ErrResumeInFlight = fail.Precondition("this agent is already being resumed")

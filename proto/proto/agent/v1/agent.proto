@@ -523,8 +523,8 @@ message LogRequest {
 }
 
 message ArchiveAgentsRequest {
-  // The agents to stop and hide, keeping their records and transcripts, children along with
-  // them. The batch goes whole or not at all.
+  // The agents to stop and hide, keeping their records and transcripts. A task's writer is
+  // refused. The batch goes whole or not at all.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     unique: true
@@ -790,7 +790,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "archive_agents"
-      description: "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Children go with their parent, and a child named alone goes alone."
+      description: "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. A task's writer is refused, since it goes only with its task through archive_task."
       destructive: false
       roles: [
         ROLE_WRITER,
@@ -804,7 +804,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "restore_agents"
-      description: "Bring archived agents back, dormant, along with their workflows. Call resume_agent on each one you want running."
+      description: "Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it, and a reviewer is refused until its task is back. Call resume_agent on each one you want running."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -860,7 +860,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "delete_agents"
-      description: "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. Prefer archive_agents, and delete only when asked."
+      description: "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. A task's writer is refused, since it goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };

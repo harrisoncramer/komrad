@@ -13,6 +13,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
@@ -120,8 +121,8 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		_, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
 
-		_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{
-			Ids: []string{migrations.GetId()},
+		_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
+			Tasks: []string{migrations.GetTaskId()},
 		}))
 		require.NoError(t, err)
 		instance.WorkQueue()

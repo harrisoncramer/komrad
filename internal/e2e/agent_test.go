@@ -11,6 +11,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
@@ -120,9 +121,9 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 		assert.Empty(t, instance.Typed(agent.GetId()), "an agent that had finished is told nothing")
 	})
 
-	t.Run("archiving takes the pane with it", func(t *testing.T) {
-		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-			Ids: []string{agent.GetId()},
+	t.Run("archiving its task takes the pane with it", func(t *testing.T) {
+		_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{
+			Task: agent.GetTaskId(),
 		}))
 		require.NoError(t, err)
 
@@ -162,9 +163,9 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 		assert.Contains(t, transcript.Msg.GetContent(), "resumed")
 	})
 
-	t.Run("deleting leaves nothing behind", func(t *testing.T) {
-		_, err := instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{
-			Ids: []string{agent.GetId()},
+	t.Run("deleting its task leaves nothing behind", func(t *testing.T) {
+		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
+			Tasks: []string{agent.GetTaskId()},
 		}))
 		require.NoError(t, err)
 		instance.WorkQueue()
@@ -228,9 +229,9 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 		assert.Equal(t, parent.GetCwd(), child.GetCwd())
 	})
 
-	t.Run("archiving the parent takes the child", func(t *testing.T) {
-		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-			Ids: []string{parent.GetId()},
+	t.Run("archiving the task takes its reviewer", func(t *testing.T) {
+		_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{
+			Task: parent.GetTaskId(),
 		}))
 		require.NoError(t, err)
 
@@ -238,18 +239,17 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 		assert.ElementsMatch(t, []string{"author", "reviewer"}, archivedNames(t, instance))
 	})
 
-	t.Run("restoring the parent brings the child back", func(t *testing.T) {
+	t.Run("a reviewer cannot come back before its task", func(t *testing.T) {
 		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
-			Ids: []string{parent.GetId()},
+			Ids: []string{child.GetId()},
 		}))
-		require.NoError(t, err)
-
-		assert.ElementsMatch(t, []string{"author", "reviewer", "unrelated"}, liveNames(t, instance))
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+		assert.ElementsMatch(t, []string{"author", "reviewer"}, archivedNames(t, instance))
 	})
 
-	t.Run("a child is archived on its own", func(t *testing.T) {
-		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-			Ids: []string{child.GetId()},
+	t.Run("restoring the task brings back its writer alone", func(t *testing.T) {
+		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+			Ids: []string{parent.GetId()},
 		}))
 		require.NoError(t, err)
 
@@ -257,23 +257,23 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 		assert.ElementsMatch(t, []string{"reviewer"}, archivedNames(t, instance))
 	})
 
-	t.Run("a child cannot come back before its parent", func(t *testing.T) {
-		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-			Ids: []string{parent.GetId()},
-		}))
-		require.NoError(t, err)
-
-		_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+	t.Run("a reviewer comes back once its task is live", func(t *testing.T) {
+		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
 			Ids: []string{child.GetId()},
 		}))
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-		assert.ElementsMatch(t, []string{"author", "reviewer"}, archivedNames(t, instance))
+		require.NoError(t, err)
 
-		_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
-			Ids: []string{parent.GetId(), child.GetId()},
+		assert.ElementsMatch(t, []string{"author", "reviewer", "unrelated"}, liveNames(t, instance))
+	})
+
+	t.Run("a reviewer is archived on its own", func(t *testing.T) {
+		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+			Ids: []string{child.GetId()},
 		}))
 		require.NoError(t, err)
-		assert.ElementsMatch(t, []string{"author", "reviewer", "unrelated"}, liveNames(t, instance))
+
+		assert.ElementsMatch(t, []string{"author", "unrelated"}, liveNames(t, instance))
+		assert.ElementsMatch(t, []string{"reviewer"}, archivedNames(t, instance))
 	})
 }
 

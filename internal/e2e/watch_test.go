@@ -79,6 +79,12 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		TaskID:     &fixLogin.ID,
 	})
 	st.SeedAgent(t, agentstore.Agent{Name: "local", WorkflowID: docs.ID})
+	reviewer := st.SeedAgent(t, agentstore.Agent{
+		Name:       "reviewer",
+		WorkflowID: docs.ID,
+		TaskID:     quiet.TaskID,
+		Role:       agentstore.RoleReviewer,
+	})
 	gone := st.SeedAgent(t, agentstore.Agent{Name: "gone", WorkflowID: docs.ID})
 	_, err := st.Agents.Archive(ctx, []string{gone.ID})
 	require.NoError(t, err)
@@ -272,11 +278,11 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		{
 			name: "an agent is archived",
 			write: func(t *testing.T) {
-				_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{quiet.ID}}))
+				_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{reviewer.ID}}))
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.NotEmpty(t, stores.agents[quiet.ID].GetAgent().GetArchivedAt())
+				assert.NotEmpty(t, stores.agents[reviewer.ID].GetAgent().GetArchivedAt())
 			},
 		},
 	}

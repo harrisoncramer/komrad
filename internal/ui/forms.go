@@ -70,7 +70,7 @@ type formKind int
 const (
 	formNone formKind = iota
 	formAgent
-	formChild
+	formReviewer
 	formAdopt
 	formAgentRebase
 	formAgentPush
@@ -151,7 +151,7 @@ const formMaxWidth = 60
 // still on screen while it is answered.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
-	case formAgent, formChild, formAdopt, formAgentRetry, formWorkflow, formTask, formSchedule,
+	case formAgent, formReviewer, formAdopt, formAgentRetry, formWorkflow, formTask, formSchedule,
 		formDocument, formDocumentType:
 		return columnSpec{floor: formColumnFloor}, true
 	case formGit, formArchiveMenu, formHideMenu, formMerge, formMenu, formAgentRebase, formAgentPush, formAgentAbort, formWorkflowArchive, formScheduleArchive,

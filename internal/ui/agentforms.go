@@ -47,13 +47,13 @@ func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea
 	}))
 }
 
-// openNewAgentOnTask opens the form that starts an agent on a task: a child of its live writer, or
-// else its writer.
+// openNewAgentOnTask opens the form that starts an agent on a task: a reviewer when it has a live
+// writer, or else its writer.
 func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.Cmd {
 	if writer, ok := m.listing.findLiveWriter(task.ID); ok {
-		values := childPrefill(writer)
+		values := reviewerPrefill(writer)
 
-		return openChildForm(m, writer, &values)
+		return openReviewerForm(m, writer, task, &values)
 	}
 
 	values := &agentFormValues{Harness: workflow.Harness}
@@ -68,29 +68,29 @@ func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.
 	}))
 }
 
-// childPrefill is the child form as the parent leaves it.
-func childPrefill(parent panel.Agent) agentFormValues {
-	return agentFormValues{Harness: parent.Harness}
+// reviewerPrefill is the reviewer form as the writer leaves it.
+func reviewerPrefill(writer panel.Agent) agentFormValues {
+	return agentFormValues{Harness: writer.Harness}
 }
 
-func openChildForm(m *model, parent panel.Agent, values *agentFormValues) tea.Cmd {
+func openReviewerForm(m *model, writer panel.Agent, task panel.Task, values *agentFormValues) tea.Cmd {
 	return m.openForm(rebuildableForm(rebuildableFormParams{
-		Kind:     formChild,
-		Build:    func(m *model) (*huh.Form, []string) { return childAgentForm(fixedKeys(), values, parent) },
+		Kind:     formReviewer,
+		Build:    func(m *model) (*huh.Form, []string) { return reviewerAgentForm(fixedKeys(), values, writer, task) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitChild(parent, *values) }),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitReviewer(writer, *values) }),
 	}))
 }
 
-// submitChild launches the child without a directory or a provisioner.
-func (m *model) submitChild(parent panel.Agent, values agentFormValues) tea.Cmd {
+// submitReviewer launches the reviewer in the writer's checkout without a provisioner.
+func (m *model) submitReviewer(writer panel.Agent, values agentFormValues) tea.Cmd {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,
 		Title:         values.Title,
 		Harness:       values.Harness,
 		Flags:         values.Flags,
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
+		WorkflowID:    writer.WorkflowID,
+		ParentAgentID: writer.ID,
 	})
 
 	return cmd
@@ -267,16 +267,16 @@ func describeNewWriter(workflow panel.Workflow, task panel.Task) string {
 	return "Becomes the task's first writer, in the workflow's directory."
 }
 
-// childAgentForm asks for the work and little else.
-func childAgentForm(keys config.FixedKeys, values *agentFormValues, parent panel.Agent) (*huh.Form, []string) {
+// reviewerAgentForm asks for the work and little else.
+func reviewerAgentForm(keys config.FixedKeys, values *agentFormValues, writer panel.Agent, task panel.Task) (*huh.Form, []string) {
 	fields := []huh.Field{
-		textField("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
+		textField("prompt").Title(fmt.Sprintf("Reviewer on %q", task.Slug)).
 			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
-		huh.NewInput().Key("harness").Title("Agent").Placeholder(label.OrDash(parent.Harness)).Value(&values.Harness),
+		huh.NewInput().Key("harness").Title("Agent").Placeholder(label.OrDash(writer.Harness)).Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		huh.NewNote().Description(fmt.Sprintf(
-			"Runs in %s, the parent's own checkout. No worktree, nothing provisioned, archived when the parent is.", parent.Cwd)),
+			"Runs in %s, the writer's checkout. No worktree, nothing provisioned, archived with its task.", writer.Cwd)),
 	}
 
 	return formOf(keys, fields...)
