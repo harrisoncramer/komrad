@@ -1,116 +1,12 @@
 package ui
 
 import (
-	"context"
 	"slices"
 	"strings"
 
-	"komrad/internal/client"
 	"komrad/internal/errui"
 	"komrad/internal/ui/paint"
-
-	tea "charm.land/bubbletea/v2"
 )
-
-// saidLeadIn is the rows of conversation rendered above the first match when the column opens on it.
-const saidLeadIn = 12
-
-// saidTranscript is the conversation of the agent the column reads beside a says: qualifier.
-type saidTranscript struct {
-	agentID  string
-	text     string
-	answered bool
-	content  string
-	err      error
-	width    int
-	rows     []string
-	line     int
-	opened   bool
-}
-
-type saidTranscriptMsg struct {
-	agentID string
-	text    string
-	content string
-	err     error
-}
-
-// saidAgentID is the hovered agent the server found saying the text of a says: qualifier.
-func (m *model) saidAgentID() (string, bool) {
-	var agentID string
-	switch screen := m.active().(type) {
-	case *agentsScreen:
-		agentID = screen.hoveredAgentID(m)
-	case *archivedAgents:
-		agentID, _ = screen.screenedAgentID(m)
-	default:
-		return "", false
-	}
-
-	return agentID, agentID != "" && m.filter.hasSaid(agentID)
-}
-
-// isSaidRead reports whether the column holds the conversation of the agent and text it was read for.
-func (s saidTranscript) isSaidRead(agentID, text string) bool {
-	return s.agentID == agentID && s.text == text
-}
-
-func (m *model) readSaidCmd() tea.Cmd {
-	agentID, ok := m.saidAgentID()
-	text := m.filter.qualifiers.said.text
-	if !ok || m.said.isSaidRead(agentID, text) {
-		return nil
-	}
-
-	m.said = saidTranscript{agentID: agentID, text: text}
-	agents := m.api.reads().agents
-
-	return func() tea.Msg {
-		content, err := call(saidTimeout, func(ctx context.Context) (string, error) {
-			return client.GetFullTranscript(ctx, agents, agentID)
-		})
-
-		return saidTranscriptMsg{
-			agentID: agentID,
-			text:    text,
-			content: paint.ScrubMarks(content),
-			err:     err,
-		}
-	}
-}
-
-func (m *model) applySaidTranscript(msg saidTranscriptMsg) {
-	if !m.said.isSaidRead(msg.agentID, msg.text) {
-		return
-	}
-
-	m.said = saidTranscript{
-		agentID:  msg.agentID,
-		text:     msg.text,
-		answered: true,
-		content:  msg.content,
-		err:      msg.err,
-	}
-}
-
-// openSaid puts the reader on the first match once the conversation it was read for is rendered,
-// with lead-in above it.
-func (m *model) openSaid() {
-	agentID, ok := m.saidAgentID()
-	if !ok || m.said.opened || !m.said.answered || !m.said.isSaidRead(agentID, m.filter.qualifiers.said.text) {
-		return
-	}
-
-	split, ok := m.columnSplit()
-	if !ok {
-		return
-	}
-
-	m.layoutSaid(m.filter.saidHits(agentID), split.column)
-	m.reading.Top = max(m.said.line-1-saidLeadIn, 0)
-	m.reading.tail = false
-	m.said.opened = true
-}
 
 // saidColumnRows is the conversation of an agent the server found saying the text of a says:
 // qualifier, rendered for the column, and none when it was found saying nothing.
@@ -124,23 +20,17 @@ func (m *model) saidColumnRows(agentID string, width int) []string {
 		return paint.DocStyledRows("_reading the conversation…_", max(width, 1), columnStyle())
 	}
 
-	m.layoutSaid(hits, width)
-
-	return m.said.rows
-}
-
-// layoutSaid renders the conversation for the column again when it has not been rendered at its width.
-func (m *model) layoutSaid(hits []saidHit, width int) {
 	if m.said.rows != nil && m.said.width == width {
-		return
+		return m.said.rows
 	}
 
-	m.said.rows, m.said.line = saidRows(saidRowsParams{
+	rows, _ := saidRows(saidRowsParams{
 		said:  m.said,
 		hits:  hits,
 		width: width,
 	})
-	m.said.width = width
+
+	return rows
 }
 
 type saidRowsParams struct {

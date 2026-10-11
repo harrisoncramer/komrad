@@ -104,15 +104,6 @@ func (i reviewInput) update(msg tea.Msg) (reviewInput, tea.Cmd) {
 	return i, cmd
 }
 
-// view renders the field, and nothing at all where there is no field open.
-func (i reviewInput) view() string {
-	if i.form == nil {
-		return ""
-	}
-
-	return i.form.View()
-}
-
 // value is what has been typed into the field.
 func (i reviewInput) value() string {
 	if i.body == nil {

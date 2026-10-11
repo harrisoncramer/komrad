@@ -23,6 +23,7 @@ type Config struct {
 	StoreQuery     StoreQueryConfig     `json:"store_query"`
 	TxStore        TxStoreConfig        `json:"tx_store"`
 	OneService     OneServiceConfig     `json:"one_service"`
+	ViewSplit      ViewSplitConfig      `json:"view_split"`
 }
 
 // StoreQueryConfig settles which packages may call a store query.
@@ -37,6 +38,17 @@ type StoreQueryConfig struct {
 type TxStoreConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// ViewSplitConfig settles which packages keep their drawing in view files that only read state.
+type ViewSplitConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Packages is unanchored regexps over the import path of the packages the rule covers, every
+	// package when empty.
+	Packages []string `json:"packages"`
 	// Exclude is unanchored regexps over the file path.
 	Exclude []string `json:"exclude"`
 }

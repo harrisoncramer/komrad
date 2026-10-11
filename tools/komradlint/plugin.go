@@ -129,6 +129,11 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	splits, err := newViewSplit(l.config.ViewSplit)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -150,6 +155,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		queries,
 		transactions,
 		services,
+		splits,
 	}, nil
 }
 
