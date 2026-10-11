@@ -113,15 +113,24 @@ func LoadWithReport(stack Stack) (*Config, *Report, error) {
 		return nil, nil, err
 	}
 
-	return loadLayers(layers)
+	cfg, report, err := decodeLayers(layers)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := cfg.validate(); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse config %s: %w", describeLayers(layers), err)
+	}
+
+	return cfg, report, nil
 }
 
-// LoadDefaults resolves the configuration from the defaults and the environment without reading any file.
+// LoadDefaults resolves the configuration from the defaults and the environment alone, leaving it unvalidated.
 func LoadDefaults() (*Config, *Report, error) {
-	return loadLayers(nil)
+	return decodeLayers(nil)
 }
 
-func loadLayers(layers []Layer) (*Config, *Report, error) {
+func decodeLayers(layers []Layer) (*Config, *Report, error) {
 	merged := viper.New()
 	merged.SetConfigType("toml")
 	if err := registerDefaults(merged); err != nil {
@@ -150,10 +159,6 @@ func loadLayers(layers []Layer) (*Config, *Report, error) {
 	report := &Report{Layers: layers, Sources: connectionSources(merged)}
 	if err := cfg.resolveDerived(report); err != nil {
 		return nil, nil, err
-	}
-
-	if err := cfg.validate(); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse config %s: %w", describeLayers(layers), err)
 	}
 
 	return &cfg, report, nil

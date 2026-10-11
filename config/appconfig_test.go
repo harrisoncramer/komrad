@@ -730,15 +730,17 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	assert.Equal(t, sourceEnvironment, report.Sources["addr"])
 }
 
-// TestLoadDefaultsKeepsTheEnvironment pins that the defaults a broken config falls back to still take the connection from the environment.
+// TestLoadDefaultsKeepsTheEnvironment pins that the defaults a broken config falls back to take the connection from the environment unvalidated.
 func TestLoadDefaultsKeepsTheEnvironment(t *testing.T) {
 	clearConnectionEnvironment(t)
 	t.Setenv("KOMRAD_ADDR", "127.0.0.3:3")
+	t.Setenv("KOMRAD_DATABASE_URL", "mysql://x")
 
 	cfg, report, err := LoadDefaults()
 	require.NoError(t, err)
 
 	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
+	assert.Equal(t, "mysql://x", cfg.Connection.DatabaseURL)
 	assert.Equal(t, sourceEnvironment, report.Sources["addr"])
 	assert.Equal(t, sourceDefault, report.Sources["tmux_socket"])
 	assert.NotEmpty(t, cfg.Connection.CacheDir)

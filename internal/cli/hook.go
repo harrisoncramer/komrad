@@ -227,8 +227,6 @@ turn end.`,
 			return nil
 		}
 
-		reportConfigProblem(cmd, state)
-
 		// Recorded before the re-entry check, which the turn the agent answered its mail in would
 		// otherwise skip.
 		reportHookEvent(cmd, state, reportHookEventParams{
@@ -247,6 +245,9 @@ turn end.`,
 
 			return nil
 		}
+
+		reportConfigProblem(cmd, state)
+
 		if len(mail.Mail) == 0 {
 			return nil
 		}
@@ -394,7 +395,7 @@ func reportConfigProblem(cmd *cobra.Command, state *app) {
 		return
 	}
 
-	const what = "komrad could not read its config, so the defaults are in force"
+	const what = "komrad found a problem in its config, so defaults stand in for what it could not use"
 	reportHookProblem(cmd, what, state.configErr)
 	if err := logToKomrad(cmd.Context(), state, fmt.Sprintf("%s: %v", what, state.configErr)); err != nil {
 		reportHookProblem(cmd, "komrad did not record the config problem", err)

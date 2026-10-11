@@ -72,10 +72,7 @@ the server, or call an endpoint from a script.`,
 				}
 
 				app.configErr = err
-				cfg, report, err = config.LoadDefaults()
-				if err != nil {
-					return err
-				}
+				cfg, report = fallbackConfig()
 			}
 
 			env, err := loadEnvironment(cfg)
@@ -251,6 +248,15 @@ func isConfigFatal(cmd *cobra.Command) bool {
 	}
 
 	return true
+}
+
+func fallbackConfig() (*config.Config, *config.Report) {
+	cfg, report, err := config.LoadDefaults()
+	if err != nil {
+		return config.Defaults(), &config.Report{Sources: map[string]config.Source{}}
+	}
+
+	return cfg, report
 }
 
 func loadEnvironment(cfg *config.Config) (*config.Environment, error) {

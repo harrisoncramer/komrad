@@ -304,43 +304,59 @@ func TestIntegrationStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 
 // TestIntegrationStopHookDeliversMailPastABrokenConfig pins that a config which does not parse still leaves the hook delivering mail and saying why.
 func TestIntegrationStopHookDeliversMailPastABrokenConfig(t *testing.T) {
-	var asked caller.Caller
-	var logged []string
-	var reports []recordedReport
-	addr := fakeMailServer(t, fakeMailParams{
-		mail:    []mailItem{{ID: "mail-1", Body: "stand down"}},
-		asked:   &asked,
-		logged:  &logged,
-		reports: &reports,
-	})
+	tests := []struct {
+		name        string
+		databaseURL string
+	}{
+		{name: "a section the build rejects"},
+		{
+			name:        "and an environment value the config refuses",
+			databaseURL: "mysql://x",
+		},
+	}
 
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("KOMRAD_CONFIG", "")
-	t.Setenv("KOMRAD_CACHE_DIR", filepath.Join(home, "cache"))
-	t.Setenv("KOMRAD_STATE_DIR", filepath.Join(home, "state"))
-	t.Setenv("KOMRAD_ADDR", addr)
-	t.Setenv("KOMRAD_AGENT_ID", "agent-a")
-	broken := filepath.Join(home, "config.toml")
-	require.NoError(t, os.WriteFile(broken, []byte("[nonsense]\nkey = 1\n"), 0o600))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var asked caller.Caller
+			var logged []string
+			var reports []recordedReport
+			addr := fakeMailServer(t, fakeMailParams{
+				mail:    []mailItem{{ID: "mail-1", Body: "stand down"}},
+				asked:   &asked,
+				logged:  &logged,
+				reports: &reports,
+			})
 
-	var out, errOut bytes.Buffer
-	root := NewRootCommand()
-	root.SetIn(bytes.NewBufferString(`{"stop_hook_active":false}`))
-	root.SetOut(&out)
-	root.SetErr(&errOut)
-	root.SetArgs([]string{"--config", broken, "hook", "stop"})
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("KOMRAD_CONFIG", "")
+			t.Setenv("KOMRAD_CACHE_DIR", filepath.Join(home, "cache"))
+			t.Setenv("KOMRAD_STATE_DIR", filepath.Join(home, "state"))
+			t.Setenv("KOMRAD_DATABASE_URL", tt.databaseURL)
+			t.Setenv("KOMRAD_ADDR", addr)
+			t.Setenv("KOMRAD_AGENT_ID", "agent-a")
+			broken := filepath.Join(home, "config.toml")
+			require.NoError(t, os.WriteFile(broken, []byte("[nonsense]\nkey = 1\n"), 0o600))
 
-	require.NoError(t, root.Execute())
+			var out, errOut bytes.Buffer
+			root := NewRootCommand()
+			root.SetIn(bytes.NewBufferString(`{"stop_hook_active":false}`))
+			root.SetOut(&out)
+			root.SetErr(&errOut)
+			root.SetArgs([]string{"--config", broken, "hook", "stop"})
 
-	assert.Equal(t, "agent-a", asked.AgentID, "the mailbox is read from the server the environment names")
-	var printed hookOutput
-	require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
-	assert.Contains(t, printed.HookSpecificOutput.AdditionalContext, "stand down")
-	assert.Contains(t, errOut.String(), "komrad could not read its config")
-	require.Len(t, logged, 2)
-	assert.Contains(t, logged[0], "komrad could not read its config")
-	assert.Contains(t, logged[0], "nonsense")
+			require.NoError(t, root.Execute())
+
+			assert.Equal(t, "agent-a", asked.AgentID, "the mailbox is read from the server the environment names")
+			var printed hookOutput
+			require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
+			assert.Contains(t, printed.HookSpecificOutput.AdditionalContext, "stand down")
+			assert.Contains(t, errOut.String(), "a problem in its config")
+			require.Len(t, logged, 2)
+			assert.Contains(t, logged[0], "a problem in its config")
+			assert.Contains(t, logged[0], "nonsense")
+		})
+	}
 }
 
 // recordedReport is one call of the endpoint every hook event reports through.
