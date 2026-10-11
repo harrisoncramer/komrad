@@ -51,9 +51,6 @@ type agentRow struct {
 	orchestrator *panel.AgentRow
 	// task makes a header the task's rather than the workflow's, standing over the agents on it.
 	task *panel.Task
-	// lead is the agent a task's header wears the state and pull request of: the newest with a
-	// pane, or the newest when none has one.
-	lead *panel.AgentRow
 	// underTask sets the row in under the task header above it.
 	underTask bool
 }
@@ -230,32 +227,14 @@ func taskRows(families []family, tasks map[string]panel.Task) []agentRow {
 	return rows
 }
 
-// taskHeader is the row over the families on one task, led by the newest of their heads with a
-// pane, or the newest of them when none has one.
+// taskHeader is the row over the families on one task.
 func taskHeader(gathered []family, tasks map[string]panel.Task) agentRow {
-	lead := gathered[0].rows[0].item
-	for _, f := range gathered[1:] {
-		if head := f.rows[0].item; isBetterLead(head, lead) {
-			lead = head
-		}
-	}
-
-	task := findAgentTask(tasks, lead.Agent)
+	task := findAgentTask(tasks, gathered[0].rows[0].item.Agent)
 
 	return agentRow{
 		header: true,
 		task:   &task,
-		lead:   &lead,
 	}
-}
-
-// isBetterLead reports whether a task's header should wear the head over the lead it has so far.
-func isBetterLead(head, lead panel.AgentRow) bool {
-	if hasPane(head) != hasPane(lead) {
-		return hasPane(head)
-	}
-
-	return head.Agent.CreatedAt.After(lead.Agent.CreatedAt)
 }
 
 func keyAgentsByID(agents []panel.AgentRow) map[string]panel.AgentRow {
@@ -711,7 +690,7 @@ type listing struct {
 // assemble renders the listings, live and archived, from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
 	l.generation++
-	agents := agentRowsFrom(assemble.AgentRows(l.world, now), l.world.Tasks)
+	agents := agentRowsFrom(assemble.AgentRows(l.world, now))
 	l.tasks = tasksFrom(assemble.TaskRows(l.world))
 	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents, l.tasks)
 	isArchivedAgent := func(row panel.AgentRow) bool {

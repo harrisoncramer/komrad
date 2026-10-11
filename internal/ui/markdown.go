@@ -86,7 +86,9 @@ func workflowProse(w panel.Workflow) string {
 // agentFieldsParams is an agent and what the record says about it that is not on its row: the
 // names of what launched it and what it hangs off, and its task's directory and checkout.
 type agentFieldsParams struct {
-	agent    panel.Agent
+	agent panel.Agent
+	// task is the slug of the task the agent works on, empty for one on none.
+	task     string
 	schedule string
 	parent   string
 	// headerCwd is the directory of the task header standing over the agent, empty where none does.
@@ -104,8 +106,8 @@ func agentFields(params agentFieldsParams) []recordField {
 		fields = append(fields, recordField{label: attachmentFieldKey(agent.Role), value: label.OrDash(parent)})
 	}
 
-	if agent.TaskSlug != "" {
-		fields = append(fields, recordField{label: "task", value: agent.TaskSlug})
+	if params.task != "" {
+		fields = append(fields, recordField{label: "task", value: params.task})
 	}
 
 	fields = append(fields, recordField{label: "agent", value: label.OrDash(agent.Harness)})

@@ -2328,6 +2328,8 @@ func TestAgentsChildren(t *testing.T) {
 		}
 		author, _ := rows[3].(*agentv1.Agent)
 		author.Cwd = "/tmp/tree"
+		authorTask, _ := rows[6].(*taskv1.Task)
+		authorTask.Cwd = xptr.Ptr("/tmp/tree")
 		harness := openAgents(t, rows...)
 
 		harness.press("j", "space", "g")

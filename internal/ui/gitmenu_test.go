@@ -13,6 +13,7 @@ import (
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
@@ -113,7 +114,7 @@ func TestGitMenu(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "rebase with base")
 	})
 
-	t.Run("an entry picked after its agent has left the list says so", func(t *testing.T) {
+	t.Run("an entry picked after its task has left the list says so", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, buildGitAgent()...)
@@ -121,7 +122,7 @@ func TestGitMenu(t *testing.T) {
 
 		harness.press("r")
 
-		assert.Contains(t, readOpenMessages(harness), "the agent the menu was opened on has left the list")
+		assert.Contains(t, readOpenMessages(harness), "the task the menu was opened on has left the list")
 		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
 	})
 }
@@ -137,16 +138,16 @@ func TestGitMenuRefusals(t *testing.T) {
 		wantRefusal string
 	}{
 		{
-			name:        "the rebase of an agent with no worktree of its own",
+			name:        "the rebase of a task with no worktree of its own",
 			rows:        buildUncutAgent(),
 			press:       []string{"r"},
-			wantRefusal: "this agent has no worktree of its own for komrad to act on",
+			wantRefusal: "this task has no worktree of its own for komrad to act on",
 		},
 		{
-			name:        "the push of an agent with no worktree of its own",
+			name:        "the push of a task with no worktree of its own",
 			rows:        buildUncutAgent(),
 			press:       []string{"p"},
-			wantRefusal: "this agent has no worktree of its own for komrad to act on",
+			wantRefusal: "this task has no worktree of its own for komrad to act on",
 		},
 		{
 			name:        "the push of a worktree part-way through a rebase",
@@ -164,7 +165,7 @@ func TestGitMenuRefusals(t *testing.T) {
 			name:        "the pull request of a repository not read yet",
 			rows:        buildUncutAgent(),
 			press:       []string{"o"},
-			wantRefusal: "komrad has not read this agent's repository yet",
+			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the pull request of a branch with none",
@@ -182,13 +183,13 @@ func TestGitMenuRefusals(t *testing.T) {
 			name:        "the copy of a pull request address on a branch with none",
 			rows:        buildUncutAgent(),
 			press:       []string{"c"},
-			wantRefusal: "komrad has not read this agent's repository yet",
+			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the merge of a branch with no pull request",
 			rows:        buildUncutAgent(),
 			press:       []string{"m", "m"},
-			wantRefusal: "komrad has not read this agent's repository yet",
+			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the merge of a pull request that has already merged",
@@ -218,7 +219,7 @@ func TestGitMenuRefusals(t *testing.T) {
 			name:        "the merge then rebase of a branch with no pull request",
 			rows:        buildGitAgent(),
 			press:       []string{"m", "r"},
-			wantRefusal: "komrad has not read this agent's repository yet",
+			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the draft toggle of a pull request that has already merged",
@@ -265,24 +266,24 @@ func TestGitMenuMerges(t *testing.T) {
 		wantMessage string
 	}{
 		{
-			name:        "merge leaves the agent where it is",
+			name:        "merge leaves the task where it is",
 			press:       []string{"m"},
 			wantMerges:  []proto.Message{merge},
-			wantMessage: "api: merged #740",
+			wantMessage: "task-a1: merged #740",
 		},
 		{
 			name:        "merge names a merge request the way GitLab does",
 			forge:       "gitlab",
 			press:       []string{"m"},
 			wantMerges:  []proto.Message{merge},
-			wantMessage: "api: merged !740",
+			wantMessage: "task-a1: merged !740",
 		},
 		{
-			name:        "merge and archive archives the agent once the forge has merged",
+			name:        "merge and archive archives the task once the forge has merged",
 			press:       []string{"a"},
 			wantMerges:  []proto.Message{merge},
-			wantArchive: []proto.Message{&agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}}},
-			wantMessage: "api: merged #740",
+			wantArchive: []proto.Message{&taskv1.ArchiveTaskRequest{Task: "task-a1"}},
+			wantMessage: "task-a1: merged #740",
 		},
 		{
 			name:  "back sends nothing",
@@ -313,7 +314,7 @@ func TestGitMenuMerges(t *testing.T) {
 			harness.press(tt.press...)
 
 			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
-			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, tt.wantArchive...)
+			harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, tt.wantArchive...)
 			assert.NotContains(t, harness.readFrame(), "merge and archive")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
@@ -336,7 +337,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 		{
 			name:         "a merged pull request has its worktree moved onto the base",
 			wantRebases:  []proto.Message{&agentv1.RebaseWorktreeRequest{Task: "task-a1"}},
-			wantMessages: []string{"api: merged #740", "api: moved onto main"},
+			wantMessages: []string{"task-a1: merged #740", "task-a1: moved onto main"},
 		},
 		{
 			name:         "a merge the forge refuses rebases nothing",
@@ -409,14 +410,14 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 				HeadSha: "new",
 				On:      true,
 			},
-			wantMessage: "api: #740 merges when ready",
+			wantMessage: "task-a1: #740 merges when ready",
 		},
 		{
 			name:        "a queued pull request stops waiting",
 			pullRequest: newAutoMergedPullRequest(),
 			wantLabel:   "cancel auto-merge",
 			wantSent:    &forgev1.SetForgePullRequestAutoMergeRequest{Url: pullRequestURL, HeadSha: "new"},
-			wantMessage: "api: #740 no longer merges on its own",
+			wantMessage: "task-a1: #740 no longer merges on its own",
 		},
 	}
 
@@ -469,7 +470,7 @@ func TestGitMenuPushes(t *testing.T) {
 		{
 			name:        "a branch origin already holds warns and opens no confirmation",
 			planned:     &agentv1.PlanPushResponse{Branch: "agent/a1", InSync: true},
-			wantMessage: "api: commit already pushed",
+			wantMessage: "task-a1: commit already pushed",
 		},
 		{
 			name: "a push origin rejects says so",
@@ -503,7 +504,7 @@ func TestGitMenuPushes(t *testing.T) {
 			wantButton:  "Force push",
 			wantWarning: "be overwritten",
 			wantPushes:  []proto.Message{push},
-			wantMessage: "api: force-pushed agent/a1",
+			wantMessage: "task-a1: force-pushed agent/a1",
 		},
 		{
 			name:        "a branch queued to merge warns that what goes up may land",
@@ -516,7 +517,7 @@ func TestGitMenuPushes(t *testing.T) {
 			wantButton:  "Push",
 			wantWarning: "Auto-merge is",
 			wantPushes:  []proto.Message{push},
-			wantMessage: "api: pushed agent/a1",
+			wantMessage: "task-a1: pushed agent/a1",
 		},
 		{
 			name: "files nothing has committed are named as staying behind",
@@ -529,7 +530,7 @@ func TestGitMenuPushes(t *testing.T) {
 			wantButton:  "Push",
 			wantWarning: "nothing has committed will stay behind",
 			wantPushes:  []proto.Message{push},
-			wantMessage: "api: pushed agent/a1",
+			wantMessage: "task-a1: pushed agent/a1",
 		},
 		{
 			name: "a branch is pushed",
@@ -542,7 +543,7 @@ func TestGitMenuPushes(t *testing.T) {
 			wantWarning: "2 commits will go up",
 			wantUnsaid:  "overwritten",
 			wantPushes:  []proto.Message{push},
-			wantMessage: "api: pushed agent/a1",
+			wantMessage: "task-a1: pushed agent/a1",
 		},
 	}
 
@@ -622,7 +623,7 @@ func TestGitMenuAborts(t *testing.T) {
 			name:        "an abort says where the branch stands and where the copy is",
 			press:       []string{"y"},
 			wantAborts:  []proto.Message{abort},
-			wantMessage: "api: aborted the rebase agent/a1 is back where it stood before. A copy of the worktree from before the abort is kept at refs/komrad/aborted/a1/1.",
+			wantMessage: "task-a1: aborted the rebase agent/a1 is back where it stood before. A copy of the worktree from before the abort is kept at refs/komrad/aborted/a1/1.",
 		},
 		{
 			name:        "an operation a newer server added is offered and named neutrally",
@@ -630,7 +631,7 @@ func TestGitMenuAborts(t *testing.T) {
 			noun:        "git operation",
 			press:       []string{"y"},
 			wantAborts:  []proto.Message{abort},
-			wantMessage: "api: aborted the git operation agent/a1 is back where it stood before.",
+			wantMessage: "task-a1: aborted the git operation agent/a1 is back where it stood before.",
 		},
 	}
 
@@ -660,7 +661,7 @@ func TestGitMenuAborts(t *testing.T) {
 
 			harness.press("x")
 
-			require.Contains(t, harness.readFrame(), "Abort the "+noun+" in the worktree of api?")
+			require.Contains(t, harness.readFrame(), "Abort the "+noun+" in the worktree of task-a1?")
 			harness.press(tt.press...)
 
 			harness.assertSentTo(agentv1connect.AgentServiceAbortSequenceProcedure, tt.wantAborts...)
@@ -693,14 +694,14 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 			pullRequest: newOpenPullRequest(),
 			wantLabel:   "toggle draft on",
 			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL, Draft: true},
-			wantMessage: "api: #740 is a draft",
+			wantMessage: "task-a1: #740 is a draft",
 		},
 		{
 			name:        "a draft is marked ready for review",
 			pullRequest: drafted,
 			wantLabel:   "toggle draft off",
 			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL},
-			wantMessage: "api: #740 is ready for review",
+			wantMessage: "task-a1: #740 is ready for review",
 		},
 		{
 			name:        "a change the forge refuses says why",
@@ -752,13 +753,13 @@ func TestGitMenuRequestsRereview(t *testing.T) {
 			name:        "a pull request with changes requested is sent back to its reviewers",
 			pullRequest: changesRequested,
 			wantSent:    []proto.Message{&forgev1.RequestForgePullRequestRereviewRequest{Url: pullRequestURL}},
-			wantMessage: "api: #740 is waiting on another review",
+			wantMessage: "task-a1: #740 is waiting on another review",
 		},
 		{
 			name:        "a pull request already waiting on another review is asked again",
 			pullRequest: rereviewRequested,
 			wantSent:    []proto.Message{&forgev1.RequestForgePullRequestRereviewRequest{Url: pullRequestURL}},
-			wantMessage: "api: #740 is waiting on another review",
+			wantMessage: "task-a1: #740 is waiting on another review",
 		},
 		{
 			name:        "a request the forge refuses says why",

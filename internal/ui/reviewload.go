@@ -19,14 +19,9 @@ import (
 
 const reviewEditorHeight = 4
 
-// hasCheckout reports whether an agent's directory is still there to read.
-func hasCheckout(agent panel.Agent) bool {
-	return agent.Cwd != "" && !agent.WorktreeRemoved
-}
-
-// isReviewable reports whether an agent has work of its own to read.
-func isReviewable(agent panel.Agent) bool {
-	return hasCheckout(agent) && agent.ParentAgentID == nil
+// isReviewable reports whether an agent has work of its own to read, in a directory still there.
+func (l listing) isReviewable(agent panel.Agent) bool {
+	return agent.Cwd != "" && !l.findTask(agent).WorktreeRemoved && agent.ParentAgentID == nil
 }
 
 type reviewLoadedMsg struct {

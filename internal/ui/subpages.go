@@ -36,7 +36,7 @@ func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 		kind:  formMenu,
 		title: m.listing.agentName(agent),
 		entries: slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own, []submenuEntry{
-			nestedEntry("git", m.keys.Menu.Git, gitMenu(m, item)),
+			nestedEntry("git", m.keys.Menu.Git, gitMenu(m, m.listing.findTask(agent))),
 			nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, agentID)),
 		}),
 	}
@@ -70,7 +70,7 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 		return submenuEntry{
 			label: "review",
 			keys:  m.keys.Menu.Review,
-			isOff: reviewRefusal(item.Agent) != nil,
+			isOff: m.listing.reviewRefusal(item.Agent) != nil,
 		}
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
@@ -88,13 +88,13 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 }
 
 // reviewRefusal is why an agent's work cannot be reviewed, nil when it can.
-func reviewRefusal(agent panel.Agent) error {
+func (l listing) reviewRefusal(agent panel.Agent) error {
 	switch {
 	case agent.ArchivedAt != nil:
 		return errReviewArchived
 	case agent.ParentAgentID != nil:
 		return errReviewChild
-	case !isReviewable(agent):
+	case !l.isReviewable(agent):
 		return errReviewNoCheckout
 	}
 
@@ -126,7 +126,7 @@ func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) 
 
 	switch picked {
 	case subpageReview:
-		if err := reviewRefusal(item.Agent); err != nil {
+		if err := m.listing.reviewRefusal(item.Agent); err != nil {
 			return m.refuseSubpage("Could not open the review of "+name, err)
 		}
 

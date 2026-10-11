@@ -96,16 +96,18 @@ func TestSnapshotRepo(t *testing.T) {
 	tests := []struct {
 		name  string
 		agent panel.Agent
+		task  panel.Task
 		want  view.Repo
 	}{
 		{
-			name:  "a directory that has gone beats a rebase left in it",
-			agent: panel.Agent{WorktreeRemoved: true, Sequence: panel.SequenceRebase},
-			want:  view.RepoGone,
+			name: "a directory that has gone beats a rebase left in it",
+			task: panel.Task{WorktreeRemoved: true, Sequence: panel.SequenceRebase},
+			want: view.RepoGone,
 		},
 		{
 			name:  "a create that failed with a directory that has gone still says so",
-			agent: panel.Agent{State: panel.StateFailedToCreate, WorktreeRemoved: true},
+			agent: panel.Agent{State: panel.StateFailedToCreate},
+			task:  panel.Task{WorktreeRemoved: true},
 			want:  view.RepoGone,
 		},
 		{
@@ -114,9 +116,9 @@ func TestSnapshotRepo(t *testing.T) {
 			want:  view.RepoClean,
 		},
 		{
-			name:  "a rebase left part way through says so",
-			agent: panel.Agent{Sequence: panel.SequenceRebase},
-			want:  view.RepoRebasing,
+			name: "a rebase left part way through says so",
+			task: panel.Task{Sequence: panel.SequenceRebase},
+			want: view.RepoRebasing,
 		},
 		{
 			name:  "an untouched checkout is clean",
@@ -127,7 +129,7 @@ func TestSnapshotRepo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, snapshotOne(t, panel.AgentRow{Agent: tt.agent}).Repo)
+			assert.Equal(t, tt.want, snapshotOnTask(t, panel.AgentRow{Agent: tt.agent}, tt.task).Repo)
 		})
 	}
 }
@@ -182,6 +184,7 @@ func TestSnapshotComments(t *testing.T) {
 	tests := []struct {
 		name         string
 		item         panel.AgentRow
+		task         panel.Task
 		wantReviewer *view.Comments
 		wantPerson   *view.Comments
 	}{
@@ -190,16 +193,14 @@ func TestSnapshotComments(t *testing.T) {
 			item: panel.AgentRow{},
 		},
 		{
-			name: "an archived agent keeps its counts",
-			item: panel.AgentRow{
-				Agent:          panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				PersonComments: &agentv1.CommentCounts{Resolved: 2},
-			},
+			name:       "an archived agent keeps its counts",
+			item:       panel.AgentRow{Agent: panel.Agent{ArchivedAt: xptr.Ptr(time.Now())}},
+			task:       panel.Task{PersonComments: &agentv1.CommentCounts{Resolved: 2}},
 			wantPerson: &view.Comments{Resolved: 2},
 		},
 		{
 			name: "each side is counted apart",
-			item: panel.AgentRow{
+			task: panel.Task{
 				ReviewerComments: &agentv1.CommentCounts{
 					Open:   1,
 					Unread: 1,
@@ -222,7 +223,7 @@ func TestSnapshotComments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := snapshotOne(t, tt.item)
+			row := snapshotOnTask(t, tt.item, tt.task)
 
 			assert.Equal(t, tt.wantReviewer, row.ReviewerComments)
 			assert.Equal(t, tt.wantPerson, row.PersonComments)
@@ -312,14 +313,10 @@ func TestSnapshotForge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			item := panel.AgentRow{
-				Agent: panel.Agent{
-					ID: "a1",
-				},
-				PullRequest: panel.PullRequestStanding{State: tt.state},
-			}
+			item := panel.AgentRow{Agent: panel.Agent{ID: "a1"}}
+			task := panel.Task{PullRequest: panel.PullRequestStanding{State: tt.state}}
 
-			assert.Equal(t, tt.want, snapshotOne(t, item).Forge)
+			assert.Equal(t, tt.want, snapshotOnTask(t, item, task).Forge)
 		})
 	}
 
@@ -659,17 +656,19 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
 		workflow: panel.Workflow{ID: "w1", Name: "komrad"},
 		item: panel.AgentRow{
-			Alive:          true,
-			PersonComments: &agentv1.CommentCounts{Open: 1},
+			Alive: true,
 			Agent: panel.Agent{
-				ID:              "a1",
-				Name:            "worker",
-				WorkflowID:      "w1",
-				Cwd:             "/tmp/somewhere",
-				State:           panel.StateIdle,
-				WorktreeRemoved: true,
+				ID:         "a1",
+				Name:       "worker",
+				WorkflowID: "w1",
+				TaskID:     "t1",
+				Cwd:        "/tmp/somewhere",
+				State:      panel.StateIdle,
 			},
 		},
+	}}, tasks: map[string]panel.Task{"t1": {
+		WorktreeRemoved: true,
+		PersonComments:  &agentv1.CommentCounts{Open: 1},
 	}}})
 
 	assert.Equal(t, view.RepoGone, row.Repo)
@@ -899,6 +898,19 @@ func snapshotOne(t *testing.T, item panel.AgentRow) view.Row {
 	t.Helper()
 
 	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item, workflow: checkoutWorkflow()}}})
+}
+
+// snapshotOnTask reads one row whose agent works on the task.
+func snapshotOnTask(t *testing.T, item panel.AgentRow, task panel.Task) view.Row {
+	t.Helper()
+
+	task.ID = "t1"
+	item.Agent.TaskID = task.ID
+
+	return snapshotRowOf(t, snapshotParams{
+		rows:  []agentRow{{item: item, workflow: checkoutWorkflow()}},
+		tasks: map[string]panel.Task{task.ID: task},
+	})
 }
 
 // snapshotRunning reads one row whose agent is running and doing nothing.

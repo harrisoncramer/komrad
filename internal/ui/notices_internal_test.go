@@ -21,6 +21,7 @@ func TestAgentNotices(t *testing.T) {
 	tests := []struct {
 		name string
 		row  agentRow
+		task panel.Task
 		want []string
 	}{
 		{
@@ -31,10 +32,10 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "a child without a worktree leaves its directory to its parent's row",
 			row: buildPlainChildRow(panel.AgentRow{Agent: panel.Agent{
-				ID:              "a2",
-				ParentAgentID:   xptr.Ptr("a1"),
-				WorktreeRemoved: true,
+				ID:            "a2",
+				ParentAgentID: xptr.Ptr("a1"),
 			}}),
+			task: panel.Task{WorktreeRemoved: true},
 			want: []string{},
 		},
 		{
@@ -69,12 +70,14 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "a removed worktree",
-			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{WorktreeRemoved: true}}),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: panel.Task{WorktreeRemoved: true},
 			want: []string{worktreeRemovedNotice},
 		},
 		{
 			name: "a stopped rebase",
-			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{Sequence: panel.SequenceRebase}}),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: panel.Task{Sequence: panel.SequenceRebase},
 			want: []string{sequenceNotice},
 		},
 		{
@@ -82,7 +85,6 @@ func TestAgentNotices(t *testing.T) {
 			row: agentRow{
 				header: true,
 				task:   &panel.Task{Hidden: true},
-				lead:   &panel.AgentRow{},
 			},
 			want: []string{hiddenNotice},
 		},
@@ -96,7 +98,6 @@ func TestAgentNotices(t *testing.T) {
 			row: agentRow{
 				header: true,
 				task:   &panel.Task{Documents: 2},
-				lead:   &panel.AgentRow{},
 			},
 			want: []string{documentsNotice},
 		},
@@ -111,7 +112,8 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "unread replies on an agent under its task header",
-			row:  agentRow{item: panel.AgentRow{PersonComments: &agentv1.CommentCounts{Unread: 1}}, underTask: true},
+			row:  agentRow{underTask: true},
+			task: panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 1}},
 			want: []string{},
 		},
 		{
@@ -119,17 +121,10 @@ func TestAgentNotices(t *testing.T) {
 			row: agentRow{
 				header: true,
 				task:   &panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 1}},
-				lead:   &panel.AgentRow{},
 			},
 			want: []string{"your comments with a reply you have not read: 1"},
 		},
 		{
-			name: "a task does not say its lead's turn failed",
-			row: agentRow{
-				header: true,
-				task:   &panel.Task{},
-				lead:   &panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}},
-			},
 			want: []string{},
 		},
 		{
@@ -144,132 +139,136 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "a failing pull request",
-			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING)),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
 			want: []string{"its pull request has a failing check"},
 		},
 		{
 			name: "a conflicting pull request",
-			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING)),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
 			want: []string{"its pull request no longer merges cleanly"},
 		},
 		{
 			name: "a pull request with changes requested",
-			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED)),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED),
 			want: []string{"its pull request has changes requested"},
 		},
 		{
 			name: "a draft pull request",
-			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT)),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT),
 			want: []string{"its pull request is still a draft"},
 		},
 		{
 			name: "a draft merge request",
-			row: buildNoticeRow(panel.AgentRow{PullRequest: panel.PullRequestStanding{
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 				Forge: "gitlab",
-			}}),
+			}},
 			want: []string{"its merge request is still a draft"},
 		},
 		{
 			name: "a branch with no pull request",
-			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE)),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE),
 			want: []string{},
 		},
 		{
 			name: "a failed create says where its worktree went",
-			row: buildNoticeRow(panel.AgentRow{Agent: panel.Agent{
-				State:           panel.StateFailedToCreate,
-				WorktreeRemoved: true,
-			}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}),
+			task: panel.Task{WorktreeRemoved: true},
 			want: []string{failedToCreateNotice, worktreeRemovedNotice},
 		},
 		{
 			name: "the marks a person would act on come first",
 			row: buildNoticeRow(panel.AgentRow{
-				Agent: panel.Agent{
-					State:           panel.StateFailedToCleanup,
-					WorktreeRemoved: true,
-				},
+				Agent:      panel.Agent{State: panel.StateFailedToCleanup},
 				UnreadMail: true,
 				FailedRun:  true,
 				Documents:  1,
 			}),
+			task: panel.Task{WorktreeRemoved: true},
 			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, documentsNotice},
 		},
 		{
 			name: "a pull request that needs a push comes before mail, and one that asks nothing comes last",
 			row: buildNoticeRow(panel.AgentRow{
-				UnreadMail:  true,
-				FailedRun:   true,
-				Documents:   1,
-				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING},
+				UnreadMail: true,
+				FailedRun:  true,
+				Documents:  1,
 			}),
+			task: buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
 			want: []string{failedRunNotice, "its pull request no longer merges cleanly", unreadMailNotice, documentsNotice},
 		},
 		{
 			name: "an approved pull request comes after mail and before the directory",
 			row: buildNoticeRow(panel.AgentRow{
-				Agent:       panel.Agent{WorktreeRemoved: true},
-				UnreadMail:  true,
-				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED},
+				UnreadMail: true,
 			}),
+			task: panel.Task{
+				WorktreeRemoved: true,
+				PullRequest:     panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED},
+			},
 			want: []string{unreadMailNotice, "its pull request is approved and ready to merge", worktreeRemovedNotice},
 		},
 		{
 			name: "an open pull request comes after documents",
 			row: buildNoticeRow(panel.AgentRow{
-				Documents:   1,
-				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN},
+				Documents: 1,
 			}),
+			task: buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN),
 			want: []string{documentsNotice, "its pull request is open and waiting on a review"},
 		},
 		{
 			name: "a reviewer's unread replies are not counted",
-			row:  buildNoticeRow(panel.AgentRow{ReviewerComments: &agentv1.CommentCounts{Unread: 1}}),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: panel.Task{ReviewerComments: &agentv1.CommentCounts{Unread: 1}},
 			want: []string{},
 		},
 		{
 			name: "the person's comments with replies unread",
-			row:  buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{Unread: 2}}),
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 2}},
 			want: []string{"your comments with a reply you have not read: 2"},
 		},
 		{
 			name: "an archived row still counts its unread replies",
 			row: buildNoticeRow(panel.AgentRow{
-				Agent:          panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				PersonComments: &agentv1.CommentCounts{Unread: 1},
+				Agent: panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
 			}),
+			task: panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 1}},
 			want: []string{"your comments with a reply you have not read: 1"},
 		},
 		{
 			name: "an agent without a worktree still says its directory is gone",
-			row: buildPlainRow(panel.AgentRow{Agent: panel.Agent{
-				ID:              "a1",
-				WorktreeRemoved: true,
-			}}),
+			row:  buildPlainRow(panel.AgentRow{Agent: panel.Agent{ID: "a1"}}),
+			task: panel.Task{WorktreeRemoved: true},
 			want: []string{worktreeRemovedNotice},
 		},
 		{
 			name: "an agent without a worktree still says a rebase stopped in it",
-			row: buildPlainRow(panel.AgentRow{Agent: panel.Agent{
-				ID:       "a1",
-				Sequence: panel.SequenceRebase,
-			}}),
+			row:  buildPlainRow(panel.AgentRow{Agent: panel.Agent{ID: "a1"}}),
+			task: panel.Task{Sequence: panel.SequenceRebase},
 			want: []string{sequenceNotice},
 		},
 		{
 			name: "an agent without a worktree still counts its unread replies",
-			row: buildPlainRow(panel.AgentRow{
-				Agent:          panel.Agent{ID: "a1"},
-				PersonComments: &agentv1.CommentCounts{Unread: 1},
-			}),
+			row:  buildPlainRow(panel.AgentRow{Agent: panel.Agent{ID: "a1"}}),
+			task: panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 1}},
 			want: []string{"your comments with a reply you have not read: 1"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, readNoticeTexts(agentNotices(glyph.Defaults(), "", tt.row)))
+			row := tt.row
+			row.item.Agent.TaskID = "t1"
+			tasks := map[string]panel.Task{"t1": tt.task}
+
+			assert.Equal(t, tt.want, readNoticeTexts(agentNotices(glyph.Defaults(), "", tasks, row)))
 		})
 	}
 }
@@ -278,17 +277,18 @@ func TestAgentNotices(t *testing.T) {
 func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	item := panel.AgentRow{
 		Agent: panel.Agent{
-			State:    panel.StateWaiting,
-			Sequence: panel.SequenceRebase,
-			HeldAt:   xptr.Ptr(time.Now()),
+			State:  panel.StateWaiting,
+			TaskID: "t1",
+			HeldAt: xptr.Ptr(time.Now()),
 		},
 		Alive:      true,
 		UnreadMail: true,
 		FailedRun:  true,
 		Documents:  3,
 	}
+	tasks := map[string]panel.Task{"t1": {Sequence: panel.SequenceRebase}}
 
-	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{})}}).Lines[0]
+	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{tasks: tasks})}}).Lines[0]
 
 	want := map[string]view.Cell{
 		failedRunNotice:    line.Alert,
@@ -298,7 +298,7 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 		heldPromptedNotice: line.Held,
 	}
 
-	notices := agentNotices(glyph.Defaults(), "", buildNoticeRow(item))
+	notices := agentNotices(glyph.Defaults(), "", tasks, buildNoticeRow(item))
 	require.Len(t, notices, len(want))
 
 	for _, notice := range notices {
@@ -352,12 +352,12 @@ func TestAgentNoticesLeaveAStoppedRowToItsName(t *testing.T) {
 
 	require.Equal(t, view.ProcessStopped, row.Process)
 	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis)
-	assert.Empty(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", stopped)))
+	assert.Empty(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", nil, stopped)))
 
 	failed := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}})
 
 	require.Equal(t, view.ProcessAlive, snapshotRow(failed, snapshotParams{}).Process, "a failed create is not a stopped process")
-	assert.Contains(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", failed)), failedToCreateNotice)
+	assert.Contains(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", nil, failed)), failedToCreateNotice)
 }
 
 func buildNoticeRow(item panel.AgentRow) agentRow {
@@ -367,8 +367,8 @@ func buildNoticeRow(item panel.AgentRow) agentRow {
 	}
 }
 
-func buildPullRequested(state pullrequestv1.PullRequestState) panel.AgentRow {
-	return panel.AgentRow{PullRequest: panel.PullRequestStanding{State: state}}
+func buildPullRequested(state pullrequestv1.PullRequestState) panel.Task {
+	return panel.Task{PullRequest: panel.PullRequestStanding{State: state}}
 }
 
 func buildPlainRow(item panel.AgentRow) agentRow {

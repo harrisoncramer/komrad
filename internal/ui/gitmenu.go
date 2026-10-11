@@ -23,22 +23,22 @@ const (
 )
 
 var (
-	errArchivedWorktree     = errors.New("an archived agent's worktree is not touched")
-	errNoWorktree           = errors.New("this agent has no worktree of its own for komrad to act on")
+	errArchivedWorktree     = errors.New("an archived task's worktree is not touched")
+	errNoWorktree           = errors.New("this task has no worktree of its own for komrad to act on")
 	errPushInProgress       = errors.New("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
 	errAbortNothing         = errors.New("nothing is part-way through in this worktree, so there is nothing to abort")
 	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
+	errTaskGone             = errors.New("the task the menu was opened on has left the list")
 	errNoPullRequest        = errors.New("komrad has read the repository and nothing has been opened from this branch")
 	errMovedPastPullRequest = errors.New("the branch has moved on since its last pull request finished and nothing has been opened from it since")
-	errPullRequestsUnread   = errors.New("komrad has not read this agent's repository yet, or its checkout is not on a forge")
+	errPullRequestsUnread   = errors.New("komrad has not read this task's repository yet, or its checkout is not on a forge")
 )
 
-// gitMenu is the git actions on an agent, opened from its menu.
-func gitMenu(m *model, item panel.AgentRow) submenu {
-	agent := item.Agent
-	agentID := agent.ID
+// gitMenu is the git actions on a task's checkout and pull request.
+func gitMenu(m *model, task panel.Task) submenu {
+	taskID := task.ID
 	run := func(choice gitChoice) func(*model) tea.Cmd {
-		return func(m *model) tea.Cmd { return m.runGitChoice(agentID, choice) }
+		return func(m *model) tea.Cmd { return m.runGitChoice(taskID, choice) }
 	}
 
 	return submenu{
@@ -48,91 +48,91 @@ func gitMenu(m *model, item panel.AgentRow) submenu {
 			{
 				label: "rebase with base",
 				keys:  m.keys.Git.Rebase,
-				isOff: worktreeRefusal(m.listing, agent) != nil,
+				isOff: worktreeRefusal(m.listing, task) != nil,
 				write: run(gitChoiceRebase),
 			},
 			{
 				label: "push",
 				keys:  m.keys.Git.Push,
-				isOff: pushRefusal(m.listing, agent) != nil,
+				isOff: pushRefusal(m.listing, task) != nil,
 				write: run(gitChoicePush),
 			},
 			{
-				label: abortLabel(agent),
+				label: abortLabel(task),
 				keys:  m.keys.Git.Abort,
-				isOff: abortRefusal(m.listing, agent) != nil,
-				open:  func(m *model) tea.Cmd { return m.openGitAbort(agentID) },
+				isOff: abortRefusal(m.listing, task) != nil,
+				open:  func(m *model) tea.Cmd { return m.openGitAbort(taskID) },
 			},
 			{
-				label: "open " + item.PullRequest.Abbrev(),
+				label: "open " + task.PullRequest.Abbrev(),
 				keys:  m.keys.Git.OpenPullRequest,
-				isOff: item.PullRequest.URL == "",
+				isOff: task.PullRequest.URL == "",
 				write: run(gitChoiceOpenPullRequest),
 			},
 			{
-				label: "copy " + item.PullRequest.Abbrev() + " url",
+				label: "copy " + task.PullRequest.Abbrev() + " url",
 				keys:  m.keys.Git.CopyPullRequestURL,
-				isOff: item.PullRequest.URL == "",
+				isOff: task.PullRequest.URL == "",
 				write: run(gitChoiceCopyPullRequestURL),
 			},
 			{
-				label: draftLabel(item),
+				label: draftLabel(task),
 				keys:  m.keys.Git.ToggleDraft,
-				isOff: openPullRequestRefusal(item) != nil,
+				isOff: openPullRequestRefusal(task) != nil,
 				write: run(gitChoiceToggleDraft),
 			},
 			{
 				label: "re-request review",
 				keys:  m.keys.Git.RequestRereview,
-				isOff: rereviewRefusal(item) != nil,
+				isOff: rereviewRefusal(task) != nil,
 				write: run(gitChoiceRequestRereview),
 			},
-			nestedEntry("merge "+item.PullRequest.Abbrev(), m.keys.Git.Merge, mergeMenu(m, item)),
+			nestedEntry("merge "+task.PullRequest.Abbrev(), m.keys.Git.Merge, mergeMenu(m, task)),
 		},
 	}
 }
 
-// worktreeRefusal is why an agent's worktree cannot be acted on, nil when it can.
-func worktreeRefusal(l listing, agent panel.Agent) error {
+// worktreeRefusal is why a task's worktree cannot be acted on, nil when it can.
+func worktreeRefusal(l listing, task panel.Task) error {
 	switch {
-	case agent.ArchivedAt != nil:
+	case task.ArchivedAt != nil:
 		return errArchivedWorktree
-	case !l.hasOwnWorktree(agent):
+	case !l.hasOwnWorktree(task):
 		return errNoWorktree
 	}
 
 	return nil
 }
 
-// pushRefusal is why an agent's branch cannot be pushed, nil when it can.
-func pushRefusal(l listing, agent panel.Agent) error {
-	if err := worktreeRefusal(l, agent); err != nil {
+// pushRefusal is why a task's branch cannot be pushed, nil when it can.
+func pushRefusal(l listing, task panel.Task) error {
+	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
-	if agent.Sequence.IsInProgress() {
+	if task.Sequence.IsInProgress() {
 		return errPushInProgress
 	}
 
 	return nil
 }
 
-// mergeRebaseRefusal is why an agent's pull request cannot be merged and its worktree rebased,
+// mergeRebaseRefusal is why a task's pull request cannot be merged and its worktree rebased,
 // nil when both can run.
-func mergeRebaseRefusal(l listing, item panel.AgentRow) error {
-	if err := pushRefusal(l, item.Agent); err != nil {
+func mergeRebaseRefusal(l listing, task panel.Task) error {
+	if err := pushRefusal(l, task); err != nil {
 		return err
 	}
 
-	return openPullRequestRefusal(item)
+	return openPullRequestRefusal(task)
 }
 
-// abortRefusal is why what an agent's worktree has part-way through cannot be aborted, nil
-// when it can.
-func abortRefusal(l listing, agent panel.Agent) error {
-	if err := worktreeRefusal(l, agent); err != nil {
+// abortRefusal is why what a task's worktree has part-way through cannot be aborted, nil when it
+// can.
+func abortRefusal(l listing, task panel.Task) error {
+	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
-	if !agent.Sequence.IsInProgress() {
+	if !task.Sequence.IsInProgress() {
 		return errAbortNothing
 	}
 
@@ -140,125 +140,119 @@ func abortRefusal(l listing, agent panel.Agent) error {
 }
 
 // abortLabel names the abort entry for what it would undo.
-func abortLabel(agent panel.Agent) string {
-	if !agent.Sequence.IsInProgress() {
+func abortLabel(task panel.Task) string {
+	if !task.Sequence.IsInProgress() {
 		return "abort"
 	}
 
-	return "abort " + string(agent.Sequence)
+	return "abort " + string(task.Sequence)
 }
 
-// pullRequestRefusal is why an agent has no current pull request.
-func pullRequestRefusal(item panel.AgentRow) error {
+// pullRequestRefusal is why a task has no current pull request.
+func pullRequestRefusal(task panel.Task) error {
 	switch {
-	case item.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
+	case task.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
 		return errPullRequestsUnread
-	case len(item.PullRequests) > 0:
+	case len(task.PullRequests) > 0:
 		return errMovedPastPullRequest
 	default:
 		return errNoPullRequest
 	}
 }
 
-// openPullRequestRefusal is why an agent has no open pull request to act on, nil when it has one.
-func openPullRequestRefusal(item panel.AgentRow) error {
-	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
-		return errors.New(describePullRequest(item.PullRequest, "has already merged"))
+// openPullRequestRefusal is why a task has no open pull request to act on, nil when it has one.
+func openPullRequestRefusal(task panel.Task) error {
+	if task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
+		return errors.New(describePullRequest(task.PullRequest, "has already merged"))
 	}
-	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
-		return errors.New(describePullRequest(item.PullRequest, "was closed without merging"))
+	if task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
+		return errors.New(describePullRequest(task.PullRequest, "was closed without merging"))
 	}
 
-	if item.PullRequest.URL == "" {
-		return pullRequestRefusal(item)
+	if task.PullRequest.URL == "" {
+		return pullRequestRefusal(task)
 	}
 
 	return nil
 }
 
-// runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
-func (m *model) runGitChoice(agentID string, choice gitChoice) tea.Cmd {
-	item, ok := m.findGitAgent(agentID)
+// runGitChoice does what the entry asked for, or says why this task is not one to ask it of.
+func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
+	task, ok := m.findGitTask(taskID)
 	if !ok {
-		m.report("Could not act on the agent", errAgentGone)
+		m.report("Could not act on the task", errTaskGone)
 
 		return nil
 	}
 
-	agent := item.Agent
-
 	switch choice {
 	case gitChoiceRebase:
-		if err := worktreeRefusal(m.listing, agent); err != nil {
-			m.report("Could not rebase the worktree of "+agent.Name, err)
+		if err := worktreeRefusal(m.listing, task); err != nil {
+			m.report("Could not rebase the worktree of "+task.Slug, err)
 
 			return nil
 		}
 
-		return m.planGitCmd(rebaseOp(agent.TaskID, agent.Name))
+		return m.planGitCmd(rebaseOp(task.ID, task.Slug))
 	case gitChoicePush:
-		if err := pushRefusal(m.listing, agent); err != nil {
-			m.report("Could not push the branch of "+agent.Name, err)
+		if err := pushRefusal(m.listing, task); err != nil {
+			m.report("Could not push the branch of "+task.Slug, err)
 
 			return nil
 		}
 
-		return m.planGitCmd(pushOp(item))
+		return m.planGitCmd(pushOp(task))
 	case gitChoiceOpenPullRequest:
-		return m.openPullRequest(item)
+		return m.openPullRequest(task)
 	case gitChoiceCopyPullRequestURL:
-		return m.copyPullRequestURL(item)
+		return m.copyPullRequestURL(task)
 	case gitChoiceToggleDraft:
-		return m.toggleDraft(item)
+		return m.toggleDraft(task)
 	case gitChoiceRequestRereview:
-		return m.requestRereview(item)
+		return m.requestRereview(task)
 	}
 
 	return nil
 }
 
-// hasOwnWorktree reports whether an agent sits in a worktree komrad cut for it alone.
-func (l listing) hasOwnWorktree(agent panel.Agent) bool {
-	if !hasCheckout(agent) {
+// hasOwnWorktree reports whether a task sits in a worktree komrad cut for it.
+func (l listing) hasOwnWorktree(task panel.Task) bool {
+	if task.Cwd == "" || task.WorktreeRemoved {
 		return false
 	}
 
-	index := slices.IndexFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == agent.WorkflowID })
+	index := slices.IndexFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == task.WorkflowID })
 	if index < 0 {
-		return false
-	}
-
-	// A child sits in its parent's checkout.
-	if agent.ParentAgentID != nil {
 		return false
 	}
 
 	return l.workflows[index].Worktree.Enabled
 }
 
-// findGitAgent is the agent the menu was opened on, as the list holds it now.
-func (m *model) findGitAgent(agentID string) (panel.AgentRow, bool) {
+// findGitTask is the task the menu was opened on, as the list holds it now.
+func (m *model) findGitTask(taskID string) (panel.Task, bool) {
 	// The list may have moved under the open menu.
-	return m.listing.anyAgent(agentID)
+	task, ok := m.listing.tasks[taskID]
+
+	return task, ok
 }
 
 // openGitAbort leaves the menu for the abort's confirmation, or says why there is nothing to abort.
-func (m *model) openGitAbort(agentID string) tea.Cmd {
-	item, ok := m.findGitAgent(agentID)
+func (m *model) openGitAbort(taskID string) tea.Cmd {
+	task, ok := m.findGitTask(taskID)
 	if !ok {
-		m.report("Could not act on the agent", errAgentGone)
+		m.report("Could not act on the task", errTaskGone)
 
 		return m.closeForm()
 	}
 
-	agent := item.Agent
-	if err := abortRefusal(m.listing, agent); err != nil {
-		m.report("Could not abort what the worktree of "+agent.Name+" has in progress", err)
+	if err := abortRefusal(m.listing, task); err != nil {
+		m.report("Could not abort what the worktree of "+task.Slug+" has in progress", err)
 
 		return m.closeForm()
 	}
 
 	m.leaveForm()
 
-	return m.openGitConfirm(abortOp(agent.TaskID, agent.Name, agent.Sequence), abortForm(agent.Name, agent.Sequence))
+	return m.openGitConfirm(abortOp(task.ID, task.Slug, task.Sequence), abortForm(task.Slug, task.Sequence))
 }

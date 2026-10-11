@@ -31,11 +31,16 @@ func (r reviewScreen) isWorktreeMoved(m *model) bool {
 // findMovedRound is the snapshot on screen when the agent has moved past it, empty otherwise.
 func (r reviewScreen) findMovedRound(m *model) string {
 	item, ok := r.agentRow(m)
-	if !ok || item.MovedSinceRound == "" || item.MovedSinceRound != r.round.GetSnapshotSha() {
+	if !ok {
 		return ""
 	}
 
-	return item.MovedSinceRound
+	moved := m.listing.findTask(item.Agent).MovedSinceRound
+	if moved == "" || moved != r.round.GetSnapshotSha() {
+		return ""
+	}
+
+	return moved
 }
 
 // doesFollowLive reports whether the diff on screen is meant to keep up with the agent.
