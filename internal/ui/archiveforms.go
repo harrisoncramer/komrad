@@ -13,12 +13,7 @@ import (
 func deleteAgentsForm(agents []panel.Agent, children int, keys config.FixedKeys) (*huh.Form, *bool) {
 	title := "Permanently delete " + promptSubject(agents, children) + "?"
 
-	warning := "Their transcripts go with them and search will not find the conversations again."
-	if len(agents) == 1 && children == 0 {
-		warning = "Its transcript goes with it and search will not find the conversation again."
-	}
-
-	return confirmForm(title, warning, "Delete", keys)
+	return confirmForm(title, transcriptWarning(agents, children), "Delete", keys)
 }
 
 // deleteChosenForm asks before chosen agents are deleted, naming any task that goes whole with them.
@@ -29,17 +24,21 @@ func deleteChosenForm(work chosenWork, children int, keys config.FixedKeys) (*hu
 
 	title := "Permanently delete " + promptSubject(work.chosen, children) + "?"
 
-	transcripts := "Their transcripts go with them"
-	if len(work.chosen) == 1 && children == 0 {
-		transcripts = "Its transcript goes with it"
-	}
-
-	warning := fmt.Sprintf("%s, and so do %d tasks with the documents, reviews and worktrees on them.", transcripts, len(work.wholeTasks))
+	tasksGoing := fmt.Sprintf("%d tasks go too, with the documents, reviews and worktrees on them.", len(work.wholeTasks))
 	if len(work.wholeTasks) == 1 {
-		warning = fmt.Sprintf("%s, and so does task %q with the documents, reviews and worktree on it.", transcripts, work.wholeTasks[0].Slug)
+		tasksGoing = fmt.Sprintf("Task %q goes too, with the documents, reviews and worktree on it.", work.wholeTasks[0].Slug)
 	}
 
-	return confirmForm(title, warning, "Delete", keys)
+	return confirmForm(title, transcriptWarning(work.chosen, children)+" "+tasksGoing, "Delete", keys)
+}
+
+// transcriptWarning says the transcripts of the agents being deleted go with them.
+func transcriptWarning(agents []panel.Agent, children int) string {
+	if len(agents) == 1 && children == 0 {
+		return "Its transcript goes with it and search will not find the conversation again."
+	}
+
+	return "Their transcripts go with them and search will not find the conversations again."
 }
 
 func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
