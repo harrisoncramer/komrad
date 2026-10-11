@@ -148,7 +148,7 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID stri
 		return nil
 	}
 
-	return errResumeNotYours.Saying("%s is neither the writer nor a reviewer of %s's task, nor its workflow's orchestrator", target.Name, asker.Name)
+	return errResumeNotYours.Saying("%s may not resume %s", asker.Name, target.Name)
 }
 
 // lockTree holds a task writer's checkout for its launch, refusing one komrad is moving.
