@@ -801,6 +801,7 @@ func TestResumeHoldsTheCheckoutForItsLaunch(t *testing.T) {
 	again()
 }
 
+// TestResumeLeavesAHeldCheckoutToItsWriter pins a reviewer launching in its parent's locked checkout.
 func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
