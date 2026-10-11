@@ -1,5 +1,5 @@
-// Package assemble draws the agent row the panel and the agent listing both show, once, from
-// the resources a caller holds.
+// Package assemble draws the agent and task rows the panel and the agent listing both show,
+// once, from the resources a caller holds.
 package assemble
 
 import (
@@ -212,28 +212,26 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 	}
 }
 
-// AgentRows draws every agent in the world with its unread mail, its pull requests and where the
-// local review of its task's work stands on a top-level agent, newest first.
+// AgentRows draws every agent in the world with its unread mail and its task's pull requests, and
+// the task's local review on a top-level agent, newest first.
 func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	unread := getAgentsWithUnreadMail(w.Mail, now)
-	onBranch := groupPullRequestsByBranch(w.PullRequests)
-	reviewed := groupReviewsByTask(w.Reviews)
-	threaded := groupThreadsByTask(w.ReviewThreads)
+	draw := newTaskDrawer(w)
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
-		task := w.Tasks[agent.GetTaskId()]
-		pullRequests := onBranch[getBranchForTask(w, agent, task)]
+		task := draw.row(agent.GetTaskId())
 
 		row := &agentv1.AgentRow{
 			Agent:        agent,
 			UnreadMail:   unread[agent.GetId()],
-			PullRequest:  calculatePullRequestStanding(task, w.Repositories[task.GetRepositoryUrl()], pullRequests),
-			PullRequests: pullRequests,
+			PullRequest:  task.PullRequest,
+			PullRequests: task.PullRequests,
 		}
 		if agent.ParentAgentId == nil {
-			setLocalReview(row, reviewed[agent.GetTaskId()])
-			setCommentCounts(row, reviewed[agent.GetTaskId()], threaded[agent.GetTaskId()])
+			row.LocalReviewRounds = task.LocalReviewRounds
+			row.ReviewerComments = task.ReviewerComments
+			row.PersonComments = task.PersonComments
 		}
 
 		rows = append(rows, row)
@@ -246,6 +244,65 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	return rows
 }
 
+// TaskRow is a task with the pull requests on its branch and where the local review of its work
+// stands.
+type TaskRow struct {
+	Task         *taskv1.Task
+	PullRequest  *agentv1.PullRequestStanding
+	PullRequests []*pullrequestv1.PullRequest
+	// LocalReviewRounds is how many rounds of its work were reviewed.
+	LocalReviewRounds int32
+	// ReviewerComments counts the comments reviewer agents left on its work, nil while there are none.
+	ReviewerComments *agentv1.CommentCounts
+	// PersonComments counts the comments the person left on its work, nil while there are none.
+	PersonComments *agentv1.CommentCounts
+}
+
+// TaskRows draws every task in the world with its pull requests and local review, by task id.
+func TaskRows(w World) map[string]TaskRow {
+	draw := newTaskDrawer(w)
+
+	rows := make(map[string]TaskRow, len(w.Tasks))
+	for id := range w.Tasks {
+		rows[id] = draw.row(id)
+	}
+
+	return rows
+}
+
+// taskDrawer draws task rows from the world's pull requests, reviews and threads, indexed once.
+type taskDrawer struct {
+	world    World
+	onBranch map[branch][]*pullrequestv1.PullRequest
+	reviewed map[string][]*agentv1.WatchedReview
+	threaded map[string][]*agentv1.ReviewThread
+}
+
+func newTaskDrawer(w World) taskDrawer {
+	return taskDrawer{
+		world:    w,
+		onBranch: groupPullRequestsByBranch(w.PullRequests),
+		reviewed: groupReviewsByTask(w.Reviews),
+		threaded: groupThreadsByTask(w.ReviewThreads),
+	}
+}
+
+// row draws the task by id, which the world may not hold.
+func (d taskDrawer) row(id string) TaskRow {
+	task := d.world.Tasks[id]
+	pullRequests := d.onBranch[getBranchForTask(d.world, task)]
+	comments := countComments(d.reviewed[id], d.threaded[id])
+
+	return TaskRow{
+		Task:              task,
+		PullRequest:       calculatePullRequestStanding(task, d.world.Repositories[task.GetRepositoryUrl()], pullRequests),
+		PullRequests:      pullRequests,
+		LocalReviewRounds: countLocalReviewRounds(d.reviewed[id]),
+		ReviewerComments:  comments.reviewer,
+		PersonComments:    comments.person,
+	}
+}
+
 // branch is where a pull request was opened from.
 type branch struct {
 	repository     string
@@ -253,10 +310,10 @@ type branch struct {
 	name           string
 }
 
-// getBranchForTask is the branch the pull requests of an agent's task are on, and no branch at
-// all when it is the base branch the agent's workflow cuts worktrees from.
-func getBranchForTask(w World, agent *agentv1.Agent, task *taskv1.Task) branch {
-	base := w.Workflows[agent.GetWorkflowId()].GetWorktree().GetBaseBranch()
+// getBranchForTask is the branch a task's pull requests are on, and no branch at all when it is
+// the base branch the task's workflow cuts worktrees from.
+func getBranchForTask(w World, task *taskv1.Task) branch {
+	base := w.Workflows[task.GetWorkflowId()].GetWorktree().GetBaseBranch()
 	if base != "" && task.GetBranch() == base {
 		return branch{}
 	}

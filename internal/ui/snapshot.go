@@ -80,11 +80,11 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Hidden = r.task.Hidden && !row.Archived
 		row.FailedRun = r.task.FailedRun
 		row.Process = view.ProcessNone
-		row.Repo = snapshotRepo(r.lead.Agent)
+		row.Repo = snapshotRepo(r.task.WorktreeRemoved, r.task.Sequence)
 		row.InWorkflowDir = isInWorkflowDir(r.lead.Agent, params.workflowDirs)
-		row.ReviewerComments, row.PersonComments = readSnapshotComments(*r.lead)
-		row.Forge = snapshotForge(*r.lead)
-		row.AutoMerge = r.lead.PullRequest.MergeReadiness.AutoMerge
+		row.ReviewerComments, row.PersonComments = convertComments(r.task.ReviewerComments), convertComments(r.task.PersonComments)
+		row.Forge = snapshotForge(r.task.PullRequest)
+		row.AutoMerge = r.task.PullRequest.MergeReadiness.AutoMerge
 		row.LoaderFrame = params.loaderFrame
 		row.Selected = slices.Contains(params.wholeTasks, r.task.ID)
 
@@ -121,10 +121,10 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Nested = r.underTask
 	row.Name = item.Agent.Name
 	row.Matches = params.matchesOf(r, item.Agent.Name)
-	row.Repo = snapshotRepo(item.Agent)
+	row.Repo = snapshotRepo(item.Agent.WorktreeRemoved, item.Agent.Sequence)
 	row.InWorkflowDir = isInWorkflowDir(item.Agent, params.workflowDirs)
-	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
-	row.Forge = snapshotForge(item)
+	row.ReviewerComments, row.PersonComments = convertComments(item.ReviewerComments), convertComments(item.PersonComments)
+	row.Forge = snapshotForge(item.PullRequest)
 	row.AutoMerge = item.PullRequest.MergeReadiness.AutoMerge
 	row.LoaderFrame = params.loaderFrame
 	row.Selected = params.selected.has(toTreeRowKey(key))
@@ -290,13 +290,13 @@ func snapshotProcess(item panel.AgentRow) view.Process {
 	return view.ProcessAlive
 }
 
-// snapshotRepo is where an agent's own checkout stands, a directory that has gone beating a
-// rebase left part way in one that has not.
-func snapshotRepo(agent panel.Agent) view.Repo {
+// snapshotRepo is where a checkout stands, a directory that has gone beating a rebase left part
+// way in one that has not.
+func snapshotRepo(removed bool, sequence panel.Sequence) view.Repo {
 	switch {
-	case agent.WorktreeRemoved:
+	case removed:
 		return view.RepoGone
-	case agent.Sequence.IsInProgress():
+	case sequence.IsInProgress():
 		return view.RepoRebasing
 	}
 
@@ -308,11 +308,6 @@ func isInWorkflowDir(agent panel.Agent, dirs map[string]string) bool {
 	dir, ok := dirs[agent.WorkflowID]
 
 	return ok && agent.Cwd != "" && filepath.Clean(agent.Cwd) == filepath.Clean(dir)
-}
-
-// readSnapshotComments reads how the comments on an agent's work stand, reviewer agents then the person.
-func readSnapshotComments(item panel.AgentRow) (*view.Comments, *view.Comments) {
-	return convertComments(item.ReviewerComments), convertComments(item.PersonComments)
 }
 
 func convertComments(counts *agentv1.CommentCounts) *view.Comments {
@@ -327,10 +322,10 @@ func convertComments(counts *agentv1.CommentCounts) *view.Comments {
 	}
 }
 
-// snapshotForge is where the pull request opened from an agent's branch stands, as the forge
+// snapshotForge is where the pull request opened from a branch stands, as the forge
 // column renders it.
-func snapshotForge(item panel.AgentRow) view.Forge {
-	switch item.PullRequest.State {
+func snapshotForge(standing panel.PullRequestStanding) view.Forge {
+	switch standing.State {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
 		return view.ForgeNone
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN:

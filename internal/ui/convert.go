@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"komrad/internal/assemble"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -45,26 +46,43 @@ func agentFrom(s *agentv1.Agent, task *taskv1.Task) panel.Agent {
 	}
 }
 
-func tasksFrom(listed []*taskv1.Task) []panel.Task {
-	return xslice.Map(listed, func(t *taskv1.Task) panel.Task {
-		return panel.Task{
-			ID:              t.GetId(),
-			WorkflowID:      t.GetWorkflowId(),
-			Slug:            t.GetSlug(),
-			Title:           t.GetTitle(),
-			Goal:            t.GetGoal(),
-			Notes:           t.GetNotes(),
-			NotesUpdatedAt:  t.NotesUpdatedAt,
-			CreatedAt:       dates.Parse(t.GetCreatedAt()),
-			ArchivedAt:      dates.ParsePtr(t.GetArchivedAt()),
-			FailedRun:       t.GetFailedRun(),
-			Hidden:          t.GetHidden(),
-			Cwd:             t.GetCwd(),
-			Branch:          t.Branch,
-			DiffStat:        t.GetDiffStat(),
-			WorktreeRemoved: t.GetWorktreeRemoved(),
-		}
-	})
+// tasksFrom is the assembled task rows as the panel keeps them, by task id.
+func tasksFrom(rows map[string]assemble.TaskRow) map[string]panel.Task {
+	tasks := make(map[string]panel.Task, len(rows))
+	for id, row := range rows {
+		tasks[id] = taskFrom(row)
+	}
+
+	return tasks
+}
+
+// taskFrom is one assembled task row as the panel keeps it.
+func taskFrom(row assemble.TaskRow) panel.Task {
+	task := row.Task
+
+	return panel.Task{
+		ID:               task.GetId(),
+		WorkflowID:       task.GetWorkflowId(),
+		Slug:             task.GetSlug(),
+		Title:            task.GetTitle(),
+		Goal:             task.GetGoal(),
+		Notes:            task.GetNotes(),
+		NotesUpdatedAt:   task.NotesUpdatedAt,
+		CreatedAt:        dates.Parse(task.GetCreatedAt()),
+		ArchivedAt:       dates.ParsePtr(task.GetArchivedAt()),
+		FailedRun:        task.GetFailedRun(),
+		Hidden:           task.GetHidden(),
+		Cwd:              task.GetCwd(),
+		Branch:           task.Branch,
+		DiffStat:         task.GetDiffStat(),
+		WorktreeRemoved:  task.GetWorktreeRemoved(),
+		Sequence:         sequenceFrom(task.GetSequence()),
+		MovedSinceRound:  task.GetMovedSinceRound(),
+		PullRequest:      pullRequestStandingFrom(row.PullRequest),
+		PullRequests:     xslice.Map(row.PullRequests, pullRequestFrom),
+		ReviewerComments: row.ReviewerComments,
+		PersonComments:   row.PersonComments,
+	}
 }
 
 // stateFrom is a wire state as the panel keeps it.

@@ -68,21 +68,22 @@ var (
 // list would render so a column the row leaves empty is a column the record says nothing about.
 func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
+	standing := item.PullRequest
 	if r.isTask() {
-		item = *r.lead
+		item, standing = *r.lead, r.task.PullRequest
 	}
 
 	failure := describeFailure(item)
 	notices := appendNotice(nil, failure != "", glyphs.Spell(glyph.MessageError), paint.ToneDanger, failure)
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeAlertSaid[row.Forge]))
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeAlertSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeReviewSaid[row.Forge]))
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeReviewSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, glyphs, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(item.PullRequest, forgeSaid[row.Forge]))
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeSaid[row.Forge]))
 
 	return appendUnreadNotice(notices, glyphs, row.PersonComments)
 }

@@ -46,7 +46,7 @@ func agentDetails(m *model, r agentRow) details {
 	if r.underTask {
 		params.headerCwd = task.Cwd
 	} else {
-		params.checkout = checkoutFields(m.buildCheckoutParams(task, r.item))
+		params.checkout = checkoutFields(m.buildCheckoutParams(task))
 		if r.item.Agent.ArchivedAt == nil {
 			tags = taskDetailsTags(m, task)
 		}
@@ -60,13 +60,12 @@ func agentDetails(m *model, r agentRow) details {
 	}
 }
 
-// taskDetailFields is the record for a task as the listing holds it, with the pull requests its
-// writer carries.
+// taskDetailFields is the record for a task as the listing holds it.
 func taskDetailFields(m *model, task panel.Task, lead panel.AgentRow) []recordField {
 	writer := m.listing.findTaskWriter(task, lead)
 
 	return taskFields(taskFieldsParams{
-		checkout: m.buildCheckoutParams(task, writer),
+		checkout: m.buildCheckoutParams(task),
 		agents:   m.listing.taskAgents(task.ID),
 		writer:   writer,
 	})

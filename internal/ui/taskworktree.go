@@ -90,12 +90,9 @@ func taskWorktree(inspections map[string]worktreeInspection, cwd string) (worktr
 // branchFieldKey labels the branch a task's checkout is on.
 const branchFieldKey = "branch"
 
-// checkoutFieldsParams is a task and what the record says of its checkout that is not on its
-// row: the pull requests from its branch and what was read of its directory.
+// checkoutFieldsParams is a task and what was read of its directory.
 type checkoutFieldsParams struct {
-	task         panel.Task
-	standing     panel.PullRequestStanding
-	pullRequests []panel.PullRequest
+	task panel.Task
 	// worktree is what the service has answered about the task's directory, and read says
 	// whether it has answered that the directory is a worktree at all.
 	worktree worktreeInspection
@@ -109,7 +106,7 @@ func checkoutFields(params checkoutFieldsParams) []recordField {
 	var fields []recordField
 	if params.task.Branch != nil {
 		fields = append(fields, recordField{label: branchFieldKey, value: *params.task.Branch})
-		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
+		fields = append(fields, pullRequestFields(params.task.PullRequest, params.task.PullRequests)...)
 	}
 	if params.read {
 		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)
@@ -118,18 +115,15 @@ func checkoutFields(params checkoutFieldsParams) []recordField {
 	return fields
 }
 
-// buildCheckoutParams is a task's checkout as the listing and the reads hold it, with the pull
-// requests the agent carries.
-func (m *model) buildCheckoutParams(task panel.Task, item panel.AgentRow) checkoutFieldsParams {
+// buildCheckoutParams is a task's checkout as the listing and the reads hold it.
+func (m *model) buildCheckoutParams(task panel.Task) checkoutFieldsParams {
 	worktree, read := taskWorktree(m.inspections, task.Cwd)
 
 	return checkoutFieldsParams{
-		task:         task,
-		standing:     item.PullRequest,
-		pullRequests: item.PullRequests,
-		worktree:     worktree,
-		read:         read,
-		now:          time.Now(),
+		task:     task,
+		worktree: worktree,
+		read:     read,
+		now:      time.Now(),
 	}
 }
 

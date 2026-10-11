@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/assemble"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
@@ -25,21 +26,20 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	assert.True(t, converted.WorktreeRemoved)
 }
 
-// TestTasksFromCarriesTheCheckout pins the branch and the diff stat of a task's checkout
+// TestTaskFromCarriesTheCheckout pins the branch and the diff stat of a task's checkout
 // surviving the conversion.
-func TestTasksFromCarriesTheCheckout(t *testing.T) {
+func TestTaskFromCarriesTheCheckout(t *testing.T) {
 	branch := "fix/thing"
-	converted := tasksFrom([]*taskv1.Task{{
+	converted := taskFrom(assemble.TaskRow{Task: &taskv1.Task{
 		Id:       "t1",
 		Branch:   &branch,
 		DiffStat: &taskv1.DiffStat{Added: 3, Removed: 1},
 	}})
 
-	require.Len(t, converted, 1)
-	require.NotNil(t, converted[0].Branch)
-	assert.Equal(t, branch, *converted[0].Branch)
-	assert.Equal(t, int32(3), converted[0].DiffStat.GetAdded())
-	assert.Equal(t, int32(1), converted[0].DiffStat.GetRemoved())
+	require.NotNil(t, converted.Branch)
+	assert.Equal(t, branch, *converted.Branch)
+	assert.Equal(t, int32(3), converted.DiffStat.GetAdded())
+	assert.Equal(t, int32(1), converted.DiffStat.GetRemoved())
 }
 
 // TestProtoToAgentCarriesAFailedTurn pins the text a turn an API error ended is rendered with.
