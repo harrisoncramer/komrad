@@ -421,11 +421,15 @@ func (s *ReviewService) getTaskOfAgentID(ctx context.Context, agentID string) (*
 
 // getTaskOfAgent reads the task an agent works on, refusing an orchestrator, which works on none.
 func (s *ReviewService) getTaskOfAgent(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
-	if agent.TaskID == nil {
+	task, err := s.tasks.GetByAgentID(ctx, agent.ID)
+	if errors.Is(err, taskstore.ErrNoTask) {
 		return nil, fmt.Errorf("%w: %q", errReviewNoTask, agent.Name)
 	}
+	if err != nil {
+		return nil, err
+	}
 
-	return s.tasks.Get(ctx, *agent.TaskID)
+	return task, nil
 }
 
 // isTaskWriter reports whether an author is the live writer of a task.

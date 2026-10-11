@@ -96,6 +96,11 @@ func (s *TaskService) GetTask(ctx context.Context, ref string) (*taskstore.Task,
 	return s.tasks.GetBySlug(ctx, ref)
 }
 
+// GetAgentTask returns the task an agent is on, refusing an agent on no task.
+func (s *TaskService) GetAgentTask(ctx context.Context, agentID string) (*taskstore.Task, error) {
+	return s.tasks.GetByAgentID(ctx, agentID)
+}
+
 // ListTasks returns a workflow's live or archived tasks, the newest first.
 func (s *TaskService) ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error) {
 	return s.tasks.List(ctx, workflowID, archived)

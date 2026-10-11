@@ -17,6 +17,7 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	taskstore "komrad/internal/store/task"
 )
 
 var errNothingToForward = fail.Precondition("the source has no turns synced yet, so there is nothing to forward")
@@ -190,11 +191,10 @@ func buildForwardBody(params buildForwardBodyParams) string {
 
 // readTaskBranch is the branch the checkout of an agent's task is on, empty when there is none.
 func (r *TranscriptReader) readTaskBranch(ctx context.Context, agent agentstore.Agent) (string, error) {
-	if agent.TaskID == nil {
+	task, err := r.tasks.GetByAgentID(ctx, agent.ID)
+	if errors.Is(err, taskstore.ErrNoTask) {
 		return "", nil
 	}
-
-	task, err := r.tasks.Get(ctx, *agent.TaskID)
 	if err != nil {
 		return "", fmt.Errorf("failed to read the task of %q: %w", agent.ID, err)
 	}
