@@ -20,6 +20,7 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -442,8 +443,13 @@ func newAgentService(t *testing.T, params newAgentServiceParams) *agents.LaunchS
 	require.NoError(t, err)
 
 	return agents.NewLaunchService(agents.NewLaunchServiceParams{
-		Tmux:      params.terminal,
-		Agents:    params.stores.Agents,
+		Tmux:   params.terminal,
+		Agents: params.stores.Agents,
+		Tasks: tasks.NewTaskService(tasks.NewTaskServiceParams{
+			Tasks:  params.stores.Tasks,
+			Agents: params.stores.Agents,
+			Tx:     params.stores.Pool,
+		}),
 		Reviews:   reviewstore.NewReviewStore(params.stores.Pool.GetDB()),
 		Workflows: params.stores.Workflows,
 		Tx:        params.stores.Pool,
