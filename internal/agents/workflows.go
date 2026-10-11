@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"komrad/config"
 	"komrad/internal/agenterr"
 	"komrad/internal/fail"
 	"komrad/internal/git"
@@ -316,66 +315,4 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any
 	// agent whose cleanup is still running or has failed.
 	return w.agentDeleter.DeleteAgents(ctx, agentstore.IDs(inside))
-}
-
-type claimRoomToRestoreParams struct {
-	agents   *agentstore.AgentStore
-	usage    config.Usage
-	archived []agentstore.Agent
-}
-
-func claimRoomToRestore(ctx context.Context, params claimRoomToRestoreParams) error {
-	if err := claimRoomForAgents(ctx, params.agents, params.usage.MaxAgents, len(params.archived)); err != nil {
-		return err
-	}
-	if err := claimRoomForRestoredChildren(ctx, params.agents, params.usage.Implementer.MaxChildren, params.archived); err != nil {
-		return err
-	}
-	if err := claimRoomForRestoredSpawned(ctx, params.agents, params.usage.Orchestrator.MaxChildren, params.archived); err != nil {
-		return err
-	}
-
-	return requireNamesFree(ctx, params.agents, params.archived)
-}
-
-func requireNamesFree(ctx context.Context, agents *agentstore.AgentStore, archived []agentstore.Agent) error {
-	returning := make(map[agentName]int, len(archived))
-	for _, agent := range archived {
-		returning[agentName{workflowID: agent.WorkflowID, name: agent.Name}]++
-	}
-
-	var clashing []string
-	checked := make(map[agentName]bool, len(archived))
-
-	for _, agent := range archived {
-		claimed := agentName{workflowID: agent.WorkflowID, name: agent.Name}
-		if checked[claimed] {
-			continue
-		}
-		checked[claimed] = true
-
-		if returning[claimed] > 1 {
-			clashing = append(clashing, agent.Name)
-
-			continue
-		}
-
-		taken, err := agents.ExistsActiveName(ctx, agent.WorkflowID, agent.Name)
-		if err != nil {
-			return fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
-		}
-		if taken {
-			clashing = append(clashing, agent.Name)
-		}
-	}
-	if len(clashing) > 0 {
-		return fmt.Errorf("%w: rename whatever holds %s before restoring", store.ErrNameTaken, strings.Join(clashing, ", "))
-	}
-
-	return nil
-}
-
-type agentName struct {
-	workflowID string
-	name       string
 }
