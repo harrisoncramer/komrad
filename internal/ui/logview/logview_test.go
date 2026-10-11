@@ -2,9 +2,11 @@ package logview_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"komrad/internal/ui/logview"
+	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
@@ -18,6 +20,7 @@ func TestTailRows(t *testing.T) {
 
 	tests := []struct {
 		name   string
+		format logview.Format
 		lines  []string
 		width  int
 		height int
@@ -63,6 +66,17 @@ func TestTailRows(t *testing.T) {
 			height: 3,
 			want:   []string{"red tabbell"},
 		},
+		{
+			name:   "a styled line cut off above the view keeps its style on every row",
+			format: logview.FormatCompact,
+			lines:  []string{`{"severity_text":"ERROR","body":"x","error.message":"` + strings.Repeat("a", 40) + `"}`},
+			width:  23,
+			height: 2,
+			want: []string{
+				paint.Panel.Style(paint.ToneDanger).Render(strings.Repeat("a", 23)),
+				paint.Panel.Style(paint.ToneDanger).Render(strings.Repeat("a", 17)),
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -70,6 +84,7 @@ func TestTailRows(t *testing.T) {
 			t.Parallel()
 
 			viewer := logview.NewTail(100)
+			viewer.SetFormat(tt.format)
 			viewer.Append(tt.lines)
 
 			rows, _ := viewer.Rows(tt.width, tt.height)
