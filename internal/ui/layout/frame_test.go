@@ -394,6 +394,19 @@ func TestFrameClearStage(t *testing.T) {
 		assert.Empty(t, tmux.respawns)
 	})
 
+	t.Run("a stage already gone is not killed again", func(t *testing.T) {
+		tmux := &recordingTmux{deadPanes: map[string]bool{}}
+		frame := New(tmux, config.DefaultLayout())
+		frame.Attach("%0")
+		require.NotEmpty(t, frame.Open(RegionInfo))
+
+		tmux.deadPanes["%1"] = true
+		frame.ClearStage()
+
+		assert.Empty(t, tmux.killed)
+		assert.Empty(t, frame.Pane(RegionStage))
+	})
+
 	t.Run("asked for again the stage splits back off the info pane", func(t *testing.T) {
 		tests := []struct {
 			name   string

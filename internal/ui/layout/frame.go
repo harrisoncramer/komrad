@@ -339,7 +339,9 @@ func (f *Frame) ClearStage() {
 	}
 
 	f.restoreGuest()
-	f.move(panes.Kill(f.stage))
+	if f.tmux.IsPaneAlive(f.stage) {
+		f.move(panes.Kill(f.stage))
+	}
 	f.stage, f.remoteGuest, f.folded = "", "", true
 	f.forget(RegionStage)
 }
