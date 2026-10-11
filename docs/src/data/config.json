@@ -480,56 +480,56 @@
               "key": "copy_pull_request_url",
               "path": "keybindings.git.copy_pull_request_url",
               "type": "array",
-              "description": "Copy the address of the hovered agent's current pull request to your clipboard.",
+              "description": "Copy the address of the hovered task's current pull request to your clipboard.",
               "default": "[\"c\"]"
             },
             {
               "key": "merge",
               "path": "keybindings.git.merge",
               "type": "array",
-              "description": "Open the merge menu to the right of this one, for merging the hovered agent's pull request\non the forge and archiving the agent after.",
+              "description": "Open the merge menu to the right of this one, for merging the hovered task's pull request\non the forge and archiving the task after.",
               "default": "[\"m\"]"
             },
             {
               "key": "open_pull_request",
               "path": "keybindings.git.open_pull_request",
               "type": "array",
-              "description": "Open the hovered agent's current pull request in your browser: the newest one opened from\nits branch that is not finished, else the newest finished one. The entry says so rather\nthan acting on an agent with none.",
+              "description": "Open the hovered task's current pull request in your browser: the newest one opened from\nits branch that is not finished, else the newest finished one. The entry says so rather\nthan acting on a task with none.",
               "default": "[\"o\"]"
             },
             {
               "key": "push",
               "path": "keybindings.git.push",
               "type": "array",
-              "description": "Send the hovered agent's branch to origin, which asks first and says how many commits go\nup, whether origin's copy is overwritten after a rebase, and what stays uncommitted.",
+              "description": "Send the hovered task's branch to origin, which asks first and says how many commits go\nup, whether origin's copy is overwritten after a rebase, and what stays uncommitted.",
               "default": "[\"p\"]"
             },
             {
               "key": "abort",
               "path": "keybindings.git.abort",
               "type": "array",
-              "description": "Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered agent's\nworktree, which asks first. The entry names the kind and is off when nothing is in progress.",
+              "description": "Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered task's\nworktree, which asks first. The entry names the kind and is off when nothing is in progress.",
               "default": "[\"x\"]"
             },
             {
               "key": "rebase",
               "path": "keybindings.git.rebase",
               "type": "array",
-              "description": "Bring the hovered agent's worktree up to date on the latest base, which asks first and\nsays what it would do to the branch and to the files.",
+              "description": "Bring the hovered task's worktree up to date on the latest base, which asks first and\nsays what it would do to the branch and to the files.",
               "default": "[\"r\"]"
             },
             {
               "key": "request_rereview",
               "path": "keybindings.git.request_rereview",
               "type": "array",
-              "description": "Ask everyone who requested changes on the hovered agent's pull request to review it again.",
+              "description": "Ask everyone who requested changes on the hovered task's pull request to review it again.",
               "default": "[\"v\"]"
             },
             {
               "key": "toggle_draft",
               "path": "keybindings.git.toggle_draft",
               "type": "array",
-              "description": "Mark the hovered agent's pull request a draft, or ready for review when it is one.",
+              "description": "Mark the hovered task's pull request a draft, or ready for review when it is one.",
               "default": "[\"d\"]"
             }
           ],
@@ -537,7 +537,7 @@
         },
         {
           "path": "keybindings.jump_menu",
-          "description": "The jump menu, nested under the menu on an agent, a document or a worktree.",
+          "description": "The jump menu, nested under the menu on a task, a document or a worktree.",
           "settings": [
             {
               "key": "agent",
@@ -564,7 +564,7 @@
               "key": "documents",
               "path": "keybindings.jump_menu.documents",
               "type": "array",
-              "description": "Open the documents view on the documents the agent has written.",
+              "description": "Open the documents view on the task's documents from a task's menu, and on the agent's elsewhere.",
               "default": "[\"d\"]"
             }
           ],
@@ -593,20 +593,20 @@
         },
         {
           "path": "keybindings.merge",
-          "description": "The merge menu, nested under the git menu, which merges the hovered agent's pull request.",
+          "description": "The merge menu, nested under the git menu, which merges the hovered task's pull request.",
           "settings": [
             {
               "key": "merge",
               "path": "keybindings.merge.merge",
               "type": "array",
-              "description": "Merge the pull request and leave the agent where it is.",
+              "description": "Merge the pull request and leave the task where it is.",
               "default": "[\"m\"]"
             },
             {
               "key": "merge_archive",
               "path": "keybindings.merge.merge_archive",
               "type": "array",
-              "description": "Merge the pull request, then archive the agent once the forge has merged it.",
+              "description": "Merge the pull request, then archive the task once the forge has merged it.",
               "default": "[\"a\"]"
             },
             {
@@ -620,7 +620,7 @@
               "key": "merge_rebase",
               "path": "keybindings.merge.merge_rebase",
               "type": "array",
-              "description": "Merge the pull request on the forge, then bring the agent's worktree up to date on the base,\nwhich now holds its work.",
+              "description": "Merge the pull request on the forge, then bring the task's worktree up to date on the base,\nwhich now holds its work.",
               "default": "[\"r\"]"
             }
           ],
@@ -719,20 +719,20 @@
         },
         {
           "path": "keybindings.review",
-          "description": "The review screen, which draws an agent's diff in the stage and its review\nthreads in the sidebar.",
+          "description": "The review screen, which draws a task's diff in the stage and its review\nthreads in the sidebar.",
           "settings": [
             {
               "key": "accept",
               "path": "keybindings.review.accept",
               "type": "array",
-              "description": "From the menu, pass a held comment from the forge on to the agent, copied into your review as your own\nwords. A comment is held when its author cannot push to the repository, and the agent\nreads nothing in its thread until the comment opening it is accepted and the review sent.",
+              "description": "From the menu, pass a held comment from the forge on to the writer, copied into your review as your own\nwords. A comment is held when its author cannot push to the repository, and the writer\nreads nothing in its thread until the comment opening it is accepted and the review sent.",
               "default": "[\"A\"]"
             },
             {
               "key": "answer",
               "path": "keybindings.review.answer",
               "type": "array",
-              "description": "From the menu, show only the change that answered the comment under the cursor, from the work as\nit stood just before the agent's addressed reply to the work that reply carried, or\ngo back to all changes from there.",
+              "description": "From the menu, show only the change that answered the comment under the cursor, from the work as\nit stood just before the writer's addressed reply to the work that reply carried, or\ngo back to all changes from there.",
               "default": "[\"a\"]"
             },
             {
@@ -760,7 +760,7 @@
               "key": "edit_file",
               "path": "keybindings.review.edit_file",
               "type": "array",
-              "description": "From the menu, open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the agent's own worktree rather than a copy of it, so what\nyou write is what the agent finds there, and the key is refused while the agent is\nworking rather than letting you both write at once. It is refused on a round the\nagent has written past, since those lines have moved on.",
+              "description": "From the menu, open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the task's own worktree rather than a copy of it, so what\nyou write is what the writer finds there, and the key is refused while the writer is\nworking rather than letting you both write at once. It is refused on a round the\nwriter has written past, since those lines have moved on.",
               "default": "[\"e\"]"
             },
             {
@@ -823,7 +823,7 @@
               "key": "reload",
               "path": "keybindings.review.reload",
               "type": "array",
-              "description": "From the menu, catch up with the agent, once the band says it has written since you opened the\ndiff. What you are reading never moves on its own, since that would take the code out\nfrom under a comment being written, so catching up is always yours to ask for.",
+              "description": "From the menu, catch up with the writer, once the band says it has written since you opened the\ndiff. What you are reading never moves on its own, since that would take the code out\nfrom under a comment being written, so catching up is always yours to ask for.",
               "default": "[\"R\"]"
             },
             {
@@ -844,14 +844,14 @@
               "key": "send",
               "path": "keybindings.review.send",
               "type": "array",
-              "description": "From the menu, send the comments waiting in your review to the agent, after asking for a note on the work as a whole.",
+              "description": "From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.",
               "default": "[\"S\"]"
             },
             {
               "key": "toggle_viewed",
               "path": "keybindings.review.toggle_viewed",
               "type": "array",
-              "description": "From the menu, fold away the file the cursor is in once you have read it, or open it again. A file\nthe agent writes to afterwards comes back on its own.",
+              "description": "From the menu, fold away the file the cursor is in once you have read it, or open it again. A file\nthe writer writes to afterwards comes back on its own.",
               "default": "[\"v\"]"
             }
           ],

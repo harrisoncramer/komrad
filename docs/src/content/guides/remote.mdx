@@ -2,7 +2,7 @@
 title: Running komrad remotely
 description: Keep the panel on your laptop and run the agents on a machine that never sleeps.
 group: operations
-order: 12
+order: 13
 ---
 
 import Command from "../../components/Command.astro";
@@ -32,7 +32,7 @@ To move to another engine, close the panel and run <Command path="open" args="--
 
 An agent's terminal on the engine is streamed to your panel, and <Command path="terminal" args="AGENT" /> does the same in any terminal. The agent's window takes the size of the terminal attached to it, so it fills the stage and follows it when you resize.
 
-The terminal in an agent's [menu](../navigation/#the-agent-menu) works the same way. It opens a shell on the engine, in the agent's directory there, and streams it to the pane below the stage.
+The terminal in an agent's [menu](../navigation/#the-menu) works the same way. It opens a shell on the engine, in the agent's directory there, and streams it to the pane below the stage.
 
 The exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it is attached, so a smaller terminal crops it and a larger one leaves blank space around it.
 
@@ -40,7 +40,7 @@ The exception is a window someone fixed at a size on the engine itself, for exam
 
 Agents on the engine run a CLI that has to be logged in. Do that once on the engine: start the CLI and log in. The login lives on the engine's data disk.
 
-Each agent also works in a fresh worktree, and the CLI asks whether to trust every directory it has not seen. Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI the engine runs, so komrad answers that question before the agent starts. Without it, every new agent sits waiting at that question.
+Each task also works in a fresh worktree, and the CLI asks whether to trust every directory it has not seen. Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI the engine runs, so komrad answers that question before the agent starts. Without it, every new agent sits waiting at that question.
 
 ## When the engine is off
 

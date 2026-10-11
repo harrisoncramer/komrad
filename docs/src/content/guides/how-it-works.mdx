@@ -2,12 +2,12 @@
 title: How it works
 description: The server, the panel, tmux, and the one API everything goes through.
 group: architecture
-order: 14
+order: 15
 ---
 
 import Command from "../../components/Command.astro";
 
-You have used every piece: [workflows](../workflows/), [agents](../agents/), [hooks](../hooks/), [schedules](../schedules/), [events and messages](../events-and-messages/) and [MCP](../mcp/). This guide steps back and shows how they fit together, and why closing things is always safe. The guides after it go deeper.
+You have used every piece: [workflows](../workflows/), [tasks](../tasks/), [agents](../agents/), [reviews](../reviews/), [hooks](../hooks/), [schedules](../schedules/), [events and messages](../events-and-messages/) and [MCP](../mcp/). This guide steps back and shows how they fit together, and why closing things is always safe. The guides after it go deeper.
 
 ## Two programs
 
@@ -41,7 +41,7 @@ The CLI commands and MCP tools are not written by hand. Every endpoint is declar
 
 ## Everything is a row
 
-Everything komrad knows is a row in Postgres. An agent, a workflow, a piece of mail, a review. Facts from outside, such as whether an agent is idle, are found by background loops and written onto the row. Nothing important lives only in memory.
+Everything komrad knows is a row in Postgres. A workflow, a task, an agent, a piece of mail, a review. Facts from outside, such as whether an agent is idle, are found by background loops and written onto the row. Nothing important lives only in memory.
 
 ## How a change reaches your screen
 

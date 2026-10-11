@@ -2,30 +2,36 @@
 title: Navigating komrad
 description: Komrad's navigation is keyboard based, and inspired by vim.
 group: start
-order: 4
+order: 6
 ---
 
 import Setting from "../../components/Setting.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad's panel is divided up into a few sections: the sidebar, the info panel, and the main panel. These different sections hold differnet things, depending on the view.
+Komrad's panel is divided up into a few sections: the sidebar, the info panel, and the main panel. What each one holds depends on the view.
 
 ## The sidebar
 
-The sidebar typically lists the resource you're looking at, such as agents or worktrees.
+The sidebar typically lists the resource you're looking at, such as workflows and their tasks, or worktrees.
 
 The view switcher at the top of the sidebar moves between these subsections. Press <Key name="views.next" /> or <Key name="views.previous" /> to open the next or previous view.
 
-The details pane underneath shows what is known about the currently active row. For instance, for an agent, it might show the agent's directory and it's base branch.
+The details pane underneath shows what is known about the currently active row. For instance, for a task, it shows the task's directory, branch and pull request.
 
 Finally, the help menu at the bottom of every sidebar shows the available hotkeys. Press <Key name="help.toggle" /> to bring up the help.
 
 ## The main view
 
-The main view is the wide region beside the sidebar. In the agent list, it shows the agent you have opened.
+The main view is the wide region beside the sidebar. On the agents view, it shows the agent you have opened.
 
 To move between the sidebar and the main view, press komrad's leader key twice: `ctrl+space`. Komrad also has "jump mode" which lets you jump to any of the different sections on the screen. Press `ctrl+space j` to enter jump mode: a big letter is drawn over each section. Komrad also has visual mode (for selecting text) and edit mode (when you are using vim keybindings). The bottom right of the sidebar names the mode you are in.
+
+## The menu
+
+Most actions live in the menu. Press <Key name="menu.open" /> and it lists what you can do with the row under the cursor, over the screen's own entries. Each entry names its key, and an entry that opens a further menu, such as git or archive, opens it to the right.
+
+What the menu holds depends on the row. A workflow's menu starts a task, edits the workflow or adopts a branch. A task's menu holds the work: its review, its git menu, starting another agent on it, handing it off, hiding it and archiving it. An agent's own menu holds only what concerns its session, such as its logs and archiving it.
 
 ## Navigation, Sorting, and Filtering
 
@@ -77,7 +83,7 @@ When komrad reports something, such as an error, its summary flashes for a few s
 
 ## Visual selection
 
-Press <Key name="selection.toggle" /> to take the row under the cursor into a selection, and <Key name="selection.range" /> to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving, or restoring and deleting from the archived agents' menu.
+Press <Key name="selection.toggle" /> to take the row under the cursor into a selection, and <Key name="selection.range" /> to take in every row between the cursor and the nearest selected one. An action that works on one task then works on every chosen task, such as hiding or archiving them, or restoring and deleting them from the archive.
 
 <figure>
   <video
@@ -88,7 +94,7 @@ Press <Key name="selection.toggle" /> to take the row under the cursor into a se
     poster={media("navigation-selecting.png")}
     width="1440"
     height="920"
-    aria-label="Selecting three agents with v and V, then archiving them together from the menu."
+    aria-label="Selecting three tasks with v and V, then archiving them together from the menu."
   >
     <source src={media("navigation-selecting.webm")} type="video/webm" />
     <source src={media("navigation-selecting.mp4")} type="video/mp4" />
@@ -97,7 +103,7 @@ Press <Key name="selection.toggle" /> to take the row under the cursor into a se
 
 ## The details
 
-The details under the list show more about the row under the cursor, such as an agent's directory, branch and pull request. Press `ctrl+space j` and the letter over them to move the keyboard there, and press <Key name="details.copy" /> to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
+The details under the list show more about the row under the cursor, such as a task's directory, branch and pull request. Press `ctrl+space j` and the letter over them to move the keyboard there, and press <Key name="details.copy" /> to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
 
 <figure>
   <video

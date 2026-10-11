@@ -2,7 +2,7 @@
 title: Hooks
 description: Your own scripts, run by komrad at moments in an agent's or a task's life.
 group: start
-order: 7
+order: 8
 ---
 
 import Command from "../../components/Command.astro";
@@ -82,7 +82,7 @@ Every moment in an agent's life has a hook before it and a hook after it. Komrad
 
 Anything one agent brought up that should not outlive it, such as a server it started, belongs on `agent.post-archive`. Put it on `agent.pre-delete` as well, written so it is safe to run twice, to cover an agent deleted without being archived.
 
-Hooks run one at a time, in the order the lifecycle events happen. Calls that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, is given eleven minutes rather than the usual thirty seconds. Reviewer agents do not run hooks.
+Hooks run one at a time, in the order the lifecycle events happen. A call that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, is given eleven minutes rather than the usual thirty seconds. Reviewers and the other children of a task's writer run no agent hooks.
 
 ## Task Lifecycle
 

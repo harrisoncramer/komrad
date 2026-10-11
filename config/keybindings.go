@@ -37,11 +37,11 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu, nested under the menu on the hovered row, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
-	// The jump menu, nested under the menu on an agent, a document or a worktree.
+	// The jump menu, nested under the menu on a task, a document or a worktree.
 	JumpMenu JumpMenuKeys `mapstructure:"jump_menu"`
 	// The hide menu, nested under the menu on the agents list.
 	HideMenu HideMenuKeys `mapstructure:"hide_menu"`
-	// The merge menu, nested under the git menu, which merges the hovered agent's pull request.
+	// The merge menu, nested under the git menu, which merges the hovered task's pull request.
 	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the server logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
@@ -49,7 +49,7 @@ type Keybindings struct {
 	Messages MessagesKeys `mapstructure:"messages"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
-	// The review screen, which draws an agent's diff in the stage and its review
+	// The review screen, which draws a task's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
 	// The keys the mouse wheel presses over the panel, shared by every screen.
@@ -190,30 +190,30 @@ type AgentsKeys struct {
 	Rename []string `mapstructure:"rename" default:"r"`
 }
 
-// GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and
+// GitKeys are the bindings for the git menu, which opens from the menu on the hovered task and
 // holds the actions that act on its branch.
 type GitKeys struct {
-	// Copy the address of the hovered agent's current pull request to your clipboard.
+	// Copy the address of the hovered task's current pull request to your clipboard.
 	CopyPullRequestURL []string `mapstructure:"copy_pull_request_url" default:"c"`
-	// Open the merge menu to the right of this one, for merging the hovered agent's pull request
-	// on the forge and archiving the agent after.
+	// Open the merge menu to the right of this one, for merging the hovered task's pull request
+	// on the forge and archiving the task after.
 	Merge []string `mapstructure:"merge" default:"m"`
-	// Open the hovered agent's current pull request in your browser: the newest one opened from
+	// Open the hovered task's current pull request in your browser: the newest one opened from
 	// its branch that is not finished, else the newest finished one. The entry says so rather
-	// than acting on an agent with none.
+	// than acting on a task with none.
 	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
-	// Send the hovered agent's branch to origin, which asks first and says how many commits go
+	// Send the hovered task's branch to origin, which asks first and says how many commits go
 	// up, whether origin's copy is overwritten after a rebase, and what stays uncommitted.
 	Push []string `mapstructure:"push" default:"p"`
-	// Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered agent's
+	// Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered task's
 	// worktree, which asks first. The entry names the kind and is off when nothing is in progress.
 	Abort []string `mapstructure:"abort" default:"x"`
-	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
+	// Bring the hovered task's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
-	// Ask everyone who requested changes on the hovered agent's pull request to review it again.
+	// Ask everyone who requested changes on the hovered task's pull request to review it again.
 	RequestRereview []string `mapstructure:"request_rereview" default:"v"`
-	// Mark the hovered agent's pull request a draft, or ready for review when it is one.
+	// Mark the hovered task's pull request a draft, or ready for review when it is one.
 	ToggleDraft []string `mapstructure:"toggle_draft" default:"d"`
 }
 
@@ -227,14 +227,14 @@ type HideMenuKeys struct {
 
 // MergeKeys are the bindings for the merge menu, which opens from the git menu.
 type MergeKeys struct {
-	// Merge the pull request and leave the agent where it is.
+	// Merge the pull request and leave the task where it is.
 	Merge []string `mapstructure:"merge" default:"m"`
-	// Merge the pull request, then archive the agent once the forge has merged it.
+	// Merge the pull request, then archive the task once the forge has merged it.
 	MergeArchive []string `mapstructure:"merge_archive" default:"a"`
 	// Have the forge merge the pull request on its own once its checks and reviews pass, or stop it
 	// when it is already waiting to.
 	AutoMerge []string `mapstructure:"auto_merge" default:"u"`
-	// Merge the pull request on the forge, then bring the agent's worktree up to date on the base,
+	// Merge the pull request on the forge, then bring the task's worktree up to date on the base,
 	// which now holds its work.
 	MergeRebase []string `mapstructure:"merge_rebase" default:"r"`
 }
@@ -358,7 +358,7 @@ type LogsKeys struct {
 	Copy []string `mapstructure:"copy" default:"y"`
 }
 
-// JumpMenuKeys are the bindings for the jump menu, nested under the menu on an agent, a document
+// JumpMenuKeys are the bindings for the jump menu, nested under the menu on a task, a document
 // or a worktree, which lands on the rows related to the hovered one.
 type JumpMenuKeys struct {
 	// Land on the agent, on the agents list or in the archive.
@@ -367,7 +367,7 @@ type JumpMenuKeys struct {
 	Task []string `mapstructure:"task" default:"t"`
 	// Land on the agent's worktree on the worktrees screen.
 	Worktree []string `mapstructure:"worktree" default:"w"`
-	// Open the documents view on the documents the agent has written.
+	// Open the documents view on the task's documents from a task's menu, and on the agent's elsewhere.
 	Documents []string `mapstructure:"documents" default:"d"`
 }
 
@@ -377,12 +377,12 @@ type JumpMenuKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
-	// From the menu, pass a held comment from the forge on to the agent, copied into your review as your own
-	// words. A comment is held when its author cannot push to the repository, and the agent
+	// From the menu, pass a held comment from the forge on to the writer, copied into your review as your own
+	// words. A comment is held when its author cannot push to the repository, and the writer
 	// reads nothing in its thread until the comment opening it is accepted and the review sent.
 	Accept []string `mapstructure:"accept" default:"A"`
 	// From the menu, show only the change that answered the comment under the cursor, from the work as
-	// it stood just before the agent's addressed reply to the work that reply carried, or
+	// it stood just before the writer's addressed reply to the work that reply carried, or
 	// go back to all changes from there.
 	Answer []string `mapstructure:"answer" default:"a"`
 	// Walk back a chapter through the review, from the whole change to the newest chapter and
@@ -395,10 +395,10 @@ type ReviewKeys struct {
 	// or opening a new one.
 	Compose []string `mapstructure:"compose" default:"c"`
 	// From the menu, open the file under the cursor in your editor, beside the diff, on the line the
-	// cursor is on. This is the agent's own worktree rather than a copy of it, so what
-	// you write is what the agent finds there, and the key is refused while the agent is
+	// cursor is on. This is the task's own worktree rather than a copy of it, so what
+	// you write is what the writer finds there, and the key is refused while the writer is
 	// working rather than letting you both write at once. It is refused on a round the
-	// agent has written past, since those lines have moved on.
+	// writer has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// From the menu, throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
 	// posted.
@@ -420,7 +420,7 @@ type ReviewKeys struct {
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
-	// From the menu, catch up with the agent, once the band says it has written since you opened the
+	// From the menu, catch up with the writer, once the band says it has written since you opened the
 	// diff. What you are reading never moves on its own, since that would take the code out
 	// from under a comment being written, so catching up is always yours to ask for.
 	Reload []string `mapstructure:"reload" default:"R"`
@@ -429,10 +429,10 @@ type ReviewKeys struct {
 	AgentThreads []string `mapstructure:"agent_threads" default:"b"`
 	// From the menu, settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
-	// From the menu, send the comments waiting in your review to the agent, after asking for a note on the work as a whole.
+	// From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
 	Send []string `mapstructure:"send" default:"S"`
 	// From the menu, fold away the file the cursor is in once you have read it, or open it again. A file
-	// the agent writes to afterwards comes back on its own.
+	// the writer writes to afterwards comes back on its own.
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`
 }
 

@@ -2,7 +2,7 @@
 title: Schedules
 description: Launch agents or mail an orchestrator on a timer, and what happens when a run is late or busy.
 group: start
-order: 8
+order: 9
 ---
 
 import Alert from "../../components/Alert.astro";
@@ -15,11 +15,11 @@ Schedules fire on a cron expression and hand their prompts to an agent. They kee
 
 <Alert variant="warning">This guide uses the `neovim` workflow from the [workflows](../workflows/) guide.</Alert>
 
-There are two kinds of schedules: _implementer schedules_ launch a new agent each time, and _orchestrator schedules_ mail a running orchestrator.
+There are two kinds of schedules: _implementer schedules_ start a new task each time, and _orchestrator schedules_ mail a running orchestrator.
 
 ## Implementer schedules
 
-An implementer schedule launches a new agent into a workflow each time it fires, with the schedule's prompt. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
+An implementer schedule starts a new [task](../tasks/) in a workflow each time it fires, with an agent that gets the schedule's prompt as its brief. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
 
 Open the schedules from the switcher at the top of the panel, open the menu with <Key name="menu.open" /> and press <Key name="schedule_menu.new" /> to write one. Leave the kind on implementer, then give it a name, a cron expression, a prompt, and the `neovim` workflow. The name also names every agent it launches.
 

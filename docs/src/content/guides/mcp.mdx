@@ -2,7 +2,7 @@
 title: MCP
 description: How agents see and manage other agents through komrad's MCP server.
 group: start
-order: 11
+order: 12
 ---
 
 Komrad serves its own API over MCP, the protocol agent CLIs use to call tools, so an agent can ask what the other agents are doing, read their conversations, send them mail, and start agents of its own.
@@ -23,6 +23,6 @@ The [API reference](../../api/) lists every tool.
 
 ## Identity and scope
 
-Komrad offers each agent only the tools that fit its role. An implementer gets what it needs to do the work and answer a review, but doesn't get tools relevant to orchestrating other agents. You, with the server in your own session, get everything.
+Komrad offers each agent only the tools that fit its role. A task's writer gets what it needs to do the work and answer a review, but doesn't get tools relevant to orchestrating other agents. You, with the server in your own session, get everything.
 
 Every agent carries its own id, and komrad attaches it to every call. That is how a call is credited to the agent that made it and how the server knows which role to serve. Calls from the panel carry no id, because the panel is you.

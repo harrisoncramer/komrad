@@ -1,8 +1,8 @@
 ---
 title: Reviews
-description: Review an agent's work locally before it opens a pull request, and/or connect a forge so komrad can follow your coworkers' feedback.
+description: Review a task's change locally, push it, open and merge its pull request, and clean up after.
 group: start
-order: 6
+order: 5
 ---
 
 import Alert from "../../components/Alert.astro";
@@ -11,25 +11,25 @@ import Key from "../../components/Key.astro";
 import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
+Once a task's writer has made a change, what's left is shipping it. You read the change and ask for fixes, the writer pushes it and opens a pull request, you merge it, and then you clean up. This guide walks through each step.
+
+<Alert variant="warning">This guide assumes you have started a [task](../tasks/) with a worktree.</Alert>
+
 ## Local reviews
 
-When making a change locally, it's often faster to iterate directly with an LLM rather than pushing the changes to a remote.
+While a change is still taking shape, it's often faster to iterate with the agent directly than to push it to a forge like GitHub or GitLab.
 
-Komrad supports this with the concept of a _local review_.l
-
-With local reviews, you can provide feedback to agents directly in your editor or terminal, rather than via a forge like Github or Gitlab. This helps keep feedback loops quick and reduce CI spend for agent-authored changes.
-
-With local reviews, you can read the agent's diff, leave comments on its lines, and edit it yourself. The agent will respond in the same view.
+Komrad supports this with _local reviews_. You read the task's diff, leave comments on its lines, and edit it yourself, and the writer answers in the same view. This keeps feedback loops quick and saves CI runs on work that isn't ready yet.
 
 <Alert variant="info">Local reviews are completely optional, you can use komrad without them.</Alert>
 
-Komrad's local review model is quite similar to how <a href="https://www.gerritcodereview.com/">Gerrit</a> does code review, where you can step through chunks of changes (known in komrad as chapters) that correspond to review rounds. Each chapter is tied to a specific diff in the code that an agent has made.
+Komrad's local review model is similar to how <a href="https://www.gerritcodereview.com/">Gerrit</a> does code review. You step through the change in rounds, which komrad calls chapters, and each chapter holds the code as it stood when it was reviewed.
 
 ### Opening a review
 
-Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](../navigation/#the-agent-menu), and pick review with <Key name="menu.review" />. The main panel then shows everything the agent changed since its branch left the base.
+Hover the task, open its menu with <Key name="menu.open" />, and pick review with <Key name="menu.review" />. The main view shows everything the task's branch changed since it left the base.
 
-The sidebar holds a tree of the files the change touches, and the main view holds the diff and conversation.
+The sidebar holds a tree of the files the change touches, and the main view holds the diff and the conversation.
 
 <figure>
   <video
@@ -40,7 +40,7 @@ The sidebar holds a tree of the files the change touches, and the main view hold
     poster={media("reviews-open.png")}
     width="1440"
     height="920"
-    aria-label="Hovering the text-truncate agent to show its comment counts, opening its review, moving between files to the reviewer agent's comment and then to one of yours, and showing the change the agent made to answer it."
+    aria-label="Hovering the text-truncate task to show its comment counts, opening its review, moving between files to one of your comments, and showing the change the writer made to answer it."
   >
     <source src={media("reviews-open.webm")} type="video/webm" />
     <source src={media("reviews-open.mp4")} type="video/mp4" />
@@ -51,15 +51,15 @@ The sidebar holds a tree of the files the change touches, and the main view hold
 
 Press <Key name="review.compose" /> on a line to comment on it.
 
-The draft is not submitted to the agent until you submit your review, like in Github or Gitlab. While you hold the drafts, the diff is "frozen", so the lines you are commenting on do not move.
+A comment stays a draft until you send your review, as on GitHub or GitLab. While you hold drafts the diff is frozen, so the lines you are commenting on do not move.
 
 ### Editing the code yourself
 
-Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` value in your terminal, like vim) beside the diff. Komrad pauses the agent while you edit, since you are both working in its checkout. When you close the editor the agent carries on from your change.
+Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` in your terminal, like vim) beside the diff. Komrad pauses the writer while you edit, since you are both working in the task's checkout. When you close the editor the writer carries on from your change.
 
 ### Sending
 
-When you are done reading, press <Key name="review.send" /> to send the review. Komrad asks if you have anything to say about the work as a whole, then sends it. Sending stops the agent mid-turn, so it reads your comments now rather than when it finishes what it is doing.
+When you are done reading, press <Key name="review.send" /> to send the review. Komrad asks if you have anything to say about the work as a whole, then sends it to the task's writer. Sending stops the writer mid-turn, so it reads your comments now rather than when it finishes what it is doing.
 
 <figure>
   <video
@@ -70,22 +70,22 @@ When you are done reading, press <Key name="review.send" /> to send the review. 
     poster={media("reviews-comment.png")}
     width="1440"
     height="920"
-    aria-label="Searching the diff for a test, writing a comment on it and saving it as a draft, then sending it with a note about the work as a whole, and the agent's answer arriving in the thread."
+    aria-label="Searching the diff for a test, writing a comment on it and saving it as a draft, then sending it with a note about the work as a whole, and the writer's answer arriving in the thread."
   >
     <source src={media("reviews-comment.webm")} type="video/webm" />
     <source src={media("reviews-comment.mp4")} type="video/mp4" />
   </video>
 </figure>
 
-Under the hood, each of your comments is sent with the lines it was written on and the code around them, so the agent can find the spot even after the file has moved.
+Each comment goes out with the lines it was written on and the code around them, so the writer can find the spot even after the file has moved.
 
-The agent answers in your threads, and can settle them. To see exactly what the agent changed in response to your suggestion, press the <Key name="review.answer" /> key. This will show the specific change the agent made. You can settle or reopen any comment yourself.
+The writer answers in your threads, and can settle them. To see exactly what it changed in answer to a comment, press <Key name="review.answer" />. You can settle or reopen any thread yourself.
 
 ### Stepping through history
 
-Each review you send closes a "chapter" in komrad, which holds the work you had read when you sent it. Stepping through chapters shows each review, with the comments written on it and the code that changed as a result.
+Each review you send closes a chapter, which holds the code you had read when you sent it. Stepping through chapters shows each review, with the comments written on it and the code that changed as a result.
 
-Past chapters take replies but not new comments, since their lines may no longer exist in the agent's work.
+Past chapters take replies but not new comments, since their lines may no longer exist in the change.
 
 <figure>
   <video
@@ -103,26 +103,30 @@ Past chapters take replies but not new comments, since their lines may no longer
   </video>
 </figure>
 
-### Agent Reviews
+### Reviews from agents
 
-Recall from the agent guide that implementer agents can spawn reviewer agents to review their work.
+The writer can ask for a [reviewer](../agents/#reviewers) when it thinks its work is ready. A reviewer reviews the same way you do, leaving threads on the task's diff and releasing a review the writer answers.
 
-Under the hood, reviewer agents use the same process as you do, by leaving comments on the changes from an implementer.
+A reviewer's threads are hidden whenever a review opens, so you see your own first. Open the review's menu and press <Key name="review.agent_threads" /> to show or hide them.
 
-These comments are hidden by default, press TODO to show them.
+## Shipping the work
 
-## Remote Reviews (Github and Gitlab)
-
-Once you're happy with the work locally, the next step is to push it to a forge, like GitHub or GitLab.
+Once you're happy with the change locally, it goes to a forge, like GitHub or GitLab.
 
 <Alert variant="info">
-  Connect a forge before agents can push or komrad can follow their pull requests. [Connecting a
+  Connect a forge before agents can push or komrad can follow pull requests. [Connecting a
   forge](../install/#connecting-a-forge) covers GitHub and GitLab.
 </Alert>
 
-### What komrad reads
+### Pushing and opening the pull request
 
-While an agent is live, komrad watches the pull requests in its repository. It notices when one is opened from the agent's branch, when checks pass or fail, when it is approved, and when it is merged. That shows up as a symbol on the agent's row. Some of those changes also [tell the agent](../events-and-messages/#what-komrad-tells-an-agent), such as checks failing or the branch conflicting with its base.
+The writer commits, pushes its branch and opens the pull request itself, so the simplest path is to tell it to. You can also push from the task's git menu: open the task's menu, press <Key name="menu.git" />, then <Key name="git.push" />. Komrad says how many commits go up before it pushes.
+
+Komrad links a pull request to a task by its branch, so a pull request opened from the task's branch shows up on the task's row on its own. The git menu then opens it in your browser with <Key name="git.open_pull_request" />.
+
+### Following the pull request
+
+While any agent on a task is live, komrad follows its pull request. It notices when checks pass or fail, when it is approved, and when it is merged, and shows that as a symbol on the task's row. Some of those changes also [tell the writer](../events-and-messages/#events-and-mail), such as checks failing or the branch conflicting with its base.
 
 <figure>
   <video
@@ -133,24 +137,32 @@ While an agent is live, komrad watches the pull requests in its repository. It n
     poster={media("forges.png")}
     width="1440"
     height="920"
-    aria-label="Moving down the agents list past a merged, a failing, an approved and an open pull request, with the details saying where each one stands."
+    aria-label="Moving down the list past a merged, a failing, an approved and an open pull request, with the details saying where each one stands."
   >
     <source src={media("forges.webm")} type="video/webm" />
     <source src={media("forges.mp4")} type="video/mp4" />
   </video>
 </figure>
 
-Komrad reads the pull requests opened from each live agent's branch. A repository where something is likely to change soon, such as checks still running, a branch that just moved, or a pull request komrad just wrote to, is read every five seconds. Every other repository is read once a minute. When the forge says little of the hour's budget is left, every repository on that host drops to once a minute until the budget comes back.
-
-Komrad also reads the review comments on each open pull request or merge request a live agent is linked to, drafts included, once a minute. They are copied into the agent's review as threads of their own and counted with yours on its row. Komrad holds a comment from someone who cannot push to the repository until you send your review, and never writes anything back to the forge.
+A repository where something is likely to change soon, such as checks still running, a branch that just moved, or a pull request komrad just wrote to, is read every five seconds. Every other repository is read once a minute. When the forge says little of the hour's budget is left, every repository on that host drops to once a minute until the budget comes back.
 
 ### Comments from the forge
 
-When the agent's pull request or merge request has review comments, komrad copies them into the review as threads of their own, each under its author and line. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
+Komrad also reads the review comments on each followed pull request or merge request, drafts included, once a minute. Each one is copied into the task's review as a thread of its own, under its author and line, and counted with yours on the task's row. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
 
-Comments from someone who can push to the repository reach the agent on their own. Comments from anyone else are held until you send your review, or until you reply in their thread, so nothing from a stranger reaches the agent without you seeing it first.
+Comments from someone who can push to the repository reach the writer on their own. Comments from anyone else are held until you send your review, or until you reply in their thread, so nothing from a stranger reaches the writer without you seeing it first.
 
-The agent answers forge comments in the review, never on the forge itself.
+The writer answers forge comments in the review, never on the forge itself, and komrad never writes anything back to the forge.
+
+### Merging
+
+When the pull request is ready, open the task's git menu and press <Key name="git.merge" /> for the merge menu. You can merge and leave the task where it is, merge and archive the task, have the forge merge it on its own once checks and reviews pass, or merge and then rebase the task's worktree onto the base so the writer can start its next change.
+
+### Cleaning up
+
+A merged task can be archived, which stops its agents and keeps everything else, or deleted, which also removes its worktree. [A task's life](../tasks/#archiving-restoring-and-deleting-tasks) covers both. Merge and archive does the first step for you.
+
+## Credentials
 
 ### Where the token lives
 

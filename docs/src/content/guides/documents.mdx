@@ -2,20 +2,20 @@
 title: Documents
 description: Have an agent write an RFC, a report or notes, refine it with it, and step through every version.
 group: start
-order: 9
+order: 10
 ---
 
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Often, you'll want an agent to write down something that you can review outside of the codebase. For instance, you may want an implementer to write an RFC first, so that you can review it and fix it's approach.
+Often, you'll want an agent to write down something that you can review outside of the codebase. For instance, you may want an agent to write an RFC first, so that you can review it and fix its approach.
 
-Komrad suppports this natively. Komrad's _documents_ are markdown files that belong to an agent. Each is kept in komrad's database as one of the types you define, and komrad ships with RFC. A type's context tells agents how to write it, and you add or edit types from the documents view, where the [menu](../navigation/#the-agent-menu) over a type defines a new one with <Key name="document_types_menu.new" /> and edits it with <Key name="document_types_menu.edit" />. Komrad versions these documents, so you can step through their history.
+Komrad supports this natively. Komrad's _documents_ are markdown files written by an agent, and they belong to that agent's task too. Each is kept in komrad's database as one of the types you define, and komrad ships with RFC. A type's context tells agents how to write it, and you add or edit types from the documents view, where the [menu](../navigation/#the-menu) over a type defines a new one with <Key name="document_types_menu.new" /> and edits it with <Key name="document_types_menu.edit" />. Komrad versions these documents, so you can step through their history.
 
 ## Agent-authored documents
 
-Agents write documents with komrad's tools, so you ask for one in the prompt. Once it has written one, open the agent's [menu](../navigation/#the-agent-menu) with <Key name="menu.open" />, and jump to the documents view.
+Agents write documents with komrad's tools, so you ask for one in the prompt. Once it has written one, open its task's [menu](../navigation/#the-menu) with <Key name="menu.open" />, press <Key name="menu.jump" /> for the jump menu, and pick documents with <Key name="jump_menu.documents" />. The documents view opens on the task's documents.
 
 <figure>
   <video
@@ -26,7 +26,7 @@ Agents write documents with komrad's tools, so you ask for one in the prompt. On
     poster={media("documents-ask.png")}
     width="1440"
     height="920"
-    aria-label="Launching an agent in the neovim workflow with a prompt to write an RFC called truncate-rfc, then opening its documents once it has written it."
+    aria-label="Starting a task in the neovim workflow with a brief to write an RFC called truncate-rfc, then opening the task's documents once its agent has written it."
   >
     <source src={media("documents-ask.webm")} type="video/webm" />
     <source src={media("documents-ask.mp4")} type="video/mp4" />
@@ -35,7 +35,7 @@ Agents write documents with komrad's tools, so you ask for one in the prompt. On
 
 Other agents can read a document too. You can, for instance, have an orchestrator write an RFC and have another agent implement it.
 
-Once the document says what you want, tell the agent to build it. It already has the document, so the prompt can be as short as "carry out truncate-rfc". The document stays with the agent, so later you can read it beside the diff and check that what was built is what you agreed on.
+Once the document says what you want, tell the agent to build it. It already has the document, so the prompt can be as short as "carry out truncate-rfc". The document stays with the task, so later you can read it beside the diff and check that what was built is what you agreed on.
 
 ## Editing a document
 
@@ -59,7 +59,7 @@ Open the menu on a document with <Key name="menu.open" /> and pick edit with <Ke
 
 Komrad mails the agent to say you changed its document, and the agent can see exactly what you changed.
 
-You can also start a document yourself from the same menu with <Key name="document_menu.new" />, such as a plan you wrote or notes the agent should keep in mind. The new document goes to the agent the filter names with `agent:`, so it is there whenever you open the documents from an agent's menu. Komrad tells the agent it exists.
+You can also start a document yourself from the same menu with <Key name="document_menu.new" />, such as a plan you wrote or notes the agent should keep in mind. The new document goes to the agent the filter names with `agent:`, and to that agent's task. Komrad tells the agent it exists.
 
 ## Stepping through versions
 
@@ -88,9 +88,11 @@ Press `/` on the documents view to filter it. Plain words match the document's n
 | Qualifier       | Keeps the documents                                        |
 | --------------- | ---------------------------------------------------------- |
 | `agent:NAME`    | written by an agent whose name contains NAME               |
+| `task:NAME`     | on a task whose slug contains NAME                         |
 | `workflow:NAME` | written by an agent in a workflow whose name contains NAME |
 | `type:NAME`     | of the type NAME                                           |
 | `since:WHEN`    | changed at or after WHEN, such as `2d` or `2026-10-01`     |
 | `until:WHEN`    | changed up to WHEN, a day counting in full                 |
+| `says:TEXT`     | whose text contains TEXT                                   |
 
 Quote a name that holds a space.
