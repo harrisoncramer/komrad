@@ -7,7 +7,6 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
-	"komrad/internal/view"
 	"komrad/lib/xslice"
 
 	"charm.land/lipgloss/v2"
@@ -156,7 +155,7 @@ func (m *model) messagesCursorPrefix(hovered bool) string {
 		return strings.Repeat(" ", messagesIndent)
 	}
 
-	return caretGlyph(view.CaretRendered)
+	return renderedCaret()
 }
 
 func kindIcon(glyphs glyph.Set, kind messageKind) string {

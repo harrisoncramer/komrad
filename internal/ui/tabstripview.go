@@ -9,16 +9,16 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (s stops) parts(palette paint.Palette) []string {
-	muted := palette.Style(paint.ToneMuted)
-	lit := palette.Style(paint.TonePrimary)
+func (s stops) parts() []string {
+	muted := paint.Panel.Style(paint.ToneMuted)
+	lit := paint.Panel.Style(paint.TonePrimary)
 
 	parts := make([]string, len(s.labels))
 	for i := range s.labels {
 		style := muted
 		switch i {
 		case s.focus:
-			style = palette.Cursor()
+			style = paint.Panel.Cursor()
 		case s.lit:
 			style = lit
 		}
@@ -28,8 +28,8 @@ func (s stops) parts(palette paint.Palette) []string {
 	return parts
 }
 
-func (s stops) view(palette paint.Palette) string {
-	return strings.Join(s.parts(palette), "  ")
+func (s stops) view() string {
+	return strings.Join(s.parts(), "  ")
 }
 
 func (s tabStrip) groupLabel(state tabsState) string {
@@ -40,8 +40,8 @@ func (s tabStrip) groupLabel(state tabsState) string {
 	return s.grouped
 }
 
-func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string {
-	muted := palette.Style(paint.ToneMuted)
+func (s tabStrip) view(state tabsState, width int) string {
+	muted := paint.Panel.Style(paint.ToneMuted)
 	chosen := s.indexOf(state)
 
 	labels := make([]string, len(s.options), len(s.options)+1)
@@ -63,7 +63,7 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 	if state.focused {
 		row.focus = s.focusIndex(state)
 	}
-	parts := row.parts(palette)
+	parts := row.parts()
 
 	line := muted.Render(s.title) + "   " + strings.Join(parts[:len(s.options)], "  ")
 	if s.grouped != "" {
@@ -94,5 +94,5 @@ func (m *model) tabbedHeader(title, tally string) string {
 func (m *model) tabsLine() string {
 	t, _ := m.activeTabs()
 
-	return t.tabs().view(*t.tabsState(), paint.Panel, m.paneWidth()) + "\n"
+	return t.tabs().view(*t.tabsState(), m.paneWidth()) + "\n"
 }

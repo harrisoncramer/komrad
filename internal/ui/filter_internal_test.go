@@ -108,7 +108,7 @@ func TestFilterLine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			line := tt.filter.line(paint.Panel, glyph.Defaults())
+			line := tt.filter.line(glyph.Defaults())
 
 			assert.Contains(t, line, tt.want)
 			if tt.wantAbsent != "" {

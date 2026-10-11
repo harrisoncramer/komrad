@@ -66,12 +66,12 @@ func TestTabStripView(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, buildGroupedStrip().view(tt.state, paint.Panel, 0))
+			assert.Equal(t, tt.want, buildGroupedStrip().view(tt.state, 0))
 		})
 	}
 
 	t.Run("a strip wider than the pane ends in an ellipsis", func(t *testing.T) {
-		rendered := buildGroupedStrip().view(tabsState{}, paint.Panel, 12)
+		rendered := buildGroupedStrip().view(tabsState{}, 12)
 
 		assert.Equal(t, 12, lipgloss.Width(rendered))
 		assert.True(t, strings.HasSuffix(ansi.Strip(rendered), "…"))

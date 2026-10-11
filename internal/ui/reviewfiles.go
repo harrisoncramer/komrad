@@ -105,7 +105,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 		rows = append(rows, dimStyle().Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
 	}
 
-	header := ansi.Truncate(r.filesFilter.line(paint.Panel, m.glyphs), max(width, 0), "…") + "\n"
+	header := ansi.Truncate(r.filesFilter.line(m.glyphs), max(width, 0), "…") + "\n"
 	if lines < 0 {
 		return header + strings.Join(rows, "\n") + "\n"
 	}

@@ -60,6 +60,10 @@ func caretGlyph(caret view.Caret) string {
 		return blankCursor
 	}
 
+	return renderedCaret()
+}
+
+func renderedCaret() string {
 	return paint.Panel.Cursor().Render(rowCursorGlyph)
 }
 
