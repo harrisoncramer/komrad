@@ -702,6 +702,23 @@ func TestAgentsRecordFocus(t *testing.T) {
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list has the keys again")
 	})
 
+	t.Run("the wheel over the record hands it the keys and over the list hands them back", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		y := findRecordLine(harness.readFrame(), "agent")
+		require.GreaterOrEqual(t, y, 0)
+
+		harness.send(tea.MouseWheelMsg{X: 1, Y: y, Button: tea.MouseWheelDown})
+
+		frame := harness.readFrame()
+		assert.Regexp(t, `^directory\s+/repo$`, readRecordCursor(frame))
+
+		harness.send(tea.MouseWheelMsg{X: 1, Y: 9, Button: tea.MouseWheelUp})
+
+		frame = harness.readFrame()
+		assert.Empty(t, readRecordCursor(frame))
+		assert.Equal(t, "backend", readHoveredRow(frame), "the list has the keys again")
+	})
+
 	t.Run("one cursor is rendered at a time", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		require.Equal(t, 1, countCursors(harness.readFrame()))

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -102,7 +103,7 @@ func wheelTurn(wheel tea.MouseWheelMsg) int {
 	}
 }
 
-// routeWheel scrolls the popup, the block beside the list or the list, whichever the mouse is over.
+// routeWheel hands the keys to whatever the mouse is over and scrolls it.
 func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	if rows == 0 || len(m.wheelKeys(rows)) == 0 {
 		return nil
@@ -112,27 +113,55 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return nil
 	}
 
-	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isOverColumn(x) {
+	if m.form.isActive() || m.writes.held.active {
+		return m.scrollSidebar(rows)
+	}
+
+	if m.screen == screenReview && !m.isOverColumn(x) {
 		if cmd, ok := m.review.scrollSidebarAt(m, y, rows); ok {
 			return cmd
 		}
 	}
 
-	if m.form.isActive() || m.writes.held.active || !m.isOverColumn(x) {
-		if screen, ok := m.active().(listScroller); ok {
-			return screen.scrollList(m, rows)
-		}
+	focus := m.focusBlockAt(x, y)
 
-		return m.pressWheel(rows)
+	if !m.isOverColumn(x) {
+		return tea.Batch(focus, m.scrollSidebar(rows))
 	}
 
 	if screen, ok := m.active().(columnFocuser); ok && screen.doesScrollColumn(m) {
-		return screen.scrollColumn(m, rows*columnWheelStep)
+		return tea.Batch(focus, screen.scrollColumn(m, rows*columnWheelStep))
 	}
 
 	m.scrollDoc(rows * columnWheelStep)
 
+	return focus
+}
+
+// focusBlockAt hands the keys to the block under the mouse, as jumping to it would.
+func (m *model) focusBlockAt(x, y int) tea.Cmd {
+	for _, block := range slices.Backward(m.findSidebarBlocks()) {
+		r := block.rect
+		if x < r.Left || x >= r.Left+r.Width || y < r.Top || y >= r.Top+r.Height {
+			continue
+		}
+
+		if block.stop == m.atStop() && !m.term.keysElsewhere {
+			return nil
+		}
+
+		return m.enterStop(block.stop)
+	}
+
 	return nil
+}
+
+func (m *model) scrollSidebar(rows int) tea.Cmd {
+	if screen, ok := m.active().(listScroller); ok && !m.isDetailsFocused() {
+		return screen.scrollList(m, rows)
+	}
+
+	return m.pressWheel(rows)
 }
 
 // pressWheel presses the scroll key once for every row.
