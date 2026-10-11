@@ -682,7 +682,7 @@ type listing struct {
 // assemble renders the listings, live and archived, from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
 	agents := agentRowsFrom(assemble.AgentRows(l.world, now), l.world.Tasks)
-	l.tasks = xslice.KeyBy(tasksFrom(slices.Collect(maps.Values(l.world.Tasks))), func(t panel.Task) string { return t.ID })
+	l.tasks = tasksFrom(assemble.TaskRows(l.world))
 	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents, l.tasks)
 	isArchivedAgent := func(row panel.AgentRow) bool {
 		return row.Agent.ArchivedAt != nil

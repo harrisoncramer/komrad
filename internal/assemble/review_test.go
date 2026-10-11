@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/assemble"
+	"komrad/lib/xptr"
 
 	agentv1 "komrad/proto/gen/agent/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -15,9 +16,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestAgentRowsLocalReview pins the rounds a row counts: released rounds, each once, against the
-// agent whose work went round.
-func TestAgentRowsLocalReview(t *testing.T) {
+// TestTaskRowsLocalReview pins the rounds a row counts: released rounds, each once, against the
+// task whose work went round.
+func TestTaskRowsLocalReview(t *testing.T) {
 	t.Parallel()
 
 	commented := agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
@@ -35,7 +36,7 @@ func TestAgentRowsLocalReview(t *testing.T) {
 			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, "", commented)},
 		},
 		{
-			name:    "a review of another agent's work is not this agent's",
+			name:    "a review of another task's work is not this task's",
 			reviews: []*agentv1.WatchedReview{review("v1", older, 1, stamp(-time.Hour), commented)},
 		},
 		{
@@ -61,24 +62,22 @@ func TestAgentRowsLocalReview(t *testing.T) {
 			t.Parallel()
 
 			world := assemble.World{
-				Agents:  map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:   tasks(task(newer)),
 				Reviews: map[string]*agentv1.WatchedReview{},
 			}
 			for _, review := range tt.reviews {
 				world.Reviews[review.GetId()] = review
 			}
 
-			rows := assemble.AgentRows(world, now)
-			require.Len(t, rows, 1)
-			assert.Equal(t, tt.rounds, rows[0].GetLocalReviewRounds())
+			assert.Equal(t, tt.rounds, assemble.TaskRows(world)["task-"+newer].LocalReviewRounds)
 		})
 	}
 }
 
-// TestAgentRowsCommentCounts pins how the comments on an agent's work are counted: reviewer
+// TestTaskRowsCommentCounts pins how the comments on a task's work are counted: reviewer
 // agents apart from the person, open conversations on any round, resolved ones only until their
 // round lands, and nothing from a batch still being written.
-func TestAgentRowsCommentCounts(t *testing.T) {
+func TestTaskRowsCommentCounts(t *testing.T) {
 	t.Parallel()
 
 	commented := agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
@@ -154,7 +153,7 @@ func TestAgentRowsCommentCounts(t *testing.T) {
 			t.Parallel()
 
 			world := assemble.World{
-				Agents:        map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:         tasks(task(newer)),
 				Reviews:       map[string]*agentv1.WatchedReview{},
 				ReviewThreads: map[string]*agentv1.ReviewThread{},
 			}
@@ -165,12 +164,34 @@ func TestAgentRowsCommentCounts(t *testing.T) {
 				world.ReviewThreads[thread.GetId()] = thread
 			}
 
-			rows := assemble.AgentRows(world, now)
-			require.Len(t, rows, 1)
-			assert.True(t, proto.Equal(tt.wantReviewer, rows[0].GetReviewerComments()), "reviewer: %v", rows[0].GetReviewerComments())
-			assert.True(t, proto.Equal(tt.wantPerson, rows[0].GetPersonComments()), "person: %v", rows[0].GetPersonComments())
+			row := assemble.TaskRows(world)["task-"+newer]
+			assert.True(t, proto.Equal(tt.wantReviewer, row.ReviewerComments), "reviewer: %v", row.ReviewerComments)
+			assert.True(t, proto.Equal(tt.wantPerson, row.PersonComments), "person: %v", row.PersonComments)
 		})
 	}
+}
+
+// TestAgentRowsLocalReviewOnTheTopLevelAgent pins that a task's local review is drawn beside the
+// agent leading it, and not beside a child working in the same task.
+func TestAgentRowsLocalReviewOnTheTopLevelAgent(t *testing.T) {
+	t.Parallel()
+
+	child := agent(older)
+	child.TaskId = xptr.Ptr("task-" + newer)
+	child.ParentAgentId = xptr.Ptr(newer)
+	world := assemble.World{
+		Agents:  map[string]*agentv1.Agent{newer: agent(newer), older: child},
+		Tasks:   tasks(task(newer)),
+		Reviews: map[string]*agentv1.WatchedReview{},
+	}
+	released := review("v1", newer, 1, stamp(-time.Hour), agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED)
+	world.Reviews[released.GetId()] = released
+
+	rows := assemble.AgentRows(world, now)
+	require.Len(t, rows, 2)
+	assert.Equal(t, newer, rows[0].GetAgent().GetId())
+	assert.Equal(t, int32(1), rows[0].GetLocalReviewRounds())
+	assert.Zero(t, rows[1].GetLocalReviewRounds())
 }
 
 // TestApplyReview pins that a review put and dropped by the watch is what the rows count.

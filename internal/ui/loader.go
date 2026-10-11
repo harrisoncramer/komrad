@@ -51,18 +51,18 @@ func (r reviewScreen) isLoading(m *model) bool {
 
 	item, ok := m.listing.liveAgent(r.agentID)
 
-	return ok && isChecksRunning(item)
+	return ok && isChecksRunning(item.PullRequest)
 }
 
 func isRowLoading(r agentRow) bool {
 	if r.isTask() {
-		return isChecksRunning(*r.lead)
+		return isChecksRunning(r.task.PullRequest)
 	}
 	if r.header {
 		return r.orchestrator != nil && isThinking(*r.orchestrator)
 	}
 
-	return isChecksRunning(r.item) || r.item.Agent.State == panel.StateSettingUp || isThinking(r.item)
+	return isChecksRunning(r.item.PullRequest) || r.item.Agent.State == panel.StateSettingUp || isThinking(r.item)
 }
 
 // isThinking reports whether an agent is at work behind a pane still running, which turns the
@@ -71,8 +71,8 @@ func isThinking(item panel.AgentRow) bool {
 	return snapshotProcess(item) == view.ProcessAlive && snapshotStatus(item) == view.StatusThinking
 }
 
-func isChecksRunning(row panel.AgentRow) bool {
-	return row.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
+func isChecksRunning(standing panel.PullRequestStanding) bool {
+	return standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
 }
 
 func (m *model) spinLoader() tea.Cmd {
