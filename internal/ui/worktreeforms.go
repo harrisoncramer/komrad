@@ -29,6 +29,7 @@ func deleteWorktreesForm(deletion worktreeDeletion, keys config.FixedKeys) (*huh
 	lines = append(lines, "Uncommitted changes go with the directories.")
 
 	return confirmFormStartingOn(confirmFormStartingOnParams{
+		confirmed:   false,
 		title:       title,
 		description: strings.Join(lines, " "),
 		affirmative: "Delete",
@@ -50,6 +51,7 @@ func deleteMixedForm(deletion worktreeDeletion, agentCount int, keys config.Fixe
 	lines = append(lines, "Uncommitted changes go with the directories.")
 
 	return confirmFormStartingOn(confirmFormStartingOnParams{
+		confirmed:   false,
 		title:       title,
 		description: strings.Join(lines, " "),
 		affirmative: "Delete",
