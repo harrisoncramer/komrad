@@ -361,8 +361,7 @@ func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
 	assert.False(t, frame.IsOpen(RegionInfo))
 }
 
-// TestFrameClearStage covers the stage left with nothing to show, which under a shell would
-// otherwise stand there as a stray one rooted at home.
+// TestFrameClearStage covers the stage left with nothing to show.
 func TestFrameClearStage(t *testing.T) {
 	t.Run("with no info pane the stage is blanked", func(t *testing.T) {
 		tmux := &recordingTmux{}
