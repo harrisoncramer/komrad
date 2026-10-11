@@ -13,6 +13,7 @@ const (
 	KindSwap
 	KindRespawn
 	KindResize
+	KindKill
 )
 
 // Move is one pane move: what to do, and to which panes.
@@ -66,6 +67,14 @@ func Resize(pane string, width int) Move {
 		Kind:  KindResize,
 		Pane:  pane,
 		Width: width,
+	}
+}
+
+// Kill is the move that closes a pane.
+func Kill(pane string) Move {
+	return Move{
+		Kind: KindKill,
+		Pane: pane,
 	}
 }
 

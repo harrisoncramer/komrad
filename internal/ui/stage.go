@@ -34,7 +34,7 @@ func (m *model) unstageAhead(agents []panel.Agent) *unstaged {
 	}
 
 	if staged != "" && m.frame.GuestPane() == "" {
-		m.frame.Show(layout.RegionStage, newBlankContent())
+		m.frame.ClearStage()
 	}
 	m.frame.Flush()
 
@@ -187,7 +187,7 @@ func (m *model) stageSelection() {
 		m.frame.ShowGuest(layout.Guest{Agent: staged.Agent.ID, Pane: staged.Agent.Pane})
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:
-		m.frame.Show(layout.RegionStage, newBlankContent())
+		m.frame.ClearStage()
 	}
 
 	m.stageTerminal()

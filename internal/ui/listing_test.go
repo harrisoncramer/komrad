@@ -189,7 +189,7 @@ func TestListingKeepsItsPlace(t *testing.T) {
 
 		harness.press("r", "x", "enter", "esc")
 
-		assert.Empty(t, harness.panel.ReadKilledPanes(), "the shell's pane is left where it is")
+		assert.NotContains(t, harness.panel.ReadKilledPanes(), infoPane, "the shell's pane is left where it is")
 	})
 
 	t.Run("the archive cursor keeps its agent when a folder above it goes", func(t *testing.T) {
