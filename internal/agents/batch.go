@@ -20,6 +20,11 @@ type archiveTaken struct {
 	tasks []taskstore.Task
 }
 
+type agentName struct {
+	workflowID string
+	name       string
+}
+
 type archiveBatchParams struct {
 	tmux      paneKiller
 	scripts   agentScriptRunner
@@ -208,9 +213,4 @@ func requireNamesFree(ctx context.Context, agents *agentstore.AgentStore, archiv
 	}
 
 	return nil
-}
-
-type agentName struct {
-	workflowID string
-	name       string
 }

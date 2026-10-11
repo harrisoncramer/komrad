@@ -67,7 +67,7 @@ func claimRoomForRestoredChildren(ctx context.Context, agents *agentstore.AgentS
 		return fmt.Errorf("failed to look up %d parents of the restoring children: %w", len(parentIDs), err)
 	}
 
-	return requireRoomForChildren(ctx, agents, maxChildren, roomsWanted(parents, want))
+	return requireRoomForChildren(ctx, agents, maxChildren, buildParentRooms(parents, want))
 }
 
 func claimRoomForSpawned(ctx context.Context, agents *agentstore.AgentStore, maxSpawned int, spawner *agentstore.Agent) error {
@@ -114,7 +114,7 @@ func claimRoomForRestoredSpawned(ctx context.Context, agents *agentstore.AgentSt
 		return spawner.Role == agentstore.RoleOrchestrator
 	})
 
-	return requireRoomForSpawned(ctx, agents, maxSpawned, roomsWanted(orchestrators, want))
+	return requireRoomForSpawned(ctx, agents, maxSpawned, buildParentRooms(orchestrators, want))
 }
 
 func countWantedUnder(restoring []agentstore.Agent, under func(agentstore.Agent) *string) ([]string, map[string]int) {
@@ -134,7 +134,7 @@ func countWantedUnder(restoring []agentstore.Agent, under func(agentstore.Agent)
 	return ids, want
 }
 
-func roomsWanted(parents []agentstore.Agent, want map[string]int) []parentRoom {
+func buildParentRooms(parents []agentstore.Agent, want map[string]int) []parentRoom {
 	return xslice.Map(parents, func(parent agentstore.Agent) parentRoom {
 		return parentRoom{
 			id:   parent.ID,
