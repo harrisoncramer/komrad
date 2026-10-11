@@ -202,9 +202,20 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			name:  "confirming the delete destroys the agent it was opened on",
 			rows:  buildOneArchivedAgent(),
 			press: []string{"j", "space", "a", "d", "y"},
+			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
 				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a1"}},
+			}},
+		},
+		{
+			name:  "confirming the delete on a task destroys the task",
+			rows:  buildArchivedTasks(),
+			press: []string{"j", "j", "j", "space", "a", "d", "y"},
+			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a3"),
+			wantSent: []request{{
+				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}},
 			}},
 		},
 		{

@@ -213,9 +213,10 @@ func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
 
-	return pending.attach(m.writeCmd(
+	return pending.attach(m.awaitingWriteCmd(
 		"deleting "+subject,
 		"Could not delete "+subject,
+		&awaits{gone: rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)},
 		func(a api) error {
 			if len(work.wholeTasks) > 0 {
 				if err := pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks))); err != nil {
