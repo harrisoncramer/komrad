@@ -26,23 +26,23 @@ func (l listing) taskAgents(task panel.Task) []panel.AgentRow {
 	return xslice.Filter(pool, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
 }
 
-// taskFieldsParams is a task's checkout with the agents and writer its info panel shows.
+// taskFieldsParams is a task's checkout with the agents and checkout owner its info panel shows.
 type taskFieldsParams struct {
 	checkout checkoutFieldsParams
 	agents   []panel.AgentRow
-	writer   panel.AgentRow
+	owner    panel.AgentRow
 }
 
 func taskFields(params taskFieldsParams) []recordField {
-	task, writer := params.checkout.task, params.writer
+	task, owner := params.checkout.task, params.owner
 	names := xslice.Map(params.agents, func(item panel.AgentRow) string { return item.Agent.Name })
 	fields := []recordField{
 		{label: "task", value: task.Slug},
 		{label: "title", value: label.OrDash(task.Title)},
 		{label: "agents", value: label.OrDash(strings.Join(names, ", "))},
 	}
-	if isCheckoutOwner(writer.Agent) {
-		fields = append(fields, recordField{label: "writer", value: writer.Agent.Name})
+	if isCheckoutOwner(owner.Agent) {
+		fields = append(fields, recordField{label: "writer", value: owner.Agent.Name})
 	}
 
 	directory := label.OrDash(task.Cwd)
@@ -152,12 +152,12 @@ func (l listing) findCheckoutOwner(task panel.Task) panel.AgentRow {
 
 // findOwnerInCheckout is the task's checkout owner while it works in that checkout.
 func (l listing) findOwnerInCheckout(task panel.Task) (panel.AgentRow, bool) {
-	writer := l.findCheckoutOwner(task)
-	if task.Cwd == "" || writer.Agent.Cwd != task.Cwd {
+	owner := l.findCheckoutOwner(task)
+	if task.Cwd == "" || owner.Agent.Cwd != task.Cwd {
 		return panel.AgentRow{}, false
 	}
 
-	return writer, true
+	return owner, true
 }
 
 // isCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.

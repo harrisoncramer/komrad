@@ -73,12 +73,12 @@ func agentDetails(m *model, r agentRow) details {
 
 // taskDetailFields is the record for a task as the listing holds it.
 func taskDetailFields(m *model, task panel.Task) []recordField {
-	writer := m.listing.findCheckoutOwner(task)
+	owner := m.listing.findCheckoutOwner(task)
 
 	return taskFields(taskFieldsParams{
 		checkout: m.buildCheckoutParams(task),
 		agents:   m.listing.taskAgents(task),
-		writer:   writer,
+		owner:    owner,
 	})
 }
 
