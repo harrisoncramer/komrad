@@ -57,7 +57,7 @@ message ReviewRound {
   // The handle a review or a viewed-file record names this round by.
   string id = 1;
   // The task whose checkout the snapshot was taken of.
-  string task_id = 7;
+  string task_id = 2;
   // Which round this is for its task, counting from one.
   int32 ordinal = 3;
   // The commit the agent's branch left its base at when the round was taken.
@@ -74,7 +74,7 @@ message Review {
   // The handle the threads in this batch name it by.
   string id = 1;
   // The task whose work is being read.
-  string task_id = 16;
+  string task_id = 2;
   // The snapshot the batch was written against.
   string round_id = 3;
   // Which round that is, counting from one, so a caller need not fetch the round to say.
@@ -111,7 +111,7 @@ message WatchedReview {
   // The handle the threads in this batch name it by.
   string id = 1;
   // The task whose work is being read.
-  string task_id = 15;
+  string task_id = 2;
   // The snapshot the batch was written against.
   string round_id = 3;
   // Which round that is, counting from one.
@@ -143,45 +143,45 @@ message ReviewThread {
   // The handle a reply or a resolve names this thread by.
   string id = 1;
   // The task whose diff the thread is pinned to.
-  string task_id = 21;
+  string task_id = 2;
   // The batch this thread was opened as part of.
-  string review_id = 15;
+  string review_id = 3;
   // The round the thread is anchored to, which never moves.
-  string round_id = 16;
+  string round_id = 4;
   // Which round that is, counting from one.
-  int32 round_ordinal = 17;
+  int32 round_ordinal = 5;
   // The commit the old side of these line numbers was read against, which is the round's own
   // base unless the diff was narrowed to an earlier round when the thread was written.
-  string base_sha = 19;
+  string base_sha = 6;
   // Which file, relative to the checkout.
-  string file_path = 3;
+  string file_path = 7;
   // Where the range begins on the old side of the diff, counting from one.
-  int32 old_start = 4;
+  int32 old_start = 8;
   // Where it ends on the old side, inclusive.
-  int32 old_end = 5;
+  int32 old_end = 9;
   // Where the range begins on the new side.
-  int32 new_start = 6;
+  int32 new_start = 10;
   // Where it ends on the new side, inclusive.
-  int32 new_end = 7;
+  int32 new_end = 11;
   // The diff lines the thread was written against, each keeping its leading marker.
-  repeated string quoted_lines = 8;
+  repeated string quoted_lines = 12;
   // When the person reviewing settled this thread, empty while it is still owed an answer.
   // Whether a thread is settled is a different question from whether the code under it has
   // moved, and it is this one that decides whether the thread is still asking for something.
-  string resolved_at = 9;
+  string resolved_at = 13;
   // Whether the agent has replied since the person reviewing last looked.
-  bool unread_by_human = 11;
+  bool unread_by_human = 14;
   // Everything said in the thread, oldest first.
-  repeated ReviewMessage messages = 12;
+  repeated ReviewMessage messages = 15;
   // When the thread was opened.
-  string created_at = 13;
+  string created_at = 16;
   // When anything in it last moved.
-  string updated_at = 14;
+  string updated_at = 17;
   // Whether the thread mirrors one on the pull request, where a reply is public.
   bool mirrors_forge = 18;
   // What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only
   // the person reviewing is shown these.
-  repeated ForgeReply forge_replies = 20;
+  repeated ForgeReply forge_replies = 19;
 }
 
 // ReviewMessage is one thing said in a review thread.
@@ -199,17 +199,17 @@ message ReviewMessage {
   string body = 5;
   // Replacement lines the author proposes for the thread's range, empty for an ordinary
   // comment. An agent applies these rather than reasoning about them.
-  repeated string suggestion = 11;
+  repeated string suggestion = 6;
   // When it was written.
-  string created_at = 6;
+  string created_at = 7;
   // When it was last edited.
-  string updated_at = 7;
+  string updated_at = 8;
   // How far this comment has got towards the agent reading it.
-  ReviewDeliveryState delivery = 8;
+  ReviewDeliveryState delivery = 9;
   // When the person reviewing released this comment, empty while it is only written down.
-  string sent_at = 9;
+  string sent_at = 10;
   // When the agent claimed the doorbell raised for this comment, empty until it has.
-  string delivered_at = 10;
+  string delivered_at = 11;
   // The review this message went out with, absent for an answer written by the agent under
   // review, which belongs to no batch.
   optional string review_id = 12;
@@ -252,28 +252,28 @@ message CreateReviewThreadRequest {
   string file_path = 2;
   // The commit the old side of these line numbers was read against, empty for the round's own
   // base.
-  string base_sha = 10;
+  string base_sha = 3;
   // The commit the new side of these line numbers was read against, empty for a caller that read
   // the round's own snapshot.
-  string snapshot_sha = 11;
+  string snapshot_sha = 4;
   // Where the range begins on the old side of the diff, counting from one.
-  int32 old_start = 3;
+  int32 old_start = 5;
   // Where it ends on the old side, inclusive.
-  int32 old_end = 4;
+  int32 old_end = 6;
   // Where the range begins on the new side.
-  int32 new_start = 5;
+  int32 new_start = 7;
   // Where it ends on the new side, inclusive.
-  int32 new_end = 6;
+  int32 new_end = 8;
   // The diff lines being written about, each keeping its leading marker, so the anchor still
   // says something once the code moves.
-  repeated string quoted_lines = 7;
+  repeated string quoted_lines = 9;
   // The first thing said. The ceiling refuses an essay and is not a length to write up to.
-  string body = 8 [(buf.validate.field).string = {
+  string body = 10 [(buf.validate.field).string = {
     min_len: 1
     max_len: 1000
   }];
   // Replacement lines proposed for the range, empty for an ordinary comment.
-  repeated string suggestion = 9;
+  repeated string suggestion = 11;
 }
 
 message CreateReviewThreadResponse {
@@ -430,7 +430,7 @@ message ReleaseReviewRequest {
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
   // What to say about the work as a whole rather than about any one line, which the agent reads
   // before the first thread. Optional: a review of pinned comments alone is complete.
-  string body = 4 [(buf.validate.field).string.max_len = 1500];
+  string body = 3 [(buf.validate.field).string.max_len = 1500];
 }
 
 message ReleaseReviewResponse {
@@ -446,7 +446,7 @@ message ReleaseReviewResponse {
 // together with the fingerprint the diff had when they read it.
 message ReviewViewedFile {
   // Which task the file belongs to.
-  string task_id = 5;
+  string task_id = 1;
   // Which file, relative to the checkout.
   string file_path = 2;
   // When it was marked, in RFC 3339.
@@ -488,13 +488,13 @@ enum ForgeReplyState {
   // No state was recorded.
   FORGE_REPLY_STATE_UNSPECIFIED = 0;
   // Approved and waiting to be posted.
-  FORGE_REPLY_STATE_APPROVED = 2;
+  FORGE_REPLY_STATE_APPROVED = 1;
   // Being posted, and possibly already on the forge.
-  FORGE_REPLY_STATE_SENDING = 3;
+  FORGE_REPLY_STATE_SENDING = 2;
   // Accepted by the forge.
-  FORGE_REPLY_STATE_SENT = 4;
+  FORGE_REPLY_STATE_SENT = 3;
   // Refused by the forge on its latest attempt, waiting for the person to retry or discard it.
-  FORGE_REPLY_STATE_FAILED = 5;
+  FORGE_REPLY_STATE_FAILED = 4;
 }
 
 // ForgeReply is a reply komrad posts as the person on a thread mirrored from the forge.
@@ -506,19 +506,19 @@ message ForgeReply {
   // Where it is on its way to the forge.
   ForgeReplyState state = 3;
   // The words that go to the forge.
-  string body = 7;
+  string body = 4;
   // When the person wrote it for posting.
-  string approved_at = 8;
+  string approved_at = 5;
   // When komrad last began posting it, empty until then.
-  string sending_started_at = 9;
+  string sending_started_at = 6;
   // When the forge accepted it, empty until then.
-  string sent_at = 10;
+  string sent_at = 7;
   // The mirrored message it came back as from the forge, absent until a sync copies it.
-  optional string forge_comment_id = 11;
+  optional string forge_comment_id = 8;
   // What the forge said when it last refused it, absent unless it failed.
-  optional string error = 12;
+  optional string error = 9;
   // When it was written.
-  string created_at = 13;
+  string created_at = 10;
 }
 
 message ReplyOnForgeRequest {

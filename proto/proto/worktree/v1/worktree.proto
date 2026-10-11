@@ -43,7 +43,7 @@ enum WorktreeFate {
   // The directory's task is open, which nothing takes.
   WORKTREE_FATE_LIVE = 3;
   // A delete has claimed the directory's task, which that delete takes.
-  WORKTREE_FATE_DELETING = 5;
+  WORKTREE_FATE_DELETING = 4;
 }
 
 message Worktree {
@@ -59,27 +59,27 @@ message Worktree {
   // for the directory.
   bool readable = 4;
   // The agents working in this directory, live ones first.
-  repeated WorktreeAgent occupants = 6;
+  repeated WorktreeAgent occupants = 5;
   // The disk the directory takes, in bytes, as it was last measured in the background or by
   // get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has
   // been measured, and while the last walk failed.
-  optional int64 size_bytes = 7;
+  optional int64 size_bytes = 6;
   // When the size was last measured, or last failed to be, in RFC 3339. Unset until the
   // background loop has reached the directory.
-  optional string measured_at = 8;
+  optional string measured_at = 7;
   // Why the last walk failed, empty when it did not.
-  string size_error = 9;
+  string size_error = 8;
   // When the directory was last active, in RFC 3339: the latest state change or archiving of
   // its occupants when it has any, else when git last wrote the directory's .git file, else the
   // directory's own modification time.
-  string last_active_at = 10;
+  string last_active_at = 9;
   // Which delete path the directory takes.
-  WorktreeFate fate = 11;
+  WorktreeFate fate = 10;
   // The directory's share of size_bytes, each hard linked file's blocks split evenly across its
   // links. Unset with size_bytes.
-  optional int64 share_bytes = 12;
+  optional int64 share_bytes = 11;
   // The task whose checkout the directory is, unset when none answers for it.
-  WorktreeTask task = 13;
+  WorktreeTask task = 12;
 }
 
 // WatchedWorktree is a worktree as the filesystem holds it.
@@ -163,33 +163,33 @@ message GetWorktreeResponse {
   // The directory as list_worktrees reports it.
   Worktree worktree = 1;
   // The disk the directory takes, in bytes, walked for this call.
-  int64 size_bytes = 12;
+  int64 size_bytes = 2;
   // The top-level entries with the disk each takes, biggest first, from the same walk.
-  repeated Entry entries = 2;
+  repeated Entry entries = 3;
   // The paths git tracks that differ from HEAD.
-  repeated string modified = 3;
+  repeated string modified = 4;
   // The paths git neither tracks nor ignores.
-  repeated string untracked = 4;
+  repeated string untracked = 5;
   // The ref the branch is measured against, which is the workflow's base branch as the clone
   // holds it, empty when the repository cannot be read or the clone does not hold the base, in
   // which case nothing below is measured.
-  string base_ref = 5;
+  string base_ref = 6;
   // Why the base could not be named, when base_ref is empty for that reason.
-  string base_error = 13;
+  string base_error = 7;
   // How many of the branch's commits the base does not hold.
-  int32 ahead = 6;
+  int32 ahead = 8;
   // How many of the base's commits the branch does not hold.
-  int32 behind = 7;
+  int32 behind = 9;
   // How many of the branch's own commits the base already holds whole, which is what a squash
   // merge leaves behind.
-  int32 landed_commits = 8;
+  int32 landed_commits = 10;
   // Whether a merge, a rebase or a cherry-pick is part-way through.
-  bool sequence_in_progress = 9;
+  bool sequence_in_progress = 11;
   // Whether deleting the agent would keep the branch, which cleanup does for an adopted branch
   // and for one whose commits are on no other ref.
-  bool keeps_branch = 10;
+  bool keeps_branch = 12;
   // The branch's commits the base does not hold, newest first, at most fifty.
-  repeated Commit commits = 11;
+  repeated Commit commits = 13;
   // The lines the working tree adds since the branch left the base, leaving out the workflow's
   // diff exclusions, and unset where there is no base or one the branch shares no history with.
   optional int32 added_lines = 14;

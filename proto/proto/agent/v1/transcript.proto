@@ -29,21 +29,21 @@ message SearchHit {
   // The turn's text with the match marked, cut to a readable window around it.
   string snippet = 2;
   // What that agent is called, so a caller need not look it up to draw the hit.
-  string name = 4;
+  string name = 3;
   // Whether that agent has been archived, since search spans those too.
-  bool archived = 5;
+  bool archived = 4;
   // How well the turn matched, or zero when the hits are ordered by time.
-  double score = 6;
+  double score = 5;
   // Where the turn sits in the conversation, counting from the first.
-  int32 seq = 7;
+  int32 seq = 6;
   // Who was speaking, the agent or whoever prompted it.
-  string role = 8;
+  string role = 7;
   // Where the turn begins in the whole transcript, for fetching the text around it.
-  int64 content_offset = 9;
+  int64 content_offset = 8;
   // How many bytes the turn runs to from that offset.
-  int64 content_length = 10;
+  int64 content_length = 9;
   // When the turn was written, unset for a turn whose log was gone before its time was read.
-  optional google.protobuf.Timestamp spoken_at = 11;
+  optional google.protobuf.Timestamp spoken_at = 10;
 }
 
 message SearchTranscriptsResponse {
@@ -51,9 +51,9 @@ message SearchTranscriptsResponse {
   repeated SearchHit matches = 1;
   // The turns that only carry the letters somewhere, such as a word glued into a path, scored on
   // how cleanly the letters sit rather than against the matches.
-  repeated SearchHit near = 3;
+  repeated SearchHit near = 2;
   // Pass this back as the pagination cursor to advance both lists.
-  optional string next_page_token = 2;
+  optional string next_page_token = 3;
 }
 
 message GetTranscriptRequest {

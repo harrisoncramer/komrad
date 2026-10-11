@@ -169,7 +169,7 @@ const file_hook_v1_hook_proto_rawDesc = "" +
 	"\x05hooks\x18\x01 \x03(\v2\r.hook.v1.HookR\x05hooks2\xd8\x01\n" +
 	"\vHookService\x12\xc8\x01\n" +
 	"\tListHooks\x12\x16.google.protobuf.Empty\x1a\x1a.hook.v1.ListHooksResponse\"\x86\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\n" +
-	"list_hooks\"jList the hook scripts in the user's hooks directory, by the name create_workflow and update_workflow take.B\x01\x03\x90\x02\x01B!Z\x1fkomrad/proto/gen/hook/v1;hookv1b\x06proto3"
+	"list_hooks\"jList the hook scripts in the user's hooks directory, by the name create_workflow and update_workflow take.:\x01\x03\x90\x02\x01B!Z\x1fkomrad/proto/gen/hook/v1;hookv1b\x06proto3"
 
 var (
 	file_hook_v1_hook_proto_rawDescOnce sync.Once

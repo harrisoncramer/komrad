@@ -748,9 +748,9 @@ type CreateScheduleRequest struct {
 	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// True to start the task each launch works on hidden from the panel's sidebar, ignored by an
 	// orchestrator schedule.
-	HideAgents bool `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	HideAgents bool `protobuf:"varint,5,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	// The opening prompt each launch is given, or the mail an orchestrator is sent.
-	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// What each firing does.
 	//
 	// Types that are valid to be assigned to Target:
@@ -865,7 +865,7 @@ type isCreateScheduleRequest_Target interface {
 
 type CreateScheduleRequest_WorkflowId struct {
 	// Launch an implementer into this workflow, whose cwd and flags it inherits.
-	WorkflowId string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3,oneof"`
+	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof"`
 }
 
 type CreateScheduleRequest_OrchestratorAgentId struct {
@@ -944,7 +944,7 @@ type UpdateScheduleRequest struct {
 	//	*UpdateScheduleRequest_OrchestratorAgentId
 	Target isUpdateScheduleRequest_Target `protobuf_oneof:"target"`
 	// Whether the tasks of later launches start hidden, leaving existing tasks alone.
-	HideAgents    bool `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	HideAgents    bool `protobuf:"varint,9,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1064,7 +1064,7 @@ type UpdateScheduleRequest_WorkflowId struct {
 
 type UpdateScheduleRequest_OrchestratorAgentId struct {
 	// Mail the prompt to this orchestrator.
-	OrchestratorAgentId string `protobuf:"bytes,9,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof"`
+	OrchestratorAgentId string `protobuf:"bytes,8,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof"`
 }
 
 func (*UpdateScheduleRequest_WorkflowId) isUpdateScheduleRequest_Target() {}
@@ -1326,10 +1326,10 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x04cron\x18\x02 \x01(\tB\v\xbaH\br\x06\xb8\xbb\x18\x01\x10\x01R\x04cron\x12#\n" +
 	"\btimezone\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x04 \x01(\bR\aenabled\x12\x1f\n" +
-	"\vhide_agents\x18\a \x01(\bR\n" +
+	"\vhide_agents\x18\x05 \x01(\bR\n" +
 	"hideAgents\x12#\n" +
-	"\x06prompt\x18\x05 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12*\n" +
-	"\vworkflow_id\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
+	"\x06prompt\x18\x06 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12*\n" +
+	"\vworkflow_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
 	"workflowId\x12=\n" +
 	"\x15orchestrator_agent_id\x18\b \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x13orchestratorAgentIdB\x0f\n" +
 	"\x06target\x12\x05\xbaH\x02\b\x01\"K\n" +
@@ -1344,8 +1344,8 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x06prompt\x18\x06 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12*\n" +
 	"\vworkflow_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
 	"workflowId\x12=\n" +
-	"\x15orchestrator_agent_id\x18\t \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x13orchestratorAgentId\x12\x1f\n" +
-	"\vhide_agents\x18\b \x01(\bR\n" +
+	"\x15orchestrator_agent_id\x18\b \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x13orchestratorAgentId\x12\x1f\n" +
+	"\vhide_agents\x18\t \x01(\bR\n" +
 	"hideAgentsB\x0f\n" +
 	"\x06target\x12\x05\xbaH\x02\b\x01\"N\n" +
 	"\x19SetScheduleEnabledRequest\x12\x17\n" +
@@ -1372,15 +1372,15 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x19SCHEDULE_KIND_IMPLEMENTER\x10\x01\x12\x1e\n" +
 	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x022\x85\x0f\n" +
 	"\x0fScheduleService\x12\x97\x02\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xbe\x01\x9a\xb5\x18\xb6\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9c\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set.B\x01\x03\x90\x02\x01\x12\x89\x01\n" +
-	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"7\x9a\xb5\x180\b\x01\x10\x01\x1a\fget_schedule\"\x19Fetch one schedule by id.B\x01\x03\x90\x02\x01\x12\xf3\x01\n" +
-	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.B\x01\x03\x90\x02\x01\x12\xaf\x02\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xd3\x01\x9a\xb5\x18\xce\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xb1\x01Create a schedule that fires on a cron expression, launching an implementer into workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00B\x01\x03\x12\xcd\x01\n" +
-	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x7f\x9a\xb5\x18x\b\x01\x10\x01\x1a\x0fupdate_schedule\"\\Replace every field of a schedule, so read it first and send back what you are not changing.(\x00B\x01\x03\x90\x02\x02\x12\x9b\x01\n" +
-	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"E\x9a\xb5\x18>\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x1dPause or resume one schedule.(\x00B\x01\x03\x90\x02\x02\x12\xd4\x01\n" +
-	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x83\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\x10archive_schedule\"_Archive a schedule so it stops firing, keeping its record. The agents it launched keep running.(\x00B\x01\x03\x90\x02\x02\x12\xb2\x01\n" +
-	"\x0fRestoreSchedule\x12#.schedule.v1.RestoreScheduleRequest\x1a\x16.google.protobuf.Empty\"b\x9a\xb5\x18[\b\x01\x10\x01\x1a\x10restore_schedule\">Take a schedule out of the archive, paused or armed as it was.(\x00B\x01\x03\x90\x02\x02\x12\xa9\x01\n" +
-	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"[\x9a\xb5\x18T\b\x01\x10\x01\x1a\x0fdelete_schedule\"8Permanently delete an archived schedule and its history.(\x01B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xbe\x01\x9a\xb5\x18\xb6\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9c\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set.:\x01\x03\x90\x02\x01\x12\x89\x01\n" +
+	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"7\x9a\xb5\x180\b\x01\x10\x01\x1a\fget_schedule\"\x19Fetch one schedule by id.:\x01\x03\x90\x02\x01\x12\xf3\x01\n" +
+	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.:\x01\x03\x90\x02\x01\x12\xaf\x02\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xd3\x01\x9a\xb5\x18\xce\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xb1\x01Create a schedule that fires on a cron expression, launching an implementer into workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00:\x01\x03\x12\xcd\x01\n" +
+	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x7f\x9a\xb5\x18x\b\x01\x10\x01\x1a\x0fupdate_schedule\"\\Replace every field of a schedule, so read it first and send back what you are not changing.(\x00:\x01\x03\x90\x02\x02\x12\x9b\x01\n" +
+	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"E\x9a\xb5\x18>\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x1dPause or resume one schedule.(\x00:\x01\x03\x90\x02\x02\x12\xd4\x01\n" +
+	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x83\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\x10archive_schedule\"_Archive a schedule so it stops firing, keeping its record. The agents it launched keep running.(\x00:\x01\x03\x90\x02\x02\x12\xb2\x01\n" +
+	"\x0fRestoreSchedule\x12#.schedule.v1.RestoreScheduleRequest\x1a\x16.google.protobuf.Empty\"b\x9a\xb5\x18[\b\x01\x10\x01\x1a\x10restore_schedule\">Take a schedule out of the archive, paused or armed as it was.(\x00:\x01\x03\x90\x02\x02\x12\xa9\x01\n" +
+	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"[\x9a\xb5\x18T\b\x01\x10\x01\x1a\x0fdelete_schedule\"8Permanently delete an archived schedule and its history.(\x01:\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
 var (
 	file_schedule_v1_schedule_proto_rawDescOnce sync.Once

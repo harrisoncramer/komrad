@@ -26,20 +26,20 @@ message Workflow {
   // Which CLI its agents run, blank for komrad's default.
   string harness = 6;
   // When it was hidden from the panel, unset while it is live.
-  optional string archived_at = 9;
+  optional string archived_at = 7;
   // Whether its agents each get a worktree of their own, and how those are built.
-  WorktreeConfig worktree = 10;
+  WorktreeConfig worktree = 8;
   // Scripts hung on moments in its agents' lives, one per moment.
-  repeated WorkflowHook hooks = 12;
+  repeated WorkflowHook hooks = 9;
   // Whether context holds only its opening, which a summary listing returns.
-  bool context_truncated = 14;
+  bool context_truncated = 10;
   // Which CLI its reviewers run, blank for the one its other agents run.
-  string reviewer_harness = 15;
+  string reviewer_harness = 11;
   // Command-line flags for each new reviewer, blank for the other agents' flags when the CLI is
   // the same.
-  string reviewer_flags = 16;
+  string reviewer_flags = 12;
   // What its agents are asked to do when komrad mails them an event, one per event.
-  repeated WorkflowEventPrompt event_prompts = 17;
+  repeated WorkflowEventPrompt event_prompts = 13;
 }
 
 message WorkflowEventPrompt {
@@ -207,22 +207,22 @@ message CreateWorkflowRequest {
     pattern: "^[a-z0-9-]*$"
   }];
   // Whether its agents each get a worktree, and how those are built.
-  WorktreeConfig worktree = 8;
+  WorktreeConfig worktree = 6;
   // Scripts to hang on moments in its agents' lives.
-  repeated WorkflowHook hooks = 10 [(buf.validate.field).repeated.max_items = 50];
+  repeated WorkflowHook hooks = 7 [(buf.validate.field).repeated.max_items = 50];
   // Which CLI its reviewers run, blank for the one its other agents run.
-  string reviewer_harness = 11 [(buf.validate.field).string = {
+  string reviewer_harness = 8 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
   // Flags for each new reviewer, blank for the other agents' flags when the CLI is the same.
-  string reviewer_flags = 12 [(buf.validate.field).string = {
+  string reviewer_flags = 9 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
   // What its agents are asked to do when komrad mails them an event. Left unset, the workflow
   // starts with komrad's default prompt for each event, and set with no prompts it starts with none.
-  WorkflowEventPrompts event_prompts = 13;
+  WorkflowEventPrompts event_prompts = 10;
 }
 
 message CreateWorkflowResponse {
@@ -258,21 +258,21 @@ message UpdateWorkflowRequest {
   }];
   // Turning worktrees off reaches agents already running, since whether komrad removes a
   // directory is read when the agent is deleted.
-  WorktreeConfig worktree = 9;
+  WorktreeConfig worktree = 7;
   // The whole hook list, so send back the ones you are keeping.
-  repeated WorkflowHook hooks = 11 [(buf.validate.field).repeated.max_items = 50];
+  repeated WorkflowHook hooks = 8 [(buf.validate.field).repeated.max_items = 50];
   // Which CLI reviewers spawned afterwards run.
-  string reviewer_harness = 12 [(buf.validate.field).string = {
+  string reviewer_harness = 9 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
   // Flags for reviewers spawned afterwards.
-  string reviewer_flags = 13 [(buf.validate.field).string = {
+  string reviewer_flags = 10 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
   // The whole prompt list, so send back the ones you are keeping.
-  repeated WorkflowEventPrompt event_prompts = 14 [(buf.validate.field).repeated.max_items = 50];
+  repeated WorkflowEventPrompt event_prompts = 11 [(buf.validate.field).repeated.max_items = 50];
 }
 
 message ArchiveWorkflowRequest {

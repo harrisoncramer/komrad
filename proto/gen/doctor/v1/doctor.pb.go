@@ -291,7 +291,7 @@ const file_doctor_v1_doctor_proto_rawDesc = "" +
 	"\asummary\x18\x02 \x01(\v2\x12.doctor.v1.SummaryR\asummary2\x85\x02\n" +
 	"\rDoctorService\x12\xf3\x01\n" +
 	"\tRunDoctor\x12\x16.google.protobuf.Empty\x1a\x1c.doctor.v1.RunDoctorResponse\"\xaf\x01\x9a\xb5\x18\xa7\x01\b\x01\x10\x01\x1a\n" +
-	"run_doctor\"\x91\x01Check whether the machine the service runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.B\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/doctor/v1;doctorv1b\x06proto3"
+	"run_doctor\"\x91\x01Check whether the machine the service runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.:\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/doctor/v1;doctorv1b\x06proto3"
 
 var (
 	file_doctor_v1_doctor_proto_rawDescOnce sync.Once

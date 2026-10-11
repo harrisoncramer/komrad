@@ -42,21 +42,21 @@ const (
 	// A row of schedules.
 	Resource_RESOURCE_SCHEDULE Resource = 3
 	// A row of mail.
-	Resource_RESOURCE_MAIL Resource = 5
+	Resource_RESOURCE_MAIL Resource = 4
 	// A row of pull_requests.
-	Resource_RESOURCE_PULL_REQUEST Resource = 6
+	Resource_RESOURCE_PULL_REQUEST Resource = 5
 	// A row of pull_request_syncs.
-	Resource_RESOURCE_REPOSITORY Resource = 7
+	Resource_RESOURCE_REPOSITORY Resource = 6
 	// A row of reviews.
-	Resource_RESOURCE_REVIEW Resource = 8
+	Resource_RESOURCE_REVIEW Resource = 7
 	// A row of review_threads.
-	Resource_RESOURCE_REVIEW_THREAD Resource = 9
+	Resource_RESOURCE_REVIEW_THREAD Resource = 8
 	// A row of worktrees.
-	Resource_RESOURCE_WORKTREE Resource = 10
+	Resource_RESOURCE_WORKTREE Resource = 9
 	// A row of document_types.
-	Resource_RESOURCE_DOCUMENT_TYPE Resource = 11
+	Resource_RESOURCE_DOCUMENT_TYPE Resource = 10
 	// A row of tasks.
-	Resource_RESOURCE_TASK Resource = 12
+	Resource_RESOURCE_TASK Resource = 11
 )
 
 // Enum value maps for Resource.
@@ -66,28 +66,28 @@ var (
 		1:  "RESOURCE_AGENT",
 		2:  "RESOURCE_WORKFLOW",
 		3:  "RESOURCE_SCHEDULE",
-		5:  "RESOURCE_MAIL",
-		6:  "RESOURCE_PULL_REQUEST",
-		7:  "RESOURCE_REPOSITORY",
-		8:  "RESOURCE_REVIEW",
-		9:  "RESOURCE_REVIEW_THREAD",
-		10: "RESOURCE_WORKTREE",
-		11: "RESOURCE_DOCUMENT_TYPE",
-		12: "RESOURCE_TASK",
+		4:  "RESOURCE_MAIL",
+		5:  "RESOURCE_PULL_REQUEST",
+		6:  "RESOURCE_REPOSITORY",
+		7:  "RESOURCE_REVIEW",
+		8:  "RESOURCE_REVIEW_THREAD",
+		9:  "RESOURCE_WORKTREE",
+		10: "RESOURCE_DOCUMENT_TYPE",
+		11: "RESOURCE_TASK",
 	}
 	Resource_value = map[string]int32{
 		"RESOURCE_UNSPECIFIED":   0,
 		"RESOURCE_AGENT":         1,
 		"RESOURCE_WORKFLOW":      2,
 		"RESOURCE_SCHEDULE":      3,
-		"RESOURCE_MAIL":          5,
-		"RESOURCE_PULL_REQUEST":  6,
-		"RESOURCE_REPOSITORY":    7,
-		"RESOURCE_REVIEW":        8,
-		"RESOURCE_REVIEW_THREAD": 9,
-		"RESOURCE_WORKTREE":      10,
-		"RESOURCE_DOCUMENT_TYPE": 11,
-		"RESOURCE_TASK":          12,
+		"RESOURCE_MAIL":          4,
+		"RESOURCE_PULL_REQUEST":  5,
+		"RESOURCE_REPOSITORY":    6,
+		"RESOURCE_REVIEW":        7,
+		"RESOURCE_REVIEW_THREAD": 8,
+		"RESOURCE_WORKTREE":      9,
+		"RESOURCE_DOCUMENT_TYPE": 10,
+		"RESOURCE_TASK":          11,
 	}
 )
 
@@ -503,42 +503,42 @@ type Row_Schedule struct {
 
 type Row_Mail struct {
 	// A piece of mail as ListMail renders it.
-	Mail *v1.Mail `protobuf:"bytes,5,opt,name=mail,proto3,oneof"`
+	Mail *v1.Mail `protobuf:"bytes,4,opt,name=mail,proto3,oneof"`
 }
 
 type Row_PullRequest struct {
 	// A pull request as ListPullRequests renders it.
-	PullRequest *v13.PullRequest `protobuf:"bytes,6,opt,name=pull_request,json=pullRequest,proto3,oneof"`
+	PullRequest *v13.PullRequest `protobuf:"bytes,5,opt,name=pull_request,json=pullRequest,proto3,oneof"`
 }
 
 type Row_Repository struct {
 	// A repository and whether its pull requests have been read.
-	Repository *v13.Repository `protobuf:"bytes,7,opt,name=repository,proto3,oneof"`
+	Repository *v13.Repository `protobuf:"bytes,6,opt,name=repository,proto3,oneof"`
 }
 
 type Row_Review struct {
 	// A review of an agent's work, without its body.
-	Review *v1.WatchedReview `protobuf:"bytes,8,opt,name=review,proto3,oneof"`
+	Review *v1.WatchedReview `protobuf:"bytes,7,opt,name=review,proto3,oneof"`
 }
 
 type Row_ReviewThread struct {
 	// A review thread with its messages.
-	ReviewThread *v1.ReviewThread `protobuf:"bytes,9,opt,name=review_thread,json=reviewThread,proto3,oneof"`
+	ReviewThread *v1.ReviewThread `protobuf:"bytes,8,opt,name=review_thread,json=reviewThread,proto3,oneof"`
 }
 
 type Row_Worktree struct {
 	// A worktree as the filesystem holds it.
-	Worktree *v14.WatchedWorktree `protobuf:"bytes,10,opt,name=worktree,proto3,oneof"`
+	Worktree *v14.WatchedWorktree `protobuf:"bytes,9,opt,name=worktree,proto3,oneof"`
 }
 
 type Row_DocumentType struct {
 	// A document type with its context.
-	DocumentType *v1.DocumentType `protobuf:"bytes,11,opt,name=document_type,json=documentType,proto3,oneof"`
+	DocumentType *v1.DocumentType `protobuf:"bytes,10,opt,name=document_type,json=documentType,proto3,oneof"`
 }
 
 type Row_Task struct {
 	// A task as ListTasks renders it.
-	Task *v15.Task `protobuf:"bytes,12,opt,name=task,proto3,oneof"`
+	Task *v15.Task `protobuf:"bytes,11,opt,name=task,proto3,oneof"`
 }
 
 func (*Row_Agent) isRow_Row() {}
@@ -639,17 +639,17 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
 	"\bworkflow\x18\x02 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
 	"\bschedule\x18\x03 \x01(\v2\x15.schedule.v1.ScheduleH\x00R\bschedule\x12$\n" +
-	"\x04mail\x18\x05 \x01(\v2\x0e.agent.v1.MailH\x00R\x04mail\x12@\n" +
-	"\fpull_request\x18\x06 \x01(\v2\x1b.pullrequest.v1.PullRequestH\x00R\vpullRequest\x12<\n" +
+	"\x04mail\x18\x04 \x01(\v2\x0e.agent.v1.MailH\x00R\x04mail\x12@\n" +
+	"\fpull_request\x18\x05 \x01(\v2\x1b.pullrequest.v1.PullRequestH\x00R\vpullRequest\x12<\n" +
 	"\n" +
-	"repository\x18\a \x01(\v2\x1a.pullrequest.v1.RepositoryH\x00R\n" +
+	"repository\x18\x06 \x01(\v2\x1a.pullrequest.v1.RepositoryH\x00R\n" +
 	"repository\x121\n" +
-	"\x06review\x18\b \x01(\v2\x17.agent.v1.WatchedReviewH\x00R\x06review\x12=\n" +
-	"\rreview_thread\x18\t \x01(\v2\x16.agent.v1.ReviewThreadH\x00R\freviewThread\x12:\n" +
-	"\bworktree\x18\n" +
-	" \x01(\v2\x1c.worktree.v1.WatchedWorktreeH\x00R\bworktree\x12=\n" +
-	"\rdocument_type\x18\v \x01(\v2\x16.agent.v1.DocumentTypeH\x00R\fdocumentType\x12#\n" +
-	"\x04task\x18\f \x01(\v2\r.task.v1.TaskH\x00R\x04taskB\x05\n" +
+	"\x06review\x18\a \x01(\v2\x17.agent.v1.WatchedReviewH\x00R\x06review\x12=\n" +
+	"\rreview_thread\x18\b \x01(\v2\x16.agent.v1.ReviewThreadH\x00R\freviewThread\x12:\n" +
+	"\bworktree\x18\t \x01(\v2\x1c.worktree.v1.WatchedWorktreeH\x00R\bworktree\x12=\n" +
+	"\rdocument_type\x18\n" +
+	" \x01(\v2\x16.agent.v1.DocumentTypeH\x00R\fdocumentType\x12#\n" +
+	"\x04task\x18\v \x01(\v2\r.task.v1.TaskH\x00R\x04taskB\x05\n" +
 	"\x03row\"K\n" +
 	"\aDeleted\x12.\n" +
 	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
@@ -659,17 +659,17 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x0eRESOURCE_AGENT\x10\x01\x12\x15\n" +
 	"\x11RESOURCE_WORKFLOW\x10\x02\x12\x15\n" +
 	"\x11RESOURCE_SCHEDULE\x10\x03\x12\x11\n" +
-	"\rRESOURCE_MAIL\x10\x05\x12\x19\n" +
-	"\x15RESOURCE_PULL_REQUEST\x10\x06\x12\x17\n" +
-	"\x13RESOURCE_REPOSITORY\x10\a\x12\x13\n" +
-	"\x0fRESOURCE_REVIEW\x10\b\x12\x1a\n" +
-	"\x16RESOURCE_REVIEW_THREAD\x10\t\x12\x15\n" +
-	"\x11RESOURCE_WORKTREE\x10\n" +
-	"\x12\x1a\n" +
-	"\x16RESOURCE_DOCUMENT_TYPE\x10\v\x12\x11\n" +
-	"\rRESOURCE_TASK\x10\f2\x93\x01\n" +
+	"\rRESOURCE_MAIL\x10\x04\x12\x19\n" +
+	"\x15RESOURCE_PULL_REQUEST\x10\x05\x12\x17\n" +
+	"\x13RESOURCE_REPOSITORY\x10\x06\x12\x13\n" +
+	"\x0fRESOURCE_REVIEW\x10\a\x12\x1a\n" +
+	"\x16RESOURCE_REVIEW_THREAD\x10\b\x12\x15\n" +
+	"\x11RESOURCE_WORKTREE\x10\t\x12\x1a\n" +
+	"\x16RESOURCE_DOCUMENT_TYPE\x10\n" +
+	"\x12\x11\n" +
+	"\rRESOURCE_TASK\x10\v2\x93\x01\n" +
 	"\fWatchService\x12\x82\x01\n" +
-	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B#Z!komrad/proto/gen/watch/v1;watchv1b\x06proto3"
+	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18BB@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B#Z!komrad/proto/gen/watch/v1;watchv1b\x06proto3"
 
 var (
 	file_watch_v1_watch_proto_rawDescOnce sync.Once

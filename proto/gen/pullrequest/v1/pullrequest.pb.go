@@ -1053,7 +1053,7 @@ func (x *ListStatusChecksRequest) GetPullRequestId() string {
 type ListStatusChecksResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Each head commit the status checks were read on, oldest first, empty when they have never been read.
-	Readings      []*StatusCheckReading `protobuf:"bytes,4,rep,name=readings,proto3" json:"readings,omitempty"`
+	Readings      []*StatusCheckReading `protobuf:"bytes,1,rep,name=readings,proto3" json:"readings,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1547,13 +1547,13 @@ type StatusCheck struct {
 	// The steps of a check run, in the order it runs them, empty for a check that lists none.
 	Steps []*StatusCheckStep `protobuf:"bytes,11,rep,name=steps,proto3" json:"steps,omitempty"`
 	// What started the run, such as pull_request or push, empty when no workflow ran it.
-	RunEvent string `protobuf:"bytes,13,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
+	RunEvent string `protobuf:"bytes,12,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
 	// When the run was created, in RFC 3339, unset when the check ran in none.
-	RunStartedAt *string `protobuf:"bytes,14,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
+	RunStartedAt *string `protobuf:"bytes,13,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
 	// The log komrad keeps of the check, and where fetching it stands.
-	Log *CheckLog `protobuf:"bytes,15,opt,name=log,proto3" json:"log,omitempty"`
+	Log *CheckLog `protobuf:"bytes,14,opt,name=log,proto3" json:"log,omitempty"`
 	// The identifier komrad keeps the check under, which ReadCheckLog and SearchCheckLogs take.
-	Id            string `protobuf:"bytes,16,opt,name=id,proto3" json:"id,omitempty"`
+	Id            string `protobuf:"bytes,15,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2020,7 +2020,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x17ListStatusChecksRequest\x12/\n" +
 	"\x0fpull_request_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rpullRequestId\"Z\n" +
 	"\x18ListStatusChecksResponse\x12>\n" +
-	"\breadings\x18\x04 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadings\"\x83\x01\n" +
+	"\breadings\x18\x01 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadings\"\x83\x01\n" +
 	"\x13ReadCheckLogRequest\x12\"\n" +
 	"\bcheck_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\acheckId\x12&\n" +
 	"\n" +
@@ -2074,10 +2074,10 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x03url\x18\n" +
 	" \x01(\tR\x03url\x125\n" +
 	"\x05steps\x18\v \x03(\v2\x1f.pullrequest.v1.StatusCheckStepR\x05steps\x12\x1b\n" +
-	"\trun_event\x18\r \x01(\tR\brunEvent\x12)\n" +
-	"\x0erun_started_at\x18\x0e \x01(\tH\x02R\frunStartedAt\x88\x01\x01\x12*\n" +
-	"\x03log\x18\x0f \x01(\v2\x18.pullrequest.v1.CheckLogR\x03log\x12\x0e\n" +
-	"\x02id\x18\x10 \x01(\tR\x02idB\r\n" +
+	"\trun_event\x18\f \x01(\tR\brunEvent\x12)\n" +
+	"\x0erun_started_at\x18\r \x01(\tH\x02R\frunStartedAt\x88\x01\x01\x12*\n" +
+	"\x03log\x18\x0e \x01(\v2\x18.pullrequest.v1.CheckLogR\x03log\x12\x0e\n" +
+	"\x02id\x18\x0f \x01(\tR\x02idB\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_atB\x11\n" +
 	"\x0f_run_started_at\"\xe6\x01\n" +
@@ -2176,10 +2176,10 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1cSTATUS_CHECK_STATE_COMPLETED\x10\x04\x12\x1e\n" +
 	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xda\a\n" +
 	"\x12PullRequestService\x12\xc1\x02\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\x9d\x02\n" +
-	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\xb5\x01\x9a\xb5\x18\xad\x01:\xaa\x01The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01\x12\xb2\x01\n" +
-	"\fReadCheckLog\x12#.pullrequest.v1.ReadCheckLogRequest\x1a$.pullrequest.v1.ReadCheckLogResponse\"W\x9a\xb5\x18P:NA check's log is read a window at a time for a person on the check log screen.\x90\x02\x01\x12\xaa\x01\n" +
-	"\x0fSearchCheckLogs\x12&.pullrequest.v1.SearchCheckLogsRequest\x1a'.pullrequest.v1.SearchCheckLogsResponse\"F\x9a\xb5\x18?:=Check logs are searched for a person on the check log screen.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.:\x02\x01\x03\x90\x02\x01\x12\x9d\x02\n" +
+	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\xb5\x01\x9a\xb5\x18\xad\x01B\xaa\x01The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01\x12\xb2\x01\n" +
+	"\fReadCheckLog\x12#.pullrequest.v1.ReadCheckLogRequest\x1a$.pullrequest.v1.ReadCheckLogResponse\"W\x9a\xb5\x18PBNA check's log is read a window at a time for a person on the check log screen.\x90\x02\x01\x12\xaa\x01\n" +
+	"\x0fSearchCheckLogs\x12&.pullrequest.v1.SearchCheckLogsRequest\x1a'.pullrequest.v1.SearchCheckLogsResponse\"F\x9a\xb5\x18?B=Check logs are searched for a person on the check log screen.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
