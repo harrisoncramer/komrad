@@ -1255,6 +1255,47 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 	require.Len(t, panes, ceiling)
 }
 
+// TestConcurrentLaunchesGiveATaskOneWriter pins two launches racing onto a writerless task leaving
+// it one writer, the other refused.
+func TestConcurrentLaunchesGiveATaskOneWriter(t *testing.T) {
+	ctx := t.Context()
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
+	workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	for i := range errs {
+		wg.Go(func() {
+			_, errs[i] = manager.launch.NewAgent(ctx, NewAgentParams{
+				Title:      fmt.Sprintf("writer-%d", i),
+				Prompt:     "go",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+			})
+		})
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			require.ErrorIs(t, err, tasks.ErrHasWriter)
+		}
+	}
+	onTask, err := st.Agents.ListOnTasks(ctx, []string{work.ID})
+	require.NoError(t, err)
+	writers := 0
+	for _, agent := range onTask {
+		if agent.Role == agentstore.RoleWriter {
+			writers++
+		}
+	}
+	assert.Equal(t, 1, writers)
+}
+
 // TestNewReviewerTakesItsLaunchFromItsTask pins what a reviewer is given rather than asked for:
 // its task's checkout, no provisioner of its own, and its task's workflow.
 func TestNewReviewerTakesItsLaunchFromItsTask(t *testing.T) {

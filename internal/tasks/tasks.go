@@ -33,6 +33,8 @@ var (
 	ErrWorktreeRemoved = fail.Precondition("this task's worktree was removed, so there is no checkout to review")
 	// ErrArchived is an archived task an agent was asked to join.
 	ErrArchived = fail.Precondition("an agent works only on a live task")
+	// ErrHasWriter is a writer launched onto a task another launch gave a writer first.
+	ErrHasWriter = fail.Precondition("a task has one writer, so launch onto it again to review it")
 	// ErrTaskNotLive is a task hidden or unhidden once it is archived or being deleted.
 	ErrTaskNotLive = fail.Precondition("only a live task is hidden or unhidden")
 )

@@ -2627,7 +2627,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Unused."
+          "description": "Refused. Pass task instead."
         },
         {
           "name": "task",

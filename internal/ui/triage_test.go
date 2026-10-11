@@ -103,9 +103,9 @@ func TestTriageRows(t *testing.T) {
 				buildTriageFamily()[2],
 				buildTriageFamily()[3],
 				buildTriageFamily()[4],
-				newReviewer("helper", "helper", "third"),
+				newReviewer("third-reviewer", "third-reviewer", "third"),
 			),
-			want: []string{"asker backend", "└ tester", "author backend", "└ reviewer", "third backend", "└ helper", "+1 more waiting for a slot", "backend", "├─ task-third", "│ ├─ third", "│ └─ helper", "├─ task-asker", "│ ├─ asker", "│ └─ tester", "├─ task-broken", "│ └─ broken"},
+			want: []string{"asker backend", "└ tester", "author backend", "└ reviewer", "third backend", "└ third-reviewer", "+1 more waiting for a slot", "backend", "├─ task-third", "│ ├─ third", "│ └─ third-reviewer", "├─ task-asker", "│ ├─ asker", "│ └─ tester", "├─ task-broken", "│ └─ broken"},
 		},
 	}
 

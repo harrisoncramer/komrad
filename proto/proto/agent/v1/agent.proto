@@ -218,7 +218,7 @@ message CreateAgentRequest {
   // False to run in the directory named above rather than a fresh worktree, which is how an
   // agent reads a checkout somebody else has open. Unset to do whatever the workflow does.
   optional bool provision_enabled = 7;
-  // Unused.
+  // Refused. Pass task instead.
   optional string parent_agent_id = 8 [(buf.validate.field).string.min_len = 1];
   // Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer
   // when the task has none yet, and otherwise a reviewer in the writer's checkout, for which

@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
@@ -53,6 +54,17 @@ func (s *TaskService) Open(ctx context.Context, db store.DBTX, params OpenParams
 	}
 
 	agent.TaskID = &opened.Task.ID
+	locked, err := taskStore.GetUndeletedForUpdate(ctx, *agent.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	agents := agentstore.NewAgentStore(db)
+	if params.Joined != nil {
+		if err := refuseJoining(ctx, agents, agent, *locked); err != nil {
+			return nil, err
+		}
+	}
+
 	if params.Hidden {
 		if _, err := taskStore.SetHidden(ctx, opened.Task.ID, true); err != nil {
 			return nil, err
@@ -60,17 +72,32 @@ func (s *TaskService) Open(ctx context.Context, db store.DBTX, params OpenParams
 		opened.Task.Hidden = true
 	}
 
-	if err := taskStore.LockUndeleted(ctx, *agent.TaskID); err != nil {
-		return nil, err
-	}
-
-	live, err := agentstore.NewAgentStore(db).ListLiveOnTask(ctx, *agent.TaskID)
+	live, err := agents.ListLiveOnTask(ctx, *agent.TaskID)
 	if err != nil {
 		return nil, err
 	}
 	opened.Turn = s.QueueOpening(agent, live)
 
 	return opened, nil
+}
+
+func refuseJoining(ctx context.Context, agents *agentstore.AgentStore, agent agentstore.Agent, task taskstore.Task) error {
+	if task.ArchivedAt != nil {
+		return ErrArchived.Saying("task %q is archived", task.Slug)
+	}
+	if agent.Role != agentstore.RoleWriter {
+		return nil
+	}
+
+	onTask, err := agents.ListOnTasks(ctx, []string{task.ID})
+	if err != nil {
+		return err
+	}
+	if i := slices.IndexFunc(onTask, func(other agentstore.Agent) bool { return other.Role == agentstore.RoleWriter }); i >= 0 {
+		return ErrHasWriter.Saying("%q writes task %q", onTask[i].Name, task.Slug)
+	}
+
+	return nil
 }
 
 // isOwnTaskNeeded reports whether the agent is given a task of its own as it is written, which one

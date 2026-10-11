@@ -893,7 +893,7 @@ type CreateAgentRequest struct {
 	// False to run in the directory named above rather than a fresh worktree, which is how an
 	// agent reads a checkout somebody else has open. Unset to do whatever the workflow does.
 	ProvisionEnabled *bool `protobuf:"varint,7,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
-	// Unused.
+	// Refused. Pass task instead.
 	ParentAgentId *string `protobuf:"bytes,8,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
 	// Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer
 	// when the task has none yet, and otherwise a reviewer in the writer's checkout, for which
