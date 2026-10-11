@@ -245,11 +245,12 @@ func (a *archivedAgents) place(m *model, hovered string) {
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
 func (a *archivedAgents) hoveredAgent(m *model) (panel.Agent, bool) {
 	row, ok := rowAt(a.listRows(m), a.cursor)
-	if !ok || row.header {
+	if !ok {
 		return panel.Agent{}, false
 	}
+	item, ok := row.paneItem()
 
-	return row.item.Agent, true
+	return item.Agent, ok
 }
 
 // hoveredWorkflow is the archived workflow the cursor is on, and none on an agent or on the
@@ -349,8 +350,9 @@ func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
 
 	archive := archiveMenu(m, target)
 
-	if row, ok := rowAt(a.listRows(m), a.cursor); ok && a.holdsAnAgent(m) && !row.header {
-		return withNested(agentMenu(m, row.item), "archive", m.keys.Menu.Archive, archive), true
+	if row, ok := rowAt(a.listRows(m), a.cursor); ok && a.holdsAnAgent(m) {
+		item, _ := row.paneItem()
+		return withNested(agentMenu(m, item), "archive", m.keys.Menu.Archive, archive), true
 	}
 
 	return withNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archive), true

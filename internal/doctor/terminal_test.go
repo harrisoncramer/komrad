@@ -195,7 +195,7 @@ func TestEmphasisCheckNamesWhatIsLost(t *testing.T) {
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status)
 	require.ErrorIs(t, result.Err, errEmphasisMissing)
-	require.ErrorContains(t, result.Err, "a child reads as an ordinary agent")
+	require.ErrorContains(t, result.Err, "a step of a check's log reads as the check itself")
 	assert.NotContains(t, result.Err.Error(), "a workflow row reads")
 }
 
@@ -258,7 +258,7 @@ func TestEmphasisCheckSaysAChildIsReversedInTmux(t *testing.T) {
 
 	plain := newTerminalEmphasisCheck().Run(t.Context(), outside)
 	require.Equal(t, StatusWarn, plain.Status)
-	assert.ErrorContains(t, plain.Err, "a child reads as an ordinary agent",
+	assert.ErrorContains(t, plain.Err, "a step of a check's log reads as the check itself",
 		"with no tmux in the way the attribute is dropped rather than substituted")
 }
 

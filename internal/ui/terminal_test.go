@@ -27,7 +27,7 @@ func TestTerminal(t *testing.T) {
 	})
 
 	t.Run("from a task's row the shell takes the stage's rows", func(t *testing.T) {
-		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", t.TempDir()))
 
 		harness.press("space", "t")
 
@@ -83,7 +83,7 @@ func TestTerminal(t *testing.T) {
 		first, second := t.TempDir(), t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(first), newShellAgent("a2", second))
 
-		harness.press("space", "t", "j", "j", "space", "t")
+		harness.press("space", "t", "j", "space", "t")
 
 		assert.Equal(t, []string{first, second}, readShellDirs(harness))
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
@@ -93,7 +93,7 @@ func TestTerminal(t *testing.T) {
 		dir := t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir), newShellAgent("a2", dir))
 
-		harness.press("space", "t", "j", "j", "space", "t")
+		harness.press("space", "t", "j", "space", "t")
 
 		assert.Equal(t, []string{dir}, readShellDirs(harness), "one directory is one shell")
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
@@ -103,7 +103,7 @@ func TestTerminal(t *testing.T) {
 		dir := t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir), newShellAgent("a2", "/no/such/worktree"))
 
-		harness.press("space", "t", "j", "j", "space", "t")
+		harness.press("space", "t", "j", "space", "t")
 
 		assert.Equal(t, []string{dir}, readShellDirs(harness))
 		assert.Contains(t, harness.readFrame(), terminalRefuse)
@@ -138,7 +138,7 @@ func TestTerminal(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(workflow, agent, newTaskOf(agent)))
-		harness.press("k", "space", "t")
+		harness.press("g", "g", "j", "space", "t")
 
 		assert.Equal(t, []string{workflowDir}, readShellDirs(harness))
 	})
@@ -152,7 +152,7 @@ func TestTerminal(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), agent, task))
-		harness.press("k", "space", "t")
+		harness.press("g", "g", "j", "space", "t")
 
 		assert.Equal(t, []string{dir}, readShellDirs(harness))
 	})
@@ -246,7 +246,7 @@ func openTerminal(t *testing.T, params panelHarnessParams, agents ...*agentv1.Ag
 		}
 	}
 	harness.watch(buildSnapshot(rows...))
-	harness.press("k")
+	harness.press("g", "g", "j")
 
 	return harness
 }

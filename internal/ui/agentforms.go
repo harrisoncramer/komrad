@@ -323,7 +323,7 @@ func promptSubject(agents []panel.Agent, reviewers int) string {
 	switch {
 	case reviewers == 0:
 	case len(agents) > 1:
-		subject += fmt.Sprintf(" and %d reviewers", reviewers)
+		subject += " and " + label.Count(reviewers, "reviewer", "reviewers")
 	case reviewers == 1:
 		subject += " and its reviewer"
 	default:

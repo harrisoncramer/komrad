@@ -1125,9 +1125,11 @@ func buildWorktrees() []proto.Message {
 	archived := newArchivedAgent("archived", "reviewer", "w1")
 	archived.Harness = "claude"
 	archived.Cwd = "/trees/archived"
+	archived.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 
 	admin := newArchivedAgent("admin", "cargo-fix", "w1")
 	admin.Cwd = "/trees/admin"
+	admin.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 
 	return append([]proto.Message{
 		newLiveWorkflow("w1", "komrad"),

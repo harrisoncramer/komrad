@@ -207,13 +207,13 @@ func TestDocumentsOpen(t *testing.T) {
 			document.TaskId = nil
 		}
 		shelf.answer(harness)
-		moveToAgentRow(t, harness, "quiet")
+		moveToAgentRow(t, harness, "task-quiet")
 		harness.press("tab", "tab")
 		harness.fireTimers()
 		harness.press("space", "J", "a")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Equal(t, "author", readRecordField(harness.readFrame(), "agent_id"))
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
 	})
 
 	t.Run("the jump menu lands on an archived task among the archived agents", func(t *testing.T) {
@@ -303,7 +303,7 @@ func TestDocumentsFilter(t *testing.T) {
 			})
 			harness := openAgents(t, buildDocumentAuthors()...)
 			docs.answer(harness)
-			moveToAgentRow(t, harness, "quiet")
+			moveToAgentRow(t, harness, "task-quiet")
 			harness.press("tab", "tab")
 			harness.fireTimers()
 
@@ -1157,7 +1157,7 @@ func openEveryDocument(t *testing.T) *panelHarness {
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	newDocumentShelf().answer(harness)
-	moveToAgentRow(t, harness, "quiet")
+	moveToAgentRow(t, harness, "task-quiet")
 	harness.press("tab", "tab")
 	harness.fireTimers()
 

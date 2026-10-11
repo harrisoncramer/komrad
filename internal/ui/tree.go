@@ -34,6 +34,8 @@ type agentsScreen struct {
 	kind      agentsKind
 	kindFocus bool
 	archived  archivedAgents
+	// notes is the task whose notes are shown in place of its writer's pane, empty while none are.
+	notes string
 }
 
 type agentRow struct {
@@ -42,16 +44,15 @@ type agentRow struct {
 	// hiddenCount is the hidden tasks a workflow header stands in for.
 	hiddenCount int
 	workflow    panel.Workflow
-	// child says the row is rendered under the one above it rather than under the workflow, which is
-	// an indent and nothing else.
-	child bool
 	// triage says the row is the triage zone's copy of an agent the tree also renders.
 	triage bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
-	// task makes a header the task's rather than the workflow's, standing over the agents on it.
+	// task makes a header the task's rather than the workflow's, standing for its writer and over its
+	// reviewers.
 	task *panel.Task
-	// underTask sets the row in under the task header above it.
+	// underTask sets a reviewer in under its task's row, or under its writer's where no task row is
+	// drawn.
 	underTask bool
 }
 
@@ -60,11 +61,22 @@ func (r agentRow) isTask() bool {
 	return r.header && r.task != nil
 }
 
+// isAgentRow reports whether the row stands for agents rather than a workflow: an agent's own row or a
+// task's.
+func (r agentRow) isAgentRow() bool {
+	return !r.header || r.isTask()
+}
+
+// writer is the agent a task's row stands for, which a task whose writer is not listed has none of.
+func (r agentRow) writer() (panel.AgentRow, bool) {
+	return r.item, r.isTask() && r.item.Agent.ID != ""
+}
+
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
-// orchestrator standing behind it and for a task is none.
+// orchestrator standing behind it and for a task its writer.
 func (r agentRow) paneItem() (panel.AgentRow, bool) {
 	if r.isTask() {
-		return panel.AgentRow{}, false
+		return r.writer()
 	}
 	if r.header {
 		if r.orchestrator == nil {
@@ -75,13 +87,6 @@ func (r agentRow) paneItem() (panel.AgentRow, bool) {
 	}
 
 	return r.item, true
-}
-
-// family is one agent and its children as rows, under the workflow the head belongs to.
-type family struct {
-	workflowID string
-	taskID     string
-	rows       []agentRow
 }
 
 // isFolded reports whether an agent is rendered on its workflow's own row rather than on one of its
@@ -98,7 +103,7 @@ type treeRowsParams struct {
 	// foldOrchestrators renders a workflow's orchestrator on the workflow's own row rather than
 	// as a row of its own.
 	foldOrchestrators bool
-	// flat renders the families in the order given, with no header over them.
+	// flat renders the agents in the order given, with no header over them.
 	flat bool
 	// tasks are the tasks the agents work on, keyed by id, and nil renders no task headers.
 	tasks taskIndex
@@ -118,7 +123,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 	}
 
-	var families []family
+	var listed [][]agentRow
 	hiddenCounts := make(map[string]int)
 	countedTasks := make(map[string]bool)
 	for _, it := range agents {
@@ -145,20 +150,16 @@ func treeRows(params treeRowsParams) []agentRow {
 			}
 		}
 
-		families = append(families, family{
-			workflowID: workflowID,
-			taskID:     it.Agent.TaskID,
-			rows:       buildFamilyRows(it, reviewers[it.Agent.ID]),
-		})
+		listed = append(listed, buildAgentRows(it, reviewers[it.Agent.ID]))
 	}
 
 	if params.flat {
 		byID := xslice.KeyBy(workflows, func(w panel.Workflow) string { return w.ID })
 
 		var rows []agentRow
-		for _, f := range families {
-			for _, row := range f.rows {
-				row.workflow = byID[f.workflowID]
+		for _, agentRows := range listed {
+			for _, row := range agentRows {
+				row.workflow = byID[row.item.Agent.WorkflowID]
 				rows = append(rows, row)
 			}
 		}
@@ -178,7 +179,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		rows = append(rows, header)
-		inWorkflow := xslice.Filter(families, func(f family) bool { return f.workflowID == w.ID })
+		inWorkflow := xslice.Filter(listed, func(agentRows []agentRow) bool { return agentRows[0].item.Agent.WorkflowID == w.ID })
 		for _, row := range taskRows(inWorkflow, params.tasks) {
 			row.workflow = w
 			rows = append(rows, row)
@@ -188,54 +189,64 @@ func treeRows(params treeRowsParams) []agentRow {
 	return rows
 }
 
-// taskRows lays out a workflow's families, gathering those on one task under a header for it,
-// so only an agent on no task, an orchestrator, sits at the agent's step.
-func taskRows(families []family, tasks taskIndex) []agentRow {
+// taskRows lays out a workflow's agents, gathering those on one task under a row for it, so only an
+// agent on no task, an orchestrator, sits at the agent's step.
+func taskRows(listed [][]agentRow, tasks taskIndex) []agentRow {
 	if tasks == nil {
-		return slices.Concat(xslice.Map(families, func(f family) []agentRow { return f.rows })...)
+		return slices.Concat(listed...)
 	}
 
-	onTask := make(map[string][]family)
-	for _, f := range families {
-		if f.taskID != "" {
-			onTask[f.taskID] = append(onTask[f.taskID], f)
+	onTask := make(map[string][][]agentRow)
+	for _, agentRows := range listed {
+		if taskID := agentRows[0].item.Agent.TaskID; taskID != "" {
+			onTask[taskID] = append(onTask[taskID], agentRows)
 		}
 	}
 
 	var rows []agentRow
 	laid := make(map[string]bool)
-	for _, f := range families {
-		gathered := onTask[f.taskID]
+	for _, agentRows := range listed {
+		taskID := agentRows[0].item.Agent.TaskID
+		gathered := onTask[taskID]
 		if len(gathered) == 0 {
-			rows = append(rows, f.rows...)
+			rows = append(rows, agentRows...)
 
 			continue
 		}
-		if laid[f.taskID] {
+		if laid[taskID] {
 			continue
 		}
-		laid[f.taskID] = true
+		laid[taskID] = true
 
-		rows = append(rows, taskHeader(gathered, tasks))
-		for _, g := range gathered {
-			for _, row := range g.rows {
-				row.underTask = true
-				rows = append(rows, row)
+		header := taskHeader(gathered, tasks)
+		rows = append(rows, header)
+		writer, _ := header.writer()
+		for _, row := range slices.Concat(gathered...) {
+			if row.item.Agent.ID == writer.Agent.ID {
+				continue
 			}
+			row.underTask = true
+			rows = append(rows, row)
 		}
 	}
 
 	return rows
 }
 
-// taskHeader is the row over the families on one task.
-func taskHeader(gathered []family, tasks taskIndex) agentRow {
-	task := tasks.findForAgent(gathered[0].rows[0].item.Agent)
-
-	return agentRow{
+// taskHeader is the row for one task, standing for its writer when the writer is listed.
+func taskHeader(gathered [][]agentRow, tasks taskIndex) agentRow {
+	task := tasks.findForAgent(gathered[0][0].item.Agent)
+	header := agentRow{
 		header: true,
 		task:   &task,
 	}
+	for _, agentRows := range gathered {
+		if head := agentRows[0].item; head.Agent.Role == panel.RoleWriter {
+			header.item = head
+		}
+	}
+
+	return header
 }
 
 func keyAgentsByID(agents []panel.AgentRow) map[string]panel.AgentRow {
@@ -276,9 +287,10 @@ func reviewersByWriter(agents []panel.AgentRow, writers map[string]panel.AgentRo
 	return reviewers
 }
 
-func buildFamilyRows(head panel.AgentRow, reviewers []panel.AgentRow) []agentRow {
+// buildAgentRows is an agent's row with the rows of the reviewers on its task set in under it.
+func buildAgentRows(head panel.AgentRow, reviewers []panel.AgentRow) []agentRow {
 	return append([]agentRow{{item: head}}, xslice.Map(reviewers, func(reviewer panel.AgentRow) agentRow {
-		return agentRow{item: reviewer, child: true}
+		return agentRow{item: reviewer, underTask: true}
 	})...)
 }
 
@@ -411,7 +423,7 @@ func (a *agentsScreen) hoveredPane(m *model) (panel.AgentRow, bool) {
 	}
 
 	item, held := r.paneItem()
-	if !held || !hasPane(item) {
+	if !held || !hasPane(item) || a.isShowingNotes(r) {
 		return panel.AgentRow{}, false
 	}
 
@@ -426,7 +438,7 @@ func (a *agentsScreen) hoveredResting(m *model) (panel.AgentRow, bool) {
 	}
 
 	item, held := r.paneItem()
-	if !held || (item.Alive && item.Agent.HeldAt == nil) || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
+	if !held || a.isShowingNotes(r) || (item.Alive && item.Agent.HeldAt == nil) || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
 		return panel.AgentRow{}, false
 	}
 
@@ -479,7 +491,7 @@ func (a *agentsScreen) enclosingWorkflow(m *model) *panel.Workflow {
 
 func firstAgentRowIndex(rows []agentRow) int {
 	for i, r := range rows {
-		if !r.header {
+		if r.isAgentRow() {
 			return i
 		}
 	}
@@ -487,21 +499,21 @@ func firstAgentRowIndex(rows []agentRow) int {
 	return 0
 }
 
-// nearestAgentRowIndex steers an index off a header when the row it used to point at was an
+// nearestAgentRowIndex steers an index off a workflow when the row it used to point at was an
 // agent that just vanished.
 func nearestAgentRowIndex(rows []agentRow, idx int) int {
 	row, ok := rowAt(rows, idx)
-	if !ok || !row.header {
+	if !ok || row.isAgentRow() {
 		return idx
 	}
 
 	for i := idx + 1; i < len(rows); i++ {
-		if !rows[i].header {
+		if rows[i].isAgentRow() {
 			return i
 		}
 	}
 	for i := idx - 1; i >= 0; i-- {
-		if !rows[i].header {
+		if rows[i].isAgentRow() {
 			return i
 		}
 	}
@@ -512,7 +524,7 @@ func nearestAgentRowIndex(rows []agentRow, idx int) int {
 func rowIndexOfAgentID(rows []agentRow, id string) int {
 	for i, r := range rows {
 		item, held := r.paneItem()
-		if held && !r.isTask() && item.Agent.ID == id {
+		if held && item.Agent.ID == id {
 			return i
 		}
 	}
@@ -545,13 +557,21 @@ func toTreeRowKey(key string) string {
 	return strings.TrimPrefix(key, triageRowPrefix)
 }
 
-// findLandingKey picks which copy of the agent row a landing goes to, preferring the hovered copy, then the tree's, then the zone's.
+// findLandingKey picks which copy of the agent row a landing goes to, preferring the hovered copy,
+// then the tree's, then the row of the task a writer stands for, then the zone's.
 func findLandingKey(rows []agentRow, hovered, key string) string {
 	if toTreeRowKey(hovered) == key {
 		return hovered
 	}
 	if rowIndexOfKey(rows, key) >= 0 {
 		return key
+	}
+	if at := slices.IndexFunc(rows, func(r agentRow) bool {
+		writer, ok := r.writer()
+
+		return ok && agentRowKey(writer.Agent.ID) == key
+	}); at >= 0 {
+		return rowKey(rows[at])
 	}
 	if zoneKey := triageRowPrefix + key; rowIndexOfKey(rows, zoneKey) >= 0 {
 		return zoneKey

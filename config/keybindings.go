@@ -285,13 +285,16 @@ type MenuKeys struct {
 	Snooze []string `mapstructure:"snooze" default:"z"`
 	// Edit the hovered workflow, or the hovered task's title, goal and notes.
 	EditRow []string `mapstructure:"edit_row" default:"E"`
+	// Show the hovered task's goal and notes in place of its writer's pane beside the list, and its
+	// writer's pane again. Escape puts the writer's pane back too. The entry is only on a task.
+	Notes []string `mapstructure:"notes" default:"n"`
 	// Restart the hovered task's writer on a new conversation in the same checkout, from a form
 	// asking for a note to it. The entry is only on a task, and does nothing on one with no live
 	// writer.
 	Restart []string `mapstructure:"restart" default:"o"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`
-	// Start a new task on the hovered workflow. On the hovered task it starts a child of the live
+	// Start a new task on the hovered workflow. On the hovered task it starts a reviewer of the live
 	// writer, or else a writer in the task's checkout, and it is not offered once the worktree was
 	// removed. The entry is only on the agents list.
 	NewAgent []string `mapstructure:"new_agent" default:"c"`

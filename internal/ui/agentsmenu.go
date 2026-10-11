@@ -36,6 +36,7 @@ func (a *agentsScreen) buildScreenMenu(m *model) (submenu, bool) {
 func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	task := *row.task
 	lead, _ := m.listing.findTaskLead(task)
+	writer, _ := row.writer()
 	menu := submenu{
 		kind:  formMenu,
 		title: task.Slug,
@@ -48,8 +49,10 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			newAgentEntries(m, row.workflow, task),
 			[]submenuEntry{
 				openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
+				a.notesEntry(m, row),
 			},
 			restartEntries(m, task),
+			retryEntries(m, writer),
 			a.snoozeEntries(m, lead),
 			a.editEntries(m, m.listing.findCheckoutOwner(task)),
 			[]submenuEntry{
@@ -153,12 +156,7 @@ func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
 // work to its task's row.
 func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
 	pages := subpageEntries(m, item, []subpage{subpageLogs})
-	own := a.editEntries(m, item)
-	if item.Agent.State == panel.StateFailedToCreate {
-		own = append(own, openEntry("retry launch", m.keys.Menu.Retry, func(m *model) tea.Cmd {
-			return openRetryForm(m, item.Agent)
-		}))
-	}
+	own := append(a.editEntries(m, item), retryEntries(m, item)...)
 	if item.Agent.TaskID == "" {
 		own = append(own, a.snoozeEntries(m, item)...)
 	}
@@ -175,15 +173,26 @@ func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
 	return withNested(menu, "archive", m.keys.Menu.Archive, agentArchiveMenu(m, item.Agent))
 }
 
+// retryEntries is the entry that relaunches an agent that failed to create, and none otherwise.
+func retryEntries(m *model, item panel.AgentRow) []submenuEntry {
+	if item.Agent.State != panel.StateFailedToCreate {
+		return nil
+	}
+
+	return []submenuEntry{openEntry("retry launch", m.keys.Menu.Retry, func(m *model) tea.Cmd {
+		return openRetryForm(m, item.Agent)
+	})}
+}
+
 // snoozeEntries is the entry that snoozes or wakes the agent's task in triage, and none when it
 // is not in triage.
 func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []submenuEntry {
-	family, ok := a.triage.findFamily(item, m.listing.agents)
+	triaged, ok := a.triage.findTask(item, m.listing.agents)
 	if !ok {
 		return nil
 	}
 
-	key := triageKey(family.head)
+	key := triageKey(triaged.head)
 	label := "snooze"
 	if a.triage.isSnoozed(key) {
 		label = "wake"

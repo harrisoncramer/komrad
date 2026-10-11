@@ -36,6 +36,12 @@ func (a *agentsScreen) modeActions() []screenAction {
 			},
 		},
 		screenAction{
+			id:   actionTaskNotesBack,
+			keys: fixedBack,
+			when: a.isHoveringNotes,
+			nav:  func(m *model, _ string) tea.Cmd { return a.closeNotes(m) },
+		},
+		screenAction{
 			id:   actionAgentsBack,
 			keys: fixedBack,
 			when: list.isBrowsing,
@@ -98,6 +104,13 @@ func (a *agentsScreen) isHoveringTask(m *model) bool {
 	return a.isBrowsing(m) && ok && row.isTask()
 }
 
+// isHoveringNotes reports whether the cursor is on the task whose notes are shown.
+func (a *agentsScreen) isHoveringNotes(m *model) bool {
+	row, ok := a.hoveredRow(m)
+
+	return a.isBrowsing(m) && ok && a.isShowingNotes(row)
+}
+
 func (a *agentsScreen) isHoveringAgent(m *model) bool {
 	row, ok := a.hoveredRow(m)
 
@@ -140,6 +153,11 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			of:   []actionID{actionTaskRename},
 			desc: func(*model) string { return "rename" },
 			show: a.isHoveringTask,
+		},
+		{
+			of:   []actionID{actionTaskNotesBack},
+			desc: func(*model) string { return "close the notes" },
+			show: a.isHoveringNotes,
 		},
 		{
 			of:   []actionID{actionFilterOpen},

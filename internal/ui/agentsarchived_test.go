@@ -213,10 +213,16 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			rows:  buildArchivedTasks(),
 			press: []string{"j", "j", "j", "space", "a", "d", "y"},
 			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a3"),
-			wantSent: []request{{
-				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}},
-			}},
+			wantSent: []request{
+				{
+					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}},
+				},
+				{
+					procedure: agentv1connect.AgentServiceGetLastScreenProcedure,
+					msg:       &agentv1.GetLastScreenRequest{AgentId: "a1"},
+				},
+			},
 		},
 		{
 			name:  "confirming the workflow delete destroys the workflow it was opened on",
@@ -536,6 +542,9 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	measuredTask := newTaskOf(measured)
 	measuredTask.DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
 	measuredTask.ArchivedAt = xptr.Ptr(archivedAt)
+	measuredReview := newArchivedAgent("a2", "api-review", "w1")
+	measuredReview.TaskId = xptr.Ptr(measuredTask.GetId())
+	measuredReview.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 	tests := []struct {
 		name       string
@@ -564,8 +573,8 @@ func TestArchivedAgentsDocument(t *testing.T) {
 			wantAbsent: []string{"dormant"},
 		},
 		{
-			name:       "an archived agent renders no diff stat",
-			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured, measuredTask},
+			name:       "an archived reviewer renders no diff stat",
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured, measuredTask, measuredReview},
 			press:      []string{"j", "j"},
 			want:       []string{"archived — kept until deleted"},
 			wantAbsent: []string{"+200"},
@@ -601,6 +610,8 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		task := newTaskOf(agent)
 		task.Branch = xptr.Ptr("agent/a1")
 		task.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
+		task.CreatedAt = "2026-07-29T09:00:00Z"
+		task.ArchivedAt = xptr.Ptr(archivedAt)
 		harness := openArchivedAgents(t,
 			newLiveWorkflow("w1", "backend"),
 			agent,
@@ -623,9 +634,6 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agent/a1", "the task's record carries its checkout")
 		assert.Contains(t, frame, "its pull request is merged")
-
-		harness.press("esc", "j", "pick:record")
-		frame = harness.readFrame()
 		created, archived := findRecordLine(frame, "created"), findRecordLine(frame, "archived")
 		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")
@@ -1300,7 +1308,7 @@ func TestArchivedTasks(t *testing.T) {
 
 		return ok && agent.GetId() == "a5"
 	})
-	onAPIWork := []string{"j", "j", "j", "j", "j"}
+	onAPIWork := []string{"j", "j", "j", "j"}
 
 	tests := []struct {
 		name      string
@@ -1384,7 +1392,7 @@ func TestArchivedTasks(t *testing.T) {
 		{
 			name:  "the range key takes the tasks between",
 			rows:  buildArchivedTasks(),
-			press: []string{"j", "j", "j", "v", "j", "j", "V", "space", "a", "d", "y"},
+			press: []string{"j", "j", "j", "v", "j", "V", "space", "a", "d", "y"},
 			wantSent: []request{{
 				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
 				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2", "t1"}},

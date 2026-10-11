@@ -181,7 +181,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name:     "a child reaching outside its family",
+			name:     "an agent reaching outside its task",
 			call:     send,
 			err:      mail.ErrOutsideTask,
 			wantCode: connect.CodePermissionDenied,

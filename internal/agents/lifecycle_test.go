@@ -1541,9 +1541,9 @@ func TestDeleteAgentTakesOnlyAClaimedAgent(t *testing.T) {
 	}
 }
 
-// TestDeleteWaitsOnAChildAnotherDeleteHolds pins a parent's delete tearing nothing down while
-// a child claimed by an earlier delete is still going.
-func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
+// TestDeleteWaitsOnAReviewerAnotherDeleteHolds pins a writer's delete tearing nothing down while
+// a reviewer claimed by an earlier delete is still going.
+func TestDeleteWaitsOnAReviewerAnotherDeleteHolds(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
@@ -1552,34 +1552,34 @@ func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
 
 	created, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
-	parent, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:      "author",
+	writer, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "writer",
 		Dir:        t.TempDir(),
 		WorkflowID: created.ID,
 	})
 	require.NoError(t, err)
-	child, err := manager.launch.NewAgent(ctx, NewAgentParams{
+	reviewer, err := manager.launch.NewAgent(ctx, NewAgentParams{
 		Title:      "reviewer",
 		WorkflowID: created.ID,
-		Task:       *parent.TaskID,
+		Task:       *writer.TaskID,
 	})
 	require.NoError(t, err)
 
-	childClaims, err := st.Agents.MarkDeleting(ctx, []string{child.ID})
+	reviewerClaims, err := st.Agents.MarkDeleting(ctx, []string{reviewer.ID})
 	require.NoError(t, err)
-	require.Len(t, childClaims, 1)
-	parentClaims, err := st.Agents.MarkDeleting(ctx, []string{parent.ID})
+	require.Len(t, reviewerClaims, 1)
+	writerClaims, err := st.Agents.MarkDeleting(ctx, []string{writer.ID})
 	require.NoError(t, err)
-	require.Len(t, parentClaims, 1, "the child is not taken twice")
+	require.Len(t, writerClaims, 1, "the reviewer is not taken twice")
 
-	err = manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt)
+	err = manager.lifecycle.DeleteAgent(ctx, writer.ID, writerClaims[0].DeletingAt)
 	require.ErrorIs(t, err, agenterr.ErrReviewerDeleting)
 	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 2)
 
-	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, child.ID, childClaims[0].DeletingAt))
-	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt))
+	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, reviewer.ID, reviewerClaims[0].DeletingAt))
+	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, writer.ID, writerClaims[0].DeletingAt))
 
 	all, err = st.Agents.ListAll(ctx)
 	require.NoError(t, err)

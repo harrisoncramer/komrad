@@ -300,10 +300,10 @@ func TestFormsAdoptExisting(t *testing.T) {
 			wantHovered: "author",
 		},
 		{
-			name:        "an agent on a hidden task shows the hidden tasks and lands on its row",
+			name:        "a writer on a hidden task shows the hidden tasks and lands on its task's row",
 			existing:    tucked,
 			wantScreen:  agentsScreen,
-			wantHovered: "tucked",
+			wantHovered: "task-a4",
 		},
 		{
 			name:        "a reviewer on a hidden task shows the hidden tasks and lands on its row",
@@ -560,7 +560,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 	})
 
 	t.Run("a selection's archive menu", func(t *testing.T) {
-		siblings := []string{"j", "j", "j", "v", "j", "v"}
+		siblings := []string{"j", "j", "v", "j", "v"}
 		wholeTask := []string{"j", "v"}
 
 		tests := []struct {
@@ -615,7 +615,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				harness := openAgents(t, buildTaskFamily()...)
+				harness := openAgents(t, buildReviewedTasks()...)
 				harness.press(tt.choose...)
 				harness.press("space", "a")
 				before := harness.readRequests()
@@ -1166,7 +1166,7 @@ func TestFormsLayout(t *testing.T) {
 
 			frame := harness.readFrame()
 			assert.Contains(t, readStage(frame)[0], tt.want)
-			assert.Contains(t, readListRows(frame), "   └─ author", "the list it was opened over is still beside it")
+			assert.Contains(t, readListRows(frame), "└─ task-a1", "the list it was opened over is still beside it")
 		})
 	}
 

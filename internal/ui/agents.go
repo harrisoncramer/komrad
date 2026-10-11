@@ -84,28 +84,21 @@ func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
-// standing behind it and for a task its lead.
+// standing behind it and for a task its writer.
 func (a *agentsScreen) openHovered(m *model) tea.Cmd {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		return startOrchestrator(m, workflow)
 	}
 
-	row, ok := a.hoveredRow(m)
-	switch {
-	case !ok:
-		return nil
-	case row.isTask():
-		lead, ok := m.listing.findTaskLead(*row.task)
-		if !ok {
-			return nil
-		}
-
-		return a.openAgent(m, lead)
-	case row.header:
+	item, ok := a.hoveredPaneItem(m)
+	if !ok {
 		return nil
 	}
+	if a.isHoveringNotes(m) {
+		a.closeNotes(m)
+	}
 
-	return a.openAgent(m, row.item)
+	return a.openAgent(m, item)
 }
 
 func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) tea.Cmd {
@@ -209,7 +202,7 @@ func (a *agentsScreen) toggleHidden(m *model) {
 	a.stage(m)
 }
 
-// seeFinished snoozes the agent's family when it waits only to be looked at and the tree renders the
+// seeFinished snoozes the agent's task when it waits only to be looked at and the tree renders the
 // agent, keeping the cursor on the agent's tree row.
 func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 	treeKey := toTreeRowKey(a.list().hovered(m))

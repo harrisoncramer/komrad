@@ -63,7 +63,6 @@ func TestReviewOpen(t *testing.T) {
 		})
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
-		harness.press("k")
 		require.Contains(t, readHoveredRow(harness.readFrame()), "login-fix")
 
 		harness.press("space", "r")
@@ -128,7 +127,7 @@ func TestReviewOpen(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 		harness.hold("git.Diff")
 
-		harness.press("k", "space", "r", "?")
+		harness.press("space", "r", "?")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStageText(frame), "loading the diff")
@@ -145,7 +144,7 @@ func TestReviewOpen(t *testing.T) {
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
 		harness.hold("git.Diff")
-		harness.press("k", "space", "r")
+		harness.press("space", "r")
 
 		for _, x := range []int{1, reviewWidth - 1} {
 			harness.send(tea.MouseWheelMsg{
@@ -2540,7 +2539,7 @@ func TestReviewHold(t *testing.T) {
 		})
 		server.serve(harness)
 		idle := newAgent("a0", "able", "w1")
-		harness.watch(buildSnapshot(server.workflow, idle, server.agent))
+		harness.watch(buildSnapshot(server.workflow, idle, server.agent, server.task))
 		require.Contains(t, readHoveredRow(harness.readFrame()), "auth")
 
 		harness.press("space", "r")
@@ -2662,7 +2661,7 @@ func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams)
 	harness := newPanelHarness(t, params)
 	server.serve(harness)
 	harness.watch(server.buildSnapshot())
-	harness.press("k", "space", "r")
+	harness.press("space", "r")
 
 	return harness
 }

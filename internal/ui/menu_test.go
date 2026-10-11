@@ -27,7 +27,9 @@ func TestMenu(t *testing.T) {
 	t.Run("an agent's entries stand alone, with no band of the list's", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSubpages(t, "quiet")
+		harness := openAgents(t, append(buildSubpagesAgents(), newReviewer("r1", "reviewer", "author"))...)
+		moveToAgentRow(t, harness, "reviewer")
+		harness.press("space")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "› logs")

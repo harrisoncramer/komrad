@@ -29,9 +29,9 @@ func TestSubpages(t *testing.T) {
 	}{
 		{
 			name:       "an agent's row starts on logs",
-			row:        "quiet",
-			wantTitle:  "  quiet",
-			wantCrumb:  "agents › quiet",
+			row:        "reviewer",
+			wantTitle:  "  reviewer",
+			wantCrumb:  "agents › reviewer",
 			wantCursor: "› logs",
 		},
 		{
@@ -97,7 +97,7 @@ func TestSubpages(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{git: server.repo})
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
-		harness.press("k", "space")
+		harness.press("space")
 		menuUp := len(harness.panel.ReadZooms())
 		require.True(t, harness.panel.IsZoomed())
 
@@ -133,7 +133,7 @@ func TestSubpages(t *testing.T) {
 
 		harness := openAgents(t, buildSubpagesAgents()...)
 		harness.press(widenListPresses...)
-		moveToAgentRow(t, harness, "quiet")
+		moveToAgentRow(t, harness, "task-quiet")
 		harness.press("?")
 
 		assert.Regexp(t, `space +menu`, readLegend(harness.readFrame()))
@@ -233,7 +233,7 @@ func buildSubpagesAgents() []proto.Message {
 	author, _ := rows[2].(*agentv1.Agent)
 	author.Cwd = "/trees/author"
 
-	return rows
+	return append(rows, newReviewer("reviewer", "reviewer", "author"))
 }
 
 // readOffEntry matches a submenu entry as it is rendered when there is nothing behind it, gray with

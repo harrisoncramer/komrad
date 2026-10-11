@@ -49,7 +49,7 @@ type line struct {
 	Columns []Cell
 	// Branch is the tree a row hangs in, rendered greyed before its name.
 	Branch string
-	// Rule renders the corner a child hangs off, inside the name cell rather than before it.
+	// Rule renders the corner a nested row hangs off, inside the name cell rather than before it.
 	Rule bool
 	// Indent is how far this row's name is set in from the gutter.
 	Indent int

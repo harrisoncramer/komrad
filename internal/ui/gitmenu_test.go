@@ -73,7 +73,8 @@ func TestGitMenu(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{width: 36, height: 20})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(buildGitAgent()...))
-		harness.press("k", "space", "g")
+		moveToAgentRow(t, harness, "task-a1")
+		harness.press("space", "g")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, gitMenuEntry)
@@ -822,7 +823,8 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 			harness := newPanelHarness(t, panelHarnessParams{browser: opener})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(append(buildGitAgent(), newOpenPullRequest())...))
-			harness.press("k", "space", "g", "o")
+			moveToAgentRow(t, harness, "task-a1")
+			harness.press("space", "g", "o")
 
 			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
 			frame := harness.readFrame()
@@ -883,7 +885,8 @@ func openGitMenu(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
-	harness.press("k", "space", "g")
+	moveToAgentRow(t, harness, "task-a1")
+	harness.press("space", "g")
 	require.Contains(t, harness.readFrame(), gitMenuEntry)
 
 	return harness

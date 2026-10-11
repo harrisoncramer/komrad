@@ -75,14 +75,17 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	}
 
 	if r.isTask() {
+		row.Process = view.ProcessNone
+		if writer, ok := r.writer(); ok {
+			row = agentFacts(row, writer)
+		}
 		row.Kind = view.KindTask
 		row.Name = r.task.Slug
 		row.Matches = params.matchesOf(r, r.task.Slug)
 		row.Archived = r.task.ArchivedAt != nil
 		row.Hidden = r.task.Hidden && !row.Archived
-		row.FailedRun = r.task.FailedRun
+		row.FailedRun = row.FailedRun || r.task.FailedRun
 		row.Documents = r.task.Documents > 0
-		row.Process = view.ProcessNone
 		row.Repo = snapshotRepo(r.task.WorktreeRemoved, r.task.Sequence)
 		row.InWorkflowDir = isInWorkflowDir(r.task.WorkflowID, r.task.Cwd, params.workflowDirs)
 		row.ReviewerComments, row.PersonComments = convertComments(r.task.ReviewerComments), convertComments(r.task.PersonComments)
@@ -198,7 +201,7 @@ func treeDepth(r agentRow) int {
 		return 0
 	case r.header:
 		return -1
-	case r.underTask, r.child:
+	case r.underTask:
 		return 1
 	}
 
@@ -214,12 +217,10 @@ func standingIn(count int, showHidden bool) int {
 	return count
 }
 
-// snapshotKind is where an agent sits in the tree, every agent on a task but its live writer drawn as a child.
+// snapshotKind is where an agent sits in the tree, a reviewer set in under its task's row on a flat
+// list too.
 func snapshotKind(r agentRow, flat bool) view.RowKind {
-	switch {
-	case r.child, r.underTask && !isLiveWriter(r.item.Agent):
-		return view.KindChild
-	case flat:
+	if flat && !r.underTask {
 		return view.KindResult
 	}
 

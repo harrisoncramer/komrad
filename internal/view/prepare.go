@@ -53,7 +53,7 @@ func prepareLine(params prepareLineParams) line {
 		Focus:    textCell(chromeIf(caret, glyph.Focus), paint.TonePrimary),
 		Columns:  columnCells(row, params.columns),
 		Branch:   branchFor(row.Tree),
-		Rule:     row.Kind == KindChild && row.Tree == nil,
+		Rule:     (row.Kind == KindChild || row.Nested) && row.Tree == nil,
 		Indent:   indentFor(row),
 		Lead:     row.Lead,
 		Name:     row.Name,

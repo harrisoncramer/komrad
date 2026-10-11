@@ -15,6 +15,8 @@ type rowRef struct {
 	group  string
 	// task is the key of the task the row is a header of or sits under, empty off a task.
 	task string
+	// writer is the key of the writer a task's row stands for, empty on every other row.
+	writer string
 }
 
 func (r rowRef) isTask() bool {
@@ -92,6 +94,9 @@ func (s selection) pruned(refs []rowRef) selection {
 		if !r.header {
 			onScreen[r.key] = true
 		}
+		if r.writer != "" {
+			onScreen[r.writer] = true
+		}
 	}
 
 	kept := xslice.Filter(s.keys, func(key string) bool { return onScreen[key] })
@@ -102,7 +107,7 @@ func (s selection) pruned(refs []rowRef) selection {
 func (s selection) nearest(refs []rowRef, cursor int) int {
 	closest := -1
 	for i, r := range refs {
-		if r.header || !s.has(r.key) {
+		if !s.holds(r) {
 			continue
 		}
 		if closest < 0 || rowDistance(i, cursor) < rowDistance(closest, cursor) {
@@ -111,6 +116,15 @@ func (s selection) nearest(refs []rowRef, cursor int) int {
 	}
 
 	return closest
+}
+
+// holds reports whether the row is selected: an agent's row by its own key and a task's by its writer's.
+func (s selection) holds(r rowRef) bool {
+	if r.header {
+		return r.writer != "" && s.has(r.writer)
+	}
+
+	return s.has(r.key)
 }
 
 func (s selection) hasAll(keys []string) bool {
@@ -152,6 +166,9 @@ func groupKeys(refs []rowRef, header rowRef) []string {
 		if !r.header && (underTask || underWorkflow) {
 			keys = append(keys, r.key)
 		}
+		if r.writer != "" && (underTask || underWorkflow) {
+			keys = append(keys, r.writer)
+		}
 	}
 
 	return keys
@@ -168,22 +185,32 @@ func refsOf(rows []agentRow) []rowRef {
 		case !row.underTask:
 			task = ""
 		}
-		refs = append(refs, rowRef{
+		ref := rowRef{
 			key:    toTreeRowKey(rowKey(row)),
 			header: row.header,
 			group:  workflowRowKey(row.workflow.ID),
 			task:   task,
-		})
+		}
+		if writer, ok := row.writer(); ok {
+			ref.writer = agentRowKey(writer.Agent.ID)
+		}
+		refs = append(refs, ref)
 	}
 
 	return refs
 }
 
 func chosenAgents(sel selection, rows []agentRow) []panel.Agent {
-	chosen := xslice.Filter(rows, func(row agentRow) bool {
-		return !row.header && sel.has(toTreeRowKey(rowKey(row)))
-	})
-	agents := xslice.Map(chosen, func(row agentRow) panel.Agent { return row.item.Agent })
+	var agents []panel.Agent
+	for _, row := range rows {
+		writer, ok := row.writer()
+		switch {
+		case !row.header && sel.has(toTreeRowKey(rowKey(row))):
+			agents = append(agents, row.item.Agent)
+		case ok && sel.has(agentRowKey(writer.Agent.ID)):
+			agents = append(agents, writer.Agent)
+		}
+	}
 
 	return xslice.UniqueBy(agents, func(agent panel.Agent) string { return agent.ID })
 }
