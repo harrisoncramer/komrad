@@ -504,8 +504,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 	switch {
 	case result.written == nil || walkedAway:
 	case result.written.archived && result.keyMoved:
-		m.agents.kind = agentsArchived
-		cmds = append(cmds, m.enterScreen(screenAgents))
+		cmds = append(cmds, m.enterArchived(screenTarget{}))
 	case result.written.archived:
 		cmds = append(cmds, m.enterArchived(screenTarget{agentID: result.written.agent}))
 	default:
