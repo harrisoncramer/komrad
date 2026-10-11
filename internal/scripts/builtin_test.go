@@ -44,7 +44,7 @@ func TestInstallBuiltinsReplacesWhatWasThere(t *testing.T) {
 }
 
 // TestInstallBuiltinsRefusesRelativePath covers the directory the install empties being named
-// relative to wherever the service happened to be started.
+// relative to wherever the server happened to be started.
 func TestInstallBuiltinsRefusesRelativePath(t *testing.T) {
 	work := t.TempDir()
 	t.Chdir(work)

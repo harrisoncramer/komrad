@@ -139,7 +139,7 @@ func heartbeatEvent() *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{Heartbeat: &emptypb.Empty{}}}
 }
 
-// watchOver runs a watch against the scripted service until the test ends.
+// watchOver runs a watch against the scripted server until the test ends.
 func watchOver(t *testing.T, scripted *scriptedWatch, params WatchParams) *listings {
 	t.Helper()
 
@@ -217,7 +217,7 @@ func TestWatchHandsOverEventsInBatches(t *testing.T) {
 	assert.Equal(t, 1, got.count())
 }
 
-// TestWatchReopensAfterAClose covers a stream the service closed, which is what a slow
+// TestWatchReopensAfterAClose covers a stream the server closed, which is what a slow
 // subscriber dropped for lag or a restart looks like: the next stream's snapshot replaces
 // what the last one built.
 func TestWatchReopensAfterAClose(t *testing.T) {

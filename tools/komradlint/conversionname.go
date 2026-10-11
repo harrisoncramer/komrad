@@ -12,7 +12,7 @@ import (
 )
 
 const conversionNameDoc = "Checks that a helper converting to or from a proto message is named the way " +
-	"its side of the wire names them: render on the way out of the service, From on the way into the panel."
+	"its side of the wire names them: render on the way out of the server, From on the way into the panel."
 
 // protoPackagePrefix is where every generated proto type lives.
 const protoPackagePrefix = "komrad/proto/gen/"

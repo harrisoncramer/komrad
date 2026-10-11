@@ -66,7 +66,7 @@ func TestHTTPLoggingRecordsAFailure(t *testing.T) {
 		wantSeverity string
 	}{
 		{
-			name:         "the service breaking",
+			name:         "the server breaking",
 			status:       http.StatusInternalServerError,
 			wantSeverity: "ERROR",
 		},

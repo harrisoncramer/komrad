@@ -17,7 +17,7 @@ import (
 )
 
 // TestIntegrationLogReadsTheServersOwnLog covers the path a person takes after a call fails: the error
-// carries a trace id, the listing names that trace, and reading it back through the service
+// carries a trace id, the listing names that trace, and reading it back through the server
 // gives the failure line with the method on it.
 func TestIntegrationLogReadsTheServersOwnLog(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{KeepLog: true})

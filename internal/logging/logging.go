@@ -87,7 +87,7 @@ const serviceName = "service.name"
 
 const service = "komrad"
 
-// ProcessName tells the service's records apart from the panel's, both writing to one file.
+// ProcessName tells the server's records apart from the panel's, both writing to one file.
 const ProcessName = "process.name"
 
 const (
@@ -103,7 +103,7 @@ var severityNumbers = map[slog.Level]int{
 	slog.LevelError: 17,
 }
 
-// New builds the service's logger over w at the given level, writing JSON one record per line.
+// New builds the server's logger over w at the given level, writing JSON one record per line.
 func New(w io.Writer, level slog.Level) *slog.Logger {
 	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level, ReplaceAttr: otelFields})
 
@@ -152,7 +152,7 @@ func ParseLevel(level string) (slog.Level, error) {
 	}
 }
 
-// Err renders an error as its two attributes, which every failure logged in the service goes
+// Err renders an error as its two attributes, which every failure logged in the server goes
 // through.
 func Err(err error) []slog.Attr {
 	if err == nil {

@@ -302,7 +302,7 @@ func TestAboutAgentsSince(t *testing.T) {
 	}
 }
 
-// TestAgentLogsWithoutALog covers asking before the service has ever written anything.
+// TestAgentLogsWithoutALog covers asking before the server has ever written anything.
 func TestAgentLogsWithoutALog(t *testing.T) {
 	t.Parallel()
 

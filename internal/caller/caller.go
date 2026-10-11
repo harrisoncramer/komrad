@@ -1,5 +1,5 @@
 // Package caller carries who is making a request, and the id that ties its log lines together,
-// across the hop between the panel, the CLI, an agent's MCP call and the service.
+// across the hop between the panel, the CLI, an agent's MCP call and the server.
 //
 // The identity travels in headers so it survives that hop, and on the context so a handler and
 // the store beneath it read it without being handed it. It is what lets a log line say which

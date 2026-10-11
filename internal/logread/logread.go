@@ -1,4 +1,4 @@
-// Package logread reads the service's own log back, by the trace id its lines carry.
+// Package logread reads the server's own log back, by the trace id its lines carry.
 package logread
 
 import (
@@ -17,7 +17,7 @@ import (
 // ErrNoSuchTrace says nothing in the log was written under the trace asked for.
 var ErrNoSuchTrace = fail.NotFound("no line was written under that trace")
 
-// errNoLog says the service has written no log yet.
+// errNoLog says the server has written no log yet.
 var errNoLog = fail.Precondition("the server has no log yet")
 
 // scanBuffer is the longest line the log is read with.

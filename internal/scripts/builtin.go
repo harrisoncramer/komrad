@@ -26,7 +26,7 @@ var builtinFS embed.FS
 // InstallBuiltins writes the scripts shipped with this build into dir, emptying it first so a
 // script an older build shipped does not stay on offer.
 func InstallBuiltins(dir string) error {
-	// A relative path names a different directory every time the service starts somewhere new.
+	// A relative path names a different directory every time the server starts somewhere new.
 	if !filepath.IsAbs(dir) {
 		return fmt.Errorf("failed to install the built-in scripts into %s: %w", dir, errDirNotAbsolute)
 	}
