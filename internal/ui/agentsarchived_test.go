@@ -209,7 +209,7 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			}},
 		},
 		{
-			name:  "confirming the delete on a task destroys the task",
+			name:  "the delete on a task waits for its agents to leave the archive",
 			rows:  buildArchivedTasks(),
 			press: []string{"j", "j", "j", "space", "a", "d", "y"},
 			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a3"),
@@ -1287,7 +1287,7 @@ func requireLastScreenFor(t *testing.T, harness *panelHarness, agentIDs ...strin
 	require.Equal(t, agentIDs, sent)
 }
 
-// TestArchivedTasks covers the archive acting on whole tasks.
+// TestArchivedTasks covers restore, delete and the menu on a task row, archived or partly archived.
 func TestArchivedTasks(t *testing.T) {
 	unstarted := buildArchivedTasks()
 	for _, row := range unstarted {

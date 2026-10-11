@@ -13,17 +13,7 @@ func (a *archivedAgents) details(m *model) details {
 	}
 
 	if r.isTask() {
-		var tags []string
-		if r.task.ArchivedAt == nil {
-			tags = taskDetailsTags(m, *r.task)
-		}
-
-		return details{
-			id:      r.task.ID,
-			notices: agentNotices(m.glyphs, m.loading.frame(), r),
-			fields:  taskDetailFields(m, *r.task, *r.lead),
-			tags:    tags,
-		}
+		return taskDetails(m, r)
 	}
 
 	if r.header {

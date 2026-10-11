@@ -227,7 +227,8 @@ func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 				return nil
 			}
 
-			if live := xslice.Filter(work.loneAgents, func(agent panel.Agent) bool { return agent.ArchivedAt == nil }); len(live) > 0 {
+			live := xslice.Filter(work.loneAgents, func(agent panel.Agent) bool { return agent.ArchivedAt == nil })
+			if len(live) > 0 {
 				if err := pending.noteArchive(a.archiveAgents(panel.IDs(live))); err != nil {
 					return err
 				}

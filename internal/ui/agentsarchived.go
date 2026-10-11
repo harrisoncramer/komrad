@@ -294,7 +294,11 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 		task := *row.task
 		onTask := xslice.Filter(archivedAgentsOf(m.listing), func(agent panel.Agent) bool { return agent.TaskID == task.ID })
 
-		return archived{work: splitAcross(m.listing, onTask, []panel.Task{task}), lead: &row.lead.Agent, title: task.Slug}, true
+		return archived{
+			work:  splitAcross(m.listing, onTask, []panel.Task{task}),
+			lead:  &row.lead.Agent,
+			title: task.Slug,
+		}, true
 	}
 
 	item, ok := row.paneItem()
@@ -304,7 +308,11 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 
 	agent := item.Agent
 
-	return archived{work: chosenWork{chosen: []panel.Agent{agent}, loneAgents: []panel.Agent{agent}}, lead: &agent, title: m.listing.agentName(agent)}, true
+	return archived{
+		work:  chosenWork{chosen: []panel.Agent{agent}, loneAgents: []panel.Agent{agent}},
+		lead:  &agent,
+		title: m.listing.agentName(agent),
+	}, true
 }
 
 func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {

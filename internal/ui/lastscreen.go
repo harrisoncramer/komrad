@@ -50,9 +50,9 @@ func (a *archivedAgents) screenedAgentID(m *model) (string, bool) {
 		return "", false
 	}
 
-	item, held := row.paneItem()
+	item, ok := row.paneItem()
 
-	return item.Agent.ID, held
+	return item.Agent.ID, ok
 }
 
 func (a *agentsScreen) screenedAgentID(m *model) (string, bool) {
