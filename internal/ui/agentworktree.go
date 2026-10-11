@@ -165,7 +165,7 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 
 	row, ok := screen.hoveredRow(m)
 	if ok && row.isTask() {
-		return m.listing.findTaskWriter(*row.task, *row.lead), true
+		return m.listing.taskWorktreeAgent(*row.task, *row.lead)
 	}
 	if !ok || row.header {
 		return panel.AgentRow{}, false

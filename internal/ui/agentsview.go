@@ -18,6 +18,10 @@ func (a *agentsScreen) details(m *model) details {
 	if r.isTask() {
 		writer := m.listing.findTaskWriter(*r.task, *r.lead)
 		worktree, read := agentWorktree(m.inspections, r.task.Cwd)
+		var tags []string
+		if item, ok := m.listing.taskWorktreeAgent(*r.task, *r.lead); ok {
+			tags = agentDetailsTags(m, item)
+		}
 
 		return details{
 			id:      r.task.ID,
@@ -30,7 +34,7 @@ func (a *agentsScreen) details(m *model) details {
 				read:     read,
 				now:      time.Now(),
 			}),
-			tags: agentDetailsTags(m, writer),
+			tags: tags,
 		}
 	}
 

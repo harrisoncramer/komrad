@@ -117,6 +117,16 @@ func (l listing) findTaskWriter(task panel.Task, lead panel.AgentRow) panel.Agen
 	return l.agents[at]
 }
 
+// taskWorktreeAgent is the writer working in the task's checkout, and none for a task without one.
+func (l listing) taskWorktreeAgent(task panel.Task, lead panel.AgentRow) (panel.AgentRow, bool) {
+	writer := l.findTaskWriter(task, lead)
+	if task.Cwd == "" || writer.Agent.Cwd != task.Cwd {
+		return panel.AgentRow{}, false
+	}
+
+	return writer, true
+}
+
 // isTaskWriter reports whether the agent is the one its task's checkout was provisioned for.
 func isTaskWriter(agent panel.Agent) bool {
 	return agent.ParentAgentID == nil && !agent.ProvisionDisabled
