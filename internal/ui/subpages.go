@@ -40,7 +40,7 @@ func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 	return submenu{
 		kind:    formMenu,
 		title:   m.listing.agentName(agent),
-		entries: append(entries, nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, agent.ID))),
+		entries: append(entries, nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, screenTarget{agentID: agent.ID}))),
 	}
 }
 

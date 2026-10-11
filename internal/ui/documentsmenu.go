@@ -111,5 +111,5 @@ func documentMenu(m *model, d *documentsScreen) submenu {
 		return menu
 	}
 
-	return withNested(menu, "jump", m.keys.Menu.Jump, withTaskJump(m, jumpMenu(m, screenDocuments, item.agentID), item.taskID))
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenDocuments, screenTarget{agentID: item.agentID, taskID: item.taskID}))
 }
