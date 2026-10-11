@@ -197,6 +197,10 @@ func TestDeleteIfEmptyReleasesItsRounds(t *testing.T) {
 		wantReleased    bool
 	}{
 		{
+			name:           "a checkout that could not be given back keeps them",
+			deprovisionErr: errors.New("the hook failed"),
+		},
+		{
 			name:         "a checkout that stands",
 			wantReleased: true,
 		},
@@ -205,10 +209,6 @@ func TestDeleteIfEmptyReleasesItsRounds(t *testing.T) {
 			checkoutGone:    true,
 			wantWorkflowDir: true,
 			wantReleased:    true,
-		},
-		{
-			name:           "a checkout that could not be given back keeps them",
-			deprovisionErr: errors.New("the hook failed"),
 		},
 	}
 

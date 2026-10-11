@@ -188,9 +188,8 @@ func (s *TaskService) releaseRoundRefs(ctx context.Context, held roundRefs) {
 	}
 }
 
-// findRoundRefDir is a checkout of the repository holding a task's round refs: the task's own
-// while it stands, else its workflow's directory, which shares the refs of every worktree cut from
-// it.
+// findRoundRefDir finds a checkout holding a task's round refs, the task's own while it stands or
+// else its workflow's.
 func (s *TaskService) findRoundRefDir(ctx context.Context, task taskstore.Task) (string, error) {
 	if info, err := os.Stat(task.Checkout.Cwd); err == nil && info.IsDir() {
 		return task.Checkout.Cwd, nil
@@ -198,7 +197,7 @@ func (s *TaskService) findRoundRefDir(ctx context.Context, task taskstore.Task) 
 
 	flow, err := s.workflows.GetIncludingArchived(ctx, task.WorkflowID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read workflow %q: %w", task.WorkflowID, err)
 	}
 
 	return flow.Cwd, nil
