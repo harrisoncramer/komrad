@@ -91,7 +91,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Mail:          svc.mail.service,
 		Creator:       svc.agents.launch,
 		Adopter:       svc.agents.adopt,
-		Liveness:      svc.agents.liveness,
 		Lifecycle:     svc.agents.lifecycle,
 		Resumer:       svc.agents.resume,
 		Holder:        svc.agents.holder,
@@ -118,7 +117,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	}), options...)
 	configv1komrad.RegisterConfigService(mux, rpcconfig.NewHandler(svc.loadConfig), options...)
 	hookv1komrad.RegisterHookService(mux, rpchook.NewHandler(svc.script), options...)
-	forgev1komrad.RegisterForgeService(mux, rpcforge.NewHandler(svc.pullRequests.forge, svc.pullRequests.writer, svc.git), options...)
+	forgev1komrad.RegisterForgeService(mux, rpcforge.NewHandler(svc.pullRequests.forge, svc.pullRequests.writer), options...)
 	pullrequestv1komrad.RegisterPullRequestService(mux, rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{
 		PullRequests: svc.pullRequests.lister,
 	}), options...)
@@ -127,7 +126,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Inspector: svc.worktrees.inspector,
 		Remover:   svc.worktrees.remover,
 		Deleter:   worktreeDelete,
-		Claimed:   worktreeDelete,
 	}), options...)
 	watchv1komrad.RegisterWatchService(mux, rpcwatch.NewHandler(rpcwatch.NewHandlerParams{
 		Subscriber: rpcwatch.BrokerSubscriber{Broker: params.Watch},

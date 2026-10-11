@@ -167,7 +167,20 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Wakers:     wakers,
 		LoadConfig: loadConfig,
 	})
-	worktreeGroup := buildWorktrees(st, gitClient, loadConfig)
+	worktreeGroup := buildWorktrees(buildWorktreesParams{
+		Stores:     st,
+		Git:        gitClient,
+		Claimed:    jobs.NewWorktreeDelete(queue),
+		LoadConfig: loadConfig,
+	})
+
+	mailService := mail.NewMailService(mail.NewMailServiceParams{
+		Mail:      st.mail,
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Config:    mailConfig(loadConfig),
+		Panes:     agentGroup.liveness,
+	})
 
 	return &services{
 		loadConfig: loadConfig,
@@ -175,12 +188,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		script:     scriptService,
 		agents:     agentGroup,
 		mail: mailServices{
-			service: mail.NewMailService(mail.NewMailServiceParams{
-				Mail:      st.mail,
-				Agents:    st.agents,
-				Workflows: st.workflows,
-				Config:    mailConfig(loadConfig),
-			}),
+			service: mailService,
 			delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
 				Mail:         st.mail,
 				NudgeClaimer: st.agents,
@@ -220,6 +228,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				Agents:      st.agents,
 				Transcripts: st.transcripts,
 				Tasks:       st.tasks,
+				Mail:        mailService,
 			}),
 			sync: transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
 				Agents:      st.agents,
@@ -480,6 +489,7 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 		Connections: st.forges,
 		Credentials: forge.NewFileStore(server.Env.StateDir),
 		Builders:    builders,
+		Remotes:     params.Git,
 		LoadApp: func() (forge.App, error) {
 			cfg, err := params.LoadConfig()
 			if err != nil {
@@ -531,7 +541,15 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 	}
 }
 
-func buildWorktrees(st *stores, gitClient *git.Client, loadConfig func() (*config.Config, error)) worktreeServices {
+type buildWorktreesParams struct {
+	Stores     *stores
+	Git        *git.Client
+	Claimed    *jobs.WorktreeDelete
+	LoadConfig func() (*config.Config, error)
+}
+
+func buildWorktrees(params buildWorktreesParams) worktreeServices {
+	st, gitClient, loadConfig := params.Stores, params.Git, params.LoadConfig
 	lister := worktrees.NewLister(worktrees.NewListerParams{
 		SharedDir: func() (string, error) {
 			cfg, err := loadConfig()
@@ -545,6 +563,7 @@ func buildWorktrees(st *stores, gitClient *git.Client, loadConfig func() (*confi
 		Tasks:     st.tasks,
 		Workflows: st.workflows,
 		Worktrees: st.worktrees,
+		Claimed:   params.Claimed,
 	})
 
 	checkouts := worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: gitClient})

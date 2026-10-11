@@ -31,15 +31,15 @@ import (
 
 // fakeTranscriptReader answers from its fields and records what each call asked of it.
 type fakeTranscriptReader struct {
-	window   transcripts.Window
-	turns    []transcripts.Turn
-	forward  transcripts.Forward
-	results  transcriptstore.Results
-	err      error
-	read     []transcripts.ReadTranscriptWindowParams
-	searched []transcripts.SearchTranscriptsParams
-	listed   []transcripts.ListLastTurnsParams
-	composed []transcripts.ComposeForwardParams
+	window    transcripts.Window
+	turns     []transcripts.Turn
+	forwarded transcripts.Forwarded
+	results   transcriptstore.Results
+	err       error
+	read      []transcripts.ReadTranscriptWindowParams
+	searched  []transcripts.SearchTranscriptsParams
+	listed    []transcripts.ListLastTurnsParams
+	forwards  []transcripts.ForwardLastTurnsParams
 }
 
 // ReadTranscriptWindow records the params and answers window unless err refuses it.
@@ -62,14 +62,14 @@ func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcrip
 	return f.turns, nil
 }
 
-// ComposeForward records the params and answers forward unless err refuses it.
-func (f *fakeTranscriptReader) ComposeForward(_ context.Context, params transcripts.ComposeForwardParams) (*transcripts.Forward, error) {
-	f.composed = append(f.composed, params)
+// ForwardLastTurns records the params and answers forwarded unless err refuses it.
+func (f *fakeTranscriptReader) ForwardLastTurns(_ context.Context, params transcripts.ForwardLastTurnsParams) (*transcripts.Forwarded, error) {
+	f.forwards = append(f.forwards, params)
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return &f.forward, nil
+	return &f.forwarded, nil
 }
 
 // SearchTranscripts records the params and answers results unless err refuses it.

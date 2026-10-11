@@ -37,11 +37,6 @@ func (c pageCursor) Validate() error {
 // ListForgePullRequests is one page of a repository's pull requests, read through the
 // connection for the repository's host.
 func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListForgePullRequestsRequest) (*forgev1.ListForgePullRequestsResponse, *fail.Error) {
-	repo, err := s.remotes.ParseRemoteURL(ctx, req.GetRemoteUrl())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the remote")
-	}
-
 	window := pageCursor{PerPage: int(pagination.Bound(req.GetPagination().GetLimit()))}
 	if token := req.GetPagination().GetCursor(); token != "" {
 		cursor, err := pagination.Decode[pageCursor](token)
@@ -52,16 +47,11 @@ func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListFo
 		window = *cursor
 	}
 
-	f, err := s.forges.ForHost(ctx, repo.Host)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to open the forge for the remote")
-	}
-
-	listed, err := f.List(ctx, forge.ListParams{
-		Repo:    repo,
-		Branch:  req.GetBranch(),
-		Cursor:  window.Cursor,
-		PerPage: window.PerPage,
+	listed, err := s.forges.ListPullRequests(ctx, forge.ListPullRequestsParams{
+		RemoteURL: req.GetRemoteUrl(),
+		Branch:    req.GetBranch(),
+		Cursor:    window.Cursor,
+		PerPage:   window.PerPage,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the pull requests")

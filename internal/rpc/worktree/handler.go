@@ -18,7 +18,7 @@ import (
 )
 
 type lister interface {
-	List(ctx context.Context) (*worktrees.Listing, error)
+	ListUnclaimed(ctx context.Context) (*worktrees.Listing, error)
 }
 
 type inspector interface {
@@ -33,16 +33,11 @@ type deleter interface {
 	DeleteWorktrees(ctx context.Context, dirs []string) error
 }
 
-type claimedDirLister interface {
-	ListClaimedDirs(ctx context.Context) ([]string, error)
-}
-
 type NewHandlerParams struct {
 	Lister    lister
 	Inspector inspector
 	Remover   remover
 	Deleter   deleter
-	Claimed   claimedDirLister
 }
 
 type Handler struct {
@@ -50,35 +45,28 @@ type Handler struct {
 	inspector inspector
 	remover   remover
 	deleter   deleter
-	claimed   claimedDirLister
 }
 
-// NewHandler constructs the handler over the worktree readers, the remover, the queue
-// the bulk delete goes to and the reader of what that queue still holds.
+// NewHandler constructs the handler over the worktree readers, the remover and the queue
+// the bulk delete goes to.
 func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{
 		lister:    params.Lister,
 		inspector: params.Inspector,
 		remover:   params.Remover,
 		deleter:   params.Deleter,
-		claimed:   params.Claimed,
 	}
 }
 
 // ListWorktrees is every directory under the worktree directories that no delete has claimed.
 func (s *Handler) ListWorktrees(ctx context.Context, _ *emptypb.Empty) (*worktreev1.ListWorktreesResponse, *fail.Error) {
-	listing, err := s.lister.List(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list worktrees")
-	}
-
-	claimed, err := s.claimed.ListClaimedDirs(ctx)
+	listing, err := s.lister.ListUnclaimed(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list worktrees")
 	}
 
 	return &worktreev1.ListWorktreesResponse{
-		Worktrees:      xslice.Map(worktrees.Unclaimed(listing.Worktrees, claimed), renderWorktree),
+		Worktrees:      xslice.Map(listing.Worktrees, renderWorktree),
 		Dirs:           listing.Dirs,
 		UnreadableDirs: listing.UnreadableDirs,
 	}, nil

@@ -32,6 +32,7 @@ type fakeForge struct {
 	login   string
 	reaches int
 	err     error
+	listed  *[]ListParams
 }
 
 func (f *fakeForge) Kind() string {
@@ -59,7 +60,9 @@ func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
 	return f.reaches, f.err
 }
 
-func (f *fakeForge) List(context.Context, ListParams) (*Page, error) {
+func (f *fakeForge) List(_ context.Context, params ListParams) (*Page, error) {
+	*f.listed = append(*f.listed, params)
+
 	return &Page{}, nil
 }
 
@@ -86,6 +89,7 @@ type fixture struct {
 	credentials *FileStore
 	seen        []Credential
 	apis        []string
+	listed      []ListParams
 	// app is what the service reads on each call that needs the App, so a test can move it
 	// between calls the way a config edit would.
 	app App
@@ -113,10 +117,12 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 					login:   login,
 					reaches: 3,
 					err:     verifyErr,
+					listed:  &f.listed,
 				}
 			},
 		},
-		Now: func() time.Time { return time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC) },
+		Now:     func() time.Time { return time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC) },
+		Remotes: sshHostSwapper{},
 	})
 
 	return f
@@ -797,6 +803,80 @@ func TestHeaderFor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.kind+" "+tt.method, func(t *testing.T) {
 			assert.Equal(t, tt.want, headerFor(tt.kind, tt.method))
+		})
+	}
+}
+
+// sshHostSwapper parses a remote as git does, reading the SSH host ssh.github.com as github.com.
+type sshHostSwapper struct{}
+
+func (sshHostSwapper) ParseRemoteURL(_ context.Context, raw string) (git.RemoteURL, error) {
+	remote, err := git.ParseRemoteURL(raw)
+	if err != nil {
+		return git.RemoteURL{}, err
+	}
+	if remote.Host == "ssh.github.com" {
+		remote.Host = "github.com"
+	}
+
+	return remote, nil
+}
+
+// TestListPullRequests covers a listing reading the remote through the parser and asking the
+// forge connected for the host it answers.
+func TestListPullRequests(t *testing.T) {
+	tests := []struct {
+		name      string
+		remoteURL string
+		connected bool
+		wantErr   error
+	}{
+		{
+			name:      "a remote that is not a forge",
+			remoteURL: "/local/path",
+			connected: true,
+			wantErr:   git.ErrNotForgeRemote,
+		},
+		{
+			name:      "a host nothing is connected to",
+			remoteURL: "git@ssh.github.com:harrisoncramer/komrad.git",
+			wantErr:   store.ErrNotFound,
+		},
+		{
+			name:      "a remote whose SSH host the parser swaps for the connected one",
+			remoteURL: "git@ssh.github.com:harrisoncramer/komrad.git",
+			connected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t, "harrisoncramer", nil)
+			if tt.connected {
+				_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Token: NewSecret("ghp_secret")})
+				require.NoError(t, err)
+			}
+
+			_, err := f.service.ListPullRequests(t.Context(), ListPullRequestsParams{
+				RemoteURL: tt.remoteURL,
+				Branch:    "agent/x",
+				Cursor:    "end-of-page",
+				PerPage:   50,
+			})
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Empty(t, f.listed)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, f.listed, 1)
+			assert.Equal(t, "github.com", f.listed[0].Repo.Host)
+			assert.Equal(t, "harrisoncramer/komrad", f.listed[0].Repo.Path)
+			assert.Equal(t, "agent/x", f.listed[0].Branch)
+			assert.Equal(t, "end-of-page", f.listed[0].Cursor)
+			assert.Equal(t, 50, f.listed[0].PerPage)
 		})
 	}
 }

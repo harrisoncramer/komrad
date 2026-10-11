@@ -8,13 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
 	"komrad/internal/mail"
 	"komrad/internal/rpc/render"
-	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
@@ -33,6 +31,7 @@ import (
 const (
 	alphaID = "01a0d1d7-0000-7000-8000-00000000000a"
 	betaID  = "01a0d1d7-0000-7000-8000-00000000000b"
+	gammaID = "01a0d1d7-0000-7000-8000-00000000000c"
 )
 
 // fakeMailer answers from its fields and records what each call asked of it.
@@ -46,6 +45,7 @@ type fakeMailer struct {
 	claimed    []string
 	listed     []mail.ListMailParams
 	deleted    []string
+	dormant    bool
 }
 
 // ResolveRecipient records the address and answers recipient unless resolveErr refuses it.
@@ -106,6 +106,11 @@ func (f *fakeMailer) DeleteMail(_ context.Context, ids []string) error {
 	f.deleted = append(f.deleted, ids...)
 
 	return f.err
+}
+
+// IsDormant answers dormant whoever the agent is.
+func (f *fakeMailer) IsDormant(agentstore.Agent) bool {
+	return f.dormant
 }
 
 // TestMailRefusalsMapToCodes pins the code each refusal of the mail service reaches the caller as.
@@ -251,7 +256,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 			} else {
 				mailer.err = tt.err
 			}
-			svc, _ := newMailHandler(mailer)
+			svc := newMailHandler(mailer)
 
 			ctx := t.Context()
 			if !tt.asNobody {
@@ -275,8 +280,7 @@ func TestSendMail(t *testing.T) {
 		Pane:  "%beta",
 		State: agentstore.StateIdle,
 	}}
-	svc, terminal := newMailHandler(mailer)
-	terminal.Owners["%beta"] = betaID
+	svc := newMailHandler(mailer)
 
 	sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
 		To:      "beta",
@@ -307,33 +311,33 @@ func TestSendMail(t *testing.T) {
 	}, sent.Msg, protocmp.Transform()), "an agent running in its pane draws no warning")
 }
 
-// TestSendMailWarnsOfADormantRecipient pins which recipients nothing runs behind a send says so about.
+// TestSendMailWarnsOfADormantRecipient pins a send to a recipient the mail service reads as dormant saying so.
 func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
 	tests := []struct {
 		name        string
-		state       agentstore.State
+		dormant     bool
 		wantWarning bool
 	}{
 		{
-			name:        "an idle agent whose pane is gone",
-			state:       agentstore.StateIdle,
+			name:        "a dormant recipient",
+			dormant:     true,
 			wantWarning: true,
 		},
 		{
-			name:  "an agent still being set up, whose pane does not decide yet",
-			state: agentstore.StateSettingUp,
+			name: "a recipient something runs behind",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mailer := &fakeMailer{recipient: agentstore.Agent{
-				ID:    betaID,
-				Name:  "beta",
-				Pane:  "%beta",
-				State: tt.state,
-			}}
-			svc, _ := newMailHandler(mailer)
+			mailer := &fakeMailer{
+				recipient: agentstore.Agent{
+					ID:   betaID,
+					Name: "beta",
+				},
+				dormant: tt.dormant,
+			}
+			svc := newMailHandler(mailer)
 
 			sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
 				To:   "beta",
@@ -388,7 +392,7 @@ func TestReadMail(t *testing.T) {
 				ToAgentID: betaID,
 				Body:      "refunded_cents",
 			}}}
-			svc, _ := newMailHandler(mailer)
+			svc := newMailHandler(mailer)
 			ctx, written := newLoggedCaller(t, tt.callerIs)
 
 			read, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{Id: tt.id}))
@@ -478,7 +482,7 @@ func TestListMail(t *testing.T) {
 					Body:      "refunded_cents",
 				})
 			}
-			svc, _ := newMailHandler(mailer)
+			svc := newMailHandler(mailer)
 			ctx, written := newLoggedCaller(t, tt.callerIs)
 
 			listed, err := svc.ListMail(ctx, connect.NewRequest(tt.req))
@@ -499,7 +503,7 @@ func TestListMail(t *testing.T) {
 // TestDeleteMail pins that a delete hands every id down.
 func TestDeleteMail(t *testing.T) {
 	mailer := &fakeMailer{}
-	svc, _ := newMailHandler(mailer)
+	svc := newMailHandler(mailer)
 
 	_, err := svc.DeleteMail(t.Context(), connect.NewRequest(&agentv1.DeleteMailRequest{
 		Ids: []string{alphaID, betaID},
@@ -508,14 +512,9 @@ func TestDeleteMail(t *testing.T) {
 	assert.Equal(t, []string{alphaID, betaID}, mailer.deleted)
 }
 
-// newMailHandler is the handler over a fake mail service, reading liveness off a fake tmux.
-func newMailHandler(mailer *fakeMailer) (agentv1komrad.AgentServiceAdapter, *tmuxtest.Fake) {
-	terminal := tmuxtest.NewFake()
-
-	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Mail:     mailer,
-		Liveness: agents.NewPaneLiveness(terminal),
-	})}, terminal
+// newMailHandler is the handler over a fake mail service.
+func newMailHandler(mailer *fakeMailer) agentv1komrad.AgentServiceAdapter {
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Mail: mailer})}
 }
 
 // newLoggedCaller is a context calling as the agent named, whose log lines land in the builder handed back.
