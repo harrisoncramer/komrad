@@ -215,12 +215,12 @@ func choose(paths []string, stored map[string]worktreestore.Worktree, now time.T
 		switch {
 		case size == nil:
 			unmeasured = append(unmeasured, dir)
-		case now.Sub(lastRead(stored[dir])) >= measureStaleAfter:
+		case now.Sub(lastTakenAt(stored[dir])) >= measureStaleAfter:
 			stale = append(stale, dir)
 		}
 	}
 	slices.SortStableFunc(stale, func(a, b string) int {
-		return cmp.Compare(lastRead(stored[a]).UnixNano(), lastRead(stored[b]).UnixNano())
+		return cmp.Compare(lastTakenAt(stored[a]).UnixNano(), lastTakenAt(stored[b]).UnixNano())
 	})
 
 	chosen := slices.Concat(unmeasured, stale)
@@ -233,9 +233,8 @@ func isSettled(worktree worktreestore.Worktree) bool {
 	return worktree.TaskArchivedAt != nil && worktree.Size != nil && worktree.Size.MeasuredAt.After(*worktree.TaskArchivedAt)
 }
 
-// lastRead is when a pass last took a measured directory: its standing once it is settled, else
-// its size.
-func lastRead(worktree worktreestore.Worktree) time.Time {
+// lastTakenAt is when a pass last took a measured directory, by its standing once settled and its size before.
+func lastTakenAt(worktree worktreestore.Worktree) time.Time {
 	if !isSettled(worktree) {
 		return worktree.Size.MeasuredAt
 	}
