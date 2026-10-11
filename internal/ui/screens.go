@@ -296,7 +296,7 @@ func (m *model) stageEditor(content layout.Content) string {
 
 // unstageEditor takes the editor down and puts the keys back on the sidebar.
 func (m *model) unstageEditor() {
-	m.frame.Show(layout.RegionStage, newBlankContent())
+	m.frame.ClearStage()
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionSidebar))
 }
 

@@ -361,6 +361,95 @@ func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
 	assert.False(t, frame.IsOpen(RegionInfo))
 }
 
+// TestFrameClearStage covers the stage left with nothing to show, which under a shell would
+// otherwise stand there as a stray one rooted at home.
+func TestFrameClearStage(t *testing.T) {
+	t.Run("with no info pane the stage is blanked", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		frame := New(tmux, config.DefaultLayout())
+		frame.Attach("%0")
+
+		frame.ClearStage()
+
+		assert.Equal(t, []string{"%1"}, tmux.respawnPanes)
+		assert.Equal(t, []string{""}, tmux.respawns, "the pane reruns what it was split with")
+		assert.Empty(t, tmux.killed)
+	})
+
+	t.Run("over an info pane the stage gives it its rows", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		frame := New(tmux, config.DefaultLayout())
+		frame.Attach("%0")
+		frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+		require.NotEmpty(t, frame.Open(RegionInfo))
+
+		frame.ClearStage()
+		frame.ClearStage()
+
+		assert.Equal(t, 2, tmux.swaps, "the guest goes home first")
+		assert.Equal(t, []string{"%1"}, tmux.killed, "and the stage is killed once")
+		assert.Empty(t, frame.GuestPane())
+		assert.Empty(t, frame.Pane(RegionStage))
+		assert.True(t, frame.IsOpen(RegionInfo))
+		assert.Empty(t, tmux.respawns)
+	})
+
+	t.Run("asked for again the stage splits back off the info pane", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			layout config.Layout
+			want   string
+		}{
+			{
+				name:   "under the stage it takes the share the info pane leaves",
+				layout: config.Layout{},
+				want:   "above %2 60%",
+			},
+			{
+				name:   "over the stage it splits below",
+				layout: config.Layout{InfoSide: config.InfoSideAbove},
+				want:   "below %2 60%",
+			},
+			{
+				name:   "in rows it takes the rows the info pane leaves",
+				layout: config.Layout{InfoHeight: 10},
+				want:   "above %2 29",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				tmux := &recordingTmux{height: 40}
+				frame := New(tmux, tt.layout)
+				frame.Attach("%0")
+				require.NotEmpty(t, frame.Open(RegionInfo))
+				frame.ClearStage()
+
+				frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+
+				assert.Equal(t, tt.want, tmux.splits[len(tmux.splits)-1])
+				assert.Equal(t, "%3", frame.Pane(RegionStage))
+				assert.Equal(t, "%9", frame.GuestPane())
+				assert.NotContains(t, tmux.killed, "%2", "the info pane is left running")
+			})
+		}
+	})
+
+	t.Run("an info pane gone while folded puts the stage back beside the sidebar", func(t *testing.T) {
+		tmux := &recordingTmux{deadPanes: map[string]bool{}}
+		frame := New(tmux, config.DefaultLayout())
+		frame.Attach("%0")
+		require.NotEmpty(t, frame.Open(RegionInfo))
+		frame.ClearStage()
+
+		tmux.deadPanes["%2"] = true
+		frame.Show(RegionStage, newDocument("# auth"))
+
+		assert.Equal(t, "right %0 50%", tmux.splits[len(tmux.splits)-1])
+		assert.Equal(t, "%1", frame.Pane(RegionStage))
+	})
+}
+
 // TestFrameFreeze covers the pane picker and a stand-in holding the window still.
 func TestFrameFreeze(t *testing.T) {
 	t.Run("a hold keeps back moves without zooming", func(t *testing.T) {
@@ -941,6 +1030,8 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
 		case panes.KindResize:
 			t.ResizePane(move.Pane, strconv.Itoa(move.Width))
+		case panes.KindKill:
+			t.KillPane(move.Pane)
 		}
 	}
 }
@@ -993,6 +1084,10 @@ func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
 	}
 
 	t.belowAnchors = append(t.belowAnchors, anchor)
+
+	if anchor == "%2" {
+		return "%3"
+	}
 
 	return "%2"
 }
