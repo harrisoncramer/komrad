@@ -1,23 +1,25 @@
 -- name: ListWorktrees :many
 SELECT
-    dir,
-    repo_dir,
-    branch,
-    readable,
-    mtime,
-    size_bytes,
-    share_bytes,
-    measured_at,
-    size_error,
-    standing_read_at,
-    dirty,
-    sequencing,
-    unlanded,
-    standing_error
+    w.dir,
+    w.repo_dir,
+    w.branch,
+    w.readable,
+    w.mtime,
+    w.size_bytes,
+    w.share_bytes,
+    w.measured_at,
+    w.size_error,
+    w.standing_read_at,
+    w.dirty,
+    w.sequencing,
+    w.unlanded,
+    w.standing_error,
+    t.archived_at
 FROM
-    worktrees
+    worktrees w
+    LEFT JOIN tasks t ON t.id::text = w.name
 ORDER BY
-    dir;
+    w.dir;
 
 -- name: ListWatchedWorktrees :many
 SELECT
@@ -34,19 +36,14 @@ SELECT
     w.dirty,
     w.sequencing,
     w.unlanded,
-    w.standing_error
+    w.standing_error,
+    t.archived_at
 FROM
     worktrees w
+    LEFT JOIN tasks t ON t.id::text = w.name
 WHERE (sqlc.narg(keys)::text[] IS NULL
     OR w.dir = ANY (sqlc.narg(keys)::text[]))
-AND NOT EXISTS (
-    SELECT
-        1
-    FROM
-        tasks t
-    WHERE
-        t.id::text = w.name
-        AND t.deleting_at IS NOT NULL)
+AND t.deleting_at IS NULL
 ORDER BY
     w.dir;
 

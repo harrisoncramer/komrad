@@ -26,6 +26,8 @@ type Worktree struct {
 	Size *Size
 	// Standing is the last git reading, nil until the first.
 	Standing *Standing
+	// TaskArchivedAt is when the task that owns the directory was archived, nil while it is not.
+	TaskArchivedAt *time.Time
 }
 
 // Size is what one directory took when it was last walked, or why the walk failed.
@@ -170,11 +172,12 @@ func (s *WorktreeStore) DeleteForTask(ctx context.Context, taskID string) error 
 
 func worktreeFrom(row *models.ListWorktreesRow) Worktree {
 	worktree := Worktree{
-		Dir:        row.Dir,
-		RepoDir:    row.RepoDir,
-		Branch:     row.Branch,
-		Readable:   row.Readable,
-		ModifiedAt: row.Mtime,
+		Dir:            row.Dir,
+		RepoDir:        row.RepoDir,
+		Branch:         row.Branch,
+		Readable:       row.Readable,
+		ModifiedAt:     row.Mtime,
+		TaskArchivedAt: row.ArchivedAt,
 	}
 	if row.MeasuredAt != nil {
 		worktree.Size = &Size{

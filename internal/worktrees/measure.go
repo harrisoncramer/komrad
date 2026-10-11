@@ -20,7 +20,7 @@ const measuresPerPass = 8
 // measureDeadline is how long one walk may take before it is recorded as failed.
 const measureDeadline = 30 * time.Second
 
-// measureStaleAfter is how old a measurement is before a pass takes it again.
+// measureStaleAfter is how long after a pass took a directory the next takes it again.
 const measureStaleAfter = time.Hour
 
 type worktreeLister interface {
@@ -66,8 +66,8 @@ func NewMeasurer(params NewMeasurerParams) *Measurer {
 	}
 }
 
-// Measure records every directory no delete names, forgets the rest, and walks the few most in
-// need of a size and reads where they stand, carrying on past one it cannot record.
+// Measure records every directory no delete names, forgets the rest, and takes the few most in
+// need, carrying on past one it cannot record.
 func (m *Measurer) Measure(ctx context.Context) error {
 	listing, err := m.lister.List(ctx)
 	if err != nil {
@@ -96,17 +96,15 @@ func (m *Measurer) Measure(ctx context.Context) error {
 		}
 	}
 
-	sizes := make(map[string]worktreestore.Size, len(stored))
-	for _, worktree := range stored {
-		if worktree.Size != nil {
-			sizes[worktree.Dir] = *worktree.Size
-		}
-	}
-
 	byDir := xslice.KeyBy(present, func(worktree Worktree) string { return worktree.Dir })
 	dirs := xslice.Map(present, func(worktree Worktree) string { return worktree.Dir })
-	for _, dir := range choose(dirs, sizes, m.now()) {
-		if err := m.measure(ctx, byDir[dir]); err != nil {
+	storedByDir := xslice.KeyBy(stored, func(worktree worktreestore.Worktree) string { return worktree.Dir })
+	for _, dir := range choose(dirs, storedByDir, m.now()) {
+		read := m.measure
+		if isSettled(storedByDir[dir]) {
+			read = m.readStanding
+		}
+		if err := read(ctx, byDir[dir]); err != nil {
 			if ctx.Err() != nil {
 				return err
 			}
@@ -122,6 +120,7 @@ func (m *Measurer) Measure(ctx context.Context) error {
 // it stands, or forgets a directory that has gone.
 func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
 	dir := worktree.Dir
+	start := m.now()
 	walkCtx, cancel := context.WithTimeout(ctx, measureDeadline)
 	measured, err := measure(walkCtx, dir)
 	cancel()
@@ -133,7 +132,7 @@ func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
 		return m.worktrees.Delete(ctx, []string{dir})
 	}
 
-	size := worktreestore.Size{Dir: dir, MeasuredAt: m.now()}
+	size := worktreestore.Size{Dir: dir, MeasuredAt: start}
 	if err != nil {
 		size.Error = storableText(err.Error())
 	} else {
@@ -145,6 +144,11 @@ func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
 		return err
 	}
 
+	return m.readStanding(ctx, worktree)
+}
+
+// readStanding reads and records where one directory stands against its base.
+func (m *Measurer) readStanding(ctx context.Context, worktree Worktree) error {
 	readCtx, cancel := context.WithTimeout(ctx, measureDeadline)
 	standing := m.standings.readStanding(readCtx, worktree)
 	cancel()
@@ -202,24 +206,41 @@ func forgotten(listing *Listing, present []Worktree, stored []worktreestore.Work
 	return dirs
 }
 
-// choose is the directories a pass walks: the unmeasured first, in listing order, then the
+// choose is the directories a pass takes, the unmeasured first in listing order and then the
 // stale ones oldest first, cut to what one pass takes.
-func choose(paths []string, stored map[string]worktreestore.Size, now time.Time) []string {
+func choose(paths []string, stored map[string]worktreestore.Worktree, now time.Time) []string {
 	var unmeasured, stale []string
 	for _, dir := range paths {
-		size, ok := stored[dir]
+		worktree := stored[dir]
 		switch {
-		case !ok:
+		case worktree.Size == nil:
 			unmeasured = append(unmeasured, dir)
-		case now.Sub(size.MeasuredAt) >= measureStaleAfter:
+		case now.Sub(lastTakenAt(worktree)) >= measureStaleAfter:
 			stale = append(stale, dir)
 		}
 	}
 	slices.SortStableFunc(stale, func(a, b string) int {
-		return cmp.Compare(stored[a].MeasuredAt.UnixNano(), stored[b].MeasuredAt.UnixNano())
+		return cmp.Compare(lastTakenAt(stored[a]).UnixNano(), lastTakenAt(stored[b]).UnixNano())
 	})
 
 	chosen := slices.Concat(unmeasured, stale)
 
 	return chosen[:min(len(chosen), measuresPerPass)]
+}
+
+// isSettled says a directory was measured after its task was archived, and so will not grow.
+func isSettled(worktree worktreestore.Worktree) bool {
+	return worktree.TaskArchivedAt != nil && worktree.Size != nil && worktree.Size.MeasuredAt.After(*worktree.TaskArchivedAt)
+}
+
+// lastTakenAt is when a pass last took a measured directory, by its standing once settled and its size before.
+func lastTakenAt(worktree worktreestore.Worktree) time.Time {
+	if !isSettled(worktree) {
+		return worktree.Size.MeasuredAt
+	}
+	if worktree.Standing == nil {
+		return time.Time{}
+	}
+
+	return worktree.Standing.ReadAt
 }
