@@ -1,25 +1,33 @@
 package ui
 
 import (
+	"komrad/internal/ui/panel"
+
 	tea "charm.land/bubbletea/v2"
 )
 
-// jumpMenu is the menu landing on the rows related to an agent, less the screen it was opened from.
-func jumpMenu(m *model, from screen, agentID string) submenu {
+// jumpMenu is the menu landing on the rows related to an agent, or to the task it names in place
+// of the agent, less the screen it was opened from.
+func jumpMenu(m *model, from screen, to screenTarget) submenu {
+	agentID := to.agentID
 	_, found := m.listing.anyAgent(agentID)
 	target := screenTarget{agentID: agentID}
 
 	var entries []submenuEntry
 	if from != screenAgents {
-		agent := openEntry("agent", m.keys.JumpMenu.Agent, func(m *model) tea.Cmd {
-			if _, live := m.listing.liveAgent(agentID); live {
-				return m.enterLive(target)
-			}
+		if task, listed := m.listing.tasks[to.taskID]; listed {
+			entries = append(entries, taskJumpEntry(m, task))
+		} else {
+			agent := openEntry("agent", m.keys.JumpMenu.Agent, func(m *model) tea.Cmd {
+				if _, live := m.listing.liveAgent(agentID); live {
+					return m.enterLive(target)
+				}
 
-			return m.enterArchived(target)
-		})
-		agent.isOff = !found
-		entries = append(entries, agent)
+				return m.enterArchived(target)
+			})
+			agent.isOff = !found
+			entries = append(entries, agent)
+		}
 	}
 	if from != screenWorktrees {
 		worktree := openEntry("worktree", m.keys.JumpMenu.Worktree, func(m *model) tea.Cmd {
@@ -41,4 +49,20 @@ func jumpMenu(m *model, from screen, agentID string) submenu {
 		title:   "jump",
 		entries: entries,
 	}
+}
+
+// taskJumpEntry lands on a task's row, off when no agent on it lists the task.
+func taskJumpEntry(m *model, task panel.Task) submenuEntry {
+	lead, found := m.listing.findTaskLead(task)
+	entry := openEntry("task", m.keys.JumpMenu.Task, func(m *model) tea.Cmd {
+		target := screenTarget{agentID: lead.Agent.ID, taskID: task.ID}
+		if task.ArchivedAt != nil {
+			return m.enterArchived(target)
+		}
+
+		return m.enterLive(target)
+	})
+	entry.isOff = !found
+
+	return entry
 }

@@ -547,6 +547,13 @@
               "default": "[\"a\"]"
             },
             {
+              "key": "task",
+              "path": "keybindings.jump_menu.task",
+              "type": "array",
+              "description": "Land on the task, on the agents list or in the archive.",
+              "default": "[\"t\"]"
+            },
+            {
               "key": "worktree",
               "path": "keybindings.jump_menu.worktree",
               "type": "array",
@@ -1012,7 +1019,7 @@
               "key": "jump",
               "path": "keybindings.menu.jump",
               "type": "array",
-              "description": "Open the jump menu to the right of this one, for landing on the hovered row's agent, its\nworktree or its documents.",
+              "description": "Open the jump menu to the right of this one, for landing on the hovered row's agent or task,\nits worktree or its documents.",
               "default": "[\"J\"]"
             },
             {

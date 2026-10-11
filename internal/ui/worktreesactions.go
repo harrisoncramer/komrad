@@ -282,7 +282,12 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 		return menu, true
 	}
 
-	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, occupant.id)), true
+	to := screenTarget{agentID: occupant.id}
+	if row.item.task != nil {
+		to.taskID = row.item.task.ID
+	}
+
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, to)), true
 }
 
 // worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when
