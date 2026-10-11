@@ -7,6 +7,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -43,6 +44,20 @@ func TestTerminal(t *testing.T) {
 		harness.watch(buildSnapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
 
 		assert.Len(t, readShells(harness), 1)
+	})
+
+	t.Run("the shell keeps the keys as the listing changes", func(t *testing.T) {
+		agent := newStagedShellAgent(t.TempDir())
+		harness := openTerminal(t, panelHarnessParams{}, agent)
+		harness.press("space", "t")
+		selected := len(harness.panel.ReadSelectedPanes())
+		harness.panel.SetActivePane(harness.panel.ReadStagePane())
+		harness.send(tea.BlurMsg{})
+
+		harness.watch(buildSnapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
+
+		assert.Empty(t, harness.panel.ReadSelectedPanes()[selected:])
+		assert.False(t, harness.panel.IsZoomed())
 	})
 
 	t.Run("the shell stays where it opened as the cursor moves", func(t *testing.T) {
