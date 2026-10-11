@@ -84,23 +84,15 @@ func (m *model) isShowingHarness(pane, harnessID string) bool {
 }
 
 // isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back
-// a launch or a kill still in flight.
-func (m *model) isPaneStageable(pane, harnessID string) bool {
+// a kill still in flight.
+func (m *model) isPaneStageable(pane string) bool {
 	if pane == "" {
 		return false
 	}
 
-	if _, inFlight := m.unstaging[pane]; inFlight {
-		return false
-	}
+	_, inFlight := m.unstaging[pane]
 
-	// A pane sitting at its shell has nothing coming that waiting would catch, and komrad has seen
-	// no harness in it to mark.
-	if !m.warm.ready[pane] && !m.tmux.IsPaneRunningCLI(pane) {
-		return true
-	}
-
-	return m.isPaneWarm(pane, harnessID)
+	return !inFlight
 }
 
 func (w *warmupState) markWarm(pane string) {
@@ -108,38 +100,18 @@ func (w *warmupState) markWarm(pane string) {
 	delete(w.since, pane)
 }
 
-// applyWarmupTick stages the selection again so a cursor sitting on a pane that has just come up
-// catches it, and finishes the parked writes that have settled.
+// applyWarmupTick finishes the parked writes that have settled, forgetting the panes no write
+// waits on any longer.
 func (m *model) applyWarmupTick() tea.Cmd {
 	m.warm.polling = false
 
-	selected, _ := m.selectedAgentPane()
 	for pane := range m.warm.since {
-		if pane != selected && !m.isPaneAwaited(pane) {
+		if !m.isPaneAwaited(pane) {
 			delete(m.warm.since, pane)
 		}
 	}
 
-	if selected != "" && !m.warm.ready[selected] {
-		m.stageSelection()
-	}
-
 	return m.finishParked()
-}
-
-// selectedAgentPane is the pane of the row the cursor is standing on, empty when that row has
-// none to give the stage.
-func (m *model) selectedAgentPane() (pane, harnessID string) {
-	if m.screen != screenAgents {
-		return "", ""
-	}
-
-	item, ok := m.agents.hoveredPane(m)
-	if !ok {
-		return "", ""
-	}
-
-	return item.Agent.Pane, item.Agent.Harness
 }
 
 // pollWarmup keeps a tick going while a pane is still being waited on or a write is parked.

@@ -179,7 +179,7 @@ func (m *model) stageSelection() {
 	staged, ok := m.agents.hoveredPane(m)
 
 	switch {
-	case ok && m.isPaneStageable(staged.Agent.Pane, staged.Agent.Harness):
+	case ok && m.isPaneStageable(staged.Agent.Pane):
 		m.sizeAgentWindow(staged.Agent.Pane)
 		m.frame.ShowGuest(layout.Guest{Agent: staged.Agent.ID, Pane: staged.Agent.Pane})
 	case m.frame.IsSolo() && m.isGuestLive():
