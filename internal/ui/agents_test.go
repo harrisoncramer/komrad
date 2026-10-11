@@ -2156,12 +2156,12 @@ func TestAgentsOrchestrator(t *testing.T) {
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 	})
 
-	t.Run("an orchestrator setting up is staged once its harness is read running", func(t *testing.T) {
+	t.Run("an orchestrator setting up is staged once it is running", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: &harnessFrameFake{}})
 		answerWorktreeReads(harness)
-		orch := newOrchestrator()
-		orch.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), orch))
+		settingUp := newOrchestrator()
+		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), settingUp))
 		harness.fireTimers()
 		require.Empty(t, harness.panel.ReadGuestPane())
 
