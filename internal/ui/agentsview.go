@@ -132,6 +132,7 @@ func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 			waiting: layout.waiting,
 		},
 		selected:     a.selected,
+		wholeTasks:   taskIDs(splitChosen(m.listing, chosenAgents(a.selected, layout.cursorRows())).wholeTasks),
 		scheduled:    m.listing.scheduledWorkflows(),
 		workflowDirs: m.listing.workflowDirs(),
 		focused:      rowKeyAt(layout.cursorRows(), a.cursor),
