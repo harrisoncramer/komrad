@@ -145,7 +145,7 @@ func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 }
 
 // TestIntegrationCallReportsWhatWentWrongRatherThanTheBody pins the two ways a call fails short of an
-// answer: a server that refused it, and a server that was not there to ask.
+// answer: a server that refused it, and an address with nothing listening.
 func TestIntegrationCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 	refusing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
