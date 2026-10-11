@@ -554,6 +554,98 @@ func TestFormsArchivePrompt(t *testing.T) {
 		}
 	})
 
+	t.Run("a selection's archive menu", func(t *testing.T) {
+		siblings := []string{"j", "j", "j", "v", "j", "v"}
+		wholeTask := []string{"j", "v"}
+
+		tests := []struct {
+			name     string
+			choose   []string
+			press    []string
+			wantSent []request
+		}{
+			{
+				name:   "archiving chosen agents leaves the rest of their task standing",
+				choose: siblings,
+				press:  []string{"enter"},
+				wantSent: []request{{
+					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+					msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a4", "a3"}},
+				}},
+			},
+			{
+				name:   "deleting chosen agents leaves the rest of their task standing",
+				choose: siblings,
+				press:  []string{"down", "enter", "y"},
+				wantSent: []request{
+					{
+						procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+						msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a4", "a3"}},
+					},
+					{
+						procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+						msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a4", "a3"}},
+					},
+				},
+			},
+			{
+				name:   "archiving every agent on a task archives the task",
+				choose: wholeTask,
+				press:  []string{"enter"},
+				wantSent: []request{{
+					procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
+					msg:       &taskv1.ArchiveTaskRequest{Task: "task-author"},
+				}},
+			},
+			{
+				name:   "deleting every agent on a task deletes the task",
+				choose: wholeTask,
+				press:  []string{"down", "enter", "y"},
+				wantSent: []request{{
+					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-author"}},
+				}},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, buildTaskFamily()...)
+				harness.press(tt.choose...)
+				harness.press("space", "a")
+				before := harness.readRequests()
+
+				harness.press(tt.press...)
+
+				harness.assertSent(append(before, tt.wantSent...)...)
+			})
+		}
+
+		t.Run("an agent joining a chosen task before the confirm keeps the task standing", func(t *testing.T) {
+			harness := openAgents(t, buildTaskFamily()...)
+			harness.press(wholeTask...)
+			harness.press("space", "a", "down", "enter")
+			before := harness.readRequests()
+
+			late := newAgentAt("late", "w1", 3)
+			late.TaskId = xptr.Ptr("task-author")
+			harness.watch(buildSnapshot(append(buildTaskFamily(), late)...))
+			harness.press("y")
+
+			ids := []string{"author", "a4", "a3"}
+			harness.assertSent(append(before,
+				request{
+					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+					msg:       &agentv1.ArchiveAgentsRequest{Ids: ids},
+				},
+				request{
+					procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+					msg:       &agentv1.DeleteAgentsRequest{Ids: ids},
+				},
+			)...)
+		})
+	})
+
 	t.Run("the workflow menu stays up until the archive lands", func(t *testing.T) {
 		archive := workflowv1connect.WorkflowServiceArchiveWorkflowProcedure
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())

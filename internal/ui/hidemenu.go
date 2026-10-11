@@ -6,13 +6,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// hideMenu is the agents list's hide menu, hiding the tasks given and gray when there are none.
-func (a *agentsScreen) hideMenu(m *model, tasks []panel.Task) submenu {
+// hideMenu is the agents list's hide menu, hiding the agents given and gray when there are none.
+func (a *agentsScreen) hideMenu(m *model, agents []panel.Agent, subject string) submenu {
 	return submenu{
 		kind:  formHideMenu,
 		title: "hide",
 		entries: []submenuEntry{
-			hideEntry(m, tasks),
+			hideEntry(m, agents, subject),
 			{
 				label: a.showHiddenDesc(),
 				keys:  m.keys.HideMenu.ShowHidden,
@@ -22,9 +22,9 @@ func (a *agentsScreen) hideMenu(m *model, tasks []panel.Task) submenu {
 	}
 }
 
-// hideEntry hides or unhides every agent on the tasks, and is gray on a row that is no task.
-func hideEntry(m *model, tasks []panel.Task) submenuEntry {
-	if len(tasks) == 0 {
+// hideEntry hides or unhides the agents, and is gray when there are none.
+func hideEntry(m *model, agents []panel.Agent, subject string) submenuEntry {
+	if len(agents) == 0 {
 		return submenuEntry{
 			label: "hide",
 			keys:  m.keys.HideMenu.Hide,
@@ -33,11 +33,11 @@ func hideEntry(m *model, tasks []panel.Task) submenuEntry {
 	}
 
 	label := "hide"
-	if isEveryAgentHidden(m.listing.agentsOnTasks(tasks)) {
+	if isEveryAgentHidden(agents) {
 		label = "unhide"
 	}
 
-	return writeEntry(label, m.keys.HideMenu.Hide, func(m *model) tea.Cmd { return hideTasks(m, tasks) })
+	return writeEntry(label, m.keys.HideMenu.Hide, func(m *model) tea.Cmd { return hideAgents(m, agents, subject) })
 }
 
 // toggleHidden leaves the menu and shows the hidden agents, or puts them away.

@@ -189,15 +189,14 @@ func isEveryAgentHidden(agents []panel.Agent) bool {
 	return len(agents) > 0 && !slices.ContainsFunc(agents, func(agent panel.Agent) bool { return !agent.Hidden })
 }
 
-// hideTasks hides every agent on the tasks, or unhides them when they are all hidden.
-func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
-	agents := m.listing.agentsOnTasks(tasks)
+// hideAgents hides the agents, or unhides them when they are all hidden.
+func hideAgents(m *model, agents []panel.Agent, subject string) tea.Cmd {
 	hidden := !isEveryAgentHidden(agents)
 	changed := xslice.Filter(agents, func(agent panel.Agent) bool { return agent.Hidden != hidden })
 
-	doing, failure := "hiding "+describeTasks(tasks), "Could not hide "+describeTasks(tasks)
+	doing, failure := "hiding "+subject, "Could not hide "+subject
 	if !hidden {
-		doing, failure = "unhiding "+describeTasks(tasks), "Could not unhide "+describeTasks(tasks)
+		doing, failure = "unhiding "+subject, "Could not unhide "+subject
 	}
 
 	return m.writeCmd(doing, failure, func(a api) error {
@@ -314,10 +313,42 @@ func (a *agentsScreen) taskRowOf(m *model, row agentRow) (agentRow, bool) {
 	return tree[at], true
 }
 
-// chosenTasks is the tasks the chosen agents work on, each once.
-func chosenTasks(l listing, agents []panel.Agent) []panel.Task {
-	onTasks := xslice.Filter(agents, func(agent panel.Agent) bool { return agent.TaskID != "" })
+// chosenWork is what a selection of agents acts on.
+type chosenWork struct {
+	chosen     []panel.Agent
+	wholeTasks []panel.Task
+	loneAgents []panel.Agent
+}
+
+// splitChosen sorts the chosen agents into the tasks they wholly cover and the agents left over.
+func splitChosen(l listing, chosen []panel.Agent) chosenWork {
+	onTasks := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" })
 	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
 
-	return xslice.Map(unique, l.findTask)
+	return splitAcross(l, chosen, xslice.Map(unique, l.findTask))
+}
+
+// splitAcross sorts the chosen agents into the candidate tasks they wholly cover and the agents left over.
+func splitAcross(l listing, chosen []panel.Agent, candidates []panel.Task) chosenWork {
+	ids := panel.IDs(chosen)
+	isUnchosen := func(agent panel.Agent) bool { return !slices.Contains(ids, agent.ID) }
+
+	wholeTasks := xslice.Filter(candidates, func(task panel.Task) bool {
+		return !slices.ContainsFunc(l.agentsOnTasks([]panel.Task{task}), isUnchosen)
+	})
+
+	whole := taskIDs(wholeTasks)
+	loneAgents := xslice.Filter(chosen, func(agent panel.Agent) bool { return !slices.Contains(whole, agent.TaskID) })
+
+	return chosenWork{chosen: chosen, wholeTasks: wholeTasks, loneAgents: loneAgents}
+}
+
+// rechecked is the work with each task an agent has joined since handed back to its chosen agents.
+func (w chosenWork) rechecked(l listing) chosenWork {
+	return splitAcross(l, w.chosen, w.wholeTasks)
+}
+
+// affected is every live agent the work takes.
+func (w chosenWork) affected(l listing) []panel.Agent {
+	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)
 }

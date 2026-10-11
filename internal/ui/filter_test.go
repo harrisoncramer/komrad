@@ -152,7 +152,7 @@ func TestFilterSearch(t *testing.T) {
 
 		harness.press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
 
-		assert.Contains(t, harness.readFrame(), "2 tasks › archive")
+		assert.Contains(t, harness.readFrame(), "2 agents › archive")
 	})
 
 	t.Run("the search stays on the screen it was typed on", func(t *testing.T) {

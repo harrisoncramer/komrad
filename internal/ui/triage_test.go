@@ -577,14 +577,14 @@ func TestTriageCopies(t *testing.T) {
 		assert.Len(t, marked, 2)
 	})
 
-	t.Run("an action over both copies takes the task once", func(t *testing.T) {
+	t.Run("an action over both copies takes the agent once", func(t *testing.T) {
 		harness := openTriage(t, 3, withTasks(buildTriage())...)
 
 		harness.press("t", "v", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, `task "task-asker"`)
-		assert.NotContains(t, frame, "2 tasks")
+		assert.Contains(t, frame, `agent "asker"`)
+		assert.NotContains(t, frame, "2 agents")
 	})
 
 	t.Run("a zone row acts through the agent its task's row wears", func(t *testing.T) {

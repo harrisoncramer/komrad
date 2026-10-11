@@ -20,6 +20,8 @@ type snapshotParams struct {
 	triage triageSnapshot
 	// selected are the agents taken into a selection several rows wide.
 	selected selection
+	// wholeTasks are the ids of the tasks a selection takes whole, drawn as selected themselves.
+	wholeTasks []string
 	// focused is the key of the row the cursor stands on, empty when it stands on none.
 	focused string
 	// caret is how the arrow on the focused row stands this frame.
@@ -83,6 +85,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Forge = snapshotForge(*r.lead)
 		row.AutoMerge = r.lead.PullRequest.MergeReadiness.AutoMerge
 		row.LoaderFrame = params.loaderFrame
+		row.Selected = slices.Contains(params.wholeTasks, r.task.ID)
 
 		return row
 	}
