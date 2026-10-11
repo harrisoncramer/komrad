@@ -17,6 +17,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
+	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -630,14 +631,14 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 			name:         "setup that fails abandons the create",
 			worktree:     true,
 			provisionErr: ErrProvisionFailed,
-			wantSetup:    []string{worktreeProvisioner},
+			wantSetup:    []string{scriptrun.WorktreeProvisioner},
 			wantErr:      ErrProvisionFailed,
 		},
 		{
 			name:      "a directory setup names that is not usable abandons the create",
 			worktree:  true,
 			answered:  filepath.Join(t.TempDir(), "never-created"),
-			wantSetup: []string{worktreeProvisioner},
+			wantSetup: []string{scriptrun.WorktreeProvisioner},
 			wantErr:   ErrProvisionFailed,
 		},
 		{
@@ -646,14 +647,14 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 		{
 			name:      "setup that names no directory leaves the create where it was",
 			worktree:  true,
-			wantSetup: []string{worktreeProvisioner},
+			wantSetup: []string{scriptrun.WorktreeProvisioner},
 		},
 		{
 			name:      "the directory setup names is where the agent runs",
 			worktree:  true,
 			answered:  provisioned,
 			wantDir:   provisioned,
-			wantSetup: []string{worktreeProvisioner},
+			wantSetup: []string{scriptrun.WorktreeProvisioner},
 		},
 	}
 
@@ -907,8 +908,8 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			})
 
 			require.Error(t, err)
-			assert.Equal(t, []string{worktreeProvisioner}, lifecycle.provision)
-			assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
+			assert.Equal(t, []string{scriptrun.WorktreeProvisioner}, lifecycle.provision)
+			assert.Equal(t, []string{scriptrun.WorktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
 
 			if tt.windowErr != nil || tt.setOwnerErr != nil || tt.respawnErr != nil {
 				require.Len(t, lifecycle.deprovisionCwd, 1)
@@ -995,7 +996,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
 	assert.NotEmpty(t, agents[0].FailureReason, "the row says why it failed")
 
-	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
+	assert.Equal(t, []string{scriptrun.WorktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
 	assert.Equal(t, []error{nil}, lifecycle.deprovisionCtxErr, "cleanup gets a context it can still read the workflow on")
 }
 
@@ -1577,7 +1578,7 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
 				return NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir}
 			},
-			wantErrIs:    errTaskHasWriter,
+			wantErrIs:    tasks.ErrHasWriter,
 			wantCheckout: true,
 		},
 		{
@@ -1651,7 +1652,7 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 				t.Helper()
 				require.NoError(t, st.Tasks.SetHead(t.Context(), task.ID, taskstore.SetHeadParams{WorktreeRemoved: true}))
 			},
-			wantErrIs: errTaskWorktreeRemoved,
+			wantErrIs: tasks.ErrWorktreeRemoved,
 		},
 		{
 			name: "a new writer is refused once the worktree directory is gone",
@@ -1659,7 +1660,7 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 				t.Helper()
 				require.NoError(t, os.RemoveAll(task.Checkout.Cwd))
 			},
-			wantErrIs: errTaskWorktreeRemoved,
+			wantErrIs: tasks.ErrWorktreeRemoved,
 		},
 		{
 			name: "a new writer is refused on an archived task with no checkout",
@@ -1667,7 +1668,7 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 				t.Helper()
 				require.NoError(t, st.Tasks.ReleaseCheckout(t.Context(), task.ID))
 			},
-			wantErrIs: errTaskArchived,
+			wantErrIs: tasks.ErrArchived,
 		},
 		{
 			name: "a new writer joins the checkout without provisioning",
@@ -1734,7 +1735,7 @@ func TestRetryRejoinsTheTasksCheckout(t *testing.T) {
 		{
 			name:         "a retry is refused once another writer has joined",
 			otherJoins:   true,
-			wantErrIs:    errTaskHasWriter,
+			wantErrIs:    tasks.ErrHasWriter,
 			wantArchived: false,
 		},
 		{
@@ -1815,7 +1816,7 @@ func TestConcurrentWritersJoinOnce(t *testing.T) {
 	wg.Wait()
 
 	joined := xslice.Filter(errs, func(err error) bool { return err == nil })
-	refused := xslice.Filter(errs, func(err error) bool { return errors.Is(err, errTaskHasWriter) })
+	refused := xslice.Filter(errs, func(err error) bool { return errors.Is(err, tasks.ErrHasWriter) })
 	assert.Len(t, joined, 1, "one writer joins")
 	assert.Len(t, refused, 1, "the other is refused")
 }
@@ -1833,7 +1834,7 @@ func TestFailedCreateGivesUpItsTasksCheckout(t *testing.T) {
 			name:      "a retry is refused once another writer has claimed the task",
 			rival:     true,
 			retry:     true,
-			wantErrIs: errTaskHasWriter,
+			wantErrIs: tasks.ErrHasWriter,
 		},
 		{
 			name:  "another writer claims the task the failed create left",

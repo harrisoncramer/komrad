@@ -15,6 +15,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
+	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -230,12 +231,12 @@ func (r *resumeStart) getDefaultDir(agent agentstore.Agent) string {
 }
 
 func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) error {
-	if err := runPreHooks(ctx, hookRunParams{
-		scripts: r.scripts,
-		agent:   agent,
-		hooks:   agentHooks(ctx, r.service.workflows, agent),
-		event:   workflowstore.HookAgentPreResume,
-	}); err != nil {
+	if err := (scriptrun.HookRun{
+		Scripts: r.scripts,
+		Agent:   agent,
+		Hooks:   agentHooks(ctx, r.service.workflows, agent),
+		Event:   workflowstore.HookAgentPreResume,
+	}.RunInTurn(ctx)); err != nil {
 		return fmt.Errorf("failed to run the pre-resume hook of %q: %w", agent.Name, err)
 	}
 
@@ -292,12 +293,12 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		}
 	}
 
-	startHooks(ctx, hookRunParams{
-		scripts: r.scripts,
-		agent:   agent,
-		hooks:   agentHooks(ctx, r.service.workflows, agent),
-		event:   workflowstore.HookAgentPostResume,
-	})
+	scriptrun.HookRun{
+		Scripts: r.scripts,
+		Agent:   agent,
+		Hooks:   agentHooks(ctx, r.service.workflows, agent),
+		Event:   workflowstore.HookAgentPostResume,
+	}.Start(ctx)
 
 	return nil
 }

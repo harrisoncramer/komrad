@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"komrad/internal/logging"
+	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 )
@@ -39,16 +40,7 @@ func provisionerFor(ctx context.Context, workflows *workflowstore.WorkflowStore,
 		return ""
 	}
 
-	provisioner, _ := worktreeScripts(workflowFor(ctx, workflows, agent), agent.ProvisionEnabled)
+	provisioner, _ := scriptrun.WorktreeScripts(workflowFor(ctx, workflows, agent), agent.ProvisionEnabled)
 
 	return provisioner
-}
-
-func worktreeScripts(wf *workflowstore.Workflow, provisionEnabled *bool) (provisioner, deprovisioner string) {
-	// The worktree is komrad's own, so an agent gets the built-in pair or nothing at all.
-	if wf == nil || !wf.Worktree.Enabled || agentstore.IsProvisionerDisabled(provisionEnabled) {
-		return "", ""
-	}
-
-	return worktreeProvisioner, worktreeDeprovisioner
 }

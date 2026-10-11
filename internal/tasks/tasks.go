@@ -8,11 +8,15 @@ import (
 	"strings"
 
 	"komrad/internal/fail"
+	"komrad/internal/scriptrun"
 	"komrad/internal/store"
+	"komrad/lib/xstr"
+
 	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
-	"komrad/lib/xstr"
+	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 )
 
 const maxSlugBase = 60
@@ -22,26 +26,56 @@ var (
 	ErrOtherWorkflow = fail.InvalidArgument("an agent works only on a task in its own workflow")
 	// ErrNotesNotYours is an agent writing the notes of a task it does not work on or orchestrate.
 	ErrNotesNotYours = fail.Denied("an agent writes only the notes of its own task or of one in the workflow it orchestrates")
+	// ErrHasCheckout is a launch that would make a checkout for a task that already has one.
+	ErrHasCheckout = fail.Precondition("this task already has a checkout, so launch a child of the agent working in it or give this one a task of its own")
+	// ErrHasWriter is a writer launched onto a task whose writer is still live.
+	ErrHasWriter = fail.Precondition("this task already has a live writer, so launch a child of it or hand the task off")
+	// ErrWorktreeRemoved is a writer launched onto a task whose worktree was removed.
+	ErrWorktreeRemoved = fail.Precondition("this task's worktree was removed, so give this agent a task of its own")
+	// ErrArchived is an archived task an agent was asked to join.
+	ErrArchived = fail.Precondition("an agent works only on a live task")
 )
 
+type txRunner interface {
+	InTx(ctx context.Context, fn func(store.DBTX) error) error
+}
+
+// taskScriptRunner runs a task's hooks and gives back the checkout of a task no agent is left on.
+type taskScriptRunner interface {
+	scriptrun.HookRunner
+	RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error
+}
+
 type NewTaskServiceParams struct {
-	Tasks  *taskstore.TaskStore
-	Agents *agentstore.AgentStore
-	Runs   *runstore.RunStore
+	Tasks     *taskstore.TaskStore
+	Agents    *agentstore.AgentStore
+	Runs      *runstore.RunStore
+	Workflows *workflowstore.WorkflowStore
+	Worktrees *worktreestore.WorktreeStore
+	Scripts   taskScriptRunner
+	Tx        txRunner
 }
 
 type TaskService struct {
-	tasks  *taskstore.TaskStore
-	agents *agentstore.AgentStore
-	runs   *runstore.RunStore
+	tasks     *taskstore.TaskStore
+	agents    *agentstore.AgentStore
+	runs      *runstore.RunStore
+	workflows *workflowstore.WorkflowStore
+	worktrees *worktreestore.WorktreeStore
+	scripts   taskScriptRunner
+	tx        txRunner
 }
 
 // NewTaskService builds the service from its dependencies.
 func NewTaskService(params NewTaskServiceParams) *TaskService {
 	return &TaskService{
-		tasks:  params.Tasks,
-		agents: params.Agents,
-		runs:   params.Runs,
+		tasks:     params.Tasks,
+		agents:    params.Agents,
+		runs:      params.Runs,
+		workflows: params.Workflows,
+		worktrees: params.Worktrees,
+		scripts:   params.Scripts,
+		tx:        params.Tx,
 	}
 }
 
@@ -126,14 +160,9 @@ func mayWriteNotes(caller agentstore.Agent, target taskstore.Task) bool {
 	return caller.TaskID != nil && *caller.TaskID == target.ID
 }
 
-// ArchiveTask archives the task an id or a slug names, leaving one already archived as it was.
-func (s *TaskService) ArchiveTask(ctx context.Context, ref string) error {
-	found, err := s.GetTask(ctx, ref)
-	if err != nil {
-		return err
-	}
-
-	return s.tasks.Archive(ctx, found.ID)
+// Archive archives a task, leaving one already archived as it was.
+func (s *TaskService) Archive(ctx context.Context, id string) error {
+	return s.tasks.Archive(ctx, id)
 }
 
 // GetTaskForWorkflow returns the task an id or a slug names in a workflow, archived or not.
@@ -170,7 +199,7 @@ func (s *TaskService) ListTasksByID(ctx context.Context, ids []string) ([]taskst
 	return s.tasks.ListByID(ctx, ids)
 }
 
-type CreateForAgentParams struct {
+type createForAgentParams struct {
 	WorkflowID string
 	Name       string
 	Title      string
@@ -179,8 +208,8 @@ type CreateForAgentParams struct {
 	Goal       string
 }
 
-// CreateForAgent creates a task for an agent, under the slug given or one named after the agent.
-func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (*taskstore.Task, error) {
+// createForAgent creates a task for an agent, under the slug given or one named after the agent.
+func createForAgent(ctx context.Context, tasks *taskstore.TaskStore, params createForAgentParams) (*taskstore.Task, error) {
 	slug, err := pickSlug(ctx, tasks, params)
 	if err != nil {
 		return nil, err
@@ -205,7 +234,7 @@ func CreateForAgent(ctx context.Context, tasks *taskstore.TaskStore, params Crea
 }
 
 // pickSlug is the slug asked for, or the first numbered from the agent's name that no task has had.
-func pickSlug(ctx context.Context, tasks *taskstore.TaskStore, params CreateForAgentParams) (string, error) {
+func pickSlug(ctx context.Context, tasks *taskstore.TaskStore, params createForAgentParams) (string, error) {
 	if params.Slug != "" {
 		return params.Slug, nil
 	}

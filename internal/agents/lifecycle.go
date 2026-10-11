@@ -14,6 +14,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/frames"
 	"komrad/internal/logging"
+	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	"komrad/internal/tasks"
@@ -40,7 +41,6 @@ type NewLifecycleServiceParams struct {
 	Agents         *agentstore.AgentStore
 	Workflows      *workflowstore.WorkflowStore
 	EmptyWorkflows *EmptyWorkflowDeleter
-	EmptyTasks     *EmptyTaskDeleter
 	AgentDeleter   workflowAgentDeleter
 	Tx             txRunner
 	Scripts        agentScriptRunner
@@ -59,7 +59,6 @@ type LifecycleService struct {
 	agents         *agentstore.AgentStore
 	workflows      *workflowstore.WorkflowStore
 	emptyWorkflows *EmptyWorkflowDeleter
-	emptyTasks     *EmptyTaskDeleter
 	agentDeleter   workflowAgentDeleter
 	tx             txRunner
 	scripts        agentScriptRunner
@@ -79,7 +78,6 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		agents:         params.Agents,
 		workflows:      params.Workflows,
 		emptyWorkflows: params.EmptyWorkflows,
-		emptyTasks:     params.EmptyTasks,
 		agentDeleter:   params.AgentDeleter,
 		tx:             params.Tx,
 		scripts:        params.Scripts,
@@ -162,12 +160,12 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 	s.cleanupEmptyTasks(ctx, torn)
 
 	for _, agent := range torn {
-		startHooks(ctx, hookRunParams{
-			scripts: s.scripts,
-			agent:   agent,
-			hooks:   hooks[agent.ID],
-			event:   workflowstore.HookAgentPostDelete,
-		})
+		scriptrun.HookRun{
+			Scripts: s.scripts,
+			Agent:   agent,
+			Hooks:   hooks[agent.ID],
+			Event:   workflowstore.HookAgentPostDelete,
+		}.Start(ctx)
 	}
 
 	s.cleanupEmptyWorkflows(ctx, torn)
@@ -214,12 +212,12 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 
 	// A hook has nothing to run against once the directory has gone.
 	if scripts.RequireUsableDir(agent.Cwd) == nil {
-		return runPreHooks(ctx, hookRunParams{
-			scripts: s.scripts,
-			agent:   agent,
-			hooks:   hooks,
-			event:   workflowstore.HookAgentPreDelete,
-		})
+		return scriptrun.HookRun{
+			Scripts: s.scripts,
+			Agent:   agent,
+			Hooks:   hooks,
+			Event:   workflowstore.HookAgentPreDelete,
+		}.RunInTurn(ctx)
 	}
 
 	return nil
@@ -238,7 +236,7 @@ func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Age
 // on it, logging a failure rather than returning it.
 func (s *LifecycleService) cleanupEmptyTasks(ctx context.Context, removed []agentstore.Agent) {
 	for _, taskID := range agentstore.TaskIDs(removed) {
-		if err := s.emptyTasks.DeleteIfEmpty(ctx, taskID); err != nil {
+		if err := s.tasks.DeleteIfEmpty(ctx, taskID); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to delete a task a delete left with no agent on it",
 				append([]slog.Attr{slog.String(logging.TaskID, taskID)}, logging.Err(err)...)...)
 		}
@@ -289,6 +287,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgen
 		tmux:      s.tmux,
 		scripts:   s.scripts,
 		workflows: s.workflows,
+		tasks:     s.tasks,
 		live:      xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt == nil }),
 		owned:     agents,
 		screens:   s.screens,
@@ -332,7 +331,7 @@ func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
 		}
 	}
 
-	return s.tasks.ArchiveTask(ctx, found.ID)
+	return s.tasks.Archive(ctx, found.ID)
 }
 
 // DeleteTasks archives the tasks refs name, claims them for a delete and queues the deletes of
@@ -354,16 +353,16 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, refs []string) error
 		}
 	}
 
-	if err := s.emptyTasks.markDeleting(ctx, ids); err != nil {
+	if err := s.tasks.MarkDeleting(ctx, ids); err != nil {
 		return err
 	}
 
 	if err := s.deleteAgentsOnTasks(ctx, ids); err != nil {
-		return errors.Join(err, s.emptyTasks.clearDeleting(context.WithoutCancel(ctx), ids))
+		return errors.Join(err, s.tasks.ClearDeleting(context.WithoutCancel(ctx), ids))
 	}
 
 	return errors.Join(xslice.Map(ids, func(id string) error {
-		return s.emptyTasks.DeleteIfEmpty(ctx, id)
+		return s.tasks.DeleteIfEmpty(ctx, id)
 	})...)
 }
 
@@ -435,6 +434,7 @@ func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID strin
 		tmux:      s.tmux,
 		scripts:   s.scripts,
 		workflows: s.workflows,
+		tasks:     s.tasks,
 		live:      live,
 		owned:     live,
 		screens:   s.screens,

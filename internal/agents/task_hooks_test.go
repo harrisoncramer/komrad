@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
@@ -111,7 +112,7 @@ func TestTaskPreOpen(t *testing.T) {
 				require.NoError(t, listErr)
 				require.Len(t, listed, 1)
 				assert.Equal(t, agentstore.StateFailedToCreate, listed[0].State)
-				assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.ranDeprovisions(), "what setup built is given back")
+				assert.Equal(t, []string{scriptrun.WorktreeDeprovisioner}, lifecycle.ranDeprovisions(), "what setup built is given back")
 			} else {
 				require.NoError(t, err)
 			}
@@ -436,52 +437,6 @@ func TestTaskPreDelete(t *testing.T) {
 				assert.Equal(t, fx.workflow.Cwd, ran[0].Cwd)
 				assert.Equal(t, xptr.Ptr(false), ran[0].ProvisionEnabled)
 			}
-		})
-	}
-}
-
-// TestIsOpening covers which agents starting on a task take it from no live agent to one.
-func TestIsOpening(t *testing.T) {
-	taskID := "task"
-	parentID := "parent"
-	starting := agentstore.Agent{ID: "starting", TaskID: &taskID}
-
-	tests := []struct {
-		name  string
-		agent agentstore.Agent
-		live  []agentstore.Agent
-		want  bool
-	}{
-		{
-			name:  "an agent on no task opens none",
-			agent: agentstore.Agent{ID: "starting"},
-		},
-		{
-			name:  "a child opens nothing",
-			agent: agentstore.Agent{ID: "starting", TaskID: &taskID, ParentAgentID: &parentID},
-		},
-		{
-			name:  "another live agent holds the task open",
-			agent: starting,
-			live:  []agentstore.Agent{starting, {ID: "other", State: agentstore.StateIdle}},
-		},
-		{
-			name:  "an agent that failed to create holds nothing open",
-			agent: starting,
-			live:  []agentstore.Agent{starting, {ID: "other", State: agentstore.StateFailedToCreate}},
-			want:  true,
-		},
-		{
-			name:  "the only agent on the task opens it",
-			agent: starting,
-			live:  []agentstore.Agent{starting},
-			want:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isOpening(tt.agent, tt.live))
 		})
 	}
 }

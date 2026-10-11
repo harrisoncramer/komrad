@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/harnesstest"
+	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
@@ -127,7 +128,7 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	ran := lifecycle.ranHooks()
 	require.Len(t, ran, 1, "the hooks after the one that failed are skipped")
 	assert.Equal(t, "install-deps", ran[0].Script)
-	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what the provisioner built is given back")
+	assert.Equal(t, []string{scriptrun.WorktreeDeprovisioner}, lifecycle.deprovision, "what the provisioner built is given back")
 
 	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
@@ -901,12 +902,12 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
-	startHooks(ctx, hookRunParams{
-		scripts: lifecycle,
-		agent:   agent,
-		hooks:   config.Hooks,
-		event:   workflowstore.HookAgentPostArchive,
-	})
+	scriptrun.HookRun{
+		Scripts: lifecycle,
+		Agent:   agent,
+		Hooks:   config.Hooks,
+		Event:   workflowstore.HookAgentPostArchive,
+	}.Start(ctx)
 	deleted := make(chan error, 1)
 	go func() { deleted <- manager.lifecycle.deleteNow(ctx, []string{agent.ID}) }()
 

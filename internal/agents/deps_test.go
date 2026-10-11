@@ -135,7 +135,7 @@ type testAgents struct {
 	lifecycle    *LifecycleService
 	panes        *PaneLiveness
 	emptied      *EmptyWorkflowDeleter
-	emptyTasks   *EmptyTaskDeleter
+	tasks        *tasks.TaskService
 	orchestrator *OrchestratorService
 	snapshots    *gittest.Snapshots
 }
@@ -154,6 +154,12 @@ type agentServiceOptions struct {
 	sleeper   clock.Sleeper
 }
 
+// taskScriptRunner is what a task service needs of the scripts a test hands its agents.
+type taskScriptRunner interface {
+	scriptrun.HookRunner
+	RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error
+}
+
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	tx := options.tx
 	if tx == nil {
@@ -170,17 +176,20 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Usage: options.usage,
 	})
 	taskScripts, _ := options.lifecycle.(taskScriptRunner)
-	emptyTasks := NewEmptyTaskDeleter(NewEmptyTaskDeleterParams{
+	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
 		Tasks:     s.Tasks,
+		Agents:    s.Agents,
+		Runs:      s.Runs,
 		Workflows: s.Workflows,
 		Worktrees: worktreestore.NewWorktreeStore(s.Pool.GetDB()),
 		Scripts:   taskScripts,
+		Tx:        tx,
 	})
 	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,
 		Schedules: s.Schedules,
-		Tasks:     emptyTasks,
+		Tasks:     taskService,
 	})
 
 	launch := NewLaunchService(NewLaunchServiceParams{
@@ -188,7 +197,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Agents:             s.Agents,
 		Reviews:            reviewstore.NewReviewStore(s.Pool.GetDB()),
 		Workflows:          s.Workflows,
-		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
+		Tasks:              taskService,
 		Tx:                 tx,
 		Launcher:           launcher,
 		Harnesses:          options.harnesses,
@@ -217,14 +226,13 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Workflows: s.Workflows,
 			Launch:    launch,
 			Worktrees: &gittest.Checkout{},
-			Tasks:     tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
+			Tasks:     taskService,
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
 			Agents:         s.Agents,
 			Workflows:      s.Workflows,
 			EmptyWorkflows: emptied,
-			EmptyTasks:     emptyTasks,
 			Tx:             tx,
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.NewReviewStore(s.Pool.GetDB()),
@@ -232,12 +240,12 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Screens:        NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
-			Tasks:          tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: s.Tasks}),
+			Tasks:          taskService,
 			Usage:          options.usage,
 		}),
-		panes:      NewPaneLiveness(options.tmux),
-		emptied:    emptied,
-		emptyTasks: emptyTasks,
+		panes:   NewPaneLiveness(options.tmux),
+		emptied: emptied,
+		tasks:   taskService,
 	}
 	built.lifecycle.agentDeleter = inlineDelete{lifecycle: built.lifecycle}
 
