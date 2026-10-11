@@ -49,7 +49,7 @@ func reportBases(ctx context.Context, env Env, bases []workflowBase) Result {
 	checked := 0
 
 	for _, workflow := range bases {
-		if strings.TrimSpace(workflow.Cwd) == "" {
+		if workflow.Cwd == "" {
 			continue
 		}
 

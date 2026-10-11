@@ -314,7 +314,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 
 	dir := config.ExpandHome(strings.TrimSpace(params.Dir))
 	if dir == "" {
-		dir = config.ExpandHome(strings.TrimSpace(wf.Cwd))
+		dir = wf.Cwd
 	}
 	if dir == "" {
 		dir = s.tmux.GetHostPath()

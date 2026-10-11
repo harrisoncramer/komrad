@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 
-	"komrad/config"
 	"komrad/internal/logging"
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
@@ -168,7 +166,10 @@ func (p moment) toHookRun() scriptrun.HookRun {
 		runAs.Cwd = p.task.Checkout.Cwd
 		runAs.ProvisionEnabled = nil
 	} else {
-		runAs.Cwd = resolveWorkflowDir(p.workflow)
+		runAs.Cwd = ""
+		if p.workflow != nil {
+			runAs.Cwd = p.workflow.Cwd
+		}
 		runAs.ProvisionEnabled = xptr.Ptr(false)
 	}
 
@@ -188,14 +189,6 @@ func (p moment) toHookRun() scriptrun.HookRun {
 // hasLiveCheckout reports whether a task has a worktree that is still there.
 func hasLiveCheckout(task taskstore.Task) bool {
 	return task.Checkout.Cwd != "" && !task.Checkout.WorktreeRemoved && scripts.RequireUsableDir(task.Checkout.Cwd) == nil
-}
-
-func resolveWorkflowDir(wf *workflowstore.Workflow) string {
-	if wf == nil {
-		return ""
-	}
-
-	return config.ExpandHome(strings.TrimSpace(wf.Cwd))
 }
 
 // findTaskActor picks the agent among agents whose action fired a task's moment, preferring the

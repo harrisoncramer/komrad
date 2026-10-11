@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/agenterr"
 	"komrad/internal/fail"
 	"komrad/internal/git"
@@ -105,7 +104,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 		return nil, fmt.Errorf("%w: %q does not", ErrAdoptNeedsWorktree, wf.Name)
 	}
 
-	repo := config.ExpandHome(strings.TrimSpace(wf.Cwd))
+	repo := wf.Cwd
 	if repo == "" {
 		return nil, ErrWorktreeNeedsCwd
 	}

@@ -246,7 +246,7 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, task taskst
 	}
 
 	return []string{
-		"KOMRAD_WORKTREE_REPO=" + config.ExpandHome(strings.TrimSpace(workflow.Cwd)),
+		"KOMRAD_WORKTREE_REPO=" + workflow.Cwd,
 		"KOMRAD_WORKTREES_DIR=" + worktreesDir,
 		"KOMRAD_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
 		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
