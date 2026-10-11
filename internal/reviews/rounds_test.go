@@ -615,3 +615,38 @@ func readBodies(messages []reviewstore.Message) []string {
 		return message.Body
 	})
 }
+
+// TestOpenRoundFilesTheRoundUnderAnAgent pins which agent a round is recorded as taken by.
+func TestOpenRoundFilesTheRoundUnderAnAgent(t *testing.T) {
+	tests := []struct {
+		name      string
+		author    func(fx *reviewFixture) ReviewAuthor
+		wantAgent func(fx *reviewFixture) string
+	}{
+		{
+			name:      "an agent calling files it under itself",
+			author:    func(fx *reviewFixture) ReviewAuthor { return newAgentAuthor(fx.worker) },
+			wantAgent: func(fx *reviewFixture) string { return fx.worker.ID },
+		},
+		{
+			name:      "the person calling files it under the newest agent on the task",
+			author:    func(*reviewFixture) ReviewAuthor { return personAuthor },
+			wantAgent: func(fx *reviewFixture) string { return fx.reviewer.ID },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+			fx.snapshots.SHA = secondSnapshot
+
+			round, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, tt.author(fx))
+			require.NoError(t, err)
+
+			var roundAgent string
+			require.NoError(t, fx.stores.Pool.GetDB().QueryRow(t.Context(),
+				"SELECT agent_id FROM review_rounds WHERE id = $1", round.ID).Scan(&roundAgent))
+			assert.Equal(t, tt.wantAgent(fx), roundAgent)
+		})
+	}
+}

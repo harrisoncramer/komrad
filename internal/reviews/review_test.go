@@ -438,6 +438,44 @@ func TestReviewEntitlement(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name: "a reviewer naming no task taking a round of the work it reviews",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.OpenRound(t.Context(), "", newAgentAuthor(fx.reviewer))
+
+				return err
+			},
+		},
+		{
+			name: "a reviewer naming no task listing the reviews of the work it reviews",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.ListReviews(t.Context(), "", newAgentAuthor(fx.reviewer))
+
+				return err
+			},
+		},
+		{
+			name: "a reviewer naming no task commenting on the work it reviews",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+					FilePath: "greet.go",
+					Body:     "say who it greets",
+					Author:   newAgentAuthor(fx.reviewer),
+				})
+
+				return err
+			},
+		},
+		{
+			name: "the person taking a round of a task no agent was ever on",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				empty := fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.worker.WorkflowID, Slug: "empty"})
+				_, err := fx.service.OpenRound(t.Context(), empty.ID, personAuthor)
+
+				return err
+			},
+			wantErr: errReviewNoAgent,
+		},
 	}
 
 	for _, tt := range tests {
@@ -818,6 +856,11 @@ func TestReviewFileViewed(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, viewed, 1)
 	assert.Equal(t, "greet.go", viewed[0].FilePath)
+
+	var viewedAgent string
+	require.NoError(t, fx.stores.Pool.GetDB().QueryRow(t.Context(),
+		"SELECT agent_id FROM review_viewed_files WHERE task_id = $1", *fx.worker.TaskID).Scan(&viewedAgent))
+	assert.Equal(t, fx.reviewer.ID, viewedAgent, "a mark the person makes is filed under the newest agent on the task")
 
 	_, err = fx.service.SetReviewFileViewed(t.Context(), SetReviewFileViewedParams{
 		Task:     *fx.worker.TaskID,
