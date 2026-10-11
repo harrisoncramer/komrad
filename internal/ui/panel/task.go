@@ -34,8 +34,6 @@ type Task struct {
 	FailedRun bool
 	// Documents is how many documents agents have written for the task.
 	Documents int32
-	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
-	DocumentsUpdatedAt *time.Time
 	// PullRequest is where the pull request opened from its branch stands.
 	PullRequest PullRequestStanding
 	// PullRequests is every pull request opened from its branch, the current one first.
