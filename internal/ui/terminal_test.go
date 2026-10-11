@@ -26,6 +26,15 @@ func TestTerminal(t *testing.T) {
 		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
+	t.Run("from a task's row the shell takes the stage's rows", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+
+		harness.press("space", "t")
+
+		assert.Contains(t, harness.panel.ReadKilledPanes(), stagePane)
+		assert.Empty(t, harness.panel.ReadStagePane())
+	})
+
 	t.Run("picked again it hands the shell the keys rather than respawning it", func(t *testing.T) {
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
 
@@ -195,7 +204,7 @@ func TestTerminal(t *testing.T) {
 
 		harness.press("space", "t", "tab", "tab")
 
-		assert.Empty(t, harness.panel.ReadKilledPanes())
+		assert.NotContains(t, harness.panel.ReadKilledPanes(), infoPane)
 	})
 
 	t.Run("the shell goes once the switcher closes on a view that cannot hold it", func(t *testing.T) {
@@ -203,7 +212,7 @@ func TestTerminal(t *testing.T) {
 
 		harness.press("space", "t", "tab", "tab", "esc")
 
-		assert.Equal(t, []string{infoPane}, harness.panel.ReadKilledPanes())
+		assert.Contains(t, harness.panel.ReadKilledPanes(), infoPane)
 	})
 }
 
@@ -217,6 +226,7 @@ func TestInfo(t *testing.T) {
 }
 
 const (
+	stagePane      = "%1"
 	infoPane       = "%2"
 	terminalRefuse = "Could not open a te"
 )

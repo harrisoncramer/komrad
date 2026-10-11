@@ -59,6 +59,8 @@ func argsForMove(move panes.Move) [][]string {
 		}
 	case panes.KindResize:
 		return [][]string{{"resize-pane", "-t", move.Pane, "-x", strconv.Itoa(move.Width)}}
+	case panes.KindKill:
+		return [][]string{{"kill-pane", "-t", move.Pane}}
 	}
 
 	return nil

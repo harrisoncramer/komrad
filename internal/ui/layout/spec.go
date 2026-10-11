@@ -12,7 +12,8 @@ type spec struct {
 	// sidebarCols is the width the sidebar is first laid out at, in columns.
 	sidebarCols int
 	infoAbove   bool
-	infoSize    string
+	// infoHeight is the configured info height, a share of the stage below one and rows from one up.
+	infoHeight float64
 }
 
 // newSpec resolves a configured layout into the geometry the frame lays panes out at, falling
@@ -30,7 +31,7 @@ func newSpec(layout config.Layout) spec {
 		sidebarOnRight: layout.SidebarSide == config.SidebarSideRight,
 		sidebarCols:    cols,
 		infoAbove:      layout.InfoSide == config.InfoSideAbove,
-		infoSize:       formatSize(info),
+		infoHeight:     info,
 	}
 }
 
@@ -48,6 +49,20 @@ func formatSize(size float64) string {
 
 func percent(share float64) int {
 	return int(math.Round(share * 100))
+}
+
+// infoSize is the size the info pane is split off the stage at.
+func (s spec) infoSize() string {
+	return formatSize(s.infoHeight)
+}
+
+// stageOverInfo is the size the stage is split back off an info pane of the given height at.
+func (s spec) stageOverInfo(height int) string {
+	if s.infoHeight < 1 {
+		return strconv.Itoa(100-percent(s.infoHeight)) + "%"
+	}
+
+	return strconv.Itoa(max(height-int(s.infoHeight)-1, 1))
 }
 
 // sidebarWidth is how many of a window's columns the sidebar starts at.

@@ -64,6 +64,9 @@ type Frame struct {
 	// remoteGuest is the agent whose terminal the stage is attached to, on a server this one does
 	// not hold.
 	remoteGuest string
+
+	// folded is whether the stage gave its rows to the info pane for want of anything to show.
+	folded bool
 }
 
 type shown struct {
@@ -245,7 +248,9 @@ func (f *Frame) open(region region) string {
 	case RegionStage:
 		f.claimStage()
 	case RegionInfo:
-		f.claimStage()
+		if !f.isFolded() {
+			f.claimStage()
+		}
 		f.claimInfo()
 	case RegionSidebar, regionNone:
 	}
@@ -319,6 +324,38 @@ func (f *Frame) Show(region region, content Content) {
 		width:  target.Width,
 		height: target.Height,
 	}
+}
+
+// ClearStage empties the stage, handing its rows to the info pane while one is open.
+func (f *Frame) ClearStage() {
+	if !f.IsOpen(RegionInfo) {
+		f.Show(RegionStage, blankContent())
+
+		return
+	}
+
+	if f.folded {
+		return
+	}
+
+	f.restoreGuest()
+	if f.tmux.IsPaneAlive(f.stage) {
+		f.move(panes.Kill(f.stage))
+	}
+	f.stage, f.remoteGuest, f.folded = "", "", true
+	f.forget(RegionStage)
+}
+
+func blankContent() Content {
+	return Content{
+		Key:    "blank",
+		Dir:    getHomeDir(),
+		Render: func(Target) ([]string, bool) { return nil, true },
+	}
+}
+
+func (f *Frame) isFolded() bool {
+	return f.folded && f.IsOpen(RegionInfo)
 }
 
 // Solo gives the sidebar the whole window, or hands the other panes their share back, covering
@@ -540,7 +577,7 @@ func (f *Frame) forgetSplit() {
 func (f *Frame) RestoreSplit() {
 	f.forgetSplit()
 
-	if f.sidebar == "" || !f.hasStage() {
+	if f.sidebar == "" || (!f.hasStage() && !f.isFolded()) {
 		return
 	}
 
@@ -657,10 +694,15 @@ func (f *Frame) isShowing(region region, content Content, target Target) bool {
 }
 
 // visibleStagePane is the pane the user is actually looking at in the stage slot: the guest
-// while one is swapped in and the frame's own pane otherwise.
+// while one is swapped in, the info pane while the stage is folded into it, and the frame's own
+// pane otherwise.
 func (f *Frame) visibleStagePane() string {
 	if f.guest != "" {
 		return f.guest
+	}
+
+	if f.folded {
+		return f.info
 	}
 
 	return f.stage
@@ -704,6 +746,12 @@ func (f *Frame) claimStage() {
 		return
 	}
 
+	if f.isFolded() {
+		f.unfoldStage()
+
+		return
+	}
+
 	f.abandonStage()
 
 	f.stage = f.splitStage()
@@ -737,6 +785,18 @@ func (f *Frame) splitStage() string {
 	return f.tmux.SplitRight(f.sidebar, getHomeDir(), stageSize)
 }
 
+// unfoldStage splits the stage back off the info pane it gave its rows to.
+func (f *Frame) unfoldStage() {
+	split := f.tmux.SplitAbove
+	if f.spec.infoAbove {
+		split = f.tmux.SplitBelow
+	}
+
+	f.stage = split(f.info, getHomeDir(), f.spec.stageOverInfo(f.tmux.GetPaneHeight(f.info)))
+	f.folded = false
+	f.forget(RegionStage)
+}
+
 func (f *Frame) hasStage() bool {
 	if f.stage == "" || !f.tmux.IsPaneAlive(f.stage) {
 		return false
@@ -753,7 +813,7 @@ func (f *Frame) abandonStage() {
 	}
 
 	f.closeInfo()
-	f.stage = ""
+	f.stage, f.folded = "", false
 }
 
 func (f *Frame) claimInfo() {
@@ -763,9 +823,9 @@ func (f *Frame) claimInfo() {
 
 	anchor, home := f.visibleStagePane(), getHomeDir()
 	if f.spec.infoAbove {
-		f.info = f.tmux.SplitAbove(anchor, home, f.spec.infoSize)
+		f.info = f.tmux.SplitAbove(anchor, home, f.spec.infoSize())
 	} else {
-		f.info = f.tmux.SplitBelow(anchor, home, f.spec.infoSize)
+		f.info = f.tmux.SplitBelow(anchor, home, f.spec.infoSize())
 	}
 
 	f.forget(RegionInfo)

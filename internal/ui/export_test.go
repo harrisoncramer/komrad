@@ -779,6 +779,8 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
 		case panes.KindResize:
 			t.ResizePane(move.Pane, strconv.Itoa(move.Width))
+		case panes.KindKill:
+			t.KillPane(move.Pane)
 		}
 	}
 }
