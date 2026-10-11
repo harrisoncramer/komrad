@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -14,39 +15,40 @@ var (
 	errOpensOneAgent = errors.New("restore and open puts one agent's conversation back in a pane, so it needs a single agent")
 )
 
-// archived is what the archive menu acts on: chosen or hovered agents, a workflow, or a schedule.
+// archived is what the archive menu acts on: chosen or hovered work, a workflow, or a schedule.
 type archived struct {
-	agents   []panel.Agent
+	work     chosenWork
 	workflow *panel.Workflow
 	schedule *panel.Schedule
-	chosen   bool
+	// lead is the agent restore and open resumes, unset on a selection.
+	lead   *panel.Agent
+	title  string
+	chosen bool
 }
 
 // name is what the menu's band is titled with.
-func (t archived) name(l listing) string {
+func (t archived) name() string {
 	switch {
 	case t.schedule != nil:
 		return t.schedule.Name
 	case t.workflow != nil:
 		return t.workflow.Name
-	case t.chosen:
-		return describeAgents(t.agents)
 	}
 
-	return l.agentName(t.agents[0])
+	return t.title
 }
 
 // opensAgent is the one agent whose conversation can be put back in a pane, or why there is none.
 func (t archived) opensAgent() (*panel.Agent, error) {
-	if t.chosen || len(t.agents) != 1 {
+	if t.lead == nil {
 		return nil, errOpensOneAgent
 	}
 
-	if !t.agents[0].State.DoesPaneDecide() {
+	if !t.lead.State.DoesPaneDecide() {
 		return nil, errNeverStarted
 	}
 
-	return &t.agents[0], nil
+	return t.lead, nil
 }
 
 // archiveMenu is the archive's actions on a row, opened from its menu.
@@ -76,16 +78,16 @@ func archiveMenu(m *model, target archived) submenu {
 	}
 }
 
-// restoreAndOpen restores the one agent and puts its conversation back in a pane, or says why it cannot.
+// restoreAndOpen restores the work and puts its lead's conversation back in a pane, or says why it cannot.
 func (m *model) restoreAndOpen(target archived) tea.Cmd {
-	agent, err := target.opensAgent()
+	lead, err := target.opensAgent()
 	if err != nil {
-		m.report("Could not restore and open "+target.name(m.listing), err)
+		m.report("Could not restore and open "+target.name(), err)
 
 		return nil
 	}
 
-	return restoreAndResumeCmd(m, *agent)
+	return restoreAndResumeCmd(m, target.work.chosen, *lead)
 }
 
 func restoreArchived(m *model, target archived) tea.Cmd {
@@ -110,7 +112,7 @@ func restoreArchived(m *model, target archived) tea.Cmd {
 		)
 	}
 
-	return restoreAgentsCmd(m, target.agents)
+	return restoreAgentsCmd(m, target.work.chosen)
 }
 
 func confirmDeleteArchivedRow(m *model, target archived) tea.Cmd {
@@ -121,7 +123,7 @@ func confirmDeleteArchivedRow(m *model, target archived) tea.Cmd {
 		return confirmDeleteWorkflow(m, *target.workflow)
 	}
 
-	return confirmDeleteArchived(m, target.agents)
+	return confirmDeleteChosenAgents(m, target.work, archivedAgentsOf(m.listing))
 }
 
 // liveArchiveMenu is the archive menu on a row that is not archived yet.
@@ -176,7 +178,7 @@ func chosenArchiveMenu(m *model, work chosenWork) submenu {
 			write: func(m *model) tea.Cmd { return m.archiveChosenAgents(work) },
 		},
 		openEntry("archive and delete all for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
-			return confirmDeleteChosenAgents(m, work)
+			return confirmDeleteChosenAgents(m, work, m.listing.liveAgents())
 		}),
 	)
 }
@@ -211,9 +213,10 @@ func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
 
-	return pending.attach(m.writeCmd(
+	return pending.attach(m.awaitingWriteCmd(
 		"deleting "+subject,
 		"Could not delete "+subject,
+		&awaits{gone: rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)},
 		func(a api) error {
 			if len(work.wholeTasks) > 0 {
 				if err := pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks))); err != nil {
@@ -224,19 +227,21 @@ func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 				return nil
 			}
 
-			ids := panel.IDs(work.loneAgents)
-			if err := pending.noteArchive(a.archiveAgents(ids)); err != nil {
-				return err
+			live := xslice.Filter(work.loneAgents, func(agent panel.Agent) bool { return agent.ArchivedAt == nil })
+			if len(live) > 0 {
+				if err := pending.noteArchive(a.archiveAgents(panel.IDs(live))); err != nil {
+					return err
+				}
 			}
 
-			return a.deleteAgents(ids)
+			return a.deleteAgents(panel.IDs(work.loneAgents))
 		},
 	))
 }
 
 // confirmDeleteChosenAgents asks before the chosen agents are deleted for good.
-func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
-	form, confirmed := deleteChosenForm(work, unnamedChildren(m.listing.liveAgents(), work.chosen), fixedKeys())
+func confirmDeleteChosenAgents(m *model, work chosenWork, pool []panel.Agent) tea.Cmd {
+	form, confirmed := deleteChosenForm(work, unnamedChildren(pool, work.chosen), fixedKeys())
 
 	return m.openForm(formState{
 		kind:   formArchiveDelete,

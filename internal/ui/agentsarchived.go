@@ -186,12 +186,13 @@ func (a *archivedAgents) buildFrame(m *model) {
 }
 
 func (a *archivedAgents) buildRows(m *model) []agentRow {
-	// The archived agents render an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
-		workflows:  archivedAgentHeaders(m.listing),
-		agents:     sortedAgents(m.listing.archivedAgents, archivedAgentSorts, archivedAgentTabs().order(a.sort)),
-		showHidden: true,
-		flat:       a.sort.flat,
+		workflows:         archivedAgentHeaders(m.listing),
+		agents:            sortedAgents(m.listing.archivedAgents, archivedAgentSorts, archivedAgentTabs().order(a.sort)),
+		showHidden:        true,
+		foldOrchestrators: !a.sort.flat,
+		flat:              a.sort.flat,
+		tasks:             m.listing.tasks,
 	})
 
 	return narrowedAgentRows(m, rows)
@@ -271,21 +272,47 @@ func (a *archivedAgents) stageResting(m *model) tea.Cmd {
 	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(time.Now()))
 }
 
-// menuTarget is what the archive menu would act on, and none on the folder of a live workflow.
+// menuTarget is what the archive menu would act on, and none on the folder of a live workflow
+// with no archived orchestrator.
 func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 	if a.selected.isActive() {
-		agents := chosenAgents(a.selected, a.listRows(m))
+		work := splitChosen(m.listing, chosenAgents(a.selected, a.listRows(m)))
 
-		return archived{agents: agents, chosen: true}, len(agents) > 0
+		return archived{work: work, title: describeAgents(work.chosen), chosen: true}, len(work.chosen) > 0
 	}
 
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		return archived{workflow: &workflow}, true
 	}
 
-	agent, ok := a.hoveredAgent(m)
+	row, ok := a.hoveredRow(m)
+	if !ok {
+		return archived{}, false
+	}
 
-	return archived{agents: []panel.Agent{agent}}, ok
+	if row.isTask() {
+		task := *row.task
+		onTask := xslice.Filter(archivedAgentsOf(m.listing), func(agent panel.Agent) bool { return agent.TaskID == task.ID })
+
+		return archived{
+			work:  splitAcross(m.listing, onTask, []panel.Task{task}),
+			lead:  &row.lead.Agent,
+			title: task.Slug,
+		}, true
+	}
+
+	item, ok := row.paneItem()
+	if !ok {
+		return archived{}, false
+	}
+
+	agent := item.Agent
+
+	return archived{
+		work:  chosenWork{chosen: []panel.Agent{agent}, loneAgents: []panel.Agent{agent}},
+		lead:  &agent,
+		title: m.listing.agentName(agent),
+	}, true
 }
 
 func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
@@ -300,18 +327,17 @@ func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
 		return withNested(agentMenu(m, row.item), "archive", m.keys.Menu.Archive, archive), true
 	}
 
-	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archive), true
+	return withNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archive), true
 }
 
-// restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
-// pane.
-func restoreAndResumeCmd(m *model, agent panel.Agent) tea.Cmd {
-	return m.openingWriteCmd("restoring "+agent.Name, fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
-		if err := a.restoreAgents([]string{agent.ID}); err != nil {
+// restoreAndResumeCmd takes the agents out of the archive and puts the lead's conversation back in a pane.
+func restoreAndResumeCmd(m *model, agents []panel.Agent, lead panel.Agent) tea.Cmd {
+	return m.openingWriteCmd("restoring "+lead.Name, fmt.Sprintf("Could not restore and open agent %q", lead.Name), func(a api) (*agentv1.Agent, error) {
+		if err := a.restoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
 
-		return a.resumeAgent(agent.ID)
+		return a.resumeAgent(lead.ID)
 	})
 }
 
@@ -326,33 +352,6 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 		&awaits{shown: rowsIn(listAgents, panel.IDs(agents)...)},
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
 	)
-}
-
-// confirmDeleteArchived asks before the agents are deleted for good.
-func confirmDeleteArchived(m *model, agents []panel.Agent) tea.Cmd {
-	if len(agents) == 0 {
-		return nil
-	}
-
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(archivedAgentsOf(m.listing), agents), fixedKeys())
-
-	return m.openForm(formState{
-		kind:   formArchiveDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !*confirmed {
-				return nil
-			}
-
-			return m.awaitingWriteCmd(
-				"deleting "+describeAgents(agents),
-				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
-				&awaits{gone: rowsIn(listArchivedAgents, panel.IDs(agents)...)},
-				func(a api) error { return a.deleteAgents(panel.IDs(agents)) },
-			)
-		}),
-	})
 }
 
 // confirmDeleteWorkflow asks before an archived workflow is deleted for good.
@@ -481,14 +480,14 @@ func (a *archivedAgents) column() columnSpec {
 	}
 }
 
-// renameable is the row under the cursor when it can be renamed: an agent, or a live workflow's folder.
+// renameable is the row under the cursor when it can be renamed: an agent, a task, or a live workflow's folder.
 func (a *archivedAgents) renameable(m *model) (agentRow, bool) {
 	if a.selected.isActive() {
 		return agentRow{}, false
 	}
 
 	row, ok := rowAt(a.listRows(m), a.cursor)
-	if !ok || (row.header && row.workflow.ArchivedAt != nil) {
+	if !ok || (row.header && !row.isTask() && row.workflow.ArchivedAt != nil) {
 		return agentRow{}, false
 	}
 

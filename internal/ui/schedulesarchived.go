@@ -153,7 +153,7 @@ func (a *archivedSchedules) buildItemMenu(m *model) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
+	return withNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }
 
 // confirmDeleteSchedule asks before an archived schedule is deleted for good.

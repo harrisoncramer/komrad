@@ -12,6 +12,10 @@ func (a *archivedAgents) details(m *model) details {
 		return details{}
 	}
 
+	if r.isTask() {
+		return taskDetails(m, r)
+	}
+
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
@@ -28,6 +32,8 @@ func (a *archivedAgents) doc(m *model) string {
 	switch {
 	case !ok:
 		return emptyArchiveMarkdown
+	case r.isTask():
+		return taskMarkdown(*r.task)
 	case r.header:
 		return workflowContextMarkdown(r.workflow)
 	default:
@@ -56,10 +62,12 @@ func (a *archivedAgents) view(m *model) string {
 // snapshot is the archived agents' rows as the plain data the shared rendering reads.
 func (a *archivedAgents) snapshot(m *model, pane listPane) view.Snapshot {
 	rows := a.listRows(m)
+	work := splitChosen(m.listing, chosenAgents(a.selected, rows))
 
 	return agentsSnapshot(snapshotParams{
 		rows:         rows,
 		selected:     a.selected,
+		wholeTasks:   taskIDs(work.wholeTasks),
 		scheduled:    m.listing.scheduledWorkflows(),
 		workflowDirs: m.listing.workflowDirs(),
 		focused:      rowKeyAt(rows, a.cursor),

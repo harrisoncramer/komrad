@@ -15,12 +15,7 @@ func (a *agentsScreen) details(m *model) details {
 	}
 
 	if r.isTask() {
-		return details{
-			id:      r.task.ID,
-			notices: agentNotices(m.glyphs, m.loading.frame(), r),
-			fields:  taskDetailFields(m, *r.task, *r.lead),
-			tags:    taskDetailsTags(m, *r.task),
-		}
+		return taskDetails(m, r)
 	}
 
 	if r.header {
@@ -31,6 +26,21 @@ func (a *agentsScreen) details(m *model) details {
 	}
 
 	return agentDetails(m, r)
+}
+
+// taskDetails is the record for a task's row, with the rule's tags too while the task is live.
+func taskDetails(m *model, r agentRow) details {
+	var tags []string
+	if r.task.ArchivedAt == nil {
+		tags = taskDetailsTags(m, *r.task)
+	}
+
+	return details{
+		id:      r.task.ID,
+		notices: agentNotices(m.glyphs, m.loading.frame(), r),
+		fields:  taskDetailFields(m, *r.task, *r.lead),
+		tags:    tags,
+	}
 }
 
 // agentDetails is the record for an agent's row, carrying its task's checkout where no task
@@ -66,7 +76,7 @@ func taskDetailFields(m *model, task panel.Task, lead panel.AgentRow) []recordFi
 
 	return taskFields(taskFieldsParams{
 		checkout: m.buildCheckoutParams(task),
-		agents:   m.listing.taskAgents(task.ID),
+		agents:   m.listing.taskAgents(task),
 		writer:   writer,
 	})
 }
