@@ -941,8 +941,8 @@ func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
 	}
 }
 
-// TestPrepareCaretStates pins the three ways the focused row's arrow stands: rendered, out for the
-// blink with the name still lit, and absent with the accent gone while the row stays focused.
+// TestPrepareCaretStates pins the two ways the focused row's arrow stands: rendered, and absent
+// with the accent gone while the row stays focused.
 func TestPrepareCaretStates(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -955,12 +955,6 @@ func TestPrepareCaretStates(t *testing.T) {
 			caret:    CaretAbsent,
 			blank:    true,
 			emphasis: emphasisNormal,
-		},
-		{
-			name:     "blinked out keeps the row lit",
-			caret:    CaretBlinkedOut,
-			blank:    true,
-			emphasis: emphasisFocused,
 		},
 		{
 			name:     "rendered",

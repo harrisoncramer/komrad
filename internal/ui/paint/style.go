@@ -24,18 +24,7 @@ func (p Palette) Header() lipgloss.Style {
 
 // Cursor is the style the row cursor is rendered in.
 func (p Palette) Cursor() lipgloss.Style {
-	if p.blinkedOut {
-		return p.Style(ToneMuted).Bold(true)
-	}
-
 	return p.Style(TonePrimary).Bold(true)
-}
-
-// Blinking is the palette with its cursor style on the given beat of the blink.
-func (p Palette) Blinking(out bool) Palette {
-	p.blinkedOut = out
-
-	return p
 }
 
 // Title renders a list's title.

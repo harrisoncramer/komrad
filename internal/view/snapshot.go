@@ -85,8 +85,6 @@ type Caret int
 const (
 	// CaretRendered is the arrow on the row, in the accent with the name.
 	CaretRendered Caret = iota
-	// CaretBlinkedOut is the arrow in the hidden half of its blink, the name still in the accent.
-	CaretBlinkedOut
 	// CaretAbsent is no arrow and no accent, the row only kept on screen.
 	CaretAbsent
 )

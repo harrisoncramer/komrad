@@ -492,11 +492,12 @@ type agentsLayout struct {
 	// waiting is how many families in triage the zone has no room for.
 	waiting int
 	tree    []agentRow
+	all     []agentRow
 }
 
 // cursorRows are the rows the keyboard can reach.
 func (l agentsLayout) cursorRows() []agentRow {
-	return slices.Concat(l.zone, l.tree)
+	return l.all
 }
 
 func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {

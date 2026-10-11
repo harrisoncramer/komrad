@@ -7,7 +7,6 @@ import (
 	"komrad/internal/client"
 	"komrad/internal/ui/paint"
 
-	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -36,10 +35,10 @@ func (m *model) Init() tea.Cmd {
 
 	m.holdLeader()
 
-	return tea.Batch(tick(), cursor.Blink, tea.RequestBackgroundColor)
+	return tea.Batch(tick(), tea.RequestBackgroundColor)
 }
 
-// Update routes a message to the screen that owns it, and keeps the row cursor blinking.
+// Update routes a message to the screen that owns it.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(tea.KeyPressMsg); ok {
 		m.wheelHit = wheelHit{}
@@ -51,7 +50,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	caught := m.releaseWatch(false)
 
 	m.settleTriage()
-	blink := m.updateRowCursor(msg)
 	warming := m.pollWarmup()
 	spinning := m.spinLoader()
 	pulse := m.pulseMessages(landed)
@@ -66,7 +64,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.buildFrame()
 	m.dropRenderedView()
 
-	return m, tea.Batch(cmd, caught, blink, warming, spinning, pulse, said)
+	return m, tea.Batch(cmd, caught, warming, spinning, pulse, said)
 }
 
 func (m *model) route(msg tea.Msg) tea.Cmd {

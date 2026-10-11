@@ -592,11 +592,8 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 	}
 
 	slash := palette.Cursor()
-	switch {
-	case !f.typing && !f.isStanding():
+	if !f.typing && !f.isStanding() {
 		slash = dimStyle()
-	case !f.typing:
-		slash = palette.Blinking(false).Cursor()
 	}
 
 	line := slash.Render(f.mode.glyph(glyphs)) + " "

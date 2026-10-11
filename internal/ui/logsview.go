@@ -104,7 +104,7 @@ func (l *logsScreen) logRows(m *model, width, height int) []string {
 	for i, row := range rows {
 		prefix := blankCursor
 		if focused && i == cursor {
-			prefix = caretGlyph(m.blinkingCaret(true))
+			prefix = caretGlyph(view.CaretRendered)
 		}
 		rows[i] = prefix + row
 	}
