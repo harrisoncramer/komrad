@@ -223,10 +223,8 @@ func newRebasing() []proto.Message {
 func newFailedCreate() []proto.Message {
 	agent := newNoticed()
 	agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
-	task := newTaskOf(agent)
-	task.WorktreeRemoved = true
 
-	return []proto.Message{agent, task}
+	return []proto.Message{agent}
 }
 
 func findRule(frame string) int {

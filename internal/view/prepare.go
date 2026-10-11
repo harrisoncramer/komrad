@@ -142,20 +142,19 @@ func buildCommentCells(row Row) []Cell {
 		return nil
 	}
 
-	reviewerOpen, personOpen, unread := 0, 0, 0
+	reviewerOpen, personOpen := 0, 0
 	if row.ReviewerComments != nil {
 		reviewerOpen = row.ReviewerComments.Open
 	}
 	if row.PersonComments != nil {
 		personOpen = row.PersonComments.Open
-		unread = row.PersonComments.Unread
 	}
 
 	var cells []Cell
 	for _, cell := range []Cell{
 		countCell(glyph.ReviewerComments, reviewerOpen, paint.ToneMuted),
 		countCell(glyph.PersonComments, personOpen, paint.ToneMuted),
-		countCell(glyph.Unread, unread, paint.ToneWarning),
+		UnreadCell(row),
 	} {
 		if !cell.IsBlank() {
 			cells = append(cells, cell)
@@ -163,6 +162,16 @@ func buildCommentCells(row Row) []Cell {
 	}
 
 	return cells
+}
+
+// UnreadCell counts the person's comments holding a reply they have not read, empty on a row that
+// carries no work.
+func UnreadCell(row Row) Cell {
+	if !carriesWork(row) || row.PersonComments == nil {
+		return Cell{}
+	}
+
+	return countCell(glyph.Unread, row.PersonComments.Unread, paint.ToneWarning)
 }
 
 // countCell is one count after its glyph, and nothing while the count is zero.

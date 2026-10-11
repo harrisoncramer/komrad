@@ -68,12 +68,11 @@ var (
 // list would render so a column the row leaves empty is a column the record says nothing about.
 func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
-	standing := item.PullRequest
+	standing, failure := item.PullRequest, describeFailure(item)
 	if r.isTask() {
-		item, standing = *r.lead, r.task.PullRequest
+		item, standing, failure = *r.lead, r.task.PullRequest, ""
 	}
 
-	failure := describeFailure(item)
 	notices := appendNotice(nil, failure != "", glyphs.Spell(glyph.MessageError), paint.ToneDanger, failure)
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeAlertSaid[row.Forge]))
@@ -85,16 +84,16 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeSaid[row.Forge]))
 
-	return appendUnreadNotice(notices, glyphs, row.PersonComments)
+	return appendUnreadNotice(notices, glyphs, row)
 }
 
 // appendUnreadNotice says how many of the person's comments hold a reply they have not read.
-func appendUnreadNotice(notices []notice, glyphs glyph.Set, comments *view.Comments) []notice {
-	if comments == nil || comments.Unread == 0 {
+func appendUnreadNotice(notices []notice, glyphs glyph.Set, row view.Row) []notice {
+	if view.UnreadCell(row).IsBlank() {
 		return notices
 	}
 
-	text := fmt.Sprintf("your comments with a reply you have not read: %d", comments.Unread)
+	text := fmt.Sprintf("your comments with a reply you have not read: %d", row.PersonComments.Unread)
 
 	return appendNotice(notices, true, glyphs.Spell(glyph.Unread), paint.ToneWarning, text)
 }
