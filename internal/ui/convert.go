@@ -71,6 +71,7 @@ func taskFrom(row assemble.TaskRow) panel.Task {
 		CreatedAt:        dates.Parse(task.GetCreatedAt()),
 		ArchivedAt:       dates.ParsePtr(task.GetArchivedAt()),
 		FailedRun:        task.GetFailedRun(),
+		Documents:        task.GetDocuments(),
 		Hidden:           task.GetHidden(),
 		Cwd:              task.GetCwd(),
 		Branch:           task.Branch,

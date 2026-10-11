@@ -79,6 +79,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Archived = r.task.ArchivedAt != nil
 		row.Hidden = r.task.Hidden && !row.Archived
 		row.FailedRun = r.task.FailedRun
+		row.Documents = r.task.Documents > 0
 		row.Process = view.ProcessNone
 		row.Repo = snapshotRepo(r.task.WorktreeRemoved, r.task.Sequence)
 		row.InWorkflowDir = isInWorkflowDir(r.lead.Agent, params.workflowDirs)
@@ -117,6 +118,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 
 	item := r.item
 	row = agentFacts(row, item)
+	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)
 	row.Nested = r.underTask
 	row.Name = item.Agent.Name

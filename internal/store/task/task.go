@@ -44,6 +44,10 @@ type Task struct {
 	UpdatedAt      time.Time
 	// FailedRun is whether a run on the task failed and nobody has opened it, which only a watch reads.
 	FailedRun bool
+	// Documents is how many documents agents have written for the task, which only a watch reads.
+	Documents int32
+	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
+	DocumentsUpdatedAt *time.Time
 }
 
 type TaskStore struct {

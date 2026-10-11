@@ -32,6 +32,8 @@ type Task struct {
 	Hidden bool
 	// FailedRun is whether a script run on the task failed and its logs have not been opened since.
 	FailedRun bool
+	// Documents is how many documents agents have written for the task.
+	Documents int32
 	// PullRequest is where the pull request opened from its branch stands.
 	PullRequest PullRequestStanding
 	// PullRequests is every pull request opened from its branch, the current one first.

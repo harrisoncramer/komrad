@@ -88,6 +88,16 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{documentsNotice},
 		},
 		{
+			name: "documents written for a task",
+			row:  agentRow{header: true, task: &panel.Task{Documents: 2}, lead: &panel.AgentRow{}},
+			want: []string{documentsNotice},
+		},
+		{
+			name: "documents written by an agent under its task header",
+			row:  agentRow{item: panel.AgentRow{Documents: 2}, underTask: true, workflow: panel.Workflow{Worktree: panel.WorktreeConfig{Enabled: true}}},
+			want: []string{},
+		},
+		{
 			name: "mail waiting",
 			row:  buildNoticeRow(panel.AgentRow{UnreadMail: true}),
 			want: []string{unreadMailNotice},

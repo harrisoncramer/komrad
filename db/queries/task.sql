@@ -117,6 +117,27 @@ SELECT
     PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_engine()::text, ''), 7240117));
 
 -- name: ListWatchedTasks :many
+WITH watched AS (
+    SELECT
+        t.id
+    FROM
+        tasks t
+    WHERE
+        t.deleting_at IS NULL
+        AND (sqlc.narg('keys')::text[] IS NULL
+            OR t.id = ANY (sqlc.narg('keys')::uuid[]))
+),
+written AS (
+    SELECT
+        d.task_id,
+        COUNT(*)::integer AS documents,
+        MAX(d.updated_at)::timestamptz AS documents_updated_at
+    FROM
+        watched w
+        JOIN documents d ON d.task_id = w.id
+    GROUP BY
+        d.task_id
+)
 SELECT
     sqlc.embed(t),
     EXISTS (
@@ -126,13 +147,13 @@ SELECT
         WHERE
             r.task_id = t.id
             AND r.failure <> ''
-            AND r.viewed_at IS NULL)::boolean AS failed_run
+            AND r.viewed_at IS NULL)::boolean AS failed_run,
+    COALESCE(d.documents, 0)::integer AS documents,
+    d.documents_updated_at
 FROM
-    tasks t
-WHERE
-    t.deleting_at IS NULL
-    AND (sqlc.narg('keys')::text[] IS NULL
-        OR t.id = ANY (sqlc.narg('keys')::uuid[]))
+    watched w
+    JOIN tasks t ON t.id = w.id
+    LEFT JOIN written d ON d.task_id = t.id
 ORDER BY
     t.id DESC;
 
