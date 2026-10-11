@@ -114,7 +114,11 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	}
 
 	if m.form.isActive() || m.writes.held.active {
-		return m.scrollSidebar(rows)
+		if screen, ok := m.active().(listScroller); ok {
+			return screen.scrollList(m, rows)
+		}
+
+		return m.pressWheel(rows)
 	}
 
 	if m.screen == screenReview && !m.isOverColumn(x) {
