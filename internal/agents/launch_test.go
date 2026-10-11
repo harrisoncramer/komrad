@@ -360,8 +360,8 @@ const (
 	archivedOrchestrator
 )
 
-// TestNewAgentRecordsWhoSpawnedIt pins the caller header becoming the new agent's parent,
-// which the panel sends none of so what it creates has no parent.
+// TestNewAgentRecordsWhoSpawnedIt pins the caller header becoming the new agent's spawner,
+// which the panel sends none of so what it creates has no spawner.
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
 		name             string
