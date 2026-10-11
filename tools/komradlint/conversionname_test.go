@@ -8,7 +8,7 @@ import (
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
-// TestConversionNameRender covers the service side, where a function returning a proto message
+// TestConversionNameRender covers the server side, where a function returning a proto message
 // under any name but render is a finding and a method, a reader or the render package is not.
 func TestConversionNameRender(t *testing.T) {
 	analyzer, err := newConversionName(config.ConversionNameConfig{Render: []string{"testdata/src/komrad/internal/rpc/"}})

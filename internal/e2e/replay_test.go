@@ -22,7 +22,7 @@ const (
 	greetRound1 = "package greet\n\nfunc Hello() {}\n\nfunc Agent() {}\n"
 )
 
-// roundsAcrossARebase is two rounds of one agent taken through the service either side of the
+// roundsAcrossARebase is two rounds of one agent taken through the server either side of the
 // rebase key, with a review released on the first.
 type roundsAcrossARebase struct {
 	tree          string
@@ -30,7 +30,7 @@ type roundsAcrossARebase struct {
 }
 
 // reviewAcrossARebase takes round one, releases a review on it, lands mainsGreet on main under
-// the agent, rebases through the service, and takes round two of the agent's next edit.
+// the agent, rebases through the server, and takes round two of the agent's next edit.
 func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) roundsAcrossARebase {
 	t.Helper()
 
@@ -131,7 +131,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	}
 }
 
-// TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange takes two rounds through the service
+// TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange takes two rounds through the server
 // and the rebase key and proves what the review screen draws between them: the first round
 // carried onto the moved base, diffed against the second, is the agent's own edit and nothing
 // the base brought with it.

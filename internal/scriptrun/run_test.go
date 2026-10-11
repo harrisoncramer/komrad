@@ -193,7 +193,7 @@ func TestScriptPayload(t *testing.T) {
 	assert.Equal(t, firedScript, values["KOMRAD_SCRIPT"], "its own name, for a script that wants to tag its own log lines")
 	assert.Equal(t, "%3", values["KOMRAD_INFO_PANE"], "the pane the panel laid out for a script to fill")
 	assert.Equal(t, "/tmp/host-socket", values["KOMRAD_HOST_TMUX_SOCKET"])
-	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the service inherited")
+	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the server inherited")
 	assert.Equal(t, "/bin/zsh", values["KOMRAD_SHELL"], "the shell tmux itself opens a pane with")
 	assert.True(t, strings.HasPrefix(values["PATH"], "/opt/komrad/bin"+string(os.PathListSeparator)),
 		"a script that shells out to komrad finds this build's own binary first")

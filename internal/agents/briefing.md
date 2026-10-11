@@ -38,4 +38,4 @@ A review arrives as mail naming a review id, which get_review reads. Its line nu
 
 ## Your state
 
-The panel reads your state from your pane, so never report it. The service log is {{LOG_PATH}}, the first place to look when the panel makes no sense.
+The panel reads your state from your pane, so never report it. The server log is {{LOG_PATH}}, the first place to look when the panel makes no sense.

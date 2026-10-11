@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLocalGuard pins which requests reach the service and which are refused, so a page in a
+// TestLocalGuard pins which requests reach the server and which are refused, so a page in a
 // browser cannot drive the local API.
 func TestLocalGuard(t *testing.T) {
 	t.Parallel()

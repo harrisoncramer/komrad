@@ -1,4 +1,4 @@
-// Package doctor serves the checks the doctor makes, made on the machine the service runs on.
+// Package doctor serves the checks the doctor makes, made on the machine the server runs on.
 package doctor
 
 import (
@@ -23,7 +23,7 @@ type Handler struct {
 	checks []doctor.Check
 }
 
-// NewHandler constructs the handler over the checks the service makes on its own machine.
+// NewHandler constructs the handler over the checks the server makes on its own machine.
 func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{env: params.Env, checks: params.Checks}
 }

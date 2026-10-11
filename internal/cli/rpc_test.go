@@ -20,9 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegrationRefusalReadsWhatTheServiceSaid pins how a call that was refused reaches the person who
+// TestIntegrationRefusalReadsWhatTheServerSaid pins how a call that was refused reaches the person who
 // typed it.
-func TestIntegrationRefusalReadsWhatTheServiceSaid(t *testing.T) {
+func TestIntegrationRefusalReadsWhatTheServerSaid(t *testing.T) {
 	tests := []struct {
 		name    string
 		payload string
@@ -200,9 +200,9 @@ func deadAddr(t *testing.T) string {
 	return strings.TrimPrefix(closed.URL, "http://")
 }
 
-// TestIntegrationRpcSubcommandCarriesItsFlagsToTheService walks the whole path a script takes, from flags
+// TestIntegrationRpcSubcommandCarriesItsFlagsToTheServer walks the whole path a script takes, from flags
 // derived from the protos by reflection to the field the schema names.
-func TestIntegrationRpcSubcommandCarriesItsFlagsToTheService(t *testing.T) {
+func TestIntegrationRpcSubcommandCarriesItsFlagsToTheServer(t *testing.T) {
 	var got map[string]any
 
 	service := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,4 @@
-// Package loop serves the wakes of the service's background loops.
+// Package loop serves the wakes of the server's background loops.
 package loop
 
 import (
@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// errNotWakeable is a loop the service holds no waker for.
+// errNotWakeable is a loop the server holds no waker for.
 var errNotWakeable = fail.InvalidArgument("the loop cannot be woken")
 
 type NewHandlerParams struct {

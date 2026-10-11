@@ -14,7 +14,7 @@ import (
 )
 
 // TestIntegrationRunDoctorChecksTheServersOwnMachine covers what a doctor pointed at an engine reads back: the
-// service makes the checks about its machine with what it holds.
+// server makes the checks about its machine with what it holds.
 func TestIntegrationRunDoctorChecksTheServersOwnMachine(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})
 
@@ -27,11 +27,11 @@ func TestIntegrationRunDoctorChecksTheServersOwnMachine(t *testing.T) {
 		byName[finding.GetName()] = finding.GetStatus()
 	}
 
-	assert.Equal(t, "ok", byName["database"], "the service reaches the database it opened")
+	assert.Equal(t, "ok", byName["database"], "the server reaches the database it opened")
 	assert.Equal(t, "ok", byName["schema"], "the schema is the one this build migrated")
-	assert.Equal(t, "ok", byName["tmux"], "the service found the tmux it runs")
+	assert.Equal(t, "ok", byName["tmux"], "the server found the tmux it runs")
 	assert.Contains(t, byName, "tmux shell")
-	assert.NotContains(t, byName, "server", "the service does not probe itself")
-	assert.NotContains(t, byName, "terminal glyphs", "the service has no terminal to measure")
+	assert.NotContains(t, byName, "server", "the server does not probe itself")
+	assert.NotContains(t, byName, "terminal glyphs", "the server has no terminal to measure")
 	assert.Equal(t, int32(len(resp.Msg.GetFindings())), resp.Msg.GetSummary().GetTotal())
 }

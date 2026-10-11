@@ -175,7 +175,7 @@ func TestWatchEndsWhenTheSubscriptionCloses(t *testing.T) {
 	close(s.subscription.changes)
 
 	assert.False(t, stream.Receive())
-	require.NoError(t, stream.Err(), "a stream the service ended is not a failure")
+	require.NoError(t, stream.Err(), "a stream the server ended is not a failure")
 
 	assert.Eventually(t, func() bool {
 		return strings.Contains(s.log.String(), "stream closed") && strings.Contains(s.log.String(), `"rpc.stream.messages_sent":1`)
@@ -190,7 +190,7 @@ func TestWatchRefusalsMapToCodes(t *testing.T) {
 		wantCode connect.Code
 	}{
 		{
-			name:     "a broker the service has closed",
+			name:     "a broker the server has closed",
 			err:      watch.ErrClosed,
 			wantCode: connect.CodeFailedPrecondition,
 		},

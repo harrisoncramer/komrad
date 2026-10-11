@@ -7,7 +7,7 @@ description: Debug komrad's own runtime - pane frames and how an agent's state w
 
 ## How a state is decided
 
-Every couple of seconds the service captures each agent's pane and hands the frame to that
+Every couple of seconds the server captures each agent's pane and hands the frame to that
 agent's harness. `ReadInput` in `internal/harness/claude/activity.go` returns a
 `harness.Input`, whose `Activity` (`internal/harness/harness.go`) `internal/agents/reconcile.go`
 maps onto the `agent_state` enum: working to thinking, waiting to waiting, idle and composing to

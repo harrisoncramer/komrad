@@ -65,8 +65,8 @@ func TestSetHeaderLeavesOutWhatIsNotKnown(t *testing.T) {
 	assert.False(t, hasSession)
 }
 
-// TestTransportForwardsTheServedRequest covers a call the service makes on somebody's
-// behalf, which must arrive as the agent that asked rather than as the service itself.
+// TestTransportForwardsTheServedRequest covers a call the server makes on somebody's
+// behalf, which must arrive as the agent that asked rather than as the server itself.
 func TestTransportForwardsTheServedRequest(t *testing.T) {
 	var got http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +89,7 @@ func TestTransportForwardsTheServedRequest(t *testing.T) {
 }
 
 // TestTransportLeavesAnUnattributedCallAlone covers the panel's own calls and anything the
-// service does outside a request, which go as they were built.
+// server does outside a request, which go as they were built.
 func TestTransportLeavesAnUnattributedCallAlone(t *testing.T) {
 	var got http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

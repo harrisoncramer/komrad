@@ -250,7 +250,7 @@ func TestReadAgentLogs(t *testing.T) {
 		wantCode connect.Code
 	}{
 		{
-			name:     "a cursor this service never answered",
+			name:     "a cursor this server never answered",
 			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "later"},
 			wantCode: connect.CodeInvalidArgument,
 		},
@@ -362,7 +362,7 @@ func TestReadAgentLogs(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name: "a pattern narrows the service log from its cursor",
+			name: "a pattern narrows the server log from its cursor",
 			req: &logv1.ReadAgentLogsRequest{
 				AgentIds: []string{"a1"},
 				Cursor:   "42",
@@ -416,7 +416,7 @@ func TestReadAgentLogs(t *testing.T) {
 	}
 }
 
-// TestListAgentLogSources pins that the service log comes first and each run of the agent's own
+// TestListAgentLogSources pins that the server log comes first and each run of the agent's own
 // moments after it is named by its number, trigger and script, leaving its task's moments out.
 func TestListAgentLogSources(t *testing.T) {
 	reader := &fakeLogReader{runs: []config.RunLog{

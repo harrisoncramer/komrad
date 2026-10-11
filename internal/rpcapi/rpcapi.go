@@ -203,7 +203,7 @@ func EnumNames(values protoreflect.EnumDescriptor) []string {
 	return names
 }
 
-// IsRequired reports whether the service would refuse the field left empty, which the validation
+// IsRequired reports whether the server would refuse the field left empty, which the validation
 // rules decide rather than proto3 field presence.
 func IsRequired(field protoreflect.FieldDescriptor) bool {
 	rules := getRules(field)
@@ -218,7 +218,7 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 	return rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
 }
 
-// DescribeRules spells out what the service refuses of a field, in the order a reader weighs them.
+// DescribeRules spells out what the server refuses of a field, in the order a reader weighs them.
 func DescribeRules(field protoreflect.FieldDescriptor) []string {
 	var parts []string
 	if IsRequired(field) {

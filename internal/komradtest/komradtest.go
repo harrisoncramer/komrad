@@ -1,7 +1,7 @@
 // Package komradtest runs a whole komrad in a test: its own database, its own tmux server, and a
-// service over both, with the loops driven by hand rather than by the clock.
+// server over both, with the loops driven by hand rather than by the clock.
 //
-// The behaviour worth testing here is the wiring between config, the service, tmux and a
+// The behaviour worth testing here is the wiring between config, the server, tmux and a
 // spawned CLI, and that is exactly what a unit test with fakes on both sides cannot reach. An
 // instance lets a test launch an agent for real, make its harness look busy, run one pass of
 // the reconciler, and then ask what was written and what was typed into the pane.
@@ -105,14 +105,14 @@ type Params struct {
 	// WorktreesDir replaces the temporary directory the instance would otherwise make its
 	// worktrees in.
 	WorktreesDir string
-	// KeepLog writes the service's log to the file it would write on a real machine, for a
+	// KeepLog writes the server's log to the file it would write on a real machine, for a
 	// test that reads it back.
 	KeepLog bool
 	// ForgeBuilders replaces the forges the instance speaks to.
 	ForgeBuilders map[string]forge.Builder
 }
 
-// Start builds the service and returns it running, torn down when the test ends.
+// Start builds the server and returns it running, torn down when the test ends.
 func Start(t *testing.T, p Params) *Instance {
 	t.Helper()
 

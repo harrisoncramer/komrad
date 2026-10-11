@@ -32,7 +32,7 @@ const (
 		`"trace.id":"trace-two","rpc.method":"ListAgents"}`
 	loopPass = `{"timestamp":"2026-08-06T22:47:34.500Z","severity_text":"ERROR","body":"loop pass failed",` +
 		`"trace.id":"trace-three","loop":"reconcile"}`
-	untraced = `{"timestamp":"2026-08-06T22:47:30.000Z","severity_text":"INFO","body":"the service is listening"}`
+	untraced = `{"timestamp":"2026-08-06T22:47:30.000Z","severity_text":"INFO","body":"the server is listening"}`
 )
 
 // TestLines covers the lines of one trace coming back whole and in order with no other
@@ -86,7 +86,7 @@ func TestRecentTraces(t *testing.T) {
 	assert.Equal(t, "trace-three", last[0].Trace, "the limit keeps the newest")
 }
 
-// TestLinesSurviveAHalfWrittenLine covers reading a log the service is still appending to,
+// TestLinesSurviveAHalfWrittenLine covers reading a log the server is still appending to,
 // where the last line can be cut in half.
 func TestLinesSurviveAHalfWrittenLine(t *testing.T) {
 	t.Parallel()
@@ -96,7 +96,7 @@ func TestLinesSurviveAHalfWrittenLine(t *testing.T) {
 	assert.Len(t, lines, 1)
 }
 
-// TestLinesWithoutALog covers asking before the service has ever written anything.
+// TestLinesWithoutALog covers asking before the server has ever written anything.
 func TestLinesWithoutALog(t *testing.T) {
 	t.Parallel()
 

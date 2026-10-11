@@ -22,7 +22,7 @@ type loggingInterceptor struct {
 	logger *slog.Logger
 }
 
-// NewLogging builds the interceptor over the service's logger.
+// NewLogging builds the interceptor over the server's logger.
 func NewLogging(logger *slog.Logger) connect.Interceptor {
 	return &loggingInterceptor{logger: logger}
 }

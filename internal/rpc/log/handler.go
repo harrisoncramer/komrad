@@ -1,4 +1,4 @@
-// Package log serves the service's own log back, by the trace id its lines carry.
+// Package log serves the server's own log back, by the trace id its lines carry.
 package log
 
 import (
@@ -58,7 +58,7 @@ type Handler struct {
 	taskRuns taskRunLister
 }
 
-// NewHandler constructs the handler over the service log, the script runs agents recorded, and the record of which ran on each task.
+// NewHandler constructs the handler over the server log, the script runs agents recorded, and the record of which ran on each task.
 func NewHandler(log logReader, runs runReader, taskRuns taskRunLister) *Handler {
 	return &Handler{
 		log:      log,
@@ -167,7 +167,7 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 	}, nil
 }
 
-// ListAgentLogSources is the service log and then each script run of the agent's own moments it recorded, newest first.
+// ListAgentLogSources is the server log and then each script run of the agent's own moments it recorded, newest first.
 func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1.ListAgentLogSourcesRequest) (*logv1.ListAgentLogSourcesResponse, *fail.Error) {
 	owned := xslice.Filter(s.runs.List(req.GetAgentId()), func(run config.RunLog) bool {
 		return !workflowstore.IsTaskEvent(run.Trigger)

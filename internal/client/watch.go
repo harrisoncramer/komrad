@@ -20,7 +20,7 @@ const (
 	// out.
 	watchCoalesce = 25 * time.Millisecond
 	// watchSilence is how long a stream may say nothing before it is taken for dead, which is
-	// twice the service's heartbeat.
+	// twice the server's heartbeat.
 	watchSilence = 30 * time.Second
 	// watchRetry is the wait before the first reopen, doubling each time up to WatchMaxRetry.
 	watchRetry    = time.Second
@@ -57,7 +57,7 @@ type WatchParams struct {
 	// OnBatch is handed each batch of events, the first of a stream opening with its snapshot.
 	OnBatch func(WatchBatch)
 	// OnLost is told a stream has ended, with the error that ended it or nil for a close the
-	// service chose, before the next one is opened.
+	// server chose, before the next one is opened.
 	OnLost func(error)
 	// Coalesce, Silence, Retry and MaxRetry take their Watch defaults when zero.
 	Coalesce time.Duration
