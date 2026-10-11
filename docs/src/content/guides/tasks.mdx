@@ -61,7 +61,7 @@ When the workflow creates worktrees, each task gets one of its own, on a branch 
 
 Tasks set up to run without worktrees work in the workflow's directory instead.
 
-Komrad automatically syncs pull request information from the task's worktree branch, such as whether the PR is still open, whether it's CI checks are sucessful or not, and whether it's approved or merged. You can manage the task's git state from its git menu, and leave local or remote [reviews](../reviews/#shipping-the-work).
+Komrad automatically syncs pull request information from the task's worktree branch, such as whether the PR is still open, whether its CI checks are successful or not, and whether it's approved or merged. You can manage the task's git state from its git menu, and leave local or remote [reviews](../reviews/#shipping-the-work).
 
 ### Hooks
 
@@ -79,7 +79,7 @@ Tasks can only have one live writer at a time. This is to ensure changes do not 
 
 Sometimes, you may want to start with a fresh writer, for instance if the current writer's context is too large or bloated, or you want to provide a new direction to the change. You can choose to "hand off" the current changes to a new agent with <Key name="menu.hand_off" /> from the task's menu. Komrad asks for a note to the new writer, archives the old writer and its children, and starts a new writer in the same checkout.
 
-The new writer will reads the task's notes and the state of the checkout before it does anything.
+The new writer reads the task's notes and the state of the checkout before it does anything.
 
 <figure>
   <video
@@ -101,7 +101,7 @@ The new writer will reads the task's notes and the state of the checkout before 
 
 While agents work on a task, it'll stay live. Agents can come and go on it without the task changing at all. But there are several other lifecycle events you can use to manage a task.
 
-If you are finished with a task and want to clear up space, you can _archive_ it. Archiving a task doesn't delete any state. The tasks's worktree still stays on disk, and the conversations, notes, reviews and documents stay in the database. Archived tasks move out of the list to the archive, which you reach by pressing <Key name="kinds.focus" /> and switching from live to archived.
+If you are finished with a task and want to clear up space, you can _archive_ it. Archiving a task doesn't delete any state. The task's worktree still stays on disk, and the conversations, notes, reviews and documents stay in the database. Archived tasks move out of the list to the archive, which you reach by pressing <Key name="kinds.focus" /> and switching from live to archived.
 
 <Alert variant="info">Tasks are also archived if their last agent is archived.</Alert>
 
