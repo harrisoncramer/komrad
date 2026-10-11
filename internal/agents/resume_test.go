@@ -801,8 +801,6 @@ func TestResumeHoldsTheCheckoutForItsLaunch(t *testing.T) {
 	again()
 }
 
-// TestResumeLeavesAHeldCheckoutToItsWriter lets an agent sharing its parent's checkout resume while the
-// tree is held.
 func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
