@@ -31,7 +31,7 @@ func TestTerminal(t *testing.T) {
 
 		harness.press("space", "t")
 
-		assert.Contains(t, harness.panel.ReadKilledPanes(), "%1")
+		assert.Contains(t, harness.panel.ReadKilledPanes(), stagePane)
 		assert.Empty(t, harness.panel.ReadStagePane())
 	})
 
@@ -226,6 +226,7 @@ func TestInfo(t *testing.T) {
 }
 
 const (
+	stagePane      = "%1"
 	infoPane       = "%2"
 	terminalRefuse = "Could not open a te"
 )
