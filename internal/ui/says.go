@@ -93,7 +93,7 @@ func (m *model) applySaidTranscript(msg saidTranscriptMsg) {
 // openSaid puts the reader on the first match once the conversation it was read for is rendered,
 // with lead-in above it.
 func (m *model) openSaid() {
-	if m.said.opened || !m.layoutSaid() {
+	if m.said.opened {
 		return
 	}
 
