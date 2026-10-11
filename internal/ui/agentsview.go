@@ -38,7 +38,7 @@ func taskDetails(m *model, r agentRow) details {
 	return details{
 		id:      r.task.ID,
 		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.tasks, r),
-		fields:  taskDetailFields(m, *r.task),
+		fields:  taskFields(m.buildCheckoutParams(*r.task)),
 		tags:    tags,
 	}
 }
@@ -69,11 +69,6 @@ func agentDetails(m *model, r agentRow) details {
 		fields:  agentFields(params),
 		tags:    tags,
 	}
-}
-
-// taskDetailFields is the record for a task as the listing holds it.
-func taskDetailFields(m *model, task panel.Task) []recordField {
-	return taskFields(m.buildCheckoutParams(task))
 }
 
 // doc is the markdown rendered beside the list for a row with no pane of its own.

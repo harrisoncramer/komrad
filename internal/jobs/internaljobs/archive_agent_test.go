@@ -43,13 +43,41 @@ func TestArchiveAgentWorker(t *testing.T) {
 		wantSnooze   bool
 		wantArchived bool
 	}{
-		{name: "an idle agent archived", state: agentstore.StateIdle, wantArchived: true},
-		{name: "a thinking agent waited on", state: agentstore.StateThinking, wantSnooze: true},
-		{name: "a waiting agent waited on", state: agentstore.StateWaiting, wantSnooze: true},
-		{name: "a thinking agent archived past the limit", state: agentstore.StateThinking, age: archiveLimit, wantArchived: true},
 		{name: "a deleted agent", deleted: true},
-		{name: "an agent deleted as it is archived", state: agentstore.StateIdle, archiveErr: agenterr.ErrAgentNotFound, wantArchived: true},
-		{name: "a failure that might pass", state: agentstore.StateIdle, archiveErr: failed, wantErr: failed, wantArchived: true},
+		{
+			name:         "a failure that might pass",
+			state:        agentstore.StateIdle,
+			archiveErr:   failed,
+			wantErr:      failed,
+			wantArchived: true,
+		},
+		{
+			name:         "an agent deleted as it is archived",
+			state:        agentstore.StateIdle,
+			archiveErr:   agenterr.ErrAgentNotFound,
+			wantArchived: true,
+		},
+		{
+			name:       "a waiting agent waited on",
+			state:      agentstore.StateWaiting,
+			wantSnooze: true,
+		},
+		{
+			name:       "a thinking agent waited on",
+			state:      agentstore.StateThinking,
+			wantSnooze: true,
+		},
+		{
+			name:         "a thinking agent archived past the limit",
+			state:        agentstore.StateThinking,
+			age:          archiveLimit,
+			wantArchived: true,
+		},
+		{
+			name:         "an idle agent archived",
+			state:        agentstore.StateIdle,
+			wantArchived: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -57,7 +85,13 @@ func TestArchiveAgentWorker(t *testing.T) {
 			stores := storetest.Open(t)
 			id := uuid.NewString()
 			if !tt.deleted {
-				id = stores.SeedAgent(t, agentstore.Agent{ID: id, Name: "reviewer", Cwd: "/repo", Role: agentstore.RoleReviewer, State: tt.state}).ID
+				id = stores.SeedAgent(t, agentstore.Agent{
+					ID:    id,
+					Name:  "reviewer",
+					Cwd:   "/repo",
+					Role:  agentstore.RoleReviewer,
+					State: tt.state,
+				}).ID
 			}
 			archiver := &fakeAgentArchiver{err: tt.archiveErr}
 			worker := NewArchiveAgentWorker(NewArchiveAgentWorkerParams{Archiver: archiver, Agents: stores.Agents})

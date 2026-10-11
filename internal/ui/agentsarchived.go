@@ -303,22 +303,28 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 		task := *row.task
 		onTask := xslice.Filter(m.listing.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
 		agents := xslice.Map(onTask, func(item panel.AgentRow) panel.Agent { return item.Agent })
-		target := archived{
-			work:  chosenWork{chosen: agents, loneAgents: agents},
-			title: task.Slug,
+		var lead *panel.Agent
+		if found, ok := findLead(onTask); ok {
+			lead = &found.Agent
 		}
-		if lead, ok := findLead(onTask); ok {
-			target.lead = &lead.Agent
-		}
-		if task.ArchivedAt != nil {
-			writers := xslice.Filter(agents, func(agent panel.Agent) bool { return agent.Role == panel.RoleWriter })
-			target.work = chosenWork{chosen: writers, wholeTasks: []panel.Task{task}}
-			if len(writers) > 0 {
-				target.lead = &writers[0]
-			}
+		if task.ArchivedAt == nil {
+			return archived{
+				work:  chosenWork{chosen: agents, loneAgents: agents},
+				title: task.Slug,
+				lead:  lead,
+			}, true
 		}
 
-		return target, true
+		writers := xslice.Filter(agents, func(agent panel.Agent) bool { return agent.Role == panel.RoleWriter })
+		if len(writers) > 0 {
+			lead = &writers[0]
+		}
+
+		return archived{
+			work:  chosenWork{chosen: writers, wholeTasks: []panel.Task{task}},
+			title: task.Slug,
+			lead:  lead,
+		}, true
 	}
 
 	item, ok := row.paneItem()
