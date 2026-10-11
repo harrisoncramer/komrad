@@ -98,6 +98,10 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
 		return r.applyPaused(m, msg)
 	case reviewWroteMsg:
 		return r.applyWrote(m, msg)
+	case reviewRoundsReadMsg:
+		r.applyRoundsRead(msg)
+
+		return nil
 	case messageEditedMsg:
 		return r.applyMessageEdited(m, msg)
 	case tea.KeyPressMsg:

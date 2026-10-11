@@ -47,7 +47,7 @@ func (r *reviewScreen) followWorld(m *model) tea.Cmd {
 	r.followThreads(m)
 	r.followNotices(m)
 
-	return r.followMove(m)
+	return tea.Batch(r.followMove(m), r.followRounds(m))
 }
 
 // followThreads renders the conversation the world holds on a live agent, once the reader has stopped

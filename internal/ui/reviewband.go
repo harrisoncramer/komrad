@@ -1,13 +1,17 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"komrad/internal/git"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/lib/dates"
+	agentv1 "komrad/proto/gen/agent/v1"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2/ansi"
 )
 
@@ -30,7 +34,7 @@ func (r reviewScreen) frozenView(m *model) string {
 	}
 
 	said := fmt.Sprintf("frozen on round %d (%s", r.round.GetOrdinal(), git.ShortSHA(r.round.GetSnapshotSha()))
-	if at := reviewTimeOf(r.round.GetCreatedAt()); at != "" {
+	if at := label.Friendly(dates.Parse(r.round.GetCreatedAt())); at != "" {
 		said += ", taken " + at
 	}
 	said += ") until you send your review"
@@ -97,4 +101,46 @@ func (r reviewScreen) bandWidth(m *model) int {
 // reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.
 func reviewColumnStyle() ansi.StyleConfig {
 	return paint.Panel.Stage()
+}
+
+type reviewRoundsReadMsg struct {
+	agentID string
+	rounds  []*agentv1.ReviewRound
+}
+
+func (r *reviewScreen) followRounds(m *model) tea.Cmd {
+	if !r.isFrozen() || r.loading {
+		return nil
+	}
+
+	item, ok := r.agentRow(m)
+	if !ok {
+		return nil
+	}
+
+	moved := m.listing.tasks.findForAgent(item.Agent).MovedSinceRound
+	if moved == r.diff.roundsMove {
+		return nil
+	}
+	r.diff.roundsMove = moved
+
+	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		rounds, err := listReviewRounds(ctx, agents, taskID)
+		if err != nil {
+			return nil
+		}
+
+		return reviewRoundsReadMsg{agentID: agentID, rounds: rounds}
+	}
+}
+
+func (r *reviewScreen) applyRoundsRead(msg reviewRoundsReadMsg) {
+	if msg.agentID == r.agentID && len(msg.rounds) >= len(r.diff.rounds) {
+		r.diff.rounds = msg.rounds
+	}
 }

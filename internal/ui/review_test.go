@@ -2079,6 +2079,21 @@ func TestReviewPin(t *testing.T) {
 			"until you send your review · the worktree has moved since · space R shows the current diff")
 	})
 
+	t.Run("a diff frozen while a later round is taken says it is behind that round", func(t *testing.T) {
+		server := newFrozenServer(t)
+		rounds := server.rounds
+		server.rounds = rounds[:1]
+		server.task.MovedSinceRound = gittest.SnapshotSHA
+		harness := openReview(t, server)
+
+		server.rounds = rounds[:2]
+		server.task.MovedSinceRound = ""
+		harness.watch(server.buildSnapshot())
+
+		assert.Contains(t, joinProse(readStage(harness.readFrame())),
+			"until you send your review · 1 round behind · space R shows the current diff")
+	})
+
 	t.Run("the reviews failing to read fails the load rather than moving the pin", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.reviewsErr = errors.New("the server went away")
