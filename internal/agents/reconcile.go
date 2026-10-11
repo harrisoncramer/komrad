@@ -64,11 +64,6 @@ func NewReconciler(params NewReconcilerParams) *Reconciler {
 	}
 }
 
-// RecordTurnBoundary notes that agentID's own CLI reported its turn ending.
-func (r *Reconciler) RecordTurnBoundary(agentID string) {
-	r.tally.recordTurnBoundary(agentID)
-}
-
 // RecordReportedReason notes what agentID's own CLI reported it was doing, which annotates the
 // state the pane decided and never moves it.
 func (r *Reconciler) RecordReportedReason(agentID, reason string) {
@@ -146,6 +141,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	if !agent.State.DoesPaneDecide() && !isRelaunching(agent) {
 		return
 	}
+	r.tally.observeTurnEnd(agent)
 
 	// An agent holding no pane is missing from every listing, so it has no absence to doubt.
 	if agent.Pane != "" && r.tally.isAbsenceDoubted(agent.ID, inListing) {
@@ -290,7 +286,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 
 	// A reported turn end says the agent finished, so it may only hurry along idle, never the
 	// state that says komrad could not tell either way.
-	if state == agentstore.StateIdle && r.tally.hasFreshTurnBoundary(agent.ID, agent.StateChangedAt) {
+	if state == agentstore.StateIdle && r.tally.hasFreshTurnEnd(agent) {
 		r.apply(ctx, agent, state)
 
 		return

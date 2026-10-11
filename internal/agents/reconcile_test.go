@@ -515,7 +515,8 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 }
 
 // TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees pins that a reported boundary
-// hurries a state change the frame already supports rather than overriding what the pane says.
+// hurries a state change the frame already supports rather than overriding what the pane says,
+// even with the reconciler's clock behind the database's.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -533,7 +534,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 		{
 			name:       "a boundary older than the grace does not settle a later idle frame",
 			frames:     []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
-			clockStep:  turnBoundaryGrace,
+			clockStep:  turnEndGrace,
 			want:       agentstore.StateThinking,
 			wantMisses: 1,
 		},
@@ -573,9 +574,9 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 				States:   st.Agents,
 			})
-			now := time.Now()
+			now := time.Now().Add(-time.Minute)
 			rec.tally.now = func() time.Time { return now }
-			rec.RecordTurnBoundary(agent.ID)
+			require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
 
 			for _, frame := range tt.frames {
 				tmux.Captures["%1"] = frame
@@ -593,7 +594,9 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
+	require.NoError(t, st.Agents.SetStateByID(ctx, agent.ID, agentstore.StateThinking))
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -604,9 +607,6 @@ func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.
 		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 		States:   st.Agents,
 	})
-	rec.tally.now = func() time.Time { return agent.StateChangedAt.Add(-time.Second) }
-	rec.RecordTurnBoundary(agent.ID)
-	rec.tally.now = time.Now
 
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"), "a stale boundary is not licence to skip a miss")
@@ -1036,13 +1036,13 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 		States:   st.Agents,
 	})
-	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
-	rec.RecordTurnBoundary(agent.ID)
+	require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
+	reported := agentByID(t, st, agent.ID).Turn.EndedAt
 
 	require.NoError(t, rec.Reconcile(ctx))
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
-	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt, "the reconciler leaves this path to the hook")
+	assert.Equal(t, reported, agentByID(t, st, agent.ID).Turn.EndedAt, "the reconciler leaves this path to the hook")
 }
 
 // TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain pins the reading that used to be
@@ -1202,7 +1202,7 @@ func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 		States:   st.Agents,
 	})
 	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
-	rec.RecordTurnBoundary(agent.ID)
+	require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
 
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),

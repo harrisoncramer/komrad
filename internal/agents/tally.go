@@ -16,8 +16,8 @@ const reconcileShellGrace = 10 * time.Second
 // is believed gone.
 const listingsBeforePaneGone = 3
 
-// turnBoundaryGrace is how long a reported turn end may hurry an idle frame along.
-const turnBoundaryGrace = 5 * time.Second
+// turnEndGrace is how long after a pass first sees a turn end it may hurry an idle frame along.
+const turnEndGrace = 5 * time.Second
 
 // tally is what the reconcile passes have accrued about each agent, all of it counters and
 // timestamps the panes drove.
@@ -36,7 +36,8 @@ type trackedAgent struct {
 	missesToward      agentstore.State
 	listingsMissing   int
 	shellSince        time.Time
-	turnBoundary      time.Time
+	turnEnd           time.Time
+	turnEndSeen       time.Time
 	frameHash         uint64
 	frameHashSeen     bool
 	unrecognizedHolds int
@@ -83,9 +84,20 @@ func (t *tally) updateExisting(agentID string, fn func(*trackedAgent)) {
 	t.tracked[agentID] = entry
 }
 
-// recordTurnBoundary notes that agentID's own CLI reported its turn ending.
-func (t *tally) recordTurnBoundary(agentID string) {
-	t.update(agentID, func(entry *trackedAgent) { entry.turnBoundary = t.now() })
+// observeTurnEnd notes when a pass first saw the turn end on agent's row.
+func (t *tally) observeTurnEnd(agent agentstore.Agent) {
+	if agent.Turn.EndedAt == nil {
+		return
+	}
+
+	now := t.now()
+	t.update(agent.ID, func(entry *trackedAgent) {
+		if entry.turnEnd.Equal(*agent.Turn.EndedAt) {
+			return
+		}
+		entry.turnEnd = *agent.Turn.EndedAt
+		entry.turnEndSeen = now
+	})
 }
 
 // recordReportedReason notes what agentID's own CLI reported it was doing, which annotates the
@@ -94,10 +106,14 @@ func (t *tally) recordReportedReason(agentID, reason string) {
 	t.update(agentID, func(entry *trackedAgent) { entry.reportedReason = reason })
 }
 
-func (t *tally) hasFreshTurnBoundary(agentID string, since time.Time) bool {
-	boundary := t.read(agentID).turnBoundary
+func (t *tally) hasFreshTurnEnd(agent agentstore.Agent) bool {
+	if agent.Turn.EndedAt == nil || !agent.Turn.EndedAt.After(agent.StateChangedAt) {
+		return false
+	}
 
-	return boundary.After(since) && t.now().Sub(boundary) < turnBoundaryGrace
+	entry := t.read(agent.ID)
+
+	return entry.turnEnd.Equal(*agent.Turn.EndedAt) && t.now().Sub(entry.turnEndSeen) < turnEndGrace
 }
 
 func (t *tally) recordMiss(agentID string, state agentstore.State) int {
@@ -122,7 +138,7 @@ func (t *tally) clearMisses(agentID string) {
 }
 
 // clearDebounce drops what an agent had accrued towards a transition once one has been decided,
-// leaving the frame hash and the turn boundary.
+// leaving the frame hash and the turn end.
 func (t *tally) clearDebounce(agentID string) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0

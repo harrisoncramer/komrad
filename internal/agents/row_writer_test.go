@@ -18,12 +18,7 @@ import (
 
 // recordingReconciler records what the row writer tells the reconcile loop.
 type recordingReconciler struct {
-	boundaries []string
-	reasons    []string
-}
-
-func (r *recordingReconciler) RecordTurnBoundary(agentID string) {
-	r.boundaries = append(r.boundaries, agentID)
+	reasons []string
 }
 
 func (r *recordingReconciler) RecordReportedReason(_, reason string) {
@@ -148,7 +143,6 @@ func TestRecordReport(t *testing.T) {
 	tests := []struct {
 		name           string
 		params         RecordReportParams
-		wantBoundaries int
 		wantReason     string
 		wantTurnEnded  bool
 		wantTurnFailed bool
@@ -166,9 +160,8 @@ func TestRecordReport(t *testing.T) {
 			params: RecordReportParams{
 				TurnEnded: true,
 			},
-			wantBoundaries: 1,
-			wantTurnEnded:  true,
-			wantWakes:      1,
+			wantTurnEnded: true,
+			wantWakes:     1,
 		},
 		{
 			name: "a failed turn stamps the turn as failed",
@@ -176,7 +169,6 @@ func TestRecordReport(t *testing.T) {
 				TurnEnded: true,
 				TurnError: "Overloaded",
 			},
-			wantBoundaries: 1,
 			wantTurnEnded:  true,
 			wantTurnFailed: true,
 			wantWakes:      1,
@@ -194,7 +186,6 @@ func TestRecordReport(t *testing.T) {
 			params.AgentID = alpha.ID
 			require.NoError(t, fixture.writer.RecordReport(t.Context(), params))
 
-			assert.Len(t, fixture.reconciler.boundaries, tt.wantBoundaries)
 			assert.Equal(t, []string{tt.wantReason}, fixture.reconciler.reasons)
 
 			row := agentByID(t, st, alpha.ID)
