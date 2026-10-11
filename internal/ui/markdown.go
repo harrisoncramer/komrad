@@ -89,8 +89,8 @@ type agentFieldsParams struct {
 	agent    panel.Agent
 	schedule string
 	parent   string
-	// taskCwd is the directory of the task header standing over the agent, empty where none does.
-	taskCwd string
+	// headerCwd is the directory of the task header standing over the agent, empty where none does.
+	headerCwd string
 	// checkout is its task's checkout rows, for a record no task header stands over.
 	checkout []recordField
 }
@@ -109,7 +109,7 @@ func agentFields(params agentFieldsParams) []recordField {
 	}
 
 	fields = append(fields, recordField{label: "agent", value: label.OrDash(agent.Harness)})
-	if agent.Cwd != "" && agent.Cwd != params.taskCwd {
+	if agent.Cwd != "" && agent.Cwd != params.headerCwd {
 		fields = append(fields, recordField{label: "directory", value: agent.Cwd})
 	}
 	fields = append(fields, params.checkout...)
@@ -147,9 +147,6 @@ func attachmentFieldKey(role panel.Role) string {
 
 // reviewingFieldKey labels whose work a reviewer is reading.
 const reviewingFieldKey = "reviewing"
-
-// branchFieldKey labels the branch an agent's checkout is on.
-const branchFieldKey = "branch"
 
 const noSchedulesMarkdown = `# Schedules
 

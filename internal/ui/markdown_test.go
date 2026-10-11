@@ -111,7 +111,7 @@ func TestAgentFields(t *testing.T) {
 	tests := []struct {
 		name       string
 		schedule   string
-		taskCwd    string
+		headerCwd  string
 		failure    string
 		wantLabels []string
 		wantValues []string
@@ -136,12 +136,12 @@ func TestAgentFields(t *testing.T) {
 		},
 		{
 			name:       "an agent in its task's directory leaves the directory to the task",
-			taskCwd:    "/repo",
+			headerCwd:  "/repo",
 			wantAbsent: []string{"directory", "/repo"},
 		},
 		{
 			name:       "an agent working outside its task's directory names its own",
-			taskCwd:    "/elsewhere",
+			headerCwd:  "/elsewhere",
 			wantLabels: []string{"directory"},
 			wantValues: []string{"/repo"},
 		},
@@ -157,7 +157,7 @@ func TestAgentFields(t *testing.T) {
 			agent := agent
 			agent.FailureReason = tt.failure
 
-			fields := agentFields(agentFieldsParams{agent: agent, schedule: tt.schedule, taskCwd: tt.taskCwd})
+			fields := agentFields(agentFieldsParams{agent: agent, schedule: tt.schedule, headerCwd: tt.headerCwd})
 			require.NotEmpty(t, fields)
 			assert.Equal(t, "agent", fields[0].label, "the harness leads")
 

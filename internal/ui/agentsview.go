@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"komrad/config"
 	"komrad/internal/ui/panel"
@@ -45,12 +44,12 @@ func agentDetails(m *model, r agentRow) details {
 	}
 	var tags []string
 	if r.underTask {
-		params.taskCwd = task.Cwd
+		params.headerCwd = task.Cwd
 	} else {
 		params.checkout = checkoutFields(m.buildCheckoutParams(task, r.item))
-	}
-	if !r.underTask && r.item.Agent.ArchivedAt == nil {
-		tags = taskDetailsTags(m, task)
+		if r.item.Agent.ArchivedAt == nil {
+			tags = taskDetailsTags(m, task)
+		}
 	}
 
 	return details{
@@ -71,21 +70,6 @@ func taskDetailFields(m *model, task panel.Task, lead panel.AgentRow) []recordFi
 		agents:   m.listing.taskAgents(task.ID),
 		writer:   writer,
 	})
-}
-
-// buildCheckoutParams is a task's checkout as the listing and the reads hold it, with the pull
-// requests the agent carries.
-func (m *model) buildCheckoutParams(task panel.Task, item panel.AgentRow) checkoutFieldsParams {
-	worktree, read := taskWorktree(m.inspections, task.Cwd)
-
-	return checkoutFieldsParams{
-		task:         task,
-		standing:     item.PullRequest,
-		pullRequests: item.PullRequests,
-		worktree:     worktree,
-		read:         read,
-		now:          time.Now(),
-	}
 }
 
 // doc is the markdown rendered beside the list for a row with no pane of its own.

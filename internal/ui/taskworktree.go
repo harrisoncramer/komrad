@@ -87,6 +87,52 @@ func taskWorktree(inspections map[string]worktreeInspection, cwd string) (worktr
 	return read, true
 }
 
+// branchFieldKey labels the branch a task's checkout is on.
+const branchFieldKey = "branch"
+
+// checkoutFieldsParams is a task and what the record says of its checkout that is not on its
+// row: the pull requests from its branch and what was read of its directory.
+type checkoutFieldsParams struct {
+	task         panel.Task
+	standing     panel.PullRequestStanding
+	pullRequests []panel.PullRequest
+	// worktree is what the service has answered about the task's directory, and read says
+	// whether it has answered that the directory is a worktree at all.
+	worktree worktreeInspection
+	read     bool
+	now      time.Time
+}
+
+// checkoutFields are the record's rows for a task's checkout: its branch and the pull requests
+// from it, then where its directory stands.
+func checkoutFields(params checkoutFieldsParams) []recordField {
+	var fields []recordField
+	if params.task.Branch != nil {
+		fields = append(fields, recordField{label: branchFieldKey, value: *params.task.Branch})
+		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
+	}
+	if params.read {
+		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)
+	}
+
+	return fields
+}
+
+// buildCheckoutParams is a task's checkout as the listing and the reads hold it, with the pull
+// requests the agent carries.
+func (m *model) buildCheckoutParams(task panel.Task, item panel.AgentRow) checkoutFieldsParams {
+	worktree, read := taskWorktree(m.inspections, task.Cwd)
+
+	return checkoutFieldsParams{
+		task:         task,
+		standing:     item.PullRequest,
+		pullRequests: item.PullRequests,
+		worktree:     worktree,
+		read:         read,
+		now:          time.Now(),
+	}
+}
+
 // worktreeStandingFields are the record's rows for where a task's directory stands: what is
 // uncommitted in it and what it takes on disk, with the refusal above them when the last read
 // failed.

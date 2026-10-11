@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"komrad/config"
 	"komrad/internal/ui/paint/label"
@@ -51,34 +50,6 @@ func taskFields(params taskFieldsParams) []recordField {
 	fields = append(fields, recordField{label: "task_id", value: task.ID})
 	if created := label.Friendly(task.CreatedAt); created != "" {
 		fields = append(fields, recordField{label: "created", value: created})
-	}
-
-	return fields
-}
-
-// checkoutFieldsParams is a task and what the record says of its checkout that is not on its
-// row: the pull requests from its branch and what was read of its directory.
-type checkoutFieldsParams struct {
-	task         panel.Task
-	standing     panel.PullRequestStanding
-	pullRequests []panel.PullRequest
-	// worktree is what the service has answered about the task's directory, and read says
-	// whether it has answered that the directory is a worktree at all.
-	worktree worktreeInspection
-	read     bool
-	now      time.Time
-}
-
-// checkoutFields are the record's rows for a task's checkout: its branch and the pull requests
-// from it, then where its directory stands.
-func checkoutFields(params checkoutFieldsParams) []recordField {
-	var fields []recordField
-	if params.task.Branch != nil {
-		fields = append(fields, recordField{label: branchFieldKey, value: *params.task.Branch})
-		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
-	}
-	if params.read {
-		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)
 	}
 
 	return fields
