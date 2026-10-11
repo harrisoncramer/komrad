@@ -459,6 +459,20 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("an archived folder's menu holds none of its orchestrator's entries", func(t *testing.T) {
+		orchestrator := newArchivedAgent("o1", "orchestrator", "w1")
+		orchestrator.Role = agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
+		harness := openArchivedAgents(t, newArchivedWorkflow("w1", "backend"), orchestrator)
+
+		harness.press("space")
+
+		menu := strings.Join(readStage(harness.readFrame()), "\n")
+		require.Regexp(t, archiveEntry, menu)
+		for _, entry := range []string{"logs", "terminal", "jump ›"} {
+			assert.NotContains(t, menu, entry)
+		}
+	})
 }
 
 // TestArchivedAgentsRename covers a name typed over an archived agents row going out as its rename.

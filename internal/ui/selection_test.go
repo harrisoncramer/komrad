@@ -67,13 +67,13 @@ func TestSelection(t *testing.T) {
 		harness.press("j", "j", "v", "j", "v")
 		require.Contains(t, findRenderedRow(t, harness, "second-reviewer"), bar)
 		require.Contains(t, findRenderedRow(t, harness, "reviewer"), bar)
-		require.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "its reviewers alone")
+		require.NotContains(t, findRenderedRow(t, harness, "task-writer"), bar, "its reviewers alone")
 
 		harness.press("k", "k", "v")
-		require.Contains(t, findRenderedRow(t, harness, "task-author"), bar, "its writer too")
+		require.Contains(t, findRenderedRow(t, harness, "task-writer"), bar, "its writer too")
 
 		harness.press("v")
-		assert.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "its writer dropped again")
+		assert.NotContains(t, findRenderedRow(t, harness, "task-writer"), bar, "its writer dropped again")
 	})
 }
 

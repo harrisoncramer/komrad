@@ -599,7 +599,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 				press:  []string{"enter"},
 				wantSent: []request{{
 					procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
-					msg:       &taskv1.ArchiveTaskRequest{Task: "task-author"},
+					msg:       &taskv1.ArchiveTaskRequest{Task: "task-writer"},
 				}},
 			},
 			{
@@ -608,7 +608,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 				press:  []string{"down", "enter", "y"},
 				wantSent: []request{{
 					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-author"}},
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-writer"}},
 				}},
 			},
 		}

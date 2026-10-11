@@ -33,12 +33,12 @@ func TestLogsOpen(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, logsScreen, harness.readScreen())
 		assert.True(t, harness.panel.IsZoomed(), "the screen holds the whole window")
-		assert.Contains(t, frame, "agents › author › logs")
+		assert.Contains(t, frame, "agents › reviewer › logs")
 		assert.Contains(t, readHoveredRow(frame), "server")
 		assert.Contains(t, readSidebarProse(frame), "001 agent.provision setup")
 		assert.Contains(t, readStageText(frame), "first line")
 		assert.Contains(t, readStageText(frame), "second line")
-		harness.assertSentTo(logv1connect.LogServiceListAgentLogSourcesProcedure, &logv1.ListAgentLogSourcesRequest{AgentId: "author"})
+		harness.assertSentTo(logv1connect.LogServiceListAgentLogSourcesProcedure, &logv1.ListAgentLogSourcesRequest{AgentId: "reviewer"})
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("server", ""))
 	})
 
@@ -56,8 +56,8 @@ func TestLogsOpen(t *testing.T) {
 		t.Parallel()
 
 		rows := buildLogAgents()
-		author, _ := rows[2].(*agentv1.Agent)
-		author.FailedRunLog = xptr.Ptr[int32](1)
+		reviewer, _ := rows[2].(*agentv1.Agent)
+		reviewer.FailedRunLog = xptr.Ptr[int32](1)
 		harness := openLogs(t, tailOfTwo(), rows...)
 
 		frame := harness.readFrame()
@@ -90,7 +90,7 @@ func TestLogsOpen(t *testing.T) {
 		harness.press("esc")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "reviewer")
 	})
 }
 
@@ -111,7 +111,7 @@ func TestLogsFailedRunRead(t *testing.T) {
 		{
 			name:      "opening the failed run marks the agent's runs read",
 			failedRun: xptr.Ptr[int32](1),
-			want:      []proto.Message{&agentv1.MarkRunsReadRequest{Id: "author"}},
+			want:      []proto.Message{&agentv1.MarkRunsReadRequest{Id: "reviewer"}},
 		},
 	}
 
@@ -120,8 +120,8 @@ func TestLogsFailedRunRead(t *testing.T) {
 			t.Parallel()
 
 			rows := buildLogAgents()
-			author, _ := rows[2].(*agentv1.Agent)
-			author.FailedRunLog = tt.failedRun
+			reviewer, _ := rows[2].(*agentv1.Agent)
+			reviewer.FailedRunLog = tt.failedRun
 			harness := openLogs(t, tailOfTwo(), rows...)
 			harness.press(tt.presses...)
 
@@ -262,7 +262,7 @@ func TestLogsSources(t *testing.T) {
 		read := logv1connect.LogServiceReadAgentLogsProcedure
 		harness := openAgents(t, buildLogAgents()...)
 		tailOfTwo().answer(harness)
-		moveToAgentRow(t, harness, "author")
+		moveToAgentRow(t, harness, "reviewer")
 		harness.press("space", "l")
 		harness.hold(read)
 		harness.fireTimers()
@@ -405,7 +405,7 @@ func TestLogsTail(t *testing.T) {
 		logReads{}.answer(harness)
 		harness.answer(read, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 			sent, _ := req.Any().(*logv1.ReadAgentLogsRequest)
-			if slices.Contains(sent.GetAgentIds(), "author") {
+			if slices.Contains(sent.GetAgentIds(), "reviewer") {
 				return connect.NewResponse(&logv1.ReadAgentLogsResponse{
 					Lines:  []string{`{"body":"first line"}`},
 					Cursor: "10",
@@ -416,7 +416,7 @@ func TestLogsTail(t *testing.T) {
 			return connect.NewResponse(&logv1.ReadAgentLogsResponse{Cursor: "30"}), nil
 		})
 		harness.hold(read)
-		moveToAgentRow(t, harness, "author")
+		moveToAgentRow(t, harness, "reviewer")
 		harness.press("space", "l", "esc")
 		moveToAgentRow(t, harness, "quiet")
 		harness.press("space", "l")
@@ -449,7 +449,7 @@ func TestLogsTail(t *testing.T) {
 		harness := openAgents(t, buildLogAgents()...)
 		logReads{}.answer(harness)
 		harness.refuse(logv1connect.LogServiceReadAgentLogsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("the log is gone")))
-		moveToAgentRow(t, harness, "author")
+		moveToAgentRow(t, harness, "reviewer")
 		harness.press("space", "l")
 		harness.fireTimers()
 
@@ -462,7 +462,7 @@ func TestLogsTail(t *testing.T) {
 
 		harness := openAgents(t, buildLogAgents()...)
 		harness.refuse(logv1connect.LogServiceListAgentLogSourcesProcedure, connect.NewError(connect.CodeUnavailable, errors.New("the engine is gone")))
-		moveToAgentRow(t, harness, "author")
+		moveToAgentRow(t, harness, "reviewer")
 		harness.press("space", "l")
 		harness.fireTimers()
 
@@ -832,7 +832,7 @@ func tailOfTwo() logReads {
 	}
 }
 
-// openLogs opens the logs of the author from the subpages menu, over a log answering reads.
+// openLogs opens the logs of the reviewer from the subpages menu, over a log answering reads.
 func openLogs(t *testing.T, reads logReads, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
@@ -841,7 +841,7 @@ func openLogs(t *testing.T, reads logReads, rows ...proto.Message) *panelHarness
 	}
 	harness := openAgents(t, rows...)
 	reads.answer(harness)
-	moveToAgentRow(t, harness, "author")
+	moveToAgentRow(t, harness, "reviewer")
 	harness.press("space", "l")
 
 	return harness
@@ -849,7 +849,7 @@ func openLogs(t *testing.T, reads logReads, rows ...proto.Message) *panelHarness
 
 func logRead(source, cursor string) *logv1.ReadAgentLogsRequest {
 	return &logv1.ReadAgentLogsRequest{
-		AgentIds: []string{"author"},
+		AgentIds: []string{"reviewer"},
 		Source:   source,
 		Cursor:   cursor,
 		Limit:    500,
@@ -1028,7 +1028,7 @@ func buildLogAgents() []proto.Message {
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
 		newOrchestrator(),
-		newReviewer("author", "author", "writer"),
+		newReviewer("reviewer", "reviewer", "writer"),
 		writer,
 		task,
 		newReviewer("quiet", "quiet", "writer"),

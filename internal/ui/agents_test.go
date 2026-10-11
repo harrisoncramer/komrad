@@ -79,7 +79,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a reviewer is rendered under its task rather than where the listing put it",
 			rows: buildReviewedTasks(),
-			want: []string{"komrad", "├─ task-fix-gutter", "└─ task-author", "   ├─ second-reviewer", "   └─ reviewer"},
+			want: []string{"komrad", "├─ task-fix-gutter", "└─ task-writer", "   ├─ second-reviewer", "   └─ reviewer"},
 		},
 		{
 			name: "a reviewer whose writer is archived stays under its task",
@@ -104,7 +104,7 @@ func TestAgentsRows(t *testing.T) {
 		},
 		{
 			name: "a hidden task takes every agent on it and counts once",
-			rows: hideTaskOf(buildReviewedTasks(), "author"),
+			rows: hideTaskOf(buildReviewedTasks(), "writer"),
 			want: []string{"komrad +1", "└─ task-fix-gutter"},
 		},
 		{
@@ -194,11 +194,11 @@ func TestAgentsShowHidden(t *testing.T) {
 	})
 
 	t.Run("a hidden task comes back with every agent on it", func(t *testing.T) {
-		harness := openAgents(t, hideTaskOf(buildReviewedTasks(), "author")...)
+		harness := openAgents(t, hideTaskOf(buildReviewedTasks(), "writer")...)
 
 		harness.press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-author" + hiddenMark, "   ├─ second-reviewer", "   └─ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ second-reviewer", "   └─ reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
@@ -2276,7 +2276,7 @@ func TestAgentsReviewers(t *testing.T) {
 		{
 			name:  "a task whose writer has reviewers",
 			press: []string{"j", "space", "a", "d"},
-			want:  `Permanently delete task "task-author"?`,
+			want:  `Permanently delete task "task-writer"?`,
 		},
 		{
 			name:  "a selection names its agents and the reviewers going with them",
@@ -2606,20 +2606,20 @@ func buildCursorable() []proto.Message {
 
 func buildReviewedTasks() []proto.Message {
 	fixGutter := newAgentAt("fix-gutter", "w1", 2)
-	author := newAgentAt("author", "w1", 1)
-	reviewer := newReviewer("a3", "reviewer", "author")
-	secondReviewer := newReviewer("a4", "second-reviewer", "author")
+	writer := newAgentAt("writer", "w1", 1)
+	reviewer := newReviewer("a3", "reviewer", "writer")
+	secondReviewer := newReviewer("a4", "second-reviewer", "writer")
 	secondReviewer.CreatedAt = "2026-09-20T12:09:00Z"
-	authorTask := newTaskOf(author)
+	writerTask := newTaskOf(writer)
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
 		fixGutter,
 		newTaskOf(fixGutter),
-		author,
+		writer,
 		reviewer,
 		secondReviewer,
-		authorTask,
+		writerTask,
 	}
 }
 

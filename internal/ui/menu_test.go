@@ -27,7 +27,7 @@ func TestMenu(t *testing.T) {
 	t.Run("an agent's entries stand alone, with no band of the list's", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, append(buildSubpagesAgents(), newReviewer("r1", "reviewer", "author"))...)
+		harness := openAgents(t, buildSubpagesAgents()...)
 		moveToAgentRow(t, harness, "reviewer")
 		harness.press("space")
 

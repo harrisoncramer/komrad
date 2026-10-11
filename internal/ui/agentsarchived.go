@@ -245,7 +245,7 @@ func (a *archivedAgents) place(m *model, hovered string) {
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
 func (a *archivedAgents) hoveredAgent(m *model) (panel.Agent, bool) {
 	row, ok := rowAt(a.listRows(m), a.cursor)
-	if !ok {
+	if !ok || !row.isAgentRow() {
 		return panel.Agent{}, false
 	}
 	item, ok := row.paneItem()

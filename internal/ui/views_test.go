@@ -34,7 +34,7 @@ func TestViews(t *testing.T) {
 	t.Run("a page opened from a view renders the trail back to it beside the logo", func(t *testing.T) {
 		harness := openLogs(t, tailOfTwo())
 
-		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › author › logs"))
+		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › reviewer › logs"))
 	})
 
 	t.Run("a pane too short for the switcher still renders the trail", func(t *testing.T) {
@@ -43,7 +43,7 @@ func TestViews(t *testing.T) {
 		resize(harness, 80, 16)
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "komrad")
-		assert.Contains(t, frame, "agents › author › logs")
+		assert.Contains(t, frame, "agents › reviewer › logs")
 	})
 
 	t.Run("a pane too short for it renders none", func(t *testing.T) {
