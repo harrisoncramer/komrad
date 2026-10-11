@@ -2018,9 +2018,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"J\n" +
 	"\x17ListStatusChecksRequest\x12/\n" +
-	"\x0fpull_request_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rpullRequestId\"\x8e\x01\n" +
+	"\x0fpull_request_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rpullRequestId\"Z\n" +
 	"\x18ListStatusChecksResponse\x12>\n" +
-	"\breadings\x18\x04 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadingsJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\bhead_shaR\aread_atR\rstatus_checks\"\x83\x01\n" +
+	"\breadings\x18\x04 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadings\"\x83\x01\n" +
 	"\x13ReadCheckLogRequest\x12\"\n" +
 	"\bcheck_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\acheckId\x12&\n" +
 	"\n" +
@@ -2055,7 +2055,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\rstatus_checks\x18\x04 \x03(\v2\x1b.pullrequest.v1.StatusCheckR\fstatusChecksB\x10\n" +
 	"\x0e_first_read_atB\n" +
 	"\n" +
-	"\b_read_at\"\xda\x04\n" +
+	"\b_read_at\"\xcc\x04\n" +
 	"\vStatusCheck\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x123\n" +
@@ -2080,7 +2080,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x02id\x18\x10 \x01(\tR\x02idB\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_atB\x11\n" +
-	"\x0f_run_started_atJ\x04\b\f\x10\rR\x06run_id\"\xe6\x01\n" +
+	"\x0f_run_started_at\"\xe6\x01\n" +
 	"\bCheckLog\x123\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x1d.pullrequest.v1.CheckLogStateR\x05state\x12\"\n" +
 	"\n" +

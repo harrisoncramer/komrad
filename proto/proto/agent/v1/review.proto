@@ -56,8 +56,6 @@ enum ReviewVerdict {
 message ReviewRound {
   // The handle a review or a viewed-file record names this round by.
   string id = 1;
-  reserved 2;
-  reserved "agent_id";
   // The task whose checkout the snapshot was taken of.
   string task_id = 7;
   // Which round this is for its task, counting from one.
@@ -75,8 +73,6 @@ message ReviewRound {
 message Review {
   // The handle the threads in this batch name it by.
   string id = 1;
-  reserved 2;
-  reserved "agent_id";
   // The task whose work is being read.
   string task_id = 16;
   // The snapshot the batch was written against.
@@ -114,8 +110,6 @@ message Review {
 message WatchedReview {
   // The handle the threads in this batch name it by.
   string id = 1;
-  reserved 2;
-  reserved "agent_id";
   // The task whose work is being read.
   string task_id = 15;
   // The snapshot the batch was written against.
@@ -148,8 +142,6 @@ message WatchedReview {
 message ReviewThread {
   // The handle a reply or a resolve names this thread by.
   string id = 1;
-  reserved 2;
-  reserved "agent_id";
   // The task whose diff the thread is pinned to.
   string task_id = 21;
   // The batch this thread was opened as part of.
@@ -436,8 +428,6 @@ message ReleaseReviewRequest {
   // What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
   // agent must set it and a person must leave it unset.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
-  reserved 3;
-  reserved "interrupt";
   // What to say about the work as a whole rather than about any one line, which the agent reads
   // before the first thread. Optional: a review of pinned comments alone is complete.
   string body = 4 [(buf.validate.field).string.max_len = 1500];
@@ -455,8 +445,6 @@ message ReleaseReviewResponse {
 // ReviewViewedFile is one file of a task's diff the person reviewing has marked as read,
 // together with the fingerprint the diff had when they read it.
 message ReviewViewedFile {
-  reserved 1;
-  reserved "agent_id";
   // Which task the file belongs to.
   string task_id = 5;
   // Which file, relative to the checkout.
@@ -499,8 +487,6 @@ message ListReviewViewedFilesResponse {
 enum ForgeReplyState {
   // No state was recorded.
   FORGE_REPLY_STATE_UNSPECIFIED = 0;
-  reserved 1;
-  reserved "FORGE_REPLY_STATE_DRAFT";
   // Approved and waiting to be posted.
   FORGE_REPLY_STATE_APPROVED = 2;
   // Being posted, and possibly already on the forge.
@@ -519,8 +505,6 @@ message ForgeReply {
   string thread_id = 2;
   // Where it is on its way to the forge.
   ForgeReplyState state = 3;
-  reserved 4, 5, 6;
-  reserved "author_kind", "author_agent_id", "proposed_body";
   // The words that go to the forge.
   string body = 7;
   // When the person wrote it for posting.

@@ -18,8 +18,6 @@ message WorktreeAgent {
   agent.v1.AgentState state = 3;
   // When the agent was put away, in RFC 3339, unset while it is live.
   optional string archived_at = 4;
-  reserved 5;
-  reserved "adopted";
 }
 
 message WorktreeTask {
@@ -44,8 +42,6 @@ enum WorktreeFate {
   WORKTREE_FATE_ARCHIVED = 2;
   // The directory's task is open, which nothing takes.
   WORKTREE_FATE_LIVE = 3;
-  reserved 4;
-  reserved "WORKTREE_FATE_TASK";
   // A delete has claimed the directory's task, which that delete takes.
   WORKTREE_FATE_DELETING = 5;
 }
@@ -62,8 +58,6 @@ message Worktree {
   // Whether the gitdir the .git file names is still there, without which git will not answer
   // for the directory.
   bool readable = 4;
-  reserved 5;
-  reserved "agent";
   // The agents working in this directory, live ones first.
   repeated WorktreeAgent occupants = 6;
   // The disk the directory takes, in bytes, as it was last measured in the background or by

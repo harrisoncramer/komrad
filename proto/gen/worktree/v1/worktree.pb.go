@@ -1255,21 +1255,21 @@ var File_worktree_v1_worktree_proto protoreflect.FileDescriptor
 
 const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xa4\x01\n" +
+	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x95\x01\n" +
 	"\rWorktreeAgent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x14.agent.v1.AgentStateR\x05state\x12$\n" +
 	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01B\x0e\n" +
-	"\f_archived_atJ\x04\b\x05\x10\x06R\aadopted\"\x82\x01\n" +
+	"\f_archived_at\"\x82\x01\n" +
 	"\fWorktreeTask\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12$\n" +
 	"\varchived_at\x18\x03 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x04 \x01(\bR\aadoptedB\x0e\n" +
-	"\f_archived_at\"\xf4\x03\n" +
+	"\f_archived_at\"\xe7\x03\n" +
 	"\bWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -1290,7 +1290,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x04task\x18\r \x01(\v2\x19.worktree.v1.WorktreeTaskR\x04taskB\r\n" +
 	"\v_size_bytesB\x0e\n" +
 	"\f_measured_atB\x0e\n" +
-	"\f_share_bytesJ\x04\b\x05\x10\x06R\x05agent\"\x8c\x03\n" +
+	"\f_share_bytes\"\x8c\x03\n" +
 	"\x0fWatchedWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -1371,13 +1371,13 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\">\n" +
 	"\x16DeleteWorktreesRequest\x12$\n" +
 	"\x04dirs\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*\xb2\x01\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*\x98\x01\n" +
 	"\fWorktreeFate\x12\x1d\n" +
 	"\x19WORKTREE_FATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
 	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
 	"\x12WORKTREE_FATE_LIVE\x10\x03\x12\x1a\n" +
-	"\x16WORKTREE_FATE_DELETING\x10\x05\"\x04\b\x04\x10\x04*\x12WORKTREE_FATE_TASK2\xdc\n" +
+	"\x16WORKTREE_FATE_DELETING\x10\x052\xdc\n" +
 	"\n" +
 	"\x0fWorktreeService\x12\xf6\x01\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"\x86\x01List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap.B\x01\x03\x90\x02\x01\x12\x85\x02\n" +

@@ -3165,7 +3165,7 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xbd\x01\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xad\x01\n" +
 	"\vReviewRound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\a \x01(\tR\x06taskId\x12\x18\n" +
@@ -3173,7 +3173,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\x05 \x01(\tR\vsnapshotSha\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAtJ\x04\b\x02\x10\x03R\bagent_id\"\xa6\x04\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\x96\x04\n" +
 	"\x06Review\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x10 \x01(\tR\x06taskId\x12\x19\n" +
@@ -3195,7 +3195,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreads\x12%\n" +
 	"\x0eexternal_login\x18\x0f \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_idJ\x04\b\x02\x10\x03R\bagent_id\"\xb8\x04\n" +
+	"\x10_author_agent_id\"\xa8\x04\n" +
 	"\rWatchedReview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x0f \x01(\tR\x06taskId\x12\x19\n" +
@@ -3216,7 +3216,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12&\n" +
 	"\x0fround_landed_at\x18\r \x01(\tR\rroundLandedAt\x12%\n" +
 	"\x0eexternal_login\x18\x0e \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_idJ\x04\b\x02\x10\x03R\bagent_id\"\x87\x05\n" +
+	"\x10_author_agent_id\"\xf7\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x15 \x01(\tR\x06taskId\x12\x1b\n" +
@@ -3239,7 +3239,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x0e \x01(\tR\tupdatedAt\x12#\n" +
 	"\rmirrors_forge\x18\x12 \x01(\bR\fmirrorsForge\x129\n" +
-	"\rforge_replies\x18\x14 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeRepliesJ\x04\b\x02\x10\x03R\bagent_id\"\xf8\x04\n" +
+	"\rforge_replies\x18\x14 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeReplies\"\xf8\x04\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -3352,20 +3352,20 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x12ListReviewsRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xa6\x01\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\x95\x01\n" +
 	"\x14ReleaseReviewRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12;\n" +
 	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\b\xbaH\x05\x82\x01\x02\x10\x01R\averdict\x12\x1c\n" +
-	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04bodyJ\x04\b\x03\x10\x04R\tinterrupt\"q\n" +
+	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04body\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\"\x97\x01\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"\x87\x01\n" +
 	"\x10ReviewViewedFile\x12\x17\n" +
 	"\atask_id\x18\x05 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
 	"\tviewed_at\x18\x03 \x01(\tR\bviewedAt\x12 \n" +
-	"\vfingerprint\x18\x04 \x01(\tR\vfingerprintJ\x04\b\x01\x10\x02R\bagent_id\"\xa0\x01\n" +
+	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xa0\x01\n" +
 	"\x1aSetReviewFileViewedRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
 	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x16\n" +
@@ -3376,7 +3376,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1cListReviewViewedFilesRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"S\n" +
 	"\x1dListReviewViewedFilesResponse\x122\n" +
-	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xad\x03\n" +
+	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xee\x02\n" +
 	"\n" +
 	"ForgeReply\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -3393,7 +3393,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAtB\x13\n" +
 	"\x11_forge_comment_idB\b\n" +
-	"\x06_errorJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\vauthor_kindR\x0fauthor_agent_idR\rproposed_body\"X\n" +
+	"\x06_error\"X\n" +
 	"\x13ReplyOnForgeRequest\x12$\n" +
 	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1b\n" +
 	"\x04body\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04body\"B\n" +
@@ -3420,13 +3420,13 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1aREVIEW_VERDICT_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17REVIEW_VERDICT_APPROVED\x10\x01\x12$\n" +
 	" REVIEW_VERDICT_CHANGES_REQUESTED\x10\x02\x12\x1c\n" +
-	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\xcc\x01\n" +
+	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\xad\x01\n" +
 	"\x0fForgeReplyState\x12!\n" +
 	"\x1dFORGE_REPLY_STATE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aFORGE_REPLY_STATE_APPROVED\x10\x02\x12\x1d\n" +
 	"\x19FORGE_REPLY_STATE_SENDING\x10\x03\x12\x1a\n" +
 	"\x16FORGE_REPLY_STATE_SENT\x10\x04\x12\x1c\n" +
-	"\x18FORGE_REPLY_STATE_FAILED\x10\x05\"\x04\b\x01\x10\x01*\x17FORGE_REPLY_STATE_DRAFTB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x18FORGE_REPLY_STATE_FAILED\x10\x05B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_review_proto_rawDescOnce sync.Once
