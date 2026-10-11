@@ -113,6 +113,8 @@ func TestGet(t *testing.T) {
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live-work"})
 	archived := stores.SeedTask(t, taskstore.CreateParams{Slug: "archived-work"})
 	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
+	worker := stores.SeedAgent(t, agentstore.Agent{Name: "worker", WorkflowID: live.WorkflowID, TaskID: &live.ID})
+	orchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "orchestrator", WorkflowID: live.WorkflowID, Role: agentstore.RoleOrchestrator})
 
 	tests := []struct {
 		name    string
@@ -134,6 +136,23 @@ func TestGet(t *testing.T) {
 			name:    "a slug no task holds is not found",
 			get:     func() (*taskstore.Task, error) { return stores.Tasks.GetBySlug(ctx, "missing") },
 			wantErr: store.ErrNotFound,
+		},
+		{
+			name:    "an agent on no task has no task",
+			get:     func() (*taskstore.Task, error) { return stores.Tasks.GetByAgentID(ctx, orchestrator.ID) },
+			wantErr: taskstore.ErrNoTask,
+		},
+		{
+			name: "an id no agent holds has no task",
+			get: func() (*taskstore.Task, error) {
+				return stores.Tasks.GetByAgentID(ctx, "01a11e6f-af0b-7497-91fb-d3750f8cbef2")
+			},
+			wantErr: taskstore.ErrNoTask,
+		},
+		{
+			name:   "an agent's task reads back by the agent's id",
+			get:    func() (*taskstore.Task, error) { return stores.Tasks.GetByAgentID(ctx, worker.ID) },
+			wantID: live.ID,
 		},
 		{
 			name:   "a live task reads back by id",

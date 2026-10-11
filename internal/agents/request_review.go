@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 )
 
@@ -113,11 +114,10 @@ func reviewerTitle(title, authorName string) string {
 
 // readTaskBranch is the branch the checkout of an agent's task is on, empty when it names none.
 func (s *LaunchService) readTaskBranch(ctx context.Context, agent agentstore.Agent) (string, error) {
-	if agent.TaskID == nil {
+	task, err := s.tasks.GetAgentTask(ctx, agent.ID)
+	if errors.Is(err, taskstore.ErrNoTask) {
 		return "", nil
 	}
-
-	task, err := s.tasks.GetTask(ctx, *agent.TaskID)
 	if err != nil {
 		return "", fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}

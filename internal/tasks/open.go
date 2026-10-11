@@ -53,9 +53,9 @@ func (s *TaskService) Open(ctx context.Context, db store.DBTX, params OpenParams
 		}
 		opened.Task = created
 	}
-	if opened.Task == nil && params.Parent != nil && params.Parent.TaskID != nil {
-		found, err := taskStore.Get(ctx, *params.Parent.TaskID)
-		if err != nil {
+	if opened.Task == nil && params.Parent != nil {
+		found, err := taskStore.GetByAgentID(ctx, params.Parent.ID)
+		if err != nil && !errors.Is(err, taskstore.ErrNoTask) {
 			return nil, fmt.Errorf("failed to read the task of agent %q's parent: %w", agent.Name, err)
 		}
 		opened.Task = found

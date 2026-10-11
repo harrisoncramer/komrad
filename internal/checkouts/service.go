@@ -190,11 +190,10 @@ func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget
 
 // readCheckoutTask is the task whose checkout the agent works in, refusing an agent outside it.
 func (s *Service) readCheckoutTask(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
-	if agent.TaskID == nil {
+	task, err := s.tasks.GetByAgentID(ctx, agent.ID)
+	if errors.Is(err, taskstore.ErrNoTask) {
 		return nil, fmt.Errorf("%w: it is on no task", ErrNoWorktree)
 	}
-
-	task, err := s.tasks.Get(ctx, *agent.TaskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}

@@ -326,6 +326,55 @@ func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams
 	return err
 }
 
+const getTaskByAgentID = `-- name: GetTaskByAgentID :one
+SELECT
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
+FROM
+    tasks
+WHERE
+    id =(
+        SELECT
+            task_id
+        FROM
+            agents
+        WHERE
+            agents.id = $1)
+`
+
+func (q *Queries) GetTaskByAgentID(ctx context.Context, agentID string) (*Task, error) {
+	row := q.db.QueryRow(ctx, getTaskByAgentID, agentID)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.WorkflowID,
+		&i.Slug,
+		&i.Title,
+		&i.Goal,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.EngineID,
+		&i.Cwd,
+		&i.Branch,
+		&i.AdoptedBranch,
+		&i.ProvisionEnabled,
+		&i.WorktreeRemoved,
+		&i.RepositoryUrl,
+		&i.HeadSha,
+		&i.LastRebase,
+		&i.Sequence,
+		&i.LinesAdded,
+		&i.LinesRemoved,
+		&i.MovedSinceRound,
+		&i.DeletingAt,
+		&i.CleaningAt,
+		&i.FailureReason,
+		&i.Notes,
+		&i.NotesUpdatedAt,
+	)
+	return &i, err
+}
+
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
     id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at

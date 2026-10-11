@@ -149,11 +149,10 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 // placeRetry reads the task a retried agent is on, taking a place in its hook queue when the retry opens it.
 func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) (*placement, error) {
-	if agent.TaskID == nil {
+	task, err := s.tasks.GetAgentTask(ctx, agent.ID)
+	if errors.Is(err, taskstore.ErrNoTask) {
 		return &placement{}, nil
 	}
-
-	task, err := s.tasks.GetTask(ctx, *agent.TaskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}
@@ -201,13 +200,12 @@ type retryMark struct {
 // markRetrying marks a failed agent for its retry, first making it its task's writer again when it
 // rejoins the task's worktree, so no other writer starts on the task in between.
 func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agent, provisioner string) (*retryMark, error) {
-	var task *taskstore.Task
-	if agent.TaskID != nil {
-		found, err := s.tasks.GetTask(ctx, *agent.TaskID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
-		}
-		task = found
+	task, err := s.tasks.GetAgentTask(ctx, agent.ID)
+	if errors.Is(err, taskstore.ErrNoTask) {
+		task, err = nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}
 
 	joins, err := isJoining(task, provisioner, agent.ParentAgentID == nil && agent.Role.IsImplementer())

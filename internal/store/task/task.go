@@ -21,6 +21,9 @@ var ErrBadSlug = fail.InvalidArgument("a task slug is lowercase letters and digi
 // ErrNotesChanged is a write of a task's notes made over a version that has since been rewritten.
 var ErrNotesChanged = fail.Precondition("the task's notes have been written since they were read")
 
+// ErrNoTask is an agent on no task, or one no agent holds.
+var ErrNoTask = fail.NotFound("the agent is on no task")
+
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // Task is one outcome a person wants, which the agents linked to it work toward.
@@ -170,6 +173,25 @@ func (s *TaskStore) Get(ctx context.Context, id string) (*Task, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task %q: %w", id, err)
+	}
+
+	got := fromRow(row)
+
+	return &got, nil
+}
+
+// GetByAgentID returns the task an agent is on, refusing an agent on no task.
+func (s *TaskStore) GetByAgentID(ctx context.Context, agentID string) (*Task, error) {
+	if !store.IsID(agentID) {
+		return nil, fmt.Errorf("%w: agent %q", ErrNoTask, agentID)
+	}
+
+	row, err := s.queries.GetTaskByAgentID(ctx, agentID)
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: agent %q", ErrNoTask, agentID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the task of agent %q: %w", agentID, err)
 	}
 
 	got := fromRow(row)

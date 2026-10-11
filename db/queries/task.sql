@@ -28,6 +28,20 @@ FROM
 WHERE
     slug = sqlc.arg('slug');
 
+-- name: GetTaskByAgentID :one
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    id =(
+        SELECT
+            task_id
+        FROM
+            agents
+        WHERE
+            agents.id = sqlc.arg('agent_id'));
+
 -- name: ListTasks :many
 SELECT
     *
