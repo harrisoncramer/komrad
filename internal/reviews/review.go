@@ -598,7 +598,7 @@ func (s *ReviewService) SetReviewFileViewed(
 		return nil, s.reviews.UnmarkFileViewed(ctx, task.ID, params.FilePath)
 	}
 
-	agentID, err := s.recordedAgentID(ctx, *task, params.Author)
+	agentID, err := s.getRecordingAgentID(ctx, *task, params.Author)
 	if err != nil {
 		return nil, err
 	}

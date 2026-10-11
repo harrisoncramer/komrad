@@ -146,8 +146,8 @@ func (r reviewScreen) loadWholeCmd(m *model) tea.Cmd {
 	})
 }
 
-// loadReviewCmdParams says which task's round to open, for which agent on screen, where to read it, and what to measure it
-// from.
+// loadReviewCmdParams says which task's round to open, for which agent on screen, where to read
+// it, and what to measure it from.
 type loadReviewCmdParams struct {
 	AgentID string
 	TaskID  string

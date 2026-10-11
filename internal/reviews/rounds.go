@@ -29,14 +29,14 @@ const reviewDirName = "reviews"
 // ErrReviewNoRound is answered when a review is asked for on a task no round has been taken of.
 var ErrReviewNoRound = fail.Precondition("no round has been taken of that task yet")
 
-// errReviewUnnamedTask is answered when a call names no task and the caller is on none.
+// errReviewUnnamedTask is answered when a person calls without naming a task.
 var errReviewUnnamedTask = fail.InvalidArgument("pass task, by id or by slug")
 
 // errReviewNoAgent is answered when a person opens a round on a task no agent was ever on.
 var errReviewNoAgent = fail.Precondition("that task has never had an agent on it")
 
-// errReviewNoTask is answered when a review call names an orchestrator, which works on no task.
-var errReviewNoTask = fail.Precondition("that agent works on no task, so it has no work to review")
+// errReviewNoTask is answered when an agent on no task calls without naming one.
+var errReviewNoTask = fail.Precondition("you work on no task, so pass task, by id or by slug")
 
 // errReviewWorktreeRemoved is answered when a round is asked for on a task whose worktree is gone.
 var errReviewWorktreeRemoved = fail.Precondition("that task's worktree was removed, so there is nothing to take a round of")
@@ -88,7 +88,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, ref string, author Review
 		return nil, err
 	}
 
-	agentID, err := s.recordedAgentID(ctx, *task, author)
+	agentID, err := s.getRecordingAgentID(ctx, *task, author)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +96,9 @@ func (s *ReviewService) OpenRound(ctx context.Context, ref string, author Review
 	return s.openTaskRound(ctx, *task, agentID)
 }
 
-// recordedAgentID is the agent a row written on a task is filed under: the caller when it is an
-// agent, and otherwise the newest agent on the task.
-func (s *ReviewService) recordedAgentID(ctx context.Context, task taskstore.Task, author ReviewAuthor) (string, error) {
+// getRecordingAgentID reads the agent a row written on a task is filed under, which is the caller
+// when it is an agent and otherwise the newest agent on the task.
+func (s *ReviewService) getRecordingAgentID(ctx context.Context, task taskstore.Task, author ReviewAuthor) (string, error) {
 	if author.AgentID != nil {
 		return *author.AgentID, nil
 	}
@@ -440,24 +440,13 @@ func (s *ReviewService) getTask(ctx context.Context, ref string, author ReviewAu
 		return nil, errReviewUnnamedTask
 	}
 
-	return s.getTaskOfAgentID(ctx, *author.AgentID)
-}
-
-// getTaskOfAgentID reads the task the agent with this id works on.
-func (s *ReviewService) getTaskOfAgentID(ctx context.Context, agentID string) (*taskstore.Task, error) {
-	agent, err := s.getAgent(ctx, agentID)
-	if err != nil {
+	if _, err := s.getAgent(ctx, *author.AgentID); err != nil {
 		return nil, err
 	}
 
-	return s.getTaskOfAgent(ctx, *agent)
-}
-
-// getTaskOfAgent reads the task an agent works on, refusing an orchestrator, which works on none.
-func (s *ReviewService) getTaskOfAgent(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
-	task, err := s.tasks.GetByAgentID(ctx, agent.ID)
+	task, err := s.tasks.GetByAgentID(ctx, *author.AgentID)
 	if errors.Is(err, taskstore.ErrNoTask) {
-		return nil, fmt.Errorf("%w: %q", errReviewNoTask, agent.Name)
+		return nil, errReviewNoTask
 	}
 	if err != nil {
 		return nil, err
