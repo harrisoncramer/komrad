@@ -147,6 +147,8 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Runs:      st.runs,
 		Workflows: st.workflows,
 		Worktrees: st.worktrees,
+		Reviews:   st.review,
+		Snapshots: gitClient,
 		Scripts:   scriptService,
 		Tx:        st.pool,
 	})
@@ -391,7 +393,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Tx:             st.pool,
 		Scripts:        params.Scripts,
 		Reviews:        st.review,
-		Snapshots:      params.Git,
 		Screens:        screenKeeper,
 		LogsDir:        params.RunLogsDir,
 		FramesDir:      server.Env.FramesDir(),

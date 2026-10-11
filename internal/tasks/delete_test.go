@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/gittest"
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	"komrad/internal/storetest"
@@ -17,10 +18,12 @@ import (
 	"komrad/lib/xslice"
 
 	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,6 +65,8 @@ type deleteFixture struct {
 	svc       *TaskService
 	workflow  *workflowstore.Workflow
 	worktrees *worktreestore.WorktreeStore
+	reviews   *reviewstore.ReviewStore
+	snapshots *gittest.Snapshots
 }
 
 func newDeleteFixture(t *testing.T, scripts *fakeScripts) *deleteFixture {
@@ -76,16 +81,22 @@ func newDeleteFixture(t *testing.T, scripts *fakeScripts) *deleteFixture {
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	worktrees := worktreestore.NewWorktreeStore(stores.Pool.GetDB())
+	reviews := reviewstore.NewReviewStore(stores.Pool.GetDB())
+	snapshots := &gittest.Snapshots{}
 
 	return &deleteFixture{
 		stores:    stores,
 		workflow:  workflow,
 		worktrees: worktrees,
+		reviews:   reviews,
+		snapshots: snapshots,
 		svc: NewTaskService(NewTaskServiceParams{
 			Tasks:     stores.Tasks,
 			Agents:    stores.Agents,
 			Workflows: stores.Workflows,
 			Worktrees: worktrees,
+			Reviews:   reviews,
+			Snapshots: snapshots,
 			Scripts:   scripts,
 			Tx:        stores.Pool,
 		}),
@@ -171,6 +182,73 @@ func TestDeleteIfEmptyForgetsItsWorktree(t *testing.T) {
 			listed, err := fx.worktrees.List(t.Context())
 			require.NoError(t, err)
 			assert.ElementsMatch(t, tt.wantDirs(dir, other), xslice.Map(listed, func(worktree worktreestore.Worktree) string { return worktree.Dir }))
+		})
+	}
+}
+
+// TestDeleteIfEmptyReleasesItsRounds pins that a deleted task lets go of the refs holding its own
+// rounds' snapshots, from a checkout that still stands, and only once its checkout was given back.
+func TestDeleteIfEmptyReleasesItsRounds(t *testing.T) {
+	tests := []struct {
+		name            string
+		deprovisionErr  error
+		checkoutGone    bool
+		wantWorkflowDir bool
+		wantReleased    bool
+	}{
+		{
+			name:         "a checkout that stands",
+			wantReleased: true,
+		},
+		{
+			name:            "a checkout already removed hands the release to the workflow's directory",
+			checkoutGone:    true,
+			wantWorkflowDir: true,
+			wantReleased:    true,
+		},
+		{
+			name:           "a checkout that could not be given back keeps them",
+			deprovisionErr: errors.New("the hook failed"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newDeleteFixture(t, &fakeScripts{deprovisionErr: tt.deprovisionErr})
+			task := fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "work"})
+			other := fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "other"})
+			dir := t.TempDir()
+			require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
+			for _, id := range []string{task.ID, other.ID} {
+				_, err := fx.reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+					AgentID:     uuid.NewString(),
+					TaskID:      id,
+					BaseSHA:     "base",
+					SnapshotSHA: "same-sha",
+				})
+				require.NoError(t, err)
+			}
+			if tt.checkoutGone {
+				require.NoError(t, os.RemoveAll(dir))
+			}
+			require.NoError(t, fx.stores.Tasks.MarkDeleting(t.Context(), []string{task.ID}))
+
+			err := fx.svc.DeleteIfEmpty(t.Context(), task.ID)
+
+			if !tt.wantReleased {
+				require.Error(t, err)
+				assert.Empty(t, fx.snapshots.Released)
+
+				return
+			}
+			require.NoError(t, err)
+			want := dir
+			if tt.wantWorkflowDir {
+				want = fx.workflow.Cwd
+			}
+			assert.Equal(t, []string{reviewstore.RoundRef(task.ID, "same-sha")}, fx.snapshots.Released,
+				"only the deleted task's ref goes, though the other task's names the same snapshot")
+			assert.Equal(t, []string{want}, fx.snapshots.ReleasedFrom)
 		})
 	}
 }

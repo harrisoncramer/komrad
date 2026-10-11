@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/logging"
 	"komrad/internal/scriptrun"
 	"komrad/lib/xslice"
 
+	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
@@ -45,6 +49,8 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 
 		return errors.Join(failed, s.tasks.RecordCleanupFailure(cleanup, found.ID, err))
 	}
+
+	s.releaseRounds(cleanup, *found)
 
 	if err := s.worktrees.DeleteForTask(cleanup, found.ID); err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
@@ -125,4 +131,54 @@ func (s *TaskService) deprovision(ctx context.Context, task taskstore.Task, flow
 	}
 
 	return s.scripts.RunTaskDeprovision(ctx, task, deprovisioner)
+}
+
+// releaseRounds drops the refs holding the snapshots of a task's rounds, which would otherwise pin
+// a commit covering the whole worktree long after the task is gone.
+func (s *TaskService) releaseRounds(ctx context.Context, task taskstore.Task) {
+	if s.reviews == nil {
+		return
+	}
+
+	rounds, err := s.reviews.ListRounds(ctx, task.ID)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of a task being deleted",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+
+		return
+	}
+	if len(rounds) == 0 {
+		return
+	}
+
+	dir, err := s.findRoundRefDir(ctx, task)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to find a checkout holding the rounds of a task being deleted",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+
+		return
+	}
+
+	for _, round := range rounds {
+		if err := s.snapshots.ReleaseRef(ctx, dir, reviewstore.RoundRef(task.ID, round.SnapshotSHA)); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+				append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+		}
+	}
+}
+
+// findRoundRefDir is a checkout of the repository holding a task's round refs: the task's own
+// while it stands, else its workflow's directory, which shares the refs of every worktree cut from
+// it.
+func (s *TaskService) findRoundRefDir(ctx context.Context, task taskstore.Task) (string, error) {
+	if info, err := os.Stat(task.Checkout.Cwd); err == nil && info.IsDir() {
+		return task.Checkout.Cwd, nil
+	}
+
+	flow, err := s.workflows.GetIncludingArchived(ctx, task.WorkflowID)
+	if err != nil {
+		return "", err
+	}
+
+	return flow.Cwd, nil
 }

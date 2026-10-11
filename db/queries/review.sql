@@ -59,28 +59,6 @@ WHERE
 ORDER BY
     r.ordinal;
 
--- name: ListRoundsLeftByAgents :many
-SELECT
-    r.*
-FROM
-    review_rounds r
-WHERE
-    r.task_id IN (
-        SELECT
-            a.task_id
-        FROM
-            agents a
-        WHERE
-            a.id = ANY (sqlc.arg('agent_ids')::uuid[]))
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents o
-        WHERE
-            o.task_id = r.task_id
-            AND o.id <> ALL (sqlc.arg('agent_ids')::uuid[]));
-
 -- name: InsertReview :one
 INSERT INTO reviews(
     agent_id,

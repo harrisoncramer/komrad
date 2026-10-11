@@ -13,6 +13,7 @@ import (
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
 	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
@@ -48,12 +49,19 @@ type taskScriptRunner interface {
 	RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error
 }
 
+// snapshotReleaser lets go of the ref holding a round's snapshot.
+type snapshotReleaser interface {
+	ReleaseRef(ctx context.Context, dir, ref string) error
+}
+
 type NewTaskServiceParams struct {
 	Tasks     *taskstore.TaskStore
 	Agents    *agentstore.AgentStore
 	Runs      *runstore.RunStore
 	Workflows *workflowstore.WorkflowStore
 	Worktrees *worktreestore.WorktreeStore
+	Reviews   *reviewstore.ReviewStore
+	Snapshots snapshotReleaser
 	Scripts   taskScriptRunner
 	Tx        txRunner
 }
@@ -64,6 +72,8 @@ type TaskService struct {
 	runs      *runstore.RunStore
 	workflows *workflowstore.WorkflowStore
 	worktrees *worktreestore.WorktreeStore
+	reviews   *reviewstore.ReviewStore
+	snapshots snapshotReleaser
 	scripts   taskScriptRunner
 	tx        txRunner
 }
@@ -76,6 +86,8 @@ func NewTaskService(params NewTaskServiceParams) *TaskService {
 		runs:      params.Runs,
 		workflows: params.Workflows,
 		worktrees: params.Worktrees,
+		reviews:   params.Reviews,
+		snapshots: params.Snapshots,
 		scripts:   params.Scripts,
 		tx:        params.Tx,
 	}

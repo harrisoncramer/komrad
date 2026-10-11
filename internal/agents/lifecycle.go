@@ -31,11 +31,6 @@ import (
 // errArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself nor its child.
 var errArchiveNotYours = fail.Denied("an agent may archive only itself and its own children")
 
-// snapshotReleaser drops the ref holding a round's snapshot.
-type snapshotReleaser interface {
-	ReleaseRef(ctx context.Context, dir, ref string) error
-}
-
 type NewLifecycleServiceParams struct {
 	Tmux           paneKiller
 	Agents         *agentstore.AgentStore
@@ -45,7 +40,6 @@ type NewLifecycleServiceParams struct {
 	Tx             txRunner
 	Scripts        agentScriptRunner
 	Reviews        *reviewstore.ReviewStore
-	Snapshots      snapshotReleaser
 	Screens        screenKeeper
 	LogsDir        string
 	FramesDir      string
@@ -63,7 +57,6 @@ type LifecycleService struct {
 	tx             txRunner
 	scripts        agentScriptRunner
 	reviews        *reviewstore.ReviewStore
-	snapshots      snapshotReleaser
 	screens        screenKeeper
 	logsDir        string
 	framesDir      string
@@ -82,7 +75,6 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		tx:             params.Tx,
 		scripts:        params.Scripts,
 		reviews:        params.Reviews,
-		snapshots:      params.Snapshots,
 		screens:        params.Screens,
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
@@ -644,10 +636,8 @@ func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params Arc
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {
-	// The refs holding these agents' snapshots and the drafts they were writing about other
-	// agents both go before the rows naming them do, and both outside the delete's own
-	// transaction.
-	s.releaseRounds(ctx, ids)
+	// The drafts these agents were writing about other agents go before the rows naming them do,
+	// and outside the delete's own transaction.
 	s.dropOpenReviews(ctx, ids)
 
 	// The delete is what says which pane each row really held, so a pane written after the
@@ -670,69 +660,6 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	s.removeFrames(ctx, ids)
 
 	return nil
-}
-
-// releaseRounds drops the refs holding the snapshots of tasks these agents leave with no agent,
-// which would otherwise pin a commit covering the whole worktree long after the work is gone.
-func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
-	if s.reviews == nil {
-		return
-	}
-
-	going, err := s.agents.ListByID(ctx, ids)
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the agents being deleted to release their rounds",
-			logging.Err(err)...)
-
-		return
-	}
-
-	rounds, err := s.reviews.ListRoundsLeftBy(ctx, ids)
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds left by agents being deleted",
-			logging.Err(err)...)
-
-		return
-	}
-
-	onTask := map[string]agentstore.Agent{}
-	for _, agent := range going {
-		if agent.TaskID != nil {
-			onTask[*agent.TaskID] = agent
-		}
-	}
-
-	for _, round := range rounds {
-		agent, ok := onTask[round.TaskID]
-		if !ok {
-			continue
-		}
-
-		dir := s.findRoundRefDir(ctx, agent)
-		if dir == "" {
-			continue
-		}
-
-		if err := s.snapshots.ReleaseRef(ctx, dir, reviewstore.RoundRef(round.TaskID, round.SnapshotSHA)); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
-				append([]slog.Attr{slog.String(logging.TaskID, round.TaskID)}, logging.Err(err)...)...)
-		}
-	}
-}
-
-// findRoundRefDir is a checkout of the repository holding a task's round refs: the agent's own while it
-// stands, else its workflow's directory, which shares the refs of every worktree cut from it.
-func (s *LifecycleService) findRoundRefDir(ctx context.Context, agent agentstore.Agent) string {
-	if doesDirExist(agent.Cwd) {
-		return agent.Cwd
-	}
-
-	flow, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
-	if err != nil {
-		return ""
-	}
-
-	return flow.Cwd
 }
 
 // dropOpenReviews removes the unreleased reviews these agents were writing on other agents'
