@@ -577,7 +577,7 @@ func (f *Frame) forgetSplit() {
 func (f *Frame) RestoreSplit() {
 	f.forgetSplit()
 
-	if f.sidebar == "" || !f.hasStage() {
+	if f.sidebar == "" || (!f.hasStage() && !f.isFolded()) {
 		return
 	}
 

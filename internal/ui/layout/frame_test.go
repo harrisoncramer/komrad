@@ -655,16 +655,37 @@ func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 // TestRestoreSplitGivesTheSidebarItsColumnsBack covers a window that changed size, where tmux
 // shares the change out between the panes and leaves a narrow sidebar with almost none of it.
 func TestRestoreSplitGivesTheSidebarItsColumnsBack(t *testing.T) {
-	tmux := &recordingTmux{width: 200, height: 50}
-	frame := New(tmux, config.Layout{SidebarWidth: 16})
-	frame.Attach("%0")
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	tests := []struct {
+		name  string
+		stage func(*Frame)
+	}{
+		{
+			name:  "beside a staged agent",
+			stage: func(frame *Frame) { frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"}) },
+		},
+		{
+			name: "beside an info pane the stage folded into",
+			stage: func(frame *Frame) {
+				frame.Open(RegionInfo)
+				frame.ClearStage()
+			},
+		},
+	}
 
-	tmux.resizes = nil
-	frame.RestoreSplit()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{width: 200, height: 50}
+			frame := New(tmux, config.Layout{SidebarWidth: 16})
+			frame.Attach("%0")
+			tt.stage(frame)
 
-	assert.Contains(t, tmux.resizes, frame.Pane(RegionSidebar)+" 16",
-		"the sidebar is put back to the width it is configured for")
+			tmux.resizes = nil
+			frame.RestoreSplit()
+
+			assert.Contains(t, tmux.resizes, frame.Pane(RegionSidebar)+" 16",
+				"the sidebar is put back to the width it is configured for")
+		})
+	}
 }
 
 // TestRestoreSplitLeavesAZoomedSidebarAlone covers the sidebar holding the whole window, where
