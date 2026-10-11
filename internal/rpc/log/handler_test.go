@@ -318,7 +318,7 @@ func TestReadAgentLogs(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:   "the service source reads the service log",
+			name:   "the server source reads the server log",
 			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "server"},
 			window: &logread.Window{Lines: []string{"one"}, Offset: 42},
 			wantRead: agentRead{
