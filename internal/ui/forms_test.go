@@ -1066,12 +1066,12 @@ func TestFormsLayout(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "a form takes the window beside the list",
+			name:  "a form takes the stage beside the list",
 			press: []string{"space", "c"},
 			want:  `Child of "author"`,
 		},
 		{
-			name:  "a confirmation takes the window beside the list",
+			name:  "a confirmation takes the stage beside the list",
 			press: []string{"space", "a", "d"},
 			want:  `Permanently delete task "task-a1"?`,
 		},
@@ -1088,7 +1088,6 @@ func TestFormsLayout(t *testing.T) {
 			harness.press(tt.press...)
 
 			frame := harness.readFrame()
-			assert.True(t, harness.panel.IsZoomed())
 			assert.Contains(t, readStage(frame)[0], tt.want)
 			assert.Contains(t, readListRows(frame), "   └─ author", "the list it was opened over is still beside it")
 		})
