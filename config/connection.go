@@ -97,7 +97,7 @@ func defaultConnection() Connection {
 }
 
 func (c *Connection) normalize() {
-	c.URL = strings.TrimSuffix(c.URL, "/")
+	c.URL = strings.TrimRight(c.URL, "/")
 	if strings.TrimSpace(c.Addr) == "" {
 		c.Addr = defaultAddr
 	}

@@ -217,3 +217,56 @@ func TestServerCheckOnARemoteEngine(t *testing.T) {
 		})
 	}
 }
+
+// TestServerCheckNamesAnEngineByItsURL covers an engine reached at a url, whose local address is
+// never dialled and so is neither checked nor named.
+func TestServerCheckNamesAnEngineByItsURL(t *testing.T) {
+	t.Parallel()
+
+	const engineURL = "https://komrad.example.com"
+
+	tests := []struct {
+		name       string
+		status     ServerStatus
+		wantStatus Status
+	}{
+		{
+			name:       "the engine answers nothing",
+			status:     ServerStatus{},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "the engine is serving",
+			status: ServerStatus{
+				Answering: true,
+				Ready:     true,
+				Version:   "v1.0.0",
+			},
+			wantStatus: StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			env := Env{
+				Settings: Settings{
+					Addr:           ":not-an-address",
+					EngineURL:      engineURL,
+					TmuxSocket:     "komrad",
+					EngineIsRemote: true,
+				},
+				ProbeServer: func(context.Context) (ServerStatus, error) {
+					return tt.status, nil
+				},
+				IsPanelRunning: func(context.Context) bool { return false },
+			}
+
+			result := newServerCheck().Run(t.Context(), env)
+
+			assert.Equal(t, tt.wantStatus, result.Status)
+			assert.Contains(t, result.Detail, engineURL)
+		})
+	}
+}

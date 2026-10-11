@@ -1005,6 +1005,12 @@ func TestLoadTakesAnEngineURL(t *testing.T) {
 			want:    "",
 		},
 		{
+			name:    "an https host, kept without a run of trailing slashes",
+			file:    "[connection]\nurl = \"https://komrad.example.com//\"\n",
+			wantErr: false,
+			want:    "https://komrad.example.com",
+		},
+		{
 			name:    "an https host, kept without its trailing slash",
 			file:    "[connection]\nurl = \"https://komrad.example.com/\"\n",
 			wantErr: false,
