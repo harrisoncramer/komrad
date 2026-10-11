@@ -342,6 +342,17 @@ func (a api) retryAgent(params retryAgentParams) (*agentv1.Agent, error) {
 	})
 }
 
+func (a api) restartAgent(id, note string) (*agentv1.Agent, error) {
+	return call(rpcapi.HookCallTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+		resp, err := a.agents.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{Id: id, Note: note}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to restart agent %q: %w", id, err)
+		}
+
+		return resp.Msg.GetAgent(), nil
+	})
+}
+
 func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
 	return call(rpcapi.HookCallTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: id}))

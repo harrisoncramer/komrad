@@ -833,12 +833,20 @@ WHERE
 
 -- name: SetAgentSessionID :exec
 UPDATE
-    agents
+    agents a
 SET
     session_id = @session_id
 WHERE
-    id = @id
-    AND session_id = '';
+    a.id = @id
+    AND a.session_id = ''
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agent_transcript_sessions t
+        WHERE
+            t.agent_id = @id
+            AND t.session_id = @session_id);
 
 -- name: ForgetAgentPane :many
 UPDATE

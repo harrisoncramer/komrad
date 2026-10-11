@@ -582,6 +582,18 @@ message ResumeAgentResponse {
   Agent agent = 1;
 }
 
+message RestartAgentRequest {
+  // Which writer to relaunch on a new conversation.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // What the writer is told on top of its briefing, blank for nothing more.
+  string note = 2 [(buf.validate.field).string.max_len = 50000];
+}
+
+message RestartAgentResponse {
+  // The writer as relaunched, running.
+  Agent agent = 1;
+}
+
 message HoldAgentRequest {
   // Which agent to stop and hold.
   string id = 1 [(buf.validate.field).string.min_len = 1];
@@ -842,6 +854,16 @@ service AgentService {
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
+    };
+  }
+  rpc RestartAgent(RestartAgentRequest) returns (RestartAgentResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "restart_agent"
+      description: "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. Its earlier conversation stays in its transcript, and the task's reviewers carry on."
+      destructive: true
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc RetryAgent(RetryAgentRequest) returns (RetryAgentResponse) {

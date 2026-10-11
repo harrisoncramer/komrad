@@ -58,11 +58,11 @@ The writer can start reviewers on the task, which show up alongside it in italic
 
 Tasks can only have one live writer at a time. This is to ensure changes do not collide. If you need additional parallelism, break your work into multiple tasks.
 
-### Handing off
+### Restarting the writer
 
-Sometimes, you may want to start with a fresh writer, for instance if the current writer's context is too large or bloated, or you want to provide a new direction to the change. You can choose to "hand off" the current changes to a new agent with <Key name="menu.hand_off" /> from the task's menu. Komrad asks for a note to the new writer, archives the old writer and its children, and starts a new writer in the same checkout.
+Press <Key name="menu.restart" /> from the task's menu to restart the writer on a new conversation. Komrad asks for a note to it, then relaunches the same writer in the same checkout. Its earlier conversation stays in its transcript, and the task's reviewers carry on.
 
-The new writer reads the task's notes and the state of the checkout before it does anything.
+The restarted writer reads the task's notes and the state of the checkout before it does anything.
 
 ## Archiving, restoring, and deleting tasks
 

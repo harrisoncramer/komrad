@@ -576,3 +576,52 @@ func TestHoldSettlesTheState(t *testing.T) {
 		})
 	}
 }
+
+// TestSetSessionID pins that a conversation is recorded only on an agent holding none, and never one
+// the agent has already held.
+func TestSetSessionID(t *testing.T) {
+	tests := []struct {
+		name    string
+		held    string
+		earlier string
+		found   string
+		want    string
+	}{
+		{
+			name:  "an agent holding no conversation takes the one found",
+			found: "session-new",
+			want:  "session-new",
+		},
+		{
+			name:  "an agent holding a conversation keeps it",
+			held:  "session-held",
+			found: "session-new",
+			want:  "session-held",
+		},
+		{
+			name:    "a conversation the agent has moved on from is not taken back",
+			earlier: "session-earlier",
+			found:   "session-earlier",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, f.Create(ctx, Agent{Name: "agent", State: StateIdle, SessionID: tt.held}))
+			created, err := f.Get(ctx, "agent")
+			require.NoError(t, err)
+			if tt.earlier != "" {
+				seedSyncedSession(t, f, created.ID, tt.earlier)
+			}
+
+			require.NoError(t, f.SetSessionID(ctx, created.ID, tt.found))
+
+			got, err := f.Get(ctx, "agent")
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.SessionID)
+		})
+	}
+}

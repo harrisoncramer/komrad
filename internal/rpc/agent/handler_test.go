@@ -539,6 +539,21 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 		},
 		{
+			name: "restarting",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				restarted, err := svc.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{Id: ids[0], Note: "pick up the review"}))
+				if err != nil {
+					return "", err
+				}
+
+				return restarted.Msg.GetAgent().GetName(), nil
+			},
+			wantAnswer: "spawned",
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, []agents.RestartAgentParams{{ID: ids[0], Note: "pick up the review"}}, services.restarted)
+			},
+		},
+		{
 			name: "holding from the panel",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				held, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: ids[0]}))
@@ -1162,6 +1177,7 @@ type recordingAgentServices struct {
 	released      agents.ReleaseParams
 	reported      agents.RecordReportParams
 	resumed       []agents.ResumeAgentParams
+	restarted     []agents.RestartAgentParams
 	held          []agents.HoldParams
 	orchestrated  []string
 	planned       []string
@@ -1230,6 +1246,12 @@ func (f *recordingAgentServices) Adopt(_ context.Context, params agents.AdoptPar
 
 func (f *recordingAgentServices) ResumeAgent(_ context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error) {
 	f.resumed = append(f.resumed, params)
+
+	return f.answer()
+}
+
+func (f *recordingAgentServices) RestartAgent(_ context.Context, params agents.RestartAgentParams) (*agentstore.Agent, error) {
+	f.restarted = append(f.restarted, params)
 
 	return f.answer()
 }

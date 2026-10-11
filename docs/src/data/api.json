@@ -313,6 +313,24 @@
           "response": "agent.v1.ResumeAgentResponse"
         },
         {
+          "slug": "restart-agent",
+          "name": "RestartAgent",
+          "path": "/agent.v1.AgentService/RestartAgent",
+          "command": "komrad rpc restart-agent",
+          "tool": "restart_agent",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout.",
+          "description": "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. Its earlier conversation stays in its transcript, and the task's reviewers carry on.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.RestartAgentRequest",
+          "response": "agent.v1.RestartAgentResponse"
+        },
+        {
           "slug": "retry-agent",
           "name": "RetryAgent",
           "path": "/agent.v1.AgentService/RetryAgent",
@@ -5057,6 +5075,52 @@
           "oneof": "",
           "rules": [],
           "description": "What the agent that asked does next: how the review reaches it and how it answers."
+        }
+      ]
+    },
+    "agent.v1.RestartAgentRequest": {
+      "name": "RestartAgentRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which writer to relaunch on a new conversation."
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 50000 characters"
+          ],
+          "description": "What the writer is told on top of its briefing, blank for nothing more."
+        }
+      ]
+    },
+    "agent.v1.RestartAgentResponse": {
+      "name": "RestartAgentResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent",
+          "type": "Agent",
+          "ref": "agent.v1.Agent",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The writer as relaunched, running."
         }
       ]
     },

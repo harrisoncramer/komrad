@@ -24,7 +24,7 @@ Komrad has three kinds of agents.
 
 There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator), which coordinates tasks and their agents.
 
-An _implementer_ does a task's work. It makes edits, commits, and opens the pull request. Only one live implementer at a time holds a task's checkout, and komrad calls it the task's [writer](../tasks/#managing-task-agents). You can [hand off](../tasks/#handing-off) the work to a new writer whenever you want.
+An _implementer_ does a task's work. It makes edits, commits, and opens the pull request. Only one live implementer at a time holds a task's checkout, and komrad calls it the task's [writer](../tasks/#managing-task-agents). You can [restart](../tasks/#restarting-the-writer) the writer on a new conversation whenever you want.
 
 Finally, _reviewer_ agents read the writer's change and comment on it. Only the writer can ask for one. A reviewer is the writer's child: it works in the writer's checkout, makes no changes of its own, and is archived along with the writer.
 

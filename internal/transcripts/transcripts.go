@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"komrad/internal/harness"
 	agentstore "komrad/internal/store/agent"
@@ -25,6 +26,7 @@ type TranscriptSyncer struct {
 	agents    *agentstore.AgentStore
 	store     *transcriptstore.TranscriptStore
 	harnesses harnessGetter
+	mu        sync.Mutex
 }
 
 // NewTranscriptSyncer builds a syncer over the store, reading each agent's log through the
@@ -40,6 +42,9 @@ func NewTranscriptSyncer(params NewTranscriptSyncerParams) *TranscriptSyncer {
 // Sync folds any new transcript text for every agent whose log can still hold unread turns into
 // the store, reading only the bytes appended since that agent's last sync.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
 	agents, err := ts.agents.ListForTranscriptSync(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list agents for transcript sync: %w", err)
@@ -58,6 +63,18 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	}
 
 	return errors.Join(failures...)
+}
+
+// SyncAgent folds whatever one agent's current conversation holds past the last sync into the store.
+func (ts *TranscriptSyncer) SyncAgent(ctx context.Context, agent agentstore.Agent) error {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	if agent.SessionID == "" {
+		return nil
+	}
+
+	return ts.syncOne(ctx, agent)
 }
 
 func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentstore.Agent) []agentstore.Agent {

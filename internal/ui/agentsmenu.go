@@ -49,7 +49,7 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			[]submenuEntry{
 				openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
 			},
-			handOffEntries(m, task),
+			restartEntries(m, task),
 			a.snoozeEntries(m, lead),
 			a.editEntries(m, m.listing.findCheckoutOwner(task)),
 			[]submenuEntry{

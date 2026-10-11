@@ -3314,12 +3314,20 @@ func (q *Queries) SetAgentReportedReasonByID(ctx context.Context, arg SetAgentRe
 
 const setAgentSessionID = `-- name: SetAgentSessionID :exec
 UPDATE
-    agents
+    agents a
 SET
     session_id = $1
 WHERE
-    id = $2
-    AND session_id = ''
+    a.id = $2
+    AND a.session_id = ''
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agent_transcript_sessions t
+        WHERE
+            t.agent_id = $2
+            AND t.session_id = $1)
 `
 
 type SetAgentSessionIDParams struct {

@@ -12,7 +12,6 @@ import (
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
-	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -79,7 +78,7 @@ func TestTasksTree(t *testing.T) {
 		assert.NotContains(t, frame, "new workflow")
 	})
 
-	t.Run("a new agent or a hand off from a task's menu", func(t *testing.T) {
+	t.Run("a new agent or a restart from a task's menu", func(t *testing.T) {
 		tests := []struct {
 			name     string
 			task     *taskv1.Task
@@ -193,7 +192,7 @@ func TestTasksTree(t *testing.T) {
 				require.Contains(t, menu, "edit task")
 				if !tt.offered {
 					assert.NotContains(t, menu, "new agent")
-					assert.NotContains(t, menu, "hand off")
+					assert.NotContains(t, menu, "restart")
 
 					return
 				}
@@ -347,43 +346,27 @@ func TestTasksRow(t *testing.T) {
 		})
 	})
 
-	t.Run("a hand off whose new writer fails to start restores the old one", func(t *testing.T) {
-		harness := openAgents(t, buildHandOff()...)
-		harness.refuse(agentv1connect.AgentServiceCreateAgentProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no harness named cluade")))
+	t.Run("a restart that fails says so", func(t *testing.T) {
+		harness := openAgents(t, buildRestart()...)
+		harness.refuse(agentv1connect.AgentServiceRestartAgentProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("restore its task first")))
 
 		harness.press("k", "space", "o", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceRestoreAgentsProcedure, &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}})
-		assert.Contains(t, harness.readFrame(), "Could not hand off task")
+		assert.Contains(t, harness.readFrame(), "Could not restart agent")
 	})
 
-	t.Run("hand off replaces the writer under the task's row in the same checkout", func(t *testing.T) {
-		harness := openAgents(t, buildHandOff()...)
-		harness.answer(agentv1connect.AgentServiceCreateAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-			return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a4"}}), nil
+	t.Run("a restart relaunches the writer with the note", func(t *testing.T) {
+		harness := openAgents(t, buildRestart()...)
+		harness.answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: &agentv1.Agent{Id: "a1"}}), nil
 		})
-		answerResume(harness)
 
 		harness.press(slices.Concat([]string{"k", "space", "o"}, spellKeys("finish the cookie fix"), []string{"enter"})...)
 
-		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}})
-		harness.assertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, &agentv1.CreateAgentRequest{
-			Prompt:     "You take this task over from author, who wrote it until now. Read the task's notes and run git status before you change anything.\n\nfinish the cookie fix",
-			Harness:    "claude",
-			Flags:      "--model opus",
-			WorkflowId: "w1",
-			Task:       xptr.Ptr("t1"),
+		harness.assertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
+			Id:   "a1",
+			Note: "finish the cookie fix",
 		})
-
-		successor := newTaskAgent("a4", "successor", "t1", agentv1.AgentRole_AGENT_ROLE_WRITER, 20)
-		successor.Cwd = "/worktrees/fix-login"
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "komrad"), buildHandOff()[1], successor))
-		harness.press("k")
-		require.Equal(t, "└─ fix-login", strings.TrimSpace(readHoveredRow(harness.readFrame())))
-		harness.press("enter")
-
-		harness.assertSentTo(agentv1connect.AgentServiceResumeAgentProcedure, &agentv1.ResumeAgentRequest{Id: "a4"})
-		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
 	})
 
 	t.Run("a task's menu holds everything done to the work", func(t *testing.T) {
@@ -392,7 +375,7 @@ func TestTasksRow(t *testing.T) {
 		harness.press("j", "space")
 
 		menu := strings.Join(readStage(harness.readFrame()), "\n")
-		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "hand off", "edit files", "git ›", "jump ›", "hide ›", "archive ›"} {
+		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "restart", "edit files", "git ›", "jump ›", "hide ›", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
 	})
@@ -462,7 +445,7 @@ func TestTasksRow(t *testing.T) {
 	})
 }
 
-func buildHandOff() []proto.Message {
+func buildRestart() []proto.Message {
 	writer := newTaskAgent("a1", "author", "t1", agentv1.AgentRole_AGENT_ROLE_WRITER, 0)
 	writer.Harness, writer.Flags = "claude", "--model opus"
 	writer.Cwd = "/worktrees/fix-login"

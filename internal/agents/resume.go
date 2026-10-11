@@ -20,6 +20,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 )
 
 // interruptedPrompt is what a resumed agent is asked on the way back in.
@@ -48,6 +49,8 @@ type NewResumeServiceParams struct {
 	Harnesses          harnessGetter
 	Scripts            agentScriptRunner
 	Locks              treeLocker
+	Transcripts        transcriptSyncer
+	Tasks              *tasks.TaskService
 	FallbackResumeRoot string
 }
 
@@ -58,6 +61,8 @@ type ResumeService struct {
 	workflows          *workflowstore.WorkflowStore
 	harnesses          harnessGetter
 	locks              treeLocker
+	transcripts        transcriptSyncer
+	tasks              *tasks.TaskService
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
@@ -81,6 +86,8 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 		workflows:          params.Workflows,
 		harnesses:          params.Harnesses,
 		locks:              params.Locks,
+		transcripts:        params.Transcripts,
+		tasks:              params.Tasks,
 		fallbackResumeRoot: params.FallbackResumeRoot,
 		inFlight:           map[string]struct{}{},
 	}
@@ -226,6 +233,19 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		agent.InterruptedAt = &at
 	}
 
+	return s.relaunch(ctx, relaunchParams{agent: agent, harness: hn})
+}
+
+type relaunchParams struct {
+	agent   agentstore.Agent
+	harness harness.Harness
+	restart *restartLaunch
+}
+
+// relaunch puts an agent back in a pane, on its own conversation or, when restarting, on a new one.
+func (s *ResumeService) relaunch(ctx context.Context, params relaunchParams) error {
+	agent := params.agent
+
 	// Until this write the row reads as a dormant agent nobody is touching.
 	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
 	if err != nil {
@@ -242,8 +262,9 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	return s.starter.start(ctx, agent, &resumeStart{
 		service: s,
 		scripts: s.starter.scripts,
-		harness: hn,
+		harness: params.harness,
 		prior:   prior,
+		restart: params.restart,
 	})
 }
 
@@ -252,6 +273,7 @@ type resumeStart struct {
 	scripts agentScriptRunner
 	harness harness.Harness
 	prior   agentstore.State
+	restart *restartLaunch
 }
 
 func (r *resumeStart) runSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
@@ -281,6 +303,12 @@ func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 }
 
 func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
+	if r.restart != nil {
+		if err := r.setSession(ctx, *agent, agent.SessionID); err != nil {
+			return fmt.Errorf("failed to start a new conversation for %q: %w", agent.Name, err)
+		}
+	}
+
 	agent.Pane = pane
 	agent.State = agentstore.StateSettingUp
 	// An archive or a delete takes the row without reading the resume mark, so this write is where
@@ -297,6 +325,10 @@ func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 }
 
 func (r *resumeStart) planLaunch(agent agentstore.Agent) paneLaunch {
+	if r.restart != nil {
+		return r.restart.plan(r.harness, agent)
+	}
+
 	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
 	// a fresh conversation with no turn to read back over.
 	resuming := agent.SessionID != ""
@@ -323,8 +355,8 @@ func (r *resumeStart) planLaunch(agent agentstore.Agent) paneLaunch {
 }
 
 func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error {
-	// A recorded turn does not outlive the relaunch.
-	if agent.InterruptedAt != nil {
+	// A recorded turn does not outlive the relaunch, and a new conversation has none.
+	if agent.InterruptedAt != nil || r.restart != nil {
 		if err := r.service.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
 		}
@@ -340,10 +372,27 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 	return nil
 }
 
-// rollBack puts back the state the resume found.
+// setSession points the agent at a conversation.
+func (r *resumeStart) setSession(ctx context.Context, agent agentstore.Agent, sessionID string) error {
+	return r.service.agents.SetHarness(ctx, agentstore.SetHarnessParams{
+		ID:        agent.ID,
+		Harness:   agent.Harness,
+		Flags:     agent.Flags,
+		SessionID: sessionID,
+	})
+}
+
+// rollBack puts back the state the resume found, and the conversation a restart left.
 func (r *resumeStart) rollBack(ctx context.Context, agent agentstore.Agent, _ error) {
 	if err := r.service.agents.SetStateByID(ctx, agent.ID, r.prior); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+	if r.restart == nil {
+		return
+	}
+	if err := r.setSession(ctx, agent, r.restart.earlierSessionID); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the conversation of a writer whose restart gave up",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }

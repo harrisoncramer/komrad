@@ -212,7 +212,8 @@ func (s *AgentStore) SetHarness(ctx context.Context, params SetHarnessParams) er
 	return nil
 }
 
-// SetSessionID records an agent's conversation when none is already stored.
+// SetSessionID records an agent's conversation when none is already stored and the agent has not
+// held it before.
 func (s *AgentStore) SetSessionID(ctx context.Context, id, sessionID string) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
