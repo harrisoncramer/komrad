@@ -198,6 +198,24 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
 	})
 
+	t.Run("the jump menu on a document with no task lands on its author", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, buildDocumentAuthors()...)
+		shelf := newDocumentShelf()
+		for _, document := range shelf.listed {
+			document.TaskId = nil
+		}
+		shelf.answer(harness)
+		moveToAgentRow(t, harness, "quiet")
+		harness.press("tab", "tab")
+		harness.fireTimers()
+		harness.press("space", "J", "a")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Equal(t, "author", readRecordField(harness.readFrame(), "agent_id"))
+	})
+
 	t.Run("the jump menu lands on an archived task among the archived agents", func(t *testing.T) {
 		t.Parallel()
 

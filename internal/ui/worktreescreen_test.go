@@ -33,7 +33,6 @@ func TestWorktreesOpen(t *testing.T) {
 		name        string
 		press       []string
 		wantHovered string
-		wantTaskID  string
 	}{
 		{
 			name:        "from the agents list it lands on the hovered agent's directory",
