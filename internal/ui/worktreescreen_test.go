@@ -258,7 +258,7 @@ func TestWorktreesDelete(t *testing.T) {
 
 		harness.press("v", "j", "v", "space", "a", "d")
 
-		assert.Contains(t, harness.readFrame(), "Delete 2 worktrees?")
+		assert.Contains(t, harness.readFrame(), "Permanently delete 2 worktrees?")
 
 		harness.press("y")
 
