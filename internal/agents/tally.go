@@ -22,11 +22,13 @@ const turnEndGrace = 5 * time.Second
 // tally is what the reconcile passes have accrued about each agent, all of it counters and
 // timestamps the panes drove.
 type tally struct {
-	// mu guards tracked and every field of the entries inside it, which the reconcile pass and
+	// mu guards hasPassed, tracked and every field of the entries inside it, which the reconcile pass and
 	// the RPC handler both reach.
 	mu      sync.Mutex
 	tracked map[string]trackedAgent
-	now     func() time.Time
+	// hasPassed is whether a pass has finished, so a turn end the first pass finds counts as old.
+	hasPassed bool
+	now       func() time.Time
 }
 
 // trackedAgent is what one pass leaves the next to work from about a single agent.
@@ -96,7 +98,10 @@ func (t *tally) observeTurnEnd(agent agentstore.Agent) {
 			return
 		}
 		entry.turnEnd = *agent.Turn.EndedAt
-		entry.turnEndSeen = now
+		entry.turnEndSeen = time.Time{}
+		if t.hasPassed {
+			entry.turnEndSeen = now
+		}
 	})
 }
 
@@ -207,6 +212,13 @@ func (t *tally) isUnrecognizedHeld(agentID string, hash uint64) bool {
 }
 
 // prune forgets the agents the store no longer holds.
+func (t *tally) markPassed() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.hasPassed = true
+}
+
 func (t *tally) prune(known map[string]struct{}) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

@@ -115,6 +115,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	r.setAlive(ctx, came, true)
 	r.setAlive(ctx, went, false)
 	r.tally.prune(known)
+	r.tally.markPassed()
 	if r.frames != nil {
 		r.frames.Forget(known)
 	}

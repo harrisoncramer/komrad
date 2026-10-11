@@ -519,13 +519,21 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 // even with the reconciler's clock behind the database's.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
-		name         string
-		frames       []string
-		clockStep    time.Duration
-		backdateSeen time.Duration
-		want         agentstore.State
-		wantMisses   int
+		name             string
+		endedBeforeStart bool
+		frames           []string
+		clockStep        time.Duration
+		backdateSeen     time.Duration
+		want             agentstore.State
+		wantMisses       int
 	}{
+		{
+			name:             "a boundary already on the row when the reconciler starts does not settle an idle frame",
+			endedBeforeStart: true,
+			frames:           []string{harnesstest.FrameIdle},
+			want:             agentstore.StateThinking,
+			wantMisses:       1,
+		},
 		{
 			name:   "a boundary against a frame still showing work does not move it",
 			frames: []string{harnesstest.FrameWorking},
@@ -576,6 +584,9 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			})
 			now := time.Now().Add(-time.Minute)
 			rec.tally.now = func() time.Time { return now }
+			if !tt.endedBeforeStart {
+				rec.tally.markPassed()
+			}
 			require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
 
 			for _, frame := range tt.frames {
@@ -1036,6 +1047,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 		States:   st.Agents,
 	})
+	rec.tally.markPassed()
 	require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
 	reported := agentByID(t, st, agent.ID).Turn.EndedAt
 
@@ -1202,6 +1214,7 @@ func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 		States:   st.Agents,
 	})
 	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+	rec.tally.markPassed()
 	require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
 
 	require.NoError(t, rec.Reconcile(ctx))
