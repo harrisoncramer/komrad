@@ -8,9 +8,9 @@
 
 [34m›[m     [1;34mkomrad[m
   [90m[m   [90m├─ [m[90mreviewer[m
-      [90m│  └─ [m[90mreviewer[m
+      [90m│  └─ [m[3;90mreviewer[m
   [90m[m   [90m└─ [m[90mcargo-fix[m
-      [90m   └─ [m[90mcargo-fix[m
+      [90m   └─ [m[3;90mcargo-fix[m
 
 
 [90m─── [m[90mInfo[m[90m [m[90m──────────────────────────────────[m
