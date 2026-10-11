@@ -30,7 +30,7 @@ func (c *Client) ExecAttachSession(session string) error {
 	}
 
 	args := slices.Concat([]string{"tmux"}, c.server, []string{"attach-session", "-t", session})
-	if err := syscall.Exec(path, args, environWithoutTmux()); err != nil {
+	if err := syscall.Exec(path, args, buildClientEnv()); err != nil {
 		return fmt.Errorf("failed to attach session %q: %w", session, err)
 	}
 
@@ -39,7 +39,7 @@ func (c *Client) ExecAttachSession(session string) error {
 
 func (c *Client) commandOutsideTmux(ctx context.Context, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "tmux", slices.Concat(c.server, args)...)
-	cmd.Env = environWithoutTmux()
+	cmd.Env = buildClientEnv()
 
 	return cmd
 }

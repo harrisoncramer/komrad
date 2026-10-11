@@ -113,7 +113,7 @@ func RunCopyStandIn(ctx context.Context, file string) (err error) {
 
 	attach := exec.CommandContext(ctx, tmuxPath, "-L", name, "-f", os.DevNull, "attach-session", "-t", visualSession)
 	attach.Stdin, attach.Stdout, attach.Stderr = os.Stdin, os.Stdout, os.Stderr
-	attach.Env = environWithoutTmux()
+	attach.Env = buildClientEnv()
 	if err := attach.Start(); err != nil {
 		inner.run("kill-server")
 
