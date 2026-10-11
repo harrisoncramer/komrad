@@ -602,6 +602,37 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 		},
 		{
+			name: "a task's live writer stands upright under it",
+			row: agentRow{
+				workflow:  checkoutWorkflow(),
+				item:      panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "writer", Role: panel.RoleImplementer}},
+				underTask: true,
+				writer:    true,
+			},
+			want: view.Row{
+				Key:    "agent:a1",
+				Kind:   view.KindAgent,
+				Name:   "writer",
+				Nested: true,
+				Tree:   &view.Tree{Above: []bool{true}, Last: true},
+			},
+		},
+		{
+			name: "any other agent on a task hangs off it like a child",
+			row: agentRow{
+				workflow:  checkoutWorkflow(),
+				item:      panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "reviewer", Role: panel.RoleReviewer}},
+				underTask: true,
+			},
+			want: view.Row{
+				Key:    "agent:a1",
+				Kind:   view.KindChild,
+				Name:   "reviewer",
+				Nested: true,
+				Tree:   &view.Tree{Above: []bool{true}, Last: true},
+			},
+		},
+		{
 			name: "an agent of its own is the ordinary row",
 			row:  agentRow{workflow: checkoutWorkflow(), item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "worker"}}},
 			want: view.Row{

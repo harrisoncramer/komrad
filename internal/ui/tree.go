@@ -56,6 +56,8 @@ type agentRow struct {
 	lead *panel.AgentRow
 	// underTask sets the row in under the task header above it.
 	underTask bool
+	// writer says the row is the live writer in its task's checkout, the one row under a task set upright.
+	writer bool
 }
 
 // isTask reports whether the row is a task's header.
@@ -222,6 +224,7 @@ func taskRows(families []family, tasks map[string]panel.Task) []agentRow {
 		for _, g := range gathered {
 			for _, row := range g.rows {
 				row.underTask = true
+				row.writer = isLiveWriter(row.item.Agent)
 				rows = append(rows, row)
 			}
 		}
